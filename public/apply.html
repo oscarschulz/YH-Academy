@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enter | YH Universe</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+    <div id="toast-notification">
+        <span id="toast-icon">🎉</span> <span id="toast-message">Notification</span>
+    </div>
+
+    <div id="step-1" class="step-container fade-in">
+        <div class="form-card-ultrawide step1-flipper-container">
+            
+            <div class="panel-left">
+                <video src="/video/yhvideo3.mp4" autoplay muted playsinline class="intro-video" id="landing-video"></video>
+            </div>
+            
+            <div class="panel-right-wrapper">
+                <div id="auth-flipper" class="flip-card-inner">
+                    
+                    <div class="flip-card-front hide-scrollbar flip-trigger-area">
+                        <div class="auth-center-wrapper">
+                            <div class="text-center mb-large">
+                                <img src="/images/logo.avif" alt="YH Logo" class="step1-logo" style="width: 70px; margin-bottom: 5px;">
+                                <h1 class="main-title step1-title" style="margin-bottom: 0;">YH UNIVERSE</h1>
+                                <p class="subtitle step1-subtitle" style="margin-bottom: 2rem;">Log in to access your divisions.</p>
+                            </div>
+                            
+                            <div class="login-ui-container w-full">
+                                <input type="text" id="login-email" placeholder="Username or Email" class="pill-input auth-stop-propagation">
+                                <input type="password" id="login-password" placeholder="Password" class="pill-input auth-stop-propagation">
+                                <a href="#" class="forgot-link auth-stop-propagation">Forgot password?</a>
+                                <button type="button" id="btn-login" class="pill-btn-login auth-stop-propagation">Login</button>
+                                <div class="divider mt-large w-full"><span>OR</span></div>
+                                <button type="button" id="btn-flip-register" class="btn-secondary w-full auth-stop-propagation" style="border-radius: 30px; margin-top: 10px;">
+                                    Create Universe Account ➔
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flip-card-back hide-scrollbar relative-panel">
+                        <button type="button" id="btn-flip-login" class="btn-back-icon auth-stop-propagation">⬅ Back to Login</button>
+
+                        <div class="auth-center-wrapper w-full">
+                            <div class="text-center mb-large mt-small">
+                                <img src="/images/logo.avif" alt="YH Logo" class="step1-logo">
+                                <h1 class="main-title step1-title">YH UNIVERSE</h1>
+                                <p class="subtitle step1-subtitle">Create your passport to access all divisions.</p>
+                            </div>
+
+                            <form id="form-register-simple" class="w-full" style="max-width: 500px;">
+                                <div class="form-row">
+                                    <div class="form-group w-full mb-0">
+                                        <label>Full Name</label>
+                                        <input type="text" id="reg-fullname" required placeholder="e.g. John Doe" class="input-field">
+                                    </div>
+                                    <div class="form-group w-full mb-0">
+                                        <label>Email Address</label>
+                                        <input type="email" id="reg-email" required placeholder="you@email.com" class="input-field">
+                                    </div>
+                                </div>
+                                
+                                <div class="form-row">
+                                    <div class="form-group w-full mb-0">
+                                        <label>Username</label>
+                                        <input type="text" id="reg-username" required placeholder="e.g. hustler99" class="input-field">
+                                    </div>
+                                    <div class="form-group w-full mb-0">
+                                        <label>Contact Number <span class="label-optional">(Optional)</span></label>
+                                        <input type="tel" id="reg-phone" placeholder="+1 234..." class="input-field">
+                                    </div>
+                                </div>
+
+                                <div class="form-row-last">
+                                    <div class="form-group w-full mb-0">
+                                        <label>Create Password</label>
+                                        <input type="password" id="reg-password" required placeholder="••••••••" class="input-field">
+                                    </div>
+                                    <div class="form-group w-full mb-0">
+                                        <label>Confirm Password</label>
+                                        <input type="password" id="reg-confirm-password" required placeholder="••••••••" class="input-field">
+                                    </div>
+                                </div>
+
+                                <button type="submit" id="btn-register" class="btn-primary btn-large">Create Account ➔</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div id="step-2" class="step-container hidden-step fade-in">
+        <div class="card form-card-ultrawide approved-card-container">
+            <div class="panel-left">
+                <video src="https://video.wixstatic.com/video/80218c_8f38a4b89e11459b9eb10e21ed3ef40f/1080p/mp4/file.mp4" autoplay loop muted playsinline class="intro-video"></video>
+            </div>
+            
+            <div class="panel-right approved-form-right hide-scrollbar text-center">
+                <div class="form-header-approved text-center">
+                    <img src="/images/logo.avif" alt="YH Logo" class="form-logo-small">
+                    <h1 class="yh-title-small" style="margin-top: 15px;">Verify Your Identity</h1>
+                    <p class="yh-subtitle-small">We sent a 6-digit code to your email.</p>
+                </div>
+
+                <form id="form-verify-otp" class="approved-form-actual" style="max-width: 350px; margin: 1.5rem auto 0 auto;">
+                    <div class="form-group-compact w-full text-center">
+                        <input type="text" id="otp-input" required placeholder="••••••" maxlength="6" class="input-field-compact text-center otp-styled-input" autocomplete="one-time-code">
+                    </div>
+                    
+                    <div class="timer-container mt-small mb-1-25">
+                        <span id="otp-timer" class="color-neon fw-bold" style="font-size: 1.2rem; letter-spacing: 2px;">02:00</span>
+                    </div>
+
+                    <button type="submit" id="btn-verify-otp" class="btn-primary btn-finish-compact w-full mb-small">Verify & Enter Universe ➔</button>
+                    
+                    <div class="resend-container mt-small">
+                        <p class="subtitle" style="font-size: 0.85rem;">Didn't receive the code? <br>
+                            <button type="button" id="btn-resend-otp" class="btn-resend" disabled>Resend in 02:00</button>
+                        </p>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="step-3" class="step-container hidden-step fade-in">
+        <div class="card text-center py-large">
+            <img src="/images/logo.avif" alt="YH Logo" class="step1-logo mb-small" style="width: 70px;">
+            <h2>Reset Password</h2>
+            <p class="subtitle mb-1-25">Enter your registered email address to receive a recovery code.</p>
+            <form id="form-forgot-pass">
+                <div class="form-group w-full text-left">
+                    <input type="email" id="forgot-email-input" required placeholder="you@email.com" class="input-field mb-1-25">
+                </div>
+                <button type="submit" id="btn-forgot-send" class="btn-primary mb-small">Send Recovery Code</button>
+                <button type="button" class="btn-secondary" onclick="showStep(1);">Cancel & Back to Login</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="step-4" class="step-container hidden-step fade-in">
+        <div class="card text-center py-large">
+            <img src="/images/logo.avif" alt="YH Logo" class="step1-logo mb-small" style="width: 70px;">
+            <h2>Verify Reset Code</h2>
+            <form id="form-forgot-otp">
+                <div class="form-group w-full text-center">
+                    <input type="text" id="forgot-otp-code" required placeholder="••••••" maxlength="6" class="input-field text-center otp-styled-input mb-small" autocomplete="one-time-code">
+                </div>
+                <div class="timer-container mt-small mb-1-25"><span id="forgot-otp-timer" class="color-neon fw-bold">02:00</span></div>
+                <button type="submit" id="btn-forgot-verify" class="btn-primary mb-small">Verify Code</button>
+                <button type="button" class="btn-secondary" onclick="showStep(1);">Cancel Request</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="step-5" class="step-container hidden-step fade-in">
+        <div class="card text-center py-large">
+            <img src="/images/logo.avif" alt="YH Logo" class="step1-logo mb-small" style="width: 70px;">
+            <h2>Create New Password</h2>
+            <form id="form-reset-pass">
+                <div class="form-group w-full text-left">
+                    <input type="password" id="reset-new-password" required placeholder="New Password" class="input-field mb-1-25">
+                </div>
+                <div class="form-group w-full text-left">
+                    <input type="password" id="reset-confirm-password" required placeholder="Confirm New Password" class="input-field mb-1-25">
+                </div>
+                <button type="submit" id="btn-reset-save" class="btn-primary">Save New Password ➔</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="step-6" class="step-container hidden-step fade-in">
+        <div class="card text-center py-large">
+            <div style="font-size: 5rem; line-height: 1; margin-bottom: 1rem;">✅</div>
+            <h2 style="color: var(--success); font-size: 2rem;">Password Changed!</h2>
+            <p class="subtitle mb-large">Your password has been successfully updated.</p>
+            <button type="button" class="btn-primary" onclick="showStep(1);">Back to Login ➔</button>
+        </div>
+    </div>
+
+    <script src="/js/apply.js"></script>
+</body>
+</html>

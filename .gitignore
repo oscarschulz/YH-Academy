@@ -1,0 +1,7 @@
+# Huwag isama ang environment variables (API Keys)
+.env
+
+# Huwag isama ang mabibigat na node modules folder
+node_modules/
+
+google-credentials.json
