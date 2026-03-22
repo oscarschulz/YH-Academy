@@ -198,7 +198,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const name = element.getAttribute('data-name');
                 const icon = element.getAttribute('data-icon');
                 const color = element.getAttribute('data-color');
-                let avatarStyle = icon.includes('url') ? `background-image: ${icon}; background-size: cover; background-color: transparent;` : `background: ${color};`;
+                                let avatarStyle = icon.includes('url') ? `background-image: ${icon}; background-size: cover; background-color: transparent;` : `background: ${color};`;
                 let avatarText = icon.includes('url') ? '' : icon;
 
                 if(chatHeaderIcon) chatHeaderIcon.innerHTML = `<div class="member-avatar" style="${avatarStyle} width: 30px; height: 30px; font-size: 0.9rem;">${avatarText}</div>`;
@@ -398,7 +398,205 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => {
                 showToast("Gift sent successfully! +XP added to target.", "success");
                 giftModal.classList.add('hidden-step');
-            }, 1500);
+                                let avatarStyle = icon.includes('url') ? `background-image: ${icon}; background-size: cover; background-color: transparent;` : `background: ${color};`;
+                let avatarText = icon.includes('url') ? '' : icon;
+
+                if(chatHeaderIcon) chatHeaderIcon.innerHTML = `<div class="member-avatar" style="${avatarStyle} width: 30px; height: 30px; font-size: 0.9rem;">${avatarText}</div>`;
+                if(chatHeaderTitle) chatHeaderTitle.innerText = name;
+                if(chatHeaderTopic) chatHeaderTopic.innerText = (type === 'group') ? "Private Brainstorming Group" : "Direct Message";
+                if(chatWelcomeBox) chatWelcomeBox.style.display = "none";
+                if(chatPinnedMessage) chatPinnedMessage.style.display = "none";
+                if(chatInputBox) chatInputBox.placeholder = `Message ${name}...`;
+                
+                currentRoom = name;
+                socket.emit('joinRoom', currentRoom); 
+
+            if(views['academy-chat']) { views['academy-chat'].classList.remove('fade-in'); void views['academy-chat'].offsetWidth; views['academy-chat'].classList.add('fade-in');}
+
+    document.getElementById('nav-chat')?.addEventListener('click', function() { openRoom('main-chat', this); });
+    document.getElementById('nav-announcements')?.addEventListener('click', function() { openRoom('announcements', this); });
+    document.getElementById('nav-voice')?.addEventListener('click', function() { openRoom('voice-lobby', this); });
+    document.getElementById('nav-video')?.addEventListener('click', function() { openRoom('video', this); });
+    document.getElementById('nav-vault')?.addEventListener('click', function() { openRoom('vault', this); });
+
+    // ==========================================
+    // ⚡ REAL-TIME CHAT LOGIC (SOCKET.IO)
+    // ==========================================
+    socket.on('chatHistory', (history) => {
+        const container = document.getElementById('dynamic-chat-history');
+        const chatScrollArea = document.getElementById('chat-messages');
+        if(!container) return;
+        container.innerHTML = '';
+
+        if (currentRoom !== "YH-community") {
+            container.innerHTML = `<div style="text-align: center; color: var(--text-muted); margin-top: 2rem; margin-bottom: 2rem; font-size: 0.9rem;">This is the beginning of your private history with <strong>${currentRoom}</strong>.</div>`;
+        }
+
+        history.forEach(msg => appendMessageToUI(msg));
+        setTimeout(() => { if(chatScrollArea) chatScrollArea.scrollTop = chatScrollArea.scrollHeight; }, 100);
+    });
+
+    socket.on('receiveMessage', (msg) => {
+        if (msg.room === currentRoom) {
+            appendMessageToUI(msg);
+            const chatScrollArea = document.getElementById('chat-messages');
+            setTimeout(() => { if(chatScrollArea) chatScrollArea.scrollTop = chatScrollArea.scrollHeight; }, 100);
+        } else {
+            if (msg.author !== myName && msg.room.includes(myName)) {
+                sendSystemNotification("New Private Message", `${msg.author} sent you a message.`, msg.initial, "var(--neon-blue)", "dm");
+            }
+        }
+    });
+
+    socket.on('messageUpvoted', (msgId) => {
+        const upvoteBtn = document.querySelector(`.chat-bubble[data-dbid="${msgId}"] .upvote-count`);
+        if (upvoteBtn) upvoteBtn.innerText = parseInt(upvoteBtn.innerText) + 1;
+    });
+
+    socket.on('messageDeleted', (msgId) => {
+        const bubble = document.querySelector(`.chat-bubble[data-dbid="${msgId}"]`);
+        if(bubble) bubble.remove();
+    });
+
+    function appendMessageToUI(msg) {
+        const container = document.getElementById('dynamic-chat-history');
+        if(!container) return;
+
+        const isMe = msg.author === myName;
+        const bubbleClass = isMe ? "chat-bubble mine" : "chat-bubble";
+        let avatarStyle = `background: var(--neon-blue);`;
+        let avatarContent = msg.initial;
+        let bubbleStyle = "", authorColor = "", roleBadge = "";
+
+        if (msg.author === "Agent") {
+            avatarStyle = `background: #8b5cf6;`; avatarContent = "🤖";
+            bubbleStyle = `style="background: rgba(139, 92, 246, 0.15); border-left: 3px solid #8b5cf6;"`;
+            authorColor = `style="color: #c4b5fd;"`; roleBadge = `<span class="role-badge bot" style="margin-left:5px;">AI</span>`;
+        } else if(msg.avatar) {
+            avatarStyle = `background-image: url(${msg.avatar}); background-size: cover; background-position: center;`; avatarContent = '';
+        }
+
+        const msgHTML = `
+            <div class="${bubbleClass} fade-in" data-dbid="${msg.id}" ${bubbleStyle}>
+                ${isMe ? `<button class="delete-msg-btn" title="Delete Message">🗑️</button>` : ''}
+                <div class="bubble-header">
+                    <div class="bubble-avatar interactive-avatar" data-user="${msg.author}" data-role="Hustler" style="${avatarStyle} cursor:pointer;">${avatarContent}</div>
+                    <span class="bubble-author interactive-avatar" data-user="${msg.author}" data-role="Hustler" style="cursor:pointer;"><span ${authorColor}>${msg.author}</span> ${roleBadge}</span>
+                    <span class="bubble-time">${msg.time}</span>
+                </div>
+                <div class="bubble-body">${msg.text}</div>
+                ${currentRoom === "YH-community" ? `<div class="chat-actions"><button class="upvote-btn" data-id="${msg.id}" title="Agree with this">🔥 <span class="upvote-count">${msg.upvotes || 0}</span></button></div>` : ''}
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', msgHTML);
+    }
+
+    function sendMessage(customText = null) {
+        const chatInputArea = document.getElementById('chat-input');
+        if(!chatInputArea && customText === null) return;
+
+        let rawText = customText !== null ? customText : chatInputArea.value;
+        let text = rawText.trim();
+        if (!text && !rawText.includes("chat-attachment")) return;
+
+        let initial = myName.charAt(0).toUpperCase();
+        let savedAvatar = localStorage.getItem('yh_user_avatar') || "";
+        const timeString = 'Today at ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        socket.emit('sendMessage', {
+            room: currentRoom,
+            author: myName,
+            initial: initial,
+            avatar: savedAvatar,
+            text: rawText,
+            time: timeString
+        });
+
+        if(chatInputArea) chatInputArea.value = ''; 
+
+        if (currentRoom.includes("Agent")) {
+            setTimeout(() => {
+                let aiReply = ""; const userMsg = rawText.toLowerCase();
+                if(userMsg.includes("hi") || userMsg.includes("hey")) aiReply = "Hello Hustler. How can I assist your execution today?"; 
+                else if(userMsg.includes("chat-attachment")) aiReply = "I have received your file. It has been securely logged in my temporary memory buffer."; 
+                else {
+                    const aiResponses = ["That is a solid strategy. Stay disciplined.", "I have logged your query.", "Hustle recognized. Keep executing."];
+                    aiReply = aiResponses[Math.floor(Math.random() * aiResponses.length)];
+                }
+                socket.emit('sendMessage', {
+                    room: currentRoom,
+                    author: "Agent",
+                    initial: "🤖",
+                    avatar: "",
+                    text: aiReply,
+                    time: 'Today at ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                });
+            }, 1500); 
+        }
+    }
+
+    const chatInputArea = document.getElementById('chat-input');
+    const chatSendBtn = document.getElementById('chat-send-btn'); 
+    if (chatInputArea) {
+        chatInputArea.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (chatInputArea.value.trim() !== "") sendMessage(); }
+        });
+    }
+    if (chatSendBtn) {
+        chatSendBtn.addEventListener('click', function(e) {
+            e.preventDefault(); if (chatInputArea.value.trim() !== "") sendMessage();
+        });
+    }
+
+    // --- LEAVE / END CALL LOGIC ---
+    const btnLeaveStage = document.getElementById('btn-leave-stage');
+    const endCallModal = document.getElementById('end-call-modal');
+    const btnConfirmEndCall = document.getElementById('btn-confirm-end-call');
+    const btnCancelEndCall = document.getElementById('btn-cancel-end-call');
+
+    if(btnLeaveStage) {
+        btnLeaveStage.addEventListener('click', () => {
+            const hostName = document.getElementById('host-name')?.innerText;
+            if (myName === hostName && endCallModal) {
+                endCallModal.classList.remove('hidden-step'); 
+            } else {
+                document.getElementById('nav-voice')?.click(); 
+                showToast("You left the stage.", "success");
+            }
+        });
+    }
+
+    if (btnConfirmEndCall && btnCancelEndCall) {
+        btnCancelEndCall.addEventListener('click', () => endCallModal.classList.add('hidden-step'));
+        btnConfirmEndCall.addEventListener('click', () => {
+            endCallModal.classList.add('hidden-step');
+            showToast("Session Ended. All users disconnected.", "error");
+            document.getElementById('nav-voice')?.click();
+        });
+    }
+
+    // --- EMOJI, GIF, GIFT LOGIC ---
+    const btnGift = document.querySelector('span[title="Send Gift"]');
+    const btnGif = document.querySelector('span[title="Open GIF picker"]');
+    const btnEmoji = document.querySelector('span[title="Select emoji"]');
+
+    if(btnGift) { btnGift.addEventListener('click', () => { document.getElementById('gift-modal').classList.remove('hidden-step'); }); }
+
+    const closeGiftModal = document.getElementById('close-gift-modal');
+    const giftModal = document.getElementById('gift-modal');
+    if(closeGiftModal && giftModal) {
+        closeGiftModal.addEventListener('click', () => giftModal.classList.add('hidden-step'));
+        giftModal.addEventListener('click', (e) => { if(e.target === giftModal) giftModal.classList.add('hidden-step'); });
+    }
+
+    const giftItems = document.querySelectorAll('#gift-modal .modal-body > div > div'); 
+    giftItems.forEach(giftBox => {
+        giftBox.addEventListener('click', () => {
+            showToast("Connecting to Payment Gateway...", "success");
+            setTimeout(() => {
+                showToast("Gift sent successfully! +XP added to target.", "success");
+                giftModal.classList.add('hidden-step');
+                            }, 1500);
         });
     });
 
@@ -599,8 +797,208 @@ document.addEventListener('DOMContentLoaded', () => {
             card.addEventListener('contextmenu', (e) => { e.preventDefault(); showContext(e.pageX, e.pageY); });
         });
     }
+                }, 1500);
+        });
+    });
 
-    const shareSelectModal = document.getElementById('share-select-modal');
+    if(btnGif) { btnGif.addEventListener('click', () => { showToast("GIF API (Tenor/Giphy) requires Backend connection.", "error"); }); }
+
+    if (btnEmoji) {
+        btnEmoji.addEventListener('click', () => {
+            if (typeof picmoPopup !== 'undefined') {
+                if(!window.emojiPicker) {
+                    window.emojiPicker = picmoPopup.createPopup({ animate: true, theme: 'dark' }, { triggerElement: btnEmoji, referenceElement: btnEmoji, position: 'top-end' });
+                    window.emojiPicker.addEventListener('emoji:select', (selection) => {
+                        if(chatInputArea) { chatInputArea.value += selection.emoji; chatInputArea.focus(); }
+                    });
+                }
+                window.emojiPicker.toggle();
+            } else {
+                showToast("Emoji Library is loading... please wait.", "error");
+            }
+        });
+    }
+
+    // --- STAGE CONTROLS, WEBRTC & INVITE ---
+    let localStream = null;
+    const btnToggleMic = document.getElementById('btn-toggle-mic');
+    const btnToggleCam = document.getElementById('btn-toggle-cam');
+    const btnToggleScreen = document.getElementById('btn-toggle-screen');
+
+    async function toggleCamera() {
+        try {
+            const mySpeakerCard = document.querySelector('.speaker-card.active-speaker'); 
+            const hostAvatarEl = document.getElementById('host-avatar');
+            if (!localStream) {
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                if(btnToggleCam) btnToggleCam.classList.remove('toggled-off');
+                if(mySpeakerCard) mySpeakerCard.classList.remove('is-offcam');
+                showToast("Camera & Mic Active", "success");
+            } else {
+                localStream.getVideoTracks().forEach(track => {
+                    track.enabled = !track.enabled;
+                    if (!track.enabled) {
+                        if(btnToggleCam) btnToggleCam.classList.add('toggled-off');
+                        if(mySpeakerCard) mySpeakerCard.classList.add('is-offcam');
+                        if(hostAvatarEl) { hostAvatarEl.innerText = "🚫"; hostAvatarEl.style.background = "#1a1f2e"; }
+                        showToast("Camera disabled", "success");
+                    } else {
+                        if(btnToggleCam) btnToggleCam.classList.remove('toggled-off');
+                        if(mySpeakerCard) mySpeakerCard.classList.remove('is-offcam');
+                        if(hostAvatarEl) { hostAvatarEl.innerText = localStorage.getItem('yh_user_name')?.charAt(0).toUpperCase() || "Y"; hostAvatarEl.style.background = "var(--neon-blue)"; }
+                        showToast("Camera active", "success");
+                    }
+                });
+            }
+        } catch (err) { showToast("Camera/Mic permission denied by browser.", "error"); }
+    }
+
+    if(btnToggleCam) btnToggleCam.addEventListener('click', toggleCamera);
+
+    if(btnToggleMic) {
+        btnToggleMic.addEventListener('click', () => {
+            const mySpeakerCard = document.querySelector('.speaker-card.active-speaker'); 
+            const hostMicIcon = document.getElementById('host-mic');
+            btnToggleMic.classList.toggle('toggled-off');
+            const isMuted = btnToggleMic.classList.contains('toggled-off');
+            
+            if(mySpeakerCard) {
+                if(isMuted) mySpeakerCard.classList.add('is-muted');
+                else mySpeakerCard.classList.remove('is-muted');
+            }
+            if(hostMicIcon) {
+                hostMicIcon.innerText = isMuted ? "🔇" : "🎤";
+                hostMicIcon.style.color = isMuted ? "#ef4444" : "";
+            }
+
+            if(localStream) { localStream.getAudioTracks().forEach(track => { track.enabled = !isMuted; }); }
+            showToast(isMuted ? "Microphone muted." : "Microphone active.", isMuted ? "error" : "success");
+        });
+    }
+
+    if(btnToggleScreen) {
+        btnToggleScreen.addEventListener('click', async () => {
+            try {
+                const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+                btnToggleScreen.classList.add('toggled-on');
+                showToast("Screen sharing started!", "success");
+                screenStream.getVideoTracks()[0].onended = () => {
+                    btnToggleScreen.classList.remove('toggled-on');
+                    showToast("Screen share stopped.", "error");
+                };
+            } catch (err) { showToast("Screen sharing cancelled.", "error"); }
+        });
+    }
+
+    const stageChatInput = document.getElementById('stage-chat-input');
+    const stageChatHistory = document.getElementById('stage-chat-history');
+    const stageChatSendBtn = document.getElementById('stage-chat-send-btn');
+
+    function sendStageChat() {
+        if(stageChatInput.value.trim() !== '') {
+            const msg = stageChatInput.value.trim();
+            const myName = localStorage.getItem('yh_user_name') || "Hustler";
+            const msgHTML = `<div class="stage-chat-msg fade-in"><strong>${myName}:</strong> ${msg}</div>`;
+            stageChatHistory.insertAdjacentHTML('beforeend', msgHTML);
+            stageChatInput.value = '';
+            stageChatHistory.scrollTop = stageChatHistory.scrollHeight;
+        }
+    }
+    if(stageChatInput && stageChatHistory) { stageChatInput.addEventListener('keydown', (e) => { if(e.key === 'Enter') sendStageChat(); }); }
+    if(stageChatSendBtn) { stageChatSendBtn.addEventListener('click', sendStageChat); }
+
+    const btnInviteStage = document.getElementById('btn-invite-to-stage');
+    if (btnInviteStage) {
+        btnInviteStage.addEventListener('click', () => {
+            const stageTitle = document.getElementById('stage-title')?.innerText || "Live Mastermind";
+            const simpleLinkHTML = `Hey! I'm LIVE NOW hosting <strong>${stageTitle}</strong>. <a href="#" onclick="document.getElementById('nav-voice').click(); return false;" style="color: var(--neon-blue); font-weight: bold; text-decoration: underline;">Click here to join my room!</a>`;
+            
+            const shareModal = document.getElementById('share-select-modal');
+            const destList = document.getElementById('share-destinations-list');
+            if(shareModal && destList) {
+                window.pendingShareHTML = simpleLinkHTML;
+                destList.innerHTML = `<button class="btn-secondary share-dest-btn" data-target="main-chat" style="padding: 10px; text-align: left;">💬 YH-community (Public)</button>`;
+                const rooms = JSON.parse(localStorage.getItem('yh_custom_rooms')) || [];
+                rooms.forEach(room => { destList.insertAdjacentHTML('beforeend', `<button class="btn-secondary share-dest-btn" data-target="${room.name}" style="padding: 10px; text-align: left;">${room.icon} ${room.name}</button>`); });
+                shareModal.classList.remove('hidden-step');
+            }
+        });
+    }
+
+    // --- THE VAULT & UPLOADS ---
+    function saveVaultItemObj(itemObj) {
+        const vaultItems = JSON.parse(localStorage.getItem('yh_vault_items')) || [];
+        vaultItems.push(itemObj);
+        localStorage.setItem('yh_vault_items', JSON.stringify(vaultItems));
+        loadVault();
+    }
+
+    function saveFileToVault(file, origin) {
+        const isImage = file.type.startsWith('image/');
+        const fileSize = (file.size / 1024 / 1024).toFixed(2) + " MB";
+        if (isImage) {
+            const reader = new FileReader();
+            reader.onload = (event) => { saveVaultItemObj({ type: 'file', name: file.name, size: fileSize, origin: origin, dataUrl: event.target.result, parentFolder: currentVaultFolder }); };
+            reader.readAsDataURL(file);
+        } else {
+            saveVaultItemObj({ type: 'file', name: file.name, size: fileSize, origin: origin, dataUrl: null, parentFolder: currentVaultFolder });
+        }
+    }
+
+    function loadVault() {
+        const grid = document.getElementById('vault-dynamic-grid');
+        if(!grid) return;
+        grid.innerHTML = '';
+        const vaultItems = JSON.parse(localStorage.getItem('yh_vault_items')) || [];
+        const visibleItems = vaultItems.filter(item => (item.parentFolder || null) === currentVaultFolder);
+        
+        if (currentVaultFolder) {
+            grid.innerHTML = `<div class="vault-folder-header" id="btn-vault-back"><span>⬅ Back to All Files</span><span style="color: #fff;">📂 ${currentVaultFolder}</span></div>`;
+            document.getElementById('btn-vault-back').addEventListener('click', () => { currentVaultFolder = null; loadVault(); });
+        }
+        if (visibleItems.length === 0) { grid.insertAdjacentHTML('beforeend', `<div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 2rem;">This location is empty. Upload a file or create a folder.</div>`); return; }
+        
+        visibleItems.sort((a, b) => (a.type === 'folder' ? -1 : 1) - (b.type === 'folder' ? -1 : 1));
+        visibleItems.forEach((item) => {
+            const realIndex = vaultItems.findIndex(v => v === item);
+            const isFolder = item.type === 'folder';
+            const isImage = item.type === 'file' && item.dataUrl && item.dataUrl.startsWith('data:image/');
+            let visualContent = isFolder ? `<div class="vault-icon">📁</div>` : isImage ? `<div style="width: 100%; height: 90px; border-radius: 8px; background-image: url('${item.dataUrl}'); background-size: cover; background-position: center; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.1);"></div>` : `<div class="vault-icon">📄</div>`;
+            const actionText = isFolder ? 'Open Folder' : 'Share to Chat';
+            grid.insertAdjacentHTML('beforeend', `<div class="vault-card fade-in ${isFolder ? 'vault-folder' : ''}" data-real-index="${realIndex}" data-name="${item.name}" data-type="${item.type}">${visualContent}<div class="vault-filename" title="${item.name}">${item.name}</div><div class="vault-meta">${isFolder ? 'Folder' : (item.size || 'Unknown')}</div><div class="vault-origin">From: ${item.origin || 'Direct Upload'}</div><button class="btn-vault-action action-vault-btn">${actionText}</button></div>`);
+        });
+
+        document.querySelectorAll('.action-vault-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const card = e.target.closest('.vault-card'); const itemName = card.getAttribute('data-name'); const itemType = card.getAttribute('data-type');
+                if(itemType === 'folder') { currentVaultFolder = itemName; showToast(`Opening folder: ${itemName}`, "success"); loadVault(); } 
+                else {
+                    const fullItem = vaultItems.find(i => i.name === itemName && i.type === 'file');
+                    const isImage = fullItem && fullItem.dataUrl && fullItem.dataUrl.startsWith('data:image/');
+                    let visualChatContent = isImage ? `<img src="${fullItem.dataUrl}" style="width: 100%; border-radius: 6px; margin-bottom: 8px;">` : `<div style="font-size: 2rem;">📄</div>`;
+                    
+                    const shareModal = document.getElementById('share-select-modal');
+                    const destList = document.getElementById('share-destinations-list');
+                    if(shareModal && destList) {
+                        window.pendingShareHTML = `<div class="chat-attachment" style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 8px; margin-top: 5px;">${visualChatContent}<div><strong>${itemName}</strong><br><a href="${fullItem.dataUrl}" download="${itemName}" style="color: var(--neon-blue);">⬇ Download</a></div></div>`;
+                        
+                        destList.innerHTML = `<button class="btn-secondary share-dest-btn" data-target="main-chat" style="padding: 10px; text-align: left;">💬 YH-community (Public)</button>`;
+                        const rooms = JSON.parse(localStorage.getItem('yh_custom_rooms')) || [];
+                        rooms.forEach(room => { destList.insertAdjacentHTML('beforeend', `<button class="btn-secondary share-dest-btn" data-target="${room.name}" style="padding: 10px; text-align: left;">${room.icon} ${room.name}</button>`); });
+                        
+                        shareModal.classList.remove('hidden-step');
+                    }
+                }
+            });
+        });
+
+        const contextMenu = document.getElementById('vault-context-menu');
+        document.querySelectorAll('.vault-card').forEach(card => {
+            const showContext = (pageX, pageY) => { selectedVaultIndex = card.getAttribute('data-real-index'); contextMenu.style.left = `${pageX}px`; contextMenu.style.top = `${pageY}px`; contextMenu.classList.remove('hidden-step'); };
+            card.addEventListener('contextmenu', (e) => { e.preventDefault(); showContext(e.pageX, e.pageY); });
+        });
+    }
+        const shareSelectModal = document.getElementById('share-select-modal');
     const closeShareSelect = document.getElementById('close-share-select');
     
     if (closeShareSelect && shareSelectModal) {
@@ -798,7 +1196,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (window.loungeCreationType === 'video') {
                 const videos = JSON.parse(localStorage.getItem('yh_video_lounges')) || [];
-                videos.unshift({ topic, host: myName, hostInitial: myName.charAt(0).toUpperCase(), hostAvatar: localStorage.getItem('yh_user_avatar') || "", listenerCount: 1 });
+                                videos.unshift({ topic, host: myName, hostInitial: myName.charAt(0).toUpperCase(), hostAvatar: localStorage.getItem('yh_user_avatar') || "", listenerCount: 1 });
                 localStorage.setItem('yh_video_lounges', JSON.stringify(videos));
                 loadVideoLounges();
                 document.getElementById('video-grid')?.firstElementChild?.click();
@@ -998,7 +1396,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const checkedRadio = document.querySelector('.dm-radio:checked'); if(!checkedRadio) return;
             const userLabel = checkedRadio.closest('.modal-user-item'); const chatName = userLabel.querySelector('.dm-name-preview').innerText; const chatIcon = userLabel.querySelector('.dm-avatar-preview').innerText; const chatColor = userLabel.querySelector('.dm-avatar-preview').style.backgroundColor || "var(--neon-blue)";
             showToast("Private Chat opened successfully!", "success"); createNewRoom('dm', chatName, chatIcon, chatColor);
-            document.getElementById('dm-modal').classList.add('hidden-step'); checkedRadio.checked = false; btnStartDm.innerText = "Select a user to chat"; btnStartDm.disabled = true; btnStartDm.style.opacity = '0.5';
+                        document.getElementById('dm-modal').classList.add('hidden-step'); checkedRadio.checked = false; btnStartDm.innerText = "Select a user to chat"; btnStartDm.disabled = true; btnStartDm.style.opacity = '0.5';
         });
     }
 
@@ -1152,66 +1550,132 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const formApply = document.getElementById('form-academy-apply');
+
+    const escapeHtml = (value) => {
+        if (value === null || value === undefined) return '';
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    };
+
     if (formApply) {
         formApply.addEventListener('submit', async (e) => {
             e.preventDefault();
-            document.getElementById('ai-form-phase').classList.add('hidden-step');
-            document.getElementById('ai-spinner-phase').classList.remove('hidden-step');
 
-            const fullName = localStorage.getItem('yh_user_name') || "Hustler";
-            const rawData = {
-                fullName: fullName,
-                email: "hustler@yh.com", 
-                age: document.getElementById('app-age').value,
-                country: document.getElementById('app-country').value,
-                currentJob: document.getElementById('app-job').value,
-                reasonJoin: document.getElementById('app-reason').value,
-                goals6mo: document.getElementById('app-goals').value,
-                seriousness: document.getElementById('app-seriousness').value, // Ito ay dropdown na ngayon!
-                hoursCommit: document.getElementById('app-hours').value,
-                hearAbout: "Inside Dashboard Hub"
+            const token = localStorage.getItem('yh_token');
+            if (!token) {
+                showToast("Your session expired. Please log in again.", "error");
+                window.location.href = '/';
+                return;
+            }
+
+            const aiFormPhase = document.getElementById('ai-form-phase');
+            const aiSpinnerPhase = document.getElementById('ai-spinner-phase');
+            const aiVerdictPhase = document.getElementById('ai-verdict-phase');
+
+            const vIcon = document.getElementById('ai-verdict-icon');
+            const vTitle = document.getElementById('ai-verdict-title');
+            const vDesc = document.getElementById('ai-verdict-desc');
+            const btnEnter = document.getElementById('btn-enter-academy-chat');
+
+            aiFormPhase.classList.add('hidden-step');
+            aiVerdictPhase.classList.add('hidden-step');
+            aiSpinnerPhase.classList.remove('hidden-step');
+
+            const payload = {
+                city: document.getElementById('app-city')?.value?.trim() || '',
+                country: document.getElementById('app-country')?.value?.trim() || '',
+                occupationType: document.getElementById('app-occupation-type')?.value?.trim() || '',
+                currentJob: document.getElementById('app-job')?.value?.trim() || '',
+                industry: document.getElementById('app-industry')?.value?.trim() || '',
+                monthlyIncomeRange: document.getElementById('app-income-range')?.value?.trim() || '',
+                savingsRange: document.getElementById('app-savings-range')?.value?.trim() || '',
+                incomeSource: document.getElementById('app-income-source')?.value?.trim() || '',
+                businessStage: document.getElementById('app-business-stage')?.value?.trim() || '',
+                sleepHours: document.getElementById('app-sleep-hours')?.value?.trim() || '',
+                                energyScore: document.getElementById('app-energy-score')?.value?.trim() || '',
+                exerciseFrequency: document.getElementById('app-exercise-frequency')?.value?.trim() || '',
+                stressScore: document.getElementById('app-stress-score')?.value?.trim() || '',
+                badHabit: document.getElementById('app-bad-habit')?.value?.trim() || '',
+                seriousness: document.getElementById('app-seriousness')?.value?.trim() || '',
+                weeklyHours: document.getElementById('app-hours')?.value?.trim() || '',
+                goals6mo: document.getElementById('app-goals')?.value?.trim() || '',
+                blockerText: document.getElementById('app-blocker-text')?.value?.trim() || '',
+                coachTone: document.getElementById('app-coach-tone')?.value?.trim() || 'balanced'
             };
 
-            // Intentional delay para makita ang spinner
-            setTimeout(async () => {
-                try {
-                    const response = await fetch('/api/apply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rawData) });
-                    const result = await response.json();
-                    
-                    document.getElementById('ai-spinner-phase').classList.add('hidden-step');
-                    const verdictPhase = document.getElementById('ai-verdict-phase');
-                    verdictPhase.classList.remove('hidden-step');
+            try {
+                const response = await fetch('/api/academy/intake', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify(payload)
+                });
 
-                    const vIcon = document.getElementById('ai-verdict-icon');
-                    const vTitle = document.getElementById('ai-verdict-title');
-                    const vDesc = document.getElementById('ai-verdict-desc');
-                    const btnEnter = document.getElementById('btn-enter-academy-chat');
+                const result = await response.json();
 
-                    if (result.success && result.status === "Approved") {
-                        vIcon.innerText = "✅"; vTitle.innerText = "Application Approved!"; vTitle.style.color = "var(--success)";
-                        vDesc.innerText = `AI Score: ${result.score}/100. ${result.message}`;
-                        btnEnter.style.display = 'block'; btnEnter.innerText = "Unlock The Academy ➔";
-                        btnEnter.onclick = () => {
-                            localStorage.setItem('yh_academy_access', 'true');
-                            applyModal.classList.add('hidden-step'); showToast("Academy Unlocked!", "success"); checkUniverseAccess(); 
-                        };
-                    } else if (result.success && result.status === "Rejected") {
-                        vIcon.innerText = "❌"; vTitle.innerText = "Application Rejected"; vTitle.style.color = "#ef4444";
-                        vDesc.innerText = `AI Score: ${result.score}/100. ${result.message}`;
-                        btnEnter.style.display = 'block'; btnEnter.innerText = "Close Modal";
-                        btnEnter.onclick = () => { applyModal.classList.add('hidden-step'); };
-                    } else {
-                        vIcon.innerText = "⏸️"; vTitle.innerText = "Manual Review Required"; vTitle.style.color = "#f59e0b";
-                        vDesc.innerText = `AI Score: ${result.score || 'N/A'}/100. Forwarded to HQ.`;
-                        btnEnter.style.display = 'block'; btnEnter.innerText = "Close Modal";
-                        btnEnter.onclick = () => { applyModal.classList.add('hidden-step'); };
-                    }
-                } catch (error) {
-                    document.getElementById('ai-spinner-phase').classList.add('hidden-step');
-                    showToast("AI Agent offline.", "error");
-                    document.getElementById('ai-form-phase').classList.remove('hidden-step');
+                aiSpinnerPhase.classList.add('hidden-step');
+                aiVerdictPhase.classList.remove('hidden-step');
+
+                if (!response.ok || !result.success) {
+                    vIcon.innerText = "⚠️";
+                    vTitle.innerText = "Roadmap Generation Failed";
+                    vTitle.style.color = "#f59e0b";
+                    vDesc.innerText = result.message || "The AI roadmap could not be generated right now.";
+                    btnEnter.style.display = 'block';
+                    btnEnter.innerText = "Back to Form";
+                    btnEnter.onclick = () => {
+                        aiVerdictPhase.classList.add('hidden-step');
+                        aiFormPhase.classList.remove('hidden-step');
+                    };
+                    return;
                 }
-            }, 3000); // 3 second delay
+
+                const readinessScore = Number(result.readinessScore || 0);
+                const summary = result.summary || {};
+                const focusAreas = Array.isArray(result.focusAreas) ? result.focusAreas : [];
+                const todayMissions = Array.isArray(result.todayMissions) ? result.todayMissions : [];
+
+                const missionHtml = todayMissions.length
+                    ? `<br><br><strong>First Missions:</strong><br>${todayMissions
+                        .map((mission, index) => `${index + 1}. ${escapeHtml(mission.title || 'Mission')}`)
+                        .join('<br>')}`
+                    : '';
+
+                vIcon.innerText = "🧠";
+                vTitle.innerText = "Your AI Roadmap Is Ready";
+                vTitle.style.color = "var(--neon-blue)";
+                vDesc.innerHTML = `
+                    <strong>Readiness Score:</strong> ${escapeHtml(readinessScore)} / 100
+                    <br><br>
+                    <strong>Main Bottleneck:</strong> ${escapeHtml(summary.primaryBottleneck || 'Not available')}
+                    <br>
+                    <strong>Secondary Bottleneck:</strong> ${escapeHtml(summary.secondaryBottleneck || 'Not available')}
+                    <br>
+                    <strong>Main Opportunity:</strong> ${escapeHtml(summary.mainOpportunity || 'Not available')}
+                    <br><br>
+                    <strong>Focus Areas:</strong> ${escapeHtml(focusAreas.join(', ') || 'Not available')}
+                    ${missionHtml}
+                `;
+
+                btnEnter.style.display = 'block';
+                btnEnter.innerText = "Enter The Academy ➔";
+                btnEnter.onclick = () => {
+                    localStorage.setItem('yh_academy_access', 'true');
+                    applyModal.classList.add('hidden-step');
+                    showToast("Academy unlocked and roadmap loaded.", "success");
+                    checkUniverseAccess();
+                };
+            } catch (error) {
+                aiSpinnerPhase.classList.add('hidden-step');
+                aiFormPhase.classList.remove('hidden-step');
+                showToast("Server error while generating roadmap.", "error");
+            }
         });
     }
 
