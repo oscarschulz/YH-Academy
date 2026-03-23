@@ -15,10 +15,9 @@ function logoutUser() {
     localStorage.removeItem('yh_user_loggedIn');
     localStorage.removeItem('yh_user_name');
     localStorage.removeItem('yh_user_avatar');
-    
-    // 🔥 FIX: Burahin din dapat ang Academy Access kapag nag-logout!
-    localStorage.removeItem('yh_academy_access'); 
-    
+    localStorage.removeItem('yh_academy_access');
+    localStorage.removeItem('yh_academy_home');
+    localStorage.removeItem('yh_token');
     window.location.href = '/'; 
 }
 
@@ -92,6 +91,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentProfileUser = null;
     let currentProfileIcon = null;
     let currentProfileBg = null;
+    const defaultAcademyWelcomeHtml = document.getElementById('chat-welcome-box')?.innerHTML || '';
 
     // --- UPDATED NAVIGATION & ROUTING LOGIC ---
     function switchServer(targetDivision) {
@@ -134,87 +134,113 @@ document.addEventListener('DOMContentLoaded', () => {
     if (serverPlazas) serverPlazas.addEventListener('click', () => switchServer('plazas'));
     if (serverFederation) serverFederation.addEventListener('click', () => switchServer('federation'));
 
-    function openRoom(type, element) {
-        document.querySelectorAll('.channel-link').forEach(link => link.classList.remove('active'));
-        if(element && !element.classList.contains('room-entry')) element.classList.add('active');
-        else {
-            const navVoice = document.getElementById('nav-voice');
-            const navVideo = document.getElementById('nav-video');
-            if (type === 'voice-lobby' || (element && element.closest('#lounge-grid') && navVoice)) navVoice.classList.add('active');
-            else if (type === 'video' || (element && element.closest('#video-grid') && navVideo)) navVideo.classList.add('active');
-        }
-
-        const views = {
-            'academy-chat': document.getElementById('academy-chat'),
-            'center-stage-view': document.getElementById('center-stage-view'),
-            'announcements-view': document.getElementById('announcements-view'),
-            'voice-lobby-view': document.getElementById('voice-lobby-view'),
-            'video-lobby-view': document.getElementById('video-lobby-view'),
-            'vault-view': document.getElementById('vault-view')
-        };
-
-        Object.values(views).forEach(view => { if(view) view.classList.add('hidden-step'); });
-
-        if (type === 'voice-lobby' && views['voice-lobby-view']) {
-            views['voice-lobby-view'].classList.remove('hidden-step');
-            views['voice-lobby-view'].classList.remove('fade-in'); void views['voice-lobby-view'].offsetWidth; views['voice-lobby-view'].classList.add('fade-in');
-        }
-        else if (type === 'video' && views['video-lobby-view']) {
-            views['video-lobby-view'].classList.remove('hidden-step');
-            views['video-lobby-view'].classList.remove('fade-in'); void views['video-lobby-view'].offsetWidth; views['video-lobby-view'].classList.add('fade-in');
-        } 
-        else if (type === 'announcements' && views['announcements-view']) {
-            views['announcements-view'].classList.remove('hidden-step');
-            views['announcements-view'].classList.remove('fade-in'); void views['announcements-view'].offsetWidth; views['announcements-view'].classList.add('fade-in');
-        }
-        else if (type === 'vault' && views['vault-view']) {
-            views['vault-view'].classList.remove('hidden-step');
-            views['vault-view'].classList.remove('fade-in'); void views['vault-view'].offsetWidth; views['vault-view'].classList.add('fade-in');
-        }
-        else {
-            if(views['academy-chat']) views['academy-chat'].classList.remove('hidden-step');
-            
-            const chatHeaderIcon = document.getElementById('chat-header-icon');
-            const chatHeaderTitle = document.getElementById('chat-header-title');
-            const chatHeaderTopic = document.getElementById('chat-header-topic');
-            const chatWelcomeBox = document.getElementById('chat-welcome-box');
-            const chatPinnedMessage = document.getElementById('chat-pinned-message');
-            const chatInputBox = document.getElementById('chat-input');
-            const dynamicChatContainer = document.getElementById('dynamic-chat-history');
-
-            if (type === 'main-chat') {
-                if(chatHeaderIcon) chatHeaderIcon.innerHTML = `💬`;
-                if(chatHeaderTitle) chatHeaderTitle.innerText = "YH-community";
-                if(chatHeaderTopic) chatHeaderTopic.innerText = "Welcome to The Academy Universe";
-                if(chatWelcomeBox) chatWelcomeBox.style.display = "block";
-                if(chatPinnedMessage) chatPinnedMessage.style.display = "flex";
-                if(chatInputBox) chatInputBox.placeholder = "Message 💬 YH-community...";
-                if(dynamicChatContainer) dynamicChatContainer.innerHTML = '';
-                
-                currentRoom = "YH-community";
-                socket.emit('joinRoom', currentRoom); 
-            } 
-            else if (type === 'dm' || type === 'group') {
-                const name = element.getAttribute('data-name');
-                const icon = element.getAttribute('data-icon');
-                const color = element.getAttribute('data-color');
-                                let avatarStyle = icon.includes('url') ? `background-image: ${icon}; background-size: cover; background-color: transparent;` : `background: ${color};`;
-                let avatarText = icon.includes('url') ? '' : icon;
-
-                if(chatHeaderIcon) chatHeaderIcon.innerHTML = `<div class="member-avatar" style="${avatarStyle} width: 30px; height: 30px; font-size: 0.9rem;">${avatarText}</div>`;
-                if(chatHeaderTitle) chatHeaderTitle.innerText = name;
-                if(chatHeaderTopic) chatHeaderTopic.innerText = (type === 'group') ? "Private Brainstorming Group" : "Direct Message";
-                if(chatWelcomeBox) chatWelcomeBox.style.display = "none";
-                if(chatPinnedMessage) chatPinnedMessage.style.display = "none";
-                if(chatInputBox) chatInputBox.placeholder = `Message ${name}...`;
-                
-                currentRoom = name;
-                socket.emit('joinRoom', currentRoom); 
-            }
-            if(views['academy-chat']) { views['academy-chat'].classList.remove('fade-in'); void views['academy-chat'].offsetWidth; views['academy-chat'].classList.add('fade-in'); }
-        }
+function openRoom(type, element) {
+    document.querySelectorAll('.channel-link').forEach(link => link.classList.remove('active'));
+    if (element && !element.classList.contains('room-entry')) {
+        element.classList.add('active');
+    } else {
+        const navVoice = document.getElementById('nav-voice');
+        const navVideo = document.getElementById('nav-video');
+        if (type === 'voice-lobby' || (element && element.closest('#lounge-grid') && navVoice)) navVoice.classList.add('active');
+        else if (type === 'video' || (element && element.closest('#video-grid') && navVideo)) navVideo.classList.add('active');
     }
 
+    const views = {
+        'academy-chat': document.getElementById('academy-chat'),
+        'center-stage-view': document.getElementById('center-stage-view'),
+        'announcements-view': document.getElementById('announcements-view'),
+        'voice-lobby-view': document.getElementById('voice-lobby-view'),
+        'video-lobby-view': document.getElementById('video-lobby-view'),
+        'vault-view': document.getElementById('vault-view')
+    };
+
+    Object.values(views).forEach(view => { if (view) view.classList.add('hidden-step'); });
+
+    if (type === 'voice-lobby' && views['voice-lobby-view']) {
+        views['voice-lobby-view'].classList.remove('hidden-step');
+        views['voice-lobby-view'].classList.remove('fade-in');
+        void views['voice-lobby-view'].offsetWidth;
+        views['voice-lobby-view'].classList.add('fade-in');
+        return;
+    }
+
+    if (type === 'video' && views['video-lobby-view']) {
+        views['video-lobby-view'].classList.remove('hidden-step');
+        views['video-lobby-view'].classList.remove('fade-in');
+        void views['video-lobby-view'].offsetWidth;
+        views['video-lobby-view'].classList.add('fade-in');
+        return;
+    }
+
+    if (type === 'announcements' && views['announcements-view']) {
+        views['announcements-view'].classList.remove('hidden-step');
+        views['announcements-view'].classList.remove('fade-in');
+        void views['announcements-view'].offsetWidth;
+        views['announcements-view'].classList.add('fade-in');
+        return;
+    }
+
+    if (type === 'vault' && views['vault-view']) {
+        views['vault-view'].classList.remove('hidden-step');
+        views['vault-view'].classList.remove('fade-in');
+        void views['vault-view'].offsetWidth;
+        views['vault-view'].classList.add('fade-in');
+        return;
+    }
+
+    if (views['academy-chat']) views['academy-chat'].classList.remove('hidden-step');
+
+    const chatHeaderIcon = document.getElementById('chat-header-icon');
+    const chatHeaderTitle = document.getElementById('chat-header-title');
+    const chatHeaderTopic = document.getElementById('chat-header-topic');
+    const chatWelcomeBox = document.getElementById('chat-welcome-box');
+    const chatPinnedMessage = document.getElementById('chat-pinned-message');
+    const chatInputBox = document.getElementById('chat-input');
+    const chatInputArea = document.getElementById('chat-input-area');
+    const dynamicChatContainer = document.getElementById('dynamic-chat-history');
+
+    if (chatInputArea) chatInputArea.style.display = 'block';
+
+    if (type === 'main-chat') {
+        if (chatHeaderIcon) chatHeaderIcon.innerHTML = `💬`;
+        if (chatHeaderTitle) chatHeaderTitle.innerText = "YH-community";
+        if (chatHeaderTopic) chatHeaderTopic.innerText = "Welcome to The Academy Universe";
+        if (chatWelcomeBox) {
+            chatWelcomeBox.style.display = "block";
+            chatWelcomeBox.innerHTML = defaultAcademyWelcomeHtml;
+        }
+        if (chatPinnedMessage) chatPinnedMessage.style.display = "flex";
+        if (chatInputBox) chatInputBox.placeholder = "Message 💬 YH-community...";
+        if (dynamicChatContainer) dynamicChatContainer.innerHTML = '';
+
+        currentRoom = "YH-community";
+        socket.emit('joinRoom', currentRoom);
+    } else if (type === 'dm' || type === 'group') {
+        const name = element.getAttribute('data-name');
+        const icon = element.getAttribute('data-icon');
+        const color = element.getAttribute('data-color');
+        let avatarStyle = icon.includes('url')
+            ? `background-image: ${icon}; background-size: cover; background-color: transparent;`
+            : `background: ${color};`;
+        let avatarText = icon.includes('url') ? '' : icon;
+
+        if (chatHeaderIcon) chatHeaderIcon.innerHTML = `<div class="member-avatar" style="${avatarStyle} width: 30px; height: 30px; font-size: 0.9rem;">${avatarText}</div>`;
+        if (chatHeaderTitle) chatHeaderTitle.innerText = name;
+        if (chatHeaderTopic) chatHeaderTopic.innerText = (type === 'group') ? "Private Brainstorming Group" : "Direct Message";
+        if (chatWelcomeBox) chatWelcomeBox.style.display = "none";
+        if (chatPinnedMessage) chatPinnedMessage.style.display = "none";
+        if (chatInputBox) chatInputBox.placeholder = `Message ${name}...`;
+
+        currentRoom = name;
+        socket.emit('joinRoom', currentRoom);
+    }
+
+    if (views['academy-chat']) {
+        views['academy-chat'].classList.remove('fade-in');
+        void views['academy-chat'].offsetWidth;
+        views['academy-chat'].classList.add('fade-in');
+    }
+}
     document.getElementById('nav-chat')?.addEventListener('click', function() { openRoom('main-chat', this); });
     document.getElementById('nav-announcements')?.addEventListener('click', function() { openRoom('announcements', this); });
     document.getElementById('nav-voice')?.addEventListener('click', function() { openRoom('voice-lobby', this); });
@@ -398,406 +424,7 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => {
                 showToast("Gift sent successfully! +XP added to target.", "success");
                 giftModal.classList.add('hidden-step');
-                                let avatarStyle = icon.includes('url') ? `background-image: ${icon}; background-size: cover; background-color: transparent;` : `background: ${color};`;
-                let avatarText = icon.includes('url') ? '' : icon;
-
-                if(chatHeaderIcon) chatHeaderIcon.innerHTML = `<div class="member-avatar" style="${avatarStyle} width: 30px; height: 30px; font-size: 0.9rem;">${avatarText}</div>`;
-                if(chatHeaderTitle) chatHeaderTitle.innerText = name;
-                if(chatHeaderTopic) chatHeaderTopic.innerText = (type === 'group') ? "Private Brainstorming Group" : "Direct Message";
-                if(chatWelcomeBox) chatWelcomeBox.style.display = "none";
-                if(chatPinnedMessage) chatPinnedMessage.style.display = "none";
-                if(chatInputBox) chatInputBox.placeholder = `Message ${name}...`;
-                
-                currentRoom = name;
-                socket.emit('joinRoom', currentRoom); 
-
-            if(views['academy-chat']) { views['academy-chat'].classList.remove('fade-in'); void views['academy-chat'].offsetWidth; views['academy-chat'].classList.add('fade-in');}
-
-    document.getElementById('nav-chat')?.addEventListener('click', function() { openRoom('main-chat', this); });
-    document.getElementById('nav-announcements')?.addEventListener('click', function() { openRoom('announcements', this); });
-    document.getElementById('nav-voice')?.addEventListener('click', function() { openRoom('voice-lobby', this); });
-    document.getElementById('nav-video')?.addEventListener('click', function() { openRoom('video', this); });
-    document.getElementById('nav-vault')?.addEventListener('click', function() { openRoom('vault', this); });
-
-    // ==========================================
-    // ⚡ REAL-TIME CHAT LOGIC (SOCKET.IO)
-    // ==========================================
-    socket.on('chatHistory', (history) => {
-        const container = document.getElementById('dynamic-chat-history');
-        const chatScrollArea = document.getElementById('chat-messages');
-        if(!container) return;
-        container.innerHTML = '';
-
-        if (currentRoom !== "YH-community") {
-            container.innerHTML = `<div style="text-align: center; color: var(--text-muted); margin-top: 2rem; margin-bottom: 2rem; font-size: 0.9rem;">This is the beginning of your private history with <strong>${currentRoom}</strong>.</div>`;
-        }
-
-        history.forEach(msg => appendMessageToUI(msg));
-        setTimeout(() => { if(chatScrollArea) chatScrollArea.scrollTop = chatScrollArea.scrollHeight; }, 100);
-    });
-
-    socket.on('receiveMessage', (msg) => {
-        if (msg.room === currentRoom) {
-            appendMessageToUI(msg);
-            const chatScrollArea = document.getElementById('chat-messages');
-            setTimeout(() => { if(chatScrollArea) chatScrollArea.scrollTop = chatScrollArea.scrollHeight; }, 100);
-        } else {
-            if (msg.author !== myName && msg.room.includes(myName)) {
-                sendSystemNotification("New Private Message", `${msg.author} sent you a message.`, msg.initial, "var(--neon-blue)", "dm");
-            }
-        }
-    });
-
-    socket.on('messageUpvoted', (msgId) => {
-        const upvoteBtn = document.querySelector(`.chat-bubble[data-dbid="${msgId}"] .upvote-count`);
-        if (upvoteBtn) upvoteBtn.innerText = parseInt(upvoteBtn.innerText) + 1;
-    });
-
-    socket.on('messageDeleted', (msgId) => {
-        const bubble = document.querySelector(`.chat-bubble[data-dbid="${msgId}"]`);
-        if(bubble) bubble.remove();
-    });
-
-    function appendMessageToUI(msg) {
-        const container = document.getElementById('dynamic-chat-history');
-        if(!container) return;
-
-        const isMe = msg.author === myName;
-        const bubbleClass = isMe ? "chat-bubble mine" : "chat-bubble";
-        let avatarStyle = `background: var(--neon-blue);`;
-        let avatarContent = msg.initial;
-        let bubbleStyle = "", authorColor = "", roleBadge = "";
-
-        if (msg.author === "Agent") {
-            avatarStyle = `background: #8b5cf6;`; avatarContent = "🤖";
-            bubbleStyle = `style="background: rgba(139, 92, 246, 0.15); border-left: 3px solid #8b5cf6;"`;
-            authorColor = `style="color: #c4b5fd;"`; roleBadge = `<span class="role-badge bot" style="margin-left:5px;">AI</span>`;
-        } else if(msg.avatar) {
-            avatarStyle = `background-image: url(${msg.avatar}); background-size: cover; background-position: center;`; avatarContent = '';
-        }
-
-        const msgHTML = `
-            <div class="${bubbleClass} fade-in" data-dbid="${msg.id}" ${bubbleStyle}>
-                ${isMe ? `<button class="delete-msg-btn" title="Delete Message">🗑️</button>` : ''}
-                <div class="bubble-header">
-                    <div class="bubble-avatar interactive-avatar" data-user="${msg.author}" data-role="Hustler" style="${avatarStyle} cursor:pointer;">${avatarContent}</div>
-                    <span class="bubble-author interactive-avatar" data-user="${msg.author}" data-role="Hustler" style="cursor:pointer;"><span ${authorColor}>${msg.author}</span> ${roleBadge}</span>
-                    <span class="bubble-time">${msg.time}</span>
-                </div>
-                <div class="bubble-body">${msg.text}</div>
-                ${currentRoom === "YH-community" ? `<div class="chat-actions"><button class="upvote-btn" data-id="${msg.id}" title="Agree with this">🔥 <span class="upvote-count">${msg.upvotes || 0}</span></button></div>` : ''}
-            </div>
-        `;
-        container.insertAdjacentHTML('beforeend', msgHTML);
-    }
-
-    function sendMessage(customText = null) {
-        const chatInputArea = document.getElementById('chat-input');
-        if(!chatInputArea && customText === null) return;
-
-        let rawText = customText !== null ? customText : chatInputArea.value;
-        let text = rawText.trim();
-        if (!text && !rawText.includes("chat-attachment")) return;
-
-        let initial = myName.charAt(0).toUpperCase();
-        let savedAvatar = localStorage.getItem('yh_user_avatar') || "";
-        const timeString = 'Today at ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-        socket.emit('sendMessage', {
-            room: currentRoom,
-            author: myName,
-            initial: initial,
-            avatar: savedAvatar,
-            text: rawText,
-            time: timeString
-        });
-
-        if(chatInputArea) chatInputArea.value = ''; 
-
-        if (currentRoom.includes("Agent")) {
-            setTimeout(() => {
-                let aiReply = ""; const userMsg = rawText.toLowerCase();
-                if(userMsg.includes("hi") || userMsg.includes("hey")) aiReply = "Hello Hustler. How can I assist your execution today?"; 
-                else if(userMsg.includes("chat-attachment")) aiReply = "I have received your file. It has been securely logged in my temporary memory buffer."; 
-                else {
-                    const aiResponses = ["That is a solid strategy. Stay disciplined.", "I have logged your query.", "Hustle recognized. Keep executing."];
-                    aiReply = aiResponses[Math.floor(Math.random() * aiResponses.length)];
-                }
-                socket.emit('sendMessage', {
-                    room: currentRoom,
-                    author: "Agent",
-                    initial: "🤖",
-                    avatar: "",
-                    text: aiReply,
-                    time: 'Today at ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                });
-            }, 1500); 
-        }
-    }
-
-    const chatInputArea = document.getElementById('chat-input');
-    const chatSendBtn = document.getElementById('chat-send-btn'); 
-    if (chatInputArea) {
-        chatInputArea.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (chatInputArea.value.trim() !== "") sendMessage(); }
-        });
-    }
-    if (chatSendBtn) {
-        chatSendBtn.addEventListener('click', function(e) {
-            e.preventDefault(); if (chatInputArea.value.trim() !== "") sendMessage();
-        });
-    }
-
-    // --- LEAVE / END CALL LOGIC ---
-    const btnLeaveStage = document.getElementById('btn-leave-stage');
-    const endCallModal = document.getElementById('end-call-modal');
-    const btnConfirmEndCall = document.getElementById('btn-confirm-end-call');
-    const btnCancelEndCall = document.getElementById('btn-cancel-end-call');
-
-    if(btnLeaveStage) {
-        btnLeaveStage.addEventListener('click', () => {
-            const hostName = document.getElementById('host-name')?.innerText;
-            if (myName === hostName && endCallModal) {
-                endCallModal.classList.remove('hidden-step'); 
-            } else {
-                document.getElementById('nav-voice')?.click(); 
-                showToast("You left the stage.", "success");
-            }
-        });
-    }
-
-    if (btnConfirmEndCall && btnCancelEndCall) {
-        btnCancelEndCall.addEventListener('click', () => endCallModal.classList.add('hidden-step'));
-        btnConfirmEndCall.addEventListener('click', () => {
-            endCallModal.classList.add('hidden-step');
-            showToast("Session Ended. All users disconnected.", "error");
-            document.getElementById('nav-voice')?.click();
-        });
-    }
-
-    // --- EMOJI, GIF, GIFT LOGIC ---
-    const btnGift = document.querySelector('span[title="Send Gift"]');
-    const btnGif = document.querySelector('span[title="Open GIF picker"]');
-    const btnEmoji = document.querySelector('span[title="Select emoji"]');
-
-    if(btnGift) { btnGift.addEventListener('click', () => { document.getElementById('gift-modal').classList.remove('hidden-step'); }); }
-
-    const closeGiftModal = document.getElementById('close-gift-modal');
-    const giftModal = document.getElementById('gift-modal');
-    if(closeGiftModal && giftModal) {
-        closeGiftModal.addEventListener('click', () => giftModal.classList.add('hidden-step'));
-        giftModal.addEventListener('click', (e) => { if(e.target === giftModal) giftModal.classList.add('hidden-step'); });
-    }
-
-    const giftItems = document.querySelectorAll('#gift-modal .modal-body > div > div'); 
-    giftItems.forEach(giftBox => {
-        giftBox.addEventListener('click', () => {
-            showToast("Connecting to Payment Gateway...", "success");
-            setTimeout(() => {
-                showToast("Gift sent successfully! +XP added to target.", "success");
-                giftModal.classList.add('hidden-step');
-                            }, 1500);
-        });
-    });
-
-    if(btnGif) { btnGif.addEventListener('click', () => { showToast("GIF API (Tenor/Giphy) requires Backend connection.", "error"); }); }
-
-    if (btnEmoji) {
-        btnEmoji.addEventListener('click', () => {
-            if (typeof picmoPopup !== 'undefined') {
-                if(!window.emojiPicker) {
-                    window.emojiPicker = picmoPopup.createPopup({ animate: true, theme: 'dark' }, { triggerElement: btnEmoji, referenceElement: btnEmoji, position: 'top-end' });
-                    window.emojiPicker.addEventListener('emoji:select', (selection) => {
-                        if(chatInputArea) { chatInputArea.value += selection.emoji; chatInputArea.focus(); }
-                    });
-                }
-                window.emojiPicker.toggle();
-            } else {
-                showToast("Emoji Library is loading... please wait.", "error");
-            }
-        });
-    }
-
-    // --- STAGE CONTROLS, WEBRTC & INVITE ---
-    let localStream = null;
-    const btnToggleMic = document.getElementById('btn-toggle-mic');
-    const btnToggleCam = document.getElementById('btn-toggle-cam');
-    const btnToggleScreen = document.getElementById('btn-toggle-screen');
-
-    async function toggleCamera() {
-        try {
-            const mySpeakerCard = document.querySelector('.speaker-card.active-speaker'); 
-            const hostAvatarEl = document.getElementById('host-avatar');
-            if (!localStream) {
-                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                if(btnToggleCam) btnToggleCam.classList.remove('toggled-off');
-                if(mySpeakerCard) mySpeakerCard.classList.remove('is-offcam');
-                showToast("Camera & Mic Active", "success");
-            } else {
-                localStream.getVideoTracks().forEach(track => {
-                    track.enabled = !track.enabled;
-                    if (!track.enabled) {
-                        if(btnToggleCam) btnToggleCam.classList.add('toggled-off');
-                        if(mySpeakerCard) mySpeakerCard.classList.add('is-offcam');
-                        if(hostAvatarEl) { hostAvatarEl.innerText = "🚫"; hostAvatarEl.style.background = "#1a1f2e"; }
-                        showToast("Camera disabled", "success");
-                    } else {
-                        if(btnToggleCam) btnToggleCam.classList.remove('toggled-off');
-                        if(mySpeakerCard) mySpeakerCard.classList.remove('is-offcam');
-                        if(hostAvatarEl) { hostAvatarEl.innerText = localStorage.getItem('yh_user_name')?.charAt(0).toUpperCase() || "Y"; hostAvatarEl.style.background = "var(--neon-blue)"; }
-                        showToast("Camera active", "success");
-                    }
-                });
-            }
-        } catch (err) { showToast("Camera/Mic permission denied by browser.", "error"); }
-    }
-
-    if(btnToggleCam) btnToggleCam.addEventListener('click', toggleCamera);
-
-    if(btnToggleMic) {
-        btnToggleMic.addEventListener('click', () => {
-            const mySpeakerCard = document.querySelector('.speaker-card.active-speaker'); 
-            const hostMicIcon = document.getElementById('host-mic');
-            btnToggleMic.classList.toggle('toggled-off');
-            const isMuted = btnToggleMic.classList.contains('toggled-off');
-            
-            if(mySpeakerCard) {
-                if(isMuted) mySpeakerCard.classList.add('is-muted');
-                else mySpeakerCard.classList.remove('is-muted');
-            }
-            if(hostMicIcon) {
-                hostMicIcon.innerText = isMuted ? "🔇" : "🎤";
-                hostMicIcon.style.color = isMuted ? "#ef4444" : "";
-            }
-
-            if(localStream) { localStream.getAudioTracks().forEach(track => { track.enabled = !isMuted; }); }
-            showToast(isMuted ? "Microphone muted." : "Microphone active.", isMuted ? "error" : "success");
-        });
-    }
-
-    if(btnToggleScreen) {
-        btnToggleScreen.addEventListener('click', async () => {
-            try {
-                const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-                btnToggleScreen.classList.add('toggled-on');
-                showToast("Screen sharing started!", "success");
-                screenStream.getVideoTracks()[0].onended = () => {
-                    btnToggleScreen.classList.remove('toggled-on');
-                    showToast("Screen share stopped.", "error");
-                };
-            } catch (err) { showToast("Screen sharing cancelled.", "error"); }
-        });
-    }
-
-    const stageChatInput = document.getElementById('stage-chat-input');
-    const stageChatHistory = document.getElementById('stage-chat-history');
-    const stageChatSendBtn = document.getElementById('stage-chat-send-btn');
-
-    function sendStageChat() {
-        if(stageChatInput.value.trim() !== '') {
-            const msg = stageChatInput.value.trim();
-            const myName = localStorage.getItem('yh_user_name') || "Hustler";
-            const msgHTML = `<div class="stage-chat-msg fade-in"><strong>${myName}:</strong> ${msg}</div>`;
-            stageChatHistory.insertAdjacentHTML('beforeend', msgHTML);
-            stageChatInput.value = '';
-            stageChatHistory.scrollTop = stageChatHistory.scrollHeight;
-        }
-    }
-    if(stageChatInput && stageChatHistory) { stageChatInput.addEventListener('keydown', (e) => { if(e.key === 'Enter') sendStageChat(); }); }
-    if(stageChatSendBtn) { stageChatSendBtn.addEventListener('click', sendStageChat); }
-
-    const btnInviteStage = document.getElementById('btn-invite-to-stage');
-    if (btnInviteStage) {
-        btnInviteStage.addEventListener('click', () => {
-            const stageTitle = document.getElementById('stage-title')?.innerText || "Live Mastermind";
-            const simpleLinkHTML = `Hey! I'm LIVE NOW hosting <strong>${stageTitle}</strong>. <a href="#" onclick="document.getElementById('nav-voice').click(); return false;" style="color: var(--neon-blue); font-weight: bold; text-decoration: underline;">Click here to join my room!</a>`;
-            
-            const shareModal = document.getElementById('share-select-modal');
-            const destList = document.getElementById('share-destinations-list');
-            if(shareModal && destList) {
-                window.pendingShareHTML = simpleLinkHTML;
-                destList.innerHTML = `<button class="btn-secondary share-dest-btn" data-target="main-chat" style="padding: 10px; text-align: left;">💬 YH-community (Public)</button>`;
-                const rooms = JSON.parse(localStorage.getItem('yh_custom_rooms')) || [];
-                rooms.forEach(room => { destList.insertAdjacentHTML('beforeend', `<button class="btn-secondary share-dest-btn" data-target="${room.name}" style="padding: 10px; text-align: left;">${room.icon} ${room.name}</button>`); });
-                shareModal.classList.remove('hidden-step');
-            }
-        });
-    }
-
-    // --- THE VAULT & UPLOADS ---
-    function saveVaultItemObj(itemObj) {
-        const vaultItems = JSON.parse(localStorage.getItem('yh_vault_items')) || [];
-        vaultItems.push(itemObj);
-        localStorage.setItem('yh_vault_items', JSON.stringify(vaultItems));
-        loadVault();
-    }
-
-    function saveFileToVault(file, origin) {
-        const isImage = file.type.startsWith('image/');
-        const fileSize = (file.size / 1024 / 1024).toFixed(2) + " MB";
-        if (isImage) {
-            const reader = new FileReader();
-            reader.onload = (event) => { saveVaultItemObj({ type: 'file', name: file.name, size: fileSize, origin: origin, dataUrl: event.target.result, parentFolder: currentVaultFolder }); };
-            reader.readAsDataURL(file);
-        } else {
-            saveVaultItemObj({ type: 'file', name: file.name, size: fileSize, origin: origin, dataUrl: null, parentFolder: currentVaultFolder });
-        }
-    }
-
-    function loadVault() {
-        const grid = document.getElementById('vault-dynamic-grid');
-        if(!grid) return;
-        grid.innerHTML = '';
-        const vaultItems = JSON.parse(localStorage.getItem('yh_vault_items')) || [];
-        const visibleItems = vaultItems.filter(item => (item.parentFolder || null) === currentVaultFolder);
-        
-        if (currentVaultFolder) {
-            grid.innerHTML = `<div class="vault-folder-header" id="btn-vault-back"><span>⬅ Back to All Files</span><span style="color: #fff;">📂 ${currentVaultFolder}</span></div>`;
-            document.getElementById('btn-vault-back').addEventListener('click', () => { currentVaultFolder = null; loadVault(); });
-        }
-        if (visibleItems.length === 0) { grid.insertAdjacentHTML('beforeend', `<div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 2rem;">This location is empty. Upload a file or create a folder.</div>`); return; }
-        
-        visibleItems.sort((a, b) => (a.type === 'folder' ? -1 : 1) - (b.type === 'folder' ? -1 : 1));
-        visibleItems.forEach((item) => {
-            const realIndex = vaultItems.findIndex(v => v === item);
-            const isFolder = item.type === 'folder';
-            const isImage = item.type === 'file' && item.dataUrl && item.dataUrl.startsWith('data:image/');
-            let visualContent = isFolder ? `<div class="vault-icon">📁</div>` : isImage ? `<div style="width: 100%; height: 90px; border-radius: 8px; background-image: url('${item.dataUrl}'); background-size: cover; background-position: center; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.1);"></div>` : `<div class="vault-icon">📄</div>`;
-            const actionText = isFolder ? 'Open Folder' : 'Share to Chat';
-            grid.insertAdjacentHTML('beforeend', `<div class="vault-card fade-in ${isFolder ? 'vault-folder' : ''}" data-real-index="${realIndex}" data-name="${item.name}" data-type="${item.type}">${visualContent}<div class="vault-filename" title="${item.name}">${item.name}</div><div class="vault-meta">${isFolder ? 'Folder' : (item.size || 'Unknown')}</div><div class="vault-origin">From: ${item.origin || 'Direct Upload'}</div><button class="btn-vault-action action-vault-btn">${actionText}</button></div>`);
-        });
-
-        document.querySelectorAll('.action-vault-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const card = e.target.closest('.vault-card'); const itemName = card.getAttribute('data-name'); const itemType = card.getAttribute('data-type');
-                if(itemType === 'folder') { currentVaultFolder = itemName; showToast(`Opening folder: ${itemName}`, "success"); loadVault(); } 
-                else {
-                    const fullItem = vaultItems.find(i => i.name === itemName && i.type === 'file');
-                    const isImage = fullItem && fullItem.dataUrl && fullItem.dataUrl.startsWith('data:image/');
-                    let visualChatContent = isImage ? `<img src="${fullItem.dataUrl}" style="width: 100%; border-radius: 6px; margin-bottom: 8px;">` : `<div style="font-size: 2rem;">📄</div>`;
-                    
-                    const shareModal = document.getElementById('share-select-modal');
-                    const destList = document.getElementById('share-destinations-list');
-                    if(shareModal && destList) {
-                        window.pendingShareHTML = `<div class="chat-attachment" style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 8px; margin-top: 5px;">${visualChatContent}<div><strong>${itemName}</strong><br><a href="${fullItem.dataUrl}" download="${itemName}" style="color: var(--neon-blue);">⬇ Download</a></div></div>`;
-                        
-                        destList.innerHTML = `<button class="btn-secondary share-dest-btn" data-target="main-chat" style="padding: 10px; text-align: left;">💬 YH-community (Public)</button>`;
-                        const rooms = JSON.parse(localStorage.getItem('yh_custom_rooms')) || [];
-                        rooms.forEach(room => { destList.insertAdjacentHTML('beforeend', `<button class="btn-secondary share-dest-btn" data-target="${room.name}" style="padding: 10px; text-align: left;">${room.icon} ${room.name}</button>`); });
-                        
-                        shareModal.classList.remove('hidden-step');
-                    }
-                }
-            });
-        });
-
-        const contextMenu = document.getElementById('vault-context-menu');
-        document.querySelectorAll('.vault-card').forEach(card => {
-            const showContext = (pageX, pageY) => { selectedVaultIndex = card.getAttribute('data-real-index'); contextMenu.style.left = `${pageX}px`; contextMenu.style.top = `${pageY}px`; contextMenu.classList.remove('hidden-step'); };
-            card.addEventListener('contextmenu', (e) => { e.preventDefault(); showContext(e.pageX, e.pageY); });
-        });
-    }
-                }, 1500);
+            }, 1500);
         });
     });
 
@@ -1490,7 +1117,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const savedName = localStorage.getItem('yh_user_name');
         const savedAvatar = localStorage.getItem('yh_user_avatar');
         updateUserProfile(savedName, savedAvatar);
-        socket.emit('joinRoom', currentRoom);
 
         loadCustomRooms(); 
         loadBlueprintProgress();
@@ -1503,34 +1129,430 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==========================================
     // 🌌 YH UNIVERSE ACCESS & AI SCREENING LOGIC
     // ==========================================
-    const universeHubView = document.getElementById('universe-hub-view');
-    const academyWrapper = document.getElementById('academy-wrapper');
-    const leftSidebar = document.getElementById('academy-sidebar');
-    const rightSidebar = document.querySelector('.yh-right-sidebar');
+const universeHubView = document.getElementById('universe-hub-view');
+const academyWrapper = document.getElementById('academy-wrapper');
+const leftSidebar = document.getElementById('academy-sidebar');
+const rightSidebar = document.querySelector('.yh-right-sidebar');
 
-    function checkUniverseAccess() {
-        // I-check kung may access na sa Academy (Dapat 'false' o 'null' ito para sa bagong user)
-        const hasAcademyAccess = localStorage.getItem('yh_academy_access') === 'true';
-        
-        if (!hasAcademyAccess) {
-            // ✅ Citizen: Ipakita ang Hub portals
-            if(universeHubView) universeHubView.style.display = 'flex';
-            if(leftSidebar) leftSidebar.style.display = 'none';
-            if(rightSidebar) rightSidebar.style.display = 'none';
-            if(academyWrapper) academyWrapper.style.display = 'none';
-        } else {
-            // ✅ Hustler: Itago ang Hub, ipakita ang Dashboard
-            if(universeHubView) universeHubView.style.display = 'none';
-            if(leftSidebar) leftSidebar.style.display = 'flex';
-            if(rightSidebar) rightSidebar.style.display = 'flex';
-            if(academyWrapper) academyWrapper.style.display = 'flex';
-            
-            // I-retrigger ang socket connection para makuha ang chat history
-            const currentRoomName = "YH-community"; 
-            socket.emit('joinRoom', currentRoomName); 
-            document.getElementById('nav-chat')?.click(); 
+function persistAcademyHome(homeData) {
+    if (!homeData || typeof homeData !== 'object') return;
+    localStorage.setItem('yh_academy_home', JSON.stringify(homeData));
+}
+
+function readAcademyHomeCache() {
+    try {
+        const raw = localStorage.getItem('yh_academy_home');
+        return raw ? JSON.parse(raw) : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+async function academyAuthedFetch(url, options = {}) {
+    const token = localStorage.getItem('yh_token');
+    if (!token) {
+        showToast("Your session expired. Please log in again.", "error");
+        window.location.href = '/';
+        throw new Error('Missing auth token');
+    }
+
+    const headers = {
+        ...(options.headers || {}),
+        'Authorization': `Bearer ${token}`
+    };
+
+    if (!(options.body instanceof FormData) && !headers['Content-Type']) {
+        headers['Content-Type'] = 'application/json';
+    }
+
+    const response = await fetch(url, {
+        ...options,
+        headers
+    });
+
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok || !result.success) {
+        throw new Error(result.message || 'Request failed.');
+    }
+
+    return result;
+}
+
+async function academyRefreshRoadmap() {
+    try {
+        showToast("Refreshing roadmap...", "success");
+        const result = await academyAuthedFetch('/api/academy/roadmap/refresh', {
+            method: 'POST',
+            body: JSON.stringify({})
+        });
+
+        const nextHome = result.home || readAcademyHomeCache();
+        if (nextHome) {
+            persistAcademyHome(nextHome);
+            renderAcademyHome(nextHome);
+        }
+        showToast("Roadmap refreshed.", "success");
+    } catch (error) {
+        showToast(error.message || "Roadmap refresh failed.", "error");
+    }
+}
+
+async function academyUpdateMissionStatus(missionId, status, note = '') {
+    try {
+        await academyAuthedFetch(`/api/academy/missions/${missionId}/status`, {
+            method: 'POST',
+            body: JSON.stringify({
+                status,
+                note
+            })
+        });
+
+        await loadAcademyHome(true);
+        showToast(`Mission marked as ${status}.`, "success");
+    } catch (error) {
+        showToast(error.message || "Mission update failed.", "error");
+    }
+}
+
+async function academyCompleteMission(missionId) {
+    try {
+        await academyAuthedFetch(`/api/academy/missions/${missionId}/complete`, {
+            method: 'POST',
+            body: JSON.stringify({
+                completionNote: ''
+            })
+        });
+
+        await loadAcademyHome(true);
+        showToast("Mission completed.", "success");
+    } catch (error) {
+        showToast(error.message || "Mission completion failed.", "error");
+    }
+}
+
+async function academyOpenCheckin() {
+    const energyScore = prompt('Energy score today? (0-10)', '7');
+    if (energyScore === null) return;
+
+    const moodScore = prompt('Mood score today? (0-10)', '7');
+    if (moodScore === null) return;
+
+    const completedSummary = prompt('What did you complete today?', '');
+    if (completedSummary === null) return;
+
+    const blockerText = prompt('What blocked or slowed you down today?', '');
+    if (blockerText === null) return;
+
+    const tomorrowFocus = prompt('Main focus for tomorrow?', '');
+    if (tomorrowFocus === null) return;
+
+    try {
+        await academyAuthedFetch('/api/academy/checkin', {
+            method: 'POST',
+            body: JSON.stringify({
+                energyScore,
+                moodScore,
+                completedSummary,
+                blockerText,
+                tomorrowFocus
+            })
+        });
+
+        await loadAcademyHome(true);
+        showToast("Check-in saved.", "success");
+    } catch (error) {
+        showToast(error.message || "Check-in failed.", "error");
+    }
+}
+
+function renderAcademyHome(homeData = null) {
+    const safeHtml = (value) => {
+        if (value === null || value === undefined) return '';
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    };
+
+    const prettyLabel = (value) => {
+        return safeHtml(
+            String(value || '')
+                .replace(/-/g, ' ')
+                .replace(/\b\w/g, (char) => char.toUpperCase())
+        );
+    };
+
+    document.querySelectorAll('.channel-link').forEach(link => link.classList.remove('active'));
+
+    const views = {
+        'academy-chat': document.getElementById('academy-chat'),
+        'center-stage-view': document.getElementById('center-stage-view'),
+        'announcements-view': document.getElementById('announcements-view'),
+        'voice-lobby-view': document.getElementById('voice-lobby-view'),
+        'video-lobby-view': document.getElementById('video-lobby-view'),
+        'vault-view': document.getElementById('vault-view')
+    };
+
+    Object.values(views).forEach(view => { if (view) view.classList.add('hidden-step'); });
+    if (views['academy-chat']) views['academy-chat'].classList.remove('hidden-step');
+
+    const chatHeaderIcon = document.getElementById('chat-header-icon');
+    const chatHeaderTitle = document.getElementById('chat-header-title');
+    const chatHeaderTopic = document.getElementById('chat-header-topic');
+    const chatWelcomeBox = document.getElementById('chat-welcome-box');
+    const chatPinnedMessage = document.getElementById('chat-pinned-message');
+    const chatInputArea = document.getElementById('chat-input-area');
+    const dynamicChatContainer = document.getElementById('dynamic-chat-history');
+
+    const roadmap = homeData?.roadmap || {};
+    const summary = roadmap.summary || {};
+    const focusAreas = Array.isArray(roadmap.focusAreas) ? roadmap.focusAreas : [];
+    const today = homeData?.today || {};
+    const missions = Array.isArray(homeData?.missions) ? homeData.missions : [];
+    const weeklyCheckpoint = homeData?.weeklyCheckpoint || {};
+    const createdByModel = safeHtml(homeData?.createdByModel || '');
+
+    const readinessScore = Number(roadmap.readinessScore || 0);
+    const missionsCompleted = Number(today.missionsCompleted || 0);
+    const missionsTotal = Number(today.missionsTotal || missions.length || 0);
+    const streakDays = Number(today.streakDays || 0);
+
+    const focusHtml = focusAreas.length
+        ? focusAreas.map(area => `
+            <span style="display:inline-flex;align-items:center;padding:8px 12px;border-radius:999px;background:rgba(14,165,233,0.12);border:1px solid rgba(14,165,233,0.35);color:#e0f2fe;font-size:0.82rem;font-weight:600;">
+                ${prettyLabel(area)}
+            </span>
+        `).join('')
+        : `<span style="color:var(--text-muted);font-size:0.9rem;">No focus areas loaded yet.</span>`;
+
+    const missionsHtml = missions.length
+        ? missions.map((mission, index) => {
+            const missionId = Number(mission.id || 0);
+            const status = safeHtml(mission.status || 'pending');
+            const title = safeHtml(mission.title || 'Mission');
+            const pillar = prettyLabel(mission.pillar || 'focus');
+            const dueDate = safeHtml(mission.dueDate || 'Not set');
+            const estimatedMinutes = safeHtml(mission.estimatedMinutes || 0);
+            const whyItMatters = safeHtml(mission.whyItMatters || '');
+            const isCompleted = status === 'completed';
+
+            return `
+                <div style="padding:14px 16px;border-radius:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);">
+                    <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;">
+                        <div>
+                            <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;">
+                                Mission ${index + 1} • ${pillar}
+                            </div>
+                            <div style="margin-top:6px;font-size:1rem;font-weight:600;color:#fff;">
+                                ${title}
+                            </div>
+                        </div>
+                        <div style="font-size:0.8rem;color:${isCompleted ? '#22c55e' : 'var(--text-muted)'};text-transform:capitalize;">
+                            ${status}
+                        </div>
+                    </div>
+
+                    <div style="margin-top:8px;font-size:0.9rem;color:var(--text-muted);">
+                        Due: ${dueDate} • ${estimatedMinutes} mins
+                    </div>
+
+                    ${whyItMatters ? `
+                        <div style="margin-top:8px;font-size:0.88rem;line-height:1.6;color:#d1d5db;">
+                            <strong style="color:#fff;">Why this matters:</strong> ${whyItMatters}
+                        </div>
+                    ` : ''}
+
+                    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+                        <button type="button" data-academy-action="complete" data-mission-id="${missionId}" class="btn-primary" style="width:auto;padding:8px 12px;" ${isCompleted ? 'disabled' : ''}>Complete</button>
+                        <button type="button" data-academy-action="skip" data-mission-id="${missionId}" class="btn-secondary" style="width:auto;padding:8px 12px;">Skip</button>
+                        <button type="button" data-academy-action="stuck" data-mission-id="${missionId}" class="btn-secondary" style="width:auto;padding:8px 12px;">Stuck</button>
+                    </div>
+                </div>
+            `;
+        }).join('')
+        : `
+            <div style="padding:14px 16px;border-radius:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);color:var(--text-muted);">
+                No missions loaded yet. Refresh the roadmap to generate a new plan.
+            </div>
+        `;
+
+    if (chatHeaderIcon) chatHeaderIcon.innerHTML = `🧠`;
+    if (chatHeaderTitle) chatHeaderTitle.innerText = "Academy Home";
+    if (chatHeaderTopic) chatHeaderTopic.innerText = "Roadmap, missions, and AI feedback loop";
+    if (chatPinnedMessage) chatPinnedMessage.style.display = "none";
+    if (chatInputArea) chatInputArea.style.display = "none";
+
+    if (chatWelcomeBox) {
+        chatWelcomeBox.style.display = "block";
+        chatWelcomeBox.innerHTML = `
+            <div style="display:flex;flex-direction:column;gap:16px;">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;">
+                    <div>
+                        <h2 class="welcome-title" style="margin-bottom:8px;">Welcome back, ${safeHtml(myName)}</h2>
+                        <p class="welcome-desc" style="max-width:720px;">
+                            This is your roadmap-first Academy landing. Act on missions, send check-ins, and refresh your plan when your situation changes.
+                        </p>
+                        ${createdByModel ? `<div style="margin-top:10px;font-size:0.82rem;color:var(--text-muted);">Planner: ${createdByModel}</div>` : ''}
+                    </div>
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                        <button id="academy-home-refresh-roadmap" type="button" class="btn-primary" style="width:auto;padding:10px 16px;">Refresh Roadmap</button>
+                        <button id="academy-home-open-checkin" type="button" class="btn-secondary" style="width:auto;padding:10px 16px;">Daily Check-In</button>
+                        <button id="academy-home-enter-chat" type="button" class="btn-secondary" style="width:auto;padding:10px 16px;">Open YH-community</button>
+                        <button id="academy-home-open-vault" type="button" class="btn-secondary" style="width:auto;padding:10px 16px;">Open Vault</button>
+                    </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
+                    <div style="padding:16px;border-radius:16px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);">
+                        <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;">Readiness</div>
+                        <div style="margin-top:8px;font-size:1.8rem;font-weight:700;color:#fff;">${readinessScore ? safeHtml(readinessScore) : '—'}<span style="font-size:0.95rem;color:var(--text-muted);"> / 100</span></div>
+                    </div>
+                    <div style="padding:16px;border-radius:16px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);">
+                        <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;">Completed</div>
+                        <div style="margin-top:8px;font-size:1.8rem;font-weight:700;color:#fff;">${safeHtml(missionsCompleted)}<span style="font-size:0.95rem;color:var(--text-muted);"> / ${safeHtml(missionsTotal)}</span></div>
+                    </div>
+                    <div style="padding:16px;border-radius:16px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);">
+                        <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;">7-Day Streak</div>
+                        <div style="margin-top:8px;font-size:1.8rem;font-weight:700;color:#fff;">${safeHtml(streakDays)}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    if (dynamicChatContainer) {
+        dynamicChatContainer.innerHTML = `
+            <div style="display:flex;flex-direction:column;gap:14px;padding-bottom:12px;">
+                <div style="padding:16px;border-radius:16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);">
+                    <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;">Roadmap Summary</div>
+                    <div style="margin-top:10px;font-size:0.95rem;line-height:1.7;color:#fff;">
+                        <strong>Main Bottleneck:</strong> ${safeHtml(summary.primaryBottleneck || 'Not available')}<br>
+                        <strong>Secondary Bottleneck:</strong> ${safeHtml(summary.secondaryBottleneck || 'Not available')}<br>
+                        <strong>Main Opportunity:</strong> ${safeHtml(summary.mainOpportunity || 'Not available')}
+                    </div>
+                </div>
+
+                <div style="padding:16px;border-radius:16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);">
+                    <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;">Focus Areas</div>
+                    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+                        ${focusHtml}
+                    </div>
+                </div>
+
+                <div style="padding:16px;border-radius:16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);">
+                    <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;">Weekly Checkpoint</div>
+                    <div style="margin-top:10px;font-size:0.95rem;line-height:1.7;color:#fff;">
+                        <strong>Theme:</strong> ${safeHtml(weeklyCheckpoint.theme || 'Not available')}<br>
+                        <strong>Target Outcome:</strong> ${safeHtml(weeklyCheckpoint.targetOutcome || 'Not available')}
+                    </div>
+                </div>
+
+                <div style="padding:16px;border-radius:16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);">
+                    <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;">Today’s Missions</div>
+                    <div style="margin-top:12px;display:grid;gap:10px;">
+                        ${missionsHtml}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    document.getElementById('academy-home-enter-chat')?.addEventListener('click', () => {
+        document.getElementById('nav-chat')?.click();
+    });
+
+    document.getElementById('academy-home-open-vault')?.addEventListener('click', () => {
+        document.getElementById('nav-vault')?.click();
+    });
+
+    document.getElementById('academy-home-refresh-roadmap')?.addEventListener('click', () => {
+        academyRefreshRoadmap();
+    });
+
+    document.getElementById('academy-home-open-checkin')?.addEventListener('click', () => {
+        academyOpenCheckin();
+    });
+
+    document.querySelectorAll('[data-academy-action="complete"]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const missionId = Number(button.getAttribute('data-mission-id') || 0);
+            if (missionId) academyCompleteMission(missionId);
+        });
+    });
+
+    document.querySelectorAll('[data-academy-action="skip"]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const missionId = Number(button.getAttribute('data-mission-id') || 0);
+            if (!missionId) return;
+            const note = prompt('Why are you skipping this mission?', '') || '';
+            academyUpdateMissionStatus(missionId, 'skipped', note);
+        });
+    });
+
+    document.querySelectorAll('[data-academy-action="stuck"]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const missionId = Number(button.getAttribute('data-mission-id') || 0);
+            if (!missionId) return;
+            const note = prompt('What exactly are you stuck on?', '') || '';
+            academyUpdateMissionStatus(missionId, 'stuck', note);
+        });
+    });
+
+    currentRoom = null;
+
+    if (views['academy-chat']) {
+        views['academy-chat'].classList.remove('fade-in');
+        void views['academy-chat'].offsetWidth;
+        views['academy-chat'].classList.add('fade-in');
+    }
+}
+
+async function loadAcademyHome(forceFresh = false) {
+    let cachedHome = null;
+
+    if (!forceFresh) {
+        cachedHome = readAcademyHomeCache();
+        if (cachedHome) {
+            renderAcademyHome(cachedHome);
         }
     }
+
+    try {
+        const result = await academyAuthedFetch('/api/academy/home', {
+            method: 'GET'
+        });
+
+        persistAcademyHome(result);
+        renderAcademyHome(result);
+        return result;
+    } catch (error) {
+        if (!cachedHome) {
+            renderAcademyHome();
+            showToast(error.message || "Failed to load Academy home.", "error");
+        }
+        return null;
+    }
+}
+
+function checkUniverseAccess() {
+    const hasAcademyAccess = localStorage.getItem('yh_academy_access') === 'true';
+
+    if (!hasAcademyAccess) {
+        if (universeHubView) universeHubView.style.display = 'flex';
+        if (leftSidebar) leftSidebar.style.display = 'none';
+        if (rightSidebar) rightSidebar.style.display = 'none';
+        if (academyWrapper) academyWrapper.style.display = 'none';
+    } else {
+        if (universeHubView) universeHubView.style.display = 'none';
+        if (leftSidebar) leftSidebar.style.display = 'flex';
+        if (rightSidebar) rightSidebar.style.display = 'flex';
+        if (academyWrapper) academyWrapper.style.display = 'flex';
+        loadAcademyHome();
+    }
+}
     
     // Call it immediately
     checkUniverseAccess();
@@ -1663,14 +1685,35 @@ document.addEventListener('DOMContentLoaded', () => {
                     ${missionHtml}
                 `;
 
-                btnEnter.style.display = 'block';
-                btnEnter.innerText = "Enter The Academy ➔";
-                btnEnter.onclick = () => {
-                    localStorage.setItem('yh_academy_access', 'true');
-                    applyModal.classList.add('hidden-step');
-                    showToast("Academy unlocked and roadmap loaded.", "success");
-                    checkUniverseAccess();
-                };
+        const immediateAcademyHome = result.home && typeof result.home === 'object'
+            ? result.home
+            : {
+                success: true,
+                roadmap: {
+                    readinessScore,
+                    focusAreas,
+                    summary
+                },
+                today: {
+                    missionsCompleted: 0,
+                    missionsTotal: todayMissions.length,
+                    streakDays: 0
+                },
+missions: todayMissions.map((mission) => ({
+    ...mission,
+    estimatedMinutes: mission.estimatedMinutes || 0
+}))
+            };
+
+        btnEnter.style.display = 'block';
+        btnEnter.innerText = "Open Academy Home ➔";
+        btnEnter.onclick = () => {
+            localStorage.setItem('yh_academy_access', 'true');
+            localStorage.setItem('yh_academy_home', JSON.stringify(immediateAcademyHome));
+            applyModal.classList.add('hidden-step');
+            showToast("Academy unlocked. Opening your roadmap home.", "success");
+            checkUniverseAccess();
+        };
             } catch (error) {
                 aiSpinnerPhase.classList.add('hidden-step');
                 aiFormPhase.classList.remove('hidden-step');

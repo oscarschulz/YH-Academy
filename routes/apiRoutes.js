@@ -31,12 +31,14 @@ router.post('/verify-forgot-otp', authController.verifyForgotOTP);
 router.post('/reset-password', authController.resetPassword);
 
 
-
 router.post('/academy/intake', auth, academyControllers.intakeProfile);
 router.get('/academy/home', auth, academyControllers.getAcademyHome);
 router.get('/academy/roadmap/active', auth, academyControllers.getActiveRoadmap);
 router.get('/academy/missions', auth, academyControllers.getMissions);
 router.post('/academy/missions/:id/complete', auth, academyControllers.completeMission);
+router.post('/academy/missions/:id/status', auth, academyControllers.updateMissionStatus);
+router.post('/academy/checkin', auth, academyControllers.submitCheckin);
+router.post('/academy/roadmap/refresh', auth, academyControllers.refreshRoadmap);
 
 // 🔥 Laging nasa pinakababa ito dapat para ma-export nang buo!
 module.exports = router;
