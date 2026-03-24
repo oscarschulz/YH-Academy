@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | YH Universe</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+    <div id="toast-notification">
+        <span id="toast-icon">🎉</span> <span id="toast-message">Notification</span>
+    </div>
+
+    <div class="dashboard-layout fade-in">
+        
+        <nav class="yh-top-nav">
+            <div class="nav-brand">
+                <img src="/images/logo.avif" alt="YH Logo">
+                <span>UNIVERSE</span>
+            </div>
+            
+            <div class="nav-tabs">
+                <button class="nav-tab active" id="server-academy">🎓 The Academy</button>
+                <button class="nav-tab" id="server-plazas">🏪 The Plazas</button>
+                <button class="nav-tab" id="server-federation">🤝 The Federation</button>
+            </div>
+
+            <div class="nav-actions">
+                <div class="notif-wrapper" id="notif-bell">
+                    <span class="notif-icon">🔔</span>
+                    <span class="notif-badge" id="notif-badge-count">3</span>
+                    <div class="notif-dropdown hide-scrollbar" id="notif-dropdown">
+                        <div class="notif-header">Notifications <span id="mark-all-read">Mark all as read</span></div>
+                        <ul class="notif-list" id="notif-list-container">
+                            <li class="unread" data-target="announcements">
+                                <div class="notif-img" style="background: #ef4444;">YH</div>
+                                <div class="notif-text"><strong>YH Admin</strong> posted a new announcement.<span class="notif-time">Just now</span></div>
+                            </li>
+                            <li class="unread" data-target="dm">
+                                <div class="notif-img" style="background: #8b5cf6;">🤖</div>
+                                <div class="notif-text"><strong>Agent</strong> sent you a private message.<span class="notif-time">1 hour ago</span></div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="profile-mini interactive-avatar" data-user="Me" data-role="Hustler">
+                    <div class="profile-avatar-mini" id="top-nav-initial">Y</div>
+                    <span id="top-nav-name">Hustler</span>
+                </div>
+                <button class="btn-logout" onclick="logoutUser()">⎋ Log out</button>
+            </div>
+        </nav>
+
+        <div id="universe-hub-view" class="dashboard-view-layer fade-in" style="position: absolute; top: 70px; left: 0; right: 0; bottom: 0; background: var(--bg-dark); z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; overflow-y: auto;">
+            <div class="text-center mb-large" style="margin-top: 2rem;">
+                <h1 class="main-title" style="font-size: 3rem; margin-bottom: 0.5rem;">YH UNIVERSE</h1>
+                <p class="subtitle" style="font-size: 1.1rem;">Select a division to expand your empire.</p>
+            </div>
+
+            <div class="portals-grid">
+                
+                <div class="portal-card active-portal">
+                    <div class="portal-icon">🎓</div>
+                    <h2 class="portal-title">The Academy</h2>
+                    <p class="portal-desc">A self-improvement hub where an AI Agent builds a personalized roadmap for your mental, physical, and financial goals.</p>
+                    <button id="btn-open-academy-apply" class="btn-primary w-full" style="padding: 15px; font-size: 1.1rem;">Apply for Access ➔</button>
+                </div>
+
+                <div class="portal-card locked-portal">
+                    <div class="portal-icon">🏪</div>
+                    <h2 class="portal-title">The Plazas</h2>
+                    <p class="portal-desc">The global marketplace. Offer your skills, hire talent, and conquer territory as a Patron to monetize your network.</p>
+                    <button class="btn-secondary w-full" style="padding: 15px; font-size: 1.1rem; cursor: not-allowed;">🔒 Coming Soon</button>
+                </div>
+
+                <div class="portal-card locked-portal">
+                    <div class="portal-icon">🤝</div>
+                    <h2 class="portal-title">The Federation</h2>
+                    <p class="portal-desc">A strategic networking directory. Analyze your current contacts and bridge valuable gaps in your network globally.</p>
+                    <button class="btn-secondary w-full" style="padding: 15px; font-size: 1.1rem; cursor: not-allowed;">🔒 Coming Soon</button>
+                </div>
+
+            </div>
+        </div> <div class="dashboard-core" id="academy-wrapper">
+            
+            <aside class="yh-sidebar hide-scrollbar" id="academy-sidebar">
+                <button id="sidebar-toggle" class="sidebar-toggle-btn" title="Collapse Sidebar">❮</button>
+
+                <div class="channel-search-container">
+                    <div class="search-wrapper">
+                        <span class="search-icon-mini">🔍</span>
+                        <input type="text" placeholder="Search..." class="channel-search sidebar-text">
+                    </div>
+                </div>
+
+                <div class="channel-content hide-scrollbar">
+                    
+                    <div class="channel-category category-mt sidebar-text flex-between">
+                        <span>COMMUNICATIONS</span>
+                    </div>
+                    
+                    <div class="sidebar-text flex-row channel-action-row">
+                        <button id="btn-open-dm-modal" class="btn-secondary flex-1">+ DM</button>
+                        <button id="btn-open-group-modal" class="btn-primary flex-1">+ Group</button>
+                    </div>
+
+                    <ul class="channel-list" id="dm-list">
+                        <li class="active channel-link" id="nav-chat" title="YH-community" data-type="main-chat">
+                            <div class="sidebar-icon"><span class="channel-icon">💬</span></div>
+                            <span class="sidebar-text">YH-community (Public)</span>
+                        </li>
+                        <li class="channel-link" id="nav-announcements" title="announcements" data-type="announcements">
+                            <div class="sidebar-icon"><span class="channel-icon">📢</span></div>
+                            <span class="sidebar-text">announcements</span>
+                        </li>
+                    </ul>
+
+                    <ul class="channel-list" id="custom-dm-list" style="margin-top: 5px;"></ul>
+
+                    <div class="channel-category category-mt-large sidebar-text">LIVE SESSIONS</div>
+                    <ul class="channel-list">
+                        <li class="channel-link" id="nav-voice" title="voice-lounge" data-type="voice-lobby">
+                            <div class="sidebar-icon"><span class="channel-icon">🎙️</span></div>
+                            <span class="sidebar-text">voice-lounge</span>
+                        </li>
+                        <li class="channel-link" id="nav-video" title="video-lounge" data-type="video">
+                            <div class="sidebar-icon"><span class="channel-icon">📹</span></div>
+                            <span class="sidebar-text">video-lounge</span>
+                        </li>
+                    </ul>
+
+                    <div class="channel-category category-mt-large sidebar-text">YOUR RESOURCES</div>
+                    <ul class="channel-list">
+                        <li class="channel-link" id="nav-vault" title="The Vault" data-type="vault">
+                            <div class="sidebar-icon"><span class="channel-icon">🗄️</span></div>
+                            <span class="sidebar-text fw-600 color-white">The Vault</span>
+                        </li>
+                    </ul>
+
+                    <div class="channel-category category-mt-large sidebar-text flex-between pr-10">
+                        <span>YOUR MISSIONS</span>
+                        <button id="btn-open-mission-modal" class="btn-icon-add" title="Add Custom Goal">+</button>
+                    </div>
+                    <div class="blueprint-progress sidebar-text">
+                        <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-bar-fill"></div></div>
+                        <div class="progress-text" id="progress-text">0% Completed</div>
+                    </div>
+                    <div class="action-steps-compact" id="blueprint-list"></div>
+
+                </div>
+
+                <div class="support-section flex-row">
+                    <button class="btn-support flex-1" id="btn-support-ticket" title="Create a Support Ticket">
+                        <span class="support-icon">🎫</span>
+                        <span class="sidebar-text">Create Ticket</span>
+                    </button>
+                    <button class="btn-support-secondary sidebar-text btn-settings-icon" id="btn-settings" title="Settings">⚙️</button>
+                </div>
+            </aside>
+
+            <main class="yh-main-chat hide-scrollbar fade-in" id="academy-chat">
+                <header class="chat-header">
+                    <div class="header-left">
+                        <span class="hash-big" id="chat-header-icon">💬</span>
+                        <h3 id="chat-header-title">YH-community</h3>
+                        <div class="header-divider"></div>
+                        <p class="header-topic" id="chat-header-topic">Welcome to The Academy Universe</p>
+                    </div>
+                    <div class="header-right">
+                        <button class="btn-focus-mode" title="Focus Mode for Videos">👁️ Focus Mode</button>
+                    </div>
+                </header>
+
+                <div class="pinned-message" id="chat-pinned-message">
+                    <div class="pinned-icon">📌</div>
+                    <div class="pinned-content"><span class="pinned-label">HQ BULLETIN:</span> Focus on Module 1 this week. Live Q&A is scheduled on Friday at 8:00 PM. Prepare your questions!</div>
+                    <div class="pinned-jump">Jump</div>
+                </div>
+
+                <div class="chat-messages hide-scrollbar" id="chat-messages">
+                    <div class="welcome-embed fade-in" id="chat-welcome-box">
+                        <h2 class="welcome-title">Welcome to The Academy</h2>
+                        <p class="welcome-desc">Here is your execution plan. Watch the introductory video to begin your journey.</p>
+                        <div class="video-container">
+                            <video src="/video/yhvideo3.mp4" muted loop autoplay playsinline></video>
+                            <div class="play-btn">▶</div>
+                        </div>
+                    </div>
+                    <div id="dynamic-chat-history"></div>
+                </div>
+                
+                <div class="chat-input-area" id="chat-input-area">
+                    <div class="chat-input-wrapper">
+                        <button class="action-btn plus-btn" id="btn-chat-upload" title="Upload a file">➕</button>
+                        <input type="file" id="chat-file-input" style="display: none;">
+                        <div class="chat-input-container">
+                            <input type="text" id="chat-input" placeholder="Say something in YH-community..." class="chat-text-input">
+                            <button id="chat-send-btn" class="chat-send-btn" title="Send Message">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="input-extras">
+                            <span title="Send Gift">🎁</span><span title="Open GIF picker">GIF</span><span title="Select emoji">😀</span>
+                        </div>
+                    </div>
+                </div>
+            </main>
+
+            <main class="yh-main-chat hide-scrollbar hidden-step fade-in vault-main" id="vault-view">
+                <header class="chat-header"><div class="header-left"><span class="hash-big">🗄️</span><h3>The Vault</h3><div class="header-divider"></div><p class="header-topic">Your personal library of shared files, media, and links.</p></div></header>
+                <div class="vault-container hide-scrollbar">
+                    <div class="vault-filters">
+                        <div class="flex-row gap-10">
+                            <button class="vault-filter active">All</button><button class="vault-filter">📄 Docs</button><button class="vault-filter">🖼️ Media</button>
+                        </div>
+                        <div class="flex-row gap-10">
+                            <button class="btn-secondary vault-btn-action" id="btn-open-folder-modal">+ Folder</button>
+                            <button class="btn-primary vault-btn-action" id="btn-vault-upload-trigger">+ Upload</button>
+                            <input type="file" id="vault-file-input" style="display: none;">
+                        </div>
+                    </div>
+                    <div class="vault-grid" id="vault-dynamic-grid"></div>
+                </div>
+            </main>
+
+            <main class="yh-main-chat hide-scrollbar hidden-step announcements-main" id="announcements-view">
+                <header class="chat-header"><div class="header-left"><span class="hash-big">📢</span><h3>announcements</h3><div class="header-divider"></div><p class="header-topic">HQ Bulletins and Community Polls</p></div></header>
+                <div class="chat-messages hide-scrollbar"><div id="dynamic-announcements-history"><div class="announcement-empty">No new announcements from HQ.</div></div></div>
+            </main>
+
+            <main class="yh-main-chat hide-scrollbar hidden-step fade-in lounge-main" id="voice-lobby-view">
+                <header class="chat-header"><div class="header-left"><span class="hash-big">🎙️</span><h3>voice-lounge</h3><div class="header-divider"></div><p class="header-topic">Live Audio Networking</p></div><div class="header-right"><button class="btn-primary btn-start-lounge-action" id="btn-start-lounge">+ Start a Lounge</button></div></header>
+                <div class="lounge-container hide-scrollbar"><h2 class="lounge-title">Active Stages</h2><div class="lounge-grid" id="lounge-grid"></div></div>
+            </main>
+
+            <main class="yh-main-chat hide-scrollbar hidden-step fade-in lounge-main" id="video-lobby-view">
+                <header class="chat-header"><div class="header-left"><span class="hash-big">📹</span><h3>video-lounge</h3><div class="header-divider"></div><p class="header-topic">Live Video Networking & Breakdowns</p></div><div class="header-right"><button class="btn-primary btn-start-lounge-action" id="btn-start-video">+ Start Video Call</button></div></header>
+                <div class="lounge-container hide-scrollbar"><h2 class="lounge-title">Active Video Rooms</h2><div class="lounge-grid" id="video-grid"></div></div>
+            </main>
+
+            <main class="yh-main-chat hide-scrollbar hidden-step stage-main" id="center-stage-view">
+                <header class="chat-header"><div class="header-left"><span class="hash-big" id="stage-icon">🎙️</span><h3 id="stage-title">Live Call</h3><div class="header-divider"></div><p class="header-topic">Live Call Stage</p></div></header>
+                <div class="stage-layout-wrapper">
+                    <div class="stage-container fade-in hide-scrollbar">
+                        <div class="stage-section-title">ON STAGE</div>
+                        <div class="speakers-grid">
+                            <div class="speaker-card active-speaker"><div class="overlay-status mute-alert">🔇 Muted</div><div class="member-avatar speaker-avatar interactive-avatar" id="host-avatar" data-user="YH Admin" data-role="HQ">YH</div><div class="speaker-name"><span id="host-name">YH Admin</span> <span class="mic-icon" id="host-mic">🎤</span></div></div>
+                        </div>
+                    </div>
+                    <div class="stage-chat-panel">
+                        <div class="stage-chat-header">💬 Live Stage Chat</div>
+                        <div id="stage-chat-history" class="stage-chat-history hide-scrollbar"><div class="stage-chat-welcome">Welcome to the live stage chat!</div></div>
+                        <div class="stage-chat-input-wrapper">
+                            <input type="text" id="stage-chat-input" placeholder="Type a message..." class="input-field-compact stage-chat-input">
+                            <button id="stage-chat-send-btn" class="stage-chat-send-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg></button>
+                        </div>
+                    </div>
+                </div>
+                <div class="stage-controls-bar">
+                    <button class="control-btn toggle-btn" id="btn-toggle-mic" title="Toggle Mic">🎤</button>
+                    <button class="btn-support btn-leave-call" id="btn-leave-stage">📞 Leave Call</button>
+                </div>
+            </main>
+
+            <aside class="yh-right-sidebar hide-scrollbar">
+                <div class="channel-category category-mt fw-bold color-neon">🔥 TOP INFLUENCERS</div>
+                <ul class="member-list leaderboard-list" id="leaderboard-list"></ul>
+                <div class="channel-category category-mt">ACTIVE HUSTLERS — 1</div>
+                <ul class="member-list"><li class="interactive-avatar" data-user="Me" data-role="Hustler"><div class="member-avatar" id="right-sidebar-initial">Y</div><div class="member-name" id="right-sidebar-name">Hustler</div></li></ul>
+            </aside>
+        </div>
+
+        <main class="coming-soon-wrapper hide-scrollbar hidden-step" id="view-plazas">
+            <div class="coming-soon-icon" style="animation: none; font-size: 5rem;">🏪</div>
+            <h2 class="coming-soon-title">The Plazas is Locked</h2>
+            <p class="coming-soon-desc">Access the marketplace and community hubs. You need to apply to enter.</p>
+            <button class="btn-primary" style="max-width: 300px; margin-top: 1rem;" onclick="document.getElementById('academy-apply-modal').classList.remove('hidden-step')">Apply for Plaza Access</button>
+        </main>
+
+        <main class="coming-soon-wrapper hide-scrollbar hidden-step" id="view-federation">
+            <div class="coming-soon-icon" style="animation: none; font-size: 5rem;">🤝</div>
+            <h2 class="coming-soon-title">The Federation is Locked</h2>
+            <p class="coming-soon-desc">Connect with high-level affiliates and partners. You need to apply to enter.</p>
+            <button class="btn-primary" style="max-width: 300px; margin-top: 1rem;" onclick="document.getElementById('academy-apply-modal').classList.remove('hidden-step')">Apply for Federation Access</button>
+        </main>
+    </div>
+
+    <div id="academy-apply-modal" class="modal-overlay hidden-step" style="z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px;">
+        
+        <div class="modal-content hide-scrollbar" style="position: relative; max-width: 700px; width: 100%; max-height: 85vh; overflow-y: auto; padding: 3rem 2.5rem; background: var(--panel-dark); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);">
+            
+            <button id="close-academy-apply" style="position: absolute; top: 20px; right: 20px; background: rgba(255,255,255,0.05); border: none; color: var(--text-muted); width: 35px; height: 35px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1rem; transition: 0.2s;">✖</button>
+            
+            <div id="ai-form-phase">
+                <div class="text-center mb-1-25">
+                    <h2 class="yh-title-small" style="color: var(--neon-blue);">Academy Admissions</h2>
+                    <p class="yh-subtitle-small">The AI Agent will evaluate your intent and seriousness.</p>
+                </div>
+                
+<form id="form-academy-apply">
+    <div class="form-row">
+        <div class="form-group w-full mb-small">
+            <label>Age</label>
+            <input type="number" id="app-age" required class="input-field">
+        </div>
+        <div class="form-group w-full mb-small">
+            <label>Country</label>
+            <input type="text" id="app-country" required class="input-field">
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group w-full mb-small">
+            <label>City</label>
+            <input type="text" id="app-city" class="input-field" placeholder="e.g. Quezon City">
+        </div>
+        <div class="form-group w-full mb-small">
+            <label>Occupation Type</label>
+            <select id="app-occupation-type" class="input-field styled-select">
+                <option value="" selected>Select type...</option>
+                <option value="Student">Student</option>
+                <option value="Employed">Employed</option>
+                <option value="Freelancer">Freelancer</option>
+                <option value="Business Owner">Business Owner</option>
+                <option value="Unemployed">Unemployed</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="form-group mb-small">
+        <label>Current Job / Business</label>
+        <input type="text" id="app-job" required class="input-field" placeholder="What do you currently do?">
+    </div>
+
+    <div class="form-row">
+        <div class="form-group w-full mb-small">
+            <label>Industry / Niche</label>
+            <input type="text" id="app-industry" class="input-field" placeholder="e.g. Design, E-commerce, Sales">
+        </div>
+        <div class="form-group w-full mb-small">
+            <label>Main Income Source</label>
+            <input type="text" id="app-income-source" class="input-field" placeholder="e.g. Salary, clients, business">
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group w-full mb-small">
+            <label>Monthly Income Range</label>
+            <select id="app-income-range" class="input-field styled-select">
+                <option value="" selected>Select range...</option>
+                <option value="No income">No income</option>
+                <option value="Below $100">Below $100</option>
+                <option value="$100 - $300">$100 - $300</option>
+                <option value="$300 - $800">$300 - $800</option>
+                <option value="$800 - $1500">$800 - $1500</option>
+                <option value="$1500+">$1500+</option>
+            </select>
+        </div>
+        <div class="form-group w-full mb-small">
+            <label>Savings Range</label>
+            <select id="app-savings-range" class="input-field styled-select">
+                <option value="" selected>Select range...</option>
+                <option value="No savings">No savings</option>
+                <option value="Below $100">Below $100</option>
+                <option value="$100 - $500">$100 - $500</option>
+                <option value="$500 - $2000">$500 - $2000</option>
+                <option value="$2000+">$2000+</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group w-full mb-small">
+            <label>Business Stage</label>
+            <select id="app-business-stage" class="input-field styled-select">
+                <option value="" selected>Select stage...</option>
+                <option value="None yet">None yet</option>
+                <option value="Idea stage">Idea stage</option>
+                <option value="Just starting">Just starting</option>
+                <option value="Getting first results">Getting first results</option>
+                <option value="Stable and growing">Stable and growing</option>
+            </select>
+        </div>
+        <div class="form-group w-full mb-small">
+            <label>Hours you can commit weekly</label>
+            <input type="number" min="1" id="app-hours" required class="input-field" placeholder="e.g. 10">
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group w-full mb-small">
+            <label>Sleep Hours</label>
+            <input type="number" step="0.5" min="0" max="24" id="app-sleep-hours" class="input-field" placeholder="e.g. 6.5">
+        </div>
+        <div class="form-group w-full mb-small">
+            <label>Energy Score (1-10)</label>
+            <input type="number" min="1" max="10" id="app-energy-score" class="input-field" placeholder="1 - 10">
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group w-full mb-small">
+            <label>Exercise Frequency</label>
+            <select id="app-exercise-frequency" class="input-field styled-select">
+                <option value="" selected>Select frequency...</option>
+                <option value="Never">Never</option>
+                <option value="Rarely">Rarely</option>
+                <option value="1-2 times a week">1-2 times a week</option>
+                <option value="3-4 times a week">3-4 times a week</option>
+                <option value="5+ times a week">5+ times a week</option>
+            </select>
+        </div>
+        <div class="form-group w-full mb-small">
+            <label>Stress Score (1-10)</label>
+            <input type="number" min="1" max="10" id="app-stress-score" class="input-field" placeholder="1 - 10">
+        </div>
+    </div>
+
+    <div class="form-group mb-small">
+        <label>Biggest Bad Habit</label>
+        <input type="text" id="app-bad-habit" class="input-field" placeholder="e.g. sleeping late, procrastination, distractions">
+    </div>
+
+    <div class="form-group mb-small">
+        <label>Why do you want to join The Academy?</label>
+        <textarea id="app-reason" required class="input-field" rows="2" placeholder="Why do you want access?"></textarea>
+    </div>
+
+    <div class="form-group mb-small">
+        <label>What are your goals in the next 6 months?</label>
+        <textarea id="app-goals" required class="input-field" rows="2" placeholder="Describe your wealth, health, or life goals"></textarea>
+    </div>
+
+    <div class="form-group mb-small">
+        <label>What usually stops you from improving consistently?</label>
+        <textarea id="app-blocker-text" class="input-field" rows="2" placeholder="e.g. inconsistency, fear, distractions, no plan"></textarea>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group w-full mb-small">
+            <label>Rate your seriousness</label>
+            <select id="app-seriousness" required class="input-field styled-select">
+                <option value="" disabled selected>Select status...</option>
+                <option value="Very Serious">Very Serious</option>
+                <option value="Looking to learn">Looking to learn</option>
+                <option value="Just Curious">Just Curious</option>
+            </select>
+        </div>
+        <div class="form-group w-full mb-small">
+            <label>Preferred Coach Tone</label>
+            <select id="app-coach-tone" class="input-field styled-select">
+                <option value="balanced" selected>Balanced</option>
+                <option value="strict">Strict</option>
+                <option value="supportive">Supportive</option>
+            </select>
+        </div>
+    </div>
+
+    <button type="submit" id="btn-submit-ai" class="btn-primary w-full mt-small" style="padding: 12px; font-size: 1.1rem;">
+        Submit to AI Agent ➔
+    </button>
+</form>
+            </div>
+
+            <div id="ai-spinner-phase" class="hidden-step text-center py-large">
+                <div class="pulse-ring mx-auto mb-1-25" style="width: 80px; height: 80px; border-top-color: var(--neon-blue);"></div>
+                <h3 style="color: var(--neon-blue);">AI Agent is evaluating your profile...</h3>
+                <p class="text-muted">Analyzing intent, commitment, and potential.</p>
+            </div>
+
+            <div id="ai-verdict-phase" class="hidden-step text-center py-large">
+                <div id="ai-verdict-icon" style="font-size: 5rem; line-height: 1;">✅</div>
+                <h2 id="ai-verdict-title" style="color: var(--success); margin-top: 1rem;">Application Approved!</h2>
+                <p id="ai-verdict-desc" class="subtitle mb-large">AI Score: 85/100. Welcome to The Academy.</p>
+                <button id="btn-enter-academy-chat" type="button" class="btn-primary w-full" style="padding: 12px; font-size: 1.1rem;">Open Academy Home ➔</button>
+            </div>
+
+        </div>
+    </div>
+
+    <div id="task-confirm-modal" class="modal-overlay hidden-step fade-in"><div class="modal-card modal-center"><div class="modal-body"><h3 class="modal-title-text">Complete Task?</h3><div class="flex-row gap-10"><button class="btn-secondary flex-1" id="btn-cancel-task">No</button><button class="btn-primary flex-1 btn-success-action" id="btn-confirm-task">Yes</button></div></div></div></div>
+    <div id="mission-modal" class="modal-overlay hidden-step fade-in"><div class="modal-card"><div class="modal-header"><h3>🎯 Set a New Goal</h3><span id="close-mission-modal" class="close-btn" title="Close">✖</span></div><div class="modal-body"><input type="text" id="mission-title-input" placeholder="What's your next task?" class="input-field-compact"></div><div class="modal-footer"><button class="btn-primary w-full" id="btn-save-mission">Lock in Mission</button></div></div></div>
+    <div id="lounge-modal" class="modal-overlay hidden-step fade-in"><div class="modal-card"><div class="modal-header"><h3>🎙️ Start Lounge</h3><span id="close-lounge-modal" class="close-btn">✖</span></div><div class="modal-body"><input type="text" id="lounge-topic-input" placeholder="Topic" class="input-field-compact"></div><div class="modal-footer"><button class="btn-primary w-full btn-disabled" id="btn-create-lounge" disabled>Start</button></div></div></div>
+    
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/js/dashboard.js"></script>
+</body>
+</html>

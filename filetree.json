@@ -1,0 +1,152 @@
+{
+  "name": "Yh",
+  "path": "c:\\Users\\baudss\\Documents\\github\\Yh",
+  "type": "directory",
+  "children": [
+    {
+      "name": "controllers",
+      "type": "folder",
+      "children": [
+        {
+          "name": "applyControllers.js",
+          "type": "file"
+        },
+        {
+          "name": "authControllers.js",
+          "type": "file"
+        }
+      ]
+    },
+    {
+      "name": "middlewares",
+      "type": "folder",
+      "children": [
+        {
+          "name": "auth.js",
+          "type": "file"
+        }
+      ]
+    },
+    {
+      "name": "models",
+      "type": "folder",
+      "children": [
+        {
+          "name": "User.js",
+          "type": "file"
+        }
+      ]
+    },
+    {
+      "name": "public",
+      "type": "folder",
+      "children": [
+        {
+          "name": "css",
+          "type": "folder",
+          "children": [
+            {
+              "name": "style.css",
+              "type": "file"
+            }
+          ]
+        },
+        {
+          "name": "images",
+          "type": "folder",
+          "children": [
+            {
+              "name": "bg.avif",
+              "type": "file"
+            },
+            {
+              "name": "logo.avif",
+              "type": "file"
+            }
+          ]
+        },
+        {
+          "name": "js",
+          "type": "folder",
+          "children": [
+            {
+              "name": "apply.js",
+              "type": "file"
+            },
+            {
+              "name": "dashboard.js",
+              "type": "file"
+            }
+          ]
+        },
+        {
+          "name": "video",
+          "type": "folder",
+          "children": [
+            {
+              "name": "yhvideo3.mp4",
+              "type": "file"
+            }
+          ]
+        },
+        {
+          "name": "apply.html",
+          "type": "file"
+        },
+        {
+          "name": "dashboard.html",
+          "type": "file"
+        }
+      ]
+    },
+    {
+      "name": "routes",
+      "type": "folder",
+      "children": [
+        {
+          "name": "apiRoutes.js",
+          "type": "file"
+        },
+        {
+          "name": "viewRoutes.js",
+          "type": "file"
+        }
+      ]
+    },
+    {
+      "name": ".gitignore",
+      "type": "file"
+    },
+    {
+      "name": "check-ai.js",
+      "type": "file"
+    },
+    {
+      "name": "filetree.json",
+      "type": "file"
+    },
+    {
+      "name": "package-lock.json",
+      "type": "file"
+    },
+    {
+      "name": "package.json",
+      "type": "file"
+    },
+    {
+      "name": "server.js",
+      "type": "file"
+    },
+    {
+      "name": "yh_database.sqlite",
+      "type": "file"
+    }
+  ],
+  "metadata": {
+    "generated": "2026-03-22T07:00:08.014Z",
+    "generator": "FileTree Pro Extension",
+    "version": "0.2.0",
+    "showIcons": false,
+    "maxDepth": 10
+  }
+}
