@@ -58,7 +58,22 @@ document.addEventListener('DOMContentLoaded', () => {
             flipToRegister();
         });
     }
+        const setPendingVerifyEmail = (email) => {
+            if (!email) return;
+            sessionStorage.setItem('yh_pending_verify_email', String(email).trim().toLowerCase());
+        };
 
+        const getPendingVerifyEmail = () => {
+            const fromSession = sessionStorage.getItem('yh_pending_verify_email');
+            if (fromSession) return fromSession;
+
+            const regEmailInput = document.getElementById('reg-email');
+            return regEmailInput?.value?.trim().toLowerCase() || '';
+        };
+
+        const clearPendingVerifyEmail = () => {
+            sessionStorage.removeItem('yh_pending_verify_email');
+        };
     // --- LOGIN LOGIC ---
     const btnLogin = document.getElementById('btn-login');
     if (btnLogin) {
@@ -97,45 +112,51 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- REGISTER LOGIC (SIMPLE FORM) ---
-    const formRegisterSimple = document.getElementById('form-register-simple');
-    if (formRegisterSimple) {
-        formRegisterSimple.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const password = document.getElementById('reg-password').value;
-            const confirmPassword = document.getElementById('reg-confirm-password').value;
-            if(password !== confirmPassword) { showToast("Passwords do not match.", "error"); return; }
+const formRegisterSimple = document.getElementById('form-register-simple');
+if (formRegisterSimple) {
+    formRegisterSimple.addEventListener('submit', async function(e) {
+        e.preventDefault();
 
-            const submitBtn = e.target.querySelector('button[type="submit"]');
-            submitBtn.innerText = "Creating Account..."; submitBtn.disabled = true;
+        const password = document.getElementById('reg-password').value;
+        const confirmPassword = document.getElementById('reg-confirm-password').value;
+        if (password !== confirmPassword) {
+            showToast("Passwords do not match.", "error");
+            return;
+        }
 
-            const fullName = document.getElementById('reg-fullname').value;
-            const email = document.getElementById('reg-email').value;
-            const username = document.getElementById('reg-username').value;
-            const contact = document.getElementById('reg-phone').value;
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        submitBtn.innerText = "Creating Account...";
+        submitBtn.disabled = true;
 
-            try {
-                const response = await fetch('/api/register', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    // WALA NANG AUTHORIZATION HEADER DAHIL WALA NA YUNG AI GOLDEN TICKET SA LABAS
-                    body: JSON.stringify({ fullName, email, username, contact, password })
-                });
-                const result = await response.json();
+        const fullName = document.getElementById('reg-fullname').value.trim();
+        const email = document.getElementById('reg-email').value.trim().toLowerCase();
 
-                if (result.success) {
-                    showToast(result.message, "success");
-                    showStep(2); // Punta sa OTP!
-                    startOTPTimer();
-                } else {
-                    showToast(result.message, "error");
-                    submitBtn.innerText = "Create Account ➔"; submitBtn.disabled = false;
-                }
-            } catch (error) {
-                showToast("Server error during registration.", "error");
-                submitBtn.innerText = "Create Account ➔"; submitBtn.disabled = false;
+        try {
+            const response = await fetch('/api/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fullName, email, password })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                setPendingVerifyEmail(email);
+                showToast(result.message, "success");
+                showStep(2);
+                startOTPTimer();
+            } else {
+                showToast(result.message, "error");
+                submitBtn.innerText = "Create Account ➔";
+                submitBtn.disabled = false;
             }
-        });
-    }
+        } catch (error) {
+            showToast("Server error during registration.", "error");
+            submitBtn.innerText = "Create Account ➔";
+            submitBtn.disabled = false;
+        }
+    });
+}
 
     // --- OTP LOGIC ---
     let otpTimerInterval;

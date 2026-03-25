@@ -41,7 +41,73 @@ const dedupeStrings = (values, limit = 3) => {
     }
     return out;
 };
+const FOUNDER_DOCTRINE = {
+    principles: [
+        'Build the body, discipline, and energy needed to carry bigger responsibilities.',
+        'Discipline comes before expansion.',
+        'Operate in weekly cycles: start on Sunday, review honestly on Saturday.',
+        'If a low-value task keeps repeating, delegate it, automate it, or remove it.',
+        'Protect time for health, focus, and self-mastery.'
+    ],
+    operatingSystem: {
+        weekStartsOn: 'Sunday',
+        weeklyReviewDay: 'Saturday',
+        reviewInstruction: 'Review everything completed and missed this week. Identify what moved life forward, what wasted time, and what must be corrected immediately.',
+        delegationRule: 'If a low-value task repeats multiple times, delegate it, automate it, or remove it.'
+    },
+    resources: [
+        {
+            key: 'facemax',
+            title: 'The FaceMax Protocol',
+            url: 'https://oscarschulzz.gumroad.com/l/thefacemaxprotocol',
+            description: 'A founder-created resource for improving physical standards, confidence, and discipline.',
+            useWhen: [
+                'health is a bottleneck',
+                'physical discipline is weak',
+                'energy is low',
+                'appearance confidence is a blocker'
+            ]
+        }
+    ]
+};
 
+function buildDoctrineContext(profile, context = {}) {
+    const recentSkipped = (context.recentMissions || []).filter((item) => item.status === 'skipped').length;
+    const recentStuck = (context.recentMissions || []).filter((item) => item.status === 'stuck').length;
+
+    const weakStructure =
+        /no routine|very inconsistent/i.test(profile.currentRoutine || '') ||
+        recentSkipped > 1 ||
+        recentStuck > 0;
+
+    const healthIsBottleneck =
+        (profile.energyScore > 0 && profile.energyScore <= 4) ||
+        (profile.sleepHours > 0 && profile.sleepHours < 6) ||
+        /health|body|fitness|appearance|confidence/i.test(profile.topPriorityPillar || '') ||
+        /health|body|fitness|appearance|confidence|shape|energy/i.test(profile.biggestImmediateProblem || '') ||
+        /health|body|appearance|confidence|energy/i.test(profile.blockerText || '');
+
+    const coachBrief = healthIsBottleneck
+        ? 'Your body and energy are not side issues. They are part of the mission. Fix the physical base first so you can carry harder responsibilities with consistency.'
+        : weakStructure
+            ? 'You do not need more noise. You need a tighter operating system. Start the week on Sunday, review it on Saturday, and remove repetition that steals time from your real priorities.'
+            : 'The goal is not to stay busy. The goal is to build a version of you that can execute with discipline, protect health, and create visible forward movement every week.';
+
+    const recommendedResources = [];
+    if (healthIsBottleneck) {
+        recommendedResources.push({
+            title: FOUNDER_DOCTRINE.resources[0].title,
+            url: FOUNDER_DOCTRINE.resources[0].url,
+            reason: 'Recommended because your current bottleneck includes low energy, weak physical discipline, health inconsistency, or appearance-related confidence.'
+        });
+    }
+
+    return {
+        coachBrief,
+        weeklyOperatingSystem: { ...FOUNDER_DOCTRINE.operatingSystem },
+        recommendedResources
+    };
+}
 const normalizeProfile = (rawProfile = {}) => ({
     city: sanitize(rawProfile.city),
     country: sanitize(rawProfile.country),
@@ -71,6 +137,17 @@ function buildFallbackRoadmap(profile, context = {}) {
 
     let readinessScore = 60;
 
+    const priorityMap = {
+        money: 'wealth',
+        business: 'wealth',
+        discipline: 'discipline',
+        health: 'health',
+        mindset: 'mindset',
+        communication: 'communication'
+    };
+
+    const mappedPriority = priorityMap[(profile.topPriorityPillar || '').toLowerCase()] || '';
+
     if (profile.energyScore <= 4 || profile.sleepHours < 6) {
         focusAreas.push('health');
         bottlenecks.push('Low energy and weak recovery');
@@ -96,9 +173,19 @@ function buildFallbackRoadmap(profile, context = {}) {
         readinessScore -= 8;
     }
 
+    if (profile.currentRoutine && /no routine|very inconsistent/i.test(profile.currentRoutine)) {
+        focusAreas.push('discipline');
+        bottlenecks.push('Weak daily structure');
+        readinessScore -= 6;
+    }
+
     if (profile.blockerText && profile.blockerText.length > 6) {
         focusAreas.push('discipline');
         bottlenecks.push('Execution inconsistency');
+    }
+
+    if (profile.biggestImmediateProblem) {
+        bottlenecks.push(profile.biggestImmediateProblem);
     }
 
     if (profile.monthlyIncomeRange && /0|none|below|under/i.test(profile.monthlyIncomeRange)) {
@@ -107,6 +194,10 @@ function buildFallbackRoadmap(profile, context = {}) {
         readinessScore -= 6;
     } else {
         focusAreas.push('wealth');
+    }
+
+    if (mappedPriority) {
+        focusAreas.unshift(mappedPriority);
     }
 
     if (!focusAreas.includes('discipline')) focusAreas.push('discipline');
@@ -119,68 +210,99 @@ function buildFallbackRoadmap(profile, context = {}) {
 
     const primaryBottleneck = uniqueBottlenecks[0] || 'Lack of clear execution structure';
     const secondaryBottleneck = uniqueBottlenecks[1] || 'Scattered effort across too many goals';
-    const mainOpportunity = uniqueFocusAreas.includes('wealth')
-        ? 'Build a small but consistent income system around your current skills'
-        : 'Stabilize routine first, then scale execution';
+    const mainOpportunity = profile.next30DaysWin
+        ? `Turn the next 30-day win into a measurable execution plan: ${profile.next30DaysWin}`
+        : uniqueFocusAreas.includes('wealth')
+            ? 'Build a small but consistent income system around your current skills'
+            : 'Stabilize routine first, then scale execution';
 
     const recentStuck = (context.recentMissions || []).filter((item) => item.status === 'stuck').length;
     const recentSkipped = (context.recentMissions || []).filter((item) => item.status === 'skipped').length;
 
+    const workStyleMinutes =
+        /short daily tasks/i.test(profile.preferredWorkStyle || '') ? [10, 15, 30, 15, 20] :
+        /deep work blocks/i.test(profile.preferredWorkStyle || '') ? [20, 25, 90, 30, 45] :
+        /aggressive challenge mode/i.test(profile.preferredWorkStyle || '') ? [20, 30, 90, 35, 45] :
+        [15, 20, 60, 25, 30];
+
+    const accountabilityTone =
+        /strict|hard/i.test(profile.accountabilityStyle || '')
+            ? 'This needs a clear deadline and no excuses.'
+            : /encouragement|simple wins/i.test(profile.accountabilityStyle || '')
+                ? 'Keep the task simple enough to complete today.'
+                : 'Make the task clear and easy to track.';
+
+    const doctrine = buildDoctrineContext(profile, context);
+
     const missions = [
         {
-            pillar: 'discipline',
-            title: 'Set a hard start time for your main work block',
-            description: 'Choose one exact time window every day for focused execution.',
-            whyItMatters: 'Consistency compounds faster than motivation.',
+            pillar: uniqueFocusAreas[0] || 'discipline',
+            title: mappedPriority === 'wealth'
+                ? 'Do one income-moving task today'
+                : 'Set a hard start time for your main work block',
+            description: mappedPriority === 'wealth'
+                ? 'Choose one exact task tied to outreach, selling, client work, or offer building and complete it today.'
+                : 'Choose one exact time window every day for focused execution.',
+            whyItMatters: accountabilityTone,
             frequency: 'daily',
             dueDate: todayISO(),
-            estimatedMinutes: 15,
+            estimatedMinutes: workStyleMinutes[0],
             sortOrder: 1
         },
         {
             pillar: 'health',
-            title: 'Protect sleep and reduce late-night distractions',
-            description: 'Create a shut-down routine and avoid sleep sabotage tonight.',
+            title: 'Protect energy and reduce avoidable drain',
+            description: profile.sleepHours < 6
+                ? 'Create a shut-down routine tonight and protect your sleep window.'
+                : 'Remove one habit today that keeps draining your energy or attention.',
             whyItMatters: 'Your energy determines the quality of your decisions.',
             frequency: 'daily',
             dueDate: todayISO(),
-            estimatedMinutes: 20,
+            estimatedMinutes: workStyleMinutes[1],
             sortOrder: 2
         },
         {
-            pillar: 'wealth',
-            title: 'Work on one income-producing task',
-            description: 'Spend one block on outreach, sales, client work, or business building.',
-            whyItMatters: 'Your roadmap must create real economic movement.',
+            pillar: mappedPriority || 'wealth',
+            title: profile.next30DaysWin
+                ? 'Take one action toward your 30-day win'
+                : 'Work on one high-value forward task',
+            description: profile.next30DaysWin
+                ? `Do one concrete action that directly moves this result forward: ${profile.next30DaysWin}`
+                : 'Spend one block on the most valuable task available to you today.',
+            whyItMatters: 'The roadmap has to create visible movement, not just intention.',
             frequency: 'daily',
             dueDate: todayISO(),
-            estimatedMinutes: 60,
+            estimatedMinutes: workStyleMinutes[2],
             sortOrder: 3
         },
         {
-            pillar: recentStuck > 0 ? 'discipline' : 'wealth',
-            title: recentStuck > 0 ? 'Simplify the task you kept getting stuck on' : 'Define one 30-day money target',
+            pillar: recentStuck > 0 ? 'discipline' : (mappedPriority || 'discipline'),
+            title: recentStuck > 0
+                ? 'Simplify the task you kept getting stuck on'
+                : 'Define the clearest weekly target',
             description: recentStuck > 0
                 ? 'Break your hardest blocked task into one smaller, easier next action.'
-                : 'Write the exact income goal and the activity that will create it.',
+                : 'Write the exact target for this week and the action that creates it.',
             whyItMatters: recentStuck > 0
                 ? 'Momentum returns when the task becomes easier to start.'
                 : 'Clear targets convert effort into direction.',
             frequency: 'weekly',
             dueDate: addDaysISO(3),
-            estimatedMinutes: recentStuck > 0 ? 20 : 25,
+            estimatedMinutes: workStyleMinutes[3],
             sortOrder: 4
         },
         {
-            pillar: recentSkipped > 1 ? 'discipline' : 'wealth',
-            title: recentSkipped > 1 ? 'Remove one major execution friction point' : 'Review your blocker and remove one friction point',
+            pillar: recentSkipped > 1 ? 'discipline' : (mappedPriority || 'wealth'),
+            title: recentSkipped > 1
+                ? 'Remove one major execution friction point'
+                : 'Review your blocker and remove one friction point',
             description: recentSkipped > 1
                 ? 'Identify one environmental or behavioral pattern that keeps causing skips and remove it.'
-                : 'Fix one thing that keeps making you delay action.',
+                : `Fix one thing that keeps making you delay action.${profile.biggestImmediateProblem ? ` Main problem: ${profile.biggestImmediateProblem}.` : ''}`,
             whyItMatters: 'Execution improves when friction is reduced.',
             frequency: 'weekly',
             dueDate: addDaysISO(5),
-            estimatedMinutes: 30,
+            estimatedMinutes: workStyleMinutes[4],
             sortOrder: 5
         }
     ];
@@ -195,14 +317,17 @@ function buildFallbackRoadmap(profile, context = {}) {
         },
         focusAreas: uniqueFocusAreas,
         roadmap: {
-            goal: 'Stabilize structure, improve energy, and create measurable forward movement in wealth and discipline.',
+            goal: profile.goals6mo || 'Stabilize structure, improve energy, and create measurable forward movement.',
             coachTone: profile.coachTone || 'balanced',
             weeklyTheme: recentStuck > 0 ? 'Friction Reduction' : 'Execution Structure',
-            weeklyTargetOutcome: recentStuck > 0 ? 'Finish blocked work in smaller steps' : 'Create visible forward progress this week',
+            weeklyTargetOutcome: profile.next30DaysWin || (recentStuck > 0 ? 'Finish blocked work in smaller steps' : 'Create visible forward progress this week'),
+            coachBrief: doctrine.coachBrief,
+            weeklyOperatingSystem: doctrine.weeklyOperatingSystem,
+            recommendedResources: doctrine.recommendedResources,
             days30: {
                 week1: 'Reset structure and reduce friction',
                 week2: 'Build consistency and protect energy',
-                week3: 'Increase output on wealth tasks',
+                week3: 'Increase output on your highest-priority pillar',
                 week4: 'Review progress and tighten execution'
             }
         },
@@ -228,6 +353,7 @@ function normalizeMission(rawMission = {}, index = 0) {
 
 function normalizePlan(rawPlan, profile, context = {}) {
     const fallback = buildFallbackRoadmap(profile, context);
+    const doctrine = buildDoctrineContext(profile, context);
     const plan = rawPlan && typeof rawPlan === 'object' ? rawPlan : {};
     const roadmapNode = plan.roadmap && typeof plan.roadmap === 'object' ? plan.roadmap : {};
     const summaryNode = roadmapNode.summary && typeof roadmapNode.summary === 'object'
@@ -236,6 +362,15 @@ function normalizePlan(rawPlan, profile, context = {}) {
 
     const missionsSource = Array.isArray(plan.missions) && plan.missions.length ? plan.missions : fallback.missions;
     const normalizedMissions = missionsSource.slice(0, 5).map((mission, index) => normalizeMission(mission, index));
+
+    const weeklyOperatingSystemNode =
+        roadmapNode.weeklyOperatingSystem && typeof roadmapNode.weeklyOperatingSystem === 'object'
+            ? roadmapNode.weeklyOperatingSystem
+            : {};
+
+    const recommendedResourcesNode = Array.isArray(roadmapNode.recommendedResources)
+        ? roadmapNode.recommendedResources
+        : fallback.roadmap.recommendedResources;
 
     return {
         readinessScore: clamp(
@@ -255,6 +390,21 @@ function normalizePlan(rawPlan, profile, context = {}) {
             coachTone: sanitize(roadmapNode.coachTone || profile.coachTone || fallback.roadmap.coachTone || 'balanced') || 'balanced',
             weeklyTheme: sanitize(roadmapNode.weeklyTheme || fallback.roadmap.weeklyTheme || ''),
             weeklyTargetOutcome: sanitize(roadmapNode.weeklyTargetOutcome || fallback.roadmap.weeklyTargetOutcome || ''),
+            coachBrief: sanitize(roadmapNode.coachBrief || fallback.roadmap.coachBrief || doctrine.coachBrief),
+            weeklyOperatingSystem: {
+                weekStartsOn: sanitize(weeklyOperatingSystemNode.weekStartsOn || fallback.roadmap.weeklyOperatingSystem.weekStartsOn || doctrine.weeklyOperatingSystem.weekStartsOn),
+                weeklyReviewDay: sanitize(weeklyOperatingSystemNode.weeklyReviewDay || fallback.roadmap.weeklyOperatingSystem.weeklyReviewDay || doctrine.weeklyOperatingSystem.weeklyReviewDay),
+                reviewInstruction: sanitize(weeklyOperatingSystemNode.reviewInstruction || fallback.roadmap.weeklyOperatingSystem.reviewInstruction || doctrine.weeklyOperatingSystem.reviewInstruction),
+                delegationRule: sanitize(weeklyOperatingSystemNode.delegationRule || fallback.roadmap.weeklyOperatingSystem.delegationRule || doctrine.weeklyOperatingSystem.delegationRule)
+            },
+            recommendedResources: (Array.isArray(recommendedResourcesNode) ? recommendedResourcesNode : [])
+                .slice(0, 3)
+                .map((item) => ({
+                    title: sanitize(item?.title || ''),
+                    url: sanitize(item?.url || ''),
+                    reason: sanitize(item?.reason || '')
+                }))
+                .filter((item) => item.title && item.url),
             days30: {
                 week1: sanitize((roadmapNode.days30 || {}).week1 || fallback.roadmap.days30.week1),
                 week2: sanitize((roadmapNode.days30 || {}).week2 || fallback.roadmap.days30.week2),
@@ -300,6 +450,32 @@ function buildPlannerSchema() {
                     coachTone: { type: 'string' },
                     weeklyTheme: { type: 'string' },
                     weeklyTargetOutcome: { type: 'string' },
+                    coachBrief: { type: 'string' },
+                    weeklyOperatingSystem: {
+                        type: 'object',
+                        additionalProperties: false,
+                        properties: {
+                            weekStartsOn: { type: 'string' },
+                            weeklyReviewDay: { type: 'string' },
+                            reviewInstruction: { type: 'string' },
+                            delegationRule: { type: 'string' }
+                        },
+                        required: ['weekStartsOn', 'weeklyReviewDay', 'reviewInstruction', 'delegationRule']
+                    },
+                    recommendedResources: {
+                        type: 'array',
+                        maxItems: 3,
+                        items: {
+                            type: 'object',
+                            additionalProperties: false,
+                            properties: {
+                                title: { type: 'string' },
+                                url: { type: 'string' },
+                                reason: { type: 'string' }
+                            },
+                            required: ['title', 'url', 'reason']
+                        }
+                    },
                     days30: {
                         type: 'object',
                         additionalProperties: false,
@@ -312,7 +488,19 @@ function buildPlannerSchema() {
                         required: ['week1', 'week2', 'week3', 'week4']
                     }
                 },
-                required: ['readinessScore', 'focusAreas', 'summary', 'goal', 'coachTone', 'weeklyTheme', 'weeklyTargetOutcome', 'days30']
+                required: [
+                    'readinessScore',
+                    'focusAreas',
+                    'summary',
+                    'goal',
+                    'coachTone',
+                    'weeklyTheme',
+                    'weeklyTargetOutcome',
+                    'coachBrief',
+                    'weeklyOperatingSystem',
+                    'recommendedResources',
+                    'days30'
+                ]
             },
             missions: {
                 type: 'array',
@@ -365,12 +553,26 @@ function buildPlannerMessages(profile, context = {}) {
             content: [
                 'You are the Academy planner for Young Hustlers.',
                 'Generate a realistic, hard-nosed, supportive roadmap for the user.',
-                'The user must get suggestions based on their current situation, energy, time, seriousness, money reality, and past execution behavior.',
+                'Use the full intake profile, especially age range, reason for joining now, top priority pillar, biggest immediate problem, current routine, preferred work style, accountability style, next-30-days win, extra context, energy, time, seriousness, money reality, and past execution behavior.',
                 'Do not produce generic motivation fluff.',
-                'Prefer missions that are specific, actionable, and measurable.',
+                'Prefer missions that are specific, actionable, measurable, and realistically completable.',
                 'If the user has low energy or low time, simplify the workload.',
                 'If the user has repeated skips or stuck missions, reduce complexity and remove friction before increasing ambition.',
+                'If the user names a top priority pillar, bias the roadmap and missions toward that pillar unless health or discipline is clearly the bigger blocker.',
                 'At least one mission should support wealth or income movement when appropriate.',
+                'Match the mission style to the user work style and accountability preference.',
+                'Apply the founder doctrine when relevant.',
+                `Founder doctrine principles: ${FOUNDER_DOCTRINE.principles.join(' | ')}`,
+                'The doctrine is an operating standard, not generic hype.',
+                'Always return a short founder-style coachBrief for the week.',
+                'Always return weeklyOperatingSystem with the exact week structure and weekly review standard.',
+                'Recommend founder resources only when clearly justified by the user bottleneck.',
+                'If health, physical discipline, energy, or appearance-confidence is a real blocker, you may recommend The FaceMax Protocol.',
+                `If you recommend The FaceMax Protocol, use this exact URL: ${FOUNDER_DOCTRINE.resources[0].url}`,
+                'Do not recommend founder resources randomly or in every plan.',
+                'If the user lacks structure, execution rhythm, or weekly review habits, reflect the 2812-style weekly operating system: week starts on Sunday, week review happens on Saturday, and repeating low-value tasks should be delegated, automated, or removed.',
+                'Every recommended resource must include a concrete reason tied to the profile or recent execution behavior.',
+                'Keep the missions operational. Put the philosophy in coachBrief and weeklyOperatingSystem, not as long speeches inside every mission.',
                 'Return only schema-valid data.'
             ].join(' ')
         },
@@ -381,7 +583,8 @@ function buildPlannerMessages(profile, context = {}) {
                 profile,
                 activeRoadmap,
                 recentMissions,
-                recentCheckins
+                recentCheckins,
+                founderDoctrine: FOUNDER_DOCTRINE
             })
         }
     ];
@@ -737,6 +940,12 @@ async function buildAcademyHomePayload(db, userId, roadmapId = null) {
 
     const summary = safeJsonParse(roadmapRow.summary_json, {});
     const roadmapJson = safeJsonParse(roadmapRow.roadmap_json, {});
+    const weeklyOperatingSystem = roadmapJson.weeklyOperatingSystem && typeof roadmapJson.weeklyOperatingSystem === 'object'
+        ? roadmapJson.weeklyOperatingSystem
+        : {};
+    const recommendedResources = Array.isArray(roadmapJson.recommendedResources)
+        ? roadmapJson.recommendedResources
+        : [];
 
     return {
         success: true,
@@ -752,7 +961,15 @@ async function buildAcademyHomePayload(db, userId, roadmapId = null) {
                 strengths: summary.strengths || []
             },
             goal: roadmapJson.goal || '',
-            coachTone: roadmapJson.coachTone || 'balanced'
+            coachTone: roadmapJson.coachTone || 'balanced',
+            coachBrief: roadmapJson.coachBrief || '',
+            weeklyOperatingSystem: {
+                weekStartsOn: weeklyOperatingSystem.weekStartsOn || '',
+                weeklyReviewDay: weeklyOperatingSystem.weeklyReviewDay || '',
+                reviewInstruction: weeklyOperatingSystem.reviewInstruction || '',
+                delegationRule: weeklyOperatingSystem.delegationRule || ''
+            },
+            recommendedResources: recommendedResources
         },
         weeklyCheckpoint: {
             theme: roadmapJson.weeklyTheme || '',

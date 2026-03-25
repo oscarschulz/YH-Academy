@@ -32,7 +32,7 @@
                             </div>
                             
                             <div class="login-ui-container w-full">
-                                <input type="text" id="login-email" placeholder="Username or Email" class="pill-input auth-stop-propagation">
+                                <input type="email" id="login-email" placeholder="Email Address" class="pill-input auth-stop-propagation" autocomplete="email">
                                 <input type="password" id="login-password" placeholder="Password" class="pill-input auth-stop-propagation">
                                 <a href="#" class="forgot-link auth-stop-propagation">Forgot password?</a>
                                 <button type="button" id="btn-login" class="pill-btn-login auth-stop-propagation">Login</button>
@@ -68,12 +68,10 @@
                                 
                                 <div class="form-row">
                                     <div class="form-group w-full mb-0">
-                                        <label>Username</label>
-                                        <input type="text" id="reg-username" required placeholder="e.g. hustler99" class="input-field">
-                                    </div>
-                                    <div class="form-group w-full mb-0">
-                                        <label>Contact Number <span class="label-optional">(Optional)</span></label>
-                                        <input type="tel" id="reg-phone" placeholder="+1 234..." class="input-field">
+                                        <label>Password Security</label>
+                                        <div class="input-field" style="display:flex; align-items:center; min-height:52px; color:var(--text-muted);">
+                                            Use a strong password to secure your YH Universe account.
+                                        </div>
                                     </div>
                                 </div>
 
