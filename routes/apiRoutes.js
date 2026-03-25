@@ -3,13 +3,9 @@ const router = express.Router();
 const academyControllers = require('../academyControllers');
 const auth = require('../middlewares/auth');
 // --- CONTROLLERS ---
-const applyController = require('../controllers/applyControllers');
 const authController = require('../controllers/authControllers');
+const realtimeControllers = require('../controllers/realtimeControllers');
 
-// ==========================================
-// 🧠 1. AI SCREENING ROUTE
-// ==========================================
-router.post('/apply', applyController.processApplication);
 
 // ==========================================
 // 🔐 2. AUTHENTICATION & OTP ROUTES
@@ -39,6 +35,30 @@ router.post('/academy/missions/:id/complete', auth, academyControllers.completeM
 router.post('/academy/missions/:id/status', auth, academyControllers.updateMissionStatus);
 router.post('/academy/checkin', auth, academyControllers.submitCheckin);
 router.post('/academy/roadmap/refresh', auth, academyControllers.refreshRoadmap);
+
+// ==========================================
+// ⚡ REALTIME BACKEND ROUTES
+// ==========================================
+router.get('/realtime/bootstrap', auth, realtimeControllers.getBootstrap);
+
+router.get('/realtime/rooms', auth, realtimeControllers.getRooms);
+router.post('/realtime/rooms', auth, realtimeControllers.createRoom);
+router.delete('/realtime/rooms/:id', auth, realtimeControllers.deleteRoom);
+
+router.get('/realtime/vault', auth, realtimeControllers.getVaultItems);
+router.post('/realtime/vault/folder', auth, realtimeControllers.createVaultFolder);
+router.post('/realtime/vault/file', auth, realtimeControllers.createVaultFile);
+
+router.get('/realtime/live-rooms', auth, realtimeControllers.getLiveRooms);
+router.post('/realtime/live-rooms', auth, realtimeControllers.createLiveRoom);
+
+router.get('/realtime/notifications', auth, realtimeControllers.getNotifications);
+router.post('/realtime/notifications/read-all', auth, realtimeControllers.readAllNotifications);
+router.post('/realtime/notifications/:id/read', auth, realtimeControllers.readNotification);
+
+router.get('/realtime/leaderboard', auth, realtimeControllers.getLeaderboard);
+router.get('/realtime/profiles/:name', auth, realtimeControllers.getProfileByName);
+router.post('/realtime/follows/toggle', auth, realtimeControllers.toggleFollow);
 
 // 🔥 Laging nasa pinakababa ito dapat para ma-export nang buo!
 module.exports = router;

@@ -135,7 +135,7 @@ const { open } = require('sqlite');
                 FOREIGN KEY (roadmap_id) REFERENCES academy_roadmaps(id) ON DELETE SET NULL
             );
 
-            CREATE TABLE IF NOT EXISTS academy_access (
+                        CREATE TABLE IF NOT EXISTS academy_access (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL UNIQUE,
                 access_state TEXT NOT NULL DEFAULT 'locked',
@@ -144,7 +144,136 @@ const { open } = require('sqlite');
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             );
 
+            CREATE TABLE IF NOT EXISTS user_profiles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL UNIQUE,
+                display_name TEXT,
+                username TEXT,
+                avatar TEXT,
+                bio TEXT,
+                role_label TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS user_stats (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL UNIQUE,
+                rep_points INTEGER DEFAULT 0,
+                followers_count INTEGER DEFAULT 0,
+                following_count INTEGER DEFAULT 0,
+                messages_count INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS user_follows (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                follower_user_id INTEGER NOT NULL,
+                following_user_id INTEGER NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(follower_user_id, following_user_id),
+                FOREIGN KEY (follower_user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (following_user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS chat_rooms (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                room_key TEXT NOT NULL UNIQUE,
+                room_type TEXT NOT NULL DEFAULT 'group',
+                name TEXT NOT NULL,
+                description TEXT,
+                created_by_user_id INTEGER,
+                is_private INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS chat_room_members (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                room_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                role TEXT NOT NULL DEFAULT 'member',
+                joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(room_id, user_id),
+                FOREIGN KEY (room_id) REFERENCES chat_rooms(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS vault_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                parent_id INTEGER,
+                item_type TEXT NOT NULL DEFAULT 'folder',
+                name TEXT NOT NULL,
+                file_path TEXT,
+                mime_type TEXT,
+                file_size INTEGER,
+                is_deleted INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (parent_id) REFERENCES vault_items(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS live_rooms (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                room_key TEXT NOT NULL UNIQUE,
+                room_type TEXT NOT NULL DEFAULT 'voice',
+                title TEXT NOT NULL,
+                topic TEXT,
+                host_user_id INTEGER,
+                status TEXT NOT NULL DEFAULT 'live',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                ended_at DATETIME,
+                FOREIGN KEY (host_user_id) REFERENCES users(id) ON DELETE SET NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS live_room_participants (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                live_room_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                role TEXT NOT NULL DEFAULT 'listener',
+                joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                left_at DATETIME,
+                UNIQUE(live_room_id, user_id),
+                FOREIGN KEY (live_room_id) REFERENCES live_rooms(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS notifications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                type TEXT NOT NULL,
+                title TEXT NOT NULL,
+                body TEXT,
+                target_type TEXT,
+                target_id TEXT,
+                is_read INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+
             CREATE INDEX IF NOT EXISTS idx_messages_room ON messages(room);
+            CREATE INDEX IF NOT EXISTS idx_user_profiles_user_id ON user_profiles(user_id);
+            CREATE INDEX IF NOT EXISTS idx_user_stats_user_id ON user_stats(user_id);
+            CREATE INDEX IF NOT EXISTS idx_user_follows_follower_user_id ON user_follows(follower_user_id);
+            CREATE INDEX IF NOT EXISTS idx_user_follows_following_user_id ON user_follows(following_user_id);
+            CREATE INDEX IF NOT EXISTS idx_chat_rooms_room_key ON chat_rooms(room_key);
+            CREATE INDEX IF NOT EXISTS idx_chat_rooms_created_by_user_id ON chat_rooms(created_by_user_id);
+            CREATE INDEX IF NOT EXISTS idx_chat_room_members_room_id ON chat_room_members(room_id);
+            CREATE INDEX IF NOT EXISTS idx_chat_room_members_user_id ON chat_room_members(user_id);
+            CREATE INDEX IF NOT EXISTS idx_vault_items_user_id ON vault_items(user_id);
+            CREATE INDEX IF NOT EXISTS idx_vault_items_parent_id ON vault_items(parent_id);
+            CREATE INDEX IF NOT EXISTS idx_live_rooms_room_key ON live_rooms(room_key);
+            CREATE INDEX IF NOT EXISTS idx_live_rooms_host_user_id ON live_rooms(host_user_id);
+            CREATE INDEX IF NOT EXISTS idx_live_room_participants_live_room_id ON live_room_participants(live_room_id);
+            CREATE INDEX IF NOT EXISTS idx_live_room_participants_user_id ON live_room_participants(user_id);
+            CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
+            CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read);
             CREATE INDEX IF NOT EXISTS idx_academy_profiles_user_id ON academy_profiles(user_id);
             CREATE INDEX IF NOT EXISTS idx_academy_roadmaps_user_id ON academy_roadmaps(user_id);
             CREATE INDEX IF NOT EXISTS idx_academy_roadmaps_profile_id ON academy_roadmaps(profile_id);

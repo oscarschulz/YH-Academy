@@ -99,26 +99,47 @@
                 <div class="channel-content hide-scrollbar">
                     
                     <div class="channel-category category-mt sidebar-text flex-between">
-                        <span>COMMUNICATIONS</span>
-                    </div>
-                    
-                    <div class="sidebar-text flex-row channel-action-row">
-                        <button id="btn-open-dm-modal" class="btn-secondary flex-1">+ DM</button>
-                        <button id="btn-open-group-modal" class="btn-primary flex-1">+ Group</button>
-                    </div>
+    <span>COMMUNICATIONS</span>
+</div>
 
-                    <ul class="channel-list" id="dm-list">
-                        <li class="active channel-link" id="nav-chat" title="YH-community" data-type="main-chat">
-                            <div class="sidebar-icon"><span class="channel-icon">💬</span></div>
-                            <span class="sidebar-text">YH-community (Public)</span>
-                        </li>
-                        <li class="channel-link" id="nav-announcements" title="announcements" data-type="announcements">
-                            <div class="sidebar-icon"><span class="channel-icon">📢</span></div>
-                            <span class="sidebar-text">announcements</span>
-                        </li>
-                    </ul>
+<div class="sidebar-text flex-row channel-action-row">
+    <button id="btn-open-dm-modal" class="btn-secondary flex-1">+ DM</button>
+    <button id="btn-open-group-modal" class="btn-primary flex-1">+ Group</button>
+</div>
 
-                    <ul class="channel-list" id="custom-dm-list" style="margin-top: 5px;"></ul>
+<div class="channel-category category-mt sidebar-text">
+    <span>COMMUNITY CHAT</span>
+</div>
+<ul class="channel-list" id="dm-list">
+    <li class="active channel-link" id="nav-chat" title="YH-community" data-type="main-chat">
+        <div class="sidebar-icon"><span class="channel-icon">💬</span></div>
+        <span class="sidebar-text">YH-community (Public)</span>
+    </li>
+    <li class="channel-link" id="nav-announcements" title="announcements" data-type="announcements">
+        <div class="sidebar-icon"><span class="channel-icon">📢</span></div>
+        <span class="sidebar-text">announcements</span>
+    </li>
+</ul>
+
+<div class="channel-category category-mt sidebar-text">
+    <span>PRIVATE DMS</span>
+</div>
+<ul
+    class="channel-list chatbox-rooms-list"
+    id="chatbox-room-list"
+    data-chatbox-rooms-list="dm"
+    style="margin-top: 5px;"
+></ul>
+
+<div class="channel-category category-mt sidebar-text">
+    <span>PRIVATE GROUPS</span>
+</div>
+<ul
+    class="channel-list"
+    id="custom-dm-list"
+    data-private-group-list="true"
+    style="margin-top: 5px;"
+></ul>
 
                     <div class="channel-category category-mt-large sidebar-text">LIVE SESSIONS</div>
                     <ul class="channel-list">
@@ -487,6 +508,140 @@
     <div id="mission-modal" class="modal-overlay hidden-step fade-in"><div class="modal-card"><div class="modal-header"><h3>🎯 Set a New Goal</h3><span id="close-mission-modal" class="close-btn" title="Close">✖</span></div><div class="modal-body"><input type="text" id="mission-title-input" placeholder="What's your next task?" class="input-field-compact"></div><div class="modal-footer"><button class="btn-primary w-full" id="btn-save-mission">Lock in Mission</button></div></div></div>
     <div id="lounge-modal" class="modal-overlay hidden-step fade-in"><div class="modal-card"><div class="modal-header"><h3>🎙️ Start Lounge</h3><span id="close-lounge-modal" class="close-btn">✖</span></div><div class="modal-body"><input type="text" id="lounge-topic-input" placeholder="Topic" class="input-field-compact"></div><div class="modal-footer"><button class="btn-primary w-full btn-disabled" id="btn-create-lounge" disabled>Start</button></div></div></div>
     
+    <div id="dm-modal" class="modal-overlay hidden-step fade-in">
+    <div class="modal-card" style="max-width: 560px; width: calc(100% - 32px);">
+        <div class="modal-header">
+            <h3>💬 Start Private DM</h3>
+            <span id="close-dm-modal" class="close-btn" title="Close">✖</span>
+        </div>
+        <div class="modal-body">
+            <input
+                type="text"
+                class="input-field-compact modal-search"
+                placeholder="Search user..."
+                style="margin-bottom: 14px;"
+            >
+
+            <div style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5;">
+                Pick a user below for a quick DM. For real user-to-user chat, you can also click a user's avatar/name in chat or leaderboard and press <strong>Message</strong>.
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <label class="modal-user-item" style="display:flex; align-items:center; gap:12px; padding:12px; border:1px solid rgba(255,255,255,0.08); border-radius:14px; cursor:pointer; background:rgba(255,255,255,0.02);">
+                    <input type="radio" name="selected-dm-user" class="dm-radio" style="accent-color:#0ea5e9;">
+                    <span class="member-avatar dm-avatar-preview" style="width:40px; height:40px; background:#ef4444; flex-shrink:0;">YH</span>
+                    <span style="display:flex; flex-direction:column; min-width:0; flex:1;">
+                        <span class="member-name dm-name-preview" style="font-weight:600;">YH Admin</span>
+                        <span style="font-size:0.75rem; color:var(--text-muted);">HQ</span>
+                    </span>
+                </label>
+
+                <label class="modal-user-item" style="display:flex; align-items:center; gap:12px; padding:12px; border:1px solid rgba(255,255,255,0.08); border-radius:14px; cursor:pointer; background:rgba(255,255,255,0.02);">
+                    <input type="radio" name="selected-dm-user" class="dm-radio" style="accent-color:#0ea5e9;">
+                    <span class="member-avatar dm-avatar-preview" style="width:40px; height:40px; background:#8b5cf6; flex-shrink:0;">🤖</span>
+                    <span style="display:flex; flex-direction:column; min-width:0; flex:1;">
+                        <span class="member-name dm-name-preview" style="font-weight:600;">Agent</span>
+                        <span style="font-size:0.75rem; color:var(--text-muted);">AI</span>
+                    </span>
+                </label>
+
+                <label class="modal-user-item" style="display:flex; align-items:center; gap:12px; padding:12px; border:1px solid rgba(255,255,255,0.08); border-radius:14px; cursor:pointer; background:rgba(255,255,255,0.02);">
+                    <input type="radio" name="selected-dm-user" class="dm-radio" style="accent-color:#0ea5e9;">
+                    <span class="member-avatar dm-avatar-preview" style="width:40px; height:40px; background:#0ea5e9; flex-shrink:0;">D</span>
+                    <span style="display:flex; flex-direction:column; min-width:0; flex:1;">
+                        <span class="member-name dm-name-preview" style="font-weight:600;">Demo User</span>
+                        <span style="font-size:0.75rem; color:var(--text-muted);">Hustler</span>
+                    </span>
+                </label>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button
+                class="btn-primary w-full"
+                id="btn-start-dm"
+                disabled
+                style="opacity:0.5;"
+            >
+                Select a user to chat
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="group-modal" class="modal-overlay hidden-step fade-in">
+    <div class="modal-card" style="max-width: 560px; width: calc(100% - 32px);">
+        <div class="modal-header">
+            <h3>👥 Create Private Group</h3>
+            <span id="close-group-modal" class="close-btn" title="Close">✖</span>
+        </div>
+        <div class="modal-body">
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5;">
+                Private groups are separate from community chat and should only appear under <strong>PRIVATE GROUPS</strong>.
+            </div>
+
+            <input
+                type="text"
+                id="group-name-input"
+                class="input-field-compact"
+                placeholder="Enter group name..."
+            >
+        </div>
+        <div class="modal-footer">
+            <button
+                class="btn-primary w-full"
+                id="btn-create-group"
+                disabled
+                style="opacity:0.5;"
+            >
+                Enter Group Name to Create
+            </button>
+        </div>
+    </div>
+</div>
+
+<div
+    id="mini-profile-modal"
+    class="modal-overlay hidden-step fade-in"
+    onclick="if(event.target===this)this.classList.add('hidden-step')"
+>
+    <div class="modal-card" style="max-width: 460px; width: calc(100% - 32px);">
+        <div class="modal-header">
+            <h3>👤 Profile</h3>
+            <span
+                class="close-btn"
+                title="Close"
+                onclick="document.getElementById('mini-profile-modal').classList.add('hidden-step')"
+            >✖</span>
+        </div>
+
+        <div class="modal-body" style="text-align:center;">
+            <div
+                id="mp-avatar"
+                class="member-avatar"
+                style="width:72px; height:72px; margin:0 auto 14px auto; font-size:1.35rem; display:flex; align-items:center; justify-content:center; background:var(--neon-blue);"
+            >Y</div>
+
+            <div id="mp-name" style="font-size:1.15rem; font-weight:700; color:#fff; margin-bottom:8px;">User</div>
+            <div id="mp-role" style="margin-bottom:16px;"></div>
+
+            <div class="profile-stats" style="display:flex; justify-content:center; gap:12px; margin-bottom:18px; flex-wrap:wrap;">
+                <div style="min-width:110px; padding:12px; border-radius:12px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08);">
+                    <div style="font-size:0.72rem; color:var(--text-muted);">Followers</div>
+                    <div id="mp-followers" style="font-size:1rem; font-weight:700; color:#fff;">0</div>
+                </div>
+                <div style="min-width:110px; padding:12px; border-radius:12px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08);">
+                    <div style="font-size:0.72rem; color:var(--text-muted);">REP</div>
+                    <div id="mp-rep" style="font-size:1rem; font-weight:700; color:#fff;">0</div>
+                </div>
+            </div>
+
+            <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+                <button id="btn-mp-follow" class="btn-secondary" type="button">Follow</button>
+                <button id="btn-mp-message" class="btn-primary" type="button">Message</button>
+            </div>
+        </div>
+    </div>
+</div>
     <script src="/socket.io/socket.io.js"></script>
     <script src="/js/dashboard.js"></script>
 </body>
