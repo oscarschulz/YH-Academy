@@ -1,3 +1,4 @@
+const academyFirestoreRepo = require('./backend/repositories/academyFirestoreRepo');
 const sanitize = (value) => {
     if (value === null || value === undefined) return '';
     return String(value).replace(/</g, '&lt;').replace(/>/g, '&gt;').trim();
@@ -738,257 +739,18 @@ async function requestAiRoadmap(profile, context = {}) {
     return null;
 }
 
-async function getLatestProfile(db, userId) {
-    const row = await db.get(
-        `SELECT *
-         FROM academy_profiles
-         WHERE user_id = ?
-         ORDER BY id DESC
-         LIMIT 1`,
-        [userId]
-    );
-
-    if (!row) return null;
-
-    return {
-        id: row.id,
-        userId: row.user_id,
-        ...normalizeProfile(row)
-    };
+function getAcademyAuthUid(req) {
+    return sanitize(req.user?.firebaseUid || req.user?.id);
 }
 
-async function getActiveRoadmapRecord(db, userId) {
-    const row = await db.get(
-        `SELECT id, profile_id, version, readiness_score, summary_json, roadmap_json, created_by_model, created_at
-         FROM academy_roadmaps
-         WHERE user_id = ? AND status = 'active'
-         ORDER BY id DESC
-         LIMIT 1`,
-        [userId]
-    );
-
-    if (!row) return null;
-
-    return {
-        id: row.id,
-        profileId: row.profile_id,
-        version: row.version,
-        readinessScore: row.readiness_score,
-        summary: safeJsonParse(row.summary_json, {}),
-        roadmap: safeJsonParse(row.roadmap_json, {}),
-        createdByModel: row.created_by_model,
-        createdAt: row.created_at
-    };
-}
-
-async function getRecentMissionHistory(db, userId, roadmapId, limit = 8) {
-    return db.all(
-        `SELECT
-            id, pillar, title, status,
-            due_date AS dueDate,
-            estimated_minutes AS estimatedMinutes,
-            completion_note AS completionNote,
-            completed_at AS completedAt
-         FROM academy_missions
-         WHERE user_id = ? AND roadmap_id = ?
-         ORDER BY id DESC
-         LIMIT ?`,
-        [userId, roadmapId, limit]
-    );
-}
-
-async function getRecentCheckins(db, userId, roadmapId, limit = 5) {
-    return db.all(
-        `SELECT
-            energy_score AS energyScore,
-            mood_score AS moodScore,
-            completed_summary AS completedSummary,
-            blocker_text AS blockerText,
-            tomorrow_focus AS tomorrowFocus,
-            created_at AS createdAt
-         FROM academy_checkins
-         WHERE user_id = ? AND roadmap_id = ?
-         ORDER BY id DESC
-         LIMIT ?`,
-        [userId, roadmapId, limit]
-    );
-}
-
-async function persistRoadmap(db, userId, profileId, plan, createdByModel) {
-    const currentVersionRow = await db.get(
-        `SELECT COALESCE(MAX(version), 0) AS maxVersion
-         FROM academy_roadmaps
-         WHERE user_id = ?`,
-        [userId]
-    );
-
-    const nextVersion = toInt(currentVersionRow?.maxVersion, 0) + 1;
-
-    await db.run(
-        `UPDATE academy_roadmaps
-         SET status = 'archived'
-         WHERE user_id = ? AND status = 'active'`,
-        [userId]
-    );
-
-    const roadmapInsert = await db.run(
-        `INSERT INTO academy_roadmaps (
-            user_id, profile_id, version, status, readiness_score, summary_json, roadmap_json, created_by_model
-         ) VALUES (?, ?, ?, 'active', ?, ?, ?, ?)`,
-        [
-            userId,
-            profileId,
-            nextVersion,
-            plan.readinessScore,
-            JSON.stringify({
-                ...plan.summary,
-                focusAreas: plan.focusAreas
-            }),
-            JSON.stringify(plan.roadmap),
-            createdByModel
-        ]
-    );
-
-    const roadmapId = roadmapInsert.lastID;
-
-    for (const mission of plan.missions) {
-        await db.run(
-            `INSERT INTO academy_missions (
-                user_id, roadmap_id, pillar, title, description, why_it_matters,
-                frequency, due_date, estimated_minutes, status, source, sort_order
-             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
-            [
-                userId,
-                roadmapId,
-                mission.pillar,
-                mission.title,
-                mission.description,
-                mission.whyItMatters,
-                mission.frequency,
-                mission.dueDate,
-                mission.estimatedMinutes,
-                createdByModel.includes('openai') ? 'ai' : 'rule',
-                mission.sortOrder
-            ]
-        );
-    }
-
-    await db.run(
-        `INSERT INTO academy_access (user_id, access_state, unlocked_at, last_assessed_at)
-         VALUES (?, 'unlocked', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-         ON CONFLICT(user_id) DO UPDATE SET
-            access_state = 'unlocked',
-            unlocked_at = COALESCE(academy_access.unlocked_at, CURRENT_TIMESTAMP),
-            last_assessed_at = CURRENT_TIMESTAMP`,
-        [userId]
-    );
-
-    return roadmapId;
-}
-
-async function buildAcademyHomePayload(db, userId, roadmapId = null) {
-    const roadmapRow = roadmapId
-        ? await db.get(
-            `SELECT id, version, readiness_score, summary_json, roadmap_json, created_by_model
-             FROM academy_roadmaps
-             WHERE user_id = ? AND id = ?
-             LIMIT 1`,
-            [userId, roadmapId]
-        )
-        : await db.get(
-            `SELECT id, version, readiness_score, summary_json, roadmap_json, created_by_model
-             FROM academy_roadmaps
-             WHERE user_id = ? AND status = 'active'
-             ORDER BY id DESC
-             LIMIT 1`,
-            [userId]
-        );
-
-    if (!roadmapRow) return null;
-
-    const missions = await db.all(
-        `SELECT
-            id, pillar, title, description,
-            why_it_matters AS whyItMatters,
-            status, frequency,
-            due_date AS dueDate,
-            estimated_minutes AS estimatedMinutes,
-            completion_note AS completionNote
-         FROM academy_missions
-         WHERE user_id = ? AND roadmap_id = ?
-         ORDER BY sort_order ASC, id ASC
-         LIMIT 5`,
-        [userId, roadmapRow.id]
-    );
-
-    const stats = await db.get(
-        `SELECT
-            COUNT(*) AS total,
-            SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed
-         FROM academy_missions
-         WHERE user_id = ? AND roadmap_id = ?`,
-        [userId, roadmapRow.id]
-    );
-
-    const recentCheckins = await db.get(
-        `SELECT COUNT(*) AS streakDays
-         FROM academy_checkins
-         WHERE user_id = ?
-           AND created_at >= datetime('now', '-7 day')`,
-        [userId]
-    );
-
-    const summary = safeJsonParse(roadmapRow.summary_json, {});
-    const roadmapJson = safeJsonParse(roadmapRow.roadmap_json, {});
-    const weeklyOperatingSystem = roadmapJson.weeklyOperatingSystem && typeof roadmapJson.weeklyOperatingSystem === 'object'
-        ? roadmapJson.weeklyOperatingSystem
-        : {};
-    const recommendedResources = Array.isArray(roadmapJson.recommendedResources)
-        ? roadmapJson.recommendedResources
+async function generateAndPersistPlanFirestore(uid, profile, options = {}) {
+    const activeRoadmap = options.activeRoadmap || await academyFirestoreRepo.getActiveRoadmap(uid);
+    const recentMissions = activeRoadmap
+        ? await academyFirestoreRepo.listRecentMissions(uid, activeRoadmap.id, 8)
         : [];
-
-    return {
-        success: true,
-        roadmap: {
-            id: roadmapRow.id,
-            version: roadmapRow.version,
-            readinessScore: roadmapRow.readiness_score,
-            focusAreas: summary.focusAreas || [],
-            summary: {
-                primaryBottleneck: summary.primaryBottleneck || '',
-                secondaryBottleneck: summary.secondaryBottleneck || '',
-                mainOpportunity: summary.mainOpportunity || '',
-                strengths: summary.strengths || []
-            },
-            goal: roadmapJson.goal || '',
-            coachTone: roadmapJson.coachTone || 'balanced',
-            coachBrief: roadmapJson.coachBrief || '',
-            weeklyOperatingSystem: {
-                weekStartsOn: weeklyOperatingSystem.weekStartsOn || '',
-                weeklyReviewDay: weeklyOperatingSystem.weeklyReviewDay || '',
-                reviewInstruction: weeklyOperatingSystem.reviewInstruction || '',
-                delegationRule: weeklyOperatingSystem.delegationRule || ''
-            },
-            recommendedResources: recommendedResources
-        },
-        weeklyCheckpoint: {
-            theme: roadmapJson.weeklyTheme || '',
-            targetOutcome: roadmapJson.weeklyTargetOutcome || ''
-        },
-        today: {
-            missionsCompleted: stats?.completed || 0,
-            missionsTotal: stats?.total || 0,
-            streakDays: recentCheckins?.streakDays || 0
-        },
-        missions,
-        createdByModel: roadmapRow.created_by_model || 'academy-rule-engine-v1'
-    };
-}
-
-async function generateAndPersistPlan(db, userId, profile, options = {}) {
-    const activeRoadmap = options.activeRoadmap || await getActiveRoadmapRecord(db, userId);
-    const recentMissions = activeRoadmap ? await getRecentMissionHistory(db, userId, activeRoadmap.id) : [];
-    const recentCheckins = activeRoadmap ? await getRecentCheckins(db, userId, activeRoadmap.id) : [];
+    const recentCheckins = activeRoadmap
+        ? await academyFirestoreRepo.listRecentCheckins(uid, activeRoadmap.id, 5)
+        : [];
 
     const context = {
         mode: options.mode || 'initial',
@@ -1015,27 +777,28 @@ async function generateAndPersistPlan(db, userId, profile, options = {}) {
     }
 
     const normalizedPlan = normalizePlan(plan, profile, context);
-    const roadmapId = await persistRoadmap(db, userId, profile.id, normalizedPlan, createdByModel);
-    const homePayload = await buildAcademyHomePayload(db, userId, roadmapId);
+    const persistResult = await academyFirestoreRepo.persistRoadmapBundle(
+        uid,
+        profile,
+        normalizedPlan,
+        createdByModel
+    );
+
+    const homePayload = await academyFirestoreRepo.buildAcademyHomePayload(uid, persistResult.roadmapId);
 
     return {
-        roadmapId,
+        roadmapId: persistResult.roadmapId,
+        version: persistResult.version,
         createdByModel,
         plan: normalizedPlan,
         homePayload
     };
 }
-
 exports.intakeProfile = async (req, res) => {
     try {
-        const db = req.app.locals.db;
-        const userId = req.user?.id;
+        const uid = getAcademyAuthUid(req);
 
-        if (!db) {
-            return res.status(500).json({ success: false, message: 'Database unavailable.' });
-        }
-
-        if (!userId) {
+        if (!uid) {
             return res.status(401).json({ success: false, message: 'Unauthorized.' });
         }
 
@@ -1068,44 +831,15 @@ exports.intakeProfile = async (req, res) => {
             });
         }
 
-        const profileInsert = await db.run(
-            `INSERT INTO academy_profiles (
-                user_id, city, country, occupation_type, current_job, industry,
-                monthly_income_range, savings_range, income_source, business_stage,
-                sleep_hours, energy_score, exercise_frequency, stress_score, bad_habit,
-                seriousness, weekly_hours, goals_6mo, blocker_text, coach_tone
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-                userId,
-                payload.city,
-                payload.country,
-                payload.occupationType,
-                payload.currentJob,
-                payload.industry,
-                payload.monthlyIncomeRange,
-                payload.savingsRange,
-                payload.incomeSource,
-                payload.businessStage,
-                payload.sleepHours,
-                payload.energyScore,
-                payload.exerciseFrequency,
-                payload.stressScore,
-                payload.badHabit,
-                payload.seriousness,
-                payload.weeklyHours,
-                payload.goals6mo,
-                payload.blockerText,
-                payload.coachTone
-            ]
-        );
+        await academyFirestoreRepo.setCurrentProfile(uid, payload);
 
         const profile = {
-            id: profileInsert.lastID,
-            userId,
+            id: 'current',
+            uid,
             ...payload
         };
 
-        const plannerResult = await generateAndPersistPlan(db, userId, profile, { mode: 'initial' });
+        const plannerResult = await generateAndPersistPlanFirestore(uid, profile, { mode: 'initial' });
 
         return res.json({
             success: true,
@@ -1130,18 +864,14 @@ exports.intakeProfile = async (req, res) => {
 
 exports.getAcademyHome = async (req, res) => {
     try {
-        const db = req.app.locals.db;
-        const userId = req.user?.id;
+        const uid = getAcademyAuthUid(req);
 
-        if (!db) {
-            return res.status(500).json({ success: false, message: 'Database unavailable.' });
-        }
-
-        if (!userId) {
+        if (!uid) {
             return res.status(401).json({ success: false, message: 'Unauthorized.' });
         }
 
-        const homePayload = await buildAcademyHomePayload(db, userId);
+        const homePayload = await academyFirestoreRepo.buildAcademyHomePayload(uid);
+
         if (!homePayload) {
             return res.status(404).json({
                 success: false,
@@ -1161,18 +891,13 @@ exports.getAcademyHome = async (req, res) => {
 
 exports.getActiveRoadmap = async (req, res) => {
     try {
-        const db = req.app.locals.db;
-        const userId = req.user?.id;
+        const uid = getAcademyAuthUid(req);
 
-        if (!db) {
-            return res.status(500).json({ success: false, message: 'Database unavailable.' });
-        }
-
-        if (!userId) {
+        if (!uid) {
             return res.status(401).json({ success: false, message: 'Unauthorized.' });
         }
 
-        const roadmap = await getActiveRoadmapRecord(db, userId);
+        const roadmap = await academyFirestoreRepo.getActiveRoadmap(uid);
 
         if (!roadmap) {
             return res.status(404).json({
@@ -1186,10 +911,11 @@ exports.getActiveRoadmap = async (req, res) => {
             roadmapId: roadmap.id,
             version: roadmap.version,
             readinessScore: roadmap.readinessScore,
-            summary: roadmap.summary,
-            roadmap: roadmap.roadmap,
-            createdByModel: roadmap.createdByModel,
-            createdAt: roadmap.createdAt
+            focusAreas: Array.isArray(roadmap.focusAreas) ? roadmap.focusAreas : [],
+            summary: roadmap.summary || {},
+            roadmap: roadmap.roadmap || {},
+            createdByModel: roadmap.createdByModel || 'academy-rule-engine-v1',
+            createdAt: roadmap.createdAt || null
         });
     } catch (error) {
         console.error('Active Roadmap Error:', error);
@@ -1202,20 +928,15 @@ exports.getActiveRoadmap = async (req, res) => {
 
 exports.getMissions = async (req, res) => {
     try {
-        const db = req.app.locals.db;
-        const userId = req.user?.id;
+        const uid = getAcademyAuthUid(req);
         const scope = sanitize(req.query.scope || 'today').toLowerCase();
         const status = sanitize(req.query.status || '').toLowerCase();
 
-        if (!db) {
-            return res.status(500).json({ success: false, message: 'Database unavailable.' });
-        }
-
-        if (!userId) {
+        if (!uid) {
             return res.status(401).json({ success: false, message: 'Unauthorized.' });
         }
 
-        const activeRoadmap = await getActiveRoadmapRecord(db, userId);
+        const activeRoadmap = await academyFirestoreRepo.getActiveRoadmap(uid);
 
         if (!activeRoadmap) {
             return res.status(404).json({
@@ -1224,29 +945,40 @@ exports.getMissions = async (req, res) => {
             });
         }
 
-        const filters = ['user_id = ?', 'roadmap_id = ?'];
-        const params = [userId, activeRoadmap.id];
+        let missions = await academyFirestoreRepo.listAllMissionsByRoadmap(uid, activeRoadmap.id);
 
         if (status) {
-            filters.push('status = ?');
-            params.push(status);
+            missions = missions.filter((mission) => sanitize(mission.status).toLowerCase() === status);
         }
 
         if (scope === 'today') {
-            filters.push('(due_date IS NULL OR due_date <= ?)');
-            params.push(todayISO());
+            const today = todayISO();
+            missions = missions.filter((mission) => {
+                const dueDate = sanitize(mission.dueDate);
+                return !dueDate || dueDate <= today;
+            });
         }
 
-        const missions = await db.all(
-            `SELECT
-                id, pillar, title, description, why_it_matters AS whyItMatters,
-                frequency, due_date AS dueDate, estimated_minutes AS estimatedMinutes,
-                status, completion_note AS completionNote
-             FROM academy_missions
-             WHERE ${filters.join(' AND ')}
-             ORDER BY sort_order ASC, id ASC`,
-            params
-        );
+        missions = missions
+            .slice()
+            .sort((a, b) => {
+                const sortA = toInt(a.sortOrder, 0);
+                const sortB = toInt(b.sortOrder, 0);
+                if (sortA !== sortB) return sortA - sortB;
+                return String(a.id || '').localeCompare(String(b.id || ''));
+            })
+            .map((mission) => ({
+                id: mission.id,
+                pillar: mission.pillar || '',
+                title: mission.title || '',
+                description: mission.description || '',
+                whyItMatters: mission.whyItMatters || '',
+                frequency: mission.frequency || '',
+                dueDate: mission.dueDate || '',
+                estimatedMinutes: toInt(mission.estimatedMinutes, 0),
+                status: mission.status || 'pending',
+                completionNote: mission.completionNote || ''
+            }));
 
         return res.json({ success: true, missions });
     } catch (error) {
@@ -1260,25 +992,22 @@ exports.getMissions = async (req, res) => {
 
 exports.completeMission = async (req, res) => {
     try {
-        const db = req.app.locals.db;
-        const userId = req.user?.id;
-        const missionId = toInt(req.params.id, 0);
+        const uid = getAcademyAuthUid(req);
+        const missionId = sanitize(req.params.id || '');
         const completionNote = sanitize(req.body.completionNote || '');
 
-        if (!db) {
-            return res.status(500).json({ success: false, message: 'Database unavailable.' });
-        }
-
-        if (!userId) {
+        if (!uid) {
             return res.status(401).json({ success: false, message: 'Unauthorized.' });
         }
 
-        const mission = await db.get(
-            `SELECT id, roadmap_id
-             FROM academy_missions
-             WHERE id = ? AND user_id = ?`,
-            [missionId, userId]
-        );
+        if (!missionId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid mission id.'
+            });
+        }
+
+        const mission = await academyFirestoreRepo.getMissionById(uid, missionId);
 
         if (!mission) {
             return res.status(404).json({
@@ -1287,34 +1016,18 @@ exports.completeMission = async (req, res) => {
             });
         }
 
-        await db.run(
-            `UPDATE academy_missions
-             SET status = 'completed',
-                 completion_note = ?,
-                 completed_at = CURRENT_TIMESTAMP
-             WHERE id = ? AND user_id = ?`,
-            [completionNote, missionId, userId]
-        );
+        await academyFirestoreRepo.updateMissionCompletion(uid, missionId, completionNote);
 
-        const progress = await db.get(
-            `SELECT
-                COUNT(*) AS total,
-                SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed
-             FROM academy_missions
-             WHERE user_id = ? AND roadmap_id = ?`,
-            [userId, mission.roadmap_id]
-        );
+        const progress = await academyFirestoreRepo.getMissionProgress(uid, mission.roadmapId);
 
         return res.json({
             success: true,
             missionId,
             status: 'completed',
             todayProgress: {
-                completed: progress?.completed || 0,
-                total: progress?.total || 0,
-                percent: progress?.total
-                    ? Math.round(((progress.completed || 0) / progress.total) * 100)
-                    : 0
+                completed: progress.completed || 0,
+                total: progress.total || 0,
+                percent: progress.percent || 0
             }
         });
     } catch (error) {
@@ -1328,19 +1041,21 @@ exports.completeMission = async (req, res) => {
 
 exports.updateMissionStatus = async (req, res) => {
     try {
-        const db = req.app.locals.db;
-        const userId = req.user?.id;
-        const missionId = toInt(req.params.id, 0);
+        const uid = getAcademyAuthUid(req);
+        const missionId = sanitize(req.params.id || '');
         const status = sanitize(req.body.status || '').toLowerCase();
         const note = sanitize(req.body.note || req.body.completionNote || '');
         const allowedStatuses = ['pending', 'completed', 'skipped', 'stuck'];
 
-        if (!db) {
-            return res.status(500).json({ success: false, message: 'Database unavailable.' });
+        if (!uid) {
+            return res.status(401).json({ success: false, message: 'Unauthorized.' });
         }
 
-        if (!userId) {
-            return res.status(401).json({ success: false, message: 'Unauthorized.' });
+        if (!missionId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid mission id.'
+            });
         }
 
         if (!allowedStatuses.includes(status)) {
@@ -1350,12 +1065,7 @@ exports.updateMissionStatus = async (req, res) => {
             });
         }
 
-        const mission = await db.get(
-            `SELECT id, roadmap_id, title
-             FROM academy_missions
-             WHERE id = ? AND user_id = ?`,
-            [missionId, userId]
-        );
+        const mission = await academyFirestoreRepo.getMissionById(uid, missionId);
 
         if (!mission) {
             return res.status(404).json({
@@ -1364,42 +1074,25 @@ exports.updateMissionStatus = async (req, res) => {
             });
         }
 
-        await db.run(
-            `UPDATE academy_missions
-             SET status = ?,
-                 completion_note = ?,
-                 completed_at = CASE WHEN ? = 'completed' THEN CURRENT_TIMESTAMP ELSE NULL END
-             WHERE id = ? AND user_id = ?`,
-            [status, note, status, missionId, userId]
-        );
+        await academyFirestoreRepo.updateMissionStatus(uid, missionId, status, note);
 
         if (status === 'skipped' || status === 'stuck') {
-            await db.run(
-                `INSERT INTO academy_checkins (
-                    user_id, roadmap_id, blocker_text, ai_feedback_json
-                 ) VALUES (?, ?, ?, ?)`,
-                [
-                    userId,
-                    mission.roadmap_id,
-                    status === 'stuck' ? note || `User got stuck on: ${mission.title}` : '',
-                    JSON.stringify({
-                        type: 'mission_feedback',
-                        missionId,
-                        status,
-                        note
-                    })
-                ]
-            );
+            await academyFirestoreRepo.createCheckin(uid, mission.roadmapId, {
+                energyScore: 0,
+                moodScore: 0,
+                completedSummary: '',
+                blockerText: status === 'stuck' ? (note || `User got stuck on: ${mission.title}`) : '',
+                tomorrowFocus: '',
+                aiFeedback: {
+                    type: 'mission_feedback',
+                    missionId,
+                    status,
+                    note
+                }
+            });
         }
 
-        const progress = await db.get(
-            `SELECT
-                COUNT(*) AS total,
-                SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed
-             FROM academy_missions
-             WHERE user_id = ? AND roadmap_id = ?`,
-            [userId, mission.roadmap_id]
-        );
+        const progress = await academyFirestoreRepo.getMissionProgress(uid, mission.roadmapId);
 
         return res.json({
             success: true,
@@ -1407,11 +1100,9 @@ exports.updateMissionStatus = async (req, res) => {
             status,
             note,
             todayProgress: {
-                completed: progress?.completed || 0,
-                total: progress?.total || 0,
-                percent: progress?.total
-                    ? Math.round(((progress.completed || 0) / progress.total) * 100)
-                    : 0
+                completed: progress.completed || 0,
+                total: progress.total || 0,
+                percent: progress.percent || 0
             }
         });
     } catch (error) {
@@ -1425,18 +1116,14 @@ exports.updateMissionStatus = async (req, res) => {
 
 exports.submitCheckin = async (req, res) => {
     try {
-        const db = req.app.locals.db;
-        const userId = req.user?.id;
+        const uid = getAcademyAuthUid(req);
 
-        if (!db) {
-            return res.status(500).json({ success: false, message: 'Database unavailable.' });
-        }
-
-        if (!userId) {
+        if (!uid) {
             return res.status(401).json({ success: false, message: 'Unauthorized.' });
         }
 
-        const activeRoadmap = await getActiveRoadmapRecord(db, userId);
+        const activeRoadmap = await academyFirestoreRepo.getActiveRoadmap(uid);
+
         if (!activeRoadmap) {
             return res.status(404).json({
                 success: false,
@@ -1450,22 +1137,14 @@ exports.submitCheckin = async (req, res) => {
         const blockerText = sanitize(req.body.blockerText || '');
         const tomorrowFocus = sanitize(req.body.tomorrowFocus || '');
 
-        await db.run(
-            `INSERT INTO academy_checkins (
-                user_id, roadmap_id, energy_score, mood_score,
-                completed_summary, blocker_text, tomorrow_focus, ai_feedback_json
-             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-                userId,
-                activeRoadmap.id,
-                energyScore,
-                moodScore,
-                completedSummary,
-                blockerText,
-                tomorrowFocus,
-                JSON.stringify({ type: 'daily_checkin' })
-            ]
-        );
+        await academyFirestoreRepo.createCheckin(uid, activeRoadmap.id, {
+            energyScore,
+            moodScore,
+            completedSummary,
+            blockerText,
+            tomorrowFocus,
+            aiFeedback: { type: 'daily_checkin' }
+        });
 
         return res.json({
             success: true,
@@ -1482,26 +1161,28 @@ exports.submitCheckin = async (req, res) => {
 
 exports.refreshRoadmap = async (req, res) => {
     try {
-        const db = req.app.locals.db;
-        const userId = req.user?.id;
+        const uid = getAcademyAuthUid(req);
 
-        if (!db) {
-            return res.status(500).json({ success: false, message: 'Database unavailable.' });
-        }
-
-        if (!userId) {
+        if (!uid) {
             return res.status(401).json({ success: false, message: 'Unauthorized.' });
         }
 
-        const profile = await getLatestProfile(db, userId);
-        if (!profile) {
+        const storedProfile = await academyFirestoreRepo.getCurrentProfile(uid);
+
+        if (!storedProfile) {
             return res.status(404).json({
                 success: false,
                 message: 'No Academy profile found yet.'
             });
         }
 
-        const plannerResult = await generateAndPersistPlan(db, userId, profile, { mode: 'refresh' });
+        const profile = {
+            id: 'current',
+            uid,
+            ...normalizeProfile(storedProfile)
+        };
+
+        const plannerResult = await generateAndPersistPlanFirestore(uid, profile, { mode: 'refresh' });
 
         return res.json({
             success: true,

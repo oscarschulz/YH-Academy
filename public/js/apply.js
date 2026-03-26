@@ -28,11 +28,11 @@ function showToast(message, type = "success") {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    if (localStorage.getItem('yh_user_loggedIn') === 'true') {
-        window.location.href = '/dashboard';
-    }
+if (localStorage.getItem('yh_user_loggedIn') === 'true') {
+    window.location.href = '/dashboard';
+}
 
-    const landingVideo = document.getElementById('landing-video');
+const landingVideo = document.getElementById('landing-video');
     if (landingVideo) {
         landingVideo.addEventListener('timeupdate', () => {
             if (landingVideo.duration && landingVideo.currentTime >= landingVideo.duration - 3) {
@@ -58,105 +58,144 @@ document.addEventListener('DOMContentLoaded', () => {
             flipToRegister();
         });
     }
-        const setPendingVerifyEmail = (email) => {
-            if (!email) return;
-            sessionStorage.setItem('yh_pending_verify_email', String(email).trim().toLowerCase());
-        };
 
-        const getPendingVerifyEmail = () => {
-            const fromSession = sessionStorage.getItem('yh_pending_verify_email');
-            if (fromSession) return fromSession;
+    const setPendingVerifyEmail = (email) => {
+        if (!email) return;
+        sessionStorage.setItem('yh_pending_verify_email', String(email).trim().toLowerCase());
+    };
 
-            const regEmailInput = document.getElementById('reg-email');
-            return regEmailInput?.value?.trim().toLowerCase() || '';
-        };
+    const getPendingVerifyEmail = () => {
+        const fromSession = sessionStorage.getItem('yh_pending_verify_email');
+        if (fromSession) return fromSession;
 
-        const clearPendingVerifyEmail = () => {
-            sessionStorage.removeItem('yh_pending_verify_email');
-        };
+        const regEmailInput = document.getElementById('reg-email');
+        return regEmailInput?.value?.trim().toLowerCase() || '';
+    };
+
+    const clearPendingVerifyEmail = () => {
+        sessionStorage.removeItem('yh_pending_verify_email');
+    };
+
+    const bootstrapPendingVerification = () => {
+        const pendingEmail = getPendingVerifyEmail();
+        if (!pendingEmail) return;
+
+        showStep(2);
+
+        const otpInput = document.getElementById('otp-input');
+        if (otpInput) otpInput.value = '';
+
+        startOTPTimer();
+    };
+bootstrapPendingVerification();
     // --- LOGIN LOGIC ---
-    const btnLogin = document.getElementById('btn-login');
-    if (btnLogin) {
-        btnLogin.addEventListener('click', async () => {
-            const identifier = document.getElementById('login-email').value;
-            const password = document.getElementById('login-password').value;
-            
-            if (!identifier || !password) { 
-                showToast("Please enter your email/username and password.", "error"); return; 
-            }
-            btnLogin.innerText = "Loading..."; btnLogin.disabled = true;
+const btnLogin = document.getElementById('btn-login');
+if (btnLogin) {
+    btnLogin.addEventListener('click', async () => {
+        const identifier = document.getElementById('login-email').value.trim();
+        const password = document.getElementById('login-password').value;
 
-            try {
-                const response = await fetch('/api/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ identifier, password })
-                });
-                const result = await response.json();
-
-                if (result.success) {
-                    showToast(result.message, "success");
-                    localStorage.setItem('yh_user_loggedIn', 'true');
-                    localStorage.setItem('yh_user_name', result.user.username || result.user.fullName.split(' ')[0]);
-                    localStorage.setItem('yh_token', result.token);
-                    setTimeout(() => { window.location.href = '/dashboard'; }, 1000);
-                } else {
-                    showToast(result.message, "error");
-                    btnLogin.innerText = "Login"; btnLogin.disabled = false;
-                }
-            } catch (error) {
-                showToast("Server error during login.", "error");
-                btnLogin.innerText = "Login"; btnLogin.disabled = false;
-            }
-        });
-    }
-
-    // --- REGISTER LOGIC (SIMPLE FORM) ---
-const formRegisterSimple = document.getElementById('form-register-simple');
-if (formRegisterSimple) {
-    formRegisterSimple.addEventListener('submit', async function(e) {
-        e.preventDefault();
-
-        const password = document.getElementById('reg-password').value;
-        const confirmPassword = document.getElementById('reg-confirm-password').value;
-        if (password !== confirmPassword) {
-            showToast("Passwords do not match.", "error");
+        if (!identifier || !password) {
+            showToast("Please enter your email/username and password.", "error");
             return;
         }
 
-        const submitBtn = e.target.querySelector('button[type="submit"]');
-        submitBtn.innerText = "Creating Account...";
-        submitBtn.disabled = true;
-
-        const fullName = document.getElementById('reg-fullname').value.trim();
-        const email = document.getElementById('reg-email').value.trim().toLowerCase();
+        btnLogin.innerText = "Loading...";
+        btnLogin.disabled = true;
 
         try {
-            const response = await fetch('/api/register', {
+            const response = await fetch('/api/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ fullName, email, password })
+                body: JSON.stringify({ identifier, password })
             });
 
             const result = await response.json();
 
             if (result.success) {
-                setPendingVerifyEmail(email);
                 showToast(result.message, "success");
+                clearPendingVerifyEmail();
+                localStorage.setItem('yh_user_loggedIn', 'true');
+                localStorage.setItem('yh_user_name', result.user.username || result.user.fullName.split(' ')[0]);
+                localStorage.setItem('yh_token', result.token);
+                setTimeout(() => { window.location.href = '/dashboard'; }, 1000);
+                return;
+            }
+
+            if (response.status === 403 && result.verificationRequired) {
+                const verificationEmail = String(result.email || identifier).trim().toLowerCase();
+
+                if (verificationEmail) {
+                    setPendingVerifyEmail(verificationEmail);
+                }
+
+                document.getElementById('otp-input').value = '';
                 showStep(2);
                 startOTPTimer();
-            } else {
                 showToast(result.message, "error");
-                submitBtn.innerText = "Create Account ➔";
-                submitBtn.disabled = false;
+
+                btnLogin.innerText = "Login";
+                btnLogin.disabled = false;
+                return;
             }
+
+            showToast(result.message, "error");
+            btnLogin.innerText = "Login";
+            btnLogin.disabled = false;
         } catch (error) {
-            showToast("Server error during registration.", "error");
-            submitBtn.innerText = "Create Account ➔";
-            submitBtn.disabled = false;
+            showToast("Server error during login.", "error");
+            btnLogin.innerText = "Login";
+            btnLogin.disabled = false;
         }
     });
 }
+
+    // --- REGISTER LOGIC (SIMPLE FORM) ---
+    const formRegisterSimple = document.getElementById('form-register-simple');
+    if (formRegisterSimple) {
+        formRegisterSimple.addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const password = document.getElementById('reg-password').value;
+            const confirmPassword = document.getElementById('reg-confirm-password').value;
+            if (password !== confirmPassword) {
+                showToast("Passwords do not match.", "error");
+                return;
+            }
+
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            submitBtn.innerText = "Creating Account...";
+            submitBtn.disabled = true;
+
+            const fullName = document.getElementById('reg-fullname').value.trim();
+            const email = document.getElementById('reg-email').value.trim().toLowerCase();
+
+            try {
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ fullName, email, password })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    setPendingVerifyEmail(email);
+                    showToast(result.message, "success");
+                    showStep(2);
+                    startOTPTimer();
+                } else {
+                    showToast(result.message, "error");
+                    submitBtn.innerText = "Create Account ➔";
+                    submitBtn.disabled = false;
+                }
+            } catch (error) {
+                showToast("Server error during registration.", "error");
+                submitBtn.innerText = "Create Account ➔";
+                submitBtn.disabled = false;
+            }
+        });
+    }
 
     // --- OTP LOGIC ---
     let otpTimerInterval;
@@ -186,7 +225,13 @@ if (formRegisterSimple) {
     const btnResendOTP = document.getElementById('btn-resend-otp');
     if(btnResendOTP) {
         btnResendOTP.addEventListener('click', async () => {
-            const email = document.getElementById('reg-email').value;
+            const email = getPendingVerifyEmail();
+            if (!email) {
+                showToast("Missing verification email. Please register again.", "error");
+                showStep(1);
+                return;
+            }
+
             btnResendOTP.innerText = "Sending..."; btnResendOTP.disabled = true;
 
             try {
@@ -213,8 +258,14 @@ if (formRegisterSimple) {
     if (formVerifyOTP) {
         formVerifyOTP.addEventListener('submit', async function(e) {
             e.preventDefault();
-            const otpCode = document.getElementById('otp-input').value;
-            const email = document.getElementById('reg-email').value; 
+            const otpCode = document.getElementById('otp-input').value.trim();
+            const email = getPendingVerifyEmail();
+
+            if (!email) {
+                showToast("Missing verification email. Please register again.", "error");
+                showStep(1);
+                return;
+            }
             
             const submitBtn = e.target.querySelector('button[type="submit"]');
             submitBtn.innerText = "Verifying..."; submitBtn.disabled = true;
@@ -229,7 +280,8 @@ if (formRegisterSimple) {
 
                 if (result.success) {
                     clearInterval(otpTimerInterval);
-                    showToast("Account Verified! Welcome.", "success");
+                    clearPendingVerifyEmail();
+                    showToast("Account verified. Welcome to YH Universe.", "success");
                     
                     localStorage.setItem('yh_user_loggedIn', 'true');
                     localStorage.setItem('yh_user_name', result.user.username || result.user.fullName.split(' ')[0]);

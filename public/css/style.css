@@ -17,11 +17,13 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
 
-body { 
-    background-color: var(--bg-space);
-    background-image: linear-gradient(rgba(15, 23, 42, 0.4), rgba(15, 23, 42, 0.6)), url('/images/bg.avif');
-    background-size: cover; background-position: center; background-repeat: no-repeat;
-    color: var(--text-main); width: 100vw; height: 100vh; overflow: hidden; 
+body {
+    background: #0f172a;
+    color: var(--text-main);
+    width: 100%;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 /* ========================================================= */
@@ -1001,4 +1003,1156 @@ h3 { font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem; color: var(--ne
 @keyframes pulseSpin {
     0% { transform: rotate(0deg); box-shadow: 0 0 10px rgba(14, 165, 233, 0.5); }
     100% { transform: rotate(360deg); box-shadow: 0 0 25px rgba(14, 165, 233, 0.2); }
+}
+/* ==========================================
+   MOBILE-FIRST PRIORITY PATCH
+   Append at the very end of public/css/style.css
+   ========================================== */
+
+html, body {
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+img, video, canvas {
+    max-width: 100%;
+    height: auto;
+}
+
+@media (max-width: 1024px) {
+    .yh-right-sidebar {
+        display: none !important;
+    }
+
+    .dashboard-core {
+        grid-template-columns: 280px minmax(0, 1fr) !important;
+    }
+}
+
+@media (max-width: 768px) {
+    html, body {
+        overflow-x: hidden;
+    }
+
+    body {
+        min-height: 100dvh;
+    }
+
+    .step-container,
+    .dashboard-layout,
+    .dashboard-view-layer,
+    .dashboard-core,
+    .yh-main-chat,
+    .yh-sidebar,
+    .form-card-ultrawide,
+    .card,
+    .modal-card {
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* APPLY / AUTH */
+    .form-card-ultrawide,
+    .step1-flipper-container,
+    .approved-card-container {
+        width: 100% !important;
+        min-width: 0 !important;
+        border-radius: 18px !important;
+    }
+
+    .panel-left {
+        display: none !important;
+    }
+
+    .panel-right-wrapper,
+    .auth-center-wrapper,
+    .login-ui-container,
+    #form-register-simple {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    .form-row,
+    .form-row-last {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 12px !important;
+    }
+
+    .input-field,
+    .pill-input,
+    .btn-primary,
+    .btn-secondary,
+    .pill-btn-login,
+    .btn-large {
+        width: 100% !important;
+        box-sizing: border-box;
+    }
+
+    .main-title.step1-title {
+        font-size: 1.8rem !important;
+        line-height: 1.1 !important;
+    }
+
+    .subtitle.step1-subtitle {
+        font-size: 0.95rem !important;
+    }
+
+    /* DASHBOARD TOP NAV */
+    .yh-top-nav {
+        position: sticky;
+        top: 0;
+        z-index: 200;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 10px !important;
+        padding: 12px !important;
+        min-height: auto !important;
+    }
+
+    .nav-brand,
+    .nav-actions {
+        width: 100%;
+    }
+
+    .nav-brand {
+        justify-content: center;
+    }
+
+    .nav-tabs {
+        width: 100%;
+        display: flex !important;
+        gap: 8px !important;
+        overflow-x: auto;
+        padding-bottom: 2px;
+        scrollbar-width: none;
+    }
+
+    .nav-tabs::-webkit-scrollbar {
+        display: none;
+    }
+
+    .nav-tab {
+        flex: 0 0 auto;
+        white-space: nowrap;
+    }
+
+    .nav-actions {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 10px !important;
+        flex-wrap: wrap !important;
+    }
+
+    .profile-mini span,
+    .btn-logout {
+        font-size: 0.85rem !important;
+    }
+
+    /* HUB / PORTALS */
+    #universe-hub-view {
+        top: 120px !important;
+        padding: 16px !important;
+        justify-content: flex-start !important;
+    }
+
+    .portals-grid {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    .portal-card {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    .portal-title {
+        font-size: 1.25rem !important;
+    }
+
+    .portal-desc {
+        font-size: 0.92rem !important;
+        line-height: 1.5 !important;
+    }
+
+    /* DASHBOARD BODY */
+    .dashboard-core {
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: calc(100dvh - 130px) !important;
+    }
+
+    .yh-sidebar {
+        width: 100% !important;
+        max-width: 100% !important;
+        border-right: none !important;
+        border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+    }
+
+    .channel-search-container,
+    .channel-content,
+    .support-section {
+        width: 100% !important;
+        box-sizing: border-box;
+    }
+
+    .yh-main-chat {
+        width: 100% !important;
+        min-width: 0 !important;
+    }
+
+    .chat-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 10px !important;
+    }
+
+    .header-left,
+    .header-right {
+        width: 100% !important;
+    }
+
+    .header-topic {
+        font-size: 0.82rem !important;
+    }
+
+    .chat-messages,
+    .vault-container,
+    .lounge-container,
+    .stage-layout-wrapper {
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+    }
+
+    .chat-input-area {
+        padding: 10px 12px !important;
+    }
+
+    .chat-input-wrapper {
+        width: 100% !important;
+        gap: 8px !important;
+    }
+
+    .chat-input-container {
+        min-width: 0 !important;
+        flex: 1 !important;
+    }
+
+    .chat-text-input,
+    .stage-chat-input {
+        min-width: 0 !important;
+        width: 100% !important;
+    }
+
+    .input-extras {
+        display: none !important;
+    }
+
+    .lounge-grid,
+    .vault-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    .stage-layout-wrapper {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 12px !important;
+    }
+
+    .stage-container,
+    .stage-chat-panel {
+        width: 100% !important;
+    }
+
+    .speakers-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    .modal-overlay {
+        padding: 12px !important;
+    }
+
+    .modal-card,
+    .modal-center {
+        width: 100% !important;
+        max-width: 100% !important;
+        border-radius: 18px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .yh-top-nav {
+        padding: 10px !important;
+    }
+
+    #universe-hub-view {
+        top: 112px !important;
+        padding: 12px !important;
+    }
+
+    .main-title {
+        font-size: 1.5rem !important;
+    }
+
+    .subtitle {
+        font-size: 0.9rem !important;
+    }
+
+    .portal-card,
+    .modal-card,
+    .form-card-ultrawide {
+        border-radius: 16px !important;
+    }
+
+    .btn-primary,
+    .btn-secondary,
+    .pill-btn-login,
+    .btn-large {
+        min-height: 48px !important;
+    }
+
+    .chat-header h3,
+    .portal-title,
+    .coming-soon-title {
+        font-size: 1.1rem !important;
+    }
+}
+/* ==========================================
+   YHA COMMUNITY FEED
+   ========================================== */
+
+.academy-feed-shell {
+    width: 100%;
+    max-width: 860px;
+    margin: 0 auto;
+}
+
+.academy-feed-composer-card,
+.academy-feed-card {
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 18px;
+    padding: 16px;
+    backdrop-filter: blur(14px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+}
+
+.academy-feed-card {
+    display: block;
+}
+
+@media (max-width: 768px) {
+    .academy-feed-shell {
+        max-width: 100%;
+    }
+
+    .academy-feed-composer-card,
+    .academy-feed-card {
+        padding: 14px;
+        border-radius: 16px;
+    }
+
+    .academy-feed-card .btn-primary,
+    .academy-feed-card .btn-secondary,
+    .academy-feed-composer-card .btn-primary,
+    .academy-feed-composer-card .btn-secondary {
+        width: auto;
+        min-height: 44px;
+    }
+}
+
+@media (max-width: 480px) {
+    .academy-feed-composer-card,
+    .academy-feed-card {
+        padding: 12px;
+        border-radius: 14px;
+    }
+
+    .academy-feed-card .btn-primary,
+    .academy-feed-card .btn-secondary,
+    .academy-feed-composer-card .btn-primary,
+    .academy-feed-composer-card .btn-secondary {
+        width: 100%;
+    }
+}
+/* ==========================================
+   MOBILE UI CLEANUP HOTFIX
+   Append at the very end
+   ========================================== */
+
+.video-container,
+.play-btn,
+.intro-video {
+    display: none !important;
+}
+
+@media (max-width: 768px) {
+    .yh-top-nav {
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 200 !important;
+        padding: 10px 12px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 10px !important;
+        min-height: auto !important;
+        background: rgba(15, 23, 42, 0.96) !important;
+        backdrop-filter: blur(14px) !important;
+        border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+    }
+
+    .nav-brand {
+        justify-content: center !important;
+        width: 100% !important;
+        gap: 10px !important;
+    }
+
+    .nav-brand img {
+        width: 28px !important;
+        height: 28px !important;
+    }
+
+    .nav-brand span {
+        font-size: 1rem !important;
+        letter-spacing: 0.5px !important;
+    }
+
+    .nav-tabs {
+        display: grid !important;
+        grid-template-columns: repeat(3, 1fr) !important;
+        width: 100% !important;
+        gap: 8px !important;
+        overflow: visible !important;
+    }
+
+    .nav-tab {
+        min-width: 0 !important;
+        width: 100% !important;
+        padding: 10px 8px !important;
+        font-size: 0.78rem !important;
+        line-height: 1.15 !important;
+        text-align: center !important;
+        white-space: normal !important;
+        min-height: 48px !important;
+    }
+
+    .nav-actions {
+        display: grid !important;
+        grid-template-columns: auto 1fr auto !important;
+        align-items: center !important;
+        gap: 8px !important;
+        width: 100% !important;
+    }
+
+    .notif-wrapper {
+        justify-self: start !important;
+    }
+
+    .profile-mini {
+        min-width: 0 !important;
+        justify-self: start !important;
+        gap: 8px !important;
+    }
+
+    .profile-mini span {
+        display: none !important;
+    }
+
+    .btn-logout {
+        width: auto !important;
+        padding: 10px 12px !important;
+        font-size: 0.8rem !important;
+        justify-self: end !important;
+        min-height: 40px !important;
+    }
+
+    #universe-hub-view {
+        top: 122px !important;
+        padding: 12px !important;
+        align-items: stretch !important;
+        justify-content: flex-start !important;
+    }
+
+    #universe-hub-view .text-center {
+        margin-top: 0 !important;
+        margin-bottom: 1rem !important;
+    }
+
+    #universe-hub-view .main-title {
+        font-size: 1.9rem !important;
+        line-height: 1.05 !important;
+    }
+
+    #universe-hub-view .subtitle {
+        font-size: 0.9rem !important;
+        line-height: 1.45 !important;
+    }
+
+    .portal-card {
+        padding: 18px 16px !important;
+        border-radius: 18px !important;
+    }
+
+    .portal-title,
+    .portal-desc {
+        text-align: center !important;
+    }
+
+    .portal-desc {
+        font-size: 0.92rem !important;
+        line-height: 1.55 !important;
+    }
+
+    .dashboard-core {
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: calc(100dvh - 122px) !important;
+    }
+
+    .yh-sidebar {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 12px !important;
+        border-right: none !important;
+        border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+    }
+
+    .channel-search-container,
+    .support-section {
+        display: none !important;
+    }
+
+    .channel-content {
+        width: 100% !important;
+        padding: 0 !important;
+    }
+
+    .channel-list {
+        display: grid !important;
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 8px !important;
+    }
+
+    .channel-link {
+        min-width: 0 !important;
+        justify-content: center !important;
+        padding: 12px 8px !important;
+    }
+
+    .channel-link .sidebar-text {
+        font-size: 0.76rem !important;
+    }
+
+    .yh-main-chat {
+        width: 100% !important;
+        min-width: 0 !important;
+    }
+
+    .chat-header {
+        padding: 14px 12px !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+    }
+
+    .header-left,
+    .header-right {
+        width: 100% !important;
+    }
+
+    .header-left h3 {
+        font-size: 1.05rem !important;
+        line-height: 1.2 !important;
+    }
+
+    .header-topic {
+        font-size: 0.82rem !important;
+        line-height: 1.45 !important;
+    }
+
+    .pinned-message {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+        padding: 12px !important;
+    }
+
+    .chat-messages {
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+    }
+
+    .academy-feed-composer-card,
+    .academy-feed-card {
+        padding: 14px !important;
+        border-radius: 16px !important;
+    }
+
+    .chat-input-area {
+        position: sticky !important;
+        bottom: 0 !important;
+        z-index: 30 !important;
+        padding: 10px 12px !important;
+        background: rgba(15, 23, 42, 0.96) !important;
+        backdrop-filter: blur(12px) !important;
+        border-top: 1px solid rgba(255,255,255,0.08) !important;
+    }
+
+    .chat-input-wrapper {
+        width: 100% !important;
+        gap: 8px !important;
+    }
+
+    .chat-input-container {
+        min-width: 0 !important;
+        flex: 1 !important;
+    }
+
+    .chat-text-input {
+        width: 100% !important;
+        min-width: 0 !important;
+    }
+
+    .input-extras {
+        display: none !important;
+    }
+
+    .notif-dropdown {
+        left: auto !important;
+        right: 0 !important;
+        width: min(320px, calc(100vw - 24px)) !important;
+    }
+}
+
+@media (max-width: 430px) {
+    .nav-tab {
+        font-size: 0.72rem !important;
+        padding: 9px 6px !important;
+    }
+
+    #universe-hub-view {
+        top: 116px !important;
+    }
+
+    .portal-card {
+        padding: 16px 14px !important;
+    }
+}
+/* ==========================================
+   MOBILE TOP SECTION CLEAN FIX
+   Append at the very end of style.css
+   ========================================== */
+
+.universe-hub-view {
+    position: fixed;
+    top: 70px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #0f172a;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    overflow-y: auto;
+}
+
+@media (max-width: 768px) {
+    .yh-top-nav {
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 200 !important;
+        display: grid !important;
+        grid-template-columns: 1fr auto !important;
+        grid-template-areas:
+            "brand logout"
+            "tabs tabs" !important;
+        align-items: center !important;
+        gap: 10px !important;
+        padding: 10px 12px !important;
+        min-height: auto !important;
+        background: rgba(15, 23, 42, 0.98) !important;
+        backdrop-filter: blur(14px) !important;
+        border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+    }
+
+    .nav-brand {
+        grid-area: brand !important;
+        width: auto !important;
+        justify-content: flex-start !important;
+        gap: 8px !important;
+    }
+
+    .nav-brand img {
+        width: 26px !important;
+        height: 26px !important;
+    }
+
+    .nav-brand span {
+        font-size: 0.95rem !important;
+        letter-spacing: 0.4px !important;
+    }
+
+    .nav-actions {
+        grid-area: logout !important;
+        width: auto !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: flex-end !important;
+        gap: 0 !important;
+    }
+
+    .notif-wrapper,
+    .profile-mini {
+        display: none !important;
+    }
+
+    .btn-logout {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: auto !important;
+        min-height: 38px !important;
+        padding: 8px 10px !important;
+        margin: 0 !important;
+        font-size: 0.76rem !important;
+        line-height: 1 !important;
+    }
+
+    .nav-tabs {
+        grid-area: tabs !important;
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 6px !important;
+        width: 100% !important;
+        overflow: visible !important;
+        padding-bottom: 0 !important;
+    }
+
+    .nav-tab {
+        min-width: 0 !important;
+        width: 100% !important;
+        min-height: 42px !important;
+        padding: 8px 6px !important;
+        font-size: 0.70rem !important;
+        line-height: 1.15 !important;
+        white-space: normal !important;
+        text-align: center !important;
+    }
+
+    .universe-hub-view {
+        position: relative !important;
+        top: 0 !important;
+        left: auto !important;
+        right: auto !important;
+        bottom: auto !important;
+        width: 100% !important;
+        min-height: calc(100dvh - 132px) !important;
+        padding: 12px 12px 24px !important;
+        align-items: stretch !important;
+        justify-content: flex-start !important;
+    }
+
+    .universe-hub-view .text-center {
+        margin-top: 0 !important;
+        margin-bottom: 12px !important;
+    }
+
+    .universe-hub-view .main-title {
+        font-size: 1.9rem !important;
+        line-height: 1.05 !important;
+        margin-bottom: 4px !important;
+    }
+
+    .universe-hub-view .subtitle {
+        font-size: 0.88rem !important;
+        line-height: 1.45 !important;
+    }
+
+    .portals-grid {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 14px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    .portal-card {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 16px !important;
+        border-radius: 16px !important;
+    }
+
+    .portal-title {
+        font-size: 1.18rem !important;
+        text-align: center !important;
+    }
+
+    .portal-desc {
+        font-size: 0.9rem !important;
+        line-height: 1.5 !important;
+        text-align: center !important;
+    }
+}
+
+@media (max-width: 430px) {
+    .yh-top-nav {
+        padding: 8px 10px !important;
+        gap: 8px !important;
+    }
+
+    .nav-brand span {
+        font-size: 0.9rem !important;
+    }
+
+    .nav-tab {
+        font-size: 0.66rem !important;
+        padding: 8px 4px !important;
+        min-height: 40px !important;
+    }
+
+    .btn-logout {
+        padding: 7px 9px !important;
+        font-size: 0.72rem !important;
+    }
+
+    .universe-hub-view {
+        min-height: calc(100dvh - 124px) !important;
+        padding: 10px 10px 20px !important;
+    }
+
+    .portal-card {
+        padding: 15px 14px !important;
+    }
+}
+/* ==========================================
+   FINAL RESPONSIVE SHELL AUTHORITY
+   desktop base + clean mobile override
+   ========================================== */
+
+body[data-yh-view="hub"] #academy-wrapper,
+body[data-yh-view="hub"] #view-plazas,
+body[data-yh-view="hub"] #view-federation {
+    display: none !important;
+}
+
+body[data-yh-view="academy"] #universe-hub-view {
+    display: none !important;
+}
+
+body.academy-launcher-open {
+    overflow: hidden;
+}
+
+.universe-hub-view {
+    position: fixed;
+    top: 60px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 32px 24px;
+    overflow-y: auto;
+    background: #0f172a;
+}
+
+#academy-wrapper {
+    display: none;
+}
+
+#academy-apply-modal.hidden-step {
+    display: none !important;
+}
+
+#academy-apply-modal:not(.hidden-step) {
+    display: flex !important;
+}
+
+@media (min-width: 1025px) {
+    .yh-top-nav {
+        height: 60px !important;
+        min-height: 60px !important;
+        padding: 0 24px !important;
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 20px !important;
+    }
+
+    .nav-brand,
+    .nav-tabs,
+    .nav-actions {
+        width: auto !important;
+    }
+
+    .nav-tabs {
+        display: flex !important;
+        gap: 12px !important;
+        overflow: visible !important;
+    }
+
+    .nav-tab {
+        min-height: 60px !important;
+        white-space: nowrap !important;
+        width: auto !important;
+    }
+
+    .dashboard-core {
+        display: flex !important;
+        flex-direction: row !important;
+        min-height: calc(100dvh - 60px) !important;
+    }
+
+    .yh-sidebar {
+        display: flex !important;
+        width: 280px !important;
+        max-width: 280px !important;
+        border-right: 1px solid var(--glass-border) !important;
+        border-bottom: none !important;
+        padding: 0 !important;
+    }
+
+    .yh-right-sidebar {
+        display: flex !important;
+        width: 260px !important;
+    }
+
+    .channel-search-container,
+    .support-section {
+        display: block !important;
+    }
+
+    .channel-list {
+        display: block !important;
+    }
+
+    .chat-header {
+        flex-direction: row !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        padding: 0 24px !important;
+        min-height: 65px !important;
+    }
+
+    .header-left,
+    .header-right {
+        width: auto !important;
+    }
+}
+
+@media (max-width: 1024px) {
+    .yh-right-sidebar {
+        display: none !important;
+    }
+
+    .dashboard-core {
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: calc(100dvh - 122px) !important;
+    }
+}
+
+@media (max-width: 768px) {
+    .yh-top-nav {
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 200 !important;
+        display: grid !important;
+        grid-template-columns: 1fr auto !important;
+        grid-template-areas:
+            "brand logout"
+            "tabs tabs"
+            "actions actions" !important;
+        gap: 10px !important;
+        padding: 10px 12px !important;
+        min-height: auto !important;
+        background: rgba(15, 23, 42, 0.98) !important;
+        backdrop-filter: blur(14px) !important;
+        border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+    }
+
+    .nav-brand {
+        grid-area: brand;
+        justify-content: flex-start !important;
+        width: auto !important;
+        gap: 10px !important;
+    }
+
+    .nav-actions {
+        grid-area: actions;
+        display: grid !important;
+        grid-template-columns: auto 1fr auto !important;
+        align-items: center !important;
+        gap: 8px !important;
+        width: 100% !important;
+    }
+
+    .nav-tabs {
+        grid-area: tabs;
+        display: grid !important;
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 8px !important;
+        width: 100% !important;
+        overflow: visible !important;
+    }
+
+    .nav-tab {
+        min-width: 0 !important;
+        width: 100% !important;
+        min-height: 46px !important;
+        padding: 10px 8px !important;
+        font-size: 0.78rem !important;
+        line-height: 1.15 !important;
+        white-space: normal !important;
+        text-align: center !important;
+    }
+
+    .profile-mini span {
+        display: none !important;
+    }
+
+    .btn-logout {
+        width: auto !important;
+        min-height: 40px !important;
+        padding: 10px 12px !important;
+    }
+
+    .universe-hub-view {
+        top: 118px !important;
+        padding: 12px !important;
+        justify-content: flex-start !important;
+        align-items: stretch !important;
+    }
+
+    .universe-hub-view .text-center {
+        margin-top: 0 !important;
+        margin-bottom: 1rem !important;
+    }
+
+    .portals-grid {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+        width: 100% !important;
+    }
+
+    .portal-card {
+        width: 100% !important;
+        padding: 18px 16px !important;
+        border-radius: 18px !important;
+    }
+
+    .portal-title,
+    .portal-desc {
+        text-align: center !important;
+    }
+
+    .yh-sidebar {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 12px !important;
+        border-right: none !important;
+        border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+    }
+
+    .channel-search-container,
+    .support-section {
+        display: none !important;
+    }
+
+    .channel-content {
+        width: 100% !important;
+        padding: 0 !important;
+    }
+
+    .channel-list {
+        display: grid !important;
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 8px !important;
+    }
+
+    .channel-link {
+        min-width: 0 !important;
+        justify-content: center !important;
+        padding: 12px 8px !important;
+    }
+
+    .chat-header {
+        padding: 14px 12px !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+    }
+
+    .header-left,
+    .header-right {
+        width: 100% !important;
+    }
+
+    .pinned-message {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+        padding: 12px !important;
+    }
+
+    .chat-messages {
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+    }
+
+    .chat-input-area {
+        position: sticky !important;
+        bottom: 0 !important;
+        z-index: 30 !important;
+        padding: 10px 12px !important;
+        background: rgba(15, 23, 42, 0.96) !important;
+        backdrop-filter: blur(12px) !important;
+        border-top: 1px solid rgba(255,255,255,0.08) !important;
+    }
+
+    #academy-apply-modal {
+        padding: 12px !important;
+        align-items: center !important;
+    }
+
+    #academy-apply-modal .modal-content {
+        width: 100% !important;
+        max-width: 100% !important;
+        max-height: calc(100dvh - 24px) !important;
+        padding: 20px 16px !important;
+        border-radius: 18px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .universe-hub-view {
+        top: 112px !important;
+    }
+
+    .main-title {
+        font-size: 1.55rem !important;
+    }
+
+    .subtitle {
+        font-size: 0.9rem !important;
+    }
+
+    .portal-card,
+    #academy-apply-modal .modal-content {
+        border-radius: 16px !important;
+    }
 }

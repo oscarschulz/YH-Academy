@@ -5,6 +5,7 @@ const auth = require('../middlewares/auth');
 // --- CONTROLLERS ---
 const authController = require('../controllers/authControllers');
 const realtimeControllers = require('../controllers/realtimeControllers');
+const academyCommunityControllers = require('../controllers/academyCommunityControllers');
 
 
 // ==========================================
@@ -35,6 +36,17 @@ router.post('/academy/missions/:id/complete', auth, academyControllers.completeM
 router.post('/academy/missions/:id/status', auth, academyControllers.updateMissionStatus);
 router.post('/academy/checkin', auth, academyControllers.submitCheckin);
 router.post('/academy/roadmap/refresh', auth, academyControllers.refreshRoadmap);
+
+// ==========================================
+// 🎓 YHA COMMUNITY FEED ROUTES
+// ==========================================
+router.get('/academy/feed', auth, academyCommunityControllers.getFeed);
+router.post('/academy/feed/posts', auth, academyCommunityControllers.createPost);
+router.post('/academy/feed/posts/:id/like', auth, academyCommunityControllers.toggleLike);
+router.get('/academy/feed/posts/:id/comments', auth, academyCommunityControllers.getComments);
+router.post('/academy/feed/posts/:id/comments', auth, academyCommunityControllers.createComment);
+router.post('/academy/feed/friend-requests', auth, academyCommunityControllers.sendFriendRequest);
+router.post('/academy/feed/friend-requests/:id/respond', auth, academyCommunityControllers.respondToFriendRequest);
 
 // ==========================================
 // ⚡ REALTIME BACKEND ROUTES

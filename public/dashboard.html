@@ -21,11 +21,11 @@
                 <span>UNIVERSE</span>
             </div>
             
-            <div class="nav-tabs">
-                <button class="nav-tab active" id="server-academy">🎓 The Academy</button>
-                <button class="nav-tab" id="server-plazas">🏪 The Plazas</button>
-                <button class="nav-tab" id="server-federation">🤝 The Federation</button>
-            </div>
+<div class="nav-tabs">
+    <button class="nav-tab active" id="server-academy">🎓 Academy</button>
+    <button class="nav-tab" id="server-plazas">🏪 Plazas</button>
+    <button class="nav-tab" id="server-federation">🤝 Federation</button>
+</div>
 
             <div class="nav-actions">
                 <div class="notif-wrapper" id="notif-bell">
@@ -54,7 +54,7 @@
             </div>
         </nav>
 
-        <div id="universe-hub-view" class="dashboard-view-layer fade-in" style="position: absolute; top: 70px; left: 0; right: 0; bottom: 0; background: var(--bg-dark); z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; overflow-y: auto;">
+<div id="universe-hub-view" class="dashboard-view-layer fade-in universe-hub-view">
             <div class="text-center mb-large" style="margin-top: 2rem;">
                 <h1 class="main-title" style="font-size: 3rem; margin-bottom: 0.5rem;">YH UNIVERSE</h1>
                 <p class="subtitle" style="font-size: 1.1rem;">Select a division to expand your empire.</p>
@@ -64,9 +64,9 @@
                 
                 <div class="portal-card active-portal">
                     <div class="portal-icon">🎓</div>
-                    <h2 class="portal-title">The Academy</h2>
-                    <p class="portal-desc">A self-improvement hub where an AI Agent builds a personalized roadmap for your mental, physical, and financial goals.</p>
-                    <button id="btn-open-academy-apply" class="btn-primary w-full" style="padding: 15px; font-size: 1.1rem;">Apply for Access ➔</button>
+                    <h2 class="portal-title">YH Academy</h2>
+                    <p class="portal-desc">Enter the self-improvement division of YH Universe. Build your roadmap through AI-guided missions, join the community, and step into live voice sessions.</p>
+                    <button id="btn-open-academy-apply" class="btn-primary w-full" style="padding: 15px; font-size: 1.1rem;">Enter YH Academy ➔</button>
                 </div>
 
                 <div class="portal-card locked-portal">
@@ -96,82 +96,40 @@
                     </div>
                 </div>
 
-                <div class="channel-content hide-scrollbar">
-                    
-                    <div class="channel-category category-mt sidebar-text flex-between">
-    <span>COMMUNICATIONS</span>
+<div class="channel-content hide-scrollbar">
+    
+    <div class="channel-category category-mt sidebar-text">
+        <span>YH ACADEMY</span>
+    </div>
+
+    <ul class="channel-list">
+        <li class="active channel-link" id="nav-chat" title="community" data-type="main-chat">
+            <div class="sidebar-icon"><span class="channel-icon">💬</span></div>
+            <span class="sidebar-text">Community</span>
+        </li>
+
+        <li class="channel-link" id="nav-voice" title="voice-lounge" data-type="voice-lobby">
+            <div class="sidebar-icon"><span class="channel-icon">🎙️</span></div>
+            <span class="sidebar-text">Voice Lounge</span>
+        </li>
+
+        <li class="channel-link" id="nav-missions" title="missions" data-type="missions">
+            <div class="sidebar-icon"><span class="channel-icon">🎯</span></div>
+            <span class="sidebar-text">Missions</span>
+        </li>
+    </ul>
+
+    <div class="channel-category category-mt-large sidebar-text">
+        <span>MISSION SNAPSHOT</span>
+    </div>
+
+    <div class="blueprint-progress sidebar-text">
+        <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-bar-fill"></div></div>
+        <div class="progress-text" id="progress-text">0% Completed</div>
+    </div>
+
+    <div class="action-steps-compact" id="blueprint-list"></div>
 </div>
-
-<div class="sidebar-text flex-row channel-action-row">
-    <button id="btn-open-dm-modal" class="btn-secondary flex-1">+ DM</button>
-    <button id="btn-open-group-modal" class="btn-primary flex-1">+ Group</button>
-</div>
-
-<div class="channel-category category-mt sidebar-text">
-    <span>COMMUNITY CHAT</span>
-</div>
-<ul class="channel-list" id="dm-list">
-    <li class="active channel-link" id="nav-chat" title="YH-community" data-type="main-chat">
-        <div class="sidebar-icon"><span class="channel-icon">💬</span></div>
-        <span class="sidebar-text">YH-community (Public)</span>
-    </li>
-    <li class="channel-link" id="nav-announcements" title="announcements" data-type="announcements">
-        <div class="sidebar-icon"><span class="channel-icon">📢</span></div>
-        <span class="sidebar-text">announcements</span>
-    </li>
-</ul>
-
-<div class="channel-category category-mt sidebar-text">
-    <span>PRIVATE DMS</span>
-</div>
-<ul
-    class="channel-list chatbox-rooms-list"
-    id="chatbox-room-list"
-    data-chatbox-rooms-list="dm"
-    style="margin-top: 5px;"
-></ul>
-
-<div class="channel-category category-mt sidebar-text">
-    <span>PRIVATE GROUPS</span>
-</div>
-<ul
-    class="channel-list"
-    id="custom-dm-list"
-    data-private-group-list="true"
-    style="margin-top: 5px;"
-></ul>
-
-                    <div class="channel-category category-mt-large sidebar-text">LIVE SESSIONS</div>
-                    <ul class="channel-list">
-                        <li class="channel-link" id="nav-voice" title="voice-lounge" data-type="voice-lobby">
-                            <div class="sidebar-icon"><span class="channel-icon">🎙️</span></div>
-                            <span class="sidebar-text">voice-lounge</span>
-                        </li>
-                        <li class="channel-link" id="nav-video" title="video-lounge" data-type="video">
-                            <div class="sidebar-icon"><span class="channel-icon">📹</span></div>
-                            <span class="sidebar-text">video-lounge</span>
-                        </li>
-                    </ul>
-
-                    <div class="channel-category category-mt-large sidebar-text">YOUR RESOURCES</div>
-                    <ul class="channel-list">
-                        <li class="channel-link" id="nav-vault" title="The Vault" data-type="vault">
-                            <div class="sidebar-icon"><span class="channel-icon">🗄️</span></div>
-                            <span class="sidebar-text fw-600 color-white">The Vault</span>
-                        </li>
-                    </ul>
-
-                    <div class="channel-category category-mt-large sidebar-text flex-between pr-10">
-                        <span>YOUR MISSIONS</span>
-                        <button id="btn-open-mission-modal" class="btn-icon-add" title="Add Custom Goal">+</button>
-                    </div>
-                    <div class="blueprint-progress sidebar-text">
-                        <div class="progress-bar-bg"><div class="progress-bar-fill" id="progress-bar-fill"></div></div>
-                        <div class="progress-text" id="progress-text">0% Completed</div>
-                    </div>
-                    <div class="action-steps-compact" id="blueprint-list"></div>
-
-                </div>
 
                 <div class="support-section flex-row">
                     <button class="btn-support flex-1" id="btn-support-ticket" title="Create a Support Ticket">
@@ -181,7 +139,58 @@
                     <button class="btn-support-secondary sidebar-text btn-settings-icon" id="btn-settings" title="Settings">⚙️</button>
                 </div>
             </aside>
+            <main class="yh-main-chat hidden-step fade-in" id="academy-feed-view">
+                <header class="chat-header">
+                    <div class="header-left">
+                        <span class="hash-big">📰</span>
+                        <h3>YHA Community Feed</h3>
+                        <div class="header-divider"></div>
+                        <p class="header-topic">Post updates, connect with members, follow, like, comment, and build your Academy circle.</p>
+                    </div>
+                    <div class="header-right">
+                        <button class="btn-secondary" id="academy-feed-refresh-btn" type="button">Refresh Feed</button>
+                    </div>
+                </header>
 
+                <div class="chat-messages hide-scrollbar" style="padding: 16px;">
+                    <div class="academy-feed-shell">
+                        <div class="academy-feed-composer-card">
+                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+                                <div class="profile-avatar-mini" id="academy-feed-composer-avatar">Y</div>
+                                <div>
+                                    <div style="font-weight:600;color:#fff;">Share something with YHA</div>
+                                    <div style="font-size:0.82rem;color:var(--text-muted);">Wins, struggles, lessons, progress, questions.</div>
+                                </div>
+                            </div>
+
+                            <textarea
+                                id="academy-feed-composer-input"
+                                class="chat-text-input"
+                                rows="4"
+                                placeholder="What are you working on today inside YH Academy?"
+                                style="width:100%;min-height:110px;resize:vertical;border-radius:14px;padding:14px;"
+                            ></textarea>
+
+                            <input
+                                type="text"
+                                id="academy-feed-image-url"
+                                class="chat-text-input"
+                                placeholder="Optional image URL"
+                                style="width:100%;margin-top:10px;border-radius:12px;padding:12px;"
+                            >
+
+                            <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:12px;flex-wrap:wrap;">
+                                <button type="button" class="btn-secondary" id="academy-feed-clear-btn">Clear</button>
+                                <button type="button" class="btn-primary" id="academy-feed-post-btn">Post to Community</button>
+                            </div>
+                        </div>
+
+                        <div id="academy-feed-list" style="display:grid;gap:14px;margin-top:16px;">
+                            <div style="text-align:center;color:var(--text-muted);padding:2rem;">Loading YHA feed...</div>
+                        </div>
+                    </div>
+                </div>
+            </main>
             <main class="yh-main-chat hide-scrollbar fade-in" id="academy-chat">
                 <header class="chat-header">
                     <div class="header-left">
@@ -202,14 +211,16 @@
                 </div>
 
                 <div class="chat-messages hide-scrollbar" id="chat-messages">
-                    <div class="welcome-embed fade-in" id="chat-welcome-box">
-                        <h2 class="welcome-title">Welcome to The Academy</h2>
-                        <p class="welcome-desc">Here is your execution plan. Watch the introductory video to begin your journey.</p>
-                        <div class="video-container">
-                            <video src="/video/yhvideo3.mp4" muted loop autoplay playsinline></video>
-                            <div class="play-btn">▶</div>
-                        </div>
-                    </div>
+<div class="welcome-embed fade-in" id="chat-welcome-box">
+    <h2 class="welcome-title">Welcome to YH Academy</h2>
+    <p class="welcome-desc">This space is now focused on execution, roadmap tracking, voice sessions, and Academy networking.</p>
+    <div class="guidelines-box-approved" style="margin-top: 1rem;">
+        <strong>Inside YH Academy</strong><br>
+        Community for updates and networking.<br>
+        Voice Lounge for live sessions.<br>
+        Missions for your personalized roadmap.
+    </div>
+</div>
                     <div id="dynamic-chat-history"></div>
                 </div>
                 
@@ -296,19 +307,19 @@
             </aside>
         </div>
 
-        <main class="coming-soon-wrapper hide-scrollbar hidden-step" id="view-plazas">
-            <div class="coming-soon-icon" style="animation: none; font-size: 5rem;">🏪</div>
-            <h2 class="coming-soon-title">The Plazas is Locked</h2>
-            <p class="coming-soon-desc">Access the marketplace and community hubs. You need to apply to enter.</p>
-            <button class="btn-primary" style="max-width: 300px; margin-top: 1rem;" onclick="document.getElementById('academy-apply-modal').classList.remove('hidden-step')">Apply for Plaza Access</button>
-        </main>
+<main class="coming-soon-wrapper hide-scrollbar hidden-step" id="view-plazas">
+    <div class="coming-soon-icon" style="animation: none; font-size: 5rem;">🏪</div>
+    <h2 class="coming-soon-title">The Plazas is Opening Soon</h2>
+    <p class="coming-soon-desc">The marketplace and community hubs are not available yet. This division will open in a future update.</p>
+    <button class="btn-secondary" type="button" disabled style="max-width: 300px; margin-top: 1rem; cursor: not-allowed; opacity: 0.75;">🔒 Opening Soon</button>
+</main>
 
-        <main class="coming-soon-wrapper hide-scrollbar hidden-step" id="view-federation">
-            <div class="coming-soon-icon" style="animation: none; font-size: 5rem;">🤝</div>
-            <h2 class="coming-soon-title">The Federation is Locked</h2>
-            <p class="coming-soon-desc">Connect with high-level affiliates and partners. You need to apply to enter.</p>
-            <button class="btn-primary" style="max-width: 300px; margin-top: 1rem;" onclick="document.getElementById('academy-apply-modal').classList.remove('hidden-step')">Apply for Federation Access</button>
-        </main>
+<main class="coming-soon-wrapper hide-scrollbar hidden-step" id="view-federation">
+    <div class="coming-soon-icon" style="animation: none; font-size: 5rem;">🤝</div>
+    <h2 class="coming-soon-title">The Federation is Opening Soon</h2>
+    <p class="coming-soon-desc">The strategic network division is not available yet. This section will open in a future update.</p>
+    <button class="btn-secondary" type="button" disabled style="max-width: 300px; margin-top: 1rem; cursor: not-allowed; opacity: 0.75;">🔒 Opening Soon</button>
+</main>
     </div>
 
     <div id="academy-apply-modal" class="modal-overlay hidden-step" style="z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px;">
@@ -319,8 +330,8 @@
             
             <div id="ai-form-phase">
                 <div class="text-center mb-1-25">
-                    <h2 class="yh-title-small" style="color: var(--neon-blue);">Academy Admissions</h2>
-                    <p class="yh-subtitle-small">The AI Agent will evaluate your intent and seriousness.</p>
+                    <h2 class="yh-title-small" style="color: var(--neon-blue);">YH Academy Application</h2>
+                    <p class="yh-subtitle-small">Complete this once so the Missions AI can build your personal self-improvement roadmap.</p>
                 </div>
                 
 <form id="form-academy-apply">
@@ -482,23 +493,23 @@
         </div>
     </div>
 
-    <button type="submit" id="btn-submit-ai" class="btn-primary w-full mt-small" style="padding: 12px; font-size: 1.1rem;">
-        Submit to AI Agent ➔
-    </button>
+<button type="submit" id="btn-submit-ai" class="btn-primary w-full mt-small" style="padding: 12px; font-size: 1.1rem;">
+    Generate My Academy Roadmap ➔
+</button>
 </form>
             </div>
 
             <div id="ai-spinner-phase" class="hidden-step text-center py-large">
                 <div class="pulse-ring mx-auto mb-1-25" style="width: 80px; height: 80px; border-top-color: var(--neon-blue);"></div>
-                <h3 style="color: var(--neon-blue);">AI Agent is evaluating your profile...</h3>
-                <p class="text-muted">Analyzing intent, commitment, and potential.</p>
+            <h3 style="color: var(--neon-blue);">AI Agent is building your roadmap...</h3>
+            <p class="text-muted">Analyzing your current situation, habits, goals, and blockers.</p>
             </div>
 
             <div id="ai-verdict-phase" class="hidden-step text-center py-large">
                 <div id="ai-verdict-icon" style="font-size: 5rem; line-height: 1;">✅</div>
-                <h2 id="ai-verdict-title" style="color: var(--success); margin-top: 1rem;">Application Approved!</h2>
-                <p id="ai-verdict-desc" class="subtitle mb-large">AI Score: 85/100. Welcome to The Academy.</p>
-                <button id="btn-enter-academy-chat" type="button" class="btn-primary w-full" style="padding: 12px; font-size: 1.1rem;">Open Academy Home ➔</button>
+                <h2 id="ai-verdict-title" style="color: var(--success); margin-top: 1rem;">Your Roadmap Is Ready</h2>
+<p id="ai-verdict-desc" class="subtitle mb-large">Your YH Academy profile has been processed successfully.</p>
+<button id="btn-enter-academy-chat" type="button" class="btn-primary w-full" style="padding: 12px; font-size: 1.1rem;">Open YH Academy ➔</button>
             </div>
 
         </div>

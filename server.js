@@ -285,7 +285,96 @@ const { open } = require('sqlite');
             CREATE INDEX IF NOT EXISTS idx_academy_coach_messages_user_id ON academy_coach_messages(user_id);
             CREATE INDEX IF NOT EXISTS idx_academy_access_user_id ON academy_access(user_id);
         `);
+        await db.exec(`
+            CREATE TABLE IF NOT EXISTS auth_user_links (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                firebase_uid TEXT NOT NULL UNIQUE,
+                email TEXT,
+                username TEXT,
+                user_id INTEGER NOT NULL UNIQUE,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
 
+            CREATE TABLE IF NOT EXISTS academy_feed_posts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                body TEXT NOT NULL,
+                image_url TEXT,
+                visibility TEXT NOT NULL DEFAULT 'academy',
+                is_pinned INTEGER NOT NULL DEFAULT 0,
+                is_deleted INTEGER NOT NULL DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS academy_feed_post_likes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                post_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(post_id, user_id),
+                FOREIGN KEY (post_id) REFERENCES academy_feed_posts(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS academy_feed_post_comments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                post_id INTEGER NOT NULL,
+                user_id INTEGER NOT NULL,
+                body TEXT NOT NULL,
+                is_deleted INTEGER NOT NULL DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (post_id) REFERENCES academy_feed_posts(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS academy_friend_requests (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sender_user_id INTEGER NOT NULL,
+                receiver_user_id INTEGER NOT NULL,
+                status TEXT NOT NULL DEFAULT 'pending',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                responded_at DATETIME,
+                UNIQUE(sender_user_id, receiver_user_id),
+                FOREIGN KEY (sender_user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (receiver_user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS academy_friendships (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_one_id INTEGER NOT NULL,
+                user_two_id INTEGER NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_one_id, user_two_id),
+                FOREIGN KEY (user_one_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_two_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_auth_user_links_firebase_uid ON auth_user_links(firebase_uid);
+            CREATE INDEX IF NOT EXISTS idx_auth_user_links_user_id ON auth_user_links(user_id);
+
+            CREATE INDEX IF NOT EXISTS idx_academy_feed_posts_user_id ON academy_feed_posts(user_id);
+            CREATE INDEX IF NOT EXISTS idx_academy_feed_posts_created_at ON academy_feed_posts(created_at);
+            CREATE INDEX IF NOT EXISTS idx_academy_feed_posts_is_deleted ON academy_feed_posts(is_deleted);
+
+            CREATE INDEX IF NOT EXISTS idx_academy_feed_post_likes_post_id ON academy_feed_post_likes(post_id);
+            CREATE INDEX IF NOT EXISTS idx_academy_feed_post_likes_user_id ON academy_feed_post_likes(user_id);
+
+            CREATE INDEX IF NOT EXISTS idx_academy_feed_post_comments_post_id ON academy_feed_post_comments(post_id);
+            CREATE INDEX IF NOT EXISTS idx_academy_feed_post_comments_user_id ON academy_feed_post_comments(user_id);
+            CREATE INDEX IF NOT EXISTS idx_academy_feed_post_comments_created_at ON academy_feed_post_comments(created_at);
+
+            CREATE INDEX IF NOT EXISTS idx_academy_friend_requests_sender ON academy_friend_requests(sender_user_id);
+            CREATE INDEX IF NOT EXISTS idx_academy_friend_requests_receiver ON academy_friend_requests(receiver_user_id);
+            CREATE INDEX IF NOT EXISTS idx_academy_friend_requests_status ON academy_friend_requests(status);
+
+            CREATE INDEX IF NOT EXISTS idx_academy_friendships_user_one ON academy_friendships(user_one_id);
+            CREATE INDEX IF NOT EXISTS idx_academy_friendships_user_two ON academy_friendships(user_two_id);
+        `);
         console.log('🟢 SQLite Local Database Connected!');
         app.locals.db = db; 
     } catch (error) {
