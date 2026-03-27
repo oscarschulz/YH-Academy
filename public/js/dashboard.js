@@ -4034,80 +4034,82 @@ function renderAcademyHome(homeData = null) {
     if (chatPinnedMessage) chatPinnedMessage.style.display = "none";
     if (chatInputArea) chatInputArea.style.display = "none";
 
-    if (chatWelcomeBox) {
-        chatWelcomeBox.style.display = "block";
-        chatWelcomeBox.innerHTML = `
-            <div style="display:flex;flex-direction:column;gap:16px;">
-                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;">
-                    <div>
-                        <h2 class="welcome-title" style="margin-bottom:8px;">Welcome back, ${safeHtml(myName)}</h2>
-                        <p class="welcome-desc" style="max-width:720px;">
-                            This is your roadmap-first Academy landing. Act on missions, send check-ins, and refresh your plan when your situation changes.
-                        </p>
-                        ${createdByModel ? `<div style="margin-top:10px;font-size:0.82rem;color:var(--text-muted);">Planner: ${createdByModel}</div>` : ''}
-                    </div>
-                    <div style="display:flex;gap:10px;flex-wrap:wrap;">
-<button id="academy-home-refresh-roadmap" type="button" class="btn-primary" style="width:auto;padding:10px 16px;">Refresh Roadmap</button>
-<button id="academy-home-open-checkin" type="button" class="btn-secondary" style="width:auto;padding:10px 16px;">Daily Check-In</button>
-<button id="academy-home-enter-chat" type="button" class="btn-secondary" style="width:auto;padding:10px 16px;">Open Community</button>
-<button id="academy-home-open-voice" type="button" class="btn-secondary" style="width:auto;padding:10px 16px;">Open Voice Lounge</button>
-                    </div>
-                </div>
-
-                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
-                    <div style="padding:16px;border-radius:16px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);">
-                        <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;">Readiness</div>
-                        <div style="margin-top:8px;font-size:1.8rem;font-weight:700;color:#fff;">${readinessScore ? safeHtml(readinessScore) : '—'}<span style="font-size:0.95rem;color:var(--text-muted);"> / 100</span></div>
-                    </div>
-                    <div style="padding:16px;border-radius:16px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);">
-                        <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;">Completed</div>
-                        <div style="margin-top:8px;font-size:1.8rem;font-weight:700;color:#fff;">${safeHtml(missionsCompleted)}<span style="font-size:0.95rem;color:var(--text-muted);"> / ${safeHtml(missionsTotal)}</span></div>
-                    </div>
-                    <div style="padding:16px;border-radius:16px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);">
-                        <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;">7-Day Streak</div>
-                        <div style="margin-top:8px;font-size:1.8rem;font-weight:700;color:#fff;">${safeHtml(streakDays)}</div>
-                    </div>
-                </div>
+if (chatWelcomeBox) {
+    chatWelcomeBox.style.display = "block";
+    chatWelcomeBox.innerHTML = `
+        <section class="academy-home-hero">
+            <div class="academy-home-hero-copy">
+                <div class="academy-home-eyebrow">Academy Home</div>
+                <h2 class="academy-home-title">Welcome back, ${safeHtml(myName)}</h2>
+                <p class="academy-home-copy">
+                    This is your roadmap-first Academy landing. Act on missions, send check-ins, and refresh your plan when your situation changes.
+                </p>
+                ${createdByModel ? `<div class="academy-home-meta">Planner: ${createdByModel}</div>` : ''}
             </div>
-        `;
-    }
 
-    if (dynamicChatContainer) {
-        dynamicChatContainer.innerHTML = `
-            <div style="display:flex;flex-direction:column;gap:14px;padding-bottom:12px;">
-                <div style="padding:16px;border-radius:16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);">
-                    <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;">Roadmap Summary</div>
-                    <div style="margin-top:10px;font-size:0.95rem;line-height:1.7;color:#fff;">
-                        <strong>Main Bottleneck:</strong> ${safeHtml(summary.primaryBottleneck || 'Not available')}<br>
-                        <strong>Secondary Bottleneck:</strong> ${safeHtml(summary.secondaryBottleneck || 'Not available')}<br>
-                        <strong>Main Opportunity:</strong> ${safeHtml(summary.mainOpportunity || 'Not available')}
-                    </div>
-                </div>
-
-                <div style="padding:16px;border-radius:16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);">
-                    <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;">Focus Areas</div>
-                    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
-                        ${focusHtml}
-                    </div>
-                </div>
-
-                <div style="padding:16px;border-radius:16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);">
-                    <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;">Weekly Checkpoint</div>
-                    <div style="margin-top:10px;font-size:0.95rem;line-height:1.7;color:#fff;">
-                        <strong>Theme:</strong> ${safeHtml(weeklyCheckpoint.theme || 'Not available')}<br>
-                        <strong>Target Outcome:</strong> ${safeHtml(weeklyCheckpoint.targetOutcome || 'Not available')}
-                    </div>
-                </div>
-
-                <div style="padding:16px;border-radius:16px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);">
-                    <div style="font-size:0.78rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;">Today’s Missions</div>
-                    <div style="margin-top:12px;display:grid;gap:10px;">
-                        ${missionsHtml}
-                    </div>
-                </div>
+            <div class="academy-home-actions">
+                <button id="academy-home-refresh-roadmap" type="button" class="btn-primary academy-home-action-btn">Refresh Roadmap</button>
+                <button id="academy-home-open-checkin" type="button" class="btn-secondary academy-home-action-btn">Daily Check-In</button>
+                <button id="academy-home-enter-chat" type="button" class="btn-secondary academy-home-action-btn">Open Community</button>
+                <button id="academy-home-open-voice" type="button" class="btn-secondary academy-home-action-btn">Open Voice Lounge</button>
             </div>
-        `;
-    }
+        </section>
+
+        <section class="academy-home-stats">
+            <div class="academy-home-stat-card">
+                <div class="academy-home-stat-label">Readiness</div>
+                <div class="academy-home-stat-value">${readinessScore ? safeHtml(readinessScore) : '—'}<span> / 100</span></div>
+            </div>
+
+            <div class="academy-home-stat-card">
+                <div class="academy-home-stat-label">Completed</div>
+                <div class="academy-home-stat-value">${safeHtml(missionsCompleted)}<span> / ${safeHtml(missionsTotal)}</span></div>
+            </div>
+
+            <div class="academy-home-stat-card">
+                <div class="academy-home-stat-label">7-Day Streak</div>
+                <div class="academy-home-stat-value">${safeHtml(streakDays)}</div>
+            </div>
+        </section>
+    `;
+}
+
+if (dynamicChatContainer) {
+    dynamicChatContainer.innerHTML = `
+        <div class="academy-home-stack">
+            <section class="academy-home-panel">
+                <div class="academy-home-panel-label">Roadmap Summary</div>
+                <div class="academy-home-panel-copy">
+                    <strong>Main Bottleneck:</strong> ${safeHtml(summary.primaryBottleneck || 'Not available')}<br>
+                    <strong>Secondary Bottleneck:</strong> ${safeHtml(summary.secondaryBottleneck || 'Not available')}<br>
+                    <strong>Main Opportunity:</strong> ${safeHtml(summary.mainOpportunity || 'Not available')}
+                </div>
+            </section>
+
+            <section class="academy-home-panel">
+                <div class="academy-home-panel-label">Focus Areas</div>
+                <div class="academy-home-chip-row">
+                    ${focusHtml}
+                </div>
+            </section>
+
+            <section class="academy-home-panel">
+                <div class="academy-home-panel-label">Weekly Checkpoint</div>
+                <div class="academy-home-panel-copy">
+                    <strong>Theme:</strong> ${safeHtml(weeklyCheckpoint.theme || 'Not available')}<br>
+                    <strong>Target Outcome:</strong> ${safeHtml(weeklyCheckpoint.targetOutcome || 'Not available')}
+                </div>
+            </section>
+
+            <section class="academy-home-panel">
+                <div class="academy-home-panel-label">Today’s Missions</div>
+                <div class="academy-home-missions">
+                    ${missionsHtml}
+                </div>
+            </section>
+        </div>
+    `;
+}   
 
     document.getElementById('academy-home-enter-chat')?.addEventListener('click', () => {
         document.getElementById('nav-chat')?.click();

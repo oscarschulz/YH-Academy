@@ -145,51 +145,46 @@
                 </div>
 
 <div class="channel-content hide-scrollbar">
-    <div class="channel-category category-mt sidebar-text">
-        <span>YH ACADEMY</span>
-    </div>
+    <div class="academy-sidebar-shell">
+        <div class="academy-sidebar-intro">
+            <div class="academy-sidebar-kicker">YH Academy</div>
+            <h3 class="academy-sidebar-title">Execution Hub</h3>
+            <p class="academy-sidebar-copy">Switch between roadmap, community, and live voice without leaving the Academy shell.</p>
+        </div>
 
-    <div style="padding: 0 12px 12px 12px;">
-        <div style="font-size: 0.78rem; line-height: 1.45; color: var(--text-muted); padding: 10px 12px; border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; background: rgba(255,255,255,0.02);">
-            Use this space in 3 ways:
-            <br>• <strong style="color:#fff;">Roadmap</strong> for execution and progress
-            <br>• <strong style="color:#fff;">Community Feed</strong> for updates and networking
-            <br>• <strong style="color:#fff;">Voice Lounge</strong> for live sessions
+        <ul class="channel-list academy-channel-list">
+            <li class="channel-link" id="nav-missions" title="missions" data-type="missions">
+                <div class="sidebar-icon"><span class="channel-icon">🧠</span></div>
+                <span class="sidebar-text">Roadmap</span>
+            </li>
+
+            <li class="channel-link" id="nav-chat" title="community" data-type="main-chat">
+                <div class="sidebar-icon"><span class="channel-icon">📰</span></div>
+                <span class="sidebar-text">Community Feed</span>
+            </li>
+
+            <li class="channel-link" id="nav-voice" title="voice-lounge" data-type="voice-lobby">
+                <div class="sidebar-icon"><span class="channel-icon">🎙️</span></div>
+                <span class="sidebar-text">Voice Lounge</span>
+            </li>
+        </ul>
+
+        <div class="academy-sidebar-progress">
+            <div class="academy-sidebar-progress-head">
+                <span>Daily Progress</span>
+                <span id="progress-text">0% Daily Progress</span>
+            </div>
+
+            <div class="progress-bar-bg">
+                <div class="progress-bar-fill" id="progress-bar-fill"></div>
+            </div>
+
+            <div class="action-steps-compact" id="blueprint-list"></div>
         </div>
     </div>
-
-    <ul class="channel-list">
-        <li class="channel-link" id="nav-missions" title="missions" data-type="missions">
-            <div class="sidebar-icon"><span class="channel-icon">🧠</span></div>
-            <span class="sidebar-text">Roadmap</span>
-        </li>
-
-        <li class="channel-link" id="nav-chat" title="community" data-type="main-chat">
-            <div class="sidebar-icon"><span class="channel-icon">📰</span></div>
-            <span class="sidebar-text">Community Feed</span>
-        </li>
-
-        <li class="channel-link" id="nav-voice" title="voice-lounge" data-type="voice-lobby">
-            <div class="sidebar-icon"><span class="channel-icon">🎙️</span></div>
-            <span class="sidebar-text">Voice Lounge</span>
-        </li>
-    </ul>
-
-    <div class="channel-category category-mt-large sidebar-text">
-        <span>ROADMAP SNAPSHOT</span>
-    </div>
-
-    <div class="blueprint-progress sidebar-text">
-        <div class="progress-bar-bg">
-            <div class="progress-bar-fill" id="progress-bar-fill"></div>
-        </div>
-        <div class="progress-text" id="progress-text">0% Daily Progress</div>
-    </div>
-
-    <div class="action-steps-compact" id="blueprint-list"></div>
 </div>
 
-                <div class="support-section flex-row">
+                <div class="support-section flex-row academy-support-row">
                     <button class="btn-support flex-1" id="btn-support-ticket" title="Create a Support Ticket">
                         <span class="support-icon">🎫</span>
                         <span class="sidebar-text">Create Ticket</span>
