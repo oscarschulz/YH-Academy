@@ -371,8 +371,99 @@ document.addEventListener('DOMContentLoaded', () => {
     const defaultAcademyWelcomeHtml = document.getElementById('chat-welcome-box')?.innerHTML || '';
 
     // --- UPDATED NAVIGATION & ROUTING LOGIC ---
-function switchServer(targetDivision) {
-    document.querySelectorAll('.nav-tab').forEach(i => i.classList.remove('active'));
+const universeFeatureContent = {
+    academy: {
+        kicker: 'Academy Features',
+        title: 'Roadmap execution layer',
+        desc: 'Build a daily plan, track your progress, and use the community plus live rooms to stay in motion.',
+        chips: ['Daily roadmap', 'Community feed', 'Voice lounge']
+    },
+    plazas: {
+        kicker: 'Plaza Features',
+        title: 'Marketplace and service layer',
+        desc: 'Position your skills, discover opportunities, and turn your network into an active business engine.',
+        chips: ['Offer services', 'Hire talent', 'Monetize network']
+    },
+    federation: {
+        kicker: 'Federation Features',
+        title: 'Strategic network layer',
+        desc: 'Map valuable contacts, identify influence gaps, and build stronger access across regions and industries.',
+        chips: ['Elite contacts', 'Gap analysis', 'Global expansion']
+    }
+};
+
+let activeUniverseDivision = 'academy';
+
+function normalizeUniverseDivision(value = 'academy') {
+    const allowedDivisions = ['academy', 'plazas', 'federation'];
+    const normalized = String(value || '').trim().toLowerCase();
+    return allowedDivisions.includes(normalized) ? normalized : 'academy';
+}
+
+function syncUniverseFeaturePanel(targetDivision = 'academy') {
+    const division = normalizeUniverseDivision(targetDivision);
+    const copy = universeFeatureContent[division] || universeFeatureContent.academy;
+
+    const kicker = document.getElementById('yh-universe-feature-kicker');
+    const title = document.getElementById('yh-universe-feature-title');
+    const desc = document.getElementById('yh-universe-feature-desc');
+    const chips = document.getElementById('yh-universe-feature-chips');
+
+    if (kicker) kicker.textContent = copy.kicker;
+    if (title) title.textContent = copy.title;
+    if (desc) desc.textContent = copy.desc;
+    if (chips) {
+        chips.innerHTML = copy.chips.map((chip) => `<span class="yh-universe-feature-chip">${chip}</span>`).join('');
+    }
+}
+
+function setUniverseSlide(targetDivision = 'academy', options = {}) {
+    const division = normalizeUniverseDivision(targetDivision);
+    const track = document.getElementById('yh-universe-track');
+    const slides = Array.from(document.querySelectorAll('.yh-universe-slide'));
+    const dots = Array.from(document.querySelectorAll('.yh-universe-dot'));
+    const animate = options.animate !== false;
+
+    activeUniverseDivision = division;
+
+    if (!track || !slides.length) {
+        syncUniverseFeaturePanel(division);
+        return division;
+    }
+
+    const slideIndex = Math.max(
+        0,
+        slides.findIndex((slide) => slide.getAttribute('data-division') === division)
+    );
+
+    if (!animate) {
+        track.classList.add('no-transition');
+    }
+
+    track.style.transform = `translateX(-${slideIndex * 100}%)`;
+
+    slides.forEach((slide, index) => {
+        const isActive = index === slideIndex;
+        slide.classList.toggle('is-active', isActive);
+        slide.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+    });
+
+    dots.forEach((dot) => {
+        dot.classList.toggle('active', dot.getAttribute('data-division') === division);
+    });
+
+    if (!animate) {
+        requestAnimationFrame(() => {
+            track.classList.remove('no-transition');
+        });
+    }
+
+    syncUniverseFeaturePanel(division);
+    return division;
+}
+
+function openDivisionPreview(targetDivision = 'plazas') {
+    const division = normalizeUniverseDivision(targetDivision);
 
     const academyWrapper = document.getElementById('academy-wrapper');
     const viewPlazas = document.getElementById('view-plazas');
@@ -384,43 +475,114 @@ function switchServer(targetDivision) {
     if (viewPlazas) viewPlazas.classList.add('hidden-step');
     if (viewFederation) viewFederation.classList.add('hidden-step');
 
-    if (targetDivision === 'plazas') {
-        document.getElementById('server-plazas')?.classList.add('active');
+    if (division === 'plazas') {
         if (viewPlazas) {
             viewPlazas.classList.remove('hidden-step');
             viewPlazas.classList.remove('fade-in');
             void viewPlazas.offsetWidth;
             viewPlazas.classList.add('fade-in');
         }
+        setDashboardViewMode('plazas');
         return;
     }
 
-    if (targetDivision === 'federation') {
-        document.getElementById('server-federation')?.classList.add('active');
+    if (division === 'federation') {
         if (viewFederation) {
             viewFederation.classList.remove('hidden-step');
             viewFederation.classList.remove('fade-in');
             void viewFederation.offsetWidth;
             viewFederation.classList.add('fade-in');
         }
+        setDashboardViewMode('federation');
         return;
     }
 
-    document.getElementById('server-academy')?.classList.add('active');
-    if (universeHubView) {
-        universeHubView.style.display = 'flex';
-        universeHubView.classList.remove('fade-in');
-        void universeHubView.offsetWidth;
-        universeHubView.classList.add('fade-in');
-    }
+    showUniverseHub('academy');
 }
 
-    const serverAcademy = document.getElementById('server-academy');
-    const serverPlazas = document.getElementById('server-plazas');
-    const serverFederation = document.getElementById('server-federation');
-    if (serverAcademy) serverAcademy.addEventListener('click', () => switchServer('academy'));
-    if (serverPlazas) serverPlazas.addEventListener('click', () => switchServer('plazas'));
-    if (serverFederation) serverFederation.addEventListener('click', () => switchServer('federation'));
+function switchServer(targetDivision) {
+    const division = normalizeUniverseDivision(targetDivision);
+
+    if (division === 'academy') {
+        showUniverseHub('academy');
+        return;
+    }
+
+    openDivisionPreview(division);
+}
+
+function bindUniverseSwipe() {
+    const viewport = document.getElementById('yh-universe-carousel');
+    if (!viewport || viewport.dataset.swipeBound === 'true') return;
+
+    viewport.dataset.swipeBound = 'true';
+
+    let startX = 0;
+    let startY = 0;
+    let isPointerDown = false;
+
+    const onStart = (event) => {
+        const point = event.touches ? event.touches[0] : event;
+        startX = point.clientX;
+        startY = point.clientY;
+        isPointerDown = true;
+    };
+
+    const onEnd = (event) => {
+        if (!isPointerDown) return;
+        isPointerDown = false;
+
+        const point = event.changedTouches ? event.changedTouches[0] : event;
+        const deltaX = point.clientX - startX;
+        const deltaY = point.clientY - startY;
+
+        if (Math.abs(deltaX) < 55 || Math.abs(deltaX) <= Math.abs(deltaY)) return;
+
+        const divisions = ['academy', 'plazas', 'federation'];
+        const currentIndex = divisions.indexOf(activeUniverseDivision);
+
+        if (deltaX < 0 && currentIndex < divisions.length - 1) {
+            setUniverseSlide(divisions[currentIndex + 1]);
+            return;
+        }
+
+        if (deltaX > 0 && currentIndex > 0) {
+            setUniverseSlide(divisions[currentIndex - 1]);
+        }
+    };
+
+    viewport.addEventListener('touchstart', onStart, { passive: true });
+    viewport.addEventListener('touchend', onEnd, { passive: true });
+    viewport.addEventListener('mousedown', onStart);
+    viewport.addEventListener('mouseup', onEnd);
+    viewport.addEventListener('mouseleave', () => {
+        isPointerDown = false;
+    });
+}
+
+const serverAcademy = document.getElementById('server-academy');
+const serverPlazas = document.getElementById('server-plazas');
+const serverFederation = document.getElementById('server-federation');
+
+if (serverAcademy) serverAcademy.addEventListener('click', () => switchServer('academy'));
+if (serverPlazas) serverPlazas.addEventListener('click', () => switchServer('plazas'));
+if (serverFederation) serverFederation.addEventListener('click', () => switchServer('federation'));
+
+document.querySelectorAll('.yh-universe-dot').forEach((dot) => {
+    dot.addEventListener('click', () => {
+        setUniverseSlide(dot.getAttribute('data-division') || 'academy');
+    });
+});
+
+document.getElementById('btn-open-plazas-preview')?.addEventListener('click', () => {
+    openDivisionPreview('plazas');
+});
+
+document.getElementById('btn-open-federation-preview')?.addEventListener('click', () => {
+    openDivisionPreview('federation');
+});
+
+bindUniverseSwipe();
 
 function openRoom(type, element) {
     document.querySelectorAll('.channel-link').forEach(link => link.classList.remove('active'));
@@ -607,18 +769,17 @@ else if (type === 'dm' || type === 'group') {
     }
 }
 document.getElementById('nav-chat')?.addEventListener('click', function() {
-    document.querySelectorAll('.channel-link').forEach(link => link.classList.remove('active'));
-    this.classList.add('active');
+    setAcademySidebarActive('nav-chat');
     openAcademyFeedView();
 });
 
 document.getElementById('nav-voice')?.addEventListener('click', function() {
+    setAcademySidebarActive('nav-voice');
     openRoom('voice-lobby', this);
 });
 
 document.getElementById('nav-missions')?.addEventListener('click', function() {
-    document.querySelectorAll('.channel-link').forEach(link => link.classList.remove('active'));
-    this.classList.add('active');
+    setAcademySidebarActive('nav-missions');
     loadAcademyHome();
 });
 
@@ -3184,6 +3345,64 @@ if(btnMessage) {
     }
     setupModal('btn-open-dm-modal', 'dm-modal', 'close-dm-modal'); setupModal('btn-open-group-modal', 'group-modal', 'close-group-modal'); setupModal('btn-support-ticket', 'ticket-modal', 'close-ticket-modal'); setupModal('btn-settings', 'settings-modal', 'close-settings-modal'); setupModal('btn-start-lounge', 'lounge-modal', 'close-lounge-modal'); setupModal('btn-open-mission-modal', 'mission-modal', 'close-mission-modal'); setupModal('btn-open-folder-modal', 'folder-modal', 'close-folder-modal');
 
+    const academyCheckinModal = document.getElementById('academy-checkin-modal');
+    const academyCheckinForm = document.getElementById('academy-checkin-form');
+    const academyCheckinCloseBtn = document.getElementById('close-checkin-modal');
+    const academyCheckinCancelBtn = document.getElementById('btn-cancel-checkin');
+
+    if (academyCheckinCloseBtn) {
+        academyCheckinCloseBtn.addEventListener('click', () => {
+            academyCloseCheckinModal();
+        });
+    }
+
+    if (academyCheckinCancelBtn) {
+        academyCheckinCancelBtn.addEventListener('click', () => {
+            academyCloseCheckinModal();
+        });
+    }
+
+    if (academyCheckinModal) {
+        academyCheckinModal.addEventListener('click', (e) => {
+            if (e.target === academyCheckinModal) {
+                academyCloseCheckinModal();
+            }
+        });
+    }
+
+    if (academyCheckinForm) {
+        academyCheckinForm.addEventListener('submit', academySubmitCheckin);
+    }
+
+    const academyMissionActionModal = document.getElementById('academy-mission-action-modal');
+    const academyMissionActionForm = document.getElementById('academy-mission-action-form');
+    const academyMissionActionCloseBtn = document.getElementById('close-mission-action-modal');
+    const academyMissionActionCancelBtn = document.getElementById('btn-cancel-mission-action');
+
+    if (academyMissionActionCloseBtn) {
+        academyMissionActionCloseBtn.addEventListener('click', () => {
+            academyCloseMissionActionModal();
+        });
+    }
+
+    if (academyMissionActionCancelBtn) {
+        academyMissionActionCancelBtn.addEventListener('click', () => {
+            academyCloseMissionActionModal();
+        });
+    }
+
+    if (academyMissionActionModal) {
+        academyMissionActionModal.addEventListener('click', (e) => {
+            if (e.target === academyMissionActionModal) {
+                academyCloseMissionActionModal();
+            }
+        });
+    }
+
+    if (academyMissionActionForm) {
+        academyMissionActionForm.addEventListener('submit', academySubmitMissionAction);
+    }
+
     const btnCreateFolder = document.getElementById('btn-create-folder');
     if(btnCreateFolder) {
         btnCreateFolder.addEventListener('click', () => {
@@ -3514,23 +3733,164 @@ async function academyCompleteMission(missionId) {
     }
 }
 
-async function academyOpenCheckin() {
-    const energyScore = prompt('Energy score today? (0-10)', '7');
-    if (energyScore === null) return;
+let academyMissionActionState = {
+    missionId: 0,
+    status: '',
+    title: ''
+};
 
-    const moodScore = prompt('Mood score today? (0-10)', '7');
-    if (moodScore === null) return;
+function academyResetMissionActionModal() {
+    academyMissionActionState = {
+        missionId: 0,
+        status: '',
+        title: ''
+    };
 
-    const completedSummary = prompt('What did you complete today?', '');
-    if (completedSummary === null) return;
+    const titleEl = document.getElementById('academy-mission-action-title');
+    const contextEl = document.getElementById('academy-mission-action-context');
+    const labelEl = document.getElementById('academy-mission-action-label');
+    const noteEl = document.getElementById('academy-mission-action-note');
+    const submitBtn = document.getElementById('btn-submit-mission-action');
 
-    const blockerText = prompt('What blocked or slowed you down today?', '');
-    if (blockerText === null) return;
+    if (titleEl) titleEl.innerText = 'Update Mission';
+    if (contextEl) contextEl.innerText = 'Add a short note before updating this mission.';
+    if (labelEl) labelEl.innerText = 'Note';
+    if (noteEl) {
+        noteEl.value = '';
+        noteEl.placeholder = 'Write a short note...';
+    }
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerText = 'Save Update';
+    }
+}
 
-    const tomorrowFocus = prompt('Main focus for tomorrow?', '');
-    if (tomorrowFocus === null) return;
+function academyCloseMissionActionModal() {
+    document.getElementById('academy-mission-action-modal')?.classList.add('hidden-step');
+}
+
+function academyOpenMissionActionModal(missionId, status, missionTitle = '') {
+    academyResetMissionActionModal();
+
+    academyMissionActionState = {
+        missionId: Number(missionId || 0),
+        status: String(status || '').trim().toLowerCase(),
+        title: String(missionTitle || '').trim()
+    };
+
+    const titleEl = document.getElementById('academy-mission-action-title');
+    const contextEl = document.getElementById('academy-mission-action-context');
+    const labelEl = document.getElementById('academy-mission-action-label');
+    const noteEl = document.getElementById('academy-mission-action-note');
+    const submitBtn = document.getElementById('btn-submit-mission-action');
+
+    if (academyMissionActionState.status === 'skipped') {
+        if (titleEl) titleEl.innerText = 'Skip Mission';
+        if (contextEl) contextEl.innerText = `Why are you skipping "${academyMissionActionState.title || 'this mission'}" today?`;
+        if (labelEl) labelEl.innerText = 'Reason for skipping';
+        if (noteEl) noteEl.placeholder = 'Why are you skipping this mission right now?';
+        if (submitBtn) submitBtn.innerText = 'Mark as Skipped';
+    } else if (academyMissionActionState.status === 'stuck') {
+        if (titleEl) titleEl.innerText = 'Mark Mission as Stuck';
+        if (contextEl) contextEl.innerText = `What exactly is blocking progress on "${academyMissionActionState.title || 'this mission'}"?`;
+        if (labelEl) labelEl.innerText = 'What are you stuck on?';
+        if (noteEl) noteEl.placeholder = 'Describe the blocker clearly...';
+        if (submitBtn) submitBtn.innerText = 'Mark as Stuck';
+    }
+
+    document.getElementById('academy-mission-action-modal')?.classList.remove('hidden-step');
+}
+
+async function academySubmitMissionAction(event) {
+    event.preventDefault();
+
+    const missionId = Number(academyMissionActionState.missionId || 0);
+    const status = String(academyMissionActionState.status || '').trim().toLowerCase();
+    const noteEl = document.getElementById('academy-mission-action-note');
+    const submitBtn = document.getElementById('btn-submit-mission-action');
+    const note = String(noteEl?.value || '').trim();
+
+    if (!missionId || !status) {
+        showToast('Mission action is missing required data.', 'error');
+        return;
+    }
+
+    if (!note) {
+        showToast('Please add a short note before continuing.', 'error');
+        return;
+    }
 
     try {
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerText = 'Saving...';
+        }
+
+        await academyUpdateMissionStatus(missionId, status, note);
+        academyCloseMissionActionModal();
+    } catch (error) {
+        showToast(error.message || 'Mission update failed.', 'error');
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerText = status === 'skipped' ? 'Mark as Skipped' : 'Mark as Stuck';
+        }
+    }
+}
+
+function academyResetCheckinModal() {
+    const form = document.getElementById('academy-checkin-form');
+    if (form) form.reset();
+
+    const energyInput = document.getElementById('academy-checkin-energy');
+    const moodInput = document.getElementById('academy-checkin-mood');
+    const submitBtn = document.getElementById('btn-submit-checkin');
+
+    if (energyInput) energyInput.value = '7';
+    if (moodInput) moodInput.value = '7';
+
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerText = 'Save Check-In';
+    }
+}
+
+function academyCloseCheckinModal() {
+    document.getElementById('academy-checkin-modal')?.classList.add('hidden-step');
+}
+
+function academyOpenCheckin() {
+    academyResetCheckinModal();
+    document.getElementById('academy-checkin-modal')?.classList.remove('hidden-step');
+}
+
+async function academySubmitCheckin(event) {
+    event.preventDefault();
+
+    const submitBtn = document.getElementById('btn-submit-checkin');
+    const energyInput = document.getElementById('academy-checkin-energy');
+    const moodInput = document.getElementById('academy-checkin-mood');
+    const completedInput = document.getElementById('academy-checkin-completed');
+    const blockersInput = document.getElementById('academy-checkin-blockers');
+    const focusInput = document.getElementById('academy-checkin-focus');
+
+    const energyScore = String(energyInput?.value || '').trim();
+    const moodScore = String(moodInput?.value || '').trim();
+    const completedSummary = String(completedInput?.value || '').trim();
+    const blockerText = String(blockersInput?.value || '').trim();
+    const tomorrowFocus = String(focusInput?.value || '').trim();
+
+    if (!energyScore || !moodScore || !completedSummary || !tomorrowFocus) {
+        showToast('Please complete the required check-in fields.', 'error');
+        return;
+    }
+
+    try {
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerText = 'Saving...';
+        }
+
         await academyAuthedFetch('/api/academy/checkin', {
             method: 'POST',
             body: JSON.stringify({
@@ -3542,10 +3902,16 @@ async function academyOpenCheckin() {
             })
         });
 
+        academyCloseCheckinModal();
         await loadAcademyHome(true);
-        showToast("Check-in saved.", "success");
+        showToast('Check-in saved.', 'success');
     } catch (error) {
-        showToast(error.message || "Check-in failed.", "error");
+        showToast(error.message || 'Check-in failed.', 'error');
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerText = 'Save Check-In';
+        }
     }
 }
 
@@ -3568,7 +3934,7 @@ function renderAcademyHome(homeData = null) {
         );
     };
 
-    document.querySelectorAll('.channel-link').forEach(link => link.classList.remove('active'));
+    setAcademySidebarActive('nav-missions');
 
     const views = {
         'academy-chat': document.getElementById('academy-chat'),
@@ -3649,9 +4015,9 @@ function renderAcademyHome(homeData = null) {
                     ` : ''}
 
                     <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
-                        <button type="button" data-academy-action="complete" data-mission-id="${missionId}" class="btn-primary" style="width:auto;padding:8px 12px;" ${isCompleted ? 'disabled' : ''}>Complete</button>
-                        <button type="button" data-academy-action="skip" data-mission-id="${missionId}" class="btn-secondary" style="width:auto;padding:8px 12px;">Skip</button>
-                        <button type="button" data-academy-action="stuck" data-mission-id="${missionId}" class="btn-secondary" style="width:auto;padding:8px 12px;">Stuck</button>
+                        <button type="button" data-academy-action="complete" data-mission-id="${missionId}" data-mission-title="${title}" class="btn-primary" style="width:auto;padding:8px 12px;" ${isCompleted ? 'disabled' : ''}>Complete</button>
+                        <button type="button" data-academy-action="skip" data-mission-id="${missionId}" data-mission-title="${title}" class="btn-secondary" style="width:auto;padding:8px 12px;">Skip</button>
+                        <button type="button" data-academy-action="stuck" data-mission-id="${missionId}" data-mission-title="${title}" class="btn-secondary" style="width:auto;padding:8px 12px;">Stuck</button>
                     </div>
                 </div>
             `;
@@ -3769,18 +4135,18 @@ function renderAcademyHome(homeData = null) {
     document.querySelectorAll('[data-academy-action="skip"]').forEach((button) => {
         button.addEventListener('click', () => {
             const missionId = Number(button.getAttribute('data-mission-id') || 0);
+            const missionTitle = String(button.getAttribute('data-mission-title') || '').trim();
             if (!missionId) return;
-            const note = prompt('Why are you skipping this mission?', '') || '';
-            academyUpdateMissionStatus(missionId, 'skipped', note);
+            academyOpenMissionActionModal(missionId, 'skipped', missionTitle);
         });
     });
 
     document.querySelectorAll('[data-academy-action="stuck"]').forEach((button) => {
         button.addEventListener('click', () => {
             const missionId = Number(button.getAttribute('data-mission-id') || 0);
+            const missionTitle = String(button.getAttribute('data-mission-title') || '').trim();
             if (!missionId) return;
-            const note = prompt('What exactly are you stuck on?', '') || '';
-            academyUpdateMissionStatus(missionId, 'stuck', note);
+            academyOpenMissionActionModal(missionId, 'stuck', missionTitle);
         });
     });
 
@@ -3836,6 +4202,7 @@ function hideAcademyViewsForFeed() {
 
 function openAcademyFeedView(forceReload = false) {
     hideAcademyViewsForFeed();
+    setAcademySidebarActive('nav-chat');
 
     const feedView = document.getElementById('academy-feed-view');
     if (feedView) {
@@ -4163,40 +4530,37 @@ function setDashboardViewMode(mode = 'hub') {
     document.body?.setAttribute('data-yh-view', mode);
 }
 
-function syncAcademyShellForViewport() {
-    if (!leftSidebar || !rightSidebar) return;
+function setAcademySidebarActive(activeId = '') {
+    document.querySelectorAll('.channel-link').forEach((link) => {
+        link.classList.remove('active');
+    });
 
-    const isMobile = window.innerWidth <= 1024;
-
-    if (document.body?.getAttribute('data-yh-view') === 'academy') {
-        leftSidebar.style.display = 'flex';
-        rightSidebar.style.display = isMobile ? 'none' : 'flex';
+    if (activeId) {
+        document.getElementById(activeId)?.classList.add('active');
     }
 }
 
-function hideDivisionViews() {
-    document.getElementById('view-plazas')?.classList.add('hidden-step');
-    document.getElementById('view-federation')?.classList.add('hidden-step');
-    if (academyWrapper) academyWrapper.style.display = 'none';
-    if (universeHubView) universeHubView.style.display = 'none';
-}
-
-function setDashboardViewMode(mode = 'hub') {
-    document.body?.setAttribute('data-yh-view', mode);
-}
-
 function syncAcademyShellForViewport() {
-    if (!leftSidebar || !rightSidebar) return;
+    if (!leftSidebar || !rightSidebar || !academyWrapper) return;
 
-    const isMobile = window.innerWidth <= 1024;
+    const isTabletOrSmaller = window.innerWidth <= 1024;
+    const isPhone = window.innerWidth <= 768;
+    const viewMode = document.body?.getAttribute('data-yh-view');
 
-    if (document.body?.getAttribute('data-yh-view') === 'academy') {
+    if (viewMode === 'academy') {
+        academyWrapper.style.display = 'flex';
+        academyWrapper.classList.toggle('academy-mobile-shell', isPhone);
         leftSidebar.style.display = 'flex';
-        rightSidebar.style.display = isMobile ? 'none' : 'flex';
+        rightSidebar.style.display = isTabletOrSmaller ? 'none' : 'flex';
+        return;
     }
+
+    academyWrapper.classList.remove('academy-mobile-shell');
 }
 
-function showUniverseHub() {
+function showUniverseHub(activeDivision = 'academy', options = {}) {
+    const animate = options.animate !== false;
+
     hideDivisionViews();
     closeAcademyLauncher();
 
@@ -4210,13 +4574,11 @@ function showUniverseHub() {
     if (leftSidebar) leftSidebar.style.display = 'none';
     if (rightSidebar) rightSidebar.style.display = 'none';
 
-    document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
-    document.getElementById('server-academy')?.classList.add('active');
-
     setDashboardViewMode('hub');
+    setUniverseSlide(activeDivision, { animate });
 }
 
-function enterAcademyWorld(defaultSection = 'missions') {
+function enterAcademyWorld(defaultSection = 'home') {
     hideDivisionViews();
     closeAcademyLauncher();
 
@@ -4227,9 +4589,8 @@ function enterAcademyWorld(defaultSection = 'missions') {
         academyWrapper.classList.add('fade-in');
     }
 
-    document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
-    document.getElementById('server-academy')?.classList.add('active');
-
+    activeUniverseDivision = 'academy';
+    syncUniverseFeaturePanel('academy');
     setDashboardViewMode('academy');
     syncAcademyShellForViewport();
 
@@ -4243,19 +4604,21 @@ function enterAcademyWorld(defaultSection = 'missions') {
         return;
     }
 
-    document.querySelectorAll('.channel-link').forEach(link => link.classList.remove('active'));
-    document.getElementById('nav-missions')?.classList.add('active');
-    loadAcademyHome();
+    document.getElementById('nav-missions')?.click();
 }
 
-window.addEventListener('resize', syncAcademyShellForViewport);
+window.addEventListener('resize', () => {
+    syncAcademyShellForViewport();
 
-const btnOpenApply = document.getElementById('btn-open-academy-apply');
-const applyModal = document.getElementById('academy-apply-modal');
-const closeApplyBtn = document.getElementById('close-academy-apply');
+    if (document.body?.getAttribute('data-yh-view') === 'hub') {
+        setUniverseSlide(activeUniverseDivision, { animate: false });
+    }
+});
 
 // always land on dashboard hub first
-showUniverseHub();
+queueMicrotask(() => {
+    showUniverseHub('academy', { animate: false });
+});
 
 document.getElementById('academy-feed-post-btn')?.addEventListener('click', () => {
     academyFeedSubmitPost();
@@ -4310,6 +4673,9 @@ document.getElementById('academy-feed-list')?.addEventListener('click', async (e
         if (targetUserId) academyFeedSendFriendRequest(targetUserId);
     }
 });
+const btnOpenApply = document.getElementById('btn-open-academy-apply');
+const applyModal = document.getElementById('academy-apply-modal');
+const closeApplyBtn = document.getElementById('close-academy-apply');
 
 function resetAcademyLauncherState() {
     document.getElementById('ai-form-phase')?.classList.remove('hidden-step');
