@@ -1843,8 +1843,8 @@ const homePayload = await academyFirestoreRepo.buildAcademyHomePayload(uid, miss
 return res.json({
     success: true,
     missionId,
-    status: 'completed',
-    note: completionNote,
+    status,
+    note,
     todayProgress: {
         completed: progress.completed || 0,
         total: progress.total || 0,

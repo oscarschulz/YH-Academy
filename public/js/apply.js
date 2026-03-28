@@ -90,65 +90,84 @@ const landingVideo = document.getElementById('landing-video');
 bootstrapPendingVerification();
     // --- LOGIN LOGIC ---
 const btnLogin = document.getElementById('btn-login');
-if (btnLogin) {
-    btnLogin.addEventListener('click', async () => {
-        const identifier = document.getElementById('login-email').value.trim();
-        const password = document.getElementById('login-password').value;
+const loginEmailInput = document.getElementById('login-email');
+const loginPasswordInput = document.getElementById('login-password');
 
-        if (!identifier || !password) {
-            showToast("Please enter your email/username and password.", "error");
+async function handleLoginSubmit() {
+    if (!btnLogin) return;
+
+    const identifier = loginEmailInput?.value?.trim() || '';
+    const password = loginPasswordInput?.value || '';
+
+    if (!identifier || !password) {
+        showToast("Please enter your email/username and password.", "error");
+        return;
+    }
+
+    btnLogin.innerText = "Loading...";
+    btnLogin.disabled = true;
+
+    try {
+        const response = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ identifier, password })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            showToast(result.message, "success");
+            clearPendingVerifyEmail();
+            localStorage.setItem('yh_user_loggedIn', 'true');
+            localStorage.setItem('yh_user_name', result.user.username || result.user.fullName.split(' ')[0]);
+            localStorage.setItem('yh_token', result.token);
+            setTimeout(() => { window.location.href = '/dashboard'; }, 1000);
             return;
         }
 
-        btnLogin.innerText = "Loading...";
-        btnLogin.disabled = true;
+        if (response.status === 403 && result.verificationRequired) {
+            const verificationEmail = String(result.email || identifier).trim().toLowerCase();
 
-        try {
-            const response = await fetch('/api/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ identifier, password })
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                showToast(result.message, "success");
-                clearPendingVerifyEmail();
-                localStorage.setItem('yh_user_loggedIn', 'true');
-                localStorage.setItem('yh_user_name', result.user.username || result.user.fullName.split(' ')[0]);
-                localStorage.setItem('yh_token', result.token);
-                setTimeout(() => { window.location.href = '/dashboard'; }, 1000);
-                return;
+            if (verificationEmail) {
+                setPendingVerifyEmail(verificationEmail);
             }
 
-            if (response.status === 403 && result.verificationRequired) {
-                const verificationEmail = String(result.email || identifier).trim().toLowerCase();
-
-                if (verificationEmail) {
-                    setPendingVerifyEmail(verificationEmail);
-                }
-
-                document.getElementById('otp-input').value = '';
-                showStep(2);
-                startOTPTimer();
-                showToast(result.message, "error");
-
-                btnLogin.innerText = "Login";
-                btnLogin.disabled = false;
-                return;
-            }
-
+            document.getElementById('otp-input').value = '';
+            showStep(2);
+            startOTPTimer();
             showToast(result.message, "error");
+
             btnLogin.innerText = "Login";
             btnLogin.disabled = false;
-        } catch (error) {
-            showToast("Server error during login.", "error");
-            btnLogin.innerText = "Login";
-            btnLogin.disabled = false;
+            return;
         }
+
+        showToast(result.message, "error");
+        btnLogin.innerText = "Login";
+        btnLogin.disabled = false;
+    } catch (error) {
+        showToast("Server error during login.", "error");
+        btnLogin.innerText = "Login";
+        btnLogin.disabled = false;
+    }
+}
+
+if (btnLogin) {
+    btnLogin.addEventListener('click', async () => {
+        await handleLoginSubmit();
     });
 }
+
+[loginEmailInput, loginPasswordInput].forEach((input) => {
+    if (!input) return;
+
+    input.addEventListener('keydown', async (event) => {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        await handleLoginSubmit();
+    });
+});
 
     // --- REGISTER LOGIC (SIMPLE FORM) ---
     const formRegisterSimple = document.getElementById('form-register-simple');
