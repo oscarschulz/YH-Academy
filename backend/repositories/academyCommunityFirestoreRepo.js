@@ -5,6 +5,7 @@ const usersCol = firestore.collection('users');
 const feedPostsCol = firestore.collection('academyFeedPosts');
 const friendRequestsCol = firestore.collection('academyFriendRequests');
 const friendshipsCol = firestore.collection('academyFriendships');
+const academyFollowsCol = firestore.collection('academyUserFollows');
 
 const nowTs = () => Timestamp.now();
 
@@ -29,6 +30,9 @@ const normalizeFriendPair = (a, b) => {
 const friendshipKeyFor = (a, b) => {
     const [x, y] = normalizeFriendPair(a, b);
     return `${x}_${y}`;
+};
+const followKeyFor = (followerId, followingId) => {
+    return `${normalizeUserId(followerId)}_${normalizeUserId(followingId)}`;
 };
 
 const mapTimestamp = (value) => {
@@ -555,7 +559,105 @@ async function respondToFriendRequest({ responderId, requestId, action }) {
         status: normalizedAction
     };
 }
+async function getAcademyFollowerCount(userId) {
+    const normalizedUserId = normalizeUserId(userId);
+    if (!normalizedUserId) return 0;
 
+    const snap = await academyFollowsCol
+        .where('followingId', '==', normalizedUserId)
+        .get();
+
+    return snap.size;
+}
+
+async function listAcademyMembers({ viewerId, limit = 100 }) {
+    const normalizedViewerId = normalizeUserId(viewerId);
+    const normalizedLimit = Math.max(1, Math.min(toInt(limit, 100), 200));
+
+    const viewerFollowingSnap = normalizedViewerId
+        ? await academyFollowsCol.where('followerId', '==', normalizedViewerId).get()
+        : null;
+
+    const followedIds = new Set(
+        (viewerFollowingSnap?.docs || []).map((doc) => sanitizeText(doc.data()?.followingId))
+    );
+
+    const usersSnap = await usersCol.limit(normalizedLimit).get();
+
+    const members = await Promise.all(
+        usersSnap.docs.map(async (doc) => {
+            const raw = { id: doc.id, ...(doc.data() || {}) };
+            const userId = sanitizeText(raw.id);
+
+            if (!userId || userId === normalizedViewerId) return null;
+
+            const snapshot = buildAuthorSnapshot(raw, {});
+            const followerCount = await getAcademyFollowerCount(userId);
+
+            return {
+                id: userId,
+                fullName: snapshot.fullName,
+                display_name: snapshot.displayName,
+                username: snapshot.username,
+                avatar: snapshot.avatar,
+                role_label: snapshot.roleLabel || 'Academy Member',
+                followers_count: followerCount,
+                followed_by_me: followedIds.has(userId)
+            };
+        })
+    );
+
+    return members
+        .filter(Boolean)
+        .sort((a, b) => {
+            const left = String(a.display_name || a.fullName || '').toLowerCase();
+            const right = String(b.display_name || b.fullName || '').toLowerCase();
+            return left.localeCompare(right);
+        });
+}
+
+async function toggleMemberFollow({ viewerId, targetUserId }) {
+    const normalizedViewerId = normalizeUserId(viewerId);
+    const normalizedTargetUserId = normalizeUserId(targetUserId);
+
+    if (!normalizedViewerId || !normalizedTargetUserId) {
+        throw new Error('viewerId and targetUserId are required.');
+    }
+
+    if (normalizedViewerId === normalizedTargetUserId) {
+        throw new Error('You cannot follow yourself.');
+    }
+
+    const targetUser = await getUserDoc(normalizedTargetUserId);
+    if (!targetUser) {
+        throw new Error('Target member not found.');
+    }
+
+    const ref = academyFollowsCol.doc(followKeyFor(normalizedViewerId, normalizedTargetUserId));
+    const snap = await ref.get();
+
+    let following = false;
+
+    if (snap.exists) {
+        await ref.delete();
+        following = false;
+    } else {
+        await ref.set({
+            followerId: normalizedViewerId,
+            followingId: normalizedTargetUserId,
+            createdAt: nowTs()
+        });
+        following = true;
+    }
+
+    const followerCount = await getAcademyFollowerCount(normalizedTargetUserId);
+
+    return {
+        targetUserId: normalizedTargetUserId,
+        following,
+        followerCount
+    };
+}
 module.exports = {
     getViewerProfile,
     listFeed,
@@ -564,6 +666,8 @@ module.exports = {
     togglePostLike,
     listPostComments,
     createPostComment,
+    listAcademyMembers,
+    toggleMemberFollow,
     sendFriendRequest,
     respondToFriendRequest
 };

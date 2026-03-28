@@ -49,7 +49,8 @@ router.get('/academy/feed/posts/:id/comments', auth, academyCommunityControllers
 router.post('/academy/feed/posts/:id/comments', auth, academyCommunityControllers.createComment);
 router.post('/academy/feed/friend-requests', auth, academyCommunityControllers.sendFriendRequest);
 router.post('/academy/feed/friend-requests/:id/respond', auth, academyCommunityControllers.respondToFriendRequest);
-
+router.get('/academy/community/members', auth, academyCommunityControllers.getMembers);
+router.post('/academy/community/members/:id/follow', auth, academyCommunityControllers.toggleMemberFollow);
 // ==========================================
 // 🧠 INTERNAL AI NURTURE ROUTES
 // ==========================================
@@ -102,6 +103,7 @@ router.post('/realtime/notifications/:id/read', auth, realtimeControllers.readNo
 router.get('/realtime/leaderboard', auth, realtimeControllers.getLeaderboard);
 router.get('/realtime/profiles/:name', auth, realtimeControllers.getProfileByName);
 router.post('/realtime/follows/toggle', auth, realtimeControllers.toggleFollow);
+
 
 // 🔥 Laging nasa pinakababa ito dapat para ma-export nang buo!
 module.exports = router;

@@ -248,7 +248,73 @@ exports.createComment = async (req, res) => {
         );
     }
 };
+exports.getMembers = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
 
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Missing authenticated user.'
+            });
+        }
+
+        const limit = Number.parseInt(req.query.limit, 10) || 100;
+
+        const members = await academyCommunityRepo.listAcademyMembers({
+            viewerId: viewer.id,
+            limit
+        });
+
+        return res.json({
+            success: true,
+            members
+        });
+    } catch (error) {
+        console.error('academyCommunityControllers.getMembers error:', error);
+        return sendError(res, error, 'Failed to load Academy members.');
+    }
+};
+
+exports.toggleMemberFollow = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Missing authenticated user.'
+            });
+        }
+
+        const targetUserId =
+            sanitizeText(req.params?.id) ||
+            sanitizeText(req.body?.targetUserId) ||
+            sanitizeText(req.body?.userId);
+
+        const result = await academyCommunityRepo.toggleMemberFollow({
+            viewerId: viewer.id,
+            targetUserId
+        });
+
+        return res.json({
+            success: true,
+            ...result
+        });
+    } catch (error) {
+        console.error('academyCommunityControllers.toggleMemberFollow error:', error);
+
+        const isValidationError =
+            /yourself|required|not found/i.test(error?.message || '');
+
+        return sendError(
+            res,
+            error,
+            'Failed to update follow state.',
+            isValidationError ? 400 : 500
+        );
+    }
+};
 exports.sendFriendRequest = async (req, res) => {
     try {
         const viewer = getViewerFromRequest(req);
