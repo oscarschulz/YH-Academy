@@ -742,7 +742,93 @@ async function requestAiRoadmap(profile, context = {}) {
 function getAcademyAuthUid(req) {
     return sanitize(req.user?.firebaseUid || req.user?.id);
 }
+function selectPlanningMode(profile = {}, behaviorProfile = {}, context = {}) {
+    const recentMissions = Array.isArray(context.recentMissions) ? context.recentMissions : [];
+    const skippedCount = recentMissions.filter((item) => item.status === 'skipped').length;
+    const stuckCount = recentMissions.filter((item) => item.status === 'stuck').length;
+    const completedCount = recentMissions.filter((item) => item.status === 'completed').length;
 
+    if (!recentMissions.length) return 'initial';
+
+    if (
+        toInt(profile.energyScore, 0) <= 4 ||
+        sanitize(behaviorProfile.recoveryRisk) === 'high' ||
+        skippedCount >= 2 ||
+        stuckCount >= 1
+    ) {
+        return 'recovery';
+    }
+
+    if (completedCount >= 4 && sanitize(behaviorProfile.accountabilityNeed) !== 'high') {
+        return 'acceleration';
+    }
+
+    return 'weekly_recalibration';
+}
+
+function scoreMissionQuality(mission = {}, context = {}) {
+    const title = sanitize(mission.title);
+    const description = sanitize(mission.description);
+    const whyItMatters = sanitize(mission.whyItMatters);
+    const estimatedMinutes = toInt(mission.estimatedMinutes, 0);
+    const maxDailyMinutes = toInt(context?.behaviorProfile?.maxSustainableDailyMinutes, 0);
+
+    const specificity = title && description ? 4 : 1;
+    const measurability = estimatedMinutes > 0 ? 4 : 1;
+    const realism = maxDailyMinutes > 0 && estimatedMinutes > maxDailyMinutes ? 2 : 4;
+    const bottleneckFit = whyItMatters ? 4 : 2;
+    const timeFit = estimatedMinutes > 0 ? 4 : 2;
+
+    const passed =
+        specificity >= 3 &&
+        measurability >= 3 &&
+        realism >= 3 &&
+        bottleneckFit >= 3 &&
+        timeFit >= 3;
+
+    return {
+        specificity,
+        measurability,
+        realism,
+        bottleneckFit,
+        timeFit,
+        passed
+    };
+}
+
+function normalizeGeneratedMission(mission = {}, context = {}) {
+    const maxDailyMinutes = Math.max(
+        15,
+        toInt(context?.behaviorProfile?.maxSustainableDailyMinutes, 0) || 45
+    );
+
+    return {
+        pillar: sanitize(mission.pillar),
+        title: sanitize(mission.title),
+        description: sanitize(mission.description),
+        whyItMatters: sanitize(mission.whyItMatters),
+        frequency: sanitize(mission.frequency || 'daily'),
+        dueDate: sanitize(mission.dueDate),
+        estimatedMinutes: Math.min(
+            maxDailyMinutes,
+            Math.max(10, toInt(mission.estimatedMinutes, 20))
+        ),
+        sortOrder: Math.max(1, toInt(mission.sortOrder, 1))
+    };
+}
+
+async function refreshBehaviorState(uid) {
+    const behaviorProfile = await academyFirestoreRepo.computeBehaviorProfile(uid);
+    await academyFirestoreRepo.saveBehaviorProfile(uid, behaviorProfile);
+
+    const plannerStats = await academyFirestoreRepo.computePlannerStats(uid);
+    await academyFirestoreRepo.savePlannerStats(uid, plannerStats);
+
+    return {
+        behaviorProfile,
+        plannerStats
+    };
+}
 async function generateAndPersistPlanFirestore(uid, profile, options = {}) {
     const activeRoadmap = options.activeRoadmap || await academyFirestoreRepo.getActiveRoadmap(uid);
     const recentMissions = activeRoadmap
@@ -752,21 +838,34 @@ async function generateAndPersistPlanFirestore(uid, profile, options = {}) {
         ? await academyFirestoreRepo.listRecentCheckins(uid, activeRoadmap.id, 5)
         : [];
 
+    const profileDoc = await academyFirestoreRepo.getCurrentProfile(uid);
+    const behaviorProfile =
+        profileDoc?.behaviorProfile && typeof profileDoc.behaviorProfile === 'object'
+            ? profileDoc.behaviorProfile
+            : {};
+
+    const mode = options.mode || selectPlanningMode(profile, behaviorProfile, { recentMissions, recentCheckins });
+
     const context = {
-        mode: options.mode || 'initial',
+        mode,
         activeRoadmap,
         recentMissions,
-        recentCheckins
+        recentCheckins,
+        behaviorProfile
     };
 
     let plan = null;
     let createdByModel = 'academy-rule-engine-v1';
+    let plannerProvider = 'rule';
+    let plannerModel = 'academy-rule-engine-v1';
 
     try {
         const aiResult = await requestAiRoadmap(profile, context);
         if (aiResult?.plan) {
             plan = aiResult.plan;
-            createdByModel = `${aiResult.provider}-${aiResult.model}`;
+            plannerProvider = sanitize(aiResult.provider || 'gemini') || 'gemini';
+            plannerModel = sanitize(aiResult.model || '') || 'unknown';
+            createdByModel = `${plannerProvider}-${plannerModel}`;
         }
     } catch (error) {
         console.error('Academy Planner Fallback:', error.message);
@@ -777,19 +876,95 @@ async function generateAndPersistPlanFirestore(uid, profile, options = {}) {
     }
 
     const normalizedPlan = normalizePlan(plan, profile, context);
-    const persistResult = await academyFirestoreRepo.persistRoadmapBundle(
-        uid,
-        profile,
-        normalizedPlan,
-        createdByModel
-    );
+
+    normalizedPlan.missions = (Array.isArray(normalizedPlan.missions) ? normalizedPlan.missions : [])
+        .map((mission) => {
+            const cleanedMission = normalizeGeneratedMission(mission, context);
+            const qualityScores = scoreMissionQuality(cleanedMission, context);
+
+            return {
+                ...cleanedMission,
+                qualityScores,
+                selectionReason: '',
+                primaryBottleneck: sanitize(profile.blockerText || profile.topPriorityPillar),
+                energyAdjustmentApplied: toInt(profile.energyScore, 0) <= 4,
+                timeAdjustmentApplied: true,
+                generatedByProvider: plannerProvider,
+                generatedByModel: plannerModel,
+                promptVersion: 'planner_v1',
+                schemaVersion: 'academy_plan_v1',
+                generationMode: mode,
+                outcomeMetrics: {
+                    skipCount: 0,
+                    stuckCount: 0,
+                    rescheduleCount: 0,
+                    completionLagHours: 0,
+                    userDifficultyScore: 0,
+                    userUsefulnessScore: 0,
+                    lastSkipReasonCategory: ''
+                }
+            };
+        });
+
+    const plannerRun = await academyFirestoreRepo.createPlannerRun(uid, {
+        provider: plannerProvider,
+        model: plannerModel,
+        promptVersion: 'planner_v1',
+        schemaVersion: 'academy_plan_v1',
+        mode,
+        inputSnapshot: {
+            energyScore: toInt(profile.energyScore, 0),
+            sleepHours: toFloat(profile.sleepHours, 0),
+            topPriorityPillar: sanitize(profile.topPriorityPillar),
+            recentCompletedCount: recentMissions.filter((item) => item.status === 'completed').length,
+            recentSkippedCount: recentMissions.filter((item) => item.status === 'skipped').length,
+            recentStuckCount: recentMissions.filter((item) => item.status === 'stuck').length
+        },
+        behaviorProfileSnapshot: behaviorProfile,
+        decisionTrace: {
+            primaryBottleneck: sanitize(profile.blockerText || profile.topPriorityPillar),
+            usedRecoveryMode: mode === 'recovery',
+            reducedMissionIntensity: mode === 'recovery',
+            reason: ''
+        },
+        outputSummary: {
+            roadmapId: '',
+            missionCount: Array.isArray(normalizedPlan.missions) ? normalizedPlan.missions.length : 0,
+            weeklyTheme: sanitize(normalizedPlan?.roadmap?.weeklyTheme),
+            targetOutcome: sanitize(normalizedPlan?.roadmap?.weeklyTargetOutcome),
+            totalEstimatedMinutes: (Array.isArray(normalizedPlan.missions) ? normalizedPlan.missions : [])
+                .reduce((sum, item) => sum + toInt(item.estimatedMinutes, 0), 0)
+        }
+    });
+
+        const persistResult = await academyFirestoreRepo.persistRoadmapBundle(
+            uid,
+            profile,
+            {
+                ...normalizedPlan,
+                plannerRunId: plannerRun.id,
+                promptVersion: 'planner_v1',
+                schemaVersion: 'academy_plan_v1',
+                generationMode: mode,
+                generatedByProvider: plannerProvider,
+                generatedByModel: plannerModel
+            },
+            createdByModel
+        );
 
     const homePayload = await academyFirestoreRepo.buildAcademyHomePayload(uid, persistResult.roadmapId);
+
+    await academyFirestoreRepo.updatePlannerRunResult(uid, plannerRun.id, {
+        completionRateAfter72h: 0,
+        averageDifficultyScore: 0,
+        averageUsefulnessScore: 0
+    });
 
     return {
         roadmapId: persistResult.roadmapId,
         version: persistResult.version,
         createdByModel,
+        plannerRunId: plannerRun.id,
         plan: normalizedPlan,
         homePayload
     };
@@ -1030,7 +1205,31 @@ exports.completeMission = async (req, res) => {
                 percent: progress.percent || 0
             }
         });
+        
     } catch (error) {
+                const missionCompletedAt = completedMission?.completedAt;
+        const missionCreatedAt = completedMission?.createdAt;
+
+        let completionLagHours = 0;
+        if (missionCompletedAt && missionCreatedAt) {
+            const completedMs = typeof missionCompletedAt.toDate === 'function'
+                ? missionCompletedAt.toDate().getTime()
+                : new Date(missionCompletedAt).getTime();
+
+            const createdMs = typeof missionCreatedAt.toDate === 'function'
+                ? missionCreatedAt.toDate().getTime()
+                : new Date(missionCreatedAt).getTime();
+
+            if (Number.isFinite(completedMs) && Number.isFinite(createdMs) && completedMs >= createdMs) {
+                completionLagHours = Number(((completedMs - createdMs) / (1000 * 60 * 60)).toFixed(2));
+            }
+        }
+
+        await academyFirestoreRepo.updateMissionOutcomeMetrics(uid, missionId, {
+            completionLagHours
+        });
+
+        await refreshBehaviorState(uid);
         console.error('Complete Mission Error:', error);
         return res.status(500).json({
             success: false,
@@ -1066,7 +1265,27 @@ exports.updateMissionStatus = async (req, res) => {
         }
 
         const mission = await academyFirestoreRepo.getMissionById(uid, missionId);
+        const normalizedStatus = sanitize(req.body?.status).toLowerCase();
+        const updatedMission = await academyFirestoreRepo.getMissionById(uid, missionId);
 
+        if (normalizedStatus === 'skipped') {
+            await academyFirestoreRepo.updateMissionOutcomeMetrics(uid, missionId, {
+                skipCount: toInt(updatedMission?.outcomeMetrics?.skipCount, 0) + 1,
+                lastSkipReasonCategory: sanitize(req.body?.reasonCategory || 'time_overload'),
+                userDifficultyScore: toInt(req.body?.userDifficultyScore, 0),
+                userUsefulnessScore: toInt(req.body?.userUsefulnessScore, 0)
+            });
+        }
+
+        if (normalizedStatus === 'stuck') {
+            await academyFirestoreRepo.updateMissionOutcomeMetrics(uid, missionId, {
+                stuckCount: toInt(updatedMission?.outcomeMetrics?.stuckCount, 0) + 1,
+                userDifficultyScore: toInt(req.body?.userDifficultyScore, 0),
+                userUsefulnessScore: toInt(req.body?.userUsefulnessScore, 0)
+            });
+        }
+
+        await refreshBehaviorState(uid);
         if (!mission) {
             return res.status(404).json({
                 success: false,
@@ -1145,7 +1364,45 @@ exports.submitCheckin = async (req, res) => {
             tomorrowFocus,
             aiFeedback: { type: 'daily_checkin' }
         });
+        const completedMissionIds = Array.isArray(req.body?.completedMissionIds)
+            ? req.body.completedMissionIds
+            : [];
 
+        const skippedMissionIds = Array.isArray(req.body?.skippedMissionIds)
+            ? req.body.skippedMissionIds
+            : [];
+
+        const stuckMissionIds = Array.isArray(req.body?.stuckMissionIds)
+            ? req.body.stuckMissionIds
+            : [];
+
+        for (const missionId of completedMissionIds) {
+            await academyFirestoreRepo.updateMissionOutcomeMetrics(uid, missionId, {
+                userDifficultyScore: toInt(req.body?.difficultyToday, 0),
+                userUsefulnessScore: toInt(req.body?.usefulnessToday, 0)
+            });
+        }
+
+        for (const missionId of skippedMissionIds) {
+            const mission = await academyFirestoreRepo.getMissionById(uid, missionId);
+            const existingSkipCount = toInt(mission?.outcomeMetrics?.skipCount, 0);
+
+            await academyFirestoreRepo.updateMissionOutcomeMetrics(uid, missionId, {
+                skipCount: existingSkipCount + 1,
+                lastSkipReasonCategory: sanitize(req.body?.skipReasonCategory || 'time_overload')
+            });
+        }
+
+        for (const missionId of stuckMissionIds) {
+            const mission = await academyFirestoreRepo.getMissionById(uid, missionId);
+            const existingStuckCount = toInt(mission?.outcomeMetrics?.stuckCount, 0);
+
+            await academyFirestoreRepo.updateMissionOutcomeMetrics(uid, missionId, {
+                stuckCount: existingStuckCount + 1
+            });
+        }
+
+        await refreshBehaviorState(uid);
         return res.json({
             success: true,
             message: 'Check-in saved.'
