@@ -192,9 +192,19 @@ function inferRecommendedCategory(source = {}, snapshot = {}) {
     return 'general';
 }
 
-function buildHeuristicReview({ source = {}, snapshot = {}, settings = {}, existingLibrary = [] } = {}) {
+async function buildHeuristicReview({
+    source = {},
+    snapshot = {},
+    settings = {},
+    existingLibrary = [],
+    duplicateInfoOverride = null
+} = {}) {
     const hostPolicy = aiNurturePolicy.evaluateDomainTrust(source.hostname || '', settings);
-    const duplicateInfo = aiNurturePolicy.evaluateDuplicateAgainstLibrary(source, snapshot, existingLibrary);
+    const duplicateInfo = duplicateInfoOverride || await aiNurturePolicy.evaluateDuplicateAgainstLibrary(
+        source,
+        snapshot,
+        existingLibrary
+    );
     const recommendedCategory = inferRecommendedCategory(source, snapshot);
     const staleInfo = aiNurturePolicy.evaluateStaleness(snapshot, recommendedCategory, settings);
 
@@ -278,6 +288,10 @@ function buildHeuristicReview({ source = {}, snapshot = {}, settings = {}, exist
             domainTrustScore: hostPolicy.domainTrustScore,
             duplicateScore: duplicateInfo.duplicateScore,
             duplicateTopMatch: duplicateInfo.duplicateTopMatch,
+            duplicateMatches: Array.isArray(duplicateInfo.duplicateMatches)
+                ? duplicateInfo.duplicateMatches.slice(0, 5)
+                : [],
+            duplicateMethod: sanitize(duplicateInfo.duplicateMethod || 'heuristic'),
             staleVerdict: staleInfo.staleVerdict,
             freshnessScore: staleInfo.freshnessScore,
             ageDays: staleInfo.ageDays,
@@ -498,6 +512,10 @@ function mergeAiResultWithFallback(aiResult = {}, fallback = {}, baseChunks = []
             domainTrustScore: clamp(Number(aiResult.domainTrustScore ?? fallbackReview.domainTrustScore ?? 0), 0, 1),
             duplicateScore: clamp(Number(aiResult.duplicateScore ?? fallbackReview.duplicateScore ?? 0), 0, 1),
             duplicateTopMatch: aiResult.duplicateTopMatch || fallbackReview.duplicateTopMatch || null,
+            duplicateMatches: Array.isArray(aiResult.duplicateMatches)
+                ? aiResult.duplicateMatches
+                : (fallbackReview.duplicateMatches || []),
+            duplicateMethod: sanitize(aiResult.duplicateMethod || fallbackReview.duplicateMethod || 'heuristic'),
             staleVerdict: sanitize(aiResult.staleVerdict || fallbackReview.staleVerdict || 'unknown'),
             freshnessScore: clamp(Number(aiResult.freshnessScore ?? fallbackReview.freshnessScore ?? 0.55), 0, 1),
             ageDays: aiResult.ageDays ?? fallbackReview.ageDays ?? null,
@@ -520,7 +538,20 @@ function mergeAiResultWithFallback(aiResult = {}, fallback = {}, baseChunks = []
 }
 
 async function analyzeSource({ source = {}, snapshot = {}, settings = {}, existingLibrary = [] } = {}) {
-    const fallback = buildHeuristicReview({ source, snapshot, settings, existingLibrary });
+    const duplicateInfo = await aiNurturePolicy.evaluateDuplicateAgainstLibrary(
+        source,
+        snapshot,
+        existingLibrary
+    );
+
+    const fallback = await buildHeuristicReview({
+        source,
+        snapshot,
+        settings,
+        existingLibrary,
+        duplicateInfoOverride: duplicateInfo
+    });
+
     const baseChunks = splitIntoChunks(snapshot.cleanText || '');
 
     if (!baseChunks.length) {
@@ -529,8 +560,12 @@ async function analyzeSource({ source = {}, snapshot = {}, settings = {}, existi
 
     const context = {
         hostPolicy: aiNurturePolicy.evaluateDomainTrust(source.hostname || '', settings),
-        duplicateInfo: aiNurturePolicy.evaluateDuplicateAgainstLibrary(source, snapshot, existingLibrary),
-        staleInfo: aiNurturePolicy.evaluateStaleness(snapshot, fallback.review?.recommendedCategory || 'general', settings)
+        duplicateInfo,
+        staleInfo: aiNurturePolicy.evaluateStaleness(
+            snapshot,
+            fallback.review?.recommendedCategory || 'general',
+            settings
+        )
     };
 
     if (

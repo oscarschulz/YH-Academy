@@ -72,6 +72,7 @@ const libraryCol = () => firestore.collection('aiNurtureLibrary');
 const memoryCardsCol = () => firestore.collection('aiNurtureMemoryCards');
 const contextPacksCol = () => firestore.collection('aiNurtureContextPacks');
 const jobsCol = () => firestore.collection('aiNurtureJobs');
+const userOverlaysCol = () => firestore.collection('aiNurtureUserOverlays');
 const snapshotsCol = (sourceId) => sourcesCol().doc(sanitize(sourceId)).collection('snapshots');
 const chunksCol = (sourceId) => sourcesCol().doc(sanitize(sourceId)).collection('chunks');
 
@@ -336,6 +337,10 @@ async function createOrReplaceReview(sourceId, payload = {}) {
             duplicateTopMatch: payload.duplicateTopMatch && typeof payload.duplicateTopMatch === 'object'
                 ? serializeValue(payload.duplicateTopMatch)
                 : null,
+            duplicateMatches: Array.isArray(payload.duplicateMatches)
+                ? payload.duplicateMatches.slice(0, 5).map((item) => serializeValue(item))
+                : [],
+            duplicateMethod: sanitize(payload.duplicateMethod || 'heuristic'),
             staleVerdict: sanitize(payload.staleVerdict || 'unknown'),
             freshnessScore: Number(toNumber(payload.freshnessScore, 0.55).toFixed(2)),
             ageDays: payload.ageDays === null || payload.ageDays === undefined ? null : toNumber(payload.ageDays, 0),
@@ -377,7 +382,93 @@ async function getSourceDetail(sourceId) {
         chunks
     };
 }
+async function appendReviewNote(sourceId, payload = {}) {
+    const normalizedSourceId = sanitize(sourceId);
+    if (!normalizedSourceId) {
+        throw new Error('Source ID is required.');
+    }
 
+    const note = sanitize(payload.note);
+    if (!note) {
+        throw new Error('Review note is required.');
+    }
+
+    const ref = reviewsCol().doc(normalizedSourceId);
+    const snap = await ref.get();
+    const existing = snap.exists ? (snap.data() || {}) : {};
+    const manualNotes = Array.isArray(existing.manualNotes) ? existing.manualNotes : [];
+
+    const noteEntry = {
+        id: `note_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`,
+        note,
+        labels: Array.isArray(payload.labels) ? payload.labels.map((item) => sanitize(item)).filter(Boolean) : [],
+        author: sanitize(payload.author || 'internal-operator'),
+        noteType: sanitize(payload.noteType || 'review'),
+        createdAt: new Date().toISOString()
+    };
+
+    await ref.set(
+        {
+            sourceId: normalizedSourceId,
+            manualNotes: [...manualNotes, noteEntry].slice(-50),
+            lastManualNoteAt: nowTs(),
+            updatedAt: nowTs()
+        },
+        { merge: true }
+    );
+
+    return mapDoc(await ref.get());
+}
+
+async function getUserOverlay(userId) {
+    const normalizedUserId = sanitize(userId);
+    if (!normalizedUserId) return null;
+
+    const snap = await userOverlaysCol().doc(normalizedUserId).get();
+    if (!snap.exists) return null;
+
+    return mapDoc(snap);
+}
+
+async function upsertUserOverlay(userId, payload = {}) {
+    const normalizedUserId = sanitize(userId);
+    if (!normalizedUserId) {
+        throw new Error('User ID is required.');
+    }
+
+    const ref = userOverlaysCol().doc(normalizedUserId);
+    const snap = await ref.get();
+    const existing = snap.exists ? (snap.data() || {}) : {};
+    const ts = nowTs();
+
+    const nextDoc = {
+        userId: normalizedUserId,
+        note: payload.note !== undefined
+            ? sanitize(payload.note)
+            : sanitize(existing.note),
+        rules: Array.isArray(payload.rules)
+            ? payload.rules.map((item) => sanitize(item)).filter(Boolean)
+            : (Array.isArray(existing.rules) ? existing.rules : []),
+        redFlags: Array.isArray(payload.redFlags)
+            ? payload.redFlags.map((item) => sanitize(item)).filter(Boolean)
+            : (Array.isArray(existing.redFlags) ? existing.redFlags : []),
+        focusThemes: Array.isArray(payload.focusThemes)
+            ? payload.focusThemes.map((item) => sanitize(item)).filter(Boolean)
+            : (Array.isArray(existing.focusThemes) ? existing.focusThemes : []),
+        tags: Array.isArray(payload.tags)
+            ? payload.tags.map((item) => sanitize(item)).filter(Boolean)
+            : (Array.isArray(existing.tags) ? existing.tags : []),
+        isActive: payload.isActive !== undefined
+            ? payload.isActive === true
+            : (existing.isActive !== false),
+        updatedBy: sanitize(payload.updatedBy || existing.updatedBy || 'internal-operator'),
+        updatedAt: ts,
+        createdAt: existing.createdAt || ts
+    };
+
+    await ref.set(nextDoc, { merge: true });
+    return mapDoc(await ref.get());
+}
 async function createLibraryEntry(payload = {}) {
     const ref = libraryCol().doc();
 
@@ -628,6 +719,7 @@ async function buildActiveKnowledgeContext(filters = {}) {
     const libraryItems = allLibraryItems.filter((item) => item.excludedFromPlanner !== true);
     const packs = await listContextPacks(40);
     const memoryCards = (await listMemoryCards(140)).filter((card) => !excludedSourceIds.has(sanitize(card.sourceId)));
+    const overlayKnowledge = filters.userId ? await getUserOverlay(filters.userId) : null;
 
     return aiNurturePolicy.selectContextFromAssets({
         packs,
@@ -635,7 +727,8 @@ async function buildActiveKnowledgeContext(filters = {}) {
         memoryCards,
         categoryHints,
         tagHints,
-        limits: settings?.plannerPackLimits || {}
+        limits: settings?.plannerPackLimits || {},
+        overlayKnowledge
     });
 }
 async function listMemoryCards(limit = 160) {
@@ -795,6 +888,9 @@ module.exports = {
     createOrReplaceReview,
     getReviewBySourceId,
     getSourceDetail,
+    appendReviewNote,
+    getUserOverlay,
+    upsertUserOverlay,
     approveSource,
     rejectSource,
     listLibrary,

@@ -91,7 +91,9 @@ const mapRoadmapDoc = (doc) => {
     const adaptivePlanning = data.adaptivePlanning && typeof data.adaptivePlanning === 'object'
         ? data.adaptivePlanning
         : {};
-
+    const nurtureTelemetry = data.nurtureTelemetry && typeof data.nurtureTelemetry === 'object'
+        ? data.nurtureTelemetry
+        : {};
     return {
         id: doc.id,
         version: toNumber(data.version, 1),
@@ -121,6 +123,7 @@ const mapRoadmapDoc = (doc) => {
         },
         plannerRunId: sanitizeString(data.plannerRunId),
         adaptivePlanning: {
+            nurtureTelemetry,
             mode: sanitizeString(adaptivePlanning.mode),
             challengeLevel: sanitizeString(adaptivePlanning.challengeLevel),
             missionCountCap: toNumber(adaptivePlanning.missionCountCap, 0),
@@ -431,6 +434,9 @@ async function persistRoadmapBundle(uid, profile, plan, createdByModel) {
         adaptivePlanning: plan.adaptivePlanning && typeof plan.adaptivePlanning === 'object'
             ? plan.adaptivePlanning
             : {},
+            nurtureTelemetry: plan.nurtureTelemetry && typeof plan.nurtureTelemetry === 'object'
+            ? plan.nurtureTelemetry
+            : {},
         createdByModel: sanitizeString(createdByModel || 'academy-rule-engine-v1'),
         profileSnapshot: profile && typeof profile === 'object' ? profile : {},
         createdAt: ts,
@@ -552,6 +558,9 @@ async function buildAcademyHomePayload(uid, roadmapId = null) {
             : {},
         adaptivePlanning: roadmap?.adaptivePlanning && typeof roadmap.adaptivePlanning === 'object'
             ? roadmap.adaptivePlanning
+            : {},
+        nurtureTelemetry: roadmap?.nurtureTelemetry && typeof roadmap.nurtureTelemetry === 'object'
+            ? roadmap.nurtureTelemetry
             : {},
         plannerRunId: roadmap?.plannerRunId || '',
         createdByModel: roadmap.createdByModel || 'academy-rule-engine-v1'
@@ -769,6 +778,9 @@ async function createPlannerRun(uid, payload = {}) {
             : {},
         decisionTrace: payload.decisionTrace && typeof payload.decisionTrace === 'object'
             ? payload.decisionTrace
+            : {},
+        nurtureTelemetry: payload.nurtureTelemetry && typeof payload.nurtureTelemetry === 'object'
+            ? payload.nurtureTelemetry
             : {},
         outputSummary: payload.outputSummary && typeof payload.outputSummary === 'object'
             ? payload.outputSummary

@@ -65,6 +65,7 @@ function collectHints(profile = {}, behaviorProfile = {}, plannerStats = {}) {
 }
 
 async function buildPlanningContext({
+    uid = '',
     profile = {},
     behaviorProfile = {},
     plannerStats = {}
@@ -72,10 +73,11 @@ async function buildPlanningContext({
     const hints = collectHints(profile, behaviorProfile, plannerStats);
     const settings = await aiNurtureRepo.getSettings();
 
-    const [packs, libraryItemsRaw, memoryCardsRaw] = await Promise.all([
+    const [packs, libraryItemsRaw, memoryCardsRaw, overlayKnowledgeRaw] = await Promise.all([
         aiNurtureRepo.listContextPacks(40),
         aiNurtureRepo.listLibrary(80),
-        aiNurtureRepo.listMemoryCards(160)
+        aiNurtureRepo.listMemoryCards(160),
+        uid ? aiNurtureRepo.getUserOverlay(uid) : null
     ]);
 
     const libraryItems = libraryItemsRaw.filter((item) => item.excludedFromPlanner !== true);
@@ -88,19 +90,33 @@ async function buildPlanningContext({
 
     const memoryCards = memoryCardsRaw.filter((item) => !excludedSourceIds.has(sanitize(item.sourceId)));
 
+    const overlayKnowledge =
+        overlayKnowledgeRaw && overlayKnowledgeRaw.isActive !== false
+            ? {
+                note: sanitize(overlayKnowledgeRaw.note),
+                rules: Array.isArray(overlayKnowledgeRaw.rules) ? overlayKnowledgeRaw.rules : [],
+                redFlags: Array.isArray(overlayKnowledgeRaw.redFlags) ? overlayKnowledgeRaw.redFlags : [],
+                focusThemes: Array.isArray(overlayKnowledgeRaw.focusThemes) ? overlayKnowledgeRaw.focusThemes : [],
+                tags: Array.isArray(overlayKnowledgeRaw.tags) ? overlayKnowledgeRaw.tags : [],
+                isActive: true
+            }
+            : null;
+
     const selected = aiNurturePolicy.selectContextFromAssets({
         packs,
         libraryItems,
         memoryCards,
         categoryHints: hints.categoryHints,
         tagHints: hints.tagHints,
-        limits: settings?.plannerPackLimits || {}
+        limits: settings?.plannerPackLimits || {},
+        overlayKnowledge
     });
 
     return {
         ...selected,
         categoryHints: hints.categoryHints,
-        tagHints: hints.tagHints
+        tagHints: hints.tagHints,
+        overlayKnowledge
     };
 }
 

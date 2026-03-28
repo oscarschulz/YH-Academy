@@ -1194,6 +1194,7 @@ async function generateAndPersistPlanFirestore(uid, profile, options = {}) {
     const planningMode = adaptivePlanning.mode;
 
     const nurtureKnowledge = await academyPlannerKnowledgeContext.buildPlanningContext({
+        uid,
         profile,
         activeRoadmap,
         recentMissions,
@@ -1316,7 +1317,22 @@ async function generateAndPersistPlanFirestore(uid, profile, options = {}) {
         trendSummary: adaptivePlanning.trendSummary,
         trigger
     };
-
+    normalizedPlan.nurtureTelemetry =
+        context.nurtureKnowledge?.telemetry && typeof context.nurtureKnowledge.telemetry === 'object'
+            ? context.nurtureKnowledge.telemetry
+            : {
+                selectedPackKeys: [],
+                injectedRuleCount: 0,
+                injectedExampleCount: 0,
+                injectedRedFlagCount: 0,
+                injectedRules: [],
+                injectedExamples: [],
+                injectedRedFlags: [],
+                overlayApplied: false,
+                overlayRuleCount: 0,
+                overlayRedFlagCount: 0,
+                overlayThemes: []
+            };
     normalizedPlan.missions = adaptedMissions
         .map((mission) => {
             const cleanedMission = normalizeGeneratedMission(mission, {
@@ -1388,6 +1404,7 @@ async function generateAndPersistPlanFirestore(uid, profile, options = {}) {
             trendSummary: adaptivePlanning.trendSummary,
             reason: adaptivePlanning.reason
         },
+        nurtureTelemetry: normalizedPlan.nurtureTelemetry,
         outputSummary: {
             roadmapId: '',
             missionCount: Array.isArray(normalizedPlan.missions) ? normalizedPlan.missions.length : 0,

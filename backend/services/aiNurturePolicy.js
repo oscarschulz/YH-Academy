@@ -50,7 +50,78 @@ function overlapScore(aText = '', bText = '') {
 
     return Number((hits / Math.max(a.length, b.length)).toFixed(2));
 }
+function cosineSimilarity(a = [], b = []) {
+    const length = Math.min(a.length, b.length);
+    if (!length) return 0;
 
+    let dot = 0;
+    let aMag = 0;
+    let bMag = 0;
+
+    for (let i = 0; i < length; i += 1) {
+        const av = Number(a[i] || 0);
+        const bv = Number(b[i] || 0);
+        dot += av * bv;
+        aMag += av * av;
+        bMag += bv * bv;
+    }
+
+    if (!aMag || !bMag) return 0;
+    return Number((dot / (Math.sqrt(aMag) * Math.sqrt(bMag))).toFixed(4));
+}
+
+function buildDuplicateTextFromSource(source = {}, snapshot = {}) {
+    return [
+        sanitize(source.title || source.canonicalUrl || source.originalUrl),
+        sanitize(source.description),
+        sanitize(snapshot.excerpt),
+        sanitize(snapshot.cleanText).slice(0, 2800)
+    ].filter(Boolean).join('\n\n').slice(0, 6000);
+}
+
+function buildDuplicateTextFromLibraryItem(item = {}) {
+    return [
+        sanitize(item.title),
+        sanitize(item.summary),
+        ...(Array.isArray(item.usableRules) ? item.usableRules : []),
+        ...(Array.isArray(item.doNotUseWhen) ? item.doNotUseWhen : [])
+    ].filter(Boolean).join('\n\n').slice(0, 5000);
+}
+
+async function requestOpenAiEmbeddings(texts = []) {
+    const apiKey = sanitize(process.env.OPENAI_API_KEY);
+    if (!apiKey || typeof fetch !== 'function' || !Array.isArray(texts) || !texts.length) {
+        return null;
+    }
+
+    const model = sanitize(
+        process.env.OPENAI_NURTURE_EMBED_MODEL || 'text-embedding-3-small'
+    ) || 'text-embedding-3-small';
+
+    const response = await fetch('https://api.openai.com/v1/embeddings', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+            model,
+            input: texts.map((item) => sanitize(item).slice(0, 8000))
+        })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(data?.error?.message || 'OpenAI embeddings request failed.');
+    }
+
+    const rows = Array.isArray(data?.data)
+        ? [...data.data].sort((a, b) => Number(a.index || 0) - Number(b.index || 0))
+        : [];
+
+    return rows.map((row) => Array.isArray(row.embedding) ? row.embedding : []);
+}
 function hostMatches(hostname = '', pattern = '') {
     const host = normalizeHost(hostname);
     const needle = normalizeHost(pattern);
@@ -135,46 +206,104 @@ function evaluateDomainTrust(hostname = '', settings = {}) {
     };
 }
 
-function evaluateDuplicateAgainstLibrary(source = {}, snapshot = {}, libraryItems = []) {
+async function evaluateDuplicateAgainstLibrary(source = {}, snapshot = {}, libraryItems = []) {
     const sourceTitle = sanitize(source.title || source.canonicalUrl || source.originalUrl);
-    const sourceText = [
-        sourceTitle,
-        sanitize(source.description),
-        sanitize(snapshot.excerpt),
-        sanitize(snapshot.cleanText).slice(0, 2500)
-    ].filter(Boolean).join('\n\n');
+    const sourceText = buildDuplicateTextFromSource(source, snapshot);
 
-    let topMatch = null;
-    let topScore = 0;
+    const scoredCandidates = (Array.isArray(libraryItems) ? libraryItems : [])
+        .map((item) => {
+            const candidateText = buildDuplicateTextFromLibraryItem(item);
+            const titleScore = overlapScore(sourceTitle, item.title || '');
+            const bodyScore = overlapScore(sourceText, candidateText);
+            const heuristicScore = Number((titleScore * 0.55 + bodyScore * 0.45).toFixed(2));
 
-    for (const item of Array.isArray(libraryItems) ? libraryItems : []) {
-        const candidateText = [
-            sanitize(item.title),
-            sanitize(item.summary),
-            ...(Array.isArray(item.usableRules) ? item.usableRules : [])
-        ].filter(Boolean).join('\n\n');
-
-        const titleScore = overlapScore(sourceTitle, item.title || '');
-        const bodyScore = overlapScore(sourceText, candidateText);
-        const score = Number((titleScore * 0.55 + bodyScore * 0.45).toFixed(2));
-
-        if (score > topScore) {
-            topScore = score;
-            topMatch = {
-                id: item.id,
-                title: sanitize(item.title),
-                sourceUrl: sanitize(item.sourceUrl),
-                category: sanitize(item.category),
-                score
+            return {
+                item,
+                candidateText,
+                titleScore,
+                bodyScore,
+                heuristicScore
             };
+        })
+        .sort((a, b) => b.heuristicScore - a.heuristicScore);
+
+    if (!scoredCandidates.length) {
+        return {
+            duplicateScore: 0,
+            duplicateTopMatch: null,
+            duplicateMatches: [],
+            duplicateMethod: 'heuristic',
+            isNearDuplicate: false,
+            isLikelyDuplicate: false
+        };
+    }
+
+    const heuristicMatches = scoredCandidates.slice(0, 3).map((entry) => ({
+        id: entry.item.id,
+        title: sanitize(entry.item.title),
+        sourceUrl: sanitize(entry.item.sourceUrl),
+        category: sanitize(entry.item.category),
+        score: Number(entry.heuristicScore.toFixed(2)),
+        semanticScore: null,
+        heuristicScore: Number(entry.heuristicScore.toFixed(2))
+    }));
+
+    let topMatch = heuristicMatches[0] || null;
+    let topScore = Number(topMatch?.score || 0);
+    let duplicateMethod = 'heuristic';
+    let duplicateMatches = heuristicMatches;
+
+    const shortlist = scoredCandidates.slice(0, Math.min(24, scoredCandidates.length));
+
+    try {
+        const embeddings = await requestOpenAiEmbeddings([
+            sourceText,
+            ...shortlist.map((entry) => entry.candidateText)
+        ]);
+
+        if (Array.isArray(embeddings) && embeddings.length === shortlist.length + 1) {
+            const sourceEmbedding = embeddings[0];
+
+            const semanticMatches = shortlist
+                .map((entry, index) => {
+                    const semanticScore = cosineSimilarity(sourceEmbedding, embeddings[index + 1] || []);
+                    const blendedScore = Number(
+                        Math.max(
+                            0,
+                            Math.min(1, (semanticScore * 0.82) + (entry.heuristicScore * 0.18))
+                        ).toFixed(2)
+                    );
+
+                    return {
+                        id: entry.item.id,
+                        title: sanitize(entry.item.title),
+                        sourceUrl: sanitize(entry.item.sourceUrl),
+                        category: sanitize(entry.item.category),
+                        score: blendedScore,
+                        semanticScore: Number(semanticScore.toFixed(2)),
+                        heuristicScore: Number(entry.heuristicScore.toFixed(2))
+                    };
+                })
+                .sort((a, b) => b.score - a.score);
+
+            if (semanticMatches.length) {
+                duplicateMethod = 'embedding';
+                duplicateMatches = semanticMatches.slice(0, 5);
+                topMatch = duplicateMatches[0] || null;
+                topScore = Number(topMatch?.score || 0);
+            }
         }
+    } catch (_) {
+        // Silent fallback to heuristic scoring.
     }
 
     return {
         duplicateScore: Number(topScore.toFixed(2)),
         duplicateTopMatch: topMatch,
-        isNearDuplicate: topScore >= 0.86,
-        isLikelyDuplicate: topScore >= 0.72
+        duplicateMatches,
+        duplicateMethod,
+        isNearDuplicate: topScore >= 0.88,
+        isLikelyDuplicate: topScore >= 0.78
     };
 }
 
@@ -301,7 +430,8 @@ function selectContextFromAssets({
     memoryCards = [],
     categoryHints = [],
     tagHints = [],
-    limits = {}
+    limits = {},
+    overlayKnowledge = null
 } = {}) {
     const config = {
         maxRulesTotal: Number(limits?.maxRulesTotal || 10),
@@ -312,14 +442,50 @@ function selectContextFromAssets({
         maxRedFlagsPerCategory: Number(limits?.maxRedFlagsPerCategory || 3)
     };
 
+    const overlay = overlayKnowledge && typeof overlayKnowledge === 'object'
+        ? overlayKnowledge
+        : {};
+
+    const overlayRules = Array.isArray(overlay.rules)
+        ? overlay.rules.map((item) => sanitize(item)).filter(Boolean)
+        : [];
+
+    const overlayRedFlags = Array.isArray(overlay.redFlags)
+        ? overlay.redFlags.map((item) => sanitize(item)).filter(Boolean)
+        : [];
+
+    const overlayThemes = Array.isArray(overlay.focusThemes)
+        ? overlay.focusThemes.map((item) => sanitize(item)).filter(Boolean)
+        : [];
+
+    const overlayTags = Array.isArray(overlay.tags)
+        ? overlay.tags.map((item) => sanitize(item)).filter(Boolean)
+        : [];
+
+    const overlayBrief = sanitize(overlay.note);
+    const overlayApplied =
+        overlay.isActive !== false &&
+        (
+            overlayRules.length > 0 ||
+            overlayRedFlags.length > 0 ||
+            overlayThemes.length > 0 ||
+            Boolean(overlayBrief)
+        );
+
+    const effectiveTagHints = [...new Set([
+        ...(Array.isArray(tagHints) ? tagHints : []),
+        ...overlayTags
+    ].filter(Boolean))];
+
     const scoredPacks = (Array.isArray(packs) ? packs : [])
         .map((pack) => ({
             ...pack,
-            _score: scoreContextCandidate(pack, categoryHints, tagHints)
+            _score: scoreContextCandidate(pack, categoryHints, effectiveTagHints)
         }))
         .sort((a, b) => b._score - a._score || String(a.category || '').localeCompare(String(b.category || '')));
 
     const selectedPacks = scoredPacks.filter((item) => item._score > 0).slice(0, 4);
+    const selectedPackKeys = selectedPacks.map((item) => item.key || item.category).filter(Boolean);
     const selectedPackCategories = new Set(selectedPacks.map((item) => normalizeText(item.category)));
 
     const scoredCards = (Array.isArray(memoryCards) ? memoryCards : [])
@@ -336,7 +502,7 @@ function selectContextFromAssets({
                 else if (content.includes(cleanHint)) score += 2;
             }
 
-            for (const hint of tagHints) {
+            for (const hint of effectiveTagHints) {
                 const cleanHint = normalizeText(hint);
                 if (content.includes(cleanHint)) score += 1.5;
             }
@@ -352,7 +518,10 @@ function selectContextFromAssets({
         .map((item) => {
             const category = normalizeText(item.category || '');
             const summary = normalizeText(item.summary || '');
-            const tags = (Array.isArray(item.retrievalTags) ? item.retrievalTags : []).map((tag) => normalizeText(tag)).join(' ');
+            const tags = (Array.isArray(item.retrievalTags) ? item.retrievalTags : [])
+                .map((tag) => normalizeText(tag))
+                .join(' ');
+
             let score = Number(item.confidence || 0) * 10;
 
             if (selectedPackCategories.has(category)) score += 4;
@@ -363,7 +532,7 @@ function selectContextFromAssets({
                 else if (summary.includes(cleanHint) || tags.includes(cleanHint)) score += 2;
             }
 
-            for (const hint of tagHints) {
+            for (const hint of effectiveTagHints) {
                 const cleanHint = normalizeText(hint);
                 if (summary.includes(cleanHint) || tags.includes(cleanHint)) score += 1.5;
             }
@@ -410,6 +579,24 @@ function selectContextFromAssets({
         incrementBucketCount(redFlagCountByCategory, key);
     };
 
+    if (overlayApplied) {
+        for (const theme of overlayThemes) {
+            if (theme && !priorityThemes.includes(theme)) priorityThemes.push(theme);
+        }
+
+        if (overlayBrief) {
+            tryPushRule('overlay', overlayBrief);
+        }
+
+        for (const rule of overlayRules) {
+            tryPushRule('overlay', rule);
+        }
+
+        for (const flag of overlayRedFlags) {
+            tryPushRedFlag('overlay', flag);
+        }
+    }
+
     for (const pack of selectedPacks) {
         if (pack.category && !priorityThemes.includes(pack.category)) {
             priorityThemes.push(pack.category);
@@ -454,7 +641,21 @@ function selectContextFromAssets({
         examples: examples.slice(0, config.maxExamplesTotal),
         redFlags: redFlags.slice(0, config.maxRedFlagsTotal),
         priorityThemes: [...new Set(priorityThemes.filter(Boolean))].slice(0, 6),
-        selectedPackKeys: selectedPacks.map((item) => item.key || item.category).filter(Boolean)
+        selectedPackKeys,
+        overlayBrief,
+        telemetry: {
+            selectedPackKeys,
+            injectedRuleCount: rules.length,
+            injectedExampleCount: examples.length,
+            injectedRedFlagCount: redFlags.length,
+            injectedRules: rules.slice(0, 12),
+            injectedExamples: examples.slice(0, 8),
+            injectedRedFlags: redFlags.slice(0, 10),
+            overlayApplied,
+            overlayRuleCount: overlayRules.length + (overlayBrief ? 1 : 0),
+            overlayRedFlagCount: overlayRedFlags.length,
+            overlayThemes
+        }
     };
 }
 
