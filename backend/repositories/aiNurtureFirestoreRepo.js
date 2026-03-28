@@ -13,6 +13,14 @@ function toNumber(value, fallback = 0) {
     return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function stripUndefined(obj = {}) {
+    const out = {};
+    for (const [key, value] of Object.entries(obj || {})) {
+        if (value !== undefined) out[key] = value;
+    }
+    return out;
+}
+
 function normalizeUrl(value) {
     const raw = sanitize(value);
     if (!raw) return '';
@@ -34,16 +42,36 @@ function hostnameFromUrl(value) {
     }
 }
 
+function serializeValue(value) {
+    if (value && typeof value.toDate === 'function') {
+        return value.toDate().toISOString();
+    }
+
+    if (Array.isArray(value)) {
+        return value.map(serializeValue);
+    }
+
+    if (value && typeof value === 'object') {
+        return Object.fromEntries(
+            Object.entries(value).map(([key, nested]) => [key, serializeValue(nested)])
+        );
+    }
+
+    return value;
+}
+
+function mapDoc(doc) {
+    return { id: doc.id, ...serializeValue(doc.data() || {}) };
+}
+
 const settingsDoc = () => firestore.collection('aiNurtureSettings').doc('main');
 const sourcesCol = () => firestore.collection('aiNurtureSources');
 const reviewsCol = () => firestore.collection('aiNurtureReviews');
 const libraryCol = () => firestore.collection('aiNurtureLibrary');
 const memoryCardsCol = () => firestore.collection('aiNurtureMemoryCards');
 const contextPacksCol = () => firestore.collection('aiNurtureContextPacks');
-
-function mapDoc(doc) {
-    return { id: doc.id, ...(doc.data() || {}) };
-}
+const snapshotsCol = (sourceId) => sourcesCol().doc(sanitize(sourceId)).collection('snapshots');
+const chunksCol = (sourceId) => sourcesCol().doc(sanitize(sourceId)).collection('chunks');
 
 async function getSettings() {
     const snap = await settingsDoc().get();
@@ -65,23 +93,23 @@ async function getSettings() {
 
         await settingsDoc().set(defaults, { merge: true });
         const fresh = await settingsDoc().get();
-        return fresh.data() || defaults;
+        return serializeValue(fresh.data() || defaults);
     }
 
-    return snap.data() || {};
+    return serializeValue(snap.data() || {});
 }
 
 async function updateSettings(payload = {}) {
     await settingsDoc().set(
-        {
+        stripUndefined({
             ...payload,
             updatedAt: nowTs()
-        },
+        }),
         { merge: true }
     );
 
     const snap = await settingsDoc().get();
-    return snap.data() || {};
+    return serializeValue(snap.data() || {});
 }
 
 async function createSource(payload = {}) {
@@ -121,12 +149,12 @@ async function createSource(payload = {}) {
         absorbedAt: null,
         failedAt: null,
         lastError: '',
-        retryCount: 0
+        retryCount: 0,
+        rejectionReason: ''
     };
 
     await ref.set(doc);
-    const snap = await ref.get();
-    return mapDoc(snap);
+    return mapDoc(await ref.get());
 }
 
 async function listSources(limit = 50) {
@@ -147,15 +175,106 @@ async function getSourceById(sourceId) {
 async function updateSource(sourceId, payload = {}) {
     const ref = sourcesCol().doc(sanitize(sourceId));
     await ref.set(
-        {
+        stripUndefined({
             ...payload,
             updatedAt: nowTs()
-        },
+        }),
         { merge: true }
     );
 
     const snap = await ref.get();
     return snap.exists ? mapDoc(snap) : null;
+}
+
+async function saveSnapshot(sourceId, payload = {}) {
+    const ref = snapshotsCol(sourceId).doc();
+
+    const doc = {
+        fetchStatus: sanitize(payload.fetchStatus || 'success'),
+        httpStatus: toNumber(payload.httpStatus, 200),
+        contentType: sanitize(payload.contentType),
+        finalUrl: sanitize(payload.finalUrl),
+        title: sanitize(payload.title),
+        description: sanitize(payload.description),
+        siteName: sanitize(payload.siteName),
+        language: sanitize(payload.language),
+        mainImage: sanitize(payload.mainImage),
+        rawTextChars: toNumber(payload.rawTextChars, 0),
+        cleanTextChars: toNumber(payload.cleanTextChars, 0),
+        cleanText: sanitize(payload.cleanText),
+        excerpt: sanitize(payload.excerpt),
+        capturedAt: nowTs()
+    };
+
+    await ref.set(doc);
+
+    await updateSource(sourceId, {
+        fetchedAt: nowTs(),
+        title: doc.title || undefined,
+        canonicalUrl: doc.finalUrl || undefined,
+        hostname: doc.finalUrl ? hostnameFromUrl(doc.finalUrl) : undefined,
+        status: 'fetched'
+    });
+
+    return mapDoc(await ref.get());
+}
+
+async function getLatestSnapshot(sourceId) {
+    const snap = await snapshotsCol(sourceId)
+        .orderBy('capturedAt', 'desc')
+        .limit(1)
+        .get();
+
+    if (snap.empty) return null;
+    return mapDoc(snap.docs[0]);
+}
+
+async function replaceChunks(sourceId, chunks = []) {
+    const sourceRef = sourcesCol().doc(sanitize(sourceId));
+    const existing = await chunksCol(sourceId).get();
+    const deleteBatch = firestore.batch();
+
+    existing.docs.forEach((doc) => deleteBatch.delete(doc.ref));
+    if (!existing.empty) {
+        await deleteBatch.commit();
+    }
+
+    const created = [];
+    for (const chunk of Array.isArray(chunks) ? chunks : []) {
+        const index = Math.max(1, toNumber(chunk.index, created.length + 1));
+        const ref = chunksCol(sourceId).doc(String(index).padStart(4, '0'));
+
+        const payload = {
+            index,
+            text: sanitize(chunk.text),
+            tokenEstimate: toNumber(chunk.tokenEstimate, 0),
+            sectionTitle: sanitize(chunk.sectionTitle || `Chunk ${index}`),
+            relevanceScore: Number(toNumber(chunk.relevanceScore, 0).toFixed(2)),
+            noveltyScore: Number(toNumber(chunk.noveltyScore, 0).toFixed(2)),
+            trustScore: Number(toNumber(chunk.trustScore, 0).toFixed(2)),
+            duplicationScore: Number(toNumber(chunk.duplicationScore, 0).toFixed(2)),
+            actionabilityScore: Number(toNumber(chunk.actionabilityScore, 0).toFixed(2)),
+            decision: sanitize(chunk.decision || 'reference_only'),
+            reason: sanitize(chunk.reason),
+            keyTakeaways: Array.isArray(chunk.keyTakeaways) ? chunk.keyTakeaways.map((item) => sanitize(item)).filter(Boolean) : [],
+            redFlags: Array.isArray(chunk.redFlags) ? chunk.redFlags.map((item) => sanitize(item)).filter(Boolean) : [],
+            createdAt: nowTs()
+        };
+
+        await ref.set(payload);
+        created.push(mapDoc(await ref.get()));
+    }
+
+    return created;
+}
+
+async function listSourceChunks(sourceId, limit = 60) {
+    const snap = await chunksCol(sourceId)
+        .orderBy('index', 'asc')
+        .limit(Math.max(1, Math.min(100, toNumber(limit, 60))))
+        .get();
+
+    return snap.docs.map(mapDoc);
 }
 
 async function createOrReplaceReview(sourceId, payload = {}) {
@@ -174,11 +293,11 @@ async function createOrReplaceReview(sourceId, payload = {}) {
             recommendedCategory: sanitize(payload.recommendedCategory || 'general'),
             recommendedKnowledgeType: sanitize(payload.recommendedKnowledgeType || 'framework'),
             scores: {
-                relevance: toNumber(payload?.scores?.relevance, 0),
-                novelty: toNumber(payload?.scores?.novelty, 0),
-                trust: toNumber(payload?.scores?.trust, 0),
-                duplication: toNumber(payload?.scores?.duplication, 0),
-                actionability: toNumber(payload?.scores?.actionability, 0)
+                relevance: Number(toNumber(payload?.scores?.relevance, 0).toFixed(2)),
+                novelty: Number(toNumber(payload?.scores?.novelty, 0).toFixed(2)),
+                trust: Number(toNumber(payload?.scores?.trust, 0).toFixed(2)),
+                duplication: Number(toNumber(payload?.scores?.duplication, 0).toFixed(2)),
+                actionability: Number(toNumber(payload?.scores?.actionability, 0).toFixed(2))
             },
             approvedChunkIndexes: Array.isArray(payload.approvedChunkIndexes) ? payload.approvedChunkIndexes : [],
             rejectedChunkIndexes: Array.isArray(payload.rejectedChunkIndexes) ? payload.rejectedChunkIndexes : [],
@@ -188,14 +307,29 @@ async function createOrReplaceReview(sourceId, payload = {}) {
         { merge: true }
     );
 
-    const snap = await ref.get();
-    return snap.exists ? mapDoc(snap) : null;
+    return mapDoc(await ref.get());
 }
 
 async function getReviewBySourceId(sourceId) {
     const snap = await reviewsCol().doc(sanitize(sourceId)).get();
     if (!snap.exists) return null;
     return mapDoc(snap);
+}
+
+async function getSourceDetail(sourceId) {
+    const [source, review, snapshot, chunks] = await Promise.all([
+        getSourceById(sourceId),
+        getReviewBySourceId(sourceId),
+        getLatestSnapshot(sourceId),
+        listSourceChunks(sourceId, 60)
+    ]);
+
+    return {
+        source,
+        review,
+        snapshot,
+        chunks
+    };
 }
 
 async function createLibraryEntry(payload = {}) {
@@ -212,15 +346,14 @@ async function createLibraryEntry(payload = {}) {
         doNotUseWhen: Array.isArray(payload.doNotUseWhen) ? payload.doNotUseWhen.map((item) => sanitize(item)).filter(Boolean) : [],
         sourceUrl: sanitize(payload.sourceUrl),
         sourceTitle: sanitize(payload.sourceTitle),
-        confidence: toNumber(payload.confidence, 0),
+        confidence: Number(toNumber(payload.confidence, 0).toFixed(2)),
         retrievalTags: Array.isArray(payload.retrievalTags) ? payload.retrievalTags.map((item) => sanitize(item)).filter(Boolean) : [],
         status: sanitize(payload.status || 'active'),
         createdAt: nowTs(),
         updatedAt: nowTs()
     });
 
-    const snap = await ref.get();
-    return mapDoc(snap);
+    return mapDoc(await ref.get());
 }
 
 async function createMemoryCards(sourceId, rules = [], meta = {}) {
@@ -244,11 +377,49 @@ async function createMemoryCards(sourceId, rules = [], meta = {}) {
         };
 
         await ref.set(doc);
-        const snap = await ref.get();
-        created.push(mapDoc(snap));
+        created.push(mapDoc(await ref.get()));
     }
 
     return created;
+}
+
+async function rebuildContextPacks() {
+    const items = await listLibrary(80);
+
+    const grouped = new Map();
+    for (const item of items) {
+        const category = sanitize(item.category || 'general');
+        if (!grouped.has(category)) grouped.set(category, []);
+        grouped.get(category).push(item);
+    }
+
+    const existing = await contextPacksCol().get();
+    const deleteBatch = firestore.batch();
+    existing.docs.forEach((doc) => deleteBatch.delete(doc.ref));
+    if (!existing.empty) {
+        await deleteBatch.commit();
+    }
+
+    const packs = [];
+    for (const [category, categoryItems] of grouped.entries()) {
+        const ref = contextPacksCol().doc(category);
+        const pack = {
+            key: category,
+            title: `${category} planner pack`,
+            category,
+            rules: categoryItems.flatMap((item) => Array.isArray(item.usableRules) ? item.usableRules : []).slice(0, 12),
+            redFlags: categoryItems.flatMap((item) => Array.isArray(item.doNotUseWhen) ? item.doNotUseWhen : []).slice(0, 8),
+            examples: categoryItems.map((item) => item.summary).filter(Boolean).slice(0, 6),
+            isActive: true,
+            updatedAt: nowTs(),
+            createdAt: nowTs()
+        };
+
+        await ref.set(pack);
+        packs.push(mapDoc(await ref.get()));
+    }
+
+    return packs;
 }
 
 async function approveSource(sourceId) {
@@ -258,13 +429,17 @@ async function approveSource(sourceId) {
     if (!source) throw new Error('Source not found.');
     if (!review) throw new Error('Review not found.');
 
+    const rules = Array.isArray(review.absorbWhat) && review.absorbWhat.length
+        ? review.absorbWhat
+        : [review.summaryShort || review.summaryLong].filter(Boolean);
+
     const libraryEntry = await createLibraryEntry({
         sourceId: source.id,
         title: source.title || source.canonicalUrl,
         category: review.recommendedCategory || 'general',
         knowledgeType: review.recommendedKnowledgeType || 'framework',
         summary: review.summaryShort || review.summaryLong || '',
-        usableRules: review.absorbWhat || [],
+        usableRules: rules,
         doNotUseWhen: review.doNotAbsorbWhat || [],
         sourceUrl: source.canonicalUrl,
         sourceTitle: source.title || source.canonicalUrl,
@@ -277,7 +452,7 @@ async function approveSource(sourceId) {
         status: 'active'
     });
 
-    const cards = await createMemoryCards(source.id, review.absorbWhat || [], {
+    const cards = await createMemoryCards(source.id, rules, {
         knowledgeId: libraryEntry.id,
         title: libraryEntry.title,
         category: libraryEntry.category,
@@ -287,44 +462,50 @@ async function approveSource(sourceId) {
     await updateSource(sourceId, {
         status: 'approved',
         approvedAt: nowTs(),
-        absorbedAt: nowTs()
+        absorbedAt: nowTs(),
+        rejectionReason: ''
     });
+
+    const contextPacks = await rebuildContextPacks();
 
     return {
         libraryEntry,
-        cards
+        cards,
+        contextPacks
     };
 }
 
 async function rejectSource(sourceId, reason = '') {
     return updateSource(sourceId, {
         status: 'rejected',
-        rejectionReason: sanitize(reason),
-        updatedAt: nowTs()
+        rejectionReason: sanitize(reason)
     });
 }
 
 async function listLibrary(limit = 100) {
     const snap = await libraryCol()
-        .where('status', '==', 'active')
         .orderBy('updatedAt', 'desc')
         .limit(Math.max(1, Math.min(200, toNumber(limit, 100))))
         .get();
 
-    return snap.docs.map(mapDoc);
+    return snap.docs
+        .map(mapDoc)
+        .filter((item) => sanitize(item.status || 'active') === 'active');
 }
 
 async function buildActiveKnowledgeContext(filters = {}) {
-    const categoryHints = Array.isArray(filters.categoryHints) ? filters.categoryHints.map((item) => sanitize(item).toLowerCase()).filter(Boolean) : [];
-    const tagHints = Array.isArray(filters.tagHints) ? filters.tagHints.map((item) => sanitize(item).toLowerCase()).filter(Boolean) : [];
+    const categoryHints = Array.isArray(filters.categoryHints)
+        ? filters.categoryHints.map((item) => sanitize(item).toLowerCase()).filter(Boolean)
+        : [];
+    const tagHints = Array.isArray(filters.tagHints)
+        ? filters.tagHints.map((item) => sanitize(item).toLowerCase()).filter(Boolean)
+        : [];
 
-    const libraryItems = await listLibrary(50);
-    const memorySnap = await memoryCardsCol()
-        .where('isActive', '==', true)
-        .limit(100)
-        .get();
-
-    const memoryCards = memorySnap.docs.map(mapDoc);
+    const libraryItems = await listLibrary(60);
+    const memorySnap = await memoryCardsCol().limit(120).get();
+    const memoryCards = memorySnap.docs
+        .map(mapDoc)
+        .filter((item) => item.isActive === true);
 
     const filteredLibrary = categoryHints.length
         ? libraryItems.filter((item) => categoryHints.includes(String(item.category || '').trim().toLowerCase()))
@@ -356,10 +537,16 @@ module.exports = {
     listSources,
     getSourceById,
     updateSource,
+    saveSnapshot,
+    getLatestSnapshot,
+    replaceChunks,
+    listSourceChunks,
     createOrReplaceReview,
     getReviewBySourceId,
+    getSourceDetail,
     approveSource,
     rejectSource,
     listLibrary,
-    buildActiveKnowledgeContext
+    buildActiveKnowledgeContext,
+    rebuildContextPacks
 };

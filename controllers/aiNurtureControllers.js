@@ -1,4 +1,6 @@
 const aiNurtureRepo = require('../backend/repositories/aiNurtureFirestoreRepo');
+const urlContentExtractor = require('../backend/services/urlContentExtractor');
+const aiNurtureAnalyzer = require('../backend/services/aiNurtureAnalyzer');
 
 function sanitize(value, fallback = '') {
     if (value === null || value === undefined) return fallback;
@@ -11,41 +13,6 @@ function sendError(res, error, fallbackMessage = 'Something went wrong.', status
         success: false,
         message
     });
-}
-
-function buildStarterReview(source = {}) {
-    const url = sanitize(source.canonicalUrl || source.originalUrl);
-    const hostname = sanitize(source.hostname || '');
-
-    return {
-        overallDecision: 'reference_only',
-        summaryShort: `Starter review generated for ${hostname || 'this source'}.`,
-        summaryLong: `This is a starter review for ${url}. Real extraction and AI scoring will be connected in the next phase.`,
-        absorbWhat: [
-            'Keep the operational core if the article contains reusable execution rules.',
-            'Prefer concise frameworks over motivational fluff.',
-            'Use only knowledge that improves mission selection or adaptive planning.'
-        ],
-        doNotAbsorbWhat: [
-            'Sales copy',
-            'Repetitive filler sections',
-            'Low-signal generic advice'
-        ],
-        riskNotes: [
-            'This review is placeholder-only until extractor and analyzer are connected.'
-        ],
-        recommendedCategory: 'general',
-        recommendedKnowledgeType: 'framework',
-        scores: {
-            relevance: 0.55,
-            novelty: 0.40,
-            trust: 0.50,
-            duplication: 0.15,
-            actionability: 0.45
-        },
-        approvedChunkIndexes: [],
-        rejectedChunkIndexes: []
-    };
 }
 
 exports.bootstrap = async (req, res) => {
@@ -128,20 +95,17 @@ exports.listSources = async (req, res) => {
 
 exports.getSourceById = async (req, res) => {
     try {
-        const source = await aiNurtureRepo.getSourceById(req.params?.id);
-        if (!source) {
+        const detail = await aiNurtureRepo.getSourceDetail(req.params?.id);
+        if (!detail?.source) {
             return res.status(404).json({
                 success: false,
                 message: 'Source not found.'
             });
         }
 
-        const review = await aiNurtureRepo.getReviewBySourceId(source.id);
-
         return res.json({
             success: true,
-            source,
-            review
+            ...detail
         });
     } catch (error) {
         return sendError(res, error, 'Failed to load source.');
@@ -149,8 +113,9 @@ exports.getSourceById = async (req, res) => {
 };
 
 exports.processSource = async (req, res) => {
+    const sourceId = sanitize(req.params?.id);
+
     try {
-        const sourceId = sanitize(req.params?.id);
         const source = await aiNurtureRepo.getSourceById(sourceId);
 
         if (!source) {
@@ -162,28 +127,47 @@ exports.processSource = async (req, res) => {
 
         await aiNurtureRepo.updateSource(sourceId, {
             status: 'processing',
-            lastError: ''
+            lastError: '',
+            retryCount: Number(source.retryCount || 0) + 1
         });
 
-        const review = await aiNurtureRepo.createOrReplaceReview(sourceId, buildStarterReview(source));
+        const extraction = await urlContentExtractor.extractFromUrl(source.canonicalUrl || source.originalUrl);
+        const snapshot = await aiNurtureRepo.saveSnapshot(sourceId, extraction);
+
+        const analysis = await aiNurtureAnalyzer.analyzeSource({
+            source: {
+                ...source,
+                canonicalUrl: extraction.finalUrl || source.canonicalUrl,
+                hostname: extraction.finalUrl ? new URL(extraction.finalUrl).hostname : source.hostname,
+                title: extraction.title || source.title,
+                description: extraction.description || ''
+            },
+            snapshot
+        });
+
+        const chunks = await aiNurtureRepo.replaceChunks(sourceId, analysis.chunks || []);
+        const review = await aiNurtureRepo.createOrReplaceReview(sourceId, analysis.review || {});
 
         const updatedSource = await aiNurtureRepo.updateSource(sourceId, {
             status: 'reviewed',
-            analyzedAt: new Date(),
-            title: source.title || source.hostname || source.canonicalUrl
+            analyzedAt: new Date().toISOString(),
+            title: extraction.title || source.title || source.hostname || source.canonicalUrl,
+            canonicalUrl: extraction.finalUrl || source.canonicalUrl,
+            hostname: extraction.finalUrl ? new URL(extraction.finalUrl).hostname : source.hostname
         });
 
         return res.json({
             success: true,
             source: updatedSource,
-            review
+            snapshot,
+            review,
+            chunks
         });
     } catch (error) {
-        const sourceId = sanitize(req.params?.id);
         if (sourceId) {
             await aiNurtureRepo.updateSource(sourceId, {
                 status: 'failed',
-                failedAt: new Date(),
+                failedAt: new Date().toISOString(),
                 lastError: sanitize(error?.message)
             }).catch(() => null);
         }

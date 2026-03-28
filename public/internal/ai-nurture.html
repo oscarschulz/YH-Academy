@@ -5,71 +5,56 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Nurture Console</title>
     <style>
-        body {
-            margin: 0;
-            font-family: Poppins, Arial, sans-serif;
-            background: #020617;
-            color: #e2e8f0;
-            padding: 24px;
-        }
-
-        .shell {
-            max-width: 1100px;
-            margin: 0 auto;
-        }
-
-        .card {
-            background: rgba(15, 23, 42, 0.9);
-            border: 1px solid rgba(148, 163, 184, 0.16);
-            border-radius: 16px;
-            padding: 16px;
-            margin-bottom: 16px;
-        }
-
-        input, textarea, button {
-            width: 100%;
-            border-radius: 10px;
-            border: 1px solid rgba(148, 163, 184, 0.22);
-            padding: 12px;
-            box-sizing: border-box;
-            background: #0f172a;
-            color: #e2e8f0;
-            margin-top: 10px;
-        }
-
-        button {
-            cursor: pointer;
-            background: #0ea5e9;
-            color: white;
-            font-weight: 700;
-        }
-
-        pre {
-            white-space: pre-wrap;
-            word-break: break-word;
-            background: #020617;
-            padding: 12px;
-            border-radius: 12px;
-            border: 1px solid rgba(148, 163, 184, 0.12);
-        }
+        body { margin: 0; font-family: Poppins, Arial, sans-serif; background: #020617; color: #e2e8f0; padding: 24px; }
+        .shell { max-width: 1200px; margin: 0 auto; display: grid; gap: 16px; }
+        .card { background: rgba(15, 23, 42, 0.92); border: 1px solid rgba(148, 163, 184, 0.16); border-radius: 16px; padding: 16px; }
+        .row { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; }
+        input, textarea, button { width: 100%; box-sizing: border-box; border-radius: 10px; border: 1px solid rgba(148, 163, 184, 0.24); padding: 12px; background: #0f172a; color: #e2e8f0; margin-top: 10px; }
+        button { cursor: pointer; background: #0ea5e9; color: white; font-weight: 700; }
+        .muted { color: #94a3b8; font-size: 0.95rem; }
+        .item { border: 1px solid rgba(148, 163, 184, 0.14); border-radius: 12px; padding: 12px; margin-top: 10px; }
+        .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+        .actions button { width: auto; min-width: 110px; }
+        pre { white-space: pre-wrap; word-break: break-word; background: #020617; padding: 12px; border-radius: 12px; border: 1px solid rgba(148, 163, 184, 0.12); max-height: 420px; overflow: auto; }
+        @media (max-width: 860px) { .row { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
     <div class="shell">
         <div class="card">
             <h1>AI Nurture Console</h1>
-            <p>Hidden internal console for Academy planner knowledge curation.</p>
+            <div class="muted">Hidden internal console for Academy planner knowledge curation.</div>
         </div>
 
-        <div class="card">
-            <label for="source-url">Source URL</label>
-            <input id="source-url" type="url" placeholder="https://example.com/article">
-            <button id="btn-create-source" type="button">Create Source</button>
+        <div class="row">
+            <div class="card">
+                <h2>Create Source</h2>
+                <input id="source-url" type="url" placeholder="https://example.com/article">
+                <button id="btn-create-source" type="button">Create Source</button>
+
+                <div class="actions">
+                    <button id="btn-refresh-sources" type="button">Refresh Sources</button>
+                    <button id="btn-refresh-library" type="button">Refresh Library</button>
+                    <button id="btn-preview-context" type="button">Preview Context</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Last Response</h2>
+                <pre id="output">{}</pre>
+            </div>
         </div>
 
-        <div class="card">
-            <h2>Last Response</h2>
-            <pre id="output">{}</pre>
+        <div class="row">
+            <div class="card">
+                <h2>Sources</h2>
+                <div id="sources-list" class="muted">Loading…</div>
+            </div>
+
+            <div class="card">
+                <h2>Library</h2>
+                <div id="library-list" class="muted">Loading…</div>
+            </div>
         </div>
     </div>
 
@@ -77,6 +62,8 @@
         const pathParts = window.location.pathname.split('/').filter(Boolean);
         const gate = pathParts[pathParts.length - 1];
         const output = document.getElementById('output');
+        const sourcesList = document.getElementById('sources-list');
+        const libraryList = document.getElementById('library-list');
 
         async function request(path, options = {}) {
             const response = await fetch(`/api/internal/ai-nurture/${gate}${path}`, {
@@ -97,28 +84,107 @@
             return result;
         }
 
+        function sourceCard(source = {}) {
+            return `
+                <div class="item">
+                    <strong>${source.title || source.canonicalUrl || source.id}</strong>
+                    <div class="muted">${source.hostname || ''}</div>
+                    <div class="muted">Status: ${source.status || 'unknown'}</div>
+                    <div class="actions">
+                        <button data-action="process" data-id="${source.id}">Process</button>
+                        <button data-action="open" data-id="${source.id}">Open</button>
+                        <button data-action="approve" data-id="${source.id}">Approve</button>
+                        <button data-action="reject" data-id="${source.id}">Reject</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function libraryCard(item = {}) {
+            return `
+                <div class="item">
+                    <strong>${item.title || item.id}</strong>
+                    <div class="muted">Category: ${item.category || 'general'}</div>
+                    <div class="muted">${item.summary || ''}</div>
+                </div>
+            `;
+        }
+
+        async function loadSources() {
+            const result = await request('/sources');
+            sourcesList.innerHTML = (result.sources || []).length
+                ? result.sources.map(sourceCard).join('')
+                : '<div class="muted">No sources yet.</div>';
+        }
+
+        async function loadLibrary() {
+            const result = await request('/library');
+            libraryList.innerHTML = (result.items || []).length
+                ? result.items.map(libraryCard).join('')
+                : '<div class="muted">No approved knowledge yet.</div>';
+        }
+
         document.getElementById('btn-create-source').addEventListener('click', async () => {
             const url = document.getElementById('source-url').value.trim();
             if (!url) return;
 
             try {
-                const created = await request('/sources', {
+                await request('/sources', {
                     method: 'POST',
                     body: JSON.stringify({ url })
                 });
-
-                if (created?.source?.id) {
-                    await request(`/sources/${created.source.id}/process`, {
-                        method: 'POST',
-                        body: JSON.stringify({})
-                    });
-                }
+                await loadSources();
             } catch (error) {
                 output.textContent = JSON.stringify({ success: false, message: error.message }, null, 2);
             }
         });
 
-        request('/bootstrap').catch(() => null);
+        document.getElementById('btn-refresh-sources').addEventListener('click', () => loadSources().catch(() => null));
+        document.getElementById('btn-refresh-library').addEventListener('click', () => loadLibrary().catch(() => null));
+        document.getElementById('btn-preview-context').addEventListener('click', async () => {
+            try {
+                await request('/context-preview', {
+                    method: 'POST',
+                    body: JSON.stringify({})
+                });
+            } catch (error) {
+                output.textContent = JSON.stringify({ success: false, message: error.message }, null, 2);
+            }
+        });
+
+        sourcesList.addEventListener('click', async (event) => {
+            const button = event.target.closest('button[data-id]');
+            if (!button) return;
+
+            const id = button.getAttribute('data-id');
+            const action = button.getAttribute('data-action');
+
+            try {
+                if (action === 'process') {
+                    await request(`/sources/${id}/process`, { method: 'POST', body: JSON.stringify({}) });
+                } else if (action === 'open') {
+                    await request(`/sources/${id}`);
+                } else if (action === 'approve') {
+                    await request(`/sources/${id}/approve`, { method: 'POST', body: JSON.stringify({}) });
+                    await loadLibrary();
+                } else if (action === 'reject') {
+                    await request(`/sources/${id}/reject`, {
+                        method: 'POST',
+                        body: JSON.stringify({ reason: 'Rejected from internal console.' })
+                    });
+                }
+
+                await loadSources();
+            } catch (error) {
+                output.textContent = JSON.stringify({ success: false, message: error.message }, null, 2);
+            }
+        });
+
+        Promise.allSettled([
+            request('/bootstrap'),
+            loadSources(),
+            loadLibrary()
+        ]);
     </script>
 </body>
 </html>
