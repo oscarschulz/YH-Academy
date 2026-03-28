@@ -128,19 +128,16 @@ const bindPasswordVisibilityToggles = () => {
     });
 };
 
-const bindRegisterPhotoPreview = () => {
+const bindRegisterPhotoUpload = () => {
     const input = document.getElementById('reg-profile-photo');
     const label = document.getElementById('reg-profile-photo-label');
-    const previewWrap = document.getElementById('reg-photo-preview-wrap');
-    const preview = document.getElementById('reg-photo-preview');
 
-    if (!input || !label || !previewWrap || !preview) return;
+    if (!input || !label) return;
 
-    input.addEventListener('change', async () => {
+    input.addEventListener('change', () => {
         const file = input.files?.[0];
+
         if (!file) {
-            previewWrap.classList.add('hidden-step');
-            preview.removeAttribute('src');
             label.innerText = 'Choose profile photo';
             return;
         }
@@ -148,21 +145,11 @@ const bindRegisterPhotoPreview = () => {
         if (!file.type.startsWith('image/')) {
             showToast('Please choose an image file.', 'error');
             input.value = '';
-            previewWrap.classList.add('hidden-step');
-            preview.removeAttribute('src');
             label.innerText = 'Choose profile photo';
             return;
         }
 
         label.innerText = file.name;
-
-        try {
-            const previewUrl = await readFileAsDataURL(file);
-            preview.src = previewUrl;
-            previewWrap.classList.remove('hidden-step');
-        } catch (_) {
-            showToast('Failed to preview selected image.', 'error');
-        }
     });
 };
     const bootstrapPendingVerification = () => {
@@ -178,7 +165,7 @@ const bindRegisterPhotoPreview = () => {
     };
 bootstrapPendingVerification();
 bindPasswordVisibilityToggles();
-bindRegisterPhotoPreview();
+bindRegisterPhotoUpload();
     // --- LOGIN LOGIC ---
 const btnLogin = document.getElementById('btn-login');
 const loginEmailInput = document.getElementById('login-email');
