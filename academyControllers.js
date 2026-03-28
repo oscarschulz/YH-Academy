@@ -535,7 +535,11 @@ function buildPlannerMessages(profile, context = {}) {
         status: sanitize(mission.status),
         note: sanitize(mission.completionNote || mission.completion_note || ''),
         dueDate: sanitize(mission.dueDate || mission.due_date || ''),
-        estimatedMinutes: toInt(mission.estimatedMinutes || mission.estimated_minutes, 0)
+        estimatedMinutes: toInt(mission.estimatedMinutes || mission.estimated_minutes, 0),
+        selectionReason: sanitize(mission.selectionReason || ''),
+        outcomeMetrics: mission?.outcomeMetrics && typeof mission.outcomeMetrics === 'object'
+            ? mission.outcomeMetrics
+            : {}
     }));
 
     const recentCheckins = (context.recentCheckins || []).map((checkin) => {
@@ -562,6 +566,15 @@ function buildPlannerMessages(profile, context = {}) {
     });
 
     const activeRoadmap = context.activeRoadmap || null;
+    const adaptivePlanning = context.adaptivePlanning && typeof context.adaptivePlanning === 'object'
+        ? context.adaptivePlanning
+        : {};
+    const previousBehaviorProfile = context.previousBehaviorProfile && typeof context.previousBehaviorProfile === 'object'
+        ? context.previousBehaviorProfile
+        : {};
+    const plannerStats = context.plannerStats && typeof context.plannerStats === 'object'
+        ? context.plannerStats
+        : {};
 
     return [
         {
@@ -572,11 +585,14 @@ function buildPlannerMessages(profile, context = {}) {
                 'Use the full intake profile, especially age range, reason for joining now, top priority pillar, biggest immediate problem, current routine, preferred work style, accountability style, next-30-days win, extra context, energy, time, seriousness, money reality, and past execution behavior.',
                 'Do not produce generic motivation fluff.',
                 'Prefer missions that are specific, actionable, measurable, and realistically completable.',
-                'If the user has low energy or low time, simplify the workload.',
-                'If the user has repeated skips or stuck missions, reduce complexity and remove friction before increasing ambition.',
-                'If the user names a top priority pillar, bias the roadmap and missions toward that pillar unless health or discipline is clearly the bigger blocker.',
+                'The planner is adaptive. Use the planning context and trend summary to decide whether to reduce, stabilize, or raise challenge.',
+                'If recovery risk is high, simplify the workload, reduce friction, and include health or discipline stabilizers.',
+                'If execution reliability is improving and friction is low, you may raise challenge in a controlled way.',
+                'If the user has repeated skips or stuck missions, reduce complexity before increasing ambition.',
+                'Bias the roadmap toward the user priority pillar unless health or discipline is clearly the bigger blocker.',
                 'At least one mission should support wealth or income movement when appropriate.',
                 'Match the mission style to the user work style and accountability preference.',
+                'Respect the adaptive minute cap and mission count cap unless there is a very strong reason not to.',
                 'Apply the founder doctrine when relevant.',
                 `Founder doctrine principles: ${FOUNDER_DOCTRINE.principles.join(' | ')}`,
                 'The doctrine is an operating standard, not generic hype.',
@@ -586,7 +602,6 @@ function buildPlannerMessages(profile, context = {}) {
                 'If health, physical discipline, energy, or appearance-confidence is a real blocker, you may recommend The FaceMax Protocol.',
                 `If you recommend The FaceMax Protocol, use this exact URL: ${FOUNDER_DOCTRINE.resources[0].url}`,
                 'Do not recommend founder resources randomly or in every plan.',
-                'If the user lacks structure, execution rhythm, or weekly review habits, reflect the 2812-style weekly operating system: week starts on Sunday, week review happens on Saturday, and repeating low-value tasks should be delegated, automated, or removed.',
                 'Every recommended resource must include a concrete reason tied to the profile or recent execution behavior.',
                 'Keep the missions operational. Put the philosophy in coachBrief and weeklyOperatingSystem, not as long speeches inside every mission.',
                 'Return only schema-valid data.'
@@ -595,11 +610,16 @@ function buildPlannerMessages(profile, context = {}) {
         {
             role: 'user',
             content: JSON.stringify({
+                trigger: sanitize(context.trigger || 'manual'),
                 mode: sanitize(context.mode || 'initial'),
                 profile,
                 activeRoadmap,
                 recentMissions,
                 recentCheckins,
+                behaviorProfile: context.behaviorProfile || {},
+                previousBehaviorProfile,
+                plannerStats,
+                adaptivePlanning,
                 founderDoctrine: FOUNDER_DOCTRINE
             })
         }
@@ -757,28 +777,313 @@ async function requestAiRoadmap(profile, context = {}) {
 function getAcademyAuthUid(req) {
     return sanitize(req.user?.firebaseUid || req.user?.id);
 }
-function selectPlanningMode(profile = {}, behaviorProfile = {}, context = {}) {
+function getAdaptiveTrendDirection(currentValue, previousValue, mode = 'higher') {
+    if (
+        previousValue === null ||
+        previousValue === undefined ||
+        previousValue === ''
+    ) {
+        return 'stable';
+    }
+
+    if (mode === 'higher' || mode === 'lower' || mode === 'minutes-higher') {
+        const currentNum = Number(currentValue);
+        const previousNum = Number(previousValue);
+
+        if (!Number.isFinite(currentNum) || !Number.isFinite(previousNum)) {
+            return 'stable';
+        }
+
+        const threshold = mode === 'minutes-higher' ? 5 : 0.05;
+        const delta = currentNum - previousNum;
+
+        if (Math.abs(delta) < threshold) return 'stable';
+
+        if (mode === 'higher' || mode === 'minutes-higher') {
+            return delta > 0 ? 'improving' : 'declining';
+        }
+
+        return delta < 0 ? 'improving' : 'declining';
+    }
+
+    const getRank = (value, rankMode) => {
+        const normalized = sanitize(value).toLowerCase();
+
+        if (rankMode === 'recovery-risk') {
+            if (normalized === 'high') return 0;
+            if (normalized === 'normal') return 1;
+            if (normalized === 'low') return 2;
+            return null;
+        }
+
+        if (rankMode === 'accountability-risk') {
+            if (normalized === 'high') return 0;
+            if (normalized === 'moderate') return 1;
+            if (normalized === 'low') return 2;
+            return null;
+        }
+
+        if (rankMode === 'pressure-response') {
+            if (normalized === 'low') return 0;
+            if (normalized === 'moderate') return 1;
+            if (normalized === 'high') return 2;
+            return null;
+        }
+
+        return null;
+    };
+
+    const currentRank = getRank(currentValue, mode);
+    const previousRank = getRank(previousValue, mode);
+
+    if (currentRank === null || previousRank === null) {
+        return 'stable';
+    }
+
+    if (currentRank === previousRank) {
+        return 'stable';
+    }
+
+    return currentRank > previousRank ? 'improving' : 'declining';
+}
+
+function buildAdaptivePlanningContext(profile = {}, context = {}) {
     const recentMissions = Array.isArray(context.recentMissions) ? context.recentMissions : [];
+    const recentCheckins = Array.isArray(context.recentCheckins) ? context.recentCheckins : [];
+    const behaviorProfile = context.behaviorProfile && typeof context.behaviorProfile === 'object'
+        ? context.behaviorProfile
+        : {};
+    const previousBehaviorProfile = context.previousBehaviorProfile && typeof context.previousBehaviorProfile === 'object'
+        ? context.previousBehaviorProfile
+        : {};
+    const plannerStats = context.plannerStats && typeof context.plannerStats === 'object'
+        ? context.plannerStats
+        : {};
+
+    const completedCount = recentMissions.filter((item) => item.status === 'completed').length;
     const skippedCount = recentMissions.filter((item) => item.status === 'skipped').length;
     const stuckCount = recentMissions.filter((item) => item.status === 'stuck').length;
-    const completedCount = recentMissions.filter((item) => item.status === 'completed').length;
 
-    if (!recentMissions.length) return 'initial';
+    const executionReliability = Math.max(0, Math.min(toFloat(behaviorProfile.executionReliability, 0), 1));
+    const frictionSensitivity = Math.max(0, Math.min(toFloat(behaviorProfile.frictionSensitivity, 0), 1));
+    const maxSustainableDailyMinutes = Math.max(
+        15,
+        toInt(
+            behaviorProfile.maxSustainableDailyMinutes,
+            toInt(profile.weeklyHours, 0) > 0
+                ? Math.round((toInt(profile.weeklyHours, 0) * 60) / 7)
+                : 30
+        )
+    );
+
+    const avgEnergy = recentCheckins.length
+        ? Number((
+            recentCheckins.reduce((sum, item) => sum + toInt(item.energyScore, 0), 0) / recentCheckins.length
+        ).toFixed(2))
+        : toInt(profile.energyScore, 0);
+
+    const avgDifficulty = toFloat(plannerStats.averageDifficultyScore, 0);
+    const avgUsefulness = toFloat(plannerStats.averageUsefulnessScore, 0);
+
+    const executionTrend = getAdaptiveTrendDirection(
+        executionReliability,
+        previousBehaviorProfile.executionReliability,
+        'higher'
+    );
+
+    const frictionTrend = getAdaptiveTrendDirection(
+        frictionSensitivity,
+        previousBehaviorProfile.frictionSensitivity,
+        'lower'
+    );
+
+    const sustainableLoadTrend = getAdaptiveTrendDirection(
+        maxSustainableDailyMinutes,
+        previousBehaviorProfile.maxSustainableDailyMinutes,
+        'minutes-higher'
+    );
+
+    const recoveryTrend = getAdaptiveTrendDirection(
+        behaviorProfile.recoveryRisk,
+        previousBehaviorProfile.recoveryRisk,
+        'recovery-risk'
+    );
+
+    const accountabilityTrend = getAdaptiveTrendDirection(
+        behaviorProfile.accountabilityNeed,
+        previousBehaviorProfile.accountabilityNeed,
+        'accountability-risk'
+    );
+
+    const pressureTrend = getAdaptiveTrendDirection(
+        behaviorProfile.pressureResponse,
+        previousBehaviorProfile.pressureResponse,
+        'pressure-response'
+    );
+
+    let mode = 'weekly_recalibration';
+    let challengeLevel = 'steady';
+    let missionCountCap = 4;
+    let dailyLoadCap = Math.min(maxSustainableDailyMinutes, 45);
+    let coachToneOverride = sanitize(profile.coachTone || 'balanced') || 'balanced';
+
+    const reasons = [];
+    const adjustments = [];
+
+    if (!recentMissions.length) {
+        mode = 'initial';
+        missionCountCap = 4;
+        dailyLoadCap = Math.min(maxSustainableDailyMinutes, 45);
+        reasons.push('No prior mission history yet, so the planner is starting with a calibration week.');
+        adjustments.push('Calibrated first-cycle workload.');
+    }
 
     if (
-        toInt(profile.energyScore, 0) <= 4 ||
-        sanitize(behaviorProfile.recoveryRisk) === 'high' ||
-        skippedCount >= 2 ||
+        avgEnergy <= 4 ||
+        sanitize(behaviorProfile.recoveryRisk).toLowerCase() === 'high' ||
+        executionReliability <= 0.35 ||
+        frictionSensitivity >= 0.6 ||
         stuckCount >= 1
     ) {
-        return 'recovery';
+        mode = 'recovery';
+        challengeLevel = 'reduced';
+        missionCountCap = 3;
+        dailyLoadCap = Math.min(maxSustainableDailyMinutes, 30);
+        coachToneOverride = 'supportive';
+        reasons.push('Recovery risk or execution friction is high, so the planner is reducing load and complexity.');
+        adjustments.push('Reduced mission count.');
+        adjustments.push('Lowered daily minute cap.');
+    } else if (
+        frictionTrend === 'declining' ||
+        accountabilityTrend === 'declining' ||
+        avgDifficulty >= 7 ||
+        skippedCount >= 2
+    ) {
+        mode = 'stabilize';
+        challengeLevel = 'reduced';
+        missionCountCap = 3;
+        dailyLoadCap = Math.min(maxSustainableDailyMinutes, 35);
+        coachToneOverride = 'supportive';
+        reasons.push('Recent friction suggests the user needs a smaller, cleaner execution cycle before scaling.');
+        adjustments.push('Stabilized workload.');
+    } else if (
+        executionTrend === 'improving' &&
+        sustainableLoadTrend !== 'declining' &&
+        executionReliability >= 0.65 &&
+        frictionSensitivity <= 0.35 &&
+        sanitize(behaviorProfile.accountabilityNeed).toLowerCase() !== 'high'
+    ) {
+        mode = 'acceleration';
+        challengeLevel = 'raised';
+        missionCountCap = 5;
+        dailyLoadCap = Math.min(Math.max(maxSustainableDailyMinutes + 10, 45), 90);
+        coachToneOverride = 'direct';
+        reasons.push('Execution reliability is improving, so the planner can raise challenge in a controlled way.');
+        adjustments.push('Raised mission count.');
+        adjustments.push('Expanded daily minute cap.');
     }
 
-    if (completedCount >= 4 && sanitize(behaviorProfile.accountabilityNeed) !== 'high') {
-        return 'acceleration';
+    const priorityPillars = dedupeStrings([
+        ...(Array.isArray(behaviorProfile.preferredMissionTypes) ? behaviorProfile.preferredMissionTypes : []),
+        sanitize(profile.topPriorityPillar),
+        sanitize(profile.blockerText)
+    ], 3);
+
+    const weeklyThemeHint =
+        mode === 'recovery'
+            ? 'Stabilize energy and remove execution friction'
+            : mode === 'stabilize'
+                ? 'Rebuild consistency with smaller wins'
+                : mode === 'acceleration'
+                    ? 'Increase output without losing control'
+                    : mode === 'initial'
+                        ? 'Build a usable execution baseline'
+                        : 'Tighten execution around the highest-leverage tasks';
+
+    const targetOutcomeHint =
+        mode === 'recovery'
+            ? 'Complete 3 low-friction missions and finish the week with fewer skipped or stuck moments.'
+            : mode === 'stabilize'
+                ? 'Finish a smaller set of missions cleanly and restore momentum.'
+                : mode === 'acceleration'
+                    ? 'Complete a heavier but controlled week with at least one wealth-moving task.'
+                    : mode === 'initial'
+                        ? 'Learn the right workload and execution rhythm for the next cycle.'
+                        : 'Complete the critical tasks with better consistency than the previous cycle.';
+
+    const requireRecoveryMission =
+        mode === 'recovery' ||
+        sanitize(behaviorProfile.recoveryRisk).toLowerCase() === 'high';
+
+    const requireWealthMission =
+        /wealth|money|business/i.test(sanitize(profile.topPriorityPillar)) ||
+        /income|money|cash|client|business/i.test(sanitize(profile.biggestImmediateProblem));
+
+    return {
+        mode,
+        challengeLevel,
+        missionCountCap,
+        dailyLoadCap,
+        coachToneOverride,
+        requireRecoveryMission,
+        requireWealthMission,
+        priorityPillars,
+        weeklyThemeHint,
+        targetOutcomeHint,
+        trendSummary: {
+            executionReliability: executionTrend,
+            frictionSensitivity: frictionTrend,
+            sustainableLoad: sustainableLoadTrend,
+            recoveryRisk: recoveryTrend,
+            accountabilityNeed: accountabilityTrend,
+            pressureResponse: pressureTrend
+        },
+        reason: sanitize(reasons.join(' ')),
+        adjustments,
+        telemetry: {
+            completedCount,
+            skippedCount,
+            stuckCount,
+            avgEnergy,
+            avgDifficulty,
+            avgUsefulness,
+            executionReliability,
+            frictionSensitivity,
+            maxSustainableDailyMinutes
+        }
+    };
+}
+
+function buildAdaptiveMissionSelectionReason(mission = {}, adaptivePlanning = {}) {
+    const pillar = sanitize(mission.pillar).toLowerCase();
+    const reasons = [];
+
+    if ((adaptivePlanning.priorityPillars || []).some((item) => sanitize(item).toLowerCase() === pillar)) {
+        reasons.push('Aligned with current priority pillar.');
     }
 
-    return 'weekly_recalibration';
+    if (adaptivePlanning.requireRecoveryMission && /health|discipline/i.test(pillar)) {
+        reasons.push('Included to reduce recovery risk and execution friction.');
+    }
+
+    if (adaptivePlanning.requireWealthMission && /wealth|money|business/i.test(pillar)) {
+        reasons.push('Included because current planning cycle still needs income movement.');
+    }
+
+    if (sanitize(adaptivePlanning.challengeLevel) === 'reduced') {
+        reasons.push('Scoped smaller to improve completion reliability.');
+    } else if (sanitize(adaptivePlanning.challengeLevel) === 'raised') {
+        reasons.push('Slightly raised because recent execution signals improved.');
+    }
+
+    return sanitize(reasons.join(' ') || adaptivePlanning.reason || 'Selected for this planning cycle.');
+}
+
+function selectPlanningMode(profile = {}, behaviorProfile = {}, context = {}) {
+    return buildAdaptivePlanningContext(profile, {
+        ...context,
+        behaviorProfile
+    }).mode;
 }
 
 function scoreMissionQuality(mission = {}, context = {}) {
@@ -834,13 +1139,18 @@ function normalizeGeneratedMission(mission = {}, context = {}) {
 
 async function refreshBehaviorState(uid) {
     const behaviorProfile = await academyFirestoreRepo.computeBehaviorProfile(uid);
-    await academyFirestoreRepo.saveBehaviorProfile(uid, behaviorProfile);
+    const savedProfileDoc = await academyFirestoreRepo.saveBehaviorProfile(uid, behaviorProfile);
 
     const plannerStats = await academyFirestoreRepo.computePlannerStats(uid);
     await academyFirestoreRepo.savePlannerStats(uid, plannerStats);
 
     return {
-        behaviorProfile,
+        behaviorProfile: savedProfileDoc?.behaviorProfile || behaviorProfile,
+        previousBehaviorProfile:
+            savedProfileDoc?.previousBehaviorProfile &&
+            typeof savedProfileDoc.previousBehaviorProfile === 'object'
+                ? savedProfileDoc.previousBehaviorProfile
+                : {},
         plannerStats
     };
 }
@@ -858,15 +1168,39 @@ async function generateAndPersistPlanFirestore(uid, profile, options = {}) {
         profileDoc?.behaviorProfile && typeof profileDoc.behaviorProfile === 'object'
             ? profileDoc.behaviorProfile
             : {};
+    const previousBehaviorProfile =
+        profileDoc?.previousBehaviorProfile && typeof profileDoc.previousBehaviorProfile === 'object'
+            ? profileDoc.previousBehaviorProfile
+            : {};
+    const plannerStats =
+        profileDoc?.plannerStats && typeof profileDoc.plannerStats === 'object'
+            ? profileDoc.plannerStats
+            : {};
 
-    const mode = options.mode || selectPlanningMode(profile, behaviorProfile, { recentMissions, recentCheckins });
+    const trigger = sanitize(options.mode || options.trigger || (!activeRoadmap ? 'initial' : 'refresh')) || 'manual';
 
-    const context = {
-        mode,
+    const adaptivePlanning = buildAdaptivePlanningContext(profile, {
         activeRoadmap,
         recentMissions,
         recentCheckins,
-        behaviorProfile
+        behaviorProfile,
+        previousBehaviorProfile,
+        plannerStats
+    });
+
+    const planningMode = adaptivePlanning.mode;
+
+    const context = {
+        trigger,
+        mode: planningMode,
+        planningMode,
+        adaptivePlanning,
+        activeRoadmap,
+        recentMissions,
+        recentCheckins,
+        behaviorProfile,
+        previousBehaviorProfile,
+        plannerStats
     };
 
     let plan = null;
@@ -891,24 +1225,113 @@ async function generateAndPersistPlanFirestore(uid, profile, options = {}) {
     }
 
     const normalizedPlan = normalizePlan(plan, profile, context);
+    const fallbackPlan = buildFallbackRoadmap(profile, context);
 
-    normalizedPlan.missions = (Array.isArray(normalizedPlan.missions) ? normalizedPlan.missions : [])
+    let adaptedMissions = Array.isArray(normalizedPlan.missions) ? [...normalizedPlan.missions] : [];
+
+    adaptedMissions = adaptedMissions
+        .slice(0, adaptivePlanning.missionCountCap)
+        .map((mission, index) => {
+            const cappedMinutes = Math.min(
+                adaptivePlanning.dailyLoadCap,
+                Math.max(10, toInt(mission.estimatedMinutes, 20))
+            );
+
+            return {
+                ...mission,
+                estimatedMinutes: cappedMinutes,
+                sortOrder: index + 1,
+                selectionReason: buildAdaptiveMissionSelectionReason(mission, adaptivePlanning)
+            };
+        });
+
+    if (
+        adaptivePlanning.requireRecoveryMission &&
+        !adaptedMissions.some((mission) => /health|discipline/i.test(sanitize(mission.pillar)))
+    ) {
+        const recoveryMission = (fallbackPlan.missions || []).find((mission) => /health|discipline/i.test(sanitize(mission.pillar)));
+        if (recoveryMission) {
+            adaptedMissions[adaptedMissions.length - 1] = {
+                ...recoveryMission,
+                estimatedMinutes: Math.min(
+                    adaptivePlanning.dailyLoadCap,
+                    Math.max(10, toInt(recoveryMission.estimatedMinutes, 15))
+                ),
+                sortOrder: adaptedMissions.length,
+                selectionReason: 'Forced in by adaptive planner to reduce recovery risk and execution friction.'
+            };
+        }
+    }
+
+    if (
+        adaptivePlanning.requireWealthMission &&
+        !adaptedMissions.some((mission) => /wealth|money|business/i.test(sanitize(mission.pillar)))
+    ) {
+        const wealthMission = (fallbackPlan.missions || []).find((mission) => /wealth|money|business/i.test(sanitize(mission.pillar)));
+        if (wealthMission) {
+            adaptedMissions[Math.max(0, adaptedMissions.length - 1)] = {
+                ...wealthMission,
+                estimatedMinutes: Math.min(
+                    adaptivePlanning.dailyLoadCap,
+                    Math.max(10, toInt(wealthMission.estimatedMinutes, 15))
+                ),
+                sortOrder: adaptedMissions.length || 1,
+                selectionReason: 'Forced in by adaptive planner to keep wealth or income movement active.'
+            };
+        }
+    }
+
+    normalizedPlan.roadmap = {
+        ...(normalizedPlan.roadmap || {}),
+        coachTone: sanitize(adaptivePlanning.coachToneOverride || normalizedPlan?.roadmap?.coachTone || profile.coachTone || 'balanced') || 'balanced',
+        weeklyTheme: sanitize(adaptivePlanning.weeklyThemeHint || normalizedPlan?.roadmap?.weeklyTheme),
+        weeklyTargetOutcome: sanitize(adaptivePlanning.targetOutcomeHint || normalizedPlan?.roadmap?.weeklyTargetOutcome),
+        coachBrief: sanitize(
+            `${adaptivePlanning.reason ? `Adaptive focus: ${adaptivePlanning.reason} ` : ''}${normalizedPlan?.roadmap?.coachBrief || ''}`
+        )
+    };
+
+    normalizedPlan.adaptivePlanning = {
+        mode: planningMode,
+        challengeLevel: adaptivePlanning.challengeLevel,
+        missionCountCap: adaptivePlanning.missionCountCap,
+        dailyLoadCap: adaptivePlanning.dailyLoadCap,
+        reason: adaptivePlanning.reason,
+        adjustments: adaptivePlanning.adjustments,
+        trendSummary: adaptivePlanning.trendSummary,
+        trigger
+    };
+
+    normalizedPlan.missions = adaptedMissions
         .map((mission) => {
-            const cleanedMission = normalizeGeneratedMission(mission, context);
-            const qualityScores = scoreMissionQuality(cleanedMission, context);
+            const cleanedMission = normalizeGeneratedMission(mission, {
+                ...context,
+                behaviorProfile: {
+                    ...behaviorProfile,
+                    maxSustainableDailyMinutes: adaptivePlanning.dailyLoadCap
+                }
+            });
+
+            const qualityScores = scoreMissionQuality(cleanedMission, {
+                ...context,
+                behaviorProfile: {
+                    ...behaviorProfile,
+                    maxSustainableDailyMinutes: adaptivePlanning.dailyLoadCap
+                }
+            });
 
             return {
                 ...cleanedMission,
                 qualityScores,
-                selectionReason: '',
+                selectionReason: sanitize(mission.selectionReason || adaptivePlanning.reason),
                 primaryBottleneck: sanitize(profile.blockerText || profile.topPriorityPillar),
-                energyAdjustmentApplied: toInt(profile.energyScore, 0) <= 4,
+                energyAdjustmentApplied: toInt(profile.energyScore, 0) <= 4 || adaptivePlanning.mode === 'recovery',
                 timeAdjustmentApplied: true,
                 generatedByProvider: plannerProvider,
                 generatedByModel: plannerModel,
-                promptVersion: 'planner_v1',
+                promptVersion: 'planner_v2',
                 schemaVersion: 'academy_plan_v1',
-                generationMode: mode,
+                generationMode: planningMode,
                 outcomeMetrics: {
                     skipCount: 0,
                     stuckCount: 0,
@@ -924,48 +1347,59 @@ async function generateAndPersistPlanFirestore(uid, profile, options = {}) {
     const plannerRun = await academyFirestoreRepo.createPlannerRun(uid, {
         provider: plannerProvider,
         model: plannerModel,
-        promptVersion: 'planner_v1',
+        promptVersion: 'planner_v2',
         schemaVersion: 'academy_plan_v1',
-        mode,
+        mode: planningMode,
         inputSnapshot: {
+            trigger,
             energyScore: toInt(profile.energyScore, 0),
             sleepHours: toFloat(profile.sleepHours, 0),
             topPriorityPillar: sanitize(profile.topPriorityPillar),
             recentCompletedCount: recentMissions.filter((item) => item.status === 'completed').length,
             recentSkippedCount: recentMissions.filter((item) => item.status === 'skipped').length,
-            recentStuckCount: recentMissions.filter((item) => item.status === 'stuck').length
+            recentStuckCount: recentMissions.filter((item) => item.status === 'stuck').length,
+            averageDifficultyScore: toFloat(plannerStats.averageDifficultyScore, 0),
+            averageUsefulnessScore: toFloat(plannerStats.averageUsefulnessScore, 0)
         },
         behaviorProfileSnapshot: behaviorProfile,
         decisionTrace: {
             primaryBottleneck: sanitize(profile.blockerText || profile.topPriorityPillar),
-            usedRecoveryMode: mode === 'recovery',
-            reducedMissionIntensity: mode === 'recovery',
-            reason: ''
+            planningMode,
+            challengeLevel: adaptivePlanning.challengeLevel,
+            missionCountCap: adaptivePlanning.missionCountCap,
+            dailyLoadCap: adaptivePlanning.dailyLoadCap,
+            usedRecoveryMode: planningMode === 'recovery',
+            reducedMissionIntensity: adaptivePlanning.challengeLevel === 'reduced',
+            trendSummary: adaptivePlanning.trendSummary,
+            reason: adaptivePlanning.reason
         },
         outputSummary: {
             roadmapId: '',
             missionCount: Array.isArray(normalizedPlan.missions) ? normalizedPlan.missions.length : 0,
             weeklyTheme: sanitize(normalizedPlan?.roadmap?.weeklyTheme),
             targetOutcome: sanitize(normalizedPlan?.roadmap?.weeklyTargetOutcome),
+            planningMode,
+            challengeLevel: adaptivePlanning.challengeLevel,
             totalEstimatedMinutes: (Array.isArray(normalizedPlan.missions) ? normalizedPlan.missions : [])
                 .reduce((sum, item) => sum + toInt(item.estimatedMinutes, 0), 0)
         }
     });
 
-        const persistResult = await academyFirestoreRepo.persistRoadmapBundle(
-            uid,
-            profile,
-            {
-                ...normalizedPlan,
-                plannerRunId: plannerRun.id,
-                promptVersion: 'planner_v1',
-                schemaVersion: 'academy_plan_v1',
-                generationMode: mode,
-                generatedByProvider: plannerProvider,
-                generatedByModel: plannerModel
-            },
-            createdByModel
-        );
+    const persistResult = await academyFirestoreRepo.persistRoadmapBundle(
+        uid,
+        profile,
+        {
+            ...normalizedPlan,
+            plannerRunId: plannerRun.id,
+            promptVersion: 'planner_v2',
+            schemaVersion: 'academy_plan_v1',
+            generationMode: planningMode,
+            generatedByProvider: plannerProvider,
+            generatedByModel: plannerModel,
+            adaptivePlanning: normalizedPlan.adaptivePlanning
+        },
+        createdByModel
+    );
 
     const homePayload = await academyFirestoreRepo.buildAcademyHomePayload(uid, persistResult.roadmapId);
 
@@ -1280,27 +1714,6 @@ exports.updateMissionStatus = async (req, res) => {
         }
 
         const mission = await academyFirestoreRepo.getMissionById(uid, missionId);
-        const normalizedStatus = sanitize(req.body?.status).toLowerCase();
-        const updatedMission = await academyFirestoreRepo.getMissionById(uid, missionId);
-
-        if (normalizedStatus === 'skipped') {
-            await academyFirestoreRepo.updateMissionOutcomeMetrics(uid, missionId, {
-                skipCount: toInt(updatedMission?.outcomeMetrics?.skipCount, 0) + 1,
-                lastSkipReasonCategory: sanitize(req.body?.reasonCategory || 'time_overload'),
-                userDifficultyScore: toInt(req.body?.userDifficultyScore, 0),
-                userUsefulnessScore: toInt(req.body?.userUsefulnessScore, 0)
-            });
-        }
-
-        if (normalizedStatus === 'stuck') {
-            await academyFirestoreRepo.updateMissionOutcomeMetrics(uid, missionId, {
-                stuckCount: toInt(updatedMission?.outcomeMetrics?.stuckCount, 0) + 1,
-                userDifficultyScore: toInt(req.body?.userDifficultyScore, 0),
-                userUsefulnessScore: toInt(req.body?.userUsefulnessScore, 0)
-            });
-        }
-
-        await refreshBehaviorState(uid);
         if (!mission) {
             return res.status(404).json({
                 success: false,
@@ -1308,24 +1721,55 @@ exports.updateMissionStatus = async (req, res) => {
             });
         }
 
-        await academyFirestoreRepo.updateMissionStatus(uid, missionId, status, note);
+        const updatedMission = await academyFirestoreRepo.updateMissionStatus(uid, missionId, status, note);
 
-        if (status === 'skipped' || status === 'stuck') {
-            await academyFirestoreRepo.createCheckin(uid, mission.roadmapId, {
-                energyScore: 0,
-                moodScore: 0,
-                completedSummary: '',
-                blockerText: status === 'stuck' ? (note || `User got stuck on: ${mission.title}`) : '',
-                tomorrowFocus: '',
-                aiFeedback: {
-                    type: 'mission_feedback',
-                    missionId,
-                    status,
-                    note
-                }
+        if (!updatedMission) {
+            return res.status(404).json({
+                success: false,
+                message: 'Mission not found.'
             });
         }
 
+        if (status === 'completed') {
+            const missionCompletedAt = updatedMission?.completedAt;
+            const missionCreatedAt = updatedMission?.createdAt;
+            let completionLagHours = 0;
+
+            if (missionCompletedAt && missionCreatedAt) {
+                const completedMs = typeof missionCompletedAt.toDate === 'function'
+                    ? missionCompletedAt.toDate().getTime()
+                    : new Date(missionCompletedAt).getTime();
+
+                const createdMs = typeof missionCreatedAt.toDate === 'function'
+                    ? missionCreatedAt.toDate().getTime()
+                    : new Date(missionCreatedAt).getTime();
+
+                if (Number.isFinite(completedMs) && Number.isFinite(createdMs) && completedMs >= createdMs) {
+                    completionLagHours = Number(((completedMs - createdMs) / (1000 * 60 * 60)).toFixed(2));
+                }
+            }
+
+            await academyFirestoreRepo.updateMissionOutcomeMetrics(uid, missionId, {
+                completionLagHours,
+                userDifficultyScore: clamp(toInt(req.body?.userDifficultyScore, 0), 0, 10),
+                userUsefulnessScore: clamp(toInt(req.body?.userUsefulnessScore, 0), 0, 10)
+            });
+        } else if (status === 'skipped') {
+            await academyFirestoreRepo.updateMissionOutcomeMetrics(uid, missionId, {
+                skipCount: toInt(updatedMission?.outcomeMetrics?.skipCount, 0) + 1,
+                lastSkipReasonCategory: sanitize(req.body?.reasonCategory || 'time_overload'),
+                userDifficultyScore: clamp(toInt(req.body?.userDifficultyScore, 0), 0, 10),
+                userUsefulnessScore: clamp(toInt(req.body?.userUsefulnessScore, 0), 0, 10)
+            });
+        } else if (status === 'stuck') {
+            await academyFirestoreRepo.updateMissionOutcomeMetrics(uid, missionId, {
+                stuckCount: toInt(updatedMission?.outcomeMetrics?.stuckCount, 0) + 1,
+                userDifficultyScore: clamp(toInt(req.body?.userDifficultyScore, 0), 0, 10),
+                userUsefulnessScore: clamp(toInt(req.body?.userUsefulnessScore, 0), 0, 10)
+            });
+        }
+
+        const behaviorState = await refreshBehaviorState(uid);
         const progress = await academyFirestoreRepo.getMissionProgress(uid, mission.roadmapId);
 
         return res.json({
@@ -1337,7 +1781,10 @@ exports.updateMissionStatus = async (req, res) => {
                 completed: progress.completed || 0,
                 total: progress.total || 0,
                 percent: progress.percent || 0
-            }
+            },
+            behaviorProfile: behaviorState.behaviorProfile,
+            previousBehaviorProfile: behaviorState.previousBehaviorProfile,
+            plannerStats: behaviorState.plannerStats
         });
     } catch (error) {
         console.error('Update Mission Status Error:', error);

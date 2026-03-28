@@ -88,6 +88,9 @@ const mapRoadmapDoc = (doc) => {
     const recommendedResources = Array.isArray(roadmap.recommendedResources)
         ? roadmap.recommendedResources
         : [];
+    const adaptivePlanning = data.adaptivePlanning && typeof data.adaptivePlanning === 'object'
+        ? data.adaptivePlanning
+        : {};
 
     return {
         id: doc.id,
@@ -115,6 +118,19 @@ const mapRoadmapDoc = (doc) => {
             },
             recommendedResources,
             days30: roadmap.days30 && typeof roadmap.days30 === 'object' ? roadmap.days30 : {}
+        },
+        plannerRunId: sanitizeString(data.plannerRunId),
+        adaptivePlanning: {
+            mode: sanitizeString(adaptivePlanning.mode),
+            challengeLevel: sanitizeString(adaptivePlanning.challengeLevel),
+            missionCountCap: toNumber(adaptivePlanning.missionCountCap, 0),
+            dailyLoadCap: toNumber(adaptivePlanning.dailyLoadCap, 0),
+            reason: sanitizeString(adaptivePlanning.reason),
+            adjustments: Array.isArray(adaptivePlanning.adjustments) ? adaptivePlanning.adjustments : [],
+            trendSummary: adaptivePlanning.trendSummary && typeof adaptivePlanning.trendSummary === 'object'
+                ? adaptivePlanning.trendSummary
+                : {},
+            trigger: sanitizeString(adaptivePlanning.trigger)
         },
         createdByModel: sanitizeString(data.createdByModel || 'academy-rule-engine-v1'),
         createdAt: data.createdAt || null,
@@ -411,6 +427,10 @@ async function persistRoadmapBundle(uid, profile, plan, createdByModel) {
         summary: plan.summary && typeof plan.summary === 'object' ? plan.summary : {},
         focusAreas: Array.isArray(plan.focusAreas) ? plan.focusAreas : [],
         roadmap: plan.roadmap && typeof plan.roadmap === 'object' ? plan.roadmap : {},
+        plannerRunId: sanitizeString(plan.plannerRunId),
+        adaptivePlanning: plan.adaptivePlanning && typeof plan.adaptivePlanning === 'object'
+            ? plan.adaptivePlanning
+            : {},
         createdByModel: sanitizeString(createdByModel || 'academy-rule-engine-v1'),
         profileSnapshot: profile && typeof profile === 'object' ? profile : {},
         createdAt: ts,
@@ -478,7 +498,6 @@ async function persistRoadmapBundle(uid, profile, plan, createdByModel) {
         version: nextVersion
     };
 }
-
 async function buildAcademyHomePayload(uid, roadmapId = null) {
     const roadmap = roadmapId
         ? await getRoadmapById(uid, roadmapId)
@@ -531,6 +550,10 @@ async function buildAcademyHomePayload(uid, roadmapId = null) {
         plannerStats: profileDoc?.plannerStats && typeof profileDoc.plannerStats === 'object'
             ? profileDoc.plannerStats
             : {},
+        adaptivePlanning: roadmap?.adaptivePlanning && typeof roadmap.adaptivePlanning === 'object'
+            ? roadmap.adaptivePlanning
+            : {},
+        plannerRunId: roadmap?.plannerRunId || '',
         createdByModel: roadmap.createdByModel || 'academy-rule-engine-v1'
     };
 }
