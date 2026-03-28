@@ -190,18 +190,19 @@ exports.registerUser = async (req, res) => {
     let userRef = null;
 
     try {
-        let { fullName, email, username, contact, password } = req.body;
+        let { fullName, email, username, contact, password, profilePhotoDataUrl } = req.body;
 
         fullName = String(fullName || '').trim();
         email = String(email || '').trim().toLowerCase();
         username = String(username || '').trim();
         contact = String(contact || '').trim();
         password = String(password || '');
+        profilePhotoDataUrl = String(profilePhotoDataUrl || '').trim();
 
-        if (!fullName || !email || !password) {
+        if (!fullName || !email || !username || !password || !profilePhotoDataUrl) {
             return res.status(400).json({
                 success: false,
-                message: 'Full name, email, and password are required.'
+                message: 'Full name, email, username, profile photo, and password are required.'
             });
         }
 
@@ -226,6 +227,9 @@ exports.registerUser = async (req, res) => {
             email,
             username,
             contact,
+            avatar: profilePhotoDataUrl,
+            profilePhoto: profilePhotoDataUrl,
+            photoURL: profilePhotoDataUrl,
             password: hashedPassword,
             verificationCode: otpCode,
             isVerified: false,

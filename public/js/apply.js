@@ -75,7 +75,96 @@ const landingVideo = document.getElementById('landing-video');
     const clearPendingVerifyEmail = () => {
         sessionStorage.removeItem('yh_pending_verify_email');
     };
+const readFileAsDataURL = (file) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+});
 
+const compressImageToDataURL = (file, size = 320, quality = 0.82) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+                reject(new Error('Canvas is not supported.'));
+                return;
+            }
+
+            const side = Math.min(img.width, img.height);
+            const sx = (img.width - side) / 2;
+            const sy = (img.height - side) / 2;
+
+            ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size);
+            resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+
+        img.onerror = reject;
+        img.src = reader.result;
+    };
+
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+});
+
+const bindPasswordVisibilityToggles = () => {
+    document.querySelectorAll('.yh-password-toggle').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const targetId = btn.getAttribute('data-target');
+            const input = document.getElementById(targetId);
+            if (!input) return;
+
+            const shouldShow = input.type === 'password';
+            input.type = shouldShow ? 'text' : 'password';
+            btn.innerText = shouldShow ? 'Hide' : 'Show';
+        });
+    });
+};
+
+const bindRegisterPhotoPreview = () => {
+    const input = document.getElementById('reg-profile-photo');
+    const label = document.getElementById('reg-profile-photo-label');
+    const previewWrap = document.getElementById('reg-photo-preview-wrap');
+    const preview = document.getElementById('reg-photo-preview');
+
+    if (!input || !label || !previewWrap || !preview) return;
+
+    input.addEventListener('change', async () => {
+        const file = input.files?.[0];
+        if (!file) {
+            previewWrap.classList.add('hidden-step');
+            preview.removeAttribute('src');
+            label.innerText = 'Choose profile photo';
+            return;
+        }
+
+        if (!file.type.startsWith('image/')) {
+            showToast('Please choose an image file.', 'error');
+            input.value = '';
+            previewWrap.classList.add('hidden-step');
+            preview.removeAttribute('src');
+            label.innerText = 'Choose profile photo';
+            return;
+        }
+
+        label.innerText = file.name;
+
+        try {
+            const previewUrl = await readFileAsDataURL(file);
+            preview.src = previewUrl;
+            previewWrap.classList.remove('hidden-step');
+        } catch (_) {
+            showToast('Failed to preview selected image.', 'error');
+        }
+    });
+};
     const bootstrapPendingVerification = () => {
         const pendingEmail = getPendingVerifyEmail();
         if (!pendingEmail) return;
@@ -88,6 +177,8 @@ const landingVideo = document.getElementById('landing-video');
         startOTPTimer();
     };
 bootstrapPendingVerification();
+bindPasswordVisibilityToggles();
+bindRegisterPhotoPreview();
     // --- LOGIN LOGIC ---
 const btnLogin = document.getElementById('btn-login');
 const loginEmailInput = document.getElementById('login-email');
@@ -170,51 +261,76 @@ if (btnLogin) {
 });
 
     // --- REGISTER LOGIC (SIMPLE FORM) ---
-    const formRegisterSimple = document.getElementById('form-register-simple');
-    if (formRegisterSimple) {
-        formRegisterSimple.addEventListener('submit', async function(e) {
-            e.preventDefault();
+const formRegisterSimple = document.getElementById('form-register-simple');
+if (formRegisterSimple) {
+    formRegisterSimple.addEventListener('submit', async function(e) {
+        e.preventDefault();
 
-            const password = document.getElementById('reg-password').value;
-            const confirmPassword = document.getElementById('reg-confirm-password').value;
-            if (password !== confirmPassword) {
-                showToast("Passwords do not match.", "error");
-                return;
-            }
+        const password = document.getElementById('reg-password').value;
+        const confirmPassword = document.getElementById('reg-confirm-password').value;
+        const fullName = document.getElementById('reg-fullname').value.trim();
+        const email = document.getElementById('reg-email').value.trim().toLowerCase();
+        const username = document.getElementById('reg-username').value.trim();
+        const profilePhotoFile = document.getElementById('reg-profile-photo')?.files?.[0] || null;
 
-            const submitBtn = e.target.querySelector('button[type="submit"]');
-            submitBtn.innerText = "Creating Account...";
-            submitBtn.disabled = true;
+        if (password !== confirmPassword) {
+            showToast("Passwords do not match.", "error");
+            return;
+        }
 
-            const fullName = document.getElementById('reg-fullname').value.trim();
-            const email = document.getElementById('reg-email').value.trim().toLowerCase();
+        if (!username) {
+            showToast("Please enter a username.", "error");
+            return;
+        }
 
-            try {
-                const response = await fetch('/api/register', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ fullName, email, password })
-                });
+        if (!profilePhotoFile) {
+            showToast("Profile photo is required.", "error");
+            return;
+        }
 
-                const result = await response.json();
+        if (!profilePhotoFile.type.startsWith('image/')) {
+            showToast("Please upload a valid image file.", "error");
+            return;
+        }
 
-                if (result.success) {
-                    setPendingVerifyEmail(email);
-                    showToast(result.message, "success");
-                    showStep(2);
-                    startOTPTimer();
-                } else {
-                    showToast(result.message, "error");
-                    submitBtn.innerText = "Create Account ➔";
-                    submitBtn.disabled = false;
-                }
-            } catch (error) {
-                showToast("Server error during registration.", "error");
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        submitBtn.innerText = "Creating Account...";
+        submitBtn.disabled = true;
+
+        try {
+            const profilePhotoDataUrl = await compressImageToDataURL(profilePhotoFile, 320, 0.82);
+
+            const response = await fetch('/api/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    fullName,
+                    email,
+                    username,
+                    password,
+                    profilePhotoDataUrl
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                setPendingVerifyEmail(email);
+                showToast(result.message, "success");
+                showStep(2);
+                startOTPTimer();
+            } else {
+                showToast(result.message, "error");
                 submitBtn.innerText = "Create Account ➔";
                 submitBtn.disabled = false;
             }
-        });
-    }
+        } catch (error) {
+            showToast("Server error during registration.", "error");
+            submitBtn.innerText = "Create Account ➔";
+            submitBtn.disabled = false;
+        }
+    });
+}
 
     // --- OTP LOGIC ---
     let otpTimerInterval;

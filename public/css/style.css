@@ -5121,3 +5121,92 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
 .yh-universe-slide.is-active .portal-card.active-portal > * {
     pointer-events: auto !important;
 }
+/* ===== REGISTER EXTRAS ===== */
+.yh-upload-shell {
+    display: grid;
+    gap: 10px;
+}
+
+.yh-upload-input {
+    display: none;
+}
+
+.yh-upload-label {
+    width: 100%;
+    padding: 0.95rem 1rem;
+    border: 1px dashed rgba(56, 189, 248, 0.45);
+    border-radius: 0.75rem;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-main);
+    text-align: center;
+    cursor: pointer;
+    transition: 0.25s ease;
+}
+
+.yh-upload-label:hover {
+    border-color: var(--neon-blue);
+    box-shadow: 0 0 12px rgba(14, 165, 233, 0.18);
+}
+
+.yh-upload-help {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+.yh-upload-preview {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.yh-upload-preview-img {
+    width: 82px;
+    height: 82px;
+    border-radius: 999px;
+    object-fit: cover;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+}
+
+.yh-password-shell {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.yh-password-input {
+    padding-right: 82px;
+}
+
+.yh-password-toggle {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    color: var(--neon-blue);
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.yh-password-toggle:hover {
+    background: rgba(14, 165, 233, 0.1);
+    color: #fff;
+}
+
+@media (max-width: 430px) {
+    .yh-password-input {
+        padding-right: 76px;
+    }
+
+    .yh-password-toggle {
+        padding: 5px 10px;
+        font-size: 0.72rem;
+    }
+}

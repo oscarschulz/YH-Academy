@@ -267,19 +267,75 @@
                                             </div>
                                         </div>
 
+                                        <div class="form-group w-full">
+                                            <label>Username</label>
+                                            <input
+                                                type="text"
+                                                id="reg-username"
+                                                required
+                                                placeholder="Choose a username"
+                                                class="input-field"
+                                                autocomplete="username"
+                                            >
+                                        </div>
+
+                                        <div class="form-group w-full">
+                                            <label>Profile Photo</label>
+                                            <div class="yh-upload-shell">
+                                                <input
+                                                    type="file"
+                                                    id="reg-profile-photo"
+                                                    accept="image/*"
+                                                    required
+                                                    class="yh-upload-input"
+                                                >
+                                                <label for="reg-profile-photo" class="yh-upload-label" id="reg-profile-photo-label">
+                                                    Choose profile photo
+                                                </label>
+                                                <div class="yh-upload-preview hidden-step" id="reg-photo-preview-wrap">
+                                                    <img id="reg-photo-preview" alt="Profile preview" class="yh-upload-preview-img">
+                                                </div>
+                                                <div class="yh-upload-help">Required. JPG, PNG, WEBP accepted.</div>
+                                            </div>
+                                        </div>
+
                                         <div class="form-row-last">
                                             <div class="form-group w-full mb-0">
                                                 <label>Create Password</label>
-                                                <input type="password" id="reg-password" required placeholder="••••••••" class="input-field">
+                                                <div class="yh-password-shell">
+                                                    <input
+                                                        type="password"
+                                                        id="reg-password"
+                                                        required
+                                                        placeholder="••••••••"
+                                                        class="input-field yh-password-input"
+                                                        autocomplete="new-password"
+                                                    >
+                                                    <button type="button" class="yh-password-toggle" data-target="reg-password">
+                                                        Show
+                                                    </button>
+                                                </div>
                                             </div>
                                             <div class="form-group w-full mb-0">
                                                 <label>Confirm Password</label>
-                                                <input type="password" id="reg-confirm-password" required placeholder="••••••••" class="input-field">
+                                                <div class="yh-password-shell">
+                                                    <input
+                                                        type="password"
+                                                        id="reg-confirm-password"
+                                                        required
+                                                        placeholder="••••••••"
+                                                        class="input-field yh-password-input"
+                                                        autocomplete="new-password"
+                                                    >
+                                                    <button type="button" class="yh-password-toggle" data-target="reg-confirm-password">
+                                                        Show
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
 
                                         <button type="submit" id="btn-register" class="btn-primary btn-large">Create Account ➔</button>
-                                    </form>
+                                                                            </form>
                                 </div>
                             </div>
                         </div>
