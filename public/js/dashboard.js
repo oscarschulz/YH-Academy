@@ -3889,12 +3889,16 @@ function applyAcademyHomeRuntimePatch(runtime = {}) {
             : null;
 
     if (runtime?.behaviorProfile && typeof runtime.behaviorProfile === 'object') {
-        nextHome.previousBehaviorProfile = cachedBehaviorProfile || cachedPreviousBehaviorProfile || {};
+        nextHome.previousBehaviorProfile = runtime?.previousBehaviorProfile || cachedBehaviorProfile || cachedPreviousBehaviorProfile || {};
         nextHome.behaviorProfile = runtime.behaviorProfile;
     }
 
     if (runtime?.plannerStats && typeof runtime.plannerStats === 'object') {
         nextHome.plannerStats = runtime.plannerStats;
+    }
+
+    if (runtime?.adaptivePlanning && typeof runtime.adaptivePlanning === 'object') {
+        nextHome.adaptivePlanning = runtime.adaptivePlanning;
     }
 
     if (runtime?.todayProgress && typeof runtime.todayProgress === 'object') {
@@ -3924,69 +3928,6 @@ function applyAcademyHomeRuntimePatch(runtime = {}) {
     persistAcademyHome(nextHome);
     renderAcademyHome(nextHome);
     return nextHome;
-}
-
-function applyAcademyHomeRuntimePatch(runtime = {}) {
-    const cachedHome = readAcademyHomeCache() || {};
-    const nextHome = {
-        ...cachedHome
-    };
-
-    if (runtime?.behaviorProfile && typeof runtime.behaviorProfile === 'object') {
-        nextHome.behaviorProfile = runtime.behaviorProfile;
-    }
-
-    if (runtime?.plannerStats && typeof runtime.plannerStats === 'object') {
-        nextHome.plannerStats = runtime.plannerStats;
-    }
-
-    if (runtime?.todayProgress && typeof runtime.todayProgress === 'object') {
-        nextHome.today = {
-            ...(cachedHome.today || {}),
-            missionsCompleted: Number(runtime.todayProgress.completed || 0),
-            missionsTotal: Number(runtime.todayProgress.total || 0)
-        };
-    }
-
-    if (runtime?.missionId && Array.isArray(cachedHome.missions)) {
-        const normalizedMissionId = String(runtime.missionId).trim();
-
-        nextHome.missions = cachedHome.missions.map((mission) => {
-            if (String(mission?.id || '').trim() !== normalizedMissionId) return mission;
-
-            return {
-                ...mission,
-                status: String(runtime.status || mission.status || 'pending').trim().toLowerCase(),
-                completionNote: runtime.note !== undefined ? String(runtime.note || '') : String(mission?.completionNote || '')
-            };
-        });
-    }
-
-    persistAcademyHome(nextHome);
-    renderAcademyHome(nextHome);
-    return nextHome;
-}
-function buildAcademyMissionSignalSnapshot() {
-    const homeData = readAcademyHomeCache();
-    const missions = Array.isArray(homeData?.missions) ? homeData.missions : [];
-
-    return missions.reduce((summary, mission) => {
-        const status = String(mission?.status || 'pending').trim().toLowerCase() || 'pending';
-        summary.total += 1;
-
-        if (status === 'completed') summary.completed += 1;
-        else if (status === 'skipped') summary.skipped += 1;
-        else if (status === 'stuck') summary.stuck += 1;
-        else summary.pending += 1;
-
-        return summary;
-    }, {
-        total: 0,
-        completed: 0,
-        skipped: 0,
-        stuck: 0,
-        pending: 0
-    });
 }
 async function academyAuthedFetch(url, options = {}) {
     const token = localStorage.getItem('yh_token');

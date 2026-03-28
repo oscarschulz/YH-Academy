@@ -4633,3 +4633,55 @@ body[data-yh-view="academy"] #center-stage-view {
         font-size: 0.78rem !important;
     }
 }
+/* ==========================================
+   MOBILE HUB SCROLL FIX
+   removes clipped fixed hub on small screens
+   ========================================== */
+@media (max-width: 768px) {
+    body[data-yh-view="hub"] {
+        overflow-y: auto !important;
+    }
+
+    body[data-yh-view="hub"] .dashboard-layout {
+        height: auto !important;
+        min-height: 100dvh !important;
+        overflow: visible !important;
+    }
+
+    body[data-yh-view="hub"] #universe-hub-view,
+    body[data-yh-view="hub"] .universe-hub-view {
+        position: relative !important;
+        top: auto !important;
+        left: auto !important;
+        right: auto !important;
+        bottom: auto !important;
+        z-index: auto !important;
+        height: auto !important;
+        min-height: calc(100dvh - 84px) !important;
+        overflow: visible !important;
+        padding: 14px 12px 28px !important;
+        background: #0f172a !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-carousel-shell {
+        width: 100% !important;
+        max-width: 560px !important;
+        margin: 0 auto !important;
+    }
+}
+
+@media (max-width: 480px) {
+    body[data-yh-view="hub"] .dashboard-layout {
+        min-height: 100svh !important;
+    }
+
+    body[data-yh-view="hub"] #universe-hub-view,
+    body[data-yh-view="hub"] .universe-hub-view {
+        min-height: calc(100svh - 68px) !important;
+        padding: 10px 10px 24px !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-carousel-shell {
+        gap: 12px !important;
+    }
+}
