@@ -5210,3 +5210,16 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
         font-size: 0.72rem;
     }
 }
+/* REGISTER BUTTON BOTTOM BREATHING ROOM */
+.yh-auth-card .flip-card-back {
+    padding-bottom: 2.4rem !important;
+}
+
+#form-register-simple {
+    padding-bottom: 0.4rem;
+}
+
+#btn-register {
+    margin-top: 0.35rem;
+    margin-bottom: 0.35rem;
+}
