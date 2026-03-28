@@ -279,6 +279,67 @@ exports.updateUserOverlay = async (req, res) => {
         return sendError(res, error, 'Failed to update user overlay.', badRequest ? 400 : 500);
     }
 };
+exports.addReviewNote = async (req, res) => {
+    try {
+        const review = await aiNurtureRepo.appendReviewNote(req.params?.id, {
+            note: req.body?.note,
+            labels: req.body?.labels,
+            author: req.body?.author || 'internal-operator',
+            noteType: req.body?.noteType || 'review'
+        });
+
+        return res.json({
+            success: true,
+            review
+        });
+    } catch (error) {
+        const badRequest = /required/i.test(error?.message || '');
+        return sendError(res, error, 'Failed to add review note.', badRequest ? 400 : 500);
+    }
+};
+
+exports.getUserOverlay = async (req, res) => {
+    try {
+        const overlay = await aiNurtureRepo.getUserOverlay(req.params?.uid);
+
+        return res.json({
+            success: true,
+            overlay: overlay || {
+                userId: sanitize(req.params?.uid),
+                note: '',
+                rules: [],
+                redFlags: [],
+                focusThemes: [],
+                tags: [],
+                isActive: false
+            }
+        });
+    } catch (error) {
+        return sendError(res, error, 'Failed to load user overlay.');
+    }
+};
+
+exports.updateUserOverlay = async (req, res) => {
+    try {
+        const overlay = await aiNurtureRepo.upsertUserOverlay(req.params?.uid, {
+            note: req.body?.note,
+            rules: req.body?.rules,
+            redFlags: req.body?.redFlags,
+            focusThemes: req.body?.focusThemes,
+            tags: req.body?.tags,
+            isActive: req.body?.isActive,
+            updatedBy: req.body?.updatedBy || 'internal-operator'
+        });
+
+        return res.json({
+            success: true,
+            overlay
+        });
+    } catch (error) {
+        const badRequest = /user id is required/i.test(error?.message || '');
+        return sendError(res, error, 'Failed to update user overlay.', badRequest ? 400 : 500);
+    }
+};
 exports.listLibrary = async (req, res) => {
     try {
         const items = await aiNurtureRepo.listLibrary(Number.parseInt(req.query.limit, 10) || 100);

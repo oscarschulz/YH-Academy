@@ -4119,10 +4119,15 @@ body[data-yh-view="academy"] #center-stage-view {
 .yh-landing-auth-wrap {
     margin-top: 4rem;
     margin-bottom: 3rem;
+    width: 100%;
+    display: flex;
+    justify-content: center;
 }
 
 .yh-auth-card {
     min-height: unset;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .yh-auth-panel-left {
@@ -4138,6 +4143,20 @@ body[data-yh-view="academy"] #center-stage-view {
 .yh-auth-panel-copy {
     max-width: 380px;
     padding: 2rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.yh-auth-panel-copy .step1-logo {
+    display: block;
+    width: 72px;
+    margin: 0 auto 1rem;
+}
+
+.yh-auth-panel-copy .step-indicator-badge {
+    align-self: center;
+    margin: 0 auto 1.5rem;
+    text-align: center;
 }
 
 .yh-auth-panel-title {
@@ -4893,4 +4912,10 @@ body[data-yh-view="academy"] #center-stage-view {
     .yh-featured-sites-mobile {
         display: block !important;
     }
+}
+.yh-auth-card {
+    min-height: unset;
+    margin-left: auto;
+    margin-right: auto;
+    align-self: center;
 }

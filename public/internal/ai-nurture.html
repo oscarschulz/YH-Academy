@@ -28,6 +28,67 @@
         .score-box { background: #020617; border: 1px solid rgba(148, 163, 184, 0.12); border-radius: 12px; padding: 10px; }
         .score-box strong { display: block; font-size: 1.1rem; margin-top: 4px; }
         .list-plain { margin: 8px 0 0; padding-left: 18px; }
+        .stack { display: grid; gap: 12px; }
+        .section-label { font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: #94a3b8; }
+        .chip-wrap { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            background: rgba(15, 23, 42, 0.95);
+            color: #cbd5e1;
+        }
+        .chip.ok { background: rgba(34,197,94,0.12); color: #86efac; border-color: rgba(34,197,94,0.25); }
+        .chip.warn { background: rgba(245,158,11,0.12); color: #fcd34d; border-color: rgba(245,158,11,0.25); }
+        .chip.danger { background: rgba(239,68,68,0.12); color: #fca5a5; border-color: rgba(239,68,68,0.25); }
+        .chip.info { background: rgba(14,165,233,0.12); color: #7dd3fc; border-color: rgba(14,165,233,0.25); }
+        .empty-box {
+            margin-top: 10px;
+            padding: 12px;
+            border-radius: 12px;
+            background: #020617;
+            border: 1px dashed rgba(148, 163, 184, 0.18);
+            color: #94a3b8;
+        }
+        .note-card {
+            border: 1px solid rgba(148, 163, 184, 0.14);
+            border-radius: 12px;
+            padding: 12px;
+            margin-top: 10px;
+            background: rgba(2, 6, 23, 0.65);
+        }
+        .note-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+            color: #94a3b8;
+            font-size: 0.85rem;
+        }
+        .split-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 12px;
+            color: #e2e8f0;
+            font-weight: 600;
+        }
+        .toggle-row input {
+            width: auto;
+            margin: 0;
+            padding: 0;
+            accent-color: #0ea5e9;
+        }
+        .tiny { font-size: 0.85rem; }
+        .mt-8 { margin-top: 8px; }
+        .mt-12 { margin-top: 12px; }
+        .subtle-pre { max-height: 260px; }
+
         @media (max-width: 1100px) { .row, .triple { grid-template-columns: 1fr; } }
     </style>
 </head>
@@ -46,7 +107,6 @@
                     <button id="btn-create-source" type="button">Create Source</button>
                     <button id="btn-run-next-job" type="button" class="secondary">Run Next Job</button>
                     <button id="btn-rebuild-packs" type="button" class="secondary">Rebuild Packs</button>
-                    <button id="btn-preview-context" type="button" class="secondary">Preview Context</button>
                 </div>
             </div>
 
@@ -75,8 +135,50 @@
 
         <div class="row">
             <div class="card">
+                <h2>Context Preview</h2>
+                <div class="muted">Preview selected pack keys, injected rules, red flags, and telemetry before roadmap generation.</div>
+
+                <input id="context-user-id" type="text" placeholder="User ID for planner preview">
+                <input id="context-category-hints" type="text" placeholder="Category hints, comma or line separated">
+                <input id="context-tag-hints" type="text" placeholder="Tag hints, comma or line separated">
+
+                <div class="actions">
+                    <button id="btn-preview-context" type="button" class="secondary">Preview Context</button>
+                </div>
+
+                <div id="context-panel" class="muted">No preview yet.</div>
+            </div>
+
+            <div class="card">
+                <h2>User Overlay</h2>
+                <div class="muted">Manual operator override that can inject rules, themes, and guardrails for a specific user.</div>
+
+                <input id="overlay-user-id" type="text" placeholder="User ID for overlay">
+
+                <label class="toggle-row">
+                    <input id="overlay-active" type="checkbox">
+                    <span>Overlay Active</span>
+                </label>
+
+                <textarea id="overlay-note" rows="3" placeholder="Short operator brief or instruction"></textarea>
+                <textarea id="overlay-rules" rows="4" placeholder="Rules, one per line"></textarea>
+                <textarea id="overlay-redflags" rows="4" placeholder="Red flags, one per line"></textarea>
+                <textarea id="overlay-focus-themes" rows="3" placeholder="Focus themes, one per line"></textarea>
+                <textarea id="overlay-tags" rows="3" placeholder="Tags, one per line"></textarea>
+
+                <div class="actions">
+                    <button id="btn-load-overlay" type="button" class="secondary">Load Overlay</button>
+                    <button id="btn-save-overlay" type="button">Save Overlay</button>
+                </div>
+
+                <div id="overlay-status" class="muted">No overlay loaded.</div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="card">
                 <h2>Source Detail</h2>
-                <div id="detail-panel" class="muted">Open a source to inspect snapshot, scores, and chunks.</div>
+                <div id="detail-panel" class="muted">Open a source to inspect snapshot, scores, duplicate matches, manual reviewer notes, and chunk decisions.</div>
             </div>
 
             <div class="card">
@@ -95,6 +197,20 @@
         const packsList = document.getElementById('packs-list');
         const libraryList = document.getElementById('library-list');
         const detailPanel = document.getElementById('detail-panel');
+        const contextPanel = document.getElementById('context-panel');
+        const contextUserIdInput = document.getElementById('context-user-id');
+        const contextCategoryHintsInput = document.getElementById('context-category-hints');
+        const contextTagHintsInput = document.getElementById('context-tag-hints');
+        const overlayUserIdInput = document.getElementById('overlay-user-id');
+        const overlayActiveInput = document.getElementById('overlay-active');
+        const overlayNoteInput = document.getElementById('overlay-note');
+        const overlayRulesInput = document.getElementById('overlay-rules');
+        const overlayRedflagsInput = document.getElementById('overlay-redflags');
+        const overlayFocusThemesInput = document.getElementById('overlay-focus-themes');
+        const overlayTagsInput = document.getElementById('overlay-tags');
+        const overlayStatus = document.getElementById('overlay-status');
+
+        let activeDetailSourceId = '';
 
         async function request(path, options = {}) {
             const response = await fetch(`/api/internal/ai-nurture/${gate}${path}`, {
@@ -127,22 +243,235 @@
             return `<span class="badge ${badgeClass(label)}">${label || 'n/a'}</span>`;
         }
 
+        function escapeHtml(value = '') {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function splitInputList(value = '') {
+            return String(value || '')
+                .split(/\n|,/)
+                .map(item => item.trim())
+                .filter(Boolean);
+        }
+
+        function joinInputList(values = []) {
+            return (Array.isArray(values) ? values : [])
+                .map(item => String(item || '').trim())
+                .filter(Boolean)
+                .join('\n');
+        }
+
+        function formatMetric(value, digits = 2) {
+            if (value === null || value === undefined || value === '') return 'n/a';
+            const parsed = Number(value);
+            if (!Number.isFinite(parsed)) return escapeHtml(String(value));
+            return parsed.toFixed(digits).replace(/\.00$/, '');
+        }
+
+        function renderChips(values = [], tone = 'info') {
+            const clean = (Array.isArray(values) ? values : []).map(item => String(item || '').trim()).filter(Boolean);
+            if (!clean.length) {
+                return '<div class="empty-box">None</div>';
+            }
+
+            return `
+                <div class="chip-wrap">
+                    ${clean.map(item => `<span class="chip ${tone}">${escapeHtml(item)}</span>`).join('')}
+                </div>
+            `;
+        }
+
+        function renderDuplicateMatches(matches = []) {
+            const clean = (Array.isArray(matches) ? matches : []).filter(Boolean);
+            if (!clean.length) {
+                return '<div class="empty-box">No duplicate matches stored yet.</div>';
+            }
+
+            return clean.map(match => {
+                const title = escapeHtml(match.title || match.id || 'Duplicate Match');
+                const url = String(match.sourceUrl || '').trim();
+                const category = escapeHtml(match.category || 'general');
+                const score = formatMetric(match.score ?? match.duplicateScore ?? match.similarityScore);
+                const semanticScore = match.semanticScore === null || match.semanticScore === undefined
+                    ? null
+                    : formatMetric(match.semanticScore);
+                const heuristicScore = match.heuristicScore === null || match.heuristicScore === undefined
+                    ? null
+                    : formatMetric(match.heuristicScore);
+
+                return `
+                    <div class="item">
+                        <strong>${title}</strong>
+                        <div class="muted">${url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a>` : 'No source URL'}</div>
+                        <div class="chip-wrap">
+                            <span class="chip ok">Score: ${score}</span>
+                            ${semanticScore !== null ? `<span class="chip info">Semantic: ${semanticScore}</span>` : ''}
+                            ${heuristicScore !== null ? `<span class="chip warn">Heuristic: ${heuristicScore}</span>` : ''}
+                            <span class="chip warn">${category}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderManualNotes(notes = []) {
+            const clean = (Array.isArray(notes) ? notes : []).filter(Boolean);
+            if (!clean.length) {
+                return '<div class="empty-box">No manual reviewer notes yet.</div>';
+            }
+
+            return clean.map(note => `
+                <div class="note-card">
+                    <div>${escapeHtml(note.note || '')}</div>
+                    <div class="note-meta">
+                        <span>Author: ${escapeHtml(note.author || 'internal-operator')}</span>
+                        <span>Type: ${escapeHtml(note.noteType || 'review')}</span>
+                        <span>${escapeHtml(note.createdAt || '')}</span>
+                    </div>
+                    ${(Array.isArray(note.labels) && note.labels.length)
+                        ? `<div class="chip-wrap">${note.labels.map(label => `<span class="chip info">${escapeHtml(label)}</span>`).join('')}</div>`
+                        : ''
+                    }
+                </div>
+            `).join('');
+        }
+
+        function renderContextPreview(context = {}) {
+            const telemetry = context && typeof context.telemetry === 'object' ? context.telemetry : {};
+            const selectedPackKeys = Array.isArray(telemetry.selectedPackKeys) && telemetry.selectedPackKeys.length
+                ? telemetry.selectedPackKeys
+                : (Array.isArray(context.selectedPackKeys) ? context.selectedPackKeys : []);
+            const priorityThemes = Array.isArray(context.priorityThemes) ? context.priorityThemes : [];
+            const rules = Array.isArray(telemetry.injectedRules) && telemetry.injectedRules.length
+                ? telemetry.injectedRules
+                : (Array.isArray(context.rules) ? context.rules : []);
+            const examples = Array.isArray(telemetry.injectedExamples) && telemetry.injectedExamples.length
+                ? telemetry.injectedExamples
+                : (Array.isArray(context.examples) ? context.examples : []);
+            const redFlags = Array.isArray(telemetry.injectedRedFlags) && telemetry.injectedRedFlags.length
+                ? telemetry.injectedRedFlags
+                : (Array.isArray(context.redFlags) ? context.redFlags : []);
+            const overlayThemes = Array.isArray(telemetry.overlayThemes) ? telemetry.overlayThemes : [];
+            const overlayBrief = String(context.overlayBrief || '').trim();
+
+            contextPanel.innerHTML = `
+                <div class="item">
+                    <strong>Selected Pack Keys</strong>
+                    ${renderChips(selectedPackKeys, 'ok')}
+                </div>
+
+                <div class="item">
+                    <strong>Priority Themes</strong>
+                    ${renderChips(priorityThemes, 'warn')}
+                </div>
+
+                <div class="score-grid">
+                    ${scoreBox('Rules', telemetry.injectedRuleCount ?? rules.length)}
+                    ${scoreBox('Examples', telemetry.injectedExampleCount ?? examples.length)}
+                    ${scoreBox('Red Flags', telemetry.injectedRedFlagCount ?? redFlags.length)}
+                    ${scoreBox('Overlay Applied', telemetry.overlayApplied ? 'yes' : 'no')}
+                    ${scoreBox('Overlay Rules', telemetry.overlayRuleCount ?? 0)}
+                    ${scoreBox('Overlay Flags', telemetry.overlayRedFlagCount ?? 0)}
+                </div>
+
+                ${overlayBrief ? `
+                    <div class="item">
+                        <strong>Overlay Brief</strong>
+                        <div class="muted">${escapeHtml(overlayBrief)}</div>
+                    </div>
+                ` : ''}
+
+                <div class="item">
+                    <strong>Overlay Themes</strong>
+                    ${renderChips(overlayThemes, 'info')}
+                </div>
+
+                <h3>Injected Rules</h3>
+                <ul class="list-plain">
+                    ${rules.map(item => `<li>${escapeHtml(item)}</li>`).join('') || '<li>None</li>'}
+                </ul>
+
+                <h3>Injected Examples</h3>
+                <ul class="list-plain">
+                    ${examples.map(item => `<li>${escapeHtml(item)}</li>`).join('') || '<li>None</li>'}
+                </ul>
+
+                <h3>Injected Red Flags</h3>
+                <ul class="list-plain">
+                    ${redFlags.map(item => `<li>${escapeHtml(item)}</li>`).join('') || '<li>None</li>'}
+                </ul>
+            `;
+        }
+
+        function fillOverlayForm(overlay = {}) {
+            const safe = overlay && typeof overlay === 'object' ? overlay : {};
+
+            overlayUserIdInput.value = String(safe.userId || overlayUserIdInput.value || '').trim();
+            overlayActiveInput.checked = safe.isActive === true;
+            overlayNoteInput.value = safe.note || '';
+            overlayRulesInput.value = joinInputList(safe.rules);
+            overlayRedflagsInput.value = joinInputList(safe.redFlags);
+            overlayFocusThemesInput.value = joinInputList(safe.focusThemes);
+            overlayTagsInput.value = joinInputList(safe.tags);
+
+            if (!contextUserIdInput.value.trim() && overlayUserIdInput.value.trim()) {
+                contextUserIdInput.value = overlayUserIdInput.value.trim();
+            }
+
+            const rulesCount = Array.isArray(safe.rules) ? safe.rules.length : 0;
+            const flagsCount = Array.isArray(safe.redFlags) ? safe.redFlags.length : 0;
+            const themesCount = Array.isArray(safe.focusThemes) ? safe.focusThemes.length : 0;
+            const tagsCount = Array.isArray(safe.tags) ? safe.tags.length : 0;
+
+            overlayStatus.innerHTML = safe.userId
+                ? `
+                    <div class="item">
+                        <strong>${escapeHtml(safe.userId)}</strong>
+                        <div class="chip-wrap">
+                            <span class="chip ${safe.isActive ? 'ok' : 'warn'}">${safe.isActive ? 'Active' : 'Inactive'}</span>
+                            <span class="chip info">Rules: ${rulesCount}</span>
+                            <span class="chip info">Flags: ${flagsCount}</span>
+                            <span class="chip info">Themes: ${themesCount}</span>
+                            <span class="chip info">Tags: ${tagsCount}</span>
+                        </div>
+                        ${safe.note ? `<div class="muted mt-8">${escapeHtml(safe.note)}</div>` : ''}
+                    </div>
+                `
+                : '<div class="muted">No overlay loaded.</div>';
+        }
+
+        function readOverlayPayload() {
+            return {
+                note: overlayNoteInput.value.trim(),
+                rules: splitInputList(overlayRulesInput.value),
+                redFlags: splitInputList(overlayRedflagsInput.value),
+                focusThemes: splitInputList(overlayFocusThemesInput.value),
+                tags: splitInputList(overlayTagsInput.value),
+                isActive: overlayActiveInput.checked
+            };
+        }
+
         function sourceCard(source = {}) {
             return `
                 <div class="item">
-                    <strong>${source.title || source.canonicalUrl || source.id}</strong>
-                    <div class="muted">${source.hostname || ''}</div>
+                    <strong>${escapeHtml(source.title || source.canonicalUrl || source.id)}</strong>
+                    <div class="muted">${escapeHtml(source.hostname || '')}</div>
                     <div>
                         ${badge(source.status)}
                         ${source.domainVerdict ? badge(source.domainVerdict) : ''}
                         ${source.staleVerdict ? badge(source.staleVerdict) : ''}
                     </div>
                     <div class="actions">
-                        <button data-action="open" data-id="${source.id}">Open</button>
-                        <button data-action="process" data-id="${source.id}" class="secondary">Process Now</button>
-                        <button data-action="queue" data-id="${source.id}" class="secondary">Queue</button>
-                        <button data-action="approve" data-id="${source.id}">Approve</button>
-                        <button data-action="reject" data-id="${source.id}" class="secondary">Reject</button>
+                        <button data-action="open" data-id="${escapeHtml(source.id)}">Open</button>
+                        <button data-action="process" data-id="${escapeHtml(source.id)}" class="secondary">Process Now</button>
+                        <button data-action="queue" data-id="${escapeHtml(source.id)}" class="secondary">Queue</button>
+                        <button data-action="approve" data-id="${escapeHtml(source.id)}">Approve</button>
+                        <button data-action="reject" data-id="${escapeHtml(source.id)}" class="secondary">Reject</button>
                     </div>
                 </div>
             `;
@@ -151,8 +480,8 @@
         function jobCard(job = {}) {
             return `
                 <div class="item">
-                    <strong>${job.type || 'job'}</strong>
-                    <div class="muted">Source: ${job.sourceId || 'n/a'}</div>
+                    <strong>${escapeHtml(job.type || 'job')}</strong>
+                    <div class="muted">Source: ${escapeHtml(job.sourceId || 'n/a')}</div>
                     <div>
                         ${badge(job.status)}
                     </div>
@@ -163,8 +492,8 @@
         function packCard(pack = {}) {
             return `
                 <div class="item">
-                    <strong>${pack.title || pack.key || 'pack'}</strong>
-                    <div class="muted">Category: ${pack.category || 'general'}</div>
+                    <strong>${escapeHtml(pack.title || pack.key || 'pack')}</strong>
+                    <div class="muted">Category: ${escapeHtml(pack.category || 'general')}</div>
                     <div class="muted">Rules: ${(pack.rules || []).length} · Examples: ${(pack.examples || []).length}</div>
                 </div>
             `;
@@ -173,13 +502,13 @@
         function libraryCard(item = {}) {
             return `
                 <div class="item">
-                    <strong>${item.title || item.id}</strong>
-                    <div class="muted">Category: ${item.category || 'general'}</div>
+                    <strong>${escapeHtml(item.title || item.id)}</strong>
+                    <div class="muted">Category: ${escapeHtml(item.category || 'general')}</div>
                     <div>
                         ${item.staleVerdict ? badge(item.staleVerdict) : ''}
                         ${item.excludedFromPlanner ? badge('excluded') : ''}
                     </div>
-                    <div class="muted">${item.summary || ''}</div>
+                    <div class="muted">${escapeHtml(item.summary || '')}</div>
                 </div>
             `;
         }
@@ -198,11 +527,22 @@
             const review = detail.review || {};
             const snapshot = detail.snapshot || {};
             const chunks = Array.isArray(detail.chunks) ? detail.chunks : [];
+            const duplicateMatches = Array.isArray(review.duplicateMatches) && review.duplicateMatches.length
+                ? review.duplicateMatches
+                : (review.duplicateTopMatch ? [{
+                    ...review.duplicateTopMatch,
+                    score: review.duplicateScore ?? review.duplicateTopMatch.score
+                }] : []);
+            const manualNotes = Array.isArray(review.manualNotes)
+                ? [...review.manualNotes].reverse()
+                : [];
+
+            activeDetailSourceId = String(source.id || '').trim();
 
             detailPanel.innerHTML = `
                 <div class="item">
-                    <strong>${source.title || source.canonicalUrl || source.id || 'Source'}</strong>
-                    <div class="muted">${source.canonicalUrl || source.originalUrl || ''}</div>
+                    <strong>${escapeHtml(source.title || source.canonicalUrl || source.id || 'Source')}</strong>
+                    <div class="muted">${escapeHtml(source.canonicalUrl || source.originalUrl || '')}</div>
                     <div>
                         ${source.status ? badge(source.status) : ''}
                         ${review.overallDecision ? badge(review.overallDecision) : ''}
@@ -211,45 +551,63 @@
                     </div>
 
                     <div class="meta-grid">
-                        <div class="item"><strong>Hostname</strong><div class="muted">${source.hostname || 'n/a'}</div></div>
-                        <div class="item"><strong>Age Days</strong><div class="muted">${review.ageDays ?? 'n/a'}</div></div>
-                        <div class="item"><strong>Published</strong><div class="muted">${snapshot.publishedAt || 'n/a'}</div></div>
-                        <div class="item"><strong>Modified</strong><div class="muted">${snapshot.modifiedAt || 'n/a'}</div></div>
+                        <div class="item"><strong>Hostname</strong><div class="muted">${escapeHtml(source.hostname || 'n/a')}</div></div>
+                        <div class="item"><strong>Age Days</strong><div class="muted">${escapeHtml(review.ageDays ?? 'n/a')}</div></div>
+                        <div class="item"><strong>Published</strong><div class="muted">${escapeHtml(snapshot.publishedAt || 'n/a')}</div></div>
+                        <div class="item"><strong>Modified</strong><div class="muted">${escapeHtml(snapshot.modifiedAt || 'n/a')}</div></div>
+                        <div class="item"><strong>Category</strong><div class="muted">${escapeHtml(review.recommendedCategory || 'general')}</div></div>
+                        <div class="item"><strong>Duplicate Method</strong><div class="muted">${escapeHtml(review.duplicateMethod || 'heuristic')}</div></div>
                     </div>
 
                     <div class="score-grid">
-                        ${scoreBox('Relevance', review?.scores?.relevance)}
-                        ${scoreBox('Trust', review?.scores?.trust)}
-                        ${scoreBox('Duplication', review?.scores?.duplication)}
-                        ${scoreBox('Actionability', review?.scores?.actionability)}
-                        ${scoreBox('Freshness', review?.freshnessScore)}
+                        ${scoreBox('Relevance', formatMetric(review?.scores?.relevance))}
+                        ${scoreBox('Trust', formatMetric(review?.scores?.trust))}
+                        ${scoreBox('Duplication', formatMetric(review?.scores?.duplication ?? review?.duplicateScore))}
+                        ${scoreBox('Actionability', formatMetric(review?.scores?.actionability))}
+                        ${scoreBox('Freshness', formatMetric(review?.freshnessScore))}
                         ${scoreBox('Chars', snapshot?.cleanTextChars || 0)}
                     </div>
 
                     <h3>Summary</h3>
-                    <div class="muted">${review.summaryLong || review.summaryShort || 'No review yet.'}</div>
+                    <div class="muted">${escapeHtml(review.summaryLong || review.summaryShort || 'No review yet.')}</div>
 
                     <h3>Absorb</h3>
                     <ul class="list-plain">
-                        ${(review.absorbWhat || []).map(item => `<li>${item}</li>`).join('') || '<li>None</li>'}
+                        ${(review.absorbWhat || []).map(item => `<li>${escapeHtml(item)}</li>`).join('') || '<li>None</li>'}
                     </ul>
 
                     <h3>Do Not Absorb</h3>
                     <ul class="list-plain">
-                        ${(review.doNotAbsorbWhat || []).map(item => `<li>${item}</li>`).join('') || '<li>None</li>'}
+                        ${(review.doNotAbsorbWhat || []).map(item => `<li>${escapeHtml(item)}</li>`).join('') || '<li>None</li>'}
                     </ul>
 
                     <h3>Risk Notes</h3>
                     <ul class="list-plain">
-                        ${(review.riskNotes || []).map(item => `<li>${item}</li>`).join('') || '<li>None</li>'}
+                        ${(review.riskNotes || []).map(item => `<li>${escapeHtml(item)}</li>`).join('') || '<li>None</li>'}
                     </ul>
+
+                    <h3>Duplicate Matches</h3>
+                    ${renderDuplicateMatches(duplicateMatches)}
+
+                    <h3>Manual Reviewer Notes</h3>
+                    ${renderManualNotes(manualNotes)}
+
+                    <div class="item">
+                        <strong>Add Manual Note</strong>
+                        <textarea id="detail-note-input" rows="4" placeholder="Add reviewer note for this source"></textarea>
+                        <input id="detail-note-labels" type="text" placeholder="Labels, comma or line separated">
+                        <input id="detail-note-author" type="text" placeholder="Author" value="internal-operator">
+                        <div class="actions">
+                            <button data-action="save-review-note" data-source-id="${escapeHtml(source.id || '')}" type="button">Save Note</button>
+                        </div>
+                    </div>
 
                     <h3>Chunks</h3>
                     ${chunks.slice(0, 8).map(chunk => `
                         <div class="item">
-                            <div><strong>Chunk ${chunk.index}</strong> ${badge(chunk.decision || 'reference_only')}</div>
-                            <div class="muted">${chunk.reason || ''}</div>
-                            <div class="muted">${(chunk.text || '').slice(0, 280)}${(chunk.text || '').length > 280 ? '…' : ''}</div>
+                            <div><strong>Chunk ${escapeHtml(chunk.index)}</strong> ${badge(chunk.decision || 'reference_only')}</div>
+                            <div class="muted">${escapeHtml(chunk.reason || '')}</div>
+                            <div class="muted">${escapeHtml((chunk.text || '').slice(0, 280))}${(chunk.text || '').length > 280 ? '…' : ''}</div>
                         </div>
                     `).join('') || '<div class="muted">No chunks yet.</div>'}
                 </div>
@@ -287,6 +645,35 @@
         async function openSource(id) {
             const result = await request(`/sources/${id}`);
             renderDetail(result);
+        }
+
+        async function loadUserOverlay(uid) {
+            const normalizedUid = String(uid || '').trim();
+            if (!normalizedUid) {
+                throw new Error('User ID is required.');
+            }
+
+            const result = await request(`/user-overlays/${encodeURIComponent(normalizedUid)}`);
+            fillOverlayForm(result.overlay || { userId: normalizedUid, isActive: false });
+            return result;
+        }
+
+        async function saveUserOverlay() {
+            const normalizedUid = String(overlayUserIdInput.value || '').trim();
+            if (!normalizedUid) {
+                throw new Error('User ID is required.');
+            }
+
+            const result = await request(`/user-overlays/${encodeURIComponent(normalizedUid)}`, {
+                method: 'PATCH',
+                body: JSON.stringify({
+                    ...readOverlayPayload(),
+                    updatedBy: 'internal-operator'
+                })
+            });
+
+            fillOverlayForm(result.overlay || { userId: normalizedUid });
+            return result;
         }
 
         document.getElementById('btn-create-source').addEventListener('click', async () => {
@@ -329,11 +716,76 @@
         });
 
         document.getElementById('btn-preview-context').addEventListener('click', async () => {
+            const userId = contextUserIdInput.value.trim() || overlayUserIdInput.value.trim();
+            const categoryHints = splitInputList(contextCategoryHintsInput.value);
+            const tagHints = splitInputList(contextTagHintsInput.value);
+
             try {
-                await request('/context-preview', {
+                const result = await request('/context-preview', {
                     method: 'POST',
-                    body: JSON.stringify({})
+                    body: JSON.stringify({
+                        userId,
+                        categoryHints,
+                        tagHints
+                    })
                 });
+
+                renderContextPreview(result.context || {});
+
+                if (userId && !overlayUserIdInput.value.trim()) {
+                    overlayUserIdInput.value = userId;
+                }
+            } catch (error) {
+                output.textContent = JSON.stringify({ success: false, message: error.message }, null, 2);
+            }
+        });
+
+        document.getElementById('btn-load-overlay').addEventListener('click', async () => {
+            try {
+                const uid = overlayUserIdInput.value.trim() || contextUserIdInput.value.trim();
+                await loadUserOverlay(uid);
+            } catch (error) {
+                output.textContent = JSON.stringify({ success: false, message: error.message }, null, 2);
+            }
+        });
+
+        document.getElementById('btn-save-overlay').addEventListener('click', async () => {
+            try {
+                await saveUserOverlay();
+            } catch (error) {
+                output.textContent = JSON.stringify({ success: false, message: error.message }, null, 2);
+            }
+        });
+
+        detailPanel.addEventListener('click', async (event) => {
+            const button = event.target.closest('button[data-action="save-review-note"]');
+            if (!button) return;
+
+            const sourceId = button.getAttribute('data-source-id') || activeDetailSourceId;
+            const note = document.getElementById('detail-note-input')?.value.trim() || '';
+            const labels = splitInputList(document.getElementById('detail-note-labels')?.value || '');
+            const author = document.getElementById('detail-note-author')?.value.trim() || 'internal-operator';
+
+            if (!sourceId || !note) {
+                output.textContent = JSON.stringify({
+                    success: false,
+                    message: 'Source ID and note are required.'
+                }, null, 2);
+                return;
+            }
+
+            try {
+                await request(`/sources/${encodeURIComponent(sourceId)}/notes`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        note,
+                        labels,
+                        author,
+                        noteType: 'review'
+                    })
+                });
+
+                await openSource(sourceId);
             } catch (error) {
                 output.textContent = JSON.stringify({ success: false, message: error.message }, null, 2);
             }
