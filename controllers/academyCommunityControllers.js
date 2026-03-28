@@ -159,6 +159,10 @@ exports.getFeed = async (req, res) => {
                     ) THEN 1 ELSE 0
                 END AS liked_by_me,
                 CASE
+                    WHEN p.user_id = ?
+                    THEN 1 ELSE 0
+                END AS owned_by_me,
+                CASE
                     WHEN EXISTS(
                         SELECT 1
                         FROM user_follows f
@@ -189,7 +193,7 @@ exports.getFeed = async (req, res) => {
             ORDER BY p.is_pinned DESC, p.id DESC
             LIMIT ? OFFSET ?
             `,
-            [viewerUserId, viewerUserId, viewerUserId, viewerUserId, viewerUserId, limit, offset]
+            [viewerUserId, viewerUserId, viewerUserId, viewerUserId, viewerUserId, viewerUserId, limit, offset]
         );
 
         return res.json({
@@ -250,6 +254,7 @@ exports.createPost = async (req, res) => {
                 0 AS like_count,
                 0 AS comment_count,
                 0 AS liked_by_me,
+                1 AS owned_by_me,
                 0 AS following_author,
                 0 AS is_friend,
                 0 AS outgoing_friend_request_pending
@@ -621,6 +626,65 @@ exports.respondToFriendRequest = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: 'Failed to respond to friend request.'
+        });
+    }
+};
+exports.deletePost = async (req, res) => {
+    try {
+        const db = req.app.locals.db;
+        const userId = await ensureLocalUserFoundation(db, req.user);
+        const postId = toInt(req.params?.id, 0);
+
+        if (!postId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid post id.'
+            });
+        }
+
+        const post = await db.get(
+            `
+            SELECT id, user_id, is_deleted
+            FROM academy_feed_posts
+            WHERE id = ?
+            LIMIT 1
+            `,
+            [postId]
+        );
+
+        if (!post || Number(post.is_deleted || 0) === 1) {
+            return res.status(404).json({
+                success: false,
+                message: 'Post not found.'
+            });
+        }
+
+        if (Number(post.user_id || 0) !== Number(userId || 0)) {
+            return res.status(403).json({
+                success: false,
+                message: 'You can only delete your own posts.'
+            });
+        }
+
+        await db.run(
+            `
+            UPDATE academy_feed_posts
+            SET is_deleted = 1,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+            `,
+            [postId]
+        );
+
+        return res.json({
+            success: true,
+            message: 'Post deleted successfully.'
+        });
+    } catch (error) {
+        console.error('academyCommunity.deletePost error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to delete post.'
         });
     }
 };

@@ -301,8 +301,10 @@ function showToast(message, type = "success") {
     const toast = document.getElementById('toast-notification');
     const toastMsg = document.getElementById('toast-message');
     const toastIcon = document.getElementById('toast-icon');
-    if(!toast) return;
+    if (!toast) return;
+
     toastMsg.innerText = message;
+
     if (type === "error") {
         toast.classList.add('error-toast');
         toastIcon.innerText = "⚠️";
@@ -310,8 +312,15 @@ function showToast(message, type = "success") {
         toast.classList.remove('error-toast');
         toastIcon.innerText = "🎉";
     }
+
+    toast.classList.remove('show');
+    void toast.offsetWidth;
     toast.classList.add('show');
-    setTimeout(() => { toast.classList.remove('show'); }, 3500);
+
+    clearTimeout(window.__yhToastTimer);
+    window.__yhToastTimer = setTimeout(() => {
+        toast.classList.remove('show');
+    }, 3500);
 }
 
 function updateUserProfile(newName, newAvatarData) {
@@ -324,10 +333,21 @@ function updateUserProfile(newName, newAvatarData) {
         elsInit.forEach(el => { if(el && !newAvatarData) { el.innerText = initial; el.style.backgroundImage = 'none'; } });
     }
     if(newAvatarData) {
-        const elsAvatar = [document.getElementById('top-nav-initial'), document.getElementById('right-sidebar-initial'), document.getElementById('stage-user-initial')];
+        const elsAvatar = [
+            document.getElementById('top-nav-initial'),
+            document.getElementById('right-sidebar-initial'),
+            document.getElementById('stage-user-initial'),
+            document.getElementById('academy-feed-composer-avatar')
+        ];
         elsAvatar.forEach(el => {
             if(el) { el.innerText = ''; el.style.backgroundImage = `url(${newAvatarData})`; el.style.backgroundSize = 'cover'; el.style.backgroundPosition = 'center'; }
         });
+    } else if (newName) {
+        const composerAvatar = document.getElementById('academy-feed-composer-avatar');
+        if (composerAvatar) {
+            composerAvatar.innerText = newName.charAt(0).toUpperCase();
+            composerAvatar.style.backgroundImage = 'none';
+        }
     }
 }
 
@@ -355,7 +375,26 @@ function sendSystemNotification(title, text, avatarStr, color, target) {
         bellBadge.parentElement.style.transform = 'scale(1.2)'; setTimeout(() => { bellBadge.parentElement.style.transform = 'scale(1)'; }, 200);
     }
 }
+window.handleAcademyLaunchClick = function(event) {
+    if (event) {
+        event.preventDefault?.();
+        event.stopPropagation?.();
+    }
 
+    const hasAcademyAccess = localStorage.getItem('yh_academy_access') === 'true';
+
+    if (hasAcademyAccess && typeof window.enterAcademyWorld === 'function') {
+        window.enterAcademyWorld('missions');
+        return false;
+    }
+
+    if (typeof window.openAcademyLauncher === 'function') {
+        window.openAcademyLauncher();
+        return false;
+    }
+
+    return false;
+};
 // ==========================================
 // MAIN DASHBOARD LOGIC (ON LOAD)
 // ==========================================
@@ -521,6 +560,15 @@ function bindUniverseSwipe() {
     let startY = 0;
     let isPointerDown = false;
 
+    const isInteractiveTarget = (target) => {
+        const element = target?.nodeType === 1 ? target : target?.parentElement;
+        if (!element || typeof element.closest !== 'function') return false;
+
+        return !!element.closest(
+            '#btn-open-academy-apply, button, a, input, textarea, select, label, [role="button"]'
+        );
+    };
+
     const onStart = (event) => {
         const point = event.touches ? event.touches[0] : event;
         startX = point.clientX;
@@ -531,6 +579,8 @@ function bindUniverseSwipe() {
     const onEnd = (event) => {
         if (!isPointerDown) return;
         isPointerDown = false;
+
+        if (isInteractiveTarget(event.target)) return;
 
         const point = event.changedTouches ? event.changedTouches[0] : event;
         const deltaX = point.clientX - startX;
@@ -574,6 +624,31 @@ document.querySelectorAll('.yh-universe-dot').forEach((dot) => {
     });
 });
 
+document.querySelectorAll('.yh-universe-slide .portal-card').forEach((card) => {
+    card.addEventListener('click', (event) => {
+        if (event.target.closest('button, a, input, textarea, select, label, [role="button"]')) return;
+
+        const slide = card.closest('.yh-universe-slide');
+        if (!slide || !slide.classList.contains('is-active')) return;
+
+        const division = (slide.getAttribute('data-division') || '').trim().toLowerCase();
+
+        if (division === 'academy') {
+            handleAcademyLaunchClick(event);
+            return;
+        }
+
+        if (division === 'plazas') {
+            openDivisionPreview('plazas');
+            return;
+        }
+
+        if (division === 'federation') {
+            openDivisionPreview('federation');
+        }
+    });
+});
+
 document.getElementById('btn-open-plazas-preview')?.addEventListener('click', () => {
     openDivisionPreview('plazas');
 });
@@ -596,6 +671,7 @@ function openRoom(type, element) {
     }
 
     const views = {
+        'academy-feed-view': document.getElementById('academy-feed-view'),
         'academy-chat': document.getElementById('academy-chat'),
         'center-stage-view': document.getElementById('center-stage-view'),
         'announcements-view': document.getElementById('announcements-view'),
@@ -778,9 +854,100 @@ document.getElementById('nav-voice')?.addEventListener('click', function() {
     openRoom('voice-lobby', this);
 });
 
-document.getElementById('nav-missions')?.addEventListener('click', function() {
-    setAcademySidebarActive('nav-missions');
-    loadAcademyHome();
+document.getElementById('nav-profile')?.addEventListener('click', function(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    openAcademyProfileView();
+});
+
+document.getElementById('nav-missions')?.addEventListener('click', function(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    openAcademyRoadmapView();
+});
+function safeParseJson(value, fallback = null) {
+    if (value === null || value === undefined) return fallback;
+    if (typeof value !== 'string') return fallback;
+
+    const trimmed = value.trim();
+    if (!trimmed) return fallback;
+
+    try {
+        return JSON.parse(trimmed);
+    } catch (_) {
+        return fallback;
+    }
+}
+const academyMobileNavToggle = document.getElementById('academy-mobile-nav-toggle');
+const academyMobileNavMenu = document.getElementById('academy-mobile-nav-menu');
+
+function closeAcademyMobileMenu() {
+    if (!academyMobileNavMenu || !academyMobileNavToggle) return;
+    academyMobileNavMenu.classList.add('hidden-step');
+    academyMobileNavToggle.setAttribute('aria-expanded', 'false');
+}
+
+function toggleAcademyMobileMenu() {
+    if (!academyMobileNavMenu || !academyMobileNavToggle) return;
+    const isHidden = academyMobileNavMenu.classList.contains('hidden-step');
+
+    if (isHidden) {
+        academyMobileNavMenu.classList.remove('hidden-step');
+        academyMobileNavToggle.setAttribute('aria-expanded', 'true');
+        return;
+    }
+
+    closeAcademyMobileMenu();
+}
+
+academyMobileNavToggle?.addEventListener('click', function (event) {
+    event.stopPropagation();
+    toggleAcademyMobileMenu();
+});
+
+document.querySelectorAll('.academy-mobile-nav-item').forEach((button) => {
+    button.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const targetId = String(button.getAttribute('data-academy-target') || '').trim();
+
+        if (targetId === 'nav-chat') {
+            openAcademyFeedView();
+        } else if (targetId === 'nav-missions') {
+            openAcademyRoadmapView();
+        } else if (targetId === 'nav-voice') {
+            setAcademySidebarActive('nav-voice');
+            openRoom('voice-lobby', document.getElementById('nav-voice'));
+        } else if (targetId === 'nav-profile') {
+            openAcademyProfileView();
+        }
+        requestAnimationFrame(() => {
+            closeAcademyMobileMenu();
+        });
+    });
+});
+document.addEventListener('click', (event) => {
+    if (!academyMobileNavMenu || !academyMobileNavToggle) return;
+
+    const clickedInsideMenu = academyMobileNavMenu.contains(event.target);
+    const clickedToggle = academyMobileNavToggle.contains(event.target);
+
+    if (!clickedInsideMenu && !clickedToggle) {
+        closeAcademyMobileMenu();
+    }
+});
+
+window.addEventListener('resize', () => {
+    if (window.innerWidth > 768) {
+        closeAcademyMobileMenu();
+    }
+});
+
+document.querySelector('.profile-mini')?.addEventListener('click', () => {
+    if (document.body?.getAttribute('data-yh-view') === 'academy') {
+        openAcademyProfileView();
+    }
 });
 
     // ==========================================
@@ -3289,25 +3456,56 @@ if(btnMessage) {
 }
 
     // --- MISSIONS & BLUEPRINT ---
-    function checkDailyReset() {
-        const today = new Date().toDateString();
-        let dailyStats = JSON.parse(localStorage.getItem('yh_daily_stats')) || { date: today, completed: 0, total: 0 };
-        if (dailyStats.date !== today) { dailyStats = { date: today, completed: 0, total: JSON.parse(localStorage.getItem('yh_custom_missions') || '[]').length }; localStorage.setItem('yh_daily_stats', JSON.stringify(dailyStats)); }
-        return dailyStats;
+function checkDailyReset() {
+    const today = new Date().toDateString();
+
+    let dailyStats = safeParseJson(localStorage.getItem('yh_daily_stats'), null);
+    if (!dailyStats || typeof dailyStats !== 'object') {
+        dailyStats = { date: today, completed: 0, total: 0 };
     }
+
+    const customMissions = safeParseJson(localStorage.getItem('yh_custom_missions'), []);
+    const missionsList = Array.isArray(customMissions) ? customMissions : [];
+
+    if (dailyStats.date !== today) {
+        dailyStats = {
+            date: today,
+            completed: 0,
+            total: missionsList.length
+        };
+        localStorage.setItem('yh_daily_stats', JSON.stringify(dailyStats));
+    }
+
+    return dailyStats;
+}
 
     function loadBlueprintProgress() {
         const container = document.getElementById('blueprint-list');
         if(!container) return;
         container.innerHTML = '';
         checkDailyReset(); 
-        const customMissions = JSON.parse(localStorage.getItem('yh_custom_missions')) || [];
+        const customMissionsRaw = safeParseJson(localStorage.getItem('yh_custom_missions'), []);
+const customMissions = Array.isArray(customMissionsRaw) ? customMissionsRaw : [];
         if(customMissions.length === 0) container.innerHTML = `<div style="text-align: center; font-size: 0.75rem; color: var(--text-muted); padding: 10px;">No pending tasks. Add one above!</div>`;
         customMissions.forEach((m, idx) => {
             const div = document.createElement('div'); div.className = `step-item fade-in`; div.setAttribute('data-step', m.id); div.title = m.title;
             div.innerHTML = `<div class="sidebar-icon"><div class="step-circle">${idx + 1}</div></div><span class="sidebar-text" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${m.title}</span><button class="delete-task-btn" title="Delete Task">✖</button>`;
             div.addEventListener('click', (e) => { if(e.target.classList.contains('delete-task-btn')) return; pendingTaskToComplete = m.id; document.getElementById('task-confirm-modal').classList.remove('hidden-step'); });
-            div.querySelector('.delete-task-btn').addEventListener('click', (e) => { e.stopPropagation(); let missions = JSON.parse(localStorage.getItem('yh_custom_missions')) || []; missions = missions.filter(task => task.id !== m.id); localStorage.setItem('yh_custom_missions', JSON.stringify(missions)); let stats = checkDailyReset(); stats.total = Math.max(0, stats.total - 1); localStorage.setItem('yh_daily_stats', JSON.stringify(stats)); loadBlueprintProgress(); });
+            div.querySelector('.delete-task-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+
+    const missionsRaw = safeParseJson(localStorage.getItem('yh_custom_missions'), []);
+    let missions = Array.isArray(missionsRaw) ? missionsRaw : [];
+    missions = missions.filter(task => task.id !== m.id);
+
+    localStorage.setItem('yh_custom_missions', JSON.stringify(missions));
+
+    let stats = checkDailyReset();
+    stats.total = Math.max(0, stats.total - 1);
+    localStorage.setItem('yh_daily_stats', JSON.stringify(stats));
+
+    loadBlueprintProgress();
+});
             container.appendChild(div);
         });
         let stats = checkDailyReset(); const percentage = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
@@ -3937,6 +4135,7 @@ function renderAcademyHome(homeData = null) {
     setAcademySidebarActive('nav-missions');
 
     const views = {
+        'academy-feed-view': document.getElementById('academy-feed-view'),
         'academy-chat': document.getElementById('academy-chat'),
         'center-stage-view': document.getElementById('center-stage-view'),
         'announcements-view': document.getElementById('announcements-view'),
@@ -4192,6 +4391,7 @@ function academyFeedTimeLabel(value) {
 function hideAcademyViewsForFeed() {
     [
         'academy-chat',
+        'academy-profile-view',
         'center-stage-view',
         'announcements-view',
         'voice-lobby-view',
@@ -4219,6 +4419,102 @@ function openAcademyFeedView(forceReload = false) {
     currentRoomMeta = null;
 
     loadAcademyFeed(forceReload);
+}
+
+function openAcademyRoadmapView(forceFresh = false) {
+    hideAcademyViewsForFeed();
+
+    const academyChat = document.getElementById('academy-chat');
+    if (academyChat) {
+        academyChat.classList.remove('hidden-step');
+        academyChat.classList.remove('fade-in');
+        void academyChat.offsetWidth;
+        academyChat.classList.add('fade-in');
+    }
+
+    setAcademySidebarActive('nav-missions');
+
+    currentRoom = null;
+    currentRoomId = null;
+    currentRoomMeta = null;
+
+    loadAcademyHome(forceFresh);
+}
+
+function renderAcademyProfileView() {
+    const cachedHome = readAcademyHomeCache() || {};
+    const displayName = String(localStorage.getItem('yh_user_name') || 'Hustler').trim() || 'Hustler';
+    const hiddenPosts = JSON.parse(localStorage.getItem('yh_academy_hidden_posts') || '[]');
+
+    const readinessValue =
+        cachedHome?.roadmap?.readinessScore ??
+        cachedHome?.readinessScore ??
+        cachedHome?.summary?.readinessScore ??
+        '--';
+
+    const roadmapStatus =
+        cachedHome?.roadmap?.status ||
+        cachedHome?.roadmapStatus ||
+        'Not loaded';
+
+    const progressText =
+        document.getElementById('progress-text')?.innerText ||
+        '0% Daily Progress';
+
+    const cachedFeed = JSON.parse(localStorage.getItem('yh_academy_feed_cache') || '{}');
+    const cachedPosts = Array.isArray(cachedFeed?.posts) ? cachedFeed.posts : [];
+    const myPosts = cachedPosts.filter((post) => {
+        const postName =
+            String(post?.display_name || post?.fullName || post?.username || '').trim().toLowerCase();
+        return postName === displayName.toLowerCase();
+    });
+
+    const profileAvatar = document.getElementById('academy-profile-avatar');
+    const profileName = document.getElementById('academy-profile-name');
+    const profileUsername = document.getElementById('academy-profile-username');
+    const profileRole = document.getElementById('academy-profile-role');
+    const profileBio = document.getElementById('academy-profile-bio');
+    const profileReadiness = document.getElementById('academy-profile-readiness');
+    const profileProgress = document.getElementById('academy-profile-progress');
+    const profileRoadmap = document.getElementById('academy-profile-roadmap');
+    const profilePostCount = document.getElementById('academy-profile-post-count');
+    const profileHiddenCount = document.getElementById('academy-profile-hidden-count');
+    const profileStatus = document.getElementById('academy-profile-status');
+
+    if (profileAvatar) {
+        profileAvatar.innerText = displayName.charAt(0).toUpperCase();
+        profileAvatar.style.backgroundImage = 'none';
+    }
+
+    if (profileName) profileName.innerText = displayName;
+    if (profileUsername) profileUsername.innerText = `@${displayName.toLowerCase().replace(/\s+/g, '')}`;
+    if (profileRole) profileRole.innerText = 'Academy Member';
+    if (profileBio) profileBio.innerText = 'Focused on execution, consistency, and long-term growth inside YH Academy.';
+    if (profileReadiness) profileReadiness.innerText = String(readinessValue);
+    if (profileProgress) profileProgress.innerText = progressText.replace(' Daily Progress', '');
+    if (profileRoadmap) profileRoadmap.innerText = String(roadmapStatus);
+    if (profilePostCount) profilePostCount.innerText = String(myPosts.length);
+    if (profileHiddenCount) profileHiddenCount.innerText = String(hiddenPosts.length);
+    if (profileStatus) profileStatus.innerText = 'Active';
+}
+
+function openAcademyProfileView() {
+    hideAcademyViewsForFeed();
+    setAcademySidebarActive('nav-profile');
+
+    const profileView = document.getElementById('academy-profile-view');
+    if (profileView) {
+        profileView.classList.remove('hidden-step');
+        profileView.classList.remove('fade-in');
+        void profileView.offsetWidth;
+        profileView.classList.add('fade-in');
+    }
+
+    currentRoom = null;
+    currentRoomId = null;
+    currentRoomMeta = null;
+
+    renderAcademyProfileView();
 }
 
 async function loadAcademyFeed(forceReload = false) {
@@ -4276,78 +4572,90 @@ function renderAcademyFeed(posts = []) {
             ? `<img src="${academyFeedEscapeHtml(post.image_url)}" alt="Post image" style="width:100%;max-width:100%;border-radius:14px;margin-top:12px;border:1px solid rgba(255,255,255,0.06);">`
             : '';
 
-        const meId = String(localStorage.getItem('yh_user_id') || '');
+
+        const isOwner = Boolean(Number(post.owned_by_me || 0));
+        const isSharedPost = /Shared from /i.test(String(post.body || ''));
+        const hiddenPosts = JSON.parse(localStorage.getItem('yh_academy_hidden_posts') || '[]');
+
+        if (hiddenPosts.includes(Number(post.id))) {
+            return '';
+        }
 
         return `
-            <article class="academy-feed-card" data-post-id="${post.id}" data-author-id="${post.user_id}">
-                <div style="display:flex;align-items:flex-start;gap:12px;">
-                    <div class="profile-avatar-mini" style="flex-shrink:0;">
+            <article class="academy-feed-card academy-feed-post-compact" data-post-id="${post.id}" data-author-id="${post.user_id}">
+                <div style="display:flex;align-items:flex-start;gap:10px;">
+                    <div class="profile-avatar-mini" style="flex-shrink:0;width:36px;height:36px;font-size:0.9rem;">
                         ${(displayName || 'Y').charAt(0).toUpperCase()}
                     </div>
-                    <div style="min-width:0;flex:1;">
-                        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
-                            <div>
-                                <div style="font-weight:700;color:#fff;">${academyFeedEscapeHtml(displayName)}</div>
-                                <div style="font-size:0.8rem;color:var(--text-muted);">${academyFeedEscapeHtml(roleLabel)} • ${academyFeedTimeLabel(post.created_at)}</div>
-                            </div>
-                            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                                <button
-                                    type="button"
-                                    class="btn-secondary academy-feed-follow-btn"
-                                    data-target-user-id="${post.user_id}"
-                                    style="width:auto;padding:8px 12px;"
-                                >${Number(post.following_author || 0) ? 'Following' : 'Follow'}</button>
 
+                    <div style="min-width:0;flex:1;">
+                        <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">
+                            <div>
+                                <div style="font-weight:700;color:#fff;line-height:1.15;">${academyFeedEscapeHtml(displayName)}</div>
+                                <div style="font-size:0.76rem;color:var(--text-muted);line-height:1.2;margin-top:2px;">${academyFeedEscapeHtml(roleLabel)} • ${academyFeedTimeLabel(post.created_at)}</div>
+                            </div>
+
+                            <div style="position:relative;">
                                 <button
                                     type="button"
-                                    class="btn-secondary academy-feed-friend-btn"
-                                    data-target-user-id="${post.user_id}"
-                                    style="width:auto;padding:8px 12px;"
-                                >${
-                                    Number(post.is_friend || 0)
-                                        ? 'Friends'
-                                        : Number(post.outgoing_friend_request_pending || 0)
-                                        ? 'Pending'
-                                        : 'Add Friend'
-                                }</button>
+                                    class="btn-secondary academy-feed-post-menu-btn"
+                                    data-post-id="${post.id}"
+                                    style="width:auto;padding:4px 10px;min-height:auto;border-radius:999px;"
+                                >•••</button>
+
+                                <div class="academy-feed-post-menu hidden-step" id="academy-feed-post-menu-${post.id}" style="position:absolute;top:calc(100% + 6px);right:0;min-width:160px;background:#0f172a;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:8px;display:grid;gap:6px;z-index:20;">
+                                    <button type="button" class="btn-secondary academy-feed-hide-btn" data-post-id="${post.id}" style="width:100%;padding:8px 10px;">Hide Post</button>
+                                    ${
+                                        isOwner
+                                            ? `<button type="button" class="btn-secondary academy-feed-delete-btn" data-post-id="${post.id}" style="width:100%;padding:8px 10px;">${isSharedPost ? 'Delete Shared Post' : 'Delete Post'}</button>`
+                                            : ``
+                                    }
+                                </div>
                             </div>
                         </div>
 
-                        <div style="margin-top:12px;color:#e5e7eb;line-height:1.65;">${bodyHtml}</div>
+                        <div style="margin-top:8px;color:#e5e7eb;line-height:1.45;font-size:0.92rem;">${bodyHtml}</div>
                         ${imageHtml}
 
-                        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px;">
+                        <div class="academy-feed-post-actions-grid" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:center;gap:6px;margin-top:10px;">
                             <button
                                 type="button"
                                 class="btn-secondary academy-feed-like-btn"
                                 data-post-id="${post.id}"
-                                style="width:auto;padding:8px 12px;"
-                            >${Number(post.liked_by_me || 0) ? '💙 Liked' : '🤍 Like'} (${Number(post.like_count || 0)})</button>
+                                style="width:100%;padding:7px 8px;min-height:40px;"
+                            >🤍 Like (${Number(post.like_count || 0)})</button>
 
                             <button
                                 type="button"
                                 class="btn-secondary academy-feed-comments-toggle-btn"
                                 data-post-id="${post.id}"
-                                style="width:auto;padding:8px 12px;"
-                            >💬 Comments (${Number(post.comment_count || 0)})</button>
+                                style="width:100%;padding:7px 8px;min-height:40px;"
+                            >💬 Comment (${Number(post.comment_count || 0)})</button>
+
+                            <button
+                                type="button"
+                                class="btn-secondary academy-feed-share-btn"
+                                data-post-id="${post.id}"
+                                style="width:100%;padding:7px 8px;min-height:40px;"
+                            >↗ Share</button>
                         </div>
 
-                        <div class="academy-feed-comments-wrap hidden-step" id="academy-feed-comments-${post.id}" style="margin-top:14px;">
-                            <div class="academy-feed-comments-list" id="academy-feed-comments-list-${post.id}" style="display:grid;gap:10px;margin-bottom:12px;"></div>
+                        <div class="academy-feed-comments-wrap hidden-step" id="academy-feed-comments-${post.id}" style="margin-top:10px;">
+                            <div class="academy-feed-comments-list" id="academy-feed-comments-list-${post.id}" style="display:grid;gap:8px;margin-bottom:10px;"></div>
                             <div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;">
                                 <textarea
                                     id="academy-feed-comment-input-${post.id}"
                                     class="chat-text-input"
                                     rows="2"
-                                    placeholder="Write a comment..."
-                                    style="flex:1;min-width:220px;border-radius:12px;padding:12px;"
+                                    placeholder="Write a comment."
+                                    style="flex:1;min-width:220px;border-radius:12px;padding:10px;"
                                 ></textarea>
                                 <button
                                     type="button"
-                                    class="btn-primary academy-feed-comment-submit-btn"
+                                    class="btn-secondary academy-feed-comment-submit-btn"
                                     data-post-id="${post.id}"
-                                    style="width:auto;padding:10px 14px;"
-                                >Comment</button>
+                                    style="width:100%;padding:7px 8px;min-height:40px;"
+                                >💬 Comment</button>
                             </div>
                         </div>
                     </div>
@@ -4356,15 +4664,136 @@ function renderAcademyFeed(posts = []) {
         `;
     }).join('');
 }
+function buildAcademyFeedSharePayload(post, caption = '') {
+    const displayName =
+        post?.display_name ||
+        post?.fullName ||
+        post?.username ||
+        'Academy Member';
 
+    const roleLabel = post?.role_label || 'Academy Member';
+    const originalBody = String(post?.body || '').trim();
+    const cleanCaption = String(caption || '').trim();
+
+    const bodyParts = [];
+
+    if (cleanCaption) bodyParts.push(cleanCaption);
+    bodyParts.push(`Shared from ${displayName} (${roleLabel})`);
+    if (originalBody) bodyParts.push(`“${originalBody}”`);
+
+    return {
+        body: bodyParts.join(`\n\n`),
+        imageUrl: String(post?.image_url || '').trim()
+    };
+}
+
+let academyFeedDeleteTargetPostId = 0;
+
+function academyFeedCloseShareModal() {
+    const modal = document.getElementById('academy-feed-share-modal');
+    const captionInput = document.getElementById('academy-feed-share-caption');
+    const preview = document.getElementById('academy-feed-share-preview');
+
+    academyFeedShareTargetPost = null;
+
+    if (captionInput) captionInput.value = '';
+    if (preview) preview.innerHTML = '';
+    if (modal) modal.classList.add('hidden-step');
+    document.body?.classList.remove('academy-feed-share-open');
+}
+
+function academyFeedOpenDeleteModal(postId) {
+    academyFeedDeleteTargetPostId = Number(postId || 0);
+    document.getElementById('academy-feed-delete-modal')?.classList.remove('hidden-step');
+}
+
+function academyFeedCloseDeleteModal() {
+    academyFeedDeleteTargetPostId = 0;
+    document.getElementById('academy-feed-delete-modal')?.classList.add('hidden-step');
+}
+
+function academyFeedOpenShareModal(postId) {
+    const cacheRaw = localStorage.getItem('yh_academy_feed_cache');
+    let cachedPosts = [];
+
+    if (cacheRaw) {
+        try {
+            const parsed = JSON.parse(cacheRaw);
+            cachedPosts = Array.isArray(parsed?.posts) ? parsed.posts : [];
+        } catch (error) {
+            cachedPosts = [];
+        }
+    }
+
+    const targetPost = cachedPosts.find((post) => Number(post?.id) === Number(postId));
+    if (!targetPost) {
+        showToast('Post not found for sharing.', 'error');
+        return;
+    }
+
+    academyFeedShareTargetPost = targetPost;
+
+    const modal = document.getElementById('academy-feed-share-modal');
+    const preview = document.getElementById('academy-feed-share-preview');
+
+    if (preview) {
+        const author = academyFeedEscapeHtml(
+            targetPost.display_name ||
+            targetPost.fullName ||
+            targetPost.username ||
+            'Academy Member'
+        );
+        const body = academyFeedEscapeHtml(String(targetPost.body || '')).replace(/\n/g, '<br>');
+        const image = targetPost.image_url
+            ? `<img src="${academyFeedEscapeHtml(targetPost.image_url)}" alt="Shared post image" class="academy-feed-share-preview-image">`
+            : '';
+
+        preview.innerHTML = `
+            <div class="academy-feed-share-preview-author">${author}</div>
+            <div class="academy-feed-share-preview-body">${body}</div>
+            ${image}
+        `;
+    }
+
+    modal?.classList.remove('hidden-step');
+    document.body?.classList.add('academy-feed-share-open');
+    document.getElementById('academy-feed-share-caption')?.focus();
+}
+
+async function academyFeedSubmitShare() {
+    if (!academyFeedShareTargetPost) {
+        showToast('No post selected for sharing.', 'error');
+        return;
+    }
+
+    const captionInput = document.getElementById('academy-feed-share-caption');
+    const caption = String(captionInput?.value || '').trim();
+    const payload = buildAcademyFeedSharePayload(academyFeedShareTargetPost, caption);
+
+    try {
+        await academyAuthedFetch('/api/academy/feed/posts', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+
+        academyFeedCloseShareModal();
+        showToast('Post shared to community.', 'success');
+        loadAcademyFeed(true);
+    } catch (error) {
+        showToast(error.message || 'Failed to share post.', 'error');
+    }
+}
 async function academyFeedSubmitPost() {
     const input = document.getElementById('academy-feed-composer-input');
-    const imageInput = document.getElementById('academy-feed-image-url');
+    const imageFileInput = document.getElementById('academy-feed-image-file');
+    const imageDataInput = document.getElementById('academy-feed-image-data');
+    const previewWrap = document.getElementById('academy-feed-image-preview-wrap');
+    const previewImg = document.getElementById('academy-feed-image-preview');
 
     if (!input) return;
 
     const body = String(input.value || '').trim();
-    const imageUrl = String(imageInput?.value || '').trim();
+    const imageUrl = String(imageDataInput?.value || '').trim();
 
     if (!body) {
         showToast('Write something before posting.', 'error');
@@ -4380,8 +4809,7 @@ async function academyFeedSubmitPost() {
             })
         });
 
-        input.value = '';
-        if (imageInput) imageInput.value = '';
+        resetAcademyFeedComposer();
         showToast('Posted to YHA Community.', 'success');
         loadAcademyFeed(true);
     } catch (error) {
@@ -4597,17 +5025,20 @@ function enterAcademyWorld(defaultSection = 'home') {
     syncAcademyShellForViewport();
 
     if (defaultSection === 'community') {
-        document.getElementById('nav-chat')?.click();
+        openAcademyFeedView();
         return;
     }
 
     if (defaultSection === 'voice') {
-        document.getElementById('nav-voice')?.click();
+        setAcademySidebarActive('nav-voice');
+        openRoom('voice-lobby', document.getElementById('nav-voice'));
         return;
     }
 
-    document.getElementById('nav-missions')?.click();
+    openAcademyRoadmapView();
 }
+
+window.enterAcademyWorld = enterAcademyWorld;
 
 window.addEventListener('resize', () => {
     syncAcademyShellForViewport();
@@ -4617,24 +5048,111 @@ window.addEventListener('resize', () => {
     }
 });
 
-// always land on dashboard hub first
-queueMicrotask(() => {
-    showUniverseHub('academy', { animate: false });
-});
-
 document.getElementById('academy-feed-post-btn')?.addEventListener('click', () => {
     academyFeedSubmitPost();
 });
 
-document.getElementById('academy-feed-clear-btn')?.addEventListener('click', () => {
+function resetAcademyFeedComposer() {
     const input = document.getElementById('academy-feed-composer-input');
-    const imageInput = document.getElementById('academy-feed-image-url');
+    const imageFileInput = document.getElementById('academy-feed-image-file');
+    const imageDataInput = document.getElementById('academy-feed-image-data');
+    const previewWrap = document.getElementById('academy-feed-image-preview-wrap');
+    const previewImg = document.getElementById('academy-feed-image-preview');
+
     if (input) input.value = '';
-    if (imageInput) imageInput.value = '';
-});
+    if (imageFileInput) imageFileInput.value = '';
+    if (imageDataInput) imageDataInput.value = '';
+    if (previewImg) previewImg.src = '';
+    if (previewWrap) previewWrap.classList.add('hidden-step');
+}
 
 document.getElementById('academy-feed-refresh-btn')?.addEventListener('click', () => {
     loadAcademyFeed(true);
+});
+
+document.getElementById('academy-feed-upload-btn')?.addEventListener('click', () => {
+    document.getElementById('academy-feed-image-file')?.click();
+});
+
+document.getElementById('academy-feed-image-file')?.addEventListener('change', (event) => {
+    const file = event.target?.files?.[0];
+    const imageDataInput = document.getElementById('academy-feed-image-data');
+    const previewWrap = document.getElementById('academy-feed-image-preview-wrap');
+    const previewImg = document.getElementById('academy-feed-image-preview');
+
+    if (!file) {
+        if (imageDataInput) imageDataInput.value = '';
+        if (previewImg) previewImg.src = '';
+        if (previewWrap) previewWrap.classList.add('hidden-step');
+        return;
+    }
+
+    if (!file.type.startsWith('image/')) {
+        showToast('Please select a valid image file.', 'error');
+        event.target.value = '';
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+        const result = typeof reader.result === 'string' ? reader.result : '';
+        if (imageDataInput) imageDataInput.value = result;
+        if (previewImg) previewImg.src = result;
+        if (previewWrap) previewWrap.classList.remove('hidden-step');
+    };
+    reader.readAsDataURL(file);
+});
+document.getElementById('academy-feed-share-cancel')?.addEventListener('click', () => {
+    document.getElementById('academy-feed-share-modal')?.classList.add('hidden-step');
+});
+
+document.getElementById('academy-feed-share-close')?.addEventListener('click', () => {
+    document.getElementById('academy-feed-share-modal')?.classList.add('hidden-step');
+});
+
+document.getElementById('academy-feed-share-submit')?.addEventListener('click', async () => {
+    const originalPost = window.__academySharePost;
+    if (!originalPost) return;
+
+    const caption = String(document.getElementById('academy-feed-share-caption')?.value || '').trim();
+    const displayName =
+        originalPost.display_name ||
+        originalPost.fullName ||
+        originalPost.username ||
+        'Academy Member';
+
+    const roleLabel = originalPost.role_label || 'Academy Member';
+    const originalBody = String(originalPost.body || '').trim();
+
+    const parts = [];
+    if (caption) parts.push(caption);
+    parts.push(`Shared from ${displayName} (${roleLabel})`);
+    if (originalBody) parts.push(`“${originalBody}”`);
+
+    try {
+        await academyAuthedFetch('/api/academy/feed/posts', {
+            method: 'POST',
+            body: JSON.stringify({
+                body: parts.join('\\n\\n'),
+                imageUrl: String(originalPost.image_url || '').trim()
+            })
+        });
+
+        document.getElementById('academy-feed-share-modal')?.classList.add('hidden-step');
+        showToast('Post shared to community.', 'success');
+        loadAcademyFeed(true);
+    } catch (error) {
+        showToast(error.message || 'Failed to share post.', 'error');
+    }
+});
+document.getElementById('academy-feed-share-close')?.addEventListener('click', academyFeedCloseShareModal);
+document.getElementById('academy-feed-share-cancel')?.addEventListener('click', academyFeedCloseShareModal);
+document.getElementById('academy-feed-share-submit')?.addEventListener('click', academyFeedSubmitShare);
+
+document.getElementById('academy-feed-share-modal')?.addEventListener('click', (event) => {
+    if (event.target?.id === 'academy-feed-share-modal') {
+        academyFeedCloseShareModal();
+    }
 });
 
 document.getElementById('academy-feed-list')?.addEventListener('click', async (event) => {
@@ -4652,27 +5170,70 @@ document.getElementById('academy-feed-list')?.addEventListener('click', async (e
         return;
     }
 
+    const shareBtn = event.target.closest('.academy-feed-share-btn');
+    if (shareBtn) {
+        const postId = Number(shareBtn.getAttribute('data-post-id') || 0);
+        if (!postId) return;
+
+        const postsCache = JSON.parse(localStorage.getItem('yh_academy_feed_cache') || '{}');
+        const posts = Array.isArray(postsCache?.posts) ? postsCache.posts : [];
+        const originalPost = posts.find((post) => Number(post?.id) === postId);
+
+        if (!originalPost) {
+            showToast('Post not found for sharing.', 'error');
+            return;
+        }
+
+        const modal = document.getElementById('academy-feed-share-modal');
+        const captionInput = document.getElementById('academy-feed-share-caption');
+        const preview = document.getElementById('academy-feed-share-preview');
+
+        window.__academySharePost = originalPost;
+
+        if (preview) {
+            preview.innerHTML = `
+                <div style="font-weight:700;color:#fff;">${academyFeedEscapeHtml(originalPost.display_name || originalPost.fullName || originalPost.username || 'Academy Member')}</div>
+                <div style="margin-top:8px;color:#e5e7eb;line-height:1.55;">${academyFeedEscapeHtml(String(originalPost.body || '')).replace(/\n/g, '<br>')}</div>
+            `;
+        }
+
+        if (captionInput) captionInput.value = '';
+        modal?.classList.remove('hidden-step');
+        return;
+    }
+    const menuBtn = event.target.closest('.academy-feed-post-menu-btn');
+    if (menuBtn) {
+        const postId = Number(menuBtn.getAttribute('data-post-id') || 0);
+        const menu = document.getElementById(`academy-feed-post-menu-${postId}`);
+        if (menu) menu.classList.toggle('hidden-step');
+        return;
+    }
+
+    const hideBtn = event.target.closest('.academy-feed-hide-btn');
+    if (hideBtn) {
+        const postId = Number(hideBtn.getAttribute('data-post-id') || 0);
+        const hiddenPosts = JSON.parse(localStorage.getItem('yh_academy_hidden_posts') || '[]');
+        if (!hiddenPosts.includes(postId)) {
+            hiddenPosts.push(postId);
+            localStorage.setItem('yh_academy_hidden_posts', JSON.stringify(hiddenPosts));
+        }
+        showToast('Post hidden from your feed.', 'success');
+        loadAcademyFeed(true);
+        return;
+    }
+
+    const deleteBtn = event.target.closest('.academy-feed-delete-btn');
+    if (deleteBtn) {
+        const postId = Number(deleteBtn.getAttribute('data-post-id') || 0);
+        if (!postId) return;
+
+        academyFeedOpenDeleteModal(postId);
+        return;
+    }
     const commentSubmitBtn = event.target.closest('.academy-feed-comment-submit-btn');
     if (commentSubmitBtn) {
         const postId = Number(commentSubmitBtn.getAttribute('data-post-id') || 0);
         if (postId) academyFeedSubmitComment(postId);
-        return;
-    }
-
-    const followBtn = event.target.closest('.academy-feed-follow-btn');
-    if (followBtn) {
-        const targetUserId = Number(followBtn.getAttribute('data-target-user-id') || 0);
-        if (targetUserId) academyFeedToggleFollow(targetUserId);
-        return;
-    }
-
-    const friendBtn = event.target.closest('.academy-feed-friend-btn');
-    if (friendBtn) {
-        const label = String(friendBtn.textContent || '').trim().toLowerCase();
-        if (label === 'friends' || label === 'pending') return;
-
-        const targetUserId = Number(friendBtn.getAttribute('data-target-user-id') || 0);
-        if (targetUserId) academyFeedSendFriendRequest(targetUserId);
     }
 });
 const btnOpenApply = document.getElementById('btn-open-academy-apply');
@@ -4705,32 +5266,119 @@ function closeAcademyLauncher() {
     document.body?.classList.remove('academy-launcher-open');
 }
 
-if (btnOpenApply && applyModal) {
-    btnOpenApply.addEventListener('click', () => {
-        const hasAcademyAccess = localStorage.getItem('yh_academy_access') === 'true';
+window.openAcademyLauncher = openAcademyLauncher;
+window.closeAcademyLauncher = closeAcademyLauncher;
 
-        if (hasAcademyAccess) {
-            enterAcademyWorld('missions');
-            return;
-        }
+let academySuppressClickUntil = 0;
 
-        openAcademyLauncher();
-    });
+function handleAcademyLaunchClick(event) {
+    const eventType = event?.type || '';
+    const now = (typeof performance !== 'undefined' && typeof performance.now === 'function')
+        ? performance.now()
+        : Date.now();
 
-    closeApplyBtn?.addEventListener('click', closeAcademyLauncher);
+    if (eventType === 'click' && now < academySuppressClickUntil) {
+        event?.preventDefault?.();
+        event?.stopPropagation?.();
+        return false;
+    }
 
-    applyModal.addEventListener('click', (event) => {
-        if (event.target === applyModal) {
-            closeAcademyLauncher();
-        }
-    });
+    if (eventType === 'touchend' || eventType === 'pointerup') {
+        academySuppressClickUntil = now + 700;
+    }
 
-    document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && !applyModal.classList.contains('hidden-step')) {
-            closeAcademyLauncher();
-        }
-    });
+    if (event) {
+        event.preventDefault?.();
+        event.stopPropagation?.();
+    }
+
+    const hasAcademyAccess = localStorage.getItem('yh_academy_access') === 'true';
+
+    if (hasAcademyAccess) {
+        enterAcademyWorld('missions');
+        return false;
+    }
+
+    openAcademyLauncher();
+    return false;
 }
+
+window.handleAcademyLaunchClick = handleAcademyLaunchClick;
+
+let academyLaunchLock = false;
+
+function runAcademyLaunch(event) {
+    if (event) {
+        event.preventDefault?.();
+        event.stopPropagation?.();
+    }
+
+    if (academyLaunchLock) return false;
+    academyLaunchLock = true;
+
+    const result = handleAcademyLaunchClick(event);
+
+    requestAnimationFrame(() => {
+        academyLaunchLock = false;
+    });
+
+    return result;
+}
+
+if (btnOpenApply) {
+    btnOpenApply.setAttribute('type', 'button');
+
+    if (!btnOpenApply.dataset.launchBound) {
+        btnOpenApply.dataset.launchBound = 'true';
+        btnOpenApply.addEventListener('touchend', runAcademyLaunch, { passive: false });
+        btnOpenApply.addEventListener('click', runAcademyLaunch);
+    }
+}
+
+closeApplyBtn?.addEventListener('click', closeAcademyLauncher);
+
+document.getElementById('academy-feed-delete-cancel-btn')?.addEventListener('click', academyFeedCloseDeleteModal);
+
+document.getElementById('academy-feed-delete-confirm-btn')?.addEventListener('click', async () => {
+    const postId = Number(academyFeedDeleteTargetPostId || 0);
+    if (!postId) return;
+
+    try {
+        await academyAuthedFetch(`/api/academy/feed/posts/${postId}`, {
+            method: 'DELETE'
+        });
+
+        academyFeedCloseDeleteModal();
+        showToast('Post deleted successfully.', 'success');
+        loadAcademyFeed(true);
+    } catch (error) {
+        academyFeedCloseDeleteModal();
+        showToast(error.message || 'Delete endpoint is not wired yet.', 'error');
+    }
+});
+
+applyModal?.addEventListener('click', (event) => {
+    if (event.target === applyModal) {
+        closeAcademyLauncher();
+    }
+});
+
+document.getElementById('academy-feed-delete-modal')?.addEventListener('click', (event) => {
+    if (event.target?.id === 'academy-feed-delete-modal') {
+        academyFeedCloseDeleteModal();
+    }
+});
+
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && applyModal && !applyModal.classList.contains('hidden-step')) {
+        closeAcademyLauncher();
+    }
+});
+
+// always land on dashboard hub first
+queueMicrotask(() => {
+    showUniverseHub('academy', { animate: false });
+});
 
 const formApply = document.getElementById('form-academy-apply');
 

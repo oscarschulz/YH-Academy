@@ -75,7 +75,13 @@
                                     <p class="portal-desc">Enter the self-improvement division of YH Universe. Build your roadmap through AI-guided missions, join the community, and step into live voice sessions.</p>
                                 </div>
 
-                                <button id="btn-open-academy-apply" class="btn-primary w-full" style="padding: 14px; font-size: 1rem;">Enter YH Academy ➔</button>
+                <button
+                    type="button"
+                    id="btn-open-academy-apply"
+                    class="btn-primary w-full"
+                    style="padding: 14px; font-size: 1rem;"
+                    onclick="return handleAcademyLaunchClick(event);"
+                >Enter YH Academy ➔</button>
                             </div>
                         </section>
 
@@ -152,22 +158,34 @@
             <p class="academy-sidebar-copy">Switch between roadmap, community, and live voice without leaving the Academy shell.</p>
         </div>
 
-        <ul class="channel-list academy-channel-list">
-            <li class="channel-link" id="nav-missions" title="missions" data-type="missions">
-                <div class="sidebar-icon"><span class="channel-icon">🧠</span></div>
-                <span class="sidebar-text">Roadmap</span>
-            </li>
+            <div class="academy-mobile-nav-drawer" id="academy-mobile-nav-drawer">
+                <button type="button" class="academy-mobile-nav-toggle" id="academy-mobile-nav-toggle" aria-expanded="false" aria-controls="academy-mobile-nav-menu">
+                    ☰ Academy Menu
+                </button>
 
-            <li class="channel-link" id="nav-chat" title="community" data-type="main-chat">
-                <div class="sidebar-icon"><span class="channel-icon">📰</span></div>
-                <span class="sidebar-text">Community Feed</span>
-            </li>
+                <div class="academy-mobile-nav-menu hidden-step" id="academy-mobile-nav-menu">
+                    <button type="button" class="academy-mobile-nav-item" data-academy-target="nav-missions">🧠 Roadmap</button>
+                    <button type="button" class="academy-mobile-nav-item" data-academy-target="nav-chat">📰 Community Feed</button>
+                    <button type="button" class="academy-mobile-nav-item" data-academy-target="nav-voice">🎙️ Voice Lounge</button>
+                </div>
+            </div>
 
-            <li class="channel-link" id="nav-voice" title="voice-lounge" data-type="voice-lobby">
-                <div class="sidebar-icon"><span class="channel-icon">🎙️</span></div>
-                <span class="sidebar-text">Voice Lounge</span>
-            </li>
-        </ul>
+            <ul class="channel-list academy-channel-list">
+                <li class="channel-link" id="nav-missions" title="missions" data-type="missions">
+                    <div class="sidebar-icon"><span class="channel-icon">🧠</span></div>
+                    <span class="sidebar-text">Roadmap</span>
+                </li>
+
+                <li class="channel-link" id="nav-chat" title="community" data-type="main-chat">
+                    <div class="sidebar-icon"><span class="channel-icon">📰</span></div>
+                    <span class="sidebar-text">Community Feed</span>
+                </li>
+
+                <li class="channel-link" id="nav-voice" title="voice-lounge" data-type="voice-lobby">
+                    <div class="sidebar-icon"><span class="channel-icon">🎙️</span></div>
+                    <span class="sidebar-text">Voice Lounge</span>
+                </li>
+            </ul>
 
         <div class="academy-sidebar-progress">
             <div class="academy-sidebar-progress-head">
@@ -198,7 +216,7 @@
                         <span class="hash-big">📰</span>
                         <h3>YHA Community Feed</h3>
                         <div class="header-divider"></div>
-                        <p class="header-topic">Post updates, connect with members, follow, like, comment, and build your Academy circle.</p>
+                        <p class="header-topic">Post updates, connect with members, like, comment, share, and build your Academy circle.</p>
                     </div>
                     <div class="header-right">
                         <button class="btn-secondary" id="academy-feed-refresh-btn" type="button">Refresh Feed</button>
@@ -207,34 +225,45 @@
 
                 <div class="chat-messages hide-scrollbar" style="padding: 16px;">
                     <div class="academy-feed-shell">
-                        <div class="academy-feed-composer-card">
-                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
-                                <div class="profile-avatar-mini" id="academy-feed-composer-avatar">Y</div>
-                                <div>
-                                    <div style="font-weight:600;color:#fff;">Share something with YHA</div>
-                                    <div style="font-size:0.82rem;color:var(--text-muted);">Wins, struggles, lessons, progress, questions.</div>
-                                </div>
+<div class="academy-feed-composer-card academy-feed-composer-facebook">
+                            <div class="academy-feed-composer-top">
+                                <div class="profile-avatar-mini academy-feed-composer-avatar" id="academy-feed-composer-avatar">Y</div>
+                                <textarea
+                                    id="academy-feed-composer-input"
+                                    class="chat-text-input academy-feed-composer-textarea academy-feed-facebook-textarea"
+                                    rows="2"
+                                    placeholder="What are you working on today inside YH Academy?"
+                                ></textarea>
                             </div>
 
-                            <textarea
-                                id="academy-feed-composer-input"
-                                class="chat-text-input"
-                                rows="4"
-                                placeholder="What are you working on today inside YH Academy?"
-                                style="width:100%;min-height:110px;resize:vertical;border-radius:14px;padding:14px;"
-                            ></textarea>
-
                             <input
-                                type="text"
-                                id="academy-feed-image-url"
-                                class="chat-text-input"
-                                placeholder="Optional image URL"
-                                style="width:100%;margin-top:10px;border-radius:12px;padding:12px;"
+                                type="file"
+                                id="academy-feed-image-file"
+                                accept="image/*"
+                                style="display:none;"
                             >
 
-                            <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:12px;flex-wrap:wrap;">
-                                <button type="button" class="btn-secondary" id="academy-feed-clear-btn">Clear</button>
-                                <button type="button" class="btn-primary" id="academy-feed-post-btn">Post to Community</button>
+                            <input
+                                type="hidden"
+                                id="academy-feed-image-data"
+                                value=""
+                            >
+
+                            <div id="academy-feed-image-preview-wrap" class="hidden-step academy-feed-image-preview-wrap">
+                                <img
+                                    id="academy-feed-image-preview"
+                                    src=""
+                                    alt="Selected image preview"
+                                    class="academy-feed-image-preview"
+                                >
+                            </div>
+
+                            <div class="academy-feed-composer-bottom">
+                                <button type="button" class="academy-feed-gallery-btn" id="academy-feed-upload-btn" aria-label="Upload image" title="Upload image">
+                                    🖼️
+                                </button>
+
+                                <button type="button" class="btn-primary academy-feed-post-submit-btn" id="academy-feed-post-btn">Post</button>
                             </div>
                         </div>
 
@@ -331,6 +360,55 @@
                 <div class="lounge-container hide-scrollbar"><h2 class="lounge-title">Active Video Rooms</h2><div class="lounge-grid" id="video-grid"></div></div>
             </main>
 
+            <main class="yh-main-chat hide-scrollbar hidden-step fade-in" id="academy-profile-view">
+                <header class="chat-header">
+                    <div class="header-left">
+                        <span class="hash-big">👤</span>
+                        <h3>Profile</h3>
+                        <div class="header-divider"></div>
+                        <p class="header-topic">Your Academy identity, progress, and activity overview.</p>
+                    </div>
+                </header>
+
+                <div class="chat-messages hide-scrollbar" style="padding: 16px;">
+                    <div class="academy-profile-shell">
+                        <section class="academy-profile-hero-card">
+                            <div class="academy-profile-hero-left">
+                                <div class="academy-profile-avatar" id="academy-profile-avatar">Y</div>
+                                <div>
+                                    <div class="academy-profile-name" id="academy-profile-name">Hustler</div>
+                                    <div class="academy-profile-username" id="academy-profile-username">@yhmember</div>
+                                    <div class="academy-profile-role" id="academy-profile-role">Academy Member</div>
+                                </div>
+                            </div>
+                            <div class="academy-profile-bio" id="academy-profile-bio">Focused on building discipline, momentum, and long-term growth inside YH Academy.</div>
+                        </section>
+
+                        <section class="academy-profile-grid">
+                            <article class="academy-profile-card">
+                                <div class="academy-profile-card-kicker">Academy Progress</div>
+                                <h4 class="academy-profile-card-title">Execution snapshot</h4>
+                                <div class="academy-profile-stat-list">
+                                    <div class="academy-profile-stat-row"><span>Readiness</span><strong id="academy-profile-readiness">--</strong></div>
+                                    <div class="academy-profile-stat-row"><span>Daily progress</span><strong id="academy-profile-progress">0%</strong></div>
+                                    <div class="academy-profile-stat-row"><span>Active roadmap</span><strong id="academy-profile-roadmap">Not loaded</strong></div>
+                                </div>
+                            </article>
+
+                            <article class="academy-profile-card">
+                                <div class="academy-profile-card-kicker">My Activity</div>
+                                <h4 class="academy-profile-card-title">Community snapshot</h4>
+                                <div class="academy-profile-stat-list">
+                                    <div class="academy-profile-stat-row"><span>Posts</span><strong id="academy-profile-post-count">0</strong></div>
+                                    <div class="academy-profile-stat-row"><span>Hidden posts</span><strong id="academy-profile-hidden-count">0</strong></div>
+                                    <div class="academy-profile-stat-row"><span>Status</span><strong id="academy-profile-status">Active</strong></div>
+                                </div>
+                            </article>
+                        </section>
+                    </div>
+                </div>
+            </main>
+
             <main class="yh-main-chat hide-scrollbar hidden-step stage-main" id="center-stage-view">
                 <header class="chat-header"><div class="header-left"><span class="hash-big" id="stage-icon">🎙️</span><h3 id="stage-title">Live Call</h3><div class="header-divider"></div><p class="header-topic">Live Call Stage</p></div></header>
                 <div class="stage-layout-wrapper">
@@ -387,6 +465,18 @@
     <p class="coming-soon-desc">The strategic network division is not available yet. This section will open in a future update.</p>
     <button class="btn-secondary" type="button" disabled style="max-width: 300px; margin-top: 1rem; cursor: not-allowed; opacity: 0.75;">🔒 Opening Soon</button>
 </main>
+    </div>
+
+    <div id="academy-feed-delete-modal" class="modal-overlay hidden-step academy-feed-delete-modal">
+        <div class="modal-content academy-feed-delete-dialog">
+            <h3 class="academy-feed-delete-title">Delete this post?</h3>
+            <p class="academy-feed-delete-copy">This action will remove the post from the community feed.</p>
+
+            <div class="academy-feed-delete-actions">
+                <button type="button" class="btn-secondary" id="academy-feed-delete-cancel-btn">Cancel</button>
+                <button type="button" class="btn-primary" id="academy-feed-delete-confirm-btn">Delete</button>
+            </div>
+        </div>
     </div>
 
     <div id="academy-apply-modal" class="modal-overlay hidden-step" style="z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px;">
@@ -796,6 +886,31 @@
         </div>
     </div>
 </div>
+<div id="academy-feed-share-modal" class="academy-feed-share-modal hidden-step">
+    <div class="modal-content academy-feed-share-modal-content">
+        <button type="button" id="academy-feed-share-close" class="academy-feed-share-close">✕</button>
+        <div class="academy-feed-share-header">
+            <div class="academy-feed-share-kicker">Share to Community</div>
+            <h3 class="academy-feed-share-title">Add a caption to this shared post</h3>
+            <p class="academy-feed-share-copy">Your caption will appear above the shared post inside the Academy feed.</p>
+        </div>
+
+        <textarea
+            id="academy-feed-share-caption"
+            class="chat-text-input academy-feed-share-textarea"
+            rows="4"
+            placeholder="Add your caption here..."
+        ></textarea>
+
+        <div id="academy-feed-share-preview" class="academy-feed-share-preview"></div>
+
+        <div class="academy-feed-share-actions">
+            <button type="button" class="btn-secondary" id="academy-feed-share-cancel">Cancel</button>
+            <button type="button" class="btn-primary" id="academy-feed-share-submit">Share Post</button>
+        </div>
+    </div>
+</div>
+
     <script src="/socket.io/socket.io.js"></script>
     <script src="/js/dashboard.js"></script>
 </body>

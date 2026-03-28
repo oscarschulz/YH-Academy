@@ -42,6 +42,7 @@ router.post('/academy/roadmap/refresh', auth, academyControllers.refreshRoadmap)
 // ==========================================
 router.get('/academy/feed', auth, academyCommunityControllers.getFeed);
 router.post('/academy/feed/posts', auth, academyCommunityControllers.createPost);
+router.delete('/academy/feed/posts/:id', auth, academyCommunityControllers.deletePost);
 router.post('/academy/feed/posts/:id/like', auth, academyCommunityControllers.toggleLike);
 router.get('/academy/feed/posts/:id/comments', auth, academyCommunityControllers.getComments);
 router.post('/academy/feed/posts/:id/comments', auth, academyCommunityControllers.createComment);
