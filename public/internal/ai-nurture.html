@@ -6,49 +6,77 @@
     <title>AI Nurture Console</title>
     <style>
         body { margin: 0; font-family: Poppins, Arial, sans-serif; background: #020617; color: #e2e8f0; padding: 24px; }
-        .shell { max-width: 1200px; margin: 0 auto; display: grid; gap: 16px; }
-        .card { background: rgba(15, 23, 42, 0.92); border: 1px solid rgba(148, 163, 184, 0.16); border-radius: 16px; padding: 16px; }
-        .row { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; }
+        .shell { max-width: 1400px; margin: 0 auto; display: grid; gap: 16px; }
+        .row { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; }
+        .triple { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+        .card { background: rgba(15, 23, 42, 0.94); border: 1px solid rgba(148, 163, 184, 0.16); border-radius: 16px; padding: 16px; }
         input, textarea, button { width: 100%; box-sizing: border-box; border-radius: 10px; border: 1px solid rgba(148, 163, 184, 0.24); padding: 12px; background: #0f172a; color: #e2e8f0; margin-top: 10px; }
         button { cursor: pointer; background: #0ea5e9; color: white; font-weight: 700; }
+        button.secondary { background: #1e293b; }
         .muted { color: #94a3b8; font-size: 0.95rem; }
         .item { border: 1px solid rgba(148, 163, 184, 0.14); border-radius: 12px; padding: 12px; margin-top: 10px; }
         .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
         .actions button { width: auto; min-width: 110px; }
         pre { white-space: pre-wrap; word-break: break-word; background: #020617; padding: 12px; border-radius: 12px; border: 1px solid rgba(148, 163, 184, 0.12); max-height: 420px; overflow: auto; }
-        @media (max-width: 860px) { .row { grid-template-columns: 1fr; } }
+        .badge { display: inline-flex; padding: 4px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; margin-right: 6px; margin-top: 6px; border: 1px solid rgba(148,163,184,0.2); }
+        .badge.ok { background: rgba(34,197,94,0.12); color: #86efac; }
+        .badge.warn { background: rgba(245,158,11,0.12); color: #fcd34d; }
+        .badge.danger { background: rgba(239,68,68,0.12); color: #fca5a5; }
+        .meta-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; margin-top: 10px; }
+        .meta-grid .item { margin-top: 0; }
+        .score-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; margin-top: 10px; }
+        .score-box { background: #020617; border: 1px solid rgba(148, 163, 184, 0.12); border-radius: 12px; padding: 10px; }
+        .score-box strong { display: block; font-size: 1.1rem; margin-top: 4px; }
+        .list-plain { margin: 8px 0 0; padding-left: 18px; }
+        @media (max-width: 1100px) { .row, .triple { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
     <div class="shell">
         <div class="card">
             <h1>AI Nurture Console</h1>
-            <div class="muted">Hidden internal console for Academy planner knowledge curation.</div>
+            <div class="muted">Hidden internal console for Academy planner knowledge curation, worker jobs, review control, and context pack monitoring.</div>
         </div>
 
         <div class="row">
             <div class="card">
                 <h2>Create Source</h2>
                 <input id="source-url" type="url" placeholder="https://example.com/article">
-                <button id="btn-create-source" type="button">Create Source</button>
-
                 <div class="actions">
-                    <button id="btn-refresh-sources" type="button">Refresh Sources</button>
-                    <button id="btn-refresh-library" type="button">Refresh Library</button>
-                    <button id="btn-preview-context" type="button">Preview Context</button>
+                    <button id="btn-create-source" type="button">Create Source</button>
+                    <button id="btn-run-next-job" type="button" class="secondary">Run Next Job</button>
+                    <button id="btn-rebuild-packs" type="button" class="secondary">Rebuild Packs</button>
+                    <button id="btn-preview-context" type="button" class="secondary">Preview Context</button>
                 </div>
             </div>
 
             <div class="card">
-                <h2>Last Response</h2>
+                <h2>System Response</h2>
                 <pre id="output">{}</pre>
+            </div>
+        </div>
+
+        <div class="triple">
+            <div class="card">
+                <h2>Sources</h2>
+                <div id="sources-list" class="muted">Loading…</div>
+            </div>
+
+            <div class="card">
+                <h2>Jobs</h2>
+                <div id="jobs-list" class="muted">Loading…</div>
+            </div>
+
+            <div class="card">
+                <h2>Context Packs</h2>
+                <div id="packs-list" class="muted">Loading…</div>
             </div>
         </div>
 
         <div class="row">
             <div class="card">
-                <h2>Sources</h2>
-                <div id="sources-list" class="muted">Loading…</div>
+                <h2>Source Detail</h2>
+                <div id="detail-panel" class="muted">Open a source to inspect snapshot, scores, and chunks.</div>
             </div>
 
             <div class="card">
@@ -63,7 +91,10 @@
         const gate = pathParts[pathParts.length - 1];
         const output = document.getElementById('output');
         const sourcesList = document.getElementById('sources-list');
+        const jobsList = document.getElementById('jobs-list');
+        const packsList = document.getElementById('packs-list');
         const libraryList = document.getElementById('library-list');
+        const detailPanel = document.getElementById('detail-panel');
 
         async function request(path, options = {}) {
             const response = await fetch(`/api/internal/ai-nurture/${gate}${path}`, {
@@ -84,18 +115,57 @@
             return result;
         }
 
+        function badgeClass(value) {
+            const v = String(value || '').toLowerCase();
+            if (['approve', 'approved', 'fresh', 'trusted', 'completed', 'reviewed'].includes(v)) return 'ok';
+            if (['reference_only', 'aging', 'queued', 'running', 'processing'].includes(v)) return 'warn';
+            if (['reject', 'rejected', 'failed', 'blocked', 'stale', 'expired'].includes(v)) return 'danger';
+            return 'warn';
+        }
+
+        function badge(label) {
+            return `<span class="badge ${badgeClass(label)}">${label || 'n/a'}</span>`;
+        }
+
         function sourceCard(source = {}) {
             return `
                 <div class="item">
                     <strong>${source.title || source.canonicalUrl || source.id}</strong>
                     <div class="muted">${source.hostname || ''}</div>
-                    <div class="muted">Status: ${source.status || 'unknown'}</div>
-                    <div class="actions">
-                        <button data-action="process" data-id="${source.id}">Process</button>
-                        <button data-action="open" data-id="${source.id}">Open</button>
-                        <button data-action="approve" data-id="${source.id}">Approve</button>
-                        <button data-action="reject" data-id="${source.id}">Reject</button>
+                    <div>
+                        ${badge(source.status)}
+                        ${source.domainVerdict ? badge(source.domainVerdict) : ''}
+                        ${source.staleVerdict ? badge(source.staleVerdict) : ''}
                     </div>
+                    <div class="actions">
+                        <button data-action="open" data-id="${source.id}">Open</button>
+                        <button data-action="process" data-id="${source.id}" class="secondary">Process Now</button>
+                        <button data-action="queue" data-id="${source.id}" class="secondary">Queue</button>
+                        <button data-action="approve" data-id="${source.id}">Approve</button>
+                        <button data-action="reject" data-id="${source.id}" class="secondary">Reject</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function jobCard(job = {}) {
+            return `
+                <div class="item">
+                    <strong>${job.type || 'job'}</strong>
+                    <div class="muted">Source: ${job.sourceId || 'n/a'}</div>
+                    <div>
+                        ${badge(job.status)}
+                    </div>
+                </div>
+            `;
+        }
+
+        function packCard(pack = {}) {
+            return `
+                <div class="item">
+                    <strong>${pack.title || pack.key || 'pack'}</strong>
+                    <div class="muted">Category: ${pack.category || 'general'}</div>
+                    <div class="muted">Rules: ${(pack.rules || []).length} · Examples: ${(pack.examples || []).length}</div>
                 </div>
             `;
         }
@@ -105,7 +175,83 @@
                 <div class="item">
                     <strong>${item.title || item.id}</strong>
                     <div class="muted">Category: ${item.category || 'general'}</div>
+                    <div>
+                        ${item.staleVerdict ? badge(item.staleVerdict) : ''}
+                        ${item.excludedFromPlanner ? badge('excluded') : ''}
+                    </div>
                     <div class="muted">${item.summary || ''}</div>
+                </div>
+            `;
+        }
+
+        function scoreBox(label, value) {
+            return `
+                <div class="score-box">
+                    <div class="muted">${label}</div>
+                    <strong>${value ?? '0'}</strong>
+                </div>
+            `;
+        }
+
+        function renderDetail(detail = {}) {
+            const source = detail.source || {};
+            const review = detail.review || {};
+            const snapshot = detail.snapshot || {};
+            const chunks = Array.isArray(detail.chunks) ? detail.chunks : [];
+
+            detailPanel.innerHTML = `
+                <div class="item">
+                    <strong>${source.title || source.canonicalUrl || source.id || 'Source'}</strong>
+                    <div class="muted">${source.canonicalUrl || source.originalUrl || ''}</div>
+                    <div>
+                        ${source.status ? badge(source.status) : ''}
+                        ${review.overallDecision ? badge(review.overallDecision) : ''}
+                        ${review.domainVerdict ? badge(review.domainVerdict) : ''}
+                        ${review.staleVerdict ? badge(review.staleVerdict) : ''}
+                    </div>
+
+                    <div class="meta-grid">
+                        <div class="item"><strong>Hostname</strong><div class="muted">${source.hostname || 'n/a'}</div></div>
+                        <div class="item"><strong>Age Days</strong><div class="muted">${review.ageDays ?? 'n/a'}</div></div>
+                        <div class="item"><strong>Published</strong><div class="muted">${snapshot.publishedAt || 'n/a'}</div></div>
+                        <div class="item"><strong>Modified</strong><div class="muted">${snapshot.modifiedAt || 'n/a'}</div></div>
+                    </div>
+
+                    <div class="score-grid">
+                        ${scoreBox('Relevance', review?.scores?.relevance)}
+                        ${scoreBox('Trust', review?.scores?.trust)}
+                        ${scoreBox('Duplication', review?.scores?.duplication)}
+                        ${scoreBox('Actionability', review?.scores?.actionability)}
+                        ${scoreBox('Freshness', review?.freshnessScore)}
+                        ${scoreBox('Chars', snapshot?.cleanTextChars || 0)}
+                    </div>
+
+                    <h3>Summary</h3>
+                    <div class="muted">${review.summaryLong || review.summaryShort || 'No review yet.'}</div>
+
+                    <h3>Absorb</h3>
+                    <ul class="list-plain">
+                        ${(review.absorbWhat || []).map(item => `<li>${item}</li>`).join('') || '<li>None</li>'}
+                    </ul>
+
+                    <h3>Do Not Absorb</h3>
+                    <ul class="list-plain">
+                        ${(review.doNotAbsorbWhat || []).map(item => `<li>${item}</li>`).join('') || '<li>None</li>'}
+                    </ul>
+
+                    <h3>Risk Notes</h3>
+                    <ul class="list-plain">
+                        ${(review.riskNotes || []).map(item => `<li>${item}</li>`).join('') || '<li>None</li>'}
+                    </ul>
+
+                    <h3>Chunks</h3>
+                    ${chunks.slice(0, 8).map(chunk => `
+                        <div class="item">
+                            <div><strong>Chunk ${chunk.index}</strong> ${badge(chunk.decision || 'reference_only')}</div>
+                            <div class="muted">${chunk.reason || ''}</div>
+                            <div class="muted">${(chunk.text || '').slice(0, 280)}${(chunk.text || '').length > 280 ? '…' : ''}</div>
+                        </div>
+                    `).join('') || '<div class="muted">No chunks yet.</div>'}
                 </div>
             `;
         }
@@ -117,11 +263,30 @@
                 : '<div class="muted">No sources yet.</div>';
         }
 
+        async function loadJobs() {
+            const result = await request('/jobs');
+            jobsList.innerHTML = (result.jobs || []).length
+                ? result.jobs.map(jobCard).join('')
+                : '<div class="muted">No jobs yet.</div>';
+        }
+
+        async function loadPacks() {
+            const result = await request('/context-packs');
+            packsList.innerHTML = (result.packs || []).length
+                ? result.packs.map(packCard).join('')
+                : '<div class="muted">No context packs yet.</div>';
+        }
+
         async function loadLibrary() {
             const result = await request('/library');
             libraryList.innerHTML = (result.items || []).length
                 ? result.items.map(libraryCard).join('')
                 : '<div class="muted">No approved knowledge yet.</div>';
+        }
+
+        async function openSource(id) {
+            const result = await request(`/sources/${id}`);
+            renderDetail(result);
         }
 
         document.getElementById('btn-create-source').addEventListener('click', async () => {
@@ -133,14 +298,36 @@
                     method: 'POST',
                     body: JSON.stringify({ url })
                 });
-                await loadSources();
+                await Promise.all([loadSources(), loadJobs()]);
             } catch (error) {
                 output.textContent = JSON.stringify({ success: false, message: error.message }, null, 2);
             }
         });
 
-        document.getElementById('btn-refresh-sources').addEventListener('click', () => loadSources().catch(() => null));
-        document.getElementById('btn-refresh-library').addEventListener('click', () => loadLibrary().catch(() => null));
+        document.getElementById('btn-run-next-job').addEventListener('click', async () => {
+            try {
+                await request('/jobs/run-next', {
+                    method: 'POST',
+                    body: JSON.stringify({})
+                });
+                await Promise.all([loadSources(), loadJobs(), loadLibrary(), loadPacks()]);
+            } catch (error) {
+                output.textContent = JSON.stringify({ success: false, message: error.message }, null, 2);
+            }
+        });
+
+        document.getElementById('btn-rebuild-packs').addEventListener('click', async () => {
+            try {
+                await request('/context-packs/rebuild', {
+                    method: 'POST',
+                    body: JSON.stringify({})
+                });
+                await loadPacks();
+            } catch (error) {
+                output.textContent = JSON.stringify({ success: false, message: error.message }, null, 2);
+            }
+        });
+
         document.getElementById('btn-preview-context').addEventListener('click', async () => {
             try {
                 await request('/context-preview', {
@@ -160,13 +347,17 @@
             const action = button.getAttribute('data-action');
 
             try {
+                if (action === 'open') {
+                    await openSource(id);
+                    return;
+                }
+
                 if (action === 'process') {
                     await request(`/sources/${id}/process`, { method: 'POST', body: JSON.stringify({}) });
-                } else if (action === 'open') {
-                    await request(`/sources/${id}`);
+                } else if (action === 'queue') {
+                    await request(`/sources/${id}/reprocess`, { method: 'POST', body: JSON.stringify({}) });
                 } else if (action === 'approve') {
                     await request(`/sources/${id}/approve`, { method: 'POST', body: JSON.stringify({}) });
-                    await loadLibrary();
                 } else if (action === 'reject') {
                     await request(`/sources/${id}/reject`, {
                         method: 'POST',
@@ -174,7 +365,8 @@
                     });
                 }
 
-                await loadSources();
+                await Promise.all([loadSources(), loadJobs(), loadLibrary(), loadPacks()]);
+                await openSource(id);
             } catch (error) {
                 output.textContent = JSON.stringify({ success: false, message: error.message }, null, 2);
             }
@@ -183,6 +375,8 @@
         Promise.allSettled([
             request('/bootstrap'),
             loadSources(),
+            loadJobs(),
+            loadPacks(),
             loadLibrary()
         ]);
     </script>

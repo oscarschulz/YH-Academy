@@ -106,7 +106,6 @@ function splitIntoChunks(text = '', options = {}) {
     }
 
     pushCurrent();
-
     return chunks.slice(0, 24);
 }
 
@@ -181,9 +180,23 @@ function heuristicChunkDecision(chunk = {}, hostPolicy = {}, duplicateInfo = {})
     };
 }
 
+function inferRecommendedCategory(source = {}, snapshot = {}) {
+    const corpus = `${source.title || ''} ${source.description || ''} ${snapshot.excerpt || ''}`;
+
+    if (/wealth|income|money|business|sales|offer|client|revenue/i.test(corpus)) return 'wealth';
+    if (/sleep|energy|health|fitness|body|recovery|nutrition/i.test(corpus)) return 'health';
+    if (/discipline|routine|consisten|focus|habit|execution|procrastin/i.test(corpus)) return 'discipline';
+    if (/mindset|stress|belief|confidence|psychology/i.test(corpus)) return 'mindset';
+    if (/network|communication|persuasion|social/i.test(corpus)) return 'communication';
+
+    return 'general';
+}
+
 function buildHeuristicReview({ source = {}, snapshot = {}, settings = {}, existingLibrary = [] } = {}) {
     const hostPolicy = aiNurturePolicy.evaluateDomainTrust(source.hostname || '', settings);
     const duplicateInfo = aiNurturePolicy.evaluateDuplicateAgainstLibrary(source, snapshot, existingLibrary);
+    const recommendedCategory = inferRecommendedCategory(source, snapshot);
+    const staleInfo = aiNurturePolicy.evaluateStaleness(snapshot, recommendedCategory, settings);
 
     const baseChunks = splitIntoChunks(snapshot.cleanText || '');
     const evaluated = baseChunks.map((chunk) => heuristicChunkDecision(chunk, hostPolicy, duplicateInfo));
@@ -201,87 +214,77 @@ function buildHeuristicReview({ source = {}, snapshot = {}, settings = {}, exist
 
     const scores = {
         relevance: avg('relevanceScore'),
-        novelty: avg('noveltyScore'),
-        trust: avg('trustScore'),
+        novelty: Number((avg('noveltyScore') * staleInfo.freshnessScore).toFixed(2)),
+        trust: Number((((avg('trustScore') * 0.6) + (hostPolicy.domainTrustScore * 0.4))).toFixed(2)),
         duplication: duplicateInfo.duplicateScore,
         actionability: avg('actionabilityScore')
     };
 
     let overallDecision = 'reference_only';
 
-    if (duplicateInfo.isNearDuplicate) {
+    if (duplicateInfo.isNearDuplicate || hostPolicy.domainVerdict === 'blocked' || staleInfo.excludeFromPlanner) {
         overallDecision = 'reject';
-    } else if (scores.relevance >= Number(settings?.relevanceThreshold ?? 0.65) && scores.actionability >= 0.55 && scores.duplication <= Number(settings?.duplicationThreshold ?? 0.70)) {
+    } else if (
+        scores.relevance >= Number(settings?.relevanceThreshold ?? 0.65) &&
+        scores.actionability >= 0.55 &&
+        scores.duplication <= Number(settings?.duplicationThreshold ?? 0.70)
+    ) {
         overallDecision = 'approve';
     } else if (scores.relevance < 0.28 || absorbChunks.length === 0) {
         overallDecision = 'reject';
     }
 
-    if (hostPolicy.domainVerdict === 'blocked') {
-        overallDecision = 'reject';
+    if (staleInfo.staleVerdict === 'stale' && overallDecision === 'approve') {
+        overallDecision = 'reference_only';
     }
 
-    const recommendedCategory =
-        /wealth|income|money|business|sales|offer|client|revenue/i.test(`${source.title} ${source.description} ${snapshot.excerpt}`)
-            ? 'wealth'
-            : /sleep|energy|health|fitness|body|recovery|nutrition/i.test(`${source.title} ${source.description} ${snapshot.excerpt}`)
-                ? 'health'
-                : /discipline|routine|consisten|focus|habit|execution|procrastin/i.test(`${source.title} ${source.description} ${snapshot.excerpt}`)
-                    ? 'discipline'
-                    : /mindset|stress|belief|confidence|psychology/i.test(`${source.title} ${source.description} ${snapshot.excerpt}`)
-                        ? 'mindset'
-                        : /network|communication|persuasion|social/i.test(`${source.title} ${source.description} ${snapshot.excerpt}`)
-                            ? 'communication'
-                            : 'general';
-
-    const review = {
-        overallDecision,
-        summaryShort:
-            overallDecision === 'approve'
-                ? 'Operational content with reusable rules for Academy planning.'
-                : overallDecision === 'reject'
-                    ? duplicateInfo.isNearDuplicate
-                        ? 'Rejected because it overlaps too heavily with already approved knowledge.'
-                        : 'Rejected because the source is too weak, too noisy, or too risky for Academy planning.'
-                    : 'Some useful material exists, but human review is still recommended.',
-        summaryLong: normalizeWhitespace(
-            [
-                `Source: ${sanitize(source.title || source.canonicalUrl)}`,
-                hostPolicy.reason,
-                duplicateInfo.duplicateTopMatch
-                    ? `Closest approved match: ${duplicateInfo.duplicateTopMatch.title} (${duplicateInfo.duplicateScore}).`
-                    : 'No strong duplicate match detected.',
-                absorbChunks.length
-                    ? `Useful signals: ${absorbChunks.slice(0, 3).map((item) => summarizeChunk(item.text)).filter(Boolean).join(' | ')}`
-                    : 'No chunk passed absorb threshold strongly enough.'
-            ].join(' ')
-        ),
-        absorbWhat: absorbChunks
-            .flatMap((item) => item.keyTakeaways || [])
-            .filter(Boolean)
-            .slice(0, 6),
-        doNotAbsorbWhat: evaluated
-            .filter((item) => item.decision === 'reject')
-            .flatMap((item) => item.redFlags || [])
-            .filter(Boolean)
-            .slice(0, 6),
-        riskNotes: [
-            hostPolicy.domainVerdict === 'caution' ? 'Source domain needs manual scrutiny.' : '',
-            duplicateInfo.isLikelyDuplicate ? 'Possible duplication with approved knowledge.' : ''
-        ].filter(Boolean),
-        recommendedCategory,
-        recommendedKnowledgeType: 'framework',
-        domainVerdict: hostPolicy.domainVerdict,
-        domainTrustScore: hostPolicy.domainTrustScore,
-        duplicateScore: duplicateInfo.duplicateScore,
-        duplicateTopMatch: duplicateInfo.duplicateTopMatch,
-        scores,
-        approvedChunkIndexes: absorbChunks.map((item) => item.index),
-        rejectedChunkIndexes: evaluated.filter((item) => item.decision === 'reject').map((item) => item.index)
-    };
-
     return {
-        review,
+        review: {
+            overallDecision,
+            summaryShort:
+                overallDecision === 'approve'
+                    ? 'Operational content with reusable rules for Academy planning.'
+                    : overallDecision === 'reject'
+                        ? duplicateInfo.isNearDuplicate
+                            ? 'Rejected because it overlaps too heavily with already approved knowledge.'
+                            : staleInfo.excludeFromPlanner
+                                ? 'Rejected because the source is too old for planner use.'
+                                : 'Rejected because the source is too weak, too noisy, or too risky for Academy planning.'
+                        : 'Some useful material exists, but human review is still recommended.',
+            summaryLong: normalizeWhitespace(
+                [
+                    `Source: ${sanitize(source.title || source.canonicalUrl)}`,
+                    hostPolicy.reason,
+                    staleInfo.reason,
+                    duplicateInfo.duplicateTopMatch
+                        ? `Closest approved match: ${duplicateInfo.duplicateTopMatch.title} (${duplicateInfo.duplicateScore}).`
+                        : 'No strong duplicate match detected.',
+                    absorbChunks.length
+                        ? `Useful signals: ${absorbChunks.slice(0, 3).map((item) => summarizeChunk(item.text)).filter(Boolean).join(' | ')}`
+                        : 'No chunk passed absorb threshold strongly enough.'
+                ].join(' ')
+            ),
+            absorbWhat: absorbChunks.flatMap((item) => item.keyTakeaways || []).filter(Boolean).slice(0, 6),
+            doNotAbsorbWhat: evaluated.filter((item) => item.decision === 'reject').flatMap((item) => item.redFlags || []).filter(Boolean).slice(0, 6),
+            riskNotes: [
+                hostPolicy.domainVerdict === 'caution' ? 'Source domain needs manual scrutiny.' : '',
+                duplicateInfo.isLikelyDuplicate ? 'Possible duplication with approved knowledge.' : '',
+                staleInfo.staleVerdict === 'aging' ? 'Source is aging and should not dominate planning.' : '',
+                staleInfo.staleVerdict === 'stale' ? 'Source is stale and should stay secondary.' : ''
+            ].filter(Boolean),
+            recommendedCategory,
+            recommendedKnowledgeType: 'framework',
+            domainVerdict: hostPolicy.domainVerdict,
+            domainTrustScore: hostPolicy.domainTrustScore,
+            duplicateScore: duplicateInfo.duplicateScore,
+            duplicateTopMatch: duplicateInfo.duplicateTopMatch,
+            staleVerdict: staleInfo.staleVerdict,
+            freshnessScore: staleInfo.freshnessScore,
+            ageDays: staleInfo.ageDays,
+            scores,
+            approvedChunkIndexes: absorbChunks.map((item) => item.index),
+            rejectedChunkIndexes: evaluated.filter((item) => item.decision === 'reject').map((item) => item.index)
+        },
         chunks: evaluated
     };
 }
@@ -300,7 +303,7 @@ function buildMessages(source = {}, snapshot = {}, chunks = [], context = {}) {
                 'Return JSON only.',
                 'Choose overallDecision from approve, reference_only, reject.',
                 'Prefer operational frameworks, execution systems, discipline logic, health/recovery logic, and wealth movement logic.',
-                'Reject fluff, self-promo, vague inspiration, low-trust noise, or duplicates of already approved knowledge.',
+                'Reject fluff, self-promo, low-trust noise, stale material that should not drive planning, or duplicates of already approved knowledge.',
                 'Return this exact shape:',
                 JSON.stringify({
                     overallDecision: 'approve',
@@ -315,6 +318,9 @@ function buildMessages(source = {}, snapshot = {}, chunks = [], context = {}) {
                     domainTrustScore: 0.58,
                     duplicateScore: 0.14,
                     duplicateTopMatch: null,
+                    staleVerdict: 'fresh',
+                    freshnessScore: 1,
+                    ageDays: 12,
                     scores: {
                         relevance: 0,
                         novelty: 0,
@@ -346,13 +352,18 @@ function buildMessages(source = {}, snapshot = {}, chunks = [], context = {}) {
                 },
                 snapshot: {
                     excerpt: snapshot.excerpt || '',
-                    cleanTextChars: snapshot.cleanTextChars || 0
+                    cleanTextChars: snapshot.cleanTextChars || 0,
+                    publishedAt: snapshot.publishedAt || '',
+                    modifiedAt: snapshot.modifiedAt || ''
                 },
                 policy: {
                     domainVerdict: context.hostPolicy?.domainVerdict || 'neutral',
                     domainTrustScore: context.hostPolicy?.domainTrustScore || 0.5,
                     duplicateScore: context.duplicateInfo?.duplicateScore || 0,
-                    duplicateTopMatch: context.duplicateInfo?.duplicateTopMatch || null
+                    duplicateTopMatch: context.duplicateInfo?.duplicateTopMatch || null,
+                    staleVerdict: context.staleInfo?.staleVerdict || 'unknown',
+                    freshnessScore: context.staleInfo?.freshnessScore || 0.55,
+                    ageDays: context.staleInfo?.ageDays ?? null
                 },
                 chunks: compactChunks
             })
@@ -422,7 +433,10 @@ async function requestGeminiAnalysis(source = {}, snapshot = {}, chunks = [], co
 
 function mergeAiResultWithFallback(aiResult = {}, fallback = {}, baseChunks = []) {
     const fallbackByIndex = new Map((fallback.chunks || []).map((item) => [Number(item.index), item]));
-    const aiChunkMap = new Map((Array.isArray(aiResult.chunkDecisions) ? aiResult.chunkDecisions : []).map((item) => [Number(item.index), item]));
+    const aiChunkMap = new Map(
+        (Array.isArray(aiResult.chunkDecisions) ? aiResult.chunkDecisions : [])
+            .map((item) => [Number(item.index), item])
+    );
 
     const chunks = baseChunks.map((chunk) => {
         const base = fallbackByIndex.get(Number(chunk.index)) || {
@@ -445,35 +459,64 @@ function mergeAiResultWithFallback(aiResult = {}, fallback = {}, baseChunks = []
             ...base,
             decision: sanitize(aiChunk.decision || base.decision),
             reason: sanitize(aiChunk.reason || base.reason),
-            keyTakeaways: Array.isArray(aiChunk.keyTakeaways) ? aiChunk.keyTakeaways.map((item) => sanitize(item)).filter(Boolean) : base.keyTakeaways
+            keyTakeaways: Array.isArray(aiChunk.keyTakeaways)
+                ? aiChunk.keyTakeaways.map((item) => sanitize(item)).filter(Boolean)
+                : base.keyTakeaways
         };
     });
 
-    const review = {
-        overallDecision: sanitize(aiResult.overallDecision || fallback.review?.overallDecision || 'reference_only'),
-        summaryShort: sanitize(aiResult.summaryShort || fallback.review?.summaryShort),
-        summaryLong: sanitize(aiResult.summaryLong || fallback.review?.summaryLong),
-        absorbWhat: Array.isArray(aiResult.absorbWhat) ? aiResult.absorbWhat.map((item) => sanitize(item)).filter(Boolean) : (fallback.review?.absorbWhat || []),
-        doNotAbsorbWhat: Array.isArray(aiResult.doNotAbsorbWhat) ? aiResult.doNotAbsorbWhat.map((item) => sanitize(item)).filter(Boolean) : (fallback.review?.doNotAbsorbWhat || []),
-        riskNotes: Array.isArray(aiResult.riskNotes) ? aiResult.riskNotes.map((item) => sanitize(item)).filter(Boolean) : (fallback.review?.riskNotes || []),
-        recommendedCategory: sanitize(aiResult.recommendedCategory || fallback.review?.recommendedCategory || 'general'),
-        recommendedKnowledgeType: sanitize(aiResult.recommendedKnowledgeType || fallback.review?.recommendedKnowledgeType || 'framework'),
-        domainVerdict: sanitize(aiResult.domainVerdict || fallback.review?.domainVerdict || 'neutral'),
-        domainTrustScore: clamp(Number(aiResult.domainTrustScore ?? fallback.review?.domainTrustScore ?? 0), 0, 1),
-        duplicateScore: clamp(Number(aiResult.duplicateScore ?? fallback.review?.duplicateScore ?? 0), 0, 1),
-        duplicateTopMatch: aiResult.duplicateTopMatch || fallback.review?.duplicateTopMatch || null,
-        scores: {
-            relevance: clamp(Number(aiResult?.scores?.relevance ?? fallback.review?.scores?.relevance ?? 0), 0, 1),
-            novelty: clamp(Number(aiResult?.scores?.novelty ?? fallback.review?.scores?.novelty ?? 0), 0, 1),
-            trust: clamp(Number(aiResult?.scores?.trust ?? fallback.review?.scores?.trust ?? 0), 0, 1),
-            duplication: clamp(Number(aiResult?.scores?.duplication ?? fallback.review?.scores?.duplication ?? 0), 0, 1),
-            actionability: clamp(Number(aiResult?.scores?.actionability ?? fallback.review?.scores?.actionability ?? 0), 0, 1)
-        },
-        approvedChunkIndexes: Array.isArray(aiResult.approvedChunkIndexes) ? aiResult.approvedChunkIndexes : (fallback.review?.approvedChunkIndexes || []),
-        rejectedChunkIndexes: Array.isArray(aiResult.rejectedChunkIndexes) ? aiResult.rejectedChunkIndexes : (fallback.review?.rejectedChunkIndexes || [])
-    };
+    const fallbackReview = fallback.review || {};
+    let overallDecision = sanitize(aiResult.overallDecision || fallbackReview.overallDecision || 'reference_only');
 
-    return { review, chunks };
+    if (
+        fallbackReview.domainVerdict === 'blocked' ||
+        Number(fallbackReview.duplicateScore || 0) >= 0.86 ||
+        fallbackReview.staleVerdict === 'expired'
+    ) {
+        overallDecision = 'reject';
+    } else if (fallbackReview.staleVerdict === 'stale' && overallDecision === 'approve') {
+        overallDecision = 'reference_only';
+    }
+
+    return {
+        review: {
+            overallDecision,
+            summaryShort: sanitize(aiResult.summaryShort || fallbackReview.summaryShort),
+            summaryLong: sanitize(aiResult.summaryLong || fallbackReview.summaryLong),
+            absorbWhat: Array.isArray(aiResult.absorbWhat)
+                ? aiResult.absorbWhat.map((item) => sanitize(item)).filter(Boolean)
+                : (fallbackReview.absorbWhat || []),
+            doNotAbsorbWhat: Array.isArray(aiResult.doNotAbsorbWhat)
+                ? aiResult.doNotAbsorbWhat.map((item) => sanitize(item)).filter(Boolean)
+                : (fallbackReview.doNotAbsorbWhat || []),
+            riskNotes: Array.isArray(aiResult.riskNotes)
+                ? aiResult.riskNotes.map((item) => sanitize(item)).filter(Boolean)
+                : (fallbackReview.riskNotes || []),
+            recommendedCategory: sanitize(aiResult.recommendedCategory || fallbackReview.recommendedCategory || 'general'),
+            recommendedKnowledgeType: sanitize(aiResult.recommendedKnowledgeType || fallbackReview.recommendedKnowledgeType || 'framework'),
+            domainVerdict: sanitize(aiResult.domainVerdict || fallbackReview.domainVerdict || 'neutral'),
+            domainTrustScore: clamp(Number(aiResult.domainTrustScore ?? fallbackReview.domainTrustScore ?? 0), 0, 1),
+            duplicateScore: clamp(Number(aiResult.duplicateScore ?? fallbackReview.duplicateScore ?? 0), 0, 1),
+            duplicateTopMatch: aiResult.duplicateTopMatch || fallbackReview.duplicateTopMatch || null,
+            staleVerdict: sanitize(aiResult.staleVerdict || fallbackReview.staleVerdict || 'unknown'),
+            freshnessScore: clamp(Number(aiResult.freshnessScore ?? fallbackReview.freshnessScore ?? 0.55), 0, 1),
+            ageDays: aiResult.ageDays ?? fallbackReview.ageDays ?? null,
+            scores: {
+                relevance: clamp(Number(aiResult?.scores?.relevance ?? fallbackReview?.scores?.relevance ?? 0), 0, 1),
+                novelty: clamp(Number(aiResult?.scores?.novelty ?? fallbackReview?.scores?.novelty ?? 0), 0, 1),
+                trust: clamp(Number(aiResult?.scores?.trust ?? fallbackReview?.scores?.trust ?? 0), 0, 1),
+                duplication: clamp(Number(aiResult?.scores?.duplication ?? fallbackReview?.scores?.duplication ?? 0), 0, 1),
+                actionability: clamp(Number(aiResult?.scores?.actionability ?? fallbackReview?.scores?.actionability ?? 0), 0, 1)
+            },
+            approvedChunkIndexes: Array.isArray(aiResult.approvedChunkIndexes)
+                ? aiResult.approvedChunkIndexes
+                : (fallbackReview.approvedChunkIndexes || []),
+            rejectedChunkIndexes: Array.isArray(aiResult.rejectedChunkIndexes)
+                ? aiResult.rejectedChunkIndexes
+                : (fallbackReview.rejectedChunkIndexes || [])
+        },
+        chunks
+    };
 }
 
 async function analyzeSource({ source = {}, snapshot = {}, settings = {}, existingLibrary = [] } = {}) {
@@ -486,10 +529,15 @@ async function analyzeSource({ source = {}, snapshot = {}, settings = {}, existi
 
     const context = {
         hostPolicy: aiNurturePolicy.evaluateDomainTrust(source.hostname || '', settings),
-        duplicateInfo: aiNurturePolicy.evaluateDuplicateAgainstLibrary(source, snapshot, existingLibrary)
+        duplicateInfo: aiNurturePolicy.evaluateDuplicateAgainstLibrary(source, snapshot, existingLibrary),
+        staleInfo: aiNurturePolicy.evaluateStaleness(snapshot, fallback.review?.recommendedCategory || 'general', settings)
     };
 
-    if (context.duplicateInfo.isNearDuplicate) {
+    if (
+        context.duplicateInfo.isNearDuplicate ||
+        context.hostPolicy.domainVerdict === 'blocked' ||
+        context.staleInfo.staleVerdict === 'expired'
+    ) {
         return fallback;
     }
 

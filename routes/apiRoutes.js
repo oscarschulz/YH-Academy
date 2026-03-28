@@ -95,5 +95,10 @@ router.get('/realtime/leaderboard', auth, realtimeControllers.getLeaderboard);
 router.get('/realtime/profiles/:name', auth, realtimeControllers.getProfileByName);
 router.post('/realtime/follows/toggle', auth, realtimeControllers.toggleFollow);
 
+router.post('/internal/ai-nurture/:gate/sources/:id/reprocess', aiNurtureGate, aiNurtureControllers.queueReprocess);
+router.get('/internal/ai-nurture/:gate/context-packs', aiNurtureGate, aiNurtureControllers.listContextPacks);
+router.get('/internal/ai-nurture/:gate/jobs', aiNurtureGate, aiNurtureControllers.listJobs);
+router.post('/internal/ai-nurture/:gate/jobs/run-next', aiNurtureGate, aiNurtureControllers.runNextJob);
+router.post('/internal/ai-nurture/:gate/context-packs/rebuild', aiNurtureGate, aiNurtureControllers.rebuildContextPacks);
 // 🔥 Laging nasa pinakababa ito dapat para ma-export nang buo!
 module.exports = router;

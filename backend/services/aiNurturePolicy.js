@@ -43,6 +43,7 @@ function overlapScore(aText = '', bText = '') {
 
     const bSet = new Set(b);
     let hits = 0;
+
     for (const token of a) {
         if (bSet.has(token)) hits += 1;
     }
@@ -75,7 +76,7 @@ function evaluateDomainTrust(hostname = '', settings = {}) {
     if (blockedDomains.some((item) => hostMatches(host, item))) {
         return {
             domainVerdict: 'blocked',
-            domainTrustScore: 0.0,
+            domainTrustScore: 0,
             blocked: true,
             reason: 'Domain is explicitly blocked.'
         };
@@ -177,6 +178,91 @@ function evaluateDuplicateAgainstLibrary(source = {}, snapshot = {}, libraryItem
     };
 }
 
+function parseDateValue(value) {
+    if (!value) return null;
+    const parsed = new Date(value);
+    return Number.isFinite(parsed.getTime()) ? parsed : null;
+}
+
+function evaluateStaleness(snapshot = {}, category = 'general', settings = {}) {
+    const staleDaysDefault = Number(settings?.staleDaysDefault || 540);
+    const staleDaysByCategory = settings?.staleDaysByCategory && typeof settings.staleDaysByCategory === 'object'
+        ? settings.staleDaysByCategory
+        : {
+            wealth: 365,
+            health: 730,
+            discipline: 730,
+            mindset: 1095,
+            communication: 730,
+            general: staleDaysDefault
+        };
+
+    const normalizedCategory = sanitize(category || 'general').toLowerCase() || 'general';
+    const maxFreshDays = Number(staleDaysByCategory[normalizedCategory] || staleDaysByCategory.general || staleDaysDefault);
+
+    const referenceDate = parseDateValue(snapshot.modifiedAt || snapshot.publishedAt);
+    if (!referenceDate) {
+        return {
+            staleVerdict: 'unknown',
+            freshnessScore: 0.55,
+            ageDays: null,
+            excludeFromPlanner: false,
+            reason: 'No publish or update date was found.'
+        };
+    }
+
+    const ageDays = Math.max(
+        0,
+        Math.floor((Date.now() - referenceDate.getTime()) / (24 * 60 * 60 * 1000))
+    );
+
+    if (ageDays <= maxFreshDays) {
+        return {
+            staleVerdict: 'fresh',
+            freshnessScore: 1,
+            ageDays,
+            excludeFromPlanner: false,
+            reason: 'Source is within freshness window.'
+        };
+    }
+
+    if (ageDays <= Math.floor(maxFreshDays * 1.75)) {
+        return {
+            staleVerdict: 'aging',
+            freshnessScore: 0.62,
+            ageDays,
+            excludeFromPlanner: false,
+            reason: 'Source is aging and should be used carefully.'
+        };
+    }
+
+    if (ageDays <= Math.floor(maxFreshDays * 3)) {
+        return {
+            staleVerdict: 'stale',
+            freshnessScore: 0.32,
+            ageDays,
+            excludeFromPlanner: false,
+            reason: 'Source is stale and should not dominate planning.'
+        };
+    }
+
+    return {
+        staleVerdict: 'expired',
+        freshnessScore: 0.08,
+        ageDays,
+        excludeFromPlanner: true,
+        reason: 'Source is too old for planner use.'
+    };
+}
+
+function incrementBucketCount(counterMap, key) {
+    counterMap.set(key, (counterMap.get(key) || 0) + 1);
+}
+
+function canPush(counterMap, key, maxPerCategory) {
+    return (counterMap.get(key) || 0) < maxPerCategory;
+}
+
 function scoreContextCandidate({ category = '', tags = [], rules = [], examples = [], redFlags = [] }, categoryHints = [], tagHints = []) {
     const normalizedCategory = normalizeText(category);
     const normalizedTags = (Array.isArray(tags) ? tags : []).map((item) => normalizeText(item)).filter(Boolean);
@@ -209,7 +295,23 @@ function scoreContextCandidate({ category = '', tags = [], rules = [], examples 
     return score;
 }
 
-function selectContextFromAssets({ packs = [], libraryItems = [], memoryCards = [], categoryHints = [], tagHints = [] } = {}) {
+function selectContextFromAssets({
+    packs = [],
+    libraryItems = [],
+    memoryCards = [],
+    categoryHints = [],
+    tagHints = [],
+    limits = {}
+} = {}) {
+    const config = {
+        maxRulesTotal: Number(limits?.maxRulesTotal || 10),
+        maxExamplesTotal: Number(limits?.maxExamplesTotal || 6),
+        maxRedFlagsTotal: Number(limits?.maxRedFlagsTotal || 8),
+        maxRulesPerCategory: Number(limits?.maxRulesPerCategory || 4),
+        maxExamplesPerCategory: Number(limits?.maxExamplesPerCategory || 2),
+        maxRedFlagsPerCategory: Number(limits?.maxRedFlagsPerCategory || 3)
+    };
+
     const scoredPacks = (Array.isArray(packs) ? packs : [])
         .map((pack) => ({
             ...pack,
@@ -217,7 +319,7 @@ function selectContextFromAssets({ packs = [], libraryItems = [], memoryCards = 
         }))
         .sort((a, b) => b._score - a._score || String(a.category || '').localeCompare(String(b.category || '')));
 
-    const selectedPacks = scoredPacks.filter((item) => item._score > 0).slice(0, 3);
+    const selectedPacks = scoredPacks.filter((item) => item._score > 0).slice(0, 4);
     const selectedPackCategories = new Set(selectedPacks.map((item) => normalizeText(item.category)));
 
     const scoredCards = (Array.isArray(memoryCards) ? memoryCards : [])
@@ -227,11 +329,13 @@ function selectContextFromAssets({ packs = [], libraryItems = [], memoryCards = 
             let score = Number(card.priority || 0);
 
             if (selectedPackCategories.has(category)) score += 5;
+
             for (const hint of categoryHints) {
                 const cleanHint = normalizeText(hint);
                 if (category === cleanHint) score += 4;
                 else if (content.includes(cleanHint)) score += 2;
             }
+
             for (const hint of tagHints) {
                 const cleanHint = normalizeText(hint);
                 if (content.includes(cleanHint)) score += 1.5;
@@ -252,11 +356,13 @@ function selectContextFromAssets({ packs = [], libraryItems = [], memoryCards = 
             let score = Number(item.confidence || 0) * 10;
 
             if (selectedPackCategories.has(category)) score += 4;
+
             for (const hint of categoryHints) {
                 const cleanHint = normalizeText(hint);
                 if (category === cleanHint) score += 4;
                 else if (summary.includes(cleanHint) || tags.includes(cleanHint)) score += 2;
             }
+
             for (const hint of tagHints) {
                 const cleanHint = normalizeText(hint);
                 if (summary.includes(cleanHint) || tags.includes(cleanHint)) score += 1.5;
@@ -273,42 +379,80 @@ function selectContextFromAssets({ packs = [], libraryItems = [], memoryCards = 
     const examples = [];
     const redFlags = [];
     const priorityThemes = [];
+    const ruleCountByCategory = new Map();
+    const exampleCountByCategory = new Map();
+    const redFlagCountByCategory = new Map();
+
+    const tryPushRule = (category, value) => {
+        const key = normalizeText(category || 'general') || 'general';
+        if (!value || rules.includes(value)) return;
+        if (rules.length >= config.maxRulesTotal) return;
+        if (!canPush(ruleCountByCategory, key, config.maxRulesPerCategory)) return;
+        rules.push(value);
+        incrementBucketCount(ruleCountByCategory, key);
+    };
+
+    const tryPushExample = (category, value) => {
+        const key = normalizeText(category || 'general') || 'general';
+        if (!value || examples.includes(value)) return;
+        if (examples.length >= config.maxExamplesTotal) return;
+        if (!canPush(exampleCountByCategory, key, config.maxExamplesPerCategory)) return;
+        examples.push(value);
+        incrementBucketCount(exampleCountByCategory, key);
+    };
+
+    const tryPushRedFlag = (category, value) => {
+        const key = normalizeText(category || 'general') || 'general';
+        if (!value || redFlags.includes(value)) return;
+        if (redFlags.length >= config.maxRedFlagsTotal) return;
+        if (!canPush(redFlagCountByCategory, key, config.maxRedFlagsPerCategory)) return;
+        redFlags.push(value);
+        incrementBucketCount(redFlagCountByCategory, key);
+    };
 
     for (const pack of selectedPacks) {
-        if (pack.category) priorityThemes.push(pack.category);
+        if (pack.category && !priorityThemes.includes(pack.category)) {
+            priorityThemes.push(pack.category);
+        }
+
         for (const rule of Array.isArray(pack.rules) ? pack.rules : []) {
-            if (rule && !rules.includes(rule)) rules.push(rule);
-            if (rules.length >= 10) break;
+            tryPushRule(pack.category, rule);
         }
+
         for (const example of Array.isArray(pack.examples) ? pack.examples : []) {
-            if (example && !examples.includes(example)) examples.push(example);
-            if (examples.length >= 6) break;
+            tryPushExample(pack.category, example);
         }
+
         for (const flag of Array.isArray(pack.redFlags) ? pack.redFlags : []) {
-            if (flag && !redFlags.includes(flag)) redFlags.push(flag);
-            if (redFlags.length >= 8) break;
+            tryPushRedFlag(pack.category, flag);
         }
     }
 
     for (const card of scoredCards) {
-        if (card.content && !rules.includes(card.content)) rules.push(card.content);
-        if (rules.length >= 10) break;
+        tryPushRule(card.category, card.content);
+        if (rules.length >= config.maxRulesTotal) break;
     }
 
     for (const item of scoredLibrary) {
-        if (item.category && !priorityThemes.includes(item.category)) priorityThemes.push(item.category);
-        if (item.summary && !examples.includes(item.summary)) examples.push(item.summary);
-        for (const flag of Array.isArray(item.doNotUseWhen) ? item.doNotUseWhen : []) {
-            if (flag && !redFlags.includes(flag)) redFlags.push(flag);
-            if (redFlags.length >= 8) break;
+        if (item.category && !priorityThemes.includes(item.category)) {
+            priorityThemes.push(item.category);
         }
-        if (examples.length >= 6 && redFlags.length >= 8) break;
+
+        tryPushExample(item.category, item.summary);
+
+        for (const flag of Array.isArray(item.doNotUseWhen) ? item.doNotUseWhen : []) {
+            tryPushRedFlag(item.category, flag);
+        }
+
+        if (examples.length >= config.maxExamplesTotal && redFlags.length >= config.maxRedFlagsTotal) {
+            break;
+        }
     }
 
     return {
-        rules: rules.slice(0, 10),
-        examples: examples.slice(0, 6),
-        redFlags: redFlags.slice(0, 8),
+        rules: rules.slice(0, config.maxRulesTotal),
+        examples: examples.slice(0, config.maxExamplesTotal),
+        redFlags: redFlags.slice(0, config.maxRedFlagsTotal),
         priorityThemes: [...new Set(priorityThemes.filter(Boolean))].slice(0, 6),
         selectedPackKeys: selectedPacks.map((item) => item.key || item.category).filter(Boolean)
     };
@@ -317,5 +461,6 @@ function selectContextFromAssets({ packs = [], libraryItems = [], memoryCards = 
 module.exports = {
     evaluateDomainTrust,
     evaluateDuplicateAgainstLibrary,
+    evaluateStaleness,
     selectContextFromAssets
 };

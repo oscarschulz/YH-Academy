@@ -95,20 +95,37 @@ function toDocKey(value, fallback = 'general') {
 async function getSettings() {
     const snap = await settingsDoc().get();
     if (!snap.exists) {
-        const defaults = {
-            featureEnabled: true,
-            autoProcess: false,
-            autoApprove: false,
-            trustThreshold: 0.55,
-            relevanceThreshold: 0.65,
-            noveltyThreshold: 0.30,
-            duplicationThreshold: 0.70,
-            maxSummaryLength: 1200,
-            blockedDomains: [],
-            allowedDomains: [],
-            updatedAt: nowTs(),
-            createdAt: nowTs()
-        };
+    const defaults = {
+        featureEnabled: true,
+        autoProcess: false,
+        autoApprove: false,
+        trustThreshold: 0.55,
+        relevanceThreshold: 0.65,
+        noveltyThreshold: 0.30,
+        duplicationThreshold: 0.70,
+        maxSummaryLength: 1200,
+        blockedDomains: [],
+        allowedDomains: [],
+        staleDaysDefault: 540,
+        staleDaysByCategory: {
+            wealth: 365,
+            health: 730,
+            discipline: 730,
+            mindset: 1095,
+            communication: 730,
+            general: 540
+        },
+        plannerPackLimits: {
+            maxRulesTotal: 10,
+            maxExamplesTotal: 6,
+            maxRedFlagsTotal: 8,
+            maxRulesPerCategory: 4,
+            maxExamplesPerCategory: 2,
+            maxRedFlagsPerCategory: 3
+        },
+        updatedAt: nowTs(),
+        createdAt: nowTs()
+    };
 
         await settingsDoc().set(defaults, { merge: true });
         const fresh = await settingsDoc().get();
@@ -218,6 +235,8 @@ async function saveSnapshot(sourceId, payload = {}) {
         siteName: sanitize(payload.siteName),
         language: sanitize(payload.language),
         mainImage: sanitize(payload.mainImage),
+        publishedAt: sanitize(payload.publishedAt),
+        modifiedAt: sanitize(payload.modifiedAt),
         rawTextChars: toNumber(payload.rawTextChars, 0),
         cleanTextChars: toNumber(payload.cleanTextChars, 0),
         cleanText: sanitize(payload.cleanText),
@@ -317,6 +336,9 @@ async function createOrReplaceReview(sourceId, payload = {}) {
             duplicateTopMatch: payload.duplicateTopMatch && typeof payload.duplicateTopMatch === 'object'
                 ? serializeValue(payload.duplicateTopMatch)
                 : null,
+            staleVerdict: sanitize(payload.staleVerdict || 'unknown'),
+            freshnessScore: Number(toNumber(payload.freshnessScore, 0.55).toFixed(2)),
+            ageDays: payload.ageDays === null || payload.ageDays === undefined ? null : toNumber(payload.ageDays, 0),
             scores: {
                 relevance: Number(toNumber(payload?.scores?.relevance, 0).toFixed(2)),
                 novelty: Number(toNumber(payload?.scores?.novelty, 0).toFixed(2)),
@@ -373,6 +395,12 @@ async function createLibraryEntry(payload = {}) {
         confidence: Number(toNumber(payload.confidence, 0).toFixed(2)),
         retrievalTags: Array.isArray(payload.retrievalTags) ? payload.retrievalTags.map((item) => sanitize(item)).filter(Boolean) : [],
         status: sanitize(payload.status || 'active'),
+        staleVerdict: sanitize(payload.staleVerdict || 'unknown'),
+        freshnessScore: Number(toNumber(payload.freshnessScore, 0.55).toFixed(2)),
+        ageDays: payload.ageDays === null || payload.ageDays === undefined ? null : toNumber(payload.ageDays, 0),
+        publishedAt: sanitize(payload.publishedAt),
+        modifiedAt: sanitize(payload.modifiedAt),
+        excludedFromPlanner: payload.excludedFromPlanner === true,
         createdAt: nowTs(),
         updatedAt: nowTs()
     });
@@ -408,8 +436,15 @@ async function createMemoryCards(sourceId, rules = [], meta = {}) {
 }
 
 async function rebuildContextPacks() {
-    const items = await listLibrary(140);
-    const cards = await listMemoryCards(220);
+    const items = (await listLibrary(140)).filter((item) => item.excludedFromPlanner !== true);
+    const excludedSourceIds = new Set(
+        (await listLibrary(140))
+            .filter((item) => item.excludedFromPlanner === true)
+            .map((item) => sanitize(item.sourceId))
+            .filter(Boolean)
+    );
+
+    const cards = (await listMemoryCards(220)).filter((card) => !excludedSourceIds.has(sanitize(card.sourceId)));
 
     const grouped = new Map();
 
@@ -487,6 +522,7 @@ async function rebuildContextPacks() {
 async function approveSource(sourceId) {
     const source = await getSourceById(sourceId);
     const review = await getReviewBySourceId(sourceId);
+    const snapshot = await getLatestSnapshot(sourceId);
 
     if (!source) throw new Error('Source not found.');
     if (!review) throw new Error('Review not found.');
@@ -495,6 +531,10 @@ async function approveSource(sourceId) {
         ? review.absorbWhat
         : [review.summaryShort || review.summaryLong].filter(Boolean);
 
+    const excludedFromPlanner =
+        sanitize(review.staleVerdict) === 'expired' ||
+        sanitize(review.domainVerdict) === 'blocked';
+
     const libraryEntry = await createLibraryEntry({
         sourceId: source.id,
         title: source.title || source.canonicalUrl,
@@ -502,7 +542,10 @@ async function approveSource(sourceId) {
         knowledgeType: review.recommendedKnowledgeType || 'framework',
         summary: review.summaryShort || review.summaryLong || '',
         usableRules: rules,
-        doNotUseWhen: review.doNotAbsorbWhat || [],
+        doNotUseWhen: [
+            ...(review.doNotAbsorbWhat || []),
+            ...(review.staleVerdict === 'stale' ? ['Use only as a secondary reference because the source is stale.'] : [])
+        ],
         sourceUrl: source.canonicalUrl,
         sourceTitle: source.title || source.canonicalUrl,
         confidence: review?.scores?.relevance || 0,
@@ -511,7 +554,13 @@ async function approveSource(sourceId) {
             ...(source.topicHints || []),
             sanitize(review.recommendedCategory)
         ].filter(Boolean),
-        status: 'active'
+        status: 'active',
+        staleVerdict: review.staleVerdict || 'unknown',
+        freshnessScore: review.freshnessScore,
+        ageDays: review.ageDays,
+        publishedAt: snapshot?.publishedAt || '',
+        modifiedAt: snapshot?.modifiedAt || '',
+        excludedFromPlanner
     });
 
     const cards = await createMemoryCards(source.id, rules, {
@@ -525,7 +574,10 @@ async function approveSource(sourceId) {
         status: 'approved',
         approvedAt: nowTs(),
         absorbedAt: nowTs(),
-        rejectionReason: ''
+        rejectionReason: '',
+        staleVerdict: review.staleVerdict || 'unknown',
+        freshnessScore: review.freshnessScore,
+        ageDays: review.ageDays
     });
 
     const contextPacks = await rebuildContextPacks();
@@ -556,6 +608,8 @@ async function listLibrary(limit = 100) {
 }
 
 async function buildActiveKnowledgeContext(filters = {}) {
+    const settings = await getSettings();
+
     const categoryHints = Array.isArray(filters.categoryHints)
         ? filters.categoryHints.map((item) => sanitize(item).toLowerCase()).filter(Boolean)
         : [];
@@ -563,18 +617,25 @@ async function buildActiveKnowledgeContext(filters = {}) {
         ? filters.tagHints.map((item) => sanitize(item).toLowerCase()).filter(Boolean)
         : [];
 
-    const [packs, libraryItems, memoryCards] = await Promise.all([
-        listContextPacks(40),
-        listLibrary(70),
-        listMemoryCards(140)
-    ]);
+    const allLibraryItems = await listLibrary(80);
+    const excludedSourceIds = new Set(
+        allLibraryItems
+            .filter((item) => item.excludedFromPlanner === true)
+            .map((item) => sanitize(item.sourceId))
+            .filter(Boolean)
+    );
+
+    const libraryItems = allLibraryItems.filter((item) => item.excludedFromPlanner !== true);
+    const packs = await listContextPacks(40);
+    const memoryCards = (await listMemoryCards(140)).filter((card) => !excludedSourceIds.has(sanitize(card.sourceId)));
 
     return aiNurturePolicy.selectContextFromAssets({
         packs,
         libraryItems,
         memoryCards,
         categoryHints,
-        tagHints
+        tagHints,
+        limits: settings?.plannerPackLimits || {}
     });
 }
 async function listMemoryCards(limit = 160) {
@@ -640,7 +701,6 @@ async function claimNextQueuedJob() {
 
     if (snap.empty) return null;
 
-    const nowIso = new Date().toISOString();
     const candidates = snap.docs
         .map(mapDoc)
         .filter((job) => {
@@ -650,23 +710,41 @@ async function claimNextQueuedJob() {
         .sort((a, b) => {
             const priorityDiff = toNumber(b.priority, 0) - toNumber(a.priority, 0);
             if (priorityDiff !== 0) return priorityDiff;
-            return String(a.createdAt || nowIso).localeCompare(String(b.createdAt || nowIso));
+            return String(a.createdAt || '').localeCompare(String(b.createdAt || ''));
         });
 
-    const next = candidates[0];
-    if (!next) return null;
+    for (const candidate of candidates) {
+        const ref = jobsCol().doc(candidate.id);
 
-    const ref = jobsCol().doc(next.id);
-    await ref.set(
-        {
-            status: 'running',
-            startedAt: nowTs(),
-            updatedAt: nowTs()
-        },
-        { merge: true }
-    );
+        const claimed = await firestore.runTransaction(async (tx) => {
+            const liveSnap = await tx.get(ref);
+            if (!liveSnap.exists) return false;
 
-    return mapDoc(await ref.get());
+            const live = liveSnap.data() || {};
+            const runAfter = live.runAfterAt && typeof live.runAfterAt.toDate === 'function'
+                ? live.runAfterAt.toDate().getTime()
+                : live.runAfterAt
+                    ? new Date(live.runAfterAt).getTime()
+                    : 0;
+
+            if ((live.status || '') !== 'queued') return false;
+            if (runAfter && runAfter > Date.now()) return false;
+
+            tx.set(ref, {
+                status: 'running',
+                startedAt: nowTs(),
+                updatedAt: nowTs()
+            }, { merge: true });
+
+            return true;
+        });
+
+        if (claimed) {
+            return mapDoc(await ref.get());
+        }
+    }
+
+    return null;
 }
 
 async function completeJob(jobId, payload = {}) {

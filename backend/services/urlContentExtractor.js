@@ -89,7 +89,13 @@ function htmlToText(html = '') {
 
     return normalizeWhitespace(decodeHtmlEntities(withBreaks));
 }
-
+function extractTimeMeta(html = '', keys = []) {
+    for (const key of Array.isArray(keys) ? keys : []) {
+        const value = extractMetaContent(html, key);
+        if (value) return value;
+    }
+    return '';
+}
 function cleanTextBlocks(text = '') {
     const blockedPatterns = [
         /cookie/i,
@@ -194,6 +200,22 @@ async function extractFromUrl(url, options = {}) {
         extractMetaContent(rawHtml, 'og:image') ||
         extractMetaContent(rawHtml, 'twitter:image');
 
+    const publishedAt =
+        extractTimeMeta(rawHtml, [
+            'article:published_time',
+            'published_time',
+            'publish_date',
+            'datePublished'
+        ]);
+
+    const modifiedAt =
+        extractTimeMeta(rawHtml, [
+            'article:modified_time',
+            'og:updated_time',
+            'updated_time',
+            'dateModified'
+        ]);
+
     return {
         finalUrl,
         httpStatus: response.status,
@@ -203,6 +225,8 @@ async function extractFromUrl(url, options = {}) {
         siteName,
         language: sanitize(languageMatch?.[1] || ''),
         mainImage: image,
+        publishedAt,
+        modifiedAt,
         rawTextChars: rawText.length,
         cleanTextChars: cleanText.length,
         cleanText,

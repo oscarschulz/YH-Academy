@@ -171,9 +171,12 @@ app.use('/api', apiLimiter);
 // --- MVC ROUTING ---
 const viewRoutes = require('./routes/viewRoutes');
 const apiRoutes = require('./routes/apiRoutes');
+const { startAiNurtureWorker } = require('./backend/services/aiNurtureWorker');
 
 app.use('/', viewRoutes);
-app.use('/api', apiRoutes); 
+app.use('/api', apiRoutes);
+
+startAiNurtureWorker();
 
 // --- START SERVER ---
 const PORT = process.env.PORT || 3000;

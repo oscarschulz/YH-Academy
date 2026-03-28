@@ -70,19 +70,31 @@ async function buildPlanningContext({
     plannerStats = {}
 } = {}) {
     const hints = collectHints(profile, behaviorProfile, plannerStats);
+    const settings = await aiNurtureRepo.getSettings();
 
-    const [packs, libraryItems, memoryCards] = await Promise.all([
+    const [packs, libraryItemsRaw, memoryCardsRaw] = await Promise.all([
         aiNurtureRepo.listContextPacks(40),
-        aiNurtureRepo.listLibrary(60),
-        aiNurtureRepo.listMemoryCards(140)
+        aiNurtureRepo.listLibrary(80),
+        aiNurtureRepo.listMemoryCards(160)
     ]);
+
+    const libraryItems = libraryItemsRaw.filter((item) => item.excludedFromPlanner !== true);
+    const excludedSourceIds = new Set(
+        libraryItemsRaw
+            .filter((item) => item.excludedFromPlanner === true)
+            .map((item) => sanitize(item.sourceId))
+            .filter(Boolean)
+    );
+
+    const memoryCards = memoryCardsRaw.filter((item) => !excludedSourceIds.has(sanitize(item.sourceId)));
 
     const selected = aiNurturePolicy.selectContextFromAssets({
         packs,
         libraryItems,
         memoryCards,
         categoryHints: hints.categoryHints,
-        tagHints: hints.tagHints
+        tagHints: hints.tagHints,
+        limits: settings?.plannerPackLimits || {}
     });
 
     return {
