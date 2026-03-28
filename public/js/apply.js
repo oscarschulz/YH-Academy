@@ -198,7 +198,7 @@ async function handleLoginSubmit() {
             showToast(result.message, "success");
             clearPendingVerifyEmail();
             localStorage.setItem('yh_user_loggedIn', 'true');
-            localStorage.setItem('yh_user_name', result.user.username || result.user.fullName.split(' ')[0]);
+            localStorage.setItem('yh_user_name', (result.user.fullName || result.user.username || 'Hustler').trim());
             localStorage.setItem('yh_token', result.token);
             setTimeout(() => { window.location.href = '/dashboard'; }, 1000);
             return;
@@ -406,9 +406,9 @@ if (formRegisterSimple) {
                     showToast("Account verified. Welcome to YH Universe.", "success");
                     
                     localStorage.setItem('yh_user_loggedIn', 'true');
-                    localStorage.setItem('yh_user_name', result.user.username || result.user.fullName.split(' ')[0]);
+                    localStorage.setItem('yh_user_name', (result.user.fullName || result.user.username || 'Hustler').trim());
                     localStorage.setItem('yh_token', result.token); 
-                    
+                    localStorage.setItem('yh_user_username', (result.user.username || '').trim());
                     setTimeout(() => { window.location.href = '/dashboard'; }, 1000);
                 } else {
                     showToast(result.message, "error");
