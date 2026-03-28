@@ -1,3 +1,5 @@
+const aiNurturePolicy = require('./aiNurturePolicy');
+
 function sanitize(value, fallback = '') {
     if (value === null || value === undefined) return fallback;
     return String(value).trim();
@@ -108,30 +110,6 @@ function splitIntoChunks(text = '', options = {}) {
     return chunks.slice(0, 24);
 }
 
-function trustScoreForHost(hostname = '') {
-    const host = sanitize(hostname).toLowerCase();
-
-    if (!host) return 0.45;
-    if (/\.(gov|edu)$/i.test(host) || /\.gov\./i.test(host) || /\.edu\./i.test(host)) return 0.82;
-    if (/wikipedia\.org|github\.com|openai\.com|google\.com|deepmind\.google/i.test(host)) return 0.72;
-    if (/gumroad\.com|medium\.com|substack\.com|blog/i.test(host)) return 0.50;
-    if (/facebook\.com|instagram\.com|tiktok\.com|x\.com|twitter\.com|reddit\.com/i.test(host)) return 0.38;
-
-    return 0.56;
-}
-
-function heuristicCategory(text = '') {
-    const lower = sanitize(text).toLowerCase();
-
-    if (/wealth|income|money|business|sales|offer|client|revenue/.test(lower)) return 'wealth';
-    if (/sleep|energy|health|fitness|body|recovery|nutrition/.test(lower)) return 'health';
-    if (/discipline|routine|consisten|focus|habit|execution|procrastin/.test(lower)) return 'discipline';
-    if (/mindset|stress|belief|confidence|psychology/.test(lower)) return 'mindset';
-    if (/network|communication|speak|persuasion|social/.test(lower)) return 'communication';
-
-    return 'general';
-}
-
 function computeRelevance(text = '') {
     const lower = sanitize(text).toLowerCase();
     const keywords = [
@@ -141,24 +119,18 @@ function computeRelevance(text = '') {
     ];
 
     const hits = keywords.reduce((sum, item) => sum + (lower.includes(item) ? 1 : 0), 0);
-    return clamp(0.25 + hits * 0.055, 0, 0.95);
+    return clamp(0.24 + hits * 0.055, 0, 0.95);
 }
 
 function computeActionability(text = '') {
     const lower = sanitize(text).toLowerCase();
-    const actionMarkers = [
+    const markers = [
         'step', 'framework', 'process', 'system', 'do this',
         'start by', 'review', 'track', 'measure', 'daily', 'weekly'
     ];
 
-    const hits = actionMarkers.reduce((sum, item) => sum + (lower.includes(item) ? 1 : 0), 0);
+    const hits = markers.reduce((sum, item) => sum + (lower.includes(item) ? 1 : 0), 0);
     return clamp(0.20 + hits * 0.07, 0, 0.92);
-}
-
-function computeDuplication(text = '') {
-    const lower = sanitize(text).toLowerCase();
-    if (/lorem ipsum|buy now|limited offer|sponsored|affiliate/i.test(lower)) return 0.78;
-    return 0.14;
 }
 
 function summarizeChunk(chunkText = '') {
@@ -167,23 +139,24 @@ function summarizeChunk(chunkText = '') {
     return sentences.slice(0, 2).join(' ').slice(0, 260).trim();
 }
 
-function heuristicChunkDecision(chunk = {}, host = '') {
+function heuristicChunkDecision(chunk = {}, hostPolicy = {}, duplicateInfo = {}) {
     const relevance = computeRelevance(chunk.text);
     const actionability = computeActionability(chunk.text);
-    const trust = trustScoreForHost(host);
-    const duplication = computeDuplication(chunk.text);
-    const novelty = 0.44;
+    const trust = clamp(Number(hostPolicy.domainTrustScore || 0.5), 0, 1);
+    const duplication = clamp(Number(duplicateInfo.duplicateScore || 0.1), 0, 1);
+    const novelty = clamp(0.62 - duplication * 0.5, 0.08, 0.88);
 
     let decision = 'reference_only';
-    if (relevance >= 0.68 && actionability >= 0.58 && duplication <= 0.60) {
+
+    if (duplicateInfo.isNearDuplicate) {
+        decision = 'reject';
+    } else if (hostPolicy.domainVerdict === 'caution' && trust < 0.4 && actionability < 0.45) {
+        decision = 'reject';
+    } else if (relevance >= 0.68 && actionability >= 0.58 && duplication <= 0.60) {
         decision = 'absorb';
     } else if (relevance < 0.28 || actionability < 0.20) {
         decision = 'reject';
     }
-
-    const takeaways = summarizeChunk(chunk.text)
-        ? [summarizeChunk(chunk.text)]
-        : [];
 
     return {
         ...chunk,
@@ -197,17 +170,24 @@ function heuristicChunkDecision(chunk = {}, host = '') {
             decision === 'absorb'
                 ? 'Operational and reusable for Academy planning.'
                 : decision === 'reject'
-                    ? 'Low signal or not useful enough for planning.'
-                    : 'Potentially useful, but better kept as reference until reviewed.',
-        keyTakeaways: takeaways,
-        redFlags: decision === 'reject' ? ['Low operational value.'] : []
+                    ? duplicateInfo.isNearDuplicate
+                        ? 'Near-duplicate of approved knowledge.'
+                        : 'Low signal or low trust relative to planning use.'
+                    : 'Potentially useful, but best kept as reference until reviewed.',
+        keyTakeaways: summarizeChunk(chunk.text) ? [summarizeChunk(chunk.text)] : [],
+        redFlags: decision === 'reject'
+            ? [duplicateInfo.isNearDuplicate ? 'Near-duplicate content.' : 'Low operational value.']
+            : []
     };
 }
 
-function buildHeuristicReview(source = {}, chunks = []) {
-    const evaluated = chunks.map((chunk) => heuristicChunkDecision(chunk, source.hostname || ''));
+function buildHeuristicReview({ source = {}, snapshot = {}, settings = {}, existingLibrary = [] } = {}) {
+    const hostPolicy = aiNurturePolicy.evaluateDomainTrust(source.hostname || '', settings);
+    const duplicateInfo = aiNurturePolicy.evaluateDuplicateAgainstLibrary(source, snapshot, existingLibrary);
+
+    const baseChunks = splitIntoChunks(snapshot.cleanText || '');
+    const evaluated = baseChunks.map((chunk) => heuristicChunkDecision(chunk, hostPolicy, duplicateInfo));
     const absorbChunks = evaluated.filter((item) => item.decision === 'absorb');
-    const referenceChunks = evaluated.filter((item) => item.decision === 'reference_only');
 
     const avg = (key) => {
         if (!evaluated.length) return 0;
@@ -223,62 +203,90 @@ function buildHeuristicReview(source = {}, chunks = []) {
         relevance: avg('relevanceScore'),
         novelty: avg('noveltyScore'),
         trust: avg('trustScore'),
-        duplication: avg('duplicationScore'),
+        duplication: duplicateInfo.duplicateScore,
         actionability: avg('actionabilityScore')
     };
 
     let overallDecision = 'reference_only';
-    if (scores.relevance >= 0.65 && scores.actionability >= 0.55 && scores.duplication <= 0.65) {
+
+    if (duplicateInfo.isNearDuplicate) {
+        overallDecision = 'reject';
+    } else if (scores.relevance >= Number(settings?.relevanceThreshold ?? 0.65) && scores.actionability >= 0.55 && scores.duplication <= Number(settings?.duplicationThreshold ?? 0.70)) {
         overallDecision = 'approve';
     } else if (scores.relevance < 0.28 || absorbChunks.length === 0) {
         overallDecision = 'reject';
     }
 
-    const category = heuristicCategory(
-        `${source.title || ''}\n${source.description || ''}\n${evaluated.map((item) => item.text).join('\n')}`
-    );
+    if (hostPolicy.domainVerdict === 'blocked') {
+        overallDecision = 'reject';
+    }
+
+    const recommendedCategory =
+        /wealth|income|money|business|sales|offer|client|revenue/i.test(`${source.title} ${source.description} ${snapshot.excerpt}`)
+            ? 'wealth'
+            : /sleep|energy|health|fitness|body|recovery|nutrition/i.test(`${source.title} ${source.description} ${snapshot.excerpt}`)
+                ? 'health'
+                : /discipline|routine|consisten|focus|habit|execution|procrastin/i.test(`${source.title} ${source.description} ${snapshot.excerpt}`)
+                    ? 'discipline'
+                    : /mindset|stress|belief|confidence|psychology/i.test(`${source.title} ${source.description} ${snapshot.excerpt}`)
+                        ? 'mindset'
+                        : /network|communication|persuasion|social/i.test(`${source.title} ${source.description} ${snapshot.excerpt}`)
+                            ? 'communication'
+                            : 'general';
+
+    const review = {
+        overallDecision,
+        summaryShort:
+            overallDecision === 'approve'
+                ? 'Operational content with reusable rules for Academy planning.'
+                : overallDecision === 'reject'
+                    ? duplicateInfo.isNearDuplicate
+                        ? 'Rejected because it overlaps too heavily with already approved knowledge.'
+                        : 'Rejected because the source is too weak, too noisy, or too risky for Academy planning.'
+                    : 'Some useful material exists, but human review is still recommended.',
+        summaryLong: normalizeWhitespace(
+            [
+                `Source: ${sanitize(source.title || source.canonicalUrl)}`,
+                hostPolicy.reason,
+                duplicateInfo.duplicateTopMatch
+                    ? `Closest approved match: ${duplicateInfo.duplicateTopMatch.title} (${duplicateInfo.duplicateScore}).`
+                    : 'No strong duplicate match detected.',
+                absorbChunks.length
+                    ? `Useful signals: ${absorbChunks.slice(0, 3).map((item) => summarizeChunk(item.text)).filter(Boolean).join(' | ')}`
+                    : 'No chunk passed absorb threshold strongly enough.'
+            ].join(' ')
+        ),
+        absorbWhat: absorbChunks
+            .flatMap((item) => item.keyTakeaways || [])
+            .filter(Boolean)
+            .slice(0, 6),
+        doNotAbsorbWhat: evaluated
+            .filter((item) => item.decision === 'reject')
+            .flatMap((item) => item.redFlags || [])
+            .filter(Boolean)
+            .slice(0, 6),
+        riskNotes: [
+            hostPolicy.domainVerdict === 'caution' ? 'Source domain needs manual scrutiny.' : '',
+            duplicateInfo.isLikelyDuplicate ? 'Possible duplication with approved knowledge.' : ''
+        ].filter(Boolean),
+        recommendedCategory,
+        recommendedKnowledgeType: 'framework',
+        domainVerdict: hostPolicy.domainVerdict,
+        domainTrustScore: hostPolicy.domainTrustScore,
+        duplicateScore: duplicateInfo.duplicateScore,
+        duplicateTopMatch: duplicateInfo.duplicateTopMatch,
+        scores,
+        approvedChunkIndexes: absorbChunks.map((item) => item.index),
+        rejectedChunkIndexes: evaluated.filter((item) => item.decision === 'reject').map((item) => item.index)
+    };
 
     return {
-        review: {
-            overallDecision,
-            summaryShort:
-                overallDecision === 'approve'
-                    ? 'Operational content with reusable rules for Academy planning.'
-                    : overallDecision === 'reject'
-                        ? 'Low-signal source for Academy mission intelligence.'
-                        : 'Some useful material exists, but human review is still recommended.',
-            summaryLong: normalizeWhitespace(
-                [
-                    `Source: ${sanitize(source.title || source.canonicalUrl)}`,
-                    absorbChunks.length
-                        ? `Most useful parts focused on: ${absorbChunks.slice(0, 3).map((item) => summarizeChunk(item.text)).filter(Boolean).join(' | ')}`
-                        : 'No chunk passed absorb threshold strongly enough.',
-                    referenceChunks.length
-                        ? 'Some chunks may still be useful as reference.'
-                        : ''
-                ].filter(Boolean).join(' ')
-            ),
-            absorbWhat: absorbChunks
-                .flatMap((item) => item.keyTakeaways || [])
-                .filter(Boolean)
-                .slice(0, 6),
-            doNotAbsorbWhat: evaluated
-                .filter((item) => item.decision === 'reject')
-                .flatMap((item) => item.redFlags || [])
-                .filter(Boolean)
-                .slice(0, 6),
-            riskNotes: overallDecision === 'approve' ? [] : ['Needs human review before strong Academy use.'],
-            recommendedCategory: category,
-            recommendedKnowledgeType: 'framework',
-            scores,
-            approvedChunkIndexes: absorbChunks.map((item) => item.index),
-            rejectedChunkIndexes: evaluated.filter((item) => item.decision === 'reject').map((item) => item.index)
-        },
+        review,
         chunks: evaluated
     };
 }
 
-function buildMessages(source = {}, snapshot = {}, chunks = []) {
+function buildMessages(source = {}, snapshot = {}, chunks = [], context = {}) {
     const compactChunks = chunks.slice(0, 12).map((chunk) => ({
         index: chunk.index,
         text: String(chunk.text || '').slice(0, 1200)
@@ -290,10 +298,10 @@ function buildMessages(source = {}, snapshot = {}, chunks = []) {
             content: [
                 'You are reviewing external knowledge for an Academy mission planner.',
                 'Return JSON only.',
-                'Decide whether the source should be approve, reference_only, or reject.',
+                'Choose overallDecision from approve, reference_only, reject.',
                 'Prefer operational frameworks, execution systems, discipline logic, health/recovery logic, and wealth movement logic.',
-                'Reject fluff, self-promo, vague inspiration, or generic filler.',
-                'Return this shape exactly:',
+                'Reject fluff, self-promo, vague inspiration, low-trust noise, or duplicates of already approved knowledge.',
+                'Return this exact shape:',
                 JSON.stringify({
                     overallDecision: 'approve',
                     summaryShort: '',
@@ -303,6 +311,10 @@ function buildMessages(source = {}, snapshot = {}, chunks = []) {
                     riskNotes: [''],
                     recommendedCategory: 'general',
                     recommendedKnowledgeType: 'framework',
+                    domainVerdict: 'neutral',
+                    domainTrustScore: 0.58,
+                    duplicateScore: 0.14,
+                    duplicateTopMatch: null,
                     scores: {
                         relevance: 0,
                         novelty: 0,
@@ -336,20 +348,26 @@ function buildMessages(source = {}, snapshot = {}, chunks = []) {
                     excerpt: snapshot.excerpt || '',
                     cleanTextChars: snapshot.cleanTextChars || 0
                 },
+                policy: {
+                    domainVerdict: context.hostPolicy?.domainVerdict || 'neutral',
+                    domainTrustScore: context.hostPolicy?.domainTrustScore || 0.5,
+                    duplicateScore: context.duplicateInfo?.duplicateScore || 0,
+                    duplicateTopMatch: context.duplicateInfo?.duplicateTopMatch || null
+                },
                 chunks: compactChunks
             })
         }
     ];
 }
 
-async function requestOpenAiAnalysis(source = {}, snapshot = {}, chunks = []) {
+async function requestOpenAiAnalysis(source = {}, snapshot = {}, chunks = [], context = {}) {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey || typeof fetch !== 'function') return null;
 
     const model = sanitize(process.env.OPENAI_NURTURE_MODEL || process.env.OPENAI_PLANNER_FALLBACK_MODEL || 'gpt-5.4');
     const requestBody = {
         model,
-        messages: buildMessages(source, snapshot, chunks),
+        messages: buildMessages(source, snapshot, chunks, context),
         temperature: 0.2
     };
 
@@ -371,18 +389,17 @@ async function requestOpenAiAnalysis(source = {}, snapshot = {}, chunks = []) {
         throw new Error(data?.error?.message || 'OpenAI nurture analysis failed.');
     }
 
-    const content = data?.choices?.[0]?.message?.content || '';
-    return extractJsonObject(content);
+    return extractJsonObject(data?.choices?.[0]?.message?.content || '');
 }
 
-async function requestGeminiAnalysis(source = {}, snapshot = {}, chunks = []) {
+async function requestGeminiAnalysis(source = {}, snapshot = {}, chunks = [], context = {}) {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey || typeof fetch !== 'function') return null;
 
     const model = sanitize(process.env.GEMINI_NURTURE_MODEL || process.env.GEMINI_PLANNER_MODEL || 'gemini-2.5-flash');
     const requestBody = {
         model,
-        messages: buildMessages(source, snapshot, chunks),
+        messages: buildMessages(source, snapshot, chunks, context),
         temperature: 0.2
     };
 
@@ -400,25 +417,21 @@ async function requestGeminiAnalysis(source = {}, snapshot = {}, chunks = []) {
         throw new Error(data?.error?.message || 'Gemini nurture analysis failed.');
     }
 
-    const content = data?.choices?.[0]?.message?.content || '';
-    return extractJsonObject(content);
+    return extractJsonObject(data?.choices?.[0]?.message?.content || '');
 }
 
-function mergeAiResultWithChunks(aiResult = {}, fallback = {}, baseChunks = []) {
+function mergeAiResultWithFallback(aiResult = {}, fallback = {}, baseChunks = []) {
     const fallbackByIndex = new Map((fallback.chunks || []).map((item) => [Number(item.index), item]));
-    const aiChunkMap = new Map(
-        (Array.isArray(aiResult.chunkDecisions) ? aiResult.chunkDecisions : [])
-            .map((item) => [Number(item.index), item])
-    );
+    const aiChunkMap = new Map((Array.isArray(aiResult.chunkDecisions) ? aiResult.chunkDecisions : []).map((item) => [Number(item.index), item]));
 
     const chunks = baseChunks.map((chunk) => {
         const base = fallbackByIndex.get(Number(chunk.index)) || {
             ...chunk,
             relevanceScore: 0.45,
-            noveltyScore: 0.40,
+            noveltyScore: 0.4,
             trustScore: 0.45,
             duplicationScore: 0.15,
-            actionabilityScore: 0.40,
+            actionabilityScore: 0.4,
             decision: 'reference_only',
             reason: 'Fallback default.',
             keyTakeaways: [],
@@ -445,6 +458,10 @@ function mergeAiResultWithChunks(aiResult = {}, fallback = {}, baseChunks = []) 
         riskNotes: Array.isArray(aiResult.riskNotes) ? aiResult.riskNotes.map((item) => sanitize(item)).filter(Boolean) : (fallback.review?.riskNotes || []),
         recommendedCategory: sanitize(aiResult.recommendedCategory || fallback.review?.recommendedCategory || 'general'),
         recommendedKnowledgeType: sanitize(aiResult.recommendedKnowledgeType || fallback.review?.recommendedKnowledgeType || 'framework'),
+        domainVerdict: sanitize(aiResult.domainVerdict || fallback.review?.domainVerdict || 'neutral'),
+        domainTrustScore: clamp(Number(aiResult.domainTrustScore ?? fallback.review?.domainTrustScore ?? 0), 0, 1),
+        duplicateScore: clamp(Number(aiResult.duplicateScore ?? fallback.review?.duplicateScore ?? 0), 0, 1),
+        duplicateTopMatch: aiResult.duplicateTopMatch || fallback.review?.duplicateTopMatch || null,
         scores: {
             relevance: clamp(Number(aiResult?.scores?.relevance ?? fallback.review?.scores?.relevance ?? 0), 0, 1),
             novelty: clamp(Number(aiResult?.scores?.novelty ?? fallback.review?.scores?.novelty ?? 0), 0, 1),
@@ -459,33 +476,42 @@ function mergeAiResultWithChunks(aiResult = {}, fallback = {}, baseChunks = []) 
     return { review, chunks };
 }
 
-async function analyzeSource({ source = {}, snapshot = {} } = {}) {
-    const chunks = splitIntoChunks(snapshot.cleanText || '');
-    if (!chunks.length) {
+async function analyzeSource({ source = {}, snapshot = {}, settings = {}, existingLibrary = [] } = {}) {
+    const fallback = buildHeuristicReview({ source, snapshot, settings, existingLibrary });
+    const baseChunks = splitIntoChunks(snapshot.cleanText || '');
+
+    if (!baseChunks.length) {
         throw new Error('No usable chunks were generated from extracted content.');
     }
 
-    const heuristic = buildHeuristicReview(source, chunks);
+    const context = {
+        hostPolicy: aiNurturePolicy.evaluateDomainTrust(source.hostname || '', settings),
+        duplicateInfo: aiNurturePolicy.evaluateDuplicateAgainstLibrary(source, snapshot, existingLibrary)
+    };
+
+    if (context.duplicateInfo.isNearDuplicate) {
+        return fallback;
+    }
 
     try {
-        const gemini = await requestGeminiAnalysis(source, snapshot, chunks);
+        const gemini = await requestGeminiAnalysis(source, snapshot, baseChunks, context);
         if (gemini) {
-            return mergeAiResultWithChunks(gemini, heuristic, chunks);
+            return mergeAiResultWithFallback(gemini, fallback, baseChunks);
         }
     } catch (error) {
         console.error('Gemini nurture fallback:', error.message);
     }
 
     try {
-        const openai = await requestOpenAiAnalysis(source, snapshot, chunks);
+        const openai = await requestOpenAiAnalysis(source, snapshot, baseChunks, context);
         if (openai) {
-            return mergeAiResultWithChunks(openai, heuristic, chunks);
+            return mergeAiResultWithFallback(openai, fallback, baseChunks);
         }
     } catch (error) {
         console.error('OpenAI nurture fallback:', error.message);
     }
 
-    return heuristic;
+    return fallback;
 }
 
 module.exports = {

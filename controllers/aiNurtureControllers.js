@@ -1,6 +1,7 @@
 const aiNurtureRepo = require('../backend/repositories/aiNurtureFirestoreRepo');
 const urlContentExtractor = require('../backend/services/urlContentExtractor');
 const aiNurtureAnalyzer = require('../backend/services/aiNurtureAnalyzer');
+const aiNurturePolicy = require('../backend/services/aiNurturePolicy');
 
 function sanitize(value, fallback = '') {
     if (value === null || value === undefined) return fallback;
@@ -13,6 +14,113 @@ function sendError(res, error, fallbackMessage = 'Something went wrong.', status
         success: false,
         message
     });
+}
+
+function buildBlockedDomainReview(source = {}, domainInfo = {}) {
+    return {
+        overallDecision: 'reject',
+        summaryShort: 'Rejected before extraction because the source domain is blocked.',
+        summaryLong: `Source ${sanitize(source.canonicalUrl || source.originalUrl)} was rejected because ${sanitize(domainInfo.reason || 'the domain is blocked')}.`,
+        absorbWhat: [],
+        doNotAbsorbWhat: ['Blocked domain.'],
+        riskNotes: [sanitize(domainInfo.reason || 'Blocked domain.')],
+        recommendedCategory: 'general',
+        recommendedKnowledgeType: 'framework',
+        domainVerdict: sanitize(domainInfo.domainVerdict || 'blocked'),
+        domainTrustScore: Number(domainInfo.domainTrustScore || 0),
+        duplicateScore: 0,
+        duplicateTopMatch: null,
+        scores: {
+            relevance: 0,
+            novelty: 0,
+            trust: Number(domainInfo.domainTrustScore || 0),
+            duplication: 0,
+            actionability: 0
+        },
+        approvedChunkIndexes: [],
+        rejectedChunkIndexes: []
+    };
+}
+
+async function runSourceProcessing(sourceId) {
+    const source = await aiNurtureRepo.getSourceById(sourceId);
+    if (!source) {
+        throw new Error('Source not found.');
+    }
+
+    const settings = await aiNurtureRepo.getSettings();
+    const domainInfo = aiNurturePolicy.evaluateDomainTrust(source.hostname || '', settings);
+
+    await aiNurtureRepo.updateSource(sourceId, {
+        status: 'processing',
+        lastError: '',
+        retryCount: Number(source.retryCount || 0) + 1,
+        domainVerdict: domainInfo.domainVerdict,
+        domainTrustScore: domainInfo.domainTrustScore
+    });
+
+    if (domainInfo.blocked) {
+        const review = await aiNurtureRepo.createOrReplaceReview(sourceId, buildBlockedDomainReview(source, domainInfo));
+        const updatedSource = await aiNurtureRepo.updateSource(sourceId, {
+            status: 'rejected',
+            analyzedAt: new Date().toISOString(),
+            rejectionReason: domainInfo.reason || 'Blocked domain.'
+        });
+
+        return {
+            source: updatedSource,
+            snapshot: null,
+            review,
+            chunks: [],
+            autoApproved: false
+        };
+    }
+
+    const extraction = await urlContentExtractor.extractFromUrl(source.canonicalUrl || source.originalUrl);
+    const snapshot = await aiNurtureRepo.saveSnapshot(sourceId, extraction);
+    const libraryForDuplicateCheck = await aiNurtureRepo.getLibraryForDuplicateCheck(150);
+
+    const analysis = await aiNurtureAnalyzer.analyzeSource({
+        source: {
+            ...source,
+            canonicalUrl: extraction.finalUrl || source.canonicalUrl,
+            hostname: extraction.finalUrl ? new URL(extraction.finalUrl).hostname : source.hostname,
+            title: extraction.title || source.title,
+            description: extraction.description || ''
+        },
+        snapshot,
+        settings,
+        existingLibrary: libraryForDuplicateCheck
+    });
+
+    const chunks = await aiNurtureRepo.replaceChunks(sourceId, analysis.chunks || []);
+    const review = await aiNurtureRepo.createOrReplaceReview(sourceId, analysis.review || {});
+
+    const updatedSource = await aiNurtureRepo.updateSource(sourceId, {
+        status: 'reviewed',
+        analyzedAt: new Date().toISOString(),
+        title: extraction.title || source.title || source.hostname || source.canonicalUrl,
+        canonicalUrl: extraction.finalUrl || source.canonicalUrl,
+        hostname: extraction.finalUrl ? new URL(extraction.finalUrl).hostname : source.hostname,
+        domainVerdict: analysis.review?.domainVerdict,
+        domainTrustScore: analysis.review?.domainTrustScore,
+        duplicateScore: analysis.review?.duplicateScore,
+        duplicateTopMatchTitle: analysis.review?.duplicateTopMatch?.title || ''
+    });
+
+    let autoApproved = false;
+    if (settings?.autoApprove === true && analysis.review?.overallDecision === 'approve') {
+        await aiNurtureRepo.approveSource(sourceId);
+        autoApproved = true;
+    }
+
+    return {
+        source: updatedSource,
+        snapshot,
+        review,
+        chunks,
+        autoApproved
+    };
 }
 
 exports.bootstrap = async (req, res) => {
@@ -71,6 +179,14 @@ exports.createSource = async (req, res) => {
             submittedFrom: 'internal-console'
         });
 
+        await aiNurtureRepo.createJob({
+            type: 'process-source',
+            sourceId: source.id,
+            priority: Number(source.queuePriority || 3),
+            reason: 'initial-submit',
+            runAfterAt: new Date().toISOString()
+        });
+
         return res.status(201).json({
             success: true,
             source
@@ -116,60 +232,34 @@ exports.processSource = async (req, res) => {
     const sourceId = sanitize(req.params?.id);
 
     try {
-        const source = await aiNurtureRepo.getSourceById(sourceId);
-
-        if (!source) {
-            return res.status(404).json({
-                success: false,
-                message: 'Source not found.'
-            });
-        }
-
-        await aiNurtureRepo.updateSource(sourceId, {
-            status: 'processing',
-            lastError: '',
-            retryCount: Number(source.retryCount || 0) + 1
-        });
-
-        const extraction = await urlContentExtractor.extractFromUrl(source.canonicalUrl || source.originalUrl);
-        const snapshot = await aiNurtureRepo.saveSnapshot(sourceId, extraction);
-
-        const analysis = await aiNurtureAnalyzer.analyzeSource({
-            source: {
-                ...source,
-                canonicalUrl: extraction.finalUrl || source.canonicalUrl,
-                hostname: extraction.finalUrl ? new URL(extraction.finalUrl).hostname : source.hostname,
-                title: extraction.title || source.title,
-                description: extraction.description || ''
-            },
-            snapshot
-        });
-
-        const chunks = await aiNurtureRepo.replaceChunks(sourceId, analysis.chunks || []);
-        const review = await aiNurtureRepo.createOrReplaceReview(sourceId, analysis.review || {});
-
-        const updatedSource = await aiNurtureRepo.updateSource(sourceId, {
-            status: 'reviewed',
-            analyzedAt: new Date().toISOString(),
-            title: extraction.title || source.title || source.hostname || source.canonicalUrl,
-            canonicalUrl: extraction.finalUrl || source.canonicalUrl,
-            hostname: extraction.finalUrl ? new URL(extraction.finalUrl).hostname : source.hostname
-        });
-
+        const result = await runSourceProcessing(sourceId);
         return res.json({
             success: true,
-            source: updatedSource,
-            snapshot,
-            review,
-            chunks
+            ...result
         });
     } catch (error) {
         if (sourceId) {
+            const source = await aiNurtureRepo.getSourceById(sourceId).catch(() => null);
+            const nextAttempts = Number(source?.retryCount || 0);
+
             await aiNurtureRepo.updateSource(sourceId, {
                 status: 'failed',
                 failedAt: new Date().toISOString(),
                 lastError: sanitize(error?.message)
             }).catch(() => null);
+
+            if (nextAttempts < 3) {
+                const delayMinutes = nextAttempts >= 2 ? 60 : 15;
+                const runAfterAt = new Date(Date.now() + delayMinutes * 60 * 1000).toISOString();
+
+                await aiNurtureRepo.createJob({
+                    type: 'process-source',
+                    sourceId,
+                    priority: 2,
+                    reason: 'auto-reprocess',
+                    runAfterAt
+                }).catch(() => null);
+            }
         }
 
         return sendError(res, error, 'Failed to process source.');
@@ -226,5 +316,78 @@ exports.previewContext = async (req, res) => {
         });
     } catch (error) {
         return sendError(res, error, 'Failed to preview context.');
+    }
+};
+
+exports.listJobs = async (req, res) => {
+    try {
+        const jobs = await aiNurtureRepo.listJobs(Number.parseInt(req.query.limit, 10) || 50);
+        return res.json({
+            success: true,
+            jobs
+        });
+    } catch (error) {
+        return sendError(res, error, 'Failed to list jobs.');
+    }
+};
+
+exports.runNextJob = async (req, res) => {
+    try {
+        const job = await aiNurtureRepo.claimNextQueuedJob();
+        if (!job) {
+            return res.json({
+                success: true,
+                job: null,
+                message: 'No queued job is ready.'
+            });
+        }
+
+        try {
+            let result = null;
+
+            if (job.type === 'process-source' && job.sourceId) {
+                result = await runSourceProcessing(job.sourceId);
+            } else {
+                throw new Error(`Unsupported job type: ${job.type}`);
+            }
+
+            await aiNurtureRepo.completeJob(job.id, {
+                resultSourceId: job.sourceId
+            });
+
+            return res.json({
+                success: true,
+                jobId: job.id,
+                result
+            });
+        } catch (error) {
+            const attempts = Number(job.attempts || 0) + 1;
+            const retryable = attempts < 3;
+            const runAfterAt = retryable
+                ? new Date(Date.now() + (attempts >= 2 ? 60 : 15) * 60 * 1000).toISOString()
+                : null;
+
+            await aiNurtureRepo.failJob(job.id, error, {
+                attempts,
+                status: retryable ? 'queued' : 'failed',
+                runAfterAt
+            });
+
+            throw error;
+        }
+    } catch (error) {
+        return sendError(res, error, 'Failed to run next nurture job.');
+    }
+};
+
+exports.rebuildContextPacks = async (req, res) => {
+    try {
+        const packs = await aiNurtureRepo.rebuildContextPacks();
+        return res.json({
+            success: true,
+            packs
+        });
+    } catch (error) {
+        return sendError(res, error, 'Failed to rebuild context packs.');
     }
 };

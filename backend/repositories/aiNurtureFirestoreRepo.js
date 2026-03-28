@@ -1,5 +1,6 @@
 const { firestore } = require('../../config/firebaseAdmin');
 const { Timestamp } = require('firebase-admin/firestore');
+const aiNurturePolicy = require('../services/aiNurturePolicy');
 
 const nowTs = () => Timestamp.now();
 
@@ -70,8 +71,26 @@ const reviewsCol = () => firestore.collection('aiNurtureReviews');
 const libraryCol = () => firestore.collection('aiNurtureLibrary');
 const memoryCardsCol = () => firestore.collection('aiNurtureMemoryCards');
 const contextPacksCol = () => firestore.collection('aiNurtureContextPacks');
+const jobsCol = () => firestore.collection('aiNurtureJobs');
 const snapshotsCol = (sourceId) => sourcesCol().doc(sanitize(sourceId)).collection('snapshots');
 const chunksCol = (sourceId) => sourcesCol().doc(sanitize(sourceId)).collection('chunks');
+
+function toTimestamp(value) {
+    if (!value) return nowTs();
+    if (value instanceof Date) return Timestamp.fromDate(value);
+    if (typeof value?.toDate === 'function') return value;
+    const parsed = new Date(value);
+    return Number.isFinite(parsed.getTime()) ? Timestamp.fromDate(parsed) : nowTs();
+}
+
+function toDocKey(value, fallback = 'general') {
+    const cleaned = sanitize(value)
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+
+    return cleaned || fallback;
+}
 
 async function getSettings() {
     const snap = await settingsDoc().get();
@@ -292,6 +311,12 @@ async function createOrReplaceReview(sourceId, payload = {}) {
             riskNotes: Array.isArray(payload.riskNotes) ? payload.riskNotes.map((item) => sanitize(item)).filter(Boolean) : [],
             recommendedCategory: sanitize(payload.recommendedCategory || 'general'),
             recommendedKnowledgeType: sanitize(payload.recommendedKnowledgeType || 'framework'),
+            domainVerdict: sanitize(payload.domainVerdict || 'neutral'),
+            domainTrustScore: Number(toNumber(payload.domainTrustScore, 0).toFixed(2)),
+            duplicateScore: Number(toNumber(payload.duplicateScore, 0).toFixed(2)),
+            duplicateTopMatch: payload.duplicateTopMatch && typeof payload.duplicateTopMatch === 'object'
+                ? serializeValue(payload.duplicateTopMatch)
+                : null,
             scores: {
                 relevance: Number(toNumber(payload?.scores?.relevance, 0).toFixed(2)),
                 novelty: Number(toNumber(payload?.scores?.novelty, 0).toFixed(2)),
@@ -309,7 +334,6 @@ async function createOrReplaceReview(sourceId, payload = {}) {
 
     return mapDoc(await ref.get());
 }
-
 async function getReviewBySourceId(sourceId) {
     const snap = await reviewsCol().doc(sanitize(sourceId)).get();
     if (!snap.exists) return null;
@@ -384,32 +408,70 @@ async function createMemoryCards(sourceId, rules = [], meta = {}) {
 }
 
 async function rebuildContextPacks() {
-    const items = await listLibrary(80);
+    const items = await listLibrary(140);
+    const cards = await listMemoryCards(220);
 
     const grouped = new Map();
+
     for (const item of items) {
-        const category = sanitize(item.category || 'general');
-        if (!grouped.has(category)) grouped.set(category, []);
-        grouped.get(category).push(item);
+        const category = sanitize(item.category || 'general') || 'general';
+        if (!grouped.has(category)) {
+            grouped.set(category, {
+                category,
+                tags: new Set(),
+                rules: [],
+                examples: [],
+                redFlags: []
+            });
+        }
+
+        const bucket = grouped.get(category);
+        (Array.isArray(item.retrievalTags) ? item.retrievalTags : []).forEach((tag) => bucket.tags.add(sanitize(tag)));
+        (Array.isArray(item.usableRules) ? item.usableRules : []).forEach((rule) => {
+            if (rule && !bucket.rules.includes(rule)) bucket.rules.push(rule);
+        });
+        if (item.summary && !bucket.examples.includes(item.summary)) bucket.examples.push(item.summary);
+        (Array.isArray(item.doNotUseWhen) ? item.doNotUseWhen : []).forEach((flag) => {
+            if (flag && !bucket.redFlags.includes(flag)) bucket.redFlags.push(flag);
+        });
+    }
+
+    for (const card of cards) {
+        const category = sanitize(card.category || 'general') || 'general';
+        if (!grouped.has(category)) {
+            grouped.set(category, {
+                category,
+                tags: new Set(),
+                rules: [],
+                examples: [],
+                redFlags: []
+            });
+        }
+
+        const bucket = grouped.get(category);
+        if (card.content && !bucket.rules.includes(card.content)) bucket.rules.push(card.content);
     }
 
     const existing = await contextPacksCol().get();
     const deleteBatch = firestore.batch();
     existing.docs.forEach((doc) => deleteBatch.delete(doc.ref));
-    if (!existing.empty) {
-        await deleteBatch.commit();
-    }
+    if (!existing.empty) await deleteBatch.commit();
 
     const packs = [];
-    for (const [category, categoryItems] of grouped.entries()) {
-        const ref = contextPacksCol().doc(category);
+
+    for (const [category, bucket] of grouped.entries()) {
+        const key = toDocKey(category, 'general');
+        const ref = contextPacksCol().doc(key);
+
         const pack = {
-            key: category,
+            key,
             title: `${category} planner pack`,
             category,
-            rules: categoryItems.flatMap((item) => Array.isArray(item.usableRules) ? item.usableRules : []).slice(0, 12),
-            redFlags: categoryItems.flatMap((item) => Array.isArray(item.doNotUseWhen) ? item.doNotUseWhen : []).slice(0, 8),
-            examples: categoryItems.map((item) => item.summary).filter(Boolean).slice(0, 6),
+            tags: [...bucket.tags].filter(Boolean).slice(0, 16),
+            rules: bucket.rules.slice(0, 14),
+            examples: bucket.examples.slice(0, 8),
+            redFlags: bucket.redFlags.slice(0, 10),
+            strength: Number(Math.min(1, (bucket.rules.length * 0.08) + (bucket.examples.length * 0.05)).toFixed(2)),
             isActive: true,
             updatedAt: nowTs(),
             createdAt: nowTs()
@@ -501,35 +563,146 @@ async function buildActiveKnowledgeContext(filters = {}) {
         ? filters.tagHints.map((item) => sanitize(item).toLowerCase()).filter(Boolean)
         : [];
 
-    const libraryItems = await listLibrary(60);
-    const memorySnap = await memoryCardsCol().limit(120).get();
-    const memoryCards = memorySnap.docs
+    const [packs, libraryItems, memoryCards] = await Promise.all([
+        listContextPacks(40),
+        listLibrary(70),
+        listMemoryCards(140)
+    ]);
+
+    return aiNurturePolicy.selectContextFromAssets({
+        packs,
+        libraryItems,
+        memoryCards,
+        categoryHints,
+        tagHints
+    });
+}
+async function listMemoryCards(limit = 160) {
+    const snap = await memoryCardsCol()
+        .limit(Math.max(1, Math.min(300, toNumber(limit, 160))))
+        .get();
+
+    return snap.docs
         .map(mapDoc)
         .filter((item) => item.isActive === true);
-
-    const filteredLibrary = categoryHints.length
-        ? libraryItems.filter((item) => categoryHints.includes(String(item.category || '').trim().toLowerCase()))
-        : libraryItems;
-
-    const filteredCards = (tagHints.length || categoryHints.length)
-        ? memoryCards.filter((card) => {
-            const category = String(card.category || '').trim().toLowerCase();
-            const content = String(card.content || '').trim().toLowerCase();
-            return (
-                categoryHints.includes(category) ||
-                tagHints.some((hint) => content.includes(hint))
-            );
-        })
-        : memoryCards;
-
-    return {
-        rules: filteredCards.slice(0, 8).map((item) => sanitize(item.content)).filter(Boolean),
-        examples: filteredLibrary.slice(0, 4).map((item) => sanitize(item.summary)).filter(Boolean),
-        redFlags: filteredLibrary.slice(0, 4).flatMap((item) => Array.isArray(item.doNotUseWhen) ? item.doNotUseWhen : []).slice(0, 6),
-        priorityThemes: [...new Set(filteredLibrary.slice(0, 6).map((item) => sanitize(item.category)).filter(Boolean))]
-    };
 }
 
+async function listContextPacks(limit = 60) {
+    const snap = await contextPacksCol()
+        .limit(Math.max(1, Math.min(120, toNumber(limit, 60))))
+        .get();
+
+    return snap.docs
+        .map(mapDoc)
+        .filter((item) => item.isActive === true);
+}
+
+async function getLibraryForDuplicateCheck(limit = 150) {
+    return listLibrary(limit);
+}
+
+async function createJob(payload = {}) {
+    const ref = jobsCol().doc();
+    const doc = {
+        type: sanitize(payload.type || 'process-source'),
+        sourceId: sanitize(payload.sourceId),
+        status: sanitize(payload.status || 'queued'),
+        priority: toNumber(payload.priority, 3),
+        reason: sanitize(payload.reason),
+        runAfterAt: toTimestamp(payload.runAfterAt),
+        attempts: toNumber(payload.attempts, 0),
+        lastError: sanitize(payload.lastError),
+        createdAt: nowTs(),
+        updatedAt: nowTs(),
+        startedAt: null,
+        completedAt: null,
+        failedAt: null
+    };
+
+    await ref.set(doc);
+    return mapDoc(await ref.get());
+}
+
+async function listJobs(limit = 50) {
+    const snap = await jobsCol()
+        .orderBy('updatedAt', 'desc')
+        .limit(Math.max(1, Math.min(100, toNumber(limit, 50))))
+        .get();
+
+    return snap.docs.map(mapDoc);
+}
+
+async function claimNextQueuedJob() {
+    const snap = await jobsCol()
+        .where('status', '==', 'queued')
+        .limit(20)
+        .get();
+
+    if (snap.empty) return null;
+
+    const nowIso = new Date().toISOString();
+    const candidates = snap.docs
+        .map(mapDoc)
+        .filter((job) => {
+            const runAfter = job.runAfterAt ? new Date(job.runAfterAt).getTime() : 0;
+            return !runAfter || runAfter <= Date.now();
+        })
+        .sort((a, b) => {
+            const priorityDiff = toNumber(b.priority, 0) - toNumber(a.priority, 0);
+            if (priorityDiff !== 0) return priorityDiff;
+            return String(a.createdAt || nowIso).localeCompare(String(b.createdAt || nowIso));
+        });
+
+    const next = candidates[0];
+    if (!next) return null;
+
+    const ref = jobsCol().doc(next.id);
+    await ref.set(
+        {
+            status: 'running',
+            startedAt: nowTs(),
+            updatedAt: nowTs()
+        },
+        { merge: true }
+    );
+
+    return mapDoc(await ref.get());
+}
+
+async function completeJob(jobId, payload = {}) {
+    const ref = jobsCol().doc(sanitize(jobId));
+    await ref.set(
+        {
+            status: 'completed',
+            completedAt: nowTs(),
+            updatedAt: nowTs(),
+            lastError: '',
+            resultSourceId: sanitize(payload.resultSourceId)
+        },
+        { merge: true }
+    );
+
+    return mapDoc(await ref.get());
+}
+
+async function failJob(jobId, error, payload = {}) {
+    const ref = jobsCol().doc(sanitize(jobId));
+    const attempts = toNumber(payload.attempts, 0);
+
+    await ref.set(
+        {
+            status: sanitize(payload.status || 'failed'),
+            failedAt: nowTs(),
+            updatedAt: nowTs(),
+            attempts,
+            lastError: sanitize(error?.message || error || 'Job failed.'),
+            runAfterAt: payload.runAfterAt ? toTimestamp(payload.runAfterAt) : undefined
+        },
+        { merge: true }
+    );
+
+    return mapDoc(await ref.get());
+}
 module.exports = {
     getSettings,
     updateSettings,
@@ -548,5 +721,13 @@ module.exports = {
     rejectSource,
     listLibrary,
     buildActiveKnowledgeContext,
-    rebuildContextPacks
+    rebuildContextPacks,
+    listMemoryCards,
+    listContextPacks,
+    getLibraryForDuplicateCheck,
+    createJob,
+    listJobs,
+    claimNextQueuedJob,
+    completeJob,
+    failJob,
 };
