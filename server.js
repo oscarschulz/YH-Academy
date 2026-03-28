@@ -4,383 +4,151 @@ const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
 const cors = require('cors');
+const { firestore } = require('./config/firebaseAdmin');
+const { Timestamp } = require('firebase-admin/firestore');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// --- 🗄️ SQLITE DATABASE SETUP ---
-const sqlite3 = require('sqlite3').verbose();
-const { open } = require('sqlite');
+const chatMessagesCol = firestore.collection('chatMessages');
 
-(async () => {
-    try {
-        const db = await open({
-            filename: './yh_database.sqlite',
-            driver: sqlite3.Database
-        });
-        
-        await db.exec(`
-            PRAGMA foreign_keys = ON;
+const sanitizeText = (value, fallback = '') => {
+    if (value === null || value === undefined) return fallback;
+    return String(value).trim();
+};
 
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                fullName TEXT,
-                email TEXT UNIQUE,
-                username TEXT,
-                contact TEXT,
-                password TEXT,
-                isVerified INTEGER DEFAULT 0,
-                verificationCode TEXT
-            );
+const mapChatTimestamp = (value) => {
+    if (!value) return null;
+    if (typeof value.toDate === 'function') return value.toDate().toISOString();
+    if (value instanceof Date) return value.toISOString();
+    return value || null;
+};
 
-            CREATE TABLE IF NOT EXISTS messages (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                room TEXT,
-                author TEXT,
-                initial TEXT,
-                avatar TEXT,
-                text TEXT,
-                time TEXT,
-                upvotes INTEGER DEFAULT 0
-            );
+function mapChatMessageDoc(doc) {
+    const data = doc.data() || {};
+    return {
+        id: doc.id,
+        room: sanitizeText(data.room),
+        author: sanitizeText(data.author),
+        initial: sanitizeText(data.initial),
+        avatar: sanitizeText(data.avatar),
+        text: sanitizeText(data.text),
+        time: sanitizeText(data.time || mapChatTimestamp(data.created_at)),
+        upvotes: Number.isFinite(Number(data.upvotes)) ? Number(data.upvotes) : 0
+    };
+}
 
-            CREATE TABLE IF NOT EXISTS academy_profiles (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                city TEXT,
-                country TEXT,
-                occupation_type TEXT,
-                current_job TEXT,
-                industry TEXT,
-                monthly_income_range TEXT,
-                savings_range TEXT,
-                income_source TEXT,
-                business_stage TEXT,
-                sleep_hours REAL,
-                energy_score INTEGER,
-                exercise_frequency TEXT,
-                stress_score INTEGER,
-                bad_habit TEXT,
-                seriousness TEXT,
-                weekly_hours INTEGER,
-                goals_6mo TEXT,
-                blocker_text TEXT,
-                coach_tone TEXT,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-            );
+// ==========================================
+// ⚡ REAL-TIME SOCKET.IO LOGIC
+// ==========================================
+io.on('connection', (socket) => {
+    console.log('⚡ A hustler connected:', socket.id);
 
-            CREATE TABLE IF NOT EXISTS academy_roadmaps (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                profile_id INTEGER NOT NULL,
-                version INTEGER NOT NULL DEFAULT 1,
-                status TEXT NOT NULL DEFAULT 'active',
-                readiness_score INTEGER,
-                summary_json TEXT NOT NULL,
-                roadmap_json TEXT NOT NULL,
-                created_by_model TEXT,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-                FOREIGN KEY (profile_id) REFERENCES academy_profiles(id) ON DELETE CASCADE
-            );
+    socket.on('joinRoom', async (room) => {
+        try {
+            const roomId = sanitizeText(room);
+            if (!roomId) return;
 
-            CREATE TABLE IF NOT EXISTS academy_missions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                roadmap_id INTEGER NOT NULL,
-                pillar TEXT NOT NULL,
-                title TEXT NOT NULL,
-                description TEXT,
-                why_it_matters TEXT,
-                frequency TEXT NOT NULL,
-                due_date TEXT,
-                estimated_minutes INTEGER,
-                status TEXT NOT NULL DEFAULT 'pending',
-                source TEXT NOT NULL DEFAULT 'ai',
-                completion_note TEXT,
-                sort_order INTEGER DEFAULT 0,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                completed_at DATETIME,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-                FOREIGN KEY (roadmap_id) REFERENCES academy_roadmaps(id) ON DELETE CASCADE
-            );
+            socket.join(roomId);
 
-            CREATE TABLE IF NOT EXISTS academy_checkins (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                roadmap_id INTEGER NOT NULL,
-                energy_score INTEGER,
-                mood_score INTEGER,
-                completed_summary TEXT,
-                blocker_text TEXT,
-                tomorrow_focus TEXT,
-                ai_feedback_json TEXT,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-                FOREIGN KEY (roadmap_id) REFERENCES academy_roadmaps(id) ON DELETE CASCADE
-            );
+            const historySnap = await chatMessagesCol
+                .where('room', '==', roomId)
+                .limit(200)
+                .get();
 
-            CREATE TABLE IF NOT EXISTS academy_coach_messages (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                roadmap_id INTEGER,
-                role TEXT NOT NULL,
-                message TEXT NOT NULL,
-                context_json TEXT,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-                FOREIGN KEY (roadmap_id) REFERENCES academy_roadmaps(id) ON DELETE SET NULL
-            );
+            const history = historySnap.docs
+                .map(mapChatMessageDoc)
+                .sort((a, b) => {
+                    const aTime = new Date(a.time || 0).getTime();
+                    const bTime = new Date(b.time || 0).getTime();
+                    return aTime - bTime;
+                })
+                .slice(-50);
 
-                        CREATE TABLE IF NOT EXISTS academy_access (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL UNIQUE,
-                access_state TEXT NOT NULL DEFAULT 'locked',
-                unlocked_at DATETIME,
-                last_assessed_at DATETIME,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-            );
+            socket.emit('chatHistory', history);
+        } catch (error) {
+            console.error('joinRoom error:', error);
+        }
+    });
 
-            CREATE TABLE IF NOT EXISTS user_profiles (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL UNIQUE,
-                display_name TEXT,
-                username TEXT,
-                avatar TEXT,
-                bio TEXT,
-                role_label TEXT,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-            );
+    socket.on('sendMessage', async (data) => {
+        try {
+            const payload = {
+                room: sanitizeText(data?.room),
+                author: sanitizeText(data?.author),
+                initial: sanitizeText(data?.initial),
+                avatar: sanitizeText(data?.avatar),
+                text: sanitizeText(data?.text),
+                time: sanitizeText(data?.time || new Date().toISOString()),
+                upvotes: 0,
+                created_at: Timestamp.now()
+            };
 
-            CREATE TABLE IF NOT EXISTS user_stats (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL UNIQUE,
-                rep_points INTEGER DEFAULT 0,
-                followers_count INTEGER DEFAULT 0,
-                following_count INTEGER DEFAULT 0,
-                messages_count INTEGER DEFAULT 0,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-            );
+            if (!payload.room || !payload.author || !payload.text) {
+                return;
+            }
 
-            CREATE TABLE IF NOT EXISTS user_follows (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                follower_user_id INTEGER NOT NULL,
-                following_user_id INTEGER NOT NULL,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(follower_user_id, following_user_id),
-                FOREIGN KEY (follower_user_id) REFERENCES users(id) ON DELETE CASCADE,
-                FOREIGN KEY (following_user_id) REFERENCES users(id) ON DELETE CASCADE
-            );
+            const ref = chatMessagesCol.doc();
+            await ref.set(payload);
 
-            CREATE TABLE IF NOT EXISTS chat_rooms (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                room_key TEXT NOT NULL UNIQUE,
-                room_type TEXT NOT NULL DEFAULT 'group',
-                name TEXT NOT NULL,
-                description TEXT,
-                created_by_user_id INTEGER,
-                is_private INTEGER DEFAULT 0,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE SET NULL
-            );
+            const outgoing = {
+                id: ref.id,
+                room: payload.room,
+                author: payload.author,
+                initial: payload.initial,
+                avatar: payload.avatar,
+                text: payload.text,
+                time: payload.time,
+                upvotes: 0
+            };
 
-            CREATE TABLE IF NOT EXISTS chat_room_members (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                room_id INTEGER NOT NULL,
-                user_id INTEGER NOT NULL,
-                role TEXT NOT NULL DEFAULT 'member',
-                joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(room_id, user_id),
-                FOREIGN KEY (room_id) REFERENCES chat_rooms(id) ON DELETE CASCADE,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-            );
+            io.to(payload.room).emit('receiveMessage', outgoing);
+        } catch (error) {
+            console.error('sendMessage error:', error);
+        }
+    });
 
-            CREATE TABLE IF NOT EXISTS vault_items (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                parent_id INTEGER,
-                item_type TEXT NOT NULL DEFAULT 'folder',
-                name TEXT NOT NULL,
-                file_path TEXT,
-                mime_type TEXT,
-                file_size INTEGER,
-                is_deleted INTEGER DEFAULT 0,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-                FOREIGN KEY (parent_id) REFERENCES vault_items(id) ON DELETE CASCADE
-            );
+    socket.on('upvoteMessage', async (msgId) => {
+        try {
+            const messageId = sanitizeText(msgId);
+            if (!messageId) return;
 
-            CREATE TABLE IF NOT EXISTS live_rooms (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                room_key TEXT NOT NULL UNIQUE,
-                room_type TEXT NOT NULL DEFAULT 'voice',
-                title TEXT NOT NULL,
-                topic TEXT,
-                host_user_id INTEGER,
-                status TEXT NOT NULL DEFAULT 'live',
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                ended_at DATETIME,
-                FOREIGN KEY (host_user_id) REFERENCES users(id) ON DELETE SET NULL
-            );
+            const ref = chatMessagesCol.doc(messageId);
+            const snap = await ref.get();
+            if (!snap.exists) return;
 
-            CREATE TABLE IF NOT EXISTS live_room_participants (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                live_room_id INTEGER NOT NULL,
-                user_id INTEGER NOT NULL,
-                role TEXT NOT NULL DEFAULT 'listener',
-                joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                left_at DATETIME,
-                UNIQUE(live_room_id, user_id),
-                FOREIGN KEY (live_room_id) REFERENCES live_rooms(id) ON DELETE CASCADE,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-            );
+            const current = snap.data() || {};
+            await ref.update({
+                upvotes: (Number(current.upvotes) || 0) + 1
+            });
 
-            CREATE TABLE IF NOT EXISTS notifications (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                type TEXT NOT NULL,
-                title TEXT NOT NULL,
-                body TEXT,
-                target_type TEXT,
-                target_id TEXT,
-                is_read INTEGER DEFAULT 0,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-            );
+            io.emit('messageUpvoted', messageId);
+        } catch (error) {
+            console.error('upvoteMessage error:', error);
+        }
+    });
 
-            CREATE INDEX IF NOT EXISTS idx_messages_room ON messages(room);
-            CREATE INDEX IF NOT EXISTS idx_user_profiles_user_id ON user_profiles(user_id);
-            CREATE INDEX IF NOT EXISTS idx_user_stats_user_id ON user_stats(user_id);
-            CREATE INDEX IF NOT EXISTS idx_user_follows_follower_user_id ON user_follows(follower_user_id);
-            CREATE INDEX IF NOT EXISTS idx_user_follows_following_user_id ON user_follows(following_user_id);
-            CREATE INDEX IF NOT EXISTS idx_chat_rooms_room_key ON chat_rooms(room_key);
-            CREATE INDEX IF NOT EXISTS idx_chat_rooms_created_by_user_id ON chat_rooms(created_by_user_id);
-            CREATE INDEX IF NOT EXISTS idx_chat_room_members_room_id ON chat_room_members(room_id);
-            CREATE INDEX IF NOT EXISTS idx_chat_room_members_user_id ON chat_room_members(user_id);
-            CREATE INDEX IF NOT EXISTS idx_vault_items_user_id ON vault_items(user_id);
-            CREATE INDEX IF NOT EXISTS idx_vault_items_parent_id ON vault_items(parent_id);
-            CREATE INDEX IF NOT EXISTS idx_live_rooms_room_key ON live_rooms(room_key);
-            CREATE INDEX IF NOT EXISTS idx_live_rooms_host_user_id ON live_rooms(host_user_id);
-            CREATE INDEX IF NOT EXISTS idx_live_room_participants_live_room_id ON live_room_participants(live_room_id);
-            CREATE INDEX IF NOT EXISTS idx_live_room_participants_user_id ON live_room_participants(user_id);
-            CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
-            CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read);
-            CREATE INDEX IF NOT EXISTS idx_academy_profiles_user_id ON academy_profiles(user_id);
-            CREATE INDEX IF NOT EXISTS idx_academy_roadmaps_user_id ON academy_roadmaps(user_id);
-            CREATE INDEX IF NOT EXISTS idx_academy_roadmaps_profile_id ON academy_roadmaps(profile_id);
-            CREATE INDEX IF NOT EXISTS idx_academy_missions_user_id ON academy_missions(user_id);
-            CREATE INDEX IF NOT EXISTS idx_academy_missions_roadmap_id ON academy_missions(roadmap_id);
-            CREATE INDEX IF NOT EXISTS idx_academy_missions_status ON academy_missions(status);
-            CREATE INDEX IF NOT EXISTS idx_academy_checkins_user_id ON academy_checkins(user_id);
-            CREATE INDEX IF NOT EXISTS idx_academy_checkins_roadmap_id ON academy_checkins(roadmap_id);
-            CREATE INDEX IF NOT EXISTS idx_academy_coach_messages_user_id ON academy_coach_messages(user_id);
-            CREATE INDEX IF NOT EXISTS idx_academy_access_user_id ON academy_access(user_id);
-        `);
-        await db.exec(`
-            CREATE TABLE IF NOT EXISTS auth_user_links (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                firebase_uid TEXT NOT NULL UNIQUE,
-                email TEXT,
-                username TEXT,
-                user_id INTEGER NOT NULL UNIQUE,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-            );
+    socket.on('deleteMessage', async (msgId) => {
+        try {
+            const messageId = sanitizeText(msgId);
+            if (!messageId) return;
 
-            CREATE TABLE IF NOT EXISTS academy_feed_posts (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                body TEXT NOT NULL,
-                image_url TEXT,
-                visibility TEXT NOT NULL DEFAULT 'academy',
-                is_pinned INTEGER NOT NULL DEFAULT 0,
-                is_deleted INTEGER NOT NULL DEFAULT 0,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-            );
+            const ref = chatMessagesCol.doc(messageId);
+            const snap = await ref.get();
+            if (!snap.exists) return;
 
-            CREATE TABLE IF NOT EXISTS academy_feed_post_likes (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                post_id INTEGER NOT NULL,
-                user_id INTEGER NOT NULL,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(post_id, user_id),
-                FOREIGN KEY (post_id) REFERENCES academy_feed_posts(id) ON DELETE CASCADE,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-            );
+            await ref.delete();
+            io.emit('messageDeleted', messageId);
+        } catch (error) {
+            console.error('deleteMessage error:', error);
+        }
+    });
 
-            CREATE TABLE IF NOT EXISTS academy_feed_post_comments (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                post_id INTEGER NOT NULL,
-                user_id INTEGER NOT NULL,
-                body TEXT NOT NULL,
-                is_deleted INTEGER NOT NULL DEFAULT 0,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (post_id) REFERENCES academy_feed_posts(id) ON DELETE CASCADE,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-            );
-
-            CREATE TABLE IF NOT EXISTS academy_friend_requests (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                sender_user_id INTEGER NOT NULL,
-                receiver_user_id INTEGER NOT NULL,
-                status TEXT NOT NULL DEFAULT 'pending',
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                responded_at DATETIME,
-                UNIQUE(sender_user_id, receiver_user_id),
-                FOREIGN KEY (sender_user_id) REFERENCES users(id) ON DELETE CASCADE,
-                FOREIGN KEY (receiver_user_id) REFERENCES users(id) ON DELETE CASCADE
-            );
-
-            CREATE TABLE IF NOT EXISTS academy_friendships (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_one_id INTEGER NOT NULL,
-                user_two_id INTEGER NOT NULL,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(user_one_id, user_two_id),
-                FOREIGN KEY (user_one_id) REFERENCES users(id) ON DELETE CASCADE,
-                FOREIGN KEY (user_two_id) REFERENCES users(id) ON DELETE CASCADE
-            );
-
-            CREATE INDEX IF NOT EXISTS idx_auth_user_links_firebase_uid ON auth_user_links(firebase_uid);
-            CREATE INDEX IF NOT EXISTS idx_auth_user_links_user_id ON auth_user_links(user_id);
-
-            CREATE INDEX IF NOT EXISTS idx_academy_feed_posts_user_id ON academy_feed_posts(user_id);
-            CREATE INDEX IF NOT EXISTS idx_academy_feed_posts_created_at ON academy_feed_posts(created_at);
-            CREATE INDEX IF NOT EXISTS idx_academy_feed_posts_is_deleted ON academy_feed_posts(is_deleted);
-
-            CREATE INDEX IF NOT EXISTS idx_academy_feed_post_likes_post_id ON academy_feed_post_likes(post_id);
-            CREATE INDEX IF NOT EXISTS idx_academy_feed_post_likes_user_id ON academy_feed_post_likes(user_id);
-
-            CREATE INDEX IF NOT EXISTS idx_academy_feed_post_comments_post_id ON academy_feed_post_comments(post_id);
-            CREATE INDEX IF NOT EXISTS idx_academy_feed_post_comments_user_id ON academy_feed_post_comments(user_id);
-            CREATE INDEX IF NOT EXISTS idx_academy_feed_post_comments_created_at ON academy_feed_post_comments(created_at);
-
-            CREATE INDEX IF NOT EXISTS idx_academy_friend_requests_sender ON academy_friend_requests(sender_user_id);
-            CREATE INDEX IF NOT EXISTS idx_academy_friend_requests_receiver ON academy_friend_requests(receiver_user_id);
-            CREATE INDEX IF NOT EXISTS idx_academy_friend_requests_status ON academy_friend_requests(status);
-
-            CREATE INDEX IF NOT EXISTS idx_academy_friendships_user_one ON academy_friendships(user_one_id);
-            CREATE INDEX IF NOT EXISTS idx_academy_friendships_user_two ON academy_friendships(user_two_id);
-        `);
-        console.log('🟢 SQLite Local Database Connected!');
-        app.locals.db = db; 
-    } catch (error) {
-        console.error('🔴 MALI SA SQLITE:', error);
-    }
-})();
+    socket.on('disconnect', () => {
+        console.log('❌ A hustler disconnected:', socket.id);
+    });
+});
 
 // --- 🛡️ SECURITY PACKAGES ---
 const rateLimit = require('express-rate-limit');
@@ -406,62 +174,6 @@ const apiRoutes = require('./routes/apiRoutes');
 
 app.use('/', viewRoutes);
 app.use('/api', apiRoutes); 
-
-// ==========================================
-// ⚡ REAL-TIME SOCKET.IO LOGIC
-// ==========================================
-io.on('connection', (socket) => {
-    console.log('⚡ A hustler connected:', socket.id);
-
-    // 1. Kapag pumasok ang user sa kwarto (Main Chat o DM)
-    socket.on('joinRoom', async (room) => {
-        socket.join(room);
-        const db = app.locals.db;
-        if(db) {
-            // Kunin ang huling 50 messages sa database at ibigay sa user na kakapasok lang
-            const history = await db.all('SELECT * FROM messages WHERE room = ? ORDER BY id ASC LIMIT 50', [room]);
-            socket.emit('chatHistory', history);
-        }
-    });
-
-    // 2. Kapag may nag-send ng Chat
-    socket.on('sendMessage', async (data) => {
-        const db = app.locals.db;
-        if(db) {
-            // I-save ang message sa SQLite
-            const result = await db.run(
-                'INSERT INTO messages (room, author, initial, avatar, text, time, upvotes) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                [data.room, data.author, data.initial, data.avatar, data.text, data.time, 0]
-            );
-            data.id = result.lastID; // Ilakip ang ID mula sa database
-
-            // I-broadcast ang chat sa lahat ng tao sa kwarto
-            io.to(data.room).emit('receiveMessage', data);
-        }
-    });
-
-    // 3. Kapag may nag-click ng apoy (Upvote/Agree)
-    socket.on('upvoteMessage', async (msgId) => {
-        const db = app.locals.db;
-        if(db) {
-            await db.run('UPDATE messages SET upvotes = upvotes + 1 WHERE id = ?', [msgId]);
-            io.emit('messageUpvoted', msgId); // Update ang screen ng lahat
-        }
-    });
-
-    // 4. Kapag binura ng owner ang chat niya
-    socket.on('deleteMessage', async (msgId) => {
-         const db = app.locals.db;
-         if(db) {
-             await db.run('DELETE FROM messages WHERE id = ?', [msgId]);
-             io.emit('messageDeleted', msgId); // Update ang screen ng lahat
-         }
-    });
-
-    socket.on('disconnect', () => {
-        console.log('❌ A hustler disconnected:', socket.id);
-    });
-});
 
 // --- START SERVER ---
 const PORT = process.env.PORT || 3000;

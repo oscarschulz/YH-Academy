@@ -136,10 +136,6 @@
     {
       "name": "server.js",
       "type": "file"
-    },
-    {
-      "name": "yh_database.sqlite",
-      "type": "file"
     }
   ],
   "metadata": {

@@ -4371,6 +4371,33 @@ function academyFeedEscapeHtml(value) {
         .replace(/'/g, '&#39;');
 }
 
+function normalizeAcademyFeedId(value) {
+    if (value === null || value === undefined) return '';
+    return String(value).trim();
+}
+
+function readAcademyHiddenPostIds() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem('yh_academy_hidden_posts') || '[]');
+        return Array.isArray(parsed)
+            ? parsed.map((item) => normalizeAcademyFeedId(item)).filter(Boolean)
+            : [];
+    } catch (_) {
+        return [];
+    }
+}
+
+function writeAcademyHiddenPostIds(ids = []) {
+    const normalized = Array.from(new Set(
+        (Array.isArray(ids) ? ids : [])
+            .map((item) => normalizeAcademyFeedId(item))
+            .filter(Boolean)
+    ));
+
+    localStorage.setItem('yh_academy_hidden_posts', JSON.stringify(normalized));
+    return normalized;
+}
+
 function academyFeedTimeLabel(value) {
     if (!value) return 'Just now';
     const date = new Date(value);
@@ -4575,9 +4602,10 @@ function renderAcademyFeed(posts = []) {
 
         const isOwner = Boolean(Number(post.owned_by_me || 0));
         const isSharedPost = /Shared from /i.test(String(post.body || ''));
-        const hiddenPosts = JSON.parse(localStorage.getItem('yh_academy_hidden_posts') || '[]');
+        const hiddenPosts = readAcademyHiddenPostIds();
+        const normalizedPostId = normalizeAcademyFeedId(post.id);
 
-        if (hiddenPosts.includes(Number(post.id))) {
+        if (hiddenPosts.includes(normalizedPostId)) {
             return '';
         }
 
@@ -4687,7 +4715,7 @@ function buildAcademyFeedSharePayload(post, caption = '') {
     };
 }
 
-let academyFeedDeleteTargetPostId = 0;
+let academyFeedDeleteTargetPostId = '';
 
 function academyFeedCloseShareModal() {
     const modal = document.getElementById('academy-feed-share-modal');
@@ -4703,16 +4731,18 @@ function academyFeedCloseShareModal() {
 }
 
 function academyFeedOpenDeleteModal(postId) {
-    academyFeedDeleteTargetPostId = Number(postId || 0);
+    academyFeedDeleteTargetPostId = normalizeAcademyFeedId(postId);
+    if (!academyFeedDeleteTargetPostId) return;
     document.getElementById('academy-feed-delete-modal')?.classList.remove('hidden-step');
 }
 
 function academyFeedCloseDeleteModal() {
-    academyFeedDeleteTargetPostId = 0;
+    academyFeedDeleteTargetPostId = '';
     document.getElementById('academy-feed-delete-modal')?.classList.add('hidden-step');
 }
 
 function academyFeedOpenShareModal(postId) {
+    const normalizedPostId = normalizeAcademyFeedId(postId);
     const cacheRaw = localStorage.getItem('yh_academy_feed_cache');
     let cachedPosts = [];
 
@@ -4725,7 +4755,7 @@ function academyFeedOpenShareModal(postId) {
         }
     }
 
-    const targetPost = cachedPosts.find((post) => Number(post?.id) === Number(postId));
+    const targetPost = cachedPosts.find((post) => normalizeAcademyFeedId(post?.id) === normalizedPostId);
     if (!targetPost) {
         showToast('Post not found for sharing.', 'error');
         return;
@@ -4897,18 +4927,15 @@ async function academyFeedSubmitComment(postId) {
 }
 
 async function academyFeedToggleFollow(targetUserId) {
-    try {
-        await academyAuthedFetch('/api/realtime/follows/toggle', {
-            method: 'POST',
-            body: JSON.stringify({ targetUserId })
-        });
+    const normalizedTargetUserId = normalizeAcademyFeedId(targetUserId);
 
-        loadAcademyFeed(true);
-    } catch (error) {
-        showToast(error.message || 'Failed to update follow status.', 'error');
+    if (!normalizedTargetUserId) {
+        showToast('Invalid user target.', 'error');
+        return;
     }
-}
 
+    showToast('Follow is temporarily disabled until realtime user migration is moved to Firestore.', 'error');
+}
 async function academyFeedSendFriendRequest(targetUserId) {
     try {
         await academyAuthedFetch('/api/academy/feed/friend-requests', {
@@ -5158,52 +5185,31 @@ document.getElementById('academy-feed-share-modal')?.addEventListener('click', (
 document.getElementById('academy-feed-list')?.addEventListener('click', async (event) => {
     const likeBtn = event.target.closest('.academy-feed-like-btn');
     if (likeBtn) {
-        const postId = Number(likeBtn.getAttribute('data-post-id') || 0);
+        const postId = normalizeAcademyFeedId(likeBtn.getAttribute('data-post-id'));
         if (postId) academyFeedToggleLike(postId);
         return;
     }
 
     const commentsToggleBtn = event.target.closest('.academy-feed-comments-toggle-btn');
     if (commentsToggleBtn) {
-        const postId = Number(commentsToggleBtn.getAttribute('data-post-id') || 0);
+        const postId = normalizeAcademyFeedId(commentsToggleBtn.getAttribute('data-post-id'));
         if (postId) academyFeedLoadComments(postId);
         return;
     }
 
     const shareBtn = event.target.closest('.academy-feed-share-btn');
     if (shareBtn) {
-        const postId = Number(shareBtn.getAttribute('data-post-id') || 0);
+        const postId = normalizeAcademyFeedId(shareBtn.getAttribute('data-post-id'));
         if (!postId) return;
 
-        const postsCache = JSON.parse(localStorage.getItem('yh_academy_feed_cache') || '{}');
-        const posts = Array.isArray(postsCache?.posts) ? postsCache.posts : [];
-        const originalPost = posts.find((post) => Number(post?.id) === postId);
-
-        if (!originalPost) {
-            showToast('Post not found for sharing.', 'error');
-            return;
-        }
-
-        const modal = document.getElementById('academy-feed-share-modal');
-        const captionInput = document.getElementById('academy-feed-share-caption');
-        const preview = document.getElementById('academy-feed-share-preview');
-
-        window.__academySharePost = originalPost;
-
-        if (preview) {
-            preview.innerHTML = `
-                <div style="font-weight:700;color:#fff;">${academyFeedEscapeHtml(originalPost.display_name || originalPost.fullName || originalPost.username || 'Academy Member')}</div>
-                <div style="margin-top:8px;color:#e5e7eb;line-height:1.55;">${academyFeedEscapeHtml(String(originalPost.body || '')).replace(/\n/g, '<br>')}</div>
-            `;
-        }
-
-        if (captionInput) captionInput.value = '';
-        modal?.classList.remove('hidden-step');
+        academyFeedOpenShareModal(postId);
         return;
     }
+
     const menuBtn = event.target.closest('.academy-feed-post-menu-btn');
     if (menuBtn) {
-        const postId = Number(menuBtn.getAttribute('data-post-id') || 0);
+        const postId = normalizeAcademyFeedId(menuBtn.getAttribute('data-post-id'));
+        if (!postId) return;
         const menu = document.getElementById(`academy-feed-post-menu-${postId}`);
         if (menu) menu.classList.toggle('hidden-step');
         return;
@@ -5211,12 +5217,15 @@ document.getElementById('academy-feed-list')?.addEventListener('click', async (e
 
     const hideBtn = event.target.closest('.academy-feed-hide-btn');
     if (hideBtn) {
-        const postId = Number(hideBtn.getAttribute('data-post-id') || 0);
-        const hiddenPosts = JSON.parse(localStorage.getItem('yh_academy_hidden_posts') || '[]');
+        const postId = normalizeAcademyFeedId(hideBtn.getAttribute('data-post-id'));
+        if (!postId) return;
+
+        const hiddenPosts = readAcademyHiddenPostIds();
         if (!hiddenPosts.includes(postId)) {
             hiddenPosts.push(postId);
-            localStorage.setItem('yh_academy_hidden_posts', JSON.stringify(hiddenPosts));
+            writeAcademyHiddenPostIds(hiddenPosts);
         }
+
         showToast('Post hidden from your feed.', 'success');
         loadAcademyFeed(true);
         return;
@@ -5224,15 +5233,16 @@ document.getElementById('academy-feed-list')?.addEventListener('click', async (e
 
     const deleteBtn = event.target.closest('.academy-feed-delete-btn');
     if (deleteBtn) {
-        const postId = Number(deleteBtn.getAttribute('data-post-id') || 0);
+        const postId = normalizeAcademyFeedId(deleteBtn.getAttribute('data-post-id'));
         if (!postId) return;
 
         academyFeedOpenDeleteModal(postId);
         return;
     }
+
     const commentSubmitBtn = event.target.closest('.academy-feed-comment-submit-btn');
     if (commentSubmitBtn) {
-        const postId = Number(commentSubmitBtn.getAttribute('data-post-id') || 0);
+        const postId = normalizeAcademyFeedId(commentSubmitBtn.getAttribute('data-post-id'));
         if (postId) academyFeedSubmitComment(postId);
     }
 });
@@ -5340,7 +5350,7 @@ closeApplyBtn?.addEventListener('click', closeAcademyLauncher);
 document.getElementById('academy-feed-delete-cancel-btn')?.addEventListener('click', academyFeedCloseDeleteModal);
 
 document.getElementById('academy-feed-delete-confirm-btn')?.addEventListener('click', async () => {
-    const postId = Number(academyFeedDeleteTargetPostId || 0);
+    const postId = normalizeAcademyFeedId(academyFeedDeleteTargetPostId);
     if (!postId) return;
 
     try {

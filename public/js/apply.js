@@ -356,3 +356,33 @@ if (btnLogin) {
         });
     }
 });
+document.addEventListener('DOMContentLoaded', () => {
+    const authSection = document.getElementById('yh-auth-section');
+    const divisionsSection = document.getElementById('yh-divisions-section');
+
+    const scrollToTarget = (target) => {
+        if (!target) return;
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    const openAuthPanel = () => {
+        scrollToTarget(authSection);
+    };
+
+    const btnTopbar = document.getElementById('yh-scroll-auth');
+    const btnHero = document.getElementById('yh-open-auth-main');
+    const btnAcademy = document.getElementById('yh-open-auth-academy');
+    const btnDivisions = document.getElementById('yh-scroll-divisions');
+
+    if (btnTopbar) btnTopbar.addEventListener('click', () => openAuthPanel());
+    if (btnHero) btnHero.addEventListener('click', () => openAuthPanel());
+    if (btnAcademy) btnAcademy.addEventListener('click', () => openAuthPanel());
+    if (btnDivisions) btnDivisions.addEventListener('click', () => scrollToTarget(divisionsSection));
+
+    document.querySelectorAll('.yh-coming-soon-btn').forEach((button) => {
+        button.addEventListener('click', () => {
+            const label = button.getAttribute('data-soon') || 'This division';
+            showToast(`${label} is coming soon to Young Hustlers Universe.`, 'success');
+        });
+    });
+});

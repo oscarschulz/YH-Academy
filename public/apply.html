@@ -13,77 +13,257 @@
         <span id="toast-icon">🎉</span> <span id="toast-message">Notification</span>
     </div>
 
-    <div id="step-1" class="step-container fade-in">
-        <div class="form-card-ultrawide step1-flipper-container">
-            
-            <div class="panel-left">
-                <video src="/video/yhvideo3.mp4" autoplay muted playsinline class="intro-video" id="landing-video"></video>
+    <div id="step-1" class="step-container fade-in yh-landing-step">
+        <div class="yh-landing-shell">
+            <div class="yh-landing-bg">
+                <img src="/images/bg.avif" alt="YH Background" class="yh-landing-bg-image">
+                <div class="yh-landing-bg-overlay"></div>
             </div>
-            
-            <div class="panel-right-wrapper">
-                <div id="auth-flipper" class="flip-card-inner">
-                    
-                    <div class="flip-card-front hide-scrollbar flip-trigger-area">
-                        <div class="auth-center-wrapper">
-                            <div class="text-center mb-large">
-                                <img src="/images/logo.avif" alt="YH Logo" class="step1-logo" style="width: 70px; margin-bottom: 5px;">
-                                <h1 class="main-title step1-title" style="margin-bottom: 0;">YH UNIVERSE</h1>
-                                <p class="subtitle step1-subtitle" style="margin-bottom: 2rem;">Log in to access your divisions.</p>
+
+            <section class="yh-landing-hero">
+                <div class="yh-landing-topbar">
+                    <div class="yh-landing-brand">
+                        <img src="/images/logo.avif" alt="YH Logo" class="yh-landing-brand-logo">
+                        <div class="yh-landing-brand-copy">
+                            <span class="yh-landing-brand-name">Young Hustlers Universe</span>
+                        </div>
+                    </div>
+
+                    <button type="button" id="yh-scroll-auth" class="btn-secondary yh-topbar-btn">
+                        Enter Universe ➔
+                    </button>
+                </div>
+
+                <div class="yh-landing-hero-grid">
+                    <div class="yh-landing-hero-copy">
+                        <div class="yh-landing-pill">Global structured network</div>
+                        <h1 class="yh-landing-title">Young Hustlers Universe</h1>
+                        <p class="yh-landing-subtitle">
+                            One universe. Multiple divisions. Build your roadmap, enter the Academy,
+                            and prepare for the rise of the Plazas and the Federation.
+                        </p>
+
+                        <div class="yh-landing-cta-row">
+                            <button type="button" id="yh-open-auth-main" class="btn-primary yh-landing-cta-primary">
+                                Access The Academy ➔
+                            </button>
+                            <button type="button" id="yh-scroll-divisions" class="btn-secondary yh-landing-cta-secondary">
+                                Explore Divisions
+                            </button>
+                        </div>
+
+                        <div class="yh-landing-metrics">
+                            <div class="yh-landing-metric-card">
+                                <strong>Academy</strong>
+                                <span>Live now</span>
                             </div>
-                            
-                            <div class="login-ui-container w-full">
-                                <input type="email" id="login-email" placeholder="Email Address" class="pill-input auth-stop-propagation" autocomplete="email">
-                                <input type="password" id="login-password" placeholder="Password" class="pill-input auth-stop-propagation">
-                                <a href="#" class="forgot-link auth-stop-propagation">Forgot password?</a>
-                                <button type="button" id="btn-login" class="pill-btn-login auth-stop-propagation">Login</button>
-                                <div class="divider mt-large w-full"><span>OR</span></div>
-                                <button type="button" id="btn-flip-register" class="btn-secondary w-full auth-stop-propagation" style="border-radius: 30px; margin-top: 10px;">
-                                    Create Universe Account ➔
-                                </button>
+                            <div class="yh-landing-metric-card">
+                                <strong>Plazas</strong>
+                                <span>Coming soon</span>
+                            </div>
+                            <div class="yh-landing-metric-card">
+                                <strong>Federation</strong>
+                                <span>Coming soon</span>
                             </div>
                         </div>
                     </div>
 
-                    <div class="flip-card-back hide-scrollbar relative-panel">
-                        <button type="button" id="btn-flip-login" class="btn-back-icon auth-stop-propagation">⬅ Back to Login</button>
-
-                        <div class="auth-center-wrapper w-full">
-                            <div class="text-center mb-large mt-small">
-                                <img src="/images/logo.avif" alt="YH Logo" class="step1-logo">
-                                <h1 class="main-title step1-title">YH UNIVERSE</h1>
-                                <p class="subtitle step1-subtitle">Create your passport to access all divisions.</p>
+                    <div class="yh-landing-hero-visual">
+                        <div class="yh-landing-visual-card">
+                            <div class="yh-landing-visual-glow"></div>
+                            <video src="/video/yhvideo3.mp4" autoplay muted playsinline class="yh-landing-video" id="landing-video"></video>
+                            <div class="yh-landing-visual-caption">
+                                <span class="yh-landing-visual-kicker">Universe Preview</span>
+                                <strong>Roadmaps. Community. Live execution.</strong>
                             </div>
-
-                            <form id="form-register-simple" class="w-full" style="max-width: 500px;">
-                                <div class="form-row">
-                                    <div class="form-group w-full mb-0">
-                                        <label>Full Name</label>
-                                        <input type="text" id="reg-fullname" required placeholder="e.g. John Doe" class="input-field">
-                                    </div>
-                                    <div class="form-group w-full mb-0">
-                                        <label>Email Address</label>
-                                        <input type="email" id="reg-email" required placeholder="you@email.com" class="input-field">
-                                    </div>
-                                </div>
-
-                                <div class="form-row-last">
-                                    <div class="form-group w-full mb-0">
-                                        <label>Create Password</label>
-                                        <input type="password" id="reg-password" required placeholder="••••••••" class="input-field">
-                                    </div>
-                                    <div class="form-group w-full mb-0">
-                                        <label>Confirm Password</label>
-                                        <input type="password" id="reg-confirm-password" required placeholder="••••••••" class="input-field">
-                                    </div>
-                                </div>
-
-                                <button type="submit" id="btn-register" class="btn-primary btn-large">Create Account ➔</button>
-                            </form>
                         </div>
                     </div>
                 </div>
-            </div>
+            </section>
 
+            <section id="yh-divisions-section" class="yh-landing-section">
+                <div class="yh-landing-section-head">
+                    <div>
+                        <span class="yh-landing-section-kicker">Universe Divisions</span>
+                        <h2 class="yh-landing-section-title">Everything inside the dashboard, introduced on one page</h2>
+                    </div>
+                    <p class="yh-landing-section-copy">
+                        The dashboard is structured into live execution, upcoming monetization systems, and future strategic expansion.
+                    </p>
+                </div>
+
+                <div class="yh-landing-division-grid">
+                    <article class="yh-landing-division-card is-live">
+                        <div class="yh-landing-division-top">
+                            <span class="yh-landing-status live">Live Division</span>
+                            <span class="yh-landing-icon">🎓</span>
+                        </div>
+                        <h3>YH Academy</h3>
+                        <p>
+                            Build your roadmap through AI-guided missions, enter the community,
+                            track execution, and step into live sessions.
+                        </p>
+                        <ul class="yh-landing-feature-list">
+                            <li>AI roadmap generation</li>
+                            <li>Mission and execution system</li>
+                            <li>Community feed and comments</li>
+                            <li>Live division entry</li>
+                        </ul>
+                        <button type="button" id="yh-open-auth-academy" class="btn-primary yh-division-btn">
+                            Enter YH Academy ➔
+                        </button>
+                    </article>
+
+                    <article class="yh-landing-division-card is-soon">
+                        <div class="yh-landing-division-top">
+                            <span class="yh-landing-status soon">Coming Soon</span>
+                            <span class="yh-landing-icon">🏪</span>
+                        </div>
+                        <h3>The Plazas</h3>
+                        <p>
+                            The marketplace layer of the universe. Skills, services, offers,
+                            talent, and monetization pathways will live here.
+                        </p>
+                        <ul class="yh-landing-feature-list">
+                            <li>Marketplace and services</li>
+                            <li>Talent and offers</li>
+                            <li>Patron-led monetization</li>
+                            <li>Expansion-ready infrastructure</li>
+                        </ul>
+                        <button type="button" class="btn-secondary yh-division-btn yh-coming-soon-btn" data-soon="Plazas">
+                            Coming Soon
+                        </button>
+                    </article>
+
+                    <article class="yh-landing-division-card is-soon">
+                        <div class="yh-landing-division-top">
+                            <span class="yh-landing-status soon">Coming Soon</span>
+                            <span class="yh-landing-icon">🤝</span>
+                        </div>
+                        <h3>The Federation</h3>
+                        <p>
+                            The strategic network layer. High-value contacts, global leverage,
+                            and long-term relationship capital will be managed here.
+                        </p>
+                        <ul class="yh-landing-feature-list">
+                            <li>High-value network directory</li>
+                            <li>Strategic relationship mapping</li>
+                            <li>Global leverage layer</li>
+                            <li>Elite expansion system</li>
+                        </ul>
+                        <button type="button" class="btn-secondary yh-division-btn yh-coming-soon-btn" data-soon="Federation">
+                            Coming Soon
+                        </button>
+                    </article>
+                </div>
+            </section>
+
+            <section class="yh-landing-section yh-landing-dashboard-preview">
+                <div class="yh-landing-section-head">
+                    <div>
+                        <span class="yh-landing-section-kicker">Dashboard Highlights</span>
+                        <h2 class="yh-landing-section-title">What users will unlock inside the universe</h2>
+                    </div>
+                </div>
+
+                <div class="yh-dashboard-preview-grid">
+                    <div class="yh-dashboard-preview-card">
+                        <h4>Universe Hub</h4>
+                        <p>Move across divisions from one command layer.</p>
+                    </div>
+                    <div class="yh-dashboard-preview-card">
+                        <h4>Academy Roadmaps</h4>
+                        <p>AI-built execution plans based on goals, blockers, and seriousness.</p>
+                    </div>
+                    <div class="yh-dashboard-preview-card">
+                        <h4>Community Layer</h4>
+                        <p>Post updates, engage, comment, and build momentum with others.</p>
+                    </div>
+                    <div class="yh-dashboard-preview-card">
+                        <h4>Future Expansion</h4>
+                        <p>Plazas and Federation are already positioned as the next layers.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="yh-auth-section" class="yh-landing-auth-wrap">
+                <div class="form-card-ultrawide step1-flipper-container yh-auth-card">
+                    <div class="panel-left yh-auth-panel-left">
+                        <div class="yh-auth-panel-copy">
+                            <img src="/images/logo.avif" alt="YH Logo" class="step1-logo">
+                            <div class="step-indicator-badge">Universe Access</div>
+                            <h2 class="yh-auth-panel-title">Access your passport into the Young Hustlers Universe</h2>
+                            <p class="subtitle">
+                                Log in to continue your mission or create an account to enter the Academy now.
+                                The Plazas and Federation will open in future phases.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="panel-right-wrapper">
+                        <div id="auth-flipper" class="flip-card-inner">
+                            <div class="flip-card-front hide-scrollbar flip-trigger-area">
+                                <div class="auth-center-wrapper">
+                                    <div class="text-center mb-large">
+                                        <img src="/images/logo.avif" alt="YH Logo" class="step1-logo" style="width: 70px; margin-bottom: 5px;">
+                                        <h1 class="main-title step1-title" style="margin-bottom: 0;">YOUNG HUSTLERS UNIVERSE</h1>
+                                        <p class="subtitle step1-subtitle" style="margin-bottom: 2rem;">Log in to access your divisions.</p>
+                                    </div>
+
+                                    <div class="login-ui-container w-full">
+                                        <input type="email" id="login-email" placeholder="Email Address" class="pill-input auth-stop-propagation" autocomplete="email">
+                                        <input type="password" id="login-password" placeholder="Password" class="pill-input auth-stop-propagation">
+                                        <a href="#" class="forgot-link auth-stop-propagation">Forgot password?</a>
+                                        <button type="button" id="btn-login" class="pill-btn-login auth-stop-propagation">Login</button>
+                                        <div class="divider mt-large w-full"><span>OR</span></div>
+                                        <button type="button" id="btn-flip-register" class="btn-secondary w-full auth-stop-propagation" style="border-radius: 30px; margin-top: 10px;">
+                                            Create Universe Account ➔
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="flip-card-back hide-scrollbar relative-panel">
+                                <button type="button" id="btn-flip-login" class="btn-back-icon auth-stop-propagation">⬅ Back to Login</button>
+
+                                <div class="auth-center-wrapper w-full">
+                                    <div class="text-center mb-large mt-small">
+                                        <img src="/images/logo.avif" alt="YH Logo" class="step1-logo">
+                                        <h1 class="main-title step1-title">YOUNG HUSTLERS UNIVERSE</h1>
+                                        <p class="subtitle step1-subtitle">Create your passport to access all divisions.</p>
+                                    </div>
+
+                                    <form id="form-register-simple" class="w-full" style="max-width: 500px;">
+                                        <div class="form-row">
+                                            <div class="form-group w-full mb-0">
+                                                <label>Full Name</label>
+                                                <input type="text" id="reg-fullname" required placeholder="e.g. John Doe" class="input-field">
+                                            </div>
+                                            <div class="form-group w-full mb-0">
+                                                <label>Email Address</label>
+                                                <input type="email" id="reg-email" required placeholder="you@email.com" class="input-field">
+                                            </div>
+                                        </div>
+
+                                        <div class="form-row-last">
+                                            <div class="form-group w-full mb-0">
+                                                <label>Create Password</label>
+                                                <input type="password" id="reg-password" required placeholder="••••••••" class="input-field">
+                                            </div>
+                                            <div class="form-group w-full mb-0">
+                                                <label>Confirm Password</label>
+                                                <input type="password" id="reg-confirm-password" required placeholder="••••••••" class="input-field">
+                                            </div>
+                                        </div>
+
+                                        <button type="submit" id="btn-register" class="btn-primary btn-large">Create Account ➔</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
         </div>
     </div>
 
