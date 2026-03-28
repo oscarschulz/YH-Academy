@@ -5223,3 +5223,14 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
     margin-top: 0.35rem;
     margin-bottom: 0.35rem;
 }
+@media (min-width: 1025px) {
+    .form-card-ultrawide {
+        height: 79vh !important;
+        min-height: 720px !important;
+    }
+
+    .flip-card-front,
+    .flip-card-back {
+        padding-bottom: 3rem !important;
+    }
+}
