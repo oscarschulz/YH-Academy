@@ -1664,26 +1664,25 @@ exports.completeMission = async (req, res) => {
             completionLagHours
         });
 
-        const behaviorState = await refreshBehaviorState(uid);
-        const progress = await academyFirestoreRepo.getMissionProgress(uid, mission.roadmapId);
-
+const behaviorState = await refreshBehaviorState(uid);
+const progress = await academyFirestoreRepo.getMissionProgress(uid, mission.roadmapId);
 const homePayload = await academyFirestoreRepo.buildAcademyHomePayload(uid, mission.roadmapId);
 
-    return res.json({
-        success: true,
-        missionId,
-        status,
-        note,
-        todayProgress: {
-            completed: progress.completed || 0,
-            total: progress.total || 0,
-            percent: progress.percent || 0
-        },
-        behaviorProfile: behaviorState.behaviorProfile,
-        previousBehaviorProfile: behaviorState.previousBehaviorProfile,
-        plannerStats: behaviorState.plannerStats,
-        adaptivePlanning: homePayload?.adaptivePlanning || {}
-    });
+return res.json({
+    success: true,
+    missionId,
+    status: 'completed',
+    note: completionNote,
+    todayProgress: {
+        completed: progress.completed || 0,
+        total: progress.total || 0,
+        percent: progress.percent || 0
+    },
+    behaviorProfile: behaviorState.behaviorProfile,
+    previousBehaviorProfile: behaviorState.previousBehaviorProfile,
+    plannerStats: behaviorState.plannerStats,
+    adaptivePlanning: homePayload?.adaptivePlanning || {}
+});
     } catch (error) {
         console.error('Complete Mission Error:', error);
         return res.status(500).json({
@@ -1777,20 +1776,23 @@ exports.updateMissionStatus = async (req, res) => {
         const behaviorState = await refreshBehaviorState(uid);
         const progress = await academyFirestoreRepo.getMissionProgress(uid, mission.roadmapId);
 
-        return res.json({
-            success: true,
-            missionId,
-            status,
-            note,
-            todayProgress: {
-                completed: progress.completed || 0,
-                total: progress.total || 0,
-                percent: progress.percent || 0
-            },
-            behaviorProfile: behaviorState.behaviorProfile,
-            previousBehaviorProfile: behaviorState.previousBehaviorProfile,
-            plannerStats: behaviorState.plannerStats
-        });
+const homePayload = await academyFirestoreRepo.buildAcademyHomePayload(uid, mission.roadmapId);
+
+return res.json({
+    success: true,
+    missionId,
+    status: 'completed',
+    note: completionNote,
+    todayProgress: {
+        completed: progress.completed || 0,
+        total: progress.total || 0,
+        percent: progress.percent || 0
+    },
+    behaviorProfile: behaviorState.behaviorProfile,
+    previousBehaviorProfile: behaviorState.previousBehaviorProfile,
+    plannerStats: behaviorState.plannerStats,
+    adaptivePlanning: homePayload?.adaptivePlanning || {}
+});
     } catch (error) {
         console.error('Update Mission Status Error:', error);
         return res.status(500).json({
