@@ -383,25 +383,55 @@ function updateUserProfile(newName, newAvatarData) {
 function sendSystemNotification(title, text, avatarStr, color, target) {
     const notifList = document.getElementById('notif-list-container');
     const bellBadge = document.getElementById('notif-badge-count');
-    if(!notifList) return;
-    
+    if (!notifList) return;
+
+    document.getElementById('notif-empty-state')?.remove();
+
     const li = document.createElement('li');
-    li.className = "unread fade-in";
-    if(target) li.setAttribute('data-target', target);
-    
+    li.className = 'unread fade-in';
+    if (target) li.setAttribute('data-target', target);
+
     li.innerHTML = `<div class="notif-img" style="background: ${color};">${avatarStr}</div><div class="notif-text"><strong>${title}</strong> ${text}<span class="notif-time">Just now</span></div>`;
+
     li.addEventListener('click', () => {
         li.classList.remove('unread');
-        const remainingUnread = document.querySelectorAll('#notif-dropdown .unread').length;
-        if(bellBadge) { if (remainingUnread === 0) bellBadge.style.display = 'none'; else bellBadge.innerText = remainingUnread; }
-        document.getElementById('notif-dropdown').classList.remove('show');
-        if (target === 'announcements') document.getElementById('nav-announcements').click();
-        else if (target === 'main-chat') document.getElementById('nav-chat').click();
+
+        const remainingUnread = document.querySelectorAll('#notif-dropdown .notif-list li.unread').length;
+        if (bellBadge) {
+            if (remainingUnread === 0) {
+                bellBadge.style.display = 'none';
+                bellBadge.innerText = '0';
+            } else {
+                bellBadge.style.display = 'flex';
+                bellBadge.innerText = String(remainingUnread);
+            }
+        }
+
+        document.getElementById('notif-dropdown')?.classList.remove('show');
+
+        if (target === 'announcements') document.getElementById('nav-announcements')?.click();
+        else if (target === 'main-chat') document.getElementById('nav-chat')?.click();
+        else if (target === 'dm') document.getElementById('btn-open-dm-modal')?.click();
+        else if (target === 'profile') document.querySelector('.profile-mini')?.click();
     });
+
     notifList.prepend(li);
-    if(bellBadge) {
-        bellBadge.style.display = 'flex'; bellBadge.innerText = document.querySelectorAll('#notif-dropdown .unread').length;
-        bellBadge.parentElement.style.transform = 'scale(1.2)'; setTimeout(() => { bellBadge.parentElement.style.transform = 'scale(1)'; }, 200);
+
+    if (bellBadge) {
+        const unreadTotal = document.querySelectorAll('#notif-dropdown .notif-list li.unread').length;
+        if (unreadTotal > 0) {
+            bellBadge.style.display = 'flex';
+            bellBadge.innerText = String(unreadTotal);
+            if (bellBadge.parentElement) {
+                bellBadge.parentElement.style.transform = 'scale(1.2)';
+                setTimeout(() => {
+                    if (bellBadge.parentElement) bellBadge.parentElement.style.transform = 'scale(1)';
+                }, 200);
+            }
+        } else {
+            bellBadge.style.display = 'none';
+            bellBadge.innerText = '0';
+        }
     }
 }
 window.handleAcademyLaunchClick = function(event) {
@@ -3876,7 +3906,7 @@ if (resourcesMenu && resourcesMenuBtn && resourcesMenuPanel) {
     // ==========================================
     // INITIALIZATION RUNNER
     // ==========================================
-    if (localStorage.getItem('yh_user_loggedIn') === 'true') {
+if (localStorage.getItem('yh_user_loggedIn') === 'true') {
     const savedName = localStorage.getItem('yh_user_name');
     const savedAvatar = localStorage.getItem('yh_user_avatar');
     updateUserProfile(savedName, savedAvatar);
@@ -3897,7 +3927,9 @@ if (resourcesMenu && resourcesMenuBtn && resourcesMenuPanel) {
     loadVoiceLounges(); 
     loadVideoLounges();
     renderLeaderboard();
-    loadVault(); 
+    loadVault();
+
+    resolveAcademyAccessState().catch(() => {});
 }
 
     // ==========================================
@@ -3920,6 +3952,61 @@ function readAcademyHomeCache() {
     } catch (_) {
         return null;
     }
+}
+
+function persistAcademyAccessState(unlocked, homeData = null) {
+    if (unlocked) {
+        localStorage.setItem('yh_academy_access', 'true');
+        if (homeData && typeof homeData === 'object') {
+            persistAcademyHome(homeData);
+        }
+        return true;
+    }
+
+    localStorage.removeItem('yh_academy_access');
+    localStorage.removeItem('yh_academy_home');
+    return false;
+}
+
+let academyAccessResolvePromise = null;
+
+async function resolveAcademyAccessState(force = false) {
+    const cachedUnlocked = localStorage.getItem('yh_academy_access') === 'true';
+
+    if (!force && cachedUnlocked) {
+        return true;
+    }
+
+    if (!force && academyAccessResolvePromise) {
+        return academyAccessResolvePromise;
+    }
+
+    academyAccessResolvePromise = (async () => {
+        try {
+            const home = await academyAuthedFetch('/api/academy/home', {
+                method: 'GET'
+            });
+
+            persistAcademyAccessState(true, home);
+            return true;
+        } catch (error) {
+            const message = String(error?.message || '').toLowerCase();
+            const noRoadmapYet =
+                message.includes('no active academy roadmap yet') ||
+                message.includes('no active roadmap');
+
+            if (noRoadmapYet) {
+                persistAcademyAccessState(false);
+                return false;
+            }
+
+            return cachedUnlocked;
+        } finally {
+            academyAccessResolvePromise = null;
+        }
+    })();
+
+    return academyAccessResolvePromise;
 }
 
 function buildAcademyMissionSignalSnapshot() {
@@ -5915,7 +6002,7 @@ window.closeAcademyLauncher = closeAcademyLauncher;
 
 let academySuppressClickUntil = 0;
 
-function handleAcademyLaunchClick(event) {
+async function handleAcademyLaunchClick(event) {
     const eventType = event?.type || '';
     const now = (typeof performance !== 'undefined' && typeof performance.now === 'function')
         ? performance.now()
@@ -5936,9 +6023,15 @@ function handleAcademyLaunchClick(event) {
         event.stopPropagation?.();
     }
 
-    const hasAcademyAccess = localStorage.getItem('yh_academy_access') === 'true';
+    const hasAcademyAccess = await resolveAcademyAccessState();
 
     if (hasAcademyAccess) {
+        if (!readAcademyHomeCache()) {
+            try {
+                await loadAcademyHome(true);
+            } catch (_) {}
+        }
+
         enterAcademyWorld('missions');
         return false;
     }
@@ -5951,7 +6044,7 @@ window.handleAcademyLaunchClick = handleAcademyLaunchClick;
 
 let academyLaunchLock = false;
 
-function runAcademyLaunch(event) {
+async function runAcademyLaunch(event) {
     if (event) {
         event.preventDefault?.();
         event.stopPropagation?.();
@@ -5960,30 +6053,58 @@ function runAcademyLaunch(event) {
     if (academyLaunchLock) return false;
     academyLaunchLock = true;
 
-    const result = handleAcademyLaunchClick(event);
+    try {
+        return await handleAcademyLaunchClick(event);
+    } finally {
+        requestAnimationFrame(() => {
+            academyLaunchLock = false;
+        });
+    }
+}
 
-    requestAnimationFrame(() => {
-        academyLaunchLock = false;
+function bindAcademyLaunchTarget(target) {
+    if (!target || target.dataset.launchBound === 'true') return;
+
+    target.dataset.launchBound = 'true';
+    target.style.pointerEvents = 'auto';
+    target.style.touchAction = 'manipulation';
+
+    target.addEventListener('touchend', runAcademyLaunch, { passive: false });
+    target.addEventListener('pointerup', runAcademyLaunch);
+    target.addEventListener('mouseup', runAcademyLaunch);
+    target.addEventListener('click', runAcademyLaunch);
+
+    target.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            runAcademyLaunch(event);
+        }
     });
-
-    return result;
 }
 
 if (btnOpenApply) {
     btnOpenApply.setAttribute('type', 'button');
     btnOpenApply.style.pointerEvents = 'auto';
     btnOpenApply.style.touchAction = 'manipulation';
-
-    if (!btnOpenApply.dataset.launchBound) {
-        btnOpenApply.dataset.launchBound = 'true';
-
-        btnOpenApply.addEventListener('touchend', runAcademyLaunch, { passive: false });
-        btnOpenApply.addEventListener('pointerup', runAcademyLaunch);
-        btnOpenApply.addEventListener('mouseup', runAcademyLaunch);
-        btnOpenApply.addEventListener('click', runAcademyLaunch);
-    }
+    bindAcademyLaunchTarget(btnOpenApply);
 }
+document.addEventListener('click', async (event) => {
+    const academyBtn = event.target.closest('#btn-open-academy-apply');
+    if (!academyBtn) return;
 
+    event.preventDefault();
+    event.stopPropagation();
+    await runAcademyLaunch(event);
+}, true);
+
+document.addEventListener('pointerup', async (event) => {
+    const academyBtn = event.target.closest('#btn-open-academy-apply');
+    if (!academyBtn) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    await runAcademyLaunch(event);
+}, true);
 closeApplyBtn?.addEventListener('click', closeAcademyLauncher);
 
 document.getElementById('academy-feed-delete-cancel-btn')?.addEventListener('click', academyFeedCloseDeleteModal);
@@ -6030,7 +6151,33 @@ queueMicrotask(() => {
 });
 
 const formApply = document.getElementById('form-academy-apply');
+const academyOccupationTypeInput = document.getElementById('app-occupation-type');
+const academyJobLabel = document.getElementById('app-job-label');
+const academyJobInput = document.getElementById('app-job');
 
+function syncAcademyOccupationField() {
+    const occupationValue = String(academyOccupationTypeInput?.value || '').trim().toLowerCase();
+    const isStudent = occupationValue === 'student';
+
+    if (academyJobLabel) {
+        academyJobLabel.innerText = isStudent ? 'Field of Studies' : 'Current Job / Business';
+    }
+
+    if (academyJobInput) {
+        academyJobInput.placeholder = isStudent
+            ? 'e.g. Political Science, Computer Science'
+            : 'What do you currently do?';
+
+        academyJobInput.setAttribute(
+            'aria-label',
+            isStudent ? 'Field of Studies' : 'Current Job / Business'
+        );
+    }
+}
+
+academyOccupationTypeInput?.addEventListener('change', syncAcademyOccupationField);
+academyOccupationTypeInput?.addEventListener('input', syncAcademyOccupationField);
+syncAcademyOccupationField();
 const escapeHtml = (value) => {
     if (value === null || value === undefined) return '';
     return String(value)

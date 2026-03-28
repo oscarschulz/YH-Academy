@@ -177,13 +177,21 @@
 
         <div class="row">
             <div class="card">
-                <h2>Source Detail</h2>
-                <div id="detail-panel" class="muted">Open a source to inspect snapshot, scores, duplicate matches, manual reviewer notes, and chunk decisions.</div>
+                <h2>Roadmap Telemetry</h2>
+                <div class="muted">Inspect a user’s real active roadmap telemetry, planner run decision trace, output summary, and mission stats.</div>
+
+                <input id="telemetry-user-id" type="text" placeholder="User ID for roadmap telemetry lookup">
+
+                <div class="actions">
+                    <button id="btn-load-telemetry" type="button" class="secondary">Load Roadmap Telemetry</button>
+                </div>
+
+                <div id="telemetry-panel" class="muted">No roadmap telemetry loaded yet.</div>
             </div>
 
             <div class="card">
-                <h2>Library</h2>
-                <div id="library-list" class="muted">Loading…</div>
+                <h2>Telemetry Raw Output</h2>
+                <pre id="telemetry-raw-output" class="subtle-pre">{}</pre>
             </div>
         </div>
     </div>
@@ -198,6 +206,9 @@
         const libraryList = document.getElementById('library-list');
         const detailPanel = document.getElementById('detail-panel');
         const contextPanel = document.getElementById('context-panel');
+        const telemetryPanel = document.getElementById('telemetry-panel');
+        const telemetryRawOutput = document.getElementById('telemetry-raw-output');
+        const telemetryUserIdInput = document.getElementById('telemetry-user-id');
         const contextUserIdInput = document.getElementById('context-user-id');
         const contextCategoryHintsInput = document.getElementById('context-category-hints');
         const contextTagHintsInput = document.getElementById('context-tag-hints');
@@ -418,11 +429,13 @@
             overlayRedflagsInput.value = joinInputList(safe.redFlags);
             overlayFocusThemesInput.value = joinInputList(safe.focusThemes);
             overlayTagsInput.value = joinInputList(safe.tags);
-
             if (!contextUserIdInput.value.trim() && overlayUserIdInput.value.trim()) {
                 contextUserIdInput.value = overlayUserIdInput.value.trim();
             }
 
+            if (!telemetryUserIdInput.value.trim() && overlayUserIdInput.value.trim()) {
+                telemetryUserIdInput.value = overlayUserIdInput.value.trim();
+            }
             const rulesCount = Array.isArray(safe.rules) ? safe.rules.length : 0;
             const flagsCount = Array.isArray(safe.redFlags) ? safe.redFlags.length : 0;
             const themesCount = Array.isArray(safe.focusThemes) ? safe.focusThemes.length : 0;
@@ -445,17 +458,152 @@
                 : '<div class="muted">No overlay loaded.</div>';
         }
 
-        function readOverlayPayload() {
-            return {
-                note: overlayNoteInput.value.trim(),
-                rules: splitInputList(overlayRulesInput.value),
-                redFlags: splitInputList(overlayRedflagsInput.value),
-                focusThemes: splitInputList(overlayFocusThemesInput.value),
-                tags: splitInputList(overlayTagsInput.value),
-                isActive: overlayActiveInput.checked
-            };
+        function renderKeyValueItems(obj = {}) {
+            const entries = Object.entries(obj && typeof obj === 'object' ? obj : {})
+                .filter(([, value]) => value !== undefined && value !== null && value !== '');
+
+            if (!entries.length) {
+                return '<div class="empty-box">None</div>';
+            }
+
+            return entries.map(([key, value]) => {
+                const isObject = value && typeof value === 'object';
+                return `
+                    <div class="item">
+                        <strong>${escapeHtml(key)}</strong>
+                        <div class="muted">${isObject ? escapeHtml(JSON.stringify(value)) : escapeHtml(String(value))}</div>
+                    </div>
+                `;
+            }).join('');
         }
 
+        function renderTelemetry(payload = {}) {
+            const roadmap = payload?.roadmap && typeof payload.roadmap === 'object' ? payload.roadmap : {};
+            const plannerRun = payload?.plannerRun && typeof payload.plannerRun === 'object' ? payload.plannerRun : {};
+            const decisionTrace = plannerRun?.decisionTrace && typeof plannerRun.decisionTrace === 'object'
+                ? plannerRun.decisionTrace
+                : {};
+            const outputSummary = plannerRun?.outputSummary && typeof plannerRun.outputSummary === 'object'
+                ? plannerRun.outputSummary
+                : {};
+            const missionStats = payload?.missionStats && typeof payload.missionStats === 'object'
+                ? payload.missionStats
+                : {};
+            const nurtureTelemetry = plannerRun?.nurtureTelemetry && typeof plannerRun.nurtureTelemetry === 'object'
+                ? plannerRun.nurtureTelemetry
+                : (roadmap?.nurtureTelemetry && typeof roadmap.nurtureTelemetry === 'object'
+                    ? roadmap.nurtureTelemetry
+                    : {});
+
+            const selectedPackKeys = Array.isArray(nurtureTelemetry.selectedPackKeys)
+                ? nurtureTelemetry.selectedPackKeys
+                : [];
+            const injectedRules = Array.isArray(nurtureTelemetry.injectedRules)
+                ? nurtureTelemetry.injectedRules
+                : [];
+            const injectedExamples = Array.isArray(nurtureTelemetry.injectedExamples)
+                ? nurtureTelemetry.injectedExamples
+                : [];
+            const injectedRedFlags = Array.isArray(nurtureTelemetry.injectedRedFlags)
+                ? nurtureTelemetry.injectedRedFlags
+                : [];
+
+            telemetryPanel.innerHTML = `
+                <div class="item">
+                    <strong>User</strong>
+                    <div class="muted">${escapeHtml(payload.uid || 'n/a')}</div>
+                    <div class="chip-wrap">
+                        ${roadmap?.status ? `<span class="chip ok">${escapeHtml(roadmap.status)}</span>` : ''}
+                        ${roadmap?.plannerRunId ? `<span class="chip info">Planner Run: ${escapeHtml(roadmap.plannerRunId)}</span>` : ''}
+                        ${plannerRun?.mode ? `<span class="chip warn">Mode: ${escapeHtml(plannerRun.mode)}</span>` : ''}
+                    </div>
+                </div>
+
+                <div class="score-grid">
+                    ${scoreBox('Readiness', roadmap?.readinessScore ?? 'n/a')}
+                    ${scoreBox('Mission Total', missionStats?.total ?? 0)}
+                    ${scoreBox('Completed', missionStats?.completed ?? 0)}
+                    ${scoreBox('Skipped', missionStats?.skipped ?? 0)}
+                    ${scoreBox('Stuck', missionStats?.stuck ?? 0)}
+                    ${scoreBox('Pack Keys', selectedPackKeys.length)}
+                </div>
+
+                <div class="item">
+                    <strong>Focus Areas</strong>
+                    ${renderChips(Array.isArray(roadmap.focusAreas) ? roadmap.focusAreas : [], 'warn')}
+                </div>
+
+                <div class="item">
+                    <strong>Selected Pack Keys</strong>
+                    ${renderChips(selectedPackKeys, 'ok')}
+                </div>
+
+                <div class="item">
+                    <strong>Roadmap Summary</strong>
+                    ${renderKeyValueItems(roadmap.summary || {})}
+                </div>
+
+                <div class="item">
+                    <strong>Adaptive Planning</strong>
+                    ${renderKeyValueItems(roadmap.adaptivePlanning || {})}
+                </div>
+
+                <div class="item">
+                    <strong>Planner Decision Trace</strong>
+                    ${renderKeyValueItems(decisionTrace)}
+                </div>
+
+                <div class="item">
+                    <strong>Output Summary</strong>
+                    ${renderKeyValueItems(outputSummary)}
+                </div>
+
+                <div class="item">
+                    <strong>Injected Rules</strong>
+                    <ul class="list-plain">
+                        ${injectedRules.map(item => `<li>${escapeHtml(item)}</li>`).join('') || '<li>None</li>'}
+                    </ul>
+                </div>
+
+                <div class="item">
+                    <strong>Injected Examples</strong>
+                    <ul class="list-plain">
+                        ${injectedExamples.map(item => `<li>${escapeHtml(item)}</li>`).join('') || '<li>None</li>'}
+                    </ul>
+                </div>
+
+                <div class="item">
+                    <strong>Injected Red Flags</strong>
+                    <ul class="list-plain">
+                        ${injectedRedFlags.map(item => `<li>${escapeHtml(item)}</li>`).join('') || '<li>None</li>'}
+                    </ul>
+                </div>
+            `;
+
+            telemetryRawOutput.textContent = JSON.stringify(payload, null, 2);
+        }
+
+        async function loadRoadmapTelemetry(uid) {
+            const normalizedUid = String(uid || '').trim();
+            if (!normalizedUid) {
+                throw new Error('User ID is required.');
+            }
+
+            const result = await request(`/academy/telemetry/${encodeURIComponent(normalizedUid)}`);
+            renderTelemetry(result);
+
+            telemetryUserIdInput.value = normalizedUid;
+
+            if (!contextUserIdInput.value.trim()) {
+                contextUserIdInput.value = normalizedUid;
+            }
+
+            if (!overlayUserIdInput.value.trim()) {
+                overlayUserIdInput.value = normalizedUid;
+            }
+
+            return result;
+        }
         function sourceCard(source = {}) {
             return `
                 <div class="item">
@@ -735,6 +883,10 @@
                 if (userId && !overlayUserIdInput.value.trim()) {
                     overlayUserIdInput.value = userId;
                 }
+
+                if (userId && !telemetryUserIdInput.value.trim()) {
+                    telemetryUserIdInput.value = userId;
+                }
             } catch (error) {
                 output.textContent = JSON.stringify({ success: false, message: error.message }, null, 2);
             }
@@ -756,7 +908,18 @@
                 output.textContent = JSON.stringify({ success: false, message: error.message }, null, 2);
             }
         });
+        document.getElementById('btn-load-telemetry').addEventListener('click', async () => {
+            try {
+                const uid =
+                    telemetryUserIdInput.value.trim() ||
+                    overlayUserIdInput.value.trim() ||
+                    contextUserIdInput.value.trim();
 
+                await loadRoadmapTelemetry(uid);
+            } catch (error) {
+                output.textContent = JSON.stringify({ success: false, message: error.message }, null, 2);
+            }
+        });
         detailPanel.addEventListener('click', async (event) => {
             const button = event.target.closest('button[data-action="save-review-note"]');
             if (!button) return;

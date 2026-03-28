@@ -61,24 +61,24 @@ router.post('/internal/ai-nurture/:gate/sources', aiNurtureGate, aiNurtureContro
 router.get('/internal/ai-nurture/:gate/sources', aiNurtureGate, aiNurtureControllers.listSources);
 router.get('/internal/ai-nurture/:gate/sources/:id', aiNurtureGate, aiNurtureControllers.getSourceById);
 router.post('/internal/ai-nurture/:gate/sources/:id/process', aiNurtureGate, aiNurtureControllers.processSource);
+router.post('/internal/ai-nurture/:gate/sources/:id/reprocess', aiNurtureGate, aiNurtureControllers.queueReprocess);
 
 router.post('/internal/ai-nurture/:gate/sources/:id/approve', aiNurtureGate, aiNurtureControllers.approveSource);
 router.post('/internal/ai-nurture/:gate/sources/:id/reject', aiNurtureGate, aiNurtureControllers.rejectSource);
+router.post('/internal/ai-nurture/:gate/sources/:id/notes', aiNurtureGate, aiNurtureControllers.addReviewNote);
 
 router.get('/internal/ai-nurture/:gate/library', aiNurtureGate, aiNurtureControllers.listLibrary);
 router.post('/internal/ai-nurture/:gate/context-preview', aiNurtureGate, aiNurtureControllers.previewContext);
+router.get('/internal/ai-nurture/:gate/context-packs', aiNurtureGate, aiNurtureControllers.listContextPacks);
+router.post('/internal/ai-nurture/:gate/context-packs/rebuild', aiNurtureGate, aiNurtureControllers.rebuildContextPacks);
 
 router.get('/internal/ai-nurture/:gate/jobs', aiNurtureGate, aiNurtureControllers.listJobs);
 router.post('/internal/ai-nurture/:gate/jobs/run-next', aiNurtureGate, aiNurtureControllers.runNextJob);
-router.post('/internal/ai-nurture/:gate/context-packs/rebuild', aiNurtureGate, aiNurtureControllers.rebuildContextPacks);
-router.post('/internal/ai-nurture/:gate/sources/:id/notes', aiNurtureGate, aiNurtureControllers.addReviewNote);
 
 router.get('/internal/ai-nurture/:gate/user-overlays/:uid', aiNurtureGate, aiNurtureControllers.getUserOverlay);
 router.patch('/internal/ai-nurture/:gate/user-overlays/:uid', aiNurtureGate, aiNurtureControllers.updateUserOverlay);
-router.post('/internal/ai-nurture/:gate/sources/:id/notes', aiNurtureGate, aiNurtureControllers.addReviewNote);
 
-router.get('/internal/ai-nurture/:gate/user-overlays/:uid', aiNurtureGate, aiNurtureControllers.getUserOverlay);
-router.patch('/internal/ai-nurture/:gate/user-overlays/:uid', aiNurtureGate, aiNurtureControllers.updateUserOverlay);
+router.get('/internal/ai-nurture/:gate/academy/telemetry/:uid', aiNurtureGate, academyControllers.getInternalRoadmapTelemetry);
 // ==========================================
 // ⚡ REALTIME BACKEND ROUTES
 // ==========================================
@@ -103,10 +103,5 @@ router.get('/realtime/leaderboard', auth, realtimeControllers.getLeaderboard);
 router.get('/realtime/profiles/:name', auth, realtimeControllers.getProfileByName);
 router.post('/realtime/follows/toggle', auth, realtimeControllers.toggleFollow);
 
-router.post('/internal/ai-nurture/:gate/sources/:id/reprocess', aiNurtureGate, aiNurtureControllers.queueReprocess);
-router.get('/internal/ai-nurture/:gate/context-packs', aiNurtureGate, aiNurtureControllers.listContextPacks);
-router.get('/internal/ai-nurture/:gate/jobs', aiNurtureGate, aiNurtureControllers.listJobs);
-router.post('/internal/ai-nurture/:gate/jobs/run-next', aiNurtureGate, aiNurtureControllers.runNextJob);
-router.post('/internal/ai-nurture/:gate/context-packs/rebuild', aiNurtureGate, aiNurtureControllers.rebuildContextPacks);
 // 🔥 Laging nasa pinakababa ito dapat para ma-export nang buo!
 module.exports = router;

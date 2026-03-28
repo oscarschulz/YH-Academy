@@ -3649,15 +3649,6 @@ body[data-yh-view="academy"] #center-stage-view {
     .yh-universe-slide.is-active .portal-card.active-portal * {
         pointer-events: auto !important;
     }
-
-    #btn-open-academy-apply {
-        position: relative;
-        z-index: 60 !important;
-        pointer-events: auto !important;
-        touch-action: manipulation !important;
-        user-select: none;
-        -webkit-user-select: none;
-    }
 }
 
 /* ==========================================
@@ -3708,15 +3699,6 @@ body[data-yh-view="academy"] #center-stage-view {
     }
 }
 @media (max-width: 1024px) {
-    #btn-open-academy-apply {
-        position: relative;
-        z-index: 20 !important;
-        pointer-events: auto !important;
-        touch-action: manipulation !important;
-        user-select: none;
-        -webkit-user-select: none;
-    }
-
     .yh-universe-slide .portal-card {
         overflow: visible !important;
     }
@@ -3739,14 +3721,7 @@ body[data-yh-view="academy"] #center-stage-view {
         overflow: visible !important;
     }
 
-    #btn-open-academy-apply {
-        position: relative;
-        z-index: 40 !important;
-        pointer-events: auto !important;
-        touch-action: manipulation !important;
-        user-select: none;
-        -webkit-user-select: none;
-    }
+
 }
 @media (max-width: 1024px) {
     .yh-universe-carousel,
@@ -3772,45 +3747,12 @@ body[data-yh-view="academy"] #center-stage-view {
         overflow: visible !important;
     }
 
-    #btn-open-academy-apply {
-        position: relative;
-        z-index: 40 !important;
-        pointer-events: auto !important;
-        touch-action: manipulation !important;
-        user-select: none;
-        -webkit-user-select: none;
-    }
 }
-#btn-open-academy-apply {
-    width: 100% !important;
-    min-height: 52px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    flex: 0 0 auto !important;
-    align-self: stretch !important;
+
+
+.yh-universe-slide .portal-card.active-portal {
     position: relative !important;
-    z-index: 120 !important;
-    isolation: isolate;
-    pointer-events: auto !important;
-    touch-action: manipulation !important;
-    cursor: pointer !important;
-    user-select: none !important;
-    -webkit-user-select: none !important;
-}
-
-#btn-open-academy-apply,
-#btn-open-academy-apply::before {
-    pointer-events: auto !important;
-}
-
-#btn-open-academy-apply * {
-    pointer-events: none !important;
-}
-
-.yh-universe-slide .portal-card.active-portal > * {
-    position: relative;
-    z-index: 2;
+    z-index: 10 !important;
 }
 
 .yh-universe-slide .portal-card.active-portal {
@@ -5077,12 +5019,9 @@ body[data-yh-view="academy"] #center-stage-view {
 
     body[data-yh-view="hub"] .yh-universe-hub-shell {
         width: 100% !important;
-        max-width: 1540px !important;
+        max-width: 980px !important;
         margin: 0 auto !important;
-        display: grid !important;
-        grid-template-columns: minmax(240px, 290px) minmax(560px, 720px) minmax(240px, 290px) !important;
-        gap: 26px !important;
-        align-items: start !important;
+        display: block !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-carousel-shell {
@@ -5090,38 +5029,10 @@ body[data-yh-view="academy"] #center-stage-view {
         max-width: 720px !important;
         margin: 0 auto !important;
     }
-
-    body[data-yh-view="hub"] .yh-featured-rail {
-        display: grid !important;
-        gap: 16px !important;
-        align-self: start !important;
-        position: sticky !important;
-        top: 20px !important;
-    }
-
-    body[data-yh-view="hub"] .yh-featured-rail-left {
-        grid-column: 1;
-    }
-
-    body[data-yh-view="hub"] .yh-featured-rail-right {
-        grid-column: 3;
-    }
-
-    body[data-yh-view="hub"] .yh-featured-sites-mobile {
-        display: none !important;
-    }
 }
 
 @media (max-width: 1180px) {
     .yh-universe-hub-shell {
-        display: block !important;
-    }
-
-    .yh-featured-rail {
-        display: none !important;
-    }
-
-    .yh-featured-sites-mobile {
         display: block !important;
     }
 }
@@ -5159,4 +5070,54 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
     width: 100% !important;
     max-width: 720px !important;
     margin: 0 auto !important;
+}
+
+.yh-universe-slide.is-active,
+.yh-universe-slide.is-active .portal-card.active-portal,
+.yh-universe-slide.is-active .portal-card.active-portal * {
+    pointer-events: auto !important;
+}
+/* FINAL CLEAN CTA FIX: single real button only */
+.yh-universe-cta-hitbox {
+    display: contents !important;
+    pointer-events: none !important;
+}
+/* ===== SINGLE SOURCE OF TRUTH: ACADEMY CTA ===== */
+#btn-open-academy-apply {
+    width: 100% !important;
+    min-height: 52px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    position: relative !important;
+    z-index: 999 !important;
+    pointer-events: auto !important;
+    touch-action: manipulation !important;
+    cursor: pointer !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -webkit-tap-highlight-color: transparent !important;
+}
+
+#btn-open-academy-apply *,
+#btn-open-academy-apply::before,
+#btn-open-academy-apply::after {
+    pointer-events: none !important;
+}
+
+.yh-universe-slide {
+    pointer-events: none !important;
+}
+
+.yh-universe-slide.is-active {
+    pointer-events: auto !important;
+}
+
+.yh-universe-slide.is-active .portal-card.active-portal {
+    position: relative !important;
+    z-index: 100 !important;
+}
+
+.yh-universe-slide.is-active .portal-card.active-portal > * {
+    pointer-events: auto !important;
 }

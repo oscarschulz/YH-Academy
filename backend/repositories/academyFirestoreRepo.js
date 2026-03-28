@@ -123,7 +123,6 @@ const mapRoadmapDoc = (doc) => {
         },
         plannerRunId: sanitizeString(data.plannerRunId),
         adaptivePlanning: {
-            nurtureTelemetry,
             mode: sanitizeString(adaptivePlanning.mode),
             challengeLevel: sanitizeString(adaptivePlanning.challengeLevel),
             missionCountCap: toNumber(adaptivePlanning.missionCountCap, 0),
@@ -135,6 +134,7 @@ const mapRoadmapDoc = (doc) => {
                 : {},
             trigger: sanitizeString(adaptivePlanning.trigger)
         },
+        nurtureTelemetry,
         createdByModel: sanitizeString(data.createdByModel || 'academy-rule-engine-v1'),
         createdAt: data.createdAt || null,
         updatedAt: data.updatedAt || null,
@@ -799,7 +799,120 @@ async function createPlannerRun(uid, payload = {}) {
         ...plannerRun
     };
 }
+function mapPlannerRunDoc(doc) {
+    const data = doc.data() || {};
+    return {
+        id: doc.id,
+        provider: sanitizeString(data.provider || 'gemini'),
+        model: sanitizeString(data.model),
+        promptVersion: sanitizeString(data.promptVersion || 'planner_v1'),
+        schemaVersion: sanitizeString(data.schemaVersion || 'academy_plan_v1'),
+        mode: sanitizeString(data.mode || 'initial'),
+        inputSnapshot: data.inputSnapshot && typeof data.inputSnapshot === 'object'
+            ? data.inputSnapshot
+            : {},
+        behaviorProfileSnapshot: data.behaviorProfileSnapshot && typeof data.behaviorProfileSnapshot === 'object'
+            ? data.behaviorProfileSnapshot
+            : {},
+        decisionTrace: data.decisionTrace && typeof data.decisionTrace === 'object'
+            ? data.decisionTrace
+            : {},
+        nurtureTelemetry: data.nurtureTelemetry && typeof data.nurtureTelemetry === 'object'
+            ? data.nurtureTelemetry
+            : {},
+        outputSummary: data.outputSummary && typeof data.outputSummary === 'object'
+            ? data.outputSummary
+            : {},
+        resultMetrics: data.resultMetrics && typeof data.resultMetrics === 'object'
+            ? data.resultMetrics
+            : {},
+        createdAt: data.createdAt || null,
+        updatedAt: data.updatedAt || null
+    };
+}
 
+async function getPlannerRunById(uid, runId) {
+    if (!runId) return null;
+
+    const snapshot = await academyPlannerRunsCol(uid).doc(String(runId)).get();
+    if (!snapshot.exists) return null;
+    return mapPlannerRunDoc(snapshot);
+}
+
+async function getLatestPlannerRun(uid) {
+    const snapshot = await academyPlannerRunsCol(uid)
+        .orderBy('createdAt', 'desc')
+        .limit(1)
+        .get();
+
+    if (snapshot.empty) return null;
+    return mapPlannerRunDoc(snapshot.docs[0]);
+}
+
+async function buildRoadmapTelemetryInspector(uid, roadmapId = '') {
+    const roadmap = roadmapId
+        ? await getRoadmapById(uid, roadmapId)
+        : await getActiveRoadmap(uid);
+
+    if (!roadmap) return null;
+
+    const plannerRun = roadmap.plannerRunId
+        ? await getPlannerRunById(uid, roadmap.plannerRunId)
+        : await getLatestPlannerRun(uid);
+
+    const nurtureTelemetry = plannerRun?.nurtureTelemetry && typeof plannerRun.nurtureTelemetry === 'object'
+        ? plannerRun.nurtureTelemetry
+        : (roadmap?.nurtureTelemetry && typeof roadmap.nurtureTelemetry === 'object'
+            ? roadmap.nurtureTelemetry
+            : {});
+
+    const missions = await listAllMissionsByRoadmap(uid, roadmap.id);
+
+    return {
+        uid: sanitizeString(uid),
+        roadmap: {
+            id: roadmap.id,
+            version: roadmap.version,
+            status: roadmap.status,
+            plannerRunId: roadmap.plannerRunId || '',
+            createdByModel: roadmap.createdByModel || 'academy-rule-engine-v1',
+            createdAt: roadmap.createdAt || null,
+            updatedAt: roadmap.updatedAt || null,
+            readinessScore: roadmap.readinessScore,
+            focusAreas: Array.isArray(roadmap.focusAreas) ? roadmap.focusAreas : [],
+            summary: roadmap.summary || {},
+            roadmap: roadmap.roadmap || {},
+            adaptivePlanning: roadmap.adaptivePlanning && typeof roadmap.adaptivePlanning === 'object'
+                ? roadmap.adaptivePlanning
+                : {},
+            nurtureTelemetry
+        },
+        plannerRun: plannerRun
+            ? {
+                id: plannerRun.id,
+                provider: plannerRun.provider,
+                model: plannerRun.model,
+                promptVersion: plannerRun.promptVersion,
+                schemaVersion: plannerRun.schemaVersion,
+                mode: plannerRun.mode,
+                inputSnapshot: plannerRun.inputSnapshot || {},
+                behaviorProfileSnapshot: plannerRun.behaviorProfileSnapshot || {},
+                decisionTrace: plannerRun.decisionTrace || {},
+                nurtureTelemetry: plannerRun.nurtureTelemetry || {},
+                outputSummary: plannerRun.outputSummary || {},
+                resultMetrics: plannerRun.resultMetrics || {},
+                createdAt: plannerRun.createdAt || null,
+                updatedAt: plannerRun.updatedAt || null
+            }
+            : null,
+        missionStats: {
+            total: missions.length,
+            completed: missions.filter((item) => sanitizeString(item.status).toLowerCase() === 'completed').length,
+            skipped: missions.filter((item) => sanitizeString(item.status).toLowerCase() === 'skipped').length,
+            stuck: missions.filter((item) => sanitizeString(item.status).toLowerCase() === 'stuck').length
+        }
+    };
+}
 async function updatePlannerRunResult(uid, runId, resultMetrics = {}) {
     const ref = academyPlannerRunsCol(uid).doc(String(runId));
     const snapshot = await ref.get();
@@ -900,6 +1013,9 @@ module.exports = {
     computePlannerStats,
     savePlannerStats,
     createPlannerRun,
+    getPlannerRunById,
+    getLatestPlannerRun,
+    buildRoadmapTelemetryInspector,
     updatePlannerRunResult,
     persistRoadmapBundle,
     buildAcademyHomePayload,

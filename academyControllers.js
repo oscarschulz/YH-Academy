@@ -1428,7 +1428,8 @@ async function generateAndPersistPlanFirestore(uid, profile, options = {}) {
                 generationMode: planningMode,
                 generatedByProvider: plannerProvider,
                 generatedByModel: plannerModel,
-                adaptivePlanning: normalizedPlan.adaptivePlanning
+                adaptivePlanning: normalizedPlan.adaptivePlanning,
+                nurtureTelemetry: normalizedPlan.nurtureTelemetry
             },
             createdByModel
         );
@@ -1456,6 +1457,32 @@ exports.intakeProfile = async (req, res) => {
 
         if (!uid) {
             return res.status(401).json({ success: false, message: 'Unauthorized.' });
+        }
+
+        const existingAccessState = await academyFirestoreRepo.getAccessState(uid);
+        const existingHomePayload = await academyFirestoreRepo.buildAcademyHomePayload(uid);
+
+        if (
+            (existingAccessState?.accessState === 'unlocked' || existingHomePayload?.success) &&
+            existingHomePayload?.roadmap
+        ) {
+            return res.json({
+                success: true,
+                alreadyOnboarded: true,
+                accessState: 'unlocked',
+                profileId: 'current',
+                roadmapId: existingHomePayload.roadmap.id || '',
+                readinessScore: existingHomePayload.roadmap.readinessScore || 0,
+                summary: existingHomePayload.roadmap.summary || {},
+                focusAreas: Array.isArray(existingHomePayload.roadmap.focusAreas)
+                    ? existingHomePayload.roadmap.focusAreas
+                    : [],
+                todayMissions: Array.isArray(existingHomePayload.missions)
+                    ? existingHomePayload.missions.slice(0, 3)
+                    : [],
+                createdByModel: existingHomePayload.createdByModel || 'academy-rule-engine-v1',
+                home: existingHomePayload
+            });
         }
 
         const payload = normalizeProfile({
@@ -1565,11 +1592,14 @@ exports.getActiveRoadmap = async (req, res) => {
         return res.json({
             success: true,
             roadmapId: roadmap.id,
+            plannerRunId: roadmap.plannerRunId || '',
             version: roadmap.version,
             readinessScore: roadmap.readinessScore,
             focusAreas: Array.isArray(roadmap.focusAreas) ? roadmap.focusAreas : [],
             summary: roadmap.summary || {},
             roadmap: roadmap.roadmap || {},
+            adaptivePlanning: roadmap.adaptivePlanning || {},
+            nurtureTelemetry: roadmap.nurtureTelemetry || {},
             createdByModel: roadmap.createdByModel || 'academy-rule-engine-v1',
             createdAt: roadmap.createdAt || null
         });
@@ -1703,8 +1733,8 @@ const homePayload = await academyFirestoreRepo.buildAcademyHomePayload(uid, miss
 return res.json({
     success: true,
     missionId,
-    status: 'completed',
-    note: completionNote,
+    status,
+    note,
     todayProgress: {
         completed: progress.completed || 0,
         total: progress.total || 0,
@@ -1936,7 +1966,39 @@ exports.submitCheckin = async (req, res) => {
         });
     }
 };
+exports.getInternalRoadmapTelemetry = async (req, res) => {
+    try {
+        const uid = sanitize(req.params?.uid || req.query?.uid);
+        const roadmapId = sanitize(req.query?.roadmapId);
 
+        if (!uid) {
+            return res.status(400).json({
+                success: false,
+                message: 'User ID is required.'
+            });
+        }
+
+        const payload = await academyFirestoreRepo.buildRoadmapTelemetryInspector(uid, roadmapId);
+
+        if (!payload) {
+            return res.status(404).json({
+                success: false,
+                message: 'No roadmap telemetry found for that user.'
+            });
+        }
+
+        return res.json({
+            success: true,
+            ...payload
+        });
+    } catch (error) {
+        console.error('Internal Roadmap Telemetry Error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Server error while loading roadmap telemetry.'
+        });
+    }
+};
 exports.refreshRoadmap = async (req, res) => {
     try {
         const uid = getAcademyAuthUid(req);
