@@ -6,7 +6,8 @@ const auth = require('../middlewares/auth');
 const authController = require('../controllers/authControllers');
 const realtimeControllers = require('../controllers/realtimeControllers');
 const academyCommunityControllers = require('../controllers/academyCommunityControllers');
-
+const aiNurtureControllers = require('../controllers/aiNurtureControllers');
+const aiNurtureGate = require('../backend/middlewares/aiNurtureGate');
 
 // ==========================================
 // 🔐 2. AUTHENTICATION & OTP ROUTES
@@ -48,6 +49,24 @@ router.get('/academy/feed/posts/:id/comments', auth, academyCommunityControllers
 router.post('/academy/feed/posts/:id/comments', auth, academyCommunityControllers.createComment);
 router.post('/academy/feed/friend-requests', auth, academyCommunityControllers.sendFriendRequest);
 router.post('/academy/feed/friend-requests/:id/respond', auth, academyCommunityControllers.respondToFriendRequest);
+
+// ==========================================
+// 🧠 INTERNAL AI NURTURE ROUTES
+// ==========================================
+router.get('/internal/ai-nurture/:gate/bootstrap', aiNurtureGate, aiNurtureControllers.bootstrap);
+router.get('/internal/ai-nurture/:gate/settings', aiNurtureGate, aiNurtureControllers.getSettings);
+router.patch('/internal/ai-nurture/:gate/settings', aiNurtureGate, aiNurtureControllers.updateSettings);
+
+router.post('/internal/ai-nurture/:gate/sources', aiNurtureGate, aiNurtureControllers.createSource);
+router.get('/internal/ai-nurture/:gate/sources', aiNurtureGate, aiNurtureControllers.listSources);
+router.get('/internal/ai-nurture/:gate/sources/:id', aiNurtureGate, aiNurtureControllers.getSourceById);
+router.post('/internal/ai-nurture/:gate/sources/:id/process', aiNurtureGate, aiNurtureControllers.processSource);
+
+router.post('/internal/ai-nurture/:gate/sources/:id/approve', aiNurtureGate, aiNurtureControllers.approveSource);
+router.post('/internal/ai-nurture/:gate/sources/:id/reject', aiNurtureGate, aiNurtureControllers.rejectSource);
+
+router.get('/internal/ai-nurture/:gate/library', aiNurtureGate, aiNurtureControllers.listLibrary);
+router.post('/internal/ai-nurture/:gate/context-preview', aiNurtureGate, aiNurtureControllers.previewContext);
 
 // ==========================================
 // ⚡ REALTIME BACKEND ROUTES

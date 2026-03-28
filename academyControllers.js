@@ -1,4 +1,5 @@
 const academyFirestoreRepo = require('./backend/repositories/academyFirestoreRepo');
+const academyPlannerKnowledgeContext = require('./backend/services/academyPlannerKnowledgeContext');
 const sanitize = (value) => {
     if (value === null || value === undefined) return '';
     return String(value).replace(/</g, '&lt;').replace(/>/g, '&gt;').trim();
@@ -594,6 +595,7 @@ function buildPlannerMessages(profile, context = {}) {
                 'Match the mission style to the user work style and accountability preference.',
                 'Respect the adaptive minute cap and mission count cap unless there is a very strong reason not to.',
                 'Apply the founder doctrine when relevant.',
+                'Apply nurtureKnowledge when it contains usable rules, examples, red flags, or priority themes relevant to the current user state.',
                 `Founder doctrine principles: ${FOUNDER_DOCTRINE.principles.join(' | ')}`,
                 'The doctrine is an operating standard, not generic hype.',
                 'Always return a short founder-style coachBrief for the week.',
@@ -620,7 +622,8 @@ function buildPlannerMessages(profile, context = {}) {
                 previousBehaviorProfile,
                 plannerStats,
                 adaptivePlanning,
-                founderDoctrine: FOUNDER_DOCTRINE
+                founderDoctrine: FOUNDER_DOCTRINE,
+                nurtureKnowledge: context.nurtureKnowledge || {}
             })
         }
     ];
@@ -1190,6 +1193,17 @@ async function generateAndPersistPlanFirestore(uid, profile, options = {}) {
 
     const planningMode = adaptivePlanning.mode;
 
+    const nurtureKnowledge = await academyPlannerKnowledgeContext.buildPlanningContext({
+        profile,
+        activeRoadmap,
+        recentMissions,
+        recentCheckins,
+        behaviorProfile,
+        previousBehaviorProfile,
+        plannerStats,
+        trigger
+    });
+
     const context = {
         trigger,
         mode: planningMode,
@@ -1200,7 +1214,8 @@ async function generateAndPersistPlanFirestore(uid, profile, options = {}) {
         recentCheckins,
         behaviorProfile,
         previousBehaviorProfile,
-        plannerStats
+        plannerStats,
+        nurtureKnowledge
     };
 
     let plan = null;

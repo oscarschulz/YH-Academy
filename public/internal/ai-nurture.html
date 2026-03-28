@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Nurture Console</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Poppins, Arial, sans-serif;
+            background: #020617;
+            color: #e2e8f0;
+            padding: 24px;
+        }
+
+        .shell {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(148, 163, 184, 0.16);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+
+        input, textarea, button {
+            width: 100%;
+            border-radius: 10px;
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            padding: 12px;
+            box-sizing: border-box;
+            background: #0f172a;
+            color: #e2e8f0;
+            margin-top: 10px;
+        }
+
+        button {
+            cursor: pointer;
+            background: #0ea5e9;
+            color: white;
+            font-weight: 700;
+        }
+
+        pre {
+            white-space: pre-wrap;
+            word-break: break-word;
+            background: #020617;
+            padding: 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(148, 163, 184, 0.12);
+        }
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <div class="card">
+            <h1>AI Nurture Console</h1>
+            <p>Hidden internal console for Academy planner knowledge curation.</p>
+        </div>
+
+        <div class="card">
+            <label for="source-url">Source URL</label>
+            <input id="source-url" type="url" placeholder="https://example.com/article">
+            <button id="btn-create-source" type="button">Create Source</button>
+        </div>
+
+        <div class="card">
+            <h2>Last Response</h2>
+            <pre id="output">{}</pre>
+        </div>
+    </div>
+
+    <script>
+        const pathParts = window.location.pathname.split('/').filter(Boolean);
+        const gate = pathParts[pathParts.length - 1];
+        const output = document.getElementById('output');
+
+        async function request(path, options = {}) {
+            const response = await fetch(`/api/internal/ai-nurture/${gate}${path}`, {
+                ...options,
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(options.headers || {})
+                }
+            });
+
+            const result = await response.json().catch(() => ({}));
+            output.textContent = JSON.stringify(result, null, 2);
+
+            if (!response.ok || !result.success) {
+                throw new Error(result.message || 'Request failed.');
+            }
+
+            return result;
+        }
+
+        document.getElementById('btn-create-source').addEventListener('click', async () => {
+            const url = document.getElementById('source-url').value.trim();
+            if (!url) return;
+
+            try {
+                const created = await request('/sources', {
+                    method: 'POST',
+                    body: JSON.stringify({ url })
+                });
+
+                if (created?.source?.id) {
+                    await request(`/sources/${created.source.id}/process`, {
+                        method: 'POST',
+                        body: JSON.stringify({})
+                    });
+                }
+            } catch (error) {
+                output.textContent = JSON.stringify({ success: false, message: error.message }, null, 2);
+            }
+        });
+
+        request('/bootstrap').catch(() => null);
+    </script>
+</body>
+</html>
