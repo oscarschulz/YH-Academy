@@ -1385,21 +1385,21 @@ async function generateAndPersistPlanFirestore(uid, profile, options = {}) {
         }
     });
 
-    const persistResult = await academyFirestoreRepo.persistRoadmapBundle(
-        uid,
-        profile,
-        {
-            ...normalizedPlan,
-            plannerRunId: plannerRun.id,
-            promptVersion: 'planner_v2',
-            schemaVersion: 'academy_plan_v1',
-            generationMode: planningMode,
-            generatedByProvider: plannerProvider,
-            generatedByModel: plannerModel,
-            adaptivePlanning: normalizedPlan.adaptivePlanning
-        },
-        createdByModel
-    );
+        const persistResult = await academyFirestoreRepo.persistRoadmapBundle(
+            uid,
+            profile,
+            {
+                ...normalizedPlan,
+                plannerRunId: plannerRun.id,
+                promptVersion: 'planner_v2',
+                schemaVersion: 'academy_plan_v1',
+                generationMode: planningMode,
+                generatedByProvider: plannerProvider,
+                generatedByModel: plannerModel,
+                adaptivePlanning: normalizedPlan.adaptivePlanning
+            },
+            createdByModel
+        );
 
     const homePayload = await academyFirestoreRepo.buildAcademyHomePayload(uid, persistResult.roadmapId);
 
@@ -1667,18 +1667,23 @@ exports.completeMission = async (req, res) => {
         const behaviorState = await refreshBehaviorState(uid);
         const progress = await academyFirestoreRepo.getMissionProgress(uid, mission.roadmapId);
 
-        return res.json({
-            success: true,
-            missionId,
-            status: 'completed',
-            todayProgress: {
-                completed: progress.completed || 0,
-                total: progress.total || 0,
-                percent: progress.percent || 0
-            },
-            behaviorProfile: behaviorState.behaviorProfile,
-            plannerStats: behaviorState.plannerStats
-        });
+const homePayload = await academyFirestoreRepo.buildAcademyHomePayload(uid, mission.roadmapId);
+
+    return res.json({
+        success: true,
+        missionId,
+        status,
+        note,
+        todayProgress: {
+            completed: progress.completed || 0,
+            total: progress.total || 0,
+            percent: progress.percent || 0
+        },
+        behaviorProfile: behaviorState.behaviorProfile,
+        previousBehaviorProfile: behaviorState.previousBehaviorProfile,
+        plannerStats: behaviorState.plannerStats,
+        adaptivePlanning: homePayload?.adaptivePlanning || {}
+    });
     } catch (error) {
         console.error('Complete Mission Error:', error);
         return res.status(500).json({
@@ -1879,11 +1884,15 @@ exports.submitCheckin = async (req, res) => {
         }
 
         const behaviorState = await refreshBehaviorState(uid);
+        const homePayload = await academyFirestoreRepo.buildAcademyHomePayload(uid, activeRoadmap.id);
+
         return res.json({
             success: true,
             message: 'Check-in saved.',
             behaviorProfile: behaviorState.behaviorProfile,
-            plannerStats: behaviorState.plannerStats
+            previousBehaviorProfile: behaviorState.previousBehaviorProfile,
+            plannerStats: behaviorState.plannerStats,
+            adaptivePlanning: homePayload?.adaptivePlanning || {}
         });
     } catch (error) {
         console.error('Submit Check-in Error:', error);

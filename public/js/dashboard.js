@@ -3995,7 +3995,9 @@ async function academyUpdateMissionStatus(missionId, status, note = '') {
             note,
             todayProgress: result?.todayProgress,
             behaviorProfile: result?.behaviorProfile,
-            plannerStats: result?.plannerStats
+            previousBehaviorProfile: result?.previousBehaviorProfile,
+            plannerStats: result?.plannerStats,
+            adaptivePlanning: result?.adaptivePlanning
         });
 
         await loadAcademyHome(true);
@@ -4019,7 +4021,9 @@ async function academyCompleteMission(missionId) {
             note: '',
             todayProgress: result?.todayProgress,
             behaviorProfile: result?.behaviorProfile,
-            plannerStats: result?.plannerStats
+            previousBehaviorProfile: result?.previousBehaviorProfile,
+            plannerStats: result?.plannerStats,
+            adaptivePlanning: result?.adaptivePlanning
         });
 
         await loadAcademyHome(true);
@@ -4200,9 +4204,10 @@ async function academySubmitCheckin(event) {
 
         applyAcademyHomeRuntimePatch({
             behaviorProfile: result?.behaviorProfile,
-            plannerStats: result?.plannerStats
+            previousBehaviorProfile: result?.previousBehaviorProfile,
+            plannerStats: result?.plannerStats,
+            adaptivePlanning: result?.adaptivePlanning
         });
-
         academyCloseCheckinModal();
         await loadAcademyHome(true);
         showToast('Check-in saved.', 'success');
@@ -4536,6 +4541,9 @@ function renderAcademyHome(homeData = null) {
     const plannerStats = homeData?.plannerStats && typeof homeData?.plannerStats === 'object'
         ? homeData.plannerStats
         : {};
+    const adaptivePlanning = homeData?.adaptivePlanning && typeof homeData?.adaptivePlanning === 'object'
+        ? homeData.adaptivePlanning
+        : {};
     const createdByModel = safeHtml(homeData?.createdByModel || '');
 
     const readinessScore = toNumberSafe(roadmap.readinessScore, 0);
@@ -4597,7 +4605,16 @@ function renderAcademyHome(homeData = null) {
     const averageCompletionLagHours = toNumberSafe(plannerStats.averageCompletionLagHours, 0);
     const averageDifficultyScore = toNumberSafe(plannerStats.averageDifficultyScore, 0);
     const averageUsefulnessScore = toNumberSafe(plannerStats.averageUsefulnessScore, 0);
-
+    const planningMode = prettyLabel(adaptivePlanning.mode || 'weekly_recalibration');
+    const challengeLevel = prettyLabel(adaptivePlanning.challengeLevel || 'steady');
+    const missionCountCap = toNumberSafe(adaptivePlanning.missionCountCap, 0);
+    const dailyLoadCap = toNumberSafe(adaptivePlanning.dailyLoadCap, 0);
+    const adaptationReason = safeHtml(
+        adaptivePlanning.reason || 'The planner is still calibrating the right workload and challenge for this cycle.'
+    );
+    const adaptiveTrendSummary = adaptivePlanning.trendSummary && typeof adaptivePlanning.trendSummary === 'object'
+        ? adaptivePlanning.trendSummary
+        : {};
     const focusHtml = focusAreas.length
         ? focusAreas.map((item) => `<span class="academy-home-chip">${prettyLabel(item)}</span>`).join('')
         : `<span class="academy-home-chip academy-home-chip-muted">No focus areas yet</span>`;
@@ -4670,7 +4687,28 @@ function renderAcademyHome(homeData = null) {
             ${renderMiniStatCard('Avg Usefulness', averageUsefulnessScore > 0 ? `${averageUsefulnessScore}/10` : 'Not enough data', 'ratio-good')}
         </div>
     `;
+    const adaptivePlanningHtml = `
+        <section class="academy-home-panel">
+            <div class="academy-home-panel-label">Adaptive Planner Engine</div>
+            <div class="academy-home-panel-copy">
+                <strong>Mode:</strong> ${planningMode}<br>
+                <strong>Challenge:</strong> ${challengeLevel}<br>
+                <strong>Mission Cap:</strong> ${missionCountCap > 0 ? safeHtml(missionCountCap) : 'Not learned yet'}<br>
+                <strong>Daily Load Cap:</strong> ${dailyLoadCap > 0 ? `${safeHtml(dailyLoadCap)} mins` : 'Not learned yet'}
+            </div>
 
+            <div style="margin-top:12px;font-size:0.9rem;line-height:1.6;color:#d1d5db;">
+                <strong style="color:#fff;">Why this cycle looks like this:</strong> ${adaptationReason}
+            </div>
+
+            <div class="academy-home-chip-row" style="margin-top:12px;">
+                ${renderSignalPill('Reliability Trend', prettyLabel(adaptiveTrendSummary.executionReliability || 'stable'), 'neutral')}
+                ${renderSignalPill('Friction Trend', prettyLabel(adaptiveTrendSummary.frictionSensitivity || 'stable'), 'neutral')}
+                ${renderSignalPill('Recovery Trend', prettyLabel(adaptiveTrendSummary.recoveryRisk || 'stable'), 'neutral')}
+                ${renderSignalPill('Accountability Trend', prettyLabel(adaptiveTrendSummary.accountabilityNeed || 'stable'), 'neutral')}
+            </div>
+        </section>
+    `;
     const missionsHtml = missions.length
         ? missions.map((mission, index) => {
             const missionId = safeHtml(mission.id || '');
@@ -4816,16 +4854,18 @@ function renderAcademyHome(homeData = null) {
                 </section>
 
                 <section class="academy-home-panel">
-                    <div class="academy-home-panel-label">Planner Intelligence</div>
-                    ${plannerSignalsHtml}
-                </section>
+                <div class="academy-home-panel-label">Planner Intelligence</div>
+                ${plannerSignalsHtml}
+            </section>
 
-                <section class="academy-home-panel">
-                    <div class="academy-home-panel-label">Today’s Missions</div>
-                    <div class="academy-home-missions">
-                        ${missionsHtml}
-                    </div>
-                </section>
+            ${adaptivePlanningHtml}
+
+            <section class="academy-home-panel">
+                <div class="academy-home-panel-label">Today’s Missions</div>
+                <div class="academy-home-missions">
+                    ${missionsHtml}
+                </div>
+            </section>
             </div>
         `;
     }
