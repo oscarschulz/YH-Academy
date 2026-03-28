@@ -15,10 +15,10 @@
 
     <div id="step-1" class="step-container fade-in yh-landing-step">
         <div class="yh-landing-shell">
-            <div class="yh-landing-bg">
-                <img src="/images/bg.avif" alt="YH Background" class="yh-landing-bg-image">
-                <div class="yh-landing-bg-overlay"></div>
-            </div>
+        <div class="yh-landing-bg">
+            <img src="/images/logo.avif" alt="YH Logo Background" class="yh-landing-bg-image yh-landing-bg-logo">
+            <div class="yh-landing-bg-overlay"></div>
+        </div>
 
             <section class="yh-landing-hero">
                 <div class="yh-landing-topbar">
@@ -37,22 +37,38 @@
                 <div class="yh-landing-hero-grid">
                     <div class="yh-landing-hero-copy">
                         <div class="yh-landing-pill">Global structured network</div>
-                        <h1 class="yh-landing-title">Young Hustlers Universe</h1>
-                        <p class="yh-landing-subtitle">
+
+                        <h1 class="yh-landing-title yh-reveal-up">Young Hustlers Universe</h1>
+
+                        <p class="yh-landing-narrative yh-reveal-up">
+                            This is not just a community. This is a system for direction, structure, and expansion.
+                        </p>
+
+                        <p class="yh-landing-subtitle yh-reveal-up">
                             One universe. Multiple divisions. Build your roadmap, enter the Academy,
                             and prepare for the rise of the Plazas and the Federation.
                         </p>
 
-                        <div class="yh-landing-cta-row">
-                            <button type="button" id="yh-open-auth-main" class="btn-primary yh-landing-cta-primary">
-                                Access The Academy ➔
-                            </button>
+                        <div class="yh-landing-cta-row yh-reveal-up">
+                            <div class="yh-landing-cta-stack">
+                                <button type="button" id="yh-open-auth-main" class="btn-primary yh-landing-cta-primary">
+                                    Access The Academy ➔
+                                </button>
+                                <span class="yh-landing-cta-note">Start your roadmap in under 60 seconds</span>
+                            </div>
+
                             <button type="button" id="yh-scroll-divisions" class="btn-secondary yh-landing-cta-secondary">
                                 Explore Divisions
                             </button>
                         </div>
 
-                        <div class="yh-landing-metrics">
+                        <div class="yh-landing-proof-strip yh-reveal-up" aria-label="YH value points">
+                            <div class="yh-landing-proof-item">✔ Structured growth system</div>
+                            <div class="yh-landing-proof-item">✔ Live execution environment</div>
+                            <div class="yh-landing-proof-item">✔ Expansion-ready universe</div>
+                        </div>
+
+                        <div class="yh-landing-metrics yh-reveal-up">
                             <div class="yh-landing-metric-card">
                                 <strong>Academy</strong>
                                 <span>Live now</span>
@@ -66,12 +82,19 @@
                                 <span>Coming soon</span>
                             </div>
                         </div>
+
+                        <div class="yh-landing-scroll-hint">
+                            <span>Scroll to explore</span>
+                            <span class="yh-landing-scroll-arrow">↓</span>
+                        </div>
                     </div>
 
                     <div class="yh-landing-hero-visual">
-                        <div class="yh-landing-visual-card">
+                        <div class="yh-landing-visual-card yh-reveal-up">
                             <div class="yh-landing-visual-glow"></div>
+                            <div class="yh-landing-visual-noise"></div>
                             <video src="/video/yhvideo3.mp4" autoplay muted playsinline class="yh-landing-video" id="landing-video"></video>
+                            <div class="yh-landing-visual-overlay"></div>
                             <div class="yh-landing-visual-caption">
                                 <span class="yh-landing-visual-kicker">Universe Preview</span>
                                 <strong>Roadmaps. Community. Live execution.</strong>
