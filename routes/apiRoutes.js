@@ -56,10 +56,7 @@ router.post('/academy/feed/friend-requests/:id/respond', auth, academyCommunityC
 router.get('/internal/ai-nurture/:gate/bootstrap', aiNurtureGate, aiNurtureControllers.bootstrap);
 router.get('/internal/ai-nurture/:gate/settings', aiNurtureGate, aiNurtureControllers.getSettings);
 router.patch('/internal/ai-nurture/:gate/settings', aiNurtureGate, aiNurtureControllers.updateSettings);
-router.post('/internal/ai-nurture/:gate/sources/:id/notes', aiNurtureGate, aiNurtureControllers.addReviewNote);
 
-router.get('/internal/ai-nurture/:gate/user-overlays/:uid', aiNurtureGate, aiNurtureControllers.getUserOverlay);
-router.patch('/internal/ai-nurture/:gate/user-overlays/:uid', aiNurtureGate, aiNurtureControllers.updateUserOverlay);
 router.post('/internal/ai-nurture/:gate/sources', aiNurtureGate, aiNurtureControllers.createSource);
 router.get('/internal/ai-nurture/:gate/sources', aiNurtureGate, aiNurtureControllers.listSources);
 router.get('/internal/ai-nurture/:gate/sources/:id', aiNurtureGate, aiNurtureControllers.getSourceById);
@@ -74,6 +71,10 @@ router.post('/internal/ai-nurture/:gate/context-preview', aiNurtureGate, aiNurtu
 router.get('/internal/ai-nurture/:gate/jobs', aiNurtureGate, aiNurtureControllers.listJobs);
 router.post('/internal/ai-nurture/:gate/jobs/run-next', aiNurtureGate, aiNurtureControllers.runNextJob);
 router.post('/internal/ai-nurture/:gate/context-packs/rebuild', aiNurtureGate, aiNurtureControllers.rebuildContextPacks);
+router.post('/internal/ai-nurture/:gate/sources/:id/notes', aiNurtureGate, aiNurtureControllers.addReviewNote);
+
+router.get('/internal/ai-nurture/:gate/user-overlays/:uid', aiNurtureGate, aiNurtureControllers.getUserOverlay);
+router.patch('/internal/ai-nurture/:gate/user-overlays/:uid', aiNurtureGate, aiNurtureControllers.updateUserOverlay);
 // ==========================================
 // ⚡ REALTIME BACKEND ROUTES
 // ==========================================
