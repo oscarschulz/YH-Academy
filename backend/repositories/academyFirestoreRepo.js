@@ -23,8 +23,16 @@ const academyMissionsCol = (uid) => userRef(uid).collection('academyMissions');
 const academyCheckinsCol = (uid) => userRef(uid).collection('academyCheckins');
 const academyCoachMessagesCol = (uid) => userRef(uid).collection('academyCoachMessages');
 const academyPlannerRunsCol = (uid) => userRef(uid).collection('academyPlannerRuns');
+
 const mapMissionDoc = (doc) => {
     const data = doc.data() || {};
+    const outcomeMetrics = data.outcomeMetrics && typeof data.outcomeMetrics === 'object'
+        ? data.outcomeMetrics
+        : {};
+    const qualityScores = data.qualityScores && typeof data.qualityScores === 'object'
+        ? data.qualityScores
+        : {};
+
     return {
         id: doc.id,
         roadmapId: sanitizeString(data.roadmapId),
@@ -39,8 +47,33 @@ const mapMissionDoc = (doc) => {
         completionNote: sanitizeString(data.completionNote),
         source: sanitizeString(data.source || 'rule'),
         sortOrder: toNumber(data.sortOrder, 0),
+        selectionReason: sanitizeString(data.selectionReason),
+        primaryBottleneck: sanitizeString(data.primaryBottleneck),
+        generatedByProvider: sanitizeString(data.generatedByProvider),
+        generatedByModel: sanitizeString(data.generatedByModel),
+        promptVersion: sanitizeString(data.promptVersion),
+        schemaVersion: sanitizeString(data.schemaVersion),
+        generationMode: sanitizeString(data.generationMode),
+        energyAdjustmentApplied: data.energyAdjustmentApplied === true,
+        timeAdjustmentApplied: data.timeAdjustmentApplied === true,
+        qualityScores: {
+            specificity: toNumber(qualityScores.specificity, 0),
+            measurability: toNumber(qualityScores.measurability, 0),
+            realism: toNumber(qualityScores.realism, 0),
+            bottleneckFit: toNumber(qualityScores.bottleneckFit, 0)
+        },
+        outcomeMetrics: {
+            skipCount: toNumber(outcomeMetrics.skipCount, 0),
+            stuckCount: toNumber(outcomeMetrics.stuckCount, 0),
+            rescheduleCount: toNumber(outcomeMetrics.rescheduleCount, 0),
+            completionLagHours: toNumber(outcomeMetrics.completionLagHours, 0),
+            userDifficultyScore: toNumber(outcomeMetrics.userDifficultyScore, 0),
+            userUsefulnessScore: toNumber(outcomeMetrics.userUsefulnessScore, 0),
+            lastSkipReasonCategory: sanitizeString(outcomeMetrics.lastSkipReasonCategory)
+        },
         completedAt: data.completedAt || null,
-        createdAt: data.createdAt || null
+        createdAt: data.createdAt || null,
+        updatedAt: data.updatedAt || null
     };
 };
 
@@ -385,7 +418,7 @@ async function persistRoadmapBundle(uid, profile, plan, createdByModel) {
         archivedAt: null
     });
 
-    const missionSource = String(createdByModel || '').includes('openai') ? 'ai' : 'rule';
+    const missionSource = String(createdByModel || '').includes('academy-rule-engine') ? 'rule' : 'ai';
 
     for (const mission of Array.isArray(plan.missions) ? plan.missions : []) {
         const missionRef = academyMissionsCol(uid).doc();
@@ -399,9 +432,32 @@ async function persistRoadmapBundle(uid, profile, plan, createdByModel) {
             dueDate: sanitizeString(mission.dueDate),
             estimatedMinutes: toNumber(mission.estimatedMinutes, 0),
             status: 'pending',
-            source: missionSource,
+            source: sanitizeString(mission.source || missionSource),
             completionNote: '',
             sortOrder: toNumber(mission.sortOrder, 0),
+            selectionReason: sanitizeString(mission.selectionReason),
+            primaryBottleneck: sanitizeString(mission.primaryBottleneck),
+            generatedByProvider: sanitizeString(mission.generatedByProvider),
+            generatedByModel: sanitizeString(mission.generatedByModel),
+            promptVersion: sanitizeString(mission.promptVersion),
+            schemaVersion: sanitizeString(mission.schemaVersion),
+            generationMode: sanitizeString(mission.generationMode),
+            energyAdjustmentApplied: mission.energyAdjustmentApplied === true,
+            timeAdjustmentApplied: mission.timeAdjustmentApplied === true,
+            qualityScores: mission.qualityScores && typeof mission.qualityScores === 'object'
+                ? mission.qualityScores
+                : {},
+            outcomeMetrics: mission.outcomeMetrics && typeof mission.outcomeMetrics === 'object'
+                ? mission.outcomeMetrics
+                : {
+                    skipCount: 0,
+                    stuckCount: 0,
+                    rescheduleCount: 0,
+                    completionLagHours: 0,
+                    userDifficultyScore: 0,
+                    userUsefulnessScore: 0,
+                    lastSkipReasonCategory: ''
+                },
             createdAt: ts,
             updatedAt: ts,
             completedAt: null
@@ -430,9 +486,12 @@ async function buildAcademyHomePayload(uid, roadmapId = null) {
 
     if (!roadmap) return null;
 
-    const missions = await listRecentMissions(uid, roadmap.id, 5);
-    const allMissions = await listAllMissionsByRoadmap(uid, roadmap.id);
-    const streakDays = await getRecentCheckinStreakDays(uid);
+    const [profileDoc, missions, allMissions, streakDays] = await Promise.all([
+        getCurrentProfile(uid),
+        listRecentMissions(uid, roadmap.id, 5),
+        listAllMissionsByRoadmap(uid, roadmap.id),
+        getRecentCheckinStreakDays(uid)
+    ]);
 
     const completedCount = allMissions.filter((item) => item.status === 'completed').length;
     const totalCount = allMissions.length;
@@ -463,6 +522,15 @@ async function buildAcademyHomePayload(uid, roadmapId = null) {
             streakDays
         },
         missions,
+        behaviorProfile: profileDoc?.behaviorProfile && typeof profileDoc.behaviorProfile === 'object'
+            ? profileDoc.behaviorProfile
+            : {},
+        previousBehaviorProfile: profileDoc?.previousBehaviorProfile && typeof profileDoc.previousBehaviorProfile === 'object'
+            ? profileDoc.previousBehaviorProfile
+            : {},
+        plannerStats: profileDoc?.plannerStats && typeof profileDoc.plannerStats === 'object'
+            ? profileDoc.plannerStats
+            : {},
         createdByModel: roadmap.createdByModel || 'academy-rule-engine-v1'
     };
 }
@@ -535,29 +603,63 @@ async function computeBehaviorProfile(uid) {
 }
 
 async function saveBehaviorProfile(uid, behaviorProfile = {}) {
+    const ref = academyMetaDoc(uid, 'profile');
     const ts = nowTs();
 
-    await academyMetaDoc(uid, 'profile').set(
+    const normalizeBehaviorSnapshot = (value = {}, fallbackTs = ts) => ({
+        executionReliability: toNumber(value.executionReliability, 0),
+        frictionSensitivity: toNumber(value.frictionSensitivity, 0),
+        maxSustainableDailyMinutes: toNumber(value.maxSustainableDailyMinutes, 0),
+        preferredMissionTypes: Array.isArray(value.preferredMissionTypes)
+            ? value.preferredMissionTypes
+            : [],
+        bestExecutionWindow: sanitizeString(value.bestExecutionWindow),
+        pressureResponse: sanitizeString(value.pressureResponse),
+        accountabilityNeed: sanitizeString(value.accountabilityNeed),
+        recoveryRisk: sanitizeString(value.recoveryRisk),
+        lastComputedAt: value.lastComputedAt || fallbackTs
+    });
+
+    const currentSnapshot = await ref.get();
+    const currentData = currentSnapshot.exists ? (currentSnapshot.data() || {}) : {};
+
+    const currentBehaviorProfile =
+        currentData.behaviorProfile && typeof currentData.behaviorProfile === 'object'
+            ? currentData.behaviorProfile
+            : null;
+
+    const currentPreviousBehaviorProfile =
+        currentData.previousBehaviorProfile && typeof currentData.previousBehaviorProfile === 'object'
+            ? currentData.previousBehaviorProfile
+            : null;
+
+    const nextPreviousBehaviorProfile = currentBehaviorProfile
+        ? normalizeBehaviorSnapshot(
+            currentBehaviorProfile,
+            currentBehaviorProfile.lastComputedAt || ts
+        )
+        : (
+            currentPreviousBehaviorProfile
+                ? normalizeBehaviorSnapshot(
+                    currentPreviousBehaviorProfile,
+                    currentPreviousBehaviorProfile.lastComputedAt || ts
+                )
+                : {}
+        );
+
+    await ref.set(
         {
-            behaviorProfile: {
-                executionReliability: toNumber(behaviorProfile.executionReliability, 0),
-                frictionSensitivity: toNumber(behaviorProfile.frictionSensitivity, 0),
-                maxSustainableDailyMinutes: toNumber(behaviorProfile.maxSustainableDailyMinutes, 0),
-                preferredMissionTypes: Array.isArray(behaviorProfile.preferredMissionTypes)
-                    ? behaviorProfile.preferredMissionTypes
-                    : [],
-                bestExecutionWindow: sanitizeString(behaviorProfile.bestExecutionWindow),
-                pressureResponse: sanitizeString(behaviorProfile.pressureResponse),
-                accountabilityNeed: sanitizeString(behaviorProfile.accountabilityNeed),
-                recoveryRisk: sanitizeString(behaviorProfile.recoveryRisk),
-                lastComputedAt: behaviorProfile.lastComputedAt || ts
-            },
+            previousBehaviorProfile: nextPreviousBehaviorProfile,
+            behaviorProfile: normalizeBehaviorSnapshot(
+                behaviorProfile,
+                behaviorProfile.lastComputedAt || ts
+            ),
             updatedAt: ts
         },
         { merge: true }
     );
 
-    const snapshot = await academyMetaDoc(uid, 'profile').get();
+    const snapshot = await ref.get();
     return snapshot.data() || null;
 }
 

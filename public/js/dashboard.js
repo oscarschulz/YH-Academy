@@ -3848,6 +3848,146 @@ function readAcademyHomeCache() {
     }
 }
 
+function buildAcademyMissionSignalSnapshot() {
+    const cachedHome = readAcademyHomeCache() || {};
+    const missions = Array.isArray(cachedHome?.missions) ? cachedHome.missions : [];
+
+    return missions.reduce((summary, mission) => {
+        const status = String(mission?.status || 'pending').trim().toLowerCase() || 'pending';
+
+        summary.total += 1;
+
+        if (status === 'completed') summary.completed += 1;
+        else if (status === 'skipped') summary.skipped += 1;
+        else if (status === 'stuck') summary.stuck += 1;
+        else summary.pending += 1;
+
+        return summary;
+    }, {
+        total: 0,
+        completed: 0,
+        skipped: 0,
+        stuck: 0,
+        pending: 0
+    });
+}
+
+function applyAcademyHomeRuntimePatch(runtime = {}) {
+    const cachedHome = readAcademyHomeCache() || {};
+    const nextHome = {
+        ...cachedHome
+    };
+
+    const cachedBehaviorProfile =
+        cachedHome?.behaviorProfile && typeof cachedHome.behaviorProfile === 'object'
+            ? cachedHome.behaviorProfile
+            : null;
+
+    const cachedPreviousBehaviorProfile =
+        cachedHome?.previousBehaviorProfile && typeof cachedHome.previousBehaviorProfile === 'object'
+            ? cachedHome.previousBehaviorProfile
+            : null;
+
+    if (runtime?.behaviorProfile && typeof runtime.behaviorProfile === 'object') {
+        nextHome.previousBehaviorProfile = cachedBehaviorProfile || cachedPreviousBehaviorProfile || {};
+        nextHome.behaviorProfile = runtime.behaviorProfile;
+    }
+
+    if (runtime?.plannerStats && typeof runtime.plannerStats === 'object') {
+        nextHome.plannerStats = runtime.plannerStats;
+    }
+
+    if (runtime?.todayProgress && typeof runtime.todayProgress === 'object') {
+        nextHome.today = {
+            ...(cachedHome.today || {}),
+            missionsCompleted: Number(runtime.todayProgress.completed || 0),
+            missionsTotal: Number(runtime.todayProgress.total || 0)
+        };
+    }
+
+    if (runtime?.missionId && Array.isArray(cachedHome.missions)) {
+        const normalizedMissionId = String(runtime.missionId).trim();
+
+        nextHome.missions = cachedHome.missions.map((mission) => {
+            if (String(mission?.id || '').trim() !== normalizedMissionId) return mission;
+
+            return {
+                ...mission,
+                status: String(runtime.status || mission.status || 'pending').trim().toLowerCase(),
+                completionNote: runtime.note !== undefined
+                    ? String(runtime.note || '')
+                    : String(mission?.completionNote || '')
+            };
+        });
+    }
+
+    persistAcademyHome(nextHome);
+    renderAcademyHome(nextHome);
+    return nextHome;
+}
+
+function applyAcademyHomeRuntimePatch(runtime = {}) {
+    const cachedHome = readAcademyHomeCache() || {};
+    const nextHome = {
+        ...cachedHome
+    };
+
+    if (runtime?.behaviorProfile && typeof runtime.behaviorProfile === 'object') {
+        nextHome.behaviorProfile = runtime.behaviorProfile;
+    }
+
+    if (runtime?.plannerStats && typeof runtime.plannerStats === 'object') {
+        nextHome.plannerStats = runtime.plannerStats;
+    }
+
+    if (runtime?.todayProgress && typeof runtime.todayProgress === 'object') {
+        nextHome.today = {
+            ...(cachedHome.today || {}),
+            missionsCompleted: Number(runtime.todayProgress.completed || 0),
+            missionsTotal: Number(runtime.todayProgress.total || 0)
+        };
+    }
+
+    if (runtime?.missionId && Array.isArray(cachedHome.missions)) {
+        const normalizedMissionId = String(runtime.missionId).trim();
+
+        nextHome.missions = cachedHome.missions.map((mission) => {
+            if (String(mission?.id || '').trim() !== normalizedMissionId) return mission;
+
+            return {
+                ...mission,
+                status: String(runtime.status || mission.status || 'pending').trim().toLowerCase(),
+                completionNote: runtime.note !== undefined ? String(runtime.note || '') : String(mission?.completionNote || '')
+            };
+        });
+    }
+
+    persistAcademyHome(nextHome);
+    renderAcademyHome(nextHome);
+    return nextHome;
+}
+function buildAcademyMissionSignalSnapshot() {
+    const homeData = readAcademyHomeCache();
+    const missions = Array.isArray(homeData?.missions) ? homeData.missions : [];
+
+    return missions.reduce((summary, mission) => {
+        const status = String(mission?.status || 'pending').trim().toLowerCase() || 'pending';
+        summary.total += 1;
+
+        if (status === 'completed') summary.completed += 1;
+        else if (status === 'skipped') summary.skipped += 1;
+        else if (status === 'stuck') summary.stuck += 1;
+        else summary.pending += 1;
+
+        return summary;
+    }, {
+        total: 0,
+        completed: 0,
+        skipped: 0,
+        stuck: 0,
+        pending: 0
+    });
+}
 async function academyAuthedFetch(url, options = {}) {
     const token = localStorage.getItem('yh_token');
     if (!token) {
@@ -3900,12 +4040,21 @@ async function academyRefreshRoadmap() {
 
 async function academyUpdateMissionStatus(missionId, status, note = '') {
     try {
-        await academyAuthedFetch(`/api/academy/missions/${missionId}/status`, {
+        const result = await academyAuthedFetch(`/api/academy/missions/${missionId}/status`, {
             method: 'POST',
             body: JSON.stringify({
                 status,
                 note
             })
+        });
+
+        applyAcademyHomeRuntimePatch({
+            missionId,
+            status,
+            note,
+            todayProgress: result?.todayProgress,
+            behaviorProfile: result?.behaviorProfile,
+            plannerStats: result?.plannerStats
         });
 
         await loadAcademyHome(true);
@@ -3914,14 +4063,22 @@ async function academyUpdateMissionStatus(missionId, status, note = '') {
         showToast(error.message || "Mission update failed.", "error");
     }
 }
-
 async function academyCompleteMission(missionId) {
     try {
-        await academyAuthedFetch(`/api/academy/missions/${missionId}/complete`, {
+        const result = await academyAuthedFetch(`/api/academy/missions/${missionId}/complete`, {
             method: 'POST',
             body: JSON.stringify({
                 completionNote: ''
             })
+        });
+
+        applyAcademyHomeRuntimePatch({
+            missionId,
+            status: 'completed',
+            note: '',
+            todayProgress: result?.todayProgress,
+            behaviorProfile: result?.behaviorProfile,
+            plannerStats: result?.plannerStats
         });
 
         await loadAcademyHome(true);
@@ -3932,18 +4089,17 @@ async function academyCompleteMission(missionId) {
 }
 
 let academyMissionActionState = {
-    missionId: 0,
+    missionId: '',
     status: '',
     title: ''
 };
 
 function academyResetMissionActionModal() {
     academyMissionActionState = {
-        missionId: 0,
+        missionId: '',
         status: '',
         title: ''
     };
-
     const titleEl = document.getElementById('academy-mission-action-title');
     const contextEl = document.getElementById('academy-mission-action-context');
     const labelEl = document.getElementById('academy-mission-action-label');
@@ -3971,7 +4127,7 @@ function academyOpenMissionActionModal(missionId, status, missionTitle = '') {
     academyResetMissionActionModal();
 
     academyMissionActionState = {
-        missionId: Number(missionId || 0),
+        missionId: String(missionId || '').trim(),
         status: String(status || '').trim().toLowerCase(),
         title: String(missionTitle || '').trim()
     };
@@ -4002,7 +4158,7 @@ function academyOpenMissionActionModal(missionId, status, missionTitle = '') {
 async function academySubmitMissionAction(event) {
     event.preventDefault();
 
-    const missionId = Number(academyMissionActionState.missionId || 0);
+    const missionId = String(academyMissionActionState.missionId || '').trim();
     const status = String(academyMissionActionState.status || '').trim().toLowerCase();
     const noteEl = document.getElementById('academy-mission-action-note');
     const submitBtn = document.getElementById('btn-submit-mission-action');
@@ -4089,15 +4245,21 @@ async function academySubmitCheckin(event) {
             submitBtn.innerText = 'Saving...';
         }
 
-        await academyAuthedFetch('/api/academy/checkin', {
+        const result = await academyAuthedFetch('/api/academy/checkin', {
             method: 'POST',
             body: JSON.stringify({
                 energyScore,
                 moodScore,
                 completedSummary,
                 blockerText,
-                tomorrowFocus
+                tomorrowFocus,
+                missionSignals: buildAcademyMissionSignalSnapshot()
             })
+        });
+
+        applyAcademyHomeRuntimePatch({
+            behaviorProfile: result?.behaviorProfile,
+            plannerStats: result?.plannerStats
         });
 
         academyCloseCheckinModal();
@@ -4112,7 +4274,109 @@ async function academySubmitCheckin(event) {
         }
     }
 }
+function academyBehaviorTrendRank(mode, value) {
+    const normalized = String(value || '').trim().toLowerCase();
 
+    if (mode === 'recovery-risk') {
+        if (normalized === 'high') return 0;
+        if (normalized === 'normal') return 1;
+        if (normalized === 'low') return 2;
+        return null;
+    }
+
+    if (mode === 'accountability-risk') {
+        if (normalized === 'high') return 0;
+        if (normalized === 'moderate') return 1;
+        if (normalized === 'low') return 2;
+        return null;
+    }
+
+    if (mode === 'pressure-response') {
+        if (normalized === 'low') return 0;
+        if (normalized === 'moderate') return 1;
+        if (normalized === 'high') return 2;
+        return null;
+    }
+
+    return null;
+}
+
+function academyGetTrendMeta(currentValue, previousValue, mode = 'ratio-good') {
+    const neutral = {
+        direction: 'stable',
+        label: 'Stable',
+        icon: '→',
+        text: '#cbd5e1',
+        border: 'rgba(148,163,184,0.22)',
+        background: 'rgba(148,163,184,0.08)'
+    };
+
+    if (
+        previousValue === null ||
+        previousValue === undefined ||
+        previousValue === '' ||
+        (typeof previousValue === 'number' && !Number.isFinite(previousValue))
+    ) {
+        return null;
+    }
+
+    let score = 0;
+
+    if (mode === 'ratio-good' || mode === 'ratio-risk' || mode === 'minutes-good') {
+        const currentNum = Number(currentValue);
+        const previousNum = Number(previousValue);
+
+        if (!Number.isFinite(currentNum) || !Number.isFinite(previousNum)) {
+            return null;
+        }
+
+        const delta = currentNum - previousNum;
+        const threshold = mode === 'minutes-good' ? 5 : 0.05;
+
+        if (Math.abs(delta) < threshold) {
+            return neutral;
+        }
+
+        if (mode === 'ratio-good' || mode === 'minutes-good') {
+            score = delta > 0 ? 1 : -1;
+        } else {
+            score = delta < 0 ? 1 : -1;
+        }
+    } else {
+        const currentRank = academyBehaviorTrendRank(mode, currentValue);
+        const previousRank = academyBehaviorTrendRank(mode, previousValue);
+
+        if (currentRank === null || previousRank === null) {
+            return null;
+        }
+
+        if (currentRank === previousRank) {
+            return neutral;
+        }
+
+        score = currentRank > previousRank ? 1 : -1;
+    }
+
+    if (score > 0) {
+        return {
+            direction: 'improving',
+            label: 'Improving',
+            icon: '↗',
+            text: '#86efac',
+            border: 'rgba(34,197,94,0.25)',
+            background: 'rgba(34,197,94,0.10)'
+        };
+    }
+
+    return {
+        direction: 'declining',
+        label: 'Declining',
+        icon: '↘',
+        text: '#fca5a5',
+        border: 'rgba(239,68,68,0.25)',
+        background: 'rgba(239,68,68,0.10)'
+    };
+}
 function renderAcademyHome(homeData = null) {
     const safeHtml = (value) => {
         if (value === null || value === undefined) return '';
@@ -4132,6 +4396,165 @@ function renderAcademyHome(homeData = null) {
         );
     };
 
+    const toNumberSafe = (value, fallback = 0) => {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : fallback;
+    };
+
+    const clampRatio = (value) => {
+        const parsed = toNumberSafe(value, 0);
+        return Math.max(0, Math.min(parsed, 1));
+    };
+
+    const buildTone = (kind, value) => {
+        const normalized = String(value || '').trim().toLowerCase();
+        const neutral = {
+            text: '#cbd5e1',
+            border: 'rgba(148,163,184,0.25)',
+            background: 'rgba(148,163,184,0.08)'
+        };
+
+        if (kind === 'ratio-good') {
+            const ratio = clampRatio(value);
+            if (ratio >= 0.7) {
+                return {
+                    text: '#86efac',
+                    border: 'rgba(34,197,94,0.35)',
+                    background: 'rgba(34,197,94,0.12)'
+                };
+            }
+            if (ratio >= 0.45) {
+                return {
+                    text: '#fcd34d',
+                    border: 'rgba(245,158,11,0.35)',
+                    background: 'rgba(245,158,11,0.12)'
+                };
+            }
+            return {
+                text: '#fca5a5',
+                border: 'rgba(239,68,68,0.35)',
+                background: 'rgba(239,68,68,0.12)'
+            };
+        }
+
+        if (kind === 'ratio-risk') {
+            const ratio = clampRatio(value);
+            if (ratio <= 0.35) {
+                return {
+                    text: '#86efac',
+                    border: 'rgba(34,197,94,0.35)',
+                    background: 'rgba(34,197,94,0.12)'
+                };
+            }
+            if (ratio <= 0.6) {
+                return {
+                    text: '#fcd34d',
+                    border: 'rgba(245,158,11,0.35)',
+                    background: 'rgba(245,158,11,0.12)'
+                };
+            }
+            return {
+                text: '#fca5a5',
+                border: 'rgba(239,68,68,0.35)',
+                background: 'rgba(239,68,68,0.12)'
+            };
+        }
+
+        if (kind === 'recovery') {
+            if (normalized === 'high') {
+                return {
+                    text: '#fca5a5',
+                    border: 'rgba(239,68,68,0.35)',
+                    background: 'rgba(239,68,68,0.12)'
+                };
+            }
+            if (normalized === 'normal' || normalized === 'low') {
+                return {
+                    text: '#86efac',
+                    border: 'rgba(34,197,94,0.35)',
+                    background: 'rgba(34,197,94,0.12)'
+                };
+            }
+            return neutral;
+        }
+
+        if (kind === 'accountability') {
+            if (normalized === 'high') {
+                return {
+                    text: '#93c5fd',
+                    border: 'rgba(59,130,246,0.35)',
+                    background: 'rgba(59,130,246,0.12)'
+                };
+            }
+            if (normalized === 'moderate') {
+                return {
+                    text: '#fcd34d',
+                    border: 'rgba(245,158,11,0.35)',
+                    background: 'rgba(245,158,11,0.12)'
+                };
+            }
+            return neutral;
+        }
+
+        if (kind === 'pressure') {
+            if (normalized === 'low') {
+                return {
+                    text: '#fca5a5',
+                    border: 'rgba(239,68,68,0.35)',
+                    background: 'rgba(239,68,68,0.12)'
+                };
+            }
+            if (normalized === 'moderate' || normalized === 'high') {
+                return {
+                    text: '#86efac',
+                    border: 'rgba(34,197,94,0.35)',
+                    background: 'rgba(34,197,94,0.12)'
+                };
+            }
+            return neutral;
+        }
+
+        return neutral;
+    };
+
+    const renderMiniStatCard = (label, value, toneKind = 'neutral', trendMeta = null) => {
+        const tone = buildTone(toneKind, value);
+
+        return `
+            <div style="padding:12px 14px;border-radius:14px;border:1px solid ${tone.border};background:${tone.background};">
+                <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
+                    <div style="font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-muted);">
+                        ${safeHtml(label)}
+                    </div>
+                    ${trendMeta ? `
+                        <span style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;border-radius:999px;border:1px solid ${trendMeta.border};background:${trendMeta.background};color:${trendMeta.text};font-size:0.72rem;font-weight:600;white-space:nowrap;">
+                            ${safeHtml(trendMeta.icon)} ${safeHtml(trendMeta.label)}
+                        </span>
+                    ` : ''}
+                </div>
+                <div style="margin-top:8px;font-size:1.2rem;font-weight:700;color:${tone.text};">
+                    ${safeHtml(value)}
+                </div>
+            </div>
+        `;
+    };
+
+    const renderSignalPill = (label, value, toneKind = 'neutral', trendMeta = null) => {
+        const tone = buildTone(toneKind, value);
+
+        return `
+            <span style="display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:999px;border:1px solid ${tone.border};background:${tone.background};color:${tone.text};font-size:0.82rem;flex-wrap:wrap;">
+                <strong style="font-weight:600;color:#fff;">${safeHtml(label)}:</strong>
+                <span>${safeHtml(value)}</span>
+                ${trendMeta ? `
+                    <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 7px;border-radius:999px;border:1px solid ${trendMeta.border};background:${trendMeta.background};color:${trendMeta.text};font-size:0.72rem;font-weight:600;">
+                        ${safeHtml(trendMeta.icon)} ${safeHtml(trendMeta.label)}
+                    </span>
+                ` : ''}
+            </span>
+        `;
+    };
+
     setAcademySidebarActive('nav-missions');
 
     const views = {
@@ -4144,7 +4567,9 @@ function renderAcademyHome(homeData = null) {
         'vault-view': document.getElementById('vault-view')
     };
 
-    Object.values(views).forEach(view => { if (view) view.classList.add('hidden-step'); });
+    Object.values(views).forEach((view) => {
+        if (view) view.classList.add('hidden-step');
+    });
     if (views['academy-chat']) views['academy-chat'].classList.remove('hidden-step');
 
     const chatHeaderIcon = document.getElementById('chat-header-icon');
@@ -4161,31 +4586,170 @@ function renderAcademyHome(homeData = null) {
     const today = homeData?.today || {};
     const missions = Array.isArray(homeData?.missions) ? homeData.missions : [];
     const weeklyCheckpoint = homeData?.weeklyCheckpoint || {};
+    const behaviorProfile = homeData?.behaviorProfile && typeof homeData?.behaviorProfile === 'object'
+        ? homeData.behaviorProfile
+        : {};
+    const previousBehaviorProfile = homeData?.previousBehaviorProfile && typeof homeData?.previousBehaviorProfile === 'object'
+        ? homeData.previousBehaviorProfile
+        : {};
+    const plannerStats = homeData?.plannerStats && typeof homeData?.plannerStats === 'object'
+        ? homeData.plannerStats
+        : {};
     const createdByModel = safeHtml(homeData?.createdByModel || '');
 
-    const readinessScore = Number(roadmap.readinessScore || 0);
-    const missionsCompleted = Number(today.missionsCompleted || 0);
-    const missionsTotal = Number(today.missionsTotal || missions.length || 0);
-    const streakDays = Number(today.streakDays || 0);
+    const readinessScore = toNumberSafe(roadmap.readinessScore, 0);
+    const missionsCompleted = toNumberSafe(today.missionsCompleted, 0);
+    const missionsTotal = toNumberSafe(today.missionsTotal, missions.length || 0);
+    const streakDays = toNumberSafe(today.streakDays, 0);
+
+    const executionReliability = clampRatio(behaviorProfile.executionReliability);
+    const frictionSensitivity = clampRatio(behaviorProfile.frictionSensitivity);
+    const maxSustainableDailyMinutes = toNumberSafe(behaviorProfile.maxSustainableDailyMinutes, 0);
+    const bestExecutionWindow = String(behaviorProfile.bestExecutionWindow || '').trim();
+    const accountabilityNeed = String(behaviorProfile.accountabilityNeed || '').trim();
+    const recoveryRisk = String(behaviorProfile.recoveryRisk || '').trim();
+    const pressureResponse = String(behaviorProfile.pressureResponse || '').trim();
+    const preferredMissionTypes = Array.isArray(behaviorProfile.preferredMissionTypes)
+        ? behaviorProfile.preferredMissionTypes
+        : [];
+
+    const executionReliabilityTrend = academyGetTrendMeta(
+        executionReliability,
+        previousBehaviorProfile.executionReliability,
+        'ratio-good'
+    );
+
+    const frictionSensitivityTrend = academyGetTrendMeta(
+        frictionSensitivity,
+        previousBehaviorProfile.frictionSensitivity,
+        'ratio-risk'
+    );
+
+    const sustainableLoadTrend = academyGetTrendMeta(
+        maxSustainableDailyMinutes,
+        previousBehaviorProfile.maxSustainableDailyMinutes,
+        'minutes-good'
+    );
+
+    const recoveryRiskTrend = academyGetTrendMeta(
+        recoveryRisk,
+        previousBehaviorProfile.recoveryRisk,
+        'recovery-risk'
+    );
+
+    const accountabilityTrend = academyGetTrendMeta(
+        accountabilityNeed,
+        previousBehaviorProfile.accountabilityNeed,
+        'accountability-risk'
+    );
+
+    const pressureResponseTrend = academyGetTrendMeta(
+        pressureResponse,
+        previousBehaviorProfile.pressureResponse,
+        'pressure-response'
+    );
+
+    const totalGeneratedMissions = toNumberSafe(plannerStats.totalGeneratedMissions, 0);
+    const totalCompletedMissions = toNumberSafe(plannerStats.totalCompletedMissions, 0);
+    const totalSkippedMissions = toNumberSafe(plannerStats.totalSkippedMissions, 0);
+    const totalStuckMissions = toNumberSafe(plannerStats.totalStuckMissions, 0);
+    const averageCompletionLagHours = toNumberSafe(plannerStats.averageCompletionLagHours, 0);
+    const averageDifficultyScore = toNumberSafe(plannerStats.averageDifficultyScore, 0);
+    const averageUsefulnessScore = toNumberSafe(plannerStats.averageUsefulnessScore, 0);
 
     const focusHtml = focusAreas.length
-        ? focusAreas.map(area => `
-            <span style="display:inline-flex;align-items:center;padding:8px 12px;border-radius:999px;background:rgba(14,165,233,0.12);border:1px solid rgba(14,165,233,0.35);color:#e0f2fe;font-size:0.82rem;font-weight:600;">
-                ${prettyLabel(area)}
-            </span>
-        `).join('')
-        : `<span style="color:var(--text-muted);font-size:0.9rem;">No focus areas loaded yet.</span>`;
+        ? focusAreas.map((item) => `<span class="academy-home-chip">${prettyLabel(item)}</span>`).join('')
+        : `<span class="academy-home-chip academy-home-chip-muted">No focus areas yet</span>`;
+
+    const preferredMissionTypeHtml = preferredMissionTypes.length
+        ? preferredMissionTypes
+            .map((item) => renderSignalPill('Prefers', prettyLabel(item), 'neutral'))
+            .join('')
+        : renderSignalPill('Prefers', 'Still learning your style', 'neutral');
+
+    const behaviorSignalsHtml = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;">
+            ${renderMiniStatCard(
+                'Execution Reliability',
+                `${Math.round(executionReliability * 100)}%`,
+                'ratio-good',
+                executionReliabilityTrend
+            )}
+            ${renderMiniStatCard(
+                'Friction Sensitivity',
+                `${Math.round(frictionSensitivity * 100)}%`,
+                'ratio-risk',
+                frictionSensitivityTrend
+            )}
+            ${renderMiniStatCard(
+                'Sustainable Load',
+                maxSustainableDailyMinutes > 0 ? `${maxSustainableDailyMinutes} mins` : 'Not learned yet',
+                'neutral',
+                sustainableLoadTrend
+            )}
+        </div>
+
+        <div class="academy-home-chip-row" style="margin-top:12px;">
+            ${renderSignalPill(
+                'Recovery Risk',
+                recoveryRisk ? prettyLabel(recoveryRisk) : 'Not learned yet',
+                'recovery',
+                recoveryRiskTrend
+            )}
+            ${renderSignalPill(
+                'Accountability',
+                accountabilityNeed ? prettyLabel(accountabilityNeed) : 'Not learned yet',
+                'accountability',
+                accountabilityTrend
+            )}
+            ${renderSignalPill(
+                'Pressure Response',
+                pressureResponse ? prettyLabel(pressureResponse) : 'Not learned yet',
+                'pressure',
+                pressureResponseTrend
+            )}
+            ${bestExecutionWindow
+                ? renderSignalPill('Best Window', prettyLabel(bestExecutionWindow), 'neutral')
+                : renderSignalPill('Best Window', 'Still learning', 'neutral')}
+            ${preferredMissionTypeHtml}
+        </div>
+    `;
+
+    const plannerSignalsHtml = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;">
+            ${renderMiniStatCard('Generated', totalGeneratedMissions, 'neutral')}
+            ${renderMiniStatCard('Completed', totalCompletedMissions, 'ratio-good')}
+            ${renderMiniStatCard('Skipped', totalSkippedMissions, totalSkippedMissions > 0 ? 'ratio-risk' : 'neutral')}
+            ${renderMiniStatCard('Stuck', totalStuckMissions, totalStuckMissions > 0 ? 'ratio-risk' : 'neutral')}
+        </div>
+
+        <div style="margin-top:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;">
+            ${renderMiniStatCard('Avg Completion Lag', averageCompletionLagHours > 0 ? `${averageCompletionLagHours} hrs` : 'Not enough data', 'neutral')}
+            ${renderMiniStatCard('Avg Difficulty', averageDifficultyScore > 0 ? `${averageDifficultyScore}/10` : 'Not enough data', 'neutral')}
+            ${renderMiniStatCard('Avg Usefulness', averageUsefulnessScore > 0 ? `${averageUsefulnessScore}/10` : 'Not enough data', 'ratio-good')}
+        </div>
+    `;
 
     const missionsHtml = missions.length
         ? missions.map((mission, index) => {
-            const missionId = Number(mission.id || 0);
-            const status = safeHtml(mission.status || 'pending');
-            const title = safeHtml(mission.title || 'Mission');
-            const pillar = prettyLabel(mission.pillar || 'focus');
+            const missionId = safeHtml(mission.id || '');
+            const pillar = prettyLabel(mission.pillar || 'General');
+            const title = safeHtml(mission.title || `Mission ${index + 1}`);
+            const statusRaw = String(mission.status || 'pending').trim().toLowerCase();
+            const status = safeHtml(statusRaw || 'pending');
             const dueDate = safeHtml(mission.dueDate || 'Not set');
             const estimatedMinutes = safeHtml(mission.estimatedMinutes || 0);
             const whyItMatters = safeHtml(mission.whyItMatters || '');
-            const isCompleted = status === 'completed';
+            const isCompleted = statusRaw === 'completed';
+
+            const statusColor =
+                statusRaw === 'completed'
+                    ? '#22c55e'
+                    : statusRaw === 'skipped'
+                    ? '#f59e0b'
+                    : statusRaw === 'stuck'
+                    ? '#ef4444'
+                    : 'var(--text-muted)';
 
             return `
                 <div style="padding:14px 16px;border-radius:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);">
@@ -4198,7 +4762,7 @@ function renderAcademyHome(homeData = null) {
                                 ${title}
                             </div>
                         </div>
-                        <div style="font-size:0.8rem;color:${isCompleted ? '#22c55e' : 'var(--text-muted)'};text-transform:capitalize;">
+                        <div style="font-size:0.8rem;color:${statusColor};text-transform:capitalize;">
                             ${status}
                         </div>
                     </div>
@@ -4233,82 +4797,97 @@ function renderAcademyHome(homeData = null) {
     if (chatPinnedMessage) chatPinnedMessage.style.display = "none";
     if (chatInputArea) chatInputArea.style.display = "none";
 
-if (chatWelcomeBox) {
-    chatWelcomeBox.style.display = "block";
-    chatWelcomeBox.innerHTML = `
-        <section class="academy-home-hero">
-            <div class="academy-home-hero-copy">
-                <div class="academy-home-eyebrow">Academy Home</div>
-                <h2 class="academy-home-title">Welcome back, ${safeHtml(myName)}</h2>
-                <p class="academy-home-copy">
-                    This is your roadmap-first Academy landing. Act on missions, send check-ins, and refresh your plan when your situation changes.
-                </p>
-                ${createdByModel ? `<div class="academy-home-meta">Planner: ${createdByModel}</div>` : ''}
-            </div>
+    if (chatWelcomeBox) {
+        chatWelcomeBox.style.display = "block";
+        chatWelcomeBox.innerHTML = `
+            <section class="academy-home-hero">
+                <div class="academy-home-hero-copy">
+                    <div class="academy-home-eyebrow">Academy Home</div>
+                    <h2 class="academy-home-title">Welcome back, ${safeHtml(myName)}</h2>
+                    <p class="academy-home-copy">
+                        This is your roadmap-first Academy landing. Act on missions, send check-ins, and watch how the AI adjusts to your execution pattern.
+                    </p>
+                    ${createdByModel ? `<div class="academy-home-meta">Planner: ${createdByModel}</div>` : ''}
+                </div>
 
-            <div class="academy-home-actions">
-                <button id="academy-home-refresh-roadmap" type="button" class="btn-primary academy-home-action-btn">Refresh Roadmap</button>
-                <button id="academy-home-open-checkin" type="button" class="btn-secondary academy-home-action-btn">Daily Check-In</button>
-                <button id="academy-home-enter-chat" type="button" class="btn-secondary academy-home-action-btn">Open Community</button>
-                <button id="academy-home-open-voice" type="button" class="btn-secondary academy-home-action-btn">Open Voice Lounge</button>
-            </div>
-        </section>
-
-        <section class="academy-home-stats">
-            <div class="academy-home-stat-card">
-                <div class="academy-home-stat-label">Readiness</div>
-                <div class="academy-home-stat-value">${readinessScore ? safeHtml(readinessScore) : '—'}<span> / 100</span></div>
-            </div>
-
-            <div class="academy-home-stat-card">
-                <div class="academy-home-stat-label">Completed</div>
-                <div class="academy-home-stat-value">${safeHtml(missionsCompleted)}<span> / ${safeHtml(missionsTotal)}</span></div>
-            </div>
-
-            <div class="academy-home-stat-card">
-                <div class="academy-home-stat-label">7-Day Streak</div>
-                <div class="academy-home-stat-value">${safeHtml(streakDays)}</div>
-            </div>
-        </section>
-    `;
-}
-
-if (dynamicChatContainer) {
-    dynamicChatContainer.innerHTML = `
-        <div class="academy-home-stack">
-            <section class="academy-home-panel">
-                <div class="academy-home-panel-label">Roadmap Summary</div>
-                <div class="academy-home-panel-copy">
-                    <strong>Main Bottleneck:</strong> ${safeHtml(summary.primaryBottleneck || 'Not available')}<br>
-                    <strong>Secondary Bottleneck:</strong> ${safeHtml(summary.secondaryBottleneck || 'Not available')}<br>
-                    <strong>Main Opportunity:</strong> ${safeHtml(summary.mainOpportunity || 'Not available')}
+                <div class="academy-home-actions">
+                    <button id="academy-home-refresh-roadmap" type="button" class="btn-primary academy-home-action-btn">Refresh Roadmap</button>
+                    <button id="academy-home-open-checkin" type="button" class="btn-secondary academy-home-action-btn">Daily Check-In</button>
+                    <button id="academy-home-enter-chat" type="button" class="btn-secondary academy-home-action-btn">Open Community</button>
+                    <button id="academy-home-open-voice" type="button" class="btn-secondary academy-home-action-btn">Open Voice Lounge</button>
                 </div>
             </section>
 
-            <section class="academy-home-panel">
-                <div class="academy-home-panel-label">Focus Areas</div>
-                <div class="academy-home-chip-row">
-                    ${focusHtml}
+            <section class="academy-home-stats">
+                <div class="academy-home-stat-card">
+                    <div class="academy-home-stat-label">Readiness</div>
+                    <div class="academy-home-stat-value">${readinessScore ? safeHtml(readinessScore) : '—'}<span> / 100</span></div>
                 </div>
-            </section>
 
-            <section class="academy-home-panel">
-                <div class="academy-home-panel-label">Weekly Checkpoint</div>
-                <div class="academy-home-panel-copy">
-                    <strong>Theme:</strong> ${safeHtml(weeklyCheckpoint.theme || 'Not available')}<br>
-                    <strong>Target Outcome:</strong> ${safeHtml(weeklyCheckpoint.targetOutcome || 'Not available')}
+                <div class="academy-home-stat-card">
+                    <div class="academy-home-stat-label">Completed</div>
+                    <div class="academy-home-stat-value">${safeHtml(missionsCompleted)}<span> / ${safeHtml(missionsTotal)}</span></div>
                 </div>
-            </section>
 
-            <section class="academy-home-panel">
-                <div class="academy-home-panel-label">Today’s Missions</div>
-                <div class="academy-home-missions">
-                    ${missionsHtml}
+                <div class="academy-home-stat-card">
+                    <div class="academy-home-stat-label">7-Day Streak</div>
+                    <div class="academy-home-stat-value">${safeHtml(streakDays)}</div>
+                </div>
+
+                <div class="academy-home-stat-card">
+                    <div class="academy-home-stat-label">Sustainable Load</div>
+                    <div class="academy-home-stat-value">${maxSustainableDailyMinutes > 0 ? safeHtml(maxSustainableDailyMinutes) : '—'}<span>${maxSustainableDailyMinutes > 0 ? ' mins' : ''}</span></div>
                 </div>
             </section>
-        </div>
-    `;
-}   
+        `;
+    }
+
+    if (dynamicChatContainer) {
+        dynamicChatContainer.innerHTML = `
+            <div class="academy-home-stack">
+                <section class="academy-home-panel">
+                    <div class="academy-home-panel-label">Roadmap Summary</div>
+                    <div class="academy-home-panel-copy">
+                        <strong>Main Bottleneck:</strong> ${safeHtml(summary.primaryBottleneck || 'Not available')}<br>
+                        <strong>Secondary Bottleneck:</strong> ${safeHtml(summary.secondaryBottleneck || 'Not available')}<br>
+                        <strong>Main Opportunity:</strong> ${safeHtml(summary.mainOpportunity || 'Not available')}
+                    </div>
+                </section>
+
+                <section class="academy-home-panel">
+                    <div class="academy-home-panel-label">Focus Areas</div>
+                    <div class="academy-home-chip-row">
+                        ${focusHtml}
+                    </div>
+                </section>
+
+                <section class="academy-home-panel">
+                    <div class="academy-home-panel-label">Weekly Checkpoint</div>
+                    <div class="academy-home-panel-copy">
+                        <strong>Theme:</strong> ${safeHtml(weeklyCheckpoint.theme || 'Not available')}<br>
+                        <strong>Target Outcome:</strong> ${safeHtml(weeklyCheckpoint.targetOutcome || 'Not available')}
+                    </div>
+                </section>
+
+                <section class="academy-home-panel">
+                    <div class="academy-home-panel-label">Behavior Signals</div>
+                    ${behaviorSignalsHtml}
+                </section>
+
+                <section class="academy-home-panel">
+                    <div class="academy-home-panel-label">Planner Intelligence</div>
+                    ${plannerSignalsHtml}
+                </section>
+
+                <section class="academy-home-panel">
+                    <div class="academy-home-panel-label">Today’s Missions</div>
+                    <div class="academy-home-missions">
+                        ${missionsHtml}
+                    </div>
+                </section>
+            </div>
+        `;
+    }
 
     document.getElementById('academy-home-enter-chat')?.addEventListener('click', () => {
         document.getElementById('nav-chat')?.click();
@@ -4328,14 +4907,14 @@ if (dynamicChatContainer) {
 
     document.querySelectorAll('[data-academy-action="complete"]').forEach((button) => {
         button.addEventListener('click', () => {
-            const missionId = Number(button.getAttribute('data-mission-id') || 0);
+            const missionId = String(button.getAttribute('data-mission-id') || '').trim();
             if (missionId) academyCompleteMission(missionId);
         });
     });
 
     document.querySelectorAll('[data-academy-action="skip"]').forEach((button) => {
         button.addEventListener('click', () => {
-            const missionId = Number(button.getAttribute('data-mission-id') || 0);
+            const missionId = String(button.getAttribute('data-mission-id') || '').trim();
             const missionTitle = String(button.getAttribute('data-mission-title') || '').trim();
             if (!missionId) return;
             academyOpenMissionActionModal(missionId, 'skipped', missionTitle);
@@ -4344,7 +4923,7 @@ if (dynamicChatContainer) {
 
     document.querySelectorAll('[data-academy-action="stuck"]').forEach((button) => {
         button.addEventListener('click', () => {
-            const missionId = Number(button.getAttribute('data-mission-id') || 0);
+            const missionId = String(button.getAttribute('data-mission-id') || '').trim();
             const missionTitle = String(button.getAttribute('data-mission-title') || '').trim();
             if (!missionId) return;
             academyOpenMissionActionModal(missionId, 'stuck', missionTitle);

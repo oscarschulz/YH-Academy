@@ -538,13 +538,28 @@ function buildPlannerMessages(profile, context = {}) {
         estimatedMinutes: toInt(mission.estimatedMinutes || mission.estimated_minutes, 0)
     }));
 
-    const recentCheckins = (context.recentCheckins || []).map((checkin) => ({
-        energyScore: toInt(checkin.energyScore || checkin.energy_score, 0),
-        moodScore: toInt(checkin.moodScore || checkin.mood_score, 0),
-        completedSummary: sanitize(checkin.completedSummary || checkin.completed_summary || ''),
-        blockerText: sanitize(checkin.blockerText || checkin.blocker_text || ''),
-        tomorrowFocus: sanitize(checkin.tomorrowFocus || checkin.tomorrow_focus || '')
-    }));
+    const recentCheckins = (context.recentCheckins || []).map((checkin) => {
+        const missionSignals =
+            checkin?.aiFeedback && typeof checkin.aiFeedback === 'object' &&
+            checkin.aiFeedback.missionSignals && typeof checkin.aiFeedback.missionSignals === 'object'
+                ? checkin.aiFeedback.missionSignals
+                : {};
+
+        return {
+            energyScore: toInt(checkin.energyScore || checkin.energy_score, 0),
+            moodScore: toInt(checkin.moodScore || checkin.mood_score, 0),
+            completedSummary: sanitize(checkin.completedSummary || checkin.completed_summary || ''),
+            blockerText: sanitize(checkin.blockerText || checkin.blocker_text || ''),
+            tomorrowFocus: sanitize(checkin.tomorrowFocus || checkin.tomorrow_focus || ''),
+            missionSignals: {
+                total: toInt(missionSignals.total, 0),
+                completed: toInt(missionSignals.completed, 0),
+                pending: toInt(missionSignals.pending, 0),
+                skipped: toInt(missionSignals.skipped, 0),
+                stuck: toInt(missionSignals.stuck, 0)
+            }
+        };
+    });
 
     const activeRoadmap = context.activeRoadmap || null;
 
@@ -1191,23 +1206,9 @@ exports.completeMission = async (req, res) => {
             });
         }
 
-        await academyFirestoreRepo.updateMissionCompletion(uid, missionId, completionNote);
+        const completedMission = await academyFirestoreRepo.updateMissionCompletion(uid, missionId, completionNote);
 
-        const progress = await academyFirestoreRepo.getMissionProgress(uid, mission.roadmapId);
-
-        return res.json({
-            success: true,
-            missionId,
-            status: 'completed',
-            todayProgress: {
-                completed: progress.completed || 0,
-                total: progress.total || 0,
-                percent: progress.percent || 0
-            }
-        });
-        
-    } catch (error) {
-                const missionCompletedAt = completedMission?.completedAt;
+        const missionCompletedAt = completedMission?.completedAt;
         const missionCreatedAt = completedMission?.createdAt;
 
         let completionLagHours = 0;
@@ -1229,7 +1230,22 @@ exports.completeMission = async (req, res) => {
             completionLagHours
         });
 
-        await refreshBehaviorState(uid);
+        const behaviorState = await refreshBehaviorState(uid);
+        const progress = await academyFirestoreRepo.getMissionProgress(uid, mission.roadmapId);
+
+        return res.json({
+            success: true,
+            missionId,
+            status: 'completed',
+            todayProgress: {
+                completed: progress.completed || 0,
+                total: progress.total || 0,
+                percent: progress.percent || 0
+            },
+            behaviorProfile: behaviorState.behaviorProfile,
+            plannerStats: behaviorState.plannerStats
+        });
+    } catch (error) {
         console.error('Complete Mission Error:', error);
         return res.status(500).json({
             success: false,
@@ -1237,7 +1253,6 @@ exports.completeMission = async (req, res) => {
         });
     }
 };
-
 exports.updateMissionStatus = async (req, res) => {
     try {
         const uid = getAcademyAuthUid(req);
@@ -1355,6 +1370,16 @@ exports.submitCheckin = async (req, res) => {
         const completedSummary = sanitize(req.body.completedSummary || '');
         const blockerText = sanitize(req.body.blockerText || '');
         const tomorrowFocus = sanitize(req.body.tomorrowFocus || '');
+        const rawMissionSignals = req.body?.missionSignals && typeof req.body.missionSignals === 'object'
+            ? req.body.missionSignals
+            : {};
+        const missionSignals = {
+            total: Math.max(0, toInt(rawMissionSignals.total, 0)),
+            completed: Math.max(0, toInt(rawMissionSignals.completed, 0)),
+            pending: Math.max(0, toInt(rawMissionSignals.pending, 0)),
+            skipped: Math.max(0, toInt(rawMissionSignals.skipped, 0)),
+            stuck: Math.max(0, toInt(rawMissionSignals.stuck, 0))
+        };
 
         await academyFirestoreRepo.createCheckin(uid, activeRoadmap.id, {
             energyScore,
@@ -1362,8 +1387,12 @@ exports.submitCheckin = async (req, res) => {
             completedSummary,
             blockerText,
             tomorrowFocus,
-            aiFeedback: { type: 'daily_checkin' }
+            aiFeedback: {
+                type: 'daily_checkin',
+                missionSignals
+            }
         });
+
         const completedMissionIds = Array.isArray(req.body?.completedMissionIds)
             ? req.body.completedMissionIds
             : [];
@@ -1378,8 +1407,8 @@ exports.submitCheckin = async (req, res) => {
 
         for (const missionId of completedMissionIds) {
             await academyFirestoreRepo.updateMissionOutcomeMetrics(uid, missionId, {
-                userDifficultyScore: toInt(req.body?.difficultyToday, 0),
-                userUsefulnessScore: toInt(req.body?.usefulnessToday, 0)
+                userDifficultyScore: clamp(toInt(req.body?.difficultyToday, 0), 0, 10),
+                userUsefulnessScore: clamp(toInt(req.body?.usefulnessToday, 0), 0, 10)
             });
         }
 
@@ -1402,10 +1431,12 @@ exports.submitCheckin = async (req, res) => {
             });
         }
 
-        await refreshBehaviorState(uid);
+        const behaviorState = await refreshBehaviorState(uid);
         return res.json({
             success: true,
-            message: 'Check-in saved.'
+            message: 'Check-in saved.',
+            behaviorProfile: behaviorState.behaviorProfile,
+            plannerStats: behaviorState.plannerStats
         });
     } catch (error) {
         console.error('Submit Check-in Error:', error);
