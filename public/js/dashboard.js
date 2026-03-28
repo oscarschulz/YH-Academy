@@ -3430,17 +3430,8 @@ function openMiniProfile(name, role, avatarContent, avatarBg) {
 
     localStorage.setItem('yh_user_stats', JSON.stringify(allStats));
 
-    const mpName = document.getElementById('mp-name');
-    const mpRole = document.getElementById('mp-role');
-    const mpFollowers = document.getElementById('mp-followers');
-    const mpRep = document.getElementById('mp-rep');
-    const avatarEl = document.getElementById('mp-avatar');
-    const profileStats = document.querySelector('.profile-stats');
-    const btnBrowse = document.getElementById('btn-mp-browse-hustlers');
-
-    if (mpName) mpName.innerText = name;
-
-    const roleMarkup =
+    document.getElementById('mp-name').innerText = name;
+    document.getElementById('mp-role').innerHTML =
         role === 'HQ'
             ? `<span class="role-badge founder">HQ</span>`
             : role === 'AI'
@@ -3449,8 +3440,7 @@ function openMiniProfile(name, role, avatarContent, avatarBg) {
             ? `<span class="role-badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">DEV</span>`
             : `<span class="role-badge" style="background: rgba(255,255,255,0.1); color:#fff; border: 1px solid rgba(255,255,255,0.2);">Hustler</span>`;
 
-    if (mpRole) mpRole.innerHTML = roleMarkup;
-
+    const avatarEl = document.getElementById('mp-avatar');
     if (avatarEl) {
         if (avatarContent.includes('url')) {
             avatarEl.innerText = '';
@@ -3463,39 +3453,39 @@ function openMiniProfile(name, role, avatarContent, avatarBg) {
         }
     }
 
-    if (mpFollowers) mpFollowers.innerText = allStats[name].followers;
-    if (mpRep) mpRep.innerText = allStats[name].rep;
+    document.getElementById('mp-followers').innerText = allStats[name].followers;
+    document.getElementById('mp-rep').innerText = allStats[name].rep;
 
+    const profileStats = document.querySelector('.profile-stats');
     if (profileStats) {
         profileStats.style.display = name === "Agent" ? 'none' : 'flex';
     }
 
-    const topNavName =
-        String(document.getElementById('top-nav-name')?.innerText || '').trim().toLowerCase();
-    const localUserName =
-        String(localStorage.getItem('yh_user_name') || '').trim().toLowerCase();
-    const clickedName =
-        String(name || '').trim().toLowerCase();
-
-    const isMe =
-        clickedName &&
-        (clickedName === String(myName || '').trim().toLowerCase() ||
-         clickedName === topNavName ||
-         clickedName === localUserName);
-
-    if (isMe && mpRole) {
-        mpRole.innerHTML += `<br><div class="my-profile-tag">This is you</div>`;
-    }
-
+    const btnBrowse = document.getElementById('btn-mp-browse-hustlers');
     if (btnBrowse) {
         btnBrowse.style.display = 'inline-flex';
         btnBrowse.classList.remove('hidden-step');
         btnBrowse.innerText = 'Check out on other Hustlers';
     }
 
+    const topNavName = String(document.getElementById('top-nav-name')?.innerText || '').trim().toLowerCase();
+    const localUserName = String(localStorage.getItem('yh_user_name') || '').trim().toLowerCase();
+    const clickedName = String(name || '').trim().toLowerCase();
+
+    const isMe =
+        clickedName &&
+        (
+            clickedName === String(myName || '').trim().toLowerCase() ||
+            clickedName === topNavName ||
+            clickedName === localUserName
+        );
+
+    if (isMe) {
+        document.getElementById('mp-role').innerHTML += `<br><div class="my-profile-tag">This is you</div>`;
+    }
+
     modal.classList.remove('hidden-step');
 }
-
     const btnFollow = document.getElementById('btn-mp-follow');
 if (btnFollow) {
     btnFollow.addEventListener('click', () => {
@@ -3609,6 +3599,22 @@ if (btnBrowseHustlers) {
         document.getElementById('mini-profile-modal')?.classList.add('hidden-step');
         document.getElementById('academy-member-browser-modal')?.classList.remove('hidden-step');
         await loadAcademyMemberBrowser(true);
+    });
+}
+const academyMemberBrowserModal = document.getElementById('academy-member-browser-modal');
+const academyMemberBrowserClose = document.getElementById('academy-member-browser-close');
+
+if (academyMemberBrowserClose) {
+    academyMemberBrowserClose.addEventListener('click', () => {
+        closeAcademyMemberBrowser();
+    });
+}
+
+if (academyMemberBrowserModal) {
+    academyMemberBrowserModal.addEventListener('click', (event) => {
+        if (event.target === academyMemberBrowserModal) {
+            closeAcademyMemberBrowser();
+        }
     });
 }
     // --- MISSIONS & BLUEPRINT ---

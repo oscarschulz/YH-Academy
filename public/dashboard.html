@@ -1075,11 +1075,11 @@
                 </div>
             </div>
 
-            <div id="mp-action-row" style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
-                <button id="btn-mp-browse-hustlers" class="btn-primary" type="button">
-                    Check out on other Hustlers
-                </button>
-            </div>
+        <div id="mp-action-row" style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+            <button id="btn-mp-browse-hustlers" class="btn-primary academy-mini-profile-browse-btn" type="button">
+                Check out on other Hustlers
+            </button>
+        </div>
         </div>
     </div>
 </div>
@@ -1107,7 +1107,32 @@
         </div>
     </div>
 </div>
+<div id="academy-member-browser-modal" class="modal-overlay hidden-step">
+    <div class="modal-content academy-member-browser-dialog">
+        <div class="academy-member-browser-header">
+            <div class="academy-member-browser-header-copy">
+                <div class="academy-member-browser-kicker">Academy Directory</div>
+                <h3 class="academy-member-browser-title">Check out other Hustlers</h3>
+                <p class="academy-member-browser-copy">
+                    Browse members from the database and follow them from here.
+                </p>
+            </div>
 
+            <button
+                type="button"
+                class="academy-member-browser-close"
+                id="academy-member-browser-close"
+                aria-label="Close other Hustlers modal"
+            >
+                ✕
+            </button>
+        </div>
+
+        <div id="academy-member-browser-list" class="academy-member-browser-list">
+            <div class="academy-member-browser-empty">Loading members...</div>
+        </div>
+    </div>
+</div>
     <script src="/socket.io/socket.io.js"></script>
     <script src="/js/dashboard.js"></script>
 </body>
