@@ -324,28 +324,57 @@ function showToast(message, type = "success") {
 }
 
 function updateUserProfile(newName, newAvatarData) {
-    if(newName) {
-        const initial = newName.charAt(0).toUpperCase();
-        const elsName = [document.getElementById('top-nav-name'), document.getElementById('right-sidebar-name'), document.getElementById('stage-user-name')];
-        elsName.forEach(el => { if(el) el.innerText = newName; });
+    const safeName = String(newName || '').trim();
 
-        const elsInit = [document.getElementById('top-nav-initial'), document.getElementById('right-sidebar-initial'), document.getElementById('stage-user-initial')];
-        elsInit.forEach(el => { if(el && !newAvatarData) { el.innerText = initial; el.style.backgroundImage = 'none'; } });
+    if (safeName) {
+        const initial = safeName.charAt(0).toUpperCase();
+        const elsName = [
+            document.getElementById('top-nav-name'),
+            document.getElementById('right-sidebar-name'),
+            document.getElementById('stage-user-name')
+        ];
+
+        elsName.forEach(el => {
+            if (el) {
+                el.innerText = safeName;
+                el.setAttribute('title', safeName);
+            }
+        });
+
+        const elsInit = [
+            document.getElementById('top-nav-initial'),
+            document.getElementById('right-sidebar-initial'),
+            document.getElementById('stage-user-initial')
+        ];
+
+        elsInit.forEach(el => {
+            if (el && !newAvatarData) {
+                el.innerText = initial;
+                el.style.backgroundImage = 'none';
+            }
+        });
     }
-    if(newAvatarData) {
+
+    if (newAvatarData) {
         const elsAvatar = [
             document.getElementById('top-nav-initial'),
             document.getElementById('right-sidebar-initial'),
             document.getElementById('stage-user-initial'),
             document.getElementById('academy-feed-composer-avatar')
         ];
+
         elsAvatar.forEach(el => {
-            if(el) { el.innerText = ''; el.style.backgroundImage = `url(${newAvatarData})`; el.style.backgroundSize = 'cover'; el.style.backgroundPosition = 'center'; }
+            if (el) {
+                el.innerText = '';
+                el.style.backgroundImage = `url(${newAvatarData})`;
+                el.style.backgroundSize = 'cover';
+                el.style.backgroundPosition = 'center';
+            }
         });
-    } else if (newName) {
+    } else if (safeName) {
         const composerAvatar = document.getElementById('academy-feed-composer-avatar');
         if (composerAvatar) {
-            composerAvatar.innerText = newName.charAt(0).toUpperCase();
+            composerAvatar.innerText = safeName.charAt(0).toUpperCase();
             composerAvatar.style.backgroundImage = 'none';
         }
     }
@@ -550,6 +579,14 @@ function switchServer(targetDivision) {
     openDivisionPreview(division);
 }
 
+function stepUniverseSlide(direction = 1) {
+    const divisions = ['academy', 'plazas', 'federation'];
+    const currentIndex = divisions.indexOf(activeUniverseDivision);
+    const safeIndex = currentIndex >= 0 ? currentIndex : 0;
+    const nextIndex = (safeIndex + (direction < 0 ? -1 : 1) + divisions.length) % divisions.length;
+    return setUniverseSlide(divisions[nextIndex]);
+}
+
 function bindUniverseSwipe() {
     const viewport = document.getElementById('yh-universe-carousel');
     if (!viewport || viewport.dataset.swipeBound === 'true') return;
@@ -565,7 +602,7 @@ function bindUniverseSwipe() {
         if (!element || typeof element.closest !== 'function') return false;
 
         return !!element.closest(
-            '#btn-open-academy-apply, button, a, input, textarea, select, label, [role="button"]'
+            '#btn-open-academy-apply, #yh-universe-prev, #yh-universe-next, button, a, input, textarea, select, label, [role="button"]'
         );
     };
 
@@ -588,16 +625,13 @@ function bindUniverseSwipe() {
 
         if (Math.abs(deltaX) < 55 || Math.abs(deltaX) <= Math.abs(deltaY)) return;
 
-        const divisions = ['academy', 'plazas', 'federation'];
-        const currentIndex = divisions.indexOf(activeUniverseDivision);
-
-        if (deltaX < 0 && currentIndex < divisions.length - 1) {
-            setUniverseSlide(divisions[currentIndex + 1]);
+        if (deltaX < 0) {
+            stepUniverseSlide(1);
             return;
         }
 
-        if (deltaX > 0 && currentIndex > 0) {
-            setUniverseSlide(divisions[currentIndex - 1]);
+        if (deltaX > 0) {
+            stepUniverseSlide(-1);
         }
     };
 
@@ -623,7 +657,17 @@ document.querySelectorAll('.yh-universe-dot').forEach((dot) => {
         setUniverseSlide(dot.getAttribute('data-division') || 'academy');
     });
 });
+document.getElementById('yh-universe-prev')?.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    stepUniverseSlide(-1);
+});
 
+document.getElementById('yh-universe-next')?.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    stepUniverseSlide(1);
+});
 document.querySelectorAll('.yh-universe-slide .portal-card').forEach((card) => {
     card.addEventListener('click', (event) => {
         if (event.target.closest('button, a, input, textarea, select, label, [role="button"]')) return;
@@ -3781,20 +3825,50 @@ if (btnCreateGroup && groupNameInput) {
         });
     }
 
-    const notifBell = document.getElementById('notif-bell'); const notifDropdown = document.getElementById('notif-dropdown'); const markAllRead = document.getElementById('mark-all-read');
-    if(notifBell && notifDropdown) {
-        notifBell.addEventListener('click', (e) => { if(e.target === markAllRead) return; notifDropdown.classList.toggle('show'); });
-        document.addEventListener('click', (e) => { if (!notifBell.contains(e.target)) notifDropdown.classList.remove('show'); });
-        if(markAllRead) { markAllRead.addEventListener('click', () => { notifDropdown.querySelectorAll('.unread').forEach(item => item.classList.remove('unread')); const badge = notifBell.querySelector('.notif-badge'); if(badge) badge.style.display = 'none'; showToast("All notifications marked as read.", "success"); }); }
-        document.querySelectorAll('.notif-list li').forEach(item => {
-            item.addEventListener('click', () => {
-                item.classList.remove('unread'); const badge = notifBell.querySelector('.notif-badge');
-                if(badge) { const remainingUnread = notifDropdown.querySelectorAll('.unread').length; if (remainingUnread === 0) badge.style.display = 'none'; else badge.innerText = remainingUnread; }
-                notifDropdown.classList.remove('show'); const target = item.getAttribute('data-target');
-                if (target === 'announcements') document.getElementById('nav-announcements')?.click(); else if (target === 'main-chat') document.getElementById('nav-chat')?.click(); else if (target === 'dm') document.getElementById('btn-open-dm-modal')?.click(); else if (target === 'profile') document.querySelector('.profile-mini')?.click();
-            });
+const notifBell = document.getElementById('notif-bell'); const notifDropdown = document.getElementById('notif-dropdown'); const markAllRead = document.getElementById('mark-all-read');
+if(notifBell && notifDropdown) {
+    notifBell.addEventListener('click', (e) => { if(e.target === markAllRead) return; notifDropdown.classList.toggle('show'); });
+    document.addEventListener('click', (e) => { if (!notifBell.contains(e.target)) notifDropdown.classList.remove('show'); });
+    if(markAllRead) { markAllRead.addEventListener('click', () => { notifDropdown.querySelectorAll('.unread').forEach(item => item.classList.remove('unread')); const badge = notifBell.querySelector('.notif-badge'); if(badge) badge.style.display = 'none'; showToast("All notifications marked as read.", "success"); }); }
+    document.querySelectorAll('.notif-list li').forEach(item => {
+        item.addEventListener('click', () => {
+            item.classList.remove('unread'); const badge = notifBell.querySelector('.notif-badge');
+            if(badge) { const remainingUnread = notifDropdown.querySelectorAll('.unread').length; if (remainingUnread === 0) badge.style.display = 'none'; else badge.innerText = remainingUnread; }
+            notifDropdown.classList.remove('show'); const target = item.getAttribute('data-target');
+            if (target === 'announcements') document.getElementById('nav-announcements')?.click(); else if (target === 'main-chat') document.getElementById('nav-chat')?.click(); else if (target === 'dm') document.getElementById('btn-open-dm-modal')?.click(); else if (target === 'profile') document.querySelector('.profile-mini')?.click();
         });
-    }
+    });
+}
+
+const resourcesMenu = document.getElementById('yh-resources-menu');
+const resourcesMenuBtn = document.getElementById('yh-resources-menu-btn');
+const resourcesMenuPanel = document.getElementById('yh-resources-menu-panel');
+
+if (resourcesMenu && resourcesMenuBtn && resourcesMenuPanel) {
+    const closeResourcesMenu = () => {
+        resourcesMenuPanel.classList.remove('show');
+        resourcesMenuBtn.setAttribute('aria-expanded', 'false');
+    };
+
+    resourcesMenuBtn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const willOpen = !resourcesMenuPanel.classList.contains('show');
+        resourcesMenuPanel.classList.toggle('show', willOpen);
+        resourcesMenuBtn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    });
+
+    resourcesMenuPanel.addEventListener('click', (event) => {
+        event.stopPropagation();
+    });
+
+    document.addEventListener('click', (event) => {
+        if (!resourcesMenu.contains(event.target)) {
+            closeResourcesMenu();
+        }
+    });
+}
 
     const closeMiniProfileBtn = document.getElementById('close-mini-profile'); const miniProfileModal = document.getElementById('mini-profile-modal');
     if(closeMiniProfileBtn && miniProfileModal) { closeMiniProfileBtn.addEventListener('click', () => miniProfileModal.classList.add('hidden-step')); miniProfileModal.addEventListener('click', (e) => { if(e.target === miniProfileModal) miniProfileModal.classList.add('hidden-step'); }); }
@@ -5897,10 +5971,15 @@ function runAcademyLaunch(event) {
 
 if (btnOpenApply) {
     btnOpenApply.setAttribute('type', 'button');
+    btnOpenApply.style.pointerEvents = 'auto';
+    btnOpenApply.style.touchAction = 'manipulation';
 
     if (!btnOpenApply.dataset.launchBound) {
         btnOpenApply.dataset.launchBound = 'true';
+
         btnOpenApply.addEventListener('touchend', runAcademyLaunch, { passive: false });
+        btnOpenApply.addEventListener('pointerup', runAcademyLaunch);
+        btnOpenApply.addEventListener('mouseup', runAcademyLaunch);
         btnOpenApply.addEventListener('click', runAcademyLaunch);
     }
 }

@@ -399,7 +399,7 @@ h3 { font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem; color: var(--ne
 .notif-wrapper:hover { background: rgba(255,255,255,0.1); }
 .notif-icon { font-size: 1.1rem; }
 .notif-badge { position: absolute; top: -2px; right: -2px; background: #ef4444; color: #fff; font-size: 0.6rem; font-weight: bold; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; border-radius: 50%; border: 2px solid #0f172a; }
-.notif-dropdown { position: absolute; top: 50px; right: -50px; width: 320px; background: rgba(15, 20, 30, 0.95); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); backdrop-filter: blur(16px); display: none; flex-direction: column; z-index: 100; overflow: hidden; opacity: 0; transform: translateY(-10px); transition: all 0.3s ease; }
+.notif-dropdown { position: absolute; top: 50px; left: 0; right: auto; width: 320px; background: rgba(15, 20, 30, 0.95); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); backdrop-filter: blur(16px); display: none; flex-direction: column; z-index: 100; overflow: hidden; opacity: 0; transform: translateY(-10px); transition: all 0.3s ease; }
 .notif-dropdown.show { display: flex; opacity: 1; transform: translateY(0); }
 .notif-header { padding: 15px; font-weight: 600; font-size: 0.9rem; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center; }
 .notif-header span { font-size: 0.75rem; color: var(--neon-blue); cursor: pointer; font-weight: 400; }
@@ -2430,22 +2430,169 @@ body.academy-launcher-open {
 }
 
 .desktop-user-strip-inner {
-    display: inline-flex;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+    width: 100%;
+}
+
+.desktop-user-strip-left {
+    display: flex;
     align-items: center;
     gap: 12px;
-    width: auto;
+    min-width: 0;
+    flex-wrap: wrap;
+}
+
+.desktop-user-strip-right {
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-end;
+    margin-left: auto;
 }
 
 .desktop-user-strip .profile-mini {
     display: inline-flex !important;
     align-items: center !important;
     gap: 8px !important;
+    min-width: 0;
 }
 
 .desktop-user-strip .profile-mini span {
     display: inline !important;
 }
 
+#top-nav-name {
+    display: block !important;
+    max-width: none !important;
+    overflow: visible !important;
+    white-space: nowrap !important;
+    text-overflow: clip !important;
+}
+.yh-resources-menu {
+    position: relative;
+    z-index: 120;
+}
+
+.yh-resources-menu-btn {
+    width: auto !important;
+    min-height: 42px;
+    padding: 10px 16px !important;
+    border-radius: 999px !important;
+    display: inline-flex !important;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.24);
+    white-space: nowrap;
+}
+
+.yh-resources-menu-icon {
+    font-size: 0.95rem;
+    line-height: 1;
+}
+
+.yh-resources-menu-panel {
+    position: absolute;
+    top: calc(100% + 12px);
+    right: 0;
+    width: 320px;
+    padding: 14px;
+    border-radius: 18px;
+    border: 1px solid rgba(56, 189, 248, 0.24);
+    background: rgba(8, 15, 32, 0.96);
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.42);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    display: none;
+    gap: 10px;
+}
+
+.yh-resources-menu-panel.show {
+    display: grid;
+}
+
+.yh-resources-menu-panel-head {
+    display: grid;
+    gap: 4px;
+    margin-bottom: 4px;
+}
+
+.yh-resources-menu-kicker {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--neon-blue);
+}
+
+.yh-resources-menu-title {
+    margin: 0;
+    font-size: 1rem;
+    color: #fff;
+    line-height: 1.2;
+}
+
+.yh-resources-menu-list {
+    display: grid;
+    gap: 10px;
+}
+
+.yh-resource-mini-card {
+    display: grid;
+    gap: 8px;
+    padding: 12px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    background: rgba(255, 255, 255, 0.03);
+    text-decoration: none;
+    transition: transform 0.22s ease, border-color 0.22s ease, background 0.22s ease;
+}
+
+.yh-resource-mini-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(56, 189, 248, 0.34);
+    background: rgba(56, 189, 248, 0.06);
+}
+
+.yh-resource-mini-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.yh-resource-mini-logo {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+
+.yh-resource-mini-eyebrow {
+    font-size: 0.66rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+}
+
+.yh-resource-mini-name {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.15;
+}
+
+.yh-resource-mini-copy {
+    font-size: 0.78rem;
+    line-height: 1.4;
+    color: var(--text-muted);
+}
+
+.yh-featured-rail,
+.yh-featured-sites-mobile {
+    display: none !important;
+}
 .universe-hub-view {
     position: fixed;
     top: 108px;
@@ -2468,6 +2615,56 @@ body.academy-launcher-open {
     display: flex;
     flex-direction: column;
     gap: 14px;
+}
+
+.yh-universe-stage-nav {
+    position: relative;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.yh-universe-side-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 74px;
+    height: 74px;
+    border: 1px solid rgba(56, 189, 248, 0.24);
+    border-radius: 999px;
+    background: rgba(8, 15, 32, 0.84);
+    color: #d9f4ff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 30;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.32);
+    transition: transform 0.22s ease, border-color 0.22s ease, background 0.22s ease, opacity 0.22s ease;
+}
+
+.yh-universe-side-nav:hover {
+    transform: translateY(-50%) scale(1.04);
+    border-color: rgba(56, 189, 248, 0.42);
+    background: rgba(14, 165, 233, 0.1);
+}
+
+.yh-universe-side-nav span {
+    font-size: 2.35rem;
+    line-height: 1;
+    font-weight: 700;
+    pointer-events: none;
+}
+
+.yh-universe-side-nav-prev {
+    left: -108px;
+}
+
+.yh-universe-side-nav-next {
+    right: -108px;
 }
 
 .yh-universe-intro {
@@ -3590,15 +3787,30 @@ body[data-yh-view="academy"] #center-stage-view {
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
+    flex: 0 0 auto !important;
+    align-self: stretch !important;
     position: relative !important;
     z-index: 120 !important;
+    isolation: isolate;
     pointer-events: auto !important;
     touch-action: manipulation !important;
     cursor: pointer !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+}
+
+#btn-open-academy-apply,
+#btn-open-academy-apply::before {
+    pointer-events: auto !important;
 }
 
 #btn-open-academy-apply * {
     pointer-events: none !important;
+}
+
+.yh-universe-slide .portal-card.active-portal > * {
+    position: relative;
+    z-index: 2;
 }
 
 .yh-universe-slide .portal-card.active-portal {
@@ -4918,4 +5130,33 @@ body[data-yh-view="academy"] #center-stage-view {
     margin-left: auto;
     margin-right: auto;
     align-self: center;
+}
+@media (max-width: 1180px) {
+    .yh-universe-side-nav {
+        display: none !important;
+    }
+}
+/* ==========================================
+   FINAL OVERRIDE: REMOVE OLD FEATURED CARDS
+   keep only Partnerships and Resources menu
+   ========================================== */
+body[data-yh-view="hub"] .yh-featured-rail,
+body[data-yh-view="hub"] .yh-featured-rail-left,
+body[data-yh-view="hub"] .yh-featured-rail-right,
+body[data-yh-view="hub"] .yh-featured-sites-wrap,
+body[data-yh-view="hub"] .yh-featured-sites-mobile {
+    display: none !important;
+}
+
+body[data-yh-view="hub"] .yh-universe-hub-shell {
+    width: 100% !important;
+    max-width: 980px !important;
+    margin: 0 auto !important;
+    display: block !important;
+}
+
+body[data-yh-view="hub"] .yh-universe-carousel-shell {
+    width: 100% !important;
+    max-width: 720px !important;
+    margin: 0 auto !important;
 }
