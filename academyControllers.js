@@ -781,6 +781,70 @@ async function requestAiRoadmap(profile, context = {}) {
 function getAcademyAuthUid(req) {
     return sanitize(req.user?.firebaseUid || req.user?.id);
 }
+
+async function getAcademyUserAccessSnapshot(uid) {
+    const userRef = firestore.collection('users').doc(uid);
+    const userSnapshot = await userRef.get();
+    const userData = userSnapshot.exists ? (userSnapshot.data() || {}) : {};
+
+    const academyApplication =
+        userData.academyApplication && typeof userData.academyApplication === 'object'
+            ? userData.academyApplication
+            : null;
+
+    const academyMembershipStatus = sanitize(
+        userData.academyMembershipStatus ||
+        userData.academyApplicationStatus ||
+        academyApplication?.status ||
+        'none'
+    ).toLowerCase() || 'none';
+
+    let accessState = null;
+    try {
+        accessState = await academyFirestoreRepo.getAccessState(uid);
+    } catch (_) {
+        accessState = null;
+    }
+
+    const hasRoadmapAccess = accessState?.accessState === 'unlocked';
+
+    return {
+        userData,
+        academyApplication,
+        academyMembershipStatus,
+        hasRoadmapAccess
+    };
+}
+
+async function requireApprovedAcademyMembership(uid, res) {
+    const snapshot = await getAcademyUserAccessSnapshot(uid);
+
+    if (snapshot.academyMembershipStatus !== 'approved') {
+        res.status(403).json({
+            success: false,
+            message: 'Academy membership not approved.'
+        });
+        return null;
+    }
+
+    return snapshot;
+}
+
+async function requireApprovedRoadmapAccess(uid, res) {
+    const snapshot = await requireApprovedAcademyMembership(uid, res);
+    if (!snapshot) return null;
+
+    if (!snapshot.hasRoadmapAccess) {
+        res.status(403).json({
+            success: false,
+            message: 'Roadmap access not approved yet.'
+        });
+        return null;
+    }
+
+    return snapshot;
+}
+
 function getAdaptiveTrendDirection(currentValue, previousValue, mode = 'higher') {
     if (
         previousValue === null ||
@@ -1452,100 +1516,6 @@ async function generateAndPersistPlanFirestore(uid, profile, options = {}) {
         homePayload
     };
 }
-exports.intakeProfile = async (req, res) => {
-    try {
-        const uid = getAcademyAuthUid(req);
-
-        if (!uid) {
-            return res.status(401).json({ success: false, message: 'Unauthorized.' });
-        }
-
-        const existingAccessState = await academyFirestoreRepo.getAccessState(uid);
-        const existingHomePayload = await academyFirestoreRepo.buildAcademyHomePayload(uid);
-
-        if (
-            (existingAccessState?.accessState === 'unlocked' || existingHomePayload?.success) &&
-            existingHomePayload?.roadmap
-        ) {
-            return res.json({
-                success: true,
-                alreadyOnboarded: true,
-                accessState: 'unlocked',
-                profileId: 'current',
-                roadmapId: existingHomePayload.roadmap.id || '',
-                readinessScore: existingHomePayload.roadmap.readinessScore || 0,
-                summary: existingHomePayload.roadmap.summary || {},
-                focusAreas: Array.isArray(existingHomePayload.roadmap.focusAreas)
-                    ? existingHomePayload.roadmap.focusAreas
-                    : [],
-                todayMissions: Array.isArray(existingHomePayload.missions)
-                    ? existingHomePayload.missions.slice(0, 3)
-                    : [],
-                createdByModel: existingHomePayload.createdByModel || 'academy-rule-engine-v1',
-                home: existingHomePayload
-            });
-        }
-
-        const payload = normalizeProfile({
-            city: req.body.city,
-            country: req.body.country,
-            occupationType: req.body.occupationType,
-            currentJob: req.body.currentJob,
-            industry: req.body.industry,
-            monthlyIncomeRange: req.body.monthlyIncomeRange,
-            savingsRange: req.body.savingsRange,
-            incomeSource: req.body.incomeSource,
-            businessStage: req.body.businessStage,
-            sleepHours: req.body.sleepHours,
-            energyScore: req.body.energyScore,
-            exerciseFrequency: req.body.exerciseFrequency,
-            stressScore: req.body.stressScore,
-            badHabit: req.body.badHabit,
-            seriousness: req.body.seriousness,
-            weeklyHours: req.body.weeklyHours,
-            goals6mo: req.body.goals6mo,
-            blockerText: req.body.blockerText,
-            coachTone: req.body.coachTone
-        });
-
-        if (!payload.country || !payload.currentJob || !payload.seriousness || !payload.goals6mo) {
-            return res.status(400).json({
-                success: false,
-                message: 'Missing required fields for Academy intake.'
-            });
-        }
-
-        await academyFirestoreRepo.setCurrentProfile(uid, payload);
-
-        const profile = {
-            id: 'current',
-            uid,
-            ...payload
-        };
-
-        const plannerResult = await generateAndPersistPlanFirestore(uid, profile, { mode: 'initial' });
-
-        return res.json({
-            success: true,
-            accessState: 'unlocked',
-            profileId: profile.id,
-            roadmapId: plannerResult.roadmapId,
-            readinessScore: plannerResult.plan.readinessScore,
-            summary: plannerResult.plan.summary,
-            focusAreas: plannerResult.plan.focusAreas,
-            todayMissions: plannerResult.homePayload?.missions?.slice(0, 3) || [],
-            createdByModel: plannerResult.createdByModel,
-            home: plannerResult.homePayload
-        });
-    } catch (error) {
-        console.error('Academy Intake Error:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Server error while generating Academy roadmap.'
-        });
-    }
-};
-
 exports.getAcademyHome = async (req, res) => {
     try {
         const uid = getAcademyAuthUid(req);
@@ -1553,6 +1523,9 @@ exports.getAcademyHome = async (req, res) => {
         if (!uid) {
             return res.status(401).json({ success: false, message: 'Unauthorized.' });
         }
+
+        const access = await requireApprovedRoadmapAccess(uid, res);
+        if (!access) return;
 
         const homePayload = await academyFirestoreRepo.buildAcademyHomePayload(uid);
 
@@ -1580,6 +1553,9 @@ exports.getActiveRoadmap = async (req, res) => {
         if (!uid) {
             return res.status(401).json({ success: false, message: 'Unauthorized.' });
         }
+
+        const access = await requireApprovedRoadmapAccess(uid, res);
+        if (!access) return;
 
         const roadmap = await academyFirestoreRepo.getActiveRoadmap(uid);
 
@@ -1622,6 +1598,9 @@ exports.getMissions = async (req, res) => {
         if (!uid) {
             return res.status(401).json({ success: false, message: 'Unauthorized.' });
         }
+
+        const access = await requireApprovedRoadmapAccess(uid, res);
+        if (!access) return;
 
         const activeRoadmap = await academyFirestoreRepo.getActiveRoadmap(uid);
 
@@ -1686,6 +1665,9 @@ exports.completeMission = async (req, res) => {
         if (!uid) {
             return res.status(401).json({ success: false, message: 'Unauthorized.' });
         }
+
+        const access = await requireApprovedRoadmapAccess(uid, res);
+        if (!access) return;
 
         if (!missionId) {
             return res.status(400).json({
@@ -1766,17 +1748,13 @@ exports.updateMissionStatus = async (req, res) => {
             return res.status(401).json({ success: false, message: 'Unauthorized.' });
         }
 
+        const access = await requireApprovedRoadmapAccess(uid, res);
+        if (!access) return;
+
         if (!missionId) {
             return res.status(400).json({
                 success: false,
                 message: 'Invalid mission id.'
-            });
-        }
-
-        if (!allowedStatuses.includes(status)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid mission status.'
             });
         }
 
@@ -2006,8 +1984,9 @@ exports.getMembershipStatus = async (req, res) => {
             userData.roadmapApplication && typeof userData.roadmapApplication === 'object'
                 ? userData.roadmapApplication
                 : null;
-
-        const applicationStatus = sanitize(application?.status).toLowerCase();
+        const applicationStatus = application
+            ? sanitize(application?.status).toLowerCase()
+            : 'none';
         const roadmapApplicationStatus = sanitize(roadmapApplication?.status).toLowerCase();
 
         let hasRoadmapAccess = false;
@@ -2045,6 +2024,9 @@ exports.submitCheckin = async (req, res) => {
         if (!uid) {
             return res.status(401).json({ success: false, message: 'Unauthorized.' });
         }
+
+        const access = await requireApprovedRoadmapAccess(uid, res);
+        if (!access) return;
 
         const activeRoadmap = await academyFirestoreRepo.getActiveRoadmap(uid);
 
@@ -2333,6 +2315,9 @@ exports.refreshRoadmap = async (req, res) => {
         if (!uid) {
             return res.status(401).json({ success: false, message: 'Unauthorized.' });
         }
+
+        const access = await requireApprovedRoadmapAccess(uid, res);
+        if (!access) return;
 
         const storedProfile = await academyFirestoreRepo.getCurrentProfile(uid);
 

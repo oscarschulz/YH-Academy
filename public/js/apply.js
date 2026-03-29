@@ -27,6 +27,18 @@ function showToast(message, type = "success") {
     setTimeout(() => { toast.classList.remove('show'); }, 3500);
 }
 
+function clearAcademyClientStateForFreshAuth() {
+    localStorage.removeItem('yh_academy_access');
+    localStorage.removeItem('yh_academy_home');
+    localStorage.removeItem('yh_academy_membership_status_v1');
+    localStorage.removeItem('yh_academy_application_profile');
+    localStorage.removeItem('yh_academy_roadmap_profile_v1');
+    localStorage.removeItem('yh_academy_roadmap_locked_v1');
+    localStorage.removeItem('yh_admin_panel_state_v2');
+    localStorage.removeItem('yh_admin_panel_state_v3_live');
+    sessionStorage.removeItem('yh_force_academy_application_after_auth');
+}
+
 document.addEventListener('DOMContentLoaded', () => {
 if (localStorage.getItem('yh_user_loggedIn') === 'true') {
     window.location.href = '/dashboard';
@@ -197,11 +209,14 @@ async function handleLoginSubmit() {
 if (result.success) {
     showToast(result.message, "success");
     clearPendingVerifyEmail();
+    clearAcademyClientStateForFreshAuth();
+
     localStorage.setItem('yh_user_loggedIn', 'true');
     localStorage.setItem('yh_user_name', (result.user.fullName || result.user.username || 'Hustler').trim());
     localStorage.setItem('yh_user_username', (result.user.username || '').trim());
     localStorage.setItem('yh_user_email', (result.user.email || identifier || '').trim().toLowerCase());
     localStorage.setItem('yh_token', result.token);
+
     setTimeout(() => { window.location.href = '/dashboard'; }, 1000);
     return;
 }
@@ -406,6 +421,8 @@ if (result.success) {
     clearInterval(otpTimerInterval);
     clearPendingVerifyEmail();
     showToast("Account verified. Welcome to YH Universe.", "success");
+
+    clearAcademyClientStateForFreshAuth();
 
     localStorage.setItem('yh_user_loggedIn', 'true');
     localStorage.setItem('yh_user_name', (result.user.fullName || result.user.username || 'Hustler').trim());

@@ -29,7 +29,6 @@ router.post('/verify-forgot-otp', authController.verifyForgotOTP);
 router.post('/reset-password', authController.resetPassword);
 
 
-router.post('/academy/intake', auth, academyControllers.intakeProfile);
 router.post('/academy/membership-apply', auth, academyControllers.submitMembershipApplication);
 router.get('/academy/membership-status', auth, academyControllers.getMembershipStatus);
 router.post('/academy/roadmap-apply', auth, academyControllers.submitRoadmapApplication);

@@ -296,7 +296,17 @@ function logoutUser() {
     localStorage.removeItem('yh_academy_access');
     localStorage.removeItem('yh_academy_home');
     localStorage.removeItem('yh_token');
-    window.location.href = '/'; 
+
+    localStorage.removeItem('yh_academy_membership_status_v1');
+    localStorage.removeItem('yh_academy_application_profile');
+    localStorage.removeItem('yh_academy_roadmap_profile_v1');
+    localStorage.removeItem('yh_academy_roadmap_locked_v1');
+    localStorage.removeItem('yh_admin_panel_state_v2');
+    localStorage.removeItem('yh_admin_panel_state_v3_live');
+
+    sessionStorage.removeItem('yh_force_academy_application_after_auth');
+
+    window.location.href = '/';
 }
 
 function showToast(message, type = "success") {
@@ -922,15 +932,15 @@ document.getElementById('nav-missions')?.addEventListener('click', async functio
     event.stopPropagation();
 
     const membershipSnapshot = await refreshAcademyMembershipStatus(true);
-    const hasRoadmapAccess = await resolveAcademyAccessState();
+    const hasRoadmapAccess = membershipSnapshot?.hasRoadmapAccess === true;
 
-    if (hasRoadmapAccess || membershipSnapshot?.hasRoadmapAccess) {
+    if (hasRoadmapAccess) {
         openAcademyRoadmapView();
         return;
     }
 
     const membershipStatus = String(
-        membershipSnapshot?.applicationStatus || getCurrentAcademyMembershipStatus()
+        membershipSnapshot?.applicationStatus || ''
     ).trim().toLowerCase();
 
     if (membershipStatus !== 'approved') {
@@ -4470,42 +4480,8 @@ function persistAcademyAccessState(unlocked, homeData = null) {
 let academyAccessResolvePromise = null;
 
 async function resolveAcademyAccessState(force = false) {
-    const cachedUnlocked = localStorage.getItem('yh_academy_access') === 'true';
-
-    if (!force && cachedUnlocked) {
-        return true;
-    }
-
-    if (!force && academyAccessResolvePromise) {
-        return academyAccessResolvePromise;
-    }
-
-    academyAccessResolvePromise = (async () => {
-        try {
-            const home = await academyAuthedFetch('/api/academy/home', {
-                method: 'GET'
-            });
-
-            persistAcademyAccessState(true, home);
-            return true;
-        } catch (error) {
-            const message = String(error?.message || '').toLowerCase();
-            const noRoadmapYet =
-                message.includes('no active academy roadmap yet') ||
-                message.includes('no active roadmap');
-
-            if (noRoadmapYet) {
-                persistAcademyAccessState(false);
-                return false;
-            }
-
-            return cachedUnlocked;
-        } finally {
-            academyAccessResolvePromise = null;
-        }
-    })();
-
-    return academyAccessResolvePromise;
+    const cached = readAcademyMembershipCache();
+    return cached?.hasRoadmapAccess === true;
 }
 
 function buildAcademyMissionSignalSnapshot() {
@@ -6483,7 +6459,6 @@ function syncAcademyEntryButton(snapshot = null) {
     const membershipStatus = String(
         snapshot?.applicationStatus ||
         readAcademyMembershipCache()?.applicationStatus ||
-        getCurrentAcademyMembershipStatus() ||
         ''
     ).trim().toLowerCase();
 
@@ -6687,11 +6662,11 @@ function findCurrentAcademyMembershipApplication() {
 
         const appEmail = String(app?.email || '').trim().toLowerCase();
         const appUsername = String(app?.username || '').trim().toLowerCase();
-        const appName = String(app?.name || '').trim().toLowerCase();
 
         if (identity.email && appEmail && appEmail === identity.email) return true;
         if (identity.username && appUsername && appUsername === identity.username.toLowerCase()) return true;
-        return identity.name && appName === identity.name.toLowerCase();
+
+        return false;
     }) || null;
 }
 
@@ -6779,12 +6754,6 @@ async function handleAcademyLaunchClick(event) {
         ? performance.now()
         : Date.now();
 
-async function handleAcademyLaunchClick(event) {
-    const eventType = event?.type || '';
-    const now = (typeof performance !== 'undefined' && typeof performance.now === 'function')
-        ? performance.now()
-        : Date.now();
-
     if (eventType === 'click' && now < academySuppressClickUntil) {
         event?.preventDefault?.();
         event?.stopPropagation?.();
@@ -6803,16 +6772,12 @@ async function handleAcademyLaunchClick(event) {
     const membershipSnapshot = await refreshAcademyMembershipStatus(true);
 
     const membershipStatus = String(
-        membershipSnapshot?.applicationStatus || getCurrentAcademyMembershipStatus()
+        membershipSnapshot?.applicationStatus || ''
     ).trim().toLowerCase();
 
     syncAcademyEntryButton(membershipSnapshot);
 
     if (membershipStatus === 'approved') {
-        try {
-            await loadAcademyFeed(true);
-        } catch (_) {}
-
         showToast('Academy membership approved. Opening Community Feed.', 'success');
         enterAcademyWorld('community');
         return false;
@@ -6840,8 +6805,8 @@ async function handleAcademyLaunchClick(event) {
 
     openAcademyLauncher();
     return false;
-    }
 }
+
 
 window.handleAcademyLaunchClick = handleAcademyLaunchClick;
 
@@ -7123,50 +7088,50 @@ if (roadmapForm) {
             submittedAt: new Date().toISOString()
         };
 
-try {
-    localStorage.setItem(YH_ROADMAP_PROFILE_KEY, JSON.stringify(payload));
+        try {
+            localStorage.setItem(YH_ROADMAP_PROFILE_KEY, JSON.stringify(payload));
 
-    const result = await academyAuthedFetch('/api/academy/roadmap-apply', {
-        method: 'POST',
-        body: JSON.stringify(payload)
+            const result = await academyAuthedFetch('/api/academy/roadmap-apply', {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+
+            const roadmapApplication =
+                result?.roadmapApplication && typeof result.roadmapApplication === 'object'
+                    ? result.roadmapApplication
+                    : null;
+
+            const membershipSnapshot = await refreshAcademyMembershipStatus(true);
+
+            writeAcademyMembershipCache({
+                ...(membershipSnapshot || {}),
+                roadmapApplication,
+                roadmapApplicationStatus: String(
+                    roadmapApplication?.status || 'Under Review'
+                ).trim().toLowerCase(),
+                hasRoadmapAccess: false
+            });
+
+            localStorage.setItem(YH_ROADMAP_LOCK_KEY, 'true');
+
+            closeRoadmapIntake();
+            enterAcademyWorld('community');
+
+            showToast('Roadmap application submitted for admin review.', 'success');
+        } catch (error) {
+            localStorage.removeItem(YH_ROADMAP_LOCK_KEY);
+
+            showToast(
+                error.message || 'Failed to submit roadmap application.',
+                'error'
+            );
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerText = 'Submit Roadmap Request ➔';
+            }
+        }
     });
-
-    const roadmapApplication =
-        result?.roadmapApplication && typeof result.roadmapApplication === 'object'
-            ? result.roadmapApplication
-            : null;
-
-    const membershipSnapshot = await refreshAcademyMembershipStatus(true);
-
-    writeAcademyMembershipCache({
-        ...(membershipSnapshot || {}),
-        roadmapApplication,
-        roadmapApplicationStatus: String(
-            roadmapApplication?.status || 'Under Review'
-        ).trim().toLowerCase(),
-        hasRoadmapAccess: false
-    });
-
-    localStorage.setItem(YH_ROADMAP_LOCK_KEY, 'true');
-
-    closeRoadmapIntake();
-    enterAcademyWorld('community');
-
-    showToast('Roadmap application submitted for admin review.', 'success');
-} catch (error) {
-    localStorage.removeItem(YH_ROADMAP_LOCK_KEY);
-
-    showToast(
-        error.message || 'Failed to submit roadmap application.',
-        'error'
-    );
-} finally {
-    if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.innerText = 'Submit Roadmap Request ➔';
-    }
 }
-    });
-}
 
-});
+    });
