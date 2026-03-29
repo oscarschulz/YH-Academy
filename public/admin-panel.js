@@ -81,7 +81,7 @@ const defaultState = () => ({
   }
 });
 
-let state = loadState();
+let state = defaultState();
 
 function loadState() {
   try {
@@ -91,6 +91,32 @@ function loadState() {
     return mergeState(defaultState(), parsed);
   } catch {
     return defaultState();
+  }
+}
+
+async function loadAdminBootstrap() {
+  try {
+    const res = await fetch('/api/admin/bootstrap', {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok || !data?.success) {
+      throw new Error(data?.message || 'Failed to load admin bootstrap.');
+    }
+
+    state = mergeState(defaultState(), data.state || {});
+    saveState();
+    renderApp();
+  } catch (error) {
+    console.error('loadAdminBootstrap error:', error);
+    state = loadState();
+    renderApp();
   }
 }
 
@@ -526,89 +552,131 @@ function getAnalyticsMembershipMetrics() {
   };
 }
 function renderOverview() {
+  const overviewStatsEl = document.getElementById('overview-stats');
+  const priorityActionsEl = document.getElementById('priority-actions');
+  const systemAlertsEl = document.getElementById('system-alerts');
+  const overviewApplicationsTableEl = document.getElementById('overview-applications-table');
+  const divisionSnapshotEl = document.getElementById('division-snapshot');
+
   const totalMembers = state.members.length;
-  const pendingApplications = state.applications.filter(a => ['New', 'Under Review', 'Needs More Info'].includes(a.status)).length;
+  const pendingApplications = state.applications.filter(a =>
+    ['New', 'Under Review', 'Needs More Info'].includes(a.status)
+  ).length;
   const academyActive = state.academy.filter(a => a.status === 'On Track').length;
   const flaggedListings = state.plazas.filter(l => l.status === 'Flagged').length;
 
-  document.getElementById('overview-stats').innerHTML = [
-    { label: 'Total Members', value: totalMembers, foot: `${state.members.filter(m => m.status === 'Active').length} active now` },
-    { label: 'Pending Applications', value: pendingApplications, foot: 'Needs intake action' },
-    { label: 'Academy On Track', value: academyActive, foot: `${state.academy.length} roadmap records` },
-    { label: 'Flagged Listings', value: flaggedListings, foot: `${state.support.filter(t => t.type === 'Dispute').length} related tickets` }
-  ].map(card => `
-    <article class="stat-card">
-      <div class="stat-label">${escapeHtml(card.label)}</div>
-      <div class="stat-value">${escapeHtml(card.value)}</div>
-      <div class="stat-foot">${escapeHtml(card.foot)}</div>
-    </article>
-  `).join('');
-
-  const actions = [
-    `${pendingApplications} applications need review`,
-    `${state.support.filter(t => t.status === 'Open').length} support tickets still open`,
-    `${state.academy.filter(a => a.status !== 'On Track').length} Academy members need intervention`,
-    `${flaggedListings} Plazas listings need moderation`
-  ];
-
-  document.getElementById('priority-actions').innerHTML = actions.map((text, index) => `
-    <div class="stack-item">
-      <div class="stack-item-head">
-        <strong>Queue ${index + 1}</strong>
-        ${formatBadge(index === 0 ? 'High' : index === 1 ? 'Medium' : 'Low')}
-      </div>
-      <p>${escapeHtml(text)}</p>
-    </div>
-  `).join('');
-
-  const alerts = [
-    state.settings.maintenanceMode ? 'Maintenance mode is enabled.' : 'System stable. No maintenance mode active.',
-    state.settings.requirePlazaListingReview ? 'Plazas manual listing review is ON.' : 'Plazas listings are auto-publishing.',
-    state.settings.requireFederationManualReview ? 'Federation manual review is enforced.' : 'Federation auto-routing is active.'
-  ];
-
-  document.getElementById('system-alerts').innerHTML = alerts.map(text => `
-    <div class="stack-item">
-      <div class="stack-item-head">
-        <strong>System Notice</strong>
-        ${formatBadge(text.includes('ON') || text.includes('enforced') ? 'Medium' : 'Active')}
-      </div>
-      <p>${escapeHtml(text)}</p>
-    </div>
-  `).join('');
-
-  document.getElementById('overview-applications-table').innerHTML = state.applications
-    .slice()
-    .sort((a, b) => b.aiScore - a.aiScore)
-    .slice(0, 5)
-        .map(app => `
-      <tr>
-        ${makeCell('Name', `<strong>${escapeHtml(app.name)}</strong><div class="muted mono">${escapeHtml(app.id)}</div>`)}
-        ${makeCell('Recommended', formatBadge(app.recommendedDivision))}
-        ${makeCell('Status', formatBadge(app.status))}
-        ${makeCell('AI Score', `${app.aiScore}`)}
-        ${makeCell('Actions', `<button class="badge-btn" data-open="application" data-id="${app.id}">Open</button>`)}
-      </tr>
+  if (overviewStatsEl) {
+    overviewStatsEl.innerHTML = [
+      {
+        label: 'Total Members',
+        value: totalMembers,
+        foot: `${state.members.filter(m => m.status === 'Active').length} active now`
+      },
+      {
+        label: 'Pending Applications',
+        value: pendingApplications,
+        foot: 'Needs intake action'
+      },
+      {
+        label: 'Academy On Track',
+        value: academyActive,
+        foot: `${state.academy.length} roadmap records`
+      },
+      {
+        label: 'Flagged Listings',
+        value: flaggedListings,
+        foot: `${state.support.filter(t => t.type === 'Dispute').length} related tickets`
+      }
+    ].map(card => `
+      <article class="stat-card">
+        <div class="stat-label">${escapeHtml(card.label)}</div>
+        <div class="stat-value">${escapeHtml(card.value)}</div>
+        <div class="stat-foot">${escapeHtml(card.foot)}</div>
+      </article>
     `).join('');
+  }
 
-  const divisionCounts = {
-    Academy: state.members.filter(m => m.divisions.includes('Academy')).length,
-    Federation: state.members.filter(m => m.divisions.includes('Federation')).length,
-    Plazas: state.members.filter(m => m.divisions.includes('Plazas')).length
-  };
+  if (priorityActionsEl) {
+    const actions = [
+      `${pendingApplications} applications need review`,
+      `${state.support.filter(t => t.status === 'Open').length} support tickets still open`,
+      `${state.academy.filter(a => a.status !== 'On Track').length} Academy members need intervention`,
+      `${flaggedListings} Plazas listings need moderation`
+    ];
 
-  document.getElementById('division-snapshot').innerHTML = Object.entries(divisionCounts).map(([name, count]) => `
-    <div class="snapshot-item">
-      <div class="snapshot-item-head">
-        <strong>${escapeHtml(name)}</strong>
-        <span>${count} members</span>
+    priorityActionsEl.innerHTML = actions.map((text, index) => `
+      <div class="stack-item">
+        <div class="stack-item-head">
+          <strong>Queue ${index + 1}</strong>
+          ${formatBadge(index === 0 ? 'High' : index === 1 ? 'Medium' : 'Low')}
+        </div>
+        <p>${escapeHtml(text)}</p>
       </div>
-      <p>${name === 'Academy' ? 'AI-guided self-improvement lane' : name === 'Federation' ? 'Strategic network lane' : 'Marketplace and opportunities lane'}</p>
-      <div class="progress"><i style="width:${Math.max(10, count * 18)}%"></i></div>
-    </div>
-  `).join('');
-}
+    `).join('');
+  }
 
+  if (systemAlertsEl) {
+    const alerts = [
+      state.settings.maintenanceMode
+        ? 'Maintenance mode is enabled.'
+        : 'System stable. No maintenance mode active.',
+      state.settings.requirePlazaListingReview
+        ? 'Plazas manual listing review is ON.'
+        : 'Plazas listings are auto-publishing.',
+      state.settings.requireFederationManualReview
+        ? 'Federation manual review is enforced.'
+        : 'Federation auto-routing is active.'
+    ];
+
+    systemAlertsEl.innerHTML = alerts.map(text => `
+      <div class="stack-item">
+        <div class="stack-item-head">
+          <strong>System Notice</strong>
+          ${formatBadge(text.includes('ON') || text.includes('enforced') ? 'Medium' : 'Active')}
+        </div>
+        <p>${escapeHtml(text)}</p>
+      </div>
+    `).join('');
+  }
+
+  if (overviewApplicationsTableEl) {
+    overviewApplicationsTableEl.innerHTML = state.applications
+      .slice()
+      .sort((a, b) => Number(b.aiScore || 0) - Number(a.aiScore || 0))
+      .slice(0, 5)
+      .map(app => `
+        <tr>
+          ${makeCell('Name', `<strong>${escapeHtml(app.name)}</strong><div class="muted mono">${escapeHtml(app.id)}</div>`)}
+          ${makeCell('Email', escapeHtml(app.email || ''))}
+          ${makeCell('Type', formatBadge(app.recommendedDivision || 'Academy'))}
+          ${makeCell('Source', escapeHtml(app.source || ''))}
+          ${makeCell('Goal / Background', `<div>${escapeHtml(app.goal || '')}</div><div class="muted">${escapeHtml(app.background || '')}</div>`)}
+          ${makeCell('Recommended', formatBadge(app.recommendedDivision || 'Academy'))}
+          ${makeCell('Status', formatBadge(app.status || 'Under Review'))}
+          ${makeCell('AI Score', `${Number(app.aiScore || 0)}`)}
+          ${makeCell('Actions', `<button class="badge-btn" data-open="application" data-id="${app.id}">Open</button>`)}
+        </tr>
+      `).join('') || makeEmptyRow(9, 'No applications yet.');
+  }
+
+  if (divisionSnapshotEl) {
+    const divisionCounts = {
+      Academy: state.members.filter(m => Array.isArray(m.divisions) && m.divisions.includes('Academy')).length,
+      Federation: state.members.filter(m => Array.isArray(m.divisions) && m.divisions.includes('Federation')).length,
+      Plazas: state.members.filter(m => Array.isArray(m.divisions) && m.divisions.includes('Plazas')).length
+    };
+
+    divisionSnapshotEl.innerHTML = Object.entries(divisionCounts).map(([name, count]) => `
+      <div class="snapshot-item">
+        <div class="snapshot-item-head">
+          <strong>${escapeHtml(name)}</strong>
+          ${formatBadge(name)}
+        </div>
+        <p>${escapeHtml(count)} linked members</p>
+      </div>
+    `).join('');
+  }
+}
 function renderApplications() {
   const statusFilter = document.getElementById('applications-status-filter').value;
   const divisionFilter = document.getElementById('applications-division-filter').value;
@@ -1630,5 +1698,5 @@ if (broadcastTemplate) {
 
 if (enforceAdminPanelAccess()) {
   bindEvents();
-  renderApp();
+  loadAdminBootstrap();
 }

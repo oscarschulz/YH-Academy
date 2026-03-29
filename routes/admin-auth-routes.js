@@ -1,6 +1,8 @@
 const path = require('path');
 const crypto = require('crypto');
 const express = require('express');
+const { firestore } = require('../config/firebaseAdmin');
+const academyFirestoreRepo = require('../backend/repositories/academyFirestoreRepo');
 
 const ADMIN_SESSION_COOKIE = 'yh_admin_session';
 const ADMIN_SESSION_TTL_MS = 8 * 60 * 60 * 1000;
@@ -141,6 +143,171 @@ function createAdminRouters(options = {}) {
 
     next();
   }
+  function requireAdminSession(req, res, next) {
+  const session = readSessionFromRequest(req);
+
+  if (!session) {
+    return res.status(401).json({
+      success: false,
+      message: 'No active admin session.'
+    });
+  }
+
+  req.adminSession = session;
+  next();
+}
+
+function toIso(value) {
+  if (!value) return null;
+  if (typeof value.toDate === 'function') return value.toDate().toISOString();
+  if (value instanceof Date) return value.toISOString();
+  return value || null;
+}
+
+function cleanText(value, fallback = '') {
+  if (value === null || value === undefined) return fallback;
+  return String(value).trim();
+}
+
+function toNumber(value, fallback = 0) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : fallback;
+}
+
+async function buildAdminBootstrapPayload() {
+  const usersSnap = await firestore.collection('users').limit(300).get();
+
+  const users = usersSnap.docs.map((doc) => ({
+    id: doc.id,
+    ...(doc.data() || {})
+  }));
+
+  const members = users.map((user) => {
+    const stats = user.stats || {};
+    const academyDivisions = [];
+
+    if (user.accessState === 'unlocked' || user.hasAcademyAccess === true) {
+      academyDivisions.push('Academy');
+    }
+
+    return {
+      id: cleanText(user.id),
+      name: cleanText(user.fullName || user.name || user.displayName || user.username || 'Unknown User'),
+      username: cleanText(user.username ? `@${String(user.username).replace(/^@/, '')}` : ''),
+      email: cleanText(user.email || ''),
+      divisions: academyDivisions,
+      status: cleanText(user.status || 'Active'),
+      activityScore: toNumber(stats.repPoints, 0),
+      roadmapStatus: academyDivisions.includes('Academy') ? 'Academy access unlocked' : 'Not in Academy',
+      riskFlag: 'Low',
+      joinedAt: toIso(user.createdAt) || '',
+      lastLogin: toIso(user.lastLoginAt || user.updatedAt) || '',
+      notes: []
+    };
+  });
+
+  const applications = users
+    .filter((user) => {
+      const app = user.academyApplication;
+      return app && typeof app === 'object';
+    })
+    .map((user) => {
+      const app = user.academyApplication || {};
+      return {
+        id: cleanText(app.id || `APP-${user.id}`),
+        name: cleanText(user.fullName || user.name || user.displayName || user.username || 'Unknown User'),
+        email: cleanText(user.email || ''),
+        goal: cleanText(app.goal || app.goals6mo || ''),
+        background: cleanText(app.background || app.currentJob || app.industry || ''),
+        recommendedDivision: cleanText(app.recommendedDivision || 'Academy'),
+        status: cleanText(app.status || 'Under Review'),
+        aiScore: toNumber(app.aiScore, 0),
+        country: cleanText(app.country || app.location || ''),
+        skills: Array.isArray(app.skills) ? app.skills : [],
+        networkValue: cleanText(app.networkValue || ''),
+        source: cleanText(app.source || 'Academy Application'),
+        submittedAt: toIso(app.submittedAt || user.createdAt) || '',
+        notes: Array.isArray(app.notes) ? app.notes : []
+      };
+    });
+
+  const academy = [];
+  for (const member of members) {
+    if (!Array.isArray(member.divisions) || !member.divisions.includes('Academy')) continue;
+
+    try {
+      const activeRoadmap = await academyFirestoreRepo.getActiveRoadmap(member.id);
+      const missionProgress = await academyFirestoreRepo.getMissionProgress(member.id);
+
+      academy.push({
+        id: cleanText(activeRoadmap?.id || `AC-${member.id}`),
+        memberId: cleanText(member.id),
+        memberName: cleanText(member.name),
+        phase: cleanText(activeRoadmap?.roadmap?.weeklyTheme || activeRoadmap?.summary?.primaryBottleneck || 'Academy Active'),
+        focus: cleanText((activeRoadmap?.focusAreas || [])[0] || 'General'),
+        completion: toNumber(missionProgress?.completionRate, 0),
+        lastCheckIn: toIso(missionProgress?.lastCheckinAt || activeRoadmap?.updatedAt) || '',
+        status: cleanText(activeRoadmap ? 'On Track' : 'Needs Review'),
+        nextAction: cleanText(activeRoadmap?.roadmap?.weeklyTargetOutcome || 'Review roadmap status'),
+        notes: []
+      });
+    } catch (_) {
+      academy.push({
+        id: `AC-${member.id}`,
+        memberId: cleanText(member.id),
+        memberName: cleanText(member.name),
+        phase: 'Academy Access',
+        focus: 'General',
+        completion: 0,
+        lastCheckIn: '',
+        status: 'Needs Review',
+        nextAction: 'Check Academy records',
+        notes: []
+      });
+    }
+  }
+
+  return {
+    ui: {
+      currentView: 'overview',
+      globalSearch: ''
+    },
+    settings: {
+      allowAutoApproveAcademy: false,
+      requireFederationManualReview: true,
+      requirePlazaListingReview: true,
+      enableAiNudges: true,
+      maintenanceMode: false
+    },
+    roles: [],
+    applications,
+    members,
+    academy,
+    federation: [],
+    plazas: [],
+    support: [],
+    broadcasts: [],
+    analytics: {
+      finance: {
+        totalRevenue: 0,
+        monthlyRevenue: 0,
+        averageOrderValue: 0,
+        profitMargin: 0,
+        countriesReached: Array.from(new Set(members.map((m) => m.country).filter(Boolean))).length,
+        averageReviewDays: 0
+      },
+      targets: {
+        membersGoal: 0,
+        federationGoal: 0,
+        monthlyRevenueGoal: 0,
+        plazasGoal: 0
+      },
+      monthly: [],
+      revenueMix: [],
+      regions: []
+    }
+  };
+}
 
   pageRouter.get('/admin/:gate/login', requireGateParam, (req, res) => {
     return res.sendFile(path.join(privateAdminDir, 'admin-login.html'));
@@ -224,7 +391,27 @@ function createAdminRouters(options = {}) {
       }
     });
   });
+apiRouter.get('/api/admin/bootstrap', requireAdminSession, async (req, res) => {
+  try {
+    const state = await buildAdminBootstrapPayload();
 
+    return res.json({
+      success: true,
+      state,
+      user: {
+        username: req.adminSession.username,
+        role: req.adminSession.role
+      }
+    });
+  } catch (error) {
+    console.error('admin bootstrap error:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to load admin bootstrap data.'
+    });
+  }
+});
   apiRouter.post('/api/admin/logout', (req, res) => {
     const env = getEnvConfig();
     const cookies = parseCookies(req);
