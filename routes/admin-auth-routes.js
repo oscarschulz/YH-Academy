@@ -459,71 +459,81 @@ apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async 
       });
     }
 
-    const matchSnap = await firestore
-      .collection('users')
-      .where('academyApplication.id', '==', applicationId)
-      .limit(1)
-      .get();
+    const usersSnap = await firestore.collection('users').limit(300).get();
 
-    if (matchSnap.empty) {
+    let matchedUserDoc = null;
+    let matchedField = '';
+    let matchedApplication = null;
+
+    usersSnap.docs.some((doc) => {
+      const data = doc.data() || {};
+
+      if (data.academyApplication?.id === applicationId) {
+        matchedUserDoc = doc;
+        matchedField = 'academyApplication';
+        matchedApplication = data.academyApplication;
+        return true;
+      }
+
+      if (data.roadmapApplication?.id === applicationId) {
+        matchedUserDoc = doc;
+        matchedField = 'roadmapApplication';
+        matchedApplication = data.roadmapApplication;
+        return true;
+      }
+
+      return false;
+    });
+
+    if (!matchedUserDoc || !matchedField || !matchedApplication) {
       return res.status(404).json({
         success: false,
         message: 'Application not found.'
       });
     }
 
-    const userDoc = matchSnap.docs[0];
-    const userData = userDoc.data() || {};
-    const existingApp =
-      userData.academyApplication && typeof userData.academyApplication === 'object'
-        ? userData.academyApplication
-        : null;
-
-    if (!existingApp) {
-      return res.status(404).json({
-        success: false,
-        message: 'Application record is missing.'
-      });
-    }
-
     const nowIso = new Date().toISOString();
-    const isAcademyMembership =
-      cleanText(existingApp.applicationType).toLowerCase() === 'academy-membership';
-
-    const reviewNote =
-      nextStatus === 'Approved'
-        ? 'Academy membership approved by admin.'
-        : nextStatus === 'Rejected'
-          ? 'Academy membership rejected by admin.'
-          : 'Academy membership waitlisted by admin.';
-
     const updatedApplication = {
-      ...existingApp,
+      ...matchedApplication,
       status: nextStatus,
       updatedAt: nowIso,
       reviewedAt: nowIso,
       reviewedBy: req.adminSession.username,
       notes: [
-        reviewNote,
-        ...(Array.isArray(existingApp.notes) ? existingApp.notes : [])
+        `${matchedField === 'roadmapApplication' ? 'Roadmap' : 'Academy membership'} ${nextStatus.toLowerCase()} by admin.`,
+        ...(Array.isArray(matchedApplication.notes) ? matchedApplication.notes : [])
       ]
     };
 
     const updatePayload = {
-      academyApplication: updatedApplication,
-      academyApplicationStatus: nextStatus,
-      academyApplicationReviewedAt: nowIso,
-      academyApplicationReviewedBy: req.adminSession.username,
       updatedAt: nowIso
     };
 
-    if (isAcademyMembership && nextStatus === 'Approved') {
-      updatePayload.hasAcademyAccess = true;
-      updatePayload.academyMembershipStatus = 'approved';
-      updatePayload.academyMembershipApprovedAt = nowIso;
+    if (matchedField === 'academyApplication') {
+      updatePayload.academyApplication = updatedApplication;
+      updatePayload.academyApplicationStatus = nextStatus;
+      updatePayload.academyApplicationReviewedAt = nowIso;
+      updatePayload.academyApplicationReviewedBy = req.adminSession.username;
+
+      if (nextStatus === 'Approved') {
+        updatePayload.hasAcademyAccess = true;
+        updatePayload.academyMembershipStatus = 'approved';
+        updatePayload.academyMembershipApprovedAt = nowIso;
+      }
     }
 
-    await userDoc.ref.set(updatePayload, { merge: true });
+    if (matchedField === 'roadmapApplication') {
+      updatePayload.roadmapApplication = updatedApplication;
+      updatePayload.roadmapApplicationStatus = nextStatus;
+      updatePayload.roadmapApplicationReviewedAt = nowIso;
+      updatePayload.roadmapApplicationReviewedBy = req.adminSession.username;
+
+      if (nextStatus === 'Approved') {
+        await academyFirestoreRepo.setAccessUnlocked(matchedUserDoc.id);
+      }
+    }
+
+    await matchedUserDoc.ref.set(updatePayload, { merge: true });
 
     return res.json({
       success: true,

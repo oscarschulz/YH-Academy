@@ -6689,9 +6689,9 @@ function queueAcademyMembershipApplication(payload = {}, serverApplication = nul
     const persisted = serverApplication && typeof serverApplication === 'object' ? serverApplication : null;
 
     const profileSummary = [
-        payload.occupationType || '',
-        payload.currentJob || '',
-        payload.industry || ''
+        payload.proofWork || '',
+        payload.sacrifice || '',
+        payload.nonNegotiable || ''
     ].filter(Boolean).join(' • ');
 
     const nextRecord = {
@@ -6699,8 +6699,8 @@ function queueAcademyMembershipApplication(payload = {}, serverApplication = nul
         name: persisted?.name || identity.name || 'Hustler',
         username: persisted?.username || identity.username || '',
         email: persisted?.email || identity.email || '',
-        goal: persisted?.goal || payload.joinReason || 'Academy membership application',
-        background: persisted?.background || profileSummary || 'No background submitted.',
+        goal: persisted?.goal || payload.mainGoal || payload.whyNow || 'Academy membership application',
+        background: persisted?.background || profileSummary || 'No seriousness summary submitted.',
         recommendedDivision: persisted?.recommendedDivision || 'Academy',
         applicationType: persisted?.applicationType || 'academy-membership',
         reviewLane: persisted?.reviewLane || 'Academy Membership',
@@ -6714,13 +6714,13 @@ function queueAcademyMembershipApplication(payload = {}, serverApplication = nul
             existing?.aiScore ??
             0
         ),
-        country: persisted?.country || payload.country || '',
+        country: persisted?.country || '',
         skills: Array.isArray(persisted?.skills) && persisted.skills.length
             ? persisted.skills
             : [
-                payload.industry || '',
-                payload.incomeSource || '',
-                payload.businessStage || ''
+                payload.seriousness || '',
+                payload.weeklyHours || '',
+                payload.nonNegotiable || ''
             ].filter(Boolean),
         networkValue: persisted?.networkValue || existing?.networkValue || 'Unknown',
         source: persisted?.source || 'Academy Dashboard',
@@ -6785,38 +6785,38 @@ async function handleAcademyLaunchClick(event) {
         return false;
     }
 
-const membershipStatus = String(
-    membershipSnapshot?.applicationStatus || getCurrentAcademyMembershipStatus()
-).trim().toLowerCase();
+    const membershipStatus = String(
+        membershipSnapshot?.applicationStatus || getCurrentAcademyMembershipStatus()
+    ).trim().toLowerCase();
 
-if (membershipStatus === 'approved') {
-    showToast('Academy membership approved. Opening Community Feed.', 'success');
-    enterAcademyWorld('community');
+    if (membershipStatus === 'approved') {
+        showToast('Academy membership approved. Opening Community Feed.', 'success');
+        enterAcademyWorld('community');
+        return false;
+    }
+
+    if (membershipStatus === 'under review' || membershipStatus === 'new') {
+        showToast('Your Academy application is already under review.', 'error');
+        return false;
+    }
+
+    if (membershipStatus === 'waitlisted') {
+        showToast('Your Academy application is waitlisted. Contact admin for the next step.', 'error');
+        return false;
+    }
+
+    if (membershipStatus === 'rejected') {
+        showToast('Your Academy application has already been reviewed. Only admin can reopen it.', 'error');
+        return false;
+    }
+
+    if (hasAcademyApplicationAlreadyBeenFilled()) {
+        showToast('You already filled the Academy application. Please wait for admin review.', 'error');
+        return false;
+    }
+
+    openAcademyLauncher();
     return false;
-}
-if (membershipStatus === 'under review' || membershipStatus === 'new') {
-    showToast('Your Academy application is already under review.', 'error');
-    return false;
-}
-
-if (membershipStatus === 'waitlisted') {
-    showToast('Your Academy application is waitlisted. Contact admin for the next step.', 'error');
-    return false;
-}
-
-if (membershipStatus === 'rejected') {
-    showToast('Your Academy application has already been reviewed. Only admin can reopen it.', 'error');
-    return false;
-}
-
-if (hasAcademyApplicationAlreadyBeenFilled()) {
-    showToast('You already filled the Academy application. Please wait for admin review.', 'error');
-    return false;
-}
-
-openAcademyLauncher();
-return false;
-
 }
 
 window.handleAcademyLaunchClick = handleAcademyLaunchClick;
