@@ -24,8 +24,21 @@ function enforceAdminPanelAccess() {
   return true;
 }
 
-function logoutAdminSession() {
-  window.location.replace(buildAdminLoginUrl());
+async function logoutAdminSession() {
+  try {
+    const res = await fetch('/api/admin/logout', {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+
+    const data = await res.json().catch(() => null);
+    window.location.replace(data?.redirectTo || buildAdminLoginUrl());
+  } catch {
+    window.location.replace(buildAdminLoginUrl());
+  }
 }
 const defaultState = () => ({
   ui: {
