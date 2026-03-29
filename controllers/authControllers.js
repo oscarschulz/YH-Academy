@@ -5,7 +5,7 @@ const { firestore } = require('../config/firebaseAdmin');
 
 const USERS_COLLECTION = 'users';
 const OTP_FROM_EMAIL = process.env.OTP_FROM_EMAIL || 'YH Universe <noreply@younghustlers.net>';
-const OTP_REPLY_TO = process.env.OTP_REPLY_TO || 'info@younghustlers.net';
+const OTP_REPLY_TO = process.env.OTP_REPLY_TO || 'support@younghustlers.net';
 
 const ALLOW_INSECURE_SMTP_TLS =
     String(process.env.ALLOW_INSECURE_SMTP_TLS || '').trim().toLowerCase() === 'true';
