@@ -6607,23 +6607,15 @@ function maybeOpenPostAuthAcademyApplication() {
 function maybeOpenRoadmapIntakeOnce() {
     // Roadmap intake should no longer auto-open on Academy entry.
     // It should only open when the user explicitly clicks Apply for Access inside the Roadmap tab.
-}async function handleAcademyRoadmapTabIntent() {
+}
+async function handleAcademyRoadmapTabIntent() {
     const membershipSnapshot = await refreshAcademyMembershipStatus(true);
 
     const membershipStatus = String(
         membershipSnapshot?.applicationStatus || ''
     ).trim().toLowerCase();
 
-    const roadmapStatus = String(
-        membershipSnapshot?.roadmapApplicationStatus || ''
-    ).trim().toLowerCase();
-
     const hasRoadmapAccess = membershipSnapshot?.hasRoadmapAccess === true;
-
-    const isRoadmapPending =
-        roadmapStatus === 'under review' ||
-        roadmapStatus === 'new' ||
-        localStorage.getItem(YH_ROADMAP_LOCK_KEY) === 'true';
 
     closeRoadmapIntake();
 
@@ -6634,11 +6626,6 @@ function maybeOpenRoadmapIntakeOnce() {
 
     if (hasRoadmapAccess) {
         openAcademyRoadmapView(true);
-        return;
-    }
-
-    if (isRoadmapPending) {
-        openAcademyRoadmapAccessGate(membershipSnapshot);
         return;
     }
 
@@ -6666,8 +6653,8 @@ function openAcademyRoadmapAccessGate(snapshot = null) {
     const dynamicChatContainer = document.getElementById('dynamic-chat-history');
 
     if (chatHeaderIcon) chatHeaderIcon.innerHTML = '🧠';
-    if (chatHeaderTitle) chatHeaderTitle.innerText = 'Roadmap Access';
-    if (chatHeaderTopic) chatHeaderTopic.innerText = 'Apply for access to unlock your personalized AI roadmap.';
+    if (chatHeaderTitle) chatHeaderTitle.innerText = 'Roadmap Setup';
+    if (chatHeaderTopic) chatHeaderTopic.innerText = 'Complete the roadmap form to let the AI generate your personalized roadmap instantly.';
     if (chatWelcomeBox) chatWelcomeBox.style.display = 'none';
     if (chatPinnedMessage) chatPinnedMessage.style.display = 'none';
     if (chatInputArea) chatInputArea.style.display = 'none';
@@ -6686,17 +6673,17 @@ function openAcademyRoadmapAccessGate(snapshot = null) {
 
     const hasRoadmapAccess = membership?.hasRoadmapAccess === true;
 
-    let gateBadge = 'Apply for Access';
+    let gateBadge = 'Create Roadmap';
     let gateBadgeClass = '';
-    let gateTitle = 'Unlock Your AI Roadmap';
-    let gateCopy = 'Submit your roadmap access request so the system can prepare a personalized roadmap build for you.';
+    let gateTitle = 'Generate Your AI Roadmap';
+    let gateCopy = 'Complete the one-time roadmap setup form and the AI will build your roadmap immediately.';
     let ctaHtml = `
         <button
             id="academy-roadmap-apply-access-btn"
             type="button"
             class="btn-primary academy-home-action-btn academy-roadmap-gate-cta"
         >
-            Apply for Access
+            Create My Roadmap
         </button>
     `;
 
@@ -6710,15 +6697,10 @@ function openAcademyRoadmapAccessGate(snapshot = null) {
         openAcademyRoadmapView();
         return;
     } else if (
-        roadmapStatus === 'under review' ||
-        roadmapStatus === 'new' ||
-        localStorage.getItem(YH_ROADMAP_LOCK_KEY) === 'true'
+        roadmapStatus === 'approved'
     ) {
-        gateBadge = 'Pending Review';
-        gateBadgeClass = 'is-pending';
-        gateTitle = 'Your roadmap request is under review';
-        gateCopy = 'Your access request has been submitted and is currently waiting for admin approval.';
-        ctaHtml = '';
+        openAcademyRoadmapView(true);
+        return;
     }
 
     if (dynamicChatContainer) {
@@ -7346,30 +7328,23 @@ if (roadmapForm) {
                     ? result.roadmapApplication
                     : null;
 
-            const membershipSnapshot = await refreshAcademyMembershipStatus(true);
-
-            writeAcademyMembershipCache({
-                ...(membershipSnapshot || {}),
-                roadmapApplication,
-                roadmapApplicationStatus: String(
-                    roadmapApplication?.status || 'Under Review'
-                ).trim().toLowerCase(),
-                hasRoadmapAccess: false
-            });
-
             const nextSnapshot = {
-                ...(membershipSnapshot || {}),
+                ...(readAcademyMembershipCache() || {}),
                 roadmapApplication,
                 roadmapApplicationStatus: String(
-                    roadmapApplication?.status || 'Under Review'
+                    roadmapApplication?.status || 'Approved'
                 ).trim().toLowerCase(),
-                hasRoadmapAccess: false
+                hasRoadmapAccess: result?.hasRoadmapAccess === true || true
             };
 
-            syncRoadmapTabIndicator(nextSnapshot);
-            openAcademyRoadmapAccessGate(nextSnapshot);
+            writeAcademyMembershipCache(nextSnapshot);
+            localStorage.removeItem(YH_ROADMAP_LOCK_KEY);
 
-            showToast('Roadmap application submitted for admin review.', 'success');
+            closeRoadmapIntake();
+            syncRoadmapTabIndicator(nextSnapshot);
+            openAcademyRoadmapView(true);
+
+            showToast('Your AI roadmap is ready.', 'success');
         } catch (error) {
             localStorage.removeItem(YH_ROADMAP_LOCK_KEY);
 

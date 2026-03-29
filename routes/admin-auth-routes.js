@@ -213,11 +213,9 @@ async function buildAdminBootstrapPayload() {
 
     if (hasApprovedAcademyMembership) {
       if (hasRoadmapAccess) {
-        roadmapStatus = 'Roadmap access unlocked';
-      } else if (roadmapApplicationStatus) {
-        roadmapStatus = `Roadmap ${roadmapApplicationStatus}`;
+        roadmapStatus = 'Roadmap live';
       } else {
-        roadmapStatus = 'Awaiting roadmap application';
+        roadmapStatus = 'Ready for roadmap setup';
       }
     }
 
@@ -262,27 +260,7 @@ const applications = users.flatMap((user) => {
     });
   }
 
-  if (user.roadmapApplication && typeof user.roadmapApplication === 'object') {
-    const app = user.roadmapApplication;
-    output.push({
-      id: cleanText(app.id || `RMAP-${user.id}`),
-      name: cleanText(user.fullName || user.name || user.displayName || user.username || 'Unknown User'),
-      email: cleanText(user.email || ''),
-      goal: cleanText(app.goal || ''),
-      background: cleanText(app.background || ''),
-      recommendedDivision: cleanText(app.recommendedDivision || 'Academy'),
-      status: cleanText(app.status || 'Under Review'),
-      aiScore: toNumber(app.aiScore, 0),
-      country: cleanText(app.country || ''),
-      skills: Array.isArray(app.skills) ? app.skills : [],
-      networkValue: cleanText(app.networkValue || ''),
-      source: cleanText(app.source || 'Roadmap Application'),
-      submittedAt: toIso(app.submittedAt) || cleanText(app.submittedAt || ''),
-      notes: Array.isArray(app.notes) ? app.notes : [],
-      applicationType: cleanText(app.applicationType || 'academy-roadmap'),
-      reviewLane: cleanText(app.reviewLane || 'Roadmap Access')
-    });
-  }
+  // Roadmap applications are no longer part of the manual admin review queue.
 
   return output;
 });
@@ -556,14 +534,10 @@ apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async 
     }
 
     if (matchedField === 'roadmapApplication') {
-      updatePayload.roadmapApplication = updatedApplication;
-      updatePayload.roadmapApplicationStatus = nextStatus;
-      updatePayload.roadmapApplicationReviewedAt = nowIso;
-      updatePayload.roadmapApplicationReviewedBy = req.adminSession.username;
-
-      if (nextStatus === 'Approved') {
-        await academyFirestoreRepo.setAccessUnlocked(matchedUserDoc.id);
-      }
+      return res.status(400).json({
+        success: false,
+        message: 'Roadmap applications are now generated and unlocked automatically. Manual roadmap review is disabled.'
+      });
     }
 
     await matchedUserDoc.ref.set(updatePayload, { merge: true });

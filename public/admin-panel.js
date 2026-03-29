@@ -765,7 +765,7 @@ function renderAcademy() {
 
   const stats = [
     { label: 'Roadmap Records', value: state.academy.length, foot: 'Tracked in current system' },
-    { label: 'Needs Review', value: state.academy.filter(a => a.status === 'Needs Review').length, foot: 'Human intervention queue' },
+    { label: 'Needs Review', value: state.academy.filter(a => a.status === 'Needs Review').length, foot: 'Records missing a live roadmap' },
     { label: 'At Risk', value: state.academy.filter(a => a.status === 'At Risk').length, foot: 'Low momentum members' }
   ];
 
@@ -1396,16 +1396,16 @@ function syncMemberFromApplication(application) {
     status: 'Active',
     activityScore: 50,
     roadmapStatus: isAcademyMembership
-      ? 'Awaiting roadmap application'
+      ? 'Ready for roadmap setup'
       : application.recommendedDivision === 'Academy'
-        ? 'Intake pending setup'
+        ? 'Roadmap live'
         : 'Not assigned',
     riskFlag: 'Low',
     joinedAt: new Date().toISOString().slice(0, 10),
     lastLogin: 'Just now',
     notes: [
       `Created from ${application.id} approval.`,
-      ...(isAcademyMembership ? ['Academy membership approved. Roadmap still requires separate access approval.'] : [])
+      ...(isAcademyMembership ? ['Academy membership approved. User can now generate a roadmap instantly from the Roadmap tab.'] : [])
     ]
   });
 

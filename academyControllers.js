@@ -2244,17 +2244,19 @@ exports.submitRoadmapApplication = async (req, res) => {
         };
 
         const plannerResult = await generateAndPersistPlanFirestore(uid, mergedProfile, {
-            mode: 'roadmap_application_pending_review',
+            mode: 'roadmap_application_auto_unlock',
             trigger: 'roadmap_application'
         });
 
         const nowIso = new Date().toISOString();
 
+        await academyFirestoreRepo.setAccessUnlocked(uid);
+
         const roadmapApplication = {
             id: `RMAP-${Date.now().toString().slice(-8)}`,
             applicationType: 'academy-roadmap',
-            reviewLane: 'Roadmap Access',
-            status: 'Under Review',
+            reviewLane: 'Roadmap Auto Build',
+            status: 'Approved',
             recommendedDivision: 'Academy',
             source: 'Roadmap Tab',
             name: sanitize(userData.fullName || userData.name || userData.displayName || userData.username || 'Hustler'),
@@ -2276,13 +2278,16 @@ exports.submitRoadmapApplication = async (req, res) => {
             networkValue: 'Unknown',
             submittedAt: nowIso,
             updatedAt: nowIso,
+            reviewedAt: nowIso,
+            reviewedBy: 'system:auto-ai',
             notes: [
                 'Submitted from Roadmap tab.',
-                'AI roadmap prebuilt and waiting for admin review.'
+                'AI roadmap generated automatically from the roadmap application.',
+                'Roadmap access unlocked automatically after successful AI build.'
             ],
             roadmapIntake,
-            pendingRoadmapId: plannerResult?.roadmapId || '',
-            pendingCreatedByModel: plannerResult?.createdByModel || ''
+            roadmapId: plannerResult?.roadmapId || '',
+            createdByModel: plannerResult?.createdByModel || ''
         };
 
         await userRef.set(
@@ -2290,6 +2295,8 @@ exports.submitRoadmapApplication = async (req, res) => {
                 roadmapApplication,
                 roadmapApplicationStatus: roadmapApplication.status,
                 roadmapApplicationSubmittedAt: roadmapApplication.submittedAt,
+                roadmapApplicationReviewedAt: roadmapApplication.reviewedAt,
+                roadmapApplicationReviewedBy: roadmapApplication.reviewedBy,
                 updatedAt: nowIso
             },
             { merge: true }
@@ -2298,7 +2305,11 @@ exports.submitRoadmapApplication = async (req, res) => {
         return res.status(201).json({
             success: true,
             alreadyExists: false,
-            roadmapApplication
+            roadmapApplication,
+            hasRoadmapAccess: true,
+            roadmapId: plannerResult?.roadmapId || '',
+            createdByModel: plannerResult?.createdByModel || '',
+            home: plannerResult?.homePayload || null
         });
     } catch (error) {
         console.error('submitRoadmapApplication error:', error);
