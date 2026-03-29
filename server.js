@@ -171,7 +171,15 @@ app.use('/api', apiLimiter);
 // --- MVC ROUTING ---
 const viewRoutes = require('./routes/viewRoutes');
 const apiRoutes = require('./routes/apiRoutes');
+const { createAdminRouters } = require('./routes/admin-auth-routes');
 const { startAiNurtureWorker } = require('./backend/services/aiNurtureWorker');
+
+const { pageRouter: adminPageRouter, apiRouter: adminApiRouter } = createAdminRouters({
+    privateAdminDir: path.join(__dirname, 'private', 'admin')
+});
+
+app.use(adminApiRouter);
+app.use(adminPageRouter);
 
 app.use('/', viewRoutes);
 app.use('/api', apiRoutes);

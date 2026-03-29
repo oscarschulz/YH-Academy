@@ -202,17 +202,23 @@ function renderPremiumOtpEmail({
                         <td align="left" valign="middle">
                           <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
                             <tr>
-                              <td align="center" valign="middle" width="40" height="40" style="width:40px; height:40px; border-radius:12px; background-color:#0a1a2c; border:1px solid #1f4b72; color:#7dd3fc; font-size:18px; font-weight:800;">
-                                YH
-                              </td>
-                              <td style="padding-left:12px;">
-                                <div style="font-size:14px; line-height:1.2; color:#ffffff; font-weight:800; letter-spacing:0.5px;">
-                                  Young Hustlers Universe
-                                </div>
-                                <div style="font-size:11px; line-height:1.4; color:#8fa4bf; text-transform:uppercase; letter-spacing:1.6px;">
-                                  Secure Account Access
-                                </div>
-                              </td>
+                            <td align="left" valign="middle" style="width:52px;">
+                            <img
+                                src="https://younghustlersuniverse.com/images/logo.png"
+                                alt="YH Universe"
+                                width="40"
+                                height="40"
+                                style="display:block; width:40px; height:40px; border:0; outline:none; text-decoration:none;"
+                            />
+                            </td>
+                            <td style="padding-left:12px;">
+                            <div style="font-size:14px; line-height:1.2; color:#ffffff; font-weight:800; letter-spacing:0.5px;">
+                                Young Hustlers Universe
+                            </div>
+                            <div style="font-size:11px; line-height:1.4; color:#8fa4bf; text-transform:uppercase; letter-spacing:1.6px;">
+                                Secure Account Access
+                            </div>
+                            </td>
                             </tr>
                           </table>
                         </td>
