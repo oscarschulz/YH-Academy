@@ -4086,19 +4086,280 @@ if (btnCreateGroup && groupNameInput) {
         });
     }
 
-const notifBell = document.getElementById('notif-bell'); const notifDropdown = document.getElementById('notif-dropdown'); const markAllRead = document.getElementById('mark-all-read');
-if(notifBell && notifDropdown) {
-    notifBell.addEventListener('click', (e) => { if(e.target === markAllRead) return; notifDropdown.classList.toggle('show'); });
-    document.addEventListener('click', (e) => { if (!notifBell.contains(e.target)) notifDropdown.classList.remove('show'); });
-    if(markAllRead) { markAllRead.addEventListener('click', () => { notifDropdown.querySelectorAll('.unread').forEach(item => item.classList.remove('unread')); const badge = notifBell.querySelector('.notif-badge'); if(badge) badge.style.display = 'none'; showToast("All notifications marked as read.", "success"); }); }
-    document.querySelectorAll('.notif-list li').forEach(item => {
-        item.addEventListener('click', () => {
-            item.classList.remove('unread'); const badge = notifBell.querySelector('.notif-badge');
-            if(badge) { const remainingUnread = notifDropdown.querySelectorAll('.unread').length; if (remainingUnread === 0) badge.style.display = 'none'; else badge.innerText = remainingUnread; }
-            notifDropdown.classList.remove('show'); const target = item.getAttribute('data-target');
-            if (target === 'announcements') document.getElementById('nav-announcements')?.click(); else if (target === 'main-chat') document.getElementById('nav-chat')?.click(); else if (target === 'dm') document.getElementById('btn-open-dm-modal')?.click(); else if (target === 'profile') document.querySelector('.profile-mini')?.click();
+const notifBell = document.getElementById('notif-bell');
+const notifDropdown = document.getElementById('notif-dropdown');
+const markAllRead = document.getElementById('mark-all-read');
+const notifListContainer = document.getElementById('notif-list-container');
+const notifBadge = document.getElementById('notif-badge-count');
+
+const escapeNotificationHtml = (value = '') =>
+    String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+const notificationTimeLabel = (value) => {
+    if (!value) return 'Just now';
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return 'Just now';
+
+    const diffMs = Date.now() - date.getTime();
+    const diffMin = Math.max(0, Math.floor(diffMs / 60000));
+
+    if (diffMin < 1) return 'Just now';
+    if (diffMin < 60) return `${diffMin}m ago`;
+
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `${diffHr}h ago`;
+
+    const diffDay = Math.floor(diffHr / 24);
+    if (diffDay < 7) return `${diffDay}d ago`;
+
+    return date.toLocaleDateString();
+};
+
+const getNotificationUnreadCount = (notifications = []) =>
+    (Array.isArray(notifications) ? notifications : []).filter((item) => {
+        return !(
+            item?.isRead === true ||
+            item?.read === true ||
+            item?.read_at ||
+            item?.readAt
+        );
+    }).length;
+
+const updateNotificationBadgeUi = (notifications = []) => {
+    if (!notifBadge) return;
+
+    const unreadCount = getNotificationUnreadCount(notifications);
+
+    if (unreadCount <= 0) {
+        notifBadge.style.display = 'none';
+        notifBadge.innerText = '0';
+        return;
+    }
+
+    notifBadge.style.display = 'flex';
+    notifBadge.innerText = String(unreadCount);
+};
+
+const openNotificationTarget = (target = '') => {
+    const normalized = String(target || '').trim().toLowerCase();
+
+    if (normalized === 'announcements') {
+        document.getElementById('nav-announcements')?.click();
+        return;
+    }
+
+    if (normalized === 'main-chat' || normalized === 'chat') {
+        document.getElementById('nav-chat')?.click();
+        return;
+    }
+
+    if (normalized === 'dm') {
+        document.getElementById('btn-open-dm-modal')?.click();
+        return;
+    }
+
+    if (normalized === 'profile') {
+        document.querySelector('.profile-mini')?.click();
+    }
+};
+
+const renderRealtimeNotifications = (notifications = []) => {
+    if (!notifListContainer) return;
+
+    const list = Array.isArray(notifications) ? notifications : [];
+    notifListContainer.innerHTML = '';
+
+    if (!list.length) {
+        notifListContainer.innerHTML = `
+            <li class="notif-empty-state" id="notif-empty-state">No notifications yet.</li>
+        `;
+        updateNotificationBadgeUi([]);
+        return;
+    }
+
+    list.forEach((notification) => {
+        const notificationId = String(notification?.id || notification?.notificationId || '').trim();
+        const title = String(notification?.title || 'Notification').trim();
+        const text = String(
+            notification?.text ||
+            notification?.message ||
+            notification?.body ||
+            ''
+        ).trim();
+        const avatarStr = String(
+            notification?.avatarStr ||
+            notification?.initial ||
+            title.charAt(0).toUpperCase() ||
+            'N'
+        ).trim();
+        const color = String(notification?.color || 'var(--neon-blue)').trim();
+        const target = String(notification?.target || '').trim();
+        const createdAt =
+            notification?.createdAt ||
+            notification?.created_at ||
+            notification?.time ||
+            '';
+        const isRead =
+            notification?.isRead === true ||
+            notification?.read === true ||
+            !!notification?.readAt ||
+            !!notification?.read_at;
+
+        const li = document.createElement('li');
+        li.className = `fade-in${isRead ? '' : ' unread'}`;
+        if (notificationId) li.setAttribute('data-notification-id', notificationId);
+        if (target) li.setAttribute('data-target', target);
+
+        li.innerHTML = `
+            <div class="notif-img" style="background: ${escapeNotificationHtml(color)};">
+                ${escapeNotificationHtml(avatarStr)}
+            </div>
+            <div class="notif-text">
+                <strong>${escapeNotificationHtml(title)}</strong>
+                ${text ? ` ${escapeNotificationHtml(text)}` : ''}
+                <span class="notif-time">${escapeNotificationHtml(notificationTimeLabel(createdAt))}</span>
+            </div>
+        `;
+
+        li.addEventListener('click', async (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+
+            if (notificationId && !isRead) {
+                await markRealtimeNotificationRead(notificationId, false);
+            }
+
+            notifDropdown?.classList.remove('show');
+            openNotificationTarget(target);
         });
+
+        notifListContainer.appendChild(li);
     });
+
+    updateNotificationBadgeUi(list);
+};
+
+async function loadRealtimeNotifications(forceFresh = false) {
+    if (!notifListContainer) return [];
+
+    const state = getDashboardState();
+
+    if (!forceFresh && Array.isArray(state.realtimeNotifications)) {
+        renderRealtimeNotifications(state.realtimeNotifications);
+        return state.realtimeNotifications;
+    }
+
+    try {
+        const result = await academyAuthedFetch('/api/realtime/notifications', {
+            method: 'GET'
+        });
+
+        const notifications = Array.isArray(result?.notifications) ? result.notifications : [];
+        state.realtimeNotifications = notifications;
+        renderRealtimeNotifications(notifications);
+        return notifications;
+    } catch (error) {
+        console.error('loadRealtimeNotifications error:', error);
+
+        notifListContainer.innerHTML = `
+            <li class="notif-empty-state" id="notif-empty-state">Failed to load notifications.</li>
+        `;
+        updateNotificationBadgeUi([]);
+        return [];
+    }
+}
+
+async function markRealtimeNotificationRead(notificationId, rerender = true) {
+    const normalizedId = String(notificationId || '').trim();
+    if (!normalizedId) return;
+
+    const state = getDashboardState();
+
+    try {
+        await academyAuthedFetch(`/api/realtime/notifications/${encodeURIComponent(normalizedId)}/read`, {
+            method: 'POST'
+        });
+
+        const current = Array.isArray(state.realtimeNotifications) ? state.realtimeNotifications : [];
+        state.realtimeNotifications = current.map((item) => {
+            const itemId = String(item?.id || item?.notificationId || '').trim();
+            if (itemId !== normalizedId) return item;
+
+            return {
+                ...item,
+                isRead: true,
+                read: true,
+                readAt: new Date().toISOString()
+            };
+        });
+
+        if (rerender) {
+            renderRealtimeNotifications(state.realtimeNotifications);
+        } else {
+            updateNotificationBadgeUi(state.realtimeNotifications);
+        }
+    } catch (error) {
+        console.error('markRealtimeNotificationRead error:', error);
+    }
+}
+
+async function markAllRealtimeNotificationsRead() {
+    const state = getDashboardState();
+
+    try {
+        await academyAuthedFetch('/api/realtime/notifications/read-all', {
+            method: 'POST'
+        });
+
+        const current = Array.isArray(state.realtimeNotifications) ? state.realtimeNotifications : [];
+        state.realtimeNotifications = current.map((item) => ({
+            ...item,
+            isRead: true,
+            read: true,
+            readAt: new Date().toISOString()
+        }));
+
+        renderRealtimeNotifications(state.realtimeNotifications);
+        showToast('All notifications marked as read.', 'success');
+    } catch (error) {
+        console.error('markAllRealtimeNotificationsRead error:', error);
+        showToast(error.message || 'Failed to mark notifications as read.', 'error');
+    }
+}
+
+if (notifBell && notifDropdown) {
+    notifBell.addEventListener('click', async (e) => {
+        if (e.target === markAllRead) return;
+        if (e.target.closest('.notif-list li')) return;
+
+        notifDropdown.classList.toggle('show');
+
+        if (notifDropdown.classList.contains('show')) {
+            await loadRealtimeNotifications(true);
+        }
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!notifBell.contains(e.target)) {
+            notifDropdown.classList.remove('show');
+        }
+    });
+
+    if (markAllRead) {
+        markAllRead.addEventListener('click', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            await markAllRealtimeNotificationsRead();
+        });
+    }
+
+    loadRealtimeNotifications(false);
 }
 
 const resourcesMenu = document.getElementById('yh-resources-menu');

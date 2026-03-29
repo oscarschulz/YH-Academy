@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard | YH Universe</title>
+    <link rel="icon" type="image/png" href="/images/logo.png">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/style.css">
 </head>
@@ -28,42 +29,48 @@
 
 <div class="desktop-user-strip">
     <div class="desktop-user-strip-inner">
-        <div class="desktop-user-strip-left">
-            <div class="notif-wrapper" id="notif-bell">
-                <span class="notif-icon">🔔</span>
-                <span class="notif-badge" id="notif-badge-count" style="display:none;">0</span>
-                <div class="notif-dropdown hide-scrollbar" id="notif-dropdown">
-                    <div class="notif-header">Notifications <span id="mark-all-read">Mark all as read</span></div>
-                    <ul class="notif-list" id="notif-list-container">
-                        <li class="notif-empty-state" id="notif-empty-state">No notifications yet.</li>
-                    </ul>
+            <div class="desktop-user-strip-left">
+                <div class="desktop-user-profile-cluster">
+                    <div class="profile-mini interactive-avatar" data-user="Me" data-role="Hustler">
+                        <div class="profile-avatar-mini" id="top-nav-initial">Y</div>
+                        <span id="top-nav-name">Hustler</span>
+                    </div>
+
+                    <div class="notif-wrapper mobile-notif-under-name" id="notif-bell">
+                        <span class="notif-icon">🔔</span>
+                        <span class="notif-badge" id="notif-badge-count" style="display:none;">0</span>
+                        <div class="notif-dropdown hide-scrollbar" id="notif-dropdown">
+                            <div class="notif-header">Notifications <span id="mark-all-read">Mark all as read</span></div>
+                            <ul class="notif-list" id="notif-list-container">
+                                <li class="notif-empty-state" id="notif-empty-state">No notifications yet.</li>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div class="profile-mini interactive-avatar" data-user="Me" data-role="Hustler">
-                <div class="profile-avatar-mini" id="top-nav-initial">Y</div>
-                <span id="top-nav-name">Hustler</span>
-            </div>
-        </div>
-
         <div class="desktop-user-strip-right">
             <div class="yh-resources-menu" id="yh-resources-menu">
-                <button
-                    type="button"
-                    class="btn-secondary yh-resources-menu-btn"
-                    id="yh-resources-menu-btn"
-                    aria-expanded="false"
-                    aria-controls="yh-resources-menu-panel"
-                >
-                    <span class="yh-resources-menu-icon">☰</span>
-                    <span>Partnerships and Resources</span>
-                </button>
+            <button
+                type="button"
+                class="btn-secondary yh-resources-menu-btn"
+                id="yh-resources-menu-btn"
+                aria-expanded="false"
+                aria-controls="yh-resources-menu-panel"
+            >
+                <span class="yh-resources-menu-icon">☰</span>
+                <span class="yh-resources-menu-label yh-resources-menu-label-desktop">Partnerships and Resources</span>
+                <span class="yh-resources-menu-label yh-resources-menu-label-mobile">Featured sites</span>
+            </button>
 
-                <div class="yh-resources-menu-panel" id="yh-resources-menu-panel">
-                    <div class="yh-resources-menu-panel-head">
-                        <div class="yh-resources-menu-kicker">Quick Access</div>
-                        <h4 class="yh-resources-menu-title">Partnerships and Resources</h4>
-                    </div>
+            <div class="yh-resources-menu-panel" id="yh-resources-menu-panel">
+                <div class="yh-resources-menu-panel-head">
+                    <div class="yh-resources-menu-kicker">Quick Access</div>
+                    <h4 class="yh-resources-menu-title">
+                        <span class="yh-resources-menu-title-desktop">Partnerships and Resources</span>
+                        <span class="yh-resources-menu-title-mobile">Featured sites</span>
+                    </h4>
+                </div>
 
                     <div class="yh-resources-menu-list">
                         <a
@@ -263,8 +270,9 @@
                     <p class="yh-universe-feature-desc" id="yh-universe-feature-desc">Build a daily plan, track progress, and use the community plus voice lounge to stay in motion.</p>
                     <div class="yh-universe-feature-chips" id="yh-universe-feature-chips">
                         <span class="yh-universe-feature-chip">Daily roadmap</span>
+                        </div>
                         <span class="yh-universe-feature-chip">Community feed</span>
-                        <span class="yh-universe-feature-chip">Voice lounge</span>
+
                     </div>
                                 </div>
 
@@ -360,7 +368,6 @@
                 <div class="academy-mobile-nav-menu hidden-step" id="academy-mobile-nav-menu">
                     <button type="button" class="academy-mobile-nav-item" data-academy-target="nav-missions">🧠 Roadmap</button>
                     <button type="button" class="academy-mobile-nav-item" data-academy-target="nav-chat">📰 Community Feed</button>
-                    <button type="button" class="academy-mobile-nav-item" data-academy-target="nav-voice">🎙️ Voice Lounge</button>
                 </div>
             </div>
 
@@ -375,10 +382,7 @@
                     <span class="sidebar-text">Community Feed</span>
                 </li>
 
-                <li class="channel-link" id="nav-voice" title="voice-lounge" data-type="voice-lobby">
-                    <div class="sidebar-icon"><span class="channel-icon">🎙️</span></div>
-                    <span class="sidebar-text">Voice Lounge</span>
-                </li>
+
             </ul>
 
         <div class="academy-sidebar-progress">

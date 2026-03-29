@@ -5426,3 +5426,404 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
         width: 100%;
     }
 }
+/* ==========================================
+   MOBILE HUB TOP STRIP RESTORE
+   bell + profile + featured sites on mobile
+   ========================================== */
+.yh-resources-menu-label-mobile,
+.yh-resources-menu-title-mobile {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .yh-resources-menu-label-desktop,
+    .yh-resources-menu-title-desktop {
+        display: none !important;
+    }
+
+    .yh-resources-menu-label-mobile,
+    .yh-resources-menu-title-mobile {
+        display: inline !important;
+    }
+
+    .desktop-user-strip {
+        display: block !important;
+        padding: 8px 12px 0 !important;
+        background: rgba(15, 23, 42, 0.98) !important;
+    }
+
+    .desktop-user-strip-inner {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 10px !important;
+        flex-wrap: nowrap !important;
+    }
+
+    .desktop-user-strip-left {
+        display: flex !important;
+        align-items: center !important;
+        gap: 8px !important;
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+        flex-wrap: nowrap !important;
+    }
+
+    .desktop-user-strip-right {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: flex-end !important;
+        flex: 0 0 auto !important;
+        margin-left: 0 !important;
+    }
+
+    .desktop-user-strip .profile-mini {
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 8px !important;
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+
+    .notif-wrapper {
+        width: 38px !important;
+        height: 38px !important;
+        min-width: 38px !important;
+        flex: 0 0 38px !important;
+    }
+
+    .profile-avatar-mini {
+        width: 34px !important;
+        height: 34px !important;
+        min-width: 34px !important;
+        min-height: 34px !important;
+    }
+
+    #top-nav-name {
+        display: block !important;
+        max-width: 110px !important;
+        overflow: hidden !important;
+        white-space: nowrap !important;
+        text-overflow: ellipsis !important;
+        font-size: 0.84rem !important;
+    }
+
+    .yh-resources-menu {
+        width: auto !important;
+    }
+
+    .yh-resources-menu-btn {
+        width: auto !important;
+        min-height: 38px !important;
+        padding: 9px 12px !important;
+        gap: 8px !important;
+        font-size: 0.82rem !important;
+        white-space: nowrap !important;
+    }
+
+    .yh-resources-menu-icon {
+        font-size: 0.9rem !important;
+        line-height: 1 !important;
+    }
+
+    .yh-resources-menu-panel {
+        right: 0 !important;
+        left: auto !important;
+        width: min(320px, calc(100vw - 24px)) !important;
+    }
+
+    .universe-hub-view {
+        top: 126px !important;
+    }
+
+    body[data-yh-view="hub"] #universe-hub-view,
+    body[data-yh-view="hub"] .universe-hub-view {
+        min-height: calc(100dvh - 132px) !important;
+        padding: 18px 12px 28px !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-intro {
+        margin-top: 8px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .desktop-user-strip {
+        padding: 8px 10px 0 !important;
+    }
+
+    .desktop-user-strip-inner {
+        gap: 8px !important;
+    }
+
+    .desktop-user-strip-left {
+        gap: 7px !important;
+    }
+
+    #top-nav-name {
+        max-width: 88px !important;
+        font-size: 0.8rem !important;
+    }
+
+    .yh-resources-menu-btn {
+        padding: 8px 10px !important;
+        font-size: 0.78rem !important;
+    }
+
+    .yh-resources-menu-icon {
+        font-size: 0.86rem !important;
+    }
+
+    .universe-hub-view {
+        top: 122px !important;
+    }
+
+    body[data-yh-view="hub"] #universe-hub-view,
+    body[data-yh-view="hub"] .universe-hub-view {
+        min-height: calc(100svh - 126px) !important;
+        padding: 16px 10px 24px !important;
+    }
+}
+/* ==========================================
+   MOBILE USER STACK
+   profile first, bell under name on mobile
+   ========================================== */
+
+.desktop-user-profile-cluster {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.mobile-notif-under-name {
+    position: relative;
+}
+
+@media (max-width: 768px) {
+    .desktop-user-strip {
+        display: block !important;
+        padding: 8px 12px 0 !important;
+        background: rgba(15, 23, 42, 0.98) !important;
+    }
+
+    .desktop-user-strip-inner {
+        display: flex !important;
+        align-items: flex-start !important;
+        justify-content: space-between !important;
+        gap: 10px !important;
+        flex-wrap: nowrap !important;
+    }
+
+    .desktop-user-strip-left {
+        display: flex !important;
+        align-items: flex-start !important;
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
+    }
+
+    .desktop-user-profile-cluster {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+        min-width: 0 !important;
+        width: 100% !important;
+    }
+
+    .desktop-user-strip .profile-mini {
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 8px !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+
+    #top-nav-name {
+        display: block !important;
+        max-width: 138px !important;
+        overflow: hidden !important;
+        white-space: nowrap !important;
+        text-overflow: ellipsis !important;
+        font-size: 0.84rem !important;
+    }
+
+    .mobile-notif-under-name {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 38px !important;
+        height: 38px !important;
+        min-width: 38px !important;
+        margin-left: 42px !important;
+        flex: 0 0 auto !important;
+    }
+
+    .desktop-user-strip-right {
+        display: flex !important;
+        align-items: flex-start !important;
+        justify-content: flex-end !important;
+        flex: 0 0 auto !important;
+        margin-left: 0 !important;
+    }
+
+    .yh-resources-menu-btn {
+        width: auto !important;
+        min-height: 38px !important;
+        padding: 9px 12px !important;
+        gap: 8px !important;
+        font-size: 0.82rem !important;
+        white-space: nowrap !important;
+    }
+
+    .yh-resources-menu-panel {
+        right: 0 !important;
+        left: auto !important;
+        width: min(320px, calc(100vw - 24px)) !important;
+    }
+
+    body[data-yh-view="hub"] #universe-hub-view,
+    body[data-yh-view="hub"] .universe-hub-view {
+        min-height: calc(100dvh - 146px) !important;
+        padding: 24px 12px 28px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .desktop-user-strip {
+        padding: 8px 10px 0 !important;
+    }
+
+    #top-nav-name {
+        max-width: 112px !important;
+        font-size: 0.8rem !important;
+    }
+
+    .mobile-notif-under-name {
+        margin-left: 40px !important;
+        width: 36px !important;
+        height: 36px !important;
+        min-width: 36px !important;
+    }
+
+    .yh-resources-menu-btn {
+        padding: 8px 10px !important;
+        font-size: 0.78rem !important;
+    }
+
+    body[data-yh-view="hub"] #universe-hub-view,
+    body[data-yh-view="hub"] .universe-hub-view {
+        min-height: calc(100svh - 142px) !important;
+        padding: 22px 10px 24px !important;
+    }
+}
+/* ==========================================
+   MOBILE NOTIFICATION FINAL POSITION FIX
+   bell flush-left under user name
+   dropdown opens to the right
+   ========================================== */
+
+@media (max-width: 768px) {
+    .desktop-user-strip,
+    .desktop-user-strip-inner,
+    .desktop-user-strip-left,
+    .desktop-user-profile-cluster {
+        overflow: visible !important;
+    }
+
+    .desktop-user-strip-left {
+        align-items: flex-start !important;
+    }
+
+    .desktop-user-profile-cluster {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+        width: auto !important;
+        min-width: 0 !important;
+    }
+
+    .desktop-user-strip .profile-mini {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        gap: 8px !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+    }
+
+    .mobile-notif-under-name {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        align-self: flex-start !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        width: 38px !important;
+        height: 38px !important;
+        min-width: 38px !important;
+        flex: 0 0 38px !important;
+        position: relative !important;
+    }
+
+    .mobile-notif-under-name .notif-dropdown,
+    #notif-bell .notif-dropdown,
+    #notif-dropdown {
+        left: 0 !important;
+        right: auto !important;
+        top: calc(100% + 8px) !important;
+        width: min(320px, calc(100vw - 24px)) !important;
+        max-width: calc(100vw - 24px) !important;
+        transform: none !important;
+    }
+
+    #top-nav-name {
+        max-width: 138px !important;
+        overflow: hidden !important;
+        white-space: nowrap !important;
+        text-overflow: ellipsis !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .mobile-notif-under-name {
+        margin-left: 0 !important;
+        width: 36px !important;
+        height: 36px !important;
+        min-width: 36px !important;
+        flex: 0 0 36px !important;
+    }
+
+    .mobile-notif-under-name .notif-dropdown,
+    #notif-bell .notif-dropdown,
+    #notif-dropdown {
+        left: 0 !important;
+        right: auto !important;
+        width: min(300px, calc(100vw - 20px)) !important;
+        max-width: calc(100vw - 20px) !important;
+    }
+}
+/* small breathing room under mobile notification bell */
+@media (max-width: 768px) {
+    .desktop-user-profile-cluster {
+        padding-bottom: 6px !important;
+    }
+
+    .mobile-notif-under-name,
+    #notif-bell.notif-wrapper {
+        margin-bottom: 2px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .desktop-user-profile-cluster {
+        padding-bottom: 7px !important;
+    }
+
+    .mobile-notif-under-name,
+    #notif-bell.notif-wrapper {
+        margin-bottom: 3px !important;
+    }
+}

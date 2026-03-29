@@ -235,7 +235,21 @@ exports.getNotifications = async (req, res) => {
     try {
         const viewer = getViewerFromRequest(req);
         const notifications = await realtimeRepo.getNotifications(viewer.id);
-        return res.json({ success: true, notifications });
+
+        const unreadCount = (Array.isArray(notifications) ? notifications : []).filter((item) => {
+            return !(
+                item?.isRead === true ||
+                item?.read === true ||
+                item?.readAt ||
+                item?.read_at
+            );
+        }).length;
+
+        return res.json({
+            success: true,
+            notifications,
+            unreadCount
+        });
     } catch (error) {
         console.error('getNotifications error:', error);
         return sendError(res, error, 'Failed to load notifications.');
