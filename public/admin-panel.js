@@ -910,136 +910,183 @@ function renderAnalytics() {
   const activeRate = Math.round((activeMembers / Math.max(1, state.members.length)) * 100);
   const plazasActive = state.plazas.filter(l => l.status === 'Active').length;
 
-  const latestMonthly = analytics.monthly[analytics.monthly.length - 1];
-  const prevMonthly = analytics.monthly[analytics.monthly.length - 2] || latestMonthly;
-  const revenueDelta = latestMonthly.revenue - prevMonthly.revenue;
-  const growthDelta = latestMonthly.members - prevMonthly.members;
+  const monthlySeries = Array.isArray(analytics.monthly) && analytics.monthly.length
+    ? analytics.monthly
+    : [{ month: 'Now', revenue: 0, members: metrics.uniqueUsers || 0 }];
 
-  document.getElementById('analytics-stats').innerHTML = [
-    { label: 'Total Revenue', value: formatCurrency(analytics.finance.totalRevenue), foot: 'All-time YH revenue' },
-    { label: 'Monthly Revenue', value: formatCurrency(analytics.finance.monthlyRevenue), foot: `${revenueDelta >= 0 ? '+' : ''}${formatCurrency(revenueDelta)} vs last month` },
-    { label: 'Member Reach', value: latestMonthly.members, foot: `${analytics.finance.countriesReached} countries reached` },
-    { label: 'Overall Unique Users', value: metrics.uniqueUsers, foot: 'Deduplicated overall member count' },
-    { label: 'Total Memberships', value: metrics.totalMemberships, foot: 'All division memberships combined' },
-    { label: 'Overlap Users', value: metrics.overlapUsers, foot: 'Users inside more than one division' },
-    { label: 'Approval Rate', value: `${approvalRate}%`, foot: `${approvedApps}/${state.applications.length} approved` },
-    { label: 'Active Member Rate', value: `${activeRate}%`, foot: `${activeMembers}/${state.members.length} active` },
-    { label: 'Avg Review Days', value: analytics.finance.averageReviewDays, foot: `${plazasActive} active listings live` }
-  ].map(card => `
-    <article class="stat-card">
-      <div class="stat-label">${escapeHtml(card.label)}</div>
-      <div class="stat-value">${escapeHtml(card.value)}</div>
-      <div class="stat-foot">${escapeHtml(card.foot)}</div>
-    </article>
-  `).join('');
+  const revenueMix = Array.isArray(analytics.revenueMix) ? analytics.revenueMix : [];
+  const regions = Array.isArray(analytics.regions) ? analytics.regions : [];
 
-  document.getElementById('analytics-hero-meta').innerHTML = `
-    <span class="analytics-mini-pill">Revenue now ${formatCurrency(latestMonthly.revenue)}</span>
-    <span class="analytics-mini-pill">Growth ${growthDelta >= 0 ? '+' : ''}${growthDelta} members</span>
-    <span class="analytics-mini-pill">${metrics.uniqueUsers} unique users</span>
-    <span class="analytics-mini-pill">${analytics.finance.countriesReached} countries active</span>
-  `;
+  const latestMonthly = monthlySeries[monthlySeries.length - 1] || { month: 'Now', revenue: 0, members: 0 };
+  const prevMonthly = monthlySeries[monthlySeries.length - 2] || latestMonthly;
 
-  document.getElementById('analytics-hero-chart').innerHTML = createLineChartSVG(analytics.monthly, analytics.monthly);
+  const revenueDelta = Number(latestMonthly.revenue || 0) - Number(prevMonthly.revenue || 0);
+  const growthDelta = Number(latestMonthly.members || 0) - Number(prevMonthly.members || 0);
+
+  const analyticsStatsEl = document.getElementById('analytics-stats');
+  if (analyticsStatsEl) {
+    analyticsStatsEl.innerHTML = [
+      { label: 'Total Revenue', value: formatCurrency(analytics.finance?.totalRevenue || 0), foot: 'All-time YH revenue' },
+      { label: 'Monthly Revenue', value: formatCurrency(analytics.finance?.monthlyRevenue || 0), foot: `${revenueDelta >= 0 ? '+' : ''}${formatCurrency(revenueDelta)} vs last month` },
+      { label: 'Member Reach', value: latestMonthly.members || 0, foot: `${analytics.finance?.countriesReached || 0} countries reached` },
+      { label: 'Overall Unique Users', value: metrics.uniqueUsers, foot: 'Deduplicated overall member count' },
+      { label: 'Total Memberships', value: metrics.totalMemberships, foot: 'All division memberships combined' },
+      { label: 'Overlap Users', value: metrics.overlapUsers, foot: 'Users inside more than one division' },
+      { label: 'Approval Rate', value: `${approvalRate}%`, foot: `${approvedApps}/${state.applications.length} approved` },
+      { label: 'Active Member Rate', value: `${activeRate}%`, foot: `${activeMembers}/${state.members.length} active` },
+      { label: 'Avg Review Days', value: analytics.finance?.averageReviewDays || 0, foot: `${plazasActive} active listings live` }
+    ].map(card => `
+      <article class="stat-card">
+        <div class="stat-label">${escapeHtml(card.label)}</div>
+        <div class="stat-value">${escapeHtml(card.value)}</div>
+        <div class="stat-foot">${escapeHtml(card.foot)}</div>
+      </article>
+    `).join('');
+  }
+
+  const analyticsHeroMetaEl = document.getElementById('analytics-hero-meta');
+  if (analyticsHeroMetaEl) {
+    analyticsHeroMetaEl.innerHTML = `
+      <span class="analytics-mini-pill">Revenue now ${formatCurrency(latestMonthly.revenue || 0)}</span>
+      <span class="analytics-mini-pill">Growth ${growthDelta >= 0 ? '+' : ''}${growthDelta} members</span>
+      <span class="analytics-mini-pill">${metrics.uniqueUsers} unique users</span>
+      <span class="analytics-mini-pill">${analytics.finance?.countriesReached || 0} countries active</span>
+    `;
+  }
+
+  const analyticsHeroChartEl = document.getElementById('analytics-hero-chart');
+  if (analyticsHeroChartEl) {
+    analyticsHeroChartEl.innerHTML = createLineChartSVG(monthlySeries, monthlySeries);
+  }
 
   const targetProgress = [
     {
       title: 'Member goal',
-      current: analytics.monthly[analytics.monthly.length - 1].members,
-      goal: analytics.targets.membersGoal,
+      current: latestMonthly.members || 0,
+      goal: analytics.targets?.membersGoal || 0,
       sub: 'How close YH is to the next membership milestone'
     },
     {
       title: 'Federation target',
       current: state.federation.length * 18,
-      goal: analytics.targets.federationGoal,
+      goal: analytics.targets?.federationGoal || 0,
       sub: 'Strategic network build-out'
     },
     {
       title: 'Monthly revenue target',
-      current: analytics.finance.monthlyRevenue,
-      goal: analytics.targets.monthlyRevenueGoal,
+      current: analytics.finance?.monthlyRevenue || 0,
+      goal: analytics.targets?.monthlyRevenueGoal || 0,
       sub: 'Income progress toward monthly target'
     },
     {
       title: 'Plazas activation goal',
       current: state.plazas.length * 28,
-      goal: analytics.targets.plazasGoal,
+      goal: analytics.targets?.plazasGoal || 0,
       sub: 'Marketplace opportunity coverage'
     }
   ];
 
-  document.getElementById('analytics-target-progress').innerHTML = targetProgress.map(item => {
-    const pct = Math.min(100, Math.round((item.current / Math.max(1, item.goal)) * 100));
-    return `
-      <div class="stack-item analytics-progress-item">
+  const analyticsTargetProgressEl = document.getElementById('analytics-target-progress');
+  if (analyticsTargetProgressEl) {
+    analyticsTargetProgressEl.innerHTML = targetProgress.map(item => {
+      const pct = item.goal > 0 ? Math.min(100, Math.round((item.current / item.goal) * 100)) : 0;
+
+      return `
+        <div class="stack-item">
+          <div class="stack-item-head">
+            <strong>${escapeHtml(item.title)}</strong>
+            <span>${pct}%</span>
+          </div>
+          <div class="progress"><i style="width:${pct}%"></i></div>
+          <p>${escapeHtml(item.sub)}</p>
+        </div>
+      `;
+    }).join('');
+  }
+
+  const analyticsDivisionBarsEl = document.getElementById('analytics-division-bars');
+  if (analyticsDivisionBarsEl) {
+    const divisionBars = [
+      { label: 'Academy', value: metrics.divisionCounts?.Academy || 0 },
+      { label: 'Federation', value: metrics.divisionCounts?.Federation || 0 },
+      { label: 'Plazas', value: metrics.divisionCounts?.Plazas || 0 }
+    ];
+
+    const maxDivision = Math.max(...divisionBars.map(item => item.value), 1);
+
+    analyticsDivisionBarsEl.innerHTML = divisionBars.map(item => {
+      const pct = Math.round((item.value / maxDivision) * 100);
+      return `
+        <div class="bar-item">
+          <div class="bar-item-head">
+            <strong>${escapeHtml(item.label)}</strong>
+            <span>${item.value}</span>
+          </div>
+          <div class="progress"><i style="width:${pct}%"></i></div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  const analyticsRegionsEl = document.getElementById('analytics-regions');
+  if (analyticsRegionsEl) {
+    if (!regions.length) {
+      analyticsRegionsEl.innerHTML = `<div class="stack-item"><p class="muted">No regional analytics loaded yet.</p></div>`;
+    } else {
+      const maxRegionRevenue = Math.max(...regions.map(item => Number(item.revenue || 0)), 1);
+
+      analyticsRegionsEl.innerHTML = regions.map(item => {
+        const pct = Math.round((Number(item.revenue || 0) / maxRegionRevenue) * 100);
+        return `
+          <div class="bar-item">
+            <div class="bar-item-head">
+              <strong>${escapeHtml(item.name || 'Unknown')}</strong>
+              <span>${Number(item.members || 0)} members</span>
+            </div>
+            <div class="progress"><i style="width:${pct}%"></i></div>
+          </div>
+        `;
+      }).join('');
+    }
+  }
+
+  const analyticsRevenueMixEl = document.getElementById('analytics-revenue-mix');
+  if (analyticsRevenueMixEl) {
+    if (!revenueMix.length) {
+      analyticsRevenueMixEl.innerHTML = `<div class="stack-item"><p class="muted">No revenue mix loaded yet.</p></div>`;
+    } else {
+      const maxRevenueMix = Math.max(...revenueMix.map(item => Number(item.revenue || 0)), 1);
+
+      analyticsRevenueMixEl.innerHTML = revenueMix.map(item => {
+        const pct = Math.round((Number(item.revenue || 0) / maxRevenueMix) * 100);
+        return `
+          <div class="bar-item">
+            <div class="bar-item-head">
+              <strong>${escapeHtml(item.division || 'Unknown')}</strong>
+              <span>${formatCurrency(item.revenue || 0)}</span>
+            </div>
+            <div class="progress"><i style="width:${pct}%"></i></div>
+          </div>
+        `;
+      }).join('');
+    }
+  }
+
+  const analyticsRatiosEl = document.getElementById('analytics-ratios');
+  if (analyticsRatiosEl) {
+    analyticsRatiosEl.innerHTML = [
+      { label: 'Average memberships per user', value: metrics.avgMembershipsPerUser?.toFixed?.(2) || '0.00' },
+      { label: 'Overlap rate', value: `${metrics.overlapRate || 0}%` },
+      { label: 'Single-division rate', value: `${metrics.singleDivisionRate || 0}%` }
+    ].map(item => `
+      <div class="stack-item">
         <div class="stack-item-head">
-          <strong>${escapeHtml(item.title)}</strong>
-          <span>${pct}%</span>
-        </div>
-        <p>${escapeHtml(item.sub)}</p>
-        <div class="progress"><i style="width:${pct}%"></i></div>
-        <div class="analytics-progress-meta">
-          <span>${typeof item.current === 'number' && item.title.toLowerCase().includes('revenue') ? formatCurrency(item.current) : escapeHtml(item.current)}</span>
-          <span>Goal ${typeof item.goal === 'number' && item.title.toLowerCase().includes('revenue') ? formatCurrency(item.goal) : escapeHtml(item.goal)}</span>
+          <strong>${escapeHtml(item.label)}</strong>
+          <span>${escapeHtml(item.value)}</span>
         </div>
       </div>
-    `;
-  }).join('');
-
-  const maxCount = Math.max(...Object.values(metrics.divisionCounts), 1);
-  document.getElementById('analytics-division-bars').innerHTML = Object.entries(metrics.divisionCounts).map(([name, count]) => `
-    <div class="bar-item">
-      <div class="bar-meta">
-        <strong>${escapeHtml(name)}</strong>
-        <span>${count} division memberships</span>
-      </div>
-      <div class="progress"><i class="bar-fill" style="width:${(count / maxCount) * 100}%"></i></div>
-    </div>
-  `).join('');
-
-  const maxRegionMembers = Math.max(...analytics.regions.map(r => r.members), 1);
-  document.getElementById('analytics-regions').innerHTML = analytics.regions.map(region => `
-    <div class="bar-item region-card">
-      <div class="region-head">
-        <strong>${escapeHtml(region.name)}</strong>
-        <span>${region.members} members</span>
-      </div>
-      <div class="progress"><i style="width:${(region.members / maxRegionMembers) * 100}%"></i></div>
-      <div class="region-sub">${formatCurrency(region.revenue)} revenue contribution</div>
-    </div>
-  `).join('');
-
-  const maxRevenueMix = Math.max(...analytics.revenueMix.map(r => r.revenue), 1);
-  document.getElementById('analytics-revenue-mix').innerHTML = analytics.revenueMix.map(item => `
-    <div class="bar-item mix-card">
-      <div class="mix-head">
-        <strong>${escapeHtml(item.division)}</strong>
-        <span>${item.share}%</span>
-      </div>
-      <div class="progress"><i style="width:${(item.revenue / maxRevenueMix) * 100}%"></i></div>
-      <div class="mix-sub">${formatCurrency(item.revenue)} generated</div>
-    </div>
-  `).join('');
-
-  const ratios = [
-    { title: 'Overall unique user count', text: `${metrics.uniqueUsers} overall users are counted once only, even if they belong to multiple divisions.` },
-    { title: 'Total memberships', text: `${metrics.totalMemberships} total memberships are currently distributed across Academy, Federation, and Plazas.` },
-    { title: 'Overlap users', text: `${metrics.overlapUsers} users currently belong to more than one division.` },
-    { title: 'Academy intervention load', text: `${state.academy.filter(a => a.status !== 'On Track').length} members need human attention.` },
-    { title: 'Federation strategic pool', text: `${state.federation.filter(f => ['Strategic Priority', 'Under Vetting'].includes(f.status)).length} high-attention candidates in the queue.` },
-    { title: 'Trust and safety load', text: `${state.plazas.filter(p => p.status === 'Flagged').length} listings are flagged and ${state.support.filter(s => s.type === 'Dispute').length} support disputes are open.` },
-    { title: 'Revenue momentum', text: `${revenueDelta >= 0 ? 'Up' : 'Down'} ${formatCurrency(Math.abs(revenueDelta))} from the previous month with ${growthDelta >= 0 ? '+' : ''}${growthDelta} member growth.` }
-  ];
-
-  document.getElementById('analytics-ratios').innerHTML = ratios.map(item => `
-    <div class="stack-item">
-      <div class="stack-item-head">
-        <strong>${escapeHtml(item.title)}</strong>
-      </div>
-      <p>${escapeHtml(item.text)}</p>
-    </div>
-  `).join('');
+    `).join('');
+  }
 }
 
 function renderSettings() {
