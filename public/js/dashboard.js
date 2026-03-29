@@ -6881,11 +6881,100 @@ const escapeHtml = (value) => {
 if (formApply) {
     formApply.addEventListener('submit', async (e) => {
         e.preventDefault();
-if (hasAcademyApplicationAlreadyBeenFilled()) {
+
+        if (hasAcademyApplicationAlreadyBeenFilled()) {
             showToast("You already submitted your Academy application.", "error");
             closeAcademyLauncher();
             return;
         }
+
+        const token = localStorage.getItem('yh_token');
+        if (!token) {
+            showToast("Your session expired. Please log in again.", "error");
+            window.location.href = '/';
+            return;
+        }
+
+        const aiFormPhase = document.getElementById('ai-form-phase');
+        const aiSpinnerPhase = document.getElementById('ai-spinner-phase');
+        const aiVerdictPhase = document.getElementById('ai-verdict-phase');
+
+        const vIcon = document.getElementById('ai-verdict-icon');
+        const vTitle = document.getElementById('ai-verdict-title');
+        const vDesc = document.getElementById('ai-verdict-desc');
+        const btnEnter = document.getElementById('btn-enter-academy-chat');
+
+        aiFormPhase?.classList.add('hidden-step');
+        aiVerdictPhase?.classList.add('hidden-step');
+        aiSpinnerPhase?.classList.remove('hidden-step');
+
+        const payload = {
+            age: document.getElementById('app-age')?.value?.trim() || '',
+            city: document.getElementById('app-city')?.value?.trim() || '',
+            country: document.getElementById('app-country')?.value?.trim() || '',
+            occupationType: document.getElementById('app-occupation-type')?.value?.trim() || '',
+            currentJob: document.getElementById('app-job')?.value?.trim() || '',
+            industry: document.getElementById('app-industry')?.value?.trim() || '',
+            monthlyIncomeRange: document.getElementById('app-income-range')?.value?.trim() || '',
+            savingsRange: document.getElementById('app-savings-range')?.value?.trim() || '',
+            incomeSource: document.getElementById('app-income-source')?.value?.trim() || '',
+            businessStage: document.getElementById('app-business-stage')?.value?.trim() || '',
+            sleepHours: document.getElementById('app-sleep-hours')?.value?.trim() || '',
+            energyScore: document.getElementById('app-energy-score')?.value?.trim() || '',
+            exerciseFrequency: document.getElementById('app-exercise-frequency')?.value?.trim() || '',
+            stressScore: document.getElementById('app-stress-score')?.value?.trim() || '',
+            badHabit: document.getElementById('app-bad-habit')?.value?.trim() || '',
+            joinReason: document.getElementById('app-reason')?.value?.trim() || '',
+            seriousness: document.getElementById('app-seriousness')?.value?.trim() || '',
+            weeklyHours: document.getElementById('app-hours')?.value?.trim() || '',
+            goals6mo: document.getElementById('app-goals')?.value?.trim() || '',
+            blockerText: document.getElementById('app-blocker-text')?.value?.trim() || '',
+            coachTone: document.getElementById('app-coach-tone')?.value?.trim() || 'balanced'
+        };
+
+        localStorage.setItem('yh_academy_application_profile', JSON.stringify(payload));
+
+        try {
+            queueAcademyMembershipApplication(payload);
+
+            aiSpinnerPhase?.classList.add('hidden-step');
+            aiVerdictPhase?.classList.remove('hidden-step');
+
+            if (vIcon) vIcon.innerText = "📝";
+            if (vTitle) {
+                vTitle.innerText = "Application Submitted for Review";
+                vTitle.style.color = "var(--neon-blue)";
+            }
+            if (vDesc) {
+                vDesc.innerHTML = `
+                    Your Academy membership application is now pending manual admin review.
+                    <br><br>
+                    Once approved, you will be able to enter the Academy community.
+                    <br><br>
+                    Roadmap access will remain separate.
+                `;
+            }
+
+            if (btnEnter) {
+                btnEnter.style.display = 'block';
+                btnEnter.innerText = "Close ➔";
+                btnEnter.onclick = () => {
+                    closeAcademyLauncher();
+                    aiVerdictPhase?.classList.add('hidden-step');
+                    aiFormPhase?.classList.remove('hidden-step');
+                };
+            }
+
+            formApply.reset();
+            syncAcademyOccupationField();
+        } catch (error) {
+            aiSpinnerPhase?.classList.add('hidden-step');
+            aiFormPhase?.classList.remove('hidden-step');
+            showToast("Failed to submit Academy application.", "error");
+        }
+    });
+}
+
 const roadmapForm = document.getElementById('form-academy-roadmap');
 
 closeRoadmapBtn?.addEventListener('click', closeRoadmapIntake);
@@ -6971,92 +7060,6 @@ if (roadmapForm) {
                 submitBtn.disabled = false;
                 submitBtn.innerText = 'Create My Roadmap ➔';
             }
-        }
-    });
-}
-        const token = localStorage.getItem('yh_token');
-        if (!token) {
-            showToast("Your session expired. Please log in again.", "error");
-            window.location.href = '/';
-            return;
-        }
-
-        const aiFormPhase = document.getElementById('ai-form-phase');
-        const aiSpinnerPhase = document.getElementById('ai-spinner-phase');
-        const aiVerdictPhase = document.getElementById('ai-verdict-phase');
-
-        const vIcon = document.getElementById('ai-verdict-icon');
-        const vTitle = document.getElementById('ai-verdict-title');
-        const vDesc = document.getElementById('ai-verdict-desc');
-        const btnEnter = document.getElementById('btn-enter-academy-chat');
-
-        aiFormPhase?.classList.add('hidden-step');
-        aiVerdictPhase?.classList.add('hidden-step');
-        aiSpinnerPhase?.classList.remove('hidden-step');
-
-        const payload = {
-            age: document.getElementById('app-age')?.value?.trim() || '',
-            city: document.getElementById('app-city')?.value?.trim() || '',
-            country: document.getElementById('app-country')?.value?.trim() || '',
-            occupationType: document.getElementById('app-occupation-type')?.value?.trim() || '',
-            currentJob: document.getElementById('app-job')?.value?.trim() || '',
-            industry: document.getElementById('app-industry')?.value?.trim() || '',
-            monthlyIncomeRange: document.getElementById('app-income-range')?.value?.trim() || '',
-            savingsRange: document.getElementById('app-savings-range')?.value?.trim() || '',
-            incomeSource: document.getElementById('app-income-source')?.value?.trim() || '',
-            businessStage: document.getElementById('app-business-stage')?.value?.trim() || '',
-            sleepHours: document.getElementById('app-sleep-hours')?.value?.trim() || '',
-            energyScore: document.getElementById('app-energy-score')?.value?.trim() || '',
-            exerciseFrequency: document.getElementById('app-exercise-frequency')?.value?.trim() || '',
-            stressScore: document.getElementById('app-stress-score')?.value?.trim() || '',
-            badHabit: document.getElementById('app-bad-habit')?.value?.trim() || '',
-            joinReason: document.getElementById('app-reason')?.value?.trim() || '',
-            seriousness: document.getElementById('app-seriousness')?.value?.trim() || '',
-            weeklyHours: document.getElementById('app-hours')?.value?.trim() || '',
-            goals6mo: document.getElementById('app-goals')?.value?.trim() || '',
-            blockerText: document.getElementById('app-blocker-text')?.value?.trim() || '',
-            coachTone: document.getElementById('app-coach-tone')?.value?.trim() || 'balanced'
-        };
-
-        localStorage.setItem('yh_academy_application_profile', JSON.stringify(payload));
-
-        try {
-            queueAcademyMembershipApplication(payload);
-
-            aiSpinnerPhase?.classList.add('hidden-step');
-            aiVerdictPhase?.classList.remove('hidden-step');
-
-            if (vIcon) vIcon.innerText = "📝";
-            if (vTitle) {
-                vTitle.innerText = "Application Submitted for Review";
-                vTitle.style.color = "var(--neon-blue)";
-            }
-            if (vDesc) {
-                vDesc.innerHTML = `
-                    Your Academy membership application is now pending manual admin review.
-                    <br><br>
-                    Once approved, you will be able to enter the Academy community.
-                    <br><br>
-                    Roadmap access will remain separate.
-                `;
-            }
-
-            if (btnEnter) {
-                btnEnter.style.display = 'block';
-                btnEnter.innerText = "Close ➔";
-                btnEnter.onclick = () => {
-                    closeAcademyLauncher();
-                    aiVerdictPhase?.classList.add('hidden-step');
-                    aiFormPhase?.classList.remove('hidden-step');
-                };
-            }
-
-            formApply.reset();
-            syncAcademyOccupationField();
-        } catch (error) {
-            aiSpinnerPhase?.classList.add('hidden-step');
-            aiFormPhase?.classList.remove('hidden-step');
-            showToast("Failed to submit Academy application.", "error");
         }
     });
 }
