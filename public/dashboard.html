@@ -366,17 +366,23 @@
                     ☰ Academy Menu
                 </button>
 
-                <div class="academy-mobile-nav-menu hidden-step" id="academy-mobile-nav-menu">
-                    <button type="button" class="academy-mobile-nav-item" data-academy-target="nav-missions">🧠 Roadmap</button>
-                    <button type="button" class="academy-mobile-nav-item" data-academy-target="nav-chat">📰 Community Feed</button>
-                </div>
+            <div class="academy-mobile-nav-menu hidden-step" id="academy-mobile-nav-menu">
+                <button type="button" class="academy-mobile-nav-item" data-academy-target="nav-missions">
+                    <span class="academy-mobile-nav-item-main">🧠 Roadmap</span>
+                    <span class="academy-tab-state-badge academy-tab-state-badge-mobile" id="roadmap-tab-state-badge-mobile">Apply for Access</span>
+                </button>
+                <button type="button" class="academy-mobile-nav-item" data-academy-target="nav-chat">📰 Community Feed</button>
+            </div>
             </div>
 
             <ul class="channel-list academy-channel-list">
-                <li class="channel-link" id="nav-missions" title="missions" data-type="missions">
-                    <div class="sidebar-icon"><span class="channel-icon">🧠</span></div>
+            <li class="channel-link" id="nav-missions" title="missions" data-type="missions">
+                <div class="sidebar-icon"><span class="channel-icon">🧠</span></div>
+                <span class="sidebar-text-group">
                     <span class="sidebar-text">Roadmap</span>
-                </li>
+                    <span class="academy-tab-state-badge" id="roadmap-tab-state-badge">Apply for Access</span>
+                </span>
+            </li>
 
                 <li class="channel-link" id="nav-chat" title="community" data-type="main-chat">
                     <div class="sidebar-icon"><span class="channel-icon">📰</span></div>

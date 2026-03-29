@@ -996,7 +996,7 @@ academyMobileNavToggle?.addEventListener('click', function (event) {
 });
 
 document.querySelectorAll('.academy-mobile-nav-item').forEach((button) => {
-    button.addEventListener('click', (event) => {
+    button.addEventListener('click', async (event) => {
         event.preventDefault();
         event.stopPropagation();
 
@@ -1005,13 +1005,31 @@ document.querySelectorAll('.academy-mobile-nav-item').forEach((button) => {
         if (targetId === 'nav-chat') {
             openAcademyFeedView();
         } else if (targetId === 'nav-missions') {
-            openAcademyRoadmapView();
+            const membershipSnapshot = await refreshAcademyMembershipStatus(true);
+            const hasRoadmapAccess = membershipSnapshot?.hasRoadmapAccess === true;
+
+            if (hasRoadmapAccess) {
+                openAcademyRoadmapView();
+            } else {
+                const membershipStatus = String(
+                    membershipSnapshot?.applicationStatus || ''
+                ).trim().toLowerCase();
+
+                if (membershipStatus !== 'approved') {
+                    showToast('Your Academy membership must be approved first.', 'error');
+                } else if (hasRoadmapIntakeAlreadyBeenFilled()) {
+                    showToast('Your Roadmap request is already under review.', 'error');
+                } else {
+                    openRoadmapIntake();
+                }
+            }
         } else if (targetId === 'nav-voice') {
             setAcademySidebarActive('nav-voice');
             openRoom('voice-lobby', document.getElementById('nav-voice'));
         } else if (targetId === 'nav-profile') {
             openAcademyProfileView();
         }
+
         requestAnimationFrame(() => {
             closeAcademyMobileMenu();
         });
@@ -6495,6 +6513,56 @@ function hasRoadmapIntakeAlreadyBeenFilled() {
     return false;
 }
 
+function syncRoadmapTabIndicator(snapshot = null) {
+    const badges = [
+        document.getElementById('roadmap-tab-state-badge'),
+        document.getElementById('roadmap-tab-state-badge-mobile')
+    ].filter(Boolean);
+
+    if (!badges.length) return;
+
+    const membership = snapshot && typeof snapshot === 'object'
+        ? snapshot
+        : (readAcademyMembershipCache() || {});
+
+    const membershipStatus = String(
+        membership?.applicationStatus || ''
+    ).trim().toLowerCase();
+
+    const roadmapStatus = String(
+        membership?.roadmapApplicationStatus || ''
+    ).trim().toLowerCase();
+
+    const hasRoadmapAccess = membership?.hasRoadmapAccess === true;
+
+    badges.forEach((badge) => {
+        badge.classList.remove('is-pending', 'is-unlocked', 'is-hidden');
+
+        if (membershipStatus !== 'approved') {
+            badge.textContent = 'Locked';
+            return;
+        }
+
+        if (hasRoadmapAccess) {
+            badge.textContent = 'Unlocked';
+            badge.classList.add('is-unlocked');
+            return;
+        }
+
+        if (
+            roadmapStatus === 'under review' ||
+            roadmapStatus === 'new' ||
+            localStorage.getItem(YH_ROADMAP_LOCK_KEY) === 'true'
+        ) {
+            badge.textContent = 'Pending Review';
+            badge.classList.add('is-pending');
+            return;
+        }
+
+        badge.textContent = 'Apply for Access';
+    });
+}
+
 function openRoadmapIntake() {
     if (!roadmapModal) return;
     roadmapModal.classList.remove('hidden-step');
@@ -6588,10 +6656,11 @@ function writeAcademyMembershipCache(snapshot = null) {
 async function refreshAcademyMembershipStatus(force = false) {
     const cached = readAcademyMembershipCache();
 
-    if (!force && cached && typeof cached === 'object') {
-        syncAcademyEntryButton(cached);
-        return cached;
-    }
+if (!force && cached && typeof cached === 'object') {
+    syncAcademyEntryButton(cached);
+    syncRoadmapTabIndicator(cached);
+    return cached;
+}
 
     try {
         const result = await academyAuthedFetch('/api/academy/membership-status', {
@@ -6614,6 +6683,7 @@ async function refreshAcademyMembershipStatus(force = false) {
 
         writeAcademyMembershipCache(snapshot);
         syncAcademyEntryButton(snapshot);
+        syncRoadmapTabIndicator(snapshot);
 
         if (snapshot.application) {
             writeYhAdminPanelState({
@@ -6640,6 +6710,7 @@ async function refreshAcademyMembershipStatus(force = false) {
         };
 
         syncAcademyEntryButton(fallback);
+        syncRoadmapTabIndicator(fallback);
         return fallback;
     }
 }
