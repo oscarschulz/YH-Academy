@@ -206,30 +206,55 @@ async function buildAdminBootstrapPayload() {
     };
   });
 
-  const applications = users
-    .filter((user) => {
-      const app = user.academyApplication;
-      return app && typeof app === 'object';
-    })
-    .map((user) => {
-      const app = user.academyApplication || {};
-      return {
-        id: cleanText(app.id || `APP-${user.id}`),
-        name: cleanText(user.fullName || user.name || user.displayName || user.username || 'Unknown User'),
-        email: cleanText(user.email || ''),
-        goal: cleanText(app.goal || app.goals6mo || ''),
-        background: cleanText(app.background || app.currentJob || app.industry || ''),
-        recommendedDivision: cleanText(app.recommendedDivision || 'Academy'),
-        status: cleanText(app.status || 'Under Review'),
-        aiScore: toNumber(app.aiScore, 0),
-        country: cleanText(app.country || app.location || ''),
-        skills: Array.isArray(app.skills) ? app.skills : [],
-        networkValue: cleanText(app.networkValue || ''),
-        source: cleanText(app.source || 'Academy Application'),
-        submittedAt: toIso(app.submittedAt || user.createdAt) || '',
-        notes: Array.isArray(app.notes) ? app.notes : []
-      };
+const applications = users.flatMap((user) => {
+  const output = [];
+
+  if (user.academyApplication && typeof user.academyApplication === 'object') {
+    const app = user.academyApplication;
+    output.push({
+      id: cleanText(app.id || `APP-${user.id}`),
+      name: cleanText(user.fullName || user.name || user.displayName || user.username || 'Unknown User'),
+      email: cleanText(user.email || ''),
+      goal: cleanText(app.goal || ''),
+      background: cleanText(app.background || ''),
+      recommendedDivision: cleanText(app.recommendedDivision || 'Academy'),
+      status: cleanText(app.status || 'Under Review'),
+      aiScore: toNumber(app.aiScore, 0),
+      country: cleanText(app.country || ''),
+      skills: Array.isArray(app.skills) ? app.skills : [],
+      networkValue: cleanText(app.networkValue || ''),
+      source: cleanText(app.source || 'Academy Application'),
+      submittedAt: toIso(app.submittedAt) || cleanText(app.submittedAt || ''),
+      notes: Array.isArray(app.notes) ? app.notes : [],
+      applicationType: cleanText(app.applicationType || 'academy-membership'),
+      reviewLane: cleanText(app.reviewLane || 'Academy Membership')
     });
+  }
+
+  if (user.roadmapApplication && typeof user.roadmapApplication === 'object') {
+    const app = user.roadmapApplication;
+    output.push({
+      id: cleanText(app.id || `RMAP-${user.id}`),
+      name: cleanText(user.fullName || user.name || user.displayName || user.username || 'Unknown User'),
+      email: cleanText(user.email || ''),
+      goal: cleanText(app.goal || ''),
+      background: cleanText(app.background || ''),
+      recommendedDivision: cleanText(app.recommendedDivision || 'Academy'),
+      status: cleanText(app.status || 'Under Review'),
+      aiScore: toNumber(app.aiScore, 0),
+      country: cleanText(app.country || ''),
+      skills: Array.isArray(app.skills) ? app.skills : [],
+      networkValue: cleanText(app.networkValue || ''),
+      source: cleanText(app.source || 'Roadmap Application'),
+      submittedAt: toIso(app.submittedAt) || cleanText(app.submittedAt || ''),
+      notes: Array.isArray(app.notes) ? app.notes : [],
+      applicationType: cleanText(app.applicationType || 'academy-roadmap'),
+      reviewLane: cleanText(app.reviewLane || 'Roadmap Access')
+    });
+  }
+
+  return output;
+});
 
   const academy = [];
   for (const member of members) {

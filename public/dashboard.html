@@ -795,174 +795,63 @@
     </div>
 </div>
 <form id="form-academy-apply">
-    <div class="form-row">
-        <div class="form-group w-full mb-small">
-            <label>Age</label>
-            <input type="number" id="app-age" required class="input-field">
-        </div>
-        <div class="form-group w-full mb-small">
-            <label>Country of Residence</label>
-            <input type="text" id="app-country" required class="input-field">
-        </div>
-    </div>
-
-    <div class="form-row">
-        <div class="form-group w-full mb-small">
-            <label>City / Current Location</label>
-            <input type="text" id="app-city" class="input-field" placeholder="e.g. Quezon City">
-        </div>
-        <div class="form-group w-full mb-small">
-            <label>Occupation Type</label>
-            <select id="app-occupation-type" class="input-field styled-select">
-                <option value="" selected>Select type...</option>
-                <option value="Student">Student</option>
-                <option value="Employed">Employed</option>
-                <option value="Freelancer">Freelancer</option>
-                <option value="Business Owner">Business Owner</option>
-                <option value="Unemployed">Unemployed</option>
-            </select>
-        </div>
-    </div>
-
-<div class="form-group mb-small">
-    <label id="app-job-label">Current Job / Business</label>
-    <input
-        type="text"
-        id="app-job"
-        required
-        class="input-field"
-        placeholder="What do you currently do?"
-        aria-label="Current Job / Business"
-    >
-</div>
-
-    <div class="form-row">
-        <div class="form-group w-full mb-small">
-            <label>Industry / Niche</label>
-            <input type="text" id="app-industry" class="input-field" placeholder="e.g. Design, E-commerce, Sales">
-        </div>
-        <div class="form-group w-full mb-small">
-            <label>Main Income Source</label>
-            <input type="text" id="app-income-source" class="input-field" placeholder="e.g. Salary, clients, business">
-        </div>
-    </div>
-
-    <div class="form-row">
-        <div class="form-group w-full mb-small">
-            <label>Monthly Income Range</label>
-            <select id="app-income-range" class="input-field styled-select">
-                <option value="" selected>Select range...</option>
-                <option value="No income">No income</option>
-                <option value="Below $100">Below $100</option>
-                <option value="$100 - $300">$100 - $300</option>
-                <option value="$300 - $800">$300 - $800</option>
-                <option value="$800 - $1500">$800 - $1500</option>
-                <option value="$1500+">$1500+</option>
-            </select>
-        </div>
-        <div class="form-group w-full mb-small">
-            <label>Savings Range</label>
-            <select id="app-savings-range" class="input-field styled-select">
-                <option value="" selected>Select range...</option>
-                <option value="No savings">No savings</option>
-                <option value="Below $100">Below $100</option>
-                <option value="$100 - $500">$100 - $500</option>
-                <option value="$500 - $2000">$500 - $2000</option>
-                <option value="$2000+">$2000+</option>
-            </select>
-        </div>
-    </div>
-
-    <div class="form-row">
-        <div class="form-group w-full mb-small">
-            <label>Business Stage</label>
-            <select id="app-business-stage" class="input-field styled-select">
-                <option value="" selected>Select stage...</option>
-                <option value="None yet">None yet</option>
-                <option value="Idea stage">Idea stage</option>
-                <option value="Just starting">Just starting</option>
-                <option value="Getting first results">Getting first results</option>
-                <option value="Stable and growing">Stable and growing</option>
-            </select>
-        </div>
-        <div class="form-group w-full mb-small">
-            <label>Hours you can commit weekly</label>
-            <input type="number" min="1" id="app-hours" required class="input-field" placeholder="e.g. 10">
-        </div>
-    </div>
-
-    <div class="form-row">
-        <div class="form-group w-full mb-small">
-            <label>Sleep Hours</label>
-            <input type="number" step="0.5" min="0" max="24" id="app-sleep-hours" class="input-field" placeholder="e.g. 6.5">
-        </div>
-        <div class="form-group w-full mb-small">
-            <label>Energy Score (1-10)</label>
-            <input type="number" min="1" max="10" id="app-energy-score" class="input-field" placeholder="1 - 10">
-        </div>
-    </div>
-
-    <div class="form-row">
-        <div class="form-group w-full mb-small">
-            <label>Exercise Frequency</label>
-            <select id="app-exercise-frequency" class="input-field styled-select">
-                <option value="" selected>Select frequency...</option>
-                <option value="Never">Never</option>
-                <option value="Rarely">Rarely</option>
-                <option value="1-2 times a week">1-2 times a week</option>
-                <option value="3-4 times a week">3-4 times a week</option>
-                <option value="5+ times a week">5+ times a week</option>
-            </select>
-        </div>
-        <div class="form-group w-full mb-small">
-            <label>Stress Score (1-10)</label>
-            <input type="number" min="1" max="10" id="app-stress-score" class="input-field" placeholder="1 - 10">
-        </div>
+    <div class="form-group mb-small">
+        <label>Why do you want access to YH Academy right now?</label>
+        <textarea id="app-why-now" required class="input-field" rows="2" placeholder="Why now? What changed? Why are you applying at this point in your life?"></textarea>
     </div>
 
     <div class="form-group mb-small">
-        <label>Biggest Bad Habit</label>
-        <input type="text" id="app-bad-habit" class="input-field" placeholder="e.g. sleeping late, procrastination, distractions">
+        <label>What is the main result you want from The Academy in the next 90 days?</label>
+        <textarea id="app-main-goal" required class="input-field" rows="2" placeholder="What exact outcome do you want if accepted?"></textarea>
     </div>
 
     <div class="form-group mb-small">
-        <label>Why do you want to join The Academy?</label>
-        <textarea id="app-reason" required class="input-field" rows="2" placeholder="Why do you want access?"></textarea>
+        <label>What proof can you give that you are serious and not just curious?</label>
+        <textarea id="app-proof-work" required class="input-field" rows="2" placeholder="Mention current discipline, work ethic, routines, past effort, or anything that proves seriousness."></textarea>
     </div>
 
     <div class="form-group mb-small">
-        <label>What are your goals in the next 6 months?</label>
-        <textarea id="app-goals" required class="input-field" rows="2" placeholder="Describe your wealth, health, or life goals"></textarea>
-    </div>
-
-    <div class="form-group mb-small">
-        <label>What usually stops you from improving consistently?</label>
-        <textarea id="app-blocker-text" class="input-field" rows="2" placeholder="e.g. inconsistency, fear, distractions, no plan"></textarea>
+        <label>What are you willing to sacrifice or change to grow inside the Academy?</label>
+        <textarea id="app-sacrifice" required class="input-field" rows="2" placeholder="What habits, distractions, excuses, or comforts are you ready to cut off?"></textarea>
     </div>
 
     <div class="form-row">
         <div class="form-group w-full mb-small">
-            <label>Rate your seriousness</label>
+            <label>How serious are you about being accepted?</label>
             <select id="app-seriousness" required class="input-field styled-select">
-                <option value="" disabled selected>Select status...</option>
+                <option value="" disabled selected>Select status.</option>
                 <option value="Very Serious">Very Serious</option>
+                <option value="Serious but need structure">Serious but need structure</option>
                 <option value="Looking to learn">Looking to learn</option>
                 <option value="Just Curious">Just Curious</option>
             </select>
         </div>
+
         <div class="form-group w-full mb-small">
-            <label>Preferred Coach Tone</label>
-            <select id="app-coach-tone" class="input-field styled-select">
-                <option value="balanced" selected>Balanced</option>
-                <option value="strict">Strict</option>
-                <option value="supportive">Supportive</option>
+            <label>How many hours per week will you commit if accepted?</label>
+            <select id="app-hours" required class="input-field styled-select">
+                <option value="" disabled selected>Select hours.</option>
+                <option value="Less than 3">Less than 3</option>
+                <option value="3-5">3-5</option>
+                <option value="6-10">6-10</option>
+                <option value="10+">10+</option>
             </select>
         </div>
     </div>
 
-<button type="submit" id="btn-submit-ai" class="btn-primary w-full mt-small" style="padding: 12px; font-size: 1.1rem;">
-    Submit Academy Application ➔
-</button>
+    <div class="form-group mb-small">
+        <label>What is the one trait or standard that makes you a good fit for YH Academy?</label>
+        <textarea id="app-nonnegotiable" required class="input-field" rows="2" placeholder="Discipline, hunger, consistency, obedience, resilience, execution, etc."></textarea>
+    </div>
+
+    <div class="form-group mb-small">
+        <label>Anything else the admin should know before reviewing your application?</label>
+        <textarea id="app-admin-note" class="input-field" rows="2" placeholder="Optional extra context for the admin review."></textarea>
+    </div>
+
+    <button type="submit" id="btn-submit-ai" class="btn-primary w-full mt-small" style="padding: 12px; font-size: 1.1rem;">
+        Submit Academy Application ➔
+    </button>
 </form>
             </div>
 

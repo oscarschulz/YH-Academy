@@ -1909,33 +1909,20 @@ exports.submitMembershipApplication = async (req, res) => {
         }
 
         const academyProfile = {
-            age: sanitize(req.body?.age || ''),
-            city: sanitize(req.body?.city || ''),
-            country: sanitize(req.body?.country || ''),
-            occupationType: sanitize(req.body?.occupationType || ''),
-            currentJob: sanitize(req.body?.currentJob || ''),
-            industry: sanitize(req.body?.industry || ''),
-            monthlyIncomeRange: sanitize(req.body?.monthlyIncomeRange || ''),
-            savingsRange: sanitize(req.body?.savingsRange || ''),
-            incomeSource: sanitize(req.body?.incomeSource || ''),
-            businessStage: sanitize(req.body?.businessStage || ''),
-            sleepHours: sanitize(req.body?.sleepHours || ''),
-            energyScore: sanitize(req.body?.energyScore || ''),
-            exerciseFrequency: sanitize(req.body?.exerciseFrequency || ''),
-            stressScore: sanitize(req.body?.stressScore || ''),
-            badHabit: sanitize(req.body?.badHabit || ''),
-            joinReason: sanitize(req.body?.joinReason || ''),
+            whyNow: sanitize(req.body?.whyNow || ''),
+            mainGoal: sanitize(req.body?.mainGoal || ''),
+            proofWork: sanitize(req.body?.proofWork || ''),
+            sacrifice: sanitize(req.body?.sacrifice || ''),
             seriousness: sanitize(req.body?.seriousness || ''),
             weeklyHours: sanitize(req.body?.weeklyHours || ''),
-            goals6mo: sanitize(req.body?.goals6mo || ''),
-            blockerText: sanitize(req.body?.blockerText || ''),
-            coachTone: sanitize(req.body?.coachTone || 'balanced')
+            nonNegotiable: sanitize(req.body?.nonNegotiable || ''),
+            adminNote: sanitize(req.body?.adminNote || '')
         };
 
         const background = [
-            academyProfile.occupationType,
-            academyProfile.currentJob,
-            academyProfile.industry
+            academyProfile.proofWork,
+            academyProfile.sacrifice,
+            academyProfile.nonNegotiable
         ].filter(Boolean).join(' • ');
 
         const nowIso = new Date().toISOString();
@@ -1950,14 +1937,14 @@ exports.submitMembershipApplication = async (req, res) => {
             name: displayName,
             username,
             email,
-            goal: academyProfile.joinReason || 'Academy membership application',
-            background: background || 'No background submitted.',
+            goal: academyProfile.mainGoal || academyProfile.whyNow || 'Academy membership application',
+            background: background || 'No seriousness summary submitted.',
             aiScore: toInt(existingApplication?.aiScore, 0),
-            country: academyProfile.country || '',
+            country: '',
             skills: [
-                academyProfile.industry,
-                academyProfile.incomeSource,
-                academyProfile.businessStage
+                academyProfile.seriousness,
+                academyProfile.weeklyHours,
+                academyProfile.nonNegotiable
             ].filter(Boolean),
             networkValue: sanitize(existingApplication?.networkValue || 'Unknown'),
             submittedAt: existingApplication?.submittedAt || nowIso,
@@ -2015,28 +2002,33 @@ exports.getMembershipStatus = async (req, res) => {
                 ? userData.academyApplication
                 : null;
 
+        const roadmapApplication =
+            userData.roadmapApplication && typeof userData.roadmapApplication === 'object'
+                ? userData.roadmapApplication
+                : null;
+
         const applicationStatus = sanitize(application?.status).toLowerCase();
+        const roadmapApplicationStatus = sanitize(roadmapApplication?.status).toLowerCase();
 
         let hasRoadmapAccess = false;
         try {
             const accessState = await academyFirestoreRepo.getAccessState(uid);
-            const homePayload = await academyFirestoreRepo.buildAcademyHomePayload(uid);
-
-            hasRoadmapAccess = Boolean(
-                accessState?.accessState === 'unlocked' ||
-                (homePayload?.success && homePayload?.roadmap)
-            );
+            hasRoadmapAccess = accessState?.accessState === 'unlocked';
         } catch (_) {
             hasRoadmapAccess = false;
         }
 
-        const canEnterAcademy = hasRoadmapAccess || applicationStatus === 'approved';
+        const canEnterAcademy =
+            applicationStatus === 'approved' ||
+            hasRoadmapAccess === true;
 
         return res.json({
             success: true,
             hasApplication: Boolean(application),
             application,
             applicationStatus,
+            roadmapApplication,
+            roadmapApplicationStatus,
             hasRoadmapAccess,
             canEnterAcademy
         });
@@ -2180,6 +2172,159 @@ exports.getInternalRoadmapTelemetry = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: 'Server error while loading roadmap telemetry.'
+        });
+    }
+};
+exports.submitRoadmapApplication = async (req, res) => {
+    try {
+        const uid = getAcademyAuthUid(req);
+
+        if (!uid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const userRef = firestore.collection('users').doc(uid);
+        const userSnapshot = await userRef.get();
+        const userData = userSnapshot.exists ? (userSnapshot.data() || {}) : {};
+
+        const academyApplication =
+            userData.academyApplication && typeof userData.academyApplication === 'object'
+                ? userData.academyApplication
+                : null;
+
+        const academyStatus = sanitize(academyApplication?.status).toLowerCase();
+
+        if (academyStatus !== 'approved') {
+            return res.status(403).json({
+                success: false,
+                message: 'Academy membership must be approved before roadmap application.'
+            });
+        }
+
+        const existingRoadmapApplication =
+            userData.roadmapApplication && typeof userData.roadmapApplication === 'object'
+                ? userData.roadmapApplication
+                : null;
+
+        if (existingRoadmapApplication) {
+            return res.json({
+                success: true,
+                alreadyExists: true,
+                roadmapApplication: existingRoadmapApplication
+            });
+        }
+
+        const roadmapIntake = {
+            focusArea: sanitize(req.body?.focusArea || ''),
+            currentLevel: sanitize(req.body?.currentLevel || ''),
+            target30Days: sanitize(req.body?.target30Days || ''),
+            dailyMinutes: sanitize(req.body?.dailyMinutes || ''),
+            weeklyHours: sanitize(req.body?.weeklyHours || ''),
+            sleepHours: sanitize(req.body?.sleepHours || ''),
+            energyScore: sanitize(req.body?.energyScore || ''),
+            stressScore: sanitize(req.body?.stressScore || ''),
+            badHabit: sanitize(req.body?.badHabit || ''),
+            blockerText: sanitize(req.body?.blockerText || ''),
+            coachTone: sanitize(req.body?.coachTone || 'balanced'),
+            firstQuickWin: sanitize(req.body?.firstQuickWin || ''),
+            submittedAt: sanitize(req.body?.submittedAt || new Date().toISOString())
+        };
+
+        const storedProfile = await academyFirestoreRepo.getCurrentProfile(uid) || {};
+
+        const mergedProfile = {
+            id: 'roadmap-application',
+            uid,
+            ...storedProfile,
+            ...normalizeProfile({
+                ...storedProfile,
+                sleepHours: roadmapIntake.sleepHours,
+                energyScore: roadmapIntake.energyScore,
+                stressScore: roadmapIntake.stressScore,
+                badHabit: roadmapIntake.badHabit,
+                weeklyHours: roadmapIntake.weeklyHours,
+                blockerText: roadmapIntake.blockerText,
+                coachTone: roadmapIntake.coachTone,
+                goals6mo: roadmapIntake.target30Days
+            }),
+            topPriorityPillar: roadmapIntake.focusArea,
+            biggestImmediateProblem: roadmapIntake.blockerText,
+            next30DaysWin: roadmapIntake.target30Days,
+            preferredWorkStyle: roadmapIntake.currentLevel,
+            accountabilityStyle: roadmapIntake.coachTone,
+            firstQuickWin: roadmapIntake.firstQuickWin,
+            seriousness: sanitize(
+                storedProfile?.seriousness ||
+                academyApplication?.academyProfile?.seriousness ||
+                ''
+            )
+        };
+
+        const plannerResult = await generateAndPersistPlanFirestore(uid, mergedProfile, {
+            mode: 'roadmap_application_pending_review',
+            trigger: 'roadmap_application'
+        });
+
+        const nowIso = new Date().toISOString();
+
+        const roadmapApplication = {
+            id: `RMAP-${Date.now().toString().slice(-8)}`,
+            applicationType: 'academy-roadmap',
+            reviewLane: 'Roadmap Access',
+            status: 'Under Review',
+            recommendedDivision: 'Academy',
+            source: 'Roadmap Tab',
+            name: sanitize(userData.fullName || userData.name || userData.displayName || userData.username || 'Hustler'),
+            username: sanitize(userData.username || ''),
+            email: sanitize(userData.email || '').toLowerCase(),
+            goal: roadmapIntake.target30Days || roadmapIntake.focusArea || 'Roadmap application',
+            background: [
+                roadmapIntake.currentLevel,
+                roadmapIntake.blockerText,
+                roadmapIntake.firstQuickWin
+            ].filter(Boolean).join(' • ') || 'No roadmap summary submitted.',
+            aiScore: 0,
+            country: sanitize(storedProfile?.country || ''),
+            skills: [
+                roadmapIntake.focusArea,
+                roadmapIntake.currentLevel,
+                roadmapIntake.coachTone
+            ].filter(Boolean),
+            networkValue: 'Unknown',
+            submittedAt: nowIso,
+            updatedAt: nowIso,
+            notes: [
+                'Submitted from Roadmap tab.',
+                'AI roadmap prebuilt and waiting for admin review.'
+            ],
+            roadmapIntake,
+            pendingRoadmapId: plannerResult?.roadmapId || '',
+            pendingCreatedByModel: plannerResult?.createdByModel || ''
+        };
+
+        await userRef.set(
+            {
+                roadmapApplication,
+                roadmapApplicationStatus: roadmapApplication.status,
+                roadmapApplicationSubmittedAt: roadmapApplication.submittedAt,
+                updatedAt: nowIso
+            },
+            { merge: true }
+        );
+
+        return res.status(201).json({
+            success: true,
+            alreadyExists: false,
+            roadmapApplication
+        });
+    } catch (error) {
+        console.error('submitRoadmapApplication error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to submit roadmap application.'
         });
     }
 };

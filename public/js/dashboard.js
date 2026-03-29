@@ -436,26 +436,7 @@ function sendSystemNotification(title, text, avatarStr, color, target) {
         }
     }
 }
-window.handleAcademyLaunchClick = function(event) {
-    if (event) {
-        event.preventDefault?.();
-        event.stopPropagation?.();
-    }
 
-    const hasAcademyAccess = localStorage.getItem('yh_academy_access') === 'true';
-
-    if (hasAcademyAccess && typeof window.enterAcademyWorld === 'function') {
-        window.enterAcademyWorld('missions');
-        return false;
-    }
-
-    if (typeof window.openAcademyLauncher === 'function') {
-        window.openAcademyLauncher();
-        return false;
-    }
-
-    return false;
-};
 // ==========================================
 // MAIN DASHBOARD LOGIC (ON LOAD)
 // ==========================================
@@ -936,10 +917,33 @@ document.getElementById('nav-profile')?.addEventListener('click', function(event
     openAcademyProfileView();
 });
 
-document.getElementById('nav-missions')?.addEventListener('click', function(event) {
+document.getElementById('nav-missions')?.addEventListener('click', async function(event) {
     event.preventDefault();
     event.stopPropagation();
-    openAcademyRoadmapView();
+
+    const membershipSnapshot = await refreshAcademyMembershipStatus(true);
+    const hasRoadmapAccess = await resolveAcademyAccessState();
+
+    if (hasRoadmapAccess || membershipSnapshot?.hasRoadmapAccess) {
+        openAcademyRoadmapView();
+        return;
+    }
+
+    const membershipStatus = String(
+        membershipSnapshot?.applicationStatus || getCurrentAcademyMembershipStatus()
+    ).trim().toLowerCase();
+
+    if (membershipStatus !== 'approved') {
+        showToast('Your Academy membership must be approved first.', 'error');
+        return;
+    }
+
+    if (hasRoadmapIntakeAlreadyBeenFilled()) {
+        showToast('Your Roadmap request is already under review.', 'error');
+        return;
+    }
+
+    openRoadmapIntake();
 });
 function safeParseJson(value, fallback = null) {
     if (value === null || value === undefined) return fallback;
@@ -6489,7 +6493,13 @@ function readRoadmapProfileCache() {
 }
 
 function hasRoadmapIntakeAlreadyBeenFilled() {
-    if (localStorage.getItem('yh_academy_access') === 'true') return true;
+    const cached = readAcademyMembershipCache();
+
+    if (cached?.hasRoadmapAccess) return true;
+
+    const roadmapStatus = String(cached?.roadmapApplicationStatus || '').trim().toLowerCase();
+    if (roadmapStatus) return true;
+
     if (localStorage.getItem(YH_ROADMAP_LOCK_KEY) === 'true') return true;
     return false;
 }
@@ -6517,8 +6527,8 @@ function maybeOpenPostAuthAcademyApplication() {
 }
 
 function maybeOpenRoadmapIntakeOnce() {
-    if (hasRoadmapIntakeAlreadyBeenFilled()) return;
-    openRoadmapIntake();
+    // Roadmap intake should no longer auto-open on Academy entry.
+    // It should only open when the user explicitly clicks the Roadmap tab.
 }
 
 function resetAcademyLauncherState() {
@@ -6596,15 +6606,19 @@ async function refreshAcademyMembershipStatus(force = false) {
             method: 'GET'
         });
 
-        const snapshot = {
-            hasApplication: Boolean(result?.hasApplication),
-            applicationStatus: String(result?.applicationStatus || '').trim().toLowerCase(),
-            hasRoadmapAccess: result?.hasRoadmapAccess === true,
-            canEnterAcademy: result?.canEnterAcademy === true,
-            application: result?.application && typeof result.application === 'object'
-                ? result.application
-                : null
-        };
+const snapshot = {
+    hasApplication: Boolean(result?.hasApplication),
+    applicationStatus: String(result?.applicationStatus || '').trim().toLowerCase(),
+    hasRoadmapAccess: result?.hasRoadmapAccess === true,
+    canEnterAcademy: result?.canEnterAcademy === true,
+    application: result?.application && typeof result.application === 'object'
+        ? result.application
+        : null,
+    roadmapApplication: result?.roadmapApplication && typeof result.roadmapApplication === 'object'
+        ? result.roadmapApplication
+        : null,
+    roadmapApplicationStatus: String(result?.roadmapApplicationStatus || '').trim().toLowerCase()
+};
 
         writeAcademyMembershipCache(snapshot);
 
@@ -6767,7 +6781,7 @@ async function handleAcademyLaunchClick(event) {
             } catch (_) {}
         }
 
-        enterAcademyWorld('missions');
+        enterAcademyWorld('community');
         return false;
     }
 
@@ -6776,16 +6790,10 @@ const membershipStatus = String(
 ).trim().toLowerCase();
 
 if (membershipStatus === 'approved') {
-    showToast('Academy membership approved. Opening your Academy shell.', 'success');
-    enterAcademyWorld('missions');
-
-    setTimeout(() => {
-        maybeOpenRoadmapIntakeOnce();
-    }, 180);
-
+    showToast('Academy membership approved. Opening Community Feed.', 'success');
+    enterAcademyWorld('community');
     return false;
 }
-
 if (membershipStatus === 'under review' || membershipStatus === 'new') {
     showToast('Your Academy application is already under review.', 'error');
     return false;
@@ -6928,33 +6936,10 @@ syncUniverseFeaturePanel('academy');
 setUniverseSlide('academy', { animate: false });
 
 const formApply = document.getElementById('form-academy-apply');
-const academyOccupationTypeInput = document.getElementById('app-occupation-type');
-const academyJobLabel = document.getElementById('app-job-label');
-const academyJobInput = document.getElementById('app-job');
-
 function syncAcademyOccupationField() {
-    const occupationValue = String(academyOccupationTypeInput?.value || '').trim().toLowerCase();
-    const isStudent = occupationValue === 'student';
-
-    if (academyJobLabel) {
-        academyJobLabel.innerText = isStudent ? 'Field of Studies' : 'Current Job / Business';
-    }
-
-    if (academyJobInput) {
-        academyJobInput.placeholder = isStudent
-            ? 'e.g. Political Science, Computer Science'
-            : 'What do you currently do?';
-
-        academyJobInput.setAttribute(
-            'aria-label',
-            isStudent ? 'Field of Studies' : 'Current Job / Business'
-        );
-    }
+    // Academy membership form is now seriousness-based.
+    // No occupation/job field remapping is needed here anymore.
 }
-
-academyOccupationTypeInput?.addEventListener('change', syncAcademyOccupationField);
-academyOccupationTypeInput?.addEventListener('input', syncAcademyOccupationField);
-syncAcademyOccupationField();
 const escapeHtml = (value) => {
     if (value === null || value === undefined) return '';
     return String(value)
@@ -6992,29 +6977,16 @@ if (formApply) {
         aiVerdictPhase?.classList.add('hidden-step');
         aiSpinnerPhase?.classList.remove('hidden-step');
 
-        const payload = {
-            age: document.getElementById('app-age')?.value?.trim() || '',
-            city: document.getElementById('app-city')?.value?.trim() || '',
-            country: document.getElementById('app-country')?.value?.trim() || '',
-            occupationType: document.getElementById('app-occupation-type')?.value?.trim() || '',
-            currentJob: document.getElementById('app-job')?.value?.trim() || '',
-            industry: document.getElementById('app-industry')?.value?.trim() || '',
-            monthlyIncomeRange: document.getElementById('app-income-range')?.value?.trim() || '',
-            savingsRange: document.getElementById('app-savings-range')?.value?.trim() || '',
-            incomeSource: document.getElementById('app-income-source')?.value?.trim() || '',
-            businessStage: document.getElementById('app-business-stage')?.value?.trim() || '',
-            sleepHours: document.getElementById('app-sleep-hours')?.value?.trim() || '',
-            energyScore: document.getElementById('app-energy-score')?.value?.trim() || '',
-            exerciseFrequency: document.getElementById('app-exercise-frequency')?.value?.trim() || '',
-            stressScore: document.getElementById('app-stress-score')?.value?.trim() || '',
-            badHabit: document.getElementById('app-bad-habit')?.value?.trim() || '',
-            joinReason: document.getElementById('app-reason')?.value?.trim() || '',
-            seriousness: document.getElementById('app-seriousness')?.value?.trim() || '',
-            weeklyHours: document.getElementById('app-hours')?.value?.trim() || '',
-            goals6mo: document.getElementById('app-goals')?.value?.trim() || '',
-            blockerText: document.getElementById('app-blocker-text')?.value?.trim() || '',
-            coachTone: document.getElementById('app-coach-tone')?.value?.trim() || 'balanced'
-        };
+const payload = {
+    whyNow: document.getElementById('app-why-now')?.value?.trim() || '',
+    mainGoal: document.getElementById('app-main-goal')?.value?.trim() || '',
+    proofWork: document.getElementById('app-proof-work')?.value?.trim() || '',
+    sacrifice: document.getElementById('app-sacrifice')?.value?.trim() || '',
+    seriousness: document.getElementById('app-seriousness')?.value?.trim() || '',
+    weeklyHours: document.getElementById('app-hours')?.value?.trim() || '',
+    nonNegotiable: document.getElementById('app-nonnegotiable')?.value?.trim() || '',
+    adminNote: document.getElementById('app-admin-note')?.value?.trim() || ''
+};
 
 try {
     const result = await academyAuthedFetch('/api/academy/membership-apply', {
@@ -7127,43 +7099,49 @@ if (roadmapForm) {
             submittedAt: new Date().toISOString()
         };
 
-        try {
-            localStorage.setItem(YH_ROADMAP_PROFILE_KEY, JSON.stringify(payload));
+try {
+    localStorage.setItem(YH_ROADMAP_PROFILE_KEY, JSON.stringify(payload));
 
-            const result = await academyAuthedFetch('/api/academy/roadmap/refresh', {
-                method: 'POST',
-                body: JSON.stringify({
-                    roadmapIntake: payload
-                })
-            });
+    const result = await academyAuthedFetch('/api/academy/roadmap-apply', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    });
 
-            const nextHome = result?.home || readAcademyHomeCache();
+    const roadmapApplication =
+        result?.roadmapApplication && typeof result.roadmapApplication === 'object'
+            ? result.roadmapApplication
+            : null;
 
-            if (nextHome) {
-                persistAcademyAccessState(true, nextHome);
-                persistAcademyHome(nextHome);
-            }
+    const membershipSnapshot = await refreshAcademyMembershipStatus(true);
 
-            localStorage.setItem(YH_ROADMAP_LOCK_KEY, 'true');
+    writeAcademyMembershipCache({
+        ...(membershipSnapshot || {}),
+        roadmapApplication,
+        roadmapApplicationStatus: String(
+            roadmapApplication?.status || 'Under Review'
+        ).trim().toLowerCase(),
+        hasRoadmapAccess: false
+    });
 
-            closeRoadmapIntake();
-            enterAcademyWorld('missions');
-            await loadAcademyHome(true);
+    localStorage.setItem(YH_ROADMAP_LOCK_KEY, 'true');
 
-            showToast('Roadmap created successfully.', 'success');
-        } catch (error) {
-            localStorage.removeItem(YH_ROADMAP_LOCK_KEY);
+    closeRoadmapIntake();
+    enterAcademyWorld('community');
 
-            showToast(
-                error.message || 'Roadmap intake was saved as draft, but backend roadmap generation still needs to accept roadmapIntake.',
-                'error'
-            );
-        } finally {
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.innerText = 'Create My Roadmap ➔';
-            }
-        }
+    showToast('Roadmap application submitted for admin review.', 'success');
+} catch (error) {
+    localStorage.removeItem(YH_ROADMAP_LOCK_KEY);
+
+    showToast(
+        error.message || 'Failed to submit roadmap application.',
+        'error'
+    );
+} finally {
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerText = 'Submit Roadmap Request ➔';
+    }
+}
     });
 }
 
