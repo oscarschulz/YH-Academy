@@ -1,5 +1,6 @@
 const academyFirestoreRepo = require('./backend/repositories/academyFirestoreRepo');
 const academyPlannerKnowledgeContext = require('./backend/services/academyPlannerKnowledgeContext');
+const { firestore } = require('./config/firebaseAdmin');
 const sanitize = (value) => {
     if (value === null || value === undefined) return '';
     return String(value).replace(/</g, '&lt;').replace(/>/g, '&gt;').trim();
@@ -1863,7 +1864,140 @@ return res.json({
         });
     }
 };
+exports.submitMembershipApplication = async (req, res) => {
+    try {
+        const uid = getAcademyAuthUid(req);
 
+        if (!uid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const userRef = firestore.collection('users').doc(uid);
+        const userSnapshot = await userRef.get();
+        const userData = userSnapshot.exists ? (userSnapshot.data() || {}) : {};
+
+        const displayName = sanitize(
+            req.user?.name ||
+            req.user?.fullName ||
+            userData.fullName ||
+            userData.name ||
+            req.user?.username ||
+            userData.username ||
+            'Hustler'
+        );
+
+        const username = sanitize(req.user?.username || userData.username || '');
+        const email = sanitize(req.user?.email || userData.email || '').toLowerCase();
+
+        const existingApplication =
+            userData.academyApplication && typeof userData.academyApplication === 'object'
+                ? userData.academyApplication
+                : null;
+
+        const existingStatus = sanitize(existingApplication?.status).toLowerCase();
+
+        if (
+            existingApplication &&
+            existingStatus &&
+            !['rejected', 'waitlisted'].includes(existingStatus)
+        ) {
+            return res.json({
+                success: true,
+                alreadyExists: true,
+                application: existingApplication
+            });
+        }
+
+        const academyProfile = {
+            age: sanitize(req.body?.age || ''),
+            city: sanitize(req.body?.city || ''),
+            country: sanitize(req.body?.country || ''),
+            occupationType: sanitize(req.body?.occupationType || ''),
+            currentJob: sanitize(req.body?.currentJob || ''),
+            industry: sanitize(req.body?.industry || ''),
+            monthlyIncomeRange: sanitize(req.body?.monthlyIncomeRange || ''),
+            savingsRange: sanitize(req.body?.savingsRange || ''),
+            incomeSource: sanitize(req.body?.incomeSource || ''),
+            businessStage: sanitize(req.body?.businessStage || ''),
+            sleepHours: sanitize(req.body?.sleepHours || ''),
+            energyScore: sanitize(req.body?.energyScore || ''),
+            exerciseFrequency: sanitize(req.body?.exerciseFrequency || ''),
+            stressScore: sanitize(req.body?.stressScore || ''),
+            badHabit: sanitize(req.body?.badHabit || ''),
+            joinReason: sanitize(req.body?.joinReason || ''),
+            seriousness: sanitize(req.body?.seriousness || ''),
+            weeklyHours: sanitize(req.body?.weeklyHours || ''),
+            goals6mo: sanitize(req.body?.goals6mo || ''),
+            blockerText: sanitize(req.body?.blockerText || ''),
+            coachTone: sanitize(req.body?.coachTone || 'balanced')
+        };
+
+        const background = [
+            academyProfile.occupationType,
+            academyProfile.currentJob,
+            academyProfile.industry
+        ].filter(Boolean).join(' • ');
+
+        const nowIso = new Date().toISOString();
+
+        const application = {
+            id: sanitize(existingApplication?.id || `APP-${Date.now().toString().slice(-8)}`),
+            applicationType: 'academy-membership',
+            reviewLane: 'Academy Membership',
+            status: 'Under Review',
+            recommendedDivision: 'Academy',
+            source: 'Academy Dashboard',
+            name: displayName,
+            username,
+            email,
+            goal: academyProfile.joinReason || 'Academy membership application',
+            background: background || 'No background submitted.',
+            aiScore: toInt(existingApplication?.aiScore, 0),
+            country: academyProfile.country || '',
+            skills: [
+                academyProfile.industry,
+                academyProfile.incomeSource,
+                academyProfile.businessStage
+            ].filter(Boolean),
+            networkValue: sanitize(existingApplication?.networkValue || 'Unknown'),
+            submittedAt: existingApplication?.submittedAt || nowIso,
+            updatedAt: nowIso,
+            notes: [
+                'Submitted from dashboard Academy membership flow.',
+                ...(Array.isArray(existingApplication?.notes) ? existingApplication.notes : [])
+            ].filter(Boolean),
+            academyProfile
+        };
+
+        await userRef.set(
+            {
+                ...(displayName ? { fullName: displayName } : {}),
+                ...(email ? { email } : {}),
+                ...(username ? { username } : {}),
+                academyApplication: application,
+                academyApplicationStatus: application.status,
+                academyApplicationSubmittedAt: application.submittedAt,
+                updatedAt: nowIso
+            },
+            { merge: true }
+        );
+
+        return res.status(existingApplication ? 200 : 201).json({
+            success: true,
+            alreadyExists: false,
+            application
+        });
+    } catch (error) {
+        console.error('submitMembershipApplication error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to submit Academy membership application.'
+        });
+    }
+};
 exports.submitCheckin = async (req, res) => {
     try {
         const uid = getAcademyAuthUid(req);

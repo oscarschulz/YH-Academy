@@ -6594,11 +6594,12 @@ function getCurrentAcademyMembershipStatus() {
     return String(findCurrentAcademyMembershipApplication()?.status || '').trim().toLowerCase();
 }
 
-function queueAcademyMembershipApplication(payload = {}) {
+function queueAcademyMembershipApplication(payload = {}, serverApplication = null) {
     const identity = getCurrentAcademyApplicantIdentity();
     const adminState = readYhAdminPanelState();
     const applications = Array.isArray(adminState?.applications) ? adminState.applications : [];
     const existing = findCurrentAcademyMembershipApplication();
+    const persisted = serverApplication && typeof serverApplication === 'object' ? serverApplication : null;
 
     const profileSummary = [
         payload.occupationType || '',
@@ -6607,33 +6608,46 @@ function queueAcademyMembershipApplication(payload = {}) {
     ].filter(Boolean).join(' • ');
 
     const nextRecord = {
-        id: existing?.id || `APP-${Date.now().toString().slice(-6)}`,
-        name: identity.name || 'Hustler',
-        username: identity.username || '',
-        email: identity.email || '',
-        goal: payload.joinReason || 'Academy membership application',
-        background: profileSummary || 'No background submitted.',
-        recommendedDivision: 'Academy',
-        applicationType: 'academy-membership',
-        reviewLane: 'Academy Membership',
-        status: existing?.status && !['rejected', 'waitlisted'].includes(String(existing.status).toLowerCase())
-            ? existing.status
-            : 'Under Review',
-        aiScore: Number(existing?.aiScore || 0),
-        country: payload.country || '',
-        skills: [
-            payload.industry || '',
-            payload.incomeSource || '',
-            payload.businessStage || ''
-        ].filter(Boolean),
-        networkValue: existing?.networkValue || 'Unknown',
-        source: 'Academy Dashboard',
-        submittedAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
-        notes: [
-            'Submitted from dashboard Academy membership flow.',
-            ...(Array.isArray(existing?.notes) ? existing.notes : [])
-        ].filter(Boolean),
-        academyProfile: payload
+        id: persisted?.id || existing?.id || `APP-${Date.now().toString().slice(-6)}`,
+        name: persisted?.name || identity.name || 'Hustler',
+        username: persisted?.username || identity.username || '',
+        email: persisted?.email || identity.email || '',
+        goal: persisted?.goal || payload.joinReason || 'Academy membership application',
+        background: persisted?.background || profileSummary || 'No background submitted.',
+        recommendedDivision: persisted?.recommendedDivision || 'Academy',
+        applicationType: persisted?.applicationType || 'academy-membership',
+        reviewLane: persisted?.reviewLane || 'Academy Membership',
+        status: persisted?.status || (
+            existing?.status && !['rejected', 'waitlisted'].includes(String(existing.status).toLowerCase())
+                ? existing.status
+                : 'Under Review'
+        ),
+        aiScore: Number(
+            persisted?.aiScore ??
+            existing?.aiScore ??
+            0
+        ),
+        country: persisted?.country || payload.country || '',
+        skills: Array.isArray(persisted?.skills) && persisted.skills.length
+            ? persisted.skills
+            : [
+                payload.industry || '',
+                payload.incomeSource || '',
+                payload.businessStage || ''
+            ].filter(Boolean),
+        networkValue: persisted?.networkValue || existing?.networkValue || 'Unknown',
+        source: persisted?.source || 'Academy Dashboard',
+        submittedAt: persisted?.submittedAt || new Date().toISOString().slice(0, 16).replace('T', ' '),
+        notes: Array.isArray(persisted?.notes)
+            ? persisted.notes
+            : [
+                'Submitted from dashboard Academy membership flow.',
+                ...(Array.isArray(existing?.notes) ? existing.notes : [])
+            ].filter(Boolean),
+        academyProfile:
+            persisted?.academyProfile && typeof persisted.academyProfile === 'object'
+                ? persisted.academyProfile
+                : payload
     };
 
     const nextApplications = existing
@@ -6879,11 +6893,8 @@ if (formApply) {
     formApply.addEventListener('submit', async (e) => {
         e.preventDefault();
 
-        if (hasAcademyApplicationAlreadyBeenFilled()) {
-            showToast("You already submitted your Academy application.", "error");
-            closeAcademyLauncher();
-            return;
-        }
+// Let the backend decide whether the application already exists.
+// Do not hard-block here based only on stale local browser state.
 
         const token = localStorage.getItem('yh_token');
         if (!token) {
@@ -6929,13 +6940,25 @@ if (formApply) {
             coachTone: document.getElementById('app-coach-tone')?.value?.trim() || 'balanced'
         };
 
-        localStorage.setItem('yh_academy_application_profile', JSON.stringify(payload));
+try {
+    const result = await academyAuthedFetch('/api/academy/membership-apply', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    });
 
-        try {
-            queueAcademyMembershipApplication(payload);
+    const savedApplication =
+        result?.application && typeof result.application === 'object'
+            ? result.application
+            : null;
 
-            aiSpinnerPhase?.classList.add('hidden-step');
-            aiVerdictPhase?.classList.remove('hidden-step');
+    queueAcademyMembershipApplication(payload, savedApplication);
+    localStorage.setItem(
+        'yh_academy_application_profile',
+        JSON.stringify(savedApplication?.academyProfile || payload)
+    );
+
+    aiSpinnerPhase?.classList.add('hidden-step');
+    aiVerdictPhase?.classList.remove('hidden-step');
 
             if (vIcon) vIcon.innerText = "📝";
             if (vTitle) {
