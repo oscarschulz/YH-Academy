@@ -6477,6 +6477,22 @@ const YH_POST_AUTH_APP_KEY = 'yh_force_academy_application_after_auth';
 const YH_ROADMAP_PROFILE_KEY = 'yh_academy_roadmap_profile_v1';
 const YH_ROADMAP_LOCK_KEY = 'yh_academy_roadmap_locked_v1';
 
+function syncAcademyEntryButton(snapshot = null) {
+    if (!btnOpenApply) return;
+
+    const membershipStatus = String(
+        snapshot?.applicationStatus ||
+        readAcademyMembershipCache()?.applicationStatus ||
+        getCurrentAcademyMembershipStatus() ||
+        ''
+    ).trim().toLowerCase();
+
+    const approved = membershipStatus === 'approved';
+
+    btnOpenApply.innerText = approved ? 'Enter the Academy' : 'Apply for the Academy';
+    btnOpenApply.setAttribute('data-academy-state', approved ? 'approved' : 'apply');
+}
+
 function hasAcademyApplicationAlreadyBeenFilled() {
     const cached = readAcademyMembershipCache();
     if (cached?.hasApplication) return true;
@@ -6598,6 +6614,7 @@ async function refreshAcademyMembershipStatus(force = false) {
     const cached = readAcademyMembershipCache();
 
     if (!force && cached && typeof cached === 'object') {
+        syncAcademyEntryButton(cached);
         return cached;
     }
 
@@ -6606,21 +6623,22 @@ async function refreshAcademyMembershipStatus(force = false) {
             method: 'GET'
         });
 
-const snapshot = {
-    hasApplication: Boolean(result?.hasApplication),
-    applicationStatus: String(result?.applicationStatus || '').trim().toLowerCase(),
-    hasRoadmapAccess: result?.hasRoadmapAccess === true,
-    canEnterAcademy: result?.canEnterAcademy === true,
-    application: result?.application && typeof result.application === 'object'
-        ? result.application
-        : null,
-    roadmapApplication: result?.roadmapApplication && typeof result.roadmapApplication === 'object'
-        ? result.roadmapApplication
-        : null,
-    roadmapApplicationStatus: String(result?.roadmapApplicationStatus || '').trim().toLowerCase()
-};
+        const snapshot = {
+            hasApplication: Boolean(result?.hasApplication),
+            applicationStatus: String(result?.applicationStatus || '').trim().toLowerCase(),
+            hasRoadmapAccess: result?.hasRoadmapAccess === true,
+            canEnterAcademy: result?.canEnterAcademy === true,
+            application: result?.application && typeof result.application === 'object'
+                ? result.application
+                : null,
+            roadmapApplication: result?.roadmapApplication && typeof result.roadmapApplication === 'object'
+                ? result.roadmapApplication
+                : null,
+            roadmapApplicationStatus: String(result?.roadmapApplicationStatus || '').trim().toLowerCase()
+        };
 
         writeAcademyMembershipCache(snapshot);
+        syncAcademyEntryButton(snapshot);
 
         if (snapshot.application) {
             writeYhAdminPanelState({
@@ -6636,13 +6654,18 @@ const snapshot = {
 
         return snapshot;
     } catch (_) {
-        return cached || {
+        const fallback = cached || {
             hasApplication: false,
             applicationStatus: '',
             hasRoadmapAccess: false,
             canEnterAcademy: false,
-            application: null
+            application: null,
+            roadmapApplication: null,
+            roadmapApplicationStatus: ''
         };
+
+        syncAcademyEntryButton(fallback);
+        return fallback;
     }
 }
 function getCurrentAcademyApplicantIdentity() {
@@ -6756,6 +6779,12 @@ async function handleAcademyLaunchClick(event) {
         ? performance.now()
         : Date.now();
 
+async function handleAcademyLaunchClick(event) {
+    const eventType = event?.type || '';
+    const now = (typeof performance !== 'undefined' && typeof performance.now === 'function')
+        ? performance.now()
+        : Date.now();
+
     if (eventType === 'click' && now < academySuppressClickUntil) {
         event?.preventDefault?.();
         event?.stopPropagation?.();
@@ -6772,24 +6801,18 @@ async function handleAcademyLaunchClick(event) {
     }
 
     const membershipSnapshot = await refreshAcademyMembershipStatus(true);
-    const hasRoadmapAccess = await resolveAcademyAccessState();
-
-    if (hasRoadmapAccess || membershipSnapshot?.hasRoadmapAccess) {
-        if (!readAcademyHomeCache()) {
-            try {
-                await loadAcademyHome(true);
-            } catch (_) {}
-        }
-
-        enterAcademyWorld('community');
-        return false;
-    }
 
     const membershipStatus = String(
         membershipSnapshot?.applicationStatus || getCurrentAcademyMembershipStatus()
     ).trim().toLowerCase();
 
+    syncAcademyEntryButton(membershipSnapshot);
+
     if (membershipStatus === 'approved') {
+        try {
+            await loadAcademyFeed(true);
+        } catch (_) {}
+
         showToast('Academy membership approved. Opening Community Feed.', 'success');
         enterAcademyWorld('community');
         return false;
@@ -6817,6 +6840,7 @@ async function handleAcademyLaunchClick(event) {
 
     openAcademyLauncher();
     return false;
+    }
 }
 
 window.handleAcademyLaunchClick = handleAcademyLaunchClick;

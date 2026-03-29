@@ -2018,9 +2018,7 @@ exports.getMembershipStatus = async (req, res) => {
             hasRoadmapAccess = false;
         }
 
-        const canEnterAcademy =
-            applicationStatus === 'approved' ||
-            hasRoadmapAccess === true;
+        const canEnterAcademy = applicationStatus === 'approved';
 
         return res.json({
             success: true,

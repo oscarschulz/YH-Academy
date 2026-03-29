@@ -186,8 +186,39 @@ async function buildAdminBootstrapPayload() {
     const stats = user.stats || {};
     const academyDivisions = [];
 
-    if (user.accessState === 'unlocked' || user.hasAcademyAccess === true) {
+    const academyMembershipStatus = cleanText(
+      user.academyMembershipStatus ||
+      user.academyApplicationStatus ||
+      user.academyApplication?.status ||
+      ''
+    ).toLowerCase();
+
+    const roadmapApplicationStatus = cleanText(
+      user.roadmapApplicationStatus ||
+      user.roadmapApplication?.status ||
+      ''
+    );
+
+    const hasApprovedAcademyMembership =
+      academyMembershipStatus === 'approved' ||
+      user.hasAcademyAccess === true;
+
+    const hasRoadmapAccess = user.accessState === 'unlocked';
+
+    if (hasApprovedAcademyMembership) {
       academyDivisions.push('Academy');
+    }
+
+    let roadmapStatus = 'Not in Academy';
+
+    if (hasApprovedAcademyMembership) {
+      if (hasRoadmapAccess) {
+        roadmapStatus = 'Roadmap access unlocked';
+      } else if (roadmapApplicationStatus) {
+        roadmapStatus = `Roadmap ${roadmapApplicationStatus}`;
+      } else {
+        roadmapStatus = 'Awaiting roadmap application';
+      }
     }
 
     return {
@@ -198,7 +229,7 @@ async function buildAdminBootstrapPayload() {
       divisions: academyDivisions,
       status: cleanText(user.status || 'Active'),
       activityScore: toNumber(stats.repPoints, 0),
-      roadmapStatus: academyDivisions.includes('Academy') ? 'Academy access unlocked' : 'Not in Academy',
+      roadmapStatus,
       riskFlag: 'Low',
       joinedAt: toIso(user.createdAt) || '',
       lastLogin: toIso(user.lastLoginAt || user.updatedAt) || '',
@@ -514,11 +545,13 @@ apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async 
       updatePayload.academyApplicationStatus = nextStatus;
       updatePayload.academyApplicationReviewedAt = nowIso;
       updatePayload.academyApplicationReviewedBy = req.adminSession.username;
+      updatePayload.academyMembershipStatus = nextStatus.toLowerCase();
 
       if (nextStatus === 'Approved') {
         updatePayload.hasAcademyAccess = true;
-        updatePayload.academyMembershipStatus = 'approved';
         updatePayload.academyMembershipApprovedAt = nowIso;
+      } else {
+        updatePayload.hasAcademyAccess = false;
       }
     }
 
