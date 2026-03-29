@@ -1,41 +1,23 @@
 const STORAGE_KEY = 'yh_admin_panel_state_v2';
-const ADMIN_ROUTE_TOKEN = 'Q7vN2kLp8Xr4Ta1M';
-const ADMIN_SESSION_KEY = 'yh_admin_session_v1';
-const ADMIN_SESSION_MAX_AGE_MS = 8 * 60 * 60 * 1000;
-const ADMIN_LOGIN_PATH = '/admin-login.html';
 
-function getAdminGateFromUrl() {
-  const params = new URLSearchParams(window.location.search);
-  return String(params.get('gate') || '').trim();
+function getAdminTokenFromPath() {
+  const parts = window.location.pathname.split('/').filter(Boolean);
+  const adminIndex = parts.indexOf('admin');
+
+  if (adminIndex === -1) return '';
+  return String(parts[adminIndex + 1] || '').trim();
 }
 
 function buildAdminLoginUrl() {
-  return `${ADMIN_LOGIN_PATH}?gate=${encodeURIComponent(ADMIN_ROUTE_TOKEN)}`;
-}
-
-function readAdminSession() {
-  try {
-    const raw = sessionStorage.getItem(ADMIN_SESSION_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-function isAdminSessionValid(session) {
-  if (!session || typeof session !== 'object') return false;
-  if (session.routeToken !== ADMIN_ROUTE_TOKEN) return false;
-  if (!session.createdAt) return false;
-  return (Date.now() - Number(session.createdAt)) < ADMIN_SESSION_MAX_AGE_MS;
+  const routeToken = getAdminTokenFromPath();
+  return routeToken ? `/admin/${encodeURIComponent(routeToken)}/login` : '/';
 }
 
 function enforceAdminPanelAccess() {
-  const gate = getAdminGateFromUrl();
-  const session = readAdminSession();
+  const routeToken = getAdminTokenFromPath();
 
-  if (gate !== ADMIN_ROUTE_TOKEN || !isAdminSessionValid(session)) {
-    sessionStorage.removeItem(ADMIN_SESSION_KEY);
-    window.location.replace(buildAdminLoginUrl());
+  if (!routeToken) {
+    window.location.replace('/');
     return false;
   }
 
@@ -43,7 +25,6 @@ function enforceAdminPanelAccess() {
 }
 
 function logoutAdminSession() {
-  sessionStorage.removeItem(ADMIN_SESSION_KEY);
   window.location.replace(buildAdminLoginUrl());
 }
 const defaultState = () => ({
