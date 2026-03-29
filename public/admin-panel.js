@@ -1,4 +1,4 @@
-const STORAGE_KEY = 'yh_admin_panel_state_v2';
+const STORAGE_KEY = 'yh_admin_panel_state_v3_live';
 
 function getAdminTokenFromPath() {
   const parts = window.location.pathname.split('/').filter(Boolean);
@@ -52,365 +52,32 @@ const defaultState = () => ({
     enableAiNudges: true,
     maintenanceMode: false
   },
-  roles: [
-    { id: 'r1', name: 'Super Admin', permissions: ['all access', 'member control', 'system settings'] },
-    { id: 'r2', name: 'Operations Admin', permissions: ['applications', 'members', 'support', 'communications'] },
-    { id: 'r3', name: 'Academy Admin', permissions: ['academy monitoring', 'roadmap override', 'nudges'] },
-    { id: 'r4', name: 'Federation Admin', permissions: ['vetting', 'strategic tags', 'network notes'] },
-    { id: 'r5', name: 'Plazas Admin', permissions: ['listing moderation', 'disputes', 'market safety'] }
-  ],
-  applications: [
-    {
-      id: 'APP-1001',
-      name: 'Jerwin M.',
-      email: 'jerwin@yhmail.com',
-      goal: 'Needs clear roadmap for self-improvement and business focus.',
-      background: 'Student entrepreneur with discipline and learning goals.',
-      recommendedDivision: 'Academy',
-      status: 'New',
-      aiScore: 91,
-      country: 'Philippines',
-      skills: ['Sales', 'Research'],
-      networkValue: 'Medium',
-      source: 'Website Apply',
-      submittedAt: '2026-03-21 10:23',
-      notes: ['Strong fit for Academy onboarding.']
-    },
-    {
-      id: 'APP-1002',
-      name: 'Amina Kolade',
-      email: 'amina@outlook.com',
-      goal: 'Wants strategic introductions for cross-border trade and policy visibility.',
-      background: 'Public sector advisor with Africa trade network.',
-      recommendedDivision: 'Federation',
-      status: 'Under Review',
-      aiScore: 88,
-      country: 'Nigeria',
-      skills: ['Policy', 'Trade'],
-      networkValue: 'High',
-      source: 'Referral',
-      submittedAt: '2026-03-21 14:40',
-      notes: ['Potential strategic priority. Needs manual vetting.']
-    },
-    {
-      id: 'APP-1003',
-      name: 'Diego Ramos',
-      email: 'diego@proton.me',
-      goal: 'Wants to offer creative automation services and hire SDR talent.',
-      background: 'Automation operator with small team.',
-      recommendedDivision: 'Plazas',
-      status: 'Waitlisted',
-      aiScore: 79,
-      country: 'Spain',
-      skills: ['Automation', 'Ops'],
-      networkValue: 'Medium',
-      source: 'X Community',
-      submittedAt: '2026-03-20 17:20',
-      notes: ['Good Plazas fit after basic qualification.']
-    },
-    {
-      id: 'APP-1004',
-      name: 'Maya Chen',
-      email: 'maya@signalmail.com',
-      goal: 'Wants accountability system for academic and physical growth.',
-      background: 'Engineering student with strong consistency issue.',
-      recommendedDivision: 'Academy',
-      status: 'Approved',
-      aiScore: 86,
-      country: 'Singapore',
-      skills: ['Design', 'Engineering'],
-      networkValue: 'Low',
-      source: 'Landing Page',
-      submittedAt: '2026-03-20 12:10',
-      notes: ['Approved for phase 1 roadmap.']
-    },
-    {
-      id: 'APP-1005',
-      name: 'Tunde Afolabi',
-      email: 'tunde@rise.net',
-      goal: 'Wants access but submitted incomplete strategic background.',
-      background: 'Introduced as investor but low proof provided.',
-      recommendedDivision: 'Federation',
-      status: 'Needs More Info',
-      aiScore: 71,
-      country: 'Nigeria',
-      skills: ['Investment'],
-      networkValue: 'High',
-      source: 'Manual Invite',
-      submittedAt: '2026-03-19 08:56',
-      notes: ['Needs stronger verification.']
-    }
-  ],
-  members: [
-    {
-      id: 'MEM-2001',
-      name: 'Maya Chen',
-      username: '@mayabuilds',
-      email: 'maya@signalmail.com',
-      divisions: ['Academy'],
-      status: 'Active',
-      activityScore: 82,
-      roadmapStatus: 'Phase 1 active',
-      riskFlag: 'Low',
-      joinedAt: '2026-03-20',
-      lastLogin: '2 hours ago',
-      notes: ['Daily check-ins consistent.']
-    },
-    {
-      id: 'MEM-2002',
-      name: 'Amina Kolade',
-      username: '@aminak',
-      email: 'amina@outlook.com',
-      divisions: ['Federation'],
-      status: 'Pending',
-      activityScore: 61,
-      roadmapStatus: 'Not assigned',
-      riskFlag: 'Medium',
-      joinedAt: '2026-03-21',
-      lastLogin: 'Yesterday',
-      notes: ['Federation file in review.']
-    },
-    {
-      id: 'MEM-2003',
-      name: 'Diego Ramos',
-      username: '@diegor',
-      email: 'diego@proton.me',
-      divisions: ['Plazas'],
-      status: 'Flagged',
-      activityScore: 74,
-      roadmapStatus: 'N/A',
-      riskFlag: 'Medium',
-      joinedAt: '2026-03-18',
-      lastLogin: '6 hours ago',
-      notes: ['One listing reported for duplicate offer.']
-    },
-    {
-      id: 'MEM-2004',
-      name: 'Jerwin M.',
-      username: '@jerwin',
-      email: 'jerwin@yhmail.com',
-      divisions: ['Academy', 'Plazas'],
-      status: 'Active',
-      activityScore: 68,
-      roadmapStatus: 'Intake pending setup',
-      riskFlag: 'Low',
-      joinedAt: '2026-03-21',
-      lastLogin: 'Just now',
-      notes: ['Ready for roadmap initialization.']
-    }
-  ],
-  academy: [
-    {
-      id: 'AC-3001',
-      memberId: 'MEM-2001',
-      memberName: 'Maya Chen',
-      phase: 'Foundation Sprint',
-      focus: 'Academic',
-      completion: 74,
-      lastCheckIn: 'Today',
-      status: 'On Track',
-      nextAction: 'Trigger week 2 roadmap.',
-      notes: ['Responds well to AI nudges.']
-    },
-    {
-      id: 'AC-3002',
-      memberId: 'MEM-2004',
-      memberName: 'Jerwin M.',
-      phase: 'Assessment',
-      focus: 'Financial',
-      completion: 28,
-      lastCheckIn: 'Yesterday',
-      status: 'Needs Review',
-      nextAction: 'Human review for multi-focus roadmap.',
-      notes: ['Needs mental + financial track combination.']
-    },
-    {
-      id: 'AC-3003',
-      memberId: 'MEM-2010',
-      memberName: 'Lina Yusuf',
-      phase: 'Consistency Loop',
-      focus: 'Physical',
-      completion: 39,
-      lastCheckIn: '3 days ago',
-      status: 'At Risk',
-      nextAction: 'Send accountability reminder.',
-      notes: ['Check-in streak dropped.']
-    }
-  ],
-  federation: [
-    {
-      id: 'FED-4001',
-      name: 'Amina Kolade',
-      profession: 'Policy Advisor',
-      region: 'Nigeria',
-      status: 'Under Vetting',
-      influence: 84,
-      tag: 'Policy',
-      referredBy: 'Direct Referral',
-      notes: ['Strong policy trade contacts.'],
-      strategicValue: 'High'
-    },
-    {
-      id: 'FED-4002',
-      name: 'Michael Rios',
-      profession: 'Angel Investor',
-      region: 'UAE',
-      status: 'Strategic Priority',
-      influence: 93,
-      tag: 'Investor',
-      referredBy: 'Member Invite',
-      notes: ['Fast-track relationship building.'],
-      strategicValue: 'Very High'
-    },
-    {
-      id: 'FED-4003',
-      name: 'Chioma Eze',
-      profession: 'Corporate Lawyer',
-      region: 'Nigeria',
-      status: 'Candidate',
-      influence: 77,
-      tag: 'Lawyer',
-      referredBy: 'LinkedIn Outreach',
-      notes: ['Needs deeper verification.'],
-      strategicValue: 'High'
-    }
-  ],
-  plazas: [
-    {
-      id: 'PLZ-5001',
-      title: 'AI Outreach System Setup',
-      owner: 'Diego Ramos',
-      type: 'Service',
-      status: 'Flagged',
-      reports: 2,
-      region: 'Spain',
-      notes: ['Possible duplicate service language.'],
-      featured: false
-    },
-    {
-      id: 'PLZ-5002',
-      title: 'Need appointment setter for wealth brand',
-      owner: 'Jerwin M.',
-      type: 'Job',
-      status: 'Pending Review',
-      reports: 0,
-      region: 'Philippines',
-      notes: ['Good demand-side post.'],
-      featured: false
-    },
-    {
-      id: 'PLZ-5003',
-      title: 'Offer: UI/UX design for startups',
-      owner: 'Lina Yusuf',
-      type: 'Service',
-      status: 'Active',
-      reports: 0,
-      region: 'Nigeria',
-      notes: ['Strong portfolio attached.'],
-      featured: true
-    },
-    {
-      id: 'PLZ-5004',
-      title: 'Looking for legal advisory partner',
-      owner: 'Amina Kolade',
-      type: 'Request',
-      status: 'Active',
-      reports: 0,
-      region: 'Nigeria',
-      notes: ['Federation crossover opportunity.'],
-      featured: false
-    }
-  ],
-  support: [
-    {
-      id: 'SUP-6001',
-      title: 'Cannot access Academy roadmap',
-      reporter: 'Jerwin M.',
-      type: 'Access',
-      status: 'Open',
-      priority: 'High',
-      updatedAt: '15 min ago',
-      notes: ['Likely onboarding sync issue.']
-    },
-    {
-      id: 'SUP-6002',
-      title: 'Plazas listing was unfairly flagged',
-      reporter: 'Diego Ramos',
-      type: 'Dispute',
-      status: 'In Progress',
-      priority: 'Medium',
-      updatedAt: '1 hour ago',
-      notes: ['Needs marketplace admin review.']
-    },
-    {
-      id: 'SUP-6003',
-      title: 'Need to update Federation bio',
-      reporter: 'Amina Kolade',
-      type: 'Profile',
-      status: 'Waiting on User',
-      priority: 'Low',
-      updatedAt: 'Yesterday',
-      notes: ['Requested additional profile data.']
-    }
-  ],
-  broadcasts: [
-    {
-      id: 'BC-7001',
-      audience: 'Academy',
-      subject: 'Complete today’s check-in',
-      message: 'Your roadmap momentum matters. Complete your check-in before midnight.',
-      sentAt: '2026-03-21 19:20'
-    },
-    {
-      id: 'BC-7002',
-      audience: 'All Members',
-      subject: 'Universe update',
-      message: 'We are refining division access and improving the YH experience.',
-      sentAt: '2026-03-20 09:10'
-    }
-  ],
+  roles: [],
+  applications: [],
+  members: [],
+  academy: [],
+  federation: [],
+  plazas: [],
+  support: [],
+  broadcasts: [],
   analytics: {
     finance: {
-      totalRevenue: 184500,
-      monthlyRevenue: 28120,
-      averageOrderValue: 468,
-      profitMargin: 32.8,
-      countriesReached: 18,
-      averageReviewDays: 3.4
+      totalRevenue: 0,
+      monthlyRevenue: 0,
+      averageOrderValue: 0,
+      profitMargin: 0,
+      countriesReached: 0,
+      averageReviewDays: 0
     },
     targets: {
-      membersGoal: 1000,
-      federationGoal: 120,
-      monthlyRevenueGoal: 50000,
-      plazasGoal: 240
+      membersGoal: 0,
+      federationGoal: 0,
+      monthlyRevenueGoal: 0,
+      plazasGoal: 0
     },
-    monthly: [
-      { month: 'Jan', revenue: 8200, members: 44 },
-      { month: 'Feb', revenue: 11400, members: 79 },
-      { month: 'Mar', revenue: 13200, members: 121 },
-      { month: 'Apr', revenue: 15900, members: 172 },
-      { month: 'May', revenue: 18750, members: 248 },
-      { month: 'Jun', revenue: 20400, members: 311 },
-      { month: 'Jul', revenue: 23600, members: 398 },
-      { month: 'Aug', revenue: 25280, members: 463 },
-      { month: 'Sep', revenue: 28120, members: 542 },
-      { month: 'Oct', revenue: 30900, members: 614 },
-      { month: 'Nov', revenue: 33100, members: 689 },
-      { month: 'Dec', revenue: 35600, members: 754 }
-    ],
-    revenueMix: [
-      { division: 'Academy', revenue: 86400, share: 46.8 },
-      { division: 'Federation', revenue: 60300, share: 32.7 },
-      { division: 'Plazas', revenue: 37800, share: 20.5 }
-    ],
-    regions: [
-      { name: 'Nigeria', members: 214, revenue: 58200 },
-      { name: 'Philippines', members: 142, revenue: 33100 },
-      { name: 'UAE', members: 88, revenue: 27600 },
-      { name: 'UK', members: 76, revenue: 24400 },
-      { name: 'Spain', members: 53, revenue: 15800 },
-      { name: 'Singapore', members: 41, revenue: 11400 }
-    ]
+    monthly: [],
+    revenueMix: [],
+    regions: []
   }
 });
 
@@ -418,7 +85,7 @@ let state = loadState();
 
 function loadState() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('yh_admin_panel_state_v1');
+    const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return defaultState();
     const parsed = JSON.parse(raw);
     return mergeState(defaultState(), parsed);
@@ -1308,15 +975,17 @@ function renderAnalytics() {
 }
 
 function renderSettings() {
-  document.getElementById('roles-list').innerHTML = state.roles.map(role => `
-    <div class="role-item">
-      <div class="stack-item-head">
-        <strong>${escapeHtml(role.name)}</strong>
-        ${formatBadge('Active')}
+document.getElementById('roles-list').innerHTML = state.roles.length
+  ? state.roles.map(role => `
+      <div class="role-item">
+        <div class="stack-item-head">
+          <strong>${escapeHtml(role.name)}</strong>
+          ${formatBadge('Active')}
+        </div>
+        <p>${escapeHtml((role.permissions || []).join(' • '))}</p>
       </div>
-      <p>${escapeHtml(role.permissions.join(' • '))}</p>
-    </div>
-  `).join('');
+    `).join('')
+  : `<div class="stack-item"><p class="muted">No live roles loaded yet.</p></div>`;
 
   const labels = {
     allowAutoApproveAcademy: 'Allow Academy auto-approval',
@@ -1884,38 +1553,16 @@ function bindEvents() {
     if (e.key === 'Escape') closeDrawer();
   });
 
-  const broadcastTemplate = document.getElementById('broadcast-template');
-  if (broadcastTemplate) {
-    broadcastTemplate.addEventListener('change', (e) => {
-      const templates = {
-        'Roadmap Reminder': {
-          subject: 'Complete your roadmap checkpoint',
-          message: 'Stay consistent. Your roadmap only works if you act on it today.'
-        },
-        'Review Update': {
-          subject: 'Your review status has changed',
-          message: 'Your application or profile review has been updated. Check your dashboard for the latest status.'
-        },
-        'Listing Approved': {
-          subject: 'Your Plazas listing is live',
-          message: 'Your listing passed moderation and is now visible in the marketplace.'
-        },
-        'System Announcement': {
-          subject: 'YH system update',
-          message: 'We have rolled out operational improvements across the YH Universe.'
-        }
-      };
+const broadcastTemplate = document.getElementById('broadcast-template');
+if (broadcastTemplate) {
+  broadcastTemplate.addEventListener('change', () => {
+    const subjectEl = document.getElementById('broadcast-subject');
+    const messageEl = document.getElementById('broadcast-message');
 
-      const selected = templates[e.target.value];
-      if (!selected) return;
-
-      const subjectEl = document.getElementById('broadcast-subject');
-      const messageEl = document.getElementById('broadcast-message');
-
-      if (subjectEl) subjectEl.value = selected.subject;
-      if (messageEl) messageEl.value = selected.message;
-    });
-  }
+    if (subjectEl) subjectEl.value = '';
+    if (messageEl) messageEl.value = '';
+  });
+}
 
   const broadcastForm = document.getElementById('broadcast-form');
   if (broadcastForm) {
@@ -1957,12 +1604,6 @@ function bindEvents() {
     showToast('Operational setting updated.');
   });
 
-    ['seed-demo-btn', 'seed-demo-btn-desktop'].forEach(id => {
-    const seedBtn = document.getElementById(id);
-    if (seedBtn) {
-      seedBtn.addEventListener('click', resetState);
-    }
-  });
 
   ['export-state-btn', 'export-state-btn-desktop'].forEach(id => {
     const exportBtn = document.getElementById(id);
