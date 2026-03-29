@@ -930,16 +930,7 @@ document.getElementById('nav-profile')?.addEventListener('click', function(event
 document.getElementById('nav-missions')?.addEventListener('click', async function(event) {
     event.preventDefault();
     event.stopPropagation();
-
-    const membershipSnapshot = await refreshAcademyMembershipStatus(true);
-    const hasRoadmapAccess = membershipSnapshot?.hasRoadmapAccess === true;
-
-    if (hasRoadmapAccess) {
-        openAcademyRoadmapView();
-        return;
-    }
-
-    openAcademyRoadmapAccessGate(membershipSnapshot);
+    await handleAcademyRoadmapTabIntent();
 });
 function safeParseJson(value, fallback = null) {
     if (value === null || value === undefined) return fallback;
@@ -991,14 +982,7 @@ document.querySelectorAll('.academy-mobile-nav-item').forEach((button) => {
         if (targetId === 'nav-chat') {
             openAcademyFeedView();
         } else if (targetId === 'nav-missions') {
-            const membershipSnapshot = await refreshAcademyMembershipStatus(true);
-            const hasRoadmapAccess = membershipSnapshot?.hasRoadmapAccess === true;
-
-            if (hasRoadmapAccess) {
-                openAcademyRoadmapView();
-            } else {
-                openAcademyRoadmapAccessGate(membershipSnapshot);
-            }
+            await handleAcademyRoadmapTabIntent();
         } else if (targetId === 'nav-voice') {
             setAcademySidebarActive('nav-voice');
             openRoom('voice-lobby', document.getElementById('nav-voice'));
@@ -5620,6 +5604,7 @@ function hideAcademyViewsForFeed() {
 }
 
 function openAcademyFeedView(forceReload = false) {
+    closeRoadmapIntake();
     hideAcademyViewsForFeed();
     setAcademySidebarActive('nav-chat');
 
@@ -6598,6 +6583,7 @@ function syncRoadmapTabIndicator(snapshot = null) {
 
 function openRoadmapIntake() {
     if (!roadmapModal) return;
+    closeAcademyLauncher();
     roadmapModal.classList.remove('hidden-step');
     document.body?.classList.add('academy-launcher-open');
 }
@@ -6621,8 +6607,43 @@ function maybeOpenPostAuthAcademyApplication() {
 function maybeOpenRoadmapIntakeOnce() {
     // Roadmap intake should no longer auto-open on Academy entry.
     // It should only open when the user explicitly clicks Apply for Access inside the Roadmap tab.
-}
+}async function handleAcademyRoadmapTabIntent() {
+    const membershipSnapshot = await refreshAcademyMembershipStatus(true);
 
+    const membershipStatus = String(
+        membershipSnapshot?.applicationStatus || ''
+    ).trim().toLowerCase();
+
+    const roadmapStatus = String(
+        membershipSnapshot?.roadmapApplicationStatus || ''
+    ).trim().toLowerCase();
+
+    const hasRoadmapAccess = membershipSnapshot?.hasRoadmapAccess === true;
+
+    const isRoadmapPending =
+        roadmapStatus === 'under review' ||
+        roadmapStatus === 'new' ||
+        localStorage.getItem(YH_ROADMAP_LOCK_KEY) === 'true';
+
+    closeRoadmapIntake();
+
+    if (membershipStatus !== 'approved') {
+        openAcademyRoadmapAccessGate(membershipSnapshot);
+        return;
+    }
+
+    if (hasRoadmapAccess) {
+        openAcademyRoadmapView(true);
+        return;
+    }
+
+    if (isRoadmapPending) {
+        openAcademyRoadmapAccessGate(membershipSnapshot);
+        return;
+    }
+
+    openRoadmapIntake();
+}
 function openAcademyRoadmapAccessGate(snapshot = null) {
     hideAcademyViewsForFeed();
 
