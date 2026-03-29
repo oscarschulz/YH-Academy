@@ -31,6 +31,7 @@ router.post('/reset-password', authController.resetPassword);
 
 router.post('/academy/intake', auth, academyControllers.intakeProfile);
 router.post('/academy/membership-apply', auth, academyControllers.submitMembershipApplication);
+router.get('/academy/membership-status', auth, academyControllers.getMembershipStatus);
 router.get('/academy/home', auth, academyControllers.getAcademyHome);
 router.get('/academy/roadmap/active', auth, academyControllers.getActiveRoadmap);
 router.get('/academy/missions', auth, academyControllers.getMissions);

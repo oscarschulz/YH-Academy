@@ -4424,6 +4424,7 @@ if (localStorage.getItem('yh_user_loggedIn') === 'true') {
     loadVault();
 
     resolveAcademyAccessState().catch(() => {});
+    refreshAcademyMembershipStatus(true).catch(() => {});
 }
 
     // ==========================================
@@ -6473,6 +6474,8 @@ const YH_ROADMAP_PROFILE_KEY = 'yh_academy_roadmap_profile_v1';
 const YH_ROADMAP_LOCK_KEY = 'yh_academy_roadmap_locked_v1';
 
 function hasAcademyApplicationAlreadyBeenFilled() {
+    const cached = readAcademyMembershipCache();
+    if (cached?.hasApplication) return true;
     return Boolean(findCurrentAcademyMembershipApplication());
 }
 
@@ -6547,6 +6550,7 @@ function closeAcademyLauncher() {
 window.openAcademyLauncher = openAcademyLauncher;
 window.closeAcademyLauncher = closeAcademyLauncher;
 const YH_ADMIN_PANEL_STORAGE_KEY = 'yh_admin_panel_state_v2';
+const YH_ACADEMY_MEMBERSHIP_CACHE_KEY = 'yh_academy_membership_status_v1';
 
 function readYhAdminPanelState() {
     try {
@@ -6562,7 +6566,71 @@ function readYhAdminPanelState() {
 function writeYhAdminPanelState(nextState = {}) {
     localStorage.setItem(YH_ADMIN_PANEL_STORAGE_KEY, JSON.stringify(nextState));
 }
+function readAcademyMembershipCache() {
+    try {
+        const raw = localStorage.getItem(YH_ACADEMY_MEMBERSHIP_CACHE_KEY);
+        return raw ? JSON.parse(raw) : null;
+    } catch (_) {
+        return null;
+    }
+}
 
+function writeAcademyMembershipCache(snapshot = null) {
+    if (!snapshot || typeof snapshot !== 'object') {
+        localStorage.removeItem(YH_ACADEMY_MEMBERSHIP_CACHE_KEY);
+        return;
+    }
+
+    localStorage.setItem(YH_ACADEMY_MEMBERSHIP_CACHE_KEY, JSON.stringify(snapshot));
+}
+
+async function refreshAcademyMembershipStatus(force = false) {
+    const cached = readAcademyMembershipCache();
+
+    if (!force && cached && typeof cached === 'object') {
+        return cached;
+    }
+
+    try {
+        const result = await academyAuthedFetch('/api/academy/membership-status', {
+            method: 'GET'
+        });
+
+        const snapshot = {
+            hasApplication: Boolean(result?.hasApplication),
+            applicationStatus: String(result?.applicationStatus || '').trim().toLowerCase(),
+            hasRoadmapAccess: result?.hasRoadmapAccess === true,
+            canEnterAcademy: result?.canEnterAcademy === true,
+            application: result?.application && typeof result.application === 'object'
+                ? result.application
+                : null
+        };
+
+        writeAcademyMembershipCache(snapshot);
+
+        if (snapshot.application) {
+            writeYhAdminPanelState({
+                ...readYhAdminPanelState(),
+                applications: [
+                    snapshot.application,
+                    ...(Array.isArray(readYhAdminPanelState()?.applications)
+                        ? readYhAdminPanelState().applications.filter(app => app?.id !== snapshot.application.id)
+                        : [])
+                ]
+            });
+        }
+
+        return snapshot;
+    } catch (_) {
+        return cached || {
+            hasApplication: false,
+            applicationStatus: '',
+            hasRoadmapAccess: false,
+            canEnterAcademy: false,
+            application: null
+        };
+    }
+}
 function getCurrentAcademyApplicantIdentity() {
     return {
         name: String(localStorage.getItem('yh_user_name') || 'Hustler').trim(),
@@ -6591,6 +6659,11 @@ function findCurrentAcademyMembershipApplication() {
 }
 
 function getCurrentAcademyMembershipStatus() {
+    const cached = readAcademyMembershipCache();
+    if (cached?.applicationStatus) {
+        return String(cached.applicationStatus).trim().toLowerCase();
+    }
+
     return String(findCurrentAcademyMembershipApplication()?.status || '').trim().toLowerCase();
 }
 
@@ -6684,9 +6757,10 @@ async function handleAcademyLaunchClick(event) {
         event.stopPropagation?.();
     }
 
+    const membershipSnapshot = await refreshAcademyMembershipStatus(true);
     const hasRoadmapAccess = await resolveAcademyAccessState();
 
-    if (hasRoadmapAccess) {
+    if (hasRoadmapAccess || membershipSnapshot?.hasRoadmapAccess) {
         if (!readAcademyHomeCache()) {
             try {
                 await loadAcademyHome(true);
@@ -6697,7 +6771,9 @@ async function handleAcademyLaunchClick(event) {
         return false;
     }
 
-const membershipStatus = getCurrentAcademyMembershipStatus();
+const membershipStatus = String(
+    membershipSnapshot?.applicationStatus || getCurrentAcademyMembershipStatus()
+).trim().toLowerCase();
 
 if (membershipStatus === 'approved') {
     showToast('Academy membership approved. Opening your Academy shell.', 'success');
@@ -6952,6 +7028,13 @@ try {
             : null;
 
     queueAcademyMembershipApplication(payload, savedApplication);
+    writeAcademyMembershipCache({
+        hasApplication: true,
+        applicationStatus: String(savedApplication?.status || 'Under Review').trim().toLowerCase(),
+        hasRoadmapAccess: false,
+        canEnterAcademy: false,
+        application: savedApplication
+    });
     localStorage.setItem(
         'yh_academy_application_profile',
         JSON.stringify(savedApplication?.academyProfile || payload)

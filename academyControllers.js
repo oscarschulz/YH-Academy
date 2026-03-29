@@ -1899,15 +1899,12 @@ exports.submitMembershipApplication = async (req, res) => {
 
         const existingStatus = sanitize(existingApplication?.status).toLowerCase();
 
-        if (
-            existingApplication &&
-            existingStatus &&
-            !['rejected', 'waitlisted'].includes(existingStatus)
-        ) {
+        if (existingApplication) {
             return res.json({
                 success: true,
                 alreadyExists: true,
-                application: existingApplication
+                application: existingApplication,
+                applicationStatus: existingStatus || 'under review'
             });
         }
 
@@ -1995,6 +1992,59 @@ exports.submitMembershipApplication = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: 'Failed to submit Academy membership application.'
+        });
+    }
+};
+exports.getMembershipStatus = async (req, res) => {
+    try {
+        const uid = getAcademyAuthUid(req);
+
+        if (!uid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const userRef = firestore.collection('users').doc(uid);
+        const userSnapshot = await userRef.get();
+        const userData = userSnapshot.exists ? (userSnapshot.data() || {}) : {};
+
+        const application =
+            userData.academyApplication && typeof userData.academyApplication === 'object'
+                ? userData.academyApplication
+                : null;
+
+        const applicationStatus = sanitize(application?.status).toLowerCase();
+
+        let hasRoadmapAccess = false;
+        try {
+            const accessState = await academyFirestoreRepo.getAccessState(uid);
+            const homePayload = await academyFirestoreRepo.buildAcademyHomePayload(uid);
+
+            hasRoadmapAccess = Boolean(
+                accessState?.accessState === 'unlocked' ||
+                (homePayload?.success && homePayload?.roadmap)
+            );
+        } catch (_) {
+            hasRoadmapAccess = false;
+        }
+
+        const canEnterAcademy = hasRoadmapAccess || applicationStatus === 'approved';
+
+        return res.json({
+            success: true,
+            hasApplication: Boolean(application),
+            application,
+            applicationStatus,
+            hasRoadmapAccess,
+            canEnterAcademy
+        });
+    } catch (error) {
+        console.error('getMembershipStatus error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load Academy membership status.'
         });
     }
 };

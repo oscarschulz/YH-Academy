@@ -412,6 +412,106 @@ apiRouter.get('/api/admin/bootstrap', requireAdminSession, async (req, res) => {
     });
   }
 });
+apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async (req, res) => {
+  try {
+    const applicationId = cleanText(req.params.id);
+    const rawDecision = cleanText(req.body?.decision || req.body?.action).toLowerCase();
+
+    const decisionMap = {
+      approve: 'Approved',
+      approved: 'Approved',
+      reject: 'Rejected',
+      rejected: 'Rejected',
+      waitlist: 'Waitlisted',
+      waitlisted: 'Waitlisted'
+    };
+
+    const nextStatus = decisionMap[rawDecision];
+    if (!applicationId || !nextStatus) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid application review request.'
+      });
+    }
+
+    const matchSnap = await firestore
+      .collection('users')
+      .where('academyApplication.id', '==', applicationId)
+      .limit(1)
+      .get();
+
+    if (matchSnap.empty) {
+      return res.status(404).json({
+        success: false,
+        message: 'Application not found.'
+      });
+    }
+
+    const userDoc = matchSnap.docs[0];
+    const userData = userDoc.data() || {};
+    const existingApp =
+      userData.academyApplication && typeof userData.academyApplication === 'object'
+        ? userData.academyApplication
+        : null;
+
+    if (!existingApp) {
+      return res.status(404).json({
+        success: false,
+        message: 'Application record is missing.'
+      });
+    }
+
+    const nowIso = new Date().toISOString();
+    const isAcademyMembership =
+      cleanText(existingApp.applicationType).toLowerCase() === 'academy-membership';
+
+    const reviewNote =
+      nextStatus === 'Approved'
+        ? 'Academy membership approved by admin.'
+        : nextStatus === 'Rejected'
+          ? 'Academy membership rejected by admin.'
+          : 'Academy membership waitlisted by admin.';
+
+    const updatedApplication = {
+      ...existingApp,
+      status: nextStatus,
+      updatedAt: nowIso,
+      reviewedAt: nowIso,
+      reviewedBy: req.adminSession.username,
+      notes: [
+        reviewNote,
+        ...(Array.isArray(existingApp.notes) ? existingApp.notes : [])
+      ]
+    };
+
+    const updatePayload = {
+      academyApplication: updatedApplication,
+      academyApplicationStatus: nextStatus,
+      academyApplicationReviewedAt: nowIso,
+      academyApplicationReviewedBy: req.adminSession.username,
+      updatedAt: nowIso
+    };
+
+    if (isAcademyMembership && nextStatus === 'Approved') {
+      updatePayload.hasAcademyAccess = true;
+      updatePayload.academyMembershipStatus = 'approved';
+      updatePayload.academyMembershipApprovedAt = nowIso;
+    }
+
+    await userDoc.ref.set(updatePayload, { merge: true });
+
+    return res.json({
+      success: true,
+      application: updatedApplication
+    });
+  } catch (error) {
+    console.error('admin application review error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to review application.'
+    });
+  }
+});
   apiRouter.post('/api/admin/logout', (req, res) => {
     const env = getEnvConfig();
     const cookies = parseCookies(req);

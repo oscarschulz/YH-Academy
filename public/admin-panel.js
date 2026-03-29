@@ -1365,71 +1365,83 @@ function syncMemberFromApplication(application) {
   return newMemberId;
 }
 
-function handleAction(action, id) {
+async function handleAction(action, id) {
   switch (action) {
 case 'approve-application': {
-  const app = findById('applications', id);
-  if (!app) return;
-
-  const isAcademyMembership = String(app.applicationType || '').trim().toLowerCase() === 'academy-membership';
-
-  app.status = 'Approved';
-  app.notes.unshift(
-    isAcademyMembership
-      ? 'Academy membership approved by admin. Roadmap access remains separate.'
-      : 'Approved by admin.'
-  );
-
-  const newMemberId = syncMemberFromApplication(app);
-
-  if (
-    app.recommendedDivision === 'Academy' &&
-    !isAcademyMembership &&
-    !state.academy.some(a => a.memberName === app.name)
-  ) {
-    state.academy.unshift({
-      id: `AC-${Date.now().toString().slice(-6)}`,
-      memberId: newMemberId || state.members.find(m => m.email === app.email)?.id || '',
-      memberName: app.name,
-      phase: 'Assessment',
-      focus: 'Financial',
-      completion: 10,
-      lastCheckIn: 'Pending',
-      status: 'Needs Review',
-      nextAction: 'Initialize Academy roadmap.',
-      notes: ['Created after application approval.']
+  try {
+    const res = await fetch(`/api/admin/applications/${encodeURIComponent(id)}/review`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({ decision: 'approve' })
     });
-  }
 
-  saveState();
-  renderApp();
-  showToast(
-    isAcademyMembership
-      ? `${app.name} approved for Academy membership.`
-      : `${app.name} approved.`
-  );
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok || !data?.success) {
+      throw new Error(data?.message || 'Failed to approve application.');
+    }
+
+    await loadAdminBootstrap();
+    showToast('Application approved.');
+  } catch (error) {
+    showToast(error.message || 'Failed to approve application.');
+  }
   break;
 }
-    case 'reject-application': {
-      const app = findById('applications', id);
-      if (!app) return;
-      app.status = 'Rejected';
-      app.notes.unshift('Rejected by admin.');
-      saveState();
-      renderApp();
-      showToast(`${app.name} rejected.`);
-      break;
+case 'reject-application': {
+  try {
+    const res = await fetch(`/api/admin/applications/${encodeURIComponent(id)}/review`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({ decision: 'reject' })
+    });
+
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok || !data?.success) {
+      throw new Error(data?.message || 'Failed to reject application.');
     }
-    case 'waitlist-application': {
-      const app = findById('applications', id);
-      if (!app) return;
-      app.status = 'Waitlisted';
-      app.notes.unshift('Moved to waitlist.');
-      saveState();
-      renderApp();
-      showToast(`${app.name} moved to waitlist.`);
-      break;
+
+    await loadAdminBootstrap();
+    showToast('Application rejected.');
+  } catch (error) {
+    showToast(error.message || 'Failed to reject application.');
+  }
+  break;
+}
+case 'waitlist-application': {
+  try {
+    const res = await fetch(`/api/admin/applications/${encodeURIComponent(id)}/review`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({ decision: 'waitlist' })
+    });
+
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok || !data?.success) {
+      throw new Error(data?.message || 'Failed to waitlist application.');
     }
+
+    await loadAdminBootstrap();
+    showToast('Application waitlisted.');
+  } catch (error) {
+    showToast(error.message || 'Failed to waitlist application.');
+  }
+  break;
+}
     case 'toggle-member-status': {
       const member = findById('members', id);
       if (!member) return;
