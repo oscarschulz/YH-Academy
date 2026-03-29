@@ -6638,9 +6638,15 @@ document.addEventListener('keydown', (event) => {
 });
 
 // always land on dashboard hub first
-queueMicrotask(() => {
-    showUniverseHub('academy', { animate: false });
-});
+setDashboardViewMode('hub');
+
+if (academyWrapper) academyWrapper.style.display = 'none';
+if (leftSidebar) leftSidebar.style.display = 'none';
+if (rightSidebar) rightSidebar.style.display = 'none';
+if (universeHubView) universeHubView.style.display = 'flex';
+
+syncUniverseFeaturePanel('academy');
+setUniverseSlide('academy', { animate: false });
 
 const formApply = document.getElementById('form-academy-apply');
 const academyOccupationTypeInput = document.getElementById('app-occupation-type');

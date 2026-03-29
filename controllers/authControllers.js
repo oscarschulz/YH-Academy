@@ -6,6 +6,7 @@ const { firestore } = require('../config/firebaseAdmin');
 const USERS_COLLECTION = 'users';
 const OTP_FROM_EMAIL = process.env.OTP_FROM_EMAIL || 'YH Universe <noreply@younghustlers.net>';
 const OTP_REPLY_TO = process.env.OTP_REPLY_TO || 'support@younghustlers.net';
+const OTP_SUPPORT_EMAIL = process.env.OTP_SUPPORT_EMAIL || 'support@younghustlers.net';
 
 const ALLOW_INSECURE_SMTP_TLS =
     String(process.env.ALLOW_INSECURE_SMTP_TLS || '').trim().toLowerCase() === 'true';
@@ -55,6 +56,23 @@ const randomSuffix = (length = 4) => {
 };
 
 const nowIso = () => new Date().toISOString();
+const PASSWORD_RESET_OTP_TTL_MINUTES = Number(process.env.PASSWORD_RESET_OTP_TTL_MINUTES || 10);
+const PASSWORD_RESET_VERIFIED_TTL_MINUTES = Number(process.env.PASSWORD_RESET_VERIFIED_TTL_MINUTES || 15);
+
+const addMinutesToIso = (minutes = 0) => new Date(Date.now() + (Number(minutes) || 0) * 60 * 1000).toISOString();
+
+const isIsoExpired = (value) => {
+    if (!value) return true;
+    const ts = new Date(value).getTime();
+    if (!Number.isFinite(ts)) return true;
+    return ts <= Date.now();
+};
+
+const addMinutesToIsoFromValue = (value, minutes = 0) => {
+    const baseTs = new Date(value).getTime();
+    if (!Number.isFinite(baseTs)) return '';
+    return new Date(baseTs + (Number(minutes) || 0) * 60 * 1000).toISOString();
+};
 
 const usersCollection = () => firestore.collection(USERS_COLLECTION);
 
@@ -153,37 +171,219 @@ function publicUser(user) {
     };
 }
 
-function verificationMailHtml(otpCode) {
+function renderPremiumOtpEmail({
+    badge,
+    title,
+    intro,
+    otpCode,
+    note
+}) {
     return `
-        <div style="font-family: sans-serif; text-align: center; color: #333;">
-            <h2>Welcome to the YH Universe</h2>
-            <p>Your verification code is:</p>
-            <h1 style="color: #0ea5e9; letter-spacing: 5px;">${otpCode}</h1>
-            <p style="font-size: 0.8rem; color: #777;">This code will expire soon.</p>
-        </div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${title}</title>
+</head>
+<body style="margin:0; padding:0; background-color:#030712; font-family:Arial, Helvetica, sans-serif; color:#e5eef8;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; border-collapse:collapse; background-color:#030712; margin:0; padding:0;">
+    <tr>
+      <td align="center" style="padding:28px 14px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:660px; width:100%; border-collapse:collapse;">
+
+          <tr>
+            <td style="padding:0 0 14px 0;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; border-collapse:collapse;">
+                <tr>
+                  <td style="background-color:#06111f; border:1px solid #16324c; border-radius:20px 20px 0 0; padding:14px 18px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; border-collapse:collapse;">
+                      <tr>
+                        <td align="left" valign="middle">
+                          <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
+                            <tr>
+                              <td align="center" valign="middle" width="40" height="40" style="width:40px; height:40px; border-radius:12px; background-color:#0a1a2c; border:1px solid #1f4b72; color:#7dd3fc; font-size:18px; font-weight:800;">
+                                YH
+                              </td>
+                              <td style="padding-left:12px;">
+                                <div style="font-size:14px; line-height:1.2; color:#ffffff; font-weight:800; letter-spacing:0.5px;">
+                                  Young Hustlers Universe
+                                </div>
+                                <div style="font-size:11px; line-height:1.4; color:#8fa4bf; text-transform:uppercase; letter-spacing:1.6px;">
+                                  Secure Account Access
+                                </div>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                        <td align="right" valign="middle">
+                          <div style="display:inline-block; padding:7px 12px; border-radius:999px; border:1px solid #18456b; background-color:#081726; color:#7dd3fc; font-size:11px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase;">
+                            ${badge}
+                          </div>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="background-color:#08111f; border-left:1px solid #16324c; border-right:1px solid #16324c; padding:0;">
+                    <div style="height:4px; line-height:4px; font-size:0; background-color:#0ea5e9;">&nbsp;</div>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="background-color:#070d18; border:1px solid #16324c; border-top:0; border-radius:0 0 20px 20px; padding:36px 26px 24px 26px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; border-collapse:collapse;">
+                      <tr>
+                        <td align="center" style="padding-bottom:10px;">
+                          <div style="font-size:12px; line-height:1.4; color:#7dd3fc; letter-spacing:2px; text-transform:uppercase; font-weight:700;">
+                            Private authentication message
+                          </div>
+                        </td>
+                      </tr>
+
+                      <tr>
+                        <td align="center" style="padding-bottom:12px;">
+                          <h1 style="margin:0; font-size:32px; line-height:1.2; color:#ffffff; font-weight:800;">
+                            ${title}
+                          </h1>
+                        </td>
+                      </tr>
+
+                      <tr>
+                        <td align="center" style="padding-bottom:24px;">
+                          <p style="margin:0; max-width:520px; font-size:15px; line-height:1.8; color:#9fb0c8;">
+                            ${intro}
+                          </p>
+                        </td>
+                      </tr>
+
+                      <tr>
+                        <td style="padding-bottom:24px;">
+                          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; border-collapse:collapse;">
+                            <tr>
+                              <td align="center" style="padding:0;">
+                                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse; margin:0 auto;">
+                                  <tr>
+                                    <td align="center" style="background-color:#030712; border:1px solid #1c567f; border-radius:20px; padding:18px 22px;">
+                                      <div style="font-size:11px; line-height:1.4; color:#7dd3fc; letter-spacing:2px; text-transform:uppercase; font-weight:700; padding-bottom:8px;">
+                                        Verification code
+                                      </div>
+                                      <div style="font-size:42px; line-height:1; color:#38bdf8; font-weight:800; letter-spacing:11px;">
+                                        ${otpCode}
+                                      </div>
+                                    </td>
+                                  </tr>
+                                </table>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+
+                      <tr>
+                        <td style="padding-bottom:18px;">
+                          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; border-collapse:collapse;">
+                            <tr>
+                              <td style="background-color:#091423; border:1px solid #152b45; border-radius:16px; padding:14px 16px;">
+                                <p style="margin:0; font-size:13px; line-height:1.8; color:#b7c5d9; text-align:center;">
+                                  This code is private and should never be shared with anyone.
+                                </p>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+
+                      <tr>
+                        <td align="center" style="padding-bottom:24px;">
+                          <p style="margin:0; font-size:13px; line-height:1.8; color:#8fa4bf;">
+                            ${note}
+                          </p>
+                        </td>
+                      </tr>
+
+                      <tr>
+                        <td style="padding-top:20px; border-top:1px solid #15263d;">
+                          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; border-collapse:collapse;">
+                            <tr>
+                              <td align="center" style="padding-bottom:6px;">
+                                <div style="font-size:12px; line-height:1.5; color:#7f93ad; text-transform:uppercase; letter-spacing:1.4px;">
+                                  Support
+                                </div>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td align="center" style="padding-bottom:2px;">
+                                <a href="mailto:${OTP_SUPPORT_EMAIL}" style="font-size:15px; line-height:1.7; color:#38bdf8; text-decoration:none; font-weight:700;">
+                                  ${OTP_SUPPORT_EMAIL}
+                                </a>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td align="center">
+                                <p style="margin:0; font-size:12px; line-height:1.7; color:#72859e;">
+                                  If you have questions or need any assistance, contact our support team.
+                                </p>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td align="center" style="padding-top:16px;">
+                    <p style="margin:0; font-size:12px; line-height:1.8; color:#667892;">
+                      © YH Universe. Built for ambitious people, structured for scale.
+                    </p>
+                  </td>
+                </tr>
+
+              </table>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
     `;
+}
+
+function verificationMailHtml(otpCode) {
+    return renderPremiumOtpEmail({
+        badge: 'Email Verification',
+        title: 'Verify your email',
+        intro: 'Welcome to the YH Universe. Use the code below to verify your email and continue your onboarding.',
+        otpCode,
+        note: 'This verification code will expire soon.'
+    });
 }
 
 function resendVerificationMailHtml(otpCode) {
-    return `
-        <div style="font-family: sans-serif; text-align: center; color: #333;">
-            <h2>Welcome to the YH Universe</h2>
-            <p>You requested a new verification code. Your code is:</p>
-            <h1 style="color: #0ea5e9; letter-spacing: 5px;">${otpCode}</h1>
-            <p style="font-size: 0.8rem; color: #777;">This code will expire soon.</p>
-        </div>
-    `;
+    return renderPremiumOtpEmail({
+        badge: 'New Verification Code',
+        title: 'Your new code is ready',
+        intro: 'You requested another verification code. Use the latest code below to continue accessing your account.',
+        otpCode,
+        note: 'Only the most recently issued code should be used.'
+    });
 }
 
 function forgotPasswordMailHtml(otpCode) {
-    return `
-        <div style="font-family: sans-serif; text-align: center; color: #333;">
-            <h2>YH Universe Password Reset</h2>
-            <p>You requested to reset your password. Use the code below:</p>
-            <h1 style="color: #0ea5e9; letter-spacing: 5px;">${otpCode}</h1>
-            <p style="font-size: 0.8rem; color: #777;">If you did not request this, please ignore this email.</p>
-        </div>
-    `;
+    return renderPremiumOtpEmail({
+        badge: 'Password Reset',
+        title: 'Reset your password',
+        intro: 'We received a password reset request for your YH Universe account. Use the code below to continue.',
+        otpCode,
+        note: 'If you did not request this reset, you can safely ignore this email.'
+    });
 }
 
 exports.registerUser = async (req, res) => {
@@ -410,17 +610,20 @@ exports.forgotPassword = async (req, res) => {
         }
 
         const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const passwordResetExpiresAt = addMinutesToIso(PASSWORD_RESET_OTP_TTL_MINUTES);
 
         await usersCollection().doc(user.id).update({
-            verificationCode: otpCode,
+            passwordResetCode: otpCode,
+            passwordResetExpiresAt,
+            passwordResetVerifiedAt: null,
             updatedAt: nowIso()
         });
 
-    await sendOtpMail({
-        to: email,
-        subject: 'YH Universe - Password Reset Code',
-        html: forgotPasswordMailHtml(otpCode)
-    });
+        await sendOtpMail({
+            to: email,
+            subject: 'YH Universe - Password Reset Code',
+            html: forgotPasswordMailHtml(otpCode)
+        });
 
         return res.json({
             success: true,
@@ -434,19 +637,33 @@ exports.forgotPassword = async (req, res) => {
         });
     }
 };
-
 exports.verifyForgotOTP = async (req, res) => {
     try {
         const email = String(req.body?.email || '').trim().toLowerCase();
         const otpCode = String(req.body?.otpCode || '').trim();
 
-        const user = await findUserByEmailAndOtp(email, otpCode);
+        const user = await findUserByEmail(email);
         if (!user) {
             return res.status(400).json({
                 success: false,
                 message: 'Invalid or expired reset code.'
             });
         }
+
+        const storedCode = String(user.passwordResetCode || '').trim();
+        const expiresAt = String(user.passwordResetExpiresAt || '').trim();
+
+        if (!storedCode || !otpCode || storedCode !== otpCode || isIsoExpired(expiresAt)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid or expired reset code.'
+            });
+        }
+
+        await usersCollection().doc(user.id).update({
+            passwordResetVerifiedAt: nowIso(),
+            updatedAt: nowIso()
+        });
 
         return res.json({
             success: true,
@@ -474,12 +691,22 @@ exports.resetPassword = async (req, res) => {
             });
         }
 
+        const verifiedAt = String(user.passwordResetVerifiedAt || '').trim();
+        if (!verifiedAt || isIsoExpired(addMinutesToIsoFromValue(verifiedAt, PASSWORD_RESET_VERIFIED_TTL_MINUTES))) {
+            return res.status(403).json({
+                success: false,
+                message: 'Password reset session is invalid or expired. Please verify your reset code again.'
+            });
+        }
+
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(newPassword, salt);
 
         await usersCollection().doc(user.id).update({
             password: hashedPassword,
-            verificationCode: null,
+            passwordResetCode: null,
+            passwordResetExpiresAt: null,
+            passwordResetVerifiedAt: null,
             updatedAt: nowIso()
         });
 
