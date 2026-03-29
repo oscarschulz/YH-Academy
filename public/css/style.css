@@ -5992,3 +5992,48 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
 .academy-tab-state-badge.is-hidden {
     display: none;
 }
+.academy-entry-cta-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    width: 100%;
+}
+
+.academy-entry-state-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 42px;
+    padding: 0.75rem 1rem;
+    border-radius: 14px;
+    font-size: 0.88rem;
+    font-weight: 700;
+    text-align: center;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.04);
+    color: #dbeafe;
+}
+
+.academy-entry-state-badge.is-hidden {
+    display: none;
+}
+
+.academy-entry-state-badge.is-pending {
+    border-color: rgba(245, 158, 11, 0.38);
+    background: rgba(245, 158, 11, 0.12);
+    color: #fbbf24;
+}
+
+.academy-entry-state-badge.is-approved {
+    border-color: rgba(16, 185, 129, 0.35);
+    background: rgba(16, 185, 129, 0.12);
+    color: #34d399;
+}
+
+.academy-entry-state-badge.is-waitlisted,
+.academy-entry-state-badge.is-rejected {
+    border-color: rgba(239, 68, 68, 0.35);
+    background: rgba(239, 68, 68, 0.12);
+    color: #f87171;
+}

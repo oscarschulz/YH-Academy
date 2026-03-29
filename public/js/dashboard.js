@@ -6474,16 +6474,73 @@ const YH_ROADMAP_LOCK_KEY = 'yh_academy_roadmap_locked_v1';
 function syncAcademyEntryButton(snapshot = null) {
     if (!btnOpenApply) return;
 
+    const stateBadge = document.getElementById('academy-entry-state-badge');
+
     const membershipStatus = String(
         snapshot?.applicationStatus ||
         readAcademyMembershipCache()?.applicationStatus ||
         ''
     ).trim().toLowerCase();
 
-    const approved = membershipStatus === 'approved';
+    btnOpenApply.disabled = false;
+    btnOpenApply.classList.remove('btn-secondary');
 
-    btnOpenApply.innerText = approved ? 'Enter the Academy' : 'Apply for the Academy';
-    btnOpenApply.setAttribute('data-academy-state', approved ? 'approved' : 'apply');
+    if (stateBadge) {
+        stateBadge.classList.add('is-hidden');
+        stateBadge.classList.remove('is-pending', 'is-approved', 'is-waitlisted', 'is-rejected');
+        stateBadge.textContent = '';
+    }
+
+    if (membershipStatus === 'approved') {
+        btnOpenApply.innerText = 'Enter the Academy';
+        btnOpenApply.setAttribute('data-academy-state', 'approved');
+
+        if (stateBadge) {
+            stateBadge.textContent = 'Academy Access Approved';
+            stateBadge.classList.remove('is-hidden');
+            stateBadge.classList.add('is-approved');
+        }
+        return;
+    }
+
+    if (membershipStatus === 'under review' || membershipStatus === 'new') {
+        btnOpenApply.innerText = 'Application Pending';
+        btnOpenApply.setAttribute('data-academy-state', 'pending');
+
+        if (stateBadge) {
+            stateBadge.textContent = 'Your Academy application is under review';
+            stateBadge.classList.remove('is-hidden');
+            stateBadge.classList.add('is-pending');
+        }
+        return;
+    }
+
+    if (membershipStatus === 'waitlisted') {
+        btnOpenApply.innerText = 'Application Waitlisted';
+        btnOpenApply.setAttribute('data-academy-state', 'waitlisted');
+
+        if (stateBadge) {
+            stateBadge.textContent = 'Your Academy application is waitlisted';
+            stateBadge.classList.remove('is-hidden');
+            stateBadge.classList.add('is-waitlisted');
+        }
+        return;
+    }
+
+    if (membershipStatus === 'rejected') {
+        btnOpenApply.innerText = 'Application Reviewed';
+        btnOpenApply.setAttribute('data-academy-state', 'rejected');
+
+        if (stateBadge) {
+            stateBadge.textContent = 'Your Academy application has been reviewed';
+            stateBadge.classList.remove('is-hidden');
+            stateBadge.classList.add('is-rejected');
+        }
+        return;
+    }
+
+    btnOpenApply.innerText = 'Apply for the Academy';
+    btnOpenApply.setAttribute('data-academy-state', 'apply');
 }
 
 function hasAcademyApplicationAlreadyBeenFilled() {
