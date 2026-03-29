@@ -194,15 +194,17 @@ async function handleLoginSubmit() {
 
         const result = await response.json();
 
-        if (result.success) {
-            showToast(result.message, "success");
-            clearPendingVerifyEmail();
-            localStorage.setItem('yh_user_loggedIn', 'true');
-            localStorage.setItem('yh_user_name', (result.user.fullName || result.user.username || 'Hustler').trim());
-            localStorage.setItem('yh_token', result.token);
-            setTimeout(() => { window.location.href = '/dashboard'; }, 1000);
-            return;
-        }
+if (result.success) {
+    showToast(result.message, "success");
+    clearPendingVerifyEmail();
+    localStorage.setItem('yh_user_loggedIn', 'true');
+    localStorage.setItem('yh_user_name', (result.user.fullName || result.user.username || 'Hustler').trim());
+    localStorage.setItem('yh_user_username', (result.user.username || '').trim());
+    localStorage.setItem('yh_user_email', (result.user.email || identifier || '').trim().toLowerCase());
+    localStorage.setItem('yh_token', result.token);
+    setTimeout(() => { window.location.href = '/dashboard'; }, 1000);
+    return;
+}
 
         if (response.status === 403 && result.verificationRequired) {
             const verificationEmail = String(result.email || identifier).trim().toLowerCase();
@@ -409,6 +411,7 @@ if (formRegisterSimple) {
                     localStorage.setItem('yh_user_name', (result.user.fullName || result.user.username || 'Hustler').trim());
                     localStorage.setItem('yh_token', result.token); 
                     localStorage.setItem('yh_user_username', (result.user.username || '').trim());
+                    localStorage.setItem('yh_user_email', (result.user.email || email || '').trim().toLowerCase());
                     setTimeout(() => { window.location.href = '/dashboard'; }, 1000);
                 } else {
                     showToast(result.message, "error");

@@ -290,6 +290,8 @@ function touchCustomRoomFromMessage(msg, options = {}) {
 function logoutUser() {
     localStorage.removeItem('yh_user_loggedIn');
     localStorage.removeItem('yh_user_name');
+    localStorage.removeItem('yh_user_username');
+    localStorage.removeItem('yh_user_email');
     localStorage.removeItem('yh_user_avatar');
     localStorage.removeItem('yh_academy_access');
     localStorage.removeItem('yh_academy_home');
@@ -6491,7 +6493,107 @@ function closeAcademyLauncher() {
 
 window.openAcademyLauncher = openAcademyLauncher;
 window.closeAcademyLauncher = closeAcademyLauncher;
+const YH_ADMIN_PANEL_STORAGE_KEY = 'yh_admin_panel_state_v2';
 
+function readYhAdminPanelState() {
+    try {
+        const raw = localStorage.getItem(YH_ADMIN_PANEL_STORAGE_KEY);
+        if (!raw) return {};
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (_) {
+        return {};
+    }
+}
+
+function writeYhAdminPanelState(nextState = {}) {
+    localStorage.setItem(YH_ADMIN_PANEL_STORAGE_KEY, JSON.stringify(nextState));
+}
+
+function getCurrentAcademyApplicantIdentity() {
+    return {
+        name: String(localStorage.getItem('yh_user_name') || 'Hustler').trim(),
+        username: String(localStorage.getItem('yh_user_username') || '').trim(),
+        email: String(localStorage.getItem('yh_user_email') || '').trim().toLowerCase()
+    };
+}
+
+function findCurrentAcademyMembershipApplication() {
+    const identity = getCurrentAcademyApplicantIdentity();
+    const adminState = readYhAdminPanelState();
+    const applications = Array.isArray(adminState?.applications) ? adminState.applications : [];
+
+    return applications.find((app) => {
+        const appType = String(app?.applicationType || '').trim().toLowerCase();
+        if (appType !== 'academy-membership') return false;
+
+        const appEmail = String(app?.email || '').trim().toLowerCase();
+        const appUsername = String(app?.username || '').trim().toLowerCase();
+        const appName = String(app?.name || '').trim().toLowerCase();
+
+        if (identity.email && appEmail && appEmail === identity.email) return true;
+        if (identity.username && appUsername && appUsername === identity.username.toLowerCase()) return true;
+        return identity.name && appName === identity.name.toLowerCase();
+    }) || null;
+}
+
+function getCurrentAcademyMembershipStatus() {
+    return String(findCurrentAcademyMembershipApplication()?.status || '').trim().toLowerCase();
+}
+
+function queueAcademyMembershipApplication(payload = {}) {
+    const identity = getCurrentAcademyApplicantIdentity();
+    const adminState = readYhAdminPanelState();
+    const applications = Array.isArray(adminState?.applications) ? adminState.applications : [];
+    const existing = findCurrentAcademyMembershipApplication();
+
+    const profileSummary = [
+        payload.occupationType || '',
+        payload.currentJob || '',
+        payload.industry || ''
+    ].filter(Boolean).join(' • ');
+
+    const nextRecord = {
+        id: existing?.id || `APP-${Date.now().toString().slice(-6)}`,
+        name: identity.name || 'Hustler',
+        username: identity.username || '',
+        email: identity.email || '',
+        goal: payload.joinReason || 'Academy membership application',
+        background: profileSummary || 'No background submitted.',
+        recommendedDivision: 'Academy',
+        applicationType: 'academy-membership',
+        reviewLane: 'Academy Membership',
+        status: existing?.status && !['rejected', 'waitlisted'].includes(String(existing.status).toLowerCase())
+            ? existing.status
+            : 'Under Review',
+        aiScore: Number(existing?.aiScore || 0),
+        country: payload.country || '',
+        skills: [
+            payload.industry || '',
+            payload.incomeSource || '',
+            payload.businessStage || ''
+        ].filter(Boolean),
+        networkValue: existing?.networkValue || 'Unknown',
+        source: 'Academy Dashboard',
+        submittedAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
+        notes: [
+            'Submitted from dashboard Academy membership flow.',
+            ...(Array.isArray(existing?.notes) ? existing.notes : [])
+        ].filter(Boolean),
+        academyProfile: payload
+    };
+
+    const nextApplications = existing
+        ? applications.map((app) => app?.id === existing.id ? nextRecord : app)
+        : [nextRecord, ...applications];
+
+    writeYhAdminPanelState({
+        ...adminState,
+        applications: nextApplications
+    });
+
+    return nextRecord;
+}
 let academySuppressClickUntil = 0;
 
 async function handleAcademyLaunchClick(event) {
@@ -6515,9 +6617,9 @@ async function handleAcademyLaunchClick(event) {
         event.stopPropagation?.();
     }
 
-    const hasAcademyAccess = await resolveAcademyAccessState();
+    const hasRoadmapAccess = await resolveAcademyAccessState();
 
-    if (hasAcademyAccess) {
+    if (hasRoadmapAccess) {
         if (!readAcademyHomeCache()) {
             try {
                 await loadAcademyHome(true);
@@ -6526,6 +6628,28 @@ async function handleAcademyLaunchClick(event) {
 
         enterAcademyWorld('missions');
         return false;
+    }
+
+    const membershipStatus = getCurrentAcademyMembershipStatus();
+
+    if (membershipStatus === 'approved') {
+        showToast('Academy membership approved. Opening the Academy community.', 'success');
+        enterAcademyWorld('community');
+        return false;
+    }
+
+    if (membershipStatus === 'under review' || membershipStatus === 'new') {
+        showToast('Your Academy application is still pending admin review.', 'error');
+        return false;
+    }
+
+    if (membershipStatus === 'waitlisted') {
+        showToast('Your Academy application is currently waitlisted.', 'error');
+        return false;
+    }
+
+    if (membershipStatus === 'rejected') {
+        showToast('Your last Academy application was rejected. You can submit a fresh one now.', 'error');
     }
 
     openAcademyLauncher();
@@ -6737,106 +6861,42 @@ if (formApply) {
         localStorage.setItem('yh_academy_application_profile', JSON.stringify(payload));
 
         try {
-            const response = await fetch('/api/academy/intake', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(payload)
-            });
-
-            const result = await response.json();
+            queueAcademyMembershipApplication(payload);
 
             aiSpinnerPhase?.classList.add('hidden-step');
             aiVerdictPhase?.classList.remove('hidden-step');
 
-            if (!response.ok || !result.success) {
-                if (vIcon) vIcon.innerText = "⚠️";
-                if (vTitle) {
-                    vTitle.innerText = "Roadmap Generation Failed";
-                    vTitle.style.color = "#f59e0b";
-                }
-                if (vDesc) {
-                    vDesc.innerText = result.message || "The AI roadmap could not be generated right now.";
-                }
-                if (btnEnter) {
-                    btnEnter.style.display = 'block';
-                    btnEnter.innerText = "Back to Form";
-                    btnEnter.onclick = () => {
-                        aiVerdictPhase?.classList.add('hidden-step');
-                        aiFormPhase?.classList.remove('hidden-step');
-                    };
-                }
-                return;
-            }
-
-            const readinessScore = Number(result.readinessScore || 0);
-            const summary = result.summary || {};
-            const focusAreas = Array.isArray(result.focusAreas) ? result.focusAreas : [];
-            const todayMissions = Array.isArray(result.todayMissions) ? result.todayMissions : [];
-
-            const missionHtml = todayMissions.length
-                ? `<br><br><strong>First Missions:</strong><br>${todayMissions
-                    .map((mission, index) => `${index + 1}. ${escapeHtml(mission.title || 'Mission')}`)
-                    .join('<br>')}`
-                : '';
-
-            if (vIcon) vIcon.innerText = "🧠";
+            if (vIcon) vIcon.innerText = "📝";
             if (vTitle) {
-                vTitle.innerText = "Your YH Academy Roadmap Is Ready";
+                vTitle.innerText = "Application Submitted for Review";
                 vTitle.style.color = "var(--neon-blue)";
             }
             if (vDesc) {
                 vDesc.innerHTML = `
-                    <strong>Readiness Score:</strong> ${escapeHtml(readinessScore)} / 100
+                    Your Academy membership application is now pending manual admin review.
                     <br><br>
-                    <strong>Main Bottleneck:</strong> ${escapeHtml(summary.primaryBottleneck || 'Not available')}
-                    <br>
-                    <strong>Secondary Bottleneck:</strong> ${escapeHtml(summary.secondaryBottleneck || 'Not available')}
-                    <br>
-                    <strong>Main Opportunity:</strong> ${escapeHtml(summary.mainOpportunity || 'Not available')}
+                    Once approved, you will be able to enter the Academy community.
                     <br><br>
-                    <strong>Focus Areas:</strong> ${escapeHtml(focusAreas.join(', ') || 'Not available')}
-                    ${missionHtml}
+                    Roadmap access will remain separate.
                 `;
             }
 
-            const immediateAcademyHome = result.home && typeof result.home === 'object'
-                ? result.home
-                : {
-                    success: true,
-                    roadmap: {
-                        readinessScore,
-                        focusAreas,
-                        summary
-                    },
-                    today: {
-                        missionsCompleted: 0,
-                        missionsTotal: todayMissions.length,
-                        streakDays: 0
-                    },
-                    missions: todayMissions.map((mission) => ({
-                        ...mission,
-                        estimatedMinutes: mission.estimatedMinutes || 0
-                    }))
-                };
-
             if (btnEnter) {
                 btnEnter.style.display = 'block';
-                btnEnter.innerText = "Open YH Academy ➔";
+                btnEnter.innerText = "Close ➔";
                 btnEnter.onclick = () => {
-                    localStorage.setItem('yh_academy_access', 'true');
-                    localStorage.setItem('yh_academy_home', JSON.stringify(immediateAcademyHome));
                     closeAcademyLauncher();
-                    showToast("YH Academy unlocked. Opening your missions.", "success");
-                    enterAcademyWorld('missions');
+                    aiVerdictPhase?.classList.add('hidden-step');
+                    aiFormPhase?.classList.remove('hidden-step');
                 };
             }
+
+            formApply.reset();
+            syncAcademyOccupationField();
         } catch (error) {
             aiSpinnerPhase?.classList.add('hidden-step');
             aiFormPhase?.classList.remove('hidden-step');
-            showToast("Server error while generating roadmap.", "error");
+            showToast("Failed to submit Academy application.", "error");
         }
     });
 }

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YH Admin Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./admin-login.css" />
+</head>
+<body>
+  <main class="admin-auth-shell">
+    <section class="admin-auth-card">
+      <div class="admin-auth-brand">
+        <div class="admin-auth-mark">YH</div>
+        <div>
+          <p class="admin-auth-eyebrow">Young Hustlers Universe</p>
+          <h1>Admin Access</h1>
+        </div>
+      </div>
+
+      <div class="admin-auth-copy">
+        <p id="admin-auth-route-status" class="admin-auth-route-status">
+          Secure route token detected.
+        </p>
+        <p class="admin-auth-subtitle">
+          Enter your admin credentials to open the control room.
+        </p>
+      </div>
+
+      <form id="admin-login-form" class="admin-auth-form">
+        <div class="form-group">
+          <label for="admin-username">Admin Username</label>
+          <input id="admin-username" type="text" autocomplete="username" placeholder="Enter admin username" required />
+        </div>
+
+        <div class="form-group">
+          <label for="admin-password">Admin Password</label>
+          <input id="admin-password" type="password" autocomplete="current-password" placeholder="Enter admin password" required />
+        </div>
+
+        <button type="submit" id="admin-login-submit" class="primary-btn">
+          Enter Admin Panel ➔
+        </button>
+      </form>
+
+      <div id="admin-auth-message" class="admin-auth-message" aria-live="polite"></div>
+
+      <div class="admin-auth-foot">
+        <span>Session duration: 8 hours on this browser</span>
+      </div>
+    </section>
+  </main>
+
+  <script src="./admin-login.js"></script>
+</body>
+</html>
