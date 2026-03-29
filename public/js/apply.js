@@ -413,9 +413,6 @@ if (result.success) {
     localStorage.setItem('yh_user_username', (result.user.username || '').trim());
     localStorage.setItem('yh_user_email', (result.user.email || email || '').trim().toLowerCase());
 
-    // one-time post-registration academy application trigger
-    sessionStorage.setItem('yh_force_academy_application_after_auth', 'true');
-
     setTimeout(() => { window.location.href = '/dashboard'; }, 1000);
 } else {
                     showToast(result.message, "error");

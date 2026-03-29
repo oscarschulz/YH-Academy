@@ -6836,9 +6836,6 @@ if (universeHubView) universeHubView.style.display = 'flex';
 
 syncUniverseFeaturePanel('academy');
 setUniverseSlide('academy', { animate: false });
-setTimeout(() => {
-    maybeOpenPostAuthAcademyApplication();
-}, 250);
 
 const formApply = document.getElementById('form-academy-apply');
 const academyOccupationTypeInput = document.getElementById('app-occupation-type');
