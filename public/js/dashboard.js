@@ -3617,6 +3617,149 @@ if (academyMemberBrowserModal) {
         }
     });
 }
+
+function closeAcademyMemberBrowser() {
+    document.getElementById('academy-member-browser-modal')?.classList.add('hidden-step');
+}
+
+function renderAcademyMemberBrowserList(members = []) {
+    const list = document.getElementById('academy-member-browser-list');
+    if (!list) return;
+
+    if (!Array.isArray(members) || !members.length) {
+        list.innerHTML = `<div class="academy-member-browser-empty">No other Academy members found yet.</div>`;
+        return;
+    }
+
+    list.innerHTML = members.map((member) => {
+        const memberId = String(member.id || member.user_id || '').trim();
+        const displayName = String(
+            member.display_name ||
+            member.fullName ||
+            member.name ||
+            member.username ||
+            'Academy Member'
+        ).trim();
+        const username = String(member.username || '').trim();
+        const roleLabel = String(member.role_label || member.role || 'Academy Member').trim();
+        const followersCount = Number(member.followers_count || member.followers || 0);
+        const followed = member.followed_by_me === true || member.followed === true;
+        const avatar = String(member.avatar || member.profile_picture || '').trim();
+
+        const avatarHtml = avatar
+            ? `<div class="academy-member-card-avatar" style="background-image:url('${avatar.replace(/'/g, "%27")}'); background-color:transparent;"></div>`
+            : `<div class="academy-member-card-avatar">${academyFeedEscapeHtml(displayName.charAt(0).toUpperCase())}</div>`;
+
+        return `
+            <div class="academy-member-card" data-member-id="${academyFeedEscapeHtml(memberId)}">
+                <div class="academy-member-card-left">
+                    ${avatarHtml}
+                    <div class="academy-member-card-copy">
+                        <div class="academy-member-card-name">${academyFeedEscapeHtml(displayName)}</div>
+                        <div class="academy-member-card-meta">
+                            ${username ? `@${academyFeedEscapeHtml(username)} • ` : ''}${academyFeedEscapeHtml(roleLabel)} • ${followersCount} follower${followersCount === 1 ? '' : 's'}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="academy-member-card-actions">
+                    <button
+                        type="button"
+                        class="btn-secondary academy-member-card-follow ${followed ? 'is-following' : ''}"
+                        data-member-follow-id="${academyFeedEscapeHtml(memberId)}"
+                    >${followed ? 'Following' : 'Follow'}</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+async function loadAcademyMemberBrowser(forceFresh = false) {
+    const list = document.getElementById('academy-member-browser-list');
+    if (!list) return;
+
+    if (!forceFresh && Array.isArray(window.academyMemberBrowserList) && window.academyMemberBrowserList.length) {
+        renderAcademyMemberBrowserList(window.academyMemberBrowserList);
+        return;
+    }
+
+    list.innerHTML = `<div class="academy-member-browser-empty">Loading members...</div>`;
+
+    try {
+        const result = await academyAuthedFetch('/api/academy/community/members', {
+            method: 'GET'
+        });
+
+        window.academyMemberBrowserList = Array.isArray(result?.members) ? result.members : [];
+        renderAcademyMemberBrowserList(window.academyMemberBrowserList);
+    } catch (error) {
+        list.innerHTML = `<div class="academy-member-browser-empty">Failed to load other Hustlers.</div>`;
+        showToast(error.message || 'Failed to load other Hustlers.', 'error');
+    }
+}
+
+async function toggleAcademyMemberBrowserFollow(targetUserId) {
+    const normalizedTargetUserId = String(targetUserId || '').trim();
+    if (!normalizedTargetUserId) {
+        showToast('Invalid member target.', 'error');
+        return;
+    }
+
+    try {
+        const result = await academyAuthedFetch(`/api/academy/community/members/${normalizedTargetUserId}/follow`, {
+            method: 'POST'
+        });
+
+        const currentList = Array.isArray(window.academyMemberBrowserList) ? window.academyMemberBrowserList : [];
+
+        window.academyMemberBrowserList = currentList.map((member) => {
+            const memberId = String(member.id || member.user_id || '').trim();
+            if (memberId !== normalizedTargetUserId) return member;
+
+            const currentlyFollowed = member.followed_by_me === true || member.followed === true;
+            const nextFollowed =
+                typeof result?.followed === 'boolean'
+                    ? result.followed
+                    : !currentlyFollowed;
+
+            const currentFollowers = Number(member.followers_count || member.followers || 0);
+            const nextFollowers =
+                typeof result?.followers_count === 'number'
+                    ? result.followers_count
+                    : Math.max(0, currentFollowers + (nextFollowed ? 1 : -1));
+
+            return {
+                ...member,
+                followed_by_me: nextFollowed,
+                followed: nextFollowed,
+                followers_count: nextFollowers,
+                followers: nextFollowers
+            };
+        });
+
+        renderAcademyMemberBrowserList(window.academyMemberBrowserList);
+        showToast(result?.message || 'Follow status updated.', 'success');
+    } catch (error) {
+        showToast(error.message || 'Failed to update follow status.', 'error');
+    }
+}
+
+const academyMemberBrowserList = document.getElementById('academy-member-browser-list');
+if (academyMemberBrowserList && academyMemberBrowserList.dataset.bound !== 'true') {
+    academyMemberBrowserList.dataset.bound = 'true';
+
+    academyMemberBrowserList.addEventListener('click', async (event) => {
+        const followBtn = event.target.closest('[data-member-follow-id]');
+        if (!followBtn) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        const memberId = followBtn.getAttribute('data-member-follow-id') || '';
+        await toggleAcademyMemberBrowserFollow(memberId);
+    });
+}
+
     // --- MISSIONS & BLUEPRINT ---
 function checkDailyReset() {
     const today = new Date().toDateString();
