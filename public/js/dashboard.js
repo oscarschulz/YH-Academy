@@ -7357,10 +7357,6 @@ if (roadmapForm) {
                 hasRoadmapAccess: false
             });
 
-            localStorage.setItem(YH_ROADMAP_LOCK_KEY, 'true');
-
-            closeRoadmapIntake();
-
             const nextSnapshot = {
                 ...(membershipSnapshot || {}),
                 roadmapApplication,
