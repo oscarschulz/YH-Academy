@@ -6465,6 +6465,59 @@ const btnOpenApply = document.getElementById('btn-open-academy-apply');
 const applyModal = document.getElementById('academy-apply-modal');
 const closeApplyBtn = document.getElementById('close-academy-apply');
 
+const roadmapModal = document.getElementById('academy-roadmap-modal');
+const closeRoadmapBtn = document.getElementById('close-academy-roadmap');
+
+const YH_POST_AUTH_APP_KEY = 'yh_force_academy_application_after_auth';
+const YH_ROADMAP_PROFILE_KEY = 'yh_academy_roadmap_profile_v1';
+const YH_ROADMAP_LOCK_KEY = 'yh_academy_roadmap_locked_v1';
+
+function hasAcademyApplicationAlreadyBeenFilled() {
+    return Boolean(findCurrentAcademyMembershipApplication());
+}
+
+function readRoadmapProfileCache() {
+    try {
+        const raw = localStorage.getItem(YH_ROADMAP_PROFILE_KEY);
+        return raw ? JSON.parse(raw) : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+function hasRoadmapIntakeAlreadyBeenFilled() {
+    if (localStorage.getItem('yh_academy_access') === 'true') return true;
+    if (localStorage.getItem(YH_ROADMAP_LOCK_KEY) === 'true') return true;
+    return false;
+}
+
+function openRoadmapIntake() {
+    if (!roadmapModal) return;
+    roadmapModal.classList.remove('hidden-step');
+    document.body?.classList.add('academy-launcher-open');
+}
+
+function closeRoadmapIntake() {
+    if (!roadmapModal) return;
+    roadmapModal.classList.add('hidden-step');
+    document.body?.classList.remove('academy-launcher-open');
+}
+
+function maybeOpenPostAuthAcademyApplication() {
+    const shouldOpen = sessionStorage.getItem(YH_POST_AUTH_APP_KEY) === 'true';
+    if (!shouldOpen) return;
+
+    sessionStorage.removeItem(YH_POST_AUTH_APP_KEY);
+
+    if (hasAcademyApplicationAlreadyBeenFilled()) return;
+    openAcademyLauncher();
+}
+
+function maybeOpenRoadmapIntakeOnce() {
+    if (hasRoadmapIntakeAlreadyBeenFilled()) return;
+    openRoadmapIntake();
+}
+
 function resetAcademyLauncherState() {
     document.getElementById('ai-form-phase')?.classList.remove('hidden-step');
     document.getElementById('ai-spinner-phase')?.classList.add('hidden-step');
@@ -6630,30 +6683,42 @@ async function handleAcademyLaunchClick(event) {
         return false;
     }
 
-    const membershipStatus = getCurrentAcademyMembershipStatus();
+const membershipStatus = getCurrentAcademyMembershipStatus();
 
-    if (membershipStatus === 'approved') {
-        showToast('Academy membership approved. Opening the Academy community.', 'success');
-        enterAcademyWorld('community');
-        return false;
-    }
+if (membershipStatus === 'approved') {
+    showToast('Academy membership approved. Opening your Academy shell.', 'success');
+    enterAcademyWorld('missions');
 
-    if (membershipStatus === 'under review' || membershipStatus === 'new') {
-        showToast('Your Academy application is still pending admin review.', 'error');
-        return false;
-    }
+    setTimeout(() => {
+        maybeOpenRoadmapIntakeOnce();
+    }, 180);
 
-    if (membershipStatus === 'waitlisted') {
-        showToast('Your Academy application is currently waitlisted.', 'error');
-        return false;
-    }
-
-    if (membershipStatus === 'rejected') {
-        showToast('Your last Academy application was rejected. You can submit a fresh one now.', 'error');
-    }
-
-    openAcademyLauncher();
     return false;
+}
+
+if (membershipStatus === 'under review' || membershipStatus === 'new') {
+    showToast('Your Academy application is already under review.', 'error');
+    return false;
+}
+
+if (membershipStatus === 'waitlisted') {
+    showToast('Your Academy application is waitlisted. Contact admin for the next step.', 'error');
+    return false;
+}
+
+if (membershipStatus === 'rejected') {
+    showToast('Your Academy application has already been reviewed. Only admin can reopen it.', 'error');
+    return false;
+}
+
+if (hasAcademyApplicationAlreadyBeenFilled()) {
+    showToast('You already filled the Academy application. Please wait for admin review.', 'error');
+    return false;
+}
+
+openAcademyLauncher();
+return false;
+
 }
 
 window.handleAcademyLaunchClick = handleAcademyLaunchClick;
@@ -6771,6 +6836,9 @@ if (universeHubView) universeHubView.style.display = 'flex';
 
 syncUniverseFeaturePanel('academy');
 setUniverseSlide('academy', { animate: false });
+setTimeout(() => {
+    maybeOpenPostAuthAcademyApplication();
+}, 250);
 
 const formApply = document.getElementById('form-academy-apply');
 const academyOccupationTypeInput = document.getElementById('app-occupation-type');
@@ -6813,7 +6881,99 @@ const escapeHtml = (value) => {
 if (formApply) {
     formApply.addEventListener('submit', async (e) => {
         e.preventDefault();
+if (hasAcademyApplicationAlreadyBeenFilled()) {
+            showToast("You already submitted your Academy application.", "error");
+            closeAcademyLauncher();
+            return;
+        }
+const roadmapForm = document.getElementById('form-academy-roadmap');
 
+closeRoadmapBtn?.addEventListener('click', closeRoadmapIntake);
+
+roadmapModal?.addEventListener('click', (event) => {
+    if (event.target === roadmapModal) {
+        closeRoadmapIntake();
+    }
+});
+
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && roadmapModal && !roadmapModal.classList.contains('hidden-step')) {
+        closeRoadmapIntake();
+    }
+});
+
+if (roadmapForm) {
+    roadmapForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        if (hasRoadmapIntakeAlreadyBeenFilled()) {
+            showToast('Roadmap setup has already been completed.', 'error');
+            closeRoadmapIntake();
+            return;
+        }
+
+        const submitBtn = document.getElementById('btn-submit-roadmap-intake');
+
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerText = 'Creating Roadmap...';
+        }
+
+        const payload = {
+            focusArea: document.getElementById('roadmap-focus-area')?.value?.trim() || '',
+            currentLevel: document.getElementById('roadmap-current-level')?.value?.trim() || '',
+            target30Days: document.getElementById('roadmap-target-30')?.value?.trim() || '',
+            dailyMinutes: document.getElementById('roadmap-daily-minutes')?.value?.trim() || '',
+            weeklyHours: document.getElementById('roadmap-weekly-hours')?.value?.trim() || '',
+            sleepHours: document.getElementById('roadmap-sleep-hours')?.value?.trim() || '',
+            energyScore: document.getElementById('roadmap-energy-score')?.value?.trim() || '',
+            stressScore: document.getElementById('roadmap-stress-score')?.value?.trim() || '',
+            badHabit: document.getElementById('roadmap-bad-habit')?.value?.trim() || '',
+            blockerText: document.getElementById('roadmap-blocker-text')?.value?.trim() || '',
+            coachTone: document.getElementById('roadmap-coach-tone')?.value?.trim() || 'balanced',
+            firstQuickWin: document.getElementById('roadmap-first-win')?.value?.trim() || '',
+            submittedAt: new Date().toISOString()
+        };
+
+        try {
+            localStorage.setItem(YH_ROADMAP_PROFILE_KEY, JSON.stringify(payload));
+
+            const result = await academyAuthedFetch('/api/academy/roadmap/refresh', {
+                method: 'POST',
+                body: JSON.stringify({
+                    roadmapIntake: payload
+                })
+            });
+
+            const nextHome = result?.home || readAcademyHomeCache();
+
+            if (nextHome) {
+                persistAcademyAccessState(true, nextHome);
+                persistAcademyHome(nextHome);
+            }
+
+            localStorage.setItem(YH_ROADMAP_LOCK_KEY, 'true');
+
+            closeRoadmapIntake();
+            enterAcademyWorld('missions');
+            await loadAcademyHome(true);
+
+            showToast('Roadmap created successfully.', 'success');
+        } catch (error) {
+            localStorage.removeItem(YH_ROADMAP_LOCK_KEY);
+
+            showToast(
+                error.message || 'Roadmap intake was saved as draft, but backend roadmap generation still needs to accept roadmapIntake.',
+                'error'
+            );
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerText = 'Create My Roadmap ➔';
+            }
+        }
+    });
+}
         const token = localStorage.getItem('yh_token');
         if (!token) {
             showToast("Your session expired. Please log in again.", "error");

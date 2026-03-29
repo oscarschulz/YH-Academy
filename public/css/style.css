@@ -5872,3 +5872,69 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
         padding: 3px 7px;
     }
 }
+/* ==========================================
+   ROADMAP SETUP MODAL
+   ========================================== */
+#academy-roadmap-modal .modal-content {
+    background: var(--panel-dark);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    padding: 3rem 2rem;
+    position: relative;
+    max-width: 720px;
+    width: 90%;
+    margin: 5vh auto;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+#form-academy-roadmap .input-field {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: #fff;
+    padding: 12px 15px;
+    border-radius: 8px;
+    width: 100%;
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.95rem;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+}
+
+#form-academy-roadmap .input-field:focus {
+    outline: none;
+    background: rgba(14, 165, 233, 0.05);
+    border-color: var(--neon-blue);
+    box-shadow: 0 0 12px rgba(14, 165, 233, 0.4);
+}
+
+#form-academy-roadmap .input-field::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+#academy-roadmap-modal .input-field.styled-select {
+    background-color: rgba(14, 165, 233, 0.1);
+    border: 1px solid var(--neon-blue);
+    color: #fff;
+    height: 47px;
+    font-weight: 500;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230ea5e9' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    background-size: 1.2em;
+    padding-right: 2.5rem;
+}
+
+#academy-roadmap-modal .input-field.styled-select:focus {
+    box-shadow: 0 0 12px rgba(14, 165, 233, 0.5);
+    background-color: rgba(14, 165, 233, 0.15);
+}
+
+#academy-roadmap-modal .input-field.styled-select option {
+    background: #1e293b;
+    color: #f9fafb;
+    padding: 12px;
+}

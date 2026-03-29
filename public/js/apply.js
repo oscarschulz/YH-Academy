@@ -402,18 +402,22 @@ if (formRegisterSimple) {
                 });
                 const result = await response.json();
 
-                if (result.success) {
-                    clearInterval(otpTimerInterval);
-                    clearPendingVerifyEmail();
-                    showToast("Account verified. Welcome to YH Universe.", "success");
-                    
-                    localStorage.setItem('yh_user_loggedIn', 'true');
-                    localStorage.setItem('yh_user_name', (result.user.fullName || result.user.username || 'Hustler').trim());
-                    localStorage.setItem('yh_token', result.token); 
-                    localStorage.setItem('yh_user_username', (result.user.username || '').trim());
-                    localStorage.setItem('yh_user_email', (result.user.email || email || '').trim().toLowerCase());
-                    setTimeout(() => { window.location.href = '/dashboard'; }, 1000);
-                } else {
+if (result.success) {
+    clearInterval(otpTimerInterval);
+    clearPendingVerifyEmail();
+    showToast("Account verified. Welcome to YH Universe.", "success");
+
+    localStorage.setItem('yh_user_loggedIn', 'true');
+    localStorage.setItem('yh_user_name', (result.user.fullName || result.user.username || 'Hustler').trim());
+    localStorage.setItem('yh_token', result.token);
+    localStorage.setItem('yh_user_username', (result.user.username || '').trim());
+    localStorage.setItem('yh_user_email', (result.user.email || email || '').trim().toLowerCase());
+
+    // one-time post-registration academy application trigger
+    sessionStorage.setItem('yh_force_academy_application_after_auth', 'true');
+
+    setTimeout(() => { window.location.href = '/dashboard'; }, 1000);
+} else {
                     showToast(result.message, "error");
                     submitBtn.innerText = "Verify & Enter Universe ➔"; submitBtn.disabled = false;
                 }

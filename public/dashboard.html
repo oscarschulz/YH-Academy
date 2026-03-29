@@ -681,10 +681,119 @@
             
             <div id="ai-form-phase">
                 <div class="text-center mb-1-25">
-                    <h2 class="yh-title-small" style="color: var(--neon-blue);">The Roadmap Application</h2>
-                    <p class="yh-subtitle-small">Submit this once for manual Academy review. Admin approval is required before you can enter the Academy community.</p>
+<h2 class="yh-title-small" style="color: var(--neon-blue);">The Academy Application</h2>
+<p class="yh-subtitle-small">This is the one-time entry application for Academy access. Once submitted, the user cannot fill it again unless an admin manually reopens it.</p>
                 </div>
-                
+                <div id="academy-roadmap-modal" class="modal-overlay hidden-step" style="z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px;">
+    <div class="modal-content hide-scrollbar" style="position: relative; max-width: 720px; width: 100%; max-height: 85vh; overflow-y: auto; padding: 3rem 2.5rem; background: var(--panel-dark); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);">
+        <button id="close-academy-roadmap" style="position: absolute; top: 20px; right: 20px; background: rgba(255,255,255,0.05); border: none; color: var(--text-muted); width: 35px; height: 35px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1rem; transition: 0.2s;">✖</button>
+
+        <div class="text-center mb-1-25">
+            <h2 class="yh-title-small" style="color: var(--neon-blue);">Roadmap Setup</h2>
+            <p class="yh-subtitle-small">This is the one-time planning form inside YH Academy. After this, the user will use Refresh Roadmap and Daily Check-In instead of refilling the form.</p>
+        </div>
+
+        <form id="form-academy-roadmap">
+            <div class="form-row">
+                <div class="form-group w-full mb-small">
+                    <label>Main Focus Area</label>
+                    <select id="roadmap-focus-area" required class="input-field styled-select">
+                        <option value="" disabled selected>Select focus.</option>
+                        <option value="Money & Business">Money & Business</option>
+                        <option value="Mindset & Psychology">Mindset & Psychology</option>
+                        <option value="Fitness & Health">Fitness & Health</option>
+                        <option value="Communication & Networking">Communication & Networking</option>
+                        <option value="Knowledge for Life">Knowledge for Life</option>
+                    </select>
+                </div>
+                <div class="form-group w-full mb-small">
+                    <label>Current Level</label>
+                    <select id="roadmap-current-level" required class="input-field styled-select">
+                        <option value="" disabled selected>Select level.</option>
+                        <option value="Beginner">Beginner</option>
+                        <option value="Intermediate">Intermediate</option>
+                        <option value="Advanced">Advanced</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group mb-small">
+                <label>Main 30-Day Target</label>
+                <textarea id="roadmap-target-30" required class="input-field" rows="2" placeholder="What exact result do you want in the next 30 days?"></textarea>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group w-full mb-small">
+                    <label>Daily Time Available (minutes)</label>
+                    <input type="number" id="roadmap-daily-minutes" required class="input-field" placeholder="e.g. 90">
+                </div>
+                <div class="form-group w-full mb-small">
+                    <label>Weekly Time Available (hours)</label>
+                    <input type="number" id="roadmap-weekly-hours" required class="input-field" placeholder="e.g. 12">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group w-full mb-small">
+                    <label>Sleep Hours</label>
+                    <input type="number" id="roadmap-sleep-hours" class="input-field" placeholder="e.g. 6">
+                </div>
+                <div class="form-group w-full mb-small">
+                    <label>Energy Score</label>
+                    <select id="roadmap-energy-score" class="input-field styled-select">
+                        <option value="" selected>Select score.</option>
+                        <option value="1">1 - Very Low</option>
+                        <option value="2">2 - Low</option>
+                        <option value="3">3 - Medium</option>
+                        <option value="4">4 - Good</option>
+                        <option value="5">5 - Very Strong</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group w-full mb-small">
+                    <label>Stress Score</label>
+                    <select id="roadmap-stress-score" class="input-field styled-select">
+                        <option value="" selected>Select score.</option>
+                        <option value="1">1 - Very Low</option>
+                        <option value="2">2 - Low</option>
+                        <option value="3">3 - Medium</option>
+                        <option value="4">4 - High</option>
+                        <option value="5">5 - Very High</option>
+                    </select>
+                </div>
+                <div class="form-group w-full mb-small">
+                    <label>Main Bad Habit</label>
+                    <input type="text" id="roadmap-bad-habit" class="input-field" placeholder="e.g. procrastination, late sleeping, distractions">
+                </div>
+            </div>
+
+            <div class="form-group mb-small">
+                <label>Biggest Bottleneck Right Now</label>
+                <textarea id="roadmap-blocker-text" required class="input-field" rows="2" placeholder="What is the biggest thing slowing your progress down?"></textarea>
+            </div>
+
+            <div class="form-group mb-small">
+                <label>First Quick Win You Want</label>
+                <textarea id="roadmap-first-win" class="input-field" rows="2" placeholder="What should the AI help you win first?"></textarea>
+            </div>
+
+            <div class="form-group mb-small">
+                <label>Preferred Coach Tone</label>
+                <select id="roadmap-coach-tone" class="input-field styled-select">
+                    <option value="balanced" selected>Balanced</option>
+                    <option value="strict">Strict</option>
+                    <option value="supportive">Supportive</option>
+                </select>
+            </div>
+
+            <button type="submit" id="btn-submit-roadmap-intake" class="btn-primary w-full mt-small" style="padding: 12px; font-size: 1.1rem;">
+                Create My Roadmap ➔
+            </button>
+        </form>
+    </div>
+</div>
 <form id="form-academy-apply">
     <div class="form-row">
         <div class="form-group w-full mb-small">
