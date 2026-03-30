@@ -15,7 +15,14 @@ function showToast(message, type = "success") {
     const toast = document.getElementById('toast-notification');
     const toastMsg = document.getElementById('toast-message');
     const toastIcon = document.getElementById('toast-icon');
+    const otpStep = document.getElementById('step-2');
+    const timerEl = document.getElementById('otp-timer');
+    const resendBtn = document.getElementById('btn-resend-otp');
+
+    if (!toast || !toastMsg || !toastIcon) return;
+
     toastMsg.innerText = message;
+
     if (type === "error") {
         toast.classList.add('error-toast');
         toastIcon.innerText = "⚠️";
@@ -23,8 +30,76 @@ function showToast(message, type = "success") {
         toast.classList.remove('error-toast');
         toastIcon.innerText = "🎉";
     }
+
+    const otpStepVisible = otpStep && !otpStep.classList.contains('hidden-step');
+
+    // reset/default
+    toast.style.position = 'fixed';
+    toast.style.left = '50%';
+    toast.style.right = 'auto';
+    toast.style.top = '32px';
+    toast.style.bottom = 'auto';
+    toast.style.transform = 'translateX(-50%)';
+    toast.style.zIndex = '10000';
+    toast.style.width = 'min(92vw, 460px)';
+    toast.style.maxWidth = '460px';
+    toast.style.minWidth = '0';
+    toast.style.padding = '10px 14px';
+    toast.style.borderRadius = '12px';
+    toast.style.fontSize = '0.92rem';
+    toast.style.lineHeight = '1.35';
+    toast.style.textAlign = 'center';
+    toast.style.display = 'flex';
+    toast.style.alignItems = 'center';
+    toast.style.justifyContent = 'center';
+    toast.style.gap = '8px';
+    toast.style.boxSizing = 'border-box';
+    toast.style.wordBreak = 'break-word';
+
+    if (otpStepVisible) {
+        const isMobile = window.innerWidth <= 768;
+
+        toast.style.top = 'auto';
+        toast.style.left = '50%';
+        toast.style.right = 'auto';
+        toast.style.transform = 'translateX(-50%)';
+
+        if (isMobile) {
+            toast.style.width = 'calc(100vw - 32px)';
+            toast.style.maxWidth = '360px';
+            toast.style.padding = '9px 12px';
+            toast.style.fontSize = '0.84rem';
+            toast.style.borderRadius = '10px';
+            toast.style.bottom = '92px';
+        } else {
+            toast.style.width = 'min(78%, 420px)';
+            toast.style.maxWidth = '420px';
+            toast.style.padding = '10px 14px';
+            toast.style.fontSize = '0.88rem';
+            toast.style.borderRadius = '12px';
+
+            if (resendBtn) {
+                const resendRect = resendBtn.getBoundingClientRect();
+                const bottomGap = Math.max(28, window.innerHeight - resendRect.top + 6);
+                toast.style.bottom = `${bottomGap}px`;
+            } else if (timerEl) {
+                const timerRect = timerEl.getBoundingClientRect();
+                const bottomGap = Math.max(84, window.innerHeight - timerRect.bottom + 44);
+                toast.style.bottom = `${bottomGap}px`;
+            } else {
+                toast.style.bottom = '110px';
+            }
+        }
+    }
+
+    toast.classList.remove('show');
+    void toast.offsetWidth;
     toast.classList.add('show');
-    setTimeout(() => { toast.classList.remove('show'); }, 3500);
+
+    clearTimeout(window.__yhToastTimer);
+    window.__yhToastTimer = setTimeout(() => {
+        toast.classList.remove('show');
+    }, 3500);
 }
 
 function clearAcademyClientStateForFreshAuth() {
