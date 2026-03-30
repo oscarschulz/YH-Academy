@@ -1857,7 +1857,21 @@ document.getElementById('btn-open-dm-modal')?.addEventListener('click', () => {
 document.getElementById('btn-open-group-modal')?.addEventListener('click', () => {
     renderPendingGroupMembers();
 });
+function syncGroupCreateButtonState() {
+    const btnCreateGroup = document.getElementById('btn-create-group');
+    const groupNameInput = document.getElementById('group-name-input');
 
+    if (!btnCreateGroup || !groupNameInput) return false;
+
+    const hasGroupName = String(groupNameInput.value || '').trim().length > 0;
+
+    btnCreateGroup.disabled = !hasGroupName;
+    btnCreateGroup.setAttribute('aria-disabled', hasGroupName ? 'false' : 'true');
+    btnCreateGroup.style.opacity = hasGroupName ? '1' : '0.6';
+    btnCreateGroup.style.cursor = hasGroupName ? 'pointer' : 'not-allowed';
+
+    return hasGroupName;
+}
 const btnStartDm = document.getElementById('btn-start-dm');
 if (btnStartDm) {
     btnStartDm.addEventListener('click', async () => {
