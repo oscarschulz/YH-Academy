@@ -186,13 +186,28 @@ function toNumber(value, fallback = 0) {
 }
 
 async function buildAdminBootstrapPayload() {
-  const usersSnap = await firestore.collection('users').limit(300).get();
+  const [usersSnap, broadcastsSnap] = await Promise.all([
+    firestore.collection('users').limit(300).get(),
+    firestore.collection('adminBroadcasts').orderBy('sentAt', 'desc').limit(100).get().catch(() => ({ docs: [] }))
+  ]);
 
   const users = usersSnap.docs.map((doc) => ({
     id: doc.id,
     ...(doc.data() || {})
   }));
 
+  const broadcasts = Array.isArray(broadcastsSnap.docs)
+    ? broadcastsSnap.docs.map((doc) => {
+        const data = doc.data() || {};
+        return {
+          id: doc.id,
+          audience: cleanText(data.audience),
+          subject: cleanText(data.subject),
+          message: cleanText(data.message),
+          sentAt: toIso(data.sentAt) || cleanText(data.sentAt || '')
+        };
+      })
+    : [];
   const members = users.map((user) => {
     const stats = user.stats || {};
     const academyDivisions = [];
@@ -236,7 +251,7 @@ async function buildAdminBootstrapPayload() {
       username: cleanText(user.username ? `@${String(user.username).replace(/^@/, '')}` : ''),
       email: cleanText(user.email || ''),
       divisions: academyDivisions,
-      status: cleanText(user.status || 'Active'),
+      status: cleanText(user.status || user.memberStatus || 'Active'),
       activityScore: toNumber(stats.repPoints, 0),
       roadmapStatus,
       riskFlag: 'Low',
@@ -284,18 +299,18 @@ const applications = users.flatMap((user) => {
       const activeRoadmap = await academyFirestoreRepo.getActiveRoadmap(member.id);
       const missionProgress = await academyFirestoreRepo.getMissionProgress(member.id);
 
-      academy.push({
-        id: cleanText(activeRoadmap?.id || `AC-${member.id}`),
-        memberId: cleanText(member.id),
-        memberName: cleanText(member.name),
-        phase: cleanText(activeRoadmap?.roadmap?.weeklyTheme || activeRoadmap?.summary?.primaryBottleneck || 'Academy Active'),
-        focus: cleanText((activeRoadmap?.focusAreas || [])[0] || 'General'),
-        completion: toNumber(missionProgress?.completionRate, 0),
-        lastCheckIn: toIso(missionProgress?.lastCheckinAt || activeRoadmap?.updatedAt) || '',
-        status: cleanText(activeRoadmap ? 'On Track' : 'Needs Review'),
-        nextAction: cleanText(activeRoadmap?.roadmap?.weeklyTargetOutcome || 'Review roadmap status'),
-        notes: []
-      });
+        academy.push({
+          id: cleanText(activeRoadmap?.id || `AC-${member.id}`),
+          memberId: cleanText(member.id),
+          memberName: cleanText(member.name),
+          phase: cleanText(activeRoadmap?.roadmap?.weeklyTheme || activeRoadmap?.summary?.primaryBottleneck || 'Academy Active'),
+          focus: cleanText((activeRoadmap?.focusAreas || [])[0] || 'General'),
+          completion: toNumber(missionProgress?.completionRate, 0),
+          lastCheckIn: cleanText(users.find((u) => cleanText(u.id) === cleanText(member.id))?.adminAcademyLastCheckIn) || toIso(missionProgress?.lastCheckinAt || activeRoadmap?.updatedAt) || '',
+          status: cleanText(users.find((u) => cleanText(u.id) === cleanText(member.id))?.adminAcademyStatus || (activeRoadmap ? 'On Track' : 'Needs Review')),
+          nextAction: cleanText(activeRoadmap?.roadmap?.weeklyTargetOutcome || 'Review roadmap status'),
+          notes: []
+        });
     } catch (_) {
       academy.push({
         id: `AC-${member.id}`,
@@ -331,7 +346,7 @@ const applications = users.flatMap((user) => {
     federation: [],
     plazas: [],
     support: [],
-    broadcasts: [],
+    broadcasts,
     analytics: {
       finance: {
         totalRevenue: 0,
@@ -600,3 +615,163 @@ if (require.main === module) {
 
   console.log(createPasswordHash(password));
 }
+apiRouter.post('/api/admin/members/:id/status', requireAdminSession, async (req, res) => {
+  try {
+    const memberId = cleanText(req.params.id);
+    const nextStatus = cleanText(req.body?.status);
+
+    if (!memberId || !nextStatus) {
+      return res.status(400).json({
+        success: false,
+        message: 'Member id and status are required.'
+      });
+    }
+
+    const userRef = firestore.collection('users').doc(memberId);
+    const userSnap = await userRef.get();
+
+    if (!userSnap.exists) {
+      return res.status(404).json({
+        success: false,
+        message: 'Member not found.'
+      });
+    }
+
+    await userRef.set({
+      status: nextStatus,
+      memberStatus: nextStatus,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+
+    return res.json({ success: true, status: nextStatus });
+  } catch (error) {
+    console.error('admin member status error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update member status.'
+    });
+  }
+});
+
+apiRouter.post('/api/admin/academy/:memberId/nudge', requireAdminSession, async (req, res) => {
+  try {
+    const memberId = cleanText(req.params.memberId);
+    if (!memberId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Member id is required.'
+      });
+    }
+
+    const userRef = firestore.collection('users').doc(memberId);
+    const userSnap = await userRef.get();
+
+    if (!userSnap.exists) {
+      return res.status(404).json({
+        success: false,
+        message: 'Academy member not found.'
+      });
+    }
+
+    const user = userSnap.data() || {};
+    const memberName = cleanText(user.fullName || user.name || user.displayName || user.username || 'Academy Member');
+    const nowIso = new Date().toISOString();
+
+    await userRef.set({
+      adminAcademyLastCheckIn: 'Nudge sent',
+      updatedAt: nowIso
+    }, { merge: true });
+
+    await firestore.collection('adminBroadcasts').add({
+      audience: memberName,
+      subject: 'Manual roadmap nudge',
+      message: `Admin sent a roadmap nudge to ${memberName}.`,
+      sentAt: nowIso,
+      createdBy: req.adminSession.username
+    });
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('admin academy nudge error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to send academy nudge.'
+    });
+  }
+});
+
+apiRouter.post('/api/admin/academy/:memberId/track', requireAdminSession, async (req, res) => {
+  try {
+    const memberId = cleanText(req.params.memberId);
+    if (!memberId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Member id is required.'
+      });
+    }
+
+    const userRef = firestore.collection('users').doc(memberId);
+    const userSnap = await userRef.get();
+
+    if (!userSnap.exists) {
+      return res.status(404).json({
+        success: false,
+        message: 'Academy member not found.'
+      });
+    }
+
+    await userRef.set({
+      adminAcademyStatus: 'On Track',
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error('admin academy track error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update academy status.'
+    });
+  }
+});
+
+apiRouter.post('/api/admin/broadcasts', requireAdminSession, async (req, res) => {
+  try {
+    const audience = cleanText(req.body?.audience);
+    const subject = cleanText(req.body?.subject);
+    const message = cleanText(req.body?.message);
+
+    if (!audience || !subject || !message) {
+      return res.status(400).json({
+        success: false,
+        message: 'Audience, subject, and message are required.'
+      });
+    }
+
+    const nowIso = new Date().toISOString();
+    const ref = await firestore.collection('adminBroadcasts').add({
+      audience,
+      subject,
+      message,
+      sentAt: nowIso,
+      createdBy: req.adminSession.username
+    });
+
+    return res.status(201).json({
+      success: true,
+      broadcast: {
+        id: ref.id,
+        audience,
+        subject,
+        message,
+        sentAt: nowIso
+      }
+    });
+  } catch (error) {
+    console.error('admin broadcast error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to send broadcast.'
+    });
+  }
+});

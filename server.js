@@ -6,12 +6,14 @@ const path = require('path');
 const cors = require('cors');
 const { firestore } = require('./config/firebaseAdmin');
 const { Timestamp } = require('firebase-admin/firestore');
+const jwt = require('jsonwebtoken');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
 const chatMessagesCol = firestore.collection('chatMessages');
+const chatRoomsCol = firestore.collection('chatRooms');
 
 const sanitizeText = (value, fallback = '') => {
     if (value === null || value === undefined) return fallback;
@@ -24,7 +26,62 @@ const mapChatTimestamp = (value) => {
     if (value instanceof Date) return value.toISOString();
     return value || null;
 };
+const AUTH_COOKIE_NAME = 'yh_auth_token';
 
+function parseCookieHeader(raw = '') {
+    const out = {};
+
+    String(raw || '').split(';').forEach((part) => {
+        const idx = part.indexOf('=');
+        if (idx === -1) return;
+
+        const key = part.slice(0, idx).trim();
+        const value = part.slice(idx + 1).trim();
+
+        if (!key) return;
+        out[key] = decodeURIComponent(value);
+    });
+
+    return out;
+}
+
+function getSocketToken(socket) {
+    const handshakeToken = sanitizeText(socket.handshake?.auth?.token);
+    if (handshakeToken) return handshakeToken;
+
+    const cookies = parseCookieHeader(socket.handshake?.headers?.cookie || '');
+    return sanitizeText(cookies[AUTH_COOKIE_NAME]);
+}
+
+function verifySocketUser(socket) {
+    const token = getSocketToken(socket);
+    if (!token) return null;
+
+    try {
+        const verified = jwt.verify(token, process.env.JWT_SECRET);
+        return {
+            id: sanitizeText(verified?.id || verified?.firebaseUid),
+            firebaseUid: sanitizeText(verified?.firebaseUid || verified?.id),
+            email: sanitizeText(verified?.email).toLowerCase(),
+            username: sanitizeText(verified?.username),
+            name: sanitizeText(verified?.name || verified?.username || 'Hustler')
+        };
+    } catch (_) {
+        return null;
+    }
+}
+
+async function canUserAccessRoom(userId, roomId) {
+    if (!userId || !roomId) return false;
+    if (roomId === 'YH-community' || roomId === 'main-chat') return true;
+
+    const snap = await chatRoomsCol.doc(roomId).get();
+    if (!snap.exists) return false;
+
+    const data = snap.data() || {};
+    const memberIds = Array.isArray(data.member_ids) ? data.member_ids.map((value) => String(value)) : [];
+    return memberIds.includes(String(userId));
+}
 function mapChatMessageDoc(doc) {
     const data = doc.data() || {};
     return {
@@ -43,12 +100,27 @@ function mapChatMessageDoc(doc) {
 // ⚡ REAL-TIME SOCKET.IO LOGIC
 // ==========================================
 io.on('connection', (socket) => {
-    console.log('⚡ A hustler connected:', socket.id);
+    const socketUser = verifySocketUser(socket);
+
+    if (!socketUser?.id) {
+        socket.emit('socketAuthError', { message: 'Unauthorized socket session.' });
+        socket.disconnect(true);
+        return;
+    }
+
+    socket.user = socketUser;
+    console.log('⚡ A hustler connected:', socket.id, socket.user.id);
 
     socket.on('joinRoom', async (room) => {
         try {
             const roomId = sanitizeText(room);
             if (!roomId) return;
+
+            const allowed = await canUserAccessRoom(socket.user.id, roomId);
+            if (!allowed) {
+                socket.emit('socketRoomError', { roomId, message: 'Access denied for this room.' });
+                return;
+            }
 
             socket.join(roomId);
 
@@ -74,20 +146,27 @@ io.on('connection', (socket) => {
 
     socket.on('sendMessage', async (data) => {
         try {
-            const payload = {
-                room: sanitizeText(data?.room),
-                author: sanitizeText(data?.author),
-                initial: sanitizeText(data?.initial),
-                avatar: sanitizeText(data?.avatar),
-                text: sanitizeText(data?.text),
-                time: sanitizeText(data?.time || new Date().toISOString()),
-                upvotes: 0,
-                created_at: Timestamp.now()
-            };
+            const roomId = sanitizeText(data?.room);
+            const text = sanitizeText(data?.text);
 
-            if (!payload.room || !payload.author || !payload.text) {
-                return;
-            }
+            if (!roomId || !text) return;
+
+            const allowed = await canUserAccessRoom(socket.user.id, roomId);
+            if (!allowed) return;
+
+            const authorName = sanitizeText(socket.user.name || socket.user.username || 'Hustler');
+
+            const payload = {
+                room: roomId,
+                author: authorName,
+                initial: authorName.charAt(0).toUpperCase(),
+                avatar: '',
+                text,
+                time: new Date().toISOString(),
+                upvotes: 0,
+                created_at: Timestamp.now(),
+                created_by_user_id: socket.user.id
+            };
 
             const ref = chatMessagesCol.doc();
             await ref.set(payload);
@@ -119,11 +198,21 @@ io.on('connection', (socket) => {
             if (!snap.exists) return;
 
             const current = snap.data() || {};
+            const roomId = sanitizeText(current.room);
+
+            const allowed = await canUserAccessRoom(socket.user.id, roomId);
+            if (!allowed) return;
+
+            const nextUpvotes = (Number(current.upvotes) || 0) + 1;
+
             await ref.update({
-                upvotes: (Number(current.upvotes) || 0) + 1
+                upvotes: nextUpvotes
             });
 
-            io.emit('messageUpvoted', messageId);
+            io.to(roomId).emit('messageUpvoted', {
+                id: messageId,
+                upvotes: nextUpvotes
+            });
         } catch (error) {
             console.error('upvoteMessage error:', error);
         }
@@ -138,8 +227,23 @@ io.on('connection', (socket) => {
             const snap = await ref.get();
             if (!snap.exists) return;
 
+            const current = snap.data() || {};
+            const ownerId = sanitizeText(current.created_by_user_id);
+            const roomId = sanitizeText(current.room);
+
+            const allowed = await canUserAccessRoom(socket.user.id, roomId);
+            if (!allowed) return;
+
+            if (!ownerId || ownerId !== socket.user.id) {
+                socket.emit('messageDeleteError', {
+                    id: messageId,
+                    message: 'Only the original sender can delete this message.'
+                });
+                return;
+            }
+
             await ref.delete();
-            io.emit('messageDeleted', messageId);
+            io.to(roomId).emit('messageDeleted', messageId);
         } catch (error) {
             console.error('deleteMessage error:', error);
         }
@@ -153,7 +257,20 @@ io.on('connection', (socket) => {
 // --- 🛡️ SECURITY PACKAGES ---
 const rateLimit = require('express-rate-limit');
 
-app.use(cors());
+const allowedOrigins = String(process.env.CORS_ALLOWED_ORIGINS || '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+app.use(cors({
+    origin(origin, callback) {
+        if (!origin) return callback(null, true);
+        if (!allowedOrigins.length) return callback(null, true);
+        if (allowedOrigins.includes(origin)) return callback(null, true);
+        return callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));

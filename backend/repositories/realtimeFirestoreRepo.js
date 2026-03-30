@@ -110,6 +110,7 @@ function mapLiveRoomDoc(doc) {
         title: sanitizeText(data.title),
         topic: sanitizeText(data.topic),
         host_user_id: sanitizeText(data.host_user_id),
+        host_user_name: sanitizeText(data.host_user_name),
         status: sanitizeText(data.status || 'live'),
         created_at: mapTimestamp(data.created_at),
         ended_at: mapTimestamp(data.ended_at),
@@ -372,6 +373,14 @@ async function createLiveRoom({ userId, roomType, title, topic }) {
         throw new Error('Room title is required.');
     }
 
+    const hostUser = await getUserDoc(normalizedUserId);
+    const hostUserName =
+        sanitizeText(hostUser?.fullName) ||
+        sanitizeText(hostUser?.name) ||
+        sanitizeText(hostUser?.displayName) ||
+        sanitizeText(hostUser?.username) ||
+        'Host';
+
     const ref = liveRoomsCol.doc();
     const payload = {
         room_key: makeRoomKey(normalizedType),
@@ -379,7 +388,7 @@ async function createLiveRoom({ userId, roomType, title, topic }) {
         title: cleanTitle,
         topic: cleanTopic,
         host_user_id: normalizedUserId,
-        host_user_name: '',
+        host_user_name: hostUserName,
         status: 'live',
         participant_ids: [normalizedUserId],
         participant_count: 1,

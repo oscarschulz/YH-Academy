@@ -1,24 +1,47 @@
 const jwt = require('jsonwebtoken');
 
-module.exports = (req, res, next) => {
-    // Kunin ang token mula sa header ng request
-    const token = req.header('Authorization');
+function parseCookies(req) {
+    const raw = req.headers.cookie || '';
+    const out = {};
 
-    // Kung walang hawak na token, sipain agad!
-    if (!token) {
-        return res.status(401).json({ success: false, message: "Access Denied. No Gate Pass provided." });
+    raw.split(';').forEach((part) => {
+        const idx = part.indexOf('=');
+        if (idx === -1) return;
+
+        const key = part.slice(0, idx).trim();
+        const value = part.slice(idx + 1).trim();
+
+        if (!key) return;
+        out[key] = decodeURIComponent(value);
+    });
+
+    return out;
+}
+
+module.exports = (req, res, next) => {
+    const headerToken = req.header('Authorization');
+    const cookies = parseCookies(req);
+    const cookieToken = cookies.yh_auth_token || '';
+
+    const rawToken = headerToken
+        ? headerToken.replace('Bearer ', '').trim()
+        : String(cookieToken || '').trim();
+
+    if (!rawToken) {
+        return res.status(401).json({
+            success: false,
+            message: "Access Denied. No Gate Pass provided."
+        });
     }
 
     try {
-        // Tanggalin ang salitang "Bearer " kung meron, tapos i-verify gamit ang Secret Key natin
-        const verified = jwt.verify(token.replace("Bearer ", ""), process.env.JWT_SECRET);
-        
-        // I-save ang info ng user (id at pangalan) para magamit ng system
-        req.user = verified; 
-        
-        // Papatuluyin na siya sa loob ng Academy
-        next(); 
+        const verified = jwt.verify(rawToken, process.env.JWT_SECRET);
+        req.user = verified;
+        next();
     } catch (error) {
-        res.status(400).json({ success: false, message: "Invalid or Expired Gate Pass." });
+        return res.status(400).json({
+            success: false,
+            message: "Invalid or Expired Gate Pass."
+        });
     }
 };

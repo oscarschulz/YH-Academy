@@ -144,8 +144,7 @@ async function loadAdminBootstrap() {
       return;
     }
 
-    state = loadState();
-    renderApp();
+    showToast(error.message || 'Failed to load live admin data.');
   }
 }
 
@@ -840,8 +839,8 @@ function renderAcademy() {
       ${makeCell('Actions', `
         <div class="table-actions">
           <button data-open="academy" data-id="${item.id}">Open</button>
-          <button data-action="academy-nudge" data-id="${item.id}">Nudge</button>
-          <button data-action="academy-track" data-id="${item.id}">Mark On Track</button>
+          <button data-action="academy-nudge" data-id="${item.memberId}">Nudge</button>
+          <button data-action="academy-track" data-id="${item.memberId}">Mark On Track</button>
         </div>
       `)}
     </tr>
@@ -1548,38 +1547,57 @@ case 'waitlist-application': {
     case 'toggle-member-status': {
       const member = findById('members', id);
       if (!member) return;
-      member.status = member.status === 'Suspended' ? 'Active' : 'Suspended';
-      member.notes.unshift(`Status changed to ${member.status}.`);
-      saveState();
-      renderApp();
-      showToast(`${member.name} is now ${member.status}.`);
+
+      const nextStatus = member.status === 'Suspended' ? 'Active' : 'Suspended';
+
+      try {
+        await adminFetchJson(`/api/admin/members/${encodeURIComponent(id)}/status`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ status: nextStatus })
+        });
+
+        await loadAdminBootstrap();
+        showToast(`${member.name} is now ${nextStatus}.`);
+      } catch (error) {
+        showToast(error.message || 'Failed to update member status.');
+      }
       break;
     }
     case 'academy-nudge': {
-      const record = findById('academy', id);
-      if (!record) return;
-      record.notes.unshift('Manual nudge sent by admin.');
-      record.lastCheckIn = 'Nudge sent';
-      state.broadcasts.unshift({
-        id: `BC-${Date.now().toString().slice(-6)}`,
-        audience: record.memberName,
-        subject: 'Manual roadmap nudge',
-        message: `Admin sent a roadmap nudge for ${record.focus.toLowerCase()} focus.`,
-        sentAt: new Date().toISOString().slice(0, 16).replace('T', ' ')
-      });
-      saveState();
-      renderApp();
-      showToast(`Nudge sent to ${record.memberName}.`);
+      try {
+        await adminFetchJson(`/api/admin/academy/${encodeURIComponent(id)}/nudge`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({})
+        });
+
+        await loadAdminBootstrap();
+        showToast('Academy nudge sent.');
+      } catch (error) {
+        showToast(error.message || 'Failed to send academy nudge.');
+      }
       break;
     }
     case 'academy-track': {
-      const record = findById('academy', id);
-      if (!record) return;
-      record.status = 'On Track';
-      record.notes.unshift('Marked on track by admin.');
-      saveState();
-      renderApp();
-      showToast(`${record.memberName} marked on track.`);
+      try {
+        await adminFetchJson(`/api/admin/academy/${encodeURIComponent(id)}/track`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({})
+        });
+
+        await loadAdminBootstrap();
+        showToast('Academy member marked on track.');
+      } catch (error) {
+        showToast(error.message || 'Failed to update academy status.');
+      }
       break;
     }
     case 'federation-verify': {
@@ -1749,7 +1767,7 @@ if (broadcastTemplate) {
 
   const broadcastForm = document.getElementById('broadcast-form');
   if (broadcastForm) {
-    broadcastForm.addEventListener('submit', (e) => {
+    broadcastForm.addEventListener('submit', async (e) => {
       e.preventDefault();
 
       const audienceEl = document.getElementById('broadcast-audience');
@@ -1762,18 +1780,25 @@ if (broadcastTemplate) {
 
       if (!subject || !message) return;
 
-      state.broadcasts.unshift({
-        id: `BC-${Date.now().toString().slice(-6)}`,
-        audience,
-        subject,
-        message,
-        sentAt: new Date().toISOString().slice(0, 16).replace('T', ' ')
-      });
+      try {
+        await adminFetchJson('/api/admin/broadcasts', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            audience,
+            subject,
+            message
+          })
+        });
 
-      saveState();
-      renderBroadcasts();
-      broadcastForm.reset();
-      showToast(`Broadcast sent to ${audience}.`);
+        await loadAdminBootstrap();
+        broadcastForm.reset();
+        showToast(`Broadcast sent to ${audience}.`);
+      } catch (error) {
+        showToast(error.message || 'Failed to send broadcast.');
+      }
     });
   }
 

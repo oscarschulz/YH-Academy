@@ -17,9 +17,10 @@ router.post('/verify-otp', authController.verifyOTP);
 router.post('/resend-otp', authController.resendOTP);
 
 // ==========================================
-// 🚪 3. LOGIN ROUTE
+// 🚪 3. LOGIN / LOGOUT ROUTES
 // ==========================================
 router.post('/login', authController.loginUser);
+router.post('/logout', authController.logoutUser);
 
 // ==========================================
 // 🔄 4. FORGOT PASSWORD ROUTES

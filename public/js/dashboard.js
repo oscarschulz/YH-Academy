@@ -3,12 +3,30 @@
 // ==========================================
 // 1. GLOBAL AUTH, SOCKET & UTILITIES
 // ==========================================
-if (localStorage.getItem('yh_user_loggedIn') !== 'true') {
-    window.location.href = '/';
+function getStoredAuthToken() {
+    return (
+        sessionStorage.getItem('yh_token') ||
+        localStorage.getItem('yh_token') ||
+        sessionStorage.getItem('token') ||
+        localStorage.getItem('token') ||
+        ''
+    ).trim();
 }
 
-const socket = io(); 
-const myName = localStorage.getItem('yh_user_name') || "Hustler";
+function getStoredUserValue(key, fallback = '') {
+    return (
+        sessionStorage.getItem(key) ||
+        localStorage.getItem(key) ||
+        fallback
+    );
+}
+
+const socket = io({
+    withCredentials: true,
+    auth: getStoredAuthToken() ? { token: getStoredAuthToken() } : {}
+});
+
+const myName = getStoredUserValue('yh_user_name', "Hustler");
 
 let currentRoom = "YH-community";      // UI/display label
 let currentRoomId = "YH-community";    // backend transport identity
@@ -287,25 +305,39 @@ function touchCustomRoomFromMessage(msg, options = {}) {
     return touchedRoom;
 }
 
-function logoutUser() {
-    localStorage.removeItem('yh_user_loggedIn');
-    localStorage.removeItem('yh_user_name');
-    localStorage.removeItem('yh_user_username');
-    localStorage.removeItem('yh_user_email');
-    localStorage.removeItem('yh_user_avatar');
-    localStorage.removeItem('yh_academy_access');
-    localStorage.removeItem('yh_academy_home');
-    localStorage.removeItem('yh_token');
+async function logoutUser() {
+    try {
+        await fetch('/api/logout', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+    } catch (_) {}
 
-    localStorage.removeItem('yh_academy_membership_status_v1');
-    localStorage.removeItem('yh_academy_application_profile');
-    localStorage.removeItem('yh_academy_roadmap_profile_v1');
-    localStorage.removeItem('yh_academy_roadmap_locked_v1');
-    localStorage.removeItem('yh_admin_panel_state_v2');
-    localStorage.removeItem('yh_admin_panel_state_v3_live');
+    [
+        'yh_user_loggedIn',
+        'yh_user_name',
+        'yh_user_username',
+        'yh_user_email',
+        'yh_user_avatar',
+        'yh_academy_access',
+        'yh_academy_home',
+        'yh_token',
+        'token',
+        'yh_academy_membership_status_v1',
+        'yh_academy_application_profile',
+        'yh_academy_roadmap_profile_v1',
+        'yh_academy_roadmap_locked_v1',
+        'yh_admin_panel_state_v2',
+        'yh_admin_panel_state_v3_live'
+    ].forEach((key) => {
+        localStorage.removeItem(key);
+        sessionStorage.removeItem(key);
+    });
 
     sessionStorage.removeItem('yh_force_academy_application_after_auth');
-
     window.location.href = '/';
 }
 
@@ -1506,2446 +1538,293 @@ if ((currentRoom || "").includes("Agent")) {
     }
 
     // --- THE VAULT & UPLOADS ---
-    function saveVaultItemObj(itemObj) {
-        const vaultItems = JSON.parse(localStorage.getItem('yh_vault_items')) || [];
-        vaultItems.push(itemObj);
-        localStorage.setItem('yh_vault_items', JSON.stringify(vaultItems));
-        loadVault();
-    }
+function formatVaultFileSize(bytes = 0) {
+    const value = Number(bytes || 0);
+    if (!Number.isFinite(value) || value <= 0) return 'Unknown';
+    if (value < 1024) return `${value} B`;
+    if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+    return `${(value / 1024 / 1024).toFixed(2)} MB`;
+}
 
-    function saveFileToVault(file, origin) {
-        const isImage = file.type.startsWith('image/');
-        const fileSize = (file.size / 1024 / 1024).toFixed(2) + " MB";
-        if (isImage) {
-            const reader = new FileReader();
-            reader.onload = (event) => { saveVaultItemObj({ type: 'file', name: file.name, size: fileSize, origin: origin, dataUrl: event.target.result, parentFolder: currentVaultFolder }); };
-            reader.readAsDataURL(file);
-        } else {
-            saveVaultItemObj({ type: 'file', name: file.name, size: fileSize, origin: origin, dataUrl: null, parentFolder: currentVaultFolder });
-        }
-    }
-
-    function loadVault() {
-        const grid = document.getElementById('vault-dynamic-grid');
-        if(!grid) return;
-        grid.innerHTML = '';
-        const vaultItems = JSON.parse(localStorage.getItem('yh_vault_items')) || [];
-        const visibleItems = vaultItems.filter(item => (item.parentFolder || null) === currentVaultFolder);
-        
-        if (currentVaultFolder) {
-            grid.innerHTML = `<div class="vault-folder-header" id="btn-vault-back"><span>⬅ Back to All Files</span><span style="color: #fff;">📂 ${currentVaultFolder}</span></div>`;
-            document.getElementById('btn-vault-back').addEventListener('click', () => { currentVaultFolder = null; loadVault(); });
-        }
-        if (visibleItems.length === 0) { grid.insertAdjacentHTML('beforeend', `<div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 2rem;">This location is empty. Upload a file or create a folder.</div>`); return; }
-        
-        visibleItems.sort((a, b) => (a.type === 'folder' ? -1 : 1) - (b.type === 'folder' ? -1 : 1));
-        visibleItems.forEach((item) => {
-            const realIndex = vaultItems.findIndex(v => v === item);
-            const isFolder = item.type === 'folder';
-            const isImage = item.type === 'file' && item.dataUrl && item.dataUrl.startsWith('data:image/');
-            let visualContent = isFolder ? `<div class="vault-icon">📁</div>` : isImage ? `<div style="width: 100%; height: 90px; border-radius: 8px; background-image: url('${item.dataUrl}'); background-size: cover; background-position: center; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.1);"></div>` : `<div class="vault-icon">📄</div>`;
-            const actionText = isFolder ? 'Open Folder' : 'Share to Chat';
-            grid.insertAdjacentHTML('beforeend', `<div class="vault-card fade-in ${isFolder ? 'vault-folder' : ''}" data-real-index="${realIndex}" data-name="${item.name}" data-type="${item.type}">${visualContent}<div class="vault-filename" title="${item.name}">${item.name}</div><div class="vault-meta">${isFolder ? 'Folder' : (item.size || 'Unknown')}</div><div class="vault-origin">From: ${item.origin || 'Direct Upload'}</div><button class="btn-vault-action action-vault-btn">${actionText}</button></div>`);
-        });
-
-        document.querySelectorAll('.action-vault-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const card = e.target.closest('.vault-card'); const itemName = card.getAttribute('data-name'); const itemType = card.getAttribute('data-type');
-                if(itemType === 'folder') { currentVaultFolder = itemName; showToast(`Opening folder: ${itemName}`, "success"); loadVault(); } 
-                else {
-                    const fullItem = vaultItems.find(i => i.name === itemName && i.type === 'file');
-                    const isImage = fullItem && fullItem.dataUrl && fullItem.dataUrl.startsWith('data:image/');
-                    let visualChatContent = isImage ? `<img src="${fullItem.dataUrl}" style="width: 100%; border-radius: 6px; margin-bottom: 8px;">` : `<div style="font-size: 2rem;">📄</div>`;
-                    
-                    const shareModal = document.getElementById('share-select-modal');
-                    const destList = document.getElementById('share-destinations-list');
-                    if (shareModal && destList) {
-    const state = window.dashboardState || window.yhDashboardState || (window.dashboardState = {});
-
-    window.pendingShareHTML = `<div class="chat-attachment" style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 8px; margin-top: 5px;">${visualChatContent}<div><strong>${itemName}</strong><br><a href="${fullItem.dataUrl}" download="${itemName}" style="color: var(--neon-blue);">⬇ Download</a></div></div>`;
-    const normalizeRoom = (room, index = 0) => ({
-        id: room.id || room._id || room.roomId || room.room_id || `custom-room-${index + 1}`,
-        name: room.name || room.title || room.roomName || room.room_name || `Room ${index + 1}`,
-        icon: room.icon || room.emoji || room.avatar || room.image || '💬',
-        type: room.type || room.roomType || room.room_type || 'dm',
-        privacy: room.privacy || room.visibility || (room.isPrivate ? 'private' : 'public') || 'public',
-        isPrivate: typeof room.isPrivate === 'boolean'
-            ? room.isPrivate
-            : (room.privacy === 'private' || room.visibility === 'private')
+async function syncVaultCacheFromBackend() {
+    const result = await academyAuthedFetch('/api/realtime/vault', {
+        method: 'GET'
     });
 
-    let stateRooms = Array.isArray(state.customRooms) ? state.customRooms : [];
+    const rawItems = Array.isArray(result?.items) ? result.items : [];
+    localStorage.setItem('yh_vault_items_backend', JSON.stringify(rawItems));
+    return rawItems;
+}
 
-    let cachedRooms = [];
+function readVaultCache() {
     try {
-        const cached = JSON.parse(localStorage.getItem('yh_custom_rooms_cache') || 'null');
-        cachedRooms = Array.isArray(cached?.rooms) ? cached.rooms : [];
-    } catch (_) {}
-
-    let legacyRooms = [];
-    try {
-        const rawLegacy = JSON.parse(localStorage.getItem('yh_custom_rooms') || '[]');
-        legacyRooms = Array.isArray(rawLegacy) ? rawLegacy : [];
-    } catch (_) {}
-
-    const mergedRooms = [...stateRooms, ...cachedRooms, ...legacyRooms]
-        .map((room, index) => normalizeRoom(room, index))
-        .filter((room, index, arr) => {
-            return arr.findIndex((candidate) => {
-                const sameId = candidate.id && room.id && String(candidate.id) === String(room.id);
-                const sameName = String(candidate.name || '').trim().toLowerCase() === String(room.name || '').trim().toLowerCase();
-                const sameType = String(candidate.type || '').trim().toLowerCase() === String(room.type || '').trim().toLowerCase();
-                return sameId || (sameName && sameType);
-            }) === index;
-        });
-
-    destList.innerHTML = `
-        <button
-            class="btn-secondary share-dest-btn"
-            data-target="main-chat"
-            data-room-id="main-chat"
-            data-room-type="main-chat"
-            data-room-privacy="public"
-            style="padding: 10px; text-align: left;"
-        >💬 YH-community (Public)</button>
-    `;
-
-    mergedRooms.forEach((room) => {
-        destList.insertAdjacentHTML('beforeend', `
-            <button
-                class="btn-secondary share-dest-btn"
-                data-target="${room.name}"
-                data-room-id="${room.id || ''}"
-                data-room-type="${room.type || 'dm'}"
-                data-room-privacy="${room.privacy || (room.isPrivate ? 'private' : 'public')}"
-                style="padding: 10px; text-align: left;"
-            >${room.icon || '💬'} ${room.name}</button>
-        `);
-    });
-
-    shareModal.classList.remove('hidden-step');
-}
-                }
-            });
-        });
-
-        const contextMenu = document.getElementById('vault-context-menu');
-        document.querySelectorAll('.vault-card').forEach(card => {
-            const showContext = (pageX, pageY) => { selectedVaultIndex = card.getAttribute('data-real-index'); contextMenu.style.left = `${pageX}px`; contextMenu.style.top = `${pageY}px`; contextMenu.classList.remove('hidden-step'); };
-            card.addEventListener('contextmenu', (e) => { e.preventDefault(); showContext(e.pageX, e.pageY); });
-        });
-    }
-        const shareSelectModal = document.getElementById('share-select-modal');
-    const closeShareSelect = document.getElementById('close-share-select');
-    
-    if (closeShareSelect && shareSelectModal) {
-        closeShareSelect.addEventListener('click', () => shareSelectModal.classList.add('hidden-step'));
-        shareSelectModal.addEventListener('click', (e) => { if(e.target === shareSelectModal) shareSelectModal.classList.add('hidden-step'); });
-    }
-
-    // --- GLOBAL CLICK HANDLER PARA SA UPVOTE AT DELETE ---
-    document.body.addEventListener('click', (e) => { 
-        const ctxMenu = document.getElementById('vault-context-menu'); 
-        if (ctxMenu && !ctxMenu.classList.contains('hidden-step')) ctxMenu.classList.add('hidden-step'); 
-        
-        if (e.target.classList.contains('share-dest-btn')) {
-    const state = window.dashboardState || window.yhDashboardState || (window.dashboardState = {});
-    const shareBtn = e.target.closest('.share-dest-btn') || e.target;
-    const targetRoomName = shareBtn.getAttribute('data-target') || 'main-chat';
-    const targetRoomId = shareBtn.getAttribute('data-room-id') || '';
-    const targetRoomType = shareBtn.getAttribute('data-room-type') || (targetRoomName === 'main-chat' ? 'main-chat' : 'dm');
-    const targetRoomPrivacy = shareBtn.getAttribute('data-room-privacy') || (targetRoomType === 'main-chat' ? 'public' : 'private');
-
-    if (targetRoomName === 'main-chat' || targetRoomType === 'main-chat') {
-        document.getElementById('nav-chat')?.click();
-    } else {
-        const roomNodes = Array.from(
-            document.querySelectorAll('.dm-room, .room-entry, [data-room-id], [data-custom-room-name], [data-name]')
-        );
-
-        const matchedNode = roomNodes.find((node) => {
-            const nodeRoomId = node.getAttribute('data-room-id');
-            const nodeRoomName = node.getAttribute('data-name') || node.getAttribute('data-custom-room-name');
-            return (targetRoomId && nodeRoomId && String(nodeRoomId) === String(targetRoomId)) ||
-                (nodeRoomName && String(nodeRoomName).trim().toLowerCase() === String(targetRoomName).trim().toLowerCase());
-        });
-
-        if (matchedNode) {
-            matchedNode.click();
-        } else {
-            const virtualNode = document.createElement('div');
-            virtualNode.setAttribute('data-room-id', targetRoomId);
-            virtualNode.setAttribute('data-name', targetRoomName);
-            virtualNode.setAttribute('data-room-type', targetRoomType);
-            virtualNode.setAttribute('data-room-privacy', targetRoomPrivacy);
-            virtualNode.setAttribute('data-icon', targetRoomType === 'group' ? '👥' : '💬');
-            virtualNode.setAttribute('data-color', 'var(--neon-blue)');
-
-            openRoom(targetRoomType === 'group' ? 'group' : 'dm', virtualNode);
-        }
-
-        state.pendingSharedDestination = {
-            id: targetRoomId || null,
-            name: targetRoomName,
-            type: targetRoomType,
-            privacy: targetRoomPrivacy,
-            at: Date.now()
-        };
-    }
-
-    document.getElementById('share-select-modal')?.classList.add('hidden-step');
-    const chatInput = document.getElementById('chat-input');
-
-    if (chatInput && window.pendingShareHTML) {
-        const isLinkOnly = window.pendingShareHTML.includes('Click here to join');
-        chatInput.value = isLinkOnly
-            ? window.pendingShareHTML
-            : `Shared a file from Vault:<br>${window.pendingShareHTML}`;
-
-        setTimeout(() => {
-            sendMessage();
-            showToast(`Shared to ${targetRoomName}!`, "success");
-            window.pendingShareHTML = null;
-        }, 100);
-    }
-}
-
-        // UPVOTE CHAT CLICK
-        const upvoteBtn = e.target.closest('.upvote-btn');
-        if (upvoteBtn) {
-            const authorName = upvoteBtn.closest('.chat-bubble').querySelector('.bubble-avatar').getAttribute('data-user');
-            if (authorName === myName) { showToast("You cannot agree with your own message!", "error"); return; }
-            if (upvoteBtn.classList.contains('liked')) { showToast("You already agreed to this message.", "error"); return; }
-            
-            const msgId = upvoteBtn.getAttribute('data-id');
-            socket.emit('upvoteMessage', msgId); 
-            upvoteBtn.classList.add('liked');
-
-            let allStats = JSON.parse(localStorage.getItem('yh_user_stats')) || {};
-            if (allStats[authorName]) { allStats[authorName].rep += 5; localStorage.setItem('yh_user_stats', JSON.stringify(allStats)); }
-            showToast(`You agreed with ${authorName}. They gained +5 REP!`, "success"); renderLeaderboard(); 
-        }
-
-        // DELETE CHAT CLICK
-        const deleteMsgBtn = e.target.closest('.delete-msg-btn');
-        if (deleteMsgBtn) {
-            const bubble = deleteMsgBtn.closest('.chat-bubble');
-            const msgId = bubble.getAttribute('data-dbid');
-            if(msgId) socket.emit('deleteMessage', msgId); 
-            else bubble.remove();
-        }
-        
-        // PROFILE CLICK
-        const interactiveEl = e.target.closest('.interactive-avatar');
-        if(interactiveEl && !e.target.closest('.upvote-btn') && !e.target.closest('.delete-msg-btn')) {
-            const userName = interactiveEl.getAttribute('data-user'); const userRole = interactiveEl.getAttribute('data-role');
-            const avatarDiv = interactiveEl.querySelector('.member-avatar') || interactiveEl.querySelector('.bubble-avatar') || interactiveEl;
-            let avatarContent = "Y"; let avatarBg = "var(--neon-blue)";
-            if(avatarDiv) { avatarContent = (avatarDiv.style.backgroundImage !== 'none' && avatarDiv.style.backgroundImage !== '') ? avatarDiv.style.backgroundImage : avatarDiv.innerText.trim().charAt(0).toUpperCase(); avatarBg = avatarDiv.style.backgroundColor || avatarBg; }
-            openMiniProfile(userName, userRole, avatarContent, avatarBg);
-        }
-    });
-
-    const btnChatUploadArea = document.getElementById('btn-chat-upload');
-    const chatFileInputArea = document.getElementById('chat-file-input');
-    const attachModalArea = document.getElementById('attachment-preview-modal');
-    const attachPreviewArea = document.getElementById('attach-modal-preview');
-    const attachCaptionArea = document.getElementById('attach-caption-input');
-    const attachTitleArea = document.getElementById('attach-modal-title');
-    const btnSendAttachArea = document.getElementById('btn-send-attach'); 
-    const btnCancelAttachArea = document.getElementById('btn-cancel-attach');
-    let pendingAttachmentObj = null; 
-
-    if(btnChatUploadArea && chatFileInputArea && attachModalArea) {
-        btnChatUploadArea.onclick = () => chatFileInputArea.click();
-        chatFileInputArea.onchange = (e) => {
-            const file = e.target.files[0];
-            if(!file) return;
-            const isImage = file.type.startsWith('image/');
-            const fileSize = (file.size / 1024 / 1024).toFixed(2) + " MB";
-            
-            attachTitleArea.innerText = isImage ? "Send an image" : "Send a file";
-            attachCaptionArea.value = '';
-            attachPreviewArea.innerHTML = '<span style="color: var(--text-muted);">Loading preview...</span>';
-            attachModalArea.classList.remove('hidden-step');
-            
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                pendingAttachmentObj = { file: file, dataUrl: event.target.result, isImage: isImage, fileSize: fileSize, name: file.name };
-                attachPreviewArea.innerHTML = isImage ? `<img src="${event.target.result}" style="max-width: 100%; max-height: 200px; border-radius: 8px;">` : `<div style="font-size: 3rem;">📄</div><span style="color: #fff; font-weight: bold;">${file.name}</span>`;
-            };
-            reader.readAsDataURL(file);
-            chatFileInputArea.value = ''; 
-        };
-
-        const closeAttachFunc = () => { attachModalArea.classList.add('hidden-step'); pendingAttachmentObj = null; };
-        if(btnCancelAttachArea) btnCancelAttachArea.onclick = closeAttachFunc;
-        document.getElementById('close-attach-modal').onclick = closeAttachFunc;
-
-        if(btnSendAttachArea) {
-            btnSendAttachArea.onclick = () => {
-                if(!pendingAttachmentObj) return;
-                const activeChat = document.getElementById('chat-header-title').innerText;
-                saveFileToVault(pendingAttachmentObj.file, activeChat);
-                
-                let visualContent = pendingAttachmentObj.isImage ? `<img src="${pendingAttachmentObj.dataUrl}" style="width: 100%; border-radius: 6px; margin-bottom: 8px; border: 1px solid rgba(255,255,255,0.1);">` : `<div class="chat-attachment-icon" style="font-size: 2rem; margin-right: 15px;">📄</div>`;
-                const attachmentHTML = `<div class="chat-attachment" style="display: flex; flex-direction: ${pendingAttachmentObj.isImage ? 'column' : 'row'}; align-items: ${pendingAttachmentObj.isImage ? 'stretch' : 'center'}; background: rgba(0,0,0,0.25); padding: 12px; border-radius: 8px; margin-top: 5px; border: 1px solid rgba(255,255,255,0.05); width: 100%; min-width: 250px;">${visualContent}<div style="display: flex; justify-content: space-between; align-items: center; width: 100%;"><div style="display: flex; flex-direction: column; text-align: left; overflow: hidden; padding-right: 10px;"><span style="font-size: 0.85rem; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${pendingAttachmentObj.name}</span><span style="font-size: 0.7rem; color: var(--text-muted);">${pendingAttachmentObj.fileSize}</span></div><a href="${pendingAttachmentObj.dataUrl}" download="${pendingAttachmentObj.name}" style="background: var(--neon-blue); color: #fff; padding: 6px 12px; border-radius: 4px; font-size: 0.75rem; text-decoration: none; font-weight: bold; white-space: nowrap; box-shadow: 0 0 10px rgba(14, 165, 233, 0.4);">⬇ Download</a></div></div>`;
-                
-                const captionTextArea = attachCaptionArea.value.trim();
-                sendMessage(captionTextArea ? `${captionTextArea}<br>${attachmentHTML}` : attachmentHTML);
-                showToast("File uploaded to chat!", "success");
-                closeAttachFunc(); 
-            };
-        }
-    }
-
-    // --- LOUNGES (VOICE & VIDEO) ---
-    function loadVoiceLounges() {
-        const grid = document.getElementById('lounge-grid');
-        if(!grid) return;
-        grid.innerHTML = '';
-        const lounges = JSON.parse(localStorage.getItem('yh_voice_lounges')) || [];
-        if (lounges.length === 0) { grid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 2rem;">No active Voice Lounges yet. Be the first to start one!</div>`; return; }
-
-        lounges.forEach((lounge) => {
-            const card = document.createElement('div'); card.className = "lounge-card fade-in room-entry";
-            let avatarStyle = lounge.hostAvatar ? `background-image: url(${lounge.hostAvatar}); background-size: cover; background-position: center;` : `background: var(--neon-blue);`;
-            card.innerHTML = `<div class="lounge-card-header"><span class="live-badge"><div class="pulse-dot"></div> LIVE</span><span class="listener-count">👤 ${lounge.listenerCount} Listening</span></div><h4 class="lounge-topic">${lounge.topic}</h4><p class="lounge-host">Hosted by <strong>${lounge.host}</strong></p><div class="lounge-avatars"><div class="member-avatar interactive-avatar" style="${avatarStyle} border-radius: 50%; z-index: 3;">${lounge.hostAvatar ? '' : lounge.hostInitial}</div><div class="avatar-more" style="border-radius: 50%;">+${Math.max(0, lounge.listenerCount - 1)}</div></div>`;
-            card.addEventListener('click', (e) => {
-                if(e.target.closest('.interactive-avatar')) return; 
-                const voiceLobbyView = document.getElementById('voice-lobby-view'); const centerStageView = document.getElementById('center-stage-view');
-                if(voiceLobbyView) voiceLobbyView.classList.add('hidden-step');
-                if(centerStageView) {
-                    centerStageView.classList.remove('hidden-step');
-                    document.getElementById('stage-title').innerText = lounge.topic; document.getElementById('stage-icon').innerText = "🎙️";
-                    document.getElementById('host-name').innerText = lounge.host;
-                    const hostAvatarEl = document.getElementById('host-avatar');
-                    if(lounge.hostAvatar) { hostAvatarEl.innerText = ''; hostAvatarEl.style.backgroundImage = `url(${lounge.hostAvatar})`; } else { hostAvatarEl.innerText = lounge.hostInitial; hostAvatarEl.style.backgroundImage = 'none'; }
-                    centerStageView.classList.remove('fade-in'); void centerStageView.offsetWidth; centerStageView.classList.add('fade-in');
-                }
-            });
-            grid.appendChild(card);
-        });
-    }
-
-    function loadVideoLounges() {
-        const grid = document.getElementById('video-grid');
-        if(!grid) return;
-        grid.innerHTML = '';
-        const lounges = JSON.parse(localStorage.getItem('yh_video_lounges')) || [];
-        if (lounges.length === 0) { grid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 2rem;">No active Video Rooms yet. Start a video call!</div>`; return; }
-
-        lounges.forEach((lounge) => {
-            const card = document.createElement('div'); card.className = "lounge-card fade-in room-entry";
-            let avatarStyle = lounge.hostAvatar ? `background-image: url(${lounge.hostAvatar}); background-size: cover; background-position: center;` : `background: var(--neon-blue);`;
-            card.innerHTML = `<div class="lounge-card-header"><span class="live-badge"><div class="pulse-dot"></div> LIVE</span><span class="listener-count">👀 ${lounge.listenerCount} Watching</span></div><h4 class="lounge-topic">${lounge.topic}</h4><p class="lounge-host">Hosted by <strong>${lounge.host}</strong></p><div class="lounge-avatars"><div class="member-avatar interactive-avatar" style="${avatarStyle} border-radius: 50%; z-index: 3;">${lounge.hostAvatar ? '' : lounge.hostInitial}</div><div class="avatar-more" style="border-radius: 50%;">+${Math.max(0, lounge.listenerCount - 1)}</div></div>`;
-            card.addEventListener('click', (e) => {
-                if(e.target.closest('.interactive-avatar')) return; 
-                const videoLobbyView = document.getElementById('video-lobby-view'); const centerStageView = document.getElementById('center-stage-view');
-                if(videoLobbyView) videoLobbyView.classList.add('hidden-step');
-                if(centerStageView) {
-                    centerStageView.classList.remove('hidden-step');
-                    document.getElementById('stage-title').innerText = lounge.topic; document.getElementById('stage-icon').innerText = "📹";
-                    document.getElementById('host-name').innerText = lounge.host;
-                    const hostAvatarEl = document.getElementById('host-avatar');
-                    if(lounge.hostAvatar) { hostAvatarEl.innerText = ''; hostAvatarEl.style.backgroundImage = `url(${lounge.hostAvatar})`; } else { hostAvatarEl.innerText = lounge.hostInitial; hostAvatarEl.style.backgroundImage = 'none'; }
-                    centerStageView.classList.remove('fade-in'); void centerStageView.offsetWidth; centerStageView.classList.add('fade-in');
-                }
-            });
-            grid.appendChild(card);
-        });
-    }
-
-    window.loungeCreationType = 'voice';
-    document.getElementById('btn-start-lounge')?.addEventListener('click', () => {
-        window.loungeCreationType = 'voice';
-        const h3 = document.querySelector('#lounge-modal h3'); if(h3) h3.innerText = '🎙️ Start Voice Lounge';
-    });
-    document.getElementById('btn-start-video')?.addEventListener('click', () => {
-        window.loungeCreationType = 'video';
-        const h3 = document.querySelector('#lounge-modal h3'); if(h3) h3.innerText = '📹 Start Video Lounge';
-        document.getElementById('lounge-modal').classList.remove('hidden-step');
-    });
-
-    const btnCreateLounge = document.getElementById('btn-create-lounge');
-    const loungeTopicInput = document.getElementById('lounge-topic-input');
-    if(btnCreateLounge && loungeTopicInput) {
-        loungeTopicInput.addEventListener('input', () => {
-            if(loungeTopicInput.value.trim().length > 0) { btnCreateLounge.innerText = "Start Room Now"; btnCreateLounge.disabled = false; btnCreateLounge.style.opacity = '1'; } 
-            else { btnCreateLounge.innerText = "Enter Topic to Start"; btnCreateLounge.disabled = true; btnCreateLounge.style.opacity = '0.5'; }
-        });
-        btnCreateLounge.addEventListener('click', () => {
-            const topic = loungeTopicInput.value.trim(); if(!topic) return;
-            
-            if (window.loungeCreationType === 'video') {
-                const videos = JSON.parse(localStorage.getItem('yh_video_lounges')) || [];
-                                videos.unshift({ topic, host: myName, hostInitial: myName.charAt(0).toUpperCase(), hostAvatar: localStorage.getItem('yh_user_avatar') || "", listenerCount: 1 });
-                localStorage.setItem('yh_video_lounges', JSON.stringify(videos));
-                loadVideoLounges();
-                document.getElementById('video-grid')?.firstElementChild?.click();
-            } else {
-                const lounges = JSON.parse(localStorage.getItem('yh_voice_lounges')) || [];
-                lounges.unshift({ topic, host: myName, hostInitial: myName.charAt(0).toUpperCase(), hostAvatar: localStorage.getItem('yh_user_avatar') || "", listenerCount: 1 });
-                localStorage.setItem('yh_voice_lounges', JSON.stringify(lounges));
-                loadVoiceLounges(); 
-                document.getElementById('lounge-grid')?.firstElementChild?.click();
-            }
-            
-            showToast(`${window.loungeCreationType === 'video' ? 'Video' : 'Voice'} Lounge '${topic}' is now LIVE!`, "success");
-            document.getElementById('lounge-modal').classList.add('hidden-step');
-            loungeTopicInput.value = ""; btnCreateLounge.innerText = "Enter Topic to Start"; btnCreateLounge.disabled = true; btnCreateLounge.style.opacity = '0.5';
-        });
-    }
-
-        // --- CUSTOM ROOMS ---
-    function getCustomRoomContainers() {
-    const selectors = [
-        '#custom-dm-list',
-        '[data-private-group-list="true"]',
-        '.private-group-list'
-    ];
-
-    const containers = selectors
-        .map((selector) => document.querySelector(selector))
-        .filter(Boolean);
-
-    return containers.filter((container, index, arr) => arr.indexOf(container) === index);
-}
-    function renderCustomRooms(rooms = []) {
-    const state = getDashboardState();
-    const containers = getCustomRoomContainers();
-
-    const normalizedRooms = (Array.isArray(rooms) ? rooms : [])
-        .map((room, index) => normalizeCustomRoomForRender(room, index));
-
-    state.customRooms = normalizedRooms;
-
-    const groupRooms = normalizedRooms.filter((room) => {
-        return String(room?.type || '').trim().toLowerCase() === 'group';
-    });
-
-    if (!containers.length) return groupRooms;
-
-    const activeRoomId = normalizeRoomKey(
-        state.activeCustomRoom?.id ||
-        currentRoomMeta?.roomId ||
-        currentRoomId ||
-        ''
-    );
-
-    const activeRoomName = String(
-        state.activeCustomRoom?.name ||
-        currentRoom ||
-        ''
-    ).trim().toLowerCase();
-
-    const html = groupRooms.length
-        ? groupRooms.map((room) => {
-            const iconIsImage = typeof room.icon === 'string' && room.icon.includes('url(');
-            const avatarStyle = iconIsImage
-                ? `background-image: ${room.icon}; background-size: cover; background-position: center; background-color: transparent;`
-                : `background: ${room.color};`;
-            const avatarText = iconIsImage ? '' : room.icon;
-            const roomId = normalizeRoomKey(room.id);
-            const hasPreview = Boolean(String(room.lastMessage || '').trim());
-            const previewPrefix = hasPreview
-                ? `${room.lastMessageAuthor ? (room.lastMessageAuthor === myName ? 'You: ' : `${room.lastMessageAuthor}: `) : ''}`
-                : '';
-            const secondaryText = hasPreview
-                ? `${previewPrefix}${room.lastMessage}`
-                : `${room.memberCount || 0} members`;
-            const isActive = activeRoomId
-                ? activeRoomId === roomId
-                : (activeRoomName && activeRoomName === String(room.name).trim().toLowerCase());
-            const unreadText = room.unreadCount > 99 ? '99+' : String(room.unreadCount);
-
-            return `
-                <button
-                    type="button"
-                    class="channel-link dm-room custom-room-item private-group-item${isActive ? ' active' : ''}"
-                    data-room-id="${escapeCustomRoomHTML(room.id)}"
-                    data-name="${escapeCustomRoomHTML(room.name)}"
-                    data-icon="${escapeCustomRoomHTML(room.icon)}"
-                    data-color="${escapeCustomRoomHTML(room.color)}"
-                    data-room-type="${escapeCustomRoomHTML(room.type)}"
-                    data-room-privacy="${escapeCustomRoomHTML(room.privacy)}"
-                    data-room-topic="${escapeCustomRoomHTML(room.topic)}"
-                    style="display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%;"
-                >
-                    <span style="display:flex; align-items:center; gap:10px; min-width:0; flex:1;">
-                        <span class="member-avatar" style="${avatarStyle} width: 28px; height: 28px; font-size: 0.85rem; flex-shrink:0;">${avatarText}</span>
-                        <span style="display:flex; flex-direction:column; min-width:0; text-align:left; flex:1;">
-                            <span style="font-size:0.92rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeCustomRoomHTML(room.name)}</span>
-                            <span
-                                data-room-preview-id="${escapeCustomRoomHTML(room.id)}"
-                                style="font-size:0.72rem; opacity:${hasPreview ? '0.9' : '0.7'}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"
-                            >${escapeCustomRoomHTML(secondaryText)}</span>
-                        </span>
-                    </span>
-                    <span
-                        class="custom-room-unread${room.unreadCount > 0 ? '' : ' hidden-step'}"
-                        data-room-unread-id="${escapeCustomRoomHTML(room.id)}"
-                        style="min-width:22px; height:22px; padding:0 6px; border-radius:999px; display:${room.unreadCount > 0 ? 'inline-flex' : 'none'}; align-items:center; justify-content:center; background:rgba(14,165,233,0.18); color:var(--neon-blue); font-size:0.72rem; font-weight:700;"
-                    >${unreadText}</span>
-                </button>
-            `;
-        }).join('')
-        : `
-            <div class="custom-room-empty-state" style="padding: 10px 12px; font-size: 0.85rem; color: var(--text-muted);">
-                No private groups yet. Create a group to see it here.
-            </div>
-        `;
-
-    containers.forEach((container) => {
-        container.innerHTML = html;
-        container.dataset.hasRenderedRooms = 'true';
-        container.dataset.roomCount = String(groupRooms.length);
-
-        container.querySelectorAll('.custom-room-item').forEach((button) => {
-            button.addEventListener('click', () => {
-                const roomId = button.getAttribute('data-room-id');
-
-                document.querySelectorAll('.custom-room-item').forEach((node) => {
-                    const sameId = roomId && node.getAttribute('data-room-id') === roomId;
-                    node.classList.toggle('active', Boolean(sameId));
-                });
-
-                openRoom('group', button);
-            });
-        });
-    });
-
-    return groupRooms;
-}
-
-    function escapeCustomRoomHTML(value) {
-        return String(value ?? '')
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
-    }
-
-    function normalizeCustomRoomForRender(room = {}, index = 0) {
-    const roomType = String(
-        room.type ??
-        room.roomType ??
-        room.room_type ??
-        'dm'
-    ).trim().toLowerCase();
-
-    const resolvedId = normalizeRoomKey(
-        room.id ??
-        room._id ??
-        room.roomId ??
-        room.room_id ??
-        `custom-room-${index + 1}`
-    );
-
-    const avatarSource =
-        room.avatar ??
-        room.image ??
-        room.coverImage ??
-        room.cover_image ??
-        '';
-
-    const iconValue =
-        room.icon ??
-        room.emoji ??
-        (avatarSource ? `url(${avatarSource})` : '') ??
-        (roomType === 'group' ? '👥' : '💬');
-
-    const privacy =
-        room.privacy ??
-        room.visibility ??
-        (room.isPrivate ? 'private' : null) ??
-        ((roomType === 'group' || roomType === 'dm') ? 'private' : 'public');
-
-    const unreadCount = Number(
-        room.unreadCount ??
-        room.unread_count ??
-        room.notifications ??
-        0
-    );
-
-    const memberCount = Number(
-        room.memberCount ??
-        room.membersCount ??
-        room.member_count ??
-        (Array.isArray(room.members) ? room.members.length : 0) ??
-        0
-    );
-
-    const rawLastMessage =
-        room.lastMessage ??
-        room.last_message ??
-        room.preview ??
-        room.snippet ??
-        room.lastText ??
-        room.message ??
-        '';
-
-    const lastMessage = String(rawLastMessage ?? '')
-        .replace(/<[^>]*>/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-
-    const lastMessageAuthor = String(
-        room.lastMessageAuthor ??
-        room.last_message_author ??
-        room.previewAuthor ??
-        room.preview_author ??
-        room.author ??
-        ''
-    ).trim();
-
-    const lastMessageAt =
-        room.lastMessageAt ??
-        room.last_message_at ??
-        room.updatedAt ??
-        room.updated_at ??
-        room.time ??
-        room.createdAt ??
-        room.created_at ??
-        '';
-
-    const recipientName = String(
-        room.recipientName ??
-        room.recipient_name ??
-        (roomType === 'dm' ? (room.name ?? room.title ?? '') : '') ??
-        ''
-    ).trim();
-
-    const recipientId = String(
-        room.recipientId ??
-        room.recipient_id ??
-        (recipientName ? normalizeUserKey(recipientName) : '') ??
-        ''
-    ).trim();
-
-    const memberNames = Array.from(new Set(
-        safeParseArray(
-            room.memberNames ??
-            room.member_names ??
-            room.participants ??
-            room.participantNames ??
-            room.members ??
-            room.memberList ??
-            [],
-            roomType === 'dm'
-                ? [myName, recipientName || (room.name ?? room.title ?? '')]
-                : [myName]
-        )
-    )).filter(Boolean);
-
-    const memberIds = Array.from(new Set(
-        safeParseArray(
-            room.memberIds ??
-            room.member_ids ??
-            [],
-            recipientId ? [normalizeUserKey(myName), recipientId] : []
-        ).map((value) => normalizeUserKey(value)).filter(Boolean)
-    ));
-
-    return {
-        id: resolvedId,
-        roomId: resolvedId,
-        name:
-            room.name ??
-            room.title ??
-            room.roomName ??
-            room.room_name ??
-            `Room ${index + 1}`,
-        icon: iconValue,
-        color:
-            room.color ??
-            room.themeColor ??
-            room.theme_color ??
-            'var(--neon-blue)',
-        type: roomType,
-        privacy,
-        isPrivate: typeof room.isPrivate === 'boolean'
-            ? room.isPrivate
-            : privacy === 'private',
-        description:
-            room.description ??
-            room.bio ??
-            room.summary ??
-            '',
-        unreadCount: Number.isFinite(unreadCount) ? unreadCount : 0,
-        memberCount: Number.isFinite(memberCount) ? memberCount : 0,
-        topic:
-            room.topic ??
-            room.roomTopic ??
-            (roomType === 'group'
-                ? 'Private Brainstorming Group'
-                : 'Direct Message'),
-        lastMessage,
-        lastMessageAuthor,
-        lastMessageAt: lastMessageAt || '',
-        recipientName,
-        recipientId,
-        memberNames,
-        participants: memberNames,
-        memberIds
-    };
-}
-
-
-    function renderChatboxRooms(rooms = []) {
-    const normalizedRooms = (Array.isArray(rooms) ? rooms : [])
-        .map((room, index) => normalizeCustomRoomForRender(room, index));
-
-    const dmRooms = normalizedRooms.filter((room) => {
-        return String(room?.type || '').trim().toLowerCase() === 'dm';
-    });
-
-    const selectors = [
-        '#chatbox-room-list',
-        '#chatbox-rooms-list',
-        '[data-chatbox-rooms-list="dm"]',
-        '.chatbox-rooms-list'
-    ];
-
-    const containers = selectors
-        .map((selector) => document.querySelector(selector))
-        .filter(Boolean)
-        .filter((container, index, arr) => arr.indexOf(container) === index);
-
-    if (!containers.length) return dmRooms;
-
-    const activeRoomId = getActiveRoomId();
-
-    const formatRoomTime = (value) => {
-        if (!value) return '';
-
-        const stringValue = String(value).trim();
-        if (!stringValue) return '';
-
-        const isoDate = new Date(stringValue);
-        if (!Number.isNaN(isoDate.getTime())) {
-            return isoDate.toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-        }
-
-        const todayAtMatch = stringValue.match(/today at\s+(.+)$/i);
-        if (todayAtMatch?.[1]) {
-            return todayAtMatch[1].trim();
-        }
-
-        return stringValue;
-    };
-
-    const getPreviewText = (room) => {
-        const message = String(room.lastMessage || '').trim();
-
-        if (message) {
-            const author = String(room.lastMessageAuthor || '').trim();
-            const prefix = author
-                ? (author === myName ? 'You: ' : `${author}: `)
-                : '';
-
-            return `${prefix}${message}`;
-        }
-
-        return 'Direct Message';
-    };
-
-    const html = dmRooms.length
-        ? dmRooms.map((room) => {
-            const roomId = normalizeRoomKey(room.id || room.roomId || room.room_id);
-            const isActive = Boolean(activeRoomId && roomId && activeRoomId === roomId);
-            const unreadCount = Math.max(0, Number(room.unreadCount || 0));
-            const unreadText = unreadCount > 99 ? '99+' : String(unreadCount);
-            const previewText = getPreviewText(room);
-            const timeText = formatRoomTime(room.lastMessageAt);
-
-            const iconIsImage =
-                typeof room.icon === 'string' &&
-                room.icon.includes('url(');
-
-            const avatarStyle = iconIsImage
-                ? `background-image: ${room.icon}; background-size: cover; background-position: center; background-color: transparent;`
-                : `background: ${room.color};`;
-
-            const avatarText = iconIsImage ? '' : room.icon;
-
-            return `
-                <button
-                    type="button"
-                    class="channel-link dm-room chatbox-room-item${isActive ? ' active' : ''}"
-                    data-id="${escapeCustomRoomHTML(room.id)}"
-                    data-room-id="${escapeCustomRoomHTML(room.id)}"
-                    data-name="${escapeCustomRoomHTML(room.name)}"
-                    data-icon="${escapeCustomRoomHTML(room.icon)}"
-                    data-color="${escapeCustomRoomHTML(room.color)}"
-                    data-room-type="${escapeCustomRoomHTML(room.type)}"
-                    data-room-privacy="${escapeCustomRoomHTML(room.privacy)}"
-                    data-room-topic="${escapeCustomRoomHTML(room.topic)}"
-                    style="display:flex; align-items:center; gap:10px; width:100%;"
-                >
-                    <span
-                        class="member-avatar"
-                        style="${avatarStyle} width:34px; height:34px; font-size:0.95rem; flex-shrink:0;"
-                    >${avatarText}</span>
-
-                    <span style="display:flex; flex-direction:column; min-width:0; flex:1; text-align:left;">
-                        <span style="display:flex; align-items:center; justify-content:space-between; gap:8px; min-width:0;">
-                            <span style="font-size:0.92rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                                ${escapeCustomRoomHTML(room.name)}
-                            </span>
-                            <span
-                                data-room-time-id="${escapeCustomRoomHTML(room.id)}"
-                                style="font-size:0.68rem; color:var(--text-muted); flex-shrink:0;"
-                            >${escapeCustomRoomHTML(timeText)}</span>
-                        </span>
-
-                        <span
-                            data-room-preview-id="${escapeCustomRoomHTML(room.id)}"
-                            style="font-size:0.74rem; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"
-                        >${escapeCustomRoomHTML(previewText)}</span>
-                    </span>
-
-                    <span
-                        class="custom-room-unread${unreadCount > 0 ? '' : ' hidden-step'}"
-                        data-room-unread-id="${escapeCustomRoomHTML(room.id)}"
-                        style="min-width:22px; height:22px; padding:0 6px; border-radius:999px; display:${unreadCount > 0 ? 'inline-flex' : 'none'}; align-items:center; justify-content:center; background:rgba(14,165,233,0.18); color:var(--neon-blue); font-size:0.72rem; font-weight:700; flex-shrink:0;"
-                    >${unreadText}</span>
-                </button>
-            `;
-        }).join('')
-        : `
-            <div class="custom-room-empty-state" style="padding:10px 12px; font-size:0.85rem; color:var(--text-muted);">
-                No private DMs yet. Start a DM to see it here.
-            </div>
-        `;
-
-    containers.forEach((container) => {
-        container.innerHTML = html;
-        container.dataset.hasRenderedRooms = 'true';
-        container.dataset.roomCount = String(dmRooms.length);
-
-        container.querySelectorAll('.chatbox-room-item').forEach((button) => {
-            button.addEventListener('click', () => {
-                const clickedRoomId = normalizeRoomKey(
-                    button.getAttribute('data-room-id') || ''
-                );
-
-                document.querySelectorAll('.chatbox-room-item').forEach((node) => {
-                    const nodeRoomId = normalizeRoomKey(
-                        node.getAttribute('data-room-id') || ''
-                    );
-                    node.classList.toggle('active', Boolean(clickedRoomId && nodeRoomId === clickedRoomId));
-                });
-
-                openRoom('dm', button);
-            });
-        });
-    });
-
-    return dmRooms;
-}
-    function syncCustomRoomNotifications(rooms = []) {
-        const bellBadge = document.getElementById('notif-badge-count');
-        if (!bellBadge) return;
-
-        const totalUnread = (Array.isArray(rooms) ? rooms : []).reduce((sum, room) => {
-            return sum + Number(room?.unreadCount || room?.unread_count || 0);
-        }, 0);
-
-        bellBadge.dataset.customRoomsUnread = String(totalUnread);
-    }
-
-    function updateCustomRoomUnreadBadges(rooms = []) {
-        const normalizedRooms = (Array.isArray(rooms) ? rooms : [])
-            .map((room, index) => normalizeCustomRoomForRender(room, index));
-
-        normalizedRooms.forEach((room) => {
-            const badgeNodes = document.querySelectorAll(`[data-room-unread-id="${CSS.escape(String(room.id))}"]`);
-            badgeNodes.forEach((badge) => {
-                if (room.unreadCount > 0) {
-                    badge.textContent = room.unreadCount > 99 ? '99+' : String(room.unreadCount);
-                    badge.style.display = 'inline-flex';
-                    badge.classList.remove('hidden-step');
-                } else {
-                    badge.textContent = '';
-                    badge.style.display = 'none';
-                    badge.classList.add('hidden-step');
-                }
-            });
-        });
-    }
-
-    async function loadCustomRooms(forceRefresh = false) {
-    const state = window.dashboardState || window.yhDashboardState || (window.dashboardState = {});
-    const cacheKey = 'yh_custom_rooms_cache';
-    const cacheTTL = 60 * 1000;
-
-    const containers = typeof getCustomRoomContainers === 'function'
-        ? getCustomRoomContainers()
-        : [];
-
-    const setLoadingState = (isLoading) => {
-        containers.forEach((container) => {
-            container.dataset.loading = isLoading ? 'true' : 'false';
-
-            if (isLoading && !container.dataset.hasRenderedRooms) {
-                container.innerHTML = `
-                    <div class="custom-room-loading" style="padding: 10px 12px; font-size: 0.85rem; color: var(--text-muted);">
-                        Loading custom rooms...
-                    </div>
-                `;
-            }
-        });
-    };
-
-    const normalizeRoom = (room, index = 0) => {
-        if (typeof normalizeCustomRoomForRender === 'function') {
-            return normalizeCustomRoomForRender(room, index);
-        }
-
-        const roomType = String(
-            room?.type ||
-            room?.roomType ||
-            room?.room_type ||
-            'dm'
-        ).trim().toLowerCase();
-
-        return {
-            id: room?.id || room?._id || room?.roomId || room?.room_id || `custom-room-${index + 1}`,
-            name: room?.name || room?.title || room?.roomName || room?.room_name || `Room ${index + 1}`,
-            icon: room?.icon || room?.emoji || (roomType === 'group' ? '👥' : '💬'),
-            color: room?.color || room?.themeColor || room?.theme_color || 'var(--neon-blue)',
-            type: roomType,
-            privacy: room?.privacy || room?.visibility || (room?.isPrivate ? 'private' : 'public') || 'public',
-            isPrivate: typeof room?.isPrivate === 'boolean' ? room.isPrivate : false,
-            description: room?.description || '',
-            unreadCount: Number(room?.unreadCount || room?.unread_count || 0),
-            memberCount: Number(room?.memberCount || room?.membersCount || room?.member_count || 0),
-            topic: room?.topic || (roomType === 'group' ? 'Private Brainstorming Group' : 'Direct Message')
-        };
-    };
-
-    const readCache = () => {
-        try {
-            const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
-            if (!cached || !Array.isArray(cached.rooms)) return null;
-
-            const age = Date.now() - Number(cached.savedAt || 0);
-            if (forceRefresh || age > cacheTTL) return null;
-
-            return cached.rooms.map((room, index) => normalizeRoom(room, index));
-        } catch (error) {
-            console.warn('Failed to read custom rooms cache:', error);
-            return null;
-        }
-    };
-
-    const writeCache = (rooms) => {
-        try {
-            localStorage.setItem(cacheKey, JSON.stringify({
-                savedAt: Date.now(),
-                rooms
-            }));
-        } catch (error) {
-            console.warn('Failed to write custom rooms cache:', error);
-        }
-    };
-
-    const renderRoomsSafely = (rooms) => {
-        const normalizedRooms = (Array.isArray(rooms) ? rooms : [])
-            .map((room, index) => normalizeRoom(room, index));
-
-        state.customRooms = normalizedRooms;
-        state.customRoomsLoadedAt = Date.now();
-
-        if (typeof renderCustomRooms === 'function') {
-            renderCustomRooms(normalizedRooms);
-        }
-
-        if (typeof renderChatboxRooms === 'function') {
-            renderChatboxRooms(normalizedRooms);
-        }
-
-        if (typeof syncCustomRoomNotifications === 'function') {
-            syncCustomRoomNotifications(normalizedRooms);
-        }
-
-        if (typeof updateCustomRoomUnreadBadges === 'function') {
-            updateCustomRoomUnreadBadges(normalizedRooms);
-        }
-
-        document.dispatchEvent(new CustomEvent('yh:customRoomsLoaded', {
-            detail: { rooms: normalizedRooms }
-        }));
-
-        return normalizedRooms;
-    };
-
-    const cachedRooms = readCache();
-    if (Array.isArray(cachedRooms) && cachedRooms.length && !forceRefresh) {
-        renderRoomsSafely(cachedRooms);
-    }
-
-    setLoadingState(true);
-
-    try {
-        const token =
-            localStorage.getItem('yh_token') ||
-            localStorage.getItem('token') ||
-            sessionStorage.getItem('yh_token') ||
-            sessionStorage.getItem('token') ||
-            '';
-
-const endpoint = '/api/realtime/rooms';
-
-const response = await fetch(endpoint, {
-    method: 'GET',
-    credentials: 'include',
-    headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {})
-    }
-});
-
-if (!response.ok) {
-    throw new Error(`HTTP ${response.status} on ${endpoint}`);
-}
-
-const payload = await response.json().catch(() => null);
-
-if (!payload) {
-    throw new Error('Unable to load custom rooms.');
-}
-
-const incomingRooms = (
-    Array.isArray(payload?.rooms)
-        ? payload.rooms
-        : Array.isArray(payload)
-        ? payload
-        : []
-).filter((room) => {
-    const roomType = String(
-        room?.type ||
-        room?.roomType ||
-        room?.room_type ||
-        ''
-    ).trim().toLowerCase();
-
-    return roomType === 'dm' || roomType === 'group';
-});
-        const normalizedRooms = incomingRooms.map((room, index) => normalizeRoom(room, index));
-
-        writeCache(normalizedRooms);
-        renderRoomsSafely(normalizedRooms);
-
-        return normalizedRooms;
-    } catch (error) {
-        console.error('loadCustomRooms failed:', error);
-
-        const fallbackRooms = Array.isArray(state.customRooms) && state.customRooms.length
-            ? state.customRooms
-            : [];
-
-        renderRoomsSafely(fallbackRooms);
-
-        if (typeof showToast === 'function') {
-            showToast('Unable to load custom rooms right now.', 'error');
-        }
-
-        return fallbackRooms;
-    } finally {
-        setLoadingState(false);
-    }
-}
-function normalizeUserKey(value) {
-    return String(value ?? '').trim().toLowerCase();
-}
-
-function safeParseArray(value, fallback = []) {
-    if (Array.isArray(value)) {
-        return value
-            .map((item) => String(item ?? '').trim())
-            .filter(Boolean);
-    }
-
-    if (typeof value === 'string') {
-        const trimmed = value.trim();
-        if (!trimmed) {
-            return Array.isArray(fallback) ? [...fallback] : [];
-        }
-
-        try {
-            const parsed = JSON.parse(trimmed);
-            if (Array.isArray(parsed)) {
-                return parsed
-                    .map((item) => String(item ?? '').trim())
-                    .filter(Boolean);
-            }
-        } catch (_) {}
-
-        return trimmed
-            .split(',')
-            .map((item) => item.trim())
-            .filter(Boolean);
-    }
-
-    return Array.isArray(fallback) ? [...fallback] : [];
-}
-
-function getStoredUserStats() {
-    try {
-        return JSON.parse(localStorage.getItem('yh_user_stats') || '{}') || {};
-    } catch (_) {
-        return {};
-    }
-}
-
-function setStoredUserStats(stats) {
-    localStorage.setItem('yh_user_stats', JSON.stringify(stats || {}));
-}
-
-function getFollowedUsers() {
-    try {
-        const raw = JSON.parse(localStorage.getItem('yh_followed_users') || '[]');
-        return Array.isArray(raw) ? raw.map((name) => String(name || '').trim()).filter(Boolean) : [];
+        return JSON.parse(localStorage.getItem('yh_vault_items_backend') || '[]');
     } catch (_) {
         return [];
     }
 }
 
-function setFollowedUsers(list) {
-    const deduped = [];
-    (Array.isArray(list) ? list : []).forEach((name) => {
-        const trimmed = String(name || '').trim();
-        if (!trimmed) return;
-        const exists = deduped.some((entry) => normalizeUserKey(entry) === normalizeUserKey(trimmed));
-        if (!exists) deduped.push(trimmed);
-    });
-    localStorage.setItem('yh_followed_users', JSON.stringify(deduped));
-    return deduped;
-}
+async function saveVaultItemObj(itemObj) {
+    if (!itemObj || itemObj.type !== 'folder') return;
 
-function persistKnownUser(user = {}) {
-    const name = String(user.name || '').trim();
-    if (!name) return null;
-
-    const allStats = getStoredUserStats();
-    const existing = allStats[name] || {};
-
-    const nextEntry = {
-        rep: Number(user.rep ?? existing.rep ?? 0),
-        followers: Number(user.followers ?? existing.followers ?? 0),
-        role: String(user.role || existing.role || 'Hustler').trim(),
-        initial: String(
-            user.avatarToken ||
-            existing.initial ||
-            name.charAt(0).toUpperCase()
-        ).trim(),
-        color: String(
-            user.avatarBg ||
-            existing.color ||
-            'var(--neon-blue)'
-        ).trim()
-    };
-
-    allStats[name] = nextEntry;
-    setStoredUserStats(allStats);
-
-    if (user.followed === true) {
-        const followed = getFollowedUsers();
-        if (!followed.some((entry) => normalizeUserKey(entry) === normalizeUserKey(name))) {
-            setFollowedUsers([...followed, name]);
-        }
-    } else if (user.followed === false) {
-        const followed = getFollowedUsers().filter((entry) => normalizeUserKey(entry) !== normalizeUserKey(name));
-        setFollowedUsers(followed);
-    }
-
-    return {
-        id: normalizeUserKey(name),
-        userKey: normalizeUserKey(name),
-        name,
-        role: nextEntry.role,
-        avatarToken: nextEntry.initial,
-        avatarBg: nextEntry.color,
-        followers: nextEntry.followers,
-        rep: nextEntry.rep,
-        isFollowed: getFollowedUsers().some((entry) => normalizeUserKey(entry) === normalizeUserKey(name))
-    };
-}
-
-function getUserDirectoryEntry(name, fallback = {}) {
-    const targetName = String(name || '').trim();
-    if (!targetName) return null;
-
-    const directory = getKnownUserDirectory();
-    const found = directory.find((entry) => normalizeUserKey(entry.name) === normalizeUserKey(targetName));
-    if (found) return found;
-
-    return persistKnownUser({
-        name: targetName,
-        role: fallback.role || 'Hustler',
-        avatarToken: fallback.avatarToken || targetName.charAt(0).toUpperCase(),
-        avatarBg: fallback.avatarBg || 'var(--neon-blue)',
-        followed: fallback.followed
-    });
-}
-
-function getKnownUserDirectory(searchTerm = '') {
-    const allStats = getStoredUserStats();
-    const followed = getFollowedUsers();
-    const names = new Set();
-
-    Object.keys(allStats).forEach((name) => {
-        const trimmed = String(name || '').trim();
-        if (trimmed) names.add(trimmed);
-    });
-
-    followed.forEach((name) => {
-        const trimmed = String(name || '').trim();
-        if (trimmed) names.add(trimmed);
-    });
-
-    const targetTerm = normalizeUserKey(searchTerm);
-
-    return Array.from(names)
-        .filter((name) => normalizeUserKey(name) !== normalizeUserKey(myName))
-        .map((name) => {
-            const entry = allStats[name] || {};
-            return {
-                id: normalizeUserKey(name),
-                userKey: normalizeUserKey(name),
-                name,
-                role: entry.role || 'Hustler',
-                avatarToken: entry.initial || name.charAt(0).toUpperCase(),
-                avatarBg: entry.color || 'var(--neon-blue)',
-                followers: Number(entry.followers || 0),
-                rep: Number(entry.rep || 0),
-                isFollowed: followed.some((item) => normalizeUserKey(item) === normalizeUserKey(name))
-            };
-        })
-        .filter((entry) => {
-            if (!targetTerm) return true;
-            return normalizeUserKey(entry.name).includes(targetTerm) ||
-                normalizeUserKey(entry.role).includes(targetTerm);
-        })
-        .sort((a, b) => {
-            if (Number(b.isFollowed) !== Number(a.isFollowed)) {
-                return Number(b.isFollowed) - Number(a.isFollowed);
-            }
-            return a.name.localeCompare(b.name);
-        });
-}
-
-function buildDeterministicDmRoomId(userA, userB) {
-    const parts = [userA, userB]
-        .map((value) => normalizeUserKey(value).replace(/[^a-z0-9]+/g, '-'))
-        .filter(Boolean)
-        .sort();
-
-    return `dm::${parts.join('__')}`;
-}
-
-function buildGroupRoomId(groupName, members = []) {
-    const groupSlug = normalizeUserKey(groupName).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'group';
-    const memberSlug = Array.from(new Set(
-        (Array.isArray(members) ? members : [])
-            .map((value) => normalizeUserKey(value).replace(/[^a-z0-9]+/g, '-'))
-            .filter(Boolean)
-    )).join('__');
-
-    return `group::${groupSlug}::${memberSlug || 'members'}::${Date.now()}`;
-}
-
-function ensureGroupMemberDraftContainer() {
-    const groupModalBody = document.querySelector('#group-modal .modal-body');
-    if (!groupModalBody) return null;
-
-    let container = document.getElementById('group-selected-users');
-    if (!container) {
-        container = document.createElement('div');
-        container.id = 'group-selected-users';
-        container.style.marginBottom = '12px';
-        groupModalBody.insertBefore(container, document.getElementById('group-name-input'));
-    }
-
-    return container;
-}
-
-function syncGroupCreateButtonState() {
-    const btnCreateGroup = document.getElementById('btn-create-group');
-    const groupNameInput = document.getElementById('group-name-input');
-    if (!btnCreateGroup || !groupNameInput) return;
-
-    const selectedCount = pendingGroupMembers.length;
-    const totalMembers = selectedCount + 1;
-    const hasName = groupNameInput.value.trim().length > 0;
-
-    if (hasName) {
-        btnCreateGroup.disabled = false;
-        btnCreateGroup.style.opacity = '1';
-        btnCreateGroup.innerText = selectedCount > 0
-            ? `Create Brainstorming Group (${totalMembers} members)`
-            : 'Create Brainstorming Group';
-    } else {
-        btnCreateGroup.disabled = true;
-        btnCreateGroup.style.opacity = '0.5';
-        btnCreateGroup.innerText = selectedCount > 0
-            ? `Enter Group Name (${totalMembers} members)`
-            : 'Enter Group Name to Create';
-    }
-}
-
-function renderPendingGroupMembers() {
-    const container = ensureGroupMemberDraftContainer();
-    if (!container) return;
-
-    if (!pendingGroupMembers.length) {
-        container.innerHTML = `
-            <div style="padding:10px 12px;border-radius:12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);font-size:0.8rem;color:var(--text-muted);">
-                Search a user above communications and tap <strong>Add to Group</strong> to queue members here.
-            </div>
-        `;
-        syncGroupCreateButtonState();
-        return;
-    }
-
-    container.innerHTML = `
-        <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:8px;">
-            Selected Members (${pendingGroupMembers.length + 1} total with you)
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            ${pendingGroupMembers.map((user) => `
-                <button
-                    type="button"
-                    class="group-member-chip"
-                    data-remove-group-member="${escapeCustomRoomHTML(user.name)}"
-                    style="display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:999px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.04);color:#fff;font-size:0.78rem;cursor:pointer;"
-                >
-                    <span>${escapeCustomRoomHTML(user.name)}</span>
-                    <span style="color:#f87171;">✖</span>
-                </button>
-            `).join('')}
-        </div>
-    `;
-
-    container.querySelectorAll('[data-remove-group-member]').forEach((button) => {
-        button.addEventListener('click', () => {
-            const targetName = button.getAttribute('data-remove-group-member') || '';
-            pendingGroupMembers = pendingGroupMembers.filter((user) => {
-                return normalizeUserKey(user.name) !== normalizeUserKey(targetName);
-            });
-            renderPendingGroupMembers();
-        });
-    });
-
-    syncGroupCreateButtonState();
-}
-
-function addPendingGroupMember(user = {}) {
-    const name = String(user.name || '').trim();
-    if (!name || normalizeUserKey(name) === normalizeUserKey(myName)) return;
-
-    const existing = pendingGroupMembers.some((entry) => normalizeUserKey(entry.name) === normalizeUserKey(name));
-    if (existing) {
-        document.getElementById('group-modal')?.classList.remove('hidden-step');
-        renderPendingGroupMembers();
-        return;
-    }
-
-    pendingGroupMembers.push({
-        name,
-        role: user.role || 'Hustler',
-        avatarToken: user.avatarToken || name.charAt(0).toUpperCase(),
-        avatarBg: user.avatarBg || 'var(--neon-blue)'
-    });
-
-    document.getElementById('group-modal')?.classList.remove('hidden-step');
-    renderPendingGroupMembers();
-}
-
-function ensureCommunicationsSearchResultsContainer() {
-    const searchWrapper = document.querySelector('.channel-search-container .search-wrapper');
-    if (!searchWrapper) return null;
-
-    searchWrapper.style.position = 'relative';
-
-    let results = document.getElementById('communications-search-results');
-    if (!results) {
-        results = document.createElement('div');
-        results.id = 'communications-search-results';
-        results.style.position = 'absolute';
-        results.style.top = 'calc(100% + 8px)';
-        results.style.left = '0';
-        results.style.right = '0';
-        results.style.zIndex = '80';
-        results.style.display = 'none';
-        results.style.maxHeight = '320px';
-        results.style.overflowY = 'auto';
-        results.style.padding = '8px';
-        results.style.borderRadius = '14px';
-        results.style.background = 'rgba(11, 15, 25, 0.98)';
-        results.style.border = '1px solid rgba(255,255,255,0.08)';
-        results.style.boxShadow = '0 18px 40px rgba(0,0,0,0.35)';
-        searchWrapper.appendChild(results);
-    }
-
-    return results;
-}
-
-function closeCommunicationsSearchResults() {
-    const results = ensureCommunicationsSearchResultsContainer();
-    if (!results) return;
-    results.style.display = 'none';
-    results.innerHTML = '';
-}
-
-function handleCommunicationsSearchAction(action, user) {
-    if (!user || !user.name) return;
-
-    if (action === 'chat') {
-        createNewRoom('dm', user.name, user.avatarToken, user.avatarBg, {
-            recipientName: user.name,
-            recipientId: user.userKey,
-            memberNames: [myName, user.name],
-            memberIds: [normalizeUserKey(myName), user.userKey],
-            source: 'communications-search'
-        });
-        closeCommunicationsSearchResults();
-        showToast(`Opening private chat with ${user.name}.`, 'success');
-        return;
-    }
-
-    if (action === 'group') {
-        addPendingGroupMember(user);
-        closeCommunicationsSearchResults();
-        showToast(`${user.name} added to pending group members.`, 'success');
-    }
-}
-
-function renderCommunicationsSearchResults(searchTerm = '') {
-    const results = ensureCommunicationsSearchResultsContainer();
-    if (!results) return;
-
-    const input = document.querySelector('.channel-search');
-    const query = String(searchTerm || '').trim();
-    const directory = getKnownUserDirectory(query);
-
-    const visibleUsers = query ? directory : directory.slice(0, 8);
-
-    if (!visibleUsers.length) {
-        results.style.display = 'block';
-        results.innerHTML = `
-            <div style="padding:12px 10px;font-size:0.82rem;color:var(--text-muted);">
-                No known users found yet. Follow users or open their mini profile first so they appear here.
-            </div>
-        `;
-        return;
-    }
-
-    results.style.display = 'block';
-    results.innerHTML = visibleUsers.map((user) => {
-        const avatarToken = String(user.avatarToken || user.name.charAt(0).toUpperCase());
-        const isAvatarImage = avatarToken.includes('url(');
-        const avatarStyle = isAvatarImage
-            ? `background-image:${avatarToken};background-size:cover;background-position:center;background-color:transparent;`
-            : `background:${user.avatarBg};`;
-
-        return `
-            <div style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);margin-bottom:8px;">
-                <span class="member-avatar" style="${avatarStyle} width:34px;height:34px;flex-shrink:0;">${isAvatarImage ? '' : escapeCustomRoomHTML(avatarToken.charAt(0).toUpperCase())}</span>
-                <span style="display:flex;flex-direction:column;min-width:0;flex:1;">
-                    <span style="font-size:0.86rem;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                        ${escapeCustomRoomHTML(user.name)}
-                    </span>
-                    <span style="font-size:0.72rem;color:var(--text-muted);">
-                        ${escapeCustomRoomHTML(user.role)}${user.isFollowed ? ' • Following' : ''}
-                    </span>
-                </span>
-                <div style="display:flex;gap:6px;flex-shrink:0;">
-                    <button
-                        type="button"
-                        data-search-action="chat"
-                        data-search-user="${escapeCustomRoomHTML(user.name)}"
-                        class="btn-secondary"
-                        style="width:auto;padding:7px 10px;font-size:0.72rem;"
-                    >Chat</button>
-                    <button
-                        type="button"
-                        data-search-action="group"
-                        data-search-user="${escapeCustomRoomHTML(user.name)}"
-                        class="btn-primary"
-                        style="width:auto;padding:7px 10px;font-size:0.72rem;"
-                    >Add</button>
-                </div>
-            </div>
-        `;
-    }).join('');
-
-    results.querySelectorAll('[data-search-action]').forEach((button) => {
-        button.addEventListener('click', () => {
-            const action = button.getAttribute('data-search-action') || '';
-            const targetName = button.getAttribute('data-search-user') || '';
-            const user = getUserDirectoryEntry(targetName);
-            handleCommunicationsSearchAction(action, user);
-            if (input) input.blur();
-        });
-    });
-}
-
-function bindCommunicationsSearch() {
-    const input = document.querySelector('.channel-search');
-    if (!input || input.dataset.boundSearch === 'true') return;
-
-    input.dataset.boundSearch = 'true';
-
-    input.addEventListener('focus', () => {
-        renderCommunicationsSearchResults(input.value);
-    });
-
-    input.addEventListener('input', () => {
-        renderCommunicationsSearchResults(input.value);
-    });
-
-    input.addEventListener('blur', () => {
-        setTimeout(() => {
-            closeCommunicationsSearchResults();
-        }, 180);
-    });
-}
-
-function ensureDmModalDirectoryContainer() {
-    const modalBody = document.querySelector('#dm-modal .modal-body');
-    if (!modalBody) return null;
-
-    let container = document.getElementById('dm-modal-user-list');
-    if (!container) {
-        modalBody.querySelectorAll('.modal-user-item').forEach((node) => node.remove());
-
-        container = document.createElement('div');
-        container.id = 'dm-modal-user-list';
-        container.style.display = 'flex';
-        container.style.flexDirection = 'column';
-        container.style.gap = '10px';
-        modalBody.appendChild(container);
-    }
-
-    return container;
-}
-
-function resetDmModalSelection() {
-    const btnStartDm = document.getElementById('btn-start-dm');
-    document.querySelectorAll('.dm-radio').forEach((radio) => { radio.checked = false; });
-    if (btnStartDm) {
-        btnStartDm.innerText = "Select a user to chat";
-        btnStartDm.disabled = true;
-        btnStartDm.style.opacity = '0.5';
-    }
-}
-
-function renderDmModalDirectory(searchTerm = '') {
-    const container = ensureDmModalDirectoryContainer();
-    if (!container) return;
-
-    const users = getKnownUserDirectory(searchTerm);
-    if (!users.length) {
-        container.innerHTML = `
-            <div style="padding:12px;border-radius:12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);font-size:0.82rem;color:var(--text-muted);">
-                No searchable users yet. Follow users or open their mini profile first so they appear here.
-            </div>
-        `;
-        resetDmModalSelection();
-        return;
-    }
-
-    container.innerHTML = users.map((user) => {
-        const avatarToken = String(user.avatarToken || user.name.charAt(0).toUpperCase());
-        const isAvatarImage = avatarToken.includes('url(');
-        const avatarStyle = isAvatarImage
-            ? `background-image:${avatarToken};background-size:cover;background-position:center;background-color:transparent;`
-            : `background:${user.avatarBg};`;
-
-        return `
-            <label
-                class="modal-user-item"
-                data-user-name="${escapeCustomRoomHTML(user.name)}"
-                data-user-role="${escapeCustomRoomHTML(user.role)}"
-                data-user-avatar="${escapeCustomRoomHTML(avatarToken)}"
-                data-user-bg="${escapeCustomRoomHTML(user.avatarBg)}"
-                style="display:flex; align-items:center; gap:12px; padding:12px; border:1px solid rgba(255,255,255,0.08); border-radius:14px; cursor:pointer; background:rgba(255,255,255,0.02);"
-            >
-                <input type="radio" name="selected-dm-user" class="dm-radio" style="accent-color:#0ea5e9;">
-                <span class="member-avatar dm-avatar-preview" style="${avatarStyle} width:40px; height:40px; flex-shrink:0;">${isAvatarImage ? '' : escapeCustomRoomHTML(avatarToken.charAt(0).toUpperCase())}</span>
-                <span style="display:flex; flex-direction:column; min-width:0; flex:1;">
-                    <span class="member-name dm-name-preview" style="font-weight:600;">${escapeCustomRoomHTML(user.name)}</span>
-                    <span style="font-size:0.75rem; color:var(--text-muted);">
-                        ${escapeCustomRoomHTML(user.role)}${user.isFollowed ? ' • Following' : ''}
-                    </span>
-                </span>
-            </label>
-        `;
-    }).join('');
-
-    const btnStartDm = document.getElementById('btn-start-dm');
-    container.querySelectorAll('.dm-radio').forEach((radio) => {
-        radio.addEventListener('change', () => {
-            if (!btnStartDm) return;
-            btnStartDm.innerText = "Start Private Chat";
-            btnStartDm.disabled = false;
-            btnStartDm.style.opacity = '1';
-        });
-    });
-}
-    async function createNewRoom(type, name, icon, color, options = {}) {
-    const state = window.dashboardState || window.yhDashboardState || (window.dashboardState = {});
-    const roomType = String(type || 'custom').trim().toLowerCase();
-    const roomName = String(name || '').trim();
-    const roomIcon = icon || (roomType === 'group' ? '👥' : '💬');
-    const roomColor = color || 'var(--neon-blue)';
-    const roomPrivacy = (roomType === 'dm' || roomType === 'group') ? 'private' : 'public';
-    const config = (options && typeof options === 'object') ? options : {};
-
-    if (!roomName) {
-        showToast('Please enter a room name first.', 'error');
-        return null;
-    }
-
-    const recipientName = String(
-        config.recipientName ||
-        config.userName ||
-        (roomType === 'dm' ? roomName : '')
-    ).trim();
-
-    const recipientId = String(
-        config.recipientId ||
-        (recipientName ? normalizeUserKey(recipientName) : '')
-    ).trim();
-
-    const uniqueMemberNames = Array.from(new Set(
-        (roomType === 'group'
-            ? [myName, ...safeParseArray(config.memberNames || config.participants || [], [])]
-            : [myName, recipientName || roomName]
-        )
-            .map((value) => String(value || '').trim())
-            .filter(Boolean)
-    ));
-
-    const uniqueMemberIds = Array.from(new Set(
-        [
-            normalizeUserKey(myName),
-            ...safeParseArray(config.memberIds || [], []).map((value) => normalizeUserKey(value)),
-            ...(recipientId ? [normalizeUserKey(recipientId)] : [])
-        ].filter(Boolean)
-    ));
-
-    const deterministicRoomId = roomType === 'dm'
-        ? buildDeterministicDmRoomId(myName, recipientName || roomName)
-        : (String(config.roomId || '').trim() || buildGroupRoomId(roomName, uniqueMemberNames));
-
-    uniqueMemberNames.forEach((memberName) => {
-        if (normalizeUserKey(memberName) === normalizeUserKey(myName)) return;
-        persistKnownUser({ name: memberName });
-    });
-
-    const normalizeRoom = (room, index = 0) => ({
-        id: room.id || room._id || room.roomId || room.room_id || deterministicRoomId || `custom-room-${Date.now()}-${index}`,
-        roomId: room.roomId || room.room_id || room.id || room._id || deterministicRoomId || `custom-room-${Date.now()}-${index}`,
-        type: room.type || room.roomType || room.room_type || roomType,
-        name: room.name || room.title || room.roomName || room.room_name || roomName,
-        icon: room.icon || room.emoji || room.avatar || room.image || roomIcon,
-        color: room.color || room.themeColor || room.theme_color || roomColor,
-        privacy: room.privacy || room.visibility || roomPrivacy,
-        isPrivate: typeof room.isPrivate === 'boolean' ? room.isPrivate : roomPrivacy === 'private',
-        description: room.description || '',
-        memberCount: Number(
-            room.memberCount ||
-            room.membersCount ||
-            room.member_count ||
-            uniqueMemberNames.length ||
-            0
-        ),
-        unreadCount: Number(room.unreadCount || room.unread_count || 0),
-        createdAt: room.createdAt || room.created_at || new Date().toISOString(),
-        recipientName: room.recipientName || room.recipient_name || recipientName || '',
-        recipientId: room.recipientId || room.recipient_id || recipientId || '',
-        memberNames: Array.from(new Set(
-            safeParseArray(
-                room.memberNames ||
-                room.member_names ||
-                room.participants ||
-                uniqueMemberNames,
-                uniqueMemberNames
-            )
-        )),
-        participants: Array.from(new Set(
-            safeParseArray(
-                room.participants ||
-                room.memberNames ||
-                uniqueMemberNames,
-                uniqueMemberNames
-            )
-        )),
-        memberIds: Array.from(new Set(
-            safeParseArray(
-                room.memberIds ||
-                room.member_ids ||
-                uniqueMemberIds,
-                uniqueMemberIds
-            ).map((value) => normalizeUserKey(value)).filter(Boolean)
-        )),
-        topic: room.topic || (roomType === 'group' ? 'Private Brainstorming Group' : 'Direct Message'),
-        raw: room
-    });
-
-    const getKnownRooms = () => {
-        const stateRooms = Array.isArray(state.customRooms) ? state.customRooms : [];
-
-        let cacheRooms = [];
-        try {
-            const cached = JSON.parse(localStorage.getItem('yh_custom_rooms_cache') || 'null');
-            cacheRooms = Array.isArray(cached?.rooms) ? cached.rooms : [];
-        } catch (_) {}
-
-        let legacyRooms = [];
-        try {
-            const rawLegacy = JSON.parse(localStorage.getItem('yh_custom_rooms') || '[]');
-            legacyRooms = Array.isArray(rawLegacy) ? rawLegacy : [];
-        } catch (_) {}
-
-        const merged = [...stateRooms, ...cacheRooms, ...legacyRooms].map((room, index) => normalizeRoom(room, index));
-
-        return merged.filter((room, index, arr) => {
-            return arr.findIndex((candidate) => {
-                const sameId = candidate.id && room.id && String(candidate.id) === String(room.id);
-                const sameName = String(candidate.name || '').trim().toLowerCase() === String(room.name || '').trim().toLowerCase();
-                const sameType = String(candidate.type || '').trim().toLowerCase() === String(room.type || '').trim().toLowerCase();
-                return sameId || (sameName && sameType);
-            }) === index;
-        });
-    };
-
-    const saveCompatibilityMirrors = (rooms) => {
-        try {
-            localStorage.setItem('yh_custom_rooms_cache', JSON.stringify({
-                savedAt: Date.now(),
-                rooms
-            }));
-        } catch (error) {
-            console.warn('Failed to cache custom rooms after creation:', error);
-        }
-
-        try {
-            localStorage.setItem('yh_custom_rooms', JSON.stringify(
-                rooms.map((room) => ({
-                    id: room.id,
-                    roomId: room.roomId || room.id,
-                    type: room.type,
-                    name: room.name,
-                    icon: room.icon || roomIcon,
-                    color: room.color || roomColor,
-                    privacy: room.privacy,
-                    isPrivate: room.isPrivate,
-                    recipientName: room.recipientName || '',
-                    recipientId: room.recipientId || '',
-                    memberNames: room.memberNames || room.participants || [],
-                    memberIds: room.memberIds || []
-                }))
-            ));
-        } catch (error) {
-            console.warn('Failed to update legacy custom room mirror:', error);
-        }
-    };
-
-    const openCreatedRoom = (room) => {
-        const roomNodes = Array.from(
-            document.querySelectorAll('.dm-room, .room-entry, [data-room-id], [data-custom-room-name], [data-name]')
-        );
-
-        const matchedNode = roomNodes.find((node) => {
-            const nodeRoomId = node.getAttribute('data-room-id');
-            const nodeRoomName = node.getAttribute('data-name') || node.getAttribute('data-custom-room-name');
-            return (nodeRoomId && String(nodeRoomId) === String(room.id)) ||
-                (nodeRoomName && String(nodeRoomName).trim().toLowerCase() === String(room.name).trim().toLowerCase());
-        });
-
-        if (matchedNode) {
-            matchedNode.click();
-            return;
-        }
-
-        const virtualNode = document.createElement('div');
-        virtualNode.setAttribute('data-room-id', room.id || '');
-        virtualNode.setAttribute('data-name', room.name);
-        virtualNode.setAttribute('data-icon', room.icon || (room.type === 'group' ? '👥' : '💬'));
-        virtualNode.setAttribute('data-color', room.color || roomColor);
-        virtualNode.setAttribute('data-room-type', room.type || roomType);
-        virtualNode.setAttribute('data-room-privacy', room.privacy || roomPrivacy);
-        virtualNode.setAttribute('data-room-topic', room.topic || (roomType === 'group' ? 'Private Brainstorming Group' : 'Direct Message'));
-        virtualNode.setAttribute('data-room-recipient', room.recipientName || recipientName || '');
-        virtualNode.setAttribute('data-room-recipient-id', room.recipientId || recipientId || '');
-        virtualNode.setAttribute('data-room-participants', JSON.stringify(room.memberNames || room.participants || uniqueMemberNames));
-        virtualNode.setAttribute('data-room-member-ids', JSON.stringify(room.memberIds || uniqueMemberIds));
-
-        openRoom(room.type === 'group' ? 'group' : 'dm', virtualNode);
-    };
-
-    const existingRoom = getKnownRooms().find((room) => {
-        const sameId = deterministicRoomId && room.id && String(room.id) === String(deterministicRoomId);
-        const sameName = String(room.name || '').trim().toLowerCase() === roomName.toLowerCase();
-        const sameType = String(room.type || '').trim().toLowerCase() === roomType;
-        return sameId || (sameName && sameType);
-    });
-
-    if (existingRoom) {
-        openCreatedRoom(existingRoom);
-        showToast(`${roomName} is already in your rooms.`, 'success');
-        return existingRoom;
-    }
-
-    const token =
-        localStorage.getItem('yh_token') ||
-        localStorage.getItem('token') ||
-        sessionStorage.getItem('yh_token') ||
-        sessionStorage.getItem('token') ||
-        '';
-
-    const requestBody = {
-        id: deterministicRoomId,
-        roomId: deterministicRoomId,
-        type: roomType,
-        name: roomName,
-        icon: roomIcon,
-        color: roomColor,
-        privacy: roomPrivacy,
-        isPrivate: roomPrivacy === 'private',
-        source: config.source || 'dashboard',
-        createdBy: myName,
-        recipientName: recipientName || '',
-        recipientId: recipientId || '',
-        participants: uniqueMemberNames,
-        memberNames: uniqueMemberNames,
-        memberIds: uniqueMemberIds,
-        topic: roomType === 'group' ? 'Private Brainstorming Group' : 'Direct Message'
-    };
-
-const endpoint = '/api/realtime/rooms';
-
-let createdRoom = null;
-let createdViaBackend = false;
-
-try {
-    const response = await fetch(endpoint, {
+    await academyAuthedFetch('/api/realtime/vault/folder', {
         method: 'POST',
-        credentials: 'include',
-        headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify({
+            name: String(itemObj.name || '').trim(),
+            parentId: currentVaultFolder || ''
+        })
     });
 
-    const result = await response.json().catch(() => ({}));
-
-    if (response.ok && (!result || typeof result !== 'object' || result.success !== false)) {
-        const payloadRoom = result.room || result.customRoom || result.data || result;
-        createdRoom = normalizeRoom(payloadRoom, 0);
-        createdViaBackend = true;
-    }
-} catch (error) {
-    console.warn(`createNewRoom POST failed on ${endpoint}:`, error);
+    await syncVaultCacheFromBackend();
+    await loadVault();
 }
 
-    if (createdViaBackend) {
-        await loadCustomRooms(true);
+async function saveFileToVault(file, origin) {
+    await academyAuthedFetch('/api/realtime/vault/file', {
+        method: 'POST',
+        body: JSON.stringify({
+            name: file.name,
+            parentId: currentVaultFolder || '',
+            filePath: '',
+            mimeType: file.type || 'application/octet-stream',
+            fileSize: Number(file.size || 0),
+            origin: origin || 'Direct Upload'
+        })
+    });
 
-        const refreshedRooms = Array.isArray(state.customRooms)
-            ? state.customRooms.map((room, index) => normalizeRoom(room, index))
-            : [];
-
-        const matchedRoom = refreshedRooms.find((room) => {
-            const sameId = createdRoom?.id && room.id && String(room.id) === String(createdRoom.id);
-            const sameName = String(room.name || '').trim().toLowerCase() === roomName.toLowerCase();
-            const sameType = String(room.type || '').trim().toLowerCase() === roomType;
-            return sameId || (sameName && sameType);
-        }) || createdRoom;
-
-        const mergedRooms = refreshedRooms.length ? moveCustomRoomToTop(refreshedRooms, matchedRoom.id) : [matchedRoom];
-        state.customRooms = mergedRooms;
-        syncCustomRoomsUI(mergedRooms);
-        saveCompatibilityMirrors(mergedRooms);
-        openCreatedRoom(matchedRoom);
-        showToast(`${matchedRoom.name} created successfully!`, 'success');
-        return matchedRoom;
-    }
-
-    const offlineRoom = normalizeRoom({
-        ...requestBody,
-        id: deterministicRoomId,
-        roomId: deterministicRoomId
-    }, 0);
-
-    const fallbackRooms = moveCustomRoomToTop([...getKnownRooms(), offlineRoom], offlineRoom.id);
-    state.customRooms = fallbackRooms;
-    syncCustomRoomsUI(fallbackRooms);
-    saveCompatibilityMirrors(fallbackRooms);
-    openCreatedRoom(offlineRoom);
-    showToast(`${roomName} created locally. Backend sync will follow on refresh.`, 'success');
-    return offlineRoom;
+    await syncVaultCacheFromBackend();
+    await loadVault();
 }
 
-    // --- PROFILES & LEADERBOARD ---
-    function renderLeaderboard() {
-        const leaderboardList = document.getElementById('leaderboard-list');
-        if(!leaderboardList) return;
-        leaderboardList.innerHTML = '';
-        let allStats = JSON.parse(localStorage.getItem('yh_user_stats')); if(!allStats) return;
-        let rankableUsers = Object.keys(allStats).filter(name => name !== "YH Admin" && name !== "Agent").map(name => ({ name: name, ...allStats[name] }));
-        rankableUsers.sort((a, b) => b.rep - a.rep);
-        rankableUsers.slice(0, 5).forEach((user, index) => {
-            const li = document.createElement('li'); li.className = "interactive-avatar"; li.setAttribute('data-user', user.name); li.setAttribute('data-role', user.role);
-            let rankBadge = index === 0 ? `<span class="rank-badge rank-1">🏆 #1</span>` : `<span class="rank-badge">#${index + 1}</span>`;
-            let avatarStyle = user.initial.includes('url') ? `background-image: ${user.initial}; background-size: cover; background-color: transparent;` : `background: ${user.color};`;
-            li.innerHTML = `<div class="member-avatar" style="${avatarStyle}">${user.initial.includes('url') ? '' : user.initial}</div><div class="member-name" style="flex:1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${user.name}</div><div style="display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-shrink: 0; width: 110px;">${rankBadge}<span style="font-size: 0.7rem; color: var(--neon-blue); font-weight: bold; width: 45px; text-align: right;">${user.rep} XP</span></div>`;
-            leaderboardList.appendChild(li);
+async function loadVault() {
+    const grid = document.getElementById('vault-dynamic-grid');
+    if (!grid) return;
+
+    grid.innerHTML = '';
+
+    let vaultItems = [];
+    try {
+        vaultItems = await syncVaultCacheFromBackend();
+    } catch (_) {
+        vaultItems = readVaultCache();
+    }
+
+    const currentFolder = currentVaultFolder
+        ? vaultItems.find((item) => String(item.id) === String(currentVaultFolder))
+        : null;
+
+    const visibleItems = vaultItems.filter((item) => {
+        return String(item.parent_id || '') === String(currentVaultFolder || '');
+    });
+
+    if (currentVaultFolder && currentFolder) {
+        grid.innerHTML = `
+            <div class="vault-folder-header" id="btn-vault-back">
+                <span>⬅ Back to All Files</span>
+                <span style="color: #fff;">📂 ${currentFolder.name}</span>
+            </div>
+        `;
+        document.getElementById('btn-vault-back').addEventListener('click', () => {
+            currentVaultFolder = currentFolder.parent_id || null;
+            loadVault();
         });
     }
 
-function openMiniProfile(name, role, avatarContent, avatarBg) {
-    const modal = document.getElementById('mini-profile-modal');
-    if (!modal) return;
-
-    currentProfileUser = name;
-    currentProfileIcon = avatarContent;
-    currentProfileBg = avatarBg;
-
-    let allStats = JSON.parse(localStorage.getItem('yh_user_stats') || '{}') || {};
-    const myAvatar = localStorage.getItem('yh_user_avatar');
-
-    if (!allStats[myName]) {
-        allStats[myName] = {
-            rep: 0,
-            followers: 0,
-            role: "Hustler",
-            initial: myAvatar ? `url(${myAvatar})` : myName.charAt(0).toUpperCase(),
-            color: "var(--neon-blue)"
-        };
-    }
-
-    if (!allStats[name]) {
-        allStats[name] = {
-            rep: 0,
-            followers: 0,
-            role: role,
-            initial: avatarContent.includes('url')
-                ? avatarContent
-                : avatarContent.trim().charAt(0).toUpperCase(),
-            color: avatarBg
-        };
-    }
-
-    localStorage.setItem('yh_user_stats', JSON.stringify(allStats));
-
-    document.getElementById('mp-name').innerText = name;
-    document.getElementById('mp-role').innerHTML =
-        role === 'HQ'
-            ? `<span class="role-badge founder">HQ</span>`
-            : role === 'AI'
-            ? `<span class="role-badge bot">AI</span>`
-            : role === 'Dev'
-            ? `<span class="role-badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">DEV</span>`
-            : `<span class="role-badge" style="background: rgba(255,255,255,0.1); color:#fff; border: 1px solid rgba(255,255,255,0.2);">Hustler</span>`;
-
-    const avatarEl = document.getElementById('mp-avatar');
-    if (avatarEl) {
-        if (avatarContent.includes('url')) {
-            avatarEl.innerText = '';
-            avatarEl.style.backgroundImage = avatarContent;
-            avatarEl.style.backgroundColor = 'transparent';
-        } else {
-            avatarEl.innerText = avatarContent.trim().charAt(0).toUpperCase();
-            avatarEl.style.backgroundImage = 'none';
-            avatarEl.style.backgroundColor = avatarBg || 'var(--neon-blue)';
-        }
-    }
-
-    document.getElementById('mp-followers').innerText = allStats[name].followers;
-    document.getElementById('mp-rep').innerText = allStats[name].rep;
-
-    const profileStats = document.querySelector('.profile-stats');
-    if (profileStats) {
-        profileStats.style.display = name === "Agent" ? 'none' : 'flex';
-    }
-
-    const btnBrowse = document.getElementById('btn-mp-browse-hustlers');
-    if (btnBrowse) {
-        btnBrowse.style.display = 'inline-flex';
-        btnBrowse.classList.remove('hidden-step');
-        btnBrowse.innerText = 'Check out on other Hustlers';
-    }
-
-    const topNavName = String(document.getElementById('top-nav-name')?.innerText || '').trim().toLowerCase();
-    const localUserName = String(localStorage.getItem('yh_user_name') || '').trim().toLowerCase();
-    const clickedName = String(name || '').trim().toLowerCase();
-
-    const isMe =
-        clickedName &&
-        (
-            clickedName === String(myName || '').trim().toLowerCase() ||
-            clickedName === topNavName ||
-            clickedName === localUserName
-        );
-
-    if (isMe) {
-        document.getElementById('mp-role').innerHTML += `<br><div class="my-profile-tag">This is you</div>`;
-    }
-
-    modal.classList.remove('hidden-step');
-}
-    const btnFollow = document.getElementById('btn-mp-follow');
-if (btnFollow) {
-    btnFollow.addEventListener('click', () => {
-        if (!currentProfileUser) return;
-
-        const currentEntry = getUserDirectoryEntry(currentProfileUser, {
-            role: 'Hustler',
-            avatarToken: currentProfileIcon || currentProfileUser.charAt(0).toUpperCase(),
-            avatarBg: currentProfileBg || 'var(--neon-blue)'
-        });
-
-        let followed = getFollowedUsers();
-        let allStats = getStoredUserStats();
-        const existingStats = allStats[currentProfileUser] || {
-            rep: 0,
-            followers: 0,
-            role: currentEntry?.role || 'Hustler',
-            initial: currentEntry?.avatarToken || currentProfileUser.charAt(0).toUpperCase(),
-            color: currentEntry?.avatarBg || 'var(--neon-blue)'
-        };
-
-        if (followed.some((name) => normalizeUserKey(name) === normalizeUserKey(currentProfileUser))) {
-            followed = followed.filter((name) => normalizeUserKey(name) !== normalizeUserKey(currentProfileUser));
-            existingStats.followers = Math.max(0, Number(existingStats.followers || 0) - 1);
-            existingStats.rep = Math.max(0, Number(existingStats.rep || 0) - 20);
-            btnFollow.innerText = "Follow";
-            btnFollow.classList.remove('btn-following');
-            persistKnownUser({
-                name: currentProfileUser,
-                role: existingStats.role,
-                avatarToken: existingStats.initial,
-                avatarBg: existingStats.color,
-                rep: existingStats.rep,
-                followers: existingStats.followers,
-                followed: false
-            });
-        } else {
-            followed.push(currentProfileUser);
-            existingStats.followers = Number(existingStats.followers || 0) + 1;
-            existingStats.rep = Number(existingStats.rep || 0) + 20;
-            btnFollow.innerText = "Following";
-            btnFollow.classList.add('btn-following');
-            persistKnownUser({
-                name: currentProfileUser,
-                role: existingStats.role,
-                avatarToken: existingStats.initial,
-                avatarBg: existingStats.color,
-                rep: existingStats.rep,
-                followers: existingStats.followers,
-                followed: true
-            });
-            showToast(`You followed ${currentProfileUser}. They gained +20 REP!`, "success");
-        }
-
-        allStats = getStoredUserStats();
-        allStats[currentProfileUser] = {
-            ...existingStats,
-            rep: Number(existingStats.rep || 0),
-            followers: Number(existingStats.followers || 0)
-        };
-
-        setStoredUserStats(allStats);
-        setFollowedUsers(followed);
-
-        document.getElementById('mp-followers').innerText = allStats[currentProfileUser].followers;
-        document.getElementById('mp-rep').innerText = allStats[currentProfileUser].rep;
-
-        renderLeaderboard();
-        renderDmModalDirectory(document.querySelector('#dm-modal .modal-search')?.value || '');
-        renderPendingGroupMembers();
-
-        const communicationsSearchInput = document.querySelector('.channel-search');
-        if (communicationsSearchInput && document.activeElement === communicationsSearchInput) {
-            renderCommunicationsSearchResults(communicationsSearchInput.value);
-        }
-    });
-}
-
-    const btnMessage = document.getElementById('btn-mp-message');
-if(btnMessage) {
-    btnMessage.addEventListener('click', async () => {
-        if (!currentProfileUser) return;
-
-        let iconData = currentProfileIcon;
-        if(!iconData || (iconData.length > 2 && !iconData.includes('url'))) {
-            iconData = currentProfileUser.charAt(0).toUpperCase();
-        }
-
-        persistKnownUser({
-            name: currentProfileUser,
-            role: 'Hustler',
-            avatarToken: iconData,
-            avatarBg: currentProfileBg || 'var(--neon-blue)'
-        });
-
-        await createNewRoom('dm', currentProfileUser, iconData, currentProfileBg || 'var(--neon-blue)', {
-            recipientName: currentProfileUser,
-            recipientId: normalizeUserKey(currentProfileUser),
-            memberNames: [myName, currentProfileUser],
-            memberIds: [normalizeUserKey(myName), normalizeUserKey(currentProfileUser)],
-            source: 'mini-profile'
-        });
-
-        showToast(`Private Chat opened with ${currentProfileUser}!`, "success");
-        document.getElementById('mini-profile-modal').classList.add('hidden-step');
-    });
-}
-const btnBrowseHustlers = document.getElementById('btn-mp-browse-hustlers');
-if (btnBrowseHustlers) {
-    btnBrowseHustlers.addEventListener('click', async () => {
-        document.getElementById('mini-profile-modal')?.classList.add('hidden-step');
-        document.getElementById('academy-member-browser-modal')?.classList.remove('hidden-step');
-        await loadAcademyMemberBrowser(true);
-    });
-}
-const academyMemberBrowserModal = document.getElementById('academy-member-browser-modal');
-const academyMemberBrowserClose = document.getElementById('academy-member-browser-close');
-
-if (academyMemberBrowserClose) {
-    academyMemberBrowserClose.addEventListener('click', () => {
-        closeAcademyMemberBrowser();
-    });
-}
-
-if (academyMemberBrowserModal) {
-    academyMemberBrowserModal.addEventListener('click', (event) => {
-        if (event.target === academyMemberBrowserModal) {
-            closeAcademyMemberBrowser();
-        }
-    });
-}
-
-function closeAcademyMemberBrowser() {
-    document.getElementById('academy-member-browser-modal')?.classList.add('hidden-step');
-}
-
-function renderAcademyMemberBrowserList(members = []) {
-    const list = document.getElementById('academy-member-browser-list');
-    if (!list) return;
-
-    if (!Array.isArray(members) || !members.length) {
-        list.innerHTML = `<div class="academy-member-browser-empty">No other Academy members found yet.</div>`;
+    if (visibleItems.length === 0) {
+        grid.insertAdjacentHTML('beforeend', `
+            <div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); padding: 2rem;">
+                This location is empty. Upload a file or create a folder.
+            </div>
+        `);
         return;
     }
 
-    list.innerHTML = members.map((member) => {
-        const memberId = String(member.id || member.user_id || '').trim();
-        const displayName = String(
-            member.display_name ||
-            member.fullName ||
-            member.name ||
-            member.username ||
-            'Academy Member'
-        ).trim();
-        const username = String(member.username || '').trim();
-        const roleLabel = String(member.role_label || member.role || 'Academy Member').trim();
-        const followersCount = Number(member.followers_count || member.followers || 0);
-        const followed = member.followed_by_me === true || member.followed === true;
-        const avatar = String(member.avatar || member.profile_picture || '').trim();
+    visibleItems
+        .slice()
+        .sort((a, b) => {
+            const aFolder = a.item_type === 'folder' ? 0 : 1;
+            const bFolder = b.item_type === 'folder' ? 0 : 1;
+            if (aFolder !== bFolder) return aFolder - bFolder;
+            return String(a.name || '').localeCompare(String(b.name || ''));
+        })
+        .forEach((item) => {
+            const isFolder = item.item_type === 'folder';
+            const visualContent = isFolder
+                ? `<div class="vault-icon">📁</div>`
+                : `<div class="vault-icon">📄</div>`;
 
-        const avatarHtml = avatar
-            ? `<div class="academy-member-card-avatar" style="background-image:url('${avatar.replace(/'/g, "%27")}'); background-color:transparent;"></div>`
-            : `<div class="academy-member-card-avatar">${academyFeedEscapeHtml(displayName.charAt(0).toUpperCase())}</div>`;
+            const actionText = isFolder ? 'Open Folder' : 'Share to Chat';
 
-        return `
-            <div class="academy-member-card" data-member-id="${academyFeedEscapeHtml(memberId)}">
-                <div class="academy-member-card-left">
-                    ${avatarHtml}
-                    <div class="academy-member-card-copy">
-                        <div class="academy-member-card-name">${academyFeedEscapeHtml(displayName)}</div>
-                        <div class="academy-member-card-meta">
-                            ${username ? `@${academyFeedEscapeHtml(username)} • ` : ''}${academyFeedEscapeHtml(roleLabel)} • ${followersCount} follower${followersCount === 1 ? '' : 's'}
+            grid.insertAdjacentHTML('beforeend', `
+                <div
+                    class="vault-card fade-in ${isFolder ? 'vault-folder' : ''}"
+                    data-id="${item.id}"
+                    data-name="${item.name}"
+                    data-type="${item.item_type}"
+                >
+                    ${visualContent}
+                    <div class="vault-filename" title="${item.name}">${item.name}</div>
+                    <div class="vault-meta">${isFolder ? 'Folder' : formatVaultFileSize(item.file_size)}</div>
+                    <div class="vault-origin">From: ${item.file_path ? 'Uploaded Path' : 'Server Metadata'}</div>
+                    <button class="btn-vault-action action-vault-btn">${actionText}</button>
+                </div>
+            `);
+        });
+
+    document.querySelectorAll('.action-vault-btn').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+            const card = e.target.closest('.vault-card');
+            const itemId = card.getAttribute('data-id');
+            const itemType = card.getAttribute('data-type');
+            const itemName = card.getAttribute('data-name');
+
+            if (itemType === 'folder') {
+                currentVaultFolder = itemId;
+                showToast(`Opening folder: ${itemName}`, 'success');
+                loadVault();
+                return;
+            }
+
+            const fullItem = vaultItems.find((item) => String(item.id) === String(itemId));
+            const downloadLink = fullItem?.file_path
+                ? `<a href="${fullItem.file_path}" target="_blank" rel="noopener noreferrer" style="color: var(--neon-blue);">⬇ Open File</a>`
+                : `<span style="color: var(--text-muted);">Metadata only</span>`;
+
+            const shareModal = document.getElementById('share-select-modal');
+            const destList = document.getElementById('share-destinations-list');
+
+            if (shareModal && destList) {
+                const state = window.dashboardState || window.yhDashboardState || (window.dashboardState = {});
+
+                window.pendingShareHTML = `
+                    <div class="chat-attachment" style="background: rgba(0,0,0,0.3); padding: 12px; border-radius: 8px; margin-top: 5px;">
+                        <div style="font-size: 2rem; margin-bottom: 8px;">📄</div>
+                        <div>
+                            <strong>${itemName}</strong><br>
+                            ${downloadLink}
                         </div>
                     </div>
-                </div>
+                `;
 
-                <div class="academy-member-card-actions">
+                const normalizeRoom = (room, index = 0) => ({
+                    id: room.id || room._id || room.roomId || room.room_id || `custom-room-${index + 1}`,
+                    name: room.name || room.title || room.roomName || room.room_name || `Room ${index + 1}`,
+                    icon: room.icon || room.emoji || room.avatar || room.image || '💬',
+                    type: room.type || room.roomType || room.room_type || 'dm',
+                    privacy: room.privacy || room.visibility || (room.isPrivate ? 'private' : 'public') || 'public',
+                    isPrivate: typeof room.isPrivate === 'boolean'
+                        ? room.isPrivate
+                        : (room.privacy === 'private' || room.visibility === 'private')
+                });
+
+                let stateRooms = Array.isArray(state.customRooms) ? state.customRooms : [];
+
+                let cachedRooms = [];
+                try {
+                    const cached = JSON.parse(localStorage.getItem('yh_custom_rooms_cache') || 'null');
+                    cachedRooms = Array.isArray(cached?.rooms) ? cached.rooms : [];
+                } catch (_) {}
+
+                let legacyRooms = [];
+                try {
+                    const rawLegacy = JSON.parse(localStorage.getItem('yh_custom_rooms') || '[]');
+                    legacyRooms = Array.isArray(rawLegacy) ? rawLegacy : [];
+                } catch (_) {}
+
+                const mergedRooms = [...stateRooms, ...cachedRooms, ...legacyRooms]
+                    .map((room, index) => normalizeRoom(room, index))
+                    .filter((room, index, arr) => {
+                        return arr.findIndex((candidate) => {
+                            const sameId = candidate.id && room.id && String(candidate.id) === String(room.id);
+                            const sameName = String(candidate.name || '').trim().toLowerCase() === String(room.name || '').trim().toLowerCase();
+                            const sameType = String(candidate.type || '').trim().toLowerCase() === String(room.type || '').trim().toLowerCase();
+                            return sameId || (sameName && sameType);
+                        }) === index;
+                    });
+
+                destList.innerHTML = `
                     <button
-                        type="button"
-                        class="btn-secondary academy-member-card-follow ${followed ? 'is-following' : ''}"
-                        data-member-follow-id="${academyFeedEscapeHtml(memberId)}"
-                    >${followed ? 'Following' : 'Follow'}</button>
-                </div>
-            </div>
-        `;
-    }).join('');
-}
+                        class="btn-secondary share-dest-btn"
+                        data-target="main-chat"
+                        data-room-id="main-chat"
+                        data-room-type="main-chat"
+                        data-room-privacy="public"
+                        style="padding: 10px; text-align: left;"
+                    >💬 YH-community (Public)</button>
+                `;
 
-async function loadAcademyMemberBrowser(forceFresh = false) {
-    const list = document.getElementById('academy-member-browser-list');
-    if (!list) return;
+                mergedRooms.forEach((room) => {
+                    destList.insertAdjacentHTML('beforeend', `
+                        <button
+                            class="btn-secondary share-dest-btn"
+                            data-target="${room.name}"
+                            data-room-id="${room.id || ''}"
+                            data-room-type="${room.type || 'dm'}"
+                            data-room-privacy="${room.privacy || (room.isPrivate ? 'private' : 'public')}"
+                            style="padding: 10px; text-align: left;"
+                        >${room.icon || '💬'} ${room.name}</button>
+                    `);
+                });
 
-    if (!forceFresh && Array.isArray(window.academyMemberBrowserList) && window.academyMemberBrowserList.length) {
-        renderAcademyMemberBrowserList(window.academyMemberBrowserList);
-        return;
-    }
-
-    list.innerHTML = `<div class="academy-member-browser-empty">Loading members...</div>`;
-
-    try {
-        const result = await academyAuthedFetch('/api/academy/community/members', {
-            method: 'GET'
+                shareModal.classList.remove('hidden-step');
+            }
         });
+    });
 
-        window.academyMemberBrowserList = Array.isArray(result?.members) ? result.members : [];
-        renderAcademyMemberBrowserList(window.academyMemberBrowserList);
-    } catch (error) {
-        list.innerHTML = `<div class="academy-member-browser-empty">Failed to load other Hustlers.</div>`;
-        showToast(error.message || 'Failed to load other Hustlers.', 'error');
-    }
-}
+    const contextMenu = document.getElementById('vault-context-menu');
+    document.querySelectorAll('.vault-card').forEach((card) => {
+        const showContext = (pageX, pageY) => {
+            selectedVaultIndex = card.getAttribute('data-id');
+            contextMenu.style.left = `${pageX}px`;
+            contextMenu.style.top = `${pageY}px`;
+            contextMenu.classList.remove('hidden-step');
+        };
 
-async function toggleAcademyMemberBrowserFollow(targetUserId) {
-    const normalizedTargetUserId = String(targetUserId || '').trim();
-    if (!normalizedTargetUserId) {
-        showToast('Invalid member target.', 'error');
-        return;
-    }
-
-    try {
-        const result = await academyAuthedFetch(`/api/academy/community/members/${normalizedTargetUserId}/follow`, {
-            method: 'POST'
-        });
-
-        const currentList = Array.isArray(window.academyMemberBrowserList) ? window.academyMemberBrowserList : [];
-
-        window.academyMemberBrowserList = currentList.map((member) => {
-            const memberId = String(member.id || member.user_id || '').trim();
-            if (memberId !== normalizedTargetUserId) return member;
-
-            const currentlyFollowed = member.followed_by_me === true || member.followed === true;
-            const nextFollowed =
-                typeof result?.followed === 'boolean'
-                    ? result.followed
-                    : !currentlyFollowed;
-
-            const currentFollowers = Number(member.followers_count || member.followers || 0);
-            const nextFollowers =
-                typeof result?.followers_count === 'number'
-                    ? result.followers_count
-                    : Math.max(0, currentFollowers + (nextFollowed ? 1 : -1));
-
-            return {
-                ...member,
-                followed_by_me: nextFollowed,
-                followed: nextFollowed,
-                followers_count: nextFollowers,
-                followers: nextFollowers
-            };
-        });
-
-        renderAcademyMemberBrowserList(window.academyMemberBrowserList);
-        showToast(result?.message || 'Follow status updated.', 'success');
-    } catch (error) {
-        showToast(error.message || 'Failed to update follow status.', 'error');
-    }
-}
-
-const academyMemberBrowserList = document.getElementById('academy-member-browser-list');
-if (academyMemberBrowserList && academyMemberBrowserList.dataset.bound !== 'true') {
-    academyMemberBrowserList.dataset.bound = 'true';
-
-    academyMemberBrowserList.addEventListener('click', async (event) => {
-        const eventTarget = resolveEventElementTarget(event);
-        const followBtn = eventTarget?.closest?.('[data-member-follow-id]');
-        if (!followBtn) return;
-
-        event.preventDefault();
-        event.stopPropagation();
-
-        const memberId = followBtn.getAttribute('data-member-follow-id') || '';
-        const loadingLabel = followBtn.textContent.trim() === 'Following'
-            ? 'Updating...'
-            : 'Following...';
-
-        await runDashboardButtonAction(followBtn, loadingLabel, async () => {
-            await toggleAcademyMemberBrowserFollow(memberId);
+        card.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            showContext(e.pageX, e.pageY);
         });
     });
 }
-
-    // --- MISSIONS & BLUEPRINT ---
-function checkDailyReset() {
-    const today = new Date().toDateString();
-
-    let dailyStats = safeParseJson(localStorage.getItem('yh_daily_stats'), null);
-    if (!dailyStats || typeof dailyStats !== 'object') {
-        dailyStats = { date: today, completed: 0, total: 0 };
-    }
-
-    const customMissions = safeParseJson(localStorage.getItem('yh_custom_missions'), []);
-    const missionsList = Array.isArray(customMissions) ? customMissions : [];
-
-    if (dailyStats.date !== today) {
-        dailyStats = {
-            date: today,
-            completed: 0,
-            total: missionsList.length
-        };
-        localStorage.setItem('yh_daily_stats', JSON.stringify(dailyStats));
-    }
-
-    return dailyStats;
-}
-
-    function loadBlueprintProgress() {
-        const container = document.getElementById('blueprint-list');
-        if(!container) return;
-        container.innerHTML = '';
-        checkDailyReset(); 
-        const customMissionsRaw = safeParseJson(localStorage.getItem('yh_custom_missions'), []);
-const customMissions = Array.isArray(customMissionsRaw) ? customMissionsRaw : [];
-        if(customMissions.length === 0) container.innerHTML = `<div style="text-align: center; font-size: 0.75rem; color: var(--text-muted); padding: 10px;">No pending tasks. Add one above!</div>`;
-        customMissions.forEach((m, idx) => {
-            const div = document.createElement('div'); div.className = `step-item fade-in`; div.setAttribute('data-step', m.id); div.title = m.title;
-            div.innerHTML = `<div class="sidebar-icon"><div class="step-circle">${idx + 1}</div></div><span class="sidebar-text" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${m.title}</span><button class="delete-task-btn" title="Delete Task">✖</button>`;
-            div.addEventListener('click', (e) => { if(e.target.classList.contains('delete-task-btn')) return; pendingTaskToComplete = m.id; document.getElementById('task-confirm-modal').classList.remove('hidden-step'); });
-            div.querySelector('.delete-task-btn').addEventListener('click', (e) => {
-    e.stopPropagation();
-
-    const missionsRaw = safeParseJson(localStorage.getItem('yh_custom_missions'), []);
-    let missions = Array.isArray(missionsRaw) ? missionsRaw : [];
-    missions = missions.filter(task => task.id !== m.id);
-
-    localStorage.setItem('yh_custom_missions', JSON.stringify(missions));
-
-    let stats = checkDailyReset();
-    stats.total = Math.max(0, stats.total - 1);
-    localStorage.setItem('yh_daily_stats', JSON.stringify(stats));
-
-    loadBlueprintProgress();
-});
-            container.appendChild(div);
-        });
-        let stats = checkDailyReset(); const percentage = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
-        const fill = document.getElementById('progress-bar-fill'); const text = document.getElementById('progress-text');
-        if(fill) fill.style.width = percentage + '%'; if(text) text.innerText = percentage + '% Daily Progress';
-    }
-
-    const btnConfirmTask = document.getElementById('btn-confirm-task'); const btnCancelTask = document.getElementById('btn-cancel-task');
-    if(btnConfirmTask && btnCancelTask) {
-        btnCancelTask.addEventListener('click', () => { document.getElementById('task-confirm-modal').classList.add('hidden-step'); pendingTaskToComplete = null; });
-        btnConfirmTask.addEventListener('click', () => {
-            if(pendingTaskToComplete) {
-                let missions = JSON.parse(localStorage.getItem('yh_custom_missions')) || []; missions = missions.filter(m => m.id !== pendingTaskToComplete); localStorage.setItem('yh_custom_missions', JSON.stringify(missions));
-                let stats = checkDailyReset(); stats.completed += 1; localStorage.setItem('yh_daily_stats', JSON.stringify(stats)); showToast("Task Completed! Great job.", "success"); loadBlueprintProgress();
-            }
-            document.getElementById('task-confirm-modal').classList.add('hidden-step');
-        });
-    }
-
-    const btnSaveMission = document.getElementById('btn-save-mission');
-    if(btnSaveMission) {
-        btnSaveMission.addEventListener('click', () => {
-            const titleInput = document.getElementById('mission-title-input'); const title = titleInput.value.trim(); if(!title) { showToast("Please enter your task.", "error"); return; }
-            const customMissions = JSON.parse(localStorage.getItem('yh_custom_missions')) || []; customMissions.push({ id: "task_" + Date.now(), title: title, targetDate: '' }); localStorage.setItem('yh_custom_missions', JSON.stringify(customMissions));
-            let stats = checkDailyReset(); stats.total += 1; localStorage.setItem('yh_daily_stats', JSON.stringify(stats));
-            loadBlueprintProgress(); document.getElementById('mission-modal').classList.add('hidden-step'); titleInput.value = ''; showToast("Task added! The System will hold you accountable.", "success");
-            setTimeout(() => { sendSystemNotification("Accountability Check", `Have you finished '${title}'? Get back to work.`, "🤖", "#8b5cf6", ""); }, 5000); 
-        });
-    }
-
-    // --- MODALS & EXTRAS ---
-    function setupModal(btnId, modalId, closeBtnId) {
-        const btn = document.getElementById(btnId); const modal = document.getElementById(modalId); const closeBtn = document.getElementById(closeBtnId);
-        if(btn && modal && closeBtn) { btn.addEventListener('click', () => modal.classList.remove('hidden-step')); closeBtn.addEventListener('click', () => modal.classList.add('hidden-step')); modal.addEventListener('click', (e) => { if(e.target === modal) modal.classList.add('hidden-step'); }); }
-    }
-    setupModal('btn-open-dm-modal', 'dm-modal', 'close-dm-modal'); setupModal('btn-open-group-modal', 'group-modal', 'close-group-modal'); setupModal('btn-support-ticket', 'ticket-modal', 'close-ticket-modal'); setupModal('btn-settings', 'settings-modal', 'close-settings-modal'); setupModal('btn-start-lounge', 'lounge-modal', 'close-lounge-modal'); setupModal('btn-open-mission-modal', 'mission-modal', 'close-mission-modal'); setupModal('btn-open-folder-modal', 'folder-modal', 'close-folder-modal');
-
-    const academyCheckinModal = document.getElementById('academy-checkin-modal');
-    const academyCheckinForm = document.getElementById('academy-checkin-form');
-    const academyCheckinCloseBtn = document.getElementById('close-checkin-modal');
-    const academyCheckinCancelBtn = document.getElementById('btn-cancel-checkin');
-
-    if (academyCheckinCloseBtn) {
-        academyCheckinCloseBtn.addEventListener('click', () => {
-            academyCloseCheckinModal();
-        });
-    }
-
-    if (academyCheckinCancelBtn) {
-        academyCheckinCancelBtn.addEventListener('click', () => {
-            academyCloseCheckinModal();
-        });
-    }
-
-    if (academyCheckinModal) {
-        academyCheckinModal.addEventListener('click', (e) => {
-            if (e.target === academyCheckinModal) {
-                academyCloseCheckinModal();
-            }
-        });
-    }
-
-    if (academyCheckinForm) {
-        academyCheckinForm.addEventListener('submit', academySubmitCheckin);
-    }
-
-    const academyMissionActionModal = document.getElementById('academy-mission-action-modal');
-    const academyMissionActionForm = document.getElementById('academy-mission-action-form');
-    const academyMissionActionCloseBtn = document.getElementById('close-mission-action-modal');
-    const academyMissionActionCancelBtn = document.getElementById('btn-cancel-mission-action');
-
-    if (academyMissionActionCloseBtn) {
-        academyMissionActionCloseBtn.addEventListener('click', () => {
-            academyCloseMissionActionModal();
-        });
-    }
-
-    if (academyMissionActionCancelBtn) {
-        academyMissionActionCancelBtn.addEventListener('click', () => {
-            academyCloseMissionActionModal();
-        });
-    }
-
-    if (academyMissionActionModal) {
-        academyMissionActionModal.addEventListener('click', (e) => {
-            if (e.target === academyMissionActionModal) {
-                academyCloseMissionActionModal();
-            }
-        });
-    }
-
-    if (academyMissionActionForm) {
-        academyMissionActionForm.addEventListener('submit', academySubmitMissionAction);
-    }
-
     const btnCreateFolder = document.getElementById('btn-create-folder');
-    if(btnCreateFolder) {
-        btnCreateFolder.addEventListener('click', () => {
-            const name = document.getElementById('folder-name-input').value.trim(); if(!name) return;
-            const vaultItems = JSON.parse(localStorage.getItem('yh_vault_items')) || []; vaultItems.push({ type: 'folder', name: name, parentFolder: currentVaultFolder }); localStorage.setItem('yh_vault_items', JSON.stringify(vaultItems));
-            loadVault(); document.getElementById('folder-modal').classList.add('hidden-step'); document.getElementById('folder-name-input').value = ''; showToast(`Folder '${name}' created!`, "success");
+    if (btnCreateFolder) {
+        btnCreateFolder.addEventListener('click', async () => {
+            const name = document.getElementById('folder-name-input').value.trim();
+            if (!name) return;
+
+            try {
+                await saveVaultItemObj({
+                    type: 'folder',
+                    name
+                });
+
+                document.getElementById('folder-modal').classList.add('hidden-step');
+                document.getElementById('folder-name-input').value = '';
+                showToast(`Folder '${name}' created!`, "success");
+            } catch (error) {
+                showToast(error.message || 'Failed to create folder.', 'error');
+            }
         });
     }
 
-    const btnVaultUpload = document.getElementById('btn-vault-upload-trigger'); const vaultFileInput = document.getElementById('vault-file-input');
-    if(btnVaultUpload && vaultFileInput) {
+    const btnVaultUpload = document.getElementById('btn-vault-upload-trigger');
+    const vaultFileInput = document.getElementById('vault-file-input');
+
+    if (btnVaultUpload && vaultFileInput) {
         btnVaultUpload.addEventListener('click', () => vaultFileInput.click());
-        vaultFileInput.addEventListener('change', (e) => {
-            const file = e.target.files[0]; if(!file) return; saveFileToVault(file, "Direct Upload"); showToast(`${file.name} uploading to The Vault...`, "success");
+
+        vaultFileInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            try {
+                await saveFileToVault(file, "Direct Upload");
+                showToast(`${file.name} saved to The Vault.`, "success");
+            } catch (error) {
+                showToast(error.message || 'Failed to save vault file metadata.', 'error');
+            } finally {
+                vaultFileInput.value = '';
+            }
         });
     }
 
@@ -4576,16 +2455,11 @@ function applyAcademyHomeRuntimePatch(runtime = {}) {
     return nextHome;
 }
 async function academyAuthedFetch(url, options = {}) {
-    const token = localStorage.getItem('yh_token');
-    if (!token) {
-        showToast("Your session expired. Please log in again.", "error");
-        window.location.href = '/';
-        throw new Error('Missing auth token');
-    }
+    const token = getStoredAuthToken();
 
     const headers = {
         ...(options.headers || {}),
-        'Authorization': `Bearer ${token}`
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
     };
 
     if (!(options.body instanceof FormData) && !headers['Content-Type']) {
@@ -4594,10 +2468,17 @@ async function academyAuthedFetch(url, options = {}) {
 
     const response = await fetch(url, {
         ...options,
+        credentials: 'include',
         headers
     });
 
     const result = await response.json().catch(() => ({}));
+
+    if (response.status === 401 || response.status === 400) {
+        showToast("Your session expired. Please log in again.", "error");
+        window.location.href = '/';
+        throw new Error(result.message || 'Session expired.');
+    }
 
     if (!response.ok || !result.success) {
         throw new Error(result.message || 'Request failed.');
@@ -6145,7 +4026,17 @@ async function academyFeedToggleFollow(targetUserId) {
         return;
     }
 
-    showToast('Follow is temporarily disabled until realtime user migration is moved to Firestore.', 'error');
+    try {
+        const result = await academyAuthedFetch(`/api/academy/community/members/${encodeURIComponent(normalizedTargetUserId)}/follow`, {
+            method: 'POST',
+            body: JSON.stringify({})
+        });
+
+        showToast(result?.isFollowing ? 'User followed.' : 'User unfollowed.', 'success');
+        loadAcademyFeed(true);
+    } catch (error) {
+        showToast(error.message || 'Failed to update follow status.', 'error');
+    }
 }
 async function academyFeedSendFriendRequest(targetUserId) {
     try {

@@ -167,8 +167,44 @@ function issueJwt(user) {
 function publicUser(user) {
     return {
         fullName: user.fullName || '',
-        username: user.username || ''
+        username: user.username || '',
+        email: user.email || ''
     };
+}
+
+const AUTH_COOKIE_NAME = 'yh_auth_token';
+const AUTH_COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+function setAuthCookie(res, token) {
+    const isSecure = process.env.NODE_ENV === 'production';
+
+    const parts = [
+        `${AUTH_COOKIE_NAME}=${encodeURIComponent(token)}`,
+        'HttpOnly',
+        'Path=/',
+        'SameSite=Strict',
+        `Max-Age=${Math.floor(AUTH_COOKIE_MAX_AGE_MS / 1000)}`
+    ];
+
+    if (isSecure) parts.push('Secure');
+
+    res.setHeader('Set-Cookie', parts.join('; '));
+}
+
+function clearAuthCookie(res) {
+    const isSecure = process.env.NODE_ENV === 'production';
+
+    const parts = [
+        `${AUTH_COOKIE_NAME}=`,
+        'HttpOnly',
+        'Path=/',
+        'SameSite=Strict',
+        'Max-Age=0'
+    ];
+
+    if (isSecure) parts.push('Secure');
+
+    res.setHeader('Set-Cookie', parts.join('; '));
 }
 
 function renderPremiumOtpEmail({
@@ -494,6 +530,7 @@ exports.verifyOTP = async (req, res) => {
         };
 
         const token = issueJwt(updatedUser);
+        setAuthCookie(res, token);
 
         return res.json({
             success: true,
@@ -587,6 +624,7 @@ exports.loginUser = async (req, res) => {
         }
 
         const token = issueJwt(user);
+        setAuthCookie(res, token);
 
         return res.json({
             success: true,
@@ -602,7 +640,14 @@ exports.loginUser = async (req, res) => {
         });
     }
 };
+exports.logoutUser = async (req, res) => {
+    clearAuthCookie(res);
 
+    return res.json({
+        success: true,
+        message: 'Logged out successfully.'
+    });
+};
 exports.forgotPassword = async (req, res) => {
     try {
         const email = String(req.body?.email || '').trim().toLowerCase();

@@ -114,8 +114,26 @@ function clearAcademyClientStateForFreshAuth() {
     sessionStorage.removeItem('yh_force_academy_application_after_auth');
 }
 
+function persistClientSession(user, token) {
+    const fullName = String(user?.fullName || user?.username || 'Hustler').trim();
+    const username = String(user?.username || '').trim();
+    const email = String(user?.email || '').trim().toLowerCase();
+
+    localStorage.removeItem('yh_token');
+    localStorage.removeItem('yh_user_loggedIn');
+
+    sessionStorage.setItem('yh_user_loggedIn', 'true');
+    sessionStorage.setItem('yh_user_name', fullName);
+    sessionStorage.setItem('yh_user_username', username);
+    sessionStorage.setItem('yh_user_email', email);
+    sessionStorage.setItem('yh_token', String(token || '').trim());
+}
+
 document.addEventListener('DOMContentLoaded', () => {
-if (localStorage.getItem('yh_user_loggedIn') === 'true') {
+if (
+    sessionStorage.getItem('yh_user_loggedIn') === 'true' ||
+    localStorage.getItem('yh_user_loggedIn') === 'true'
+) {
     window.location.href = '/dashboard';
 }
 
@@ -286,11 +304,10 @@ if (result.success) {
     clearPendingVerifyEmail();
     clearAcademyClientStateForFreshAuth();
 
-    localStorage.setItem('yh_user_loggedIn', 'true');
-    localStorage.setItem('yh_user_name', (result.user.fullName || result.user.username || 'Hustler').trim());
-    localStorage.setItem('yh_user_username', (result.user.username || '').trim());
-    localStorage.setItem('yh_user_email', (result.user.email || identifier || '').trim().toLowerCase());
-    localStorage.setItem('yh_token', result.token);
+    persistClientSession({
+        ...result.user,
+        email: result.user?.email || identifier
+    }, result.token);
 
     setTimeout(() => { window.location.href = '/dashboard'; }, 1000);
     return;
@@ -499,11 +516,10 @@ if (result.success) {
 
     clearAcademyClientStateForFreshAuth();
 
-    localStorage.setItem('yh_user_loggedIn', 'true');
-    localStorage.setItem('yh_user_name', (result.user.fullName || result.user.username || 'Hustler').trim());
-    localStorage.setItem('yh_token', result.token);
-    localStorage.setItem('yh_user_username', (result.user.username || '').trim());
-    localStorage.setItem('yh_user_email', (result.user.email || email || '').trim().toLowerCase());
+    persistClientSession({
+        ...result.user,
+        email: result.user?.email || email
+    }, result.token);
 
     setTimeout(() => { window.location.href = '/dashboard'; }, 1000);
 } else {
