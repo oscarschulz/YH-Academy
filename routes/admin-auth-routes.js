@@ -143,17 +143,28 @@ function createAdminRouters(options = {}) {
 
     next();
   }
-  function requireAdminSession(req, res, next) {
+function requireAdminSession(req, res, next) {
+  const env = getEnvConfig();
   const session = readSessionFromRequest(req);
 
   if (!session) {
+    clearSessionCookie(res, env.secureCookies);
+
     return res.status(401).json({
       success: false,
       message: 'No active admin session.'
     });
   }
 
-  req.adminSession = session;
+  const refreshedSession = {
+    ...session,
+    expiresAt: Date.now() + ADMIN_SESSION_TTL_MS
+  };
+
+  sessions.set(session.id, refreshedSession);
+  setSessionCookie(res, session.id, env.secureCookies);
+
+  req.adminSession = refreshedSession;
   next();
 }
 

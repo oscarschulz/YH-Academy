@@ -93,28 +93,57 @@ function loadState() {
     return defaultState();
   }
 }
+function redirectToAdminLogin(message = 'Admin session expired. Please sign in again.') {
+  try {
+    showToast(message);
+  } catch (_) {}
 
+  setTimeout(() => {
+    window.location.replace(buildAdminLoginUrl());
+  }, 420);
+}
+
+async function adminFetchJson(url, options = {}) {
+  const headers = {
+    'Accept': 'application/json',
+    ...(options.headers || {})
+  };
+
+  const res = await fetch(url, {
+    credentials: 'include',
+    ...options,
+    headers
+  });
+
+  const data = await res.json().catch(() => null);
+
+  if (res.status === 401 || data?.message === 'No active admin session.') {
+    redirectToAdminLogin('Admin session expired. Please sign in again.');
+    throw new Error('No active admin session.');
+  }
+
+  if (!res.ok || !data?.success) {
+    throw new Error(data?.message || 'Admin request failed.');
+  }
+
+  return { res, data };
+}
 async function loadAdminBootstrap() {
   try {
-    const res = await fetch('/api/admin/bootstrap', {
-      method: 'GET',
-      credentials: 'include',
-      headers: {
-        'Accept': 'application/json'
-      }
+    const { data } = await adminFetchJson('/api/admin/bootstrap', {
+      method: 'GET'
     });
-
-    const data = await res.json().catch(() => null);
-
-    if (!res.ok || !data?.success) {
-      throw new Error(data?.message || 'Failed to load admin bootstrap.');
-    }
 
     state = mergeState(defaultState(), data.state || {});
     saveState();
     renderApp();
   } catch (error) {
     console.error('loadAdminBootstrap error:', error);
+
+    if (error?.message === 'No active admin session.') {
+      return;
+    }
+
     state = loadState();
     renderApp();
   }
@@ -1436,51 +1465,58 @@ async function handleAction(action, id) {
   switch (action) {
 case 'approve-application': {
   try {
-    const res = await fetch(`/api/admin/applications/${encodeURIComponent(id)}/review`, {
+    await adminFetchJson(`/api/admin/applications/${encodeURIComponent(id)}/review`, {
       method: 'POST',
-      credentials: 'include',
       headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({ decision: 'approve' })
     });
 
-    const data = await res.json().catch(() => null);
-
-    if (!res.ok || !data?.success) {
-      throw new Error(data?.message || 'Failed to approve application.');
-    }
-
     await loadAdminBootstrap();
     showToast('Application approved.');
   } catch (error) {
-    showToast(error.message || 'Failed to approve application.');
+    if (error?.message !== 'No active admin session.') {
+      showToast(error.message || 'Failed to approve application.');
+    }
   }
   break;
 }
 case 'reject-application': {
   try {
-    const res = await fetch(`/api/admin/applications/${encodeURIComponent(id)}/review`, {
+    await adminFetchJson(`/api/admin/applications/${encodeURIComponent(id)}/review`, {
       method: 'POST',
-      credentials: 'include',
       headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify({ decision: 'reject' })
     });
 
-    const data = await res.json().catch(() => null);
-
-    if (!res.ok || !data?.success) {
-      throw new Error(data?.message || 'Failed to reject application.');
-    }
-
     await loadAdminBootstrap();
     showToast('Application rejected.');
   } catch (error) {
-    showToast(error.message || 'Failed to reject application.');
+    if (error?.message !== 'No active admin session.') {
+      showToast(error.message || 'Failed to reject application.');
+    }
+  }
+  break;
+}
+case 'waitlist-application': {
+  try {
+    await adminFetchJson(`/api/admin/applications/${encodeURIComponent(id)}/review`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ decision: 'waitlist' })
+    });
+
+    await loadAdminBootstrap();
+    showToast('Application waitlisted.');
+  } catch (error) {
+    if (error?.message !== 'No active admin session.') {
+      showToast(error.message || 'Failed to waitlist application.');
+    }
   }
   break;
 }
