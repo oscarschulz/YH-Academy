@@ -5,87 +5,119 @@
         return window.innerWidth <= MOBILE_BREAKPOINT;
     }
 
-    function bootMobileAcademyButtonFix() {
+    function getAcademyElements() {
+        const wrap = document.querySelector('.academy-entry-cta-wrap');
+        const button = document.getElementById('btn-open-academy-apply');
+        const label = button ? button.querySelector('.yh-btn-label') : null;
+        const carousel = document.getElementById('yh-universe-carousel');
+        return { wrap, button, label, carousel };
+    }
+
+    function hardenAcademyTapZone() {
         if (!isMobileView()) return;
 
-        const wrap = document.querySelector('.academy-entry-cta-wrap');
-        const btn = document.getElementById('btn-open-academy-apply');
-        const carousel = document.getElementById('yh-universe-carousel');
-
-        if (!wrap || !btn) return;
+        const { wrap, button, label } = getAcademyElements();
+        if (!wrap || !button) return;
         if (wrap.dataset.mobileFixBound === 'true') return;
 
         wrap.dataset.mobileFixBound = 'true';
 
-        // Make sure the entire visible area is a real tap zone
         wrap.style.width = '100%';
         wrap.style.pointerEvents = 'auto';
         wrap.style.position = 'relative';
         wrap.style.zIndex = '1002';
         wrap.style.touchAction = 'manipulation';
 
-        btn.style.width = '100%';
-        btn.style.minHeight = '52px';
-        btn.style.pointerEvents = 'auto';
-        btn.style.position = 'relative';
-        btn.style.zIndex = '1003';
-        btn.style.touchAction = 'manipulation';
-        btn.style.webkitTapHighlightColor = 'transparent';
+        button.style.width = '100%';
+        button.style.minHeight = '56px';
+        button.style.pointerEvents = 'auto';
+        button.style.position = 'relative';
+        button.style.zIndex = '1003';
+        button.style.touchAction = 'manipulation';
+        button.style.webkitTapHighlightColor = 'transparent';
+
+        if (label) {
+            label.style.display = 'block';
+            label.style.width = '100%';
+            label.style.textAlign = 'center';
+            label.style.pointerEvents = 'none';
+        }
+    }
+
+    function installMobileTapForwarder() {
+        if (!isMobileView()) return;
+
+        const { wrap, button, carousel } = getAcademyElements();
+        if (!wrap || !button) return;
+        if (wrap.dataset.mobileForwarderBound === 'true') return;
+
+        wrap.dataset.mobileForwarderBound = 'true';
 
         const stopSwipeConflict = (event) => {
             event.stopPropagation?.();
         };
 
-        const forwardTapToButton = (event) => {
+        const forwardWrapperTap = (event) => {
             if (!isMobileView()) return;
 
             const target = event.target;
-            const insideWrap = target && typeof target.closest === 'function'
+            const tappedInsideWrap = target && typeof target.closest === 'function'
                 ? target.closest('.academy-entry-cta-wrap')
                 : null;
 
-            if (!insideWrap) return;
+            if (!tappedInsideWrap) return;
+
+            const tappedDirectButton = target && typeof target.closest === 'function'
+                ? target.closest('#btn-open-academy-apply')
+                : null;
+
+            if (tappedDirectButton) return;
+
+            if (button.dataset.loading === 'true') return;
 
             event.preventDefault?.();
             event.stopPropagation?.();
             event.stopImmediatePropagation?.();
 
-            // If user tapped wrapper or button text area, always trigger the real button once
-            if (btn.dataset.loading === 'true') return;
-
-            btn.click();
+            button.click();
         };
 
-        // Prevent swipe/carousel from stealing the touch
         wrap.addEventListener('touchstart', stopSwipeConflict, { passive: true });
         wrap.addEventListener('pointerdown', stopSwipeConflict, true);
         wrap.addEventListener('mousedown', stopSwipeConflict, true);
 
-        // Forward taps from the whole wrapper area to the real button
-        wrap.addEventListener('touchend', forwardTapToButton, { passive: false });
-        wrap.addEventListener('pointerup', forwardTapToButton, true);
+        wrap.addEventListener('touchend', forwardWrapperTap, { passive: false });
+        wrap.addEventListener('pointerup', forwardWrapperTap, true);
 
-        // Optional: extra safety so the carousel itself does not win the interaction
         if (carousel && carousel.dataset.mobileAcademyShield !== 'true') {
             carousel.dataset.mobileAcademyShield = 'true';
 
-            carousel.addEventListener('touchend', (event) => {
-                if (!isMobileView()) return;
-
+            carousel.addEventListener('touchstart', (event) => {
                 const target = event.target;
                 const insideWrap = target && typeof target.closest === 'function'
                     ? target.closest('.academy-entry-cta-wrap')
                     : null;
 
                 if (!insideWrap) return;
+                event.stopPropagation?.();
+            }, { passive: true, capture: true });
 
+            carousel.addEventListener('touchend', (event) => {
+                const target = event.target;
+                const insideWrap = target && typeof target.closest === 'function'
+                    ? target.closest('.academy-entry-cta-wrap')
+                    : null;
+
+                if (!insideWrap) return;
                 event.stopPropagation?.();
             }, { passive: true, capture: true });
         }
     }
 
     function initDashboardMobileFix() {
-        bootMobileAcademyButtonFix();
+        if (!isMobileView()) return;
+        hardenAcademyTapZone();
+        installMobileTapForwarder();
     }
 
     if (document.readyState === 'loading') {
@@ -95,6 +127,6 @@
     }
 
     window.addEventListener('resize', () => {
-        bootMobileAcademyButtonFix();
+        initDashboardMobileFix();
     });
 })();
