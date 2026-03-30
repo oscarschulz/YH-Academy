@@ -130,14 +130,13 @@ function persistClientSession(user, token) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-if (
-    sessionStorage.getItem('yh_user_loggedIn') === 'true' ||
-    localStorage.getItem('yh_user_loggedIn') === 'true'
-) {
-    window.location.href = '/dashboard';
-}
+    // Prevent landing-page redirect loops caused by stale browser auth flags.
+    // The server-side /dashboard cookie gate is now the source of truth.
+    localStorage.removeItem('yh_user_loggedIn');
+    localStorage.removeItem('yh_token');
+    localStorage.removeItem('token');
 
-const landingVideo = document.getElementById('landing-video');
+    const landingVideo = document.getElementById('landing-video');
     if (landingVideo) {
         landingVideo.addEventListener('timeupdate', () => {
             if (landingVideo.duration && landingVideo.currentTime >= landingVideo.duration - 3) {
