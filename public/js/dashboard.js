@@ -2488,10 +2488,14 @@ async function academyAuthedFetch(url, options = {}) {
 
     const result = await response.json().catch(() => ({}));
 
-    if (response.status === 401 || response.status === 400) {
+    if (response.status === 401) {
         showToast("Your session expired. Please log in again.", "error");
         window.location.href = '/';
         throw new Error(result.message || 'Session expired.');
+    }
+
+    if (response.status === 400) {
+        throw new Error(result.message || 'Request failed.');
     }
 
     if (!response.ok || !result.success) {
@@ -5335,10 +5339,9 @@ if (formApply) {
 // Let the backend decide whether the application already exists.
 // Do not hard-block here based only on stale local browser state.
 
-        const token = localStorage.getItem('yh_token');
+        const token = getStoredAuthToken();
         if (!token) {
             showToast("Your session expired. Please log in again.", "error");
-            window.location.href = '/';
             return;
         }
 
