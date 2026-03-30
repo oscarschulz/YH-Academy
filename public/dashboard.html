@@ -201,20 +201,25 @@
                         <p class="portal-desc">Enter the self-improvement division of YH Universe. Build your roadmap through AI-guided missions, join the community, and step into live voice sessions.</p>
                     </div>
 
-                <div class="academy-entry-cta-wrap">
+                    <div
+                        class="academy-entry-cta-wrap"
+                        style="width: 100%; position: relative; z-index: 3; pointer-events: auto;"
+                    >
                         <button
                             type="button"
                             id="btn-open-academy-apply"
                             class="btn-primary w-full yh-universe-cta-button"
-                            style="padding: 14px; font-size: 1rem; width: 100%; display: flex; align-items: center; justify-content: center; position: relative; z-index: 2;"
+                            data-idle-label="Apply for the Academy ➔"
+                            data-loading-label="Opening..."
+                            style="padding: 14px; font-size: 1rem; width: 100%; min-height: 52px; display: flex; align-items: center; justify-content: center; position: relative; z-index: 2; touch-action: manipulation; -webkit-tap-highlight-color: transparent;"
                         >
                             Apply for the Academy ➔
                         </button>
 
-                    <div class="academy-entry-state-badge is-hidden" id="academy-entry-state-badge">
-                        Application Pending
+                        <div class="academy-entry-state-badge is-hidden" id="academy-entry-state-badge">
+                            Application Pending
+                        </div>
                     </div>
-                </div>
                 </div>
             </section>
 

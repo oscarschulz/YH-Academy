@@ -6452,16 +6452,53 @@ const closeApplyBtn = document.getElementById('close-academy-apply');
 
 const roadmapModal = document.getElementById('academy-roadmap-modal');
 const closeRoadmapBtn = document.getElementById('close-academy-roadmap');
+const academyEntryWrap = btnOpenApply?.closest('.academy-entry-cta-wrap') || null;
 
 const YH_POST_AUTH_APP_KEY = 'yh_force_academy_application_after_auth';
 const YH_ROADMAP_PROFILE_KEY = 'yh_academy_roadmap_profile_v1';
 const YH_ROADMAP_LOCK_KEY = 'yh_academy_roadmap_locked_v1';
 
+function setDashboardButtonLoadingState(button, isLoading = false, loadingLabel = 'Loading...') {
+    if (!button) return;
+
+    const idleLabel = String(
+        button.dataset.idleLabel ||
+        button.textContent ||
+        ''
+    ).trim();
+
+    if (idleLabel) {
+        button.dataset.idleLabel = idleLabel;
+    }
+
+    if (isLoading) {
+        button.dataset.loading = 'true';
+        button.disabled = true;
+        button.setAttribute('aria-disabled', 'true');
+        button.setAttribute('aria-busy', 'true');
+        button.style.cursor = 'wait';
+        button.style.opacity = '0.92';
+        button.textContent = loadingLabel;
+        return;
+    }
+
+    button.dataset.loading = 'false';
+    button.disabled = false;
+    button.setAttribute('aria-disabled', 'false');
+    button.setAttribute('aria-busy', 'false');
+    button.style.cursor = 'pointer';
+    button.style.opacity = '1';
+
+    if (button.dataset.idleLabel) {
+        button.textContent = button.dataset.idleLabel;
+    }
+}
+
 function syncAcademyEntryButton(snapshot = null) {
     if (!btnOpenApply) return;
 
     const stateBadge = document.getElementById('academy-entry-state-badge');
-    const entryWrap = btnOpenApply.closest('.academy-entry-cta-wrap');
+    const entryWrap = academyEntryWrap || btnOpenApply.closest('.academy-entry-cta-wrap');
 
     const membershipStatus = String(
         snapshot?.applicationStatus ||
@@ -6472,13 +6509,14 @@ function syncAcademyEntryButton(snapshot = null) {
     if (entryWrap) {
         entryWrap.style.width = '100%';
         entryWrap.style.pointerEvents = 'auto';
+        entryWrap.style.position = 'relative';
+        entryWrap.style.zIndex = '3';
     }
 
-    btnOpenApply.disabled = false;
     btnOpenApply.classList.remove('btn-secondary');
     btnOpenApply.setAttribute('type', 'button');
-    btnOpenApply.setAttribute('aria-disabled', 'false');
     btnOpenApply.style.width = '100%';
+    btnOpenApply.style.minHeight = '52px';
     btnOpenApply.style.display = 'flex';
     btnOpenApply.style.alignItems = 'center';
     btnOpenApply.style.justifyContent = 'center';
@@ -6488,6 +6526,7 @@ function syncAcademyEntryButton(snapshot = null) {
     btnOpenApply.style.cursor = 'pointer';
     btnOpenApply.style.position = 'relative';
     btnOpenApply.style.zIndex = '2';
+    btnOpenApply.style.webkitTapHighlightColor = 'transparent';
 
     if (stateBadge) {
         stateBadge.classList.add('is-hidden');
@@ -6497,8 +6536,10 @@ function syncAcademyEntryButton(snapshot = null) {
     }
 
     if (membershipStatus === 'approved') {
-        btnOpenApply.innerText = 'Enter the Academy ➔';
+        btnOpenApply.dataset.idleLabel = 'Enter the Academy ➔';
+        btnOpenApply.dataset.loadingLabel = 'Opening Academy...';
         btnOpenApply.setAttribute('data-academy-state', 'approved');
+        setDashboardButtonLoadingState(btnOpenApply, false);
 
         if (stateBadge) {
             stateBadge.textContent = 'Academy Access Approved';
@@ -6509,8 +6550,10 @@ function syncAcademyEntryButton(snapshot = null) {
     }
 
     if (membershipStatus === 'under review' || membershipStatus === 'new') {
-        btnOpenApply.innerText = 'Application Pending';
+        btnOpenApply.dataset.idleLabel = 'Application Pending';
+        btnOpenApply.dataset.loadingLabel = 'Checking status...';
         btnOpenApply.setAttribute('data-academy-state', 'pending');
+        setDashboardButtonLoadingState(btnOpenApply, false);
 
         if (stateBadge) {
             stateBadge.textContent = 'Your Academy application is under review';
@@ -6521,8 +6564,10 @@ function syncAcademyEntryButton(snapshot = null) {
     }
 
     if (membershipStatus === 'waitlisted') {
-        btnOpenApply.innerText = 'Application Waitlisted';
+        btnOpenApply.dataset.idleLabel = 'Application Waitlisted';
+        btnOpenApply.dataset.loadingLabel = 'Checking status...';
         btnOpenApply.setAttribute('data-academy-state', 'waitlisted');
+        setDashboardButtonLoadingState(btnOpenApply, false);
 
         if (stateBadge) {
             stateBadge.textContent = 'Your Academy application is waitlisted';
@@ -6533,8 +6578,10 @@ function syncAcademyEntryButton(snapshot = null) {
     }
 
     if (membershipStatus === 'rejected') {
-        btnOpenApply.innerText = 'Application Reviewed';
+        btnOpenApply.dataset.idleLabel = 'Application Reviewed';
+        btnOpenApply.dataset.loadingLabel = 'Checking status...';
         btnOpenApply.setAttribute('data-academy-state', 'rejected');
+        setDashboardButtonLoadingState(btnOpenApply, false);
 
         if (stateBadge) {
             stateBadge.textContent = 'Your Academy application has been reviewed';
@@ -6544,8 +6591,10 @@ function syncAcademyEntryButton(snapshot = null) {
         return;
     }
 
-    btnOpenApply.innerText = 'Apply for the Academy ➔';
+    btnOpenApply.dataset.idleLabel = 'Apply for the Academy ➔';
+    btnOpenApply.dataset.loadingLabel = 'Opening...';
     btnOpenApply.setAttribute('data-academy-state', 'apply');
+    setDashboardButtonLoadingState(btnOpenApply, false);
 }
 
 function hasAcademyApplicationAlreadyBeenFilled() {
@@ -7143,23 +7192,34 @@ async function handleAcademyLaunchClick(event) {
 }
 window.handleAcademyLaunchClick = handleAcademyLaunchClick;
 
-
 let academyLaunchLock = false;
 
 async function runAcademyLaunch(event) {
     if (event) {
         event.preventDefault?.();
         event.stopPropagation?.();
+        event.stopImmediatePropagation?.();
     }
 
+    if (!btnOpenApply) return false;
+    if (btnOpenApply.dataset.loading === 'true') return false;
     if (academyLaunchLock) return false;
+
     academyLaunchLock = true;
+    setDashboardButtonLoadingState(
+        btnOpenApply,
+        true,
+        btnOpenApply.dataset.loadingLabel || 'Opening...'
+    );
 
     try {
         return await handleAcademyLaunchClick(event);
     } finally {
         requestAnimationFrame(() => {
             academyLaunchLock = false;
+            setTimeout(() => {
+                setDashboardButtonLoadingState(btnOpenApply, false);
+            }, 160);
         });
     }
 }
@@ -7170,6 +7230,14 @@ function bindAcademyLaunchTarget(target) {
     target.dataset.launchBound = 'true';
     target.style.pointerEvents = 'auto';
     target.style.touchAction = 'manipulation';
+
+    const stopTapConflict = (event) => {
+        event.stopPropagation?.();
+    };
+
+    target.addEventListener('touchstart', stopTapConflict, { passive: true });
+    target.addEventListener('pointerdown', stopTapConflict);
+    target.addEventListener('mousedown', stopTapConflict);
 
     target.addEventListener('touchend', runAcademyLaunch, { passive: false });
     target.addEventListener('pointerup', runAcademyLaunch);
@@ -7184,20 +7252,23 @@ function bindAcademyLaunchTarget(target) {
     });
 }
 
+if (academyEntryWrap) {
+    academyEntryWrap.style.width = '100%';
+    academyEntryWrap.style.pointerEvents = 'auto';
+    academyEntryWrap.style.position = 'relative';
+    academyEntryWrap.style.zIndex = '3';
+    bindAcademyLaunchTarget(academyEntryWrap);
+}
+
 if (btnOpenApply) {
     btnOpenApply.setAttribute('type', 'button');
     btnOpenApply.style.pointerEvents = 'auto';
     btnOpenApply.style.touchAction = 'manipulation';
+    btnOpenApply.style.width = '100%';
+    btnOpenApply.style.minHeight = '52px';
+    btnOpenApply.style.webkitTapHighlightColor = 'transparent';
     bindAcademyLaunchTarget(btnOpenApply);
 }
-document.addEventListener('click', async (event) => {
-    const academyBtn = event.target.closest('#btn-open-academy-apply');
-    if (!academyBtn) return;
-
-    event.preventDefault();
-    event.stopPropagation();
-    await runAcademyLaunch(event);
-}, true);
 
 document.addEventListener('pointerup', async (event) => {
     const academyBtn = event.target.closest('#btn-open-academy-apply');
