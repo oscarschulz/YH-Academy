@@ -1,0 +1,76 @@
+/* public/css/dashboard-mobile.css */
+
+@media (max-width: 768px) {
+    .academy-entry-cta-wrap {
+        width: 100% !important;
+        position: relative !important;
+        z-index: 1002 !important;
+        pointer-events: auto !important;
+        touch-action: manipulation !important;
+    }
+
+    #btn-open-academy-apply {
+        width: 100% !important;
+        min-height: 56px !important;
+        padding: 14px 16px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        position: relative !important;
+        z-index: 1003 !important;
+        pointer-events: auto !important;
+        touch-action: manipulation !important;
+        -webkit-tap-highlight-color: transparent !important;
+        user-select: none !important;
+        -webkit-user-select: none !important;
+    }
+
+    #btn-open-academy-apply .yh-btn-label {
+        display: block !important;
+        width: 100% !important;
+        min-height: 24px !important;
+        line-height: 1.2 !important;
+        text-align: center !important;
+        pointer-events: none !important;
+    }
+
+    #btn-open-academy-apply::before,
+    #btn-open-academy-apply::after {
+        pointer-events: none !important;
+    }
+
+    #academy-roadmap-apply-access-btn,
+    #academy-feed-refresh-btn,
+    #academy-home-refresh-roadmap,
+    [data-member-follow-id] {
+        min-height: 48px !important;
+        position: relative !important;
+        z-index: 2 !important;
+        pointer-events: auto !important;
+        touch-action: manipulation !important;
+        -webkit-tap-highlight-color: transparent !important;
+        user-select: none !important;
+        -webkit-user-select: none !important;
+    }
+
+    .academy-home-action-btn,
+    #academy-feed-refresh-btn,
+    [data-member-follow-id] {
+        padding-top: 12px !important;
+        padding-bottom: 12px !important;
+    }
+
+    [data-member-follow-id] {
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        min-width: 112px !important;
+    }
+
+    .btn-primary[data-loading="true"],
+    .btn-secondary[data-loading="true"],
+    [data-member-follow-id][data-loading="true"] {
+        opacity: 0.92 !important;
+        cursor: wait !important;
+    }
+}
