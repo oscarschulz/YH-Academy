@@ -3768,14 +3768,21 @@ if (academyMemberBrowserList && academyMemberBrowserList.dataset.bound !== 'true
     academyMemberBrowserList.dataset.bound = 'true';
 
     academyMemberBrowserList.addEventListener('click', async (event) => {
-        const followBtn = event.target.closest('[data-member-follow-id]');
+        const eventTarget = resolveEventElementTarget(event);
+        const followBtn = eventTarget?.closest?.('[data-member-follow-id]');
         if (!followBtn) return;
 
         event.preventDefault();
         event.stopPropagation();
 
         const memberId = followBtn.getAttribute('data-member-follow-id') || '';
-        await toggleAcademyMemberBrowserFollow(memberId);
+        const loadingLabel = followBtn.textContent.trim() === 'Following'
+            ? 'Updating...'
+            : 'Following...';
+
+        await runDashboardButtonAction(followBtn, loadingLabel, async () => {
+            await toggleAcademyMemberBrowserFollow(memberId);
+        });
     });
 }
 
@@ -5517,8 +5524,12 @@ function renderAcademyHome(homeData = null) {
         document.getElementById('nav-voice')?.click();
     });
 
-    document.getElementById('academy-home-refresh-roadmap')?.addEventListener('click', () => {
-        academyRefreshRoadmap();
+    document.getElementById('academy-home-refresh-roadmap')?.addEventListener('click', async (event) => {
+        const button = event.currentTarget;
+
+        await runDashboardButtonAction(button, 'Refreshing Roadmap...', async () => {
+            await academyRefreshRoadmap();
+        });
     });
 
     document.getElementById('academy-home-open-checkin')?.addEventListener('click', () => {
@@ -6293,8 +6304,12 @@ function resetAcademyFeedComposer() {
     if (previewWrap) previewWrap.classList.add('hidden-step');
 }
 
-document.getElementById('academy-feed-refresh-btn')?.addEventListener('click', () => {
-    loadAcademyFeed(true);
+document.getElementById('academy-feed-refresh-btn')?.addEventListener('click', async (event) => {
+    const button = event.currentTarget;
+
+    await runDashboardButtonAction(button, 'Refreshing Feed...', async () => {
+        await loadAcademyFeed(true);
+    });
 });
 
 document.getElementById('academy-feed-upload-btn')?.addEventListener('click', () => {
@@ -6457,6 +6472,86 @@ const academyEntryWrap = btnOpenApply?.closest('.academy-entry-cta-wrap') || nul
 const YH_POST_AUTH_APP_KEY = 'yh_force_academy_application_after_auth';
 const YH_ROADMAP_PROFILE_KEY = 'yh_academy_roadmap_profile_v1';
 const YH_ROADMAP_LOCK_KEY = 'yh_academy_roadmap_locked_v1';
+
+function resolveEventElementTarget(event) {
+    const rawTarget = event?.target || null;
+    if (rawTarget && rawTarget.nodeType === 3) {
+        return rawTarget.parentElement;
+    }
+    return rawTarget;
+}
+
+function setDashboardButtonLabel(button, label = '') {
+    if (!button) return;
+
+    const safeLabel = String(label || '').trim();
+    const labelEl = button.querySelector('.yh-btn-label');
+
+    if (labelEl) {
+        labelEl.textContent = safeLabel;
+    } else {
+        button.textContent = safeLabel;
+    }
+
+    button.setAttribute('aria-label', safeLabel);
+}
+
+function setDashboardButtonLoadingState(button, isLoading = false, loadingLabel = 'Loading...') {
+    if (!button) return;
+
+    const idleLabel = String(
+        button.dataset.idleLabel ||
+        button.getAttribute('aria-label') ||
+        button.textContent ||
+        ''
+    ).trim();
+
+    if (idleLabel) {
+        button.dataset.idleLabel = idleLabel;
+    }
+
+    if (isLoading) {
+        button.dataset.loading = 'true';
+        button.disabled = true;
+        button.setAttribute('aria-disabled', 'true');
+        button.setAttribute('aria-busy', 'true');
+        button.style.cursor = 'wait';
+        button.style.opacity = '0.92';
+        setDashboardButtonLabel(button, loadingLabel);
+        return;
+    }
+
+    button.dataset.loading = 'false';
+    button.disabled = false;
+    button.setAttribute('aria-disabled', 'false');
+    button.setAttribute('aria-busy', 'false');
+    button.style.cursor = 'pointer';
+    button.style.opacity = '1';
+    setDashboardButtonLabel(button, button.dataset.idleLabel || idleLabel);
+}
+
+async function runDashboardButtonAction(button, loadingLabel, action) {
+    if (!button) {
+        return await action();
+    }
+
+    if (button.dataset.loading === 'true') return false;
+
+    setDashboardButtonLoadingState(button, true, loadingLabel);
+
+    try {
+        return await action();
+    } finally {
+        if (button.isConnected) {
+            setDashboardButtonLoadingState(button, false);
+        }
+    }
+}
+
+function resolveAcademyLaunchTarget(event) {
+    const target = resolveEventElementTarget(event);
+    return target?.closest?.('#btn-open-academy-apply, .academy-entry-cta-wrap') || null;
+}
 
 function setDashboardButtonLoadingState(button, isLoading = false, loadingLabel = 'Loading...') {
     if (!button) return;
@@ -6858,8 +6953,12 @@ function openAcademyRoadmapAccessGate(snapshot = null) {
         `;
     }
 
-    document.getElementById('academy-roadmap-apply-access-btn')?.addEventListener('click', () => {
-        openRoadmapIntake();
+    document.getElementById('academy-roadmap-apply-access-btn')?.addEventListener('click', async (event) => {
+        const button = event.currentTarget;
+
+        await runDashboardButtonAction(button, 'Opening Roadmap Form...', async () => {
+            openRoadmapIntake();
+        });
     });
 
     document.getElementById('academy-roadmap-back-community-btn')?.addEventListener('click', () => {
@@ -7195,6 +7294,9 @@ window.handleAcademyLaunchClick = handleAcademyLaunchClick;
 let academyLaunchLock = false;
 
 async function runAcademyLaunch(event) {
+    const launchTarget = resolveAcademyLaunchTarget(event);
+    if (!launchTarget) return false;
+
     if (event) {
         event.preventDefault?.();
         event.stopPropagation?.();
@@ -7217,9 +7319,10 @@ async function runAcademyLaunch(event) {
     } finally {
         requestAnimationFrame(() => {
             academyLaunchLock = false;
-            setTimeout(() => {
+
+            if (btnOpenApply) {
                 setDashboardButtonLoadingState(btnOpenApply, false);
-            }, 160);
+            }
         });
     }
 }
@@ -7231,17 +7334,8 @@ function bindAcademyLaunchTarget(target) {
     target.style.pointerEvents = 'auto';
     target.style.touchAction = 'manipulation';
 
-    const stopTapConflict = (event) => {
-        event.stopPropagation?.();
-    };
-
-    target.addEventListener('touchstart', stopTapConflict, { passive: true });
-    target.addEventListener('pointerdown', stopTapConflict);
-    target.addEventListener('mousedown', stopTapConflict);
-
     target.addEventListener('touchend', runAcademyLaunch, { passive: false });
     target.addEventListener('pointerup', runAcademyLaunch);
-    target.addEventListener('mouseup', runAcademyLaunch);
     target.addEventListener('click', runAcademyLaunch);
 
     target.addEventListener('keydown', (event) => {
@@ -7253,10 +7347,6 @@ function bindAcademyLaunchTarget(target) {
 }
 
 if (academyEntryWrap) {
-    academyEntryWrap.style.width = '100%';
-    academyEntryWrap.style.pointerEvents = 'auto';
-    academyEntryWrap.style.position = 'relative';
-    academyEntryWrap.style.zIndex = '3';
     bindAcademyLaunchTarget(academyEntryWrap);
 }
 
@@ -7264,20 +7354,9 @@ if (btnOpenApply) {
     btnOpenApply.setAttribute('type', 'button');
     btnOpenApply.style.pointerEvents = 'auto';
     btnOpenApply.style.touchAction = 'manipulation';
-    btnOpenApply.style.width = '100%';
-    btnOpenApply.style.minHeight = '52px';
-    btnOpenApply.style.webkitTapHighlightColor = 'transparent';
     bindAcademyLaunchTarget(btnOpenApply);
 }
 
-document.addEventListener('pointerup', async (event) => {
-    const academyBtn = event.target.closest('#btn-open-academy-apply');
-    if (!academyBtn) return;
-
-    event.preventDefault();
-    event.stopPropagation();
-    await runAcademyLaunch(event);
-}, true);
 closeApplyBtn?.addEventListener('click', closeAcademyLauncher);
 
 document.getElementById('academy-feed-delete-cancel-btn')?.addEventListener('click', academyFeedCloseDeleteModal);

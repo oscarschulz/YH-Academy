@@ -5097,7 +5097,15 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
     display: contents !important;
     pointer-events: none !important;
 }
+
 /* ===== SINGLE SOURCE OF TRUTH: ACADEMY CTA ===== */
+.academy-entry-cta-wrap {
+    width: 100% !important;
+    pointer-events: auto !important;
+    position: relative !important;
+    z-index: 1000 !important;
+}
+
 #btn-open-academy-apply {
     width: 100% !important;
     min-height: 52px !important;
@@ -5105,7 +5113,7 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
     align-items: center !important;
     justify-content: center !important;
     position: relative !important;
-    z-index: 999 !important;
+    z-index: 1001 !important;
     pointer-events: auto !important;
     touch-action: manipulation !important;
     cursor: pointer !important;
@@ -5114,10 +5122,23 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
     -webkit-tap-highlight-color: transparent !important;
 }
 
-#btn-open-academy-apply *,
+#btn-open-academy-apply .yh-btn-label {
+    display: block !important;
+    width: 100% !important;
+    text-align: center !important;
+    line-height: 1.2 !important;
+    pointer-events: none !important;
+}
+
 #btn-open-academy-apply::before,
 #btn-open-academy-apply::after {
     pointer-events: none !important;
+}
+
+.btn-primary[data-loading="true"],
+.btn-secondary[data-loading="true"] {
+    cursor: wait !important;
+    opacity: 0.92 !important;
 }
 
 .yh-universe-slide {
