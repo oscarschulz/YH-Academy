@@ -313,7 +313,9 @@ function showToast(message, type = "success") {
     const toast = document.getElementById('toast-notification');
     const toastMsg = document.getElementById('toast-message');
     const toastIcon = document.getElementById('toast-icon');
-    if (!toast) return;
+    if (!toast || !toastMsg || !toastIcon) return;
+
+    const isMobile = window.innerWidth <= 768;
 
     toastMsg.innerText = message;
 
@@ -325,6 +327,28 @@ function showToast(message, type = "success") {
         toastIcon.innerText = "🎉";
     }
 
+    toast.style.position = 'fixed';
+    toast.style.left = '50%';
+    toast.style.right = 'auto';
+    toast.style.top = isMobile ? '84px' : '96px';
+    toast.style.bottom = 'auto';
+    toast.style.transform = 'translateX(-50%)';
+    toast.style.zIndex = '10000';
+    toast.style.width = isMobile ? 'calc(100vw - 32px)' : 'min(92vw, 460px)';
+    toast.style.maxWidth = isMobile ? '360px' : '460px';
+    toast.style.minWidth = '0';
+    toast.style.padding = isMobile ? '9px 12px' : '10px 14px';
+    toast.style.borderRadius = isMobile ? '10px' : '12px';
+    toast.style.fontSize = isMobile ? '0.84rem' : '0.9rem';
+    toast.style.lineHeight = '1.35';
+    toast.style.textAlign = 'center';
+    toast.style.display = 'flex';
+    toast.style.alignItems = 'center';
+    toast.style.justifyContent = 'center';
+    toast.style.gap = '8px';
+    toast.style.boxSizing = 'border-box';
+    toast.style.wordBreak = 'break-word';
+
     toast.classList.remove('show');
     void toast.offsetWidth;
     toast.classList.add('show');
@@ -334,7 +358,6 @@ function showToast(message, type = "success") {
         toast.classList.remove('show');
     }, 3500);
 }
-
 function updateUserProfile(newName, newAvatarData) {
     const safeName = String(newName || '').trim();
 
@@ -725,6 +748,8 @@ document.getElementById('btn-open-federation-preview')?.addEventListener('click'
 });
 
 bindUniverseSwipe();
+refreshAcademyMembershipStatus(true).catch(() => {});
+startAcademyMembershipRealtimeSync();
 
 function openRoom(type, element) {
     document.querySelectorAll('.channel-link').forEach(link => link.classList.remove('active'));
@@ -6436,6 +6461,7 @@ function syncAcademyEntryButton(snapshot = null) {
     if (!btnOpenApply) return;
 
     const stateBadge = document.getElementById('academy-entry-state-badge');
+    const entryWrap = btnOpenApply.closest('.academy-entry-cta-wrap');
 
     const membershipStatus = String(
         snapshot?.applicationStatus ||
@@ -6443,17 +6469,35 @@ function syncAcademyEntryButton(snapshot = null) {
         ''
     ).trim().toLowerCase();
 
+    if (entryWrap) {
+        entryWrap.style.width = '100%';
+        entryWrap.style.pointerEvents = 'auto';
+    }
+
     btnOpenApply.disabled = false;
     btnOpenApply.classList.remove('btn-secondary');
+    btnOpenApply.setAttribute('type', 'button');
+    btnOpenApply.setAttribute('aria-disabled', 'false');
+    btnOpenApply.style.width = '100%';
+    btnOpenApply.style.display = 'flex';
+    btnOpenApply.style.alignItems = 'center';
+    btnOpenApply.style.justifyContent = 'center';
+    btnOpenApply.style.boxSizing = 'border-box';
+    btnOpenApply.style.pointerEvents = 'auto';
+    btnOpenApply.style.touchAction = 'manipulation';
+    btnOpenApply.style.cursor = 'pointer';
+    btnOpenApply.style.position = 'relative';
+    btnOpenApply.style.zIndex = '2';
 
     if (stateBadge) {
         stateBadge.classList.add('is-hidden');
         stateBadge.classList.remove('is-pending', 'is-approved', 'is-waitlisted', 'is-rejected');
         stateBadge.textContent = '';
+        stateBadge.style.pointerEvents = 'none';
     }
 
     if (membershipStatus === 'approved') {
-        btnOpenApply.innerText = 'Enter the Academy';
+        btnOpenApply.innerText = 'Enter the Academy ➔';
         btnOpenApply.setAttribute('data-academy-state', 'approved');
 
         if (stateBadge) {
@@ -6500,7 +6544,7 @@ function syncAcademyEntryButton(snapshot = null) {
         return;
     }
 
-    btnOpenApply.innerText = 'Apply for the Academy';
+    btnOpenApply.innerText = 'Apply for the Academy ➔';
     btnOpenApply.setAttribute('data-academy-state', 'apply');
 }
 
@@ -6631,6 +6675,38 @@ async function handleAcademyRoadmapTabIntent() {
 
     openRoadmapIntake();
 }
+function stopAcademyMembershipRealtimeSync() {
+    if (academyMembershipRealtimeTimer) {
+        clearInterval(academyMembershipRealtimeTimer);
+        academyMembershipRealtimeTimer = null;
+    }
+}
+
+function startAcademyMembershipRealtimeSync() {
+    if (academyMembershipRealtimeTimer) return;
+
+    academyMembershipRealtimeTimer = setInterval(() => {
+        if (document.visibilityState === 'hidden') return;
+        if (!localStorage.getItem('yh_token')) return;
+        refreshAcademyMembershipStatus(true).catch(() => {});
+    }, 5000);
+}
+
+window.addEventListener('focus', () => {
+    refreshAcademyMembershipStatus(true).catch(() => {});
+});
+
+window.addEventListener('pageshow', () => {
+    refreshAcademyMembershipStatus(true).catch(() => {});
+});
+
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        refreshAcademyMembershipStatus(true).catch(() => {});
+    }
+});
+
+window.addEventListener('beforeunload', stopAcademyMembershipRealtimeSync);
 function openAcademyRoadmapAccessGate(snapshot = null) {
     hideAcademyViewsForFeed();
 
@@ -6808,67 +6884,99 @@ function writeAcademyMembershipCache(snapshot = null) {
 
     localStorage.setItem(YH_ACADEMY_MEMBERSHIP_CACHE_KEY, JSON.stringify(snapshot));
 }
+let academyMembershipRefreshPromise = null;
+let academyMembershipRealtimeTimer = null;
+let academyMembershipLastNotifiedStatus = '';
 
 async function refreshAcademyMembershipStatus(force = false) {
     const cached = readAcademyMembershipCache();
 
-if (!force && cached && typeof cached === 'object') {
-    syncAcademyEntryButton(cached);
-    syncRoadmapTabIndicator(cached);
-    return cached;
-}
-
-    try {
-        const result = await academyAuthedFetch('/api/academy/membership-status', {
-            method: 'GET'
-        });
-
-        const snapshot = {
-            hasApplication: Boolean(result?.hasApplication),
-            applicationStatus: String(result?.applicationStatus || '').trim().toLowerCase(),
-            hasRoadmapAccess: result?.hasRoadmapAccess === true,
-            canEnterAcademy: result?.canEnterAcademy === true,
-            application: result?.application && typeof result.application === 'object'
-                ? result.application
-                : null,
-            roadmapApplication: result?.roadmapApplication && typeof result.roadmapApplication === 'object'
-                ? result.roadmapApplication
-                : null,
-            roadmapApplicationStatus: String(result?.roadmapApplicationStatus || '').trim().toLowerCase()
-        };
-
-        writeAcademyMembershipCache(snapshot);
-        syncAcademyEntryButton(snapshot);
-        syncRoadmapTabIndicator(snapshot);
-
-        if (snapshot.application) {
-            writeYhAdminPanelState({
-                ...readYhAdminPanelState(),
-                applications: [
-                    snapshot.application,
-                    ...(Array.isArray(readYhAdminPanelState()?.applications)
-                        ? readYhAdminPanelState().applications.filter(app => app?.id !== snapshot.application.id)
-                        : [])
-                ]
-            });
-        }
-
-        return snapshot;
-    } catch (_) {
-        const fallback = cached || {
-            hasApplication: false,
-            applicationStatus: '',
-            hasRoadmapAccess: false,
-            canEnterAcademy: false,
-            application: null,
-            roadmapApplication: null,
-            roadmapApplicationStatus: ''
-        };
-
-        syncAcademyEntryButton(fallback);
-        syncRoadmapTabIndicator(fallback);
-        return fallback;
+    if (!force && cached && typeof cached === 'object') {
+        syncAcademyEntryButton(cached);
+        syncRoadmapTabIndicator(cached);
+        return cached;
     }
+
+    if (academyMembershipRefreshPromise) {
+        return academyMembershipRefreshPromise;
+    }
+
+    academyMembershipRefreshPromise = (async () => {
+        try {
+            const result = await academyAuthedFetch('/api/academy/membership-status', {
+                method: 'GET'
+            });
+
+            const snapshot = {
+                hasApplication: Boolean(result?.hasApplication),
+                applicationStatus: String(result?.applicationStatus || '').trim().toLowerCase(),
+                hasRoadmapAccess: result?.hasRoadmapAccess === true,
+                canEnterAcademy: result?.canEnterAcademy === true,
+                application: result?.application && typeof result.application === 'object'
+                    ? result.application
+                    : null,
+                roadmapApplication: result?.roadmapApplication && typeof result.roadmapApplication === 'object'
+                    ? result.roadmapApplication
+                    : null,
+                roadmapApplicationStatus: String(result?.roadmapApplicationStatus || '').trim().toLowerCase()
+            };
+
+            const previousStatus = String(cached?.applicationStatus || '').trim().toLowerCase();
+            const nextStatus = String(snapshot?.applicationStatus || '').trim().toLowerCase();
+
+            writeAcademyMembershipCache(snapshot);
+            syncAcademyEntryButton(snapshot);
+            syncRoadmapTabIndicator(snapshot);
+
+            if (snapshot.application) {
+                writeYhAdminPanelState({
+                    ...readYhAdminPanelState(),
+                    applications: [
+                        snapshot.application,
+                        ...(Array.isArray(readYhAdminPanelState()?.applications)
+                            ? readYhAdminPanelState().applications.filter(app => app?.id !== snapshot.application.id)
+                            : [])
+                    ]
+                });
+            }
+
+            if (
+                nextStatus &&
+                nextStatus !== previousStatus &&
+                nextStatus !== academyMembershipLastNotifiedStatus
+            ) {
+                academyMembershipLastNotifiedStatus = nextStatus;
+
+                if (nextStatus === 'approved') {
+                    showToast('Academy approved. You can now enter.', 'success');
+                } else if (nextStatus === 'waitlisted') {
+                    showToast('Your Academy application is now waitlisted.', 'error');
+                } else if (nextStatus === 'rejected') {
+                    showToast('Your Academy application has been reviewed.', 'error');
+                }
+            }
+
+            return snapshot;
+        } catch (_) {
+            const fallback = cached || {
+                hasApplication: false,
+                applicationStatus: '',
+                hasRoadmapAccess: false,
+                canEnterAcademy: false,
+                application: null,
+                roadmapApplication: null,
+                roadmapApplicationStatus: ''
+            };
+
+            syncAcademyEntryButton(fallback);
+            syncRoadmapTabIndicator(fallback);
+            return fallback;
+        } finally {
+            academyMembershipRefreshPromise = null;
+        }
+    })();
+
+    return academyMembershipRefreshPromise;
 }
 function getCurrentAcademyApplicantIdentity() {
     return {

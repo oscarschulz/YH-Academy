@@ -151,7 +151,27 @@ function resetState() {
 function showToast(message) {
   const toast = document.getElementById('toast');
   if (!toast) return;
+
+  const isMobile = window.innerWidth <= 980;
+
   toast.textContent = message;
+  toast.style.position = 'fixed';
+  toast.style.left = '50%';
+  toast.style.right = 'auto';
+  toast.style.top = isMobile ? '84px' : '96px';
+  toast.style.bottom = 'auto';
+  toast.style.transform = 'translateX(-50%)';
+  toast.style.zIndex = '10000';
+  toast.style.width = isMobile ? 'calc(100vw - 32px)' : 'min(90vw, 420px)';
+  toast.style.maxWidth = isMobile ? '360px' : '420px';
+  toast.style.padding = isMobile ? '10px 12px' : '11px 14px';
+  toast.style.borderRadius = isMobile ? '10px' : '12px';
+  toast.style.fontSize = isMobile ? '0.84rem' : '0.9rem';
+  toast.style.lineHeight = '1.35';
+  toast.style.textAlign = 'center';
+  toast.style.boxSizing = 'border-box';
+  toast.style.wordBreak = 'break-word';
+
   toast.classList.add('show');
   clearTimeout(showToast._timer);
   showToast._timer = setTimeout(() => toast.classList.remove('show'), 2300);
