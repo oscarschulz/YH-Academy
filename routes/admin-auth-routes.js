@@ -580,42 +580,7 @@ apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async 
     });
   }
 });
-  apiRouter.post('/api/admin/logout', (req, res) => {
-    const env = getEnvConfig();
-    const cookies = parseCookies(req);
-    const sessionId = cookies[ADMIN_SESSION_COOKIE];
-
-    if (sessionId) {
-      sessions.delete(sessionId);
-    }
-
-    clearSessionCookie(res, env.secureCookies);
-
-    return res.json({
-      success: true,
-      redirectTo: env.routeToken ? `/admin/${env.routeToken}/login` : '/'
-    });
-  });
-
-  return { pageRouter, apiRouter };
-}
-
-module.exports = {
-  createAdminRouters,
-  createPasswordHash
-};
-
-if (require.main === module) {
-  const password = process.argv[2];
-
-  if (!password) {
-    console.error('Usage: node routes/admin-auth-routes.js "YourPasswordHere"');
-    process.exit(1);
-  }
-
-  console.log(createPasswordHash(password));
-}
-apiRouter.post('/api/admin/members/:id/status', requireAdminSession, async (req, res) => {
+  apiRouter.post('/api/admin/members/:id/status', requireAdminSession, async (req, res) => {
   try {
     const memberId = cleanText(req.params.id);
     const nextStatus = cleanText(req.body?.status);
@@ -643,7 +608,10 @@ apiRouter.post('/api/admin/members/:id/status', requireAdminSession, async (req,
       updatedAt: new Date().toISOString()
     }, { merge: true });
 
-    return res.json({ success: true, status: nextStatus });
+    return res.json({
+      success: true,
+      status: nextStatus
+    });
   } catch (error) {
     console.error('admin member status error:', error);
     return res.status(500).json({
@@ -674,7 +642,9 @@ apiRouter.post('/api/admin/academy/:memberId/nudge', requireAdminSession, async 
     }
 
     const user = userSnap.data() || {};
-    const memberName = cleanText(user.fullName || user.name || user.displayName || user.username || 'Academy Member');
+    const memberName = cleanText(
+      user.fullName || user.name || user.displayName || user.username || 'Academy Member'
+    );
     const nowIso = new Date().toISOString();
 
     await userRef.set({
@@ -775,3 +745,39 @@ apiRouter.post('/api/admin/broadcasts', requireAdminSession, async (req, res) =>
     });
   }
 });
+
+apiRouter.post('/api/admin/logout', (req, res) => {
+  const env = getEnvConfig();
+  const cookies = parseCookies(req);
+  const sessionId = cookies[ADMIN_SESSION_COOKIE];
+
+  if (sessionId) {
+    sessions.delete(sessionId);
+  }
+
+  clearSessionCookie(res, env.secureCookies);
+
+  return res.json({
+    success: true,
+    redirectTo: env.routeToken ? `/admin/${env.routeToken}/login` : '/'
+  });
+});
+
+return { pageRouter, apiRouter };
+}
+
+module.exports = {
+  createAdminRouters,
+  createPasswordHash
+};
+
+if (require.main === module) {
+  const password = process.argv[2];
+
+  if (!password) {
+    console.error('Usage: node routes/admin-auth-routes.js "YourPasswordHere"');
+    process.exit(1);
+  }
+
+  console.log(createPasswordHash(password));
+}
