@@ -6884,9 +6884,9 @@ function writeAcademyMembershipCache(snapshot = null) {
 
     localStorage.setItem(YH_ACADEMY_MEMBERSHIP_CACHE_KEY, JSON.stringify(snapshot));
 }
-let academyMembershipRefreshPromise = null;
-let academyMembershipRealtimeTimer = null;
-let academyMembershipLastNotifiedStatus = '';
+var academyMembershipRefreshPromise = null;
+var academyMembershipRealtimeTimer = null;
+var academyMembershipLastNotifiedStatus = '';
 
 async function refreshAcademyMembershipStatus(force = false) {
     const cached = readAcademyMembershipCache();
@@ -7141,9 +7141,8 @@ async function handleAcademyLaunchClick(event) {
     openAcademyLauncher();
     return false;
 }
-
-
 window.handleAcademyLaunchClick = handleAcademyLaunchClick;
+
 
 let academyLaunchLock = false;
 
