@@ -154,19 +154,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const flipToRegister = () => flipper.classList.add('is-flipped');
     const flipToLogin = () => flipper.classList.remove('is-flipped');
 
-if (btnFlipRegister) btnFlipRegister.addEventListener('click', flipToRegister);
-if (btnFlipLogin) btnFlipLogin.addEventListener('click', flipToLogin);
-if (triggerArea) {
-    triggerArea.addEventListener('click', (e) => {
-        const target = e.target;
-        if (target && typeof target.closest === 'function') {
-            if (target.closest('.auth-stop-propagation, button, a, input, textarea, select, label, [role="button"]')) {
-                return;
-            }
-        }
-        flipToRegister();
-    });
-}
+    if (btnFlipRegister) btnFlipRegister.addEventListener('click', flipToRegister);
+    if (btnFlipLogin) btnFlipLogin.addEventListener('click', flipToLogin);
+    if (triggerArea) {
+        triggerArea.addEventListener('click', (e) => {
+            if (e.target.classList.contains('auth-stop-propagation')) return;
+            flipToRegister();
+        });
+    }
 
     const setPendingVerifyEmail = (email) => {
         if (!email) return;
