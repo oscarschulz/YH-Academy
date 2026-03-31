@@ -4657,13 +4657,15 @@ function syncAcademyEntryButton(snapshot = null) {
         setDashboardButtonLoadingState(btnOpenApply, false);
 
         if (stateBadge) {
-            stateBadge.textContent = 'Your Academy application is under review';
+            stateBadge.innerHTML = `
+                <span>Your Academy application is under review</span>
+                <span class="academy-entry-state-note">You will get an answer within the next 24 hours, check your email for updates.</span>
+            `;
             stateBadge.classList.remove('is-hidden');
             stateBadge.classList.add('is-pending');
         }
         return;
     }
-
     if (membershipStatus === 'waitlisted') {
         btnOpenApply.dataset.idleLabel = 'Application Waitlisted';
         btnOpenApply.dataset.loadingLabel = 'Checking status...';
@@ -5501,6 +5503,8 @@ try {
             if (vDesc) {
                 vDesc.innerHTML = `
                     Your Academy membership application is now pending manual admin review.
+                    <br><br>
+                    You will get an answer within the next 24 hours, check your email for updates.
                     <br><br>
                     Once approved, you will be able to enter the Academy community.
                     <br><br>

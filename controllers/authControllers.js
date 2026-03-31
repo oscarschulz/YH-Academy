@@ -38,6 +38,12 @@ async function sendOtpMail({ to, subject, html }) {
     });
 }
 
+async function sendSystemMail({ to, subject, html }) {
+    return sendOtpMail({ to, subject, html });
+}
+
+exports.sendSystemMail = sendSystemMail;
+
 const slugifyUsernameBase = (value = '') => {
     return String(value)
         .toLowerCase()

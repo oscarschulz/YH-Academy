@@ -1464,7 +1464,7 @@ async function handleAction(action, id) {
   switch (action) {
 case 'approve-application': {
   try {
-    await adminFetchJson(`/api/admin/applications/${encodeURIComponent(id)}/review`, {
+    const { data } = await adminFetchJson(`/api/admin/applications/${encodeURIComponent(id)}/review`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -1473,7 +1473,14 @@ case 'approve-application': {
     });
 
     await loadAdminBootstrap();
-    showToast('Application approved.');
+
+    if (data?.approvalEmailSent) {
+      showToast('Application approved. Approval email sent.');
+    } else if (data?.approvalEmailError) {
+      showToast(`Application approved. Email not sent: ${data.approvalEmailError}`);
+    } else {
+      showToast('Application approved.');
+    }
   } catch (error) {
     if (error?.message !== 'No active admin session.') {
       showToast(error.message || 'Failed to approve application.');

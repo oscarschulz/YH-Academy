@@ -3,11 +3,123 @@ const crypto = require('crypto');
 const express = require('express');
 const { firestore } = require('../config/firebaseAdmin');
 const academyFirestoreRepo = require('../backend/repositories/academyFirestoreRepo');
+const { sendSystemMail } = require('../controllers/authControllers');
 
 const ADMIN_SESSION_COOKIE = 'yh_admin_session';
 const ADMIN_SESSION_TTL_MS = 8 * 60 * 60 * 1000;
 
 const sessions = new Map();
+
+function escapeEmailHtml(value = '') {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function renderAcademyApprovalEmail({ name = 'Member' } = {}) {
+  const safeName = escapeEmailHtml(name || 'Member');
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Academy Application Approved</title>
+</head>
+<body style="margin:0; padding:0; background:#030712; font-family:Arial, Helvetica, sans-serif; color:#e5eef8;">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="width:100%; background:#030712; border-collapse:collapse;">
+    <tr>
+      <td align="center" style="padding:28px 14px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:660px; width:100%; border-collapse:collapse;">
+          <tr>
+            <td style="background:#06111f; border:1px solid #16324c; border-radius:20px 20px 0 0; padding:16px 20px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                <tr>
+                  <td align="left" valign="middle" style="width:52px;">
+                    <img
+                      src="https://younghustlersuniverse.com/images/logo.png"
+                      alt="YH Universe"
+                      width="40"
+                      height="40"
+                      style="display:block; width:40px; height:40px; border:0;"
+                    />
+                  </td>
+                  <td style="padding-left:12px;">
+                    <div style="font-size:14px; line-height:1.2; color:#ffffff; font-weight:800; letter-spacing:0.5px;">
+                      Young Hustlers Universe
+                    </div>
+                    <div style="font-size:11px; line-height:1.4; color:#8fa4bf; text-transform:uppercase; letter-spacing:1.6px;">
+                      Academy Review Update
+                    </div>
+                  </td>
+                  <td align="right" valign="middle">
+                    <div style="display:inline-block; padding:7px 12px; border-radius:999px; border:1px solid rgba(16,185,129,0.35); background:rgba(16,185,129,0.12); color:#34d399; font-size:11px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase;">
+                      Approved
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background:#08111f; border-left:1px solid #16324c; border-right:1px solid #16324c; padding:0;">
+              <div style="height:4px; line-height:4px; font-size:0; background:#0ea5e9;">&nbsp;</div>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="background:#070d18; border:1px solid #16324c; border-top:0; border-radius:0 0 20px 20px; padding:36px 26px 24px 26px;">
+              <h1 style="margin:0 0 14px 0; font-size:30px; line-height:1.2; color:#ffffff; font-weight:800; text-align:center;">
+                Your Academy application is approved
+              </h1>
+
+              <p style="margin:0 0 18px 0; font-size:15px; line-height:1.8; color:#9fb0c8; text-align:center;">
+                Hello ${safeName},
+              </p>
+
+              <p style="margin:0 0 18px 0; font-size:15px; line-height:1.8; color:#9fb0c8; text-align:center;">
+                Your application to join the Academy inside YH Universe has been approved.
+              </p>
+
+              <p style="margin:0 0 18px 0; font-size:15px; line-height:1.8; color:#9fb0c8; text-align:center;">
+                You can now return to your dashboard and enter the Academy.
+              </p>
+
+              <div style="margin:24px auto 22px auto; max-width:360px; background:#030712; border:1px solid #1c567f; border-radius:18px; padding:16px 18px; text-align:center;">
+                <div style="font-size:11px; line-height:1.4; color:#7dd3fc; letter-spacing:1.8px; text-transform:uppercase; font-weight:700; padding-bottom:8px;">
+                  Next step
+                </div>
+                <div style="font-size:18px; line-height:1.5; color:#e5eef8; font-weight:700;">
+                  Log in and click “Enter the Academy”
+                </div>
+              </div>
+
+              <p style="margin:0; font-size:13px; line-height:1.8; color:#7f92ab; text-align:center;">
+                If this message was unexpected, contact support at support@younghustlers.net
+              </p>
+            </td>
+          </tr>
+
+          <tr>
+            <td align="center" style="padding-top:16px;">
+              <p style="margin:0; font-size:12px; line-height:1.8; color:#667892;">
+                © YH Universe. Built for ambitious people, structured for scale.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+}
 
 function safeEqualString(a, b) {
   const aBuf = Buffer.from(String(a || ''), 'utf8');
@@ -527,6 +639,7 @@ apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async 
       });
     }
 
+    const matchedUser = matchedUserDoc.data() || {};
     const nowIso = new Date().toISOString();
     const updatedApplication = {
       ...matchedApplication,
@@ -568,9 +681,47 @@ apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async 
 
     await matchedUserDoc.ref.set(updatePayload, { merge: true });
 
+    let approvalEmailSent = false;
+    let approvalEmailError = '';
+
+    if (matchedField === 'academyApplication' && nextStatus === 'Approved') {
+      const recipientEmail = cleanText(
+        updatedApplication.email ||
+        matchedUser.email ||
+        ''
+      );
+
+      const recipientName = cleanText(
+        matchedUser.fullName ||
+        matchedUser.name ||
+        matchedUser.displayName ||
+        updatedApplication.name ||
+        matchedUser.username ||
+        'Member'
+      );
+
+      if (recipientEmail) {
+        try {
+          await sendSystemMail({
+            to: recipientEmail,
+            subject: 'YH Universe - Academy Application Approved',
+            html: renderAcademyApprovalEmail({ name: recipientName })
+          });
+          approvalEmailSent = true;
+        } catch (mailError) {
+          approvalEmailError = cleanText(mailError?.message || 'Failed to send approval email.');
+          console.error('academy approval email error:', mailError);
+        }
+      } else {
+        approvalEmailError = 'No applicant email found for the approval notification.';
+      }
+    }
+
     return res.json({
       success: true,
-      application: updatedApplication
+      application: updatedApplication,
+      approvalEmailSent,
+      approvalEmailError
     });
   } catch (error) {
     console.error('admin application review error:', error);
