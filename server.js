@@ -279,11 +279,19 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Anti-Spam (Rate Limiting)
 const apiLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, 
-    max: 30, 
+    windowMs: 15 * 60 * 1000,
+    max: 30,
     message: { success: false, message: "Too many requests from this IP. Try again in 15 minutes." },
-    standardHeaders: true, 
+    standardHeaders: true,
     legacyHeaders: false,
+    skip: (req) => {
+        const path = String(req.path || '').trim().toLowerCase();
+
+        // Do not rate-limit admin routes.
+        // Anyone who already knows the secret admin URL and correct credentials
+        // should not be blocked by the generic public API limiter.
+        return path === '/admin/login' || path.startsWith('/admin/');
+    }
 });
 app.use('/api', apiLimiter);
 
