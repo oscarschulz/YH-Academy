@@ -115,18 +115,38 @@ function clearAcademyClientStateForFreshAuth() {
 }
 
 function persistClientSession(user, token) {
-    const fullName = String(user?.fullName || user?.username || 'Hustler').trim();
+    const fullName = String(
+        user?.fullName ||
+        user?.name ||
+        user?.displayName ||
+        user?.username ||
+        'Hustler'
+    ).trim();
+
     const username = String(user?.username || '').trim();
     const email = String(user?.email || '').trim().toLowerCase();
+    const avatar = String(
+        user?.avatar ||
+        user?.profilePhoto ||
+        user?.profilePhotoDataUrl ||
+        ''
+    ).trim();
+    const authToken = String(token || '').trim();
 
-    localStorage.removeItem('yh_token');
-    localStorage.removeItem('yh_user_loggedIn');
+    [sessionStorage, localStorage].forEach((store) => {
+        store.setItem('yh_user_loggedIn', 'true');
+        store.setItem('yh_user_name', fullName);
+        store.setItem('yh_user_username', username);
+        store.setItem('yh_user_email', email);
+        store.setItem('yh_token', authToken);
+        store.setItem('token', authToken);
 
-    sessionStorage.setItem('yh_user_loggedIn', 'true');
-    sessionStorage.setItem('yh_user_name', fullName);
-    sessionStorage.setItem('yh_user_username', username);
-    sessionStorage.setItem('yh_user_email', email);
-    sessionStorage.setItem('yh_token', String(token || '').trim());
+        if (avatar) {
+            store.setItem('yh_user_avatar', avatar);
+        } else {
+            store.removeItem('yh_user_avatar');
+        }
+    });
 }
 
 document.addEventListener('DOMContentLoaded', () => {

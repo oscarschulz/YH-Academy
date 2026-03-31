@@ -395,11 +395,12 @@ function updateUserProfile(newName, newAvatarData) {
 
     if (safeName) {
         const initial = safeName.charAt(0).toUpperCase();
-        const elsName = [
-            document.getElementById('top-nav-name'),
-            document.getElementById('right-sidebar-name'),
-            document.getElementById('stage-user-name')
-        ];
+const elsName = [
+    document.getElementById('top-nav-name'),
+    document.getElementById('right-sidebar-name'),
+    document.getElementById('stage-user-name'),
+    document.getElementById('academy-profile-name')
+];
 
         elsName.forEach(el => {
             if (el) {
@@ -408,11 +409,12 @@ function updateUserProfile(newName, newAvatarData) {
             }
         });
 
-        const elsInit = [
-            document.getElementById('top-nav-initial'),
-            document.getElementById('right-sidebar-initial'),
-            document.getElementById('stage-user-initial')
-        ];
+const elsInit = [
+    document.getElementById('top-nav-initial'),
+    document.getElementById('right-sidebar-initial'),
+    document.getElementById('stage-user-initial'),
+    document.getElementById('academy-profile-avatar')
+];
 
         elsInit.forEach(el => {
             if (el && !newAvatarData) {
@@ -423,13 +425,13 @@ function updateUserProfile(newName, newAvatarData) {
     }
 
     if (newAvatarData) {
-        const elsAvatar = [
-            document.getElementById('top-nav-initial'),
-            document.getElementById('right-sidebar-initial'),
-            document.getElementById('stage-user-initial'),
-            document.getElementById('academy-feed-composer-avatar')
-        ];
-
+const elsAvatar = [
+    document.getElementById('top-nav-initial'),
+    document.getElementById('right-sidebar-initial'),
+    document.getElementById('stage-user-initial'),
+    document.getElementById('academy-feed-composer-avatar'),
+    document.getElementById('academy-profile-avatar')
+];
         elsAvatar.forEach(el => {
             if (el) {
                 el.innerText = '';
@@ -1449,7 +1451,7 @@ if ((currentRoom || "").includes("Agent")) {
     function sendStageChat() {
         if(stageChatInput.value.trim() !== '') {
             const msg = stageChatInput.value.trim();
-            const myName = localStorage.getItem('yh_user_name') || "Hustler";
+            const myName = getStoredUserValue('yh_user_name', "Hustler");
             const msgHTML = `<div class="stage-chat-msg fade-in"><strong>${myName}:</strong> ${msg}</div>`;
             stageChatHistory.insertAdjacentHTML('beforeend', msgHTML);
             stageChatInput.value = '';
@@ -2317,10 +2319,19 @@ if (resourcesMenu && resourcesMenuBtn && resourcesMenuPanel) {
     // ==========================================
     // INITIALIZATION RUNNER
     // ==========================================
-if (localStorage.getItem('yh_user_loggedIn') === 'true') {
-    const savedName = localStorage.getItem('yh_user_name');
-    const savedAvatar = localStorage.getItem('yh_user_avatar');
+if (getStoredUserValue('yh_user_loggedIn') === 'true') {
+    const savedName = getStoredUserValue('yh_user_name', myName);
+    const savedAvatar = getStoredUserValue('yh_user_avatar', '');
+    const savedUsername = getStoredUserValue('yh_user_username', '');
+
     updateUserProfile(savedName, savedAvatar);
+
+    const academyProfileUsername = document.getElementById('academy-profile-username');
+    if (academyProfileUsername) {
+        academyProfileUsername.innerText = savedUsername
+            ? `@${String(savedUsername).replace(/^@+/, '')}`
+            : '@yhmember';
+    }
 
     persistKnownUser({
         name: savedName || myName,
