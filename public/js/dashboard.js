@@ -831,7 +831,7 @@ bindUniverseSwipe();
 setTimeout(() => {
     refreshAcademyMembershipStatus(true).catch(() => {});
     startAcademyMembershipRealtimeSync();
-}, 0);
+}, 0); 
 
 function openRoom(type, element) {
     document.querySelectorAll('.channel-link').forEach(link => link.classList.remove('active'));
