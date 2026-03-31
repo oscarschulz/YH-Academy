@@ -4638,14 +4638,23 @@ function syncAcademyEntryButton(snapshot = null) {
 
     if (membershipStatus === 'approved') {
         btnOpenApply.dataset.idleLabel = 'Enter the Academy ➔';
-        btnOpenApply.dataset.loadingLabel = 'Opening Academy...';
+        btnOpenApply.dataset.loadingLabel = 'Opening Academy.';
         btnOpenApply.setAttribute('data-academy-state', 'approved');
         setDashboardButtonLoadingState(btnOpenApply, false);
 
         if (stateBadge) {
-            stateBadge.textContent = 'Academy Access Approved';
-            stateBadge.classList.remove('is-hidden');
-            stateBadge.classList.add('is-approved');
+            if (hasSeenAcademyApprovalBadge(snapshot)) {
+                stateBadge.classList.add('is-hidden');
+                stateBadge.textContent = '';
+                stateBadge.style.opacity = '';
+                stateBadge.style.transform = '';
+                stateBadge.style.transition = '';
+            } else {
+                stateBadge.textContent = 'Academy Access Approved';
+                stateBadge.classList.remove('is-hidden');
+                stateBadge.classList.add('is-approved');
+                fadeOutAcademyApprovalBadge(stateBadge, snapshot);
+            }
         }
         return;
     }
@@ -5008,6 +5017,114 @@ window.openAcademyLauncher = openAcademyLauncher;
 window.closeAcademyLauncher = closeAcademyLauncher;
 const YH_ADMIN_PANEL_STORAGE_KEY = 'yh_admin_panel_state_v2';
 const YH_ACADEMY_MEMBERSHIP_CACHE_KEY = 'yh_academy_membership_status_v1';
+const YH_ACADEMY_APPROVAL_TOAST_SEEN_KEY = 'yh_academy_approval_toast_seen_v1';
+const YH_ACADEMY_APPROVAL_BADGE_SEEN_KEY = 'yh_academy_approval_badge_seen_v1';
+
+function getAcademyApprovalMarker(snapshot = null) {
+    const application =
+        snapshot?.application && typeof snapshot.application === 'object'
+            ? snapshot.application
+            : {};
+
+    return String(
+        application.approvedAt ||
+        application.reviewedAt ||
+        application.updatedAt ||
+        application.id ||
+        snapshot?.applicationStatus ||
+        ''
+    ).trim();
+}
+
+function readAcademySeenMarker(storageKey) {
+    try {
+        return String(localStorage.getItem(storageKey) || '').trim();
+    } catch (_) {
+        return '';
+    }
+}
+
+function writeAcademySeenMarker(storageKey, marker = '') {
+    try {
+        const cleanMarker = String(marker || '').trim();
+        if (!cleanMarker) {
+            localStorage.removeItem(storageKey);
+            return;
+        }
+        localStorage.setItem(storageKey, cleanMarker);
+    } catch (_) {}
+}
+
+function hasSeenAcademyApprovalToast(snapshot = null) {
+    const marker = getAcademyApprovalMarker(snapshot);
+    if (!marker) return false;
+    return readAcademySeenMarker(YH_ACADEMY_APPROVAL_TOAST_SEEN_KEY) === marker;
+}
+
+function markAcademyApprovalToastSeen(snapshot = null) {
+    writeAcademySeenMarker(
+        YH_ACADEMY_APPROVAL_TOAST_SEEN_KEY,
+        getAcademyApprovalMarker(snapshot)
+    );
+}
+
+function hasSeenAcademyApprovalBadge(snapshot = null) {
+    const marker = getAcademyApprovalMarker(snapshot);
+    if (!marker) return false;
+    return readAcademySeenMarker(YH_ACADEMY_APPROVAL_BADGE_SEEN_KEY) === marker;
+}
+
+function markAcademyApprovalBadgeSeen(snapshot = null) {
+    writeAcademySeenMarker(
+        YH_ACADEMY_APPROVAL_BADGE_SEEN_KEY,
+        getAcademyApprovalMarker(snapshot)
+    );
+}
+
+function fadeOutAcademyApprovalBadge(stateBadge, snapshot = null) {
+    if (!stateBadge) return;
+
+    const marker = getAcademyApprovalMarker(snapshot);
+    if (!marker) return;
+
+    if (hasSeenAcademyApprovalBadge(snapshot)) {
+        stateBadge.classList.add('is-hidden');
+        stateBadge.textContent = '';
+        stateBadge.style.opacity = '';
+        stateBadge.style.transform = '';
+        stateBadge.style.transition = '';
+        return;
+    }
+
+    if (stateBadge.dataset.fadeMarker === marker) return;
+    stateBadge.dataset.fadeMarker = marker;
+
+    if (stateBadge._academyFadeTimer) {
+        clearTimeout(stateBadge._academyFadeTimer);
+    }
+
+    if (stateBadge._academyHideTimer) {
+        clearTimeout(stateBadge._academyHideTimer);
+    }
+
+    stateBadge.style.opacity = '1';
+    stateBadge.style.transform = 'translateY(0)';
+    stateBadge.style.transition = 'opacity 0.45s ease, transform 0.45s ease';
+
+    stateBadge._academyFadeTimer = setTimeout(() => {
+        stateBadge.style.opacity = '0';
+        stateBadge.style.transform = 'translateY(-8px)';
+
+        stateBadge._academyHideTimer = setTimeout(() => {
+            stateBadge.classList.add('is-hidden');
+            stateBadge.textContent = '';
+            stateBadge.style.opacity = '';
+            stateBadge.style.transform = '';
+            stateBadge.style.transition = '';
+            markAcademyApprovalBadgeSeen(snapshot);
+        }, 460);
+    }, 2600);
+}
 
 function readYhAdminPanelState() {
     try {
@@ -5104,7 +5221,10 @@ async function refreshAcademyMembershipStatus(force = false) {
                 academyMembershipLastNotifiedStatus = nextStatus;
 
                 if (nextStatus === 'approved') {
-                    showToast('Academy approved. You can now enter.', 'success');
+                    if (!hasSeenAcademyApprovalToast(snapshot)) {
+                        showToast('Academy approved. You can now enter.', 'success');
+                        markAcademyApprovalToastSeen(snapshot);
+                    }
                 } else if (nextStatus === 'waitlisted') {
                     showToast('Your Academy application is now waitlisted.', 'error');
                 } else if (nextStatus === 'rejected') {
