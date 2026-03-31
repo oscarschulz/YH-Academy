@@ -827,9 +827,11 @@ document.getElementById('btn-open-federation-preview')?.addEventListener('click'
 });
 
 bindUniverseSwipe();
-refreshAcademyMembershipStatus(true).catch(() => {});
-startAcademyMembershipRealtimeSync();
 
+setTimeout(() => {
+    refreshAcademyMembershipStatus(true).catch(() => {});
+    startAcademyMembershipRealtimeSync();
+}, 0);
 function openRoom(type, element) {
     document.querySelectorAll('.channel-link').forEach(link => link.classList.remove('active'));
     if (element && !element.classList.contains('room-entry')) {
@@ -2385,10 +2387,11 @@ if (getStoredUserValue('yh_user_loggedIn') === 'true') {
         avatarBg: 'var(--neon-blue)'
     });
 
-    bindCommunicationsSearch();
+    if (typeof bindCommunicationsSearch === 'function') {
+        bindCommunicationsSearch();
+    }
     renderDmModalDirectory('');
     renderPendingGroupMembers();
-
     loadCustomRooms(); 
     loadBlueprintProgress();
     loadVoiceLounges(); 
