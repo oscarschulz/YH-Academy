@@ -2407,15 +2407,38 @@ if (getStoredUserValue('yh_user_loggedIn') === 'true') {
     if (typeof renderPendingGroupMembers === 'function') {
         renderPendingGroupMembers();
     }
-    loadCustomRooms(); 
-    loadBlueprintProgress();
-    loadVoiceLounges(); 
-    loadVideoLounges();
-    renderLeaderboard();
-    loadVault();
 
-    resolveAcademyAccessState().catch(() => {});
-    refreshAcademyMembershipStatus(true).catch(() => {});
+    if (typeof loadCustomRooms === 'function') {
+        loadCustomRooms();
+    }
+
+    if (typeof loadBlueprintProgress === 'function') {
+        loadBlueprintProgress();
+    }
+
+    if (typeof loadVoiceLounges === 'function') {
+        loadVoiceLounges();
+    }
+
+    if (typeof loadVideoLounges === 'function') {
+        loadVideoLounges();
+    }
+
+    if (typeof renderLeaderboard === 'function') {
+        renderLeaderboard();
+    }
+
+    if (typeof loadVault === 'function') {
+        loadVault();
+    }
+
+    if (typeof resolveAcademyAccessState === 'function') {
+        resolveAcademyAccessState().catch(() => {});
+    }
+
+    if (typeof refreshAcademyMembershipStatus === 'function') {
+        refreshAcademyMembershipStatus(true).catch(() => {});
+    }
 }
 
     // ==========================================
