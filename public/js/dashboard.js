@@ -395,28 +395,29 @@ function updateUserProfile(newName, newAvatarData) {
 
     if (safeName) {
         const initial = safeName.charAt(0).toUpperCase();
-const elsName = [
-    document.getElementById('top-nav-name'),
-    document.getElementById('right-sidebar-name'),
-    document.getElementById('stage-user-name'),
-    document.getElementById('academy-profile-name')
-];
 
-        elsName.forEach(el => {
+        const elsName = [
+            document.getElementById('top-nav-name'),
+            document.getElementById('right-sidebar-name'),
+            document.getElementById('stage-user-name'),
+            document.getElementById('academy-profile-name')
+        ];
+
+        elsName.forEach((el) => {
             if (el) {
                 el.innerText = safeName;
                 el.setAttribute('title', safeName);
             }
         });
 
-const elsInit = [
-    document.getElementById('top-nav-initial'),
-    document.getElementById('right-sidebar-initial'),
-    document.getElementById('stage-user-initial'),
-    document.getElementById('academy-profile-avatar')
-];
+        const elsInit = [
+            document.getElementById('top-nav-initial'),
+            document.getElementById('right-sidebar-initial'),
+            document.getElementById('stage-user-initial'),
+            document.getElementById('academy-profile-avatar')
+        ];
 
-        elsInit.forEach(el => {
+        elsInit.forEach((el) => {
             if (el && !newAvatarData) {
                 el.innerText = initial;
                 el.style.backgroundImage = 'none';
@@ -425,14 +426,15 @@ const elsInit = [
     }
 
     if (newAvatarData) {
-const elsAvatar = [
-    document.getElementById('top-nav-initial'),
-    document.getElementById('right-sidebar-initial'),
-    document.getElementById('stage-user-initial'),
-    document.getElementById('academy-feed-composer-avatar'),
-    document.getElementById('academy-profile-avatar')
-];
-        elsAvatar.forEach(el => {
+        const elsAvatar = [
+            document.getElementById('top-nav-initial'),
+            document.getElementById('right-sidebar-initial'),
+            document.getElementById('stage-user-initial'),
+            document.getElementById('academy-feed-composer-avatar'),
+            document.getElementById('academy-profile-avatar')
+        ];
+
+        elsAvatar.forEach((el) => {
             if (el) {
                 el.innerText = '';
                 el.style.backgroundImage = `url(${newAvatarData})`;
@@ -448,6 +450,49 @@ const elsAvatar = [
         }
     }
 }
+
+function persistKnownUser(user = {}) {
+    const safeName = String(user?.name || '').trim();
+    if (!safeName) return null;
+
+    const storageKey = 'yh_known_users_cache_v1';
+
+    let knownUsers = [];
+    try {
+        knownUsers = JSON.parse(localStorage.getItem(storageKey) || '[]');
+        if (!Array.isArray(knownUsers)) knownUsers = [];
+    } catch (_) {
+        knownUsers = [];
+    }
+
+    const normalizedName = safeName.toLowerCase();
+
+    const nextUser = {
+        name: safeName,
+        role: String(user?.role || 'Hustler').trim() || 'Hustler',
+        avatarToken: String(user?.avatarToken || safeName.charAt(0).toUpperCase()).trim(),
+        avatarBg: String(user?.avatarBg || 'var(--neon-blue)').trim() || 'var(--neon-blue)',
+        updatedAt: new Date().toISOString()
+    };
+
+    const existingIndex = knownUsers.findIndex((item) => {
+        return String(item?.name || '').trim().toLowerCase() === normalizedName;
+    });
+
+    if (existingIndex >= 0) {
+        knownUsers[existingIndex] = {
+            ...knownUsers[existingIndex],
+            ...nextUser
+        };
+    } else {
+        knownUsers.unshift(nextUser);
+    }
+
+    localStorage.setItem(storageKey, JSON.stringify(knownUsers.slice(0, 100)));
+    return nextUser;
+}
+
+window.persistKnownUser = persistKnownUser;
 
 function sendSystemNotification(title, text, avatarStr, color, target) {
     const notifList = document.getElementById('notif-list-container');
@@ -5149,7 +5194,7 @@ function queueAcademyMembershipApplication(payload = {}, serverApplication = nul
 
     return nextRecord;
 }
-let academySuppressClickUntil = 0;
+var academySuppressClickUntil = 0;
 
 async function handleAcademyLaunchClick(event) {
     const eventType = event?.type || '';
@@ -5211,7 +5256,7 @@ async function handleAcademyLaunchClick(event) {
 }
 window.handleAcademyLaunchClick = handleAcademyLaunchClick;
 
-let academyLaunchLock = false;
+var academyLaunchLock = false;
 
 async function runAcademyLaunch(event) {
     const launchTarget = resolveAcademyLaunchTarget(event);
