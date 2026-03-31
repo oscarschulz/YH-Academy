@@ -749,16 +749,12 @@ document.getElementById('yh-universe-next')?.addEventListener('click', (event) =
 document.querySelectorAll('.yh-universe-slide .portal-card').forEach((card) => {
     card.addEventListener('click', (event) => {
         if (event.target.closest('button, a, input, textarea, select, label, [role="button"]')) return;
+        if (event.target.closest('.academy-entry-cta-wrap, #btn-open-academy-apply')) return;
 
         const slide = card.closest('.yh-universe-slide');
         if (!slide || !slide.classList.contains('is-active')) return;
 
         const division = (slide.getAttribute('data-division') || '').trim().toLowerCase();
-
-        if (division === 'academy') {
-            handleAcademyLaunchClick(event);
-            return;
-        }
 
         if (division === 'plazas') {
             openDivisionPreview('plazas');
@@ -4457,46 +4453,8 @@ async function runDashboardButtonAction(button, loadingLabel, action) {
     }
 }
 
-function resolveAcademyLaunchTarget(event) {
-    const target = resolveEventElementTarget(event);
-    return target?.closest?.('#btn-open-academy-apply, .academy-entry-cta-wrap') || null;
-}
-
-function setDashboardButtonLoadingState(button, isLoading = false, loadingLabel = 'Loading...') {
-    if (!button) return;
-
-    const idleLabel = String(
-        button.dataset.idleLabel ||
-        button.textContent ||
-        ''
-    ).trim();
-
-    if (idleLabel) {
-        button.dataset.idleLabel = idleLabel;
-    }
-
-    if (isLoading) {
-        button.dataset.loading = 'true';
-        button.disabled = true;
-        button.setAttribute('aria-disabled', 'true');
-        button.setAttribute('aria-busy', 'true');
-        button.style.cursor = 'wait';
-        button.style.opacity = '0.92';
-        button.textContent = loadingLabel;
-        return;
-    }
-
-    button.dataset.loading = 'false';
-    button.disabled = false;
-    button.setAttribute('aria-disabled', 'false');
-    button.setAttribute('aria-busy', 'false');
-    button.style.cursor = 'pointer';
-    button.style.opacity = '1';
-
-    if (button.dataset.idleLabel) {
-        button.textContent = button.dataset.idleLabel;
-    }
-}
+/* duplicate setDashboardButtonLoadingState removed
+   keep the first definition above as the single source of truth */
 
 function syncAcademyEntryButton(snapshot = null) {
     if (!btnOpenApply) return;
@@ -5253,10 +5211,6 @@ function bindAcademyLaunchTarget(target) {
             runAcademyLaunch(event);
         }
     });
-}
-
-if (academyEntryWrap) {
-    bindAcademyLaunchTarget(academyEntryWrap);
 }
 
 if (btnOpenApply) {

@@ -3585,6 +3585,8 @@ body[data-yh-view="academy"] #center-stage-view {
 }
 /* ==========================================
    ACADEMY HUB BUTTON CLICK FIX
+   keep this block neutral so the final CTA block below
+   remains the only source of truth
    ========================================== */
 
 .yh-universe-carousel,
@@ -3594,35 +3596,8 @@ body[data-yh-view="academy"] #center-stage-view {
     position: relative;
 }
 
-.yh-universe-carousel {
-    overflow: hidden !important;
-    isolation: isolate;
-}
-
 .yh-universe-track {
-    overflow: visible !important;
     will-change: transform;
-}
-
-.yh-universe-slide {
-    overflow: hidden !important;
-    pointer-events: none;
-}
-
-.yh-universe-slide.is-active {
-    pointer-events: auto !important;
-    z-index: 20 !important;
-}
-
-.yh-universe-slide.is-active .portal-card.active-portal {
-    position: relative;
-    z-index: 25 !important;
-    overflow: hidden !important;
-}
-
-.yh-universe-slide.is-active .portal-card.active-portal,
-.yh-universe-slide.is-active .portal-card.active-portal * {
-    pointer-events: auto !important;
 }
 
 #btn-open-academy-apply {
