@@ -5403,9 +5403,9 @@ async function handleAcademyLaunchClick(event) {
     syncAcademyEntryButton(membershipSnapshot);
 
     if (membershipStatus === 'approved') {
-        if (!hasSeenAcademyCommunityApprovalToast(snapshot)) {
+        if (!hasSeenAcademyCommunityApprovalToast(membershipSnapshot)) {
             showToast('Academy membership approved. Opening Community Feed.', 'success');
-            markAcademyCommunityApprovalToastSeen(snapshot);
+            markAcademyCommunityApprovalToastSeen(membershipSnapshot);
         }
 
         enterAcademyWorld('community');
