@@ -5019,6 +5019,7 @@ const YH_ADMIN_PANEL_STORAGE_KEY = 'yh_admin_panel_state_v2';
 const YH_ACADEMY_MEMBERSHIP_CACHE_KEY = 'yh_academy_membership_status_v1';
 const YH_ACADEMY_APPROVAL_TOAST_SEEN_KEY = 'yh_academy_approval_toast_seen_v1';
 const YH_ACADEMY_APPROVAL_BADGE_SEEN_KEY = 'yh_academy_approval_badge_seen_v1';
+const YH_ACADEMY_COMMUNITY_APPROVAL_TOAST_SEEN_KEY = 'yh_academy_community_approval_toast_seen_v1';
 
 function getAcademyApprovalMarker(snapshot = null) {
     const application =
@@ -5077,6 +5078,19 @@ function hasSeenAcademyApprovalBadge(snapshot = null) {
 function markAcademyApprovalBadgeSeen(snapshot = null) {
     writeAcademySeenMarker(
         YH_ACADEMY_APPROVAL_BADGE_SEEN_KEY,
+        getAcademyApprovalMarker(snapshot)
+    );
+}
+
+function hasSeenAcademyCommunityApprovalToast(snapshot = null) {
+    const marker = getAcademyApprovalMarker(snapshot);
+    if (!marker) return false;
+    return readAcademySeenMarker(YH_ACADEMY_COMMUNITY_APPROVAL_TOAST_SEEN_KEY) === marker;
+}
+
+function markAcademyCommunityApprovalToastSeen(snapshot = null) {
+    writeAcademySeenMarker(
+        YH_ACADEMY_COMMUNITY_APPROVAL_TOAST_SEEN_KEY,
         getAcademyApprovalMarker(snapshot)
     );
 }
@@ -5389,7 +5403,11 @@ async function handleAcademyLaunchClick(event) {
     syncAcademyEntryButton(membershipSnapshot);
 
     if (membershipStatus === 'approved') {
-        showToast('Academy membership approved. Opening Community Feed.', 'success');
+        if (!hasSeenAcademyCommunityApprovalToast(snapshot)) {
+            showToast('Academy membership approved. Opening Community Feed.', 'success');
+            markAcademyCommunityApprovalToastSeen(snapshot);
+        }
+
         enterAcademyWorld('community');
         return false;
     }

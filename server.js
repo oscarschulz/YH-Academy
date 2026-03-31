@@ -281,7 +281,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 30,
-    message: { success: false, message: "Too many requests from this IP. Try again in 15 minutes." },
+    message: { success: false, message: "Please wait a moment and try again." },
     standardHeaders: true,
     legacyHeaders: false,
     skip: (req) => {
