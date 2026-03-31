@@ -832,6 +832,7 @@ setTimeout(() => {
     refreshAcademyMembershipStatus(true).catch(() => {});
     startAcademyMembershipRealtimeSync();
 }, 0);
+
 function openRoom(type, element) {
     document.querySelectorAll('.channel-link').forEach(link => link.classList.remove('active'));
     if (element && !element.classList.contains('room-entry')) {
@@ -1883,7 +1884,9 @@ async function loadVault() {
         const modalBody = e.target.closest('.modal-body');
 
         if (e.target.closest('#dm-modal')) {
-            renderDmModalDirectory(searchTerm);
+            if (typeof renderDmModalDirectory === 'function') {
+                renderDmModalDirectory(searchTerm);
+            }
             return;
         }
 
@@ -1899,12 +1902,18 @@ async function loadVault() {
 document.getElementById('btn-open-dm-modal')?.addEventListener('click', () => {
     const modalSearch = document.querySelector('#dm-modal .modal-search');
     if (modalSearch) modalSearch.value = '';
-    renderDmModalDirectory('');
+
+    if (typeof renderDmModalDirectory === 'function') {
+        renderDmModalDirectory('');
+    }
+
     resetDmModalSelection();
 });
 
 document.getElementById('btn-open-group-modal')?.addEventListener('click', () => {
-    renderPendingGroupMembers();
+    if (typeof renderPendingGroupMembers === 'function') {
+        renderPendingGroupMembers();
+    }
 });
 function syncGroupCreateButtonState() {
     const btnCreateGroup = document.getElementById('btn-create-group');
@@ -2390,8 +2399,14 @@ if (getStoredUserValue('yh_user_loggedIn') === 'true') {
     if (typeof bindCommunicationsSearch === 'function') {
         bindCommunicationsSearch();
     }
-    renderDmModalDirectory('');
-    renderPendingGroupMembers();
+
+    if (typeof renderDmModalDirectory === 'function') {
+        renderDmModalDirectory('');
+    }
+
+    if (typeof renderPendingGroupMembers === 'function') {
+        renderPendingGroupMembers();
+    }
     loadCustomRooms(); 
     loadBlueprintProgress();
     loadVoiceLounges(); 
