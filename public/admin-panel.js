@@ -294,6 +294,24 @@ function makeEmptyRow(colspan, text) {
   return `<tr><td colspan="${colspan}" class="muted">${escapeHtml(text)}</td></tr>`;
 }
 
+function getApplicationPreviewMarkup(app) {
+  const goal = String(app.goal || '').trim() || 'No goal submitted.';
+  const background = String(app.background || '').trim() || 'No background submitted.';
+
+  return `
+    <div class="app-preview">
+      <div class="app-preview-line">
+        <span>Goal</span>
+        <p>${escapeHtml(goal)}</p>
+      </div>
+      <div class="app-preview-line">
+        <span>Background</span>
+        <p>${escapeHtml(background)}</p>
+      </div>
+    </div>
+  `;
+}
+
 function setView(view) {
   state.ui.currentView = view;
   saveState();
@@ -692,19 +710,27 @@ function renderOverview() {
       .slice()
       .sort((a, b) => Number(b.aiScore || 0) - Number(a.aiScore || 0))
       .slice(0, 5)
-      .map(app => `
-        <tr>
-          ${makeCell('Name', `<strong>${escapeHtml(app.name)}</strong><div class="muted mono">${escapeHtml(app.id)}</div>`)}
-          ${makeCell('Email', escapeHtml(app.email || ''))}
-          ${makeCell('Type', formatBadge(app.recommendedDivision || 'Academy'))}
-          ${makeCell('Source', escapeHtml(app.source || ''))}
-          ${makeCell('Goal / Background', `<div>${escapeHtml(app.goal || '')}</div><div class="muted">${escapeHtml(app.background || '')}</div>`)}
-          ${makeCell('Recommended', formatBadge(app.recommendedDivision || 'Academy'))}
-          ${makeCell('Status', formatBadge(app.status || 'Under Review'))}
-          ${makeCell('AI Score', `${Number(app.aiScore || 0)}`)}
-          ${makeCell('Actions', `<button class="badge-btn" data-open="application" data-id="${app.id}">Open</button>`)}
-        </tr>
-      `).join('') || makeEmptyRow(9, 'No applications yet.');
+      .map(app => {
+        const appTypeLabel = String(app.applicationType || 'general')
+          .replace(/-/g, ' ')
+          .replace(/\b\w/g, (char) => char.toUpperCase());
+
+        const appSource = String(app.source || 'Unknown').trim() || 'Unknown';
+
+        return `
+          <tr>
+            ${makeCell('Name', `<strong>${escapeHtml(app.name)}</strong><div class="muted mono">${escapeHtml(app.id)}</div>`)}
+            ${makeCell('Email', escapeHtml(app.email || '—'))}
+            ${makeCell('Type', formatBadge(appTypeLabel))}
+            ${makeCell('Source', escapeHtml(appSource))}
+            ${makeCell('Goal / Background', getApplicationPreviewMarkup(app))}
+            ${makeCell('Recommended', formatBadge(app.recommendedDivision || 'Academy'))}
+            ${makeCell('Status', formatBadge(app.status || 'Under Review'))}
+            ${makeCell('AI Score', `${Number(app.aiScore || 0)}`)}
+            ${makeCell('Actions', `<button class="badge-btn" data-open="application" data-id="${app.id}">View Form</button>`)}
+          </tr>
+        `;
+      }).join('') || makeEmptyRow(9, 'No applications yet.');
   }
 
   if (divisionSnapshotEl) {
@@ -743,24 +769,19 @@ function renderApplications() {
 
     const appSource = String(app.source || 'Unknown').trim() || 'Unknown';
 
-    const goalAndBackground = [
-      String(app.goal || '').trim(),
-      String(app.background || '').trim()
-    ].filter(Boolean).join(' • ') || 'No summary submitted.';
-
     return `
       <tr>
         ${makeCell('Name', `<strong>${escapeHtml(app.name)}</strong><div class="muted mono">${escapeHtml(app.id)}</div>`)}
         ${makeCell('Email', escapeHtml(app.email || '—'))}
         ${makeCell('Type', formatBadge(appTypeLabel))}
         ${makeCell('Source', escapeHtml(appSource))}
-        ${makeCell('Goal / Background', escapeHtml(goalAndBackground))}
+        ${makeCell('Goal / Background', getApplicationPreviewMarkup(app))}
         ${makeCell('Recommended', formatBadge(app.recommendedDivision))}
         ${makeCell('Status', formatBadge(app.status))}
         ${makeCell('AI Score', `${Number(app.aiScore || 0)}`)}
         ${makeCell('Actions', `
           <div class="table-actions">
-            <button data-open="application" data-id="${app.id}">View</button>
+            <button data-open="application" data-id="${app.id}">View Form</button>
             <button data-action="approve-application" data-id="${app.id}">Approve</button>
             <button data-action="reject-application" data-id="${app.id}">Reject</button>
             <button data-action="waitlist-application" data-id="${app.id}">Waitlist</button>
@@ -1187,34 +1208,86 @@ if (type === 'application') {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 
   return `
-    <div class="drawer-section">
-      <h4>Applicant Summary</h4>
-      <div class="kv-grid">
-        <div class="kv"><span>Name</span><strong>${escapeHtml(record.name)}</strong></div>
-        <div class="kv"><span>Username</span><strong>${escapeHtml(record.username || '—')}</strong></div>
-        <div class="kv"><span>Email</span><strong>${escapeHtml(record.email || '—')}</strong></div>
-        <div class="kv"><span>Type</span>${formatBadge(appTypeLabel)}</div>
-        <div class="kv"><span>Recommended</span>${formatBadge(record.recommendedDivision)}</div>
-        <div class="kv"><span>Status</span>${formatBadge(record.status)}</div>
-        <div class="kv"><span>Source</span><strong>${escapeHtml(record.source || 'Unknown')}</strong></div>
-        <div class="kv"><span>Submitted</span><strong>${escapeHtml(record.submittedAt || 'Unknown')}</strong></div>
-        <div class="kv"><span>AI Score</span><strong>${Number(record.aiScore || 0)}</strong></div>
-        <div class="kv"><span>Country</span><strong>${escapeHtml(record.country || '—')}</strong></div>
+    <div class="drawer-section application-hero">
+      <div class="application-hero-top">
+        <div class="application-hero-copy">
+          <div class="application-kicker">Applicant Intake Reader</div>
+          <h4>${escapeHtml(record.name || 'Unnamed Applicant')}</h4>
+          <p class="application-subtitle">${escapeHtml(record.email || 'No email provided')}</p>
+        </div>
+
+        <div class="application-badge-stack">
+          ${formatBadge(record.status || 'Under Review')}
+          ${formatBadge(record.recommendedDivision || 'Academy')}
+        </div>
+      </div>
+
+      <div class="application-meta-grid">
+        <div class="application-meta-item">
+          <span>Application ID</span>
+          <strong>${escapeHtml(record.id || '—')}</strong>
+        </div>
+        <div class="application-meta-item">
+          <span>Type</span>
+          <strong>${escapeHtml(appTypeLabel)}</strong>
+        </div>
+        <div class="application-meta-item">
+          <span>Source</span>
+          <strong>${escapeHtml(record.source || 'Unknown')}</strong>
+        </div>
+        <div class="application-meta-item">
+          <span>Submitted</span>
+          <strong>${escapeHtml(record.submittedAt || 'Unknown')}</strong>
+        </div>
+        <div class="application-meta-item">
+          <span>AI Score</span>
+          <strong>${Number(record.aiScore || 0)}</strong>
+        </div>
+        <div class="application-meta-item">
+          <span>Country</span>
+          <strong>${escapeHtml(record.country || '—')}</strong>
+        </div>
       </div>
     </div>
 
     <div class="drawer-section">
-      <h4>Intent</h4>
-      <p><strong>Goal:</strong> ${escapeHtml(record.goal || '—')}</p>
-      <p><strong>Background:</strong> ${escapeHtml(record.background || '—')}</p>
-      <p><strong>Network Value:</strong> ${escapeHtml(record.networkValue || 'Unknown')}</p>
-      <p><strong>Skills:</strong> ${escapeHtml(skills.join(', ') || '—')}</p>
+      <h4>Identity & Routing</h4>
+      <div class="kv-grid application-kv-grid">
+        <div class="kv"><span>Name</span><strong>${escapeHtml(record.name || '—')}</strong></div>
+        <div class="kv"><span>Username</span><strong>${escapeHtml(record.username || '—')}</strong></div>
+        <div class="kv"><span>Email</span><strong>${escapeHtml(record.email || '—')}</strong></div>
+        <div class="kv"><span>Recommended Division</span>${formatBadge(record.recommendedDivision || 'Academy')}</div>
+        <div class="kv"><span>Status</span>${formatBadge(record.status || 'Under Review')}</div>
+        <div class="kv"><span>Application Type</span>${formatBadge(appTypeLabel)}</div>
+      </div>
+    </div>
+
+    <div class="drawer-section">
+      <h4>Main Form Answers</h4>
+      <div class="answer-stack">
+        <div class="answer-card">
+          <span class="answer-label">Goal</span>
+          <p>${escapeHtml(record.goal || '—')}</p>
+        </div>
+        <div class="answer-card">
+          <span class="answer-label">Background</span>
+          <p>${escapeHtml(record.background || '—')}</p>
+        </div>
+        <div class="answer-card">
+          <span class="answer-label">Network Value</span>
+          <p>${escapeHtml(record.networkValue || 'Unknown')}</p>
+        </div>
+        <div class="answer-card">
+          <span class="answer-label">Skills</span>
+          <p>${escapeHtml(skills.join(', ') || '—')}</p>
+        </div>
+      </div>
     </div>
 
     ${profile ? `
       <div class="drawer-section">
-        <h4>Academy Application Details</h4>
-        <div class="kv-grid">
+        <h4>Academy Intake Breakdown</h4>
+        <div class="kv-grid application-kv-grid">
           <div class="kv"><span>Occupation Type</span><strong>${escapeHtml(profile.occupationType || '—')}</strong></div>
           <div class="kv"><span>Current Job / Business</span><strong>${escapeHtml(profile.currentJob || '—')}</strong></div>
           <div class="kv"><span>Industry</span><strong>${escapeHtml(profile.industry || '—')}</strong></div>
@@ -1224,19 +1297,42 @@ if (type === 'application') {
           <div class="kv"><span>Weekly Hours</span><strong>${escapeHtml(profile.weeklyHours || '—')}</strong></div>
           <div class="kv"><span>Coach Tone</span><strong>${escapeHtml(profile.coachTone || '—')}</strong></div>
         </div>
-        <p><strong>Why join Academy:</strong> ${escapeHtml(profile.joinReason || '—')}</p>
-        <p><strong>6-month goals:</strong> ${escapeHtml(profile.goals6mo || '—')}</p>
-        <p><strong>Main blocker:</strong> ${escapeHtml(profile.blockerText || '—')}</p>
-        <p><strong>Bad habit:</strong> ${escapeHtml(profile.badHabit || '—')}</p>
+
+        <div class="answer-stack">
+          <div class="answer-card">
+            <span class="answer-label">Why Join Academy</span>
+            <p>${escapeHtml(profile.joinReason || '—')}</p>
+          </div>
+          <div class="answer-card">
+            <span class="answer-label">6 Month Goals</span>
+            <p>${escapeHtml(profile.goals6mo || '—')}</p>
+          </div>
+          <div class="answer-card">
+            <span class="answer-label">Main Blocker</span>
+            <p>${escapeHtml(profile.blockerText || '—')}</p>
+          </div>
+          <div class="answer-card">
+            <span class="answer-label">Bad Habit</span>
+            <p>${escapeHtml(profile.badHabit || '—')}</p>
+          </div>
+        </div>
       </div>
     ` : ''}
 
     <div class="drawer-section">
       <h4>Internal Notes</h4>
-      <div class="stack-list">
+      <div class="stack-list application-notes">
         ${notes.length ? notes.map(note => `<div class="stack-item"><p>${escapeHtml(note)}</p></div>`).join('') : '<div class="stack-item"><p>No notes yet.</p></div>'}
       </div>
-      <div class="inline-actions">
+    </div>
+
+    <div class="drawer-section application-review-bar">
+      <div class="application-review-copy">
+        <div class="application-kicker">Decision Panel</div>
+        <p>Review the full intake above, then take action on this application.</p>
+      </div>
+
+      <div class="inline-actions application-inline-actions">
         <button class="badge-btn" data-action="approve-application" data-id="${record.id}">Approve</button>
         <button class="badge-btn" data-action="reject-application" data-id="${record.id}">Reject</button>
         <button class="badge-btn" data-action="waitlist-application" data-id="${record.id}">Waitlist</button>
@@ -1375,6 +1471,114 @@ if (type === 'application') {
   return '<div class="drawer-section"><p class="muted">No detail template found.</p></div>';
 }
 
+function resetDrawerHeadControls() {
+  const drawer = document.getElementById('detail-drawer');
+  const subtools = document.getElementById('drawer-head-subtools');
+  const statusEl = document.getElementById('drawer-head-status');
+  const statusSelect = document.getElementById('drawer-status-select');
+  const copyBtn = document.getElementById('drawer-copy-email-btn');
+
+  if (drawer) {
+    drawer.dataset.recordType = '';
+    drawer.dataset.recordId = '';
+  }
+
+  if (subtools) subtools.hidden = true;
+  if (statusEl) statusEl.innerHTML = '';
+
+  if (statusSelect) {
+    statusSelect.innerHTML = '<option value="">Quick Status</option>';
+    statusSelect.value = '';
+    statusSelect.dataset.id = '';
+  }
+
+  if (copyBtn) {
+    copyBtn.hidden = true;
+    copyBtn.dataset.email = '';
+    copyBtn.dataset.id = '';
+  }
+}
+
+function setDrawerHeadControls(type, record) {
+  resetDrawerHeadControls();
+
+  const drawer = document.getElementById('detail-drawer');
+  const subtools = document.getElementById('drawer-head-subtools');
+  const statusEl = document.getElementById('drawer-head-status');
+  const statusSelect = document.getElementById('drawer-status-select');
+  const copyBtn = document.getElementById('drawer-copy-email-btn');
+
+  if (drawer) {
+    drawer.dataset.recordType = type || '';
+    drawer.dataset.recordId = record?.id || '';
+  }
+
+  if (type !== 'application' || !record) return;
+  if (!subtools || !statusEl || !statusSelect || !copyBtn) return;
+
+  const currentStatus = String(record.status || 'Under Review').trim() || 'Under Review';
+  const email = String(record.email || '').trim();
+
+  subtools.hidden = false;
+  statusEl.innerHTML = formatBadge(currentStatus);
+
+  statusSelect.innerHTML = `
+    <option value="">Quick Status</option>
+    <option value="approve-application"${currentStatus === 'Approved' ? ' disabled' : ''}>Set Approved</option>
+    <option value="reject-application"${currentStatus === 'Rejected' ? ' disabled' : ''}>Set Rejected</option>
+    <option value="waitlist-application"${currentStatus === 'Waitlisted' ? ' disabled' : ''}>Set Waitlisted</option>
+  `;
+  statusSelect.value = '';
+  statusSelect.dataset.id = record.id;
+
+  copyBtn.hidden = !email;
+  copyBtn.dataset.email = email;
+  copyBtn.dataset.id = record.id;
+}
+
+async function copyTextToClipboard(text) {
+  const value = String(text || '').trim();
+  if (!value) return false;
+
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value);
+      return true;
+    }
+  } catch (_) {}
+
+  const temp = document.createElement('textarea');
+  temp.value = value;
+  temp.setAttribute('readonly', '');
+  temp.style.position = 'fixed';
+  temp.style.opacity = '0';
+  temp.style.pointerEvents = 'none';
+  document.body.appendChild(temp);
+  temp.select();
+
+  try {
+    const copied = document.execCommand('copy');
+    document.body.removeChild(temp);
+    return copied;
+  } catch (_) {
+    document.body.removeChild(temp);
+    return false;
+  }
+}
+
+async function handleDrawerStatusChange(action, id) {
+  if (!action || !id) return;
+
+  await handleAction(action, id);
+
+  const refreshed = findById('applications', id);
+  if (refreshed) {
+    openDrawer('application', id);
+  } else {
+    closeDrawer();
+  }
+}
+
 function openDrawer(type, id) {
   const map = {
     application: 'applications',
@@ -1393,6 +1597,7 @@ function openDrawer(type, id) {
   document.getElementById('drawer-type').textContent = type[0].toUpperCase() + type.slice(1);
   document.getElementById('drawer-title').textContent = record?.name || record?.title || record?.memberName || id;
   document.getElementById('drawer-body').innerHTML = getDrawerTemplate(type, record);
+  setDrawerHeadControls(type, record);
 
   if (drawer) {
     drawer.classList.add('open');
@@ -1406,7 +1611,6 @@ function openDrawer(type, id) {
 
   document.body.classList.add('drawer-open');
 }
-
 function closeDrawer() {
   const drawer = document.getElementById('detail-drawer');
   const backdrop = document.getElementById('drawer-backdrop');
@@ -1423,6 +1627,7 @@ function closeDrawer() {
     }, 220);
   }
 
+  resetDrawerHeadControls();
   document.body.classList.remove('drawer-open');
 }
 
@@ -1757,10 +1962,36 @@ function bindEvents() {
     drawerBackdrop.addEventListener('click', closeDrawer);
   }
 
+  const drawerStatusSelect = document.getElementById('drawer-status-select');
+  if (drawerStatusSelect) {
+    drawerStatusSelect.addEventListener('change', async (e) => {
+      const select = e.target;
+      const action = select.value;
+      const id = select.dataset.id;
+
+      if (!action || !id) return;
+
+      select.disabled = true;
+      await handleDrawerStatusChange(action, id);
+      select.disabled = false;
+      select.value = '';
+    });
+  }
+
+  const drawerCopyEmailBtn = document.getElementById('drawer-copy-email-btn');
+  if (drawerCopyEmailBtn) {
+    drawerCopyEmailBtn.addEventListener('click', async () => {
+      const email = drawerCopyEmailBtn.dataset.email || '';
+      if (!email) return;
+
+      const copied = await copyTextToClipboard(email);
+      showToast(copied ? `Email copied: ${email}` : 'Failed to copy email.');
+    });
+  }
+
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeDrawer();
   });
-
 const broadcastTemplate = document.getElementById('broadcast-template');
 if (broadcastTemplate) {
   broadcastTemplate.addEventListener('change', () => {

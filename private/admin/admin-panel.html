@@ -578,11 +578,28 @@
 
     <aside class="detail-drawer" id="detail-drawer" aria-hidden="true">
     <div class="drawer-head">
-      <div>
-        <p class="eyebrow" id="drawer-type">Details</p>
-        <h3 id="drawer-title">Record</h3>
+      <div class="drawer-head-main">
+        <div class="drawer-head-copy">
+          <p class="eyebrow" id="drawer-type">Details</p>
+          <h3 id="drawer-title">Record</h3>
+        </div>
+
+        <div class="drawer-head-subtools" id="drawer-head-subtools" hidden>
+          <div class="drawer-head-status" id="drawer-head-status"></div>
+
+          <label class="drawer-status-switcher">
+            <span>Quick Status</span>
+            <select id="drawer-status-select">
+              <option value="">Quick Status</option>
+            </select>
+          </label>
+        </div>
       </div>
-      <button class="icon-btn" id="close-drawer-btn">✕</button>
+
+      <div class="drawer-head-actions">
+        <button class="ghost-btn drawer-copy-btn" id="drawer-copy-email-btn" hidden>Copy Email</button>
+        <button class="icon-btn" id="close-drawer-btn">✕</button>
+      </div>
     </div>
     <div class="drawer-body" id="drawer-body"></div>
   </aside>
