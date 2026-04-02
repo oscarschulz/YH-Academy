@@ -4845,25 +4845,39 @@ function stopAcademyMembershipRealtimeSync() {
 
 function startAcademyMembershipRealtimeSync() {
     if (academyMembershipRealtimeTimer) return;
+    if (!getStoredAuthToken()) return;
+
+    const cached = readAcademyMembershipCache();
+    if (!shouldKeepAcademyMembershipRealtimeSync(cached)) return;
 
     academyMembershipRealtimeTimer = setInterval(() => {
         if (document.visibilityState === 'hidden') return;
-        if (!localStorage.getItem('yh_token')) return;
-        refreshAcademyMembershipStatus(true).catch(() => {});
-    }, 5000);
+
+        if (!getStoredAuthToken()) {
+            stopAcademyMembershipRealtimeSync();
+            return;
+        }
+
+        if (!shouldKeepAcademyMembershipRealtimeSync()) {
+            stopAcademyMembershipRealtimeSync();
+            return;
+        }
+
+        requestAcademyMembershipRefresh('interval').catch(() => {});
+    }, ACADEMY_MEMBERSHIP_POLL_MS);
 }
 
 window.addEventListener('focus', () => {
-    refreshAcademyMembershipStatus(true).catch(() => {});
+    requestAcademyMembershipRefresh('focus').catch(() => {});
 });
 
 window.addEventListener('pageshow', () => {
-    refreshAcademyMembershipStatus(true).catch(() => {});
+    requestAcademyMembershipRefresh('pageshow').catch(() => {});
 });
 
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
-        refreshAcademyMembershipStatus(true).catch(() => {});
+        requestAcademyMembershipRefresh('visibilitychange').catch(() => {});
     }
 });
 
@@ -5174,6 +5188,38 @@ function writeAcademyMembershipCache(snapshot = null) {
 var academyMembershipRefreshPromise = null;
 var academyMembershipRealtimeTimer = null;
 var academyMembershipLastNotifiedStatus = '';
+var academyMembershipLastFetchAt = 0;
+var ACADEMY_MEMBERSHIP_POLL_MS = 60000;
+var ACADEMY_MEMBERSHIP_MIN_REFRESH_GAP_MS = 30000;
+
+function getAcademyMembershipFallbackSnapshot() {
+    return {
+        hasApplication: false,
+        applicationStatus: '',
+        hasRoadmapAccess: false,
+        canEnterAcademy: false,
+        application: null,
+        roadmapApplication: null,
+        roadmapApplicationStatus: ''
+    };
+}
+
+function isTerminalAcademyMembershipStatus(status = '') {
+    const normalized = String(status || '').trim().toLowerCase();
+    return normalized === 'approved' || normalized === 'waitlisted' || normalized === 'rejected';
+}
+
+function shouldKeepAcademyMembershipRealtimeSync(snapshot = null) {
+    if (!getStoredAuthToken()) return false;
+
+    const membership = snapshot && typeof snapshot === 'object'
+        ? snapshot
+        : (readAcademyMembershipCache() || null);
+
+    if (!membership || typeof membership !== 'object') return true;
+
+    return !isTerminalAcademyMembershipStatus(membership.applicationStatus);
+}
 
 async function refreshAcademyMembershipStatus(force = false) {
     const cached = readAcademyMembershipCache();
@@ -5187,6 +5233,8 @@ async function refreshAcademyMembershipStatus(force = false) {
     if (academyMembershipRefreshPromise) {
         return academyMembershipRefreshPromise;
     }
+
+    academyMembershipLastFetchAt = Date.now();
 
     academyMembershipRefreshPromise = (async () => {
         try {
@@ -5221,7 +5269,7 @@ async function refreshAcademyMembershipStatus(force = false) {
                     applications: [
                         snapshot.application,
                         ...(Array.isArray(readYhAdminPanelState()?.applications)
-                            ? readYhAdminPanelState().applications.filter(app => app?.id !== snapshot.application.id)
+                            ? readYhAdminPanelState().applications.filter((app) => app?.id !== snapshot.application.id)
                             : [])
                     ]
                 });
@@ -5246,17 +5294,13 @@ async function refreshAcademyMembershipStatus(force = false) {
                 }
             }
 
+            if (!shouldKeepAcademyMembershipRealtimeSync(snapshot)) {
+                stopAcademyMembershipRealtimeSync();
+            }
+
             return snapshot;
         } catch (_) {
-            const fallback = cached || {
-                hasApplication: false,
-                applicationStatus: '',
-                hasRoadmapAccess: false,
-                canEnterAcademy: false,
-                application: null,
-                roadmapApplication: null,
-                roadmapApplicationStatus: ''
-            };
+            const fallback = cached || getAcademyMembershipFallbackSnapshot();
 
             syncAcademyEntryButton(fallback);
             syncRoadmapTabIndicator(fallback);
@@ -5267,6 +5311,36 @@ async function refreshAcademyMembershipStatus(force = false) {
     })();
 
     return academyMembershipRefreshPromise;
+}
+
+function requestAcademyMembershipRefresh(reason = '', force = false) {
+    const cached = readAcademyMembershipCache();
+
+    if (!getStoredAuthToken()) {
+        return Promise.resolve(cached || getAcademyMembershipFallbackSnapshot());
+    }
+
+    if (academyMembershipRefreshPromise) {
+        return academyMembershipRefreshPromise;
+    }
+
+    const now = Date.now();
+    const hasFreshEnoughWindow =
+        academyMembershipLastFetchAt > 0 &&
+        (now - academyMembershipLastFetchAt) < ACADEMY_MEMBERSHIP_MIN_REFRESH_GAP_MS;
+
+    if (!force && hasFreshEnoughWindow && cached && typeof cached === 'object') {
+        syncAcademyEntryButton(cached);
+        syncRoadmapTabIndicator(cached);
+        return Promise.resolve(cached);
+    }
+
+    return refreshAcademyMembershipStatus(true).then((snapshot) => {
+        if (!shouldKeepAcademyMembershipRealtimeSync(snapshot)) {
+            stopAcademyMembershipRealtimeSync();
+        }
+        return snapshot;
+    });
 }
 function getCurrentAcademyApplicantIdentity() {
     return {
