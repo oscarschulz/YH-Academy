@@ -1884,8 +1884,9 @@ const localizedResources = {
         if (registerLabels[0]) registerLabels[0].textContent = t('auth.fullName');
         if (registerLabels[1]) registerLabels[1].textContent = t('auth.email');
         if (registerLabels[2]) registerLabels[2].textContent = t('auth.username');
-        if (registerLabels[3]) registerLabels[3].textContent = t('auth.createPassword');
-        if (registerLabels[4]) registerLabels[4].textContent = t('auth.confirmPassword');
+        if (registerLabels[3]) registerLabels[3].textContent = 'Profile Photo';
+        if (registerLabels[4]) registerLabels[4].textContent = t('auth.createPassword');
+        if (registerLabels[5]) registerLabels[5].textContent = t('auth.confirmPassword');
 
         setPlaceholder('#reg-fullname', t('auth.egName'));
         setPlaceholder('#reg-email', t('auth.egEmail'));
