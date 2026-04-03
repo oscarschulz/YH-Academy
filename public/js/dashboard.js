@@ -3803,8 +3803,17 @@ function renderAcademyProfileView() {
     const profileStatus = document.getElementById('academy-profile-status');
 
     if (profileAvatar) {
-        profileAvatar.innerText = displayName.charAt(0).toUpperCase();
-        profileAvatar.style.backgroundImage = 'none';
+        const savedAvatar = String(getStoredUserValue('yh_user_avatar', '')).trim();
+
+        if (savedAvatar) {
+            profileAvatar.innerText = '';
+            profileAvatar.style.backgroundImage = `url(${savedAvatar})`;
+            profileAvatar.style.backgroundSize = 'cover';
+            profileAvatar.style.backgroundPosition = 'center';
+        } else {
+            profileAvatar.innerText = displayName.charAt(0).toUpperCase();
+            profileAvatar.style.backgroundImage = 'none';
+        }
     }
 
     if (profileName) profileName.innerText = displayName;

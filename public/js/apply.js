@@ -142,10 +142,17 @@ function persistClientSession(user, token) {
 
     const username = String(user?.username || '').trim();
     const email = String(user?.email || '').trim().toLowerCase();
+    const existingAvatar = String(
+        sessionStorage.getItem('yh_user_avatar') ||
+        localStorage.getItem('yh_user_avatar') ||
+        ''
+    ).trim();
+
     const avatar = String(
         user?.avatar ||
         user?.profilePhoto ||
         user?.profilePhotoDataUrl ||
+        existingAvatar ||
         ''
     ).trim();
     const authToken = String(token || '').trim();
@@ -160,8 +167,6 @@ function persistClientSession(user, token) {
 
         if (avatar) {
             store.setItem('yh_user_avatar', avatar);
-        } else {
-            store.removeItem('yh_user_avatar');
         }
     });
 }
