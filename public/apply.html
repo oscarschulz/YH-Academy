@@ -30,10 +30,24 @@
                         </div>
                     </div>
 
-                    <button type="button" id="yh-scroll-auth" class="btn-secondary yh-topbar-btn">
-                        Enter Universe ➔
-                    </button>
-                </div>
+                    <div class="yh-topbar-actions">
+                        <div class="yh-lang-switcher-wrap">
+                            <select
+                                id="yh-language-switcher-apply"
+                                class="yh-lang-switcher"
+                                data-yh-language-switcher
+                                aria-label="Language selector"
+                            >
+                                <option value="en">EN</option>
+                                <option value="es">ES</option>
+                                <option value="fil">FIL</option>
+                            </select>
+                        </div>
+
+                        <button type="button" id="yh-scroll-auth" class="btn-secondary yh-topbar-btn">
+                            Enter Universe ➔
+                        </button>
+                    </div>
 
                 <div class="yh-landing-hero-grid">
                     <div class="yh-landing-hero-copy">
@@ -432,6 +446,8 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/i18next@latest/dist/umd/i18next.min.js"></script>
+    <script src="/js/i18n.js"></script>
     <script src="/js/apply.js"></script>
 </body>
 </html>

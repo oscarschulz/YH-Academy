@@ -21,12 +21,30 @@ function getStoredUserValue(key, fallback = '') {
     );
 }
 
+const yhT = (key, options = {}) => (
+    typeof window.yhT === 'function' ? window.yhT(key, options) : key
+);
+
+const yhTText = (text, options = {}) => (
+    typeof window.yhTText === 'function' ? window.yhTText(text, options) : text
+);
+
+function refreshDashboardRuntimeLanguage() {
+    if (typeof window.YHI18n?.translateDashboardPage === 'function') {
+        window.YHI18n.translateDashboardPage();
+    }
+}
+
+window.addEventListener('yh:i18n-ready', refreshDashboardRuntimeLanguage);
+window.addEventListener('yh:languageChanged', refreshDashboardRuntimeLanguage);
+
 const socket = io({
     withCredentials: true,
     auth: getStoredAuthToken() ? { token: getStoredAuthToken() } : {}
 });
 
 const myName = getStoredUserValue('yh_user_name', "Hustler");
+refreshDashboardRuntimeLanguage();
 
 let currentRoom = "YH-community";      // UI/display label
 let currentRoomId = "YH-community";    // backend transport identity
@@ -349,7 +367,7 @@ function showToast(message, type = "success") {
 
     const isMobile = window.innerWidth <= 768;
 
-    toastMsg.innerText = message;
+    toastMsg.innerText = yhTText(message);
 
     if (type === "error") {
         toast.classList.add('error-toast');
@@ -904,11 +922,11 @@ function openRoom(type, element) {
     if (type === 'main-chat') {
     if(chatHeaderIcon) chatHeaderIcon.innerHTML = `💬`;
     if(chatHeaderTitle) chatHeaderTitle.innerText = "YH-community";
-    if(chatHeaderTopic) chatHeaderTopic.innerText = "Welcome to The Academy Universe";
+    if(chatHeaderTopic) chatHeaderTopic.innerText = yhT('dashboard.chatWelcomeTopic');
     if(chatWelcomeBox) chatWelcomeBox.style.display = "block";
     if(chatPinnedMessage) chatPinnedMessage.style.display = "flex";
     if(chatInputBox) {
-        chatInputBox.placeholder = "Message 💬 YH-community.";
+        chatInputBox.placeholder = yhT('dashboard.chatPlaceholderCommunity', { room: 'YH-community' });
         chatInputBox.setAttribute('data-active-room-id', 'YH-community');
         chatInputBox.setAttribute('data-active-room-name', 'YH-community');
         chatInputBox.setAttribute('data-active-room-type', 'main-chat');
@@ -972,11 +990,13 @@ else if (type === 'dm' || type === 'group') {
 
     if(chatHeaderIcon) chatHeaderIcon.innerHTML = `<div class="member-avatar" style="${avatarStyle} width: 30px; height: 30px; font-size: 0.9rem;">${avatarText}</div>`;
     if(chatHeaderTitle) chatHeaderTitle.innerText = name;
-    if(chatHeaderTopic) chatHeaderTopic.innerText = (type === 'group') ? "Private Brainstorming Group" : "Direct Message";
+    if(chatHeaderTopic) chatHeaderTopic.innerText = (type === 'group')
+        ? yhT('dashboard.chatTopicGroup')
+        : yhT('dashboard.chatTopicDm');
     if(chatWelcomeBox) chatWelcomeBox.style.display = "none";
     if(chatPinnedMessage) chatPinnedMessage.style.display = "none";
     if(chatInputBox) {
-        chatInputBox.placeholder = `Message ${name}.`;
+        chatInputBox.placeholder = yhT('dashboard.chatPlaceholderRoom', { room: name });
         chatInputBox.setAttribute('data-active-room-id', roomId);
         chatInputBox.setAttribute('data-active-room-name', name);
         chatInputBox.setAttribute('data-active-room-type', type);
@@ -2693,16 +2713,16 @@ function academyResetMissionActionModal() {
     const noteEl = document.getElementById('academy-mission-action-note');
     const submitBtn = document.getElementById('btn-submit-mission-action');
 
-    if (titleEl) titleEl.innerText = 'Update Mission';
-    if (contextEl) contextEl.innerText = 'Add a short note before updating this mission.';
-    if (labelEl) labelEl.innerText = 'Note';
+    if (titleEl) titleEl.innerText = yhT('dashboard.missionUpdateTitle');
+    if (contextEl) contextEl.innerText = yhT('dashboard.missionUpdateContext');
+    if (labelEl) labelEl.innerText = yhT('dashboard.missionNote');
     if (noteEl) {
         noteEl.value = '';
-        noteEl.placeholder = 'Write a short note...';
+        noteEl.placeholder = yhT('dashboard.missionNotePlaceholder');
     }
     if (submitBtn) {
         submitBtn.disabled = false;
-        submitBtn.innerText = 'Save Update';
+        submitBtn.innerText = yhT('dashboard.missionSaveUpdate');
     }
 }
 
@@ -2726,17 +2746,21 @@ function academyOpenMissionActionModal(missionId, status, missionTitle = '') {
     const submitBtn = document.getElementById('btn-submit-mission-action');
 
     if (academyMissionActionState.status === 'skipped') {
-        if (titleEl) titleEl.innerText = 'Skip Mission';
-        if (contextEl) contextEl.innerText = `Why are you skipping "${academyMissionActionState.title || 'this mission'}" today?`;
-        if (labelEl) labelEl.innerText = 'Reason for skipping';
-        if (noteEl) noteEl.placeholder = 'Why are you skipping this mission right now?';
-        if (submitBtn) submitBtn.innerText = 'Mark as Skipped';
-    } else if (academyMissionActionState.status === 'stuck') {
-        if (titleEl) titleEl.innerText = 'Mark Mission as Stuck';
-        if (contextEl) contextEl.innerText = `What exactly is blocking progress on "${academyMissionActionState.title || 'this mission'}"?`;
-        if (labelEl) labelEl.innerText = 'What are you stuck on?';
-        if (noteEl) noteEl.placeholder = 'Describe the blocker clearly...';
-        if (submitBtn) submitBtn.innerText = 'Mark as Stuck';
+        if (titleEl) titleEl.innerText = yhT('dashboard.missionSkipTitle');
+        if (contextEl) contextEl.innerText = yhT('dashboard.missionSkipContext', {
+            title: academyMissionActionState.title || yhT('dashboard.missionSkipFallback')
+        });
+        if (labelEl) labelEl.innerText = yhT('dashboard.missionSkipLabel');
+        if (noteEl) noteEl.placeholder = yhT('dashboard.missionSkipPlaceholder');
+        if (submitBtn) submitBtn.innerText = yhT('dashboard.missionSkipBtn');
+    } else {
+        if (titleEl) titleEl.innerText = yhT('dashboard.missionStuckTitle');
+        if (contextEl) contextEl.innerText = yhT('dashboard.missionStuckContext', {
+            title: academyMissionActionState.title || yhT('dashboard.missionSkipFallback')
+        });
+        if (labelEl) labelEl.innerText = yhT('dashboard.missionStuckLabel');
+        if (noteEl) noteEl.placeholder = yhT('dashboard.missionStuckPlaceholder');
+        if (submitBtn) submitBtn.innerText = yhT('dashboard.missionStuckBtn');
     }
 
     document.getElementById('academy-mission-action-modal')?.classList.remove('hidden-step');
@@ -2764,7 +2788,7 @@ async function academySubmitMissionAction(event) {
     try {
         if (submitBtn) {
             submitBtn.disabled = true;
-            submitBtn.innerText = 'Saving...';
+            submitBtn.innerText = yhT('dashboard.saving');
         }
 
         await academyUpdateMissionStatus(missionId, status, note);
@@ -2774,7 +2798,9 @@ async function academySubmitMissionAction(event) {
     } finally {
         if (submitBtn) {
             submitBtn.disabled = false;
-            submitBtn.innerText = status === 'skipped' ? 'Mark as Skipped' : 'Mark as Stuck';
+            submitBtn.innerText = status === 'skipped'
+                ? yhT('dashboard.missionSkipBtn')
+                : yhT('dashboard.missionStuckBtn');
         }
     }
 }
@@ -2792,7 +2818,7 @@ function academyResetCheckinModal() {
 
     if (submitBtn) {
         submitBtn.disabled = false;
-        submitBtn.innerText = 'Save Check-In';
+        submitBtn.innerText = yhT('dashboard.saveCheckin');
     }
 }
 
@@ -5009,7 +5035,7 @@ function resetAcademyLauncherState() {
     const verdictBtn = document.getElementById('btn-enter-academy-chat');
     if (verdictBtn) {
         verdictBtn.style.display = 'none';
-        verdictBtn.innerText = 'Open YH Academy ➔';
+        verdictBtn.innerText = yhT('dashboard.openAcademy');
         verdictBtn.onclick = null;
     }
 }
@@ -5774,7 +5800,7 @@ if (roadmapForm) {
 
         if (submitBtn) {
             submitBtn.disabled = true;
-            submitBtn.innerText = 'Creating Roadmap...';
+            submitBtn.innerText = yhT('dashboard.roadmapCreating');
         }
 
         const payload = {
@@ -5833,7 +5859,7 @@ if (roadmapForm) {
         } finally {
             if (submitBtn) {
                 submitBtn.disabled = false;
-                submitBtn.innerText = 'Submit Roadmap Request ➔';
+                submitBtn.innerText = yhT('dashboard.roadmapSubmit');
             }
         }
     });

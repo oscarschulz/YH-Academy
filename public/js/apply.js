@@ -11,6 +11,23 @@ function showStep(stepNumber) {
     }
 }
 
+const yhT = (key, options = {}) => (
+    typeof window.yhT === 'function' ? window.yhT(key, options) : key
+);
+
+const yhTText = (text, options = {}) => (
+    typeof window.yhTText === 'function' ? window.yhTText(text, options) : text
+);
+
+function refreshApplyRuntimeLanguage() {
+    if (typeof window.YHI18n?.translateApplyPage === 'function') {
+        window.YHI18n.translateApplyPage();
+    }
+}
+
+window.addEventListener('yh:i18n-ready', refreshApplyRuntimeLanguage);
+window.addEventListener('yh:languageChanged', refreshApplyRuntimeLanguage);
+
 function showToast(message, type = "success") {
     const toast = document.getElementById('toast-notification');
     const toastMsg = document.getElementById('toast-message');
@@ -21,7 +38,7 @@ function showToast(message, type = "success") {
 
     if (!toast || !toastMsg || !toastIcon) return;
 
-    toastMsg.innerText = message;
+    toastMsg.innerText = yhTText(message);
 
     if (type === "error") {
         toast.classList.add('error-toast');
@@ -247,7 +264,7 @@ const bindPasswordVisibilityToggles = () => {
 
             const shouldShow = input.type === 'password';
             input.type = shouldShow ? 'text' : 'password';
-            btn.innerText = shouldShow ? 'Hide' : 'Show';
+            btn.innerText = shouldShow ? yhT('auth.hide') : yhT('auth.show');
         });
     });
 };
@@ -262,14 +279,14 @@ const bindRegisterPhotoUpload = () => {
         const file = input.files?.[0];
 
         if (!file) {
-            label.innerText = 'Choose profile photo';
+            label.innerText = yhT('auth.choosePhoto');
             return;
         }
 
         if (!file.type.startsWith('image/')) {
             showToast('Please choose an image file.', 'error');
             input.value = '';
-            label.innerText = 'Choose profile photo';
+            label.innerText = yhT('auth.choosePhoto');
             return;
         }
 
@@ -290,6 +307,7 @@ const bindRegisterPhotoUpload = () => {
 bootstrapPendingVerification();
 bindPasswordVisibilityToggles();
 bindRegisterPhotoUpload();
+refreshApplyRuntimeLanguage();
     // --- LOGIN LOGIC ---
 const btnLogin = document.getElementById('btn-login');
 const loginEmailInput = document.getElementById('login-email');
@@ -306,7 +324,7 @@ async function handleLoginSubmit() {
         return;
     }
 
-    btnLogin.innerText = "Loading...";
+    btnLogin.innerText = yhT('auth.loading');
     btnLogin.disabled = true;
 
     try {
@@ -344,17 +362,17 @@ if (result.success) {
             startOTPTimer();
             showToast(result.message, "error");
 
-            btnLogin.innerText = "Login";
+            btnLogin.innerText = yhT('auth.login');
             btnLogin.disabled = false;
             return;
         }
 
         showToast(result.message, "error");
-        btnLogin.innerText = "Login";
+        btnLogin.innerText = yhT('auth.login');
         btnLogin.disabled = false;
     } catch (error) {
         showToast("Server error during login.", "error");
-        btnLogin.innerText = "Login";
+        btnLogin.innerText = yhT('auth.login');
         btnLogin.disabled = false;
     }
 }
@@ -409,7 +427,7 @@ if (formRegisterSimple) {
         }
 
         const submitBtn = e.target.querySelector('button[type="submit"]');
-        submitBtn.innerText = "Creating Account...";
+        submitBtn.innerText = yhT('auth.creatingAccount');
         submitBtn.disabled = true;
 
         try {
@@ -436,12 +454,12 @@ if (formRegisterSimple) {
                 startOTPTimer();
             } else {
                 showToast(result.message, "error");
-                submitBtn.innerText = "Create Account ➔";
+                submitBtn.innerText = yhT('auth.createAccount');
                 submitBtn.disabled = false;
             }
         } catch (error) {
             showToast("Server error during registration.", "error");
-            submitBtn.innerText = "Create Account ➔";
+            submitBtn.innerText = yhT('auth.createAccount');
             submitBtn.disabled = false;
         }
     });
@@ -460,20 +478,21 @@ if (formRegisterSimple) {
 
         otpTimerInterval = setInterval(() => {
             const minutes = Math.floor(timeLeft / 60); const seconds = timeLeft % 60;
-            timerDisplay.innerText = `${minutes < 10 ? '0' : ''}${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-            resendBtn.innerText = `Resend in ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+            const timeLabel = `${minutes < 10 ? '0' : ''}${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+            timerDisplay.innerText = timeLabel;
+            resendBtn.innerText = yhT('auth.resendIn', { time: timeLabel });
 
             if (timeLeft <= 0) {
                 clearInterval(otpTimerInterval);
                 timerDisplay.innerText = "00:00"; timerDisplay.style.color = "#ef4444";
-                resendBtn.innerText = "Resend Code"; resendBtn.disabled = false; resendBtn.style.opacity = '1'; resendBtn.style.cursor = 'pointer';
+                resendBtn.innerText = yhT('auth.resendCode'); resendBtn.disabled = false; resendBtn.style.opacity = '1'; resendBtn.style.cursor = 'pointer';
             }
             timeLeft--;
         }, 1000);
     }
 
     const btnResendOTP = document.getElementById('btn-resend-otp');
-    if(btnResendOTP) {
+    if (btnResendOTP) {
         btnResendOTP.addEventListener('click', async () => {
             const email = getPendingVerifyEmail();
             if (!email) {
@@ -482,7 +501,8 @@ if (formRegisterSimple) {
                 return;
             }
 
-            btnResendOTP.innerText = "Sending..."; btnResendOTP.disabled = true;
+            btnResendOTP.innerText = yhT('auth.sending');
+            btnResendOTP.disabled = true;
 
             try {
                 const response = await fetch('/api/resend-otp', {
@@ -494,12 +514,17 @@ if (formRegisterSimple) {
 
                 if (result.success) {
                     showToast("A new code has been sent to your email.", "success");
-                    document.getElementById('otp-input').value = ""; startOTPTimer();
+                    document.getElementById('otp-input').value = '';
+                    startOTPTimer();
                 } else {
-                    showToast(result.message, "error"); btnResendOTP.innerText = "Resend Code"; btnResendOTP.disabled = false;
+                    showToast(result.message, "error");
+                    btnResendOTP.innerText = yhT('auth.resendCode');
+                    btnResendOTP.disabled = false;
                 }
             } catch (error) {
-                showToast("Failed to resend code.", "error"); btnResendOTP.innerText = "Resend Code"; btnResendOTP.disabled = false;
+                showToast("Failed to resend code.", "error");
+                btnResendOTP.innerText = yhT('auth.resendCode');
+                btnResendOTP.disabled = false;
             }
         });
     }
@@ -516,9 +541,10 @@ if (formRegisterSimple) {
                 showStep(1);
                 return;
             }
-            
+
             const submitBtn = e.target.querySelector('button[type="submit"]');
-            submitBtn.innerText = "Verifying..."; submitBtn.disabled = true;
+            submitBtn.innerText = yhT('auth.verifying');
+            submitBtn.disabled = true;
 
             try {
                 const response = await fetch('/api/verify-otp', {
@@ -528,26 +554,28 @@ if (formRegisterSimple) {
                 });
                 const result = await response.json();
 
-if (result.success) {
-    clearInterval(otpTimerInterval);
-    clearPendingVerifyEmail();
-    showToast("Account verified. Welcome to YH Universe.", "success");
+                if (result.success) {
+                    clearInterval(otpTimerInterval);
+                    clearPendingVerifyEmail();
+                    showToast("Account verified. Welcome to YH Universe.", "success");
 
-    clearAcademyClientStateForFreshAuth();
+                    clearAcademyClientStateForFreshAuth();
 
-    persistClientSession({
-        ...result.user,
-        email: result.user?.email || email
-    }, result.token);
+                    persistClientSession({
+                        ...result.user,
+                        email: result.user?.email || email
+                    }, result.token);
 
-    setTimeout(() => { window.location.href = '/dashboard'; }, 1000);
-} else {
+                    setTimeout(() => { window.location.href = '/dashboard'; }, 1000);
+                } else {
                     showToast(result.message, "error");
-                    submitBtn.innerText = "Verify & Enter Universe ➔"; submitBtn.disabled = false;
+                    submitBtn.innerText = yhT('auth.verifyEnter');
+                    submitBtn.disabled = false;
                 }
             } catch (error) {
                 showToast("Server error during verification.", "error");
-                submitBtn.innerText = "Verify & Enter Universe ➔"; submitBtn.disabled = false;
+                submitBtn.innerText = yhT('auth.verifyEnter');
+                submitBtn.disabled = false;
             }
         });
     }
@@ -573,12 +601,12 @@ if (result.success) {
     if (formForgotPass) {
         formForgotPass.addEventListener('submit', async (e) => {
             e.preventDefault(); const email = document.getElementById('forgot-email-input').value;
-            const submitBtn = document.getElementById('btn-forgot-send'); submitBtn.innerText = "Sending..."; submitBtn.disabled = true;
+            const submitBtn = document.getElementById('btn-forgot-send'); submitBtn.innerText = yhT('auth.sending'); submitBtn.disabled = true;
             try {
                 const response = await fetch('/api/forgot-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
                 const result = await response.json();
                 if (result.success) { resetEmailHolder = email; showStep(4); startForgotTimer(); } else { showToast(result.message, "error"); }
-            } catch (error) { showToast("Server error.", "error"); } finally { submitBtn.innerText = "Send Recovery Code"; submitBtn.disabled = false; }
+            } catch (error) { showToast("Server error.", "error"); } finally { submitBtn.innerText = yhT('auth.sendRecoveryCode'); submitBtn.disabled = false; }
         });
     }
 
@@ -586,12 +614,12 @@ if (result.success) {
     if (formForgotOTP) {
         formForgotOTP.addEventListener('submit', async (e) => {
             e.preventDefault(); const otpCode = document.getElementById('forgot-otp-code').value;
-            const submitBtn = document.getElementById('btn-forgot-verify'); submitBtn.innerText = "Verifying..."; submitBtn.disabled = true;
+            const submitBtn = document.getElementById('btn-forgot-verify'); submitBtn.innerText = yhT('auth.verifying'); submitBtn.disabled = true;
             try {
                 const response = await fetch('/api/verify-forgot-otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: resetEmailHolder, otpCode }) });
                 const result = await response.json();
                 if (result.success) { clearInterval(forgotTimerInterval); showStep(5); } else { showToast(result.message, "error"); }
-            } catch (error) { showToast("Server error.", "error"); } finally { submitBtn.innerText = "Verify Code"; submitBtn.disabled = false; }
+            } catch (error) { showToast("Server error.", "error"); } finally { submitBtn.innerText = yhT('auth.verifyCode'); submitBtn.disabled = false; }
         });
     }
 
@@ -600,16 +628,14 @@ if (result.success) {
         formResetPass.addEventListener('submit', async (e) => {
             e.preventDefault(); const newPassword = document.getElementById('reset-new-password').value; const confirmPassword = document.getElementById('reset-confirm-password').value;
             if (newPassword !== confirmPassword) { showToast("Passwords do not match.", "error"); return; }
-            const submitBtn = document.getElementById('btn-reset-save'); submitBtn.innerText = "Saving..."; submitBtn.disabled = true;
+            const submitBtn = document.getElementById('btn-reset-save'); submitBtn.innerText = yhT('auth.saving'); submitBtn.disabled = true;
             try {
                 const response = await fetch('/api/reset-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: resetEmailHolder, newPassword }) });
                 const result = await response.json();
                 if (result.success) { formResetPass.reset(); resetEmailHolder = ""; showStep(6); } else { showToast(result.message, "error"); }
-            } catch (error) { showToast("Server error.", "error"); } finally { submitBtn.innerText = "Save New Password ➔"; submitBtn.disabled = false; }
+            } catch (error) { showToast("Server error.", "error"); } finally { submitBtn.innerText = yhT('auth.saveNewPassword'); submitBtn.disabled = false; }
         });
     }
-});
-document.addEventListener('DOMContentLoaded', () => {
     const authSection = document.getElementById('yh-auth-section');
     const divisionsSection = document.getElementById('yh-divisions-section');
 
@@ -635,7 +661,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.yh-coming-soon-btn').forEach((button) => {
         button.addEventListener('click', () => {
             const label = button.getAttribute('data-soon') || 'This division';
-            showToast(`${label} is coming soon to Young Hustlers Universe.`, 'success');
+            showToast(
+                yhTText('{{division}} is coming soon to Young Hustlers Universe.', { division: label }),
+                'success'
+            );
         });
     });
 });

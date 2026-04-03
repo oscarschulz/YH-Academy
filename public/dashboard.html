@@ -24,6 +24,19 @@
     </div>
 
     <div class="nav-actions">
+        <div class="yh-lang-switcher-wrap">
+            <select
+                id="yh-language-switcher-dashboard"
+                class="yh-lang-switcher"
+                data-yh-language-switcher
+                aria-label="Language selector"
+            >
+                <option value="en">EN</option>
+                <option value="es">ES</option>
+                <option value="fil">FIL</option>
+            </select>
+        </div>
+
         <button class="btn-logout" onclick="logoutUser()">⎋ Log out</button>
     </div>
 </nav>
@@ -1150,6 +1163,8 @@
     </div>
 </div>
     <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/i18next@latest/dist/umd/i18next.min.js"></script>
+    <script src="/js/i18n.js"></script>
     <script src="/js/dashboard.js"></script>
     <script src="/js/dashboard-mobile-fix.js"></script>
 </body>
