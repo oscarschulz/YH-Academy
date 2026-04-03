@@ -1688,14 +1688,22 @@ const localizedResources = {
     }
 };
 
-    function getSavedLanguage() { setText('#step-6 h2', t('auth.passwordChanged'));
+    Object.keys(localizedResources).forEach((lang) => {
+        resources[lang] = {
+            translation: mergeTranslations(
+                resources.en?.translation || {},
+                localizedResources[lang]?.translation || {}
+            )
+        };
+    });
+
+    function getSavedLanguage() {
         try {
             const saved = localStorage.getItem(STORAGE_KEY);
             if (saved && SUPPORTED_LANGS.includes(saved)) return saved;
         } catch (_) {}
         return DEFAULT_LANG;
     }
-
     function setText(selector, value) {
         document.querySelectorAll(selector).forEach((el) => {
             el.textContent = value;
