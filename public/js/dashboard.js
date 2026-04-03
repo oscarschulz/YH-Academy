@@ -2045,14 +2045,42 @@ if (btnCreateGroup && groupNameInput) {
             if (savedAvatar) { avatarPreview.innerText = ''; avatarPreview.style.backgroundImage = `url(${savedAvatar})`; tempAvatarData = savedAvatar; } 
             else { avatarPreview.innerText = savedName ? savedName.charAt(0).toUpperCase() : 'Y'; avatarPreview.style.backgroundImage = 'none'; tempAvatarData = null; }
         });
-        if(avatarWrapper && avatarInput) {
+        if (avatarWrapper && avatarInput) {
             avatarWrapper.addEventListener('click', () => { avatarInput.click(); });
-            avatarInput.addEventListener('change', (e) => { const file = e.target.files[0]; if(file) { if(file.size > 2 * 1024 * 1024) { showToast("Image too large. Max 2MB allowed.", "error"); return; } const reader = new FileReader(); reader.onload = (event) => { tempAvatarData = event.target.result; avatarPreview.innerText = ''; avatarPreview.style.backgroundImage = `url(${tempAvatarData})`; }; reader.readAsDataURL(file); } });
+            avatarInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    if (file.size > 2 * 1024 * 1024) {
+                        showToast("Image too large. Max 2MB allowed.", "error");
+                        return;
+                    }
+
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        tempAvatarData = event.target.result;
+                        avatarPreview.innerText = '';
+                        avatarPreview.style.backgroundImage = `url(${tempAvatarData})`;
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
         }
+
         btnSaveSettings.addEventListener('click', () => {
-            const newName = inputDisplayName.value.trim(); if(!newName) { showToast("Display name cannot be empty.", "error"); return; }
-            localStorage.setItem('yh_user_name', newName); if(tempAvatarData) { localStorage.setItem('yh_user_avatar', tempAvatarData); }
-            updateUserProfile(newName, tempAvatarData); showToast("Profile settings saved!", "success"); document.getElementById('settings-modal').classList.add('hidden-step');
+            const newName = inputDisplayName.value.trim();
+            if (!newName) {
+                showToast("Display name cannot be empty.", "error");
+                return;
+            }
+
+            localStorage.setItem('yh_user_name', newName);
+            if (tempAvatarData) {
+                localStorage.setItem('yh_user_avatar', tempAvatarData);
+            }
+
+            updateUserProfile(newName, tempAvatarData);
+            showToast("Profile settings saved!", "success");
+            document.getElementById('settings-modal').classList.add('hidden-step');
         });
     }
 
@@ -2061,24 +2089,57 @@ if (btnCreateGroup && groupNameInput) {
 
     document.querySelectorAll('.btn-focus-mode').forEach(btn => {
         btn.addEventListener('click', () => {
-            const dashboardCoreWrapper = document.getElementById('academy-wrapper'); if(!dashboardCoreWrapper) return;
+            const dashboardCoreWrapper = document.getElementById('academy-wrapper');
+            if (!dashboardCoreWrapper) return;
+
             dashboardCoreWrapper.classList.toggle('in-focus-mode');
-            if(dashboardCoreWrapper.classList.contains('in-focus-mode')) { btn.innerHTML = '🔴 Exit Focus Mode'; btn.style.background = 'rgba(239, 68, 68, 0.2)'; btn.style.color = '#ef4444'; btn.style.borderColor = '#ef4444'; showToast("Focus Mode Activated: Distractions Hidden", "success"); } 
-            else { btn.innerHTML = '👁️ Focus Mode'; btn.style.background = 'rgba(255,255,255,0.05)'; btn.style.color = '#fff'; btn.style.borderColor = 'rgba(255,255,255,0.1)'; showToast("Focus Mode Deactivated", "success"); }
+
+            if (dashboardCoreWrapper.classList.contains('in-focus-mode')) {
+                btn.innerHTML = yhTText('🔴 Exit Focus Mode');
+                btn.style.background = 'rgba(239, 68, 68, 0.2)';
+                btn.style.color = '#ef4444';
+                btn.style.borderColor = '#ef4444';
+                showToast("Focus Mode Activated: Distractions Hidden", "success");
+            } else {
+                btn.innerHTML = yhTText('👁️ Focus Mode');
+                btn.style.background = 'rgba(255,255,255,0.05)';
+                btn.style.color = '#fff';
+                btn.style.borderColor = 'rgba(255,255,255,0.1)';
+                showToast("Focus Mode Deactivated", "success");
+            }
         });
     });
 
     const pollOptions = document.querySelectorAll('.poll-option');
-    if(pollOptions.length > 0) {
+    if (pollOptions.length > 0) {
         const savedVote = localStorage.getItem('yh_poll_vote');
-        if(savedVote) { const selectedOpt = document.querySelector(`.poll-option[data-vote="${savedVote}"]`); if(selectedOpt) selectedOpt.classList.add('voted'); const votesLabel = document.getElementById('poll-total-votes'); if(votesLabel) votesLabel.innerText = "1,249 Votes"; }
+
+        if (savedVote) {
+            const selectedOpt = document.querySelector(`.poll-option[data-vote="${savedVote}"]`);
+            if (selectedOpt) selectedOpt.classList.add('voted');
+
+            const votesLabel = document.getElementById('poll-total-votes');
+            if (votesLabel) votesLabel.innerText = yhTText('1,249 Votes');
+        }
+
         pollOptions.forEach(opt => {
             opt.addEventListener('click', () => {
-                if(localStorage.getItem('yh_poll_vote')) { showToast("You have already voted!", "error"); return; }
-                opt.classList.add('voted'); localStorage.setItem('yh_poll_vote', opt.getAttribute('data-vote')); showToast("Vote cast successfully!", "success");
-                const votesLabel = document.getElementById('poll-total-votes'); if(votesLabel) votesLabel.innerText = "1,249 Votes";
-                const bg = opt.querySelector('.poll-option-bg'); const percent = opt.querySelector('.poll-percent');
-                if(bg) bg.style.width = "55%"; if(percent) percent.innerText = "55%";
+                if (localStorage.getItem('yh_poll_vote')) {
+                    showToast("You have already voted!", "error");
+                    return;
+                }
+
+                opt.classList.add('voted');
+                localStorage.setItem('yh_poll_vote', opt.getAttribute('data-vote'));
+                showToast("Vote cast successfully!", "success");
+
+                const votesLabel = document.getElementById('poll-total-votes');
+                if (votesLabel) votesLabel.innerText = yhTText('1,249 Votes');
+
+                const bg = opt.querySelector('.poll-option-bg');
+                const percent = opt.querySelector('.poll-percent');
+                if (bg) bg.style.width = "55%";
+                if (percent) percent.innerText = "55%";
             });
         });
     }
@@ -2098,15 +2159,15 @@ const escapeNotificationHtml = (value = '') =>
         .replace(/'/g, '&#39;');
 
 const notificationTimeLabel = (value) => {
-    if (!value) return 'Just now';
+    if (!value) return yhTText('Just now');
 
     const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return 'Just now';
+    if (Number.isNaN(date.getTime())) return yhTText('Just now');
 
     const diffMs = Date.now() - date.getTime();
     const diffMin = Math.max(0, Math.floor(diffMs / 60000));
 
-    if (diffMin < 1) return 'Just now';
+    if (diffMin < 1) return yhTText('Just now');
     if (diffMin < 60) return `${diffMin}m ago`;
 
     const diffHr = Math.floor(diffMin / 60);
