@@ -1727,6 +1727,39 @@ const localizedResources = {
         action.textContent = actionText;
     }
 
+    const TEXT_PATH_MAP = new Map();
+
+    function normalizeTextKey(value) {
+        return String(value || '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .toLowerCase();
+    }
+
+    function buildTextPathMap(node, path = '') {
+        if (!node || typeof node !== 'object') return;
+
+        Object.entries(node).forEach(([key, value]) => {
+            const nextPath = path ? `${path}.${key}` : key;
+
+            if (value && typeof value === 'object' && !Array.isArray(value)) {
+                buildTextPathMap(value, nextPath);
+                return;
+            }
+
+            if (typeof value !== 'string') return;
+
+            const normalized = normalizeTextKey(value);
+            if (normalized && !TEXT_PATH_MAP.has(normalized)) {
+                TEXT_PATH_MAP.set(normalized, nextPath);
+            }
+        });
+    }
+
+    Object.values(resources).forEach((langPack) => {
+        buildTextPathMap(langPack?.translation || {});
+    });
+
     function t(key, options = {}) {
         if (!window.i18next) return key;
         return window.i18next.t(key, options);
@@ -1734,7 +1767,21 @@ const localizedResources = {
 
     function tText(text, options = {}) {
         if (!window.i18next) return text;
-        return window.i18next.exists(text) ? window.i18next.t(text, options) : text;
+
+        const raw = String(text || '');
+        const normalized = normalizeTextKey(raw);
+        if (!normalized) return raw;
+
+        if (window.i18next.exists(raw)) {
+            return window.i18next.t(raw, options);
+        }
+
+        const mappedPath = TEXT_PATH_MAP.get(normalized);
+        if (mappedPath && window.i18next.exists(mappedPath)) {
+            return window.i18next.t(mappedPath, options);
+        }
+
+        return raw;
     }
 
     function translateApplyPage() {
