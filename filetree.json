@@ -1,18 +1,126 @@
 {
-  "name": "Yh",
-  "path": "c:\\Users\\baudss\\Documents\\github\\Yh",
+  "name": "YH-Academy",
+  "path": "c:\\Users\\baudss\\Documents\\github\\YH-Academy",
   "type": "directory",
   "children": [
+    {
+      "name": "backend",
+      "type": "folder",
+      "children": [
+        {
+          "name": "admin-panel",
+          "type": "folder",
+          "children": [
+            {
+              "name": "admin-login.js",
+              "type": "file"
+            },
+            {
+              "name": "admin-panel.css",
+              "type": "file"
+            },
+            {
+              "name": "admin-panel.html",
+              "type": "file"
+            },
+            {
+              "name": "admin-panel.js",
+              "type": "file"
+            }
+          ]
+        },
+        {
+          "name": "middlewares",
+          "type": "folder",
+          "children": [
+            {
+              "name": "aiNurtureGate.js",
+              "type": "file"
+            }
+          ]
+        },
+        {
+          "name": "repositories",
+          "type": "folder",
+          "children": [
+            {
+              "name": "academyCommunityFirestoreRepo.js",
+              "type": "file"
+            },
+            {
+              "name": "academyFirestoreRepo.js",
+              "type": "file"
+            },
+            {
+              "name": "aiNurtureFirestoreRepo.js",
+              "type": "file"
+            },
+            {
+              "name": "realtimeFirestoreRepo.js",
+              "type": "file"
+            }
+          ]
+        },
+        {
+          "name": "services",
+          "type": "folder",
+          "children": [
+            {
+              "name": "academyPlannerKnowledgeContext.js",
+              "type": "file"
+            },
+            {
+              "name": "aiNurtureAnalyzer.js",
+              "type": "file"
+            },
+            {
+              "name": "aiNurtureJobRunner.js",
+              "type": "file"
+            },
+            {
+              "name": "aiNurturePolicy.js",
+              "type": "file"
+            },
+            {
+              "name": "aiNurtureWorker.js",
+              "type": "file"
+            },
+            {
+              "name": "urlContentExtractor.js",
+              "type": "file"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "config",
+      "type": "folder",
+      "children": [
+        {
+          "name": "firebaseAdmin.js",
+          "type": "file"
+        }
+      ]
+    },
     {
       "name": "controllers",
       "type": "folder",
       "children": [
         {
-          "name": "applyControllers.js",
+          "name": "academyCommunityControllers.js",
+          "type": "file"
+        },
+        {
+          "name": "aiNurtureControllers.js",
           "type": "file"
         },
         {
           "name": "authControllers.js",
+          "type": "file"
+        },
+        {
+          "name": "realtimeControllers.js",
           "type": "file"
         }
       ]
@@ -28,12 +136,22 @@
       ]
     },
     {
-      "name": "models",
+      "name": "private",
       "type": "folder",
       "children": [
         {
-          "name": "User.js",
-          "type": "file"
+          "name": "admin",
+          "type": "folder",
+          "children": [
+            {
+              "name": "admin-login.html",
+              "type": "file"
+            },
+            {
+              "name": "admin-panel.html",
+              "type": "file"
+            }
+          ]
         }
       ]
     },
@@ -45,6 +163,14 @@
           "name": "css",
           "type": "folder",
           "children": [
+            {
+              "name": "dashboard-mobile.css",
+              "type": "file"
+            },
+            {
+              "name": "federation.css",
+              "type": "file"
+            },
             {
               "name": "style.css",
               "type": "file"
@@ -62,6 +188,20 @@
             {
               "name": "logo.avif",
               "type": "file"
+            },
+            {
+              "name": "logo.png",
+              "type": "file"
+            }
+          ]
+        },
+        {
+          "name": "internal",
+          "type": "folder",
+          "children": [
+            {
+              "name": "ai-nurture.html",
+              "type": "file"
             }
           ]
         },
@@ -74,7 +214,19 @@
               "type": "file"
             },
             {
+              "name": "dashboard-mobile-fix.js",
+              "type": "file"
+            },
+            {
               "name": "dashboard.js",
+              "type": "file"
+            },
+            {
+              "name": "federation.js",
+              "type": "file"
+            },
+            {
+              "name": "i18n.js",
               "type": "file"
             }
           ]
@@ -90,11 +242,31 @@
           ]
         },
         {
+          "name": "admin-login.css",
+          "type": "file"
+        },
+        {
+          "name": "admin-login.js",
+          "type": "file"
+        },
+        {
+          "name": "admin-panel.css",
+          "type": "file"
+        },
+        {
+          "name": "admin-panel.js",
+          "type": "file"
+        },
+        {
           "name": "apply.html",
           "type": "file"
         },
         {
           "name": "dashboard.html",
+          "type": "file"
+        },
+        {
+          "name": "federation.html",
           "type": "file"
         }
       ]
@@ -103,6 +275,10 @@
       "name": "routes",
       "type": "folder",
       "children": [
+        {
+          "name": "admin-auth-routes.js",
+          "type": "file"
+        },
         {
           "name": "apiRoutes.js",
           "type": "file"
@@ -118,11 +294,19 @@
       "type": "file"
     },
     {
+      "name": "academyControllers.js",
+      "type": "file"
+    },
+    {
       "name": "check-ai.js",
       "type": "file"
     },
     {
       "name": "filetree.json",
+      "type": "file"
+    },
+    {
+      "name": "nothing",
       "type": "file"
     },
     {
@@ -139,7 +323,7 @@
     }
   ],
   "metadata": {
-    "generated": "2026-03-22T07:00:08.014Z",
+    "generated": "2026-04-03T15:30:52.951Z",
     "generator": "FileTree Pro Extension",
     "version": "0.2.0",
     "showIcons": false,

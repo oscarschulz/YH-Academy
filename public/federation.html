@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+  <title>YH Federation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="federation.css" />
+</head>
+<body>
+  <div class="fed-shell">
+    <aside class="fed-sidebar">
+      <div class="fed-brand">
+        <div class="fed-brand-mark">YH</div>
+        <div>
+          <div class="fed-brand-title">Young Hustlers</div>
+          <div class="fed-brand-subtitle">Federation</div>
+        </div>
+      </div>
+
+      <nav class="fed-nav" id="fedNav">
+      <a href="#overview" class="fed-nav-link active">Overview</a>
+      <a href="#identity" class="fed-nav-link">Identity</a>
+      <a href="#sectors" class="fed-nav-link">Sectors</a>
+      <a href="#access" class="fed-nav-link">Access</a>
+      <a href="#expansion" class="fed-nav-link">Expansion</a>
+      <a href="#status" class="fed-nav-link">Your Access</a>
+      <a href="#command" class="fed-nav-link" id="fedNavCommand" hidden>Command</a>
+      <a href="#referrals" class="fed-nav-link">Referrals</a>
+      <a href="#directory" class="fed-nav-link">Directory</a>
+      <a href="#apply" class="fed-nav-link" id="fedNavApply">Apply</a>
+      <a href="#admin" class="fed-nav-link" id="fedNavAdmin" hidden>Local Review</a>
+      </nav>
+
+      <div class="fed-sidebar-card">
+        <div class="fed-sidebar-card-label">Federation Status</div>
+        <div class="fed-sidebar-card-title">Selective Access</div>
+        <p>
+          A private strategic circle for trusted operators, leaders,
+          founders, professionals, and connectors.
+        </p>
+      </div>
+
+      <div class="fed-sidebar-card">
+        <div class="fed-sidebar-card-label">Core Principle</div>
+        <div class="fed-sidebar-card-title">Quality over Volume</div>
+        <p>
+          Applications are manually reviewed for trust, leverage, and
+          long-term strategic value.
+        </p>
+      </div>
+
+      <div class="fed-sidebar-card">
+        <div class="fed-sidebar-card-label">Beta State</div>
+        <div class="fed-sidebar-card-title">Local Federation Flow</div>
+        <p>
+          Applications, reviews, member approvals, and current-user state are
+          stored locally for beta testing on this device.
+        </p>
+      </div>
+    </aside>
+
+    <main class="fed-main" id="fedMain">
+            <header class="fed-topbar">
+        <div class="fed-topbar-head">
+          <div class="fed-topbar-copy">
+            <div class="fed-kicker">Young Hustlers</div>
+            <h1 class="fed-page-title">The Federation</h1>
+          </div>
+
+          <details class="fed-topbar-quick" id="fedTopbarQuick">
+            <summary class="fed-topbar-quick-summary">My Access</summary>
+
+            <div class="fed-topbar-quick-menu">
+              <a href="#status" class="fed-topbar-quick-link fed-nav-link">
+                <strong>My Access</strong>
+                <small>View your current federation state</small>
+              </a>
+
+              <a href="#command" class="fed-topbar-quick-link fed-nav-link" id="fedTopbarQuickCommand" hidden>
+                <strong>Member Command</strong>
+                <small>Open the private member layer</small>
+              </a>
+
+              <a href="#directory" class="fed-topbar-quick-link fed-nav-link">
+                <strong>Directory</strong>
+                <small>Open the member directory view</small>
+              </a>
+
+              <a href="#apply" class="fed-topbar-quick-link fed-nav-link" id="fedTopbarQuickApply">
+                <strong>Request Access</strong>
+                <small>Start or repeat federation request</small>
+              </a>
+            </div>
+          </details>
+        </div>
+
+        <div class="fed-topbar-actions">
+          <button class="fed-btn fed-btn-secondary" data-jump="#status" type="button">
+            My Access
+          </button>
+          <button class="fed-btn fed-btn-secondary" id="memberCommandBtn" data-jump="#command" type="button" hidden>
+            Member Command
+          </button>
+          <button class="fed-btn fed-btn-secondary" data-jump="#directory" type="button">
+            View Directory
+          </button>
+          <button class="fed-btn fed-btn-secondary" id="adminModeToggle" type="button">
+            Local Review: Off
+          </button>
+          <button class="fed-btn fed-btn-primary" id="primaryCtaBtn" data-jump="#apply" type="button">
+            Request Access
+          </button>
+        </div>
+      </header>
+
+            <section class="fed-section fed-hero" id="overview" data-section="overview">
+        <div class="fed-hero-content">
+          <div class="fed-chip" id="overviewStateChip">Private Strategic Circle</div>
+          <h2 class="fed-hero-title">
+            Federation home for <span>trusted operators</span>, not public traffic
+          </h2>
+          <p class="fed-hero-text">
+            This dashboard is the Federation front door. It frames what the layer is,
+            how access is controlled, what stage the current user is in, and where
+            the network is already building meaningful reach.
+          </p>
+
+          <div class="fed-hero-actions">
+            <button class="fed-btn fed-btn-primary" id="overviewPrimaryAction" data-jump="#apply" type="button">
+              Request Federation Access
+            </button>
+            <button class="fed-btn fed-btn-secondary" data-jump="#status" type="button">
+              Check My Access State
+            </button>
+          </div>
+
+          <div class="fed-hero-strip" id="overviewSectorStrip">
+            <span>Lawyers</span>
+            <span>Policy Advisors</span>
+            <span>Investors</span>
+            <span>Entrepreneurs</span>
+            <span>Media Architects</span>
+            <span>Cybersecurity Experts</span>
+            <span>Operators</span>
+          </div>
+        </div>
+
+        <div class="fed-hero-panel">
+          <div class="fed-panel-card fed-panel-emphasis">
+            <div class="fed-panel-label">Federation Snapshot</div>
+            <div class="fed-panel-main-stat">
+              <span id="heroMembers">0</span>
+              <small>Approved members currently visible in beta</small>
+            </div>
+            <div class="fed-status-list">
+              <span id="overviewLiveMode">Visitor Mode</span>
+              <span id="overviewDirectoryMode">Protected Preview</span>
+            </div>
+          </div>
+
+          <div class="fed-panel-grid">
+            <div class="fed-mini-card">
+              <div class="fed-mini-value" id="heroCountries">0</div>
+              <div class="fed-mini-label">Countries Active</div>
+            </div>
+            <div class="fed-mini-card">
+              <div class="fed-mini-value" id="heroCategories">0</div>
+              <div class="fed-mini-label">Core Sectors Live</div>
+            </div>
+            <div class="fed-mini-card">
+              <div class="fed-mini-value" id="heroApplications">0</div>
+              <div class="fed-mini-label">Applications Logged</div>
+            </div>
+            <div class="fed-mini-card">
+              <div class="fed-mini-value" id="heroPending">0</div>
+              <div class="fed-mini-label">Currently In Review</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="fed-overview-grid fed-hero-bottom">
+          <article class="fed-overview-card">
+            <div class="fed-sidebar-card-label">Current Position</div>
+            <div class="fed-info-title" id="overviewPositionTitle">Open for qualified applications</div>
+            <p id="overviewPositionText">
+              Federation access is selective. Visitors can request access, applicants can track their pipeline,
+              and approved members unlock the private operating layer.
+            </p>
+          </article>
+
+          <article class="fed-overview-card">
+            <div class="fed-sidebar-card-label">Top Sector Signal</div>
+            <div class="fed-info-title" id="overviewTopCategory">—</div>
+            <p id="overviewTopCategoryText">
+              Sector concentration updates from approved members and active applications stored on this device.
+            </p>
+          </article>
+
+          <article class="fed-overview-card">
+            <div class="fed-sidebar-card-label">Regional Footprint</div>
+            <div class="fed-info-title" id="overviewTopRegion">—</div>
+            <p id="overviewTopRegionText">
+              City and country visibility expand as approved members enter the directory and referred profiles move through review.
+            </p>
+          </article>
+        </div>
+      </section>
+
+            <section class="fed-section" id="identity" data-section="identity">
+        <div class="fed-section-head">
+          <div class="fed-kicker">Identity</div>
+          <h3>A private qualification layer, not an open community tab</h3>
+          <p>
+            Identity exists to remove confusion. It clarifies what this layer is,
+            what kind of person fits, and what the Federation is deliberately not
+            trying to become.
+          </p>
+        </div>
+
+        <div class="fed-identity-layout">
+          <article class="fed-info-card fed-identity-hero-card">
+            <div class="fed-sidebar-card-label">Federation Definition</div>
+            <div class="fed-info-title">A controlled network for people with real leverage</div>
+            <p>
+              The Federation is the private strategic layer inside Young Hustlers.
+              It is meant for people who can contribute access, expertise, influence,
+              institutional reach, capital, operational value, or high-trust introductions.
+            </p>
+          </article>
+
+          <article class="fed-info-card">
+            <div class="fed-sidebar-card-label">What qualifies</div>
+            <div class="fed-check-list">
+              <span>Recognized expertise or institutional proximity</span>
+              <span>Real network value, not just audience vanity</span>
+              <span>Ability to open doors by sector or region</span>
+              <span>Credibility strong enough for selective trust</span>
+            </div>
+          </article>
+
+          <article class="fed-info-card">
+            <div class="fed-sidebar-card-label">What this is not</div>
+            <div class="fed-check-list is-muted">
+              <span>Not a public feed-first community</span>
+              <span>Not an open join-without-review layer</span>
+              <span>Not a quantity-over-quality directory</span>
+              <span>Not a shortcut around screening standards</span>
+            </div>
+          </article>
+        </div>
+
+        <div class="fed-grid fed-grid-3">
+          <article class="fed-info-card">
+            <div class="fed-info-title">Private by design</div>
+            <p>
+              Visibility stays controlled so introductions, coordination, and member trust remain valuable.
+            </p>
+          </article>
+
+          <article class="fed-info-card">
+            <div class="fed-info-title">Curated for strategic fit</div>
+            <p>
+              The review standard prioritizes relevance, seriousness, track record, and leverage over popularity.
+            </p>
+          </article>
+
+          <article class="fed-info-card">
+            <div class="fed-info-title">Built for long-range expansion</div>
+            <p>
+              Every strong member strengthens regional coverage, sector depth, and future referral quality.
+            </p>
+          </article>
+        </div>
+      </section>
+
+            <section class="fed-section" id="sectors" data-section="sectors">
+        <div class="fed-section-head">
+          <div class="fed-kicker">Sectors</div>
+          <h3>Interactive qualification map by lane</h3>
+          <p>
+            Sectors should help a user quickly understand where they fit, why that lane matters,
+            and how much strategic density already exists around it in the current beta dataset.
+          </p>
+        </div>
+
+                <div class="fed-sector-toolbar" id="sectorToolbar">
+          <div class="fed-input-wrap fed-sector-select-wrap">
+            <label for="sectorFilterSelect">Sector Filter</label>
+            <select id="sectorFilterSelect">
+              <option value="all">All Sectors</option>
+              <option value="Lawyers & Legal Strategists">Legal</option>
+              <option value="Politicians & Policy Advisors">Policy</option>
+              <option value="Entrepreneurs & Investors">Capital</option>
+              <option value="Influencers & Media Architects">Media</option>
+              <option value="Cybersecurity Experts">Security</option>
+              <option value="Operators Across Industries">Operators</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="fed-sector-spotlight" id="sectorInsightPanel">
+          <div class="fed-sector-spotlight-copy">
+            <div class="fed-sidebar-card-label">Sector Spotlight</div>
+            <div class="fed-info-title" id="sectorInsightTitle">All strategic lanes</div>
+            <p id="sectorInsightText">
+              Select a sector to see how it contributes to the Federation, what kind of people fit,
+              and how much approved or pending density already exists in the current beta state.
+            </p>
+          </div>
+
+          <div class="fed-state-grid fed-sector-metrics">
+            <div class="fed-state-metric">
+              <strong id="sectorInsightMembers">0</strong>
+              <small>Approved members</small>
+            </div>
+            <div class="fed-state-metric">
+              <strong id="sectorInsightApplicants">0</strong>
+              <small>Applications logged</small>
+            </div>
+            <div class="fed-state-metric">
+              <strong id="sectorInsightRegions">0</strong>
+              <small>Countries touched</small>
+            </div>
+            <div class="fed-state-metric">
+              <strong id="sectorInsightStatus">Open</strong>
+              <small>Current lane state</small>
+            </div>
+          </div>
+        </div>
+
+        <div class="fed-grid fed-grid-3" id="sectorGrid">
+          <article class="fed-sector-card active" data-sector="Lawyers & Legal Strategists">
+            <div class="fed-sector-icon">⚖</div>
+            <div class="fed-sector-title">Lawyers & Legal Strategists</div>
+            <p>Legal trust, negotiation power, regulatory guidance, contracts, and institutional shielding.</p>
+          </article>
+
+          <article class="fed-sector-card" data-sector="Politicians & Policy Advisors">
+            <div class="fed-sector-icon">🏛</div>
+            <div class="fed-sector-title">Politicians & Policy Advisors</div>
+            <p>Public influence, policy access, governance context, and the ability to unlock serious doors.</p>
+          </article>
+
+          <article class="fed-sector-card" data-sector="Entrepreneurs & Investors">
+            <div class="fed-sector-icon">💼</div>
+            <div class="fed-sector-title">Entrepreneurs & Investors</div>
+            <p>Deal flow, capital access, operator networks, execution strength, and growth leverage.</p>
+          </article>
+
+          <article class="fed-sector-card" data-sector="Influencers & Media Architects">
+            <div class="fed-sector-icon">📡</div>
+            <div class="fed-sector-title">Influencers & Media Architects</div>
+            <p>Reach, narrative control, cultural amplification, strategic distribution, and attention leverage.</p>
+          </article>
+
+          <article class="fed-sector-card" data-sector="Cybersecurity Experts">
+            <div class="fed-sector-icon">🛡</div>
+            <div class="fed-sector-title">Cybersecurity Experts</div>
+            <p>Operational security, digital trust, defensive intelligence, and risk reduction for the network.</p>
+          </article>
+
+          <article class="fed-sector-card" data-sector="Operators Across Industries">
+            <div class="fed-sector-icon">🌐</div>
+            <div class="fed-sector-title">Operators Across Industries</div>
+            <p>Cross-sector connectors with practical access, regional reach, and the ability to move things forward.</p>
+          </article>
+        </div>
+      </section>
+
+            <section class="fed-section" id="access" data-section="access">
+        <div class="fed-section-head">
+          <div class="fed-kicker">Access</div>
+          <h3>Clear funnel control from entry to member unlock</h3>
+          <p>
+            Access should explain the gate clearly: how a user gets in, what happens during review,
+            what stays protected before approval, and what becomes available after approval.
+          </p>
+        </div>
+
+        <div class="fed-access-grid">
+          <article class="fed-benefit-card">
+            <div class="fed-sidebar-card-label">Entry Paths</div>
+            <div class="fed-info-title">Direct application or referred entry</div>
+            <p>
+              A serious profile can apply directly, or enter through an approved member code.
+              Either way, the same review standard still applies.
+            </p>
+          </article>
+
+          <article class="fed-benefit-card">
+            <div class="fed-sidebar-card-label">Review Gate</div>
+            <div class="fed-info-title">Manual qualification, not auto-join</div>
+            <p>
+              Relevance, credibility, network value, sector fit, and expansion utility are checked before member access is granted.
+            </p>
+          </article>
+
+          <article class="fed-benefit-card">
+            <div class="fed-sidebar-card-label">Protected While Waiting</div>
+            <div class="fed-info-title">Applicants can track status, not operate</div>
+            <p>
+              Pending profiles can view their state and a protected directory preview, but the member operating layer stays locked.
+            </p>
+          </article>
+
+          <article class="fed-benefit-card">
+            <div class="fed-sidebar-card-label">After Approval</div>
+            <div class="fed-info-title">Command, directory depth, and referral tools</div>
+            <p>
+              Approved members unlock the private command view, live referral code, stronger directory visibility, and future admin-linked workflows.
+            </p>
+          </article>
+        </div>
+
+        <div class="fed-flow">
+          <div class="fed-flow-step">
+            <span>01</span>
+            <h4>Signal intent</h4>
+            <p>Apply directly or arrive through a verified member referral code.</p>
+          </div>
+
+          <div class="fed-flow-step">
+            <span>02</span>
+            <h4>Pass review</h4>
+            <p>Local fallback review checks trust, fit, and strategic utility while YHF remains standalone.</p>
+          </div>
+
+          <div class="fed-flow-step">
+            <span>03</span>
+            <h4>Unlock member layer</h4>
+            <p>Once approved, the same identity becomes a live Federation member with referral capability.</p>
+          </div>
+        </div>
+
+        <div class="fed-note">
+          The gate is meant to filter for trust and leverage, not just interest.
+        </div>
+
+        <div class="fed-grid fed-grid-3 fed-criteria-grid">
+          <article class="fed-criteria-card">
+            <div class="fed-info-title">Professional relevance</div>
+            <p>Real category fit, not vague ambition, is expected before access is granted.</p>
+          </article>
+
+          <article class="fed-criteria-card">
+            <div class="fed-info-title">Credibility proof</div>
+            <p>Public profile strength, relational trust, and operational legitimacy weigh heavily.</p>
+          </article>
+
+          <article class="fed-criteria-card">
+            <div class="fed-info-title">Expansion usefulness</div>
+            <p>Regional reach, introduction power, and contribution potential help determine who moves forward.</p>
+          </article>
+        </div>
+
+        <div class="fed-access-rail">
+          <button class="fed-btn fed-btn-primary" data-jump="#apply" type="button">Start application</button>
+          <button class="fed-btn fed-btn-secondary" data-jump="#status" type="button">Track current state</button>
+          <button class="fed-btn fed-btn-secondary" data-jump="#referrals" type="button">See referral logic</button>
+        </div>
+      </section>
+
+            <section class="fed-section" id="expansion" data-section="expansion">
+                <div class="fed-section-head">
+          <div class="fed-kicker">Expansion</div>
+          <h3>Federation Expansion Grid</h3>
+          <p>
+            A premium strategic surface showing live cities, active corridors, and regional positioning inside the current Federation beta footprint.
+          </p>
+        </div>
+
+        <div class="fed-expansion-layout">
+          <div class="fed-map-card">
+            <div class="fed-map-header">
+              <div class="fed-info-title">Expansion Grid</div>
+              <div class="fed-map-legend">
+                <span class="live-dot"></span> Active Nodes
+              </div>
+            </div>
+
+            <div class="fed-map" id="fedMap">
+  <div class="fed-map-shell">
+    <div class="fed-map-atmosphere" aria-hidden="true"></div>
+
+    <svg class="fed-world-map" viewBox="0 0 1000 520" aria-hidden="true">
+      <defs>
+        <linearGradient id="fedLandGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#bdd7ff" stop-opacity="0.18"></stop>
+          <stop offset="52%" stop-color="#88aee6" stop-opacity="0.12"></stop>
+          <stop offset="100%" stop-color="#5f82bb" stop-opacity="0.08"></stop>
+        </linearGradient>
+        <filter id="fedMapLandShadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="14" stdDeviation="12" flood-color="#000000" flood-opacity="0.26"></feDropShadow>
+        </filter>
+      </defs>
+
+      <g class="fed-world-grid">
+        <path class="is-major" d="M38 110C182 126 350 128 498 118C650 108 812 108 962 126"></path>
+        <path d="M28 168C182 184 342 186 500 174C650 162 808 162 972 182"></path>
+        <path class="is-major" d="M22 236C180 252 344 252 504 238C660 224 818 226 978 246"></path>
+        <path d="M30 306C192 318 352 320 514 308C666 296 820 298 972 318"></path>
+        <path d="M34 382C194 392 356 394 516 386C674 378 826 382 968 398"></path>
+
+        <path class="is-major" d="M140 30C118 120 118 214 136 306C150 382 170 444 202 492"></path>
+        <path d="M258 26C238 114 240 214 258 308C270 378 288 438 320 486"></path>
+        <path class="is-major" d="M392 18C372 112 372 218 392 316C406 390 422 446 452 494"></path>
+        <path d="M532 20C514 116 516 220 536 320C548 390 566 444 592 492"></path>
+        <path class="is-major" d="M688 24C672 114 674 222 694 320C708 392 726 446 756 492"></path>
+        <path d="M842 34C830 120 834 228 854 324C868 394 886 446 916 488"></path>
+      </g>
+
+      <g class="fed-world-mass">
+        <path class="mass-na" d="M70 130l28-18 40-14 54-2 46 8 36 16 28 14 24 20 14 22-8 16-22 10-32 2-24 10-20 14-14 18-20 8-24-6-16-18-24-6-22-12-28-22-14-30 4-36 14-20z"></path>
+        <path class="mass-na" d="M248 166l22 4 18 12 10 18-4 20-16 12-20 0-18-12-6-22 8-18z"></path>
+        <path class="mass-sa" d="M248 282l18-12 20 4 14 16 4 24 10 26 16 28 14 26-4 20-16 12-18-8-16-26-18-32-14-36-10-34 0-28z"></path>
+
+        <path class="mass-eu" d="M436 120l24-14 36-10 46-4 42 4 36 10 24 12 16 14-2 14-20 8-28 4-22 8-18 10-26 0-18 6-26 2-26-6-24 8-16-8-10-16 8-18z"></path>
+        <path class="mass-af" d="M494 196l22-10 34-2 36 6 24 14 16 20 2 22-14 16-16 18-12 18 0 26-10 28-16 28-24 16-18-8-10-24 4-24-12-18-10-22 2-30 10-28 12-20z"></path>
+
+        <path class="mass-as" d="M620 110l30-12 42-8 56 0 60 10 44 18 36 18 24 24 2 20-24 10-34 2-30 8-28 12-18 14 8 14 22 10 30 8 22 10 16 14-10 14-24 4-32-2-26 4-26 12-32 8-30-4-20-16-8-22-8-20 4-24 14-20 22-18 12-12z"></path>
+        <path class="mass-sea" d="M782 278l20 2 18 10 10 16-4 18-16 10-18-4-12-16 2-18z"></path>
+        <path class="mass-sea" d="M840 246l12 2 10 8 0 10-10 6-12-2-8-8 0-10z"></path>
+        <path class="mass-au" d="M814 340l30-8 34 4 24 14 8 16-10 14-22 10-30-2-26-12-12-16 4-20z"></path>
+      </g>
+
+      <g class="fed-world-coast">
+        <path d="M86 126l48-18 70 0 54 16 42 24 22 30"></path>
+        <path d="M446 118l48-12 64 0 52 10 40 18"></path>
+        <path d="M632 112l58-12 84 2 70 18 54 28"></path>
+        <path d="M506 204l40-10 42 8 26 18 8 22-14 18"></path>
+        <path d="M818 340l26-8 32 4 22 12"></path>
+      </g>
+    </svg>
+
+    <svg class="fed-map-routes" id="fedMapRoutes" viewBox="0 0 1000 520" preserveAspectRatio="none" aria-hidden="true"></svg>
+
+    <button class="fed-map-node node-lagos" data-node-id="lagos" data-city="Lagos" data-country="Nigeria" data-region="West Africa" data-meta="Commercial connector and talent gateway for media, founders, and regional introductions." data-tier="Strategic gateway" data-code="LAG • Gateway" type="button" aria-label="Lagos strategic node"></button>
+    <span class="fed-map-label label-lagos" aria-hidden="true">Lagos</span>
+
+    <button class="fed-map-node node-abuja" data-node-id="abuja" data-city="Abuja" data-country="Nigeria" data-region="West Africa" data-meta="Policy and institutional access point with stronger proximity to government and formal influence lanes." data-tier="Policy access" data-code="ABV • Policy" type="button" aria-label="Abuja strategic node"></button>
+    <span class="fed-map-label label-abuja" aria-hidden="true">Abuja</span>
+
+    <button class="fed-map-node node-london" data-node-id="london" data-city="London" data-country="United Kingdom" data-region="Europe" data-meta="Legal, finance, and global media bridge between local networks and international corridors." data-tier="Global bridge" data-code="LDN • Bridge" type="button" aria-label="London strategic node"></button>
+    <span class="fed-map-label label-london" aria-hidden="true">London</span>
+
+    <button class="fed-map-node node-dubai" data-node-id="dubai" data-city="Dubai" data-country="UAE" data-region="Gulf" data-meta="Cross-border capital and operator corridor connecting business expansion, logistics, and private networks." data-tier="Capital corridor" data-code="DXB • Capital" type="button" aria-label="Dubai strategic node"></button>
+    <span class="fed-map-label label-dubai" aria-hidden="true">Dubai</span>
+
+    <button class="fed-map-node node-toronto" data-node-id="toronto" data-city="Toronto" data-country="Canada" data-region="North America" data-meta="Diaspora, capital, and media cluster with strong international relationship potential." data-tier="Diaspora cluster" data-code="YYZ • Diaspora" type="button" aria-label="Toronto strategic node"></button>
+    <span class="fed-map-label label-toronto" aria-hidden="true">Toronto</span>
+
+    <button class="fed-map-node node-delhi" data-node-id="delhi" data-city="Delhi" data-country="India" data-region="South Asia" data-meta="Founder, policy, and growth network node with strong expansion relevance across operators and capital." data-tier="Growth corridor" data-code="DEL • Growth" type="button" aria-label="Delhi strategic node"></button>
+    <span class="fed-map-label label-delhi" aria-hidden="true">Delhi</span>
+
+    <button class="fed-map-node node-manila" data-node-id="manila" data-city="Manila" data-country="Philippines" data-region="Southeast Asia" data-meta="Security and operator coordination point supporting resilient execution and regional reach." data-tier="Operator node" data-code="MNL • Ops" type="button" aria-label="Manila strategic node"></button>
+    <span class="fed-map-label label-manila" aria-hidden="true">Manila</span>
+
+    <button class="fed-map-node node-nyc" data-node-id="nyc" data-city="New York" data-country="USA" data-region="North America" data-meta="Capital markets and high-value introductions tied to finance, influence, and institutional density." data-tier="Markets access" data-code="NYC • Markets" type="button" aria-label="New York strategic node"></button>
+    <span class="fed-map-label label-nyc" aria-hidden="true">New York</span>
+
+    <div class="fed-map-overlay" id="mapOverlay">
+      <div class="fed-map-overlay-top">
+        <div>
+          <div class="fed-map-overlay-city">Lagos</div>
+          <div class="fed-map-overlay-country">Nigeria • West Africa</div>
+        </div>
+        <span class="fed-map-overlay-tag" id="mapOverlayTag">LAG • Gateway</span>
+      </div>
+      <div class="fed-map-overlay-meta" id="mapOverlayMeta">
+        Commercial connector and talent gateway for media, founders, and regional introductions.
+      </div>
+      <div class="fed-map-overlay-stats">
+        <span id="mapOverlayLinkedCount">0 linked corridors</span>
+        <span id="mapOverlayTier">Strategic gateway</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+          <div class="fed-expansion-stats">
+            <article class="fed-side-stat">
+              <div class="fed-side-stat-value" id="regionCount">0</div>
+              <div class="fed-side-stat-label">Cities Visible</div>
+            </article>
+            <article class="fed-side-stat">
+              <div class="fed-side-stat-value" id="expansionCountryCount">0</div>
+              <div class="fed-side-stat-label">Countries Active</div>
+            </article>
+            <article class="fed-side-stat">
+              <div class="fed-side-stat-value" id="expansionRouteCount">0</div>
+              <div class="fed-side-stat-label">Strategic Corridors</div>
+            </article>
+            <article class="fed-side-stat">
+              <div class="fed-side-stat-value">High</div>
+              <div class="fed-side-stat-label">Screening Standard</div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="fed-section" id="status" data-section="status">
+        <div class="fed-section-head">
+          <div class="fed-kicker">Current User State</div>
+          <h3>Your Federation Access</h3>
+          <p>
+            This beta flow uses localStorage to determine whether the current browser
+            session is a visitor, active applicant, or approved member.
+          </p>
+        </div>
+
+        <div class="fed-status-layout">
+          <div class="fed-session-panel" id="currentUserPanel"></div>
+
+          <aside class="fed-session-side">
+            <article class="fed-sidebar-card">
+              <div class="fed-sidebar-card-label">Resume Session</div>
+              <div class="fed-sidebar-card-title">Load by Email</div>
+              <form id="sessionLookupForm" class="fed-session-lookup" novalidate>
+                <div class="fed-input-wrap">
+                  <label for="sessionEmail">Email Address</label>
+                  <input id="sessionEmail" name="sessionEmail" type="email" placeholder="Enter your application email" />
+                </div>
+                <div class="fed-form-actions">
+                  <button type="submit" class="fed-btn fed-btn-secondary">Load My State</button>
+                  <button type="button" class="fed-btn fed-btn-secondary" id="clearSessionBtn">Clear Session</button>
+                </div>
+                <div class="fed-form-feedback" id="sessionFeedback" aria-live="polite"></div>
+              </form>
+            </article>
+
+            <article class="fed-sidebar-card">
+              <div class="fed-sidebar-card-label">Beta Flow</div>
+              <div class="fed-sidebar-card-title">What Changes Automatically</div>
+              <p>
+                When admin approves an application, the same email is converted into a
+                Federation member and this section switches from applicant UI to member UI.
+              </p>
+            </article>
+          </aside>
+                </div>
+            </section>
+
+      <section class="fed-section" id="command" data-section="command" hidden>
+        <div class="fed-section-head">
+          <div class="fed-kicker">Member Layer</div>
+          <h3>Federation Command</h3>
+          <p>
+            Approved members operate from here. This layer is for referrals, regional leverage,
+            strategic positioning, and controlled access rather than public-facing browsing.
+          </p>
+        </div>
+
+        <div class="fed-command-layout" id="memberCommandPanel"></div>
+      </section>
+
+      <section class="fed-section" id="referrals" data-section="referrals">
+        <div class="fed-section-head">
+          <div class="fed-kicker">Referral Flow</div>
+          <h3>Federation Referral Access</h3>
+          <p>
+            Approved members receive a Federation referral code that can be shared with
+            serious people. Referred profiles still go through the same review pipeline,
+            but are visibly linked back to the member who opened the door.
+          </p>
+        </div>
+
+        <div class="fed-referral-layout" id="referralPanel"></div>
+            </section>
+
+      <section class="fed-section" id="directory" data-section="directory">
+        <div class="fed-section-head">
+          <div class="fed-kicker" id="directoryKicker">Member Preview</div>
+          <h3 id="directoryTitle">Federation Directory Preview</h3>
+          <p id="directoryText">
+            This directory now reads from <strong>approved members in localStorage</strong>,
+            including newly approved beta applications.
+          </p>
+        </div>
+
+        <div class="fed-directory-toolbar">
+          <div class="fed-input-wrap">
+            <label for="memberSearch">Search</label>
+            <input type="text" id="memberSearch" placeholder="Search name, company, or city" />
+          </div>
+
+          <div class="fed-input-wrap">
+            <label for="categoryFilter">Category</label>
+            <select id="categoryFilter">
+              <option value="all">All Categories</option>
+            </select>
+          </div>
+
+          <div class="fed-input-wrap">
+            <label for="countryFilter">Country</label>
+            <select id="countryFilter">
+              <option value="all">All Countries</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="fed-directory-grid" id="directoryGrid"></div>
+      </section>
+
+      <section class="fed-section" id="apply" data-section="apply">
+        <div class="fed-section-head">
+          <div class="fed-kicker">Apply</div>
+          <h3>Request Access to the Federation</h3>
+          <p>
+            Every application is reviewed based on profile quality, category
+            relevance, trust, and strategic fit. Submission does not guarantee approval.
+          </p>
+        </div>
+
+        <div class="fed-note fed-apply-state-note" id="applyStateNote" hidden></div>
+
+        <div class="fed-apply-layout" id="applyLayout">
+          <form class="fed-form" id="federationForm" novalidate>
+            <div class="fed-form-group fed-form-group-full">
+              <div class="fed-form-section-title">Personal Details</div>
+            </div>
+
+            <div class="fed-input-wrap">
+              <label for="fullName">Full Name</label>
+              <input id="fullName" name="fullName" type="text" required />
+            </div>
+
+            <div class="fed-input-wrap">
+              <label for="email">Email Address</label>
+              <input id="email" name="email" type="email" required />
+            </div>
+
+            <div class="fed-input-wrap">
+              <label for="phone">Phone Number</label>
+              <input id="phone" name="phone" type="text" />
+            </div>
+
+            <div class="fed-input-wrap">
+              <label for="telegram">Telegram Username</label>
+              <input id="telegram" name="telegram" type="text" />
+            </div>
+
+            <div class="fed-input-wrap">
+              <label for="country">Country</label>
+              <input id="country" name="country" type="text" required />
+            </div>
+
+            <div class="fed-input-wrap">
+              <label for="city">City</label>
+              <input id="city" name="city" type="text" required />
+            </div>
+
+            <div class="fed-form-group fed-form-group-full">
+              <div class="fed-form-section-title">Professional Identity</div>
+            </div>
+
+            <div class="fed-input-wrap">
+              <label for="primaryCategory">Primary Category</label>
+              <select id="primaryCategory" name="primaryCategory" required>
+                <option value="">Select category</option>
+                <option value="Lawyers & Legal Strategists">Lawyers & Legal Strategists</option>
+                <option value="Politicians & Policy Advisors">Politicians & Policy Advisors</option>
+                <option value="Entrepreneurs & Investors">Entrepreneurs & Investors</option>
+                <option value="Influencers & Media Architects">Influencers & Media Architects</option>
+                <option value="Cybersecurity Experts">Cybersecurity Experts</option>
+                <option value="Operators Across Industries">Operators Across Industries</option>
+              </select>
+            </div>
+
+            <div class="fed-input-wrap">
+              <label for="role">Current Role / Position</label>
+              <input id="role" name="role" type="text" required />
+            </div>
+
+            <div class="fed-input-wrap">
+              <label for="company">Organization / Company</label>
+              <input id="company" name="company" type="text" />
+            </div>
+
+            <div class="fed-input-wrap">
+              <label for="experience">Years of Experience</label>
+              <input id="experience" name="experience" type="text" />
+            </div>
+
+            <div class="fed-form-group fed-form-group-full">
+              <div class="fed-form-section-title">Strategic Value</div>
+            </div>
+
+            <div class="fed-input-wrap fed-input-wrap-full">
+              <label for="whyJoin">Why do you want to join the Federation?</label>
+              <textarea id="whyJoin" name="whyJoin" rows="4" required></textarea>
+            </div>
+
+            <div class="fed-input-wrap fed-input-wrap-full">
+              <label for="valueBring">What access, expertise, reach, capital, or network do you bring?</label>
+              <textarea id="valueBring" name="valueBring" rows="4" required></textarea>
+            </div>
+
+            <div class="fed-input-wrap fed-input-wrap-full">
+              <label for="introductions">What kind of people can you introduce into the network?</label>
+              <textarea id="introductions" name="introductions" rows="4"></textarea>
+            </div>
+
+            <div class="fed-input-wrap fed-input-wrap-full">
+              <label for="regionsConnected">Which cities, countries, or sectors are you connected to?</label>
+              <textarea id="regionsConnected" name="regionsConnected" rows="3"></textarea>
+            </div>
+
+            <div class="fed-form-group fed-form-group-full">
+              <div class="fed-form-section-title">Verification & Referral</div>
+            </div>
+
+                        <div class="fed-input-wrap">
+              <label for="linkedin">LinkedIn Profile</label>
+              <input id="linkedin" name="linkedin" type="url" />
+            </div>
+
+            <div class="fed-input-wrap">
+              <label for="website">Website / Portfolio</label>
+              <input id="website" name="website" type="url" />
+            </div>
+
+            <div class="fed-input-wrap">
+              <label for="twitter">X / Twitter</label>
+              <input id="twitter" name="twitter" type="url" />
+            </div>
+
+                        <div class="fed-input-wrap">
+              <label for="referralCode">Referral Code</label>
+              <input
+                id="referralCode"
+                name="referralCode"
+                type="text"
+                placeholder="Optional code from an approved Federation member"
+                autocomplete="off"
+              />
+              <div class="fed-form-inline-note" id="referralCodeHint">
+                Optional. Paste a valid member code to link your application.
+              </div>
+            </div>
+
+            <div class="fed-input-wrap">
+              <label for="referredBy">Referred By</label>
+              <input
+                id="referredBy"
+                name="referredBy"
+                type="text"
+                placeholder="Optional name if no code was provided"
+              />
+            </div>
+
+            <div class="fed-input-wrap fed-input-wrap-full">
+              <label for="source">How did you hear about the Federation?</label>
+              <input id="source" name="source" type="text" />
+            </div>
+
+            <div class="fed-checkbox fed-form-group-full">
+              <input id="declaration" name="declaration" type="checkbox" required />
+              <label for="declaration">
+                I understand that submission does not guarantee approval and I confirm that the details I provided are accurate.
+              </label>
+            </div>
+
+            <div class="fed-form-actions fed-form-group-full">
+              <button type="submit" class="fed-btn fed-btn-primary">
+                Submit for Review
+              </button>
+              <span class="fed-form-hint">
+                Status after submission: Pending Review
+              </span>
+            </div>
+
+            <div class="fed-form-feedback" id="formFeedback" aria-live="polite"></div>
+          </form>
+
+          <aside class="fed-apply-side">
+            <article class="fed-sidebar-card">
+              <div class="fed-sidebar-card-label">Review Logic</div>
+              <div class="fed-sidebar-card-title">What We Look For</div>
+              <p>Professional relevance, network value, trust, regional importance, and strategic fit.</p>
+            </article>
+
+            <article class="fed-sidebar-card">
+              <div class="fed-sidebar-card-label">Application Statuses</div>
+              <div class="fed-status-list">
+                <span>Pending</span>
+                <span>Under Review</span>
+                <span>Screening</span>
+                <span>Shortlisted</span>
+                <span>Approved</span>
+                <span>Rejected</span>
+              </div>
+            </article>
+
+            <article class="fed-sidebar-card">
+              <div class="fed-sidebar-card-label">Network Promise</div>
+              <div class="fed-sidebar-card-title">Quality. Trust. Leverage.</div>
+              <p>
+                The Federation is designed to protect value for the people inside it.
+              </p>
+            </article>
+          </aside>
+        </div>
+      </section>
+
+        <section class="fed-section fed-admin-section" id="admin" data-section="admin" hidden>
+        <div class="fed-section-head">
+          <div class="fed-kicker">Local Fallback</div>
+          <h3>Federation Local Review Queue</h3>
+          <p>
+            This is a temporary local fallback for YHF-only testing. Final review control is intended
+            to live in the central admin panel later, but this queue stays available while YHF is still standalone.
+          </p>
+        </div>
+
+        <div class="fed-admin-toolbar">
+          <div class="fed-admin-stats">
+            <article class="fed-admin-stat">
+              <div class="fed-admin-stat-value" id="adminTotalApplications">0</div>
+              <div class="fed-admin-stat-label">Total Applications</div>
+            </article>
+            <article class="fed-admin-stat">
+              <div class="fed-admin-stat-value" id="adminPendingApplications">0</div>
+              <div class="fed-admin-stat-label">Pending</div>
+            </article>
+            <article class="fed-admin-stat">
+              <div class="fed-admin-stat-value" id="adminShortlistedApplications">0</div>
+              <div class="fed-admin-stat-label">Shortlisted</div>
+            </article>
+            <article class="fed-admin-stat">
+              <div class="fed-admin-stat-value" id="adminApprovedApplications">0</div>
+              <div class="fed-admin-stat-label">Approved</div>
+            </article>
+          </div>
+
+          <div class="fed-note">
+            Beta admin mode is visible only when the top-right toggle is enabled.
+          </div>
+        </div>
+
+        <div class="fed-admin-list" id="adminApplicationList"></div>
+      </section>
+        </main>
+
+    <nav class="fed-app-bottom-nav" aria-label="Federation mobile navigation">
+      <a href="#overview" class="fed-app-bottom-link fed-nav-link active">
+        <span class="fed-app-bottom-icon">⌂</span>
+        <span class="fed-app-bottom-label">Home</span>
+      </a>
+      <a href="#sectors" class="fed-app-bottom-link fed-nav-link">
+        <span class="fed-app-bottom-icon">◈</span>
+        <span class="fed-app-bottom-label">Sectors</span>
+      </a>
+      <a href="#status" class="fed-app-bottom-link fed-nav-link">
+        <span class="fed-app-bottom-icon">◎</span>
+        <span class="fed-app-bottom-label">Status</span>
+      </a>
+      <a href="#directory" class="fed-app-bottom-link fed-nav-link">
+        <span class="fed-app-bottom-icon">▦</span>
+        <span class="fed-app-bottom-label">Directory</span>
+      </a>
+      <button
+        class="fed-app-bottom-link fed-app-bottom-more"
+        id="fedMobileMoreToggle"
+        type="button"
+        aria-expanded="false"
+        aria-controls="fedMobileMoreSheet"
+      >
+        <span class="fed-app-bottom-icon">⋯</span>
+        <span class="fed-app-bottom-label">More</span>
+      </button>
+    </nav>
+
+    <div class="fed-app-more-backdrop" id="fedMobileMoreBackdrop" hidden data-fed-more-close></div>
+
+    <div class="fed-app-more-sheet" id="fedMobileMoreSheet" hidden aria-hidden="true">
+      <div class="fed-app-more-sheet-head">
+        <div>
+          <div class="fed-sidebar-card-label">More</div>
+          <div class="fed-info-title">Federation App Sections</div>
+        </div>
+        <button class="fed-btn fed-btn-secondary fed-app-more-close" type="button" data-fed-more-close>
+          Close
+        </button>
+      </div>
+
+      <div class="fed-app-more-grid">
+        <a href="#access" class="fed-app-more-link fed-nav-link">
+          <strong>Access</strong>
+          <small>Gate, process, and unlock flow</small>
+        </a>
+        <a href="#expansion" class="fed-app-more-link fed-nav-link">
+          <strong>Expansion</strong>
+          <small>Map, corridors, and live nodes</small>
+        </a>
+        <a href="#referrals" class="fed-app-more-link fed-nav-link">
+          <strong>Referrals</strong>
+          <small>Referral logic and member pipeline</small>
+        </a>
+        <a href="#apply" class="fed-app-more-link fed-nav-link" id="fedMobileApply">
+          <strong>Apply</strong>
+          <small>Submit or repeat access request</small>
+        </a>
+        <a href="#command" class="fed-app-more-link fed-nav-link" id="fedMobileCommand" hidden>
+          <strong>Command</strong>
+          <small>Private member operating layer</small>
+        </a>
+        <a href="#admin" class="fed-app-more-link fed-nav-link" id="fedMobileAdmin" hidden>
+          <strong>Local Review</strong>
+          <small>Fallback queue for beta testing</small>
+        </a>
+      </div>
+    </div>
+
+    <aside class="fed-rightbar">
+      <div class="fed-right-card">
+        <div class="fed-right-card-label">Network Pulse</div>
+        <div class="fed-right-card-title">High-Value Cluster</div>
+        <p>
+          Focus on strategic categories, regional connectors, and trusted profiles.
+        </p>
+      </div>
+
+      <div class="fed-right-card">
+        <div class="fed-right-card-label">Priority Regions</div>
+        <ul class="fed-mini-list">
+          <li>Nigeria</li>
+          <li>United Kingdom</li>
+          <li>UAE</li>
+          <li>Canada</li>
+          <li>India</li>
+          <li>Philippines</li>
+        </ul>
+      </div>
+
+      <div class="fed-right-card">
+        <div class="fed-right-card-label">Member Tags</div>
+        <div class="fed-tag-wrap">
+          <span>Connector</span>
+          <span>Investor</span>
+          <span>Media</span>
+          <span>Legal</span>
+          <span>Regional Key</span>
+          <span>Operator</span>
+        </div>
+      </div>
+
+      <div class="fed-right-card">
+        <div class="fed-right-card-label">Beta Controls</div>
+        <div class="fed-right-card-title">Current Device Mode</div>
+        <p>
+          Use the top-right admin toggle to switch the local review queue on or off for beta testing.
+        </p>
+      </div>
+    </aside>
+  </div>
+
+  <script src="federation.js"></script>
+</body>
+</html>
