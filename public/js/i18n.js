@@ -17,10 +17,10 @@
                 apply: {
                     brand: 'Young Hustlers Universe',
                     topEnter: 'Enter Universe ➔',
-                    heroPill: 'Global structured network',
-                    heroTitle: 'Young Hustlers Universe',
-                    heroNarrative: 'This is not just a community. This is a system for direction, structure, and expansion.',
-                    heroSubtitle: 'One universe. Multiple divisions. Build your roadmap, enter the Academy, and prepare for the rise of the Plazas and the Federation.',
+                    heroPill: 'Global structured organization',
+                    heroTitle: 'The Future of Global Networking',
+                    heroNarrative: 'The old world ran on information.<br>The next one runs on trust, access, and verified people.',
+                    heroSubtitle: 'Reach the right people.<br>Anywhere. Anytime.<br><br>No matter who.<br>No matter where.<br><br>Everything verified.<br>Everything trusted.<br><br>In the world ahead, trust is the real currency.<br><br>Young Hustlers is a global organization built for personal growth, trusted connection, and real opportunity, helping verified individuals find jobs, hire talent, connect globally, and stay prepared in an era of rapid transformation and systemic change.',
                     heroPrimary: 'Access The Academy ➔',
                     heroNote: 'Start your roadmap in under 60 seconds',
                     heroSecondary: 'Explore Divisions',
@@ -1697,16 +1697,23 @@ const localizedResources = {
         };
     });
 
-    function getSavedLanguage() {
+        function getSavedLanguage() {
         try {
             const saved = localStorage.getItem(STORAGE_KEY);
             if (saved && SUPPORTED_LANGS.includes(saved)) return saved;
         } catch (_) {}
         return DEFAULT_LANG;
     }
+
     function setText(selector, value) {
         document.querySelectorAll(selector).forEach((el) => {
             el.textContent = value;
+        });
+    }
+
+    function setHtml(selector, value) {
+        document.querySelectorAll(selector).forEach((el) => {
+            el.innerHTML = value;
         });
     }
 
@@ -1733,6 +1740,68 @@ const localizedResources = {
             container.insertBefore(document.createTextNode(`${mainText} `), container.firstChild);
         }
         action.textContent = actionText;
+    }
+
+    function resolveTranslation(key, fallback = '', options = {}) {
+        if (!window.i18next || !key) return fallback;
+        if (window.i18next.exists(key)) return window.i18next.t(key, options);
+        return fallback;
+    }
+
+    function applyTranslationToElement(el, attrName, target) {
+        if (!el) return;
+
+        const key = el.getAttribute(attrName);
+        if (!key) return;
+
+        let fallback = '';
+
+        if (target === 'html') {
+            fallback = el.innerHTML;
+        } else if (target === 'placeholder') {
+            fallback = el.getAttribute('placeholder') || '';
+        } else if (target === 'title') {
+            fallback = el.getAttribute('title') || '';
+        } else if (target === 'aria-label') {
+            fallback = el.getAttribute('aria-label') || '';
+        } else if (target === 'value') {
+            fallback = el.value || el.getAttribute('value') || '';
+        } else {
+            fallback = el.textContent || '';
+        }
+
+        const translated = resolveTranslation(key, fallback);
+
+        if (target === 'html') {
+            el.innerHTML = translated;
+            return;
+        }
+
+        if (target === 'placeholder') {
+            el.setAttribute('placeholder', translated);
+            return;
+        }
+
+        if (target === 'title') {
+            el.setAttribute('title', translated);
+            return;
+        }
+
+        if (target === 'aria-label') {
+            el.setAttribute('aria-label', translated);
+            return;
+        }
+
+        if (target === 'value') {
+            if ('value' in el) {
+                el.value = translated;
+            } else {
+                el.setAttribute('value', translated);
+            }
+            return;
+        }
+
+        el.textContent = translated;
     }
 
     const TEXT_PATH_MAP = new Map();
@@ -1798,12 +1867,21 @@ const localizedResources = {
         document.title = t('pages.applyTitle');
         setText('#toast-message', t('common.notification'));
 
-        setText('.yh-landing-brand-name', t('apply.brand'));
+                setText('.yh-landing-brand-name', t('apply.brand'));
         setText('#yh-scroll-auth', t('apply.topEnter'));
         setText('.yh-landing-pill', t('apply.heroPill'));
         setText('.yh-landing-title', t('apply.heroTitle'));
-        setText('.yh-landing-narrative', t('apply.heroNarrative'));
-        setText('.yh-landing-subtitle', t('apply.heroSubtitle'));
+
+        const heroNarrativeHtml = t('apply.heroNarrative');
+        document.querySelectorAll('.yh-landing-narrative').forEach((el) => {
+            el.innerHTML = heroNarrativeHtml;
+        });
+
+        const heroSubtitleHtml = t('apply.heroSubtitle');
+        document.querySelectorAll('.yh-landing-subtitle').forEach((el) => {
+            el.innerHTML = heroSubtitleHtml;
+        });
+
         setText('#yh-open-auth-main', t('apply.heroPrimary'));
         setText('.yh-landing-cta-note', t('apply.heroNote'));
         setText('#yh-scroll-divisions', t('apply.heroSecondary'));
@@ -2040,19 +2118,59 @@ const localizedResources = {
         if (spinnerText) spinnerText.textContent = tText(String(spinnerText.textContent || '').trim());
     }
 
+        function translateAttributes(root = document) {
+        if (!root) return;
+
+        root.querySelectorAll('[data-i18n]').forEach((el) => {
+            applyTranslationToElement(el, 'data-i18n', 'text');
+        });
+
+        root.querySelectorAll('[data-i18n-html]').forEach((el) => {
+            applyTranslationToElement(el, 'data-i18n-html', 'html');
+        });
+
+        root.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
+            applyTranslationToElement(el, 'data-i18n-placeholder', 'placeholder');
+        });
+
+        root.querySelectorAll('[data-i18n-title]').forEach((el) => {
+            applyTranslationToElement(el, 'data-i18n-title', 'title');
+        });
+
+        root.querySelectorAll('[data-i18n-aria-label]').forEach((el) => {
+            applyTranslationToElement(el, 'data-i18n-aria-label', 'aria-label');
+        });
+
+        root.querySelectorAll('[data-i18n-value]').forEach((el) => {
+            applyTranslationToElement(el, 'data-i18n-value', 'value');
+        });
+    }
+
+    function shouldRunLegacyTranslators() {
+        const mode = document.documentElement.getAttribute('data-yh-i18n-mode');
+        return mode !== 'attributes';
+    }
+
     function translateCurrentPage() {
+        translateAttributes(document);
+
+        if (!shouldRunLegacyTranslators()) return;
+
         translateApplyPage();
         translateDashboardPage();
     }
 
-    async function setLanguage(lang) {
+        async function setLanguage(lang) {
         const nextLang = SUPPORTED_LANGS.includes(lang) ? lang : DEFAULT_LANG;
         await window.i18next.changeLanguage(nextLang);
+
         try {
             localStorage.setItem(STORAGE_KEY, nextLang);
         } catch (_) {}
 
         document.documentElement.lang = nextLang;
+        document.documentElement.dir = nextLang === 'ar' ? 'rtl' : 'ltr';
+
         document.querySelectorAll('[data-yh-language-switcher]').forEach((el) => {
             el.value = nextLang;
         });
@@ -2060,7 +2178,6 @@ const localizedResources = {
         translateCurrentPage();
         window.dispatchEvent(new CustomEvent('yh:languageChanged', { detail: { language: nextLang } }));
     }
-
     function bindLanguageSwitchers() {
         document.querySelectorAll('[data-yh-language-switcher]').forEach((el) => {
             if (el.dataset.boundLangSwitcher === 'true') return;
@@ -2108,10 +2225,11 @@ const localizedResources = {
         }));
     }
 
-    window.YHI18n = {
+        window.YHI18n = {
         boot,
         setLanguage,
         translateCurrentPage,
+        translateAttributes,
         translateApplyPage,
         translateDashboardPage,
         getLanguage: () => window.i18next?.language || DEFAULT_LANG
