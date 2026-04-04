@@ -19,15 +19,6 @@ const yhTText = (text, options = {}) => (
     typeof window.yhTText === 'function' ? window.yhTText(text, options) : text
 );
 
-function refreshApplyRuntimeLanguage() {
-    if (typeof window.YHI18n?.translateApplyPage === 'function') {
-        window.YHI18n.translateApplyPage();
-    }
-}
-
-window.addEventListener('yh:i18n-ready', refreshApplyRuntimeLanguage);
-window.addEventListener('yh:languageChanged', refreshApplyRuntimeLanguage);
-
 function showToast(message, type = "success") {
     const toast = document.getElementById('toast-notification');
     const toastMsg = document.getElementById('toast-message');
@@ -312,7 +303,6 @@ const bindRegisterPhotoUpload = () => {
 bootstrapPendingVerification();
 bindPasswordVisibilityToggles();
 bindRegisterPhotoUpload();
-refreshApplyRuntimeLanguage();
     // --- LOGIN LOGIC ---
 const btnLogin = document.getElementById('btn-login');
 const loginEmailInput = document.getElementById('login-email');

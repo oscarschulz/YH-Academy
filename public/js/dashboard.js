@@ -29,22 +29,13 @@ const yhTText = (text, options = {}) => (
     typeof window.yhTText === 'function' ? window.yhTText(text, options) : text
 );
 
-function refreshDashboardRuntimeLanguage() {
-    if (typeof window.YHI18n?.translateDashboardPage === 'function') {
-        window.YHI18n.translateDashboardPage();
-    }
-}
-
-window.addEventListener('yh:i18n-ready', refreshDashboardRuntimeLanguage);
-window.addEventListener('yh:languageChanged', refreshDashboardRuntimeLanguage);
-
 const socket = io({
     withCredentials: true,
     auth: getStoredAuthToken() ? { token: getStoredAuthToken() } : {}
 });
 
 const myName = getStoredUserValue('yh_user_name', "Hustler");
-refreshDashboardRuntimeLanguage();
+
 
 let currentRoom = "YH-community";      // UI/display label
 let currentRoomId = "YH-community";    // backend transport identity
