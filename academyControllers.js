@@ -1383,6 +1383,7 @@ async function generateAndPersistPlanFirestore(uid, profile, options = {}) {
         trendSummary: adaptivePlanning.trendSummary,
         trigger
     };
+
     normalizedPlan.nurtureTelemetry =
         context.nurtureKnowledge?.telemetry && typeof context.nurtureKnowledge.telemetry === 'object'
             ? context.nurtureKnowledge.telemetry
@@ -1399,47 +1400,47 @@ async function generateAndPersistPlanFirestore(uid, profile, options = {}) {
                 overlayRedFlagCount: 0,
                 overlayThemes: []
             };
-    normalizedPlan.missions = adaptedMissions
-        .map((mission) => {
-            const cleanedMission = normalizeGeneratedMission(mission, {
-                ...context,
-                behaviorProfile: {
-                    ...behaviorProfile,
-                    maxSustainableDailyMinutes: adaptivePlanning.dailyLoadCap
-                }
-            });
 
-            const qualityScores = scoreMissionQuality(cleanedMission, {
-                ...context,
-                behaviorProfile: {
-                    ...behaviorProfile,
-                    maxSustainableDailyMinutes: adaptivePlanning.dailyLoadCap
-                }
-            });
-
-            return {
-                ...cleanedMission,
-                qualityScores,
-                selectionReason: sanitize(mission.selectionReason || adaptivePlanning.reason),
-                primaryBottleneck: sanitize(profile.blockerText || profile.topPriorityPillar),
-                energyAdjustmentApplied: toInt(profile.energyScore, 0) <= 4 || adaptivePlanning.mode === 'recovery',
-                timeAdjustmentApplied: true,
-                generatedByProvider: plannerProvider,
-                generatedByModel: plannerModel,
-                promptVersion: 'planner_v2',
-                schemaVersion: 'academy_plan_v1',
-                generationMode: planningMode,
-                outcomeMetrics: {
-                    skipCount: 0,
-                    stuckCount: 0,
-                    rescheduleCount: 0,
-                    completionLagHours: 0,
-                    userDifficultyScore: 0,
-                    userUsefulnessScore: 0,
-                    lastSkipReasonCategory: ''
-                }
-            };
+    normalizedPlan.missions = adaptedMissions.map((mission) => {
+        const cleanedMission = normalizeGeneratedMission(mission, {
+            ...context,
+            behaviorProfile: {
+                ...behaviorProfile,
+                maxSustainableDailyMinutes: adaptivePlanning.dailyLoadCap
+            }
         });
+
+        const qualityScores = scoreMissionQuality(cleanedMission, {
+            ...context,
+            behaviorProfile: {
+                ...behaviorProfile,
+                maxSustainableDailyMinutes: adaptivePlanning.dailyLoadCap
+            }
+        });
+
+        return {
+            ...cleanedMission,
+            qualityScores,
+            selectionReason: sanitize(mission.selectionReason || adaptivePlanning.reason),
+            primaryBottleneck: sanitize(profile.blockerText || profile.topPriorityPillar),
+            energyAdjustmentApplied: toInt(profile.energyScore, 0) <= 4 || adaptivePlanning.mode === 'recovery',
+            timeAdjustmentApplied: true,
+            generatedByProvider: plannerProvider,
+            generatedByModel: plannerModel,
+            promptVersion: 'planner_v2',
+            schemaVersion: 'academy_plan_v1',
+            generationMode: planningMode,
+            outcomeMetrics: {
+                skipCount: 0,
+                stuckCount: 0,
+                rescheduleCount: 0,
+                completionLagHours: 0,
+                userDifficultyScore: 0,
+                userUsefulnessScore: 0,
+                lastSkipReasonCategory: ''
+            }
+        };
+    });
 
     const plannerRun = await academyFirestoreRepo.createPlannerRun(uid, {
         provider: plannerProvider,
@@ -1743,6 +1744,155 @@ exports.completeMission = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: 'Server error while completing mission.'
+        });
+    }
+};
+exports.updateMissionStatus = async (req, res) => {
+    try {
+        const uid = getAcademyAuthUid(req);
+
+        if (!uid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const access = await requireApprovedRoadmapAccess(uid, res);
+        if (!access) return;
+
+        const missionId = sanitize(req.params?.id || '');
+        const requestedStatus = sanitize(req.body?.status || '').toLowerCase();
+        const completionNote = sanitize(req.body?.note || req.body?.completionNote || '');
+
+        if (!missionId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Mission id is required.'
+            });
+        }
+
+        if (!['pending', 'completed', 'skipped', 'stuck'].includes(requestedStatus)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid mission status.'
+            });
+        }
+
+        const mission = await academyFirestoreRepo.getMissionById(uid, missionId);
+
+        if (!mission) {
+            return res.status(404).json({
+                success: false,
+                message: 'Mission not found.'
+            });
+        }
+
+        if (requestedStatus === 'completed') {
+            const completedMission = await academyFirestoreRepo.completeMission(uid, missionId, completionNote);
+
+            let completionLagHours = 0;
+            const missionCompletedAt = completedMission?.completedAt || completedMission?.completed_at || new Date().toISOString();
+            const missionCreatedAt = mission?.createdAt || mission?.created_at || mission?.assignedAt || mission?.assigned_at;
+
+            if (missionCreatedAt && missionCompletedAt) {
+                const completedMs = typeof missionCompletedAt?.toDate === 'function'
+                    ? missionCompletedAt.toDate().getTime()
+                    : new Date(missionCompletedAt).getTime();
+
+                const createdMs = typeof missionCreatedAt?.toDate === 'function'
+                    ? missionCreatedAt.toDate().getTime()
+                    : new Date(missionCreatedAt).getTime();
+
+                if (Number.isFinite(completedMs) && Number.isFinite(createdMs) && completedMs >= createdMs) {
+                    completionLagHours = Number(((completedMs - createdMs) / (1000 * 60 * 60)).toFixed(2));
+                }
+            }
+
+            await academyFirestoreRepo.updateMissionOutcomeMetrics(uid, missionId, {
+                completionLagHours
+            });
+
+            try {
+                await publicLandingEventsRepo.createAcademyActionEvent(uid, 'mission_completed', {
+                    missionTitle: completedMission?.title || mission?.title || '',
+                    ttlSeconds: 1500
+                });
+            } catch (glowError) {
+                console.warn('updateMissionStatus mission_completed event skipped:', glowError?.message || glowError);
+            }
+
+            const behaviorState = await refreshBehaviorState(uid);
+            const progress = await academyFirestoreRepo.getMissionProgress(uid, mission.roadmapId);
+            const homePayload = await academyFirestoreRepo.buildAcademyHomePayload(uid, mission.roadmapId);
+
+            return res.json({
+                success: true,
+                missionId,
+                status: 'completed',
+                note: String(completedMission?.completionNote || completionNote || ''),
+                todayProgress: {
+                    completed: progress.completed || 0,
+                    total: progress.total || 0,
+                    percent: progress.percent || 0
+                },
+                behaviorProfile: behaviorState.behaviorProfile,
+                previousBehaviorProfile: behaviorState.previousBehaviorProfile,
+                plannerStats: behaviorState.plannerStats,
+                adaptivePlanning: homePayload?.adaptivePlanning || {}
+            });
+        }
+
+        const statusPayload = {
+            status: requestedStatus,
+            updatedAt: new Date().toISOString()
+        };
+
+        if (requestedStatus === 'pending') {
+            statusPayload.completedAt = null;
+            statusPayload.completionNote = '';
+        }
+
+        if (requestedStatus === 'skipped') {
+            const existingSkipCount = toInt(mission?.outcomeMetrics?.skipCount, 0);
+            await academyFirestoreRepo.updateMissionOutcomeMetrics(uid, missionId, {
+                skipCount: existingSkipCount + 1
+            });
+        }
+
+        if (requestedStatus === 'stuck') {
+            const existingStuckCount = toInt(mission?.outcomeMetrics?.stuckCount, 0);
+            await academyFirestoreRepo.updateMissionOutcomeMetrics(uid, missionId, {
+                stuckCount: existingStuckCount + 1
+            });
+        }
+
+        await academyFirestoreRepo.updateMission(uid, missionId, statusPayload);
+
+        const behaviorState = await refreshBehaviorState(uid);
+        const progress = await academyFirestoreRepo.getMissionProgress(uid, mission.roadmapId);
+        const homePayload = await academyFirestoreRepo.buildAcademyHomePayload(uid, mission.roadmapId);
+
+        return res.json({
+            success: true,
+            missionId,
+            status: requestedStatus,
+            note: '',
+            todayProgress: {
+                completed: progress.completed || 0,
+                total: progress.total || 0,
+                percent: progress.percent || 0
+            },
+            behaviorProfile: behaviorState.behaviorProfile,
+            previousBehaviorProfile: behaviorState.previousBehaviorProfile,
+            plannerStats: behaviorState.plannerStats,
+            adaptivePlanning: homePayload?.adaptivePlanning || {}
+        });
+    } catch (error) {
+        console.error('Update Mission Status Error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Server error while updating mission status.'
         });
     }
 };

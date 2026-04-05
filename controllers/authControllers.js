@@ -663,7 +663,7 @@ exports.verifyOTP = async (req, res) => {
             updatedAt: nowIso()
         });
 
-            const updatedUser = {
+        const updatedUser = {
             ...user,
             isVerified: true,
             verificationCode: null
