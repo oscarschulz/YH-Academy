@@ -52,8 +52,17 @@ async function getUserGeo(userId) {
         return null;
     }
 
+    const actorName =
+        sanitizeText(data.fullName) ||
+        sanitizeText(data.displayName) ||
+        sanitizeText(data.name) ||
+        sanitizeText(data.username) ||
+        'A member';
+
     return {
         userId: normalizedUserId,
+        actorName,
+        username: sanitizeText(data.username),
         city: sanitizeText(data.city),
         country: sanitizeText(data.country),
         countryCode: sanitizeText(data.countryCode),
@@ -88,18 +97,39 @@ async function createEventForUser(userId, options = {}) {
     const ringPropagationSpeed = toNumber(options.ringPropagationSpeed, NaN);
     const ringRepeatPeriod = toNumber(options.ringRepeatPeriod, NaN);
 
+    const actorName = sanitizeText(options.actorName || geo.actorName || geo.username || 'A member');
     const locationText = buildLocationText(geo);
 
+    const rawMessage = sanitizeText(options.message);
+    const rawFeedText = sanitizeText(options.feedText);
+    const rawLabel = sanitizeText(options.label);
+
     const message =
-        sanitizeText(options.message) ||
+        (rawMessage
+            ? rawMessage
+                .replace(/\{name\}/g, actorName)
+                .replace(/\{location\}/g, locationText)
+            : '') ||
         (
             sanitizeText(options.messagePrefix)
                 ? `${sanitizeText(options.messagePrefix)} from ${locationText}.`
                 : `Academy activity from ${locationText}.`
         );
 
+    const feedText =
+        (rawFeedText
+            ? rawFeedText
+                .replace(/\{name\}/g, actorName)
+                .replace(/\{location\}/g, locationText)
+            : '') ||
+        message;
+
     const label =
-        sanitizeText(options.label) ||
+        (rawLabel
+            ? rawLabel
+                .replace(/\{name\}/g, actorName)
+                .replace(/\{location\}/g, locationText)
+            : '') ||
         (
             sanitizeText(options.labelPrefix)
                 ? `${sanitizeText(options.labelPrefix)} • ${locationText}`
@@ -114,8 +144,12 @@ async function createEventForUser(userId, options = {}) {
         type,
         slot,
         category,
+        actorName,
+        username: geo.username,
+        feedText,
         message,
         label,
+        locationText,
         color,
         altitude,
         ...(coreColor ? { coreColor } : {}),
@@ -672,8 +706,12 @@ async function buildPublicLandingSnapshot(limit = 24) {
                 type: sanitizeText(data.type),
                 slot: sanitizeText(data.slot || 'academy').toLowerCase(),
                 category: sanitizeText(data.category || 'academy'),
+                actorName: sanitizeText(data.actorName),
+                username: sanitizeText(data.username),
+                feedText: sanitizeText(data.feedText),
                 message: sanitizeText(data.message),
                 label: sanitizeText(data.label),
+                locationText: sanitizeText(data.locationText),
                 color: sanitizeText(data.color || '#38bdf8'),
                 altitude: toNumber(data.altitude, 0.22),
                 coreColor: sanitizeText(data.coreColor || ''),
@@ -702,21 +740,32 @@ async function buildPublicLandingSnapshot(limit = 24) {
             return Number.isFinite(expiresMs) ? expiresMs > nowMs : true;
         });
 
+    const academySource = events.filter((event) => event.slot === 'academy' && event.category === 'academy');
     const feed = getDefaultFeed();
 
-    const latestAcademy = events.find((event) => event.slot === 'academy');
-    const latestAccess = events.find((event) => event.slot === 'federation');
-    const latestCommunity = events.find((event) => event.slot === 'plaza');
+    if (academySource[0]?.feedText) {
+        feed.academy = academySource[0].feedText;
+    }
 
-    if (latestAcademy?.message) feed.academy = latestAcademy.message;
-    if (latestAccess?.message) feed.federation = latestAccess.message;
-    if (latestCommunity?.message) feed.plaza = latestCommunity.message;
+    const academyEvents = academySource.slice(0, 6).map((event) => ({
+        id: event.id,
+        pointId: event.id,
+        type: event.type,
+        actorName: event.actorName,
+        label: event.label || 'Academy Activity',
+        feedText: event.feedText || event.message || 'Academy activity',
+        locationText: event.locationText || buildLocationText(event),
+        city: event.city,
+        country: event.country,
+        countryCode: event.countryCode,
+        createdAt: event.createdAt
+    }));
 
-    const points = events.slice(0, 8).map((event) => ({
+    const points = academySource.slice(0, 8).map((event) => ({
         id: event.id,
         lat: event.lat,
         lng: event.lng,
-        label: event.label || event.message || 'Academy activity',
+        label: event.label || event.locationText || event.feedText || event.message || 'Academy activity',
         color: event.color || '#38bdf8',
         altitude: event.altitude || 0.22,
         ...(event.coreColor ? { coreColor: event.coreColor } : {}),
@@ -740,6 +789,7 @@ async function buildPublicLandingSnapshot(limit = 24) {
 
     return {
         feed,
+        academyEvents,
         points,
         arcs: [],
         focusPoint,

@@ -1712,33 +1712,52 @@ exports.completeMission = async (req, res) => {
         });
 
         try {
-            await publicLandingEventsRepo.createAcademyActionEvent(uid, 'mission_completed', {
-                missionTitle: completedMission?.title || mission?.title,
-                ttlSeconds: 1500
+            await publicLandingEventsRepo.createEventForUser(uid, {
+                type: 'academy_mission_completed',
+                slot: 'academy',
+                category: 'academy',
+                message: 'Mission completed from {location}.',
+                feedText: `{name} completed "${sanitize(completedMission?.title || mission?.title || 'an Academy mission')}".`,
+                labelPrefix: 'Mission Complete',
+                color: '#22c55e',
+                altitude: 0.2,
+                ttlSeconds: 1500,
+                coreColor: 'rgba(220, 252, 231, 0.98)',
+                coreAltitude: 0.012,
+                coreRadius: 0.17,
+                ringAltitude: 0.0031,
+                ringColor: [
+                    'rgba(220, 252, 231, 0.98)',
+                    'rgba(34, 197, 94, 0.46)',
+                    'rgba(34, 197, 94, 0)'
+                ],
+                ringMaxRadius: 5.1,
+                ringPropagationSpeed: 1.9,
+                ringRepeatPeriod: 700
             });
         } catch (glowError) {
             console.warn('completeMission public landing event skipped:', glowError?.message || glowError);
         }
 
-        const behaviorState = await refreshBehaviorState(uid);
-        const progress = await academyFirestoreRepo.getMissionProgress(uid, mission.roadmapId);
-        const homePayload = await academyFirestoreRepo.buildAcademyHomePayload(uid, mission.roadmapId);
+const behaviorState = await refreshBehaviorState(uid);
+const progress = await academyFirestoreRepo.getMissionProgress(uid, mission.roadmapId);
+const homePayload = await academyFirestoreRepo.buildAcademyHomePayload(uid, mission.roadmapId);
 
-        return res.json({
-            success: true,
-            missionId,
-            status: String(completedMission?.status || 'completed').trim().toLowerCase(),
-            note: String(completedMission?.completionNote || completionNote || ''),
-            todayProgress: {
-                completed: progress.completed || 0,
-                total: progress.total || 0,
-                percent: progress.percent || 0
-            },
-            behaviorProfile: behaviorState.behaviorProfile,
-            previousBehaviorProfile: behaviorState.previousBehaviorProfile,
-            plannerStats: behaviorState.plannerStats,
-            adaptivePlanning: homePayload?.adaptivePlanning || {}
-        });
+return res.json({
+    success: true,
+    missionId,
+    status: String(completedMission?.status || 'completed').trim().toLowerCase(),
+    note: String(completedMission?.completionNote || completionNote || ''),
+    todayProgress: {
+        completed: progress.completed || 0,
+        total: progress.total || 0,
+        percent: progress.percent || 0
+    },
+    behaviorProfile: behaviorState.behaviorProfile,
+    previousBehaviorProfile: behaviorState.previousBehaviorProfile,
+    plannerStats: behaviorState.plannerStats,
+    adaptivePlanning: homePayload?.adaptivePlanning || {}
+});
     } catch (error) {
         console.error('Complete Mission Error:', error);
         return res.status(500).json({
@@ -1822,25 +1841,104 @@ exports.updateMissionStatus = async (req, res) => {
                 console.warn('updateMissionStatus mission_completed event skipped:', glowError?.message || glowError);
             }
 
-            const behaviorState = await refreshBehaviorState(uid);
-            const progress = await academyFirestoreRepo.getMissionProgress(uid, mission.roadmapId);
-            const homePayload = await academyFirestoreRepo.buildAcademyHomePayload(uid, mission.roadmapId);
+        try {
+            if (status === 'completed') {
+                await publicLandingEventsRepo.createEventForUser(uid, {
+                    type: 'academy_mission_completed',
+                    slot: 'academy',
+                    category: 'academy',
+                    message: 'Mission completed from {location}.',
+                    feedText: `{name} completed "${sanitize(updatedMission?.title || mission?.title || 'an Academy mission')}".`,
+                    labelPrefix: 'Mission Complete',
+                    color: '#22c55e',
+                    altitude: 0.2,
+                    ttlSeconds: 1500,
+                    coreColor: 'rgba(220, 252, 231, 0.98)',
+                    coreAltitude: 0.012,
+                    coreRadius: 0.17,
+                    ringAltitude: 0.0031,
+                    ringColor: [
+                        'rgba(220, 252, 231, 0.98)',
+                        'rgba(34, 197, 94, 0.46)',
+                        'rgba(34, 197, 94, 0)'
+                    ],
+                    ringMaxRadius: 5.1,
+                    ringPropagationSpeed: 1.9,
+                    ringRepeatPeriod: 700
+                });
+            } else if (status === 'skipped') {
+                await publicLandingEventsRepo.createEventForUser(uid, {
+                    type: 'academy_mission_skipped',
+                    slot: 'academy',
+                    category: 'academy',
+                    message: 'Mission skipped from {location}.',
+                    feedText: `{name} skipped "${sanitize(updatedMission?.title || mission?.title || 'an Academy mission')}".`,
+                    labelPrefix: 'Mission Skipped',
+                    color: '#f59e0b',
+                    altitude: 0.18,
+                    ttlSeconds: 1350,
+                    coreColor: 'rgba(254, 243, 199, 0.98)',
+                    coreAltitude: 0.0115,
+                    coreRadius: 0.165,
+                    ringAltitude: 0.003,
+                    ringColor: [
+                        'rgba(254, 243, 199, 0.98)',
+                        'rgba(245, 158, 11, 0.46)',
+                        'rgba(245, 158, 11, 0)'
+                    ],
+                    ringMaxRadius: 4.8,
+                    ringPropagationSpeed: 1.76,
+                    ringRepeatPeriod: 760
+                });
+            } else if (status === 'stuck') {
+                await publicLandingEventsRepo.createEventForUser(uid, {
+                    type: 'academy_mission_stuck',
+                    slot: 'academy',
+                    category: 'academy',
+                    message: 'Mission blocked from {location}.',
+                    feedText: `{name} marked "${sanitize(updatedMission?.title || mission?.title || 'an Academy mission')}" as stuck.`,
+                    labelPrefix: 'Mission Stuck',
+                    color: '#fb7185',
+                    altitude: 0.18,
+                    ttlSeconds: 1350,
+                    coreColor: 'rgba(255, 228, 230, 0.98)',
+                    coreAltitude: 0.0115,
+                    coreRadius: 0.165,
+                    ringAltitude: 0.003,
+                    ringColor: [
+                        'rgba(255, 228, 230, 0.98)',
+                        'rgba(251, 113, 133, 0.46)',
+                        'rgba(251, 113, 133, 0)'
+                    ],
+                    ringMaxRadius: 4.9,
+                    ringPropagationSpeed: 1.72,
+                    ringRepeatPeriod: 780
+                });
+            }
+        } catch (glowError) {
+            console.warn('updateMissionStatus public landing event skipped:', glowError?.message || glowError);
+        }
 
-            return res.json({
-                success: true,
-                missionId,
-                status: 'completed',
-                note: String(completedMission?.completionNote || completionNote || ''),
-                todayProgress: {
-                    completed: progress.completed || 0,
-                    total: progress.total || 0,
-                    percent: progress.percent || 0
-                },
-                behaviorProfile: behaviorState.behaviorProfile,
-                previousBehaviorProfile: behaviorState.previousBehaviorProfile,
-                plannerStats: behaviorState.plannerStats,
-                adaptivePlanning: homePayload?.adaptivePlanning || {}
-            });
+        const behaviorState = await refreshBehaviorState(uid);
+        const progress = await academyFirestoreRepo.getMissionProgress(uid, mission.roadmapId);
+
+const homePayload = await academyFirestoreRepo.buildAcademyHomePayload(uid, mission.roadmapId);
+
+return res.json({
+    success: true,
+    missionId,
+    status,
+    note,
+    todayProgress: {
+        completed: progress.completed || 0,
+        total: progress.total || 0,
+        percent: progress.percent || 0
+    },
+    behaviorProfile: behaviorState.behaviorProfile,
+    previousBehaviorProfile: behaviorState.previousBehaviorProfile,
+    plannerStats: behaviorState.plannerStats,
+    adaptivePlanning: homePayload?.adaptivePlanning || {}
+});
         }
 
         const statusPayload = {
@@ -2117,13 +2215,26 @@ exports.submitMembershipApplication = async (req, res) => {
         try {
             await publicLandingEventsRepo.createEventForUser(uid, {
                 type: 'academy_membership_application',
-                slot: 'federation',
+                slot: 'academy',
                 category: 'academy',
-                messagePrefix: 'Academy access request submitted',
-                labelPrefix: 'Academy Access',
+                message: 'Academy application submitted from {location}.',
+                feedText: '{name} sent an application for the Academy.',
+                labelPrefix: 'Academy Application',
                 color: '#7dd3fc',
                 altitude: 0.2,
-                ttlSeconds: 1500
+                ttlSeconds: 1800,
+                coreColor: 'rgba(191, 219, 254, 0.98)',
+                coreAltitude: 0.013,
+                coreRadius: 0.19,
+                ringAltitude: 0.0034,
+                ringColor: [
+                    'rgba(191, 219, 254, 0.98)',
+                    'rgba(125, 211, 252, 0.48)',
+                    'rgba(125, 211, 252, 0)'
+                ],
+                ringMaxRadius: 5.8,
+                ringPropagationSpeed: 1.84,
+                ringRepeatPeriod: 760
             });
         } catch (glowError) {
             console.warn('submitMembershipApplication public landing event skipped:', glowError?.message || glowError);
@@ -2283,6 +2394,34 @@ exports.submitCheckin = async (req, res) => {
             await academyFirestoreRepo.updateMissionOutcomeMetrics(uid, missionId, {
                 stuckCount: existingStuckCount + 1
             });
+        }
+
+        try {
+            await publicLandingEventsRepo.createEventForUser(uid, {
+                type: 'academy_checkin_saved',
+                slot: 'academy',
+                category: 'academy',
+                message: 'Daily Academy check-in submitted from {location}.',
+                feedText: '{name} submitted an Academy check-in.',
+                labelPrefix: 'Academy Check-In',
+                color: '#a78bfa',
+                altitude: 0.19,
+                ttlSeconds: 1200,
+                coreColor: 'rgba(237, 233, 254, 0.98)',
+                coreAltitude: 0.012,
+                coreRadius: 0.17,
+                ringAltitude: 0.0031,
+                ringColor: [
+                    'rgba(237, 233, 254, 0.98)',
+                    'rgba(167, 139, 250, 0.46)',
+                    'rgba(167, 139, 250, 0)'
+                ],
+                ringMaxRadius: 5.0,
+                ringPropagationSpeed: 1.86,
+                ringRepeatPeriod: 720
+            });
+        } catch (glowError) {
+            console.warn('submitCheckin public landing event skipped:', glowError?.message || glowError);
         }
 
         const behaviorState = await refreshBehaviorState(uid);
@@ -2485,11 +2624,28 @@ exports.submitRoadmapApplication = async (req, res) => {
         );
 
         try {
-            await publicLandingEventsRepo.createAcademyActionEvent(uid, 'roadmap_application', {
-                focusArea: roadmapIntake.focusArea,
-                target30Days: roadmapIntake.target30Days,
-                weeklyTheme: plannerResult?.homePayload?.weeklyCheckpoint?.theme || '',
-                ttlSeconds: 1800
+            await publicLandingEventsRepo.createEventForUser(uid, {
+                type: 'academy_roadmap_application',
+                slot: 'academy',
+                category: 'academy',
+                message: 'Academy roadmap unlocked from {location}.',
+                feedText: '{name} unlocked Academy roadmap access.',
+                labelPrefix: 'Roadmap Unlock',
+                color: '#38bdf8',
+                altitude: 0.21,
+                ttlSeconds: 1800,
+                coreColor: 'rgba(191, 219, 254, 0.98)',
+                coreAltitude: 0.0125,
+                coreRadius: 0.18,
+                ringAltitude: 0.0032,
+                ringColor: [
+                    'rgba(191, 219, 254, 0.98)',
+                    'rgba(56, 189, 248, 0.46)',
+                    'rgba(56, 189, 248, 0)'
+                ],
+                ringMaxRadius: 5.5,
+                ringPropagationSpeed: 1.8,
+                ringRepeatPeriod: 740
             });
         } catch (glowError) {
             console.warn('submitRoadmapApplication public landing event skipped:', glowError?.message || glowError);
@@ -2541,10 +2697,28 @@ exports.refreshRoadmap = async (req, res) => {
         const plannerResult = await generateAndPersistPlanFirestore(uid, profile, { mode: 'refresh' });
 
         try {
-            await publicLandingEventsRepo.createAcademyActionEvent(uid, 'roadmap_refresh', {
-                weeklyTheme: plannerResult?.homePayload?.weeklyCheckpoint?.theme || '',
-                weeklyTargetOutcome: plannerResult?.homePayload?.weeklyCheckpoint?.targetOutcome || '',
-                ttlSeconds: 1500
+            await publicLandingEventsRepo.createEventForUser(uid, {
+                type: 'academy_roadmap_refresh',
+                slot: 'academy',
+                category: 'academy',
+                message: 'Academy roadmap refreshed from {location}.',
+                feedText: '{name} refreshed their Academy roadmap.',
+                labelPrefix: 'Roadmap Refresh',
+                color: '#38bdf8',
+                altitude: 0.21,
+                ttlSeconds: 1500,
+                coreColor: 'rgba(191, 219, 254, 0.98)',
+                coreAltitude: 0.0125,
+                coreRadius: 0.18,
+                ringAltitude: 0.0032,
+                ringColor: [
+                    'rgba(191, 219, 254, 0.98)',
+                    'rgba(56, 189, 248, 0.46)',
+                    'rgba(56, 189, 248, 0)'
+                ],
+                ringMaxRadius: 5.5,
+                ringPropagationSpeed: 1.8,
+                ringRepeatPeriod: 740
             });
         } catch (glowError) {
             console.warn('refreshRoadmap public landing event skipped:', glowError?.message || glowError);

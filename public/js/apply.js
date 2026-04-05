@@ -179,11 +179,32 @@ function persistClientSession(user, token) {
     });
 }
 
-const YH_LANDING_FEED_DEFAULTS = {
-    academy: 'Waiting for new Academy member activity.',
-    federation: 'Waiting for academy access activity.',
-    plaza: 'Waiting for academy community activity.'
-};
+const YH_LANDING_FEED_DEFAULTS = [
+    {
+        id: 'academy_live_placeholder_1',
+        pointId: '',
+        label: 'Academy Live Activity',
+        feedText: 'Waiting for new Academy activity.',
+        locationText: '',
+        createdAt: ''
+    },
+    {
+        id: 'academy_live_placeholder_2',
+        pointId: '',
+        label: 'Academy Growth',
+        feedText: 'Real Academy events will appear here as they happen.',
+        locationText: '',
+        createdAt: ''
+    },
+    {
+        id: 'academy_live_placeholder_3',
+        pointId: '',
+        label: 'Globe Sync',
+        feedText: 'Each Academy event lights up its real city and country.',
+        locationText: '',
+        createdAt: ''
+    }
+];
 
 const YH_LANDING_MAP_POINTS = [];
 const YH_LANDING_MAP_ARCS = [];
@@ -194,7 +215,7 @@ let yhLandingMapSpinRaf = null;
 let yhLandingCloudsMesh = null;
 let yhLandingResizeBound = false;
 let yhLandingLastFocusPointKey = '';
-let yhLandingLiveFeedState = { ...YH_LANDING_FEED_DEFAULTS };
+let yhLandingLiveFeedState = YH_LANDING_FEED_DEFAULTS.map((item) => ({ ...item }));
 
 let yhLandingGlobeData = {
     points: [...YH_LANDING_MAP_POINTS],
@@ -220,24 +241,103 @@ function animateLandingStat(el, target, duration = 1200) {
     requestAnimationFrame(tick);
 }
 
-function renderLandingFeedSections() {
-    const academyEl = document.getElementById('yh-landing-activity-academy');
-    const federationEl = document.getElementById('yh-landing-activity-federation');
-    const plazaEl = document.getElementById('yh-landing-activity-plaza');
-
-    if (!academyEl || !federationEl || !plazaEl) return;
-
-    academyEl.textContent = yhLandingLiveFeedState.academy || YH_LANDING_FEED_DEFAULTS.academy;
-    federationEl.textContent = yhLandingLiveFeedState.federation || YH_LANDING_FEED_DEFAULTS.federation;
-    plazaEl.textContent = yhLandingLiveFeedState.plaza || YH_LANDING_FEED_DEFAULTS.plaza;
+function escapeLandingHtml(value = '') {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
-function applyLandingFeedSnapshot(feed = {}) {
-    yhLandingLiveFeedState = {
-        academy: String(feed.academy || YH_LANDING_FEED_DEFAULTS.academy).trim(),
-        federation: String(feed.federation || YH_LANDING_FEED_DEFAULTS.federation).trim(),
-        plaza: String(feed.plaza || YH_LANDING_FEED_DEFAULTS.plaza).trim()
-    };
+function formatLandingEventMeta(event = {}) {
+    const location = String(
+        event.locationText ||
+        [event.city, event.country].filter(Boolean).join(', ')
+    ).trim();
+
+    const rawDate = String(event.createdAt || '').trim();
+    let timeText = '';
+
+    if (rawDate) {
+        const parsed = new Date(rawDate);
+        if (!Number.isNaN(parsed.getTime())) {
+            timeText = parsed.toLocaleTimeString([], {
+                hour: 'numeric',
+                minute: '2-digit'
+            });
+        }
+    }
+
+    return [location, timeText].filter(Boolean).join(' • ') || 'Academy live sync';
+}
+
+function focusLandingFeedEvent(pointId = '') {
+    const normalizedId = String(pointId || '').trim();
+    if (!normalizedId) return;
+
+    const point = Array.isArray(yhLandingGlobeData.points)
+        ? yhLandingGlobeData.points.find((item) => String(item.id || '').trim() === normalizedId)
+        : null;
+
+    if (point) {
+        focusLandingGlobePoint(point);
+    }
+}
+
+function renderLandingFeedSections() {
+    const streamEl = document.getElementById('yh-landing-activity-stream');
+    if (!streamEl) return;
+
+    const items =
+        Array.isArray(yhLandingLiveFeedState) && yhLandingLiveFeedState.length
+            ? yhLandingLiveFeedState
+            : YH_LANDING_FEED_DEFAULTS;
+
+    streamEl.innerHTML = items.map((item, index) => {
+        const pointId = String(item.pointId || item.id || '').trim();
+        const label = escapeLandingHtml(item.label || 'Academy Activity');
+        const feedText = escapeLandingHtml(item.feedText || 'Academy activity.');
+        const meta = escapeLandingHtml(formatLandingEventMeta(item));
+
+        return `
+            <button
+                type="button"
+                class="yh-landing-activity-event${index === 0 ? ' is-active' : ''}"
+                data-point-id="${escapeLandingHtml(pointId)}"
+            >
+                <span class="yh-landing-activity-label">${label}</span>
+                <strong>${feedText}</strong>
+                <span class="yh-landing-activity-meta">${meta}</span>
+            </button>
+        `;
+    }).join('');
+
+    streamEl.querySelectorAll('.yh-landing-activity-event').forEach((button) => {
+        button.addEventListener('click', () => {
+            focusLandingFeedEvent(button.dataset.pointId || '');
+        });
+    });
+}
+
+function applyLandingFeedSnapshot(events = []) {
+    const normalized = (Array.isArray(events) ? events : [])
+        .map((item, index) => ({
+            id: String(item.id || `academy_live_event_${index + 1}`).trim(),
+            pointId: String(item.pointId || item.id || '').trim(),
+            label: String(item.label || 'Academy Activity').trim(),
+            feedText: String(item.feedText || item.message || 'Academy activity.').trim(),
+            locationText: String(item.locationText || '').trim(),
+            city: String(item.city || '').trim(),
+            country: String(item.country || '').trim(),
+            createdAt: String(item.createdAt || '').trim()
+        }))
+        .filter((item) => item.feedText)
+        .slice(0, 6);
+
+    yhLandingLiveFeedState = normalized.length
+        ? normalized
+        : YH_LANDING_FEED_DEFAULTS.map((item) => ({ ...item }));
 
     renderLandingFeedSections();
 }
@@ -290,7 +390,7 @@ async function fetchLandingPublicFeed() {
             throw new Error(result?.message || 'Public landing feed returned an invalid response.');
         }
 
-        applyLandingFeedSnapshot(result.feed || {});
+        applyLandingFeedSnapshot(Array.isArray(result.academyEvents) ? result.academyEvents : []);
 
         window.yhSetLandingGlobeData({
             points: Array.isArray(result.points) ? result.points : [],
@@ -299,7 +399,7 @@ async function fetchLandingPublicFeed() {
         });
     } catch (error) {
         console.warn('fetchLandingPublicFeed error:', error?.message || error);
-        applyLandingFeedSnapshot(YH_LANDING_FEED_DEFAULTS);
+        applyLandingFeedSnapshot([]);
         window.yhSetLandingGlobeData({
             points: [],
             arcs: []
