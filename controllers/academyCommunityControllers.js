@@ -1,4 +1,5 @@
 const academyCommunityRepo = require('../backend/repositories/academyCommunityFirestoreRepo');
+const publicLandingEventsRepo = require('../backend/repositories/publicLandingEventsRepo');
 
 const sanitizeText = (value, fallback = '') => {
     if (value === null || value === undefined) return fallback;
@@ -81,6 +82,21 @@ exports.createPost = async (req, res) => {
             visibility,
             share
         });
+
+        try {
+            await publicLandingEventsRepo.createEventForUser(viewer.id, {
+                type: 'academy_community_post',
+                slot: 'plaza',
+                category: 'academy',
+                messagePrefix: 'New Academy post activity',
+                labelPrefix: 'Academy Community',
+                color: '#22d3ee',
+                altitude: 0.18,
+                ttlSeconds: 900
+            });
+        } catch (glowError) {
+            console.warn('academy createPost public landing event skipped:', glowError?.message || glowError);
+        }
 
         return res.status(201).json({
             success: true,
@@ -229,6 +245,21 @@ exports.createComment = async (req, res) => {
             body
         });
 
+        try {
+            await publicLandingEventsRepo.createEventForUser(viewer.id, {
+                type: 'academy_community_comment',
+                slot: 'plaza',
+                category: 'academy',
+                messagePrefix: 'New Academy comment activity',
+                labelPrefix: 'Academy Community',
+                color: '#22d3ee',
+                altitude: 0.17,
+                ttlSeconds: 780
+            });
+        } catch (glowError) {
+            console.warn('academy createComment public landing event skipped:', glowError?.message || glowError);
+        }
+
         return res.status(201).json({
             success: true,
             comment
@@ -296,6 +327,23 @@ exports.toggleMemberFollow = async (req, res) => {
             viewerId: viewer.id,
             targetUserId
         });
+
+        if (result.following === true) {
+            try {
+                await publicLandingEventsRepo.createEventForUser(viewer.id, {
+                    type: 'academy_member_follow',
+                    slot: 'plaza',
+                    category: 'academy',
+                    messagePrefix: 'New Academy connection activity',
+                    labelPrefix: 'Academy Community',
+                    color: '#22d3ee',
+                    altitude: 0.17,
+                    ttlSeconds: 720
+                });
+            } catch (glowError) {
+                console.warn('academy toggleMemberFollow public landing event skipped:', glowError?.message || glowError);
+            }
+        }
 
         return res.json({
             success: true,

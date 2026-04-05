@@ -7,6 +7,7 @@ const authController = require('../controllers/authControllers');
 const realtimeControllers = require('../controllers/realtimeControllers');
 const academyCommunityControllers = require('../controllers/academyCommunityControllers');
 const aiNurtureControllers = require('../controllers/aiNurtureControllers');
+const publicLandingController = require('../controllers/publicLandingController');
 const aiNurtureGate = require('../backend/middlewares/aiNurtureGate');
 
 // ==========================================
@@ -15,6 +16,11 @@ const aiNurtureGate = require('../backend/middlewares/aiNurtureGate');
 router.post('/register', authController.registerUser);
 router.post('/verify-otp', authController.verifyOTP);
 router.post('/resend-otp', authController.resendOTP);
+
+// ==========================================
+// 🌍 PUBLIC LANDING FEED ROUTES
+// ==========================================
+router.get('/public/landing-feed', publicLandingController.getLandingFeed);
 
 // ==========================================
 // 🚪 3. LOGIN / LOGOUT ROUTES

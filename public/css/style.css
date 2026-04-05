@@ -211,6 +211,10 @@ textarea.input-field { resize: none; }
 .btn-back-icon { position: absolute; top: 1.5rem; left: 1.5rem; background: transparent; border: none; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 5px; font-size: 0.85rem; transition: 0.3s; z-index: 10; }
 .btn-back-icon:hover { color: var(--neon-blue); }
 
+.yh-cta-label-mobile {
+    display: none;
+}
+
 .forgot-link { color: var(--text-muted); font-size: 0.85rem; text-decoration: underline; margin-bottom: 2rem; transition: 0.2s; }
 .forgot-link:hover { color: #fff; }
 .divider { display: flex; align-items: center; text-align: center; color: var(--text-muted); width: 100%; margin: 1.5rem 0; }
@@ -391,7 +395,19 @@ h3 { font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem; color: var(--ne
 /* --- YH DASHBOARD UI --- */
 /* ========================================================= */
 
-.dashboard-layout { display: flex; flex-direction: column; height: 100vh; width: 100vw; overflow: hidden; background: var(--bg-space); position: relative; }
+.dashboard-layout {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    min-height: 100dvh;
+    height: 100dvh;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+    overflow-y: hidden;
+    background: var(--bg-space);
+    position: relative;
+}
 
 .yh-top-nav { height: 60px; background: rgba(10, 15, 25, 0.85); border-bottom: 1px solid var(--glass-border); display: flex; align-items: center; justify-content: space-between; padding: 0 2rem; backdrop-filter: blur(20px); z-index: 50; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
 .nav-brand { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 1.1rem; letter-spacing: 2px; color: #fff; }
@@ -423,7 +439,7 @@ h3 { font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem; color: var(--ne
 
 .profile-mini { display: flex; align-items: center; gap: 8px; color: #fff; font-size: 0.85rem; font-weight: 500; cursor: pointer; transition: 0.2s; }
 .profile-mini:hover { opacity: 0.8; }
-.profile-avatar-mini { width: 28px; height: 28px; background: var(--neon-blue); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; background-size: cover; background-position: center; }
+.profile-avatar-mini { width: 30px; height: 30px; background: var(--neon-blue); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; background-size: cover; background-position: center; }
 .btn-logout { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: 600; transition: 0.2s; }
 .btn-logout:hover { background: #ef4444; color: #fff; }
 
@@ -1549,8 +1565,8 @@ img, video, canvas {
 }
 
 .academy-profile-avatar {
-    width: 58px;
-    height: 58px;
+    width: 62px;
+    height: 62px;
     border-radius: 50%;
     background: rgba(14,165,233,0.18);
     border: 1px solid rgba(14,165,233,0.28);
@@ -1559,7 +1575,7 @@ img, video, canvas {
     justify-content: center;
     color: #fff;
     font-weight: 700;
-    font-size: 1.15rem;
+    font-size: 1.18rem;
     flex-shrink: 0;
 }
 
@@ -3803,7 +3819,7 @@ body[data-yh-view="academy"] #center-stage-view {
     min-height: 100vh;
     min-height: 100svh;
     padding: clamp(10px, 1vw, 18px);
-    overflow: hidden;
+    overflow: visible;
 }
 
 .yh-landing-bg {
@@ -3835,16 +3851,21 @@ body[data-yh-view="academy"] #center-stage-view {
         radial-gradient(circle at 80% 78%, rgba(56, 189, 248, 0.08), transparent 24%),
         linear-gradient(180deg, rgba(5, 8, 22, 0.84), rgba(5, 8, 22, 0.97));
 }
-.yh-landing-hero,
-.yh-landing-section,
-.yh-landing-auth-wrap {
+.yh-landing-hero {
     position: relative;
     z-index: 1;
+    overflow: visible;
 }
 
 .yh-landing-section,
 .yh-landing-auth-wrap {
-    width: min(96vw, 1680px);
+    position: relative;
+    z-index: 3;
+}
+
+.yh-landing-section,
+.yh-landing-auth-wrap {
+    width: min(100%, 1680px);
     max-width: 1680px;
     margin: 0 auto;
 }
@@ -3853,22 +3874,22 @@ body[data-yh-view="academy"] #center-stage-view {
     width: 100%;
     max-width: none;
     margin: 0;
-    padding: clamp(16px, 1.5vw, 24px) clamp(22px, 3vw, 56px) 0;
+    padding: clamp(10px, 1vw, 16px) clamp(22px, 3vw, 56px) 0;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 1rem;
+    gap: 0.75rem;
 }
 
 .yh-landing-brand {
     display: flex;
     align-items: center;
-    gap: 0.85rem;
+    gap: 0.68rem;
 }
 
 .yh-landing-brand-logo {
-    width: 58px;
-    height: 58px;
+    width: 52px;
+    height: 52px;
     object-fit: contain;
 }
 
@@ -3901,8 +3922,7 @@ body[data-yh-view="academy"] #center-stage-view {
     width: 100%;
     max-width: none;
     margin: 0;
-    min-height: 100vh;
-    min-height: 100svh;
+    min-height: clamp(680px, 86svh, 860px);
     padding: 0;
     display: flex;
     flex-direction: column;
@@ -3910,19 +3930,22 @@ body[data-yh-view="academy"] #center-stage-view {
 }
 
 .yh-landing-hero-grid {
-    width: min(94vw, 1600px);
+    width: min(100%, 1600px);
     max-width: 1600px;
     margin: 0 auto;
     flex: 1 1 auto;
     display: grid;
-    grid-template-columns: minmax(0, 0.98fr) minmax(360px, 0.82fr);
-    gap: clamp(1.4rem, 2.2vw, 2.8rem);
-    align-items: center;
-    min-height: calc(100svh - 92px);
-    padding: clamp(6px, 1.2vh, 14px) 0 clamp(14px, 2vh, 24px);
+    grid-template-columns: minmax(0, 0.98fr) minmax(320px, 0.82fr);
+    gap: 0;
+    align-items: start;
+    align-content: start;
+    min-height: calc(clamp(680px, 86svh, 860px) - 92px);
+    padding: clamp(2px, 0.35vh, 6px) 0 clamp(8px, 1.2vh, 16px);
 }
 
 .yh-landing-hero-copy {
+    position: relative;
+    z-index: 4;
     max-width: 700px;
     padding: 0;
     border: none;
@@ -4075,6 +4098,9 @@ body[data-yh-view="academy"] #center-stage-view {
 }
 
 .yh-landing-hero-visual {
+    position: relative;
+    z-index: 1;
+    overflow: visible;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -4088,7 +4114,9 @@ body[data-yh-view="academy"] #center-stage-view {
     border-radius: 1.1rem;
     overflow: hidden;
     border: 1px solid rgba(56, 189, 248, 0.18);
-    background: rgba(15, 23, 42, 0.65);
+    background:
+        radial-gradient(circle at top, rgba(14, 165, 233, 0.12), transparent 42%),
+        linear-gradient(180deg, rgba(8, 15, 32, 0.96), rgba(5, 10, 22, 0.98));
     box-shadow: 0 22px 56px rgba(0, 0, 0, 0.38);
     transition: transform 0.35s ease, box-shadow 0.35s ease, border-color 0.35s ease;
 }
@@ -4100,7 +4128,7 @@ body[data-yh-view="academy"] #center-stage-view {
     border-radius: 0.9rem;
     border: 1px solid rgba(255,255,255,0.05);
     pointer-events: none;
-    z-index: 2;
+    z-index: 5;
 }
 
 .yh-landing-visual-card:hover {
@@ -4133,35 +4161,168 @@ body[data-yh-view="academy"] #center-stage-view {
     animation: yhNoiseDrift 18s linear infinite;
 }
 
-.yh-landing-video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transform: scale(1.02);
-    animation: yhVideoFloat 12s ease-in-out infinite alternate;
+.yh-landing-map-card {
+    display: block;
 }
 
-.yh-landing-visual-overlay {
+.yh-landing-map-shell {
+    position: relative;
+    z-index: 3;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    min-height: clamp(300px, 46svh, 470px);
+    height: 100%;
+}
+
+.yh-landing-map-stage-wrap {
+    position: relative;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.yh-world-map {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background:
+        radial-gradient(circle at 50% 45%, rgba(14, 165, 233, 0.16), rgba(4, 8, 20, 0.94) 62%),
+        linear-gradient(180deg, rgba(5, 10, 22, 0.72), rgba(2, 6, 23, 0.94));
+}
+
+.yh-world-map .maplibregl-map,
+.yh-world-map .maplibregl-canvas-container,
+.yh-world-map .maplibregl-canvas {
+    width: 100%;
+    height: 100%;
+}
+
+.yh-landing-map-overlay {
     position: absolute;
     inset: 0;
     z-index: 1;
     pointer-events: none;
     background:
-        linear-gradient(180deg, rgba(2, 6, 23, 0.06) 0%, rgba(2, 6, 23, 0.14) 42%, rgba(2, 6, 23, 0.72) 100%);
+        radial-gradient(circle at 50% 50%, transparent 40%, rgba(2, 6, 23, 0.18) 76%, rgba(2, 6, 23, 0.42) 100%),
+        linear-gradient(180deg, rgba(2, 6, 23, 0.08) 0%, rgba(2, 6, 23, 0.18) 44%, rgba(2, 6, 23, 0.58) 100%);
 }
 
-.yh-landing-visual-caption {
+.yh-landing-map-stats {
     position: absolute;
-    left: 0.9rem;
-    right: 0.9rem;
-    bottom: 0.9rem;
+    top: 0.95rem;
+    left: 0.95rem;
+    right: 0.95rem;
+    z-index: 3;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.6rem;
+}
+
+.yh-landing-map-stat {
+    min-width: 0;
+    padding: 0.72rem 0.8rem;
+    border-radius: 0.9rem;
+    background: rgba(2, 6, 23, 0.7);
+    border: 1px solid rgba(255,255,255,0.08);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 10px 26px rgba(0,0,0,0.22);
+}
+
+.yh-landing-map-stat-label {
+    display: block;
+    color: #9fb3c8;
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 1.15px;
+    margin-bottom: 0.28rem;
+}
+
+.yh-landing-map-stat strong {
+    display: block;
+    color: #fff;
+    font-size: clamp(0.98rem, 1.2vw, 1.12rem);
+    line-height: 1;
+}
+
+.yh-landing-map-kicker {
+    position: absolute;
+    left: 0.95rem;
+    right: 0.95rem;
+    bottom: 0.95rem;
     z-index: 3;
     padding: 0.82rem 0.9rem;
     border-radius: 0.9rem;
     background: rgba(2, 6, 23, 0.74);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255,255,255,0.08);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
+}
+
+.yh-landing-activity-rail {
+    position: relative;
+    z-index: 3;
+    padding: 0.9rem;
+    background:
+        linear-gradient(180deg, rgba(6, 12, 26, 0.96), rgba(4, 9, 20, 0.98));
+    border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+.yh-landing-activity-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.7rem;
+}
+
+.yh-landing-activity-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.42rem;
+    color: #9fb3c8;
+    font-size: 0.72rem;
+    white-space: nowrap;
+}
+
+.yh-landing-activity-status-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 999px;
+    background: #22c55e;
+    box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.12);
+}
+
+.yh-landing-activity-card {
+    display: flex;
+    align-items: center;
+    min-height: 78px;
+    padding: 0.9rem 0.95rem;
+    border-radius: 0.95rem;
+    background:
+        linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(8, 15, 32, 0.92));
+    border: 1px solid rgba(56, 189, 248, 0.14);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+}
+
+.yh-landing-activity-card-copy {
+    min-width: 0;
+}
+
+.yh-landing-activity-label {
+    display: block;
+    color: var(--neon-blue);
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    margin-bottom: 0.28rem;
+}
+
+#yh-landing-activity-text {
+    display: block;
+    color: #f8fafc;
+    font-size: 0.93rem;
+    line-height: 1.45;
 }
 
 .yh-landing-visual-kicker {
@@ -4179,11 +4340,11 @@ body[data-yh-view="academy"] #center-stage-view {
 }
 
 #yh-divisions-section.yh-landing-section {
-    min-height: min(100svh, 980px);
-    padding: clamp(1.75rem, 5svh, 4rem) 0;
+    min-height: auto;
+    padding: clamp(0.85rem, 1.8svh, 1.45rem) 0 clamp(0.95rem, 2svh, 1.5rem);
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start;
 }
 
 .yh-landing-dashboard-preview {
@@ -4390,8 +4551,15 @@ body[data-yh-view="academy"] #center-stage-view {
     min-height: min(100svh, 1080px);
     padding: clamp(1.75rem, 6svh, 4.5rem) 0 clamp(2rem, 7svh, 5rem);
     display: flex;
+    flex-direction: column;
     justify-content: center;
-    align-items: center;
+    align-items: stretch;
+    gap: 1.1rem;
+}
+
+.yh-auth-section-head {
+    width: 100%;
+    margin-bottom: 0;
 }
 
 .yh-auth-card {
@@ -4492,6 +4660,10 @@ body[data-yh-view="academy"] #center-stage-view {
         min-height: clamp(300px, 42vh, 420px);
     }
 
+    .yh-landing-map-shell {
+        min-height: clamp(300px, 42vh, 420px);
+    }
+
     .yh-auth-card {
         display: flex;
         flex-direction: column;
@@ -4562,20 +4734,46 @@ body[data-yh-view="academy"] #center-stage-view {
         border-radius: 0;
     }
 
-    .yh-topbar-btn {
-        width: auto;
-        min-width: 140px;
-        padding: 0.78rem 0.9rem;
-    }
+.yh-topbar-actions {
+    display: none;
+}
 
-    .yh-landing-cta-primary,
-    .yh-landing-cta-secondary {
-        width: 100%;
-    }
+.yh-topbar-btn {
+    width: auto;
+    min-width: 140px;
+    padding: 0.78rem 0.9rem;
+}
 
-    .yh-landing-cta-stack {
-        width: 100%;
-    }
+.yh-landing-cta-row {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.yh-landing-cta-stack {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.yh-landing-cta-primary {
+    display: inline-flex;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+}
+
+.yh-cta-label-desktop {
+    display: none;
+}
+
+.yh-cta-label-mobile {
+    display: inline;
+}
+
+.yh-landing-cta-secondary {
+    width: 100%;
+}
 
     .yh-landing-pill {
         margin-bottom: 0.7rem;
@@ -4626,9 +4824,56 @@ body[data-yh-view="academy"] #center-stage-view {
         margin-top: 0.72rem;
     }
 
-    .yh-landing-visual-card,
-    .yh-landing-video {
+    .yh-landing-visual-card {
         min-height: clamp(220px, 34vh, 300px);
+    }
+
+    .yh-landing-map-shell {
+        min-height: clamp(220px, 34vh, 300px);
+    }
+
+    .yh-landing-map-stats {
+        top: 0.75rem;
+        left: 0.75rem;
+        right: 0.75rem;
+        gap: 0.45rem;
+    }
+
+    .yh-landing-map-stat {
+        padding: 0.58rem 0.62rem;
+        border-radius: 0.8rem;
+    }
+
+    .yh-landing-map-stat-label {
+        font-size: 0.6rem;
+        margin-bottom: 0.2rem;
+    }
+
+    .yh-landing-map-kicker {
+        left: 0.75rem;
+        right: 0.75rem;
+        bottom: 0.75rem;
+        padding: 0.72rem 0.78rem;
+    }
+
+    .yh-landing-activity-rail {
+        padding: 0.78rem;
+    }
+
+    .yh-landing-activity-head {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 0.35rem;
+    }
+
+    .yh-landing-activity-card {
+        min-height: 70px;
+        padding: 0.8rem 0.85rem;
+    }
+
+    #yh-landing-activity-text {
+        font-size: 0.88rem;
+        line-height: 1.4;
     }
 
     .yh-dashboard-preview-grid {
@@ -4642,16 +4887,69 @@ body[data-yh-view="academy"] #center-stage-view {
         gap: 0.55rem;
     }
 
-    .yh-auth-panel-title {
-        font-size: 1.5rem;
-    }
+.yh-auth-panel-title {
+    font-size: 1.5rem;
+}
+
+#yh-auth-section.yh-landing-auth-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.yh-auth-section-head {
+    width: 100%;
+    max-width: 520px;
+    margin-left: auto;
+    margin-right: auto;
+    text-align: center;
+    align-items: center;
+}
+
+.yh-auth-section-head > div {
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.yh-auth-card,
+.form-card-ultrawide {
+    width: min(calc(100vw - 24px), 520px);
+    max-width: 520px;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    align-self: center;
+    position: relative;
+    left: -6px;
+}
+
+.yh-auth-card .panel-right-wrapper,
+.yh-auth-card .flip-card-inner,
+.yh-auth-card .flip-card-front,
+.yh-auth-card .flip-card-back {
+    width: 100%;
+}
+
+.yh-auth-card .panel-right-wrapper {
+    display: flex;
+    justify-content: center;
+}
 }
 /* FIX: Remove modal behavior for landing page */
 #step-1.yh-landing-step {
     position: relative;
+    top: auto;
+    left: auto;
+    width: 100%;
     height: auto;
+    max-height: none;
     min-height: 100vh;
+    min-height: 100dvh;
+    padding: 0;
     overflow: visible;
+    overflow-y: visible;
+    overflow-x: clip;
     align-items: unset;
     justify-content: unset;
 }
@@ -4673,9 +4971,80 @@ body[data-yh-view="academy"] #center-stage-view {
     min-height: clamp(560px, 72svh, 760px);
 }
 
-.yh-auth-card .panel-right-wrapper {
-    position: relative;
-    overflow: visible;
+/* ========================================================= */
+/* APPLE DEVICE HARDENING                                    */
+/* MacBook + iPhone safe viewport and overflow fixes         */
+/* ========================================================= */
+@media (max-width: 1366px) {
+    .yh-landing-topbar {
+        padding-left: clamp(14px, 2vw, 24px);
+        padding-right: clamp(14px, 2vw, 24px);
+    }
+
+    .yh-landing-visual-card {
+        width: 100%;
+        max-width: 520px;
+    }
+}
+
+@media (max-width: 820px) {
+    .yh-landing-topbar {
+        flex-wrap: wrap;
+    }
+
+    .yh-topbar-actions {
+        width: 100%;
+    }
+
+    .yh-topbar-btn {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .yh-auth-card,
+    .form-card-ultrawide {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .yh-auth-card .panel-left,
+    .yh-auth-card .panel-right-wrapper {
+        min-height: auto;
+    }
+}
+
+@media (max-width: 768px) {
+    .yh-top-nav {
+        padding-top: max(10px, env(safe-area-inset-top)) !important;
+        padding-left: max(12px, env(safe-area-inset-left)) !important;
+        padding-right: max(12px, env(safe-area-inset-right)) !important;
+    }
+
+    .desktop-user-strip {
+        padding-left: max(12px, env(safe-area-inset-left)) !important;
+        padding-right: max(12px, env(safe-area-inset-right)) !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .yh-landing-shell {
+        padding-top: max(12px, env(safe-area-inset-top));
+    }
+
+    .flip-card-front,
+    .flip-card-back,
+    .approved-form-right {
+        padding: 1.2rem 1rem calc(1.2rem + env(safe-area-inset-bottom));
+    }
+
+    .yh-auth-card {
+        min-height: auto;
+    }
+
+    #notif-dropdown,
+    .yh-resources-menu-panel {
+        max-width: calc(100vw - 20px) !important;
+    }
 }
 
 .yh-auth-card .flip-card-inner {
@@ -5449,43 +5818,80 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
         font-size: 0.72rem;
     }
 }
-/* REGISTER BUTTON BOTTOM BREATHING ROOM */
+/* REGISTER FACE: compact layout after adding city + country */
 .yh-auth-card .flip-card-back {
-    padding-bottom: 1.4rem;
+    padding: 1.2rem 2.25rem 1.35rem;
+    overflow-y: auto;
 }
 
 .yh-auth-card .flip-card-back .text-center.mb-large.mt-small {
-    margin-bottom: 0.9rem;
+    margin-bottom: 0.72rem;
 }
 
 .yh-auth-card .flip-card-back .step1-logo {
-    width: 52px;
-    max-width: 52px;
-    margin: 0 auto 0.35rem;
+    width: 38px;
+    max-width: 38px;
+    margin: 0 auto 0.18rem;
     display: block;
 }
 
 .yh-auth-card .flip-card-back .step1-title {
-    font-size: clamp(1.75rem, 2.4vw, 2.55rem);
-    line-height: 1.02;
-    letter-spacing: -0.04em;
-    margin-bottom: 0.2rem;
+    font-size: clamp(1.12rem, 1.7vw, 1.8rem);
+    line-height: 1;
+    letter-spacing: -0.03em;
+    margin-bottom: 0.12rem;
     text-wrap: balance;
 }
 
 .yh-auth-card .flip-card-back .step1-subtitle {
-    font-size: 0.92rem;
-    line-height: 1.4;
+    font-size: 0.82rem;
+    line-height: 1.32;
     margin-bottom: 0;
+}
+
+.yh-auth-card .flip-card-back .auth-center-wrapper {
+    margin: 0;
+    min-height: 100%;
+    justify-content: flex-start;
 }
 
 #form-register-simple {
+    max-width: 500px;
     padding-bottom: 0.1rem;
 }
 
+#form-register-simple .form-row,
+#form-register-simple .form-row-last {
+    gap: 0.9rem;
+    margin-bottom: 0.72rem;
+    align-items: flex-start;
+}
+
+#form-register-simple .form-group {
+    margin-bottom: 0.72rem;
+}
+
+#form-register-simple .form-group label {
+    margin-bottom: 0.32rem;
+    font-size: 0.8rem;
+}
+
+#form-register-simple .input-field {
+    padding: 0.78rem 0.9rem;
+    font-size: 0.9rem;
+}
+
+#form-register-simple .yh-upload-help {
+    margin-top: 0.32rem;
+    font-size: 0.74rem;
+    line-height: 1.35;
+}
+
 #btn-register {
-    margin-top: 0.1rem;
+    margin-top: 0.2rem;
     margin-bottom: 0;
+    padding: 0.88rem 1rem;
+    font-size: 0.98rem;
 }
 
 @media (min-width: 1025px) {
@@ -5494,9 +5900,24 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
         height: auto;
     }
 
-    .flip-card-front,
-    .flip-card-back {
-        padding-bottom: 1.6rem;
+    .yh-auth-card .flip-card-inner {
+        min-height: clamp(620px, 78svh, 820px);
+    }
+
+    .yh-auth-card .flip-card-front,
+    .yh-auth-card .flip-card-back {
+        min-height: clamp(620px, 78svh, 820px);
+        height: 100%;
+        padding-bottom: 1.35rem;
+    }
+}
+
+@media (max-width: 1100px) {
+    #form-register-simple .form-row,
+    #form-register-simple .form-row-last {
+        flex-direction: column;
+        gap: 0.72rem;
+        margin-bottom: 0.72rem;
     }
 }
 .academy-mini-profile-browse-btn {
@@ -5759,10 +6180,10 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
     }
 
     .profile-avatar-mini {
-        width: 34px !important;
-        height: 34px !important;
-        min-width: 34px !important;
-        min-height: 34px !important;
+        width: 36px !important;
+        height: 36px !important;
+        min-width: 36px !important;
+        min-height: 36px !important;
     }
 
     #top-nav-name {
@@ -6391,7 +6812,10 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
 }
 
 @media (max-width: 768px) {
-    .yh-topbar-actions,
+    .yh-topbar-actions {
+        display: none !important;
+    }
+
     .nav-actions {
         gap: 10px;
     }
@@ -6403,4 +6827,485 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
         padding: 0 30px 0 10px;
         border-radius: 10px;
     }
+
+    #yh-auth-section.yh-landing-auth-wrap {
+        display: flex;
+        flex-direction: column;
+        align-items: center !important;
+        justify-content: center;
+        width: 100%;
+    }
+
+    #yh-auth-section .yh-auth-section-head {
+        width: min(calc(100vw - 24px), 520px) !important;
+        max-width: min(calc(100vw - 24px), 520px) !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+        text-align: center;
+        align-items: center;
+    }
+
+    #yh-auth-section .yh-auth-section-head > div {
+        width: 100%;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    #yh-auth-section > .yh-auth-card {
+        width: min(calc(100vw - 24px), 520px) !important;
+        max-width: min(calc(100vw - 24px), 520px) !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+        align-self: center !important;
+    }
+
+    #yh-auth-section .panel-right-wrapper,
+    #yh-auth-section .flip-card-inner,
+    #yh-auth-section .flip-card-front,
+    #yh-auth-section .flip-card-back {
+        width: 100%;
+    }
+
+    #yh-auth-section .panel-right-wrapper {
+        display: flex;
+        justify-content: center;
+    }
+}
+#yh-landing-activity-text {
+    transition: opacity 0.18s ease;
+}
+
+.yh-world-map-fallback {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    background:
+        radial-gradient(circle at 50% 50%, rgba(14, 165, 233, 0.12), transparent 34%),
+        linear-gradient(180deg, rgba(3, 8, 20, 0.32), rgba(2, 6, 23, 0.82));
+}
+
+.yh-world-map-fallback-glow {
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(circle at 50% 45%, rgba(56, 189, 248, 0.12), transparent 28%),
+        radial-gradient(circle at 50% 50%, rgba(14, 165, 233, 0.08), transparent 42%);
+}
+
+.yh-world-map-fallback-grid {
+    position: absolute;
+    inset: 0;
+    opacity: 0.14;
+    background-image:
+        linear-gradient(rgba(56, 189, 248, 0.18) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(56, 189, 248, 0.18) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(circle at center, black 28%, transparent 74%);
+    -webkit-mask-image: radial-gradient(circle at center, black 28%, transparent 74%);
+}
+
+.yh-world-map-fallback-orb {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: min(66%, 320px);
+    aspect-ratio: 1 / 1;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background:
+        radial-gradient(circle at 35% 30%, rgba(255,255,255,0.22), transparent 18%),
+        radial-gradient(circle at 50% 50%, rgba(56,189,248,0.2), rgba(2,6,23,0.08) 58%, rgba(2,6,23,0) 72%);
+    box-shadow:
+        inset 0 0 58px rgba(56, 189, 248, 0.18),
+        0 0 76px rgba(56, 189, 248, 0.14),
+        0 0 120px rgba(56, 189, 248, 0.08);
+    border: 1px solid rgba(125, 211, 252, 0.22);
+}
+
+.yh-world-map-fallback-pulse {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border-radius: 999px;
+    background: #7dd3fc;
+    box-shadow:
+        0 0 0 10px rgba(56, 189, 248, 0.12),
+        0 0 18px rgba(125, 211, 252, 0.65),
+        0 0 34px rgba(56, 189, 248, 0.4);
+    animation: yhLandingPulse 2.7s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+.pulse-1 { top: 33%; left: 38%; animation-delay: 0s; }
+.pulse-2 { top: 42%; left: 58%; animation-delay: 0.25s; }
+.pulse-3 { top: 54%; left: 49%; animation-delay: 0.5s; }
+.pulse-4 { top: 48%; left: 32%; animation-delay: 0.75s; }
+.pulse-5 { top: 38%; left: 67%; animation-delay: 1s; }
+.pulse-6 { top: 60%; left: 61%; animation-delay: 1.25s; }
+
+@keyframes yhLandingPulse {
+    0% {
+        transform: scale(0.82);
+        opacity: 0.42;
+    }
+    45% {
+        transform: scale(1.85);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(2.55);
+        opacity: 0;
+    }
+}
+/* ========================================================= */
+/* LANDING HERO: inline live cards + nearer globe            */
+/* ========================================================= */
+@media (min-width: 1101px) {
+    .yh-landing-hero-grid {
+        grid-template-columns: minmax(0, 1fr) minmax(360px, 0.98fr);
+        gap: clamp(1rem, 2.2vw, 2.4rem);
+        align-items: start;
+    }
+
+    .yh-landing-hero-copy {
+        max-width: 760px;
+    }
+
+    .yh-landing-hero-visual {
+        position: relative;
+        z-index: 1;
+        overflow: visible;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: flex-start;
+    }
+
+    .yh-landing-globe-stage {
+        width: 164%;
+        margin-left: -114%;
+        margin-top: clamp(-6.7rem, -5.4vh, -4.3rem);
+    }
+
+    .yh-landing-activity-panel {
+        position: relative;
+        z-index: 4;
+        width: 100%;
+        max-width: none;
+        align-self: stretch;
+        margin-top: 0.95rem !important;
+    }
+
+    .yh-landing-activity-rail {
+        width: 100%;
+        max-width: none;
+        margin-top: 0 !important;
+        padding: 0;
+        background: transparent;
+        border-top: none;
+    }
+
+    .yh-landing-activity-head {
+        width: 100%;
+        max-width: none;
+        padding: 0;
+        margin-bottom: 0.72rem;
+    }
+
+    .yh-landing-activity-card,
+    .yh-landing-activity-card--triple {
+        width: 100%;
+        max-width: none;
+        min-height: auto;
+        padding: 0;
+        border-radius: 0;
+        background: transparent;
+        border: none;
+        box-shadow: none;
+    }
+
+    .yh-landing-activity-stack {
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.82rem;
+    }
+
+    .yh-landing-activity-section {
+        min-height: 118px;
+    }
+
+    .yh-landing-activity-section strong {
+        font-size: 0.92rem;
+        line-height: 1.42;
+    }
+}
+/* ========================================================= */
+/* LANDING LIVE ACTIVITY: separate cards layout              */
+/* ========================================================= */
+.yh-landing-activity-card-copy {
+    min-width: 0;
+    width: 100%;
+}
+
+.yh-landing-activity-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.34rem;
+    padding: 0.82rem 0.9rem;
+    border: 1px solid rgba(56, 189, 248, 0.14);
+    border-radius: 0.72rem;
+    background: linear-gradient(180deg, rgba(10, 18, 38, 0.72), rgba(6, 12, 26, 0.72));
+    text-align: center;
+}
+
+.yh-landing-activity-card--triple,
+.yh-landing-activity-stack {
+    gap: 0.78rem;
+}
+
+.yh-landing-activity-section:last-child {
+    border-bottom: 1px solid rgba(56, 189, 248, 0.14);
+}
+
+.yh-landing-activity-section strong {
+    display: block;
+    width: 100%;
+    text-align: center;
+}
+
+@media (max-width: 768px) {
+    .yh-landing-activity-section {
+        padding: 0.72rem 0.8rem;
+        border-radius: 0.68rem;
+        min-height: auto;
+    }
+
+    .yh-landing-activity-card--triple,
+    .yh-landing-activity-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 0.68rem;
+    }
+}
+/* ========================================================= */
+/* LANDING MAP: globe.gl sky-glow events                     */
+/* ========================================================= */
+.yh-landing-globe-stage {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+}
+
+.yh-landing-visual-glow,
+.yh-landing-visual-noise {
+    display: none;
+}
+
+.yh-landing-map-stage-wrap {
+    position: relative;
+    width: 100%;
+    min-height: clamp(380px, 44vh, 540px);
+    height: clamp(380px, 44vh, 540px);
+    border-radius: 0;
+    overflow: visible;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    isolation: isolate;
+}
+
+.yh-landing-map-stage-wrap::before,
+.yh-landing-map-stage-wrap::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.yh-landing-map-stage-wrap::before {
+    background:
+        radial-gradient(circle at 46% 44%, rgba(125, 211, 252, 0.16), transparent 22%),
+        radial-gradient(circle at 58% 52%, rgba(56, 189, 248, 0.12), transparent 30%),
+        radial-gradient(circle at 37% 65%, rgba(56, 189, 248, 0.08), transparent 26%);
+    filter: blur(26px);
+    opacity: 0.88;
+    animation: yhLandingSkyAura 8.5s ease-in-out infinite;
+}
+
+.yh-landing-map-stage-wrap::after {
+    background:
+        radial-gradient(circle at 50% 48%, rgba(191, 219, 254, 0.14), transparent 18%),
+        radial-gradient(circle at 60% 34%, rgba(56, 189, 248, 0.08), transparent 24%);
+    filter: blur(44px);
+    opacity: 0.62;
+    animation: yhLandingSkyAura 11s ease-in-out infinite reverse;
+}
+
+.yh-world-map {
+    position: absolute;
+    left: 50%;
+    top: 57%;
+    width: 220%;
+    height: calc(100% + 28rem);
+    min-height: clamp(860px, 92vh, 1240px);
+    transform: translate(-50%, -50%);
+    z-index: 0;
+    pointer-events: auto;
+    background: transparent !important;
+    overflow: visible;
+    cursor: grab;
+    filter:
+        drop-shadow(0 0 22px rgba(56, 189, 248, 0.22))
+        drop-shadow(0 0 64px rgba(56, 189, 248, 0.14));
+}
+
+.yh-world-map:active {
+    cursor: grabbing;
+}
+
+.yh-world-map > div,
+.yh-world-map canvas {
+    display: block;
+    background: transparent !important;
+    outline: none;
+    box-shadow: none !important;
+    border: none !important;
+    max-width: none !important;
+    max-height: none !important;
+    filter: saturate(1.08) brightness(1.03);
+}
+
+.yh-landing-map-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    background:
+        radial-gradient(circle at 46% 42%, rgba(125, 211, 252, 0.08), transparent 18%),
+        radial-gradient(circle at 50% 60%, rgba(56, 189, 248, 0.07), transparent 38%);
+}
+
+@keyframes yhLandingSkyAura {
+    0%, 100% {
+        transform: scale(1) translate3d(0, 0, 0);
+        opacity: 0.62;
+    }
+    50% {
+        transform: scale(1.04) translate3d(0, -8px, 0);
+        opacity: 0.95;
+    }
+}
+
+@media (max-width: 1100px) {
+    .yh-landing-map-stage-wrap {
+        min-height: clamp(320px, 38vh, 420px);
+        height: clamp(320px, 38vh, 420px);
+    }
+
+    .yh-world-map {
+        width: 210%;
+        height: calc(100% + 20rem);
+        min-height: clamp(700px, 76vh, 980px);
+    }
+}
+
+@media (max-width: 768px) {
+    .yh-landing-map-stage-wrap {
+        min-height: clamp(260px, 32vh, 340px);
+        height: clamp(260px, 32vh, 340px);
+    }
+
+    .yh-world-map {
+        width: 178%;
+        height: calc(100% + 14rem);
+        min-height: clamp(520px, 58vh, 760px);
+    }
+
+    .yh-landing-map-stage-wrap::before {
+        filter: blur(22px);
+        opacity: 0.74;
+    }
+
+    .yh-landing-map-stage-wrap::after {
+        filter: blur(34px);
+        opacity: 0.54;
+    }
+}
+/* ========================================================= */
+/* LANDING HERO HEADER TIGHTENING                            */
+/* ========================================================= */
+.yh-landing-topbar {
+    padding-top: 6px !important;
+    padding-bottom: 0 !important;
+    margin-bottom: 0.2rem !important;
+}
+
+.yh-landing-brand {
+    gap: 0.45rem !important;
+    align-items: center !important;
+}
+
+.yh-landing-brand-logo {
+    width: 34px !important;
+    height: 34px !important;
+}
+
+.yh-landing-brand-copy {
+    display: flex;
+    align-items: center;
+}
+
+.yh-landing-brand-name {
+    line-height: 1 !important;
+    font-size: 0.98rem !important;
+}
+
+.yh-landing-hero-grid {
+    padding-top: 0.15rem !important;
+}
+
+.yh-landing-pill {
+    margin-top: 0 !important;
+    margin-bottom: 0.45rem !important;
+}
+
+@media (max-width: 768px) {
+    .yh-landing-topbar {
+        padding-top: 4px !important;
+        margin-bottom: 0.1rem !important;
+    }
+
+    .yh-landing-brand {
+        gap: 0.45rem !important;
+    }
+
+    .yh-landing-brand-logo {
+        width: 34px !important;
+        height: 34px !important;
+    }
+
+    .yh-landing-brand-name {
+        font-size: 0.86rem !important;
+    }
+
+    .yh-landing-pill {
+        margin-bottom: 0.38rem !important;
+    }
+}
+.yh-landing-topbar {
+    padding-top: 4px !important;
+    padding-bottom: 0 !important;
+    margin-bottom: 0.34rem !important;
+}
+
+.yh-landing-hero-grid {
+    padding-top: 0.08rem !important;
+}
+
+.yh-landing-pill {
+    margin-top: 0 !important;
+    margin-bottom: 0.35rem !important;
 }

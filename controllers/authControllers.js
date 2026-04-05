@@ -2,6 +2,7 @@ const bcrypt = require('bcrypt');
 const nodemailer = require('nodemailer');
 const jwt = require('jsonwebtoken');
 const { firestore } = require('../config/firebaseAdmin');
+const publicLandingEventsRepo = require('../backend/repositories/publicLandingEventsRepo');
 
 const USERS_COLLECTION = 'users';
 const OTP_FROM_EMAIL = process.env.OTP_FROM_EMAIL || 'YH Universe <noreply@younghustlers.net>';
@@ -174,7 +175,12 @@ function publicUser(user) {
     return {
         fullName: user.fullName || '',
         username: user.username || '',
-        email: user.email || ''
+        email: user.email || '',
+        city: user.city || '',
+        country: user.country || '',
+        countryCode: user.countryCode || '',
+        lat: Number.isFinite(Number(user.lat)) ? Number(user.lat) : null,
+        lng: Number.isFinite(Number(user.lng)) ? Number(user.lng) : null
     };
 }
 
@@ -434,23 +440,140 @@ function forgotPasswordMailHtml(otpCode) {
     });
 }
 
+const COUNTRY_GEO_INDEX = {
+    nigeria: { country: 'Nigeria', countryCode: 'NG', lat: 9.0820, lng: 8.6753 },
+    philippines: { country: 'Philippines', countryCode: 'PH', lat: 12.8797, lng: 121.7740 },
+    india: { country: 'India', countryCode: 'IN', lat: 20.5937, lng: 78.9629 },
+    'united states': { country: 'United States', countryCode: 'US', lat: 37.0902, lng: -95.7129 },
+    canada: { country: 'Canada', countryCode: 'CA', lat: 56.1304, lng: -106.3468 },
+    'united kingdom': { country: 'United Kingdom', countryCode: 'GB', lat: 55.3781, lng: -3.4360 },
+    australia: { country: 'Australia', countryCode: 'AU', lat: -25.2744, lng: 133.7751 },
+    singapore: { country: 'Singapore', countryCode: 'SG', lat: 1.3521, lng: 103.8198 },
+    'south africa': { country: 'South Africa', countryCode: 'ZA', lat: -30.5595, lng: 22.9375 },
+    'united arab emirates': { country: 'United Arab Emirates', countryCode: 'AE', lat: 23.4241, lng: 53.8478 },
+    germany: { country: 'Germany', countryCode: 'DE', lat: 51.1657, lng: 10.4515 },
+    france: { country: 'France', countryCode: 'FR', lat: 46.2276, lng: 2.2137 },
+    spain: { country: 'Spain', countryCode: 'ES', lat: 40.4637, lng: -3.7492 },
+    italy: { country: 'Italy', countryCode: 'IT', lat: 41.8719, lng: 12.5674 },
+    brazil: { country: 'Brazil', countryCode: 'BR', lat: -14.2350, lng: -51.9253 },
+    mexico: { country: 'Mexico', countryCode: 'MX', lat: 23.6345, lng: -102.5528 },
+    japan: { country: 'Japan', countryCode: 'JP', lat: 36.2048, lng: 138.2529 },
+    netherlands: { country: 'Netherlands', countryCode: 'NL', lat: 52.1326, lng: 5.2913 },
+    sweden: { country: 'Sweden', countryCode: 'SE', lat: 60.1282, lng: 18.6435 },
+    norway: { country: 'Norway', countryCode: 'NO', lat: 60.4720, lng: 8.4689 },
+    kenya: { country: 'Kenya', countryCode: 'KE', lat: -0.0236, lng: 37.9062 },
+    ghana: { country: 'Ghana', countryCode: 'GH', lat: 7.9465, lng: -1.0232 }
+};
+
+const COUNTRY_ALIASES = {
+    ng: 'nigeria',
+    nigeria: 'nigeria',
+    ph: 'philippines',
+    philippines: 'philippines',
+    'the philippines': 'philippines',
+    in: 'india',
+    india: 'india',
+    us: 'united states',
+    usa: 'united states',
+    'united states of america': 'united states',
+    'united states': 'united states',
+    ca: 'canada',
+    canada: 'canada',
+    gb: 'united kingdom',
+    uk: 'united kingdom',
+    england: 'united kingdom',
+    britain: 'united kingdom',
+    'great britain': 'united kingdom',
+    'united kingdom': 'united kingdom',
+    au: 'australia',
+    australia: 'australia',
+    sg: 'singapore',
+    singapore: 'singapore',
+    za: 'south africa',
+    'south africa': 'south africa',
+    ae: 'united arab emirates',
+    uae: 'united arab emirates',
+    'united arab emirates': 'united arab emirates',
+    de: 'germany',
+    germany: 'germany',
+    fr: 'france',
+    france: 'france',
+    es: 'spain',
+    spain: 'spain',
+    it: 'italy',
+    italy: 'italy',
+    br: 'brazil',
+    brazil: 'brazil',
+    mx: 'mexico',
+    mexico: 'mexico',
+    jp: 'japan',
+    japan: 'japan',
+    nl: 'netherlands',
+    netherlands: 'netherlands',
+    se: 'sweden',
+    sweden: 'sweden',
+    no: 'norway',
+    norway: 'norway',
+    ke: 'kenya',
+    kenya: 'kenya',
+    gh: 'ghana',
+    ghana: 'ghana'
+};
+
+function normalizeGeoText(value = '') {
+    return String(value || '').trim().replace(/\s+/g, ' ');
+}
+
+function deriveRegistrationGeo({ city = '', country = '' } = {}) {
+    const cleanCity = normalizeGeoText(city);
+    const cleanCountryInput = normalizeGeoText(country);
+    const normalizedCountryKey =
+        COUNTRY_ALIASES[cleanCountryInput.toLowerCase()] ||
+        cleanCountryInput.toLowerCase();
+
+    const geo = COUNTRY_GEO_INDEX[normalizedCountryKey] || null;
+
+    return {
+        city: cleanCity,
+        cityNormalized: cleanCity.toLowerCase(),
+        country: geo?.country || cleanCountryInput,
+        countryNormalized: normalizedCountryKey,
+        countryCode: geo?.countryCode || '',
+        lat: geo ? Number(geo.lat) : null,
+        lng: geo ? Number(geo.lng) : null,
+        geoSource: geo ? 'registration_country_centroid' : 'registration_manual_pending',
+        geoUpdatedAt: nowIso()
+    };
+}
+
 exports.registerUser = async (req, res) => {
     let userRef = null;
 
     try {
-        let { fullName, email, username, contact, password, profilePhotoDataUrl } = req.body;
+        let {
+            fullName,
+            email,
+            username,
+            contact,
+            city,
+            country,
+            password,
+            profilePhotoDataUrl
+        } = req.body;
 
         fullName = String(fullName || '').trim();
         email = String(email || '').trim().toLowerCase();
         username = String(username || '').trim();
         contact = String(contact || '').trim();
+        city = String(city || '').trim();
+        country = String(country || '').trim();
         password = String(password || '');
         profilePhotoDataUrl = String(profilePhotoDataUrl || '').trim();
 
-        if (!fullName || !email || !username || !password || !profilePhotoDataUrl) {
+        if (!fullName || !email || !username || !city || !country || !password || !profilePhotoDataUrl) {
             return res.status(400).json({
                 success: false,
-                message: 'Full name, email, username, profile photo, and password are required.'
+                message: 'Full name, email, username, city, country, profile photo, and password are required.'
             });
         }
 
@@ -464,9 +587,11 @@ exports.registerUser = async (req, res) => {
 
         username = await generateUniqueUsername(fullName, username);
 
+        const registrationGeo = deriveRegistrationGeo({ city, country });
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
         const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const createdAt = nowIso();
 
         userRef = usersCollection().doc();
 
@@ -475,14 +600,23 @@ exports.registerUser = async (req, res) => {
             email,
             username,
             contact,
+            city: registrationGeo.city,
+            cityNormalized: registrationGeo.cityNormalized,
+            country: registrationGeo.country,
+            countryNormalized: registrationGeo.countryNormalized,
+            countryCode: registrationGeo.countryCode,
+            lat: registrationGeo.lat,
+            lng: registrationGeo.lng,
+            geoSource: registrationGeo.geoSource,
+            geoUpdatedAt: registrationGeo.geoUpdatedAt,
             avatar: profilePhotoDataUrl,
             profilePhoto: profilePhotoDataUrl,
             photoURL: profilePhotoDataUrl,
             password: hashedPassword,
             verificationCode: otpCode,
             isVerified: false,
-            createdAt: nowIso(),
-            updatedAt: nowIso()
+            createdAt,
+            updatedAt: createdAt
         });
 
         try {
@@ -529,11 +663,26 @@ exports.verifyOTP = async (req, res) => {
             updatedAt: nowIso()
         });
 
-        const updatedUser = {
+            const updatedUser = {
             ...user,
             isVerified: true,
             verificationCode: null
         };
+
+        try {
+            await publicLandingEventsRepo.createEventForUser(updatedUser.id, {
+                type: 'academy_signup_verified',
+                slot: 'academy',
+                category: 'academy',
+                messagePrefix: 'A new Academy member signed up',
+                labelPrefix: 'Academy',
+                color: '#38bdf8',
+                altitude: 0.24,
+                ttlSeconds: 1200
+            });
+        } catch (glowError) {
+            console.warn('verifyOTP public landing event skipped:', glowError?.message || glowError);
+        }
 
         const token = issueJwt(updatedUser);
         setAuthCookie(res, token);

@@ -136,6 +136,8 @@ function persistClientSession(user, token) {
     const existingAvatar = String(
         sessionStorage.getItem('yh_user_avatar') ||
         localStorage.getItem('yh_user_avatar') ||
+        sessionStorage.getItem('yh_pending_profile_avatar') ||
+        localStorage.getItem('yh_pending_profile_avatar') ||
         ''
     ).trim();
 
@@ -158,8 +160,443 @@ function persistClientSession(user, token) {
 
         if (avatar) {
             store.setItem('yh_user_avatar', avatar);
+            store.removeItem('yh_pending_profile_avatar');
         }
     });
+}
+
+const YH_LANDING_FEED_DEFAULTS = {
+    academy: 'Waiting for new Academy member activity.',
+    federation: 'Waiting for academy access activity.',
+    plaza: 'Waiting for academy community activity.'
+};
+
+const YH_LANDING_MAP_POINTS = [];
+const YH_LANDING_MAP_ARCS = [];
+
+let yhLandingPublicFeedTimer = null;
+let yhLandingMapInstance = null;
+let yhLandingMapSpinRaf = null;
+let yhLandingCloudsMesh = null;
+let yhLandingResizeBound = false;
+let yhLandingLastFocusPointKey = '';
+let yhLandingLiveFeedState = { ...YH_LANDING_FEED_DEFAULTS };
+
+let yhLandingGlobeData = {
+    points: [...YH_LANDING_MAP_POINTS],
+    arcs: [...YH_LANDING_MAP_ARCS]
+};
+
+function animateLandingStat(el, target, duration = 1200) {
+    if (!el) return;
+    const start = 0;
+    const startTime = performance.now();
+
+    const tick = (now) => {
+        const progress = Math.min((now - startTime) / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const value = Math.round(start + ((target - start) * eased));
+        el.textContent = value.toLocaleString();
+
+        if (progress < 1) {
+            requestAnimationFrame(tick);
+        }
+    };
+
+    requestAnimationFrame(tick);
+}
+
+function renderLandingFeedSections() {
+    const academyEl = document.getElementById('yh-landing-activity-academy');
+    const federationEl = document.getElementById('yh-landing-activity-federation');
+    const plazaEl = document.getElementById('yh-landing-activity-plaza');
+
+    if (!academyEl || !federationEl || !plazaEl) return;
+
+    academyEl.textContent = yhLandingLiveFeedState.academy || YH_LANDING_FEED_DEFAULTS.academy;
+    federationEl.textContent = yhLandingLiveFeedState.federation || YH_LANDING_FEED_DEFAULTS.federation;
+    plazaEl.textContent = yhLandingLiveFeedState.plaza || YH_LANDING_FEED_DEFAULTS.plaza;
+}
+
+function applyLandingFeedSnapshot(feed = {}) {
+    yhLandingLiveFeedState = {
+        academy: String(feed.academy || YH_LANDING_FEED_DEFAULTS.academy).trim(),
+        federation: String(feed.federation || YH_LANDING_FEED_DEFAULTS.federation).trim(),
+        plaza: String(feed.plaza || YH_LANDING_FEED_DEFAULTS.plaza).trim()
+    };
+
+    renderLandingFeedSections();
+}
+
+function focusLandingGlobePoint(point = null) {
+    if (!point || !yhLandingMapInstance || typeof yhLandingMapInstance.pointOfView !== 'function') {
+        return;
+    }
+
+    const lat = Number(point.lat);
+    const lng = Number(point.lng);
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        return;
+    }
+
+    const focusKey =
+        String(point.id || '').trim() ||
+        `${lat}:${lng}:${String(point.label || '').trim()}`;
+
+    if (focusKey && focusKey === yhLandingLastFocusPointKey) {
+        return;
+    }
+
+    yhLandingLastFocusPointKey = focusKey;
+
+    yhLandingMapInstance.pointOfView(
+        {
+            lat,
+            lng,
+            altitude: 2.44
+        },
+        1600
+    );
+}
+
+async function fetchLandingPublicFeed() {
+    try {
+        const response = await fetch('/api/public/landing-feed?limit=24', {
+            method: 'GET',
+            cache: 'no-store'
+        });
+
+        if (!response.ok) {
+            throw new Error(`Landing feed request failed with ${response.status}`);
+        }
+
+        const result = await response.json();
+        if (!result?.success) {
+            throw new Error(result?.message || 'Public landing feed returned an invalid response.');
+        }
+
+        applyLandingFeedSnapshot(result.feed || {});
+
+        window.yhSetLandingGlobeData({
+            points: Array.isArray(result.points) ? result.points : [],
+            arcs: [],
+            focusPoint: result.focusPoint || null
+        });
+    } catch (error) {
+        console.warn('fetchLandingPublicFeed error:', error?.message || error);
+        applyLandingFeedSnapshot(YH_LANDING_FEED_DEFAULTS);
+        window.yhSetLandingGlobeData({
+            points: [],
+            arcs: []
+        });
+    }
+}
+
+function startLandingFeedRotation() {
+    renderLandingFeedSections();
+
+    if (yhLandingPublicFeedTimer) {
+        clearInterval(yhLandingPublicFeedTimer);
+    }
+
+    fetchLandingPublicFeed();
+
+    yhLandingPublicFeedTimer = setInterval(() => {
+        fetchLandingPublicFeed();
+    }, 5000);
+}
+
+function renderLandingMapFallback() {
+    const mapEl = document.getElementById('yh-world-map');
+    if (!mapEl) return;
+
+    mapEl.innerHTML = `
+        <div class="yh-world-map-fallback" aria-hidden="true">
+            <div class="yh-world-map-fallback-glow"></div>
+            <div class="yh-world-map-fallback-grid"></div>
+            <div class="yh-world-map-fallback-orb"></div>
+            <div class="yh-world-map-fallback-pulse pulse-1"></div>
+            <div class="yh-world-map-fallback-pulse pulse-2"></div>
+            <div class="yh-world-map-fallback-pulse pulse-3"></div>
+            <div class="yh-world-map-fallback-pulse pulse-4"></div>
+            <div class="yh-world-map-fallback-pulse pulse-5"></div>
+            <div class="yh-world-map-fallback-pulse pulse-6"></div>
+        </div>
+    `;
+}
+
+function syncLandingGlobeSize() {
+    const mapEl = document.getElementById('yh-world-map');
+    if (!mapEl || !yhLandingMapInstance || typeof yhLandingMapInstance.width !== 'function') return;
+
+    const overscanWidth = Math.max(1, Math.round(mapEl.clientWidth * 1.9));
+    const overscanHeight = Math.max(1, Math.round(mapEl.clientHeight * 1.62));
+
+    yhLandingMapInstance
+        .width(overscanWidth)
+        .height(overscanHeight);
+}
+
+function bindLandingGlobeResize() {
+    if (yhLandingResizeBound) return;
+    yhLandingResizeBound = true;
+
+    window.addEventListener('resize', () => {
+        syncLandingGlobeSize();
+    }, { passive: true });
+}
+
+function startLandingCloudSpin() {
+    if (yhLandingMapSpinRaf) {
+        cancelAnimationFrame(yhLandingMapSpinRaf);
+    }
+
+    const tick = () => {
+        if (yhLandingCloudsMesh && !document.hidden) {
+            yhLandingCloudsMesh.rotation.y += 0.00045;
+        }
+
+        yhLandingMapSpinRaf = requestAnimationFrame(tick);
+    };
+
+    yhLandingMapSpinRaf = requestAnimationFrame(tick);
+}
+
+function addLandingGlobeClouds(world) {
+    if (!world || !window.THREE) return;
+
+    const CLOUDS_IMG_URL = 'https://cdn.jsdelivr.net/gh/vasturiano/globe.gl/example/clouds/clouds.png';
+    const CLOUDS_ALT = 0.004;
+
+    new window.THREE.TextureLoader().load(CLOUDS_IMG_URL, (cloudsTexture) => {
+        if (!yhLandingMapInstance) return;
+
+        const clouds = new window.THREE.Mesh(
+            new window.THREE.SphereGeometry(world.getGlobeRadius() * (1 + CLOUDS_ALT), 75, 75),
+            new window.THREE.MeshPhongMaterial({
+                map: cloudsTexture,
+                transparent: true,
+                opacity: 0.92,
+                depthWrite: false
+            })
+        );
+
+        yhLandingCloudsMesh = clouds;
+        world.scene().add(clouds);
+        startLandingCloudSpin();
+    });
+}
+
+function buildLandingGlowEvents(points = []) {
+    return (Array.isArray(points) ? points : [])
+        .map((point, index) => {
+            const lat = Number(point?.lat);
+            const lng = Number(point?.lng);
+
+            if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+                return null;
+            }
+
+            return {
+                ...point,
+                id: point.id || `yh_glow_${index}_${lat}_${lng}`,
+                lat,
+                lng,
+                coreColor: point.coreColor || point.color || 'rgba(191, 219, 254, 0.96)',
+                coreAltitude: Number.isFinite(Number(point.coreAltitude)) ? Number(point.coreAltitude) : 0.012,
+                coreRadius: Number.isFinite(Number(point.coreRadius)) ? Number(point.coreRadius) : 0.16,
+                ringAltitude: Number.isFinite(Number(point.ringAltitude)) ? Number(point.ringAltitude) : 0.0032,
+                ringColor: Array.isArray(point.ringColor) && point.ringColor.length
+                    ? point.ringColor
+                    : [
+                        'rgba(191, 219, 254, 0.96)',
+                        'rgba(56, 189, 248, 0.42)',
+                        'rgba(56, 189, 248, 0)'
+                    ],
+                ringMaxRadius: Number.isFinite(Number(point.ringMaxRadius)) ? Number(point.ringMaxRadius) : 4.8,
+                ringPropagationSpeed: Number.isFinite(Number(point.ringPropagationSpeed)) ? Number(point.ringPropagationSpeed) : 1.65,
+                ringRepeatPeriod: Number.isFinite(Number(point.ringRepeatPeriod)) ? Number(point.ringRepeatPeriod) : 680
+            };
+        })
+        .filter(Boolean);
+}
+
+function focusLandingGlowPoint(point = null) {
+    if (!point || !yhLandingMapInstance || typeof yhLandingMapInstance.pointOfView !== 'function') return;
+
+    const lat = Number(point.lat);
+    const lng = Number(point.lng);
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+    const focusKey =
+        String(point.id || '').trim() ||
+        `${lat}:${lng}:${String(point.label || '').trim()}`;
+
+    if (window.__yhLandingLastGlowFocusKey === focusKey) return;
+    window.__yhLandingLastGlowFocusKey = focusKey;
+
+    yhLandingMapInstance.pointOfView(
+        { lat, lng, altitude: 2.44 },
+        1600
+    );
+}
+
+function applyLandingGlobeData() {
+    if (!yhLandingMapInstance) return;
+
+    const glowPoints = buildLandingGlowEvents(yhLandingGlobeData.points);
+
+    yhLandingMapInstance
+        .pointsData(glowPoints)
+        .pointLat('lat')
+        .pointLng('lng')
+        .pointColor((point) => point.coreColor || point.color || 'rgba(191, 219, 254, 0.96)')
+        .pointAltitude((point) => point.coreAltitude ?? 0.012)
+        .pointRadius((point) => point.coreRadius ?? 0.16)
+        .pointLabel((point) => point.label || point.message || 'Academy activity')
+        .ringsData(glowPoints)
+        .ringLat('lat')
+        .ringLng('lng')
+        .ringAltitude((point) => point.ringAltitude ?? 0.0032)
+        .ringColor((point) => point.ringColor || [
+            'rgba(191, 219, 254, 0.96)',
+            'rgba(56, 189, 248, 0.42)',
+            'rgba(56, 189, 248, 0)'
+        ])
+        .ringResolution(64)
+        .ringMaxRadius((point) => point.ringMaxRadius ?? 4.8)
+        .ringPropagationSpeed((point) => point.ringPropagationSpeed ?? 1.65)
+        .ringRepeatPeriod((point) => point.ringRepeatPeriod ?? 680)
+        .arcsData([])
+        .arcStartLat('startLat')
+        .arcStartLng('startLng')
+        .arcEndLat('endLat')
+        .arcEndLng('endLng')
+        .arcColor((arc) => arc.color || ['rgba(56,189,248,0.92)', 'rgba(56,189,248,0.08)'])
+        .arcStroke(0.3)
+        .arcDashLength(0.32)
+        .arcDashGap(0.16)
+        .arcDashAnimateTime(1800);
+}
+
+window.yhSetLandingGlobeData = function yhSetLandingGlobeData(next = {}) {
+    if (Array.isArray(next.points)) {
+        yhLandingGlobeData.points = next.points;
+    }
+
+    if (Array.isArray(next.arcs)) {
+        yhLandingGlobeData.arcs = next.arcs;
+    } else {
+        yhLandingGlobeData.arcs = [];
+    }
+
+    if (next.stats && typeof next.stats === 'object') {
+        const membersEl = document.getElementById('yh-stat-members');
+        const reachEl = document.getElementById('yh-stat-reach');
+        const impressionsEl = document.getElementById('yh-stat-impressions');
+
+        if (Number.isFinite(next.stats.members)) {
+            animateLandingStat(membersEl, next.stats.members, 1200);
+        }
+
+        if (Number.isFinite(next.stats.reach)) {
+            animateLandingStat(reachEl, next.stats.reach, 1000);
+        }
+
+        if (Number.isFinite(next.stats.impressions)) {
+            animateLandingStat(impressionsEl, next.stats.impressions, 1350);
+        }
+    }
+
+    applyLandingGlobeData();
+
+    const focusPoint =
+        next.focusPoint ||
+        (Array.isArray(next.points) && next.points.length ? next.points[0] : null);
+
+    if (focusPoint) {
+        focusLandingGlowPoint(focusPoint);
+    }
+};
+
+function initLandingMapShell() {
+    const mapEl = document.getElementById('yh-world-map');
+    if (!mapEl) return;
+
+    const membersEl = document.getElementById('yh-stat-members');
+    const reachEl = document.getElementById('yh-stat-reach');
+    const impressionsEl = document.getElementById('yh-stat-impressions');
+
+    animateLandingStat(membersEl, 1284, 1400);
+    animateLandingStat(reachEl, 86, 1200);
+    animateLandingStat(impressionsEl, 18492, 1550);
+
+    startLandingFeedRotation();
+
+    if (!window.Globe || !window.THREE) {
+        renderLandingMapFallback();
+        return;
+    }
+
+    if (yhLandingMapInstance) {
+        syncLandingGlobeSize();
+        applyLandingGlobeData();
+        return;
+    }
+
+    mapEl.innerHTML = '';
+
+    const world = new window.Globe(mapEl, { animateIn: false })
+        .globeImageUrl('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-blue-marble.jpg')
+        .bumpImageUrl('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-topology.png')
+        .backgroundColor('rgba(0,0,0,0)')
+        .showAtmosphere(true)
+        .atmosphereColor('#7dd3fc')
+        .atmosphereAltitude(0.2)
+        .showPointerCursor((objType, objData) => (objType === 'point' || objType === 'ring') && !!objData)
+        .onPointClick((point) => {
+            focusLandingGlowPoint(point);
+            showToast(`${point.label || 'Academy activity'} glow selected`);
+        });
+
+    yhLandingMapInstance = world;
+
+    if (world.renderer && typeof world.renderer === 'function') {
+        const renderer = world.renderer();
+        if (renderer && typeof renderer.setClearColor === 'function') {
+            renderer.setClearColor(0x000000, 0);
+        }
+    }
+
+    const controls = world.controls();
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 0.42;
+    controls.enablePan = false;
+    controls.enableRotate = true;
+    controls.enableZoom = true;
+    controls.zoomSpeed = 0.76;
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+
+    if (typeof world.getGlobeRadius === 'function') {
+        const globeRadius = world.getGlobeRadius();
+        controls.minDistance = globeRadius * 1.52;
+        controls.maxDistance = globeRadius * 5.2;
+    }
+
+    world.pointOfView({ lat: 16, lng: 12, altitude: 2.72 }, 0);
+
+    applyLandingGlobeData();
+
+    if (Array.isArray(yhLandingGlobeData.points) && yhLandingGlobeData.points.length) {
+        focusLandingGlowPoint(yhLandingGlobeData.points[0]);
+    }
+
+    addLandingGlobeClouds(world);
+    syncLandingGlobeSize();
+    bindLandingGlobeResize();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -169,14 +606,7 @@ document.addEventListener('DOMContentLoaded', () => {
     localStorage.removeItem('yh_token');
     localStorage.removeItem('token');
 
-    const landingVideo = document.getElementById('landing-video');
-    if (landingVideo) {
-        landingVideo.addEventListener('timeupdate', () => {
-            if (landingVideo.duration && landingVideo.currentTime >= landingVideo.duration - 3) {
-                landingVideo.pause(); 
-            }
-        });
-    }
+    initLandingMapShell();
 
     // --- CARD FLIP LOGIC ---
     const flipper = document.getElementById('auth-flipper');
@@ -388,7 +818,7 @@ if (btnLogin) {
     });
 });
 
-    // --- REGISTER LOGIC (SIMPLE FORM) ---
+// --- REGISTER LOGIC (SIMPLE FORM) ---
 const formRegisterSimple = document.getElementById('form-register-simple');
 if (formRegisterSimple) {
     formRegisterSimple.addEventListener('submit', async function(e) {
@@ -399,6 +829,8 @@ if (formRegisterSimple) {
         const fullName = document.getElementById('reg-fullname').value.trim();
         const email = document.getElementById('reg-email').value.trim().toLowerCase();
         const username = document.getElementById('reg-username').value.trim();
+        const city = document.getElementById('reg-city').value.trim();
+        const country = document.getElementById('reg-country').value.trim();
         const profilePhotoFile = document.getElementById('reg-profile-photo')?.files?.[0] || null;
 
         if (password !== confirmPassword) {
@@ -408,6 +840,11 @@ if (formRegisterSimple) {
 
         if (!username) {
             showToast("Please enter a username.", "error");
+            return;
+        }
+
+        if (!city || !country) {
+            showToast("Please enter your city and country.", "error");
             return;
         }
 
@@ -435,6 +872,8 @@ if (formRegisterSimple) {
                     fullName,
                     email,
                     username,
+                    city,
+                    country,
                     password,
                     profilePhotoDataUrl
                 })
@@ -443,6 +882,9 @@ if (formRegisterSimple) {
             const result = await response.json();
 
             if (result.success) {
+                sessionStorage.setItem('yh_pending_profile_avatar', profilePhotoDataUrl);
+                localStorage.setItem('yh_pending_profile_avatar', profilePhotoDataUrl);
+
                 setPendingVerifyEmail(email);
                 showToast(result.message, "success");
                 showStep(2);
