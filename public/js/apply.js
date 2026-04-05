@@ -11,9 +11,22 @@ function showStep(stepNumber) {
     }
 }
 
-const yhT = (key, options = {}) => (
-    typeof window.yhT === 'function' ? window.yhT(key, options) : key
-);
+const yhT = (key, options = {}) => {
+    if (typeof window.yhT === 'function') {
+        return window.yhT(key, options);
+    }
+
+    const fallbackMap = {
+        'auth.login': 'Login',
+        'auth.createAccount': 'Create Account',
+        'auth.creatingAccount': 'Creating Account...',
+        'auth.resendCode': 'Resend Code',
+        'auth.sending': 'Sending...',
+        'auth.resendIn': `Resend in ${options?.time || '00:00'}`
+    };
+
+    return fallbackMap[key] || key;
+};
 
 const yhTText = (text, options = {}) => (
     typeof window.yhTText === 'function' ? window.yhTText(text, options) : text
