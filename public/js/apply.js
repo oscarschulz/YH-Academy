@@ -761,6 +761,17 @@ function initLandingMapShell() {
         controls.enableZoom = isPointerOnVisibleGlobe(clientX, clientY);
     };
 
+    const handleWheelZoomGate = (event) => {
+        const isOnSphere = isPointerOnVisibleGlobe(event.clientX, event.clientY);
+
+        controls.enableZoom = isOnSphere;
+
+        if (!isOnSphere) {
+            event.stopPropagation();
+            return;
+        }
+    };
+
     mapEl.addEventListener('pointermove', (event) => {
         syncZoomGate(event.clientX, event.clientY);
     }, { passive: true });
@@ -769,9 +780,7 @@ function initLandingMapShell() {
         controls.enableZoom = false;
     }, { passive: true });
 
-    mapEl.addEventListener('wheel', (event) => {
-        syncZoomGate(event.clientX, event.clientY);
-    }, { passive: true, capture: true });
+    mapEl.addEventListener('wheel', handleWheelZoomGate, { passive: false, capture: true });
 
     world.pointOfView({ lat: 16, lng: 12, altitude: 2.72 }, 0);
 
