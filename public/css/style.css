@@ -6964,10 +6964,15 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
         grid-template-columns: minmax(0, 1fr) minmax(360px, 0.98fr);
         gap: clamp(1rem, 2.2vw, 2.4rem);
         align-items: start;
+        position: relative;
+        isolation: isolate;
     }
 
     .yh-landing-hero-copy {
+        position: relative;
+        z-index: 8;
         max-width: 760px;
+        pointer-events: auto;
     }
 
     .yh-landing-hero-visual {
@@ -6981,9 +6986,17 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
     }
 
     .yh-landing-globe-stage {
+        position: relative;
+        z-index: 1;
         width: 164%;
         margin-left: -114%;
         margin-top: clamp(-6.7rem, -5.4vh, -4.3rem);
+    }
+
+    .yh-landing-visual-glow,
+    .yh-landing-visual-noise,
+    .yh-landing-map-overlay {
+        pointer-events: none;
     }
 
     .yh-landing-activity-panel {

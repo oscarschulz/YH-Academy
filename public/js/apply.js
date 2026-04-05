@@ -761,15 +761,26 @@ function initLandingMapShell() {
         controls.enableZoom = isPointerOnVisibleGlobe(clientX, clientY);
     };
 
+    const wheelTarget = (
+        renderer &&
+        renderer.domElement
+    ) ? renderer.domElement : mapEl;
+
     const handleWheelZoomGate = (event) => {
         const isOnSphere = isPointerOnVisibleGlobe(event.clientX, event.clientY);
 
         controls.enableZoom = isOnSphere;
 
         if (!isOnSphere) {
-            event.stopPropagation();
+            if (typeof event.stopImmediatePropagation === 'function') {
+                event.stopImmediatePropagation();
+            } else {
+                event.stopPropagation();
+            }
             return;
         }
+
+        event.preventDefault();
     };
 
     mapEl.addEventListener('pointermove', (event) => {
@@ -779,6 +790,11 @@ function initLandingMapShell() {
     mapEl.addEventListener('pointerleave', () => {
         controls.enableZoom = false;
     }, { passive: true });
+
+    wheelTarget.addEventListener('wheel', handleWheelZoomGate, {
+        passive: false,
+        capture: true
+    });
 
     mapEl.addEventListener('wheel', handleWheelZoomGate, { passive: false, capture: true });
 
