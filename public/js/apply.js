@@ -677,8 +677,9 @@ function initLandingMapShell() {
 
     yhLandingMapInstance = world;
 
+    let renderer = null;
     if (world.renderer && typeof world.renderer === 'function') {
-        const renderer = world.renderer();
+        renderer = world.renderer();
         if (renderer && typeof renderer.setClearColor === 'function') {
             renderer.setClearColor(0x000000, 0);
         }
@@ -689,7 +690,7 @@ function initLandingMapShell() {
     controls.autoRotateSpeed = 0.42;
     controls.enablePan = false;
     controls.enableRotate = true;
-    controls.enableZoom = true;
+    controls.enableZoom = false;
     controls.zoomSpeed = 0.76;
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
@@ -699,6 +700,78 @@ function initLandingMapShell() {
         controls.minDistance = globeRadius * 1.52;
         controls.maxDistance = globeRadius * 5.2;
     }
+
+    const isPointerOnVisibleGlobe = (clientX, clientY) => {
+        if (
+            !renderer ||
+            !renderer.domElement ||
+            !window.THREE ||
+            typeof world.camera !== 'function' ||
+            typeof world.getGlobeRadius !== 'function'
+        ) {
+            return false;
+        }
+
+        const camera = world.camera();
+        if (!camera) return false;
+
+        if (typeof camera.updateMatrixWorld === 'function') {
+            camera.updateMatrixWorld();
+        }
+        if (typeof camera.updateProjectionMatrix === 'function') {
+            camera.updateProjectionMatrix();
+        }
+
+        const rect = renderer.domElement.getBoundingClientRect();
+        if (
+            clientX < rect.left ||
+            clientX > rect.right ||
+            clientY < rect.top ||
+            clientY > rect.bottom
+        ) {
+            return false;
+        }
+
+        const projectToScreen = (vector) => {
+            const projected = vector.clone().project(camera);
+            return {
+                x: ((projected.x + 1) * 0.5 * rect.width) + rect.left,
+                y: ((-projected.y + 1) * 0.5 * rect.height) + rect.top
+            };
+        };
+
+        const center = projectToScreen(new window.THREE.Vector3(0, 0, 0));
+        const globeRadius = world.getGlobeRadius();
+
+        const edgeX = projectToScreen(new window.THREE.Vector3(globeRadius, 0, 0));
+        const edgeY = projectToScreen(new window.THREE.Vector3(0, globeRadius, 0));
+
+        const screenRadius = Math.max(
+            Math.hypot(edgeX.x - center.x, edgeX.y - center.y),
+            Math.hypot(edgeY.x - center.x, edgeY.y - center.y)
+        );
+
+        if (!Number.isFinite(screenRadius) || screenRadius <= 0) return false;
+
+        const pointerDistance = Math.hypot(clientX - center.x, clientY - center.y);
+        return pointerDistance <= screenRadius;
+    };
+
+    const syncZoomGate = (clientX, clientY) => {
+        controls.enableZoom = isPointerOnVisibleGlobe(clientX, clientY);
+    };
+
+    mapEl.addEventListener('pointermove', (event) => {
+        syncZoomGate(event.clientX, event.clientY);
+    }, { passive: true });
+
+    mapEl.addEventListener('pointerleave', () => {
+        controls.enableZoom = false;
+    }, { passive: true });
+
+    mapEl.addEventListener('wheel', (event) => {
+        syncZoomGate(event.clientX, event.clientY);
+    }, { passive: true, capture: true });
 
     world.pointOfView({ lat: 16, lng: 12, altitude: 2.72 }, 0);
 
