@@ -18,6 +18,7 @@ const yhT = (key, options = {}) => {
 
     const fallbackMap = {
         'auth.login': 'Login',
+        'auth.loading': 'Logging in...',
         'auth.createAccount': 'Create Account',
         'auth.creatingAccount': 'Creating Account...',
         'auth.resendCode': 'Resend Code',
@@ -762,7 +763,7 @@ async function handleLoginSubmit() {
         return;
     }
 
-    btnLogin.innerText = yhT('auth.loading');
+    btnLogin.innerText = 'Logging in...';
     btnLogin.disabled = true;
 
     try {
