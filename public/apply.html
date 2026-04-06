@@ -452,7 +452,7 @@
     <div id="step-4" class="step-container hidden-step fade-in">
         <div class="card text-center py-large">
             <img src="/images/logo.avif" alt="YH Logo" class="step1-logo mb-small" style="width: 70px;">
-            <h2>Verify Reset Code</h2>
+            <h2>Check your email for the recovery code</h2>
             <form id="form-forgot-otp">
                 <div class="form-group w-full text-center">
                     <input type="text" id="forgot-otp-code" required placeholder="••••••" maxlength="6" class="input-field text-center otp-styled-input mb-small" autocomplete="one-time-code">
@@ -464,21 +464,61 @@
         </div>
     </div>
 
-    <div id="step-5" class="step-container hidden-step fade-in">
-        <div class="card text-center py-large">
-            <img src="/images/logo.avif" alt="YH Logo" class="step1-logo mb-small" style="width: 70px;">
-            <h2>Create New Password</h2>
-            <form id="form-reset-pass">
-                <div class="form-group w-full text-left">
-                    <input type="password" id="reset-new-password" required placeholder="New Password" class="input-field mb-1-25">
+<div id="step-5" class="step-container hidden-step fade-in">
+    <div class="card text-center py-large">
+        <img src="/images/logo.avif" alt="YH Logo" class="step1-logo mb-small" style="width: 70px;">
+        <h2>Create New Password</h2>
+        <form id="form-reset-pass">
+            <div class="form-group w-full text-left">
+                <div class="yh-password-shell mb-1-25">
+                    <input
+                        type="password"
+                        id="reset-new-password"
+                        required
+                        placeholder="New Password"
+                        class="input-field yh-password-input"
+                        autocomplete="new-password"
+                    >
+                    <button
+                        type="button"
+                        class="yh-password-toggle"
+                        data-target="reset-new-password"
+                        data-icon-only="true"
+                        aria-label="Show password"
+                        title="Show password"
+                    >
+                        👁
+                    </button>
                 </div>
-                <div class="form-group w-full text-left">
-                    <input type="password" id="reset-confirm-password" required placeholder="Confirm New Password" class="input-field mb-1-25">
+            </div>
+
+            <div class="form-group w-full text-left">
+                <div class="yh-password-shell mb-1-25">
+                    <input
+                        type="password"
+                        id="reset-confirm-password"
+                        required
+                        placeholder="Confirm New Password"
+                        class="input-field yh-password-input"
+                        autocomplete="new-password"
+                    >
+                    <button
+                        type="button"
+                        class="yh-password-toggle"
+                        data-target="reset-confirm-password"
+                        data-icon-only="true"
+                        aria-label="Show password"
+                        title="Show password"
+                    >
+                        👁
+                    </button>
                 </div>
-                <button type="submit" id="btn-reset-save" class="btn-primary">Save New Password ➔</button>
-            </form>
-        </div>
+            </div>
+
+            <button type="submit" id="btn-reset-save" class="btn-primary">Save New Password ➔</button>
+        </form>
     </div>
+</div>
 
     <div id="step-6" class="step-container hidden-step fade-in">
         <div class="card text-center py-large">

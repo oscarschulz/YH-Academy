@@ -16,15 +16,23 @@ const yhT = (key, options = {}) => {
         return window.yhT(key, options);
     }
 
-    const fallbackMap = {
-        'auth.login': 'Login',
-        'auth.loading': 'Logging in...',
-        'auth.createAccount': 'Create Account',
-        'auth.creatingAccount': 'Creating Account...',
-        'auth.resendCode': 'Resend Code',
-        'auth.sending': 'Sending...',
-        'auth.resendIn': `Resend in ${options?.time || '00:00'}`
-    };
+const fallbackMap = {
+    'auth.login': 'Login',
+    'auth.loading': 'Logging in...',
+    'auth.createAccount': 'Create Account',
+    'auth.creatingAccount': 'Creating Account...',
+    'auth.resendCode': 'Resend Code',
+    'auth.sending': 'Sending...',
+    'auth.sendRecoveryCode': 'Send Recovery Code',
+    'auth.verifying': 'Verifying...',
+    'auth.verifyCode': 'Verify Code',
+    'auth.saving': 'Saving...',
+    'auth.saveNewPassword': 'Save New Password ➔',
+    'auth.choosePhoto': 'Choose Photo',
+    'auth.show': 'Show',
+    'auth.hide': 'Hide',
+    'auth.resendIn': `Resend in ${options?.time || '00:00'}`
+};
 
     return fallbackMap[key] || key;
 };
@@ -891,14 +899,29 @@ const compressImageToDataURL = (file, size = 320, quality = 0.82) => new Promise
 
 const bindPasswordVisibilityToggles = () => {
     document.querySelectorAll('.yh-password-toggle').forEach((btn) => {
-        btn.addEventListener('click', () => {
-            const targetId = btn.getAttribute('data-target');
-            const input = document.getElementById(targetId);
-            if (!input) return;
+        const targetId = btn.getAttribute('data-target');
+        const input = document.getElementById(targetId);
+        const iconOnly = btn.hasAttribute('data-icon-only');
 
-            const shouldShow = input.type === 'password';
-            input.type = shouldShow ? 'text' : 'password';
-            btn.innerText = shouldShow ? yhT('auth.hide') : yhT('auth.show');
+        if (!input) return;
+
+        const renderToggleState = () => {
+            const showing = input.type === 'text';
+
+            if (iconOnly) {
+                btn.innerHTML = showing ? '🙈' : '👁';
+                btn.setAttribute('aria-label', showing ? yhT('auth.hide') : yhT('auth.show'));
+                btn.setAttribute('title', showing ? yhT('auth.hide') : yhT('auth.show'));
+            } else {
+                btn.innerText = showing ? yhT('auth.hide') : yhT('auth.show');
+            }
+        };
+
+        renderToggleState();
+
+        btn.addEventListener('click', () => {
+            input.type = input.type === 'password' ? 'text' : 'password';
+            renderToggleState();
         });
     });
 };
