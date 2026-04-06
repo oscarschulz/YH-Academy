@@ -26,6 +26,7 @@ const fallbackMap = {
     'auth.sendRecoveryCode': 'Send Recovery Code',
     'auth.verifying': 'Verifying...',
     'auth.verifyCode': 'Verify Code',
+    'auth.verifyEnter': 'Verify & Enter Universe ➔',
     'auth.saving': 'Saving...',
     'auth.saveNewPassword': 'Save New Password ➔',
     'auth.choosePhoto': 'Choose Photo',
@@ -1222,27 +1223,27 @@ if (formRegisterSimple) {
                 });
                 const result = await response.json();
 
-                if (result.success) {
-                    clearInterval(otpTimerInterval);
-                    clearPendingVerifyEmail();
-                    showToast("Account verified. Welcome to YH Universe.", "success");
+            if (result.success) {
+                clearInterval(otpTimerInterval);
+                clearPendingVerifyEmail();
+                showToast("Account verified. Welcome to YH Universe.", "success");
 
-                    clearAcademyClientStateForFreshAuth();
+                clearAcademyClientStateForFreshAuth();
 
-                    persistClientSession({
-                        ...result.user,
-                        email: result.user?.email || email
-                    }, result.token);
+                persistClientSession({
+                    ...result.user,
+                    email: result.user?.email || email
+                }, result.token);
 
-                    setTimeout(() => { window.location.href = '/dashboard'; }, 1000);
-                } else {
-                    showToast(result.message, "error");
-                    submitBtn.innerText = yhT('auth.verifyEnter');
-                    submitBtn.disabled = false;
-                }
+                setTimeout(() => { window.location.href = '/dashboard'; }, 1000);
+            } else {
+                showToast(result.message, "error");
+                submitBtn.innerText = 'Verify & Enter Universe ➔';
+                submitBtn.disabled = false;
+            }
             } catch (error) {
                 showToast("Server error during verification.", "error");
-                submitBtn.innerText = yhT('auth.verifyEnter');
+                submitBtn.innerText = 'Verify & Enter Universe ➔';
                 submitBtn.disabled = false;
             }
         });
