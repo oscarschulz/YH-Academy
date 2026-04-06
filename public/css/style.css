@@ -5743,6 +5743,56 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
 .yh-universe-slide.is-active .portal-card.active-portal > * {
     pointer-events: auto !important;
 }
+/* ===== LANDING CTA HIT-AREA FIX: full button always clickable ===== */
+#yh-open-auth-main,
+#yh-open-auth-academy,
+#yh-scroll-divisions,
+.yh-landing-cta-primary,
+.yh-landing-cta-secondary,
+.yh-division-btn {
+    position: relative !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    pointer-events: auto !important;
+    touch-action: manipulation !important;
+    cursor: pointer !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -webkit-tap-highlight-color: transparent !important;
+}
+
+#yh-open-auth-main *,
+#yh-open-auth-main::before,
+#yh-open-auth-main::after,
+#yh-open-auth-academy *,
+#yh-open-auth-academy::before,
+#yh-open-auth-academy::after,
+#yh-scroll-divisions *,
+#yh-scroll-divisions::before,
+#yh-scroll-divisions::after,
+.yh-landing-cta-primary *,
+.yh-landing-cta-primary::before,
+.yh-landing-cta-primary::after,
+.yh-landing-cta-secondary *,
+.yh-landing-cta-secondary::before,
+.yh-landing-cta-secondary::after,
+.yh-division-btn *,
+.yh-division-btn::before,
+.yh-division-btn::after {
+    pointer-events: none !important;
+}
+
+.yh-cta-label-desktop,
+.yh-cta-label-mobile {
+    display: block !important;
+    width: 100% !important;
+    text-align: center !important;
+    line-height: 1.2 !important;
+    pointer-events: none !important;
+}
 /* ===== REGISTER EXTRAS ===== */
 .yh-upload-shell {
     display: grid;
