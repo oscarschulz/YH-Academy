@@ -4592,10 +4592,18 @@ function setDashboardButtonLabel(button, label = '') {
 
     const safeLabel = String(label || '').trim();
     const labelEl = button.querySelector('.yh-btn-label');
+    const visualLabelEl =
+        button.id === 'btn-open-academy-apply'
+            ? document.getElementById('academy-entry-button-visual')
+            : null;
 
     if (safeLabel) {
         button.setAttribute('aria-label', safeLabel);
         button.dataset.label = safeLabel;
+    }
+
+    if (visualLabelEl) {
+        visualLabelEl.textContent = safeLabel;
     }
 
     if (labelEl) {
@@ -4603,7 +4611,7 @@ function setDashboardButtonLabel(button, label = '') {
         return;
     }
 
-    if (button.classList.contains('yh-dashboard-overlay-btn')) {
+    if (button.id === 'btn-open-academy-apply') {
         button.textContent = '';
         return;
     }
@@ -4668,11 +4676,13 @@ function resolveAcademyLaunchTarget(event) {
     return target?.closest?.('#btn-open-academy-apply') || null;
 }
 
-function setDashboardButtonLoadingState(button, isLoading = false, loadingLabel = 'Loading...') {
+function setDashboardButtonLoadingState(button, isLoading = false, loadingLabel = 'Loading.') {
     if (!button) return;
 
     const idleLabel = String(
         button.dataset.idleLabel ||
+        button.getAttribute('aria-label') ||
+        button.dataset.label ||
         button.textContent ||
         ''
     ).trim();
@@ -4688,7 +4698,7 @@ function setDashboardButtonLoadingState(button, isLoading = false, loadingLabel 
         button.setAttribute('aria-busy', 'true');
         button.style.cursor = 'wait';
         button.style.opacity = '0.92';
-        button.textContent = loadingLabel;
+        setDashboardButtonLabel(button, loadingLabel);
         return;
     }
 
@@ -4698,11 +4708,9 @@ function setDashboardButtonLoadingState(button, isLoading = false, loadingLabel 
     button.setAttribute('aria-busy', 'false');
     button.style.cursor = 'pointer';
     button.style.opacity = '1';
-
-    if (button.dataset.idleLabel) {
-        button.textContent = button.dataset.idleLabel;
-    }
+    setDashboardButtonLabel(button, button.dataset.idleLabel || idleLabel);
 }
+
 
 function syncAcademyEntryButton(snapshot = null) {
     if (!btnOpenApply) return;
@@ -4725,18 +4733,27 @@ function syncAcademyEntryButton(snapshot = null) {
 
     btnOpenApply.classList.remove('btn-secondary');
     btnOpenApply.setAttribute('type', 'button');
+    btnOpenApply.style.position = 'absolute';
+    btnOpenApply.style.inset = '0';
     btnOpenApply.style.width = '100%';
+    btnOpenApply.style.height = '100%';
     btnOpenApply.style.minHeight = '52px';
-    btnOpenApply.style.display = 'flex';
-    btnOpenApply.style.alignItems = 'center';
-    btnOpenApply.style.justifyContent = 'center';
+    btnOpenApply.style.margin = '0';
+    btnOpenApply.style.padding = '0';
+    btnOpenApply.style.display = 'block';
     btnOpenApply.style.boxSizing = 'border-box';
+    btnOpenApply.style.background = 'transparent';
+    btnOpenApply.style.border = 'none';
+    btnOpenApply.style.opacity = '0';
     btnOpenApply.style.pointerEvents = 'auto';
     btnOpenApply.style.touchAction = 'manipulation';
     btnOpenApply.style.cursor = 'pointer';
-    btnOpenApply.style.position = 'relative';
-    btnOpenApply.style.zIndex = '2';
+    btnOpenApply.style.position = 'absolute';
+    btnOpenApply.style.zIndex = '3';
     btnOpenApply.style.webkitTapHighlightColor = 'transparent';
+    btnOpenApply.style.appearance = 'none';
+    btnOpenApply.style.webkitAppearance = 'none';
+    btnOpenApply.textContent = '';
 
     if (stateBadge) {
         stateBadge.classList.add('is-hidden');

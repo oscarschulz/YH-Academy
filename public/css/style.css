@@ -5663,13 +5663,7 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
 .yh-universe-slide.is-active .portal-card.active-portal {
     pointer-events: auto !important;
 }
-/* FINAL CLEAN CTA FIX: single real button only */
-.yh-universe-cta-hitbox {
-    display: contents !important;
-    pointer-events: none !important;
-}
-
-/* ===== SINGLE SOURCE OF TRUTH: ACADEMY CTA ===== */
+/* FINAL CLEAN CTA FIX: separate visual layer and full hitbox button */
 .academy-entry-cta-wrap {
     width: 100% !important;
     display: flex !important;
@@ -5680,73 +5674,80 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
     pointer-events: none !important;
 }
 
-.academy-entry-cta-wrap > * {
+.academy-entry-button-shell {
+    position: relative !important;
+    width: 100% !important;
+    min-height: 52px !important;
     pointer-events: none !important;
 }
 
-#btn-open-academy-apply {
+.academy-entry-hit-button {
+    position: absolute !important;
+    inset: 0 !important;
     width: 100% !important;
+    height: 100% !important;
     min-height: 52px !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    box-sizing: border-box !important;
-    position: relative !important;
-    z-index: 1001 !important;
-    isolation: isolate !important;
-    overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    opacity: 0 !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
     pointer-events: auto !important;
     touch-action: manipulation !important;
     cursor: pointer !important;
-    user-select: none !important;
-    -webkit-user-select: none !important;
-    -webkit-touch-callout: none !important;
+    z-index: 3 !important;
+    outline: none !important;
     -webkit-tap-highlight-color: transparent !important;
-    color: transparent !important;
-    font-size: 0 !important;
-    line-height: 1 !important;
-    text-indent: -9999px !important;
-    white-space: nowrap !important;
 }
 
-#btn-open-academy-apply::after {
-    content: attr(data-label);
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 14px 16px;
-    font-size: 1rem;
-    font-weight: 600;
-    line-height: 1.2;
-    text-align: center;
-    color: #fff;
+.academy-entry-button-visual {
+    width: 100% !important;
+    min-height: 52px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+    padding: 14px 16px !important;
+    border-radius: 0.5rem !important;
+    background: var(--neon-blue) !important;
+    color: #fff !important;
+    font-size: 1rem !important;
+    font-weight: 600 !important;
+    line-height: 1.2 !important;
+    text-align: center !important;
+    box-shadow: 0 4px 15px var(--neon-glow) !important;
     pointer-events: none !important;
-    cursor: pointer !important;
     user-select: none !important;
     -webkit-user-select: none !important;
     -webkit-touch-callout: none !important;
-    caret-color: transparent !important;
-    z-index: 2;
-}
-
-#btn-open-academy-apply *,
-#btn-open-academy-apply::before {
-    pointer-events: none !important;
     cursor: pointer !important;
-    user-select: none !important;
-    -webkit-user-select: none !important;
-    -webkit-touch-callout: none !important;
-    caret-color: transparent !important;
+    position: relative !important;
+    z-index: 2 !important;
+    transition: all 0.3s ease !important;
 }
 
-#btn-open-academy-apply .yh-btn-label {
-    display: none !important;
+.academy-entry-hit-button:hover + .academy-entry-button-visual {
+    background: #0284c7 !important;
+    box-shadow: 0 6px 20px rgba(14, 165, 233, 0.6) !important;
+    transform: translateY(-2px) !important;
+}
+
+.academy-entry-hit-button:focus-visible + .academy-entry-button-visual {
+    outline: 2px solid rgba(255, 255, 255, 0.9) !important;
+    outline-offset: 2px !important;
+}
+
+.academy-entry-hit-button[disabled] + .academy-entry-button-visual,
+.academy-entry-hit-button[data-loading="true"] + .academy-entry-button-visual {
+    opacity: 0.92 !important;
 }
 
 .academy-entry-state-badge {
     pointer-events: none !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
 }
 
 .btn-primary[data-loading="true"],
