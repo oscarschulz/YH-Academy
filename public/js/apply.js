@@ -951,21 +951,22 @@ const bindRegisterPhotoUpload = () => {
         label.innerText = file.name;
     });
 };
-    const bootstrapPendingVerification = () => {
-        const pendingEmail = getPendingVerifyEmail();
-        if (!pendingEmail) return;
+const bootstrapPendingVerification = () => {
+    const pendingEmail = getPendingVerifyEmail();
+    if (!pendingEmail) return;
 
-        showStep(2);
+    showStep(2);
 
-        const otpInput = document.getElementById('otp-input');
-        if (otpInput) otpInput.value = '';
+    const otpInput = document.getElementById('otp-input');
+    if (otpInput) otpInput.value = '';
 
-        startOTPTimer();
-    };
-bootstrapPendingVerification();
+    startOTPTimer();
+};
+
 bindPasswordVisibilityToggles();
 bindRegisterPhotoUpload();
-    // --- LOGIN LOGIC ---
+
+// --- LOGIN LOGIC ---
 const btnLogin = document.getElementById('btn-login');
 const loginEmailInput = document.getElementById('login-email');
 const loginPasswordInput = document.getElementById('login-password');
@@ -1134,33 +1135,47 @@ if (formRegisterSimple) {
     });
 }
 
-    // --- OTP LOGIC ---
-    let otpTimerInterval;
-    function startOTPTimer() {
-        clearInterval(otpTimerInterval);
-        let timeLeft = 120;
-        const timerDisplay = document.getElementById('otp-timer');
-        const resendBtn = document.getElementById('btn-resend-otp');
-        
-        resendBtn.disabled = true; resendBtn.style.opacity = '0.5'; resendBtn.style.cursor = 'not-allowed';
-        timerDisplay.style.color = 'var(--neon-blue)';
+// --- OTP LOGIC ---
+let otpTimerInterval;
 
-        otpTimerInterval = setInterval(() => {
-            const minutes = Math.floor(timeLeft / 60); const seconds = timeLeft % 60;
-            const timeLabel = `${minutes < 10 ? '0' : ''}${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-            timerDisplay.innerText = timeLabel;
-            resendBtn.innerText = yhT('auth.resendIn', { time: timeLabel });
+function startOTPTimer() {
+    clearInterval(otpTimerInterval);
+    let timeLeft = 120;
+    const timerDisplay = document.getElementById('otp-timer');
+    const resendBtn = document.getElementById('btn-resend-otp');
 
-            if (timeLeft <= 0) {
-                clearInterval(otpTimerInterval);
-                timerDisplay.innerText = "00:00"; timerDisplay.style.color = "#ef4444";
-                resendBtn.innerText = yhT('auth.resendCode'); resendBtn.disabled = false; resendBtn.style.opacity = '1'; resendBtn.style.cursor = 'pointer';
-            }
-            timeLeft--;
-        }, 1000);
-    }
+    if (!timerDisplay || !resendBtn) return;
 
-    const btnResendOTP = document.getElementById('btn-resend-otp');
+    resendBtn.disabled = true;
+    resendBtn.style.opacity = '0.5';
+    resendBtn.style.cursor = 'not-allowed';
+    timerDisplay.style.color = 'var(--neon-blue)';
+
+    otpTimerInterval = setInterval(() => {
+        const minutes = Math.floor(timeLeft / 60);
+        const seconds = timeLeft % 60;
+        const timeLabel = `${minutes < 10 ? '0' : ''}${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+
+        timerDisplay.innerText = timeLabel;
+        resendBtn.innerText = yhT('auth.resendIn', { time: timeLabel });
+
+        if (timeLeft <= 0) {
+            clearInterval(otpTimerInterval);
+            timerDisplay.innerText = '00:00';
+            timerDisplay.style.color = '#ef4444';
+            resendBtn.innerText = yhT('auth.resendCode');
+            resendBtn.disabled = false;
+            resendBtn.style.opacity = '1';
+            resendBtn.style.cursor = 'pointer';
+        }
+
+        timeLeft--;
+    }, 1000);
+}
+
+bootstrapPendingVerification();
+
+const btnResendOTP = document.getElementById('btn-resend-otp');
     if (btnResendOTP) {
         btnResendOTP.addEventListener('click', async () => {
             const email = getPendingVerifyEmail();
