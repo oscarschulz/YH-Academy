@@ -5660,8 +5660,7 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
 }
 
 .yh-universe-slide.is-active,
-.yh-universe-slide.is-active .portal-card.active-portal,
-.yh-universe-slide.is-active .portal-card.active-portal * {
+.yh-universe-slide.is-active .portal-card.active-portal {
     pointer-events: auto !important;
 }
 /* FINAL CLEAN CTA FIX: single real button only */
@@ -5695,26 +5694,55 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
     position: relative !important;
     z-index: 1001 !important;
     isolation: isolate !important;
+    overflow: hidden !important;
     pointer-events: auto !important;
     touch-action: manipulation !important;
     cursor: pointer !important;
     user-select: none !important;
     -webkit-user-select: none !important;
+    -webkit-touch-callout: none !important;
     -webkit-tap-highlight-color: transparent !important;
+    color: transparent !important;
+    font-size: 0 !important;
+    line-height: 1 !important;
+    text-indent: -9999px !important;
+    white-space: nowrap !important;
+}
+
+#btn-open-academy-apply::after {
+    content: attr(data-label);
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px 16px;
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.2;
+    text-align: center;
+    color: #fff;
+    pointer-events: none !important;
+    cursor: pointer !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -webkit-touch-callout: none !important;
+    caret-color: transparent !important;
+    z-index: 2;
 }
 
 #btn-open-academy-apply *,
-#btn-open-academy-apply::before,
-#btn-open-academy-apply::after {
+#btn-open-academy-apply::before {
     pointer-events: none !important;
+    cursor: pointer !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -webkit-touch-callout: none !important;
+    caret-color: transparent !important;
 }
 
 #btn-open-academy-apply .yh-btn-label {
-    display: block !important;
-    width: 100% !important;
-    text-align: center !important;
-    line-height: 1.2 !important;
-    pointer-events: none !important;
+    display: none !important;
 }
 
 .academy-entry-state-badge {
@@ -5740,8 +5768,12 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
     z-index: 100 !important;
 }
 
-.yh-universe-slide.is-active .portal-card.active-portal > * {
+.yh-universe-slide.is-active .portal-card.active-portal > *:not(.academy-entry-cta-wrap) {
     pointer-events: auto !important;
+}
+
+.yh-universe-slide.is-active .portal-card.active-portal > .academy-entry-cta-wrap {
+    pointer-events: none !important;
 }
 
 /* ===== LANDING CTA LABEL OVERLAY: button box is the only hit target ===== */

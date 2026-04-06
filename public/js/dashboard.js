@@ -4593,13 +4593,22 @@ function setDashboardButtonLabel(button, label = '') {
     const safeLabel = String(label || '').trim();
     const labelEl = button.querySelector('.yh-btn-label');
 
-    if (labelEl) {
-        labelEl.textContent = safeLabel;
-    } else {
-        button.textContent = safeLabel;
+    if (safeLabel) {
+        button.setAttribute('aria-label', safeLabel);
+        button.dataset.label = safeLabel;
     }
 
-    button.setAttribute('aria-label', safeLabel);
+    if (labelEl) {
+        labelEl.textContent = safeLabel;
+        return;
+    }
+
+    if (button.classList.contains('yh-dashboard-overlay-btn')) {
+        button.textContent = '';
+        return;
+    }
+
+    button.textContent = safeLabel;
 }
 
 function setDashboardButtonLoadingState(button, isLoading = false, loadingLabel = 'Loading...') {
@@ -4709,7 +4718,7 @@ function syncAcademyEntryButton(snapshot = null) {
 
     if (entryWrap) {
         entryWrap.style.width = '100%';
-        entryWrap.style.pointerEvents = 'auto';
+        entryWrap.style.pointerEvents = 'none';
         entryWrap.style.position = 'relative';
         entryWrap.style.zIndex = '3';
     }
