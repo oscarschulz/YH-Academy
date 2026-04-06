@@ -224,6 +224,8 @@ let yhLandingMapSpinRaf = null;
 let yhLandingCloudsMesh = null;
 let yhLandingResizeBound = false;
 let yhLandingLastFocusPointKey = '';
+let yhLandingPublicFeedRequestInFlight = false;
+let yhLandingPublicFeedPollDelayMs = 15000;
 let yhLandingLiveFeedState = YH_LANDING_FEED_DEFAULTS.map((item) => ({ ...item }));
 
 let yhLandingGlobeData = {
@@ -384,11 +386,26 @@ function focusLandingGlobePoint(point = null) {
 }
 
 async function fetchLandingPublicFeed() {
+    if (yhLandingPublicFeedRequestInFlight) {
+        return yhLandingPublicFeedPollDelayMs;
+    }
+
+    if (document.hidden) {
+        return yhLandingPublicFeedPollDelayMs;
+    }
+
+    yhLandingPublicFeedRequestInFlight = true;
+
     try {
         const response = await fetch('/api/public/landing-feed?limit=24', {
             method: 'GET',
             cache: 'no-store'
         });
+
+        if (response.status === 429) {
+            console.warn('fetchLandingPublicFeed rate-limited: backing off for 60 seconds.');
+            return 60000;
+        }
 
         if (!response.ok) {
             throw new Error(`Landing feed request failed with ${response.status}`);
@@ -406,24 +423,38 @@ async function fetchLandingPublicFeed() {
             arcs: [],
             focusPoint: result.focusPoint || null
         });
+
+        return yhLandingPublicFeedPollDelayMs;
     } catch (error) {
         console.warn('fetchLandingPublicFeed error:', error?.message || error);
         // keep the last successful live cards and globe points instead of wiping the UI
+        return 30000;
+    } finally {
+        yhLandingPublicFeedRequestInFlight = false;
     }
+}
+
+function scheduleNextLandingFeedFetch(delayMs = yhLandingPublicFeedPollDelayMs) {
+    if (yhLandingPublicFeedTimer) {
+        clearTimeout(yhLandingPublicFeedTimer);
+    }
+
+    yhLandingPublicFeedTimer = setTimeout(async () => {
+        const nextDelay = await fetchLandingPublicFeed();
+        scheduleNextLandingFeedFetch(nextDelay);
+    }, Math.max(5000, Number(delayMs) || yhLandingPublicFeedPollDelayMs));
 }
 
 function startLandingFeedRotation() {
     renderLandingFeedSections();
 
     if (yhLandingPublicFeedTimer) {
-        clearInterval(yhLandingPublicFeedTimer);
+        clearTimeout(yhLandingPublicFeedTimer);
     }
 
-    fetchLandingPublicFeed();
-
-    yhLandingPublicFeedTimer = setInterval(() => {
-        fetchLandingPublicFeed();
-    }, 8000);
+    fetchLandingPublicFeed().then((nextDelay) => {
+        scheduleNextLandingFeedFetch(nextDelay);
+    });
 }
 
 function renderLandingMapFallback() {

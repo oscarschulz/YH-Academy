@@ -286,12 +286,38 @@ const AUTH_OTP_RATE_LIMIT_PATHS = new Set([
     '/reset-password'
 ]);
 
+const AUTH_WRITE_RATE_LIMIT_PATHS = new Set([
+    '/register',
+    '/login'
+]);
+
+const PUBLIC_LANDING_RATE_LIMIT_PATHS = new Set([
+    '/public/landing-feed'
+]);
+
 const authOtpLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 120,
     message: { success: false, message: "Please wait a moment and try again." },
     standardHeaders: true,
     legacyHeaders: false
+});
+
+const authWriteLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 40,
+    message: { success: false, message: "Please wait a moment and try again." },
+    standardHeaders: true,
+    legacyHeaders: false
+});
+
+const publicLandingLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 240,
+    message: { success: false, message: "Please wait a moment and try again." },
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip: (req) => String(req.method || '').toUpperCase() !== 'GET'
 });
 
 const apiLimiter = rateLimit({
@@ -311,6 +337,12 @@ const apiLimiter = rateLimit({
         // OTP / password recovery routes use their own relaxed limiter.
         if (AUTH_OTP_RATE_LIMIT_PATHS.has(path)) return true;
 
+        // Register/login should not share the same bucket as public polling routes.
+        if (AUTH_WRITE_RATE_LIMIT_PATHS.has(path)) return true;
+
+        // Public landing live polling uses its own dedicated limiter.
+        if (PUBLIC_LANDING_RATE_LIMIT_PATHS.has(path)) return true;
+
         return false;
     }
 });
@@ -320,6 +352,10 @@ app.use('/api/resend-otp', authOtpLimiter);
 app.use('/api/forgot-password', authOtpLimiter);
 app.use('/api/verify-forgot-otp', authOtpLimiter);
 app.use('/api/reset-password', authOtpLimiter);
+
+app.use('/api/register', authWriteLimiter);
+app.use('/api/login', authWriteLimiter);
+app.use('/api/public/landing-feed', publicLandingLimiter);
 
 app.use('/api', apiLimiter);
 
