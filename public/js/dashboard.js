@@ -570,6 +570,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentProfileIcon = null;
     let currentProfileBg = null;
     let pendingGroupMembers = [];
+    let hasLoadedVaultOnce = false;
     const defaultAcademyWelcomeHtml = document.getElementById('chat-welcome-box')?.innerHTML || '';
 
     // --- UPDATED NAVIGATION & ROUTING LOGIC ---
@@ -578,7 +579,7 @@ const universeFeatureContent = {
         kicker: 'Academy Features',
         title: 'Roadmap execution layer',
         desc: 'Build a daily plan, track your progress, and use the community plus live rooms to stay in motion.',
-        chips: ['Daily roadmap', 'Community feed', 'Voice lounge']
+        chips: ['Daily roadmap', 'Community feed',]
     },
     plazas: {
         kicker: 'Plaza Features',
@@ -894,6 +895,14 @@ function openRoom(type, element) {
         views['vault-view'].classList.remove('fade-in');
         void views['vault-view'].offsetWidth;
         views['vault-view'].classList.add('fade-in');
+
+        Promise.resolve()
+            .then(() => ensureVaultLoaded())
+            .catch((error) => {
+                console.error('ensureVaultLoaded error:', error);
+                showToast(error?.message || 'Failed to load Vault.', 'error');
+            });
+
         return;
     }
 
@@ -2500,9 +2509,8 @@ if (getStoredUserValue('yh_user_loggedIn') === 'true') {
         renderLeaderboard();
     }
 
-    if (typeof loadVault === 'function') {
-        loadVault();
-    }
+    // Keep Vault loading lazy.
+    // First live backend fetch now happens only when the Vault view is actually opened.
 
     if (typeof resolveAcademyAccessState === 'function') {
         resolveAcademyAccessState().catch(() => {});
@@ -3513,7 +3521,6 @@ function renderAcademyHome(homeData = null) {
                     <button id="academy-home-refresh-roadmap" type="button" class="btn-primary academy-home-action-btn">Refresh Roadmap</button>
                     <button id="academy-home-open-checkin" type="button" class="btn-secondary academy-home-action-btn">Daily Check-In</button>
                     <button id="academy-home-enter-chat" type="button" class="btn-secondary academy-home-action-btn">Open Community</button>
-                    <button id="academy-home-open-voice" type="button" class="btn-secondary academy-home-action-btn">Open Voice Lounge</button>
                 </div>
             </section>
 
