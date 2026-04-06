@@ -1856,6 +1856,12 @@ async function loadVault() {
         });
     });
 }
+async function ensureVaultLoaded(force = false) {
+    if (hasLoadedVaultOnce && !force) return;
+
+    await loadVault();
+    hasLoadedVaultOnce = true;
+}
     const btnCreateFolder = document.getElementById('btn-create-folder');
     if (btnCreateFolder) {
         btnCreateFolder.addEventListener('click', async () => {
