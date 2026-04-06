@@ -4656,7 +4656,7 @@ async function runDashboardButtonAction(button, loadingLabel, action) {
 
 function resolveAcademyLaunchTarget(event) {
     const target = resolveEventElementTarget(event);
-    return target?.closest?.('#btn-open-academy-apply, .academy-entry-cta-wrap') || null;
+    return target?.closest?.('#btn-open-academy-apply') || null;
 }
 
 function setDashboardButtonLoadingState(button, isLoading = false, loadingLabel = 'Loading...') {
@@ -5653,9 +5653,8 @@ function bindAcademyLaunchTarget(target) {
     target.dataset.launchBound = 'true';
     target.style.pointerEvents = 'auto';
     target.style.touchAction = 'manipulation';
+    target.style.cursor = 'pointer';
 
-    target.addEventListener('touchend', runAcademyLaunch, { passive: false });
-    target.addEventListener('pointerup', runAcademyLaunch);
     target.addEventListener('click', runAcademyLaunch);
 
     target.addEventListener('keydown', (event) => {
@@ -5667,13 +5666,14 @@ function bindAcademyLaunchTarget(target) {
 }
 
 if (academyEntryWrap) {
-    bindAcademyLaunchTarget(academyEntryWrap);
+    academyEntryWrap.style.pointerEvents = 'none';
 }
 
 if (btnOpenApply) {
     btnOpenApply.setAttribute('type', 'button');
     btnOpenApply.style.pointerEvents = 'auto';
     btnOpenApply.style.touchAction = 'manipulation';
+    btnOpenApply.style.cursor = 'pointer';
     bindAcademyLaunchTarget(btnOpenApply);
 }
 
