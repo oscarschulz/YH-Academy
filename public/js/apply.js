@@ -1238,12 +1238,12 @@ if (formRegisterSimple) {
                 setTimeout(() => { window.location.href = '/dashboard'; }, 1000);
             } else {
                 showToast(result.message, "error");
-                submitBtn.innerText = 'Verify & Enter Universe ➔';
+                submitBtn.innerText = yhT('auth.verifyEnter');
                 submitBtn.disabled = false;
             }
             } catch (error) {
                 showToast("Server error during verification.", "error");
-                submitBtn.innerText = 'Verify & Enter Universe ➔';
+                submitBtn.innerText = yhT('auth.verifyEnter');
                 submitBtn.disabled = false;
             }
         });

@@ -278,6 +278,22 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Anti-Spam (Rate Limiting)
+const AUTH_OTP_RATE_LIMIT_PATHS = new Set([
+    '/verify-otp',
+    '/resend-otp',
+    '/forgot-password',
+    '/verify-forgot-otp',
+    '/reset-password'
+]);
+
+const authOtpLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 120,
+    message: { success: false, message: "Please wait a moment and try again." },
+    standardHeaders: true,
+    legacyHeaders: false
+});
+
 const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 30,
@@ -290,9 +306,21 @@ const apiLimiter = rateLimit({
         // Do not rate-limit admin routes.
         // Anyone who already knows the secret admin URL and correct credentials
         // should not be blocked by the generic public API limiter.
-        return path === '/admin/login' || path.startsWith('/admin/');
+        if (path === '/admin/login' || path.startsWith('/admin/')) return true;
+
+        // OTP / password recovery routes use their own relaxed limiter.
+        if (AUTH_OTP_RATE_LIMIT_PATHS.has(path)) return true;
+
+        return false;
     }
 });
+
+app.use('/api/verify-otp', authOtpLimiter);
+app.use('/api/resend-otp', authOtpLimiter);
+app.use('/api/forgot-password', authOtpLimiter);
+app.use('/api/verify-forgot-otp', authOtpLimiter);
+app.use('/api/reset-password', authOtpLimiter);
+
 app.use('/api', apiLimiter);
 
 // --- MVC ROUTING ---
