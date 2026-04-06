@@ -1831,15 +1831,7 @@ exports.updateMissionStatus = async (req, res) => {
             await academyFirestoreRepo.updateMissionOutcomeMetrics(uid, missionId, {
                 completionLagHours
             });
-
-            try {
-                await publicLandingEventsRepo.createAcademyActionEvent(uid, 'mission_completed', {
-                    missionTitle: completedMission?.title || mission?.title || '',
-                    ttlSeconds: 1500
-                });
-            } catch (glowError) {
-                console.warn('updateMissionStatus mission_completed event skipped:', glowError?.message || glowError);
-            }
+            // handled by the unified status-based public landing event block below
 
         try {
             if (status === 'completed') {

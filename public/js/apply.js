@@ -399,11 +399,7 @@ async function fetchLandingPublicFeed() {
         });
     } catch (error) {
         console.warn('fetchLandingPublicFeed error:', error?.message || error);
-        applyLandingFeedSnapshot([]);
-        window.yhSetLandingGlobeData({
-            points: [],
-            arcs: []
-        });
+        // keep the last successful live cards and globe points instead of wiping the UI
     }
 }
 
@@ -418,7 +414,7 @@ function startLandingFeedRotation() {
 
     yhLandingPublicFeedTimer = setInterval(() => {
         fetchLandingPublicFeed();
-    }, 5000);
+    }, 8000);
 }
 
 function renderLandingMapFallback() {
@@ -548,8 +544,8 @@ function focusLandingGlowPoint(point = null) {
         String(point.id || '').trim() ||
         `${lat}:${lng}:${String(point.label || '').trim()}`;
 
-    if (window.__yhLandingLastGlowFocusKey === focusKey) return;
-    window.__yhLandingLastGlowFocusKey = focusKey;
+    if (focusKey && focusKey === yhLandingLastFocusPointKey) return;
+    yhLandingLastFocusPointKey = focusKey;
 
     yhLandingMapInstance.pointOfView(
         { lat, lng, altitude: 2.44 },

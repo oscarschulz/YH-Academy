@@ -73,7 +73,10 @@ async function getUserGeo(userId) {
 
 async function createEventForUser(userId, options = {}) {
     const geo = await getUserGeo(userId);
-    if (!geo) return null;
+    if (!geo) {
+        console.warn(`publicLandingEventsRepo.createEventForUser skipped: missing valid geo for user ${sanitizeText(userId) || 'unknown'}`);
+        return null;
+    }
 
     const slotRaw = sanitizeText(options.slot || 'academy').toLowerCase();
     const slot = ['academy', 'federation', 'plaza'].includes(slotRaw)
@@ -194,7 +197,7 @@ async function createAcademyActionEvent(userId, actionKey = '', details = {}) {
     if (normalizedAction === 'roadmap_application') {
         preset = {
             type: 'academy_roadmap_application',
-            slot: 'federation',
+            slot: 'academy',
             category: 'academy',
             messagePrefix:
                 target30Days
@@ -589,6 +592,7 @@ function getSampleLandingEvents() {
 function buildEventKey(event = {}) {
     return [
         sanitizeText(event.slot || 'academy').toLowerCase(),
+        sanitizeText(event.userId).toLowerCase(),
         sanitizeText(event.city).toLowerCase(),
         sanitizeText(event.country).toLowerCase(),
         String(toNumber(event.lat, NaN)),
@@ -708,6 +712,7 @@ async function buildPublicLandingSnapshot(limit = 24) {
                 category: sanitizeText(data.category || 'academy'),
                 actorName: sanitizeText(data.actorName),
                 username: sanitizeText(data.username),
+                userId: sanitizeText(data.userId),
                 feedText: sanitizeText(data.feedText),
                 message: sanitizeText(data.message),
                 label: sanitizeText(data.label),
@@ -741,13 +746,23 @@ async function buildPublicLandingSnapshot(limit = 24) {
         });
 
     const academySource = events.filter((event) => event.slot === 'academy' && event.category === 'academy');
+    const uniqueAcademySource = [];
+    const seenAcademyKeys = new Set();
+
+    for (const event of academySource) {
+        const eventKey = buildEventKey(event);
+        if (seenAcademyKeys.has(eventKey)) continue;
+        seenAcademyKeys.add(eventKey);
+        uniqueAcademySource.push(event);
+    }
+
     const feed = getDefaultFeed();
 
     if (academySource[0]?.feedText) {
         feed.academy = academySource[0].feedText;
     }
 
-    const academyEvents = academySource.slice(0, 6).map((event) => ({
+    const academyEvents = uniqueAcademySource.slice(0, 6).map((event) => ({
         id: event.id,
         pointId: event.id,
         type: event.type,
@@ -761,7 +776,7 @@ async function buildPublicLandingSnapshot(limit = 24) {
         createdAt: event.createdAt
     }));
 
-    const points = academySource.slice(0, 8).map((event) => ({
+    const points = uniqueAcademySource.slice(0, 8).map((event) => ({
         id: event.id,
         lat: event.lat,
         lng: event.lng,
