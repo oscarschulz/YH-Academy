@@ -5780,6 +5780,11 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
     text-indent: 0;
     white-space: normal;
     pointer-events: none !important;
+    cursor: pointer !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -webkit-touch-callout: none !important;
+    caret-color: transparent !important;
     z-index: 2;
 }
 
@@ -5798,11 +5803,21 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
 .yh-overlay-label-btn *,
 .yh-overlay-label-btn::before {
     pointer-events: none !important;
+    cursor: pointer !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -webkit-touch-callout: none !important;
+    caret-color: transparent !important;
 }
 
 .yh-cta-label-desktop,
 .yh-cta-label-mobile {
     pointer-events: none !important;
+    cursor: pointer !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -webkit-touch-callout: none !important;
+    caret-color: transparent !important;
 }
 /* ===== LANDING CTA HIT-AREA FIX: full button always clickable ===== */
 #yh-open-auth-main,
