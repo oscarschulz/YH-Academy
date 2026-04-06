@@ -5743,6 +5743,67 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
 .yh-universe-slide.is-active .portal-card.active-portal > * {
     pointer-events: auto !important;
 }
+
+/* ===== LANDING CTA LABEL OVERLAY: button box is the only hit target ===== */
+.yh-overlay-label-btn {
+    position: relative !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+    font-size: 0 !important;
+    line-height: 1 !important;
+    color: transparent !important;
+    text-indent: -9999px !important;
+    white-space: nowrap !important;
+    pointer-events: auto !important;
+    touch-action: manipulation !important;
+    cursor: pointer !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -webkit-tap-highlight-color: transparent !important;
+}
+
+.yh-overlay-label-btn::after {
+    content: attr(data-label);
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.875rem 1rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    line-height: 1.2;
+    text-align: center;
+    text-indent: 0;
+    white-space: normal;
+    pointer-events: none !important;
+    z-index: 2;
+}
+
+.yh-overlay-label-btn.btn-primary::after {
+    color: #fff;
+}
+
+.yh-overlay-label-btn.btn-secondary::after {
+    color: var(--neon-blue);
+}
+
+.yh-overlay-label-btn.btn-secondary:hover::after {
+    color: #fff;
+}
+
+.yh-overlay-label-btn *,
+.yh-overlay-label-btn::before {
+    pointer-events: none !important;
+}
+
+.yh-cta-label-desktop,
+.yh-cta-label-mobile {
+    pointer-events: none !important;
+}
 /* ===== LANDING CTA HIT-AREA FIX: full button always clickable ===== */
 #yh-open-auth-main,
 #yh-open-auth-academy,
