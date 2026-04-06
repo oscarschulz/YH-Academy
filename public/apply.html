@@ -256,7 +256,27 @@
 
                                     <div class="login-ui-container w-full">
                                         <input type="email" id="login-email" placeholder="Email Address" class="pill-input auth-stop-propagation" autocomplete="email">
-                                        <input type="password" id="login-password" placeholder="Password" class="pill-input auth-stop-propagation">
+
+                                        <div class="yh-password-shell">
+                                            <input
+                                                type="password"
+                                                id="login-password"
+                                                placeholder="Password"
+                                                class="pill-input yh-password-input auth-stop-propagation"
+                                                autocomplete="current-password"
+                                            >
+                                            <button
+                                                type="button"
+                                                class="yh-password-toggle auth-stop-propagation"
+                                                data-target="login-password"
+                                                data-icon-only="true"
+                                                aria-label="Show password"
+                                                title="Show password"
+                                            >
+                                                👁
+                                            </button>
+                                        </div>
+
                                         <a href="#" class="forgot-link auth-stop-propagation">Forgot password?</a>
                                         <button type="button" id="btn-login" class="pill-btn-login auth-stop-propagation">Login</button>
                                         <div class="divider mt-large w-full"><span>OR</span></div>
