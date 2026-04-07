@@ -560,6 +560,208 @@
         </div>
     </div>
 
+    <div id="academy-apply-modal" class="modal-overlay hidden-step" aria-hidden="true">
+        <div class="modal-content">
+            <button
+                type="button"
+                id="close-academy-apply"
+                class="btn-back-icon"
+                aria-label="Close Academy application"
+            >
+                ← Close
+            </button>
+
+            <div class="text-center mb-large">
+                <div class="step-indicator-badge">Academy Application</div>
+                <h2 class="main-title mb-small">Apply for the Academy</h2>
+                <p class="subtitle">
+                    Complete the application below. One submit action only.
+                </p>
+            </div>
+
+            <form id="form-academy-apply">
+                <div class="academy-apply-group">
+                    <h3 class="academy-apply-group-title">Basic Identity</h3>
+
+                    <div class="form-group w-full">
+                        <label for="academy-username">Username</label>
+                        <input
+                            type="text"
+                            id="academy-username"
+                            name="username"
+                            class="input-field"
+                            placeholder="Choose your Academy username"
+                            required
+                        >
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group w-full">
+                            <label for="academy-city">City</label>
+                            <input
+                                type="text"
+                                id="academy-city"
+                                name="city"
+                                class="input-field"
+                                placeholder="Enter your city"
+                                required
+                            >
+                        </div>
+
+                        <div class="form-group w-full">
+                            <label for="academy-country">Country</label>
+                            <input
+                                type="text"
+                                id="academy-country"
+                                name="country"
+                                class="input-field"
+                                placeholder="Enter your country"
+                                required
+                            >
+                        </div>
+                    </div>
+                </div>
+
+                <div class="academy-apply-group">
+                    <h3 class="academy-apply-group-title">Academy Intent</h3>
+
+                    <div class="form-group w-full">
+                        <label for="academy-why-join">Why do you want to join the Academy?</label>
+                        <textarea
+                            id="academy-why-join"
+                            name="whyJoin"
+                            class="input-field"
+                            rows="4"
+                            placeholder="Tell us why you want to join"
+                            required
+                        ></textarea>
+                    </div>
+
+                    <div class="form-group w-full">
+                        <label for="academy-goals">What do you want to achieve inside the Academy?</label>
+                        <textarea
+                            id="academy-goals"
+                            name="goals"
+                            class="input-field"
+                            rows="4"
+                            placeholder="What do you want to achieve?"
+                            required
+                        ></textarea>
+                    </div>
+
+                    <div class="form-group w-full">
+                        <label for="academy-stage">What stage are you currently in right now?</label>
+                        <select
+                            id="academy-stage"
+                            name="currentStage"
+                            class="input-field styled-select"
+                            required
+                        >
+                            <option value="">Select your current stage</option>
+                            <option value="beginner">Beginner</option>
+                            <option value="learning">Learning and exploring</option>
+                            <option value="building">Already building something</option>
+                            <option value="working">Working and trying to level up</option>
+                            <option value="experienced">Experienced but seeking bigger opportunities</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="academy-apply-group">
+                    <h3 class="academy-apply-group-title">Background and Capability</h3>
+
+                    <div class="form-group w-full">
+                        <label for="academy-skills">What skills, experience, or strengths do you currently have?</label>
+                        <textarea
+                            id="academy-skills"
+                            name="skills"
+                            class="input-field"
+                            rows="4"
+                            placeholder="Share your skills, experience, or strengths"
+                            required
+                        ></textarea>
+                    </div>
+
+                    <div class="form-group w-full">
+                        <label for="academy-current-work">What are you currently doing right now?</label>
+                        <textarea
+                            id="academy-current-work"
+                            name="currentWork"
+                            class="input-field"
+                            rows="4"
+                            placeholder="Student, job, business, freelancing, building, etc."
+                            required
+                        ></textarea>
+                    </div>
+
+                    <div class="form-group w-full">
+                        <label for="academy-challenge">What is your biggest current challenge or blocker?</label>
+                        <textarea
+                            id="academy-challenge"
+                            name="biggestChallenge"
+                            class="input-field"
+                            rows="4"
+                            placeholder="What is currently stopping you from progressing?"
+                            required
+                        ></textarea>
+                    </div>
+                </div>
+
+                <div class="academy-apply-group">
+                    <h3 class="academy-apply-group-title">Commitment and Fit</h3>
+
+                    <div class="form-group w-full">
+                        <label for="academy-seriousness">How serious are you about changing your life in the next 12 months?</label>
+                        <select
+                            id="academy-seriousness"
+                            name="seriousness"
+                            class="input-field styled-select"
+                            required
+                        >
+                            <option value="">Select your answer</option>
+                            <option value="all-in">All in</option>
+                            <option value="very-serious">Very serious</option>
+                            <option value="serious-but-need-guidance">Serious but need guidance</option>
+                            <option value="still-figuring-it-out">Still figuring it out</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group w-full">
+                        <label for="academy-time-commitment">How much time can you realistically commit every week?</label>
+                        <select
+                            id="academy-time-commitment"
+                            name="timeCommitment"
+                            class="input-field styled-select"
+                            required
+                        >
+                            <option value="">Select your weekly commitment</option>
+                            <option value="1-3">1 to 3 hours</option>
+                            <option value="4-7">4 to 7 hours</option>
+                            <option value="8-14">8 to 14 hours</option>
+                            <option value="15-plus">15+ hours</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group w-full">
+                        <label for="academy-why-accept">Why should the Academy accept you?</label>
+                        <textarea
+                            id="academy-why-accept"
+                            name="whyAccept"
+                            class="input-field"
+                            rows="4"
+                            placeholder="Tell us why you are a strong fit"
+                            required
+                        ></textarea>
+                    </div>
+                </div>
+
+                <button type="submit" id="btn-academy-apply-submit" class="btn-primary btn-large">
+                    Submit Application ➔
+                </button>
+            </form>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/globe.gl"></script>
     <script src="/js/apply.js?v=20260404-globegl-clouds-1"></script>

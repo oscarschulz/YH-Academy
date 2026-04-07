@@ -1353,6 +1353,9 @@ const btnResendOTP = document.getElementById('btn-resend-otp');
     }
     const authSection = document.getElementById('yh-auth-section');
     const divisionsSection = document.getElementById('yh-divisions-section');
+    const academyApplyModal = document.getElementById('academy-apply-modal');
+    const academyApplyForm = document.getElementById('form-academy-apply');
+    const closeAcademyApplyBtn = document.getElementById('close-academy-apply');
 
     const scrollToTarget = (target) => {
         if (!target) return;
@@ -1363,6 +1366,67 @@ const btnResendOTP = document.getElementById('btn-resend-otp');
         scrollToTarget(authSection);
     };
 
+    const lockBodyForModal = () => {
+        document.body.style.overflow = 'hidden';
+    };
+
+    const unlockBodyForModal = () => {
+        document.body.style.overflow = '';
+    };
+
+    const prefillAcademyApplyFields = () => {
+        const usernameInput = document.getElementById('academy-username');
+        const cityInput = document.getElementById('academy-city');
+        const countryInput = document.getElementById('academy-country');
+
+        const savedUsername =
+            sessionStorage.getItem('yh_user_username') ||
+            localStorage.getItem('yh_user_username') ||
+            '';
+
+        const savedCity =
+            sessionStorage.getItem('yh_user_city') ||
+            localStorage.getItem('yh_user_city') ||
+            '';
+
+        const savedCountry =
+            sessionStorage.getItem('yh_user_country') ||
+            localStorage.getItem('yh_user_country') ||
+            '';
+
+        if (usernameInput && !usernameInput.value.trim() && savedUsername) {
+            usernameInput.value = savedUsername;
+        }
+
+        if (cityInput && !cityInput.value.trim() && savedCity) {
+            cityInput.value = savedCity;
+        }
+
+        if (countryInput && !countryInput.value.trim() && savedCountry) {
+            countryInput.value = savedCountry;
+        }
+    };
+
+    const openAcademyApplyModal = () => {
+        if (!academyApplyModal) {
+            openAuthPanel();
+            return;
+        }
+
+        academyApplyModal.classList.remove('hidden-step');
+        academyApplyModal.setAttribute('aria-hidden', 'false');
+        lockBodyForModal();
+        prefillAcademyApplyFields();
+    };
+
+    const closeAcademyApplyModal = () => {
+        if (!academyApplyModal) return;
+
+        academyApplyModal.classList.add('hidden-step');
+        academyApplyModal.setAttribute('aria-hidden', 'true');
+        unlockBodyForModal();
+    };
+
     const btnTopbar = document.getElementById('yh-scroll-auth');
     const btnHero = document.getElementById('yh-open-auth-main');
     const btnAcademy = document.getElementById('yh-open-auth-academy');
@@ -1370,7 +1434,82 @@ const btnResendOTP = document.getElementById('btn-resend-otp');
 
     if (btnTopbar) btnTopbar.addEventListener('click', () => openAuthPanel());
     if (btnHero) btnHero.addEventListener('click', () => openAuthPanel());
-    if (btnAcademy) btnAcademy.addEventListener('click', () => openAuthPanel());
+    if (btnAcademy) {
+        btnAcademy.addEventListener('click', () => openAcademyApplyModal());
+    }
+
+    if (closeAcademyApplyBtn) {
+        closeAcademyApplyBtn.addEventListener('click', () => closeAcademyApplyModal());
+    }
+
+    if (academyApplyModal) {
+        academyApplyModal.addEventListener('click', (e) => {
+            if (e.target === academyApplyModal) {
+                closeAcademyApplyModal();
+            }
+        });
+    }
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && academyApplyModal && !academyApplyModal.classList.contains('hidden-step')) {
+            closeAcademyApplyModal();
+        }
+    });
+
+    if (academyApplyForm) {
+        academyApplyForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const submitBtn = document.getElementById('btn-academy-apply-submit');
+            if (!submitBtn) return;
+
+            const formData = {
+                username: document.getElementById('academy-username')?.value.trim() || '',
+                city: document.getElementById('academy-city')?.value.trim() || '',
+                country: document.getElementById('academy-country')?.value.trim() || '',
+                whyJoin: document.getElementById('academy-why-join')?.value.trim() || '',
+                goals: document.getElementById('academy-goals')?.value.trim() || '',
+                currentStage: document.getElementById('academy-stage')?.value || '',
+                skills: document.getElementById('academy-skills')?.value.trim() || '',
+                currentWork: document.getElementById('academy-current-work')?.value.trim() || '',
+                biggestChallenge: document.getElementById('academy-challenge')?.value.trim() || '',
+                seriousness: document.getElementById('academy-seriousness')?.value || '',
+                timeCommitment: document.getElementById('academy-time-commitment')?.value || '',
+                whyAccept: document.getElementById('academy-why-accept')?.value.trim() || ''
+            };
+
+            submitBtn.disabled = true;
+            submitBtn.innerText = 'Submitting...';
+
+            try {
+                sessionStorage.setItem('yh_academy_application_profile', JSON.stringify(formData));
+                localStorage.setItem('yh_academy_application_profile', JSON.stringify(formData));
+
+                if (formData.username) {
+                    sessionStorage.setItem('yh_user_username', formData.username);
+                    localStorage.setItem('yh_user_username', formData.username);
+                }
+
+                if (formData.city) {
+                    sessionStorage.setItem('yh_user_city', formData.city);
+                    localStorage.setItem('yh_user_city', formData.city);
+                }
+
+                if (formData.country) {
+                    sessionStorage.setItem('yh_user_country', formData.country);
+                    localStorage.setItem('yh_user_country', formData.country);
+                }
+
+                showToast('Application saved. Backend hookup is the next step.', 'success');
+                closeAcademyApplyModal();
+            } catch (error) {
+                showToast('Failed to save application.', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerText = 'Submit Application ➔';
+            }
+        });
+    }
     if (btnDivisions) btnDivisions.addEventListener('click', () => scrollToTarget(divisionsSection));
 
     document.querySelectorAll('.yh-coming-soon-btn').forEach((button) => {
