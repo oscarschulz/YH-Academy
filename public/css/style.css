@@ -1082,172 +1082,6 @@ h3 { font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem; color: var(--ne
     background: rgba(14, 165, 233, 0.05); /* Magkaka-subtle neon blue tint pag kinlick */
     border-color: var(--neon-blue);
     box-shadow: 0 0 12px rgba(14, 165, 233, 0.4);
-    #academy-apply-modal .modal-content {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(14, 165, 233, 0.45) rgba(255, 255, 255, 0.06);
-}
-
-#academy-apply-modal .modal-content::-webkit-scrollbar {
-    width: 10px;
-}
-
-#academy-apply-modal .modal-content::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.04);
-    border-radius: 999px;
-}
-
-#academy-apply-modal .modal-content::-webkit-scrollbar-thumb {
-    background: rgba(14, 165, 233, 0.4);
-    border-radius: 999px;
-    border: 2px solid transparent;
-    background-clip: padding-box;
-}
-
-#academy-apply-modal .modal-content::-webkit-scrollbar-thumb:hover {
-    background: rgba(14, 165, 233, 0.58);
-    background-clip: padding-box;
-}
-
-#form-academy-apply {
-    display: flex;
-    flex-direction: column;
-    gap: 1.4rem;
-}
-
-#form-academy-apply .form-row {
-    align-items: stretch;
-    gap: 1rem;
-    margin-bottom: 0;
-}
-
-#form-academy-apply .form-group {
-    margin-bottom: 0;
-}
-
-#form-academy-apply textarea.input-field {
-    min-height: 120px;
-    resize: vertical;
-    line-height: 1.55;
-}
-
-#form-academy-apply select.input-field {
-    min-height: 48px;
-    appearance: none;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    background-image:
-        linear-gradient(45deg, transparent 50%, rgba(255,255,255,0.75) 50%),
-        linear-gradient(135deg, rgba(255,255,255,0.75) 50%, transparent 50%);
-    background-position:
-        calc(100% - 18px) calc(50% - 3px),
-        calc(100% - 12px) calc(50% - 3px);
-    background-size: 6px 6px, 6px 6px;
-    background-repeat: no-repeat;
-    padding-right: 42px;
-}
-
-#form-academy-apply .input-field::placeholder {
-    color: rgba(255, 255, 255, 0.42);
-}
-
-.academy-apply-group {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 16px;
-    padding: 1.15rem;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-}
-
-.academy-apply-group-title {
-    margin: 0;
-    font-size: 1rem;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    color: #ffffff;
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-}
-
-.academy-apply-group-title::before {
-    content: "";
-    width: 10px;
-    height: 10px;
-    border-radius: 999px;
-    background: var(--neon-blue);
-    box-shadow: 0 0 12px rgba(14, 165, 233, 0.45);
-    flex-shrink: 0;
-}
-
-#form-academy-apply label {
-    color: rgba(255, 255, 255, 0.82);
-    font-weight: 600;
-    margin-bottom: 0.5rem;
-}
-
-#btn-academy-apply-submit {
-    margin-top: 0.25rem;
-    min-height: 52px;
-    border-radius: 14px;
-    font-size: 1rem;
-    letter-spacing: 0.01em;
-}
-
-#btn-academy-apply-submit:disabled {
-    opacity: 0.72;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: 0 4px 15px var(--neon-glow);
-}
-
-@media (max-width: 768px) {
-    #form-academy-apply {
-        gap: 1rem;
-    }
-
-    .academy-apply-group {
-        padding: 1rem;
-        border-radius: 14px;
-        gap: 0.9rem;
-    }
-
-    .academy-apply-group-title {
-        font-size: 0.95rem;
-    }
-
-    #form-academy-apply .form-row {
-        flex-direction: column;
-        gap: 0.9rem;
-    }
-
-    #form-academy-apply textarea.input-field {
-        min-height: 110px;
-    }
-
-    #btn-academy-apply-submit {
-        min-height: 50px;
-    }
-}
-
-@media (max-width: 480px) {
-    #academy-apply-modal .modal-content {
-        padding: 18px 14px !important;
-    }
-
-    .academy-apply-group {
-        padding: 0.9rem;
-    }
-
-    #form-academy-apply .input-field {
-        font-size: 0.92rem;
-    }
-
-    #form-academy-apply textarea.input-field {
-        min-height: 100px;
-    }
-}
 }
 
 /* 🔥 DINAGDAG: Para malinaw yung placeholder text sa loob ng textbox */
@@ -4340,38 +4174,7 @@ body[data-yh-view="academy"] #center-stage-view {
     height: 100%;
 }
 
-.yh-landing-map-stage-wrap {
-    position: relative;
-    min-height: 0;
-    overflow: hidden;
-}
-
-.yh-world-map {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    background:
-        radial-gradient(circle at 50% 45%, rgba(14, 165, 233, 0.16), rgba(4, 8, 20, 0.94) 62%),
-        linear-gradient(180deg, rgba(5, 10, 22, 0.72), rgba(2, 6, 23, 0.94));
-}
-
-.yh-world-map .maplibregl-map,
-.yh-world-map .maplibregl-canvas-container,
-.yh-world-map .maplibregl-canvas {
-    width: 100%;
-    height: 100%;
-}
-
-.yh-landing-map-overlay {
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    pointer-events: none;
-    background:
-        radial-gradient(circle at 50% 50%, transparent 40%, rgba(2, 6, 23, 0.18) 76%, rgba(2, 6, 23, 0.42) 100%),
-        linear-gradient(180deg, rgba(2, 6, 23, 0.08) 0%, rgba(2, 6, 23, 0.18) 44%, rgba(2, 6, 23, 0.58) 100%);
-}
+/* old pre-globe duplicate landing map block removed */
 
 .yh-landing-map-stats {
     position: absolute;
@@ -4431,7 +4234,7 @@ body[data-yh-view="academy"] #center-stage-view {
     padding: 0.9rem;
     background:
         linear-gradient(180deg, rgba(6, 12, 26, 0.96), rgba(4, 9, 20, 0.98));
-    border-top: 1px solid rgba(255,255,255,0.06);
+    border-top: none;
 }
 
 .yh-landing-activity-head {
@@ -5826,95 +5629,51 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
 }
 
 .yh-universe-slide.is-active,
-.yh-universe-slide.is-active .portal-card.active-portal {
+.yh-universe-slide.is-active .portal-card.active-portal,
+.yh-universe-slide.is-active .portal-card.active-portal * {
     pointer-events: auto !important;
 }
-/* FINAL CLEAN CTA FIX: separate visual layer and full hitbox button */
+/* FINAL CLEAN CTA FIX: single real button only */
+.yh-universe-cta-hitbox {
+    display: contents !important;
+    pointer-events: none !important;
+}
+
+/* ===== SINGLE SOURCE OF TRUTH: ACADEMY CTA ===== */
 .academy-entry-cta-wrap {
     width: 100% !important;
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 0.65rem !important;
+    pointer-events: auto !important;
     position: relative !important;
     z-index: 1000 !important;
-    pointer-events: auto !important;
 }
 
-.academy-entry-button-shell {
-    position: relative !important;
-    width: 100% !important;
-    min-height: 52px !important;
-    display: block !important;
-    pointer-events: auto !important;
-}
-
-.academy-entry-hit-button {
-    position: absolute !important;
-    inset: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
-    min-height: 52px !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    border: none !important;
-    background: transparent !important;
-    opacity: 0 !important;
-    appearance: none !important;
-    -webkit-appearance: none !important;
-    pointer-events: auto !important;
-    touch-action: manipulation !important;
-    cursor: pointer !important;
-    z-index: 3 !important;
-    outline: none !important;
-    -webkit-tap-highlight-color: transparent !important;
-}
-
-.academy-entry-button-visual {
+#btn-open-academy-apply {
     width: 100% !important;
     min-height: 52px !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    box-sizing: border-box !important;
-    padding: 14px 16px !important;
-    border-radius: 0.5rem !important;
-    background: var(--neon-blue) !important;
-    color: #fff !important;
-    font-size: 1rem !important;
-    font-weight: 600 !important;
-    line-height: 1.2 !important;
-    text-align: center !important;
-    box-shadow: 0 4px 15px var(--neon-glow) !important;
-    pointer-events: none !important;
-    user-select: none !important;
-    -webkit-user-select: none !important;
-    -webkit-touch-callout: none !important;
-    cursor: pointer !important;
     position: relative !important;
-    z-index: 2 !important;
-    transition: all 0.3s ease !important;
-}
-
-.academy-entry-hit-button:hover + .academy-entry-button-visual {
-    background: #0284c7 !important;
-    box-shadow: 0 6px 20px rgba(14, 165, 233, 0.6) !important;
-    transform: translateY(-2px) !important;
-}
-
-.academy-entry-hit-button:focus-visible + .academy-entry-button-visual {
-    outline: 2px solid rgba(255, 255, 255, 0.9) !important;
-    outline-offset: 2px !important;
-}
-
-.academy-entry-hit-button[disabled] + .academy-entry-button-visual,
-.academy-entry-hit-button[data-loading="true"] + .academy-entry-button-visual {
-    opacity: 0.92 !important;
-}
-
-.academy-entry-state-badge {
-    pointer-events: none !important;
+    z-index: 1001 !important;
+    pointer-events: auto !important;
+    touch-action: manipulation !important;
+    cursor: pointer !important;
     user-select: none !important;
     -webkit-user-select: none !important;
+    -webkit-tap-highlight-color: transparent !important;
+}
+
+#btn-open-academy-apply .yh-btn-label {
+    display: block !important;
+    width: 100% !important;
+    text-align: center !important;
+    line-height: 1.2 !important;
+    pointer-events: none !important;
+}
+
+#btn-open-academy-apply::before,
+#btn-open-academy-apply::after {
+    pointer-events: none !important;
 }
 
 .btn-primary[data-loading="true"],
@@ -5936,138 +5695,8 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
     z-index: 100 !important;
 }
 
-.yh-universe-slide.is-active .portal-card.active-portal > *:not(.academy-entry-cta-wrap) {
+.yh-universe-slide.is-active .portal-card.active-portal > * {
     pointer-events: auto !important;
-}
-
-.yh-universe-slide.is-active .portal-card.active-portal > .academy-entry-cta-wrap {
-    pointer-events: auto !important;
-}
-
-/* ===== LANDING CTA LABEL OVERLAY: button box is the only hit target ===== */
-.yh-overlay-label-btn {
-    position: relative !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    box-sizing: border-box !important;
-    overflow: hidden !important;
-    font-size: 0 !important;
-    line-height: 1 !important;
-    color: transparent !important;
-    text-indent: -9999px !important;
-    white-space: nowrap !important;
-    pointer-events: auto !important;
-    touch-action: manipulation !important;
-    cursor: pointer !important;
-    user-select: none !important;
-    -webkit-user-select: none !important;
-    -webkit-tap-highlight-color: transparent !important;
-}
-
-.yh-overlay-label-btn::after {
-    content: attr(data-label);
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.875rem 1rem;
-    font-size: 0.95rem;
-    font-weight: 600;
-    line-height: 1.2;
-    text-align: center;
-    text-indent: 0;
-    white-space: normal;
-    pointer-events: none !important;
-    cursor: pointer !important;
-    user-select: none !important;
-    -webkit-user-select: none !important;
-    -webkit-touch-callout: none !important;
-    caret-color: transparent !important;
-    z-index: 2;
-}
-
-.yh-overlay-label-btn.btn-primary::after {
-    color: #fff;
-}
-
-.yh-overlay-label-btn.btn-secondary::after {
-    color: var(--neon-blue);
-}
-
-.yh-overlay-label-btn.btn-secondary:hover::after {
-    color: #fff;
-}
-
-.yh-overlay-label-btn *,
-.yh-overlay-label-btn::before {
-    pointer-events: none !important;
-    cursor: pointer !important;
-    user-select: none !important;
-    -webkit-user-select: none !important;
-    -webkit-touch-callout: none !important;
-    caret-color: transparent !important;
-}
-
-.yh-cta-label-desktop,
-.yh-cta-label-mobile {
-    pointer-events: none !important;
-    cursor: pointer !important;
-    user-select: none !important;
-    -webkit-user-select: none !important;
-    -webkit-touch-callout: none !important;
-    caret-color: transparent !important;
-}
-/* ===== LANDING CTA HIT-AREA FIX: full button always clickable ===== */
-#yh-open-auth-main,
-#yh-open-auth-academy,
-#yh-scroll-divisions,
-.yh-landing-cta-primary,
-.yh-landing-cta-secondary,
-.yh-division-btn {
-    position: relative !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    width: 100% !important;
-    box-sizing: border-box !important;
-    pointer-events: auto !important;
-    touch-action: manipulation !important;
-    cursor: pointer !important;
-    user-select: none !important;
-    -webkit-user-select: none !important;
-    -webkit-tap-highlight-color: transparent !important;
-}
-
-#yh-open-auth-main *,
-#yh-open-auth-main::before,
-#yh-open-auth-main::after,
-#yh-open-auth-academy *,
-#yh-open-auth-academy::before,
-#yh-open-auth-academy::after,
-#yh-scroll-divisions *,
-#yh-scroll-divisions::before,
-#yh-scroll-divisions::after,
-.yh-landing-cta-primary *,
-.yh-landing-cta-primary::before,
-.yh-landing-cta-primary::after,
-.yh-landing-cta-secondary *,
-.yh-landing-cta-secondary::before,
-.yh-landing-cta-secondary::after,
-.yh-division-btn *,
-.yh-division-btn::before,
-.yh-division-btn::after {
-    pointer-events: none !important;
-}
-
-.yh-cta-label-desktop,
-.yh-cta-label-mobile {
-    display: block !important;
-    width: 100% !important;
-    text-align: center !important;
-    line-height: 1.2 !important;
-    pointer-events: none !important;
 }
 /* ===== REGISTER EXTRAS ===== */
 .yh-upload-shell {
@@ -7301,11 +6930,12 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
 /* ========================================================= */
 @media (min-width: 1101px) {
     .yh-landing-hero-grid {
-        grid-template-columns: minmax(0, 1fr) minmax(360px, 0.98fr);
-        gap: clamp(1rem, 2.2vw, 2.4rem);
-        align-items: start;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0;
+        align-items: stretch;
         position: relative;
         isolation: isolate;
+        min-height: clamp(720px, 88vh, 980px);
     }
 
     .yh-landing-hero-copy {
@@ -7316,23 +6946,65 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
     }
 
     .yh-landing-hero-visual {
-        position: relative;
+        position: absolute;
+        inset: -28% -6% -32% -22%;
         z-index: 1;
         overflow: visible;
         display: flex;
         flex-direction: column;
-        align-items: flex-start;
-        justify-content: flex-start;
+        align-items: flex-end;
+        justify-content: flex-end;
+        min-width: 0;
+        pointer-events: none;
+        background: transparent;
     }
 
     .yh-landing-globe-stage {
         position: relative;
         z-index: 1;
-        width: 164%;
-        margin-left: -114%;
-        margin-top: clamp(-6.7rem, -5.4vh, -4.3rem);
+        width: min(140vw, 2000px);
+        height: calc(100% + 720px);
+        margin-left: auto;
+        margin-right: clamp(-320px, -25vw, -120px);
+        margin-top: clamp(-1.8rem, -0.5vh, 1rem);
+        margin-bottom: -300px;
+        pointer-events: none;
+        overflow: visible;
+        background: transparent;
     }
 
+    .yh-landing-globe-stage .yh-world-map {
+        pointer-events: auto;
+    }
+
+    .yh-landing-globe-stage,
+    .yh-landing-map-stage-wrap {
+        min-height: 100%;
+        height: 100%;
+    }
+
+    .yh-landing-map-stage-wrap::before,
+    .yh-landing-map-stage-wrap::after,
+    .yh-landing-map-overlay {
+        inset: -30% -16% -30% -16%;
+    }
+
+    .yh-world-map {
+        inset: -18% -8% -18% -8%;
+        width: auto;
+        height: auto;
+    }
+        .yh-landing-activity-panel,
+    .yh-landing-metrics,
+    .yh-landing-scroll-hint,
+    .yh-landing-cta-row,
+    .yh-landing-title,
+    .yh-landing-narrative,
+    .yh-landing-subtitle,
+    .yh-landing-pill {
+        position: relative;
+        z-index: 8;
+    }
     .yh-landing-visual-glow,
     .yh-landing-visual-noise,
     .yh-landing-map-overlay {
@@ -7470,8 +7142,7 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
         min-height: auto;
     }
 }
-/* ========================================================= */
-/* LANDING MAP: globe.gl sky-glow events                     */
+/* LANDING MAP: fresh globe.gl clouds stage                  */
 /* ========================================================= */
 .yh-landing-globe-stage {
     position: relative;
@@ -7487,14 +7158,17 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
 .yh-landing-map-stage-wrap {
     position: relative;
     width: 100%;
-    min-height: clamp(380px, 44vh, 540px);
-    height: clamp(380px, 44vh, 540px);
-    border-radius: 0;
+    min-height: clamp(640px, 82vh, 1120px);
+    height: clamp(640px, 82vh, 1120px);
     overflow: visible;
     border: none;
+    border-radius: 0;
     background: transparent;
     box-shadow: none;
     isolation: isolate;
+    -webkit-mask-image: none;
+    mask-image: none;
+    transform: translateZ(0);
 }
 
 .yh-landing-map-stage-wrap::before,
@@ -7508,39 +7182,36 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
 
 .yh-landing-map-stage-wrap::before {
     background:
-        radial-gradient(circle at 46% 44%, rgba(125, 211, 252, 0.16), transparent 22%),
-        radial-gradient(circle at 58% 52%, rgba(56, 189, 248, 0.12), transparent 30%),
-        radial-gradient(circle at 37% 65%, rgba(56, 189, 248, 0.08), transparent 26%);
-    filter: blur(26px);
-    opacity: 0.88;
+        radial-gradient(circle at 66% 50%, rgba(125, 211, 252, 0.16), transparent 18%),
+        radial-gradient(circle at 64% 52%, rgba(56, 189, 248, 0.1), transparent 30%);
+    filter: blur(34px);
+    opacity: 0.96;
     animation: yhLandingSkyAura 8.5s ease-in-out infinite;
 }
 
 .yh-landing-map-stage-wrap::after {
     background:
-        radial-gradient(circle at 50% 48%, rgba(191, 219, 254, 0.14), transparent 18%),
-        radial-gradient(circle at 60% 34%, rgba(56, 189, 248, 0.08), transparent 24%);
-    filter: blur(44px);
-    opacity: 0.62;
+        radial-gradient(circle at 66% 50%, rgba(191, 219, 254, 0.1), transparent 14%);
+    filter: blur(54px);
+    opacity: 0.82;
     animation: yhLandingSkyAura 11s ease-in-out infinite reverse;
 }
 
 .yh-world-map {
     position: absolute;
-    left: 50%;
-    top: 57%;
-    width: 220%;
-    height: calc(100% + 28rem);
-    min-height: clamp(860px, 92vh, 1240px);
-    transform: translate(-50%, -50%);
+    inset: 0;
     z-index: 0;
-    pointer-events: auto;
-    background: transparent !important;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
     overflow: visible;
+    background: transparent !important;
+    pointer-events: auto;
     cursor: grab;
+    border-radius: 0;
     filter:
         drop-shadow(0 0 22px rgba(56, 189, 248, 0.22))
-        drop-shadow(0 0 64px rgba(56, 189, 248, 0.14));
+        drop-shadow(0 0 72px rgba(56, 189, 248, 0.16));
 }
 
 .yh-world-map:active {
@@ -7550,13 +7221,14 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
 .yh-world-map > div,
 .yh-world-map canvas {
     display: block;
-    background: transparent !important;
-    outline: none;
-    box-shadow: none !important;
-    border: none !important;
     max-width: none !important;
     max-height: none !important;
-    filter: saturate(1.08) brightness(1.03);
+    overflow: visible !important;
+    background: transparent !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    will-change: transform;
 }
 
 .yh-landing-map-overlay {
@@ -7565,8 +7237,8 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
     z-index: 2;
     pointer-events: none;
     background:
-        radial-gradient(circle at 46% 42%, rgba(125, 211, 252, 0.08), transparent 18%),
-        radial-gradient(circle at 50% 60%, rgba(56, 189, 248, 0.07), transparent 38%);
+        radial-gradient(circle at 50% 48%, rgba(125, 211, 252, 0.06), transparent 16%),
+        radial-gradient(circle at 50% 50%, rgba(56, 189, 248, 0.05), transparent 34%);
 }
 
 @keyframes yhLandingSkyAura {
@@ -7582,37 +7254,27 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
 
 @media (max-width: 1100px) {
     .yh-landing-map-stage-wrap {
-        min-height: clamp(320px, 38vh, 420px);
-        height: clamp(320px, 38vh, 420px);
+        min-height: clamp(340px, 40vh, 460px);
+        height: clamp(340px, 40vh, 460px);
     }
 
     .yh-world-map {
-        width: 210%;
-        height: calc(100% + 20rem);
-        min-height: clamp(700px, 76vh, 980px);
+        width: 100%;
+        height: 100%;
+        min-height: 0;
     }
 }
 
 @media (max-width: 768px) {
     .yh-landing-map-stage-wrap {
-        min-height: clamp(260px, 32vh, 340px);
-        height: clamp(260px, 32vh, 340px);
+        min-height: clamp(280px, 34vh, 360px);
+        height: clamp(280px, 34vh, 360px);
     }
 
     .yh-world-map {
-        width: 178%;
-        height: calc(100% + 14rem);
-        min-height: clamp(520px, 58vh, 760px);
-    }
-
-    .yh-landing-map-stage-wrap::before {
-        filter: blur(22px);
-        opacity: 0.74;
-    }
-
-    .yh-landing-map-stage-wrap::after {
-        filter: blur(34px);
-        opacity: 0.54;
+        width: 100%;
+        height: 100%;
+        min-height: 0;
     }
 }
 /* ========================================================= */
@@ -7689,4 +7351,113 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
 .yh-landing-pill {
     margin-top: 0 !important;
     margin-bottom: 0.35rem !important;
+}
+/* =========================================================
+   LANDING GLOBE NO-CUT / NO-VISIBLE-BORDER HOTFIX
+   Append at the very end
+   ========================================================= */
+
+.yh-landing-hero-visual,
+.yh-landing-globe-stage,
+.yh-landing-visual-card,
+.yh-landing-map-shell,
+.yh-landing-map-stage-wrap,
+.yh-world-map {
+    overflow: visible !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+    clip-path: none !important;
+}
+
+.yh-landing-map-stage-wrap::before,
+.yh-landing-map-stage-wrap::after,
+.yh-landing-map-overlay {
+    content: none !important;
+    display: none !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+    clip-path: none !important;
+}
+
+.yh-world-map,
+.yh-world-map > div,
+.yh-world-map canvas {
+    overflow: visible !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    border-radius: 0 !important;
+    clip-path: none !important;
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+}
+/* FINAL HERO GLOBE TOP-EDGE CLIP FIX */
+@media (min-width: 1101px) {
+    .yh-landing-hero,
+    .yh-landing-hero-grid,
+    .yh-landing-hero-visual,
+    .yh-landing-globe-stage,
+    .yh-landing-visual-card,
+    .yh-landing-map-shell,
+    .yh-landing-map-stage-wrap,
+    .yh-world-map {
+        background: transparent !important;
+        border: none !important;
+        outline: none !important;
+        box-shadow: none !important;
+        clip-path: none !important;
+        mask-image: none !important;
+        -webkit-mask-image: none !important;
+    }
+
+    .yh-landing-hero,
+    .yh-landing-hero-grid,
+    .yh-landing-hero-visual,
+    .yh-landing-globe-stage,
+    .yh-landing-visual-card,
+    .yh-landing-map-shell,
+    .yh-landing-map-stage-wrap,
+    .yh-world-map,
+    .yh-world-map > div,
+    .yh-world-map canvas {
+        overflow: visible !important;
+    }
+
+    .yh-landing-hero-grid {
+        position: relative !important;
+        isolation: isolate !important;
+    }
+
+    .yh-landing-hero-grid::before {
+        content: none !important;
+        display: none !important;
+        background: transparent !important;
+    }
+
+    .yh-landing-hero-copy,
+    .yh-landing-title,
+    .yh-landing-narrative,
+    .yh-landing-subtitle,
+    .yh-landing-cta-row,
+    .yh-landing-pill,
+    .yh-landing-activity-panel,
+    .yh-landing-metrics,
+    .yh-landing-scroll-hint {
+        position: relative;
+        z-index: 8;
+    }
+
+    .yh-landing-hero-visual,
+    .yh-landing-globe-stage,
+    .yh-world-map {
+        z-index: 1 !important;
+    }
 }

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title> YH Universe</title>
     <link rel="icon" type="image/png" href="/images/logo.png">
-    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/style.css?v=20260407-yh-clouds-fresh-2">
 </head>
 <body>
 
@@ -58,23 +58,16 @@
 
 <div class="yh-landing-cta-row yh-reveal-up">
     <div class="yh-landing-cta-stack">
-        <button
-            type="button"
-            id="yh-open-auth-main"
-            class="btn-primary yh-landing-cta-primary yh-overlay-label-btn"
-            data-label="Enter Universe ➔"
-            aria-label="Enter Universe"
-        ></button>
+        <button type="button" id="yh-open-auth-main" class="btn-primary yh-landing-cta-primary">
+            <span class="yh-cta-label-desktop">Enter Universe ➔</span>
+            <span class="yh-cta-label-mobile">Enter Universe ➔</span>
+        </button>
         <span class="yh-landing-cta-note">Change your life within the next 28 days, throughout 12 months</span>
     </div>
 
-    <button
-        type="button"
-        id="yh-scroll-divisions"
-        class="btn-secondary yh-landing-cta-secondary yh-overlay-label-btn"
-        data-label="Explore Divisions"
-        aria-label="Explore Divisions"
-    ></button>
+    <button type="button" id="yh-scroll-divisions" class="btn-secondary yh-landing-cta-secondary">
+        Explore Divisions
+    </button>
 </div>
 
 
@@ -154,13 +147,9 @@
                             <li>Live division entry</li>
                             <li>Opportunities and Jobs</li>
                         </ul>
-                        <button
-                            type="button"
-                            id="yh-open-auth-academy"
-                            class="btn-primary yh-division-btn yh-overlay-label-btn"
-                            data-label="Enter the Academy ➔"
-                            aria-label="Enter the Academy"
-                        ></button>
+                        <button type="button" id="yh-open-auth-academy" class="btn-primary yh-division-btn">
+                            Enter the Academy ➔
+                        </button>
                     </article>
 
                     <article class="yh-landing-division-card is-soon">
@@ -267,27 +256,7 @@
 
                                     <div class="login-ui-container w-full">
                                         <input type="email" id="login-email" placeholder="Email Address" class="pill-input auth-stop-propagation" autocomplete="email">
-
-                                        <div class="yh-password-shell">
-                                            <input
-                                                type="password"
-                                                id="login-password"
-                                                placeholder="Password"
-                                                class="pill-input yh-password-input auth-stop-propagation"
-                                                autocomplete="current-password"
-                                            >
-                                            <button
-                                                type="button"
-                                                class="yh-password-toggle auth-stop-propagation"
-                                                data-target="login-password"
-                                                data-icon-only="true"
-                                                aria-label="Show password"
-                                                title="Show password"
-                                            >
-                                                👁
-                                            </button>
-                                        </div>
-
+                                        <input type="password" id="login-password" placeholder="Password" class="pill-input auth-stop-propagation">
                                         <a href="#" class="forgot-link auth-stop-propagation">Forgot password?</a>
                                         <button type="button" id="btn-login" class="pill-btn-login auth-stop-propagation">Login</button>
                                         <div class="divider mt-large w-full"><span>OR</span></div>
@@ -483,7 +452,7 @@
     <div id="step-4" class="step-container hidden-step fade-in">
         <div class="card text-center py-large">
             <img src="/images/logo.avif" alt="YH Logo" class="step1-logo mb-small" style="width: 70px;">
-            <h2>Check your email for the recovery code</h2>
+            <h2>Verify Reset Code</h2>
             <form id="form-forgot-otp">
                 <div class="form-group w-full text-center">
                     <input type="text" id="forgot-otp-code" required placeholder="••••••" maxlength="6" class="input-field text-center otp-styled-input mb-small" autocomplete="one-time-code">
@@ -495,61 +464,21 @@
         </div>
     </div>
 
-<div id="step-5" class="step-container hidden-step fade-in">
-    <div class="card text-center py-large">
-        <img src="/images/logo.avif" alt="YH Logo" class="step1-logo mb-small" style="width: 70px;">
-        <h2>Create New Password</h2>
-        <form id="form-reset-pass">
-            <div class="form-group w-full text-left">
-                <div class="yh-password-shell mb-1-25">
-                    <input
-                        type="password"
-                        id="reset-new-password"
-                        required
-                        placeholder="New Password"
-                        class="input-field yh-password-input"
-                        autocomplete="new-password"
-                    >
-                    <button
-                        type="button"
-                        class="yh-password-toggle"
-                        data-target="reset-new-password"
-                        data-icon-only="true"
-                        aria-label="Show password"
-                        title="Show password"
-                    >
-                        👁
-                    </button>
+    <div id="step-5" class="step-container hidden-step fade-in">
+        <div class="card text-center py-large">
+            <img src="/images/logo.avif" alt="YH Logo" class="step1-logo mb-small" style="width: 70px;">
+            <h2>Create New Password</h2>
+            <form id="form-reset-pass">
+                <div class="form-group w-full text-left">
+                    <input type="password" id="reset-new-password" required placeholder="New Password" class="input-field mb-1-25">
                 </div>
-            </div>
-
-            <div class="form-group w-full text-left">
-                <div class="yh-password-shell mb-1-25">
-                    <input
-                        type="password"
-                        id="reset-confirm-password"
-                        required
-                        placeholder="Confirm New Password"
-                        class="input-field yh-password-input"
-                        autocomplete="new-password"
-                    >
-                    <button
-                        type="button"
-                        class="yh-password-toggle"
-                        data-target="reset-confirm-password"
-                        data-icon-only="true"
-                        aria-label="Show password"
-                        title="Show password"
-                    >
-                        👁
-                    </button>
+                <div class="form-group w-full text-left">
+                    <input type="password" id="reset-confirm-password" required placeholder="Confirm New Password" class="input-field mb-1-25">
                 </div>
-            </div>
-
-            <button type="submit" id="btn-reset-save" class="btn-primary">Save New Password ➔</button>
-        </form>
+                <button type="submit" id="btn-reset-save" class="btn-primary">Save New Password ➔</button>
+            </form>
+        </div>
     </div>
-</div>
 
     <div id="step-6" class="step-container hidden-step fade-in">
         <div class="card text-center py-large">
@@ -560,210 +489,7 @@
         </div>
     </div>
 
-    <div id="academy-apply-modal" class="modal-overlay hidden-step" aria-hidden="true">
-        <div class="modal-content">
-            <button
-                type="button"
-                id="close-academy-apply"
-                class="btn-back-icon"
-                aria-label="Close Academy application"
-            >
-                ← Close
-            </button>
-
-            <div class="text-center mb-large">
-                <div class="step-indicator-badge">Academy Application</div>
-                <h2 class="main-title mb-small">Apply for the Academy</h2>
-                <p class="subtitle">
-                    Complete the application below. One submit action only.
-                </p>
-            </div>
-
-            <form id="form-academy-apply">
-                <div class="academy-apply-group">
-                    <h3 class="academy-apply-group-title">Basic Identity</h3>
-
-                    <div class="form-group w-full">
-                        <label for="academy-username">Username</label>
-                        <input
-                            type="text"
-                            id="academy-username"
-                            name="username"
-                            class="input-field"
-                            placeholder="Choose your Academy username"
-                            required
-                        >
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group w-full">
-                            <label for="academy-city">City</label>
-                            <input
-                                type="text"
-                                id="academy-city"
-                                name="city"
-                                class="input-field"
-                                placeholder="Enter your city"
-                                required
-                            >
-                        </div>
-
-                        <div class="form-group w-full">
-                            <label for="academy-country">Country</label>
-                            <input
-                                type="text"
-                                id="academy-country"
-                                name="country"
-                                class="input-field"
-                                placeholder="Enter your country"
-                                required
-                            >
-                        </div>
-                    </div>
-                </div>
-
-                <div class="academy-apply-group">
-                    <h3 class="academy-apply-group-title">Academy Intent</h3>
-
-                    <div class="form-group w-full">
-                        <label for="academy-why-join">Why do you want to join the Academy?</label>
-                        <textarea
-                            id="academy-why-join"
-                            name="whyJoin"
-                            class="input-field"
-                            rows="4"
-                            placeholder="Tell us why you want to join"
-                            required
-                        ></textarea>
-                    </div>
-
-                    <div class="form-group w-full">
-                        <label for="academy-goals">What do you want to achieve inside the Academy?</label>
-                        <textarea
-                            id="academy-goals"
-                            name="goals"
-                            class="input-field"
-                            rows="4"
-                            placeholder="What do you want to achieve?"
-                            required
-                        ></textarea>
-                    </div>
-
-                    <div class="form-group w-full">
-                        <label for="academy-stage">What stage are you currently in right now?</label>
-                        <select
-                            id="academy-stage"
-                            name="currentStage"
-                            class="input-field styled-select"
-                            required
-                        >
-                            <option value="">Select your current stage</option>
-                            <option value="beginner">Beginner</option>
-                            <option value="learning">Learning and exploring</option>
-                            <option value="building">Already building something</option>
-                            <option value="working">Working and trying to level up</option>
-                            <option value="experienced">Experienced but seeking bigger opportunities</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="academy-apply-group">
-                    <h3 class="academy-apply-group-title">Background and Capability</h3>
-
-                    <div class="form-group w-full">
-                        <label for="academy-skills">What skills, experience, or strengths do you currently have?</label>
-                        <textarea
-                            id="academy-skills"
-                            name="skills"
-                            class="input-field"
-                            rows="4"
-                            placeholder="Share your skills, experience, or strengths"
-                            required
-                        ></textarea>
-                    </div>
-
-                    <div class="form-group w-full">
-                        <label for="academy-current-work">What are you currently doing right now?</label>
-                        <textarea
-                            id="academy-current-work"
-                            name="currentWork"
-                            class="input-field"
-                            rows="4"
-                            placeholder="Student, job, business, freelancing, building, etc."
-                            required
-                        ></textarea>
-                    </div>
-
-                    <div class="form-group w-full">
-                        <label for="academy-challenge">What is your biggest current challenge or blocker?</label>
-                        <textarea
-                            id="academy-challenge"
-                            name="biggestChallenge"
-                            class="input-field"
-                            rows="4"
-                            placeholder="What is currently stopping you from progressing?"
-                            required
-                        ></textarea>
-                    </div>
-                </div>
-
-                <div class="academy-apply-group">
-                    <h3 class="academy-apply-group-title">Commitment and Fit</h3>
-
-                    <div class="form-group w-full">
-                        <label for="academy-seriousness">How serious are you about changing your life in the next 12 months?</label>
-                        <select
-                            id="academy-seriousness"
-                            name="seriousness"
-                            class="input-field styled-select"
-                            required
-                        >
-                            <option value="">Select your answer</option>
-                            <option value="all-in">All in</option>
-                            <option value="very-serious">Very serious</option>
-                            <option value="serious-but-need-guidance">Serious but need guidance</option>
-                            <option value="still-figuring-it-out">Still figuring it out</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group w-full">
-                        <label for="academy-time-commitment">How much time can you realistically commit every week?</label>
-                        <select
-                            id="academy-time-commitment"
-                            name="timeCommitment"
-                            class="input-field styled-select"
-                            required
-                        >
-                            <option value="">Select your weekly commitment</option>
-                            <option value="1-3">1 to 3 hours</option>
-                            <option value="4-7">4 to 7 hours</option>
-                            <option value="8-14">8 to 14 hours</option>
-                            <option value="15-plus">15+ hours</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group w-full">
-                        <label for="academy-why-accept">Why should the Academy accept you?</label>
-                        <textarea
-                            id="academy-why-accept"
-                            name="whyAccept"
-                            class="input-field"
-                            rows="4"
-                            placeholder="Tell us why you are a strong fit"
-                            required
-                        ></textarea>
-                    </div>
-                </div>
-
-                <button type="submit" id="btn-academy-apply-submit" class="btn-primary btn-large">
-                    Submit Application ➔
-                </button>
-            </form>
-        </div>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/globe.gl"></script>
-    <script src="/js/apply.js?v=20260404-globegl-clouds-1"></script>
+<script src="https://cdn.jsdelivr.net/npm/globe.gl"></script>
+<script src="/js/apply.js?v=20260407-yh-clouds-fresh-4"></script>
 </body>
 </html>

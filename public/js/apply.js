@@ -16,24 +16,15 @@ const yhT = (key, options = {}) => {
         return window.yhT(key, options);
     }
 
-const fallbackMap = {
-    'auth.login': 'Login',
-    'auth.loading': 'Logging in...',
-    'auth.createAccount': 'Create Account',
-    'auth.creatingAccount': 'Creating Account...',
-    'auth.resendCode': 'Resend Code',
-    'auth.sending': 'Sending...',
-    'auth.sendRecoveryCode': 'Send Recovery Code',
-    'auth.verifying': 'Verifying...',
-    'auth.verifyCode': 'Verify Code',
-    'auth.verifyEnter': 'Verify & Enter Universe ➔',
-    'auth.saving': 'Saving...',
-    'auth.saveNewPassword': 'Save New Password ➔',
-    'auth.choosePhoto': 'Choose Photo',
-    'auth.show': 'Show',
-    'auth.hide': 'Hide',
-    'auth.resendIn': `Resend in ${options?.time || '00:00'}`
-};
+    const fallbackMap = {
+        'auth.login': 'Login',
+        'auth.loading': 'Logging in...',
+        'auth.createAccount': 'Create Account',
+        'auth.creatingAccount': 'Creating Account...',
+        'auth.resendCode': 'Resend Code',
+        'auth.sending': 'Sending...',
+        'auth.resendIn': `Resend in ${options?.time || '00:00'}`
+    };
 
     return fallbackMap[key] || key;
 };
@@ -224,8 +215,6 @@ let yhLandingMapSpinRaf = null;
 let yhLandingCloudsMesh = null;
 let yhLandingResizeBound = false;
 let yhLandingLastFocusPointKey = '';
-let yhLandingPublicFeedRequestInFlight = false;
-let yhLandingPublicFeedPollDelayMs = 15000;
 let yhLandingLiveFeedState = YH_LANDING_FEED_DEFAULTS.map((item) => ({ ...item }));
 
 let yhLandingGlobeData = {
@@ -386,26 +375,11 @@ function focusLandingGlobePoint(point = null) {
 }
 
 async function fetchLandingPublicFeed() {
-    if (yhLandingPublicFeedRequestInFlight) {
-        return yhLandingPublicFeedPollDelayMs;
-    }
-
-    if (document.hidden) {
-        return yhLandingPublicFeedPollDelayMs;
-    }
-
-    yhLandingPublicFeedRequestInFlight = true;
-
     try {
         const response = await fetch('/api/public/landing-feed?limit=24', {
             method: 'GET',
             cache: 'no-store'
         });
-
-        if (response.status === 429) {
-            console.warn('fetchLandingPublicFeed rate-limited: backing off for 60 seconds.');
-            return 60000;
-        }
 
         if (!response.ok) {
             throw new Error(`Landing feed request failed with ${response.status}`);
@@ -423,38 +397,24 @@ async function fetchLandingPublicFeed() {
             arcs: [],
             focusPoint: result.focusPoint || null
         });
-
-        return yhLandingPublicFeedPollDelayMs;
     } catch (error) {
         console.warn('fetchLandingPublicFeed error:', error?.message || error);
         // keep the last successful live cards and globe points instead of wiping the UI
-        return 30000;
-    } finally {
-        yhLandingPublicFeedRequestInFlight = false;
     }
-}
-
-function scheduleNextLandingFeedFetch(delayMs = yhLandingPublicFeedPollDelayMs) {
-    if (yhLandingPublicFeedTimer) {
-        clearTimeout(yhLandingPublicFeedTimer);
-    }
-
-    yhLandingPublicFeedTimer = setTimeout(async () => {
-        const nextDelay = await fetchLandingPublicFeed();
-        scheduleNextLandingFeedFetch(nextDelay);
-    }, Math.max(5000, Number(delayMs) || yhLandingPublicFeedPollDelayMs));
 }
 
 function startLandingFeedRotation() {
     renderLandingFeedSections();
 
     if (yhLandingPublicFeedTimer) {
-        clearTimeout(yhLandingPublicFeedTimer);
+        clearInterval(yhLandingPublicFeedTimer);
     }
 
-    fetchLandingPublicFeed().then((nextDelay) => {
-        scheduleNextLandingFeedFetch(nextDelay);
-    });
+    fetchLandingPublicFeed();
+
+    yhLandingPublicFeedTimer = setInterval(() => {
+        fetchLandingPublicFeed();
+    }, 8000);
 }
 
 function renderLandingMapFallback() {
@@ -476,16 +436,188 @@ function renderLandingMapFallback() {
     `;
 }
 
+const YH_GLOBE_LIB_SRCS = [
+    'https://cdn.jsdelivr.net/npm/globe.gl',
+    'https://unpkg.com/globe.gl'
+];
+
+let yhLandingGlobeDepsPromise = null;
+let yhLandingThreeModulePromise = null;
+
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function hasLandingScript(src) {
+    return Array.from(document.querySelectorAll('script[src]')).some(
+        (node) => String(node.src || '').trim() === src
+    );
+}
+
+function loadLandingExternalScript(src) {
+    return new Promise((resolve, reject) => {
+        const existing = Array.from(document.querySelectorAll('script[src]')).find(
+            (node) => String(node.src || '').trim() === src
+        );
+
+        if (existing) {
+            if (existing.dataset.yhLoaded === 'true') {
+                resolve();
+                return;
+            }
+
+            existing.addEventListener('load', () => resolve(), { once: true });
+            existing.addEventListener('error', () => reject(new Error(`Failed to load script: ${src}`)), { once: true });
+            return;
+        }
+
+        const script = document.createElement('script');
+        script.src = src;
+        script.async = false;
+        script.dataset.yhLandingScript = 'true';
+        script.onload = () => {
+            script.dataset.yhLoaded = 'true';
+            resolve();
+        };
+        script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
+        document.head.appendChild(script);
+    });
+}
+
+async function loadLandingScriptFromList(srcList = [], validator = () => false) {
+    for (const src of srcList) {
+        try {
+            if (validator()) return true;
+            await loadLandingExternalScript(src);
+            await wait(60);
+
+            if (validator()) {
+                return true;
+            }
+        } catch (error) {
+            console.warn('Landing script source failed:', src, error?.message || error);
+        }
+    }
+
+    return validator();
+}
+
+async function ensureLandingThreeModule() {
+    if (window.THREE) return window.THREE;
+
+    if (!yhLandingThreeModulePromise) {
+        yhLandingThreeModulePromise = import('https://esm.sh/three');
+    }
+
+    const threeModule = await yhLandingThreeModulePromise;
+    const THREE = threeModule?.default || threeModule;
+
+    if (!THREE) {
+        throw new Error('Three module import failed.');
+    }
+
+    window.THREE = THREE;
+    return window.THREE;
+}
+
+async function ensureLandingGlobeDeps(options = {}) {
+    const retries = Number.isFinite(Number(options.retries)) ? Number(options.retries) : 5;
+    const retryDelay = Number.isFinite(Number(options.retryDelay)) ? Number(options.retryDelay) : 320;
+
+    if (window.Globe && window.THREE) {
+        return true;
+    }
+
+    if (yhLandingGlobeDepsPromise) {
+        return yhLandingGlobeDepsPromise;
+    }
+
+    yhLandingGlobeDepsPromise = (async () => {
+        for (let attempt = 0; attempt < retries; attempt += 1) {
+            if (!window.Globe) {
+                await loadLandingScriptFromList(YH_GLOBE_LIB_SRCS, () => !!window.Globe);
+            }
+
+            try {
+                await ensureLandingThreeModule();
+            } catch (error) {
+                console.warn('Landing Three module import failed:', error?.message || error);
+            }
+
+            await wait(120);
+
+            if (window.Globe && window.THREE) {
+                return true;
+            }
+
+            if (attempt < retries - 1) {
+                await wait(retryDelay);
+            }
+        }
+
+        return !!(window.Globe && window.THREE);
+    })();
+
+    const result = await yhLandingGlobeDepsPromise;
+    yhLandingGlobeDepsPromise = null;
+    return result;
+}
+
 function syncLandingGlobeSize() {
     const mapEl = document.getElementById('yh-world-map');
     if (!mapEl || !yhLandingMapInstance || typeof yhLandingMapInstance.width !== 'function') return;
 
-    const overscanWidth = Math.max(1, Math.round(mapEl.clientWidth * 1.9));
-    const overscanHeight = Math.max(1, Math.round(mapEl.clientHeight * 1.62));
+    const isDesktopHero = window.innerWidth >= 1101;
+
+    const overscanX = isDesktopHero ? 1.42 : 1;
+    const overscanY = isDesktopHero ? 1.24 : 1;
+
+    const nextWidth = Math.max(1, Math.round(mapEl.clientWidth * overscanX));
+    const nextHeight = Math.max(1, Math.round(mapEl.clientHeight * overscanY));
 
     yhLandingMapInstance
-        .width(overscanWidth)
-        .height(overscanHeight);
+        .width(nextWidth)
+        .height(nextHeight);
+
+    const renderer = typeof yhLandingMapInstance.renderer === 'function'
+        ? yhLandingMapInstance.renderer()
+        : null;
+
+    const canvasEl = renderer && renderer.domElement ? renderer.domElement : null;
+    if (!canvasEl) return;
+
+    mapEl.style.position = 'absolute';
+    mapEl.style.inset = '0';
+    mapEl.style.overflow = 'visible';
+    mapEl.style.background = 'transparent';
+    mapEl.style.border = 'none';
+    mapEl.style.outline = 'none';
+    mapEl.style.boxShadow = 'none';
+    mapEl.style.clipPath = 'none';
+    mapEl.style.maskImage = 'none';
+    mapEl.style.webkitMaskImage = 'none';
+
+    canvasEl.style.position = 'absolute';
+    canvasEl.style.top = '50%';
+    canvasEl.style.left = '50%';
+    canvasEl.style.right = 'auto';
+    canvasEl.style.bottom = 'auto';
+    canvasEl.style.width = `${nextWidth}px`;
+    canvasEl.style.height = `${nextHeight}px`;
+    canvasEl.style.maxWidth = 'none';
+    canvasEl.style.maxHeight = 'none';
+    canvasEl.style.background = 'transparent';
+    canvasEl.style.border = 'none';
+    canvasEl.style.outline = 'none';
+    canvasEl.style.boxShadow = 'none';
+    canvasEl.style.pointerEvents = 'auto';
+    canvasEl.style.overflow = 'visible';
+    canvasEl.style.clipPath = 'none';
+    canvasEl.style.maskImage = 'none';
+    canvasEl.style.webkitMaskImage = 'none';
+    canvasEl.style.borderRadius = '0';
+
+    canvasEl.style.transform = isDesktopHero
+        ? 'translate(-61%, -51%)'
+        : 'translate(-50%, -50%)';
 }
 
 function bindLandingGlobeResize() {
@@ -502,9 +634,11 @@ function startLandingCloudSpin() {
         cancelAnimationFrame(yhLandingMapSpinRaf);
     }
 
+    const CLOUDS_ROTATION_SPEED = -0.006; // deg/frame, aligned with repo example motion
+
     const tick = () => {
         if (yhLandingCloudsMesh && !document.hidden) {
-            yhLandingCloudsMesh.rotation.y += 0.00045;
+            yhLandingCloudsMesh.rotation.y += (CLOUDS_ROTATION_SPEED * Math.PI) / 180;
         }
 
         yhLandingMapSpinRaf = requestAnimationFrame(tick);
@@ -514,28 +648,73 @@ function startLandingCloudSpin() {
 }
 
 function addLandingGlobeClouds(world) {
-    if (!world || !window.THREE) return;
+    if (
+        !world ||
+        !window.THREE ||
+        typeof world.scene !== 'function' ||
+        typeof world.getGlobeRadius !== 'function'
+    ) {
+        return;
+    }
 
-    const CLOUDS_IMG_URL = 'https://cdn.jsdelivr.net/gh/vasturiano/globe.gl/example/clouds/clouds.png';
+    const CLOUDS_IMG_URL = '/images/clouds.png';
     const CLOUDS_ALT = 0.004;
+    const CLOUDS_ROTATION_SPEED = -0.006;
 
-    new window.THREE.TextureLoader().load(CLOUDS_IMG_URL, (cloudsTexture) => {
-        if (!yhLandingMapInstance) return;
+    if (yhLandingMapSpinRaf) {
+        cancelAnimationFrame(yhLandingMapSpinRaf);
+        yhLandingMapSpinRaf = null;
+    }
 
-        const clouds = new window.THREE.Mesh(
-            new window.THREE.SphereGeometry(world.getGlobeRadius() * (1 + CLOUDS_ALT), 75, 75),
-            new window.THREE.MeshPhongMaterial({
-                map: cloudsTexture,
-                transparent: true,
-                opacity: 0.92,
-                depthWrite: false
-            })
-        );
+    if (yhLandingCloudsMesh) {
+        const existingScene = world.scene();
+        if (existingScene && typeof existingScene.remove === 'function') {
+            existingScene.remove(yhLandingCloudsMesh);
+        }
+        yhLandingCloudsMesh = null;
+    }
 
-        yhLandingCloudsMesh = clouds;
-        world.scene().add(clouds);
-        startLandingCloudSpin();
-    });
+    const textureLoader = new window.THREE.TextureLoader();
+    if (typeof textureLoader.setCrossOrigin === 'function') {
+        textureLoader.setCrossOrigin('anonymous');
+    }
+
+    textureLoader.load(
+        CLOUDS_IMG_URL,
+        (cloudsTexture) => {
+            if (!yhLandingMapInstance) return;
+
+            const clouds = new window.THREE.Mesh(
+                new window.THREE.SphereGeometry(
+                    world.getGlobeRadius() * (1 + CLOUDS_ALT),
+                    75,
+                    75
+                ),
+                new window.THREE.MeshPhongMaterial({
+                    map: cloudsTexture,
+                    transparent: true,
+                    depthWrite: false
+                })
+            );
+
+            yhLandingCloudsMesh = clouds;
+            world.scene().add(clouds);
+
+            const rotateClouds = () => {
+                if (yhLandingCloudsMesh && !document.hidden) {
+                    yhLandingCloudsMesh.rotation.y += (CLOUDS_ROTATION_SPEED * Math.PI) / 180;
+                }
+
+                yhLandingMapSpinRaf = requestAnimationFrame(rotateClouds);
+            };
+
+            yhLandingMapSpinRaf = requestAnimationFrame(rotateClouds);
+        },
+        undefined,
+        (error) => {
+            console.warn('Landing clouds texture failed to load:', error);
+        }
+    );
 }
 
 function buildLandingGlowEvents(points = []) {
@@ -588,7 +767,7 @@ function focusLandingGlowPoint(point = null) {
     yhLandingLastFocusPointKey = focusKey;
 
     yhLandingMapInstance.pointOfView(
-        { lat, lng, altitude: 2.44 },
+        { lat, lng, altitude: 2.12 },
         1600
     );
 }
@@ -671,7 +850,7 @@ window.yhSetLandingGlobeData = function yhSetLandingGlobeData(next = {}) {
     }
 };
 
-function initLandingMapShell() {
+async function initLandingMapShell() {
     const mapEl = document.getElementById('yh-world-map');
     if (!mapEl) return;
 
@@ -685,7 +864,17 @@ function initLandingMapShell() {
 
     startLandingFeedRotation();
 
-    if (!window.Globe || !window.THREE) {
+    const depsReady = await ensureLandingGlobeDeps({
+        retries: 5,
+        retryDelay: 320
+    });
+
+    if (!depsReady || !window.Globe || !window.THREE) {
+        console.warn('Landing globe bootstrap failed after retries.', {
+            hasGlobe: !!window.Globe,
+            hasTHREE: !!window.THREE
+        });
+
         renderLandingMapFallback();
         return;
     }
@@ -702,10 +891,9 @@ function initLandingMapShell() {
         .globeImageUrl('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-blue-marble.jpg')
         .bumpImageUrl('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-topology.png')
         .backgroundColor('rgba(0,0,0,0)')
-        .showAtmosphere(true)
-        .atmosphereColor('#7dd3fc')
-        .atmosphereAltitude(0.2)
-        .showPointerCursor((objType, objData) => (objType === 'point' || objType === 'ring') && !!objData)
+        .showPointerCursor((objType, objData) => {
+            return (objType === 'point' || objType === 'ring') && !!objData;
+        })
         .onPointClick((point) => {
             focusLandingGlowPoint(point);
             showToast(`${point.label || 'Academy activity'} glow selected`);
@@ -714,27 +902,30 @@ function initLandingMapShell() {
     yhLandingMapInstance = world;
 
     let renderer = null;
-    if (world.renderer && typeof world.renderer === 'function') {
+    if (typeof world.renderer === 'function') {
         renderer = world.renderer();
         if (renderer && typeof renderer.setClearColor === 'function') {
             renderer.setClearColor(0x000000, 0);
         }
     }
 
-    const controls = world.controls();
-    controls.autoRotate = true;
-    controls.autoRotateSpeed = 0.42;
-    controls.enablePan = false;
-    controls.enableRotate = true;
-    controls.enableZoom = false;
-    controls.zoomSpeed = 0.76;
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.08;
+    const controls = typeof world.controls === 'function' ? world.controls() : null;
 
-    if (typeof world.getGlobeRadius === 'function') {
-        const globeRadius = world.getGlobeRadius();
-        controls.minDistance = globeRadius * 1.52;
-        controls.maxDistance = globeRadius * 5.2;
+    if (controls) {
+        controls.autoRotate = true;
+        controls.autoRotateSpeed = 0.35;
+        controls.enablePan = false;
+        controls.enableRotate = true;
+        controls.enableZoom = true;
+        controls.zoomSpeed = 1.08;
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.08;
+
+        if (typeof world.getGlobeRadius === 'function') {
+            const globeRadius = world.getGlobeRadius();
+            controls.minDistance = globeRadius * 0.16;
+            controls.maxDistance = Infinity;
+        }
     }
 
     const isPointerOnVisibleGlobe = (clientX, clientY) => {
@@ -794,6 +985,7 @@ function initLandingMapShell() {
     };
 
     const syncZoomGate = (clientX, clientY) => {
+        if (!controls) return;
         controls.enableZoom = isPointerOnVisibleGlobe(clientX, clientY);
     };
 
@@ -803,8 +995,9 @@ function initLandingMapShell() {
     ) ? renderer.domElement : mapEl;
 
     const handleWheelZoomGate = (event) => {
-        const isOnSphere = isPointerOnVisibleGlobe(event.clientX, event.clientY);
+        if (!controls) return;
 
+        const isOnSphere = isPointerOnVisibleGlobe(event.clientX, event.clientY);
         controls.enableZoom = isOnSphere;
 
         if (!isOnSphere) {
@@ -824,7 +1017,7 @@ function initLandingMapShell() {
     }, { passive: true });
 
     mapEl.addEventListener('pointerleave', () => {
-        controls.enableZoom = false;
+        if (controls) controls.enableZoom = false;
     }, { passive: true });
 
     wheelTarget.addEventListener('wheel', handleWheelZoomGate, {
@@ -832,9 +1025,12 @@ function initLandingMapShell() {
         capture: true
     });
 
-    mapEl.addEventListener('wheel', handleWheelZoomGate, { passive: false, capture: true });
+    mapEl.addEventListener('wheel', handleWheelZoomGate, {
+        passive: false,
+        capture: true
+    });
 
-    world.pointOfView({ lat: 16, lng: 12, altitude: 2.72 }, 0);
+    world.pointOfView({ lat: 14, lng: 18, altitude: 1.72 }, 0);
 
     applyLandingGlobeData();
 
@@ -847,7 +1043,7 @@ function initLandingMapShell() {
     bindLandingGlobeResize();
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('load', () => {
     // Prevent landing-page redirect loops caused by stale browser auth flags.
     // The server-side /dashboard cookie gate is now the source of truth.
     localStorage.removeItem('yh_user_loggedIn');
@@ -931,29 +1127,14 @@ const compressImageToDataURL = (file, size = 320, quality = 0.82) => new Promise
 
 const bindPasswordVisibilityToggles = () => {
     document.querySelectorAll('.yh-password-toggle').forEach((btn) => {
-        const targetId = btn.getAttribute('data-target');
-        const input = document.getElementById(targetId);
-        const iconOnly = btn.hasAttribute('data-icon-only');
-
-        if (!input) return;
-
-        const renderToggleState = () => {
-            const showing = input.type === 'text';
-
-            if (iconOnly) {
-                btn.innerHTML = showing ? '🙈' : '👁';
-                btn.setAttribute('aria-label', showing ? yhT('auth.hide') : yhT('auth.show'));
-                btn.setAttribute('title', showing ? yhT('auth.hide') : yhT('auth.show'));
-            } else {
-                btn.innerText = showing ? yhT('auth.hide') : yhT('auth.show');
-            }
-        };
-
-        renderToggleState();
-
         btn.addEventListener('click', () => {
-            input.type = input.type === 'password' ? 'text' : 'password';
-            renderToggleState();
+            const targetId = btn.getAttribute('data-target');
+            const input = document.getElementById(targetId);
+            if (!input) return;
+
+            const shouldShow = input.type === 'password';
+            input.type = shouldShow ? 'text' : 'password';
+            btn.innerText = shouldShow ? yhT('auth.hide') : yhT('auth.show');
         });
     });
 };
@@ -982,22 +1163,21 @@ const bindRegisterPhotoUpload = () => {
         label.innerText = file.name;
     });
 };
-const bootstrapPendingVerification = () => {
-    const pendingEmail = getPendingVerifyEmail();
-    if (!pendingEmail) return;
+    const bootstrapPendingVerification = () => {
+        const pendingEmail = getPendingVerifyEmail();
+        if (!pendingEmail) return;
 
-    showStep(2);
+        showStep(2);
 
-    const otpInput = document.getElementById('otp-input');
-    if (otpInput) otpInput.value = '';
+        const otpInput = document.getElementById('otp-input');
+        if (otpInput) otpInput.value = '';
 
-    startOTPTimer();
-};
-
+        startOTPTimer();
+    };
+bootstrapPendingVerification();
 bindPasswordVisibilityToggles();
 bindRegisterPhotoUpload();
-
-// --- LOGIN LOGIC ---
+    // --- LOGIN LOGIC ---
 const btnLogin = document.getElementById('btn-login');
 const loginEmailInput = document.getElementById('login-email');
 const loginPasswordInput = document.getElementById('login-password');
@@ -1166,47 +1346,33 @@ if (formRegisterSimple) {
     });
 }
 
-// --- OTP LOGIC ---
-let otpTimerInterval;
+    // --- OTP LOGIC ---
+    let otpTimerInterval;
+    function startOTPTimer() {
+        clearInterval(otpTimerInterval);
+        let timeLeft = 120;
+        const timerDisplay = document.getElementById('otp-timer');
+        const resendBtn = document.getElementById('btn-resend-otp');
+        
+        resendBtn.disabled = true; resendBtn.style.opacity = '0.5'; resendBtn.style.cursor = 'not-allowed';
+        timerDisplay.style.color = 'var(--neon-blue)';
 
-function startOTPTimer() {
-    clearInterval(otpTimerInterval);
-    let timeLeft = 120;
-    const timerDisplay = document.getElementById('otp-timer');
-    const resendBtn = document.getElementById('btn-resend-otp');
+        otpTimerInterval = setInterval(() => {
+            const minutes = Math.floor(timeLeft / 60); const seconds = timeLeft % 60;
+            const timeLabel = `${minutes < 10 ? '0' : ''}${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+            timerDisplay.innerText = timeLabel;
+            resendBtn.innerText = yhT('auth.resendIn', { time: timeLabel });
 
-    if (!timerDisplay || !resendBtn) return;
+            if (timeLeft <= 0) {
+                clearInterval(otpTimerInterval);
+                timerDisplay.innerText = "00:00"; timerDisplay.style.color = "#ef4444";
+                resendBtn.innerText = yhT('auth.resendCode'); resendBtn.disabled = false; resendBtn.style.opacity = '1'; resendBtn.style.cursor = 'pointer';
+            }
+            timeLeft--;
+        }, 1000);
+    }
 
-    resendBtn.disabled = true;
-    resendBtn.style.opacity = '0.5';
-    resendBtn.style.cursor = 'not-allowed';
-    timerDisplay.style.color = 'var(--neon-blue)';
-
-    otpTimerInterval = setInterval(() => {
-        const minutes = Math.floor(timeLeft / 60);
-        const seconds = timeLeft % 60;
-        const timeLabel = `${minutes < 10 ? '0' : ''}${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-
-        timerDisplay.innerText = timeLabel;
-        resendBtn.innerText = yhT('auth.resendIn', { time: timeLabel });
-
-        if (timeLeft <= 0) {
-            clearInterval(otpTimerInterval);
-            timerDisplay.innerText = '00:00';
-            timerDisplay.style.color = '#ef4444';
-            resendBtn.innerText = yhT('auth.resendCode');
-            resendBtn.disabled = false;
-            resendBtn.style.opacity = '1';
-            resendBtn.style.cursor = 'pointer';
-        }
-
-        timeLeft--;
-    }, 1000);
-}
-
-bootstrapPendingVerification();
-
-const btnResendOTP = document.getElementById('btn-resend-otp');
+    const btnResendOTP = document.getElementById('btn-resend-otp');
     if (btnResendOTP) {
         btnResendOTP.addEventListener('click', async () => {
             const email = getPendingVerifyEmail();
@@ -1269,24 +1435,24 @@ const btnResendOTP = document.getElementById('btn-resend-otp');
                 });
                 const result = await response.json();
 
-            if (result.success) {
-                clearInterval(otpTimerInterval);
-                clearPendingVerifyEmail();
-                showToast("Account verified. Welcome to YH Universe.", "success");
+                if (result.success) {
+                    clearInterval(otpTimerInterval);
+                    clearPendingVerifyEmail();
+                    showToast("Account verified. Welcome to YH Universe.", "success");
 
-                clearAcademyClientStateForFreshAuth();
+                    clearAcademyClientStateForFreshAuth();
 
-                persistClientSession({
-                    ...result.user,
-                    email: result.user?.email || email
-                }, result.token);
+                    persistClientSession({
+                        ...result.user,
+                        email: result.user?.email || email
+                    }, result.token);
 
-                setTimeout(() => { window.location.href = '/dashboard'; }, 1000);
-            } else {
-                showToast(result.message, "error");
-                submitBtn.innerText = yhT('auth.verifyEnter');
-                submitBtn.disabled = false;
-            }
+                    setTimeout(() => { window.location.href = '/dashboard'; }, 1000);
+                } else {
+                    showToast(result.message, "error");
+                    submitBtn.innerText = yhT('auth.verifyEnter');
+                    submitBtn.disabled = false;
+                }
             } catch (error) {
                 showToast("Server error during verification.", "error");
                 submitBtn.innerText = yhT('auth.verifyEnter');
@@ -1353,9 +1519,6 @@ const btnResendOTP = document.getElementById('btn-resend-otp');
     }
     const authSection = document.getElementById('yh-auth-section');
     const divisionsSection = document.getElementById('yh-divisions-section');
-    const academyApplyModal = document.getElementById('academy-apply-modal');
-    const academyApplyForm = document.getElementById('form-academy-apply');
-    const closeAcademyApplyBtn = document.getElementById('close-academy-apply');
 
     const scrollToTarget = (target) => {
         if (!target) return;
@@ -1366,67 +1529,6 @@ const btnResendOTP = document.getElementById('btn-resend-otp');
         scrollToTarget(authSection);
     };
 
-    const lockBodyForModal = () => {
-        document.body.style.overflow = 'hidden';
-    };
-
-    const unlockBodyForModal = () => {
-        document.body.style.overflow = '';
-    };
-
-    const prefillAcademyApplyFields = () => {
-        const usernameInput = document.getElementById('academy-username');
-        const cityInput = document.getElementById('academy-city');
-        const countryInput = document.getElementById('academy-country');
-
-        const savedUsername =
-            sessionStorage.getItem('yh_user_username') ||
-            localStorage.getItem('yh_user_username') ||
-            '';
-
-        const savedCity =
-            sessionStorage.getItem('yh_user_city') ||
-            localStorage.getItem('yh_user_city') ||
-            '';
-
-        const savedCountry =
-            sessionStorage.getItem('yh_user_country') ||
-            localStorage.getItem('yh_user_country') ||
-            '';
-
-        if (usernameInput && !usernameInput.value.trim() && savedUsername) {
-            usernameInput.value = savedUsername;
-        }
-
-        if (cityInput && !cityInput.value.trim() && savedCity) {
-            cityInput.value = savedCity;
-        }
-
-        if (countryInput && !countryInput.value.trim() && savedCountry) {
-            countryInput.value = savedCountry;
-        }
-    };
-
-    const openAcademyApplyModal = () => {
-        if (!academyApplyModal) {
-            openAuthPanel();
-            return;
-        }
-
-        academyApplyModal.classList.remove('hidden-step');
-        academyApplyModal.setAttribute('aria-hidden', 'false');
-        lockBodyForModal();
-        prefillAcademyApplyFields();
-    };
-
-    const closeAcademyApplyModal = () => {
-        if (!academyApplyModal) return;
-
-        academyApplyModal.classList.add('hidden-step');
-        academyApplyModal.setAttribute('aria-hidden', 'true');
-        unlockBodyForModal();
-    };
-
     const btnTopbar = document.getElementById('yh-scroll-auth');
     const btnHero = document.getElementById('yh-open-auth-main');
     const btnAcademy = document.getElementById('yh-open-auth-academy');
@@ -1434,82 +1536,7 @@ const btnResendOTP = document.getElementById('btn-resend-otp');
 
     if (btnTopbar) btnTopbar.addEventListener('click', () => openAuthPanel());
     if (btnHero) btnHero.addEventListener('click', () => openAuthPanel());
-    if (btnAcademy) {
-        btnAcademy.addEventListener('click', () => openAcademyApplyModal());
-    }
-
-    if (closeAcademyApplyBtn) {
-        closeAcademyApplyBtn.addEventListener('click', () => closeAcademyApplyModal());
-    }
-
-    if (academyApplyModal) {
-        academyApplyModal.addEventListener('click', (e) => {
-            if (e.target === academyApplyModal) {
-                closeAcademyApplyModal();
-            }
-        });
-    }
-
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && academyApplyModal && !academyApplyModal.classList.contains('hidden-step')) {
-            closeAcademyApplyModal();
-        }
-    });
-
-    if (academyApplyForm) {
-        academyApplyForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            const submitBtn = document.getElementById('btn-academy-apply-submit');
-            if (!submitBtn) return;
-
-            const formData = {
-                username: document.getElementById('academy-username')?.value.trim() || '',
-                city: document.getElementById('academy-city')?.value.trim() || '',
-                country: document.getElementById('academy-country')?.value.trim() || '',
-                whyJoin: document.getElementById('academy-why-join')?.value.trim() || '',
-                goals: document.getElementById('academy-goals')?.value.trim() || '',
-                currentStage: document.getElementById('academy-stage')?.value || '',
-                skills: document.getElementById('academy-skills')?.value.trim() || '',
-                currentWork: document.getElementById('academy-current-work')?.value.trim() || '',
-                biggestChallenge: document.getElementById('academy-challenge')?.value.trim() || '',
-                seriousness: document.getElementById('academy-seriousness')?.value || '',
-                timeCommitment: document.getElementById('academy-time-commitment')?.value || '',
-                whyAccept: document.getElementById('academy-why-accept')?.value.trim() || ''
-            };
-
-            submitBtn.disabled = true;
-            submitBtn.innerText = 'Submitting...';
-
-            try {
-                sessionStorage.setItem('yh_academy_application_profile', JSON.stringify(formData));
-                localStorage.setItem('yh_academy_application_profile', JSON.stringify(formData));
-
-                if (formData.username) {
-                    sessionStorage.setItem('yh_user_username', formData.username);
-                    localStorage.setItem('yh_user_username', formData.username);
-                }
-
-                if (formData.city) {
-                    sessionStorage.setItem('yh_user_city', formData.city);
-                    localStorage.setItem('yh_user_city', formData.city);
-                }
-
-                if (formData.country) {
-                    sessionStorage.setItem('yh_user_country', formData.country);
-                    localStorage.setItem('yh_user_country', formData.country);
-                }
-
-                showToast('Application saved. Backend hookup is the next step.', 'success');
-                closeAcademyApplyModal();
-            } catch (error) {
-                showToast('Failed to save application.', 'error');
-            } finally {
-                submitBtn.disabled = false;
-                submitBtn.innerText = 'Submit Application ➔';
-            }
-        });
-    }
+    if (btnAcademy) btnAcademy.addEventListener('click', () => openAuthPanel());
     if (btnDivisions) btnDivisions.addEventListener('click', () => scrollToTarget(divisionsSection));
 
     document.querySelectorAll('.yh-coming-soon-btn').forEach((button) => {
