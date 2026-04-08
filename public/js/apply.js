@@ -183,24 +183,24 @@ const YH_LANDING_FEED_DEFAULTS = [
     {
         id: 'academy_live_placeholder_1',
         pointId: '',
-        label: 'Academy Live Activity',
-        feedText: 'Waiting for new Academy activity.',
+        label: 'Universe Live Activity',
+        feedText: 'Waiting for new Universe activity.',
         locationText: '',
         createdAt: ''
     },
     {
         id: 'academy_live_placeholder_2',
         pointId: '',
-        label: 'Academy Growth',
-        feedText: 'Real Academy events will appear here as they happen.',
+        label: 'Universe Growth',
+        feedText: 'Real Universe events will appear here as they happen.',
         locationText: '',
         createdAt: ''
     },
     {
         id: 'academy_live_placeholder_3',
         pointId: '',
-        label: 'Globe Sync',
-        feedText: 'Each Academy event lights up its real city and country.',
+        label: 'Worldmap Sync',
+        feedText: 'Each new signup and action can light up its real city and country.',
         locationText: '',
         createdAt: ''
     }
@@ -386,7 +386,8 @@ function applyLandingServerSnapshot(result = {}) {
     window.yhSetLandingGlobeData({
         points: Array.isArray(result.points) ? result.points : [],
         arcs: Array.isArray(result.arcs) ? result.arcs : [],
-        focusPoint: result.focusPoint || null
+        focusPoint: result.focusPoint || null,
+        stats: result.stats && typeof result.stats === 'object' ? result.stats : null
     });
 }
 
@@ -406,7 +407,8 @@ function applyLandingServerSnapshot(result = {}) {
     window.yhSetLandingGlobeData({
         points: Array.isArray(result.points) ? result.points : [],
         arcs: Array.isArray(result.arcs) ? result.arcs : [],
-        focusPoint: result.focusPoint || null
+        focusPoint: result.focusPoint || null,
+        stats: result.stats && typeof result.stats === 'object' ? result.stats : null
     });
 }
 
@@ -955,9 +957,9 @@ async function initLandingMapShell() {
     const reachEl = document.getElementById('yh-stat-reach');
     const impressionsEl = document.getElementById('yh-stat-impressions');
 
-    animateLandingStat(membersEl, 1284, 1400);
-    animateLandingStat(reachEl, 86, 1200);
-    animateLandingStat(impressionsEl, 18492, 1550);
+    if (membersEl) membersEl.textContent = '—';
+    if (reachEl) reachEl.textContent = '—';
+    if (impressionsEl) impressionsEl.textContent = '—';
 
     startLandingFeedRotation();
 

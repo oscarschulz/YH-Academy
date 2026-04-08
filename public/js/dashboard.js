@@ -5546,19 +5546,63 @@ function queueAcademyMembershipApplication(payload = {}, serverApplication = nul
     const existing = findCurrentAcademyMembershipApplication();
     const persisted = serverApplication && typeof serverApplication === 'object' ? serverApplication : null;
 
-    const profileSummary = [
-        payload.proofWork || '',
-        payload.sacrifice || '',
+    const fullName = String(
+        payload.fullName ||
+        [payload.firstName || '', payload.surname || ''].filter(Boolean).join(' ') ||
+        identity.name ||
+        'Hustler'
+    ).trim();
+
+    const topSkills = String(payload.skills || '')
+        .split(/[,;\n/|]+/g)
+        .map((item) => String(item || '').trim())
+        .filter(Boolean)
+        .slice(0, 6);
+
+    const background = [
+        payload.skills || '',
+        payload.hearAboutUs || (payload.referredByUsername ? `Referred by @${payload.referredByUsername}` : ''),
         payload.nonNegotiable || ''
     ].filter(Boolean).join(' • ');
 
+    const fallbackProfile = {
+        firstName: String(payload.firstName || '').trim(),
+        surname: String(payload.surname || '').trim(),
+        fullName,
+        email: String(payload.email || identity.email || '').trim().toLowerCase(),
+        age: String(payload.age || '').trim(),
+        occupationAtAge: String(payload.occupationAtAge || '').trim(),
+        skills: String(payload.skills || '').trim(),
+        topSkills,
+        referredByUsername: String(payload.referredByUsername || '').trim().replace(/^@+/, ''),
+        hearAboutUs: String(payload.hearAboutUs || '').trim(),
+        locationCountry: String(payload.locationCountry || payload.countryOfResidence || '').trim(),
+        seriousness: String(payload.seriousness || '').trim(),
+        nonNegotiable: String(payload.nonNegotiable || '').trim(),
+
+        whyNow: String(payload.whyNow || '').trim(),
+        mainGoal: String(payload.mainGoal || '').trim(),
+        proofWork: String(payload.proofWork || '').trim(),
+        sacrifice: String(payload.sacrifice || '').trim(),
+        weeklyHours: String(payload.weeklyHours || '').trim(),
+        adminNote: String(payload.adminNote || '').trim()
+    };
+
     const nextRecord = {
         id: persisted?.id || existing?.id || `APP-${Date.now().toString().slice(-6)}`,
-        name: persisted?.name || identity.name || 'Hustler',
+        name: persisted?.name || persisted?.fullName || fullName,
+        fullName: persisted?.fullName || fullName,
+        firstName: persisted?.firstName || fallbackProfile.firstName,
+        surname: persisted?.surname || fallbackProfile.surname,
         username: persisted?.username || identity.username || '',
-        email: persisted?.email || identity.email || '',
-        goal: persisted?.goal || payload.mainGoal || payload.whyNow || 'Academy membership application',
-        background: persisted?.background || profileSummary || 'No seriousness summary submitted.',
+        email: persisted?.email || fallbackProfile.email,
+        age: persisted?.age || fallbackProfile.age,
+        occupationAtAge: persisted?.occupationAtAge || fallbackProfile.occupationAtAge,
+        referredByUsername: persisted?.referredByUsername || fallbackProfile.referredByUsername,
+        hearAboutUs: persisted?.hearAboutUs || fallbackProfile.hearAboutUs,
+        locationCountry: persisted?.locationCountry || fallbackProfile.locationCountry,
+        goal: persisted?.goal || fallbackProfile.occupationAtAge || 'Academy membership application',
+        background: persisted?.background || background || 'No background summary submitted.',
         recommendedDivision: persisted?.recommendedDivision || 'Academy',
         applicationType: persisted?.applicationType || 'academy-membership',
         reviewLane: persisted?.reviewLane || 'Academy Membership',
@@ -5572,14 +5616,12 @@ function queueAcademyMembershipApplication(payload = {}, serverApplication = nul
             existing?.aiScore ??
             0
         ),
-        country: persisted?.country || '',
+        country: persisted?.country || fallbackProfile.locationCountry || '',
         skills: Array.isArray(persisted?.skills) && persisted.skills.length
             ? persisted.skills
-            : [
-                payload.seriousness || '',
-                payload.weeklyHours || '',
-                payload.nonNegotiable || ''
-            ].filter(Boolean),
+            : topSkills,
+        seriousness: persisted?.seriousness || fallbackProfile.seriousness,
+        nonNegotiable: persisted?.nonNegotiable || fallbackProfile.nonNegotiable,
         networkValue: persisted?.networkValue || existing?.networkValue || 'Unknown',
         source: persisted?.source || 'Academy Dashboard',
         submittedAt: persisted?.submittedAt || new Date().toISOString().slice(0, 16).replace('T', ' '),
@@ -5592,7 +5634,7 @@ function queueAcademyMembershipApplication(payload = {}, serverApplication = nul
         academyProfile:
             persisted?.academyProfile && typeof persisted.academyProfile === 'object'
                 ? persisted.academyProfile
-                : payload
+                : fallbackProfile
     };
 
     const nextApplications = existing
@@ -5820,9 +5862,12 @@ function applyAcademyIdentityPrefill() {
 
         if (hasPrefill) {
             input.value = cleanValue;
+            input.defaultValue = cleanValue;
             input.readOnly = true;
             input.dataset.prefilled = 'true';
         } else {
+            input.value = '';
+            input.defaultValue = '';
             input.readOnly = false;
             input.dataset.prefilled = 'false';
         }
@@ -5933,12 +5978,14 @@ const skills = document.getElementById('app-skills')?.value?.trim() || '';
 const seriousness = document.getElementById('app-seriousness')?.value?.trim() || '';
 const nonNegotiable = document.getElementById('app-nonnegotiable')?.value?.trim() || '';
 
+const fullName = [firstName, surname].filter(Boolean).join(' ').trim();
+
 const payload = {
     applicationType: 'academy-membership',
-    name: applicantIdentity.name || [firstName, surname].filter(Boolean).join(' ').trim(),
+    name: fullName || applicantIdentity.name || 'Hustler',
     firstName,
     surname,
-    fullName: [firstName, surname].filter(Boolean).join(' ').trim(),
+    fullName: fullName || applicantIdentity.name || '',
     username: applicantIdentity.username || '',
     email,
     age,
@@ -6015,7 +6062,9 @@ try {
             }
 
             formApply.reset();
+            applyAcademyIdentityPrefill();
             syncAcademyOccupationField();
+            syncAcademyReferralFields();
         } catch (error) {
             aiSpinnerPhase?.classList.add('hidden-step');
             aiFormPhase?.classList.remove('hidden-step');

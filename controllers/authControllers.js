@@ -687,8 +687,9 @@ exports.verifyOTP = async (req, res) => {
                 type: 'academy_signup_verified',
                 slot: 'academy',
                 category: 'academy',
-                messagePrefix: 'A new Academy member signed up',
-                labelPrefix: 'Academy',
+                message: '{name} just signed up for the Universe from {location}.',
+                feedText: '{name} just signed up for the Universe.',
+                labelPrefix: 'New Signup',
                 color: '#38bdf8',
                 altitude: 0.24,
                 ttlSeconds: 1200

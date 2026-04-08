@@ -1027,6 +1027,39 @@ async function buildPublicLandingSnapshot(limit = 24) {
         }
         : null;
 
+    const verifiedMembersSnap = await usersCol
+        .where('isVerified', '==', true)
+        .get();
+
+    const verifiedMembers = verifiedMembersSnap.docs.map((doc) => doc.data() || {});
+
+    const reachCountries = new Set(
+        verifiedMembers
+            .map((member) => sanitizeText(member.country || member.locationCountry || ''))
+            .filter(Boolean)
+            .map((country) => country.toLowerCase())
+    );
+
+    let impressionsCount = orderedEvents.length;
+
+    try {
+        const aggregateSnap = await publicLandingEventsCol.count().get();
+        const aggregateData = typeof aggregateSnap.data === 'function' ? aggregateSnap.data() : null;
+        const aggregateCount = Number(aggregateData?.count);
+
+        if (Number.isFinite(aggregateCount) && aggregateCount >= 0) {
+            impressionsCount = aggregateCount;
+        }
+    } catch (_) {
+        impressionsCount = orderedEvents.length;
+    }
+
+    const stats = {
+        members: verifiedMembers.length,
+        reach: reachCountries.size,
+        impressions: impressionsCount
+    };
+
     return {
         feed,
         liveEvents,
@@ -1034,6 +1067,7 @@ async function buildPublicLandingSnapshot(limit = 24) {
         points,
         arcs: [],
         focusPoint,
+        stats,
         updatedAt: new Date().toISOString()
     };
 }

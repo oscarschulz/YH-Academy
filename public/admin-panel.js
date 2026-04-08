@@ -1207,6 +1207,19 @@ if (type === 'application') {
     .replace(/-/g, ' ')
     .replace(/\b\w/g, (char) => char.toUpperCase());
 
+  const topSkills = Array.isArray(profile?.topSkills)
+    ? profile.topSkills.filter(Boolean)
+    : skills;
+
+  const locationCountry = record.locationCountry || profile?.locationCountry || record.country || '';
+  const referredByUsername = String(record.referredByUsername || profile?.referredByUsername || '').replace(/^@+/, '');
+  const hearAboutUs = record.hearAboutUs || profile?.hearAboutUs || '';
+  const occupationAtAge = record.occupationAtAge || profile?.occupationAtAge || record.goal || '';
+  const seriousness = record.seriousness || profile?.seriousness || '';
+  const nonNegotiable = record.nonNegotiable || profile?.nonNegotiable || '';
+  const rawSkillsText = profile?.skills || record.background || '';
+  const age = record.age || profile?.age || '';
+
   return `
     <div class="drawer-section application-hero">
       <div class="application-hero-top">
@@ -1244,8 +1257,8 @@ if (type === 'application') {
           <strong>${Number(record.aiScore || 0)}</strong>
         </div>
         <div class="application-meta-item">
-          <span>Country</span>
-          <strong>${escapeHtml(record.country || '—')}</strong>
+          <span>Location</span>
+          <strong>${escapeHtml(locationCountry || '—')}</strong>
         </div>
       </div>
     </div>
@@ -1256,6 +1269,8 @@ if (type === 'application') {
         <div class="kv"><span>Name</span><strong>${escapeHtml(record.name || '—')}</strong></div>
         <div class="kv"><span>Username</span><strong>${escapeHtml(record.username || '—')}</strong></div>
         <div class="kv"><span>Email</span><strong>${escapeHtml(record.email || '—')}</strong></div>
+        <div class="kv"><span>Age</span><strong>${escapeHtml(age || '—')}</strong></div>
+        <div class="kv"><span>Location / Country</span><strong>${escapeHtml(locationCountry || '—')}</strong></div>
         <div class="kv"><span>Recommended Division</span>${formatBadge(record.recommendedDivision || 'Academy')}</div>
         <div class="kv"><span>Status</span>${formatBadge(record.status || 'Under Review')}</div>
         <div class="kv"><span>Application Type</span>${formatBadge(appTypeLabel)}</div>
@@ -1266,55 +1281,52 @@ if (type === 'application') {
       <h4>Main Form Answers</h4>
       <div class="answer-stack">
         <div class="answer-card">
-          <span class="answer-label">Goal</span>
-          <p>${escapeHtml(record.goal || '—')}</p>
+          <span class="answer-label">What do you do for a living at this age?</span>
+          <p>${escapeHtml(occupationAtAge || '—')}</p>
         </div>
         <div class="answer-card">
-          <span class="answer-label">Background</span>
-          <p>${escapeHtml(record.background || '—')}</p>
+          <span class="answer-label">What are you good at? What are your skills?</span>
+          <p>${escapeHtml(rawSkillsText || '—')}</p>
         </div>
         <div class="answer-card">
-          <span class="answer-label">Network Value</span>
-          <p>${escapeHtml(record.networkValue || 'Unknown')}</p>
+          <span class="answer-label">Top Skills</span>
+          <p>${escapeHtml(topSkills.join(', ') || '—')}</p>
         </div>
         <div class="answer-card">
-          <span class="answer-label">Skills</span>
-          <p>${escapeHtml(skills.join(', ') || '—')}</p>
+          <span class="answer-label">How serious are you about being accepted?</span>
+          <p>${escapeHtml(seriousness || '—')}</p>
+        </div>
+        <div class="answer-card">
+          <span class="answer-label">What is the one trait or standard that makes you a good fit?</span>
+          <p>${escapeHtml(nonNegotiable || '—')}</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="drawer-section">
+      <h4>Referral & Discovery</h4>
+      <div class="answer-stack">
+        <div class="answer-card">
+          <span class="answer-label">Who referred you?</span>
+          <p>${escapeHtml(referredByUsername ? `@${referredByUsername}` : '—')}</p>
+        </div>
+        <div class="answer-card">
+          <span class="answer-label">If no one referred you, how did you hear from us?</span>
+          <p>${escapeHtml(hearAboutUs || '—')}</p>
         </div>
       </div>
     </div>
 
     ${profile ? `
       <div class="drawer-section">
-        <h4>Academy Intake Breakdown</h4>
+        <h4>Stored Academy Profile</h4>
         <div class="kv-grid application-kv-grid">
-          <div class="kv"><span>Occupation Type</span><strong>${escapeHtml(profile.occupationType || '—')}</strong></div>
-          <div class="kv"><span>Current Job / Business</span><strong>${escapeHtml(profile.currentJob || '—')}</strong></div>
-          <div class="kv"><span>Industry</span><strong>${escapeHtml(profile.industry || '—')}</strong></div>
-          <div class="kv"><span>Income Source</span><strong>${escapeHtml(profile.incomeSource || '—')}</strong></div>
-          <div class="kv"><span>Business Stage</span><strong>${escapeHtml(profile.businessStage || '—')}</strong></div>
-          <div class="kv"><span>Seriousness</span><strong>${escapeHtml(profile.seriousness || '—')}</strong></div>
-          <div class="kv"><span>Weekly Hours</span><strong>${escapeHtml(profile.weeklyHours || '—')}</strong></div>
-          <div class="kv"><span>Coach Tone</span><strong>${escapeHtml(profile.coachTone || '—')}</strong></div>
-        </div>
-
-        <div class="answer-stack">
-          <div class="answer-card">
-            <span class="answer-label">Why Join Academy</span>
-            <p>${escapeHtml(profile.joinReason || '—')}</p>
-          </div>
-          <div class="answer-card">
-            <span class="answer-label">6 Month Goals</span>
-            <p>${escapeHtml(profile.goals6mo || '—')}</p>
-          </div>
-          <div class="answer-card">
-            <span class="answer-label">Main Blocker</span>
-            <p>${escapeHtml(profile.blockerText || '—')}</p>
-          </div>
-          <div class="answer-card">
-            <span class="answer-label">Bad Habit</span>
-            <p>${escapeHtml(profile.badHabit || '—')}</p>
-          </div>
+          <div class="kv"><span>First Name</span><strong>${escapeHtml(profile.firstName || '—')}</strong></div>
+          <div class="kv"><span>Surname</span><strong>${escapeHtml(profile.surname || '—')}</strong></div>
+          <div class="kv"><span>Full Name</span><strong>${escapeHtml(profile.fullName || record.name || '—')}</strong></div>
+          <div class="kv"><span>Email</span><strong>${escapeHtml(profile.email || record.email || '—')}</strong></div>
+          <div class="kv"><span>Age</span><strong>${escapeHtml(profile.age || age || '—')}</strong></div>
+          <div class="kv"><span>Location</span><strong>${escapeHtml(profile.locationCountry || locationCountry || '—')}</strong></div>
         </div>
       </div>
     ` : ''}

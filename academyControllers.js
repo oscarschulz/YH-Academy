@@ -2106,22 +2106,6 @@ exports.submitMembershipApplication = async (req, res) => {
         const userSnapshot = await userRef.get();
         const userData = userSnapshot.exists ? (userSnapshot.data() || {}) : {};
 
-        const displayName = sanitize(
-            req.user?.name ||
-            req.user?.fullName ||
-            userData.fullName ||
-            userData.name ||
-            req.user?.username ||
-            userData.username ||
-            'Hustler'
-        );
-
-        const username = sanitize(req.user?.username || userData.username || '');
-        const email = sanitize(req.user?.email || userData.email || '').toLowerCase();
-        const city = sanitize(userData.city || '');
-        const country = sanitize(userData.country || '');
-        const countryCode = sanitize(userData.countryCode || '');
-
         const existingApplication =
             userData.academyApplication && typeof userData.academyApplication === 'object'
                 ? userData.academyApplication
@@ -2138,64 +2122,219 @@ exports.submitMembershipApplication = async (req, res) => {
             });
         }
 
-        const academyProfile = {
-            whyNow: sanitize(req.body?.whyNow || ''),
-            mainGoal: sanitize(req.body?.mainGoal || ''),
-            proofWork: sanitize(req.body?.proofWork || ''),
-            sacrifice: sanitize(req.body?.sacrifice || ''),
-            seriousness: sanitize(req.body?.seriousness || ''),
-            weeklyHours: sanitize(req.body?.weeklyHours || ''),
-            nonNegotiable: sanitize(req.body?.nonNegotiable || ''),
-            adminNote: sanitize(req.body?.adminNote || '')
-        };
+        const baseDisplayName = sanitize(
+            req.user?.name ||
+            req.user?.fullName ||
+            userData.fullName ||
+            userData.name ||
+            req.user?.username ||
+            userData.username ||
+            'Hustler'
+        );
+
+        const baseNameParts = baseDisplayName.split(/\s+/).filter(Boolean);
+
+        const firstName = sanitize(
+            req.body?.firstName ||
+            userData.firstName ||
+            baseNameParts[0] ||
+            ''
+        );
+
+        const surname = sanitize(
+            req.body?.surname ||
+            userData.surname ||
+            (baseNameParts.length > 1 ? baseNameParts.slice(1).join(' ') : '')
+        );
+
+        const displayName = sanitize(
+            [firstName, surname].filter(Boolean).join(' ') ||
+            baseDisplayName ||
+            'Hustler'
+        );
+
+        const username = sanitize(
+            req.body?.username ||
+            req.user?.username ||
+            userData.username ||
+            ''
+        ).replace(/^@+/, '');
+
+        const email = sanitize(
+            req.body?.email ||
+            req.user?.email ||
+            userData.email ||
+            ''
+        ).toLowerCase();
+
+        const submittedLocationCountry = sanitize(
+            req.body?.locationCountry ||
+            req.body?.countryOfResidence ||
+            ''
+        );
+
+        const locationParts = submittedLocationCountry
+            .split(',')
+            .map((part) => sanitize(part))
+            .filter(Boolean);
+
+        const city = sanitize(
+            req.body?.city ||
+            userData.city ||
+            (locationParts.length > 1 ? locationParts.slice(0, -1).join(', ') : '')
+        );
+
+        const country = sanitize(
+            req.body?.country ||
+            userData.country ||
+            (locationParts.length ? locationParts[locationParts.length - 1] : '')
+        );
+
+        const countryCode = sanitize(userData.countryCode || '');
+
+        const locationCountry = sanitize(
+            submittedLocationCountry ||
+            [city, country].filter(Boolean).join(', ') ||
+            country
+        );
+
+        const ageNumber = toInt(req.body?.age, 0);
+        const age = ageNumber > 0 ? String(ageNumber) : '';
+
+        const occupationAtAge = sanitize(
+            req.body?.occupationAtAge ||
+            req.body?.mainGoal ||
+            ''
+        );
+
+        const skillsText = sanitize(
+            req.body?.skills ||
+            req.body?.proofWork ||
+            ''
+        );
+
+        const referredByUsername = sanitize(
+            req.body?.referredByUsername || ''
+        ).replace(/^@+/, '');
+
+        const hearAboutUs = sanitize(
+            req.body?.hearAboutUs ||
+            req.body?.whyNow ||
+            ''
+        );
+
+        const seriousness = sanitize(req.body?.seriousness || '');
+        const nonNegotiable = sanitize(req.body?.nonNegotiable || '');
+
+        if (!email || !age || ageNumber < 13 || ageNumber > 120) {
+            return res.status(400).json({
+                success: false,
+                message: 'A valid age and email address are required.'
+            });
+        }
+
+        if (!occupationAtAge || !skillsText || !seriousness || !nonNegotiable) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please complete all required Academy application fields.'
+            });
+        }
+
+        if (!referredByUsername && !hearAboutUs) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please provide a referrer username or tell us how you heard about The Academy.'
+            });
+        }
+
+        const topSkills = dedupeStrings(
+            skillsText.split(/[,;\n/|]+/g),
+            6
+        );
+
+        const referrerSummary = referredByUsername
+            ? `Referred by @${referredByUsername}`
+            : '';
 
         const background = [
-            academyProfile.proofWork,
-            academyProfile.sacrifice,
-            academyProfile.nonNegotiable
+            skillsText,
+            hearAboutUs || referrerSummary,
+            nonNegotiable
         ].filter(Boolean).join(' • ');
 
         const nowIso = new Date().toISOString();
 
+        const academyProfile = {
+            firstName,
+            surname,
+            fullName: displayName,
+            email,
+            age,
+            occupationAtAge,
+            skills: skillsText,
+            topSkills,
+            referredByUsername,
+            hearAboutUs,
+            locationCountry,
+            seriousness,
+            nonNegotiable,
+
+            // Compatibility bridge for older readers
+            whyNow: hearAboutUs || referrerSummary,
+            mainGoal: occupationAtAge,
+            proofWork: skillsText,
+            sacrifice: '',
+            weeklyHours: '',
+            adminNote: ''
+        };
+
         const application = {
-            id: sanitize(existingApplication?.id || `APP-${Date.now().toString().slice(-8)}`),
+            id: sanitize(`APP-${Date.now().toString().slice(-8)}`),
             applicationType: 'academy-membership',
             reviewLane: 'Academy Membership',
             status: 'Under Review',
             recommendedDivision: 'Academy',
             source: 'Academy Dashboard',
             name: displayName,
+            fullName: displayName,
+            firstName,
+            surname,
             username,
             email,
-            goal: academyProfile.mainGoal || academyProfile.whyNow || 'Academy membership application',
-            background: background || 'No seriousness summary submitted.',
-            aiScore: toInt(existingApplication?.aiScore, 0),
+            age,
+            occupationAtAge,
+            referredByUsername,
+            hearAboutUs,
             city,
             country,
             countryCode,
-            skills: [
-                academyProfile.seriousness,
-                academyProfile.weeklyHours,
-                academyProfile.nonNegotiable
-            ].filter(Boolean),
+            locationCountry,
+            goal: occupationAtAge || 'Academy membership application',
+            background: background || 'No background summary submitted.',
+            aiScore: 0,
+            skills: topSkills,
             networkValue: sanitize(existingApplication?.networkValue || 'Unknown'),
-            submittedAt: existingApplication?.submittedAt || nowIso,
+            seriousness,
+            nonNegotiable,
+            submittedAt: nowIso,
             updatedAt: nowIso,
             notes: [
-                'Submitted from dashboard Academy membership flow.',
-                ...(Array.isArray(existingApplication?.notes) ? existingApplication.notes : [])
-            ].filter(Boolean),
+                'Submitted from dashboard Academy membership flow.'
+            ],
             academyProfile
         };
 
         await userRef.set(
             {
                 ...(displayName ? { fullName: displayName } : {}),
+                ...(firstName ? { firstName } : {}),
+                ...(surname ? { surname } : {}),
                 ...(email ? { email } : {}),
                 ...(username ? { username } : {}),
                 ...(city ? { city } : {}),
                 ...(country ? { country } : {}),
                 ...(countryCode ? { countryCode } : {}),
+                ...(locationCountry ? { locationCountry } : {}),
                 academyApplication: application,
                 academyApplicationStatus: application.status,
                 academyApplicationSubmittedAt: application.submittedAt,
@@ -2232,7 +2371,7 @@ exports.submitMembershipApplication = async (req, res) => {
             console.warn('submitMembershipApplication public landing event skipped:', glowError?.message || glowError);
         }
 
-        return res.status(existingApplication ? 200 : 201).json({
+        return res.status(201).json({
             success: true,
             alreadyExists: false,
             application

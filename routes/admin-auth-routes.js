@@ -378,23 +378,59 @@ const applications = users.flatMap((user) => {
 
   if (user.academyApplication && typeof user.academyApplication === 'object') {
     const app = user.academyApplication;
+    const profile =
+      app.academyProfile && typeof app.academyProfile === 'object'
+        ? app.academyProfile
+        : {};
+
+    const username = cleanText(
+      app.username ||
+      user.username ||
+      ''
+    ).replace(/^@+/, '');
+
     output.push({
       id: cleanText(app.id || `APP-${user.id}`),
-      name: cleanText(user.fullName || user.name || user.displayName || user.username || 'Unknown User'),
-      email: cleanText(user.email || ''),
-      goal: cleanText(app.goal || ''),
-      background: cleanText(app.background || ''),
+      name: cleanText(
+        app.fullName ||
+        app.name ||
+        profile.fullName ||
+        user.fullName ||
+        user.name ||
+        user.displayName ||
+        user.username ||
+        'Unknown User'
+      ),
+      username: username ? `@${username}` : '',
+      email: cleanText(app.email || user.email || ''),
+      goal: cleanText(app.goal || app.occupationAtAge || profile.occupationAtAge || ''),
+      background: cleanText(app.background || profile.skills || ''),
       recommendedDivision: cleanText(app.recommendedDivision || 'Academy'),
       status: cleanText(app.status || 'Under Review'),
       aiScore: toNumber(app.aiScore, 0),
-      country: cleanText(app.country || ''),
-      skills: Array.isArray(app.skills) ? app.skills : [],
+      country: cleanText(app.country || profile.locationCountry || user.country || ''),
+      locationCountry: cleanText(app.locationCountry || profile.locationCountry || ''),
+      skills: Array.isArray(app.skills) && app.skills.length
+        ? app.skills
+        : (
+            Array.isArray(profile.topSkills) && profile.topSkills.length
+              ? profile.topSkills
+              : []
+          ),
       networkValue: cleanText(app.networkValue || ''),
       source: cleanText(app.source || 'Academy Application'),
       submittedAt: toIso(app.submittedAt) || cleanText(app.submittedAt || ''),
       notes: Array.isArray(app.notes) ? app.notes : [],
       applicationType: cleanText(app.applicationType || 'academy-membership'),
-      reviewLane: cleanText(app.reviewLane || 'Academy Membership')
+      reviewLane: cleanText(app.reviewLane || 'Academy Membership'),
+
+      age: cleanText(app.age || profile.age || ''),
+      occupationAtAge: cleanText(app.occupationAtAge || profile.occupationAtAge || ''),
+      referredByUsername: cleanText(app.referredByUsername || profile.referredByUsername || ''),
+      hearAboutUs: cleanText(app.hearAboutUs || profile.hearAboutUs || ''),
+      seriousness: cleanText(app.seriousness || profile.seriousness || ''),
+      nonNegotiable: cleanText(app.nonNegotiable || profile.nonNegotiable || ''),
+      academyProfile: profile
     });
   }
 
