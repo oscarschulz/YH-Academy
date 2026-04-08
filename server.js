@@ -7,12 +7,39 @@ const cors = require('cors');
 const { firestore } = require('./config/firebaseAdmin');
 const { Timestamp } = require('firebase-admin/firestore');
 const jwt = require('jsonwebtoken');
+const publicLandingEventsRepo = require('./backend/repositories/publicLandingEventsRepo');
 
 const app = express();
 app.set('trust proxy', 1);
 
 const server = http.createServer(app);
 const io = new Server(server);
+const publicLandingNamespace = io.of('/public-landing');
+
+async function emitPublicLandingSnapshotToClients(limit = 24) {
+    try {
+        const payload = await publicLandingEventsRepo.buildPublicLandingSnapshot(limit);
+        publicLandingNamespace.emit('landingSnapshot', {
+            success: true,
+            ...payload
+        });
+    } catch (error) {
+        console.error('emitPublicLandingSnapshotToClients error:', error);
+    }
+}
+
+global.yhEmitPublicLandingSnapshot = emitPublicLandingSnapshotToClients;
+
+publicLandingNamespace.on('connection', (socket) => {
+    console.log('🌍 Public landing socket connected:', socket.id);
+    emitPublicLandingSnapshotToClients().catch((error) => {
+        console.error('public landing initial snapshot error:', error);
+    });
+
+    socket.on('disconnect', () => {
+        console.log('🌍 Public landing socket disconnected:', socket.id);
+    });
+});
 
 const chatMessagesCol = firestore.collection('chatMessages');
 const chatRoomsCol = firestore.collection('chatRooms');

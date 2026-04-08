@@ -374,6 +374,102 @@ function focusLandingGlobePoint(point = null) {
     );
 }
 
+function applyLandingServerSnapshot(result = {}) {
+    applyLandingFeedSnapshot(
+        Array.isArray(result.liveEvents)
+            ? result.liveEvents
+            : Array.isArray(result.academyEvents)
+                ? result.academyEvents
+                : []
+    );
+
+    window.yhSetLandingGlobeData({
+        points: Array.isArray(result.points) ? result.points : [],
+        arcs: Array.isArray(result.arcs) ? result.arcs : [],
+        focusPoint: result.focusPoint || null
+    });
+}
+
+let yhLandingRealtimeSocket = null;
+let yhLandingRealtimeConnected = false;
+let yhLandingSocketScriptPromise = null;
+
+function applyLandingServerSnapshot(result = {}) {
+    applyLandingFeedSnapshot(
+        Array.isArray(result.liveEvents)
+            ? result.liveEvents
+            : Array.isArray(result.academyEvents)
+                ? result.academyEvents
+                : []
+    );
+
+    window.yhSetLandingGlobeData({
+        points: Array.isArray(result.points) ? result.points : [],
+        arcs: Array.isArray(result.arcs) ? result.arcs : [],
+        focusPoint: result.focusPoint || null
+    });
+}
+
+function ensureLandingSocketClient() {
+    if (typeof window.io === 'function') {
+        return Promise.resolve(window.io);
+    }
+
+    if (yhLandingSocketScriptPromise) {
+        return yhLandingSocketScriptPromise;
+    }
+
+    yhLandingSocketScriptPromise = new Promise((resolve, reject) => {
+        const existing = document.querySelector('script[src="/socket.io/socket.io.js"]');
+        if (existing) {
+            existing.addEventListener('load', () => resolve(window.io), { once: true });
+            existing.addEventListener('error', () => reject(new Error('Failed to load Socket.IO client.')), { once: true });
+            return;
+        }
+
+        const script = document.createElement('script');
+        script.src = '/socket.io/socket.io.js';
+        script.async = true;
+        script.onload = () => resolve(window.io);
+        script.onerror = () => reject(new Error('Failed to load Socket.IO client.'));
+        document.head.appendChild(script);
+    });
+
+    return yhLandingSocketScriptPromise;
+}
+
+async function connectLandingRealtimeFeed() {
+    if (yhLandingRealtimeSocket) {
+        return yhLandingRealtimeSocket;
+    }
+
+    const ioClient = await ensureLandingSocketClient();
+    if (typeof ioClient !== 'function') {
+        throw new Error('Socket.IO client is unavailable.');
+    }
+
+    const socket = ioClient('/public-landing', {
+        transports: ['websocket', 'polling']
+    });
+
+    yhLandingRealtimeSocket = socket;
+
+    socket.on('connect', () => {
+        yhLandingRealtimeConnected = true;
+    });
+
+    socket.on('disconnect', () => {
+        yhLandingRealtimeConnected = false;
+    });
+
+    socket.on('landingSnapshot', (payload) => {
+        if (!payload?.success) return;
+        applyLandingServerSnapshot(payload);
+    });
+
+    return socket;
+}
+
 async function fetchLandingPublicFeed() {
     try {
         const response = await fetch('/api/public/landing-feed?limit=24', {
@@ -390,13 +486,7 @@ async function fetchLandingPublicFeed() {
             throw new Error(result?.message || 'Public landing feed returned an invalid response.');
         }
 
-        applyLandingFeedSnapshot(Array.isArray(result.academyEvents) ? result.academyEvents : []);
-
-        window.yhSetLandingGlobeData({
-            points: Array.isArray(result.points) ? result.points : [],
-            arcs: [],
-            focusPoint: result.focusPoint || null
-        });
+        applyLandingServerSnapshot(result);
     } catch (error) {
         console.warn('fetchLandingPublicFeed error:', error?.message || error);
         // keep the last successful live cards and globe points instead of wiping the UI
@@ -412,8 +502,14 @@ function startLandingFeedRotation() {
 
     fetchLandingPublicFeed();
 
+    connectLandingRealtimeFeed().catch((error) => {
+        console.warn('connectLandingRealtimeFeed error:', error?.message || error);
+    });
+
     yhLandingPublicFeedTimer = setInterval(() => {
-        fetchLandingPublicFeed();
+        if (!yhLandingRealtimeConnected) {
+            fetchLandingPublicFeed();
+        }
     }, 8000);
 }
 
@@ -776,6 +872,7 @@ function applyLandingGlobeData() {
     if (!yhLandingMapInstance) return;
 
     const glowPoints = buildLandingGlowEvents(yhLandingGlobeData.points);
+    const globeArcs = Array.isArray(yhLandingGlobeData.arcs) ? yhLandingGlobeData.arcs : [];
 
     yhLandingMapInstance
         .pointsData(glowPoints)
@@ -798,7 +895,7 @@ function applyLandingGlobeData() {
         .ringMaxRadius((point) => point.ringMaxRadius ?? 4.8)
         .ringPropagationSpeed((point) => point.ringPropagationSpeed ?? 1.65)
         .ringRepeatPeriod((point) => point.ringRepeatPeriod ?? 680)
-        .arcsData([])
+        .arcsData(globeArcs)
         .arcStartLat('startLat')
         .arcStartLng('startLng')
         .arcEndLat('endLat')

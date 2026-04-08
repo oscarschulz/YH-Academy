@@ -1,5 +1,6 @@
 const { firestore } = require('../../config/firebaseAdmin');
 const { Timestamp } = require('firebase-admin/firestore');
+const geocodingService = require('../services/geocodingService');
 
 const usersCol = firestore.collection('users');
 const publicLandingEventsCol = firestore.collection('publicLandingEvents');
@@ -27,6 +28,114 @@ const addSecondsTs = (seconds = 900) => {
     return Timestamp.fromDate(new Date(Date.now() + safeSeconds * 1000));
 };
 
+const COUNTRY_GEO_INDEX = {
+    nigeria: { country: 'Nigeria', countryCode: 'NG', lat: 9.0820, lng: 8.6753 },
+    philippines: { country: 'Philippines', countryCode: 'PH', lat: 12.8797, lng: 121.7740 },
+    india: { country: 'India', countryCode: 'IN', lat: 20.5937, lng: 78.9629 },
+    'united states': { country: 'United States', countryCode: 'US', lat: 37.0902, lng: -95.7129 },
+    canada: { country: 'Canada', countryCode: 'CA', lat: 56.1304, lng: -106.3468 },
+    'united kingdom': { country: 'United Kingdom', countryCode: 'GB', lat: 55.3781, lng: -3.4360 },
+    australia: { country: 'Australia', countryCode: 'AU', lat: -25.2744, lng: 133.7751 },
+    singapore: { country: 'Singapore', countryCode: 'SG', lat: 1.3521, lng: 103.8198 },
+    'south africa': { country: 'South Africa', countryCode: 'ZA', lat: -30.5595, lng: 22.9375 },
+    'united arab emirates': { country: 'United Arab Emirates', countryCode: 'AE', lat: 23.4241, lng: 53.8478 },
+    germany: { country: 'Germany', countryCode: 'DE', lat: 51.1657, lng: 10.4515 },
+    france: { country: 'France', countryCode: 'FR', lat: 46.2276, lng: 2.2137 },
+    spain: { country: 'Spain', countryCode: 'ES', lat: 40.4637, lng: -3.7492 },
+    italy: { country: 'Italy', countryCode: 'IT', lat: 41.8719, lng: 12.5674 },
+    brazil: { country: 'Brazil', countryCode: 'BR', lat: -14.2350, lng: -51.9253 },
+    mexico: { country: 'Mexico', countryCode: 'MX', lat: 23.6345, lng: -102.5528 },
+    japan: { country: 'Japan', countryCode: 'JP', lat: 36.2048, lng: 138.2529 },
+    netherlands: { country: 'Netherlands', countryCode: 'NL', lat: 52.1326, lng: 5.2913 },
+    sweden: { country: 'Sweden', countryCode: 'SE', lat: 60.1282, lng: 18.6435 },
+    norway: { country: 'Norway', countryCode: 'NO', lat: 60.4720, lng: 8.4689 },
+    kenya: { country: 'Kenya', countryCode: 'KE', lat: -0.0236, lng: 37.9062 },
+    ghana: { country: 'Ghana', countryCode: 'GH', lat: 7.9465, lng: -1.0232 }
+};
+
+const COUNTRY_ALIASES = {
+    ng: 'nigeria',
+    nigeria: 'nigeria',
+    ph: 'philippines',
+    philippines: 'philippines',
+    'the philippines': 'philippines',
+    in: 'india',
+    india: 'india',
+    us: 'united states',
+    usa: 'united states',
+    'united states of america': 'united states',
+    'united states': 'united states',
+    ca: 'canada',
+    canada: 'canada',
+    gb: 'united kingdom',
+    uk: 'united kingdom',
+    england: 'united kingdom',
+    britain: 'united kingdom',
+    'great britain': 'united kingdom',
+    'united kingdom': 'united kingdom',
+    au: 'australia',
+    australia: 'australia',
+    sg: 'singapore',
+    singapore: 'singapore',
+    za: 'south africa',
+    'south africa': 'south africa',
+    ae: 'united arab emirates',
+    uae: 'united arab emirates',
+    'united arab emirates': 'united arab emirates',
+    de: 'germany',
+    germany: 'germany',
+    fr: 'france',
+    france: 'france',
+    es: 'spain',
+    spain: 'spain',
+    it: 'italy',
+    italy: 'italy',
+    br: 'brazil',
+    brazil: 'brazil',
+    mx: 'mexico',
+    mexico: 'mexico',
+    jp: 'japan',
+    japan: 'japan',
+    nl: 'netherlands',
+    netherlands: 'netherlands',
+    se: 'sweden',
+    sweden: 'sweden',
+    no: 'norway',
+    norway: 'norway',
+    ke: 'kenya',
+    kenya: 'kenya',
+    gh: 'ghana',
+    ghana: 'ghana'
+};
+
+const nowIso = () => new Date().toISOString();
+
+function normalizeGeoText(value = '') {
+    return String(value || '').trim().replace(/\s+/g, ' ');
+}
+
+function deriveGeoFromText({ city = '', country = '' } = {}) {
+    const cleanCity = normalizeGeoText(city);
+    const cleanCountryInput = normalizeGeoText(country);
+    const normalizedCountryKey =
+        COUNTRY_ALIASES[cleanCountryInput.toLowerCase()] ||
+        cleanCountryInput.toLowerCase();
+
+    const geo = COUNTRY_GEO_INDEX[normalizedCountryKey] || null;
+
+    return {
+        city: cleanCity,
+        cityNormalized: cleanCity.toLowerCase(),
+        country: geo?.country || cleanCountryInput,
+        countryNormalized: normalizedCountryKey,
+        countryCode: geo?.countryCode || '',
+        lat: geo ? Number(geo.lat) : null,
+        lng: geo ? Number(geo.lng) : null,
+        geoSource: geo ? 'landing_geo_backfill_country_centroid' : 'landing_geo_backfill_pending',
+        geoUpdatedAt: nowIso()
+    };
+}
+
 function buildLocationText(geo = {}) {
     const city = sanitizeText(geo.city);
     const country = sanitizeText(geo.country);
@@ -41,17 +150,11 @@ async function getUserGeo(userId) {
     const normalizedUserId = sanitizeText(userId);
     if (!normalizedUserId) return null;
 
-    const snap = await usersCol.doc(normalizedUserId).get();
+    const userRef = usersCol.doc(normalizedUserId);
+    const snap = await userRef.get();
     if (!snap.exists) return null;
 
     const data = snap.data() || {};
-    const lat = Number(data.lat);
-    const lng = Number(data.lng);
-
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-        return null;
-    }
-
     const actorName =
         sanitizeText(data.fullName) ||
         sanitizeText(data.displayName) ||
@@ -59,15 +162,115 @@ async function getUserGeo(userId) {
         sanitizeText(data.username) ||
         'A member';
 
+    const existingLat = Number(data.lat);
+    const existingLng = Number(data.lng);
+    const existingGeoSource = sanitizeText(data.geoSource).toLowerCase();
+
+    let fallbackCity = sanitizeText(data.city);
+    let fallbackCountry = sanitizeText(data.country);
+    let fallbackCountryCode = sanitizeText(data.countryCode);
+
+    try {
+        const academyProfileSnap = await userRef.collection('academy').doc('profile').get();
+        if (academyProfileSnap.exists) {
+            const academyProfile = academyProfileSnap.data() || {};
+            fallbackCity = fallbackCity || sanitizeText(academyProfile.city);
+            fallbackCountry = fallbackCountry || sanitizeText(academyProfile.country);
+            fallbackCountryCode = fallbackCountryCode || sanitizeText(academyProfile.countryCode);
+        }
+    } catch (error) {
+        console.warn(`publicLandingEventsRepo.getUserGeo academy profile fallback failed for ${normalizedUserId}:`, error?.message || error);
+    }
+
+    const shouldUpgradeGeo =
+        !Number.isFinite(existingLat) ||
+        !Number.isFinite(existingLng) ||
+        !existingGeoSource ||
+        existingGeoSource.includes('country_centroid') ||
+        existingGeoSource.includes('manual_pending') ||
+        existingGeoSource.includes('backfill_pending');
+
+    let resolvedGeo = null;
+
+    if ((fallbackCity || fallbackCountry) && shouldUpgradeGeo) {
+        try {
+            resolvedGeo = await geocodingService.resolveLocation({
+                city: fallbackCity,
+                country: fallbackCountry,
+                fallbackToCountryCentroid: true
+            });
+        } catch (error) {
+            console.warn(`publicLandingEventsRepo.getUserGeo live geocode failed for ${normalizedUserId}:`, error?.message || error);
+        }
+    }
+
+    const resolvedLat = Number(resolvedGeo?.lat);
+    const resolvedLng = Number(resolvedGeo?.lng);
+
+    const finalLat =
+        Number.isFinite(resolvedLat) && Number.isFinite(resolvedLng)
+            ? resolvedLat
+            : existingLat;
+
+    const finalLng =
+        Number.isFinite(resolvedLat) && Number.isFinite(resolvedLng)
+            ? resolvedLng
+            : existingLng;
+
+    if (!Number.isFinite(finalLat) || !Number.isFinite(finalLng)) {
+        return null;
+    }
+
+    const finalCity =
+        sanitizeText(resolvedGeo?.city) ||
+        fallbackCity;
+
+    const finalCountry =
+        sanitizeText(resolvedGeo?.country) ||
+        fallbackCountry;
+
+    const finalCountryCode =
+        sanitizeText(resolvedGeo?.countryCode) ||
+        fallbackCountryCode;
+
+    if (resolvedGeo && Number.isFinite(resolvedLat) && Number.isFinite(resolvedLng)) {
+        try {
+            await userRef.set(
+                {
+                    ...(finalCity ? { city: finalCity } : {}),
+                    ...(sanitizeText(resolvedGeo.cityNormalized) ? { cityNormalized: resolvedGeo.cityNormalized } : {}),
+                    ...(finalCountry ? { country: finalCountry } : {}),
+                    ...(sanitizeText(resolvedGeo.countryNormalized) ? { countryNormalized: resolvedGeo.countryNormalized } : {}),
+                    ...(finalCountryCode ? { countryCode: finalCountryCode } : {}),
+                    lat: finalLat,
+                    lng: finalLng,
+                    geoSource: resolvedGeo.geoSource,
+                    geoProvider: resolvedGeo.geoProvider,
+                    geoPrecision: resolvedGeo.geoPrecision,
+                    ...(Number.isFinite(Number(resolvedGeo.geoConfidence))
+                        ? { geoConfidence: Number(resolvedGeo.geoConfidence) }
+                        : {}),
+                    ...(sanitizeText(resolvedGeo.geoDisplayName)
+                        ? { geoDisplayName: sanitizeText(resolvedGeo.geoDisplayName) }
+                        : {}),
+                    geoUpdatedAt: resolvedGeo.geoUpdatedAt
+                },
+                { merge: true }
+            );
+        } catch (error) {
+            console.warn(`publicLandingEventsRepo.getUserGeo root geo update failed for ${normalizedUserId}:`, error?.message || error);
+        }
+    }
+
     return {
         userId: normalizedUserId,
         actorName,
         username: sanitizeText(data.username),
-        city: sanitizeText(data.city),
-        country: sanitizeText(data.country),
-        countryCode: sanitizeText(data.countryCode),
-        lat,
-        lng
+        city: finalCity,
+        country: finalCountry,
+        countryCode: finalCountryCode,
+        lat: finalLat,
+        lng: finalLng
     };
 }
 
@@ -174,6 +377,12 @@ async function createEventForUser(userId, options = {}) {
     };
 
     await ref.set(payload);
+
+    if (typeof global.yhEmitPublicLandingSnapshot === 'function') {
+        Promise.resolve(global.yhEmitPublicLandingSnapshot()).catch((error) => {
+            console.warn('public landing snapshot emit skipped:', error?.message || error);
+        });
+    }
 
     return {
         id: ref.id,
@@ -745,30 +954,42 @@ async function buildPublicLandingSnapshot(limit = 24) {
             return Number.isFinite(expiresMs) ? expiresMs > nowMs : true;
         });
 
-    const academySource = events.filter((event) => event.slot === 'academy' && event.category === 'academy');
-    const uniqueAcademySource = [];
-    const seenAcademyKeys = new Set();
+    const uniqueEvents = [];
+    const seenKeys = new Set();
 
-    for (const event of academySource) {
+    for (const event of events) {
         const eventKey = buildEventKey(event);
-        if (seenAcademyKeys.has(eventKey)) continue;
-        seenAcademyKeys.add(eventKey);
-        uniqueAcademySource.push(event);
+        if (seenKeys.has(eventKey)) continue;
+        seenKeys.add(eventKey);
+        uniqueEvents.push(event);
     }
+
+    const orderedEvents = uniqueEvents
+        .slice()
+        .sort((a, b) => {
+            const aTime = new Date(a.createdAt || 0).getTime();
+            const bTime = new Date(b.createdAt || 0).getTime();
+            return bTime - aTime;
+        });
 
     const feed = getDefaultFeed();
 
-    if (academySource[0]?.feedText) {
-        feed.academy = academySource[0].feedText;
-    }
+    const latestAcademy = orderedEvents.find((event) => event.slot === 'academy');
+    const latestFederation = orderedEvents.find((event) => event.slot === 'federation');
+    const latestPlaza = orderedEvents.find((event) => event.slot === 'plaza');
 
-    const academyEvents = uniqueAcademySource.slice(0, 6).map((event) => ({
+    if (latestAcademy?.feedText) feed.academy = latestAcademy.feedText;
+    if (latestFederation?.feedText) feed.federation = latestFederation.feedText;
+    if (latestPlaza?.feedText) feed.plaza = latestPlaza.feedText;
+
+    const liveEvents = orderedEvents.slice(0, 6).map((event) => ({
         id: event.id,
         pointId: event.id,
+        slot: event.slot,
         type: event.type,
         actorName: event.actorName,
-        label: event.label || 'Academy Activity',
-        feedText: event.feedText || event.message || 'Academy activity',
+        label: event.label || `${sanitizeText(event.slot || 'activity')} activity`,
+        feedText: event.feedText || event.message || 'Live activity',
         locationText: event.locationText || buildLocationText(event),
         city: event.city,
         country: event.country,
@@ -776,11 +997,15 @@ async function buildPublicLandingSnapshot(limit = 24) {
         createdAt: event.createdAt
     }));
 
-    const points = uniqueAcademySource.slice(0, 8).map((event) => ({
+    const academyEvents = liveEvents
+        .filter((event) => event.slot === 'academy')
+        .slice(0, 6);
+
+    const points = orderedEvents.slice(0, 8).map((event) => ({
         id: event.id,
         lat: event.lat,
         lng: event.lng,
-        label: event.label || event.locationText || event.feedText || event.message || 'Academy activity',
+        label: event.label || event.locationText || event.feedText || event.message || 'Live activity',
         color: event.color || '#38bdf8',
         altitude: event.altitude || 0.22,
         ...(event.coreColor ? { coreColor: event.coreColor } : {}),
@@ -804,6 +1029,7 @@ async function buildPublicLandingSnapshot(limit = 24) {
 
     return {
         feed,
+        liveEvents,
         academyEvents,
         points,
         arcs: [],

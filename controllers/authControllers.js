@@ -3,6 +3,7 @@ const nodemailer = require('nodemailer');
 const jwt = require('jsonwebtoken');
 const { firestore } = require('../config/firebaseAdmin');
 const publicLandingEventsRepo = require('../backend/repositories/publicLandingEventsRepo');
+const geocodingService = require('../backend/services/geocodingService');
 
 const USERS_COLLECTION = 'users';
 const OTP_FROM_EMAIL = process.env.OTP_FROM_EMAIL || 'YH Universe <noreply@younghustlers.net>';
@@ -587,7 +588,11 @@ exports.registerUser = async (req, res) => {
 
         username = await generateUniqueUsername(fullName, username);
 
-        const registrationGeo = deriveRegistrationGeo({ city, country });
+        const registrationGeo = await geocodingService.resolveLocation({
+            city,
+            country,
+            fallbackToCountryCentroid: true
+        });
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
         const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
@@ -608,6 +613,14 @@ exports.registerUser = async (req, res) => {
             lat: registrationGeo.lat,
             lng: registrationGeo.lng,
             geoSource: registrationGeo.geoSource,
+            geoProvider: registrationGeo.geoProvider,
+            geoPrecision: registrationGeo.geoPrecision,
+            ...(Number.isFinite(Number(registrationGeo.geoConfidence))
+                ? { geoConfidence: Number(registrationGeo.geoConfidence) }
+                : {}),
+            ...(registrationGeo.geoDisplayName
+                ? { geoDisplayName: registrationGeo.geoDisplayName }
+                : {}),
             geoUpdatedAt: registrationGeo.geoUpdatedAt,
             avatar: profilePhotoDataUrl,
             profilePhoto: profilePhotoDataUrl,
