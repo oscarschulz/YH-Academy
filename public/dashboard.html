@@ -698,62 +698,131 @@
             <div id="ai-form-phase">
             <div class="text-center mb-1-25">
                 <h2 class="yh-title-small" style="color: var(--neon-blue);"></h2>
-                <p class="yh-subtitle-small">This is the one-time planning form inside The Academy. After submission, the AI will generate the roadmap immediately and unlock the Roadmap tab automatically.</p>
+<p class="yh-subtitle-small">Complete the Academy application below. Core identity details are pulled from the registration flow when available, and submission will send your application for manual admin review.</p>
             </div>
                 
 <form id="form-academy-apply">
-    <div class="form-group mb-small">
-        <label>Why do you want access to The Academy right now?</label>
-        <textarea id="app-why-now" required class="input-field" rows="2" placeholder="Why now? What changed? Why are you applying at this point in your life?"></textarea>
-    </div>
-
-    <div class="form-group mb-small">
-        <label>What is the main result you want from The Academy in the next 90 days?</label>
-        <textarea id="app-main-goal" required class="input-field" rows="2" placeholder="What exact outcome do you want if accepted?"></textarea>
-    </div>
-
-    <div class="form-group mb-small">
-        <label>What proof can you give that you are serious and not just curious?</label>
-        <textarea id="app-proof-work" required class="input-field" rows="2" placeholder="Mention current discipline, work ethic, routines, past effort, or anything that proves seriousness."></textarea>
-    </div>
-
-    <div class="form-group mb-small">
-        <label>What are you willing to sacrifice or change to grow inside the Academy?</label>
-        <textarea id="app-sacrifice" required class="input-field" rows="2" placeholder="What habits, distractions, excuses, or comforts are you ready to cut off?"></textarea>
-    </div>
-
     <div class="form-row">
         <div class="form-group w-full mb-small">
-            <label>How serious are you about being accepted?</label>
-            <select id="app-seriousness" required class="input-field styled-select">
-                <option value="" disabled selected>Select status.</option>
-                <option value="Very Serious">Very Serious</option>
-                <option value="Serious but need structure">Serious but need structure</option>
-                <option value="Looking to learn">Looking to learn</option>
-                <option value="Just Curious">Just Curious</option>
-            </select>
+            <label>Name*</label>
+            <input
+                type="text"
+                id="app-first-name"
+                required
+                class="input-field"
+                placeholder="Pulled from your registration details when available."
+            >
         </div>
 
         <div class="form-group w-full mb-small">
-            <label>How many hours per week will you commit if accepted?</label>
-            <select id="app-hours" required class="input-field styled-select">
-                <option value="" disabled selected>Select hours.</option>
-                <option value="Less than 3">Less than 3</option>
-                <option value="3-5">3-5</option>
-                <option value="6-10">6-10</option>
-                <option value="10+">10+</option>
-            </select>
+            <label>Surname*</label>
+            <input
+                type="text"
+                id="app-surname"
+                required
+                class="input-field"
+                placeholder="Pulled from your registration details when available."
+            >
         </div>
+    </div>
+
+    <div class="form-group mb-small">
+        <label>Location / Country of residence*</label>
+        <input
+            type="text"
+            id="app-location-country"
+            required
+            class="input-field"
+            placeholder="Pulled from your registration details when available."
+        >
+    </div>
+
+    <div class="form-group mb-small">
+        <label>Drop your best e-mail address*</label>
+        <input
+            type="email"
+            id="app-email"
+            required
+            class="input-field"
+            placeholder="you@example.com"
+        >
+    </div>
+
+    <div class="form-group mb-small">
+        <label>Age*</label>
+        <input
+            type="number"
+            id="app-age"
+            required
+            min="13"
+            max="120"
+            class="input-field"
+            placeholder="e.g. 22"
+        >
+    </div>
+
+    <div class="form-group mb-small">
+        <label id="app-occupation-label">What do you do for a living at the age of your answer above?*</label>
+        <textarea
+            id="app-occupation"
+            required
+            class="input-field"
+            rows="2"
+            placeholder="What do you currently do for a living at your age right now?"
+        ></textarea>
+    </div>
+
+    <div class="form-group mb-small">
+        <label>What are you good at? What are your skills?*</label>
+        <textarea
+            id="app-skills"
+            required
+            class="input-field"
+            rows="2"
+            placeholder="List your strongest skills, abilities, experience, and things you naturally do well."
+        ></textarea>
+    </div>
+
+    <div class="form-group mb-small">
+        <label>Who referred you? (username from the database)</label>
+        <input
+            type="text"
+            id="app-referred-by"
+            class="input-field"
+            placeholder="@username"
+        >
+    </div>
+
+    <div class="form-group mb-small">
+        <label id="app-hear-about-label">In case no one referred you, how did you hear from us?*</label>
+        <textarea
+            id="app-hear-about"
+            class="input-field"
+            rows="2"
+            placeholder="Tell us where you found The Academy if no one referred you."
+        ></textarea>
+    </div>
+
+    <div class="form-group mb-small">
+        <label>How serious are you about being accepted?</label>
+        <select id="app-seriousness" required class="input-field styled-select">
+            <option value="" disabled selected>Select status.</option>
+            <option value="Very Serious">Very Serious</option>
+            <option value="Serious but need structure">Serious but need structure</option>
+            <option value="Looking to learn">Looking to learn</option>
+            <option value="Just Curious">Just Curious</option>
+        </select>
     </div>
 
     <div class="form-group mb-small">
         <label>What is the one trait or standard that makes you a good fit for The Academy?</label>
-        <textarea id="app-nonnegotiable" required class="input-field" rows="2" placeholder="Discipline, hunger, consistency, obedience, resilience, execution, etc."></textarea>
-    </div>
-
-    <div class="form-group mb-small">
-        <label>Anything else the admin should know before reviewing your application?</label>
-        <textarea id="app-admin-note" class="input-field" rows="2" placeholder="Optional extra context for the admin review."></textarea>
+        <textarea
+            id="app-nonnegotiable"
+            required
+            class="input-field"
+            rows="2"
+            placeholder="Discipline, hunger, consistency, obedience, resilience, execution, etc."
+        ></textarea>
     </div>
 
     <button type="submit" id="btn-submit-ai" class="btn-primary w-full mt-small" style="padding: 12px; font-size: 1.1rem;">

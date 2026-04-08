@@ -3818,7 +3818,7 @@ body[data-yh-view="academy"] #center-stage-view {
     width: 100%;
     min-height: 100vh;
     min-height: 100svh;
-    padding: clamp(10px, 1vw, 18px);
+    padding: 0 clamp(10px, 1vw, 18px) clamp(10px, 1vw, 18px);
     overflow: visible;
 }
 
@@ -3855,6 +3855,7 @@ body[data-yh-view="academy"] #center-stage-view {
     position: relative;
     z-index: 1;
     overflow: visible;
+    padding-top: 0;
 }
 
 .yh-landing-section,
@@ -3871,6 +3872,11 @@ body[data-yh-view="academy"] #center-stage-view {
 }
 
 .yh-landing-topbar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 12;
     width: 100%;
     max-width: none;
     margin: 0;
@@ -3879,6 +3885,14 @@ body[data-yh-view="academy"] #center-stage-view {
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    pointer-events: none;
+}
+
+.yh-landing-topbar > * {
+    pointer-events: auto;
 }
 
 .yh-landing-brand {
@@ -4669,11 +4683,16 @@ body[data-yh-view="academy"] #center-stage-view {
     }
 
     .yh-landing-topbar {
+        position: relative;
+        top: auto;
+        left: auto;
+        right: auto;
         padding: 10px 0 0;
         flex-direction: row;
         align-items: center;
         justify-content: space-between;
         gap: 0.75rem;
+        pointer-events: auto;
     }
 
     .yh-landing-brand {
@@ -7307,7 +7326,7 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
 }
 
 .yh-landing-hero-grid {
-    padding-top: 0.15rem !important;
+    padding-top: clamp(72px, 8vw, 108px) !important;
 }
 
 .yh-landing-pill {
@@ -7339,13 +7358,19 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
     }
 }
 .yh-landing-topbar {
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
     padding-top: 4px !important;
     padding-bottom: 0 !important;
-    margin-bottom: 0.34rem !important;
+    margin-bottom: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
 }
 
 .yh-landing-hero-grid {
-    padding-top: 0.08rem !important;
+    padding-top: clamp(72px, 8vw, 108px) !important;
 }
 
 .yh-landing-pill {

@@ -5143,6 +5143,9 @@ function resetAcademyLauncherState() {
 function openAcademyLauncher() {
     if (!applyModal) return;
     resetAcademyLauncherState();
+    applyAcademyIdentityPrefill();
+    syncAcademyOccupationField();
+    syncAcademyReferralFields();
     applyModal.classList.remove('hidden-step');
     document.body?.classList.add('academy-launcher-open');
 }
@@ -5469,10 +5472,42 @@ function requestAcademyMembershipRefresh(reason = '', force = false) {
     });
 }
 function getCurrentAcademyApplicantIdentity() {
+    const rawDisplayName = String(getStoredUserValue('yh_user_name', 'Hustler')).trim();
+    const nameParts = rawDisplayName.split(/\s+/).filter(Boolean);
+
+    const firstName = readAcademyUserField(
+        'yh_user_first_name',
+        'yh_user_firstname'
+    ) || nameParts[0] || 'Hustler';
+
+    const surname = readAcademyUserField(
+        'yh_user_surname',
+        'yh_user_last_name',
+        'yh_user_lastname'
+    ) || (nameParts.length > 1 ? nameParts.slice(1).join(' ') : '');
+
+    const city = readAcademyUserField(
+        'yh_user_city',
+        'yh_user_location_city'
+    );
+
+    const country = readAcademyUserField(
+        'yh_user_country',
+        'yh_user_country_of_residence',
+        'yh_user_location_country'
+    );
+
+    const locationCountry = [city, country].filter(Boolean).join(', ') || country;
+
     return {
-        name: String(localStorage.getItem('yh_user_name') || 'Hustler').trim(),
-        username: String(localStorage.getItem('yh_user_username') || '').trim(),
-        email: String(localStorage.getItem('yh_user_email') || '').trim().toLowerCase()
+        name: rawDisplayName || [firstName, surname].filter(Boolean).join(' ').trim() || 'Hustler',
+        firstName,
+        surname,
+        username: String(getStoredUserValue('yh_user_username', '') || '').trim(),
+        email: String(getStoredUserValue('yh_user_email', '') || '').trim().toLowerCase(),
+        city,
+        country,
+        locationCountry
     };
 }
 
@@ -5755,10 +5790,85 @@ syncUniverseFeaturePanel('academy');
 setUniverseSlide('academy', { animate: false });
 
 const formApply = document.getElementById('form-academy-apply');
-function syncAcademyOccupationField() {
-    // Academy membership form is now seriousness-based.
-    // No occupation/job field remapping is needed here anymore.
+
+function readAcademyUserField(...keys) {
+    for (const key of keys) {
+        const value = getStoredUserValue(key, '');
+        if (String(value || '').trim()) {
+            return String(value).trim();
+        }
+    }
+    return '';
 }
+
+function applyAcademyIdentityPrefill() {
+    const identity = getCurrentAcademyApplicantIdentity();
+
+    const prefillMap = [
+        ['app-first-name', identity.firstName],
+        ['app-surname', identity.surname],
+        ['app-location-country', identity.locationCountry],
+        ['app-email', identity.email]
+    ];
+
+    prefillMap.forEach(([fieldId, fieldValue]) => {
+        const input = document.getElementById(fieldId);
+        if (!input) return;
+
+        const cleanValue = String(fieldValue || '').trim();
+        const hasPrefill = Boolean(cleanValue);
+
+        if (hasPrefill) {
+            input.value = cleanValue;
+            input.readOnly = true;
+            input.dataset.prefilled = 'true';
+        } else {
+            input.readOnly = false;
+            input.dataset.prefilled = 'false';
+        }
+    });
+}
+
+function syncAcademyOccupationField() {
+    const ageInput = document.getElementById('app-age');
+    const occupationLabel = document.getElementById('app-occupation-label');
+    const occupationInput = document.getElementById('app-occupation');
+
+    if (!occupationLabel || !occupationInput) return;
+
+    const ageValue = String(ageInput?.value || '').trim();
+
+    occupationLabel.innerText = ageValue
+        ? `What do you do for a living at the age of ${ageValue}?*`
+        : 'What do you do for a living at the age of your answer above?*';
+
+    occupationInput.placeholder = ageValue
+        ? `Tell us what you do for a living at age ${ageValue}.`
+        : 'What do you currently do for a living at your age right now?';
+}
+
+function syncAcademyReferralFields() {
+    const referrerInput = document.getElementById('app-referred-by');
+    const hearAboutInput = document.getElementById('app-hear-about');
+    const hearAboutLabel = document.getElementById('app-hear-about-label');
+
+    if (!hearAboutInput || !hearAboutLabel) return;
+
+    const hasReferrer = Boolean(String(referrerInput?.value || '').trim());
+
+    hearAboutInput.required = !hasReferrer;
+    hearAboutLabel.innerText = hasReferrer
+        ? 'In case the referrer username is incorrect, how did you hear from us?'
+        : 'In case no one referred you, how did you hear from us?*';
+}
+
+document.getElementById('app-age')?.addEventListener('input', syncAcademyOccupationField);
+document.getElementById('app-referred-by')?.addEventListener('input', syncAcademyReferralFields);
+
+applyAcademyIdentityPrefill();
+syncAcademyOccupationField();
+syncAcademyReferralFields();
+
 const escapeHtml = (value) => {
     if (value === null || value === undefined) return '';
     return String(value)
@@ -5795,15 +5905,59 @@ if (formApply) {
         aiVerdictPhase?.classList.add('hidden-step');
         aiSpinnerPhase?.classList.remove('hidden-step');
 
+const applicantIdentity = getCurrentAcademyApplicantIdentity();
+
+const referrerUsername = String(
+    document.getElementById('app-referred-by')?.value || ''
+).trim().replace(/^@+/, '');
+
+const hearAboutUs = String(
+    document.getElementById('app-hear-about')?.value || ''
+).trim();
+
+if (!referrerUsername && !hearAboutUs) {
+    aiSpinnerPhase?.classList.add('hidden-step');
+    aiVerdictPhase?.classList.add('hidden-step');
+    aiFormPhase?.classList.remove('hidden-step');
+    showToast("Please enter a referrer username or tell us how you heard about The Academy.", "error");
+    return;
+}
+
+const firstName = document.getElementById('app-first-name')?.value?.trim() || '';
+const surname = document.getElementById('app-surname')?.value?.trim() || '';
+const locationCountry = document.getElementById('app-location-country')?.value?.trim() || '';
+const email = document.getElementById('app-email')?.value?.trim().toLowerCase() || '';
+const age = document.getElementById('app-age')?.value?.trim() || '';
+const occupationAtAge = document.getElementById('app-occupation')?.value?.trim() || '';
+const skills = document.getElementById('app-skills')?.value?.trim() || '';
+const seriousness = document.getElementById('app-seriousness')?.value?.trim() || '';
+const nonNegotiable = document.getElementById('app-nonnegotiable')?.value?.trim() || '';
+
 const payload = {
-    whyNow: document.getElementById('app-why-now')?.value?.trim() || '',
-    mainGoal: document.getElementById('app-main-goal')?.value?.trim() || '',
-    proofWork: document.getElementById('app-proof-work')?.value?.trim() || '',
-    sacrifice: document.getElementById('app-sacrifice')?.value?.trim() || '',
-    seriousness: document.getElementById('app-seriousness')?.value?.trim() || '',
-    weeklyHours: document.getElementById('app-hours')?.value?.trim() || '',
-    nonNegotiable: document.getElementById('app-nonnegotiable')?.value?.trim() || '',
-    adminNote: document.getElementById('app-admin-note')?.value?.trim() || ''
+    applicationType: 'academy-membership',
+    name: applicantIdentity.name || [firstName, surname].filter(Boolean).join(' ').trim(),
+    firstName,
+    surname,
+    fullName: [firstName, surname].filter(Boolean).join(' ').trim(),
+    username: applicantIdentity.username || '',
+    email,
+    age,
+    occupationAtAge,
+    skills,
+    referredByUsername: referrerUsername,
+    hearAboutUs,
+    locationCountry,
+    countryOfResidence: locationCountry,
+    seriousness,
+    nonNegotiable,
+
+    // Compatibility bridge for any old Academy backend logic
+    whyNow: hearAboutUs || `Referred by @${referrerUsername}`,
+    mainGoal: occupationAtAge,
+    proofWork: skills,
+    sacrifice: '',
+    weeklyHours: '',
+    adminNote: ''
 };
 
 try {
