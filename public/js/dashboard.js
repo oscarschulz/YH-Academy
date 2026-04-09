@@ -4203,27 +4203,169 @@ function academyRenderMemberBrowserList(members = [], query = '') {
     }).join('');
 }
 
+async function requestAcademyMemberSearch(query = '') {
+    const normalizedQuery = String(query || '').trim();
+    const cacheKey = normalizedQuery.toLowerCase();
+    const now = Date.now();
+    const CACHE_TTL_MS = 15 * 1000;
+
+    if (!normalizedQuery) return [];
+
+    const cached = academyMemberSearchCache.get(cacheKey);
+    if (cached && (now - cached.at) < CACHE_TTL_MS && Array.isArray(cached.members)) {
+        return cached.members;
+    }
+
+    if (academyMemberSearchInFlight && academyMemberSearchInFlight.key === cacheKey) {
+        return academyMemberSearchInFlight.promise;
+    }
+
+    const promise = academyAuthedFetch(
+        `/api/academy/community/members?limit=24&query=${encodeURIComponent(normalizedQuery)}`,
+        { method: 'GET' }
+    )
+        .then((result) => (Array.isArray(result?.members) ? result.members : []))
+        .catch(() => [])
+        .finally(() => {
+            if (academyMemberSearchInFlight && academyMemberSearchInFlight.key === cacheKey) {
+                academyMemberSearchInFlight = null;
+            }
+        });
+
+    academyMemberSearchInFlight = { key: cacheKey, promise };
+
+    const members = await promise;
+    academyMemberSearchCache.set(cacheKey, { at: Date.now(), members });
+    return members;
+}
+
+function closeAcademySearchResultsPanel() {
+    const panel = document.getElementById('academy-search-results-panel');
+    const inner = document.getElementById('academy-search-results-inner');
+    if (inner) inner.innerHTML = '';
+    panel?.classList.add('hidden-step');
+}
+
+function resolveAcademyTagFromQuery(query = '') {
+    const normalizedQuery = normalizeAcademySearchValue(query);
+    if (!normalizedQuery) return '';
+
+    for (const [key, values] of Object.entries(ACADEMY_TAG_SEARCH_ALIASES || {})) {
+        const normalizedValues = [key, ...(Array.isArray(values) ? values : [])]
+            .map((entry) => normalizeAcademySearchValue(entry))
+            .filter(Boolean);
+
+        if (normalizedValues.includes(normalizedQuery)) {
+            return key;
+        }
+    }
+
+    return '';
+}
+
+function renderAcademySearchResultsPanel(members = [], query = '') {
+    const panel = document.getElementById('academy-search-results-panel');
+    const inner = document.getElementById('academy-search-results-inner');
+    if (!panel || !inner) return;
+
+    const normalizedQuery = String(query || '').trim();
+
+    if (!normalizedQuery) {
+        closeAcademySearchResultsPanel();
+        return;
+    }
+
+    panel.classList.remove('hidden-step');
+
+    const tagKey = resolveAcademyTagFromQuery(normalizedQuery);
+
+    const tagRow = tagKey
+        ? `
+            <div class="academy-search-tag-row">
+                <div>
+                    <strong>#${academyFeedEscapeHtml(tagKey)}</strong>
+                    <div><span>Jump to the ${academyFeedEscapeHtml(tagKey)} section</span></div>
+                </div>
+                <button type="button" class="btn-secondary" data-academy-tag-jump="${academyFeedEscapeHtml(tagKey)}">Open</button>
+            </div>
+        `
+        : '';
+
+    if (!Array.isArray(members) || members.length === 0) {
+        inner.innerHTML = `
+            ${tagRow}
+            <div class="academy-member-browser-empty" style="padding: 10px 6px;">
+                No members matched “${academyFeedEscapeHtml(normalizedQuery)}”.
+            </div>
+        `;
+        return;
+    }
+
+    const topMembers = members.slice(0, 6);
+
+    inner.innerHTML = `
+        ${tagRow}
+        ${topMembers
+            .map((member) => {
+                const displayName =
+                    member.display_name ||
+                    member.fullName ||
+                    member.username ||
+                    'Academy Member';
+
+                const username = String(member.username || '').trim();
+                const followerCount = Number(member.followers_count || 0);
+                const isFollowing = member.followed_by_me === true || member.followed_by_me === 1;
+                const tagLine = Array.isArray(member.search_tags) && member.search_tags.length
+                    ? member.search_tags.slice(0, 3).map((tag) => `#${String(tag).replace(/^#/, '')}`).join(' • ')
+                    : '#the academy • #academy • #yha';
+
+                return `
+                    <article class="academy-member-card" style="padding: 12px 14px;">
+                        <div class="academy-member-card-main" style="min-width:0;">
+                            <div style="font-weight:700;color:#fff;line-height:1.1;">
+                                ${academyFeedEscapeHtml(displayName)}
+                                ${username ? `<small> • @${academyFeedEscapeHtml(username)}</small>` : ''}
+                            </div>
+                            <div class="academy-search-result-meta">
+                                ${academyFeedEscapeHtml(String(followerCount))} followers
+                            </div>
+                            <div class="academy-search-result-tags">
+                                ${academyFeedEscapeHtml(tagLine)}
+                            </div>
+                        </div>
+
+                        <div class="academy-search-result-actions">
+                            <button
+                                type="button"
+                                class="btn-secondary academy-member-card-follow ${isFollowing ? 'is-following' : ''}"
+                                data-member-follow-id="${academyFeedEscapeHtml(member.id)}"
+                            >${isFollowing ? 'Following' : 'Follow'}</button>
+                        </div>
+                    </article>
+                `;
+            })
+            .join('')}
+    `;
+}
+
 async function loadAcademyMemberBrowser(query = '') {
     const list = document.getElementById('academy-member-browser-list');
     const modal = document.getElementById('academy-member-browser-modal');
     if (!list || !modal) return;
 
     const normalizedQuery = String(query || '').trim();
+
     modal.classList.remove('hidden-step');
     list.innerHTML = `<div class="academy-member-browser-empty">Loading members...</div>`;
 
-    try {
-        const result = await academyAuthedFetch(`/api/academy/community/members?limit=24&query=${encodeURIComponent(normalizedQuery)}`, {
-            method: 'GET'
-        });
+    const members = normalizedQuery
+        ? await requestAcademyMemberSearch(normalizedQuery)
+        : await academyAuthedFetch(`/api/academy/community/members?limit=24&query=`, { method: 'GET' })
+            .then((result) => (Array.isArray(result?.members) ? result.members : []))
+            .catch(() => []);
 
-        academyRenderMemberBrowserList(
-            Array.isArray(result?.members) ? result.members : [],
-            normalizedQuery
-        );
-    } catch (error) {
-        list.innerHTML = `<div class="academy-member-browser-empty">Failed to load members.</div>`;
-    }
+    academyRenderMemberBrowserList(members, normalizedQuery);
 }
 
 function applyAcademySearch(query = '') {
@@ -4234,21 +4376,36 @@ function applyAcademySearch(query = '') {
         browserInput.value = normalizedQuery;
     }
 
-    if (!normalizedQuery) {
-        document.getElementById('academy-member-browser-modal')?.classList.add('hidden-step');
+    const shouldRun = normalizedQuery.length >= 2;
 
-        if (!document.getElementById('academy-feed-view')?.classList.contains('hidden-step')) {
+    if (!document.getElementById('academy-feed-view')?.classList.contains('hidden-step')) {
+        if (!shouldRun) {
             renderAcademyFeed(readAcademyFeedCachePosts());
+        } else {
+            const filteredPosts = readAcademyFeedCachePosts().filter((post) => academyPostMatchesSearch(post, normalizedQuery));
+            renderAcademyFeed(filteredPosts);
+        }
+    }
+
+    if (!shouldRun) {
+        closeAcademySearchResultsPanel();
+
+        // If the directory modal is already open, reset it back to full list.
+        const modal = document.getElementById('academy-member-browser-modal');
+        if (modal && !modal.classList.contains('hidden-step') && normalizedQuery.length === 0) {
+            loadAcademyMemberBrowser('').catch(() => {});
         }
         return;
     }
 
-    if (!document.getElementById('academy-feed-view')?.classList.contains('hidden-step')) {
-        const filteredPosts = readAcademyFeedCachePosts().filter((post) => academyPostMatchesSearch(post, normalizedQuery));
-        renderAcademyFeed(filteredPosts);
-    }
+    requestAcademyMemberSearch(normalizedQuery).then((members) => {
+        renderAcademySearchResultsPanel(members, normalizedQuery);
 
-    loadAcademyMemberBrowser(normalizedQuery);
+        const modal = document.getElementById('academy-member-browser-modal');
+        if (modal && !modal.classList.contains('hidden-step')) {
+            academyRenderMemberBrowserList(members, normalizedQuery);
+        }
+    });
 }
 
 function openAcademyStageFromRoom(room = {}) {
@@ -4350,23 +4507,20 @@ async function loadAcademyVoiceRooms(forceFresh = false) {
     return rooms;
 }
 
-async function createAcademyVoiceRoom() {
-    const title = window.prompt('Voice lounge title', 'Live Academy Lounge');
-    if (title === null) return;
-
+async function createAcademyVoiceRoom(title = '', topic = '') {
     const cleanTitle = String(title || '').trim();
     if (!cleanTitle) {
-        showToast('Room title is required.', 'error');
-        return;
+        throw new Error('Room title is required.');
     }
 
-    const topic = window.prompt('Voice lounge topic', 'Live networking inside The Academy');
+    const cleanTopic = String(topic || '').trim();
+
     const result = await academyAuthedFetch('/api/realtime/live-rooms', {
         method: 'POST',
         body: JSON.stringify({
             roomType: 'voice',
             title: cleanTitle,
-            topic: String(topic || '').trim()
+            topic: cleanTopic
         })
     });
 
@@ -4374,13 +4528,81 @@ async function createAcademyVoiceRoom() {
         ? result.room
         : {
             title: cleanTitle,
-            topic: String(topic || '').trim(),
+            topic: cleanTopic,
             host_user_name: myName
         };
 
     showToast('Live voice lounge started.', 'success');
     await loadAcademyVoiceRooms(true);
     openAcademyStageFromRoom(room);
+}
+
+function openAcademyLoungeCreateModal() {
+    const modal = document.getElementById('lounge-modal');
+    const titleInput = document.getElementById('lounge-title-input');
+    const topicInput = document.getElementById('lounge-topic-input');
+    const submitBtn = document.getElementById('btn-create-lounge');
+
+    if (!modal) return;
+
+    if (titleInput) titleInput.value = '';
+    if (topicInput) topicInput.value = 'Live networking inside The Academy';
+
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.classList.add('btn-disabled');
+        submitBtn.textContent = 'Start Lounge';
+    }
+
+    modal.classList.remove('hidden-step');
+    setTimeout(() => titleInput?.focus(), 0);
+}
+
+function closeAcademyLoungeCreateModal() {
+    const modal = document.getElementById('lounge-modal');
+    modal?.classList.add('hidden-step');
+}
+
+function syncAcademyLoungeCreateModalState() {
+    const titleInput = document.getElementById('lounge-title-input');
+    const submitBtn = document.getElementById('btn-create-lounge');
+    if (!submitBtn) return;
+
+    const hasTitle = String(titleInput?.value || '').trim().length > 0;
+
+    submitBtn.disabled = !hasTitle;
+    submitBtn.classList.toggle('btn-disabled', !hasTitle);
+}
+
+async function submitAcademyLoungeCreateModal() {
+    const submitBtn = document.getElementById('btn-create-lounge');
+    const titleInput = document.getElementById('lounge-title-input');
+    const topicInput = document.getElementById('lounge-topic-input');
+
+    const title = String(titleInput?.value || '').trim();
+    const topic = String(topicInput?.value || '').trim();
+
+    if (!title) {
+        showToast('Room title is required.', 'error');
+        syncAcademyLoungeCreateModalState();
+        return;
+    }
+
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.classList.add('btn-disabled');
+        submitBtn.textContent = 'Starting...';
+    }
+
+    try {
+        await createAcademyVoiceRoom(title, topic);
+        closeAcademyLoungeCreateModal();
+    } catch (error) {
+        showToast(error.message || 'Failed to start live lounge.', 'error');
+    } finally {
+        if (submitBtn) submitBtn.textContent = 'Start Lounge';
+        syncAcademyLoungeCreateModalState();
+    }
 }
 
 async function loadAcademyFeed(forceReload = false) {
@@ -4561,6 +4783,8 @@ function buildAcademyFeedSharePayload(post, caption = '') {
 
 let academyFeedDeleteTargetPostId = '';
 let academyMemberSearchDebounce = null;
+let academyMemberSearchCache = new Map();
+let academyMemberSearchInFlight = null;
 let academyVoiceRoomsCache = [];
 let academyActiveLiveRoom = null;
 
@@ -5023,11 +5247,88 @@ document.getElementById('academy-feed-composer-input')?.addEventListener('keydow
     }
 });
 
-document.getElementById('btn-start-lounge')?.addEventListener('click', async () => {
-    try {
-        await createAcademyVoiceRoom();
-    } catch (error) {
-        showToast(error.message || 'Failed to start live lounge.', 'error');
+document.getElementById('btn-start-lounge')?.addEventListener('click', () => {
+    openAcademyLoungeCreateModal();
+});
+
+document.getElementById('close-lounge-modal')?.addEventListener('click', () => {
+    closeAcademyLoungeCreateModal();
+});
+
+document.getElementById('lounge-modal')?.addEventListener('click', (event) => {
+    if (event.target?.id === 'lounge-modal') {
+        closeAcademyLoungeCreateModal();
+    }
+});
+
+document.getElementById('lounge-title-input')?.addEventListener('input', syncAcademyLoungeCreateModalState);
+document.getElementById('lounge-topic-input')?.addEventListener('input', syncAcademyLoungeCreateModalState);
+
+document.getElementById('btn-create-lounge')?.addEventListener('click', () => {
+    submitAcademyLoungeCreateModal();
+});
+
+document.getElementById('academy-search-results-close')?.addEventListener('click', () => {
+    closeAcademySearchResultsPanel();
+    const input = document.getElementById('academy-global-search-input');
+    if (input) input.blur();
+});
+
+document.getElementById('academy-search-open-directory')?.addEventListener('click', () => {
+    const q = String(document.getElementById('academy-global-search-input')?.value || '').trim();
+    loadAcademyMemberBrowser(q).catch(() => {});
+});
+
+// Follow/unfollow inside search dropdown or member browser modal.
+document.getElementById('academy-search-results-panel')?.addEventListener('click', (event) => {
+    const followBtn = event.target.closest('[data-member-follow-id]');
+    if (!followBtn) return;
+
+    const targetUserId = normalizeAcademyFeedId(followBtn.getAttribute('data-member-follow-id'));
+    if (!targetUserId) return;
+
+    academyFeedToggleFollow(targetUserId).then(() => {
+        const activeSearch = String(document.getElementById('academy-global-search-input')?.value || '').trim();
+        if (activeSearch.length >= 2) {
+            requestAcademyMemberSearch(activeSearch).then((members) => {
+                renderAcademySearchResultsPanel(members, activeSearch);
+            });
+        }
+    });
+});
+
+document.getElementById('academy-member-browser-modal')?.addEventListener('click', (event) => {
+    const followBtn = event.target.closest('[data-member-follow-id]');
+    if (!followBtn) return;
+
+    const targetUserId = normalizeAcademyFeedId(followBtn.getAttribute('data-member-follow-id'));
+    if (!targetUserId) return;
+
+    academyFeedToggleFollow(targetUserId).then(() => {
+        const activeSearch = String(document.getElementById('academy-member-browser-search-input')?.value || '').trim();
+        loadAcademyMemberBrowser(activeSearch).catch(() => {});
+    });
+});
+
+document.getElementById('academy-search-results-panel')?.addEventListener('click', (event) => {
+    const tagBtn = event.target.closest('[data-academy-tag-jump]');
+    if (!tagBtn) return;
+
+    const key = String(tagBtn.getAttribute('data-academy-tag-jump') || '').trim();
+    if (!key) return;
+
+    closeAcademySearchResultsPanel();
+
+    const map = {
+        roadmap: 'nav-missions',
+        community: 'nav-chat',
+        voice: 'nav-voice',
+        academy: 'nav-chat'
+    };
+
+    const navId = map[key] || '';
+    if (navId) {
+        document.getElementById(navId)?.click();
     }
 });
 
@@ -5052,7 +5353,7 @@ document.getElementById('academy-member-browser-search-input')?.addEventListener
     clearTimeout(academyMemberSearchDebounce);
     academyMemberSearchDebounce = setTimeout(() => {
         applyAcademySearch(nextValue);
-    }, 180);
+    }, 320);
 });
 
 document.getElementById('academy-global-search-input')?.addEventListener('input', (event) => {
@@ -5066,7 +5367,7 @@ document.getElementById('academy-global-search-input')?.addEventListener('input'
     clearTimeout(academyMemberSearchDebounce);
     academyMemberSearchDebounce = setTimeout(() => {
         applyAcademySearch(nextValue);
-    }, 180);
+    }, 320);
 });
 document.getElementById('academy-feed-share-cancel')?.addEventListener('click', () => {
     document.getElementById('academy-feed-share-modal')?.classList.add('hidden-step');
@@ -7411,7 +7712,7 @@ if (roadmapForm) {
 
         if (submitBtn) {
             submitBtn.disabled = true;
-            submitBtn.innerText = yhT('dashboard.roadmapCreating');
+            submitBtn.innerText = 'Creating Roadmap...';
         }
 
         const payload = {

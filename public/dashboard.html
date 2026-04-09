@@ -356,7 +356,7 @@
             <aside class="yh-sidebar hide-scrollbar" id="academy-sidebar">
                 <button id="sidebar-toggle" class="sidebar-toggle-btn" title="Collapse Sidebar">❮</button>
 
-                <div class="channel-search-container">
+<div class="channel-search-container">
                     <div class="search-wrapper">
                         <span class="search-icon-mini">🔍</span>
                         <input
@@ -364,7 +364,26 @@
                             id="academy-global-search-input"
                             placeholder="Search members or tags..."
                             class="channel-search sidebar-text"
+                            autocomplete="off"
+                            spellcheck="false"
                         >
+                    </div>
+
+                    <div id="academy-search-results-panel" class="academy-search-results-panel hidden-step" aria-live="polite">
+                        <div class="academy-search-results-head">
+                            <div class="academy-search-results-title">Search results</div>
+                            <div class="academy-search-results-actions">
+                                <button type="button" class="academy-search-results-open" id="academy-search-open-directory">
+                                    Open directory
+                                </button>
+                                <button type="button" class="academy-search-results-close" id="academy-search-results-close" aria-label="Close search results">
+                                    ✕
+                                </button>
+                            </div>
+                        </div>
+                        <div id="academy-search-results-inner" class="academy-search-results-inner">
+                            <div class="academy-member-browser-empty" style="padding: 12px 6px;">Start typing to see members and tags.</div>
+                        </div>
                     </div>
                 </div>
 
@@ -1079,8 +1098,40 @@
         </div>
     </div>
 
-    <div id="lounge-modal" class="modal-overlay hidden-step fade-in"><div class="modal-card"><div class="modal-header"><h3>🎙️ Start Lounge</h3><span id="close-lounge-modal" class="close-btn">✖</span></div><div class="modal-body"><input type="text" id="lounge-topic-input" placeholder="Topic" class="input-field-compact"></div><div class="modal-footer"><button class="btn-primary w-full btn-disabled" id="btn-create-lounge" disabled>Start</button></div></div></div>
+    <div id="lounge-modal" class="modal-overlay hidden-step fade-in">
+        <div class="modal-card" style="max-width: 520px; width: calc(100% - 32px);">
+            <div class="modal-header">
+                <h3>🎙️ Start Lounge</h3>
+                <span id="close-lounge-modal" class="close-btn">✖</span>
+            </div>
 
+            <div class="modal-body">
+                <div style="font-size:0.82rem;color:var(--text-muted);line-height:1.5;margin-bottom:12px;">
+                    Create a live voice lounge for members inside The Academy.
+                </div>
+
+                <input
+                    type="text"
+                    id="lounge-title-input"
+                    placeholder="Title (required)"
+                    class="input-field-compact"
+                    style="margin-bottom:10px;"
+                >
+                <input
+                    type="text"
+                    id="lounge-topic-input"
+                    placeholder="Topic (optional)"
+                    class="input-field-compact"
+                >
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn-primary w-full btn-disabled" id="btn-create-lounge" disabled>Start Lounge</button>
+            </div>
+        </div>
+    </div>
+
+    
     <div id="dm-modal" class="modal-overlay hidden-step fade-in">
     <div class="modal-card" style="max-width: 560px; width: calc(100% - 32px);">
         <div class="modal-header">
@@ -1216,7 +1267,7 @@
         </div>
     </div>
 </div>
-<div id="academy-feed-share-modal" class="academy-feed-share-modal hidden-step">
+<div id="academy-feed-share-modal" class="modal-overlay academy-feed-share-modal hidden-step fade-in">
     <div class="modal-content academy-feed-share-modal-content">
         <button type="button" id="academy-feed-share-close" class="academy-feed-share-close">✕</button>
         <div class="academy-feed-share-header">

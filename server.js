@@ -349,7 +349,7 @@ const publicLandingLimiter = rateLimit({
 
 const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 30,
+    max: 240,
     message: { success: false, message: "Please wait a moment and try again." },
     standardHeaders: true,
     legacyHeaders: false,
@@ -369,6 +369,15 @@ const apiLimiter = rateLimit({
 
         // Public landing live polling uses its own dedicated limiter.
         if (PUBLIC_LANDING_RATE_LIMIT_PATHS.has(path)) return true;
+
+        // Academy UI reads (feed, member search, membership status) are normal in-app polling.
+        // The generic limiter is too aggressive here and causes 429 spam in the console.
+        const method = String(req.method || '').trim().toUpperCase();
+        if (method === 'GET') {
+            if (path === '/academy/membership-status') return true;
+            if (path === '/academy/community/members') return true;
+            if (path === '/academy/feed' || path.startsWith('/academy/feed/')) return true;
+        }
 
         return false;
     }
