@@ -2649,8 +2649,91 @@ exports.submitRoadmapApplication = async (req, res) => {
             });
         }
 
+        const scopeLabelByKey = {
+            money_business: 'Money, Wealth & Business',
+            mindset_psychology: 'Mindset & Psychology',
+            fitness_health: 'Fitness & Health',
+            communication_networking: 'Communication & Networking',
+            knowledge_for_life: 'Knowledge for Life'
+        };
+
+        const scopeKeyByLabel = Object.entries(scopeLabelByKey).reduce((acc, [key, label]) => {
+            acc[label.toLowerCase()] = key;
+            return acc;
+        }, {});
+
+        const sanitizeNestedScopeAnswers = (value) => {
+            if (Array.isArray(value)) {
+                return value
+                    .map((item) => sanitize(item))
+                    .filter(Boolean);
+            }
+
+            if (!value || typeof value !== 'object') {
+                return {};
+            }
+
+            return Object.entries(value).reduce((acc, [key, rawValue]) => {
+                const cleanKey = sanitize(key);
+                if (!cleanKey) return acc;
+
+                if (Array.isArray(rawValue)) {
+                    acc[cleanKey] = rawValue
+                        .map((item) => sanitize(item))
+                        .filter(Boolean);
+                    return acc;
+                }
+
+                if (rawValue && typeof rawValue === 'object') {
+                    acc[cleanKey] = Object.entries(rawValue).reduce((inner, [innerKey, innerValue]) => {
+                        const cleanInnerKey = sanitize(innerKey);
+                        if (!cleanInnerKey) return inner;
+                        inner[cleanInnerKey] = sanitize(innerValue);
+                        return inner;
+                    }, {});
+                    return acc;
+                }
+
+                acc[cleanKey] = sanitize(rawValue);
+                return acc;
+            }, {});
+        };
+
+        const requestedFocusArea = sanitize(req.body?.focusArea || '');
+        const requestedFocusAreaKey = sanitize(req.body?.focusAreaKey || '').toLowerCase();
+
+        let resolvedFocusAreaKey = scopeLabelByKey[requestedFocusAreaKey]
+            ? requestedFocusAreaKey
+            : scopeKeyByLabel[requestedFocusArea.toLowerCase()] || '';
+
+        if (!resolvedFocusAreaKey && requestedFocusArea) {
+            const inferredKey = requestedFocusArea
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '_')
+                .replace(/^_+|_+$/g, '');
+
+            if (scopeLabelByKey[inferredKey]) {
+                resolvedFocusAreaKey = inferredKey;
+            }
+        }
+
+        const resolvedFocusArea = sanitize(
+            requestedFocusArea || scopeLabelByKey[resolvedFocusAreaKey] || ''
+        );
+
+        const rawScopeAnswers =
+            req.body?.scopeAnswers && typeof req.body.scopeAnswers === 'object'
+                ? req.body.scopeAnswers
+                : safeJsonParse(req.body?.scopeAnswers, {});
+
         const roadmapIntake = {
-            focusArea: sanitize(req.body?.focusArea || ''),
+            focusArea: resolvedFocusArea,
+            focusAreaKey: sanitize(resolvedFocusAreaKey),
+            schemaKey: sanitize(
+                req.body?.schemaKey ||
+                (resolvedFocusAreaKey ? `${resolvedFocusAreaKey}_v1` : '')
+            ),
+            intakeVersion: toInt(req.body?.intakeVersion, 2) || 2,
             currentLevel: sanitize(req.body?.currentLevel || ''),
             target30Days: sanitize(req.body?.target30Days || ''),
             dailyMinutes: sanitize(req.body?.dailyMinutes || ''),
@@ -2662,6 +2745,7 @@ exports.submitRoadmapApplication = async (req, res) => {
             blockerText: sanitize(req.body?.blockerText || ''),
             coachTone: sanitize(req.body?.coachTone || 'balanced'),
             firstQuickWin: sanitize(req.body?.firstQuickWin || ''),
+            scopeAnswers: sanitizeNestedScopeAnswers(rawScopeAnswers),
             submittedAt: sanitize(req.body?.submittedAt || new Date().toISOString())
         };
 
@@ -2683,6 +2767,26 @@ exports.submitRoadmapApplication = async (req, res) => {
                 goals6mo: roadmapIntake.target30Days
             }),
             topPriorityPillar: roadmapIntake.focusArea,
+            focusAreaKey: roadmapIntake.focusAreaKey,
+            roadmapSchemaKey: roadmapIntake.schemaKey,
+            roadmapIntakeVersion: roadmapIntake.intakeVersion,
+            scopeAnswers: roadmapIntake.scopeAnswers,
+            dynamicIntake: {
+                focusArea: roadmapIntake.focusArea,
+                focusAreaKey: roadmapIntake.focusAreaKey,
+                schemaKey: roadmapIntake.schemaKey,
+                intakeVersion: roadmapIntake.intakeVersion,
+                currentLevel: roadmapIntake.currentLevel,
+                scopeAnswers: roadmapIntake.scopeAnswers
+            },
+            pillarContext: roadmapIntake.focusAreaKey
+                ? {
+                    key: roadmapIntake.focusAreaKey,
+                    label: roadmapIntake.focusArea,
+                    schemaKey: roadmapIntake.schemaKey,
+                    answers: roadmapIntake.scopeAnswers
+                }
+                : {},
             biggestImmediateProblem: roadmapIntake.blockerText,
             next30DaysWin: roadmapIntake.target30Days,
             preferredWorkStyle: roadmapIntake.currentLevel,

@@ -5368,17 +5368,577 @@ function syncRoadmapTabIndicator(snapshot = null) {
     });
 }
 
+const ROADMAP_SCOPE_CONFIG = {
+    money_business: {
+        label: 'Money, Wealth & Business',
+        schemaKey: 'money_business_v1',
+        sectionTitle: 'Business-specific Roadmap Questions',
+        sectionCopy: 'Answer these so the AI can understand your business direction, starting point, and constraints.',
+        fields: [
+            {
+                key: 'businessGoalType',
+                label: 'What type of business would you like to start?',
+                type: 'select',
+                required: true,
+                options: [
+                    { value: 'service', label: 'Service business' },
+                    { value: 'agency', label: 'Agency' },
+                    { value: 'ecommerce', label: 'E-commerce' },
+                    { value: 'saas', label: 'SaaS' },
+                    { value: 'content', label: 'Content / Personal brand' },
+                    { value: 'other', label: 'Other' }
+                ]
+            },
+            {
+                key: 'businessModelWanted',
+                label: 'Which business model are you most interested in?',
+                type: 'text',
+                required: true,
+                placeholder: 'e.g. AI automation agency, dropshipping, freelance design'
+            },
+            {
+                key: 'pastBusinessExperience',
+                label: 'What experiences do you already have in business?',
+                type: 'textarea',
+                required: true,
+                rows: 2,
+                placeholder: 'Describe any experience, even if small.'
+            },
+            {
+                key: 'haveMadeMoneyOnline',
+                label: 'Have you made money online already?',
+                type: 'select',
+                required: true,
+                options: [
+                    { value: 'yes', label: 'Yes' },
+                    { value: 'no', label: 'No' }
+                ]
+            },
+            {
+                key: 'onlineIncomeRange',
+                label: 'What is your current online income level?',
+                type: 'select',
+                required: false,
+                options: [
+                    { value: '0', label: 'None yet' },
+                    { value: '1_100', label: '$1 - $100' },
+                    { value: '100_1000', label: '$100 - $1,000' },
+                    { value: '1000_5000', label: '$1,000 - $5,000' },
+                    { value: '5000_plus', label: '$5,000+' }
+                ]
+            },
+            {
+                key: 'capitalAvailable',
+                label: 'How much starting capital do you realistically have?',
+                type: 'select',
+                required: false,
+                options: [
+                    { value: '0_100', label: '$0 - $100' },
+                    { value: '100_500', label: '$100 - $500' },
+                    { value: '500_2000', label: '$500 - $2,000' },
+                    { value: '2000_plus', label: '$2,000+' }
+                ]
+            },
+            {
+                key: 'salesExperienceLevel',
+                label: 'How strong are your sales skills right now?',
+                type: 'select',
+                required: true,
+                options: [
+                    { value: 'none', label: 'No experience' },
+                    { value: 'basic', label: 'Basic' },
+                    { value: 'intermediate', label: 'Intermediate' },
+                    { value: 'advanced', label: 'Advanced' }
+                ]
+            },
+            {
+                key: 'preferredBusinessChannel',
+                label: 'Which channel do you want to focus on first?',
+                type: 'text',
+                required: false,
+                placeholder: 'e.g. X, Instagram, email, cold outreach, paid ads'
+            },
+            {
+                key: 'biggestMoneyBlocker',
+                label: 'What is your biggest money or business blocker right now?',
+                type: 'textarea',
+                required: true,
+                rows: 2,
+                placeholder: 'What keeps stopping you from making real progress?'
+            }
+        ]
+    },
+    fitness_health: {
+        label: 'Fitness & Health',
+        schemaKey: 'fitness_health_v1',
+        sectionTitle: 'Fitness-specific Roadmap Questions',
+        sectionCopy: 'Answer these so the AI can build a roadmap around your body goal, training style, and current condition.',
+        fields: [
+            {
+                key: 'bodyGoal',
+                label: 'What would you like to achieve?',
+                type: 'select',
+                required: true,
+                options: [
+                    { value: 'cut_weight', label: 'Cut weight' },
+                    { value: 'gain_weight', label: 'Gain weight' },
+                    { value: 'build_muscle', label: 'Build muscle' },
+                    { value: 'improve_conditioning', label: 'Improve conditioning' }
+                ]
+            },
+            {
+                key: 'trainingExperienceMonths',
+                label: 'How long have you been training already?',
+                type: 'number',
+                required: true,
+                placeholder: 'e.g. 2'
+            },
+            {
+                key: 'trainingStyle',
+                label: 'How do you want to train?',
+                type: 'select',
+                required: true,
+                options: [
+                    { value: 'gym', label: 'Gym' },
+                    { value: 'calisthenics', label: 'Calisthenics' },
+                    { value: 'martial_arts', label: 'Martial arts' },
+                    { value: 'home_workouts', label: 'Home workouts' }
+                ]
+            },
+            {
+                key: 'dietStyle',
+                label: 'What kind of eating style are you following now?',
+                type: 'text',
+                required: false,
+                placeholder: 'e.g. high protein, anything available, intermittent fasting'
+            },
+            {
+                key: 'gymAccess',
+                label: 'Do you currently have gym access?',
+                type: 'select',
+                required: true,
+                options: [
+                    { value: 'yes', label: 'Yes' },
+                    { value: 'no', label: 'No' }
+                ]
+            },
+            {
+                key: 'currentWeightRange',
+                label: 'What is your current weight range?',
+                type: 'text',
+                required: false,
+                placeholder: 'e.g. 80 - 90kg'
+            },
+            {
+                key: 'targetWeightRange',
+                label: 'What is your target weight range?',
+                type: 'text',
+                required: false,
+                placeholder: 'e.g. 70 - 75kg'
+            },
+            {
+                key: 'injuryOrLimitation',
+                label: 'Do you have any injury or physical limitation?',
+                type: 'textarea',
+                required: false,
+                rows: 2,
+                placeholder: 'Leave blank if none.'
+            },
+            {
+                key: 'fitnessConsistencyBlocker',
+                label: 'What usually ruins your consistency?',
+                type: 'textarea',
+                required: true,
+                rows: 2,
+                placeholder: 'e.g. sleep schedule, distractions, lack of discipline'
+            }
+        ]
+    },
+    mindset_psychology: {
+        label: 'Mindset & Psychology',
+        schemaKey: 'mindset_psychology_v1',
+        sectionTitle: 'Mindset-specific Roadmap Questions',
+        sectionCopy: 'Answer these so the AI can understand your internal struggles, patterns, and mental priorities.',
+        fields: [
+            {
+                key: 'mainInternalProblem',
+                label: 'What is your biggest internal struggle right now?',
+                type: 'textarea',
+                required: true,
+                rows: 2,
+                placeholder: 'e.g. inconsistency, low confidence, fear, laziness'
+            },
+            {
+                key: 'disciplineLevel',
+                label: 'How would you rate your discipline right now?',
+                type: 'select',
+                required: true,
+                options: [
+                    { value: 'very_low', label: 'Very low' },
+                    { value: 'low', label: 'Low' },
+                    { value: 'medium', label: 'Medium' },
+                    { value: 'high', label: 'High' }
+                ]
+            },
+            {
+                key: 'confidenceLevel',
+                label: 'How would you rate your confidence right now?',
+                type: 'select',
+                required: true,
+                options: [
+                    { value: 'very_low', label: 'Very low' },
+                    { value: 'low', label: 'Low' },
+                    { value: 'medium', label: 'Medium' },
+                    { value: 'high', label: 'High' }
+                ]
+            },
+            {
+                key: 'overthinkingLevel',
+                label: 'How much do you struggle with overthinking?',
+                type: 'select',
+                required: true,
+                options: [
+                    { value: 'rarely', label: 'Rarely' },
+                    { value: 'sometimes', label: 'Sometimes' },
+                    { value: 'often', label: 'Often' },
+                    { value: 'constantly', label: 'Constantly' }
+                ]
+            },
+            {
+                key: 'stressTriggerPattern',
+                label: 'What usually triggers your stress?',
+                type: 'textarea',
+                required: false,
+                rows: 2,
+                placeholder: 'Describe the main triggers.'
+            },
+            {
+                key: 'selfSabotagePattern',
+                label: 'What self-sabotage pattern do you notice most?',
+                type: 'textarea',
+                required: false,
+                rows: 2,
+                placeholder: 'e.g. delaying action, quitting early, distractions'
+            },
+            {
+                key: 'desiredMentalShift',
+                label: 'What mental shift do you want the AI to help you build first?',
+                type: 'textarea',
+                required: true,
+                rows: 2,
+                placeholder: 'What mindset change matters most right now?'
+            }
+        ]
+    },
+    communication_networking: {
+        label: 'Communication & Networking',
+        schemaKey: 'communication_networking_v1',
+        sectionTitle: 'Communication-specific Roadmap Questions',
+        sectionCopy: 'Answer these so the AI can shape your roadmap around speaking, confidence, and social leverage.',
+        fields: [
+            {
+                key: 'mainCommunicationGoal',
+                label: 'What is your main communication goal right now?',
+                type: 'textarea',
+                required: true,
+                rows: 2,
+                placeholder: 'e.g. speak with confidence, get better at cold outreach, network with high-value people'
+            },
+            {
+                key: 'publicSpeakingLevel',
+                label: 'What is your current public speaking level?',
+                type: 'select',
+                required: true,
+                options: [
+                    { value: 'none', label: 'No experience' },
+                    { value: 'basic', label: 'Basic' },
+                    { value: 'intermediate', label: 'Intermediate' },
+                    { value: 'advanced', label: 'Advanced' }
+                ]
+            },
+            {
+                key: 'coldOutreachExperience',
+                label: 'Have you done cold outreach before?',
+                type: 'select',
+                required: true,
+                options: [
+                    { value: 'yes', label: 'Yes' },
+                    { value: 'no', label: 'No' }
+                ]
+            },
+            {
+                key: 'networkingConfidence',
+                label: 'How confident are you when networking?',
+                type: 'select',
+                required: true,
+                options: [
+                    { value: 'very_low', label: 'Very low' },
+                    { value: 'low', label: 'Low' },
+                    { value: 'medium', label: 'Medium' },
+                    { value: 'high', label: 'High' }
+                ]
+            },
+            {
+                key: 'socialFearLevel',
+                label: 'How much social fear do you currently deal with?',
+                type: 'select',
+                required: true,
+                options: [
+                    { value: 'very_low', label: 'Very low' },
+                    { value: 'low', label: 'Low' },
+                    { value: 'medium', label: 'Medium' },
+                    { value: 'high', label: 'High' }
+                ]
+            },
+            {
+                key: 'persuasionGoal',
+                label: 'What do you want to get better at persuading people to do?',
+                type: 'textarea',
+                required: false,
+                rows: 2,
+                placeholder: 'Describe the communication outcome you want.'
+            },
+            {
+                key: 'currentEnvironmentQuality',
+                label: 'Is your current environment helping or hurting your communication growth?',
+                type: 'textarea',
+                required: false,
+                rows: 2,
+                placeholder: 'Describe your current environment.'
+            }
+        ]
+    },
+    knowledge_for_life: {
+        label: 'Knowledge for Life',
+        schemaKey: 'knowledge_for_life_v1',
+        sectionTitle: 'Knowledge-specific Roadmap Questions',
+        sectionCopy: 'Answer these so the AI can guide what to study, how to think, and how deeply to learn.',
+        fields: [
+            {
+                key: 'mainKnowledgeGoal',
+                label: 'What do you mainly want to understand better right now?',
+                type: 'textarea',
+                required: true,
+                rows: 2,
+                placeholder: 'What do you want to become sharper at?'
+            },
+            {
+                key: 'topicsOfInterest',
+                label: 'Which topics are you most interested in?',
+                type: 'text',
+                required: true,
+                placeholder: 'e.g. politics, banking, tax systems, world trends'
+            },
+            {
+                key: 'readingFrequency',
+                label: 'How often do you currently read or study deeply?',
+                type: 'select',
+                required: true,
+                options: [
+                    { value: 'rarely', label: 'Rarely' },
+                    { value: 'weekly', label: 'A few times a week' },
+                    { value: 'daily', label: 'Daily' }
+                ]
+            },
+            {
+                key: 'contentConsumptionStyle',
+                label: 'How do you prefer to consume information?',
+                type: 'select',
+                required: true,
+                options: [
+                    { value: 'books', label: 'Books' },
+                    { value: 'videos', label: 'Videos' },
+                    { value: 'mixed', label: 'Mixed' },
+                    { value: 'audio', label: 'Audio' }
+                ]
+            },
+            {
+                key: 'criticalThinkingLevel',
+                label: 'How strong is your critical thinking right now?',
+                type: 'select',
+                required: true,
+                options: [
+                    { value: 'low', label: 'Low' },
+                    { value: 'medium', label: 'Medium' },
+                    { value: 'high', label: 'High' }
+                ]
+            },
+            {
+                key: 'researchDepthPreference',
+                label: 'Do you prefer fast summaries or deep research?',
+                type: 'select',
+                required: true,
+                options: [
+                    { value: 'fast_summaries', label: 'Fast summaries' },
+                    { value: 'balanced', label: 'Balanced' },
+                    { value: 'deep_research', label: 'Deep research' }
+                ]
+            }
+        ]
+    }
+};
+
+function escapeRoadmapHtml(value = '') {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function getRoadmapScopeConfig(scopeKey = '') {
+    return ROADMAP_SCOPE_CONFIG[String(scopeKey || '').trim()] || null;
+}
+
+function renderRoadmapScopeField(field = {}) {
+    const fieldId = `roadmap-scope-answer-${field.key}`;
+    const requiredAttr = field.required ? 'required' : '';
+    const placeholderAttr = field.placeholder
+        ? `placeholder="${escapeRoadmapHtml(field.placeholder)}"`
+        : '';
+
+    if (field.type === 'textarea') {
+        return `
+            <div class="form-group mb-small">
+                <label>${escapeRoadmapHtml(field.label || '')}</label>
+                <textarea
+                    id="${escapeRoadmapHtml(fieldId)}"
+                    class="input-field"
+                    rows="${Number(field.rows || 2)}"
+                    ${requiredAttr}
+                    ${placeholderAttr}
+                ></textarea>
+            </div>
+        `;
+    }
+
+    if (field.type === 'select') {
+        const options = Array.isArray(field.options) ? field.options : [];
+        const optionMarkup = options
+            .map((option) => {
+                const value = typeof option === 'object' ? option.value : option;
+                const label = typeof option === 'object' ? option.label : option;
+                return `<option value="${escapeRoadmapHtml(value)}">${escapeRoadmapHtml(label)}</option>`;
+            })
+            .join('');
+
+        return `
+            <div class="form-group mb-small">
+                <label>${escapeRoadmapHtml(field.label || '')}</label>
+                <select id="${escapeRoadmapHtml(fieldId)}" class="input-field styled-select" ${requiredAttr}>
+                    <option value="" disabled selected>Select option.</option>
+                    ${optionMarkup}
+                </select>
+            </div>
+        `;
+    }
+
+    const inputType = field.type === 'number' ? 'number' : 'text';
+
+    return `
+        <div class="form-group mb-small">
+            <label>${escapeRoadmapHtml(field.label || '')}</label>
+            <input
+                type="${escapeRoadmapHtml(inputType)}"
+                id="${escapeRoadmapHtml(fieldId)}"
+                class="input-field"
+                ${requiredAttr}
+                ${placeholderAttr}
+            >
+        </div>
+    `;
+}
+
+function renderRoadmapScopeQuestions(scopeKey = '') {
+    const container = document.getElementById('roadmap-scope-questions');
+    const heading = document.getElementById('roadmap-scope-heading');
+    const help = document.getElementById('roadmap-scope-help');
+    const chip = document.getElementById('roadmap-selected-scope-label');
+    const config = getRoadmapScopeConfig(scopeKey);
+
+    if (!container) return;
+
+    if (!config) {
+        container.innerHTML = '';
+        if (heading) heading.textContent = 'AI intake questions';
+        if (help) help.textContent = 'Answer the questions below so the AI can build a more accurate roadmap for you.';
+        if (chip) chip.textContent = 'No scope selected';
+        return;
+    }
+
+    if (heading) heading.textContent = config.sectionTitle;
+    if (help) help.textContent = config.sectionCopy;
+    if (chip) chip.textContent = config.label;
+
+    container.innerHTML = `
+        <div class="roadmap-scope-block">
+            <div class="roadmap-scope-block-head">
+                <div class="roadmap-scope-block-kicker">Scope-specific intake</div>
+                <div class="roadmap-scope-block-copy">${escapeRoadmapHtml(config.sectionCopy)}</div>
+            </div>
+            ${config.fields.map((field) => renderRoadmapScopeField(field)).join('')}
+        </div>
+    `;
+}
+
+function collectRoadmapScopeAnswers(scopeKey = '') {
+    const config = getRoadmapScopeConfig(scopeKey);
+    if (!config) return {};
+
+    return config.fields.reduce((acc, field) => {
+        const fieldId = `roadmap-scope-answer-${field.key}`;
+        const el = document.getElementById(fieldId);
+        if (!el) return acc;
+
+        acc[field.key] = String(el.value || '').trim();
+        return acc;
+    }, {});
+}
+
+function setRoadmapIntakePhase(step = 1) {
+    const phase1 = document.getElementById('roadmap-phase-1');
+    const phase2 = document.getElementById('roadmap-phase-2');
+
+    if (step === 2) {
+        phase1?.classList.add('hidden-step');
+        phase2?.classList.remove('hidden-step');
+        return;
+    }
+
+    phase2?.classList.add('hidden-step');
+    phase1?.classList.remove('hidden-step');
+}
+
+function resetRoadmapIntakeModalState() {
+    roadmapForm?.reset();
+    document.getElementById('roadmap-focus-area-key').value = '';
+    document.getElementById('roadmap-schema-key').value = '';
+    document.getElementById('roadmap-intake-version').value = '2';
+    renderRoadmapScopeQuestions('');
+    setRoadmapIntakePhase(1);
+
+    const submitBtn = document.getElementById('btn-submit-roadmap-intake');
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerText = 'Build My AI Roadmap ➔';
+    }
+}
+
 function openRoadmapIntake() {
     if (!roadmapModal) return;
     closeAcademyLauncher();
+    resetRoadmapIntakeModalState();
     roadmapModal.classList.remove('hidden-step');
     document.body?.classList.add('academy-launcher-open');
+    document.getElementById('roadmap-focus-area')?.focus();
 }
 
 function closeRoadmapIntake() {
     if (!roadmapModal) return;
     roadmapModal.classList.add('hidden-step');
     document.body?.classList.remove('academy-launcher-open');
+    resetRoadmapIntakeModalState();
 }
 
 function maybeOpenPostAuthAcademyApplication() {
@@ -6555,6 +7115,8 @@ try {
 }
 
 const roadmapForm = document.getElementById('form-academy-roadmap');
+const roadmapContinueBtn = document.getElementById('btn-roadmap-continue');
+const roadmapBackBtn = document.getElementById('btn-roadmap-back');
 
 closeRoadmapBtn?.addEventListener('click', closeRoadmapIntake);
 
@@ -6570,6 +7132,31 @@ document.addEventListener('keydown', (event) => {
     }
 });
 
+roadmapContinueBtn?.addEventListener('click', () => {
+    const focusAreaSelect = document.getElementById('roadmap-focus-area');
+    const selectedScopeKey = String(focusAreaSelect?.value || '').trim();
+    const config = getRoadmapScopeConfig(selectedScopeKey);
+
+    if (!selectedScopeKey || !config) {
+        showToast('Choose your roadmap focus first.', 'error');
+        focusAreaSelect?.focus();
+        return;
+    }
+
+    document.getElementById('roadmap-focus-area-key').value = selectedScopeKey;
+    document.getElementById('roadmap-schema-key').value = config.schemaKey;
+    document.getElementById('roadmap-intake-version').value = '2';
+
+    renderRoadmapScopeQuestions(selectedScopeKey);
+    setRoadmapIntakePhase(2);
+    document.querySelector('#roadmap-scope-questions .input-field')?.focus();
+});
+
+roadmapBackBtn?.addEventListener('click', () => {
+    setRoadmapIntakePhase(1);
+    document.getElementById('roadmap-focus-area')?.focus();
+});
+
 if (roadmapForm) {
     roadmapForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -6580,7 +7167,29 @@ if (roadmapForm) {
             return;
         }
 
+        const phase2 = document.getElementById('roadmap-phase-2');
+        if (phase2?.classList.contains('hidden-step')) {
+            showToast('Choose your roadmap focus first.', 'error');
+            document.getElementById('roadmap-focus-area')?.focus();
+            return;
+        }
+
+        if (!roadmapForm.reportValidity()) {
+            return;
+        }
+
         const submitBtn = document.getElementById('btn-submit-roadmap-intake');
+        const focusAreaKey = document.getElementById('roadmap-focus-area-key')?.value?.trim() || '';
+        const schemaKey = document.getElementById('roadmap-schema-key')?.value?.trim() || '';
+        const intakeVersion = Number(document.getElementById('roadmap-intake-version')?.value || '2') || 2;
+        const scopeConfig = getRoadmapScopeConfig(focusAreaKey);
+
+        if (!scopeConfig) {
+            showToast('Choose your roadmap focus first.', 'error');
+            setRoadmapIntakePhase(1);
+            document.getElementById('roadmap-focus-area')?.focus();
+            return;
+        }
 
         if (submitBtn) {
             submitBtn.disabled = true;
@@ -6588,7 +7197,10 @@ if (roadmapForm) {
         }
 
         const payload = {
-            focusArea: document.getElementById('roadmap-focus-area')?.value?.trim() || '',
+            focusArea: scopeConfig.label,
+            focusAreaKey,
+            schemaKey,
+            intakeVersion,
             currentLevel: document.getElementById('roadmap-current-level')?.value?.trim() || '',
             target30Days: document.getElementById('roadmap-target-30')?.value?.trim() || '',
             dailyMinutes: document.getElementById('roadmap-daily-minutes')?.value?.trim() || '',
@@ -6600,6 +7212,7 @@ if (roadmapForm) {
             blockerText: document.getElementById('roadmap-blocker-text')?.value?.trim() || '',
             coachTone: document.getElementById('roadmap-coach-tone')?.value?.trim() || 'balanced',
             firstQuickWin: document.getElementById('roadmap-first-win')?.value?.trim() || '',
+            scopeAnswers: collectRoadmapScopeAnswers(focusAreaKey),
             submittedAt: new Date().toISOString()
         };
 
