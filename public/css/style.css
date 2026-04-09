@@ -5729,8 +5729,8 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
     line-height: 0 !important;
     overflow: hidden !important;
     z-index: 1 !important;
-    pointer-events: none !important;
-    cursor: default !important;
+    pointer-events: auto !important;
+    cursor: pointer !important;
     appearance: none !important;
     -webkit-appearance: none !important;
     user-select: none !important;

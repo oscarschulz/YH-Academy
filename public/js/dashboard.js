@@ -5099,7 +5099,16 @@ async function runDashboardButtonAction(button, loadingLabel, action) {
 
 function resolveAcademyLaunchTarget(event) {
     const target = resolveEventElementTarget(event);
-    return target?.closest?.('#btn-open-academy-apply') || null;
+    if (!target) return null;
+
+    const direct = target.closest?.('#btn-open-academy-apply');
+    if (direct) return direct;
+
+    if (target.closest?.('.academy-entry-button-shell, .academy-entry-cta-wrap, .academy-entry-button-visual')) {
+        return btnOpenApply || null;
+    }
+
+    return null;
 }
 
 function setDashboardButtonLoadingState(button, isLoading = false, loadingLabel = 'Loading.') {
