@@ -5199,10 +5199,10 @@ function syncAcademyEntryButton(snapshot = null) {
     btnOpenApply.style.background = 'transparent';
     btnOpenApply.style.border = 'none';
     btnOpenApply.style.opacity = '0';
-    btnOpenApply.style.pointerEvents = 'none';
-    btnOpenApply.style.touchAction = 'none';
-    btnOpenApply.style.cursor = 'default';
-    btnOpenApply.style.zIndex = '1';
+    btnOpenApply.style.pointerEvents = 'auto';
+    btnOpenApply.style.touchAction = 'manipulation';
+    btnOpenApply.style.cursor = 'pointer';
+    btnOpenApply.style.zIndex = '5';
     btnOpenApply.style.color = 'transparent';
     btnOpenApply.style.fontSize = '0';
     btnOpenApply.style.lineHeight = '0';
@@ -6244,9 +6244,6 @@ if (btnOpenApply) {
     btnOpenApply.setAttribute('type', 'button');
     btnOpenApply.setAttribute('tabindex', '-1');
     btnOpenApply.setAttribute('aria-hidden', 'true');
-    btnOpenApply.style.pointerEvents = 'none';
-    btnOpenApply.style.touchAction = 'none';
-    btnOpenApply.style.cursor = 'default';
 }
 
 if (academyEntryVisual) {
