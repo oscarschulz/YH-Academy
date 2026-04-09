@@ -2974,13 +2974,101 @@ exports.refreshRoadmap = async (req, res) => {
     }
 };
 
-function buildAcademyCoachMessages(payload = {}) {
+function trimCoachText(value, max = 220) {
+    return sanitize(value || '').replace(/\s+/g, ' ').trim().slice(0, max);
+}
+
+function buildAcademyCoachCompactPayload(payload = {}) {
     const history = (Array.isArray(payload.previousMessages) ? payload.previousMessages : [])
-        .slice(-8)
+        .slice(-6)
         .map((item) => ({
             role: sanitize(item?.role) === 'assistant' ? 'assistant' : 'user',
-            text: sanitize(item?.text)
+            text: trimCoachText(item?.text, 220)
+        }))
+        .filter((item) => item.text);
+
+    const missions = (Array.isArray(payload.missions) ? payload.missions : [])
+        .slice(0, 5)
+        .map((item) => ({
+            title: trimCoachText(item?.title, 140),
+            description: trimCoachText(item?.description, 220),
+            pillar: trimCoachText(item?.pillar, 80),
+            status: trimCoachText(item?.status, 40),
+            dueDate: trimCoachText(item?.dueDate, 40),
+            estimatedMinutes: toInt(item?.estimatedMinutes, 0)
+        }))
+        .filter((item) => item.title || item.description);
+
+    const recentCheckins = (Array.isArray(payload.recentCheckins) ? payload.recentCheckins : [])
+        .slice(-4)
+        .map((item) => ({
+            energyScore: toInt(item?.energyScore, 0),
+            focusScore: toInt(item?.focusScore, 0),
+            confidenceScore: toInt(item?.confidenceScore, 0),
+            blockerText: trimCoachText(item?.blockerText, 180),
+            winText: trimCoachText(item?.winText, 180),
+            createdAt: sanitize(item?.createdAt || '')
         }));
+
+    return {
+        contextHint: sanitize(payload.contextHint || ''),
+        userMessage: trimCoachText(payload.message || '', 800),
+        profile: {
+            topPriorityPillar: trimCoachText(payload?.profile?.topPriorityPillar, 120),
+            next30DaysWin: trimCoachText(payload?.profile?.next30DaysWin, 220),
+            biggestImmediateProblem: trimCoachText(payload?.profile?.biggestImmediateProblem, 220),
+            preferredWorkStyle: trimCoachText(payload?.profile?.preferredWorkStyle, 120),
+            accountabilityStyle: trimCoachText(payload?.profile?.accountabilityStyle, 120),
+            firstQuickWin: trimCoachText(payload?.profile?.firstQuickWin, 220),
+            energyScore: toInt(payload?.profile?.energyScore, 0),
+            weeklyHours: toInt(payload?.profile?.weeklyHours, 0)
+        },
+        roadmap: {
+            id: sanitize(payload?.roadmap?.id || ''),
+            goal: trimCoachText(payload?.roadmap?.goal, 220),
+            summary: trimCoachText(payload?.roadmap?.summary, 320),
+            coachBrief: trimCoachText(payload?.roadmap?.coachBrief, 320),
+            focusAreas: Array.isArray(payload?.roadmap?.focusAreas)
+                ? payload.roadmap.focusAreas.map((item) => trimCoachText(item, 80)).filter(Boolean).slice(0, 5)
+                : []
+        },
+        weeklyCheckpoint: {
+            theme: trimCoachText(payload?.weeklyCheckpoint?.theme, 140),
+            targetOutcome: trimCoachText(payload?.weeklyCheckpoint?.targetOutcome, 220)
+        },
+        missions,
+        recentCheckins,
+        behaviorProfile: {
+            executionReliability: toFloat(payload?.behaviorProfile?.executionReliability, 0),
+            frictionSensitivity: toFloat(payload?.behaviorProfile?.frictionSensitivity, 0),
+            maxSustainableDailyMinutes: toInt(payload?.behaviorProfile?.maxSustainableDailyMinutes, 0),
+            pressureResponse: trimCoachText(payload?.behaviorProfile?.pressureResponse, 40),
+            accountabilityNeed: trimCoachText(payload?.behaviorProfile?.accountabilityNeed, 40),
+            recoveryRisk: trimCoachText(payload?.behaviorProfile?.recoveryRisk, 40)
+        },
+        previousBehaviorProfile: {
+            executionReliability: toFloat(payload?.previousBehaviorProfile?.executionReliability, 0),
+            frictionSensitivity: toFloat(payload?.previousBehaviorProfile?.frictionSensitivity, 0),
+            maxSustainableDailyMinutes: toInt(payload?.previousBehaviorProfile?.maxSustainableDailyMinutes, 0),
+            pressureResponse: trimCoachText(payload?.previousBehaviorProfile?.pressureResponse, 40),
+            accountabilityNeed: trimCoachText(payload?.previousBehaviorProfile?.accountabilityNeed, 40),
+            recoveryRisk: trimCoachText(payload?.previousBehaviorProfile?.recoveryRisk, 40)
+        },
+        plannerStats: payload?.plannerStats && typeof payload.plannerStats === 'object'
+            ? payload.plannerStats
+            : {},
+        adaptivePlanning: payload?.adaptivePlanning && typeof payload.adaptivePlanning === 'object'
+            ? payload.adaptivePlanning
+            : {},
+        plannerRun: payload?.plannerRun && typeof payload.plannerRun === 'object'
+            ? payload.plannerRun
+            : {},
+        conversationHistory: history
+    };
+}
+
+function buildAcademyCoachMessages(payload = {}) {
+    const compactPayload = buildAcademyCoachCompactPayload(payload);
 
     return [
         {
@@ -3001,23 +3089,74 @@ function buildAcademyCoachMessages(payload = {}) {
         },
         {
             role: 'user',
-            content: JSON.stringify({
-                contextHint: sanitize(payload.contextHint || ''),
-                userMessage: sanitize(payload.message || ''),
-                profile: payload.profile || {},
-                roadmap: payload.roadmap || {},
-                weeklyCheckpoint: payload.weeklyCheckpoint || {},
-                missions: payload.missions || [],
-                recentCheckins: payload.recentCheckins || [],
-                behaviorProfile: payload.behaviorProfile || {},
-                previousBehaviorProfile: payload.previousBehaviorProfile || {},
-                plannerStats: payload.plannerStats || {},
-                adaptivePlanning: payload.adaptivePlanning || {},
-                plannerRun: payload.plannerRun || {},
-                conversationHistory: history
-            })
+            content: JSON.stringify(compactPayload)
         }
     ];
+}
+
+function buildLocalAcademyCoachFallback(payload = {}, error = null) {
+    const missions = Array.isArray(payload.missions) ? payload.missions : [];
+    const nextMission =
+        missions.find((item) => sanitize(item?.status).toLowerCase() !== 'completed') ||
+        missions[0] ||
+        null;
+
+    const recentCheckins = Array.isArray(payload.recentCheckins) ? payload.recentCheckins : [];
+    const latestCheckin = recentCheckins[recentCheckins.length - 1] || recentCheckins[0] || {};
+    const energyScore = toInt(
+        latestCheckin?.energyScore ?? payload?.profile?.energyScore,
+        0
+    );
+
+    const roadmapDirection = trimCoachText(
+        payload?.roadmap?.goal ||
+        payload?.roadmap?.summary ||
+        payload?.roadmap?.coachBrief,
+        240
+    );
+
+    const weeklyTarget = trimCoachText(
+        payload?.weeklyCheckpoint?.targetOutcome,
+        180
+    );
+
+    const replyParts = [
+        'I’m using the local Academy Coach fallback right now, so here is the clearest next move based on your saved roadmap.'
+    ];
+
+    if (roadmapDirection) {
+        replyParts.push(`Main direction: ${roadmapDirection}.`);
+    }
+
+    if (energyScore > 0 && energyScore <= 4) {
+        replyParts.push('Your energy looks low, so keep the next action light and finish something that takes about 15 to 20 minutes.');
+    } else {
+        replyParts.push('Pick one concrete task you can fully finish today instead of trying to push the whole roadmap at once.');
+    }
+
+    if (nextMission?.title) {
+        let nextStep = `Do this next: ${trimCoachText(nextMission.title, 140)}.`;
+
+        if (nextMission?.description) {
+            nextStep += ` ${trimCoachText(nextMission.description, 200)}`;
+        }
+
+        if (toInt(nextMission?.estimatedMinutes, 0) > 0) {
+            nextStep += ` Aim to finish it in about ${toInt(nextMission.estimatedMinutes, 0)} minutes.`;
+        }
+
+        replyParts.push(nextStep);
+    }
+
+    if (weeklyTarget) {
+        replyParts.push(`Make sure the work moves this weekly outcome forward: ${weeklyTarget}.`);
+    }
+
+    if (error?.message) {
+        replyParts.push('The live Gemini request did not complete, but your conversation is still saved and the coach can continue from here.');
+    }
+
+    return replyParts.join(' ').trim();
 }
 
 async function requestGeminiAcademyCoach(payload = {}) {
@@ -3036,14 +3175,19 @@ async function requestGeminiAcademyCoach(payload = {}) {
     const requestBody = {
         model,
         messages: buildAcademyCoachMessages(payload),
-        temperature: 0.5,
-        reasoning_effort: sanitize(
-            process.env.GEMINI_COACH_REASONING_EFFORT ||
-            process.env.GEMINI_PLANNER_REASONING_EFFORT ||
-            process.env.ACADEMY_PLANNER_REASONING_EFFORT ||
-            'medium'
-        ) || 'medium'
+        temperature: 0.5
     };
+
+    const reasoningEffort = sanitize(
+        process.env.GEMINI_COACH_REASONING_EFFORT ||
+        process.env.GEMINI_PLANNER_REASONING_EFFORT ||
+        process.env.ACADEMY_PLANNER_REASONING_EFFORT ||
+        ''
+    );
+
+    if (reasoningEffort) {
+        requestBody.reasoning_effort = reasoningEffort;
+    }
 
     const response = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
         method: 'POST',
@@ -3054,10 +3198,16 @@ async function requestGeminiAcademyCoach(payload = {}) {
         body: JSON.stringify(requestBody)
     });
 
-    const data = await response.json();
+    const rawBody = await response.text();
+    const data = safeJsonParse(rawBody, {});
 
     if (!response.ok) {
-        throw new Error(data?.error?.message || 'Gemini AI Coach request failed.');
+        throw new Error(
+            trimCoachText(
+                data?.error?.message || rawBody || 'Gemini AI Coach request failed.',
+                400
+            )
+        );
     }
 
     const message = data?.choices?.[0]?.message;
@@ -3068,7 +3218,7 @@ async function requestGeminiAcademyCoach(payload = {}) {
     const rawContent = typeof message.content === 'string'
         ? message.content
         : Array.isArray(message.content)
-            ? message.content.map((part) => part.text || '').join('')
+            ? message.content.map((part) => part?.text || '').join('')
             : '';
 
     const reply = sanitize(rawContent || '').trim();
@@ -3163,7 +3313,7 @@ exports.chatWithAcademyCoach = async (req, res) => {
             contextHint
         });
 
-        const aiResult = await requestGeminiAcademyCoach({
+        const coachPayload = {
             message,
             contextHint,
             previousMessages: history,
@@ -3196,12 +3346,26 @@ exports.chatWithAcademyCoach = async (req, res) => {
                     resultMetrics: plannerRun.resultMetrics || {}
                 }
                 : {}
-        });
+        };
+
+        let aiResult;
+        try {
+            aiResult = await requestGeminiAcademyCoach(coachPayload);
+        } catch (coachError) {
+            console.error('requestGeminiAcademyCoach error:', coachError);
+            aiResult = {
+                reply: buildLocalAcademyCoachFallback(coachPayload, coachError),
+                provider: 'academy-fallback',
+                model: 'rule-based-coach-v1',
+                fallback: true
+            };
+        }
 
         const grounding = {
             usedRoadmap: true,
             usedMissions: Array.isArray(homePayload?.missions) && homePayload.missions.length > 0,
-            usedCheckins: Array.isArray(recentCheckins) && recentCheckins.length > 0
+            usedCheckins: Array.isArray(recentCheckins) && recentCheckins.length > 0,
+            usedFallback: aiResult.fallback === true
         };
 
         await academyFirestoreRepo.createCoachMessage(uid, {
@@ -3220,7 +3384,8 @@ exports.chatWithAcademyCoach = async (req, res) => {
             conversationId,
             provider: aiResult.provider,
             model: aiResult.model,
-            grounding
+            grounding,
+            fallback: aiResult.fallback === true
         });
     } catch (error) {
         console.error('chatWithAcademyCoach error:', error);
