@@ -991,6 +991,75 @@ async function updateMissionOutcomeMetrics(uid, missionId, payload = {}) {
     const updatedSnapshot = await ref.get();
     return mapMissionDoc(updatedSnapshot);
 }
+
+const mapTimestamp = (value) => {
+    if (!value) return null;
+    if (typeof value?.toDate === 'function') return value.toDate().toISOString();
+    if (value instanceof Date) return value.toISOString();
+    return value || null;
+};
+
+const mapCoachMessageDoc = (doc) => {
+    const data = doc.data() || {};
+    return {
+        id: doc.id,
+        conversationId: sanitizeString(data.conversationId || 'coach_main'),
+        role: sanitizeString(data.role || 'assistant'),
+        text: sanitizeString(data.text),
+        contextHint: sanitizeString(data.contextHint),
+        provider: sanitizeString(data.provider),
+        model: sanitizeString(data.model),
+        grounding: data.grounding && typeof data.grounding === 'object'
+            ? data.grounding
+            : {},
+        createdAt: mapTimestamp(data.createdAt),
+        updatedAt: mapTimestamp(data.updatedAt)
+    };
+};
+
+async function listCoachMessages(uid, conversationId = 'coach_main', limit = 20) {
+    const normalizedConversationId = sanitizeString(conversationId || 'coach_main', 'coach_main');
+    const normalizedLimit = Math.max(1, toNumber(limit, 20));
+
+    const snapshot = await academyCoachMessagesCol(uid)
+        .where('conversationId', '==', normalizedConversationId)
+        .get();
+
+    const messages = snapshot.docs
+        .map(mapCoachMessageDoc)
+        .sort((a, b) => {
+            const left = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const right = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return left - right;
+        });
+
+    return messages.slice(-normalizedLimit);
+}
+
+async function createCoachMessage(uid, payload = {}) {
+    const ref = academyCoachMessagesCol(uid).doc();
+    const ts = nowTs();
+
+    const coachMessage = {
+        conversationId: sanitizeString(payload.conversationId || 'coach_main', 'coach_main'),
+        role: sanitizeString(payload.role || 'assistant'),
+        text: sanitizeString(payload.text),
+        contextHint: sanitizeString(payload.contextHint),
+        provider: sanitizeString(payload.provider),
+        model: sanitizeString(payload.model),
+        grounding: payload.grounding && typeof payload.grounding === 'object'
+            ? payload.grounding
+            : {},
+        createdAt: ts,
+        updatedAt: ts
+    };
+
+    await ref.set(coachMessage);
+
+    const snapshot = await ref.get();
+    return mapCoachMessageDoc(snapshot);
+}
+
 module.exports = {
     getCurrentProfile,
     setCurrentProfile,
@@ -1019,5 +1088,7 @@ module.exports = {
     updatePlannerRunResult,
     persistRoadmapBundle,
     buildAcademyHomePayload,
+    listCoachMessages,
+    createCoachMessage,
     academyCoachMessagesCol
 };

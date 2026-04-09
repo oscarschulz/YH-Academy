@@ -2973,3 +2973,260 @@ exports.refreshRoadmap = async (req, res) => {
         });
     }
 };
+
+function buildAcademyCoachMessages(payload = {}) {
+    const history = (Array.isArray(payload.previousMessages) ? payload.previousMessages : [])
+        .slice(-8)
+        .map((item) => ({
+            role: sanitize(item?.role) === 'assistant' ? 'assistant' : 'user',
+            text: sanitize(item?.text)
+        }));
+
+    return [
+        {
+            role: 'system',
+            content: [
+                'You are the Academy AI Coach for Young Hustlers.',
+                'Your job is to help the user execute their existing roadmap, not replace it.',
+                'Stay grounded in the active roadmap, recent missions, recent check-ins, behavior signals, planner stats, and adaptive planning context.',
+                'Be practical, direct, tactical, and execution-focused.',
+                'Prioritize what the user should do today or this week.',
+                'If the user is stuck, simplify the next action without becoming vague.',
+                'If the user has low energy or low time, adapt the advice accordingly.',
+                'If a major strategic change is needed, say so and recommend a roadmap refresh instead of silently rewriting the full roadmap in chat.',
+                'Do not output generic hype or filler.',
+                'Do not contradict the existing roadmap unless there is a clear reason.',
+                'Keep answers concise but useful.'
+            ].join(' ')
+        },
+        {
+            role: 'user',
+            content: JSON.stringify({
+                contextHint: sanitize(payload.contextHint || ''),
+                userMessage: sanitize(payload.message || ''),
+                profile: payload.profile || {},
+                roadmap: payload.roadmap || {},
+                weeklyCheckpoint: payload.weeklyCheckpoint || {},
+                missions: payload.missions || [],
+                recentCheckins: payload.recentCheckins || [],
+                behaviorProfile: payload.behaviorProfile || {},
+                previousBehaviorProfile: payload.previousBehaviorProfile || {},
+                plannerStats: payload.plannerStats || {},
+                adaptivePlanning: payload.adaptivePlanning || {},
+                plannerRun: payload.plannerRun || {},
+                conversationHistory: history
+            })
+        }
+    ];
+}
+
+async function requestGeminiAcademyCoach(payload = {}) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey || typeof fetch !== 'function') {
+        throw new Error('Gemini AI Coach is not configured.');
+    }
+
+    const model = sanitize(
+        process.env.GEMINI_COACH_MODEL ||
+        process.env.GEMINI_PLANNER_MODEL ||
+        process.env.ACADEMY_PLANNER_MODEL ||
+        'gemini-2.5-flash'
+    ) || 'gemini-2.5-flash';
+
+    const requestBody = {
+        model,
+        messages: buildAcademyCoachMessages(payload),
+        temperature: 0.5,
+        reasoning_effort: sanitize(
+            process.env.GEMINI_COACH_REASONING_EFFORT ||
+            process.env.GEMINI_PLANNER_REASONING_EFFORT ||
+            process.env.ACADEMY_PLANNER_REASONING_EFFORT ||
+            'medium'
+        ) || 'medium'
+    };
+
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`
+        },
+        body: JSON.stringify(requestBody)
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(data?.error?.message || 'Gemini AI Coach request failed.');
+    }
+
+    const message = data?.choices?.[0]?.message;
+    if (!message) {
+        throw new Error('Gemini AI Coach returned no message.');
+    }
+
+    const rawContent = typeof message.content === 'string'
+        ? message.content
+        : Array.isArray(message.content)
+            ? message.content.map((part) => part.text || '').join('')
+            : '';
+
+    const reply = sanitize(rawContent || '').trim();
+
+    if (!reply) {
+        throw new Error('Gemini AI Coach returned an empty reply.');
+    }
+
+    return {
+        reply,
+        provider: 'gemini',
+        model
+    };
+}
+
+exports.getAcademyCoachMessages = async (req, res) => {
+    try {
+        const uid = getAcademyAuthUid(req);
+
+        if (!uid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const access = await requireApprovedRoadmapAccess(uid, res);
+        if (!access) return;
+
+        const conversationId = sanitize(req.query?.conversationId || 'coach_main') || 'coach_main';
+        const messages = await academyFirestoreRepo.listCoachMessages(uid, conversationId, 30);
+
+        return res.json({
+            success: true,
+            conversationId,
+            messages
+        });
+    } catch (error) {
+        console.error('getAcademyCoachMessages error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load Academy AI Coach messages.'
+        });
+    }
+};
+
+exports.chatWithAcademyCoach = async (req, res) => {
+    try {
+        const uid = getAcademyAuthUid(req);
+
+        if (!uid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const access = await requireApprovedRoadmapAccess(uid, res);
+        if (!access) return;
+
+        const conversationId = sanitize(req.body?.conversationId || 'coach_main') || 'coach_main';
+        const message = sanitize(req.body?.message || '');
+        const contextHint = sanitize(req.body?.contextHint || '');
+
+        if (!message) {
+            return res.status(400).json({
+                success: false,
+                message: 'Message is required.'
+            });
+        }
+
+        const [profileDoc, homePayload, plannerRun, history] = await Promise.all([
+            academyFirestoreRepo.getCurrentProfile(uid),
+            academyFirestoreRepo.buildAcademyHomePayload(uid),
+            academyFirestoreRepo.getLatestPlannerRun(uid),
+            academyFirestoreRepo.listCoachMessages(uid, conversationId, 12)
+        ]);
+
+        if (!homePayload?.roadmap?.id) {
+            return res.status(404).json({
+                success: false,
+                message: 'No active roadmap found for Academy AI Coach.'
+            });
+        }
+
+        const recentCheckins = await academyFirestoreRepo.listRecentCheckins(uid, homePayload.roadmap.id, 4);
+
+        await academyFirestoreRepo.createCoachMessage(uid, {
+            conversationId,
+            role: 'user',
+            text: message,
+            contextHint
+        });
+
+        const aiResult = await requestGeminiAcademyCoach({
+            message,
+            contextHint,
+            previousMessages: history,
+            profile: profileDoc && typeof profileDoc === 'object'
+                ? {
+                    ...normalizeProfile(profileDoc),
+                    topPriorityPillar: sanitize(profileDoc?.topPriorityPillar || ''),
+                    next30DaysWin: sanitize(profileDoc?.next30DaysWin || ''),
+                    biggestImmediateProblem: sanitize(profileDoc?.biggestImmediateProblem || ''),
+                    preferredWorkStyle: sanitize(profileDoc?.preferredWorkStyle || ''),
+                    accountabilityStyle: sanitize(profileDoc?.accountabilityStyle || ''),
+                    firstQuickWin: sanitize(profileDoc?.firstQuickWin || '')
+                }
+                : {},
+            roadmap: homePayload?.roadmap || {},
+            weeklyCheckpoint: homePayload?.weeklyCheckpoint || {},
+            missions: Array.isArray(homePayload?.missions) ? homePayload.missions : [],
+            recentCheckins,
+            behaviorProfile: homePayload?.behaviorProfile || {},
+            previousBehaviorProfile: homePayload?.previousBehaviorProfile || {},
+            plannerStats: homePayload?.plannerStats || {},
+            adaptivePlanning: homePayload?.adaptivePlanning || {},
+            plannerRun: plannerRun
+                ? {
+                    id: plannerRun.id,
+                    provider: plannerRun.provider,
+                    model: plannerRun.model,
+                    mode: plannerRun.mode,
+                    outputSummary: plannerRun.outputSummary || {},
+                    resultMetrics: plannerRun.resultMetrics || {}
+                }
+                : {}
+        });
+
+        const grounding = {
+            usedRoadmap: true,
+            usedMissions: Array.isArray(homePayload?.missions) && homePayload.missions.length > 0,
+            usedCheckins: Array.isArray(recentCheckins) && recentCheckins.length > 0
+        };
+
+        await academyFirestoreRepo.createCoachMessage(uid, {
+            conversationId,
+            role: 'assistant',
+            text: aiResult.reply,
+            contextHint,
+            provider: aiResult.provider,
+            model: aiResult.model,
+            grounding
+        });
+
+        return res.json({
+            success: true,
+            reply: aiResult.reply,
+            conversationId,
+            provider: aiResult.provider,
+            model: aiResult.model,
+            grounding
+        });
+    } catch (error) {
+        console.error('chatWithAcademyCoach error:', error);
+        return res.status(500).json({
+            success: false,
+            message: error?.message || 'Failed to get Academy AI Coach reply.'
+        });
+    }
+};

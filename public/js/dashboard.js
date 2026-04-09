@@ -1256,7 +1256,214 @@ document.querySelector('.profile-mini')?.addEventListener('click', () => {
         container.insertAdjacentHTML('beforeend', msgHTML);
     }
 
+    let academyCoachModeActive = false;
+    let academyCoachConversationId = 'coach_main';
+
+    function academySetChatInputPlaceholder(text = '') {
+        const input = document.getElementById('chat-input');
+        if (input) {
+            input.placeholder = text || 'Type a message.';
+        }
+    }
+
+    function academyResetCoachMode() {
+        academyCoachModeActive = false;
+        academyCoachConversationId = 'coach_main';
+        academySetChatInputPlaceholder('Type a message.');
+    }
+
+    function academyCoachTimeLabel(value) {
+        if (!value) return 'Just now';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return 'Just now';
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function academyCoachEscapeHtml(value) {
+        return academyFeedEscapeHtml(value);
+    }
+
+    function academyBuildCoachBubbleHtml(message = {}) {
+        const isUser = String(message.role || '').trim().toLowerCase() === 'user';
+        const author = isUser ? myName : 'Academy Coach';
+        const bubbleClass = isUser ? 'chat-bubble mine' : 'chat-bubble';
+        const avatarStyle = isUser
+            ? `background: var(--neon-blue);`
+            : `background: #8b5cf6;`;
+        const avatarContent = isUser ? myName.charAt(0).toUpperCase() : '🤖';
+        const authorColor = isUser ? '' : `style="color:#c4b5fd;"`;
+        const roleBadge = isUser
+            ? ''
+            : `<span class="role-badge bot" style="margin-left:5px;">AI</span>`;
+        const bubbleStyle = isUser
+            ? ''
+            : `style="background: rgba(139, 92, 246, 0.15); border-left: 3px solid #8b5cf6;"`;
+
+        return `
+            <div class="${bubbleClass} fade-in" ${bubbleStyle}>
+                <div class="bubble-header">
+                    <div class="bubble-avatar" style="${avatarStyle}">${avatarContent}</div>
+                    <span class="bubble-author"><span ${authorColor}>${academyCoachEscapeHtml(author)}</span> ${roleBadge}</span>
+                    <span class="bubble-time">${academyCoachEscapeHtml(academyCoachTimeLabel(message.createdAt))}</span>
+                </div>
+                <div class="bubble-body">${academyCoachEscapeHtml(message.text || '')}</div>
+            </div>
+        `;
+    }
+
+    function academyRenderCoachConversation(messages = []) {
+        const container = document.getElementById('dynamic-chat-history');
+        if (!container) return;
+
+        if (!Array.isArray(messages) || !messages.length) {
+            container.innerHTML = `
+                <div class="academy-home-stack">
+                    <section class="academy-home-panel">
+                        <div class="academy-home-panel-label">Academy AI Coach</div>
+                        <div class="academy-home-panel-copy">
+                            Ask about your roadmap, today’s focus, blocked missions, missed tasks, low-energy execution, or how to simplify your next move.
+                        </div>
+                        <div class="academy-home-chip-row">
+                            <span class="yh-universe-feature-chip">Roadmap grounded</span>
+                            <span class="yh-universe-feature-chip">Mission aware</span>
+                            <span class="yh-universe-feature-chip">Check-in aware</span>
+                        </div>
+                    </section>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = messages.map((message) => academyBuildCoachBubbleHtml(message)).join('');
+        container.scrollTop = container.scrollHeight;
+    }
+
+    async function academyLoadCoachConversation(forceRefresh = false) {
+        const container = document.getElementById('dynamic-chat-history');
+        if (!container) return [];
+
+        if (forceRefresh) {
+            container.innerHTML = `<div style="text-align:center;color:var(--text-muted);padding:2rem;">Loading AI Coach.</div>`;
+        }
+
+        const result = await academyAuthedFetch(`/api/academy/assistant/messages?conversationId=${encodeURIComponent(academyCoachConversationId)}`, {
+            method: 'GET'
+        });
+
+        const messages = Array.isArray(result?.messages) ? result.messages : [];
+        academyRenderCoachConversation(messages);
+        return messages;
+    }
+
+    async function openAcademyCoachView(forceRefresh = true) {
+        hideAcademyViewsForFeed();
+
+        const academyChat = document.getElementById('academy-chat');
+        const chatHeaderIcon = document.getElementById('chat-header-icon');
+        const chatHeaderTitle = document.getElementById('chat-header-title');
+        const chatHeaderTopic = document.getElementById('chat-header-topic');
+        const chatWelcomeBox = document.getElementById('chat-welcome-box');
+        const chatPinnedMessage = document.getElementById('chat-pinned-message');
+        const chatInputArea = document.getElementById('chat-input-area');
+
+        if (academyChat) {
+            academyChat.classList.remove('hidden-step');
+            academyChat.classList.remove('fade-in');
+            void academyChat.offsetWidth;
+            academyChat.classList.add('fade-in');
+        }
+
+        setAcademySidebarActive('nav-missions');
+
+        if (chatHeaderIcon) chatHeaderIcon.innerHTML = '🤖';
+        if (chatHeaderTitle) chatHeaderTitle.innerText = 'Academy AI Coach';
+        if (chatHeaderTopic) chatHeaderTopic.innerText = 'Ask about today’s focus, blocked missions, roadmap execution, or low-energy adaptation.';
+        if (chatWelcomeBox) chatWelcomeBox.style.display = 'none';
+        if (chatPinnedMessage) chatPinnedMessage.style.display = 'none';
+        if (chatInputArea) chatInputArea.style.display = 'flex';
+
+        academyCoachModeActive = true;
+        academySetChatInputPlaceholder('Ask your AI Coach about your roadmap, missions, or check-ins.');
+        currentRoom = null;
+        currentRoomId = null;
+        currentRoomMeta = null;
+
+        await academyLoadCoachConversation(forceRefresh);
+        document.getElementById('chat-input')?.focus();
+    }
+
+    async function academySendCoachMessage(customText = null) {
+        const input = document.getElementById('chat-input');
+        const sendBtn = document.getElementById('chat-send-btn');
+
+        if (!input && customText === null) return;
+
+        const rawText = customText !== null ? String(customText) : String(input?.value || '');
+        const text = rawText.trim();
+
+        if (!text) return;
+
+        try {
+            if (sendBtn) sendBtn.disabled = true;
+            if (input) input.disabled = true;
+
+            if (input) input.value = '';
+
+            const currentMessages = document.getElementById('dynamic-chat-history')?.innerHTML?.trim();
+            if (!currentMessages) {
+                academyRenderCoachConversation([]);
+            }
+
+            const optimisticMessages = await academyLoadCoachConversation(false).catch(() => []);
+            academyRenderCoachConversation([
+                ...optimisticMessages,
+                {
+                    role: 'user',
+                    text,
+                    createdAt: new Date().toISOString()
+                }
+            ]);
+
+            const result = await academyAuthedFetch('/api/academy/assistant/chat', {
+                method: 'POST',
+                body: JSON.stringify({
+                    conversationId: academyCoachConversationId,
+                    message: text,
+                    contextHint: 'academy_chat'
+                })
+            });
+
+            const refreshed = await academyLoadCoachConversation(true).catch(() => []);
+            if (!refreshed.length && result?.reply) {
+                academyRenderCoachConversation([
+                    {
+                        role: 'user',
+                        text,
+                        createdAt: new Date().toISOString()
+                    },
+                    {
+                        role: 'assistant',
+                        text: result.reply,
+                        createdAt: new Date().toISOString()
+                    }
+                ]);
+            }
+        } catch (error) {
+            showToast(error.message || 'Failed to get AI Coach reply.', 'error');
+            await academyLoadCoachConversation(true).catch(() => {});
+        } finally {
+            if (sendBtn) sendBtn.disabled = false;
+            if (input) input.disabled = false;
+            input?.focus();
+        }
+    }
+
     function sendMessage(customText = null) {
+        if (academyCoachModeActive) {
+            academySendCoachMessage(customText);
+            return;
+        }
+
         const chatInputArea = document.getElementById('chat-input');
         if(!chatInputArea && customText === null) return;
 
@@ -3534,6 +3741,7 @@ function renderAcademyHome(homeData = null) {
                 <div class="academy-home-actions">
                     <button id="academy-home-refresh-roadmap" type="button" class="btn-primary academy-home-action-btn">Refresh Roadmap</button>
                     <button id="academy-home-open-checkin" type="button" class="btn-secondary academy-home-action-btn">Daily Check-In</button>
+                    <button id="academy-home-open-coach" type="button" class="btn-secondary academy-home-action-btn">Ask AI Coach</button>
                     <button id="academy-home-enter-chat" type="button" class="btn-secondary academy-home-action-btn">Open Community</button>
                 </div>
             </section>
@@ -3629,6 +3837,14 @@ function renderAcademyHome(homeData = null) {
 
     document.getElementById('academy-home-open-checkin')?.addEventListener('click', () => {
         academyOpenCheckin();
+    });
+
+    document.getElementById('academy-home-open-coach')?.addEventListener('click', async (event) => {
+        const button = event.currentTarget;
+
+        await runDashboardButtonAction(button, 'Opening AI Coach...', async () => {
+            await openAcademyCoachView(true);
+        });
     });
 
     document.querySelectorAll('[data-academy-action="complete"]').forEach((button) => {
@@ -3744,6 +3960,7 @@ function hideAcademyViewsForFeed() {
 
 function openAcademyFeedView(forceReload = false) {
     closeRoadmapIntake();
+    academyResetCoachMode();
     hideAcademyViewsForFeed();
     setAcademySidebarActive('nav-chat');
 
@@ -3763,6 +3980,7 @@ function openAcademyFeedView(forceReload = false) {
 }
 
 function openAcademyRoadmapView(forceFresh = false) {
+    academyResetCoachMode();
     hideAcademyViewsForFeed();
 
     const academyChat = document.getElementById('academy-chat');

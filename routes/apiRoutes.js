@@ -46,6 +46,8 @@ router.post('/academy/missions/:id/complete', auth, academyControllers.completeM
 router.post('/academy/missions/:id/status', auth, academyControllers.updateMissionStatus);
 router.post('/academy/checkin', auth, academyControllers.submitCheckin);
 router.post('/academy/roadmap/refresh', auth, academyControllers.refreshRoadmap);
+router.get('/academy/assistant/messages', auth, academyControllers.getAcademyCoachMessages);
+router.post('/academy/assistant/chat', auth, academyControllers.chatWithAcademyCoach);
 
 // ==========================================
 // 🎓 YHA COMMUNITY FEED ROUTES
