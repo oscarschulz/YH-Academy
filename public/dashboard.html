@@ -359,7 +359,12 @@
                 <div class="channel-search-container">
                     <div class="search-wrapper">
                         <span class="search-icon-mini">🔍</span>
-                        <input type="text" placeholder="Search..." class="channel-search sidebar-text">
+                        <input
+                            type="text"
+                            id="academy-global-search-input"
+                            placeholder="Search members or tags..."
+                            class="channel-search sidebar-text"
+                        >
                     </div>
                 </div>
 
@@ -382,6 +387,7 @@
                     <span class="academy-tab-state-badge academy-tab-state-badge-mobile" id="roadmap-tab-state-badge-mobile">Apply for Access</span>
                 </button>
                 <button type="button" class="academy-mobile-nav-item" data-academy-target="nav-chat">📰 Community Feed</button>
+                <button type="button" class="academy-mobile-nav-item" data-academy-target="nav-voice">🎙️ Live Voice Lounge</button>
             </div>
             </div>
 
@@ -399,6 +405,10 @@
                     <span class="sidebar-text">Community Feed</span>
                 </li>
 
+                <li class="channel-link" id="nav-voice" title="voice-lounge" data-type="voice-lobby">
+                    <div class="sidebar-icon"><span class="channel-icon">🎙️</span></div>
+                    <span class="sidebar-text">Live Voice Lounge</span>
+                </li>
 
             </ul>
 
@@ -1204,7 +1214,7 @@
                 <div class="academy-member-browser-kicker">Academy Directory</div>
                 <h3 class="academy-member-browser-title">Check out other Hustlers</h3>
                 <p class="academy-member-browser-copy">
-                    Browse members from the database and follow them from here.
+                    Search members and Academy tags from here.
                 </p>
             </div>
 
@@ -1216,6 +1226,18 @@
             >
                 ✕
             </button>
+        </div>
+
+        <div style="padding: 0 22px 14px;">
+            <input
+                type="text"
+                id="academy-member-browser-search-input"
+                class="input-field"
+                placeholder="Search names, usernames, or tags like The Academy, YHA, roadmap..."
+            >
+            <div id="academy-member-browser-summary" style="margin-top:10px;color:var(--text-muted);font-size:0.84rem;">
+                Type in the Academy search bar to browse members and matching tags.
+            </div>
         </div>
 
         <div id="academy-member-browser-list" class="academy-member-browser-list">

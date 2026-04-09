@@ -291,15 +291,22 @@ exports.getMembers = async (req, res) => {
         }
 
         const limit = Number.parseInt(req.query.limit, 10) || 100;
+        const query =
+            sanitizeText(req.query?.query) ||
+            sanitizeText(req.query?.search) ||
+            sanitizeText(req.query?.q) ||
+            sanitizeText(req.query?.tag);
 
         const members = await academyCommunityRepo.listAcademyMembers({
             viewerId: viewer.id,
-            limit
+            limit,
+            query
         });
 
         return res.json({
             success: true,
-            members
+            members,
+            query
         });
     } catch (error) {
         console.error('academyCommunityControllers.getMembers error:', error);

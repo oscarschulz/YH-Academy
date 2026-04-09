@@ -570,9 +570,10 @@ async function getAcademyFollowerCount(userId) {
     return snap.size;
 }
 
-async function listAcademyMembers({ viewerId, limit = 100 }) {
+async function listAcademyMembers({ viewerId, limit = 100, query = '' }) {
     const normalizedViewerId = normalizeUserId(viewerId);
     const normalizedLimit = Math.max(1, Math.min(toInt(limit, 100), 200));
+    const normalizedQuery = sanitizeText(query).toLowerCase();
 
     const viewerFollowingSnap = normalizedViewerId
         ? await academyFollowsCol.where('followerId', '==', normalizedViewerId).get()
@@ -582,7 +583,8 @@ async function listAcademyMembers({ viewerId, limit = 100 }) {
         (viewerFollowingSnap?.docs || []).map((doc) => sanitizeText(doc.data()?.followingId))
     );
 
-    const usersSnap = await usersCol.limit(normalizedLimit).get();
+    const sourceLimit = normalizedQuery ? Math.max(normalizedLimit, 200) : normalizedLimit;
+    const usersSnap = await usersCol.limit(sourceLimit).get();
 
     const members = await Promise.all(
         usersSnap.docs.map(async (doc) => {
@@ -594,7 +596,19 @@ async function listAcademyMembers({ viewerId, limit = 100 }) {
             const snapshot = buildAuthorSnapshot(raw, {});
             const followerCount = await getAcademyFollowerCount(userId);
 
-            return {
+            const explicitTags = Array.isArray(raw.searchTags)
+                ? raw.searchTags.map((value) => sanitizeText(value).toLowerCase()).filter(Boolean)
+                : [];
+
+            const searchTags = Array.from(new Set([
+                'the academy',
+                'academy',
+                'yha',
+                sanitizeText(snapshot.roleLabel || 'Academy Member').toLowerCase(),
+                ...explicitTags
+            ].filter(Boolean)));
+
+            const member = {
                 id: userId,
                 fullName: snapshot.fullName,
                 display_name: snapshot.displayName,
@@ -602,8 +616,25 @@ async function listAcademyMembers({ viewerId, limit = 100 }) {
                 avatar: snapshot.avatar,
                 role_label: snapshot.roleLabel || 'Academy Member',
                 followers_count: followerCount,
-                followed_by_me: followedIds.has(userId)
+                followed_by_me: followedIds.has(userId),
+                search_tags: searchTags
             };
+
+            if (!normalizedQuery) {
+                return member;
+            }
+
+            const haystack = [
+                member.display_name,
+                member.fullName,
+                member.username,
+                member.role_label,
+                member.search_tags.join(' ')
+            ]
+                .map((value) => sanitizeText(value).toLowerCase())
+                .join(' ');
+
+            return haystack.includes(normalizedQuery) ? member : null;
         })
     );
 
@@ -613,7 +644,8 @@ async function listAcademyMembers({ viewerId, limit = 100 }) {
             const left = String(a.display_name || a.fullName || '').toLowerCase();
             const right = String(b.display_name || b.fullName || '').toLowerCase();
             return left.localeCompare(right);
-        });
+        })
+        .slice(0, normalizedLimit);
 }
 
 async function toggleMemberFollow({ viewerId, targetUserId }) {

@@ -125,15 +125,41 @@ function showToast(message, type = "success") {
 }
 
 function clearAcademyClientStateForFreshAuth() {
-    localStorage.removeItem('yh_academy_access');
-    localStorage.removeItem('yh_academy_home');
-    localStorage.removeItem('yh_academy_membership_status_v1');
-    localStorage.removeItem('yh_academy_application_profile');
-    localStorage.removeItem('yh_academy_roadmap_profile_v1');
-    localStorage.removeItem('yh_academy_roadmap_locked_v1');
-    localStorage.removeItem('yh_admin_panel_state_v2');
-    localStorage.removeItem('yh_admin_panel_state_v3_live');
-    sessionStorage.removeItem('yh_force_academy_application_after_auth');
+    const keysToClear = [
+        'yh_academy_access',
+        'yh_academy_home',
+        'yh_academy_membership_status_v1',
+        'yh_academy_application_profile',
+        'yh_academy_roadmap_profile_v1',
+        'yh_academy_roadmap_locked_v1',
+        'yh_admin_panel_state_v2',
+        'yh_admin_panel_state_v3_live',
+        'yh_force_academy_application_after_auth',
+
+        // clear old auth/user session artifacts so account switching does not leak old identity
+        'yh_user_loggedIn',
+        'yh_user_name',
+        'yh_user_username',
+        'yh_user_email',
+        'yh_user_avatar',
+        'yh_user_first_name',
+        'yh_user_firstname',
+        'yh_user_surname',
+        'yh_user_last_name',
+        'yh_user_lastname',
+        'yh_user_city',
+        'yh_user_location_city',
+        'yh_user_country',
+        'yh_user_country_of_residence',
+        'yh_user_location_country',
+        'yh_token',
+        'token',
+        'yh_pending_verify_email'
+    ];
+
+    [localStorage, sessionStorage].forEach((store) => {
+        keysToClear.forEach((key) => store.removeItem(key));
+    });
 }
 
 function persistClientSession(user, token) {
@@ -145,11 +171,33 @@ function persistClientSession(user, token) {
         'Hustler'
     ).trim();
 
-    const username = String(user?.username || '').trim();
+    const nameParts = fullName.split(/\s+/).filter(Boolean);
+
+    const firstName = String(
+        user?.firstName ||
+        user?.firstname ||
+        nameParts[0] ||
+        ''
+    ).trim();
+
+    const surname = String(
+        user?.surname ||
+        user?.lastName ||
+        user?.lastname ||
+        (nameParts.length > 1 ? nameParts.slice(1).join(' ') : '')
+    ).trim();
+
+    const username = String(user?.username || '')
+        .trim()
+        .replace(/^@+/, '')
+        .toLowerCase();
+
     const email = String(user?.email || '').trim().toLowerCase();
-    const existingAvatar = String(
-        sessionStorage.getItem('yh_user_avatar') ||
-        localStorage.getItem('yh_user_avatar') ||
+    const city = String(user?.city || '').trim();
+    const country = String(user?.country || '').trim();
+    const locationCountry = [city, country].filter(Boolean).join(', ') || country;
+
+    const pendingAvatar = String(
         sessionStorage.getItem('yh_pending_profile_avatar') ||
         localStorage.getItem('yh_pending_profile_avatar') ||
         ''
@@ -158,10 +206,12 @@ function persistClientSession(user, token) {
     const avatar = String(
         user?.avatar ||
         user?.profilePhoto ||
+        user?.photoURL ||
         user?.profilePhotoDataUrl ||
-        existingAvatar ||
+        pendingAvatar ||
         ''
     ).trim();
+
     const authToken = String(token || '').trim();
 
     [sessionStorage, localStorage].forEach((store) => {
@@ -172,10 +222,53 @@ function persistClientSession(user, token) {
         store.setItem('yh_token', authToken);
         store.setItem('token', authToken);
 
+        if (firstName) {
+            store.setItem('yh_user_first_name', firstName);
+            store.setItem('yh_user_firstname', firstName);
+        } else {
+            store.removeItem('yh_user_first_name');
+            store.removeItem('yh_user_firstname');
+        }
+
+        if (surname) {
+            store.setItem('yh_user_surname', surname);
+            store.setItem('yh_user_last_name', surname);
+            store.setItem('yh_user_lastname', surname);
+        } else {
+            store.removeItem('yh_user_surname');
+            store.removeItem('yh_user_last_name');
+            store.removeItem('yh_user_lastname');
+        }
+
+        if (city) {
+            store.setItem('yh_user_city', city);
+            store.setItem('yh_user_location_city', city);
+        } else {
+            store.removeItem('yh_user_city');
+            store.removeItem('yh_user_location_city');
+        }
+
+        if (country) {
+            store.setItem('yh_user_country', country);
+            store.setItem('yh_user_country_of_residence', country);
+            store.setItem('yh_user_location_country', country);
+        } else {
+            store.removeItem('yh_user_country');
+            store.removeItem('yh_user_country_of_residence');
+            store.removeItem('yh_user_location_country');
+        }
+
+        if (locationCountry) {
+            store.setItem('yh_user_location_country', locationCountry);
+        }
+
         if (avatar) {
             store.setItem('yh_user_avatar', avatar);
-            store.removeItem('yh_pending_profile_avatar');
+        } else {
+            store.removeItem('yh_user_avatar');
         }
+
+        store.removeItem('yh_pending_profile_avatar');
     });
 }
 
@@ -1284,7 +1377,11 @@ const loginPasswordInput = document.getElementById('login-password');
 async function handleLoginSubmit() {
     if (!btnLogin) return;
 
-    const identifier = loginEmailInput?.value?.trim() || '';
+    const rawIdentifier = loginEmailInput?.value?.trim() || '';
+    const identifier = rawIdentifier.includes('@') && !rawIdentifier.startsWith('@')
+        ? rawIdentifier.toLowerCase()
+        : rawIdentifier.replace(/^@+/, '').toLowerCase();
+
     const password = loginPasswordInput?.value || '';
 
     if (!identifier || !password) {

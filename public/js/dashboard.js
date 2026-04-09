@@ -871,6 +871,14 @@ function openRoom(type, element) {
         views['voice-lobby-view'].classList.remove('fade-in');
         void views['voice-lobby-view'].offsetWidth;
         views['voice-lobby-view'].classList.add('fade-in');
+
+        Promise.resolve()
+            .then(() => loadAcademyVoiceRooms(true))
+            .catch((error) => {
+                console.error('loadAcademyVoiceRooms error:', error);
+                showToast(error?.message || 'Failed to load live voice rooms.', 'error');
+            });
+
         return;
     }
 
@@ -3673,9 +3681,17 @@ function normalizeAcademyFeedId(value) {
     return String(value).trim();
 }
 
+function getAcademyHiddenPostsStorageKey() {
+    const username = String(getStoredUserValue('yh_user_username', '') || '').trim().toLowerCase();
+    const email = String(getStoredUserValue('yh_user_email', '') || '').trim().toLowerCase();
+    const fallbackName = String(getStoredUserValue('yh_user_name', 'guest') || 'guest').trim().toLowerCase();
+    const scopeKey = username || email || fallbackName || 'guest';
+    return `yh_academy_hidden_posts::${scopeKey}`;
+}
+
 function readAcademyHiddenPostIds() {
     try {
-        const parsed = JSON.parse(localStorage.getItem('yh_academy_hidden_posts') || '[]');
+        const parsed = JSON.parse(localStorage.getItem(getAcademyHiddenPostsStorageKey()) || '[]');
         return Array.isArray(parsed)
             ? parsed.map((item) => normalizeAcademyFeedId(item)).filter(Boolean)
             : [];
@@ -3691,7 +3707,7 @@ function writeAcademyHiddenPostIds(ids = []) {
             .filter(Boolean)
     ));
 
-    localStorage.setItem('yh_academy_hidden_posts', JSON.stringify(normalized));
+    localStorage.setItem(getAcademyHiddenPostsStorageKey(), JSON.stringify(normalized));
     return normalized;
 }
 
@@ -3769,7 +3785,7 @@ function openAcademyRoadmapView(forceFresh = false) {
 function renderAcademyProfileView() {
     const cachedHome = readAcademyHomeCache() || {};
     const displayName = String(localStorage.getItem('yh_user_name') || 'Hustler').trim() || 'Hustler';
-    const hiddenPosts = JSON.parse(localStorage.getItem('yh_academy_hidden_posts') || '[]');
+    const hiddenPosts = readAcademyHiddenPostIds();
 
     const readinessValue =
         cachedHome?.roadmap?.readinessScore ??
@@ -3851,6 +3867,304 @@ function openAcademyProfileView() {
     renderAcademyProfileView();
 }
 
+function readAcademyFeedCachePosts() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem('yh_academy_feed_cache') || '{}');
+        return Array.isArray(parsed?.posts) ? parsed.posts : [];
+    } catch (_) {
+        return [];
+    }
+}
+
+function normalizeAcademySearchValue(value) {
+    return String(value || '').trim().toLowerCase();
+}
+
+function academySearchAliasesFor(query = '') {
+    const normalizedQuery = normalizeAcademySearchValue(query);
+    const aliases = new Set([normalizedQuery]);
+
+    Object.entries(ACADEMY_TAG_SEARCH_ALIASES).forEach(([key, values]) => {
+        const normalizedValues = [key, ...(Array.isArray(values) ? values : [])]
+            .map((entry) => normalizeAcademySearchValue(entry))
+            .filter(Boolean);
+
+        if (normalizedValues.includes(normalizedQuery)) {
+            normalizedValues.forEach((entry) => aliases.add(entry));
+        }
+    });
+
+    return Array.from(aliases).filter(Boolean);
+}
+
+function academyPostMatchesSearch(post = {}, query = '') {
+    const aliases = academySearchAliasesFor(query);
+    if (!aliases.length) return true;
+
+    const haystack = [
+        post?.body,
+        post?.display_name,
+        post?.fullName,
+        post?.username,
+        post?.role_label,
+        'the academy',
+        'academy',
+        'yha'
+    ]
+        .map((value) => String(value || '').trim().toLowerCase())
+        .join(' ');
+
+    return aliases.some((alias) => haystack.includes(alias));
+}
+
+function academyRenderMemberBrowserList(members = [], query = '') {
+    const list = document.getElementById('academy-member-browser-list');
+    const summary = document.getElementById('academy-member-browser-summary');
+    if (!list) return;
+
+    const normalizedQuery = normalizeAcademySearchValue(query);
+
+    if (summary) {
+        summary.innerText = normalizedQuery
+            ? `Showing members matching “${query.trim()}”.`
+            : 'Browse members from the Academy database.';
+    }
+
+    if (!Array.isArray(members) || members.length === 0) {
+        list.innerHTML = `<div class="academy-member-browser-empty">${
+            normalizedQuery
+                ? 'No members matched that search yet.'
+                : 'No members available right now.'
+        }</div>`;
+        return;
+    }
+
+    list.innerHTML = members.map((member) => {
+        const displayName =
+            member.display_name ||
+            member.fullName ||
+            member.username ||
+            'Academy Member';
+
+        const username = String(member.username || '').trim();
+        const followerCount = Number(member.followers_count || 0);
+        const isFollowing = member.followed_by_me === true || member.followed_by_me === 1;
+        const avatar = String(member.avatar || '').trim();
+        const tagLine = Array.isArray(member.search_tags) && member.search_tags.length
+            ? member.search_tags.slice(0, 3).map((tag) => `#${String(tag).replace(/^#/, '')}`).join(' • ')
+            : '#the academy • #academy • #yha';
+
+        return `
+            <article class="academy-member-card" data-member-id="${academyFeedEscapeHtml(member.id)}">
+                <div class="academy-member-card-left">
+                    <div
+                        class="academy-member-card-avatar"
+                        style="${avatar ? `background-image:url('${academyFeedEscapeHtml(avatar)}');` : ''}"
+                    >${avatar ? '' : academyFeedEscapeHtml((displayName || 'A').charAt(0).toUpperCase())}</div>
+
+                    <div class="academy-member-card-copy">
+                        <div class="academy-member-card-name">${academyFeedEscapeHtml(displayName)}</div>
+                        <div class="academy-member-card-meta">
+                            ${academyFeedEscapeHtml(member.role_label || 'Academy Member')}
+                            ${username ? ` • @${academyFeedEscapeHtml(username)}` : ''}
+                            • ${academyFeedEscapeHtml(String(followerCount))} followers
+                        </div>
+                        <div class="academy-member-card-meta">${academyFeedEscapeHtml(tagLine)}</div>
+                    </div>
+                </div>
+
+                <div class="academy-member-card-actions">
+                    <button
+                        type="button"
+                        class="btn-secondary academy-member-card-follow ${isFollowing ? 'is-following' : ''}"
+                        data-member-follow-id="${academyFeedEscapeHtml(member.id)}"
+                    >${isFollowing ? 'Following' : 'Follow'}</button>
+                </div>
+            </article>
+        `;
+    }).join('');
+}
+
+async function loadAcademyMemberBrowser(query = '') {
+    const list = document.getElementById('academy-member-browser-list');
+    const modal = document.getElementById('academy-member-browser-modal');
+    if (!list || !modal) return;
+
+    const normalizedQuery = String(query || '').trim();
+    modal.classList.remove('hidden-step');
+    list.innerHTML = `<div class="academy-member-browser-empty">Loading members...</div>`;
+
+    try {
+        const result = await academyAuthedFetch(`/api/academy/community/members?limit=24&query=${encodeURIComponent(normalizedQuery)}`, {
+            method: 'GET'
+        });
+
+        academyRenderMemberBrowserList(
+            Array.isArray(result?.members) ? result.members : [],
+            normalizedQuery
+        );
+    } catch (error) {
+        list.innerHTML = `<div class="academy-member-browser-empty">Failed to load members.</div>`;
+    }
+}
+
+function applyAcademySearch(query = '') {
+    const normalizedQuery = String(query || '').trim();
+    const browserInput = document.getElementById('academy-member-browser-search-input');
+
+    if (browserInput && browserInput.value !== normalizedQuery) {
+        browserInput.value = normalizedQuery;
+    }
+
+    if (!normalizedQuery) {
+        document.getElementById('academy-member-browser-modal')?.classList.add('hidden-step');
+
+        if (!document.getElementById('academy-feed-view')?.classList.contains('hidden-step')) {
+            renderAcademyFeed(readAcademyFeedCachePosts());
+        }
+        return;
+    }
+
+    if (!document.getElementById('academy-feed-view')?.classList.contains('hidden-step')) {
+        const filteredPosts = readAcademyFeedCachePosts().filter((post) => academyPostMatchesSearch(post, normalizedQuery));
+        renderAcademyFeed(filteredPosts);
+    }
+
+    loadAcademyMemberBrowser(normalizedQuery);
+}
+
+function openAcademyStageFromRoom(room = {}) {
+    hideAcademyViewsForFeed();
+    setAcademySidebarActive('nav-voice');
+
+    const stageView = document.getElementById('center-stage-view');
+    if (stageView) {
+        stageView.classList.remove('hidden-step');
+        stageView.classList.remove('fade-in');
+        void stageView.offsetWidth;
+        stageView.classList.add('fade-in');
+    }
+
+    const roomTitle = String(room.title || 'Live Voice Lounge').trim() || 'Live Voice Lounge';
+    const roomTopic = String(room.topic || 'Live Academy networking').trim() || 'Live Academy networking';
+    const hostName = String(room.host_user_name || myName || 'Host').trim() || 'Host';
+
+    const stageTitle = document.getElementById('stage-title');
+    const hostNameEl = document.getElementById('host-name');
+    const hostAvatar = document.getElementById('host-avatar');
+    const stageTopic = document.querySelector('#center-stage-view .header-topic');
+    const stageIcon = document.getElementById('stage-icon');
+
+    if (stageTitle) stageTitle.innerText = roomTitle;
+    if (hostNameEl) hostNameEl.innerText = hostName;
+    if (hostAvatar) hostAvatar.innerText = hostName.charAt(0).toUpperCase();
+    if (stageTopic) stageTopic.innerText = roomTopic;
+    if (stageIcon) stageIcon.innerText = '🎙️';
+
+    academyActiveLiveRoom = room;
+}
+
+function renderAcademyVoiceRooms(rooms = []) {
+    const grid = document.getElementById('lounge-grid');
+    if (!grid) return;
+
+    if (!Array.isArray(rooms) || rooms.length === 0) {
+        grid.innerHTML = `<div class="academy-member-browser-empty" style="padding: 20px 0;">No live lounges yet. Start the first one.</div>`;
+        return;
+    }
+
+    grid.innerHTML = rooms.map((room) => {
+        const roomId = String(room.id || '').trim();
+        const title = String(room.title || 'Live Voice Lounge').trim();
+        const topic = String(room.topic || 'Live Academy networking').trim();
+        const hostName = String(room.host_user_name || 'Host').trim();
+        const participantCount = Number(room.participant_count || 0);
+
+        return `
+            <article
+                class="academy-feed-card"
+                data-live-room-id="${academyFeedEscapeHtml(roomId)}"
+                style="padding:16px;border-radius:18px;"
+            >
+                <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;">
+                    <div>
+                        <div style="font-size:0.78rem;color:var(--neon-blue);font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">Live now</div>
+                        <h4 style="margin-top:6px;color:#fff;font-size:1rem;line-height:1.3;">${academyFeedEscapeHtml(title)}</h4>
+                        <p style="margin-top:8px;color:var(--text-muted);line-height:1.5;font-size:0.9rem;">${academyFeedEscapeHtml(topic)}</p>
+                    </div>
+                    <div style="padding:6px 10px;border-radius:999px;background:rgba(14,165,233,0.12);border:1px solid rgba(14,165,233,0.25);color:var(--neon-blue);font-size:0.76rem;font-weight:700;">
+                        ${academyFeedEscapeHtml(String(participantCount || 1))} live
+                    </div>
+                </div>
+
+                <div style="margin-top:12px;color:var(--text-muted);font-size:0.82rem;">
+                    Hosted by ${academyFeedEscapeHtml(hostName)}
+                </div>
+
+                <div style="margin-top:14px;display:flex;justify-content:flex-end;">
+                    <button
+                        type="button"
+                        class="btn-primary academy-join-live-room-btn"
+                        data-live-room-id="${academyFeedEscapeHtml(roomId)}"
+                        style="width:auto;padding:10px 14px;"
+                    >Join Stage</button>
+                </div>
+            </article>
+        `;
+    }).join('');
+}
+
+async function loadAcademyVoiceRooms(forceFresh = false) {
+    const grid = document.getElementById('lounge-grid');
+    if (!grid) return [];
+
+    if (!forceFresh && Array.isArray(academyVoiceRoomsCache) && academyVoiceRoomsCache.length) {
+        renderAcademyVoiceRooms(academyVoiceRoomsCache);
+    } else if (forceFresh) {
+        grid.innerHTML = `<div class="academy-member-browser-empty" style="padding: 20px 0;">Loading live lounges...</div>`;
+    }
+
+    const result = await academyAuthedFetch('/api/realtime/live-rooms', { method: 'GET' });
+    const rooms = Array.isArray(result?.rooms) ? result.rooms : [];
+
+    academyVoiceRoomsCache = rooms;
+    renderAcademyVoiceRooms(rooms);
+    return rooms;
+}
+
+async function createAcademyVoiceRoom() {
+    const title = window.prompt('Voice lounge title', 'Live Academy Lounge');
+    if (title === null) return;
+
+    const cleanTitle = String(title || '').trim();
+    if (!cleanTitle) {
+        showToast('Room title is required.', 'error');
+        return;
+    }
+
+    const topic = window.prompt('Voice lounge topic', 'Live networking inside The Academy');
+    const result = await academyAuthedFetch('/api/realtime/live-rooms', {
+        method: 'POST',
+        body: JSON.stringify({
+            roomType: 'voice',
+            title: cleanTitle,
+            topic: String(topic || '').trim()
+        })
+    });
+
+    const room = result?.room && typeof result.room === 'object'
+        ? result.room
+        : {
+            title: cleanTitle,
+            topic: String(topic || '').trim(),
+            host_user_name: myName
+        };
+
+    showToast('Live voice lounge started.', 'success');
+    await loadAcademyVoiceRooms(true);
+    openAcademyStageFromRoom(room);
+}
+
 async function loadAcademyFeed(forceReload = false) {
     const list = document.getElementById('academy-feed-list');
     if (!list) return;
@@ -3876,6 +4190,11 @@ async function loadAcademyFeed(forceReload = false) {
         const posts = Array.isArray(result?.posts) ? result.posts : [];
         localStorage.setItem('yh_academy_feed_cache', JSON.stringify({ posts }));
         renderAcademyFeed(posts);
+
+        const activeSearch = String(document.getElementById('academy-global-search-input')?.value || '').trim();
+        if (activeSearch) {
+            applyAcademySearch(activeSearch);
+        }
     } catch (error) {
         if (!list.innerHTML.trim()) {
             list.innerHTML = `<div style="text-align:center;color:var(--text-muted);padding:2rem;">Failed to load YHA feed.</div>`;
@@ -3939,7 +4258,7 @@ function renderAcademyFeed(posts = []) {
                                 >•••</button>
 
                                 <div class="academy-feed-post-menu hidden-step" id="academy-feed-post-menu-${post.id}" style="position:absolute;top:calc(100% + 6px);right:0;min-width:160px;background:#0f172a;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:8px;display:grid;gap:6px;z-index:20;">
-                                    <button type="button" class="btn-secondary academy-feed-hide-btn" data-post-id="${post.id}" style="width:100%;padding:8px 10px;">Hide Post</button>
+                                    <button type="button" class="btn-secondary academy-feed-hide-btn" data-post-id="${post.id}" style="width:100%;padding:8px 10px;">Hide from My Feed</button>
                                     ${
                                         isOwner
                                             ? `<button type="button" class="btn-secondary academy-feed-delete-btn" data-post-id="${post.id}" style="width:100%;padding:8px 10px;">${isSharedPost ? 'Delete Shared Post' : 'Delete Post'}</button>`
@@ -4023,6 +4342,16 @@ function buildAcademyFeedSharePayload(post, caption = '') {
 }
 
 let academyFeedDeleteTargetPostId = '';
+let academyMemberSearchDebounce = null;
+let academyVoiceRoomsCache = [];
+let academyActiveLiveRoom = null;
+
+const ACADEMY_TAG_SEARCH_ALIASES = {
+    academy: ['academy', 'the academy', 'yha'],
+    roadmap: ['roadmap', 'mission', 'missions', 'execution hub'],
+    community: ['community', 'community feed', 'feed', 'academy community'],
+    voice: ['voice', 'voice lounge', 'live voice', 'lounge', 'stage']
+};
 
 function academyFeedCloseShareModal() {
     const modal = document.getElementById('academy-feed-share-modal');
@@ -4122,22 +4451,25 @@ async function academyFeedSubmitShare() {
 }
 async function academyFeedSubmitPost() {
     const input = document.getElementById('academy-feed-composer-input');
-    const imageFileInput = document.getElementById('academy-feed-image-file');
     const imageDataInput = document.getElementById('academy-feed-image-data');
-    const previewWrap = document.getElementById('academy-feed-image-preview-wrap');
-    const previewImg = document.getElementById('academy-feed-image-preview');
+    const submitBtn = document.getElementById('academy-feed-post-btn');
 
     if (!input) return;
 
     const body = String(input.value || '').trim();
     const imageUrl = String(imageDataInput?.value || '').trim();
 
-    if (!body) {
-        showToast('Write something before posting.', 'error');
+    if (!body && !imageUrl) {
+        showToast('Write something or attach an image before posting.', 'error');
         return;
     }
 
     try {
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerText = 'Posting...';
+        }
+
         await academyAuthedFetch('/api/academy/feed/posts', {
             method: 'POST',
             body: JSON.stringify({
@@ -4151,6 +4483,11 @@ async function academyFeedSubmitPost() {
         loadAcademyFeed(true);
     } catch (error) {
         showToast(error.message || 'Failed to create post.', 'error');
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerText = 'Post';
+        }
     }
 }
 
@@ -4247,7 +4584,7 @@ async function academyFeedToggleFollow(targetUserId) {
             body: JSON.stringify({})
         });
 
-        showToast(result?.isFollowing ? 'User followed.' : 'User unfollowed.', 'success');
+        showToast(result?.following ? 'User followed.' : 'User unfollowed.', 'success');
         loadAcademyFeed(true);
     } catch (error) {
         showToast(error.message || 'Failed to update follow status.', 'error');
@@ -4427,6 +4764,7 @@ document.getElementById('academy-feed-image-file')?.addEventListener('change', (
     const imageDataInput = document.getElementById('academy-feed-image-data');
     const previewWrap = document.getElementById('academy-feed-image-preview-wrap');
     const previewImg = document.getElementById('academy-feed-image-preview');
+    const MAX_IMAGE_MB = 4;
 
     if (!file) {
         if (imageDataInput) imageDataInput.value = '';
@@ -4441,6 +4779,15 @@ document.getElementById('academy-feed-image-file')?.addEventListener('change', (
         return;
     }
 
+    if ((Number(file.size || 0) / (1024 * 1024)) > MAX_IMAGE_MB) {
+        showToast(`Please select an image smaller than ${MAX_IMAGE_MB}MB.`, 'error');
+        event.target.value = '';
+        if (imageDataInput) imageDataInput.value = '';
+        if (previewImg) previewImg.src = '';
+        if (previewWrap) previewWrap.classList.add('hidden-step');
+        return;
+    }
+
     const reader = new FileReader();
     reader.onload = () => {
         const result = typeof reader.result === 'string' ? reader.result : '';
@@ -4449,6 +4796,59 @@ document.getElementById('academy-feed-image-file')?.addEventListener('change', (
         if (previewWrap) previewWrap.classList.remove('hidden-step');
     };
     reader.readAsDataURL(file);
+});
+
+document.getElementById('academy-feed-composer-input')?.addEventListener('keydown', (event) => {
+    if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
+        event.preventDefault();
+        academyFeedSubmitPost();
+    }
+});
+
+document.getElementById('btn-start-lounge')?.addEventListener('click', async () => {
+    try {
+        await createAcademyVoiceRoom();
+    } catch (error) {
+        showToast(error.message || 'Failed to start live lounge.', 'error');
+    }
+});
+
+document.getElementById('academy-member-browser-close')?.addEventListener('click', () => {
+    document.getElementById('academy-member-browser-modal')?.classList.add('hidden-step');
+});
+
+document.getElementById('academy-member-browser-modal')?.addEventListener('click', (event) => {
+    if (event.target?.id === 'academy-member-browser-modal') {
+        document.getElementById('academy-member-browser-modal')?.classList.add('hidden-step');
+    }
+});
+
+document.getElementById('academy-member-browser-search-input')?.addEventListener('input', (event) => {
+    const nextValue = String(event.target?.value || '');
+    const academySearchInput = document.getElementById('academy-global-search-input');
+
+    if (academySearchInput && academySearchInput.value !== nextValue) {
+        academySearchInput.value = nextValue;
+    }
+
+    clearTimeout(academyMemberSearchDebounce);
+    academyMemberSearchDebounce = setTimeout(() => {
+        applyAcademySearch(nextValue);
+    }, 180);
+});
+
+document.getElementById('academy-global-search-input')?.addEventListener('input', (event) => {
+    const nextValue = String(event.target?.value || '');
+    const browserInput = document.getElementById('academy-member-browser-search-input');
+
+    if (browserInput && browserInput.value !== nextValue) {
+        browserInput.value = nextValue;
+    }
+
+    clearTimeout(academyMemberSearchDebounce);
+    academyMemberSearchDebounce = setTimeout(() => {
+        applyAcademySearch(nextValue);
+    }, 180);
 });
 document.getElementById('academy-feed-share-cancel')?.addEventListener('click', () => {
     document.getElementById('academy-feed-share-modal')?.classList.add('hidden-step');
@@ -4547,7 +4947,7 @@ document.getElementById('academy-feed-list')?.addEventListener('click', async (e
             writeAcademyHiddenPostIds(hiddenPosts);
         }
 
-        showToast('Post hidden from your feed.', 'success');
+        showToast('Post hidden only for your account.', 'success');
         loadAcademyFeed(true);
         return;
     }
@@ -4565,6 +4965,30 @@ document.getElementById('academy-feed-list')?.addEventListener('click', async (e
     if (commentSubmitBtn) {
         const postId = normalizeAcademyFeedId(commentSubmitBtn.getAttribute('data-post-id'));
         if (postId) academyFeedSubmitComment(postId);
+    }
+
+    const followMemberBtn = event.target.closest('[data-member-follow-id]');
+    if (followMemberBtn) {
+        const targetUserId = normalizeAcademyFeedId(followMemberBtn.getAttribute('data-member-follow-id'));
+        if (targetUserId) {
+            academyFeedToggleFollow(targetUserId).then(() => {
+                const activeSearch = String(document.getElementById('academy-global-search-input')?.value || '').trim();
+                if (activeSearch) {
+                    loadAcademyMemberBrowser(activeSearch);
+                }
+            });
+        }
+        return;
+    }
+
+    const joinLiveRoomBtn = event.target.closest('.academy-join-live-room-btn');
+    if (joinLiveRoomBtn) {
+        const roomId = normalizeAcademyFeedId(joinLiveRoomBtn.getAttribute('data-live-room-id'));
+        const targetRoom = academyVoiceRoomsCache.find((room) => normalizeAcademyFeedId(room?.id) === roomId);
+
+        if (targetRoom) {
+            openAcademyStageFromRoom(targetRoom);
+        }
     }
 });
 const btnOpenApply = document.getElementById('btn-open-academy-apply');

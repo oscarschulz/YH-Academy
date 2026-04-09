@@ -100,7 +100,11 @@ async function findUserByEmail(email = '') {
 }
 
 async function findUserByUsername(username = '') {
-    const normalizedUsername = String(username || '').trim();
+    const normalizedUsername = String(username || '')
+        .trim()
+        .replace(/^@+/, '')
+        .toLowerCase();
+
     if (!normalizedUsername) return null;
 
     const snap = await usersCollection()
@@ -118,10 +122,13 @@ async function findUserByIdentifier(identifier = '') {
     const normalized = String(identifier || '').trim();
     if (!normalized) return null;
 
-    const byEmail = await findUserByEmail(normalized.toLowerCase());
+    const normalizedEmail = normalized.toLowerCase();
+    const normalizedUsername = normalized.replace(/^@+/, '').toLowerCase();
+
+    const byEmail = await findUserByEmail(normalizedEmail);
     if (byEmail) return byEmail;
 
-    return findUserByUsername(normalized);
+    return findUserByUsername(normalizedUsername);
 }
 
 async function findUserByEmailAndOtp(email = '', otpCode = '') {
@@ -173,13 +180,50 @@ function issueJwt(user) {
 }
 
 function publicUser(user) {
+    const fullName = String(
+        user.fullName ||
+        user.displayName ||
+        user.name ||
+        ''
+    ).trim();
+
+    const nameParts = fullName.split(/\s+/).filter(Boolean);
+    const firstName = String(
+        user.firstName ||
+        nameParts[0] ||
+        ''
+    ).trim();
+
+    const surname = String(
+        user.surname ||
+        user.lastName ||
+        (nameParts.length > 1 ? nameParts.slice(1).join(' ') : '')
+    ).trim();
+
+    const city = String(user.city || '').trim();
+    const country = String(user.country || '').trim();
+
+    const avatar = String(
+        user.avatar ||
+        user.profilePhoto ||
+        user.photoURL ||
+        ''
+    ).trim();
+
     return {
-        fullName: user.fullName || '',
-        username: user.username || '',
-        email: user.email || '',
-        city: user.city || '',
-        country: user.country || '',
+        fullName,
+        displayName: fullName,
+        firstName,
+        surname,
+        username: String(user.username || '').trim().replace(/^@+/, '').toLowerCase(),
+        email: String(user.email || '').trim().toLowerCase(),
+        city,
+        country,
+        locationCountry: [city, country].filter(Boolean).join(', ') || country,
         countryCode: user.countryCode || '',
+        avatar,
+        profilePhoto: avatar,
+        photoURL: avatar,
         lat: Number.isFinite(Number(user.lat)) ? Number(user.lat) : null,
         lng: Number.isFinite(Number(user.lng)) ? Number(user.lng) : null
     };
