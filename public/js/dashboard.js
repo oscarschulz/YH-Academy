@@ -6365,7 +6365,7 @@ function syncAcademyOccupationField() {
     const ageValue = String(ageInput?.value || '').trim();
 
     occupationLabel.innerText = ageValue
-        ? `What do you do for a living at the age of ${ageValue}?*`
+        ? `What do you do for a living at the age of ${ageValue}?`
         : 'What do you do for a living at the age of your answer above?';
 
     occupationInput.placeholder = ageValue
@@ -6385,7 +6385,7 @@ function syncAcademyReferralFields() {
     hearAboutInput.required = !hasReferrer;
     hearAboutLabel.innerText = hasReferrer
         ? 'In case the referrer username is incorrect, how did you hear from us?'
-        : 'In case no one referred you, how did you hear from us?*';
+        : 'In case no one referred you, how did you hear from us?';
 }
 
 document.getElementById('app-age')?.addEventListener('input', syncAcademyOccupationField);
