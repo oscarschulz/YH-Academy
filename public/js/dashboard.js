@@ -503,6 +503,126 @@ function persistKnownUser(user = {}) {
 
 window.persistKnownUser = persistKnownUser;
 
+function readKnownUsersCache() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem('yh_known_users_cache_v1') || '[]');
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (_) {
+        return [];
+    }
+}
+
+function extractAvatarUrlFromToken(token = '') {
+    const safeToken = String(token || '').trim();
+    if (!safeToken) return '';
+
+    const match = safeToken.match(/^url\((['"]?)(.+?)\1\)$/i);
+    return String(match?.[2] || '').trim();
+}
+
+function normalizeAvatarUrl(value = '') {
+    const safeValue = String(value || '').trim();
+    if (!safeValue) return '';
+
+    const extracted = extractAvatarUrlFromToken(safeValue);
+    return extracted || safeValue;
+}
+
+function resolveAcademyFeedAvatarUrl(post = {}, displayName = '') {
+    const directAvatar = [
+        post?.avatar,
+        post?.avatar_url,
+        post?.user_avatar,
+        post?.userAvatar,
+        post?.profile_picture,
+        post?.profilePicture,
+        post?.profile_image,
+        post?.profileImage,
+        post?.author_avatar,
+        post?.authorAvatar,
+        post?.member_avatar,
+        post?.memberAvatar,
+        post?.photo_url,
+        post?.photoUrl,
+        post?.image_url_avatar
+    ]
+        .map((value) => normalizeAvatarUrl(value))
+        .find(Boolean);
+
+    if (directAvatar) return directAvatar;
+
+    const safeDisplayName = String(
+        displayName ||
+        post?.display_name ||
+        post?.fullName ||
+        post?.username ||
+        ''
+    ).trim();
+
+    const safeUsername = String(post?.username || '')
+        .trim()
+        .replace(/^@+/, '')
+        .toLowerCase();
+
+    const savedMyAvatar = normalizeAvatarUrl(getStoredUserValue('yh_user_avatar', ''));
+    const savedMyName = String(getStoredUserValue('yh_user_name', myName) || '')
+        .trim()
+        .toLowerCase();
+    const savedMyUsername = String(getStoredUserValue('yh_user_username', '') || '')
+        .trim()
+        .replace(/^@+/, '')
+        .toLowerCase();
+
+    const ownedFlag = post?.owned_by_me;
+    const matchesOwned =
+        ownedFlag === true ||
+        ownedFlag === 1 ||
+        String(ownedFlag || '').trim() === '1' ||
+        String(ownedFlag || '').trim().toLowerCase() === 'true';
+
+    const matchesMyName =
+        safeDisplayName &&
+        safeDisplayName.toLowerCase() === savedMyName;
+
+    const matchesMyUsername =
+        safeUsername &&
+        savedMyUsername &&
+        safeUsername === savedMyUsername;
+
+    if (savedMyAvatar && (matchesOwned || matchesMyName || matchesMyUsername)) {
+        return savedMyAvatar;
+    }
+
+    const normalizedDisplayName = safeDisplayName.toLowerCase();
+    const knownUsers = readKnownUsersCache();
+
+    const matchedKnownUser = knownUsers.find((item) => {
+        const knownName = String(item?.name || '').trim().toLowerCase();
+        return Boolean(knownName) && (
+            knownName === normalizedDisplayName ||
+            (safeUsername && knownName === safeUsername)
+        );
+    });
+
+    return normalizeAvatarUrl(matchedKnownUser?.avatarToken);
+}
+
+function renderAcademyFeedAvatarHtml(post = {}, displayName = '') {
+    const safeDisplayName = String(displayName || '').trim() || 'Y';
+    const avatarUrl = resolveAcademyFeedAvatarUrl(post, safeDisplayName);
+    const fallbackInitial = academyFeedEscapeHtml(safeDisplayName.charAt(0).toUpperCase());
+
+    const avatarStyle = avatarUrl
+        ? `flex-shrink:0;width:36px;height:36px;font-size:0.9rem;background-image:url('${academyFeedEscapeHtml(avatarUrl)}');background-size:cover;background-position:center;background-repeat:no-repeat;`
+        : `flex-shrink:0;width:36px;height:36px;font-size:0.9rem;`;
+
+    return `
+        <div class="profile-avatar-mini" style="${avatarStyle}">
+            ${avatarUrl ? '' : fallbackInitial}
+        </div>
+    `;
+}
+
 function sendSystemNotification(title, text, avatarStr, color, target) {
     const notifList = document.getElementById('notif-list-container');
     const bellBadge = document.getElementById('notif-badge-count');
@@ -1599,28 +1719,73 @@ if ((currentRoom || "").includes("Agent")) {
 
     // --- LEAVE / END CALL LOGIC ---
     const btnLeaveStage = document.getElementById('btn-leave-stage');
-    const endCallModal = document.getElementById('end-call-modal');
-    const btnConfirmEndCall = document.getElementById('btn-confirm-end-call');
-    const btnCancelEndCall = document.getElementById('btn-cancel-end-call');
+    const btnEndLiveStage = document.getElementById('btn-end-live-stage');
 
-    if(btnLeaveStage) {
-        btnLeaveStage.addEventListener('click', () => {
-            const hostName = document.getElementById('host-name')?.innerText;
-            if (myName === hostName && endCallModal) {
-                endCallModal.classList.remove('hidden-step'); 
-            } else {
-                document.getElementById('nav-voice')?.click(); 
-                showToast("You left the stage.", "success");
+    if (btnLeaveStage) {
+        btnLeaveStage.addEventListener('click', async () => {
+            const activeRoom = academyActiveLiveRoom || {};
+            const roomId = normalizeAcademyLiveRoomId(activeRoom?.id || activeRoom?.roomId || activeRoom?.room_id);
+            const isHost = isAcademyLiveRoomHost(activeRoom);
+
+            if (!roomId) {
+                document.getElementById('nav-voice')?.click();
+                showToast(isHost ? 'Returned to the live lounge.' : 'You left the stage.', 'success');
+                return;
+            }
+
+            if (isHost) {
+                document.getElementById('nav-voice')?.click();
+                showToast('Returned to the live lounge. Your live is still active.', 'success');
+                return;
+            }
+
+            try {
+                await academyAuthedFetch(`/api/realtime/live-rooms/${encodeURIComponent(roomId)}/leave`, {
+                    method: 'POST'
+                });
+
+                academyActiveLiveRoom = null;
+                await loadAcademyVoiceRooms(true);
+                document.getElementById('nav-voice')?.click();
+                showToast('You left the stage.', 'success');
+            } catch (error) {
+                console.error('leave live room error:', error);
+                showToast(error?.message || 'Failed to leave the live room.', 'error');
             }
         });
     }
 
-    if (btnConfirmEndCall && btnCancelEndCall) {
-        btnCancelEndCall.addEventListener('click', () => endCallModal.classList.add('hidden-step'));
-        btnConfirmEndCall.addEventListener('click', () => {
-            endCallModal.classList.add('hidden-step');
-            showToast("Session Ended. All users disconnected.", "error");
-            document.getElementById('nav-voice')?.click();
+    if (btnEndLiveStage) {
+        btnEndLiveStage.addEventListener('click', async () => {
+            const activeRoom = academyActiveLiveRoom || {};
+            const roomId = normalizeAcademyLiveRoomId(activeRoom?.id || activeRoom?.roomId || activeRoom?.room_id);
+
+            if (!roomId) {
+                showToast('No active live room to end.', 'error');
+                return;
+            }
+
+            if (!isAcademyLiveRoomHost(activeRoom)) {
+                showToast('Only the live creator can end this session.', 'error');
+                return;
+            }
+
+            const confirmed = window.confirm('End this live voice lounge for everyone?');
+            if (!confirmed) return;
+
+            try {
+                await academyAuthedFetch(`/api/realtime/live-rooms/${encodeURIComponent(roomId)}/end`, {
+                    method: 'POST'
+                });
+
+                academyActiveLiveRoom = null;
+                await loadAcademyVoiceRooms(true);
+                document.getElementById('nav-voice')?.click();
+                showToast('Live voice lounge ended.', 'success');
+            } catch (error) {
+                console.error('end live room error:', error);
+                showToast(error?.message || 'Failed to end the live room.', 'error');
+            }
         });
     }
 
@@ -3957,6 +4122,7 @@ function academyFeedTimeLabel(value) {
 
 function hideAcademyViewsForFeed() {
     [
+        'academy-feed-view',
         'academy-chat',
         'academy-profile-view',
         'center-stage-view',
@@ -3967,6 +4133,51 @@ function hideAcademyViewsForFeed() {
     ].forEach((id) => {
         document.getElementById(id)?.classList.add('hidden-step');
     });
+}
+
+function showAcademyRoadmapLoadingShell() {
+    closeRoadmapIntake();
+    academyResetCoachMode();
+    hideAcademyViewsForFeed();
+    setAcademySidebarActive('nav-missions');
+
+    const academyChat = document.getElementById('academy-chat');
+    const chatHeaderIcon = document.getElementById('chat-header-icon');
+    const chatHeaderTitle = document.getElementById('chat-header-title');
+    const chatHeaderTopic = document.getElementById('chat-header-topic');
+    const chatWelcomeBox = document.getElementById('chat-welcome-box');
+    const chatPinnedMessage = document.getElementById('chat-pinned-message');
+    const chatInputArea = document.getElementById('chat-input-area');
+    const dynamicChatContainer = document.getElementById('dynamic-chat-history');
+
+    if (academyChat) {
+        academyChat.classList.remove('hidden-step');
+        academyChat.classList.remove('fade-in');
+    }
+
+    if (chatHeaderIcon) chatHeaderIcon.innerHTML = '🧠';
+    if (chatHeaderTitle) chatHeaderTitle.innerText = 'Academy Home';
+    if (chatHeaderTopic) chatHeaderTopic.innerText = 'Loading your roadmap, missions, and access state.';
+    if (chatWelcomeBox) chatWelcomeBox.style.display = 'none';
+    if (chatPinnedMessage) chatPinnedMessage.style.display = 'none';
+    if (chatInputArea) chatInputArea.style.display = 'none';
+
+    if (dynamicChatContainer) {
+        dynamicChatContainer.innerHTML = `
+            <div class="academy-home-stack">
+                <section class="academy-home-panel">
+                    <div class="academy-home-panel-label">Roadmap</div>
+                    <div class="academy-home-panel-copy">
+                        Loading your Academy roadmap view...
+                    </div>
+                </section>
+            </div>
+        `;
+    }
+
+    currentRoom = null;
+    currentRoomId = null;
+    currentRoomMeta = null;
 }
 
 function openAcademyFeedView(forceReload = false) {
@@ -4419,16 +4630,47 @@ function applyAcademySearch(query = '') {
     });
 }
 
-function openAcademyStageFromRoom(room = {}) {
+function normalizeAcademyLiveRoomId(value = '') {
+    return String(value || '').trim();
+}
+
+function isAcademyLiveRoomHost(room = {}) {
+    const hostName = String(room?.host_user_name || '').trim().toLowerCase();
+    const currentName = String(myName || '').trim().toLowerCase();
+
+    if (!hostName || !currentName) return false;
+    return hostName === currentName;
+}
+
+function syncAcademyStageActionButtons(room = {}) {
+    const leaveBtn = document.getElementById('btn-leave-stage');
+    const endBtn = document.getElementById('btn-end-live-stage');
+    const isHost = isAcademyLiveRoomHost(room);
+
+    if (leaveBtn) {
+        leaveBtn.textContent = isHost ? '⬅ Back to Lounge' : '📞 Leave Call';
+    }
+
+    if (endBtn) {
+        endBtn.classList.toggle('hidden-step', !isHost);
+    }
+}
+
+function renderAcademyStageFromRoom(room = {}, options = {}) {
     hideAcademyViewsForFeed();
     setAcademySidebarActive('nav-voice');
 
     const stageView = document.getElementById('center-stage-view');
     if (stageView) {
         stageView.classList.remove('hidden-step');
-        stageView.classList.remove('fade-in');
-        void stageView.offsetWidth;
-        stageView.classList.add('fade-in');
+
+        if (options.animate === false) {
+            stageView.classList.remove('fade-in');
+        } else {
+            stageView.classList.remove('fade-in');
+            void stageView.offsetWidth;
+            stageView.classList.add('fade-in');
+        }
     }
 
     const roomTitle = String(room.title || 'Live Voice Lounge').trim() || 'Live Voice Lounge';
@@ -4448,6 +4690,37 @@ function openAcademyStageFromRoom(room = {}) {
     if (stageIcon) stageIcon.innerText = '🎙️';
 
     academyActiveLiveRoom = room;
+    syncAcademyStageActionButtons(room);
+}
+
+async function openAcademyStageFromRoom(room = {}) {
+    const roomId = normalizeAcademyLiveRoomId(room?.id || room?.roomId || room?.room_id);
+
+    renderAcademyStageFromRoom(room);
+
+    if (!roomId) {
+        academyActiveLiveRoom = room;
+        return room;
+    }
+
+    try {
+        const result = await academyAuthedFetch(`/api/realtime/live-rooms/${encodeURIComponent(roomId)}/join`, {
+            method: 'POST'
+        });
+
+        const joinedRoom = result?.room && typeof result.room === 'object'
+            ? result.room
+            : room;
+
+        academyActiveLiveRoom = joinedRoom;
+        renderAcademyStageFromRoom(joinedRoom, { animate: false });
+        await loadAcademyVoiceRooms(true);
+        return joinedRoom;
+    } catch (error) {
+        console.error('openAcademyStageFromRoom join error:', error);
+        showToast(error?.message || 'Failed to join live room.', 'error');
+        throw error;
+    }
 }
 
 function renderAcademyVoiceRooms(rooms = []) {
@@ -4676,6 +4949,7 @@ function renderAcademyFeed(posts = []) {
             ? `<img src="${academyFeedEscapeHtml(post.image_url)}" alt="Post image" style="width:100%;max-width:100%;border-radius:14px;margin-top:12px;border:1px solid rgba(255,255,255,0.06);">`
             : '';
 
+        const avatarHtml = renderAcademyFeedAvatarHtml(post, displayName);
 
         const isOwner = Boolean(Number(post.owned_by_me || 0));
         const isSharedPost = /Shared from /i.test(String(post.body || ''));
@@ -4689,9 +4963,7 @@ function renderAcademyFeed(posts = []) {
         return `
             <article class="academy-feed-card academy-feed-post-compact" data-post-id="${post.id}" data-author-id="${post.user_id}">
                 <div style="display:flex;align-items:flex-start;gap:10px;">
-                    <div class="profile-avatar-mini" style="flex-shrink:0;width:36px;height:36px;font-size:0.9rem;">
-                        ${(displayName || 'Y').charAt(0).toUpperCase()}
-                    </div>
+                    ${avatarHtml}
 
                     <div style="min-width:0;flex:1;">
                         <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">
@@ -6486,15 +6758,25 @@ function maybeOpenRoadmapIntakeOnce() {
     // It should only open when the user explicitly clicks Apply for Access inside the Roadmap tab.
 }
 async function handleAcademyRoadmapTabIntent() {
-    const membershipSnapshot = await refreshAcademyMembershipStatus(true);
+    closeRoadmapIntake();
+    showAcademyRoadmapLoadingShell();
+
+    let membershipSnapshot = null;
+
+    try {
+        membershipSnapshot = await refreshAcademyMembershipStatus(true);
+    } catch (error) {
+        console.error('handleAcademyRoadmapTabIntent refresh error:', error);
+        openAcademyRoadmapAccessGate(readAcademyMembershipCache() || {});
+        showToast(error?.message || 'Failed to load roadmap state.', 'error');
+        return;
+    }
 
     const membershipStatus = String(
         membershipSnapshot?.applicationStatus || ''
     ).trim().toLowerCase();
 
     const hasRoadmapAccess = membershipSnapshot?.hasRoadmapAccess === true;
-
-    closeRoadmapIntake();
 
     if (membershipStatus !== 'approved') {
         openAcademyRoadmapAccessGate(membershipSnapshot);

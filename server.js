@@ -8,7 +8,7 @@ const { firestore } = require('./config/firebaseAdmin');
 const { Timestamp } = require('firebase-admin/firestore');
 const jwt = require('jsonwebtoken');
 const publicLandingEventsRepo = require('./backend/repositories/publicLandingEventsRepo');
-
+const realtimeFirestoreRepo = require('./backend/repositories/realtimeFirestoreRepo');
 const app = express();
 app.set('trust proxy', 1);
 
@@ -99,7 +99,50 @@ function verifySocketUser(socket) {
         return null;
     }
 }
+function getRequestToken(req) {
+    const authHeader = sanitizeText(req.headers?.authorization || '');
+    if (authHeader.toLowerCase().startsWith('bearer ')) {
+        return sanitizeText(authHeader.slice(7));
+    }
 
+    const headerToken = sanitizeText(req.headers?.['x-auth-token'] || '');
+    if (headerToken) return headerToken;
+
+    const cookies = parseCookieHeader(req.headers?.cookie || '');
+    return sanitizeText(cookies[AUTH_COOKIE_NAME]);
+}
+
+function verifyRequestUser(req) {
+    const token = getRequestToken(req);
+    if (!token) return null;
+
+    try {
+        const verified = jwt.verify(token, process.env.JWT_SECRET);
+        return {
+            id: sanitizeText(verified?.id || verified?.firebaseUid),
+            firebaseUid: sanitizeText(verified?.firebaseUid || verified?.id),
+            email: sanitizeText(verified?.email).toLowerCase(),
+            username: sanitizeText(verified?.username),
+            name: sanitizeText(verified?.name || verified?.username || 'Hustler')
+        };
+    } catch (_) {
+        return null;
+    }
+}
+
+function requireApiUser(req, res, next) {
+    const user = verifyRequestUser(req);
+
+    if (!user?.id) {
+        return res.status(401).json({
+            success: false,
+            message: 'Unauthorized.'
+        });
+    }
+
+    req.user = user;
+    next();
+}
 async function canUserAccessRoom(userId, roomId) {
     if (!userId || !roomId) return false;
     if (roomId === 'YH-community' || roomId === 'main-chat') return true;
@@ -410,7 +453,65 @@ app.use(adminPageRouter);
 
 app.use('/', viewRoutes);
 app.use('/api', apiRoutes);
+app.post('/api/realtime/live-rooms/:roomId/join', requireApiUser, async (req, res) => {
+    try {
+        const room = await realtimeFirestoreRepo.joinLiveRoom({
+            userId: req.user.id,
+            roomId: req.params.roomId
+        });
 
+        return res.json({
+            success: true,
+            room
+        });
+    } catch (error) {
+        console.error('join live room error:', error);
+        return res.status(400).json({
+            success: false,
+            message: error?.message || 'Failed to join live room.'
+        });
+    }
+});
+
+app.post('/api/realtime/live-rooms/:roomId/leave', requireApiUser, async (req, res) => {
+    try {
+        const room = await realtimeFirestoreRepo.leaveLiveRoom({
+            userId: req.user.id,
+            roomId: req.params.roomId
+        });
+
+        return res.json({
+            success: true,
+            room
+        });
+    } catch (error) {
+        console.error('leave live room error:', error);
+        return res.status(400).json({
+            success: false,
+            message: error?.message || 'Failed to leave live room.'
+        });
+    }
+});
+
+app.post('/api/realtime/live-rooms/:roomId/end', requireApiUser, async (req, res) => {
+    try {
+        const room = await realtimeFirestoreRepo.endLiveRoom({
+            userId: req.user.id,
+            roomId: req.params.roomId
+        });
+
+        return res.json({
+            success: true,
+            room
+        });
+    } catch (error) {
+        console.error('end live room error:', error);
+        return res.status(400).json({
+            success: false,
+            message: error?.message || 'Failed to end live room.'
+        });
+    }
+});
 startAiNurtureWorker();
 
 // --- START SERVER ---

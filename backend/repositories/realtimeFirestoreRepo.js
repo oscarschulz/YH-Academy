@@ -103,6 +103,10 @@ function mapVaultItemDoc(doc) {
 
 function mapLiveRoomDoc(doc) {
     const data = doc.data() || {};
+    const participantIds = safeArray(data.participant_ids)
+        .map((value) => sanitizeText(value))
+        .filter(Boolean);
+
     return {
         id: doc.id,
         room_key: sanitizeText(data.room_key),
@@ -114,7 +118,8 @@ function mapLiveRoomDoc(doc) {
         status: sanitizeText(data.status || 'live'),
         created_at: mapTimestamp(data.created_at),
         ended_at: mapTimestamp(data.ended_at),
-        participant_count: toInt(data.participant_count, 0)
+        participant_ids: participantIds,
+        participant_count: toInt(data.participant_count, participantIds.length)
     };
 }
 
@@ -393,6 +398,7 @@ async function createLiveRoom({ userId, roomType, title, topic }) {
         participant_ids: [normalizedUserId],
         participant_count: 1,
         created_at: nowTs(),
+        updated_at: nowTs(),
         ended_at: null
     };
 
@@ -402,6 +408,134 @@ async function createLiveRoom({ userId, roomType, title, topic }) {
         id: ref.id,
         data: () => payload
     });
+}
+
+async function joinLiveRoom({ userId, roomId }) {
+    const normalizedUserId = normalizeUserId(userId);
+    const normalizedRoomId = sanitizeText(roomId);
+
+    if (!normalizedUserId || !normalizedRoomId) {
+        throw new Error('User id and room id are required.');
+    }
+
+    const ref = liveRoomsCol.doc(normalizedRoomId);
+
+    await firestore.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+
+        if (!snap.exists) {
+            throw new Error('Live room not found.');
+        }
+
+        const room = snap.data() || {};
+        const status = sanitizeText(room.status || 'live').toLowerCase();
+
+        if (status !== 'live') {
+            throw new Error('This live room has already ended.');
+        }
+
+        const participantIds = Array.from(new Set(
+            safeArray(room.participant_ids)
+                .map((value) => normalizeUserId(value))
+                .filter(Boolean)
+        ));
+
+        if (!participantIds.includes(normalizedUserId)) {
+            participantIds.push(normalizedUserId);
+        }
+
+        tx.set(ref, {
+            participant_ids: participantIds,
+            participant_count: participantIds.length,
+            updated_at: nowTs()
+        }, { merge: true });
+    });
+
+    const snapshot = await ref.get();
+    return mapLiveRoomDoc(snapshot);
+}
+
+async function leaveLiveRoom({ userId, roomId }) {
+    const normalizedUserId = normalizeUserId(userId);
+    const normalizedRoomId = sanitizeText(roomId);
+
+    if (!normalizedUserId || !normalizedRoomId) {
+        throw new Error('User id and room id are required.');
+    }
+
+    const ref = liveRoomsCol.doc(normalizedRoomId);
+
+    await firestore.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+
+        if (!snap.exists) {
+            throw new Error('Live room not found.');
+        }
+
+        const room = snap.data() || {};
+        const status = sanitizeText(room.status || 'live').toLowerCase();
+
+        if (status !== 'live') {
+            throw new Error('This live room has already ended.');
+        }
+
+        const hostUserId = normalizeUserId(room.host_user_id);
+        if (hostUserId === normalizedUserId) {
+            throw new Error('The live creator must end the session instead of leaving it.');
+        }
+
+        const participantIds = safeArray(room.participant_ids)
+            .map((value) => normalizeUserId(value))
+            .filter(Boolean);
+
+        const nextParticipantIds = participantIds.filter((value) => value !== normalizedUserId);
+
+        tx.set(ref, {
+            participant_ids: nextParticipantIds,
+            participant_count: nextParticipantIds.length,
+            updated_at: nowTs()
+        }, { merge: true });
+    });
+
+    const snapshot = await ref.get();
+    return mapLiveRoomDoc(snapshot);
+}
+
+async function endLiveRoom({ userId, roomId }) {
+    const normalizedUserId = normalizeUserId(userId);
+    const normalizedRoomId = sanitizeText(roomId);
+
+    if (!normalizedUserId || !normalizedRoomId) {
+        throw new Error('User id and room id are required.');
+    }
+
+    const ref = liveRoomsCol.doc(normalizedRoomId);
+
+    await firestore.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+
+        if (!snap.exists) {
+            throw new Error('Live room not found.');
+        }
+
+        const room = snap.data() || {};
+        const hostUserId = normalizeUserId(room.host_user_id);
+
+        if (hostUserId !== normalizedUserId) {
+            throw new Error('Only the live creator can end this session.');
+        }
+
+        tx.set(ref, {
+            status: 'ended',
+            ended_at: nowTs(),
+            participant_ids: [],
+            participant_count: 0,
+            updated_at: nowTs()
+        }, { merge: true });
+    });
+
+    const snapshot = await ref.get();
+    return mapLiveRoomDoc(snapshot);
 }
 
 async function getNotifications(userId) {
@@ -627,6 +761,9 @@ module.exports = {
     createVaultFile,
     getLiveRooms,
     createLiveRoom,
+    joinLiveRoom,
+    leaveLiveRoom,
+    endLiveRoom,
     getNotifications,
     readAllNotifications,
     readNotification,

@@ -713,10 +713,55 @@ h3 { font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem; color: var(--ne
 .audience-grid { display: flex; flex-wrap: wrap; gap: 1rem; }
 .audience-member { display: flex; flex-direction: column; align-items: center; gap: 5px; }
 .aud-name { font-size: 0.75rem; color: var(--text-muted); }
-.stage-controls-bar { height: 80px; background: rgba(0,0,0,0.5); border-top: 1px solid var(--glass-border); display: flex; align-items: center; justify-content: center; gap: 20px; }
-.control-btn { width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; font-size: 1.2rem; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; }
-.control-btn:hover { background: rgba(255,255,255,0.15); transform: scale(1.1); }
-.btn-leave-call { background: rgba(239,68,68,0.15); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); padding: 10px 24px; border-radius: 30px; }
+.stage-controls-bar {
+    min-height: 80px;
+    background: rgba(0,0,0,0.5);
+    border-top: 1px solid var(--glass-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding: 14px 16px;
+}
+
+.control-btn {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #fff;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.control-btn:hover {
+    background: rgba(255,255,255,0.15);
+    transform: scale(1.1);
+}
+
+.btn-leave-call,
+.btn-end-live-call {
+    padding: 10px 24px;
+    border-radius: 30px;
+}
+
+.btn-leave-call {
+    background: rgba(239,68,68,0.15);
+    color: #ef4444;
+    border: 1px solid rgba(239,68,68,0.3);
+}
+
+.btn-end-live-call {
+    background: rgba(245,158,11,0.16);
+    color: #f59e0b;
+    border: 1px solid rgba(245,158,11,0.34);
+}
 
 /* 5. MISC MODALS & CLASSES */
 .fade-in { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
