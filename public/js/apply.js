@@ -23,7 +23,13 @@ const yhT = (key, options = {}) => {
         'auth.creatingAccount': 'Creating Account...',
         'auth.resendCode': 'Resend Code',
         'auth.sending': 'Sending...',
-        'auth.resendIn': `Resend in ${options?.time || '00:00'}`
+        'auth.resendIn': `Resend in ${options?.time || '00:00'}`,
+        'auth.verifying': 'Verifying...',
+        'auth.verifyEnter': 'Verify & Enter Universe ➔',
+        'auth.sendRecoveryCode': 'Send Recovery Code',
+        'auth.show': 'Show',
+        'auth.hide': 'Hide',
+        'auth.choosePhoto': 'Choose profile photo'
     };
 
     return fallbackMap[key] || key;

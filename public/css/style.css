@@ -6658,6 +6658,61 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
     width: 100%;
 }
 
+.academy-entry-button-shell {
+    position: relative;
+    width: 100%;
+    min-height: 56px;
+    border-radius: 16px;
+}
+
+.academy-entry-button-visual {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 56px;
+    padding: 0.95rem 1.2rem;
+    border-radius: 16px;
+    border: 1px solid rgba(56, 189, 248, 0.72);
+    background: linear-gradient(180deg, #38bdf8 0%, #0ea5e9 100%);
+    color: #f8fdff;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.2;
+    text-align: center;
+    box-shadow:
+        0 10px 26px rgba(14, 165, 233, 0.28),
+        inset 0 1px 0 rgba(255, 255, 255, 0.26);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+    pointer-events: none;
+}
+
+.academy-entry-button-shell:hover .academy-entry-button-visual,
+.academy-entry-button-shell:focus-within .academy-entry-button-visual {
+    transform: translateY(-1px);
+    box-shadow:
+        0 14px 30px rgba(14, 165, 233, 0.34),
+        inset 0 1px 0 rgba(255, 255, 255, 0.28);
+    filter: brightness(1.03);
+}
+
+.academy-entry-hit-button {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    min-height: 56px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 3;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
 .academy-entry-state-badge {
     display: inline-flex;
     align-items: center;
