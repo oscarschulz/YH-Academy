@@ -5672,6 +5672,7 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
     min-height: 56px !important;
     border-radius: 16px !important;
     cursor: pointer !important;
+    pointer-events: auto !important;
     user-select: none !important;
     -webkit-user-select: none !important;
     -webkit-tap-highlight-color: transparent !important;
@@ -5711,7 +5712,8 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
     filter: brightness(1.03) !important;
 }
 
-#btn-open-academy-apply {
+#btn-open-academy-apply,
+.academy-entry-hit-button {
     position: absolute !important;
     inset: 0 !important;
     width: 100% !important;
@@ -5719,33 +5721,21 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
     min-height: 56px !important;
     margin: 0 !important;
     padding: 0 !important;
-    display: block !important;
-    background: transparent !important;
     border: 0 !important;
-    outline: none !important;
-    box-shadow: none !important;
+    background: transparent !important;
     opacity: 0 !important;
     color: transparent !important;
     font-size: 0 !important;
     line-height: 0 !important;
     overflow: hidden !important;
-    z-index: 3 !important;
-    pointer-events: auto !important;
-    touch-action: manipulation !important;
-    cursor: pointer !important;
-    user-select: none !important;
-    -webkit-user-select: none !important;
-    -webkit-tap-highlight-color: transparent !important;
-    caret-color: transparent !important;
+    z-index: 1 !important;
+    pointer-events: none !important;
+    cursor: default !important;
     appearance: none !important;
     -webkit-appearance: none !important;
-}
-
-#btn-open-academy-apply:focus,
-#btn-open-academy-apply:focus-visible,
-.academy-entry-button-shell:focus,
-.academy-entry-button-shell:focus-visible {
-    outline: none !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    caret-color: transparent !important;
 }
 
 #btn-open-academy-apply::before,

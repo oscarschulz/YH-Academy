@@ -4998,6 +4998,8 @@ const closeApplyBtn = document.getElementById('close-academy-apply');
 const roadmapModal = document.getElementById('academy-roadmap-modal');
 const closeRoadmapBtn = document.getElementById('close-academy-roadmap');
 const academyEntryWrap = btnOpenApply?.closest('.academy-entry-cta-wrap') || null;
+const academyEntryShell = document.querySelector('.academy-entry-button-shell');
+const academyEntryVisual = document.getElementById('academy-entry-button-visual');
 
 const YH_POST_AUTH_APP_KEY = 'yh_force_academy_application_after_auth';
 const YH_ROADMAP_PROFILE_KEY = 'yh_academy_roadmap_profile_v1';
@@ -5150,13 +5152,32 @@ function syncAcademyEntryButton(snapshot = null) {
 
     if (entryWrap) {
         entryWrap.style.width = '100%';
-        entryWrap.style.pointerEvents = 'none';
+        entryWrap.style.pointerEvents = 'auto';
         entryWrap.style.position = 'relative';
         entryWrap.style.zIndex = '3';
     }
 
+    if (academyEntryShell) {
+        academyEntryShell.style.pointerEvents = 'auto';
+        academyEntryShell.style.position = 'relative';
+        academyEntryShell.style.zIndex = '3';
+        academyEntryShell.style.cursor = 'pointer';
+        academyEntryShell.style.touchAction = 'manipulation';
+        academyEntryShell.setAttribute('role', 'button');
+        academyEntryShell.setAttribute('tabindex', '0');
+    }
+
+    if (academyEntryVisual) {
+        academyEntryVisual.style.pointerEvents = 'none';
+        academyEntryVisual.style.userSelect = 'none';
+        academyEntryVisual.style.webkitUserSelect = 'none';
+        academyEntryVisual.style.caretColor = 'transparent';
+    }
+
     btnOpenApply.classList.remove('btn-secondary');
     btnOpenApply.setAttribute('type', 'button');
+    btnOpenApply.setAttribute('tabindex', '-1');
+    btnOpenApply.setAttribute('aria-hidden', 'true');
     btnOpenApply.style.position = 'absolute';
     btnOpenApply.style.inset = '0';
     btnOpenApply.style.width = '100%';
@@ -5169,16 +5190,18 @@ function syncAcademyEntryButton(snapshot = null) {
     btnOpenApply.style.background = 'transparent';
     btnOpenApply.style.border = 'none';
     btnOpenApply.style.opacity = '0';
-    btnOpenApply.style.pointerEvents = 'auto';
-    btnOpenApply.style.touchAction = 'manipulation';
-    btnOpenApply.style.cursor = 'pointer';
-    btnOpenApply.style.position = 'absolute';
-    btnOpenApply.style.zIndex = '3';
+    btnOpenApply.style.pointerEvents = 'none';
+    btnOpenApply.style.touchAction = 'none';
+    btnOpenApply.style.cursor = 'default';
+    btnOpenApply.style.zIndex = '1';
+    btnOpenApply.style.color = 'transparent';
+    btnOpenApply.style.fontSize = '0';
+    btnOpenApply.style.lineHeight = '0';
     btnOpenApply.style.webkitTapHighlightColor = 'transparent';
     btnOpenApply.style.appearance = 'none';
     btnOpenApply.style.webkitAppearance = 'none';
+    btnOpenApply.style.caretColor = 'transparent';
     btnOpenApply.textContent = '';
-
     if (stateBadge) {
         stateBadge.classList.add('is-hidden');
         stateBadge.classList.remove('is-pending', 'is-approved', 'is-waitlisted', 'is-rejected');
@@ -5816,17 +5839,20 @@ async function refreshAcademyMembershipStatus(force = false) {
             syncAcademyEntryButton(snapshot);
             syncRoadmapTabIndicator(snapshot);
 
-            if (snapshot.application) {
-                writeYhAdminPanelState({
-                    ...readYhAdminPanelState(),
-                    applications: [
-                        snapshot.application,
-                        ...(Array.isArray(readYhAdminPanelState()?.applications)
-                            ? readYhAdminPanelState().applications.filter((app) => app?.id !== snapshot.application.id)
-                            : [])
-                    ]
-                });
-            }
+    if (snapshot.application) {
+        const currentAdminState = readYhAdminPanelState() || {};
+        const currentApplications = Array.isArray(currentAdminState?.applications)
+            ? currentAdminState.applications
+            : [];
+
+        writeYhAdminPanelState({
+            ...currentAdminState,
+            applications: [
+                snapshot.application,
+                ...currentApplications.filter((app) => app?.id !== snapshot.application.id)
+            ]
+        });
+    }
 
             if (
                 nextStatus &&
@@ -6192,9 +6218,6 @@ function bindAcademyLaunchTarget(target) {
     });
 }
 
-const academyEntryShell = document.querySelector('.academy-entry-button-shell');
-const academyEntryVisual = document.getElementById('academy-entry-button-visual');
-
 if (academyEntryWrap) {
     academyEntryWrap.style.pointerEvents = 'auto';
 }
@@ -6206,6 +6229,15 @@ if (academyEntryShell) {
     academyEntryShell.setAttribute('role', 'button');
     academyEntryShell.setAttribute('tabindex', '0');
     bindAcademyLaunchTarget(academyEntryShell);
+}
+
+if (btnOpenApply) {
+    btnOpenApply.setAttribute('type', 'button');
+    btnOpenApply.setAttribute('tabindex', '-1');
+    btnOpenApply.setAttribute('aria-hidden', 'true');
+    btnOpenApply.style.pointerEvents = 'none';
+    btnOpenApply.style.touchAction = 'none';
+    btnOpenApply.style.cursor = 'default';
 }
 
 if (academyEntryVisual) {
@@ -6328,7 +6360,7 @@ function syncAcademyOccupationField() {
 
     occupationLabel.innerText = ageValue
         ? `What do you do for a living at the age of ${ageValue}?*`
-        : 'What do you do for a living at the age of your answer above?*';
+        : 'What do you do for a living at the age of your answer above?';
 
     occupationInput.placeholder = ageValue
         ? `Tell us what you do for a living at age ${ageValue}.`
@@ -6611,5 +6643,5 @@ if (roadmapForm) {
     });
 }
 
-    });
-
+// ✅ Close DOMContentLoaded wrapper
+});
