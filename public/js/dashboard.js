@@ -5750,7 +5750,7 @@ function syncAcademyEntryButton(snapshot = null) {
 
     if (membershipStatus === 'approved') {
         btnOpenApply.dataset.idleLabel = 'Enter the Academy ➔';
-        btnOpenApply.dataset.loadingLabel = 'Opening Academy.';
+        btnOpenApply.dataset.loadingLabel = 'Opening Academy...';
         btnOpenApply.setAttribute('data-academy-state', 'approved');
         setDashboardButtonLoadingState(btnOpenApply, false);
 
