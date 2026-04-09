@@ -1283,14 +1283,25 @@ document.querySelector('.profile-mini')?.addEventListener('click', () => {
         return academyFeedEscapeHtml(value);
     }
 
-    function academyBuildCoachBubbleHtml(message = {}) {
+function academyBuildCoachBubbleHtml(message = {}) {
         const isUser = String(message.role || '').trim().toLowerCase() === 'user';
         const author = isUser ? myName : 'Academy Coach';
         const bubbleClass = isUser ? 'chat-bubble mine' : 'chat-bubble';
-        const avatarStyle = isUser
-            ? `background: var(--neon-blue);`
-            : `background: #8b5cf6;`;
-        const avatarContent = isUser ? myName.charAt(0).toUpperCase() : '🤖';
+        const savedUserAvatar = String(message.avatar || localStorage.getItem('yh_user_avatar') || '').trim();
+
+        let avatarStyle = `background: #8b5cf6;`;
+        let avatarContent = '🤖';
+
+        if (isUser) {
+            if (savedUserAvatar) {
+                avatarStyle = `background-image: url(${savedUserAvatar}); background-size: cover; background-position: center;`;
+                avatarContent = '';
+            } else {
+                avatarStyle = `background: var(--neon-blue);`;
+                avatarContent = myName.charAt(0).toUpperCase();
+            }
+        }
+
         const authorColor = isUser ? '' : `style="color:#c4b5fd;"`;
         const roleBadge = isUser
             ? ''
