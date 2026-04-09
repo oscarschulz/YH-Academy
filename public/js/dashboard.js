@@ -6192,12 +6192,31 @@ function bindAcademyLaunchTarget(target) {
     });
 }
 
+const academyEntryShell = document.querySelector('.academy-entry-button-shell');
+const academyEntryVisual = document.getElementById('academy-entry-button-visual');
+
 if (academyEntryWrap) {
-    academyEntryWrap.style.pointerEvents = 'none';
+    academyEntryWrap.style.pointerEvents = 'auto';
+}
+
+if (academyEntryShell) {
+    academyEntryShell.style.pointerEvents = 'auto';
+    academyEntryShell.style.touchAction = 'manipulation';
+    academyEntryShell.style.cursor = 'pointer';
+    academyEntryShell.setAttribute('role', 'button');
+    academyEntryShell.setAttribute('tabindex', '0');
+    bindAcademyLaunchTarget(academyEntryShell);
+}
+
+if (academyEntryVisual) {
+    academyEntryVisual.style.pointerEvents = 'none';
+    academyEntryVisual.style.userSelect = 'none';
+    academyEntryVisual.style.webkitUserSelect = 'none';
 }
 
 if (btnOpenApply) {
     btnOpenApply.setAttribute('type', 'button');
+    btnOpenApply.setAttribute('tabindex', '-1');
     btnOpenApply.style.pointerEvents = 'auto';
     btnOpenApply.style.touchAction = 'manipulation';
     btnOpenApply.style.cursor = 'pointer';
