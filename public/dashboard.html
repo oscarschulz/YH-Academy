@@ -1329,8 +1329,23 @@
         </div>
     </div>
 </div>
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="/js/dashboard.js?v=20260403-1"></script>
-    <script src="/js/dashboard-mobile-fix.js?v=20260403-1"></script>
+<script src="/socket.io/socket.io.js"></script>
+
+<script>
+  // FOREVER SAFETY NET:
+  // Even if an old/cached dashboard.js is served, this prevents ReferenceError crashes.
+  window.academyFeedEscapeHtml = window.academyFeedEscapeHtml || function (value) {
+    if (value === null || value === undefined) return '';
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  };
+</script>
+
+<script src="/js/dashboard.js?v=20260410-2"></script>
+<script src="/js/dashboard-mobile-fix.js?v=20260410-2"></script>
 </body>
 </html>

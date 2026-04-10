@@ -345,7 +345,43 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '12mb' }));
 app.use(express.urlencoded({ extended: true, limit: '12mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use((req, res, next) => {
+    const p = String(req.path || '');
+
+    // Never cache the dashboard shell and its core scripts.
+    if (
+        p === '/dashboard' ||
+        p === '/dashboard/' ||
+        p === '/js/dashboard.js' ||
+        p === '/js/dashboard-mobile-fix.js'
+    ) {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        res.setHeader('Surrogate-Control', 'no-store');
+    }
+
+    next();
+});
+
+app.use(express.static(path.join(__dirname, 'public'), {
+    etag: true,
+    lastModified: true,
+    setHeaders: (res, filePath) => {
+        const normalized = String(filePath || '').replace(/\\/g, '/');
+
+        if (
+            normalized.endsWith('/public/js/dashboard.js') ||
+            normalized.endsWith('/public/js/dashboard-mobile-fix.js') ||
+            normalized.endsWith('/public/dashboard.html')
+        ) {
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+            res.setHeader('Surrogate-Control', 'no-store');
+        }
+    }
+}));
 
 // Anti-Spam (Rate Limiting)
 const AUTH_OTP_RATE_LIMIT_PATHS = new Set([

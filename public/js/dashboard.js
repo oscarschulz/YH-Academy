@@ -36,6 +36,20 @@ const socket = io({
 
 const myName = getStoredUserValue('yh_user_name', "Hustler");
 
+// Fallback: some cached builds may not have this helper yet.
+// Safe even if the real function exists later (we keep the existing one).
+var academyFeedEscapeHtml = (typeof academyFeedEscapeHtml === 'function')
+    ? academyFeedEscapeHtml
+    : function(value) {
+        if (value === null || value === undefined) return '';
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    };
+
 
 let currentRoom = "YH-community";      // UI/display label
 let currentRoomId = "YH-community";    // backend transport identity
@@ -1166,25 +1180,37 @@ else if (type === 'dm' || type === 'group') {
         views['academy-chat'].classList.add('fade-in');
     }
 }
-document.getElementById('nav-chat')?.addEventListener('click', function() {
+document.getElementById('nav-chat')?.addEventListener('click', function(event) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    event?.stopImmediatePropagation?.();
+
     setAcademySidebarActive('nav-chat');
     openAcademyFeedView();
 });
 
-document.getElementById('nav-voice')?.addEventListener('click', function() {
+document.getElementById('nav-voice')?.addEventListener('click', function(event) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    event?.stopImmediatePropagation?.();
+
     setAcademySidebarActive('nav-voice');
     openRoom('voice-lobby', this);
 });
 
 document.getElementById('nav-profile')?.addEventListener('click', function(event) {
-    event.preventDefault();
-    event.stopPropagation();
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    event?.stopImmediatePropagation?.();
+
     openAcademyProfileView();
 });
 
 document.getElementById('nav-missions')?.addEventListener('click', async function(event) {
-    event.preventDefault();
-    event.stopPropagation();
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    event?.stopImmediatePropagation?.();
+
     await handleAcademyRoadmapTabIntent();
 });
 function safeParseJson(value, fallback = null) {
