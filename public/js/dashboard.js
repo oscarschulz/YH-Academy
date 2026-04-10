@@ -1006,6 +1006,8 @@ function openRoom(type, element) {
         void views['voice-lobby-view'].offsetWidth;
         views['voice-lobby-view'].classList.add('fade-in');
 
+        saveAcademyViewState('voice'); // persistence (PATCH 5C)
+
         Promise.resolve()
             .then(() => loadAcademyVoiceRooms(true))
             .catch((error) => {
