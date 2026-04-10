@@ -3809,6 +3809,141 @@ body[data-yh-view="academy"] #center-stage-view {
     object-fit: cover;
 }
 
+/* ==========================================
+   ACADEMY FEED SHARE MODAL (FULL STYLING)
+   ========================================== */
+
+#academy-feed-share-modal {
+    z-index: 10030;
+}
+
+body.academy-feed-share-open {
+    overflow: hidden;
+}
+
+#academy-feed-share-modal .academy-feed-share-modal-content {
+    width: min(620px, calc(100vw - 32px));
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Move X to upper-right corner */
+#academy-feed-share-modal .academy-feed-share-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    border: none;
+    background: rgba(255, 255, 255, 0.06);
+    color: #fff;
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    cursor: pointer;
+    font-size: 1.05rem;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: 0.2s ease;
+}
+
+#academy-feed-share-modal .academy-feed-share-close:hover {
+    background: rgba(14, 165, 233, 0.18);
+    color: var(--neon-blue);
+    transform: rotate(90deg);
+}
+
+#academy-feed-share-modal .academy-feed-share-header {
+    padding-right: 56px; /* space for the close button */
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+#academy-feed-share-modal .academy-feed-share-kicker {
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--neon-blue);
+}
+
+#academy-feed-share-modal .academy-feed-share-title {
+    margin: 0;
+    color: #fff;
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+
+#academy-feed-share-modal .academy-feed-share-copy {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+#academy-feed-share-modal .academy-feed-share-textarea {
+    width: 100%;
+    resize: none;
+    border-radius: 14px;
+    padding: 12px 14px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    color: #fff;
+}
+
+#academy-feed-share-modal .academy-feed-share-textarea:focus {
+    outline: none;
+    border-color: rgba(56, 189, 248, 0.6);
+    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+}
+
+#academy-feed-share-modal .academy-feed-share-preview {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 16px;
+    padding: 12px;
+}
+
+#academy-feed-share-modal .academy-feed-share-preview-author {
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.92rem;
+    margin-bottom: 6px;
+}
+
+#academy-feed-share-modal .academy-feed-share-preview-body {
+    color: #cbd5e1;
+    font-size: 0.88rem;
+    line-height: 1.55;
+}
+
+#academy-feed-share-modal .academy-feed-share-preview-image {
+    width: 100%;
+    border-radius: 14px;
+    margin-top: 10px;
+    max-height: 240px;
+    object-fit: cover;
+    display: block;
+}
+
+#academy-feed-share-modal .academy-feed-share-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 2px;
+    flex-wrap: wrap;
+}
+
+#academy-feed-share-modal .academy-feed-share-actions .btn-secondary,
+#academy-feed-share-modal .academy-feed-share-actions .btn-primary {
+    flex: 1 1 140px;
+    min-height: 44px !important;
+    border-radius: 999px !important;
+    padding: 10px 16px !important;
+}
+
 /* share/post modal vertical tightening */
 #academy-feed-share-modal .modal-content,
 #academy-post-modal .modal-content {
