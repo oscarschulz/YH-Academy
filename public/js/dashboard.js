@@ -530,6 +530,57 @@ function updateUserProfile(newName, newAvatarData) {
     }
 }
 
+/* ========================================================= */
+/* YH Tab Loader (logo overlay to prevent flicker)            */
+/* ========================================================= */
+const YH_TAB_LOADER_MIN_MS = 240;
+let yhTabLoaderDepth = 0;
+let yhTabLoaderVisibleAt = 0;
+let yhTabLoaderHideTimer = null;
+
+function showAcademyTabLoader(label = 'Loading...') {
+    const overlay = document.getElementById('yh-tab-loader');
+    if (!overlay) return;
+
+    const text = document.getElementById('yh-tab-loader-text');
+    if (text) text.textContent = String(label || 'Loading...');
+
+    yhTabLoaderDepth += 1;
+
+    if (yhTabLoaderHideTimer) {
+        clearTimeout(yhTabLoaderHideTimer);
+        yhTabLoaderHideTimer = null;
+    }
+
+    // If already active, just update label + keep it visible
+    if (overlay.classList.contains('is-active')) {
+        return;
+    }
+
+    overlay.classList.remove('hidden-step');
+    void overlay.offsetWidth; // reflow
+    overlay.classList.add('is-active');
+    yhTabLoaderVisibleAt = Date.now();
+}
+
+function hideAcademyTabLoader() {
+    const overlay = document.getElementById('yh-tab-loader');
+    if (!overlay) return;
+
+    yhTabLoaderDepth = Math.max(0, yhTabLoaderDepth - 1);
+    if (yhTabLoaderDepth !== 0) return;
+
+    const elapsed = Date.now() - (yhTabLoaderVisibleAt || 0);
+    const delay = Math.max(0, YH_TAB_LOADER_MIN_MS - elapsed);
+
+    if (yhTabLoaderHideTimer) clearTimeout(yhTabLoaderHideTimer);
+
+    yhTabLoaderHideTimer = setTimeout(() => {
+        overlay.classList.remove('is-active');
+        setTimeout(() => overlay.classList.add('hidden-step'), 180);
+    }, delay);
+}
+
 function persistKnownUser(user = {}) {
     const safeName = String(user?.name || '').trim();
     if (!safeName) return null;
@@ -1054,6 +1105,14 @@ function openRoom(type, element) {
         'vault-view': document.getElementById('vault-view')
     };
 
+    const shouldTabLoad =
+        (type === 'voice-lobby' && views['voice-lobby-view']) ||
+        (type === 'video' && views['video-lobby-view']);
+
+    if (shouldTabLoad) {
+        showAcademyTabLoader(type === 'voice-lobby' ? 'Loading voice lounge...' : 'Loading video lounge...');
+    }
+
     Object.values(views).forEach(view => { if (view) view.classList.add('hidden-step'); });
 
     if (type === 'voice-lobby' && views['voice-lobby-view']) {
@@ -1069,6 +1128,9 @@ function openRoom(type, element) {
             .catch((error) => {
                 console.error('loadAcademyVoiceRooms error:', error);
                 showToast(error?.message || 'Failed to load live voice rooms.', 'error');
+            })
+            .finally(() => {
+                if (shouldTabLoad) hideAcademyTabLoader();
             });
 
         return;
@@ -1085,6 +1147,9 @@ if (type === 'video' && views['video-lobby-view']) {
         .catch((err) => {
             console.error(err);
             showToast('Failed to load video rooms.', 'error');
+        })
+        .finally(() => {
+            if (shouldTabLoad) hideAcademyTabLoader();
         });
 
     saveAcademyViewState('video'); // persistence
@@ -4316,6 +4381,7 @@ function showAcademyRoadmapLoadingShell() {
 }
 
 function openAcademyFeedView(forceReload = false) {
+    showAcademyTabLoader('Loading community feed...');
     closeRoadmapIntake();
     academyResetCoachMode();
     hideAcademyViewsForFeed();
@@ -4334,10 +4400,18 @@ function openAcademyFeedView(forceReload = false) {
     currentRoomId = null;
     currentRoomMeta = null;
 
-    loadAcademyFeed(forceReload);
+    Promise.resolve(loadAcademyFeed(forceReload))
+        .catch((error) => {
+            console.error('loadAcademyFeed error:', error);
+            showToast(error?.message || 'Failed to load Academy feed.', 'error');
+        })
+        .finally(() => {
+            hideAcademyTabLoader();
+        });
 }
 
 function openAcademyRoadmapView(forceFresh = false) {
+    showAcademyTabLoader('Loading roadmap...');
     academyResetCoachMode();
     hideAcademyViewsForFeed();
     saveAcademyViewState('home');
@@ -4356,7 +4430,14 @@ function openAcademyRoadmapView(forceFresh = false) {
     currentRoomId = null;
     currentRoomMeta = null;
 
-    loadAcademyHome(forceFresh);
+    Promise.resolve(loadAcademyHome(forceFresh))
+        .catch((error) => {
+            console.error('loadAcademyHome error:', error);
+            showToast(error?.message || 'Failed to load roadmap.', 'error');
+        })
+        .finally(() => {
+            hideAcademyTabLoader();
+        });
 }
 
 function renderAcademyProfileView() {
@@ -7331,37 +7412,42 @@ function maybeOpenRoadmapIntakeOnce() {
     // It should only open when the user explicitly clicks Apply for Access inside the Roadmap tab.
 }
 async function handleAcademyRoadmapTabIntent() {
-    closeRoadmapIntake();
-    showAcademyRoadmapLoadingShell();
-
-    let membershipSnapshot = null;
-
+    showAcademyTabLoader('Loading roadmap...');
     try {
-        membershipSnapshot = await refreshAcademyMembershipStatus(true);
-    } catch (error) {
-        console.error('handleAcademyRoadmapTabIntent refresh error:', error);
-        openAcademyRoadmapAccessGate(readAcademyMembershipCache() || {});
-        showToast(error?.message || 'Failed to load roadmap state.', 'error');
-        return;
+        closeRoadmapIntake();
+        showAcademyRoadmapLoadingShell();
+
+        let membershipSnapshot = null;
+
+        try {
+            membershipSnapshot = await refreshAcademyMembershipStatus(true);
+        } catch (error) {
+            console.error('handleAcademyRoadmapTabIntent refresh error:', error);
+            openAcademyRoadmapAccessGate(readAcademyMembershipCache() || {});
+            showToast(error?.message || 'Failed to load roadmap state.', 'error');
+            return;
+        }
+
+        const membershipStatus = String(
+            membershipSnapshot?.applicationStatus || ''
+        ).trim().toLowerCase();
+
+        const hasRoadmapAccess = membershipSnapshot?.hasRoadmapAccess === true;
+
+        if (membershipStatus !== 'approved') {
+            openAcademyRoadmapAccessGate(membershipSnapshot);
+            return;
+        }
+
+        if (hasRoadmapAccess) {
+            openAcademyRoadmapView(true);
+            return;
+        }
+
+        openRoadmapIntake();
+    } finally {
+        hideAcademyTabLoader();
     }
-
-    const membershipStatus = String(
-        membershipSnapshot?.applicationStatus || ''
-    ).trim().toLowerCase();
-
-    const hasRoadmapAccess = membershipSnapshot?.hasRoadmapAccess === true;
-
-    if (membershipStatus !== 'approved') {
-        openAcademyRoadmapAccessGate(membershipSnapshot);
-        return;
-    }
-
-    if (hasRoadmapAccess) {
-        openAcademyRoadmapView(true);
-        return;
-    }
-
-    openRoadmapIntake();
 }
 function stopAcademyMembershipRealtimeSync() {
     if (academyMembershipRealtimeTimer) {
