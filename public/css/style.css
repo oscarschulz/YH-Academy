@@ -8256,3 +8256,70 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
         flex: 0 1 auto;
     }
 }
+/* ========================================================= */
+/* YH Confirm Modal (UI replacement for browser confirm)     */
+/* ========================================================= */
+.yh-confirm-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 12000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+    background: rgba(0, 0, 0, 0.58);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.yh-confirm-card {
+    width: min(92vw, 520px);
+    background: rgba(17, 24, 39, 0.92);
+    border: 1px solid rgba(56, 189, 248, 0.22);
+    border-radius: 16px;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+    padding: 16px 16px 14px;
+}
+
+.yh-confirm-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.yh-confirm-title {
+    font-weight: 800;
+    letter-spacing: 0.02em;
+}
+
+.yh-confirm-x {
+    border: 1px solid rgba(56, 189, 248, 0.22);
+    background: rgba(2, 6, 23, 0.4);
+    color: rgba(255, 255, 255, 0.92);
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+.yh-confirm-message {
+    color: rgba(255, 255, 255, 0.78);
+    line-height: 1.45;
+    font-size: 0.95rem;
+    margin-bottom: 14px;
+}
+
+.yh-confirm-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.yh-confirm-actions .btn-secondary,
+.yh-confirm-actions .btn-primary {
+    width: auto;
+    padding: 10px 14px;
+    border-radius: 12px;
+}

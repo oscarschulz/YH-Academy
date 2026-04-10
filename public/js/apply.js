@@ -51,13 +51,15 @@ function showToast(message, type = "success") {
 
     toastMsg.innerText = yhTText(message);
 
-    if (type === "error") {
-        toast.classList.add('error-toast');
-        toastIcon.innerText = "⚠️";
-    } else {
-        toast.classList.remove('error-toast');
-        toastIcon.innerText = "🎉";
-    }
+if (type === "error") {
+    toast.classList.add('error-toast');
+    toastIcon.innerText = "⚠️";
+    toastIcon.style.display = '';
+} else {
+    toast.classList.remove('error-toast');
+    toastIcon.innerText = "";
+    toastIcon.style.display = 'none';
+}
 
     const otpStepVisible = otpStep && !otpStep.classList.contains('hidden-step');
 

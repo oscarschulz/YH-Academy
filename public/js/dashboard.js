@@ -363,7 +363,53 @@ async function logoutUser() {
     sessionStorage.removeItem('yh_force_academy_application_after_auth');
     window.location.href = '/';
 }
+function openYHConfirmModal({ title = 'Confirm', message = 'Are you sure?', okText = 'OK', cancelText = 'Cancel' } = {}) {
+    const overlay = document.getElementById('yh-confirm-overlay');
+    const titleEl = document.getElementById('yh-confirm-title');
+    const msgEl = document.getElementById('yh-confirm-message');
+    const btnOk = document.getElementById('yh-confirm-ok');
+    const btnCancel = document.getElementById('yh-confirm-cancel');
+    const btnX = document.getElementById('yh-confirm-x');
 
+    if (!overlay || !titleEl || !msgEl || !btnOk || !btnCancel || !btnX) {
+        // hard fallback if modal markup missing
+        return Promise.resolve(window.confirm(message));
+    }
+
+    titleEl.textContent = title;
+    msgEl.textContent = message;
+    btnOk.textContent = okText;
+    btnCancel.textContent = cancelText;
+
+    overlay.classList.remove('hidden-step');
+
+    return new Promise((resolve) => {
+        let done = false;
+
+        const cleanup = () => {
+            if (done) return;
+            done = true;
+            overlay.classList.add('hidden-step');
+
+            btnOk.removeEventListener('click', onOk);
+            btnCancel.removeEventListener('click', onCancel);
+            btnX.removeEventListener('click', onCancel);
+            overlay.removeEventListener('click', onOverlay);
+            document.removeEventListener('keydown', onKey);
+        };
+
+        const onOk = () => { cleanup(); resolve(true); };
+        const onCancel = () => { cleanup(); resolve(false); };
+        const onOverlay = (e) => { if (e.target === overlay) onCancel(); };
+        const onKey = (e) => { if (e.key === 'Escape') onCancel(); };
+
+        btnOk.addEventListener('click', onOk);
+        btnCancel.addEventListener('click', onCancel);
+        btnX.addEventListener('click', onCancel);
+        overlay.addEventListener('click', onOverlay);
+        document.addEventListener('keydown', onKey);
+    });
+}
 function showToast(message, type = "success") {
     const toast = document.getElementById('toast-notification');
     const toastMsg = document.getElementById('toast-message');
@@ -379,7 +425,15 @@ function showToast(message, type = "success") {
         toastIcon.innerText = "⚠️";
     } else {
         toast.classList.remove('error-toast');
-        toastIcon.innerText = "🎉";
+        if (type === "error") {
+    toast.classList.add('error-toast');
+    toastIcon.innerText = "⚠️";
+    toastIcon.style.display = '';
+} else {
+    toast.classList.remove('error-toast');
+    toastIcon.innerText = "";
+    toastIcon.style.display = 'none';
+}
     }
 
     toast.style.position = 'fixed';
@@ -1823,7 +1877,12 @@ if ((currentRoom || "").includes("Agent")) {
                 return;
             }
 
-            const confirmed = window.confirm(`End this live ${roomType} session for everyone?`);
+            const confirmed = await openYHConfirmModal({
+                title: `End Live ${roomType.toUpperCase()}`,
+                message: `End this live ${roomType} session for everyone?`,
+                okText: 'End Live',
+                cancelText: 'Cancel'
+            });
             if (!confirmed) return;
 
             try {

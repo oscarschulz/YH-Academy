@@ -11,9 +11,26 @@
 </head>
 <body data-yh-view="hub">
 
-    <div id="toast-notification">
-        <span id="toast-icon">🎉</span> <span id="toast-message">Notification</span>
+<div id="toast-notification">
+    <span id="toast-icon">🎉</span> <span id="toast-message">Notification</span>
+</div>
+
+<!-- In-UI Confirm Modal (replaces browser confirm) -->
+<div class="yh-confirm-overlay hidden-step" id="yh-confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="yh-confirm-title">
+    <div class="yh-confirm-card">
+        <div class="yh-confirm-header">
+            <div class="yh-confirm-title" id="yh-confirm-title">Confirm</div>
+            <button type="button" class="yh-confirm-x" id="yh-confirm-x" aria-label="Close">✕</button>
+        </div>
+
+        <div class="yh-confirm-message" id="yh-confirm-message">Are you sure?</div>
+
+        <div class="yh-confirm-actions">
+            <button type="button" class="btn-secondary yh-confirm-cancel" id="yh-confirm-cancel">Cancel</button>
+            <button type="button" class="btn-primary yh-confirm-ok" id="yh-confirm-ok">OK</button>
+        </div>
     </div>
+</div>
 
     <div class="dashboard-layout fade-in">
         
