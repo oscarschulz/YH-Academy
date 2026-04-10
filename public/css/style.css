@@ -8452,3 +8452,67 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
     0%, 100% { transform: scale(0.98); opacity: 0.9; }
     50% { transform: scale(1.05); opacity: 1; }
 }
+/* ==========================================
+   ACADEMY FEED: SHARED POST EMBED (FB-style)
+   ========================================== */
+
+#academy-feed-view .academy-feed-share-embed {
+    margin-top: 10px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: rgba(15, 23, 42, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    box-shadow: inset 0 0 0 1px rgba(14, 165, 233, 0.06);
+}
+
+#academy-feed-view .academy-feed-share-embed-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+#academy-feed-view .academy-feed-share-embed-label {
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(56, 189, 248, 0.95);
+    white-space: nowrap;
+}
+
+#academy-feed-view .academy-feed-share-embed-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    justify-content: flex-end;
+}
+
+#academy-feed-view .academy-feed-share-embed-name {
+    font-weight: 700;
+    color: #fff;
+    font-size: 0.88rem;
+    min-width: 0;
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#academy-feed-view .academy-feed-share-embed-role {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    padding: 2px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+#academy-feed-view .academy-feed-share-embed-body {
+    margin-top: 8px;
+    color: #e5e7eb;
+    line-height: 1.5;
+    font-size: 0.9rem;
+    word-break: break-word;
+}

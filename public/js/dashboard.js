@@ -5470,15 +5470,91 @@ function renderAcademyFeed(posts = []) {
             'Academy Member';
 
         const roleLabel = post.role_label || 'Academy Member';
-        const bodyHtml = academyFeedEscapeHtml(post.body || '').replace(/\n/g, '<br>');
-        const imageHtml = post.image_url
+
+        // FB-style shared post parsing:
+        // body format is created by buildAcademyFeedSharePayload():
+        // [caption?]\n\nShared from NAME (ROLE)\n\n“original body”
+        const rawBodyText = String(post.body || '');
+        const isSharedPost = /Shared from /i.test(rawBodyText);
+
+        let sharedCaptionText = '';
+        let sharedFromName = '';
+        let sharedFromRole = '';
+        let sharedOriginalBody = '';
+
+        if (isSharedPost) {
+            const parts = rawBodyText
+                .split(/\n\s*\n/)
+                .map((p) => p.trim())
+                .filter(Boolean);
+
+            const shareIdx = parts.findIndex((p) => /^Shared from\s+/i.test(p));
+            if (shareIdx >= 0) {
+                sharedCaptionText = parts.slice(0, shareIdx).join('\n\n').trim();
+
+                const sharedLineRaw = parts[shareIdx] || '';
+                const sharedLine = sharedLineRaw.replace(/^Shared from\s+/i, '').trim();
+
+                const match = sharedLine.match(/^(.*?)(?:\s*\(([^)]+)\))?\s*$/);
+                sharedFromName = (match ? match[1] : sharedLine).trim();
+                sharedFromRole = (match && match[2] ? match[2] : '').trim();
+
+                const tail = parts.slice(shareIdx + 1).join('\n\n').trim();
+                sharedOriginalBody = tail
+                    .replace(/^["“]+/, '')
+                    .replace(/["”]+$/, '')
+                    .trim();
+            }
+        }
+
+        // Main body shows only the sharer's caption (not the "Shared from..." line)
+        const mainBodyText = isSharedPost ? sharedCaptionText : rawBodyText;
+        const bodyHtml = academyFeedEscapeHtml(mainBodyText || '').replace(/\n/g, '<br>');
+        const hasMainBody = String(mainBodyText || '').trim().length > 0;
+
+        const bodyBlockHtml = hasMainBody
+            ? `<div style="margin-top:8px;color:#e5e7eb;line-height:1.45;font-size:0.92rem;">${bodyHtml}</div>`
+            : '';
+
+        // Image goes inside the embed card for shared posts (FB style)
+        const outerImageHtml = post.image_url
             ? `<img src="${academyFeedEscapeHtml(post.image_url)}" alt="Post image" style="width:100%;max-width:100%;border-radius:14px;margin-top:12px;border:1px solid rgba(255,255,255,0.06);">`
             : '';
+
+        const embedImageHtml = post.image_url
+            ? `<img src="${academyFeedEscapeHtml(post.image_url)}" alt="Shared post image" style="width:100%;max-width:100%;border-radius:12px;margin-top:10px;border:1px solid rgba(255,255,255,0.06);">`
+            : '';
+
+        const sharedEmbedHtml =
+            isSharedPost && (sharedFromName || sharedOriginalBody || post.image_url)
+                ? `
+                    <div class="academy-feed-share-embed">
+                        <div class="academy-feed-share-embed-header">
+                            <div class="academy-feed-share-embed-label">Shared post</div>
+                            <div class="academy-feed-share-embed-meta">
+                                <span class="academy-feed-share-embed-name">${academyFeedEscapeHtml(sharedFromName || 'Academy Member')}</span>
+                                ${
+                                    sharedFromRole
+                                        ? `<span class="academy-feed-share-embed-role">${academyFeedEscapeHtml(sharedFromRole)}</span>`
+                                        : ``
+                                }
+                            </div>
+                        </div>
+                        ${
+                            sharedOriginalBody
+                                ? `<div class="academy-feed-share-embed-body">${academyFeedEscapeHtml(sharedOriginalBody).replace(/\n/g, '<br>')}</div>`
+                                : ``
+                        }
+                        ${embedImageHtml}
+                    </div>
+                `
+                : '';
+
+        const imageHtml = isSharedPost ? '' : outerImageHtml;
 
         const avatarHtml = renderAcademyFeedAvatarHtml(post, displayName);
 
         const isOwner = Boolean(Number(post.owned_by_me || 0));
-        const isSharedPost = /Shared from /i.test(String(post.body || ''));
         const hiddenPosts = readAcademyHiddenPostIds();
         const normalizedPostId = normalizeAcademyFeedId(post.id);
 
@@ -5517,7 +5593,8 @@ function renderAcademyFeed(posts = []) {
                             </div>
                         </div>
 
-                        <div style="margin-top:8px;color:#e5e7eb;line-height:1.45;font-size:0.92rem;">${bodyHtml}</div>
+                        ${bodyBlockHtml}
+                        ${sharedEmbedHtml}
                         ${imageHtml}
 
                         <div class="academy-feed-post-actions-grid" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:center;gap:6px;margin-top:10px;">
