@@ -7181,11 +7181,17 @@ function setRoadmapIntakePhase(step = 1) {
 
 function resetRoadmapIntakeModalState() {
     // Avoid TDZ on roadmapForm (it is declared later in the file)
-    document.getElementById('form-academy-roadmap')?.reset();
+    const form = document.getElementById('form-academy-roadmap');
+    if (form) form.reset();
 
-    document.getElementById('roadmap-focus-area-key')?.value = '';
-    document.getElementById('roadmap-schema-key')?.value = '';
-    document.getElementById('roadmap-intake-version')?.value = '2';
+    const focusKeyEl = document.getElementById('roadmap-focus-area-key');
+    if (focusKeyEl) focusKeyEl.value = '';
+
+    const schemaEl = document.getElementById('roadmap-schema-key');
+    if (schemaEl) schemaEl.value = '';
+
+    const versionEl = document.getElementById('roadmap-intake-version');
+    if (versionEl) versionEl.value = '2';
 
     renderRoadmapScopeQuestions('');
     setRoadmapIntakePhase(1);
