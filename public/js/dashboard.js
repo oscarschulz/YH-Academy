@@ -6034,50 +6034,58 @@ function showUniverseHub(activeDivision = 'academy', options = {}) {
 }
 
 function enterAcademyWorld(defaultSection = 'home') {
-    hideDivisionViews();
-    closeAcademyLauncher();
+    showAcademyTabLoader('Entering Academy...');
+    try {
+        hideDivisionViews();
+        closeAcademyLauncher();
 
-    if (academyWrapper) {
-        academyWrapper.style.display = 'flex';
-        academyWrapper.classList.remove('fade-in');
-        void academyWrapper.offsetWidth;
-        academyWrapper.classList.add('fade-in');
-    }
+        if (academyWrapper) {
+            academyWrapper.style.display = 'flex';
+            academyWrapper.classList.remove('fade-in');
+            void academyWrapper.offsetWidth;
+            academyWrapper.classList.add('fade-in');
+        }
 
-    activeUniverseDivision = 'academy';
-    syncUniverseFeaturePanel('academy');
-    setDashboardViewMode('academy');
-    syncAcademyShellForViewport();
+        activeUniverseDivision = 'academy';
+        syncUniverseFeaturePanel('academy');
+        setDashboardViewMode('academy');
+        syncAcademyShellForViewport();
 
-    if (defaultSection === 'community') {
+        if (defaultSection === 'community') {
+            openAcademyFeedView();
+            return;
+        }
+
+        if (defaultSection === 'voice') {
+            setAcademySidebarActive('nav-voice');
+            openRoom('voice-lobby', document.getElementById('nav-voice'));
+            return;
+        }
+
+        if (defaultSection === 'video') {
+            setAcademySidebarActive('nav-voice'); // fallback since wala pang nav-video
+            openRoom('video', document.getElementById('nav-voice'));
+            return;
+        }
+
+        const membership = (typeof readAcademyMembershipCache === 'function')
+            ? readAcademyMembershipCache()
+            : null;
+
+        const hasRoadmapAccess = membership?.hasRoadmapAccess === true;
+
+        if (hasRoadmapAccess) {
+            openAcademyRoadmapView();
+            return;
+        }
+
         openAcademyFeedView();
-        return;
+    } finally {
+        // IMPORTANT:
+        // - This “hide” only releases the entry-loader depth.
+        // - Your tab loaders (Roadmap/Feed/Voice/Video) still control the final hide.
+        hideAcademyTabLoader();
     }
-
-    if (defaultSection === 'voice') {
-        setAcademySidebarActive('nav-voice');
-        openRoom('voice-lobby', document.getElementById('nav-voice'));
-        return;
-    }
-
-    if (defaultSection === 'video') {
-        setAcademySidebarActive('nav-voice'); // fallback since wala pang nav-video
-        openRoom('video', document.getElementById('nav-voice'));
-        return;
-    }
-
-    const membership = (typeof readAcademyMembershipCache === 'function')
-        ? readAcademyMembershipCache()
-        : null;
-
-    const hasRoadmapAccess = membership?.hasRoadmapAccess === true;
-
-    if (hasRoadmapAccess) {
-        openAcademyRoadmapView();
-        return;
-    }
-
-    openAcademyFeedView();
 }
 window.enterAcademyWorld = enterAcademyWorld;
 document.getElementById('btn-academy-back-universe')?.addEventListener('click', (event) => {
@@ -8161,54 +8169,67 @@ async function handleAcademyLaunchClick(event) {
         event.stopPropagation?.();
     }
 
-    const membershipSnapshot = await refreshAcademyMembershipStatus(true);
+    showAcademyTabLoader('Entering Academy...');
+    try {
+        let membershipSnapshot = null;
 
-    const membershipStatus = String(
-        membershipSnapshot?.applicationStatus || ''
-    ).trim().toLowerCase();
-
-    syncAcademyEntryButton(membershipSnapshot);
-
-    if (membershipStatus === 'approved') {
-        const hasRoadmapAccess = membershipSnapshot?.hasRoadmapAccess === true;
-
-        if (!hasSeenAcademyCommunityApprovalToast(membershipSnapshot)) {
-            showToast(
-                hasRoadmapAccess
-                    ? 'Academy membership approved. Opening Roadmap.'
-                    : 'Academy membership approved. Opening Community Feed.',
-                'success'
-            );
-            markAcademyCommunityApprovalToastSeen(membershipSnapshot);
+        try {
+            membershipSnapshot = await refreshAcademyMembershipStatus(true);
+        } catch (error) {
+            console.error('handleAcademyLaunchClick refresh error:', error);
+            showToast(error?.message || 'Failed to load Academy membership status.', 'error');
+            return false;
         }
 
-        // default on entry: roadmap if unlocked, otherwise community
-        enterAcademyWorld('home');
-        return false;
-    }
+        const membershipStatus = String(
+            membershipSnapshot?.applicationStatus || ''
+        ).trim().toLowerCase();
 
-    if (membershipStatus === 'under review' || membershipStatus === 'new') {
-        showToast('Your Academy application is already under review.', 'error');
-        return false;
-    }
+        syncAcademyEntryButton(membershipSnapshot);
 
-    if (membershipStatus === 'waitlisted') {
-        showToast('Your Academy application is waitlisted. Contact admin for the next step.', 'error');
-        return false;
-    }
+        if (membershipStatus === 'approved') {
+            const hasRoadmapAccess = membershipSnapshot?.hasRoadmapAccess === true;
 
-    if (membershipStatus === 'rejected') {
-        showToast('Your Academy application has already been reviewed. Only admin can reopen it.', 'error');
-        return false;
-    }
+            if (!hasSeenAcademyCommunityApprovalToast(membershipSnapshot)) {
+                showToast(
+                    hasRoadmapAccess
+                        ? 'Academy membership approved. Opening Roadmap.'
+                        : 'Academy membership approved. Opening Community Feed.',
+                    'success'
+                );
+                markAcademyCommunityApprovalToastSeen(membershipSnapshot);
+            }
 
-    if (hasAcademyApplicationAlreadyBeenFilled()) {
-        showToast('You already filled the Academy application. Please wait for admin review.', 'error');
-        return false;
-    }
+            // default on entry: roadmap if unlocked, otherwise community
+            enterAcademyWorld('home');
+            return false;
+        }
 
-    openAcademyLauncher();
-    return false;
+        if (membershipStatus === 'under review' || membershipStatus === 'new') {
+            showToast('Your Academy application is already under review.', 'error');
+            return false;
+        }
+
+        if (membershipStatus === 'waitlisted') {
+            showToast('Your Academy application is waitlisted. Contact admin for the next step.', 'error');
+            return false;
+        }
+
+        if (membershipStatus === 'rejected') {
+            showToast('Your Academy application has already been reviewed. Only admin can reopen it.', 'error');
+            return false;
+        }
+
+        if (hasAcademyApplicationAlreadyBeenFilled()) {
+            showToast('You already filled the Academy application. Please wait for admin review.', 'error');
+            return false;
+        }
+
+        openAcademyLauncher();
+        return false;
+    } finally {
+        hideAcademyTabLoader();
+    }
 }
 window.handleAcademyLaunchClick = handleAcademyLaunchClick;
 
