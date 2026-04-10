@@ -1552,7 +1552,14 @@ img, video, canvas {
     padding: 16px 12px 14px;
     height: 100%;
 }
-
+#academy-wrapper .academy-back-universe-btn {
+    width: 100%;
+    margin: 0 6px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+}
 #academy-wrapper .channel-search-container {
     padding-bottom: 0.85rem;
 }

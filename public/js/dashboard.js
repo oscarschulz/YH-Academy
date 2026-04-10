@@ -1016,13 +1016,23 @@ function openRoom(type, element) {
         return;
     }
 
-    if (type === 'video' && views['video-lobby-view']) {
-        views['video-lobby-view'].classList.remove('hidden-step');
-        views['video-lobby-view'].classList.remove('fade-in');
-        void views['video-lobby-view'].offsetWidth;
-        views['video-lobby-view'].classList.add('fade-in');
-        return;
-    }
+if (type === 'video' && views['video-lobby-view']) {
+    views['video-lobby-view'].classList.remove('hidden-step');
+    views['video-lobby-view'].classList.remove('fade-in');
+    void views['video-lobby-view'].offsetWidth;
+    views['video-lobby-view'].classList.add('fade-in');
+
+    Promise.resolve()
+        .then(() => loadAcademyVideoRooms(true))
+        .catch((err) => {
+            console.error(err);
+            showToast('Failed to load video rooms.', 'error');
+        });
+
+    saveAcademyViewState('video'); // persistence
+
+    return;
+}
 
     if (type === 'announcements' && views['announcements-view']) {
         views['announcements-view'].classList.remove('hidden-step');
@@ -1751,16 +1761,20 @@ if ((currentRoom || "").includes("Agent")) {
         btnLeaveStage.addEventListener('click', async () => {
             const activeRoom = academyActiveLiveRoom || {};
             const roomId = normalizeAcademyLiveRoomId(activeRoom?.id || activeRoom?.roomId || activeRoom?.room_id);
+            const roomType = getAcademyLiveRoomType(activeRoom);
+            const navId = getAcademyLiveLobbyNavId(roomType);
             const isHost = isAcademyLiveRoomHost(activeRoom);
 
+            stopAcademyLiveMediaStream();
+
             if (!roomId) {
-                document.getElementById('nav-voice')?.click();
+                document.getElementById(navId)?.click();
                 showToast(isHost ? 'Returned to the live lounge.' : 'You left the stage.', 'success');
                 return;
             }
 
             if (isHost) {
-                document.getElementById('nav-voice')?.click();
+                document.getElementById(navId)?.click();
                 showToast('Returned to the live lounge. Your live is still active.', 'success');
                 return;
             }
@@ -1771,8 +1785,14 @@ if ((currentRoom || "").includes("Agent")) {
                 });
 
                 academyActiveLiveRoom = null;
-                await loadAcademyVoiceRooms(true);
-                document.getElementById('nav-voice')?.click();
+
+                if (roomType === 'video') {
+                    await loadAcademyVideoRooms(true);
+                } else {
+                    await loadAcademyVoiceRooms(true);
+                }
+
+                document.getElementById(navId)?.click();
                 showToast('You left the stage.', 'success');
             } catch (error) {
                 console.error('leave live room error:', error);
@@ -1785,6 +1805,8 @@ if ((currentRoom || "").includes("Agent")) {
         btnEndLiveStage.addEventListener('click', async () => {
             const activeRoom = academyActiveLiveRoom || {};
             const roomId = normalizeAcademyLiveRoomId(activeRoom?.id || activeRoom?.roomId || activeRoom?.room_id);
+            const roomType = getAcademyLiveRoomType(activeRoom);
+            const navId = getAcademyLiveLobbyNavId(roomType);
 
             if (!roomId) {
                 showToast('No active live room to end.', 'error');
@@ -1796,7 +1818,7 @@ if ((currentRoom || "").includes("Agent")) {
                 return;
             }
 
-            const confirmed = window.confirm('End this live voice lounge for everyone?');
+            const confirmed = window.confirm(`End this live ${roomType} session for everyone?`);
             if (!confirmed) return;
 
             try {
@@ -1804,10 +1826,17 @@ if ((currentRoom || "").includes("Agent")) {
                     method: 'POST'
                 });
 
+                stopAcademyLiveMediaStream();
                 academyActiveLiveRoom = null;
-                await loadAcademyVoiceRooms(true);
-                document.getElementById('nav-voice')?.click();
-                showToast('Live voice lounge ended.', 'success');
+
+                if (roomType === 'video') {
+                    await loadAcademyVideoRooms(true);
+                } else {
+                    await loadAcademyVoiceRooms(true);
+                }
+
+                document.getElementById(navId)?.click();
+                showToast(`Live ${roomType} session ended.`, 'success');
             } catch (error) {
                 console.error('end live room error:', error);
                 showToast(error?.message || 'Failed to end the live room.', 'error');
@@ -3041,11 +3070,14 @@ function applyAcademyHomeRuntimePatch(runtime = {}) {
     }
 
     if (runtime?.todayProgress && typeof runtime.todayProgress === 'object') {
-        nextHome.today = {
-            ...(cachedHome.today || {}),
-            missionsCompleted: Number(runtime.todayProgress.completed || 0),
-            missionsTotal: Number(runtime.todayProgress.total || 0)
-        };
+    nextHome.today = {
+                ...(cachedHome.today || {}),
+                missionsCompleted: runtime.missionsCompleted ?? cachedHome.today?.missionsCompleted ?? 0,
+                missionsTotal: runtime.missionsTotal ?? cachedHome.today?.missionsTotal ?? 0,
+                streak: runtime.streak ?? cachedHome.today?.streak ?? 0,
+                readinessScore: runtime.readinessScore ?? cachedHome.today?.readinessScore ?? cachedHome.readinessScore ?? '--',
+                lastCheckin: runtime.lastCheckin ?? cachedHome.today?.lastCheckin ?? null
+            };
     }
 
     if (runtime?.missionId && Array.isArray(cachedHome.missions)) {
@@ -4211,6 +4243,7 @@ function openAcademyFeedView(forceReload = false) {
     academyResetCoachMode();
     hideAcademyViewsForFeed();
     setAcademySidebarActive('nav-chat');
+    saveAcademyViewState('community');
 
     const feedView = document.getElementById('academy-feed-view');
     if (feedView) {
@@ -4230,6 +4263,7 @@ function openAcademyFeedView(forceReload = false) {
 function openAcademyRoadmapView(forceFresh = false) {
     academyResetCoachMode();
     hideAcademyViewsForFeed();
+    saveAcademyViewState('home');
 
     const academyChat = document.getElementById('academy-chat');
     if (academyChat) {
@@ -4660,6 +4694,85 @@ function normalizeAcademyLiveRoomId(value = '') {
     return String(value || '').trim();
 }
 
+function getAcademyLiveRoomType(room = {}) {
+    const rawType = String(
+        room?.room_type ||
+        room?.roomType ||
+        room?.type ||
+        room?.room_type ||
+        ''
+    ).trim().toLowerCase();
+
+    return rawType === 'video' ? 'video' : 'voice';
+}
+
+function getAcademyLiveLobbyNavId(roomOrType = {}) {
+    const type = typeof roomOrType === 'string'
+        ? String(roomOrType || '').trim().toLowerCase()
+        : getAcademyLiveRoomType(roomOrType);
+
+    return type === 'video' ? 'nav-video' : 'nav-voice';
+}
+
+function stopAcademyLiveMediaStream() {
+    try {
+        if (academyActiveMediaStream && typeof academyActiveMediaStream.getTracks === 'function') {
+            academyActiveMediaStream.getTracks().forEach((track) => {
+                try { track.stop(); } catch (_) {}
+            });
+        }
+    } catch (_) {}
+
+    academyActiveMediaStream = null;
+}
+
+function getAcademyLivePermissionToast(error, roomType = 'video') {
+    const kindLabel = roomType === 'voice' ? 'microphone' : 'camera/microphone';
+    const name = String(error?.name || '').trim();
+    const message = String(error?.message || '').trim();
+
+    if (/NotAllowedError|PermissionDeniedError/i.test(name)) {
+        return `Permission denied. Please allow ${kindLabel} access in your browser site settings and try again.`;
+    }
+    if (/NotFoundError|DevicesNotFoundError/i.test(name)) {
+        return `No ${kindLabel} device detected. Please connect a device and try again.`;
+    }
+    if (/NotReadableError|TrackStartError/i.test(name)) {
+        return `Your ${kindLabel} is currently in use by another app. Close other apps and try again.`;
+    }
+    if (/OverconstrainedError/i.test(name)) {
+        return `Your device cannot satisfy the requested ${kindLabel} settings. Try another device.`;
+    }
+    if (/SecurityError/i.test(name)) {
+        return `Browser blocked ${kindLabel} access. Make sure you're on HTTPS and try again.`;
+    }
+
+    return message || `Failed to request ${kindLabel} permission.`;
+}
+
+async function ensureAcademyLiveMediaPermissions(roomType = 'video') {
+    const normalized = String(roomType || '').trim().toLowerCase() === 'voice' ? 'voice' : 'video';
+    const constraints = normalized === 'voice'
+        ? { audio: true, video: false }
+        : { audio: true, video: true };
+
+    if (!navigator?.mediaDevices?.getUserMedia) {
+        showToast('Your browser does not support camera/microphone access.', 'error');
+        return null;
+    }
+
+    try {
+        stopAcademyLiveMediaStream();
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        academyActiveMediaStream = stream;
+        return stream;
+    } catch (error) {
+        console.warn('ensureAcademyLiveMediaPermissions error:', error);
+        showToast(getAcademyLivePermissionToast(error, normalized), 'error');
+        return null;
+    }
+}
+
 function isAcademyLiveRoomHost(room = {}) {
     const hostName = String(room?.host_user_name || '').trim().toLowerCase();
     const currentName = String(myName || '').trim().toLowerCase();
@@ -4684,7 +4797,9 @@ function syncAcademyStageActionButtons(room = {}) {
 
 function renderAcademyStageFromRoom(room = {}, options = {}) {
     hideAcademyViewsForFeed();
-    setAcademySidebarActive('nav-voice');
+
+    const roomType = getAcademyLiveRoomType(room);
+    setAcademySidebarActive(getAcademyLiveLobbyNavId(roomType));
 
     const stageView = document.getElementById('center-stage-view');
     if (stageView) {
@@ -4699,8 +4814,13 @@ function renderAcademyStageFromRoom(room = {}, options = {}) {
         }
     }
 
-    const roomTitle = String(room.title || 'Live Voice Lounge').trim() || 'Live Voice Lounge';
-    const roomTopic = String(room.topic || 'Live Academy networking').trim() || 'Live Academy networking';
+    const defaultTitle = roomType === 'video' ? 'Live Video Room' : 'Live Voice Lounge';
+    const defaultTopic = roomType === 'video'
+        ? 'Live Academy video networking'
+        : 'Live Academy networking';
+
+    const roomTitle = String(room.title || defaultTitle).trim() || defaultTitle;
+    const roomTopic = String(room.topic || defaultTopic).trim() || defaultTopic;
     const hostName = String(room.host_user_name || myName || 'Host').trim() || 'Host';
 
     const stageTitle = document.getElementById('stage-title');
@@ -4713,7 +4833,7 @@ function renderAcademyStageFromRoom(room = {}, options = {}) {
     if (hostNameEl) hostNameEl.innerText = hostName;
     if (hostAvatar) hostAvatar.innerText = hostName.charAt(0).toUpperCase();
     if (stageTopic) stageTopic.innerText = roomTopic;
-    if (stageIcon) stageIcon.innerText = '🎙️';
+    if (stageIcon) stageIcon.innerText = roomType === 'video' ? '📹' : '🎙️';
 
     academyActiveLiveRoom = room;
     syncAcademyStageActionButtons(room);
@@ -4721,8 +4841,14 @@ function renderAcademyStageFromRoom(room = {}, options = {}) {
 
 async function openAcademyStageFromRoom(room = {}) {
     const roomId = normalizeAcademyLiveRoomId(room?.id || room?.roomId || room?.room_id);
+    const roomType = getAcademyLiveRoomType(room);
 
     renderAcademyStageFromRoom(room);
+
+    // Video rooms need camera + mic permissions. Voice can be listen-first.
+    if (roomType === 'video') {
+        await ensureAcademyLiveMediaPermissions('video');
+    }
 
     if (!roomId) {
         academyActiveLiveRoom = room;
@@ -4738,9 +4864,17 @@ async function openAcademyStageFromRoom(room = {}) {
             ? result.room
             : room;
 
+        const joinedType = getAcademyLiveRoomType(joinedRoom);
+
         academyActiveLiveRoom = joinedRoom;
         renderAcademyStageFromRoom(joinedRoom, { animate: false });
-        await loadAcademyVoiceRooms(true);
+
+        if (joinedType === 'video') {
+            await loadAcademyVideoRooms(true);
+        } else {
+            await loadAcademyVoiceRooms(true);
+        }
+
         return joinedRoom;
     } catch (error) {
         console.error('openAcademyStageFromRoom join error:', error);
@@ -4809,14 +4943,201 @@ async function loadAcademyVoiceRooms(forceFresh = false) {
         grid.innerHTML = `<div class="academy-member-browser-empty" style="padding: 20px 0;">Loading live lounges...</div>`;
     }
 
-    const result = await academyAuthedFetch('/api/realtime/live-rooms', { method: 'GET' });
-    const rooms = Array.isArray(result?.rooms) ? result.rooms : [];
+const result = await academyAuthedFetch('/api/realtime/live-rooms', { method: 'GET' });
+    const roomsRaw = Array.isArray(result?.rooms) ? result.rooms : [];
+    const rooms = roomsRaw.filter((room) => getAcademyLiveRoomType(room) === 'voice');
 
     academyVoiceRoomsCache = rooms;
     renderAcademyVoiceRooms(rooms);
     return rooms;
 }
 
+function renderAcademyVideoRooms(rooms = []) {
+    const grid = document.getElementById('video-grid');
+    if (!grid) return;
+
+    if (!Array.isArray(rooms) || rooms.length === 0) {
+        grid.innerHTML = `<div class="academy-member-browser-empty" style="padding: 20px 0;">No live video rooms yet. Start the first one.</div>`;
+        return;
+    }
+
+    grid.innerHTML = rooms.map((room) => {
+        const roomId = String(room.id || '').trim();
+        const title = String(room.title || 'Live Video Room').trim();
+        const topic = String(room.topic || 'Live Academy video networking').trim();
+        const hostName = String(room.host_user_name || 'Host').trim();
+        const participantCount = Number(room.participant_count || 0);
+
+        return `
+            <article
+                class="academy-feed-card"
+                data-live-room-id="${academyFeedEscapeHtml(roomId)}"
+                style="padding:16px;border-radius:18px;"
+            >
+                <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;">
+                    <div>
+                        <div style="font-size:0.78rem;color:var(--neon-blue);font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">Live now</div>
+                        <h4 style="margin-top:6px;color:#fff;font-size:1rem;line-height:1.3;">${academyFeedEscapeHtml(title)}</h4>
+                        <p style="margin-top:8px;color:var(--text-muted);line-height:1.5;font-size:0.9rem;">${academyFeedEscapeHtml(topic)}</p>
+                    </div>
+                    <div style="padding:6px 10px;border-radius:999px;background:rgba(14,165,233,0.12);border:1px solid rgba(14,165,233,0.25);color:var(--neon-blue);font-size:0.76rem;font-weight:700;">
+                        ${academyFeedEscapeHtml(String(participantCount || 1))} live
+                    </div>
+                </div>
+
+                <div style="margin-top:12px;color:var(--text-muted);font-size:0.82rem;">
+                    Hosted by ${academyFeedEscapeHtml(hostName)}
+                </div>
+
+                <div style="margin-top:14px;display:flex;justify-content:flex-end;">
+                    <button
+                        type="button"
+                        class="btn-primary academy-join-video-room-btn"
+                        data-live-room-id="${academyFeedEscapeHtml(roomId)}"
+                        style="width:auto;padding:10px 14px;"
+                    >Join Room</button>
+                </div>
+            </article>
+        `;
+    }).join('');
+}
+
+async function loadAcademyVideoRooms(forceFresh = false) {
+    const grid = document.getElementById('video-grid');
+    if (!grid) return [];
+
+    if (!forceFresh && Array.isArray(academyVideoRoomsCache) && academyVideoRoomsCache.length) {
+        renderAcademyVideoRooms(academyVideoRoomsCache);
+    } else if (forceFresh) {
+        grid.innerHTML = `<div class="academy-member-browser-empty" style="padding: 20px 0;">Loading live video rooms...</div>`;
+    }
+
+    const result = await academyAuthedFetch('/api/realtime/live-rooms', { method: 'GET' });
+    const roomsRaw = Array.isArray(result?.rooms) ? result.rooms : [];
+    const rooms = roomsRaw.filter((room) => getAcademyLiveRoomType(room) === 'video');
+
+    academyVideoRoomsCache = rooms;
+    renderAcademyVideoRooms(rooms);
+    return rooms;
+}
+
+/**
+ * Forever fix: Join Room stays clickable even after leaving / re-rendering video cards.
+ * Uses event delegation on #video-grid and binds only once.
+ */
+function bindAcademyVideoRoomJoinButtons() {
+    if (window.__yhAcademyVideoJoinBound) return;
+    window.__yhAcademyVideoJoinBound = true;
+
+    const grid = document.getElementById('video-grid');
+    if (!grid) return;
+
+    grid.addEventListener('click', async (event) => {
+        const target = event?.target;
+        const joinBtn = target?.closest?.('.academy-join-video-room-btn');
+        if (!joinBtn) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        const roomId = normalizeAcademyLiveRoomId(joinBtn.getAttribute('data-live-room-id'));
+        if (!roomId) return;
+
+        await runDashboardButtonAction(joinBtn, 'Joining Video Room.', async () => {
+            let room = (Array.isArray(academyVideoRoomsCache) ? academyVideoRoomsCache : [])
+                .find((item) => normalizeAcademyLiveRoomId(item?.id) === roomId);
+
+            if (!room) {
+                const rooms = await loadAcademyVideoRooms(true);
+                room = (Array.isArray(rooms) ? rooms : [])
+                    .find((item) => normalizeAcademyLiveRoomId(item?.id) === roomId);
+            }
+
+            if (!room) {
+                throw new Error('Live room not found.');
+            }
+
+            await openAcademyStageFromRoom(room);
+        });
+    });
+}
+
+bindAcademyVideoRoomJoinButtons();
+
+async function createAcademyVideoRoom(title = '', topic = '') {
+    const cleanTitle = String(title || '').trim();
+    if (!cleanTitle) {
+        throw new Error('Room title is required.');
+    }
+
+    const cleanTopic = String(topic || '').trim();
+
+    const result = await academyAuthedFetch('/api/realtime/live-rooms', {
+        method: 'POST',
+        body: JSON.stringify({
+            roomType: 'video',
+            title: cleanTitle,
+            topic: cleanTopic
+        })
+    });
+
+    const room = result?.room && typeof result.room === 'object'
+        ? result.room
+        : {
+            title: cleanTitle,
+            topic: cleanTopic,
+            host_user_name: myName,
+            room_type: 'video'
+        };
+
+    showToast('Live video room started.', 'success');
+    await loadAcademyVideoRooms(true);
+    openAcademyStageFromRoom(room);
+}
+
+/**
+ * Forever fix: Join Stage stays clickable even after leaving / re-rendering lounge cards.
+ * Uses event delegation on #lounge-grid and binds only once.
+ */
+function bindAcademyVoiceRoomJoinButtons() {
+    if (window.__yhAcademyVoiceJoinBound) return;
+    window.__yhAcademyVoiceJoinBound = true;
+
+    const grid = document.getElementById('lounge-grid');
+    if (!grid) return;
+
+    grid.addEventListener('click', async (event) => {
+        const target = event?.target;
+        const joinBtn = target?.closest?.('.academy-join-live-room-btn');
+        if (!joinBtn) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        const roomId = normalizeAcademyLiveRoomId(joinBtn.getAttribute('data-live-room-id'));
+        if (!roomId) return;
+
+        await runDashboardButtonAction(joinBtn, 'Joining Stage.', async () => {
+            let room = (Array.isArray(academyVoiceRoomsCache) ? academyVoiceRoomsCache : [])
+                .find((item) => normalizeAcademyLiveRoomId(item?.id) === roomId);
+
+            if (!room) {
+                const rooms = await loadAcademyVoiceRooms(true);
+                room = (Array.isArray(rooms) ? rooms : [])
+                    .find((item) => normalizeAcademyLiveRoomId(item?.id) === roomId);
+            }
+
+            if (!room) {
+                throw new Error('Live room not found.');
+            }
+
+            await openAcademyStageFromRoom(room);
+        });
+    });
+}
+
+bindAcademyVoiceRoomJoinButtons();
+// (Removed duplicate VIDEO LOUNGE SYSTEM block – using the event-delegation implementation above.)
 async function createAcademyVoiceRoom(title = '', topic = '') {
     const cleanTitle = String(title || '').trim();
     if (!cleanTitle) {
@@ -4847,21 +5168,30 @@ async function createAcademyVoiceRoom(title = '', topic = '') {
     openAcademyStageFromRoom(room);
 }
 
-function openAcademyLoungeCreateModal() {
+function openAcademyLoungeCreateModal(roomType = 'voice') {
     const modal = document.getElementById('lounge-modal');
     const titleInput = document.getElementById('lounge-title-input');
     const topicInput = document.getElementById('lounge-topic-input');
     const submitBtn = document.getElementById('btn-create-lounge');
 
+    const normalizedType = String(roomType || 'voice').trim().toLowerCase() === 'video' ? 'video' : 'voice';
+
     if (!modal) return;
 
+    modal.setAttribute('data-room-type', normalizedType);
+
     if (titleInput) titleInput.value = '';
-    if (topicInput) topicInput.value = 'Live networking inside The Academy';
+
+    if (topicInput) {
+        topicInput.value = normalizedType === 'video'
+            ? 'Live video networking inside The Academy'
+            : 'Live networking inside The Academy';
+    }
 
     if (submitBtn) {
         submitBtn.disabled = true;
         submitBtn.classList.add('btn-disabled');
-        submitBtn.textContent = 'Start Lounge';
+        submitBtn.textContent = normalizedType === 'video' ? 'Start Video Call' : 'Start Lounge';
     }
 
     modal.classList.remove('hidden-step');
@@ -4870,7 +5200,10 @@ function openAcademyLoungeCreateModal() {
 
 function closeAcademyLoungeCreateModal() {
     const modal = document.getElementById('lounge-modal');
-    modal?.classList.add('hidden-step');
+    if (modal) {
+        modal.classList.add('hidden-step');
+        modal.removeAttribute('data-room-type');
+    }
 }
 
 function syncAcademyLoungeCreateModalState() {
@@ -4885,9 +5218,14 @@ function syncAcademyLoungeCreateModalState() {
 }
 
 async function submitAcademyLoungeCreateModal() {
+    const modal = document.getElementById('lounge-modal');
     const submitBtn = document.getElementById('btn-create-lounge');
     const titleInput = document.getElementById('lounge-title-input');
     const topicInput = document.getElementById('lounge-topic-input');
+
+    const roomType = String(modal?.getAttribute('data-room-type') || 'voice').trim().toLowerCase() === 'video'
+        ? 'video'
+        : 'voice';
 
     const title = String(titleInput?.value || '').trim();
     const topic = String(topicInput?.value || '').trim();
@@ -4905,12 +5243,16 @@ async function submitAcademyLoungeCreateModal() {
     }
 
     try {
-        await createAcademyVoiceRoom(title, topic);
+        if (roomType === 'video') {
+            await createAcademyVideoRoom(title, topic);
+        } else {
+            await createAcademyVoiceRoom(title, topic);
+        }
         closeAcademyLoungeCreateModal();
     } catch (error) {
         showToast(error.message || 'Failed to start live lounge.', 'error');
     } finally {
-        if (submitBtn) submitBtn.textContent = 'Start Lounge';
+        if (submitBtn) submitBtn.textContent = roomType === 'video' ? 'Start Video Call' : 'Start Lounge';
         syncAcademyLoungeCreateModalState();
     }
 }
@@ -5095,7 +5437,9 @@ let academyMemberSearchDebounce = null;
 let academyMemberSearchCache = new Map();
 let academyMemberSearchInFlight = null;
 let academyVoiceRoomsCache = [];
+let academyVideoRoomsCache = [];
 let academyActiveLiveRoom = null;
+let academyActiveMediaStream = null;
 
 const ACADEMY_TAG_SEARCH_ALIASES = {
     academy: ['academy', 'the academy', 'yha'],
@@ -5392,6 +5736,70 @@ function setDashboardViewMode(mode = 'hub') {
     document.body?.setAttribute('data-yh-view', mode);
 }
 
+const YH_DASHBOARD_VIEW_STATE_KEY = 'yh_dashboard_view_state_v1';
+
+function readDashboardViewState() {
+    try {
+        const raw = localStorage.getItem(YH_DASHBOARD_VIEW_STATE_KEY);
+        const parsed = raw ? JSON.parse(raw) : null;
+        if (!parsed || typeof parsed !== 'object') throw new Error('bad state');
+
+        const view = parsed.view === 'academy' ? 'academy' : 'hub';
+        const division = ['academy', 'plazas', 'federation'].includes(parsed.division) ? parsed.division : 'academy';
+
+        const sectionRaw = String(parsed.academySection || 'home').toLowerCase().trim();
+        const academySection = ['home', 'community', 'voice', 'video'].includes(sectionRaw) ? sectionRaw : 'home';
+
+        return { view, division, academySection };
+    } catch (_) {
+        return { view: 'hub', division: 'academy', academySection: 'home' };
+    }
+}
+
+function writeDashboardViewState(next = {}) {
+    const base = readDashboardViewState();
+    const merged = {
+        ...base,
+        ...(next && typeof next === 'object' ? next : {})
+    };
+
+    const finalState = {
+        view: merged.view === 'academy' ? 'academy' : 'hub',
+        division: ['academy', 'plazas', 'federation'].includes(merged.division) ? merged.division : 'academy',
+        academySection: ['home', 'community', 'voice', 'video'].includes(String(merged.academySection || '').toLowerCase())
+            ? String(merged.academySection).toLowerCase()
+            : 'home',
+        updatedAt: Date.now()
+    };
+
+    localStorage.setItem(YH_DASHBOARD_VIEW_STATE_KEY, JSON.stringify(finalState));
+    return finalState;
+}
+
+function saveUniverseViewState(division = 'academy') {
+    return writeDashboardViewState({ view: 'hub', division });
+}
+
+function saveAcademyViewState(section = 'home') {
+    return writeDashboardViewState({ view: 'academy', division: 'academy', academySection: section });
+}
+
+function restoreDashboardViewState() {
+    const state = readDashboardViewState();
+
+    // safety gate: only restore into Academy if user is actually allowed
+    const canEnterAcademy =
+        localStorage.getItem('yh_academy_access') === 'true' ||
+        (typeof readAcademyMembershipCache === 'function' && readAcademyMembershipCache()?.canEnterAcademy === true);
+
+    if (state.view === 'academy' && canEnterAcademy) {
+        enterAcademyWorld(state.academySection);
+        return;
+    }
+
+    showUniverseHub(state.division || 'academy', { animate: false });
+}
+
 function setAcademySidebarActive(activeId = '') {
     document.querySelectorAll('.channel-link').forEach((link) => {
         link.classList.remove('active');
@@ -5436,8 +5844,12 @@ function showUniverseHub(activeDivision = 'academy', options = {}) {
     if (leftSidebar) leftSidebar.style.display = 'none';
     if (rightSidebar) rightSidebar.style.display = 'none';
 
+    activeUniverseDivision = activeDivision;
     setDashboardViewMode('hub');
+    syncUniverseFeaturePanel(activeDivision);
     setUniverseSlide(activeDivision, { animate });
+
+    saveUniverseViewState(activeDivision);
 }
 
 function enterAcademyWorld(defaultSection = 'home') {
@@ -5467,11 +5879,22 @@ function enterAcademyWorld(defaultSection = 'home') {
         return;
     }
 
+    if (defaultSection === 'video') {
+        setAcademySidebarActive('nav-voice'); // fallback since wala pang nav-video
+        openRoom('video', document.getElementById('nav-voice'));
+        return;
+    }
+
     openAcademyRoadmapView();
 }
-
 window.enterAcademyWorld = enterAcademyWorld;
+document.getElementById('btn-academy-back-universe')?.addEventListener('click', (event) => {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
 
+    try { stopAcademyLiveMediaStream?.(); } catch (_) {}
+    showUniverseHub('academy');
+});
 window.addEventListener('resize', () => {
     syncAcademyShellForViewport();
 
@@ -5557,7 +5980,11 @@ document.getElementById('academy-feed-composer-input')?.addEventListener('keydow
 });
 
 document.getElementById('btn-start-lounge')?.addEventListener('click', () => {
-    openAcademyLoungeCreateModal();
+    openAcademyLoungeCreateModal('voice');
+});
+
+document.getElementById('btn-start-video')?.addEventListener('click', () => {
+    openAcademyLoungeCreateModal('video');
 });
 
 document.getElementById('close-lounge-modal')?.addEventListener('click', () => {
@@ -7699,20 +8126,12 @@ document.addEventListener('keydown', (event) => {
     }
 });
 
-// always land on dashboard hub first
-setDashboardViewMode('hub');
-
-if (academyWrapper) academyWrapper.style.display = 'none';
-if (leftSidebar) leftSidebar.style.display = 'none';
-if (rightSidebar) rightSidebar.style.display = 'none';
-if (universeHubView) universeHubView.style.display = 'flex';
-
-syncUniverseFeaturePanel('academy');
-setUniverseSlide('academy', { animate: false });
+// Restore last UI location after refresh/reload
+restoreDashboardViewState();
 
 const formApply = document.getElementById('form-academy-apply');
 
-function readAcademyUserField(...keys) {
+function readAcademyUserField(keys) {
     for (const key of keys) {
         const value = getStoredUserValue(key, '');
         if (String(value || '').trim()) {
