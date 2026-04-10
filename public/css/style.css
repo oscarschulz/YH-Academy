@@ -725,6 +725,18 @@ h3 { font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem; color: var(--ne
     padding: 14px 16px;
 }
 
+/* NEW: top placement variant (below lounge header, above ON STAGE) */
+.stage-controls-bar.stage-controls-bar-top {
+    min-height: 0;
+    border-top: none;
+    border-bottom: 1px solid var(--glass-border);
+    border-radius: 14px;
+    background: rgba(0,0,0,0.45);
+    margin: 14px 24px 0;   /* aligns with stage padding */
+    padding: 12px 14px;
+    justify-content: flex-end;
+}
+
 .control-btn {
     width: 50px;
     height: 50px;
@@ -762,20 +774,18 @@ h3 { font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem; color: var(--ne
     color: #f59e0b;
     border: 1px solid rgba(245,158,11,0.34);
 }
-/* ========================================================= */
-/* MOBILE FIX: Stage buttons should not be blocked by Academy Menu */
-/* ========================================================= */
+
+/* Mobile sizing for stage controls (now top bar, no hamburger blocking) */
 @media (max-width: 520px) {
     body[data-yh-view="academy"] #center-stage-view .stage-controls-bar {
         justify-content: flex-end;
         flex-wrap: nowrap;
         gap: 10px;
+        padding: 12px 12px;
+    }
 
-        /* Reserve space on the left for the bottom-left "☰ Academy Menu" pill */
-        padding-left: clamp(120px, 34vw, 175px);
-        padding-right: 12px;
-        padding-top: 12px;
-        padding-bottom: 12px;
+    body[data-yh-view="academy"] #center-stage-view .stage-controls-bar.stage-controls-bar-top {
+        margin: 12px 12px 0;
     }
 
     body[data-yh-view="academy"] #center-stage-view .stage-controls-bar .control-btn {
@@ -791,7 +801,6 @@ h3 { font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem; color: var(--ne
         font-size: 0.82rem;
         border-radius: 999px;
 
-        /* Force both buttons to fit side-by-side in the remaining width */
         flex: 1 1 0;
         min-width: 0;
 
@@ -803,8 +812,11 @@ h3 { font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem; color: var(--ne
 }
 
 @media (max-width: 390px) {
+    body[data-yh-view="academy"] #center-stage-view .stage-controls-bar.stage-controls-bar-top {
+        margin: 10px 10px 0;
+    }
+
     body[data-yh-view="academy"] #center-stage-view .stage-controls-bar {
-        padding-left: clamp(108px, 33vw, 160px);
         gap: 8px;
     }
 

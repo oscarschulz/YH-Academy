@@ -679,6 +679,12 @@
 
             <main class="yh-main-chat hide-scrollbar hidden-step stage-main" id="center-stage-view">
                 <header class="chat-header"><div class="header-left"><span class="hash-big" id="stage-icon">🎙️</span><h3 id="stage-title">Live Call</h3><div class="header-divider"></div><p class="header-topic">Live Call Stage</p></div></header>
+
+                <div class="stage-controls-bar stage-controls-bar-top">
+                    <button class="control-btn toggle-btn" id="btn-toggle-mic" title="Toggle Mic">🎤</button>
+                    <button class="btn-support btn-leave-call" id="btn-leave-stage">📞 Leave Call</button>
+                    <button class="btn-support btn-end-live-call hidden-step" id="btn-end-live-stage">⛔ End Live</button>
+                </div>
                 <div class="stage-layout-wrapper">
                     <div class="stage-container fade-in hide-scrollbar">
                         <div class="stage-section-title">ON STAGE</div>
@@ -695,11 +701,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="stage-controls-bar">
-                    <button class="control-btn toggle-btn" id="btn-toggle-mic" title="Toggle Mic">🎤</button>
-                    <button class="btn-support btn-leave-call" id="btn-leave-stage">📞 Leave Call</button>
-                    <button class="btn-support btn-end-live-call hidden-step" id="btn-end-live-stage">⛔ End Live</button>
-                </div>
+<!-- stage controls moved to top -->
             </main>
 
             <aside class="yh-right-sidebar hide-scrollbar">
