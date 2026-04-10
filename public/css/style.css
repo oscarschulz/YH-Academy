@@ -8323,3 +8323,13 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
     padding: 10px 14px;
     border-radius: 12px;
 }
+
+.yh-confirm-ok.is-danger {
+    background: rgba(239, 68, 68, 0.86) !important;
+    border: 1px solid rgba(239, 68, 68, 0.55) !important;
+    box-shadow: 0 14px 30px rgba(239, 68, 68, 0.18);
+}
+
+.yh-confirm-ok.is-danger:hover {
+    filter: brightness(1.05);
+}

@@ -363,7 +363,7 @@ async function logoutUser() {
     sessionStorage.removeItem('yh_force_academy_application_after_auth');
     window.location.href = '/';
 }
-function openYHConfirmModal({ title = 'Confirm', message = 'Are you sure?', okText = 'OK', cancelText = 'Cancel' } = {}) {
+function openYHConfirmModal({ title = 'Confirm', message = 'Are you sure?', okText = 'OK', cancelText = 'Cancel', tone = 'default' } = {}) {
     const overlay = document.getElementById('yh-confirm-overlay');
     const titleEl = document.getElementById('yh-confirm-title');
     const msgEl = document.getElementById('yh-confirm-message');
@@ -374,6 +374,12 @@ function openYHConfirmModal({ title = 'Confirm', message = 'Are you sure?', okTe
     if (!overlay || !titleEl || !msgEl || !btnOk || !btnCancel || !btnX) {
         // hard fallback if modal markup missing
         return Promise.resolve(window.confirm(message));
+    }
+
+    // reset tone
+    btnOk.classList.remove('is-danger');
+    if (tone === 'danger') {
+        btnOk.classList.add('is-danger');
     }
 
     titleEl.textContent = title;
@@ -410,6 +416,7 @@ function openYHConfirmModal({ title = 'Confirm', message = 'Are you sure?', okTe
         document.addEventListener('keydown', onKey);
     });
 }
+
 function showToast(message, type = "success") {
     const toast = document.getElementById('toast-notification');
     const toastMsg = document.getElementById('toast-message');
@@ -420,20 +427,15 @@ function showToast(message, type = "success") {
 
     toastMsg.innerText = yhTText(message);
 
+    // remove 🎉 from ALL success toasts
     if (type === "error") {
         toast.classList.add('error-toast');
         toastIcon.innerText = "⚠️";
+        toastIcon.style.display = '';
     } else {
         toast.classList.remove('error-toast');
-        if (type === "error") {
-    toast.classList.add('error-toast');
-    toastIcon.innerText = "⚠️";
-    toastIcon.style.display = '';
-} else {
-    toast.classList.remove('error-toast');
-    toastIcon.innerText = "";
-    toastIcon.style.display = 'none';
-}
+        toastIcon.innerText = "";
+        toastIcon.style.display = 'none';
     }
 
     toast.style.position = 'fixed';
@@ -1813,7 +1815,7 @@ if ((currentRoom || "").includes("Agent")) {
     }
 
     // --- LEAVE / END CALL LOGIC ---
-    const btnLeaveStage = document.getElementById('btn-leave-stage');
+const btnLeaveStage = document.getElementById('btn-leave-stage');
     const btnEndLiveStage = document.getElementById('btn-end-live-stage');
 
     if (btnLeaveStage) {
@@ -1837,6 +1839,16 @@ if ((currentRoom || "").includes("Agent")) {
                 showToast('Returned to the live lounge. Your live is still active.', 'success');
                 return;
             }
+
+            const confirmed = await openYHConfirmModal({
+                title: `Leave Live ${roomType.toUpperCase()}`,
+                message: `Leave this live ${roomType} session?`,
+                okText: 'Leave',
+                cancelText: 'Stay',
+                tone: 'danger'
+            });
+
+            if (!confirmed) return;
 
             try {
                 await academyAuthedFetch(`/api/realtime/live-rooms/${encodeURIComponent(roomId)}/leave`, {
@@ -1881,7 +1893,8 @@ if ((currentRoom || "").includes("Agent")) {
                 title: `End Live ${roomType.toUpperCase()}`,
                 message: `End this live ${roomType} session for everyone?`,
                 okText: 'End Live',
-                cancelText: 'Cancel'
+                cancelText: 'Cancel',
+                tone: 'danger'
             });
             if (!confirmed) return;
 
@@ -5525,13 +5538,35 @@ function academyFeedCloseShareModal() {
     document.body?.classList.remove('academy-feed-share-open');
 }
 
-function academyFeedOpenDeleteModal(postId) {
-    academyFeedDeleteTargetPostId = normalizeAcademyFeedId(postId);
-    if (!academyFeedDeleteTargetPostId) return;
-    document.getElementById('academy-feed-delete-modal')?.classList.remove('hidden-step');
+async function academyFeedOpenDeleteModal(postId) {
+    const normalizedPostId = normalizeAcademyFeedId(postId);
+    academyFeedDeleteTargetPostId = normalizedPostId;
+    if (!normalizedPostId) return;
+
+    const confirmed = await openYHConfirmModal({
+        title: 'Delete this post?',
+        message: 'This action will remove the post from the community feed.',
+        okText: 'Delete',
+        cancelText: 'Cancel',
+        tone: 'danger'
+    });
+
+    if (!confirmed) return;
+
+    try {
+        await academyAuthedFetch(`/api/academy/feed/posts/${normalizedPostId}`, {
+            method: 'DELETE'
+        });
+
+        showToast('Post deleted successfully.', 'success');
+        loadAcademyFeed(true);
+    } catch (error) {
+        showToast(error.message || 'Delete endpoint is not wired yet.', 'error');
+    }
 }
 
 function academyFeedCloseDeleteModal() {
+    // kept for backward compatibility (old UI used a dedicated delete modal)
     academyFeedDeleteTargetPostId = '';
     document.getElementById('academy-feed-delete-modal')?.classList.add('hidden-step');
 }
@@ -8181,25 +8216,7 @@ if (btnOpenApply) {
 
 closeApplyBtn?.addEventListener('click', closeAcademyLauncher);
 
-document.getElementById('academy-feed-delete-cancel-btn')?.addEventListener('click', academyFeedCloseDeleteModal);
-
-document.getElementById('academy-feed-delete-confirm-btn')?.addEventListener('click', async () => {
-    const postId = normalizeAcademyFeedId(academyFeedDeleteTargetPostId);
-    if (!postId) return;
-
-    try {
-        await academyAuthedFetch(`/api/academy/feed/posts/${postId}`, {
-            method: 'DELETE'
-        });
-
-        academyFeedCloseDeleteModal();
-        showToast('Post deleted successfully.', 'success');
-        loadAcademyFeed(true);
-    } catch (error) {
-        academyFeedCloseDeleteModal();
-        showToast(error.message || 'Delete endpoint is not wired yet.', 'error');
-    }
-});
+// Delete post confirmation is handled inside academyFeedOpenDeleteModal via openYHConfirmModal.
 
 applyModal?.addEventListener('click', (event) => {
     if (event.target === applyModal) {
