@@ -5795,7 +5795,8 @@ function restoreDashboardViewState() {
         (typeof readAcademyMembershipCache === 'function' && readAcademyMembershipCache()?.canEnterAcademy === true);
 
     if (state.view === 'academy' && canEnterAcademy) {
-        enterAcademyWorld(state.academySection);
+        // On refresh/reload: default landing (Roadmap if unlocked, else Community Feed)
+        enterAcademyWorld('home');
         return;
     }
 
@@ -5887,7 +5888,18 @@ function enterAcademyWorld(defaultSection = 'home') {
         return;
     }
 
-    openAcademyRoadmapView();
+    const membership = (typeof readAcademyMembershipCache === 'function')
+        ? readAcademyMembershipCache()
+        : null;
+
+    const hasRoadmapAccess = membership?.hasRoadmapAccess === true;
+
+    if (hasRoadmapAccess) {
+        openAcademyRoadmapView();
+        return;
+    }
+
+    openAcademyFeedView();
 }
 window.enterAcademyWorld = enterAcademyWorld;
 document.getElementById('btn-academy-back-universe')?.addEventListener('click', (event) => {
@@ -7168,10 +7180,13 @@ function setRoadmapIntakePhase(step = 1) {
 }
 
 function resetRoadmapIntakeModalState() {
-    roadmapForm?.reset();
-    document.getElementById('roadmap-focus-area-key').value = '';
-    document.getElementById('roadmap-schema-key').value = '';
-    document.getElementById('roadmap-intake-version').value = '2';
+    // Avoid TDZ on roadmapForm (it is declared later in the file)
+    document.getElementById('form-academy-roadmap')?.reset();
+
+    document.getElementById('roadmap-focus-area-key')?.value = '';
+    document.getElementById('roadmap-schema-key')?.value = '';
+    document.getElementById('roadmap-intake-version')?.value = '2';
+
     renderRoadmapScopeQuestions('');
     setRoadmapIntakePhase(1);
 
@@ -7966,12 +7981,20 @@ async function handleAcademyLaunchClick(event) {
     syncAcademyEntryButton(membershipSnapshot);
 
     if (membershipStatus === 'approved') {
+        const hasRoadmapAccess = membershipSnapshot?.hasRoadmapAccess === true;
+
         if (!hasSeenAcademyCommunityApprovalToast(membershipSnapshot)) {
-            showToast('Academy membership approved. Opening Community Feed.', 'success');
+            showToast(
+                hasRoadmapAccess
+                    ? 'Academy membership approved. Opening Roadmap.'
+                    : 'Academy membership approved. Opening Community Feed.',
+                'success'
+            );
             markAcademyCommunityApprovalToastSeen(membershipSnapshot);
         }
 
-        enterAcademyWorld('community');
+        // default on entry: roadmap if unlocked, otherwise community
+        enterAcademyWorld('home');
         return false;
     }
 
