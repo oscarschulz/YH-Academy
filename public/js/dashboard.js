@@ -1281,6 +1281,9 @@ document.querySelectorAll('.academy-mobile-nav-item').forEach((button) => {
             openRoom('voice-lobby', document.getElementById('nav-voice'));
         } else if (targetId === 'nav-profile') {
             openAcademyProfileView();
+        } else if (targetId === 'back-universe') {
+            try { stopAcademyLiveMediaStream?.(); } catch (_) {}
+            showUniverseHub('academy');
         }
 
         requestAnimationFrame(() => {
