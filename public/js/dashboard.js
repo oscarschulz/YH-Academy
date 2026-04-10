@@ -1110,7 +1110,7 @@ function openRoom(type, element) {
         (type === 'video' && views['video-lobby-view']);
 
     if (shouldTabLoad) {
-        showAcademyTabLoader(type === 'voice-lobby' ? 'Loading voice lounge...' : 'Loading video lounge...');
+        showAcademyTabLoader(type === 'voice-lobby' ? 'Loading Voice Lounge...' : 'Loading Video Lounge...');
     }
 
     Object.values(views).forEach(view => { if (view) view.classList.add('hidden-step'); });
@@ -4381,7 +4381,7 @@ function showAcademyRoadmapLoadingShell() {
 }
 
 function openAcademyFeedView(forceReload = false) {
-    showAcademyTabLoader('Loading community feed...');
+    showAcademyTabLoader('Loading Community Feed...');
     closeRoadmapIntake();
     academyResetCoachMode();
     hideAcademyViewsForFeed();
@@ -4411,7 +4411,7 @@ function openAcademyFeedView(forceReload = false) {
 }
 
 function openAcademyRoadmapView(forceFresh = false) {
-    showAcademyTabLoader('Loading roadmap...');
+    showAcademyTabLoader('Loading Roadmap...');
     academyResetCoachMode();
     hideAcademyViewsForFeed();
     saveAcademyViewState('home');
