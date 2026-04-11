@@ -209,6 +209,21 @@ textarea.input-field { resize: none; }
 .btn-secondary:hover { background: var(--neon-glow); color: #fff; }
 .btn-large { padding: 1rem; font-size: 1.1rem; }
 
+/* Locked/disabled buttons (after successful sync) */
+.btn-primary:disabled,
+.btn-secondary:disabled {
+    opacity: 0.55;
+    cursor: not-allowed !important;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+.btn-primary:disabled:hover,
+.btn-secondary:disabled:hover {
+    transform: none !important;
+    box-shadow: none !important;
+}
+
 /* Button Loading (inline spinner) */
 .btn-primary[aria-busy="true"],
 .btn-secondary[aria-busy="true"] {

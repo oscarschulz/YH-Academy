@@ -3347,8 +3347,10 @@ async function academyCompleteMission(missionId) {
 
         await loadAcademyHome(true);
         showToast("Mission completed.", "success");
+        return true;
     } catch (error) {
         showToast(error.message || "Mission completion failed.", "error");
+        return false;
     }
 }
 
@@ -4228,9 +4230,19 @@ document.querySelectorAll('[data-academy-action="complete"]').forEach((button) =
         const missionId = String(button.getAttribute('data-mission-id') || '').trim();
         if (!missionId) return;
 
-        await runDashboardButtonAction(button, 'Completing...', async () => {
-            await academyCompleteMission(missionId);
+        const ok = await runDashboardButtonAction(button, 'Completing...', async () => {
+            return await academyCompleteMission(missionId);
         });
+
+        // If success, permanently lock the button so user sees it's synced
+        if (ok && button && button.isConnected) {
+            button.dataset.loading = 'false';
+            button.dataset.idleLabel = 'Completed';
+            button.disabled = true;
+            button.setAttribute('aria-disabled', 'true');
+            button.setAttribute('aria-busy', 'false');
+            button.textContent = 'Completed';
+        }
     });
 });
 
