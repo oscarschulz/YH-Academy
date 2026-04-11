@@ -208,6 +208,31 @@ textarea.input-field { resize: none; }
 .btn-secondary { width: 100%; background: transparent; color: var(--neon-blue); border: 1px solid var(--neon-blue); padding: 0.875rem; border-radius: 0.5rem; font-weight: 600; cursor: pointer; transition: 0.3s; }
 .btn-secondary:hover { background: var(--neon-glow); color: #fff; }
 .btn-large { padding: 1rem; font-size: 1.1rem; }
+
+/* Button Loading (inline spinner) */
+.btn-primary[aria-busy="true"],
+.btn-secondary[aria-busy="true"] {
+    position: relative;
+    cursor: wait !important;
+}
+
+.btn-primary[aria-busy="true"]::after,
+.btn-secondary[aria-busy="true"]::after {
+    content: '';
+    width: 14px;
+    height: 14px;
+    border-radius: 999px;
+    border: 2px solid rgba(255, 255, 255, 0.25);
+    border-top-color: rgba(255, 255, 255, 0.95);
+    display: inline-block;
+    margin-left: 10px;
+    vertical-align: middle;
+    animation: yh-btn-spin 0.8s linear infinite;
+}
+
+@keyframes yh-btn-spin {
+    to { transform: rotate(360deg); }
+}
 .btn-back-icon { position: absolute; top: 1.5rem; left: 1.5rem; background: transparent; border: none; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 5px; font-size: 0.85rem; transition: 0.3s; z-index: 10; }
 .btn-back-icon:hover { color: var(--neon-blue); }
 

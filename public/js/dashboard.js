@@ -4223,30 +4223,50 @@ function renderAcademyHome(homeData = null) {
         });
     });
 
-    document.querySelectorAll('[data-academy-action="complete"]').forEach((button) => {
-        button.addEventListener('click', () => {
-            const missionId = String(button.getAttribute('data-mission-id') || '').trim();
-            if (missionId) academyCompleteMission(missionId);
-        });
-    });
+document.querySelectorAll('[data-academy-action="complete"]').forEach((button) => {
+    button.addEventListener('click', async () => {
+        const missionId = String(button.getAttribute('data-mission-id') || '').trim();
+        if (!missionId) return;
 
-    document.querySelectorAll('[data-academy-action="skip"]').forEach((button) => {
-        button.addEventListener('click', () => {
-            const missionId = String(button.getAttribute('data-mission-id') || '').trim();
-            const missionTitle = String(button.getAttribute('data-mission-title') || '').trim();
-            if (!missionId) return;
-            academyOpenMissionActionModal(missionId, 'skipped', missionTitle);
+        await runDashboardButtonAction(button, 'Completing...', async () => {
+            await academyCompleteMission(missionId);
         });
     });
+});
 
-    document.querySelectorAll('[data-academy-action="stuck"]').forEach((button) => {
-        button.addEventListener('click', () => {
-            const missionId = String(button.getAttribute('data-mission-id') || '').trim();
-            const missionTitle = String(button.getAttribute('data-mission-title') || '').trim();
-            if (!missionId) return;
-            academyOpenMissionActionModal(missionId, 'stuck', missionTitle);
-        });
+document.querySelectorAll('[data-academy-action="skip"]').forEach((button) => {
+    button.addEventListener('click', () => {
+        if (button?.dataset?.loading === 'true') return;
+
+        const missionId = String(button.getAttribute('data-mission-id') || '').trim();
+        const missionTitle = String(button.getAttribute('data-mission-title') || '').trim();
+        if (!missionId) return;
+
+        setDashboardButtonLoadingState(button, true, 'Opening...');
+        academyOpenMissionActionModal(missionId, 'skipped', missionTitle);
+
+        window.setTimeout(() => {
+            if (button.isConnected) setDashboardButtonLoadingState(button, false);
+        }, 260);
     });
+});
+
+document.querySelectorAll('[data-academy-action="stuck"]').forEach((button) => {
+    button.addEventListener('click', () => {
+        if (button?.dataset?.loading === 'true') return;
+
+        const missionId = String(button.getAttribute('data-mission-id') || '').trim();
+        const missionTitle = String(button.getAttribute('data-mission-title') || '').trim();
+        if (!missionId) return;
+
+        setDashboardButtonLoadingState(button, true, 'Opening...');
+        academyOpenMissionActionModal(missionId, 'stuck', missionTitle);
+
+        window.setTimeout(() => {
+            if (button.isConnected) setDashboardButtonLoadingState(button, false);
+        }, 260);
+    });
+});
 
     currentRoom = null;
     currentRoomId = null;
