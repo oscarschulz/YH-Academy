@@ -5203,6 +5203,7 @@ function showAcademyRoadmapLoadingShell() {
     academyResetCoachMode();
     hideAcademyViewsForFeed();
     setAcademySidebarActive('nav-missions');
+    academySetMessagesChatMode('home');
 
     const academyChat = document.getElementById('academy-chat');
     const chatHeaderIcon = document.getElementById('chat-header-icon');
@@ -5321,11 +5322,12 @@ function openAcademyMessagesView() {
     hideAcademyTabLoader();
 }
 function openAcademyRoadmapView(forceFresh = false) {
-    showAcademyTabLoader('Loading Roadmap...');
+    showAcademyTabLoader('Loading Roadmap.');
     academyResetCoachMode();
     hideAcademyViewsForFeed();
     saveAcademyViewState('home');
     applyAcademyMessengerMode(false);
+    academySetMessagesChatMode('home');
 
     const academyChat = document.getElementById('academy-chat');
     if (academyChat) {
