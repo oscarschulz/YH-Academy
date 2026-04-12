@@ -717,7 +717,18 @@ if (type === 'video' && views['video-lobby-view']) {
 
     applyAcademyMessengerMode(type === 'dm' || type === 'group');
 
-    if (chatInputArea) chatInputArea.style.display = 'block';
+    if (chatInputArea) {
+        const shouldShowComposer = type === 'dm' || type === 'group';
+        chatInputArea.classList.toggle('hidden-step', !shouldShowComposer);
+
+        if (shouldShowComposer) {
+            chatInputArea.style.removeProperty('display');
+            chatInputArea.setAttribute('aria-hidden', 'false');
+        } else {
+            chatInputArea.style.setProperty('display', 'none', 'important');
+            chatInputArea.setAttribute('aria-hidden', 'true');
+        }
+    }
 
     if (type === 'main-chat') {
     if(chatHeaderIcon) chatHeaderIcon.innerHTML = `💬`;
@@ -730,6 +741,11 @@ if (type === 'video' && views['video-lobby-view']) {
         chatInputBox.setAttribute('data-active-room-id', 'YH-community');
         chatInputBox.setAttribute('data-active-room-name', 'YH-community');
         chatInputBox.setAttribute('data-active-room-type', 'main-chat');
+    }
+    if (chatInputArea) {
+        chatInputArea.classList.add('hidden-step');
+        chatInputArea.style.setProperty('display', 'none', 'important');
+        chatInputArea.setAttribute('aria-hidden', 'true');
     }
     if(dynamicChatContainer) dynamicChatContainer.innerHTML = '';
 
@@ -802,6 +818,11 @@ else if (type === 'dm' || type === 'group') {
         chatInputBox.setAttribute('data-active-room-id', roomId);
         chatInputBox.setAttribute('data-active-room-name', name);
         chatInputBox.setAttribute('data-active-room-type', type);
+    }
+    if (chatInputArea) {
+        chatInputArea.classList.remove('hidden-step');
+        chatInputArea.style.removeProperty('display');
+        chatInputArea.setAttribute('aria-hidden', 'false');
     }
 
     currentRoom = name;
@@ -5253,7 +5274,6 @@ function showAcademyRoadmapLoadingShell() {
     const chatHeaderTopic = document.getElementById('chat-header-topic');
     const chatWelcomeBox = document.getElementById('chat-welcome-box');
     const chatPinnedMessage = document.getElementById('chat-pinned-message');
-    const chatInputArea = document.getElementById('chat-input-area');
     const dynamicChatContainer = document.getElementById('dynamic-chat-history');
 
     if (academyChat) {
@@ -5331,6 +5351,7 @@ function openAcademyMessagesView() {
     const chatWelcomeBox = document.getElementById('chat-welcome-box');
     const chatPinnedMessage = document.getElementById('chat-pinned-message');
     const chatInputArea = document.getElementById('chat-input-area');
+    const chatInputBox = document.getElementById('chat-input');
 
     if (academyChat) {
         academyChat.classList.remove('hidden-step');
@@ -5344,11 +5365,27 @@ function openAcademyMessagesView() {
     if (chatHeaderTopic) chatHeaderTopic.innerText = 'Open direct messages, continue group chats, and keep each conversation in its own inbox thread.';
     if (chatWelcomeBox) chatWelcomeBox.style.display = 'none';
     if (chatPinnedMessage) chatPinnedMessage.style.display = 'none';
-    if (chatInputArea) chatInputArea.style.display = 'none';
 
     currentRoom = null;
     currentRoomId = null;
     currentRoomMeta = null;
+
+    if (typeof academyMessagesInboxState === 'object' && academyMessagesInboxState) {
+        academyMessagesInboxState.activeRoomId = '';
+    }
+
+    if (chatInputBox) {
+        chatInputBox.value = '';
+        chatInputBox.removeAttribute('data-active-room-id');
+        chatInputBox.removeAttribute('data-active-room-name');
+        chatInputBox.removeAttribute('data-active-room-type');
+    }
+
+    if (chatInputArea) {
+        chatInputArea.classList.add('hidden-step');
+        chatInputArea.style.setProperty('display', 'none', 'important');
+        chatInputArea.setAttribute('aria-hidden', 'true');
+    }
 
     academySetMessagesChatMode('messages');
     renderAcademyMessagesInboxList();
@@ -7214,6 +7251,29 @@ const academyMessagesInboxState = {
     activeRoomId: ''
 };
 
+function academyResetMessagesThreadState() {
+    academyMessagesInboxState.activeRoomId = '';
+    currentRoom = null;
+    currentRoomId = null;
+    currentRoomMeta = null;
+
+    const { chatInputArea } = academyGetMessagesInboxElements();
+    const chatInput = document.getElementById('chat-input');
+
+    if (chatInput) {
+        chatInput.value = '';
+        chatInput.removeAttribute('data-active-room-id');
+        chatInput.removeAttribute('data-active-room-name');
+        chatInput.removeAttribute('data-active-room-type');
+    }
+
+    if (chatInputArea) {
+        chatInputArea.classList.add('hidden-step');
+        chatInputArea.style.setProperty('display', 'none', 'important');
+        chatInputArea.setAttribute('aria-hidden', 'true');
+    }
+}
+
 function academyGetMessagesInboxElements() {
     return {
         academyChat: document.getElementById('academy-chat'),
@@ -7259,8 +7319,14 @@ function academySetMessagesChatMode(mode = 'home') {
     if (chatInputArea) {
         const shouldShowComposer = normalizedMode === 'thread';
         chatInputArea.classList.toggle('hidden-step', !shouldShowComposer);
-        chatInputArea.style.display = shouldShowComposer ? '' : 'none';
-        chatInputArea.setAttribute('aria-hidden', shouldShowComposer ? 'false' : 'true');
+
+        if (shouldShowComposer) {
+            chatInputArea.style.removeProperty('display');
+            chatInputArea.setAttribute('aria-hidden', 'false');
+        } else {
+            chatInputArea.style.setProperty('display', 'none', 'important');
+            chatInputArea.setAttribute('aria-hidden', 'true');
+        }
     }
 }
 
@@ -7416,10 +7482,7 @@ function academyRenderMessagesThreadHeader(room = {}) {
 }
 
 function academyReturnToMessagesInboxHome() {
-    academyMessagesInboxState.activeRoomId = '';
-    currentRoom = null;
-    currentRoomId = null;
-    currentRoomMeta = null;
+    academyResetMessagesThreadState();
     renderAcademyMessagesInboxList();
     academyRenderMessagesThreadEmpty('Select a conversation from the inbox to open that private thread.');
 }
@@ -7441,6 +7504,7 @@ function academyRenderMessagesThreadEmpty(message = 'Select a conversation to op
     const { dynamicChatHistory, welcomeBox } = academyGetMessagesInboxElements();
     if (!dynamicChatHistory) return;
 
+    academyResetMessagesThreadState();
     academyClearMessagesThreadHeader();
     academySetMessagesChatMode('messages');
 
