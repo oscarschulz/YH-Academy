@@ -2362,134 +2362,613 @@ async function ensureVaultLoaded(force = false) {
         });
     }
 
-    document.querySelectorAll('.modal-search').forEach(input => {
-    input.addEventListener('input', (e) => {
-        const searchTerm = e.target.value.toLowerCase();
-        const modalBody = e.target.closest('.modal-body');
+    let academyDmSelectedMemberId = '';
+    let academyDmDirectoryMembers = [];
+    let academyGroupDirectoryMembers = [];
+    let academyDmDirectoryToken = 0;
+    let academyGroupDirectoryToken = 0;
 
-        if (e.target.closest('#dm-modal')) {
-            if (typeof renderDmModalDirectory === 'function') {
-                renderDmModalDirectory(searchTerm);
-            }
+    function academyNormalizeMessagingMember(member = {}) {
+        const id = normalizeAcademyFeedId(member?.id || member?.userId || member?.uid);
+        if (!id) return null;
+
+        const displayName =
+            String(
+                member?.display_name ||
+                member?.displayName ||
+                member?.fullName ||
+                member?.name ||
+                member?.username ||
+                'Academy Member'
+            ).trim() || 'Academy Member';
+
+        const username = String(member?.username || '').trim().replace(/^@+/, '');
+        const roleLabel =
+            String(member?.role_label || member?.roleLabel || member?.role || 'Academy Member').trim() ||
+            'Academy Member';
+        const avatar = String(member?.avatar || member?.profilePhoto || member?.photoURL || '').trim();
+
+        return {
+            id,
+            displayName,
+            fullName: String(member?.fullName || displayName).trim() || displayName,
+            username,
+            roleLabel,
+            avatar,
+            followersCount: Number(member?.followers_count || 0)
+        };
+    }
+
+    async function academyFetchMessagingMembers(query = '', limit = 40) {
+        const normalizedQuery = String(query || '').trim();
+
+        const result = await academyAuthedFetch(
+            `/api/academy/community/members?limit=${encodeURIComponent(limit)}&query=${encodeURIComponent(normalizedQuery)}`,
+            { method: 'GET' }
+        );
+
+        const members = Array.isArray(result?.members) ? result.members : [];
+        return members.map(academyNormalizeMessagingMember).filter(Boolean);
+    }
+
+    function academyCreatePrivateGroupRoomElement(roomEntry = {}) {
+        const element = document.createElement('div');
+        const roomId = String(roomEntry.roomId || roomEntry.id || '').trim();
+        const roomName = String(roomEntry.name || 'Private Group').trim() || 'Private Group';
+        const icon = roomEntry.icon || '👥';
+        const color = roomEntry.color || '#0ea5e9';
+        const participantNames = Array.isArray(roomEntry.participantNames) ? roomEntry.participantNames : [];
+        const memberIds = Array.isArray(roomEntry.memberIds) ? roomEntry.memberIds : [];
+
+        element.className = 'room-entry';
+        element.setAttribute('data-type', 'group');
+        element.setAttribute('data-id', roomId);
+        element.setAttribute('data-room-id', roomId);
+        element.setAttribute('data-name', roomName);
+        element.setAttribute('data-icon', icon);
+        element.setAttribute('data-color', color);
+        element.setAttribute(
+            'data-room-participants',
+            JSON.stringify(participantNames)
+        );
+        element.setAttribute(
+            'data-room-member-names',
+            JSON.stringify(participantNames)
+        );
+        element.setAttribute(
+            'data-room-member-ids',
+            JSON.stringify(memberIds)
+        );
+        return element;
+    }
+
+    function academyFindMessagingMemberById(collection = [], memberId = '') {
+        const normalizedMemberId = normalizeAcademyFeedId(memberId);
+        if (!normalizedMemberId) return null;
+
+        return (Array.isArray(collection) ? collection : []).find((member) => {
+            return normalizeAcademyFeedId(member?.id) === normalizedMemberId;
+        }) || null;
+    }
+
+    function academyIsPendingGroupMember(memberId = '') {
+        const normalizedMemberId = normalizeAcademyFeedId(memberId);
+        if (!normalizedMemberId) return false;
+
+        return pendingGroupMembers.some((member) => {
+            return normalizeAcademyFeedId(member?.id) === normalizedMemberId;
+        });
+    }
+
+    function resetDmModalSelection() {
+        academyDmSelectedMemberId = '';
+        syncDmStartButtonState();
+    }
+
+    function syncDmStartButtonState() {
+        const btnStartDm = document.getElementById('btn-start-dm');
+        if (!btnStartDm) return false;
+
+        const selectedMember = academyFindMessagingMemberById(
+            academyDmDirectoryMembers,
+            academyDmSelectedMemberId
+        );
+
+        const isReady = Boolean(selectedMember);
+
+        btnStartDm.disabled = !isReady;
+        btnStartDm.setAttribute('aria-disabled', isReady ? 'false' : 'true');
+        btnStartDm.style.opacity = isReady ? '1' : '0.5';
+        btnStartDm.style.cursor = isReady ? 'pointer' : 'not-allowed';
+        btnStartDm.innerText = isReady
+            ? `Start DM with ${selectedMember.displayName}`
+            : 'Select a member to chat';
+
+        return isReady;
+    }
+
+    function renderPendingGroupMembers() {
+        const wrap = document.getElementById('group-selected-members');
+        if (!wrap) return;
+
+        if (!Array.isArray(pendingGroupMembers) || !pendingGroupMembers.length) {
+            wrap.innerHTML = `<div style="font-size:0.82rem; color:var(--text-muted);">No members selected yet.</div>`;
             return;
         }
 
-        if (modalBody) {
-            modalBody.querySelectorAll('.modal-user-item').forEach(item => {
-                const name = item.querySelector('.member-name')?.innerText?.toLowerCase() || '';
-                item.style.display = name.includes(searchTerm) ? 'flex' : 'none';
-            });
+        wrap.innerHTML = pendingGroupMembers.map((member) => {
+            const memberId = academyFeedEscapeHtml(String(member.id || '').trim());
+            const label = academyFeedEscapeHtml(String(member.displayName || member.fullName || member.username || 'Member').trim());
+            return `
+                <button
+                    type="button"
+                    data-remove-group-member-id="${memberId}"
+                    style="border:none; cursor:pointer; display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius:999px; background:rgba(14,165,233,0.16); color:#e0f2fe; font-size:0.82rem;"
+                >
+                    <span>${label}</span>
+                    <span aria-hidden="true">✕</span>
+                </button>
+            `;
+        }).join('');
+    }
+
+    function syncGroupCreateButtonState() {
+        const btnCreateGroup = document.getElementById('btn-create-group');
+        const groupNameInput = document.getElementById('group-name-input');
+
+        if (!btnCreateGroup || !groupNameInput) return false;
+
+        const hasGroupName = String(groupNameInput.value || '').trim().length > 0;
+        const hasMembers = Array.isArray(pendingGroupMembers) && pendingGroupMembers.length > 0;
+        const isReady = hasGroupName && hasMembers;
+
+        btnCreateGroup.disabled = !isReady;
+        btnCreateGroup.setAttribute('aria-disabled', isReady ? 'false' : 'true');
+        btnCreateGroup.style.opacity = isReady ? '1' : '0.6';
+        btnCreateGroup.style.cursor = isReady ? 'pointer' : 'not-allowed';
+        btnCreateGroup.innerText = !hasMembers
+            ? 'Select members to create group'
+            : !hasGroupName
+                ? 'Enter group name to create'
+                : `Create Group (${pendingGroupMembers.length + 1} members)`;
+
+        return isReady;
+    }
+
+    async function renderDmModalDirectory(searchTerm = '', options = {}) {
+        const directory = document.getElementById('dm-modal-directory');
+        const summary = document.getElementById('dm-modal-summary');
+        if (!directory) return;
+
+        const requestToken = ++academyDmDirectoryToken;
+        const normalizedSearchTerm = String(searchTerm || '').trim();
+
+        if (!Array.isArray(options.preloadedMembers)) {
+            directory.innerHTML = `<div style="font-size:0.9rem; color:var(--text-muted);">Loading members...</div>`;
+        }
+
+        const members = Array.isArray(options.preloadedMembers)
+            ? options.preloadedMembers
+            : await academyFetchMessagingMembers(normalizedSearchTerm, 40).catch(() => []);
+
+        if (requestToken !== academyDmDirectoryToken) return;
+
+        academyDmDirectoryMembers = members;
+
+        if (summary) {
+            summary.innerText = normalizedSearchTerm
+                ? `Showing Academy member matches for “${normalizedSearchTerm}”.`
+                : 'Showing Academy members. Type above to search by name, username, or role.';
+        }
+
+        if (!members.length) {
+            directory.innerHTML = `<div style="font-size:0.9rem; color:var(--text-muted);">No Academy members matched your search.</div>`;
+            syncDmStartButtonState();
+            return;
+        }
+
+        directory.innerHTML = members.map((member) => {
+            const isSelected = normalizeAcademyFeedId(member.id) === normalizeAcademyFeedId(academyDmSelectedMemberId);
+            const safeId = academyFeedEscapeHtml(member.id);
+            const safeName = academyFeedEscapeHtml(member.displayName);
+            const safeRole = academyFeedEscapeHtml(member.roleLabel || 'Academy Member');
+            const safeUsername = academyFeedEscapeHtml(member.username || '');
+            const avatarMarkup = member.avatar
+                ? `<span class="member-avatar dm-avatar-preview" style="width:40px; height:40px; flex-shrink:0; background-image:url('${academyFeedEscapeHtml(member.avatar)}'); background-size:cover; background-position:center;"></span>`
+                : `<span class="member-avatar dm-avatar-preview" style="width:40px; height:40px; flex-shrink:0; background:#0ea5e9;">${academyFeedEscapeHtml((member.displayName || 'A').charAt(0).toUpperCase())}</span>`;
+
+            return `
+                <label
+                    class="modal-user-item"
+                    data-user-id="${safeId}"
+                    style="display:flex; align-items:center; gap:12px; padding:12px; border:1px solid ${isSelected ? 'rgba(14,165,233,0.55)' : 'rgba(255,255,255,0.08)'}; border-radius:14px; cursor:pointer; background:${isSelected ? 'rgba(14,165,233,0.08)' : 'rgba(255,255,255,0.02)'};"
+                >
+                    <input
+                        type="radio"
+                        name="selected-dm-user"
+                        class="dm-radio"
+                        style="accent-color:#0ea5e9;"
+                        ${isSelected ? 'checked' : ''}
+                    >
+                    ${avatarMarkup}
+                    <span style="display:flex; flex-direction:column; min-width:0; flex:1;">
+                        <span class="member-name dm-name-preview" style="font-weight:600;">${safeName}</span>
+                        <span style="font-size:0.75rem; color:var(--text-muted);">
+                            ${safeRole}${safeUsername ? ` • @${safeUsername}` : ''}
+                        </span>
+                    </span>
+                </label>
+            `;
+        }).join('');
+
+        syncDmStartButtonState();
+    }
+
+    async function renderGroupModalDirectory(searchTerm = '', options = {}) {
+        const directory = document.getElementById('group-modal-directory');
+        const summary = document.getElementById('group-modal-summary');
+        if (!directory) return;
+
+        const requestToken = ++academyGroupDirectoryToken;
+        const normalizedSearchTerm = String(searchTerm || '').trim();
+
+        if (!Array.isArray(options.preloadedMembers)) {
+            directory.innerHTML = `<div style="font-size:0.9rem; color:var(--text-muted);">Loading members...</div>`;
+        }
+
+        const members = Array.isArray(options.preloadedMembers)
+            ? options.preloadedMembers
+            : await academyFetchMessagingMembers(normalizedSearchTerm, 50).catch(() => []);
+
+        if (requestToken !== academyGroupDirectoryToken) return;
+
+        academyGroupDirectoryMembers = members;
+
+        if (summary) {
+            summary.innerText = normalizedSearchTerm
+                ? `Showing Academy member matches for “${normalizedSearchTerm}”.`
+                : 'Showing Academy members. Select multiple members to build your private group.';
+        }
+
+        if (!members.length) {
+            directory.innerHTML = `<div style="font-size:0.9rem; color:var(--text-muted);">No Academy members matched your search.</div>`;
+            syncGroupCreateButtonState();
+            return;
+        }
+
+        directory.innerHTML = members.map((member) => {
+            const isSelected = academyIsPendingGroupMember(member.id);
+            const safeId = academyFeedEscapeHtml(member.id);
+            const safeName = academyFeedEscapeHtml(member.displayName);
+            const safeRole = academyFeedEscapeHtml(member.roleLabel || 'Academy Member');
+            const safeUsername = academyFeedEscapeHtml(member.username || '');
+            const avatarMarkup = member.avatar
+                ? `<span class="member-avatar" style="width:40px; height:40px; flex-shrink:0; background-image:url('${academyFeedEscapeHtml(member.avatar)}'); background-size:cover; background-position:center;"></span>`
+                : `<span class="member-avatar" style="width:40px; height:40px; flex-shrink:0; background:#0ea5e9;">${academyFeedEscapeHtml((member.displayName || 'A').charAt(0).toUpperCase())}</span>`;
+
+            return `
+                <div
+                    class="modal-user-item"
+                    data-group-member-id="${safeId}"
+                    style="display:flex; align-items:center; gap:12px; padding:12px; border:1px solid ${isSelected ? 'rgba(14,165,233,0.55)' : 'rgba(255,255,255,0.08)'}; border-radius:14px; background:${isSelected ? 'rgba(14,165,233,0.08)' : 'rgba(255,255,255,0.02)'};"
+                >
+                    ${avatarMarkup}
+                    <span style="display:flex; flex-direction:column; min-width:0; flex:1;">
+                        <span class="member-name" style="font-weight:600;">${safeName}</span>
+                        <span style="font-size:0.75rem; color:var(--text-muted);">
+                            ${safeRole}${safeUsername ? ` • @${safeUsername}` : ''}
+                        </span>
+                    </span>
+
+                    <button
+                        type="button"
+                        data-toggle-group-member-id="${safeId}"
+                        class="${isSelected ? 'btn-primary' : 'btn-secondary'}"
+                        style="min-width:86px;"
+                    >${isSelected ? 'Selected' : 'Add'}</button>
+                </div>
+            `;
+        }).join('');
+
+        syncGroupCreateButtonState();
+    }
+
+    function academyOpenDmModal() {
+        const modal = document.getElementById('dm-modal');
+        const searchInput = document.getElementById('dm-modal-search-input');
+        if (!modal) return;
+
+        academyDmSelectedMemberId = '';
+        academyDmDirectoryMembers = [];
+        modal.classList.remove('hidden-step');
+
+        if (searchInput) {
+            searchInput.value = '';
+        }
+
+        syncDmStartButtonState();
+        renderDmModalDirectory('').catch(() => {});
+        window.setTimeout(() => searchInput?.focus(), 0);
+    }
+
+    function academyCloseDmModal() {
+        document.getElementById('dm-modal')?.classList.add('hidden-step');
+        academyDmSelectedMemberId = '';
+        academyDmDirectoryMembers = [];
+        syncDmStartButtonState();
+    }
+
+    function academyOpenGroupModal() {
+        const modal = document.getElementById('group-modal');
+        const groupNameInput = document.getElementById('group-name-input');
+        const searchInput = document.getElementById('group-member-search-input');
+        if (!modal) return;
+
+        pendingGroupMembers = [];
+        academyGroupDirectoryMembers = [];
+        modal.classList.remove('hidden-step');
+
+        if (groupNameInput) {
+            groupNameInput.value = '';
+        }
+
+        if (searchInput) {
+            searchInput.value = '';
+        }
+
+        renderPendingGroupMembers();
+        syncGroupCreateButtonState();
+        renderGroupModalDirectory('').catch(() => {});
+        window.setTimeout(() => groupNameInput?.focus(), 0);
+    }
+
+    function academyCloseGroupModal() {
+        document.getElementById('group-modal')?.classList.add('hidden-step');
+        pendingGroupMembers = [];
+        academyGroupDirectoryMembers = [];
+        renderPendingGroupMembers();
+        syncGroupCreateButtonState();
+    }
+
+    document.getElementById('btn-open-dm-modal')?.addEventListener('click', academyOpenDmModal);
+    document.getElementById('btn-open-group-modal')?.addEventListener('click', academyOpenGroupModal);
+
+    document.getElementById('close-dm-modal')?.addEventListener('click', academyCloseDmModal);
+    document.getElementById('close-group-modal')?.addEventListener('click', academyCloseGroupModal);
+
+    document.getElementById('dm-modal')?.addEventListener('click', (event) => {
+        if (event.target?.id === 'dm-modal') {
+            academyCloseDmModal();
         }
     });
-});
 
-document.getElementById('btn-open-dm-modal')?.addEventListener('click', () => {
-    const modalSearch = document.querySelector('#dm-modal .modal-search');
-    if (modalSearch) modalSearch.value = '';
+    document.getElementById('group-modal')?.addEventListener('click', (event) => {
+        if (event.target?.id === 'group-modal') {
+            academyCloseGroupModal();
+        }
+    });
 
-    if (typeof renderDmModalDirectory === 'function') {
-        renderDmModalDirectory('');
-    }
+    document.getElementById('dm-modal-search-input')?.addEventListener('input', (event) => {
+        renderDmModalDirectory(event.currentTarget?.value || '').catch(() => {});
+    });
 
-    resetDmModalSelection();
-});
+    document.getElementById('group-member-search-input')?.addEventListener('input', (event) => {
+        renderGroupModalDirectory(event.currentTarget?.value || '').catch(() => {});
+    });
 
-document.getElementById('btn-open-group-modal')?.addEventListener('click', () => {
-    if (typeof renderPendingGroupMembers === 'function') {
+    document.getElementById('dm-modal-directory')?.addEventListener('click', (event) => {
+        const targetItem = event.target?.closest?.('[data-user-id]');
+        if (!targetItem) return;
+
+        academyDmSelectedMemberId = normalizeAcademyFeedId(targetItem.getAttribute('data-user-id'));
+        renderDmModalDirectory(
+            document.getElementById('dm-modal-search-input')?.value || '',
+            { preloadedMembers: academyDmDirectoryMembers }
+        ).catch(() => {});
+    });
+
+    document.getElementById('group-modal-directory')?.addEventListener('click', (event) => {
+        const toggleBtn = event.target?.closest?.('[data-toggle-group-member-id]');
+        if (!toggleBtn) return;
+
+        const memberId = normalizeAcademyFeedId(toggleBtn.getAttribute('data-toggle-group-member-id'));
+        if (!memberId) return;
+
+        const existingIndex = pendingGroupMembers.findIndex((member) => {
+            return normalizeAcademyFeedId(member?.id) === memberId;
+        });
+
+        if (existingIndex >= 0) {
+            pendingGroupMembers.splice(existingIndex, 1);
+        } else {
+            const member = academyFindMessagingMemberById(academyGroupDirectoryMembers, memberId);
+            if (member) {
+                pendingGroupMembers.push(member);
+            }
+        }
+
         renderPendingGroupMembers();
-    }
-});
-function syncGroupCreateButtonState() {
-    const btnCreateGroup = document.getElementById('btn-create-group');
+        renderGroupModalDirectory(
+            document.getElementById('group-member-search-input')?.value || '',
+            { preloadedMembers: academyGroupDirectoryMembers }
+        ).catch(() => {});
+        syncGroupCreateButtonState();
+    });
+
+    document.getElementById('group-selected-members')?.addEventListener('click', (event) => {
+        const removeBtn = event.target?.closest?.('[data-remove-group-member-id]');
+        if (!removeBtn) return;
+
+        const memberId = normalizeAcademyFeedId(removeBtn.getAttribute('data-remove-group-member-id'));
+        if (!memberId) return;
+
+        pendingGroupMembers = pendingGroupMembers.filter((member) => {
+            return normalizeAcademyFeedId(member?.id) !== memberId;
+        });
+
+        renderPendingGroupMembers();
+        renderGroupModalDirectory(
+            document.getElementById('group-member-search-input')?.value || '',
+            { preloadedMembers: academyGroupDirectoryMembers }
+        ).catch(() => {});
+        syncGroupCreateButtonState();
+    });
+
     const groupNameInput = document.getElementById('group-name-input');
+    if (groupNameInput) {
+        groupNameInput.addEventListener('input', () => {
+            syncGroupCreateButtonState();
+        });
+    }
 
-    if (!btnCreateGroup || !groupNameInput) return false;
+    const btnStartDm = document.getElementById('btn-start-dm');
+    if (btnStartDm) {
+        btnStartDm.addEventListener('click', async () => {
+            const selectedMember = academyFindMessagingMemberById(
+                academyDmDirectoryMembers,
+                academyDmSelectedMemberId
+            );
 
-    const hasGroupName = String(groupNameInput.value || '').trim().length > 0;
+            if (!selectedMember) return;
 
-    btnCreateGroup.disabled = !hasGroupName;
-    btnCreateGroup.setAttribute('aria-disabled', hasGroupName ? 'false' : 'true');
-    btnCreateGroup.style.opacity = hasGroupName ? '1' : '0.6';
-    btnCreateGroup.style.cursor = hasGroupName ? 'pointer' : 'not-allowed';
+            await runDashboardButtonAction(btnStartDm, 'Opening DM.', async () => {
+                const result = await academyAuthedFetch('/api/realtime/rooms', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        roomType: 'dm',
+                        targetUserId: selectedMember.id
+                    })
+                });
 
-    return hasGroupName;
-}
-const btnStartDm = document.getElementById('btn-start-dm');
-if (btnStartDm) {
-    btnStartDm.addEventListener('click', async () => {
-        const checkedRadio = document.querySelector('.dm-radio:checked');
-        if(!checkedRadio) return;
+                const room = result?.room || null;
+                if (!room?.id) {
+                    throw new Error('Failed to create direct message room.');
+                }
 
-        const userLabel = checkedRadio.closest('.modal-user-item');
-        if (!userLabel) return;
+                persistKnownUser({
+                    name: selectedMember.displayName
+                });
 
-        const chatName = userLabel.getAttribute('data-user-name') || userLabel.querySelector('.dm-name-preview')?.innerText || '';
-        const chatRole = userLabel.getAttribute('data-user-role') || 'Hustler';
-        const chatAvatar = userLabel.getAttribute('data-user-avatar') || userLabel.querySelector('.dm-avatar-preview')?.innerText || chatName.charAt(0).toUpperCase();
-        const chatColor = userLabel.getAttribute('data-user-bg') || userLabel.querySelector('.dm-avatar-preview')?.style.backgroundColor || "var(--neon-blue)";
+                const roomEntry = academyBuildDirectMessageRoomEntry(room, {
+                    id: selectedMember.id,
+                    displayName: selectedMember.displayName,
+                    fullName: selectedMember.fullName,
+                    avatar: selectedMember.avatar
+                });
 
-        if (!chatName) return;
+                const state = getDashboardState();
+                const currentRooms = Array.isArray(state.customRooms) ? state.customRooms : [];
 
-        persistKnownUser({
-            name: chatName,
-            role: chatRole,
-            avatarToken: chatAvatar,
-            avatarBg: chatColor
+                const nextRooms = [
+                    roomEntry,
+                    ...currentRooms.filter((item) => {
+                        const existingId = normalizeRoomKey(item?.id || item?.roomId || item?.room_key);
+                        const nextId = normalizeRoomKey(roomEntry.id || roomEntry.roomId);
+                        return existingId !== nextId;
+                    })
+                ];
+
+                syncCustomRoomsUI(nextRooms);
+                academyCloseDmModal();
+
+                const transientRoomElement = academyCreateDirectMessageRoomElement(roomEntry);
+                openRoom('dm', transientRoomElement);
+                markCustomRoomAsRead(roomEntry.roomId || roomEntry.id);
+                pulseAcademyRoomEntry(roomEntry.roomId || roomEntry.id);
+                focusAcademyChatComposer();
+
+                showToast(`DM ready with ${selectedMember.displayName}.`, 'success');
+            });
+        });
+    }
+
+    const btnCreateGroup = document.getElementById('btn-create-group');
+    if (btnCreateGroup && groupNameInput) {
+        btnCreateGroup.addEventListener('click', async () => {
+            const chatName = String(groupNameInput.value || '').trim();
+            const selectedMembers = Array.isArray(pendingGroupMembers)
+                ? pendingGroupMembers.filter((member) => normalizeAcademyFeedId(member?.id))
+                : [];
+
+            if (!chatName || !selectedMembers.length) return;
+
+            await runDashboardButtonAction(btnCreateGroup, 'Creating Group.', async () => {
+                const memberUserIds = selectedMembers
+                    .map((member) => normalizeAcademyFeedId(member?.id))
+                    .filter(Boolean);
+
+                const result = await academyAuthedFetch('/api/realtime/rooms', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        roomType: 'group',
+                        name: chatName,
+                        memberUserIds
+                    })
+                });
+
+                const room = result?.room || null;
+                if (!room?.id) {
+                    throw new Error('Failed to create private group.');
+                }
+
+                selectedMembers.forEach((member) => {
+                    persistKnownUser({ name: member.displayName });
+                });
+
+                const currentUserId =
+                    normalizeAcademyFeedId(getStoredUserValue('yh_user_id', '')) ||
+                    normalizeAcademyFeedId(getStoredUserValue('yh_user_uid', ''));
+
+                const participantNames = Array.from(new Set(
+                    [myName, ...selectedMembers.map((member) => member.displayName)]
+                        .map((value) => String(value || '').trim())
+                        .filter(Boolean)
+                ));
+
+                const roomEntry = {
+                    id: String(room.id || room.roomId || '').trim(),
+                    roomId: String(room.id || room.roomId || '').trim(),
+                    type: 'group',
+                    name: String(room.name || chatName).trim() || chatName,
+                    icon: '👥',
+                    color: '#0ea5e9',
+                    privacy: 'private',
+                    isPrivate: true,
+                    participantNames,
+                    memberIds: Array.from(new Set([currentUserId, ...memberUserIds].filter(Boolean))),
+                    unreadCount: 0,
+                    lastMessage: '',
+                    lastMessageAuthor: '',
+                    lastMessageAt: ''
+                };
+
+                const state = getDashboardState();
+                const currentRooms = Array.isArray(state.customRooms) ? state.customRooms : [];
+
+                const nextRooms = [
+                    roomEntry,
+                    ...currentRooms.filter((item) => {
+                        const existingId = normalizeRoomKey(item?.id || item?.roomId || item?.room_key);
+                        const nextId = normalizeRoomKey(roomEntry.id || roomEntry.roomId);
+                        return existingId !== nextId;
+                    })
+                ];
+
+                syncCustomRoomsUI(nextRooms);
+                academyCloseGroupModal();
+
+                const transientRoomElement = academyCreatePrivateGroupRoomElement(roomEntry);
+                openRoom('group', transientRoomElement);
+                markCustomRoomAsRead(roomEntry.roomId || roomEntry.id);
+                pulseAcademyRoomEntry(roomEntry.roomId || roomEntry.id);
+                focusAcademyChatComposer();
+
+                showToast(`Private group '${roomEntry.name}' created.`, 'success');
+            });
         });
 
-        await createNewRoom('dm', chatName, chatAvatar, chatColor, {
-            recipientName: chatName,
-            recipientId: normalizeUserKey(chatName),
-            memberNames: [myName, chatName],
-            memberIds: [normalizeUserKey(myName), normalizeUserKey(chatName)],
-            source: 'dm-modal'
-        });
-
-        showToast("Private Chat opened successfully!", "success");
-        document.getElementById('dm-modal').classList.add('hidden-step');
-        resetDmModalSelection();
-    });
-}
-
-const btnCreateGroup = document.getElementById('btn-create-group');
-const groupNameInput = document.getElementById('group-name-input');
-
-if (btnCreateGroup && groupNameInput) {
-    groupNameInput.addEventListener('input', () => {
         syncGroupCreateButtonState();
-    });
-
-    btnCreateGroup.addEventListener('click', async () => {
-        const chatName = groupNameInput.value.trim();
-        if(!chatName) return;
-
-        const selectedMemberNames = Array.from(new Set(
-            [myName, ...pendingGroupMembers.map((user) => user.name)]
-                .map((value) => String(value || '').trim())
-                .filter(Boolean)
-        ));
-
-        selectedMemberNames.forEach((memberName) => {
-            if (normalizeUserKey(memberName) === normalizeUserKey(myName)) return;
-            persistKnownUser({ name: memberName });
-        });
-
-        await createNewRoom('group', chatName, "👥", "#0ea5e9", {
-            memberNames: selectedMemberNames,
-            memberIds: selectedMemberNames.map((name) => normalizeUserKey(name)),
-            source: 'group-modal'
-        });
-
-        showToast(`Brainstorming Group '${chatName}' created!`, "success");
-        document.getElementById('group-modal').classList.add('hidden-step');
-        groupNameInput.value = "";
-        pendingGroupMembers = [];
-        renderPendingGroupMembers();
-        syncGroupCreateButtonState();
-    });
-
-    syncGroupCreateButtonState();
-}
+    }
 
     const btnSendTicket = document.getElementById('btn-send-ticket');
     if(btnSendTicket) {

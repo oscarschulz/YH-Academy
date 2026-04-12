@@ -1022,42 +1022,24 @@
         <div class="modal-body">
             <input
                 type="text"
+                id="dm-modal-search-input"
                 class="input-field-compact modal-search"
-                placeholder="Search user..."
+                placeholder="Search Academy members by name, username, or role..."
                 style="margin-bottom: 14px;"
             >
 
-            <div style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5;">
-                Pick a user below for a quick DM. For real user-to-user chat, you can also click a user's avatar/name in chat or leaderboard and press <strong>Message</strong>.
+            <div
+                id="dm-modal-summary"
+                style="font-size: 0.78rem; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5;"
+            >
+                Search the Academy member directory and pick one member to open a direct message.
             </div>
 
-            <div style="display: flex; flex-direction: column; gap: 10px;">
-                <label class="modal-user-item" style="display:flex; align-items:center; gap:12px; padding:12px; border:1px solid rgba(255,255,255,0.08); border-radius:14px; cursor:pointer; background:rgba(255,255,255,0.02);">
-                    <input type="radio" name="selected-dm-user" class="dm-radio" style="accent-color:#0ea5e9;">
-                    <span class="member-avatar dm-avatar-preview" style="width:40px; height:40px; background:#ef4444; flex-shrink:0;">YH</span>
-                    <span style="display:flex; flex-direction:column; min-width:0; flex:1;">
-                        <span class="member-name dm-name-preview" style="font-weight:600;">YH Admin</span>
-                        <span style="font-size:0.75rem; color:var(--text-muted);">HQ</span>
-                    </span>
-                </label>
-
-                <label class="modal-user-item" style="display:flex; align-items:center; gap:12px; padding:12px; border:1px solid rgba(255,255,255,0.08); border-radius:14px; cursor:pointer; background:rgba(255,255,255,0.02);">
-                    <input type="radio" name="selected-dm-user" class="dm-radio" style="accent-color:#0ea5e9;">
-                    <span class="member-avatar dm-avatar-preview" style="width:40px; height:40px; background:#8b5cf6; flex-shrink:0;">🤖</span>
-                    <span style="display:flex; flex-direction:column; min-width:0; flex:1;">
-                        <span class="member-name dm-name-preview" style="font-weight:600;">Agent</span>
-                        <span style="font-size:0.75rem; color:var(--text-muted);">AI</span>
-                    </span>
-                </label>
-
-                <label class="modal-user-item" style="display:flex; align-items:center; gap:12px; padding:12px; border:1px solid rgba(255,255,255,0.08); border-radius:14px; cursor:pointer; background:rgba(255,255,255,0.02);">
-                    <input type="radio" name="selected-dm-user" class="dm-radio" style="accent-color:#0ea5e9;">
-                    <span class="member-avatar dm-avatar-preview" style="width:40px; height:40px; background:#0ea5e9; flex-shrink:0;">D</span>
-                    <span style="display:flex; flex-direction:column; min-width:0; flex:1;">
-                        <span class="member-name dm-name-preview" style="font-weight:600;">Demo User</span>
-                        <span style="font-size:0.75rem; color:var(--text-muted);">Hustler</span>
-                    </span>
-                </label>
+            <div
+                id="dm-modal-directory"
+                style="display:flex; flex-direction:column; gap:10px; max-height:min(52vh, 420px); overflow:auto; padding-right:4px;"
+            >
+                <div style="font-size:0.9rem; color:var(--text-muted);">Loading members...</div>
             </div>
         </div>
         <div class="modal-footer">
@@ -1067,7 +1049,7 @@
                 disabled
                 style="opacity:0.5;"
             >
-                Select a user to chat
+                Select a member to chat
             </button>
         </div>
     </div>
@@ -1081,7 +1063,7 @@
         </div>
         <div class="modal-body">
             <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5;">
-                Private groups are separate from community chat and should only appear under <strong>PRIVATE GROUPS</strong>.
+                Create a private Academy group chat by naming the room and selecting multiple members.
             </div>
 
             <input
@@ -1090,6 +1072,35 @@
                 class="input-field-compact"
                 placeholder="Enter group name..."
             >
+
+            <input
+                type="text"
+                id="group-member-search-input"
+                class="input-field-compact modal-search"
+                placeholder="Search members to add..."
+                style="margin-top: 12px;"
+            >
+
+            <div
+                id="group-modal-summary"
+                style="font-size: 0.78rem; color: var(--text-muted); margin-top: 10px; line-height: 1.5;"
+            >
+                Search the Academy member directory and select multiple members for this private group.
+            </div>
+
+            <div
+                id="group-selected-members"
+                style="display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; margin-bottom:12px;"
+            >
+                <div style="font-size:0.82rem; color:var(--text-muted);">No members selected yet.</div>
+            </div>
+
+            <div
+                id="group-modal-directory"
+                style="display:flex; flex-direction:column; gap:10px; max-height:min(42vh, 320px); overflow:auto; padding-right:4px;"
+            >
+                <div style="font-size:0.9rem; color:var(--text-muted);">Loading members...</div>
+            </div>
         </div>
         <div class="modal-footer">
             <button
@@ -1098,7 +1109,7 @@
                 disabled
                 style="opacity:0.5;"
             >
-                Enter Group Name to Create
+                Select members to create group
             </button>
         </div>
     </div>
