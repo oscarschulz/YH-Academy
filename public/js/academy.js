@@ -195,6 +195,23 @@ function normalizeAvatarUrl(value = '') {
     return sharedNormalizeAvatarUrl(value);
 }
 
+function safeParseArray(value, fallback = []) {
+    if (Array.isArray(value)) {
+        return value.filter(Boolean);
+    }
+
+    if (value === null || value === undefined || value === '') {
+        return Array.isArray(fallback) ? fallback.slice() : [];
+    }
+
+    try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed.filter(Boolean) : (Array.isArray(fallback) ? fallback.slice() : []);
+    } catch (_) {
+        return Array.isArray(fallback) ? fallback.slice() : [];
+    }
+}
+
 function resolveAcademyFeedAvatarUrl(post = {}, displayName = '') {
     return sharedResolveAcademyFeedAvatarUrl(post, displayName, {
         getStoredUserValue,
@@ -7484,6 +7501,7 @@ async function academyOpenDirectMessageFromProfile(memberId = '') {
         setAcademySidebarActive('nav-messages');
 
         const transientRoomElement = academyCreateDirectMessageRoomElement(roomEntry);
+        academyRefreshMessagesInboxSelection();
         openRoom('dm', transientRoomElement);
         academySetMessagesChatMode('thread');
         markCustomRoomAsRead(roomEntry.roomId || roomEntry.id);
