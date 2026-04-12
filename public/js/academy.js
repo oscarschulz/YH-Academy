@@ -5366,26 +5366,7 @@ function openAcademyMessagesView() {
     if (chatWelcomeBox) chatWelcomeBox.style.display = 'none';
     if (chatPinnedMessage) chatPinnedMessage.style.display = 'none';
 
-    currentRoom = null;
-    currentRoomId = null;
-    currentRoomMeta = null;
-
-    if (typeof academyMessagesInboxState === 'object' && academyMessagesInboxState) {
-        academyMessagesInboxState.activeRoomId = '';
-    }
-
-    if (chatInputBox) {
-        chatInputBox.value = '';
-        chatInputBox.removeAttribute('data-active-room-id');
-        chatInputBox.removeAttribute('data-active-room-name');
-        chatInputBox.removeAttribute('data-active-room-type');
-    }
-
-    if (chatInputArea) {
-        chatInputArea.classList.add('hidden-step');
-        chatInputArea.style.setProperty('display', 'none', 'important');
-        chatInputArea.setAttribute('aria-hidden', 'true');
-    }
+    academyResetMessagesThreadState();
 
     academySetMessagesChatMode('messages');
     renderAcademyMessagesInboxList();
@@ -7257,7 +7238,9 @@ function academyResetMessagesThreadState() {
     currentRoomId = null;
     currentRoomMeta = null;
 
-    const { chatInputArea } = academyGetMessagesInboxElements();
+    setActiveCustomRoomState(null);
+
+    const { chatInputArea, dynamicChatHistory } = academyGetMessagesInboxElements();
     const chatInput = document.getElementById('chat-input');
 
     if (chatInput) {
@@ -7265,6 +7248,10 @@ function academyResetMessagesThreadState() {
         chatInput.removeAttribute('data-active-room-id');
         chatInput.removeAttribute('data-active-room-name');
         chatInput.removeAttribute('data-active-room-type');
+    }
+
+    if (dynamicChatHistory) {
+        dynamicChatHistory.innerHTML = '';
     }
 
     if (chatInputArea) {
@@ -7599,7 +7586,14 @@ function renderAcademyMessagesInboxList() {
     if (!list) return;
 
     const runtimeActiveRoomId = normalizeRoomKey(getActiveRoomId());
-    if (runtimeActiveRoomId && runtimeActiveRoomId !== normalizeRoomKey('YH-community')) {
+    const hasExplicitInboxSelection = normalizeRoomKey(academyMessagesInboxState.activeRoomId);
+    const runtimeRoomType = String(currentRoomMeta?.type || '').trim().toLowerCase();
+    const hasLivePrivateThread =
+        runtimeActiveRoomId &&
+        runtimeActiveRoomId !== normalizeRoomKey('YH-community') &&
+        (runtimeRoomType === 'dm' || runtimeRoomType === 'group');
+
+    if (!hasExplicitInboxSelection && hasLivePrivateThread) {
         academyMessagesInboxState.activeRoomId = runtimeActiveRoomId;
     }
 
