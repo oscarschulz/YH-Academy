@@ -819,6 +819,21 @@ else if (type === 'dm' || type === 'group') {
         topic: type === 'group' ? 'Private Brainstorming Group' : 'Direct Message'
     });
 
+    academySetMessagesChatMode('thread');
+    academyRenderMessagesThreadHeader(
+        academyResolveMessageRoomById(roomId) || {
+            type,
+            name,
+            roomId,
+            recipientName,
+            recipientId,
+            participantNames,
+            memberIds,
+            icon,
+            color
+        }
+    );
+
     markCustomRoomAsRead(roomId);
     socket.emit('joinRoom', currentRoomId);
 }
@@ -7196,7 +7211,14 @@ function academyGetMessagesInboxElements() {
         list: document.getElementById('academy-messages-inbox-list'),
         dynamicChatHistory: document.getElementById('dynamic-chat-history'),
         chatInputArea: document.getElementById('chat-input-area'),
-        welcomeBox: document.getElementById('chat-welcome-box')
+        welcomeBox: document.getElementById('chat-welcome-box'),
+        threadHeader: document.getElementById('academy-messages-thread-header'),
+        threadAvatar: document.getElementById('academy-messages-thread-avatar'),
+        threadTitle: document.getElementById('academy-messages-thread-title'),
+        threadMeta: document.getElementById('academy-messages-thread-meta'),
+        threadRoomtype: document.getElementById('academy-messages-thread-roomtype'),
+        threadBackBtn: document.getElementById('academy-messages-thread-back-btn'),
+        threadRefreshBtn: document.getElementById('academy-messages-thread-refresh-btn')
     };
 }
 
@@ -7205,7 +7227,7 @@ function academySetMessagesChatMode(mode = 'home') {
         ? String(mode || '').trim()
         : 'home';
 
-    const { academyChat, inbox, sidebar, chatInputArea } = academyGetMessagesInboxElements();
+    const { academyChat, inbox, sidebar, chatInputArea, threadHeader } = academyGetMessagesInboxElements();
 
     if (academyChat) {
         academyChat.setAttribute('data-chat-mode', normalizedMode);
@@ -7217,6 +7239,10 @@ function academySetMessagesChatMode(mode = 'home') {
 
     if (sidebar) {
         sidebar.classList.toggle('hidden-step', normalizedMode === 'home');
+    }
+
+    if (threadHeader && normalizedMode !== 'thread') {
+        threadHeader.classList.add('hidden-step');
     }
 
     if (chatInputArea) {
@@ -7279,10 +7305,132 @@ function academyReadMessageRooms() {
         });
 }
 
+function academyResolveMessageRoomById(roomId = '') {
+    const normalizedRoomId = normalizeRoomKey(roomId);
+    if (!normalizedRoomId) return null;
+
+    return academyReadMessageRooms().find((room) => {
+        return normalizeRoomKey(room?.roomId || room?.id) === normalizedRoomId;
+    }) || null;
+}
+
+function academyGetMessageRoomMemberCount(room = {}) {
+    const participantNames = Array.isArray(room?.participantNames)
+        ? room.participantNames.filter(Boolean)
+        : Array.isArray(room?.participants)
+            ? room.participants.filter(Boolean)
+            : Array.isArray(room?.memberNames)
+                ? room.memberNames.filter(Boolean)
+                : [];
+
+    const memberIds = Array.isArray(room?.memberIds) ? room.memberIds.filter(Boolean) : [];
+    const countFromNames = participantNames.length;
+    const countFromIds = memberIds.length;
+    const fallbackCount = String(room?.type || '').trim().toLowerCase() === 'dm' ? 2 : 1;
+
+    return Math.max(countFromNames, countFromIds, fallbackCount);
+}
+
+function academyClearMessagesThreadHeader() {
+    const {
+        threadHeader,
+        threadAvatar,
+        threadTitle,
+        threadMeta,
+        threadRoomtype
+    } = academyGetMessagesInboxElements();
+
+    if (threadHeader) {
+        threadHeader.classList.add('hidden-step');
+    }
+
+    if (threadAvatar) {
+        threadAvatar.style.backgroundImage = 'none';
+        threadAvatar.innerText = '💬';
+    }
+
+    if (threadTitle) {
+        threadTitle.innerText = 'Conversation';
+    }
+
+    if (threadMeta) {
+        threadMeta.innerText = 'Select a conversation to view thread details.';
+    }
+
+    if (threadRoomtype) {
+        threadRoomtype.innerText = 'DM';
+    }
+}
+
+function academyRenderMessagesThreadHeader(room = {}) {
+    const {
+        threadHeader,
+        threadAvatar,
+        threadTitle,
+        threadMeta,
+        threadRoomtype
+    } = academyGetMessagesInboxElements();
+
+    if (!threadHeader || !threadAvatar || !threadTitle || !threadMeta || !threadRoomtype) return;
+
+    const roomType = String(room?.type || '').trim().toLowerCase() === 'group' ? 'group' : 'dm';
+    const roomName =
+        String(
+            room?.name ||
+            room?.recipientName ||
+            (roomType === 'group' ? 'Private Group' : 'Direct Message')
+        ).trim() || (roomType === 'group' ? 'Private Group' : 'Direct Message');
+
+    const memberCount = academyGetMessageRoomMemberCount(room);
+    const memberLabel = `${memberCount} member${memberCount === 1 ? '' : 's'}`;
+    const roomTypeLabel = roomType === 'group' ? 'Group chat' : 'Direct message';
+
+    const avatarUrl = String(room?.avatarUrl || room?.avatar || '').trim();
+    const avatarFallback = roomType === 'group'
+        ? '👥'
+        : roomName.charAt(0).toUpperCase();
+
+    if (avatarUrl) {
+        threadAvatar.style.backgroundImage = `url('${academyFeedEscapeHtml(avatarUrl)}')`;
+        threadAvatar.innerText = '';
+    } else {
+        threadAvatar.style.backgroundImage = 'none';
+        threadAvatar.innerText = avatarFallback;
+    }
+
+    threadTitle.innerText = roomName;
+    threadMeta.innerText = `${roomTypeLabel} • ${memberLabel}`;
+    threadRoomtype.innerText = roomType === 'group' ? 'GROUP' : 'DM';
+    threadHeader.classList.remove('hidden-step');
+}
+
+function academyReturnToMessagesInboxHome() {
+    academyMessagesInboxState.activeRoomId = '';
+    currentRoom = null;
+    currentRoomId = null;
+    currentRoomMeta = null;
+    renderAcademyMessagesInboxList();
+    academyRenderMessagesThreadEmpty('Select a conversation from the inbox to open that private thread.');
+}
+
+function academyRefreshActiveMessagesThread() {
+    const activeRoomId =
+        normalizeRoomKey(academyMessagesInboxState.activeRoomId) ||
+        normalizeRoomKey(getActiveRoomId());
+
+    if (!activeRoomId) {
+        academyRenderMessagesThreadEmpty('Select a conversation from the inbox to open that private thread.');
+        return;
+    }
+
+    academyOpenInboxRoomById(activeRoomId);
+}
+
 function academyRenderMessagesThreadEmpty(message = 'Select a conversation to open its private thread.') {
     const { dynamicChatHistory, welcomeBox } = academyGetMessagesInboxElements();
     if (!dynamicChatHistory) return;
 
+    academyClearMessagesThreadHeader();
     academySetMessagesChatMode('messages');
 
     if (welcomeBox) {
@@ -7447,6 +7595,14 @@ function bindAcademyMessagesInbox() {
 
     document.getElementById('academy-messages-inbox-refresh')?.addEventListener('click', () => {
         renderAcademyMessagesInboxList();
+    });
+
+    document.getElementById('academy-messages-thread-back-btn')?.addEventListener('click', () => {
+        academyReturnToMessagesInboxHome();
+    });
+
+    document.getElementById('academy-messages-thread-refresh-btn')?.addEventListener('click', () => {
+        academyRefreshActiveMessagesThread();
     });
 }
 
