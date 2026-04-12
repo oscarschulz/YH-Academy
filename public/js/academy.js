@@ -195,6 +195,17 @@ function normalizeAvatarUrl(value = '') {
     return sharedNormalizeAvatarUrl(value);
 }
 
+function normalizeUserKey(value = '') {
+    const normalizedId = normalizeAcademyFeedId(value);
+    if (normalizedId) return normalizedId;
+
+    return String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, '_')
+        .replace(/[^a-z0-9_-]/g, '');
+}
+
 function safeParseArray(value, fallback = []) {
     if (Array.isArray(value)) {
         return value.filter(Boolean);
