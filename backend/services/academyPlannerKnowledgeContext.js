@@ -18,24 +18,71 @@ function collectHints(profile = {}, behaviorProfile = {}, plannerStats = {}) {
 
     if (priority) categoryHints.push(priority);
 
-    if (/wealth|income|money|business|client|sales|offer|revenue/.test(blockerText) || /wealth|income|business|revenue/.test(goals) || /business|sales/.test(currentJob) || priority === 'wealth') {
+    if (
+        /wealth|income|money|business|client|sales|offer|revenue/.test(blockerText) ||
+        /wealth|income|business|revenue/.test(goals) ||
+        /business|sales/.test(currentJob) ||
+        priority === 'wealth' ||
+        priority === 'money, wealth & business'
+    ) {
         categoryHints.push('wealth');
     }
 
-    if (/discipline|routine|consisten|procrastin|execution|habit/.test(blockerText) || priority === 'discipline') {
+    if (
+        /discipline|routine|consisten|procrastin|execution|habit/.test(blockerText) ||
+        priority === 'discipline'
+    ) {
         categoryHints.push('discipline');
     }
 
-    if (/sleep|energy|health|body|fitness|recovery/.test(blockerText) || priority === 'health') {
+    if (
+        /sleep|energy|health|body|fitness|recovery/.test(blockerText) ||
+        priority === 'health' ||
+        priority === 'fitness & health'
+    ) {
         categoryHints.push('health');
     }
 
-    if (/mindset|stress|focus|belief|confidence/.test(blockerText) || priority === 'mindset') {
+    if (
+        /mindset|stress|focus|belief|confidence|psychology/.test(blockerText) ||
+        priority === 'mindset' ||
+        priority === 'mindset & psychology'
+    ) {
         categoryHints.push('mindset');
     }
 
-    if (/network|communication|social|persuasion/.test(blockerText) || priority === 'communication') {
+    if (
+        /network|communication|social|persuasion|outreach/.test(blockerText) ||
+        priority === 'communication' ||
+        priority === 'communication & networking'
+    ) {
         categoryHints.push('communication');
+    }
+
+    if (
+        /knowledge|study|reading|learning|research|banking|tax|world trends|systems/.test(blockerText) ||
+        /knowledge|study|research|learning/.test(goals) ||
+        priority === 'knowledge' ||
+        priority === 'knowledge for life'
+    ) {
+        categoryHints.push('knowledge');
+    }
+
+    if (
+        /politic|policy|government|geopolitic|power structure|2030 agenda|global issue|media narrative/.test(blockerText) ||
+        /politic|policy|geopolitic|2030 agenda/.test(goals) ||
+        priority === 'politics' ||
+        priority === 'politics & the 2030 agenda'
+    ) {
+        categoryHints.push('politics');
+    }
+
+    if (
+        /philosophy|ethic|meaning|purpose|truth|logic|reality|stoic|existential/.test(blockerText) ||
+        /philosophy|ethic|meaning|purpose|logic/.test(goals) ||
+        priority === 'philosophy'
+    ) {
+        categoryHints.push('philosophy');
     }
 
     if (coachTone) tagHints.push(coachTone);

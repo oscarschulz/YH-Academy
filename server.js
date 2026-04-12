@@ -3,6 +3,8 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+const fs = require('fs');
+const crypto = require('crypto');
 const cors = require('cors');
 const { firestore } = require('./config/firebaseAdmin');
 const { Timestamp } = require('firebase-admin/firestore');
@@ -13,7 +15,11 @@ const app = express();
 app.set('trust proxy', 1);
 
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+    transports: ['websocket', 'polling'],
+    pingInterval: 10000,
+    pingTimeout: 5000
+});
 const publicLandingNamespace = io.of('/public-landing');
 
 async function emitPublicLandingSnapshotToClients(limit = 24) {
@@ -329,6 +335,88 @@ io.on('connection', (socket) => {
 // --- 🛡️ SECURITY PACKAGES ---
 const rateLimit = require('express-rate-limit');
 
+const ACADEMY_FEED_UPLOAD_DIR = path.join(__dirname, 'public', 'uploads', 'academy-feed');
+const ACADEMY_FEED_MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const ACADEMY_FEED_MAX_VIDEO_BYTES = 100 * 1024 * 1024;
+
+function sanitizeUploadSegment(value = '') {
+    return String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9._-]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 80) || 'file';
+}
+
+function safeDecodeUploadHeaderValue(value = '') {
+    const raw = sanitizeText(value);
+    if (!raw) return '';
+    try {
+        return decodeURIComponent(raw);
+    } catch (_) {
+        return raw;
+    }
+}
+
+function getUploadExtFromMime(mime = '') {
+    const clean = sanitizeText(mime).toLowerCase().split(';')[0];
+
+    const map = {
+        'image/jpeg': '.jpg',
+        'image/jpg': '.jpg',
+        'image/png': '.png',
+        'image/webp': '.webp',
+        'image/gif': '.gif',
+        'image/avif': '.avif',
+        'image/svg+xml': '.svg',
+        'video/mp4': '.mp4',
+        'video/quicktime': '.mov',
+        'video/webm': '.webm',
+        'video/ogg': '.ogv',
+        'video/x-matroska': '.mkv'
+    };
+
+    return map[clean] || '';
+}
+
+function getAcademyUploadKind(mime = '') {
+    const clean = sanitizeText(mime).toLowerCase().split(';')[0];
+    if (clean.startsWith('image/')) return 'image';
+    if (clean.startsWith('video/')) return 'video';
+    return '';
+}
+
+async function saveAcademyFeedUploadToLocal({ buffer, mimeType = '', originalName = '', userId = '' }) {
+    const cleanMimeType = sanitizeText(mimeType).toLowerCase().split(';')[0];
+    const safeUserId = sanitizeUploadSegment(userId || 'member');
+
+    const decodedOriginalName = safeDecodeUploadHeaderValue(originalName || 'upload');
+    const baseOriginalName = path.basename(decodedOriginalName || 'upload');
+    const fileExtFromName = path.extname(baseOriginalName).toLowerCase();
+    const safeBaseName = sanitizeUploadSegment(path.basename(baseOriginalName, fileExtFromName) || 'upload');
+
+    const derivedKind = getAcademyUploadKind(cleanMimeType);
+    const fileExt =
+        fileExtFromName ||
+        getUploadExtFromMime(cleanMimeType) ||
+        (derivedKind === 'video' ? '.mp4' : '.jpg');
+
+    const fileName = `${Date.now()}_${safeUserId}_${crypto.randomBytes(6).toString('hex')}_${safeBaseName}${fileExt}`;
+
+    await fs.promises.mkdir(ACADEMY_FEED_UPLOAD_DIR, { recursive: true });
+
+    const filePath = path.join(ACADEMY_FEED_UPLOAD_DIR, fileName);
+    await fs.promises.writeFile(filePath, buffer);
+
+    return {
+        url: `/uploads/academy-feed/${fileName}`,
+        kind: derivedKind,
+        mimeType: cleanMimeType,
+        sizeBytes: buffer.length,
+        originalName: baseOriginalName
+    };
+}
+
 const allowedOrigins = String(process.env.CORS_ALLOWED_ORIGINS || '')
     .split(',')
     .map((value) => value.trim())
@@ -348,18 +436,23 @@ app.use(express.urlencoded({ extended: true, limit: '12mb' }));
 app.use((req, res, next) => {
     const p = String(req.path || '');
 
-    // Never cache the dashboard shell and its core scripts.
-    if (
-        p === '/dashboard' ||
-        p === '/dashboard/' ||
-        p === '/js/dashboard.js' ||
-        p === '/js/dashboard-mobile-fix.js'
-    ) {
-        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-        res.setHeader('Pragma', 'no-cache');
-        res.setHeader('Expires', '0');
-        res.setHeader('Surrogate-Control', 'no-store');
-    }
+// Never cache the dashboard / academy shells and their core scripts.
+if (
+    p === '/dashboard' ||
+    p === '/dashboard/' ||
+    p === '/academy' ||
+    p === '/academy/' ||
+    p === '/js/dashboard.js' ||
+    p === '/js/academy.js' ||
+    p === '/js/dashboard-mobile-fix.js' ||
+    p === '/js/yh-shared-core.js' ||
+    p === '/js/yh-shared-runtime.js'
+) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
+}
 
     next();
 });
@@ -372,8 +465,12 @@ app.use(express.static(path.join(__dirname, 'public'), {
 
         if (
             normalized.endsWith('/public/js/dashboard.js') ||
+            normalized.endsWith('/public/js/academy.js') ||
             normalized.endsWith('/public/js/dashboard-mobile-fix.js') ||
-            normalized.endsWith('/public/dashboard.html')
+            normalized.endsWith('/public/js/yh-shared-core.js') ||
+            normalized.endsWith('/public/js/yh-shared-runtime.js') ||
+            normalized.endsWith('/public/dashboard.html') ||
+            normalized.endsWith('/public/academy.html')
         ) {
             res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
             res.setHeader('Pragma', 'no-cache');
@@ -488,6 +585,106 @@ app.use(adminApiRouter);
 app.use(adminPageRouter);
 
 app.use('/', viewRoutes);
+
+app.post(
+    '/api/academy/feed/uploads',
+    requireApiUser,
+    express.raw({
+        type: ['image/*', 'video/*', 'application/octet-stream'],
+        limit: '100mb'
+    }),
+    async (req, res) => {
+        try {
+            const transportMimeType = sanitizeText(req.headers?.['content-type'])
+                .toLowerCase()
+                .split(';')[0];
+
+            const declaredMimeType = sanitizeText(req.headers?.['x-file-mime'])
+                .toLowerCase()
+                .split(';')[0];
+
+            const mimeType = declaredMimeType || transportMimeType;
+            const originalName = safeDecodeUploadHeaderValue(req.headers?.['x-file-name'] || 'upload');
+            const requestedKind = sanitizeText(req.headers?.['x-media-kind']).toLowerCase();
+
+            const buffer = Buffer.isBuffer(req.body)
+                ? req.body
+                : typeof req.body === 'string'
+                    ? Buffer.from(req.body)
+                    : Buffer.alloc(0);
+
+            const detectedKind = getAcademyUploadKind(mimeType);
+            const mediaKind =
+                requestedKind === 'video'
+                    ? 'video'
+                    : requestedKind === 'image'
+                        ? 'image'
+                        : detectedKind;
+
+            if (!buffer.length) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No file data received.'
+                });
+            }
+
+            if (!mediaKind || !['image', 'video'].includes(mediaKind)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Only image and video uploads are supported.'
+                });
+            }
+
+            if (mediaKind === 'image' && !mimeType.startsWith('image/')) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid image upload.'
+                });
+            }
+
+            if (mediaKind === 'video' && !mimeType.startsWith('video/')) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid video upload.'
+                });
+            }
+
+            const maxBytes =
+                mediaKind === 'video'
+                    ? ACADEMY_FEED_MAX_VIDEO_BYTES
+                    : ACADEMY_FEED_MAX_IMAGE_BYTES;
+
+            if (buffer.length > maxBytes) {
+                return res.status(400).json({
+                    success: false,
+                    message:
+                        mediaKind === 'video'
+                            ? 'Video must be 100MB or smaller.'
+                            : 'Image must be 10MB or smaller.'
+                });
+            }
+
+            const media = await saveAcademyFeedUploadToLocal({
+                buffer,
+                mimeType,
+                originalName,
+                userId: req.user.id
+            });
+
+            return res.status(201).json({
+                success: true,
+                media
+            });
+        } catch (error) {
+            console.error('academy feed upload error:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to upload media.'
+            });
+        }
+    }
+);
+
 app.use('/api', apiRoutes);
 app.post('/api/realtime/live-rooms/:roomId/join', requireApiUser, async (req, res) => {
     try {

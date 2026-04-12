@@ -51,29 +51,32 @@ const {
     setActiveCustomRoomState: sharedSetActiveCustomRoomState
 } = window.YHSharedRuntime;
 
-function isStandaloneDashboardPage() {
+function isStandaloneAcademyPage() {
     return (
-        document.body?.getAttribute('data-yh-page') === 'dashboard' ||
-        String(window.location.pathname || '').replace(/\/+$/, '') === '/dashboard'
+        document.body?.getAttribute('data-yh-page') === 'academy' ||
+        String(window.location.pathname || '').replace(/\/+$/, '') === '/academy'
     );
 }
 
-function normalizeDashboardAcademySection(value = 'home') {
-    const clean = String(value || '').trim().toLowerCase();
-    return ['home', 'community', 'voice', 'video', 'profile'].includes(clean) ? clean : 'home';
+function goToDashboardPage() {
+    window.location.href = '/dashboard';
 }
 
-function buildAcademyUrl(section = 'home') {
-    const normalizedSection = normalizeDashboardAcademySection(section);
-    if (normalizedSection === 'home') {
-        return '/academy';
+function getAcademySectionFromUrl() {
+    try {
+        const url = new URL(window.location.href);
+        const section = String(url.searchParams.get('section') || '').trim().toLowerCase();
+
+        if (['home', 'community', 'voice', 'video', 'profile'].includes(section)) {
+            return section;
+        }
+
+        return 'home';
+    } catch (_) {
+        return 'home';
     }
-    return `/academy?section=${encodeURIComponent(normalizedSection)}`;
 }
 
-function redirectToAcademyPage(section = 'home') {
-    window.location.href = buildAcademyUrl(section);
-}
 let currentRoom = "YH-community";      // UI/display label
 let currentRoomId = "YH-community";    // backend transport identity
 let currentRoomMeta = {
@@ -3218,6 +3221,100 @@ async function academySubmitMissionAction(event) {
     }
 }
 
+function academyDelay(ms = 0) {
+    return new Promise((resolve) => {
+        window.setTimeout(resolve, Math.max(0, Number(ms) || 0));
+    });
+}
+
+function academySetCheckinButtonLabel(button, label) {
+    if (!button) return;
+    const labelNode = button.querySelector('.yh-btn-label');
+    if (labelNode) {
+        labelNode.textContent = String(label || '').trim();
+        return;
+    }
+    button.textContent = String(label || '').trim();
+}
+
+function academySetCheckinStatus(message = '', tone = 'neutral') {
+    const statusEl = document.getElementById('academy-checkin-status');
+    if (!statusEl) return;
+
+    const safeMessage = String(message || '').trim();
+    statusEl.textContent = safeMessage;
+    statusEl.classList.remove('is-hidden', 'is-neutral', 'is-loading', 'is-success', 'is-error');
+
+    if (!safeMessage) {
+        statusEl.classList.add('is-hidden');
+        return;
+    }
+
+    if (tone === 'loading' || tone === 'success' || tone === 'error') {
+        statusEl.classList.add(`is-${tone}`);
+    } else {
+        statusEl.classList.add('is-neutral');
+    }
+}
+
+function academySetCheckinUiState(state = 'idle') {
+    const modal = document.getElementById('academy-checkin-modal');
+    const submitBtn = document.getElementById('btn-submit-checkin');
+    const cancelBtn = document.getElementById('btn-cancel-checkin');
+    const closeBtn = document.getElementById('close-checkin-modal');
+
+    const normalizedState = String(state || 'idle').trim().toLowerCase();
+    const isSaving = normalizedState === 'saving';
+    const isSaved = normalizedState === 'saved';
+    const isBusy = isSaving || isSaved;
+
+    if (modal) {
+        modal.classList.remove('is-saving', 'is-saved');
+        if (isSaving) modal.classList.add('is-saving');
+        if (isSaved) modal.classList.add('is-saved');
+    }
+
+    if (submitBtn) {
+        const idleLabel = String(submitBtn.dataset.idleLabel || 'Save Check-In').trim();
+        const loadingLabel = String(submitBtn.dataset.loadingLabel || 'Saving Check-In...').trim();
+        const savedLabel = String(submitBtn.dataset.savedLabel || 'Saved ✓').trim();
+
+        submitBtn.dataset.loading = isSaving ? 'true' : 'false';
+        submitBtn.disabled = isBusy;
+        submitBtn.setAttribute('aria-disabled', isBusy ? 'true' : 'false');
+        submitBtn.setAttribute('aria-busy', isSaving ? 'true' : 'false');
+        submitBtn.style.pointerEvents = isBusy ? 'none' : '';
+
+        if (isSaving) {
+            academySetCheckinButtonLabel(submitBtn, loadingLabel);
+        } else if (isSaved) {
+            academySetCheckinButtonLabel(submitBtn, savedLabel);
+        } else {
+            academySetCheckinButtonLabel(submitBtn, idleLabel);
+        }
+    }
+
+    if (cancelBtn) {
+        cancelBtn.disabled = isBusy;
+        cancelBtn.setAttribute('aria-disabled', isBusy ? 'true' : 'false');
+        cancelBtn.style.pointerEvents = isBusy ? 'none' : '';
+    }
+
+    if (closeBtn) {
+        closeBtn.disabled = isBusy;
+        closeBtn.setAttribute('aria-disabled', isBusy ? 'true' : 'false');
+        closeBtn.style.pointerEvents = isBusy ? 'none' : '';
+    }
+
+    if (isSaving) {
+        academySetCheckinStatus('Saving your check-in...', 'loading');
+    } else if (isSaved) {
+        academySetCheckinStatus('Saved. Updating your Academy Home...', 'success');
+    } else {
+        academySetCheckinStatus('', 'neutral');
+    }
+}
+
 function academyResetCheckinModal() {
     const form = document.getElementById('academy-checkin-form');
     if (form) form.reset();
@@ -3230,11 +3327,14 @@ function academyResetCheckinModal() {
     if (moodInput) moodInput.value = '7';
 
     if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.removeAttribute('aria-busy');
-        submitBtn.innerText = 'Save Check-In';
+        submitBtn.dataset.idleLabel = submitBtn.dataset.idleLabel || 'Save Check-In';
+        submitBtn.dataset.loadingLabel = submitBtn.dataset.loadingLabel || 'Saving Check-In...';
+        submitBtn.dataset.savedLabel = submitBtn.dataset.savedLabel || 'Saved ✓';
     }
+
+    academySetCheckinUiState('idle');
 }
+
 function academyCloseCheckinModal() {
     document.getElementById('academy-checkin-modal')?.classList.add('hidden-step');
 }
@@ -3254,6 +3354,10 @@ async function academySubmitCheckin(event) {
     const blockersInput = document.getElementById('academy-checkin-blockers');
     const focusInput = document.getElementById('academy-checkin-focus');
 
+    if (submitBtn?.dataset?.loading === 'true') {
+        return;
+    }
+
     const energyScore = String(energyInput?.value || '').trim();
     const moodScore = String(moodInput?.value || '').trim();
     const completedSummary = String(completedInput?.value || '').trim();
@@ -3265,43 +3369,46 @@ async function academySubmitCheckin(event) {
         return;
     }
 
-try {
-    if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.setAttribute('aria-busy', 'true');
-        submitBtn.innerText = 'Saving...';
-    }
+    let didSucceed = false;
 
-    const result = await academyAuthedFetch('/api/academy/checkin', {
-        method: 'POST',
-        body: JSON.stringify({
-            energyScore,
-            moodScore,
-            completedSummary,
-            blockerText,
-            tomorrowFocus,
-            missionSignals: buildAcademyMissionSignalSnapshot()
-        })
-    });
+    try {
+        academySetCheckinUiState('saving');
 
-    applyAcademyHomeRuntimePatch({
-        behaviorProfile: result?.behaviorProfile,
-        previousBehaviorProfile: result?.previousBehaviorProfile,
-        plannerStats: result?.plannerStats,
-        adaptivePlanning: result?.adaptivePlanning
-    });
-    academyCloseCheckinModal();
-    await loadAcademyHome(true);
-    showToast('Check-in saved.', 'success');
-} catch (error) {
-    showToast(error.message || 'Check-in failed.', 'error');
-} finally {
-    if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.removeAttribute('aria-busy');
-        submitBtn.innerText = 'Save Check-In';
+        const result = await academyAuthedFetch('/api/academy/checkin', {
+            method: 'POST',
+            body: JSON.stringify({
+                energyScore,
+                moodScore,
+                completedSummary,
+                blockerText,
+                tomorrowFocus,
+                missionSignals: buildAcademyMissionSignalSnapshot()
+            })
+        });
+
+        applyAcademyHomeRuntimePatch({
+            behaviorProfile: result?.behaviorProfile,
+            previousBehaviorProfile: result?.previousBehaviorProfile,
+            plannerStats: result?.plannerStats,
+            adaptivePlanning: result?.adaptivePlanning
+        });
+
+        didSucceed = true;
+        academySetCheckinUiState('saved');
+
+        await academyDelay(520);
+
+        academyCloseCheckinModal();
+        await loadAcademyHome(true);
+        showToast('Check-in saved.', 'success');
+    } catch (error) {
+        academySetCheckinStatus(error.message || 'Check-in failed.', 'error');
+        showToast(error.message || 'Check-in failed.', 'error');
+    } finally {
+        if (!didSucceed) {
+            academySetCheckinUiState('idle');
+        }
     }
-}
 }
 function academyBehaviorTrendRank(mode, value) {
     const normalized = String(value || '').trim().toLowerCase();
@@ -4615,14 +4722,421 @@ let academyProfileViewState = {
     profile: null
 };
 
-function buildAcademySelfProfilePayload() {
-    const cachedHome = readAcademyHomeCache() || {};
-    const displayName = String(localStorage.getItem('yh_user_name') || 'Hustler').trim() || 'Hustler';
-    const usernameRaw =
-        String(getStoredUserValue('yh_user_username', '')).trim().replace(/^@/, '') ||
-        displayName.toLowerCase().replace(/\s+/g, '');
+let academyProfileEditorState = {
+    bound: false,
+    tempAvatarData: '',
+    tempCoverData: ''
+};
 
-    const savedAvatar = String(getStoredUserValue('yh_user_avatar', '')).trim();
+const ACADEMY_PROFILE_CACHE_KEY = 'yh_academy_profile_cache_v1';
+
+function readAcademyProfileCache() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(ACADEMY_PROFILE_CACHE_KEY) || 'null');
+        return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+function persistAcademyProfileCache(profile = null) {
+    if (!profile || typeof profile !== 'object') {
+        localStorage.removeItem(ACADEMY_PROFILE_CACHE_KEY);
+        return null;
+    }
+
+    const normalized = {
+        id: String(profile.id || '').trim(),
+        display_name: String(profile.display_name || profile.displayName || '').trim(),
+        username: String(profile.username || '').trim().replace(/^@/, ''),
+        avatar: String(profile.avatar || '').trim(),
+        cover_photo: String(profile.cover_photo || profile.coverPhoto || '').trim(),
+        role_label: String(profile.role_label || profile.roleLabel || 'Academy Member').trim(),
+        bio: String(profile.bio || '').trim(),
+        search_tags: Array.isArray(profile.search_tags)
+            ? profile.search_tags.map((tag) => String(tag || '').trim()).filter(Boolean).slice(0, 8)
+            : []
+    };
+
+    localStorage.setItem(ACADEMY_PROFILE_CACHE_KEY, JSON.stringify(normalized));
+    return normalized;
+}
+
+function syncAcademyProfileLocalMirrors(profile = null) {
+    if (!profile || typeof profile !== 'object') return null;
+
+    const displayName =
+        String(profile.display_name || profile.displayName || '').trim() ||
+        'Hustler';
+
+    const username =
+        sanitizeAcademyProfileUsername(
+            profile.username || displayName.toLowerCase().replace(/\s+/g, ''),
+            displayName
+        );
+
+    const avatar = String(profile.avatar || '').trim();
+    const coverPhoto = String(profile.cover_photo || profile.coverPhoto || '').trim();
+    const bio =
+        String(profile.bio || '').trim() ||
+        'Focused on execution, consistency, and long-term growth inside The Academy.';
+    const tags = Array.isArray(profile.search_tags)
+        ? profile.search_tags.map((tag) => String(tag || '').trim()).filter(Boolean).slice(0, 8)
+        : [];
+
+    localStorage.setItem('yh_user_name', displayName);
+    localStorage.setItem('yh_user_username', username);
+    localStorage.setItem('yh_user_profile_bio', bio);
+
+    if (avatar) {
+        localStorage.setItem('yh_user_avatar', avatar);
+    } else {
+        localStorage.removeItem('yh_user_avatar');
+    }
+
+    if (coverPhoto) {
+        localStorage.setItem('yh_user_cover', coverPhoto);
+    } else {
+        localStorage.removeItem('yh_user_cover');
+    }
+
+    writeAcademyProfileTags(tags);
+
+    if (typeof updateUserProfile === 'function') {
+        updateUserProfile(displayName, avatar || '');
+    }
+
+    return persistAcademyProfileCache({
+        ...profile,
+        display_name: displayName,
+        username,
+        avatar,
+        cover_photo: coverPhoto,
+        bio,
+        search_tags: tags
+    });
+}
+
+async function fetchCurrentAcademyProfile(options = {}) {
+    const allowCachedFallback = options.allowCachedFallback !== false;
+    const cachedProfile = readAcademyProfileCache();
+
+    try {
+        const result = await academyAuthedFetch('/api/academy/profile', {
+            method: 'GET'
+        });
+
+        const profile =
+            result?.profile && typeof result.profile === 'object'
+                ? result.profile
+                : null;
+
+        if (!profile) {
+            throw new Error('Profile payload was empty.');
+        }
+
+        syncAcademyProfileLocalMirrors(profile);
+        return profile;
+    } catch (error) {
+        if (allowCachedFallback && cachedProfile) {
+            return cachedProfile;
+        }
+        throw error;
+    }
+}
+
+function readAcademyProfileTags() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem('yh_user_profile_tags') || '[]');
+        return Array.isArray(parsed)
+            ? parsed.map((tag) => String(tag || '').trim()).filter(Boolean)
+            : [];
+    } catch (_) {
+        return [];
+    }
+}
+
+function writeAcademyProfileTags(tags = []) {
+    const normalized = Array.from(new Set(
+        (Array.isArray(tags) ? tags : [])
+            .map((tag) => String(tag || '').trim().replace(/^#/, ''))
+            .filter(Boolean)
+    )).slice(0, 8);
+
+    localStorage.setItem('yh_user_profile_tags', JSON.stringify(normalized));
+    return normalized;
+}
+
+function getAcademyProfileStoredBio() {
+    return String(getStoredUserValue('yh_user_profile_bio', '')).trim();
+}
+
+function getAcademyProfileStoredCover() {
+    return String(getStoredUserValue('yh_user_cover', '')).trim();
+}
+
+function sanitizeAcademyProfileUsername(value = '') {
+    const cleaned = String(value || '')
+        .trim()
+        .replace(/^@+/, '')
+        .replace(/\s+/g, '')
+        .replace(/[^a-zA-Z0-9._-]/g, '');
+
+    return cleaned.slice(0, 32);
+}
+
+function updateAcademyProfileEditorPreviewAvatar(value = '', displayName = 'Hustler') {
+    const avatarPreview = document.getElementById('academy-profile-editor-avatar-preview');
+    if (!avatarPreview) return;
+
+    if (value) {
+        avatarPreview.innerText = '';
+        avatarPreview.style.backgroundImage = `url(${value})`;
+        avatarPreview.style.backgroundSize = 'cover';
+        avatarPreview.style.backgroundPosition = 'center';
+    } else {
+        avatarPreview.style.backgroundImage = 'none';
+        avatarPreview.innerText = String(displayName || 'H').trim().charAt(0).toUpperCase() || 'H';
+    }
+}
+
+function updateAcademyProfileEditorPreviewCover(value = '') {
+    const coverPreview = document.getElementById('academy-profile-editor-cover-preview');
+    if (!coverPreview) return;
+
+    if (value) {
+        coverPreview.style.backgroundImage = `url(${value})`;
+        coverPreview.style.backgroundSize = 'cover';
+        coverPreview.style.backgroundPosition = 'center';
+    } else {
+        coverPreview.style.backgroundImage = 'none';
+    }
+}
+
+function closeAcademyProfileEditorModal() {
+    document.getElementById('academy-profile-editor-overlay')?.classList.add('hidden-step');
+}
+
+function openAcademyProfileEditorModal() {
+    if (academyProfileViewState?.mode !== 'self') return;
+
+    const activeProfile =
+        academyProfileViewState?.profile && typeof academyProfileViewState.profile === 'object'
+            ? academyProfileViewState.profile
+            : buildAcademySelfProfilePayload();
+
+    const displayName =
+        String(activeProfile.display_name || getStoredUserValue('yh_user_name', 'Hustler')).trim() || 'Hustler';
+    const username =
+        sanitizeAcademyProfileUsername(
+            activeProfile.username || getStoredUserValue('yh_user_username', ''),
+            displayName
+        );
+    const bio =
+        String(activeProfile.bio || getAcademyProfileStoredBio()).trim() ||
+        'Focused on execution, consistency, and long-term growth inside The Academy.';
+    const avatar = String(activeProfile.avatar || getStoredUserValue('yh_user_avatar', '')).trim();
+    const cover = String(activeProfile.cover_photo || getAcademyProfileStoredCover()).trim();
+    const tags = Array.isArray(activeProfile.searchTags)
+        ? activeProfile.searchTags
+        : readAcademyProfileTags();
+
+    academyProfileEditorState.tempAvatarData = avatar;
+    academyProfileEditorState.tempCoverData = cover;
+
+    const displayNameInput = document.getElementById('academy-profile-edit-display-name');
+    const usernameInput = document.getElementById('academy-profile-edit-username');
+    const bioInput = document.getElementById('academy-profile-edit-bio');
+    const tagsInput = document.getElementById('academy-profile-edit-tags');
+
+    if (displayNameInput) displayNameInput.value = displayName;
+    if (usernameInput) usernameInput.value = username;
+    if (bioInput) bioInput.value = bio;
+    if (tagsInput) tagsInput.value = tags.join(', ');
+
+    updateAcademyProfileEditorPreviewAvatar(avatar, displayName);
+    updateAcademyProfileEditorPreviewCover(cover);
+
+    document.getElementById('academy-profile-editor-overlay')?.classList.remove('hidden-step');
+}
+
+function ensureAcademyProfileEditorBindings() {
+    if (academyProfileEditorState.bound) return;
+    academyProfileEditorState.bound = true;
+
+    document.addEventListener('click', (event) => {
+        const openBtn = event.target.closest('#academy-profile-open-editor-btn');
+        if (openBtn) {
+            openAcademyProfileEditorModal();
+            return;
+        }
+
+        const closeBtn = event.target.closest('#academy-profile-editor-close, #academy-profile-editor-cancel');
+        if (closeBtn) {
+            closeAcademyProfileEditorModal();
+            return;
+        }
+
+        const overlay = event.target.closest('#academy-profile-editor-overlay');
+        if (overlay && event.target === overlay) {
+            closeAcademyProfileEditorModal();
+            return;
+        }
+
+        const avatarTrigger = event.target.closest('#academy-profile-editor-avatar-trigger');
+        if (avatarTrigger) {
+            document.getElementById('academy-profile-editor-avatar-input')?.click();
+            return;
+        }
+
+        const coverTrigger = event.target.closest('#academy-profile-editor-cover-trigger');
+        if (coverTrigger) {
+            document.getElementById('academy-profile-editor-cover-input')?.click();
+            return;
+        }
+
+        const saveBtn = event.target.closest('#academy-profile-editor-save');
+        if (saveBtn) {
+            const displayNameInput = document.getElementById('academy-profile-edit-display-name');
+            const usernameInput = document.getElementById('academy-profile-edit-username');
+            const bioInput = document.getElementById('academy-profile-edit-bio');
+            const tagsInput = document.getElementById('academy-profile-edit-tags');
+
+            const nextDisplayName = String(displayNameInput?.value || '').trim();
+            const nextUsername = sanitizeAcademyProfileUsername(usernameInput?.value || '');
+            const nextBio = String(bioInput?.value || '').trim();
+            const nextTags = String(tagsInput?.value || '')
+                .split(',')
+                .map((tag) => tag.trim())
+                .filter(Boolean);
+
+            if (!nextDisplayName) {
+                showToast('Display name cannot be empty.', 'error');
+                return;
+            }
+
+            if (!nextUsername) {
+                showToast('Username cannot be empty.', 'error');
+                return;
+            }
+
+            runDashboardButtonAction(saveBtn, 'Saving Profile.', async () => {
+                const result = await academyAuthedFetch('/api/academy/profile', {
+                    method: 'PATCH',
+                    body: JSON.stringify({
+                        display_name: nextDisplayName,
+                        username: nextUsername,
+                        bio: nextBio || 'Focused on execution, consistency, and long-term growth inside The Academy.',
+                        search_tags: nextTags,
+                        avatar: academyProfileEditorState.tempAvatarData || '',
+                        cover_photo: academyProfileEditorState.tempCoverData || ''
+                    })
+                });
+
+                const savedProfile =
+                    result?.profile && typeof result.profile === 'object'
+                        ? result.profile
+                        : null;
+
+                if (!savedProfile) {
+                    throw new Error('Profile save succeeded but no profile was returned.');
+                }
+
+                syncAcademyProfileLocalMirrors(savedProfile);
+                academyProfileViewState.profile = normalizeAcademyProfilePayload(
+                    buildAcademySelfProfilePayload(savedProfile),
+                    { mode: 'self' }
+                );
+
+                closeAcademyProfileEditorModal();
+                renderAcademyProfileView(academyProfileViewState.profile, { mode: 'self' });
+                showToast('Profile updated successfully.', 'success');
+            });
+
+            return;
+        }
+    });
+
+    const avatarInput = document.getElementById('academy-profile-editor-avatar-input');
+    const coverInput = document.getElementById('academy-profile-editor-cover-input');
+
+    if (avatarInput) {
+        avatarInput.addEventListener('change', (event) => {
+            const file = event.target.files?.[0];
+            if (!file) return;
+
+            if (file.size > 2 * 1024 * 1024) {
+                showToast('Avatar image too large. Max 2MB allowed.', 'error');
+                event.target.value = '';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (loadEvent) => {
+                academyProfileEditorState.tempAvatarData = String(loadEvent?.target?.result || '');
+                const displayName =
+                    String(document.getElementById('academy-profile-edit-display-name')?.value || 'Hustler').trim() ||
+                    'Hustler';
+                updateAcademyProfileEditorPreviewAvatar(academyProfileEditorState.tempAvatarData, displayName);
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    if (coverInput) {
+        coverInput.addEventListener('change', (event) => {
+            const file = event.target.files?.[0];
+            if (!file) return;
+
+            if (file.size > 4 * 1024 * 1024) {
+                showToast('Cover image too large. Max 4MB allowed.', 'error');
+                event.target.value = '';
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (loadEvent) => {
+                academyProfileEditorState.tempCoverData = String(loadEvent?.target?.result || '');
+                updateAcademyProfileEditorPreviewCover(academyProfileEditorState.tempCoverData);
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+}
+
+function buildAcademySelfProfilePayload(profileSource = null) {
+    const cachedHome = readAcademyHomeCache() || {};
+    const cachedProfile =
+        profileSource && typeof profileSource === 'object'
+            ? profileSource
+            : (readAcademyProfileCache() || {});
+
+    const displayName =
+        String(
+            cachedProfile.display_name ||
+            localStorage.getItem('yh_user_name') ||
+            'Hustler'
+        ).trim() || 'Hustler';
+
+    const usernameRaw =
+        sanitizeAcademyProfileUsername(
+            cachedProfile.username ||
+            getStoredUserValue('yh_user_username', '') ||
+            displayName.toLowerCase().replace(/\s+/g, ''),
+            displayName
+        );
+
+    const savedAvatar =
+        String(cachedProfile.avatar || getStoredUserValue('yh_user_avatar', '')).trim();
+    const savedCover =
+        String(cachedProfile.cover_photo || getAcademyProfileStoredCover()).trim();
+    const savedBio =
+        String(cachedProfile.bio || getAcademyProfileStoredBio()).trim();
+    const savedTags =
+        Array.isArray(cachedProfile.search_tags) && cachedProfile.search_tags.length
+            ? cachedProfile.search_tags.map((tag) => String(tag || '').trim()).filter(Boolean).slice(0, 8)
+            : readAcademyProfileTags();
+
     const hiddenPosts = readAcademyHiddenPostIds();
 
     const readinessValue =
@@ -4660,21 +5174,26 @@ function buildAcademySelfProfilePayload() {
     return {
         mode: 'self',
         id:
+            String(cachedProfile.id || '').trim() ||
             String(getStoredUserValue('yh_user_id', '')).trim() ||
             String(getStoredUserValue('yh_user_uid', '')).trim(),
         display_name: displayName,
         username: usernameRaw,
         avatar: savedAvatar,
-        role_label: 'Academy Member',
-        bio: 'Focused on execution, consistency, and long-term growth inside The Academy.',
+        cover_photo: savedCover,
+        role_label: String(cachedProfile.role_label || 'Academy Member').trim() || 'Academy Member',
+        bio: savedBio || 'Focused on execution, consistency, and long-term growth inside The Academy.',
         readiness: String(readinessValue),
         progress: progressText.replace(' Daily Progress', ''),
         roadmap_status: String(roadmapStatus),
-        followers_count: '—',
+        followers_count:
+            cachedProfile.followers_count !== undefined && cachedProfile.followers_count !== null
+                ? cachedProfile.followers_count
+                : '—',
         post_count: cachedPosts.length,
         hidden_count: hiddenPosts.length,
-        status: 'Active',
-        search_tags: [],
+        status: String(cachedProfile.status || 'Active').trim() || 'Active',
+        search_tags: savedTags,
         recent_posts: cachedPosts.slice(0, 6)
     };
 }
@@ -4859,6 +5378,11 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
     const profileContextSummary = document.getElementById('academy-profile-context-summary');
     const profileRelationshipSummary = document.getElementById('academy-profile-relationship-summary');
     const profileContextNote = document.getElementById('academy-profile-context-note');
+    const profileCoverBand = document.getElementById('academy-profile-view')?.querySelector('.academy-profile-cover-band');
+    const profileSettingsSummary = document.getElementById('academy-profile-settings-summary');
+    const profileSettingsCoverMini = document.getElementById('academy-profile-settings-cover-mini');
+    const profileSettingsAvatarMini = document.getElementById('academy-profile-settings-avatar-mini');
+    const profileOpenEditorBtn = document.getElementById('academy-profile-open-editor-btn');
     const primaryAction = document.getElementById('academy-profile-primary-action');
     const secondaryAction = document.getElementById('academy-profile-secondary-action');
     const tertiaryAction = document.getElementById('academy-profile-tertiary-action');
@@ -4883,6 +5407,25 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
         } else {
             profileAvatar.innerText = normalized.displayName.charAt(0).toUpperCase();
             profileAvatar.style.backgroundImage = 'none';
+        }
+    }
+
+    const resolvedCoverPhoto = isSelf
+        ? getAcademyProfileStoredCover()
+        : String(normalized.cover_photo || normalized.coverPhoto || '').trim();
+
+    if (profileCoverBand) {
+        if (resolvedCoverPhoto) {
+            profileCoverBand.style.backgroundImage = `
+                linear-gradient(135deg, rgba(14, 165, 233, 0.16), rgba(15, 23, 42, 0.1)),
+                url(${resolvedCoverPhoto})
+            `;
+            profileCoverBand.style.backgroundSize = 'cover';
+            profileCoverBand.style.backgroundPosition = 'center';
+        } else {
+            profileCoverBand.style.backgroundImage = '';
+            profileCoverBand.style.backgroundSize = '';
+            profileCoverBand.style.backgroundPosition = '';
         }
     }
 
@@ -5109,6 +5652,41 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
             : `${normalized.displayName}'s latest public posts`;
     }
 
+    if (profileSettingsSummary) {
+        const tagCount = Array.isArray(normalized.searchTags) ? normalized.searchTags.length : 0;
+        profileSettingsSummary.innerText = isSelf
+            ? `Edit your display name, username, bio, ${tagCount > 0 ? `${tagCount} tag${tagCount === 1 ? '' : 's'}` : 'profile tags'}, avatar, and cover photo.`
+            : 'Profile customization is only available on your own profile.';
+    }
+
+    if (profileSettingsCoverMini) {
+        if (resolvedCoverPhoto) {
+            profileSettingsCoverMini.style.backgroundImage = `url(${resolvedCoverPhoto})`;
+            profileSettingsCoverMini.style.backgroundSize = 'cover';
+            profileSettingsCoverMini.style.backgroundPosition = 'center';
+        } else {
+            profileSettingsCoverMini.style.backgroundImage = '';
+            profileSettingsCoverMini.style.backgroundSize = '';
+            profileSettingsCoverMini.style.backgroundPosition = '';
+        }
+    }
+
+    if (profileSettingsAvatarMini) {
+        if (normalized.avatar) {
+            profileSettingsAvatarMini.innerText = '';
+            profileSettingsAvatarMini.style.backgroundImage = `url(${normalized.avatar})`;
+            profileSettingsAvatarMini.style.backgroundSize = 'cover';
+            profileSettingsAvatarMini.style.backgroundPosition = 'center';
+        } else {
+            profileSettingsAvatarMini.innerText = normalized.displayName.charAt(0).toUpperCase();
+            profileSettingsAvatarMini.style.backgroundImage = 'none';
+        }
+    }
+
+    if (profileOpenEditorBtn) {
+        profileOpenEditorBtn.disabled = !isSelf;
+    }
+
     if (profileTagList) {
         if (normalized.searchTags.length) {
             profileTagList.innerHTML = normalized.searchTags
@@ -5210,6 +5788,7 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
         }
     }
 
+    ensureAcademyProfileEditorBindings();
     renderAcademyProfileRecentPosts(normalized.recentPosts, { isSelf });
 }
 
@@ -5524,7 +6103,7 @@ async function openAcademyProfilePostInFeed(postId = '') {
         }, 1800);
     });
 }
-function openAcademyProfileView() {
+async function openAcademyProfileView(forceFresh = false) {
     saveAcademyViewState('profile');
     hideAcademyViewsForFeed();
     setAcademySidebarActive('nav-profile');
@@ -5534,7 +6113,25 @@ function openAcademyProfileView() {
     currentRoomId = null;
     currentRoomMeta = null;
 
-    renderAcademyProfileView(null, { mode: 'self' });
+    showAcademyTabLoader('Loading Profile.');
+
+    try {
+        const profile = await fetchCurrentAcademyProfile({
+            allowCachedFallback: !forceFresh
+        });
+
+        const selfPayload = buildAcademySelfProfilePayload(profile);
+        renderAcademyProfileView(selfPayload, { mode: 'self' });
+    } catch (error) {
+        console.error('openAcademyProfileView error:', error);
+
+        const fallbackPayload = buildAcademySelfProfilePayload();
+        renderAcademyProfileView(fallbackPayload, { mode: 'self' });
+
+        showToast(error?.message || 'Failed to load Academy profile.', 'error');
+    } finally {
+        hideAcademyTabLoader();
+    }
 }
 
 async function openAcademyMemberProfileView(memberId = '') {
@@ -7423,12 +8020,50 @@ function setDashboardViewMode(mode = 'hub') {
 function restoreDashboardViewState() {
     const state = readDashboardViewState();
 
-    if (!isStandaloneDashboardPage()) {
-        showUniverseHub(state.division || 'academy', { animate: false });
+    const canEnterAcademy =
+        localStorage.getItem('yh_academy_access') === 'true' ||
+        (typeof readAcademyMembershipCache === 'function' && readAcademyMembershipCache()?.canEnterAcademy === true);
+
+    if (!canEnterAcademy) {
+        goToDashboardPage();
         return;
     }
 
-    showUniverseHub(state.division || 'academy', { animate: false });
+    const requestedSection = getAcademySectionFromUrl();
+    const savedSection = String(state.academySection || 'home').trim().toLowerCase();
+    const targetSection = requestedSection !== 'home' ? requestedSection : savedSection;
+
+    enterAcademyWorld('home');
+
+    if (targetSection === 'profile') {
+        window.requestAnimationFrame(() => {
+            openAcademyProfileView();
+        });
+        return;
+    }
+
+    if (targetSection === 'voice') {
+        window.requestAnimationFrame(() => {
+            setAcademySidebarActive('nav-voice');
+            openRoom('voice-lobby', document.getElementById('nav-voice'));
+        });
+        return;
+    }
+
+    if (targetSection === 'video') {
+        window.requestAnimationFrame(() => {
+            setAcademySidebarActive('nav-voice');
+            openRoom('video', document.getElementById('nav-voice'));
+        });
+        return;
+    }
+
+    if (targetSection === 'community') {
+        window.requestAnimationFrame(() => {
+            openAcademyFeedView();
+        });
+        return;
+    }
 }
 
 function setAcademySidebarActive(activeId = '') {
@@ -7460,50 +8095,61 @@ function syncAcademyShellForViewport() {
 }
 
 function showUniverseHub(activeDivision = 'academy', options = {}) {
-    const animate = options.animate !== false;
-
-    hideDivisionViews();
-    closeAcademyLauncher();
-
-    if (universeHubView) {
-        universeHubView.style.display = 'flex';
-        universeHubView.classList.remove('fade-in');
-        void universeHubView.offsetWidth;
-        universeHubView.classList.add('fade-in');
-    }
-
-    if (leftSidebar) leftSidebar.style.display = 'none';
-    if (rightSidebar) rightSidebar.style.display = 'none';
-
-    activeUniverseDivision = activeDivision;
-    setDashboardViewMode('hub');
-    syncUniverseFeaturePanel(activeDivision);
-    setUniverseSlide(activeDivision, { animate });
-
     saveUniverseViewState(activeDivision);
+    goToDashboardPage();
 }
 
 function enterAcademyWorld(defaultSection = 'home') {
-    const membership = (typeof readAcademyMembershipCache === 'function')
-        ? readAcademyMembershipCache()
-        : null;
-
-    let targetSection = normalizeDashboardAcademySection(defaultSection);
-
-    if (targetSection === 'home') {
-        if (membership?.hasRoadmapAccess === true) {
-            targetSection = 'home';
-        } else {
-            targetSection = 'community';
-        }
-    }
-
-    showAcademyTabLoader('Entering Academy.');
+    showAcademyTabLoader('Entering Academy...');
     try {
+        hideDivisionViews();
         closeAcademyLauncher();
-        saveAcademyViewState(targetSection);
-        redirectToAcademyPage(targetSection);
+
+        if (academyWrapper) {
+            academyWrapper.style.display = 'flex';
+            academyWrapper.classList.remove('fade-in');
+            void academyWrapper.offsetWidth;
+            academyWrapper.classList.add('fade-in');
+        }
+
+        activeUniverseDivision = 'academy';
+        syncUniverseFeaturePanel('academy');
+        setDashboardViewMode('academy');
+        syncAcademyShellForViewport();
+
+        if (defaultSection === 'community') {
+            openAcademyFeedView();
+            return;
+        }
+
+        if (defaultSection === 'voice') {
+            setAcademySidebarActive('nav-voice');
+            openRoom('voice-lobby', document.getElementById('nav-voice'));
+            return;
+        }
+
+        if (defaultSection === 'video') {
+            setAcademySidebarActive('nav-voice'); // fallback since wala pang nav-video
+            openRoom('video', document.getElementById('nav-voice'));
+            return;
+        }
+
+        const membership = (typeof readAcademyMembershipCache === 'function')
+            ? readAcademyMembershipCache()
+            : null;
+
+        const hasRoadmapAccess = membership?.hasRoadmapAccess === true;
+
+        if (hasRoadmapAccess) {
+            openAcademyRoadmapView();
+            return;
+        }
+
+        openAcademyFeedView();
     } finally {
+        // IMPORTANT:
+        // - This “hide” only releases the entry-loader depth.
+        // - Your tab loaders (Roadmap/Feed/Voice/Video) still control the final hide.
         hideAcademyTabLoader();
     }
 }
@@ -7513,7 +8159,8 @@ document.getElementById('btn-academy-back-universe')?.addEventListener('click', 
     event?.stopPropagation?.();
 
     try { stopAcademyLiveMediaStream?.(); } catch (_) {}
-    showUniverseHub('academy');
+    saveUniverseViewState('academy');
+    goToDashboardPage();
 });
 window.addEventListener('resize', () => {
     syncAcademyShellForViewport();
@@ -10163,6 +10810,14 @@ document.addEventListener('keydown', (event) => {
         closeAcademyLauncher();
     }
 });
+
+if (isStandaloneAcademyPage()) {
+    writeDashboardViewState({
+        view: 'academy',
+        division: 'academy',
+        academySection: getAcademySectionFromUrl()
+    });
+}
 
 // Restore last UI location after refresh/reload
 restoreDashboardViewState();

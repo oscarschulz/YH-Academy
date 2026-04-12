@@ -122,29 +122,96 @@ async function getFriendshipState(viewerId, authorId) {
     if (!normalizedViewerId || !normalizedAuthorId || normalizedViewerId === normalizedAuthorId) {
         return {
             is_friend: false,
-            outgoing_friend_request_pending: false
+            outgoing_friend_request_pending: false,
+            incoming_friend_request_pending: false,
+            incoming_friend_request_id: ''
         };
     }
 
-    const friendshipSnap = await friendshipsCol.doc(friendshipKeyFor(normalizedViewerId, normalizedAuthorId)).get();
+    const friendshipSnap = await friendshipsCol.doc(
+        friendshipKeyFor(normalizedViewerId, normalizedAuthorId)
+    ).get();
+
     if (friendshipSnap.exists) {
         return {
             is_friend: true,
-            outgoing_friend_request_pending: false
+            outgoing_friend_request_pending: false,
+            incoming_friend_request_pending: false,
+            incoming_friend_request_id: ''
         };
     }
 
-    const pendingSnap = await friendRequestsCol
-        .where('senderId', '==', normalizedViewerId)
-        .where('receiverId', '==', normalizedAuthorId)
-        .where('status', '==', 'pending')
-        .limit(1)
-        .get();
+    const [outgoingPendingSnap, incomingPendingSnap] = await Promise.all([
+        friendRequestsCol
+            .where('senderId', '==', normalizedViewerId)
+            .where('receiverId', '==', normalizedAuthorId)
+            .where('status', '==', 'pending')
+            .limit(1)
+            .get(),
+        friendRequestsCol
+            .where('senderId', '==', normalizedAuthorId)
+            .where('receiverId', '==', normalizedViewerId)
+            .where('status', '==', 'pending')
+            .limit(1)
+            .get()
+    ]);
+
+    const incomingDoc = incomingPendingSnap.empty ? null : incomingPendingSnap.docs[0];
 
     return {
         is_friend: false,
-        outgoing_friend_request_pending: !pendingSnap.empty
+        outgoing_friend_request_pending: !outgoingPendingSnap.empty,
+        incoming_friend_request_pending: !incomingPendingSnap.empty,
+        incoming_friend_request_id: incomingDoc ? sanitizeText(incomingDoc.id) : ''
     };
+}
+async function getFriendIdsForUser(userId) {
+    const normalizedUserId = normalizeUserId(userId);
+    if (!normalizedUserId) return [];
+
+    const [asUserOneSnap, asUserTwoSnap] = await Promise.all([
+        friendshipsCol.where('userOneId', '==', normalizedUserId).get(),
+        friendshipsCol.where('userTwoId', '==', normalizedUserId).get()
+    ]);
+
+    const ids = new Set();
+
+    asUserOneSnap.docs.forEach((doc) => {
+        const data = doc.data() || {};
+        const otherId = normalizeUserId(data.userTwoId);
+        if (otherId && otherId !== normalizedUserId) ids.add(otherId);
+    });
+
+    asUserTwoSnap.docs.forEach((doc) => {
+        const data = doc.data() || {};
+        const otherId = normalizeUserId(data.userOneId);
+        if (otherId && otherId !== normalizedUserId) ids.add(otherId);
+    });
+
+    return Array.from(ids);
+}
+
+async function getMutualFriendCount(viewerId, targetUserId) {
+    const normalizedViewerId = normalizeUserId(viewerId);
+    const normalizedTargetUserId = normalizeUserId(targetUserId);
+
+    if (!normalizedViewerId || !normalizedTargetUserId || normalizedViewerId === normalizedTargetUserId) {
+        return 0;
+    }
+
+    const [viewerFriendIds, targetFriendIds] = await Promise.all([
+        getFriendIdsForUser(normalizedViewerId),
+        getFriendIdsForUser(normalizedTargetUserId)
+    ]);
+
+    const viewerSet = new Set(viewerFriendIds);
+    let count = 0;
+
+    targetFriendIds.forEach((id) => {
+        if (viewerSet.has(id)) count += 1;
+    });
+
+    return count;
 }
 
 async function getLikeState(postId, viewerId) {
@@ -182,11 +249,33 @@ function mapPostDoc(doc, extras = {}) {
     const data = doc.data() || {};
     const author = data.authorSnapshot || {};
 
+    const mediaUrl = sanitizeText(data.mediaUrl || data.imageUrl);
+    const mediaKindRaw = sanitizeText(data.mediaKind).toLowerCase();
+    const mediaKind =
+        mediaKindRaw === 'video'
+            ? 'video'
+            : mediaUrl
+                ? 'image'
+                : '';
+
+    const imageUrl = mediaKind === 'image'
+        ? sanitizeText(data.imageUrl || data.mediaUrl)
+        : '';
+
+    const videoUrl = mediaKind === 'video'
+        ? mediaUrl
+        : '';
+
     return {
         id: doc.id,
         user_id: sanitizeText(data.authorId),
         body: sanitizeText(data.body),
-        image_url: sanitizeText(data.imageUrl),
+        image_url: imageUrl,
+        video_url: videoUrl,
+        media_url: mediaUrl,
+        media_kind: mediaKind,
+        media_type: sanitizeText(data.mediaType),
+        media_size: toInt(data.mediaSize, 0),
         visibility: sanitizeText(data.visibility || 'academy'),
         is_pinned: toBool(data.isPinned),
         is_deleted: toBool(data.isDeleted),
@@ -227,6 +316,24 @@ function mapCommentDoc(doc, extras = {}) {
         owned_by_me: sanitizeText(data.authorId) === sanitizeText(extras.viewerId)
     };
 }
+function extractHashtagsFromText(value = '') {
+    const matches = String(value || '')
+        .toLowerCase()
+        .match(/#[a-z0-9_][a-z0-9_-]*/g) || [];
+
+    return Array.from(new Set(
+        matches
+            .map((tag) => sanitizeText(tag).replace(/^#/, ''))
+            .filter(Boolean)
+    ));
+}
+
+function buildSearchPostPreview(value = '', maxLength = 140) {
+    const clean = sanitizeText(value).replace(/\s+/g, ' ').trim();
+    if (!clean) return '';
+    if (clean.length <= maxLength) return clean;
+    return `${clean.slice(0, maxLength - 1).trimEnd()}…`;
+}
 
 async function listFeed({ viewerId, limit = 25 }) {
     const normalizedViewerId = normalizeUserId(viewerId);
@@ -261,14 +368,37 @@ async function listFeed({ viewerId, limit = 25 }) {
     return posts;
 }
 
-async function createPost({ viewer, body, imageUrl, visibility, share = null }) {
+async function createPost({
+    viewer,
+    body,
+    imageUrl,
+    mediaUrl,
+    mediaKind,
+    mediaType,
+    mediaSize,
+    visibility,
+    share = null
+}) {
     const viewerProfile = await getViewerProfile(viewer);
     const cleanBody = sanitizeText(body);
-    const cleanImageUrl = sanitizeText(imageUrl);
+    const cleanMediaUrl = sanitizeText(mediaUrl) || sanitizeText(imageUrl);
+    const cleanMediaKindInput = sanitizeText(mediaKind).toLowerCase();
+    const cleanMediaKind =
+        cleanMediaKindInput === 'video'
+            ? 'video'
+            : cleanMediaUrl
+                ? 'image'
+                : '';
+    const cleanImageUrl =
+        cleanMediaKind === 'image'
+            ? (sanitizeText(imageUrl) || cleanMediaUrl)
+            : '';
+    const cleanMediaType = sanitizeText(mediaType);
+    const cleanMediaSize = Math.max(0, toInt(mediaSize, 0));
     const cleanVisibility = sanitizeText(visibility || 'academy') || 'academy';
 
-    if (!cleanBody && !cleanImageUrl && !share) {
-        throw new Error('Post body, image, or share payload is required.');
+    if (!cleanBody && !cleanMediaUrl && !share) {
+        throw new Error('Post body, image, video, or share payload is required.');
     }
 
     const ref = feedPostsCol.doc();
@@ -276,6 +406,10 @@ async function createPost({ viewer, body, imageUrl, visibility, share = null }) 
         authorId: viewerProfile.id,
         body: cleanBody,
         imageUrl: cleanImageUrl,
+        mediaUrl: cleanMediaUrl,
+        mediaKind: cleanMediaKind,
+        mediaType: cleanMediaType,
+        mediaSize: cleanMediaSize,
         visibility: cleanVisibility,
         isPinned: false,
         isDeleted: false,
@@ -574,6 +708,8 @@ async function listAcademyMembers({ viewerId, limit = 100, query = '' }) {
     const normalizedViewerId = normalizeUserId(viewerId);
     const normalizedLimit = Math.max(1, Math.min(toInt(limit, 100), 200));
     const normalizedQuery = sanitizeText(query).toLowerCase();
+    const isHashtagQuery = normalizedQuery.startsWith('#') && normalizedQuery.length > 1;
+    const hashtagNeedle = isHashtagQuery ? normalizedQuery.replace(/^#/, '') : '';
 
     const viewerFollowingSnap = normalizedViewerId
         ? await academyFollowsCol.where('followerId', '==', normalizedViewerId).get()
@@ -582,6 +718,86 @@ async function listAcademyMembers({ viewerId, limit = 100, query = '' }) {
     const followedIds = new Set(
         (viewerFollowingSnap?.docs || []).map((doc) => sanitizeText(doc.data()?.followingId))
     );
+
+    if (isHashtagQuery) {
+        const sourceLimit = Math.max(normalizedLimit * 6, 120);
+
+        const postsSnap = await feedPostsCol
+            .where('isDeleted', '==', false)
+            .orderBy('createdAt', 'desc')
+            .limit(sourceLimit)
+            .get();
+
+        const matchedByUser = new Map();
+
+        for (const doc of postsSnap.docs) {
+            const data = doc.data() || {};
+            const authorId = sanitizeText(data.authorId);
+
+            if (!authorId || authorId === normalizedViewerId) continue;
+
+            const hashtags = extractHashtagsFromText(data.body);
+            if (!hashtags.includes(hashtagNeedle)) continue;
+
+            const author = data.authorSnapshot && typeof data.authorSnapshot === 'object'
+                ? data.authorSnapshot
+                : {};
+
+            const preview = buildSearchPostPreview(data.body);
+            const createdAt = mapTimestamp(data.createdAt);
+
+            if (!matchedByUser.has(authorId)) {
+                matchedByUser.set(authorId, {
+                    id: authorId,
+                    fullName: sanitizeText(author.fullName || author.displayName),
+                    display_name: sanitizeText(author.displayName || author.fullName || author.username || 'Academy Member'),
+                    username: sanitizeText(author.username),
+                    avatar: sanitizeText(author.avatar),
+                    role_label: sanitizeText(author.roleLabel || 'Academy Member'),
+                    followers_count: 0,
+                    followed_by_me: followedIds.has(authorId),
+                    search_tags: hashtags.slice(0, 6),
+                    matched_hashtags: hashtags.slice(0, 6),
+                    matched_posts_count: 1,
+                    matched_post_preview: preview,
+                    matched_post_created_at: createdAt
+                });
+                continue;
+            }
+
+            const existing = matchedByUser.get(authorId);
+            existing.matched_posts_count += 1;
+            existing.matched_hashtags = Array.from(
+                new Set([...(existing.matched_hashtags || []), ...hashtags])
+            ).slice(0, 6);
+
+            if (!existing.matched_post_preview && preview) {
+                existing.matched_post_preview = preview;
+            }
+
+            if (!existing.matched_post_created_at && createdAt) {
+                existing.matched_post_created_at = createdAt;
+            }
+        }
+
+        const members = await Promise.all(
+            Array.from(matchedByUser.values()).map(async (member) => ({
+                ...member,
+                followers_count: await getAcademyFollowerCount(member.id)
+            }))
+        );
+
+        return members
+            .sort((a, b) => {
+                const countDelta = Number(b.matched_posts_count || 0) - Number(a.matched_posts_count || 0);
+                if (countDelta !== 0) return countDelta;
+
+                const left = String(a.display_name || a.fullName || '').toLowerCase();
+                const right = String(b.display_name || b.fullName || '').toLowerCase();
+                return left.localeCompare(right);
+            })
+            .slice(0, normalizedLimit);
+    }
 
     const sourceLimit = normalizedQuery ? Math.max(normalizedLimit, 200) : normalizedLimit;
     const usersSnap = await usersCol.limit(sourceLimit).get();
@@ -597,16 +813,12 @@ async function listAcademyMembers({ viewerId, limit = 100, query = '' }) {
             const followerCount = await getAcademyFollowerCount(userId);
 
             const explicitTags = Array.isArray(raw.searchTags)
-                ? raw.searchTags.map((value) => sanitizeText(value).toLowerCase()).filter(Boolean)
+                ? raw.searchTags
+                    .map((value) => sanitizeText(value).toLowerCase().replace(/^#/, ''))
+                    .filter(Boolean)
                 : [];
 
-            const searchTags = Array.from(new Set([
-                'the academy',
-                'academy',
-                'yha',
-                sanitizeText(snapshot.roleLabel || 'Academy Member').toLowerCase(),
-                ...explicitTags
-            ].filter(Boolean)));
+            const searchTags = Array.from(new Set(explicitTags));
 
             const member = {
                 id: userId,
@@ -617,7 +829,10 @@ async function listAcademyMembers({ viewerId, limit = 100, query = '' }) {
                 role_label: snapshot.roleLabel || 'Academy Member',
                 followers_count: followerCount,
                 followed_by_me: followedIds.has(userId),
-                search_tags: searchTags
+                search_tags: searchTags,
+                matched_hashtags: [],
+                matched_posts_count: 0,
+                matched_post_preview: ''
             };
 
             if (!normalizedQuery) {
@@ -647,7 +862,171 @@ async function listAcademyMembers({ viewerId, limit = 100, query = '' }) {
         })
         .slice(0, normalizedLimit);
 }
+async function getMemberProfile({ viewerId, targetUserId }) {
+    const normalizedViewerId = normalizeUserId(viewerId);
+    const normalizedTargetUserId = normalizeUserId(targetUserId);
 
+    if (!normalizedTargetUserId) {
+        throw new Error('targetUserId is required.');
+    }
+
+    const targetUser = await getUserDoc(normalizedTargetUserId);
+    if (!targetUser) {
+        throw new Error('Target member not found.');
+    }
+
+    const academyProfileSnap = await usersCol
+        .doc(normalizedTargetUserId)
+        .collection('academy')
+        .doc('profile')
+        .get();
+
+    const academyProfile = academyProfileSnap.exists ? (academyProfileSnap.data() || {}) : {};
+
+    const displayName =
+        sanitizeText(
+            academyProfile.display_name ||
+            academyProfile.displayName ||
+            targetUser.displayName ||
+            targetUser.fullName ||
+            targetUser.name ||
+            targetUser.username ||
+            'Hustler'
+        ) || 'Hustler';
+
+    const username =
+        sanitizeText(
+            academyProfile.username ||
+            targetUser.username
+        ).replace(/^@+/, '');
+
+    const avatar =
+        sanitizeText(
+            academyProfile.avatar ||
+            targetUser.avatar ||
+            targetUser.profilePhoto ||
+            targetUser.photoURL
+        );
+
+    const roleLabel =
+        sanitizeText(
+            academyProfile.role_label ||
+            academyProfile.roleLabel ||
+            targetUser.roleLabel ||
+            targetUser.role ||
+            'Academy Member'
+        ) || 'Academy Member';
+
+    const bio =
+        sanitizeText(
+            academyProfile.bio ||
+            targetUser.bio ||
+            targetUser.profileBio ||
+            targetUser.about ||
+            targetUser.description
+        ) || 'Focused on execution, consistency, and long-term growth inside The Academy.';
+
+    const coverPhoto =
+        sanitizeText(
+            academyProfile.cover_photo ||
+            academyProfile.coverPhoto ||
+            targetUser.coverPhoto
+        );
+
+    const followerCount = await getAcademyFollowerCount(normalizedTargetUserId);
+
+    let followedByMe = false;
+    if (normalizedViewerId && normalizedViewerId !== normalizedTargetUserId) {
+        const followSnap = await academyFollowsCol
+            .doc(followKeyFor(normalizedViewerId, normalizedTargetUserId))
+            .get();
+
+        followedByMe = followSnap.exists;
+    }
+
+    const [friendshipState, mutualFriendCount] = await Promise.all([
+        getFriendshipState(
+            normalizedViewerId,
+            normalizedTargetUserId
+        ),
+        getMutualFriendCount(
+            normalizedViewerId,
+            normalizedTargetUserId
+        )
+    ]);
+
+    const explicitTags = Array.isArray(academyProfile.search_tags || academyProfile.searchTags)
+        ? (academyProfile.search_tags || academyProfile.searchTags)
+            .map((value) => sanitizeText(value).toLowerCase().replace(/^#/, ''))
+            .filter(Boolean)
+        : Array.isArray(targetUser.searchTags)
+            ? targetUser.searchTags
+                .map((value) => sanitizeText(value).toLowerCase().replace(/^#/, ''))
+                .filter(Boolean)
+            : [];
+
+    const postsSnap = await feedPostsCol
+        .where('authorId', '==', normalizedTargetUserId)
+        .limit(25)
+        .get();
+
+    const recentPostDocs = postsSnap.docs
+        .filter((doc) => !toBool(doc.data()?.isDeleted))
+        .sort((a, b) => {
+            const leftRaw = a.data()?.createdAt;
+            const rightRaw = b.data()?.createdAt;
+
+            const left = typeof leftRaw?.toDate === 'function'
+                ? leftRaw.toDate().getTime()
+                : new Date(leftRaw || 0).getTime();
+
+            const right = typeof rightRaw?.toDate === 'function'
+                ? rightRaw.toDate().getTime()
+                : new Date(rightRaw || 0).getTime();
+
+            return right - left;
+        })
+        .slice(0, 6);
+
+    const recentPosts = await Promise.all(
+        recentPostDocs.map(async (doc) => {
+            const likeState = await getLikeState(doc.id, normalizedViewerId);
+            const commentCount = await getCommentCount(doc.id);
+
+            return mapPostDoc(doc, {
+                viewerId: normalizedViewerId,
+                like_count: likeState.like_count,
+                liked_by_me: likeState.liked_by_me,
+                comment_count: commentCount,
+                is_friend: friendshipState.is_friend,
+                outgoing_friend_request_pending: friendshipState.outgoing_friend_request_pending
+            });
+        })
+    );
+
+    return {
+        id: normalizedTargetUserId,
+        fullName: displayName,
+        display_name: displayName,
+        username,
+        avatar,
+        cover_photo: coverPhoto,
+        role_label: roleLabel,
+        bio,
+        followers_count: followerCount,
+        followed_by_me: followedByMe,
+        is_friend: friendshipState.is_friend,
+        outgoing_friend_request_pending: friendshipState.outgoing_friend_request_pending,
+        incoming_friend_request_pending: friendshipState.incoming_friend_request_pending,
+        incoming_friend_request_id: friendshipState.incoming_friend_request_id,
+        mutual_friend_count: mutualFriendCount,
+        search_tags: Array.from(new Set(explicitTags)),
+        post_count: recentPosts.length,
+        recent_posts: recentPosts,
+        status: 'Active',
+        is_self: normalizedViewerId === normalizedTargetUserId
+    };
+}
 async function toggleMemberFollow({ viewerId, targetUserId }) {
     const normalizedViewerId = normalizeUserId(viewerId);
     const normalizedTargetUserId = normalizeUserId(targetUserId);
@@ -699,6 +1078,7 @@ module.exports = {
     listPostComments,
     createPostComment,
     listAcademyMembers,
+    getMemberProfile,
     toggleMemberFollow,
     sendFriendRequest,
     respondToFriendRequest

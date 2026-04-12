@@ -70,6 +70,33 @@ exports.createPost = async (req, res) => {
             sanitizeText(req.body?.imageUrl) ||
             sanitizeText(req.body?.image_url);
 
+        const mediaUrl =
+            sanitizeText(req.body?.mediaUrl) ||
+            sanitizeText(req.body?.media_url) ||
+            imageUrl;
+
+        const mediaKindInput = sanitizeText(
+            req.body?.mediaKind || req.body?.media_kind
+        ).toLowerCase();
+
+        const mediaKind =
+            mediaKindInput === 'video'
+                ? 'video'
+                : mediaUrl
+                    ? 'image'
+                    : '';
+
+        const mediaType =
+            sanitizeText(req.body?.mediaType) ||
+            sanitizeText(req.body?.media_type) ||
+            sanitizeText(req.body?.mediaMime) ||
+            sanitizeText(req.body?.media_mime);
+
+        const mediaSize = Number.parseInt(
+            req.body?.mediaSize ?? req.body?.media_size ?? 0,
+            10
+        ) || 0;
+
         const visibility =
             sanitizeText(req.body?.visibility) || 'academy';
 
@@ -78,7 +105,11 @@ exports.createPost = async (req, res) => {
         const post = await academyCommunityRepo.createPost({
             viewer,
             body,
-            imageUrl,
+            imageUrl: mediaKind === 'video' ? '' : (imageUrl || mediaUrl),
+            mediaUrl,
+            mediaKind,
+            mediaType,
+            mediaSize,
             visibility,
             share
         });
@@ -313,7 +344,42 @@ exports.getMembers = async (req, res) => {
         return sendError(res, error, 'Failed to load Academy members.');
     }
 };
+exports.getMemberProfile = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
 
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Missing authenticated user.'
+            });
+        }
+
+        const targetUserId = sanitizeText(req.params?.id);
+
+        const profile = await academyCommunityRepo.getMemberProfile({
+            viewerId: viewer.id,
+            targetUserId
+        });
+
+        return res.json({
+            success: true,
+            profile
+        });
+    } catch (error) {
+        console.error('academyCommunityControllers.getMemberProfile error:', error);
+
+        const notFound = /not found/i.test(error?.message || '');
+        const isValidationError = /required/i.test(error?.message || '');
+
+        return sendError(
+            res,
+            error,
+            'Failed to load member profile.',
+            notFound ? 404 : isValidationError ? 400 : 500
+        );
+    }
+};
 exports.toggleMemberFollow = async (req, res) => {
     try {
         const viewer = getViewerFromRequest(req);

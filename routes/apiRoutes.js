@@ -40,6 +40,8 @@ router.post('/academy/membership-apply', auth, academyControllers.submitMembersh
 router.get('/academy/membership-status', auth, academyControllers.getMembershipStatus);
 router.post('/academy/roadmap-apply', auth, academyControllers.submitRoadmapApplication);
 router.get('/academy/home', auth, academyControllers.getAcademyHome);
+router.get('/academy/profile', auth, academyControllers.getCurrentProfile);
+router.patch('/academy/profile', auth, academyControllers.updateCurrentProfile);
 router.get('/academy/roadmap/active', auth, academyControllers.getActiveRoadmap);
 router.get('/academy/missions', auth, academyControllers.getMissions);
 router.post('/academy/missions/:id/complete', auth, academyControllers.completeMission);
@@ -61,6 +63,7 @@ router.post('/academy/feed/posts/:id/comments', auth, academyCommunityController
 router.post('/academy/feed/friend-requests', auth, academyCommunityControllers.sendFriendRequest);
 router.post('/academy/feed/friend-requests/:id/respond', auth, academyCommunityControllers.respondToFriendRequest);
 router.get('/academy/community/members', auth, academyCommunityControllers.getMembers);
+router.get('/academy/community/members/:id/profile', auth, academyCommunityControllers.getMemberProfile);
 router.post('/academy/community/members/:id/follow', auth, academyCommunityControllers.toggleMemberFollow);
 // ==========================================
 // 🧠 INTERNAL AI NURTURE ROUTES

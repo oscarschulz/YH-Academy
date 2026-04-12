@@ -23,10 +23,13 @@ const yhT = (key, options = {}) => {
         'auth.creatingAccount': 'Creating Account...',
         'auth.resendCode': 'Resend Code',
         'auth.sending': 'Sending...',
+        'auth.saving': 'Saving...',
         'auth.resendIn': `Resend in ${options?.time || '00:00'}`,
         'auth.verifying': 'Verifying...',
+        'auth.verifyCode': 'Verify Code',
         'auth.verifyEnter': 'Verify & Enter Universe ➔',
         'auth.sendRecoveryCode': 'Send Recovery Code',
+        'auth.saveNewPassword': 'Save New Password ➔',
         'auth.show': 'Show',
         'auth.hide': 'Hide',
         'auth.choosePhoto': 'Choose profile photo'
@@ -823,9 +826,18 @@ function bindLandingGlobeResize() {
     if (yhLandingResizeBound) return;
     yhLandingResizeBound = true;
 
-    window.addEventListener('resize', () => {
-        syncLandingGlobeSize();
-    }, { passive: true });
+    const schedule = () => {
+        if (window.__yhLandingResizeRaf) cancelAnimationFrame(window.__yhLandingResizeRaf);
+        window.__yhLandingResizeRaf = requestAnimationFrame(() => syncLandingGlobeSize());
+    };
+
+    window.addEventListener('resize', schedule, { passive: true });
+    window.addEventListener('orientationchange', schedule, { passive: true });
+
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', schedule, { passive: true });
+        window.visualViewport.addEventListener('scroll', schedule, { passive: true });
+    }
 }
 
 function startLandingCloudSpin() {
@@ -1054,6 +1066,17 @@ async function initLandingMapShell() {
     const mapEl = document.getElementById('yh-world-map');
     if (!mapEl) return;
 
+    // Prevent browser zoom gesture (ctrl+wheel / trackpad pinch) while hovering the globe.
+    // This keeps the globe from shrinking into a distorted-looking speck.
+    if (mapEl.dataset.yhZoomGuard !== 'true') {
+        mapEl.dataset.yhZoomGuard = 'true';
+        mapEl.addEventListener('wheel', (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+    }
+
     const membersEl = document.getElementById('yh-stat-members');
     const reachEl = document.getElementById('yh-stat-reach');
     const impressionsEl = document.getElementById('yh-stat-impressions');
@@ -1123,8 +1146,7 @@ async function initLandingMapShell() {
 
         if (typeof world.getGlobeRadius === 'function') {
             const globeRadius = world.getGlobeRadius();
-            controls.minDistance = globeRadius * 0.16;
-            controls.maxDistance = Infinity;
+            controls.maxDistance = globeRadius * 4.6;
         }
     }
 
@@ -1231,6 +1253,19 @@ async function initLandingMapShell() {
     });
 
     world.pointOfView({ lat: 14, lng: 18, altitude: 1.72 }, 0);
+
+    if (controls) {
+        if (typeof controls.update === 'function') {
+            controls.update();
+        }
+
+        if (typeof controls.getDistance === 'function') {
+            const currentDistance = controls.getDistance();
+            if (Number.isFinite(currentDistance) && currentDistance > 0) {
+                controls.minDistance = currentDistance;
+            }
+        }
+    }
 
     applyLandingGlobeData();
 

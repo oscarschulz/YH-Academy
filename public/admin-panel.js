@@ -83,14 +83,119 @@ const defaultState = () => ({
 
 let state = defaultState();
 
+function getAdminCoachModeKeyFromReplyFormat(value = '') {
+  const raw = String(value || '').trim().toLowerCase();
+
+  if (raw === 'politics_structured') return 'politics';
+  if (raw === 'philosophy_structured') return 'philosophy';
+  return 'general';
+}
+
+function normalizeAdminCoachMessage(message = {}) {
+  const replyFormat = String(
+    message.replyFormat ||
+    message.reply_format ||
+    'general'
+  ).trim() || 'general';
+
+  const coachModeKey = String(
+    message.coachModeKey ||
+    message.coach_mode_key ||
+    getAdminCoachModeKeyFromReplyFormat(replyFormat)
+  ).trim() || 'general';
+
+  return {
+    ...message,
+    replyFormat,
+    coachModeKey,
+    responseStyleVersion: String(
+      message.responseStyleVersion ||
+      message.response_style_version ||
+      ''
+    ).trim(),
+    text: String(message.text || '').trim()
+  };
+}
+
+function normalizeAdminAcademyRecord(record = {}) {
+  const rawRecentCoachMessages = Array.isArray(record.recentCoachMessages)
+    ? record.recentCoachMessages
+    : Array.isArray(record.coachMessages)
+    ? record.coachMessages
+    : [];
+
+  const recentCoachMessages = rawRecentCoachMessages
+    .map((message) => normalizeAdminCoachMessage(message))
+    .filter(Boolean);
+
+  const assistantMessages = recentCoachMessages.filter((message) => {
+    return String(message?.role || '').trim().toLowerCase() === 'assistant';
+  });
+
+  const latestCoachMessage =
+    assistantMessages[assistantMessages.length - 1] ||
+    recentCoachMessages[recentCoachMessages.length - 1] ||
+    null;
+
+  const latestReplyFormat = String(
+    record.latestReplyFormat ||
+    record.replyFormat ||
+    record.coachReplyFormat ||
+    record.lastCoachReplyFormat ||
+    latestCoachMessage?.replyFormat ||
+    'general'
+  ).trim() || 'general';
+
+  const latestCoachModeKey = String(
+    record.latestCoachModeKey ||
+    record.coachModeKey ||
+    record.lastCoachModeKey ||
+    latestCoachMessage?.coachModeKey ||
+    getAdminCoachModeKeyFromReplyFormat(latestReplyFormat)
+  ).trim() || 'general';
+
+  const responseStyleVersion = String(
+    record.responseStyleVersion ||
+    record.lastResponseStyleVersion ||
+    latestCoachMessage?.responseStyleVersion ||
+    ''
+  ).trim();
+
+  const latestCoachReply = String(
+    record.latestCoachReply ||
+    record.lastCoachReply ||
+    latestCoachMessage?.text ||
+    ''
+  ).trim();
+
+  return {
+    ...record,
+    recentCoachMessages,
+    latestReplyFormat,
+    latestCoachModeKey,
+    responseStyleVersion,
+    latestCoachReply
+  };
+}
+
+function normalizeAdminBootstrapState(incomingState = {}) {
+  const merged = mergeState(defaultState(), incomingState || {});
+  return {
+    ...merged,
+    academy: Array.isArray(merged.academy)
+      ? merged.academy.map((record) => normalizeAdminAcademyRecord(record))
+      : []
+  };
+}
+
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return defaultState();
+    if (!raw) return normalizeAdminBootstrapState(defaultState());
     const parsed = JSON.parse(raw);
-    return mergeState(defaultState(), parsed);
+    return normalizeAdminBootstrapState(parsed);
   } catch {
-    return defaultState();
+    return normalizeAdminBootstrapState(defaultState());
   }
 }
 function redirectToAdminLogin(message = 'Admin session expired. Please sign in again.') {
@@ -134,7 +239,7 @@ async function loadAdminBootstrap() {
       method: 'GET'
     });
 
-    state = mergeState(defaultState(), data.state || {});
+    state = normalizeAdminBootstrapState(data.state || {});
     saveState();
     renderApp();
   } catch (error) {
@@ -170,7 +275,7 @@ function saveState() {
 }
 
 function resetState() {
-  state = defaultState();
+  state = normalizeAdminBootstrapState(defaultState());
   saveState();
   renderApp();
   showToast('Demo data reset.');
@@ -271,10 +376,170 @@ function formatBadge(value) {
     Operator: 'amber',
     Creator: 'cyan',
     'All Members': 'gray',
-    'Pending Applicants': 'amber'
+    'Pending Applicants': 'amber',
+
+    Politics: 'red',
+    politics: 'red',
+    Philosophy: 'purple',
+    philosophy: 'purple',
+    General: 'gray',
+    general: 'gray',
+
+    'Politics Structured': 'red',
+    politics_structured: 'red',
+    'Philosophy Structured': 'purple',
+    philosophy_structured: 'purple'
   };
   const tone = map[value] || 'gray';
   return `<span class="badge badge-${tone}">${escapeHtml(value)}</span>`;
+}
+
+function normalizeCoachReplyFormatLabel(value) {
+  const raw = String(value || '').trim().toLowerCase();
+
+  if (!raw) return '';
+  if (raw === 'politics_structured' || raw === 'politics structured') return 'Politics Structured';
+  if (raw === 'philosophy_structured' || raw === 'philosophy structured') return 'Philosophy Structured';
+  if (raw === 'general') return 'General';
+
+  return String(value || '')
+    .trim()
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function formatCoachReplyBadge(value) {
+  const label = normalizeCoachReplyFormatLabel(value);
+  return label ? formatBadge(label) : '';
+}
+
+function getAcademyLatestCoachMessage(record = {}) {
+  const messages = Array.isArray(record.recentCoachMessages)
+    ? record.recentCoachMessages
+    : Array.isArray(record.coachMessages)
+    ? record.coachMessages
+    : [];
+
+  const assistantMessages = messages.filter((message) => {
+    return String(message?.role || '').trim().toLowerCase() === 'assistant';
+  });
+
+  return assistantMessages[assistantMessages.length - 1] || messages[messages.length - 1] || null;
+}
+
+function buildAcademyCoachInspectorMarkup(record = {}) {
+  const latestCoachMessage = getAcademyLatestCoachMessage(record);
+
+  const latestReplyFormat =
+    record.latestReplyFormat ||
+    record.replyFormat ||
+    record.coachReplyFormat ||
+    record.lastCoachReplyFormat ||
+    latestCoachMessage?.replyFormat ||
+    latestCoachMessage?.reply_format ||
+    'general';
+
+  const latestCoachModeKey =
+    record.latestCoachModeKey ||
+    record.coachModeKey ||
+    record.lastCoachModeKey ||
+    latestCoachMessage?.coachModeKey ||
+    latestCoachMessage?.coach_mode_key ||
+    '';
+
+  const responseStyleVersion =
+    record.responseStyleVersion ||
+    record.lastResponseStyleVersion ||
+    latestCoachMessage?.responseStyleVersion ||
+    latestCoachMessage?.response_style_version ||
+    '';
+
+  const latestCoachReply = String(
+    record.latestCoachReply ||
+    record.lastCoachReply ||
+    latestCoachMessage?.text ||
+    ''
+  ).trim();
+
+  const recentAssistantMessages = (
+    Array.isArray(record.recentCoachMessages)
+      ? record.recentCoachMessages
+      : Array.isArray(record.coachMessages)
+      ? record.coachMessages
+      : []
+  )
+    .filter((message) => String(message?.role || '').trim().toLowerCase() === 'assistant')
+    .slice(-3)
+    .reverse();
+
+  const latestReplyBadge = formatCoachReplyBadge(latestReplyFormat);
+  const modeBadge = latestCoachModeKey ? formatBadge(normalizeCoachReplyFormatLabel(latestCoachModeKey)) : '';
+  const recentMessagesHtml = recentAssistantMessages.length
+    ? recentAssistantMessages.map((message) => {
+        const messageReplyBadge = formatCoachReplyBadge(
+          message?.replyFormat || message?.reply_format || 'general'
+        );
+
+        const messageModeBadge = message?.coachModeKey || message?.coach_mode_key
+          ? formatBadge(
+              normalizeCoachReplyFormatLabel(message?.coachModeKey || message?.coach_mode_key)
+            )
+          : '';
+
+        return `
+          <div class="stack-item">
+            <div class="stack-item-head" style="align-items:flex-start;gap:10px;flex-wrap:wrap;">
+              <strong>Coach Reply</strong>
+              <span style="display:flex;gap:8px;flex-wrap:wrap;">
+                ${messageReplyBadge}
+                ${messageModeBadge}
+              </span>
+            </div>
+            <p style="margin:8px 0 0;">${escapeHtml(String(message?.text || '').trim() || 'No text saved.')}</p>
+          </div>
+        `;
+      }).join('')
+    : `<div class="stack-item"><p class="muted">No recent assistant coach messages saved yet.</p></div>`;
+
+  return `
+    <div class="drawer-section">
+      <div class="stack-item-head" style="margin-bottom:12px;align-items:flex-start;gap:10px;flex-wrap:wrap;">
+        <strong>Coach Debug Inspector</strong>
+        <span style="display:flex;gap:8px;flex-wrap:wrap;">
+          ${latestReplyBadge}
+          ${modeBadge}
+        </span>
+      </div>
+
+      <div class="application-meta-grid" style="margin-bottom:14px;">
+        <div class="application-meta-item">
+          <span>Reply Format</span>
+          <strong>${escapeHtml(normalizeCoachReplyFormatLabel(latestReplyFormat) || 'General')}</strong>
+        </div>
+        <div class="application-meta-item">
+          <span>Coach Mode</span>
+          <strong>${escapeHtml(normalizeCoachReplyFormatLabel(latestCoachModeKey) || 'General')}</strong>
+        </div>
+        <div class="application-meta-item">
+          <span>Style Version</span>
+          <strong>${escapeHtml(responseStyleVersion || '—')}</strong>
+        </div>
+      </div>
+
+      <div class="stack-list" style="margin-bottom:14px;">
+        <div class="stack-item">
+          <div class="stack-item-head">
+            <strong>Latest Saved Reply</strong>
+          </div>
+          <p style="margin:8px 0 0;">${escapeHtml(latestCoachReply || 'No latest assistant reply text saved yet.')}</p>
+        </div>
+      </div>
+
+      <div class="stack-list">
+        ${recentMessagesHtml}
+      </div>
+    </div>
+  `;
 }
 
 function findById(collection, id) {
@@ -846,10 +1111,22 @@ function renderAcademy() {
     </article>
   `).join('');
 
-    document.getElementById('academy-table').innerHTML = rows.map(item => `
+    document.getElementById('academy-table').innerHTML = rows.map(item => {
+    const coachReplyBadge = formatCoachReplyBadge(
+      item.latestReplyFormat ||
+      item.replyFormat ||
+      item.coachReplyFormat ||
+      item.lastCoachReplyFormat ||
+      ''
+    );
+
+    return `
     <tr>
       ${makeCell('Member', `<strong>${escapeHtml(item.memberName)}</strong><div class="muted mono">${escapeHtml(item.id)}</div>`)}
-      ${makeCell('Current Phase', escapeHtml(item.phase))}
+      ${makeCell('Current Phase', `
+        <strong>${escapeHtml(item.phase)}</strong>
+        ${coachReplyBadge ? `<div style="margin-top:8px;">${coachReplyBadge}</div>` : ''}
+      `)}
       ${makeCell('Focus', formatBadge(item.focus))}
       ${makeCell('Completion', `
         <strong>${item.completion}%</strong>
@@ -865,7 +1142,8 @@ function renderAcademy() {
         </div>
       `)}
     </tr>
-  `).join('') || makeEmptyRow(7, 'No Academy records match the current filters.');
+  `;
+  }).join('') || makeEmptyRow(7, 'No Academy records match the current filters.');
 }
 
 function renderFederation() {
@@ -1211,7 +1489,30 @@ if (type === 'application') {
     ? profile.topSkills.filter(Boolean)
     : skills;
 
-  const locationCountry = record.locationCountry || profile?.locationCountry || record.country || '';
+  const cityOfResidence =
+    record.cityOfResidence ||
+    profile?.cityOfResidence ||
+    '';
+
+  const countryOfResidence =
+    record.countryOfResidence ||
+    profile?.countryOfResidence ||
+    record.country ||
+    '';
+
+  const countryOfOrigin =
+    record.countryOfOrigin ||
+    profile?.countryOfOrigin ||
+    '';
+
+  const locationCountry =
+    record.locationCountry ||
+    profile?.locationCountry ||
+    [cityOfResidence, countryOfResidence].filter(Boolean).join(', ') ||
+    countryOfResidence ||
+    record.country ||
+    '';
+
   const referredByUsername = String(record.referredByUsername || profile?.referredByUsername || '').replace(/^@+/, '');
   const hearAboutUs = record.hearAboutUs || profile?.hearAboutUs || '';
   const occupationAtAge = record.occupationAtAge || profile?.occupationAtAge || record.goal || '';
@@ -1257,8 +1558,16 @@ if (type === 'application') {
           <strong>${Number(record.aiScore || 0)}</strong>
         </div>
         <div class="application-meta-item">
-          <span>Location</span>
-          <strong>${escapeHtml(locationCountry || '—')}</strong>
+          <span>Country of residence</span>
+          <strong>${escapeHtml(countryOfResidence || '—')}</strong>
+        </div>
+        <div class="application-meta-item">
+          <span>City of residence</span>
+          <strong>${escapeHtml(cityOfResidence || '—')}</strong>
+        </div>
+        <div class="application-meta-item">
+          <span>Country of origin</span>
+          <strong>${escapeHtml(countryOfOrigin || '—')}</strong>
         </div>
       </div>
     </div>
@@ -1270,7 +1579,10 @@ if (type === 'application') {
         <div class="kv"><span>Username</span><strong>${escapeHtml(record.username || '—')}</strong></div>
         <div class="kv"><span>Email</span><strong>${escapeHtml(record.email || '—')}</strong></div>
         <div class="kv"><span>Age</span><strong>${escapeHtml(age || '—')}</strong></div>
-        <div class="kv"><span>Location / Country</span><strong>${escapeHtml(locationCountry || '—')}</strong></div>
+        <div class="kv"><span>Country of residence</span><strong>${escapeHtml(countryOfResidence || '—')}</strong></div>
+        <div class="kv"><span>City of residence</span><strong>${escapeHtml(cityOfResidence || '—')}</strong></div>
+        <div class="kv"><span>Country of origin</span><strong>${escapeHtml(countryOfOrigin || '—')}</strong></div>
+        <div class="kv"><span>Legacy combined location</span><strong>${escapeHtml(locationCountry || '—')}</strong></div>
         <div class="kv"><span>Recommended Division</span>${formatBadge(record.recommendedDivision || 'Academy')}</div>
         <div class="kv"><span>Status</span>${formatBadge(record.status || 'Under Review')}</div>
         <div class="kv"><span>Application Type</span>${formatBadge(appTypeLabel)}</div>
@@ -1326,7 +1638,10 @@ if (type === 'application') {
           <div class="kv"><span>Full Name</span><strong>${escapeHtml(profile.fullName || record.name || '—')}</strong></div>
           <div class="kv"><span>Email</span><strong>${escapeHtml(profile.email || record.email || '—')}</strong></div>
           <div class="kv"><span>Age</span><strong>${escapeHtml(profile.age || age || '—')}</strong></div>
-          <div class="kv"><span>Location</span><strong>${escapeHtml(profile.locationCountry || locationCountry || '—')}</strong></div>
+          <div class="kv"><span>Country of residence</span><strong>${escapeHtml(profile.countryOfResidence || countryOfResidence || '—')}</strong></div>
+          <div class="kv"><span>City of residence</span><strong>${escapeHtml(profile.cityOfResidence || cityOfResidence || '—')}</strong></div>
+          <div class="kv"><span>Country of origin</span><strong>${escapeHtml(profile.countryOfOrigin || countryOfOrigin || '—')}</strong></div>
+          <div class="kv"><span>Legacy combined location</span><strong>${escapeHtml(profile.locationCountry || locationCountry || '—')}</strong></div>
         </div>
       </div>
     ` : ''}
@@ -1605,10 +1920,19 @@ function openDrawer(type, id) {
   const record = collection ? findById(collection, id) : null;
   const drawer = document.getElementById('detail-drawer');
   const backdrop = document.getElementById('drawer-backdrop');
+  const drawerBody = document.getElementById('drawer-body');
 
   document.getElementById('drawer-type').textContent = type[0].toUpperCase() + type.slice(1);
   document.getElementById('drawer-title').textContent = record?.name || record?.title || record?.memberName || id;
-  document.getElementById('drawer-body').innerHTML = getDrawerTemplate(type, record);
+
+  if (drawerBody) {
+    drawerBody.innerHTML = getDrawerTemplate(type, record);
+
+    if (type === 'academy' && record) {
+      drawerBody.insertAdjacentHTML('beforeend', buildAcademyCoachInspectorMarkup(record));
+    }
+  }
+
   setDrawerHeadControls(type, record);
 
   if (drawer) {

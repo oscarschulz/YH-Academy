@@ -39,6 +39,7 @@ const mapMissionDoc = (doc) => {
         pillar: sanitizeString(data.pillar),
         title: sanitizeString(data.title),
         description: sanitizeString(data.description),
+        doneLooksLike: sanitizeString(data.doneLooksLike),
         whyItMatters: sanitizeString(data.whyItMatters),
         status: sanitizeString(data.status || 'pending'),
         frequency: sanitizeString(data.frequency),
@@ -142,28 +143,120 @@ const mapRoadmapDoc = (doc) => {
     };
 };
 
+function normalizeProfileTagList(values = []) {
+    const source = Array.isArray(values)
+        ? values
+        : String(values || '').split(',');
+
+    const seen = new Set();
+    const out = [];
+
+    for (const value of source) {
+        const clean = sanitizeString(value)
+            .toLowerCase()
+            .replace(/^#/, '')
+            .replace(/\s+/g, '-')
+            .replace(/[^a-z0-9_-]/g, '')
+            .slice(0, 32);
+
+        if (!clean || seen.has(clean)) continue;
+        seen.add(clean);
+        out.push(clean);
+
+        if (out.length >= 8) break;
+    }
+
+    return out;
+}
+
+function mapStoredProfileData(data = {}) {
+    return {
+        display_name: sanitizeString(
+            data.display_name ||
+            data.displayName ||
+            data.fullName ||
+            data.name
+        ),
+        username: sanitizeString(data.username).replace(/^@+/, ''),
+        avatar: sanitizeString(data.avatar || data.profilePhoto || data.photoURL),
+        cover_photo: sanitizeString(data.cover_photo || data.coverPhoto),
+        role_label: sanitizeString(data.role_label || data.roleLabel || data.role || 'Academy Member'),
+        bio: sanitizeString(
+            data.bio ||
+            data.profileBio ||
+            data.about ||
+            data.description
+        ),
+        search_tags: normalizeProfileTagList(data.search_tags || data.searchTags),
+        version: toNumber(data.version, 1),
+        createdAt: data.createdAt || null,
+        updatedAt: data.updatedAt || null
+    };
+}
+
 async function getCurrentProfile(uid) {
     const snapshot = await academyMetaDoc(uid, 'profile').get();
     if (!snapshot.exists) return null;
-    return snapshot.data() || null;
+    return mapStoredProfileData(snapshot.data() || {});
 }
 
 async function setCurrentProfile(uid, payload) {
     const ref = academyMetaDoc(uid, 'profile');
+    const userDocRef = userRef(uid);
     const ts = nowTs();
 
-    await ref.set(
+    const existingSnapshot = await ref.get();
+    const existing = existingSnapshot.exists ? (existingSnapshot.data() || {}) : {};
+
+    const normalized = mapStoredProfileData(payload || {});
+    const nextProfile = {
+        ...existing,
+        ...normalized,
+        role_label:
+            normalized.role_label ||
+            sanitizeString(existing.role_label || existing.roleLabel || 'Academy Member') ||
+            'Academy Member',
+        bio:
+            normalized.bio ||
+            sanitizeString(
+                existing.bio ||
+                existing.profileBio ||
+                'Focused on execution, consistency, and long-term growth inside The Academy.'
+            ),
+        search_tags: normalizeProfileTagList(
+            normalized.search_tags ||
+            existing.search_tags ||
+            existing.searchTags
+        ),
+        updatedAt: ts,
+        createdAt: existing.createdAt || ts,
+        version: Math.max(1, toNumber(existing.version, 0) + 1)
+    };
+
+    await ref.set(nextProfile, { merge: true });
+
+    await userDocRef.set(
         {
-            ...payload,
-            updatedAt: ts,
-            createdAt: ts,
-            version: 1
+            displayName: nextProfile.display_name,
+            fullName: nextProfile.display_name,
+            name: nextProfile.display_name,
+            username: nextProfile.username,
+            avatar: nextProfile.avatar,
+            profilePhoto: nextProfile.avatar,
+            photoURL: nextProfile.avatar,
+            bio: nextProfile.bio,
+            profileBio: nextProfile.bio,
+            roleLabel: nextProfile.role_label || 'Academy Member',
+            searchTags: nextProfile.search_tags,
+            coverPhoto: nextProfile.cover_photo,
+            academyProfileUpdatedAt: ts,
+            updatedAt: ts
         },
         { merge: true }
     );
 
     const snapshot = await ref.get();
-    return snapshot.data() || null;
+    return mapStoredProfileData(snapshot.data() || {});
 }
 
 async function getAccessState(uid) {
@@ -453,6 +546,7 @@ async function persistRoadmapBundle(uid, profile, plan, createdByModel) {
             pillar: sanitizeString(mission.pillar),
             title: sanitizeString(mission.title),
             description: sanitizeString(mission.description),
+            doneLooksLike: sanitizeString(mission.doneLooksLike),
             whyItMatters: sanitizeString(mission.whyItMatters),
             frequency: sanitizeString(mission.frequency),
             dueDate: sanitizeString(mission.dueDate),
@@ -1009,6 +1103,9 @@ const mapCoachMessageDoc = (doc) => {
         contextHint: sanitizeString(data.contextHint),
         provider: sanitizeString(data.provider),
         model: sanitizeString(data.model),
+        replyFormat: sanitizeString(data.replyFormat || data.reply_format || 'general'),
+        coachModeKey: sanitizeString(data.coachModeKey || data.coach_mode_key || ''),
+        responseStyleVersion: sanitizeString(data.responseStyleVersion || data.response_style_version || ''),
         grounding: data.grounding && typeof data.grounding === 'object'
             ? data.grounding
             : {},
@@ -1047,6 +1144,9 @@ async function createCoachMessage(uid, payload = {}) {
         contextHint: sanitizeString(payload.contextHint),
         provider: sanitizeString(payload.provider),
         model: sanitizeString(payload.model),
+        replyFormat: sanitizeString(payload.replyFormat || payload.reply_format || 'general', 'general'),
+        coachModeKey: sanitizeString(payload.coachModeKey || payload.coach_mode_key || ''),
+        responseStyleVersion: sanitizeString(payload.responseStyleVersion || payload.response_style_version || ''),
         grounding: payload.grounding && typeof payload.grounding === 'object'
             ? payload.grounding
             : {},

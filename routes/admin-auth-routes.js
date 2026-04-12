@@ -447,18 +447,53 @@ const applications = users.flatMap((user) => {
       const activeRoadmap = await academyFirestoreRepo.getActiveRoadmap(member.id);
       const missionProgress = await academyFirestoreRepo.getMissionProgress(member.id);
 
-        academy.push({
-          id: cleanText(activeRoadmap?.id || `AC-${member.id}`),
-          memberId: cleanText(member.id),
-          memberName: cleanText(member.name),
-          phase: cleanText(activeRoadmap?.roadmap?.weeklyTheme || activeRoadmap?.summary?.primaryBottleneck || 'Academy Active'),
-          focus: cleanText((activeRoadmap?.focusAreas || [])[0] || 'General'),
-          completion: toNumber(missionProgress?.completionRate, 0),
-          lastCheckIn: cleanText(users.find((u) => cleanText(u.id) === cleanText(member.id))?.adminAcademyLastCheckIn) || toIso(missionProgress?.lastCheckinAt || activeRoadmap?.updatedAt) || '',
-          status: cleanText(users.find((u) => cleanText(u.id) === cleanText(member.id))?.adminAcademyStatus || (activeRoadmap ? 'On Track' : 'Needs Review')),
-          nextAction: cleanText(activeRoadmap?.roadmap?.weeklyTargetOutcome || 'Review roadmap status'),
-          notes: []
-        });
+      let recentCoachMessages = [];
+      try {
+        recentCoachMessages = await academyFirestoreRepo.listCoachMessages(member.id, 'coach_main', 6);
+      } catch (_) {
+        recentCoachMessages = [];
+      }
+
+      const assistantCoachMessages = recentCoachMessages.filter((message) => {
+        return cleanText(message?.role || '').toLowerCase() === 'assistant';
+      });
+
+      const latestCoachMessage =
+        assistantCoachMessages[assistantCoachMessages.length - 1] ||
+        recentCoachMessages[recentCoachMessages.length - 1] ||
+        null;
+
+      academy.push({
+        id: cleanText(activeRoadmap?.id || `AC-${member.id}`),
+        memberId: cleanText(member.id),
+        memberName: cleanText(member.name),
+        phase: cleanText(activeRoadmap?.roadmap?.weeklyTheme || activeRoadmap?.summary?.primaryBottleneck || 'Academy Active'),
+        focus: cleanText((activeRoadmap?.focusAreas || [])[0] || 'General'),
+        completion: toNumber(missionProgress?.completionRate, 0),
+        lastCheckIn: cleanText(users.find((u) => cleanText(u.id) === cleanText(member.id))?.adminAcademyLastCheckIn) || toIso(missionProgress?.lastCheckinAt || activeRoadmap?.updatedAt) || '',
+        status: cleanText(users.find((u) => cleanText(u.id) === cleanText(member.id))?.adminAcademyStatus || (activeRoadmap ? 'On Track' : 'Needs Review')),
+        nextAction: cleanText(activeRoadmap?.roadmap?.weeklyTargetOutcome || 'Review roadmap status'),
+
+        recentCoachMessages,
+        latestReplyFormat: cleanText(
+          latestCoachMessage?.replyFormat ||
+          latestCoachMessage?.reply_format ||
+          'general'
+        ),
+        latestCoachModeKey: cleanText(
+          latestCoachMessage?.coachModeKey ||
+          latestCoachMessage?.coach_mode_key ||
+          'general'
+        ),
+        responseStyleVersion: cleanText(
+          latestCoachMessage?.responseStyleVersion ||
+          latestCoachMessage?.response_style_version ||
+          ''
+        ),
+        latestCoachReply: cleanText(latestCoachMessage?.text || ''),
+
+        notes: []
+      });
     } catch (_) {
       academy.push({
         id: `AC-${member.id}`,
@@ -470,6 +505,13 @@ const applications = users.flatMap((user) => {
         lastCheckIn: '',
         status: 'Needs Review',
         nextAction: 'Check Academy records',
+
+        recentCoachMessages: [],
+        latestReplyFormat: 'general',
+        latestCoachModeKey: 'general',
+        responseStyleVersion: '',
+        latestCoachReply: '',
+
         notes: []
       });
     }

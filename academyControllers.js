@@ -134,6 +134,335 @@ const normalizeProfile = (rawProfile = {}) => ({
     coachTone: sanitize(rawProfile.coachTone || rawProfile.coach_tone || 'balanced')
 });
 
+function getPriorityPillarKey(profile = {}) {
+    const raw = sanitize(
+        profile.focusAreaKey ||
+        profile?.pillarContext?.key ||
+        profile.topPriorityPillar ||
+        ''
+    ).toLowerCase();
+
+    const map = {
+        money: 'wealth',
+        wealth: 'wealth',
+        business: 'wealth',
+        'money, wealth & business': 'wealth',
+
+        discipline: 'discipline',
+
+        health: 'health',
+        fitness: 'health',
+        'fitness & health': 'health',
+
+        mindset: 'mindset',
+        psychology: 'mindset',
+        'mindset & psychology': 'mindset',
+
+        communication: 'communication',
+        networking: 'communication',
+        'communication & networking': 'communication',
+
+        knowledge: 'knowledge',
+        'knowledge for life': 'knowledge',
+
+        politics: 'politics',
+        'politics & the 2030 agenda': 'politics',
+        politics_2030_agenda: 'politics',
+
+        philosophy: 'philosophy'
+    };
+
+    return map[raw] || raw || '';
+}
+
+function getPlannerPillarFlavor(profile = {}, context = {}) {
+    const pillarKey = getPriorityPillarKey(profile);
+    const answers =
+        profile?.pillarContext?.answers && typeof profile.pillarContext.answers === 'object'
+            ? profile.pillarContext.answers
+            : (profile?.scopeAnswers && typeof profile.scopeAnswers === 'object'
+                ? profile.scopeAnswers
+                : {});
+
+    if (pillarKey === 'politics') {
+        return {
+            pillarKey,
+            systemGuidance: [
+                'Politics roadmap mode is active.',
+                'Treat this pillar as analytical political literacy and geopolitical pattern-recognition, not vague opinion posting.',
+                'Use the user politics intake answers to decide the first study lane, especially mainPoliticalGoal, topicCluster, biggestPoliticalConfusion, regionsOfInterest, and newsConsumptionStyle.',
+                'Prefer missions that make the user map actors, incentives, institutions, narratives, policy tradeoffs, timelines, and second-order effects.',
+                'Do not generate generic tasks like "stay informed" unless they are made concrete with exact outputs.',
+                'The roadmap should help the user think more clearly, compare sources, and break down live issues with structure.'
+            ].join(' '),
+            missionDesignRules: [
+                'For politics roadmaps, at least three missions should be explicitly politics-native.',
+                'Good politics-native missions include issue maps, actor maps, source-comparison notes, timeline breakdowns, structured summaries, policy consequence analysis, and discussion-prep briefs.',
+                `Political intake answers: ${JSON.stringify(answers)}`
+            ].join(' ')
+        };
+    }
+
+    if (pillarKey === 'philosophy') {
+        return {
+            pillarKey,
+            systemGuidance: [
+                'Philosophy roadmap mode is active.',
+                'Treat this pillar as disciplined thinking, argument analysis, reflection, and perspective-sharpening, not empty inspirational quotes.',
+                'Use the philosophy intake answers to decide the first study lane, especially mainPhilosophyQuestion, philosophyArea, readingExperience, preferredLearningStyle, reflectionHabit, argumentConfidence, and desiredPhilosophicalShift.',
+                'Prefer missions that make the user define terms, examine assumptions, compare viewpoints, map arguments, journal reflections, and apply ideas to real decisions.',
+                'Do not generate generic tasks like "think deeply" unless they are attached to an exact structure and output.',
+                'The roadmap should sharpen reasoning, reflection, and worldview formation in a practical way.'
+            ].join(' '),
+            missionDesignRules: [
+                'For philosophy roadmaps, at least three missions should be explicitly philosophy-native.',
+                'Good philosophy-native missions include concept definitions, argument maps, objection-and-reply exercises, short reflections, reading notes, personal principle building, and idea application to real life.',
+                `Philosophy intake answers: ${JSON.stringify(answers)}`
+            ].join(' ')
+        };
+    }
+
+    return {
+        pillarKey,
+        systemGuidance: 'Use the selected pillar as the operational center of gravity unless health or discipline is clearly the bigger blocker.',
+        missionDesignRules: 'Keep the roadmap grounded, measurable, and execution-friendly.'
+    };
+}
+
+function getFallbackRoadmapPillarTemplate(profile = {}, context = {}, mappedPriority = '') {
+    const pillarKey = getPriorityPillarKey(profile) || mappedPriority;
+    const scope =
+        profile?.pillarContext?.answers && typeof profile.pillarContext.answers === 'object'
+            ? profile.pillarContext.answers
+            : (profile?.scopeAnswers && typeof profile.scopeAnswers === 'object'
+                ? profile.scopeAnswers
+                : {});
+
+    const recentStuck = (context.recentMissions || []).filter((item) => item.status === 'stuck').length;
+    const recentSkipped = (context.recentMissions || []).filter((item) => item.status === 'skipped').length;
+
+    const workStyleMinutes =
+        /short daily tasks/i.test(profile.preferredWorkStyle || '') ? [12, 18, 30, 22, 28] :
+        /deep work blocks/i.test(profile.preferredWorkStyle || '') ? [20, 30, 60, 35, 45] :
+        /aggressive challenge mode/i.test(profile.preferredWorkStyle || '') ? [20, 35, 75, 40, 50] :
+        [15, 20, 45, 30, 35];
+
+    if (pillarKey === 'politics') {
+        const topicClusterMap = {
+            geopolitics: 'geopolitics',
+            governance_policy: 'governance and policy',
+            economics_power: 'economics and power structures',
+            agenda_2030: 'the 2030 Agenda',
+            media_narratives: 'media narratives',
+            mixed: 'politics'
+        };
+
+        const topicCluster = sanitize(scope.topicCluster || 'mixed').toLowerCase();
+        const topicLabel = topicClusterMap[topicCluster] || 'politics';
+        const mainPoliticalGoal = sanitize(
+            scope.mainPoliticalGoal ||
+            profile.goals6mo ||
+            'Build a clearer understanding of political forces and how they shape real outcomes.'
+        );
+        const biggestConfusion = sanitize(
+            scope.biggestPoliticalConfusion ||
+            profile.biggestImmediateProblem ||
+            profile.blockerText ||
+            'Unclear political patterns and moving parts'
+        );
+        const regions = sanitize(scope.regionsOfInterest || '');
+        const sourceStyle = sanitize(scope.newsConsumptionStyle || '');
+
+        return {
+            focusAreas: ['politics', 'knowledge', recentSkipped > 1 || recentStuck > 0 ? 'discipline' : 'communication'],
+            mainOpportunity: `Build a structured lens for understanding ${topicLabel} instead of consuming politics as scattered noise.`,
+            roadmap: {
+                goal: mainPoliticalGoal,
+                weeklyTheme: 'Political Clarity',
+                weeklyTargetOutcome: `Produce one clear political breakdown around ${topicLabel} that you can explain without confusion.`,
+                days30: {
+                    week1: 'Choose one political lane and build a simple issue map',
+                    week2: 'Compare sources, narratives, and incentives',
+                    week3: 'Turn raw information into structured explanations',
+                    week4: 'Review your framework and sharpen your independent judgment'
+                }
+            },
+            missions: [
+                {
+                    pillar: 'politics',
+                    title: 'Map one live political issue clearly',
+                    description: `Choose one issue in ${topicLabel} and write a one-page breakdown of the main actors, their incentives, the timeline, and the likely next development.${regions ? ` Focus especially on: ${regions}.` : ''}`,
+                    whyItMatters: 'Political clarity improves when you stop consuming fragments and start mapping the full structure.',
+                    frequency: 'daily',
+                    dueDate: todayISO(),
+                    estimatedMinutes: workStyleMinutes[0],
+                    sortOrder: 1
+                },
+                {
+                    pillar: 'knowledge',
+                    title: 'Compare two different sources on the same issue',
+                    description: `Pick one live topic and compare how two different sources frame it.${sourceStyle ? ` Your current source style is: ${sourceStyle}.` : ''} Note what each source emphasizes, ignores, or distorts.`,
+                    whyItMatters: 'This trains source awareness instead of passive agreement with the first narrative you see.',
+                    frequency: 'daily',
+                    dueDate: todayISO(),
+                    estimatedMinutes: workStyleMinutes[1],
+                    sortOrder: 2
+                },
+                {
+                    pillar: 'politics',
+                    title: 'Build a short actor and incentive sheet',
+                    description: `For the issue you chose, list the institutions, leaders, groups, or blocs involved and explain what each one wants, fears, or stands to gain.`,
+                    whyItMatters: 'Politics becomes easier to understand when incentives become visible.',
+                    frequency: 'daily',
+                    dueDate: todayISO(),
+                    estimatedMinutes: workStyleMinutes[2],
+                    sortOrder: 3
+                },
+                {
+                    pillar: recentStuck > 0 ? 'discipline' : 'politics',
+                    title: recentStuck > 0
+                        ? 'Shrink your political analysis task until it becomes easy to start'
+                        : 'Turn confusion into one clear weekly political brief',
+                    description: recentStuck > 0
+                        ? `Take the political topic that feels mentally heavy and reduce it to one easier next output: 5 bullet points, one source comparison, or one actor map.`
+                        : `Write one short weekly brief answering this: ${biggestConfusion}. Keep it structured, not emotional.`,
+                    whyItMatters: recentStuck > 0
+                        ? 'A smaller entry point restores momentum.'
+                        : 'A weekly brief forces clarity and reveals where your thinking is still weak.',
+                    frequency: 'weekly',
+                    dueDate: addDaysISO(3),
+                    estimatedMinutes: workStyleMinutes[3],
+                    sortOrder: 4
+                },
+                {
+                    pillar: recentSkipped > 1 ? 'discipline' : 'communication',
+                    title: recentSkipped > 1
+                        ? 'Remove one information-consumption friction point'
+                        : 'Explain one issue out loud in simple language',
+                    description: recentSkipped > 1
+                        ? 'Reduce one friction point that keeps you consuming random political content without structure. Simplify your inputs and keep one main note trail.'
+                        : `Record or write a plain-language explanation of one topic in ${topicLabel} as if teaching someone new to it.`,
+                    whyItMatters: recentSkipped > 1
+                        ? 'Better systems beat information overload.'
+                        : 'You understand politics better when you can explain it clearly.',
+                    frequency: 'weekly',
+                    dueDate: addDaysISO(5),
+                    estimatedMinutes: workStyleMinutes[4],
+                    sortOrder: 5
+                }
+            ]
+        };
+    }
+
+    if (pillarKey === 'philosophy') {
+        const philosophyAreaMap = {
+            ethics: 'ethics',
+            meaning_purpose: 'meaning and purpose',
+            logic_reasoning: 'logic and reasoning',
+            self_mastery: 'self-mastery',
+            truth_reality: 'truth and reality',
+            mixed: 'philosophy'
+        };
+
+        const philosophyArea = sanitize(scope.philosophyArea || 'mixed').toLowerCase();
+        const philosophyLabel = philosophyAreaMap[philosophyArea] || 'philosophy';
+        const mainQuestion = sanitize(
+            scope.mainPhilosophyQuestion ||
+            profile.goals6mo ||
+            'Sharpen how you think about truth, meaning, discipline, and real life decisions.'
+        );
+        const desiredShift = sanitize(
+            scope.desiredPhilosophicalShift ||
+            profile.biggestImmediateProblem ||
+            profile.blockerText ||
+            'A stronger and clearer way of thinking'
+        );
+        const learningStyle = sanitize(scope.preferredLearningStyle || 'mixed');
+
+        return {
+            focusAreas: ['philosophy', 'knowledge', recentSkipped > 1 || recentStuck > 0 ? 'discipline' : 'mindset'],
+            mainOpportunity: `Turn philosophy from abstract interest into sharper reasoning, clearer principles, and better judgment in real life.`,
+            roadmap: {
+                goal: mainQuestion,
+                weeklyTheme: 'Philosophical Clarity',
+                weeklyTargetOutcome: 'Produce one clear written reflection or argument map that sharpens your perspective this week.',
+                days30: {
+                    week1: 'Clarify the core question and define the key terms',
+                    week2: 'Compare viewpoints and test assumptions',
+                    week3: 'Apply the ideas to your own decisions and habits',
+                    week4: 'Refine your principles and sharpen your reasoning'
+                }
+            },
+            missions: [
+                {
+                    pillar: 'philosophy',
+                    title: 'Define the exact question you are trying to answer',
+                    description: `Write the core philosophical question in one sentence, then define the key terms inside it.${philosophyLabel ? ` Current area: ${philosophyLabel}.` : ''}`,
+                    whyItMatters: 'Philosophy gets sharper when the question and its terms become precise.',
+                    frequency: 'daily',
+                    dueDate: todayISO(),
+                    estimatedMinutes: workStyleMinutes[0],
+                    sortOrder: 1
+                },
+                {
+                    pillar: 'knowledge',
+                    title: 'Study one idea and extract the central claim',
+                    description: `Use your preferred style (${learningStyle}) to engage one short philosophy source, then write the main claim, the reason behind it, and one objection to it.`,
+                    whyItMatters: 'This trains active thinking instead of passive inspiration.',
+                    frequency: 'daily',
+                    dueDate: todayISO(),
+                    estimatedMinutes: workStyleMinutes[1],
+                    sortOrder: 2
+                },
+                {
+                    pillar: 'philosophy',
+                    title: 'Map one argument step by step',
+                    description: `Take one belief, quote, or idea related to "${mainQuestion}" and break it into claim, reasons, assumptions, and possible counterarguments.`,
+                    whyItMatters: 'Argument mapping strengthens logic and reduces vague thinking.',
+                    frequency: 'daily',
+                    dueDate: todayISO(),
+                    estimatedMinutes: workStyleMinutes[2],
+                    sortOrder: 3
+                },
+                {
+                    pillar: recentStuck > 0 ? 'discipline' : 'mindset',
+                    title: recentStuck > 0
+                        ? 'Reduce your reflection task to one simple written output'
+                        : 'Apply one philosophical idea to a real decision this week',
+                    description: recentStuck > 0
+                        ? 'If the thinking task feels too abstract, reduce it to five sentences: what the idea is, why it matters, and what you will do with it.'
+                        : `Write how one idea changes the way you should act, choose, or judge in real life. Target shift: ${desiredShift}.`,
+                    whyItMatters: recentStuck > 0
+                        ? 'Smaller reflection keeps the pillar practical.'
+                        : 'Philosophy matters when it changes perception and conduct.',
+                    frequency: 'weekly',
+                    dueDate: addDaysISO(3),
+                    estimatedMinutes: workStyleMinutes[3],
+                    sortOrder: 4
+                },
+                {
+                    pillar: recentSkipped > 1 ? 'discipline' : 'philosophy',
+                    title: recentSkipped > 1
+                        ? 'Remove one friction point blocking your thinking habit'
+                        : 'Write one weekly philosophical reflection',
+                    description: recentSkipped > 1
+                        ? 'Remove one pattern that keeps reflection, reading, or argument practice from happening consistently.'
+                        : `Write one short reflection on this question: ${mainQuestion}. Keep it clear, honest, and structured.`,
+                    whyItMatters: recentSkipped > 1
+                        ? 'Consistency is what turns philosophy into an actual practice.'
+                        : 'A weekly reflection turns ideas into a personal operating lens.',
+                    frequency: 'weekly',
+                    dueDate: addDaysISO(5),
+                    estimatedMinutes: workStyleMinutes[4],
+                    sortOrder: 5
+                }
+            ]
+        };
+    }
+
+    return null;
+}
+
 function buildFallbackRoadmap(profile, context = {}) {
     const focusAreas = [];
     const bottlenecks = [];
@@ -143,11 +472,31 @@ function buildFallbackRoadmap(profile, context = {}) {
 
     const priorityMap = {
         money: 'wealth',
+        wealth: 'wealth',
         business: 'wealth',
+        'money, wealth & business': 'wealth',
+
         discipline: 'discipline',
+
         health: 'health',
+        fitness: 'health',
+        'fitness & health': 'health',
+
         mindset: 'mindset',
-        communication: 'communication'
+        psychology: 'mindset',
+        'mindset & psychology': 'mindset',
+
+        communication: 'communication',
+        networking: 'communication',
+        'communication & networking': 'communication',
+
+        knowledge: 'knowledge',
+        'knowledge for life': 'knowledge',
+
+        politics: 'politics',
+        'politics & the 2030 agenda': 'politics',
+
+        philosophy: 'philosophy'
     };
 
     const mappedPriority = priorityMap[(profile.topPriorityPillar || '').toLowerCase()] || '';
@@ -236,107 +585,110 @@ function buildFallbackRoadmap(profile, context = {}) {
                 ? 'Keep the task simple enough to complete today.'
                 : 'Make the task clear and easy to track.';
 
-    const doctrine = buildDoctrineContext(profile, context);
+const doctrine = buildDoctrineContext(profile, context);
+const specializedTemplate = getFallbackRoadmapPillarTemplate(profile, context, mappedPriority);
 
-    const missions = [
-        {
-            pillar: uniqueFocusAreas[0] || 'discipline',
-            title: mappedPriority === 'wealth'
-                ? 'Do one income-moving task today'
-                : 'Set a hard start time for your main work block',
-            description: mappedPriority === 'wealth'
-                ? 'Choose one exact task tied to outreach, selling, client work, or offer building and complete it today.'
-                : 'Choose one exact time window every day for focused execution.',
-            whyItMatters: accountabilityTone,
-            frequency: 'daily',
-            dueDate: todayISO(),
-            estimatedMinutes: workStyleMinutes[0],
-            sortOrder: 1
-        },
-        {
-            pillar: 'health',
-            title: 'Protect energy and reduce avoidable drain',
-            description: profile.sleepHours < 6
-                ? 'Create a shut-down routine tonight and protect your sleep window.'
-                : 'Remove one habit today that keeps draining your energy or attention.',
-            whyItMatters: 'Your energy determines the quality of your decisions.',
-            frequency: 'daily',
-            dueDate: todayISO(),
-            estimatedMinutes: workStyleMinutes[1],
-            sortOrder: 2
-        },
-        {
-            pillar: mappedPriority || 'wealth',
-            title: profile.next30DaysWin
-                ? 'Take one action toward your 30-day win'
-                : 'Work on one high-value forward task',
-            description: profile.next30DaysWin
-                ? `Do one concrete action that directly moves this result forward: ${profile.next30DaysWin}`
-                : 'Spend one block on the most valuable task available to you today.',
-            whyItMatters: 'The roadmap has to create visible movement, not just intention.',
-            frequency: 'daily',
-            dueDate: todayISO(),
-            estimatedMinutes: workStyleMinutes[2],
-            sortOrder: 3
-        },
-        {
-            pillar: recentStuck > 0 ? 'discipline' : (mappedPriority || 'discipline'),
-            title: recentStuck > 0
-                ? 'Simplify the task you kept getting stuck on'
-                : 'Define the clearest weekly target',
-            description: recentStuck > 0
-                ? 'Break your hardest blocked task into one smaller, easier next action.'
-                : 'Write the exact target for this week and the action that creates it.',
-            whyItMatters: recentStuck > 0
-                ? 'Momentum returns when the task becomes easier to start.'
-                : 'Clear targets convert effort into direction.',
-            frequency: 'weekly',
-            dueDate: addDaysISO(3),
-            estimatedMinutes: workStyleMinutes[3],
-            sortOrder: 4
-        },
-        {
-            pillar: recentSkipped > 1 ? 'discipline' : (mappedPriority || 'wealth'),
-            title: recentSkipped > 1
-                ? 'Remove one major execution friction point'
-                : 'Review your blocker and remove one friction point',
-            description: recentSkipped > 1
-                ? 'Identify one environmental or behavioral pattern that keeps causing skips and remove it.'
-                : `Fix one thing that keeps making you delay action.${profile.biggestImmediateProblem ? ` Main problem: ${profile.biggestImmediateProblem}.` : ''}`,
-            whyItMatters: 'Execution improves when friction is reduced.',
-            frequency: 'weekly',
-            dueDate: addDaysISO(5),
-            estimatedMinutes: workStyleMinutes[4],
-            sortOrder: 5
+const missions = specializedTemplate?.missions || [
+    {
+        pillar: uniqueFocusAreas[0] || 'discipline',
+        title: mappedPriority === 'wealth'
+            ? 'Do one income-moving task today'
+            : 'Set a hard start time for your main work block',
+        description: mappedPriority === 'wealth'
+            ? 'Choose one exact task tied to outreach, selling, client work, or offer building and complete it today.'
+            : 'Choose one exact time window every day for focused execution.',
+        whyItMatters: accountabilityTone,
+        frequency: 'daily',
+        dueDate: todayISO(),
+        estimatedMinutes: workStyleMinutes[0],
+        sortOrder: 1
+    },
+    {
+        pillar: 'health',
+        title: 'Protect energy and reduce avoidable drain',
+        description: profile.sleepHours < 6
+            ? 'Create a shut-down routine tonight and protect your sleep window.'
+            : 'Remove one habit today that keeps draining your energy or attention.',
+        whyItMatters: 'Your energy determines the quality of your decisions.',
+        frequency: 'daily',
+        dueDate: todayISO(),
+        estimatedMinutes: workStyleMinutes[1],
+        sortOrder: 2
+    },
+    {
+        pillar: mappedPriority || 'wealth',
+        title: profile.next30DaysWin
+            ? 'Take one action toward your 30-day win'
+            : 'Work on one high-value forward task',
+        description: profile.next30DaysWin
+            ? `Do one concrete action that directly moves this result forward: ${profile.next30DaysWin}`
+            : 'Spend one block on the most valuable task available to you today.',
+        whyItMatters: 'The roadmap has to create visible movement, not just intention.',
+        frequency: 'daily',
+        dueDate: todayISO(),
+        estimatedMinutes: workStyleMinutes[2],
+        sortOrder: 3
+    },
+    {
+        pillar: recentStuck > 0 ? 'discipline' : (mappedPriority || 'discipline'),
+        title: recentStuck > 0
+            ? 'Simplify the task you kept getting stuck on'
+            : 'Define the clearest weekly target',
+        description: recentStuck > 0
+            ? 'Break your hardest blocked task into one smaller, easier next action.'
+            : 'Write the exact target for this week and the action that creates it.',
+        whyItMatters: recentStuck > 0
+            ? 'Momentum returns when the task becomes easier to start.'
+            : 'Clear targets convert effort into direction.',
+        frequency: 'weekly',
+        dueDate: addDaysISO(3),
+        estimatedMinutes: workStyleMinutes[3],
+        sortOrder: 4
+    },
+    {
+        pillar: recentSkipped > 1 ? 'discipline' : (mappedPriority || 'wealth'),
+        title: recentSkipped > 1
+            ? 'Remove one major execution friction point'
+            : 'Review your blocker and remove one friction point',
+        description: recentSkipped > 1
+            ? 'Identify one environmental or behavioral pattern that keeps causing skips and remove it.'
+            : `Fix one thing that keeps making you delay action.${profile.biggestImmediateProblem ? ` Main problem: ${profile.biggestImmediateProblem}.` : ''}`,
+        whyItMatters: 'Execution improves when friction is reduced.',
+        frequency: 'weekly',
+        dueDate: addDaysISO(5),
+        estimatedMinutes: workStyleMinutes[4],
+        sortOrder: 5
+    }
+];
+
+return {
+    readinessScore,
+    summary: {
+        primaryBottleneck,
+        secondaryBottleneck,
+        mainOpportunity: specializedTemplate?.mainOpportunity || mainOpportunity,
+        strengths: uniqueStrengths
+    },
+    focusAreas: Array.isArray(specializedTemplate?.focusAreas) && specializedTemplate.focusAreas.length
+        ? specializedTemplate.focusAreas
+        : uniqueFocusAreas,
+    roadmap: {
+        goal: specializedTemplate?.roadmap?.goal || profile.goals6mo || 'Stabilize structure, improve energy, and create measurable forward movement.',
+        coachTone: profile.coachTone || 'balanced',
+        weeklyTheme: specializedTemplate?.roadmap?.weeklyTheme || (recentStuck > 0 ? 'Friction Reduction' : 'Execution Structure'),
+        weeklyTargetOutcome: specializedTemplate?.roadmap?.weeklyTargetOutcome || profile.next30DaysWin || (recentStuck > 0 ? 'Finish blocked work in smaller steps' : 'Create visible forward progress this week'),
+        coachBrief: doctrine.coachBrief,
+        weeklyOperatingSystem: doctrine.weeklyOperatingSystem,
+        recommendedResources: doctrine.recommendedResources,
+        days30: specializedTemplate?.roadmap?.days30 || {
+            week1: 'Reset structure and reduce friction',
+            week2: 'Build consistency and protect energy',
+            week3: 'Increase output on your highest-priority pillar',
+            week4: 'Review progress and tighten execution'
         }
-    ];
-
-    return {
-        readinessScore,
-        summary: {
-            primaryBottleneck,
-            secondaryBottleneck,
-            mainOpportunity,
-            strengths: uniqueStrengths
-        },
-        focusAreas: uniqueFocusAreas,
-        roadmap: {
-            goal: profile.goals6mo || 'Stabilize structure, improve energy, and create measurable forward movement.',
-            coachTone: profile.coachTone || 'balanced',
-            weeklyTheme: recentStuck > 0 ? 'Friction Reduction' : 'Execution Structure',
-            weeklyTargetOutcome: profile.next30DaysWin || (recentStuck > 0 ? 'Finish blocked work in smaller steps' : 'Create visible forward progress this week'),
-            coachBrief: doctrine.coachBrief,
-            weeklyOperatingSystem: doctrine.weeklyOperatingSystem,
-            recommendedResources: doctrine.recommendedResources,
-            days30: {
-                week1: 'Reset structure and reduce friction',
-                week2: 'Build consistency and protect energy',
-                week3: 'Increase output on your highest-priority pillar',
-                week4: 'Review progress and tighten execution'
-            }
-        },
-        missions
-    };
+    },
+    missions
+};
 }
 
 function normalizeMission(rawMission = {}, index = 0) {
@@ -513,17 +865,18 @@ function buildPlannerSchema() {
                 items: {
                     type: 'object',
                     additionalProperties: false,
-                    properties: {
-                        pillar: { type: 'string' },
-                        title: { type: 'string' },
-                        description: { type: 'string' },
-                        whyItMatters: { type: 'string' },
-                        frequency: { type: 'string', enum: ['daily', 'weekly', 'one-off'] },
-                        dueDate: { type: 'string' },
-                        estimatedMinutes: { type: 'integer', minimum: 5, maximum: 180 },
-                        sortOrder: { type: 'integer', minimum: 1, maximum: 10 }
-                    },
-                    required: ['pillar', 'title', 'description', 'whyItMatters', 'frequency', 'dueDate', 'estimatedMinutes', 'sortOrder']
+                properties: {
+                    pillar: { type: 'string' },
+                    title: { type: 'string' },
+                    description: { type: 'string' },
+                    doneLooksLike: { type: 'string' },
+                    whyItMatters: { type: 'string' },
+                    frequency: { type: 'string', enum: ['daily', 'weekly', 'one-off'] },
+                    dueDate: { type: 'string' },
+                    estimatedMinutes: { type: 'integer', minimum: 5, maximum: 180 },
+                    sortOrder: { type: 'integer', minimum: 1, maximum: 10 }
+                },
+                required: ['pillar', 'title', 'description', 'doneLooksLike', 'whyItMatters', 'frequency', 'dueDate', 'estimatedMinutes', 'sortOrder']
                 }
             }
         },
@@ -578,6 +931,7 @@ function buildPlannerMessages(profile, context = {}) {
     const plannerStats = context.plannerStats && typeof context.plannerStats === 'object'
         ? context.plannerStats
         : {};
+    const pillarFlavor = getPlannerPillarFlavor(profile, context);
 
     return [
         {
@@ -588,6 +942,12 @@ function buildPlannerMessages(profile, context = {}) {
                 'Use the full intake profile, especially age range, reason for joining now, top priority pillar, biggest immediate problem, current routine, preferred work style, accountability style, next-30-days win, extra context, energy, time, seriousness, money reality, and past execution behavior.',
                 'Do not produce generic motivation fluff.',
                 'Prefer missions that are specific, actionable, measurable, and realistically completable.',
+                'Write description as the exact execution instructions for the user.',
+                'Start every description with an imperative action verb when possible, such as Write, List, Compare, Record, Draft, Map, Define, Review, Build, Identify, or Explain.',
+                'Do not start description with vague phrasing like "Your task is to", "The task is to", "This mission is to", "Your goal is to", or "Focus on".',
+                'Keep description operational and step-like. Sentence one should tell the user exactly what to do. Sentence two may add scope, constraint, or context if needed.',
+                'Every mission must include doneLooksLike that states the concrete finish condition or visible output.',
+                'Make doneLooksLike externally visible and easy to judge. It should sound like something a reviewer could verify.',
                 'The planner is adaptive. Use the planning context and trend summary to decide whether to reduce, stabilize, or raise challenge.',
                 'If recovery risk is high, simplify the workload, reduce friction, and include health or discipline stabilizers.',
                 'If execution reliability is improving and friction is low, you may raise challenge in a controlled way.',
@@ -598,6 +958,9 @@ function buildPlannerMessages(profile, context = {}) {
                 'Respect the adaptive minute cap and mission count cap unless there is a very strong reason not to.',
                 'Apply the founder doctrine when relevant.',
                 'Apply nurtureKnowledge when it contains usable rules, examples, red flags, or priority themes relevant to the current user state.',
+                `Planner pillar mode: ${pillarFlavor.pillarKey || 'general'}.`,
+                pillarFlavor.systemGuidance,
+                pillarFlavor.missionDesignRules,
                 `Founder doctrine principles: ${FOUNDER_DOCTRINE.principles.join(' | ')}`,
                 'The doctrine is an operating standard, not generic hype.',
                 'Always return a short founder-style coachBrief for the week.',
@@ -781,6 +1144,113 @@ async function requestAiRoadmap(profile, context = {}) {
 
 function getAcademyAuthUid(req) {
     return sanitize(req.user?.firebaseUid || req.user?.id);
+}
+
+function normalizeAcademyProfileTags(values = []) {
+    const source = Array.isArray(values)
+        ? values
+        : String(values || '').split(',');
+
+    const seen = new Set();
+    const out = [];
+
+    for (const value of source) {
+        const clean = sanitize(value)
+            .toLowerCase()
+            .replace(/^#/, '')
+            .replace(/\s+/g, '-')
+            .replace(/[^a-z0-9_-]/g, '')
+            .slice(0, 32);
+
+        if (!clean || seen.has(clean)) continue;
+        seen.add(clean);
+        out.push(clean);
+
+        if (out.length >= 8) break;
+    }
+
+    return out;
+}
+
+function sanitizeAcademyProfileAsset(value = '') {
+    const clean = sanitize(value);
+    if (!clean) return '';
+
+    if (/^data:/i.test(clean)) return '';
+    return clean.slice(0, 2048);
+}
+
+function normalizeAcademyProfileUsername(value = '', fallback = 'hustler') {
+    const cleaned = sanitize(value)
+        .replace(/^@+/, '')
+        .replace(/\s+/g, '')
+        .replace(/[^a-zA-Z0-9._-]/g, '')
+        .slice(0, 32);
+
+    if (cleaned) return cleaned;
+
+    const fallbackClean = sanitize(fallback)
+        .toLowerCase()
+        .replace(/\s+/g, '')
+        .replace(/[^a-zA-Z0-9._-]/g, '')
+        .slice(0, 32);
+
+    return fallbackClean || 'hustler';
+}
+
+function buildAcademyProfileResponse(uid, userData = {}, storedProfile = {}) {
+    const displayName =
+        sanitize(
+            storedProfile.display_name ||
+            storedProfile.displayName ||
+            userData.displayName ||
+            userData.fullName ||
+            userData.name ||
+            userData.username ||
+            'Hustler'
+        ) || 'Hustler';
+
+    const username = normalizeAcademyProfileUsername(
+        storedProfile.username || userData.username || '',
+        displayName
+    );
+
+    return {
+        id: sanitize(uid),
+        display_name: displayName,
+        username,
+        avatar: sanitizeAcademyProfileAsset(
+            storedProfile.avatar ||
+            userData.avatar ||
+            userData.profilePhoto ||
+            userData.photoURL
+        ),
+        cover_photo: sanitizeAcademyProfileAsset(
+            storedProfile.cover_photo ||
+            storedProfile.coverPhoto ||
+            userData.coverPhoto
+        ),
+        role_label: sanitize(
+            storedProfile.role_label ||
+            storedProfile.roleLabel ||
+            userData.roleLabel ||
+            userData.role ||
+            'Academy Member'
+        ) || 'Academy Member',
+        bio: sanitize(
+            storedProfile.bio ||
+            userData.bio ||
+            userData.profileBio ||
+            userData.about ||
+            userData.description ||
+            'Focused on execution, consistency, and long-term growth inside The Academy.'
+        ) || 'Focused on execution, consistency, and long-term growth inside The Academy.',
+        search_tags: normalizeAcademyProfileTags(
+            storedProfile.search_tags ||
+            storedProfile.searchTags ||
+            userData.searchTags
+        )
+    };
 }
 
 async function getAcademyUserAccessSnapshot(uid) {
@@ -1185,16 +1655,99 @@ function scoreMissionQuality(mission = {}, context = {}) {
     };
 }
 
+function normalizeMissionText(value = '') {
+    return sanitize(value).replace(/\s+/g, ' ').trim();
+}
+
+function ensureMissionSentence(value = '') {
+    const clean = normalizeMissionText(value);
+    if (!clean) return '';
+    return /[.!?]$/.test(clean) ? clean : `${clean}.`;
+}
+
+function startsWithImperativeMissionVerb(value = '') {
+    const clean = normalizeMissionText(value);
+    return /^(write|list|compare|record|draft|map|define|review|build|create|identify|explain|outline|summarize|analyze|study|read|track|collect|prepare|choose|set|rank|plan|schedule|break down|reduce|send|note)\b/i.test(clean);
+}
+
+function coerceMissionDescription(description = '', title = '') {
+    const safeTitle = normalizeMissionText(title);
+
+    let next = normalizeMissionText(description)
+        .replace(/^(your task is to|the task is to|this mission is to|your goal is to|the goal is to|goal:|objective:)\s*/i, '')
+        .replace(/^focus on identifying\b/i, 'Identify')
+        .replace(/^focus on listing\b/i, 'List')
+        .replace(/^focus on comparing\b/i, 'Compare')
+        .replace(/^focus on recording\b/i, 'Record')
+        .replace(/^focus on drafting\b/i, 'Draft')
+        .replace(/^focus on mapping\b/i, 'Map')
+        .replace(/^focus on defining\b/i, 'Define')
+        .replace(/^focus on reviewing\b/i, 'Review')
+        .replace(/^focus on building\b/i, 'Build')
+        .replace(/^focus on creating\b/i, 'Create')
+        .replace(/^focus on analyzing\b/i, 'Analyze')
+        .replace(/^focus on\b\s*/i, '');
+
+    if (!next && safeTitle) {
+        next = safeTitle;
+    }
+
+    if (!startsWithImperativeMissionVerb(next) && startsWithImperativeMissionVerb(safeTitle)) {
+        const titleSentence = safeTitle.replace(/[.!?]+$/g, '');
+        const detailSentence = next.replace(/[.!?]+$/g, '');
+
+        next = detailSentence && detailSentence.toLowerCase() !== titleSentence.toLowerCase()
+            ? `${titleSentence}. ${detailSentence}`
+            : titleSentence;
+    }
+
+    if (!startsWithImperativeMissionVerb(next) && safeTitle) {
+        next = startsWithImperativeMissionVerb(safeTitle)
+            ? safeTitle
+            : `Complete this task: ${safeTitle}`;
+    }
+
+    return ensureMissionSentence(next);
+}
+
+function coerceMissionDoneLooksLike(doneLooksLike = '', title = '', description = '') {
+    const cleanDone = normalizeMissionText(doneLooksLike);
+    if (cleanDone) {
+        return ensureMissionSentence(cleanDone);
+    }
+
+    const safeTitle = normalizeMissionText(title);
+    const safeDescription = normalizeMissionText(description);
+
+    if (safeTitle) {
+        return ensureMissionSentence(`A concrete output for "${safeTitle}" is finished and ready to review`);
+    }
+
+    if (safeDescription) {
+        return ensureMissionSentence('A concrete output is finished, written down, and ready to review');
+    }
+
+    return 'A concrete output is finished and ready to review.';
+}
+
 function normalizeGeneratedMission(mission = {}, context = {}) {
     const maxDailyMinutes = Math.max(
         15,
         toInt(context?.behaviorProfile?.maxSustainableDailyMinutes, 0) || 45
     );
 
+    const normalizedTitle = sanitize(mission.title);
+    const normalizedDescription = coerceMissionDescription(mission.description, normalizedTitle);
+
     return {
         pillar: sanitize(mission.pillar),
-        title: sanitize(mission.title),
-        description: sanitize(mission.description),
+        title: normalizedTitle,
+        description: normalizedDescription,
+        doneLooksLike: coerceMissionDoneLooksLike(
+            mission.doneLooksLike,
+            normalizedTitle,
+            normalizedDescription
+        ),
         whyItMatters: sanitize(mission.whyItMatters),
         frequency: sanitize(mission.frequency || 'daily'),
         dueDate: sanitize(mission.dueDate),
@@ -1640,6 +2193,7 @@ exports.getMissions = async (req, res) => {
                 pillar: mission.pillar || '',
                 title: mission.title || '',
                 description: mission.description || '',
+                doneLooksLike: mission.doneLooksLike || '',
                 whyItMatters: mission.whyItMatters || '',
                 frequency: mission.frequency || '',
                 dueDate: mission.dueDate || '',
@@ -2384,6 +2938,145 @@ exports.submitMembershipApplication = async (req, res) => {
         });
     }
 };
+exports.getCurrentProfile = async (req, res) => {
+    try {
+        const uid = getAcademyAuthUid(req);
+
+        if (!uid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const userRef = firestore.collection('users').doc(uid);
+        const userSnapshot = await userRef.get();
+        const userData = userSnapshot.exists ? (userSnapshot.data() || {}) : {};
+        const storedProfile = await academyFirestoreRepo.getCurrentProfile(uid) || {};
+
+        return res.json({
+            success: true,
+            profile: buildAcademyProfileResponse(uid, userData, storedProfile)
+        });
+    } catch (error) {
+        console.error('getCurrentProfile error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load Academy profile.'
+        });
+    }
+};
+
+exports.updateCurrentProfile = async (req, res) => {
+    try {
+        const uid = getAcademyAuthUid(req);
+
+        if (!uid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const userRef = firestore.collection('users').doc(uid);
+        const userSnapshot = await userRef.get();
+        const userData = userSnapshot.exists ? (userSnapshot.data() || {}) : {};
+        const storedProfile = await academyFirestoreRepo.getCurrentProfile(uid) || {};
+        const currentProfile = buildAcademyProfileResponse(uid, userData, storedProfile);
+
+        const hasSearchTagsField =
+            Object.prototype.hasOwnProperty.call(req.body || {}, 'search_tags') ||
+            Object.prototype.hasOwnProperty.call(req.body || {}, 'searchTags') ||
+            Object.prototype.hasOwnProperty.call(req.body || {}, 'tags');
+
+        const hasAvatarField =
+            Object.prototype.hasOwnProperty.call(req.body || {}, 'avatar') ||
+            Object.prototype.hasOwnProperty.call(req.body || {}, 'profilePhoto') ||
+            Object.prototype.hasOwnProperty.call(req.body || {}, 'photoURL');
+
+        const hasCoverField =
+            Object.prototype.hasOwnProperty.call(req.body || {}, 'cover_photo') ||
+            Object.prototype.hasOwnProperty.call(req.body || {}, 'coverPhoto');
+
+        const nextDisplayName = sanitize(
+            req.body?.display_name ||
+            req.body?.displayName ||
+            req.body?.fullName ||
+            req.body?.name ||
+            currentProfile.display_name ||
+            'Hustler'
+        ).slice(0, 60);
+
+        const nextUsername = normalizeAcademyProfileUsername(
+            req.body?.username || currentProfile.username,
+            nextDisplayName
+        );
+
+        const nextBio = sanitize(
+            req.body?.bio ||
+            req.body?.profileBio ||
+            currentProfile.bio ||
+            'Focused on execution, consistency, and long-term growth inside The Academy.'
+        ).slice(0, 280);
+
+        if (!nextDisplayName) {
+            return res.status(400).json({
+                success: false,
+                message: 'Display name is required.'
+            });
+        }
+
+        if (!nextUsername) {
+            return res.status(400).json({
+                success: false,
+                message: 'Username is required.'
+            });
+        }
+
+        const payload = {
+            display_name: nextDisplayName,
+            username: nextUsername,
+            role_label: 'Academy Member',
+            bio: nextBio || 'Focused on execution, consistency, and long-term growth inside The Academy.',
+            avatar: hasAvatarField
+                ? sanitizeAcademyProfileAsset(
+                    req.body?.avatar ||
+                    req.body?.profilePhoto ||
+                    req.body?.photoURL
+                )
+                : currentProfile.avatar,
+            cover_photo: hasCoverField
+                ? sanitizeAcademyProfileAsset(
+                    req.body?.cover_photo ||
+                    req.body?.coverPhoto
+                )
+                : currentProfile.cover_photo,
+            search_tags: hasSearchTagsField
+                ? normalizeAcademyProfileTags(
+                    req.body?.search_tags ??
+                    req.body?.searchTags ??
+                    req.body?.tags
+                )
+                : normalizeAcademyProfileTags(currentProfile.search_tags)
+        };
+
+        const savedProfile = await academyFirestoreRepo.setCurrentProfile(uid, payload);
+        const refreshedUserSnapshot = await userRef.get();
+        const refreshedUserData = refreshedUserSnapshot.exists ? (refreshedUserSnapshot.data() || {}) : {};
+
+        return res.json({
+            success: true,
+            profile: buildAcademyProfileResponse(uid, refreshedUserData, savedProfile || payload)
+        });
+    } catch (error) {
+        console.error('updateCurrentProfile error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to update Academy profile.'
+        });
+    }
+};
+
 exports.getMembershipStatus = async (req, res) => {
     try {
         const uid = getAcademyAuthUid(req);
@@ -2654,7 +3347,9 @@ exports.submitRoadmapApplication = async (req, res) => {
             mindset_psychology: 'Mindset & Psychology',
             fitness_health: 'Fitness & Health',
             communication_networking: 'Communication & Networking',
-            knowledge_for_life: 'Knowledge for Life'
+            knowledge_for_life: 'Knowledge for Life',
+            politics_2030_agenda: 'Politics & the 2030 Agenda',
+            philosophy: 'Philosophy'
         };
 
         const scopeKeyByLabel = Object.entries(scopeLabelByKey).reduce((acc, [key, label]) => {
@@ -3067,16 +3762,112 @@ function buildAcademyCoachCompactPayload(payload = {}) {
     };
 }
 
+function getAcademyCoachModeMeta(payload = {}) {
+    const focusCandidate = sanitize(
+        payload?.roadmap?.focusAreas?.[0] ||
+        payload?.profile?.topPriorityPillar ||
+        ''
+    ).toLowerCase();
+
+    const map = {
+        politics: 'politics',
+        politics_2030_agenda: 'politics',
+        'politics & the 2030 agenda': 'politics',
+        philosophy: 'philosophy'
+    };
+
+    const key = map[focusCandidate] || 'general';
+
+    if (key === 'politics') {
+        return {
+            key,
+            title: 'Political Analyst Coach',
+            systemGuidance: [
+                'Coach mode is Political Analyst Coach.',
+                'Speak like a sharp political analyst and execution mentor, not like a generic productivity bot.',
+                'Help the user think through actors, incentives, institutions, narratives, timelines, source quality, policy tradeoffs, and second-order effects.',
+                'When the user asks about a political topic in their roadmap, guide them toward structure, clarity, comparison, and political reasoning.',
+                'Do not drift into vague motivational talk or partisan ranting.',
+                'Keep the advice tied to the existing roadmap, missions, weekly checkpoint, and current execution constraints.'
+            ].join(' '),
+            replyStructureInstruction: 'When it materially improves clarity, format the answer in 4 to 5 short labeled lines using this style: Actors: ... Incentives: ... Narrative: ... Next move: ... You may also include Main direction: ... before those labels when useful.',
+            fallbackPrefix: 'I’m using the local Political Analyst Coach fallback right now, so here is the clearest next move based on your saved roadmap.',
+            lowEnergyLine: 'Your energy looks low, so keep the next action light: do one short issue map, source comparison, or actor breakdown in about 15 to 20 minutes.',
+            standardLine: 'Approach the next step like an analyst: choose one concrete issue, break it into actors, incentives, timeline, and competing narratives, then finish that small output today.',
+            weeklyLinePrefix: 'Make sure the work sharpens this political outcome'
+        };
+    }
+
+    if (key === 'philosophy') {
+        return {
+            key,
+            title: 'Reasoning & Reflection Mentor',
+            systemGuidance: [
+                'Coach mode is Reasoning and Reflection Mentor.',
+                'Speak like a clear reasoning mentor who helps the user define terms, test assumptions, map arguments, reflect carefully, and apply ideas to life.',
+                'When the user asks about a philosophy topic in their roadmap, guide them toward conceptual precision, argument clarity, and reflective application.',
+                'Do not drift into empty inspiration, vague wisdom, or generic self-help talk.',
+                'Keep the advice tied to the existing roadmap, missions, weekly checkpoint, and current execution constraints.'
+            ].join(' '),
+            replyStructureInstruction: 'When it materially improves clarity, format the answer in 4 to 5 short labeled lines using this style: Claim: ... Assumption: ... Objection: ... Reflection: ... Next move: ... You may also include Main direction: ... before those labels when useful.',
+            fallbackPrefix: 'I’m using the local Reasoning and Reflection Mentor fallback right now, so here is the clearest next move based on your saved roadmap.',
+            lowEnergyLine: 'Your energy looks low, so keep the next action light: do one short concept definition, argument sketch, or reflection in about 15 to 20 minutes.',
+            standardLine: 'Approach the next step like a reasoning exercise: define the core question, isolate one claim, test its assumptions, and finish one clear written output today.',
+            weeklyLinePrefix: 'Make sure the work sharpens this perspective outcome'
+        };
+    }
+
+    return {
+        key: 'general',
+        title: 'Academy AI Coach',
+        systemGuidance: 'Stay practical, direct, tactical, and roadmap-grounded.',
+        replyStructureInstruction: 'Only use a labeled mini-structure when it genuinely improves clarity. Otherwise reply normally.',
+        fallbackPrefix: 'I’m using the local Academy Coach fallback right now, so here is the clearest next move based on your saved roadmap.',
+        lowEnergyLine: 'Your energy looks low, so keep the next action light and finish something that takes about 15 to 20 minutes.',
+        standardLine: 'Pick one concrete task you can fully finish today instead of trying to push the whole roadmap at once.',
+        weeklyLinePrefix: 'Make sure the work moves this weekly outcome forward'
+    };
+}
+
+function detectAcademyCoachReplyFormat(payload = {}, reply = '') {
+    const coachMode = getAcademyCoachModeMeta(payload);
+    const text = sanitize(reply || '');
+
+    const hasPoliticsStructure =
+        /(^|\n)\s*Actors\s*:/i.test(text) ||
+        /(^|\n)\s*Incentives\s*:/i.test(text) ||
+        /(^|\n)\s*Narrative\s*:/i.test(text);
+
+    const hasPhilosophyStructure =
+        /(^|\n)\s*Claim\s*:/i.test(text) ||
+        /(^|\n)\s*Assumption\s*:/i.test(text) ||
+        /(^|\n)\s*Objection\s*:/i.test(text) ||
+        /(^|\n)\s*Reflection\s*:/i.test(text);
+
+    if (coachMode.key === 'politics' && hasPoliticsStructure) {
+        return 'politics_structured';
+    }
+
+    if (coachMode.key === 'philosophy' && hasPhilosophyStructure) {
+        return 'philosophy_structured';
+    }
+
+    return 'general';
+}
+
 function buildAcademyCoachMessages(payload = {}) {
     const compactPayload = buildAcademyCoachCompactPayload(payload);
+    const coachMode = getAcademyCoachModeMeta(payload);
 
     return [
         {
             role: 'system',
             content: [
-                'You are the Academy AI Coach for Young Hustlers.',
+                `You are the ${coachMode.title} for Young Hustlers.`,
                 'Your job is to help the user execute their existing roadmap, not replace it.',
                 'Stay grounded in the active roadmap, recent missions, recent check-ins, behavior signals, planner stats, and adaptive planning context.',
+                coachMode.systemGuidance,
+                coachMode.replyStructureInstruction,
                 'Be practical, direct, tactical, and execution-focused.',
                 'Prioritize what the user should do today or this week.',
                 'If the user is stuck, simplify the next action without becoming vague.',
@@ -3084,17 +3875,25 @@ function buildAcademyCoachMessages(payload = {}) {
                 'If a major strategic change is needed, say so and recommend a roadmap refresh instead of silently rewriting the full roadmap in chat.',
                 'Do not output generic hype or filler.',
                 'Do not contradict the existing roadmap unless there is a clear reason.',
-                'Keep answers concise but useful.'
+                'Keep answers concise but useful.',
+                'Keep any labeled structure short, readable, and directly tied to the current roadmap or mission context.'
             ].join(' ')
         },
         {
             role: 'user',
-            content: JSON.stringify(compactPayload)
+            content: JSON.stringify({
+                ...compactPayload,
+                coachMode: {
+                    key: coachMode.key,
+                    title: coachMode.title
+                }
+            })
         }
     ];
 }
 
 function buildLocalAcademyCoachFallback(payload = {}, error = null) {
+    const coachMode = getAcademyCoachModeMeta(payload);
     const missions = Array.isArray(payload.missions) ? payload.missions : [];
     const nextMission =
         missions.find((item) => sanitize(item?.status).toLowerCase() !== 'completed') ||
@@ -3120,43 +3919,111 @@ function buildLocalAcademyCoachFallback(payload = {}, error = null) {
         180
     );
 
-    const replyParts = [
-        'I’m using the local Academy Coach fallback right now, so here is the clearest next move based on your saved roadmap.'
-    ];
+    const nextMissionTitle = trimCoachText(nextMission?.title, 140);
+    const nextMissionDescription = trimCoachText(nextMission?.description, 200);
+    const nextMissionMinutes = toInt(nextMission?.estimatedMinutes, 0);
 
-    if (roadmapDirection) {
-        replyParts.push(`Main direction: ${roadmapDirection}.`);
-    }
+    const replyLines = [coachMode.fallbackPrefix];
 
-    if (energyScore > 0 && energyScore <= 4) {
-        replyParts.push('Your energy looks low, so keep the next action light and finish something that takes about 15 to 20 minutes.');
+    if (coachMode.key === 'politics') {
+        if (roadmapDirection) {
+            replyLines.push(`Main direction: ${roadmapDirection}.`);
+        }
+
+        replyLines.push(
+            `Actors: ${nextMissionTitle || 'Identify the main actors tied to the current political issue or mission.'}`
+        );
+
+        replyLines.push(
+            energyScore > 0 && energyScore <= 4
+                ? 'Incentives: Keep it light today. Focus on one short issue map, source comparison, or actor breakdown only.'
+                : 'Incentives: Look for what each actor, bloc, institution, or source stands to gain, protect, or avoid.'
+        );
+
+        replyLines.push(
+            `Narrative: ${nextMissionDescription || 'Compare the competing frames around the issue and note what each side emphasizes or hides.'}`
+        );
+
+        let nextMoveLine = 'Next move: Finish one short political output today.';
+        if (nextMissionTitle) {
+            nextMoveLine = `Next move: ${nextMissionTitle}.`;
+            if (nextMissionMinutes > 0) {
+                nextMoveLine += ` Aim to finish it in about ${nextMissionMinutes} minutes.`;
+            }
+        }
+        replyLines.push(nextMoveLine);
+
+        if (weeklyTarget) {
+            replyLines.push(`${coachMode.weeklyLinePrefix}: ${weeklyTarget}.`);
+        }
+    } else if (coachMode.key === 'philosophy') {
+        if (roadmapDirection) {
+            replyLines.push(`Main direction: ${roadmapDirection}.`);
+        }
+
+        replyLines.push(
+            `Claim: ${nextMissionTitle || 'State the core idea, question, or position you are trying to examine.'}`
+        );
+
+        replyLines.push(
+            energyScore > 0 && energyScore <= 4
+                ? 'Assumption: Keep it light today. Pick one assumption only and test it in a very short note.'
+                : 'Assumption: Ask what belief, definition, or hidden premise the claim depends on.'
+        );
+
+        replyLines.push(
+            `Objection: ${nextMissionDescription || 'Name one reasonable challenge, weakness, counterexample, or alternative view.'}`
+        );
+
+        replyLines.push(
+            weeklyTarget
+                ? `Reflection: Relate the idea back to this perspective outcome — ${weeklyTarget}.`
+                : 'Reflection: Write what this changes in the way you think, judge, or act.'
+        );
+
+        let nextMoveLine = 'Next move: Finish one short philosophy output today.';
+        if (nextMissionTitle) {
+            nextMoveLine = `Next move: ${nextMissionTitle}.`;
+            if (nextMissionMinutes > 0) {
+                nextMoveLine += ` Aim to finish it in about ${nextMissionMinutes} minutes.`;
+            }
+        }
+        replyLines.push(nextMoveLine);
     } else {
-        replyParts.push('Pick one concrete task you can fully finish today instead of trying to push the whole roadmap at once.');
-    }
-
-    if (nextMission?.title) {
-        let nextStep = `Do this next: ${trimCoachText(nextMission.title, 140)}.`;
-
-        if (nextMission?.description) {
-            nextStep += ` ${trimCoachText(nextMission.description, 200)}`;
+        if (roadmapDirection) {
+            replyLines.push(`Main direction: ${roadmapDirection}.`);
         }
 
-        if (toInt(nextMission?.estimatedMinutes, 0) > 0) {
-            nextStep += ` Aim to finish it in about ${toInt(nextMission.estimatedMinutes, 0)} minutes.`;
+        replyLines.push(
+            energyScore > 0 && energyScore <= 4
+                ? coachMode.lowEnergyLine
+                : coachMode.standardLine
+        );
+
+        if (nextMissionTitle) {
+            let nextStep = `Next move: ${nextMissionTitle}.`;
+
+            if (nextMissionDescription) {
+                nextStep += ` ${nextMissionDescription}`;
+            }
+
+            if (nextMissionMinutes > 0) {
+                nextStep += ` Aim to finish it in about ${nextMissionMinutes} minutes.`;
+            }
+
+            replyLines.push(nextStep);
         }
 
-        replyParts.push(nextStep);
-    }
-
-    if (weeklyTarget) {
-        replyParts.push(`Make sure the work moves this weekly outcome forward: ${weeklyTarget}.`);
+        if (weeklyTarget) {
+            replyLines.push(`${coachMode.weeklyLinePrefix}: ${weeklyTarget}.`);
+        }
     }
 
     if (error?.message) {
-        replyParts.push('The live Gemini request did not complete, but your conversation is still saved and the coach can continue from here.');
+        replyLines.push('The live Gemini request did not complete, but your conversation is still saved and the coach can continue from here.');
     }
 
-    return replyParts.join(' ').trim();
+    return replyLines.join('\n').trim();
 }
 
 async function requestGeminiAcademyCoach(payload = {}) {
@@ -3361,11 +4228,16 @@ exports.chatWithAcademyCoach = async (req, res) => {
             };
         }
 
+        const coachMode = getAcademyCoachModeMeta(coachPayload);
+        const replyFormat = detectAcademyCoachReplyFormat(coachPayload, aiResult.reply);
+
         const grounding = {
             usedRoadmap: true,
             usedMissions: Array.isArray(homePayload?.missions) && homePayload.missions.length > 0,
             usedCheckins: Array.isArray(recentCheckins) && recentCheckins.length > 0,
-            usedFallback: aiResult.fallback === true
+            usedFallback: aiResult.fallback === true,
+            coachModeKey: coachMode.key || 'general',
+            replyFormat
         };
 
         await academyFirestoreRepo.createCoachMessage(uid, {
@@ -3375,6 +4247,9 @@ exports.chatWithAcademyCoach = async (req, res) => {
             contextHint,
             provider: aiResult.provider,
             model: aiResult.model,
+            replyFormat,
+            coachModeKey: coachMode.key || 'general',
+            responseStyleVersion: 'coach-format-v1',
             grounding
         });
 
@@ -3384,6 +4259,9 @@ exports.chatWithAcademyCoach = async (req, res) => {
             conversationId,
             provider: aiResult.provider,
             model: aiResult.model,
+            replyFormat,
+            coachModeKey: coachMode.key || 'general',
+            responseStyleVersion: 'coach-format-v1',
             grounding,
             fallback: aiResult.fallback === true
         });

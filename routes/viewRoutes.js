@@ -48,6 +48,11 @@ router.get('/dashboard', requireUserSession, (req, res) => {
     res.sendFile(path.join(__dirname, '../public/dashboard.html'));
 });
 
+// I-serve ang Academy Page
+router.get('/academy', requireUserSession, (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/academy.html'));
+});
+
 // Hidden internal AI nurture console
 router.get('/internal/ai-nurture/:gate', aiNurtureGate, (req, res) => {
     res.sendFile(path.join(__dirname, '../public/internal/ai-nurture.html'));
