@@ -4319,7 +4319,6 @@ function renderAcademyHome(homeData = null) {
     const chatHeaderTopic = document.getElementById('chat-header-topic');
     const chatWelcomeBox = document.getElementById('chat-welcome-box');
     const chatPinnedMessage = document.getElementById('chat-pinned-message');
-    const chatInputArea = document.getElementById('chat-input-area');
     const dynamicChatContainer = document.getElementById('dynamic-chat-history');
 
     const roadmap = homeData?.roadmap || {};
@@ -5241,7 +5240,6 @@ function showAcademyRoadmapLoadingShell() {
     if (chatHeaderTopic) chatHeaderTopic.innerText = 'Loading your roadmap, missions, and access state.';
     if (chatWelcomeBox) chatWelcomeBox.style.display = 'none';
     if (chatPinnedMessage) chatPinnedMessage.style.display = 'none';
-    if (chatInputArea) chatInputArea.style.display = 'none';
 
     if (dynamicChatContainer) {
         dynamicChatContainer.innerHTML = `
@@ -7207,7 +7205,7 @@ function academySetMessagesChatMode(mode = 'home') {
         ? String(mode || '').trim()
         : 'home';
 
-    const { academyChat, inbox, sidebar } = academyGetMessagesInboxElements();
+    const { academyChat, inbox, sidebar, chatInputArea } = academyGetMessagesInboxElements();
 
     if (academyChat) {
         academyChat.setAttribute('data-chat-mode', normalizedMode);
@@ -7219,6 +7217,13 @@ function academySetMessagesChatMode(mode = 'home') {
 
     if (sidebar) {
         sidebar.classList.toggle('hidden-step', normalizedMode === 'home');
+    }
+
+    if (chatInputArea) {
+        const shouldShowComposer = normalizedMode === 'thread';
+        chatInputArea.classList.toggle('hidden-step', !shouldShowComposer);
+        chatInputArea.style.display = shouldShowComposer ? '' : 'none';
+        chatInputArea.setAttribute('aria-hidden', shouldShowComposer ? 'false' : 'true');
     }
 }
 
@@ -7275,15 +7280,13 @@ function academyReadMessageRooms() {
 }
 
 function academyRenderMessagesThreadEmpty(message = 'Select a conversation to open its private thread.') {
-    const { dynamicChatHistory, chatInputArea, welcomeBox } = academyGetMessagesInboxElements();
+    const { dynamicChatHistory, welcomeBox } = academyGetMessagesInboxElements();
     if (!dynamicChatHistory) return;
+
+    academySetMessagesChatMode('messages');
 
     if (welcomeBox) {
         welcomeBox.style.display = 'none';
-    }
-
-    if (chatInputArea) {
-        chatInputArea.style.display = 'none';
     }
 
     dynamicChatHistory.innerHTML = `
@@ -7352,6 +7355,7 @@ function academyOpenInboxRoomById(roomId = '') {
             : academyBuildGenericInboxRoomElement(roomEntry);
 
     openRoom(roomEntry.type === 'dm' ? 'dm' : 'group', transientRoomElement);
+    academySetMessagesChatMode('thread');
     markCustomRoomAsRead(roomEntry.roomId || roomEntry.id);
     renderAcademyMessagesInboxList();
     focusAcademyChatComposer();
@@ -11478,7 +11482,6 @@ function openAcademyRoadmapAccessGate(snapshot = null) {
     const chatHeaderTopic = document.getElementById('chat-header-topic');
     const chatWelcomeBox = document.getElementById('chat-welcome-box');
     const chatPinnedMessage = document.getElementById('chat-pinned-message');
-    const chatInputArea = document.getElementById('chat-input-area');
     const dynamicChatContainer = document.getElementById('dynamic-chat-history');
 
     if (chatHeaderIcon) chatHeaderIcon.innerHTML = '🧠';
@@ -11486,7 +11489,6 @@ function openAcademyRoadmapAccessGate(snapshot = null) {
     if (chatHeaderTopic) chatHeaderTopic.innerText = 'Complete the roadmap form to let the AI generate your personalized roadmap instantly.';
     if (chatWelcomeBox) chatWelcomeBox.style.display = 'none';
     if (chatPinnedMessage) chatPinnedMessage.style.display = 'none';
-    if (chatInputArea) chatInputArea.style.display = 'none';
 
     const membership = snapshot && typeof snapshot === 'object'
         ? snapshot
