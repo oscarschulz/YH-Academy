@@ -1210,6 +1210,16 @@ function buildAcademyProfileResponse(uid, userData = {}, storedProfile = {}) {
             'Hustler'
         ) || 'Hustler';
 
+    const canonicalFullName =
+        sanitize(
+            userData.fullName ||
+            userData.name ||
+            storedProfile.full_name ||
+            storedProfile.fullName ||
+            storedProfile.name ||
+            displayName
+        ) || displayName;
+
     const username = normalizeAcademyProfileUsername(
         storedProfile.username || userData.username || '',
         displayName
@@ -1217,6 +1227,8 @@ function buildAcademyProfileResponse(uid, userData = {}, storedProfile = {}) {
 
     return {
         id: sanitize(uid),
+        full_name: canonicalFullName,
+        fullName: canonicalFullName,
         display_name: displayName,
         username,
         avatar: sanitizeAcademyProfileAsset(

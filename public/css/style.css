@@ -601,6 +601,20 @@ h3 { font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem; color: var(--ne
 .header-topic { font-size: 0.9rem; color: var(--text-muted); }
 
 .header-right { display: flex; align-items: center; gap: 15px; }
+
+.academy-chat-header-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.academy-chat-header-btn {
+    padding: 7px 12px;
+    border-radius: 10px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+}
+
 .btn-focus-mode { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; cursor: pointer; transition: 0.2s; }
 .btn-focus-mode:hover { background: rgba(255,255,255,0.1); }
 

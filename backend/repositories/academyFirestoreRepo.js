@@ -208,6 +208,9 @@ async function setCurrentProfile(uid, payload) {
     const existingSnapshot = await ref.get();
     const existing = existingSnapshot.exists ? (existingSnapshot.data() || {}) : {};
 
+    const userExistingSnapshot = await userDocRef.get();
+    const userExisting = userExistingSnapshot.exists ? (userExistingSnapshot.data() || {}) : {};
+
     const normalized = mapStoredProfileData(payload || {});
     const nextProfile = {
         ...existing,
@@ -235,11 +238,18 @@ async function setCurrentProfile(uid, payload) {
 
     await ref.set(nextProfile, { merge: true });
 
+    const preservedFullName =
+        sanitizeString(
+            userExisting.fullName ||
+            userExisting.name ||
+            nextProfile.display_name
+        ) || nextProfile.display_name;
+
     await userDocRef.set(
         {
             displayName: nextProfile.display_name,
-            fullName: nextProfile.display_name,
-            name: nextProfile.display_name,
+            fullName: preservedFullName,
+            name: preservedFullName,
             username: nextProfile.username,
             avatar: nextProfile.avatar,
             profilePhoto: nextProfile.avatar,

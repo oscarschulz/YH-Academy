@@ -67,7 +67,7 @@ function getAcademySectionFromUrl() {
         const url = new URL(window.location.href);
         const section = String(url.searchParams.get('section') || '').trim().toLowerCase();
 
-        if (['home', 'community', 'voice', 'video', 'profile'].includes(section)) {
+    if (['home', 'community', 'messages', 'voice', 'video', 'profile'].includes(section)) {
             return section;
         }
 
@@ -803,6 +803,15 @@ document.getElementById('nav-chat')?.addEventListener('click', function(event) {
     openAcademyFeedView();
 });
 
+document.getElementById('nav-messages')?.addEventListener('click', function(event) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    event?.stopImmediatePropagation?.();
+
+    setAcademySidebarActive('nav-messages');
+    openAcademyMessagesView();
+});
+
 document.getElementById('nav-voice')?.addEventListener('click', function(event) {
     event?.preventDefault?.();
     event?.stopPropagation?.();
@@ -878,6 +887,9 @@ document.querySelectorAll('.academy-mobile-nav-item').forEach((button) => {
             openAcademyFeedView();
         } else if (targetId === 'nav-missions') {
             await handleAcademyRoadmapTabIntent();
+        } else if (targetId === 'nav-messages') {
+            setAcademySidebarActive('nav-messages');
+            openAcademyMessagesView();
         } else if (targetId === 'nav-voice') {
             setAcademySidebarActive('nav-voice');
             openRoom('voice-lobby', document.getElementById('nav-voice'));
@@ -919,7 +931,14 @@ document.querySelector('.profile-mini')?.addEventListener('click', () => {
     // ==========================================
     // ⚡ REAL-TIME CHAT LOGIC (SOCKET.IO)
     // ==========================================
-    socket.on('chatHistory', (history) => {
+socket.on('chatHistory', (history) => {
+    const activeRoomType = String(currentRoomMeta?.type || '').trim();
+
+    if (/^live-/.test(activeRoomType)) {
+        renderStageChatHistory(history);
+        return;
+    }
+
     const container = document.getElementById('dynamic-chat-history');
     const chatScrollArea = document.getElementById('chat-messages');
     if(!container) return;
@@ -949,9 +968,15 @@ document.querySelector('.profile-mini')?.addEventListener('click', () => {
     }
 
     if (isActiveRoomMessage) {
-        appendMessageToUI(msg);
-        const chatScrollArea = document.getElementById('chat-messages');
-        setTimeout(() => { if(chatScrollArea) chatScrollArea.scrollTop = chatScrollArea.scrollHeight; }, 100);
+        const activeRoomType = String(currentRoomMeta?.type || '').trim();
+
+        if (/^live-/.test(activeRoomType)) {
+            appendStageChatMessage(msg);
+        } else {
+            appendMessageToUI(msg);
+            const chatScrollArea = document.getElementById('chat-messages');
+            setTimeout(() => { if(chatScrollArea) chatScrollArea.scrollTop = chatScrollArea.scrollHeight; }, 100);
+        }
     } else {
         const participants = Array.isArray(msg?.participants)
             ? msg.participants.map(p => String(p))
@@ -1887,22 +1912,80 @@ const btnLeaveStage = document.getElementById('btn-leave-stage');
         });
     }
 
-    const stageChatInput = document.getElementById('stage-chat-input');
-    const stageChatHistory = document.getElementById('stage-chat-history');
-    const stageChatSendBtn = document.getElementById('stage-chat-send-btn');
+const stageChatInput = document.getElementById('stage-chat-input');
+const stageChatHistory = document.getElementById('stage-chat-history');
+const stageChatSendBtn = document.getElementById('stage-chat-send-btn');
 
-    function sendStageChat() {
-        if(stageChatInput.value.trim() !== '') {
-            const msg = stageChatInput.value.trim();
-            const myName = getStoredUserValue('yh_user_name', "Hustler");
-            const msgHTML = `<div class="stage-chat-msg fade-in"><strong>${myName}:</strong> ${msg}</div>`;
-            stageChatHistory.insertAdjacentHTML('beforeend', msgHTML);
-            stageChatInput.value = '';
-            stageChatHistory.scrollTop = stageChatHistory.scrollHeight;
-        }
+function renderStageChatHistory(messages = []) {
+    if (!stageChatHistory) return;
+
+    if (!Array.isArray(messages) || !messages.length) {
+        stageChatHistory.innerHTML = `<div class="stage-chat-welcome">Welcome to the live stage chat!</div>`;
+        return;
     }
-    if(stageChatInput && stageChatHistory) { stageChatInput.addEventListener('keydown', (e) => { if(e.key === 'Enter') sendStageChat(); }); }
-    if(stageChatSendBtn) { stageChatSendBtn.addEventListener('click', sendStageChat); }
+
+    stageChatHistory.innerHTML = messages.map((msg) => {
+        const author = academyFeedEscapeHtml(msg?.author || 'Hustler');
+        const text = academyFeedEscapeHtml(msg?.text || '');
+        return `<div class="stage-chat-msg fade-in"><strong>${author}:</strong> ${text}</div>`;
+    }).join('');
+
+    stageChatHistory.scrollTop = stageChatHistory.scrollHeight;
+}
+
+function appendStageChatMessage(msg = {}) {
+    if (!stageChatHistory) return;
+
+    const author = academyFeedEscapeHtml(msg?.author || 'Hustler');
+    const text = academyFeedEscapeHtml(msg?.text || '');
+
+    const welcome = stageChatHistory.querySelector('.stage-chat-welcome');
+    if (welcome) {
+        welcome.remove();
+    }
+
+    stageChatHistory.insertAdjacentHTML(
+        'beforeend',
+        `<div class="stage-chat-msg fade-in"><strong>${author}:</strong> ${text}</div>`
+    );
+
+    stageChatHistory.scrollTop = stageChatHistory.scrollHeight;
+}
+
+function sendStageChat() {
+    const activeRoomId = getActiveRoomId();
+    const activeRoomType = String(currentRoomMeta?.type || '').trim();
+
+    if (!stageChatInput || !activeRoomId || !/^live-/.test(activeRoomType)) return;
+    if (stageChatInput.value.trim() === '') return;
+
+    const outboundMessage = {
+        roomId: activeRoomId,
+        room: activeRoomId,
+        roomName: getActiveRoomLabel(),
+        author: getStoredUserValue('yh_user_name', "Hustler"),
+        initial: String(getStoredUserValue('yh_user_name', "Hustler") || 'H').charAt(0).toUpperCase(),
+        avatar: "",
+        text: stageChatInput.value.trim(),
+        time: new Date().toISOString()
+    };
+
+    socket.emit('sendMessage', outboundMessage);
+    stageChatInput.value = '';
+}
+
+if (stageChatInput && stageChatHistory) {
+    stageChatInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendStageChat();
+        }
+    });
+}
+
+if (stageChatSendBtn) {
+    stageChatSendBtn.addEventListener('click', sendStageChat);
+}
 
     const btnInviteStage = document.getElementById('btn-invite-to-stage');
     if (btnInviteStage) {
@@ -4660,7 +4743,7 @@ function showAcademyRoadmapLoadingShell() {
 }
 
 function openAcademyFeedView(forceReload = false) {
-    showAcademyTabLoader('Loading Community Feed...');
+    showAcademyTabLoader('Loading Community Feed.');
     closeRoadmapIntake();
     academyResetCoachMode();
     hideAcademyViewsForFeed();
@@ -4689,7 +4772,75 @@ function openAcademyFeedView(forceReload = false) {
             hideAcademyTabLoader();
         });
 }
+function openAcademyMessagesView() {
+    showAcademyTabLoader('Loading Messages.');
+    closeRoadmapIntake();
+    academyResetCoachMode();
+    hideAcademyViewsForFeed();
+    setAcademySidebarActive('nav-messages');
+    saveAcademyViewState('messages');
+    applyAcademyMessengerMode(true);
 
+    const academyChat = document.getElementById('academy-chat');
+    const chatHeaderIcon = document.getElementById('chat-header-icon');
+    const chatHeaderTitle = document.getElementById('chat-header-title');
+    const chatHeaderTopic = document.getElementById('chat-header-topic');
+    const chatWelcomeBox = document.getElementById('chat-welcome-box');
+    const chatPinnedMessage = document.getElementById('chat-pinned-message');
+    const chatInputArea = document.getElementById('chat-input-area');
+    const dynamicChatContainer = document.getElementById('dynamic-chat-history');
+
+    if (academyChat) {
+        academyChat.classList.remove('hidden-step');
+        academyChat.classList.remove('fade-in');
+        void academyChat.offsetWidth;
+        academyChat.classList.add('fade-in');
+    }
+
+    if (chatHeaderIcon) chatHeaderIcon.innerHTML = '💬';
+    if (chatHeaderTitle) chatHeaderTitle.innerText = 'Messages';
+    if (chatHeaderTopic) chatHeaderTopic.innerText = 'Open direct messages, create private groups, and continue saved Academy conversations.';
+    if (chatWelcomeBox) chatWelcomeBox.style.display = 'none';
+    if (chatPinnedMessage) chatPinnedMessage.style.display = 'none';
+    if (chatInputArea) chatInputArea.style.display = 'none';
+
+    const state = getDashboardState();
+    const rooms = Array.isArray(state?.customRooms) ? state.customRooms : [];
+    const hasRooms = rooms.length > 0;
+
+    if (dynamicChatContainer) {
+        dynamicChatContainer.innerHTML = `
+            <div class="academy-home-stack">
+                <section class="academy-home-panel">
+                    <div class="academy-home-panel-label">Private Messaging</div>
+                    <div class="academy-home-panel-copy">
+                        Start a direct message with another Academy member or create a private group chat.
+                        ${hasRooms ? 'Your existing rooms are already saved and can be opened again.' : 'No private rooms yet.'}
+                    </div>
+
+                    <div class="academy-home-actions" style="margin-top:14px;">
+                        <button type="button" class="btn-primary academy-home-action-btn" id="academy-messages-open-dm-inline">💬 Start DM</button>
+                        <button type="button" class="btn-secondary academy-home-action-btn" id="academy-messages-open-group-inline">👥 Create Group</button>
+                    </div>
+                </section>
+            </div>
+        `;
+
+        document.getElementById('academy-messages-open-dm-inline')?.addEventListener('click', () => {
+            document.getElementById('btn-open-dm-modal')?.click();
+        });
+
+        document.getElementById('academy-messages-open-group-inline')?.addEventListener('click', () => {
+            document.getElementById('btn-open-group-modal')?.click();
+        });
+    }
+
+    currentRoom = null;
+    currentRoomId = null;
+    currentRoomMeta = null;
+
+    hideAcademyTabLoader();
+}
 function openAcademyRoadmapView(forceFresh = false) {
     showAcademyTabLoader('Loading Roadmap...');
     academyResetCoachMode();
@@ -4774,6 +4925,13 @@ function persistAcademyProfileCache(profile = null) {
 
     const normalized = {
         id: String(profile.id || '').trim(),
+        full_name: String(
+            profile.full_name ||
+            profile.fullName ||
+            profile.display_name ||
+            profile.displayName ||
+            ''
+        ).trim(),
         display_name: String(profile.display_name || profile.displayName || '').trim(),
         username: String(profile.username || '').trim().replace(/^@/, ''),
         avatar: String(profile.avatar || '').trim(),
@@ -5728,6 +5886,9 @@ function buildAcademySelfProfilePayload(profileSource = null) {
             String(cachedProfile.id || '').trim() ||
             String(getStoredUserValue('yh_user_id', '')).trim() ||
             String(getStoredUserValue('yh_user_uid', '')).trim(),
+        full_name:
+            String(cachedProfile.full_name || cachedProfile.fullName || '').trim() ||
+            displayName,
         display_name: displayName,
         username: usernameRaw,
         avatar: savedAvatar,
@@ -5750,10 +5911,12 @@ function buildAcademySelfProfilePayload(profileSource = null) {
 }
 
 function normalizeAcademyProfilePayload(profile = {}, options = {}) {
-    const displayName =
+    const fullName =
         String(
-            profile?.display_name ||
+            profile?.full_name ||
             profile?.fullName ||
+            profile?.display_name ||
+            profile?.displayName ||
             profile?.username ||
             'Academy Member'
         ).trim() || 'Academy Member';
@@ -5774,7 +5937,8 @@ function normalizeAcademyProfilePayload(profile = {}, options = {}) {
     return {
         mode: String(options?.mode || profile?.mode || 'self').trim().toLowerCase() === 'visited' ? 'visited' : 'self',
         id: String(profile?.id || profile?.user_id || '').trim(),
-        displayName,
+        fullName,
+        displayName: fullName,
         usernameRaw,
         username: usernameRaw ? `@${usernameRaw}` : '@academy-member',
         avatar: String(profile?.avatar || '').trim(),
@@ -7363,6 +7527,22 @@ function renderAcademyStageFromRoom(room = {}, options = {}) {
     if (stageTopic) stageTopic.innerText = roomTopic;
     if (stageIcon) stageIcon.innerText = roomType === 'video' ? '📹' : '🎙️';
 
+    const normalizedLiveRoomId = normalizeAcademyLiveRoomId(room?.id || room?.roomId || room?.room_id);
+
+    currentRoom = roomTitle;
+    currentRoomId = normalizedLiveRoomId || roomTitle;
+    currentRoomMeta = {
+        type: roomType === 'video' ? 'live-video' : 'live-voice',
+        name: roomTitle,
+        roomId: normalizedLiveRoomId || roomTitle,
+        topic: roomTopic,
+        hostName
+    };
+
+    if (stageChatInput) {
+        stageChatInput.placeholder = `Message everyone in ${roomTitle}.`;
+    }
+
     academyActiveLiveRoom = room;
     syncAcademyStageActionButtons(room);
 }
@@ -7396,7 +7576,7 @@ async function openAcademyStageFromRoom(room = {}) {
 
         academyActiveLiveRoom = joinedRoom;
         renderAcademyStageFromRoom(joinedRoom, { animate: false });
-
+        socket.emit('joinRoom', currentRoomId);
         if (joinedType === 'video') {
             await loadAcademyVideoRooms(true);
         } else {
@@ -8593,6 +8773,13 @@ function restoreDashboardViewState() {
         return;
     }
 
+    if (targetSection === 'messages') {
+        window.requestAnimationFrame(() => {
+            openAcademyMessagesView();
+        });
+        return;
+    }
+
     if (targetSection === 'voice') {
         window.requestAnimationFrame(() => {
             setAcademySidebarActive('nav-voice');
@@ -8670,6 +8857,11 @@ function enterAcademyWorld(defaultSection = 'home') {
 
         if (defaultSection === 'community') {
             openAcademyFeedView();
+            return;
+        }
+
+        if (defaultSection === 'messages') {
+            openAcademyMessagesView();
             return;
         }
 

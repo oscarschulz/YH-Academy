@@ -223,6 +223,7 @@
         <span class="academy-tab-state-badge academy-tab-state-badge-mobile" id="roadmap-tab-state-badge-mobile">Apply for Access</span>
     </button>
     <button type="button" class="academy-mobile-nav-item" data-academy-target="nav-chat">📰 Community Feed</button>
+    <button type="button" class="academy-mobile-nav-item" data-academy-target="nav-messages">💬 Messages</button>
     <button type="button" class="academy-mobile-nav-item" data-academy-target="nav-voice">🎙️ Live Voice Lounge</button>
     <button type="button" class="academy-mobile-nav-item" data-academy-target="nav-profile">👤 My Profile</button>
 
@@ -248,6 +249,11 @@
     <li class="channel-link" id="nav-chat" title="community" data-type="main-chat">
         <div class="sidebar-icon"><span class="channel-icon">📰</span></div>
         <span class="sidebar-text">Community Feed</span>
+    </li>
+
+    <li class="channel-link" id="nav-messages" title="messages" data-type="messages">
+        <div class="sidebar-icon"><span class="channel-icon">💬</span></div>
+        <span class="sidebar-text">Messages</span>
     </li>
 
     <li class="channel-link" id="nav-voice" title="voice-lounge" data-type="voice-lobby">
@@ -365,9 +371,11 @@
 
 <div class="academy-chat-header-spacer" aria-hidden="true"></div>
                                     </div>
-                                    <div class="header-right">
-                                        <button class="btn-focus-mode" title="Focus Mode">👁️ Focus Mode</button>
-                                    </div>
+            <div class="header-right academy-chat-header-actions">
+                <button type="button" class="btn-secondary academy-chat-header-btn" id="btn-open-dm-modal" title="Start Direct Message">💬 Start DM</button>
+                <button type="button" class="btn-secondary academy-chat-header-btn" id="btn-open-group-modal" title="Create Group Chat">👥 Create Group</button>
+                <button class="btn-focus-mode" title="Focus Mode">👁️ Focus Mode</button>
+            </div>
                                 </header>
 
                 <div class="pinned-message" id="chat-pinned-message" style="display:none;">
