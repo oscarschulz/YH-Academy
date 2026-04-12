@@ -570,6 +570,7 @@ function openRoom(type, element) {
     const views = {
         'academy-feed-view': document.getElementById('academy-feed-view'),
         'academy-chat': document.getElementById('academy-chat'),
+        'academy-profile-view': document.getElementById('academy-profile-view'),
         'center-stage-view': document.getElementById('center-stage-view'),
         'announcements-view': document.getElementById('announcements-view'),
         'voice-lobby-view': document.getElementById('voice-lobby-view'),
@@ -586,6 +587,10 @@ function openRoom(type, element) {
     }
 
     Object.values(views).forEach(view => { if (view) view.classList.add('hidden-step'); });
+
+    closeAcademyProfileEditorModal?.();
+    closeAcademySearchResultsPanel?.();
+    document.getElementById('academy-member-browser-modal')?.classList.add('hidden-step');
 
     if (type === 'voice-lobby' && views['voice-lobby-view']) {
         views['voice-lobby-view'].classList.remove('hidden-step');
