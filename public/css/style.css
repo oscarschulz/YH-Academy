@@ -9743,8 +9743,27 @@ body > #academy-search-results-panel:not(.hidden-step),
     line-height: 1.58;
 }
 
+#academy-profile-view .academy-profile-header-right {
+    margin-left: auto;
+    justify-content: flex-end;
+}
+
+#academy-profile-view .academy-profile-header-edit-btn {
+    width: auto;
+    min-width: 158px;
+    white-space: nowrap;
+}
+
+#academy-profile-view[data-profile-layout="visited"] .academy-profile-header-edit-btn,
 #academy-profile-view[data-profile-layout="visited"] .academy-profile-settings-card {
     display: none;
+}
+
+@media (max-width: 768px) {
+    #academy-profile-view .academy-profile-header-edit-btn {
+        width: 100%;
+        min-width: 0;
+    }
 }
 
 .academy-profile-editor-overlay {

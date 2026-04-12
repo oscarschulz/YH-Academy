@@ -452,6 +452,14 @@
             <div class="header-divider"></div>
             <p class="header-topic" id="academy-profile-header-topic">Profile integrations, identity view, and visitable Academy member profiles.</p>
         </div>
+
+        <div class="header-right academy-profile-header-right">
+            <button
+                type="button"
+                class="btn-primary academy-profile-header-edit-btn"
+                id="academy-profile-open-editor-btn"
+            >Edit Profile</button>
+        </div>
     </header>
 
     <div class="chat-messages hide-scrollbar" style="padding: 16px;">
@@ -677,16 +685,8 @@
                                 <div class="academy-profile-settings-avatar-mini" id="academy-profile-settings-avatar-mini">Y</div>
                             </div>
 
-                            <div class="academy-profile-settings-actions">
-                                <button
-                                    type="button"
-                                    class="btn-primary academy-profile-settings-btn"
-                                    id="academy-profile-open-editor-btn"
-                                >Edit Profile</button>
-                            </div>
-
                             <div class="academy-profile-settings-note">
-                                Changes here are UI/local-profile updates first. Server-backed persistence will be wired in the next pass.
+                                Profile text changes sync to your Academy profile and persist. Avatar and cover upload persistence still need final server upload wiring.
                             </div>
                         </section>
                     </aside>
