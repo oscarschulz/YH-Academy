@@ -386,19 +386,45 @@
                     <div class="pinned-jump">View</div>
                 </div>
 
-                <div class="chat-messages hide-scrollbar" id="chat-messages" style="padding: 16px;">
-                    <div class="welcome-embed fade-in" id="chat-welcome-box" style="display:none;">
-                        <h2 class="welcome-title">Academy Home</h2>
-                        <p class="welcome-desc">Your roadmap, mission execution, check-ins, and AI guidance live here.</p>
-                        <div class="guidelines-box-approved" style="margin-top: 1rem;">
-                            <strong>What to do here</strong><br>
-                            Review your current bottlenecks.<br>
-                            Complete missions and log daily check-ins.<br>
-                            Refresh your roadmap when your situation changes.
+                    <div class="chat-messages hide-scrollbar academy-chat-surface" id="chat-messages" style="padding: 16px;">
+                        <div class="academy-messages-inbox" id="academy-messages-inbox" data-mode="home">
+                            <aside class="academy-messages-inbox-sidebar hidden-step" id="academy-messages-inbox-sidebar">
+                                <div class="academy-messages-inbox-head">
+                                    <div class="academy-messages-inbox-head-copy">
+                                        <div class="academy-messages-inbox-kicker">Inbox</div>
+                                        <h4 class="academy-messages-inbox-title">Conversations</h4>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        class="academy-messages-inbox-refresh"
+                                        id="academy-messages-inbox-refresh"
+                                        aria-label="Refresh inbox"
+                                        title="Refresh inbox"
+                                    >↻</button>
+                                </div>
+
+                                <div class="academy-messages-inbox-list" id="academy-messages-inbox-list">
+                                    <div class="academy-messages-inbox-empty">No conversations yet.</div>
+                                </div>
+                            </aside>
+
+                            <section class="academy-messages-thread-shell" id="academy-messages-thread-shell">
+                                <div class="welcome-embed fade-in" id="chat-welcome-box" style="display:none;">
+                                    <h2 class="welcome-title">Academy Home</h2>
+                                    <p class="welcome-desc">Your roadmap, mission execution, check-ins, and AI guidance live here.</p>
+                                    <div class="guidelines-box-approved" style="margin-top: 1rem;">
+                                        <strong>What to do here</strong><br>
+                                        Review your current bottlenecks.<br>
+                                        Complete missions and log daily check-ins.<br>
+                                        Refresh your roadmap when your situation changes.
+                                    </div>
+                                </div>
+
+                                <div id="dynamic-chat-history"></div>
+                            </section>
                         </div>
                     </div>
-                    <div id="dynamic-chat-history"></div>
-                </div>
 
                 <div class="chat-input-area" id="chat-input-area" style="display:none;">
                     <div class="chat-input-wrapper">

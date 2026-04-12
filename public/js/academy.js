@@ -116,13 +116,19 @@ function isMessageForActiveRoom(msg) {
 }
 
 function syncCustomRoomsUI(rooms = []) {
-    return sharedSyncCustomRoomsUI(rooms, {
+    const result = sharedSyncCustomRoomsUI(rooms, {
         normalizeCustomRoomForRender: typeof normalizeCustomRoomForRender === 'function' ? normalizeCustomRoomForRender : null,
         renderCustomRooms: typeof renderCustomRooms === 'function' ? renderCustomRooms : null,
         renderChatboxRooms: typeof renderChatboxRooms === 'function' ? renderChatboxRooms : null,
         syncCustomRoomNotifications: typeof syncCustomRoomNotifications === 'function' ? syncCustomRoomNotifications : null,
         updateCustomRoomUnreadBadges: typeof updateCustomRoomUnreadBadges === 'function' ? updateCustomRoomUnreadBadges : null
     });
+
+    if (typeof renderAcademyMessagesInboxList === 'function') {
+        renderAcademyMessagesInboxList();
+    }
+
+    return result;
 }
 
 function setActiveCustomRoomState(room = null) {
@@ -133,17 +139,23 @@ function setActiveCustomRoomState(room = null) {
 }
 
 function markCustomRoomAsRead(roomId) {
-    return sharedMarkCustomRoomAsRead(roomId, {
+    const result = sharedMarkCustomRoomAsRead(roomId, {
         normalizeCustomRoomForRender: typeof normalizeCustomRoomForRender === 'function' ? normalizeCustomRoomForRender : null,
         renderCustomRooms: typeof renderCustomRooms === 'function' ? renderCustomRooms : null,
         renderChatboxRooms: typeof renderChatboxRooms === 'function' ? renderChatboxRooms : null,
         syncCustomRoomNotifications: typeof syncCustomRoomNotifications === 'function' ? syncCustomRoomNotifications : null,
         updateCustomRoomUnreadBadges: typeof updateCustomRoomUnreadBadges === 'function' ? updateCustomRoomUnreadBadges : null
     });
+
+    if (typeof renderAcademyMessagesInboxList === 'function') {
+        renderAcademyMessagesInboxList();
+    }
+
+    return result;
 }
 
 function touchCustomRoomFromMessage(msg, options = {}) {
-    return sharedTouchCustomRoomFromMessage(msg, options, {
+    const result = sharedTouchCustomRoomFromMessage(msg, options, {
         currentRoomMeta,
         getIncomingRoomId,
         moveCustomRoomToTop,
@@ -153,6 +165,12 @@ function touchCustomRoomFromMessage(msg, options = {}) {
         syncCustomRoomNotifications: typeof syncCustomRoomNotifications === 'function' ? syncCustomRoomNotifications : null,
         updateCustomRoomUnreadBadges: typeof updateCustomRoomUnreadBadges === 'function' ? updateCustomRoomUnreadBadges : null
     });
+
+    if (typeof renderAcademyMessagesInboxList === 'function') {
+        renderAcademyMessagesInboxList();
+    }
+
+    return result;
 }
 
 // shared generic helpers now come from /js/yh-shared-core.js
@@ -2873,6 +2891,8 @@ async function ensureVaultLoaded(force = false) {
 
                 const transientRoomElement = academyCreateDirectMessageRoomElement(roomEntry);
                 openRoom('dm', transientRoomElement);
+                academySetMessagesChatMode('thread');
+                academyRefreshMessagesInboxSelection();
                 markCustomRoomAsRead(roomEntry.roomId || roomEntry.id);
                 pulseAcademyRoomEntry(roomEntry.roomId || roomEntry.id);
                 focusAcademyChatComposer();
@@ -2959,6 +2979,8 @@ async function ensureVaultLoaded(force = false) {
 
                 const transientRoomElement = academyCreatePrivateGroupRoomElement(roomEntry);
                 openRoom('group', transientRoomElement);
+                academySetMessagesChatMode('thread');
+                academyRefreshMessagesInboxSelection();
                 markCustomRoomAsRead(roomEntry.roomId || roomEntry.id);
                 pulseAcademyRoomEntry(roomEntry.roomId || roomEntry.id);
                 focusAcademyChatComposer();
@@ -5227,7 +5249,7 @@ function openAcademyFeedView(forceReload = false) {
     academyResetCoachMode();
     hideAcademyViewsForFeed();
     setAcademySidebarActive('nav-chat');
-    saveAcademyViewState('community');
+    saveAcademyViewState('messages');
     applyAcademyMessengerMode(false);
 
     const feedView = document.getElementById('academy-feed-view');
@@ -5267,7 +5289,6 @@ function openAcademyMessagesView() {
     const chatWelcomeBox = document.getElementById('chat-welcome-box');
     const chatPinnedMessage = document.getElementById('chat-pinned-message');
     const chatInputArea = document.getElementById('chat-input-area');
-    const dynamicChatContainer = document.getElementById('dynamic-chat-history');
 
     if (academyChat) {
         academyChat.classList.remove('hidden-step');
@@ -5278,45 +5299,24 @@ function openAcademyMessagesView() {
 
     if (chatHeaderIcon) chatHeaderIcon.innerHTML = '💬';
     if (chatHeaderTitle) chatHeaderTitle.innerText = 'Messages';
-    if (chatHeaderTopic) chatHeaderTopic.innerText = 'Open direct messages, create private groups, and continue saved Academy conversations.';
+    if (chatHeaderTopic) chatHeaderTopic.innerText = 'Open direct messages, continue group chats, and keep each conversation in its own inbox thread.';
     if (chatWelcomeBox) chatWelcomeBox.style.display = 'none';
     if (chatPinnedMessage) chatPinnedMessage.style.display = 'none';
     if (chatInputArea) chatInputArea.style.display = 'none';
 
-    const state = getDashboardState();
-    const rooms = Array.isArray(state?.customRooms) ? state.customRooms : [];
-    const hasRooms = rooms.length > 0;
-
-    if (dynamicChatContainer) {
-        dynamicChatContainer.innerHTML = `
-            <div class="academy-home-stack">
-                <section class="academy-home-panel">
-                    <div class="academy-home-panel-label">Private Messaging</div>
-                    <div class="academy-home-panel-copy">
-                        Start a direct message with another Academy member or create a private group chat.
-                        ${hasRooms ? 'Your existing rooms are already saved and can be opened again.' : 'No private rooms yet.'}
-                    </div>
-
-                    <div class="academy-home-actions" style="margin-top:14px;">
-                        <button type="button" class="btn-primary academy-home-action-btn" id="academy-messages-open-dm-inline">💬 Start DM</button>
-                        <button type="button" class="btn-secondary academy-home-action-btn" id="academy-messages-open-group-inline">👥 Create Group</button>
-                    </div>
-                </section>
-            </div>
-        `;
-
-        document.getElementById('academy-messages-open-dm-inline')?.addEventListener('click', () => {
-            document.getElementById('btn-open-dm-modal')?.click();
-        });
-
-        document.getElementById('academy-messages-open-group-inline')?.addEventListener('click', () => {
-            document.getElementById('btn-open-group-modal')?.click();
-        });
-    }
-
     currentRoom = null;
     currentRoomId = null;
     currentRoomMeta = null;
+
+    academySetMessagesChatMode('messages');
+    renderAcademyMessagesInboxList();
+
+    const rooms = academyReadMessageRooms();
+    if (rooms.length) {
+        academyRenderMessagesThreadEmpty('Select a conversation from the inbox to open that private thread.');
+    } else {
+        academyRenderMessagesThreadEmpty('No conversations yet. Start a DM or create a group to see it here.');
+    }
 
     hideAcademyTabLoader();
 }
@@ -7167,6 +7167,268 @@ function focusAcademyChatComposer() {
     });
 }
 
+const academyMessagesInboxState = {
+    activeRoomId: ''
+};
+
+function academyGetMessagesInboxElements() {
+    return {
+        academyChat: document.getElementById('academy-chat'),
+        inbox: document.getElementById('academy-messages-inbox'),
+        sidebar: document.getElementById('academy-messages-inbox-sidebar'),
+        list: document.getElementById('academy-messages-inbox-list'),
+        dynamicChatHistory: document.getElementById('dynamic-chat-history'),
+        chatInputArea: document.getElementById('chat-input-area'),
+        welcomeBox: document.getElementById('chat-welcome-box')
+    };
+}
+
+function academySetMessagesChatMode(mode = 'home') {
+    const normalizedMode = ['home', 'messages', 'thread'].includes(String(mode || '').trim())
+        ? String(mode || '').trim()
+        : 'home';
+
+    const { academyChat, inbox, sidebar } = academyGetMessagesInboxElements();
+
+    if (academyChat) {
+        academyChat.setAttribute('data-chat-mode', normalizedMode);
+    }
+
+    if (inbox) {
+        inbox.setAttribute('data-mode', normalizedMode);
+    }
+
+    if (sidebar) {
+        sidebar.classList.toggle('hidden-step', normalizedMode === 'home');
+    }
+}
+
+function academyFormatInboxTime(value = '') {
+    const rawValue = String(value || '').trim();
+    if (!rawValue) return '';
+
+    const date = new Date(rawValue);
+    if (Number.isNaN(date.getTime())) return '';
+
+    const now = new Date();
+    const sameDay = now.toDateString() === date.toDateString();
+
+    if (sameDay) {
+        return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    }
+
+    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+
+function academyBuildInboxPreview(room = {}) {
+    const author = String(room?.lastMessageAuthor || '').trim();
+    const text = String(room?.lastMessage || '').trim();
+
+    if (!text) {
+        return room?.type === 'group'
+            ? 'Private group chat ready.'
+            : 'Direct message ready.';
+    }
+
+    return author ? `${author}: ${text}` : text;
+}
+
+function academyReadMessageRooms() {
+    const state = getDashboardState();
+    const rooms = Array.isArray(state?.customRooms) ? state.customRooms : [];
+
+    return rooms
+        .filter((room) => {
+            const type = String(room?.type || '').trim().toLowerCase();
+            return type === 'dm' || type === 'group';
+        })
+        .slice()
+        .sort((a, b) => {
+            const aTime = new Date(String(a?.lastMessageAt || '') || 0).getTime();
+            const bTime = new Date(String(b?.lastMessageAt || '') || 0).getTime();
+
+            if (aTime !== bTime) {
+                return bTime - aTime;
+            }
+
+            return String(a?.name || '').localeCompare(String(b?.name || ''));
+        });
+}
+
+function academyRenderMessagesThreadEmpty(message = 'Select a conversation to open its private thread.') {
+    const { dynamicChatHistory, chatInputArea, welcomeBox } = academyGetMessagesInboxElements();
+    if (!dynamicChatHistory) return;
+
+    if (welcomeBox) {
+        welcomeBox.style.display = 'none';
+    }
+
+    if (chatInputArea) {
+        chatInputArea.style.display = 'none';
+    }
+
+    dynamicChatHistory.innerHTML = `
+        <div class="academy-messages-thread-empty">
+            <div>
+                <strong style="display:block;font-size:1rem;color:#f8fafc;margin-bottom:8px;">Messages Inbox</strong>
+                <span>${academyFeedEscapeHtml(message)}</span>
+            </div>
+        </div>
+    `;
+}
+
+function academyBuildGenericInboxRoomElement(roomEntry = {}) {
+    const element = document.createElement('div');
+    const roomId = String(roomEntry.roomId || roomEntry.id || '').trim();
+    const roomType = String(roomEntry.type || 'group').trim().toLowerCase() === 'dm' ? 'dm' : 'group';
+
+    element.className = 'room-entry';
+    element.setAttribute('data-type', roomType);
+    element.setAttribute('data-id', roomId);
+    element.setAttribute('data-room-id', roomId);
+    element.setAttribute('data-name', roomEntry.name || (roomType === 'dm' ? 'Direct Message' : 'Private Group'));
+    element.setAttribute('data-icon', roomEntry.icon || (roomType === 'dm' ? '💬' : '👥'));
+    element.setAttribute('data-color', roomEntry.color || 'var(--neon-blue)');
+
+    if (roomType === 'dm') {
+        element.setAttribute('data-room-recipient', roomEntry.recipientName || roomEntry.name || 'Direct Message');
+        element.setAttribute('data-room-recipient-id', roomEntry.recipientId || '');
+    }
+
+    element.setAttribute(
+        'data-room-participants',
+        JSON.stringify(Array.isArray(roomEntry.participantNames) ? roomEntry.participantNames : [])
+    );
+    element.setAttribute(
+        'data-room-member-names',
+        JSON.stringify(Array.isArray(roomEntry.participantNames) ? roomEntry.participantNames : [])
+    );
+    element.setAttribute(
+        'data-room-member-ids',
+        JSON.stringify(Array.isArray(roomEntry.memberIds) ? roomEntry.memberIds : [])
+    );
+
+    return element;
+}
+
+function academyOpenInboxRoomById(roomId = '') {
+    const normalizedRoomId = normalizeRoomKey(roomId);
+    if (!normalizedRoomId) return;
+
+    const rooms = academyReadMessageRooms();
+    const roomEntry = rooms.find((room) => {
+        return normalizeRoomKey(room?.roomId || room?.id) === normalizedRoomId;
+    });
+
+    if (!roomEntry) return;
+
+    academyMessagesInboxState.activeRoomId = normalizedRoomId;
+    academySetMessagesChatMode('thread');
+    saveAcademyViewState('messages');
+    setAcademySidebarActive('nav-messages');
+
+    const transientRoomElement =
+        roomEntry.type === 'dm' && typeof academyCreateDirectMessageRoomElement === 'function'
+            ? academyCreateDirectMessageRoomElement(roomEntry)
+            : academyBuildGenericInboxRoomElement(roomEntry);
+
+    openRoom(roomEntry.type === 'dm' ? 'dm' : 'group', transientRoomElement);
+    markCustomRoomAsRead(roomEntry.roomId || roomEntry.id);
+    renderAcademyMessagesInboxList();
+    focusAcademyChatComposer();
+}
+
+function academyRefreshMessagesInboxSelection() {
+    const activeRoomId = normalizeRoomKey(getActiveRoomId());
+
+    if (activeRoomId && activeRoomId !== normalizeRoomKey('YH-community')) {
+        academyMessagesInboxState.activeRoomId = activeRoomId;
+    }
+
+    renderAcademyMessagesInboxList();
+}
+
+function renderAcademyMessagesInboxList() {
+    const { list } = academyGetMessagesInboxElements();
+    if (!list) return;
+
+    const runtimeActiveRoomId = normalizeRoomKey(getActiveRoomId());
+    if (runtimeActiveRoomId && runtimeActiveRoomId !== normalizeRoomKey('YH-community')) {
+        academyMessagesInboxState.activeRoomId = runtimeActiveRoomId;
+    }
+
+    const rooms = academyReadMessageRooms();
+    if (!rooms.length) {
+        list.innerHTML = `<div class="academy-messages-inbox-empty">No direct messages or group chats yet.</div>`;
+        return;
+    }
+
+    const activeRoomId = normalizeRoomKey(academyMessagesInboxState.activeRoomId);
+
+    list.innerHTML = rooms.map((room) => {
+        const roomId = String(room?.roomId || room?.id || '').trim();
+        const normalizedRoomId = normalizeRoomKey(roomId);
+        const roomName = String(room?.name || (room?.type === 'group' ? 'Private Group' : 'Direct Message')).trim() || 'Conversation';
+        const preview = academyBuildInboxPreview(room);
+        const unreadCount = Number.parseInt(room?.unreadCount, 10);
+        const unread = Number.isFinite(unreadCount) && unreadCount > 0 ? unreadCount : 0;
+        const isActive = activeRoomId && activeRoomId === normalizedRoomId;
+        const roomTypeLabel = String(room?.type || '').trim().toLowerCase() === 'group' ? 'Group' : 'DM';
+        const timeLabel = academyFormatInboxTime(room?.lastMessageAt || '');
+
+        let avatarHtml = '';
+        const avatarUrl = String(room?.avatarUrl || '').trim();
+
+        if (avatarUrl) {
+            avatarHtml = `<span class="academy-messages-inbox-avatar" style="background-image:url('${academyFeedEscapeHtml(avatarUrl)}');"></span>`;
+        } else {
+            avatarHtml = `<span class="academy-messages-inbox-avatar">${academyFeedEscapeHtml(roomName.charAt(0).toUpperCase())}</span>`;
+        }
+
+        return `
+            <button
+                type="button"
+                class="academy-messages-inbox-item ${isActive ? 'is-active' : ''}"
+                data-inbox-room-id="${academyFeedEscapeHtml(roomId)}"
+            >
+                ${avatarHtml}
+
+                <span class="academy-messages-inbox-copy">
+                    <span class="academy-messages-inbox-topline">
+                        <span class="academy-messages-inbox-name">${academyFeedEscapeHtml(roomName)}</span>
+                        <span class="academy-messages-inbox-time">${academyFeedEscapeHtml(timeLabel)}</span>
+                    </span>
+
+                    <span class="academy-messages-inbox-preview">${academyFeedEscapeHtml(preview)}</span>
+
+                    <span class="academy-messages-inbox-meta">
+                        <span class="academy-messages-inbox-roomtype">${academyFeedEscapeHtml(roomTypeLabel)}</span>
+                        ${unread > 0 ? `<span class="academy-messages-inbox-badge">${academyFeedEscapeHtml(String(unread))}</span>` : ''}
+                    </span>
+                </span>
+            </button>
+        `;
+    }).join('');
+}
+
+function bindAcademyMessagesInbox() {
+    if (window.__yhAcademyMessagesInboxBound) return;
+    window.__yhAcademyMessagesInboxBound = true;
+
+    document.getElementById('academy-messages-inbox-list')?.addEventListener('click', (event) => {
+        const trigger = event.target?.closest?.('[data-inbox-room-id]');
+        if (!trigger) return;
+
+        academyOpenInboxRoomById(trigger.getAttribute('data-inbox-room-id'));
+    });
+
+    document.getElementById('academy-messages-inbox-refresh')?.addEventListener('click', () => {
+        renderAcademyMessagesInboxList();
+    });
+}
+
+bindAcademyMessagesInbox();
+
 async function academyOpenDirectMessageFromProfile(memberId = '') {
     const targetUserId =
         normalizeAcademyFeedId(memberId) ||
@@ -7215,12 +7477,16 @@ async function academyOpenDirectMessageFromProfile(memberId = '') {
         ];
 
         syncCustomRoomsUI(nextRooms);
-        saveAcademyViewState('community');
+        academyMessagesInboxState.activeRoomId = normalizeRoomKey(roomEntry.roomId || roomEntry.id);
+        saveAcademyViewState('messages');
+        setAcademySidebarActive('nav-messages');
 
         const transientRoomElement = academyCreateDirectMessageRoomElement(roomEntry);
         openRoom('dm', transientRoomElement);
+        academySetMessagesChatMode('thread');
         markCustomRoomAsRead(roomEntry.roomId || roomEntry.id);
         pulseAcademyRoomEntry(roomEntry.roomId || roomEntry.id);
+        academyRefreshMessagesInboxSelection();
         focusAcademyChatComposer();
     } finally {
         setAcademyProfileMessageOpeningState(false);
