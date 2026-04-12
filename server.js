@@ -336,8 +336,10 @@ io.on('connection', (socket) => {
 const rateLimit = require('express-rate-limit');
 
 const ACADEMY_FEED_UPLOAD_DIR = path.join(__dirname, 'public', 'uploads', 'academy-feed');
+const ACADEMY_PROFILE_UPLOAD_DIR = path.join(__dirname, 'public', 'uploads', 'academy-profile');
 const ACADEMY_FEED_MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const ACADEMY_FEED_MAX_VIDEO_BYTES = 100 * 1024 * 1024;
+const ACADEMY_PROFILE_MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
 function sanitizeUploadSegment(value = '') {
     return String(value || '')
@@ -411,6 +413,45 @@ async function saveAcademyFeedUploadToLocal({ buffer, mimeType = '', originalNam
     return {
         url: `/uploads/academy-feed/${fileName}`,
         kind: derivedKind,
+        mimeType: cleanMimeType,
+        sizeBytes: buffer.length,
+        originalName: baseOriginalName
+    };
+}
+
+async function saveAcademyProfileUploadToLocal({
+    buffer,
+    mimeType = '',
+    originalName = '',
+    userId = '',
+    assetKind = ''
+}) {
+    const cleanMimeType = sanitizeText(mimeType).toLowerCase().split(';')[0];
+    const safeUserId = sanitizeUploadSegment(userId || 'member');
+    const safeAssetKind = sanitizeUploadSegment(assetKind || 'profile');
+
+    const decodedOriginalName = safeDecodeUploadHeaderValue(originalName || 'upload');
+    const baseOriginalName = path.basename(decodedOriginalName || 'upload');
+    const fileExtFromName = path.extname(baseOriginalName).toLowerCase();
+    const safeBaseName = sanitizeUploadSegment(
+        path.basename(baseOriginalName, fileExtFromName) || safeAssetKind || 'profile'
+    );
+
+    const fileExt =
+        fileExtFromName ||
+        getUploadExtFromMime(cleanMimeType) ||
+        '.jpg';
+
+    const fileName = `${Date.now()}_${safeUserId}_${safeAssetKind}_${crypto.randomBytes(6).toString('hex')}_${safeBaseName}${fileExt}`;
+
+    await fs.promises.mkdir(ACADEMY_PROFILE_UPLOAD_DIR, { recursive: true });
+
+    const filePath = path.join(ACADEMY_PROFILE_UPLOAD_DIR, fileName);
+    await fs.promises.writeFile(filePath, buffer);
+
+    return {
+        url: `/uploads/academy-profile/${fileName}`,
+        kind: 'image',
         mimeType: cleanMimeType,
         sizeBytes: buffer.length,
         originalName: baseOriginalName
@@ -680,6 +721,76 @@ app.post(
             return res.status(500).json({
                 success: false,
                 message: 'Failed to upload media.'
+            });
+        }
+    }
+);
+
+app.post(
+    '/api/academy/profile/uploads',
+    requireApiUser,
+    express.raw({
+        type: ['image/*', 'application/octet-stream'],
+        limit: '12mb'
+    }),
+    async (req, res) => {
+        try {
+            const transportMimeType = sanitizeText(req.headers?.['content-type'])
+                .toLowerCase()
+                .split(';')[0];
+
+            const declaredMimeType = sanitizeText(req.headers?.['x-file-mime'])
+                .toLowerCase()
+                .split(';')[0];
+
+            const mimeType = declaredMimeType || transportMimeType;
+            const originalName = safeDecodeUploadHeaderValue(req.headers?.['x-file-name'] || 'profile.jpg');
+            const assetKind = sanitizeText(req.headers?.['x-asset-kind'] || 'profile').toLowerCase();
+
+            const buffer = Buffer.isBuffer(req.body)
+                ? req.body
+                : typeof req.body === 'string'
+                    ? Buffer.from(req.body)
+                    : Buffer.alloc(0);
+
+            if (!buffer.length) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No image data received.'
+                });
+            }
+
+            if (!mimeType.startsWith('image/')) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Only image uploads are supported for profile assets.'
+                });
+            }
+
+            if (buffer.length > ACADEMY_PROFILE_MAX_IMAGE_BYTES) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Profile image must be 10MB or smaller.'
+                });
+            }
+
+            const media = await saveAcademyProfileUploadToLocal({
+                buffer,
+                mimeType,
+                originalName,
+                userId: req.user.id,
+                assetKind
+            });
+
+            return res.status(201).json({
+                success: true,
+                media
+            });
+        } catch (error) {
+            console.error('academy profile upload error:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to upload profile image.'
             });
         }
     }
