@@ -737,7 +737,7 @@ if (type === 'video' && views['video-lobby-view']) {
     if(chatWelcomeBox) chatWelcomeBox.style.display = "block";
     if(chatPinnedMessage) chatPinnedMessage.style.display = "flex";
     if(chatInputBox) {
-        chatInputBox.placeholder = yhT('dashboard.chatPlaceholderCommunity', { room: 'YH-community' });
+        chatInputBox.placeholder = yhT('type a message...', { room: 'YH-community' });
         chatInputBox.setAttribute('data-active-room-id', 'YH-community');
         chatInputBox.setAttribute('data-active-room-name', 'YH-community');
         chatInputBox.setAttribute('data-active-room-type', 'main-chat');
@@ -814,7 +814,7 @@ else if (type === 'dm' || type === 'group') {
     if(chatWelcomeBox) chatWelcomeBox.style.display = "none";
     if(chatPinnedMessage) chatPinnedMessage.style.display = "none";
     if(chatInputBox) {
-        chatInputBox.placeholder = yhT('dashboard.chatPlaceholderRoom', { room: name });
+        chatInputBox.placeholder = yhT('type a message...', { room: name });
         chatInputBox.setAttribute('data-active-room-id', roomId);
         chatInputBox.setAttribute('data-active-room-name', name);
         chatInputBox.setAttribute('data-active-room-type', type);
