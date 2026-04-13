@@ -2392,7 +2392,25 @@ body[data-yh-view="academy"] .chat-messages {
     display: flex;
     flex-direction: column;
 }
-.academy-messages-thread-shell #dynamic-chat-history {
+#academy-chat[data-chat-mode="home"] .academy-messages-thread-shell #dynamic-chat-history {
+    display: block;
+    overflow: visible;
+    padding: 0;
+}
+
+#academy-chat[data-chat-mode="home"] .academy-home-stack {
+    width: 100%;
+    max-width: 860px;
+    margin: 0 auto;
+}
+
+#academy-chat[data-chat-mode="home"] .academy-home-panel,
+#academy-chat[data-chat-mode="home"] .academy-home-hero {
+    width: 100%;
+}
+
+#academy-chat[data-chat-mode="messages"] .academy-messages-thread-shell #dynamic-chat-history,
+#academy-chat[data-chat-mode="thread"] .academy-messages-thread-shell #dynamic-chat-history {
     flex: 1 1 auto;
     min-height: 0;
     overflow: auto;
@@ -2402,11 +2420,12 @@ body[data-yh-view="academy"] .chat-messages {
     padding: 18px 18px 10px;
 }
 
-.academy-messages-thread-shell .welcome-embed {
+#academy-chat[data-chat-mode="messages"] .academy-messages-thread-shell .welcome-embed,
+#academy-chat[data-chat-mode="thread"] .academy-messages-thread-shell .welcome-embed {
     margin: 18px;
 }
 
-.academy-messages-thread-shell .chat-input-area {
+#academy-chat[data-chat-mode="thread"] .academy-messages-thread-shell .chat-input-area {
     margin-top: auto;
     border-top: 1px solid rgba(255, 255, 255, 0.08);
     background: linear-gradient(
@@ -2417,12 +2436,8 @@ body[data-yh-view="academy"] .chat-messages {
     );
 }
 
-.academy-messages-thread-shell .chat-input-wrapper {
-    width: 100%;
-}
-
-#academy-chat[data-chat-mode="messages"] .academy-messages-thread-shell #chat-input-area,
-#academy-chat[data-chat-mode="home"] .academy-messages-thread-shell #chat-input-area {
+#academy-chat[data-chat-mode="home"] .academy-messages-thread-shell #chat-input-area,
+#academy-chat[data-chat-mode="messages"] .academy-messages-thread-shell #chat-input-area {
     display: none !important;
 }
 .academy-messages-thread-header {
@@ -2583,6 +2598,22 @@ body[data-yh-view="academy"] .chat-messages {
     .academy-messages-thread-empty {
         min-height: 220px;
         padding: 20px 16px;
+    }
+
+    #academy-chat[data-chat-mode="thread"] .academy-messages-inbox-sidebar {
+        display: none !important;
+    }
+
+    #academy-chat[data-chat-mode="thread"] .academy-messages-thread-shell {
+        min-height: calc(100vh - 360px);
+    }
+
+    #academy-chat[data-chat-mode="thread"] .academy-messages-thread-shell #dynamic-chat-history {
+        padding: 14px 12px 8px;
+    }
+
+    #academy-chat[data-chat-mode="thread"] .academy-messages-thread-shell .chat-input-area {
+        padding: 10px 12px !important;
     }
 }
 
