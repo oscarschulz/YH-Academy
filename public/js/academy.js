@@ -1760,19 +1760,6 @@ if ((currentRoom || "").includes("Agent")) {
 }
     }
 
-    const chatInputArea = document.getElementById('chat-input');
-    const chatSendBtn = document.getElementById('chat-send-btn'); 
-    if (chatInputArea) {
-        chatInputArea.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (chatInputArea.value.trim() !== "") sendMessage(); }
-        });
-    }
-    if (chatSendBtn) {
-        chatSendBtn.addEventListener('click', function(e) {
-            e.preventDefault(); if (chatInputArea.value.trim() !== "") sendMessage();
-        });
-    }
-
     // --- LEAVE / END CALL LOGIC ---
 const btnLeaveStage = document.getElementById('btn-leave-stage');
     const btnEndLiveStage = document.getElementById('btn-end-live-stage');
@@ -7227,43 +7214,81 @@ function focusAcademyChatComposer() {
         input.setSelectionRange(value.length, value.length);
     });
 }
-function sendAcademyThreadMessage() {
+function sendAcademyThreadMessage(customText = null) {
     const input = document.getElementById('chat-input');
     const activeRoomId = getActiveRoomId();
+    const activeRoomLabel = getActiveRoomLabel();
     const activeRoomType = String(currentRoomMeta?.type || '').trim().toLowerCase();
 
     if (!input || !activeRoomId) return;
     if (activeRoomType !== 'dm' && activeRoomType !== 'group') return;
 
-    const text = String(input.value || '').trim();
+    const rawText = customText !== null ? String(customText) : String(input.value || '');
+    const text = rawText.trim();
     if (!text) return;
 
     const outboundMessage = {
         roomId: activeRoomId,
         room: activeRoomId,
-        roomName: getActiveRoomLabel(),
+        roomName: activeRoomLabel,
         author: getStoredUserValue('yh_user_name', 'Hustler'),
         initial: String(getStoredUserValue('yh_user_name', 'Hustler') || 'H').charAt(0).toUpperCase(),
         avatar: '',
         text,
-        time: new Date().toISOString()
+        time: new Date().toISOString(),
+        type: activeRoomType,
+        privacy: 'private',
+        recipientName: currentRoomMeta?.recipientName || (activeRoomType === 'dm' ? activeRoomLabel : ''),
+        recipientId: currentRoomMeta?.recipientId || ''
     };
 
     socket.emit('sendMessage', outboundMessage);
+
+    touchCustomRoomFromMessage(outboundMessage, {
+        createIfMissing: true,
+        resetUnread: true
+    });
+
     input.value = '';
 }
 
-const academyThreadChatInput = document.getElementById('chat-input');
-const academyThreadChatSendBtn = document.getElementById('chat-send-btn');
-
-academyThreadChatInput?.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter' && !event.shiftKey) {
-        event.preventDefault();
-        sendAcademyThreadMessage();
+function sendAcademyComposerMessage(customText = null) {
+    if (academyCoachModeActive) {
+        academySendCoachMessage(customText);
+        return;
     }
-});
 
-academyThreadChatSendBtn?.addEventListener('click', sendAcademyThreadMessage);
+    const activeRoomType = String(currentRoomMeta?.type || '').trim().toLowerCase();
+
+    if (activeRoomType === 'dm' || activeRoomType === 'group') {
+        sendAcademyThreadMessage(customText);
+        return;
+    }
+
+    sendMessage(customText);
+}
+
+function bindAcademyMessagesComposer() {
+    if (window.__yhAcademyMessagesComposerBound) return;
+    window.__yhAcademyMessagesComposerBound = true;
+
+    const chatInput = document.getElementById('chat-input');
+    const chatSendBtn = document.getElementById('chat-send-btn');
+
+    chatInput?.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            sendAcademyComposerMessage();
+        }
+    });
+
+    chatSendBtn?.addEventListener('click', (event) => {
+        event.preventDefault();
+        sendAcademyComposerMessage();
+    });
+}
+
+bindAcademyMessagesComposer();
 
 const academyMessagesInboxState = {
     activeRoomId: ''
@@ -7327,6 +7352,8 @@ function academySetMessagesChatMode(mode = 'home') {
     if (academyChat) {
         academyChat.setAttribute('data-chat-mode', normalizedMode);
     }
+
+    document.body?.classList.toggle('academy-messages-thread-open', normalizedMode === 'thread');
 
     if (inbox) {
         inbox.setAttribute('data-mode', normalizedMode);
