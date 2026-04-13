@@ -5442,6 +5442,26 @@ let academyProfileEditorState = {
 
 const ACADEMY_PROFILE_CACHE_KEY = 'yh_academy_profile_cache_v1';
 
+function academyNormalizeProfileAssetUrl(value = '') {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+
+    if (
+        /^https?:\/\//i.test(raw) ||
+        /^data:/i.test(raw) ||
+        /^blob:/i.test(raw) ||
+        raw.startsWith('/')
+    ) {
+        return raw;
+    }
+
+    if (/^[a-z0-9._-]+\.(jpg|jpeg|png|webp|gif)$/i.test(raw)) {
+        return `/uploads/academy/profile/${raw}`;
+    }
+
+    return raw;
+}
+
 function readAcademyProfileCache() {
     try {
         const parsed = JSON.parse(localStorage.getItem(ACADEMY_PROFILE_CACHE_KEY) || 'null');
@@ -5468,8 +5488,8 @@ function persistAcademyProfileCache(profile = null) {
         ).trim(),
         display_name: String(profile.display_name || profile.displayName || '').trim(),
         username: String(profile.username || '').trim().replace(/^@/, ''),
-        avatar: String(profile.avatar || '').trim(),
-        cover_photo: String(profile.cover_photo || profile.coverPhoto || '').trim(),
+        avatar: academyNormalizeProfileAssetUrl(profile.avatar || ''),
+        cover_photo: academyNormalizeProfileAssetUrl(profile.cover_photo || profile.coverPhoto || ''),
         role_label: String(profile.role_label || profile.roleLabel || 'Academy Member').trim(),
         bio: String(profile.bio || '').trim(),
         search_tags: Array.isArray(profile.search_tags)
@@ -5494,18 +5514,17 @@ function syncAcademyProfileLocalMirrors(profile = null) {
             displayName
         );
 
-    const avatar = String(
-        profile.avatar ||
-        profile.profilePhoto ||
-        profile.photoURL ||
-        ''
-    ).trim();
-
-    const coverPhoto = String(
-        profile.cover_photo ||
-        profile.coverPhoto ||
-        ''
-    ).trim();
+    const avatar = academyNormalizeProfileAssetUrl(
+        activeProfile.avatar ||
+        activeProfile.profilePhoto ||
+        activeProfile.photoURL ||
+        getStoredUserValue('yh_user_avatar', '')
+    );
+    const cover = academyNormalizeProfileAssetUrl(
+        activeProfile.cover_photo ||
+        activeProfile.coverPhoto ||
+        getAcademyProfileStoredCover()
+    );
 
     const bio =
         String(profile.bio || '').trim() ||
@@ -6959,15 +6978,17 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
         }
     }
 
-    if (profileSettingsAvatarMini) {
-        if (normalized.avatar) {
-            profileSettingsAvatarMini.innerText = '';
-            profileSettingsAvatarMini.style.backgroundImage = `url(${normalized.avatar})`;
-            profileSettingsAvatarMini.style.backgroundSize = 'cover';
-            profileSettingsAvatarMini.style.backgroundPosition = 'center';
+    if (profileSettingsCoverMini) {
+        const normalizedCoverUrl = academyNormalizeProfileAssetUrl(resolvedCoverPhoto);
+
+        if (normalizedCoverUrl) {
+            profileSettingsCoverMini.style.backgroundImage = `url(${normalizedCoverUrl})`;
+            profileSettingsCoverMini.style.backgroundSize = 'cover';
+            profileSettingsCoverMini.style.backgroundPosition = 'center';
         } else {
-            profileSettingsAvatarMini.innerText = normalized.displayName.charAt(0).toUpperCase();
-            profileSettingsAvatarMini.style.backgroundImage = 'none';
+            profileSettingsCoverMini.style.backgroundImage = '';
+            profileSettingsCoverMini.style.backgroundSize = '';
+            profileSettingsCoverMini.style.backgroundPosition = '';
         }
     }
 
