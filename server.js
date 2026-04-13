@@ -157,8 +157,17 @@ async function canUserAccessRoom(userId, roomId) {
     if (!snap.exists) return false;
 
     const data = snap.data() || {};
-    const memberIds = Array.isArray(data.member_ids) ? data.member_ids.map((value) => String(value)) : [];
-    return memberIds.includes(String(userId));
+    const memberIds = Array.isArray(data.member_ids)
+        ? data.member_ids.map((value) => String(value))
+        : [];
+    const blockedByUserIds = Array.isArray(data.blocked_by_user_ids)
+        ? data.blocked_by_user_ids.map((value) => String(value))
+        : [];
+
+    if (!memberIds.includes(String(userId))) return false;
+    if (blockedByUserIds.includes(String(userId))) return false;
+
+    return true;
 }
 function mapChatMessageDoc(doc) {
     const data = doc.data() || {};
@@ -248,6 +257,45 @@ io.on('connection', (socket) => {
 
             const ref = chatMessagesCol.doc();
             await ref.set(payload);
+
+            const roomRef = chatRoomsCol.doc(roomId);
+            const roomSnap = await roomRef.get();
+
+            if (roomSnap.exists) {
+                const roomData = roomSnap.data() || {};
+                const memberIds = Array.isArray(roomData.member_ids)
+                    ? roomData.member_ids.map((value) => String(value)).filter(Boolean)
+                    : [];
+
+                const unreadCounts =
+                    roomData.unread_counts && typeof roomData.unread_counts === 'object'
+                        ? { ...roomData.unread_counts }
+                        : {};
+
+                memberIds.forEach((memberId) => {
+                    unreadCounts[memberId] =
+                        String(memberId) === String(socket.user.id)
+                            ? 0
+                            : (Number(unreadCounts[memberId]) || 0) + 1;
+                });
+
+                const hiddenForUserIds = Array.isArray(roomData.hidden_for_user_ids)
+                    ? roomData.hidden_for_user_ids.map((value) => String(value)).filter(Boolean)
+                    : [];
+
+                const nextHiddenForUserIds = hiddenForUserIds.filter((value) => {
+                    return !memberIds.includes(String(value));
+                });
+
+                await roomRef.set({
+                    last_message_text: text,
+                    last_message_author: authorName,
+                    last_message_at: Timestamp.now(),
+                    unread_counts: unreadCounts,
+                    hidden_for_user_ids: nextHiddenForUserIds,
+                    updated_at: Timestamp.now()
+                }, { merge: true });
+            }
 
             const outgoing = {
                 id: ref.id,

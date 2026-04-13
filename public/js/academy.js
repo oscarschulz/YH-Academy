@@ -5361,6 +5361,10 @@ function openAcademyMessagesView() {
     academySetMessagesChatMode('messages');
     renderAcademyMessagesInboxList();
 
+    academyHydrateMessageRooms(!academyMessagesInboxState.hydratedOnce).catch((error) => {
+        showToast(error?.message || 'Failed to load conversations.', 'error');
+    });
+
     const rooms = academyReadMessageRooms();
     if (rooms.length) {
         academyRenderMessagesThreadEmpty('Select a conversation from the inbox to open that private thread.');
@@ -7294,9 +7298,11 @@ function bindAcademyMessagesComposer() {
 bindAcademyMessagesComposer();
 
 const academyMessagesInboxState = {
-    activeRoomId: ''
+    activeRoomId: '',
+    loading: false,
+    hydratedOnce: false,
+    openMenuRoomId: ''
 };
-
 function academyResetMessagesThreadState() {
     academyMessagesInboxState.activeRoomId = '';
     currentRoom = null;
@@ -7421,10 +7427,23 @@ function academyReadMessageRooms() {
     return rooms
         .filter((room) => {
             const type = String(room?.type || '').trim().toLowerCase();
-            return type === 'dm' || type === 'group';
+            if (type !== 'dm' && type !== 'group') return false;
+            if (room?.isHidden === true) return false;
+            if (room?.isBlocked === true) return false;
+            return true;
         })
         .slice()
         .sort((a, b) => {
+            const aUnread = Number.parseInt(a?.unreadCount, 10);
+            const bUnread = Number.parseInt(b?.unreadCount, 10);
+
+            const safeAUnread = Number.isFinite(aUnread) ? aUnread : 0;
+            const safeBUnread = Number.isFinite(bUnread) ? bUnread : 0;
+
+            if (safeAUnread !== safeBUnread) {
+                return safeBUnread - safeAUnread;
+            }
+
             const aTime = new Date(String(a?.lastMessageAt || '') || 0).getTime();
             const bTime = new Date(String(b?.lastMessageAt || '') || 0).getTime();
 
@@ -7434,6 +7453,209 @@ function academyReadMessageRooms() {
 
             return String(a?.name || '').localeCompare(String(b?.name || ''));
         });
+}
+function academyNormalizeRealtimeRoomEntry(room = {}) {
+    const roomId = String(room?.id || room?.roomId || room?.room_key || '').trim();
+    const roomType = String(room?.room_type || room?.type || 'group').trim().toLowerCase() === 'dm' ? 'dm' : 'group';
+    const roomName =
+        String(room?.name || (roomType === 'group' ? 'Private Group' : 'Direct Message')).trim() ||
+        (roomType === 'group' ? 'Private Group' : 'Direct Message');
+
+    const memberIds = Array.isArray(room?.member_ids)
+        ? room.member_ids.map((value) => normalizeAcademyFeedId(value)).filter(Boolean)
+        : Array.isArray(room?.memberIds)
+            ? room.memberIds.map((value) => normalizeAcademyFeedId(value)).filter(Boolean)
+            : [];
+
+    const participantNames = Array.isArray(room?.participantNames)
+        ? room.participantNames.filter(Boolean)
+        : Array.isArray(room?.member_names)
+            ? room.member_names.filter(Boolean)
+            : Array.isArray(room?.participants)
+                ? room.participants.filter(Boolean)
+                : [];
+
+    const unreadRaw = Number.parseInt(
+        room?.unread_count ?? room?.unreadCount ?? 0,
+        10
+    );
+    const unreadCount = Number.isFinite(unreadRaw) && unreadRaw > 0 ? unreadRaw : 0;
+
+    const avatarUrl = String(room?.avatar || room?.avatarUrl || '').trim();
+    const currentUserId =
+        normalizeAcademyFeedId(getStoredUserValue('yh_user_id', '')) ||
+        normalizeAcademyFeedId(getStoredUserValue('yh_user_uid', ''));
+
+    let recipientId = '';
+    if (roomType === 'dm' && memberIds.length) {
+        recipientId = memberIds.find((memberId) => memberId && memberId !== currentUserId) || '';
+    }
+
+    return {
+        id: roomId,
+        roomId,
+        room_key: String(room?.room_key || roomId).trim(),
+        type: roomType,
+        name: roomName,
+        recipientId,
+        recipientName: roomType === 'dm' ? roomName : '',
+        participantNames,
+        memberIds,
+        avatarUrl,
+        unreadCount,
+        muted: room?.is_muted === true || room?.isMuted === true,
+        isHidden: room?.is_hidden === true || room?.isHidden === true,
+        isBlocked: room?.is_blocked === true || room?.isBlocked === true,
+        lastMessage: String(room?.last_message_text || room?.lastMessage || '').trim(),
+        lastMessageAuthor: String(room?.last_message_author || room?.lastMessageAuthor || '').trim(),
+        lastMessageAt: String(room?.last_message_at || room?.lastMessageAt || room?.updated_at || room?.updatedAt || '').trim(),
+        createdAt: String(room?.created_at || room?.createdAt || '').trim(),
+        updatedAt: String(room?.updated_at || room?.updatedAt || '').trim(),
+        icon: roomType === 'dm' ? '💬' : '👥',
+        color: 'var(--neon-blue)'
+    };
+}
+
+function academyRenderMessagesSidebarBadge() {
+    const target = document.getElementById('nav-messages');
+    if (!target) return;
+
+    let badge = target.querySelector('.academy-sidebar-unread-badge');
+    const rooms = academyReadMessageRooms();
+    const totalUnread = rooms.reduce((sum, room) => {
+        const value = Number.parseInt(room?.unreadCount, 10);
+        return sum + (Number.isFinite(value) && value > 0 ? value : 0);
+    }, 0);
+
+    if (totalUnread <= 0) {
+        badge?.remove();
+        return;
+    }
+
+    if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'academy-sidebar-unread-badge';
+        target.appendChild(badge);
+    }
+
+    badge.textContent = totalUnread > 99 ? '99+' : String(totalUnread);
+}
+
+async function academyHydrateMessageRooms(forceFresh = false) {
+    if (academyMessagesInboxState.loading) return academyReadMessageRooms();
+
+    academyMessagesInboxState.loading = true;
+
+    try {
+        if (forceFresh) {
+            const { list } = academyGetMessagesInboxElements();
+            if (list) {
+                list.innerHTML = `<div class="academy-messages-inbox-empty">Loading conversations.</div>`;
+            }
+        }
+
+        const result = await academyAuthedFetch('/api/realtime/rooms', {
+            method: 'GET'
+        });
+
+        const roomsRaw = Array.isArray(result?.rooms) ? result.rooms : [];
+        const normalizedRooms = roomsRaw
+            .map((room) => academyNormalizeRealtimeRoomEntry(room))
+            .filter((room) => !!normalizeRoomKey(room?.roomId || room?.id));
+
+        syncCustomRoomsUI(normalizedRooms);
+        academyMessagesInboxState.hydratedOnce = true;
+        academyRenderMessagesSidebarBadge();
+
+        const activeRoomId = normalizeRoomKey(academyMessagesInboxState.activeRoomId);
+        if (activeRoomId) {
+            const stillExists = normalizedRooms.some((room) => {
+                return normalizeRoomKey(room?.roomId || room?.id) === activeRoomId;
+            });
+
+            if (!stillExists) {
+                academyMessagesInboxState.activeRoomId = '';
+            }
+        }
+
+        renderAcademyMessagesInboxList();
+        return normalizedRooms;
+    } catch (error) {
+        renderAcademyMessagesInboxList();
+        academyRenderMessagesSidebarBadge();
+        throw error;
+    } finally {
+        academyMessagesInboxState.loading = false;
+    }
+}
+
+function academyCloseInboxRoomMenu() {
+    academyMessagesInboxState.openMenuRoomId = '';
+    document.querySelectorAll('.academy-messages-inbox-menu.is-open').forEach((menu) => {
+        menu.classList.remove('is-open');
+    });
+}
+
+function academyToggleInboxRoomMenu(roomId = '') {
+    const normalizedRoomId = normalizeRoomKey(roomId);
+    if (!normalizedRoomId) return;
+
+    const nextOpenId =
+        academyMessagesInboxState.openMenuRoomId === normalizedRoomId
+            ? ''
+            : normalizedRoomId;
+
+    academyMessagesInboxState.openMenuRoomId = nextOpenId;
+
+    document.querySelectorAll('.academy-messages-inbox-menu').forEach((menu) => {
+        const menuRoomId = normalizeRoomKey(menu.getAttribute('data-room-menu-id'));
+        menu.classList.toggle('is-open', !!nextOpenId && menuRoomId === nextOpenId);
+    });
+}
+
+async function academyApplyInboxRoomAction(roomId = '', action = '') {
+    const normalizedRoomId = normalizeRoomKey(roomId);
+    const normalizedAction = String(action || '').trim().toLowerCase();
+
+    if (!normalizedRoomId || !normalizedAction) return;
+
+    const endpointMap = {
+        mute: `/api/realtime/rooms/${encodeURIComponent(normalizedRoomId)}/mute`,
+        hide: `/api/realtime/rooms/${encodeURIComponent(normalizedRoomId)}/hide`,
+        block: `/api/realtime/rooms/${encodeURIComponent(normalizedRoomId)}/block`
+    };
+
+    const endpoint = endpointMap[normalizedAction];
+    if (!endpoint) return;
+
+    const body =
+        normalizedAction === 'mute'
+            ? { muted: true }
+            : normalizedAction === 'block'
+                ? { blocked: true }
+                : {};
+
+    const labelMap = {
+        mute: 'Conversation muted.',
+        hide: 'Conversation removed from your inbox.',
+        block: 'Conversation blocked.'
+    };
+
+    await academyAuthedFetch(endpoint, {
+        method: 'PATCH',
+        body: JSON.stringify(body)
+    });
+
+    if (normalizedAction === 'hide' || normalizedAction === 'block') {
+        const activeRoomId = normalizeRoomKey(academyMessagesInboxState.activeRoomId);
+        if (activeRoomId && activeRoomId === normalizedRoomId) {
+            academyReturnToMessagesInboxHome();
+        }
+    }
+
+    academyCloseInboxRoomMenu();
+    await academyHydrateMessageRooms(true);
+    showToast(labelMap[normalizedAction] || 'Conversation updated.');
 }
 
 function academyResolveMessageRoomById(roomId = '') {
@@ -7665,6 +7887,8 @@ function renderAcademyMessagesInboxList() {
     }
 
     const rooms = academyReadMessageRooms();
+    academyRenderMessagesSidebarBadge();
+
     if (!rooms.length) {
         list.innerHTML = `<div class="academy-messages-inbox-empty">No direct messages or group chats yet.</div>`;
         return;
@@ -7682,6 +7906,7 @@ function renderAcademyMessagesInboxList() {
         const isActive = activeRoomId && activeRoomId === normalizedRoomId;
         const roomTypeLabel = String(room?.type || '').trim().toLowerCase() === 'group' ? 'Group' : 'DM';
         const timeLabel = academyFormatInboxTime(room?.lastMessageAt || '');
+        const isMuted = room?.muted === true;
 
         let avatarHtml = '';
         const avatarUrl = String(room?.avatarUrl || '').trim();
@@ -7693,27 +7918,49 @@ function renderAcademyMessagesInboxList() {
         }
 
         return `
-            <button
-                type="button"
-                class="academy-messages-inbox-item ${isActive ? 'is-active' : ''}"
-                data-inbox-room-id="${academyFeedEscapeHtml(roomId)}"
-            >
-                ${avatarHtml}
+            <div class="academy-messages-inbox-card ${isActive ? 'is-active' : ''}" data-room-card-id="${academyFeedEscapeHtml(roomId)}">
+                <button
+                    type="button"
+                    class="academy-messages-inbox-item ${isActive ? 'is-active' : ''}"
+                    data-inbox-room-id="${academyFeedEscapeHtml(roomId)}"
+                >
+                    ${avatarHtml}
 
-                <span class="academy-messages-inbox-copy">
-                    <span class="academy-messages-inbox-topline">
-                        <span class="academy-messages-inbox-name">${academyFeedEscapeHtml(roomName)}</span>
-                        <span class="academy-messages-inbox-time">${academyFeedEscapeHtml(timeLabel)}</span>
+                    <span class="academy-messages-inbox-copy">
+                        <span class="academy-messages-inbox-topline">
+                            <span class="academy-messages-inbox-name">${academyFeedEscapeHtml(roomName)}</span>
+                            <span class="academy-messages-inbox-time">${academyFeedEscapeHtml(timeLabel)}</span>
+                        </span>
+
+                        <span class="academy-messages-inbox-preview">${academyFeedEscapeHtml(preview)}</span>
+
+                        <span class="academy-messages-inbox-meta">
+                            <span class="academy-messages-inbox-roomtype">${academyFeedEscapeHtml(roomTypeLabel)}</span>
+                            ${isMuted ? `<span class="academy-messages-inbox-muted">Muted</span>` : ''}
+                            ${unread > 0 ? `<span class="academy-messages-inbox-badge">${academyFeedEscapeHtml(String(unread))}</span>` : ''}
+                        </span>
                     </span>
+                </button>
 
-                    <span class="academy-messages-inbox-preview">${academyFeedEscapeHtml(preview)}</span>
+                <div class="academy-messages-inbox-actions">
+                    <button
+                        type="button"
+                        class="academy-messages-inbox-menu-trigger"
+                        data-room-menu-trigger="${academyFeedEscapeHtml(roomId)}"
+                        aria-label="Conversation options"
+                        title="Conversation options"
+                    >⋯</button>
 
-                    <span class="academy-messages-inbox-meta">
-                        <span class="academy-messages-inbox-roomtype">${academyFeedEscapeHtml(roomTypeLabel)}</span>
-                        ${unread > 0 ? `<span class="academy-messages-inbox-badge">${academyFeedEscapeHtml(String(unread))}</span>` : ''}
-                    </span>
-                </span>
-            </button>
+                    <div
+                        class="academy-messages-inbox-menu ${academyMessagesInboxState.openMenuRoomId === normalizedRoomId ? 'is-open' : ''}"
+                        data-room-menu-id="${academyFeedEscapeHtml(roomId)}"
+                    >
+                        <button type="button" data-room-action="mute" data-room-id="${academyFeedEscapeHtml(roomId)}">Mute</button>
+                        <button type="button" data-room-action="hide" data-room-id="${academyFeedEscapeHtml(roomId)}">Delete conversation</button>
+                        <button type="button" data-room-action="block" data-room-id="${academyFeedEscapeHtml(roomId)}">Block</button>
+                    </div>
+                </div>
+            </div>
         `;
     }).join('');
 }
@@ -7722,15 +7969,48 @@ function bindAcademyMessagesInbox() {
     if (window.__yhAcademyMessagesInboxBound) return;
     window.__yhAcademyMessagesInboxBound = true;
 
-    document.getElementById('academy-messages-inbox-list')?.addEventListener('click', (event) => {
-        const trigger = event.target?.closest?.('[data-inbox-room-id]');
-        if (!trigger) return;
+    const inboxList = document.getElementById('academy-messages-inbox-list');
 
+    inboxList?.addEventListener('click', async (event) => {
+        const actionBtn = event.target?.closest?.('[data-room-action]');
+        if (actionBtn) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            const roomId = actionBtn.getAttribute('data-room-id');
+            const action = actionBtn.getAttribute('data-room-action');
+            await academyApplyInboxRoomAction(roomId, action);
+            return;
+        }
+
+        const menuTrigger = event.target?.closest?.('[data-room-menu-trigger]');
+        if (menuTrigger) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            academyToggleInboxRoomMenu(menuTrigger.getAttribute('data-room-menu-trigger'));
+            return;
+        }
+
+        const trigger = event.target?.closest?.('[data-inbox-room-id]');
+        if (!trigger) {
+            academyCloseInboxRoomMenu();
+            return;
+        }
+
+        academyCloseInboxRoomMenu();
         academyOpenInboxRoomById(trigger.getAttribute('data-inbox-room-id'));
     });
 
-    document.getElementById('academy-messages-inbox-refresh')?.addEventListener('click', () => {
-        renderAcademyMessagesInboxList();
+    document.addEventListener('click', (event) => {
+        const insideMenu = event.target?.closest?.('.academy-messages-inbox-actions');
+        if (!insideMenu) {
+            academyCloseInboxRoomMenu();
+        }
+    });
+
+    document.getElementById('academy-messages-inbox-refresh')?.addEventListener('click', async () => {
+        await academyHydrateMessageRooms(true);
     });
 
     document.getElementById('academy-messages-thread-back-btn')?.addEventListener('click', () => {
@@ -7781,12 +8061,12 @@ async function academyOpenDirectMessageFromProfile(memberId = '') {
         const roomEntry = academyBuildDirectMessageRoomEntry(room, activeProfile);
         const state = getDashboardState();
         const currentRooms = Array.isArray(state.customRooms) ? state.customRooms : [];
+        const nextId = normalizeRoomKey(roomEntry.id || roomEntry.roomId);
 
         const nextRooms = [
             roomEntry,
             ...currentRooms.filter((item) => {
                 const existingId = normalizeRoomKey(item?.id || item?.roomId || item?.room_key);
-                const nextId = normalizeRoomKey(roomEntry.id || roomEntry.roomId);
                 return existingId !== nextId;
             })
         ];
@@ -7803,6 +8083,8 @@ async function academyOpenDirectMessageFromProfile(memberId = '') {
         markCustomRoomAsRead(roomEntry.roomId || roomEntry.id);
         pulseAcademyRoomEntry(roomEntry.roomId || roomEntry.id);
         academyRefreshMessagesInboxSelection();
+        academyRenderMessagesSidebarBadge();
+        academyHydrateMessageRooms(false).catch(() => {});
         focusAcademyChatComposer();
     } finally {
         setAcademyProfileMessageOpeningState(false);

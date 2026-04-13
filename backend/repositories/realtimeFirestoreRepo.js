@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const { firestore } = require('../../config/firebaseAdmin');
-const { Timestamp } = require('firebase-admin/firestore');
+const { Timestamp, FieldValue } = require('firebase-admin/firestore');
 
 const usersCol = firestore.collection('users');
 const chatRoomsCol = firestore.collection('chatRooms');
@@ -69,8 +69,31 @@ async function getUserSummary(userId) {
     return buildUserSummary(userDoc);
 }
 
-function mapRoomDoc(doc) {
+function mapRoomDoc(doc, viewerId = '') {
     const data = doc.data() || {};
+    const memberIds = safeArray(data.member_ids)
+        .map((value) => sanitizeText(value))
+        .filter(Boolean);
+
+    const hiddenForUserIds = safeArray(data.hidden_for_user_ids)
+        .map((value) => sanitizeText(value))
+        .filter(Boolean);
+
+    const mutedForUserIds = safeArray(data.muted_for_user_ids)
+        .map((value) => sanitizeText(value))
+        .filter(Boolean);
+
+    const blockedByUserIds = safeArray(data.blocked_by_user_ids)
+        .map((value) => sanitizeText(value))
+        .filter(Boolean);
+
+    const unreadCounts =
+        data.unread_counts && typeof data.unread_counts === 'object'
+            ? data.unread_counts
+            : {};
+
+    const normalizedViewerId = sanitizeText(viewerId);
+
     return {
         id: doc.id,
         room_key: sanitizeText(data.room_key),
@@ -81,9 +104,18 @@ function mapRoomDoc(doc) {
         created_by_user_id: sanitizeText(data.created_by_user_id),
         created_at: mapTimestamp(data.created_at),
         updated_at: mapTimestamp(data.updated_at),
-        member_count: toInt(data.member_count, safeArray(data.member_ids).length)
+        member_count: toInt(data.member_count, memberIds.length),
+        member_ids: memberIds,
+        last_message_text: sanitizeText(data.last_message_text),
+        last_message_author: sanitizeText(data.last_message_author),
+        last_message_at: mapTimestamp(data.last_message_at || data.updated_at),
+        unread_count: normalizedViewerId ? toInt(unreadCounts[normalizedViewerId], 0) : 0,
+        is_hidden: normalizedViewerId ? hiddenForUserIds.includes(normalizedViewerId) : false,
+        is_muted: normalizedViewerId ? mutedForUserIds.includes(normalizedViewerId) : false,
+        is_blocked: normalizedViewerId ? blockedByUserIds.includes(normalizedViewerId) : false
     };
 }
+
 
 function mapVaultItemDoc(doc) {
     const data = doc.data() || {};
@@ -168,7 +200,9 @@ async function getRooms(userId) {
         .limit(100)
         .get();
 
-    return snap.docs.map(mapRoomDoc);
+    return snap.docs
+        .map((doc) => mapRoomDoc(doc, normalizedUserId))
+        .filter((room) => !room.is_hidden && !room.is_blocked);
 }
 
 async function createRoom({ userId, roomType, description, name, memberUserIds = [], targetUserId = '' }) {
@@ -199,8 +233,18 @@ async function createRoom({ userId, roomType, description, name, memberUserIds =
 
         const existingDm = await chatRoomsCol.where('room_key', '==', room_key).limit(1).get();
         if (!existingDm.empty) {
+            const existingRef = existingDm.docs[0].ref;
+
+            await existingRef.set({
+                hidden_for_user_ids: FieldValue.arrayRemove(normalizedUserId),
+                blocked_by_user_ids: FieldValue.arrayRemove(normalizedUserId),
+                updated_at: nowTs()
+            }, { merge: true });
+
+            const refreshedSnap = await existingRef.get();
+
             return {
-                room: mapRoomDoc(existingDm.docs[0]),
+                room: mapRoomDoc(refreshedSnap, normalizedUserId),
                 reused: true
             };
         }
@@ -219,6 +263,16 @@ async function createRoom({ userId, roomType, description, name, memberUserIds =
         created_by_user_id: normalizedUserId,
         member_ids,
         member_count: member_ids.length,
+        hidden_for_user_ids: [],
+        muted_for_user_ids: [],
+        blocked_by_user_ids: [],
+        unread_counts: member_ids.reduce((acc, memberId) => {
+            acc[memberId] = 0;
+            return acc;
+        }, {}),
+        last_message_text: '',
+        last_message_author: '',
+        last_message_at: null,
         created_at: nowTs(),
         updated_at: nowTs()
     };
@@ -230,7 +284,7 @@ async function createRoom({ userId, roomType, description, name, memberUserIds =
         data: () => payload
     });
 
-    return { room, reused: false };
+    return { room: mapRoomDoc({ id: ref.id, data: () => payload }, normalizedUserId), reused: false };
 }
 
 async function deleteRoom({ userId, roomId }) {
@@ -257,6 +311,97 @@ async function deleteRoom({ userId, roomId }) {
     await ref.delete();
 
     return { deletedRoomId: normalizedRoomId };
+}
+
+async function hideRoomForUser({ userId, roomId }) {
+    const normalizedUserId = normalizeUserId(userId);
+    const normalizedRoomId = sanitizeText(roomId);
+
+    const ref = chatRoomsCol.doc(normalizedRoomId);
+    const snap = await ref.get();
+
+    if (!snap.exists) {
+        throw new Error('Room not found.');
+    }
+
+    const room = snap.data() || {};
+    const memberIds = safeArray(room.member_ids).map((value) => sanitizeText(value)).filter(Boolean);
+
+    if (!memberIds.includes(normalizedUserId)) {
+        throw new Error('Room not found.');
+    }
+
+    await ref.set({
+        hidden_for_user_ids: FieldValue.arrayUnion(normalizedUserId),
+        updated_at: nowTs()
+    }, { merge: true });
+
+    const updatedSnap = await ref.get();
+    return mapRoomDoc(updatedSnap, normalizedUserId);
+}
+
+async function setRoomMuted({ userId, roomId, muted = true }) {
+    const normalizedUserId = normalizeUserId(userId);
+    const normalizedRoomId = sanitizeText(roomId);
+
+    const ref = chatRoomsCol.doc(normalizedRoomId);
+    const snap = await ref.get();
+
+    if (!snap.exists) {
+        throw new Error('Room not found.');
+    }
+
+    const room = snap.data() || {};
+    const memberIds = safeArray(room.member_ids).map((value) => sanitizeText(value)).filter(Boolean);
+
+    if (!memberIds.includes(normalizedUserId)) {
+        throw new Error('Room not found.');
+    }
+
+    await ref.set({
+        muted_for_user_ids: muted
+            ? FieldValue.arrayUnion(normalizedUserId)
+            : FieldValue.arrayRemove(normalizedUserId),
+        updated_at: nowTs()
+    }, { merge: true });
+
+    const updatedSnap = await ref.get();
+    return mapRoomDoc(updatedSnap, normalizedUserId);
+}
+
+async function setRoomBlocked({ userId, roomId, blocked = true }) {
+    const normalizedUserId = normalizeUserId(userId);
+    const normalizedRoomId = sanitizeText(roomId);
+
+    const ref = chatRoomsCol.doc(normalizedRoomId);
+    const snap = await ref.get();
+
+    if (!snap.exists) {
+        throw new Error('Room not found.');
+    }
+
+    const room = snap.data() || {};
+    const memberIds = safeArray(room.member_ids).map((value) => sanitizeText(value)).filter(Boolean);
+
+    if (!memberIds.includes(normalizedUserId)) {
+        throw new Error('Room not found.');
+    }
+
+    await ref.set({
+        blocked_by_user_ids: blocked
+            ? FieldValue.arrayUnion(normalizedUserId)
+            : FieldValue.arrayRemove(normalizedUserId),
+        hidden_for_user_ids: blocked
+            ? FieldValue.arrayUnion(normalizedUserId)
+            : FieldValue.arrayRemove(normalizedUserId),
+        muted_for_user_ids: blocked
+            ? FieldValue.arrayUnion(normalizedUserId)
+            : FieldValue.arrayRemove(normalizedUserId),
+        updated_at: nowTs()
+    }, { merge: true });
+
+    const updatedSnap = await ref.get();
+    return mapRoomDoc(updatedSnap, normalizedUserId);
 }
 
 async function getVaultItems(userId) {
@@ -756,6 +901,9 @@ module.exports = {
     getRooms,
     createRoom,
     deleteRoom,
+    hideRoomForUser,
+    setRoomMuted,
+    setRoomBlocked,
     getVaultItems,
     createVaultFolder,
     createVaultFile,

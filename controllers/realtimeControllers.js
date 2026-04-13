@@ -121,6 +121,91 @@ exports.deleteRoom = async (req, res) => {
     }
 };
 
+exports.hideRoom = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+        const roomId = sanitizeText(req.params?.id);
+
+        const room = await realtimeRepo.hideRoomForUser({
+            userId: viewer.id,
+            roomId
+        });
+
+        return res.json({
+            success: true,
+            room
+        });
+    } catch (error) {
+        console.error('hideRoom error:', error);
+
+        const notFound = /not found/i.test(error?.message || '');
+        return sendError(
+            res,
+            error,
+            'Failed to hide room.',
+            notFound ? 404 : 500
+        );
+    }
+};
+
+exports.muteRoom = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+        const roomId = sanitizeText(req.params?.id);
+        const muted = req.body?.muted !== false;
+
+        const room = await realtimeRepo.setRoomMuted({
+            userId: viewer.id,
+            roomId,
+            muted
+        });
+
+        return res.json({
+            success: true,
+            room
+        });
+    } catch (error) {
+        console.error('muteRoom error:', error);
+
+        const notFound = /not found/i.test(error?.message || '');
+        return sendError(
+            res,
+            error,
+            'Failed to update mute state.',
+            notFound ? 404 : 500
+        );
+    }
+};
+
+exports.blockRoom = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+        const roomId = sanitizeText(req.params?.id);
+        const blocked = req.body?.blocked !== false;
+
+        const room = await realtimeRepo.setRoomBlocked({
+            userId: viewer.id,
+            roomId,
+            blocked
+        });
+
+        return res.json({
+            success: true,
+            room
+        });
+    } catch (error) {
+        console.error('blockRoom error:', error);
+
+        const notFound = /not found/i.test(error?.message || '');
+        return sendError(
+            res,
+            error,
+            'Failed to update block state.',
+            notFound ? 404 : 500
+        );
+    }
+};
+
 exports.getVaultItems = async (req, res) => {
     try {
         const viewer = getViewerFromRequest(req);

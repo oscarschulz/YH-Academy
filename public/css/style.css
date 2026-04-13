@@ -2560,7 +2560,101 @@ body[data-yh-view="academy"] .chat-messages {
     color: var(--text-muted);
     line-height: 1.7;
 }
+.academy-messages-inbox-card {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: stretch;
+    gap: 10px;
+}
 
+.academy-messages-inbox-card.is-active .academy-messages-inbox-item {
+    border-color: rgba(14, 165, 233, 0.42);
+    background: rgba(14, 165, 233, 0.12);
+}
+
+.academy-messages-inbox-actions {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.academy-messages-inbox-menu-trigger {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    min-height: 38px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+    color: #f8fafc;
+    cursor: pointer;
+    font-size: 1.1rem;
+    line-height: 1;
+}
+
+.academy-messages-inbox-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    min-width: 170px;
+    display: none;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(8, 15, 32, 0.98);
+    box-shadow: 0 18px 34px rgba(0, 0, 0, 0.34);
+    z-index: 20;
+}
+
+.academy-messages-inbox-menu.is-open {
+    display: flex;
+}
+
+.academy-messages-inbox-menu button {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    color: #f8fafc;
+    text-align: left;
+    padding: 10px 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 0.9rem;
+}
+
+.academy-messages-inbox-menu button:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.academy-messages-inbox-muted {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-muted);
+    font-size: 0.72rem;
+}
+
+.academy-sidebar-unread-badge {
+    margin-left: auto;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 7px;
+    border-radius: 999px;
+    background: #ef4444;
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1;
+}
 @media (max-width: 1024px) {
     .academy-messages-inbox {
         grid-template-columns: minmax(250px, 290px) minmax(0, 1fr);
@@ -2699,6 +2793,22 @@ body[data-yh-view="academy"] .chat-messages {
 
     body[data-yh-view="academy"].academy-messages-thread-open .chat-header .header-right {
         display: none !important;
+    }
+
+    .academy-messages-inbox-card {
+        grid-template-columns: minmax(0, 1fr) 36px;
+        gap: 8px;
+    }
+
+    .academy-messages-inbox-menu {
+        right: -2px;
+        min-width: 156px;
+    }
+
+    .academy-sidebar-unread-badge {
+        min-width: 20px;
+        height: 20px;
+        font-size: 0.68rem;
     }
 }
 
