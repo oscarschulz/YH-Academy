@@ -5494,14 +5494,36 @@ function syncAcademyProfileLocalMirrors(profile = null) {
             displayName
         );
 
-    const avatar = String(profile.avatar || '').trim();
-    const coverPhoto = String(profile.cover_photo || profile.coverPhoto || '').trim();
+    const avatar = String(
+        profile.avatar ||
+        profile.profilePhoto ||
+        profile.photoURL ||
+        ''
+    ).trim();
+
+    const coverPhoto = String(
+        profile.cover_photo ||
+        profile.coverPhoto ||
+        ''
+    ).trim();
+
     const bio =
         String(profile.bio || '').trim() ||
         'Focused on execution, consistency, and long-term growth inside The Academy.';
+
     const tags = Array.isArray(profile.search_tags)
         ? profile.search_tags.map((tag) => String(tag || '').trim()).filter(Boolean).slice(0, 8)
-        : [];
+        : Array.isArray(profile.searchTags)
+            ? profile.searchTags.map((tag) => String(tag || '').trim()).filter(Boolean).slice(0, 8)
+            : [];
+
+    const userId =
+        normalizeAcademyFeedId(
+            profile.id ||
+            profile.user_id ||
+            getStoredUserValue('yh_user_id', '') ||
+            getStoredUserValue('yh_user_uid', '')
+        ) || '';
 
     localStorage.setItem('yh_user_name', displayName);
     localStorage.setItem('yh_user_username', username);
@@ -5525,8 +5547,25 @@ function syncAcademyProfileLocalMirrors(profile = null) {
         updateUserProfile(displayName, avatar || '');
     }
 
+    if (typeof persistKnownUser === 'function') {
+        persistKnownUser({
+            id: userId,
+            userId,
+            uid: userId,
+            firebaseUid: userId,
+            name: displayName,
+            displayName,
+            username,
+            avatar,
+            avatarUrl: avatar,
+            photoURL: avatar,
+            profilePhoto: avatar
+        });
+    }
+
     return persistAcademyProfileCache({
-        ...profile,
+        ...(profile && typeof profile === 'object' ? profile : {}),
+        id: userId || String(profile.id || '').trim(),
         display_name: displayName,
         username,
         avatar,
