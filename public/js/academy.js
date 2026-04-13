@@ -4353,6 +4353,7 @@ function renderAcademyHome(homeData = null) {
     const chatHeaderTopic = document.getElementById('chat-header-topic');
     const chatWelcomeBox = document.getElementById('chat-welcome-box');
     const chatPinnedMessage = document.getElementById('chat-pinned-message');
+    const chatInputArea = document.getElementById('chat-input-area');
     const dynamicChatContainer = document.getElementById('dynamic-chat-history');
 
     const roadmap = homeData?.roadmap || {};
@@ -4983,7 +4984,9 @@ const missionsHtml = missions.length
     if (chatHeaderTitle) chatHeaderTitle.innerText = "Academy Home";
     if (chatHeaderTopic) chatHeaderTopic.innerText = roadmapPrimaryPillarMeta.homeTopic;
     if (chatPinnedMessage) chatPinnedMessage.style.display = "none";
-    if (chatInputArea) chatInputArea.style.display = "none";
+    if (typeof chatInputArea !== 'undefined' && chatInputArea) {
+    chatInputArea.style.display = "none";
+    }
 
     if (chatWelcomeBox) {
         chatWelcomeBox.style.display = "block";
