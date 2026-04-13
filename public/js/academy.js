@@ -7227,6 +7227,43 @@ function focusAcademyChatComposer() {
         input.setSelectionRange(value.length, value.length);
     });
 }
+function sendAcademyThreadMessage() {
+    const input = document.getElementById('chat-input');
+    const activeRoomId = getActiveRoomId();
+    const activeRoomType = String(currentRoomMeta?.type || '').trim().toLowerCase();
+
+    if (!input || !activeRoomId) return;
+    if (activeRoomType !== 'dm' && activeRoomType !== 'group') return;
+
+    const text = String(input.value || '').trim();
+    if (!text) return;
+
+    const outboundMessage = {
+        roomId: activeRoomId,
+        room: activeRoomId,
+        roomName: getActiveRoomLabel(),
+        author: getStoredUserValue('yh_user_name', 'Hustler'),
+        initial: String(getStoredUserValue('yh_user_name', 'Hustler') || 'H').charAt(0).toUpperCase(),
+        avatar: '',
+        text,
+        time: new Date().toISOString()
+    };
+
+    socket.emit('sendMessage', outboundMessage);
+    input.value = '';
+}
+
+const academyThreadChatInput = document.getElementById('chat-input');
+const academyThreadChatSendBtn = document.getElementById('chat-send-btn');
+
+academyThreadChatInput?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendAcademyThreadMessage();
+    }
+});
+
+academyThreadChatSendBtn?.addEventListener('click', sendAcademyThreadMessage);
 
 const academyMessagesInboxState = {
     activeRoomId: ''
