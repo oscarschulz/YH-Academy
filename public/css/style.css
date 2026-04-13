@@ -2384,6 +2384,7 @@ body[data-yh-view="academy"] .chat-messages {
 .academy-messages-thread-shell {
     min-width: 0;
     min-height: 0;
+    height: 100%;
     border-radius: 18px;
     border: 1px solid rgba(255, 255, 255, 0.08);
     background: rgba(255, 255, 255, 0.025);
@@ -2391,7 +2392,39 @@ body[data-yh-view="academy"] .chat-messages {
     display: flex;
     flex-direction: column;
 }
+.academy-messages-thread-shell #dynamic-chat-history {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.95rem;
+    padding: 18px 18px 10px;
+}
 
+.academy-messages-thread-shell .welcome-embed {
+    margin: 18px;
+}
+
+.academy-messages-thread-shell .chat-input-area {
+    margin-top: auto;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background: linear-gradient(
+        180deg,
+        rgba(5, 8, 22, 0.00) 0%,
+        rgba(5, 8, 22, 0.62) 16%,
+        rgba(5, 8, 22, 0.92) 100%
+    );
+}
+
+.academy-messages-thread-shell .chat-input-wrapper {
+    width: 100%;
+}
+
+#academy-chat[data-chat-mode="messages"] .academy-messages-thread-shell #chat-input-area,
+#academy-chat[data-chat-mode="home"] .academy-messages-thread-shell #chat-input-area {
+    display: none !important;
+}
 .academy-messages-thread-header {
     display: flex;
     align-items: center;
