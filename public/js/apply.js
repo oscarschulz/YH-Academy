@@ -68,11 +68,11 @@ if (type === "error") {
 
     // reset/default
     toast.style.position = 'fixed';
-    toast.style.left = '50%';
-    toast.style.right = 'auto';
-    toast.style.top = '32px';
-    toast.style.bottom = 'auto';
-    toast.style.transform = 'translateX(-50%)';
+    toast.style.left = 'auto';
+    toast.style.right = '24px';
+    toast.style.top = 'auto';
+    toast.style.bottom = '24px';
+    toast.style.transform = 'none';
     toast.style.zIndex = '10000';
     toast.style.width = 'min(92vw, 460px)';
     toast.style.maxWidth = '460px';
@@ -81,10 +81,10 @@ if (type === "error") {
     toast.style.borderRadius = '12px';
     toast.style.fontSize = '0.92rem';
     toast.style.lineHeight = '1.35';
-    toast.style.textAlign = 'center';
+    toast.style.textAlign = 'left';
     toast.style.display = 'flex';
     toast.style.alignItems = 'center';
-    toast.style.justifyContent = 'center';
+    toast.style.justifyContent = 'flex-start';
     toast.style.gap = '8px';
     toast.style.boxSizing = 'border-box';
     toast.style.wordBreak = 'break-word';
@@ -767,17 +767,17 @@ function syncLandingGlobeSize() {
     const mapEl = document.getElementById('yh-world-map');
     if (!mapEl || !yhLandingMapInstance || typeof yhLandingMapInstance.width !== 'function') return;
 
-    const isDesktopHero = window.innerWidth >= 1101;
+    const bounds = mapEl.getBoundingClientRect();
+    const baseWidth = Math.max(1, Math.round(bounds.width || mapEl.clientWidth || 0));
+    const baseHeight = Math.max(1, Math.round(bounds.height || mapEl.clientHeight || 0));
 
-    const overscanX = isDesktopHero ? 1.42 : 1;
-    const overscanY = isDesktopHero ? 1.24 : 1;
+    if (!baseWidth || !baseHeight) return;
 
-    const nextWidth = Math.max(1, Math.round(mapEl.clientWidth * overscanX));
-    const nextHeight = Math.max(1, Math.round(mapEl.clientHeight * overscanY));
+    const fitSize = Math.max(1, Math.round(Math.min(baseWidth, baseHeight) * 0.98));
 
     yhLandingMapInstance
-        .width(nextWidth)
-        .height(nextHeight);
+        .width(fitSize)
+        .height(fitSize);
 
     const renderer = typeof yhLandingMapInstance.renderer === 'function'
         ? yhLandingMapInstance.renderer()
@@ -788,7 +788,7 @@ function syncLandingGlobeSize() {
 
     mapEl.style.position = 'absolute';
     mapEl.style.inset = '0';
-    mapEl.style.overflow = 'visible';
+    mapEl.style.overflow = 'hidden';
     mapEl.style.background = 'transparent';
     mapEl.style.border = 'none';
     mapEl.style.outline = 'none';
@@ -796,14 +796,15 @@ function syncLandingGlobeSize() {
     mapEl.style.clipPath = 'none';
     mapEl.style.maskImage = 'none';
     mapEl.style.webkitMaskImage = 'none';
+    mapEl.style.borderRadius = 'inherit';
 
     canvasEl.style.position = 'absolute';
     canvasEl.style.top = '50%';
     canvasEl.style.left = '50%';
     canvasEl.style.right = 'auto';
     canvasEl.style.bottom = 'auto';
-    canvasEl.style.width = `${nextWidth}px`;
-    canvasEl.style.height = `${nextHeight}px`;
+    canvasEl.style.width = `${fitSize}px`;
+    canvasEl.style.height = `${fitSize}px`;
     canvasEl.style.maxWidth = 'none';
     canvasEl.style.maxHeight = 'none';
     canvasEl.style.background = 'transparent';
@@ -811,17 +812,14 @@ function syncLandingGlobeSize() {
     canvasEl.style.outline = 'none';
     canvasEl.style.boxShadow = 'none';
     canvasEl.style.pointerEvents = 'auto';
-    canvasEl.style.overflow = 'visible';
+    canvasEl.style.overflow = 'hidden';
     canvasEl.style.clipPath = 'none';
     canvasEl.style.maskImage = 'none';
     canvasEl.style.webkitMaskImage = 'none';
-    canvasEl.style.borderRadius = '0';
-
-    canvasEl.style.transform = isDesktopHero
-        ? 'translate(-61%, -51%)'
-        : 'translate(-50%, -50%)';
+    canvasEl.style.borderRadius = 'inherit';
+    canvasEl.style.transformOrigin = 'center center';
+    canvasEl.style.transform = 'translate(-46%, -50%)';
 }
-
 function bindLandingGlobeResize() {
     if (yhLandingResizeBound) return;
     yhLandingResizeBound = true;
