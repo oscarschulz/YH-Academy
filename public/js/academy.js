@@ -6904,9 +6904,6 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
                     : resolvedStatusTone === 'following'
                         ? 'You already follow this member'
                         : 'Not connected yet';
-    const resolvedContextSummary = isSelf
-        ? 'This panel is about your own profile control, execution visibility, and personal Academy presence.'
-        : 'This panel gives a fast public-facing read on the member and your current relationship state inside Academy.';
     const resolvedContextNote = isSelf
         ? 'Visible inside your Academy profile shell'
         : mutualCountValue > 0
