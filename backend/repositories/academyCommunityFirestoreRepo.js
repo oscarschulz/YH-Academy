@@ -985,8 +985,7 @@ async function getMemberProfile({ viewerId, targetUserId }) {
                 : new Date(rightRaw || 0).getTime();
 
             return right - left;
-        })
-        .slice(0, 6);
+        });
 
     const recentPosts = await Promise.all(
         recentPostDocs.map(async (doc) => {
@@ -1021,7 +1020,7 @@ async function getMemberProfile({ viewerId, targetUserId }) {
         incoming_friend_request_id: friendshipState.incoming_friend_request_id,
         mutual_friend_count: mutualFriendCount,
         search_tags: Array.from(new Set(explicitTags)),
-        post_count: recentPosts.length,
+        post_count: recentPostDocs.length,
         recent_posts: recentPosts,
         status: 'Active',
         is_self: normalizedViewerId === normalizedTargetUserId

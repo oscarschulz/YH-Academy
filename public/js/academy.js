@@ -6534,7 +6534,7 @@ function buildAcademySelfProfilePayload(profileSource = null) {
         hidden_count: hiddenPosts.length,
         status: String(cachedProfile.status || 'Active').trim() || 'Active',
         search_tags: savedTags,
-        recent_posts: cachedPosts.slice(0, 6)
+        recent_posts: cachedPosts
     };
 }
 
@@ -7010,14 +7010,14 @@ const resolvedIntroVisibilityBadge = isSelf
 
     if (profileRecentKicker) {
         profileRecentKicker.innerText = isSelf
-            ? 'Recent Activity'
-            : 'Public Activity';
+            ? 'Profile Posts'
+            : 'Public Posts';
     }
 
     if (profileRecentTitle) {
         profileRecentTitle.innerText = isSelf
-            ? 'Your latest profile posts'
-            : `${normalized.displayName}'s latest public posts`;
+            ? 'Your profile posts'
+            : `${normalized.displayName}'s public profile posts`;
     }
 
     if (profileSettingsSummary) {
