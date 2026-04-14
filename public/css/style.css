@@ -4455,23 +4455,117 @@ body.academy-launcher-open {
 }
 
 /* ========================================================= */
-/* ACADEMY SCROLL SAFETY OVERRIDE                            */
+/* ACADEMY DESKTOP CENTER-SCROLL OVERRIDE                    */
 /* ========================================================= */
-body[data-yh-view="academy"] {
-    overflow-y: auto !important;
+@media (min-width: 769px) {
+    body[data-yh-view="academy"] {
+        overflow: hidden !important;
+    }
+
+    body[data-yh-view="academy"] .dashboard-layout {
+        min-height: 100dvh !important;
+        height: 100dvh !important;
+        overflow: hidden !important;
+    }
+
+    body[data-yh-view="academy"] #academy-wrapper,
+    body[data-yh-view="academy"] .dashboard-core {
+        min-height: 0 !important;
+        overflow: hidden !important;
+        align-items: stretch !important;
+    }
+
+    body[data-yh-view="academy"] #academy-sidebar {
+        min-height: 0 !important;
+        overflow: hidden !important;
+    }
+
+    body[data-yh-view="academy"] #academy-sidebar .channel-content {
+        min-height: 0 !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+    }
+
+    body[data-yh-view="academy"] .yh-right-sidebar {
+        min-height: 0 !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+    }
+
+    body[data-yh-view="academy"] .yh-main-chat,
+    body[data-yh-view="academy"] #academy-chat,
+    body[data-yh-view="academy"] #academy-feed-view,
+    body[data-yh-view="academy"] #academy-profile-view,
+    body[data-yh-view="academy"] #voice-lobby-view,
+    body[data-yh-view="academy"] #video-lobby-view,
+    body[data-yh-view="academy"] #center-stage-view {
+        min-height: 0 !important;
+        height: 100% !important;
+        overflow: hidden !important;
+    }
+
+    /* Roadmap + Community Feed */
+    body[data-yh-view="academy"] #academy-chat .chat-messages,
+    body[data-yh-view="academy"] #academy-feed-view .chat-messages {
+        min-height: 0 !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        overscroll-behavior: contain;
+    }
+
+    /* Messages stays inside center shell */
+    body[data-yh-view="academy"] #academy-chat[data-chat-mode="messages"] .chat-messages,
+    body[data-yh-view="academy"] #academy-chat[data-chat-mode="thread"] .chat-messages {
+        min-height: 0 !important;
+        overflow: hidden !important;
+    }
+
+    body[data-yh-view="academy"] #academy-chat[data-chat-mode="messages"] .academy-messages-inbox,
+    body[data-yh-view="academy"] #academy-chat[data-chat-mode="thread"] .academy-messages-inbox,
+    body[data-yh-view="academy"] #academy-chat[data-chat-mode="messages"] .academy-messages-inbox-sidebar,
+    body[data-yh-view="academy"] #academy-chat[data-chat-mode="thread"] .academy-messages-inbox-sidebar,
+    body[data-yh-view="academy"] #academy-chat[data-chat-mode="messages"] .academy-messages-thread-shell,
+    body[data-yh-view="academy"] #academy-chat[data-chat-mode="thread"] .academy-messages-thread-shell {
+        min-height: 0 !important;
+        height: 100% !important;
+    }
+
+    /* Profile / visited profile */
+    body[data-yh-view="academy"] #academy-profile-view {
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        overscroll-behavior: contain;
+    }
+
+    /* Voice / live stage */
+    body[data-yh-view="academy"] #voice-lobby-view .lounge-container,
+    body[data-yh-view="academy"] #video-lobby-view .lounge-container,
+    body[data-yh-view="academy"] #center-stage-view .stage-layout-wrapper {
+        min-height: 0 !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        overscroll-behavior: contain;
+    }
 }
 
-body[data-yh-view="academy"] .dashboard-layout,
-body[data-yh-view="academy"] .dashboard-core,
-body[data-yh-view="academy"] .yh-main-chat,
-body[data-yh-view="academy"] #academy-chat,
-body[data-yh-view="academy"] #academy-feed-view,
-body[data-yh-view="academy"] #voice-lobby-view,
-body[data-yh-view="academy"] #video-lobby-view,
-body[data-yh-view="academy"] #center-stage-view {
-    overflow: visible !important;
-    height: auto !important;
-    max-height: none !important;
+@media (max-width: 768px) {
+    body[data-yh-view="academy"] {
+        overflow-y: auto !important;
+    }
+
+    body[data-yh-view="academy"] .dashboard-layout,
+    body[data-yh-view="academy"] .dashboard-core,
+    body[data-yh-view="academy"] .yh-main-chat,
+    body[data-yh-view="academy"] #academy-chat,
+    body[data-yh-view="academy"] #academy-feed-view,
+    body[data-yh-view="academy"] #academy-profile-view,
+    body[data-yh-view="academy"] #voice-lobby-view,
+    body[data-yh-view="academy"] #video-lobby-view,
+    body[data-yh-view="academy"] #center-stage-view {
+        overflow: visible !important;
+        height: auto !important;
+        max-height: none !important;
+    }
 }
 .academy-feed-composer-head {
     display: none !important;
