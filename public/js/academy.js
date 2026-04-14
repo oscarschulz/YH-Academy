@@ -6887,34 +6887,62 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
         profileMemberId.innerText = normalized.id || 'Not available yet';
     }
 
-    const resolvedVisitNoteTitle = isSelf
-        ? 'Profile summary'
-        : 'Member summary';
-    const resolvedVisitNoteText = isSelf
-        ? 'This is your Academy profile where you can control your public identity, share about yourself, and connect with other members.'
-        : `You're viewing ${normalized.displayName}'s Academy profile. Learn about their public identity, recent activity, and connection status with you.`;
-    const resolvedRelationshipSummary = isSelf
-        ? 'This is your own profile'
-        : resolvedStatusTone === 'friends'
-            ? 'Already connected inside Academy'
-            : resolvedStatusTone === 'incoming-request'
-                ? 'This member sent you a request'
-                : resolvedStatusTone === 'outgoing-request'
-                    ? 'Your connection request is pending'
-                    : resolvedStatusTone === 'following'
-                        ? 'You already follow this member'
-                        : 'Not connected yet';
-    const resolvedContextNote = isSelf
-        ? 'Visible inside your Academy profile shell'
-        : mutualCountValue > 0
-            ? `${mutualCountValue} shared Academy connection${mutualCountValue === 1 ? '' : 's'}`
-            : 'Visible in Academy directory and social search';
-    const resolvedIntroMode = isSelf
-        ? 'Own profile'
-        : 'Visited member profile';
-    const resolvedIntroVisibilityBadge = isSelf
-        ? 'Own profile'
-        : 'Public member view';
+const resolvedVisitNoteTitle = isSelf
+    ? 'Profile summary'
+    : 'Why this profile is visible';
+
+const resolvedVisitNoteText = isSelf
+    ? 'This is your personal Academy control view. Track your own execution, visibility, and public profile from here.'
+    : 'You are viewing this member through the Academy social layer. This panel helps you quickly judge who they are before you follow, connect, or message.';
+
+const resolvedRelationshipSummary = isSelf
+    ? 'This is your own profile'
+    : resolvedStatusTone === 'friends'
+        ? 'Already connected inside Academy'
+        : resolvedStatusTone === 'incoming-request'
+            ? 'This member sent you a request'
+            : resolvedStatusTone === 'outgoing-request'
+                ? 'Your connection request is pending'
+                : resolvedStatusTone === 'following'
+                    ? 'You already follow this member'
+                    : 'Not connected yet';
+
+const resolvedContextSummary = isSelf
+    ? 'This panel is about your own profile control, execution visibility, and personal Academy presence.'
+    : 'This panel gives a fast public-facing read on the member and your current relationship state inside Academy.';
+
+const resolvedContextNote = isSelf
+    ? 'Visible inside your Academy profile shell'
+    : mutualCountValue > 0
+        ? `${mutualCountValue} shared Academy connection${mutualCountValue === 1 ? '' : 's'}`
+        : 'Visible in Academy directory and social search';
+
+const safeResolvedRelationshipSummary =
+    typeof resolvedRelationshipSummary === 'string' && resolvedRelationshipSummary.trim()
+        ? resolvedRelationshipSummary
+        : (isSelf ? 'This is your own profile' : 'Not connected yet');
+
+const safeResolvedContextSummary =
+    typeof resolvedContextSummary === 'string' && resolvedContextSummary.trim()
+        ? resolvedContextSummary
+        : (isSelf
+            ? 'This panel is about your own profile control, execution visibility, and personal Academy presence.'
+            : 'This panel gives a fast public-facing read on the member and your current relationship state inside Academy.');
+
+const safeResolvedContextNote =
+    typeof resolvedContextNote === 'string' && resolvedContextNote.trim()
+        ? resolvedContextNote
+        : (isSelf
+            ? 'Visible inside your Academy profile shell'
+            : 'Visible in Academy directory and social search');
+
+const resolvedIntroMode = isSelf
+    ? 'Own profile'
+    : 'Visited member profile';
+
+const resolvedIntroVisibilityBadge = isSelf
+    ? 'Own profile'
+    : 'Public member view';
 
     if (profileVisitNoteTitle) {
         profileVisitNoteTitle.innerText = resolvedVisitNoteTitle;
@@ -6969,15 +6997,15 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
     }
 
     if (profileContextSummary) {
-        profileContextSummary.innerText = resolvedContextSummary;
+        profileContextSummary.innerText = safeResolvedContextSummary;
     }
 
     if (profileRelationshipSummary) {
-        profileRelationshipSummary.innerText = resolvedRelationshipSummary;
+        profileRelationshipSummary.innerText = safeResolvedRelationshipSummary;
     }
 
     if (profileContextNote) {
-        profileContextNote.innerText = resolvedContextNote;
+        profileContextNote.innerText = safeResolvedContextNote;
     }
 
     if (profileRecentKicker) {
