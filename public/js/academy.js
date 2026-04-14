@@ -6889,10 +6889,7 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
 
     const resolvedVisitNoteTitle = isSelf
         ? 'Profile summary'
-        : 'Why this profile is visible';
-    const resolvedVisitNoteText = isSelf
-        ? 'This is your personal Academy control view. Track your own execution, visibility, and public profile from here.'
-        : 'You are viewing this member through the Academy social layer. This panel helps you quickly judge who they are before you follow, connect, or message.';
+        : 'Member summary';
     const resolvedRelationshipSummary = isSelf
         ? 'This is your own profile'
         : resolvedStatusTone === 'friends'
