@@ -11539,3 +11539,122 @@ body > #academy-search-results-panel:not(.hidden-step),
         overflow-x: hidden;
     }
 }
+/* ==========================================
+   ACADEMY DESKTOP HARD-LOCK SHELL
+   only center pane scrolls
+   ========================================== */
+@media (min-width: 1025px) {
+    body[data-yh-view="academy"] {
+        height: 100dvh !important;
+        min-height: 100dvh !important;
+        overflow: hidden !important;
+    }
+
+    body[data-yh-view="academy"] .dashboard-layout {
+        display: grid !important;
+        grid-template-rows: auto auto minmax(0, 1fr) !important;
+        height: 100dvh !important;
+        min-height: 100dvh !important;
+        overflow: hidden !important;
+    }
+
+    body[data-yh-view="academy"] .yh-top-nav,
+    body[data-yh-view="academy"] .desktop-user-strip {
+        min-height: 0;
+        overflow: visible !important;
+    }
+
+    body[data-yh-view="academy"] #academy-wrapper {
+        display: grid !important;
+        grid-template-columns: auto minmax(0, 1fr) 260px !important;
+        align-items: stretch !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        overflow: hidden !important;
+    }
+
+    body[data-yh-view="academy"] #academy-wrapper > .yh-sidebar {
+        grid-column: 1;
+        position: sticky !important;
+        top: 0 !important;
+        align-self: start !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        max-height: 100% !important;
+        overflow: hidden !important;
+    }
+
+    body[data-yh-view="academy"] #academy-wrapper > .yh-right-sidebar {
+        grid-column: 3;
+        position: sticky !important;
+        top: 0 !important;
+        align-self: start !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        max-height: 100% !important;
+        overflow: hidden !important;
+    }
+
+    body[data-yh-view="academy"] #academy-wrapper > .yh-main-chat {
+        grid-column: 2;
+        height: 100% !important;
+        min-height: 0 !important;
+        max-height: 100% !important;
+        overflow: hidden !important;
+    }
+
+    body[data-yh-view="academy"] #academy-sidebar .channel-content,
+    body[data-yh-view="academy"] #academy-sidebar .academy-sidebar-shell,
+    body[data-yh-view="academy"] #academy-sidebar .academy-sidebar-progress,
+    body[data-yh-view="academy"] .yh-right-sidebar .member-list,
+    body[data-yh-view="academy"] .yh-right-sidebar .academy-signals-list,
+    body[data-yh-view="academy"] .yh-right-sidebar .academy-signals-shell {
+        min-height: 0 !important;
+    }
+
+    body[data-yh-view="academy"] #academy-feed-view,
+    body[data-yh-view="academy"] #academy-profile-view,
+    body[data-yh-view="academy"] #voice-lobby-view,
+    body[data-yh-view="academy"] #video-lobby-view,
+    body[data-yh-view="academy"] #vault-view,
+    body[data-yh-view="academy"] #center-stage-view {
+        height: 100% !important;
+        min-height: 0 !important;
+        max-height: 100% !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+    }
+
+    body[data-yh-view="academy"] #academy-chat {
+        height: 100% !important;
+        min-height: 0 !important;
+        max-height: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
+    }
+
+    body[data-yh-view="academy"] #academy-chat .chat-header,
+    body[data-yh-view="academy"] #academy-chat #academy-messages-thread-header,
+    body[data-yh-view="academy"] #academy-chat #chat-input-area {
+        flex-shrink: 0 !important;
+    }
+
+    body[data-yh-view="academy"] #academy-chat .chat-messages,
+    body[data-yh-view="academy"] #academy-chat #dynamic-chat-container,
+    body[data-yh-view="academy"] #academy-chat #academy-messages-inbox,
+    body[data-yh-view="academy"] #academy-chat #academy-messages-thread,
+    body[data-yh-view="academy"] #academy-chat #academy-messages-inbox-list,
+    body[data-yh-view="academy"] #academy-chat #dynamic-chat-history {
+        min-height: 0 !important;
+    }
+
+    body[data-yh-view="academy"] #academy-chat .chat-messages,
+    body[data-yh-view="academy"] #academy-chat #dynamic-chat-container,
+    body[data-yh-view="academy"] #academy-chat #academy-messages-thread,
+    body[data-yh-view="academy"] #academy-chat #academy-messages-inbox-list,
+    body[data-yh-view="academy"] #academy-chat #dynamic-chat-history {
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+    }
+}
