@@ -933,6 +933,7 @@ function safeParseJson(value, fallback = null) {
 }
 const academyMobileNavToggle = document.getElementById('academy-mobile-nav-toggle');
 const academyMobileNavMenu = document.getElementById('academy-mobile-nav-menu');
+const academyMobileBottomNav = document.getElementById('academy-mobile-bottom-nav');
 
 function closeAcademyMobileMenu() {
     if (!academyMobileNavMenu || !academyMobileNavToggle) return;
@@ -953,7 +954,60 @@ function toggleAcademyMobileMenu() {
     closeAcademyMobileMenu();
 }
 
+function initAcademyMobileBottomNavAutoHide() {
+    if (!academyMobileBottomNav) return;
+
+    let lastScrollY = window.scrollY || 0;
+    let ticking = false;
+
+    const applyState = () => {
+        const isPhone = window.innerWidth <= 768;
+        const currentY = window.scrollY || 0;
+        const isThreadOpen = document.body?.classList.contains('academy-messages-thread-open');
+
+        if (!isPhone || isThreadOpen) {
+            academyMobileBottomNav.classList.remove('academy-mobile-bottom-nav-hidden');
+            lastScrollY = currentY;
+            ticking = false;
+            return;
+        }
+
+        if (currentY <= 16) {
+            academyMobileBottomNav.classList.remove('academy-mobile-bottom-nav-hidden');
+            lastScrollY = currentY;
+            ticking = false;
+            return;
+        }
+
+        const delta = currentY - lastScrollY;
+
+        if (delta > 8) {
+            academyMobileBottomNav.classList.add('academy-mobile-bottom-nav-hidden');
+        } else if (delta < -8) {
+            academyMobileBottomNav.classList.remove('academy-mobile-bottom-nav-hidden');
+        }
+
+        lastScrollY = currentY;
+        ticking = false;
+    };
+
+    window.addEventListener('scroll', () => {
+        if (window.innerWidth > 768) return;
+        if (ticking) return;
+
+        ticking = true;
+        window.requestAnimationFrame(applyState);
+    }, { passive: true });
+
+    window.addEventListener('resize', () => {
+        if (window.innerWidth > 768) {
+            academyMobileBottomNav.classList.remove('academy-mobile-bottom-nav-hidden');
+        }
+    });
+}
+
 academyMobileNavToggle?.addEventListener('click', function (event) {
+    event.preventDefault();
     event.stopPropagation();
     toggleAcademyMobileMenu();
 });
@@ -1001,9 +1055,10 @@ document.addEventListener('click', (event) => {
 window.addEventListener('resize', () => {
     if (window.innerWidth > 768) {
         closeAcademyMobileMenu();
+        academyMobileBottomNav?.classList.remove('academy-mobile-bottom-nav-hidden');
     }
 });
-
+initAcademyMobileBottomNavAutoHide();
 document.querySelector('.profile-mini')?.addEventListener('click', () => {
     if (document.body?.getAttribute('data-yh-view') === 'academy') {
         openAcademyProfileView();
@@ -10272,8 +10327,20 @@ function setAcademySidebarActive(activeId = '') {
         link.classList.remove('active');
     });
 
+    document.querySelectorAll('.academy-mobile-nav-item[data-academy-target], .academy-mobile-bottom-nav-item[data-academy-target]').forEach((item) => {
+        item.classList.remove('is-active');
+        item.removeAttribute('aria-current');
+    });
+
     if (activeId) {
         document.getElementById(activeId)?.classList.add('active');
+
+        document
+            .querySelectorAll(`.academy-mobile-nav-item[data-academy-target="${activeId}"], .academy-mobile-bottom-nav-item[data-academy-target="${activeId}"]`)
+            .forEach((item) => {
+                item.classList.add('is-active');
+                item.setAttribute('aria-current', 'page');
+            });
     }
 }
 
@@ -10287,7 +10354,7 @@ function syncAcademyShellForViewport() {
     if (viewMode === 'academy') {
         academyWrapper.style.display = 'flex';
         academyWrapper.classList.toggle('academy-mobile-shell', isPhone);
-        leftSidebar.style.display = 'flex';
+        leftSidebar.style.display = isPhone ? 'none' : 'flex';
         rightSidebar.style.display = isTabletOrSmaller ? 'none' : 'flex';
         return;
     }

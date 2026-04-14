@@ -42,11 +42,56 @@
 
     <div class="dashboard-layout fade-in">
         
-<nav class="yh-top-nav">
-    <div class="nav-brand">
-        <img src="/images/logo.avif" alt="YH Logo">
-        <span>UNIVERSE</span>
+<div class="nav-brand">
+    <div class="academy-mobile-nav-drawer academy-mobile-nav-drawer-top" id="academy-mobile-nav-drawer">
+        <button
+            type="button"
+            class="academy-mobile-nav-toggle"
+            id="academy-mobile-nav-toggle"
+            aria-expanded="false"
+            aria-controls="academy-mobile-nav-menu"
+            aria-label="Open Academy menu"
+        >
+            ☰
+        </button>
+
+        <div class="academy-mobile-nav-menu hidden-step" id="academy-mobile-nav-menu">
+            <button type="button" class="academy-mobile-nav-item" data-academy-target="nav-missions">
+                <span class="academy-mobile-nav-item-main">🧠 Roadmap</span>
+                <span class="academy-tab-state-badge academy-tab-state-badge-mobile" id="roadmap-tab-state-badge-mobile">Apply for Access</span>
+            </button>
+
+            <button type="button" class="academy-mobile-nav-item" data-academy-target="nav-chat">
+                <span class="academy-mobile-nav-item-main">📰 Community Feed</span>
+            </button>
+
+            <button type="button" class="academy-mobile-nav-item" data-academy-target="nav-messages">
+                <span class="academy-mobile-nav-item-main">💬 Messages</span>
+            </button>
+
+            <button type="button" class="academy-mobile-nav-item" data-academy-target="nav-voice">
+                <span class="academy-mobile-nav-item-main">🎙️ Live Voice Lounge</span>
+            </button>
+
+            <button type="button" class="academy-mobile-nav-item" data-academy-target="nav-profile">
+                <span class="academy-mobile-nav-item-main">👤 My Profile</span>
+            </button>
+
+            <div class="academy-mobile-nav-divider" aria-hidden="true"></div>
+
+            <button
+                type="button"
+                class="academy-mobile-nav-item academy-mobile-nav-item-secondary"
+                data-academy-target="back-universe"
+            >
+                ← Go back to Universe
+            </button>
+        </div>
     </div>
+
+    <img src="/images/logo.avif" alt="YH Logo">
+    <span>UNIVERSE</span>
+</div>
 
     <div class="nav-actions">
         <button class="btn-logout" onclick="logoutUser()">⎋ Log out</button>
@@ -209,30 +254,7 @@
             ← Go back to Universe
         </button>
 
-            <div class="academy-mobile-nav-drawer" id="academy-mobile-nav-drawer">
-                <button type="button" class="academy-mobile-nav-toggle" id="academy-mobile-nav-toggle" aria-expanded="false" aria-controls="academy-mobile-nav-menu">
-                    ☰ Academy Menu
-                </button>
 
-<div class="academy-mobile-nav-menu hidden-step" id="academy-mobile-nav-menu">
-    <button type="button" class="academy-mobile-nav-item" data-academy-target="nav-missions">
-        <span class="academy-mobile-nav-item-main">🧠 Roadmap</span>
-        <span class="academy-tab-state-badge academy-tab-state-badge-mobile" id="roadmap-tab-state-badge-mobile">Apply for Access</span>
-    </button>
-    <button type="button" class="academy-mobile-nav-item" data-academy-target="nav-chat">📰 Community Feed</button>
-    <button type="button" class="academy-mobile-nav-item" data-academy-target="nav-messages">💬 Messages</button>
-    <button type="button" class="academy-mobile-nav-item" data-academy-target="nav-voice">🎙️ Live Voice Lounge</button>
-    <button type="button" class="academy-mobile-nav-item" data-academy-target="nav-profile">👤 My Profile</button>
-
-    <div class="academy-mobile-nav-divider" aria-hidden="true"></div>
-
-    <button
-        type="button"
-        class="academy-mobile-nav-item academy-mobile-nav-item-secondary"
-        data-academy-target="back-universe"
-    >← Go back to Universe</button>
-</div>
-</div>
 
 <ul class="channel-list academy-channel-list">
 <li class="channel-link" id="nav-missions" title="missions" data-type="missions">
@@ -283,6 +305,34 @@
                 <div class="support-section flex-row academy-support-row">
                 </div>
             </aside>
+
+            <nav class="academy-mobile-bottom-nav" id="academy-mobile-bottom-nav" aria-label="Academy mobile navigation">
+                <button type="button" class="academy-mobile-bottom-nav-item academy-mobile-nav-item" data-academy-target="nav-missions">
+                    <span class="academy-mobile-bottom-nav-icon">🧠</span>
+                    <span class="academy-mobile-bottom-nav-label">Roadmap</span>
+                </button>
+
+                <button type="button" class="academy-mobile-bottom-nav-item academy-mobile-nav-item" data-academy-target="nav-chat">
+                    <span class="academy-mobile-bottom-nav-icon">📰</span>
+                    <span class="academy-mobile-bottom-nav-label">Feed</span>
+                </button>
+
+                <button type="button" class="academy-mobile-bottom-nav-item academy-mobile-nav-item" data-academy-target="nav-messages">
+                    <span class="academy-mobile-bottom-nav-icon">💬</span>
+                    <span class="academy-mobile-bottom-nav-label">Messages</span>
+                </button>
+
+                <button type="button" class="academy-mobile-bottom-nav-item academy-mobile-nav-item" data-academy-target="nav-voice">
+                    <span class="academy-mobile-bottom-nav-icon">🎙️</span>
+                    <span class="academy-mobile-bottom-nav-label">Voice</span>
+                </button>
+
+                <button type="button" class="academy-mobile-bottom-nav-item academy-mobile-nav-item" data-academy-target="nav-profile">
+                    <span class="academy-mobile-bottom-nav-icon">👤</span>
+                    <span class="academy-mobile-bottom-nav-label">Profile</span>
+                </button>
+            </nav>
+
             <main class="yh-main-chat hidden-step fade-in" id="academy-feed-view">
 <header class="chat-header">
                     <div class="header-left academy-header-left">
