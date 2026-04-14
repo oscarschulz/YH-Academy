@@ -559,7 +559,7 @@ h3 { font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem; color: var(--ne
 .delete-task-btn:hover { transform: scale(1.3); }
 
 /* --- THE MEMBER LIST FIX (RIGHT SIDEBAR) --- */
-.yh-right-sidebar { width: 260px; background: rgba(15, 20, 30, 0.5); border-left: 1px solid var(--glass-border); padding: 1rem; overflow-y: auto; display: flex; flex-direction: column; transition: opacity 0.5s ease, visibility 0.5s ease; }
+.yh-right-sidebar { width: 260px; background: rgba(15, 20, 30, 0.5); border-left: 1px solid var(--glass-border); padding: 1rem; overflow: hidden; display: flex; flex-direction: column; transition: opacity 0.5s ease, visibility 0.5s ease; }
 @media (max-width: 900px) { .yh-right-sidebar { display: none; } .yh-sidebar { width: 220px; } .yh-sidebar.collapsed { width: 70px; } }
 
 .member-list { list-style: none; padding: 0; margin: 0; }
@@ -11451,49 +11451,101 @@ body > #academy-search-results-panel:not(.hidden-step),
     }
 }
 /* ==========================================
-   ACADEMY DESKTOP LOCKED SHELL
-   left/right stay fixed, center pane scrolls
+   ACADEMY DESKTOP SCROLL SHELL
+   Explore-style behavior:
+   side rails stay fixed, center pane scrolls
    ========================================== */
 @media (min-width: 1025px) {
+    html,
     body[data-yh-view="academy"] {
-        height: 100dvh;
-        overflow: hidden;
+        height: 100dvh !important;
+        min-height: 100dvh !important;
+        overflow: hidden !important;
     }
 
     body[data-yh-view="academy"] .dashboard-layout {
-        height: 100dvh;
-        min-height: 100dvh;
-        overflow: hidden;
+        display: grid !important;
+        grid-template-rows: 64px 44px minmax(0, 1fr) !important;
+        height: 100dvh !important;
+        min-height: 100dvh !important;
+        overflow: hidden !important;
     }
 
-    body[data-yh-view="academy"] #academy-wrapper {
-        height: calc(100dvh - 108px);
-        min-height: 0;
-        overflow: hidden;
+    body[data-yh-view="academy"] .yh-top-nav {
+        grid-row: 1;
+        min-height: 64px !important;
+        max-height: 64px !important;
+        overflow: hidden !important;
     }
 
+    body[data-yh-view="academy"] .desktop-user-strip {
+        grid-row: 2;
+        min-height: 44px !important;
+        max-height: 44px !important;
+        overflow: hidden !important;
+    }
+
+    body[data-yh-view="academy"] #academy-wrapper,
     body[data-yh-view="academy"] .dashboard-core {
-        height: 100%;
-        min-height: 0;
-        overflow: hidden;
-        align-items: stretch;
+        grid-row: 3;
+        display: grid !important;
+        grid-template-columns: 240px minmax(0, 1fr) 220px !important;
+        align-items: stretch !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        max-height: 100% !important;
+        overflow: hidden !important;
     }
 
-    body[data-yh-view="academy"] .yh-sidebar,
-    body[data-yh-view="academy"] .yh-main-chat,
-    body[data-yh-view="academy"] .yh-right-sidebar {
-        height: 100%;
-        min-height: 0;
+    body[data-yh-view="academy"] #academy-wrapper > .yh-sidebar {
+        grid-column: 1;
+        grid-row: 1;
+        position: sticky !important;
+        top: 0 !important;
+        align-self: start !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        max-height: 100% !important;
+        overflow: hidden !important;
+        flex-shrink: 0 !important;
     }
 
-    body[data-yh-view="academy"] .yh-sidebar,
-    body[data-yh-view="academy"] .yh-right-sidebar {
-        flex-shrink: 0;
-        overflow: hidden;
+    body[data-yh-view="academy"] #academy-wrapper > .yh-right-sidebar {
+        grid-column: 3;
+        grid-row: 1;
+        position: sticky !important;
+        top: 0 !important;
+        align-self: start !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        max-height: 100% !important;
+        overflow: hidden !important;
+        flex-shrink: 0 !important;
     }
 
-    body[data-yh-view="academy"] .yh-main-chat {
-        overflow: hidden;
+    body[data-yh-view="academy"] #academy-wrapper > .yh-main-chat {
+        grid-column: 2;
+        grid-row: 1;
+        height: 100% !important;
+        min-height: 0 !important;
+        max-height: 100% !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        align-content: start !important;
+    }
+
+    body[data-yh-view="academy"] #academy-sidebar .channel-content,
+    body[data-yh-view="academy"] #academy-sidebar .academy-sidebar-shell,
+    body[data-yh-view="academy"] #academy-sidebar .academy-sidebar-progress {
+        min-height: 0 !important;
+        overflow: hidden !important;
+    }
+
+    body[data-yh-view="academy"] .yh-right-sidebar .member-list,
+    body[data-yh-view="academy"] .yh-right-sidebar .academy-signals-list,
+    body[data-yh-view="academy"] .yh-right-sidebar .academy-signals-shell {
+        min-height: 0 !important;
+        overflow: hidden !important;
     }
 
     body[data-yh-view="academy"] #academy-feed-view,
@@ -11501,42 +11553,33 @@ body > #academy-search-results-panel:not(.hidden-step),
     body[data-yh-view="academy"] #voice-lobby-view,
     body[data-yh-view="academy"] #video-lobby-view,
     body[data-yh-view="academy"] #vault-view,
-    body[data-yh-view="academy"] #center-stage-view {
-        height: 100%;
-        min-height: 0;
-        overflow-y: auto;
-        overflow-x: hidden;
+    body[data-yh-view="academy"] #center-stage-view,
+    body[data-yh-view="academy"] #academy-chat {
+        height: 100% !important;
+        min-height: 0 !important;
+        max-height: 100% !important;
     }
 
     body[data-yh-view="academy"] #academy-chat {
-        height: 100%;
-        min-height: 0;
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
     }
 
     body[data-yh-view="academy"] #academy-chat .chat-header,
     body[data-yh-view="academy"] #academy-chat #academy-messages-thread-header,
     body[data-yh-view="academy"] #academy-chat #chat-input-area {
-        flex-shrink: 0;
+        flex-shrink: 0 !important;
     }
 
     body[data-yh-view="academy"] #academy-chat .chat-messages,
     body[data-yh-view="academy"] #academy-chat #dynamic-chat-container,
-    body[data-yh-view="academy"] #academy-chat #academy-messages-inbox,
-    body[data-yh-view="academy"] #academy-chat #academy-messages-inbox-sidebar,
+    body[data-yh-view="academy"] #academy-chat #academy-messages-thread,
     body[data-yh-view="academy"] #academy-chat #academy-messages-inbox-list,
     body[data-yh-view="academy"] #academy-chat #dynamic-chat-history {
-        min-height: 0;
-    }
-
-    body[data-yh-view="academy"] #academy-chat .chat-messages,
-    body[data-yh-view="academy"] #academy-chat #dynamic-chat-container,
-    body[data-yh-view="academy"] #academy-chat #academy-messages-inbox-list,
-    body[data-yh-view="academy"] #academy-chat #dynamic-chat-history {
-        overflow-y: auto;
-        overflow-x: hidden;
+        min-height: 0 !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
     }
 }
 /* ==========================================
