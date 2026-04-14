@@ -11607,3 +11607,36 @@ body > #academy-search-results-panel:not(.hidden-step),
         min-width: 0 !important;
     }
 }
+/* ==========================================
+   ACADEMY MESSAGES HIDE SCROLLBARS
+   keeps scrolling functional, hides rails
+   ========================================== */
+@media (min-width: 769px) {
+    /* Left inbox conversation list */
+    #academy-chat[data-chat-mode="messages"] .academy-messages-inbox-list,
+    #academy-chat[data-chat-mode="thread"] .academy-messages-inbox-list {
+        -ms-overflow-style: none !important;
+        scrollbar-width: none !important;
+    }
+
+    #academy-chat[data-chat-mode="messages"] .academy-messages-inbox-list::-webkit-scrollbar,
+    #academy-chat[data-chat-mode="thread"] .academy-messages-inbox-list::-webkit-scrollbar {
+        width: 0 !important;
+        height: 0 !important;
+        display: none !important;
+    }
+
+    /* Right thread / messages box */
+    #academy-chat[data-chat-mode="messages"] .chat-messages,
+    #academy-chat[data-chat-mode="thread"] .chat-messages {
+        -ms-overflow-style: none !important;
+        scrollbar-width: none !important;
+    }
+
+    #academy-chat[data-chat-mode="messages"] .chat-messages::-webkit-scrollbar,
+    #academy-chat[data-chat-mode="thread"] .chat-messages::-webkit-scrollbar {
+        width: 0 !important;
+        height: 0 !important;
+        display: none !important;
+    }
+}
