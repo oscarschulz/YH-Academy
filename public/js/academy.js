@@ -5449,14 +5449,21 @@ function academyNormalizeProfileAssetUrl(value = '') {
     if (
         /^https?:\/\//i.test(raw) ||
         /^data:/i.test(raw) ||
-        /^blob:/i.test(raw) ||
-        raw.startsWith('/')
+        /^blob:/i.test(raw)
     ) {
         return raw;
     }
 
+    if (raw.startsWith('/uploads/academy/profile/')) {
+        return raw.replace('/uploads/academy/profile/', '/uploads/academy-profile/');
+    }
+
+    if (raw.startsWith('/')) {
+        return raw;
+    }
+
     if (/^[a-z0-9._-]+\.(jpg|jpeg|png|webp|gif)$/i.test(raw)) {
-        return `/uploads/academy/profile/${raw}`;
+        return `/uploads/academy-profile/${raw}`;
     }
 
     return raw;
@@ -5500,7 +5507,35 @@ function persistAcademyProfileCache(profile = null) {
     localStorage.setItem(ACADEMY_PROFILE_CACHE_KEY, JSON.stringify(normalized));
     return normalized;
 }
+function academyResolveMemberAvatarUrl(member = {}) {
+    const directAvatar = academyNormalizeProfileAssetUrl(
+        member.avatar ||
+        member.avatarUrl ||
+        member.profilePhoto ||
+        member.photoURL ||
+        ''
+    );
 
+    if (directAvatar) return directAvatar;
+
+    const memberId = normalizeAcademyFeedId(member.id || member.user_id || member.uid || '');
+    if (memberId && typeof readKnownUsersCache === 'function') {
+        const cache = readKnownUsersCache();
+        const known = cache && typeof cache === 'object' ? cache[memberId] : null;
+
+        const knownAvatar = academyNormalizeProfileAssetUrl(
+            known?.avatar ||
+            known?.avatarUrl ||
+            known?.profilePhoto ||
+            known?.photoURL ||
+            ''
+        );
+
+        if (knownAvatar) return knownAvatar;
+    }
+
+    return '';
+}
 function syncAcademyProfileLocalMirrors(profile = null) {
     if (!profile || typeof profile !== 'object') return null;
 
@@ -5515,14 +5550,15 @@ function syncAcademyProfileLocalMirrors(profile = null) {
         );
 
     const avatar = academyNormalizeProfileAssetUrl(
-        activeProfile.avatar ||
-        activeProfile.profilePhoto ||
-        activeProfile.photoURL ||
+        profile.avatar ||
+        profile.profilePhoto ||
+        profile.photoURL ||
         getStoredUserValue('yh_user_avatar', '')
     );
-    const cover = academyNormalizeProfileAssetUrl(
-        activeProfile.cover_photo ||
-        activeProfile.coverPhoto ||
+
+    const coverPhoto = academyNormalizeProfileAssetUrl(
+        profile.cover_photo ||
+        profile.coverPhoto ||
         getAcademyProfileStoredCover()
     );
 
@@ -7969,7 +8005,7 @@ function renderAcademyMessagesInboxList() {
         const isMuted = room?.muted === true;
 
         let avatarHtml = '';
-        const avatarUrl = String(room?.avatarUrl || '').trim();
+        const avatarUrl = academyResolveMemberAvatarUrl(room);
 
         if (avatarUrl) {
             avatarHtml = `<span class="academy-messages-inbox-avatar" style="background-image:url('${academyFeedEscapeHtml(avatarUrl)}');"></span>`;
@@ -8400,7 +8436,7 @@ function academyRenderMemberBrowserList(members = [], query = '') {
         const username = String(member.username || '').trim();
         const followerCount = Number(member.followers_count || 0);
         const isFollowing = member.followed_by_me === true || member.followed_by_me === 1;
-        const avatar = String(member.avatar || '').trim();
+        const avatar = academyResolveMemberAvatarUrl(member);
 
         const tagLine = hashtagSearch
             ? (Array.isArray(member.matched_hashtags) && member.matched_hashtags.length
@@ -8664,7 +8700,7 @@ function renderAcademySearchResultsPanel(members = [], query = '') {
                 const username = String(member.username || '').trim();
                 const followerCount = Number(member.followers_count || 0);
                 const isFollowing = member.followed_by_me === true || member.followed_by_me === 1;
-                const avatar = String(member.avatar || '').trim();
+                const avatar = academyResolveMemberAvatarUrl(member);
 
                 const tagLine = hashtagSearch
                     ? (Array.isArray(member.matched_hashtags) && member.matched_hashtags.length
