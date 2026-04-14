@@ -507,8 +507,7 @@ h3 { font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem; color: var(--ne
 .yh-sidebar.collapsed .support-section { padding: 1rem 0.5rem; flex-direction: column; }
 .yh-sidebar.collapsed .btn-support { padding: 0.8rem 0; display: flex; justify-content: center; width: 100%; }
 
-.sidebar-toggle-btn { position: absolute; top: 20px; right: -14px; width: 28px; height: 28px; background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 50%; color: #fff; font-size: 0.8rem; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 50; box-shadow: 0 2px 10px rgba(0,0,0,0.5); backdrop-filter: blur(10px); transition: 0.3s; }
-.sidebar-toggle-btn:hover { background: var(--neon-blue); border-color: var(--neon-blue); }
+/* sidebar toggle removed */
 
 .channel-search-container { padding: 1.5rem 1rem 0.5rem 1rem; transition: 0.3s; }
 .search-wrapper { display: flex; align-items: center; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; transition: 0.3s; }
@@ -11626,15 +11625,23 @@ body > #academy-search-results-panel:not(.hidden-step),
         display: none !important;
     }
 
-    /* Right thread / messages box */
+    /* Right thread shell */
     #academy-chat[data-chat-mode="messages"] .chat-messages,
-    #academy-chat[data-chat-mode="thread"] .chat-messages {
+    #academy-chat[data-chat-mode="thread"] .chat-messages,
+    #academy-chat[data-chat-mode="messages"] #academy-messages-thread,
+    #academy-chat[data-chat-mode="thread"] #academy-messages-thread,
+    #academy-chat[data-chat-mode="messages"] #dynamic-chat-history,
+    #academy-chat[data-chat-mode="thread"] #dynamic-chat-history {
         -ms-overflow-style: none !important;
         scrollbar-width: none !important;
     }
 
     #academy-chat[data-chat-mode="messages"] .chat-messages::-webkit-scrollbar,
-    #academy-chat[data-chat-mode="thread"] .chat-messages::-webkit-scrollbar {
+    #academy-chat[data-chat-mode="thread"] .chat-messages::-webkit-scrollbar,
+    #academy-chat[data-chat-mode="messages"] #academy-messages-thread::-webkit-scrollbar,
+    #academy-chat[data-chat-mode="thread"] #academy-messages-thread::-webkit-scrollbar,
+    #academy-chat[data-chat-mode="messages"] #dynamic-chat-history::-webkit-scrollbar,
+    #academy-chat[data-chat-mode="thread"] #dynamic-chat-history::-webkit-scrollbar {
         width: 0 !important;
         height: 0 !important;
         display: none !important;

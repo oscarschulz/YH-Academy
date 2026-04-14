@@ -3100,8 +3100,7 @@ async function ensureVaultLoaded(force = false) {
         });
     }
 
-    const sidebarToggle = document.getElementById('sidebar-toggle'); const academySidebar = document.getElementById('academy-sidebar');
-    if(sidebarToggle && academySidebar) { sidebarToggle.addEventListener('click', () => { academySidebar.classList.toggle('collapsed'); sidebarToggle.innerHTML = academySidebar.classList.contains('collapsed') ? '❯' : '❮'; }); }
+    const academySidebar = document.getElementById('academy-sidebar');
 
     document.querySelectorAll('.btn-focus-mode').forEach(btn => {
         btn.addEventListener('click', () => {
