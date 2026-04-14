@@ -10354,8 +10354,14 @@ function syncAcademyShellForViewport() {
     if (viewMode === 'academy') {
         academyWrapper.style.display = 'flex';
         academyWrapper.classList.toggle('academy-mobile-shell', isPhone);
-        leftSidebar.style.display = isPhone ? 'none' : 'flex';
-        rightSidebar.style.display = isTabletOrSmaller ? 'none' : 'flex';
+
+        if (isPhone) {
+            leftSidebar.style.display = 'none';
+            rightSidebar.style.display = 'none';
+        } else {
+            leftSidebar.style.display = 'flex';
+            rightSidebar.style.display = isTabletOrSmaller ? 'none' : 'flex';
+        }
         return;
     }
 
