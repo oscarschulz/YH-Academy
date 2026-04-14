@@ -11566,3 +11566,44 @@ body > #academy-search-results-panel:not(.hidden-step),
         min-height: 0 !important;
     }
 }
+/* ==========================================
+   ACADEMY MESSAGES INBOX LIST SCROLL LOCK
+   Keeps only the inbox list scrollable
+   without changing thread pane behavior
+   ========================================== */
+@media (min-width: 769px) {
+    #academy-chat[data-chat-mode="messages"] .academy-messages-inbox,
+    #academy-chat[data-chat-mode="thread"] .academy-messages-inbox {
+        min-height: 0 !important;
+        height: 100% !important;
+        align-items: stretch !important;
+    }
+
+    #academy-chat[data-chat-mode="messages"] .academy-messages-inbox-sidebar,
+    #academy-chat[data-chat-mode="thread"] .academy-messages-inbox-sidebar {
+        min-height: 0 !important;
+        height: 100% !important;
+        overflow: hidden !important;
+    }
+
+    #academy-chat[data-chat-mode="messages"] .academy-messages-inbox-head,
+    #academy-chat[data-chat-mode="thread"] .academy-messages-inbox-head {
+        flex: 0 0 auto !important;
+    }
+
+    #academy-chat[data-chat-mode="messages"] .academy-messages-inbox-list,
+    #academy-chat[data-chat-mode="thread"] .academy-messages-inbox-list {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        height: auto !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        align-content: start !important;
+        overscroll-behavior: contain;
+    }
+
+    #academy-chat[data-chat-mode="messages"] .academy-messages-inbox-list > *,
+    #academy-chat[data-chat-mode="thread"] .academy-messages-inbox-list > * {
+        min-width: 0 !important;
+    }
+}
