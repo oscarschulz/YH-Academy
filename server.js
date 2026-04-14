@@ -383,8 +383,11 @@ io.on('connection', (socket) => {
 // --- 🛡️ SECURITY PACKAGES ---
 const rateLimit = require('express-rate-limit');
 
-const ACADEMY_FEED_UPLOAD_DIR = path.join(__dirname, 'public', 'uploads', 'academy-feed');
-const ACADEMY_PROFILE_UPLOAD_DIR = path.join(__dirname, 'public', 'uploads', 'academy-profile');
+const ACADEMY_UPLOADS_ROOT = path.resolve(
+    sanitizeText(process.env.PERSISTENT_UPLOADS_DIR) || path.join(__dirname, 'public', 'uploads')
+);
+const ACADEMY_FEED_UPLOAD_DIR = path.join(ACADEMY_UPLOADS_ROOT, 'academy-feed');
+const ACADEMY_PROFILE_UPLOAD_DIR = path.join(ACADEMY_UPLOADS_ROOT, 'academy-profile');
 const ACADEMY_FEED_MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const ACADEMY_FEED_MAX_VIDEO_BYTES = 100 * 1024 * 1024;
 const ACADEMY_PROFILE_MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -545,6 +548,14 @@ if (
 
     next();
 });
+
+app.use('/uploads', express.static(ACADEMY_UPLOADS_ROOT, {
+    etag: true,
+    lastModified: true,
+    setHeaders: (res) => {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
+}));
 
 app.use(express.static(path.join(__dirname, 'public'), {
     etag: true,
