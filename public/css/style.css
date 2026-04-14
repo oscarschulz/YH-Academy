@@ -4283,7 +4283,6 @@ body.academy-launcher-open {
         left: 0;
         bottom: calc(100% + 10px);
         min-width: 220px;
-        display: flex;
         flex-direction: column;
         gap: 8px;
         padding: 10px;
@@ -4292,6 +4291,10 @@ body.academy-launcher-open {
         background: rgba(15, 23, 42, 0.98);
         box-shadow: 0 18px 45px rgba(0,0,0,0.35);
         backdrop-filter: blur(14px);
+    }
+
+    body[data-yh-view="academy"] .academy-mobile-nav-menu:not(.hidden-step) {
+        display: flex !important;
     }
 
     body[data-yh-view="academy"] .academy-mobile-nav-item {
