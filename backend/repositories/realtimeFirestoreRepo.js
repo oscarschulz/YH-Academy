@@ -116,6 +116,56 @@ function mapRoomDoc(doc, viewerId = '') {
     };
 }
 
+async function enrichRoomForViewer(room = {}, viewerId = '') {
+    const normalizedViewerId = normalizeUserId(viewerId);
+    const memberIds = safeArray(room.member_ids)
+        .map((value) => normalizeUserId(value))
+        .filter(Boolean);
+
+    const otherMemberIds = memberIds.filter((memberId) => memberId && memberId !== normalizedViewerId);
+
+    const participantDocs = await Promise.all(
+        otherMemberIds.map((memberId) => getUserDoc(memberId))
+    );
+
+    const participantSummaries = participantDocs
+        .map((doc) => (doc ? buildUserSummary(doc) : null))
+        .filter(Boolean);
+
+    const participantNames = participantSummaries
+        .map((user) => sanitizeText(user.display_name || user.fullName || user.username))
+        .filter(Boolean);
+
+    const roomType = sanitizeText(room.room_type || room.type || 'group').toLowerCase();
+
+    if (roomType === 'dm') {
+        const recipient = participantSummaries[0] || null;
+        const recipientId = sanitizeText(recipient?.id || otherMemberIds[0]);
+        const recipientName =
+            sanitizeText(recipient?.display_name || recipient?.fullName || recipient?.username) ||
+            sanitizeText(room.name) ||
+            'Direct Message';
+        const recipientAvatar = sanitizeText(recipient?.avatar);
+
+        return {
+            ...room,
+            name: recipientName,
+            avatar: recipientAvatar,
+            avatarUrl: recipientAvatar,
+            recipient_id: recipientId,
+            recipient_name: recipientName,
+            member_names: recipientName ? [recipientName] : [],
+            participantNames: recipientName ? [recipientName] : []
+        };
+    }
+
+    return {
+        ...room,
+        member_names: participantNames,
+        participantNames
+    };
+}
+
 
 function mapVaultItemDoc(doc) {
     const data = doc.data() || {};
@@ -200,11 +250,14 @@ async function getRooms(userId) {
         .limit(100)
         .get();
 
-    return snap.docs
+    const baseRooms = snap.docs
         .map((doc) => mapRoomDoc(doc, normalizedUserId))
         .filter((room) => !room.is_hidden && !room.is_blocked);
-}
 
+    return Promise.all(
+        baseRooms.map((room) => enrichRoomForViewer(room, normalizedUserId))
+    );
+}
 async function createRoom({ userId, roomType, description, name, memberUserIds = [], targetUserId = '' }) {
     const normalizedUserId = normalizeUserId(userId);
     const normalizedRoomType = sanitizeText(roomType || 'group').toLowerCase();
@@ -244,7 +297,10 @@ async function createRoom({ userId, roomType, description, name, memberUserIds =
             const refreshedSnap = await existingRef.get();
 
             return {
-                room: mapRoomDoc(refreshedSnap, normalizedUserId),
+                room: await enrichRoomForViewer(
+                    mapRoomDoc(refreshedSnap, normalizedUserId),
+                    normalizedUserId
+                ),
                 reused: true
             };
         }
@@ -279,12 +335,15 @@ async function createRoom({ userId, roomType, description, name, memberUserIds =
 
     await ref.set(payload);
 
-    const room = mapRoomDoc({
-        id: ref.id,
-        data: () => payload
-    });
+    const createdRoom = mapRoomDoc(
+        { id: ref.id, data: () => payload },
+        normalizedUserId
+    );
 
-    return { room: mapRoomDoc({ id: ref.id, data: () => payload }, normalizedUserId), reused: false };
+    return {
+        room: await enrichRoomForViewer(createdRoom, normalizedUserId),
+        reused: false
+    };
 }
 
 async function deleteRoom({ userId, roomId }) {

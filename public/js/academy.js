@@ -7656,7 +7656,14 @@ function academyNormalizeRealtimeRoomEntry(room = {}) {
     );
     const unreadCount = Number.isFinite(unreadRaw) && unreadRaw > 0 ? unreadRaw : 0;
 
-    const avatarUrl = String(room?.avatar || room?.avatarUrl || '').trim();
+    const avatarUrl = normalizeAvatarUrl(
+        String(
+            room?.avatar ||
+            room?.avatarUrl ||
+            room?.avatar_url ||
+            ''
+        ).trim()
+    );
     const currentUserId =
         normalizeAcademyFeedId(getStoredUserValue('yh_user_id', '')) ||
         normalizeAcademyFeedId(getStoredUserValue('yh_user_uid', ''));
