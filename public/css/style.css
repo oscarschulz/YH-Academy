@@ -12203,11 +12203,11 @@ body > #academy-search-results-panel:not(.hidden-step),
         overscroll-behavior: contain !important;
     }
 
-    /* Mobile composer should stay visible without forcing page growth */
+/* Mobile composer should sit at the true bottom (thread mode) */
     body[data-yh-view="academy"] #academy-chat[data-chat-mode="thread"] #chat-input-area {
         flex: 0 0 auto !important;
-        margin-top: 0 !important;
-        padding-top: 10px !important;
+        margin-top: auto !important;
+        padding-top: 0 !important;
     }
 
     /* Hide webkit scrollbar but keep touch/drag scroll working */
@@ -12368,11 +12368,12 @@ body > #academy-search-results-panel:not(.hidden-step),
     }
 
     body[data-yh-view="academy"].academy-messages-thread-open #chat-input-area {
-        flex: 0 0 auto !important;
-        margin-top: 0 !important;
-        padding: 8px 10px calc(env(safe-area-inset-bottom, 0px) + 8px) !important;
-        background: rgba(5, 8, 22, 0.98) !important;
-    }
+            flex: 0 0 auto !important;
+            margin-top: auto !important;
+            margin-bottom: 0 !important;
+            padding: 8px 10px 0 !important;
+            background: rgba(5, 8, 22, 0.98) !important;
+        }
 
     body[data-yh-view="academy"].academy-messages-thread-open .chat-input-wrapper {
         min-height: 50px !important;
@@ -12521,14 +12522,15 @@ body > #academy-search-results-panel:not(.hidden-step),
         padding: 8px 10px 0 !important;
     }
 
-    /* Composer fully docked at bottom */
+    /* Composer at TRUE bottom (no sticky) */
     body[data-yh-view="academy"].academy-messages-thread-open #chat-input-area {
-        position: sticky !important;
-        bottom: 0 !important;
+        position: relative !important;
+        bottom: auto !important;
         z-index: 35 !important;
         flex: 0 0 auto !important;
-        margin: 0 !important;
-        padding: 8px 10px calc(env(safe-area-inset-bottom, 0px) + 8px) !important;
+        margin-top: auto !important;
+        margin-bottom: 0 !important;
+        padding: 8px 10px 0 !important;
         background: rgba(5, 8, 22, 0.98) !important;
         border-top: 1px solid rgba(255,255,255,0.05) !important;
     }
@@ -12561,6 +12563,7 @@ body > #academy-search-results-panel:not(.hidden-step),
         display: none !important;
     }
 }
+
 /* ==========================================
    ACADEMY MOBILE MESSAGES HEADER CLEARANCE FIX
    prevents inbox surface from covering Start DM
