@@ -12116,3 +12116,301 @@ body > #academy-search-results-panel:not(.hidden-step),
         padding-bottom: calc(92px + env(safe-area-inset-bottom, 0px)) !important;
     }
 }
+/* ==========================================
+   ACADEMY MOBILE MESSAGES POLISH
+   - hide empty thread card in messages mode
+   - fixed-height thread shell in thread mode
+   ========================================== */
+@media (max-width: 768px) {
+    /* Keep the whole academy chat area from growing forever on mobile */
+    body[data-yh-view="academy"] #academy-chat {
+        min-height: 0 !important;
+        height: calc(100dvh - 148px - env(safe-area-inset-bottom, 0px)) !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
+    }
+
+    body[data-yh-view="academy"] #academy-chat > .chat-messages {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        height: auto !important;
+        overflow: hidden !important;
+        padding: 12px !important;
+    }
+
+    /* MOBILE: inbox mode only = show list, hide thread shell card completely */
+    body[data-yh-view="academy"] #academy-chat[data-chat-mode="messages"] .academy-messages-inbox {
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 0 !important;
+        height: 100% !important;
+    }
+
+    body[data-yh-view="academy"] #academy-chat[data-chat-mode="messages"] .academy-messages-inbox-sidebar {
+        display: flex !important;
+        flex-direction: column !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        min-height: 0 !important;
+        height: 100% !important;
+        overflow: hidden !important;
+    }
+
+    body[data-yh-view="academy"] #academy-chat[data-chat-mode="messages"] .academy-messages-inbox-list {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        padding-bottom: 8px !important;
+        overscroll-behavior: contain !important;
+    }
+
+    body[data-yh-view="academy"] #academy-chat[data-chat-mode="messages"] .academy-messages-thread-shell,
+    body[data-yh-view="academy"] #academy-chat[data-chat-mode="messages"] .academy-messages-thread-empty {
+        display: none !important;
+    }
+
+    /* MOBILE: active thread mode = show only thread shell, fixed height, internal scroll */
+    body[data-yh-view="academy"] #academy-chat[data-chat-mode="thread"] .academy-messages-inbox {
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 0 !important;
+        height: 100% !important;
+    }
+
+    body[data-yh-view="academy"] #academy-chat[data-chat-mode="thread"] .academy-messages-inbox-sidebar {
+        display: none !important;
+    }
+
+    body[data-yh-view="academy"] #academy-chat[data-chat-mode="thread"] .academy-messages-thread-shell {
+        display: flex !important;
+        flex-direction: column !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        min-height: 0 !important;
+        height: 100% !important;
+        overflow: hidden !important;
+        border-radius: 18px !important;
+    }
+
+    body[data-yh-view="academy"] #academy-chat[data-chat-mode="thread"] .academy-messages-thread-header {
+        flex: 0 0 auto !important;
+    }
+
+    body[data-yh-view="academy"] #academy-chat[data-chat-mode="thread"] #dynamic-chat-history,
+    body[data-yh-view="academy"] #academy-chat[data-chat-mode="thread"] #academy-messages-thread,
+    body[data-yh-view="academy"] #academy-chat[data-chat-mode="thread"] .chat-messages {
+        min-height: 0 !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        overscroll-behavior: contain !important;
+    }
+
+    /* Mobile composer should stay visible without forcing page growth */
+    body[data-yh-view="academy"] #academy-chat[data-chat-mode="thread"] #chat-input-area {
+        flex: 0 0 auto !important;
+        margin-top: 0 !important;
+        padding-top: 10px !important;
+    }
+
+    /* Hide webkit scrollbar but keep touch/drag scroll working */
+    body[data-yh-view="academy"] #academy-chat[data-chat-mode="messages"] .academy-messages-inbox-list::-webkit-scrollbar,
+    body[data-yh-view="academy"] #academy-chat[data-chat-mode="thread"] #dynamic-chat-history::-webkit-scrollbar,
+    body[data-yh-view="academy"] #academy-chat[data-chat-mode="thread"] .chat-messages::-webkit-scrollbar {
+        width: 0 !important;
+        height: 0 !important;
+        display: none !important;
+    }
+
+    body[data-yh-view="academy"] #academy-chat[data-chat-mode="messages"] .academy-messages-inbox-list,
+    body[data-yh-view="academy"] #academy-chat[data-chat-mode="thread"] #dynamic-chat-history,
+    body[data-yh-view="academy"] #academy-chat[data-chat-mode="thread"] .chat-messages {
+        -ms-overflow-style: none !important;
+        scrollbar-width: none !important;
+    }
+}
+/* ==========================================
+   ACADEMY MOBILE THREAD HEADER POLISH
+   Messenger-like mobile thread view only
+   ========================================== */
+@media (max-width: 768px) {
+    /* 1) Kapag nasa mobile thread view, alisin ang top shell UI */
+    body[data-yh-view="academy"].academy-messages-thread-open .yh-top-nav,
+    body[data-yh-view="academy"].academy-messages-thread-open .desktop-user-strip,
+    body[data-yh-view="academy"].academy-messages-thread-open .academy-mobile-bottom-nav {
+        display: none !important;
+    }
+
+    /* 2) Bawiin ang taas para ang thread mismo ang visible agad */
+    body[data-yh-view="academy"].academy-messages-thread-open #academy-wrapper {
+        padding-top: 0 !important;
+    }
+
+    body[data-yh-view="academy"].academy-messages-thread-open #academy-chat {
+        height: 100dvh !important;
+        min-height: 100dvh !important;
+        max-height: 100dvh !important;
+        overflow: hidden !important;
+    }
+
+    body[data-yh-view="academy"].academy-messages-thread-open #academy-chat > .chat-messages {
+        height: 100% !important;
+        min-height: 0 !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+    }
+
+    body[data-yh-view="academy"].academy-messages-thread-open .academy-messages-inbox,
+    body[data-yh-view="academy"].academy-messages-thread-open .academy-messages-thread-shell {
+        height: 100% !important;
+        min-height: 0 !important;
+        max-height: 100% !important;
+    }
+
+    /* 3) Gawing compact Messenger-style ang thread header */
+    body[data-yh-view="academy"].academy-messages-thread-open .academy-messages-thread-shell {
+        border-radius: 0 !important;
+    }
+
+    body[data-yh-view="academy"].academy-messages-thread-open .academy-messages-thread-header {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        gap: 10px !important;
+        padding: calc(env(safe-area-inset-top, 0px) + 10px) 12px 10px !important;
+        min-height: 58px !important;
+        border-radius: 0 !important;
+        border-left: none !important;
+        border-right: none !important;
+        border-top: none !important;
+    }
+
+    body[data-yh-view="academy"].academy-messages-thread-open .academy-messages-thread-header-main {
+        display: flex !important;
+        align-items: center !important;
+        gap: 10px !important;
+        min-width: 0 !important;
+        flex: 1 1 auto !important;
+    }
+
+    /* 4) Alisin ang avatar, room type badge, meta, at refresh */
+    body[data-yh-view="academy"].academy-messages-thread-open .academy-messages-thread-avatar,
+    body[data-yh-view="academy"].academy-messages-thread-open .academy-messages-thread-roomtype,
+    body[data-yh-view="academy"].academy-messages-thread-open .academy-messages-thread-meta,
+    body[data-yh-view="academy"].academy-messages-thread-open #academy-messages-thread-refresh-btn {
+        display: none !important;
+    }
+
+    body[data-yh-view="academy"].academy-messages-thread-open .academy-messages-thread-copy {
+        min-width: 0 !important;
+        flex: 1 1 auto !important;
+    }
+
+    body[data-yh-view="academy"].academy-messages-thread-open .academy-messages-thread-title-row {
+        display: flex !important;
+        align-items: center !important;
+        min-width: 0 !important;
+        gap: 0 !important;
+    }
+
+    body[data-yh-view="academy"].academy-messages-thread-open .academy-messages-thread-title {
+        margin: 0 !important;
+        min-width: 0 !important;
+        font-size: 1rem !important;
+        line-height: 1.2 !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+
+    /* 5) Gawing left-arrow icon only at ilagay sa kaliwa ng name */
+    body[data-yh-view="academy"].academy-messages-thread-open .academy-messages-thread-actions {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        gap: 0 !important;
+        width: auto !important;
+        min-width: 0 !important;
+        order: -1 !important;
+        flex: 0 0 auto !important;
+    }
+
+    body[data-yh-view="academy"].academy-messages-thread-open #academy-messages-thread-back-btn {
+        width: 34px !important;
+        min-width: 34px !important;
+        height: 34px !important;
+        min-height: 34px !important;
+        padding: 0 !important;
+        border-radius: 999px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-size: 0 !important;
+        line-height: 0 !important;
+    }
+
+    body[data-yh-view="academy"].academy-messages-thread-open #academy-messages-thread-back-btn::before {
+        content: "←" !important;
+        font-size: 18px !important;
+        line-height: 1 !important;
+        color: #fff !important;
+    }
+
+    /* 6) Liitan pa ang usable thread height para laging kita ang composer */
+    body[data-yh-view="academy"].academy-messages-thread-open #dynamic-chat-history,
+    body[data-yh-view="academy"].academy-messages-thread-open #academy-messages-thread,
+    body[data-yh-view="academy"].academy-messages-thread-open .academy-messages-thread-shell .chat-messages {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        height: auto !important;
+        max-height: none !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        padding: 8px 10px 4px !important;
+        overscroll-behavior: contain !important;
+    }
+
+    body[data-yh-view="academy"].academy-messages-thread-open #chat-input-area {
+        flex: 0 0 auto !important;
+        margin-top: 0 !important;
+        padding: 8px 10px calc(env(safe-area-inset-bottom, 0px) + 8px) !important;
+        background: rgba(5, 8, 22, 0.98) !important;
+    }
+
+    body[data-yh-view="academy"].academy-messages-thread-open .chat-input-wrapper {
+        min-height: 50px !important;
+        padding: 8px 10px !important;
+        border-radius: 18px !important;
+    }
+
+    body[data-yh-view="academy"].academy-messages-thread-open .chat-text-input {
+        min-height: 36px !important;
+        max-height: 36px !important;
+        padding: 0 42px 0 12px !important;
+        font-size: 0.95rem !important;
+    }
+
+    body[data-yh-view="academy"].academy-messages-thread-open .action-btn.plus-btn,
+    body[data-yh-view="academy"].academy-messages-thread-open .chat-send-btn,
+    body[data-yh-view="academy"].academy-messages-thread-open .input-extras span {
+        width: 34px !important;
+        min-width: 34px !important;
+        height: 34px !important;
+        min-height: 34px !important;
+    }
+
+    /* 7) Tanggalin ang visible scrollbar pero keep scroll */
+    body[data-yh-view="academy"].academy-messages-thread-open #dynamic-chat-history::-webkit-scrollbar,
+    body[data-yh-view="academy"].academy-messages-thread-open .academy-messages-thread-shell .chat-messages::-webkit-scrollbar {
+        width: 0 !important;
+        height: 0 !important;
+        display: none !important;
+    }
+
+    body[data-yh-view="academy"].academy-messages-thread-open #dynamic-chat-history,
+    body[data-yh-view="academy"].academy-messages-thread-open .academy-messages-thread-shell .chat-messages {
+        -ms-overflow-style: none !important;
+        scrollbar-width: none !important;
+    }
+}
