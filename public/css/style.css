@@ -11669,7 +11669,6 @@ body > #academy-search-results-panel:not(.hidden-step),
         display: none !important;
     }
 }
-}
 /* ==========================================
    ACADEMY MOBILE TOP-LEFT MENU + BOTTOM NAV
    mobile only
@@ -12118,7 +12117,7 @@ body > #academy-search-results-panel:not(.hidden-step),
         overflow: hidden !important;
     }
 
-    body[data-yh-view="academy"] #academy-chat > .chat-messages {
+    body[data-yh-view="academy"] #academy-chat[data-chat-mode="messages"] > .chat-messages {
         flex: 1 1 auto !important;
         min-height: 0 !important;
         height: auto !important;
@@ -12392,4 +12391,5 @@ body > #academy-search-results-panel:not(.hidden-step),
         min-height: 0 !important;
         height: 100% !important;
     }
+}
 }
