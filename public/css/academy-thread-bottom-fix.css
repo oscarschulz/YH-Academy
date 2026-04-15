@@ -3,12 +3,12 @@
 */
 
 @media (max-width: 768px) {
-  /* Use the same state your JS toggles */
   body[data-yh-view="academy"].academy-messages-thread-open
   #academy-chat[data-chat-mode="thread"] {
     height: 100dvh !important;
     min-height: 100dvh !important;
     max-height: 100dvh !important;
+    padding-bottom: 0 !important;
     overflow: hidden !important;
     display: flex !important;
     flex-direction: column !important;
@@ -33,7 +33,6 @@
     flex-direction: column !important;
   }
 
-  /* The thread shell must be a full-height flex column */
   body[data-yh-view="academy"].academy-messages-thread-open
   #academy-chat[data-chat-mode="thread"] #academy-messages-thread-shell,
   body[data-yh-view="academy"].academy-messages-thread-open
@@ -47,13 +46,6 @@
     flex-direction: column !important;
   }
 
-  /* Kill any “reserved height” behavior (your calc(100dvh - 228px)) */
-  body[data-yh-view="academy"].academy-messages-thread-open
-  #academy-chat[data-chat-mode="thread"] .academy-messages-thread-shell {
-    min-height: 0 !important;
-  }
-
-  /* Only history scrolls */
   body[data-yh-view="academy"].academy-messages-thread-open
   #academy-chat[data-chat-mode="thread"] #dynamic-chat-history {
     flex: 1 1 auto !important;
@@ -61,32 +53,30 @@
     overflow-y: auto !important;
     overflow-x: hidden !important;
     padding: 12px 10px 0 !important;
+    overscroll-behavior: contain !important;
   }
 
-  /* Composer is the last flex row and gets pushed to the bottom */
   body[data-yh-view="academy"].academy-messages-thread-open
   #academy-chat[data-chat-mode="thread"] #chat-input-area {
     flex: 0 0 auto !important;
-    margin-top: auto !important; /* 핵심 */
+    margin-top: auto !important;
     margin-bottom: 0 !important;
-    padding: 0 !important;       /* remove the “ghost space” */
+    padding: 0 !important;
     position: relative !important;
     bottom: auto !important;
     background: rgba(5, 8, 22, 0.98) !important;
     border-top: 1px solid rgba(255,255,255,0.05) !important;
   }
 
-  /* Override rules that target the CLASS .chat-input-area inside the shell */
   body[data-yh-view="academy"].academy-messages-thread-open
   #academy-chat[data-chat-mode="thread"] .academy-messages-thread-shell .chat-input-area {
     padding: 0 !important;
     margin-top: auto !important;
   }
 
-  /* Put the actual input pill at the bottom edge (small safe-area only) */
   body[data-yh-view="academy"].academy-messages-thread-open
   #academy-chat[data-chat-mode="thread"] .chat-input-wrapper {
-    margin: 8px 10px env(safe-area-inset-bottom, 0px) 10px !important;
+    margin: 0 10px env(safe-area-inset-bottom, 0px) 10px !important;
     padding: 8px 10px !important;
     border-radius: 18px !important;
   }

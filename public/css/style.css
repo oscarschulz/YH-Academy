@@ -4235,12 +4235,6 @@ body.academy-launcher-open {
         display: none !important;
     }
 
-    body[data-yh-view="academy"].academy-messages-thread-open #academy-chat #chat-input-area {
-        position: sticky;
-        bottom: 0;
-        z-index: 40;
-    }
-
     body[data-yh-view="academy"].academy-messages-thread-open #academy-chat #chat-input-area,
     body[data-yh-view="academy"].academy-messages-thread-open #academy-chat #chat-input-area * {
         pointer-events: auto !important;
@@ -12162,40 +12156,16 @@ body > #academy-search-results-panel:not(.hidden-step),
    Messenger-like mobile thread view only
    ========================================== */
 @media (max-width: 768px) {
-    /* 1) Kapag nasa mobile thread view, alisin ang top shell UI */
     body[data-yh-view="academy"].academy-messages-thread-open .yh-top-nav,
     body[data-yh-view="academy"].academy-messages-thread-open .desktop-user-strip,
     body[data-yh-view="academy"].academy-messages-thread-open .academy-mobile-bottom-nav {
         display: none !important;
     }
 
-    /* 2) Bawiin ang taas para ang thread mismo ang visible agad */
     body[data-yh-view="academy"].academy-messages-thread-open #academy-wrapper {
         padding-top: 0 !important;
     }
 
-    body[data-yh-view="academy"].academy-messages-thread-open #academy-chat {
-        height: 100dvh !important;
-        min-height: 100dvh !important;
-        max-height: 100dvh !important;
-        overflow: hidden !important;
-    }
-
-    body[data-yh-view="academy"].academy-messages-thread-open #academy-chat > .chat-messages {
-        height: 100% !important;
-        min-height: 0 !important;
-        padding: 0 !important;
-        overflow: hidden !important;
-    }
-
-    body[data-yh-view="academy"].academy-messages-thread-open .academy-messages-inbox,
-    body[data-yh-view="academy"].academy-messages-thread-open .academy-messages-thread-shell {
-        height: 100% !important;
-        min-height: 0 !important;
-        max-height: 100% !important;
-    }
-
-    /* 3) Gawing compact Messenger-style ang thread header */
     body[data-yh-view="academy"].academy-messages-thread-open .academy-messages-thread-shell {
         border-radius: 0 !important;
     }
@@ -12221,7 +12191,6 @@ body > #academy-search-results-panel:not(.hidden-step),
         flex: 1 1 auto !important;
     }
 
-    /* 4) Alisin ang avatar, room type badge, meta, at refresh */
     body[data-yh-view="academy"].academy-messages-thread-open .academy-messages-thread-avatar,
     body[data-yh-view="academy"].academy-messages-thread-open .academy-messages-thread-roomtype,
     body[data-yh-view="academy"].academy-messages-thread-open .academy-messages-thread-meta,
@@ -12251,7 +12220,6 @@ body > #academy-search-results-panel:not(.hidden-step),
         text-overflow: ellipsis !important;
     }
 
-    /* 5) Gawing left-arrow icon only at ilagay sa kaliwa ng name */
     body[data-yh-view="academy"].academy-messages-thread-open .academy-messages-thread-actions {
         display: flex !important;
         align-items: center !important;
@@ -12284,34 +12252,6 @@ body > #academy-search-results-panel:not(.hidden-step),
         color: #fff !important;
     }
 
-    /* 6) Liitan pa ang usable thread height para laging kita ang composer */
-    body[data-yh-view="academy"].academy-messages-thread-open #dynamic-chat-history,
-    body[data-yh-view="academy"].academy-messages-thread-open #academy-messages-thread,
-    body[data-yh-view="academy"].academy-messages-thread-open .academy-messages-thread-shell .chat-messages {
-        flex: 1 1 auto !important;
-        min-height: 0 !important;
-        height: auto !important;
-        max-height: none !important;
-        overflow-y: auto !important;
-        overflow-x: hidden !important;
-        padding: 8px 10px 4px !important;
-        overscroll-behavior: contain !important;
-    }
-
-    body[data-yh-view="academy"].academy-messages-thread-open #chat-input-area {
-            flex: 0 0 auto !important;
-            margin-top: auto !important;
-            margin-bottom: 0 !important;
-            padding: 8px 10px 0 !important;
-            background: rgba(5, 8, 22, 0.98) !important;
-        }
-
-    body[data-yh-view="academy"].academy-messages-thread-open .chat-input-wrapper {
-        min-height: 50px !important;
-        padding: 8px 10px !important;
-        border-radius: 18px !important;
-    }
-
     body[data-yh-view="academy"].academy-messages-thread-open .chat-text-input {
         min-height: 36px !important;
         max-height: 36px !important;
@@ -12328,7 +12268,6 @@ body > #academy-search-results-panel:not(.hidden-step),
         min-height: 34px !important;
     }
 
-    /* 7) Tanggalin ang visible scrollbar pero keep scroll */
     body[data-yh-view="academy"].academy-messages-thread-open #dynamic-chat-history::-webkit-scrollbar,
     body[data-yh-view="academy"].academy-messages-thread-open .academy-messages-thread-shell .chat-messages::-webkit-scrollbar {
         width: 0 !important;
