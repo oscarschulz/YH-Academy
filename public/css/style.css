@@ -12158,7 +12158,7 @@ body > #academy-search-results-panel:not(.hidden-step),
     body[data-yh-view="academy"] #academy-chat[data-chat-mode="messages"] .academy-messages-thread-empty {
         display: none !important;
     }
-
+}
 /* ==========================================
    ACADEMY MOBILE THREAD HEADER POLISH
    Messenger-like mobile thread view only
@@ -12393,5 +12393,4 @@ body > #academy-search-results-panel:not(.hidden-step),
         min-height: 0 !important;
         height: 100% !important;
     }
-}
 }
