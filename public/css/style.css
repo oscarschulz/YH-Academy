@@ -12565,3 +12565,53 @@ body > #academy-search-results-panel:not(.hidden-step),
         display: none !important;
     }
 }
+/* ==========================================
+   ACADEMY MOBILE MESSAGES HEADER CLEARANCE FIX
+   prevents inbox surface from covering Start DM
+   ========================================== */
+@media (max-width: 768px) {
+    body[data-yh-view="academy"] #academy-chat[data-chat-mode="messages"] {
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    body[data-yh-view="academy"] #academy-chat[data-chat-mode="messages"] > .chat-header {
+        flex: 0 0 auto !important;
+        height: auto !important;
+        min-height: 0 !important;
+        padding-bottom: 14px !important;
+        position: relative !important;
+        z-index: 3 !important;
+    }
+
+    body[data-yh-view="academy"] #academy-chat[data-chat-mode="messages"] .academy-chat-header-actions {
+        position: relative !important;
+        z-index: 3 !important;
+        margin-top: 8px !important;
+    }
+
+    body[data-yh-view="academy"] #academy-chat[data-chat-mode="messages"] .academy-chat-header-btn,
+    body[data-yh-view="academy"] #academy-chat[data-chat-mode="messages"] .btn-focus-mode {
+        position: relative !important;
+        z-index: 3 !important;
+    }
+
+    body[data-yh-view="academy"] #academy-chat[data-chat-mode="messages"] > .chat-messages {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        margin-top: 8px !important;
+        padding-top: 0 !important;
+        position: relative !important;
+        z-index: 1 !important;
+    }
+
+    body[data-yh-view="academy"] #academy-chat[data-chat-mode="messages"] .academy-messages-inbox {
+        min-height: 0 !important;
+        height: 100% !important;
+    }
+
+    body[data-yh-view="academy"] #academy-chat[data-chat-mode="messages"] .academy-messages-inbox-sidebar {
+        min-height: 0 !important;
+        height: 100% !important;
+    }
+}
