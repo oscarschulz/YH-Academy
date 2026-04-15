@@ -804,12 +804,32 @@ else if (type === 'dm' || type === 'group') {
         : `background: ${color};`;
     let avatarText = icon.includes('url') ? '' : icon;
 
-    if(chatHeaderIcon) chatHeaderIcon.innerHTML = `<div class="member-avatar" style="${avatarStyle} width: 30px; height: 30px; font-size: 0.9rem;">${avatarText}</div>`;
-    if(chatHeaderTitle) chatHeaderTitle.innerText = name;
-    if(chatHeaderTopic) {
-        chatHeaderTopic.innerText = type === 'group'
-            ? 'Group thread'
-            : `Private messages with ${name}`;
+    const isMobileThreadView = window.innerWidth <= 768;
+
+    if (chatHeaderIcon) {
+        if (isMobileThreadView) {
+            chatHeaderIcon.innerHTML = '';
+            chatHeaderIcon.style.display = 'none';
+        } else {
+            chatHeaderIcon.style.removeProperty('display');
+            chatHeaderIcon.innerHTML = `<div class="member-avatar" style="${avatarStyle} width: 30px; height: 30px; font-size: 0.9rem;">${avatarText}</div>`;
+        }
+    }
+
+    if (chatHeaderTitle) {
+        chatHeaderTitle.innerText = isMobileThreadView ? 'Academy Inbox' : name;
+    }
+
+    if (chatHeaderTopic) {
+        if (isMobileThreadView) {
+            chatHeaderTopic.innerText = '';
+            chatHeaderTopic.style.display = 'none';
+        } else {
+            chatHeaderTopic.style.removeProperty('display');
+            chatHeaderTopic.innerText = type === 'group'
+                ? 'Group thread'
+                : `Private messages with ${name}`;
+        }
     }
     if(chatWelcomeBox) chatWelcomeBox.style.display = "none";
     if(chatPinnedMessage) chatPinnedMessage.style.display = "none";

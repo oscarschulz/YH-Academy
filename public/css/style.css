@@ -12414,3 +12414,154 @@ body > #academy-search-results-panel:not(.hidden-step),
         scrollbar-width: none !important;
     }
 }
+/* ==========================================
+   ACADEMY MOBILE THREAD FINAL LOCK
+   - top header = Academy Inbox
+   - bottom composer fully docked
+   - only thread history scrolls
+   ========================================== */
+@media (max-width: 768px) {
+    body[data-yh-view="academy"].academy-messages-thread-open {
+        overflow: hidden !important;
+    }
+
+    body[data-yh-view="academy"].academy-messages-thread-open #academy-wrapper {
+        height: 100dvh !important;
+        min-height: 100dvh !important;
+        max-height: 100dvh !important;
+        overflow: hidden !important;
+    }
+
+    body[data-yh-view="academy"].academy-messages-thread-open #academy-chat {
+        display: flex !important;
+        flex-direction: column !important;
+        height: 100dvh !important;
+        min-height: 100dvh !important;
+        max-height: 100dvh !important;
+        overflow: hidden !important;
+    }
+
+    /* Upper academy header */
+    body[data-yh-view="academy"].academy-messages-thread-open #academy-chat > .chat-header {
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 40 !important;
+        flex: 0 0 auto !important;
+        min-height: 56px !important;
+        padding: 14px 14px 12px !important;
+        background: rgba(5, 8, 22, 0.98) !important;
+        border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+    }
+
+    body[data-yh-view="academy"].academy-messages-thread-open #academy-chat > .chat-header #chat-header-title {
+        font-size: 1rem !important;
+        line-height: 1.2 !important;
+        margin: 0 !important;
+    }
+
+    /* Hide old icon/topic on mobile thread */
+    body[data-yh-view="academy"].academy-messages-thread-open #academy-chat > .chat-header #chat-header-icon,
+    body[data-yh-view="academy"].academy-messages-thread-open #academy-chat > .chat-header #chat-header-topic {
+        display: none !important;
+    }
+
+    /* Main chat body should not scroll as page */
+    body[data-yh-view="academy"].academy-messages-thread-open #academy-chat > .chat-messages {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        height: auto !important;
+        overflow: hidden !important;
+        padding: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    body[data-yh-view="academy"].academy-messages-thread-open .academy-messages-inbox {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        height: auto !important;
+        overflow: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    body[data-yh-view="academy"].academy-messages-thread-open .academy-messages-thread-shell {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        height: auto !important;
+        max-height: none !important;
+        overflow: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
+        border-radius: 0 !important;
+        border-left: none !important;
+        border-right: none !important;
+        border-bottom: none !important;
+    }
+
+    /* Inner thread header under Academy Inbox */
+    body[data-yh-view="academy"].academy-messages-thread-open .academy-messages-thread-header {
+        position: sticky !important;
+        top: 0 !important;
+        z-index: 30 !important;
+        flex: 0 0 auto !important;
+        min-height: 48px !important;
+        padding: 8px 12px !important;
+        background: rgba(15, 23, 42, 0.98) !important;
+        border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+    }
+
+    /* Only the thread history scrolls */
+    body[data-yh-view="academy"].academy-messages-thread-open #dynamic-chat-history,
+    body[data-yh-view="academy"].academy-messages-thread-open #academy-messages-thread,
+    body[data-yh-view="academy"].academy-messages-thread-open .academy-messages-thread-shell .chat-messages {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        height: auto !important;
+        max-height: none !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        overscroll-behavior: contain !important;
+        padding: 8px 10px 0 !important;
+    }
+
+    /* Composer fully docked at bottom */
+    body[data-yh-view="academy"].academy-messages-thread-open #chat-input-area {
+        position: sticky !important;
+        bottom: 0 !important;
+        z-index: 35 !important;
+        flex: 0 0 auto !important;
+        margin: 0 !important;
+        padding: 8px 10px calc(env(safe-area-inset-bottom, 0px) + 8px) !important;
+        background: rgba(5, 8, 22, 0.98) !important;
+        border-top: 1px solid rgba(255,255,255,0.05) !important;
+    }
+
+    body[data-yh-view="academy"].academy-messages-thread-open .chat-input-wrapper {
+        margin: 0 !important;
+        min-height: 50px !important;
+        padding: 8px 10px !important;
+        border-radius: 18px !important;
+    }
+
+    body[data-yh-view="academy"].academy-messages-thread-open .chat-text-input {
+        min-height: 36px !important;
+        max-height: 36px !important;
+    }
+
+    /* Hide thread scrollbars, keep scroll working */
+    body[data-yh-view="academy"].academy-messages-thread-open #dynamic-chat-history,
+    body[data-yh-view="academy"].academy-messages-thread-open #academy-messages-thread,
+    body[data-yh-view="academy"].academy-messages-thread-open .academy-messages-thread-shell .chat-messages {
+        -ms-overflow-style: none !important;
+        scrollbar-width: none !important;
+    }
+
+    body[data-yh-view="academy"].academy-messages-thread-open #dynamic-chat-history::-webkit-scrollbar,
+    body[data-yh-view="academy"].academy-messages-thread-open #academy-messages-thread::-webkit-scrollbar,
+    body[data-yh-view="academy"].academy-messages-thread-open .academy-messages-thread-shell .chat-messages::-webkit-scrollbar {
+        width: 0 !important;
+        height: 0 !important;
+        display: none !important;
+    }
+}
