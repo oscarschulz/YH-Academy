@@ -12615,3 +12615,65 @@ body > #academy-search-results-panel:not(.hidden-step),
         height: 100% !important;
     }
 }
+/* ==========================================
+   ACADEMY MOBILE THREAD — TRUE BOTTOM DOCK
+   forces the type field to sit at the real bottom
+   ========================================== */
+@media (max-width: 768px) {
+    body[data-yh-view="academy"].academy-messages-thread-open #academy-chat[data-chat-mode="thread"] {
+        display: flex !important;
+        flex-direction: column !important;
+        height: 100dvh !important;
+        min-height: 100dvh !important;
+        max-height: 100dvh !important;
+        overflow: hidden !important;
+    }
+
+    body[data-yh-view="academy"].academy-messages-thread-open #academy-chat[data-chat-mode="thread"] > .chat-messages {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        height: auto !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
+        padding: 0 !important;
+    }
+
+    body[data-yh-view="academy"].academy-messages-thread-open #academy-chat[data-chat-mode="thread"] .academy-messages-inbox {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        height: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    body[data-yh-view="academy"].academy-messages-thread-open #academy-chat[data-chat-mode="thread"] .academy-messages-thread-shell {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        height: 100% !important;
+        max-height: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
+    }
+
+    body[data-yh-view="academy"].academy-messages-thread-open #academy-chat[data-chat-mode="thread"] #dynamic-chat-history {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        height: auto !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        padding: 8px 10px 0 !important;
+    }
+
+    body[data-yh-view="academy"].academy-messages-thread-open #academy-chat[data-chat-mode="thread"] #chat-input-area {
+        position: relative !important;
+        bottom: auto !important;
+        flex: 0 0 auto !important;
+        margin-top: auto !important;
+        margin-bottom: 0 !important;
+        padding: 8px 10px calc(env(safe-area-inset-bottom, 0px) + 8px) !important;
+        background: rgba(5, 8, 22, 0.98) !important;
+        border-top: 1px solid rgba(255,255,255,0.05) !important;
+    }
+}
