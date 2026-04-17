@@ -89,23 +89,23 @@ if (type === "error") {
     toast.style.boxSizing = 'border-box';
     toast.style.wordBreak = 'break-word';
 
-    if (otpStepVisible) {
+        if (otpStepVisible) {
         const isMobile = window.innerWidth <= 768;
 
         toast.style.top = 'auto';
-        toast.style.left = '50%';
-        toast.style.right = 'auto';
-        toast.style.transform = 'translateX(-50%)';
+        toast.style.left = 'auto';
+        toast.style.right = isMobile ? '16px' : '24px';
+        toast.style.transform = 'none';
 
         if (isMobile) {
-            toast.style.width = 'calc(100vw - 32px)';
+            toast.style.width = 'min(calc(100vw - 32px), 360px)';
             toast.style.maxWidth = '360px';
             toast.style.padding = '9px 12px';
             toast.style.fontSize = '0.84rem';
             toast.style.borderRadius = '10px';
-            toast.style.bottom = '92px';
+            toast.style.bottom = '16px';
         } else {
-            toast.style.width = 'min(78%, 420px)';
+            toast.style.width = 'min(92vw, 420px)';
             toast.style.maxWidth = '420px';
             toast.style.padding = '10px 14px';
             toast.style.fontSize = '0.88rem';
@@ -113,17 +113,20 @@ if (type === "error") {
 
             if (resendBtn) {
                 const resendRect = resendBtn.getBoundingClientRect();
-                const bottomGap = Math.max(28, window.innerHeight - resendRect.top + 6);
+                const bottomGap = Math.max(24, window.innerHeight - resendRect.top + 6);
                 toast.style.bottom = `${bottomGap}px`;
             } else if (timerEl) {
                 const timerRect = timerEl.getBoundingClientRect();
-                const bottomGap = Math.max(84, window.innerHeight - timerRect.bottom + 44);
+                const bottomGap = Math.max(24, window.innerHeight - timerRect.bottom + 24);
                 toast.style.bottom = `${bottomGap}px`;
             } else {
-                toast.style.bottom = '110px';
+                toast.style.bottom = '24px';
             }
         }
     }
+
+    toast.style.pointerEvents = 'auto';
+    toast.style.visibility = 'visible';
 
     toast.classList.remove('show');
     void toast.offsetWidth;
@@ -132,6 +135,8 @@ if (type === "error") {
     clearTimeout(window.__yhToastTimer);
     window.__yhToastTimer = setTimeout(() => {
         toast.classList.remove('show');
+        toast.style.pointerEvents = 'none';
+        toast.style.visibility = 'hidden';
     }, 3500);
 }
 
