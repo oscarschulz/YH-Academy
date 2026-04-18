@@ -460,32 +460,57 @@ function mapAdminFederationConnectionRequestDoc(doc) {
       ? data.opportunitySnapshot
       : {};
 
+  const dealPackage =
+    data.dealPackage && typeof data.dealPackage === 'object'
+      ? data.dealPackage
+      : {};
+
+  const pricingAmount = toNumber(dealPackage.pricingAmount || data.pricingAmount, 0);
+  const platformCommissionRate = toNumber(dealPackage.platformCommissionRate || data.platformCommissionRate, 0);
+  const platformCommissionAmount = toNumber(dealPackage.platformCommissionAmount || data.platformCommissionAmount, 0);
+  const operatorPayoutAmount = toNumber(dealPackage.operatorPayoutAmount || data.operatorPayoutAmount, 0);
+
   return {
     id: cleanText(doc.id),
     requesterUid: cleanText(data.requesterUid),
     requesterName: cleanText(data.requesterName || 'Federation Member'),
     requesterEmail: cleanText(data.requesterEmail),
+
     ownerUid: cleanText(data.ownerUid || snapshot.ownerUid),
     leadId: cleanText(data.leadId || snapshot.leadId),
     leadPath: cleanText(data.leadPath),
+
     requestMode: cleanText(data.requestMode || (data.leadId ? 'selected_lead' : 'match_request')),
     requestedContact: data.requestedContact && typeof data.requestedContact === 'object'
       ? data.requestedContact
       : null,
+
     matchedAt: toIso(data.matchedAt) || cleanText(data.matchedAt || ''),
     matchedBy: cleanText(data.matchedBy || ''),
+
     opportunityId: cleanText(data.opportunityId || snapshot.id),
     opportunityTitle: cleanText(data.opportunityTitle || snapshot.title || 'Connection request'),
+
     status: cleanText(data.status || 'pending_admin_match'),
     adminStatus: cleanText(data.adminStatus || 'pending_review'),
-    payoutStatus: cleanText(data.payoutStatus || 'not_started'),
-    commissionStatus: cleanText(data.commissionStatus || 'not_started'),
+
+    pricingAmount,
+    currency: cleanText(dealPackage.currency || data.currency || 'USD').toUpperCase() || 'USD',
+    platformCommissionRate,
+    platformCommissionAmount,
+    operatorPayoutAmount,
+    paymentStatus: cleanText(dealPackage.paymentStatus || data.paymentStatus || 'not_started'),
+    payoutStatus: cleanText(data.payoutStatus || dealPackage.payoutStatus || 'not_started'),
+    commissionStatus: cleanText(data.commissionStatus || dealPackage.commissionStatus || 'not_started'),
+    dealNotes: cleanText(dealPackage.dealNotes || data.dealNotes || ''),
+
     budgetRange: cleanText(data.budgetRange || 'not_sure'),
     urgency: cleanText(data.urgency || 'normal'),
     preferredIntroType: cleanText(data.preferredIntroType || 'admin_brokered'),
     requestReason: cleanText(data.requestReason),
     intendedUse: cleanText(data.intendedUse),
     notes: cleanText(data.notes),
+
     sourceDivision: cleanText(data.sourceDivision || 'federation'),
     sourceFeature: cleanText(data.sourceFeature || 'connect'),
     category: cleanText(snapshot.category || snapshot.contactType || ''),
@@ -493,6 +518,7 @@ function mapAdminFederationConnectionRequestDoc(doc) {
     city: cleanText(snapshot.city || ''),
     country: cleanText(snapshot.country || ''),
     strategicValue: cleanText(snapshot.strategicValue || 'standard'),
+
     createdAt: toIso(data.createdAt) || cleanText(data.createdAt || ''),
     updatedAt: toIso(data.updatedAt) || cleanText(data.updatedAt || '')
   };
@@ -1503,6 +1529,40 @@ apiRouter.post('/api/admin/academy/lead-missions/:memberId/:leadId/network', req
     });
   }
 });
+function normalizeAdminDealPackage(body = {}) {
+  const pricingAmount = Math.max(0, toNumber(body.pricingAmount, 0));
+  const platformCommissionRate = Math.max(0, Math.min(100, toNumber(body.platformCommissionRate, 0)));
+
+  const manualCommission =
+    body.platformCommissionAmount !== undefined &&
+    body.platformCommissionAmount !== null &&
+    body.platformCommissionAmount !== ''
+      ? Math.max(0, toNumber(body.platformCommissionAmount, 0))
+      : null;
+
+  const platformCommissionAmount = manualCommission !== null
+    ? manualCommission
+    : Math.round((pricingAmount * platformCommissionRate) / 100);
+
+  const operatorPayoutAmount =
+    body.operatorPayoutAmount !== undefined &&
+    body.operatorPayoutAmount !== null &&
+    body.operatorPayoutAmount !== ''
+      ? Math.max(0, toNumber(body.operatorPayoutAmount, 0))
+      : Math.max(0, pricingAmount - platformCommissionAmount);
+
+  return {
+    pricingAmount,
+    currency: cleanText(body.currency || 'USD').toUpperCase() || 'USD',
+    platformCommissionRate,
+    platformCommissionAmount,
+    operatorPayoutAmount,
+    paymentStatus: cleanText(body.paymentStatus || 'not_started'),
+    payoutStatus: cleanText(body.payoutStatus || 'not_started'),
+    commissionStatus: cleanText(body.commissionStatus || 'not_started'),
+    dealNotes: cleanText(body.dealNotes || '').slice(0, 2000)
+  };
+}
 function buildAdminMatchedFederationOpportunitySnapshot(lead = {}, ownerUid = '', leadId = '') {
   const contactRole = cleanText(lead.contactRole || lead.role || lead.contactType || 'strategic contact');
   const city = cleanText(lead.city);
@@ -1636,6 +1696,70 @@ apiRouter.post('/api/admin/federation/connection-requests/:requestId/match', req
     });
   }
 });
+apiRouter.post('/api/admin/federation/connection-requests/:requestId/deal-package', requireAdminSession, async (req, res) => {
+  try {
+    const requestId = cleanText(req.params.requestId);
+
+    if (!requestId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Federation request id is required.'
+      });
+    }
+
+    const requestRef = firestore.collection('federationConnectionRequests').doc(requestId);
+    const requestSnap = await requestRef.get();
+
+    if (!requestSnap.exists) {
+      return res.status(404).json({
+        success: false,
+        message: 'Federation connection request not found.'
+      });
+    }
+
+    const dealPackage = normalizeAdminDealPackage(req.body || {});
+    const now = Timestamp.now();
+
+    const nextStatus =
+      dealPackage.paymentStatus === 'paid'
+        ? 'paid'
+        : 'pricing_sent';
+
+    await requestRef.set({
+      dealPackage,
+      pricingAmount: dealPackage.pricingAmount,
+      currency: dealPackage.currency,
+      platformCommissionRate: dealPackage.platformCommissionRate,
+      platformCommissionAmount: dealPackage.platformCommissionAmount,
+      operatorPayoutAmount: dealPackage.operatorPayoutAmount,
+      paymentStatus: dealPackage.paymentStatus,
+      payoutStatus: dealPackage.payoutStatus,
+      commissionStatus: dealPackage.commissionStatus,
+      dealNotes: dealPackage.dealNotes,
+      status: nextStatus,
+      adminStatus: 'pricing_sent',
+      pricingSentAt: now,
+      pricingUpdatedAt: now,
+      pricingUpdatedBy: req.adminSession.username,
+      updatedAt: now,
+      adminUpdatedAt: now,
+      adminUpdatedBy: req.adminSession.username
+    }, { merge: true });
+
+    const updatedSnap = await requestRef.get();
+
+    return res.json({
+      success: true,
+      request: mapAdminFederationConnectionRequestDoc(updatedSnap)
+    });
+  } catch (error) {
+    console.error('admin federation deal package update error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update Federation deal package.'
+    });
+  }
+});
 apiRouter.post('/api/admin/federation/connection-requests/:requestId/status', requireAdminSession, async (req, res) => {
   try {
     const requestId = cleanText(req.params.requestId);
@@ -1671,13 +1795,28 @@ apiRouter.post('/api/admin/federation/connection-requests/:requestId/status', re
 
     const now = Timestamp.now();
 
-    await requestRef.set({
+    const statusPatch = {
       status: nextStatus,
       adminStatus: nextStatus === 'rejected' ? 'rejected' : 'active',
       updatedAt: now,
       adminUpdatedAt: now,
       adminUpdatedBy: req.adminSession.username
-    }, { merge: true });
+    };
+
+    if (nextStatus === 'paid') {
+      statusPatch.paymentStatus = 'paid';
+      statusPatch.paidAt = now;
+    }
+
+    if (nextStatus === 'intro_delivered') {
+      statusPatch.introDeliveredAt = now;
+    }
+
+    if (nextStatus === 'completed') {
+      statusPatch.completedAt = now;
+    }
+
+    await requestRef.set(statusPatch, { merge: true });
 
     const updatedSnap = await requestRef.get();
 

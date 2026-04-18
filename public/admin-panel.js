@@ -343,6 +343,7 @@ function normalizeAdminFederationRequestRecord(record = {}) {
     requesterUid: String(record.requesterUid || '').trim(),
     requesterName: String(record.requesterName || 'Federation Member').trim(),
     requesterEmail: String(record.requesterEmail || '').trim(),
+
     ownerUid: String(record.ownerUid || '').trim(),
     leadId: String(record.leadId || '').trim(),
     leadPath: String(record.leadPath || '').trim(),
@@ -350,25 +351,39 @@ function normalizeAdminFederationRequestRecord(record = {}) {
     requestedContact: record.requestedContact && typeof record.requestedContact === 'object'
       ? record.requestedContact
       : null,
+
     matchedAt: String(record.matchedAt || '').trim(),
     matchedBy: String(record.matchedBy || '').trim(),
+
     opportunityId: String(record.opportunityId || '').trim(),
     opportunityTitle: String(record.opportunityTitle || 'Connection request').trim(),
+
     status: String(record.status || 'pending_admin_match').trim(),
     adminStatus: String(record.adminStatus || 'pending_review').trim(),
+
+    pricingAmount: Number(record.pricingAmount || 0),
+    currency: String(record.currency || 'USD').trim() || 'USD',
+    platformCommissionRate: Number(record.platformCommissionRate || 0),
+    platformCommissionAmount: Number(record.platformCommissionAmount || 0),
+    operatorPayoutAmount: Number(record.operatorPayoutAmount || 0),
+    paymentStatus: String(record.paymentStatus || 'not_started').trim(),
     payoutStatus: String(record.payoutStatus || 'not_started').trim(),
     commissionStatus: String(record.commissionStatus || 'not_started').trim(),
+    dealNotes: String(record.dealNotes || '').trim(),
+
     budgetRange: String(record.budgetRange || 'not_sure').trim(),
     urgency: String(record.urgency || 'normal').trim(),
     preferredIntroType: String(record.preferredIntroType || 'admin_brokered').trim(),
     requestReason: String(record.requestReason || '').trim(),
     intendedUse: String(record.intendedUse || '').trim(),
     notes: String(record.notes || '').trim(),
+
     category: String(record.category || '').trim(),
     contactRole: String(record.contactRole || '').trim(),
     city: String(record.city || '').trim(),
     country: String(record.country || '').trim(),
     strategicValue: String(record.strategicValue || 'standard').trim(),
+
     createdAt: String(record.createdAt || '').trim(),
     updatedAt: String(record.updatedAt || '').trim()
   };
@@ -1524,6 +1539,78 @@ function buildFederationLeadMatchSelect(record = {}) {
     </div>
   `;
 }
+function getDealPackageFieldId(recordId = '', field = '') {
+  return `federation-deal-${field}-${String(recordId || '').replace(/[^a-zA-Z0-9_-]/g, '')}`;
+}
+
+function buildFederationDealPackageForm(record = {}) {
+  const id = record.id || '';
+
+  return `
+    <div class="federation-deal-grid">
+      <label>
+        <span>Intro Price</span>
+        <input id="${getDealPackageFieldId(id, 'price')}" type="number" min="0" step="1" value="${escapeHtml(record.pricingAmount || 0)}" />
+      </label>
+
+      <label>
+        <span>Currency</span>
+        <select id="${getDealPackageFieldId(id, 'currency')}">
+          ${['USD', 'EUR', 'GBP', 'NGN'].map((currency) => `
+            <option value="${currency}"${String(record.currency || 'USD') === currency ? ' selected' : ''}>${currency}</option>
+          `).join('')}
+        </select>
+      </label>
+
+      <label>
+        <span>Platform Commission %</span>
+        <input id="${getDealPackageFieldId(id, 'commissionRate')}" type="number" min="0" max="100" step="1" value="${escapeHtml(record.platformCommissionRate || 0)}" />
+      </label>
+
+      <label>
+        <span>Platform Commission Amount</span>
+        <input id="${getDealPackageFieldId(id, 'commissionAmount')}" type="number" min="0" step="1" value="${escapeHtml(record.platformCommissionAmount || 0)}" />
+      </label>
+
+      <label>
+        <span>Operator Payout Estimate</span>
+        <input id="${getDealPackageFieldId(id, 'operatorPayout')}" type="number" min="0" step="1" value="${escapeHtml(record.operatorPayoutAmount || 0)}" />
+      </label>
+
+      <label>
+        <span>Payment Status</span>
+        <select id="${getDealPackageFieldId(id, 'paymentStatus')}">
+          ${['not_started', 'pricing_sent', 'pending_payment', 'paid', 'refunded', 'cancelled'].map((status) => `
+            <option value="${status}"${String(record.paymentStatus || 'not_started') === status ? ' selected' : ''}>${status.replace(/_/g, ' ')}</option>
+          `).join('')}
+        </select>
+      </label>
+
+      <label>
+        <span>Payout Status</span>
+        <select id="${getDealPackageFieldId(id, 'payoutStatus')}">
+          ${['not_started', 'pending', 'approved', 'paid', 'held'].map((status) => `
+            <option value="${status}"${String(record.payoutStatus || 'not_started') === status ? ' selected' : ''}>${status.replace(/_/g, ' ')}</option>
+          `).join('')}
+        </select>
+      </label>
+
+      <label>
+        <span>Commission Status</span>
+        <select id="${getDealPackageFieldId(id, 'commissionStatus')}">
+          ${['not_started', 'pending', 'collected', 'waived'].map((status) => `
+            <option value="${status}"${String(record.commissionStatus || 'not_started') === status ? ' selected' : ''}>${status.replace(/_/g, ' ')}</option>
+          `).join('')}
+        </select>
+      </label>
+
+      <label class="federation-deal-full">
+        <span>Deal Notes</span>
+        <textarea id="${getDealPackageFieldId(id, 'notes')}" rows="3">${escapeHtml(record.dealNotes || '')}</textarea>
+      </label>
+    </div>
+  `;
+}
 function renderFederation() {
   const query = state.ui.globalSearch;
   const valueFilter = document.getElementById('federation-lead-value-filter')?.value || 'all';
@@ -1636,7 +1723,11 @@ function renderFederation() {
         ${makeCell('Requester', `<strong>${escapeHtml(item.requesterName || 'Federation Member')}</strong><div class="muted">${escapeHtml(item.requesterEmail || '—')}</div>`)}
         ${makeCell('Looking For', `<strong>${escapeHtml(item.opportunityTitle || 'Connection request')}</strong><div class="muted">${escapeHtml([item.contactRole, item.city, item.country].filter(Boolean).join(' • ') || item.category || '—')}</div>`)}
         ${makeCell('Reason', `<div class="app-preview"><div class="app-preview-line"><p>${escapeHtml(item.requestReason || 'No reason provided.')}</p></div></div>`)}
-        ${makeCell('Budget / Urgency', `${formatBadge(item.budgetRange || 'not_sure')} ${formatBadge(item.urgency || 'normal')}`)}
+        ${makeCell('Deal Package', `
+          <strong>${escapeHtml(item.currency || 'USD')} ${escapeHtml(item.pricingAmount || 0)}</strong>
+          <div class="muted">Commission: ${escapeHtml(item.currency || 'USD')} ${escapeHtml(item.platformCommissionAmount || 0)} • Operator: ${escapeHtml(item.currency || 'USD')} ${escapeHtml(item.operatorPayoutAmount || 0)}</div>
+          <div class="muted">${escapeHtml(String(item.paymentStatus || 'not_started').replace(/_/g, ' '))}</div>
+        `)}
         ${makeCell('Status', formatBadge(
           String(item.status || 'pending_admin_match')
             .replace(/_/g, ' ')
@@ -1647,6 +1738,8 @@ function renderFederation() {
           <div class="table-actions">
             <button data-open="federationRequest" data-id="${item.id}">Open</button>
             <button data-action="federation-request-match-selected" data-id="${item.id}">Match Lead</button>
+            <button data-action="federation-request-save-deal" data-id="${item.id}">Save Deal</button>
+            <button data-action="federation-request-save-deal" data-id="${item.id}">Save Deal</button>
             <button data-action="federation-request-status-matched" data-id="${item.id}">Matched</button>
             <button data-action="federation-request-status-pricing_sent" data-id="${item.id}">Pricing Sent</button>
             <button data-action="federation-request-status-paid" data-id="${item.id}">Paid</button>
@@ -2386,6 +2479,33 @@ if (type === 'application') {
       </div>
 
       <div class="drawer-section">
+        <h4>Deal Package</h4>
+        <p class="muted" style="margin-top:0;">
+          Set the intro price, platform commission, operator payout estimate, and payment state.
+        </p>
+
+        ${buildFederationDealPackageForm(record)}
+
+        <div class="inline-actions" style="margin-top:12px;">
+          <button class="badge-btn" data-action="federation-request-save-deal" data-id="${record.id}">
+            Save Deal Package
+          </button>
+        </div>
+      </div>
+
+      <div class="drawer-section">
+        <h4>Current Deal Snapshot</h4>
+        <div class="kv-grid">
+          <div class="kv"><span>Intro Price</span><strong>${escapeHtml(record.currency || 'USD')} ${escapeHtml(record.pricingAmount || 0)}</strong></div>
+          <div class="kv"><span>Platform Commission</span><strong>${escapeHtml(record.currency || 'USD')} ${escapeHtml(record.platformCommissionAmount || 0)}</strong></div>
+          <div class="kv"><span>Operator Payout</span><strong>${escapeHtml(record.currency || 'USD')} ${escapeHtml(record.operatorPayoutAmount || 0)}</strong></div>
+          <div class="kv"><span>Payment Status</span><strong>${escapeHtml(record.paymentStatus || 'not_started')}</strong></div>
+          <div class="kv"><span>Commission Status</span><strong>${escapeHtml(record.commissionStatus || 'not_started')}</strong></div>
+          <div class="kv"><span>Payout Status</span><strong>${escapeHtml(record.payoutStatus || 'not_started')}</strong></div>
+        </div>
+      </div>
+
+      <div class="drawer-section">
         <h4>Admin Request Status</h4>
         <div class="inline-actions">
           <button class="badge-btn" data-action="federation-request-status-matched" data-id="${record.id}">Matched</button>
@@ -2606,6 +2726,38 @@ async function matchFederationConnectionRequestToLead(record, selectedValue = ''
         ownerUid,
         leadId
       })
+    }
+  );
+
+  await loadAdminBootstrap();
+
+  const refreshed = findById('federationConnectionRequests', requestId);
+  if (refreshed) {
+    openDrawer('federationRequest', refreshed.id);
+  }
+}
+async function saveFederationConnectionDealPackage(record) {
+  const requestId = String(record?.id || '').trim();
+  if (!requestId) throw new Error('Missing Federation request id.');
+
+  const payload = {
+    pricingAmount: document.getElementById(getDealPackageFieldId(requestId, 'price'))?.value || 0,
+    currency: document.getElementById(getDealPackageFieldId(requestId, 'currency'))?.value || 'USD',
+    platformCommissionRate: document.getElementById(getDealPackageFieldId(requestId, 'commissionRate'))?.value || 0,
+    platformCommissionAmount: document.getElementById(getDealPackageFieldId(requestId, 'commissionAmount'))?.value || '',
+    operatorPayoutAmount: document.getElementById(getDealPackageFieldId(requestId, 'operatorPayout'))?.value || '',
+    paymentStatus: document.getElementById(getDealPackageFieldId(requestId, 'paymentStatus'))?.value || 'not_started',
+    payoutStatus: document.getElementById(getDealPackageFieldId(requestId, 'payoutStatus'))?.value || 'not_started',
+    commissionStatus: document.getElementById(getDealPackageFieldId(requestId, 'commissionStatus'))?.value || 'not_started',
+    dealNotes: document.getElementById(getDealPackageFieldId(requestId, 'notes'))?.value || ''
+  };
+
+  await adminFetchJson(
+    `/api/admin/federation/connection-requests/${encodeURIComponent(requestId)}/deal-package`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
     }
   );
 
@@ -3056,6 +3208,21 @@ case 'federation-request-match-selected': {
   } catch (error) {
     if (error?.message !== 'No active admin session.') {
       showToast(error.message || 'Failed to match lead.');
+    }
+  }
+  break;
+}
+case 'federation-request-save-deal': {
+  try {
+    const record = findById('federationConnectionRequests', id);
+    if (!record) throw new Error('Federation connection request not found.');
+
+    await saveFederationConnectionDealPackage(record);
+
+    showToast('Deal package saved.');
+  } catch (error) {
+    if (error?.message !== 'No active admin session.') {
+      showToast(error.message || 'Failed to save deal package.');
     }
   }
   break;

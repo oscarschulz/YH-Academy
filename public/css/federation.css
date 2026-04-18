@@ -4631,3 +4631,78 @@ body[data-fed-state="member"] #overview .fed-chip {
     grid-column: auto;
   }
 }
+/* ========================================================= */
+/* Federation Network Desk + Deal Package                    */
+/* ========================================================= */
+
+.view-federation .stats-grid.compact {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.view-federation .panel-card + .panel-card {
+  margin-top: 20px;
+}
+
+.inline-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.inline-actions .badge-btn {
+  width: auto;
+}
+
+.federation-match-box,
+.federation-deal-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.federation-match-label,
+.federation-deal-grid label span {
+  color: var(--muted);
+  font-size: .82rem;
+  font-weight: 600;
+}
+
+.federation-match-select,
+.federation-deal-grid input,
+.federation-deal-grid select,
+.federation-deal-grid textarea {
+  width: 100%;
+}
+
+.federation-match-hint {
+  color: var(--muted);
+  font-size: .78rem;
+  line-height: 1.5;
+}
+
+.federation-deal-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.federation-deal-grid label {
+  display: grid;
+  gap: 6px;
+}
+
+.federation-deal-full {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 980px) {
+  .view-federation .stats-grid.compact,
+  .federation-deal-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .view-federation .toolbar {
+    width: 100%;
+  }
+
+  .view-federation .toolbar select {
+    min-width: 0;
+  }
+}
