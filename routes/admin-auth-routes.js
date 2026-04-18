@@ -100,6 +100,18 @@ function renderAcademyApprovalEmail({ name = 'Member' } = {}) {
                 </div>
               </div>
 
+              <div style="text-align:center; margin:0 auto 22px auto;">
+                <a
+                  href="https://younghustlersuniverse.com/"
+                  style="display:inline-block; background:#0ea5e9; color:#ffffff; text-decoration:none; font-size:14px; line-height:1.4; font-weight:800; padding:13px 22px; border-radius:999px;"
+                >
+                  Open Young Hustlers Universe
+                </a>
+                <div style="font-size:12px; line-height:1.7; color:#7f92ab; margin-top:10px;">
+                  younghustlersuniverse.com
+                </div>
+              </div>
+
               <p style="margin:0; font-size:13px; line-height:1.8; color:#7f92ab; text-align:center;">
                 If this message was unexpected, contact support at support@younghustlers.net
               </p>
@@ -845,6 +857,7 @@ apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async 
     };
 
     const nextStatus = decisionMap[rawDecision];
+
     if (!applicationId || !nextStatus) {
       return res.status(400).json({
         success: false,
@@ -885,39 +898,6 @@ apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async 
       });
     }
 
-    const matchedUser = matchedUserDoc.data() || {};
-    const nowIso = new Date().toISOString();
-    const updatedApplication = {
-      ...matchedApplication,
-      status: nextStatus,
-      updatedAt: nowIso,
-      reviewedAt: nowIso,
-      reviewedBy: req.adminSession.username,
-      notes: [
-        `${matchedField === 'roadmapApplication' ? 'Roadmap' : 'Academy membership'} ${nextStatus.toLowerCase()} by admin.`,
-        ...(Array.isArray(matchedApplication.notes) ? matchedApplication.notes : [])
-      ]
-    };
-
-    const updatePayload = {
-      updatedAt: nowIso
-    };
-
-    if (matchedField === 'academyApplication') {
-      updatePayload.academyApplication = updatedApplication;
-      updatePayload.academyApplicationStatus = nextStatus;
-      updatePayload.academyApplicationReviewedAt = nowIso;
-      updatePayload.academyApplicationReviewedBy = req.adminSession.username;
-      updatePayload.academyMembershipStatus = nextStatus.toLowerCase();
-
-      if (nextStatus === 'Approved') {
-        updatePayload.hasAcademyAccess = true;
-        updatePayload.academyMembershipApprovedAt = nowIso;
-      } else {
-        updatePayload.hasAcademyAccess = false;
-      }
-    }
-
     if (matchedField === 'roadmapApplication') {
       return res.status(400).json({
         success: false,
@@ -925,55 +905,187 @@ apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async 
       });
     }
 
-    await matchedUserDoc.ref.set(updatePayload, { merge: true });
+    const reviewResult = await firestore.runTransaction(async (transaction) => {
+      const freshUserSnap = await transaction.get(matchedUserDoc.ref);
+
+      if (!freshUserSnap.exists) {
+        const error = new Error('Application owner not found.');
+        error.statusCode = 404;
+        throw error;
+      }
+
+      const freshUser = freshUserSnap.data() || {};
+      const currentApplication = freshUser[matchedField] || {};
+
+      if (cleanText(currentApplication.id) !== applicationId) {
+        const error = new Error('Application not found.');
+        error.statusCode = 404;
+        throw error;
+      }
+
+      const previousStatus = cleanText(
+        currentApplication.status ||
+        freshUser[`${matchedField}Status`] ||
+        ''
+      ).toLowerCase();
+
+      const approvalEmailAlreadySent = Boolean(
+        freshUser.academyApprovalEmailSentAt ||
+        currentApplication.approvalEmailSentAt
+      );
+
+      const approvalEmailAlreadyClaimed = Boolean(
+        freshUser.academyApprovalEmailClaimedAt ||
+        currentApplication.approvalEmailClaimedAt
+      );
+
+      if (previousStatus && previousStatus === nextStatus.toLowerCase()) {
+        return {
+          alreadyReviewed: true,
+          application: currentApplication,
+          shouldSendApprovalEmail: false,
+          approvalEmailSent: false,
+          approvalEmailError: ''
+        };
+      }
+
+      const nowIso = new Date().toISOString();
+
+      const updatedApplication = {
+        ...currentApplication,
+        status: nextStatus,
+        updatedAt: nowIso,
+        reviewedAt: nowIso,
+        reviewedBy: req.adminSession.username,
+        notes: [
+          `${matchedField === 'roadmapApplication' ? 'Roadmap' : 'Academy membership'} ${nextStatus.toLowerCase()} by admin.`,
+          ...(Array.isArray(currentApplication.notes) ? currentApplication.notes : [])
+        ]
+      };
+
+      const updatePayload = {
+        updatedAt: nowIso,
+        academyApplication: updatedApplication,
+        academyApplicationStatus: nextStatus,
+        academyApplicationReviewedAt: nowIso,
+        academyApplicationReviewedBy: req.adminSession.username,
+        academyMembershipStatus: nextStatus.toLowerCase()
+      };
+
+      if (nextStatus === 'Approved') {
+        updatePayload.hasAcademyAccess = true;
+        updatePayload.academyMembershipApprovedAt = nowIso;
+      } else {
+        updatePayload.hasAcademyAccess = false;
+      }
+
+      let shouldSendApprovalEmail = false;
+      let recipientEmail = '';
+      let recipientName = '';
+
+      if (matchedField === 'academyApplication' && nextStatus === 'Approved') {
+        recipientEmail = cleanText(
+          updatedApplication.email ||
+          freshUser.email ||
+          ''
+        );
+
+        recipientName = cleanText(
+          freshUser.fullName ||
+          freshUser.name ||
+          freshUser.displayName ||
+          updatedApplication.name ||
+          freshUser.username ||
+          'Member'
+        );
+
+        if (!recipientEmail) {
+          updatedApplication.approvalEmailError = 'No applicant email found for the approval notification.';
+          updatePayload.academyApprovalEmailError = updatedApplication.approvalEmailError;
+        } else if (!approvalEmailAlreadySent && !approvalEmailAlreadyClaimed) {
+          shouldSendApprovalEmail = true;
+
+          updatedApplication.approvalEmailClaimedAt = nowIso;
+          updatedApplication.approvalEmailClaimedBy = req.adminSession.username;
+
+          updatePayload.academyApprovalEmailClaimedAt = nowIso;
+          updatePayload.academyApprovalEmailClaimedBy = req.adminSession.username;
+        }
+      }
+
+      updatePayload.academyApplication = updatedApplication;
+
+      transaction.set(matchedUserDoc.ref, updatePayload, { merge: true });
+
+      return {
+        alreadyReviewed: false,
+        application: updatedApplication,
+        shouldSendApprovalEmail,
+        recipientEmail,
+        recipientName,
+        approvalEmailSent: false,
+        approvalEmailError: ''
+      };
+    });
 
     let approvalEmailSent = false;
-    let approvalEmailError = '';
+    let approvalEmailError = reviewResult.approvalEmailError || '';
+    let responseApplication = reviewResult.application;
 
-    if (matchedField === 'academyApplication' && nextStatus === 'Approved') {
-      const recipientEmail = cleanText(
-        updatedApplication.email ||
-        matchedUser.email ||
-        ''
-      );
+    if (reviewResult.shouldSendApprovalEmail) {
+      try {
+        await sendSystemMail({
+          to: reviewResult.recipientEmail,
+          subject: 'YH Universe - Academy Application Approved',
+          html: renderAcademyApprovalEmail({ name: reviewResult.recipientName })
+        });
 
-      const recipientName = cleanText(
-        matchedUser.fullName ||
-        matchedUser.name ||
-        matchedUser.displayName ||
-        updatedApplication.name ||
-        matchedUser.username ||
-        'Member'
-      );
+        const approvalEmailSentAt = new Date().toISOString();
 
-      if (recipientEmail) {
-        try {
-          await sendSystemMail({
-            to: recipientEmail,
-            subject: 'YH Universe - Academy Application Approved',
-            html: renderAcademyApprovalEmail({ name: recipientName })
-          });
-          approvalEmailSent = true;
-        } catch (mailError) {
-          approvalEmailError = cleanText(mailError?.message || 'Failed to send approval email.');
-          console.error('academy approval email error:', mailError);
-        }
-      } else {
-        approvalEmailError = 'No applicant email found for the approval notification.';
+        responseApplication = {
+          ...responseApplication,
+          approvalEmailSentAt,
+          approvalEmailSentTo: reviewResult.recipientEmail,
+          approvalEmailError: ''
+        };
+
+        await matchedUserDoc.ref.set({
+          academyApprovalEmailSentAt: approvalEmailSentAt,
+          academyApprovalEmailSentTo: reviewResult.recipientEmail,
+          academyApprovalEmailError: '',
+          academyApplication: responseApplication
+        }, { merge: true });
+
+        approvalEmailSent = true;
+      } catch (mailError) {
+        approvalEmailError = cleanText(mailError?.message || 'Failed to send approval email.');
+        console.error('academy approval email error:', mailError);
+
+        responseApplication = {
+          ...responseApplication,
+          approvalEmailError
+        };
+
+        await matchedUserDoc.ref.set({
+          academyApprovalEmailError: approvalEmailError,
+          academyApplication: responseApplication
+        }, { merge: true }).catch(() => null);
       }
     }
 
     return res.json({
       success: true,
-      application: updatedApplication,
+      application: responseApplication,
+      alreadyReviewed: reviewResult.alreadyReviewed === true,
       approvalEmailSent,
       approvalEmailError
     });
   } catch (error) {
     console.error('admin application review error:', error);
-    return res.status(500).json({
+
+    return res.status(error.statusCode || 500).json({
       success: false,
-      message: 'Failed to review application.'
+      message: error.message || 'Failed to review application.'
     });
   }
 });

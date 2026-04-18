@@ -84,6 +84,102 @@ const defaultState = () => ({
 
 let state = defaultState();
 
+const ADMIN_REVIEW_ACTIONS = new Set([
+  'approve-application',
+  'reject-application',
+  'waitlist-application'
+]);
+
+const pendingAdminActionKeys = new Set();
+
+function getAdminActionKey(action = '', id = '') {
+  return `${String(action || '').trim()}::${String(id || '').trim()}`;
+}
+
+function isAdminReviewAction(action = '') {
+  return ADMIN_REVIEW_ACTIONS.has(String(action || '').trim());
+}
+
+function getAdminActionButtons(action = '', id = '') {
+  const targetAction = String(action || '').trim();
+  const targetId = String(id || '').trim();
+
+  if (!targetAction || !targetId) return [];
+
+  return Array.from(document.querySelectorAll('[data-action]')).filter((button) => {
+    return (
+      String(button.dataset.action || '').trim() === targetAction &&
+      String(button.dataset.id || '').trim() === targetId
+    );
+  });
+}
+
+function setAdminActionBusy(action = '', id = '', busy = false) {
+  const buttons = getAdminActionButtons(action, id);
+  const busyLabel = isAdminReviewAction(action) ? 'Processing...' : 'Working...';
+
+  buttons.forEach((button) => {
+    if (busy) {
+      if (!button.dataset.originalText) {
+        button.dataset.originalText = button.textContent || '';
+      }
+
+      if (!button.dataset.originalDisabled) {
+        button.dataset.originalDisabled = button.disabled ? 'true' : 'false';
+      }
+
+      button.disabled = true;
+      button.setAttribute('aria-disabled', 'true');
+      button.setAttribute('aria-busy', 'true');
+      button.dataset.actionPending = 'true';
+      button.textContent = busyLabel;
+      return;
+    }
+
+    const wasOriginallyDisabled = button.dataset.originalDisabled === 'true';
+
+    if (!wasOriginallyDisabled) {
+      button.disabled = false;
+      button.removeAttribute('aria-disabled');
+    }
+
+    button.setAttribute('aria-busy', 'false');
+    button.dataset.actionPending = 'false';
+
+    if (button.dataset.originalText) {
+      button.textContent = button.dataset.originalText;
+    }
+
+    delete button.dataset.originalText;
+    delete button.dataset.originalDisabled;
+  });
+}
+
+function beginAdminAction(action = '', id = '') {
+  const key = getAdminActionKey(action, id);
+  if (!key || pendingAdminActionKeys.has(key)) return false;
+
+  pendingAdminActionKeys.add(key);
+  setAdminActionBusy(action, id, true);
+
+  return true;
+}
+
+function endAdminAction(action = '', id = '') {
+  const key = getAdminActionKey(action, id);
+  pendingAdminActionKeys.delete(key);
+  setAdminActionBusy(action, id, false);
+}
+
+function getApplicationDecisionButtonAttrs(currentStatus = '', targetStatus = '') {
+  const current = String(currentStatus || '').trim().toLowerCase();
+  const target = String(targetStatus || '').trim().toLowerCase();
+
+  return current && current === target
+    ? ' disabled aria-disabled="true" data-action-locked="true"'
+    : '';
+}
+
 function getAdminCoachModeKeyFromReplyFormat(value = '') {
   const raw = String(value || '').trim().toLowerCase();
 
@@ -1097,6 +1193,10 @@ function renderApplications() {
       .replace(/\b\w/g, (char) => char.toUpperCase());
 
     const appSource = String(app.source || 'Unknown').trim() || 'Unknown';
+    const appStatus = String(app.status || 'Under Review').trim() || 'Under Review';
+    const approveAttrs = getApplicationDecisionButtonAttrs(appStatus, 'Approved');
+    const rejectAttrs = getApplicationDecisionButtonAttrs(appStatus, 'Rejected');
+    const waitlistAttrs = getApplicationDecisionButtonAttrs(appStatus, 'Waitlisted');
 
     return `
       <tr>
@@ -1106,14 +1206,14 @@ function renderApplications() {
         ${makeCell('Source', escapeHtml(appSource))}
         ${makeCell('Goal / Background', getApplicationPreviewMarkup(app))}
         ${makeCell('Recommended', formatBadge(app.recommendedDivision))}
-        ${makeCell('Status', formatBadge(app.status))}
+        ${makeCell('Status', formatBadge(appStatus))}
         ${makeCell('AI Score', `${Number(app.aiScore || 0)}`)}
         ${makeCell('Actions', `
           <div class="table-actions">
             <button data-open="application" data-id="${app.id}">View Form</button>
-            <button data-action="approve-application" data-id="${app.id}">Approve</button>
-            <button data-action="reject-application" data-id="${app.id}">Reject</button>
-            <button data-action="waitlist-application" data-id="${app.id}">Waitlist</button>
+            <button data-action="approve-application" data-id="${app.id}"${approveAttrs}>Approve</button>
+            <button data-action="reject-application" data-id="${app.id}"${rejectAttrs}>Reject</button>
+            <button data-action="waitlist-application" data-id="${app.id}"${waitlistAttrs}>Waitlist</button>
           </div>
         `)}
       </tr>
@@ -1639,6 +1739,10 @@ if (type === 'application') {
   const nonNegotiable = record.nonNegotiable || profile?.nonNegotiable || '';
   const rawSkillsText = profile?.skills || record.background || '';
   const age = record.age || profile?.age || '';
+  const currentStatus = String(record.status || 'Under Review').trim() || 'Under Review';
+  const approveAttrs = getApplicationDecisionButtonAttrs(currentStatus, 'Approved');
+  const rejectAttrs = getApplicationDecisionButtonAttrs(currentStatus, 'Rejected');
+  const waitlistAttrs = getApplicationDecisionButtonAttrs(currentStatus, 'Waitlisted');
 
   return `
     <div class="drawer-section application-hero">
@@ -1779,9 +1883,9 @@ if (type === 'application') {
       </div>
 
       <div class="inline-actions application-inline-actions">
-        <button class="badge-btn" data-action="approve-application" data-id="${record.id}">Approve</button>
-        <button class="badge-btn" data-action="reject-application" data-id="${record.id}">Reject</button>
-        <button class="badge-btn" data-action="waitlist-application" data-id="${record.id}">Waitlist</button>
+        <button class="badge-btn" data-action="approve-application" data-id="${record.id}"${approveAttrs}>Approve</button>
+        <button class="badge-btn" data-action="reject-application" data-id="${record.id}"${rejectAttrs}>Reject</button>
+        <button class="badge-btn" data-action="waitlist-application" data-id="${record.id}"${waitlistAttrs}>Waitlist</button>
       </div>
     </div>
   `;
@@ -2293,31 +2397,6 @@ case 'waitlist-application': {
   }
   break;
 }
-case 'waitlist-application': {
-  try {
-    const res = await fetch(`/api/admin/applications/${encodeURIComponent(id)}/review`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify({ decision: 'waitlist' })
-    });
-
-    const data = await res.json().catch(() => null);
-
-    if (!res.ok || !data?.success) {
-      throw new Error(data?.message || 'Failed to waitlist application.');
-    }
-
-    await loadAdminBootstrap();
-    showToast('Application waitlisted.');
-  } catch (error) {
-    showToast(error.message || 'Failed to waitlist application.');
-  }
-  break;
-}
     case 'toggle-member-status': {
       const member = findById('members', id);
       if (!member) return;
@@ -2560,7 +2639,7 @@ function bindEvents() {
     if (el) el.addEventListener('change', renderApp);
   });
 
-  document.body.addEventListener('click', (e) => {
+  document.body.addEventListener('click', async (e) => {
     const openBtn = e.target.closest('[data-open]');
     const actionBtn = e.target.closest('[data-action]');
 
@@ -2570,7 +2649,19 @@ function bindEvents() {
     }
 
     if (actionBtn) {
-      handleAction(actionBtn.dataset.action, actionBtn.dataset.id);
+      const action = String(actionBtn.dataset.action || '').trim();
+      const id = String(actionBtn.dataset.id || '').trim();
+
+      if (!action || !id) return;
+      if (actionBtn.disabled || actionBtn.dataset.actionLocked === 'true') return;
+      if (!beginAdminAction(action, id)) return;
+
+      try {
+        await handleAction(action, id);
+      } finally {
+        endAdminAction(action, id);
+      }
+
       return;
     }
   });
@@ -2594,10 +2685,20 @@ function bindEvents() {
 
       if (!action || !id) return;
 
+      if (!beginAdminAction(action, id)) {
+        select.value = '';
+        return;
+      }
+
       select.disabled = true;
-      await handleDrawerStatusChange(action, id);
-      select.disabled = false;
-      select.value = '';
+
+      try {
+        await handleDrawerStatusChange(action, id);
+      } finally {
+        endAdminAction(action, id);
+        select.disabled = false;
+        select.value = '';
+      }
     });
   }
 
