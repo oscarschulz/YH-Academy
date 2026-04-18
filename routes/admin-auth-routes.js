@@ -453,6 +453,45 @@ function buildAdminLeadMissionProjection(lead = {}, member = {}, payouts = [], d
   };
 }
 
+function mapAdminFederationConnectionRequestDoc(doc) {
+  const data = doc.data() || {};
+  const snapshot =
+    data.opportunitySnapshot && typeof data.opportunitySnapshot === 'object'
+      ? data.opportunitySnapshot
+      : {};
+
+  return {
+    id: cleanText(doc.id),
+    requesterUid: cleanText(data.requesterUid),
+    requesterName: cleanText(data.requesterName || 'Federation Member'),
+    requesterEmail: cleanText(data.requesterEmail),
+    ownerUid: cleanText(data.ownerUid || snapshot.ownerUid),
+    leadId: cleanText(data.leadId || snapshot.leadId),
+    leadPath: cleanText(data.leadPath),
+    opportunityId: cleanText(data.opportunityId || snapshot.id),
+    opportunityTitle: cleanText(data.opportunityTitle || snapshot.title || 'Connection request'),
+    status: cleanText(data.status || 'pending_admin_match'),
+    adminStatus: cleanText(data.adminStatus || 'pending_review'),
+    payoutStatus: cleanText(data.payoutStatus || 'not_started'),
+    commissionStatus: cleanText(data.commissionStatus || 'not_started'),
+    budgetRange: cleanText(data.budgetRange || 'not_sure'),
+    urgency: cleanText(data.urgency || 'normal'),
+    preferredIntroType: cleanText(data.preferredIntroType || 'admin_brokered'),
+    requestReason: cleanText(data.requestReason),
+    intendedUse: cleanText(data.intendedUse),
+    notes: cleanText(data.notes),
+    sourceDivision: cleanText(data.sourceDivision || 'federation'),
+    sourceFeature: cleanText(data.sourceFeature || 'connect'),
+    category: cleanText(snapshot.category || snapshot.contactType || ''),
+    contactRole: cleanText(snapshot.contactRole || ''),
+    city: cleanText(snapshot.city || ''),
+    country: cleanText(snapshot.country || ''),
+    strategicValue: cleanText(snapshot.strategicValue || 'standard'),
+    createdAt: toIso(data.createdAt) || cleanText(data.createdAt || ''),
+    updatedAt: toIso(data.updatedAt) || cleanText(data.updatedAt || '')
+  };
+}
+
 async function buildAdminBootstrapPayload() {
   const [usersSnap, broadcastsSnap] = await Promise.all([
     firestore.collection('users').limit(300).get(),
@@ -746,7 +785,7 @@ const applications = users.flatMap((user) => {
     }
   }
 
-  for (const member of academyMembers) {
+    for (const member of academyMembers) {
     try {
       const [leads, payouts, deals] = await Promise.all([
         academyFirestoreRepo.listLeadMissionLeads(member.id),
@@ -763,6 +802,34 @@ const applications = users.flatMap((user) => {
       // Keep bootstrap resilient even if a member has no lead mission records yet.
     }
   }
+
+  let federationConnectionRequests = [];
+
+  try {
+    const requestSnap = await firestore
+      .collection('federationConnectionRequests')
+      .limit(300)
+      .get();
+
+    federationConnectionRequests = requestSnap.docs
+      .map((doc) => mapAdminFederationConnectionRequestDoc(doc))
+      .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  } catch (_) {
+    federationConnectionRequests = [];
+  }
+
+  const federationLeadDatabase = academyLeadMissions
+    .filter((lead) => {
+      const scopes = Array.isArray(lead.accessScopes) ? lead.accessScopes : [];
+      return lead.federationReady === true || scopes.includes('federation');
+    })
+    .sort((a, b) => {
+      const rank = { strategic: 5, high: 4, medium: 3, watch: 2, standard: 1 };
+      const aRank = rank[String(a.strategicValue || '').toLowerCase()] || 0;
+      const bRank = rank[String(b.strategicValue || '').toLowerCase()] || 0;
+      if (aRank !== bRank) return bRank - aRank;
+      return String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''));
+    });
 
   const federationCandidates = users
     .filter((user) => user.federationApplication && typeof user.federationApplication === 'object')
@@ -803,7 +870,9 @@ const applications = users.flatMap((user) => {
     members,
     academy,
     academyLeadMissions,
-    federation: federationCandidates,
+    federationLeadDatabase,
+    federationConnectionRequests,
+    federation: [],
     plazas: [],
     support: [],
     broadcasts,
@@ -1428,7 +1497,63 @@ apiRouter.post('/api/admin/academy/lead-missions/:memberId/:leadId/network', req
     });
   }
 });
+apiRouter.post('/api/admin/federation/connection-requests/:requestId/status', requireAdminSession, async (req, res) => {
+  try {
+    const requestId = cleanText(req.params.requestId);
+    const nextStatus = cleanText(req.body?.status).toLowerCase();
 
+    const allowedStatuses = new Set([
+      'pending_admin_match',
+      'pending_review',
+      'matched',
+      'pricing_sent',
+      'paid',
+      'intro_delivered',
+      'completed',
+      'rejected'
+    ]);
+
+    if (!requestId || !allowedStatuses.has(nextStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid request id and status are required.'
+      });
+    }
+
+    const requestRef = firestore.collection('federationConnectionRequests').doc(requestId);
+    const requestSnap = await requestRef.get();
+
+    if (!requestSnap.exists) {
+      return res.status(404).json({
+        success: false,
+        message: 'Federation connection request not found.'
+      });
+    }
+
+    const now = Timestamp.now();
+
+    await requestRef.set({
+      status: nextStatus,
+      adminStatus: nextStatus === 'rejected' ? 'rejected' : 'active',
+      updatedAt: now,
+      adminUpdatedAt: now,
+      adminUpdatedBy: req.adminSession.username
+    }, { merge: true });
+
+    const updatedSnap = await requestRef.get();
+
+    return res.json({
+      success: true,
+      request: mapAdminFederationConnectionRequestDoc(updatedSnap)
+    });
+  } catch (error) {
+    console.error('admin federation request status update error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update Federation connection request.'
+    });
+  }
+});
 apiRouter.post('/api/admin/broadcasts', requireAdminSession, async (req, res) => {
   try {
     const audience = cleanText(req.body?.audience);

@@ -1594,24 +1594,38 @@ app.get('/api/federation/command', requireApiUser, async (req, res) => {
         const members = [];
         membersSnap.forEach((docSnap) => members.push(mapFederationMemberUserDoc(docSnap)));
 
-        const requestsSnap = await firestore
-            .collection('federationConnectionRequests')
-            .where('requesterUid', '==', fedState.userId)
-            .limit(100)
-            .get();
+        let requests = [];
 
-        const requests = [];
-        requestsSnap.forEach((docSnap) => requests.push(mapFederationRequestDoc(docSnap)));
+        try {
+            const requestsSnap = await firestore
+                .collection('federationConnectionRequests')
+                .where('requesterUid', '==', fedState.userId)
+                .limit(100)
+                .get();
 
-        const connectSnap = await firestore
-            .collectionGroup('academyLeadMissions')
-            .where('federationReady', '==', true)
-            .limit(100)
-            .get();
+            requestsSnap.forEach((docSnap) => requests.push(mapFederationRequestDoc(docSnap)));
+        } catch (error) {
+            console.error('federation command requests query error:', error);
+            requests = [];
+        }
+
+        let connectOpportunitiesCount = 0;
+
+        try {
+            const connectSnap = await firestore
+                .collectionGroup('academyLeadMissions')
+                .where('federationReady', '==', true)
+                .limit(100)
+                .get();
+
+            connectOpportunitiesCount = connectSnap.size;
+        } catch (error) {
+            console.error('federation command opportunities query error:', error);
+            connectOpportunitiesCount = 0;
+        }
 
         const countries = new Set(members.map((member) => member.country).filter(Boolean));
         const categories = new Set(members.map((member) => member.category).filter(Boolean));
-
         return res.json({
             success: true,
             command: {
@@ -1620,7 +1634,7 @@ app.get('/api/federation/command', requireApiUser, async (req, res) => {
                     approvedMembers: members.length,
                     countriesActive: countries.size,
                     sectorsLive: categories.size,
-                    connectOpportunities: connectSnap.size,
+                    connectOpportunities: connectOpportunitiesCount,
                     myRequests: requests.length,
                     pendingRequests: requests.filter((item) =>
                         ['pending_admin_match', 'pending_review'].includes(String(item.status || '').toLowerCase())
@@ -1767,12 +1781,17 @@ app.get('/api/federation/connect/my-requests', requireApiUser, async (req, res) 
                 id: docSnap.id,
                 leadId: sanitizeText(data.leadId),
                 ownerUid: sanitizeText(data.ownerUid),
+                requestMode: sanitizeText(data.requestMode || 'selected_lead'),
+                requestedContact: data.requestedContact && typeof data.requestedContact === 'object'
+                    ? data.requestedContact
+                    : null,
                 opportunityTitle: sanitizeText(data.opportunityTitle),
                 status: sanitizeText(data.status || 'pending_admin_match'),
                 budgetRange: sanitizeText(data.budgetRange || 'not_sure'),
                 urgency: sanitizeText(data.urgency || 'normal'),
                 preferredIntroType: sanitizeText(data.preferredIntroType || 'admin_brokered'),
                 requestReason: sanitizeText(data.requestReason),
+                intendedUse: sanitizeText(data.intendedUse),
                 createdAt: mapFederationConnectTimestamp(data.createdAt),
                 updatedAt: mapFederationConnectTimestamp(data.updatedAt)
             });
@@ -1802,11 +1821,27 @@ app.post('/api/federation/connect/requests', requireApiUser, async (req, res) =>
         const body = req.body || {};
         const ownerUid = sanitizeText(body.ownerUid);
         const leadId = sanitizeText(body.leadId);
+        const hasSelectedLead = Boolean(ownerUid && leadId);
 
-        if (!ownerUid || !leadId) {
+        const requestedContact = {
+            companyName: sanitizeText(body.companyName).slice(0, 180),
+            companyWebsite: sanitizeText(body.companyWebsite).slice(0, 500),
+            contactName: sanitizeText(body.contactName).slice(0, 180),
+            contactRole: sanitizeText(body.contactRole).slice(0, 180),
+            contactType: sanitizeText(body.contactType).slice(0, 120),
+            city: sanitizeText(body.city).slice(0, 120),
+            country: sanitizeText(body.country).slice(0, 120),
+            sourceMethod: sanitizeText(body.sourceMethod).slice(0, 120),
+            channel: sanitizeText(body.channel).slice(0, 120),
+            pipelineStage: sanitizeText(body.pipelineStage).slice(0, 120),
+            priority: sanitizeText(body.priority).slice(0, 80),
+            requestedTier: sanitizeText(body.requestedTier).slice(0, 40)
+        };
+
+        if (!requestedContact.contactRole || !requestedContact.contactType || !requestedContact.country) {
             return res.status(400).json({
                 success: false,
-                message: 'Missing selected Federation Connect opportunity.'
+                message: 'Please add the contact role, contact type, and country.'
             });
         }
 
@@ -1815,35 +1850,63 @@ app.post('/api/federation/connect/requests', requireApiUser, async (req, res) =>
         if (!requestReason || requestReason.length < 12) {
             return res.status(400).json({
                 success: false,
-                message: 'Please explain why you need this connection.'
+                message: 'Please explain why you need this contact.'
             });
         }
 
-        const leadRef = firestore
-            .collection('users')
-            .doc(ownerUid)
-            .collection('academyLeadMissions')
-            .doc(leadId);
+        let leadRef = null;
+        let opportunity = {
+            id: '',
+            leadId: '',
+            ownerUid: '',
+            title: `Looking for ${requestedContact.contactRole} in ${requestedContact.city ? `${requestedContact.city}, ` : ''}${requestedContact.country}`,
+            category: requestedContact.contactType || 'Strategic Network',
+            contactRole: requestedContact.contactRole,
+            city: requestedContact.city,
+            country: requestedContact.country,
+            strategicValue: 'requested',
+            tier: requestedContact.requestedTier || '',
+            sourceDivision: 'federation',
+            pipelineStage: requestedContact.pipelineStage || '',
+            sourceMethod: requestedContact.sourceMethod || '',
+            contactType: requestedContact.contactType,
+            companyLabel: requestedContact.companyName || 'Requested organization',
+            hasEmail: false,
+            hasPhone: false,
+            hasDirectContact: false,
+            summary: requestReason,
+            createdAt: null,
+            updatedAt: null
+        };
 
-        const leadSnap = await leadRef.get();
+        if (hasSelectedLead) {
+            leadRef = firestore
+                .collection('users')
+                .doc(ownerUid)
+                .collection('academyLeadMissions')
+                .doc(leadId);
 
-        if (!leadSnap.exists) {
-            return res.status(404).json({
-                success: false,
-                message: 'This Federation Connect opportunity is no longer available.'
-            });
+            const leadSnap = await leadRef.get();
+
+            if (!leadSnap.exists) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'This Federation Connect opportunity is no longer available.'
+                });
+            }
+
+            const lead = leadSnap.data() || {};
+
+            if (lead.federationReady !== true) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'This lead has not been approved for Federation Connect.'
+                });
+            }
+
+            opportunity = mapFederationConnectOpportunityDoc(leadSnap);
         }
 
-        const lead = leadSnap.data() || {};
-
-        if (lead.federationReady !== true) {
-            return res.status(403).json({
-                success: false,
-                message: 'This lead has not been approved for Federation Connect.'
-            });
-        }
-
-        const opportunity = mapFederationConnectOpportunityDoc(leadSnap);
         const now = Timestamp.now();
 
         const requestPayload = {
@@ -1851,9 +1914,11 @@ app.post('/api/federation/connect/requests', requireApiUser, async (req, res) =>
             requesterEmail,
             requesterName,
 
-            ownerUid,
-            leadId,
-            leadPath: leadRef.path,
+            ownerUid: hasSelectedLead ? ownerUid : '',
+            leadId: hasSelectedLead ? leadId : '',
+            leadPath: hasSelectedLead && leadRef ? leadRef.path : '',
+            requestMode: hasSelectedLead ? 'selected_lead' : 'match_request',
+            requestedContact,
 
             sourceDivision: 'federation',
             sourceFeature: 'connect',

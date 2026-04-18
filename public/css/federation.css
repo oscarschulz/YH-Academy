@@ -4594,3 +4594,40 @@ body[data-fed-state="member"] #overview .fed-chip {
     flex-direction: column;
   }
 }
+/* ========================================================= */
+/* Federation Connect Request Form                           */
+/* ========================================================= */
+
+.fed-connect-request-panel {
+  margin-top: 16px;
+}
+
+.fed-connect-request-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.fed-connect-request-form .fed-form-group-full,
+.fed-connect-request-form .fed-input-wrap-full,
+.fed-connect-request-form .fed-form-actions {
+  grid-column: 1 / -1;
+}
+
+.fed-connect-request-form input,
+.fed-connect-request-form select,
+.fed-connect-request-form textarea {
+  width: 100%;
+}
+
+@media (max-width: 760px) {
+  .fed-connect-request-form {
+    grid-template-columns: 1fr;
+  }
+
+  .fed-connect-request-form .fed-form-group-full,
+  .fed-connect-request-form .fed-input-wrap-full,
+  .fed-connect-request-form .fed-form-actions {
+    grid-column: auto;
+  }
+}

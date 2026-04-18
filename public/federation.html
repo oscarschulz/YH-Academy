@@ -740,26 +740,123 @@
 
         <div class="fed-connect-grid" id="federationConnectGrid"></div>
 
-        <div class="fed-connect-request-panel" id="connectRequestPanel" hidden>
+        <div class="fed-connect-request-panel" id="connectRequestPanel">
           <form id="connectRequestForm" class="fed-form fed-connect-request-form" novalidate>
             <input type="hidden" id="connectRequestLeadId" name="leadId" />
             <input type="hidden" id="connectRequestOwnerUid" name="ownerUid" />
 
             <div class="fed-form-group fed-form-group-full">
-              <div class="fed-form-section-title">Connection Request</div>
+              <div class="fed-form-section-title">Request a Contact</div>
               <p class="fed-connect-selected" id="connectSelectedOpportunity">
-                Select an opportunity above to request a connection.
+                Fill the request fields below. Admin will match your request against the Federation-ready lead database.
               </p>
             </div>
 
-            <div class="fed-input-wrap fed-input-wrap-full">
-              <label for="connectRequestReason">Why do you need this connection?</label>
-              <textarea id="connectRequestReason" name="requestReason" rows="4" required></textarea>
+            <div class="fed-input-wrap">
+              <label for="connectRequestedTier">Preferred Tier</label>
+              <select id="connectRequestedTier" name="requestedTier">
+                <option value="">Any tier</option>
+                <option value="T1">T1 - High Value</option>
+                <option value="T2">T2 - Mid Value</option>
+                <option value="T3">T3 - Low Value</option>
+              </select>
             </div>
 
-            <div class="fed-input-wrap fed-input-wrap-full">
-              <label for="connectIntendedUse">What will you use the introduction for?</label>
-              <textarea id="connectIntendedUse" name="intendedUse" rows="3"></textarea>
+            <div class="fed-input-wrap">
+              <label for="connectRequestedCompanyName">Company / Organization</label>
+              <input id="connectRequestedCompanyName" name="companyName" type="text" placeholder="Example: law firm, investment group, agency" />
+            </div>
+
+            <div class="fed-input-wrap">
+              <label for="connectRequestedCompanyWebsite">Company Website</label>
+              <input id="connectRequestedCompanyWebsite" name="companyWebsite" type="text" placeholder="Optional" />
+            </div>
+
+            <div class="fed-input-wrap">
+              <label for="connectRequestedContactName">Contact Name</label>
+              <input id="connectRequestedContactName" name="contactName" type="text" placeholder="Optional if unknown" />
+            </div>
+
+            <div class="fed-input-wrap">
+              <label for="connectRequestedContactRole">Contact Role</label>
+              <input id="connectRequestedContactRole" name="contactRole" type="text" placeholder="Founder, lawyer, investor, manager..." required />
+            </div>
+
+            <div class="fed-input-wrap">
+              <label for="connectRequestedContactType">Contact Type</label>
+              <select id="connectRequestedContactType" name="contactType" required>
+                <option value="">Select type</option>
+                <option value="employee">Employee</option>
+                <option value="manager">Manager</option>
+                <option value="founder">Founder</option>
+                <option value="owner">Owner</option>
+                <option value="investor">Investor</option>
+                <option value="lawyer">Lawyer</option>
+                <option value="policy">Policy / Government</option>
+                <option value="media">Media / Influence</option>
+                <option value="operator">Operator</option>
+                <option value="unknown">Unknown</option>
+              </select>
+            </div>
+
+            <div class="fed-input-wrap">
+              <label for="connectRequestedCity">City</label>
+              <input id="connectRequestedCity" name="city" type="text" placeholder="Example: Lagos" />
+            </div>
+
+            <div class="fed-input-wrap">
+              <label for="connectRequestedCountry">Country</label>
+              <input id="connectRequestedCountry" name="country" type="text" placeholder="Example: Nigeria" required />
+            </div>
+
+            <div class="fed-input-wrap">
+              <label for="connectRequestedSourceMethod">Preferred Source Method</label>
+              <select id="connectRequestedSourceMethod" name="sourceMethod">
+                <option value="">Any source</option>
+                <option value="Google Maps">Google Maps</option>
+                <option value="Search Engine">Search Engine</option>
+                <option value="AI Research">AI Research</option>
+                <option value="Referral">Referral</option>
+                <option value="Website Form">Website Form</option>
+                <option value="Social Media">Social Media</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div class="fed-input-wrap">
+              <label for="connectRequestedChannel">Preferred Channel</label>
+              <select id="connectRequestedChannel" name="channel">
+                <option value="">Any channel</option>
+                <option value="WhatsApp">WhatsApp</option>
+                <option value="Email">Email</option>
+                <option value="Phone">Phone</option>
+                <option value="Telegram">Telegram</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div class="fed-input-wrap">
+              <label for="connectRequestedPipelineStage">Minimum Lead Stage</label>
+              <select id="connectRequestedPipelineStage" name="pipelineStage">
+                <option value="">Any stage</option>
+                <option value="Prospected">Prospected</option>
+                <option value="Called">Called</option>
+                <option value="Contact Identified">Contact Identified</option>
+                <option value="Direct Channel Opened">Direct Channel Opened</option>
+                <option value="Rapport Building">Rapport Building</option>
+                <option value="Applied">Applied</option>
+                <option value="Accepted">Accepted</option>
+              </select>
+            </div>
+
+            <div class="fed-input-wrap">
+              <label for="connectRequestedPriority">Priority</label>
+              <select id="connectRequestedPriority" name="priority">
+                <option value="">No preference</option>
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+              </select>
             </div>
 
             <div class="fed-input-wrap">
@@ -794,16 +891,26 @@
             </div>
 
             <div class="fed-input-wrap fed-input-wrap-full">
+              <label for="connectRequestReason">Why do you need this contact?</label>
+              <textarea id="connectRequestReason" name="requestReason" rows="4" required></textarea>
+            </div>
+
+            <div class="fed-input-wrap fed-input-wrap-full">
+              <label for="connectIntendedUse">What will you use the introduction for?</label>
+              <textarea id="connectIntendedUse" name="intendedUse" rows="3"></textarea>
+            </div>
+
+            <div class="fed-input-wrap fed-input-wrap-full">
               <label for="connectNotes">Extra notes for admin</label>
               <textarea id="connectNotes" name="notes" rows="3"></textarea>
             </div>
 
             <div class="fed-form-actions fed-form-group-full">
               <button type="submit" class="fed-btn fed-btn-primary">
-                Submit Connection Request
+                Submit Contact Request
               </button>
               <button type="button" class="fed-btn fed-btn-secondary" id="connectRequestCancel">
-                Cancel
+                Clear Form
               </button>
             </div>
           </form>

@@ -57,6 +57,8 @@ const defaultState = () => ({
   members: [],
   academy: [],
   academyLeadMissions: [],
+  federationLeadDatabase: [],
+  federationConnectionRequests: [],
   federation: [],
   plazas: [],
   support: [],
@@ -334,16 +336,57 @@ function normalizeAdminLeadMissionRecord(record = {}) {
     grossDealTotal: Number(record.grossDealTotal || 0)
   };
 }
-
+function normalizeAdminFederationRequestRecord(record = {}) {
+  return {
+    ...record,
+    id: String(record.id || '').trim(),
+    requesterUid: String(record.requesterUid || '').trim(),
+    requesterName: String(record.requesterName || 'Federation Member').trim(),
+    requesterEmail: String(record.requesterEmail || '').trim(),
+    ownerUid: String(record.ownerUid || '').trim(),
+    leadId: String(record.leadId || '').trim(),
+    leadPath: String(record.leadPath || '').trim(),
+    opportunityId: String(record.opportunityId || '').trim(),
+    opportunityTitle: String(record.opportunityTitle || 'Connection request').trim(),
+    status: String(record.status || 'pending_admin_match').trim(),
+    adminStatus: String(record.adminStatus || 'pending_review').trim(),
+    payoutStatus: String(record.payoutStatus || 'not_started').trim(),
+    commissionStatus: String(record.commissionStatus || 'not_started').trim(),
+    budgetRange: String(record.budgetRange || 'not_sure').trim(),
+    urgency: String(record.urgency || 'normal').trim(),
+    preferredIntroType: String(record.preferredIntroType || 'admin_brokered').trim(),
+    requestReason: String(record.requestReason || '').trim(),
+    intendedUse: String(record.intendedUse || '').trim(),
+    notes: String(record.notes || '').trim(),
+    category: String(record.category || '').trim(),
+    contactRole: String(record.contactRole || '').trim(),
+    city: String(record.city || '').trim(),
+    country: String(record.country || '').trim(),
+    strategicValue: String(record.strategicValue || 'standard').trim(),
+    createdAt: String(record.createdAt || '').trim(),
+    updatedAt: String(record.updatedAt || '').trim()
+  };
+}
 function normalizeAdminBootstrapState(incomingState = {}) {
   const merged = mergeState(defaultState(), incomingState || {});
+
+  const academyLeadMissions = Array.isArray(merged.academyLeadMissions)
+    ? merged.academyLeadMissions.map((record) => normalizeAdminLeadMissionRecord(record))
+    : [];
+
+  const federationLeadDatabase = Array.isArray(merged.federationLeadDatabase) && merged.federationLeadDatabase.length
+    ? merged.federationLeadDatabase.map((record) => normalizeAdminLeadMissionRecord(record))
+    : academyLeadMissions.filter((record) => record.federationReady === true);
+
   return {
     ...merged,
     academy: Array.isArray(merged.academy)
       ? merged.academy.map((record) => normalizeAdminAcademyRecord(record))
       : [],
-    academyLeadMissions: Array.isArray(merged.academyLeadMissions)
-      ? merged.academyLeadMissions.map((record) => normalizeAdminLeadMissionRecord(record))
+    academyLeadMissions,
+    federationLeadDatabase,
+    federationConnectionRequests: Array.isArray(merged.federationConnectionRequests)
+      ? merged.federationConnectionRequests.map((record) => normalizeAdminFederationRequestRecord(record))
       : []
   };
 }
@@ -1366,33 +1409,138 @@ function renderAcademy() {
 }
 
 function renderFederation() {
-  const statusFilter = document.getElementById('federation-status-filter').value;
-  const tagFilter = document.getElementById('federation-tag-filter').value;
   const query = state.ui.globalSearch;
+  const valueFilter = document.getElementById('federation-lead-value-filter')?.value || 'all';
+  const countryFilter = document.getElementById('federation-lead-country-filter')?.value || 'all';
+  const requestStatusFilter = document.getElementById('federation-request-status-filter')?.value || 'all';
 
-  const rows = state.federation.filter(item => {
-    return (statusFilter === 'all' || item.status === statusFilter)
-      && (tagFilter === 'all' || item.tag === tagFilter)
+  const leadRows = (state.federationLeadDatabase || []).filter((item) => {
+    const value = String(item.strategicValue || 'standard').trim().toLowerCase();
+    const country = String(item.country || '').trim();
+
+    return (valueFilter === 'all' || value === valueFilter)
+      && (countryFilter === 'all' || country === countryFilter)
       && matchesSearch(item, query);
   });
 
-    document.getElementById('federation-table').innerHTML = rows.map(item => `
-    <tr>
-      ${makeCell('Candidate', `<strong>${escapeHtml(item.name)}</strong><div class="muted mono">${escapeHtml(item.id)}</div>`)}
-      ${makeCell('Profession', escapeHtml(item.profession))}
-      ${makeCell('Region', escapeHtml(item.region))}
-      ${makeCell('Status', formatBadge(item.status))}
-      ${makeCell('Influence', `${item.influence}`)}
-      ${makeCell('Tag', formatBadge(item.tag))}
-      ${makeCell('Actions', `
-        <div class="table-actions">
-          <button data-open="federation" data-id="${item.id}">Open</button>
-          <button data-action="federation-verify" data-id="${item.id}">Verify</button>
-          <button data-action="federation-priority" data-id="${item.id}">Priority</button>
-        </div>
-      `)}
-    </tr>
-  `).join('') || makeEmptyRow(7, 'No Federation candidates match the current filters.');
+  const requestRows = (state.federationConnectionRequests || []).filter((item) => {
+    const status = String(item.status || '').trim();
+    return (requestStatusFilter === 'all' || status === requestStatusFilter)
+      && matchesSearch(item, query);
+  });
+
+  const countrySelect = document.getElementById('federation-lead-country-filter');
+  if (countrySelect && countrySelect.dataset.hydrated !== 'true') {
+    const countries = Array.from(
+      new Set((state.federationLeadDatabase || []).map((item) => String(item.country || '').trim()).filter(Boolean))
+    ).sort();
+
+    countrySelect.innerHTML = `
+      <option value="all">All Countries</option>
+      ${countries.map((country) => `<option value="${escapeHtml(country)}">${escapeHtml(country)}</option>`).join('')}
+    `;
+    countrySelect.dataset.hydrated = 'true';
+  }
+
+  const stats = [
+    {
+      label: 'Federation Leads',
+      value: state.federationLeadDatabase.length,
+      foot: 'Admin-routed Lead Missions'
+    },
+    {
+      label: 'Strategic Leads',
+      value: state.federationLeadDatabase.filter((item) => String(item.strategicValue || '').toLowerCase() === 'strategic').length,
+      foot: 'Highest-value contacts'
+    },
+    {
+      label: 'Connection Requests',
+      value: state.federationConnectionRequests.length,
+      foot: 'Looking-for-contact requests'
+    },
+    {
+      label: 'Pending Match',
+      value: state.federationConnectionRequests.filter((item) => ['pending_admin_match', 'pending_review'].includes(String(item.status || '').toLowerCase())).length,
+      foot: 'Needs admin action'
+    }
+  ];
+
+  const statsEl = document.getElementById('federation-network-stats');
+  if (statsEl) {
+    statsEl.innerHTML = stats.map((card) => `
+      <article class="stat-card">
+        <div class="stat-label">${escapeHtml(card.label)}</div>
+        <div class="stat-value">${escapeHtml(card.value)}</div>
+        <div class="stat-foot">${escapeHtml(card.foot)}</div>
+      </article>
+    `).join('');
+  }
+
+  const leadTable = document.getElementById('federation-lead-database-table');
+  if (leadTable) {
+    leadTable.innerHTML = leadRows.map((item) => {
+      const contactBits = [
+        item.email ? 'Email on file' : '',
+        item.phone ? 'Phone on file' : ''
+      ].filter(Boolean);
+
+      return `
+        <tr>
+          ${makeCell('Operator', `<strong>${escapeHtml(item.memberName || item.operatorName || 'Operator')}</strong><div class="muted mono">${escapeHtml(item.ownerUid || item.memberId || '—')}</div>`)}
+          ${makeCell('Lead / Contact', `
+            <strong>${escapeHtml(item.companyName || 'Private organization')}</strong>
+            <div class="muted">${escapeHtml(item.contactName || 'Protected contact')}${item.contactRole ? ` • ${escapeHtml(item.contactRole)}` : ''}</div>
+          `)}
+          ${makeCell('Location', escapeHtml([item.city, item.country].filter(Boolean).join(', ') || '—'))}
+          ${makeCell('Stage', escapeHtml(item.pipelineStage || item.callOutcome || '—'))}
+          ${makeCell('Value', formatBadge(
+            String(item.strategicValue || 'standard')
+              .trim()
+              .replace(/\b\w/g, (char) => char.toUpperCase())
+          ))}
+          ${makeCell('Contact', escapeHtml(contactBits.join(' • ') || 'Intro required'))}
+          ${makeCell('Actions', `
+            <div class="table-actions">
+              <button data-open="federationLead" data-id="${item.id}">Open</button>
+              <button data-action="lead-set-strategic-value" data-id="${item.id}">Set Value</button>
+              <button data-action="lead-federation-ready" data-id="${item.id}">
+                ${item.federationReady ? 'Unmark Federation' : 'Federation Ready'}
+              </button>
+            </div>
+          `)}
+        </tr>
+      `;
+    }).join('') || makeEmptyRow(7, 'No Federation-ready leads match the current filters.');
+  }
+
+  const requestsTable = document.getElementById('federation-connection-requests-table');
+  if (requestsTable) {
+    requestsTable.innerHTML = requestRows.map((item) => `
+      <tr>
+        ${makeCell('Requester', `<strong>${escapeHtml(item.requesterName || 'Federation Member')}</strong><div class="muted">${escapeHtml(item.requesterEmail || '—')}</div>`)}
+        ${makeCell('Looking For', `<strong>${escapeHtml(item.opportunityTitle || 'Connection request')}</strong><div class="muted">${escapeHtml([item.contactRole, item.city, item.country].filter(Boolean).join(' • ') || item.category || '—')}</div>`)}
+        ${makeCell('Reason', `<div class="app-preview"><div class="app-preview-line"><p>${escapeHtml(item.requestReason || 'No reason provided.')}</p></div></div>`)}
+        ${makeCell('Budget / Urgency', `${formatBadge(item.budgetRange || 'not_sure')} ${formatBadge(item.urgency || 'normal')}`)}
+        ${makeCell('Status', formatBadge(
+          String(item.status || 'pending_admin_match')
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, (char) => char.toUpperCase())
+        ))}
+        ${makeCell('Matched Lead', item.leadId ? `<span class="mono">${escapeHtml(item.ownerUid || '—')} / ${escapeHtml(item.leadId)}</span>` : '—')}
+        ${makeCell('Actions', `
+          <div class="table-actions">
+            <button data-open="federationRequest" data-id="${item.id}">Open</button>
+            <button data-action="federation-request-status-matched" data-id="${item.id}">Matched</button>
+            <button data-action="federation-request-status-pricing_sent" data-id="${item.id}">Pricing Sent</button>
+            <button data-action="federation-request-status-paid" data-id="${item.id}">Paid</button>
+            <button data-action="federation-request-status-intro_delivered" data-id="${item.id}">Intro Delivered</button>
+            <button data-action="federation-request-status-completed" data-id="${item.id}">Completed</button>
+            <button data-action="federation-request-status-rejected" data-id="${item.id}">Reject</button>
+          </div>
+        `)}
+      </tr>
+    `).join('') || makeEmptyRow(7, 'No Federation connection requests match the current filters.');
+  }
 }
 
 function renderPlazas() {
@@ -2008,7 +2156,106 @@ if (type === 'application') {
       </div>
     `;
   }
+  if (type === 'federationLead') {
+    const scopeBadges = (Array.isArray(record.accessScopes) ? record.accessScopes : [])
+      .map((scope) => formatBadge(
+        String(scope || '')
+          .trim()
+          .replace(/\b\w/g, (char) => char.toUpperCase())
+      ))
+      .join('');
 
+    return `
+      <div class="drawer-section">
+        <h4>Federation Lead Record</h4>
+        <div class="kv-grid">
+          <div class="kv"><span>Operator</span><strong>${escapeHtml(record.memberName || record.operatorName || 'Operator')}</strong></div>
+          <div class="kv"><span>Owner UID</span><strong>${escapeHtml(record.ownerUid || record.memberId || '—')}</strong></div>
+          <div class="kv"><span>Company</span><strong>${escapeHtml(record.companyName || 'Private organization')}</strong></div>
+          <div class="kv"><span>Contact</span><strong>${escapeHtml(record.contactName || 'Protected contact')}</strong></div>
+          <div class="kv"><span>Role</span><strong>${escapeHtml(record.contactRole || '—')}</strong></div>
+          <div class="kv"><span>Location</span><strong>${escapeHtml([record.city, record.country].filter(Boolean).join(', ') || '—')}</strong></div>
+          <div class="kv"><span>Email</span><strong>${escapeHtml(record.email || '—')}</strong></div>
+          <div class="kv"><span>Phone</span><strong>${escapeHtml(record.phone || '—')}</strong></div>
+          <div class="kv"><span>Pipeline Stage</span><strong>${escapeHtml(record.pipelineStage || '—')}</strong></div>
+          <div class="kv"><span>Strategic Value</span><strong>${escapeHtml(record.strategicValue || 'standard')}</strong></div>
+          <div class="kv"><span>Access Scopes</span><strong>${scopeBadges || '—'}</strong></div>
+          <div class="kv"><span>Federation Ready</span><strong>${record.federationReady ? 'Yes' : 'No'}</strong></div>
+        </div>
+      </div>
+
+      <div class="drawer-section">
+        <h4>Lead Notes</h4>
+        <div class="stack-list">
+          <div class="stack-item"><p>${escapeHtml(record.notes || 'No notes saved.')}</p></div>
+        </div>
+      </div>
+
+      <div class="drawer-section">
+        <h4>Admin Actions</h4>
+        <div class="inline-actions">
+          <button class="badge-btn" data-action="lead-set-strategic-value" data-id="${record.id}">Set Strategic Value</button>
+          <button class="badge-btn" data-action="lead-federation-ready" data-id="${record.id}">
+            ${record.federationReady ? 'Remove Federation Ready' : 'Mark Federation Ready'}
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  if (type === 'federationRequest') {
+    return `
+      <div class="drawer-section">
+        <h4>Connection Request</h4>
+        <div class="kv-grid">
+          <div class="kv"><span>Requester</span><strong>${escapeHtml(record.requesterName || 'Federation Member')}</strong></div>
+          <div class="kv"><span>Email</span><strong>${escapeHtml(record.requesterEmail || '—')}</strong></div>
+          <div class="kv"><span>Status</span>${formatBadge(String(record.status || 'pending_admin_match').replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()))}</div>
+          <div class="kv"><span>Budget</span><strong>${escapeHtml(record.budgetRange || 'not_sure')}</strong></div>
+          <div class="kv"><span>Urgency</span><strong>${escapeHtml(record.urgency || 'normal')}</strong></div>
+          <div class="kv"><span>Intro Type</span><strong>${escapeHtml(record.preferredIntroType || 'admin_brokered')}</strong></div>
+          <div class="kv"><span>Owner UID</span><strong>${escapeHtml(record.ownerUid || '—')}</strong></div>
+          <div class="kv"><span>Lead ID</span><strong>${escapeHtml(record.leadId || '—')}</strong></div>
+        </div>
+      </div>
+
+      <div class="drawer-section">
+        <h4>Requested Contact</h4>
+        <p><strong>${escapeHtml(record.opportunityTitle || 'Connection request')}</strong></p>
+        <p class="muted">${escapeHtml([record.contactRole, record.city, record.country].filter(Boolean).join(' • ') || record.category || 'No extra lead snapshot.')}</p>
+      </div>
+
+      <div class="drawer-section">
+        <h4>Reason / Intended Use</h4>
+        <div class="stack-list">
+          <div class="stack-item">
+            <strong>Why they need it</strong>
+            <p>${escapeHtml(record.requestReason || 'No reason provided.')}</p>
+          </div>
+          <div class="stack-item">
+            <strong>Intended use</strong>
+            <p>${escapeHtml(record.intendedUse || 'No intended use provided.')}</p>
+          </div>
+          <div class="stack-item">
+            <strong>Admin notes</strong>
+            <p>${escapeHtml(record.notes || 'No notes yet.')}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="drawer-section">
+        <h4>Admin Request Status</h4>
+        <div class="inline-actions">
+          <button class="badge-btn" data-action="federation-request-status-matched" data-id="${record.id}">Matched</button>
+          <button class="badge-btn" data-action="federation-request-status-pricing_sent" data-id="${record.id}">Pricing Sent</button>
+          <button class="badge-btn" data-action="federation-request-status-paid" data-id="${record.id}">Paid</button>
+          <button class="badge-btn" data-action="federation-request-status-intro_delivered" data-id="${record.id}">Intro Delivered</button>
+          <button class="badge-btn" data-action="federation-request-status-completed" data-id="${record.id}">Completed</button>
+          <button class="badge-btn" data-action="federation-request-status-rejected" data-id="${record.id}">Reject</button>
+        </div>
+      </div>
+    `;
+  }
   if (type === 'federation') {
     return `
       <div class="drawer-section">
@@ -2194,7 +2441,32 @@ async function handleDrawerStatusChange(action, id) {
     closeDrawer();
   }
 }
+async function updateFederationConnectionRequestStatus(record, status = '') {
+  const requestId = String(record?.id || '').trim();
+  const nextStatus = String(status || '').trim();
 
+  if (!requestId || !nextStatus) {
+    throw new Error('Missing Federation request id or status.');
+  }
+
+  await adminFetchJson(
+    `/api/admin/federation/connection-requests/${encodeURIComponent(requestId)}/status`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ status: nextStatus })
+    }
+  );
+
+  await loadAdminBootstrap();
+
+  const refreshed = findById('federationConnectionRequests', requestId);
+  if (refreshed) {
+    openDrawer('federationRequest', refreshed.id);
+  }
+}
 async function updateAcademyLeadMissionNetwork(record, patch = {}) {
   if (!record?.memberId && !record?.ownerUid) {
     throw new Error('Missing Lead Mission owner id.');
@@ -2231,6 +2503,8 @@ function openDrawer(type, id) {
     member: 'members',
     academy: 'academy',
     academyLeadMission: 'academyLeadMissions',
+    federationLead: 'federationLeadDatabase',
+    federationRequest: 'federationConnectionRequests',
     federation: 'federation',
     plazas: 'plazas',
     support: 'support'
@@ -2245,7 +2519,11 @@ function openDrawer(type, id) {
   document.getElementById('drawer-type').textContent =
     type === 'academyLeadMission'
       ? 'Lead Mission'
-      : type[0].toUpperCase() + type.slice(1);
+      : type === 'federationLead'
+        ? 'Federation Lead'
+        : type === 'federationRequest'
+          ? 'Connection Request'
+          : type[0].toUpperCase() + type.slice(1);
 
   document.getElementById('drawer-title').textContent =
     record?.companyName ||
@@ -2589,6 +2867,27 @@ case 'lead-set-strategic-value': {
   }
   break;
 }
+case 'federation-request-status-matched':
+case 'federation-request-status-pricing_sent':
+case 'federation-request-status-paid':
+case 'federation-request-status-intro_delivered':
+case 'federation-request-status-completed':
+case 'federation-request-status-rejected': {
+  try {
+    const record = findById('federationConnectionRequests', id);
+    if (!record) throw new Error('Federation connection request not found.');
+
+    const nextStatus = action.replace('federation-request-status-', '');
+    await updateFederationConnectionRequestStatus(record, nextStatus);
+
+    showToast(`Connection request updated to ${nextStatus.replace(/_/g, ' ')}.`);
+  } catch (error) {
+    if (error?.message !== 'No active admin session.') {
+      showToast(error.message || 'Failed to update Federation connection request.');
+    }
+  }
+  break;
+}
     case 'federation-verify': {
       const record = findById('federation', id);
       if (!record) return;
@@ -2706,6 +3005,9 @@ function bindEvents() {
     'academy-review-filter',
     'academy-lead-stage-filter',
     'academy-lead-scope-filter',
+    'federation-lead-value-filter',
+    'federation-lead-country-filter',
+    'federation-request-status-filter',
     'federation-status-filter',
     'federation-tag-filter',
     'plazas-type-filter',

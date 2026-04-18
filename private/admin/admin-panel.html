@@ -338,45 +338,82 @@
       </section>
 
       <section class="view view-federation" id="view-federation">
+        <div class="stats-grid compact" id="federation-network-stats"></div>
+
         <div class="panel-card">
           <div class="panel-head wrap-head">
             <div>
-              <p class="eyebrow">Strategic Network</p>
-              <h3>Federation Vetting</h3>
+              <p class="eyebrow">Federation Network Desk</p>
+              <h3>Lead Database</h3>
             </div>
             <div class="toolbar">
-              <select id="federation-status-filter">
-                <option value="all">All Statuses</option>
-                <option value="Candidate">Candidate</option>
-                <option value="Under Vetting">Under Vetting</option>
-                <option value="Verified">Verified</option>
-                <option value="Strategic Priority">Strategic Priority</option>
-                <option value="Hold">Hold</option>
+              <select id="federation-lead-value-filter">
+                <option value="all">All Values</option>
+                <option value="strategic">Strategic</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="watch">Watch</option>
+                <option value="standard">Standard</option>
               </select>
-              <select id="federation-tag-filter">
-                <option value="all">All Tags</option>
-                <option value="Investor">Investor</option>
-                <option value="Lawyer">Lawyer</option>
-                <option value="Operator">Operator</option>
-                <option value="Creator">Creator</option>
-                <option value="Policy">Policy</option>
+              <select id="federation-lead-country-filter">
+                <option value="all">All Countries</option>
               </select>
             </div>
           </div>
+
           <div class="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>Candidate</th>
-                  <th>Profession</th>
-                  <th>Region</th>
-                  <th>Status</th>
-                  <th>Influence</th>
-                  <th>Tag</th>
+                  <th>Operator</th>
+                  <th>Lead / Contact</th>
+                  <th>Location</th>
+                  <th>Stage</th>
+                  <th>Value</th>
+                  <th>Contact</th>
                   <th>Actions</th>
                 </tr>
               </thead>
-              <tbody id="federation-table"></tbody>
+              <tbody id="federation-lead-database-table"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="panel-card" style="margin-top:20px;">
+          <div class="panel-head wrap-head">
+            <div>
+              <p class="eyebrow">Looking For Contact</p>
+              <h3>Connection Requests</h3>
+            </div>
+            <div class="toolbar">
+              <select id="federation-request-status-filter">
+                <option value="all">All Request Statuses</option>
+                <option value="pending_admin_match">Pending Admin Match</option>
+                <option value="pending_review">Pending Review</option>
+                <option value="matched">Matched</option>
+                <option value="pricing_sent">Pricing Sent</option>
+                <option value="paid">Paid</option>
+                <option value="intro_delivered">Intro Delivered</option>
+                <option value="completed">Completed</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Requester</th>
+                  <th>Looking For</th>
+                  <th>Reason</th>
+                  <th>Budget / Urgency</th>
+                  <th>Status</th>
+                  <th>Matched Lead</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="federation-connection-requests-table"></tbody>
             </table>
           </div>
         </div>

@@ -333,25 +333,53 @@ async function loadFederationServerState(options = {}) {
         : null;
 
     if (meResult.canEnterFederation === true) {
-      const [directoryResult, commandResult, referralResult] = await Promise.all([
+      const [directorySettled, commandSettled, referralSettled] = await Promise.allSettled([
         federationConnectFetch("/api/federation/directory"),
         federationConnectFetch("/api/federation/command"),
         federationConnectFetch("/api/federation/referrals")
       ]);
 
-      federationServerState.members = Array.isArray(directoryResult.members)
-        ? directoryResult.members.map(normalizeFederationMember)
-        : [];
+      if (directorySettled.status === "fulfilled") {
+        const directoryResult = directorySettled.value || {};
+        federationServerState.members = Array.isArray(directoryResult.members)
+          ? directoryResult.members.map(normalizeFederationMember)
+          : [];
+      } else {
+        console.error("Federation directory load error:", directorySettled.reason);
+        federationServerState.members = federationServerState.member ? [federationServerState.member] : [];
+      }
 
-      federationServerState.command =
-        commandResult.command && typeof commandResult.command === "object"
-          ? commandResult.command
-          : null;
+      if (commandSettled.status === "fulfilled") {
+        const commandResult = commandSettled.value || {};
+        federationServerState.command =
+          commandResult.command && typeof commandResult.command === "object"
+            ? commandResult.command
+            : null;
+      } else {
+        console.error("Federation command load error:", commandSettled.reason);
+        federationServerState.command = {
+          member: federationServerState.member,
+          stats: {
+            approvedMembers: federationServerState.members.length || 0,
+            countriesActive: 0,
+            sectorsLive: 0,
+            connectOpportunities: 0,
+            myRequests: 0,
+            pendingRequests: 0,
+            completedRequests: 0
+          }
+        };
+      }
 
-      federationServerState.referrals =
-        referralResult.referrals && typeof referralResult.referrals === "object"
-          ? referralResult.referrals
-          : federationServerState.referrals;
+      if (referralSettled.status === "fulfilled") {
+        const referralResult = referralSettled.value || {};
+        federationServerState.referrals =
+          referralResult.referrals && typeof referralResult.referrals === "object"
+            ? referralResult.referrals
+            : federationServerState.referrals;
+      } else {
+        console.error("Federation referrals load error:", referralSettled.reason);
+      }
     } else {
       federationServerState.members = [];
       federationServerState.command = null;
@@ -775,8 +803,18 @@ function openFederationConnectRequest(opportunityId = "") {
   if (ownerField) ownerField.value = opportunity.ownerUid;
 
   if (selected) {
-    selected.textContent = opportunity.title;
+    selected.textContent = `Selected lead: ${opportunity.title}`;
   }
+
+  const roleField = qs("#connectRequestedContactRole");
+  const typeField = qs("#connectRequestedContactType");
+  const cityField = qs("#connectRequestedCity");
+  const countryField = qs("#connectRequestedCountry");
+
+  if (roleField && opportunity.contactRole) roleField.value = opportunity.contactRole;
+  if (typeField && opportunity.contactType) typeField.value = opportunity.contactType;
+  if (cityField && opportunity.city) cityField.value = opportunity.city;
+  if (countryField && opportunity.country) countryField.value = opportunity.country;
 
   panel.hidden = false;
   showFederationConnectFeedback("", "success");
@@ -788,17 +826,40 @@ function openFederationConnectRequest(opportunityId = "") {
 }
 
 function closeFederationConnectRequest() {
-  const panel = qs("#connectRequestPanel");
   const form = qs("#connectRequestForm");
+  const selected = qs("#connectSelectedOpportunity");
+  const leadField = qs("#connectRequestLeadId");
+  const ownerField = qs("#connectRequestOwnerUid");
 
   if (form) form.reset();
-  if (panel) panel.hidden = true;
+  if (leadField) leadField.value = "";
+  if (ownerField) ownerField.value = "";
+
+  if (selected) {
+    selected.textContent = "Fill the request fields below. Admin will match your request against the Federation-ready lead database.";
+  }
+
+  showFederationConnectFeedback("", "success");
 }
 
 async function submitFederationConnectRequest(form) {
   const payload = {
     leadId: String(form.elements.leadId?.value || "").trim(),
     ownerUid: String(form.elements.ownerUid?.value || "").trim(),
+
+    companyName: String(form.elements.companyName?.value || "").trim(),
+    companyWebsite: String(form.elements.companyWebsite?.value || "").trim(),
+    contactName: String(form.elements.contactName?.value || "").trim(),
+    contactRole: String(form.elements.contactRole?.value || "").trim(),
+    contactType: String(form.elements.contactType?.value || "").trim(),
+    city: String(form.elements.city?.value || "").trim(),
+    country: String(form.elements.country?.value || "").trim(),
+    sourceMethod: String(form.elements.sourceMethod?.value || "").trim(),
+    channel: String(form.elements.channel?.value || "").trim(),
+    pipelineStage: String(form.elements.pipelineStage?.value || "").trim(),
+    priority: String(form.elements.priority?.value || "").trim(),
+    requestedTier: String(form.elements.requestedTier?.value || "").trim(),
+
     requestReason: String(form.elements.requestReason?.value || "").trim(),
     intendedUse: String(form.elements.intendedUse?.value || "").trim(),
     budgetRange: String(form.elements.budgetRange?.value || "not_sure").trim(),
@@ -807,18 +868,18 @@ async function submitFederationConnectRequest(form) {
     notes: String(form.elements.notes?.value || "").trim()
   };
 
-  if (!payload.leadId || !payload.ownerUid) {
-    showFederationConnectFeedback("Select a Connect opportunity first.", "error");
+  if (!payload.contactRole || !payload.contactType || !payload.country) {
+    showFederationConnectFeedback("Please add at least contact role, contact type, and country.", "error");
     return;
   }
 
   if (payload.requestReason.length < 12) {
-    showFederationConnectFeedback("Please explain why you need this connection.", "error");
+    showFederationConnectFeedback("Please explain why you need this contact.", "error");
     return;
   }
 
   const submitBtn = form.querySelector('button[type="submit"]');
-  const originalText = submitBtn?.textContent || "Submit Connection Request";
+  const originalText = submitBtn?.textContent || "Submit Contact Request";
 
   try {
     if (submitBtn) {
