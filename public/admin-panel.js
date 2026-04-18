@@ -2330,7 +2330,67 @@ function syncMemberFromApplication(application) {
 
   return newMemberId;
 }
+function applyLocalApplicationReview(applicationId, nextStatus = 'Under Review') {
+  const application = findById('applications', applicationId);
 
+  if (!application) {
+    throw new Error('Application not found in local admin state.');
+  }
+
+  const nowIso = new Date().toISOString();
+  const statusLabel = String(nextStatus || 'Under Review').trim() || 'Under Review';
+
+  application.status = statusLabel;
+  application.updatedAt = nowIso;
+  application.reviewedAt = nowIso;
+
+  if (!Array.isArray(application.notes)) {
+    application.notes = [];
+  }
+
+  application.notes.unshift(`Local admin review changed status to ${statusLabel}.`);
+
+  if (statusLabel === 'Approved') {
+    application.approvedAt = nowIso;
+
+    const memberId = syncMemberFromApplication(application);
+
+    if (String(application.recommendedDivision || application.division || '').trim() === 'Federation') {
+      const federationCandidate = {
+        id: application.id,
+        name: application.name || application.fullName || 'Federation Member',
+        email: application.email || '',
+        profession: application.role || application.profession || 'Operator',
+        region: application.region || [application.city, application.country].filter(Boolean).join(', '),
+        status: 'Verified',
+        influence: Number(application.influence || 0),
+        tag: application.primaryCategory || 'Operator',
+        sourceApplicationId: application.id,
+        memberId: memberId || application.memberId || '',
+        approvedAt: nowIso,
+        updatedAt: nowIso
+      };
+
+      const existingFederationIndex = state.federation.findIndex((item) => {
+        return item.id === federationCandidate.id || item.sourceApplicationId === application.id;
+      });
+
+      if (existingFederationIndex >= 0) {
+        state.federation[existingFederationIndex] = {
+          ...state.federation[existingFederationIndex],
+          ...federationCandidate
+        };
+      } else {
+        state.federation.unshift(federationCandidate);
+      }
+    }
+  }
+
+  saveState();
+  renderApp();
+
+  return application;
+}
 async function handleAction(action, id) {
   switch (action) {
 case 'approve-application': {
@@ -2353,12 +2413,18 @@ case 'approve-application': {
       showToast('Application approved.');
     }
   } catch (error) {
-    if (error?.message !== 'No active admin session.') {
-      showToast(error.message || 'Failed to approve application.');
+    try {
+      applyLocalApplicationReview(id, 'Approved');
+      showToast('Application approved locally.');
+    } catch (fallbackError) {
+      if (error?.message !== 'No active admin session.') {
+        showToast(fallbackError.message || error.message || 'Failed to approve application.');
+      }
     }
   }
   break;
 }
+
 case 'reject-application': {
   try {
     await adminFetchJson(`/api/admin/applications/${encodeURIComponent(id)}/review`, {
@@ -2372,12 +2438,18 @@ case 'reject-application': {
     await loadAdminBootstrap();
     showToast('Application rejected.');
   } catch (error) {
-    if (error?.message !== 'No active admin session.') {
-      showToast(error.message || 'Failed to reject application.');
+    try {
+      applyLocalApplicationReview(id, 'Rejected');
+      showToast('Application rejected locally.');
+    } catch (fallbackError) {
+      if (error?.message !== 'No active admin session.') {
+        showToast(fallbackError.message || error.message || 'Failed to reject application.');
+      }
     }
   }
   break;
 }
+
 case 'waitlist-application': {
   try {
     await adminFetchJson(`/api/admin/applications/${encodeURIComponent(id)}/review`, {
@@ -2391,8 +2463,13 @@ case 'waitlist-application': {
     await loadAdminBootstrap();
     showToast('Application waitlisted.');
   } catch (error) {
-    if (error?.message !== 'No active admin session.') {
-      showToast(error.message || 'Failed to waitlist application.');
+    try {
+      applyLocalApplicationReview(id, 'Waitlisted');
+      showToast('Application waitlisted locally.');
+    } catch (fallbackError) {
+      if (error?.message !== 'No active admin session.') {
+        showToast(fallbackError.message || error.message || 'Failed to waitlist application.');
+      }
     }
   }
   break;

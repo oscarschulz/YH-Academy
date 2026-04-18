@@ -10570,3 +10570,257 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-subtitle {
         grid-template-columns: 1fr;
     }
 }
+/* ========================================================= */
+/* FEDERATION DASHBOARD APPLICATION GATE                      */
+/* ========================================================= */
+
+.yh-federation-entry-state-badge {
+    margin-top: 10px;
+    text-align: center;
+}
+
+.yh-dashboard-federation-open-link.is-disabled,
+.yh-dashboard-federation-open-link[aria-disabled="true"] {
+    opacity: 0.55;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.yh-federation-access-lock {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(16px, 3vw, 32px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 24px;
+    background:
+        radial-gradient(circle at top, rgba(14, 165, 233, 0.11), transparent 34%),
+        rgba(2, 6, 23, 0.72);
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+}
+
+.yh-federation-lock-card {
+    width: min(100%, 620px);
+    padding: clamp(20px, 4vw, 34px);
+    border-radius: 26px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background:
+        linear-gradient(145deg, rgba(15, 23, 42, 0.96), rgba(3, 7, 18, 0.96)),
+        rgba(2, 6, 23, 0.96);
+    box-shadow: 0 28px 70px rgba(0, 0, 0, 0.42);
+    text-align: center;
+}
+
+.yh-federation-lock-card h3 {
+    margin: 0 0 10px;
+    color: #fff;
+    font-size: clamp(1.25rem, 3vw, 2rem);
+    line-height: 1.15;
+}
+
+.yh-federation-lock-card p {
+    margin: 0 auto;
+    max-width: 540px;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    line-height: 1.65;
+}
+
+.yh-federation-lock-actions {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 22px;
+}
+
+.yh-federation-lock-actions .btn-primary,
+.yh-federation-lock-actions .btn-secondary {
+    min-height: 44px;
+}
+
+.yh-federation-apply-modal {
+    z-index: 10020;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(12px, 3vw, 24px);
+}
+
+.yh-federation-apply-card {
+    position: relative;
+    width: min(100%, 860px);
+    max-height: min(88dvh, 880px);
+    overflow-y: auto;
+    padding: clamp(20px, 4vw, 34px);
+    border-radius: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background:
+        radial-gradient(circle at top left, rgba(14, 165, 233, 0.12), transparent 28%),
+        linear-gradient(145deg, rgba(15, 23, 42, 0.98), rgba(3, 7, 18, 0.98));
+    box-shadow: 0 32px 90px rgba(0, 0, 0, 0.58);
+}
+
+.yh-federation-apply-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 36px;
+    height: 36px;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.07);
+    color: var(--text-muted);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.yh-federation-apply-close:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+}
+
+.yh-federation-apply-head {
+    padding-right: 42px;
+    margin-bottom: 22px;
+}
+
+.yh-federation-apply-head h2 {
+    margin: 4px 0 8px;
+    color: #fff;
+    font-size: clamp(1.35rem, 3vw, 2.1rem);
+    line-height: 1.12;
+}
+
+.yh-federation-apply-head p {
+    margin: 0;
+    max-width: 760px;
+    color: var(--text-muted);
+    font-size: 0.94rem;
+    line-height: 1.6;
+}
+
+.yh-federation-apply-form {
+    display: grid;
+    gap: 16px;
+}
+
+.yh-federation-form-section {
+    padding: clamp(14px, 2vw, 18px);
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.yh-federation-form-section h3 {
+    margin: 0 0 14px;
+    color: #fff;
+    font-size: 1rem;
+}
+
+.yh-federation-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.yh-federation-declaration-section {
+    display: grid;
+    gap: 10px;
+}
+
+.yh-federation-check-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 11px 12px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    line-height: 1.45;
+}
+
+.yh-federation-check-row input {
+    margin-top: 3px;
+    flex: 0 0 auto;
+}
+
+.yh-federation-form-actions {
+    position: sticky;
+    bottom: -34px;
+    display: grid;
+    grid-template-columns: 0.75fr 1.25fr;
+    gap: 12px;
+    padding-top: 16px;
+    background: linear-gradient(180deg, rgba(3, 7, 18, 0), rgba(3, 7, 18, 0.96) 36%);
+}
+
+.yh-federation-form-actions .btn-primary,
+.yh-federation-form-actions .btn-secondary {
+    width: 100%;
+    min-height: 46px;
+    justify-content: center;
+}
+
+body.federation-application-open {
+    overflow: hidden;
+}
+
+@media (max-width: 900px) {
+    .yh-federation-access-lock {
+        border-radius: 18px;
+        padding: 14px;
+    }
+
+    .yh-federation-lock-card {
+        border-radius: 20px;
+    }
+
+    .yh-federation-apply-card {
+        max-height: 90dvh;
+        border-radius: 20px;
+    }
+
+    .yh-federation-form-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 520px) {
+    .yh-federation-apply-modal {
+        align-items: flex-end;
+        padding: 10px;
+    }
+
+    .yh-federation-apply-card {
+        width: 100%;
+        max-height: 92dvh;
+        padding: 18px 14px;
+        border-radius: 22px;
+    }
+
+    .yh-federation-apply-head {
+        padding-right: 38px;
+    }
+
+    .yh-federation-form-section {
+        padding: 14px;
+        border-radius: 16px;
+    }
+
+    .yh-federation-lock-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .yh-federation-form-actions {
+        grid-template-columns: 1fr;
+        bottom: -18px;
+    }
+}

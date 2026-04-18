@@ -441,13 +441,7 @@ function openDivisionPreview(targetDivision = 'plazas') {
     }
 
     if (division === 'federation') {
-        if (viewFederation) {
-            viewFederation.classList.remove('hidden-step');
-            viewFederation.classList.remove('fade-in');
-            void viewFederation.offsetWidth;
-            viewFederation.classList.add('fade-in');
-        }
-        setDashboardViewMode('federation');
+        handleFederationGateClick();
         return;
     }
 
@@ -584,8 +578,106 @@ document.getElementById('btn-open-plazas-preview')?.addEventListener('click', ()
 });
 
 document.getElementById('btn-open-federation-preview')?.addEventListener('click', () => {
-    openDivisionPreview('federation');
+    handleFederationGateClick();
 });
+
+document.getElementById('btn-dashboard-enter-federation')?.addEventListener('click', () => {
+    handleFederationGateClick();
+});
+
+document.getElementById('btn-open-federation-application-from-lock')?.addEventListener('click', () => {
+    openFederationApplicationModal();
+});
+
+document.getElementById('btn-refresh-federation-status')?.addEventListener('click', () => {
+    syncFederationEntryButton();
+    showToast('Federation status refreshed.', 'success');
+});
+
+document.getElementById('btn-close-federation-apply')?.addEventListener('click', () => {
+    closeFederationApplicationModal();
+});
+
+document.getElementById('btn-cancel-federation-apply')?.addEventListener('click', () => {
+    closeFederationApplicationModal();
+});
+
+document.getElementById('federation-apply-modal')?.addEventListener('click', (event) => {
+    if (event.target === event.currentTarget) {
+        closeFederationApplicationModal();
+    }
+});
+
+document.getElementById('form-federation-apply')?.addEventListener('submit', (event) => {
+    event.preventDefault();
+
+    const form = event.currentTarget;
+    const submitBtn = document.getElementById('btn-submit-federation-application');
+
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+
+    const existingSnapshot = getFederationAccessSnapshot();
+    const existingStatus = normalizeFederationStatus(existingSnapshot.applicationStatus || '');
+
+    if (
+        existingSnapshot.hasApplication &&
+        existingStatus !== 'rejected' &&
+        existingStatus !== 'approved'
+    ) {
+        showToast('You already have a Federation application under review.', 'error');
+        closeFederationApplicationModal();
+        openFederationLockedView(existingSnapshot);
+        return;
+    }
+
+    const originalText = submitBtn?.textContent || 'Submit Federation Application ➔';
+
+    try {
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.setAttribute('aria-disabled', 'true');
+            submitBtn.textContent = 'Submitting...';
+        }
+
+        const payload = collectFederationApplicationPayload(form);
+        const savedApplication = queueFederationApplication(payload);
+
+        form.reset();
+        closeFederationApplicationModal();
+
+        const snapshot = {
+            hasApplication: true,
+            canEnterFederation: false,
+            applicationStatus: 'under review',
+            application: savedApplication,
+            member: null
+        };
+
+        writeFederationStatusCache(snapshot);
+        syncFederationEntryButton();
+        openFederationLockedView(snapshot);
+
+        showToast('Federation application submitted for admin review.', 'success');
+    } catch (error) {
+        console.error('Federation application submit error:', error);
+        showToast(error?.message || 'Failed to submit Federation application.', 'error');
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.removeAttribute('aria-disabled');
+            submitBtn.textContent = originalText;
+        }
+    }
+});
+
+syncFederationEntryButton();
+
+window.setInterval(() => {
+    syncFederationEntryButton();
+}, 5000);
 
 document.getElementById('btn-back-to-universe-from-federation')?.addEventListener('click', (event) => {
     event.preventDefault();
@@ -9554,7 +9646,8 @@ function closeAcademyLauncher() {
 
 window.openAcademyLauncher = openAcademyLauncher;
 window.closeAcademyLauncher = closeAcademyLauncher;
-const YH_ADMIN_PANEL_STORAGE_KEY = 'yh_admin_panel_state_v2';
+const YH_ADMIN_PANEL_STORAGE_KEY = 'yh_admin_panel_state_v3_live';
+const YH_FEDERATION_STATUS_CACHE_KEY = 'yh_federation_access_status_v1';
 const YH_ACADEMY_MEMBERSHIP_CACHE_KEY = 'yh_academy_membership_status_v1';
 const YH_ACADEMY_APPROVAL_TOAST_SEEN_KEY = 'yh_academy_approval_toast_seen_v1';
 const YH_ACADEMY_APPROVAL_BADGE_SEEN_KEY = 'yh_academy_approval_badge_seen_v1';
@@ -9692,6 +9785,527 @@ function readYhAdminPanelState() {
 
 function writeYhAdminPanelState(nextState = {}) {
     localStorage.setItem(YH_ADMIN_PANEL_STORAGE_KEY, JSON.stringify(nextState));
+}
+function normalizeFederationStatus(value = '') {
+    return String(value || '').trim().toLowerCase();
+}
+
+function normalizeFederationListValue(value = '') {
+    return String(value || '')
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+}
+
+function readFederationStatusCache() {
+    try {
+        const raw = localStorage.getItem(YH_FEDERATION_STATUS_CACHE_KEY);
+        return raw ? JSON.parse(raw) : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+function writeFederationStatusCache(snapshot = null) {
+    try {
+        if (!snapshot || typeof snapshot !== 'object') {
+            localStorage.removeItem(YH_FEDERATION_STATUS_CACHE_KEY);
+            return;
+        }
+
+        localStorage.setItem(YH_FEDERATION_STATUS_CACHE_KEY, JSON.stringify(snapshot));
+    } catch (_) {}
+}
+
+function getCurrentFederationApplicantIdentity() {
+    if (typeof getCurrentAcademyApplicantIdentity === 'function') {
+        return getCurrentAcademyApplicantIdentity();
+    }
+
+    const rawName = String(getStoredUserValue('yh_user_name', 'Hustler') || 'Hustler').trim();
+    const nameParts = rawName.split(/\s+/).filter(Boolean);
+
+    return {
+        name: rawName || 'Hustler',
+        firstName: nameParts[0] || 'Hustler',
+        surname: nameParts.length > 1 ? nameParts.slice(1).join(' ') : '',
+        username: String(getStoredUserValue('yh_user_username', '') || '').trim(),
+        email: String(getStoredUserValue('yh_user_email', '') || '').trim().toLowerCase(),
+        city: String(getStoredUserValue('yh_user_city', '') || '').trim(),
+        country: String(getStoredUserValue('yh_user_country', '') || '').trim()
+    };
+}
+
+function findCurrentFederationApplication() {
+    const identity = getCurrentFederationApplicantIdentity();
+    const currentEmail = String(identity.email || '').trim().toLowerCase();
+    const currentUsername = String(identity.username || '').replace(/^@+/, '').trim().toLowerCase();
+
+    const adminState = readYhAdminPanelState();
+    const applications = Array.isArray(adminState?.applications) ? adminState.applications : [];
+
+    return applications.find((app) => {
+        const appType = String(app?.applicationType || '').trim().toLowerCase();
+        const recommendedDivision = String(app?.recommendedDivision || app?.division || '').trim().toLowerCase();
+
+        if (appType !== 'federation-access' && recommendedDivision !== 'federation') {
+            return false;
+        }
+
+        const appEmail = String(app?.email || '').trim().toLowerCase();
+        const appUsername = String(app?.username || '').replace(/^@+/, '').trim().toLowerCase();
+
+        if (currentEmail && appEmail && currentEmail === appEmail) return true;
+        if (currentUsername && appUsername && currentUsername === appUsername) return true;
+
+        return false;
+    }) || null;
+}
+
+function getCurrentFederationMember() {
+    const identity = getCurrentFederationApplicantIdentity();
+    const currentEmail = String(identity.email || '').trim().toLowerCase();
+    const currentUsername = String(identity.username || '').replace(/^@+/, '').trim().toLowerCase();
+
+    const adminState = readYhAdminPanelState();
+    const members = Array.isArray(adminState?.members) ? adminState.members : [];
+
+    return members.find((member) => {
+        const divisions = Array.isArray(member?.divisions) ? member.divisions : [];
+        const isFederationMember = divisions.some((division) => {
+            return String(division || '').trim().toLowerCase() === 'federation';
+        });
+
+        if (!isFederationMember) return false;
+
+        const memberEmail = String(member?.email || '').trim().toLowerCase();
+        const memberUsername = String(member?.username || '').replace(/^@+/, '').trim().toLowerCase();
+
+        if (currentEmail && memberEmail && currentEmail === memberEmail) return true;
+        if (currentUsername && memberUsername && currentUsername === memberUsername) return true;
+
+        return false;
+    }) || null;
+}
+
+function getFederationAccessSnapshot() {
+    const member = getCurrentFederationMember();
+    const application = findCurrentFederationApplication();
+    const cached = readFederationStatusCache();
+
+    if (member) {
+        return {
+            hasApplication: true,
+            canEnterFederation: true,
+            applicationStatus: 'approved',
+            member,
+            application: application || cached?.application || null
+        };
+    }
+
+    if (application) {
+        const status = normalizeFederationStatus(application.status || 'under review');
+
+        return {
+            hasApplication: true,
+            canEnterFederation: status === 'approved',
+            applicationStatus: status,
+            member: null,
+            application
+        };
+    }
+
+    if (cached?.application) {
+        const status = normalizeFederationStatus(cached.applicationStatus || cached.application.status || '');
+
+        return {
+            hasApplication: Boolean(cached.hasApplication),
+            canEnterFederation: status === 'approved',
+            applicationStatus: status,
+            member: null,
+            application: cached.application
+        };
+    }
+
+    return {
+        hasApplication: false,
+        canEnterFederation: false,
+        applicationStatus: '',
+        member: null,
+        application: null
+    };
+}
+
+function getFederationButtonCopy(snapshot = null) {
+    const status = normalizeFederationStatus(snapshot?.applicationStatus || '');
+
+    if (snapshot?.canEnterFederation || status === 'approved') {
+        return 'Enter the Federation ➔';
+    }
+
+    if (!snapshot?.hasApplication) {
+        return 'Apply for Federation ➔';
+    }
+
+    if (status === 'rejected') {
+        return 'Reapply for Federation ➔';
+    }
+
+    if (status === 'shortlisted') {
+        return 'Shortlisted — Awaiting Final Review';
+    }
+
+    if (status === 'screening') {
+        return 'Screening in Progress';
+    }
+
+    if (status === 'under review') {
+        return 'Under Review';
+    }
+
+    if (status === 'waitlisted') {
+        return 'Waitlisted';
+    }
+
+    return 'Application Pending';
+}
+
+function syncFederationFrameAccess(snapshot = null) {
+    const currentSnapshot = snapshot || getFederationAccessSnapshot();
+    const lock = document.getElementById('federation-access-lock');
+    const frame = document.getElementById('yh-federation-frame');
+    const lockTitle = document.getElementById('federation-lock-title');
+    const lockCopy = document.getElementById('federation-lock-copy');
+    const applyFromLockBtn = document.getElementById('btn-open-federation-application-from-lock');
+
+    const approved = currentSnapshot?.canEnterFederation === true;
+
+    if (approved) {
+        if (lock) lock.classList.add('hidden-step');
+
+        if (frame) {
+            const targetSrc = frame.dataset.src || '/federation.html';
+            if (!frame.getAttribute('src') || frame.getAttribute('src') === 'about:blank') {
+                frame.setAttribute('src', targetSrc);
+            }
+
+            frame.classList.remove('hidden-step');
+        }
+
+        return;
+    }
+
+    if (frame) {
+        frame.classList.add('hidden-step');
+    }
+
+    if (lock) {
+        lock.classList.remove('hidden-step');
+    }
+
+    const status = normalizeFederationStatus(currentSnapshot?.applicationStatus || '');
+
+    if (!currentSnapshot?.hasApplication || status === 'rejected') {
+        if (lockTitle) lockTitle.textContent = status === 'rejected'
+            ? 'Your previous Federation application was not approved'
+            : 'Federation access requires approval';
+
+        if (lockCopy) lockCopy.textContent = status === 'rejected'
+            ? 'You can submit a fresh Federation application for another review cycle.'
+            : 'Submit your Federation application from the Dashboard. Once admin approves your application, this command layer will unlock.';
+
+        if (applyFromLockBtn) {
+            applyFromLockBtn.classList.remove('hidden-step');
+            applyFromLockBtn.textContent = status === 'rejected'
+                ? 'Reapply for Federation'
+                : 'Apply for Federation';
+        }
+
+        return;
+    }
+
+    if (lockTitle) lockTitle.textContent = 'Federation application is under review';
+    if (lockCopy) lockCopy.textContent = `Current status: ${getFederationButtonCopy(currentSnapshot)}. Admin approval is required before this command layer unlocks.`;
+
+    if (applyFromLockBtn) {
+        applyFromLockBtn.classList.add('hidden-step');
+    }
+}
+
+function syncFederationEntryButton() {
+    const snapshot = getFederationAccessSnapshot();
+    const button = document.getElementById('btn-open-federation-preview');
+    const stateBadge = document.getElementById('federation-entry-state-badge');
+    const enterButton = document.getElementById('btn-dashboard-enter-federation');
+
+    const label = getFederationButtonCopy(snapshot);
+    const status = normalizeFederationStatus(snapshot.applicationStatus || '');
+
+    if (button) {
+        button.textContent = label;
+        button.classList.toggle('btn-primary', snapshot.canEnterFederation === true);
+        button.classList.toggle('btn-secondary', snapshot.canEnterFederation !== true);
+        button.disabled = false;
+        button.removeAttribute('aria-disabled');
+    }
+
+    if (enterButton) {
+        enterButton.textContent = snapshot.canEnterFederation
+            ? 'Enter the Federation'
+            : label;
+
+        enterButton.disabled = !snapshot.canEnterFederation;
+        enterButton.classList.toggle('is-disabled', !snapshot.canEnterFederation);
+        enterButton.setAttribute('aria-disabled', snapshot.canEnterFederation ? 'false' : 'true');
+    }
+
+    if (stateBadge) {
+        if (!snapshot.hasApplication || snapshot.canEnterFederation || status === 'rejected') {
+            stateBadge.classList.add('is-hidden');
+            stateBadge.textContent = '';
+        } else {
+            stateBadge.classList.remove('is-hidden');
+            stateBadge.textContent = label.replace(' ➔', '');
+        }
+    }
+
+    syncFederationFrameAccess(snapshot);
+    writeFederationStatusCache(snapshot);
+    return snapshot;
+}
+
+function prefillFederationApplicationForm() {
+    const identity = getCurrentFederationApplicantIdentity();
+
+    const setValue = (id, value) => {
+        const field = document.getElementById(id);
+        if (field && !String(field.value || '').trim()) {
+            field.value = value || '';
+        }
+    };
+
+    setValue('fed-app-full-name', identity.name || '');
+    setValue('fed-app-email', identity.email || '');
+    setValue('fed-app-country', identity.country || '');
+    setValue('fed-app-city', identity.city || '');
+}
+
+function openFederationApplicationModal() {
+    const modal = document.getElementById('federation-apply-modal');
+    if (!modal) return;
+
+    prefillFederationApplicationForm();
+    modal.classList.remove('hidden-step');
+    document.body?.classList.add('federation-application-open');
+}
+
+function closeFederationApplicationModal() {
+    const modal = document.getElementById('federation-apply-modal');
+    if (!modal) return;
+
+    modal.classList.add('hidden-step');
+    document.body?.classList.remove('federation-application-open');
+}
+
+function collectFederationApplicationPayload(form) {
+    const identity = getCurrentFederationApplicantIdentity();
+    const nowIso = new Date().toISOString();
+
+    const fullName = String(document.getElementById('fed-app-full-name')?.value || '').trim();
+    const email = String(document.getElementById('fed-app-email')?.value || '').trim().toLowerCase();
+    const telegram = String(document.getElementById('fed-app-telegram')?.value || '').trim();
+    const role = String(document.getElementById('fed-app-role')?.value || '').trim();
+    const country = String(document.getElementById('fed-app-country')?.value || '').trim();
+    const city = String(document.getElementById('fed-app-city')?.value || '').trim();
+    const company = String(document.getElementById('fed-app-company')?.value || '').trim();
+    const profileLink = String(document.getElementById('fed-app-profile-link')?.value || '').trim();
+    const primaryCategory = String(document.getElementById('fed-app-primary-category')?.value || '').trim();
+
+    const valueBring = String(document.getElementById('fed-app-value-bring')?.value || '').trim();
+    const accessContribution = String(document.getElementById('fed-app-access-contribution')?.value || '').trim();
+    const regionsOfAccess = String(document.getElementById('fed-app-regions-access')?.value || '').trim();
+
+    const lookingForContact = String(document.getElementById('fed-app-looking-for-contact')?.value || '').trim();
+    const wantedContactTypesRaw = String(document.getElementById('fed-app-wanted-contact-types')?.value || '').trim();
+    const wantedContactRegion = String(document.getElementById('fed-app-wanted-contact-region')?.value || '').trim();
+    const wantedContactReason = String(document.getElementById('fed-app-wanted-contact-reason')?.value || '').trim();
+    const contactUrgency = String(document.getElementById('fed-app-contact-urgency')?.value || '').trim();
+
+    const canProvideContacts = String(document.getElementById('fed-app-can-provide-contacts')?.value || '').trim();
+    const contactTypesCanProvideRaw = String(document.getElementById('fed-app-contact-types-can-provide')?.value || '').trim();
+    const supplyRegions = String(document.getElementById('fed-app-supply-regions')?.value || '').trim();
+    const openToAdminMatching = String(document.getElementById('fed-app-open-admin-matching')?.value || '').trim();
+
+    return {
+        id: `FED-APP-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        applicationType: 'federation-access',
+        division: 'Federation',
+        divisions: ['Federation'],
+        recommendedDivision: 'Federation',
+        source: 'Dashboard Federation Application',
+        status: 'Under Review',
+
+        name: fullName || identity.name || 'Federation Applicant',
+        fullName: fullName || identity.name || '',
+        username: identity.username || '',
+        email,
+        telegram,
+        role,
+        profession: role,
+        country,
+        city,
+        region: [city, country].filter(Boolean).join(', '),
+        company,
+        profileLink,
+
+        primaryCategory,
+        goal: wantedContactReason || 'Apply for Federation access.',
+        background: [role, company, primaryCategory, city, country].filter(Boolean).join(' • '),
+        networkValue: valueBring,
+        valueBring,
+        accessContribution,
+        regionsOfAccess,
+
+        lookingForContact,
+        wantedContactTypes: normalizeFederationListValue(wantedContactTypesRaw),
+        wantedContactTypesRaw,
+        wantedContactRegion,
+        wantedContactReason,
+        contactUrgency,
+
+        canProvideContacts,
+        contactTypesCanProvide: normalizeFederationListValue(contactTypesCanProvideRaw),
+        contactTypesCanProvideRaw,
+        supplyRegions,
+        openToAdminMatching,
+
+        declarationSelectiveAccess: document.getElementById('fed-app-declare-selective')?.checked === true,
+        declarationAccurateInfo: document.getElementById('fed-app-declare-accurate')?.checked === true,
+        declarationProfessionalUse: document.getElementById('fed-app-declare-professional')?.checked === true,
+
+        aiScore: 0,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+        submittedAt: nowIso,
+        notes: [
+            'Submitted through Dashboard Federation gate.',
+            lookingForContact === 'Yes' ? 'Applicant has a Looking for Contact signal.' : '',
+            canProvideContacts && canProvideContacts !== 'Not yet' ? 'Applicant may supply contacts.' : ''
+        ].filter(Boolean)
+    };
+}
+
+function queueFederationApplication(payload = {}) {
+    const currentAdminState = readYhAdminPanelState() || {};
+    const currentApplications = Array.isArray(currentAdminState.applications)
+        ? currentAdminState.applications
+        : [];
+
+    const emailLower = String(payload.email || '').trim().toLowerCase();
+
+    const nextApplications = [
+        payload,
+        ...currentApplications.filter((app) => {
+            const appType = String(app?.applicationType || '').trim().toLowerCase();
+            const appDivision = String(app?.recommendedDivision || app?.division || '').trim().toLowerCase();
+            const appEmail = String(app?.email || '').trim().toLowerCase();
+            const appStatus = normalizeFederationStatus(app?.status || '');
+
+            if (app?.id === payload.id) return false;
+
+            const isFederationApp = appType === 'federation-access' || appDivision === 'federation';
+            const sameEmail = emailLower && appEmail && emailLower === appEmail;
+
+            return !(isFederationApp && sameEmail && appStatus !== 'rejected');
+        })
+    ];
+
+    const currentFederation = Array.isArray(currentAdminState.federation)
+        ? currentAdminState.federation
+        : [];
+
+    const federationCandidate = {
+        id: payload.id,
+        name: payload.name || payload.fullName || 'Federation Applicant',
+        email: payload.email || '',
+        profession: payload.role || payload.profession || 'Operator',
+        region: payload.region || [payload.city, payload.country].filter(Boolean).join(', '),
+        status: payload.status || 'Under Review',
+        influence: 0,
+        tag: payload.primaryCategory || 'Operator',
+        sourceApplicationId: payload.id,
+        createdAt: payload.createdAt,
+        updatedAt: payload.updatedAt
+    };
+
+    writeYhAdminPanelState({
+        ...currentAdminState,
+        applications: nextApplications,
+        federation: [
+            federationCandidate,
+            ...currentFederation.filter((item) => item?.sourceApplicationId !== payload.id && item?.id !== payload.id)
+        ]
+    });
+
+    writeFederationStatusCache({
+        hasApplication: true,
+        canEnterFederation: false,
+        applicationStatus: normalizeFederationStatus(payload.status || 'under review'),
+        application: payload
+    });
+
+    return payload;
+}
+
+function openFederationLockedView(snapshot = null) {
+    const currentSnapshot = snapshot || getFederationAccessSnapshot();
+
+    const academyWrapperEl = document.getElementById('academy-wrapper');
+    const universeHubViewEl = document.getElementById('universe-hub-view');
+    const viewPlazasEl = document.getElementById('view-plazas');
+    const viewFederationEl = document.getElementById('view-federation');
+
+    if (academyWrapperEl) academyWrapperEl.style.display = 'none';
+    if (universeHubViewEl) universeHubViewEl.style.display = 'none';
+    if (viewPlazasEl) viewPlazasEl.classList.add('hidden-step');
+
+    if (viewFederationEl) {
+        viewFederationEl.classList.remove('hidden-step');
+        viewFederationEl.classList.remove('fade-in');
+        void viewFederationEl.offsetWidth;
+        viewFederationEl.classList.add('fade-in');
+    }
+
+    setDashboardViewMode('federation');
+    syncFederationFrameAccess(currentSnapshot);
+}
+
+function openFederationApprovedView(snapshot = null) {
+    const currentSnapshot = snapshot || getFederationAccessSnapshot();
+
+    openFederationLockedView({
+        ...currentSnapshot,
+        canEnterFederation: true,
+        applicationStatus: 'approved'
+    });
+}
+
+function handleFederationGateClick() {
+    const snapshot = syncFederationEntryButton();
+    const status = normalizeFederationStatus(snapshot.applicationStatus || '');
+
+    if (snapshot.canEnterFederation || status === 'approved') {
+        openFederationApprovedView(snapshot);
+        return;
+    }
+
+    if (!snapshot.hasApplication || status === 'rejected') {
+        openFederationApplicationModal();
+        return;
+    }
+
+    openFederationLockedView(snapshot);
+    showToast(`Federation status: ${getFederationButtonCopy(snapshot)}.`, 'success');
 }
 function readAcademyMembershipCache() {
     try {

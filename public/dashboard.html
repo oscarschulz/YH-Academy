@@ -266,9 +266,18 @@
                         </p>
                     </div>
 
-                    <button id="btn-open-federation-preview" class="btn-primary w-full" style="padding: 14px; font-size: 1rem;">
-                        Open Federation ➔
+                    <button
+                        id="btn-open-federation-preview"
+                        class="btn-secondary w-full yh-federation-gate-btn"
+                        style="padding: 14px; font-size: 1rem;"
+                        type="button"
+                    >
+                        Apply for Federation ➔
                     </button>
+
+                    <div class="academy-entry-state-badge is-hidden yh-federation-entry-state-badge" id="federation-entry-state-badge">
+                        Application Pending
+                    </div>
                 </div>
             </section>
 
@@ -407,23 +416,260 @@
                 ← Universe Hub
             </button>
 
-            <a href="/federation.html" target="_blank" rel="noopener noreferrer" class="btn-primary yh-dashboard-federation-open-link">
-                Open Full Page ↗
-            </a>
+            <button type="button" class="btn-primary yh-dashboard-federation-open-link" id="btn-dashboard-enter-federation">
+                Enter the Federation
+            </button>
+        </div>
+    </div>
+
+    <div class="yh-federation-access-lock" id="federation-access-lock">
+        <div class="yh-federation-lock-card">
+            <div class="yh-dashboard-federation-kicker">Access Gate</div>
+            <h3 id="federation-lock-title">Federation access requires approval</h3>
+            <p id="federation-lock-copy">
+                Submit your Federation application from the Dashboard. Once admin approves your application,
+                this command layer will unlock.
+            </p>
+
+            <div class="yh-federation-lock-actions">
+                <button type="button" class="btn-primary" id="btn-open-federation-application-from-lock">
+                    Apply for Federation
+                </button>
+
+                <button type="button" class="btn-secondary" id="btn-refresh-federation-status">
+                    Refresh Status
+                </button>
+            </div>
         </div>
     </div>
 
     <iframe
         id="yh-federation-frame"
-        class="yh-dashboard-federation-frame"
-        src="/federation.html"
+        class="yh-dashboard-federation-frame hidden-step"
+        src="about:blank"
+        data-src="/federation.html"
         title="Young Hustlers Federation"
         loading="lazy"
     ></iframe>
 </main>
     </div>
 
+<div id="federation-apply-modal" class="modal-overlay hidden-step yh-federation-apply-modal">
+    <div class="modal-content hide-scrollbar yh-federation-apply-card">
+        <button
+            id="btn-close-federation-apply"
+            type="button"
+            class="yh-federation-apply-close"
+            aria-label="Close Federation application"
+        >
+            ✖
+        </button>
 
+        <div class="yh-federation-apply-head">
+            <div class="yh-dashboard-federation-kicker">Federation Application</div>
+            <h2>Apply for Federation Access</h2>
+            <p>
+                Apply to enter the private strategic layer of Young Hustlers. Access is reviewed based on trust,
+                leverage, network value, regional relevance, and your ability to contribute or request high-value introductions.
+            </p>
+        </div>
+
+        <form id="form-federation-apply" class="yh-federation-apply-form">
+            <div class="yh-federation-form-section">
+                <h3>Identity</h3>
+
+                <div class="yh-federation-form-grid">
+                    <div class="form-group">
+                        <label>Full Name</label>
+                        <input id="fed-app-full-name" class="input-field" type="text" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input id="fed-app-email" class="input-field" type="email" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Telegram Username</label>
+                        <input id="fed-app-telegram" class="input-field" type="text" placeholder="@username" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Current Role / Title</label>
+                        <input id="fed-app-role" class="input-field" type="text" placeholder="Founder, student leader, lawyer, operator..." required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Country of Residence</label>
+                        <input id="fed-app-country" class="input-field" type="text" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>City of Residence</label>
+                        <input id="fed-app-city" class="input-field" type="text" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Company / Organization</label>
+                        <input id="fed-app-company" class="input-field" type="text" placeholder="Optional">
+                    </div>
+
+                    <div class="form-group">
+                        <label>LinkedIn / Website / X Profile</label>
+                        <input id="fed-app-profile-link" class="input-field" type="url" placeholder="Optional but recommended">
+                    </div>
+                </div>
+            </div>
+
+            <div class="yh-federation-form-section">
+                <h3>Federation Category</h3>
+
+                <div class="form-group">
+                    <label>Primary Federation Category</label>
+                    <select id="fed-app-primary-category" class="input-field styled-select" required>
+                        <option value="" disabled selected>Select category.</option>
+                        <option>Lawyers & Legal Strategists</option>
+                        <option>Politicians & Policy Advisors</option>
+                        <option>Entrepreneurs & Investors</option>
+                        <option>Influencers & Media Architects</option>
+                        <option>Cybersecurity Experts</option>
+                        <option>Doctors, Engineers, Athletes & Specialists</option>
+                        <option>Operators Across Industries</option>
+                        <option>Students / Campus Leaders</option>
+                        <option>Other High-Value Contact</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="yh-federation-form-section">
+                <h3>Strategic Value</h3>
+
+                <div class="form-group">
+                    <label>What makes you valuable to the Federation?</label>
+                    <textarea id="fed-app-value-bring" class="input-field" rows="3" required placeholder="Explain your skills, network, influence, access, region, or experience."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>What kind of access, expertise, influence, or network can you contribute?</label>
+                    <textarea id="fed-app-access-contribution" class="input-field" rows="3" required></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>What regions, cities, or countries do you have useful access to?</label>
+                    <input id="fed-app-regions-access" class="input-field" type="text" placeholder="Example: Lagos, Abuja, London, Dubai, Delhi" required>
+                </div>
+            </div>
+
+            <div class="yh-federation-form-section">
+                <h3>Looking for Contact Signal</h3>
+
+                <div class="yh-federation-form-grid">
+                    <div class="form-group">
+                        <label>Are you currently looking for a specific type of contact?</label>
+                        <select id="fed-app-looking-for-contact" class="input-field styled-select" required>
+                            <option value="" disabled selected>Select answer.</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                            <option value="Maybe Later">Maybe Later</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>What type of contact are you looking for?</label>
+                        <input id="fed-app-wanted-contact-types" class="input-field" type="text" placeholder="Lawyer, investor, politician, supplier, client...">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Preferred country / city</label>
+                        <input id="fed-app-wanted-contact-region" class="input-field" type="text" placeholder="Example: Abuja, Nigeria">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Urgency</label>
+                        <select id="fed-app-contact-urgency" class="input-field styled-select">
+                            <option value="">Select urgency.</option>
+                            <option>Low</option>
+                            <option>Medium</option>
+                            <option>High</option>
+                            <option>Immediate</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Why do you need this contact?</label>
+                    <textarea id="fed-app-wanted-contact-reason" class="input-field" rows="3" placeholder="Explain the purpose of the introduction."></textarea>
+                </div>
+            </div>
+
+            <div class="yh-federation-form-section">
+                <h3>Contact Supply Signal</h3>
+
+                <div class="yh-federation-form-grid">
+                    <div class="form-group">
+                        <label>Can you provide access to valuable contacts?</label>
+                        <select id="fed-app-can-provide-contacts" class="input-field styled-select" required>
+                            <option value="" disabled selected>Select answer.</option>
+                            <option>Yes, direct contacts</option>
+                            <option>Yes, through my network</option>
+                            <option>Maybe</option>
+                            <option>Not yet</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>What type of contacts can you help provide?</label>
+                        <input id="fed-app-contact-types-can-provide" class="input-field" type="text" placeholder="Lawyers, investors, influencers, business owners...">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Which regions can you help cover?</label>
+                        <input id="fed-app-supply-regions" class="input-field" type="text" placeholder="Cities, countries, regions">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Open to admin matching opportunities?</label>
+                        <select id="fed-app-open-admin-matching" class="input-field styled-select" required>
+                            <option value="" disabled selected>Select answer.</option>
+                            <option>Yes</option>
+                            <option>No</option>
+                            <option>Only for serious opportunities</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="yh-federation-form-section yh-federation-declaration-section">
+                <h3>Declaration</h3>
+
+                <label class="yh-federation-check-row">
+                    <input id="fed-app-declare-selective" type="checkbox" required>
+                    <span>I understand that Federation access is selective and not guaranteed.</span>
+                </label>
+
+                <label class="yh-federation-check-row">
+                    <input id="fed-app-declare-accurate" type="checkbox" required>
+                    <span>I confirm that the information I provided is accurate.</span>
+                </label>
+
+                <label class="yh-federation-check-row">
+                    <input id="fed-app-declare-professional" type="checkbox" required>
+                    <span>I understand that introductions and contact access must be handled professionally.</span>
+                </label>
+            </div>
+
+            <div class="yh-federation-form-actions">
+                <button type="button" class="btn-secondary" id="btn-cancel-federation-apply">
+                    Cancel
+                </button>
+
+                <button type="submit" class="btn-primary" id="btn-submit-federation-application">
+                    Submit Federation Application ➔
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
     <div id="academy-apply-modal" class="modal-overlay hidden-step" style="z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px;">
         
         <div class="modal-content hide-scrollbar" style="position: relative; max-width: 700px; width: 100%; max-height: 85vh; overflow-y: auto; padding: 3rem 2.5rem; background: var(--panel-dark); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);">
@@ -685,7 +931,7 @@
 
 <script src="/js/yh-shared-core.js?v=20260418-toast-center-1"></script>
 <script src="/js/yh-shared-runtime.js?v=20260411-3"></script>
-<script src="/js/dashboard.js?v=20260411-19"></script>
+<script src="/js/dashboard.js?v=20260418-federation-application-gate-1"></script>
 <script src="/js/dashboard-mobile-fix.js?v=20260410-3"></script>
 </body>
 </html>
