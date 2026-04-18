@@ -763,18 +763,33 @@ async function loadFederationConnectData(options = {}) {
   renderFederationConnectSection();
 
   try {
-    const [opportunityResult, requestResult] = await Promise.all([
+    const [opportunitySettled, requestSettled] = await Promise.allSettled([
       federationConnectFetch("/api/federation/connect/opportunities"),
       federationConnectFetch("/api/federation/connect/my-requests")
     ]);
 
-    federationConnectState.opportunities = Array.isArray(opportunityResult.opportunities)
-      ? opportunityResult.opportunities.map(normalizeFederationConnectOpportunity)
-      : [];
+    if (opportunitySettled.status === "fulfilled") {
+      const opportunityResult = opportunitySettled.value || {};
 
-    federationConnectState.requests = Array.isArray(requestResult.requests)
-      ? requestResult.requests
-      : [];
+      federationConnectState.opportunities = Array.isArray(opportunityResult.opportunities)
+        ? opportunityResult.opportunities.map(normalizeFederationConnectOpportunity)
+        : [];
+    } else {
+      console.error("Federation Connect opportunities load error:", opportunitySettled.reason);
+      federationConnectState.opportunities = [];
+      federationConnectState.error = "Could not load Federation Connect opportunities.";
+    }
+
+    if (requestSettled.status === "fulfilled") {
+      const requestResult = requestSettled.value || {};
+
+      federationConnectState.requests = Array.isArray(requestResult.requests)
+        ? requestResult.requests
+        : [];
+    } else {
+      console.error("Federation Connect requests load error:", requestSettled.reason);
+      federationConnectState.requests = [];
+    }
 
     federationConnectState.loaded = true;
   } catch (error) {

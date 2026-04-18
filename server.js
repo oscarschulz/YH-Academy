@@ -1716,19 +1716,35 @@ app.get('/api/federation/requests', requireApiUser, async (req, res) => {
 });
 app.get('/api/federation/connect/opportunities', requireApiUser, async (req, res) => {
     try {
-        const snap = await firestore
-            .collectionGroup('academyLeadMissions')
-            .where('federationReady', '==', true)
-            .limit(80)
-            .get();
+        let snap = null;
+
+        try {
+            snap = await firestore
+                .collectionGroup('academyLeadMissions')
+                .where('federationReady', '==', true)
+                .limit(80)
+                .get();
+        } catch (queryError) {
+            console.error('federation connect opportunities query error:', queryError);
+
+            return res.json({
+                success: true,
+                opportunities: [],
+                warning: 'Federation Connect opportunities are temporarily unavailable.'
+            });
+        }
 
         const opportunities = [];
 
         snap.forEach((docSnap) => {
-            const opportunity = mapFederationConnectOpportunityDoc(docSnap);
+            try {
+                const opportunity = mapFederationConnectOpportunityDoc(docSnap);
 
-            if (opportunity.leadId && opportunity.ownerUid) {
-                opportunities.push(opportunity);
+                if (opportunity.leadId && opportunity.ownerUid) {
+                    opportunities.push(opportunity);
+                }
+            } catch (mapError) {
+                console.error('federation connect opportunity map error:', mapError);
             }
         });
 
@@ -1755,9 +1771,11 @@ app.get('/api/federation/connect/opportunities', requireApiUser, async (req, res
         });
     } catch (error) {
         console.error('federation connect opportunities error:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Failed to load Federation Connect opportunities.'
+
+        return res.json({
+            success: true,
+            opportunities: [],
+            warning: 'Federation Connect opportunities could not be loaded.'
         });
     }
 });
@@ -1766,35 +1784,83 @@ app.get('/api/federation/connect/my-requests', requireApiUser, async (req, res) 
     try {
         const requesterUid = sanitizeText(req.user?.id);
 
-        const snap = await firestore
-            .collection('federationConnectionRequests')
-            .where('requesterUid', '==', requesterUid)
-            .limit(80)
-            .get();
+        if (!requesterUid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        let snap = null;
+
+        try {
+            snap = await firestore
+                .collection('federationConnectionRequests')
+                .where('requesterUid', '==', requesterUid)
+                .limit(80)
+                .get();
+        } catch (queryError) {
+            console.error('federation connect my requests query error:', queryError);
+
+            return res.json({
+                success: true,
+                requests: [],
+                warning: 'Federation Connect requests are temporarily unavailable.'
+            });
+        }
 
         const requests = [];
 
         snap.forEach((docSnap) => {
-            const data = docSnap.data() || {};
+            try {
+                const data = docSnap.data() || {};
 
-            requests.push({
-                id: docSnap.id,
-                leadId: sanitizeText(data.leadId),
-                ownerUid: sanitizeText(data.ownerUid),
-                requestMode: sanitizeText(data.requestMode || 'selected_lead'),
-                requestedContact: data.requestedContact && typeof data.requestedContact === 'object'
-                    ? data.requestedContact
-                    : null,
-                opportunityTitle: sanitizeText(data.opportunityTitle),
-                status: sanitizeText(data.status || 'pending_admin_match'),
-                budgetRange: sanitizeText(data.budgetRange || 'not_sure'),
-                urgency: sanitizeText(data.urgency || 'normal'),
-                preferredIntroType: sanitizeText(data.preferredIntroType || 'admin_brokered'),
-                requestReason: sanitizeText(data.requestReason),
-                intendedUse: sanitizeText(data.intendedUse),
-                createdAt: mapFederationConnectTimestamp(data.createdAt),
-                updatedAt: mapFederationConnectTimestamp(data.updatedAt)
-            });
+                requests.push({
+                    id: docSnap.id,
+                    leadId: sanitizeText(data.leadId),
+                    ownerUid: sanitizeText(data.ownerUid),
+                    leadPath: sanitizeText(data.leadPath),
+                    requestMode: sanitizeText(data.requestMode || 'selected_lead'),
+                    requestedContact: data.requestedContact && typeof data.requestedContact === 'object'
+                        ? data.requestedContact
+                        : null,
+
+                    opportunityId: sanitizeText(data.opportunityId),
+                    opportunityTitle: sanitizeText(data.opportunityTitle),
+                    opportunitySnapshot: data.opportunitySnapshot && typeof data.opportunitySnapshot === 'object'
+                        ? data.opportunitySnapshot
+                        : null,
+
+                    matchedLeadSnapshot: data.matchedLeadSnapshot && typeof data.matchedLeadSnapshot === 'object'
+                        ? data.matchedLeadSnapshot
+                        : null,
+                    matchedAt: mapFederationConnectTimestamp(data.matchedAt),
+                    matchedBy: sanitizeText(data.matchedBy),
+
+                    status: sanitizeText(data.status || 'pending_admin_match'),
+                    adminStatus: sanitizeText(data.adminStatus || 'pending_review'),
+
+                    pricingAmount: Number(data.pricingAmount || data.dealPackage?.pricingAmount || 0),
+                    currency: sanitizeText(data.currency || data.dealPackage?.currency || 'USD') || 'USD',
+                    platformCommissionRate: Number(data.platformCommissionRate || data.dealPackage?.platformCommissionRate || 0),
+                    platformCommissionAmount: Number(data.platformCommissionAmount || data.dealPackage?.platformCommissionAmount || 0),
+                    operatorPayoutAmount: Number(data.operatorPayoutAmount || data.dealPackage?.operatorPayoutAmount || 0),
+                    paymentStatus: sanitizeText(data.paymentStatus || data.dealPackage?.paymentStatus || 'not_started'),
+                    payoutStatus: sanitizeText(data.payoutStatus || data.dealPackage?.payoutStatus || 'not_started'),
+                    commissionStatus: sanitizeText(data.commissionStatus || data.dealPackage?.commissionStatus || 'not_started'),
+                    dealNotes: sanitizeText(data.dealNotes || data.dealPackage?.dealNotes),
+
+                    budgetRange: sanitizeText(data.budgetRange || 'not_sure'),
+                    urgency: sanitizeText(data.urgency || 'normal'),
+                    preferredIntroType: sanitizeText(data.preferredIntroType || 'admin_brokered'),
+                    requestReason: sanitizeText(data.requestReason),
+                    intendedUse: sanitizeText(data.intendedUse),
+                    createdAt: mapFederationConnectTimestamp(data.createdAt),
+                    updatedAt: mapFederationConnectTimestamp(data.updatedAt)
+                });
+            } catch (mapError) {
+                console.error('federation connect request map error:', mapError);
+            }
         });
 
         requests.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
@@ -1805,9 +1871,11 @@ app.get('/api/federation/connect/my-requests', requireApiUser, async (req, res) 
         });
     } catch (error) {
         console.error('federation connect my requests error:', error);
-        return res.status(500).json({
-            success: false,
-            message: 'Failed to load Federation Connect requests.'
+
+        return res.json({
+            success: true,
+            requests: [],
+            warning: 'Federation Connect requests could not be loaded.'
         });
     }
 });
