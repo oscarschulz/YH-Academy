@@ -34,6 +34,7 @@
       <a href="#expansion" class="fed-nav-link">Expansion</a>
       <a href="#status" class="fed-nav-link">Your Access</a>
       <a href="#command" class="fed-nav-link" id="fedNavCommand" hidden>Command</a>
+      <a href="#connect" class="fed-nav-link" id="fedNavConnect" hidden>Connect</a>
       <a href="#referrals" class="fed-nav-link">Referrals</a>
       <a href="#directory" class="fed-nav-link">Directory</a>
       <a href="#apply" class="fed-nav-link" id="fedNavApply">Apply</a>
@@ -90,6 +91,11 @@
                 <small>Open the private member layer</small>
               </a>
 
+              <a href="#connect" class="fed-topbar-quick-link fed-nav-link" id="fedTopbarQuickConnect" hidden>
+                <strong>Connect</strong>
+                <small>Request verified introductions from the network</small>
+              </a>
+
               <a href="#directory" class="fed-topbar-quick-link fed-nav-link">
                 <strong>Directory</strong>
                 <small>Open the member directory view</small>
@@ -109,6 +115,9 @@
           </button>
           <button class="fed-btn fed-btn-secondary" id="memberCommandBtn" data-jump="#command" type="button" hidden>
             Member Command
+          </button>
+          <button class="fed-btn fed-btn-secondary" id="connectBtn" data-jump="#connect" type="button" hidden>
+            Connect
           </button>
           <button class="fed-btn fed-btn-secondary" data-jump="#directory" type="button">
             View Directory
@@ -662,6 +671,149 @@
         <div class="fed-command-layout" id="memberCommandPanel"></div>
       </section>
 
+      <section class="fed-section" id="connect" data-section="connect" hidden>
+        <div class="fed-section-head">
+          <div class="fed-kicker">Connect Layer</div>
+          <h3>Request Strategic Introductions</h3>
+          <p>
+            Approved Federation members can request controlled introductions from Academy-sourced leads
+            that admin has marked as Federation-ready. Raw contact details stay protected until admin reviews,
+            matches, and approves the request.
+          </p>
+        </div>
+
+        <div class="fed-connect-hero">
+          <article class="fed-command-card fed-connect-hero-card">
+            <div class="fed-sidebar-card-label">How Connect Works</div>
+            <h4>Sell access, not exposed contact data</h4>
+            <p class="fed-command-copy">
+              Operators add leads through Academy Lead Missions. Admin qualifies the lead, marks it Federation-ready,
+              and Federation members can request a brokered connection from this page.
+            </p>
+
+            <div class="fed-command-pills">
+              <span>Admin-reviewed</span>
+              <span>Operator-sourced</span>
+              <span>Protected details</span>
+              <span>Brokered intro</span>
+            </div>
+          </article>
+
+          <article class="fed-command-card">
+            <div class="fed-sidebar-card-label">Available Opportunities</div>
+            <div class="fed-state-grid">
+              <div class="fed-state-metric">
+                <strong id="federationConnectAvailableCount">0</strong>
+                <small>Federation-ready leads</small>
+              </div>
+              <div class="fed-state-metric">
+                <strong id="federationConnectRequestCount">0</strong>
+                <small>Your requests</small>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <div class="fed-connect-toolbar">
+          <div class="fed-input-wrap">
+            <label for="connectSearch">Search</label>
+            <input type="text" id="connectSearch" placeholder="Search role, sector, city, or country" />
+          </div>
+
+          <div class="fed-input-wrap">
+            <label for="connectValueFilter">Strategic Value</label>
+            <select id="connectValueFilter">
+              <option value="all">All Values</option>
+              <option value="strategic">Strategic</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="watch">Watch</option>
+              <option value="standard">Standard</option>
+            </select>
+          </div>
+
+          <div class="fed-input-wrap">
+            <label for="connectCountryFilter">Country</label>
+            <input type="text" id="connectCountryFilter" placeholder="Filter by country" />
+          </div>
+        </div>
+
+        <div class="fed-form-feedback" id="connectFeedback" aria-live="polite"></div>
+
+        <div class="fed-connect-grid" id="federationConnectGrid"></div>
+
+        <div class="fed-connect-request-panel" id="connectRequestPanel" hidden>
+          <form id="connectRequestForm" class="fed-form fed-connect-request-form" novalidate>
+            <input type="hidden" id="connectRequestLeadId" name="leadId" />
+            <input type="hidden" id="connectRequestOwnerUid" name="ownerUid" />
+
+            <div class="fed-form-group fed-form-group-full">
+              <div class="fed-form-section-title">Connection Request</div>
+              <p class="fed-connect-selected" id="connectSelectedOpportunity">
+                Select an opportunity above to request a connection.
+              </p>
+            </div>
+
+            <div class="fed-input-wrap fed-input-wrap-full">
+              <label for="connectRequestReason">Why do you need this connection?</label>
+              <textarea id="connectRequestReason" name="requestReason" rows="4" required></textarea>
+            </div>
+
+            <div class="fed-input-wrap fed-input-wrap-full">
+              <label for="connectIntendedUse">What will you use the introduction for?</label>
+              <textarea id="connectIntendedUse" name="intendedUse" rows="3"></textarea>
+            </div>
+
+            <div class="fed-input-wrap">
+              <label for="connectBudgetRange">Budget / Deal Range</label>
+              <select id="connectBudgetRange" name="budgetRange">
+                <option value="not_sure">Not sure yet</option>
+                <option value="under_500">Under $500</option>
+                <option value="500_1500">$500 - $1,500</option>
+                <option value="1500_5000">$1,500 - $5,000</option>
+                <option value="5000_plus">$5,000+</option>
+              </select>
+            </div>
+
+            <div class="fed-input-wrap">
+              <label for="connectUrgency">Urgency</label>
+              <select id="connectUrgency" name="urgency">
+                <option value="normal">Normal</option>
+                <option value="this_week">This week</option>
+                <option value="urgent">Urgent</option>
+                <option value="exploring">Exploring</option>
+              </select>
+            </div>
+
+            <div class="fed-input-wrap">
+              <label for="connectPreferredIntroType">Preferred Intro Type</label>
+              <select id="connectPreferredIntroType" name="preferredIntroType">
+                <option value="admin_brokered">Admin-brokered intro</option>
+                <option value="operator_intro">Operator warm intro</option>
+                <option value="contact_package">Contact package after approval</option>
+                <option value="not_sure">Not sure</option>
+              </select>
+            </div>
+
+            <div class="fed-input-wrap fed-input-wrap-full">
+              <label for="connectNotes">Extra notes for admin</label>
+              <textarea id="connectNotes" name="notes" rows="3"></textarea>
+            </div>
+
+            <div class="fed-form-actions fed-form-group-full">
+              <button type="submit" class="fed-btn fed-btn-primary">
+                Submit Connection Request
+              </button>
+              <button type="button" class="fed-btn fed-btn-secondary" id="connectRequestCancel">
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <div class="fed-connect-requests" id="federationConnectRequestsPanel"></div>
+      </section>
+
       <section class="fed-section" id="referrals" data-section="referrals">
         <div class="fed-section-head">
           <div class="fed-kicker">Referral Flow</div>
@@ -1004,6 +1156,10 @@
         <a href="#referrals" class="fed-app-more-link fed-nav-link">
           <strong>Referrals</strong>
           <small>Referral logic and member pipeline</small>
+        </a>
+        <a href="#connect" class="fed-app-more-link fed-nav-link" id="fedMobileConnect" hidden>
+          <strong>Connect</strong>
+          <small>Request verified strategic introductions</small>
         </a>
         <a href="#apply" class="fed-app-more-link fed-nav-link" id="fedMobileApply">
           <strong>Apply</strong>

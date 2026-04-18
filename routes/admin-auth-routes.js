@@ -503,6 +503,21 @@ async function buildAdminBootstrapPayload() {
       academyDivisions.push('Academy');
     }
 
+    const federationMembershipStatus = cleanText(
+      user.federationMembershipStatus ||
+      user.federationApplicationStatus ||
+      user.federationApplication?.status ||
+      ''
+    ).toLowerCase();
+
+    const hasApprovedFederationMembership =
+      federationMembershipStatus === 'approved' ||
+      user.hasFederationAccess === true;
+
+    if (hasApprovedFederationMembership && !academyDivisions.includes('Federation')) {
+      academyDivisions.push('Federation');
+    }
+
     let roadmapStatus = 'Not in Academy';
 
     if (hasApprovedAcademyMembership) {
@@ -587,6 +602,59 @@ const applications = users.flatMap((user) => {
       seriousness: cleanText(app.seriousness || profile.seriousness || ''),
       nonNegotiable: cleanText(app.nonNegotiable || profile.nonNegotiable || ''),
       academyProfile: profile
+    });
+  }
+
+  if (user.federationApplication && typeof user.federationApplication === 'object') {
+    const app = user.federationApplication;
+
+    output.push({
+      id: cleanText(app.id || `FED-APP-${user.id}`),
+      name: cleanText(
+        app.fullName ||
+        app.name ||
+        user.fullName ||
+        user.name ||
+        user.displayName ||
+        user.username ||
+        'Unknown Federation Applicant'
+      ),
+      username: cleanText(app.username || user.username || '').replace(/^@+/, ''),
+      email: cleanText(app.email || user.email || ''),
+      goal: cleanText(app.goal || app.wantedContactReason || 'Federation access request'),
+      background: cleanText(app.background || [app.role, app.company, app.primaryCategory, app.city, app.country].filter(Boolean).join(' • ')),
+      recommendedDivision: 'Federation',
+      status: cleanText(app.status || user.federationApplicationStatus || 'Under Review'),
+      aiScore: toNumber(app.aiScore, 0),
+      country: cleanText(app.country || user.country || ''),
+      locationCountry: cleanText(app.country || user.country || ''),
+      skills: Array.isArray(app.skills) ? app.skills : [],
+      networkValue: cleanText(app.networkValue || app.valueBring || ''),
+      source: cleanText(app.source || 'Dashboard Federation Application'),
+      submittedAt: toIso(app.submittedAt) || cleanText(app.submittedAt || ''),
+      notes: Array.isArray(app.notes) ? app.notes : [],
+      applicationType: 'federation-access',
+      reviewLane: 'Federation Access',
+
+      role: cleanText(app.role || app.profession || ''),
+      profession: cleanText(app.profession || app.role || ''),
+      city: cleanText(app.city || ''),
+      company: cleanText(app.company || ''),
+      primaryCategory: cleanText(app.primaryCategory || ''),
+      telegram: cleanText(app.telegram || ''),
+      profileLink: cleanText(app.profileLink || ''),
+      valueBring: cleanText(app.valueBring || ''),
+      accessContribution: cleanText(app.accessContribution || ''),
+      regionsOfAccess: cleanText(app.regionsOfAccess || ''),
+      lookingForContact: cleanText(app.lookingForContact || ''),
+      wantedContactTypes: Array.isArray(app.wantedContactTypes) ? app.wantedContactTypes : [],
+      wantedContactRegion: cleanText(app.wantedContactRegion || ''),
+      wantedContactReason: cleanText(app.wantedContactReason || ''),
+      contactUrgency: cleanText(app.contactUrgency || ''),
+      canProvideContacts: cleanText(app.canProvideContacts || ''),
+      contactTypesCanProvide: Array.isArray(app.contactTypesCanProvide) ? app.contactTypesCanProvide : [],
+      supplyRegions: cleanText(app.supplyRegions || ''),
+      openToAdminMatching: cleanText(app.openToAdminMatching || '')
     });
   }
 
@@ -696,6 +764,28 @@ const applications = users.flatMap((user) => {
     }
   }
 
+  const federationCandidates = users
+    .filter((user) => user.federationApplication && typeof user.federationApplication === 'object')
+    .map((user) => {
+      const app = user.federationApplication || {};
+      const status = cleanText(app.status || user.federationApplicationStatus || 'Under Review');
+
+      return {
+        id: cleanText(app.id || `FED-${user.id}`),
+        userId: cleanText(user.id),
+        sourceApplicationId: cleanText(app.id || `FED-APP-${user.id}`),
+        name: cleanText(app.fullName || app.name || user.fullName || user.name || user.username || 'Federation Applicant'),
+        email: cleanText(app.email || user.email || ''),
+        profession: cleanText(app.profession || app.role || 'Operator'),
+        region: cleanText(app.region || [app.city, app.country].filter(Boolean).join(', ')),
+        status,
+        influence: toNumber(app.influence, 0),
+        tag: cleanText(app.primaryCategory || 'Operator'),
+        createdAt: toIso(app.createdAt) || cleanText(app.createdAt || ''),
+        updatedAt: toIso(app.updatedAt) || cleanText(app.updatedAt || '')
+      };
+    });
+
   return {
     ui: {
       currentView: 'overview',
@@ -713,7 +803,7 @@ const applications = users.flatMap((user) => {
     members,
     academy,
     academyLeadMissions,
-    federation: [],
+    federation: federationCandidates,
     plazas: [],
     support: [],
     broadcasts,
@@ -888,6 +978,13 @@ apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async 
         return true;
       }
 
+      if (data.federationApplication?.id === applicationId) {
+        matchedUserDoc = doc;
+        matchedField = 'federationApplication';
+        matchedApplication = data.federationApplication;
+        return true;
+      }
+
       return false;
     });
 
@@ -951,6 +1048,11 @@ apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async 
 
       const nowIso = new Date().toISOString();
 
+      const isFederationApplication = matchedField === 'federationApplication';
+      const reviewLabel = isFederationApplication
+        ? 'Federation access'
+        : (matchedField === 'roadmapApplication' ? 'Roadmap' : 'Academy membership');
+
       const updatedApplication = {
         ...currentApplication,
         status: nextStatus,
@@ -958,25 +1060,41 @@ apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async 
         reviewedAt: nowIso,
         reviewedBy: req.adminSession.username,
         notes: [
-          `${matchedField === 'roadmapApplication' ? 'Roadmap' : 'Academy membership'} ${nextStatus.toLowerCase()} by admin.`,
+          `${reviewLabel} ${nextStatus.toLowerCase()} by admin.`,
           ...(Array.isArray(currentApplication.notes) ? currentApplication.notes : [])
         ]
       };
 
       const updatePayload = {
-        updatedAt: nowIso,
-        academyApplication: updatedApplication,
-        academyApplicationStatus: nextStatus,
-        academyApplicationReviewedAt: nowIso,
-        academyApplicationReviewedBy: req.adminSession.username,
-        academyMembershipStatus: nextStatus.toLowerCase()
+        updatedAt: nowIso
       };
 
-      if (nextStatus === 'Approved') {
-        updatePayload.hasAcademyAccess = true;
-        updatePayload.academyMembershipApprovedAt = nowIso;
+      if (isFederationApplication) {
+        updatePayload.federationApplication = updatedApplication;
+        updatePayload.federationApplicationStatus = nextStatus;
+        updatePayload.federationApplicationReviewedAt = nowIso;
+        updatePayload.federationApplicationReviewedBy = req.adminSession.username;
+        updatePayload.federationMembershipStatus = nextStatus.toLowerCase();
+
+        if (nextStatus === 'Approved') {
+          updatePayload.hasFederationAccess = true;
+          updatePayload.federationApprovedAt = nowIso;
+        } else {
+          updatePayload.hasFederationAccess = false;
+        }
       } else {
-        updatePayload.hasAcademyAccess = false;
+        updatePayload.academyApplication = updatedApplication;
+        updatePayload.academyApplicationStatus = nextStatus;
+        updatePayload.academyApplicationReviewedAt = nowIso;
+        updatePayload.academyApplicationReviewedBy = req.adminSession.username;
+        updatePayload.academyMembershipStatus = nextStatus.toLowerCase();
+
+        if (nextStatus === 'Approved') {
+          updatePayload.hasAcademyAccess = true;
+          updatePayload.academyMembershipApprovedAt = nowIso;
+        } else {
+          updatePayload.hasAcademyAccess = false;
+        }
       }
 
       let shouldSendApprovalEmail = false;

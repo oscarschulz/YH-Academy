@@ -608,8 +608,8 @@ document.getElementById('btn-open-federation-application-from-lock')?.addEventLi
     openFederationApplicationModal();
 });
 
-document.getElementById('btn-refresh-federation-status')?.addEventListener('click', () => {
-    syncFederationEntryButton();
+document.getElementById('btn-refresh-federation-status')?.addEventListener('click', async () => {
+    await refreshFederationAccessStatusFromBackend(true);
     showToast('Federation status refreshed.', 'success');
 });
 
@@ -627,7 +627,7 @@ document.getElementById('federation-apply-modal')?.addEventListener('click', (ev
     }
 });
 
-document.getElementById('form-federation-apply')?.addEventListener('submit', (event) => {
+document.getElementById('form-federation-apply')?.addEventListener('submit', async (event) => {
     event.preventDefault();
 
     const form = event.currentTarget;
@@ -662,7 +662,15 @@ document.getElementById('form-federation-apply')?.addEventListener('submit', (ev
         }
 
         const payload = collectFederationApplicationPayload(form);
-        const savedApplication = queueFederationApplication(payload);
+        const backendResult = await academyAuthedFetch('/api/federation/application', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const savedApplication = queueFederationApplication(backendResult?.application || payload);
 
         form.reset();
         closeFederationApplicationModal();
@@ -704,6 +712,7 @@ document.getElementById('btn-back-to-universe-from-federation')?.addEventListene
 bindUniverseSwipe();
 
 setTimeout(() => {
+    refreshFederationAccessStatusFromBackend(true).catch(() => {});
     refreshAcademyMembershipStatus(true).catch(() => {});
     startAcademyMembershipRealtimeSync();
 }, 0); 
@@ -10342,7 +10351,63 @@ function collectFederationApplicationPayload(form) {
         ].filter(Boolean)
     };
 }
+var federationAccessStatusRefreshPromise = null;
+var federationAccessStatusLastFetchAt = 0;
+var FEDERATION_ACCESS_STATUS_MIN_REFRESH_GAP_MS = 10000;
 
+async function refreshFederationAccessStatusFromBackend(forceFresh = false) {
+    const now = Date.now();
+
+    if (
+        !forceFresh &&
+        federationAccessStatusLastFetchAt &&
+        now - federationAccessStatusLastFetchAt < FEDERATION_ACCESS_STATUS_MIN_REFRESH_GAP_MS
+    ) {
+        return getFederationAccessSnapshot();
+    }
+
+    if (federationAccessStatusRefreshPromise) {
+        return federationAccessStatusRefreshPromise;
+    }
+
+    federationAccessStatusRefreshPromise = academyAuthedFetch('/api/federation/application-status', {
+        method: 'GET'
+    })
+        .then((result) => {
+            federationAccessStatusLastFetchAt = Date.now();
+
+            const application =
+                result?.application && typeof result.application === 'object'
+                    ? result.application
+                    : null;
+
+            const snapshot = {
+                hasApplication: result?.hasApplication === true || Boolean(application),
+                canEnterFederation: result?.canEnterFederation === true,
+                applicationStatus: normalizeFederationStatus(
+                    result?.applicationStatus ||
+                    application?.status ||
+                    ''
+                ),
+                application,
+                member: result?.member || null
+            };
+
+            writeFederationStatusCache(snapshot);
+            syncFederationEntryButton();
+
+            return snapshot;
+        })
+        .catch((error) => {
+            console.error('refreshFederationAccessStatusFromBackend error:', error);
+            return getFederationAccessSnapshot();
+        })
+        .finally(() => {
+            federationAccessStatusRefreshPromise = null;
+        });
+
+    return federationAccessStatusRefreshPromise;
+}
 function queueFederationApplication(payload = {}) {
     const currentAdminState = readYhAdminPanelState() || {};
     const currentApplications = Array.isArray(currentAdminState.applications)

@@ -62,6 +62,132 @@ const mapChatTimestamp = (value) => {
     if (value instanceof Date) return value.toISOString();
     return value || null;
 };
+
+const mapFederationConnectTimestamp = (value) => {
+    if (!value) return null;
+    if (typeof value.toDate === 'function') return value.toDate().toISOString();
+    if (value instanceof Date) return value.toISOString();
+    return value || null;
+};
+
+function getLeadMissionOwnerUidFromDoc(docSnap) {
+    try {
+        return sanitizeText(docSnap?.ref?.parent?.parent?.id || '');
+    } catch (_) {
+        return '';
+    }
+}
+
+function normalizeFederationConnectBudgetRange(value = '') {
+    const raw = sanitizeText(value).toLowerCase();
+
+    const allowed = new Set([
+        'not_sure',
+        'under_500',
+        '500_1500',
+        '1500_5000',
+        '5000_plus'
+    ]);
+
+    return allowed.has(raw) ? raw : 'not_sure';
+}
+
+function normalizeFederationConnectUrgency(value = '') {
+    const raw = sanitizeText(value).toLowerCase();
+
+    const allowed = new Set([
+        'normal',
+        'this_week',
+        'urgent',
+        'exploring'
+    ]);
+
+    return allowed.has(raw) ? raw : 'normal';
+}
+
+function normalizeFederationConnectIntroType(value = '') {
+    const raw = sanitizeText(value).toLowerCase();
+
+    const allowed = new Set([
+        'admin_brokered',
+        'operator_intro',
+        'contact_package',
+        'not_sure'
+    ]);
+
+    return allowed.has(raw) ? raw : 'admin_brokered';
+}
+
+function buildFederationConnectOpportunityTitle(lead = {}) {
+    const role = sanitizeText(
+        lead.contactRole ||
+        lead.role ||
+        lead.contactType ||
+        'strategic contact'
+    );
+
+    const location = [lead.city, lead.country]
+        .map((item) => sanitizeText(item))
+        .filter(Boolean)
+        .join(', ');
+
+    return location
+        ? `Connect with a ${role} in ${location}`
+        : `Connect with a ${role}`;
+}
+
+function mapFederationConnectOpportunityDoc(docSnap) {
+    const lead = docSnap.data() || {};
+    const ownerUid = sanitizeText(
+        lead.ownerUid ||
+        lead.memberId ||
+        getLeadMissionOwnerUidFromDoc(docSnap)
+    );
+
+    const leadId = sanitizeText(docSnap.id);
+    const category = sanitizeText(
+        lead.contactType ||
+        lead.category ||
+        lead.industry ||
+        'Strategic Network'
+    );
+
+    const contactRole = sanitizeText(
+        lead.contactRole ||
+        lead.role ||
+        category ||
+        'Strategic Contact'
+    );
+
+    return {
+        id: `${ownerUid}_${leadId}`,
+        leadId,
+        ownerUid,
+        title: buildFederationConnectOpportunityTitle(lead),
+        category,
+        contactRole,
+        city: sanitizeText(lead.city),
+        country: sanitizeText(lead.country),
+        strategicValue: sanitizeText(lead.strategicValue || 'standard'),
+        tier: sanitizeText(lead.tier || 'T2'),
+        sourceDivision: sanitizeText(lead.sourceDivision || 'academy') || 'academy',
+        pipelineStage: sanitizeText(lead.pipelineStage || lead.callOutcome || 'Review'),
+        sourceMethod: sanitizeText(lead.sourceMethod || 'Lead Missions'),
+        contactType: sanitizeText(lead.contactType || category),
+        companyLabel: lead.companyName ? 'Private organization on file' : 'Private organization',
+        hasEmail: Boolean(sanitizeText(lead.email)),
+        hasPhone: Boolean(sanitizeText(lead.phone)),
+        hasDirectContact: Boolean(sanitizeText(lead.email) || sanitizeText(lead.phone)),
+        summary: sanitizeText(
+            lead.notes ||
+            lead.description ||
+            'Academy-sourced lead marked as Federation-ready by admin.'
+        ).slice(0, 220),
+        updatedAt: mapFederationConnectTimestamp(lead.updatedAt || lead.adminNetworkUpdatedAt || lead.createdAt),
+        createdAt: mapFederationConnectTimestamp(lead.createdAt)
+    };
+}
+
 const AUTH_COOKIE_NAME = 'yh_auth_token';
 
 function parseCookieHeader(raw = '') {
@@ -1161,6 +1287,399 @@ app.post('/api/academy/lead-missions/operator-profile', requireApiUser, async (r
         return res.status(500).json({
             success: false,
             message: 'Failed to save Lead Missions profile.'
+        });
+    }
+});
+
+app.get('/api/federation/connect/opportunities', requireApiUser, async (req, res) => {
+    try {
+        const snap = await firestore
+            .collectionGroup('academyLeadMissions')
+            .where('federationReady', '==', true)
+            .limit(80)
+            .get();
+
+        const opportunities = [];
+
+        snap.forEach((docSnap) => {
+            const opportunity = mapFederationConnectOpportunityDoc(docSnap);
+
+            if (opportunity.leadId && opportunity.ownerUid) {
+                opportunities.push(opportunity);
+            }
+        });
+
+        const strategicRank = {
+            strategic: 5,
+            high: 4,
+            medium: 3,
+            watch: 2,
+            standard: 1
+        };
+
+        opportunities.sort((a, b) => {
+            const rankA = strategicRank[String(a.strategicValue || '').toLowerCase()] || 0;
+            const rankB = strategicRank[String(b.strategicValue || '').toLowerCase()] || 0;
+
+            if (rankA !== rankB) return rankB - rankA;
+
+            return String(b.updatedAt || '').localeCompare(String(a.updatedAt || ''));
+        });
+
+        return res.json({
+            success: true,
+            opportunities
+        });
+    } catch (error) {
+        console.error('federation connect opportunities error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load Federation Connect opportunities.'
+        });
+    }
+});
+
+app.get('/api/federation/connect/my-requests', requireApiUser, async (req, res) => {
+    try {
+        const requesterUid = sanitizeText(req.user?.id);
+
+        const snap = await firestore
+            .collection('federationConnectionRequests')
+            .where('requesterUid', '==', requesterUid)
+            .limit(80)
+            .get();
+
+        const requests = [];
+
+        snap.forEach((docSnap) => {
+            const data = docSnap.data() || {};
+
+            requests.push({
+                id: docSnap.id,
+                leadId: sanitizeText(data.leadId),
+                ownerUid: sanitizeText(data.ownerUid),
+                opportunityTitle: sanitizeText(data.opportunityTitle),
+                status: sanitizeText(data.status || 'pending_admin_match'),
+                budgetRange: sanitizeText(data.budgetRange || 'not_sure'),
+                urgency: sanitizeText(data.urgency || 'normal'),
+                preferredIntroType: sanitizeText(data.preferredIntroType || 'admin_brokered'),
+                requestReason: sanitizeText(data.requestReason),
+                createdAt: mapFederationConnectTimestamp(data.createdAt),
+                updatedAt: mapFederationConnectTimestamp(data.updatedAt)
+            });
+        });
+
+        requests.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+
+        return res.json({
+            success: true,
+            requests
+        });
+    } catch (error) {
+        console.error('federation connect my requests error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load Federation Connect requests.'
+        });
+    }
+});
+
+app.post('/api/federation/connect/requests', requireApiUser, async (req, res) => {
+    try {
+        const requesterUid = sanitizeText(req.user?.id);
+        const requesterEmail = sanitizeText(req.user?.email).toLowerCase();
+        const requesterName = sanitizeText(req.user?.name || req.user?.username || 'Federation Member');
+
+        const body = req.body || {};
+        const ownerUid = sanitizeText(body.ownerUid);
+        const leadId = sanitizeText(body.leadId);
+
+        if (!ownerUid || !leadId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Missing selected Federation Connect opportunity.'
+            });
+        }
+
+        const requestReason = sanitizeText(body.requestReason).slice(0, 1200);
+
+        if (!requestReason || requestReason.length < 12) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please explain why you need this connection.'
+            });
+        }
+
+        const leadRef = firestore
+            .collection('users')
+            .doc(ownerUid)
+            .collection('academyLeadMissions')
+            .doc(leadId);
+
+        const leadSnap = await leadRef.get();
+
+        if (!leadSnap.exists) {
+            return res.status(404).json({
+                success: false,
+                message: 'This Federation Connect opportunity is no longer available.'
+            });
+        }
+
+        const lead = leadSnap.data() || {};
+
+        if (lead.federationReady !== true) {
+            return res.status(403).json({
+                success: false,
+                message: 'This lead has not been approved for Federation Connect.'
+            });
+        }
+
+        const opportunity = mapFederationConnectOpportunityDoc(leadSnap);
+        const now = Timestamp.now();
+
+        const requestPayload = {
+            requesterUid,
+            requesterEmail,
+            requesterName,
+
+            ownerUid,
+            leadId,
+            leadPath: leadRef.path,
+
+            sourceDivision: 'federation',
+            sourceFeature: 'connect',
+
+            opportunityId: opportunity.id,
+            opportunityTitle: opportunity.title,
+            opportunitySnapshot: opportunity,
+
+            requestReason,
+            intendedUse: sanitizeText(body.intendedUse).slice(0, 1200),
+            budgetRange: normalizeFederationConnectBudgetRange(body.budgetRange),
+            urgency: normalizeFederationConnectUrgency(body.urgency),
+            preferredIntroType: normalizeFederationConnectIntroType(body.preferredIntroType),
+            notes: sanitizeText(body.notes).slice(0, 1200),
+
+            status: 'pending_admin_match',
+            adminStatus: 'pending_review',
+            payoutStatus: 'not_started',
+            commissionStatus: 'not_started',
+
+            createdAt: now,
+            updatedAt: now
+        };
+
+        const ref = await firestore.collection('federationConnectionRequests').add(requestPayload);
+
+        return res.status(201).json({
+            success: true,
+            request: {
+                id: ref.id,
+                ...requestPayload,
+                createdAt: mapFederationConnectTimestamp(requestPayload.createdAt),
+                updatedAt: mapFederationConnectTimestamp(requestPayload.updatedAt)
+            }
+        });
+    } catch (error) {
+        console.error('federation connect request create error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to submit Federation Connect request.'
+        });
+    }
+});
+
+app.get('/api/federation/application-status', requireApiUser, async (req, res) => {
+    try {
+        const userId = sanitizeText(req.user?.id);
+
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const snap = await firestore.collection('users').doc(userId).get();
+        const user = snap.exists ? (snap.data() || {}) : {};
+
+        const application =
+            user.federationApplication && typeof user.federationApplication === 'object'
+                ? user.federationApplication
+                : null;
+
+        const status = sanitizeText(
+            user.federationApplicationStatus ||
+            user.federationMembershipStatus ||
+            application?.status ||
+            ''
+        );
+
+        const approved =
+            user.hasFederationAccess === true ||
+            status.toLowerCase() === 'approved';
+
+        return res.json({
+            success: true,
+            hasApplication: Boolean(application),
+            canEnterFederation: approved,
+            applicationStatus: status,
+            application,
+            member: approved
+                ? {
+                    id: userId,
+                    name: sanitizeText(user.fullName || user.name || user.displayName || req.user?.name || 'Federation Member'),
+                    email: sanitizeText(user.email || req.user?.email || ''),
+                    divisions: ['Federation'],
+                    status: 'Active'
+                }
+                : null
+        });
+    } catch (error) {
+        console.error('federation application status error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load Federation application status.'
+        });
+    }
+});
+
+app.post('/api/federation/application', requireApiUser, async (req, res) => {
+    try {
+        const userId = sanitizeText(req.user?.id);
+
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const body = req.body || {};
+        const nowIso = new Date().toISOString();
+
+        const fullName = sanitizeText(body.fullName || body.name || req.user?.name || 'Federation Applicant').slice(0, 160);
+        const email = sanitizeText(body.email || req.user?.email || '').toLowerCase().slice(0, 180);
+        const role = sanitizeText(body.role || body.profession).slice(0, 180);
+        const country = sanitizeText(body.country).slice(0, 120);
+        const city = sanitizeText(body.city).slice(0, 120);
+        const primaryCategory = sanitizeText(body.primaryCategory || body.category).slice(0, 180);
+
+        if (!fullName || !email || !role || !country || !city || !primaryCategory) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please complete all required Federation application fields.'
+            });
+        }
+
+        const userRef = firestore.collection('users').doc(userId);
+        const userSnap = await userRef.get();
+        const user = userSnap.exists ? (userSnap.data() || {}) : {};
+
+        const existingApplication =
+            user.federationApplication && typeof user.federationApplication === 'object'
+                ? user.federationApplication
+                : null;
+
+        const existingStatus = sanitizeText(
+            user.federationApplicationStatus ||
+            existingApplication?.status ||
+            ''
+        ).toLowerCase();
+
+        if (
+            existingApplication &&
+            existingStatus &&
+            existingStatus !== 'rejected' &&
+            existingStatus !== 'declined' &&
+            existingStatus !== 'denied'
+        ) {
+            return res.json({
+                success: true,
+                alreadySubmitted: true,
+                application: existingApplication,
+                applicationStatus: existingApplication.status || user.federationApplicationStatus || 'Under Review'
+            });
+        }
+
+        const applicationId =
+            sanitizeText(body.id) ||
+            `FED-APP-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
+
+        const application = {
+            ...body,
+            id: applicationId,
+            applicationType: 'federation-access',
+            division: 'Federation',
+            divisions: ['Federation'],
+            recommendedDivision: 'Federation',
+            reviewLane: 'Federation Access',
+            source: sanitizeText(body.source || 'Dashboard Federation Application'),
+            status: 'Under Review',
+
+            name: fullName,
+            fullName,
+            username: sanitizeText(body.username || user.username || req.user?.username || ''),
+            email,
+            telegram: sanitizeText(body.telegram).slice(0, 120),
+            role,
+            profession: role,
+            country,
+            city,
+            region: sanitizeText(body.region || [city, country].filter(Boolean).join(', ')),
+            company: sanitizeText(body.company).slice(0, 180),
+            profileLink: sanitizeText(body.profileLink).slice(0, 500),
+            primaryCategory,
+
+            goal: sanitizeText(body.goal || body.wantedContactReason || 'Apply for Federation access.').slice(0, 1200),
+            background: sanitizeText(body.background || [role, body.company, primaryCategory, city, country].filter(Boolean).join(' • ')).slice(0, 1200),
+            networkValue: sanitizeText(body.networkValue || body.valueBring).slice(0, 2500),
+            valueBring: sanitizeText(body.valueBring).slice(0, 2500),
+            accessContribution: sanitizeText(body.accessContribution).slice(0, 2500),
+            regionsOfAccess: sanitizeText(body.regionsOfAccess).slice(0, 1200),
+
+            lookingForContact: sanitizeText(body.lookingForContact).slice(0, 80),
+            wantedContactTypes: Array.isArray(body.wantedContactTypes) ? body.wantedContactTypes : [],
+            wantedContactTypesRaw: sanitizeText(body.wantedContactTypesRaw).slice(0, 1200),
+            wantedContactRegion: sanitizeText(body.wantedContactRegion).slice(0, 1200),
+            wantedContactReason: sanitizeText(body.wantedContactReason).slice(0, 2500),
+            contactUrgency: sanitizeText(body.contactUrgency).slice(0, 80),
+
+            canProvideContacts: sanitizeText(body.canProvideContacts).slice(0, 80),
+            contactTypesCanProvide: Array.isArray(body.contactTypesCanProvide) ? body.contactTypesCanProvide : [],
+            contactTypesCanProvideRaw: sanitizeText(body.contactTypesCanProvideRaw).slice(0, 1200),
+            supplyRegions: sanitizeText(body.supplyRegions).slice(0, 1200),
+            openToAdminMatching: sanitizeText(body.openToAdminMatching).slice(0, 120),
+
+            aiScore: Number(body.aiScore || 0),
+            createdAt: existingApplication?.createdAt || nowIso,
+            updatedAt: nowIso,
+            submittedAt: nowIso,
+            reviewedAt: '',
+            reviewedBy: '',
+            notes: Array.isArray(body.notes)
+                ? body.notes
+                : ['Submitted through Dashboard Federation gate.']
+        };
+
+        await userRef.set({
+            federationApplication: application,
+            federationApplicationStatus: 'Under Review',
+            federationMembershipStatus: 'under review',
+            hasFederationAccess: false,
+            updatedAt: nowIso
+        }, { merge: true });
+
+        return res.status(201).json({
+            success: true,
+            application,
+            applicationStatus: 'Under Review'
+        });
+    } catch (error) {
+        console.error('submit federation application error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to submit Federation application.'
         });
     }
 });
