@@ -629,7 +629,7 @@ document.getElementById('form-federation-apply')?.addEventListener('submit', (ev
     ) {
         showToast('You already have a Federation application under review.', 'error');
         closeFederationApplicationModal();
-        openFederationLockedView(existingSnapshot);
+        returnToFederationCardInDashboard();
         return;
     }
 
@@ -658,7 +658,7 @@ document.getElementById('form-federation-apply')?.addEventListener('submit', (ev
 
         writeFederationStatusCache(snapshot);
         syncFederationEntryButton();
-        openFederationLockedView(snapshot);
+        returnToFederationCardInDashboard();
 
         showToast('Federation application submitted for admin review.', 'success');
     } catch (error) {
@@ -10290,6 +10290,15 @@ function openFederationApprovedView(snapshot = null) {
     });
 }
 
+function returnToFederationCardInDashboard() {
+    showUniverseHub('federation', { animate: false });
+    syncFederationEntryButton();
+
+    window.requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    });
+}
+
 function handleFederationGateClick() {
     const snapshot = syncFederationEntryButton();
     const status = normalizeFederationStatus(snapshot.applicationStatus || '');
@@ -10304,8 +10313,8 @@ function handleFederationGateClick() {
         return;
     }
 
-    openFederationLockedView(snapshot);
-    showToast(`Federation status: ${getFederationButtonCopy(snapshot)}.`, 'success');
+    returnToFederationCardInDashboard();
+    showToast(`Federation status: ${getFederationButtonCopy(snapshot)}. Admin approval is required before entry.`, 'success');
 }
 function readAcademyMembershipCache() {
     try {
