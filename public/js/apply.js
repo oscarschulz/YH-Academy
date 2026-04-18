@@ -53,7 +53,10 @@ function showToast(message, type = "success") {
     if (!toast || !toastMsg || !toastIcon) return;
 
     toastMsg.innerText = yhTText(message);
-
+    toastMsg.style.display = 'block';
+    toastMsg.style.maxWidth = '100%';
+    toastMsg.style.whiteSpace = 'normal';
+    toastMsg.style.overflowWrap = 'break-word';
 if (type === "error") {
     toast.classList.add('error-toast');
     toastIcon.innerText = "⚠️";
@@ -98,12 +101,18 @@ if (type === "error") {
         toast.style.transform = 'none';
 
         if (isMobile) {
-            toast.style.width = 'min(calc(100vw - 32px), 360px)';
-            toast.style.maxWidth = '360px';
-            toast.style.padding = '9px 12px';
+            toast.style.width = 'fit-content';
+            toast.style.maxWidth = 'min(82vw, 330px)';
+            toast.style.minWidth = '0';
+            toast.style.padding = '10px 13px';
             toast.style.fontSize = '0.84rem';
-            toast.style.borderRadius = '10px';
+            toast.style.lineHeight = '1.32';
+            toast.style.borderRadius = '12px';
             toast.style.bottom = '16px';
+            toast.style.right = '16px';
+            toast.style.left = 'auto';
+            toast.style.whiteSpace = 'normal';
+            toast.style.overflowWrap = 'break-word';
         } else {
             toast.style.width = 'min(92vw, 420px)';
             toast.style.maxWidth = '420px';
