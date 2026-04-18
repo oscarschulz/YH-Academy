@@ -23,6 +23,11 @@ const academyMissionsCol = (uid) => userRef(uid).collection('academyMissions');
 const academyCheckinsCol = (uid) => userRef(uid).collection('academyCheckins');
 const academyCoachMessagesCol = (uid) => userRef(uid).collection('academyCoachMessages');
 const academyPlannerRunsCol = (uid) => userRef(uid).collection('academyPlannerRuns');
+const academyLeadMissionsCol = (uid) => userRef(uid).collection('academyLeadMissions');
+const academyLeadContactsCol = (uid) => userRef(uid).collection('academyLeadContacts');
+const academyLeadPayoutsCol = (uid) => userRef(uid).collection('academyLeadPayouts');
+const academyLeadDealsCol = (uid) => userRef(uid).collection('academyLeadDeals');
+const academyLeadScriptsDoc = (uid) => academyMetaDoc(uid, 'leadMissionScripts');
 
 const mapMissionDoc = (doc) => {
     const data = doc.data() || {};
@@ -1170,6 +1175,246 @@ async function createCoachMessage(uid, payload = {}) {
     return mapCoachMessageDoc(snapshot);
 }
 
+function mapLeadMissionLeadDoc(doc) {
+    const data = doc.data() || {};
+    return {
+        id: doc.id,
+        tier: sanitizeString(data.tier),
+        companyName: sanitizeString(data.companyName),
+        companyWebsite: sanitizeString(data.companyWebsite),
+        contactName: sanitizeString(data.contactName),
+        contactRole: sanitizeString(data.contactRole),
+        contactType: sanitizeString(data.contactType || 'unknown'),
+        email: sanitizeString(data.email),
+        phone: sanitizeString(data.phone),
+        city: sanitizeString(data.city),
+        country: sanitizeString(data.country),
+        sourceMethod: sanitizeString(data.sourceMethod),
+        callOutcome: sanitizeString(data.callOutcome),
+        interestLevel: sanitizeString(data.interestLevel),
+        rapportLevel: sanitizeString(data.rapportLevel),
+        pipelineStage: sanitizeString(data.pipelineStage),
+        priority: sanitizeString(data.priority),
+        nextAction: sanitizeString(data.nextAction),
+        channel: sanitizeString(data.channel),
+        taskStatus: sanitizeString(data.taskStatus),
+        callType: sanitizeString(data.callType),
+        objection: sanitizeString(data.objection),
+        notes: sanitizeString(data.notes),
+        followUpDueDate: sanitizeString(data.followUpDueDate),
+        status: sanitizeString(data.status || 'active'),
+        createdAt: mapTimestamp(data.createdAt),
+        updatedAt: mapTimestamp(data.updatedAt)
+    };
+}
+
+function mapLeadMissionPayoutDoc(doc) {
+    const data = doc.data() || {};
+    return {
+        id: doc.id,
+        leadId: sanitizeString(data.leadId),
+        basisType: sanitizeString(data.basisType),
+        amount: toNumber(data.amount, 0),
+        currency: sanitizeString(data.currency || 'USD'),
+        status: sanitizeString(data.status || 'pending_review'),
+        adminNote: sanitizeString(data.adminNote),
+        approvedAt: mapTimestamp(data.approvedAt),
+        paidAt: mapTimestamp(data.paidAt),
+        createdAt: mapTimestamp(data.createdAt),
+        updatedAt: mapTimestamp(data.updatedAt)
+    };
+}
+
+function mapLeadMissionDealDoc(doc) {
+    const data = doc.data() || {};
+    return {
+        id: doc.id,
+        leadId: sanitizeString(data.leadId),
+        dealType: sanitizeString(data.dealType),
+        dealStatus: sanitizeString(data.dealStatus || 'under_review'),
+        grossValue: toNumber(data.grossValue, 0),
+        currency: sanitizeString(data.currency || 'USD'),
+        operatorVisibleNote: sanitizeString(data.operatorVisibleNote),
+        createdAt: mapTimestamp(data.createdAt),
+        updatedAt: mapTimestamp(data.updatedAt)
+    };
+}
+
+function buildLeadMissionContactSummary(payload = {}, leadId = '') {
+    return {
+        leadId: sanitizeString(leadId),
+        companyName: sanitizeString(payload.companyName),
+        contactName: sanitizeString(payload.contactName),
+        contactRole: sanitizeString(payload.contactRole),
+        email: sanitizeString(payload.email),
+        phone: sanitizeString(payload.phone),
+        city: sanitizeString(payload.city),
+        country: sanitizeString(payload.country),
+        updatedAt: nowTs(),
+        createdAt: nowTs()
+    };
+}
+
+async function createLeadMissionLead(uid, payload = {}) {
+    const ref = academyLeadMissionsCol(uid).doc();
+    const ts = nowTs();
+
+    const lead = {
+        tier: sanitizeString(payload.tier),
+        companyName: sanitizeString(payload.companyName),
+        companyWebsite: sanitizeString(payload.companyWebsite),
+        contactName: sanitizeString(payload.contactName),
+        contactRole: sanitizeString(payload.contactRole),
+        contactType: sanitizeString(payload.contactType || 'unknown'),
+        email: sanitizeString(payload.email),
+        phone: sanitizeString(payload.phone),
+        city: sanitizeString(payload.city),
+        country: sanitizeString(payload.country),
+        sourceMethod: sanitizeString(payload.sourceMethod),
+        callOutcome: sanitizeString(payload.callOutcome),
+        interestLevel: sanitizeString(payload.interestLevel),
+        rapportLevel: sanitizeString(payload.rapportLevel),
+        pipelineStage: sanitizeString(payload.pipelineStage),
+        priority: sanitizeString(payload.priority),
+        nextAction: sanitizeString(payload.nextAction),
+        channel: sanitizeString(payload.channel),
+        taskStatus: sanitizeString(payload.taskStatus),
+        callType: sanitizeString(payload.callType),
+        objection: sanitizeString(payload.objection),
+        notes: sanitizeString(payload.notes),
+        followUpDueDate: sanitizeString(payload.followUpDueDate),
+        status: 'active',
+        createdAt: ts,
+        updatedAt: ts
+    };
+
+    await ref.set(lead);
+
+    const hasContactPayload = lead.contactName || lead.email || lead.phone || lead.contactRole;
+    if (hasContactPayload) {
+        const contactRef = academyLeadContactsCol(uid).doc(ref.id);
+        await contactRef.set(buildLeadMissionContactSummary(lead, ref.id), { merge: true });
+    }
+
+    const snapshot = await ref.get();
+    return mapLeadMissionLeadDoc(snapshot);
+}
+
+async function listLeadMissionLeads(uid) {
+    const snapshot = await academyLeadMissionsCol(uid)
+        .orderBy('updatedAt', 'desc')
+        .get();
+
+    return snapshot.docs.map(mapLeadMissionLeadDoc);
+}
+
+async function getLeadMissionLeadById(uid, leadId) {
+    if (!leadId) return null;
+
+    const snapshot = await academyLeadMissionsCol(uid).doc(String(leadId)).get();
+    if (!snapshot.exists) return null;
+
+    return mapLeadMissionLeadDoc(snapshot);
+}
+
+async function updateLeadMissionLead(uid, leadId, patch = {}) {
+    if (!leadId) return null;
+
+    const ref = academyLeadMissionsCol(uid).doc(String(leadId));
+    const existing = await ref.get();
+    if (!existing.exists) return null;
+
+    const nextPatch = {
+        ...(Object.prototype.hasOwnProperty.call(patch, 'tier') ? { tier: sanitizeString(patch.tier) } : {}),
+        ...(Object.prototype.hasOwnProperty.call(patch, 'companyName') ? { companyName: sanitizeString(patch.companyName) } : {}),
+        ...(Object.prototype.hasOwnProperty.call(patch, 'companyWebsite') ? { companyWebsite: sanitizeString(patch.companyWebsite) } : {}),
+        ...(Object.prototype.hasOwnProperty.call(patch, 'contactName') ? { contactName: sanitizeString(patch.contactName) } : {}),
+        ...(Object.prototype.hasOwnProperty.call(patch, 'contactRole') ? { contactRole: sanitizeString(patch.contactRole) } : {}),
+        ...(Object.prototype.hasOwnProperty.call(patch, 'contactType') ? { contactType: sanitizeString(patch.contactType || 'unknown') } : {}),
+        ...(Object.prototype.hasOwnProperty.call(patch, 'email') ? { email: sanitizeString(patch.email) } : {}),
+        ...(Object.prototype.hasOwnProperty.call(patch, 'phone') ? { phone: sanitizeString(patch.phone) } : {}),
+        ...(Object.prototype.hasOwnProperty.call(patch, 'city') ? { city: sanitizeString(patch.city) } : {}),
+        ...(Object.prototype.hasOwnProperty.call(patch, 'country') ? { country: sanitizeString(patch.country) } : {}),
+        ...(Object.prototype.hasOwnProperty.call(patch, 'sourceMethod') ? { sourceMethod: sanitizeString(patch.sourceMethod) } : {}),
+        ...(Object.prototype.hasOwnProperty.call(patch, 'callOutcome') ? { callOutcome: sanitizeString(patch.callOutcome) } : {}),
+        ...(Object.prototype.hasOwnProperty.call(patch, 'interestLevel') ? { interestLevel: sanitizeString(patch.interestLevel) } : {}),
+        ...(Object.prototype.hasOwnProperty.call(patch, 'rapportLevel') ? { rapportLevel: sanitizeString(patch.rapportLevel) } : {}),
+        ...(Object.prototype.hasOwnProperty.call(patch, 'pipelineStage') ? { pipelineStage: sanitizeString(patch.pipelineStage) } : {}),
+        ...(Object.prototype.hasOwnProperty.call(patch, 'priority') ? { priority: sanitizeString(patch.priority) } : {}),
+        ...(Object.prototype.hasOwnProperty.call(patch, 'nextAction') ? { nextAction: sanitizeString(patch.nextAction) } : {}),
+        ...(Object.prototype.hasOwnProperty.call(patch, 'channel') ? { channel: sanitizeString(patch.channel) } : {}),
+        ...(Object.prototype.hasOwnProperty.call(patch, 'taskStatus') ? { taskStatus: sanitizeString(patch.taskStatus) } : {}),
+        ...(Object.prototype.hasOwnProperty.call(patch, 'callType') ? { callType: sanitizeString(patch.callType) } : {}),
+        ...(Object.prototype.hasOwnProperty.call(patch, 'objection') ? { objection: sanitizeString(patch.objection) } : {}),
+        ...(Object.prototype.hasOwnProperty.call(patch, 'notes') ? { notes: sanitizeString(patch.notes) } : {}),
+        ...(Object.prototype.hasOwnProperty.call(patch, 'followUpDueDate') ? { followUpDueDate: sanitizeString(patch.followUpDueDate) } : {}),
+        ...(Object.prototype.hasOwnProperty.call(patch, 'status') ? { status: sanitizeString(patch.status || 'active') } : {}),
+        updatedAt: nowTs()
+    };
+
+    await ref.set(nextPatch, { merge: true });
+
+    const mergedLead = {
+        ...(existing.data() || {}),
+        ...nextPatch
+    };
+
+    const hasContactPayload =
+        sanitizeString(mergedLead.contactName) ||
+        sanitizeString(mergedLead.email) ||
+        sanitizeString(mergedLead.phone) ||
+        sanitizeString(mergedLead.contactRole);
+
+    if (hasContactPayload) {
+        const contactRef = academyLeadContactsCol(uid).doc(String(leadId));
+        await contactRef.set(buildLeadMissionContactSummary(mergedLead, leadId), { merge: true });
+    }
+
+    const updatedSnapshot = await ref.get();
+    return mapLeadMissionLeadDoc(updatedSnapshot);
+}
+
+async function listLeadMissionFollowUps(uid) {
+    const leads = await listLeadMissionLeads(uid);
+
+    return leads.filter((lead) => {
+        const taskStatus = sanitizeString(lead.taskStatus).toLowerCase();
+        return taskStatus === 'due' || taskStatus === 'waiting' || sanitizeString(lead.followUpDueDate);
+    });
+}
+
+async function listLeadMissionPayouts(uid) {
+    const snapshot = await academyLeadPayoutsCol(uid)
+        .orderBy('updatedAt', 'desc')
+        .get();
+
+    return snapshot.docs.map(mapLeadMissionPayoutDoc);
+}
+
+async function listLeadMissionDeals(uid) {
+    const snapshot = await academyLeadDealsCol(uid)
+        .orderBy('updatedAt', 'desc')
+        .get();
+
+    return snapshot.docs.map(mapLeadMissionDealDoc);
+}
+
+async function getLeadMissionScripts(uid) {
+    const snapshot = await academyLeadScriptsDoc(uid).get();
+    if (!snapshot.exists) {
+        return {
+            openingScript: 'Hi, my name is [Your Name]. I am reaching out to ask a few quick questions about your company and the best contact person for this role.',
+            objectionHandling: 'If blocked, stay calm, ask for the right role, and log exactly what happened so your follow-up stays structured.'
+        };
+    }
+
+    const data = snapshot.data() || {};
+    return {
+        openingScript: sanitizeString(data.openingScript),
+        objectionHandling: sanitizeString(data.objectionHandling)
+    };
+}
+
 module.exports = {
     getCurrentProfile,
     setCurrentProfile,
@@ -1200,5 +1445,13 @@ module.exports = {
     buildAcademyHomePayload,
     listCoachMessages,
     createCoachMessage,
-    academyCoachMessagesCol
+    academyCoachMessagesCol,
+    createLeadMissionLead,
+    listLeadMissionLeads,
+    getLeadMissionLeadById,
+    updateLeadMissionLead,
+    listLeadMissionFollowUps,
+    listLeadMissionPayouts,
+    listLeadMissionDeals,
+    getLeadMissionScripts
 };

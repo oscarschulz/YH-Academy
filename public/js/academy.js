@@ -67,7 +67,7 @@ function getAcademySectionFromUrl() {
         const url = new URL(window.location.href);
         const section = String(url.searchParams.get('section') || '').trim().toLowerCase();
 
-        if (['home', 'community', 'messages', 'voice', 'video', 'profile'].includes(section)) {
+        if (['home', 'community', 'messages', 'voice', 'video', 'profile', 'lead-missions'].includes(section)) {
             return section;
         }
 
@@ -81,6 +81,7 @@ function academyGetCurrentPrimaryView() {
     const feedView = document.getElementById('academy-feed-view');
     const academyChat = document.getElementById('academy-chat');
     const profileView = document.getElementById('academy-profile-view');
+    const leadMissionsView = document.getElementById('academy-lead-missions-view');
     const voiceView = document.getElementById('voice-lobby-view');
     const videoView = document.getElementById('video-lobby-view');
 
@@ -90,6 +91,10 @@ function academyGetCurrentPrimaryView() {
 
     if (profileView && !profileView.classList.contains('hidden-step')) {
         return 'profile';
+    }
+
+    if (leadMissionsView && !leadMissionsView.classList.contains('hidden-step')) {
+        return 'lead-missions';
     }
 
     if (voiceView && !voiceView.classList.contains('hidden-step')) {
@@ -329,6 +334,28 @@ function setActiveCustomRoomState(room = null) {
     });
 }
 
+async function academyPersistRoomReadState(roomId = '') {
+    const normalizedRoomId = normalizeRoomKey(roomId);
+
+    if (
+        !normalizedRoomId ||
+        normalizedRoomId === normalizeRoomKey('YH-community') ||
+        normalizedRoomId === normalizeRoomKey('main-chat')
+    ) {
+        return false;
+    }
+
+    try {
+        await academyAuthedFetch(`/api/realtime/rooms/${encodeURIComponent(normalizedRoomId)}/read`, {
+            method: 'POST'
+        });
+        return true;
+    } catch (error) {
+        console.error('academyPersistRoomReadState error:', error);
+        return false;
+    }
+}
+
 function markCustomRoomAsRead(roomId) {
     const result = sharedMarkCustomRoomAsRead(roomId, {
         normalizeCustomRoomForRender: typeof normalizeCustomRoomForRender === 'function' ? normalizeCustomRoomForRender : null,
@@ -341,6 +368,8 @@ function markCustomRoomAsRead(roomId) {
     if (typeof renderAcademyMessagesInboxList === 'function') {
         renderAcademyMessagesInboxList();
     }
+
+    academyPersistRoomReadState(roomId).catch(() => {});
 
     return result;
 }
@@ -1125,6 +1154,14 @@ document.getElementById('nav-profile')?.addEventListener('click', function(event
     openAcademyProfileView();
 });
 
+document.getElementById('nav-lead-missions')?.addEventListener('click', function(event) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    event?.stopImmediatePropagation?.();
+
+    openAcademyLeadMissionsView();
+});
+
 document.getElementById('nav-missions')?.addEventListener('click', async function(event) {
     event?.preventDefault?.();
     event?.stopPropagation?.();
@@ -1172,6 +1209,92 @@ function initAcademyMobileBottomNavAutoHide() {
     if (!academyMobileBottomNav) return;
 
     let ticking = false;
+    let pendingForceReveal = false;
+    let lastScrollTop = 0;
+
+    const getViewportScrollTop = () => {
+        return Math.max(
+            0,
+            Number(
+                window.pageYOffset ||
+                document.documentElement.scrollTop ||
+                document.body.scrollTop ||
+                0
+            )
+        );
+    };
+
+    const canNodeActuallyScroll = (node) => {
+        if (!node || node === window || node === document || node === document.body || node === document.documentElement) {
+            return false;
+        }
+
+        const scrollHeight = Number(node.scrollHeight || 0);
+        const clientHeight = Number(node.clientHeight || 0);
+        const scrollTop = Number(node.scrollTop || 0);
+
+        try {
+            const styles = window.getComputedStyle(node);
+            const overflowY = String(styles?.overflowY || '').toLowerCase();
+            const allowsScroll =
+                overflowY === 'auto' ||
+                overflowY === 'scroll' ||
+                overflowY === 'overlay';
+
+            return (allowsScroll || scrollTop > 0) && scrollHeight > clientHeight + 8;
+        } catch (_) {
+            return scrollHeight > clientHeight + 8;
+        }
+    };
+
+    const getActiveAcademyScrollTop = () => {
+        const isPhone = window.innerWidth <= 768;
+
+        if (isPhone) {
+            return getViewportScrollTop();
+        }
+
+        const academyChat = document.getElementById('academy-chat');
+        const feedView = document.getElementById('academy-feed-view');
+        const profileView = document.getElementById('academy-profile-view');
+        const leadMissionsView = document.getElementById('academy-lead-missions-view');
+        const voiceView = document.getElementById('voice-lobby-view');
+        const videoView = document.getElementById('video-lobby-view');
+
+        const candidates = [
+            !feedView?.classList.contains('hidden-step')
+                ? (feedView?.querySelector('.chat-messages') || feedView)
+                : null,
+            !academyChat?.classList.contains('hidden-step')
+                ? (document.getElementById('chat-messages') || academyChat)
+                : null,
+            !leadMissionsView?.classList.contains('hidden-step')
+                ? (leadMissionsView?.querySelector('.chat-messages') || leadMissionsView)
+                : null,
+            !profileView?.classList.contains('hidden-step')
+                ? profileView
+                : null,
+            !voiceView?.classList.contains('hidden-step')
+                ? (voiceView?.querySelector('.lounge-container') || voiceView)
+                : null,
+            !videoView?.classList.contains('hidden-step')
+                ? (videoView?.querySelector('.lounge-container') || videoView)
+                : null
+        ].filter(Boolean);
+
+        const scrollableCandidates = candidates.filter(canNodeActuallyScroll);
+
+        for (const node of scrollableCandidates) {
+            const top = Math.max(0, Number(node.scrollTop || 0));
+            if (top > 0) return top;
+        }
+
+        if (scrollableCandidates.length) {
+            return Math.max(0, Number(scrollableCandidates[0].scrollTop || 0));
+        }
+
+        return getViewportScrollTop();
+    };
 
     const applyState = () => {
         const isTabletOrPhone = window.innerWidth <= 1024;
@@ -1180,15 +1303,16 @@ function initAcademyMobileBottomNavAutoHide() {
         const profileView = document.getElementById('academy-profile-view');
         const voiceView = document.getElementById('voice-lobby-view');
         const videoView = document.getElementById('video-lobby-view');
+        const leadMissionsView = document.getElementById('academy-lead-missions-view');
 
         const chatMode = String(academyChat?.getAttribute('data-chat-mode') || '').trim().toLowerCase();
         const isThreadOpen = document.body?.classList.contains('academy-messages-thread-open');
 
         const isFeedVisible = !!feedView && !feedView.classList.contains('hidden-step');
         const isProfileVisible = !!profileView && !profileView.classList.contains('hidden-step');
-        const isVoiceVisible =
-            (!!voiceView && !voiceView.classList.contains('hidden-step')) ||
-            (!!videoView && !videoView.classList.contains('hidden-step'));
+        const isLeadMissionsVisible = !!leadMissionsView && !leadMissionsView.classList.contains('hidden-step');
+        const isVoiceVisible = !!voiceView && !voiceView.classList.contains('hidden-step');
+        const isVideoVisible = !!videoView && !videoView.classList.contains('hidden-step');
 
         const isMessagesVisible =
             !!academyChat &&
@@ -1200,47 +1324,83 @@ function initAcademyMobileBottomNavAutoHide() {
             !academyChat.classList.contains('hidden-step') &&
             chatMode === 'home';
 
-        const shouldShowBottomNav =
-            isTabletOrPhone &&
-            (isFeedVisible || isProfileVisible);
-
-        const shouldHideBottomNav =
-            !isTabletOrPhone ||
+        const isAnyPrimaryAcademyTabVisible =
+            isFeedVisible ||
+            isProfileVisible ||
+            isLeadMissionsVisible ||
             isMessagesVisible ||
             isRoadmapVisible ||
-            isVoiceVisible;
+            isVoiceVisible ||
+            isVideoVisible;
 
-        academyMobileBottomNav.classList.remove('academy-mobile-bottom-nav-hidden');
+        const shouldShowBottomNav =
+            isTabletOrPhone &&
+            isAnyPrimaryAcademyTabVisible;
 
-        if (shouldShowBottomNav && !shouldHideBottomNav) {
-            academyMobileBottomNav.style.setProperty('display', 'grid', 'important');
-            academyMobileBottomNav.setAttribute('aria-hidden', 'false');
-        } else {
+        academyMobileBottomNav.style.transition = 'transform 0.22s ease, opacity 0.22s ease';
+        academyMobileBottomNav.style.willChange = 'transform, opacity';
+
+        if (!shouldShowBottomNav) {
             academyMobileBottomNav.style.setProperty('display', 'none', 'important');
             academyMobileBottomNav.setAttribute('aria-hidden', 'true');
+            academyMobileBottomNav.style.transform = 'translateY(calc(100% + 18px))';
+            academyMobileBottomNav.style.opacity = '0';
+            academyMobileBottomNav.style.pointerEvents = 'none';
+            pendingForceReveal = false;
+            lastScrollTop = 0;
+            ticking = false;
+            return;
         }
 
+        academyMobileBottomNav.style.setProperty('display', 'grid', 'important');
+        academyMobileBottomNav.setAttribute('aria-hidden', 'false');
+
+        const currentScrollTop = Math.max(0, getActiveAcademyScrollTop());
+        const delta = currentScrollTop - lastScrollTop;
+        const isNearTop = currentScrollTop <= 20;
+        const isScrollingDown = delta > 8;
+        const isScrollingUp = delta < -6;
+
+        if (pendingForceReveal || isNearTop || isScrollingUp) {
+            academyMobileBottomNav.style.transform = 'translateY(0)';
+            academyMobileBottomNav.style.opacity = '1';
+            academyMobileBottomNav.style.pointerEvents = 'auto';
+        } else if (isScrollingDown) {
+            academyMobileBottomNav.style.transform = 'translateY(calc(100% + 18px))';
+            academyMobileBottomNav.style.opacity = '0';
+            academyMobileBottomNav.style.pointerEvents = 'none';
+        }
+
+        lastScrollTop = currentScrollTop;
+        pendingForceReveal = false;
         ticking = false;
     };
 
-    const queueApplyState = () => {
+    const queueApplyState = (forceReveal = false) => {
+        pendingForceReveal = pendingForceReveal || !!forceReveal;
+
         if (ticking) return;
         ticking = true;
+
         window.requestAnimationFrame(applyState);
     };
 
-    window.addEventListener('resize', queueApplyState, { passive: true });
-    window.addEventListener('orientationchange', queueApplyState, { passive: true });
-    window.addEventListener('scroll', queueApplyState, { passive: true });
-    document.addEventListener('click', queueApplyState, true);
+    window.addEventListener('resize', () => queueApplyState(true), { passive: true });
+    window.addEventListener('orientationchange', () => queueApplyState(true), { passive: true });
+    window.addEventListener('scroll', () => queueApplyState(false), { passive: true });
 
-    const observer = new MutationObserver(queueApplyState);
+    document.addEventListener('scroll', () => queueApplyState(false), true);
+    document.addEventListener('click', () => queueApplyState(true), true);
+    document.addEventListener('touchstart', () => queueApplyState(true), { passive: true, capture: true });
+
+    const observer = new MutationObserver(() => queueApplyState(true));
 
     [
         document.body,
         document.getElementById('academy-chat'),
         document.getElementById('academy-feed-view'),
         document.getElementById('academy-profile-view'),
+        document.getElementById('academy-lead-missions-view'),
         document.getElementById('voice-lobby-view'),
         document.getElementById('video-lobby-view')
     ].filter(Boolean).forEach((node) => {
@@ -1250,7 +1410,7 @@ function initAcademyMobileBottomNavAutoHide() {
         });
     });
 
-    applyState();
+    queueApplyState(true);
 }
 
 academyMobileNavToggle?.addEventListener('click', function (event) {
@@ -1270,6 +1430,8 @@ document.querySelectorAll('.academy-mobile-nav-item').forEach((button) => {
             openAcademyFeedView();
         } else if (targetId === 'nav-missions') {
             await handleAcademyRoadmapTabIntent();
+        } else if (targetId === 'nav-lead-missions') {
+            openAcademyLeadMissionsView();
         } else if (targetId === 'nav-messages') {
             setAcademySidebarActive('nav-messages');
             openAcademyMessagesView();
@@ -5543,6 +5705,7 @@ function hideAcademyViewsForFeed() {
         'academy-feed-view',
         'academy-chat',
         'academy-profile-view',
+        'academy-lead-missions-view',
         'center-stage-view',
         'announcements-view',
         'voice-lobby-view',
@@ -5791,27 +5954,51 @@ function academyNormalizeProfileAssetUrl(value = '') {
     const raw = String(value || '').trim();
     if (!raw) return '';
 
-    if (
-        /^https?:\/\//i.test(raw) ||
-        /^data:/i.test(raw) ||
-        /^blob:/i.test(raw)
-    ) {
+    if (/^data:/i.test(raw) || /^blob:/i.test(raw)) {
         return raw;
+    }
+
+    if (/^https?:\/\//i.test(raw)) {
+        try {
+            const parsed = new URL(raw, window.location.origin);
+            if (parsed.origin === window.location.origin) {
+                return academyNormalizeProfileAssetUrl(`${parsed.pathname}${parsed.search}${parsed.hash}`);
+            }
+            return raw;
+        } catch (_) {
+            return raw;
+        }
     }
 
     if (raw.startsWith('/uploads/academy/profile/')) {
         return raw.replace('/uploads/academy/profile/', '/uploads/academy-profile/');
     }
 
+    if (raw.startsWith('uploads/academy/profile/')) {
+        return `/${raw.replace('uploads/academy/profile/', 'uploads/academy-profile/')}`;
+    }
+
+    if (raw.startsWith('uploads/academy-profile/')) {
+        return `/${raw}`;
+    }
+
+    if (raw.startsWith('/academy-profile/')) {
+        return `/uploads${raw}`;
+    }
+
+    if (raw.startsWith('academy-profile/')) {
+        return `/uploads/${raw}`;
+    }
+
+    if (/^[a-z0-9._-]+\.(jpg|jpeg|png|webp|gif|avif)$/i.test(raw)) {
+        return `/uploads/academy-profile/${raw}`;
+    }
+
     if (raw.startsWith('/')) {
         return raw;
     }
 
-    if (/^[a-z0-9._-]+\.(jpg|jpeg|png|webp|gif)$/i.test(raw)) {
-        return `/uploads/academy-profile/${raw}`;
-    }
-
-    return raw;
+    return `/${raw.replace(/^\/+/, '')}`;
 }
 
 function readAcademyProfileCache() {
@@ -6047,9 +6234,11 @@ function updateAcademyProfileEditorPreviewAvatar(value = '', displayName = 'Hust
     const avatarPreview = document.getElementById('academy-profile-editor-avatar-preview');
     if (!avatarPreview) return;
 
-    if (value) {
+    const normalizedValue = academyNormalizeProfileAssetUrl(value);
+
+    if (normalizedValue) {
         avatarPreview.innerText = '';
-        avatarPreview.style.backgroundImage = `url(${value})`;
+        avatarPreview.style.backgroundImage = `url("${normalizedValue}")`;
         avatarPreview.style.backgroundSize = 'cover';
         avatarPreview.style.backgroundPosition = 'center';
     } else {
@@ -6062,8 +6251,10 @@ function updateAcademyProfileEditorPreviewCover(value = '') {
     const coverPreview = document.getElementById('academy-profile-editor-cover-preview');
     if (!coverPreview) return;
 
-    if (value) {
-        coverPreview.style.backgroundImage = `url(${value})`;
+    const normalizedValue = academyNormalizeProfileAssetUrl(value);
+
+    if (normalizedValue) {
+        coverPreview.style.backgroundImage = `url("${normalizedValue}")`;
         coverPreview.style.backgroundSize = 'cover';
         coverPreview.style.backgroundPosition = 'center';
     } else {
@@ -6564,8 +6755,12 @@ function openAcademyProfileEditorModal() {
     const bio =
         String(activeProfile.bio || getAcademyProfileStoredBio()).trim() ||
         'Focused on execution, consistency, and long-term growth inside The Academy.';
-    const avatar = String(activeProfile.avatar || getStoredUserValue('yh_user_avatar', '')).trim();
-    const cover = String(activeProfile.cover_photo || getAcademyProfileStoredCover()).trim();
+    const avatar = academyNormalizeProfileAssetUrl(
+        String(activeProfile.avatar || getStoredUserValue('yh_user_avatar', '')).trim()
+    );
+    const cover = academyNormalizeProfileAssetUrl(
+        String(activeProfile.cover_photo || getAcademyProfileStoredCover()).trim()
+    );
     const tags = Array.isArray(activeProfile.searchTags)
         ? activeProfile.searchTags
         : Array.isArray(activeProfile.search_tags)
@@ -7516,6 +7711,430 @@ function revealAcademyProfileView() {
     void profileView.offsetWidth;
     profileView.classList.add('fade-in');
 }
+
+const academyLeadMissionsState = {
+    leads: [],
+    followUps: [],
+    payouts: [],
+    deals: [],
+    scripts: null
+};
+
+function academyLeadSafeText(value = '', fallback = '—') {
+    const clean = String(value ?? '').trim();
+    return clean ? academyFeedEscapeHtml(clean) : fallback;
+}
+
+function academyLeadFormatDate(value = '') {
+    const clean = String(value || '').trim();
+    if (!clean) return '—';
+
+    const date = new Date(clean);
+    if (Number.isNaN(date.getTime())) return academyFeedEscapeHtml(clean);
+    return academyFeedEscapeHtml(date.toLocaleDateString());
+}
+
+function academyLeadFormatMoney(amount = 0, currency = 'USD') {
+    const numeric = Number(amount || 0);
+    const cleanCurrency = String(currency || 'USD').trim() || 'USD';
+
+    try {
+        return new Intl.NumberFormat(undefined, {
+            style: 'currency',
+            currency: cleanCurrency,
+            maximumFractionDigits: 2
+        }).format(numeric);
+    } catch (_) {
+        return `${cleanCurrency} ${numeric.toFixed(2)}`;
+    }
+}
+
+function openAcademyLeadEntryModal() {
+    const modal = document.getElementById('academy-lead-entry-modal');
+    if (!modal) return;
+
+    modal.classList.remove('hidden-step');
+    modal.setAttribute('aria-hidden', 'false');
+}
+
+function closeAcademyLeadEntryModal() {
+    const modal = document.getElementById('academy-lead-entry-modal');
+    const form = document.getElementById('academy-lead-entry-form');
+
+    if (modal) {
+        modal.classList.add('hidden-step');
+        modal.setAttribute('aria-hidden', 'true');
+    }
+
+    if (form) {
+        form.reset();
+    }
+}
+
+function renderLeadMissionsReadme(meta = {}) {
+    const panel = document.getElementById('academy-lead-panel-readme');
+    if (!panel) return;
+
+    panel.innerHTML = `
+        <div class="academy-lead-readme-grid">
+            <article class="academy-lead-info-card">
+                <div class="academy-profile-card-kicker">How it works</div>
+                <h4 class="academy-lead-card-title">Private operator workflow</h4>
+                <p class="academy-lead-card-copy">
+                    The leads and contacts you store here should only be visible to you and admin.
+                    Other operators should not be able to see your records.
+                </p>
+            </article>
+
+            <article class="academy-lead-info-card">
+                <div class="academy-profile-card-kicker">Tiering</div>
+                <h4 class="academy-lead-card-title">T1 / T2 / T3</h4>
+                <p class="academy-lead-card-copy">
+                    Use T1 for high-value leads, T2 for mid-value leads, and T3 for lower-value leads.
+                </p>
+            </article>
+
+            <article class="academy-lead-info-card">
+                <div class="academy-profile-card-kicker">Tracking</div>
+                <h4 class="academy-lead-card-title">Follow-ups, payouts, deals</h4>
+                <p class="academy-lead-card-copy">
+                    Track your next action, your payout history, and your own deal outcomes from this workspace.
+                </p>
+            </article>
+
+            <article class="academy-lead-info-card">
+                <div class="academy-profile-card-kicker">Workspace owner</div>
+                <h4 class="academy-lead-card-title">${academyLeadSafeText(meta.operatorName || myName, 'Operator')}</h4>
+                <p class="academy-lead-card-copy">
+                    ${academyLeadSafeText(meta.readmeNote || 'Your Lead Missions workspace is private by default.')}
+                </p>
+            </article>
+        </div>
+    `;
+}
+
+function renderLeadMissionsDatabase(leads = []) {
+    const panel = document.getElementById('academy-lead-panel-database');
+    if (!panel) return;
+
+    if (!Array.isArray(leads) || !leads.length) {
+        panel.innerHTML = `<div class="academy-member-browser-empty">No lead entries yet. Use “Add Lead” to create your first record.</div>`;
+        return;
+    }
+
+    panel.innerHTML = `
+        <div class="academy-lead-table-wrap">
+            <table class="academy-lead-table">
+                <thead>
+                    <tr>
+                        <th>Tier</th>
+                        <th>Company</th>
+                        <th>Contact</th>
+                        <th>Role</th>
+                        <th>Location</th>
+                        <th>Outcome</th>
+                        <th>Stage</th>
+                        <th>Next Action</th>
+                        <th>Follow-up</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${leads.map((lead) => `
+                        <tr>
+                            <td><span class="academy-lead-badge">${academyLeadSafeText(lead.tier)}</span></td>
+                            <td>${academyLeadSafeText(lead.companyName)}</td>
+                            <td>${academyLeadSafeText(lead.contactName)}</td>
+                            <td>${academyLeadSafeText(lead.contactRole)}</td>
+                            <td>${academyLeadSafeText([lead.city, lead.country].filter(Boolean).join(', '))}</td>
+                            <td>${academyLeadSafeText(lead.callOutcome)}</td>
+                            <td>${academyLeadSafeText(lead.pipelineStage)}</td>
+                            <td>${academyLeadSafeText(lead.nextAction)}</td>
+                            <td>${academyLeadFormatDate(lead.followUpDueDate)}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function renderLeadMissionsFollowups(followUps = []) {
+    const panel = document.getElementById('academy-lead-panel-followup');
+    if (!panel) return;
+
+    if (!Array.isArray(followUps) || !followUps.length) {
+        panel.innerHTML = `<div class="academy-member-browser-empty">No follow-ups due right now.</div>`;
+        return;
+    }
+
+    panel.innerHTML = `
+        <div class="academy-lead-list">
+            ${followUps.map((lead) => `
+                <article class="academy-lead-list-card">
+                    <div class="academy-lead-list-top">
+                        <div>
+                            <div class="academy-lead-list-title">${academyLeadSafeText(lead.companyName)}</div>
+                            <div class="academy-lead-list-meta">${academyLeadSafeText(lead.contactName)} • ${academyLeadSafeText(lead.contactRole)}</div>
+                        </div>
+                        <span class="academy-lead-badge">${academyLeadSafeText(lead.tier)}</span>
+                    </div>
+
+                    <div class="academy-lead-list-grid">
+                        <div><strong>Next Action:</strong> ${academyLeadSafeText(lead.nextAction)}</div>
+                        <div><strong>Status:</strong> ${academyLeadSafeText(lead.taskStatus)}</div>
+                        <div><strong>Outcome:</strong> ${academyLeadSafeText(lead.callOutcome)}</div>
+                        <div><strong>Follow-up:</strong> ${academyLeadFormatDate(lead.followUpDueDate)}</div>
+                    </div>
+
+                    <div class="academy-lead-list-note">${academyLeadSafeText(lead.notes, 'No notes yet.')}</div>
+                </article>
+            `).join('')}
+        </div>
+    `;
+}
+
+function renderLeadMissionsPayouts(payouts = []) {
+    const panel = document.getElementById('academy-lead-panel-payouts');
+    if (!panel) return;
+
+    if (!Array.isArray(payouts) || !payouts.length) {
+        panel.innerHTML = `<div class="academy-member-browser-empty">No payout records yet.</div>`;
+        return;
+    }
+
+    panel.innerHTML = `
+        <div class="academy-lead-table-wrap">
+            <table class="academy-lead-table">
+                <thead>
+                    <tr>
+                        <th>Basis</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th>Approved</th>
+                        <th>Paid</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${payouts.map((item) => `
+                        <tr>
+                            <td>${academyLeadSafeText(item.basisType)}</td>
+                            <td>${academyFeedEscapeHtml(academyLeadFormatMoney(item.amount, item.currency))}</td>
+                            <td>${academyLeadSafeText(item.status)}</td>
+                            <td>${academyLeadFormatDate(item.approvedAt)}</td>
+                            <td>${academyLeadFormatDate(item.paidAt)}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function renderLeadMissionsDeals(deals = []) {
+    const panel = document.getElementById('academy-lead-panel-deals');
+    if (!panel) return;
+
+    if (!Array.isArray(deals) || !deals.length) {
+        panel.innerHTML = `<div class="academy-member-browser-empty">No deal records yet.</div>`;
+        return;
+    }
+
+    panel.innerHTML = `
+        <div class="academy-lead-table-wrap">
+            <table class="academy-lead-table">
+                <thead>
+                    <tr>
+                        <th>Deal Type</th>
+                        <th>Status</th>
+                        <th>Gross Value</th>
+                        <th>Updated</th>
+                        <th>Note</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${deals.map((item) => `
+                        <tr>
+                            <td>${academyLeadSafeText(item.dealType)}</td>
+                            <td>${academyLeadSafeText(item.dealStatus)}</td>
+                            <td>${academyFeedEscapeHtml(academyLeadFormatMoney(item.grossValue, item.currency))}</td>
+                            <td>${academyLeadFormatDate(item.updatedAt)}</td>
+                            <td>${academyLeadSafeText(item.operatorVisibleNote)}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+function renderLeadMissionsScripts(scripts = {}) {
+    const panel = document.getElementById('academy-lead-panel-scripts');
+    if (!panel) return;
+
+    const openingScript = academyLeadSafeText(
+        scripts.openingScript ||
+        'Hi, my name is [Your Name]. I am reaching out to ask a few quick questions about your company and the right contact person for this department.'
+    );
+
+    const objectionHandling = academyLeadSafeText(
+        scripts.objectionHandling ||
+        'If blocked by a gatekeeper, stay calm, ask for the most relevant role, and log the exact response before your next follow-up.'
+    );
+
+    panel.innerHTML = `
+        <div class="academy-lead-readme-grid">
+            <article class="academy-lead-info-card">
+                <div class="academy-profile-card-kicker">Opening Script</div>
+                <h4 class="academy-lead-card-title">First contact</h4>
+                <p class="academy-lead-card-copy">${openingScript}</p>
+            </article>
+
+            <article class="academy-lead-info-card">
+                <div class="academy-profile-card-kicker">Objections</div>
+                <h4 class="academy-lead-card-title">How to handle pushback</h4>
+                <p class="academy-lead-card-copy">${objectionHandling}</p>
+            </article>
+        </div>
+    `;
+}
+
+function switchAcademyLeadMissionsSubtab(target = 'readme') {
+    document.querySelectorAll('.academy-lead-subtab').forEach((btn) => {
+        btn.classList.toggle('active', btn.getAttribute('data-lead-subtab') === target);
+    });
+
+    document.querySelectorAll('.academy-lead-panel').forEach((panel) => {
+        panel.classList.add('hidden-step');
+    });
+
+    document.getElementById(`academy-lead-panel-${target}`)?.classList.remove('hidden-step');
+}
+
+function hydrateAcademyLeadMissionsWorkspace(result = {}) {
+    academyLeadMissionsState.leads = Array.isArray(result.leads) ? result.leads : [];
+    academyLeadMissionsState.followUps = Array.isArray(result.followUps) ? result.followUps : [];
+    academyLeadMissionsState.payouts = Array.isArray(result.payouts) ? result.payouts : [];
+    academyLeadMissionsState.deals = Array.isArray(result.deals) ? result.deals : [];
+    academyLeadMissionsState.scripts = result.scripts && typeof result.scripts === 'object' ? result.scripts : {};
+
+    renderLeadMissionsReadme(result.meta || {});
+    renderLeadMissionsDatabase(academyLeadMissionsState.leads);
+    renderLeadMissionsFollowups(academyLeadMissionsState.followUps);
+    renderLeadMissionsPayouts(academyLeadMissionsState.payouts);
+    renderLeadMissionsDeals(academyLeadMissionsState.deals);
+    renderLeadMissionsScripts(academyLeadMissionsState.scripts);
+}
+
+async function loadAcademyLeadMissionsWorkspace() {
+    const result = await academyAuthedFetch('/api/academy/lead-missions/workspace', { method: 'GET' });
+
+    if (!result?.success) {
+        throw new Error(result?.message || 'Unable to load Lead Missions workspace.');
+    }
+
+    hydrateAcademyLeadMissionsWorkspace(result);
+    switchAcademyLeadMissionsSubtab('readme');
+    return result;
+}
+
+function openAcademyLeadMissionsView() {
+    showAcademyTabLoader('Loading Lead Missions.');
+    academyPushFeedFallbackHistory('lead-missions');
+    saveAcademyViewState('lead-missions');
+    closeRoadmapIntake();
+    academyResetCoachMode();
+    academyResetMessagesThreadState();
+    applyAcademyMessengerMode(false);
+    hideAcademyViewsForFeed();
+    setAcademySidebarActive('nav-lead-missions');
+
+    const leadView = document.getElementById('academy-lead-missions-view');
+    const academyChat = document.getElementById('academy-chat');
+
+    if (academyChat) {
+        academyChat.classList.add('hidden-step');
+    }
+
+    if (leadView) {
+        leadView.classList.remove('hidden-step');
+        leadView.classList.remove('fade-in');
+        void leadView.offsetWidth;
+        leadView.classList.add('fade-in');
+    }
+
+    currentRoom = null;
+    currentRoomId = null;
+    currentRoomMeta = null;
+
+    Promise.resolve(loadAcademyLeadMissionsWorkspace())
+        .catch((error) => {
+            console.error('loadAcademyLeadMissionsWorkspace error:', error);
+            showToast(error?.message || 'Failed to load Lead Missions.', 'error');
+        })
+        .finally(() => {
+            hideAcademyTabLoader();
+        });
+}
+
+document.querySelectorAll('.academy-lead-subtab').forEach((btn) => {
+    btn.addEventListener('click', () => {
+        const target = String(btn.getAttribute('data-lead-subtab') || 'readme').trim() || 'readme';
+        switchAcademyLeadMissionsSubtab(target);
+    });
+});
+
+document.getElementById('btn-open-lead-entry-modal')?.addEventListener('click', () => {
+    openAcademyLeadEntryModal();
+});
+
+document.getElementById('btn-cancel-lead-entry')?.addEventListener('click', () => {
+    closeAcademyLeadEntryModal();
+});
+
+document.getElementById('academy-lead-entry-modal')?.addEventListener('click', (event) => {
+    if (event.target?.id === 'academy-lead-entry-modal') {
+        closeAcademyLeadEntryModal();
+    }
+});
+
+document.getElementById('academy-lead-entry-form')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    const form = event.currentTarget;
+    const submitBtn = document.getElementById('btn-save-lead-entry');
+    const formData = new FormData(form);
+
+    const payload = Object.fromEntries(formData.entries());
+
+    try {
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.setAttribute('aria-busy', 'true');
+        }
+
+        const result = await academyAuthedFetch('/api/academy/lead-missions/leads', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+
+        if (!result?.success) {
+            throw new Error(result?.message || 'Unable to save lead.');
+        }
+
+        showToast('Lead saved successfully.', 'success');
+        closeAcademyLeadEntryModal();
+        await loadAcademyLeadMissionsWorkspace();
+        switchAcademyLeadMissionsSubtab('database');
+    } catch (error) {
+        console.error('academy lead entry submit error:', error);
+        showToast(error?.message || 'Failed to save lead.', 'error');
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.removeAttribute('aria-busy');
+        }
+    }
+});
 
 async function fetchAcademyMemberProfile(memberId = '') {
     const normalizedMemberId = normalizeAcademyFeedId(memberId);
@@ -10617,6 +11236,13 @@ function restoreDashboardViewState() {
     if (targetSection === 'community') {
         window.requestAnimationFrame(() => {
             openAcademyFeedView();
+        });
+        return;
+    }
+
+    if (targetSection === 'lead-missions') {
+        window.requestAnimationFrame(() => {
+            openAcademyLeadMissionsView();
         });
         return;
     }

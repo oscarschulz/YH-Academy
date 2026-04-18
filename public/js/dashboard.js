@@ -191,6 +191,58 @@ function renderAcademyFeedAvatarHtml(post = {}, displayName = '') {
     });
 }
 
+async function hydrateDashboardTopProfile(forceFresh = false) {
+    const fallbackName =
+        String(getStoredUserValue('yh_user_name', 'Hustler') || 'Hustler').trim() ||
+        'Hustler';
+
+    const fallbackAvatar = normalizeAvatarUrl(
+        getStoredUserValue('yh_user_avatar', '') || ''
+    );
+
+    try {
+        const result = await academyAuthedFetch('/api/academy/profile', {
+            method: 'GET'
+        });
+
+        const profile =
+            result?.profile && typeof result.profile === 'object'
+                ? result.profile
+                : null;
+
+        const nextName =
+            String(
+                profile?.display_name ||
+                profile?.displayName ||
+                profile?.fullName ||
+                profile?.name ||
+                fallbackName
+            ).trim() || fallbackName;
+
+        const nextAvatar = normalizeAvatarUrl(
+            profile?.avatar ||
+            profile?.profilePhoto ||
+            profile?.photoURL ||
+            fallbackAvatar ||
+            ''
+        );
+
+        localStorage.setItem('yh_user_name', nextName);
+
+        if (nextAvatar) {
+            localStorage.setItem('yh_user_avatar', nextAvatar);
+        } else if (!fallbackAvatar) {
+            localStorage.removeItem('yh_user_avatar');
+        }
+
+        updateUserProfile(nextName, nextAvatar || '');
+        return { name: nextName, avatar: nextAvatar };
+    } catch (_) {
+        updateUserProfile(fallbackName, fallbackAvatar || '');
+        return { name: fallbackName, avatar: fallbackAvatar || '' };
+    }
+}
+
 function sendSystemNotification(title, text, avatarStr, color, target) {
     const notifList = document.getElementById('notif-list-container');
     const bellBadge = document.getElementById('notif-badge-count');
@@ -260,6 +312,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let pendingGroupMembers = [];
     let hasLoadedVaultOnce = false;
     const defaultAcademyWelcomeHtml = document.getElementById('chat-welcome-box')?.innerHTML || '';
+
+    hydrateDashboardTopProfile().catch(() => {});
 
     // --- UPDATED NAVIGATION & ROUTING LOGIC ---
 const universeFeatureContent = {
@@ -902,10 +956,48 @@ window.addEventListener('resize', () => {
     }
 });
 
+function closeDashboardMemberBrowserModal() {
+    document.getElementById('academy-member-browser-modal')?.classList.add('hidden-step');
+}
+
+function openDashboardProfileDirectory() {
+    loadAcademyMemberBrowser('').catch((error) => {
+        console.error('openDashboardProfileDirectory error:', error);
+        showToast(error?.message || 'Failed to open member directory.', 'error');
+    });
+}
+
 document.querySelector('.profile-mini')?.addEventListener('click', () => {
-    if (document.body?.getAttribute('data-yh-view') === 'academy') {
+    const currentView = String(document.body?.getAttribute('data-yh-view') || '')
+        .trim()
+        .toLowerCase();
+
+    if (currentView === 'academy') {
         openAcademyProfileView();
+        return;
     }
+
+    openDashboardProfileDirectory();
+});
+
+document.getElementById('academy-member-browser-close')?.addEventListener('click', () => {
+    closeDashboardMemberBrowserModal();
+});
+
+document.getElementById('academy-member-browser-modal')?.addEventListener('click', (event) => {
+    if (event.target?.id === 'academy-member-browser-modal') {
+        closeDashboardMemberBrowserModal();
+    }
+});
+
+document.getElementById('academy-member-browser-search-input')?.addEventListener('input', (event) => {
+    loadAcademyMemberBrowser(event.currentTarget?.value || '').catch(() => {});
+});
+
+document.getElementById('academy-member-browser-search-input')?.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    loadAcademyMemberBrowser(event.currentTarget?.value || '').catch(() => {});
 });
 
     // ==========================================

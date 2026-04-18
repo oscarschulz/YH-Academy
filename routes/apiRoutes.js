@@ -51,6 +51,16 @@ router.post('/academy/roadmap/refresh', auth, academyControllers.refreshRoadmap)
 router.get('/academy/assistant/messages', auth, academyControllers.getAcademyCoachMessages);
 router.post('/academy/assistant/chat', auth, academyControllers.chatWithAcademyCoach);
 
+router.get('/academy/lead-missions/workspace', auth, academyControllers.getLeadMissionsWorkspace);
+router.get('/academy/lead-missions/leads', auth, academyControllers.listMyLeadMissionsLeads);
+router.post('/academy/lead-missions/leads', auth, academyControllers.createLeadMissionLead);
+router.get('/academy/lead-missions/leads/:id', auth, academyControllers.getMyLeadMissionLeadById);
+router.patch('/academy/lead-missions/leads/:id', auth, academyControllers.updateMyLeadMissionLead);
+router.get('/academy/lead-missions/followups', auth, academyControllers.listMyLeadMissionsFollowUps);
+router.get('/academy/lead-missions/payouts', auth, academyControllers.listMyLeadMissionPayouts);
+router.get('/academy/lead-missions/deals', auth, academyControllers.listMyLeadMissionDeals);
+router.get('/academy/lead-missions/scripts', auth, academyControllers.getLeadMissionScripts);
+
 // ==========================================
 // 🎓 YHA COMMUNITY FEED ROUTES
 // ==========================================

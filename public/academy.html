@@ -62,6 +62,10 @@
                     <span class="academy-tab-state-badge academy-tab-state-badge-mobile" id="roadmap-tab-state-badge-mobile">Apply for Access</span>
                 </button>
 
+                <button type="button" class="academy-mobile-nav-item" data-academy-target="nav-lead-missions">
+                    <span class="academy-mobile-nav-item-main">📇 Lead Missions</span>
+                </button>
+
                 <button type="button" class="academy-mobile-nav-item" data-academy-target="nav-chat">
                     <span class="academy-mobile-nav-item-main">📰 Community Feed</span>
                 </button>
@@ -266,6 +270,11 @@
     </span>
 </li>
 
+    <li class="channel-link" id="nav-lead-missions" title="lead-missions" data-type="lead-missions">
+        <div class="sidebar-icon"><span class="channel-icon">📇</span></div>
+        <span class="sidebar-text">Lead Missions</span>
+    </li>
+
     <li class="channel-link" id="nav-chat" title="community" data-type="main-chat">
         <div class="sidebar-icon"><span class="channel-icon">📰</span></div>
         <span class="sidebar-text">Community Feed</span>
@@ -313,6 +322,11 @@
                     <span class="academy-mobile-bottom-nav-label">Roadmap</span>
                 </button>
 
+                <button type="button" class="academy-mobile-bottom-nav-item academy-mobile-nav-item" data-academy-target="nav-lead-missions">
+                    <span class="academy-mobile-bottom-nav-icon">📇</span>
+                    <span class="academy-mobile-bottom-nav-label">Missions</span>
+                </button>
+
                 <button type="button" class="academy-mobile-bottom-nav-item academy-mobile-nav-item" data-academy-target="nav-chat">
                     <span class="academy-mobile-bottom-nav-icon">📰</span>
                     <span class="academy-mobile-bottom-nav-label">Feed</span>
@@ -323,17 +337,11 @@
                     <span class="academy-mobile-bottom-nav-label">Messages</span>
                 </button>
 
-                <button type="button" class="academy-mobile-bottom-nav-item academy-mobile-nav-item" data-academy-target="nav-voice">
-                    <span class="academy-mobile-bottom-nav-icon">🎙️</span>
-                    <span class="academy-mobile-bottom-nav-label">Voice</span>
-                </button>
-
                 <button type="button" class="academy-mobile-bottom-nav-item academy-mobile-nav-item" data-academy-target="nav-profile">
                     <span class="academy-mobile-bottom-nav-icon">👤</span>
                     <span class="academy-mobile-bottom-nav-label">Profile</span>
                 </button>
             </nav>
-
             <main class="yh-main-chat hidden-step fade-in" id="academy-feed-view">
 <header class="chat-header">
                     <div class="header-left academy-header-left">
@@ -526,6 +534,280 @@
                         </div>
                     </div>
             </main>
+
+            <main class="yh-main-chat hide-scrollbar hidden-step fade-in" id="academy-lead-missions-view">
+                <header class="chat-header">
+                    <div class="header-left">
+                        <span class="hash-big">📇</span>
+                        <h3>lead-missions</h3>
+                        <div class="header-divider"></div>
+                        <p class="header-topic">Private operator leads, follow-ups, payouts, and deal records.</p>
+                    </div>
+
+                    <div class="header-right">
+                        <button type="button" class="btn-primary" id="btn-open-lead-entry-modal">+ Add Lead</button>
+                    </div>
+                </header>
+
+                <div class="chat-messages hide-scrollbar academy-lead-missions-scroll">
+                    <div class="academy-lead-missions-shell">
+                        <section class="academy-lead-missions-hero">
+                            <div>
+                                <div class="academy-profile-card-kicker">Private Workspace</div>
+                                <h2 class="academy-lead-missions-title">Lead Missions</h2>
+                                <p class="academy-lead-missions-copy">
+                                    Only you and admin should be able to access these records.
+                                </p>
+                            </div>
+                        </section>
+
+                        <div class="academy-lead-subtabs">
+                            <button type="button" class="academy-lead-subtab active" data-lead-subtab="readme">README</button>
+                            <button type="button" class="academy-lead-subtab" data-lead-subtab="database">Lead Database</button>
+                            <button type="button" class="academy-lead-subtab" data-lead-subtab="followup">Follow-Up Queue</button>
+                            <button type="button" class="academy-lead-subtab" data-lead-subtab="payouts">My Payouts</button>
+                            <button type="button" class="academy-lead-subtab" data-lead-subtab="deals">My Deals</button>
+                            <button type="button" class="academy-lead-subtab" data-lead-subtab="scripts">Scripts & Objections</button>
+                        </div>
+
+                        <section id="academy-lead-panel-readme" class="academy-lead-panel"></section>
+                        <section id="academy-lead-panel-database" class="academy-lead-panel hidden-step"></section>
+                        <section id="academy-lead-panel-followup" class="academy-lead-panel hidden-step"></section>
+                        <section id="academy-lead-panel-payouts" class="academy-lead-panel hidden-step"></section>
+                        <section id="academy-lead-panel-deals" class="academy-lead-panel hidden-step"></section>
+                        <section id="academy-lead-panel-scripts" class="academy-lead-panel hidden-step"></section>
+                    </div>
+                </div>
+            </main>
+
+            <div id="academy-lead-entry-modal" class="academy-lead-modal hidden-step" aria-hidden="true">
+                <div class="academy-lead-modal-card">
+                    <div class="academy-lead-modal-head academy-lead-modal-head-centered">
+                        <div class="academy-lead-modal-head-copy">
+                            <div class="academy-lead-modal-kicker">Lead Missions</div>
+                            <h3 class="academy-lead-modal-title">Add Lead</h3>
+                        </div>
+                    </div>
+
+                    <form id="academy-lead-entry-form" class="academy-lead-form-grid">
+                        <div class="form-group">
+                            <label for="lead-tier">Tier</label>
+                            <select id="lead-tier" name="tier" class="input-field" required>
+                                <option value="">Select tier</option>
+                                <option value="T1">T1 - High Value</option>
+                                <option value="T2">T2 - Mid Value</option>
+                                <option value="T3">T3 - Low Value</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lead-company-name">Company Name</label>
+                            <input id="lead-company-name" name="companyName" class="input-field" type="text" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lead-company-website">Company Website</label>
+                            <input id="lead-company-website" name="companyWebsite" class="input-field" type="text">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lead-contact-name">Contact Name</label>
+                            <input id="lead-contact-name" name="contactName" class="input-field" type="text">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lead-contact-role">Contact Role</label>
+                            <input id="lead-contact-role" name="contactRole" class="input-field" type="text">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lead-contact-type">Contact Type</label>
+                            <select id="lead-contact-type" name="contactType" class="input-field">
+                                <option value="">Select type</option>
+                                <option value="employee">Employee</option>
+                                <option value="manager">Manager</option>
+                                <option value="founder">Founder</option>
+                                <option value="owner">Owner</option>
+                                <option value="unknown">Unknown</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lead-email">Email</label>
+                            <input id="lead-email" name="email" class="input-field" type="email">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lead-phone">Phone</label>
+                            <input id="lead-phone" name="phone" class="input-field" type="text">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lead-city">City</label>
+                            <input id="lead-city" name="city" class="input-field" type="text">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lead-country">Country</label>
+                            <input id="lead-country" name="country" class="input-field" type="text">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lead-source-method">Source Method</label>
+                            <select id="lead-source-method" name="sourceMethod" class="input-field">
+                                <option value="">Select source</option>
+                                <option value="Google Maps">Google Maps</option>
+                                <option value="Search Engine">Search Engine</option>
+                                <option value="AI Research">AI Research</option>
+                                <option value="Referral">Referral</option>
+                                <option value="Website Form">Website Form</option>
+                                <option value="Social Media">Social Media</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lead-call-outcome">Call Outcome</label>
+                            <select id="lead-call-outcome" name="callOutcome" class="input-field">
+                                <option value="">Select outcome</option>
+                                <option value="No answer">No answer</option>
+                                <option value="Gatekeeper only">Gatekeeper only</option>
+                                <option value="Useful conversation">Useful conversation</option>
+                                <option value="Direct contact obtained">Direct contact obtained</option>
+                                <option value="Follow-up opened">Follow-up opened</option>
+                                <option value="Dead lead">Dead lead</option>
+                                <option value="Warm lead">Warm lead</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lead-interest-level">Interest Level</label>
+                            <select id="lead-interest-level" name="interestLevel" class="input-field">
+                                <option value="">Select level</option>
+                                <option value="Cold">Cold</option>
+                                <option value="Warm">Warm</option>
+                                <option value="Hot">Hot</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lead-rapport-level">Rapport Level</label>
+                            <select id="lead-rapport-level" name="rapportLevel" class="input-field">
+                                <option value="">Select level</option>
+                                <option value="1">1</option>
+                                <option value="2">2</option>
+                                <option value="3">3</option>
+                                <option value="4">4</option>
+                                <option value="5">5</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lead-pipeline-stage">Pipeline Stage</label>
+                            <select id="lead-pipeline-stage" name="pipelineStage" class="input-field">
+                                <option value="">Select stage</option>
+                                <option value="Prospected">Prospected</option>
+                                <option value="Called">Called</option>
+                                <option value="Contact Identified">Contact Identified</option>
+                                <option value="Direct Channel Opened">Direct Channel Opened</option>
+                                <option value="Rapport Building">Rapport Building</option>
+                                <option value="Applied">Applied</option>
+                                <option value="Accepted">Accepted</option>
+                                <option value="Archived">Archived</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lead-priority">Priority</label>
+                            <select id="lead-priority" name="priority" class="input-field">
+                                <option value="">Select priority</option>
+                                <option value="High">High</option>
+                                <option value="Medium">Medium</option>
+                                <option value="Low">Low</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lead-next-action">Next Action</label>
+                            <select id="lead-next-action" name="nextAction" class="input-field">
+                                <option value="">Select next action</option>
+                                <option value="Call">Call</option>
+                                <option value="Text">Text</option>
+                                <option value="Email">Email</option>
+                                <option value="Voice Note">Voice Note</option>
+                                <option value="Send Form">Send Form</option>
+                                <option value="Archive">Archive</option>
+                                <option value="Nurture">Nurture</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lead-channel">Channel</label>
+                            <select id="lead-channel" name="channel" class="input-field">
+                                <option value="">Select channel</option>
+                                <option value="WhatsApp">WhatsApp</option>
+                                <option value="Email">Email</option>
+                                <option value="Phone">Phone</option>
+                                <option value="Telegram">Telegram</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lead-task-status">Task Status</label>
+                            <select id="lead-task-status" name="taskStatus" class="input-field">
+                                <option value="">Select status</option>
+                                <option value="Due">Due</option>
+                                <option value="Waiting">Waiting</option>
+                                <option value="Done">Done</option>
+                                <option value="Stalled">Stalled</option>
+                                <option value="Archived">Archived</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lead-call-type">Call Type</label>
+                            <select id="lead-call-type" name="callType" class="input-field">
+                                <option value="">Select call type</option>
+                                <option value="Initial Call">Initial Call</option>
+                                <option value="Follow-Up Call">Follow-Up Call</option>
+                                <option value="Gatekeeper Call">Gatekeeper Call</option>
+                                <option value="Owner Call">Owner Call</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lead-objection">Objection</label>
+                            <select id="lead-objection" name="objection" class="input-field">
+                                <option value="">Select objection</option>
+                                <option value="No objection">No objection</option>
+                                <option value="Busy">Busy</option>
+                                <option value="Email me">Email me</option>
+                                <option value="Not interested">Not interested</option>
+                                <option value="Gatekeeper block">Gatekeeper block</option>
+                                <option value="Price objection">Price objection</option>
+                                <option value="Timing objection">Timing objection</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lead-follow-up-date">Follow-up Due Date</label>
+                            <input id="lead-follow-up-date" name="followUpDueDate" class="input-field" type="date">
+                        </div>
+
+                        <div class="form-group academy-lead-form-span-2">
+                            <label for="lead-notes">Notes</label>
+                            <textarea id="lead-notes" name="notes" class="input-field" rows="4"></textarea>
+                        </div>
+
+                        <div class="academy-lead-form-actions academy-lead-form-span-2">
+                            <button type="button" class="btn-secondary" id="btn-cancel-lead-entry">Cancel</button>
+                            <button type="submit" class="btn-primary" id="btn-save-lead-entry">Save Lead</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
 
             <main class="yh-main-chat hide-scrollbar hidden-step fade-in vault-main" id="vault-view">
                 <header class="chat-header"><div class="header-left"><span class="hash-big">🗄️</span><h3>The Vault</h3><div class="header-divider"></div><p class="header-topic">Your personal library of shared files, media, and links.</p></div></header>
@@ -1342,7 +1624,6 @@
 <script src="/js/yh-shared-core.js?v=20260411-4"></script>
 <script src="/js/yh-shared-runtime.js?v=20260411-4"></script>
 <script src="/js/academy.js?v=20260417-2"></script>
-<script src="/js/academy-thread-bottom-fix.js?v=20260417-2"></script>
 <div
     class="academy-profile-editor-overlay hidden-step"
     id="academy-profile-editor-overlay"

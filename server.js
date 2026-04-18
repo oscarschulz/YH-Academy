@@ -169,6 +169,33 @@ async function canUserAccessRoom(userId, roomId) {
 
     return true;
 }
+
+async function markRoomAsReadForUser(userId, roomId) {
+    const cleanUserId = sanitizeText(userId);
+    const cleanRoomId = sanitizeText(roomId);
+
+    if (!cleanUserId || !cleanRoomId) return false;
+    if (cleanRoomId === 'YH-community' || cleanRoomId === 'main-chat') return true;
+
+    const roomRef = chatRoomsCol.doc(cleanRoomId);
+    const roomSnap = await roomRef.get();
+    if (!roomSnap.exists) return false;
+
+    const roomData = roomSnap.data() || {};
+    const unreadCounts =
+        roomData.unread_counts && typeof roomData.unread_counts === 'object'
+            ? { ...roomData.unread_counts }
+            : {};
+
+    unreadCounts[cleanUserId] = 0;
+
+    await roomRef.set({
+        unread_counts: unreadCounts,
+        updated_at: Timestamp.now()
+    }, { merge: true });
+
+    return true;
+}
 function mapChatMessageDoc(doc) {
     const data = doc.data() || {};
     return {
@@ -549,6 +576,22 @@ if (
     next();
 });
 
+app.use('/uploads/academy/profile', express.static(ACADEMY_PROFILE_UPLOAD_DIR, {
+    etag: true,
+    lastModified: true,
+    setHeaders: (res) => {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
+}));
+
+app.use('/uploads/academy-profile', express.static(ACADEMY_PROFILE_UPLOAD_DIR, {
+    etag: true,
+    lastModified: true,
+    setHeaders: (res) => {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    }
+}));
+
 app.use('/uploads', express.static(ACADEMY_UPLOADS_ROOT, {
     etag: true,
     lastModified: true,
@@ -854,6 +897,42 @@ app.post(
         }
     }
 );
+
+app.post('/api/realtime/rooms/:roomId/read', requireApiUser, async (req, res) => {
+    try {
+        const roomId = sanitizeText(req.params.roomId);
+        const userId = sanitizeText(req.user?.id);
+
+        if (!roomId || !userId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Missing room or user.'
+            });
+        }
+
+        const allowed = await canUserAccessRoom(userId, roomId);
+        if (!allowed) {
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied for this room.'
+            });
+        }
+
+        await markRoomAsReadForUser(userId, roomId);
+
+        return res.json({
+            success: true,
+            roomId,
+            read: true
+        });
+    } catch (error) {
+        console.error('mark room as read error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to mark room as read.'
+        });
+    }
+});
 
 app.use('/api', apiRoutes);
 app.post('/api/realtime/live-rooms/:roomId/join', requireApiUser, async (req, res) => {

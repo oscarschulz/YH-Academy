@@ -1,7 +1,14 @@
+const fs = require('fs');
+const path = require('path');
 const academyFirestoreRepo = require('./backend/repositories/academyFirestoreRepo');
 const academyPlannerKnowledgeContext = require('./backend/services/academyPlannerKnowledgeContext');
 const publicLandingEventsRepo = require('./backend/repositories/publicLandingEventsRepo');
 const { firestore } = require('./config/firebaseAdmin');
+
+const ACADEMY_UPLOADS_ROOT = path.resolve(
+    String(process.env.PERSISTENT_UPLOADS_DIR || '').trim() || path.join(__dirname, 'public', 'uploads')
+);
+const ACADEMY_PROFILE_UPLOAD_DIR = path.join(ACADEMY_UPLOADS_ROOT, 'academy-profile');
 const sanitize = (value) => {
     if (value === null || value === undefined) return '';
     return String(value).replace(/</g, '&lt;').replace(/>/g, '&gt;').trim();
@@ -1172,12 +1179,72 @@ function normalizeAcademyProfileTags(values = []) {
     return out;
 }
 
+function academyProfileAssetExists(assetPath = '') {
+    const clean = sanitize(assetPath);
+    if (!clean) return false;
+
+    const withoutQuery = clean.split('?')[0].split('#')[0];
+    const normalized =
+        withoutQuery.startsWith('/uploads/academy/profile/')
+            ? withoutQuery.replace('/uploads/academy/profile/', '/uploads/academy-profile/')
+            : withoutQuery;
+
+    if (!normalized.startsWith('/uploads/academy-profile/')) {
+        return true;
+    }
+
+    const fileName = path.basename(normalized);
+    if (!fileName) return false;
+
+    try {
+        return fs.existsSync(path.join(ACADEMY_PROFILE_UPLOAD_DIR, fileName));
+    } catch (_) {
+        return false;
+    }
+}
+
 function sanitizeAcademyProfileAsset(value = '') {
     const clean = sanitize(value);
     if (!clean) return '';
 
     if (/^data:/i.test(clean)) return '';
-    return clean.slice(0, 2048);
+
+    let normalized = '';
+
+    if (/^https?:\/\//i.test(clean)) {
+        try {
+            const parsed = new URL(clean);
+            const candidate = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+
+            if (candidate.startsWith('/uploads/academy/profile/')) {
+                normalized = candidate.replace('/uploads/academy/profile/', '/uploads/academy-profile/');
+            } else if (candidate.startsWith('/uploads/academy-profile/')) {
+                normalized = candidate;
+            } else {
+                return clean.slice(0, 2048);
+            }
+        } catch (_) {
+            return clean.slice(0, 2048);
+        }
+    } else if (clean.startsWith('/uploads/academy/profile/')) {
+        normalized = clean.replace('/uploads/academy/profile/', '/uploads/academy-profile/');
+    } else if (clean.startsWith('uploads/academy/profile/')) {
+        normalized = `/${clean.replace('uploads/academy/profile/', 'uploads/academy-profile/')}`;
+    } else if (clean.startsWith('uploads/academy-profile/')) {
+        normalized = `/${clean}`;
+    } else if (/^[a-z0-9._-]+\.(jpg|jpeg|png|webp|gif|avif)$/i.test(clean)) {
+        normalized = `/uploads/academy-profile/${clean}`;
+    } else {
+        normalized = clean.startsWith('/') ? clean : `/${clean}`;
+    }
+
+    normalized = normalized.slice(0, 2048);
+
+    if (normalized.startsWith('/uploads/academy-profile/') && !academyProfileAssetExists(normalized)) {
+        return '';
+    }
+
+    return normalized;
 }
 
 function normalizeAcademyProfileUsername(value = '', fallback = 'hustler') {
@@ -4282,6 +4349,307 @@ exports.chatWithAcademyCoach = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: error?.message || 'Failed to get Academy AI Coach reply.'
+        });
+    }
+};
+function normalizeLeadMissionPayload(body = {}) {
+    return {
+        tier: sanitize(body.tier),
+        companyName: sanitize(body.companyName),
+        companyWebsite: sanitize(body.companyWebsite),
+        contactName: sanitize(body.contactName),
+        contactRole: sanitize(body.contactRole),
+        contactType: sanitize(body.contactType || 'unknown'),
+        email: sanitize(body.email),
+        phone: sanitize(body.phone),
+        city: sanitize(body.city),
+        country: sanitize(body.country),
+        sourceMethod: sanitize(body.sourceMethod),
+        callOutcome: sanitize(body.callOutcome),
+        interestLevel: sanitize(body.interestLevel),
+        rapportLevel: sanitize(body.rapportLevel),
+        pipelineStage: sanitize(body.pipelineStage),
+        priority: sanitize(body.priority),
+        nextAction: sanitize(body.nextAction),
+        channel: sanitize(body.channel),
+        taskStatus: sanitize(body.taskStatus),
+        callType: sanitize(body.callType),
+        objection: sanitize(body.objection),
+        notes: sanitize(body.notes),
+        followUpDueDate: sanitize(body.followUpDueDate)
+    };
+}
+
+exports.getLeadMissionsWorkspace = async (req, res) => {
+    try {
+        const uid = getAcademyAuthUid(req);
+
+        if (!uid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const [leads, followUps, payouts, deals, scripts] = await Promise.all([
+            academyFirestoreRepo.listLeadMissionLeads(uid),
+            academyFirestoreRepo.listLeadMissionFollowUps(uid),
+            academyFirestoreRepo.listLeadMissionPayouts(uid),
+            academyFirestoreRepo.listLeadMissionDeals(uid),
+            academyFirestoreRepo.getLeadMissionScripts(uid)
+        ]);
+
+        return res.json({
+            success: true,
+            meta: {
+                operatorName: sanitize(req.user?.name || req.user?.username || 'Operator'),
+                readmeNote: 'Your Lead Missions records are private to you and admin.'
+            },
+            leads,
+            followUps,
+            payouts,
+            deals,
+            scripts
+        });
+    } catch (error) {
+        console.error('getLeadMissionsWorkspace error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load Lead Missions workspace.'
+        });
+    }
+};
+
+exports.listMyLeadMissionsLeads = async (req, res) => {
+    try {
+        const uid = getAcademyAuthUid(req);
+
+        if (!uid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const leads = await academyFirestoreRepo.listLeadMissionLeads(uid);
+
+        return res.json({
+            success: true,
+            leads
+        });
+    } catch (error) {
+        console.error('listMyLeadMissionsLeads error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load leads.'
+        });
+    }
+};
+
+exports.createLeadMissionLead = async (req, res) => {
+    try {
+        const uid = getAcademyAuthUid(req);
+
+        if (!uid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const payload = normalizeLeadMissionPayload(req.body || {});
+
+        if (!payload.tier || !payload.companyName) {
+            return res.status(400).json({
+                success: false,
+                message: 'Tier and company name are required.'
+            });
+        }
+
+        const lead = await academyFirestoreRepo.createLeadMissionLead(uid, payload);
+
+        return res.status(201).json({
+            success: true,
+            lead
+        });
+    } catch (error) {
+        console.error('createLeadMissionLead error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to create lead.'
+        });
+    }
+};
+
+exports.getMyLeadMissionLeadById = async (req, res) => {
+    try {
+        const uid = getAcademyAuthUid(req);
+        const leadId = sanitize(req.params?.id);
+
+        if (!uid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const lead = await academyFirestoreRepo.getLeadMissionLeadById(uid, leadId);
+
+        if (!lead) {
+            return res.status(404).json({
+                success: false,
+                message: 'Lead not found.'
+            });
+        }
+
+        return res.json({
+            success: true,
+            lead
+        });
+    } catch (error) {
+        console.error('getMyLeadMissionLeadById error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load lead.'
+        });
+    }
+};
+
+exports.updateMyLeadMissionLead = async (req, res) => {
+    try {
+        const uid = getAcademyAuthUid(req);
+        const leadId = sanitize(req.params?.id);
+
+        if (!uid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const payload = normalizeLeadMissionPayload(req.body || {});
+        const lead = await academyFirestoreRepo.updateLeadMissionLead(uid, leadId, payload);
+
+        if (!lead) {
+            return res.status(404).json({
+                success: false,
+                message: 'Lead not found.'
+            });
+        }
+
+        return res.json({
+            success: true,
+            lead
+        });
+    } catch (error) {
+        console.error('updateMyLeadMissionLead error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to update lead.'
+        });
+    }
+};
+
+exports.listMyLeadMissionsFollowUps = async (req, res) => {
+    try {
+        const uid = getAcademyAuthUid(req);
+
+        if (!uid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const followUps = await academyFirestoreRepo.listLeadMissionFollowUps(uid);
+
+        return res.json({
+            success: true,
+            followUps
+        });
+    } catch (error) {
+        console.error('listMyLeadMissionsFollowUps error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load follow-ups.'
+        });
+    }
+};
+
+exports.listMyLeadMissionPayouts = async (req, res) => {
+    try {
+        const uid = getAcademyAuthUid(req);
+
+        if (!uid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const payouts = await academyFirestoreRepo.listLeadMissionPayouts(uid);
+
+        return res.json({
+            success: true,
+            payouts
+        });
+    } catch (error) {
+        console.error('listMyLeadMissionPayouts error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load payouts.'
+        });
+    }
+};
+
+exports.listMyLeadMissionDeals = async (req, res) => {
+    try {
+        const uid = getAcademyAuthUid(req);
+
+        if (!uid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const deals = await academyFirestoreRepo.listLeadMissionDeals(uid);
+
+        return res.json({
+            success: true,
+            deals
+        });
+    } catch (error) {
+        console.error('listMyLeadMissionDeals error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load deals.'
+        });
+    }
+};
+
+exports.getLeadMissionScripts = async (req, res) => {
+    try {
+        const uid = getAcademyAuthUid(req);
+
+        if (!uid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const scripts = await academyFirestoreRepo.getLeadMissionScripts(uid);
+
+        return res.json({
+            success: true,
+            scripts
+        });
+    } catch (error) {
+        console.error('getLeadMissionScripts error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load scripts.'
         });
     }
 };

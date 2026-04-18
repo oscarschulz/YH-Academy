@@ -576,6 +576,45 @@
     </div>
 
     
+<div id="academy-member-browser-modal" class="modal-overlay hidden-step">
+    <div class="modal-content academy-member-browser-dialog">
+        <div class="academy-member-browser-header">
+            <div class="academy-member-browser-header-copy">
+                <div class="academy-member-browser-kicker">Academy Directory</div>
+                <h3 class="academy-member-browser-title">Check out other Hustlers</h3>
+                <p class="academy-member-browser-copy">
+                    Search members and Academy tags from here.
+                </p>
+            </div>
+
+            <button
+                type="button"
+                class="academy-member-browser-close"
+                id="academy-member-browser-close"
+                aria-label="Close other Hustlers modal"
+            >
+                ✕
+            </button>
+        </div>
+
+        <div style="padding: 0 22px 14px;">
+            <input
+                type="text"
+                id="academy-member-browser-search-input"
+                class="input-field"
+                placeholder="Search names, usernames, or tags like The Academy, YHA, roadmap."
+            >
+            <div id="academy-member-browser-summary" style="margin-top:10px;color:var(--text-muted);font-size:0.84rem;">
+                Type in the Academy search bar to browse members and matching tags.
+            </div>
+        </div>
+
+        <div id="academy-member-browser-list" class="academy-member-browser-list">
+            <div class="academy-member-browser-empty">Loading members...</div>
+        </div>
+    </div>
+</div>
+
 <script src="/socket.io/socket.io.js"></script>
 
 <script>
