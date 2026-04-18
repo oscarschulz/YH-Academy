@@ -987,29 +987,6 @@ function createLineChartSVG(seriesA, seriesB) {
     </div>
   `;
 }
-function getAnalyticsMembershipMetrics() {
-  const uniqueUsers = state.members.length;
-
-  const divisionCounts = {
-    Academy: state.members.filter(member => member.divisions.includes('Academy')).length,
-    Federation: state.members.filter(member => member.divisions.includes('Federation')).length,
-    Plazas: state.members.filter(member => member.divisions.includes('Plazas')).length
-  };
-
-  const totalMemberships = state.members.reduce((sum, member) => {
-    return sum + new Set(member.divisions || []).size;
-  }, 0);
-
-  const overlapUsers = state.members.filter(member => new Set(member.divisions || []).size > 1).length;
-
-  return {
-    uniqueUsers,
-    totalMemberships,
-    overlapUsers,
-    divisionCounts
-  };
-}
-
 
 function getAnalyticsMembershipMetrics() {
   const uniqueUsers = state.members.length;
@@ -1737,9 +1714,6 @@ function renderFederation() {
         ${makeCell('Actions', `
           <div class="table-actions">
             <button data-open="federationRequest" data-id="${item.id}">Open</button>
-            <button data-action="federation-request-match-selected" data-id="${item.id}">Match Lead</button>
-            <button data-action="federation-request-save-deal" data-id="${item.id}">Save Deal</button>
-            <button data-action="federation-request-save-deal" data-id="${item.id}">Save Deal</button>
             <button data-action="federation-request-status-matched" data-id="${item.id}">Matched</button>
             <button data-action="federation-request-status-pricing_sent" data-id="${item.id}">Pricing Sent</button>
             <button data-action="federation-request-status-paid" data-id="${item.id}">Paid</button>
