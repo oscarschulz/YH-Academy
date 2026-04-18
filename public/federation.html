@@ -13,7 +13,7 @@
     href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
     rel="stylesheet"
   />
-<link rel="stylesheet" href="/css/federation.css?v=20260418-federation-real-1" />
+<link rel="stylesheet" href="/css/federation.css?v=20260418-federation-operating-layer-2" />
 </head>
 <body>
   <div class="fed-shell">
@@ -29,9 +29,10 @@
       </div>
 
 <nav class="fed-nav" id="fedNav">
-  <a href="#overview" class="fed-nav-link active">Overview</a>
+  <a href="#command" class="fed-nav-link active" id="fedNavCommand">Command</a>
   <a href="#connect" class="fed-nav-link" id="fedNavConnect">Connect</a>
   <a href="#directory" class="fed-nav-link">Directory</a>
+  <a href="#requests" class="fed-nav-link" id="fedNavRequests">My Requests</a>
   <a href="#referrals" class="fed-nav-link">Referrals</a>
   <a href="#status" class="fed-nav-link">My Access</a>
 </nav>
@@ -76,27 +77,35 @@
             <summary class="fed-topbar-quick-summary">My Access</summary>
 
             <div class="fed-topbar-quick-menu">
-              <a href="#status" class="fed-topbar-quick-link fed-nav-link">
-                <strong>My Access</strong>
-                <small>View your current federation state</small>
+              <a href="#command" class="fed-topbar-quick-link fed-nav-link" id="fedTopbarQuickCommand">
+                <strong>Command</strong>
+                <small>Your Federation operating layer</small>
               </a>
 
-              <a href="#command" class="fed-topbar-quick-link fed-nav-link" id="fedTopbarQuickCommand" hidden>
-                <strong>Member Command</strong>
-                <small>Open the private member layer</small>
-              </a>
-
-              <a href="#connect" class="fed-topbar-quick-link fed-nav-link" id="fedTopbarQuickConnect" hidden>
+              <a href="#connect" class="fed-topbar-quick-link fed-nav-link" id="fedTopbarQuickConnect">
                 <strong>Connect</strong>
-                <small>Request verified introductions from the network</small>
+                <small>Request verified introductions</small>
               </a>
 
               <a href="#directory" class="fed-topbar-quick-link fed-nav-link">
                 <strong>Directory</strong>
-                <small>Open the member directory view</small>
+                <small>View approved Federation members</small>
               </a>
 
-<!-- Federation application flow now lives in Dashboard before access is granted. -->
+              <a href="#requests" class="fed-topbar-quick-link fed-nav-link" id="fedTopbarQuickRequests">
+                <strong>My Requests</strong>
+                <small>Track connection requests</small>
+              </a>
+
+              <a href="#referrals" class="fed-topbar-quick-link fed-nav-link">
+                <strong>Referrals</strong>
+                <small>Invite high-value people</small>
+              </a>
+
+              <a href="#status" class="fed-topbar-quick-link fed-nav-link">
+                <strong>My Access</strong>
+                <small>View member status and profile</small>
+              </a>
             </div>
           </details>
         </div>
@@ -107,6 +116,9 @@
   </button>
   <button class="fed-btn fed-btn-secondary" data-jump="#directory" type="button">
     Directory
+  </button>
+  <button class="fed-btn fed-btn-secondary" data-jump="#requests" type="button">
+    My Requests
   </button>
   <button class="fed-btn fed-btn-secondary" data-jump="#referrals" type="button">
     Referrals
@@ -800,6 +812,36 @@
         <div class="fed-connect-requests" id="federationConnectRequestsPanel"></div>
       </section>
 
+      <section class="fed-section" id="requests" data-section="requests" hidden>
+        <div class="fed-section-head">
+          <div class="fed-kicker">Request Tracker</div>
+          <h3>My Connection Requests</h3>
+          <p>
+            Track every strategic introduction you requested through Federation Connect.
+            Admin review, pricing, payment, delivery, and completion states will appear here.
+          </p>
+        </div>
+
+        <div class="fed-requests-toolbar">
+          <div class="fed-input-wrap">
+            <label for="requestStatusFilter">Status</label>
+            <select id="requestStatusFilter">
+              <option value="all">All Statuses</option>
+              <option value="pending_admin_match">Pending Admin Match</option>
+              <option value="pending_review">Pending Review</option>
+              <option value="matched">Matched</option>
+              <option value="pricing_sent">Pricing Sent</option>
+              <option value="paid">Paid</option>
+              <option value="intro_delivered">Intro Delivered</option>
+              <option value="completed">Completed</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="fed-requests-list" id="federationRequestsList"></div>
+      </section>
+
       <section class="fed-section" id="referrals" data-section="referrals">
         <div class="fed-section-head">
           <div class="fed-kicker">Referral Flow</div>
@@ -1089,22 +1131,26 @@
         </main>
 
     <nav class="fed-app-bottom-nav" aria-label="Federation mobile navigation">
-      <a href="#overview" class="fed-app-bottom-link fed-nav-link active">
+      <a href="#command" class="fed-app-bottom-link fed-nav-link active">
         <span class="fed-app-bottom-icon">⌂</span>
-        <span class="fed-app-bottom-label">Home</span>
+        <span class="fed-app-bottom-label">Command</span>
       </a>
-      <a href="#sectors" class="fed-app-bottom-link fed-nav-link">
-        <span class="fed-app-bottom-icon">◈</span>
-        <span class="fed-app-bottom-label">Sectors</span>
+
+      <a href="#connect" class="fed-app-bottom-link fed-nav-link">
+        <span class="fed-app-bottom-icon">⇄</span>
+        <span class="fed-app-bottom-label">Connect</span>
       </a>
-<a href="#connect" class="fed-app-bottom-link fed-nav-link">
-  <span class="fed-app-bottom-icon">⇄</span>
-  <span class="fed-app-bottom-label">Connect</span>
-</a>
-<a href="#directory" class="fed-app-bottom-link fed-nav-link">
-  <span class="fed-app-bottom-icon">▦</span>
-  <span class="fed-app-bottom-label">Directory</span>
-</a>
+
+      <a href="#directory" class="fed-app-bottom-link fed-nav-link">
+        <span class="fed-app-bottom-icon">▦</span>
+        <span class="fed-app-bottom-label">Directory</span>
+      </a>
+
+      <a href="#requests" class="fed-app-bottom-link fed-nav-link">
+        <span class="fed-app-bottom-icon">◎</span>
+        <span class="fed-app-bottom-label">Requests</span>
+      </a>
+
       <button
         class="fed-app-bottom-link fed-app-bottom-more"
         id="fedMobileMoreToggle"
@@ -1131,30 +1177,14 @@
       </div>
 
       <div class="fed-app-more-grid">
-        <a href="#access" class="fed-app-more-link fed-nav-link">
-          <strong>Access</strong>
-          <small>Gate, process, and unlock flow</small>
-        </a>
-        <a href="#expansion" class="fed-app-more-link fed-nav-link">
-          <strong>Expansion</strong>
-          <small>Map, corridors, and live nodes</small>
-        </a>
         <a href="#referrals" class="fed-app-more-link fed-nav-link">
           <strong>Referrals</strong>
-          <small>Referral logic and member pipeline</small>
+          <small>Invite high-value people into the review pipeline</small>
         </a>
-        <a href="#connect" class="fed-app-more-link fed-nav-link" id="fedMobileConnect" hidden>
-          <strong>Connect</strong>
-          <small>Request verified strategic introductions</small>
-        </a>
-<!-- Apply removed: Federation applications are submitted from Dashboard before entry. -->
-        <a href="#command" class="fed-app-more-link fed-nav-link" id="fedMobileCommand" hidden>
-          <strong>Command</strong>
-          <small>Private member operating layer</small>
-        </a>
-        <a href="#admin" class="fed-app-more-link fed-nav-link" id="fedMobileAdmin" hidden>
-          <strong>Local Review</strong>
-          <small>Fallback queue for beta testing</small>
+
+        <a href="#status" class="fed-app-more-link fed-nav-link">
+          <strong>My Access</strong>
+          <small>View your member profile and access state</small>
         </a>
       </div>
     </div>
@@ -1202,6 +1232,6 @@
     </aside>
   </div>
 
-<script src="/js/federation.js?v=20260418-federation-real-1"></script>
+<script src="/js/federation.js?v=20260418-federation-operating-layer-2"></script>
 </body>
 </html>

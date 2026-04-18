@@ -256,6 +256,8 @@ const federationServerState = {
   applications: [],
   member: null,
   members: [],
+  referrals: null,
+  command: null,
   error: ""
 };
 
@@ -304,10 +306,7 @@ async function loadFederationServerState(options = {}) {
   federationServerState.error = "";
 
   try {
-    const [meResult, directoryResult] = await Promise.all([
-      federationConnectFetch("/api/federation/me"),
-      federationConnectFetch("/api/federation/directory")
-    ]);
+    const meResult = await federationConnectFetch("/api/federation/me");
 
     federationServerState.currentUser =
       meResult.currentUser && typeof meResult.currentUser === "object"
@@ -328,30 +327,46 @@ async function loadFederationServerState(options = {}) {
         ? normalizeFederationMember(meResult.member)
         : null;
 
-    const directoryMembers = Array.isArray(directoryResult.members)
-      ? directoryResult.members.map(normalizeFederationMember)
-      : [];
+    federationServerState.referrals =
+      meResult.referrals && typeof meResult.referrals === "object"
+        ? meResult.referrals
+        : null;
 
-    federationServerState.members = federationServerState.member
-      ? [
-          federationServerState.member,
-          ...directoryMembers.filter((member) => {
-            return normalizeEmail(member.email) !== normalizeEmail(federationServerState.member.email);
-          })
-        ]
-      : directoryMembers;
+    if (meResult.canEnterFederation === true) {
+      const [directoryResult, commandResult, referralResult] = await Promise.all([
+        federationConnectFetch("/api/federation/directory"),
+        federationConnectFetch("/api/federation/command"),
+        federationConnectFetch("/api/federation/referrals")
+      ]);
+
+      federationServerState.members = Array.isArray(directoryResult.members)
+        ? directoryResult.members.map(normalizeFederationMember)
+        : [];
+
+      federationServerState.command =
+        commandResult.command && typeof commandResult.command === "object"
+          ? commandResult.command
+          : null;
+
+      federationServerState.referrals =
+        referralResult.referrals && typeof referralResult.referrals === "object"
+          ? referralResult.referrals
+          : federationServerState.referrals;
+    } else {
+      federationServerState.members = [];
+      federationServerState.command = null;
+    }
 
     federationServerState.loaded = true;
-    federationServerState.loading = false;
-
-    return federationServerState;
   } catch (error) {
     console.error("Federation server state load error:", error);
     federationServerState.error = error?.message || "Failed to load Federation server state.";
     federationServerState.loaded = false;
+  } finally {
     federationServerState.loading = false;
-    return federationServerState;
   }
+
+  return federationServerState;
 }
 function normalizeFederationConnectOpportunity(raw = {}) {
   const ownerUid = String(raw.ownerUid || "").trim();
@@ -510,7 +525,92 @@ function renderFederationConnectRequestsPanel() {
     </article>
   `;
 }
+function renderFederationRequestsSection() {
+  const list = qs("#federationRequestsList");
+  const filter = qs("#requestStatusFilter");
+  if (!list) return;
 
+  const selectedStatus = String(filter?.value || "all").trim().toLowerCase();
+
+  const requests = Array.isArray(federationConnectState.requests)
+    ? federationConnectState.requests
+    : [];
+
+  const filtered = requests.filter((request) => {
+    if (selectedStatus === "all") return true;
+    return String(request.status || "").trim().toLowerCase() === selectedStatus;
+  });
+
+  if (federationConnectState.loading && !requests.length) {
+    list.innerHTML = `
+      <article class="fed-command-card">
+        <div class="fed-sidebar-card-label">Loading</div>
+        <h4>Loading your connection requests...</h4>
+        <p class="fed-command-copy">Checking server-backed Federation request records.</p>
+      </article>
+    `;
+    return;
+  }
+
+  if (!filtered.length) {
+    list.innerHTML = `
+      <article class="fed-command-card">
+        <div class="fed-sidebar-card-label">No Requests</div>
+        <h4>No matching connection requests yet</h4>
+        <p class="fed-command-copy">
+          Requests submitted through Connect will appear here with admin review,
+          pricing, delivery, and completion states.
+        </p>
+      </article>
+    `;
+    return;
+  }
+
+  list.innerHTML = filtered.map((request) => `
+    <article class="fed-request-card">
+      <div class="fed-request-card-head">
+        <div>
+          <div class="fed-sidebar-card-label">${escapeHtml(formatFederationConnectStatus(request.status))}</div>
+          <h4>${escapeHtml(request.opportunityTitle || "Connection request")}</h4>
+        </div>
+        <span class="fed-state-badge ${getStatusBadgeClass(formatFederationConnectStatus(request.status))}">
+          ${escapeHtml(formatFederationConnectStatus(request.status))}
+        </span>
+      </div>
+
+      <p class="fed-command-copy">
+        ${escapeHtml(request.requestReason || "No request reason stored.")}
+      </p>
+
+      <div class="fed-state-grid">
+        <div class="fed-state-metric">
+          <strong>${escapeHtml(formatFederationConnectBudget(request.budgetRange))}</strong>
+          <small>Budget range</small>
+        </div>
+        <div class="fed-state-metric">
+          <strong>${escapeHtml(formatFederationConnectUrgency(request.urgency))}</strong>
+          <small>Urgency</small>
+        </div>
+        <div class="fed-state-metric">
+          <strong>${escapeHtml(request.preferredIntroType || "admin_brokered")}</strong>
+          <small>Intro type</small>
+        </div>
+        <div class="fed-state-metric">
+          <strong>${escapeHtml(formatDate(request.createdAt))}</strong>
+          <small>Submitted</small>
+        </div>
+      </div>
+    </article>
+  `).join("");
+}
+
+function initFederationRequests() {
+  const filter = qs("#requestStatusFilter");
+  if (!filter || filter.dataset.bound === "true") return;
+
+  filter.dataset.bound = "true";
+  filter.addEventListener("change", renderFederationRequestsSection);
+}
 function renderFederationConnectSection() {
   const section = qs("#connect");
   const grid = qs("#federationConnectGrid");
@@ -611,6 +711,7 @@ function renderFederationConnectSection() {
   `).join("");
 
   renderFederationConnectRequestsPanel();
+  renderFederationRequestsSection();
 }
 
 async function loadFederationConnectData(options = {}) {
@@ -1175,10 +1276,10 @@ function renderMemberCommandSection() {
       </div>
 
       <div class="fed-command-actions">
-        <a class="fed-btn fed-btn-primary" href="#connect">Open Connect</a>
-        <a class="fed-btn fed-btn-secondary" href="#referrals">Open Referrals</a>
+        <a class="fed-btn fed-btn-primary" href="#connect">Request Connection</a>
+        <a class="fed-btn fed-btn-secondary" href="#requests">Track Requests</a>
         <a class="fed-btn fed-btn-secondary" href="#directory">Open Directory</a>
-        <a class="fed-btn fed-btn-secondary" href="#status">View Access State</a>
+        <a class="fed-btn fed-btn-secondary" href="#referrals">Open Referrals</a>
       </div>
     </article>
 
@@ -1229,13 +1330,26 @@ function renderMemberCommandSection() {
     </article>
 
     <article class="fed-command-card fed-command-card-full">
-      <div class="fed-sidebar-card-label">Operating Note</div>
-      <h4>Current standalone mode</h4>
-      <p class="fed-command-copy">
-        YHF is still running in standalone local mode right now, but this structure is now prepared
-        for later connection to the central admin panel. Keep using local review only as fallback while
-        the wider YH environment is not yet fully accessible.
-      </p>
+      <div class="fed-sidebar-card-label">Connection Activity</div>
+      <h4>Your request pipeline</h4>
+      <div class="fed-state-grid">
+        <div class="fed-state-metric">
+          <strong>${escapeHtml(String(federationServerState.command?.stats?.connectOpportunities || federationConnectState.opportunities.length || 0))}</strong>
+          <small>Available Connect leads</small>
+        </div>
+        <div class="fed-state-metric">
+          <strong>${escapeHtml(String(federationServerState.command?.stats?.myRequests || federationConnectState.requests.length || 0))}</strong>
+          <small>Total requests</small>
+        </div>
+        <div class="fed-state-metric">
+          <strong>${escapeHtml(String(federationServerState.command?.stats?.pendingRequests || federationConnectState.requests.filter((item) => String(item.status || "").includes("pending")).length || 0))}</strong>
+          <small>Pending review</small>
+        </div>
+        <div class="fed-state-metric">
+          <strong>${escapeHtml(String(federationServerState.command?.stats?.completedRequests || federationConnectState.requests.filter((item) => String(item.status || "").toLowerCase() === "completed").length || 0))}</strong>
+          <small>Completed</small>
+        </div>
+      </div>
     </article>
   `;
 }
@@ -1278,7 +1392,7 @@ function syncFederationChrome() {
   if (mobileApply) mobileApply.hidden = true;
   if (mobileAdmin) mobileAdmin.hidden = true;
 
-  if (quickCommand) quickCommand.hidden = true;
+  if (quickCommand) quickCommand.hidden = false;
   if (quickConnect) quickConnect.hidden = false;
   if (quickApply) quickApply.hidden = true;
 
@@ -1309,8 +1423,8 @@ function syncFederationChrome() {
     if (mode === "full") {
       directoryKicker.textContent = "Live Member Directory";
       directoryTitle.textContent = "Federation Directory";
-      directoryText.innerHTML =
-        'Approved member view. You are now seeing the live directory built from <strong>approved members in localStorage</strong>, including newly approved beta applications.';
+            directoryText.innerHTML =
+        'Approved member view. You are now seeing the live server-backed Federation directory from approved members.';
     } else if (mode === "partial") {
       directoryKicker.textContent = "Screened Preview";
       directoryTitle.textContent = "Federation Directory Preview";
@@ -1326,6 +1440,22 @@ function syncFederationChrome() {
 }
 
 function getReferralSnapshotForMember(member) {
+  if (federationServerState.loaded && federationServerState.referrals) {
+    return {
+      referralCode: normalizeReferralCode(
+        federationServerState.referrals.referralCode ||
+        member.referralCode
+      ),
+      total: Number(federationServerState.referrals.total || 0),
+      pending: Number(federationServerState.referrals.pending || 0),
+      shortlisted: Number(federationServerState.referrals.shortlisted || 0),
+      approved: Number(federationServerState.referrals.approved || 0),
+      recent: Array.isArray(federationServerState.referrals.recent)
+        ? federationServerState.referrals.recent
+        : []
+    };
+  }
+
   const emailLower = normalizeEmail(member.email);
   const referralCode = normalizeReferralCode(member.referralCode);
 
@@ -1936,8 +2066,9 @@ function getNavigableSectionIds() {
 function getPreferredDefaultSection() {
   const state = getCurrentUserState();
 
+  if (state.type === "member") return "command";
   if (state.type === "applicant") return "status";
-  return "overview";
+  return "command";
 }
 
 function getSafeSectionId(targetId = "") {
@@ -2008,8 +2139,8 @@ function setActiveSection(targetId = "", options = {}) {
     });
   }
 
-  if (nextSectionId === "connect") {
-    loadFederationConnectData().catch((error) => {
+  if (nextSectionId === "connect" || nextSectionId === "requests") {
+    loadFederationConnectData({ force: nextSectionId === "requests" }).catch((error) => {
       console.error("Federation Connect active-section load error:", error);
     });
   }
@@ -2887,15 +3018,13 @@ function renderAdminSection() {
 function refreshFederationUI() {
   syncFederationChrome();
   renderStats();
-  renderSectorExperience(activeSectorFilter);
   populateFilters();
   applyDirectoryFilters();
   renderCurrentUserPanel();
   renderMemberCommandSection();
   renderFederationConnectSection();
+  renderFederationRequestsSection();
   renderReferralSection();
-  renderApplyState();
-  renderAdminSection();
   refreshActiveSection();
 }
 
@@ -3194,28 +3323,22 @@ function exposeHelpers() {
 }
 document.addEventListener("DOMContentLoaded", async () => {
   ensureSeedMembers();
+
   initDirectory();
   initSectionNavigation();
   initMobileAppShell();
-  initSectorExperience();
-  initMapHover();
-  initReferralFormAssist();
-  hydrateReferralCodeFromUrl();
   initFederationConnect();
-  initForm();
-  initSessionLookup();
+  initFederationRequests();
   initReferralActions();
 
   await loadFederationServerState({ force: true });
 
-  ensureMemberReferralCodes();
-  refreshFederationUI();
-
   if (getCurrentUserState().type === "member") {
-    loadFederationConnectData({ force: true }).catch((error) => {
+    await loadFederationConnectData({ force: true }).catch((error) => {
       console.error("Initial Federation Connect load error:", error);
     });
   }
 
+  refreshFederationUI();
   exposeHelpers();
 });

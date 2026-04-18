@@ -4464,3 +4464,133 @@ body[data-fed-state="member"] #overview .fed-chip {
     border-right: 0;
   }
 }
+/* ========================================================= */
+/* Federation Operating Layer v2                              */
+/* ========================================================= */
+
+#overview,
+#identity,
+#sectors,
+#access,
+#expansion,
+#apply,
+#admin,
+#fedNavApply,
+#fedNavAdmin,
+#adminModeToggle,
+#memberCommandBtn,
+#fedTopbarQuickApply,
+#fedMobileApply,
+#fedMobileAdmin,
+#fedMobileCommand {
+  display: none !important;
+}
+
+#command,
+#connect,
+#directory,
+#requests,
+#referrals,
+#status {
+  scroll-margin-top: 24px;
+}
+
+.fed-sidebar-card:nth-of-type(3) {
+  display: none !important;
+}
+
+.fed-shell {
+  grid-template-columns: 250px minmax(0, 1fr) !important;
+}
+
+.fed-rightbar {
+  display: none !important;
+}
+
+.fed-topbar-quick-summary {
+  cursor: pointer;
+}
+
+.fed-requests-toolbar {
+  display: grid;
+  grid-template-columns: minmax(180px, 280px);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.fed-requests-list {
+  display: grid;
+  gap: 14px;
+}
+
+.fed-request-card {
+  border: 1px solid var(--border);
+  background:
+    radial-gradient(circle at top left, rgba(77, 139, 255, 0.1), transparent 32%),
+    linear-gradient(180deg, rgba(17, 24, 39, 0.96), rgba(8, 13, 23, 0.98));
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  display: grid;
+  gap: 14px;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.22);
+}
+
+.fed-request-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.fed-request-card h4 {
+  margin: 6px 0 0;
+  font-size: 1.05rem;
+  line-height: 1.35;
+}
+
+.fed-section.is-panel-hidden {
+  display: none !important;
+}
+
+.fed-section.is-active-panel {
+  display: block;
+}
+
+@media (max-width: 1024px) {
+  .fed-shell {
+    grid-template-columns: 1fr !important;
+    padding: 0;
+  }
+
+  .fed-sidebar {
+    display: none;
+  }
+
+  .fed-main {
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+    padding: 14px;
+    padding-bottom: 82px;
+  }
+
+  .fed-topbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .fed-topbar-actions {
+    width: 100%;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+  }
+
+  .fed-topbar-actions .fed-btn {
+    flex: 0 0 auto;
+  }
+
+  .fed-request-card-head {
+    flex-direction: column;
+  }
+}

@@ -1350,34 +1350,157 @@ function mapFederationMemberUserDoc(docSnap) {
         source: 'server'
     };
 }
+function isFederationApprovedServerUser(user = {}) {
+    const status = sanitizeText(
+        user.federationMembershipStatus ||
+        user.federationApplicationStatus ||
+        user.federationApplication?.status ||
+        ''
+    ).toLowerCase();
 
-app.get('/api/federation/me', requireApiUser, async (req, res) => {
-    try {
-        const userId = sanitizeText(req.user?.id);
+    return user.hasFederationAccess === true || status === 'approved';
+}
 
-        const snap = await firestore.collection('users').doc(userId).get();
-        const user = snap.exists ? (snap.data() || {}) : {};
+function buildFederationReferralCode(userId = '', name = '') {
+    const base = sanitizeText(name || userId || 'MEMBER')
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, '')
+        .slice(0, 8) || 'MEMBER';
 
-        const application =
+    const suffix = crypto.randomBytes(3).toString('hex').toUpperCase();
+    return `YHF-${base}-${suffix}`;
+}
+
+async function getFederationUserState(req) {
+    const userId = sanitizeText(req.user?.id);
+    const userRef = firestore.collection('users').doc(userId);
+    const userSnap = await userRef.get();
+    const user = userSnap.exists ? (userSnap.data() || {}) : {};
+
+    const application =
+        user.federationApplication && typeof user.federationApplication === 'object'
+            ? user.federationApplication
+            : null;
+
+    const approved = isFederationApprovedServerUser(user);
+    let member = approved ? mapFederationMemberUserDoc(userSnap) : null;
+
+    if (approved && member && !member.referralCode) {
+        const nextCode = buildFederationReferralCode(userId, member.name);
+
+        await userRef.set({
+            federationReferralCode: nextCode,
+            updatedAt: new Date().toISOString()
+        }, { merge: true });
+
+        member = {
+            ...member,
+            referralCode: nextCode
+        };
+    }
+
+    return {
+        userId,
+        userRef,
+        user,
+        application,
+        approved,
+        member
+    };
+}
+
+function mapFederationRequestDoc(docSnap) {
+    const data = docSnap.data() || {};
+
+    return {
+        id: docSnap.id,
+        leadId: sanitizeText(data.leadId),
+        ownerUid: sanitizeText(data.ownerUid),
+        opportunityTitle: sanitizeText(data.opportunityTitle),
+        status: sanitizeText(data.status || 'pending_admin_match'),
+        adminStatus: sanitizeText(data.adminStatus || 'pending_review'),
+        budgetRange: sanitizeText(data.budgetRange || 'not_sure'),
+        urgency: sanitizeText(data.urgency || 'normal'),
+        preferredIntroType: sanitizeText(data.preferredIntroType || 'admin_brokered'),
+        requestReason: sanitizeText(data.requestReason),
+        intendedUse: sanitizeText(data.intendedUse),
+        notes: sanitizeText(data.notes),
+        createdAt: mapFederationConnectTimestamp(data.createdAt),
+        updatedAt: mapFederationConnectTimestamp(data.updatedAt)
+    };
+}
+
+async function getFederationReferralSnapshot(member = {}) {
+    const referralCode = sanitizeText(member.referralCode).toUpperCase();
+    const memberEmail = sanitizeText(member.email).toLowerCase();
+    const memberUserId = sanitizeText(member.userId || member.id);
+
+    const usersSnap = await firestore.collection('users').limit(500).get();
+    const referredApplications = [];
+
+    usersSnap.forEach((docSnap) => {
+        const user = docSnap.data() || {};
+        const app =
             user.federationApplication && typeof user.federationApplication === 'object'
                 ? user.federationApplication
                 : null;
 
-        const rawStatus = sanitizeText(
-            user.federationMembershipStatus ||
-            user.federationApplicationStatus ||
-            application?.status ||
-            ''
-        );
+        if (!app) return;
 
-        const normalizedStatus = rawStatus.toLowerCase();
+        const byCode =
+            referralCode &&
+            sanitizeText(app.referralCodeUsed || app.referredByCode).toUpperCase() === referralCode;
 
-        const approved =
-            user.hasFederationAccess === true ||
-            normalizedStatus === 'approved';
+        const byEmail =
+            memberEmail &&
+            sanitizeText(app.referredByEmail).toLowerCase() === memberEmail;
+
+        const byMemberId =
+            memberUserId &&
+            sanitizeText(app.referredByMemberId || app.referredByUserId) === memberUserId;
+
+        if (!byCode && !byEmail && !byMemberId) return;
+
+        referredApplications.push({
+            id: sanitizeText(app.id || `FED-APP-${docSnap.id}`),
+            userId: docSnap.id,
+            fullName: sanitizeText(app.fullName || app.name || user.fullName || user.name || 'Federation Applicant'),
+            email: sanitizeText(app.email || user.email || '').toLowerCase(),
+            role: sanitizeText(app.role || app.profession || ''),
+            primaryCategory: sanitizeText(app.primaryCategory || ''),
+            country: sanitizeText(app.country || user.country || ''),
+            city: sanitizeText(app.city || user.city || ''),
+            status: sanitizeText(app.status || user.federationApplicationStatus || 'Under Review'),
+            createdAt: mapFederationConnectTimestamp(app.createdAt || app.submittedAt || user.createdAt),
+            submittedAt: mapFederationConnectTimestamp(app.submittedAt || app.createdAt)
+        });
+    });
+
+    referredApplications.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+
+    return {
+        referralCode,
+        inviteUrlPath: `/?ref=${encodeURIComponent(referralCode)}`,
+        total: referredApplications.length,
+        pending: referredApplications.filter((item) =>
+            ['pending', 'under review', 'screening'].includes(String(item.status || '').toLowerCase())
+        ).length,
+        shortlisted: referredApplications.filter((item) =>
+            String(item.status || '').toLowerCase() === 'shortlisted'
+        ).length,
+        approved: referredApplications.filter((item) =>
+            String(item.status || '').toLowerCase() === 'approved'
+        ).length,
+        recent: referredApplications.slice(0, 10)
+    };
+}
+app.get('/api/federation/me', requireApiUser, async (req, res) => {
+    try {
+        const fedState = await getFederationUserState(req);
+        const user = fedState.user || {};
 
         const currentUser = {
-            id: userId,
+            id: fedState.userId,
             email: sanitizeText(user.email || req.user?.email || '').toLowerCase(),
             emailLower: sanitizeText(user.email || req.user?.email || '').toLowerCase(),
             name: sanitizeText(
@@ -1391,14 +1514,26 @@ app.get('/api/federation/me', requireApiUser, async (req, res) => {
             username: sanitizeText(user.username || req.user?.username || '')
         };
 
+        const rawStatus = sanitizeText(
+            user.federationMembershipStatus ||
+            user.federationApplicationStatus ||
+            fedState.application?.status ||
+            ''
+        );
+
+        const referrals = fedState.member
+            ? await getFederationReferralSnapshot(fedState.member)
+            : null;
+
         return res.json({
             success: true,
             currentUser,
-            application,
-            applications: application ? [application] : [],
+            application: fedState.application,
+            applications: fedState.application ? [fedState.application] : [],
             applicationStatus: rawStatus,
-            canEnterFederation: approved,
-            member: approved ? mapFederationMemberUserDoc(snap) : null
+            canEnterFederation: fedState.approved,
+            member: fedState.member,
+            referrals
         });
     } catch (error) {
         console.error('federation me error:', error);
@@ -1436,6 +1571,132 @@ app.get('/api/federation/directory', requireApiUser, async (req, res) => {
         return res.status(500).json({
             success: false,
             message: 'Failed to load Federation directory.'
+        });
+    }
+});
+app.get('/api/federation/command', requireApiUser, async (req, res) => {
+    try {
+        const fedState = await getFederationUserState(req);
+
+        if (!fedState.approved) {
+            return res.status(403).json({
+                success: false,
+                message: 'Federation access is required.'
+            });
+        }
+
+        const membersSnap = await firestore
+            .collection('users')
+            .where('hasFederationAccess', '==', true)
+            .limit(300)
+            .get();
+
+        const members = [];
+        membersSnap.forEach((docSnap) => members.push(mapFederationMemberUserDoc(docSnap)));
+
+        const requestsSnap = await firestore
+            .collection('federationConnectionRequests')
+            .where('requesterUid', '==', fedState.userId)
+            .limit(100)
+            .get();
+
+        const requests = [];
+        requestsSnap.forEach((docSnap) => requests.push(mapFederationRequestDoc(docSnap)));
+
+        const connectSnap = await firestore
+            .collectionGroup('academyLeadMissions')
+            .where('federationReady', '==', true)
+            .limit(100)
+            .get();
+
+        const countries = new Set(members.map((member) => member.country).filter(Boolean));
+        const categories = new Set(members.map((member) => member.category).filter(Boolean));
+
+        return res.json({
+            success: true,
+            command: {
+                member: fedState.member,
+                stats: {
+                    approvedMembers: members.length,
+                    countriesActive: countries.size,
+                    sectorsLive: categories.size,
+                    connectOpportunities: connectSnap.size,
+                    myRequests: requests.length,
+                    pendingRequests: requests.filter((item) =>
+                        ['pending_admin_match', 'pending_review'].includes(String(item.status || '').toLowerCase())
+                    ).length,
+                    completedRequests: requests.filter((item) =>
+                        String(item.status || '').toLowerCase() === 'completed'
+                    ).length
+                }
+            }
+        });
+    } catch (error) {
+        console.error('federation command error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load Federation command.'
+        });
+    }
+});
+
+app.get('/api/federation/referrals', requireApiUser, async (req, res) => {
+    try {
+        const fedState = await getFederationUserState(req);
+
+        if (!fedState.approved) {
+            return res.status(403).json({
+                success: false,
+                message: 'Federation access is required.'
+            });
+        }
+
+        const referrals = await getFederationReferralSnapshot(fedState.member);
+
+        return res.json({
+            success: true,
+            referrals
+        });
+    } catch (error) {
+        console.error('federation referrals error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load Federation referrals.'
+        });
+    }
+});
+
+app.get('/api/federation/requests', requireApiUser, async (req, res) => {
+    try {
+        const fedState = await getFederationUserState(req);
+
+        if (!fedState.approved) {
+            return res.status(403).json({
+                success: false,
+                message: 'Federation access is required.'
+            });
+        }
+
+        const snap = await firestore
+            .collection('federationConnectionRequests')
+            .where('requesterUid', '==', fedState.userId)
+            .limit(100)
+            .get();
+
+        const requests = [];
+        snap.forEach((docSnap) => requests.push(mapFederationRequestDoc(docSnap)));
+
+        requests.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+
+        return res.json({
+            success: true,
+            requests
+        });
+    } catch (error) {
+        console.error('federation requests error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load Federation requests.'
         });
     }
 });
