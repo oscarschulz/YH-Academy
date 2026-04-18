@@ -313,6 +313,19 @@ document.addEventListener('DOMContentLoaded', () => {
     let hasLoadedVaultOnce = false;
     const defaultAcademyWelcomeHtml = document.getElementById('chat-welcome-box')?.innerHTML || '';
 
+    /*
+     * Storage keys must be initialized before any Federation / Academy status
+     * sync can run. Keeping them here prevents "Cannot access before initialization"
+     * crashes from early Dashboard handlers.
+     */
+    var YH_ADMIN_PANEL_STORAGE_KEY = 'yh_admin_panel_state_v3_live';
+    var YH_ADMIN_PANEL_LEGACY_STORAGE_KEYS = ['yh_admin_panel_state_v2'];
+    var YH_FEDERATION_STATUS_CACHE_KEY = 'yh_federation_access_status_v1';
+    var YH_ACADEMY_MEMBERSHIP_CACHE_KEY = 'yh_academy_membership_status_v1';
+    var YH_ACADEMY_APPROVAL_TOAST_SEEN_KEY = 'yh_academy_approval_toast_seen_v1';
+    var YH_ACADEMY_APPROVAL_BADGE_SEEN_KEY = 'yh_academy_approval_badge_seen_v1';
+    var YH_ACADEMY_COMMUNITY_APPROVAL_TOAST_SEEN_KEY = 'yh_academy_community_approval_toast_seen_v1';
+
     hydrateDashboardTopProfile().catch(() => {});
 
     // --- UPDATED NAVIGATION & ROUTING LOGIC ---
@@ -679,21 +692,7 @@ document.getElementById('form-federation-apply')?.addEventListener('submit', (ev
     }
 });
 
-syncFederationEntryButton();
-
-window.addEventListener('storage', (event) => {
-    if (
-        event.key === YH_ADMIN_PANEL_STORAGE_KEY ||
-        event.key === YH_FEDERATION_STATUS_CACHE_KEY ||
-        YH_ADMIN_PANEL_LEGACY_STORAGE_KEYS.includes(event.key)
-    ) {
-        syncFederationEntryButton();
-    }
-});
-
-window.setInterval(() => {
-    syncFederationEntryButton();
-}, 2500);
+// Federation status sync is initialized later, after Federation storage constants are declared.
 
 document.getElementById('btn-back-to-universe-from-federation')?.addEventListener('click', (event) => {
     event.preventDefault();
@@ -9662,13 +9661,7 @@ function closeAcademyLauncher() {
 
 window.openAcademyLauncher = openAcademyLauncher;
 window.closeAcademyLauncher = closeAcademyLauncher;
-const YH_ADMIN_PANEL_STORAGE_KEY = 'yh_admin_panel_state_v3_live';
-const YH_ADMIN_PANEL_LEGACY_STORAGE_KEYS = ['yh_admin_panel_state_v2'];
-const YH_FEDERATION_STATUS_CACHE_KEY = 'yh_federation_access_status_v1';
-const YH_ACADEMY_MEMBERSHIP_CACHE_KEY = 'yh_academy_membership_status_v1';
-const YH_ACADEMY_APPROVAL_TOAST_SEEN_KEY = 'yh_academy_approval_toast_seen_v1';
-const YH_ACADEMY_APPROVAL_BADGE_SEEN_KEY = 'yh_academy_approval_badge_seen_v1';
-const YH_ACADEMY_COMMUNITY_APPROVAL_TOAST_SEEN_KEY = 'yh_academy_community_approval_toast_seen_v1';
+// Storage keys are initialized near the top of DOMContentLoaded to avoid TDZ crashes.
 
 function getAcademyApprovalMarker(snapshot = null) {
     const application =
@@ -9876,7 +9869,40 @@ function writeYhAdminPanelState(nextState = {}) {
     localStorage.setItem(YH_ADMIN_PANEL_STORAGE_KEY, JSON.stringify(nextState));
 }
 function normalizeFederationStatus(value = '') {
-    return String(value || '').trim().toLowerCase();
+    const normalized = String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[_-]+/g, ' ')
+        .replace(/\s+/g, ' ');
+
+    if (
+        normalized === 'pending' ||
+        normalized === 'pending review' ||
+        normalized === 'under review' ||
+        normalized === 'in review' ||
+        normalized === 'review'
+    ) {
+        return 'under review';
+    }
+
+    if (
+        normalized === 'approved' ||
+        normalized === 'accepted' ||
+        normalized === 'active' ||
+        normalized === 'member'
+    ) {
+        return 'approved';
+    }
+
+    if (
+        normalized === 'rejected' ||
+        normalized === 'declined' ||
+        normalized === 'denied'
+    ) {
+        return 'rejected';
+    }
+
+    return normalized;
 }
 
 function normalizeFederationListValue(value = '') {
@@ -10064,7 +10090,7 @@ function getFederationButtonCopy(snapshot = null) {
     }
 
     if (status === 'under review') {
-        return 'Under Review';
+        return 'Pending Review';
     }
 
     if (status === 'waitlisted') {
@@ -10437,6 +10463,47 @@ function handleFederationGateClick() {
 
     returnToFederationCardInDashboard();
 }
+
+let federationStatusSyncStarted = false;
+
+function requestFederationStatusSync() {
+    try {
+        syncFederationEntryButton();
+    } catch (error) {
+        console.error('Federation status sync error:', error);
+    }
+}
+
+function startFederationStatusRealtimeSync() {
+    if (federationStatusSyncStarted) return;
+    federationStatusSyncStarted = true;
+
+    window.requestAnimationFrame(requestFederationStatusSync);
+
+    window.addEventListener('storage', (event) => {
+        const watchedKeys = [
+            YH_ADMIN_PANEL_STORAGE_KEY,
+            ...(Array.isArray(YH_ADMIN_PANEL_LEGACY_STORAGE_KEYS) ? YH_ADMIN_PANEL_LEGACY_STORAGE_KEYS : []),
+            YH_FEDERATION_STATUS_CACHE_KEY
+        ];
+
+        if (watchedKeys.includes(event.key)) {
+            requestFederationStatusSync();
+        }
+    });
+
+    window.addEventListener('focus', requestFederationStatusSync);
+    window.addEventListener('pageshow', requestFederationStatusSync);
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            requestFederationStatusSync();
+        }
+    });
+}
+
+startFederationStatusRealtimeSync();
+
 function readAcademyMembershipCache() {
     try {
         const raw = localStorage.getItem(YH_ACADEMY_MEMBERSHIP_CACHE_KEY);
