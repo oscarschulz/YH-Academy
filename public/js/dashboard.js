@@ -331,9 +331,9 @@ const universeFeatureContent = {
     },
     federation: {
         kicker: 'Federation Features',
-        title: 'Strategic network layer',
-        desc: 'Map valuable contacts, identify influence gaps, and build stronger access across regions and industries.',
-        chips: ['Elite contacts', 'Gap analysis', 'Global expansion']
+        title: 'Selective access network layer',
+        desc: 'Request access, track qualification status, use referrals, and explore the protected directory for high-value global operators.',
+        chips: ['Selective access', 'Referrals', 'Protected directory', 'Member command']
     }
 };
 
@@ -585,6 +585,13 @@ document.getElementById('btn-open-plazas-preview')?.addEventListener('click', ()
 
 document.getElementById('btn-open-federation-preview')?.addEventListener('click', () => {
     openDivisionPreview('federation');
+});
+
+document.getElementById('btn-back-to-universe-from-federation')?.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    showUniverseHub('federation', { animate: false });
 });
 
 bindUniverseSwipe();

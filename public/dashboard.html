@@ -268,19 +268,24 @@
             </section>
 
             <section class="yh-universe-slide" data-division="federation" aria-hidden="true">
-                <div class="portal-card locked-portal">
+                <div class="portal-card active-portal yh-federation-open-card">
                     <div class="yh-universe-meta">
-                        <span class="yh-universe-badge">Strategic Network</span>
-                        <span class="yh-universe-meta-copy">High-value contacts, leverage, expansion</span>
+                        <span class="yh-universe-badge">Open Division</span>
+                        <span class="yh-universe-meta-copy">Selective access, trusted operators, global leverage</span>
                     </div>
 
                     <div class="yh-universe-card-core">
                         <div class="portal-icon">🤝</div>
                         <h2 class="portal-title">The Federation</h2>
-                        <p class="portal-desc">A strategic networking directory. Analyze your current contacts and bridge valuable gaps in your network globally.</p>
+                        <p class="portal-desc">
+                            Enter the strategic network layer of YH Universe. Request access, review your status,
+                            explore protected member visibility, and build high-value relationship capital globally.
+                        </p>
                     </div>
 
-                    <button id="btn-open-federation-preview" class="btn-secondary w-full" style="padding: 14px; font-size: 1rem;">View Federation Preview ➔</button>
+                    <button id="btn-open-federation-preview" class="btn-primary w-full" style="padding: 14px; font-size: 1rem;">
+                        Open Federation ➔
+                    </button>
                 </div>
             </section>
         </div>
@@ -386,11 +391,35 @@
     <button class="btn-secondary" type="button" disabled style="max-width: 300px; margin-top: 1rem; cursor: not-allowed; opacity: 0.75;">🔒 Opening Soon</button>
 </main>
 
-<main class="coming-soon-wrapper hide-scrollbar hidden-step" id="view-federation">
-    <div class="coming-soon-icon" style="animation: none; font-size: 5rem;">🤝</div>
-    <h2 class="coming-soon-title">The Federation is Opening Soon</h2>
-    <p class="coming-soon-desc">The strategic network division is not available yet. This section will open in a future update.</p>
-    <button class="btn-secondary" type="button" disabled style="max-width: 300px; margin-top: 1rem; cursor: not-allowed; opacity: 0.75;">🔒 Opening Soon</button>
+<main class="yh-dashboard-federation-shell hidden-step" id="view-federation" aria-label="Federation module">
+    <div class="yh-dashboard-federation-bar">
+        <div class="yh-dashboard-federation-copy">
+            <div class="yh-dashboard-federation-kicker">Young Hustlers Federation</div>
+            <h2>Federation Command Layer</h2>
+            <p>
+                Selective access, trusted operators, member referrals, protected directory visibility,
+                and high-value global network expansion.
+            </p>
+        </div>
+
+        <div class="yh-dashboard-federation-actions">
+            <button type="button" class="btn-secondary" id="btn-back-to-universe-from-federation">
+                ← Universe Hub
+            </button>
+
+            <a href="/federation.html" target="_blank" rel="noopener noreferrer" class="btn-primary yh-dashboard-federation-open-link">
+                Open Full Page ↗
+            </a>
+        </div>
+    </div>
+
+    <iframe
+        id="yh-federation-frame"
+        class="yh-dashboard-federation-frame"
+        src="/federation.html"
+        title="Young Hustlers Federation"
+        loading="lazy"
+    ></iframe>
 </main>
     </div>
 
