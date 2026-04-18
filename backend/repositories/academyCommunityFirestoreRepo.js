@@ -299,7 +299,49 @@ function mapPostDoc(doc, extras = {}) {
 
 function mapCommentDoc(doc, extras = {}) {
     const data = doc.data() || {};
-    const author = data.authorSnapshot || {};
+    const snapshot = data.authorSnapshot && typeof data.authorSnapshot === 'object'
+        ? data.authorSnapshot
+        : {};
+
+    const fallback = extras.authorFallback && typeof extras.authorFallback === 'object'
+        ? extras.authorFallback
+        : {};
+
+    const fullName =
+        sanitizeText(snapshot.fullName) ||
+        sanitizeText(snapshot.name) ||
+        sanitizeText(fallback.fullName) ||
+        sanitizeText(fallback.name);
+
+    const displayName =
+        sanitizeText(snapshot.displayName) ||
+        sanitizeText(snapshot.display_name) ||
+        fullName ||
+        sanitizeText(fallback.displayName) ||
+        sanitizeText(fallback.display_name) ||
+        sanitizeText(fallback.username) ||
+        'Academy Member';
+
+    const username =
+        sanitizeText(snapshot.username) ||
+        sanitizeText(fallback.username);
+
+    const avatar =
+        sanitizeText(snapshot.avatar) ||
+        sanitizeText(snapshot.avatarUrl) ||
+        sanitizeText(snapshot.profilePhoto) ||
+        sanitizeText(snapshot.photoURL) ||
+        sanitizeText(fallback.avatar) ||
+        sanitizeText(fallback.avatarUrl) ||
+        sanitizeText(fallback.profilePhoto) ||
+        sanitizeText(fallback.photoURL);
+
+    const roleLabel =
+        sanitizeText(snapshot.roleLabel) ||
+        sanitizeText(snapshot.role_label) ||
+        sanitizeText(fallback.roleLabel) ||
+        sanitizeText(fallback.role) ||
+        'Academy Member';
 
     return {
         id: doc.id,
@@ -308,11 +350,14 @@ function mapCommentDoc(doc, extras = {}) {
         body: sanitizeText(data.body),
         created_at: mapTimestamp(data.createdAt),
         updated_at: mapTimestamp(data.updatedAt),
-        fullName: sanitizeText(author.fullName),
-        display_name: sanitizeText(author.displayName || author.fullName),
-        username: sanitizeText(author.username),
-        avatar: sanitizeText(author.avatar),
-        role_label: sanitizeText(author.roleLabel || 'Academy Member'),
+        fullName,
+        display_name: displayName,
+        username,
+        avatar,
+        avatarUrl: avatar,
+        profilePhoto: avatar,
+        photoURL: avatar,
+        role_label: roleLabel,
         owned_by_me: sanitizeText(data.authorId) === sanitizeText(extras.viewerId)
     };
 }
@@ -536,9 +581,34 @@ async function listPostComments({ viewerId, postId }) {
         .orderBy('createdAt', 'asc')
         .get();
 
-    return snap.docs
-        .filter((doc) => !toBool(doc.data()?.isDeleted))
-        .map((doc) => mapCommentDoc(doc, { postId: normalizedPostId, viewerId: normalizedViewerId }));
+    const visibleDocs = snap.docs.filter((doc) => !toBool(doc.data()?.isDeleted));
+
+    const authorIds = Array.from(new Set(
+        visibleDocs
+            .map((doc) => normalizeUserId(doc.data()?.authorId))
+            .filter(Boolean)
+    ));
+
+    const authorDocs = await Promise.all(
+        authorIds.map((authorId) => getUserDoc(authorId).catch(() => null))
+    );
+
+    const authorFallbackById = new Map();
+
+    authorDocs.forEach((authorDoc) => {
+        if (!authorDoc?.id) return;
+        authorFallbackById.set(normalizeUserId(authorDoc.id), authorDoc);
+    });
+
+    return visibleDocs.map((doc) => {
+        const authorId = normalizeUserId(doc.data()?.authorId);
+
+        return mapCommentDoc(doc, {
+            postId: normalizedPostId,
+            viewerId: normalizedViewerId,
+            authorFallback: authorFallbackById.get(authorId) || {}
+        });
+    });
 }
 
 async function createPostComment({ viewer, postId, body }) {

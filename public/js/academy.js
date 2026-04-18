@@ -11435,11 +11435,62 @@ async function academyFeedLoadComments(postId, forceOpen = false) {
                 comment.username ||
                 'Academy Member';
 
+            const memberId = normalizeAcademyFeedId(
+                comment.user_id ||
+                comment.authorId ||
+                comment.userId ||
+                ''
+            );
+
+            const avatarUrl = academyResolveMemberAvatarUrl({
+                id: memberId,
+                user_id: memberId,
+                uid: memberId,
+                avatar: comment.avatar,
+                avatarUrl: comment.avatarUrl,
+                profilePhoto: comment.profilePhoto,
+                photoURL: comment.photoURL
+            });
+
+            const fallbackInitial = String(displayName || 'A').trim().charAt(0).toUpperCase() || 'A';
+
+            const avatarHtml = avatarUrl
+                ? `
+                    <button
+                        type="button"
+                        class="academy-feed-author-trigger"
+                        data-member-profile-id="${academyFeedEscapeHtml(memberId)}"
+                        aria-label="Open ${academyFeedEscapeHtml(displayName)} profile"
+                        style="width:34px;height:34px;min-width:34px;border-radius:999px;border:1px solid rgba(14,165,233,0.25);background-image:url('${academyFeedEscapeHtml(avatarUrl)}');background-size:cover;background-position:center;background-color:#0ea5e9;cursor:pointer;box-shadow:0 0 14px rgba(14,165,233,0.18);"
+                    ></button>
+                `
+                : `
+                    <button
+                        type="button"
+                        class="academy-feed-author-trigger"
+                        data-member-profile-id="${academyFeedEscapeHtml(memberId)}"
+                        aria-label="Open ${academyFeedEscapeHtml(displayName)} profile"
+                        style="width:34px;height:34px;min-width:34px;border-radius:999px;border:1px solid rgba(14,165,233,0.25);background:#0ea5e9;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:0.86rem;cursor:pointer;box-shadow:0 0 14px rgba(14,165,233,0.18);"
+                    >${academyFeedEscapeHtml(fallbackInitial)}</button>
+                `;
+
             return `
                 <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:12px;">
-                    <div style="font-weight:600;color:#fff;">${academyFeedEscapeHtml(displayName)}</div>
-                    <div style="font-size:0.78rem;color:var(--text-muted);margin-top:2px;">${academyFeedTimeLabel(comment.created_at)}</div>
-                    <div style="margin-top:8px;color:#e5e7eb;line-height:1.55;">${academyFeedEscapeHtml(comment.body || '').replace(/\n/g, '<br>')}</div>
+                    <div style="display:flex;align-items:flex-start;gap:10px;">
+                        ${avatarHtml}
+
+                        <div style="min-width:0;flex:1;">
+                            <button
+                                type="button"
+                                class="academy-feed-author-trigger academy-feed-author-name"
+                                data-member-profile-id="${academyFeedEscapeHtml(memberId)}"
+                                style="font-weight:700;color:#fff;line-height:1.15;background:transparent;border:0;padding:0;text-align:left;cursor:pointer;"
+                            >${academyFeedEscapeHtml(displayName)}</button>
+
+                            <div style="font-size:0.78rem;color:var(--text-muted);margin-top:2px;">${academyFeedTimeLabel(comment.created_at)}</div>
+                            <div style="margin-top:8px;color:#e5e7eb;line-height:1.55;">${academyFeedEscapeHtml(comment.body || '').replace(/\n/g, '<br>')}</div>
+                        </div>
+                    </div>
                 </div>
             `;
         }).join('');
