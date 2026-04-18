@@ -681,9 +681,19 @@ document.getElementById('form-federation-apply')?.addEventListener('submit', (ev
 
 syncFederationEntryButton();
 
+window.addEventListener('storage', (event) => {
+    if (
+        event.key === YH_ADMIN_PANEL_STORAGE_KEY ||
+        event.key === YH_FEDERATION_STATUS_CACHE_KEY ||
+        YH_ADMIN_PANEL_LEGACY_STORAGE_KEYS.includes(event.key)
+    ) {
+        syncFederationEntryButton();
+    }
+});
+
 window.setInterval(() => {
     syncFederationEntryButton();
-}, 5000);
+}, 2500);
 
 document.getElementById('btn-back-to-universe-from-federation')?.addEventListener('click', (event) => {
     event.preventDefault();
@@ -9653,6 +9663,7 @@ function closeAcademyLauncher() {
 window.openAcademyLauncher = openAcademyLauncher;
 window.closeAcademyLauncher = closeAcademyLauncher;
 const YH_ADMIN_PANEL_STORAGE_KEY = 'yh_admin_panel_state_v3_live';
+const YH_ADMIN_PANEL_LEGACY_STORAGE_KEYS = ['yh_admin_panel_state_v2'];
 const YH_FEDERATION_STATUS_CACHE_KEY = 'yh_federation_access_status_v1';
 const YH_ACADEMY_MEMBERSHIP_CACHE_KEY = 'yh_academy_membership_status_v1';
 const YH_ACADEMY_APPROVAL_TOAST_SEEN_KEY = 'yh_academy_approval_toast_seen_v1';
@@ -9778,15 +9789,87 @@ function fadeOutAcademyApprovalBadge(stateBadge, snapshot = null) {
     }, 2600);
 }
 
-function readYhAdminPanelState() {
+function readYhStoredAdminPanelState(storageKey = '') {
     try {
-        const raw = localStorage.getItem(YH_ADMIN_PANEL_STORAGE_KEY);
+        const raw = localStorage.getItem(storageKey);
         if (!raw) return {};
         const parsed = JSON.parse(raw);
         return parsed && typeof parsed === 'object' ? parsed : {};
     } catch (_) {
         return {};
     }
+}
+
+function mergeAdminRecordList(primaryList = [], fallbackList = []) {
+    const seen = new Set();
+    const merged = [];
+
+    [...primaryList, ...fallbackList].forEach((item) => {
+        if (!item || typeof item !== 'object') return;
+
+        const key = String(
+            item.id ||
+            item.applicationId ||
+            item.sourceApplicationId ||
+            item.email ||
+            item.username ||
+            JSON.stringify(item)
+        )
+            .trim()
+            .toLowerCase();
+
+        if (!key || seen.has(key)) return;
+
+        seen.add(key);
+        merged.push(item);
+    });
+
+    return merged;
+}
+
+function readYhAdminPanelState() {
+    const primaryState = readYhStoredAdminPanelState(YH_ADMIN_PANEL_STORAGE_KEY);
+
+    const legacyState = (Array.isArray(YH_ADMIN_PANEL_LEGACY_STORAGE_KEYS)
+        ? YH_ADMIN_PANEL_LEGACY_STORAGE_KEYS
+        : []
+    ).reduce((merged, storageKey) => {
+        const nextState = readYhStoredAdminPanelState(storageKey);
+
+        return {
+            ...merged,
+            ...nextState,
+            applications: mergeAdminRecordList(
+                Array.isArray(merged.applications) ? merged.applications : [],
+                Array.isArray(nextState.applications) ? nextState.applications : []
+            ),
+            members: mergeAdminRecordList(
+                Array.isArray(merged.members) ? merged.members : [],
+                Array.isArray(nextState.members) ? nextState.members : []
+            ),
+            federation: mergeAdminRecordList(
+                Array.isArray(merged.federation) ? merged.federation : [],
+                Array.isArray(nextState.federation) ? nextState.federation : []
+            )
+        };
+    }, {});
+
+    return {
+        ...legacyState,
+        ...primaryState,
+        applications: mergeAdminRecordList(
+            Array.isArray(primaryState.applications) ? primaryState.applications : [],
+            Array.isArray(legacyState.applications) ? legacyState.applications : []
+        ),
+        members: mergeAdminRecordList(
+            Array.isArray(primaryState.members) ? primaryState.members : [],
+            Array.isArray(legacyState.members) ? legacyState.members : []
+        ),
+        federation: mergeAdminRecordList(
+            Array.isArray(primaryState.federation) ? primaryState.federation : [],
+            Array.isArray(legacyState.federation) ? legacyState.federation : []
+        )
+    };
 }
 
 function writeYhAdminPanelState(nextState = {}) {
@@ -9842,55 +9925,61 @@ function getCurrentFederationApplicantIdentity() {
     };
 }
 
-function findCurrentFederationApplication() {
-    const identity = getCurrentFederationApplicantIdentity();
-    const currentEmail = String(identity.email || '').trim().toLowerCase();
-    const currentUsername = String(identity.username || '').replace(/^@+/, '').trim().toLowerCase();
+function normalizeFederationIdentityText(value = '') {
+    return String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/^@+/, '')
+        .replace(/\s+/g, ' ');
+}
 
+function isCurrentFederationApplicantRecord(record = {}) {
+    const identity = getCurrentFederationApplicantIdentity();
+
+    const currentEmail = normalizeFederationIdentityText(identity.email);
+    const currentUsername = normalizeFederationIdentityText(identity.username);
+    const currentName = normalizeFederationIdentityText(identity.name);
+
+    const recordEmail = normalizeFederationIdentityText(record.email);
+    const recordUsername = normalizeFederationIdentityText(record.username);
+    const recordName = normalizeFederationIdentityText(record.fullName || record.name);
+
+    if (currentEmail && recordEmail && currentEmail === recordEmail) return true;
+    if (currentUsername && recordUsername && currentUsername === recordUsername) return true;
+    if (currentName && recordName && currentName === recordName) return true;
+
+    return false;
+}
+
+function findCurrentFederationApplication() {
     const adminState = readYhAdminPanelState();
     const applications = Array.isArray(adminState?.applications) ? adminState.applications : [];
 
     return applications.find((app) => {
-        const appType = String(app?.applicationType || '').trim().toLowerCase();
-        const recommendedDivision = String(app?.recommendedDivision || app?.division || '').trim().toLowerCase();
+        const appType = normalizeFederationIdentityText(app?.applicationType);
+        const recommendedDivision = normalizeFederationIdentityText(app?.recommendedDivision || app?.division);
 
         if (appType !== 'federation-access' && recommendedDivision !== 'federation') {
             return false;
         }
 
-        const appEmail = String(app?.email || '').trim().toLowerCase();
-        const appUsername = String(app?.username || '').replace(/^@+/, '').trim().toLowerCase();
-
-        if (currentEmail && appEmail && currentEmail === appEmail) return true;
-        if (currentUsername && appUsername && currentUsername === appUsername) return true;
-
-        return false;
+        return isCurrentFederationApplicantRecord(app);
     }) || null;
 }
 
 function getCurrentFederationMember() {
-    const identity = getCurrentFederationApplicantIdentity();
-    const currentEmail = String(identity.email || '').trim().toLowerCase();
-    const currentUsername = String(identity.username || '').replace(/^@+/, '').trim().toLowerCase();
-
     const adminState = readYhAdminPanelState();
     const members = Array.isArray(adminState?.members) ? adminState.members : [];
 
     return members.find((member) => {
         const divisions = Array.isArray(member?.divisions) ? member.divisions : [];
         const isFederationMember = divisions.some((division) => {
-            return String(division || '').trim().toLowerCase() === 'federation';
+            return normalizeFederationIdentityText(division) === 'federation';
         });
 
         if (!isFederationMember) return false;
 
-        const memberEmail = String(member?.email || '').trim().toLowerCase();
-        const memberUsername = String(member?.username || '').replace(/^@+/, '').trim().toLowerCase();
-
-        if (currentEmail && memberEmail && currentEmail === memberEmail) return true;
-        if (currentUsername && memberUsername && currentUsername === memberUsername) return true;
-
-        return false;
+        return isCurrentFederationApplicantRecord(member);
     }) || null;
 }
 
@@ -9915,21 +10004,30 @@ function getFederationAccessSnapshot() {
         return {
             hasApplication: true,
             canEnterFederation: status === 'approved',
-            applicationStatus: status,
+            applicationStatus: status || 'under review',
             member: null,
             application
         };
     }
 
-    if (cached?.application) {
-        const status = normalizeFederationStatus(cached.applicationStatus || cached.application.status || '');
+    if (cached?.hasApplication || cached?.application) {
+        const cachedApplication =
+            cached?.application && typeof cached.application === 'object'
+                ? cached.application
+                : null;
+
+        const status = normalizeFederationStatus(
+            cached.applicationStatus ||
+            cachedApplication?.status ||
+            'under review'
+        );
 
         return {
-            hasApplication: Boolean(cached.hasApplication),
+            hasApplication: true,
             canEnterFederation: status === 'approved',
-            applicationStatus: status,
+            applicationStatus: status || 'under review',
             member: null,
-            application: cached.application
+            application: cachedApplication
         };
     }
 
@@ -10090,7 +10188,11 @@ function syncFederationEntryButton() {
     }
 
     syncFederationFrameAccess(snapshot);
-    writeFederationStatusCache(snapshot);
+
+    if (snapshot.hasApplication || snapshot.canEnterFederation) {
+        writeFederationStatusCache(snapshot);
+    }
+
     return snapshot;
 }
 
