@@ -349,7 +349,7 @@ if (academySearchResultsPanel && !academySearchResultsPanel.dataset.overlayBound
     });
 }
 function normalizeUniverseDivision(value = 'academy') {
-    const allowedDivisions = ['academy', 'plazas', 'federation'];
+    const allowedDivisions = ['academy', 'federation', 'plazas'];
     const normalized = String(value || '').trim().toLowerCase();
     return allowedDivisions.includes(normalized) ? normalized : 'academy';
 }
@@ -466,7 +466,7 @@ function switchServer(targetDivision) {
 }
 
 function stepUniverseSlide(direction = 1) {
-    const divisions = ['academy', 'plazas', 'federation'];
+    const divisions = ['academy', 'federation', 'plazas'];
     const currentIndex = divisions.indexOf(activeUniverseDivision);
     const safeIndex = currentIndex >= 0 ? currentIndex : 0;
     const nextIndex = (safeIndex + (direction < 0 ? -1 : 1) + divisions.length) % divisions.length;
