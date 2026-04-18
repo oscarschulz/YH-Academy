@@ -1,6 +1,7 @@
 const path = require('path');
 const crypto = require('crypto');
 const express = require('express');
+const { Timestamp } = require('firebase-admin/firestore');
 const { firestore } = require('../config/firebaseAdmin');
 const academyFirestoreRepo = require('../backend/repositories/academyFirestoreRepo');
 const { sendSystemMail } = require('../controllers/authControllers');
@@ -295,6 +296,66 @@ function cleanText(value, fallback = '') {
 function toNumber(value, fallback = 0) {
   const num = Number(value);
   return Number.isFinite(num) ? num : fallback;
+}
+
+function normalizeAdminNetworkScopeList(values = []) {
+  const source = Array.isArray(values) ? values : [values];
+
+  return Array.from(
+    new Set(
+      source
+        .map((value) => cleanText(value).toLowerCase())
+        .filter(Boolean)
+        .filter((value) => ['academy', 'federation', 'plazas'].includes(value))
+    )
+  );
+}
+
+function normalizeAdminStrategicValue(value = '') {
+  const raw = cleanText(value).toLowerCase();
+
+  const allowed = new Set([
+    'standard',
+    'watch',
+    'medium',
+    'high',
+    'strategic'
+  ]);
+
+  return allowed.has(raw) ? raw : 'standard';
+}
+
+function buildNextLeadMissionAccessScopes(existingLead = {}, patch = {}) {
+  const existingScopes = normalizeAdminNetworkScopeList(
+    existingLead.accessScopes ||
+    existingLead.networkScopes ||
+    []
+  );
+
+  const scopes = new Set(existingScopes.length ? existingScopes : ['academy']);
+  scopes.add('academy');
+
+  const nextFederationReady =
+    Object.prototype.hasOwnProperty.call(patch, 'federationReady')
+      ? patch.federationReady === true
+      : existingLead.federationReady === true || scopes.has('federation');
+
+  const nextPlazaReady =
+    Object.prototype.hasOwnProperty.call(patch, 'plazaReady')
+      ? patch.plazaReady === true
+      : existingLead.plazaReady === true || scopes.has('plazas');
+
+  if (nextFederationReady) scopes.add('federation');
+  else scopes.delete('federation');
+
+  if (nextPlazaReady) scopes.add('plazas');
+  else scopes.delete('plazas');
+
+  return {
+    accessScopes: Array.from(scopes),
+    federationReady: nextFederationReady,
+    plazaReady: nextPlazaReady
+  };
 }
 
 function normalizeStringList(value) {
@@ -1037,6 +1098,103 @@ apiRouter.post('/api/admin/academy/:memberId/track', requireAdminSession, async 
     return res.status(500).json({
       success: false,
       message: 'Failed to update academy status.'
+    });
+  }
+});
+
+apiRouter.post('/api/admin/academy/lead-missions/:memberId/:leadId/network', requireAdminSession, async (req, res) => {
+  try {
+    const memberId = cleanText(req.params.memberId);
+    const leadId = cleanText(req.params.leadId);
+
+    if (!memberId || !leadId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Member id and lead id are required.'
+      });
+    }
+
+    const userRef = firestore.collection('users').doc(memberId);
+    const userSnap = await userRef.get();
+
+    if (!userSnap.exists) {
+      return res.status(404).json({
+        success: false,
+        message: 'Academy member not found.'
+      });
+    }
+
+    const leadRef = userRef.collection('academyLeadMissions').doc(leadId);
+    const leadSnap = await leadRef.get();
+
+    if (!leadSnap.exists) {
+      return res.status(404).json({
+        success: false,
+        message: 'Lead Mission record not found.'
+      });
+    }
+
+    const existingLead = leadSnap.data() || {};
+    const body = req.body || {};
+    const patch = {};
+
+    if (Object.prototype.hasOwnProperty.call(body, 'federationReady')) {
+      patch.federationReady = body.federationReady === true;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, 'plazaReady')) {
+      patch.plazaReady = body.plazaReady === true;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, 'strategicValue')) {
+      patch.strategicValue = normalizeAdminStrategicValue(body.strategicValue);
+    }
+
+    if (!Object.keys(patch).length) {
+      return res.status(400).json({
+        success: false,
+        message: 'No valid Lead Mission network fields were provided.'
+      });
+    }
+
+    const routing = buildNextLeadMissionAccessScopes(existingLead, patch);
+    const nowIso = new Date().toISOString();
+
+    const updatePayload = {
+      ...routing,
+      ...(Object.prototype.hasOwnProperty.call(patch, 'strategicValue')
+        ? { strategicValue: patch.strategicValue }
+        : {}),
+      sourceDivision: cleanText(existingLead.sourceDivision || 'academy') || 'academy',
+      adminNetworkUpdatedAt: nowIso,
+      adminNetworkUpdatedBy: req.adminSession.username,
+      updatedAt: Timestamp.now()
+    };
+
+    await leadRef.set(updatePayload, { merge: true });
+
+    await firestore.collection('adminBroadcasts').add({
+      audience: cleanText(userSnap.data()?.fullName || userSnap.data()?.name || userSnap.data()?.username || memberId),
+      subject: 'Lead Mission network routing updated',
+      message: `Admin updated Lead Mission ${leadId}: ${Object.keys(patch).join(', ')}.`,
+      sentAt: nowIso,
+      createdBy: req.adminSession.username
+    });
+
+    const updatedSnap = await leadRef.get();
+
+    return res.json({
+      success: true,
+      lead: {
+        id: updatedSnap.id,
+        ...(updatedSnap.data() || {})
+      }
+    });
+  } catch (error) {
+    console.error('admin lead mission network update error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update Lead Mission network routing.'
     });
   }
 });

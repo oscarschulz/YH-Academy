@@ -1251,6 +1251,13 @@ function renderAcademy() {
         ${makeCell('Actions', `
           <div class="table-actions">
             <button data-open="academyLeadMission" data-id="${item.id}">Open</button>
+            <button data-action="lead-federation-ready" data-id="${item.id}">
+              ${item.federationReady ? 'Unmark Federation' : 'Federation Ready'}
+            </button>
+            <button data-action="lead-plaza-ready" data-id="${item.id}">
+              ${item.plazaReady ? 'Unmark Plaza' : 'Plaza Ready'}
+            </button>
+            <button data-action="lead-set-strategic-value" data-id="${item.id}">Set Value</button>
           </div>
         `)}
       </tr>
@@ -1881,6 +1888,20 @@ if (type === 'application') {
           <div class="stack-item"><p>${escapeHtml(record.notes || 'No notes yet.')}</p></div>
         </div>
       </div>
+      <div class="drawer-section">
+        <h4>Admin Network Actions</h4>
+        <div class="inline-actions">
+          <button class="badge-btn" data-action="lead-federation-ready" data-id="${record.id}">
+            ${record.federationReady ? 'Remove Federation Ready' : 'Mark Federation Ready'}
+          </button>
+          <button class="badge-btn" data-action="lead-plaza-ready" data-id="${record.id}">
+            ${record.plazaReady ? 'Remove Plaza Ready' : 'Mark Plaza Ready'}
+          </button>
+          <button class="badge-btn" data-action="lead-set-strategic-value" data-id="${record.id}">
+            Set Strategic Value
+          </button>
+        </div>
+      </div>
     `;
   }
 
@@ -2067,6 +2088,36 @@ async function handleDrawerStatusChange(action, id) {
     openDrawer('application', id);
   } else {
     closeDrawer();
+  }
+}
+
+async function updateAcademyLeadMissionNetwork(record, patch = {}) {
+  if (!record?.memberId && !record?.ownerUid) {
+    throw new Error('Missing Lead Mission owner id.');
+  }
+
+  if (!record?.id) {
+    throw new Error('Missing Lead Mission id.');
+  }
+
+  const memberId = record.memberId || record.ownerUid;
+
+  await adminFetchJson(
+    `/api/admin/academy/lead-missions/${encodeURIComponent(memberId)}/${encodeURIComponent(record.id)}/network`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(patch)
+    }
+  );
+
+  await loadAdminBootstrap();
+
+  const refreshed = findById('academyLeadMissions', record.id);
+  if (refreshed) {
+    openDrawer('academyLeadMission', refreshed.id);
   }
 }
 
@@ -2306,23 +2357,82 @@ case 'waitlist-application': {
       }
       break;
     }
-    case 'academy-track': {
-      try {
-        await adminFetchJson(`/api/admin/academy/${encodeURIComponent(id)}/track`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({})
-        });
-
-        await loadAdminBootstrap();
-        showToast('Academy member marked on track.');
-      } catch (error) {
-        showToast(error.message || 'Failed to update academy status.');
-      }
-      break;
+case 'academy-track': {
+  try {
+    await adminFetchJson(`/api/admin/academy/${encodeURIComponent(id)}/track`, {
+      method: 'POST'
+    });
+    await loadAdminBootstrap();
+    showToast('Academy member marked on track.');
+  } catch (error) {
+    if (error?.message !== 'No active admin session.') {
+      showToast(error.message || 'Failed to update Academy status.');
     }
+  }
+  break;
+}
+
+case 'lead-federation-ready': {
+  try {
+    const record = findById('academyLeadMissions', id);
+    if (!record) throw new Error('Lead Mission record not found.');
+
+    await updateAcademyLeadMissionNetwork(record, {
+      federationReady: !record.federationReady
+    });
+
+    showToast(record.federationReady ? 'Removed Federation-ready routing.' : 'Marked Federation-ready.');
+  } catch (error) {
+    if (error?.message !== 'No active admin session.') {
+      showToast(error.message || 'Failed to update Federation routing.');
+    }
+  }
+  break;
+}
+
+case 'lead-plaza-ready': {
+  try {
+    const record = findById('academyLeadMissions', id);
+    if (!record) throw new Error('Lead Mission record not found.');
+
+    await updateAcademyLeadMissionNetwork(record, {
+      plazaReady: !record.plazaReady
+    });
+
+    showToast(record.plazaReady ? 'Removed Plaza-ready routing.' : 'Marked Plaza-ready.');
+  } catch (error) {
+    if (error?.message !== 'No active admin session.') {
+      showToast(error.message || 'Failed to update Plaza routing.');
+    }
+  }
+  break;
+}
+
+case 'lead-set-strategic-value': {
+  try {
+    const record = findById('academyLeadMissions', id);
+    if (!record) throw new Error('Lead Mission record not found.');
+
+    const currentValue = String(record.strategicValue || 'standard').trim() || 'standard';
+    const nextValue = window.prompt(
+      'Set strategic value: standard, watch, medium, high, or strategic',
+      currentValue
+    );
+
+    if (nextValue === null) return;
+
+    await updateAcademyLeadMissionNetwork(record, {
+      strategicValue: nextValue
+    });
+
+    showToast('Strategic value updated.');
+  } catch (error) {
+    if (error?.message !== 'No active admin session.') {
+      showToast(error.message || 'Failed to update strategic value.');
+    }
+  }
+  break;
+}
     case 'federation-verify': {
       const record = findById('federation', id);
       if (!record) return;

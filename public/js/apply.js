@@ -1297,7 +1297,48 @@ window.addEventListener('load', () => {
     localStorage.removeItem('yh_token');
     localStorage.removeItem('token');
 
+    const syncLandingMobileGlobePlacement = () => {
+        const heroGrid = document.querySelector('.yh-landing-hero-grid');
+        const activityPanel = document.querySelector('.yh-landing-activity-panel');
+        const heroVisual = document.querySelector('.yh-landing-hero-visual');
+
+        if (!heroGrid || !activityPanel || !heroVisual) return;
+
+        let desktopAnchor = document.getElementById('yh-landing-hero-visual-desktop-anchor');
+
+        if (!desktopAnchor) {
+            desktopAnchor = document.createElement('span');
+            desktopAnchor.id = 'yh-landing-hero-visual-desktop-anchor';
+            desktopAnchor.setAttribute('aria-hidden', 'true');
+            desktopAnchor.style.display = 'none';
+
+            if (heroVisual.parentElement) {
+                heroVisual.parentElement.insertBefore(desktopAnchor, heroVisual);
+            }
+        }
+
+        const shouldUseMobilePlacement = window.matchMedia('(max-width: 768px)').matches;
+
+        if (shouldUseMobilePlacement) {
+            if (activityPanel.nextElementSibling !== heroVisual) {
+                activityPanel.insertAdjacentElement('afterend', heroVisual);
+            }
+        } else if (desktopAnchor.parentElement && desktopAnchor.nextElementSibling !== heroVisual) {
+            desktopAnchor.parentElement.insertBefore(heroVisual, desktopAnchor.nextSibling);
+        }
+
+        window.requestAnimationFrame(() => {
+            if (typeof syncLandingGlobeSize === 'function') {
+                syncLandingGlobeSize();
+            }
+        });
+    };
+
+    syncLandingMobileGlobePlacement();
     initLandingMapShell();
+
+    window.addEventListener('resize', syncLandingMobileGlobePlacement, { passive: true });
+    window.addEventListener('orientationchange', syncLandingMobileGlobePlacement, { passive: true });
 
     // --- CARD FLIP LOGIC ---
     const flipper = document.getElementById('auth-flipper');
@@ -1305,11 +1346,167 @@ window.addEventListener('load', () => {
     const btnFlipLogin = document.getElementById('btn-flip-login');
     const triggerArea = document.querySelector('.flip-trigger-area');
 
-    const flipToRegister = () => flipper.classList.add('is-flipped');
-    const flipToLogin = () => flipper.classList.remove('is-flipped');
+    const syncMobileAuthCardHeight = (options = {}) => {
+        const animateFace = options.animateFace === true;
+
+        const authSection = document.getElementById('yh-auth-section');
+        const authCard = document.querySelector('.yh-auth-card');
+        const panelRight = authCard?.querySelector('.panel-right-wrapper');
+        const frontFace = authCard?.querySelector('.flip-card-front');
+        const backFace = authCard?.querySelector('.flip-card-back');
+
+        if (!authCard || !panelRight || !flipper || !frontFace || !backFace) return;
+
+        const isMobile = window.matchMedia('(max-width: 768px)').matches;
+
+        const clearRuntimeSizing = (node) => {
+            if (!node) return;
+
+            [
+                'display',
+                'height',
+                'min-height',
+                'max-height',
+                'position',
+                'inset',
+                'overflow',
+                'transform',
+                'transition',
+                'opacity',
+                'backface-visibility',
+                '-webkit-backface-visibility'
+            ].forEach((prop) => {
+                node.style.removeProperty(prop);
+            });
+        };
+
+        if (!isMobile) {
+            [authCard, panelRight, flipper, frontFace, backFace].forEach(clearRuntimeSizing);
+            return;
+        }
+
+        const activeFace = flipper.classList.contains('is-flipped') ? backFace : frontFace;
+        const inactiveFace = activeFace === frontFace ? backFace : frontFace;
+
+        const previousHeight = Math.ceil(authCard.getBoundingClientRect().height || 0);
+
+        authCard.style.setProperty('display', 'block', 'important');
+        authCard.style.setProperty('height', 'auto', 'important');
+        authCard.style.setProperty('min-height', '0px', 'important');
+        authCard.style.setProperty('max-height', 'none', 'important');
+        authCard.style.setProperty('overflow', 'hidden', 'important');
+
+        panelRight.style.setProperty('width', '100%', 'important');
+        panelRight.style.setProperty('height', 'auto', 'important');
+        panelRight.style.setProperty('min-height', '0px', 'important');
+        panelRight.style.setProperty('max-height', 'none', 'important');
+        panelRight.style.setProperty('overflow', 'hidden', 'important');
+
+        flipper.style.setProperty('position', 'relative', 'important');
+        flipper.style.setProperty('height', 'auto', 'important');
+        flipper.style.setProperty('min-height', '0px', 'important');
+        flipper.style.setProperty('max-height', 'none', 'important');
+        flipper.style.setProperty('transform', 'none', 'important');
+        flipper.style.setProperty('overflow', 'hidden', 'important');
+
+        inactiveFace.style.setProperty('display', 'none', 'important');
+
+        activeFace.style.setProperty('display', 'flex', 'important');
+        activeFace.style.setProperty('position', 'relative', 'important');
+        activeFace.style.setProperty('inset', 'auto', 'important');
+        activeFace.style.setProperty('height', 'auto', 'important');
+        activeFace.style.setProperty('min-height', '0px', 'important');
+        activeFace.style.setProperty('max-height', 'none', 'important');
+        activeFace.style.setProperty('overflow', 'visible', 'important');
+        activeFace.style.setProperty('backface-visibility', 'visible', 'important');
+        activeFace.style.setProperty('-webkit-backface-visibility', 'visible', 'important');
+
+        if (animateFace) {
+            activeFace.style.setProperty('transition', 'none', 'important');
+            activeFace.style.setProperty('opacity', '0', 'important');
+            activeFace.style.setProperty('transform', 'translateY(10px) scale(0.985)', 'important');
+        } else {
+            activeFace.style.setProperty('transition', 'none', 'important');
+            activeFace.style.setProperty('opacity', '1', 'important');
+            activeFace.style.setProperty('transform', 'none', 'important');
+        }
+
+        window.requestAnimationFrame(() => {
+            const activeHeight = Math.ceil(
+                activeFace.scrollHeight ||
+                activeFace.getBoundingClientRect().height ||
+                0
+            );
+
+            const finalHeight = activeHeight + 48;
+
+            if (finalHeight > 120) {
+                if (animateFace && previousHeight > 120) {
+                    authCard.style.setProperty('height', `${previousHeight}px`, 'important');
+                    panelRight.style.setProperty('height', `${previousHeight}px`, 'important');
+                    flipper.style.setProperty('height', `${previousHeight}px`, 'important');
+
+                    authCard.style.setProperty(
+                        'transition',
+                        'height 260ms cubic-bezier(0.22, 1, 0.36, 1), border-color 220ms ease, box-shadow 220ms ease',
+                        'important'
+                    );
+                    panelRight.style.setProperty(
+                        'transition',
+                        'height 260ms cubic-bezier(0.22, 1, 0.36, 1)',
+                        'important'
+                    );
+                    flipper.style.setProperty(
+                        'transition',
+                        'height 260ms cubic-bezier(0.22, 1, 0.36, 1)',
+                        'important'
+                    );
+
+                    window.requestAnimationFrame(() => {
+                        authCard.style.setProperty('height', `${finalHeight}px`, 'important');
+                        panelRight.style.setProperty('height', `${finalHeight}px`, 'important');
+                        flipper.style.setProperty('height', `${finalHeight}px`, 'important');
+                    });
+                } else {
+                    authCard.style.setProperty('height', `${finalHeight}px`, 'important');
+                    panelRight.style.setProperty('height', `${finalHeight}px`, 'important');
+                    flipper.style.setProperty('height', `${finalHeight}px`, 'important');
+                }
+            }
+
+            if (animateFace) {
+                window.requestAnimationFrame(() => {
+                    activeFace.style.setProperty(
+                        'transition',
+                        'opacity 220ms ease, transform 260ms cubic-bezier(0.22, 1, 0.36, 1)',
+                        'important'
+                    );
+                    activeFace.style.setProperty('opacity', '1', 'important');
+                    activeFace.style.setProperty('transform', 'translateY(0) scale(1)', 'important');
+                });
+            }
+
+            if (authSection) {
+                authSection.style.setProperty('min-height', 'auto', 'important');
+            }
+        });
+    };
+
+    const flipToRegister = () => {
+        if (!flipper) return;
+        flipper.classList.add('is-flipped');
+        syncMobileAuthCardHeight({ animateFace: true });
+    };
+
+    const flipToLogin = () => {
+        if (!flipper) return;
+        flipper.classList.remove('is-flipped');
+        syncMobileAuthCardHeight({ animateFace: true });
+    };
 
     if (btnFlipRegister) btnFlipRegister.addEventListener('click', flipToRegister);
     if (btnFlipLogin) btnFlipLogin.addEventListener('click', flipToLogin);
+
     if (triggerArea) {
         triggerArea.addEventListener('click', (e) => {
             if (e.target.classList.contains('auth-stop-propagation')) return;
@@ -1317,6 +1514,22 @@ window.addEventListener('load', () => {
         });
     }
 
+    syncMobileAuthCardHeight();
+
+    window.addEventListener('resize', () => syncMobileAuthCardHeight(), { passive: true });
+    window.addEventListener('orientationchange', () => syncMobileAuthCardHeight(), { passive: true });
+
+    if ('ResizeObserver' in window) {
+        const authCardResizeObserver = new ResizeObserver(() => {
+            syncMobileAuthCardHeight();
+        });
+
+        const frontFace = document.querySelector('.yh-auth-card .flip-card-front');
+        const backFace = document.querySelector('.yh-auth-card .flip-card-back');
+
+        if (frontFace) authCardResizeObserver.observe(frontFace);
+        if (backFace) authCardResizeObserver.observe(backFace);
+    }
     const setPendingVerifyEmail = (email) => {
         if (!email) return;
         sessionStorage.setItem('yh_pending_verify_email', String(email).trim().toLowerCase());
