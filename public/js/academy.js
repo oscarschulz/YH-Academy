@@ -10816,6 +10816,7 @@ function renderAcademyFeed(posts = []) {
             'Academy Member';
 
         const roleLabel = post.role_label || 'Academy Member';
+        const isOwner = Boolean(post.owned_by_me || post.can_edit || post.can_delete);
 
         // FB-style shared post parsing:
         // body format is created by buildAcademyFeedSharePayload():
@@ -10859,7 +10860,23 @@ function renderAcademyFeed(posts = []) {
         const hasMainBody = String(mainBodyText || '').trim().length > 0;
 
         const bodyBlockHtml = hasMainBody
-            ? `<div style="margin-top:8px;color:#e5e7eb;line-height:1.45;font-size:0.92rem;">${bodyHtml}</div>`
+            ? `<div class="academy-feed-post-body-display" id="academy-feed-post-body-display-${post.id}">${bodyHtml}${post.edited_at ? '<span class="academy-feed-edited-label">Edited</span>' : ''}</div>`
+            : `<div class="academy-feed-post-body-display hidden-step" id="academy-feed-post-body-display-${post.id}"></div>`;
+
+        const postEditFormHtml = isOwner
+            ? `
+                <div class="academy-feed-post-edit-form hidden-step" id="academy-feed-post-edit-form-${post.id}">
+                    <textarea
+                        class="chat-text-input academy-feed-post-edit-input"
+                        id="academy-feed-post-edit-input-${post.id}"
+                        rows="3"
+                    >${academyFeedEscapeHtml(rawBodyText)}</textarea>
+                    <div class="academy-feed-inline-actions">
+                        <button type="button" class="btn-secondary academy-feed-post-edit-cancel-btn" data-post-id="${post.id}">Cancel</button>
+                        <button type="button" class="btn-primary academy-feed-post-edit-save-btn" data-post-id="${post.id}">Save changes</button>
+                    </div>
+                </div>
+            `
             : '';
 
         // Media goes inside the embed card for shared posts (FB style)
@@ -10919,7 +10936,8 @@ function renderAcademyFeed(posts = []) {
         const mediaHtml = isSharedPost ? '' : outerMediaHtml;
         const avatarHtml = renderAcademyFeedAvatarHtml(post, displayName);
 
-        const isOwner = Boolean(Number(post.owned_by_me || 0));
+        const canEditPost = Boolean(post.can_edit || isOwner);
+        const canDeletePost = Boolean(post.can_delete || isOwner);
         const hiddenPosts = readAcademyHiddenPostIds();
         const normalizedPostId = normalizeAcademyFeedId(post.id);
 
@@ -10953,10 +10971,15 @@ function renderAcademyFeed(posts = []) {
                                     style="width:auto;padding:4px 10px;min-height:auto;border-radius:999px;"
                                 >•••</button>
 
-                                <div class="academy-feed-post-menu hidden-step" id="academy-feed-post-menu-${post.id}" style="position:absolute;top:calc(100% + 6px);right:0;min-width:160px;background:#0f172a;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:8px;display:grid;gap:6px;z-index:20;">
+                                <div class="academy-feed-post-menu hidden-step" id="academy-feed-post-menu-${post.id}" style="position:absolute;top:calc(100% + 6px);right:0;min-width:180px;background:#0f172a;border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:8px;display:grid;gap:6px;z-index:20;">
+                                    ${
+                                        canEditPost
+                                            ? `<button type="button" class="btn-secondary academy-feed-edit-post-btn" data-post-id="${post.id}" style="width:100%;padding:8px 10px;">Edit Post</button>`
+                                            : ``
+                                    }
                                     <button type="button" class="btn-secondary academy-feed-hide-btn" data-post-id="${post.id}" style="width:100%;padding:8px 10px;">Hide from My Feed</button>
                                     ${
-                                        isOwner
+                                        canDeletePost
                                             ? `<button type="button" class="btn-secondary academy-feed-delete-btn" data-post-id="${post.id}" style="width:100%;padding:8px 10px;">${isSharedPost ? 'Delete Shared Post' : 'Delete Post'}</button>`
                                             : ``
                                     }
@@ -10965,6 +10988,7 @@ function renderAcademyFeed(posts = []) {
                         </div>
 
                         ${bodyBlockHtml}
+                        ${postEditFormHtml}
                         ${sharedEmbedHtml}
                         ${mediaHtml}
 
@@ -11403,6 +11427,255 @@ async function academyFeedToggleLike(postId) {
     }
 }
 
+function academyFeedBuildCommentTree(comments = []) {
+    const byId = new Map();
+    const childrenByParent = new Map();
+    const roots = [];
+
+    (Array.isArray(comments) ? comments : []).forEach((comment) => {
+        const id = normalizeAcademyFeedId(comment?.id);
+        if (!id) return;
+
+        byId.set(id, {
+            ...comment,
+            id,
+            children: []
+        });
+    });
+
+    byId.forEach((comment) => {
+        const parentId = normalizeAcademyFeedId(
+            comment.parent_comment_id ||
+            comment.parentCommentId ||
+            ''
+        );
+
+        if (parentId && byId.has(parentId)) {
+            if (!childrenByParent.has(parentId)) childrenByParent.set(parentId, []);
+            childrenByParent.get(parentId).push(comment);
+        } else {
+            roots.push(comment);
+        }
+    });
+
+    const sortByTime = (items = []) => items.sort((a, b) => {
+        const left = new Date(a.created_at || a.createdAt || 0).getTime() || 0;
+        const right = new Date(b.created_at || b.createdAt || 0).getTime() || 0;
+        return left - right;
+    });
+
+    const attachChildren = (comment, seen = new Set()) => {
+        const id = normalizeAcademyFeedId(comment?.id);
+        if (!id || seen.has(id)) return comment;
+
+        const nextSeen = new Set(seen);
+        nextSeen.add(id);
+
+        comment.children = sortByTime(childrenByParent.get(id) || [])
+            .filter((child) => !nextSeen.has(normalizeAcademyFeedId(child?.id)))
+            .map((child) => attachChildren(child, nextSeen));
+
+        return comment;
+    };
+
+    return sortByTime(roots).map((comment) => attachChildren(comment));
+}
+
+function academyFeedRenderCommentNode(postId, comment = {}, depth = 0, seen = new Set()) {
+    const commentId = normalizeAcademyFeedId(comment.id);
+    if (!postId || !commentId || seen.has(commentId)) return '';
+
+    const nextSeen = new Set(seen);
+    nextSeen.add(commentId);
+
+    const displayName =
+        comment.display_name ||
+        comment.fullName ||
+        comment.username ||
+        'Academy Member';
+
+    const memberId = normalizeAcademyFeedId(
+        comment.user_id ||
+        comment.authorId ||
+        comment.userId ||
+        ''
+    );
+
+    const avatarUrl = academyResolveMemberAvatarUrl({
+        id: memberId,
+        user_id: memberId,
+        uid: memberId,
+        avatar: comment.avatar,
+        avatarUrl: comment.avatarUrl,
+        profilePhoto: comment.profilePhoto,
+        photoURL: comment.photoURL
+    });
+
+    const fallbackInitial = String(displayName || 'A').trim().charAt(0).toUpperCase() || 'A';
+    const canEdit = Boolean(comment.can_edit || comment.owned_by_me);
+    const canDelete = Boolean(comment.can_delete || comment.owned_by_me || comment.post_owned_by_me);
+    const canHide = comment.can_hide !== false;
+    const safeDepth = Math.max(0, Number(comment.depth ?? depth) || depth || 0);
+    const childComments = Array.isArray(comment.children) ? comment.children : [];
+
+    const avatarHtml = avatarUrl
+        ? `
+            <button
+                type="button"
+                class="academy-feed-author-trigger academy-feed-comment-avatar"
+                data-member-profile-id="${academyFeedEscapeHtml(memberId)}"
+                aria-label="Open ${academyFeedEscapeHtml(displayName)} profile"
+                style="background-image:url('${academyFeedEscapeHtml(avatarUrl)}');"
+            ></button>
+        `
+        : `
+            <button
+                type="button"
+                class="academy-feed-author-trigger academy-feed-comment-avatar academy-feed-comment-avatar-fallback"
+                data-member-profile-id="${academyFeedEscapeHtml(memberId)}"
+                aria-label="Open ${academyFeedEscapeHtml(displayName)} profile"
+            >${academyFeedEscapeHtml(fallbackInitial)}</button>
+        `;
+
+    const childrenHtml = childComments.length
+        ? `<div class="academy-feed-comment-children">${childComments.map((child) => academyFeedRenderCommentNode(postId, child, safeDepth + 1, nextSeen)).join('')}</div>`
+        : '';
+
+    return `
+        <div class="academy-feed-comment-node" data-comment-id="${academyFeedEscapeHtml(commentId)}" data-post-id="${academyFeedEscapeHtml(postId)}" data-depth="${safeDepth}">
+            <div class="academy-feed-comment-card">
+                ${avatarHtml}
+
+                <div class="academy-feed-comment-main">
+                    <div class="academy-feed-comment-head">
+                        <div class="academy-feed-comment-author-wrap">
+                            <button
+                                type="button"
+                                class="academy-feed-author-trigger academy-feed-author-name academy-feed-comment-author"
+                                data-member-profile-id="${academyFeedEscapeHtml(memberId)}"
+                            >${academyFeedEscapeHtml(displayName)}</button>
+
+                            <div class="academy-feed-comment-meta">
+                                ${academyFeedTimeLabel(comment.created_at)}${comment.edited_at ? ' • Edited' : ''}
+                            </div>
+                        </div>
+
+                        <div class="academy-feed-comment-menu-wrap">
+                            <button
+                                type="button"
+                                class="btn-secondary academy-feed-comment-menu-btn"
+                                data-post-id="${academyFeedEscapeHtml(postId)}"
+                                data-comment-id="${academyFeedEscapeHtml(commentId)}"
+                            >•••</button>
+
+                            <div class="academy-feed-comment-menu hidden-step" id="academy-feed-comment-menu-${commentId}">
+                                ${canEdit ? `<button type="button" class="btn-secondary academy-feed-comment-edit-btn" data-post-id="${academyFeedEscapeHtml(postId)}" data-comment-id="${academyFeedEscapeHtml(commentId)}">Edit</button>` : ''}
+                                ${canHide ? `<button type="button" class="btn-secondary academy-feed-comment-hide-btn" data-post-id="${academyFeedEscapeHtml(postId)}" data-comment-id="${academyFeedEscapeHtml(commentId)}">Hide</button>` : ''}
+                                ${canDelete ? `<button type="button" class="btn-secondary academy-feed-comment-delete-btn" data-post-id="${academyFeedEscapeHtml(postId)}" data-comment-id="${academyFeedEscapeHtml(commentId)}">Delete</button>` : ''}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="academy-feed-comment-body" id="academy-feed-comment-body-${commentId}">${academyFeedEscapeHtml(comment.body || '').replace(/\n/g, '<br>')}</div>
+
+                    <div class="academy-feed-comment-edit-form hidden-step" id="academy-feed-comment-edit-form-${commentId}">
+                        <textarea class="chat-text-input academy-feed-comment-edit-input" id="academy-feed-comment-edit-input-${commentId}" rows="2">${academyFeedEscapeHtml(comment.body || '')}</textarea>
+                        <div class="academy-feed-inline-actions">
+                            <button type="button" class="btn-secondary academy-feed-comment-edit-cancel-btn" data-post-id="${academyFeedEscapeHtml(postId)}" data-comment-id="${academyFeedEscapeHtml(commentId)}">Cancel</button>
+                            <button type="button" class="btn-primary academy-feed-comment-edit-save-btn" data-post-id="${academyFeedEscapeHtml(postId)}" data-comment-id="${academyFeedEscapeHtml(commentId)}">Save</button>
+                        </div>
+                    </div>
+
+                    <div class="academy-feed-comment-actions">
+                        <button type="button" class="academy-feed-comment-reply-btn" data-post-id="${academyFeedEscapeHtml(postId)}" data-comment-id="${academyFeedEscapeHtml(commentId)}" data-comment-author="${academyFeedEscapeHtml(displayName)}">Reply</button>
+                    </div>
+
+                    <div class="academy-feed-comment-reply-form hidden-step" id="academy-feed-comment-reply-form-${commentId}">
+                        <textarea class="chat-text-input academy-feed-comment-reply-input" id="academy-feed-comment-reply-input-${commentId}" rows="2" placeholder="Reply to ${academyFeedEscapeHtml(displayName)}."></textarea>
+                        <div class="academy-feed-inline-actions">
+                            <button type="button" class="btn-secondary academy-feed-comment-reply-cancel-btn" data-post-id="${academyFeedEscapeHtml(postId)}" data-comment-id="${academyFeedEscapeHtml(commentId)}">Cancel</button>
+                            <button type="button" class="btn-primary academy-feed-comment-reply-submit-btn" data-post-id="${academyFeedEscapeHtml(postId)}" data-comment-id="${academyFeedEscapeHtml(commentId)}">Reply</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            ${childrenHtml}
+        </div>
+    `;
+}
+
+function academyFeedCloseOpenPostMenus() {
+    document.querySelectorAll('.academy-feed-post-menu, .academy-feed-comment-menu').forEach((menu) => {
+        menu.classList.add('hidden-step');
+    });
+}
+
+function academyFeedStartPostEdit(postId) {
+    const normalizedPostId = normalizeAcademyFeedId(postId);
+    if (!normalizedPostId) return;
+
+    academyFeedCloseOpenPostMenus();
+    document.getElementById(`academy-feed-post-body-display-${normalizedPostId}`)?.classList.add('hidden-step');
+    document.getElementById(`academy-feed-post-edit-form-${normalizedPostId}`)?.classList.remove('hidden-step');
+    document.getElementById(`academy-feed-post-edit-input-${normalizedPostId}`)?.focus();
+}
+
+function academyFeedCancelPostEdit(postId) {
+    const normalizedPostId = normalizeAcademyFeedId(postId);
+    if (!normalizedPostId) return;
+
+    document.getElementById(`academy-feed-post-edit-form-${normalizedPostId}`)?.classList.add('hidden-step');
+    document.getElementById(`academy-feed-post-body-display-${normalizedPostId}`)?.classList.remove('hidden-step');
+}
+
+async function academyFeedSavePostEdit(postId) {
+    const normalizedPostId = normalizeAcademyFeedId(postId);
+    const input = document.getElementById(`academy-feed-post-edit-input-${normalizedPostId}`);
+    const body = String(input?.value || '').trim();
+
+    if (!normalizedPostId) return;
+
+    if (!body) {
+        showToast('Post cannot be empty.', 'error');
+        return;
+    }
+
+    try {
+        await academyAuthedFetch(`/api/academy/feed/posts/${encodeURIComponent(normalizedPostId)}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ body })
+        });
+
+        showToast('Post updated.', 'success');
+        await loadAcademyFeed(true);
+    } catch (error) {
+        showToast(error.message || 'Failed to update post.', 'error');
+    }
+}
+
+async function academyFeedHidePost(postId) {
+    const normalizedPostId = normalizeAcademyFeedId(postId);
+    if (!normalizedPostId) return;
+
+    try {
+        await academyAuthedFetch(`/api/academy/feed/posts/${encodeURIComponent(normalizedPostId)}/hide`, {
+            method: 'POST'
+        });
+
+        const hiddenPosts = readAcademyHiddenPostIds();
+        if (!hiddenPosts.includes(normalizedPostId)) {
+            hiddenPosts.push(normalizedPostId);
+            writeAcademyHiddenPostIds(hiddenPosts);
+        }
+
+        showToast('Post hidden only for your account.', 'success');
+        await loadAcademyFeed(true);
+    } catch (error) {
+        showToast(error.message || 'Failed to hide post.', 'error');
+    }
+}
+
 async function academyFeedLoadComments(postId, forceOpen = false) {
     const wrap = document.getElementById(`academy-feed-comments-${postId}`);
     const list = document.getElementById(`academy-feed-comments-list-${postId}`);
@@ -11414,7 +11687,7 @@ async function academyFeedLoadComments(postId, forceOpen = false) {
     }
 
     wrap.classList.remove('hidden-step');
-    list.innerHTML = `<div style="color:var(--text-muted);">Loading comments...</div>`;
+    list.innerHTML = `<div class="academy-feed-comments-loading">Loading comments...</div>`;
 
     try {
         const result = await academyAuthedFetch(`/api/academy/feed/posts/${postId}/comments`, {
@@ -11424,84 +11697,101 @@ async function academyFeedLoadComments(postId, forceOpen = false) {
         const comments = Array.isArray(result?.comments) ? result.comments : [];
 
         if (!comments.length) {
-            list.innerHTML = `<div style="color:var(--text-muted);">No comments yet.</div>`;
+            list.innerHTML = `<div class="academy-feed-comments-empty">No comments yet.</div>`;
             return;
         }
 
-        list.innerHTML = comments.map((comment) => {
-            const displayName =
-                comment.display_name ||
-                comment.fullName ||
-                comment.username ||
-                'Academy Member';
-
-            const memberId = normalizeAcademyFeedId(
-                comment.user_id ||
-                comment.authorId ||
-                comment.userId ||
-                ''
-            );
-
-            const avatarUrl = academyResolveMemberAvatarUrl({
-                id: memberId,
-                user_id: memberId,
-                uid: memberId,
-                avatar: comment.avatar,
-                avatarUrl: comment.avatarUrl,
-                profilePhoto: comment.profilePhoto,
-                photoURL: comment.photoURL
-            });
-
-            const fallbackInitial = String(displayName || 'A').trim().charAt(0).toUpperCase() || 'A';
-
-            const avatarHtml = avatarUrl
-                ? `
-                    <button
-                        type="button"
-                        class="academy-feed-author-trigger"
-                        data-member-profile-id="${academyFeedEscapeHtml(memberId)}"
-                        aria-label="Open ${academyFeedEscapeHtml(displayName)} profile"
-                        style="width:34px;height:34px;min-width:34px;border-radius:999px;border:1px solid rgba(14,165,233,0.25);background-image:url('${academyFeedEscapeHtml(avatarUrl)}');background-size:cover;background-position:center;background-color:#0ea5e9;cursor:pointer;box-shadow:0 0 14px rgba(14,165,233,0.18);"
-                    ></button>
-                `
-                : `
-                    <button
-                        type="button"
-                        class="academy-feed-author-trigger"
-                        data-member-profile-id="${academyFeedEscapeHtml(memberId)}"
-                        aria-label="Open ${academyFeedEscapeHtml(displayName)} profile"
-                        style="width:34px;height:34px;min-width:34px;border-radius:999px;border:1px solid rgba(14,165,233,0.25);background:#0ea5e9;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:0.86rem;cursor:pointer;box-shadow:0 0 14px rgba(14,165,233,0.18);"
-                    >${academyFeedEscapeHtml(fallbackInitial)}</button>
-                `;
-
-            return `
-                <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:12px;">
-                    <div style="display:flex;align-items:flex-start;gap:10px;">
-                        ${avatarHtml}
-
-                        <div style="min-width:0;flex:1;">
-                            <button
-                                type="button"
-                                class="academy-feed-author-trigger academy-feed-author-name"
-                                data-member-profile-id="${academyFeedEscapeHtml(memberId)}"
-                                style="font-weight:700;color:#fff;line-height:1.15;background:transparent;border:0;padding:0;text-align:left;cursor:pointer;"
-                            >${academyFeedEscapeHtml(displayName)}</button>
-
-                            <div style="font-size:0.78rem;color:var(--text-muted);margin-top:2px;">${academyFeedTimeLabel(comment.created_at)}</div>
-                            <div style="margin-top:8px;color:#e5e7eb;line-height:1.55;">${academyFeedEscapeHtml(comment.body || '').replace(/\n/g, '<br>')}</div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }).join('');
+        const threadedComments = academyFeedBuildCommentTree(comments);
+        list.innerHTML = threadedComments
+            .map((comment) => academyFeedRenderCommentNode(postId, comment, 0))
+            .join('');
     } catch (error) {
-        list.innerHTML = `<div style="color:var(--text-muted);">Failed to load comments.</div>`;
+        list.innerHTML = `<div class="academy-feed-comments-empty">Failed to load comments.</div>`;
     }
 }
 
-async function academyFeedSubmitComment(postId) {
-    const input = document.getElementById(`academy-feed-comment-input-${postId}`);
+async function academyFeedSubmitComment(postId, parentCommentId = '') {
+    const normalizedPostId = normalizeAcademyFeedId(postId);
+    const normalizedParentCommentId = normalizeAcademyFeedId(parentCommentId);
+    const input = normalizedParentCommentId
+        ? document.getElementById(`academy-feed-comment-reply-input-${normalizedParentCommentId}`)
+        : document.getElementById(`academy-feed-comment-input-${normalizedPostId}`);
+
     const body = String(input?.value || '').trim();
+
+    if (!normalizedPostId) return;
+
+    if (!body) {
+        showToast(normalizedParentCommentId ? 'Reply cannot be empty.' : 'Comment cannot be empty.', 'error');
+        return;
+    }
+
+    try {
+        await academyAuthedFetch(`/api/academy/feed/posts/${encodeURIComponent(normalizedPostId)}/comments`, {
+            method: 'POST',
+            body: JSON.stringify({
+                body,
+                parentCommentId: normalizedParentCommentId
+            })
+        });
+
+        if (input) input.value = '';
+
+        if (normalizedParentCommentId) {
+            document.getElementById(`academy-feed-comment-reply-form-${normalizedParentCommentId}`)?.classList.add('hidden-step');
+        }
+
+        await academyFeedLoadComments(normalizedPostId, true);
+        await loadAcademyFeed(true);
+    } catch (error) {
+        showToast(error.message || 'Failed to post comment.', 'error');
+    }
+}
+
+function academyFeedStartCommentReply(postId, commentId) {
+    const normalizedCommentId = normalizeAcademyFeedId(commentId);
+    if (!postId || !normalizedCommentId) return;
+
+    academyFeedCloseOpenPostMenus();
+    document.getElementById(`academy-feed-comment-reply-form-${normalizedCommentId}`)?.classList.remove('hidden-step');
+    document.getElementById(`academy-feed-comment-reply-input-${normalizedCommentId}`)?.focus();
+}
+
+function academyFeedCancelCommentReply(commentId) {
+    const normalizedCommentId = normalizeAcademyFeedId(commentId);
+    if (!normalizedCommentId) return;
+
+    const form = document.getElementById(`academy-feed-comment-reply-form-${normalizedCommentId}`);
+    const input = document.getElementById(`academy-feed-comment-reply-input-${normalizedCommentId}`);
+    if (input) input.value = '';
+    form?.classList.add('hidden-step');
+}
+
+function academyFeedStartCommentEdit(commentId) {
+    const normalizedCommentId = normalizeAcademyFeedId(commentId);
+    if (!normalizedCommentId) return;
+
+    academyFeedCloseOpenPostMenus();
+    document.getElementById(`academy-feed-comment-body-${normalizedCommentId}`)?.classList.add('hidden-step');
+    document.getElementById(`academy-feed-comment-edit-form-${normalizedCommentId}`)?.classList.remove('hidden-step');
+    document.getElementById(`academy-feed-comment-edit-input-${normalizedCommentId}`)?.focus();
+}
+
+function academyFeedCancelCommentEdit(commentId) {
+    const normalizedCommentId = normalizeAcademyFeedId(commentId);
+    if (!normalizedCommentId) return;
+
+    document.getElementById(`academy-feed-comment-edit-form-${normalizedCommentId}`)?.classList.add('hidden-step');
+    document.getElementById(`academy-feed-comment-body-${normalizedCommentId}`)?.classList.remove('hidden-step');
+}
+
+async function academyFeedSaveCommentEdit(postId, commentId) {
+    const normalizedPostId = normalizeAcademyFeedId(postId);
+    const normalizedCommentId = normalizeAcademyFeedId(commentId);
+    const input = document.getElementById(`academy-feed-comment-edit-input-${normalizedCommentId}`);
+    const body = String(input?.value || '').trim();
+
+    if (!normalizedPostId || !normalizedCommentId) return;
 
     if (!body) {
         showToast('Comment cannot be empty.', 'error');
@@ -11509,16 +11799,61 @@ async function academyFeedSubmitComment(postId) {
     }
 
     try {
-        await academyAuthedFetch(`/api/academy/feed/posts/${postId}/comments`, {
-            method: 'POST',
+        await academyAuthedFetch(`/api/academy/feed/posts/${encodeURIComponent(normalizedPostId)}/comments/${encodeURIComponent(normalizedCommentId)}`, {
+            method: 'PATCH',
             body: JSON.stringify({ body })
         });
 
-        if (input) input.value = '';
-        await academyFeedLoadComments(postId, true);
-        loadAcademyFeed(true);
+        showToast('Comment updated.', 'success');
+        await academyFeedLoadComments(normalizedPostId, true);
+        await loadAcademyFeed(true);
     } catch (error) {
-        showToast(error.message || 'Failed to post comment.', 'error');
+        showToast(error.message || 'Failed to update comment.', 'error');
+    }
+}
+
+async function academyFeedDeleteComment(postId, commentId) {
+    const normalizedPostId = normalizeAcademyFeedId(postId);
+    const normalizedCommentId = normalizeAcademyFeedId(commentId);
+    if (!normalizedPostId || !normalizedCommentId) return;
+
+    const confirmed = await openYHConfirmModal({
+        title: 'Delete comment?',
+        message: 'This comment will be removed from the thread.',
+        okText: 'Delete',
+        cancelText: 'Cancel',
+        tone: 'danger'
+    });
+
+    if (!confirmed) return;
+
+    try {
+        await academyAuthedFetch(`/api/academy/feed/posts/${encodeURIComponent(normalizedPostId)}/comments/${encodeURIComponent(normalizedCommentId)}`, {
+            method: 'DELETE'
+        });
+
+        showToast('Comment deleted.', 'success');
+        await academyFeedLoadComments(normalizedPostId, true);
+        await loadAcademyFeed(true);
+    } catch (error) {
+        showToast(error.message || 'Failed to delete comment.', 'error');
+    }
+}
+
+async function academyFeedHideComment(postId, commentId) {
+    const normalizedPostId = normalizeAcademyFeedId(postId);
+    const normalizedCommentId = normalizeAcademyFeedId(commentId);
+    if (!normalizedPostId || !normalizedCommentId) return;
+
+    try {
+        await academyAuthedFetch(`/api/academy/feed/posts/${encodeURIComponent(normalizedPostId)}/comments/${encodeURIComponent(normalizedCommentId)}/hide`, {
+            method: 'POST'
+        });
+
+        showToast('Comment hidden only for your account.', 'success');
+        await academyFeedLoadComments(normalizedPostId, true);
+    } catch (error) {
+        showToast(error.message || 'Failed to hide comment.', 'error');
     }
 }
 
@@ -12280,23 +12615,39 @@ document.getElementById('academy-feed-list')?.addEventListener('click', async (e
         const postId = normalizeAcademyFeedId(menuBtn.getAttribute('data-post-id'));
         if (!postId) return;
         const menu = document.getElementById(`academy-feed-post-menu-${postId}`);
-        if (menu) menu.classList.toggle('hidden-step');
+        if (menu) {
+            const wasHidden = menu.classList.contains('hidden-step');
+            academyFeedCloseOpenPostMenus();
+            if (wasHidden) menu.classList.remove('hidden-step');
+        }
+        return;
+    }
+
+    const editPostBtn = event.target.closest('.academy-feed-edit-post-btn');
+    if (editPostBtn) {
+        const postId = normalizeAcademyFeedId(editPostBtn.getAttribute('data-post-id'));
+        if (postId) academyFeedStartPostEdit(postId);
+        return;
+    }
+
+    const savePostEditBtn = event.target.closest('.academy-feed-post-edit-save-btn');
+    if (savePostEditBtn) {
+        const postId = normalizeAcademyFeedId(savePostEditBtn.getAttribute('data-post-id'));
+        if (postId) academyFeedSavePostEdit(postId);
+        return;
+    }
+
+    const cancelPostEditBtn = event.target.closest('.academy-feed-post-edit-cancel-btn');
+    if (cancelPostEditBtn) {
+        const postId = normalizeAcademyFeedId(cancelPostEditBtn.getAttribute('data-post-id'));
+        if (postId) academyFeedCancelPostEdit(postId);
         return;
     }
 
     const hideBtn = event.target.closest('.academy-feed-hide-btn');
     if (hideBtn) {
         const postId = normalizeAcademyFeedId(hideBtn.getAttribute('data-post-id'));
-        if (!postId) return;
-
-        const hiddenPosts = readAcademyHiddenPostIds();
-        if (!hiddenPosts.includes(postId)) {
-            hiddenPosts.push(postId);
-            writeAcademyHiddenPostIds(hiddenPosts);
-        }
-
-        showToast('Post hidden only for your account.', 'success');
-        loadAcademyFeed(true);
+        if (postId) academyFeedHidePost(postId);
         return;
     }
 
@@ -12309,10 +12660,85 @@ document.getElementById('academy-feed-list')?.addEventListener('click', async (e
         return;
     }
 
+    const commentMenuBtn = event.target.closest('.academy-feed-comment-menu-btn');
+    if (commentMenuBtn) {
+        const commentId = normalizeAcademyFeedId(commentMenuBtn.getAttribute('data-comment-id'));
+        if (!commentId) return;
+        const menu = document.getElementById(`academy-feed-comment-menu-${commentId}`);
+        if (menu) {
+            const wasHidden = menu.classList.contains('hidden-step');
+            academyFeedCloseOpenPostMenus();
+            if (wasHidden) menu.classList.remove('hidden-step');
+        }
+        return;
+    }
+
+    const replyBtn = event.target.closest('.academy-feed-comment-reply-btn');
+    if (replyBtn) {
+        const postId = normalizeAcademyFeedId(replyBtn.getAttribute('data-post-id'));
+        const commentId = normalizeAcademyFeedId(replyBtn.getAttribute('data-comment-id'));
+        if (postId && commentId) academyFeedStartCommentReply(postId, commentId);
+        return;
+    }
+
+    const replyCancelBtn = event.target.closest('.academy-feed-comment-reply-cancel-btn');
+    if (replyCancelBtn) {
+        const commentId = normalizeAcademyFeedId(replyCancelBtn.getAttribute('data-comment-id'));
+        if (commentId) academyFeedCancelCommentReply(commentId);
+        return;
+    }
+
+    const replySubmitBtn = event.target.closest('.academy-feed-comment-reply-submit-btn');
+    if (replySubmitBtn) {
+        const postId = normalizeAcademyFeedId(replySubmitBtn.getAttribute('data-post-id'));
+        const commentId = normalizeAcademyFeedId(replySubmitBtn.getAttribute('data-comment-id'));
+        if (postId && commentId) academyFeedSubmitComment(postId, commentId);
+        return;
+    }
+
+    const commentEditBtn = event.target.closest('.academy-feed-comment-edit-btn');
+    if (commentEditBtn) {
+        const commentId = normalizeAcademyFeedId(commentEditBtn.getAttribute('data-comment-id'));
+        if (commentId) academyFeedStartCommentEdit(commentId);
+        return;
+    }
+
+    const commentEditCancelBtn = event.target.closest('.academy-feed-comment-edit-cancel-btn');
+    if (commentEditCancelBtn) {
+        const commentId = normalizeAcademyFeedId(commentEditCancelBtn.getAttribute('data-comment-id'));
+        if (commentId) academyFeedCancelCommentEdit(commentId);
+        return;
+    }
+
+    const commentEditSaveBtn = event.target.closest('.academy-feed-comment-edit-save-btn');
+    if (commentEditSaveBtn) {
+        const postId = normalizeAcademyFeedId(commentEditSaveBtn.getAttribute('data-post-id'));
+        const commentId = normalizeAcademyFeedId(commentEditSaveBtn.getAttribute('data-comment-id'));
+        if (postId && commentId) academyFeedSaveCommentEdit(postId, commentId);
+        return;
+    }
+
+    const commentHideBtn = event.target.closest('.academy-feed-comment-hide-btn');
+    if (commentHideBtn) {
+        const postId = normalizeAcademyFeedId(commentHideBtn.getAttribute('data-post-id'));
+        const commentId = normalizeAcademyFeedId(commentHideBtn.getAttribute('data-comment-id'));
+        if (postId && commentId) academyFeedHideComment(postId, commentId);
+        return;
+    }
+
+    const commentDeleteBtn = event.target.closest('.academy-feed-comment-delete-btn');
+    if (commentDeleteBtn) {
+        const postId = normalizeAcademyFeedId(commentDeleteBtn.getAttribute('data-post-id'));
+        const commentId = normalizeAcademyFeedId(commentDeleteBtn.getAttribute('data-comment-id'));
+        if (postId && commentId) academyFeedDeleteComment(postId, commentId);
+        return;
+    }
+
     const commentSubmitBtn = event.target.closest('.academy-feed-comment-submit-btn');
     if (commentSubmitBtn) {
         const postId = normalizeAcademyFeedId(commentSubmitBtn.getAttribute('data-post-id'));
         if (postId) academyFeedSubmitComment(postId);
+        return;
     }
 
     const followMemberBtn = event.target.closest('[data-member-follow-id]');
