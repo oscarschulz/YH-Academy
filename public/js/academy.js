@@ -837,6 +837,7 @@ function openRoom(type, element) {
         'academy-feed-view': document.getElementById('academy-feed-view'),
         'academy-chat': document.getElementById('academy-chat'),
         'academy-profile-view': document.getElementById('academy-profile-view'),
+        'academy-lead-missions-view': document.getElementById('academy-lead-missions-view'),
         'center-stage-view': document.getElementById('center-stage-view'),
         'announcements-view': document.getElementById('announcements-view'),
         'voice-lobby-view': document.getElementById('voice-lobby-view'),
@@ -4618,6 +4619,16 @@ function academyGetTrendMeta(currentValue, previousValue, mode = 'ratio-good') {
     };
 }
 function renderAcademyHome(homeData = null) {
+    const activeLeadMissionsView = document.getElementById('academy-lead-missions-view');
+
+    if (
+        document.body?.getAttribute('data-yh-view') === 'academy' &&
+        activeLeadMissionsView &&
+        !activeLeadMissionsView.classList.contains('hidden-step')
+    ) {
+        return;
+    }
+
     const safeHtml = (value) => {
         if (value === null || value === undefined) return '';
         return String(value)
@@ -11741,8 +11752,8 @@ async function academyFeedSubmitComment(postId, parentCommentId = '') {
             document.getElementById(`academy-feed-comment-reply-form-${normalizedParentCommentId}`)?.classList.add('hidden-step');
         }
 
-        await academyFeedLoadComments(normalizedPostId, true);
         await loadAcademyFeed(true);
+        await academyFeedLoadComments(normalizedPostId, true);
     } catch (error) {
         showToast(error.message || 'Failed to post comment.', 'error');
     }
@@ -11805,8 +11816,8 @@ async function academyFeedSaveCommentEdit(postId, commentId) {
         });
 
         showToast('Comment updated.', 'success');
-        await academyFeedLoadComments(normalizedPostId, true);
         await loadAcademyFeed(true);
+        await academyFeedLoadComments(normalizedPostId, true);
     } catch (error) {
         showToast(error.message || 'Failed to update comment.', 'error');
     }
@@ -11833,8 +11844,8 @@ async function academyFeedDeleteComment(postId, commentId) {
         });
 
         showToast('Comment deleted.', 'success');
-        await academyFeedLoadComments(normalizedPostId, true);
         await loadAcademyFeed(true);
+        await academyFeedLoadComments(normalizedPostId, true);
     } catch (error) {
         showToast(error.message || 'Failed to delete comment.', 'error');
     }
@@ -11945,6 +11956,11 @@ function restoreDashboardViewState() {
     const requestedSection = getAcademySectionFromUrl();
     const savedSection = String(state.academySection || 'home').trim().toLowerCase();
     const targetSection = requestedSection !== 'home' ? requestedSection : savedSection;
+
+    if (targetSection === 'lead-missions') {
+        enterAcademyWorld('lead-missions');
+        return;
+    }
 
     enterAcademyWorld('home');
 
@@ -12081,6 +12097,11 @@ function enterAcademyWorld(defaultSection = 'home') {
         if (defaultSection === 'video') {
             setAcademySidebarActive('nav-voice'); // fallback since wala pang nav-video
             openRoom('video', document.getElementById('nav-voice'));
+            return;
+        }
+
+        if (defaultSection === 'lead-missions') {
+            openAcademyLeadMissionsView();
             return;
         }
 
