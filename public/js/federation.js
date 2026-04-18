@@ -248,7 +248,111 @@ async function federationConnectFetch(url, options = {}) {
 
   return data || {};
 }
+const federationServerState = {
+  loading: false,
+  loaded: false,
+  currentUser: null,
+  application: null,
+  applications: [],
+  member: null,
+  members: [],
+  error: ""
+};
 
+function normalizeFederationMember(raw = {}) {
+  const email = String(raw.email || raw.emailLower || "").trim().toLowerCase();
+
+  return {
+    id: String(raw.id || raw.userId || email || makeId("fed_member")).trim(),
+    userId: String(raw.userId || raw.id || "").trim(),
+    email,
+    emailLower: email,
+    name: String(raw.name || raw.fullName || raw.username || "Federation Member").trim(),
+    role: String(raw.role || raw.profession || "Approved Federation Member").trim(),
+    badge: String(raw.badge || "Verified").trim(),
+    category: String(raw.category || raw.primaryCategory || "Strategic Operator").trim(),
+    country: String(raw.country || "").trim(),
+    city: String(raw.city || "").trim(),
+    company: String(raw.company || "").trim(),
+    description: String(raw.description || raw.bio || "Approved Federation member.").trim(),
+    approvedAt: String(raw.approvedAt || raw.createdAt || raw.updatedAt || "").trim(),
+    source: String(raw.source || "server").trim(),
+    referralCode: String(raw.referralCode || "").trim()
+  };
+}
+
+function normalizeFederationApplication(raw = {}) {
+  return {
+    ...raw,
+    id: String(raw.id || "").trim(),
+    name: String(raw.name || raw.fullName || "Federation Applicant").trim(),
+    fullName: String(raw.fullName || raw.name || "").trim(),
+    email: String(raw.email || "").trim().toLowerCase(),
+    status: String(raw.status || "Under Review").trim(),
+    recommendedDivision: "Federation",
+    applicationType: "federation-access"
+  };
+}
+
+async function loadFederationServerState(options = {}) {
+  const force = options.force === true;
+
+  if (federationServerState.loading) return federationServerState;
+  if (federationServerState.loaded && !force) return federationServerState;
+
+  federationServerState.loading = true;
+  federationServerState.error = "";
+
+  try {
+    const [meResult, directoryResult] = await Promise.all([
+      federationConnectFetch("/api/federation/me"),
+      federationConnectFetch("/api/federation/directory")
+    ]);
+
+    federationServerState.currentUser =
+      meResult.currentUser && typeof meResult.currentUser === "object"
+        ? meResult.currentUser
+        : null;
+
+    federationServerState.application =
+      meResult.application && typeof meResult.application === "object"
+        ? normalizeFederationApplication(meResult.application)
+        : null;
+
+    federationServerState.applications = Array.isArray(meResult.applications)
+      ? meResult.applications.map(normalizeFederationApplication)
+      : (federationServerState.application ? [federationServerState.application] : []);
+
+    federationServerState.member =
+      meResult.member && typeof meResult.member === "object"
+        ? normalizeFederationMember(meResult.member)
+        : null;
+
+    const directoryMembers = Array.isArray(directoryResult.members)
+      ? directoryResult.members.map(normalizeFederationMember)
+      : [];
+
+    federationServerState.members = federationServerState.member
+      ? [
+          federationServerState.member,
+          ...directoryMembers.filter((member) => {
+            return normalizeEmail(member.email) !== normalizeEmail(federationServerState.member.email);
+          })
+        ]
+      : directoryMembers;
+
+    federationServerState.loaded = true;
+    federationServerState.loading = false;
+
+    return federationServerState;
+  } catch (error) {
+    console.error("Federation server state load error:", error);
+    federationServerState.error = error?.message || "Failed to load Federation server state.";
+    federationServerState.loaded = false;
+    federationServerState.loading = false;
+    return federationServerState;
+  }
+}
 function normalizeFederationConnectOpportunity(raw = {}) {
   const ownerUid = String(raw.ownerUid || "").trim();
   const leadId = String(raw.leadId || "").trim();
@@ -677,6 +781,12 @@ function initFederationConnect() {
   }
 }
 function getApplications() {
+  if (federationServerState.loaded) {
+    return Array.isArray(federationServerState.applications)
+      ? federationServerState.applications
+      : [];
+  }
+
   const applications = readStorage(STORAGE_KEYS.applications, []);
   return Array.isArray(applications) ? applications : [];
 }
@@ -686,6 +796,12 @@ function setApplications(applications) {
 }
 
 function getMembers() {
+  if (federationServerState.loaded) {
+    return Array.isArray(federationServerState.members)
+      ? federationServerState.members
+      : [];
+  }
+
   const members = readStorage(STORAGE_KEYS.members, []);
   return Array.isArray(members) ? members : [];
 }
@@ -695,10 +811,11 @@ function setMembers(members) {
 }
 
 function ensureSeedMembers() {
-  const existing = localStorage.getItem(STORAGE_KEYS.members);
-  if (!existing) {
-    setMembers(seedMembers);
-  }
+  /*
+   * Federation no longer seeds mock members into the live UI.
+   * Members now come from /api/federation/directory.
+   * Keep this function as a no-op so older init flow does not break.
+   */
 }
 
 function removeMemberByEmail(emailLower) {
@@ -707,6 +824,10 @@ function removeMemberByEmail(emailLower) {
 }
 
 function getCurrentUser() {
+  if (federationServerState.loaded && federationServerState.currentUser) {
+    return federationServerState.currentUser;
+  }
+
   const currentUser = readStorage(STORAGE_KEYS.currentUser, null);
   if (!currentUser || typeof currentUser !== "object") {
     return null;
@@ -741,6 +862,24 @@ function getMemberByEmail(emailLower) {
 }
 
 function getCurrentUserState() {
+  if (federationServerState.loaded && federationServerState.member) {
+    return {
+      type: "member",
+      currentUser: federationServerState.currentUser,
+      application: federationServerState.application,
+      member: federationServerState.member
+    };
+  }
+
+  if (federationServerState.loaded && federationServerState.application) {
+    return {
+      type: "applicant",
+      currentUser: federationServerState.currentUser,
+      application: federationServerState.application,
+      member: null
+    };
+  }
+
   const currentUser = getCurrentUser();
 
   if (!currentUser || !currentUser.email) {
@@ -1126,36 +1265,26 @@ function syncFederationChrome() {
 
   document.body.dataset.fedState = state.type;
 
-  if (navCommand) navCommand.hidden = state.type !== "member";
-  if (navConnect) navConnect.hidden = state.type !== "member";
-  if (commandBtn) commandBtn.hidden = state.type !== "member";
-  if (connectBtn) connectBtn.hidden = state.type !== "member";
-  if (navApply) navApply.hidden = !canApply;
-  if (navAdmin) navAdmin.hidden = !isAdminModeEnabled();
+  if (navCommand) navCommand.hidden = false;
+  if (navConnect) navConnect.hidden = false;
+  if (commandBtn) commandBtn.hidden = true;
+  if (connectBtn) connectBtn.hidden = false;
 
-  if (mobileCommand) mobileCommand.hidden = state.type !== "member";
-  if (mobileConnect) mobileConnect.hidden = state.type !== "member";
-  if (mobileApply) mobileApply.hidden = !canApply;
-  if (mobileAdmin) mobileAdmin.hidden = !isAdminModeEnabled();
+  if (navApply) navApply.hidden = true;
+  if (navAdmin) navAdmin.hidden = true;
 
-  if (quickCommand) quickCommand.hidden = state.type !== "member";
-  if (quickConnect) quickConnect.hidden = state.type !== "member";
-  if (quickApply) quickApply.hidden = !canApply;
+  if (mobileCommand) mobileCommand.hidden = true;
+  if (mobileConnect) mobileConnect.hidden = false;
+  if (mobileApply) mobileApply.hidden = true;
+  if (mobileAdmin) mobileAdmin.hidden = true;
+
+  if (quickCommand) quickCommand.hidden = true;
+  if (quickConnect) quickConnect.hidden = false;
+  if (quickApply) quickApply.hidden = true;
 
   if (primaryCtaBtn) {
-    if (state.type === "member") {
-      primaryCtaBtn.textContent = "Open Member Command";
-      primaryCtaBtn.setAttribute("data-jump", "#command");
-    } else if (state.type === "applicant" && !canApply) {
-      primaryCtaBtn.textContent = "View Application Status";
-      primaryCtaBtn.setAttribute("data-jump", "#status");
-    } else if (state.type === "applicant" && canApply) {
-      primaryCtaBtn.textContent = "Apply Again";
-      primaryCtaBtn.setAttribute("data-jump", "#apply");
-    } else {
-      primaryCtaBtn.textContent = "Request Access";
-      primaryCtaBtn.setAttribute("data-jump", "#apply");
-    }
+    primaryCtaBtn.textContent = "Open Connect";
+    primaryCtaBtn.setAttribute("data-jump", "#connect");
   }
 
   if (mobileApply) {
@@ -3063,9 +3192,8 @@ function exposeHelpers() {
     }
   };
 }
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   ensureSeedMembers();
-  ensureMemberReferralCodes();
   initDirectory();
   initSectionNavigation();
   initMobileAppShell();
@@ -3077,8 +3205,17 @@ document.addEventListener("DOMContentLoaded", () => {
   initForm();
   initSessionLookup();
   initReferralActions();
-  initAdminModeToggle();
-  initAdminActions();
+
+  await loadFederationServerState({ force: true });
+
+  ensureMemberReferralCodes();
   refreshFederationUI();
+
+  if (getCurrentUserState().type === "member") {
+    loadFederationConnectData({ force: true }).catch((error) => {
+      console.error("Initial Federation Connect load error:", error);
+    });
+  }
+
   exposeHelpers();
 });

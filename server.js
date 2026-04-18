@@ -1290,7 +1290,155 @@ app.post('/api/academy/lead-missions/operator-profile', requireApiUser, async (r
         });
     }
 });
+function mapFederationMemberUserDoc(docSnap) {
+    const user = docSnap.data() || {};
+    const userId = sanitizeText(docSnap.id);
 
+    const application =
+        user.federationApplication && typeof user.federationApplication === 'object'
+            ? user.federationApplication
+            : {};
+
+    const name = sanitizeText(
+        application.fullName ||
+        application.name ||
+        user.fullName ||
+        user.name ||
+        user.displayName ||
+        user.username ||
+        'Federation Member'
+    );
+
+    const role = sanitizeText(
+        application.role ||
+        application.profession ||
+        user.profession ||
+        user.role ||
+        'Approved Federation Member'
+    );
+
+    const category = sanitizeText(
+        application.primaryCategory ||
+        user.primaryCategory ||
+        user.category ||
+        'Strategic Operator'
+    );
+
+    const country = sanitizeText(application.country || user.country || '');
+    const city = sanitizeText(application.city || user.city || '');
+
+    return {
+        id: userId,
+        userId,
+        email: sanitizeText(user.email || application.email || '').toLowerCase(),
+        emailLower: sanitizeText(user.email || application.email || '').toLowerCase(),
+        name,
+        role,
+        badge: sanitizeText(user.federationBadge || application.badge || 'Verified'),
+        category,
+        country,
+        city,
+        company: sanitizeText(application.company || user.company || ''),
+        description: sanitizeText(
+            application.networkValue ||
+            application.valueBring ||
+            application.background ||
+            user.bio ||
+            'Approved Federation member with verified strategic access.'
+        ).slice(0, 240),
+        approvedAt: mapFederationConnectTimestamp(user.federationApprovedAt || user.updatedAt || application.reviewedAt),
+        source: 'server'
+    };
+}
+
+app.get('/api/federation/me', requireApiUser, async (req, res) => {
+    try {
+        const userId = sanitizeText(req.user?.id);
+
+        const snap = await firestore.collection('users').doc(userId).get();
+        const user = snap.exists ? (snap.data() || {}) : {};
+
+        const application =
+            user.federationApplication && typeof user.federationApplication === 'object'
+                ? user.federationApplication
+                : null;
+
+        const rawStatus = sanitizeText(
+            user.federationMembershipStatus ||
+            user.federationApplicationStatus ||
+            application?.status ||
+            ''
+        );
+
+        const normalizedStatus = rawStatus.toLowerCase();
+
+        const approved =
+            user.hasFederationAccess === true ||
+            normalizedStatus === 'approved';
+
+        const currentUser = {
+            id: userId,
+            email: sanitizeText(user.email || req.user?.email || '').toLowerCase(),
+            emailLower: sanitizeText(user.email || req.user?.email || '').toLowerCase(),
+            name: sanitizeText(
+                user.fullName ||
+                user.name ||
+                user.displayName ||
+                req.user?.name ||
+                req.user?.username ||
+                'Federation Member'
+            ),
+            username: sanitizeText(user.username || req.user?.username || '')
+        };
+
+        return res.json({
+            success: true,
+            currentUser,
+            application,
+            applications: application ? [application] : [],
+            applicationStatus: rawStatus,
+            canEnterFederation: approved,
+            member: approved ? mapFederationMemberUserDoc(snap) : null
+        });
+    } catch (error) {
+        console.error('federation me error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load Federation member state.'
+        });
+    }
+});
+
+app.get('/api/federation/directory', requireApiUser, async (req, res) => {
+    try {
+        const snap = await firestore
+            .collection('users')
+            .where('hasFederationAccess', '==', true)
+            .limit(200)
+            .get();
+
+        const members = [];
+
+        snap.forEach((docSnap) => {
+            members.push(mapFederationMemberUserDoc(docSnap));
+        });
+
+        members.sort((a, b) => {
+            return String(a.name || '').localeCompare(String(b.name || ''));
+        });
+
+        return res.json({
+            success: true,
+            members
+        });
+    } catch (error) {
+        console.error('federation directory error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load Federation directory.'
+        });
+    }
+});
 app.get('/api/federation/connect/opportunities', requireApiUser, async (req, res) => {
     try {
         const snap = await firestore

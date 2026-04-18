@@ -4389,3 +4389,78 @@ body[data-fed-state="member"] #overview .fed-chip {
     width: 100%;
   }
 }
+/* ========================================================= */
+/* Federation Simplified Server-Backed Layout                 */
+/* ========================================================= */
+
+.fed-brand-logo-mark {
+  padding: 7px;
+  overflow: hidden;
+}
+
+.fed-brand-logo-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  filter: drop-shadow(0 0 8px rgba(77, 139, 255, 0.45));
+}
+
+.fed-shell {
+  grid-template-columns: 250px minmax(0, 1fr);
+}
+
+.fed-rightbar {
+  display: none !important;
+}
+
+.fed-sidebar-card:nth-of-type(3) {
+  display: none !important;
+}
+
+#fedNavAdmin,
+#fedNavApply,
+#adminModeToggle,
+#memberCommandBtn,
+#fedTopbarQuickApply,
+#fedMobileApply,
+#fedMobileAdmin,
+#fedMobileCommand {
+  display: none !important;
+}
+
+.fed-topbar-actions {
+  justify-content: flex-end;
+}
+
+.fed-topbar-actions .fed-btn {
+  min-width: 118px;
+}
+
+.fed-section.is-panel-hidden {
+  display: none !important;
+}
+
+.fed-section.is-active-panel {
+  display: block;
+}
+
+.fed-hero.is-active-panel {
+  display: grid;
+}
+
+@media (max-width: 1024px) {
+  .fed-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .fed-sidebar {
+    display: none;
+  }
+
+  .fed-main {
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+  }
+}

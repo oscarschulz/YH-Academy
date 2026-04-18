@@ -13,33 +13,28 @@
     href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
     rel="stylesheet"
   />
-  <link rel="stylesheet" href="/css/federation.css?v=20260418-federation-assets-1" />
+<link rel="stylesheet" href="/css/federation.css?v=20260418-federation-real-1" />
 </head>
 <body>
   <div class="fed-shell">
     <aside class="fed-sidebar">
       <div class="fed-brand">
-        <div class="fed-brand-mark">YH</div>
+        <div class="fed-brand-mark fed-brand-logo-mark">
+  <img src="/images/logo.avif" alt="Young Hustlers logo" />
+</div>
         <div>
           <div class="fed-brand-title">Young Hustlers</div>
           <div class="fed-brand-subtitle">Federation</div>
         </div>
       </div>
 
-      <nav class="fed-nav" id="fedNav">
-      <a href="#overview" class="fed-nav-link active">Overview</a>
-      <a href="#identity" class="fed-nav-link">Identity</a>
-      <a href="#sectors" class="fed-nav-link">Sectors</a>
-      <a href="#access" class="fed-nav-link">Access</a>
-      <a href="#expansion" class="fed-nav-link">Expansion</a>
-      <a href="#status" class="fed-nav-link">Your Access</a>
-      <a href="#command" class="fed-nav-link" id="fedNavCommand" hidden>Command</a>
-      <a href="#connect" class="fed-nav-link" id="fedNavConnect" hidden>Connect</a>
-      <a href="#referrals" class="fed-nav-link">Referrals</a>
-      <a href="#directory" class="fed-nav-link">Directory</a>
-      <a href="#apply" class="fed-nav-link" id="fedNavApply">Apply</a>
-      <a href="#admin" class="fed-nav-link" id="fedNavAdmin" hidden>Local Review</a>
-      </nav>
+<nav class="fed-nav" id="fedNav">
+  <a href="#overview" class="fed-nav-link active">Overview</a>
+  <a href="#connect" class="fed-nav-link" id="fedNavConnect">Connect</a>
+  <a href="#directory" class="fed-nav-link">Directory</a>
+  <a href="#referrals" class="fed-nav-link">Referrals</a>
+  <a href="#status" class="fed-nav-link">My Access</a>
+</nav>
 
       <div class="fed-sidebar-card">
         <div class="fed-sidebar-card-label">Federation Status</div>
@@ -101,34 +96,25 @@
                 <small>Open the member directory view</small>
               </a>
 
-              <a href="#apply" class="fed-topbar-quick-link fed-nav-link" id="fedTopbarQuickApply">
-                <strong>Request Access</strong>
-                <small>Start or repeat federation request</small>
-              </a>
+<!-- Federation application flow now lives in Dashboard before access is granted. -->
             </div>
           </details>
         </div>
 
-        <div class="fed-topbar-actions">
-          <button class="fed-btn fed-btn-secondary" data-jump="#status" type="button">
-            My Access
-          </button>
-          <button class="fed-btn fed-btn-secondary" id="memberCommandBtn" data-jump="#command" type="button" hidden>
-            Member Command
-          </button>
-          <button class="fed-btn fed-btn-secondary" id="connectBtn" data-jump="#connect" type="button" hidden>
-            Connect
-          </button>
-          <button class="fed-btn fed-btn-secondary" data-jump="#directory" type="button">
-            View Directory
-          </button>
-          <button class="fed-btn fed-btn-secondary" id="adminModeToggle" type="button">
-            Local Review: Off
-          </button>
-          <button class="fed-btn fed-btn-primary" id="primaryCtaBtn" data-jump="#apply" type="button">
-            Request Access
-          </button>
-        </div>
+<div class="fed-topbar-actions">
+  <button class="fed-btn fed-btn-primary" id="connectBtn" data-jump="#connect" type="button">
+    Connect
+  </button>
+  <button class="fed-btn fed-btn-secondary" data-jump="#directory" type="button">
+    Directory
+  </button>
+  <button class="fed-btn fed-btn-secondary" data-jump="#referrals" type="button">
+    Referrals
+  </button>
+  <button class="fed-btn fed-btn-secondary" data-jump="#status" type="button">
+    My Access
+  </button>
+</div>
       </header>
 
             <section class="fed-section fed-hero" id="overview" data-section="overview">
@@ -1111,14 +1097,14 @@
         <span class="fed-app-bottom-icon">◈</span>
         <span class="fed-app-bottom-label">Sectors</span>
       </a>
-      <a href="#status" class="fed-app-bottom-link fed-nav-link">
-        <span class="fed-app-bottom-icon">◎</span>
-        <span class="fed-app-bottom-label">Status</span>
-      </a>
-      <a href="#directory" class="fed-app-bottom-link fed-nav-link">
-        <span class="fed-app-bottom-icon">▦</span>
-        <span class="fed-app-bottom-label">Directory</span>
-      </a>
+<a href="#connect" class="fed-app-bottom-link fed-nav-link">
+  <span class="fed-app-bottom-icon">⇄</span>
+  <span class="fed-app-bottom-label">Connect</span>
+</a>
+<a href="#directory" class="fed-app-bottom-link fed-nav-link">
+  <span class="fed-app-bottom-icon">▦</span>
+  <span class="fed-app-bottom-label">Directory</span>
+</a>
       <button
         class="fed-app-bottom-link fed-app-bottom-more"
         id="fedMobileMoreToggle"
@@ -1161,10 +1147,7 @@
           <strong>Connect</strong>
           <small>Request verified strategic introductions</small>
         </a>
-        <a href="#apply" class="fed-app-more-link fed-nav-link" id="fedMobileApply">
-          <strong>Apply</strong>
-          <small>Submit or repeat access request</small>
-        </a>
+<!-- Apply removed: Federation applications are submitted from Dashboard before entry. -->
         <a href="#command" class="fed-app-more-link fed-nav-link" id="fedMobileCommand" hidden>
           <strong>Command</strong>
           <small>Private member operating layer</small>
@@ -1219,6 +1202,6 @@
     </aside>
   </div>
 
-  <script src="/js/federation.js?v=20260418-federation-assets-1"></script>
+<script src="/js/federation.js?v=20260418-federation-real-1"></script>
 </body>
 </html>
