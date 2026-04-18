@@ -7749,6 +7749,293 @@ function academyLeadFormatMoney(amount = 0, currency = 'USD') {
     }
 }
 
+const ACADEMY_LEAD_RECRUITMENT_PROFILE_STORAGE_KEY = 'yh_academy_lead_recruitment_profile_v1';
+
+function getAcademyLeadRecruitmentProfileStorageKey() {
+    const identity = String(
+        getStoredUserValue('yh_user_email', '') ||
+        getStoredUserValue('yh_user_username', '') ||
+        getStoredUserValue('yh_user_name', 'user') ||
+        'user'
+    )
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9@._-]/g, '_');
+
+    return `${ACADEMY_LEAD_RECRUITMENT_PROFILE_STORAGE_KEY}:${identity || 'user'}`;
+}
+
+function readAcademyLeadRecruitmentProfile() {
+    try {
+        const raw = localStorage.getItem(getAcademyLeadRecruitmentProfileStorageKey());
+        const parsed = JSON.parse(raw || 'null');
+
+        if (!parsed || typeof parsed !== 'object') return null;
+        return parsed;
+    } catch (_) {
+        return null;
+    }
+}
+
+function hasCompletedAcademyLeadRecruitmentProfile() {
+    const profile = readAcademyLeadRecruitmentProfile();
+    return profile?.completed === true;
+}
+
+function writeAcademyLeadRecruitmentProfile(profile = {}) {
+    const nextProfile = {
+        ...profile,
+        completed: true,
+        status: profile.status || 'active',
+        strategicValue: profile.strategicValue || 'unrated',
+        federationReady: profile.federationReady === true,
+        plazaReady: profile.plazaReady === true,
+        updatedAt: new Date().toISOString(),
+        submittedAt: profile.submittedAt || new Date().toISOString()
+    };
+
+    localStorage.setItem(
+        getAcademyLeadRecruitmentProfileStorageKey(),
+        JSON.stringify(nextProfile)
+    );
+
+    return nextProfile;
+}
+
+function academyLeadGetCheckedValues(form, name) {
+    return Array.from(form.querySelectorAll(`input[name="${name}"]:checked`))
+        .map((input) => String(input.value || '').trim())
+        .filter(Boolean);
+}
+
+function academyLeadSetCheckedValues(form, name, values = []) {
+    const selected = new Set((Array.isArray(values) ? values : []).map((value) => String(value || '').trim()));
+
+    form.querySelectorAll(`input[name="${name}"]`).forEach((input) => {
+        input.checked = selected.has(String(input.value || '').trim());
+    });
+}
+
+function academyLeadSetFieldValue(form, name, value = '') {
+    const field = form.querySelector(`[name="${name}"]`);
+    if (field) field.value = value || '';
+}
+
+function syncAcademyLeadRecruitmentBadges() {
+    const hasProfile = hasCompletedAcademyLeadRecruitmentProfile();
+    const label = hasProfile ? 'Profile Ready' : 'Profile Required';
+
+    [
+        document.getElementById('lead-missions-tab-state-badge'),
+        document.getElementById('lead-missions-tab-state-badge-mobile')
+    ].filter(Boolean).forEach((badge) => {
+        badge.textContent = label;
+        badge.classList.toggle('is-ready', hasProfile);
+    });
+}
+
+function prefillAcademyLeadRecruitmentForm() {
+    const form = document.getElementById('academy-lead-recruitment-form');
+    if (!form) return;
+
+    const profile = readAcademyLeadRecruitmentProfile() || {};
+
+    academyLeadSetFieldValue(form, 'fullName', profile.fullName || getStoredUserValue('yh_user_name', myName) || myName || '');
+    academyLeadSetFieldValue(form, 'email', profile.email || getStoredUserValue('yh_user_email', '') || '');
+    academyLeadSetFieldValue(form, 'telegram', profile.telegram || '');
+    academyLeadSetFieldValue(form, 'country', profile.country || getStoredUserValue('yh_user_country', '') || '');
+    academyLeadSetFieldValue(form, 'city', profile.city || getStoredUserValue('yh_user_city', '') || getStoredUserValue('yh_user_location_city', '') || '');
+    academyLeadSetFieldValue(form, 'timezone', profile.timezone || '');
+    academyLeadSetFieldValue(form, 'hasLeadGenExperience', profile.hasLeadGenExperience || '');
+    academyLeadSetFieldValue(form, 'knowsInfluentialPeople', profile.knowsInfluentialPeople || '');
+    academyLeadSetFieldValue(form, 'weeklyLeadCapacity', profile.weeklyLeadCapacity || '');
+    academyLeadSetFieldValue(form, 'coverageRegion', profile.coverageRegion || '');
+    academyLeadSetFieldValue(form, 'motivation', profile.motivation || '');
+    academyLeadSetFieldValue(form, 'strategicValueAnswer', profile.strategicValueAnswer || '');
+    academyLeadSetFieldValue(form, 'followsInstructions', profile.followsInstructions || '');
+    academyLeadSetFieldValue(form, 'interestedInFederation', profile.interestedInFederation || '');
+    academyLeadSetFieldValue(form, 'interestedInPlaza', profile.interestedInPlaza || '');
+
+    academyLeadSetCheckedValues(form, 'targetCategories', profile.targetCategories || []);
+    academyLeadSetCheckedValues(form, 'strongestNiches', profile.strongestNiches || []);
+    academyLeadSetCheckedValues(form, 'searchPlatforms', profile.searchPlatforms || []);
+    academyLeadSetCheckedValues(form, 'networkTypes', profile.networkTypes || []);
+
+    ['qualityAgreement', 'noFakeLeadsAgreement', 'noSpamAgreement', 'accessRiskAgreement'].forEach((name) => {
+        const checkbox = form.querySelector(`input[name="${name}"]`);
+        if (checkbox) checkbox.checked = profile[name] === true;
+    });
+}
+
+function openAcademyLeadRecruitmentModal(options = {}) {
+    const modal = document.getElementById('academy-lead-recruitment-modal');
+    const title = document.getElementById('academy-lead-recruitment-title');
+
+    if (!modal) return;
+
+    prefillAcademyLeadRecruitmentForm();
+
+    if (title) {
+        title.textContent = options?.mode === 'edit'
+            ? 'Edit Lead Missions Recruitment Profile'
+            : 'Lead Missions Recruitment Profile';
+    }
+
+    modal.classList.remove('hidden-step');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body?.classList.add('academy-lead-onboarding-open');
+}
+
+function closeAcademyLeadRecruitmentModal() {
+    const modal = document.getElementById('academy-lead-recruitment-modal');
+
+    if (modal) {
+        modal.classList.add('hidden-step');
+        modal.setAttribute('aria-hidden', 'true');
+    }
+
+    document.body?.classList.remove('academy-lead-onboarding-open');
+}
+
+function validateAcademyLeadRecruitmentForm(form) {
+    if (!form) return false;
+
+    const requiredGroups = [
+        ['targetCategories', 'Select at least one type of person you can help us find.'],
+        ['strongestNiches', 'Select at least one niche you understand best.'],
+        ['searchPlatforms', 'Select at least one platform you can search on.']
+    ];
+
+    for (const [name, message] of requiredGroups) {
+        if (academyLeadGetCheckedValues(form, name).length === 0) {
+            showToast(message, 'error');
+            return false;
+        }
+    }
+
+    const requiredAgreements = [
+        'qualityAgreement',
+        'noFakeLeadsAgreement',
+        'noSpamAgreement',
+        'accessRiskAgreement'
+    ];
+
+    for (const name of requiredAgreements) {
+        const checkbox = form.querySelector(`input[name="${name}"]`);
+        if (!checkbox?.checked) {
+            showToast('You must accept all quality and compliance agreements before accessing Lead Missions.', 'error');
+            return false;
+        }
+    }
+
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return false;
+    }
+
+    return true;
+}
+
+function collectAcademyLeadRecruitmentProfile(form) {
+    const formData = new FormData(form);
+    const userId =
+        getStoredUserValue('yh_user_id', '') ||
+        getStoredUserValue('yh_user_email', '') ||
+        getStoredUserValue('yh_user_username', '') ||
+        getStoredUserValue('yh_user_name', '');
+
+    return {
+        userId,
+        fullName: String(formData.get('fullName') || '').trim(),
+        email: String(formData.get('email') || getStoredUserValue('yh_user_email', '') || '').trim(),
+        telegram: String(formData.get('telegram') || '').trim(),
+        country: String(formData.get('country') || '').trim(),
+        city: String(formData.get('city') || '').trim(),
+        timezone: String(formData.get('timezone') || '').trim(),
+
+        targetCategories: academyLeadGetCheckedValues(form, 'targetCategories'),
+        strongestNiches: academyLeadGetCheckedValues(form, 'strongestNiches'),
+        searchPlatforms: academyLeadGetCheckedValues(form, 'searchPlatforms'),
+        networkTypes: academyLeadGetCheckedValues(form, 'networkTypes'),
+
+        hasLeadGenExperience: String(formData.get('hasLeadGenExperience') || '').trim(),
+        knowsInfluentialPeople: String(formData.get('knowsInfluentialPeople') || '').trim(),
+        weeklyLeadCapacity: String(formData.get('weeklyLeadCapacity') || '').trim(),
+        coverageRegion: String(formData.get('coverageRegion') || '').trim(),
+
+        motivation: String(formData.get('motivation') || '').trim(),
+        strategicValueAnswer: String(formData.get('strategicValueAnswer') || '').trim(),
+        followsInstructions: String(formData.get('followsInstructions') || '').trim(),
+        interestedInFederation: String(formData.get('interestedInFederation') || '').trim(),
+        interestedInPlaza: String(formData.get('interestedInPlaza') || '').trim(),
+
+        qualityAgreement: form.querySelector('input[name="qualityAgreement"]')?.checked === true,
+        noFakeLeadsAgreement: form.querySelector('input[name="noFakeLeadsAgreement"]')?.checked === true,
+        noSpamAgreement: form.querySelector('input[name="noSpamAgreement"]')?.checked === true,
+        accessRiskAgreement: form.querySelector('input[name="accessRiskAgreement"]')?.checked === true
+    };
+}
+
+async function fetchAcademyLeadRecruitmentProfileFromBackend() {
+    try {
+        const result = await academyAuthedFetch('/api/academy/lead-missions/operator-profile', {
+            method: 'GET'
+        });
+
+        const profile =
+            result?.success === true &&
+            result?.exists === true &&
+            result?.profile &&
+            typeof result.profile === 'object'
+                ? result.profile
+                : null;
+
+        if (profile?.completed === true) {
+            writeAcademyLeadRecruitmentProfile(profile);
+            syncAcademyLeadRecruitmentBadges();
+            return profile;
+        }
+
+        return null;
+    } catch (_) {
+        return null;
+    }
+}
+
+async function ensureAcademyLeadRecruitmentProfileLoaded() {
+    if (hasCompletedAcademyLeadRecruitmentProfile()) {
+        return true;
+    }
+
+    const profile = await fetchAcademyLeadRecruitmentProfileFromBackend();
+    return profile?.completed === true;
+}
+
+async function syncAcademyLeadRecruitmentProfileToBackend(profile = {}) {
+    try {
+        const result = await academyAuthedFetch('/api/academy/lead-missions/operator-profile', {
+            method: 'POST',
+            body: JSON.stringify(profile)
+        });
+
+        const savedProfile =
+            result?.success === true &&
+            result?.profile &&
+            typeof result.profile === 'object'
+                ? result.profile
+                : null;
+
+        if (savedProfile?.completed === true) {
+            writeAcademyLeadRecruitmentProfile(savedProfile);
+            syncAcademyLeadRecruitmentBadges();
+        }
+
+        return result?.success === true;
+    } catch (_) {
+        return false;
+    }
+}
+
 function openAcademyLeadEntryModal() {
     const modal = document.getElementById('academy-lead-entry-modal');
     if (!modal) return;
@@ -8037,7 +8324,30 @@ async function loadAcademyLeadMissionsWorkspace() {
     return result;
 }
 
-function openAcademyLeadMissionsView() {
+async function openAcademyLeadMissionsView(options = {}) {
+    const skipRecruitmentGate = options?.skipRecruitmentGate === true;
+
+    syncAcademyLeadRecruitmentBadges();
+
+    if (!skipRecruitmentGate) {
+        showAcademyTabLoader('Checking Lead Missions access.');
+
+        const hasRecruitmentProfile = await ensureAcademyLeadRecruitmentProfileLoaded();
+
+        hideAcademyTabLoader();
+
+        if (!hasRecruitmentProfile) {
+            closeRoadmapIntake();
+            academyResetCoachMode();
+            academyResetMessagesThreadState();
+            applyAcademyMessengerMode(false);
+            setAcademySidebarActive('nav-lead-missions');
+            openAcademyLeadRecruitmentModal();
+            showToast('Complete your Lead Missions Recruitment Profile first.', 'error');
+            return;
+        }
+    }
+
     showAcademyTabLoader('Loading Lead Missions.');
     academyPushFeedFallbackHistory('lead-missions');
     saveAcademyViewState('lead-missions');
@@ -8082,6 +8392,55 @@ document.querySelectorAll('.academy-lead-subtab').forEach((btn) => {
         switchAcademyLeadMissionsSubtab(target);
     });
 });
+
+document.getElementById('btn-edit-lead-operator-profile')?.addEventListener('click', () => {
+    openAcademyLeadRecruitmentModal({ mode: 'edit' });
+});
+
+document.getElementById('btn-cancel-lead-recruitment')?.addEventListener('click', () => {
+    closeAcademyLeadRecruitmentModal();
+});
+
+document.getElementById('academy-lead-recruitment-form')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    const form = event.currentTarget;
+    const submitBtn = document.getElementById('btn-save-lead-recruitment');
+
+    if (!validateAcademyLeadRecruitmentForm(form)) {
+        return;
+    }
+
+    try {
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.setAttribute('aria-busy', 'true');
+        }
+
+        const profile = writeAcademyLeadRecruitmentProfile(
+            collectAcademyLeadRecruitmentProfile(form)
+        );
+
+        await syncAcademyLeadRecruitmentProfileToBackend(profile);
+
+        syncAcademyLeadRecruitmentBadges();
+        closeAcademyLeadRecruitmentModal();
+
+        showToast('Lead Missions profile submitted. Access unlocked.', 'success');
+
+        openAcademyLeadMissionsView({ skipRecruitmentGate: true });
+    } catch (error) {
+        console.error('academy lead recruitment submit error:', error);
+        showToast(error?.message || 'Failed to save Lead Missions profile.', 'error');
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.removeAttribute('aria-busy');
+        }
+    }
+});
+
+syncAcademyLeadRecruitmentBadges();
 
 document.getElementById('btn-open-lead-entry-modal')?.addEventListener('click', () => {
     openAcademyLeadEntryModal();

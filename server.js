@@ -49,6 +49,7 @@ publicLandingNamespace.on('connection', (socket) => {
 
 const chatMessagesCol = firestore.collection('chatMessages');
 const chatRoomsCol = firestore.collection('chatRooms');
+const leadMissionOperatorsCol = firestore.collection('leadMissionOperators');
 
 const sanitizeText = (value, fallback = '') => {
     if (value === null || value === undefined) return fallback;
@@ -207,6 +208,151 @@ function mapChatMessageDoc(doc) {
         text: sanitizeText(data.text),
         time: sanitizeText(data.time || mapChatTimestamp(data.created_at)),
         upvotes: Number.isFinite(Number(data.upvotes)) ? Number(data.upvotes) : 0
+    };
+}
+
+function sanitizeLeadMissionTextArray(value, maxItems = 32) {
+    if (!Array.isArray(value)) return [];
+
+    return value
+        .map((item) => sanitizeText(item))
+        .filter(Boolean)
+        .map((item) => item.slice(0, 120))
+        .slice(0, maxItems);
+}
+
+function mapFirestoreDate(value) {
+    if (!value) return null;
+    if (typeof value.toDate === 'function') return value.toDate().toISOString();
+    if (value instanceof Date) return value.toISOString();
+    return value || null;
+}
+
+function mapLeadMissionOperatorProfileDoc(doc) {
+    const data = doc?.data?.() || {};
+
+    return {
+        id: doc.id,
+        userId: sanitizeText(data.userId || doc.id),
+        firebaseUid: sanitizeText(data.firebaseUid),
+        email: sanitizeText(data.email),
+        username: sanitizeText(data.username),
+        fullName: sanitizeText(data.fullName),
+        telegram: sanitizeText(data.telegram),
+        country: sanitizeText(data.country),
+        city: sanitizeText(data.city),
+        timezone: sanitizeText(data.timezone),
+
+        targetCategories: Array.isArray(data.targetCategories) ? data.targetCategories : [],
+        strongestNiches: Array.isArray(data.strongestNiches) ? data.strongestNiches : [],
+        searchPlatforms: Array.isArray(data.searchPlatforms) ? data.searchPlatforms : [],
+        networkTypes: Array.isArray(data.networkTypes) ? data.networkTypes : [],
+
+        hasLeadGenExperience: sanitizeText(data.hasLeadGenExperience),
+        knowsInfluentialPeople: sanitizeText(data.knowsInfluentialPeople),
+        weeklyLeadCapacity: sanitizeText(data.weeklyLeadCapacity),
+        coverageRegion: sanitizeText(data.coverageRegion),
+
+        motivation: sanitizeText(data.motivation),
+        strategicValueAnswer: sanitizeText(data.strategicValueAnswer),
+        followsInstructions: sanitizeText(data.followsInstructions),
+        interestedInFederation: sanitizeText(data.interestedInFederation),
+        interestedInPlaza: sanitizeText(data.interestedInPlaza),
+
+        qualityAgreement: data.qualityAgreement === true,
+        noFakeLeadsAgreement: data.noFakeLeadsAgreement === true,
+        noSpamAgreement: data.noSpamAgreement === true,
+        accessRiskAgreement: data.accessRiskAgreement === true,
+
+        completed: data.completed === true,
+        status: sanitizeText(data.status || 'active'),
+        strategicValue: sanitizeText(data.strategicValue || 'unrated'),
+        federationReady: data.federationReady === true,
+        plazaReady: data.plazaReady === true,
+
+        createdAt: mapFirestoreDate(data.createdAt),
+        submittedAt: mapFirestoreDate(data.submittedAt),
+        updatedAt: mapFirestoreDate(data.updatedAt)
+    };
+}
+
+function normalizeLeadMissionOperatorProfilePayload(body = {}, user = {}) {
+    const fullName = sanitizeText(body.fullName || user.name).slice(0, 140);
+    const email = sanitizeText(user.email || body.email).toLowerCase().slice(0, 180);
+    const telegram = sanitizeText(body.telegram).slice(0, 80);
+    const country = sanitizeText(body.country).slice(0, 100);
+    const city = sanitizeText(body.city).slice(0, 100);
+    const timezone = sanitizeText(body.timezone).slice(0, 80);
+
+    const profile = {
+        userId: sanitizeText(user.id),
+        firebaseUid: sanitizeText(user.firebaseUid || user.id),
+        email,
+        username: sanitizeText(user.username).slice(0, 80),
+        fullName,
+        telegram,
+        country,
+        city,
+        timezone,
+
+        targetCategories: sanitizeLeadMissionTextArray(body.targetCategories),
+        strongestNiches: sanitizeLeadMissionTextArray(body.strongestNiches),
+        searchPlatforms: sanitizeLeadMissionTextArray(body.searchPlatforms),
+        networkTypes: sanitizeLeadMissionTextArray(body.networkTypes),
+
+        hasLeadGenExperience: sanitizeText(body.hasLeadGenExperience).slice(0, 40),
+        knowsInfluentialPeople: sanitizeText(body.knowsInfluentialPeople).slice(0, 40),
+        weeklyLeadCapacity: sanitizeText(body.weeklyLeadCapacity).slice(0, 80),
+        coverageRegion: sanitizeText(body.coverageRegion).slice(0, 140),
+
+        motivation: sanitizeText(body.motivation).slice(0, 2500),
+        strategicValueAnswer: sanitizeText(body.strategicValueAnswer).slice(0, 2500),
+        followsInstructions: sanitizeText(body.followsInstructions).slice(0, 40),
+        interestedInFederation: sanitizeText(body.interestedInFederation).slice(0, 40),
+        interestedInPlaza: sanitizeText(body.interestedInPlaza).slice(0, 40),
+
+        qualityAgreement: body.qualityAgreement === true,
+        noFakeLeadsAgreement: body.noFakeLeadsAgreement === true,
+        noSpamAgreement: body.noSpamAgreement === true,
+        accessRiskAgreement: body.accessRiskAgreement === true,
+
+        completed: true,
+        status: sanitizeText(body.status || 'active').slice(0, 40) || 'active',
+        strategicValue: sanitizeText(body.strategicValue || 'unrated').slice(0, 80) || 'unrated',
+        federationReady: body.federationReady === true,
+        plazaReady: body.plazaReady === true,
+
+        source: 'academy_lead_missions_recruitment_form',
+        profileVersion: 1
+    };
+
+    const missing = [];
+
+    if (!profile.userId) missing.push('userId');
+    if (!profile.fullName) missing.push('fullName');
+    if (!profile.email) missing.push('email');
+    if (!profile.telegram) missing.push('telegram');
+    if (!profile.country) missing.push('country');
+    if (!profile.city) missing.push('city');
+    if (!profile.targetCategories.length) missing.push('targetCategories');
+    if (!profile.strongestNiches.length) missing.push('strongestNiches');
+    if (!profile.searchPlatforms.length) missing.push('searchPlatforms');
+    if (!profile.hasLeadGenExperience) missing.push('hasLeadGenExperience');
+    if (!profile.knowsInfluentialPeople) missing.push('knowsInfluentialPeople');
+    if (!profile.weeklyLeadCapacity) missing.push('weeklyLeadCapacity');
+    if (!profile.coverageRegion) missing.push('coverageRegion');
+    if (!profile.motivation) missing.push('motivation');
+    if (!profile.strategicValueAnswer) missing.push('strategicValueAnswer');
+    if (!profile.followsInstructions) missing.push('followsInstructions');
+
+    if (!profile.qualityAgreement) missing.push('qualityAgreement');
+    if (!profile.noFakeLeadsAgreement) missing.push('noFakeLeadsAgreement');
+    if (!profile.noSpamAgreement) missing.push('noSpamAgreement');
+    if (!profile.accessRiskAgreement) missing.push('accessRiskAgreement');
+
+    return {
+        profile,
+        missing
     };
 }
 
@@ -930,6 +1076,91 @@ app.post('/api/realtime/rooms/:roomId/read', requireApiUser, async (req, res) =>
         return res.status(500).json({
             success: false,
             message: 'Failed to mark room as read.'
+        });
+    }
+});
+
+app.get('/api/academy/lead-missions/operator-profile', requireApiUser, async (req, res) => {
+    try {
+        const userId = sanitizeText(req.user?.id);
+
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const snap = await leadMissionOperatorsCol.doc(userId).get();
+
+        if (!snap.exists) {
+            return res.json({
+                success: true,
+                exists: false,
+                profile: null
+            });
+        }
+
+        return res.json({
+            success: true,
+            exists: true,
+            profile: mapLeadMissionOperatorProfileDoc(snap)
+        });
+    } catch (error) {
+        console.error('get lead mission operator profile error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load Lead Missions profile.'
+        });
+    }
+});
+
+app.post('/api/academy/lead-missions/operator-profile', requireApiUser, async (req, res) => {
+    try {
+        const userId = sanitizeText(req.user?.id);
+
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const { profile, missing } = normalizeLeadMissionOperatorProfilePayload(req.body || {}, req.user || {});
+
+        if (missing.length) {
+            return res.status(400).json({
+                success: false,
+                message: `Please complete the required Lead Missions profile fields: ${missing.join(', ')}.`,
+                missing
+            });
+        }
+
+        const ref = leadMissionOperatorsCol.doc(userId);
+        const snap = await ref.get();
+        const now = Timestamp.now();
+
+        const payload = {
+            ...profile,
+            createdAt: snap.exists ? (snap.data()?.createdAt || now) : now,
+            submittedAt: snap.exists ? (snap.data()?.submittedAt || now) : now,
+            updatedAt: now
+        };
+
+        await ref.set(payload, { merge: true });
+
+        const savedSnap = await ref.get();
+
+        return res.json({
+            success: true,
+            exists: true,
+            profile: mapLeadMissionOperatorProfileDoc(savedSnap)
+        });
+    } catch (error) {
+        console.error('save lead mission operator profile error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to save Lead Missions profile.'
         });
     }
 });

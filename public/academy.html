@@ -6,7 +6,7 @@
     <title>Academy | YH Universe</title>
     <link rel="icon" type="image/png" href="/images/logo.png">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/style.css?v=20260418-lead-recruitment-gate-1">
 <link rel="stylesheet" href="/css/academy-thread-bottom-fix.css?v=20260417-1">
 </head>
 <body data-yh-view="academy" data-yh-page="academy">
@@ -544,7 +544,10 @@
                         <p class="header-topic">Private operator leads, follow-ups, payouts, and deal records.</p>
                     </div>
 
-                    <div class="header-right">
+                    <div class="header-right academy-lead-header-actions">
+                        <button type="button" class="btn-secondary academy-lead-profile-btn" id="btn-edit-lead-operator-profile">
+                            Edit Recruitment Profile
+                        </button>
                         <button type="button" class="btn-primary" id="btn-open-lead-entry-modal">+ Add Lead</button>
                     </div>
                 </header>
@@ -579,6 +582,218 @@
                     </div>
                 </div>
             </main>
+
+            <div id="academy-lead-recruitment-modal" class="academy-lead-modal hidden-step" aria-hidden="true">
+                <div class="academy-lead-modal-card academy-lead-recruitment-card">
+                    <div class="academy-lead-modal-head academy-lead-modal-head-centered">
+                        <div class="academy-lead-modal-head-copy">
+                            <div class="academy-lead-modal-kicker">Lead Missions Access</div>
+                            <h3 class="academy-lead-modal-title" id="academy-lead-recruitment-title">Lead Missions Recruitment Profile</h3>
+                            <p class="academy-lead-modal-subtitle">
+                                Before accessing Lead Missions, complete your recruitment profile so we can assign missions based on your skills, location, network, and strategic value.
+                            </p>
+                            <div class="academy-lead-required-note">Required before entering Lead Missions.</div>
+                        </div>
+                    </div>
+
+                    <form id="academy-lead-recruitment-form" class="academy-lead-form-grid">
+                        <div class="form-group">
+                            <label for="lead-recruitment-full-name">Full Name</label>
+                            <input id="lead-recruitment-full-name" name="fullName" class="input-field" type="text" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lead-recruitment-email">Email</label>
+                            <input id="lead-recruitment-email" name="email" class="input-field" type="email" readonly>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lead-recruitment-telegram">Telegram Username</label>
+                            <input id="lead-recruitment-telegram" name="telegram" class="input-field" type="text" placeholder="@username" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lead-recruitment-country">Country</label>
+                            <input id="lead-recruitment-country" name="country" class="input-field" type="text" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lead-recruitment-city">City</label>
+                            <input id="lead-recruitment-city" name="city" class="input-field" type="text" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lead-recruitment-timezone">Timezone</label>
+                            <input id="lead-recruitment-timezone" name="timezone" class="input-field" type="text" placeholder="Example: GMT+8">
+                        </div>
+
+                        <div class="form-group academy-lead-form-span-2">
+                            <label>What type of people can you help us find?</label>
+                            <div class="academy-lead-chip-grid" data-required-group="targetCategories">
+                                <label class="academy-lead-choice"><input type="checkbox" name="targetCategories" value="Lawyers"><span>Lawyers</span></label>
+                                <label class="academy-lead-choice"><input type="checkbox" name="targetCategories" value="Politicians"><span>Politicians</span></label>
+                                <label class="academy-lead-choice"><input type="checkbox" name="targetCategories" value="Entrepreneurs"><span>Entrepreneurs</span></label>
+                                <label class="academy-lead-choice"><input type="checkbox" name="targetCategories" value="Investors"><span>Investors</span></label>
+                                <label class="academy-lead-choice"><input type="checkbox" name="targetCategories" value="Influencers"><span>Influencers</span></label>
+                                <label class="academy-lead-choice"><input type="checkbox" name="targetCategories" value="Athletes"><span>Athletes</span></label>
+                                <label class="academy-lead-choice"><input type="checkbox" name="targetCategories" value="Doctors"><span>Doctors</span></label>
+                                <label class="academy-lead-choice"><input type="checkbox" name="targetCategories" value="Engineers"><span>Engineers</span></label>
+                                <label class="academy-lead-choice"><input type="checkbox" name="targetCategories" value="Cybersecurity Experts"><span>Cybersecurity Experts</span></label>
+                                <label class="academy-lead-choice"><input type="checkbox" name="targetCategories" value="Media Personalities"><span>Media Personalities</span></label>
+                                <label class="academy-lead-choice"><input type="checkbox" name="targetCategories" value="Students / Campus Leaders"><span>Students / Campus Leaders</span></label>
+                                <label class="academy-lead-choice"><input type="checkbox" name="targetCategories" value="Other"><span>Other</span></label>
+                            </div>
+                        </div>
+
+                        <div class="form-group academy-lead-form-span-2">
+                            <label>Which niche do you understand best?</label>
+                            <div class="academy-lead-chip-grid" data-required-group="strongestNiches">
+                                <label class="academy-lead-choice"><input type="checkbox" name="strongestNiches" value="Law and Legal Strategy"><span>Law and Legal Strategy</span></label>
+                                <label class="academy-lead-choice"><input type="checkbox" name="strongestNiches" value="Politics and Policy"><span>Politics and Policy</span></label>
+                                <label class="academy-lead-choice"><input type="checkbox" name="strongestNiches" value="Business and Entrepreneurship"><span>Business and Entrepreneurship</span></label>
+                                <label class="academy-lead-choice"><input type="checkbox" name="strongestNiches" value="Investing and Finance"><span>Investing and Finance</span></label>
+                                <label class="academy-lead-choice"><input type="checkbox" name="strongestNiches" value="Influencer and Media"><span>Influencer and Media</span></label>
+                                <label class="academy-lead-choice"><input type="checkbox" name="strongestNiches" value="Tech and Cybersecurity"><span>Tech and Cybersecurity</span></label>
+                                <label class="academy-lead-choice"><input type="checkbox" name="strongestNiches" value="Health and Medicine"><span>Health and Medicine</span></label>
+                                <label class="academy-lead-choice"><input type="checkbox" name="strongestNiches" value="Campus and Student Networks"><span>Campus and Student Networks</span></label>
+                            </div>
+                        </div>
+
+                        <div class="form-group academy-lead-form-span-2">
+                            <label>Which platforms can you search on?</label>
+                            <div class="academy-lead-chip-grid" data-required-group="searchPlatforms">
+                                <label class="academy-lead-choice"><input type="checkbox" name="searchPlatforms" value="LinkedIn"><span>LinkedIn</span></label>
+                                <label class="academy-lead-choice"><input type="checkbox" name="searchPlatforms" value="Twitter/X"><span>Twitter/X</span></label>
+                                <label class="academy-lead-choice"><input type="checkbox" name="searchPlatforms" value="Instagram"><span>Instagram</span></label>
+                                <label class="academy-lead-choice"><input type="checkbox" name="searchPlatforms" value="TikTok"><span>TikTok</span></label>
+                                <label class="academy-lead-choice"><input type="checkbox" name="searchPlatforms" value="Facebook"><span>Facebook</span></label>
+                                <label class="academy-lead-choice"><input type="checkbox" name="searchPlatforms" value="Telegram"><span>Telegram</span></label>
+                                <label class="academy-lead-choice"><input type="checkbox" name="searchPlatforms" value="WhatsApp Groups"><span>WhatsApp Groups</span></label>
+                                <label class="academy-lead-choice"><input type="checkbox" name="searchPlatforms" value="Google Search"><span>Google Search</span></label>
+                                <label class="academy-lead-choice"><input type="checkbox" name="searchPlatforms" value="Personal Network"><span>Personal Network</span></label>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lead-recruitment-experience">Do you have lead generation experience?</label>
+                            <select id="lead-recruitment-experience" name="hasLeadGenExperience" class="input-field" required>
+                                <option value="">Select answer</option>
+                                <option value="yes">Yes</option>
+                                <option value="no">No</option>
+                                <option value="learning">I am still learning</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lead-recruitment-influential-network">Do you personally know influential people?</label>
+                            <select id="lead-recruitment-influential-network" name="knowsInfluentialPeople" class="input-field" required>
+                                <option value="">Select answer</option>
+                                <option value="yes">Yes</option>
+                                <option value="no">No</option>
+                                <option value="some">Some</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lead-recruitment-weekly-capacity">Weekly Lead Capacity</label>
+                            <select id="lead-recruitment-weekly-capacity" name="weeklyLeadCapacity" class="input-field" required>
+                                <option value="">Select capacity</option>
+                                <option value="1-5 leads per week">1–5 leads per week</option>
+                                <option value="6-10 leads per week">6–10 leads per week</option>
+                                <option value="11-25 leads per week">11–25 leads per week</option>
+                                <option value="25+ leads per week">25+ leads per week</option>
+                                <option value="Not sure yet">Not sure yet</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lead-recruitment-coverage-region">Which country/region can you help us cover?</label>
+                            <input id="lead-recruitment-coverage-region" name="coverageRegion" class="input-field" type="text" required>
+                        </div>
+
+                        <div class="form-group academy-lead-form-span-2">
+                            <label>What type of people are in your current network?</label>
+                            <div class="academy-lead-chip-grid">
+                                <label class="academy-lead-choice"><input type="checkbox" name="networkTypes" value="Business owners"><span>Business owners</span></label>
+                                <label class="academy-lead-choice"><input type="checkbox" name="networkTypes" value="Professionals"><span>Professionals</span></label>
+                                <label class="academy-lead-choice"><input type="checkbox" name="networkTypes" value="Students"><span>Students</span></label>
+                                <label class="academy-lead-choice"><input type="checkbox" name="networkTypes" value="Creators"><span>Creators</span></label>
+                                <label class="academy-lead-choice"><input type="checkbox" name="networkTypes" value="Government / public sector"><span>Government / public sector</span></label>
+                                <label class="academy-lead-choice"><input type="checkbox" name="networkTypes" value="Private sector operators"><span>Private sector operators</span></label>
+                            </div>
+                        </div>
+
+                        <div class="form-group academy-lead-form-span-2">
+                            <label for="lead-recruitment-motivation">Why do you want access to Lead Missions?</label>
+                            <textarea id="lead-recruitment-motivation" name="motivation" class="input-field" rows="4" required></textarea>
+                        </div>
+
+                        <div class="form-group academy-lead-form-span-2">
+                            <label for="lead-recruitment-strategic-value">What makes you useful to the YH network?</label>
+                            <textarea id="lead-recruitment-strategic-value" name="strategicValueAnswer" class="input-field" rows="4" required></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lead-recruitment-instructions">Are you willing to follow structured mission instructions?</label>
+                            <select id="lead-recruitment-instructions" name="followsInstructions" class="input-field" required>
+                                <option value="">Select answer</option>
+                                <option value="yes">Yes</option>
+                                <option value="no">No</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lead-recruitment-federation">Interested in Federation opportunities later?</label>
+                            <select id="lead-recruitment-federation" name="interestedInFederation" class="input-field">
+                                <option value="">Select answer</option>
+                                <option value="yes">Yes</option>
+                                <option value="no">No</option>
+                                <option value="maybe">Maybe</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lead-recruitment-plaza">Interested in Plaza opportunities later?</label>
+                            <select id="lead-recruitment-plaza" name="interestedInPlaza" class="input-field">
+                                <option value="">Select answer</option>
+                                <option value="yes">Yes</option>
+                                <option value="no">No</option>
+                                <option value="maybe">Maybe</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group academy-lead-form-span-2">
+                            <label>Compliance and Quality Agreement</label>
+                            <div class="academy-lead-agreement-stack">
+                                <label class="academy-lead-agreement">
+                                    <input type="checkbox" name="qualityAgreement" required>
+                                    <span>I agree to submit only real, relevant, and verifiable leads.</span>
+                                </label>
+
+                                <label class="academy-lead-agreement">
+                                    <input type="checkbox" name="noFakeLeadsAgreement" required>
+                                    <span>I agree not to submit fake names, random profiles, or low-quality leads.</span>
+                                </label>
+
+                                <label class="academy-lead-agreement">
+                                    <input type="checkbox" name="noSpamAgreement" required>
+                                    <span>I agree not to harass, spam, or misrepresent YH when contacting people.</span>
+                                </label>
+
+                                <label class="academy-lead-agreement">
+                                    <input type="checkbox" name="accessRiskAgreement" required>
+                                    <span>I understand that bad-quality submissions may remove my Lead Missions access.</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="academy-lead-form-actions academy-lead-form-span-2">
+                            <button type="button" class="btn-secondary" id="btn-cancel-lead-recruitment">Not Now</button>
+                            <button type="submit" class="btn-primary" id="btn-save-lead-recruitment">Submit & Unlock Lead Missions</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
 
             <div id="academy-lead-entry-modal" class="academy-lead-modal hidden-step" aria-hidden="true">
                 <div class="academy-lead-modal-card">
@@ -1623,7 +1838,7 @@
 
 <script src="/js/yh-shared-core.js?v=20260418-toast-center-1"></script>
 <script src="/js/yh-shared-runtime.js?v=20260411-4"></script>
-<script src="/js/academy.js?v=20260417-2"></script>
+<script src="/js/academy.js?v=20260418-lead-recruitment-gate-1"></script>
 <div
     class="academy-profile-editor-overlay hidden-step"
     id="academy-profile-editor-overlay"

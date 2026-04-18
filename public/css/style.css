@@ -2991,6 +2991,116 @@ body[data-yh-view="academy"] .chat-messages {
     flex-wrap: wrap;
 }
 
+.academy-lead-header-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.academy-lead-profile-btn {
+    width: auto;
+    min-width: 190px;
+    white-space: nowrap;
+}
+
+.academy-lead-recruitment-card {
+    width: min(1040px, 100%);
+}
+
+.academy-lead-modal-subtitle {
+    margin: 10px auto 0;
+    color: var(--text-muted);
+    line-height: 1.55;
+    max-width: 720px;
+    font-size: 0.95rem;
+}
+
+.academy-lead-required-note {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 14px auto 0;
+    padding: 7px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(14, 165, 233, 0.28);
+    background: rgba(14, 165, 233, 0.1);
+    color: #dff5ff;
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.academy-lead-chip-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.academy-lead-choice,
+.academy-lead-agreement {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    width: fit-content;
+    cursor: pointer;
+    user-select: none;
+}
+
+.academy-lead-choice {
+    min-height: 40px;
+    padding: 10px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.045);
+    color: var(--text-main);
+    font-size: 0.88rem;
+    line-height: 1.25;
+    transition: 0.2s ease;
+}
+
+.academy-lead-choice:hover {
+    border-color: rgba(14, 165, 233, 0.48);
+    background: rgba(14, 165, 233, 0.11);
+}
+
+.academy-lead-choice input {
+    margin-top: 1px;
+    accent-color: var(--neon-blue);
+}
+
+.academy-lead-choice:has(input:checked) {
+    border-color: var(--neon-blue);
+    background: rgba(14, 165, 233, 0.16);
+    color: #fff;
+}
+
+.academy-lead-agreement-stack {
+    display: grid;
+    gap: 10px;
+}
+
+.academy-lead-agreement {
+    width: 100%;
+    padding: 12px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.035);
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    line-height: 1.45;
+}
+
+.academy-lead-agreement input {
+    margin-top: 3px;
+    accent-color: var(--success);
+}
+
+#lead-recruitment-email[readonly] {
+    opacity: 0.82;
+    cursor: not-allowed;
+}
+
 @media (max-width: 768px) {
     #academy-lead-missions-view .chat-header {
         align-items: flex-start;
@@ -3001,8 +3111,16 @@ body[data-yh-view="academy"] .chat-messages {
         width: 100%;
     }
 
-    #academy-lead-missions-view #btn-open-lead-entry-modal {
+    #academy-lead-missions-view .academy-lead-header-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    #academy-lead-missions-view #btn-open-lead-entry-modal,
+    #academy-lead-missions-view #btn-edit-lead-operator-profile {
         width: 100%;
+        min-width: 0;
     }
 
     .academy-lead-missions-scroll {
@@ -3077,7 +3195,37 @@ body[data-yh-view="academy"] .chat-messages {
     .academy-lead-form-actions .btn-secondary {
         width: 100%;
     }
+
+    .academy-lead-modal-subtitle {
+        font-size: 0.88rem;
+        line-height: 1.5;
+    }
+
+    .academy-lead-required-note {
+        width: 100%;
+        border-radius: 14px;
+        text-align: center;
+    }
+
+    .academy-lead-chip-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 9px;
+    }
+
+    .academy-lead-choice {
+        width: 100%;
+        border-radius: 14px;
+        justify-content: flex-start;
+        padding: 11px 12px;
+    }
+
+    .academy-lead-agreement {
+        font-size: 0.86rem;
+        padding: 11px;
+    }
 }
+
 
 #voice-lobby-view .lounge-container,
 #video-lobby-view .lounge-container {
