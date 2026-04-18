@@ -129,58 +129,80 @@
         });
     }
 
-    function showToast(message, type = "success") {
-        const toast = document.getElementById('toast-notification');
-        const toastMsg = document.getElementById('toast-message');
-        const toastIcon = document.getElementById('toast-icon');
-        if (!toast || !toastMsg || !toastIcon) return;
+function showToast(message, type = "success") {
+    const toast = document.getElementById('toast-notification');
+    const toastMsg = document.getElementById('toast-message');
+    const toastIcon = document.getElementById('toast-icon');
 
-        const isMobile = window.innerWidth <= 768;
+    if (!toast || !toastMsg || !toastIcon) return;
 
-        toastMsg.innerText = yhTText(message);
+    const isError = String(type || '').trim().toLowerCase() === 'error';
 
-        if (type === "error") {
-            toast.classList.add('error-toast');
-            toastIcon.innerText = "⚠️";
-            toastIcon.style.display = '';
-        } else {
-            toast.classList.remove('error-toast');
-            toastIcon.innerText = "";
-            toastIcon.style.display = 'none';
-        }
+    toast.classList.toggle('error-toast', isError);
+    toast.classList.toggle('success-toast', !isError);
 
-        toast.style.position = 'fixed';
-        toast.style.left = '50%';
-        toast.style.right = 'auto';
-        toast.style.top = isMobile ? '84px' : '96px';
-        toast.style.bottom = 'auto';
-        toast.style.transform = 'translateX(-50%)';
-        toast.style.zIndex = '10000';
-        toast.style.width = isMobile ? 'calc(100vw - 32px)' : 'min(92vw, 460px)';
-        toast.style.maxWidth = isMobile ? '360px' : '460px';
-        toast.style.minWidth = '0';
-        toast.style.padding = isMobile ? '9px 12px' : '10px 14px';
-        toast.style.borderRadius = isMobile ? '10px' : '12px';
-        toast.style.fontSize = isMobile ? '0.84rem' : '0.9rem';
-        toast.style.lineHeight = '1.35';
-        toast.style.textAlign = 'center';
-        toast.style.display = 'flex';
-        toast.style.alignItems = 'center';
-        toast.style.justifyContent = 'center';
-        toast.style.gap = '8px';
-        toast.style.boxSizing = 'border-box';
-        toast.style.wordBreak = 'break-word';
+    toastMsg.innerText = yhTText(message);
+    toastMsg.style.display = 'block';
+    toastMsg.style.maxWidth = '100%';
+    toastMsg.style.whiteSpace = 'normal';
+    toastMsg.style.overflowWrap = 'break-word';
 
+    toastIcon.innerText = isError ? '⚠️' : '✓';
+    toastIcon.style.display = '';
+
+    const setToastStyle = (property, value, priority = '') => {
+        toast.style.setProperty(property, value, priority);
+    };
+
+    setToastStyle('position', 'fixed', 'important');
+    setToastStyle('left', '50%', 'important');
+    setToastStyle('right', 'auto', 'important');
+    setToastStyle('top', '50%', 'important');
+    setToastStyle('bottom', 'auto', 'important');
+    setToastStyle('z-index', '12000', 'important');
+    setToastStyle('width', 'min(92vw, 460px)', 'important');
+    setToastStyle('max-width', '460px', 'important');
+    setToastStyle('min-width', '0', 'important');
+    setToastStyle('padding', '12px 16px');
+    setToastStyle('border-radius', '14px');
+    setToastStyle('font-size', '0.92rem');
+    setToastStyle('line-height', '1.35');
+    setToastStyle('text-align', 'left');
+    setToastStyle('display', 'flex', 'important');
+    setToastStyle('align-items', 'center');
+    setToastStyle('justify-content', 'flex-start');
+    setToastStyle('gap', '10px');
+    setToastStyle('box-sizing', 'border-box');
+    setToastStyle('word-break', 'break-word');
+    setToastStyle('pointer-events', 'auto');
+    setToastStyle('visibility', 'visible', 'important');
+    setToastStyle('opacity', '0');
+    setToastStyle('transform', 'translate(-50%, -50%) scale(0.96)', 'important');
+
+    toast.classList.remove('show');
+    void toast.offsetWidth;
+
+    toast.classList.add('show');
+
+    requestAnimationFrame(() => {
+        setToastStyle('opacity', '1');
+        setToastStyle('transform', 'translate(-50%, -50%) scale(1)', 'important');
+    });
+
+    clearTimeout(window.__yhToastTimer);
+    window.__yhToastTimer = setTimeout(() => {
         toast.classList.remove('show');
-        void toast.offsetWidth;
-        toast.classList.add('show');
+        setToastStyle('opacity', '0');
+        setToastStyle('transform', 'translate(-50%, -50%) scale(0.96)', 'important');
+        setToastStyle('pointer-events', 'none');
 
-        clearTimeout(window.__yhToastTimer);
-        window.__yhToastTimer = setTimeout(() => {
-            toast.classList.remove('show');
-        }, 3500);
-    }
-
+        window.setTimeout(() => {
+            if (!toast.classList.contains('show')) {
+                setToastStyle('visibility', 'hidden', 'important');
+            }
+        }, 260);
+    }, 3500);
+}
     function updateUserProfile(newName, newAvatarData) {
         const safeName = String(newName || '').trim();
 

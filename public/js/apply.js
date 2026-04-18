@@ -46,106 +46,71 @@ function showToast(message, type = "success") {
     const toast = document.getElementById('toast-notification');
     const toastMsg = document.getElementById('toast-message');
     const toastIcon = document.getElementById('toast-icon');
-    const otpStep = document.getElementById('step-2');
-    const timerEl = document.getElementById('otp-timer');
-    const resendBtn = document.getElementById('btn-resend-otp');
 
     if (!toast || !toastMsg || !toastIcon) return;
+
+    const isError = String(type || '').toLowerCase() === 'error';
+
+    toast.classList.toggle('error-toast', isError);
+    toast.classList.toggle('success-toast', !isError);
 
     toastMsg.innerText = yhTText(message);
     toastMsg.style.display = 'block';
     toastMsg.style.maxWidth = '100%';
     toastMsg.style.whiteSpace = 'normal';
     toastMsg.style.overflowWrap = 'break-word';
-if (type === "error") {
-    toast.classList.add('error-toast');
-    toastIcon.innerText = "⚠️";
+
+    toastIcon.innerText = isError ? '⚠️' : '✓';
     toastIcon.style.display = '';
-} else {
-    toast.classList.remove('error-toast');
-    toastIcon.innerText = "";
-    toastIcon.style.display = 'none';
-}
 
-    const otpStepVisible = otpStep && !otpStep.classList.contains('hidden-step');
-
-    // reset/default
-    toast.style.position = 'fixed';
-    toast.style.left = 'auto';
-    toast.style.right = '24px';
-    toast.style.top = 'auto';
-    toast.style.bottom = '24px';
-    toast.style.transform = 'none';
-    toast.style.zIndex = '10000';
-    toast.style.width = 'min(92vw, 460px)';
-    toast.style.maxWidth = '460px';
-    toast.style.minWidth = '0';
-    toast.style.padding = '10px 14px';
-    toast.style.borderRadius = '12px';
-    toast.style.fontSize = '0.92rem';
-    toast.style.lineHeight = '1.35';
-    toast.style.textAlign = 'left';
-    toast.style.display = 'flex';
-    toast.style.alignItems = 'center';
-    toast.style.justifyContent = 'flex-start';
-    toast.style.gap = '8px';
-    toast.style.boxSizing = 'border-box';
-    toast.style.wordBreak = 'break-word';
-
-        if (otpStepVisible) {
-        const isMobile = window.innerWidth <= 768;
-
-        toast.style.top = 'auto';
-        toast.style.left = 'auto';
-        toast.style.right = isMobile ? '16px' : '24px';
-        toast.style.transform = 'none';
-
-        if (isMobile) {
-            toast.style.width = 'fit-content';
-            toast.style.maxWidth = 'min(82vw, 330px)';
-            toast.style.minWidth = '0';
-            toast.style.padding = '10px 13px';
-            toast.style.fontSize = '0.84rem';
-            toast.style.lineHeight = '1.32';
-            toast.style.borderRadius = '12px';
-            toast.style.bottom = '16px';
-            toast.style.right = '16px';
-            toast.style.left = 'auto';
-            toast.style.whiteSpace = 'normal';
-            toast.style.overflowWrap = 'break-word';
-        } else {
-            toast.style.width = 'min(92vw, 420px)';
-            toast.style.maxWidth = '420px';
-            toast.style.padding = '10px 14px';
-            toast.style.fontSize = '0.88rem';
-            toast.style.borderRadius = '12px';
-
-            if (resendBtn) {
-                const resendRect = resendBtn.getBoundingClientRect();
-                const bottomGap = Math.max(24, window.innerHeight - resendRect.top + 6);
-                toast.style.bottom = `${bottomGap}px`;
-            } else if (timerEl) {
-                const timerRect = timerEl.getBoundingClientRect();
-                const bottomGap = Math.max(24, window.innerHeight - timerRect.bottom + 24);
-                toast.style.bottom = `${bottomGap}px`;
-            } else {
-                toast.style.bottom = '24px';
-            }
-        }
-    }
-
-    toast.style.pointerEvents = 'auto';
-    toast.style.visibility = 'visible';
+    Object.assign(toast.style, {
+        position: 'fixed',
+        left: '50%',
+        right: 'auto',
+        top: '50%',
+        bottom: 'auto',
+        zIndex: '12000',
+        width: 'min(92vw, 460px)',
+        maxWidth: '460px',
+        minWidth: '0',
+        padding: '12px 16px',
+        borderRadius: '14px',
+        fontSize: '0.92rem',
+        lineHeight: '1.35',
+        textAlign: 'left',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'flex-start',
+        gap: '10px',
+        boxSizing: 'border-box',
+        wordBreak: 'break-word',
+        pointerEvents: 'auto',
+        visibility: 'visible',
+        opacity: '0',
+        transform: 'translate(-50%, -50%) scale(0.96)'
+    });
 
     toast.classList.remove('show');
     void toast.offsetWidth;
+
     toast.classList.add('show');
+    requestAnimationFrame(() => {
+        toast.style.opacity = '1';
+        toast.style.transform = 'translate(-50%, -50%) scale(1)';
+    });
 
     clearTimeout(window.__yhToastTimer);
     window.__yhToastTimer = setTimeout(() => {
         toast.classList.remove('show');
+        toast.style.opacity = '0';
+        toast.style.transform = 'translate(-50%, -50%) scale(0.96)';
         toast.style.pointerEvents = 'none';
-        toast.style.visibility = 'hidden';
+
+        window.setTimeout(() => {
+            if (!toast.classList.contains('show')) {
+                toast.style.visibility = 'hidden';
+            }
+        }, 260);
     }, 3500);
 }
 

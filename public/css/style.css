@@ -336,32 +336,45 @@ textarea.input-field { resize: none; }
 
 /* Toast */
 #toast-notification {
-    position: fixed;
-    bottom: 30px;
-    right: 30px;
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    right: auto !important;
+    bottom: auto !important;
+    width: min(92vw, 460px);
+    max-width: 460px;
+    min-width: 0;
+    padding: 12px 16px;
+    border-radius: 14px;
     background: rgba(16, 185, 129, 0.15);
     border: 1px solid var(--success);
     color: var(--success);
-    padding: 1rem 2rem;
-    border-radius: 8px;
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-    z-index: 9999;
+    box-shadow: 0 18px 48px rgba(0,0,0,0.45);
+    z-index: 12000 !important;
     font-weight: 600;
-    font-size: 1rem;
+    font-size: 0.92rem;
+    line-height: 1.35;
     display: flex;
     align-items: center;
+    justify-content: flex-start;
     gap: 10px;
-    transform: translateY(150px);
+    text-align: left;
+    box-sizing: border-box;
+    word-break: break-word;
+    transform: translate(-50%, -50%) scale(0.96) !important;
     opacity: 0;
     pointer-events: none;
     visibility: hidden;
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transition:
+        opacity 0.24s ease,
+        transform 0.24s ease,
+        visibility 0.24s ease;
 }
 
 #toast-notification.show {
-    transform: translateY(0);
+    transform: translate(-50%, -50%) scale(1) !important;
     opacity: 1;
     pointer-events: auto;
     visibility: visible;
@@ -371,6 +384,12 @@ textarea.input-field { resize: none; }
     background: rgba(239, 68, 68, 0.15);
     border: 1px solid #ef4444;
     color: #ef4444;
+}
+
+#toast-notification.success-toast {
+    background: rgba(16, 185, 129, 0.15);
+    border: 1px solid var(--success);
+    color: var(--success);
 }
 
 
@@ -397,9 +416,7 @@ h3 { font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem; color: var(--ne
 .spinner { border: 3px solid rgba(255,255,255,0.1); border-top: 3px solid var(--neon-blue); border-radius: 50%; width: 48px; height: 48px; animation: spin 1s linear infinite; margin: 0 auto 1.5rem; }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-#toast-notification { position: fixed; bottom: 30px; right: 30px; background: rgba(16, 185, 129, 0.15); border: 1px solid var(--success); color: var(--success); padding: 1rem 2rem; border-radius: 8px; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); box-shadow: 0 10px 25px rgba(0,0,0,0.5); z-index: 9999; font-weight: 600; font-size: 1rem; display: flex; align-items: center; gap: 10px; transform: translateY(150px); opacity: 0; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-#toast-notification.show { transform: translateY(0); opacity: 1; }
-#toast-notification.error-toast { background: rgba(239, 68, 68, 0.15) !important; border: 1px solid #ef4444 !important; color: #ef4444 !important; }
+/* Duplicate toast block removed. Canonical centered toast styles are defined above. */
 
 .academy-feed-delete-modal {
     position: fixed;
