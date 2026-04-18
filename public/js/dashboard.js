@@ -568,6 +568,12 @@ document.querySelectorAll('.yh-universe-slide .portal-card').forEach((card) => {
         }
 
         if (division === 'federation') {
+            const federationSnapshot = syncFederationEntryButton();
+
+            if (isFederationPendingLocked(federationSnapshot)) {
+                return;
+            }
+
             openDivisionPreview('federation');
         }
     });
@@ -9970,6 +9976,17 @@ function getFederationButtonCopy(snapshot = null) {
     return 'Application Pending';
 }
 
+function isFederationPendingLocked(snapshot = null) {
+    const status = normalizeFederationStatus(snapshot?.applicationStatus || '');
+
+    return (
+        snapshot?.hasApplication === true &&
+        snapshot?.canEnterFederation !== true &&
+        status !== 'approved' &&
+        status !== 'rejected'
+    );
+}
+
 function syncFederationFrameAccess(snapshot = null) {
     const currentSnapshot = snapshot || getFederationAccessSnapshot();
     const lock = document.getElementById('federation-access-lock');
@@ -10039,14 +10056,22 @@ function syncFederationEntryButton() {
     const enterButton = document.getElementById('btn-dashboard-enter-federation');
 
     const label = getFederationButtonCopy(snapshot);
-    const status = normalizeFederationStatus(snapshot.applicationStatus || '');
+    const pendingLocked = isFederationPendingLocked(snapshot);
 
     if (button) {
         button.textContent = label;
         button.classList.toggle('btn-primary', snapshot.canEnterFederation === true);
         button.classList.toggle('btn-secondary', snapshot.canEnterFederation !== true);
-        button.disabled = false;
-        button.removeAttribute('aria-disabled');
+        button.classList.toggle('is-pending-locked', pendingLocked);
+
+        button.disabled = pendingLocked;
+        button.setAttribute('aria-disabled', pendingLocked ? 'true' : 'false');
+        button.setAttribute(
+            'title',
+            pendingLocked
+                ? 'Your Federation application is under review. Admin approval is required before entry.'
+                : ''
+        );
     }
 
     if (enterButton) {
@@ -10060,13 +10085,8 @@ function syncFederationEntryButton() {
     }
 
     if (stateBadge) {
-        if (!snapshot.hasApplication || snapshot.canEnterFederation || status === 'rejected') {
-            stateBadge.classList.add('is-hidden');
-            stateBadge.textContent = '';
-        } else {
-            stateBadge.classList.remove('is-hidden');
-            stateBadge.textContent = label.replace(' ➔', '');
-        }
+        stateBadge.classList.add('is-hidden');
+        stateBadge.textContent = '';
     }
 
     syncFederationFrameAccess(snapshot);
@@ -10314,7 +10334,6 @@ function handleFederationGateClick() {
     }
 
     returnToFederationCardInDashboard();
-    showToast(`Federation status: ${getFederationButtonCopy(snapshot)}. Admin approval is required before entry.`, 'success');
 }
 function readAcademyMembershipCache() {
     try {

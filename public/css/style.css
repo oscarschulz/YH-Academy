@@ -10824,3 +10824,19 @@ body.federation-application-open {
         bottom: -18px;
     }
 }
+.yh-federation-gate-btn.is-pending-locked,
+.yh-federation-gate-btn:disabled {
+    opacity: 0.68 !important;
+    cursor: not-allowed !important;
+    pointer-events: none !important;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+.yh-federation-gate-btn.is-pending-locked:hover,
+.yh-federation-gate-btn:disabled:hover {
+    background: transparent !important;
+    color: var(--neon-blue) !important;
+    transform: none !important;
+    box-shadow: none !important;
+}
