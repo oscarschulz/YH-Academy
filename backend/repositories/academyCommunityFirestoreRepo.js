@@ -1,5 +1,5 @@
 const { firestore } = require('../../config/firebaseAdmin');
-const { Timestamp } = require('firebase-admin/firestore');
+const { Timestamp, FieldValue } = require('firebase-admin/firestore');
 
 const usersCol = firestore.collection('users');
 const feedPostsCol = firestore.collection('academyFeedPosts');
@@ -248,6 +248,11 @@ async function getCommentCount(postId) {
 function mapPostDoc(doc, extras = {}) {
     const data = doc.data() || {};
     const author = data.authorSnapshot || {};
+    const viewerId = sanitizeText(extras.viewerId);
+    const authorId = sanitizeText(data.authorId);
+    const hiddenForUserIds = Array.isArray(data.hiddenForUserIds)
+        ? data.hiddenForUserIds.map((value) => sanitizeText(value)).filter(Boolean)
+        : [];
 
     const mediaUrl = sanitizeText(data.mediaUrl || data.imageUrl);
     const mediaKindRaw = sanitizeText(data.mediaKind).toLowerCase();
@@ -266,9 +271,11 @@ function mapPostDoc(doc, extras = {}) {
         ? mediaUrl
         : '';
 
+    const ownedByMe = authorId === viewerId;
+
     return {
         id: doc.id,
-        user_id: sanitizeText(data.authorId),
+        user_id: authorId,
         body: sanitizeText(data.body),
         image_url: imageUrl,
         video_url: videoUrl,
@@ -279,8 +286,10 @@ function mapPostDoc(doc, extras = {}) {
         visibility: sanitizeText(data.visibility || 'academy'),
         is_pinned: toBool(data.isPinned),
         is_deleted: toBool(data.isDeleted),
+        hidden_by_me: viewerId ? hiddenForUserIds.includes(viewerId) : false,
         created_at: mapTimestamp(data.createdAt),
         updated_at: mapTimestamp(data.updatedAt),
+        edited_at: mapTimestamp(data.editedAt),
         fullName: sanitizeText(author.fullName),
         display_name: sanitizeText(author.displayName || author.fullName),
         username: sanitizeText(author.username),
@@ -290,13 +299,15 @@ function mapPostDoc(doc, extras = {}) {
         like_count: toInt(extras.like_count, 0),
         comment_count: toInt(extras.comment_count, 0),
         liked_by_me: toBool(extras.liked_by_me),
-        owned_by_me: sanitizeText(data.authorId) === sanitizeText(extras.viewerId),
+        owned_by_me: ownedByMe,
+        can_edit: ownedByMe,
+        can_delete: ownedByMe,
+        can_hide: Boolean(viewerId),
         following_author: false,
         is_friend: toBool(extras.is_friend),
         outgoing_friend_request_pending: toBool(extras.outgoing_friend_request_pending)
     };
 }
-
 function mapCommentDoc(doc, extras = {}) {
     const data = doc.data() || {};
     const snapshot = data.authorSnapshot && typeof data.authorSnapshot === 'object'
@@ -306,6 +317,14 @@ function mapCommentDoc(doc, extras = {}) {
     const fallback = extras.authorFallback && typeof extras.authorFallback === 'object'
         ? extras.authorFallback
         : {};
+
+    const viewerId = sanitizeText(extras.viewerId);
+    const postOwnerId = sanitizeText(extras.postOwnerId);
+    const authorId = sanitizeText(data.authorId);
+
+    const hiddenForUserIds = Array.isArray(data.hiddenForUserIds)
+        ? data.hiddenForUserIds.map((value) => sanitizeText(value)).filter(Boolean)
+        : [];
 
     const fullName =
         sanitizeText(snapshot.fullName) ||
@@ -343,13 +362,22 @@ function mapCommentDoc(doc, extras = {}) {
         sanitizeText(fallback.role) ||
         'Academy Member';
 
+    const ownedByMe = authorId === viewerId;
+    const postOwnedByMe = postOwnerId === viewerId;
+
     return {
         id: doc.id,
         post_id: sanitizeText(extras.postId),
-        user_id: sanitizeText(data.authorId),
+        user_id: authorId,
         body: sanitizeText(data.body),
+        parent_comment_id: sanitizeText(data.parentCommentId),
+        root_comment_id: sanitizeText(data.rootCommentId || doc.id),
+        depth: Math.max(0, toInt(data.depth, 0)),
+        is_deleted: toBool(data.isDeleted),
+        hidden_by_me: viewerId ? hiddenForUserIds.includes(viewerId) : false,
         created_at: mapTimestamp(data.createdAt),
         updated_at: mapTimestamp(data.updatedAt),
+        edited_at: mapTimestamp(data.editedAt),
         fullName,
         display_name: displayName,
         username,
@@ -358,7 +386,11 @@ function mapCommentDoc(doc, extras = {}) {
         profilePhoto: avatar,
         photoURL: avatar,
         role_label: roleLabel,
-        owned_by_me: sanitizeText(data.authorId) === sanitizeText(extras.viewerId)
+        owned_by_me: ownedByMe,
+        post_owned_by_me: postOwnedByMe,
+        can_edit: ownedByMe,
+        can_delete: ownedByMe || postOwnedByMe,
+        can_hide: Boolean(viewerId)
     };
 }
 function extractHashtagsFromText(value = '') {
@@ -383,15 +415,25 @@ function buildSearchPostPreview(value = '', maxLength = 140) {
 async function listFeed({ viewerId, limit = 25 }) {
     const normalizedViewerId = normalizeUserId(viewerId);
     const normalizedLimit = Math.max(1, Math.min(toInt(limit, 25), 50));
+    const sourceLimit = Math.min(normalizedLimit * 3, 120);
 
     const snap = await feedPostsCol
         .where('isDeleted', '==', false)
         .orderBy('createdAt', 'desc')
-        .limit(normalizedLimit)
+        .limit(sourceLimit)
         .get();
 
+    const visibleDocs = snap.docs.filter((doc) => {
+        const data = doc.data() || {};
+        const hiddenForUserIds = Array.isArray(data.hiddenForUserIds)
+            ? data.hiddenForUserIds.map((value) => sanitizeText(value)).filter(Boolean)
+            : [];
+
+        return !normalizedViewerId || !hiddenForUserIds.includes(normalizedViewerId);
+    }).slice(0, normalizedLimit);
+
     const posts = await Promise.all(
-        snap.docs.map(async (doc) => {
+        visibleDocs.map(async (doc) => {
             const data = doc.data() || {};
             const authorId = sanitizeText(data.authorId);
 
@@ -487,7 +529,77 @@ async function createPost({
         }
     );
 }
+async function updatePost({ viewerId, postId, body }) {
+    const normalizedViewerId = normalizeUserId(viewerId);
+    const normalizedPostId = sanitizeText(postId);
+    const cleanBody = sanitizeText(body);
 
+    if (!normalizedViewerId || !normalizedPostId) {
+        throw new Error('viewerId and postId are required.');
+    }
+
+    if (!cleanBody) {
+        throw new Error('Post body is required.');
+    }
+
+    const postRef = feedPostsCol.doc(normalizedPostId);
+    const postSnap = await postRef.get();
+
+    if (!postSnap.exists || toBool(postSnap.data()?.isDeleted)) {
+        throw new Error('Post not found.');
+    }
+
+    const post = postSnap.data() || {};
+    if (sanitizeText(post.authorId) !== normalizedViewerId) {
+        throw new Error('You can only edit your own post.');
+    }
+
+    await postRef.update({
+        body: cleanBody,
+        editedAt: nowTs(),
+        updatedAt: nowTs()
+    });
+
+    const updatedSnap = await postRef.get();
+    const [likeState, commentCount, friendshipState] = await Promise.all([
+        getLikeState(normalizedPostId, normalizedViewerId),
+        getCommentCount(normalizedPostId),
+        getFriendshipState(normalizedViewerId, sanitizeText(post.authorId))
+    ]);
+
+    return mapPostDoc(updatedSnap, {
+        viewerId: normalizedViewerId,
+        ...likeState,
+        comment_count: commentCount,
+        ...friendshipState
+    });
+}
+
+async function hidePostForViewer({ viewerId, postId }) {
+    const normalizedViewerId = normalizeUserId(viewerId);
+    const normalizedPostId = sanitizeText(postId);
+
+    if (!normalizedViewerId || !normalizedPostId) {
+        throw new Error('viewerId and postId are required.');
+    }
+
+    const postRef = feedPostsCol.doc(normalizedPostId);
+    const postSnap = await postRef.get();
+
+    if (!postSnap.exists || toBool(postSnap.data()?.isDeleted)) {
+        throw new Error('Post not found.');
+    }
+
+    await postRef.update({
+        hiddenForUserIds: FieldValue.arrayUnion(normalizedViewerId),
+        updatedAt: nowTs()
+    });
+
+    return {
+        id: normalizedPostId,
+        hidden: true
+    };
+}
 async function deletePost({ viewerId, postId }) {
     const normalizedViewerId = normalizeUserId(viewerId);
     const normalizedPostId = sanitizeText(postId);
@@ -575,13 +687,25 @@ async function listPostComments({ viewerId, postId }) {
         throw new Error('Post not found.');
     }
 
+    const post = postSnap.data() || {};
+    const postOwnerId = normalizeUserId(post.authorId);
+
     const snap = await feedPostsCol
         .doc(normalizedPostId)
         .collection('comments')
         .orderBy('createdAt', 'asc')
         .get();
 
-    const visibleDocs = snap.docs.filter((doc) => !toBool(doc.data()?.isDeleted));
+    const visibleDocs = snap.docs.filter((doc) => {
+        const data = doc.data() || {};
+        if (toBool(data.isDeleted)) return false;
+
+        const hiddenForUserIds = Array.isArray(data.hiddenForUserIds)
+            ? data.hiddenForUserIds.map((value) => sanitizeText(value)).filter(Boolean)
+            : [];
+
+        return !normalizedViewerId || !hiddenForUserIds.includes(normalizedViewerId);
+    });
 
     const authorIds = Array.from(new Set(
         visibleDocs
@@ -606,15 +730,17 @@ async function listPostComments({ viewerId, postId }) {
         return mapCommentDoc(doc, {
             postId: normalizedPostId,
             viewerId: normalizedViewerId,
+            postOwnerId,
             authorFallback: authorFallbackById.get(authorId) || {}
         });
     });
 }
 
-async function createPostComment({ viewer, postId, body }) {
+async function createPostComment({ viewer, postId, body, parentCommentId = '' }) {
     const viewerProfile = await getViewerProfile(viewer);
     const normalizedPostId = sanitizeText(postId);
     const cleanBody = sanitizeText(body);
+    const normalizedParentCommentId = sanitizeText(parentCommentId);
 
     if (!normalizedPostId) {
         throw new Error('postId is required.');
@@ -631,13 +757,46 @@ async function createPostComment({ viewer, postId, body }) {
         throw new Error('Post not found.');
     }
 
+    const post = postSnap.data() || {};
+    const postOwnerId = normalizeUserId(post.authorId);
+
+    let parentData = null;
+    let parentDepth = -1;
+    let rootCommentId = '';
+
+    if (normalizedParentCommentId) {
+        const parentSnap = await postRef
+            .collection('comments')
+            .doc(normalizedParentCommentId)
+            .get();
+
+        if (!parentSnap.exists || toBool(parentSnap.data()?.isDeleted)) {
+            throw new Error('Parent comment not found.');
+        }
+
+        parentData = parentSnap.data() || {};
+        parentDepth = Math.max(0, toInt(parentData.depth, 0));
+        rootCommentId = sanitizeText(parentData.rootCommentId || normalizedParentCommentId);
+    }
+
     const commentRef = postRef.collection('comments').doc();
+    const depth = normalizedParentCommentId ? parentDepth + 1 : 0;
+
+    if (!rootCommentId) {
+        rootCommentId = commentRef.id;
+    }
+
     const payload = {
         authorId: viewerProfile.id,
         body: cleanBody,
+        parentCommentId: normalizedParentCommentId,
+        rootCommentId,
+        depth,
+        hiddenForUserIds: [],
         isDeleted: false,
         createdAt: nowTs(),
         updatedAt: nowTs(),
+        editedAt: null,
         authorSnapshot: {
             fullName: viewerProfile.fullName,
             displayName: viewerProfile.displayName,
@@ -656,9 +815,146 @@ async function createPostComment({ viewer, postId, body }) {
         },
         {
             postId: normalizedPostId,
-            viewerId: viewerProfile.id
+            viewerId: viewerProfile.id,
+            postOwnerId
         }
     );
+}
+
+async function updatePostComment({ viewerId, postId, commentId, body }) {
+    const normalizedViewerId = normalizeUserId(viewerId);
+    const normalizedPostId = sanitizeText(postId);
+    const normalizedCommentId = sanitizeText(commentId);
+    const cleanBody = sanitizeText(body);
+
+    if (!normalizedViewerId || !normalizedPostId || !normalizedCommentId) {
+        throw new Error('viewerId, postId, and commentId are required.');
+    }
+
+    if (!cleanBody) {
+        throw new Error('Comment body is required.');
+    }
+
+    const postRef = feedPostsCol.doc(normalizedPostId);
+    const postSnap = await postRef.get();
+
+    if (!postSnap.exists || toBool(postSnap.data()?.isDeleted)) {
+        throw new Error('Post not found.');
+    }
+
+    const commentRef = postRef.collection('comments').doc(normalizedCommentId);
+    const commentSnap = await commentRef.get();
+
+    if (!commentSnap.exists || toBool(commentSnap.data()?.isDeleted)) {
+        throw new Error('Comment not found.');
+    }
+
+    const comment = commentSnap.data() || {};
+    if (sanitizeText(comment.authorId) !== normalizedViewerId) {
+        throw new Error('You can only edit your own comment.');
+    }
+
+    await commentRef.update({
+        body: cleanBody,
+        editedAt: nowTs(),
+        updatedAt: nowTs()
+    });
+
+    const updatedSnap = await commentRef.get();
+
+    return mapCommentDoc(updatedSnap, {
+        postId: normalizedPostId,
+        viewerId: normalizedViewerId,
+        postOwnerId: normalizeUserId(postSnap.data()?.authorId)
+    });
+}
+
+async function deletePostComment({ viewerId, postId, commentId }) {
+    const normalizedViewerId = normalizeUserId(viewerId);
+    const normalizedPostId = sanitizeText(postId);
+    const normalizedCommentId = sanitizeText(commentId);
+
+    if (!normalizedViewerId || !normalizedPostId || !normalizedCommentId) {
+        throw new Error('viewerId, postId, and commentId are required.');
+    }
+
+    const postRef = feedPostsCol.doc(normalizedPostId);
+    const postSnap = await postRef.get();
+
+    if (!postSnap.exists || toBool(postSnap.data()?.isDeleted)) {
+        throw new Error('Post not found.');
+    }
+
+    const post = postSnap.data() || {};
+    const postOwnerId = normalizeUserId(post.authorId);
+
+    const commentRef = postRef.collection('comments').doc(normalizedCommentId);
+    const commentSnap = await commentRef.get();
+
+    if (!commentSnap.exists) {
+        throw new Error('Comment not found.');
+    }
+
+    const comment = commentSnap.data() || {};
+    if (toBool(comment.isDeleted)) {
+        return {
+            id: normalizedCommentId,
+            deleted: true
+        };
+    }
+
+    const commentOwnerId = normalizeUserId(comment.authorId);
+    const canDelete = commentOwnerId === normalizedViewerId || postOwnerId === normalizedViewerId;
+
+    if (!canDelete) {
+        throw new Error('You can only delete your own comment or comments under your own post.');
+    }
+
+    await commentRef.update({
+        isDeleted: true,
+        body: '',
+        deletedAt: nowTs(),
+        updatedAt: nowTs()
+    });
+
+    return {
+        id: normalizedCommentId,
+        deleted: true
+    };
+}
+
+async function hidePostCommentForViewer({ viewerId, postId, commentId }) {
+    const normalizedViewerId = normalizeUserId(viewerId);
+    const normalizedPostId = sanitizeText(postId);
+    const normalizedCommentId = sanitizeText(commentId);
+
+    if (!normalizedViewerId || !normalizedPostId || !normalizedCommentId) {
+        throw new Error('viewerId, postId, and commentId are required.');
+    }
+
+    const postRef = feedPostsCol.doc(normalizedPostId);
+    const postSnap = await postRef.get();
+
+    if (!postSnap.exists || toBool(postSnap.data()?.isDeleted)) {
+        throw new Error('Post not found.');
+    }
+
+    const commentRef = postRef.collection('comments').doc(normalizedCommentId);
+    const commentSnap = await commentRef.get();
+
+    if (!commentSnap.exists || toBool(commentSnap.data()?.isDeleted)) {
+        throw new Error('Comment not found.');
+    }
+
+    await commentRef.update({
+        hiddenForUserIds: FieldValue.arrayUnion(normalizedViewerId),
+        updatedAt: nowTs()
+    });
+
+    return {
+        id: normalizedCommentId,
+        hidden: true
+    };
 }
 
 async function sendFriendRequest({ senderId, receiverId }) {
@@ -1143,10 +1439,15 @@ module.exports = {
     getViewerProfile,
     listFeed,
     createPost,
+    updatePost,
+    hidePostForViewer,
     deletePost,
     togglePostLike,
     listPostComments,
     createPostComment,
+    updatePostComment,
+    deletePostComment,
+    hidePostCommentForViewer,
     listAcademyMembers,
     getMemberProfile,
     toggleMemberFollow,

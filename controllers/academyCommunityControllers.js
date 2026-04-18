@@ -146,6 +146,85 @@ exports.createPost = async (req, res) => {
         );
     }
 };
+exports.updatePost = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Missing authenticated user.'
+            });
+        }
+
+        const postId = sanitizeText(req.params?.id);
+        const body =
+            sanitizeText(req.body?.body) ||
+            sanitizeText(req.body?.content) ||
+            sanitizeText(req.body?.text);
+
+        const post = await academyCommunityRepo.updatePost({
+            viewerId: viewer.id,
+            postId,
+            body
+        });
+
+        return res.json({
+            success: true,
+            post
+        });
+    } catch (error) {
+        console.error('academyCommunityControllers.updatePost error:', error);
+
+        const notFound = /not found/i.test(error?.message || '');
+        const forbidden = /only edit your own post/i.test(error?.message || '');
+        const isValidationError = /required/i.test(error?.message || '');
+
+        return sendError(
+            res,
+            error,
+            'Failed to update post.',
+            notFound ? 404 : forbidden ? 403 : isValidationError ? 400 : 500
+        );
+    }
+};
+
+exports.hidePost = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Missing authenticated user.'
+            });
+        }
+
+        const postId = sanitizeText(req.params?.id);
+
+        const result = await academyCommunityRepo.hidePostForViewer({
+            viewerId: viewer.id,
+            postId
+        });
+
+        return res.json({
+            success: true,
+            ...result
+        });
+    } catch (error) {
+        console.error('academyCommunityControllers.hidePost error:', error);
+
+        const notFound = /not found/i.test(error?.message || '');
+        const isValidationError = /required/i.test(error?.message || '');
+
+        return sendError(
+            res,
+            error,
+            'Failed to hide post.',
+            notFound ? 404 : isValidationError ? 400 : 500
+        );
+    }
+};
 exports.deletePost = async (req, res) => {
     try {
         const viewer = getViewerFromRequest(req);
@@ -270,18 +349,25 @@ exports.createComment = async (req, res) => {
             sanitizeText(req.body?.content) ||
             sanitizeText(req.body?.text);
 
+        const parentCommentId =
+            sanitizeText(req.body?.parentCommentId) ||
+            sanitizeText(req.body?.parent_comment_id) ||
+            sanitizeText(req.body?.replyToCommentId) ||
+            sanitizeText(req.body?.reply_to_comment_id);
+
         const comment = await academyCommunityRepo.createPostComment({
             viewer,
             postId,
-            body
+            body,
+            parentCommentId
         });
 
         try {
             await publicLandingEventsRepo.createEventForUser(viewer.id, {
-                type: 'academy_community_comment',
+                type: parentCommentId ? 'academy_community_reply' : 'academy_community_comment',
                 slot: 'plaza',
                 category: 'academy',
-                messagePrefix: 'New Academy comment activity',
+                messagePrefix: parentCommentId ? 'New Academy reply activity' : 'New Academy comment activity',
                 labelPrefix: 'Academy Community',
                 color: '#22d3ee',
                 altitude: 0.17,
@@ -307,6 +393,129 @@ exports.createComment = async (req, res) => {
             error,
             'Failed to create comment.',
             isValidationError ? 400 : notFound ? 404 : 500
+        );
+    }
+};
+exports.updateComment = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Missing authenticated user.'
+            });
+        }
+
+        const postId = sanitizeText(req.params?.postId);
+        const commentId = sanitizeText(req.params?.commentId);
+        const body =
+            sanitizeText(req.body?.body) ||
+            sanitizeText(req.body?.content) ||
+            sanitizeText(req.body?.text);
+
+        const comment = await academyCommunityRepo.updatePostComment({
+            viewerId: viewer.id,
+            postId,
+            commentId,
+            body
+        });
+
+        return res.json({
+            success: true,
+            comment
+        });
+    } catch (error) {
+        console.error('academyCommunityControllers.updateComment error:', error);
+
+        const notFound = /not found/i.test(error?.message || '');
+        const forbidden = /only edit your own comment/i.test(error?.message || '');
+        const isValidationError = /required/i.test(error?.message || '');
+
+        return sendError(
+            res,
+            error,
+            'Failed to update comment.',
+            notFound ? 404 : forbidden ? 403 : isValidationError ? 400 : 500
+        );
+    }
+};
+
+exports.deleteComment = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Missing authenticated user.'
+            });
+        }
+
+        const postId = sanitizeText(req.params?.postId);
+        const commentId = sanitizeText(req.params?.commentId);
+
+        const result = await academyCommunityRepo.deletePostComment({
+            viewerId: viewer.id,
+            postId,
+            commentId
+        });
+
+        return res.json({
+            success: true,
+            ...result
+        });
+    } catch (error) {
+        console.error('academyCommunityControllers.deleteComment error:', error);
+
+        const notFound = /not found/i.test(error?.message || '');
+        const forbidden = /only delete your own comment|comments under your own post/i.test(error?.message || '');
+        const isValidationError = /required/i.test(error?.message || '');
+
+        return sendError(
+            res,
+            error,
+            'Failed to delete comment.',
+            notFound ? 404 : forbidden ? 403 : isValidationError ? 400 : 500
+        );
+    }
+};
+
+exports.hideComment = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Missing authenticated user.'
+            });
+        }
+
+        const postId = sanitizeText(req.params?.postId);
+        const commentId = sanitizeText(req.params?.commentId);
+
+        const result = await academyCommunityRepo.hidePostCommentForViewer({
+            viewerId: viewer.id,
+            postId,
+            commentId
+        });
+
+        return res.json({
+            success: true,
+            ...result
+        });
+    } catch (error) {
+        console.error('academyCommunityControllers.hideComment error:', error);
+
+        const notFound = /not found/i.test(error?.message || '');
+        const isValidationError = /required/i.test(error?.message || '');
+
+        return sendError(
+            res,
+            error,
+            'Failed to hide comment.',
+            notFound ? 404 : isValidationError ? 400 : 500
         );
     }
 };

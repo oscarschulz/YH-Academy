@@ -66,10 +66,16 @@ router.get('/academy/lead-missions/scripts', auth, academyControllers.getLeadMis
 // ==========================================
 router.get('/academy/feed', auth, academyCommunityControllers.getFeed);
 router.post('/academy/feed/posts', auth, academyCommunityControllers.createPost);
+router.patch('/academy/feed/posts/:id', auth, academyCommunityControllers.updatePost);
 router.delete('/academy/feed/posts/:id', auth, academyCommunityControllers.deletePost);
+router.post('/academy/feed/posts/:id/hide', auth, academyCommunityControllers.hidePost);
 router.post('/academy/feed/posts/:id/like', auth, academyCommunityControllers.toggleLike);
+
 router.get('/academy/feed/posts/:id/comments', auth, academyCommunityControllers.getComments);
 router.post('/academy/feed/posts/:id/comments', auth, academyCommunityControllers.createComment);
+router.patch('/academy/feed/posts/:postId/comments/:commentId', auth, academyCommunityControllers.updateComment);
+router.delete('/academy/feed/posts/:postId/comments/:commentId', auth, academyCommunityControllers.deleteComment);
+router.post('/academy/feed/posts/:postId/comments/:commentId/hide', auth, academyCommunityControllers.hideComment);
 router.post('/academy/feed/friend-requests', auth, academyCommunityControllers.sendFriendRequest);
 router.post('/academy/feed/friend-requests/:id/respond', auth, academyCommunityControllers.respondToFriendRequest);
 router.get('/academy/community/members', auth, academyCommunityControllers.getMembers);
