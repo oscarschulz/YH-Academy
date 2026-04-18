@@ -10122,6 +10122,7 @@ function isFederationPendingLocked(snapshot = null) {
 
 function syncFederationFrameAccess(snapshot = null) {
     const currentSnapshot = snapshot || getFederationAccessSnapshot();
+    const shell = document.getElementById('view-federation');
     const lock = document.getElementById('federation-access-lock');
     const frame = document.getElementById('yh-federation-frame');
     const lockTitle = document.getElementById('federation-lock-title');
@@ -10129,6 +10130,10 @@ function syncFederationFrameAccess(snapshot = null) {
     const applyFromLockBtn = document.getElementById('btn-open-federation-application-from-lock');
 
     const approved = currentSnapshot?.canEnterFederation === true;
+
+    if (shell) {
+        shell.classList.toggle('is-unlocked', approved);
+    }
 
     if (approved) {
         if (lock) lock.classList.add('hidden-step');
@@ -10491,6 +10496,19 @@ function openFederationLockedView(snapshot = null) {
 
     setDashboardViewMode('federation');
     syncFederationFrameAccess(currentSnapshot);
+
+    window.requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+
+        if (viewFederationEl && typeof viewFederationEl.scrollTo === 'function') {
+            viewFederationEl.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+        }
+
+        const frame = document.getElementById('yh-federation-frame');
+        try {
+            frame?.contentWindow?.scrollTo?.(0, 0);
+        } catch (_) {}
+    });
 }
 
 function openFederationApprovedView(snapshot = null) {
