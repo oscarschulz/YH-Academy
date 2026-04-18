@@ -346,6 +346,12 @@ function normalizeAdminFederationRequestRecord(record = {}) {
     ownerUid: String(record.ownerUid || '').trim(),
     leadId: String(record.leadId || '').trim(),
     leadPath: String(record.leadPath || '').trim(),
+    requestMode: String(record.requestMode || (record.leadId ? 'selected_lead' : 'match_request')).trim(),
+    requestedContact: record.requestedContact && typeof record.requestedContact === 'object'
+      ? record.requestedContact
+      : null,
+    matchedAt: String(record.matchedAt || '').trim(),
+    matchedBy: String(record.matchedBy || '').trim(),
     opportunityId: String(record.opportunityId || '').trim(),
     opportunityTitle: String(record.opportunityTitle || 'Connection request').trim(),
     status: String(record.status || 'pending_admin_match').trim(),
@@ -1407,7 +1413,117 @@ function renderAcademy() {
     `;
   }).join('') || makeEmptyRow(7, 'No Lead Missions records match the current filters.');
 }
+function normalizeAdminMatchText(value = '') {
+  return String(value || '').trim().toLowerCase();
+}
 
+function getFederationRequestTarget(record = {}) {
+  const requested = record.requestedContact && typeof record.requestedContact === 'object'
+    ? record.requestedContact
+    : {};
+
+  return {
+    companyName: normalizeAdminMatchText(requested.companyName || record.companyName),
+    companyWebsite: normalizeAdminMatchText(requested.companyWebsite || record.companyWebsite),
+    contactName: normalizeAdminMatchText(requested.contactName || record.contactName),
+    contactRole: normalizeAdminMatchText(requested.contactRole || record.contactRole),
+    contactType: normalizeAdminMatchText(requested.contactType || record.category),
+    city: normalizeAdminMatchText(requested.city || record.city),
+    country: normalizeAdminMatchText(requested.country || record.country),
+    sourceMethod: normalizeAdminMatchText(requested.sourceMethod || record.sourceMethod),
+    channel: normalizeAdminMatchText(requested.channel || record.channel),
+    pipelineStage: normalizeAdminMatchText(requested.pipelineStage || record.pipelineStage),
+    priority: normalizeAdminMatchText(requested.priority || record.priority),
+    requestedTier: normalizeAdminMatchText(requested.requestedTier || record.tier)
+  };
+}
+
+function adminFieldMatches(target = '', value = '') {
+  const a = normalizeAdminMatchText(target);
+  const b = normalizeAdminMatchText(value);
+
+  if (!a || !b) return false;
+  return a === b || a.includes(b) || b.includes(a);
+}
+
+function scoreFederationLeadMatch(request = {}, lead = {}) {
+  const target = getFederationRequestTarget(request);
+  let score = 0;
+
+  if (adminFieldMatches(target.country, lead.country)) score += 30;
+  if (adminFieldMatches(target.city, lead.city)) score += 18;
+  if (adminFieldMatches(target.contactType, lead.contactType)) score += 24;
+  if (adminFieldMatches(target.contactRole, lead.contactRole)) score += 22;
+  if (adminFieldMatches(target.companyName, lead.companyName)) score += 14;
+  if (adminFieldMatches(target.sourceMethod, lead.sourceMethod)) score += 8;
+  if (adminFieldMatches(target.channel, lead.channel)) score += 8;
+  if (adminFieldMatches(target.pipelineStage, lead.pipelineStage)) score += 8;
+  if (adminFieldMatches(target.priority, lead.priority)) score += 5;
+  if (adminFieldMatches(target.requestedTier, lead.tier)) score += 8;
+
+  const leadValue = normalizeAdminMatchText(lead.strategicValue);
+  if (leadValue === 'strategic') score += 8;
+  if (leadValue === 'high') score += 5;
+
+  if (lead.email) score += 4;
+  if (lead.phone) score += 4;
+
+  return score;
+}
+
+function getFederationLeadMatchOptions(request = {}) {
+  return (state.federationLeadDatabase || [])
+    .filter((lead) => lead.federationReady === true)
+    .map((lead) => ({
+      lead,
+      score: scoreFederationLeadMatch(request, lead)
+    }))
+    .sort((a, b) => {
+      if (a.score !== b.score) return b.score - a.score;
+      return String(b.lead.updatedAt || '').localeCompare(String(a.lead.updatedAt || ''));
+    });
+}
+
+function buildFederationLeadMatchSelect(record = {}) {
+  const options = getFederationLeadMatchOptions(record);
+
+  if (!options.length) {
+    return `
+      <div class="stack-item">
+        <p class="muted">No Federation-ready leads available. Mark leads as Federation-ready first.</p>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="federation-match-box">
+      <label class="federation-match-label" for="federation-match-lead-select-${escapeHtml(record.id)}">
+        Choose lead to match
+      </label>
+
+      <select id="federation-match-lead-select-${escapeHtml(record.id)}" class="federation-match-select">
+        <option value="">Select a lead</option>
+        ${options.map(({ lead, score }) => {
+          const ownerUid = lead.ownerUid || lead.memberId || '';
+          const value = `${ownerUid}::${lead.id}`;
+          const label = [
+            score ? `Score ${score}` : 'Low match',
+            lead.companyName || 'Private organization',
+            lead.contactName || 'Protected contact',
+            lead.contactRole || '',
+            [lead.city, lead.country].filter(Boolean).join(', ')
+          ].filter(Boolean).join(' • ');
+
+          return `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`;
+        }).join('')}
+      </select>
+
+      <div class="federation-match-hint">
+        Matches are ranked by country, city, contact type, role, company, source method, channel, stage, priority, tier, and contact availability.
+      </div>
+    </div>
+  `;
+}
 function renderFederation() {
   const query = state.ui.globalSearch;
   const valueFilter = document.getElementById('federation-lead-value-filter')?.value || 'all';
@@ -1530,6 +1646,7 @@ function renderFederation() {
         ${makeCell('Actions', `
           <div class="table-actions">
             <button data-open="federationRequest" data-id="${item.id}">Open</button>
+            <button data-action="federation-request-match-selected" data-id="${item.id}">Match Lead</button>
             <button data-action="federation-request-status-matched" data-id="${item.id}">Matched</button>
             <button data-action="federation-request-status-pricing_sent" data-id="${item.id}">Pricing Sent</button>
             <button data-action="federation-request-status-paid" data-id="${item.id}">Paid</button>
@@ -2244,6 +2361,31 @@ if (type === 'application') {
       </div>
 
       <div class="drawer-section">
+        <h4>Match Lead</h4>
+        <p class="muted" style="margin-top:0;">
+          Pick the best Federation-ready lead from the Academy Lead Missions database.
+        </p>
+
+        ${buildFederationLeadMatchSelect(record)}
+
+        <div class="inline-actions" style="margin-top:12px;">
+          <button class="badge-btn" data-action="federation-request-match-selected" data-id="${record.id}">
+            Match Selected Lead
+          </button>
+        </div>
+      </div>
+
+      <div class="drawer-section">
+        <h4>Current Matched Lead</h4>
+        <div class="kv-grid">
+          <div class="kv"><span>Owner UID</span><strong>${escapeHtml(record.ownerUid || '—')}</strong></div>
+          <div class="kv"><span>Lead ID</span><strong>${escapeHtml(record.leadId || '—')}</strong></div>
+          <div class="kv"><span>Matched By</span><strong>${escapeHtml(record.matchedBy || '—')}</strong></div>
+          <div class="kv"><span>Matched At</span><strong>${escapeHtml(record.matchedAt || '—')}</strong></div>
+        </div>
+      </div>
+
+      <div class="drawer-section">
         <h4>Admin Request Status</h4>
         <div class="inline-actions">
           <button class="badge-btn" data-action="federation-request-status-matched" data-id="${record.id}">Matched</button>
@@ -2439,6 +2581,39 @@ async function handleDrawerStatusChange(action, id) {
     openDrawer('application', id);
   } else {
     closeDrawer();
+  }
+}
+async function matchFederationConnectionRequestToLead(record, selectedValue = '') {
+  const requestId = String(record?.id || '').trim();
+  const [ownerUid, leadId] = String(selectedValue || '').split('::').map((part) => part.trim());
+
+  if (!requestId) {
+    throw new Error('Missing Federation request id.');
+  }
+
+  if (!ownerUid || !leadId) {
+    throw new Error('Select a lead to match first.');
+  }
+
+  await adminFetchJson(
+    `/api/admin/federation/connection-requests/${encodeURIComponent(requestId)}/match`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        ownerUid,
+        leadId
+      })
+    }
+  );
+
+  await loadAdminBootstrap();
+
+  const refreshed = findById('federationConnectionRequests', requestId);
+  if (refreshed) {
+    openDrawer('federationRequest', refreshed.id);
   }
 }
 async function updateFederationConnectionRequestStatus(record, status = '') {
@@ -2863,6 +3038,24 @@ case 'lead-set-strategic-value': {
   } catch (error) {
     if (error?.message !== 'No active admin session.') {
       showToast(error.message || 'Failed to update strategic value.');
+    }
+  }
+  break;
+}
+case 'federation-request-match-selected': {
+  try {
+    const record = findById('federationConnectionRequests', id);
+    if (!record) throw new Error('Federation connection request not found.');
+
+    const select = document.getElementById(`federation-match-lead-select-${id}`);
+    const selectedValue = select ? select.value : '';
+
+    await matchFederationConnectionRequestToLead(record, selectedValue);
+
+    showToast('Connection request matched to selected lead.');
+  } catch (error) {
+    if (error?.message !== 'No active admin session.') {
+      showToast(error.message || 'Failed to match lead.');
     }
   }
   break;

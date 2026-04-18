@@ -1848,3 +1848,27 @@ body.drawer-open {
     grid-template-columns: 1fr;
   }
 }
+/* ========================================================= */
+/* Federation Match Lead UI                                  */
+/* ========================================================= */
+
+.federation-match-box {
+  display: grid;
+  gap: 8px;
+}
+
+.federation-match-label {
+  color: var(--muted);
+  font-size: .82rem;
+  font-weight: 600;
+}
+
+.federation-match-select {
+  width: 100%;
+}
+
+.federation-match-hint {
+  color: var(--muted);
+  font-size: .78rem;
+  line-height: 1.5;
+}

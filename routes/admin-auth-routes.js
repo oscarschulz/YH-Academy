@@ -468,6 +468,12 @@ function mapAdminFederationConnectionRequestDoc(doc) {
     ownerUid: cleanText(data.ownerUid || snapshot.ownerUid),
     leadId: cleanText(data.leadId || snapshot.leadId),
     leadPath: cleanText(data.leadPath),
+    requestMode: cleanText(data.requestMode || (data.leadId ? 'selected_lead' : 'match_request')),
+    requestedContact: data.requestedContact && typeof data.requestedContact === 'object'
+      ? data.requestedContact
+      : null,
+    matchedAt: toIso(data.matchedAt) || cleanText(data.matchedAt || ''),
+    matchedBy: cleanText(data.matchedBy || ''),
     opportunityId: cleanText(data.opportunityId || snapshot.id),
     opportunityTitle: cleanText(data.opportunityTitle || snapshot.title || 'Connection request'),
     status: cleanText(data.status || 'pending_admin_match'),
@@ -1494,6 +1500,139 @@ apiRouter.post('/api/admin/academy/lead-missions/:memberId/:leadId/network', req
     return res.status(500).json({
       success: false,
       message: 'Failed to update Lead Mission network routing.'
+    });
+  }
+});
+function buildAdminMatchedFederationOpportunitySnapshot(lead = {}, ownerUid = '', leadId = '') {
+  const contactRole = cleanText(lead.contactRole || lead.role || lead.contactType || 'strategic contact');
+  const city = cleanText(lead.city);
+  const country = cleanText(lead.country);
+  const location = [city, country].filter(Boolean).join(', ');
+
+  return {
+    id: `${cleanText(ownerUid)}_${cleanText(leadId)}`,
+    ownerUid: cleanText(ownerUid),
+    leadId: cleanText(leadId),
+    title: location
+      ? `Connect with a ${contactRole} in ${location}`
+      : `Connect with a ${contactRole}`,
+    category: cleanText(lead.contactType || lead.category || lead.industry || 'Strategic Network'),
+    contactRole,
+    contactType: cleanText(lead.contactType || lead.category || 'Strategic Network'),
+    companyName: cleanText(lead.companyName),
+    companyWebsite: cleanText(lead.companyWebsite),
+    contactName: cleanText(lead.contactName),
+    city,
+    country,
+    strategicValue: cleanText(lead.strategicValue || 'standard'),
+    tier: cleanText(lead.tier),
+    sourceDivision: cleanText(lead.sourceDivision || 'academy') || 'academy',
+    pipelineStage: cleanText(lead.pipelineStage || lead.callOutcome || ''),
+    sourceMethod: cleanText(lead.sourceMethod),
+    channel: cleanText(lead.channel),
+    priority: cleanText(lead.priority),
+    hasEmail: Boolean(cleanText(lead.email)),
+    hasPhone: Boolean(cleanText(lead.phone)),
+    hasDirectContact: Boolean(cleanText(lead.email) || cleanText(lead.phone)),
+    companyLabel: lead.companyName ? 'Private organization on file' : 'Private organization',
+    summary: cleanText(
+      lead.notes ||
+      lead.description ||
+      'Academy-sourced lead matched by admin.'
+    ).slice(0, 260)
+  };
+}
+apiRouter.post('/api/admin/federation/connection-requests/:requestId/match', requireAdminSession, async (req, res) => {
+  try {
+    const requestId = cleanText(req.params.requestId);
+    const ownerUid = cleanText(req.body?.ownerUid || req.body?.memberId);
+    const leadId = cleanText(req.body?.leadId);
+
+    if (!requestId || !ownerUid || !leadId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Request id, owner uid, and lead id are required.'
+      });
+    }
+
+    const requestRef = firestore.collection('federationConnectionRequests').doc(requestId);
+    const requestSnap = await requestRef.get();
+
+    if (!requestSnap.exists) {
+      return res.status(404).json({
+        success: false,
+        message: 'Federation connection request not found.'
+      });
+    }
+
+    const userRef = firestore.collection('users').doc(ownerUid);
+    const userSnap = await userRef.get();
+
+    if (!userSnap.exists) {
+      return res.status(404).json({
+        success: false,
+        message: 'Lead owner user not found.'
+      });
+    }
+
+    const leadRef = userRef.collection('academyLeadMissions').doc(leadId);
+    const leadSnap = await leadRef.get();
+
+    if (!leadSnap.exists) {
+      return res.status(404).json({
+        success: false,
+        message: 'Selected Lead Mission record not found.'
+      });
+    }
+
+    const lead = leadSnap.data() || {};
+
+    if (lead.federationReady !== true) {
+      return res.status(403).json({
+        success: false,
+        message: 'Selected lead is not marked Federation-ready.'
+      });
+    }
+
+    const now = Timestamp.now();
+    const opportunitySnapshot = buildAdminMatchedFederationOpportunitySnapshot(lead, ownerUid, leadId);
+
+    await requestRef.set({
+      ownerUid,
+      leadId,
+      leadPath: leadRef.path,
+      requestMode: 'matched_by_admin',
+      opportunityId: opportunitySnapshot.id,
+      opportunityTitle: opportunitySnapshot.title,
+      opportunitySnapshot,
+      status: 'matched',
+      adminStatus: 'matched',
+      matchedAt: now,
+      matchedBy: req.adminSession.username,
+      updatedAt: now,
+      adminUpdatedAt: now,
+      adminUpdatedBy: req.adminSession.username
+    }, { merge: true });
+
+    await firestore.collection('adminBroadcasts').add({
+      audience: cleanText(requestSnap.data()?.requesterName || requestSnap.data()?.requesterEmail || 'Federation requester'),
+      subject: 'Federation connection request matched',
+      message: `Admin matched request ${requestId} to lead ${leadId}.`,
+      sentAt: new Date().toISOString(),
+      createdBy: req.adminSession.username
+    });
+
+    const updatedSnap = await requestRef.get();
+
+    return res.json({
+      success: true,
+      request: mapAdminFederationConnectionRequestDoc(updatedSnap)
+    });
+  } catch (error) {
+    console.error('admin federation request match error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to match Federation connection request.'
     });
   }
 });
