@@ -14236,7 +14236,15 @@ try {
     aiSpinnerPhase?.classList.add('hidden-step');
     aiVerdictPhase?.classList.remove('hidden-step');
 
-            if (vIcon) vIcon.innerText = "📝";
+            if (vIcon) {
+                vIcon.innerHTML = `
+                    <img
+                        src="/images/yhlobby.png"
+                        alt="YH Lobby"
+                        style="width:80px;height:80px;object-fit:contain;display:block;margin:0 auto;"
+                    >
+                `;
+            }
             if (vTitle) {
                 vTitle.innerText = "Application Submitted for Review";
                 vTitle.style.color = "var(--neon-blue)";

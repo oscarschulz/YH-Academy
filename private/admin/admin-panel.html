@@ -253,6 +253,7 @@
 
       <section class="view view-academy" id="view-academy">
         <div class="stats-grid compact" id="academy-stats"></div>
+
         <div class="panel-card">
           <div class="panel-head wrap-head">
             <div>
@@ -289,6 +290,48 @@
                 </tr>
               </thead>
               <tbody id="academy-table"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="panel-card" style="margin-top:20px;">
+          <div class="panel-head wrap-head">
+            <div>
+              <p class="eyebrow">Academy Operations</p>
+              <h3>Lead Missions Network Pipeline</h3>
+            </div>
+            <div class="toolbar">
+              <select id="academy-lead-stage-filter">
+                <option value="all">All Lead Stages</option>
+                <option value="new">New</option>
+                <option value="contacted">Contacted</option>
+                <option value="follow_up">Follow-up</option>
+                <option value="qualified">Qualified</option>
+                <option value="closed_won">Closed Won</option>
+                <option value="closed_lost">Closed Lost</option>
+              </select>
+              <select id="academy-lead-scope-filter">
+                <option value="all">All Network Scopes</option>
+                <option value="academy">Academy</option>
+                <option value="federation">Federation</option>
+                <option value="plazas">Plazas</option>
+              </select>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Operator</th>
+                  <th>Company / Contact</th>
+                  <th>Stage</th>
+                  <th>Network Scope</th>
+                  <th>Follow-up</th>
+                  <th>Strategic Value</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="academy-lead-missions-table"></tbody>
             </table>
           </div>
         </div>

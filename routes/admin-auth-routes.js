@@ -297,6 +297,89 @@ function toNumber(value, fallback = 0) {
   return Number.isFinite(num) ? num : fallback;
 }
 
+function normalizeStringList(value) {
+  const source = Array.isArray(value) ? value : [value];
+  return Array.from(
+    new Set(
+      source
+        .map((item) => cleanText(item).toLowerCase())
+        .filter(Boolean)
+    )
+  );
+}
+
+function buildAdminLeadMissionProjection(lead = {}, member = {}, payouts = [], deals = []) {
+  const leadId = cleanText(lead.id);
+  const relatedPayouts = payouts.filter((item) => cleanText(item.leadId) === leadId);
+  const relatedDeals = deals.filter((item) => cleanText(item.leadId) === leadId);
+
+  const accessScopes = normalizeStringList([
+    ...(Array.isArray(lead.accessScopes) ? lead.accessScopes : []),
+    ...(Array.isArray(lead.networkScopes) ? lead.networkScopes : []),
+    'academy',
+    lead.federationReady === true ? 'federation' : '',
+    lead.plazaReady === true ? 'plazas' : ''
+  ]);
+
+  const approvedPayoutTotal = relatedPayouts.reduce((sum, item) => {
+    const status = cleanText(item.status).toLowerCase();
+    if (status === 'approved' || status === 'paid') {
+      return sum + toNumber(item.amount, 0);
+    }
+    return sum;
+  }, 0);
+
+  const grossDealTotal = relatedDeals.reduce((sum, item) => {
+    return sum + toNumber(item.grossValue, 0);
+  }, 0);
+
+  return {
+    id: leadId,
+    ownerUid: cleanText(member.id),
+    memberId: cleanText(member.id),
+    memberName: cleanText(member.name),
+    operatorName: cleanText(member.name),
+    sourceDivision: 'academy',
+    accessScopes: accessScopes.length ? accessScopes : ['academy'],
+    federationReady: accessScopes.includes('federation'),
+    plazaReady: accessScopes.includes('plazas'),
+    networkTags: normalizeStringList(lead.networkTags || lead.tags || []),
+    strategicValue: cleanText(lead.strategicValue || 'standard'),
+
+    tier: cleanText(lead.tier),
+    companyName: cleanText(lead.companyName),
+    companyWebsite: cleanText(lead.companyWebsite),
+    contactName: cleanText(lead.contactName),
+    contactRole: cleanText(lead.contactRole),
+    contactType: cleanText(lead.contactType || 'unknown'),
+    email: cleanText(lead.email),
+    phone: cleanText(lead.phone),
+    city: cleanText(lead.city),
+    country: cleanText(lead.country),
+    sourceMethod: cleanText(lead.sourceMethod),
+    callOutcome: cleanText(lead.callOutcome),
+    interestLevel: cleanText(lead.interestLevel),
+    rapportLevel: cleanText(lead.rapportLevel),
+    pipelineStage: cleanText(lead.pipelineStage),
+    priority: cleanText(lead.priority),
+    nextAction: cleanText(lead.nextAction),
+    channel: cleanText(lead.channel),
+    taskStatus: cleanText(lead.taskStatus),
+    callType: cleanText(lead.callType),
+    objection: cleanText(lead.objection),
+    notes: cleanText(lead.notes),
+    followUpDueDate: cleanText(lead.followUpDueDate),
+    status: cleanText(lead.status || 'active'),
+    createdAt: toIso(lead.createdAt) || cleanText(lead.createdAt || ''),
+    updatedAt: toIso(lead.updatedAt) || cleanText(lead.updatedAt || ''),
+
+    payoutCount: relatedPayouts.length,
+    dealCount: relatedDeals.length,
+    approvedPayoutTotal,
+    grossDealTotal
+  };
+}
+
 async function buildAdminBootstrapPayload() {
   const [usersSnap, broadcastsSnap] = await Promise.all([
     firestore.collection('users').limit(300).get(),
@@ -440,8 +523,13 @@ const applications = users.flatMap((user) => {
 });
 
   const academy = [];
-  for (const member of members) {
-    if (!Array.isArray(member.divisions) || !member.divisions.includes('Academy')) continue;
+  const academyLeadMissions = [];
+  const academyMembers = members.filter((member) => {
+    return Array.isArray(member.divisions) && member.divisions.includes('Academy');
+  });
+
+  for (const member of academyMembers) {
+    const sourceUser = users.find((u) => cleanText(u.id) === cleanText(member.id)) || {};
 
     try {
       const activeRoadmap = await academyFirestoreRepo.getActiveRoadmap(member.id);
@@ -470,8 +558,8 @@ const applications = users.flatMap((user) => {
         phase: cleanText(activeRoadmap?.roadmap?.weeklyTheme || activeRoadmap?.summary?.primaryBottleneck || 'Academy Active'),
         focus: cleanText((activeRoadmap?.focusAreas || [])[0] || 'General'),
         completion: toNumber(missionProgress?.completionRate, 0),
-        lastCheckIn: cleanText(users.find((u) => cleanText(u.id) === cleanText(member.id))?.adminAcademyLastCheckIn) || toIso(missionProgress?.lastCheckinAt || activeRoadmap?.updatedAt) || '',
-        status: cleanText(users.find((u) => cleanText(u.id) === cleanText(member.id))?.adminAcademyStatus || (activeRoadmap ? 'On Track' : 'Needs Review')),
+        lastCheckIn: cleanText(sourceUser?.adminAcademyLastCheckIn) || toIso(missionProgress?.lastCheckinAt || activeRoadmap?.updatedAt) || '',
+        status: cleanText(sourceUser?.adminAcademyStatus || (activeRoadmap ? 'On Track' : 'Needs Review')),
         nextAction: cleanText(activeRoadmap?.roadmap?.weeklyTargetOutcome || 'Review roadmap status'),
 
         recentCoachMessages,
@@ -517,6 +605,24 @@ const applications = users.flatMap((user) => {
     }
   }
 
+  for (const member of academyMembers) {
+    try {
+      const [leads, payouts, deals] = await Promise.all([
+        academyFirestoreRepo.listLeadMissionLeads(member.id),
+        academyFirestoreRepo.listLeadMissionPayouts(member.id),
+        academyFirestoreRepo.listLeadMissionDeals(member.id)
+      ]);
+
+      leads.forEach((lead) => {
+        academyLeadMissions.push(
+          buildAdminLeadMissionProjection(lead, member, payouts, deals)
+        );
+      });
+    } catch (_) {
+      // Keep bootstrap resilient even if a member has no lead mission records yet.
+    }
+  }
+
   return {
     ui: {
       currentView: 'overview',
@@ -533,6 +639,7 @@ const applications = users.flatMap((user) => {
     applications,
     members,
     academy,
+    academyLeadMissions,
     federation: [],
     plazas: [],
     support: [],

@@ -56,6 +56,7 @@ const defaultState = () => ({
   applications: [],
   members: [],
   academy: [],
+  academyLeadMissions: [],
   federation: [],
   plazas: [],
   support: [],
@@ -178,12 +179,75 @@ function normalizeAdminAcademyRecord(record = {}) {
   };
 }
 
+function normalizeAdminLeadMissionRecord(record = {}) {
+  const accessScopes = Array.isArray(record.accessScopes)
+    ? record.accessScopes
+    : Array.isArray(record.networkScopes)
+      ? record.networkScopes
+      : [];
+
+  const networkTags = Array.isArray(record.networkTags)
+    ? record.networkTags
+    : Array.isArray(record.tags)
+      ? record.tags
+      : [];
+
+  return {
+    ...record,
+    id: String(record.id || '').trim(),
+    ownerUid: String(record.ownerUid || record.memberId || '').trim(),
+    memberId: String(record.memberId || record.ownerUid || '').trim(),
+    memberName: String(record.memberName || record.operatorName || 'Operator').trim(),
+    operatorName: String(record.operatorName || record.memberName || 'Operator').trim(),
+    sourceDivision: String(record.sourceDivision || 'academy').trim().toLowerCase() || 'academy',
+    accessScopes: Array.from(new Set(accessScopes.map((item) => String(item || '').trim().toLowerCase()).filter(Boolean))),
+    federationReady: record.federationReady === true || accessScopes.map((item) => String(item || '').trim().toLowerCase()).includes('federation'),
+    plazaReady: record.plazaReady === true || accessScopes.map((item) => String(item || '').trim().toLowerCase()).includes('plazas'),
+    networkTags: Array.from(new Set(networkTags.map((item) => String(item || '').trim().toLowerCase()).filter(Boolean))),
+    strategicValue: String(record.strategicValue || 'standard').trim() || 'standard',
+
+    tier: String(record.tier || '').trim(),
+    companyName: String(record.companyName || '').trim(),
+    companyWebsite: String(record.companyWebsite || '').trim(),
+    contactName: String(record.contactName || '').trim(),
+    contactRole: String(record.contactRole || '').trim(),
+    contactType: String(record.contactType || '').trim(),
+    email: String(record.email || '').trim(),
+    phone: String(record.phone || '').trim(),
+    city: String(record.city || '').trim(),
+    country: String(record.country || '').trim(),
+    sourceMethod: String(record.sourceMethod || '').trim(),
+    callOutcome: String(record.callOutcome || '').trim(),
+    interestLevel: String(record.interestLevel || '').trim(),
+    rapportLevel: String(record.rapportLevel || '').trim(),
+    pipelineStage: String(record.pipelineStage || '').trim(),
+    priority: String(record.priority || '').trim(),
+    nextAction: String(record.nextAction || '').trim(),
+    channel: String(record.channel || '').trim(),
+    taskStatus: String(record.taskStatus || '').trim(),
+    callType: String(record.callType || '').trim(),
+    objection: String(record.objection || '').trim(),
+    notes: String(record.notes || '').trim(),
+    followUpDueDate: String(record.followUpDueDate || '').trim(),
+    status: String(record.status || 'active').trim(),
+    createdAt: String(record.createdAt || '').trim(),
+    updatedAt: String(record.updatedAt || '').trim(),
+    payoutCount: Number(record.payoutCount || 0),
+    dealCount: Number(record.dealCount || 0),
+    approvedPayoutTotal: Number(record.approvedPayoutTotal || 0),
+    grossDealTotal: Number(record.grossDealTotal || 0)
+  };
+}
+
 function normalizeAdminBootstrapState(incomingState = {}) {
   const merged = mergeState(defaultState(), incomingState || {});
   return {
     ...merged,
     academy: Array.isArray(merged.academy)
       ? merged.academy.map((record) => normalizeAdminAcademyRecord(record))
+      : [],
+    academyLeadMissions: Array.isArray(merged.academyLeadMissions)
+      ? merged.academyLeadMissions.map((record) => normalizeAdminLeadMissionRecord(record))
       : []
   };
 }
@@ -1089,18 +1153,30 @@ function renderMembers() {
 function renderAcademy() {
   const focusFilter = document.getElementById('academy-focus-filter').value;
   const reviewFilter = document.getElementById('academy-review-filter').value;
+  const leadStageFilter = document.getElementById('academy-lead-stage-filter')?.value || 'all';
+  const leadScopeFilter = document.getElementById('academy-lead-scope-filter')?.value || 'all';
   const query = state.ui.globalSearch;
 
-  const rows = state.academy.filter(item => {
+  const roadmapRows = state.academy.filter(item => {
     return (focusFilter === 'all' || item.focus === focusFilter)
       && (reviewFilter === 'all' || item.status === reviewFilter)
+      && matchesSearch(item, query);
+  });
+
+  const leadRows = state.academyLeadMissions.filter((item) => {
+    const scopes = Array.isArray(item.accessScopes) ? item.accessScopes : [];
+    return (leadStageFilter === 'all' || item.pipelineStage === leadStageFilter)
+      && (leadScopeFilter === 'all' || scopes.includes(leadScopeFilter))
       && matchesSearch(item, query);
   });
 
   const stats = [
     { label: 'Roadmap Records', value: state.academy.length, foot: 'Tracked in current system' },
     { label: 'Needs Review', value: state.academy.filter(a => a.status === 'Needs Review').length, foot: 'Records missing a live roadmap' },
-    { label: 'At Risk', value: state.academy.filter(a => a.status === 'At Risk').length, foot: 'Low momentum members' }
+    { label: 'At Risk', value: state.academy.filter(a => a.status === 'At Risk').length, foot: 'Low momentum members' },
+    { label: 'Lead Records', value: state.academyLeadMissions.length, foot: 'Academy-origin network records' },
+    { label: 'Federation Ready', value: state.academyLeadMissions.filter(item => item.federationReady === true).length, foot: 'Cross-division strategic routing' },
+    { label: 'Plaza Ready', value: state.academyLeadMissions.filter(item => item.plazaReady === true).length, foot: 'Marketplace-ready relationships' }
   ];
 
   document.getElementById('academy-stats').innerHTML = stats.map(card => `
@@ -1111,7 +1187,7 @@ function renderAcademy() {
     </article>
   `).join('');
 
-    document.getElementById('academy-table').innerHTML = rows.map(item => {
+  document.getElementById('academy-table').innerHTML = roadmapRows.map(item => {
     const coachReplyBadge = formatCoachReplyBadge(
       item.latestReplyFormat ||
       item.replyFormat ||
@@ -1144,6 +1220,42 @@ function renderAcademy() {
     </tr>
   `;
   }).join('') || makeEmptyRow(7, 'No Academy records match the current filters.');
+
+  const leadTable = document.getElementById('academy-lead-missions-table');
+  if (!leadTable) return;
+
+  leadTable.innerHTML = leadRows.map((item) => {
+    const scopeBadges = (Array.isArray(item.accessScopes) ? item.accessScopes : [])
+      .map((scope) => formatBadge(
+        String(scope || '')
+          .trim()
+          .replace(/\b\w/g, (char) => char.toUpperCase())
+      ))
+      .join(' ');
+
+    return `
+      <tr>
+        ${makeCell('Operator', `<strong>${escapeHtml(item.memberName || item.operatorName || 'Operator')}</strong><div class="muted mono">${escapeHtml(item.ownerUid || item.memberId || item.id)}</div>`)}
+        ${makeCell('Company / Contact', `
+          <strong>${escapeHtml(item.companyName || '—')}</strong>
+          <div class="muted">${escapeHtml(item.contactName || '—')}${item.contactRole ? ` • ${escapeHtml(item.contactRole)}` : ''}</div>
+        `)}
+        ${makeCell('Stage', escapeHtml(item.pipelineStage || '—'))}
+        ${makeCell('Network Scope', scopeBadges || '—')}
+        ${makeCell('Follow-up', escapeHtml(item.followUpDueDate || '—'))}
+        ${makeCell('Strategic Value', formatBadge(
+          String(item.strategicValue || 'standard')
+            .trim()
+            .replace(/\b\w/g, (char) => char.toUpperCase())
+        ))}
+        ${makeCell('Actions', `
+          <div class="table-actions">
+            <button data-open="academyLeadMission" data-id="${item.id}">Open</button>
+          </div>
+        `)}
+      </tr>
+    `;
+  }).join('') || makeEmptyRow(7, 'No Lead Missions records match the current filters.');
 }
 
 function renderFederation() {
@@ -1713,8 +1825,60 @@ if (type === 'application') {
         <p><strong>Last Check-In:</strong> ${escapeHtml(record.lastCheckIn)}</p>
         <div class="stack-list">${record.notes.map(note => `<div class="stack-item"><p>${escapeHtml(note)}</p></div>`).join('')}</div>
         <div class="inline-actions">
-          <button class="badge-btn" data-action="academy-nudge" data-id="${record.id}">Send Nudge</button>
-          <button class="badge-btn" data-action="academy-track" data-id="${record.id}">Mark On Track</button>
+          <button class="badge-btn" data-action="academy-nudge" data-id="${record.memberId}">Send Nudge</button>
+          <button class="badge-btn" data-action="academy-track" data-id="${record.memberId}">Mark On Track</button>
+        </div>
+      </div>
+    `;
+  }
+
+  if (type === 'academyLeadMission') {
+    const scopeBadges = (Array.isArray(record.accessScopes) ? record.accessScopes : [])
+      .map((scope) => formatBadge(
+        String(scope || '')
+          .trim()
+          .replace(/\b\w/g, (char) => char.toUpperCase())
+      ))
+      .join('');
+
+    const tagBadges = (Array.isArray(record.networkTags) ? record.networkTags : [])
+      .map((tag) => formatBadge(
+        String(tag || '')
+          .trim()
+          .replace(/\b\w/g, (char) => char.toUpperCase())
+      ))
+      .join('');
+
+    return `
+      <div class="drawer-section">
+        <h4>Lead Mission Record</h4>
+        <div class="kv-grid">
+          <div class="kv"><span>Operator</span><strong>${escapeHtml(record.memberName || record.operatorName || 'Operator')}</strong></div>
+          <div class="kv"><span>Owner UID</span><strong>${escapeHtml(record.ownerUid || record.memberId || '—')}</strong></div>
+          <div class="kv"><span>Company</span><strong>${escapeHtml(record.companyName || '—')}</strong></div>
+          <div class="kv"><span>Contact</span><strong>${escapeHtml(record.contactName || '—')}</strong></div>
+          <div class="kv"><span>Role</span><strong>${escapeHtml(record.contactRole || '—')}</strong></div>
+          <div class="kv"><span>Pipeline Stage</span><strong>${escapeHtml(record.pipelineStage || '—')}</strong></div>
+          <div class="kv"><span>Follow-up</span><strong>${escapeHtml(record.followUpDueDate || '—')}</strong></div>
+          <div class="kv"><span>Strategic Value</span><strong>${escapeHtml(record.strategicValue || 'standard')}</strong></div>
+          <div class="kv"><span>Payout Count</span><strong>${escapeHtml(record.payoutCount || 0)}</strong></div>
+          <div class="kv"><span>Deal Count</span><strong>${escapeHtml(record.dealCount || 0)}</strong></div>
+          <div class="kv"><span>Approved Payout Total</span><strong>${escapeHtml(formatCurrency(record.approvedPayoutTotal || 0))}</strong></div>
+          <div class="kv"><span>Gross Deal Total</span><strong>${escapeHtml(formatCurrency(record.grossDealTotal || 0))}</strong></div>
+        </div>
+      </div>
+      <div class="drawer-section">
+        <h4>Network Routing</h4>
+        <p><strong>Source Division:</strong> ${escapeHtml(record.sourceDivision || 'academy')}</p>
+        <p><strong>Access Scopes:</strong> ${scopeBadges || '—'}</p>
+        <p><strong>Network Tags:</strong> ${tagBadges || '—'}</p>
+        <p><strong>Federation Ready:</strong> ${record.federationReady ? 'Yes' : 'No'}</p>
+        <p><strong>Plaza Ready:</strong> ${record.plazaReady ? 'Yes' : 'No'}</p>
+      </div>
+      <div class="drawer-section">
+        <h4>Operator Notes</h4>
+        <div class="stack-list">
+          <div class="stack-item"><p>${escapeHtml(record.notes || 'No notes yet.')}</p></div>
         </div>
       </div>
     `;
@@ -1911,6 +2075,7 @@ function openDrawer(type, id) {
     application: 'applications',
     member: 'members',
     academy: 'academy',
+    academyLeadMission: 'academyLeadMissions',
     federation: 'federation',
     plazas: 'plazas',
     support: 'support'
@@ -1922,8 +2087,18 @@ function openDrawer(type, id) {
   const backdrop = document.getElementById('drawer-backdrop');
   const drawerBody = document.getElementById('drawer-body');
 
-  document.getElementById('drawer-type').textContent = type[0].toUpperCase() + type.slice(1);
-  document.getElementById('drawer-title').textContent = record?.name || record?.title || record?.memberName || id;
+  document.getElementById('drawer-type').textContent =
+    type === 'academyLeadMission'
+      ? 'Lead Mission'
+      : type[0].toUpperCase() + type.slice(1);
+
+  document.getElementById('drawer-title').textContent =
+    record?.companyName ||
+    record?.contactName ||
+    record?.name ||
+    record?.title ||
+    record?.memberName ||
+    id;
 
   if (drawerBody) {
     drawerBody.innerHTML = getDrawerTemplate(type, record);
@@ -2263,6 +2438,8 @@ function bindEvents() {
     'members-status-filter',
     'academy-focus-filter',
     'academy-review-filter',
+    'academy-lead-stage-filter',
+    'academy-lead-scope-filter',
     'federation-status-filter',
     'federation-tag-filter',
     'plazas-type-filter',
