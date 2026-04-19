@@ -6,7 +6,7 @@
     <title> Young Hustlers Universe</title>
     <link rel="icon" type="image/png" href="/images/logo.png">
 <link rel="stylesheet" href="/css/responsive-apply.css?v=20260416-apply-responsive-1">
-<link rel="stylesheet" href="/css/style.css?v=20260418-auth-card-height-fix-1">
+<link rel="stylesheet" href="/css/style.css?v=20260419-login-password-toggle-1">
 </head>
 <body data-yh-page="apply">
 
@@ -302,11 +302,28 @@
                                         <p class="subtitle step1-subtitle" style="margin-bottom: 2rem;">Log in to access your divisions.</p>
                                     </div>
 
-                                    <div class="login-ui-container w-full">
-                                        <input type="email" id="login-email" placeholder="Email Address" class="pill-input auth-stop-propagation" autocomplete="email">
-                                        <input type="password" id="login-password" placeholder="Password" class="pill-input auth-stop-propagation">
-                                        <a href="#" class="forgot-link auth-stop-propagation">Forgot password?</a>
-                                        <button type="button" id="btn-login" class="pill-btn-login auth-stop-propagation">Login</button>
+                                <div class="login-ui-container w-full">
+                                    <input type="email" id="login-email" placeholder="Email Address" class="pill-input auth-stop-propagation" autocomplete="email">
+
+                                    <div class="yh-password-shell yh-login-password-shell auth-stop-propagation">
+                                        <input
+                                            type="password"
+                                            id="login-password"
+                                            placeholder="Password"
+                                            class="pill-input yh-login-password-input auth-stop-propagation"
+                                            autocomplete="current-password"
+                                        >
+                                        <button
+                                            type="button"
+                                            class="yh-password-toggle yh-login-password-toggle auth-stop-propagation"
+                                            data-target="login-password"
+                                            aria-controls="login-password"
+                                            aria-label="Show password"
+                                        >Show</button>
+                                    </div>
+
+                                    <a href="#" class="forgot-link auth-stop-propagation">Forgot password?</a>
+                                    <button type="button" id="btn-login" class="pill-btn-login auth-stop-propagation">Login</button>
                                         <div class="divider mt-large w-full"><span>OR</span></div>
                                         <button type="button" id="btn-flip-register" class="btn-secondary w-full auth-stop-propagation" style="border-radius: 30px; margin-top: 10px;">
                                             Create an Account ➔

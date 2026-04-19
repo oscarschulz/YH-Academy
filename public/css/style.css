@@ -6653,7 +6653,21 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
     background: rgba(14, 165, 233, 0.1);
     color: #fff;
 }
+/* Login password visibility toggle */
+.yh-login-password-shell {
+    width: 100%;
+    margin-bottom: 1.25rem;
+}
 
+.yh-login-password-shell .yh-login-password-input {
+    width: 100%;
+    margin-bottom: 0 !important;
+    padding-right: 82px !important;
+}
+
+.yh-login-password-shell .yh-login-password-toggle {
+    transform: translateY(-50%);
+}
 /* REGISTER FACE: compact layout after adding city + country */
 .yh-auth-card .flip-card-back {
     padding: 1.2rem 2.25rem 1.35rem;
