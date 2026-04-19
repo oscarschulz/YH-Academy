@@ -6,7 +6,7 @@
     <title>Dashboard | YH Universe</title>
     <link rel="icon" type="image/png" href="/images/logo.png">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/style.css?v=20260419-auth-dashboard-bootstrap-loader-1">
 <link rel="stylesheet" href="/css/dashboard-mobile.css">
 </head>
 <body data-yh-view="hub" data-yh-page="dashboard">
@@ -14,6 +14,28 @@
 <div id="toast-notification">
     <span id="toast-icon"></span><span id="toast-message">Notification</span>
 </div>
+
+<div id="yh-dashboard-bootstrap-loader" class="yh-auth-transition-loader hidden-step" aria-hidden="true">
+    <div class="yh-auth-transition-card">
+        <img src="/images/logo.avif" alt="Young Hustlers" class="yh-auth-transition-logo">
+        <div class="yh-auth-transition-title">Preparing Dashboard</div>
+        <div class="yh-auth-transition-copy" id="yh-dashboard-bootstrap-loader-text">
+            Checking your Academy, Federation, and Plaza access...
+        </div>
+        <div class="yh-auth-transition-spinner" aria-hidden="true"></div>
+    </div>
+</div>
+
+<script>
+  (function () {
+    try {
+      if (sessionStorage.getItem('yh_post_login_dashboard_bootstrap_v1') === '1') {
+        document.body.classList.add('yh-dashboard-bootstrapping');
+        document.getElementById('yh-dashboard-bootstrap-loader')?.classList.remove('hidden-step');
+      }
+    } catch (_) {}
+  })();
+</script>
 
 <!-- In-UI Confirm Modal (replaces browser confirm) -->
 <div class="yh-confirm-overlay hidden-step" id="yh-confirm-overlay" role="dialog" aria-modal="true" aria-labelledby="yh-confirm-title">
@@ -929,7 +951,7 @@
 
 <script src="/js/yh-shared-core.js?v=20260418-toast-center-1"></script>
 <script src="/js/yh-shared-runtime.js?v=20260411-3"></script>
-<script src="/js/dashboard.js?v=20260418-federation-disabled-pending-1"></script>
+<script src="/js/dashboard.js?v=20260419-auth-dashboard-bootstrap-loader-1"></script>
 <script src="/js/dashboard-mobile-fix.js?v=20260410-3"></script>
 </body>
 </html>

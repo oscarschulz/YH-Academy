@@ -459,7 +459,46 @@ function renderAcademyFeedAvatarHtml(post = {}, displayName = '') {
         currentUserName: myName
     });
 }
+const YH_POST_LOGIN_DASHBOARD_BOOTSTRAP_KEY = 'yh_post_login_dashboard_bootstrap_v1';
 
+function shouldRunPostLoginDashboardBootstrap() {
+    try {
+        return sessionStorage.getItem(YH_POST_LOGIN_DASHBOARD_BOOTSTRAP_KEY) === '1';
+    } catch (_) {
+        return false;
+    }
+}
+
+function showDashboardBootstrapLoader(label = 'Checking your access...') {
+    const loader = document.getElementById('yh-dashboard-bootstrap-loader');
+    const text = document.getElementById('yh-dashboard-bootstrap-loader-text');
+
+    if (text) {
+        text.textContent = String(label || 'Checking your access...');
+    }
+
+    document.body?.classList.add('yh-dashboard-bootstrapping');
+
+    if (!loader) return;
+
+    loader.classList.remove('hidden-step');
+    loader.setAttribute('aria-hidden', 'false');
+}
+
+function hideDashboardBootstrapLoader() {
+    const loader = document.getElementById('yh-dashboard-bootstrap-loader');
+
+    try {
+        sessionStorage.removeItem(YH_POST_LOGIN_DASHBOARD_BOOTSTRAP_KEY);
+    } catch (_) {}
+
+    document.body?.classList.remove('yh-dashboard-bootstrapping');
+
+    if (!loader) return;
+
+    loader.classList.add('hidden-step');
+    loader.setAttribute('aria-hidden', 'true');
+}
 function sendSystemNotification(title, text, avatarStr, color, target) {
     const notifList = document.getElementById('notif-list-container');
     const bellBadge = document.getElementById('notif-badge-count');
@@ -804,10 +843,29 @@ document.getElementById('btn-open-federation-preview')?.addEventListener('click'
 
 bindUniverseSwipe();
 
+const shouldShowDashboardBootstrapLoader = shouldRunPostLoginDashboardBootstrap();
+
+if (shouldShowDashboardBootstrapLoader) {
+    showDashboardBootstrapLoader('Checking your access before opening the dashboard...');
+}
+
 setTimeout(() => {
-    refreshAcademyMembershipStatus(true).catch(() => {});
-    startAcademyMembershipRealtimeSync();
-}, 0); 
+    Promise.resolve()
+        .then(() => refreshAcademyMembershipStatus(true))
+        .catch((error) => {
+            console.error('dashboard bootstrap membership refresh error:', error);
+            return null;
+        })
+        .finally(() => {
+            startAcademyMembershipRealtimeSync();
+
+            if (shouldShowDashboardBootstrapLoader) {
+                setTimeout(() => {
+                    hideDashboardBootstrapLoader();
+                }, 280);
+            }
+        });
+}, 0);
 
 function applyAcademyMessengerMode(enabled = false) {
     const chatMessagesWrap = document.getElementById('chat-messages');

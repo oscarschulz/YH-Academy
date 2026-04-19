@@ -6,13 +6,24 @@
     <title> Young Hustlers Universe</title>
     <link rel="icon" type="image/png" href="/images/logo.png">
 <link rel="stylesheet" href="/css/responsive-apply.css?v=20260416-apply-responsive-1">
-<link rel="stylesheet" href="/css/style.css?v=20260419-dynamic-toast-width-1">
+<link rel="stylesheet" href="/css/style.css?v=20260419-auth-dashboard-bootstrap-loader-1">
 </head>
 <body data-yh-page="apply">
 
-    <div id="toast-notification">
-        <span id="toast-icon">🎉</span> <span id="toast-message">Notification</span>
+<div id="toast-notification">
+    <span id="toast-icon"><span id="toast-message">Notification</span>
+</div>
+
+<div id="yh-post-login-loader" class="yh-auth-transition-loader hidden-step" aria-hidden="true">
+    <div class="yh-auth-transition-card">
+        <img src="/images/logo.avif" alt="Young Hustlers" class="yh-auth-transition-logo">
+        <div class="yh-auth-transition-title">Entering Universe</div>
+        <div class="yh-auth-transition-copy" id="yh-post-login-loader-text">
+            Syncing your access and preparing your dashboard...
+        </div>
+        <div class="yh-auth-transition-spinner" aria-hidden="true"></div>
     </div>
+</div>
 
     <div id="step-1" class="step-container fade-in yh-landing-step">
         <div class="yh-landing-shell">
@@ -569,6 +580,6 @@
     </div>
 
 <script src="https://cdn.jsdelivr.net/npm/globe.gl"></script>
-<script src="/js/apply.js?v=20260418-auth-card-subtle-flip-1"></script>
+<script src="/js/apply.js?v=20260419-auth-dashboard-bootstrap-loader-1"></script>
 </body>
 </html>

@@ -113,7 +113,21 @@ function showToast(message, type = "success") {
         }, 260);
     }, 3500);
 }
+const YH_POST_LOGIN_DASHBOARD_BOOTSTRAP_KEY = 'yh_post_login_dashboard_bootstrap_v1';
 
+function showPostLoginTransitionLoader(label = 'Syncing your access and preparing your dashboard...') {
+    const loader = document.getElementById('yh-post-login-loader');
+    const text = document.getElementById('yh-post-login-loader-text');
+
+    if (text) {
+        text.textContent = String(label || 'Syncing your access and preparing your dashboard...');
+    }
+
+    if (!loader) return;
+
+    loader.classList.remove('hidden-step');
+    loader.setAttribute('aria-hidden', 'false');
+}
 function clearAcademyClientStateForFreshAuth() {
     const keysToClear = [
         'yh_academy_access',
@@ -1644,7 +1658,16 @@ if (result.success) {
         email: result.user?.email || identifier
     }, result.token);
 
-    setTimeout(() => { window.location.href = '/dashboard'; }, 1000);
+    try {
+        sessionStorage.setItem(YH_POST_LOGIN_DASHBOARD_BOOTSTRAP_KEY, '1');
+    } catch (_) {}
+
+    showPostLoginTransitionLoader('Syncing your access and preparing your dashboard...');
+
+    setTimeout(() => {
+        window.location.href = '/dashboard';
+    }, 450);
+
     return;
 }
 
