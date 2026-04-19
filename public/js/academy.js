@@ -7178,8 +7178,20 @@ function normalizeAcademyProfilePayload(profile = {}, options = {}) {
         displayName: fullName,
         usernameRaw,
         username: usernameRaw ? `@${usernameRaw}` : '@academy-member',
-        avatar: String(profile?.avatar || '').trim(),
-        roleLabel: String(profile?.role_label || 'Academy Member').trim() || 'Academy Member',
+        avatar: academyNormalizeProfileAssetUrl(
+            profile?.avatar ||
+            profile?.avatarUrl ||
+            profile?.profilePhoto ||
+            profile?.photoURL ||
+            ''
+        ),
+        coverPhoto: academyNormalizeProfileAssetUrl(
+            profile?.cover_photo ||
+            profile?.coverPhoto ||
+            profile?.cover ||
+            ''
+        ),
+        roleLabel: String(profile?.role_label || profile?.roleLabel || 'Academy Member').trim() || 'Academy Member',
         bio:
             String(
                 profile?.bio ||
@@ -7264,8 +7276,73 @@ function renderAcademyProfileRecentPosts(posts = [], options = {}) {
         `;
     }).join('');
 }
+function openAcademyProfileImagePreview(imageUrl = '', label = 'Profile image') {
+    const normalizedUrl = academyNormalizeProfileAssetUrl(imageUrl);
+    if (!normalizedUrl) return;
+
+    const overlay = document.getElementById('academy-profile-image-preview-overlay');
+    const image = document.getElementById('academy-profile-image-preview-img');
+    const title = document.getElementById('academy-profile-image-preview-title');
+
+    if (!overlay || !image) return;
+
+    image.src = normalizedUrl;
+    image.alt = label || 'Profile image preview';
+
+    if (title) {
+        title.innerText = label || 'Profile image';
+    }
+
+    overlay.classList.remove('hidden-step');
+    overlay.setAttribute('aria-hidden', 'false');
+    document.body?.classList.add('academy-profile-image-preview-open');
+}
+
+function closeAcademyProfileImagePreview() {
+    const overlay = document.getElementById('academy-profile-image-preview-overlay');
+    const image = document.getElementById('academy-profile-image-preview-img');
+
+    if (overlay) {
+        overlay.classList.add('hidden-step');
+        overlay.setAttribute('aria-hidden', 'true');
+    }
+
+    if (image) {
+        image.removeAttribute('src');
+        image.alt = 'Profile image preview';
+    }
+
+    document.body?.classList.remove('academy-profile-image-preview-open');
+}
+
+function ensureAcademyProfileImagePreviewBindings() {
+    if (window.__yhAcademyProfileImagePreviewBound) return;
+    window.__yhAcademyProfileImagePreviewBound = true;
+
+    const overlay = document.getElementById('academy-profile-image-preview-overlay');
+    const closeBtn = document.getElementById('academy-profile-image-preview-close');
+
+    closeBtn?.addEventListener('click', closeAcademyProfileImagePreview);
+
+    overlay?.addEventListener('click', (event) => {
+        if (event.target === overlay) {
+            closeAcademyProfileImagePreview();
+        }
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key !== 'Escape') return;
+
+        const isOpen = overlay && !overlay.classList.contains('hidden-step');
+        if (isOpen) {
+            closeAcademyProfileImagePreview();
+        }
+    });
+}
 
 function renderAcademyProfileView(profilePayload = null, options = {}) {
+    ensureAcademyProfileImagePreviewBindings();
+
     const normalized = normalizeAcademyProfilePayload(
         profilePayload || buildAcademySelfProfilePayload(),
         { mode: options?.mode || (profilePayload ? 'visited' : 'self') }
@@ -7350,21 +7427,35 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
         }
     }
 
+    const resolvedAvatarPhoto = academyNormalizeProfileAssetUrl(normalized.avatar || '');
+
     if (profileAvatar) {
-        if (normalized.avatar) {
+        if (resolvedAvatarPhoto) {
             profileAvatar.innerText = '';
-            profileAvatar.style.backgroundImage = `url(${normalized.avatar})`;
+            profileAvatar.style.backgroundImage = `url(${resolvedAvatarPhoto})`;
             profileAvatar.style.backgroundSize = 'cover';
             profileAvatar.style.backgroundPosition = 'center';
+            profileAvatar.setAttribute('data-profile-image-preview', resolvedAvatarPhoto);
+            profileAvatar.setAttribute('data-profile-image-preview-type', 'profile photo');
+            profileAvatar.setAttribute('role', 'button');
+            profileAvatar.setAttribute('tabindex', '0');
+            profileAvatar.setAttribute('title', 'Preview profile photo');
         } else {
             profileAvatar.innerText = normalized.displayName.charAt(0).toUpperCase();
             profileAvatar.style.backgroundImage = 'none';
+            profileAvatar.removeAttribute('data-profile-image-preview');
+            profileAvatar.removeAttribute('data-profile-image-preview-type');
+            profileAvatar.removeAttribute('role');
+            profileAvatar.removeAttribute('tabindex');
+            profileAvatar.removeAttribute('title');
         }
     }
 
-    const resolvedCoverPhoto = isSelf
-        ? getAcademyProfileStoredCover()
-        : String(normalized.cover_photo || normalized.coverPhoto || '').trim();
+    const resolvedCoverPhoto = academyNormalizeProfileAssetUrl(
+        isSelf
+            ? getAcademyProfileStoredCover()
+            : String(normalized.coverPhoto || normalized.cover_photo || '').trim()
+    );
 
     if (profileCoverBand) {
         if (resolvedCoverPhoto) {
@@ -7374,10 +7465,20 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
             `;
             profileCoverBand.style.backgroundSize = 'cover';
             profileCoverBand.style.backgroundPosition = 'center';
+            profileCoverBand.setAttribute('data-profile-image-preview', resolvedCoverPhoto);
+            profileCoverBand.setAttribute('data-profile-image-preview-type', 'cover photo');
+            profileCoverBand.setAttribute('role', 'button');
+            profileCoverBand.setAttribute('tabindex', '0');
+            profileCoverBand.setAttribute('title', 'Preview cover photo');
         } else {
             profileCoverBand.style.backgroundImage = '';
             profileCoverBand.style.backgroundSize = '';
             profileCoverBand.style.backgroundPosition = '';
+            profileCoverBand.removeAttribute('data-profile-image-preview');
+            profileCoverBand.removeAttribute('data-profile-image-preview-type');
+            profileCoverBand.removeAttribute('role');
+            profileCoverBand.removeAttribute('tabindex');
+            profileCoverBand.removeAttribute('title');
         }
     }
 
@@ -12482,6 +12583,18 @@ document.getElementById('academy-member-browser-modal')?.addEventListener('click
     });
 });
 document.getElementById('academy-profile-view')?.addEventListener('click', async (event) => {
+    const imagePreviewTrigger = event.target.closest('[data-profile-image-preview]');
+    if (imagePreviewTrigger) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        openAcademyProfileImagePreview(
+            imagePreviewTrigger.getAttribute('data-profile-image-preview') || '',
+            imagePreviewTrigger.getAttribute('data-profile-image-preview-type') || 'Profile image'
+        );
+        return;
+    }
+
     const actionBtn = event.target.closest('[data-profile-action]');
     if (!actionBtn) return;
 
@@ -12604,6 +12717,20 @@ document.getElementById('academy-profile-view')?.addEventListener('click', async
                 }
             });
     }
+});
+document.getElementById('academy-profile-view')?.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+
+    const imagePreviewTrigger = event.target.closest('[data-profile-image-preview]');
+    if (!imagePreviewTrigger) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    openAcademyProfileImagePreview(
+        imagePreviewTrigger.getAttribute('data-profile-image-preview') || '',
+        imagePreviewTrigger.getAttribute('data-profile-image-preview-type') || 'Profile image'
+    );
 });
 document.getElementById('academy-profile-view')?.addEventListener('click', (event) => {
     const postBtn = event.target.closest('[data-profile-post-id]');
