@@ -13333,3 +13333,20 @@ body[data-yh-view="academy"] #academy-profile-view .academy-profile-mobile-menu-
         justify-content: flex-end !important;
     }
 }
+/* =========================================
+   ACADEMY CHAT HEADER ACTION VISIBILITY
+   DM / Group buttons only belong inside Messages
+   ========================================= */
+
+body[data-yh-view="academy"] #academy-chat:not([data-chat-mode="messages"]):not([data-chat-mode="thread"]) #btn-open-dm-modal,
+body[data-yh-view="academy"] #academy-chat:not([data-chat-mode="messages"]):not([data-chat-mode="thread"]) #btn-open-group-modal {
+    display: none !important;
+}
+
+/* Keep them visible only in Messages inbox/thread */
+body[data-yh-view="academy"] #academy-chat[data-chat-mode="messages"] #btn-open-dm-modal,
+body[data-yh-view="academy"] #academy-chat[data-chat-mode="messages"] #btn-open-group-modal,
+body[data-yh-view="academy"] #academy-chat[data-chat-mode="thread"] #btn-open-dm-modal,
+body[data-yh-view="academy"] #academy-chat[data-chat-mode="thread"] #btn-open-group-modal {
+    display: inline-flex !important;
+}
