@@ -2692,17 +2692,17 @@ const btnLeaveStage = document.getElementById('btn-leave-stage');
             const navId = getAcademyLiveLobbyNavId(roomType);
             const isHost = isAcademyLiveRoomHost(activeRoom);
 
-            stopAcademyLiveMediaStream();
-
             if (!roomId) {
+                academyStopVoiceRtcSession({ notifyServer: true });
                 document.getElementById(navId)?.click();
                 showToast(isHost ? 'Returned to the live lounge.' : 'You left the stage.', 'success');
                 return;
             }
 
             if (isHost) {
+                academyStopVoiceRtcSession({ notifyServer: true });
                 document.getElementById(navId)?.click();
-                showToast('Returned to the live lounge. Your live is still active.', 'success');
+                showToast('Returned to the live lounge. Your live room is still active.', 'success');
                 return;
             }
 
@@ -2721,6 +2721,7 @@ const btnLeaveStage = document.getElementById('btn-leave-stage');
                     method: 'POST'
                 });
 
+                academyStopVoiceRtcSession({ notifyServer: true });
                 academyActiveLiveRoom = null;
 
                 if (roomType === 'video') {
@@ -2762,6 +2763,7 @@ const btnLeaveStage = document.getElementById('btn-leave-stage');
                 cancelText: 'Cancel',
                 tone: 'danger'
             });
+
             if (!confirmed) return;
 
             try {
@@ -2769,7 +2771,7 @@ const btnLeaveStage = document.getElementById('btn-leave-stage');
                     method: 'POST'
                 });
 
-                stopAcademyLiveMediaStream();
+                academyStopVoiceRtcSession({ notifyServer: true });
                 academyActiveLiveRoom = null;
 
                 if (roomType === 'video') {
@@ -2866,24 +2868,12 @@ const btnLeaveStage = document.getElementById('btn-leave-stage');
 
     if(btnToggleCam) btnToggleCam.addEventListener('click', toggleCamera);
 
-    if(btnToggleMic) {
+    if (btnToggleMic) {
         btnToggleMic.addEventListener('click', () => {
-            const mySpeakerCard = document.querySelector('.speaker-card.active-speaker'); 
-            const hostMicIcon = document.getElementById('host-mic');
-            btnToggleMic.classList.toggle('toggled-off');
-            const isMuted = btnToggleMic.classList.contains('toggled-off');
-            
-            if(mySpeakerCard) {
-                if(isMuted) mySpeakerCard.classList.add('is-muted');
-                else mySpeakerCard.classList.remove('is-muted');
-            }
-            if(hostMicIcon) {
-                hostMicIcon.innerText = isMuted ? "🔇" : "🎤";
-                hostMicIcon.style.color = isMuted ? "#ef4444" : "";
-            }
-
-            if(localStream) { localStream.getAudioTracks().forEach(track => { track.enabled = !isMuted; }); }
-            showToast(isMuted ? "Microphone muted." : "Microphone active.", isMuted ? "error" : "success");
+            academySetVoiceMuted(!academyVoiceRtcState.isMuted, {
+                emit: true,
+                notify: true
+            });
         });
     }
 
@@ -12238,7 +12228,414 @@ async function ensureAcademyLiveMediaPermissions(roomType = 'video') {
         return null;
     }
 }
+function academyGetVoiceDisplayName() {
+    return String(
+        myName ||
+        getStoredUserValue('yh_user_name', '') ||
+        localStorage.getItem('yh_user_name') ||
+        'Hustler'
+    ).trim() || 'Hustler';
+}
 
+function academyGetActiveVoiceRoomId() {
+    return normalizeAcademyLiveRoomId(
+        academyActiveLiveRoom?.id ||
+        academyActiveLiveRoom?.roomId ||
+        academyActiveLiveRoom?.room_id ||
+        academyVoiceRtcState?.roomId ||
+        ''
+    );
+}
+
+function academyEnsureRemoteAudioBank() {
+    let bank = document.getElementById('academy-voice-audio-bank');
+
+    if (!bank) {
+        bank = document.createElement('div');
+        bank.id = 'academy-voice-audio-bank';
+        bank.className = 'academy-voice-audio-bank';
+        bank.setAttribute('aria-hidden', 'true');
+
+        const stageView = document.getElementById('center-stage-view');
+        (stageView || document.body).appendChild(bank);
+    }
+
+    return bank;
+}
+
+function academySetVoiceMuted(isMuted = false, options = {}) {
+    academyVoiceRtcState.isMuted = !!isMuted;
+
+    const micBtn = document.getElementById('btn-toggle-mic');
+    const mySpeakerCard = document.querySelector('.speaker-card.active-speaker');
+    const hostMicIcon = document.getElementById('host-mic');
+
+    if (micBtn) {
+        micBtn.classList.toggle('toggled-off', academyVoiceRtcState.isMuted);
+    }
+
+    if (mySpeakerCard) {
+        mySpeakerCard.classList.toggle('is-muted', academyVoiceRtcState.isMuted);
+    }
+
+    if (hostMicIcon) {
+        hostMicIcon.innerText = academyVoiceRtcState.isMuted ? '🔇' : '🎤';
+        hostMicIcon.style.color = academyVoiceRtcState.isMuted ? '#ef4444' : '';
+    }
+
+    const stream = academyVoiceRtcState.localStream || academyActiveMediaStream;
+
+    if (stream && typeof stream.getAudioTracks === 'function') {
+        stream.getAudioTracks().forEach((track) => {
+            track.enabled = !academyVoiceRtcState.isMuted;
+        });
+    }
+
+    const roomId = academyGetActiveVoiceRoomId();
+
+    if (options.emit !== false && roomId && socket?.connected) {
+        socket.emit('academyVoice:mute', {
+            roomId,
+            muted: academyVoiceRtcState.isMuted
+        });
+    }
+
+    if (options.notify === true) {
+        showToast(
+            academyVoiceRtcState.isMuted ? 'Microphone muted.' : 'Microphone active.',
+            academyVoiceRtcState.isMuted ? 'error' : 'success'
+        );
+    }
+}
+
+async function academyGetVoiceLocalStream() {
+    const existingStream = academyVoiceRtcState.localStream;
+
+    if (
+        existingStream &&
+        typeof existingStream.getAudioTracks === 'function' &&
+        existingStream.getAudioTracks().some((track) => track.readyState === 'live')
+    ) {
+        return existingStream;
+    }
+
+    const stream = await ensureAcademyLiveMediaPermissions('voice');
+
+    if (!stream) {
+        throw new Error('Microphone permission is required to join voice rooms.');
+    }
+
+    academyVoiceRtcState.localStream = stream;
+    academyActiveMediaStream = stream;
+
+    academySetVoiceMuted(academyVoiceRtcState.isMuted, {
+        emit: false,
+        notify: false
+    });
+
+    return stream;
+}
+
+function academyRemoveRemoteVoiceAudio(peerSocketId = '') {
+    const cleanPeerSocketId = String(peerSocketId || '').trim();
+    if (!cleanPeerSocketId) return;
+
+    const audioEl = academyVoiceRtcState.remoteAudioEls.get(cleanPeerSocketId);
+
+    if (audioEl) {
+        try {
+            audioEl.pause();
+            audioEl.srcObject = null;
+            audioEl.remove();
+        } catch (_) {}
+    }
+
+    academyVoiceRtcState.remoteAudioEls.delete(cleanPeerSocketId);
+}
+
+function academyAttachRemoteVoiceStream(peerSocketId = '', stream = null) {
+    const cleanPeerSocketId = String(peerSocketId || '').trim();
+    if (!cleanPeerSocketId || !stream) return;
+
+    const bank = academyEnsureRemoteAudioBank();
+    let audioEl = academyVoiceRtcState.remoteAudioEls.get(cleanPeerSocketId);
+
+    if (!audioEl) {
+        audioEl = document.createElement('audio');
+        audioEl.autoplay = true;
+        audioEl.playsInline = true;
+        audioEl.controls = false;
+        audioEl.setAttribute('data-peer-socket-id', cleanPeerSocketId);
+        bank.appendChild(audioEl);
+        academyVoiceRtcState.remoteAudioEls.set(cleanPeerSocketId, audioEl);
+    }
+
+    if (audioEl.srcObject !== stream) {
+        audioEl.srcObject = stream;
+    }
+
+    audioEl.play().catch(() => {
+        // Browser may require a user gesture; join button already provides it in most cases.
+    });
+}
+
+function academyCloseVoicePeer(peerSocketId = '') {
+    const cleanPeerSocketId = String(peerSocketId || '').trim();
+    if (!cleanPeerSocketId) return;
+
+    const pc = academyVoiceRtcState.peers.get(cleanPeerSocketId);
+
+    if (pc) {
+        try {
+            pc.onicecandidate = null;
+            pc.ontrack = null;
+            pc.onconnectionstatechange = null;
+            pc.close();
+        } catch (_) {}
+    }
+
+    academyVoiceRtcState.peers.delete(cleanPeerSocketId);
+    academyRemoveRemoteVoiceAudio(cleanPeerSocketId);
+}
+
+function academyCreateVoicePeerConnection(peerSocketId = '') {
+    const cleanPeerSocketId = String(peerSocketId || '').trim();
+
+    if (!cleanPeerSocketId) {
+        throw new Error('Missing peer socket id.');
+    }
+
+    const existingPeer = academyVoiceRtcState.peers.get(cleanPeerSocketId);
+    if (existingPeer) return existingPeer;
+
+    const pc = new RTCPeerConnection(ACADEMY_VOICE_RTC_CONFIG);
+    const localStream = academyVoiceRtcState.localStream || academyActiveMediaStream;
+
+    if (localStream && typeof localStream.getAudioTracks === 'function') {
+        localStream.getAudioTracks().forEach((track) => {
+            pc.addTrack(track, localStream);
+        });
+    }
+
+    pc.ontrack = (event) => {
+        const remoteStream = event.streams?.[0];
+        if (remoteStream) {
+            academyAttachRemoteVoiceStream(cleanPeerSocketId, remoteStream);
+        }
+    };
+
+    pc.onicecandidate = (event) => {
+        if (!event.candidate) return;
+
+        const roomId = academyGetActiveVoiceRoomId();
+        if (!roomId) return;
+
+        socket.emit('academyVoice:ice', {
+            roomId,
+            targetSocketId: cleanPeerSocketId,
+            candidate: event.candidate
+        });
+    };
+
+    pc.onconnectionstatechange = () => {
+        if (['failed', 'closed', 'disconnected'].includes(pc.connectionState)) {
+            academyCloseVoicePeer(cleanPeerSocketId);
+        }
+    };
+
+    academyVoiceRtcState.peers.set(cleanPeerSocketId, pc);
+    return pc;
+}
+
+function academyStopVoiceRtcSession(options = {}) {
+    const roomId = academyGetActiveVoiceRoomId();
+
+    if (options.notifyServer !== false && roomId && socket?.connected) {
+        socket.emit('academyVoice:leave', { roomId });
+    }
+
+    Array.from(academyVoiceRtcState.peers.keys()).forEach((peerSocketId) => {
+        academyCloseVoicePeer(peerSocketId);
+    });
+
+    if (academyVoiceRtcState.localStream) {
+        try {
+            academyVoiceRtcState.localStream.getTracks().forEach((track) => {
+                try { track.stop(); } catch (_) {}
+            });
+        } catch (_) {}
+    }
+
+    academyVoiceRtcState = {
+        roomId: '',
+        localStream: null,
+        peers: new Map(),
+        remoteAudioEls: new Map(),
+        isMuted: false,
+        hasJoinedSignaling: false
+    };
+
+    academyActiveMediaStream = null;
+    academySetVoiceMuted(false, {
+        emit: false,
+        notify: false
+    });
+}
+
+async function academyStartVoiceRtcForRoom(room = {}) {
+    const roomId = normalizeAcademyLiveRoomId(room?.id || room?.roomId || room?.room_id);
+
+    if (!roomId) {
+        throw new Error('Missing live voice room id.');
+    }
+
+    if (academyVoiceRtcState.roomId && academyVoiceRtcState.roomId !== roomId) {
+        academyStopVoiceRtcSession({ notifyServer: true });
+    }
+
+    academyVoiceRtcState.roomId = roomId;
+
+    await academyGetVoiceLocalStream();
+
+    socket.emit('academyVoice:join', {
+        roomId,
+        displayName: academyGetVoiceDisplayName()
+    });
+
+    academyVoiceRtcState.hasJoinedSignaling = true;
+
+    showToast('Voice connected. You can now talk in this room.', 'success');
+}
+if (!window.__yhAcademyVoiceRtcSocketBound) {
+    window.__yhAcademyVoiceRtcSocketBound = true;
+
+    socket.on('academyVoice:peers', async (payload = {}) => {
+        const roomId = normalizeAcademyLiveRoomId(payload.roomId);
+        if (!roomId || roomId !== academyVoiceRtcState.roomId) return;
+
+        const peers = Array.isArray(payload.peers) ? payload.peers : [];
+
+        for (const peer of peers) {
+            const peerSocketId = String(peer?.socketId || '').trim();
+            if (!peerSocketId) continue;
+
+            try {
+                const pc = academyCreateVoicePeerConnection(peerSocketId);
+                const offer = await pc.createOffer({
+                    offerToReceiveAudio: true,
+                    offerToReceiveVideo: false
+                });
+
+                await pc.setLocalDescription(offer);
+
+                socket.emit('academyVoice:offer', {
+                    roomId,
+                    targetSocketId: peerSocketId,
+                    offer: pc.localDescription
+                });
+            } catch (error) {
+                console.error('academyVoice create offer error:', error);
+            }
+        }
+    });
+
+    socket.on('academyVoice:peerJoined', (payload = {}) => {
+        const roomId = normalizeAcademyLiveRoomId(payload.roomId);
+        if (!roomId || roomId !== academyVoiceRtcState.roomId) return;
+
+        const displayName = String(payload.displayName || 'A member').trim();
+        showToast(`${displayName} joined the voice room.`, 'success');
+    });
+
+    socket.on('academyVoice:offer', async (payload = {}) => {
+        const roomId = normalizeAcademyLiveRoomId(payload.roomId);
+        const fromSocketId = String(payload.fromSocketId || '').trim();
+
+        if (!roomId || roomId !== academyVoiceRtcState.roomId || !fromSocketId || !payload.offer) return;
+
+        try {
+            await academyGetVoiceLocalStream();
+
+            const pc = academyCreateVoicePeerConnection(fromSocketId);
+            await pc.setRemoteDescription(new RTCSessionDescription(payload.offer));
+
+            const answer = await pc.createAnswer();
+            await pc.setLocalDescription(answer);
+
+            socket.emit('academyVoice:answer', {
+                roomId,
+                targetSocketId: fromSocketId,
+                answer: pc.localDescription
+            });
+        } catch (error) {
+            console.error('academyVoice offer handling error:', error);
+            showToast('Failed to connect voice audio.', 'error');
+        }
+    });
+
+    socket.on('academyVoice:answer', async (payload = {}) => {
+        const roomId = normalizeAcademyLiveRoomId(payload.roomId);
+        const fromSocketId = String(payload.fromSocketId || '').trim();
+
+        if (!roomId || roomId !== academyVoiceRtcState.roomId || !fromSocketId || !payload.answer) return;
+
+        try {
+            const pc = academyVoiceRtcState.peers.get(fromSocketId);
+            if (!pc) return;
+
+            await pc.setRemoteDescription(new RTCSessionDescription(payload.answer));
+        } catch (error) {
+            console.error('academyVoice answer handling error:', error);
+        }
+    });
+
+    socket.on('academyVoice:ice', async (payload = {}) => {
+        const roomId = normalizeAcademyLiveRoomId(payload.roomId);
+        const fromSocketId = String(payload.fromSocketId || '').trim();
+
+        if (!roomId || roomId !== academyVoiceRtcState.roomId || !fromSocketId || !payload.candidate) return;
+
+        try {
+            const pc = academyVoiceRtcState.peers.get(fromSocketId);
+            if (!pc) return;
+
+            await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+        } catch (error) {
+            console.error('academyVoice ICE handling error:', error);
+        }
+    });
+
+    socket.on('academyVoice:peerLeft', (payload = {}) => {
+        const roomId = normalizeAcademyLiveRoomId(payload.roomId);
+        const socketId = String(payload.socketId || '').trim();
+
+        if (!roomId || roomId !== academyVoiceRtcState.roomId || !socketId) return;
+
+        academyCloseVoicePeer(socketId);
+    });
+
+    socket.on('academyVoice:peerMuted', (payload = {}) => {
+        const roomId = normalizeAcademyLiveRoomId(payload.roomId);
+        if (!roomId || roomId !== academyVoiceRtcState.roomId) return;
+
+        // UI placeholder for future participant cards.
+    });
+
+    socket.on('academyVoice:roomEnded', (payload = {}) => {
+        const roomId = normalizeAcademyLiveRoomId(payload.roomId);
+        if (!roomId || roomId !== academyVoiceRtcState.roomId) return;
+
+        academyStopVoiceRtcSession({ notifyServer: false });
+        academyActiveLiveRoom = null;
+
+        document.getElementById('nav-voice')?.click();
+        showToast('This voice room has ended.', 'success');
+    });
+
+    socket.on('academyVoice:error', (payload = {}) => {
+        showToast(payload?.message || 'Voice connection error.', 'error');
+    });
+}
 function isAcademyLiveRoomHost(room = {}) {
     const hostName = String(room?.host_user_name || '').trim().toLowerCase();
     const currentName = String(myName || '').trim().toLowerCase();
@@ -12327,11 +12724,6 @@ async function openAcademyStageFromRoom(room = {}) {
 
     renderAcademyStageFromRoom(room);
 
-    // Video rooms need camera + mic permissions. Voice can be listen-first.
-    if (roomType === 'video') {
-        await ensureAcademyLiveMediaPermissions('video');
-    }
-
     if (!roomId) {
         academyActiveLiveRoom = room;
         return room;
@@ -12350,11 +12742,15 @@ async function openAcademyStageFromRoom(room = {}) {
 
         academyActiveLiveRoom = joinedRoom;
         renderAcademyStageFromRoom(joinedRoom, { animate: false });
+
         socket.emit('joinRoom', currentRoomId);
-        if (joinedType === 'video') {
-            await loadAcademyVideoRooms(true);
-        } else {
+
+        if (joinedType === 'voice') {
+            await academyStartVoiceRtcForRoom(joinedRoom);
             await loadAcademyVoiceRooms(true);
+        } else {
+            await ensureAcademyLiveMediaPermissions('video');
+            await loadAcademyVideoRooms(true);
         }
 
         return joinedRoom;
@@ -13076,6 +13472,22 @@ let academyVoiceRoomsCache = [];
 let academyVideoRoomsCache = [];
 let academyActiveLiveRoom = null;
 let academyActiveMediaStream = null;
+
+const ACADEMY_VOICE_RTC_CONFIG = {
+    iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+    ]
+};
+
+let academyVoiceRtcState = {
+    roomId: '',
+    localStream: null,
+    peers: new Map(),
+    remoteAudioEls: new Map(),
+    isMuted: false,
+    hasJoinedSignaling: false
+};
 
 const ACADEMY_TAG_SEARCH_ALIASES = {
     academy: ['academy', 'the academy', 'yha'],

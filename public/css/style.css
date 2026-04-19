@@ -13350,3 +13350,16 @@ body[data-yh-view="academy"] #academy-chat[data-chat-mode="thread"] #btn-open-dm
 body[data-yh-view="academy"] #academy-chat[data-chat-mode="thread"] #btn-open-group-modal {
     display: inline-flex !important;
 }
+/* =========================================
+   ACADEMY VOICE LOUNGE AUDIO TRANSPORT
+   Hidden remote audio elements for WebRTC voice rooms
+   ========================================= */
+
+body[data-yh-view="academy"] .academy-voice-audio-bank {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    overflow: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}

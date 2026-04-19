@@ -276,12 +276,40 @@ function requireApiUser(req, res, next) {
     req.user = user;
     next();
 }
+function getAcademyVoiceSignalingRoom(roomId = '') {
+    return `academy-voice:${sanitizeText(roomId)}`;
+}
+
+async function canUserAccessLiveRoom(userId, roomId) {
+    const cleanUserId = sanitizeText(userId);
+    const cleanRoomId = sanitizeText(roomId);
+
+    if (!cleanUserId || !cleanRoomId) return false;
+
+    const snap = await liveRoomsCol.doc(cleanRoomId).get();
+    if (!snap.exists) return false;
+
+    const data = snap.data() || {};
+    const status = sanitizeText(data.status || 'live').toLowerCase();
+
+    if (status !== 'live') return false;
+
+    const participantIds = Array.isArray(data.participant_ids)
+        ? data.participant_ids.map((value) => String(value)).filter(Boolean)
+        : [];
+
+    return participantIds.includes(String(cleanUserId));
+}
+
 async function canUserAccessRoom(userId, roomId) {
     if (!userId || !roomId) return false;
     if (roomId === 'YH-community' || roomId === 'main-chat') return true;
 
     const snap = await chatRoomsCol.doc(roomId).get();
-    if (!snap.exists) return false;
+
+    if (!snap.exists) {
+        return canUserAccessLiveRoom(userId, roomId);
+    }
 
     const data = snap.data() || {};
     const memberIds = Array.isArray(data.member_ids)
@@ -690,8 +718,181 @@ io.on('connection', (socket) => {
             console.error('deleteMessage error:', error);
         }
     });
+    function getSocketVoiceDisplayName() {
+        return sanitizeText(
+            socket.user?.name ||
+            socket.user?.fullName ||
+            socket.user?.username ||
+            'Hustler'
+        );
+    }
 
+    function leaveAcademyVoiceSignalingRoom(reason = 'left') {
+        const roomId = sanitizeText(socket.data?.academyVoiceRoomId || '');
+        if (!roomId) return;
+
+        const signalingRoom = getAcademyVoiceSignalingRoom(roomId);
+
+        socket.to(signalingRoom).emit('academyVoice:peerLeft', {
+            roomId,
+            socketId: socket.id,
+            userId: socket.user?.id || '',
+            reason
+        });
+
+        socket.leave(signalingRoom);
+        socket.data.academyVoiceRoomId = '';
+    }
+
+    function isTargetSocketInAcademyVoiceRoom(roomId = '', targetSocketId = '') {
+        const signalingRoom = getAcademyVoiceSignalingRoom(roomId);
+        const roomMembers = io.sockets.adapter.rooms.get(signalingRoom);
+
+        return Boolean(roomMembers && roomMembers.has(targetSocketId));
+    }
+
+    socket.on('academyVoice:join', async (payload = {}) => {
+        try {
+            const roomId = sanitizeText(payload.roomId || payload.room_id);
+            if (!roomId) return;
+
+            const allowed = await canUserAccessLiveRoom(socket.user.id, roomId);
+            if (!allowed) {
+                socket.emit('academyVoice:error', {
+                    roomId,
+                    message: 'You must join this live room before voice can connect.'
+                });
+                return;
+            }
+
+            const previousRoomId = sanitizeText(socket.data?.academyVoiceRoomId || '');
+            if (previousRoomId && previousRoomId !== roomId) {
+                leaveAcademyVoiceSignalingRoom('switched-room');
+            }
+
+            const signalingRoom = getAcademyVoiceSignalingRoom(roomId);
+            const currentSocketIds = Array.from(io.sockets.adapter.rooms.get(signalingRoom) || []);
+
+            const peers = currentSocketIds
+                .filter((socketId) => socketId !== socket.id)
+                .map((socketId) => {
+                    const peerSocket = io.sockets.sockets.get(socketId);
+                    return {
+                        socketId,
+                        userId: sanitizeText(peerSocket?.user?.id),
+                        displayName: sanitizeText(
+                            peerSocket?.user?.name ||
+                            peerSocket?.user?.fullName ||
+                            peerSocket?.user?.username ||
+                            'Hustler'
+                        )
+                    };
+                })
+                .filter((peer) => peer.socketId);
+
+            socket.join(signalingRoom);
+            socket.data.academyVoiceRoomId = roomId;
+
+            socket.emit('academyVoice:peers', {
+                roomId,
+                peers
+            });
+
+            socket.to(signalingRoom).emit('academyVoice:peerJoined', {
+                roomId,
+                socketId: socket.id,
+                userId: socket.user.id,
+                displayName: getSocketVoiceDisplayName()
+            });
+        } catch (error) {
+            console.error('academyVoice:join error:', error);
+            socket.emit('academyVoice:error', {
+                message: 'Failed to join voice signaling.'
+            });
+        }
+    });
+
+    socket.on('academyVoice:offer', async (payload = {}) => {
+        try {
+            const roomId = sanitizeText(payload.roomId || payload.room_id);
+            const targetSocketId = sanitizeText(payload.targetSocketId);
+            const offer = payload.offer;
+
+            if (!roomId || !targetSocketId || !offer) return;
+            if (!(await canUserAccessLiveRoom(socket.user.id, roomId))) return;
+            if (!isTargetSocketInAcademyVoiceRoom(roomId, targetSocketId)) return;
+
+            io.to(targetSocketId).emit('academyVoice:offer', {
+                roomId,
+                fromSocketId: socket.id,
+                fromUserId: socket.user.id,
+                fromDisplayName: getSocketVoiceDisplayName(),
+                offer
+            });
+        } catch (error) {
+            console.error('academyVoice:offer error:', error);
+        }
+    });
+
+    socket.on('academyVoice:answer', async (payload = {}) => {
+        try {
+            const roomId = sanitizeText(payload.roomId || payload.room_id);
+            const targetSocketId = sanitizeText(payload.targetSocketId);
+            const answer = payload.answer;
+
+            if (!roomId || !targetSocketId || !answer) return;
+            if (!(await canUserAccessLiveRoom(socket.user.id, roomId))) return;
+            if (!isTargetSocketInAcademyVoiceRoom(roomId, targetSocketId)) return;
+
+            io.to(targetSocketId).emit('academyVoice:answer', {
+                roomId,
+                fromSocketId: socket.id,
+                fromUserId: socket.user.id,
+                fromDisplayName: getSocketVoiceDisplayName(),
+                answer
+            });
+        } catch (error) {
+            console.error('academyVoice:answer error:', error);
+        }
+    });
+
+    socket.on('academyVoice:ice', async (payload = {}) => {
+        try {
+            const roomId = sanitizeText(payload.roomId || payload.room_id);
+            const targetSocketId = sanitizeText(payload.targetSocketId);
+            const candidate = payload.candidate;
+
+            if (!roomId || !targetSocketId || !candidate) return;
+            if (!(await canUserAccessLiveRoom(socket.user.id, roomId))) return;
+            if (!isTargetSocketInAcademyVoiceRoom(roomId, targetSocketId)) return;
+
+            io.to(targetSocketId).emit('academyVoice:ice', {
+                roomId,
+                fromSocketId: socket.id,
+                candidate
+            });
+        } catch (error) {
+            console.error('academyVoice:ice error:', error);
+        }
+    });
+
+    socket.on('academyVoice:mute', (payload = {}) => {
+        const roomId = sanitizeText(payload.roomId || payload.room_id || socket.data?.academyVoiceRoomId || '');
+        if (!roomId) return;
+
+        socket.to(getAcademyVoiceSignalingRoom(roomId)).emit('academyVoice:peerMuted', {
+            roomId,
+            socketId: socket.id,
+            userId: socket.user.id,
+            muted: payload.muted === true
+        });
+    });
+
+    socket.on('academyVoice:leave', () => {
+        leaveAcademyVoiceSignalingRoom('left');
+    });
     socket.on('disconnect', () => {
+        leaveAcademyVoiceSignalingRoom('disconnect');
         console.log('❌ A hustler disconnected:', socket.id);
     });
 });
@@ -2290,6 +2491,16 @@ app.post('/api/realtime/live-rooms/:roomId/end', requireApiUser, async (req, res
             userId: req.user.id,
             roomId: req.params.roomId
         });
+
+        const signalingRoom = getAcademyVoiceSignalingRoom(req.params.roomId);
+
+        io.to(signalingRoom).emit('academyVoice:roomEnded', {
+            roomId: sanitizeText(req.params.roomId)
+        });
+
+        if (typeof io.in(signalingRoom).socketsLeave === 'function') {
+            io.in(signalingRoom).socketsLeave(signalingRoom);
+        }
 
         return res.json({
             success: true,
