@@ -1085,12 +1085,12 @@ else if (type === 'dm' || type === 'group') {
         : `background: ${color};`;
     let avatarText = icon.includes('url') ? '' : icon;
 
-    const isMobileThreadView = window.innerWidth <= 768;
+    const isMobileThreadView = academyIsMobileMessagesViewport();
 
     if (chatHeaderIcon) {
         if (isMobileThreadView) {
-            chatHeaderIcon.innerHTML = '';
-            chatHeaderIcon.style.display = 'none';
+            chatHeaderIcon.style.removeProperty('display');
+            chatHeaderIcon.innerHTML = `<img src="/images/logo.avif" alt="YH" class="academy-chat-header-logo">`;
         } else {
             chatHeaderIcon.style.removeProperty('display');
             chatHeaderIcon.innerHTML = `<div class="member-avatar" style="${avatarStyle} width: 30px; height: 30px; font-size: 0.9rem;">${avatarText}</div>`;
@@ -1152,8 +1152,15 @@ else if (type === 'dm' || type === 'group') {
         topic: type === 'group' ? 'Private Brainstorming Group' : 'Direct Message'
     });
 
+    academyRememberMessagesInboxHomeSnapshot();
+
     academyPushFeedFallbackHistory(type === 'group' ? 'group' : 'messages');
     academySetMessagesChatMode('thread');
+
+    if (academyIsMobileMessagesViewport()) {
+        academyRestoreMessagesInboxHeader();
+    }
+
     academyRenderMessagesThreadHeader(
         academyResolveMessageRoomById(roomId) || {
             type,
@@ -1570,6 +1577,19 @@ function academyScrollActiveThreadToLatest() {
     // ⚡ REAL-TIME CHAT LOGIC (SOCKET.IO)
     // ==========================================
 socket.on('chatHistory', (history) => {
+    const academyChat = document.getElementById('academy-chat');
+    const academyChatMode = String(academyChat?.getAttribute('data-chat-mode') || '').trim().toLowerCase();
+
+    const isAcademyMessagesShell =
+        document.body?.getAttribute('data-yh-view') === 'academy' &&
+        academyChat &&
+        !academyChat.classList.contains('hidden-step') &&
+        (academyChatMode === 'messages' || academyChatMode === 'thread');
+
+    if (isAcademyMessagesShell && academyChatMode !== 'thread') {
+        return;
+    }
+
     const activeRoomType = String(currentRoomMeta?.type || '').trim();
 
     if (/^live-/.test(activeRoomType)) {
@@ -5958,9 +5978,7 @@ function openAcademyMessagesView() {
         academyChat.classList.add('fade-in');
     }
 
-    if (chatHeaderIcon) chatHeaderIcon.innerHTML = '💬';
-    if (chatHeaderTitle) chatHeaderTitle.innerText = 'Messages';
-    if (chatHeaderTopic) chatHeaderTopic.innerText = 'Open direct messages, continue group chats, and keep each conversation in its own inbox thread.';
+    academyRestoreMessagesInboxHeader();
     if (chatWelcomeBox) chatWelcomeBox.style.display = 'none';
     if (chatPinnedMessage) chatPinnedMessage.style.display = 'none';
 
@@ -8990,7 +9008,9 @@ const academyMessagesInboxState = {
     activeRoomId: '',
     loading: false,
     hydratedOnce: false,
-    openMenuRoomId: ''
+    openMenuRoomId: '',
+    openThreadMenu: false,
+    homeThreadHtml: ''
 };
 function academyResetMessagesThreadState() {
     academyMessagesInboxState.activeRoomId = '';
@@ -9036,8 +9056,48 @@ function academyGetMessagesInboxElements() {
         threadMeta: document.getElementById('academy-messages-thread-meta'),
         threadRoomtype: document.getElementById('academy-messages-thread-roomtype'),
         threadBackBtn: document.getElementById('academy-messages-thread-back-btn'),
+        threadMenuTrigger: document.getElementById('academy-messages-thread-menu-trigger'),
+        threadMenu: document.getElementById('academy-messages-thread-menu'),
         threadRefreshBtn: document.getElementById('academy-messages-thread-refresh-btn')
     };
+}
+
+function academyIsMobileMessagesViewport() {
+    const widthCandidates = [
+        window.innerWidth,
+        document.documentElement?.clientWidth,
+        window.visualViewport?.width
+    ]
+        .map((value) => Number(value))
+        .filter((value) => Number.isFinite(value) && value > 0);
+
+    const smallestWidth = widthCandidates.length ? Math.min(...widthCandidates) : 9999;
+
+    let mediaMatches = false;
+    try {
+        mediaMatches = typeof window.matchMedia === 'function'
+            ? window.matchMedia('(max-width: 768px)').matches
+            : false;
+    } catch (_) {}
+
+    return mediaMatches || smallestWidth <= 768;
+}
+
+function academySyncMobileMessagesSingleActionMode() {
+    const { academyChat } = academyGetMessagesInboxElements();
+    const mode = String(academyChat?.getAttribute('data-chat-mode') || '').trim().toLowerCase();
+
+    const shouldUseSingleAction =
+        document.body?.getAttribute('data-yh-view') === 'academy' &&
+        mode === 'thread' &&
+        academyIsMobileMessagesViewport();
+
+    document.body?.classList.toggle('academy-mobile-message-thread-single-action', shouldUseSingleAction);
+
+    const bottomNav = document.getElementById('academy-mobile-bottom-nav');
+    if (bottomNav) {
+        bottomNav.setAttribute('aria-hidden', shouldUseSingleAction ? 'true' : 'false');
+    }
 }
 
 function academySetMessagesChatMode(mode = 'home') {
@@ -9065,6 +9125,10 @@ function academySetMessagesChatMode(mode = 'home') {
         threadHeader.classList.add('hidden-step');
     }
 
+    if (normalizedMode !== 'thread') {
+        academyCloseMessagesThreadMenu();
+    }
+
     if (chatInputArea) {
         const shouldShowComposer = normalizedMode === 'thread';
         chatInputArea.classList.toggle('hidden-step', !shouldShowComposer);
@@ -9077,6 +9141,103 @@ function academySetMessagesChatMode(mode = 'home') {
             chatInputArea.setAttribute('aria-hidden', 'true');
         }
     }
+
+    academySyncMobileMessagesSingleActionMode();
+}
+
+function academyRestoreMessagesInboxHeader() {
+    const chatHeaderIcon = document.getElementById('chat-header-icon');
+    const chatHeaderTitle = document.getElementById('chat-header-title');
+    const chatHeaderTopic = document.getElementById('chat-header-topic');
+
+    const isMobile = academyIsMobileMessagesViewport();
+
+    if (chatHeaderIcon) {
+        chatHeaderIcon.style.removeProperty('display');
+        chatHeaderIcon.innerHTML = isMobile
+            ? `<img src="/images/logo.avif" alt="YH" class="academy-chat-header-logo">`
+            : '💬';
+    }
+
+    if (chatHeaderTitle) {
+        chatHeaderTitle.innerText = isMobile ? 'Academy Inbox' : 'Messages';
+    }
+
+    if (chatHeaderTopic) {
+        chatHeaderTopic.style.removeProperty('display');
+        chatHeaderTopic.innerText = 'Open direct messages, continue group chats, and keep each conversation in its own inbox thread.';
+    }
+}
+
+function academyGetMessagesInboxDefaultEmptyMessage() {
+    const rooms = typeof academyReadMessageRooms === 'function'
+        ? academyReadMessageRooms()
+        : [];
+
+    return rooms.length
+        ? 'Select a conversation from the inbox to open that private thread.'
+        : 'No conversations yet. Start a DM or create a group to see it here.';
+}
+
+function academyRenderMessagesInboxHomeEmptyHtml(message = '') {
+    const finalMessage = String(message || academyGetMessagesInboxDefaultEmptyMessage()).trim();
+
+    return `
+        <div class="academy-messages-thread-empty">
+            <div>
+                <strong style="display:block;font-size:1rem;color:#f8fafc;margin-bottom:8px;">Messages Inbox</strong>
+                <span>${academyFeedEscapeHtml(finalMessage)}</span>
+            </div>
+        </div>
+    `;
+}
+
+function academyRememberMessagesInboxHomeSnapshot() {
+    const { academyChat, dynamicChatHistory } = academyGetMessagesInboxElements();
+    const mode = String(academyChat?.getAttribute('data-chat-mode') || '').trim().toLowerCase();
+
+    if (mode !== 'messages' || !dynamicChatHistory) return;
+
+    const html = String(dynamicChatHistory.innerHTML || '').trim();
+    if (!html) return;
+
+    academyMessagesInboxState.homeThreadHtml = html;
+}
+
+function academyRestoreMessagesInboxHomeSnapshot(message = '') {
+    const { dynamicChatHistory, welcomeBox, chatInputArea, threadHeader } = academyGetMessagesInboxElements();
+
+    if (welcomeBox) {
+        welcomeBox.style.display = 'none';
+    }
+
+    if (threadHeader) {
+        threadHeader.classList.add('hidden-step');
+    }
+
+    if (chatInputArea) {
+        chatInputArea.classList.add('hidden-step');
+        chatInputArea.style.setProperty('display', 'none', 'important');
+        chatInputArea.setAttribute('aria-hidden', 'true');
+    }
+
+    if (dynamicChatHistory) {
+        const savedHtml = String(academyMessagesInboxState.homeThreadHtml || '').trim();
+        dynamicChatHistory.innerHTML = savedHtml || academyRenderMessagesInboxHomeEmptyHtml(message);
+    }
+}
+
+function academyReassertMessagesInboxHomeShell(message = '') {
+    const restore = () => {
+        academySetMessagesChatMode('messages');
+        academyRestoreMessagesInboxHeader();
+        renderAcademyMessagesInboxList();
+        academyRestoreMessagesInboxHomeSnapshot(message);
+    };
+
+    window.requestAnimationFrame(restore);
+    window.setTimeout(restore, 80);
+    window.setTimeout(restore, 220);
 }
 
 function academyFormatInboxTime(value = '') {
@@ -9292,6 +9453,37 @@ function academyCloseInboxRoomMenu() {
     });
 }
 
+function academyCloseMessagesThreadMenu() {
+    academyMessagesInboxState.openThreadMenu = false;
+
+    const { threadMenu, threadMenuTrigger } = academyGetMessagesInboxElements();
+
+    if (threadMenu) {
+        threadMenu.classList.remove('is-open');
+    }
+
+    if (threadMenuTrigger) {
+        threadMenuTrigger.setAttribute('aria-expanded', 'false');
+    }
+}
+
+function academyToggleMessagesThreadMenu() {
+    const activeRoomId =
+        normalizeRoomKey(academyMessagesInboxState.activeRoomId) ||
+        normalizeRoomKey(getActiveRoomId());
+
+    if (!activeRoomId) return;
+
+    const { threadMenu, threadMenuTrigger } = academyGetMessagesInboxElements();
+    if (!threadMenu || !threadMenuTrigger) return;
+
+    const shouldOpen = !academyMessagesInboxState.openThreadMenu;
+    academyMessagesInboxState.openThreadMenu = shouldOpen;
+
+    threadMenu.classList.toggle('is-open', shouldOpen);
+    threadMenuTrigger.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+}
+
 function academyToggleInboxRoomMenu(roomId = '') {
     const normalizedRoomId = normalizeRoomKey(roomId);
     if (!normalizedRoomId) return;
@@ -9317,6 +9509,7 @@ async function academyApplyInboxRoomAction(roomId = '', action = '') {
 
     const endpointMap = {
         mute: `/api/realtime/rooms/${encodeURIComponent(normalizedRoomId)}/mute`,
+        restrict: `/api/realtime/rooms/${encodeURIComponent(normalizedRoomId)}/mute`,
         hide: `/api/realtime/rooms/${encodeURIComponent(normalizedRoomId)}/hide`,
         block: `/api/realtime/rooms/${encodeURIComponent(normalizedRoomId)}/block`
     };
@@ -9325,7 +9518,7 @@ async function academyApplyInboxRoomAction(roomId = '', action = '') {
     if (!endpoint) return;
 
     const body =
-        normalizedAction === 'mute'
+        normalizedAction === 'mute' || normalizedAction === 'restrict'
             ? { muted: true }
             : normalizedAction === 'block'
                 ? { blocked: true }
@@ -9333,6 +9526,7 @@ async function academyApplyInboxRoomAction(roomId = '', action = '') {
 
     const labelMap = {
         mute: 'Conversation muted.',
+        restrict: 'Conversation restricted.',
         hide: 'Conversation removed from your inbox.',
         block: 'Conversation blocked.'
     };
@@ -9386,7 +9580,9 @@ function academyClearMessagesThreadHeader() {
         threadAvatar,
         threadTitle,
         threadMeta,
-        threadRoomtype
+        threadRoomtype,
+        threadMenu,
+        threadMenuTrigger
     } = academyGetMessagesInboxElements();
 
     if (threadHeader) {
@@ -9409,6 +9605,19 @@ function academyClearMessagesThreadHeader() {
     if (threadRoomtype) {
         threadRoomtype.innerText = 'DM';
     }
+        if (threadMenuTrigger) {
+        threadMenuTrigger.setAttribute('data-thread-room-id', '');
+        threadMenuTrigger.setAttribute('aria-expanded', 'false');
+    }
+
+    if (threadMenu) {
+        threadMenu.classList.remove('is-open');
+        threadMenu.querySelectorAll('[data-thread-room-action]').forEach((button) => {
+            button.setAttribute('data-thread-room-id', '');
+        });
+    }
+
+    academyMessagesInboxState.openThreadMenu = false;
 }
 
 function academyRenderMessagesThreadHeader(room = {}) {
@@ -9417,7 +9626,9 @@ function academyRenderMessagesThreadHeader(room = {}) {
         threadAvatar,
         threadTitle,
         threadMeta,
-        threadRoomtype
+        threadRoomtype,
+        threadMenu,
+        threadMenuTrigger
     } = academyGetMessagesInboxElements();
 
     if (!threadHeader || !threadAvatar || !threadTitle || !threadMeta || !threadRoomtype) return;
@@ -9429,12 +9640,22 @@ function academyRenderMessagesThreadHeader(room = {}) {
             room?.recipientName ||
             (roomType === 'group' ? 'Private Group' : 'Direct Message')
         ).trim() || (roomType === 'group' ? 'Private Group' : 'Direct Message');
+    const roomId = String(
+        room?.roomId ||
+        room?.id ||
+        academyMessagesInboxState.activeRoomId ||
+        getActiveRoomId() ||
+        ''
+    ).trim();
 
     const memberCount = academyGetMessageRoomMemberCount(room);
     const memberLabel = `${memberCount} member${memberCount === 1 ? '' : 's'}`;
     const roomTypeLabel = roomType === 'group' ? 'Group chat' : 'Direct message';
 
-    const avatarUrl = String(room?.avatarUrl || room?.avatar || '').trim();
+    const avatarUrl = typeof academyResolveMemberAvatarUrl === 'function'
+        ? academyResolveMemberAvatarUrl(room)
+        : String(room?.avatarUrl || room?.avatar || '').trim();
+
     const avatarFallback = roomType === 'group'
         ? '👥'
         : roomName.charAt(0).toUpperCase();
@@ -9450,13 +9671,32 @@ function academyRenderMessagesThreadHeader(room = {}) {
     threadTitle.innerText = roomName;
     threadMeta.innerText = `${roomTypeLabel} • ${memberLabel}`;
     threadRoomtype.innerText = roomType === 'group' ? 'GROUP' : 'DM';
+
+    if (threadMenuTrigger) {
+        threadMenuTrigger.setAttribute('data-thread-room-id', roomId);
+        threadMenuTrigger.setAttribute('aria-expanded', 'false');
+    }
+
+    if (threadMenu) {
+        threadMenu.classList.remove('is-open');
+        threadMenu.querySelectorAll('[data-thread-room-action]').forEach((button) => {
+            button.setAttribute('data-thread-room-id', roomId);
+        });
+    }
+
+    academyMessagesInboxState.openThreadMenu = false;
     threadHeader.classList.remove('hidden-step');
 }
 
 function academyReturnToMessagesInboxHome() {
+    const defaultMessage = academyGetMessagesInboxDefaultEmptyMessage();
+
     academyResetMessagesThreadState();
+    academySetMessagesChatMode('messages');
+    academyRestoreMessagesInboxHeader();
     renderAcademyMessagesInboxList();
-    academyRenderMessagesThreadEmpty('Select a conversation from the inbox to open that private thread.');
+    academyRestoreMessagesInboxHomeSnapshot(defaultMessage);
+    academyReassertMessagesInboxHomeShell(defaultMessage);
 }
 
 function academyRefreshActiveMessagesThread() {
@@ -9479,6 +9719,7 @@ function academyRenderMessagesThreadEmpty(message = 'Select a conversation to op
     academyResetMessagesThreadState();
     academyClearMessagesThreadHeader();
     academySetMessagesChatMode('messages');
+    academyRestoreMessagesInboxHeader();
 
     if (welcomeBox) {
         welcomeBox.style.display = 'none';
@@ -9652,8 +9893,8 @@ function renderAcademyMessagesInboxList() {
                         class="academy-messages-inbox-menu ${academyMessagesInboxState.openMenuRoomId === normalizedRoomId ? 'is-open' : ''}"
                         data-room-menu-id="${academyFeedEscapeHtml(roomId)}"
                     >
-                        <button type="button" data-room-action="mute" data-room-id="${academyFeedEscapeHtml(roomId)}">Mute</button>
                         <button type="button" data-room-action="hide" data-room-id="${academyFeedEscapeHtml(roomId)}">Delete conversation</button>
+                        <button type="button" data-room-action="restrict" data-room-id="${academyFeedEscapeHtml(roomId)}">Restrict</button>
                         <button type="button" data-room-action="block" data-room-id="${academyFeedEscapeHtml(roomId)}">Block</button>
                     </div>
                 </div>
@@ -9710,16 +9951,71 @@ function bindAcademyMessagesInbox() {
         await academyHydrateMessageRooms(true);
     });
 
-    document.getElementById('academy-messages-thread-back-btn')?.addEventListener('click', () => {
+    document.getElementById('academy-messages-thread-back-btn')?.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
         academyReturnToMessagesInboxHome();
     });
 
     document.getElementById('academy-messages-thread-refresh-btn')?.addEventListener('click', () => {
         academyRefreshActiveMessagesThread();
     });
+
+    document.getElementById('academy-messages-thread-menu-trigger')?.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        academyToggleMessagesThreadMenu();
+    });
+
+    document.getElementById('academy-messages-thread-menu')?.addEventListener('click', async (event) => {
+        const actionBtn = event.target?.closest?.('[data-thread-room-action]');
+        if (!actionBtn) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        const roomId =
+            actionBtn.getAttribute('data-thread-room-id') ||
+            academyMessagesInboxState.activeRoomId ||
+            getActiveRoomId();
+
+        const action = actionBtn.getAttribute('data-thread-room-action');
+
+        academyCloseMessagesThreadMenu();
+        await academyApplyInboxRoomAction(roomId, action);
+    });
+
+    document.addEventListener('click', (event) => {
+        const insideThreadMenu = event.target?.closest?.('.academy-messages-thread-actions');
+        if (!insideThreadMenu) {
+            academyCloseMessagesThreadMenu();
+        }
+    });
 }
 
 bindAcademyMessagesInbox();
+
+window.addEventListener('resize', () => {
+    academySyncMobileMessagesSingleActionMode();
+
+    const { academyChat } = academyGetMessagesInboxElements();
+    const mode = String(academyChat?.getAttribute('data-chat-mode') || '').trim().toLowerCase();
+
+    if (mode === 'thread' && academyIsMobileMessagesViewport()) {
+        academyRestoreMessagesInboxHeader();
+    }
+});
+
+window.visualViewport?.addEventListener?.('resize', () => {
+    academySyncMobileMessagesSingleActionMode();
+
+    const { academyChat } = academyGetMessagesInboxElements();
+    const mode = String(academyChat?.getAttribute('data-chat-mode') || '').trim().toLowerCase();
+
+    if (mode === 'thread' && academyIsMobileMessagesViewport()) {
+        academyRestoreMessagesInboxHeader();
+    }
+});
 
 async function academyOpenDirectMessageFromProfile(memberId = '') {
     const targetUserId =

@@ -468,6 +468,14 @@
                             <section class="academy-messages-thread-shell" id="academy-messages-thread-shell">
                                 <div class="academy-messages-thread-header hidden-step" id="academy-messages-thread-header">
                                     <div class="academy-messages-thread-header-main">
+                                        <button
+                                            type="button"
+                                            class="academy-messages-thread-action-btn academy-messages-thread-back-btn"
+                                            id="academy-messages-thread-back-btn"
+                                            title="Back to inbox"
+                                            aria-label="Back to inbox"
+                                        >←</button>
+
                                         <div class="academy-messages-thread-avatar" id="academy-messages-thread-avatar">💬</div>
 
                                         <div class="academy-messages-thread-copy">
@@ -485,17 +493,33 @@
                                     <div class="academy-messages-thread-actions">
                                         <button
                                             type="button"
-                                            class="academy-messages-thread-action-btn"
-                                            id="academy-messages-thread-back-btn"
-                                            title="Back to inbox"
-                                        >← Inbox</button>
+                                            class="academy-messages-thread-action-btn academy-messages-thread-menu-trigger"
+                                            id="academy-messages-thread-menu-trigger"
+                                            title="Conversation options"
+                                            aria-label="Conversation options"
+                                            aria-haspopup="menu"
+                                            aria-expanded="false"
+                                            data-thread-room-id=""
+                                        >⋯</button>
+
+                                        <div
+                                            class="academy-messages-thread-menu"
+                                            id="academy-messages-thread-menu"
+                                            role="menu"
+                                            aria-label="Conversation options"
+                                        >
+                                            <button type="button" role="menuitem" data-thread-room-action="hide" data-thread-room-id="">Delete conversation</button>
+                                            <button type="button" role="menuitem" data-thread-room-action="restrict" data-thread-room-id="">Restrict</button>
+                                            <button type="button" role="menuitem" data-thread-room-action="block" data-thread-room-id="">Block</button>
+                                        </div>
 
                                         <button
                                             type="button"
-                                            class="academy-messages-thread-action-btn"
+                                            class="academy-messages-thread-action-btn academy-messages-thread-refresh-btn"
                                             id="academy-messages-thread-refresh-btn"
                                             title="Refresh thread"
-                                        >↻ Refresh</button>
+                                            aria-label="Refresh thread"
+                                        >↻</button>
                                     </div>
                                 </div>
 
