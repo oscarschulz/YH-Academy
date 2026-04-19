@@ -1534,6 +1534,38 @@ document.querySelector('.profile-mini')?.addEventListener('click', () => {
     }
 });
 
+function academyScrollActiveThreadToLatest() {
+    const scrollTargets = [
+        document.getElementById('dynamic-chat-history'),
+        document.getElementById('chat-messages')
+    ].filter(Boolean);
+
+    if (!scrollTargets.length) return;
+
+    const runScroll = () => {
+        scrollTargets.forEach((node) => {
+            const bottom = Number(node.scrollHeight || 0);
+
+            try {
+                node.scrollTo({
+                    top: bottom,
+                    behavior: 'auto'
+                });
+            } catch (_) {
+                node.scrollTop = bottom;
+            }
+        });
+    };
+
+    window.requestAnimationFrame(runScroll);
+
+    [40, 120, 260].forEach((delay) => {
+        window.setTimeout(() => {
+            window.requestAnimationFrame(runScroll);
+        }, delay);
+    });
+}
+
     // ==========================================
     // ⚡ REAL-TIME CHAT LOGIC (SOCKET.IO)
     // ==========================================
@@ -1546,8 +1578,8 @@ socket.on('chatHistory', (history) => {
     }
 
     const container = document.getElementById('dynamic-chat-history');
-    const chatScrollArea = document.getElementById('chat-messages');
-    if(!container) return;
+    if (!container) return;
+
     container.innerHTML = '';
 
     const activeLabel = getActiveRoomLabel();
@@ -1557,8 +1589,10 @@ socket.on('chatHistory', (history) => {
         container.innerHTML = `<div style="text-align: center; color: var(--text-muted); margin-top: 2rem; margin-bottom: 2rem; font-size: 0.9rem;">This is the beginning of your private history with <strong>${activeLabel}</strong>.</div>`;
     }
 
-    history.forEach(msg => appendMessageToUI(msg));
-    setTimeout(() => { if(chatScrollArea) chatScrollArea.scrollTop = chatScrollArea.scrollHeight; }, 100);
+    const safeHistory = Array.isArray(history) ? history : [];
+    safeHistory.forEach(msg => appendMessageToUI(msg));
+
+    academyScrollActiveThreadToLatest();
 });
 
     socket.on('receiveMessage', (msg) => {
@@ -1580,8 +1614,7 @@ socket.on('chatHistory', (history) => {
             appendStageChatMessage(msg);
         } else {
             appendMessageToUI(msg);
-            const chatScrollArea = document.getElementById('chat-messages');
-            setTimeout(() => { if(chatScrollArea) chatScrollArea.scrollTop = chatScrollArea.scrollHeight; }, 100);
+            academyScrollActiveThreadToLatest();
         }
     } else {
         const participants = Array.isArray(msg?.participants)
@@ -3256,8 +3289,7 @@ async function ensureVaultLoaded(force = false) {
                     <button
                         type="button"
                         data-toggle-group-member-id="${safeId}"
-                        class="${isSelected ? 'btn-primary' : 'btn-secondary'}"
-                        style="min-width:86px;"
+                        class="${isSelected ? 'btn-primary' : 'btn-secondary'} academy-group-member-toggle-btn"
                     >${isSelected ? 'Selected' : 'Add'}</button>
                 </div>
             `;
@@ -5830,7 +5862,7 @@ function showAcademyRoadmapLoadingShell() {
 }
 
 function openAcademyFeedView(forceReload = false) {
-    showAcademyTabLoader('Loading Community Feed.');
+    showAcademyTabLoader('Loading Community Feed...');
     closeRoadmapIntake();
     academyResetCoachMode();
     academyResetMessagesThreadState();
@@ -5901,7 +5933,7 @@ function openAcademyFeedView(forceReload = false) {
         });
 }
 function openAcademyMessagesView() {
-    showAcademyTabLoader('Loading Messages.');
+    showAcademyTabLoader('Loading Messages...');
     academyPushFeedFallbackHistory('messages');
     closeRoadmapIntake();
     academyResetCoachMode();
@@ -8546,7 +8578,7 @@ function revealAcademyMissionsViewShell() {
 }
 
 function openAcademyMissionsView() {
-    showAcademyTabLoader('Loading Missions.');
+    showAcademyTabLoader('Loading Missions...');
     academyPushFeedFallbackHistory('missions');
     saveAcademyViewState('missions');
     revealAcademyMissionsViewShell();
@@ -8575,7 +8607,7 @@ async function openAcademyLeadMissionsView(options = {}) {
         }
     }
 
-    showAcademyTabLoader('Loading Leads.');
+    showAcademyTabLoader('Loading Leads...');
     academyPushFeedFallbackHistory('lead-missions');
     saveAcademyViewState('lead-missions');
     revealAcademyMissionsViewShell();
@@ -9522,6 +9554,7 @@ function academyOpenInboxRoomById(roomId = '') {
     markCustomRoomAsRead(roomEntry.roomId || roomEntry.id);
     renderAcademyMessagesInboxList();
     focusAcademyChatComposer();
+    academyScrollActiveThreadToLatest();
 }
 
 function academyRefreshMessagesInboxSelection() {
@@ -9836,7 +9869,7 @@ async function openAcademyProfileView(forceFresh = false) {
     currentRoomId = null;
     currentRoomMeta = null;
 
-    showAcademyTabLoader('Loading Profile.');
+    showAcademyTabLoader('Loading Profile...');
 
     try {
         const profile = await fetchCurrentAcademyProfile({
@@ -9908,6 +9941,144 @@ function readAcademyFeedCachePosts() {
         return Array.isArray(parsed?.posts) ? parsed.posts : [];
     } catch (_) {
         return [];
+    }
+}
+
+function writeAcademyFeedCachePosts(posts = []) {
+    const safePosts = Array.isArray(posts) ? posts : [];
+
+    try {
+        localStorage.setItem('yh_academy_feed_cache', JSON.stringify({ posts: safePosts }));
+    } catch (error) {
+        console.warn('Failed to write Academy feed cache:', error);
+    }
+
+    return safePosts;
+}
+
+function updateAcademyFeedCachedPost(postId, updater) {
+    const normalizedPostId = normalizeAcademyFeedId(postId);
+    if (!normalizedPostId || typeof updater !== 'function') return null;
+
+    let updatedPost = null;
+    const posts = readAcademyFeedCachePosts().map((post) => {
+        if (normalizeAcademyFeedId(post?.id) !== normalizedPostId) return post;
+
+        const nextPost = updater({ ...post });
+        updatedPost = nextPost && typeof nextPost === 'object' ? nextPost : post;
+        return updatedPost;
+    });
+
+    writeAcademyFeedCachePosts(posts);
+    return updatedPost;
+}
+
+function removeAcademyFeedCachedPost(postId) {
+    const normalizedPostId = normalizeAcademyFeedId(postId);
+    if (!normalizedPostId) return;
+
+    const posts = readAcademyFeedCachePosts().filter((post) => {
+        return normalizeAcademyFeedId(post?.id) !== normalizedPostId;
+    });
+
+    writeAcademyFeedCachePosts(posts);
+}
+
+function academyFeedGetPostCard(postId) {
+    const normalizedPostId = normalizeAcademyFeedId(postId);
+    if (!normalizedPostId) return null;
+
+    return Array.from(document.querySelectorAll('#academy-feed-list .academy-feed-card[data-post-id]'))
+        .find((card) => normalizeAcademyFeedId(card.getAttribute('data-post-id')) === normalizedPostId) || null;
+}
+
+function academyFeedEnsureVisibleEmptyState() {
+    const list = document.getElementById('academy-feed-list');
+    if (!list) return;
+
+    const visibleCards = Array.from(list.querySelectorAll('.academy-feed-card[data-post-id]'))
+        .filter((card) => !card.classList.contains('academy-feed-card-removing'));
+
+    if (visibleCards.length > 0) return;
+
+    list.innerHTML = `<div style="text-align:center;color:var(--text-muted);padding:2rem;">No posts yet. Be the first to post in YHA.</div>`;
+}
+
+function academyFeedSetPostActionLoading(postId, message = 'Working...', button = null) {
+    const card = academyFeedGetPostCard(postId);
+    if (!card || card.dataset.feedActionLoading === 'true') return null;
+
+    const actionButton = button instanceof HTMLElement ? button : null;
+    const previousButtonHtml = actionButton ? actionButton.innerHTML : '';
+    const previousButtonDisabled = actionButton ? actionButton.disabled : false;
+
+    card.dataset.feedActionLoading = 'true';
+    card.classList.add('is-feed-action-loading');
+    card.setAttribute('aria-busy', 'true');
+
+    let status = card.querySelector('.academy-feed-card-action-status');
+    if (!status) {
+        status = document.createElement('div');
+        status.className = 'academy-feed-card-action-status';
+        card.appendChild(status);
+    }
+
+    status.innerHTML = `
+        <span class="academy-feed-card-action-spinner" aria-hidden="true"></span>
+        <span>${academyFeedEscapeHtml(message)}</span>
+    `;
+
+    if (actionButton) {
+        actionButton.disabled = true;
+        actionButton.setAttribute('aria-busy', 'true');
+        actionButton.textContent = message;
+    }
+
+    return () => {
+        delete card.dataset.feedActionLoading;
+        card.classList.remove('is-feed-action-loading');
+        card.removeAttribute('aria-busy');
+        status?.remove();
+
+        if (actionButton) {
+            actionButton.disabled = previousButtonDisabled;
+            actionButton.removeAttribute('aria-busy');
+            actionButton.innerHTML = previousButtonHtml;
+        }
+    };
+}
+
+function academyFeedRemovePostCard(postId) {
+    const card = academyFeedGetPostCard(postId);
+
+    if (!card) {
+        academyFeedEnsureVisibleEmptyState();
+        return;
+    }
+
+    card.classList.add('academy-feed-card-removing');
+
+    window.setTimeout(() => {
+        card.remove();
+        academyFeedEnsureVisibleEmptyState();
+    }, 180);
+}
+
+function academyFeedUpdatePostDomAfterEdit(postId, body) {
+    const normalizedPostId = normalizeAcademyFeedId(postId);
+    if (!normalizedPostId) return;
+
+    const display = document.getElementById(`academy-feed-post-body-display-${normalizedPostId}`);
+    const form = document.getElementById(`academy-feed-post-edit-form-${normalizedPostId}`);
+    const safeBody = academyFeedEscapeHtml(body).replace(/\n/g, '<br>');
+
+    if (display) {
+        display.innerHTML = `${safeBody}<span class="academy-feed-edited-label">Edited</span>`;
+        display.classList.remove('hidden-step');
+    }
+
+    if (form) {
+        form.classList.add('hidden-step');
     }
 }
 
@@ -11320,7 +11491,7 @@ function academyFeedCloseShareModal() {
     document.body?.classList.remove('academy-feed-share-open');
 }
 
-async function academyFeedOpenDeleteModal(postId) {
+async function academyFeedOpenDeleteModal(postId, button = null) {
     const normalizedPostId = normalizeAcademyFeedId(postId);
     academyFeedDeleteTargetPostId = normalizedPostId;
     if (!normalizedPostId) return;
@@ -11335,14 +11506,20 @@ async function academyFeedOpenDeleteModal(postId) {
 
     if (!confirmed) return;
 
+    academyFeedCloseOpenPostMenus();
+    const stopLoading = academyFeedSetPostActionLoading(normalizedPostId, 'Deleting...', button);
+    if (!stopLoading) return;
+
     try {
         await academyAuthedFetch(`/api/academy/feed/posts/${normalizedPostId}`, {
             method: 'DELETE'
         });
 
+        removeAcademyFeedCachedPost(normalizedPostId);
         showToast('Post deleted successfully.', 'success');
-        loadAcademyFeed(true);
+        academyFeedRemovePostCard(normalizedPostId);
     } catch (error) {
+        stopLoading();
         showToast(error.message || 'Delete endpoint is not wired yet.', 'error');
     }
 }
@@ -11911,7 +12088,7 @@ function academyFeedCancelPostEdit(postId) {
     document.getElementById(`academy-feed-post-body-display-${normalizedPostId}`)?.classList.remove('hidden-step');
 }
 
-async function academyFeedSavePostEdit(postId) {
+async function academyFeedSavePostEdit(postId, button = null) {
     const normalizedPostId = normalizeAcademyFeedId(postId);
     const input = document.getElementById(`academy-feed-post-edit-input-${normalizedPostId}`);
     const body = String(input?.value || '').trim();
@@ -11923,22 +12100,39 @@ async function academyFeedSavePostEdit(postId) {
         return;
     }
 
+    const stopLoading = academyFeedSetPostActionLoading(normalizedPostId, 'Saving...', button);
+    if (!stopLoading) return;
+
     try {
-        await academyAuthedFetch(`/api/academy/feed/posts/${encodeURIComponent(normalizedPostId)}`, {
+        const result = await academyAuthedFetch(`/api/academy/feed/posts/${encodeURIComponent(normalizedPostId)}`, {
             method: 'PATCH',
             body: JSON.stringify({ body })
         });
 
+        const editedAt = result?.post?.edited_at || result?.edited_at || new Date().toISOString();
+
+        updateAcademyFeedCachedPost(normalizedPostId, (post) => ({
+            ...post,
+            body,
+            edited_at: editedAt
+        }));
+
+        academyFeedUpdatePostDomAfterEdit(normalizedPostId, body);
         showToast('Post updated.', 'success');
-        await loadAcademyFeed(true);
     } catch (error) {
         showToast(error.message || 'Failed to update post.', 'error');
+    } finally {
+        stopLoading();
     }
 }
 
-async function academyFeedHidePost(postId) {
+async function academyFeedHidePost(postId, button = null) {
     const normalizedPostId = normalizeAcademyFeedId(postId);
     if (!normalizedPostId) return;
+
+    academyFeedCloseOpenPostMenus();
+    const stopLoading = academyFeedSetPostActionLoading(normalizedPostId, 'Hiding...', button);
+    if (!stopLoading) return;
 
     try {
         await academyAuthedFetch(`/api/academy/feed/posts/${encodeURIComponent(normalizedPostId)}/hide`, {
@@ -11952,8 +12146,9 @@ async function academyFeedHidePost(postId) {
         }
 
         showToast('Post hidden only for your account.', 'success');
-        await loadAcademyFeed(true);
+        academyFeedRemovePostCard(normalizedPostId);
     } catch (error) {
+        stopLoading();
         showToast(error.message || 'Failed to hide post.', 'error');
     }
 }
@@ -13012,7 +13207,7 @@ if (menuBtn) {
     const savePostEditBtn = event.target.closest('.academy-feed-post-edit-save-btn');
     if (savePostEditBtn) {
         const postId = normalizeAcademyFeedId(savePostEditBtn.getAttribute('data-post-id'));
-        if (postId) academyFeedSavePostEdit(postId);
+        if (postId) academyFeedSavePostEdit(postId, savePostEditBtn);
         return;
     }
 
@@ -13026,7 +13221,7 @@ if (menuBtn) {
     const hideBtn = event.target.closest('.academy-feed-hide-btn');
     if (hideBtn) {
         const postId = normalizeAcademyFeedId(hideBtn.getAttribute('data-post-id'));
-        if (postId) academyFeedHidePost(postId);
+        if (postId) academyFeedHidePost(postId, hideBtn);
         return;
     }
 
@@ -13035,7 +13230,7 @@ if (menuBtn) {
         const postId = normalizeAcademyFeedId(deleteBtn.getAttribute('data-post-id'));
         if (!postId) return;
 
-        academyFeedOpenDeleteModal(postId);
+        academyFeedOpenDeleteModal(postId, deleteBtn);
         return;
     }
 
