@@ -13224,3 +13224,112 @@ body[data-yh-view="academy"] .academy-profile-danger-btn:hover {
         pointer-events: auto !important;
     }
 }
+/* =========================================
+   ACADEMY PROFILE DESKTOP ACTION MENU
+   One profile menu for Edit Profile, Settings, Logout
+   ========================================= */
+
+body[data-yh-view="academy"] .yh-top-nav .nav-actions,
+body[data-yh-view="academy"] .yh-top-nav .nav-actions .btn-logout,
+body[data-yh-view="academy"] .yh-top-nav .academy-nav-actions-empty {
+    display: none !important;
+}
+
+body[data-yh-view="academy"] #academy-profile-view .academy-profile-desktop-edit-btn,
+body[data-yh-view="academy"] #academy-profile-view .academy-profile-header-edit-btn {
+    display: none !important;
+}
+
+body[data-yh-view="academy"] #academy-profile-view .academy-profile-actions-menu-wrap {
+    display: block !important;
+    position: relative !important;
+    z-index: 9020 !important;
+    pointer-events: auto !important;
+}
+
+body[data-yh-view="academy"] #academy-profile-view .academy-profile-mobile-menu-trigger {
+    width: 46px;
+    height: 46px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(15, 23, 42, 0.98);
+    color: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.18rem;
+    cursor: pointer;
+    box-shadow:
+        0 16px 34px rgba(0, 0, 0, 0.48),
+        0 0 0 1px rgba(14, 165, 233, 0.12);
+}
+
+body[data-yh-view="academy"] #academy-profile-view .academy-profile-mobile-menu-trigger:hover {
+    border-color: rgba(14, 165, 233, 0.45);
+    background: rgba(14, 165, 233, 0.18);
+}
+
+body[data-yh-view="academy"] #academy-profile-view .academy-profile-mobile-menu {
+    position: absolute !important;
+    top: calc(100% + 10px) !important;
+    right: 0 !important;
+    left: auto !important;
+    width: min(240px, calc(100vw - 24px)) !important;
+    max-width: calc(100vw - 24px) !important;
+    padding: 8px !important;
+    border-radius: 16px !important;
+    border: 1px solid rgba(255, 255, 255, 0.16) !important;
+    background: rgba(8, 13, 30, 0.99) !important;
+    box-shadow:
+        0 26px 60px rgba(0, 0, 0, 0.68),
+        0 0 0 1px rgba(14, 165, 233, 0.12) !important;
+    backdrop-filter: blur(18px) !important;
+    -webkit-backdrop-filter: blur(18px) !important;
+    z-index: 9040 !important;
+    gap: 6px !important;
+}
+
+body[data-yh-view="academy"] #academy-profile-view .academy-profile-mobile-menu:not(.hidden-step) {
+    display: grid !important;
+}
+
+body[data-yh-view="academy"] #academy-profile-view .academy-profile-mobile-menu button {
+    width: 100%;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.105);
+    color: #ffffff;
+    border-radius: 12px;
+    padding: 12px 13px;
+    text-align: left;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+body[data-yh-view="academy"] #academy-profile-view .academy-profile-mobile-menu button:hover,
+body[data-yh-view="academy"] #academy-profile-view .academy-profile-mobile-menu button:active {
+    background: rgba(14, 165, 233, 0.22);
+    border-color: rgba(14, 165, 233, 0.35);
+}
+
+body[data-yh-view="academy"] #academy-profile-view .academy-profile-mobile-menu-danger {
+    background: rgba(239, 68, 68, 0.16) !important;
+    border-color: rgba(239, 68, 68, 0.28) !important;
+    color: #fecaca !important;
+}
+
+@media (min-width: 769px) {
+    body[data-yh-view="academy"] #academy-profile-view .chat-header {
+        overflow: visible !important;
+        position: relative !important;
+        z-index: 80 !important;
+    }
+
+    body[data-yh-view="academy"] #academy-profile-view .academy-profile-header-right {
+        position: relative !important;
+        overflow: visible !important;
+        z-index: 90 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: flex-end !important;
+    }
+}

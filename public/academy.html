@@ -98,9 +98,7 @@
         <span>UNIVERSE</span>
     </div>
 
-    <div class="nav-actions">
-        <button class="btn-logout" onclick="logoutUser()">⎋ Log out</button>
-    </div>
+    <div class="nav-actions academy-nav-actions-empty" aria-hidden="true"></div>
 </nav>
 
 <div class="desktop-user-strip">
@@ -1109,13 +1107,10 @@
         </div>
 
         <div class="header-right academy-profile-header-right">
-            <button
-                type="button"
-                class="btn-primary academy-profile-header-edit-btn academy-profile-desktop-edit-btn"
-                id="academy-profile-open-editor-btn"
-            >Edit Profile</button>
-
-            <div class="academy-profile-mobile-menu-wrap" id="academy-profile-mobile-menu-wrap">
+            <div
+                class="academy-profile-mobile-menu-wrap academy-profile-actions-menu-wrap"
+                id="academy-profile-mobile-menu-wrap"
+            >
                 <button
                     type="button"
                     class="academy-profile-mobile-menu-trigger"
