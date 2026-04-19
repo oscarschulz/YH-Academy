@@ -1277,21 +1277,40 @@ function initAcademyMobileBottomNavAutoHide() {
     let ticking = false;
     let pendingForceReveal = false;
     let lastScrollTop = 0;
+    let lastScrollSource = null;
+
+    const isTabletOrPhoneViewport = () => {
+        return Math.min(
+            Number(window.innerWidth || 9999),
+            Number(document.documentElement?.clientWidth || 9999),
+            Number(window.visualViewport?.width || 9999)
+        ) <= 1024;
+    };
 
     const getViewportScrollTop = () => {
         return Math.max(
             0,
             Number(
                 window.pageYOffset ||
-                document.documentElement.scrollTop ||
-                document.body.scrollTop ||
+                document.documentElement?.scrollTop ||
+                document.body?.scrollTop ||
                 0
             )
         );
     };
 
+    const isNodeVisible = (node) => {
+        return !!node && !node.classList.contains('hidden-step');
+    };
+
     const canNodeActuallyScroll = (node) => {
-        if (!node || node === window || node === document || node === document.body || node === document.documentElement) {
+        if (
+            !node ||
+            node === window ||
+            node === document ||
+            node === document.body ||
+            node === document.documentElement
+        ) {
             return false;
         }
 
@@ -1299,27 +1318,24 @@ function initAcademyMobileBottomNavAutoHide() {
         const clientHeight = Number(node.clientHeight || 0);
         const scrollTop = Number(node.scrollTop || 0);
 
+        if (scrollHeight <= clientHeight + 8) return false;
+
         try {
             const styles = window.getComputedStyle(node);
             const overflowY = String(styles?.overflowY || '').toLowerCase();
-            const allowsScroll =
+
+            return (
                 overflowY === 'auto' ||
                 overflowY === 'scroll' ||
-                overflowY === 'overlay';
-
-            return (allowsScroll || scrollTop > 0) && scrollHeight > clientHeight + 8;
+                overflowY === 'overlay' ||
+                scrollTop > 0
+            );
         } catch (_) {
-            return scrollHeight > clientHeight + 8;
+            return true;
         }
     };
 
-    const getActiveAcademyScrollTop = () => {
-        const isPhone = window.innerWidth <= 768;
-
-        if (isPhone) {
-            return getViewportScrollTop();
-        }
-
+    const getActiveAcademyScrollCandidates = () => {
         const academyChat = document.getElementById('academy-chat');
         const feedView = document.getElementById('academy-feed-view');
         const profileView = document.getElementById('academy-profile-view');
@@ -1327,43 +1343,121 @@ function initAcademyMobileBottomNavAutoHide() {
         const voiceView = document.getElementById('voice-lobby-view');
         const videoView = document.getElementById('video-lobby-view');
 
-        const candidates = [
-            !feedView?.classList.contains('hidden-step')
-                ? (feedView?.querySelector('.chat-messages') || feedView)
-                : null,
-            !academyChat?.classList.contains('hidden-step')
-                ? (document.getElementById('chat-messages') || academyChat)
-                : null,
-            !leadMissionsView?.classList.contains('hidden-step')
-                ? (leadMissionsView?.querySelector('.chat-messages') || leadMissionsView)
-                : null,
-            !profileView?.classList.contains('hidden-step')
-                ? profileView
-                : null,
-            !voiceView?.classList.contains('hidden-step')
-                ? (voiceView?.querySelector('.lounge-container') || voiceView)
-                : null,
-            !videoView?.classList.contains('hidden-step')
-                ? (videoView?.querySelector('.lounge-container') || videoView)
-                : null
-        ].filter(Boolean);
+        const chatMode = String(academyChat?.getAttribute('data-chat-mode') || '').trim().toLowerCase();
 
-        const scrollableCandidates = candidates.filter(canNodeActuallyScroll);
+        const candidates = [];
 
-        for (const node of scrollableCandidates) {
-            const top = Math.max(0, Number(node.scrollTop || 0));
-            if (top > 0) return top;
+        if (isNodeVisible(feedView)) {
+            candidates.push(
+                feedView.querySelector('.chat-messages'),
+                document.getElementById('academy-feed-list'),
+                feedView
+            );
         }
 
-        if (scrollableCandidates.length) {
-            return Math.max(0, Number(scrollableCandidates[0].scrollTop || 0));
+        if (isNodeVisible(academyChat)) {
+            if (chatMode === 'messages') {
+                candidates.push(
+                    document.getElementById('academy-messages-inbox-list'),
+                    document.getElementById('chat-messages'),
+                    document.getElementById('academy-messages-inbox'),
+                    academyChat
+                );
+            } else if (chatMode === 'thread') {
+                candidates.push(
+                    document.getElementById('dynamic-chat-history'),
+                    document.getElementById('chat-messages'),
+                    document.getElementById('academy-messages-thread-shell'),
+                    academyChat
+                );
+            } else {
+                candidates.push(
+                    document.getElementById('chat-messages'),
+                    academyChat
+                );
+            }
+        }
+
+        if (isNodeVisible(leadMissionsView)) {
+            candidates.push(
+                leadMissionsView.querySelector('.chat-messages'),
+                leadMissionsView
+            );
+        }
+
+        if (isNodeVisible(profileView)) {
+            candidates.push(
+                profileView.querySelector('.chat-messages'),
+                profileView
+            );
+        }
+
+        if (isNodeVisible(voiceView)) {
+            candidates.push(
+                voiceView.querySelector('.lounge-container'),
+                voiceView
+            );
+        }
+
+        if (isNodeVisible(videoView)) {
+            candidates.push(
+                videoView.querySelector('.lounge-container'),
+                videoView
+            );
+        }
+
+        candidates.push(document.scrollingElement, document.documentElement, document.body);
+
+        return Array.from(new Set(candidates.filter(Boolean)));
+    };
+
+    const resolveScrollSource = (preferredSource = null) => {
+        const candidates = getActiveAcademyScrollCandidates();
+
+        if (preferredSource && canNodeActuallyScroll(preferredSource)) {
+            return preferredSource;
+        }
+
+        if (lastScrollSource && candidates.includes(lastScrollSource) && canNodeActuallyScroll(lastScrollSource)) {
+            return lastScrollSource;
+        }
+
+        const activeScrollable = candidates.find((node) => {
+            return canNodeActuallyScroll(node) && Number(node.scrollTop || 0) > 0;
+        });
+
+        if (activeScrollable) return activeScrollable;
+
+        return candidates.find(canNodeActuallyScroll) || null;
+    };
+
+    const getActiveAcademyScrollTop = (preferredSource = null) => {
+        const source = resolveScrollSource(preferredSource);
+
+        if (source) {
+            lastScrollSource = source;
+            return Math.max(0, Number(source.scrollTop || 0));
         }
 
         return getViewportScrollTop();
     };
 
-    const applyState = () => {
-        const isTabletOrPhone = window.innerWidth <= 1024;
+    const setBottomNavVisible = (visible = true) => {
+        academyMobileBottomNav.classList.toggle('academy-mobile-bottom-nav-hidden', !visible);
+        academyMobileBottomNav.setAttribute('aria-hidden', visible ? 'false' : 'true');
+
+        if (visible) {
+            academyMobileBottomNav.style.transform = 'translateY(0)';
+            academyMobileBottomNav.style.opacity = '1';
+            academyMobileBottomNav.style.pointerEvents = 'auto';
+        } else {
+            academyMobileBottomNav.style.transform = 'translateY(calc(100% + 22px))';
+            academyMobileBottomNav.style.opacity = '0';
+            academyMobileBottomNav.style.pointerEvents = 'none';
+        }
+    };
+
+    const applyState = (preferredSource = null) => {
         const academyChat = document.getElementById('academy-chat');
         const feedView = document.getElementById('academy-feed-view');
         const profileView = document.getElementById('academy-profile-view');
@@ -1373,21 +1467,20 @@ function initAcademyMobileBottomNavAutoHide() {
 
         const chatMode = String(academyChat?.getAttribute('data-chat-mode') || '').trim().toLowerCase();
         const isThreadOpen = document.body?.classList.contains('academy-messages-thread-open');
+        const isSingleActionThread = document.body?.classList.contains('academy-mobile-message-thread-single-action');
 
-        const isFeedVisible = !!feedView && !feedView.classList.contains('hidden-step');
-        const isProfileVisible = !!profileView && !profileView.classList.contains('hidden-step');
-        const isLeadMissionsVisible = !!leadMissionsView && !leadMissionsView.classList.contains('hidden-step');
-        const isVoiceVisible = !!voiceView && !voiceView.classList.contains('hidden-step');
-        const isVideoVisible = !!videoView && !videoView.classList.contains('hidden-step');
+        const isFeedVisible = isNodeVisible(feedView);
+        const isProfileVisible = isNodeVisible(profileView);
+        const isLeadMissionsVisible = isNodeVisible(leadMissionsView);
+        const isVoiceVisible = isNodeVisible(voiceView);
+        const isVideoVisible = isNodeVisible(videoView);
 
         const isMessagesVisible =
-            !!academyChat &&
-            !academyChat.classList.contains('hidden-step') &&
+            isNodeVisible(academyChat) &&
             (chatMode === 'messages' || chatMode === 'thread' || isThreadOpen);
 
         const isRoadmapVisible =
-            !!academyChat &&
-            !academyChat.classList.contains('hidden-step') &&
+            isNodeVisible(academyChat) &&
             chatMode === 'home';
 
         const isAnyPrimaryAcademyTabVisible =
@@ -1400,18 +1493,16 @@ function initAcademyMobileBottomNavAutoHide() {
             isVideoVisible;
 
         const shouldShowBottomNav =
-            isTabletOrPhone &&
-            isAnyPrimaryAcademyTabVisible;
+            isTabletOrPhoneViewport() &&
+            isAnyPrimaryAcademyTabVisible &&
+            !isSingleActionThread;
 
         academyMobileBottomNav.style.transition = 'transform 0.22s ease, opacity 0.22s ease';
         academyMobileBottomNav.style.willChange = 'transform, opacity';
 
         if (!shouldShowBottomNav) {
             academyMobileBottomNav.style.setProperty('display', 'none', 'important');
-            academyMobileBottomNav.setAttribute('aria-hidden', 'true');
-            academyMobileBottomNav.style.transform = 'translateY(calc(100% + 18px))';
-            academyMobileBottomNav.style.opacity = '0';
-            academyMobileBottomNav.style.pointerEvents = 'none';
+            setBottomNavVisible(false);
             pendingForceReveal = false;
             lastScrollTop = 0;
             ticking = false;
@@ -1419,22 +1510,18 @@ function initAcademyMobileBottomNavAutoHide() {
         }
 
         academyMobileBottomNav.style.setProperty('display', 'grid', 'important');
-        academyMobileBottomNav.setAttribute('aria-hidden', 'false');
 
-        const currentScrollTop = Math.max(0, getActiveAcademyScrollTop());
+        const currentScrollTop = getActiveAcademyScrollTop(preferredSource);
         const delta = currentScrollTop - lastScrollTop;
-        const isNearTop = currentScrollTop <= 20;
-        const isScrollingDown = delta > 8;
-        const isScrollingUp = delta < -6;
+
+        const isNearTop = currentScrollTop <= 12;
+        const isScrollingDown = delta > 5 && currentScrollTop > 18;
+        const isScrollingUp = delta < -4;
 
         if (pendingForceReveal || isNearTop || isScrollingUp) {
-            academyMobileBottomNav.style.transform = 'translateY(0)';
-            academyMobileBottomNav.style.opacity = '1';
-            academyMobileBottomNav.style.pointerEvents = 'auto';
+            setBottomNavVisible(true);
         } else if (isScrollingDown) {
-            academyMobileBottomNav.style.transform = 'translateY(calc(100% + 18px))';
-            academyMobileBottomNav.style.opacity = '0';
-            academyMobileBottomNav.style.pointerEvents = 'none';
+            setBottomNavVisible(false);
         }
 
         lastScrollTop = currentScrollTop;
@@ -1442,22 +1529,47 @@ function initAcademyMobileBottomNavAutoHide() {
         ticking = false;
     };
 
-    const queueApplyState = (forceReveal = false) => {
+    const queueApplyState = (forceReveal = false, preferredSource = null) => {
         pendingForceReveal = pendingForceReveal || !!forceReveal;
+
+        if (preferredSource && preferredSource !== document && preferredSource !== window) {
+            lastScrollSource = preferredSource;
+        }
 
         if (ticking) return;
         ticking = true;
 
-        window.requestAnimationFrame(applyState);
+        window.requestAnimationFrame(() => applyState(preferredSource));
     };
 
     window.addEventListener('resize', () => queueApplyState(true), { passive: true });
     window.addEventListener('orientationchange', () => queueApplyState(true), { passive: true });
-    window.addEventListener('scroll', () => queueApplyState(false), { passive: true });
+    window.visualViewport?.addEventListener?.('resize', () => queueApplyState(true), { passive: true });
 
-    document.addEventListener('scroll', () => queueApplyState(false), true);
-    document.addEventListener('click', () => queueApplyState(true), true);
-    document.addEventListener('touchstart', () => queueApplyState(true), { passive: true, capture: true });
+    window.addEventListener('scroll', (event) => {
+        queueApplyState(false, event.target === document ? document.scrollingElement : event.target);
+    }, { passive: true });
+
+    document.addEventListener('scroll', (event) => {
+        queueApplyState(false, event.target);
+    }, true);
+
+    document.addEventListener('touchmove', (event) => {
+        const scrollParent = event.target?.closest?.(
+            '#academy-messages-inbox-list, #dynamic-chat-history, #chat-messages, #academy-feed-view .chat-messages, #academy-profile-view, #academy-lead-missions-view, #voice-lobby-view, #video-lobby-view'
+        );
+
+        queueApplyState(false, scrollParent || null);
+    }, { passive: true, capture: true });
+
+    document.addEventListener('click', (event) => {
+        if (event.target?.closest?.('#academy-mobile-bottom-nav')) {
+            queueApplyState(true);
+            return;
+        }
+
+        queueApplyState(true);
+    }, true);
 
     const observer = new MutationObserver(() => queueApplyState(true));
 
