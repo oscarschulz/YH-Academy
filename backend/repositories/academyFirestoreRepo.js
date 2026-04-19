@@ -243,18 +243,19 @@ async function setCurrentProfile(uid, payload) {
 
     await ref.set(nextProfile, { merge: true });
 
-    const preservedFullName =
+    const nextPublicName =
         sanitizeString(
+            nextProfile.display_name ||
+            userExisting.displayName ||
             userExisting.fullName ||
-            userExisting.name ||
-            nextProfile.display_name
-        ) || nextProfile.display_name;
+            userExisting.name
+        ) || 'Hustler';
 
     await userDocRef.set(
         {
-            displayName: nextProfile.display_name,
-            fullName: preservedFullName,
-            name: preservedFullName,
+            displayName: nextPublicName,
+            fullName: nextPublicName,
+            name: nextPublicName,
             username: nextProfile.username,
             avatar: nextProfile.avatar,
             profilePhoto: nextProfile.avatar,
@@ -273,7 +274,56 @@ async function setCurrentProfile(uid, payload) {
     const snapshot = await ref.get();
     return mapStoredProfileData(snapshot.data() || {});
 }
+async function deleteCurrentProfile(uid) {
+    const ref = academyMetaDoc(uid, 'profile');
+    const userDocRef = userRef(uid);
+    const ts = nowTs();
 
+    const userExistingSnapshot = await userDocRef.get();
+    const userExisting = userExistingSnapshot.exists
+        ? (userExistingSnapshot.data() || {})
+        : {};
+
+    const publicName =
+        sanitizeString(
+            userExisting.displayName ||
+            userExisting.fullName ||
+            userExisting.name ||
+            userExisting.username
+        ) || 'Hustler';
+
+    await ref.delete();
+
+    await userDocRef.set(
+        {
+            displayName: publicName,
+            fullName: publicName,
+            name: publicName,
+            avatar: '',
+            profilePhoto: '',
+            photoURL: '',
+            bio: '',
+            profileBio: '',
+            searchTags: [],
+            coverPhoto: '',
+            academyProfileDeletedAt: ts,
+            academyProfileUpdatedAt: ts,
+            updatedAt: ts
+        },
+        { merge: true }
+    );
+
+    return {
+        deleted: true,
+        display_name: publicName,
+        username: sanitizeString(userExisting.username),
+        avatar: '',
+        cover_photo: '',
+        role_label: 'Academy Member',
+        bio: '',
+        search_tags: []
+    };
+}
 async function getAccessState(uid) {
     const snapshot = await academyMetaDoc(uid, 'access').get();
     if (!snapshot.exists) return null;
@@ -1418,6 +1468,7 @@ async function getLeadMissionScripts(uid) {
 module.exports = {
     getCurrentProfile,
     setCurrentProfile,
+    deleteCurrentProfile,
     getAccessState,
     setAccessUnlocked,
     getActiveRoadmap,

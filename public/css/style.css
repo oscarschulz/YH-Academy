@@ -12899,3 +12899,248 @@ body[data-yh-view="academy"] #academy-profile-view .academy-profile-mobile-menu-
         padding-top: 6px !important;
     }
 }
+/* ==========================================
+   ACADEMY MOBILE FULL TOP NAME ALL TABS
+   Prevent top user name from truncating outside Profile
+   ========================================== */
+@media (max-width: 768px) {
+    body[data-yh-view="academy"] .desktop-user-strip {
+        overflow: visible !important;
+    }
+
+    body[data-yh-view="academy"] .desktop-user-strip-inner {
+        grid-template-columns: minmax(0, 1fr) auto !important;
+        align-items: center !important;
+        gap: 8px !important;
+        overflow: visible !important;
+    }
+
+    body[data-yh-view="academy"] .desktop-user-strip-left {
+        min-width: 0 !important;
+        max-width: calc(100vw - 146px) !important;
+        overflow: visible !important;
+    }
+
+    body[data-yh-view="academy"] .desktop-user-profile-cluster,
+    body[data-yh-view="academy"] .desktop-user-strip .profile-mini {
+        min-width: 0 !important;
+        max-width: calc(100vw - 150px) !important;
+        width: auto !important;
+        overflow: visible !important;
+        flex: 0 1 auto !important;
+    }
+
+    body[data-yh-view="academy"] #top-nav-name {
+        display: inline-block !important;
+        max-width: calc(100vw - 190px) !important;
+        min-width: 0 !important;
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: clip !important;
+        overflow-wrap: anywhere !important;
+        word-break: normal !important;
+        line-height: 1.1 !important;
+    }
+}
+/* ==========================================
+   ACADEMY TOP STRIP CLEANUP
+   Remove top name display and move notifications left
+   ========================================== */
+
+body[data-yh-view="academy"] .desktop-user-profile-cluster,
+body[data-yh-view="academy"] .desktop-user-strip .profile-mini,
+body[data-yh-view="academy"] #top-nav-initial,
+body[data-yh-view="academy"] #top-nav-name {
+    display: none !important;
+}
+
+body[data-yh-view="academy"] .desktop-user-strip-inner {
+    grid-template-columns: auto minmax(0, 1fr) !important;
+    align-items: center !important;
+}
+
+body[data-yh-view="academy"] .desktop-user-strip-left {
+    width: auto !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    overflow: visible !important;
+}
+
+body[data-yh-view="academy"] .desktop-user-strip-right {
+    min-width: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    overflow: visible !important;
+}
+
+body[data-yh-view="academy"] .academy-strip-notif-left {
+    position: relative !important;
+    flex: 0 0 auto !important;
+    z-index: 420 !important;
+}
+
+body[data-yh-view="academy"] .academy-strip-notif-left .notif-dropdown {
+    left: 0 !important;
+    right: auto !important;
+    transform-origin: top left !important;
+}
+
+@media (max-width: 768px) {
+    body[data-yh-view="academy"] .desktop-user-strip {
+        padding-top: 6px !important;
+        padding-bottom: 4px !important;
+        overflow: visible !important;
+    }
+
+    body[data-yh-view="academy"] .desktop-user-strip-inner {
+        grid-template-columns: auto minmax(0, 1fr) !important;
+        gap: 10px !important;
+        overflow: visible !important;
+    }
+
+    body[data-yh-view="academy"] .desktop-user-strip-left {
+        flex: 0 0 auto !important;
+        max-width: none !important;
+    }
+
+    body[data-yh-view="academy"] .academy-strip-notif-left {
+        width: 40px !important;
+        height: 40px !important;
+    }
+
+    body[data-yh-view="academy"] .academy-strip-notif-left .notif-dropdown {
+        top: calc(100% + 10px) !important;
+        left: 0 !important;
+        right: auto !important;
+        width: min(320px, calc(100vw - 24px)) !important;
+        max-width: calc(100vw - 24px) !important;
+    }
+}
+/* ==========================================
+   ACADEMY PROFILE SETTINGS / SECURITY MODAL
+   ========================================== */
+
+body[data-yh-view="academy"] .academy-profile-settings-card {
+    width: min(680px, 100%);
+}
+
+body[data-yh-view="academy"] .academy-profile-settings-section {
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.075);
+    background: rgba(255, 255, 255, 0.035);
+    padding: 16px;
+}
+
+body[data-yh-view="academy"] .academy-profile-settings-kicker {
+    color: var(--neon-blue);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+body[data-yh-view="academy"] .academy-profile-settings-title {
+    margin: 6px 0 7px;
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 800;
+}
+
+body[data-yh-view="academy"] .academy-profile-settings-copy {
+    color: var(--text-muted);
+    font-size: 0.86rem;
+    line-height: 1.55;
+}
+
+body[data-yh-view="academy"] .academy-profile-settings-info-card {
+    margin-top: 14px;
+    display: grid;
+    gap: 4px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(56, 189, 248, 0.14);
+    background: rgba(14, 165, 233, 0.055);
+}
+
+body[data-yh-view="academy"] .academy-profile-settings-info-card span {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+body[data-yh-view="academy"] .academy-profile-settings-info-card strong {
+    color: #f8fafc;
+    font-size: 0.92rem;
+    word-break: break-word;
+}
+
+body[data-yh-view="academy"] .academy-profile-settings-danger {
+    border-color: rgba(239, 68, 68, 0.22);
+    background: rgba(239, 68, 68, 0.055);
+}
+
+body[data-yh-view="academy"] .academy-profile-settings-danger .academy-profile-settings-kicker {
+    color: #f87171;
+}
+
+body[data-yh-view="academy"] .academy-profile-danger-btn {
+    border-color: rgba(239, 68, 68, 0.82) !important;
+    color: #fecaca !important;
+    background: rgba(239, 68, 68, 0.08) !important;
+}
+
+body[data-yh-view="academy"] .academy-profile-danger-btn:hover {
+    background: rgba(239, 68, 68, 0.18) !important;
+    color: #fff !important;
+}
+
+@media (max-width: 768px) {
+    body[data-yh-view="academy"] .academy-profile-settings-card {
+        max-height: 94vh;
+        border-radius: 18px;
+    }
+
+    body[data-yh-view="academy"] .academy-profile-settings-section {
+        padding: 14px;
+        border-radius: 16px;
+    }
+
+    body[data-yh-view="academy"] .academy-profile-settings-actions {
+        flex-direction: column;
+    }
+}
+/* =========================================
+   ACADEMY PROFILE MOBILE MENU CLICK SAFETY
+   Prevent cover photo preview from stealing menu taps
+   ========================================= */
+
+@media (max-width: 768px) {
+    body[data-yh-view="academy"] #academy-profile-view .academy-profile-header-right {
+        z-index: 5000 !important;
+    }
+
+    body[data-yh-view="academy"] #academy-profile-view .academy-profile-mobile-menu-wrap {
+        z-index: 5001 !important;
+        pointer-events: auto !important;
+    }
+
+    body[data-yh-view="academy"] #academy-profile-view .academy-profile-mobile-menu {
+        z-index: 5002 !important;
+        pointer-events: auto !important;
+    }
+
+    body[data-yh-view="academy"] #academy-profile-view .academy-profile-mobile-menu button {
+        pointer-events: auto !important;
+    }
+
+    body[data-yh-view="academy"].academy-profile-mobile-menu-open #academy-profile-view .academy-profile-cover-band[data-profile-image-preview],
+    body[data-yh-view="academy"].academy-profile-mobile-menu-open #academy-profile-view .academy-profile-avatar[data-profile-image-preview] {
+        pointer-events: none !important;
+    }
+}

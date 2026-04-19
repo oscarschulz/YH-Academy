@@ -42,6 +42,7 @@ router.post('/academy/roadmap-apply', auth, academyControllers.submitRoadmapAppl
 router.get('/academy/home', auth, academyControllers.getAcademyHome);
 router.get('/academy/profile', auth, academyControllers.getCurrentProfile);
 router.patch('/academy/profile', auth, academyControllers.updateCurrentProfile);
+router.delete('/academy/profile', auth, academyControllers.deleteCurrentProfile);
 router.get('/academy/roadmap/active', auth, academyControllers.getActiveRoadmap);
 router.get('/academy/missions', auth, academyControllers.getMissions);
 router.post('/academy/missions/:id/complete', auth, academyControllers.completeMission);

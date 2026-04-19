@@ -92,10 +92,12 @@ function academyResolveStoredFullTopNavName() {
         cachedProfile?.fullName,
         cachedProfile?.display_name,
         cachedProfile?.displayName,
+        cachedProfile?.name,
 
         getStoredUserValue('yh_user_full_name', ''),
-        getStoredUserValue('yh_user_display_name', ''),
         academyGetLocalStorageValueSafe('yh_user_full_name'),
+
+        getStoredUserValue('yh_user_display_name', ''),
         academyGetLocalStorageValueSafe('yh_user_display_name'),
 
         profileNameFromView,
@@ -106,54 +108,109 @@ function academyResolveStoredFullTopNavName() {
         .map((value) => String(value || '').trim())
         .filter(Boolean);
 
-    const fullCandidate = candidates.find((value) => !academyIsProbablyTruncatedName(value));
+    const cleanCandidates = candidates
+        .map((value) => {
+            return String(value || '')
+                .replace(/\u2026/g, '')
+                .replace(/\.{2,}$/g, '')
+                .trim();
+        })
+        .filter(Boolean);
 
-    if (fullCandidate) {
-        return fullCandidate;
-    }
+    const nonTruncatedCandidates = cleanCandidates.filter((value) => {
+        return !academyIsProbablyTruncatedName(value);
+    });
 
-    const fallback = candidates[0] || 'Hustler';
+    const bestCandidate = nonTruncatedCandidates
+        .sort((a, b) => b.length - a.length)[0];
 
-    return fallback
-        .replace(/\u2026/g, '')
-        .replace(/\.{2,}$/g, '')
-        .trim() || 'Hustler';
+    return bestCandidate || cleanCandidates[0] || 'Hustler';
 }
-
+let academyTopNavFullNameSyncing = false;
+let academyTopNavFullNameObserver = null;
 function syncAcademyTopNavFullName() {
+    if (academyTopNavFullNameSyncing) return;
+
     const nameEl = document.getElementById('top-nav-name');
     const initialEl = document.getElementById('top-nav-initial');
 
     const fullName = academyResolveStoredFullTopNavName();
 
-    if (nameEl) {
-        nameEl.textContent = fullName;
-        nameEl.title = fullName;
-        nameEl.setAttribute('aria-label', fullName);
-    }
+    if (!fullName) return;
 
-    if (initialEl) {
-        const initial = fullName.charAt(0).toUpperCase() || 'Y';
-        const hasAvatarImage = String(initialEl.style.backgroundImage || '').trim();
+    academyTopNavFullNameSyncing = true;
 
-        if (!hasAvatarImage || hasAvatarImage === 'none') {
-            initialEl.textContent = initial;
+    try {
+        if (nameEl) {
+            nameEl.textContent = fullName;
+            nameEl.title = fullName;
+            nameEl.setAttribute('aria-label', fullName);
+            nameEl.setAttribute('data-full-name', fullName);
+
+            nameEl.style.maxWidth = 'none';
+            nameEl.style.whiteSpace = 'normal';
+            nameEl.style.overflow = 'visible';
+            nameEl.style.textOverflow = 'clip';
         }
+
+        if (initialEl) {
+            const initial = fullName.charAt(0).toUpperCase() || 'Y';
+            const hasAvatarImage = String(initialEl.style.backgroundImage || '').trim();
+
+            if (!hasAvatarImage || hasAvatarImage === 'none') {
+                initialEl.textContent = initial;
+            }
+        }
+    } finally {
+        academyTopNavFullNameSyncing = false;
     }
 }
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', syncAcademyTopNavFullName);
-} else {
+function installAcademyTopNavFullNameGuard() {
+    const nameEl = document.getElementById('top-nav-name');
+
+    if (!nameEl || academyTopNavFullNameObserver) return;
+
+    academyTopNavFullNameObserver = new MutationObserver(() => {
+        if (academyTopNavFullNameSyncing) return;
+
+        const expectedName = academyResolveStoredFullTopNavName();
+        const currentName = String(nameEl.textContent || '').trim();
+
+        if (
+            expectedName &&
+            (
+                currentName !== expectedName ||
+                academyIsProbablyTruncatedName(currentName)
+            )
+        ) {
+            window.requestAnimationFrame(syncAcademyTopNavFullName);
+        }
+    });
+
+    academyTopNavFullNameObserver.observe(nameEl, {
+        childList: true,
+        characterData: true,
+        subtree: true
+    });
+
     syncAcademyTopNavFullName();
 }
 
-window.addEventListener('pageshow', syncAcademyTopNavFullName);
-window.addEventListener('storage', syncAcademyTopNavFullName);
-window.syncAcademyTopNavFullName = syncAcademyTopNavFullName;
+function bootAcademyTopNavFullNameGuard() {
+    syncAcademyTopNavFullName();
+    installAcademyTopNavFullNameGuard();
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootAcademyTopNavFullNameGuard);
+} else {
+    bootAcademyTopNavFullNameGuard();
+}
+
 window.addEventListener('pageshow', () => {
     window.requestAnimationFrame(() => {
-        syncAcademyTopNavFullName();
+        bootAcademyTopNavFullNameGuard();
 
         if (typeof syncAcademyMobileProfileSpacingGuard === 'function') {
             syncAcademyMobileProfileSpacingGuard();
@@ -161,11 +218,18 @@ window.addEventListener('pageshow', () => {
     });
 });
 
+window.addEventListener('storage', bootAcademyTopNavFullNameGuard);
+
 window.addEventListener('resize', () => {
+    bootAcademyTopNavFullNameGuard();
+
     if (typeof syncAcademyMobileProfileSpacingGuard === 'function') {
         syncAcademyMobileProfileSpacingGuard();
     }
 });
+
+window.syncAcademyTopNavFullName = syncAcademyTopNavFullName;
+window.installAcademyTopNavFullNameGuard = installAcademyTopNavFullNameGuard;
 
 const {
     showAcademyTabLoader,
@@ -668,7 +732,15 @@ function sendSystemNotification(title, text, avatarStr, color, target) {
         if (target === 'announcements') document.getElementById('nav-announcements')?.click();
         else if (target === 'main-chat') document.getElementById('nav-chat')?.click();
         else if (target === 'dm') document.getElementById('btn-open-dm-modal')?.click();
-        else if (target === 'profile') document.querySelector('.profile-mini')?.click();
+        else if (target === 'profile') {
+            const profileNav = document.getElementById('nav-profile');
+
+            if (profileNav && typeof profileNav.click === 'function') {
+                profileNav.click();
+            } else if (typeof openAcademyProfileView === 'function') {
+                openAcademyProfileView();
+            }
+        }
     });
 
     notifList.prepend(li);
@@ -4230,7 +4302,16 @@ const openNotificationTarget = (target = '') => {
     }
 
     if (normalized === 'profile') {
-        document.querySelector('.profile-mini')?.click();
+        const profileNav = document.getElementById('nav-profile');
+
+        if (profileNav && typeof profileNav.click === 'function') {
+            profileNav.click();
+            return;
+        }
+
+        if (typeof openAcademyProfileView === 'function') {
+            openAcademyProfileView();
+        }
     }
 };
 
@@ -6262,6 +6343,11 @@ function hideAcademyViewsForFeed() {
     ].forEach((id) => {
         document.getElementById(id)?.classList.add('hidden-step');
     });
+
+    if (typeof syncAcademyTopNavFullName === 'function') {
+        window.requestAnimationFrame(syncAcademyTopNavFullName);
+        window.setTimeout(syncAcademyTopNavFullName, 120);
+    }
 }
 
 function showAcademyRoadmapLoadingShell() {
@@ -7399,32 +7485,171 @@ function openAcademyProfileEditorModal() {
 
     document.getElementById('academy-profile-editor-overlay')?.classList.remove('hidden-step');
 }
-function academyCloseProfileMobileMenu() {
+function closeAcademyProfileSettingsModal() {
+    const passwordInput = document.getElementById('academy-profile-delete-password');
+    if (passwordInput) passwordInput.value = '';
+
+    document.getElementById('academy-profile-settings-overlay')?.classList.add('hidden-step');
+}
+
+function openAcademyProfileSettingsModal() {
+    if (academyProfileViewState?.mode !== 'self') return;
+
+    closeAcademyProfileEditorModal();
+
+    const emailLabel = document.getElementById('academy-profile-settings-email');
+    const passwordInput = document.getElementById('academy-profile-delete-password');
+
+    const email =
+        String(getStoredUserValue('yh_user_email', '') || '').trim() ||
+        String(localStorage.getItem('yh_user_email') || '').trim() ||
+        'Your signed-in YH account';
+
+    if (emailLabel) {
+        emailLabel.textContent = email;
+        emailLabel.title = email;
+    }
+
+    if (passwordInput) {
+        passwordInput.value = '';
+    }
+
+    document.getElementById('academy-profile-settings-overlay')?.classList.remove('hidden-step');
+}
+
+function academyOpenOwnProfileSettingsFromMenu() {
+    const profileRoot = document.getElementById('academy-profile-view');
+    const isSelfProfile = profileRoot?.getAttribute('data-profile-layout') !== 'visited';
+
+    const openSettings = () => {
+        if (typeof openAcademyProfileSettingsModal === 'function') {
+            openAcademyProfileSettingsModal();
+        }
+    };
+
+    if (!isSelfProfile && typeof openAcademyProfileView === 'function') {
+        try {
+            const maybePromise = openAcademyProfileView();
+
+            Promise.resolve(maybePromise)
+                .catch(() => {})
+                .finally(() => {
+                    window.setTimeout(openSettings, 140);
+                });
+
+            return;
+        } catch (_) {}
+    }
+
+    openSettings();
+}
+
+async function academyDeleteOwnProfileWithPassword(deleteBtn = null) {
+    const passwordInput = document.getElementById('academy-profile-delete-password');
+    const password = String(passwordInput?.value || '');
+
+    if (!password.trim()) {
+        showToast('Enter your account password first.', 'error');
+        passwordInput?.focus();
+        return;
+    }
+
+    const confirmed = await openYHConfirmModal({
+        title: 'Delete Academy profile?',
+        message: 'This will remove your Academy profile customizations. Your account will stay active.',
+        okText: 'Delete Profile',
+        cancelText: 'Cancel',
+        tone: 'danger'
+    });
+
+    if (!confirmed) return;
+
+    runDashboardButtonAction(deleteBtn, 'Deleting Profile.', async () => {
+        const result = await academyAuthedFetch('/api/academy/profile', {
+            method: 'DELETE',
+            body: JSON.stringify({
+                password
+            })
+        });
+
+        const savedProfile =
+            result?.profile && typeof result.profile === 'object'
+                ? result.profile
+                : null;
+
+        if (!savedProfile) {
+            throw new Error('Profile delete succeeded but no profile was returned.');
+        }
+
+        try {
+            localStorage.removeItem(ACADEMY_PROFILE_CACHE_KEY);
+            localStorage.removeItem('yh_user_avatar');
+            localStorage.removeItem('yh_user_cover');
+            localStorage.removeItem('yh_user_profile_bio');
+            localStorage.removeItem('yh_user_profile_tags');
+        } catch (_) {}
+
+        academyProfileSetTempAsset('avatar', {
+            previewUrl: '',
+            blob: null,
+            uploadName: ''
+        });
+
+        academyProfileSetTempAsset('cover', {
+            previewUrl: '',
+            blob: null,
+            uploadName: ''
+        });
+
+        syncAcademyProfileLocalMirrors(savedProfile);
+
+        academyProfileViewState.profile = normalizeAcademyProfilePayload(
+            buildAcademySelfProfilePayload(savedProfile),
+            { mode: 'self' }
+        );
+
+        closeAcademyProfileSettingsModal();
+        renderAcademyProfileView(academyProfileViewState.profile, { mode: 'self' });
+
+        if (typeof stabilizeAcademyMobileProfileLayout === 'function') {
+            stabilizeAcademyMobileProfileLayout();
+        }
+
+        showToast('Academy profile deleted.', 'success');
+    });
+}
+function academySetProfileMobileMenuOpenState(isOpen = false) {
     const trigger = document.getElementById('academy-profile-mobile-menu-trigger');
     const menu = document.getElementById('academy-profile-mobile-menu');
+    const profileView = document.getElementById('academy-profile-view');
 
     if (trigger) {
-        trigger.setAttribute('aria-expanded', 'false');
+        trigger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
     }
 
     if (menu) {
-        menu.classList.add('hidden-step');
+        menu.classList.toggle('hidden-step', !isOpen);
     }
+
+    profileView?.classList.toggle('academy-profile-mobile-menu-is-open', isOpen);
+    document.body?.classList.toggle('academy-profile-mobile-menu-open', isOpen);
+}
+
+function academyCloseProfileMobileMenu() {
+    academySetProfileMobileMenuOpenState(false);
 }
 
 function academyToggleProfileMobileMenu(forceOpen = null) {
-    const trigger = document.getElementById('academy-profile-mobile-menu-trigger');
     const menu = document.getElementById('academy-profile-mobile-menu');
 
-    if (!trigger || !menu) return;
+    if (!menu) return;
 
     const shouldOpen =
         typeof forceOpen === 'boolean'
             ? forceOpen
             : menu.classList.contains('hidden-step');
 
-    trigger.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
-    menu.classList.toggle('hidden-step', !shouldOpen);
+    academySetProfileMobileMenuOpenState(shouldOpen);
 }
 
 function academyOpenOwnProfileEditorFromMenu() {
@@ -7462,8 +7687,13 @@ function academyRunProfileMobileMenuAction(action = '') {
 
     academyCloseProfileMobileMenu();
 
-    if (normalizedAction === 'edit' || normalizedAction === 'settings') {
+    if (normalizedAction === 'edit') {
         academyOpenOwnProfileEditorFromMenu();
+        return;
+    }
+
+    if (normalizedAction === 'settings') {
+        academyOpenOwnProfileSettingsFromMenu();
         return;
     }
 
@@ -7479,9 +7709,30 @@ function ensureAcademyProfileEditorBindings() {
 
     ensureAcademyProfileCropperBindings();
 
+    document.addEventListener('click', (event) => {
+        const target =
+            event.target instanceof Element
+                ? event.target
+                : event.target?.parentElement;
+
+        if (!target) return;
+
+        const profileMobileMenuAction = target.closest('#academy-profile-mobile-menu [data-profile-mobile-menu-action]');
+
+        if (!profileMobileMenuAction) return;
+
+        event.preventDefault();
+        event.stopImmediatePropagation();
+
+        academyRunProfileMobileMenuAction(
+            profileMobileMenuAction.getAttribute('data-profile-mobile-menu-action')
+        );
+    }, true);
+
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
             academyCloseProfileMobileMenu();
+            closeAcademyProfileSettingsModal();
         }
     });
 
@@ -7527,9 +7778,27 @@ function ensureAcademyProfileEditorBindings() {
             return;
         }
 
+        const settingsCloseBtn = event.target.closest('#academy-profile-settings-close, #academy-profile-settings-cancel');
+        if (settingsCloseBtn) {
+            closeAcademyProfileSettingsModal();
+            return;
+        }
+
         const overlay = event.target.closest('#academy-profile-editor-overlay');
         if (overlay && event.target === overlay) {
             closeAcademyProfileEditorModal();
+            return;
+        }
+
+        const settingsOverlay = event.target.closest('#academy-profile-settings-overlay');
+        if (settingsOverlay && event.target === settingsOverlay) {
+            closeAcademyProfileSettingsModal();
+            return;
+        }
+
+        const deleteProfileBtn = event.target.closest('#academy-profile-delete-submit');
+        if (deleteProfileBtn) {
+            academyDeleteOwnProfileWithPassword(deleteProfileBtn);
             return;
         }
 
@@ -14418,7 +14687,22 @@ document.getElementById('academy-member-browser-modal')?.addEventListener('click
     });
 });
 document.getElementById('academy-profile-view')?.addEventListener('click', async (event) => {
-    const imagePreviewTrigger = event.target.closest('[data-profile-image-preview]');
+    const target =
+        event.target instanceof Element
+            ? event.target
+            : event.target?.parentElement;
+
+    if (!target) return;
+
+    if (
+        target.closest(
+            '#academy-profile-mobile-menu-wrap, #academy-profile-mobile-menu, #academy-profile-mobile-menu-trigger, [data-profile-mobile-menu-action], #academy-profile-editor-overlay, #academy-profile-settings-overlay, #academy-profile-cropper-overlay, #academy-profile-image-preview-overlay'
+        )
+    ) {
+        return;
+    }
+
+    const imagePreviewTrigger = target.closest('[data-profile-image-preview]');
     if (imagePreviewTrigger) {
         event.preventDefault();
         event.stopPropagation();
@@ -14430,7 +14714,7 @@ document.getElementById('academy-profile-view')?.addEventListener('click', async
         return;
     }
 
-    const actionBtn = event.target.closest('[data-profile-action]');
+    const actionBtn = target.closest('[data-profile-action]');
     if (!actionBtn) return;
 
     const action = String(actionBtn.getAttribute('data-profile-action') || '').trim();

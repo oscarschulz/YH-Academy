@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const bcrypt = require('bcrypt');
 const academyFirestoreRepo = require('./backend/repositories/academyFirestoreRepo');
 const academyCommunityRepo = require('./backend/repositories/academyCommunityFirestoreRepo');
 const academyPlannerKnowledgeContext = require('./backend/services/academyPlannerKnowledgeContext');
@@ -3180,7 +3181,88 @@ exports.updateCurrentProfile = async (req, res) => {
         });
     }
 };
+exports.deleteCurrentProfile = async (req, res) => {
+    try {
+        const uid = getAcademyAuthUid(req);
 
+        if (!uid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const password = String(
+            req.body?.password ||
+            req.body?.currentPassword ||
+            ''
+        );
+
+        if (!password.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Account password is required.'
+            });
+        }
+
+        const userRef = firestore.collection('users').doc(uid);
+        const userSnapshot = await userRef.get();
+
+        if (!userSnapshot.exists) {
+            return res.status(404).json({
+                success: false,
+                message: 'User account not found.'
+            });
+        }
+
+        const userData = userSnapshot.data() || {};
+        const passwordHash = String(userData.password || '');
+
+        if (!passwordHash) {
+            return res.status(400).json({
+                success: false,
+                message: 'This account does not have a password configured.'
+            });
+        }
+
+        const passwordMatches = await bcrypt.compare(password, passwordHash).catch(() => false);
+
+        if (!passwordMatches) {
+            return res.status(403).json({
+                success: false,
+                message: 'Incorrect account password.'
+            });
+        }
+
+        await academyFirestoreRepo.deleteCurrentProfile(uid);
+
+        const refreshedUserSnapshot = await userRef.get();
+        const refreshedUserData = refreshedUserSnapshot.exists
+            ? (refreshedUserSnapshot.data() || {})
+            : {};
+
+        const storedProfile = await academyFirestoreRepo.getCurrentProfile(uid) || {};
+        const profileResponse = buildAcademyProfileResponse(uid, refreshedUserData, storedProfile);
+
+        return res.json({
+            success: true,
+            deleted: true,
+            profile: {
+                ...profileResponse,
+                avatar: '',
+                cover_photo: '',
+                bio: profileResponse.bio || 'Focused on execution, consistency, and long-term growth inside The Academy.',
+                search_tags: []
+            }
+        });
+    } catch (error) {
+        console.error('deleteCurrentProfile error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to delete Academy profile.'
+        });
+    }
+};
 exports.getMembershipStatus = async (req, res) => {
     try {
         const uid = getAcademyAuthUid(req);
