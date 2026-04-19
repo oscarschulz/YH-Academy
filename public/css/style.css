@@ -13117,30 +13117,110 @@ body[data-yh-view="academy"] .academy-profile-danger-btn:hover {
 }
 /* =========================================
    ACADEMY PROFILE MOBILE MENU CLICK SAFETY
-   Prevent cover photo preview from stealing menu taps
+   Keep hamburger menu above cover/profile card
    ========================================= */
 
 @media (max-width: 768px) {
+    body[data-yh-view="academy"] #academy-profile-view {
+        isolation: isolate !important;
+    }
+
+    body[data-yh-view="academy"] #academy-profile-view .chat-header {
+        position: relative !important;
+        overflow: visible !important;
+        z-index: 9000 !important;
+        isolation: isolate !important;
+    }
+
     body[data-yh-view="academy"] #academy-profile-view .academy-profile-header-right {
-        z-index: 5000 !important;
+        position: absolute !important;
+        z-index: 9010 !important;
+        pointer-events: auto !important;
     }
 
     body[data-yh-view="academy"] #academy-profile-view .academy-profile-mobile-menu-wrap {
-        z-index: 5001 !important;
+        position: relative !important;
+        z-index: 9020 !important;
+        pointer-events: auto !important;
+    }
+
+    body[data-yh-view="academy"] #academy-profile-view .academy-profile-mobile-menu-trigger {
+        position: relative !important;
+        z-index: 9030 !important;
+        opacity: 1 !important;
+        background: rgba(15, 23, 42, 0.98) !important;
+        border-color: rgba(255, 255, 255, 0.24) !important;
+        color: #ffffff !important;
+        box-shadow:
+            0 14px 34px rgba(0, 0, 0, 0.58),
+            0 0 0 1px rgba(14, 165, 233, 0.18) !important;
         pointer-events: auto !important;
     }
 
     body[data-yh-view="academy"] #academy-profile-view .academy-profile-mobile-menu {
-        z-index: 5002 !important;
+        position: absolute !important;
+        top: calc(100% + 10px) !important;
+        right: 0 !important;
+        left: auto !important;
+        z-index: 9040 !important;
+
+        opacity: 1 !important;
         pointer-events: auto !important;
+
+        background: rgba(8, 13, 30, 0.99) !important;
+        border: 1px solid rgba(255, 255, 255, 0.18) !important;
+        box-shadow:
+            0 26px 60px rgba(0, 0, 0, 0.68),
+            0 0 0 1px rgba(14, 165, 233, 0.14) !important;
+        backdrop-filter: blur(18px) !important;
+        -webkit-backdrop-filter: blur(18px) !important;
     }
 
     body[data-yh-view="academy"] #academy-profile-view .academy-profile-mobile-menu button {
+        position: relative !important;
+        z-index: 9050 !important;
+        opacity: 1 !important;
         pointer-events: auto !important;
+
+        background: rgba(255, 255, 255, 0.105) !important;
+        color: #ffffff !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        font-weight: 800 !important;
     }
 
-    body[data-yh-view="academy"].academy-profile-mobile-menu-open #academy-profile-view .academy-profile-cover-band[data-profile-image-preview],
-    body[data-yh-view="academy"].academy-profile-mobile-menu-open #academy-profile-view .academy-profile-avatar[data-profile-image-preview] {
+    body[data-yh-view="academy"] #academy-profile-view .academy-profile-mobile-menu button:hover,
+    body[data-yh-view="academy"] #academy-profile-view .academy-profile-mobile-menu button:active {
+        background: rgba(14, 165, 233, 0.22) !important;
+        border-color: rgba(14, 165, 233, 0.35) !important;
+    }
+
+    body[data-yh-view="academy"] #academy-profile-view .academy-profile-mobile-menu-danger {
+        background: rgba(239, 68, 68, 0.16) !important;
+        border-color: rgba(239, 68, 68, 0.28) !important;
+        color: #fecaca !important;
+    }
+
+    body[data-yh-view="academy"] #academy-profile-view .chat-messages {
+        position: relative !important;
+        z-index: 1 !important;
+    }
+
+    body[data-yh-view="academy"] #academy-profile-view .academy-profile-cover-card {
+        position: relative !important;
+        z-index: 1 !important;
+    }
+
+    body[data-yh-view="academy"].academy-profile-mobile-menu-open #academy-profile-view .academy-profile-cover-card,
+    body[data-yh-view="academy"].academy-profile-mobile-menu-open #academy-profile-view .academy-profile-cover-band,
+    body[data-yh-view="academy"].academy-profile-mobile-menu-open #academy-profile-view .academy-profile-cover-body,
+    body[data-yh-view="academy"].academy-profile-mobile-menu-open #academy-profile-view .academy-profile-avatar,
+    body[data-yh-view="academy"].academy-profile-mobile-menu-open #academy-profile-view .academy-profile-hero-actions {
         pointer-events: none !important;
+    }
+
+    body[data-yh-view="academy"].academy-profile-mobile-menu-open #academy-profile-view .academy-profile-mobile-menu-wrap,
+    body[data-yh-view="academy"].academy-profile-mobile-menu-open #academy-profile-view .academy-profile-mobile-menu,
+    body[data-yh-view="academy"].academy-profile-mobile-menu-open #academy-profile-view .academy-profile-mobile-menu button {
+        pointer-events: auto !important;
     }
 }
