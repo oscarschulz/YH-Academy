@@ -486,8 +486,9 @@ function setUniverseSlide(targetDivision = 'academy', options = {}) {
     return division;
 }
 
-function openDivisionPreview(targetDivision = 'plazas') {
+function openDivisionPreview(targetDivision = 'plazas', options = {}) {
     const division = normalizeUniverseDivision(targetDivision);
+    const shouldPersist = options.persist !== false;
 
     const academyWrapper = document.getElementById('academy-wrapper');
     const viewPlazas = document.getElementById('view-plazas');
@@ -506,7 +507,13 @@ function openDivisionPreview(targetDivision = 'plazas') {
             void viewPlazas.offsetWidth;
             viewPlazas.classList.add('fade-in');
         }
+
         setDashboardViewMode('plazas');
+
+        if (shouldPersist) {
+            persistDashboardShellView('plazas', 'plazas');
+        }
+
         return;
     }
 
@@ -515,7 +522,7 @@ function openDivisionPreview(targetDivision = 'plazas') {
         return;
     }
 
-    showUniverseHub('academy');
+    showUniverseHub('academy', { persist: shouldPersist });
 }
 
 function switchServer(targetDivision) {
@@ -2845,15 +2852,160 @@ const notificationTimeLabel = (value) => {
     return date.toLocaleDateString();
 };
 
+function isRealtimeNotificationRead(notification = {}) {
+    const isReadValue = String(notification?.isRead ?? '').trim().toLowerCase();
+    const isReadSnakeValue = String(notification?.is_read ?? '').trim().toLowerCase();
+    const readValue = String(notification?.read ?? '').trim().toLowerCase();
+
+    return (
+        notification?.isRead === true ||
+        notification?.is_read === true ||
+        notification?.read === true ||
+        isReadValue === 'true' ||
+        isReadSnakeValue === 'true' ||
+        readValue === 'true' ||
+        Boolean(notification?.readAt) ||
+        Boolean(notification?.read_at)
+    );
+}
+
+function normalizeNotificationTarget(notification = {}) {
+    const rawTarget = String(
+        notification?.target ||
+        notification?.targetType ||
+        notification?.target_type ||
+        ''
+    ).trim().toLowerCase();
+
+    const rawType = String(notification?.type || '').trim().toLowerCase();
+    const candidate = rawTarget || rawType;
+
+    if (['announcement', 'announcements'].includes(candidate)) {
+        return 'announcements';
+    }
+
+    if ([
+        'main-chat',
+        'main_chat',
+        'chat',
+        'community',
+        'community-feed',
+        'community_feed',
+        'feed',
+        'post',
+        'comment',
+        'like'
+    ].includes(candidate)) {
+        return 'main-chat';
+    }
+
+    if ([
+        'dm',
+        'direct-message',
+        'direct_message',
+        'message',
+        'messages',
+        'room',
+        'chat-room',
+        'chat_room'
+    ].includes(candidate)) {
+        return 'dm';
+    }
+
+    if ([
+        'profile',
+        'user-profile',
+        'user_profile',
+        'follow',
+        'follower'
+    ].includes(candidate)) {
+        return 'profile';
+    }
+
+    return candidate;
+}
+
+function normalizeRealtimeNotification(notification = {}) {
+    const notificationId = String(
+        notification?.id ||
+        notification?.notificationId ||
+        notification?.notification_id ||
+        ''
+    ).trim();
+
+    const title = String(notification?.title || 'Notification').trim();
+
+    const text = String(
+        notification?.text ||
+        notification?.message ||
+        notification?.body ||
+        ''
+    ).trim();
+
+    const avatarStr = String(
+        notification?.avatarStr ||
+        notification?.initial ||
+        title.charAt(0).toUpperCase() ||
+        'N'
+    ).trim();
+
+    const color = String(notification?.color || 'var(--neon-blue)').trim();
+
+    const target = normalizeNotificationTarget(notification);
+
+    const targetType = String(
+        notification?.targetType ||
+        notification?.target_type ||
+        notification?.type ||
+        target ||
+        ''
+    ).trim();
+
+    const targetId = String(
+        notification?.targetId ||
+        notification?.target_id ||
+        ''
+    ).trim();
+
+    const createdAt =
+        notification?.createdAt ||
+        notification?.created_at ||
+        notification?.time ||
+        '';
+
+    const isRead = isRealtimeNotificationRead(notification);
+    const readAt = notification?.readAt || notification?.read_at || '';
+
+    return {
+        ...notification,
+        id: notificationId,
+        notificationId,
+        title,
+        text,
+        message: text,
+        body: text,
+        avatarStr,
+        initial: avatarStr,
+        color,
+        target,
+        targetType,
+        target_type: targetType,
+        targetId,
+        target_id: targetId,
+        createdAt,
+        created_at: createdAt,
+        isRead,
+        is_read: isRead,
+        read: isRead,
+        readAt,
+        read_at: readAt
+    };
+}
+
 const getNotificationUnreadCount = (notifications = []) =>
-    (Array.isArray(notifications) ? notifications : []).filter((item) => {
-        return !(
-            item?.isRead === true ||
-            item?.read === true ||
-            item?.read_at ||
-            item?.readAt
-        );
-    }).length;
+    (Array.isArray(notifications) ? notifications : [])
+        .map(normalizeRealtimeNotification)
+        .filter((item) => !item.isRead).length;
 
 const updateNotificationBadgeUi = (notifications = []) => {
     if (!notifBadge) return;
@@ -2896,7 +3048,9 @@ const openNotificationTarget = (target = '') => {
 const renderRealtimeNotifications = (notifications = []) => {
     if (!notifListContainer) return;
 
-    const list = Array.isArray(notifications) ? notifications : [];
+    const list = (Array.isArray(notifications) ? notifications : [])
+        .map(normalizeRealtimeNotification);
+
     notifListContainer.innerHTML = '';
 
     if (!list.length) {
@@ -2908,37 +3062,29 @@ const renderRealtimeNotifications = (notifications = []) => {
     }
 
     list.forEach((notification) => {
-        const notificationId = String(notification?.id || notification?.notificationId || '').trim();
-        const title = String(notification?.title || 'Notification').trim();
-        const text = String(
-            notification?.text ||
-            notification?.message ||
-            notification?.body ||
-            ''
-        ).trim();
-        const avatarStr = String(
-            notification?.avatarStr ||
-            notification?.initial ||
-            title.charAt(0).toUpperCase() ||
-            'N'
-        ).trim();
-        const color = String(notification?.color || 'var(--neon-blue)').trim();
-        const target = String(notification?.target || '').trim();
-        const createdAt =
-            notification?.createdAt ||
-            notification?.created_at ||
-            notification?.time ||
-            '';
-        const isRead =
-            notification?.isRead === true ||
-            notification?.read === true ||
-            !!notification?.readAt ||
-            !!notification?.read_at;
+        const notificationId = notification.id;
+        const title = notification.title;
+        const text = notification.text;
+        const avatarStr = notification.avatarStr;
+        const color = notification.color;
+        const target = notification.target;
+        const createdAt = notification.createdAt;
+        const isRead = notification.isRead;
 
         const li = document.createElement('li');
         li.className = `fade-in${isRead ? '' : ' unread'}`;
-        if (notificationId) li.setAttribute('data-notification-id', notificationId);
-        if (target) li.setAttribute('data-target', target);
+
+        if (notificationId) {
+            li.setAttribute('data-notification-id', notificationId);
+        }
+
+        if (target) {
+            li.setAttribute('data-target', target);
+        }
+
+        if (notification.targetId) {
+            li.setAttribute('data-target-id', notification.targetId);
+        }
 
         li.innerHTML = `
             <div class="notif-img" style="background: ${escapeNotificationHtml(color)};">
@@ -2957,6 +3103,7 @@ const renderRealtimeNotifications = (notifications = []) => {
 
             if (notificationId && !isRead) {
                 await markRealtimeNotificationRead(notificationId, false);
+                li.classList.remove('unread');
             }
 
             notifDropdown?.classList.remove('show');
@@ -2984,7 +3131,9 @@ async function loadRealtimeNotifications(forceFresh = false) {
             method: 'GET'
         });
 
-        const notifications = Array.isArray(result?.notifications) ? result.notifications : [];
+        const notifications = (Array.isArray(result?.notifications) ? result.notifications : [])
+            .map(normalizeRealtimeNotification);
+
         state.realtimeNotifications = notifications;
         renderRealtimeNotifications(notifications);
         return notifications;
@@ -3010,16 +3159,22 @@ async function markRealtimeNotificationRead(notificationId, rerender = true) {
             method: 'POST'
         });
 
+        const readAt = new Date().toISOString();
         const current = Array.isArray(state.realtimeNotifications) ? state.realtimeNotifications : [];
+
         state.realtimeNotifications = current.map((item) => {
-            const itemId = String(item?.id || item?.notificationId || '').trim();
-            if (itemId !== normalizedId) return item;
+            const normalizedItem = normalizeRealtimeNotification(item);
+            const itemId = String(normalizedItem?.id || normalizedItem?.notificationId || '').trim();
+
+            if (itemId !== normalizedId) return normalizedItem;
 
             return {
-                ...item,
+                ...normalizedItem,
                 isRead: true,
+                is_read: true,
                 read: true,
-                readAt: new Date().toISOString()
+                readAt,
+                read_at: readAt
             };
         });
 
@@ -3041,12 +3196,16 @@ async function markAllRealtimeNotificationsRead() {
             method: 'POST'
         });
 
+        const readAt = new Date().toISOString();
         const current = Array.isArray(state.realtimeNotifications) ? state.realtimeNotifications : [];
+
         state.realtimeNotifications = current.map((item) => ({
-            ...item,
+            ...normalizeRealtimeNotification(item),
             isRead: true,
+            is_read: true,
             read: true,
-            readAt: new Date().toISOString()
+            readAt,
+            read_at: readAt
         }));
 
         renderRealtimeNotifications(state.realtimeNotifications);
@@ -7713,15 +7872,49 @@ function setDashboardViewMode(mode = 'hub') {
 
 /* shared dashboard view-state helpers now come from /js/yh-shared-runtime.js */
 
+function normalizeDashboardPersistedView(value = 'hub') {
+    const clean = String(value || '').trim().toLowerCase();
+    return ['hub', 'plazas', 'federation'].includes(clean) ? clean : 'hub';
+}
+
+function persistDashboardShellView(view = 'hub', division = 'academy') {
+    try {
+        const previousState = readDashboardViewState();
+        const normalizedView = normalizeDashboardPersistedView(view);
+        const normalizedDivision = normalizeUniverseDivision(division || previousState?.division || 'academy');
+
+        writeDashboardViewState({
+            ...previousState,
+            view: normalizedView,
+            division: normalizedDivision,
+            academySection: previousState?.academySection || 'community'
+        });
+    } catch (error) {
+        console.warn('Failed to persist dashboard shell view:', error);
+    }
+}
+
 function restoreDashboardViewState() {
     const state = readDashboardViewState();
+    const savedView = normalizeDashboardPersistedView(state?.view || 'hub');
+    const savedDivision = normalizeUniverseDivision(state?.division || 'academy');
 
     if (!isStandaloneDashboardPage()) {
-        showUniverseHub(state.division || 'academy', { animate: false });
+        showUniverseHub(savedDivision || 'academy', { animate: false });
         return;
     }
 
-    showUniverseHub(state.division || 'academy', { animate: false });
+    if (savedView === 'plazas') {
+        openDivisionPreview('plazas', { persist: false });
+        return;
+    }
+
+    if (savedView === 'federation') {
+        handleFederationGateClick();
+        return;
+    }
+
+    showUniverseHub(savedDivision || 'academy', { animate: false });
 }
 
 function setAcademySidebarActive(activeId = '') {
@@ -7754,6 +7947,7 @@ function syncAcademyShellForViewport() {
 
 function showUniverseHub(activeDivision = 'academy', options = {}) {
     const animate = options.animate !== false;
+    const shouldPersist = options.persist !== false;
 
     hideDivisionViews();
     closeAcademyLauncher();
@@ -7773,7 +7967,10 @@ function showUniverseHub(activeDivision = 'academy', options = {}) {
     syncUniverseFeaturePanel(activeDivision);
     setUniverseSlide(activeDivision, { animate });
 
-    saveUniverseViewState(activeDivision);
+    if (shouldPersist) {
+        saveUniverseViewState(activeDivision);
+        persistDashboardShellView('hub', activeDivision);
+    }
 }
 
 function enterAcademyWorld(defaultSection = 'home') {
@@ -10573,6 +10770,7 @@ function openFederationLockedView(snapshot = null) {
     }
 
     setDashboardViewMode('federation');
+    persistDashboardShellView('federation', 'federation');
     syncFederationFrameAccess(currentSnapshot);
 
     window.requestAnimationFrame(() => {
@@ -10601,6 +10799,7 @@ function openFederationApprovedView(snapshot = null) {
 
 function returnToFederationCardInDashboard() {
     showUniverseHub('federation', { animate: false });
+    persistDashboardShellView('hub', 'federation');
     syncFederationEntryButton();
 
     window.requestAnimationFrame(() => {

@@ -1070,6 +1070,29 @@ async function getAcademyFollowerCount(userId) {
     return snap.size;
 }
 
+async function getAcademyFollowingCount(userId) {
+    const normalizedUserId = normalizeUserId(userId);
+    if (!normalizedUserId) return 0;
+
+    const snap = await academyFollowsCol
+        .where('followerId', '==', normalizedUserId)
+        .get();
+
+    return snap.size;
+}
+
+async function getAcademyFriendCount(userId) {
+    const normalizedUserId = normalizeUserId(userId);
+    if (!normalizedUserId) return 0;
+
+    const [asUserOneSnap, asUserTwoSnap] = await Promise.all([
+        friendshipsCol.where('userOneId', '==', normalizedUserId).get(),
+        friendshipsCol.where('userTwoId', '==', normalizedUserId).get()
+    ]);
+
+    return asUserOneSnap.size + asUserTwoSnap.size;
+}
+
 async function listAcademyMembers({ viewerId, limit = 100, query = '' }) {
     const normalizedViewerId = normalizeUserId(viewerId);
     const normalizedLimit = Math.max(1, Math.min(toInt(limit, 100), 200));
@@ -1299,7 +1322,11 @@ async function getMemberProfile({ viewerId, targetUserId }) {
             targetUser.coverPhoto
         );
 
-    const followerCount = await getAcademyFollowerCount(normalizedTargetUserId);
+    const [followerCount, followingCount, friendCount] = await Promise.all([
+        getAcademyFollowerCount(normalizedTargetUserId),
+        getAcademyFollowingCount(normalizedTargetUserId),
+        getAcademyFriendCount(normalizedTargetUserId)
+    ]);
 
     let followedByMe = false;
     if (normalizedViewerId && normalizedViewerId !== normalizedTargetUserId) {
@@ -1380,6 +1407,9 @@ async function getMemberProfile({ viewerId, targetUserId }) {
         role_label: roleLabel,
         bio,
         followers_count: followerCount,
+        following_count: followingCount,
+        friends_count: friendCount,
+        friend_count: friendCount,
         followed_by_me: followedByMe,
         is_friend: friendshipState.is_friend,
         outgoing_friend_request_pending: friendshipState.outgoing_friend_request_pending,
@@ -1427,12 +1457,18 @@ async function toggleMemberFollow({ viewerId, targetUserId }) {
         following = true;
     }
 
-    const followerCount = await getAcademyFollowerCount(normalizedTargetUserId);
+    const [followerCount, followingCount] = await Promise.all([
+        getAcademyFollowerCount(normalizedTargetUserId),
+        getAcademyFollowingCount(normalizedViewerId)
+    ]);
 
     return {
         targetUserId: normalizedTargetUserId,
         following,
-        followerCount
+        followerCount,
+        followers_count: followerCount,
+        followingCount,
+        following_count: followingCount
     };
 }
 module.exports = {

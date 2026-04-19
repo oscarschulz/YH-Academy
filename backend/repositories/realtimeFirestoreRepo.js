@@ -207,15 +207,66 @@ function mapLiveRoomDoc(doc) {
 
 function mapNotificationDoc(doc) {
     const data = doc.data() || {};
+
+    const type = sanitizeText(data.type);
+    const title = sanitizeText(data.title || 'Notification');
+
+    const body = sanitizeText(
+        data.body ||
+        data.text ||
+        data.message
+    );
+
+    const targetType = sanitizeText(
+        data.target_type ||
+        data.targetType ||
+        data.target ||
+        type
+    );
+
+    const target = sanitizeText(data.target || targetType);
+
+    const targetId = sanitizeText(
+        data.target_id ||
+        data.targetId
+    );
+
+    const createdAt = mapTimestamp(data.created_at || data.createdAt);
+    const readAt = mapTimestamp(data.read_at || data.readAt);
+
+    const isRead =
+        data.is_read === true ||
+        data.isRead === true ||
+        data.read === true ||
+        Boolean(readAt);
+
     return {
         id: doc.id,
-        type: sanitizeText(data.type),
-        title: sanitizeText(data.title),
-        body: sanitizeText(data.body),
-        target_type: sanitizeText(data.target_type),
-        target_id: sanitizeText(data.target_id),
-        is_read: !!data.is_read,
-        created_at: mapTimestamp(data.created_at)
+        notificationId: doc.id,
+
+        type,
+        title,
+
+        body,
+        text: body,
+        message: body,
+
+        target,
+        target_type: targetType,
+        targetType,
+
+        target_id: targetId,
+        targetId,
+
+        is_read: isRead,
+        isRead,
+        read: isRead,
+
+        read_at: readAt,
+        readAt,
+
+        created_at: createdAt,
+        createdAt
     };
 }
 
@@ -763,10 +814,17 @@ async function readAllNotifications(userId) {
 
     if (snap.empty) return true;
 
+    const readAt = nowTs();
     const batch = firestore.batch();
+
     snap.docs.forEach((doc) => {
-        batch.update(doc.ref, { is_read: true });
+        batch.update(doc.ref, {
+            is_read: true,
+            read_at: readAt,
+            updated_at: readAt
+        });
     });
+
     await batch.commit();
 
     return true;
@@ -788,7 +846,13 @@ async function readNotification({ userId, notificationId }) {
         throw new Error('Notification not found.');
     }
 
-    await ref.update({ is_read: true });
+    const readAt = nowTs();
+
+    await ref.update({
+        is_read: true,
+        read_at: readAt,
+        updated_at: readAt
+    });
 
     return normalizedNotificationId;
 }

@@ -324,6 +324,7 @@ exports.getNotifications = async (req, res) => {
         const unreadCount = (Array.isArray(notifications) ? notifications : []).filter((item) => {
             return !(
                 item?.isRead === true ||
+                item?.is_read === true ||
                 item?.read === true ||
                 item?.readAt ||
                 item?.read_at

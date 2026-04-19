@@ -325,10 +325,23 @@ async function markRoomAsReadForUser(userId, roomId) {
 }
 function mapChatMessageDoc(doc) {
     const data = doc.data() || {};
+    const authorId = sanitizeText(
+        data.created_by_user_id ||
+        data.createdByUserId ||
+        data.author_id ||
+        data.authorId ||
+        data.user_id ||
+        data.userId
+    );
+
     return {
         id: doc.id,
         room: sanitizeText(data.room),
         author: sanitizeText(data.author),
+        authorId,
+        author_id: authorId,
+        createdByUserId: authorId,
+        created_by_user_id: authorId,
         initial: sanitizeText(data.initial),
         avatar: sanitizeText(data.avatar),
         text: sanitizeText(data.text),
@@ -600,6 +613,10 @@ io.on('connection', (socket) => {
                 id: ref.id,
                 room: payload.room,
                 author: payload.author,
+                authorId: payload.created_by_user_id,
+                author_id: payload.created_by_user_id,
+                createdByUserId: payload.created_by_user_id,
+                created_by_user_id: payload.created_by_user_id,
                 initial: payload.initial,
                 avatar: payload.avatar,
                 text: payload.text,

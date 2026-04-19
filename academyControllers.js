@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const academyFirestoreRepo = require('./backend/repositories/academyFirestoreRepo');
+const academyCommunityRepo = require('./backend/repositories/academyCommunityFirestoreRepo');
 const academyPlannerKnowledgeContext = require('./backend/services/academyPlannerKnowledgeContext');
 const publicLandingEventsRepo = require('./backend/repositories/publicLandingEventsRepo');
 const { firestore } = require('./config/firebaseAdmin');
@@ -3031,12 +3032,36 @@ exports.getCurrentProfile = async (req, res) => {
         const userRef = firestore.collection('users').doc(uid);
         const userSnapshot = await userRef.get();
         const userData = userSnapshot.exists ? (userSnapshot.data() || {}) : {};
-        const storedProfile = await academyFirestoreRepo.getCurrentProfile(uid) || {};
+            const storedProfile = await academyFirestoreRepo.getCurrentProfile(uid) || {};
+            const profileResponse = buildAcademyProfileResponse(uid, userData, storedProfile);
 
-        return res.json({
-            success: true,
-            profile: buildAcademyProfileResponse(uid, userData, storedProfile)
-        });
+            try {
+                const socialProfile = await academyCommunityRepo.getMemberProfile({
+                    viewerId: uid,
+                    targetUserId: uid
+                });
+
+                profileResponse.followers_count = socialProfile?.followers_count ?? profileResponse.followers_count ?? '—';
+                profileResponse.following_count = socialProfile?.following_count ?? profileResponse.following_count ?? '—';
+                profileResponse.friends_count = socialProfile?.friends_count ?? socialProfile?.friend_count ?? profileResponse.friends_count ?? '—';
+                profileResponse.friend_count = profileResponse.friends_count;
+                profileResponse.mutual_friend_count = 0;
+
+                if (Number.isFinite(Number(socialProfile?.post_count))) {
+                    profileResponse.post_count = Number(socialProfile.post_count);
+                }
+
+                if (Array.isArray(socialProfile?.recent_posts)) {
+                    profileResponse.recent_posts = socialProfile.recent_posts;
+                }
+            } catch (socialError) {
+                console.warn('getCurrentProfile social stats fallback:', socialError?.message || socialError);
+            }
+
+            return res.json({
+                success: true,
+                profile: profileResponse
+            });
     } catch (error) {
         console.error('getCurrentProfile error:', error);
         return res.status(500).json({

@@ -1702,6 +1702,28 @@ socket.on('chatHistory', (history) => {
         const safeText = academyFeedEscapeHtml(msg.text || '').replace(/\n/g, '<br>');
         const safeTime = academyFeedEscapeHtml(formatAcademyMessageTime(msg.time));
         const safeAvatarUrl = academyFeedEscapeHtml(msg.avatar || '');
+        const messageAuthorId = normalizeAcademyFeedId(
+            msg.authorId ||
+            msg.author_id ||
+            msg.createdByUserId ||
+            msg.created_by_user_id ||
+            msg.userId ||
+            msg.user_id ||
+            ''
+        );
+
+        const canOpenMessageAuthorProfile =
+            Boolean(messageAuthorId) &&
+            !isMe &&
+            msg.author !== 'Agent';
+
+        const messageProfileAttrs = canOpenMessageAuthorProfile
+            ? ` data-message-profile-id="${academyFeedEscapeHtml(messageAuthorId)}" title="Open ${safeAuthor} profile" aria-label="Open ${safeAuthor} profile"`
+            : '';
+
+        const messageProfileClass = canOpenMessageAuthorProfile
+            ? ' academy-messages-profile-trigger'
+            : '';
 
         let avatarStyle = `background: var(--neon-blue);`;
         let avatarContent = academyFeedEscapeHtml(msg.initial || '');
@@ -1726,8 +1748,8 @@ socket.on('chatHistory', (history) => {
             <div class="${bubbleClass} fade-in" data-dbid="${academyFeedEscapeHtml(msg.id || '')}" ${bubbleStyle}>
                 ${isMe ? `<button class="delete-msg-btn" title="Delete Message">🗑️</button>` : ''}
                 <div class="bubble-header">
-                    <div class="bubble-avatar interactive-avatar" data-user="${safeAuthor}" data-role="Hustler" style="${avatarStyle} cursor:pointer;">${avatarContent}</div>
-                    <span class="bubble-author interactive-avatar" data-user="${safeAuthor}" data-role="Hustler" style="cursor:pointer;"><span ${authorColor}>${safeAuthor}</span> ${roleBadge}</span>
+                    <div class="bubble-avatar interactive-avatar${messageProfileClass}" data-user="${safeAuthor}" data-role="Hustler"${messageProfileAttrs} style="${avatarStyle} cursor:pointer;">${avatarContent}</div>
+                    <span class="bubble-author interactive-avatar${messageProfileClass}" data-user="${safeAuthor}" data-role="Hustler"${messageProfileAttrs} style="cursor:pointer;"><span ${authorColor}>${safeAuthor}</span> ${roleBadge}</span>
                     <span class="bubble-time">${safeTime}</span>
                 </div>
                 <div class="bubble-body">${safeText}</div>
@@ -3770,15 +3792,160 @@ const notificationTimeLabel = (value) => {
     return date.toLocaleDateString();
 };
 
+function isRealtimeNotificationRead(notification = {}) {
+    const isReadValue = String(notification?.isRead ?? '').trim().toLowerCase();
+    const isReadSnakeValue = String(notification?.is_read ?? '').trim().toLowerCase();
+    const readValue = String(notification?.read ?? '').trim().toLowerCase();
+
+    return (
+        notification?.isRead === true ||
+        notification?.is_read === true ||
+        notification?.read === true ||
+        isReadValue === 'true' ||
+        isReadSnakeValue === 'true' ||
+        readValue === 'true' ||
+        Boolean(notification?.readAt) ||
+        Boolean(notification?.read_at)
+    );
+}
+
+function normalizeNotificationTarget(notification = {}) {
+    const rawTarget = String(
+        notification?.target ||
+        notification?.targetType ||
+        notification?.target_type ||
+        ''
+    ).trim().toLowerCase();
+
+    const rawType = String(notification?.type || '').trim().toLowerCase();
+    const candidate = rawTarget || rawType;
+
+    if (['announcement', 'announcements'].includes(candidate)) {
+        return 'announcements';
+    }
+
+    if ([
+        'main-chat',
+        'main_chat',
+        'chat',
+        'community',
+        'community-feed',
+        'community_feed',
+        'feed',
+        'post',
+        'comment',
+        'like'
+    ].includes(candidate)) {
+        return 'main-chat';
+    }
+
+    if ([
+        'dm',
+        'direct-message',
+        'direct_message',
+        'message',
+        'messages',
+        'room',
+        'chat-room',
+        'chat_room'
+    ].includes(candidate)) {
+        return 'dm';
+    }
+
+    if ([
+        'profile',
+        'user-profile',
+        'user_profile',
+        'follow',
+        'follower'
+    ].includes(candidate)) {
+        return 'profile';
+    }
+
+    return candidate;
+}
+
+function normalizeRealtimeNotification(notification = {}) {
+    const notificationId = String(
+        notification?.id ||
+        notification?.notificationId ||
+        notification?.notification_id ||
+        ''
+    ).trim();
+
+    const title = String(notification?.title || 'Notification').trim();
+
+    const text = String(
+        notification?.text ||
+        notification?.message ||
+        notification?.body ||
+        ''
+    ).trim();
+
+    const avatarStr = String(
+        notification?.avatarStr ||
+        notification?.initial ||
+        title.charAt(0).toUpperCase() ||
+        'N'
+    ).trim();
+
+    const color = String(notification?.color || 'var(--neon-blue)').trim();
+
+    const target = normalizeNotificationTarget(notification);
+
+    const targetType = String(
+        notification?.targetType ||
+        notification?.target_type ||
+        notification?.type ||
+        target ||
+        ''
+    ).trim();
+
+    const targetId = String(
+        notification?.targetId ||
+        notification?.target_id ||
+        ''
+    ).trim();
+
+    const createdAt =
+        notification?.createdAt ||
+        notification?.created_at ||
+        notification?.time ||
+        '';
+
+    const isRead = isRealtimeNotificationRead(notification);
+    const readAt = notification?.readAt || notification?.read_at || '';
+
+    return {
+        ...notification,
+        id: notificationId,
+        notificationId,
+        title,
+        text,
+        message: text,
+        body: text,
+        avatarStr,
+        initial: avatarStr,
+        color,
+        target,
+        targetType,
+        target_type: targetType,
+        targetId,
+        target_id: targetId,
+        createdAt,
+        created_at: createdAt,
+        isRead,
+        is_read: isRead,
+        read: isRead,
+        readAt,
+        read_at: readAt
+    };
+}
+
 const getNotificationUnreadCount = (notifications = []) =>
-    (Array.isArray(notifications) ? notifications : []).filter((item) => {
-        return !(
-            item?.isRead === true ||
-            item?.read === true ||
-            item?.read_at ||
-            item?.readAt
-        );
-    }).length;
+    (Array.isArray(notifications) ? notifications : [])
+        .map(normalizeRealtimeNotification)
+        .filter((item) => !item.isRead).length;
 
 const updateNotificationBadgeUi = (notifications = []) => {
     if (!notifBadge) return;
@@ -3821,7 +3988,9 @@ const openNotificationTarget = (target = '') => {
 const renderRealtimeNotifications = (notifications = []) => {
     if (!notifListContainer) return;
 
-    const list = Array.isArray(notifications) ? notifications : [];
+    const list = (Array.isArray(notifications) ? notifications : [])
+        .map(normalizeRealtimeNotification);
+
     notifListContainer.innerHTML = '';
 
     if (!list.length) {
@@ -3833,37 +4002,29 @@ const renderRealtimeNotifications = (notifications = []) => {
     }
 
     list.forEach((notification) => {
-        const notificationId = String(notification?.id || notification?.notificationId || '').trim();
-        const title = String(notification?.title || 'Notification').trim();
-        const text = String(
-            notification?.text ||
-            notification?.message ||
-            notification?.body ||
-            ''
-        ).trim();
-        const avatarStr = String(
-            notification?.avatarStr ||
-            notification?.initial ||
-            title.charAt(0).toUpperCase() ||
-            'N'
-        ).trim();
-        const color = String(notification?.color || 'var(--neon-blue)').trim();
-        const target = String(notification?.target || '').trim();
-        const createdAt =
-            notification?.createdAt ||
-            notification?.created_at ||
-            notification?.time ||
-            '';
-        const isRead =
-            notification?.isRead === true ||
-            notification?.read === true ||
-            !!notification?.readAt ||
-            !!notification?.read_at;
+        const notificationId = notification.id;
+        const title = notification.title;
+        const text = notification.text;
+        const avatarStr = notification.avatarStr;
+        const color = notification.color;
+        const target = notification.target;
+        const createdAt = notification.createdAt;
+        const isRead = notification.isRead;
 
         const li = document.createElement('li');
         li.className = `fade-in${isRead ? '' : ' unread'}`;
-        if (notificationId) li.setAttribute('data-notification-id', notificationId);
-        if (target) li.setAttribute('data-target', target);
+
+        if (notificationId) {
+            li.setAttribute('data-notification-id', notificationId);
+        }
+
+        if (target) {
+            li.setAttribute('data-target', target);
+        }
+
+        if (notification.targetId) {
+            li.setAttribute('data-target-id', notification.targetId);
+        }
 
         li.innerHTML = `
             <div class="notif-img" style="background: ${escapeNotificationHtml(color)};">
@@ -3882,6 +4043,7 @@ const renderRealtimeNotifications = (notifications = []) => {
 
             if (notificationId && !isRead) {
                 await markRealtimeNotificationRead(notificationId, false);
+                li.classList.remove('unread');
             }
 
             notifDropdown?.classList.remove('show');
@@ -3909,7 +4071,9 @@ async function loadRealtimeNotifications(forceFresh = false) {
             method: 'GET'
         });
 
-        const notifications = Array.isArray(result?.notifications) ? result.notifications : [];
+        const notifications = (Array.isArray(result?.notifications) ? result.notifications : [])
+            .map(normalizeRealtimeNotification);
+
         state.realtimeNotifications = notifications;
         renderRealtimeNotifications(notifications);
         return notifications;
@@ -3935,16 +4099,22 @@ async function markRealtimeNotificationRead(notificationId, rerender = true) {
             method: 'POST'
         });
 
+        const readAt = new Date().toISOString();
         const current = Array.isArray(state.realtimeNotifications) ? state.realtimeNotifications : [];
+
         state.realtimeNotifications = current.map((item) => {
-            const itemId = String(item?.id || item?.notificationId || '').trim();
-            if (itemId !== normalizedId) return item;
+            const normalizedItem = normalizeRealtimeNotification(item);
+            const itemId = String(normalizedItem?.id || normalizedItem?.notificationId || '').trim();
+
+            if (itemId !== normalizedId) return normalizedItem;
 
             return {
-                ...item,
+                ...normalizedItem,
                 isRead: true,
+                is_read: true,
                 read: true,
-                readAt: new Date().toISOString()
+                readAt,
+                read_at: readAt
             };
         });
 
@@ -3966,12 +4136,16 @@ async function markAllRealtimeNotificationsRead() {
             method: 'POST'
         });
 
+        const readAt = new Date().toISOString();
         const current = Array.isArray(state.realtimeNotifications) ? state.realtimeNotifications : [];
+
         state.realtimeNotifications = current.map((item) => ({
-            ...item,
+            ...normalizeRealtimeNotification(item),
             isRead: true,
+            is_read: true,
             read: true,
-            readAt: new Date().toISOString()
+            readAt,
+            read_at: readAt
         }));
 
         renderRealtimeNotifications(state.realtimeNotifications);
@@ -6150,6 +6324,43 @@ function persistAcademyProfileCache(profile = null) {
         cover_photo: academyNormalizeProfileAssetUrl(profile.cover_photo || profile.coverPhoto || ''),
         role_label: String(profile.role_label || profile.roleLabel || 'Academy Member').trim(),
         bio: String(profile.bio || '').trim(),
+
+        followers_count:
+            profile.followers_count ??
+            profile.followersCount ??
+            profile.followerCount ??
+            '—',
+
+        following_count:
+            profile.following_count ??
+            profile.followingCount ??
+            '—',
+
+        friends_count:
+            profile.friends_count ??
+            profile.friend_count ??
+            profile.friendsCount ??
+            profile.friendCount ??
+            '—',
+
+        friend_count:
+            profile.friends_count ??
+            profile.friend_count ??
+            profile.friendsCount ??
+            profile.friendCount ??
+            '—',
+
+        post_count:
+            profile.post_count ??
+            profile.postCount ??
+            0,
+
+        recent_posts: Array.isArray(profile.recent_posts)
+            ? profile.recent_posts
+            : Array.isArray(profile.recentPosts)
+                ? profile.recentPosts
+                : [],
+
         search_tags: Array.isArray(profile.search_tags)
             ? profile.search_tags.map((tag) => String(tag || '').trim()).filter(Boolean).slice(0, 8)
             : []
@@ -7182,18 +7393,43 @@ function buildAcademySelfProfilePayload(profileSource = null) {
         cover_photo: savedCover,
         role_label: String(cachedProfile.role_label || 'Academy Member').trim() || 'Academy Member',
         bio: savedBio || 'Focused on execution, consistency, and long-term growth inside The Academy.',
+
+        followers_count:
+            cachedProfile.followers_count ??
+            cachedProfile.followersCount ??
+            cachedProfile.followerCount ??
+            '—',
+
+        following_count:
+            cachedProfile.following_count ??
+            cachedProfile.followingCount ??
+            '—',
+
+        friends_count:
+            cachedProfile.friends_count ??
+            cachedProfile.friend_count ??
+            cachedProfile.friendsCount ??
+            cachedProfile.friendCount ??
+            '—',
+
+        friend_count:
+            cachedProfile.friends_count ??
+            cachedProfile.friend_count ??
+            cachedProfile.friendsCount ??
+            cachedProfile.friendCount ??
+            '—',
+
         readiness: String(readinessValue),
         progress: progressText.replace(' Daily Progress', ''),
-        roadmap_status: String(roadmapStatus),
-        followers_count:
-            cachedProfile.followers_count !== undefined && cachedProfile.followers_count !== null
-                ? cachedProfile.followers_count
-                : '—',
-        post_count: cachedPosts.length,
-        hidden_count: hiddenPosts.length,
-        status: String(cachedProfile.status || 'Active').trim() || 'Active',
-        search_tags: savedTags,
-        recent_posts: cachedPosts.slice(0, 6)
+
+        post_count:
+            Number.isFinite(Number(cachedProfile.post_count ?? cachedProfile.postCount))
+                ? Number(cachedProfile.post_count ?? cachedProfile.postCount)
+                : cachedPosts.length,
+
+        recent_posts: Array.isArray(cachedProfile.recent_posts) && cachedProfile.recent_posts.length
+            ? cachedProfile.recent_posts
+            : cachedPosts.slice(0, 6)
     };
 }
 
@@ -7250,7 +7486,24 @@ function normalizeAcademyProfilePayload(profile = {}, options = {}) {
         readiness: String(profile?.readiness ?? profile?.readinessScore ?? '—'),
         progress: String(profile?.progress ?? profile?.daily_progress ?? '—').replace(' Daily Progress', ''),
         roadmap: String(profile?.roadmap_status || profile?.roadmap || '—'),
-        followersCount: profile?.followers_count ?? profile?.followerCount ?? '—',
+        followersCount:
+            profile?.followers_count ??
+            profile?.followersCount ??
+            profile?.followerCount ??
+            '—',
+
+        followingCount:
+            profile?.following_count ??
+            profile?.followingCount ??
+            '—',
+
+        friendsCount:
+            profile?.friends_count ??
+            profile?.friend_count ??
+            profile?.friendsCount ??
+            profile?.friendCount ??
+            '—',
+
         postCount: Number.isFinite(Number(profile?.post_count))
             ? Number(profile.post_count)
             : recentPostsInput.length,
@@ -7430,10 +7683,14 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
     const profileRoadmap = document.getElementById('academy-profile-roadmap');
     const profilePostCount = document.getElementById('academy-profile-post-count');
     const profileFollowerCount = document.getElementById('academy-profile-follower-count');
+    const profileFollowingCount = document.getElementById('academy-profile-following-count');
+    const profileFriendCount = document.getElementById('academy-profile-friends-count');
     const profileHiddenCount = document.getElementById('academy-profile-hidden-count');
     const profileStatus = document.getElementById('academy-profile-status');
     const profileMutualCount = document.getElementById('academy-profile-mutual-count');
     const profileFollowersMeta = document.getElementById('academy-profile-followers-meta');
+    const profileFollowingMeta = document.getElementById('academy-profile-following-meta');
+    const profileFriendsMeta = document.getElementById('academy-profile-friends-meta');
     const profilePostsMeta = document.getElementById('academy-profile-posts-meta');
     const profileStatusMeta = document.getElementById('academy-profile-status-meta');
     const profileMutualsMeta = document.getElementById('academy-profile-mutuals-meta');
@@ -7552,15 +7809,21 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
     if (profileProgress) profileProgress.innerText = isSelf ? normalized.progress : '—';
     if (profileRoadmap) profileRoadmap.innerText = isSelf ? normalized.roadmap : 'Public view';
     const parsedFollowerCount = Number(normalized.followersCount);
+    const parsedFollowingCount = Number(normalized.followingCount);
+    const parsedFriendCount = Number(normalized.friendsCount);
     const parsedPostCount = Number(normalized.postCount);
     const parsedMutualCount = Number(normalized.mutualFriendCount || 0);
 
     const followerCountValue = Number.isFinite(parsedFollowerCount) ? parsedFollowerCount : null;
+    const followingCountValue = Number.isFinite(parsedFollowingCount) ? parsedFollowingCount : null;
+    const friendCountValue = Number.isFinite(parsedFriendCount) ? parsedFriendCount : null;
     const postCountValue = Number.isFinite(parsedPostCount) ? parsedPostCount : 0;
     const mutualCountValue = Number.isFinite(parsedMutualCount) ? parsedMutualCount : 0;
 
     if (profilePostCount) profilePostCount.innerText = String(normalized.postCount);
     if (profileFollowerCount) profileFollowerCount.innerText = String(normalized.followersCount);
+    if (profileFollowingCount) profileFollowingCount.innerText = String(normalized.followingCount);
+    if (profileFriendCount) profileFriendCount.innerText = String(normalized.friendsCount);
     if (profileHiddenCount) profileHiddenCount.innerText = isSelf ? String(normalized.hiddenCount) : '—';
 
     let resolvedStatusText = normalized.status;
@@ -7599,7 +7862,25 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
                     ? 'Public follower'
                     : 'Public followers';
     }
+    if (profileFollowingMeta) {
+        profileFollowingMeta.innerText = isSelf
+            ? 'People you follow'
+            : followingCountValue === null
+                ? 'Public following'
+                : followingCountValue === 1
+                    ? 'Following 1 member'
+                    : `Following ${followingCountValue} members`;
+    }
 
+    if (profileFriendsMeta) {
+        profileFriendsMeta.innerText = isSelf
+            ? 'Accepted Academy friends'
+            : friendCountValue === null
+                ? 'Accepted friends'
+                : friendCountValue === 1
+                    ? '1 Academy friend'
+                    : `${friendCountValue} Academy friends`;
+    }
     if (profilePostsMeta) {
         profilePostsMeta.innerText = isSelf
             ? 'Your visible profile posts'
@@ -7833,7 +8114,7 @@ const resolvedIntroVisibilityBadge = isSelf
     }
 
     if (primaryAction) {
-        primaryAction.classList.remove('hidden-step', 'is-following');
+        primaryAction.classList.remove('hidden-step', 'is-following', 'is-unfollow-action');
         primaryAction.classList.toggle('btn-primary', isSelf);
         primaryAction.classList.toggle('btn-secondary', !isSelf);
         primaryAction.disabled = false;
@@ -7846,13 +8127,21 @@ const resolvedIntroVisibilityBadge = isSelf
             primaryAction.dataset.profileAction = 'open-community';
             primaryAction.setAttribute('aria-label', 'Open Community');
         } else {
-            primaryAction.innerText = normalized.followedByMe ? 'Following' : 'Follow';
+            const isFollowingProfile = normalized.followedByMe === true;
+
+            primaryAction.innerText = isFollowingProfile ? 'Unfollow' : 'Follow';
             primaryAction.dataset.profileAction = 'toggle-follow';
             primaryAction.dataset.memberProfileId = normalized.id;
-            primaryAction.classList.toggle('is-following', normalized.followedByMe);
+            primaryAction.dataset.followState = isFollowingProfile ? 'following' : 'not-following';
+
+            primaryAction.classList.toggle('is-following', isFollowingProfile);
+            primaryAction.classList.toggle('is-unfollow-action', isFollowingProfile);
+
             primaryAction.setAttribute(
                 'aria-label',
-                normalized.followedByMe ? `Following ${normalized.displayName}` : `Follow ${normalized.displayName}`
+                isFollowingProfile
+                    ? `Unfollow ${normalized.displayName}`
+                    : `Follow ${normalized.displayName}`
             );
         }
     }
@@ -9592,6 +9881,11 @@ function academyClearMessagesThreadHeader() {
     if (threadAvatar) {
         threadAvatar.style.backgroundImage = 'none';
         threadAvatar.innerText = '💬';
+        threadAvatar.removeAttribute('data-message-profile-id');
+        threadAvatar.removeAttribute('role');
+        threadAvatar.removeAttribute('tabindex');
+        threadAvatar.removeAttribute('title');
+        threadAvatar.removeAttribute('aria-label');
     }
 
     if (threadTitle) {
@@ -9647,6 +9941,15 @@ function academyRenderMessagesThreadHeader(room = {}) {
         getActiveRoomId() ||
         ''
     ).trim();
+        const messageProfileId = roomType === 'dm'
+        ? normalizeAcademyFeedId(
+            room?.recipientId ||
+            room?.recipient_id ||
+            currentRoomMeta?.recipientId ||
+            currentRoomMeta?.recipient_id ||
+            ''
+        )
+        : '';
 
     const memberCount = academyGetMessageRoomMemberCount(room);
     const memberLabel = `${memberCount} member${memberCount === 1 ? '' : 's'}`;
@@ -9667,7 +9970,19 @@ function academyRenderMessagesThreadHeader(room = {}) {
         threadAvatar.style.backgroundImage = 'none';
         threadAvatar.innerText = avatarFallback;
     }
-
+    if (messageProfileId) {
+        threadAvatar.setAttribute('data-message-profile-id', messageProfileId);
+        threadAvatar.setAttribute('role', 'button');
+        threadAvatar.setAttribute('tabindex', '0');
+        threadAvatar.setAttribute('title', `Open ${roomName} profile`);
+        threadAvatar.setAttribute('aria-label', `Open ${roomName} profile`);
+    } else {
+        threadAvatar.removeAttribute('data-message-profile-id');
+        threadAvatar.removeAttribute('role');
+        threadAvatar.removeAttribute('tabindex');
+        threadAvatar.removeAttribute('title');
+        threadAvatar.removeAttribute('aria-label');
+    }
     threadTitle.innerText = roomName;
     threadMeta.innerText = `${roomTypeLabel} • ${memberLabel}`;
     threadRoomtype.innerText = roomType === 'group' ? 'GROUP' : 'DM';
@@ -9842,17 +10157,27 @@ function renderAcademyMessagesInboxList() {
         const unreadCount = Number.parseInt(room?.unreadCount, 10);
         const unread = Number.isFinite(unreadCount) && unreadCount > 0 ? unreadCount : 0;
         const isActive = activeRoomId && activeRoomId === normalizedRoomId;
-        const roomTypeLabel = String(room?.type || '').trim().toLowerCase() === 'group' ? 'Group' : 'DM';
+        const roomType = String(room?.type || '').trim().toLowerCase() === 'group' ? 'group' : 'dm';
+        const roomTypeLabel = roomType === 'group' ? 'Group' : 'DM';
         const timeLabel = academyFormatInboxTime(room?.lastMessageAt || '');
         const isMuted = room?.muted === true;
+
+        const messageProfileId = roomType === 'dm'
+            ? normalizeAcademyFeedId(room?.recipientId || room?.recipient_id || '')
+            : '';
+
+        const avatarProfileClass = messageProfileId ? ' academy-messages-profile-trigger' : '';
+        const avatarProfileAttrs = messageProfileId
+            ? ` data-message-profile-id="${academyFeedEscapeHtml(messageProfileId)}" title="Open ${academyFeedEscapeHtml(roomName)} profile" aria-label="Open ${academyFeedEscapeHtml(roomName)} profile"`
+            : '';
 
         let avatarHtml = '';
         const avatarUrl = academyResolveMemberAvatarUrl(room);
 
         if (avatarUrl) {
-            avatarHtml = `<span class="academy-messages-inbox-avatar" style="background-image:url('${academyFeedEscapeHtml(avatarUrl)}');"></span>`;
+            avatarHtml = `<span class="academy-messages-inbox-avatar${avatarProfileClass}"${avatarProfileAttrs} style="background-image:url('${academyFeedEscapeHtml(avatarUrl)}');"></span>`;
         } else {
-            avatarHtml = `<span class="academy-messages-inbox-avatar">${academyFeedEscapeHtml(roomName.charAt(0).toUpperCase())}</span>`;
+            avatarHtml = `<span class="academy-messages-inbox-avatar${avatarProfileClass}"${avatarProfileAttrs}>${academyFeedEscapeHtml(roomName.charAt(0).toUpperCase())}</span>`;
         }
 
         return `
@@ -9910,6 +10235,18 @@ function bindAcademyMessagesInbox() {
     const inboxList = document.getElementById('academy-messages-inbox-list');
 
     inboxList?.addEventListener('click', async (event) => {
+                const profileTrigger = event.target?.closest?.('[data-message-profile-id]');
+        if (profileTrigger) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            const profileId = normalizeAcademyFeedId(profileTrigger.getAttribute('data-message-profile-id'));
+            if (profileId) {
+                openAcademyFeedAuthorProfile(profileId);
+            }
+
+            return;
+        }
         const actionBtn = event.target?.closest?.('[data-room-action]');
         if (actionBtn) {
             event.preventDefault();
@@ -9956,7 +10293,55 @@ function bindAcademyMessagesInbox() {
         event.stopPropagation();
         academyReturnToMessagesInboxHome();
     });
+    const threadAvatar = document.getElementById('academy-messages-thread-avatar');
 
+    threadAvatar?.addEventListener('click', (event) => {
+        const profileId = normalizeAcademyFeedId(threadAvatar.getAttribute('data-message-profile-id'));
+        if (!profileId) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        openAcademyFeedAuthorProfile(profileId);
+    });
+
+    threadAvatar?.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+
+        const profileId = normalizeAcademyFeedId(threadAvatar.getAttribute('data-message-profile-id'));
+        if (!profileId) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        openAcademyFeedAuthorProfile(profileId);
+    });
+
+    document.getElementById('dynamic-chat-history')?.addEventListener('click', (event) => {
+        const profileTrigger = event.target?.closest?.('[data-message-profile-id]');
+        if (!profileTrigger) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        const profileId = normalizeAcademyFeedId(profileTrigger.getAttribute('data-message-profile-id'));
+        if (profileId) {
+            openAcademyFeedAuthorProfile(profileId);
+        }
+    });
+
+    document.getElementById('dynamic-chat-history')?.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+
+        const profileTrigger = event.target?.closest?.('[data-message-profile-id]');
+        if (!profileTrigger) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        const profileId = normalizeAcademyFeedId(profileTrigger.getAttribute('data-message-profile-id'));
+        if (profileId) {
+            openAcademyFeedAuthorProfile(profileId);
+        }
+    });
     document.getElementById('academy-messages-thread-refresh-btn')?.addEventListener('click', () => {
         academyRefreshActiveMessagesThread();
     });
@@ -10524,9 +10909,10 @@ function academyRenderMemberBrowserList(members = [], query = '') {
 
                     <button
                         type="button"
-                        class="btn-secondary academy-member-card-follow ${isFollowing ? 'is-following' : ''}"
+                        class="btn-secondary academy-member-card-follow ${isFollowing ? 'is-following is-unfollow-action' : ''}"
                         data-member-follow-id="${academyFeedEscapeHtml(member.id)}"
-                    >${isFollowing ? 'Following' : 'Follow'}</button>
+                        data-member-follow-state="${isFollowing ? 'following' : 'not-following'}"
+                    >${isFollowing ? 'Unfollow' : 'Follow'}</button>
                 </div>
             </article>
         `;
@@ -10781,9 +11167,10 @@ function renderAcademySearchResultsPanel(members = [], query = '') {
 
                             <button
                                 type="button"
-                                class="btn-secondary academy-member-card-follow ${isFollowing ? 'is-following' : ''}"
+                                class="btn-secondary academy-member-card-follow ${isFollowing ? 'is-following is-unfollow-action' : ''}"
                                 data-member-follow-id="${academyFeedEscapeHtml(member.id)}"
-                            >${isFollowing ? 'Following' : 'Follow'}</button>
+                                data-member-follow-state="${isFollowing ? 'following' : 'not-following'}"
+                            >${isFollowing ? 'Unfollow' : 'Follow'}</button>
                         </div>
                     </article>
                 `;
@@ -11614,7 +12001,19 @@ function renderAcademyFeed(posts = []) {
                 : '';
 
         const mediaHtml = isSharedPost ? '' : outerMediaHtml;
-        const avatarHtml = renderAcademyFeedAvatarHtml(post, displayName);
+        const authorProfileId = normalizeAcademyFeedId(post.user_id || post.author_id || post.userId || '');
+        const rawAvatarHtml = renderAcademyFeedAvatarHtml(post, displayName);
+        const avatarHtml = authorProfileId
+            ? `
+                <button
+                    type="button"
+                    class="academy-feed-author-trigger academy-feed-post-avatar-trigger"
+                    data-member-profile-id="${academyFeedEscapeHtml(authorProfileId)}"
+                    title="Open ${academyFeedEscapeHtml(displayName)} profile"
+                    aria-label="Open ${academyFeedEscapeHtml(displayName)} profile"
+                >${rawAvatarHtml}</button>
+            `
+            : rawAvatarHtml;
 
         const canEditPost = Boolean(post.can_edit || isOwner);
         const canDeletePost = Boolean(post.can_delete || isOwner);
@@ -11636,7 +12035,7 @@ function renderAcademyFeed(posts = []) {
                                 <button
                                     type="button"
                                     class="academy-feed-author-trigger academy-feed-author-name"
-                                    data-member-profile-id="${academyFeedEscapeHtml(normalizeAcademyFeedId(post.user_id))}"
+                                    data-member-profile-id="${academyFeedEscapeHtml(authorProfileId)}"
                                     style="font-weight:700;color:#fff;line-height:1.15;"
                                 >${academyFeedEscapeHtml(displayName)}</button>
 
@@ -12678,13 +13077,238 @@ async function academyFeedHideComment(postId, commentId) {
         showToast(error.message || 'Failed to hide comment.', 'error');
     }
 }
+function academyIsMemberFollowingValue(value) {
+    return value === true || value === 1 || String(value || '').trim().toLowerCase() === 'true';
+}
 
-async function academyFeedToggleFollow(targetUserId) {
+function academyResolveFollowResultState(result = {}, fallback = false) {
+    if (
+        result?.following === true ||
+        result?.followed_by_me === true ||
+        result?.followedByMe === true
+    ) {
+        return true;
+    }
+
+    if (
+        result?.following === false ||
+        result?.followed_by_me === false ||
+        result?.followedByMe === false
+    ) {
+        return false;
+    }
+
+    return !!fallback;
+}
+
+function academyResolveFollowFollowerCount(result = {}, previousCount = '—', previousFollowing = false, nextFollowing = false) {
+    const explicitCount =
+        result?.followerCount ??
+        result?.followers_count ??
+        result?.followersCount ??
+        null;
+
+    const parsedExplicit = Number(explicitCount);
+    if (Number.isFinite(parsedExplicit)) {
+        return Math.max(0, parsedExplicit);
+    }
+
+    const parsedPrevious = Number(previousCount);
+    if (Number.isFinite(parsedPrevious) && previousFollowing !== nextFollowing) {
+        return Math.max(0, parsedPrevious + (nextFollowing ? 1 : -1));
+    }
+
+    return previousCount ?? '—';
+}
+
+function academySetFollowButtonFinalState(button, isFollowing) {
+    if (!(button instanceof HTMLElement)) return;
+
+    button.disabled = false;
+    button.removeAttribute('aria-busy');
+
+    button.innerText = isFollowing ? 'Unfollow' : 'Follow';
+
+    button.classList.toggle('is-following', isFollowing);
+    button.classList.toggle('is-unfollow-action', isFollowing);
+
+    if (button.hasAttribute('data-member-follow-id')) {
+        button.setAttribute('data-member-follow-state', isFollowing ? 'following' : 'not-following');
+    }
+
+    if (button.hasAttribute('data-profile-action')) {
+        button.setAttribute('data-follow-state', isFollowing ? 'following' : 'not-following');
+    }
+}
+
+function academySetFollowButtonLoading(button, wasFollowing = false) {
+    if (!(button instanceof HTMLElement)) return;
+
+    button.disabled = true;
+    button.setAttribute('aria-busy', 'true');
+    button.innerText = wasFollowing ? 'Unfollowing.' : 'Following.';
+}
+
+function academyPatchMemberFollowState(member = {}, targetUserId = '', isFollowing = false, result = {}) {
+    const normalizedTargetUserId = normalizeAcademyFeedId(targetUserId);
+    const memberId = normalizeAcademyFeedId(member?.id || member?.user_id || member?.userId || '');
+
+    if (!normalizedTargetUserId || memberId !== normalizedTargetUserId) {
+        return member;
+    }
+
+    const wasFollowing =
+        academyIsMemberFollowingValue(member?.followed_by_me) ||
+        academyIsMemberFollowingValue(member?.followedByMe);
+
+    const nextFollowerCount = academyResolveFollowFollowerCount(
+        result,
+        member?.followers_count ?? member?.followersCount ?? member?.followerCount ?? '—',
+        wasFollowing,
+        isFollowing
+    );
+
+    return {
+        ...member,
+        followed_by_me: isFollowing,
+        followedByMe: isFollowing,
+        followers_count: nextFollowerCount,
+        followersCount: nextFollowerCount,
+        followerCount: nextFollowerCount
+    };
+}
+
+function academyUpdateMemberSearchCacheFollowState(targetUserId = '', isFollowing = false, result = {}) {
+    const normalizedTargetUserId = normalizeAcademyFeedId(targetUserId);
+    if (!normalizedTargetUserId || typeof academyMemberSearchCache === 'undefined') return;
+
+    try {
+        academyMemberSearchCache.forEach((entry, key) => {
+            const members = Array.isArray(entry?.members) ? entry.members : [];
+            if (!members.length) return;
+
+            const nextMembers = members.map((member) => {
+                return academyPatchMemberFollowState(member, normalizedTargetUserId, isFollowing, result);
+            });
+
+            academyMemberSearchCache.set(key, {
+                ...entry,
+                members: nextMembers
+            });
+        });
+    } catch (error) {
+        console.warn('Failed to update member search cache follow state:', error);
+    }
+}
+
+function academyBuildVisitedProfileFollowPatch(targetUserId = '', isFollowing = false, result = {}) {
+    const currentProfile = academyProfileViewState?.profile || {};
+    const normalizedTargetUserId = normalizeAcademyFeedId(targetUserId);
+
+    const previousFollowerCount =
+        currentProfile.followersCount ??
+        currentProfile.followers_count ??
+        currentProfile.followerCount ??
+        '—';
+
+    const nextFollowerCount = academyResolveFollowFollowerCount(
+        result,
+        previousFollowerCount,
+        currentProfile.followedByMe === true,
+        isFollowing
+    );
+
+    return {
+        ...currentProfile,
+
+        mode: 'visited',
+        id: normalizedTargetUserId || currentProfile.id,
+
+        full_name: currentProfile.fullName || currentProfile.displayName || currentProfile.full_name,
+        display_name: currentProfile.displayName || currentProfile.fullName || currentProfile.display_name,
+        username: currentProfile.usernameRaw || currentProfile.username,
+
+        avatar: currentProfile.avatar,
+        cover_photo: currentProfile.coverPhoto || currentProfile.cover_photo,
+        role_label: currentProfile.roleLabel || currentProfile.role_label,
+        bio: currentProfile.bio,
+
+        readiness: currentProfile.readiness,
+        progress: currentProfile.progress,
+        roadmap_status: currentProfile.roadmap,
+
+        followers_count: nextFollowerCount,
+        followersCount: nextFollowerCount,
+
+        following_count: currentProfile.followingCount ?? currentProfile.following_count ?? '—',
+        followingCount: currentProfile.followingCount ?? currentProfile.following_count ?? '—',
+
+        friends_count: currentProfile.friendsCount ?? currentProfile.friends_count ?? currentProfile.friend_count ?? '—',
+        friendsCount: currentProfile.friendsCount ?? currentProfile.friends_count ?? currentProfile.friend_count ?? '—',
+
+        post_count: currentProfile.postCount ?? currentProfile.post_count ?? 0,
+        hidden_count: currentProfile.hiddenCount ?? currentProfile.hidden_count ?? '—',
+
+        status: currentProfile.status,
+
+        followed_by_me: isFollowing,
+        followedByMe: isFollowing,
+
+        is_friend: currentProfile.isFriend === true,
+        outgoing_friend_request_pending: currentProfile.outgoingFriendRequestPending === true,
+        incoming_friend_request_pending: currentProfile.incomingFriendRequestPending === true,
+        incoming_friend_request_id: currentProfile.incomingFriendRequestId || '',
+        mutual_friend_count: currentProfile.mutualFriendCount || 0,
+
+        search_tags: Array.isArray(currentProfile.searchTags) ? currentProfile.searchTags : [],
+        recent_posts: Array.isArray(currentProfile.recentPosts) ? currentProfile.recentPosts : []
+    };
+}
+
+function academyApplyFollowToggleResult(targetUserId = '', result = {}, options = {}) {
+    const normalizedTargetUserId = normalizeAcademyFeedId(targetUserId);
+    if (!normalizedTargetUserId) return null;
+
+    const previousFollowing = options.previousFollowing === true;
+    const isFollowing = academyResolveFollowResultState(result, previousFollowing);
+
+    academyUpdateMemberSearchCacheFollowState(normalizedTargetUserId, isFollowing, result);
+
+    document.querySelectorAll('[data-member-follow-id]').forEach((button) => {
+        const buttonTargetId = normalizeAcademyFeedId(button.getAttribute('data-member-follow-id'));
+        if (buttonTargetId === normalizedTargetUserId) {
+            academySetFollowButtonFinalState(button, isFollowing);
+        }
+    });
+
+    const activeProfileId =
+        normalizeAcademyFeedId(academyProfileViewState?.memberId) ||
+        normalizeAcademyFeedId(academyProfileViewState?.profile?.id);
+
+    if (
+        activeProfileId === normalizedTargetUserId &&
+        academyProfileViewState?.mode === 'visited'
+    ) {
+        const nextProfilePayload = academyBuildVisitedProfileFollowPatch(
+            normalizedTargetUserId,
+            isFollowing,
+            result
+        );
+
+        renderAcademyProfileView(nextProfilePayload, { mode: 'visited' });
+    }
+
+    return {
+        targetUserId: normalizedTargetUserId,
+        following: isFollowing
+    };
+}
+async function academyFeedToggleFollow(targetUserId, options = {}) {
     const normalizedTargetUserId = normalizeAcademyFeedId(targetUserId);
 
     if (!normalizedTargetUserId) {
         showToast('Invalid user target.', 'error');
-        return;
+        return null;
     }
 
     try {
@@ -12693,10 +13317,25 @@ async function academyFeedToggleFollow(targetUserId) {
             body: JSON.stringify({})
         });
 
-        showToast(result?.following ? 'User followed.' : 'User unfollowed.', 'success');
-        loadAcademyFeed(true);
+        const appliedState = academyApplyFollowToggleResult(
+            normalizedTargetUserId,
+            result,
+            {
+                previousFollowing: options.previousFollowing === true
+            }
+        );
+
+        const isNowFollowing = appliedState?.following === true;
+
+        showToast(isNowFollowing ? 'User followed.' : 'User unfollowed.', 'success');
+
+        return {
+            ...result,
+            following: isNowFollowing
+        };
     } catch (error) {
         showToast(error.message || 'Failed to update follow status.', 'error');
+        throw error;
     }
 }
 async function academyFeedSendFriendRequest(targetUserId) {
@@ -12752,9 +13391,34 @@ function setDashboardViewMode(mode = 'hub') {
 
 /* shared dashboard view-state helpers now come from /js/yh-shared-runtime.js */
 
-function restoreDashboardViewState() {
-    const state = readDashboardViewState();
+function normalizeAcademyPersistedSection(value = 'home') {
+    const clean = String(value || '').trim().toLowerCase();
 
+    const allowed = [
+        'home',
+        'community',
+        'messages',
+        'voice',
+        'video',
+        'profile',
+        'missions',
+        'lead-missions'
+    ];
+
+    return allowed.includes(clean) ? clean : 'home';
+}
+
+function resolveAcademyRefreshSection() {
+    const state = readDashboardViewState();
+    const requestedSection = normalizeAcademyPersistedSection(getAcademySectionFromUrl());
+    const savedSection = normalizeAcademyPersistedSection(state?.academySection || 'home');
+
+    return requestedSection !== 'home'
+        ? requestedSection
+        : savedSection;
+}
+
+function restoreDashboardViewState() {
     const canEnterAcademy =
         localStorage.getItem('yh_academy_access') === 'true' ||
         (typeof readAcademyMembershipCache === 'function' && readAcademyMembershipCache()?.canEnterAcademy === true);
@@ -12764,9 +13428,7 @@ function restoreDashboardViewState() {
         return;
     }
 
-    const requestedSection = getAcademySectionFromUrl();
-    const savedSection = String(state.academySection || 'home').trim().toLowerCase();
-    const targetSection = requestedSection !== 'home' ? requestedSection : savedSection;
+    const targetSection = resolveAcademyRefreshSection();
 
     if (targetSection === 'profile') {
         enterAcademyWorld('profile');
@@ -13146,13 +13808,16 @@ document.getElementById('academy-search-results-panel')?.addEventListener('click
     const targetUserId = normalizeAcademyFeedId(followBtn.getAttribute('data-member-follow-id'));
     if (!targetUserId) return;
 
-    academyFeedToggleFollow(targetUserId).then(() => {
-        const activeSearch = String(document.getElementById('academy-global-search-input')?.value || '').trim();
-        if (activeSearch.length >= 2) {
-            requestAcademyMemberSearch(activeSearch).then((members) => {
-                renderAcademySearchResultsPanel(members, activeSearch);
-            });
-        }
+    const wasFollowing =
+        String(followBtn.getAttribute('data-member-follow-state') || '').trim().toLowerCase() === 'following';
+
+    academySetFollowButtonLoading(followBtn, wasFollowing);
+
+    academyFeedToggleFollow(targetUserId, {
+        previousFollowing: wasFollowing
+    }).catch((error) => {
+        console.error('academy search follow toggle error:', error);
+        academySetFollowButtonFinalState(followBtn, wasFollowing);
     });
 });
 
@@ -13172,9 +13837,16 @@ document.getElementById('academy-member-browser-modal')?.addEventListener('click
     const targetUserId = normalizeAcademyFeedId(followBtn.getAttribute('data-member-follow-id'));
     if (!targetUserId) return;
 
-    academyFeedToggleFollow(targetUserId).then(() => {
-        const activeSearch = String(document.getElementById('academy-member-browser-search-input')?.value || '').trim();
-        loadAcademyMemberBrowser(activeSearch).catch(() => {});
+    const wasFollowing =
+        String(followBtn.getAttribute('data-member-follow-state') || '').trim().toLowerCase() === 'following';
+
+    academySetFollowButtonLoading(followBtn, wasFollowing);
+
+    academyFeedToggleFollow(targetUserId, {
+        previousFollowing: wasFollowing
+    }).catch((error) => {
+        console.error('academy member browser follow toggle error:', error);
+        academySetFollowButtonFinalState(followBtn, wasFollowing);
     });
 });
 document.getElementById('academy-profile-view')?.addEventListener('click', async (event) => {
@@ -13295,22 +13967,27 @@ document.getElementById('academy-profile-view')?.addEventListener('click', async
 
         if (!targetUserId) return;
 
+        const isCurrentlyFollowing =
+            String(actionBtn.getAttribute('data-follow-state') || '').trim().toLowerCase() === 'following' ||
+            academyProfileViewState?.profile?.followedByMe === true;
+
         const previousText = actionBtn.innerText;
         actionBtn.disabled = true;
-        actionBtn.innerText = 'Updating.';
+        actionBtn.setAttribute('aria-busy', 'true');
+        actionBtn.innerText = isCurrentlyFollowing ? 'Unfollowing.' : 'Following.';
 
-        academyFeedToggleFollow(targetUserId)
-            .then(() => openAcademyMemberProfileView(targetUserId))
-            .catch((error) => {
-                console.error('academy profile follow toggle error:', error);
-                showToast(error?.message || 'Failed to update follow state.', 'error');
-            })
-            .finally(() => {
-                if (actionBtn.isConnected) {
-                    actionBtn.disabled = false;
-                    actionBtn.innerText = previousText;
-                }
-            });
+        academyFeedToggleFollow(targetUserId, {
+            previousFollowing: isCurrentlyFollowing
+        }).catch((error) => {
+            console.error('academy profile follow toggle error:', error);
+
+            if (actionBtn.isConnected) {
+                actionBtn.disabled = false;
+                actionBtn.removeAttribute('aria-busy');
+                actionBtn.innerText = previousText;
+                academySetFollowButtonFinalState(actionBtn, isCurrentlyFollowing);
+            }
+        });
     }
 });
 document.getElementById('academy-profile-view')?.addEventListener('keydown', (event) => {
@@ -13628,14 +14305,21 @@ if (menuBtn) {
     const followMemberBtn = event.target.closest('[data-member-follow-id]');
     if (followMemberBtn) {
         const targetUserId = normalizeAcademyFeedId(followMemberBtn.getAttribute('data-member-follow-id'));
+
         if (targetUserId) {
-            academyFeedToggleFollow(targetUserId).then(() => {
-                const activeSearch = String(document.getElementById('academy-global-search-input')?.value || '').trim();
-                if (activeSearch) {
-                    loadAcademyMemberBrowser(activeSearch);
-                }
+            const wasFollowing =
+                String(followMemberBtn.getAttribute('data-member-follow-state') || '').trim().toLowerCase() === 'following';
+
+            academySetFollowButtonLoading(followMemberBtn, wasFollowing);
+
+            academyFeedToggleFollow(targetUserId, {
+                previousFollowing: wasFollowing
+            }).catch((error) => {
+                console.error('academy feed follow toggle error:', error);
+                academySetFollowButtonFinalState(followMemberBtn, wasFollowing);
             });
         }
+
         return;
     }
 
@@ -15736,10 +16420,19 @@ document.addEventListener('keydown', (event) => {
 });
 
 if (isStandaloneAcademyPage()) {
+    const previousState = readDashboardViewState();
+    const requestedSection = normalizeAcademyPersistedSection(getAcademySectionFromUrl());
+    const savedSection = normalizeAcademyPersistedSection(previousState?.academySection || 'home');
+
+    const initialAcademySection = requestedSection !== 'home'
+        ? requestedSection
+        : savedSection;
+
     writeDashboardViewState({
+        ...previousState,
         view: 'academy',
         division: 'academy',
-        academySection: getAcademySectionFromUrl()
+        academySection: initialAcademySection
     });
 }
 

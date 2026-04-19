@@ -54,14 +54,8 @@ function showToast(message, type = "success") {
     toast.classList.toggle('error-toast', isError);
     toast.classList.toggle('success-toast', !isError);
 
-    toastMsg.innerText = yhTText(message);
-    toastMsg.style.display = 'block';
-    toastMsg.style.maxWidth = '100%';
-    toastMsg.style.whiteSpace = 'normal';
-    toastMsg.style.overflowWrap = 'break-word';
-
-    toastIcon.innerText = isError ? '⚠️' : '✓';
-    toastIcon.style.display = '';
+    toastMsg.textContent = yhTText(message);
+    toastIcon.textContent = isError ? '⚠️' : '✓';
 
     Object.assign(toast.style, {
         position: 'fixed',
@@ -70,24 +64,54 @@ function showToast(message, type = "success") {
         top: '50%',
         bottom: 'auto',
         zIndex: '12000',
-        width: 'fit-content',
-        maxWidth: 'min(92vw, 460px)',
+        width: 'max-content',
+        inlineSize: 'max-content',
+        maxWidth: 'min(calc(100vw - 32px), 360px)',
         minWidth: '0',
-        padding: '11px 18px',
-        borderRadius: '14px',
-        fontSize: '0.92rem',
-        lineHeight: '1.35',
-        textAlign: 'left',
-        display: 'flex',
+        padding: '7px 11px',
+        borderRadius: '999px',
+        fontSize: '0.82rem',
+        lineHeight: '1.15',
+        textAlign: 'center',
+        display: 'inline-flex',
         alignItems: 'center',
-        justifyContent: 'flex-start',
-        gap: '10px',
+        justifyContent: 'center',
+        gap: '7px',
         boxSizing: 'border-box',
-        wordBreak: 'break-word',
+        whiteSpace: 'nowrap',
+        wordBreak: 'normal',
+        overflowWrap: 'normal',
+        overflow: 'hidden',
         pointerEvents: 'auto',
         visibility: 'visible',
         opacity: '0',
         transform: 'translate(-50%, -50%) scale(0.96)'
+    });
+
+    Object.assign(toastMsg.style, {
+        display: 'inline-block',
+        width: 'auto',
+        minWidth: '0',
+        maxWidth: 'min(calc(100vw - 74px), 290px)',
+        lineHeight: '1.15',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        overflowWrap: 'normal',
+        wordBreak: 'normal',
+        textOverflow: 'ellipsis',
+        textAlign: 'center'
+    });
+
+    Object.assign(toastIcon.style, {
+        display: 'inline-grid',
+        placeItems: 'center',
+        width: '14px',
+        minWidth: '14px',
+        maxWidth: '14px',
+        height: '14px',
+        lineHeight: '1',
+        flex: '0 0 14px',
+        fontSize: '0.8rem'
     });
 
     toast.classList.remove('show');
@@ -110,8 +134,8 @@ function showToast(message, type = "success") {
             if (!toast.classList.contains('show')) {
                 toast.style.visibility = 'hidden';
             }
-        }, 260);
-    }, 3500);
+        }, 240);
+    }, 3000);
 }
 const YH_POST_LOGIN_DASHBOARD_BOOTSTRAP_KEY = 'yh_post_login_dashboard_bootstrap_v1';
 
