@@ -7485,10 +7485,20 @@ function openAcademyProfileEditorModal() {
 
     document.getElementById('academy-profile-editor-overlay')?.classList.remove('hidden-step');
 }
-function closeAcademyProfileSettingsModal() {
-    const passwordInput = document.getElementById('academy-profile-delete-password');
-    if (passwordInput) passwordInput.value = '';
+function clearAcademyProfileSettingsPasswordFields() {
+    [
+        'academy-profile-current-password',
+        'academy-profile-new-password',
+        'academy-profile-confirm-password',
+        'academy-profile-delete-password'
+    ].forEach((id) => {
+        const input = document.getElementById(id);
+        if (input) input.value = '';
+    });
+}
 
+function closeAcademyProfileSettingsModal() {
+    clearAcademyProfileSettingsPasswordFields();
     document.getElementById('academy-profile-settings-overlay')?.classList.add('hidden-step');
 }
 
@@ -7498,7 +7508,6 @@ function openAcademyProfileSettingsModal() {
     closeAcademyProfileEditorModal();
 
     const emailLabel = document.getElementById('academy-profile-settings-email');
-    const passwordInput = document.getElementById('academy-profile-delete-password');
 
     const email =
         String(getStoredUserValue('yh_user_email', '') || '').trim() ||
@@ -7510,9 +7519,7 @@ function openAcademyProfileSettingsModal() {
         emailLabel.title = email;
     }
 
-    if (passwordInput) {
-        passwordInput.value = '';
-    }
+    clearAcademyProfileSettingsPasswordFields();
 
     document.getElementById('academy-profile-settings-overlay')?.classList.remove('hidden-step');
 }
@@ -7616,6 +7623,67 @@ async function academyDeleteOwnProfileWithPassword(deleteBtn = null) {
         }
 
         showToast('Academy profile deleted.', 'success');
+    });
+}
+async function academyChangeOwnAccountPassword(changeBtn = null) {
+    const currentPasswordInput = document.getElementById('academy-profile-current-password');
+    const newPasswordInput = document.getElementById('academy-profile-new-password');
+    const confirmPasswordInput = document.getElementById('academy-profile-confirm-password');
+
+    const currentPassword = String(currentPasswordInput?.value || '');
+    const newPassword = String(newPasswordInput?.value || '');
+    const confirmPassword = String(confirmPasswordInput?.value || '');
+
+    if (!currentPassword.trim()) {
+        showToast('Enter your current password first.', 'error');
+        currentPasswordInput?.focus();
+        return;
+    }
+
+    if (!newPassword || newPassword.length < 8) {
+        showToast('New password must be at least 8 characters.', 'error');
+        newPasswordInput?.focus();
+        return;
+    }
+
+    if (newPassword !== confirmPassword) {
+        showToast('New password and confirmation do not match.', 'error');
+        confirmPasswordInput?.focus();
+        return;
+    }
+
+    if (currentPassword === newPassword) {
+        showToast('New password must be different from your current password.', 'error');
+        newPasswordInput?.focus();
+        return;
+    }
+
+    const confirmed = await openYHConfirmModal({
+        title: 'Change account password?',
+        message: 'Your password will be updated for future sign-ins.',
+        okText: 'Change Password',
+        cancelText: 'Cancel',
+        tone: 'default'
+    });
+
+    if (!confirmed) return;
+
+    runDashboardButtonAction(changeBtn, 'Changing Password.', async () => {
+        const result = await academyAuthedFetch('/api/academy/account/password', {
+            method: 'PATCH',
+            body: JSON.stringify({
+                currentPassword,
+                newPassword,
+                confirmPassword
+            })
+        });
+
+        if (!result?.success) {
+            throw new Error(result?.message || 'Failed to change password.');
+        }
+
+        clearAcademyProfileSettingsPasswordFields();
+        showToast('Password changed successfully.', 'success');
     });
 }
 function academySetProfileMobileMenuOpenState(isOpen = false) {
@@ -7793,6 +7861,12 @@ function ensureAcademyProfileEditorBindings() {
         const settingsOverlay = event.target.closest('#academy-profile-settings-overlay');
         if (settingsOverlay && event.target === settingsOverlay) {
             closeAcademyProfileSettingsModal();
+            return;
+        }
+
+        const changePasswordBtn = event.target.closest('#academy-profile-change-password-submit');
+        if (changePasswordBtn) {
+            academyChangeOwnAccountPassword(changePasswordBtn);
             return;
         }
 

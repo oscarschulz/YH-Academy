@@ -3181,6 +3181,127 @@ exports.updateCurrentProfile = async (req, res) => {
         });
     }
 };
+exports.changeCurrentPassword = async (req, res) => {
+    try {
+        const uid = getAcademyAuthUid(req);
+
+        if (!uid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const currentPassword = String(
+            req.body?.currentPassword ||
+            req.body?.password ||
+            ''
+        );
+
+        const newPassword = String(
+            req.body?.newPassword ||
+            ''
+        );
+
+        const confirmPassword = String(
+            req.body?.confirmPassword ||
+            req.body?.passwordConfirmation ||
+            ''
+        );
+
+        if (!currentPassword.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Current password is required.'
+            });
+        }
+
+        if (!newPassword || newPassword.length < 8) {
+            return res.status(400).json({
+                success: false,
+                message: 'New password must be at least 8 characters.'
+            });
+        }
+
+        if (newPassword !== confirmPassword) {
+            return res.status(400).json({
+                success: false,
+                message: 'New password confirmation does not match.'
+            });
+        }
+
+        if (currentPassword === newPassword) {
+            return res.status(400).json({
+                success: false,
+                message: 'New password must be different from your current password.'
+            });
+        }
+
+        const userRef = firestore.collection('users').doc(uid);
+        const userSnapshot = await userRef.get();
+
+        if (!userSnapshot.exists) {
+            return res.status(404).json({
+                success: false,
+                message: 'User account not found.'
+            });
+        }
+
+        const userData = userSnapshot.data() || {};
+        const passwordHash = String(userData.password || userData.passwordHash || '');
+
+        if (!passwordHash) {
+            return res.status(400).json({
+                success: false,
+                message: 'This account does not have a password configured.'
+            });
+        }
+
+        const passwordMatches = await bcrypt.compare(currentPassword, passwordHash).catch(() => false);
+
+        if (!passwordMatches) {
+            return res.status(403).json({
+                success: false,
+                message: 'Incorrect current password.'
+            });
+        }
+
+        const newPasswordMatchesOld = await bcrypt.compare(newPassword, passwordHash).catch(() => false);
+
+        if (newPasswordMatchesOld) {
+            return res.status(400).json({
+                success: false,
+                message: 'New password must be different from your current password.'
+            });
+        }
+
+        const nextPasswordHash = await bcrypt.hash(newPassword, 10);
+        const nowIso = new Date().toISOString();
+
+        const updatePayload = {
+            password: nextPasswordHash,
+            passwordUpdatedAt: nowIso,
+            updatedAt: nowIso
+        };
+
+        if (userData.passwordHash) {
+            updatePayload.passwordHash = nextPasswordHash;
+        }
+
+        await userRef.update(updatePayload);
+
+        return res.json({
+            success: true,
+            message: 'Password changed successfully.'
+        });
+    } catch (error) {
+        console.error('changeCurrentPassword error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to change password.'
+        });
+    }
+};
 exports.deleteCurrentProfile = async (req, res) => {
     try {
         const uid = getAcademyAuthUid(req);

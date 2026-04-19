@@ -1930,7 +1930,7 @@
 
 <script src="/js/yh-shared-core.js?v=20260418-toast-center-1"></script>
 <script src="/js/yh-shared-runtime.js?v=20260411-4"></script>
-<script src="/js/academy.js?v=20260419-profile-menu-modal-route-1"></script>
+<script src="/js/academy.js?v=20260419-change-password-1"></script>
 <div
     class="academy-profile-editor-overlay hidden-step"
     id="academy-profile-editor-overlay"
@@ -2091,6 +2091,56 @@
                     <span>Signed-in account</span>
                     <strong id="academy-profile-settings-email">Your account</strong>
                 </div>
+            </section>
+
+            <section class="academy-profile-settings-section">
+                <div class="academy-profile-settings-kicker">Password</div>
+                <h4 class="academy-profile-settings-title">Change account password</h4>
+                <p class="academy-profile-settings-copy">
+                    Enter your current password, then confirm the new password before saving.
+                </p>
+
+                <div class="form-group">
+                    <label for="academy-profile-current-password">Current password</label>
+                    <input
+                        type="password"
+                        id="academy-profile-current-password"
+                        class="input-field"
+                        autocomplete="current-password"
+                        placeholder="Enter current password"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="academy-profile-new-password">New password</label>
+                    <input
+                        type="password"
+                        id="academy-profile-new-password"
+                        class="input-field"
+                        autocomplete="new-password"
+                        placeholder="Enter new password"
+                    >
+                    <div class="academy-profile-editor-field-note">
+                        Use at least 8 characters.
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="academy-profile-confirm-password">Confirm new password</label>
+                    <input
+                        type="password"
+                        id="academy-profile-confirm-password"
+                        class="input-field"
+                        autocomplete="new-password"
+                        placeholder="Confirm new password"
+                    >
+                </div>
+
+                <button
+                    type="button"
+                    class="btn-primary"
+                    id="academy-profile-change-password-submit"
+                >Change Password</button>
             </section>
 
             <section class="academy-profile-settings-section academy-profile-settings-danger">
