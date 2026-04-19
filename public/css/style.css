@@ -12822,7 +12822,7 @@ body[data-yh-view="academy"] #academy-profile-view .academy-profile-mobile-menu-
         flex-direction: column !important;
         margin-top: 0 !important;
         padding-top: 0 !important;
-        transform: translateY(-50px) !important;
+        transform: translateY(10px) !important;
     }
 
     body[data-yh-view="academy"].academy-mobile-profile-active #academy-profile-view:not(.hidden-step) .chat-header {
@@ -12855,7 +12855,7 @@ body[data-yh-view="academy"] #academy-profile-view .academy-profile-mobile-menu-
 @media (max-width: 768px) {
     body[data-yh-view="academy"] #academy-profile-view:not(.hidden-step),
     body[data-yh-view="academy"].academy-mobile-profile-active #academy-profile-view:not(.hidden-step) {
-        transform: translateY(-50px) !important;
+        transform: translateY(15px) !important;
     }
 
     body[data-yh-view="academy"] #academy-profile-view:not(.hidden-step) .chat-header,
@@ -12866,6 +12866,36 @@ body[data-yh-view="academy"] #academy-profile-view .academy-profile-mobile-menu-
 
     body[data-yh-view="academy"] #academy-profile-view:not(.hidden-step) .chat-messages,
     body[data-yh-view="academy"].academy-mobile-profile-active #academy-profile-view:not(.hidden-step) .chat-messages {
+        padding-top: 6px !important;
+    }
+}
+/* ==========================================
+   ACADEMY MOBILE PROFILE TAB RETURN LOCK
+   Keeps profile spacing stable after tab switch
+   ========================================== */
+@media (max-width: 768px) {
+    body[data-yh-view="academy"].academy-mobile-profile-layout-locked .dashboard-core,
+    body[data-yh-view="academy"].academy-mobile-profile-layout-locked #academy-wrapper {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+        gap: 0 !important;
+    }
+
+    body[data-yh-view="academy"].academy-mobile-profile-layout-locked #academy-profile-view:not(.hidden-step) {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+        transform: translateY(15px) !important;
+    }
+
+    body[data-yh-view="academy"].academy-mobile-profile-layout-locked #academy-profile-view:not(.hidden-step) .chat-header {
+        margin-top: 0 !important;
+        margin-bottom: 0 !important;
+        padding-top: 10px !important;
+        padding-bottom: 8px !important;
+        min-height: 54px !important;
+    }
+
+    body[data-yh-view="academy"].academy-mobile-profile-layout-locked #academy-profile-view:not(.hidden-step) .chat-messages {
         padding-top: 6px !important;
     }
 }

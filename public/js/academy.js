@@ -6246,6 +6246,8 @@ function academyFeedTimeLabel(value) {
 
 function hideAcademyViewsForFeed() {
     document.body?.classList.remove('academy-mobile-profile-active');
+    document.body?.classList.remove('academy-mobile-profile-layout-locked');
+    document.body?.classList.remove('academy-mobile-profile-after-messages');
 
     [
         'academy-feed-view',
@@ -8603,7 +8605,90 @@ const resolvedIntroVisibilityBadge = isSelf
     ensureAcademyProfileEditorBindings();
     renderAcademyProfileRecentPosts(normalized.recentPosts, { isSelf });
 }
+function academyIsMobileProfileViewport() {
+    try {
+        return window.innerWidth <= 768 || window.matchMedia?.('(max-width: 768px)')?.matches === true;
+    } catch (_) {
+        return window.innerWidth <= 768;
+    }
+}
 
+function academyWasMessagesViewActiveBeforeProfile() {
+    const academyChat = document.getElementById('academy-chat');
+    const chatMode = String(academyChat?.getAttribute('data-chat-mode') || '').trim().toLowerCase();
+
+    const isMessagesViewVisible =
+        !!academyChat &&
+        !academyChat.classList.contains('hidden-step') &&
+        (chatMode === 'messages' || chatMode === 'thread');
+
+    return (
+        isMessagesViewVisible ||
+        document.body?.classList.contains('academy-messages-thread-open') ||
+        document.body?.classList.contains('academy-mobile-message-thread-single-action')
+    );
+}
+
+function academyBuildProfileEntryLayoutContext() {
+    return {
+        fromMessages: academyIsMobileProfileViewport() && academyWasMessagesViewActiveBeforeProfile()
+    };
+}
+
+function academyClearMessagesLayoutResidueBeforeProfile() {
+    document.body?.classList.remove('academy-messages-thread-open');
+    document.body?.classList.remove('academy-mobile-message-thread-single-action');
+
+    try {
+        if (typeof applyAcademyMessengerMode === 'function') {
+            applyAcademyMessengerMode(false);
+        }
+    } catch (_) {}
+
+    try {
+        if (typeof academySetMessagesChatMode === 'function') {
+            academySetMessagesChatMode('home');
+        }
+    } catch (_) {}
+
+    try {
+        if (typeof academyCloseMessagesThreadMenu === 'function') {
+            academyCloseMessagesThreadMenu();
+        }
+    } catch (_) {}
+
+    const elements =
+        typeof academyGetMessagesInboxElements === 'function'
+            ? academyGetMessagesInboxElements()
+            : {};
+
+    const academyChat = elements?.academyChat || document.getElementById('academy-chat');
+    const chatInputArea = elements?.chatInputArea || document.getElementById('chat-input-area');
+    const threadHeader = elements?.threadHeader || document.getElementById('academy-messages-thread-header');
+    const sidebar = elements?.sidebar || document.getElementById('academy-messages-inbox-sidebar');
+
+    if (academyChat) {
+        academyChat.setAttribute('data-chat-mode', 'home');
+        academyChat.style.removeProperty('height');
+        academyChat.style.removeProperty('max-height');
+        academyChat.style.removeProperty('min-height');
+        academyChat.style.removeProperty('overflow');
+    }
+
+    if (threadHeader) {
+        threadHeader.classList.add('hidden-step');
+    }
+
+    if (sidebar) {
+        sidebar.classList.add('hidden-step');
+    }
+
+    if (chatInputArea) {
+        chatInputArea.classList.add('hidden-step');
+        chatInputArea.style.setProperty('display', 'none', 'important');
+        chatInputArea.setAttribute('aria-hidden', 'true');
+    }
+}
 function syncAcademyMobileProfileSpacingGuard() {
     const profileView = document.getElementById('academy-profile-view');
     const isMobile = window.innerWidth <= 768;
@@ -8617,7 +8702,15 @@ function syncAcademyMobileProfileSpacingGuard() {
         isMobile && isProfileVisible
     );
 
-    if (!isMobile || !isProfileVisible) return;
+    document.body?.classList.toggle(
+        'academy-mobile-profile-layout-locked',
+        isMobile && isProfileVisible
+    );
+
+    if (!isMobile || !isProfileVisible) {
+        document.body?.classList.remove('academy-mobile-profile-after-messages');
+        return;
+    }
 
     const dashboardCore = document.querySelector('.dashboard-core');
     const academyWrapper = document.getElementById('academy-wrapper');
@@ -8629,24 +8722,57 @@ function syncAcademyMobileProfileSpacingGuard() {
         node.style.paddingTop = node === profileHeader ? '10px' : '0';
     });
 
+    if (profileView) {
+        profileView.style.marginTop = '0';
+        profileView.style.paddingTop = '0';
+    }
+
     if (profileMessages) {
-        profileMessages.style.paddingTop = '10px';
+        profileMessages.style.paddingTop = '6px';
     }
 }
 
-function revealAcademyProfileView() {
+function stabilizeAcademyMobileProfileLayout() {
+    if (window.innerWidth > 768) return;
+
+    syncAcademyMobileProfileSpacingGuard();
+
+    window.requestAnimationFrame(() => {
+        syncAcademyMobileProfileSpacingGuard();
+
+        window.requestAnimationFrame(() => {
+            syncAcademyMobileProfileSpacingGuard();
+        });
+    });
+
+    window.setTimeout(() => {
+        syncAcademyMobileProfileSpacingGuard();
+    }, 160);
+
+    window.setTimeout(() => {
+        syncAcademyMobileProfileSpacingGuard();
+    }, 420);
+}
+
+function revealAcademyProfileView(options = {}) {
     const profileView = document.getElementById('academy-profile-view');
     if (!profileView) return;
+
+    const fromMessages = options?.fromMessages === true && academyIsMobileProfileViewport();
+
+    document.body?.classList.add('academy-mobile-profile-active');
+    document.body?.classList.add('academy-mobile-profile-layout-locked');
+    document.body?.classList.toggle('academy-mobile-profile-after-messages', fromMessages);
 
     profileView.classList.remove('hidden-step');
     profileView.classList.remove('fade-in');
     void profileView.offsetWidth;
     profileView.classList.add('fade-in');
 
-    syncAcademyMobileProfileSpacingGuard();
+    stabilizeAcademyMobileProfileLayout();
 
     window.requestAnimationFrame(() => {
-        syncAcademyMobileProfileSpacingGuard();
+        stabilizeAcademyMobileProfileLayout();
 
         if (window.innerWidth <= 768) {
             window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
@@ -10973,11 +11099,14 @@ async function openAcademyProfilePostInFeed(postId = '') {
     });
 }
 async function openAcademyProfileView(forceFresh = false) {
+    const profileEntryLayoutContext = academyBuildProfileEntryLayoutContext();
+
     academyPushFeedFallbackHistory('profile');
     saveAcademyViewState('profile');
     hideAcademyViewsForFeed();
+    academyClearMessagesLayoutResidueBeforeProfile();
     setAcademySidebarActive('nav-profile');
-    revealAcademyProfileView();
+    revealAcademyProfileView(profileEntryLayoutContext);
 
     currentRoom = null;
     currentRoomId = null;
@@ -10992,21 +11121,26 @@ async function openAcademyProfileView(forceFresh = false) {
 
         const selfPayload = buildAcademySelfProfilePayload(profile);
         renderAcademyProfileView(selfPayload, { mode: 'self' });
+        stabilizeAcademyMobileProfileLayout();
     } catch (error) {
         console.error('openAcademyProfileView error:', error);
 
         const fallbackPayload = buildAcademySelfProfilePayload();
         renderAcademyProfileView(fallbackPayload, { mode: 'self' });
+        stabilizeAcademyMobileProfileLayout();
 
         showToast(error?.message || 'Failed to load Academy profile.', 'error');
     } finally {
         hideAcademyTabLoader();
+        stabilizeAcademyMobileProfileLayout();
     }
 }
 
 async function openAcademyMemberProfileView(memberId = '') {
     const normalizedMemberId = normalizeAcademyFeedId(memberId);
     if (!normalizedMemberId) return;
+
+    const profileEntryLayoutContext = academyBuildProfileEntryLayoutContext();
 
     academyPushFeedFallbackHistory('profile');
     showAcademyTabLoader('Loading Profile...');
@@ -11015,8 +11149,9 @@ async function openAcademyMemberProfileView(memberId = '') {
         const profile = await fetchAcademyMemberProfile(normalizedMemberId);
 
         hideAcademyViewsForFeed();
+        academyClearMessagesLayoutResidueBeforeProfile();
         setAcademySidebarActive('');
-        revealAcademyProfileView();
+        revealAcademyProfileView(profileEntryLayoutContext);
 
         currentRoom = null;
         currentRoomId = null;
