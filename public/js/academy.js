@@ -30,6 +30,143 @@ const socket = io({
 
 const myName = getStoredUserValue('yh_user_name', "Hustler");
 
+function academyIsProbablyTruncatedName(value = '') {
+    const clean = String(value || '').trim();
+
+    return (
+        !clean ||
+        clean.includes('…') ||
+        /\.{2,}$/.test(clean) ||
+        clean.endsWith('...') ||
+        clean.length < 3
+    );
+}
+
+function academyGetLocalStorageValueSafe(key = '') {
+    try {
+        return String(localStorage.getItem(key) || '').trim();
+    } catch (_) {
+        return '';
+    }
+}
+
+function academyResolveStoredFullTopNavName() {
+    let cachedProfile = null;
+
+    try {
+        cachedProfile = typeof readAcademyProfileCache === 'function'
+            ? readAcademyProfileCache()
+            : null;
+    } catch (_) {
+        cachedProfile = null;
+    }
+
+    const firstName = String(
+        getStoredUserValue('yh_user_first_name', '') ||
+        getStoredUserValue('yh_user_firstname', '') ||
+        academyGetLocalStorageValueSafe('yh_user_first_name') ||
+        academyGetLocalStorageValueSafe('yh_user_firstname') ||
+        ''
+    ).trim();
+
+    const surname = String(
+        getStoredUserValue('yh_user_surname', '') ||
+        getStoredUserValue('yh_user_last_name', '') ||
+        getStoredUserValue('yh_user_lastname', '') ||
+        academyGetLocalStorageValueSafe('yh_user_surname') ||
+        academyGetLocalStorageValueSafe('yh_user_last_name') ||
+        academyGetLocalStorageValueSafe('yh_user_lastname') ||
+        ''
+    ).trim();
+
+    const joinedName = [firstName, surname].filter(Boolean).join(' ').trim();
+
+    const profileNameFromView = String(
+        document.getElementById('academy-profile-name')?.textContent || ''
+    ).trim();
+
+    const candidates = [
+        joinedName,
+
+        cachedProfile?.full_name,
+        cachedProfile?.fullName,
+        cachedProfile?.display_name,
+        cachedProfile?.displayName,
+
+        getStoredUserValue('yh_user_full_name', ''),
+        getStoredUserValue('yh_user_display_name', ''),
+        academyGetLocalStorageValueSafe('yh_user_full_name'),
+        academyGetLocalStorageValueSafe('yh_user_display_name'),
+
+        profileNameFromView,
+
+        getStoredUserValue('yh_user_name', ''),
+        academyGetLocalStorageValueSafe('yh_user_name')
+    ]
+        .map((value) => String(value || '').trim())
+        .filter(Boolean);
+
+    const fullCandidate = candidates.find((value) => !academyIsProbablyTruncatedName(value));
+
+    if (fullCandidate) {
+        return fullCandidate;
+    }
+
+    const fallback = candidates[0] || 'Hustler';
+
+    return fallback
+        .replace(/\u2026/g, '')
+        .replace(/\.{2,}$/g, '')
+        .trim() || 'Hustler';
+}
+
+function syncAcademyTopNavFullName() {
+    const nameEl = document.getElementById('top-nav-name');
+    const initialEl = document.getElementById('top-nav-initial');
+
+    const fullName = academyResolveStoredFullTopNavName();
+
+    if (nameEl) {
+        nameEl.textContent = fullName;
+        nameEl.title = fullName;
+        nameEl.setAttribute('aria-label', fullName);
+    }
+
+    if (initialEl) {
+        const initial = fullName.charAt(0).toUpperCase() || 'Y';
+        const hasAvatarImage = String(initialEl.style.backgroundImage || '').trim();
+
+        if (!hasAvatarImage || hasAvatarImage === 'none') {
+            initialEl.textContent = initial;
+        }
+    }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', syncAcademyTopNavFullName);
+} else {
+    syncAcademyTopNavFullName();
+}
+
+window.addEventListener('pageshow', syncAcademyTopNavFullName);
+window.addEventListener('storage', syncAcademyTopNavFullName);
+window.syncAcademyTopNavFullName = syncAcademyTopNavFullName;
+window.addEventListener('pageshow', () => {
+    window.requestAnimationFrame(() => {
+        syncAcademyTopNavFullName();
+
+        if (typeof syncAcademyMobileProfileSpacingGuard === 'function') {
+            syncAcademyMobileProfileSpacingGuard();
+        }
+    });
+});
+
+window.addEventListener('resize', () => {
+    if (typeof syncAcademyMobileProfileSpacingGuard === 'function') {
+        syncAcademyMobileProfileSpacingGuard();
+    }
+});
+
 const {
     showAcademyTabLoader,
     hideAcademyTabLoader,
@@ -6108,6 +6245,8 @@ function academyFeedTimeLabel(value) {
 }
 
 function hideAcademyViewsForFeed() {
+    document.body?.classList.remove('academy-mobile-profile-active');
+
     [
         'academy-feed-view',
         'academy-chat',
@@ -6513,9 +6652,22 @@ function academyResolveMemberAvatarUrl(member = {}) {
 function syncAcademyProfileLocalMirrors(profile = null) {
     if (!profile || typeof profile !== 'object') return null;
 
+    const fullName =
+        String(
+            profile.full_name ||
+            profile.fullName ||
+            profile.display_name ||
+            profile.displayName ||
+            ''
+        ).trim() || 'Hustler';
+
     const displayName =
-        String(profile.display_name || profile.displayName || '').trim() ||
-        'Hustler';
+        String(
+            profile.display_name ||
+            profile.displayName ||
+            fullName ||
+            ''
+        ).trim() || 'Hustler';
 
     const username =
         sanitizeAcademyProfileUsername(
@@ -6554,7 +6706,9 @@ function syncAcademyProfileLocalMirrors(profile = null) {
             getStoredUserValue('yh_user_uid', '')
         ) || '';
 
-    localStorage.setItem('yh_user_name', displayName);
+    localStorage.setItem('yh_user_name', fullName);
+    localStorage.setItem('yh_user_full_name', fullName);
+    localStorage.setItem('yh_user_display_name', displayName);
     localStorage.setItem('yh_user_username', username);
     localStorage.setItem('yh_user_profile_bio', bio);
 
@@ -6592,9 +6746,10 @@ function syncAcademyProfileLocalMirrors(profile = null) {
         });
     }
 
-    return persistAcademyProfileCache({
+    const cachedProfile = persistAcademyProfileCache({
         ...(profile && typeof profile === 'object' ? profile : {}),
         id: userId || String(profile.id || '').trim(),
+        full_name: fullName,
         display_name: displayName,
         username,
         avatar,
@@ -6602,6 +6757,12 @@ function syncAcademyProfileLocalMirrors(profile = null) {
         bio,
         search_tags: tags
     });
+
+    if (typeof syncAcademyTopNavFullName === 'function') {
+        syncAcademyTopNavFullName();
+    }
+
+    return cachedProfile;
 }
 
 async function fetchCurrentAcademyProfile(options = {}) {
@@ -7236,15 +7397,123 @@ function openAcademyProfileEditorModal() {
 
     document.getElementById('academy-profile-editor-overlay')?.classList.remove('hidden-step');
 }
+function academyCloseProfileMobileMenu() {
+    const trigger = document.getElementById('academy-profile-mobile-menu-trigger');
+    const menu = document.getElementById('academy-profile-mobile-menu');
 
+    if (trigger) {
+        trigger.setAttribute('aria-expanded', 'false');
+    }
+
+    if (menu) {
+        menu.classList.add('hidden-step');
+    }
+}
+
+function academyToggleProfileMobileMenu(forceOpen = null) {
+    const trigger = document.getElementById('academy-profile-mobile-menu-trigger');
+    const menu = document.getElementById('academy-profile-mobile-menu');
+
+    if (!trigger || !menu) return;
+
+    const shouldOpen =
+        typeof forceOpen === 'boolean'
+            ? forceOpen
+            : menu.classList.contains('hidden-step');
+
+    trigger.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+    menu.classList.toggle('hidden-step', !shouldOpen);
+}
+
+function academyOpenOwnProfileEditorFromMenu() {
+    const profileRoot = document.getElementById('academy-profile-view');
+    const isSelfProfile = profileRoot?.getAttribute('data-profile-layout') !== 'visited';
+
+    const openEditor = () => {
+        if (typeof openAcademyProfileEditorModal === 'function') {
+            openAcademyProfileEditorModal();
+            return;
+        }
+
+        document.getElementById('academy-profile-open-editor-btn')?.click();
+    };
+
+    if (!isSelfProfile && typeof openAcademyProfileView === 'function') {
+        try {
+            const maybePromise = openAcademyProfileView();
+
+            Promise.resolve(maybePromise)
+                .catch(() => {})
+                .finally(() => {
+                    window.setTimeout(openEditor, 120);
+                });
+
+            return;
+        } catch (_) {}
+    }
+
+    openEditor();
+}
+
+function academyRunProfileMobileMenuAction(action = '') {
+    const normalizedAction = String(action || '').trim().toLowerCase();
+
+    academyCloseProfileMobileMenu();
+
+    if (normalizedAction === 'edit' || normalizedAction === 'settings') {
+        academyOpenOwnProfileEditorFromMenu();
+        return;
+    }
+
+    if (normalizedAction === 'logout') {
+        if (typeof logoutUser === 'function') {
+            logoutUser();
+        }
+    }
+}
 function ensureAcademyProfileEditorBindings() {
     if (academyProfileEditorState.bound) return;
     academyProfileEditorState.bound = true;
 
     ensureAcademyProfileCropperBindings();
 
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            academyCloseProfileMobileMenu();
+        }
+    });
+
     document.addEventListener('click', (event) => {
-        const openBtn = event.target.closest('#academy-profile-open-editor-btn');
+        const target =
+            event.target instanceof Element
+                ? event.target
+                : event.target?.parentElement;
+
+        if (!target) return;
+
+        const profileMobileMenuTrigger = target.closest('#academy-profile-mobile-menu-trigger');
+        if (profileMobileMenuTrigger) {
+            event.preventDefault();
+            event.stopPropagation();
+            academyToggleProfileMobileMenu();
+            return;
+        }
+
+        const profileMobileMenuAction = target.closest('[data-profile-mobile-menu-action]');
+        if (profileMobileMenuAction) {
+            event.preventDefault();
+            event.stopPropagation();
+            academyRunProfileMobileMenuAction(
+                profileMobileMenuAction.getAttribute('data-profile-mobile-menu-action')
+            );
+            return;
+        }
+
+        if (!target.closest('#academy-profile-mobile-menu-wrap')) {
+            academyCloseProfileMobileMenu();
+        }
+
+        const openBtn = target.closest('#academy-profile-open-editor-btn');
         if (openBtn) {
             openAcademyProfileEditorModal();
             return;
@@ -7914,6 +8183,18 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
     }
 
     if (profileName) profileName.innerText = normalized.displayName;
+
+    if (isSelf) {
+        try {
+            localStorage.setItem('yh_user_name', normalized.displayName);
+            localStorage.setItem('yh_user_full_name', normalized.displayName);
+        } catch (_) {}
+
+        if (typeof syncAcademyTopNavFullName === 'function') {
+            window.requestAnimationFrame(syncAcademyTopNavFullName);
+        }
+    }
+
     if (profileUsername) profileUsername.innerText = normalized.username;
     if (profileRole) profileRole.innerText = normalized.roleLabel;
     if (profileBio) profileBio.innerText = normalized.bio;
@@ -8323,6 +8604,36 @@ const resolvedIntroVisibilityBadge = isSelf
     renderAcademyProfileRecentPosts(normalized.recentPosts, { isSelf });
 }
 
+function syncAcademyMobileProfileSpacingGuard() {
+    const profileView = document.getElementById('academy-profile-view');
+    const isMobile = window.innerWidth <= 768;
+    const isProfileVisible =
+        !!profileView &&
+        !profileView.classList.contains('hidden-step') &&
+        document.body?.getAttribute('data-yh-view') === 'academy';
+
+    document.body?.classList.toggle(
+        'academy-mobile-profile-active',
+        isMobile && isProfileVisible
+    );
+
+    if (!isMobile || !isProfileVisible) return;
+
+    const dashboardCore = document.querySelector('.dashboard-core');
+    const academyWrapper = document.getElementById('academy-wrapper');
+    const profileHeader = profileView.querySelector('.chat-header');
+    const profileMessages = profileView.querySelector('.chat-messages');
+
+    [academyWrapper, dashboardCore, profileView, profileHeader].filter(Boolean).forEach((node) => {
+        node.style.marginTop = '0';
+        node.style.paddingTop = node === profileHeader ? '10px' : '0';
+    });
+
+    if (profileMessages) {
+        profileMessages.style.paddingTop = '10px';
+    }
+}
+
 function revealAcademyProfileView() {
     const profileView = document.getElementById('academy-profile-view');
     if (!profileView) return;
@@ -8331,6 +8642,16 @@ function revealAcademyProfileView() {
     profileView.classList.remove('fade-in');
     void profileView.offsetWidth;
     profileView.classList.add('fade-in');
+
+    syncAcademyMobileProfileSpacingGuard();
+
+    window.requestAnimationFrame(() => {
+        syncAcademyMobileProfileSpacingGuard();
+
+        if (window.innerWidth <= 768) {
+            window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+        }
+    });
 }
 
 const academyLeadMissionsState = {

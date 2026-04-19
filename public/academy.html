@@ -1118,9 +1118,46 @@
         <div class="header-right academy-profile-header-right">
             <button
                 type="button"
-                class="btn-primary academy-profile-header-edit-btn"
+                class="btn-primary academy-profile-header-edit-btn academy-profile-desktop-edit-btn"
                 id="academy-profile-open-editor-btn"
             >Edit Profile</button>
+
+            <div class="academy-profile-mobile-menu-wrap" id="academy-profile-mobile-menu-wrap">
+                <button
+                    type="button"
+                    class="academy-profile-mobile-menu-trigger"
+                    id="academy-profile-mobile-menu-trigger"
+                    aria-expanded="false"
+                    aria-controls="academy-profile-mobile-menu"
+                    aria-label="Open profile menu"
+                >
+                    ☰
+                </button>
+
+                <div
+                    class="academy-profile-mobile-menu hidden-step"
+                    id="academy-profile-mobile-menu"
+                    role="menu"
+                    aria-label="Profile menu"
+                >
+                    <button type="button" role="menuitem" data-profile-mobile-menu-action="edit">
+                        Edit Profile
+                    </button>
+
+                    <button type="button" role="menuitem" data-profile-mobile-menu-action="settings">
+                        Settings
+                    </button>
+
+                    <button
+                        type="button"
+                        role="menuitem"
+                        class="academy-profile-mobile-menu-danger"
+                        data-profile-mobile-menu-action="logout"
+                    >
+                        Logout
+                    </button>
+                </div>
+            </div>
         </div>
     </header>
 
