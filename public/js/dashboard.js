@@ -191,6 +191,63 @@ function renderAcademyFeedAvatarHtml(post = {}, displayName = '') {
     });
 }
 
+const YH_POST_LOGIN_DASHBOARD_BOOTSTRAP_KEY = 'yh_post_login_dashboard_bootstrap_v1';
+let yhDashboardBootstrapFailSafeTimer = null;
+
+function shouldRunPostLoginDashboardBootstrap() {
+    try {
+        return sessionStorage.getItem(YH_POST_LOGIN_DASHBOARD_BOOTSTRAP_KEY) === '1';
+    } catch (_) {
+        return false;
+    }
+}
+
+function showDashboardBootstrapLoader(label = 'Checking your access...') {
+    const loader = document.getElementById('yh-dashboard-bootstrap-loader');
+    const text = document.getElementById('yh-dashboard-bootstrap-loader-text');
+
+    if (text) {
+        text.textContent = String(label || 'Checking your access...');
+    }
+
+    document.body?.classList.add('yh-dashboard-bootstrapping');
+
+    if (!loader) return;
+
+    loader.classList.remove('hidden-step');
+    loader.setAttribute('aria-hidden', 'false');
+}
+
+function hideDashboardBootstrapLoader() {
+    const loader = document.getElementById('yh-dashboard-bootstrap-loader');
+
+    if (yhDashboardBootstrapFailSafeTimer) {
+        clearTimeout(yhDashboardBootstrapFailSafeTimer);
+        yhDashboardBootstrapFailSafeTimer = null;
+    }
+
+    try {
+        sessionStorage.removeItem(YH_POST_LOGIN_DASHBOARD_BOOTSTRAP_KEY);
+    } catch (_) {}
+
+    document.body?.classList.remove('yh-dashboard-bootstrapping');
+
+    if (!loader) return;
+
+    loader.classList.add('hidden-step');
+    loader.setAttribute('aria-hidden', 'true');
+}
+
+function scheduleDashboardBootstrapFailSafe(delayMs = 6500) {
+    if (yhDashboardBootstrapFailSafeTimer) {
+        clearTimeout(yhDashboardBootstrapFailSafeTimer);
+    }
+
+    yhDashboardBootstrapFailSafeTimer = setTimeout(() => {
+        hideDashboardBootstrapLoader();
+    }, delayMs);
+}
+
 async function hydrateDashboardTopProfile(forceFresh = false) {
     const fallbackName =
         String(getStoredUserValue('yh_user_name', 'Hustler') || 'Hustler').trim() ||
@@ -711,11 +768,32 @@ document.getElementById('btn-back-to-universe-from-federation')?.addEventListene
 
 bindUniverseSwipe();
 
+const shouldShowDashboardBootstrapLoader = shouldRunPostLoginDashboardBootstrap();
+
+if (shouldShowDashboardBootstrapLoader) {
+    showDashboardBootstrapLoader('Checking your Academy, Federation, and Plaza access...');
+    scheduleDashboardBootstrapFailSafe(6500);
+} else {
+    hideDashboardBootstrapLoader();
+}
+
 setTimeout(() => {
-    refreshFederationAccessStatusFromBackend(true).catch(() => {});
-    refreshAcademyMembershipStatus(true).catch(() => {});
-    startAcademyMembershipRealtimeSync();
-}, 0); 
+    Promise.allSettled([
+        refreshFederationAccessStatusFromBackend(true),
+        refreshAcademyMembershipStatus(true)
+    ])
+        .finally(() => {
+            startAcademyMembershipRealtimeSync();
+
+            if (shouldShowDashboardBootstrapLoader) {
+                setTimeout(() => {
+                    hideDashboardBootstrapLoader();
+                }, 280);
+            } else {
+                hideDashboardBootstrapLoader();
+            }
+        });
+}, 0);
 
 function applyAcademyMessengerMode(enabled = false) {
     const chatMessagesWrap = document.getElementById('chat-messages');

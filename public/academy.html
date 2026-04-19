@@ -63,7 +63,7 @@
                 </button>
 
                 <button type="button" class="academy-mobile-nav-item" data-academy-target="nav-lead-missions">
-                    <span class="academy-mobile-nav-item-main">📇 Lead Missions</span>
+                    <span class="academy-mobile-nav-item-main">🎯 Missions</span>
                 </button>
 
                 <button type="button" class="academy-mobile-nav-item" data-academy-target="nav-chat">
@@ -272,7 +272,7 @@
 
     <li class="channel-link" id="nav-lead-missions" title="lead-missions" data-type="lead-missions">
         <div class="sidebar-icon"><span class="channel-icon">📇</span></div>
-        <span class="sidebar-text">Lead Missions</span>
+        <span class="sidebar-text">Missions</span>
     </li>
 
     <li class="channel-link" id="nav-chat" title="community" data-type="main-chat">
@@ -538,13 +538,16 @@
             <main class="yh-main-chat hide-scrollbar hidden-step fade-in" id="academy-lead-missions-view">
                 <header class="chat-header">
                     <div class="header-left">
-                        <span class="hash-big">📇</span>
-                        <h3>lead-missions</h3>
+                        <span class="hash-big" id="academy-missions-header-icon">🎯</span>
+                        <h3 id="academy-missions-header-title">missions</h3>
                         <div class="header-divider"></div>
-                        <p class="header-topic">Private operator leads, follow-ups, payouts, and deal records.</p>
+                        <p class="header-topic" id="academy-missions-header-topic">Choose a mission module to enter your workspace.</p>
                     </div>
 
-                    <div class="header-right academy-lead-header-actions">
+                    <div class="header-right academy-lead-header-actions hidden-step" id="academy-lead-missions-actions">
+                        <button type="button" class="btn-secondary academy-lead-profile-btn" id="btn-back-to-missions-hub">
+                            ← Missions
+                        </button>
                         <button type="button" class="btn-secondary academy-lead-profile-btn" id="btn-edit-lead-operator-profile">
                             Edit Recruitment Profile
                         </button>
@@ -554,31 +557,54 @@
 
                 <div class="chat-messages hide-scrollbar academy-lead-missions-scroll">
                     <div class="academy-lead-missions-shell">
-                        <section class="academy-lead-missions-hero">
+                        <section class="academy-lead-missions-hero" id="academy-missions-hub-panel">
                             <div>
-                                <div class="academy-profile-card-kicker">Private Workspace</div>
-                                <h2 class="academy-lead-missions-title">Lead Missions</h2>
+                                <div class="academy-profile-card-kicker">Mission Modules</div>
+                                <h2 class="academy-lead-missions-title">Missions</h2>
                                 <p class="academy-lead-missions-copy">
-                                    Only you and admin should be able to access these records.
+                                    Choose the type of mission you want to work on. More modules can be added here later.
                                 </p>
+                            </div>
+
+                            <div class="academy-missions-module-grid">
+                                <button type="button" class="academy-missions-module-card" id="btn-open-mission-leads">
+                                    <span class="academy-missions-module-icon">📇</span>
+                                    <span class="academy-missions-module-body">
+                                        <span class="academy-missions-module-title">Leads</span>
+                                        <span class="academy-missions-module-copy">Open your private leads workspace, follow-ups, payouts, deals, and scripts.</span>
+                                    </span>
+                                    <span class="academy-missions-module-arrow">→</span>
+                                </button>
                             </div>
                         </section>
 
-                        <div class="academy-lead-subtabs">
-                            <button type="button" class="academy-lead-subtab active" data-lead-subtab="readme">README</button>
-                            <button type="button" class="academy-lead-subtab" data-lead-subtab="database">Lead Database</button>
-                            <button type="button" class="academy-lead-subtab" data-lead-subtab="followup">Follow-Up Queue</button>
-                            <button type="button" class="academy-lead-subtab" data-lead-subtab="payouts">My Payouts</button>
-                            <button type="button" class="academy-lead-subtab" data-lead-subtab="deals">My Deals</button>
-                            <button type="button" class="academy-lead-subtab" data-lead-subtab="scripts">Scripts & Objections</button>
-                        </div>
+                        <div class="academy-lead-missions-workspace hidden-step" id="academy-lead-missions-workspace">
+                            <section class="academy-lead-missions-hero">
+                                <div>
+                                    <div class="academy-profile-card-kicker">Private Workspace</div>
+                                    <h2 class="academy-lead-missions-title">Leads</h2>
+                                    <p class="academy-lead-missions-copy">
+                                        Only you and admin should be able to access these records.
+                                    </p>
+                                </div>
+                            </section>
 
-                        <section id="academy-lead-panel-readme" class="academy-lead-panel"></section>
-                        <section id="academy-lead-panel-database" class="academy-lead-panel hidden-step"></section>
-                        <section id="academy-lead-panel-followup" class="academy-lead-panel hidden-step"></section>
-                        <section id="academy-lead-panel-payouts" class="academy-lead-panel hidden-step"></section>
-                        <section id="academy-lead-panel-deals" class="academy-lead-panel hidden-step"></section>
-                        <section id="academy-lead-panel-scripts" class="academy-lead-panel hidden-step"></section>
+                            <div class="academy-lead-subtabs">
+                                <button type="button" class="academy-lead-subtab active" data-lead-subtab="readme">README</button>
+                                <button type="button" class="academy-lead-subtab" data-lead-subtab="database">Lead Database</button>
+                                <button type="button" class="academy-lead-subtab" data-lead-subtab="followup">Follow-Up Queue</button>
+                                <button type="button" class="academy-lead-subtab" data-lead-subtab="payouts">My Payouts</button>
+                                <button type="button" class="academy-lead-subtab" data-lead-subtab="deals">My Deals</button>
+                                <button type="button" class="academy-lead-subtab" data-lead-subtab="scripts">Scripts & Objections</button>
+                            </div>
+
+                            <section id="academy-lead-panel-readme" class="academy-lead-panel"></section>
+                            <section id="academy-lead-panel-database" class="academy-lead-panel hidden-step"></section>
+                            <section id="academy-lead-panel-followup" class="academy-lead-panel hidden-step"></section>
+                            <section id="academy-lead-panel-payouts" class="academy-lead-panel hidden-step"></section>
+                            <section id="academy-lead-panel-deals" class="academy-lead-panel hidden-step"></section>
+                            <section id="academy-lead-panel-scripts" class="academy-lead-panel hidden-step"></section>
+                        </div>
                     </div>
                 </div>
             </main>
@@ -587,12 +613,12 @@
                 <div class="academy-lead-modal-card academy-lead-recruitment-card">
                     <div class="academy-lead-modal-head academy-lead-modal-head-centered">
                         <div class="academy-lead-modal-head-copy">
-                            <div class="academy-lead-modal-kicker">Lead Missions Access</div>
-                            <h3 class="academy-lead-modal-title" id="academy-lead-recruitment-title">Lead Missions Recruitment Profile</h3>
+                            <div class="academy-lead-modal-kicker">Leads Access</div>
+                            <h3 class="academy-lead-modal-title" id="academy-lead-recruitment-title">Leads Recruitment Profile</h3>
                             <p class="academy-lead-modal-subtitle">
-                                Before accessing Lead Missions, complete your recruitment profile so we can assign missions based on your skills, location, network, and strategic value.
+                                Before accessing Leads, complete your recruitment profile so we can assign missions based on your skills, location, network, and strategic value.
                             </p>
-                            <div class="academy-lead-required-note">Required before entering Lead Missions.</div>
+                            <div class="academy-lead-required-note">Required before entering Leads.</div>
                         </div>
                     </div>
 
@@ -724,7 +750,7 @@
                         </div>
 
                         <div class="form-group academy-lead-form-span-2">
-                            <label for="lead-recruitment-motivation">Why do you want access to Lead Missions?</label>
+                            <label for="lead-recruitment-motivation">Why do you want access to Leads?</label>
                             <textarea id="lead-recruitment-motivation" name="motivation" class="input-field" rows="4" required></textarea>
                         </div>
 
@@ -782,14 +808,14 @@
 
                                 <label class="academy-lead-agreement">
                                     <input type="checkbox" name="accessRiskAgreement" required>
-                                    <span>I understand that bad-quality submissions may remove my Lead Missions access.</span>
+                                    <span>I understand that bad-quality submissions may remove my Leads access.</span>
                                 </label>
                             </div>
                         </div>
 
                         <div class="academy-lead-form-actions academy-lead-form-span-2">
                             <button type="button" class="btn-secondary" id="btn-cancel-lead-recruitment">Not Now</button>
-                            <button type="submit" class="btn-primary" id="btn-save-lead-recruitment">Submit & Unlock Lead Missions</button>
+                            <button type="submit" class="btn-primary" id="btn-save-lead-recruitment">Submit & Unlock Leads</button>
                         </div>
                     </form>
                 </div>
@@ -799,7 +825,7 @@
                 <div class="academy-lead-modal-card">
                     <div class="academy-lead-modal-head academy-lead-modal-head-centered">
                         <div class="academy-lead-modal-head-copy">
-                            <div class="academy-lead-modal-kicker">Lead Missions</div>
+                            <div class="academy-lead-modal-kicker">Leads</div>
                             <h3 class="academy-lead-modal-title">Add Lead</h3>
                         </div>
                     </div>

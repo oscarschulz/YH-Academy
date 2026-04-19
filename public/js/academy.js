@@ -67,7 +67,7 @@ function getAcademySectionFromUrl() {
         const url = new URL(window.location.href);
         const section = String(url.searchParams.get('section') || '').trim().toLowerCase();
 
-        if (['home', 'community', 'messages', 'voice', 'video', 'profile', 'lead-missions'].includes(section)) {
+        if (['home', 'community', 'messages', 'voice', 'video', 'profile', 'missions', 'lead-missions'].includes(section)) {
             return section;
         }
 
@@ -1218,7 +1218,7 @@ document.getElementById('nav-lead-missions')?.addEventListener('click', function
     event?.stopPropagation?.();
     event?.stopImmediatePropagation?.();
 
-    openAcademyLeadMissionsView();
+    openAcademyMissionsView();
 });
 
 document.getElementById('nav-missions')?.addEventListener('click', async function(event) {
@@ -1490,7 +1490,7 @@ document.querySelectorAll('.academy-mobile-nav-item').forEach((button) => {
         } else if (targetId === 'nav-missions') {
             await handleAcademyRoadmapTabIntent();
         } else if (targetId === 'nav-lead-missions') {
-            openAcademyLeadMissionsView();
+            openAcademyMissionsView();
         } else if (targetId === 'nav-messages') {
             setAcademySidebarActive('nav-messages');
             openAcademyMessagesView();
@@ -7946,8 +7946,8 @@ function openAcademyLeadRecruitmentModal(options = {}) {
 
     if (title) {
         title.textContent = options?.mode === 'edit'
-            ? 'Edit Lead Missions Recruitment Profile'
-            : 'Lead Missions Recruitment Profile';
+            ? 'Edit Leads Recruitment Profile'
+            : 'Leads Recruitment Profile';
     }
 
     modal.classList.remove('hidden-step');
@@ -7992,7 +7992,7 @@ function validateAcademyLeadRecruitmentForm(form) {
     for (const name of requiredAgreements) {
         const checkbox = form.querySelector(`input[name="${name}"]`);
         if (!checkbox?.checked) {
-            showToast('You must accept all quality and compliance agreements before accessing Lead Missions.', 'error');
+            showToast('You must accept all quality and compliance agreements before accessing Leads.', 'error');
             return false;
         }
     }
@@ -8162,7 +8162,7 @@ function renderLeadMissionsReadme(meta = {}) {
                 <div class="academy-profile-card-kicker">Workspace owner</div>
                 <h4 class="academy-lead-card-title">${academyLeadSafeText(meta.operatorName || myName, 'Operator')}</h4>
                 <p class="academy-lead-card-copy">
-                    ${academyLeadSafeText(meta.readmeNote || 'Your Lead Missions workspace is private by default.')}
+                    ${academyLeadSafeText(meta.readmeNote || 'Your Leads workspace is private by default.')}
                 </p>
             </article>
         </div>
@@ -8385,7 +8385,7 @@ async function loadAcademyLeadMissionsWorkspace() {
     const result = await academyAuthedFetch('/api/academy/lead-missions/workspace', { method: 'GET' });
 
     if (!result?.success) {
-        throw new Error(result?.message || 'Unable to load Lead Missions workspace.');
+        throw new Error(result?.message || 'Unable to load Leads workspace.');
     }
 
     hydrateAcademyLeadMissionsWorkspace(result);
@@ -8393,33 +8393,31 @@ async function loadAcademyLeadMissionsWorkspace() {
     return result;
 }
 
-async function openAcademyLeadMissionsView(options = {}) {
-    const skipRecruitmentGate = options?.skipRecruitmentGate === true;
+function setAcademyMissionsPanel(target = 'hub') {
+    const mode = String(target || 'hub').trim().toLowerCase();
+    const isLeads = mode === 'leads';
 
-    syncAcademyLeadRecruitmentBadges();
+    const headerIcon = document.getElementById('academy-missions-header-icon');
+    const headerTitle = document.getElementById('academy-missions-header-title');
+    const headerTopic = document.getElementById('academy-missions-header-topic');
+    const headerActions = document.getElementById('academy-lead-missions-actions');
+    const hubPanel = document.getElementById('academy-missions-hub-panel');
+    const leadsWorkspace = document.getElementById('academy-lead-missions-workspace');
 
-    if (!skipRecruitmentGate) {
-        showAcademyTabLoader('Checking Lead Missions access.');
-
-        const hasRecruitmentProfile = await ensureAcademyLeadRecruitmentProfileLoaded();
-
-        hideAcademyTabLoader();
-
-        if (!hasRecruitmentProfile) {
-            closeRoadmapIntake();
-            academyResetCoachMode();
-            academyResetMessagesThreadState();
-            applyAcademyMessengerMode(false);
-            setAcademySidebarActive('nav-lead-missions');
-            openAcademyLeadRecruitmentModal();
-            showToast('Complete your Lead Missions Recruitment Profile first.', 'error');
-            return;
-        }
+    if (headerIcon) headerIcon.textContent = isLeads ? '📇' : '🎯';
+    if (headerTitle) headerTitle.textContent = isLeads ? 'leads' : 'missions';
+    if (headerTopic) {
+        headerTopic.textContent = isLeads
+            ? 'Private operator leads, follow-ups, payouts, and deal records.'
+            : 'Choose a mission module to enter your workspace.';
     }
 
-    showAcademyTabLoader('Loading Lead Missions.');
-    academyPushFeedFallbackHistory('lead-missions');
-    saveAcademyViewState('lead-missions');
+    if (headerActions) headerActions.classList.toggle('hidden-step', !isLeads);
+    if (hubPanel) hubPanel.classList.toggle('hidden-step', isLeads);
+    if (leadsWorkspace) leadsWorkspace.classList.toggle('hidden-step', !isLeads);
+}
+
+function revealAcademyMissionsViewShell() {
     closeRoadmapIntake();
     academyResetCoachMode();
     academyResetMessagesThreadState();
@@ -8444,11 +8442,48 @@ async function openAcademyLeadMissionsView(options = {}) {
     currentRoom = null;
     currentRoomId = null;
     currentRoomMeta = null;
+}
+
+function openAcademyMissionsView() {
+    showAcademyTabLoader('Loading Missions.');
+    academyPushFeedFallbackHistory('missions');
+    saveAcademyViewState('missions');
+    revealAcademyMissionsViewShell();
+    setAcademyMissionsPanel('hub');
+    hideAcademyTabLoader();
+}
+
+async function openAcademyLeadMissionsView(options = {}) {
+    const skipRecruitmentGate = options?.skipRecruitmentGate === true;
+
+    syncAcademyLeadRecruitmentBadges();
+
+    if (!skipRecruitmentGate) {
+        showAcademyTabLoader('Checking Leads access.');
+
+        const hasRecruitmentProfile = await ensureAcademyLeadRecruitmentProfileLoaded();
+
+        hideAcademyTabLoader();
+
+        if (!hasRecruitmentProfile) {
+            revealAcademyMissionsViewShell();
+            setAcademyMissionsPanel('hub');
+            openAcademyLeadRecruitmentModal();
+            showToast('Complete your Leads Recruitment Profile first.', 'error');
+            return;
+        }
+    }
+
+    showAcademyTabLoader('Loading Leads.');
+    academyPushFeedFallbackHistory('lead-missions');
+    saveAcademyViewState('lead-missions');
+    revealAcademyMissionsViewShell();
+    setAcademyMissionsPanel('leads');
 
     Promise.resolve(loadAcademyLeadMissionsWorkspace())
         .catch((error) => {
             console.error('loadAcademyLeadMissionsWorkspace error:', error);
-            showToast(error?.message || 'Failed to load Lead Missions.', 'error');
+            showToast(error?.message || 'Failed to load Leads.', 'error');
         })
         .finally(() => {
             hideAcademyTabLoader();
@@ -8460,6 +8495,14 @@ document.querySelectorAll('.academy-lead-subtab').forEach((btn) => {
         const target = String(btn.getAttribute('data-lead-subtab') || 'readme').trim() || 'readme';
         switchAcademyLeadMissionsSubtab(target);
     });
+});
+
+document.getElementById('btn-open-mission-leads')?.addEventListener('click', () => {
+    openAcademyLeadMissionsView();
+});
+
+document.getElementById('btn-back-to-missions-hub')?.addEventListener('click', () => {
+    openAcademyMissionsView();
 });
 
 document.getElementById('btn-edit-lead-operator-profile')?.addEventListener('click', () => {
@@ -8495,12 +8538,12 @@ document.getElementById('academy-lead-recruitment-form')?.addEventListener('subm
         syncAcademyLeadRecruitmentBadges();
         closeAcademyLeadRecruitmentModal();
 
-        showToast('Lead Missions profile submitted. Access unlocked.', 'success');
+        showToast('Leads profile submitted. Access unlocked.', 'success');
 
         openAcademyLeadMissionsView({ skipRecruitmentGate: true });
     } catch (error) {
         console.error('academy lead recruitment submit error:', error);
-        showToast(error?.message || 'Failed to save Lead Missions profile.', 'error');
+        showToast(error?.message || 'Failed to save Leads profile.', 'error');
     } finally {
         if (submitBtn) {
             submitBtn.disabled = false;
@@ -12015,6 +12058,11 @@ function restoreDashboardViewState() {
     const savedSection = String(state.academySection || 'home').trim().toLowerCase();
     const targetSection = requestedSection !== 'home' ? requestedSection : savedSection;
 
+    if (targetSection === 'missions') {
+        enterAcademyWorld('missions');
+        return;
+    }
+
     if (targetSection === 'lead-missions') {
         enterAcademyWorld('lead-missions');
         return;
@@ -12155,6 +12203,11 @@ function enterAcademyWorld(defaultSection = 'home') {
         if (defaultSection === 'video') {
             setAcademySidebarActive('nav-voice'); // fallback since wala pang nav-video
             openRoom('video', document.getElementById('nav-voice'));
+            return;
+        }
+
+        if (defaultSection === 'missions') {
+            openAcademyMissionsView();
             return;
         }
 
