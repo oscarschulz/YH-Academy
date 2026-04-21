@@ -557,12 +557,6 @@ a {
   border-radius: 14px;
 }
 
-.yh-plaza-summary-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  padding: 18px 22px 0;
-}
 
 .yh-plaza-summary-card {
   text-align: left;

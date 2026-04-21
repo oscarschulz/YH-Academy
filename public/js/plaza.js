@@ -1,252 +1,17 @@
 const defaultPlazaState = {
   stats: {
-    activeMembers: 184,
-    openOpportunities: 28,
-    regions: 12,
-    verifiedConnectors: 41
+    activeMembers: 0,
+    openOpportunities: 0,
+    regions: 0,
+    verifiedConnectors: 0
   },
-  feed: [
-    {
-      id: "feed-1",
-      type: "introduction",
-      member: "David O.",
-      source: "academy",
-      division: "academy",
-      region: "Lagos",
-      title: "New operator introduction from Lagos.",
-      text: "Focused on sales systems, discipline, and building stronger business structure. Looking to connect with builders in operations and growth.",
-      tag: "Introduction",
-      action: "Send Intro Request"
-    },
-    {
-      id: "feed-2",
-      type: "opportunity",
-      member: "Mia C.",
-      source: "federation",
-      division: "federation",
-      region: "London",
-      title: "Looking for a trusted media operator.",
-      text: "Need someone strong in short-form media execution for a premium business rollout. Verified referrals preferred.",
-      tag: "Opportunity",
-      action: "Request Access"
-    },
-    {
-      id: "feed-3",
-      type: "project",
-      member: "Andre K.",
-      source: "cross",
-      division: "both",
-      region: "Dubai",
-      title: "Cross-division project build underway.",
-      text: "Building a private network layer for vetted introductions and structured opportunity flow between YHA and YHF members.",
-      tag: "Project",
-      action: "View Project"
-    },
-    {
-      id: "feed-4",
-      type: "win",
-      member: "Naomi S.",
-      source: "academy",
-      division: "academy",
-      region: "Manila",
-      title: "Member win: first collaboration secured.",
-      text: "Closed a regional partnership after building visibility in Plaza and connecting through a trusted connector.",
-      tag: "Win",
-      action: "Congratulate"
-    },
-    {
-      id: "feed-5",
-      type: "introduction",
-      member: "Yusuf A.",
-      source: "cross",
-      division: "both",
-      region: "Abuja",
-      title: "Builder looking for serious operators only.",
-      text: "Interested in network, media, and regional expansion. Open to intros with disciplined long-term people.",
-      tag: "Introduction",
-      action: "Send Intro Request"
-    },
-    {
-      id: "feed-6",
-      type: "opportunity",
-      member: "Clara V.",
-      source: "federation",
-      division: "federation",
-      region: "Madrid",
-      title: "Seeking local connector for a new market entry.",
-      text: "Need someone with local market understanding, trusted contacts, and on-ground movement in Madrid.",
-      tag: "Opportunity",
-      action: "Offer Support"
-    }
-  ],
-  directory: [
-    {
-      id: "member-1",
-      name: "Emeka A.",
-      region: "Lagos",
-      division: "academy",
-      source: "academy",
-      trust: "verified",
-      role: "Sales Operator",
-      focus: "Lead generation and client acquisition",
-      tags: ["Sales", "Outreach", "Execution"]
-    },
-    {
-      id: "member-2",
-      name: "Sara M.",
-      region: "Dubai",
-      division: "federation",
-      source: "federation",
-      trust: "connector",
-      role: "Private Network Connector",
-      focus: "Introductions, partnerships, high-trust access",
-      tags: ["Connections", "Partnerships", "Access"]
-    },
-    {
-      id: "member-3",
-      name: "Daniel C.",
-      region: "London",
-      division: "both",
-      source: "cross",
-      trust: "leader",
-      role: "Regional Builder",
-      focus: "Growing city-level movement and local organization",
-      tags: ["Leadership", "Expansion", "Community"]
-    },
-    {
-      id: "member-4",
-      name: "Blessing O.",
-      region: "Manila",
-      division: "academy",
-      source: "academy",
-      trust: "verified",
-      role: "Creative Operator",
-      focus: "Content systems, structure, visual communication",
-      tags: ["Content", "Design", "Media"]
-    },
-    {
-      id: "member-5",
-      name: "Rafael P.",
-      region: "Madrid",
-      division: "federation",
-      source: "federation",
-      trust: "connector",
-      role: "Business Connector",
-      focus: "Market entry and strategic introductions",
-      tags: ["Business", "Markets", "Strategy"]
-    },
-    {
-      id: "member-6",
-      name: "Hassan U.",
-      region: "Abuja",
-      division: "both",
-      source: "cross",
-      trust: "verified",
-      role: "Growth Builder",
-      focus: "Projects, systems, and disciplined execution",
-      tags: ["Growth", "Systems", "Projects"]
-    }
-  ],
-  opportunities: [
-    {
-      id: "opp-1",
-      type: "Hiring",
-      region: "London",
-      title: "Short-form editor needed for premium brand assets.",
-      text: "Looking for speed, clean taste, and reliability. Past execution matters more than talk.",
-      action: "Apply Interest"
-    },
-    {
-      id: "opp-2",
-      type: "Partnership",
-      region: "Dubai",
-      title: "Looking for regional collaborators for a private rollout.",
-      text: "Need serious operators with local insight and clean execution.",
-      action: "Connect"
-    },
-    {
-      id: "opp-3",
-      type: "Introduction",
-      region: "Lagos",
-      title: "Need an introduction to trusted legal contacts.",
-      text: "Prefer someone already known inside the ecosystem rather than cold outreach.",
-      action: "Submit Intro"
-    },
-    {
-      id: "opp-4",
-      type: "Support",
-      region: "Manila",
-      title: "Seeking an accountability partner for structured weekly execution.",
-      text: "Looking for someone disciplined, growth-focused, and serious about progress.",
-      action: "Join Request"
-    }
-  ],
-  regions: [
-    {
-      id: "region-1",
-      region: "Lagos",
-      count: 28,
-      label: "Active Node",
-      text: "Strong movement in sales, business, and operational builders. Good for introductions and fast collaboration."
-    },
-    {
-      id: "region-2",
-      region: "London",
-      count: 16,
-      label: "Verified Access",
-      text: "More selective cluster with strong business and connector potential. Good for trust-led networking."
-    },
-    {
-      id: "region-3",
-      region: "Dubai",
-      count: 14,
-      label: "Expansion Focus",
-      text: "High-value regional movement with cross-market relevance and access opportunities."
-    },
-    {
-      id: "region-4",
-      region: "Manila",
-      count: 11,
-      label: "Rising Hub",
-      text: "Fast-growing node for creatives, digital operators, and collaboration-ready members."
-    }
-  ],
-  bridge: [
-    {
-      id: "bridge-1",
-      stage: "Capability Match",
-      left: "academy",
-      right: "federation",
-      region: "Lagos",
-      title: "Academy execution aligned with a Federation need.",
-      text: "A verified Academy operator matches a live business-side need that came through a Federation-linked connector.",
-      nextStep: "Screen the operator, confirm execution proof, then route a trusted introduction.",
-      action: "Open Bridge"
-    },
-    {
-      id: "bridge-2",
-      stage: "Regional Access",
-      left: "academy",
-      right: "both",
-      region: "Dubai",
-      title: "Regional movement can be upgraded through Plaza visibility.",
-      text: "A local Academy builder is becoming visible inside Plaza and now fits a cross-division expansion lane.",
-      nextStep: "Use Plaza to validate trust, then escalate toward screened cross-division access.",
-      action: "Review Path"
-    },
-    {
-      id: "bridge-3",
-      stage: "Trusted Intro",
-      left: "both",
-      right: "federation",
-      region: "London",
-      title: "Cross-division visibility is ready for a higher-trust introduction.",
-      text: "A builder with visible Plaza movement and cross-division signals now qualifies for a more selective connector path.",
-      nextStep: "Trigger a screened intro instead of open browsing or cold outreach.",
-      action: "Request Intro"
-    }
-  ]
+  feed: [],
+  directory: [],
+  opportunities: [],
+  regions: [],
+  bridge: []
 };
+
 
 const externalPlazaState =
   window.__YH_PLAZA_STATE__ ||
@@ -254,12 +19,12 @@ const externalPlazaState =
   window.yhPlazaState ||
   null;
 
-const PLAZA_REQUESTS_KEY = "yhPlazaRequests";
-const PLAZA_FEED_CUSTOM_KEY = "yhPlazaCustomFeed";
-const PLAZA_UI_STATE_KEY = "yhPlazaUiState";
-const PLAZA_INBOX_KEY = "yhPlazaInbox";
-const PLAZA_NOTIFICATIONS_KEY = "yhPlazaNotifications";
-const PLAZA_CONVERSATIONS_KEY = "yhPlazaConversations";
+const PLAZA_REQUESTS_KEY = "yhPlazaRequestsCleanV1";
+const PLAZA_FEED_CUSTOM_KEY = "yhPlazaCustomFeedCleanV1";
+const PLAZA_UI_STATE_KEY = "yhPlazaUiStateCleanV1";
+const PLAZA_INBOX_KEY = "yhPlazaInboxCleanV1";
+const PLAZA_NOTIFICATIONS_KEY = "yhPlazaNotificationsCleanV1";
+const PLAZA_CONVERSATIONS_KEY = "yhPlazaConversationsCleanV1";
 
 const OBJECTIVE_OPTIONS = [
   "Connection request",
@@ -3047,7 +2812,7 @@ function renderFeed(filter = "all") {
   const items = plazaAdapter.getFeed(filter);
 
   if (!items.length) {
-    plazaFeedGrid.innerHTML = `<div class="yh-plaza-empty">No live activity found for this filter yet.</div>`;
+    plazaFeedGrid.innerHTML = `<div class="yh-plaza-empty">No Plaza feed activity yet.</div>`;
     return;
   }
 
@@ -3071,11 +2836,6 @@ function renderFeed(filter = "all") {
           <span>${escapeHtml(item.region)}</span>
           <span>${escapeHtml(getDivisionLabel(item.division))}</span>
         </div>
-        <div class="yh-plaza-card-note">Signal type: ${escapeHtml(titleCase(item.type))}</div>
-        <div class="yh-plaza-flow-note">
-          <strong>Next move:</strong>
-          <span>${escapeHtml(getCardFlowLabel(item.type))}</span>
-        </div>
         <div class="yh-plaza-card-actions">
           <button type="button" class="yh-plaza-ghost-btn" data-feed-id="${escapeHtml(item.id)}">${escapeHtml(buttonLabel)}</button>
         </div>
@@ -3094,7 +2854,7 @@ function renderDirectory() {
   });
 
   if (!items.length) {
-    plazaDirectoryGrid.innerHTML = `<div class="yh-plaza-empty">No members match the selected filters yet.</div>`;
+    plazaDirectoryGrid.innerHTML = `<div class="yh-plaza-empty">No Plaza directory members yet.</div>`;
     return;
   }
 
@@ -3113,11 +2873,6 @@ function renderDirectory() {
         <span>${escapeHtml(item.region)}</span>
         <span>${escapeHtml(getDivisionLabel(item.division))}</span>
       </div>
-      <div class="yh-plaza-card-note">Access mode: ${escapeHtml(getVisibilityLabel(item))}</div>
-      <div class="yh-plaza-flow-note">
-        <strong>Next move:</strong>
-        <span>${escapeHtml(getCardFlowLabel("directory"))}</span>
-      </div>
       <div class="yh-plaza-directory-tags">
         ${item.tags.map((tag) => `<span class="yh-plaza-directory-tag">${escapeHtml(tag)}</span>`).join("")}
       </div>
@@ -3132,6 +2887,12 @@ function renderOpportunities() {
   if (!plazaOpportunityGrid) return;
 
   const items = plazaAdapter.getOpportunities();
+
+  if (!items.length) {
+    plazaOpportunityGrid.innerHTML = `<div class="yh-plaza-empty">No Plaza opportunities yet.</div>`;
+    return;
+  }
+
   plazaOpportunityGrid.innerHTML = items.map((item) => `
     <article class="yh-plaza-opportunity-card">
       <div class="yh-plaza-opportunity-card-head">
@@ -3140,11 +2901,6 @@ function renderOpportunities() {
       </div>
       <h3>${escapeHtml(item.title)}</h3>
       <p>${escapeHtml(item.text)}</p>
-      <div class="yh-plaza-card-note">Structured next step inside Plaza.</div>
-      <div class="yh-plaza-flow-note">
-        <strong>Next move:</strong>
-        <span>${escapeHtml(getCardFlowLabel("opportunity"))}</span>
-      </div>
       <div class="yh-plaza-card-actions">
         <button type="button" class="yh-plaza-ghost-btn" data-opportunity-id="${escapeHtml(item.id)}">Open Opportunity Detail</button>
       </div>
@@ -3156,6 +2912,12 @@ function renderRegions() {
   if (!plazaRegionGrid) return;
 
   const items = plazaAdapter.getRegions();
+
+  if (!items.length) {
+    plazaRegionGrid.innerHTML = `<div class="yh-plaza-empty">No regional hubs yet.</div>`;
+    return;
+  }
+
   plazaRegionGrid.innerHTML = items.map((item) => `
     <article class="yh-plaza-region-card">
       <div class="yh-plaza-region-card-head">
@@ -3164,11 +2926,6 @@ function renderRegions() {
       </div>
       <h3>${escapeHtml(item.region)}</h3>
       <p>${escapeHtml(item.text)}</p>
-      <div class="yh-plaza-card-note">Regional hub for visible movement, local access, and trusted clustering.</div>
-      <div class="yh-plaza-flow-note">
-        <strong>Next move:</strong>
-        <span>${escapeHtml(getCardFlowLabel("region"))}</span>
-      </div>
       <div class="yh-plaza-card-actions">
         <button type="button" class="yh-plaza-ghost-btn" data-region-id="${escapeHtml(item.id)}">Enter Region Hub</button>
       </div>
@@ -3198,11 +2955,6 @@ function renderBridge() {
       </div>
       <h3>${escapeHtml(item.title)}</h3>
       <p>${escapeHtml(item.text)}</p>
-      <div class="yh-plaza-card-note">Next step: ${escapeHtml(item.nextStep)}</div>
-      <div class="yh-plaza-flow-note">
-        <strong>Next move:</strong>
-        <span>${escapeHtml(getCardFlowLabel("bridge"))}</span>
-      </div>
       <div class="yh-plaza-card-actions">
         <button type="button" class="yh-plaza-ghost-btn" data-bridge-id="${escapeHtml(item.id)}">Open Bridge Detail</button>
       </div>
