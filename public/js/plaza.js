@@ -38,6 +38,10 @@ let plazaServerDirectoryLoaded = false;
 let plazaServerDirectory = [];
 let plazaDirectoryLoading = false;
 
+let plazaServerRegionsLoaded = false;
+let plazaServerRegions = [];
+let plazaRegionsLoading = false;
+
 const OBJECTIVE_OPTIONS = [
   "Connection request",
   "Introduction",
@@ -298,6 +302,65 @@ async function savePlazaDirectoryProfile(payload = {}) {
   }
 
   return profile;
+}
+function normalizeServerRegionItem(item, index = 0) {
+  return normalizeRegionItem({
+    id: item?.id || `server-region-${index + 1}`,
+    region: item?.region || item?.name || "Global",
+    count: Number(item?.count || 0),
+    label: item?.label || "Region Hub",
+    text: item?.text || item?.description || ""
+  }, index);
+}
+
+async function loadPlazaRegionsFromServer(options = {}) {
+  if (plazaRegionsLoading) return plazaServerRegions;
+
+  plazaRegionsLoading = true;
+
+  if (plazaRegionGrid && options.silent !== true) {
+    plazaRegionGrid.innerHTML = `<div class="yh-plaza-empty">Loading Plaza regions...</div>`;
+  }
+
+  try {
+    const result = await plazaApiFetch("/api/plaza/regions?limit=120");
+    const items = Array.isArray(result.regions) ? result.regions : [];
+
+    plazaServerRegions = items.map(normalizeServerRegionItem);
+    plazaServerRegionsLoaded = true;
+
+    renderRegions();
+    return plazaServerRegions;
+  } catch (error) {
+    console.error("loadPlazaRegionsFromServer error:", error);
+
+    if (plazaRegionGrid) {
+      plazaRegionGrid.innerHTML = `<div class="yh-plaza-empty">Could not load Plaza regions. Please refresh.</div>`;
+    }
+
+    return [];
+  } finally {
+    plazaRegionsLoading = false;
+  }
+}
+
+async function createPlazaRegion(payload = {}) {
+  const result = await plazaApiFetch("/api/plaza/regions", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+
+  const region = result.region ? normalizeServerRegionItem(result.region) : null;
+
+  if (region) {
+    plazaServerRegions = [
+      region,
+      ...plazaServerRegions.filter((item) => item.id !== region.id)
+    ];
+    plazaServerRegionsLoaded = true;
+  }
+
+  return region;
 }
 function normalizeDivision(value) {
   const raw = String(value || "").trim().toLowerCase();
@@ -2166,6 +2229,9 @@ const plazaOpportunityComposerSubmitBtn = document.getElementById("plazaOpportun
 const plazaDirectoryComposerForm = document.getElementById("plazaDirectoryComposerForm");
 const plazaDirectoryComposerSubmitBtn = document.getElementById("plazaDirectoryComposerSubmitBtn");
 
+const plazaRegionComposerForm = document.getElementById("plazaRegionComposerForm");
+const plazaRegionComposerSubmitBtn = document.getElementById("plazaRegionComposerSubmitBtn");
+
 const plazaDirectoryGrid = document.getElementById("plazaDirectoryGrid");
 const plazaOpportunityGrid = document.getElementById("plazaOpportunityGrid");
 const plazaRegionGrid = document.getElementById("plazaRegionGrid");
@@ -3160,7 +3226,9 @@ function renderOpportunities() {
 function renderRegions() {
   if (!plazaRegionGrid) return;
 
-  const items = plazaAdapter.getRegions();
+  const items = plazaServerRegionsLoaded
+    ? plazaServerRegions
+    : plazaAdapter.getRegions();
 
   if (!items.length) {
     plazaRegionGrid.innerHTML = `<div class="yh-plaza-empty">No regional hubs yet.</div>`;
@@ -5482,6 +5550,60 @@ async function submitPlazaDirectoryComposer(event) {
     plazaActionLocks.delete(lockKey);
   }
 }
+async function submitPlazaRegionComposer(event) {
+  event.preventDefault();
+
+  if (!plazaRegionComposerForm) return;
+
+  const submitButton = plazaRegionComposerSubmitBtn || event.submitter || null;
+  const lockKey = "form:plazaRegionComposer";
+
+  if (plazaActionLocks.has(lockKey)) return;
+
+  const formData = new FormData(plazaRegionComposerForm);
+  const payload = {
+    region: String(formData.get("region") || "").trim(),
+    label: String(formData.get("label") || "Region Hub").trim(),
+    text: String(formData.get("text") || "").trim()
+  };
+
+  if (!payload.region) {
+    if (typeof showToast === "function") {
+      showToast("Add a region name first.", "error");
+    }
+    return;
+  }
+
+  if (!payload.text) {
+    if (typeof showToast === "function") {
+      showToast("Add a region description first.", "error");
+    }
+    return;
+  }
+
+  plazaActionLocks.add(lockKey);
+  setButtonBusy(submitButton, "Creating...");
+
+  try {
+    await createPlazaRegion(payload);
+
+    plazaRegionComposerForm.reset();
+    renderRegions();
+
+    if (typeof showToast === "function") {
+      showToast("Region hub created.", "success");
+    }
+  } catch (error) {
+    console.error("submitPlazaRegionComposer error:", error);
+
+    if (typeof showToast === "function") {
+      showToast(error.message || "Could not create region hub.", "error");
+    }
+  } finally {
+    clearButtonBusy(submitButton);
+    plazaActionLocks.delete(lockKey);
+  }
+}
 async function initPlaza() {
   renderStats();
   populateRegionFilter();
@@ -5515,21 +5637,29 @@ async function initPlaza() {
     plazaOpportunityComposerForm.addEventListener("submit", submitPlazaOpportunityComposer);
   }
 
-  if (plazaDirectoryComposerForm) {
-    plazaDirectoryComposerForm.addEventListener("submit", submitPlazaDirectoryComposer);
-  }
+if (plazaDirectoryComposerForm) {
+  plazaDirectoryComposerForm.addEventListener("submit", submitPlazaDirectoryComposer);
+}
 
-  await loadPlazaFeedFromServer({
-    silent: restoredScreen !== "feed"
-  });
+if (plazaRegionComposerForm) {
+  plazaRegionComposerForm.addEventListener("submit", submitPlazaRegionComposer);
+}
 
-  await loadPlazaOpportunitiesFromServer({
-    silent: restoredScreen !== "opportunities"
-  });
+await loadPlazaFeedFromServer({
+  silent: restoredScreen !== "feed"
+});
 
-  await loadPlazaDirectoryFromServer({
-    silent: restoredScreen !== "directory"
-  });
+await loadPlazaOpportunitiesFromServer({
+  silent: restoredScreen !== "opportunities"
+});
+
+await loadPlazaDirectoryFromServer({
+  silent: restoredScreen !== "directory"
+});
+
+await loadPlazaRegionsFromServer({
+  silent: restoredScreen !== "regions"
+});
 
   if (typeof window.translateCurrentPage === "function") {
     window.translateCurrentPage();

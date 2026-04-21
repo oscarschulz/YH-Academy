@@ -97,6 +97,9 @@ router.post('/plaza/opportunities', auth, plazaControllers.createOpportunity);
 router.get('/plaza/directory', auth, plazaControllers.getDirectory);
 router.post('/plaza/directory/profile', auth, plazaControllers.upsertDirectoryProfile);
 
+router.get('/plaza/regions', auth, plazaControllers.getRegions);
+router.post('/plaza/regions', auth, plazaControllers.createRegion);
+
 // ==========================================
 // 🧠 INTERNAL AI NURTURE ROUTES
 // ==========================================

@@ -11,8 +11,8 @@
     href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap"
     rel="stylesheet"
   />
-<link rel="stylesheet" href="/css/plaza.css?v=20260421-plaza-directory-server-1" />
-<script src="/js/plaza.js?v=20260421-plaza-directory-server-1" defer></script>
+<link rel="stylesheet" href="/css/plaza.css?v=20260421-plaza-regions-server-1" />
+<script src="/js/plaza.js?v=20260421-plaza-regions-server-1" defer></script>
 </head>
 <body data-yh-i18n-mode="attributes" class="yh-plaza-page">
   <div class="yh-plaza-shell">
@@ -285,12 +285,39 @@
               <div class="yh-plaza-opportunity-grid" id="plazaOpportunityGrid"></div>
             </section>
 
-            <section class="yh-plaza-panel yh-plaza-screen" id="plazaPanelRegions" data-plaza-panel="regions" data-plaza-screen="regions" role="tabpanel" hidden>
-              <div class="yh-plaza-panel-note">
-                Regional hubs organize local movement, trusted connectors, and real-world clustering across the ecosystem.
+          <section class="yh-plaza-panel yh-plaza-screen" id="plazaPanelRegions" data-plaza-panel="regions" data-plaza-screen="regions" role="tabpanel" hidden>
+            <form class="yh-plaza-feed-composer" id="plazaRegionComposerForm">
+              <div class="yh-plaza-feed-composer-main">
+                <label class="yh-plaza-feed-composer-field">
+                  <span>Region</span>
+                  <input id="plazaRegionComposerRegion" name="region" type="text" placeholder="Lagos, Dubai, London, Manila..." maxlength="100" required />
+                </label>
+
+                <label class="yh-plaza-feed-composer-field">
+                  <span>Hub Label</span>
+                  <input id="plazaRegionComposerLabel" name="label" type="text" placeholder="Region Hub, Builder Hub, Connector Hub..." maxlength="100" />
+                </label>
+
+                <label class="yh-plaza-feed-composer-field yh-plaza-feed-composer-field-wide yh-plaza-feed-composer-field-signal">
+                  <span>Description</span>
+                  <textarea id="plazaRegionComposerText" name="text" placeholder="Describe what this region is for, who should join, and what kind of local movement happens here." maxlength="900" required></textarea>
+                </label>
               </div>
-              <div class="yh-plaza-region-grid" id="plazaRegionGrid"></div>
-            </section>
+
+              <div class="yh-plaza-feed-composer-actions">
+                <span class="yh-plaza-feed-composer-note">Server-backed Plaza Regions. Saved in Firestore.</span>
+                <button type="submit" class="yh-plaza-btn yh-plaza-btn-primary" id="plazaRegionComposerSubmitBtn">
+                  Create Region Hub
+                </button>
+              </div>
+            </form>
+
+            <div class="yh-plaza-panel-note">
+              Regional hubs organize local movement, trusted connectors, and real-world clustering across the ecosystem.
+            </div>
+
+            <div class="yh-plaza-region-grid" id="plazaRegionGrid"></div>
+          </section>
 
             <section class="yh-plaza-panel yh-plaza-screen" id="plazaPanelBridge" data-plaza-panel="bridge" data-plaza-screen="bridge" role="tabpanel" hidden>
               <div class="yh-plaza-panel-note">

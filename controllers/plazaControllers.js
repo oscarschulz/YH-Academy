@@ -4,6 +4,7 @@ const { Timestamp } = require('firebase-admin/firestore');
 const plazaFeedCol = firestore.collection('plazaFeedPosts');
 const plazaOpportunitiesCol = firestore.collection('plazaOpportunities');
 const plazaDirectoryCol = firestore.collection('plazaDirectoryProfiles');
+const plazaRegionsCol = firestore.collection('plazaRegions');
 
 function sanitizeText(value, fallback = '') {
     if (value === null || value === undefined) return fallback;
@@ -161,6 +162,23 @@ function mapPlazaDirectoryDoc(docSnap) {
         tags: normalizeTags(data.tags),
         authorId: sanitizeText(data.authorId || data.userId),
         authorName: sanitizeText(data.authorName || data.name || 'Hustler'),
+        authorEmail: sanitizeText(data.authorEmail).toLowerCase(),
+        status: sanitizeText(data.status || 'active'),
+        createdAt: mapTimestamp(data.createdAt),
+        updatedAt: mapTimestamp(data.updatedAt)
+    };
+}
+function mapPlazaRegionDoc(docSnap) {
+    const data = docSnap.data() || {};
+
+    return {
+        id: docSnap.id,
+        region: sanitizeText(data.region || data.name || 'Global'),
+        count: Number.isFinite(Number(data.count)) ? Number(data.count) : 0,
+        label: sanitizeText(data.label || 'Region Hub'),
+        text: sanitizeText(data.text || data.description || ''),
+        authorId: sanitizeText(data.authorId || data.createdByUserId),
+        authorName: sanitizeText(data.authorName || 'Hustler'),
         authorEmail: sanitizeText(data.authorEmail).toLowerCase(),
         status: sanitizeText(data.status || 'active'),
         createdAt: mapTimestamp(data.createdAt),
@@ -518,6 +536,118 @@ exports.upsertDirectoryProfile = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: 'Failed to save Plaza directory profile.'
+        });
+    }
+};
+exports.getRegions = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Missing authenticated user.'
+            });
+        }
+
+        const limit = Math.min(
+            Math.max(parseInt(req.query.limit, 10) || 100, 1),
+            200
+        );
+
+        const snap = await plazaRegionsCol
+            .orderBy('updatedAt', 'desc')
+            .limit(limit)
+            .get();
+
+        const regions = [];
+
+        snap.forEach((docSnap) => {
+            const data = docSnap.data() || {};
+            const status = sanitizeText(data.status || 'active').toLowerCase();
+
+            if (status !== 'active') return;
+
+            regions.push(mapPlazaRegionDoc(docSnap));
+        });
+
+        return res.json({
+            success: true,
+            regions
+        });
+    } catch (error) {
+        console.error('plazaControllers.getRegions error:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load Plaza regions.'
+        });
+    }
+};
+
+exports.createRegion = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Missing authenticated user.'
+            });
+        }
+
+        const region = clampText(req.body?.region || req.body?.name, 100);
+        const label = clampText(req.body?.label, 100, 'Region Hub') || 'Region Hub';
+        const text = clampText(
+            req.body?.text ||
+            req.body?.description ||
+            req.body?.body,
+            900
+        );
+
+        if (!region) {
+            return res.status(400).json({
+                success: false,
+                message: 'Region name is required.'
+            });
+        }
+
+        if (!text) {
+            return res.status(400).json({
+                success: false,
+                message: 'Region description is required.'
+            });
+        }
+
+        const now = Timestamp.now();
+
+        const payload = {
+            region,
+            label,
+            text,
+            count: 0,
+            authorId: viewer.id,
+            authorFirebaseUid: viewer.firebaseUid,
+            authorEmail: viewer.email,
+            authorName: viewer.name,
+            status: 'active',
+            createdAt: now,
+            updatedAt: now
+        };
+
+        const ref = await plazaRegionsCol.add(payload);
+        const createdSnap = await ref.get();
+
+        return res.status(201).json({
+            success: true,
+            region: mapPlazaRegionDoc(createdSnap)
+        });
+    } catch (error) {
+        console.error('plazaControllers.createRegion error:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to create Plaza region.'
         });
     }
 };

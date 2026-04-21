@@ -1189,6 +1189,7 @@ const apiLimiter = rateLimit({
             if (path === '/plaza/feed' || path.startsWith('/plaza/feed/')) return true;
             if (path === '/plaza/opportunities' || path.startsWith('/plaza/opportunities/')) return true;
             if (path === '/plaza/directory' || path.startsWith('/plaza/directory/')) return true;
+            if (path === '/plaza/regions' || path.startsWith('/plaza/regions/')) return true;
         }
 
         return false;
