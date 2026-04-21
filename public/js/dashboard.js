@@ -74,7 +74,16 @@ function buildAcademyUrl(section = 'home') {
 function redirectToAcademyPage(section = 'home') {
     window.location.href = buildAcademyUrl(section);
 }
-let currentRoom = "YH-community";      // UI/display label
+
+function buildPlazaUrl() {
+    return '/plaza.html';
+}
+
+function redirectToPlazaPage() {
+    window.location.href = buildPlazaUrl();
+}
+
+let currentRoom = "YH-community";     // UI/display label
 let currentRoomId = "YH-community";    // backend transport identity
 let currentRoomMeta = {
     type: 'main-chat',
@@ -501,19 +510,7 @@ function openDivisionPreview(targetDivision = 'plazas', options = {}) {
     if (viewFederation) viewFederation.classList.add('hidden-step');
 
     if (division === 'plazas') {
-        if (viewPlazas) {
-            viewPlazas.classList.remove('hidden-step');
-            viewPlazas.classList.remove('fade-in');
-            void viewPlazas.offsetWidth;
-            viewPlazas.classList.add('fade-in');
-        }
-
-        setDashboardViewMode('plazas');
-
-        if (shouldPersist) {
-            persistDashboardShellView('plazas', 'plazas');
-        }
-
+        redirectToPlazaPage();
         return;
     }
 
@@ -640,7 +637,7 @@ document.querySelectorAll('.yh-universe-slide .portal-card').forEach((card) => {
         }
 
         if (division === 'plazas') {
-            openDivisionPreview('plazas');
+            redirectToPlazaPage();
             return;
         }
 
@@ -657,7 +654,7 @@ document.querySelectorAll('.yh-universe-slide .portal-card').forEach((card) => {
 });
 
 document.getElementById('btn-open-plazas-preview')?.addEventListener('click', () => {
-    openDivisionPreview('plazas');
+    redirectToPlazaPage();
 });
 
 document.getElementById('btn-open-federation-preview')?.addEventListener('click', () => {
@@ -7905,7 +7902,7 @@ function restoreDashboardViewState() {
     }
 
     if (savedView === 'plazas') {
-        openDivisionPreview('plazas', { persist: false });
+        showUniverseHub('plazas', { animate: false, persist: false });
         return;
     }
 

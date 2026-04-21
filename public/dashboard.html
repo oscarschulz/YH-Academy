@@ -302,19 +302,29 @@
             </section>
 
             <section class="yh-universe-slide" data-division="plazas" aria-hidden="true">
-                <div class="portal-card locked-portal">
+                <div class="portal-card">
                     <div class="yh-universe-meta">
-                        <span class="yh-universe-badge">Coming Soon</span>
+                        <span class="yh-universe-badge">Active</span>
                         <span class="yh-universe-meta-copy">Marketplace, services, talent, monetization</span>
                     </div>
 
                     <div class="yh-universe-card-core">
                         <div class="portal-icon">🏪</div>
-                        <h2 class="portal-title">The Plazas</h2>
-                        <p class="portal-desc">The global marketplace. Offer your skills, hire talent, and conquer territory as a Patron to monetize your network.</p>
+                        <h2 class="portal-title">The Plaza</h2>
+                        <p class="portal-desc">
+                            Enter the structured networking and marketplace layer of YH Universe.
+                            Discover people, opportunities, regions, bridge paths, requests, inbox items, and live movement.
+                        </p>
                     </div>
 
-                    <button id="btn-open-plazas-preview" class="btn-secondary w-full" style="padding: 14px; font-size: 1rem;">View Plaza Preview ➔</button>
+                    <button
+                        id="btn-open-plazas-preview"
+                        class="btn-primary w-full"
+                        type="button"
+                        style="padding: 14px; font-size: 1rem;"
+                    >
+                        Enter Plaza ➔
+                    </button>
                 </div>
             </section>
         </div>
@@ -415,9 +425,19 @@
 
 <main class="coming-soon-wrapper hide-scrollbar hidden-step" id="view-plazas">
     <div class="coming-soon-icon" style="animation: none; font-size: 5rem;">🏪</div>
-    <h2 class="coming-soon-title">The Plazas is Opening Soon</h2>
-    <p class="coming-soon-desc">The marketplace and community hubs are not available yet. This division will open in a future update.</p>
-    <button class="btn-secondary" type="button" disabled style="max-width: 300px; margin-top: 1rem; cursor: not-allowed; opacity: 0.75;">🔒 Opening Soon</button>
+    <h2 class="coming-soon-title">Opening Plaza</h2>
+    <p class="coming-soon-desc">
+        Plaza is now active. Use the button below if your browser loaded an older dashboard script.
+    </p>
+    <button
+        class="btn-primary"
+        id="btn-open-plaza-fallback"
+        type="button"
+        onclick="window.location.href='/plaza.html'"
+        style="max-width: 300px; margin-top: 1rem;"
+    >
+        Enter Plaza ➔
+    </button>
 </main>
 
 <main class="yh-dashboard-federation-shell hidden-step" id="view-federation" aria-label="Federation module">

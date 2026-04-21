@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Young Hustlers Plaza</title>
+  <meta name="description" content="The structured networking layer of Young Hustlers Universe." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="/css/plaza.css?v=20260421-plaza-active-1" />
+  <script src="/js/plaza.js?v=20260421-plaza-active-1" defer></script>
+</head>
+<body data-yh-i18n-mode="attributes" class="yh-plaza-page">
+  <div class="yh-plaza-shell">
+        <header class="yh-plaza-app-header">
+      <div class="yh-plaza-app-brand">
+        <div class="yh-plaza-brand-mark" aria-hidden="true">YH</div>
+        <div class="yh-plaza-brand-copy">
+          <span class="yh-plaza-brand-kicker">Young Hustlers Universe</span>
+          <strong class="yh-plaza-brand-title">Plaza</strong>
+        </div>
+      </div>
+
+            <div class="yh-plaza-app-actions">
+        <a href="/dashboard" class="yh-plaza-btn yh-plaza-btn-secondary" id="plazaBackToUniverseBtn">
+          ← Go back to Universe
+        </a>
+
+        <button type="button" class="yh-plaza-btn yh-plaza-btn-primary" id="plazaOpenRequestsBtn">My Requests</button>
+
+        <div class="yh-plaza-header-icons" aria-label="Plaza operational actions">
+          <button
+            type="button"
+            class="yh-plaza-btn yh-plaza-btn-secondary yh-plaza-header-icon-btn"
+            id="plazaOpenInboxBtn"
+            aria-label="Open Inbox"
+            title="Open Inbox"
+          >
+            <span class="yh-plaza-header-icon-svg" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 13h4l2 3h4l2-3h4"></path>
+                <path d="M5 4h14l2 9v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5l2-9Z"></path>
+              </svg>
+            </span>
+            <span class="yh-plaza-header-icon-badge" data-header-count="inbox" hidden>0</span>
+          </button>
+
+          <button
+            type="button"
+            class="yh-plaza-btn yh-plaza-btn-secondary yh-plaza-header-icon-btn"
+            id="plazaOpenNotificationsBtn"
+            aria-label="Open Notifications"
+            title="Open Notifications"
+          >
+            <span class="yh-plaza-header-icon-svg" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M15 17h5l-1.4-1.4a2 2 0 0 1-.6-1.4V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5"></path>
+                <path d="M10 17a2 2 0 0 0 4 0"></path>
+              </svg>
+            </span>
+            <span class="yh-plaza-header-icon-badge" data-header-count="notifications" hidden>0</span>
+          </button>
+
+          <button
+            type="button"
+            class="yh-plaza-btn yh-plaza-btn-secondary yh-plaza-header-icon-btn"
+            id="plazaOpenMessagesBtn"
+            aria-label="Open Messages"
+            title="Open Messages"
+          >
+            <span class="yh-plaza-header-icon-svg" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15a3 3 0 0 1-3 3H9l-4 3v-3H5a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h13a3 3 0 0 1 3 3v7Z"></path>
+              </svg>
+            </span>
+            <span class="yh-plaza-header-icon-badge" data-header-count="messages" hidden>0</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div class="yh-plaza-app-grid">
+      <aside class="yh-plaza-sidebar">
+        <section class="yh-plaza-side-card yh-plaza-side-card-primary">
+          <span class="yh-plaza-section-kicker">YHP Logic</span>
+          <h2>Plaza turns visibility into structured movement.</h2>
+          <p>Academy prepares. Plaza surfaces. Federation filters and elevates. This space is the discovery layer that connects all three motions without becoming a random forum.</p>
+        </section>
+
+        <section class="yh-plaza-side-card">
+          <div class="yh-plaza-side-head">
+            <span class="yh-plaza-section-kicker">Workspace</span>
+          </div>
+
+          <div class="yh-plaza-side-nav">
+            <button type="button" class="yh-plaza-nav-btn is-active" data-nav-tab="feed">
+              <span class="yh-plaza-nav-btn-title">Live Feed</span>
+              <span class="yh-plaza-nav-btn-note">Signals from members, projects, and movement</span>
+            </button>
+
+            <button type="button" class="yh-plaza-nav-btn" data-nav-tab="directory">
+              <span class="yh-plaza-nav-btn-title">Directory</span>
+              <span class="yh-plaza-nav-btn-note">Find people by region, role, and trust level</span>
+            </button>
+
+            <button type="button" class="yh-plaza-nav-btn" data-nav-tab="opportunities">
+              <span class="yh-plaza-nav-btn-title">Opportunities</span>
+              <span class="yh-plaza-nav-btn-note">Hiring, intros, collaboration, and support</span>
+            </button>
+
+            <button type="button" class="yh-plaza-nav-btn" data-nav-tab="regions">
+              <span class="yh-plaza-nav-btn-title">Regions</span>
+              <span class="yh-plaza-nav-btn-note">Cluster movement by city and regional hub</span>
+            </button>
+
+            <button type="button" class="yh-plaza-nav-btn" data-nav-tab="bridge">
+              <span class="yh-plaza-nav-btn-title">Bridge</span>
+              <span class="yh-plaza-nav-btn-note">Where YHA execution starts connecting to YHF relevance</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="yh-plaza-side-card">
+          <div class="yh-plaza-side-head">
+            <span class="yh-plaza-section-kicker">Quick Actions</span>
+          </div>
+
+          <div class="yh-plaza-side-stack">
+            <button type="button" class="yh-plaza-ghost-btn yh-plaza-side-action" id="plazaSidebarIntroBtn">Post Introduction</button>
+            <button type="button" class="yh-plaza-ghost-btn yh-plaza-side-action" id="plazaSidebarConnectBtn">Open Request</button>
+            <button type="button" class="yh-plaza-ghost-btn yh-plaza-side-action" id="plazaSidebarRequestsBtn">Open My Requests</button>
+          </div>
+        </section>
+      </aside>
+
+      <main class="yh-plaza-workspace">
+        <section class="yh-plaza-summary-grid">
+          <button type="button" class="yh-plaza-summary-card" data-stat-jump="directory">
+            <span>Active Members</span>
+            <strong id="plazaActiveMembersValue">184</strong>
+            <small>Visible people inside Plaza now</small>
+          </button>
+
+          <button type="button" class="yh-plaza-summary-card" data-stat-jump="opportunities">
+            <span>Open Opportunities</span>
+            <strong id="plazaOpenOpportunitiesValue">28</strong>
+            <small>Execution, intros, support, and collaboration</small>
+          </button>
+
+          <button type="button" class="yh-plaza-summary-card" data-stat-jump="regions">
+            <span>Regions</span>
+            <strong id="plazaRegionsValue">12</strong>
+            <small>Local movement and clustering</small>
+          </button>
+
+          <button type="button" class="yh-plaza-summary-card" data-stat-jump="bridge">
+            <span>Verified Connectors</span>
+            <strong id="plazaVerifiedConnectorsValue">41</strong>
+            <small>Trusted filters between visibility and access</small>
+          </button>
+        </section>
+
+        <section class="yh-plaza-workspace-card">
+                    <div class="yh-plaza-workspace-head">
+            <div>
+              <span class="yh-plaza-section-kicker">Plaza Interface</span>
+
+              <div class="yh-plaza-screen-context" id="plazaScreenContext" hidden>
+                <button type="button" class="yh-plaza-ghost-btn yh-plaza-screen-back" id="plazaScreenBackBtn" hidden>Back</button>
+                <div class="yh-plaza-screen-breadcrumbs" id="plazaScreenBreadcrumbs"></div>
+              </div>
+
+              <h1 class="yh-plaza-workspace-title" id="plazaWorkspaceTitle">Live Feed</h1>
+              <p class="yh-plaza-workspace-note" id="plazaWorkspaceNote">
+                Structured signals from members, projects, and movement across the Universe.
+              </p>
+            </div>
+
+            <div class="yh-plaza-tabs" role="tablist" aria-label="Plaza views">
+              <button type="button" class="yh-plaza-tab is-active" data-plaza-tab="feed" role="tab" aria-selected="true">Live Feed</button>
+              <button type="button" class="yh-plaza-tab" data-plaza-tab="directory" role="tab" aria-selected="false">Directory</button>
+              <button type="button" class="yh-plaza-tab" data-plaza-tab="opportunities" role="tab" aria-selected="false">Opportunities</button>
+              <button type="button" class="yh-plaza-tab" data-plaza-tab="regions" role="tab" aria-selected="false">Regions</button>
+              <button type="button" class="yh-plaza-tab" data-plaza-tab="bridge" role="tab" aria-selected="false">Bridge</button>
+            </div>
+          </div>
+
+          <div class="yh-plaza-toolbar-stack">
+            <div class="yh-plaza-panel-toolbar" id="plazaFeedToolbar">
+              <div class="yh-plaza-pill-group">
+                <button type="button" class="yh-plaza-pill is-active" data-feed-filter="all">All</button>
+                <button type="button" class="yh-plaza-pill" data-feed-filter="introduction">Introductions</button>
+                <button type="button" class="yh-plaza-pill" data-feed-filter="opportunity">Opportunities</button>
+                <button type="button" class="yh-plaza-pill" data-feed-filter="project">Projects</button>
+                <button type="button" class="yh-plaza-pill" data-feed-filter="win">Wins</button>
+              </div>
+            </div>
+
+            <div class="yh-plaza-directory-toolbar" id="plazaDirectoryToolbar" hidden>
+              <label class="yh-plaza-field">
+                <span>Region</span>
+                <select id="plazaRegionFilter">
+                  <option value="all">All Regions</option>
+                </select>
+              </label>
+
+              <label class="yh-plaza-field">
+                <span>Division</span>
+                <select id="plazaDivisionFilter">
+                  <option value="all">All Divisions</option>
+                  <option value="academy">Academy</option>
+                  <option value="federation">Federation</option>
+                  <option value="both">Both</option>
+                </select>
+              </label>
+
+              <label class="yh-plaza-field">
+                <span>Trust Layer</span>
+                <select id="plazaTrustFilter">
+                  <option value="all">All</option>
+                  <option value="verified">Verified</option>
+                  <option value="connector">Trusted Connector</option>
+                  <option value="leader">Local Leader</option>
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div class="yh-plaza-tab-panels yh-plaza-screen-stack">
+            <section class="yh-plaza-panel yh-plaza-screen is-active" id="plazaPanelFeed" data-plaza-panel="feed" data-plaza-screen="feed" role="tabpanel">
+              <div class="yh-plaza-panel-note">
+                Signal board only. Plaza surfaces introductions, opportunities, projects, and wins — not random posting.
+              </div>
+              <div class="yh-plaza-feed-grid" id="plazaFeedGrid"></div>
+            </section>
+
+            <section class="yh-plaza-panel yh-plaza-screen" id="plazaPanelDirectory" data-plaza-panel="directory" data-plaza-screen="directory" role="tabpanel" hidden>
+              <div class="yh-plaza-panel-note">
+                Federation-linked people stay screened inside Plaza. Use structured connection requests to move deeper.
+              </div>
+              <div class="yh-plaza-directory-grid" id="plazaDirectoryGrid"></div>
+            </section>
+
+            <section class="yh-plaza-panel yh-plaza-screen" id="plazaPanelOpportunities" data-plaza-panel="opportunities" data-plaza-screen="opportunities" role="tabpanel" hidden>
+              <div class="yh-plaza-panel-note">
+                This is the practical movement layer of Plaza: collaboration, hiring, intros, access, and execution support.
+              </div>
+              <div class="yh-plaza-opportunity-grid" id="plazaOpportunityGrid"></div>
+            </section>
+
+            <section class="yh-plaza-panel yh-plaza-screen" id="plazaPanelRegions" data-plaza-panel="regions" data-plaza-screen="regions" role="tabpanel" hidden>
+              <div class="yh-plaza-panel-note">
+                Regional hubs organize local movement, trusted connectors, and real-world clustering across the ecosystem.
+              </div>
+              <div class="yh-plaza-region-grid" id="plazaRegionGrid"></div>
+            </section>
+
+            <section class="yh-plaza-panel yh-plaza-screen" id="plazaPanelBridge" data-plaza-panel="bridge" data-plaza-screen="bridge" role="tabpanel" hidden>
+              <div class="yh-plaza-panel-note">
+                Bridge shows where Academy execution, Plaza visibility, and Federation relevance begin to connect.
+              </div>
+              <div class="yh-plaza-bridge-grid" id="plazaBridgeGrid"></div>
+            </section>
+
+                        <section class="yh-plaza-screen" id="plazaScreenRequests" data-plaza-screen="requests" hidden>
+              <div class="yh-plaza-screen-shell">
+                <div class="yh-plaza-screen-head">
+                  <div>
+                    <span class="yh-plaza-section-kicker">My Requests</span>
+                    <h2 class="yh-plaza-screen-title">Tracked Plaza requests</h2>
+                    <p class="yh-plaza-panel-note">Every structured request stays inside Plaza so the user can review movement without leaving the YH Universe tab.</p>
+                  </div>
+                </div>
+                <div class="yh-plaza-request-list" id="plazaRequestsScreenList"></div>
+              </div>
+            </section>
+
+            <section class="yh-plaza-screen" id="plazaScreenInbox" data-plaza-screen="inbox" hidden>
+              <div class="yh-plaza-screen-shell">
+                <div class="yh-plaza-screen-head">
+                  <div>
+                    <span class="yh-plaza-section-kicker">Inbox Hub</span>
+                    <h2 class="yh-plaza-screen-title">Incoming Plaza work</h2>
+                    <p class="yh-plaza-panel-note">Receiver-side workflow stays here: project owner, project manager, HR, Plaza ops, system admin, and personal inbox lanes.</p>
+                  </div>
+                  <div class="yh-plaza-screen-meta" id="plazaInboxMeta"></div>
+                </div>
+                <div class="yh-plaza-role-filter-row" id="plazaInboxRoleFilters"></div>
+                <div class="yh-plaza-ops-summary-grid" id="plazaInboxSummaryGrid"></div>
+                <div class="yh-plaza-request-list" id="plazaInboxList"></div>
+              </div>
+            </section>
+
+            <section class="yh-plaza-screen" id="plazaScreenIncomingDetail" data-plaza-screen="incoming-detail" hidden>
+              <div class="yh-plaza-screen-shell">
+                <div class="yh-plaza-screen-head">
+                  <div>
+                    <span class="yh-plaza-section-kicker">Incoming Detail</span>
+                    <h2 class="yh-plaza-screen-title" id="plazaIncomingDetailTitle">Incoming Plaza item</h2>
+                    <p class="yh-plaza-panel-note">Review the intake lane, attachment package, routing ownership, and conversation handoff from one internal screen.</p>
+                  </div>
+                  <div class="yh-plaza-screen-meta" id="plazaIncomingDetailMeta"></div>
+                </div>
+                <div class="yh-plaza-screen-actions" id="plazaIncomingDetailActions"></div>
+                <div class="yh-plaza-screen-body" id="plazaIncomingDetailBody"></div>
+              </div>
+            </section>
+
+            <section class="yh-plaza-screen" id="plazaScreenNotifications" data-plaza-screen="notifications" hidden>
+              <div class="yh-plaza-screen-shell">
+                <div class="yh-plaza-screen-head">
+                  <div>
+                    <span class="yh-plaza-section-kicker">Notifications</span>
+                    <h2 class="yh-plaza-screen-title">Awareness and delivery events</h2>
+                    <p class="yh-plaza-panel-note">Notifications are awareness only. They point toward inbox items, requests, or live conversations without replacing those workflows.</p>
+                  </div>
+                  <div class="yh-plaza-screen-meta" id="plazaNotificationsMeta"></div>
+                </div>
+                <div class="yh-plaza-role-filter-row" id="plazaNotificationRoleFilters"></div>
+                <div class="yh-plaza-request-list" id="plazaNotificationsList"></div>
+              </div>
+            </section>
+
+            <section class="yh-plaza-screen" id="plazaScreenMessages" data-plaza-screen="messages" hidden>
+              <div class="yh-plaza-screen-shell">
+                <div class="yh-plaza-screen-head">
+                  <div>
+                    <span class="yh-plaza-section-kicker">Messages</span>
+                    <h2 class="yh-plaza-screen-title">Conversation index</h2>
+                    <p class="yh-plaza-panel-note">Only approved or converted Plaza conversations live here. Raw requests stay in Inbox until a lane is opened.</p>
+                  </div>
+                  <div class="yh-plaza-screen-meta" id="plazaMessagesMeta"></div>
+                </div>
+                <div class="yh-plaza-request-list" id="plazaMessagesList"></div>
+              </div>
+            </section>
+
+            <section class="yh-plaza-screen" id="plazaScreenConversation" data-plaza-screen="conversation" hidden>
+              <div class="yh-plaza-screen-shell">
+                <div class="yh-plaza-screen-head">
+                  <div>
+                    <span class="yh-plaza-section-kicker">Conversation</span>
+                    <h2 class="yh-plaza-screen-title" id="plazaConversationTitle">Plaza conversation</h2>
+                    <p class="yh-plaza-panel-note">Conversation stays tied to its route, queue owner, and opening context so Plaza never becomes random DM chaos.</p>
+                  </div>
+                  <div class="yh-plaza-screen-meta" id="plazaConversationMeta"></div>
+                </div>
+                <div class="yh-plaza-screen-body">
+                  <div class="yh-plaza-conversation-thread" id="plazaConversationThread"></div>
+                  <form class="yh-plaza-conversation-composer" id="plazaConversationForm">
+                    <input type="hidden" name="conversationId" id="plazaConversationIdField" value="" />
+                    <label class="yh-plaza-conversation-field">
+                      <span>Reply</span>
+                      <textarea name="message" id="plazaConversationMessageField" placeholder="Write a contextual reply inside Plaza." required></textarea>
+                    </label>
+                    <div class="yh-plaza-form-actions">
+                      <button type="submit" class="yh-plaza-btn yh-plaza-btn-primary">Send Reply</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </section>
+
+            <section class="yh-plaza-screen" id="plazaScreenOpportunityDetail" data-plaza-screen="opportunity-detail" hidden>
+              <div class="yh-plaza-screen-shell">
+                <div class="yh-plaza-screen-head">
+                  <div>
+                    <span class="yh-plaza-section-kicker">Opportunity Detail</span>
+                    <h2 class="yh-plaza-screen-title" id="plazaOpportunityDetailTitle">Opportunity Detail</h2>
+                    <p class="yh-plaza-panel-note">Structured fit, related members, and next-step routing inside the same Plaza workspace.</p>
+                  </div>
+                  <div class="yh-plaza-screen-meta" id="plazaOpportunityDetailMeta"></div>
+                </div>
+
+                <div class="yh-plaza-screen-actions">
+                  <button type="button" class="yh-plaza-btn yh-plaza-btn-primary" id="plazaOpportunityDetailPrimaryBtn">Open Request</button>
+                  <button type="button" class="yh-plaza-btn yh-plaza-btn-secondary" data-screen-back>Back</button>
+                </div>
+
+                <div class="yh-plaza-screen-body" id="plazaOpportunityDetailBody"></div>
+              </div>
+            </section>
+
+            <section class="yh-plaza-screen" id="plazaScreenProjectDetail" data-plaza-screen="project-detail" hidden>
+              <div class="yh-plaza-screen-shell">
+                <div class="yh-plaza-screen-head">
+                  <div>
+                    <span class="yh-plaza-section-kicker">Project Detail</span>
+                    <h2 class="yh-plaza-screen-title" id="plazaProjectDetailTitle">Project Detail</h2>
+                    <p class="yh-plaza-panel-note">Cross-division project detail now stays inside the single-file Plaza workspace.</p>
+                  </div>
+                  <div class="yh-plaza-screen-meta" id="plazaProjectDetailMeta"></div>
+                </div>
+
+                <div class="yh-plaza-screen-actions">
+                  <button type="button" class="yh-plaza-btn yh-plaza-btn-primary" id="plazaProjectDetailPrimaryBtn">Open Project Request</button>
+                  <button type="button" class="yh-plaza-btn yh-plaza-btn-secondary" data-screen-back>Back</button>
+                </div>
+
+                <div class="yh-plaza-screen-body" id="plazaProjectDetailBody"></div>
+              </div>
+            </section>
+
+            <section class="yh-plaza-screen" id="plazaScreenRegionHub" data-plaza-screen="region-hub" hidden>
+              <div class="yh-plaza-screen-shell">
+                <div class="yh-plaza-screen-head">
+                  <div>
+                    <span class="yh-plaza-section-kicker">Region Hub</span>
+                    <h2 class="yh-plaza-screen-title" id="plazaRegionHubTitle">Region Hub</h2>
+                    <p class="yh-plaza-panel-note">Local movement, members, and next steps stay inside the same embedded YH Universe workspace.</p>
+                  </div>
+                  <div class="yh-plaza-screen-meta" id="plazaRegionHubMeta"></div>
+                </div>
+
+                <div class="yh-plaza-screen-actions">
+                  <button type="button" class="yh-plaza-btn yh-plaza-btn-primary" id="plazaRegionHubPrimaryBtn">Request Regional Connection</button>
+                  <button type="button" class="yh-plaza-btn yh-plaza-btn-secondary" data-screen-back>Back</button>
+                </div>
+
+                <div class="yh-plaza-screen-body" id="plazaRegionHubBody"></div>
+              </div>
+            </section>
+
+            <section class="yh-plaza-screen" id="plazaScreenBridgeDetail" data-plaza-screen="bridge-detail" hidden>
+              <div class="yh-plaza-screen-shell">
+                <div class="yh-plaza-screen-head">
+                  <div>
+                    <span class="yh-plaza-section-kicker">Bridge Detail</span>
+                    <h2 class="yh-plaza-screen-title" id="plazaBridgeDetailTitle">Bridge Detail</h2>
+                    <p class="yh-plaza-panel-note">Bridge lanes now behave like native internal Plaza screens instead of detached overlays.</p>
+                  </div>
+                  <div class="yh-plaza-screen-meta" id="plazaBridgeDetailMeta"></div>
+                </div>
+
+                <div class="yh-plaza-screen-actions">
+                  <button type="button" class="yh-plaza-btn yh-plaza-btn-primary" id="plazaBridgeDetailPrimaryBtn">Open Bridge</button>
+                  <button type="button" class="yh-plaza-btn yh-plaza-btn-secondary" data-screen-back>Back</button>
+                </div>
+
+                <div class="yh-plaza-screen-body" id="plazaBridgeDetailBody"></div>
+              </div>
+            </section>
+          </div>
+        </section>
+      </main>
+
+           <aside class="yh-plaza-rail">
+        <section class="yh-plaza-rail-card yh-plaza-rail-card-signal">
+          <div class="yh-plaza-side-head">
+            <span class="yh-plaza-section-kicker">Live Universe Signal</span>
+          </div>
+          <h3>Structured movement across YHA, YHP, and YHF.</h3>
+          <p>The right rail now stays lightweight and supportive instead of behaving like a second workspace.</p>
+        </section>
+
+        <section class="yh-plaza-rail-card">
+          <div class="yh-plaza-side-head">
+            <span class="yh-plaza-section-kicker">Recent Signals</span>
+          </div>
+          <div class="yh-plaza-rail-list" id="plazaRailSignals"></div>
+        </section>
+
+        <section class="yh-plaza-rail-card">
+          <div class="yh-plaza-side-head">
+            <span class="yh-plaza-section-kicker">Spotlight</span>
+          </div>
+
+          <div class="yh-plaza-spotlight-stack">
+            <article class="yh-plaza-mini-spotlight">
+              <strong>Trusted Connector</strong>
+              <span>Members who consistently open the right doors.</span>
+            </article>
+
+            <article class="yh-plaza-mini-spotlight">
+              <strong>Regional Builder</strong>
+              <span>Local nodes creating movement in specific cities and regions.</span>
+            </article>
+
+            <article class="yh-plaza-mini-spotlight">
+              <strong>Cross-Division Builder</strong>
+              <span>Operators who create useful movement between Academy readiness and Federation relevance.</span>
+            </article>
+          </div>
+        </section>
+      </aside>
+    </div>
+  </div>
+
+  <div class="yh-plaza-toast" id="plazaToast" role="status" aria-live="polite"></div>
+
+  <div class="yh-plaza-modal" id="plazaModal" aria-hidden="true">
+    <div class="yh-plaza-modal-backdrop" data-close-modal></div>
+    <div class="yh-plaza-modal-card" role="dialog" aria-modal="true" aria-labelledby="plazaModalTitle">
+      <div class="yh-plaza-modal-head">
+        <div>
+          <span class="yh-plaza-modal-kicker" id="plazaModalKicker">Plaza</span>
+          <h3 id="plazaModalTitle">Action</h3>
+        </div>
+        <button type="button" class="yh-plaza-modal-close" data-close-modal aria-label="Close modal">×</button>
+      </div>
+      <div class="yh-plaza-modal-body" id="plazaModalBody"></div>
+    </div>
+  </div>
+
+  <div class="yh-plaza-drawer" id="plazaDrawer" aria-hidden="true">
+    <div class="yh-plaza-drawer-backdrop" data-close-drawer></div>
+    <aside class="yh-plaza-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="plazaDrawerTitle">
+      <div class="yh-plaza-drawer-head">
+        <div>
+          <span class="yh-plaza-modal-kicker" id="plazaDrawerKicker">Plaza Request</span>
+          <h3 id="plazaDrawerTitle">Request</h3>
+        </div>
+        <button type="button" class="yh-plaza-drawer-close" data-close-drawer aria-label="Close drawer">×</button>
+      </div>
+      <div class="yh-plaza-drawer-body" id="plazaDrawerBody"></div>
+    </aside>
+  </div>
+
+</body>
+</html>
