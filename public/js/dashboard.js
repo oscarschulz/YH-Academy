@@ -406,7 +406,6 @@ const universeFeatureContent = {
             'Community feed',
             'Messages',
             'Live voice lounge',
-            'My profile'
         ]
     },
     plazas: {
