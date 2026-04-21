@@ -398,9 +398,16 @@ document.addEventListener('DOMContentLoaded', () => {
 const universeFeatureContent = {
     academy: {
         kicker: 'Academy Features',
-        title: 'Roadmap execution layer',
-        desc: 'Build a daily plan, track your progress, and use the community plus live rooms to stay in motion.',
-        chips: ['Daily roadmap', 'Community feed',]
+        title: 'Full Academy operating layer',
+        desc: 'Build your roadmap, complete missions, post in the community, manage conversations, join live voice rooms, and keep your Academy profile active.',
+        chips: [
+            'Daily roadmap',
+            'Missions',
+            'Community feed',
+            'Messages',
+            'Live voice lounge',
+            'My profile'
+        ]
     },
     plazas: {
         kicker: 'Plaza Features',
