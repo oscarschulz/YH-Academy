@@ -11,8 +11,8 @@
     href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
     rel="stylesheet"
   />
-  <link rel="stylesheet" href="/css/plaza.css?v=20260421-plaza-active-1" />
-  <script src="/js/plaza.js?v=20260421-plaza-active-1" defer></script>
+  <link rel="stylesheet" href="/css/plaza.css?v=20260421-plaza-structure-2" />
+  <script src="/js/plaza.js?v=20260421-plaza-structure-2" defer></script>
 </head>
 <body data-yh-i18n-mode="attributes" class="yh-plaza-page">
   <div class="yh-plaza-shell">
@@ -30,7 +30,7 @@
           ← Go back to Universe
         </a>
 
-        <button type="button" class="yh-plaza-btn yh-plaza-btn-primary" id="plazaOpenRequestsBtn">My Requests</button>
+        <button type="button" class="yh-plaza-btn yh-plaza-btn-primary" id="plazaOpenRequestsBtn">Requests</button>
 
         <div class="yh-plaza-header-icons" aria-label="Plaza operational actions">
           <button
@@ -87,8 +87,11 @@
       <aside class="yh-plaza-sidebar">
         <section class="yh-plaza-side-card yh-plaza-side-card-primary">
           <span class="yh-plaza-section-kicker">YHP Logic</span>
-          <h2>Plaza turns visibility into structured movement.</h2>
-          <p>Academy prepares. Plaza surfaces. Federation filters and elevates. This space is the discovery layer that connects all three motions without becoming a random forum.</p>
+          <h2>Academy builds the person. Plaza connects the person. Federation elevates the person.</h2>
+          <p>
+            Plaza is the bridge between Academy execution and Federation access. It turns missions,
+            profiles, regions, requests, and opportunities into structured movement across YH Universe.
+          </p>
         </section>
 
         <section class="yh-plaza-side-card">
@@ -98,28 +101,38 @@
 
           <div class="yh-plaza-side-nav">
             <button type="button" class="yh-plaza-nav-btn is-active" data-nav-tab="feed">
-              <span class="yh-plaza-nav-btn-title">Live Feed</span>
-              <span class="yh-plaza-nav-btn-note">Signals from members, projects, and movement</span>
-            </button>
-
-            <button type="button" class="yh-plaza-nav-btn" data-nav-tab="directory">
-              <span class="yh-plaza-nav-btn-title">Directory</span>
-              <span class="yh-plaza-nav-btn-note">Find people by region, role, and trust level</span>
+              <span class="yh-plaza-nav-btn-title">Feed</span>
+              <span class="yh-plaza-nav-btn-note">Network movement, wins, intros, and updates</span>
             </button>
 
             <button type="button" class="yh-plaza-nav-btn" data-nav-tab="opportunities">
               <span class="yh-plaza-nav-btn-title">Opportunities</span>
-              <span class="yh-plaza-nav-btn-note">Hiring, intros, collaboration, and support</span>
+              <span class="yh-plaza-nav-btn-note">Work, collaboration, projects, partnerships, and intros</span>
+            </button>
+
+            <button type="button" class="yh-plaza-nav-btn" data-nav-tab="directory">
+              <span class="yh-plaza-nav-btn-title">Directory</span>
+              <span class="yh-plaza-nav-btn-note">Builders, operators, providers, and connectors</span>
             </button>
 
             <button type="button" class="yh-plaza-nav-btn" data-nav-tab="regions">
               <span class="yh-plaza-nav-btn-title">Regions</span>
-              <span class="yh-plaza-nav-btn-note">Cluster movement by city and regional hub</span>
+              <span class="yh-plaza-nav-btn-note">City and country hubs for local movement</span>
             </button>
 
             <button type="button" class="yh-plaza-nav-btn" data-nav-tab="bridge">
               <span class="yh-plaza-nav-btn-title">Bridge</span>
-              <span class="yh-plaza-nav-btn-note">Where YHA execution starts connecting to YHF relevance</span>
+              <span class="yh-plaza-nav-btn-note">Academy execution → Plaza visibility → Federation access</span>
+            </button>
+
+            <button type="button" class="yh-plaza-nav-btn" data-nav-tab="requests">
+              <span class="yh-plaza-nav-btn-title">Requests</span>
+              <span class="yh-plaza-nav-btn-note">Intro, opportunity, collaboration, and regional requests</span>
+            </button>
+
+            <button type="button" class="yh-plaza-nav-btn" data-nav-tab="messages">
+              <span class="yh-plaza-nav-btn-title">Messages</span>
+              <span class="yh-plaza-nav-btn-note">Conversations opened from requests and opportunities</span>
             </button>
           </div>
         </section>
@@ -140,9 +153,9 @@
       <main class="yh-plaza-workspace">
         <section class="yh-plaza-summary-grid">
           <button type="button" class="yh-plaza-summary-card" data-stat-jump="directory">
-            <span>Active Members</span>
+            <span>Active Operators</span>
             <strong id="plazaActiveMembersValue">184</strong>
-            <small>Visible people inside Plaza now</small>
+            <small>Builders, operators, and connectors visible in Plaza</small>
           </button>
 
           <button type="button" class="yh-plaza-summary-card" data-stat-jump="opportunities">
@@ -152,9 +165,9 @@
           </button>
 
           <button type="button" class="yh-plaza-summary-card" data-stat-jump="regions">
-            <span>Regions</span>
+            <span>Regional Hubs</span>
             <strong id="plazaRegionsValue">12</strong>
-            <small>Local movement and clustering</small>
+            <small>City and country nodes creating local movement</small>
           </button>
 
           <button type="button" class="yh-plaza-summary-card" data-stat-jump="bridge">
@@ -174,18 +187,20 @@
                 <div class="yh-plaza-screen-breadcrumbs" id="plazaScreenBreadcrumbs"></div>
               </div>
 
-              <h1 class="yh-plaza-workspace-title" id="plazaWorkspaceTitle">Live Feed</h1>
+              <h1 class="yh-plaza-workspace-title" id="plazaWorkspaceTitle">Feed</h1>
               <p class="yh-plaza-workspace-note" id="plazaWorkspaceNote">
-                Structured signals from members, projects, and movement across the Universe.
+                Network movement, wins, introductions, opportunities, and regional updates across YH Universe.
               </p>
             </div>
 
             <div class="yh-plaza-tabs" role="tablist" aria-label="Plaza views">
-              <button type="button" class="yh-plaza-tab is-active" data-plaza-tab="feed" role="tab" aria-selected="true">Live Feed</button>
-              <button type="button" class="yh-plaza-tab" data-plaza-tab="directory" role="tab" aria-selected="false">Directory</button>
+              <button type="button" class="yh-plaza-tab is-active" data-plaza-tab="feed" role="tab" aria-selected="true">Feed</button>
               <button type="button" class="yh-plaza-tab" data-plaza-tab="opportunities" role="tab" aria-selected="false">Opportunities</button>
+              <button type="button" class="yh-plaza-tab" data-plaza-tab="directory" role="tab" aria-selected="false">Directory</button>
               <button type="button" class="yh-plaza-tab" data-plaza-tab="regions" role="tab" aria-selected="false">Regions</button>
               <button type="button" class="yh-plaza-tab" data-plaza-tab="bridge" role="tab" aria-selected="false">Bridge</button>
+              <button type="button" class="yh-plaza-tab" data-plaza-tab="requests" role="tab" aria-selected="false">Requests</button>
+              <button type="button" class="yh-plaza-tab" data-plaza-tab="messages" role="tab" aria-selected="false">Messages</button>
             </div>
           </div>
 
@@ -266,13 +281,16 @@
               <div class="yh-plaza-bridge-grid" id="plazaBridgeGrid"></div>
             </section>
 
-                        <section class="yh-plaza-screen" id="plazaScreenRequests" data-plaza-screen="requests" hidden>
+            <section class="yh-plaza-screen" id="plazaScreenRequests" data-plaza-screen="requests" hidden>
               <div class="yh-plaza-screen-shell">
                 <div class="yh-plaza-screen-head">
                   <div>
-                    <span class="yh-plaza-section-kicker">My Requests</span>
-                    <h2 class="yh-plaza-screen-title">Tracked Plaza requests</h2>
-                    <p class="yh-plaza-panel-note">Every structured request stays inside Plaza so the user can review movement without leaving the YH Universe tab.</p>
+                    <span class="yh-plaza-section-kicker">Requests</span>
+                    <h2 class="yh-plaza-screen-title">Structured Plaza requests</h2>
+                    <p class="yh-plaza-panel-note">
+                      Track intro requests, opportunity requests, collaboration requests, regional requests,
+                      project access, and Federation escalation signals from one clean layer.
+                    </p>
                   </div>
                 </div>
                 <div class="yh-plaza-request-list" id="plazaRequestsScreenList"></div>
@@ -330,8 +348,11 @@
                 <div class="yh-plaza-screen-head">
                   <div>
                     <span class="yh-plaza-section-kicker">Messages</span>
-                    <h2 class="yh-plaza-screen-title">Conversation index</h2>
-                    <p class="yh-plaza-panel-note">Only approved or converted Plaza conversations live here. Raw requests stay in Inbox until a lane is opened.</p>
+                    <h2 class="yh-plaza-screen-title">Opportunity and request conversations</h2>
+                    <p class="yh-plaza-panel-note">
+                      Plaza messages stay tied to real context: opportunities, requests, directory intros,
+                      regional hubs, and projects. This keeps Plaza useful instead of becoming random DM chaos.
+                    </p>
                   </div>
                   <div class="yh-plaza-screen-meta" id="plazaMessagesMeta"></div>
                 </div>

@@ -1965,46 +1965,46 @@ const plazaState = plazaAdapter.getState();
 
 const plazaConfig = {
   feed: {
-    title: "Live Feed",
-    note: "Structured signals from members, projects, and movement across the Universe.",
+    title: "Feed",
+    note: "Network movement, wins, introductions, opportunities, and regional updates across YH Universe.",
     navTab: "feed",
     toolbar: "feed",
     breadcrumb: ["Plaza", "Feed"]
   },
-  directory: {
-    title: "Directory",
-    note: "Find people by region, role, division, and trust layer without turning Plaza into random browsing.",
-    navTab: "directory",
-    toolbar: "directory",
-    breadcrumb: ["Plaza", "Directory"]
-  },
   opportunities: {
     title: "Opportunities",
-    note: "The execution layer: hiring, intros, collaboration, support, and structured requests.",
+    note: "Find work, collaboration, projects, partnerships, introductions, service needs, and regional openings.",
     navTab: "opportunities",
     toolbar: null,
     breadcrumb: ["Plaza", "Opportunities"]
   },
+  directory: {
+    title: "Directory",
+    note: "Find builders, operators, service providers, regional connectors, and Federation-linked members by role and trust layer.",
+    navTab: "directory",
+    toolbar: "directory",
+    breadcrumb: ["Plaza", "Directory"]
+  },
   regions: {
     title: "Regions",
-    note: "Organize movement locally through hubs that cluster members, opportunities, and real-world access.",
+    note: "Organize movement locally through city and country hubs that cluster members, opportunities, requests, and real-world access.",
     navTab: "regions",
     toolbar: null,
     breadcrumb: ["Plaza", "Regions"]
   },
   bridge: {
     title: "Bridge",
-    note: "See where Academy execution, Plaza visibility, and Federation relevance begin to connect.",
+    note: "Track how Academy execution turns into Plaza visibility and later becomes Federation-relevant access.",
     navTab: "bridge",
     toolbar: null,
     breadcrumb: ["Plaza", "Bridge"]
   },
-    requests: {
-    title: "My Requests",
-    note: "Track every structured move opened inside Plaza without leaving the current workspace.",
-    navTab: null,
+  requests: {
+    title: "Requests",
+    note: "Track intro, opportunity, collaboration, service, regional, project, and Federation escalation requests.",
+    navTab: "requests",
     toolbar: null,
-    breadcrumb: ["Plaza", "My Requests"]
+    breadcrumb: ["Plaza", "Requests"]
   },
   inbox: {
     title: "Inbox Hub",
@@ -2029,8 +2029,8 @@ const plazaConfig = {
   },
   messages: {
     title: "Messages",
-    note: "Only approved or converted Plaza conversations live here.",
-    navTab: null,
+    note: "Conversations opened from opportunities, requests, directory intros, regional hubs, and projects.",
+    navTab: "messages",
     toolbar: null,
     breadcrumb: ["Plaza", "Messages"]
   },
@@ -2071,7 +2071,15 @@ const plazaConfig = {
   }
 };
 
-const PRIMARY_SCREENS = new Set(["feed", "directory", "opportunities", "regions", "bridge"]);
+const PRIMARY_SCREENS = new Set([
+  "feed",
+  "opportunities",
+  "directory",
+  "regions",
+  "bridge",
+  "requests",
+  "messages"
+]);
 
 const plazaRuntime = {
   currentScreen: "feed",

@@ -636,6 +636,7 @@ a {
 .yh-plaza-tabs {
   display: flex;
   flex-wrap: wrap;
+  align-items: stretch;
   gap: 10px;
 }
 
@@ -648,6 +649,10 @@ a {
   border-radius: 999px;
   cursor: pointer;
   transition: 0.2s ease;
+}
+
+.yh-plaza-tab {
+  white-space: nowrap;
 }
 
 .yh-plaza-tab.is-active,
@@ -1701,7 +1706,13 @@ a {
     grid-template-columns: 1fr;
   }
 }
-
+@media (max-width: 1180px) {
+  .yh-plaza-tab {
+    flex: 1 1 calc(33.333% - 10px);
+    justify-content: center;
+    text-align: center;
+  }
+}
 @media (max-width: 760px) {
   .yh-plaza-shell {
     width: 100%;
@@ -1724,6 +1735,7 @@ a {
 
   .yh-plaza-tab {
     flex: 1 1 calc(50% - 8px);
+    justify-content: center;
     text-align: center;
   }
 

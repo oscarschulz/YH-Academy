@@ -398,27 +398,43 @@ document.addEventListener('DOMContentLoaded', () => {
 const universeFeatureContent = {
     academy: {
         kicker: 'Academy Features',
-        title: 'Full Academy operating layer',
-        desc: 'Build your roadmap, complete missions, post in the community, manage conversations, join live voice rooms, and keep your Academy profile active.',
+        title: 'Execution and self-improvement layer',
+        desc: 'Build your roadmap, complete missions, join the community, manage conversations, keep your profile active, and step into live voice sessions.',
         chips: [
-            'Daily roadmap',
+            'Roadmap',
             'Missions',
             'Community feed',
             'Messages',
             'Live voice lounge',
+            'My profile'
         ]
     },
     plazas: {
         kicker: 'Plaza Features',
-        title: 'Marketplace and service layer',
-        desc: 'Position your skills, discover opportunities, and turn your network into an active business engine.',
-        chips: ['Offer services', 'Hire talent', 'Monetize network']
+        title: 'Bridge between Academy and Federation',
+        desc: 'Enter the networking and opportunity layer of YH Universe. Discover operators, opportunities, regional hubs, requests, messages, and bridge paths from Academy execution toward Federation access.',
+        chips: [
+            'Feed',
+            'Opportunities',
+            'Directory',
+            'Regions',
+            'Bridge',
+            'Requests',
+            'Messages'
+        ]
     },
     federation: {
         kicker: 'Federation Features',
         title: 'Selective access network layer',
         desc: 'Request access, track qualification status, use referrals, and explore the protected directory for high-value global operators.',
-        chips: ['Selective access', 'Referrals', 'Protected directory', 'Member command']
+        chips: [
+            'Command',
+            'Connect',
+            'Directory',
+            'Requests',
+            'Referrals',
+            'My access'
+        ]
     }
 };
 
