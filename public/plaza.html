@@ -11,27 +11,18 @@
     href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap"
     rel="stylesheet"
   />
-  <link rel="stylesheet" href="/css/plaza.css?v=20260421-academy-unity-1" />
-  <script src="/js/plaza.js?v=20260421-academy-unity-1" defer></script>
+  <link rel="stylesheet" href="/css/plaza.css?v=20260421-academy-layout-1" />
+  <script src="/js/plaza.js?v=20260421-academy-layout-1" defer></script>
 </head>
 <body data-yh-i18n-mode="attributes" class="yh-plaza-page">
   <div class="yh-plaza-shell">
-        <header class="yh-plaza-app-header">
+    <header class="yh-plaza-app-header">
       <div class="yh-plaza-app-brand">
-        <div class="yh-plaza-brand-mark" aria-hidden="true">YH</div>
-        <div class="yh-plaza-brand-copy">
-          <span class="yh-plaza-brand-kicker">Young Hustlers Universe</span>
-          <strong class="yh-plaza-brand-title">Plaza</strong>
-        </div>
+        <img src="/images/logo.avif" alt="YH Logo" class="yh-plaza-brand-logo" />
+        <strong class="yh-plaza-brand-title">UNIVERSE</strong>
       </div>
 
-            <div class="yh-plaza-app-actions">
-        <a href="/dashboard" class="yh-plaza-btn yh-plaza-btn-secondary" id="plazaBackToUniverseBtn">
-          ← Go back to Universe
-        </a>
-
-        <button type="button" class="yh-plaza-btn yh-plaza-btn-primary" id="plazaOpenRequestsBtn">Requests</button>
-
+      <div class="yh-plaza-app-actions">
         <div class="yh-plaza-header-icons" aria-label="Plaza operational actions">
           <button
             type="button"
@@ -80,23 +71,31 @@
             <span class="yh-plaza-header-icon-badge" data-header-count="messages" hidden>0</span>
           </button>
         </div>
+
+        <button type="button" class="yh-plaza-btn yh-plaza-btn-primary" id="plazaOpenRequestsBtn">
+          Requests
+        </button>
+
+        <a href="/dashboard" class="yh-plaza-btn yh-plaza-btn-secondary" id="plazaBackToUniverseBtn">
+          ← Universe
+        </a>
       </div>
     </header>
 
     <div class="yh-plaza-app-grid">
       <aside class="yh-plaza-sidebar">
         <section class="yh-plaza-side-card yh-plaza-side-card-primary">
-          <span class="yh-plaza-section-kicker">YHP Logic</span>
-          <h2>Academy builds the person. Plaza connects the person. Federation elevates the person.</h2>
+          <span class="yh-plaza-section-kicker">The Plaza</span>
+          <h2>Movement Hub</h2>
           <p>
-            Plaza is the bridge between Academy execution and Federation access. It turns missions,
-            profiles, regions, requests, and opportunities into structured movement across YH Universe.
+            Switch between feed, opportunities, directory, regions, bridge paths,
+            requests, and messages without leaving Plaza.
           </p>
         </section>
 
-        <section class="yh-plaza-side-card">
+        <section class="yh-plaza-side-card yh-plaza-menu-card">
           <div class="yh-plaza-side-head">
-            <span class="yh-plaza-section-kicker">Workspace</span>
+            <span class="yh-plaza-section-kicker">Plaza Menu</span>
           </div>
 
           <div class="yh-plaza-side-nav">
@@ -191,16 +190,6 @@
               <p class="yh-plaza-workspace-note" id="plazaWorkspaceNote">
                 Network movement, wins, introductions, opportunities, and regional updates across YH Universe.
               </p>
-            </div>
-
-            <div class="yh-plaza-tabs" role="tablist" aria-label="Plaza views">
-              <button type="button" class="yh-plaza-tab is-active" data-plaza-tab="feed" role="tab" aria-selected="true">Feed</button>
-              <button type="button" class="yh-plaza-tab" data-plaza-tab="opportunities" role="tab" aria-selected="false">Opportunities</button>
-              <button type="button" class="yh-plaza-tab" data-plaza-tab="directory" role="tab" aria-selected="false">Directory</button>
-              <button type="button" class="yh-plaza-tab" data-plaza-tab="regions" role="tab" aria-selected="false">Regions</button>
-              <button type="button" class="yh-plaza-tab" data-plaza-tab="bridge" role="tab" aria-selected="false">Bridge</button>
-              <button type="button" class="yh-plaza-tab" data-plaza-tab="requests" role="tab" aria-selected="false">Requests</button>
-              <button type="button" class="yh-plaza-tab" data-plaza-tab="messages" role="tab" aria-selected="false">Messages</button>
             </div>
           </div>
 

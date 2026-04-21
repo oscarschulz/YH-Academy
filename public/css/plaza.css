@@ -59,12 +59,9 @@ body {
   overscroll-behavior: none;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  font-family: "Inter", sans-serif;
+  font-family: "Poppins", sans-serif;
   color: var(--yh-text);
-  background:
-    radial-gradient(circle at top left, rgba(77, 139, 255, 0.18), transparent 28%),
-    radial-gradient(circle at top right, rgba(211, 178, 112, 0.1), transparent 20%),
-    linear-gradient(180deg, #05070d 0%, #0a101a 100%);
+  background: #050816;
 }
 
 body::before {
@@ -106,26 +103,29 @@ a {
   height: 100dvh;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: clamp(10px, 1vw, 16px);
+  gap: 0;
+  padding: 0;
   overflow: hidden;
   isolation: isolate;
+  background: #050816;
 }
 
 .yh-plaza-app-header {
   position: sticky;
   top: 0;
   z-index: 20;
-  display: grid;
-  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  min-height: 68px;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 14px;
-  padding: 10px 12px;
-  border: 1px solid var(--yh-border);
-  border-radius: var(--yh-radius-xl);
-  background: linear-gradient(180deg, rgba(8, 13, 23, 0.96), rgba(8, 13, 23, 0.72));
-  backdrop-filter: blur(16px);
-  box-shadow: var(--yh-shadow);
+  padding: 0 28px;
+  border: 0;
+  border-bottom: 1px solid rgba(56, 189, 248, 0.16);
+  border-radius: 0;
+  background: #050816;
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
 .yh-plaza-app-brand {
@@ -135,37 +135,18 @@ a {
   min-width: 0;
 }
 
-.yh-plaza-brand-mark {
-  width: 46px;
-  height: 46px;
-  border-radius: 15px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 800;
-  color: var(--yh-accent-2);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background:
-    linear-gradient(135deg, rgba(var(--yh-bridge-blue-rgb), 0.14), rgba(var(--yh-bridge-gold-rgb), 0.10));
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
-}
-
-.yh-plaza-brand-copy {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.yh-plaza-brand-kicker {
-  font-size: 12px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--yh-text-dim);
+.yh-plaza-brand-logo {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  display: block;
 }
 
 .yh-plaza-brand-title {
-  font-size: 21px;
-  line-height: 1.1;
+  font-size: 18px;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: #f9fafb;
 }
 
 .yh-plaza-app-header-center {
@@ -176,11 +157,12 @@ a {
   flex: 1 1 auto;
   min-height: 0;
   display: grid;
-  grid-template-columns: 236px minmax(0, 1fr) 188px;
-  gap: 12px;
+  grid-template-columns: 260px minmax(0, 1fr) 270px;
+  gap: 0;
   align-items: stretch;
   isolation: isolate;
   overflow: hidden;
+  border-top: 1px solid rgba(56, 189, 248, 0.08);
 }
 
 .yh-plaza-sidebar,
@@ -190,27 +172,27 @@ a {
   flex-direction: column;
   gap: 14px;
   overflow: hidden;
-  border: 1px solid rgba(140, 170, 255, 0.08);
-  border-radius: var(--yh-radius-xl);
-  background:
-    linear-gradient(180deg, rgba(10, 16, 29, 0.97), rgba(7, 12, 22, 0.99));
-  box-shadow: var(--yh-shadow);
-  backdrop-filter: blur(14px);
+  border: 0;
+  border-radius: 0;
+  background: #050816;
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
 .yh-plaza-workspace {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  border: 1px solid rgba(140, 170, 255, 0.08);
-  border-radius: var(--yh-radius-xl);
-  background:
-    linear-gradient(180deg, rgba(10, 16, 29, 0.97), rgba(7, 12, 22, 0.99));
-  box-shadow: var(--yh-shadow);
-  backdrop-filter: blur(14px);
+  border: 0;
+  border-left: 1px solid rgba(56, 189, 248, 0.12);
+  border-right: 1px solid rgba(56, 189, 248, 0.12);
+  border-radius: 0;
+  background: #050816;
+  box-shadow: none;
+  backdrop-filter: none;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -249,7 +231,7 @@ a {
   display: flex;
   flex-direction: column;
   overflow: visible;
-  padding: 24px;
+  padding: 22px;
 }
 
 .yh-plaza-tab-panels {
@@ -390,13 +372,10 @@ a {
 .yh-plaza-detail-block,
 .yh-plaza-request-card,
 .yh-plaza-mini-card {
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  background:
-    linear-gradient(180deg, rgba(16, 23, 38, 0.96), rgba(10, 15, 25, 0.99));
-  box-shadow:
-    0 18px 48px rgba(0, 0, 0, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(14px);
+  border: 1px solid rgba(56, 189, 248, 0.14);
+  background: rgba(15, 23, 42, 0.72);
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
 .yh-plaza-btn-secondary,
@@ -408,13 +387,13 @@ a {
   flex: 1 1 auto;
   min-height: 0;
   display: grid;
-  grid-template-columns: 236px minmax(0, 1fr) 188px;
-  gap: 12px;
+  grid-template-columns: 260px minmax(0, 1fr) 270px;
+  gap: 0;
   align-items: stretch;
   isolation: isolate;
   overflow: hidden;
+  border-top: 1px solid rgba(56, 189, 248, 0.08);
 }
-
 .yh-plaza-sidebar,
 .yh-plaza-rail {
   min-height: 0;
@@ -422,27 +401,27 @@ a {
   flex-direction: column;
   gap: 14px;
   overflow: hidden;
-  border: 1px solid rgba(140, 170, 255, 0.08);
-  border-radius: var(--yh-radius-xl);
-  background:
-    linear-gradient(180deg, rgba(10, 16, 29, 0.97), rgba(7, 12, 22, 0.99));
-  box-shadow: var(--yh-shadow);
-  backdrop-filter: blur(14px);
+  border: 0;
+  border-radius: 0;
+  background: #050816;
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
 .yh-plaza-workspace {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  border: 1px solid rgba(140, 170, 255, 0.08);
-  border-radius: var(--yh-radius-xl);
-  background:
-    linear-gradient(180deg, rgba(10, 16, 29, 0.97), rgba(7, 12, 22, 0.99));
-  box-shadow: var(--yh-shadow);
-  backdrop-filter: blur(14px);
+  border: 0;
+  border-left: 1px solid rgba(56, 189, 248, 0.12);
+  border-right: 1px solid rgba(56, 189, 248, 0.12);
+  border-radius: 0;
+  background: #050816;
+  box-shadow: none;
+  backdrop-filter: none;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -455,7 +434,7 @@ a {
 .yh-plaza-side-card,
 .yh-plaza-workspace-card,
 .yh-plaza-rail-card {
-  border-radius: var(--yh-radius-xl);
+  border-radius: 14px;
   padding: 18px;
 }
 
@@ -499,10 +478,10 @@ a {
   display: none;
 }
 .yh-plaza-side-card-primary h2 {
-  margin: 14px 0 10px;
-  font-size: 28px;
-  line-height: 1.05;
-  letter-spacing: -0.04em;
+  margin: 10px 0 8px;
+  font-size: 17px;
+  line-height: 1.25;
+  letter-spacing: 0;
 }
 
 .yh-plaza-side-card p,
@@ -541,11 +520,11 @@ a {
 .yh-plaza-nav-btn {
   width: 100%;
   text-align: left;
-  padding: 12px 14px;
-  border-radius: 14px;
+  padding: 13px 14px;
+  border-radius: 10px;
   color: var(--yh-text-dim);
   border: 1px solid transparent;
-  background: transparent;
+  background: rgba(15, 23, 42, 0.42);
   cursor: pointer;
   transition: 0.2s ease;
 }
@@ -553,10 +532,9 @@ a {
 .yh-plaza-nav-btn:hover,
 .yh-plaza-nav-btn.is-active {
   color: #fff;
-  border-color: rgba(77, 139, 255, 0.18);
-  background:
-    linear-gradient(180deg, rgba(77, 139, 255, 0.12), rgba(255, 255, 255, 0.03));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  border-color: rgba(14, 165, 233, 0.55);
+  background: rgba(14, 165, 233, 0.16);
+  box-shadow: none;
 }
 
 .yh-plaza-nav-btn-title {
@@ -567,10 +545,10 @@ a {
 
 .yh-plaza-nav-btn-note {
   display: block;
-  margin-top: 6px;
+  margin-top: 4px;
   color: var(--yh-text-dim);
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 12px;
+  line-height: 1.35;
 }
 
 .yh-plaza-side-action {
@@ -582,7 +560,8 @@ a {
 .yh-plaza-summary-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
+  gap: 12px;
+  padding: 18px 22px 0;
 }
 
 .yh-plaza-summary-card {
@@ -624,13 +603,15 @@ a {
   justify-content: space-between;
   gap: 18px;
   flex-wrap: wrap;
+  padding-bottom: 18px;
+  border-bottom: 1px solid rgba(56, 189, 248, 0.12);
 }
 
 .yh-plaza-workspace-title {
-  margin: 14px 0 8px;
-  font-size: clamp(30px, 3.2vw, 46px);
-  line-height: 1.02;
-  letter-spacing: -0.04em;
+  margin: 10px 0 8px;
+  font-size: 24px;
+  line-height: 1.15;
+  letter-spacing: 0;
 }
 
 .yh-plaza-tabs {
