@@ -6,6 +6,7 @@ const auth = require('../middlewares/auth');
 const authController = require('../controllers/authControllers');
 const realtimeControllers = require('../controllers/realtimeControllers');
 const academyCommunityControllers = require('../controllers/academyCommunityControllers');
+const plazaControllers = require('../controllers/plazaControllers');
 const aiNurtureControllers = require('../controllers/aiNurtureControllers');
 const publicLandingController = require('../controllers/publicLandingController');
 const aiNurtureGate = require('../backend/middlewares/aiNurtureGate');
@@ -83,6 +84,19 @@ router.post('/academy/feed/friend-requests/:id/respond', auth, academyCommunityC
 router.get('/academy/community/members', auth, academyCommunityControllers.getMembers);
 router.get('/academy/community/members/:id/profile', auth, academyCommunityControllers.getMemberProfile);
 router.post('/academy/community/members/:id/follow', auth, academyCommunityControllers.toggleMemberFollow);
+
+// ==========================================
+// 🏪 YH PLAZA FEED ROUTES
+// ==========================================
+router.get('/plaza/feed', auth, plazaControllers.getFeed);
+router.post('/plaza/feed/posts', auth, plazaControllers.createFeedPost);
+
+router.get('/plaza/opportunities', auth, plazaControllers.getOpportunities);
+router.post('/plaza/opportunities', auth, plazaControllers.createOpportunity);
+
+router.get('/plaza/directory', auth, plazaControllers.getDirectory);
+router.post('/plaza/directory/profile', auth, plazaControllers.upsertDirectoryProfile);
+
 // ==========================================
 // 🧠 INTERNAL AI NURTURE ROUTES
 // ==========================================

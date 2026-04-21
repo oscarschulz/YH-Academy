@@ -11,8 +11,8 @@
     href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap"
     rel="stylesheet"
   />
-<link rel="stylesheet" href="/css/plaza.css?v=20260421-plaza-clean-1" />
-<script src="/js/plaza.js?v=20260421-plaza-clean-1" defer></script>
+<link rel="stylesheet" href="/css/plaza.css?v=20260421-plaza-directory-server-1" />
+<script src="/js/plaza.js?v=20260421-plaza-directory-server-1" defer></script>
 </head>
 <body data-yh-i18n-mode="attributes" class="yh-plaza-page">
   <div class="yh-plaza-shell">
@@ -22,64 +22,6 @@
         <strong class="yh-plaza-brand-title">UNIVERSE</strong>
       </div>
 
-      <div class="yh-plaza-app-actions">
-        <div class="yh-plaza-header-icons" aria-label="Plaza operational actions">
-          <button
-            type="button"
-            class="yh-plaza-btn yh-plaza-btn-secondary yh-plaza-header-icon-btn"
-            id="plazaOpenInboxBtn"
-            aria-label="Open Inbox"
-            title="Open Inbox"
-          >
-            <span class="yh-plaza-header-icon-svg" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M4 13h4l2 3h4l2-3h4"></path>
-                <path d="M5 4h14l2 9v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5l2-9Z"></path>
-              </svg>
-            </span>
-            <span class="yh-plaza-header-icon-badge" data-header-count="inbox" hidden>0</span>
-          </button>
-
-          <button
-            type="button"
-            class="yh-plaza-btn yh-plaza-btn-secondary yh-plaza-header-icon-btn"
-            id="plazaOpenNotificationsBtn"
-            aria-label="Open Notifications"
-            title="Open Notifications"
-          >
-            <span class="yh-plaza-header-icon-svg" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M15 17h5l-1.4-1.4a2 2 0 0 1-.6-1.4V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5"></path>
-                <path d="M10 17a2 2 0 0 0 4 0"></path>
-              </svg>
-            </span>
-            <span class="yh-plaza-header-icon-badge" data-header-count="notifications" hidden>0</span>
-          </button>
-
-          <button
-            type="button"
-            class="yh-plaza-btn yh-plaza-btn-secondary yh-plaza-header-icon-btn"
-            id="plazaOpenMessagesBtn"
-            aria-label="Open Messages"
-            title="Open Messages"
-          >
-            <span class="yh-plaza-header-icon-svg" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15a3 3 0 0 1-3 3H9l-4 3v-3H5a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h13a3 3 0 0 1 3 3v7Z"></path>
-              </svg>
-            </span>
-            <span class="yh-plaza-header-icon-badge" data-header-count="messages" hidden>0</span>
-          </button>
-        </div>
-
-        <button type="button" class="yh-plaza-btn yh-plaza-btn-primary" id="plazaOpenRequestsBtn">
-          Requests
-        </button>
-
-        <a href="/dashboard" class="yh-plaza-btn yh-plaza-btn-secondary" id="plazaBackToUniverseBtn">
-          ← Universe
-        </a>
-      </div>
     </header>
 
     <div class="yh-plaza-app-grid">
@@ -87,10 +29,6 @@
         <section class="yh-plaza-side-card yh-plaza-side-card-primary">
           <span class="yh-plaza-section-kicker">The Plaza</span>
           <h2>Movement Hub</h2>
-          <p>
-            Switch between feed, opportunities, directory, regions, bridge paths,
-            requests, and messages without leaving Plaza.
-          </p>
         </section>
 
         <section class="yh-plaza-side-card yh-plaza-menu-card">
@@ -101,38 +39,35 @@
           <div class="yh-plaza-side-nav">
             <button type="button" class="yh-plaza-nav-btn is-active" data-nav-tab="feed">
               <span class="yh-plaza-nav-btn-title">Feed</span>
-              <span class="yh-plaza-nav-btn-note">Network movement, wins, intros, and updates</span>
             </button>
 
             <button type="button" class="yh-plaza-nav-btn" data-nav-tab="opportunities">
               <span class="yh-plaza-nav-btn-title">Opportunities</span>
-              <span class="yh-plaza-nav-btn-note">Work, collaboration, projects, partnerships, and intros</span>
             </button>
 
             <button type="button" class="yh-plaza-nav-btn" data-nav-tab="directory">
               <span class="yh-plaza-nav-btn-title">Directory</span>
-              <span class="yh-plaza-nav-btn-note">Builders, operators, providers, and connectors</span>
             </button>
 
             <button type="button" class="yh-plaza-nav-btn" data-nav-tab="regions">
               <span class="yh-plaza-nav-btn-title">Regions</span>
-              <span class="yh-plaza-nav-btn-note">City and country hubs for local movement</span>
             </button>
 
             <button type="button" class="yh-plaza-nav-btn" data-nav-tab="bridge">
               <span class="yh-plaza-nav-btn-title">Bridge</span>
-              <span class="yh-plaza-nav-btn-note">Academy execution → Plaza visibility → Federation access</span>
             </button>
 
             <button type="button" class="yh-plaza-nav-btn" data-nav-tab="requests">
               <span class="yh-plaza-nav-btn-title">Requests</span>
-              <span class="yh-plaza-nav-btn-note">Intro, opportunity, collaboration, and regional requests</span>
             </button>
 
             <button type="button" class="yh-plaza-nav-btn" data-nav-tab="messages">
               <span class="yh-plaza-nav-btn-title">Messages</span>
-              <span class="yh-plaza-nav-btn-note">Conversations opened from requests and opportunities</span>
             </button>
+
+            <a href="/dashboard" class="yh-plaza-nav-btn yh-plaza-universe-nav-link" id="plazaBackToUniverseBtn">
+              <span class="yh-plaza-nav-btn-title">← Back to Universe</span>
+            </a>
           </div>
         </section>
 
@@ -201,23 +136,152 @@
 
           <div class="yh-plaza-tab-panels yh-plaza-screen-stack">
             <section class="yh-plaza-panel yh-plaza-screen is-active" id="plazaPanelFeed" data-plaza-panel="feed" data-plaza-screen="feed" role="tabpanel">
+              <form class="yh-plaza-feed-composer" id="plazaFeedComposerForm">
+                <div class="yh-plaza-feed-composer-main">
+                  <label class="yh-plaza-feed-composer-field">
+                    <span>Feed type</span>
+                    <select id="plazaFeedComposerType" name="type">
+                      <option value="introduction">Introduction</option>
+                      <option value="opportunity">Opportunity</option>
+                      <option value="project">Project</option>
+                      <option value="win">Win</option>
+                    </select>
+                  </label>
+
+                  <label class="yh-plaza-feed-composer-field">
+                    <span>Region</span>
+                    <input id="plazaFeedComposerRegion" name="region" type="text" placeholder="Global, Lagos, London, Dubai..." />
+                  </label>
+
+                  <label class="yh-plaza-feed-composer-field yh-plaza-feed-composer-field-wide">
+                    <span>Title</span>
+                    <input id="plazaFeedComposerTitle" name="title" type="text" placeholder="Short Plaza signal title" maxlength="120" />
+                  </label>
+
+                  <label class="yh-plaza-feed-composer-field yh-plaza-feed-composer-field-wide yh-plaza-feed-composer-field-signal">
+                    <span>Signal</span>
+                    <textarea id="plazaFeedComposerText" name="text" placeholder="Share an intro, opportunity, project, or win for Plaza." maxlength="1200" required></textarea>
+                  </label>
+                </div>
+
+                <div class="yh-plaza-feed-composer-actions">
+                  <span class="yh-plaza-feed-composer-note">Server-backed Plaza Feed. Posts are saved in Firestore.</span>
+                  <button type="submit" class="yh-plaza-btn yh-plaza-btn-primary" id="plazaFeedComposerSubmitBtn">
+                    Post Signal
+                  </button>
+                </div>
+              </form>
+
               <div class="yh-plaza-panel-note">
                 Signal board only. Plaza surfaces introductions, opportunities, projects, and wins — not random posting.
               </div>
+
               <div class="yh-plaza-feed-grid" id="plazaFeedGrid"></div>
             </section>
 
-            <section class="yh-plaza-panel yh-plaza-screen" id="plazaPanelDirectory" data-plaza-panel="directory" data-plaza-screen="directory" role="tabpanel" hidden>
-              <div class="yh-plaza-panel-note">
-                Federation-linked people stay screened inside Plaza. Use structured connection requests to move deeper.
-              </div>
-              <div class="yh-plaza-directory-grid" id="plazaDirectoryGrid"></div>
-            </section>
+              <section class="yh-plaza-panel yh-plaza-screen" id="plazaPanelDirectory" data-plaza-panel="directory" data-plaza-screen="directory" role="tabpanel" hidden>
+                <form class="yh-plaza-feed-composer" id="plazaDirectoryComposerForm">
+                  <div class="yh-plaza-feed-composer-main">
+                    <label class="yh-plaza-feed-composer-field">
+                      <span>Division</span>
+                      <select id="plazaDirectoryComposerDivision" name="division">
+                        <option value="academy">Academy</option>
+                        <option value="plaza">Plaza</option>
+                        <option value="federation">Federation</option>
+                        <option value="both">Cross-Division</option>
+                      </select>
+                    </label>
+
+                    <label class="yh-plaza-feed-composer-field">
+                      <span>Trust Layer</span>
+                      <select id="plazaDirectoryComposerTrust" name="trust">
+                        <option value="verified">Verified</option>
+                        <option value="connector">Trusted Connector</option>
+                        <option value="leader">Local Leader</option>
+                      </select>
+                    </label>
+
+                    <label class="yh-plaza-feed-composer-field">
+                      <span>Region</span>
+                      <input id="plazaDirectoryComposerRegion" name="region" type="text" placeholder="Global, Lagos, London, Dubai..." />
+                    </label>
+
+                    <label class="yh-plaza-feed-composer-field yh-plaza-feed-composer-field-wide">
+                      <span>Role</span>
+                      <input id="plazaDirectoryComposerRole" name="role" type="text" placeholder="Builder, operator, designer, connector..." maxlength="120" required />
+                    </label>
+
+                    <label class="yh-plaza-feed-composer-field yh-plaza-feed-composer-field-wide">
+                      <span>Tags</span>
+                      <input id="plazaDirectoryComposerTags" name="tags" type="text" placeholder="Sales, AI, Design, Legal, Fitness..." maxlength="180" />
+                    </label>
+
+                    <label class="yh-plaza-feed-composer-field yh-plaza-feed-composer-field-wide yh-plaza-feed-composer-field-signal">
+                      <span>Focus</span>
+                      <textarea id="plazaDirectoryComposerFocus" name="focus" placeholder="Explain what you do, what you are building, or what people can connect with you for." maxlength="500" required></textarea>
+                    </label>
+                  </div>
+
+                  <div class="yh-plaza-feed-composer-actions">
+                    <span class="yh-plaza-feed-composer-note">Server-backed Plaza Directory. Your profile is saved in Firestore.</span>
+                    <button type="submit" class="yh-plaza-btn yh-plaza-btn-primary" id="plazaDirectoryComposerSubmitBtn">
+                      Save Directory Profile
+                    </button>
+                  </div>
+                </form>
+
+                <div class="yh-plaza-panel-note">
+                  Federation-linked people stay screened inside Plaza. Use structured connection requests to move deeper.
+                </div>
+
+                <div class="yh-plaza-directory-grid" id="plazaDirectoryGrid"></div>
+              </section>
 
             <section class="yh-plaza-panel yh-plaza-screen" id="plazaPanelOpportunities" data-plaza-panel="opportunities" data-plaza-screen="opportunities" role="tabpanel" hidden>
+              <form class="yh-plaza-feed-composer" id="plazaOpportunityComposerForm">
+                <div class="yh-plaza-feed-composer-main">
+                  <label class="yh-plaza-feed-composer-field">
+                    <span>Type</span>
+                    <select id="plazaOpportunityComposerType" name="type">
+                      <option value="Opportunity">Opportunity</option>
+                      <option value="Hiring">Hiring</option>
+                      <option value="Collaboration">Collaboration</option>
+                      <option value="Partnership">Partnership</option>
+                      <option value="Introduction">Introduction</option>
+                      <option value="Service Request">Service Request</option>
+                      <option value="Project Opening">Project Opening</option>
+                      <option value="Regional Support">Regional Support</option>
+                    </select>
+                  </label>
+
+                  <label class="yh-plaza-feed-composer-field">
+                    <span>Region</span>
+                    <input id="plazaOpportunityComposerRegion" name="region" type="text" placeholder="Global, Lagos, London, Dubai..." />
+                  </label>
+
+                  <label class="yh-plaza-feed-composer-field yh-plaza-feed-composer-field-wide">
+                    <span>Title</span>
+                    <input id="plazaOpportunityComposerTitle" name="title" type="text" placeholder="Short opportunity title" maxlength="140" required />
+                  </label>
+
+                  <label class="yh-plaza-feed-composer-field yh-plaza-feed-composer-field-wide yh-plaza-feed-composer-field-signal">
+                    <span>Details</span>
+                    <textarea id="plazaOpportunityComposerText" name="text" placeholder="Describe the opportunity, who it is for, and what the next step should be." maxlength="1600" required></textarea>
+                  </label>
+                </div>
+
+                <div class="yh-plaza-feed-composer-actions">
+                  <span class="yh-plaza-feed-composer-note">Server-backed Plaza Opportunities. Saved in Firestore.</span>
+                  <button type="submit" class="yh-plaza-btn yh-plaza-btn-primary" id="plazaOpportunityComposerSubmitBtn">
+                    Post Opportunity
+                  </button>
+                </div>
+              </form>
+
               <div class="yh-plaza-panel-note">
                 This is the practical movement layer of Plaza: collaboration, hiring, intros, access, and execution support.
               </div>
+
               <div class="yh-plaza-opportunity-grid" id="plazaOpportunityGrid"></div>
             </section>
 

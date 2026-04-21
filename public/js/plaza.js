@@ -26,6 +26,18 @@ const PLAZA_INBOX_KEY = "yhPlazaInboxCleanV1";
 const PLAZA_NOTIFICATIONS_KEY = "yhPlazaNotificationsCleanV1";
 const PLAZA_CONVERSATIONS_KEY = "yhPlazaConversationsCleanV1";
 
+let plazaServerFeedLoaded = false;
+let plazaServerFeedItems = [];
+let plazaFeedLoading = false;
+
+let plazaServerOpportunitiesLoaded = false;
+let plazaServerOpportunities = [];
+let plazaOpportunitiesLoading = false;
+
+let plazaServerDirectoryLoaded = false;
+let plazaServerDirectory = [];
+let plazaDirectoryLoading = false;
+
 const OBJECTIVE_OPTIONS = [
   "Connection request",
   "Introduction",
@@ -78,6 +90,215 @@ function titleCase(value) {
     .join(" ");
 }
 
+async function plazaApiFetch(path, options = {}) {
+  const response = await fetch(path, {
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {})
+    },
+    ...options
+  });
+
+  const result = await response.json().catch(() => ({}));
+
+  if (!response.ok || result.success === false) {
+    throw new Error(result.message || "Plaza request failed.");
+  }
+
+  return result;
+}
+
+function normalizeServerFeedItem(item, index = 0) {
+  return normalizeFeedItem({
+    id: item?.id || `server-feed-${index + 1}`,
+    type: item?.type || "introduction",
+    member: item?.member || item?.authorName || "Hustler",
+    source: item?.source || "plaza",
+    division: item?.division || "both",
+    region: item?.region || "Global",
+    title: item?.title || "Plaza update",
+    text: item?.text || item?.body || "",
+    tag: item?.tag || titleCase(item?.type || "introduction"),
+    action: item?.action || "Open"
+  }, index);
+}
+
+async function loadPlazaFeedFromServer(options = {}) {
+  if (plazaFeedLoading) return plazaServerFeedItems;
+
+  plazaFeedLoading = true;
+
+  if (plazaFeedGrid && options.silent !== true) {
+    plazaFeedGrid.innerHTML = `<div class="yh-plaza-empty">Loading Plaza feed...</div>`;
+  }
+
+  try {
+    const result = await plazaApiFetch("/api/plaza/feed?limit=60");
+    const feed = Array.isArray(result.feed) ? result.feed : [];
+
+    plazaServerFeedItems = feed.map(normalizeServerFeedItem);
+    plazaServerFeedLoaded = true;
+
+    renderFeed(plazaRuntime.feedFilter || "all");
+    return plazaServerFeedItems;
+  } catch (error) {
+    console.error("loadPlazaFeedFromServer error:", error);
+
+    if (plazaFeedGrid) {
+      plazaFeedGrid.innerHTML = `<div class="yh-plaza-empty">Could not load Plaza feed. Please refresh.</div>`;
+    }
+
+    return [];
+  } finally {
+    plazaFeedLoading = false;
+  }
+}
+
+async function createPlazaFeedPost(payload = {}) {
+  const result = await plazaApiFetch("/api/plaza/feed/posts", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+
+  const post = result.post ? normalizeServerFeedItem(result.post) : null;
+
+  if (post) {
+    plazaServerFeedItems = [
+      post,
+      ...plazaServerFeedItems.filter((item) => item.id !== post.id)
+    ];
+    plazaServerFeedLoaded = true;
+  }
+
+  return post;
+}
+function normalizeServerOpportunityItem(item, index = 0) {
+  return normalizeOpportunityItem({
+    id: item?.id || `server-opp-${index + 1}`,
+    type: item?.type || "Opportunity",
+    region: item?.region || "Global",
+    title: item?.title || "Plaza opportunity",
+    text: item?.text || item?.description || "",
+    action: item?.action || "Open"
+  }, index);
+}
+
+async function loadPlazaOpportunitiesFromServer(options = {}) {
+  if (plazaOpportunitiesLoading) return plazaServerOpportunities;
+
+  plazaOpportunitiesLoading = true;
+
+  if (plazaOpportunityGrid && options.silent !== true) {
+    plazaOpportunityGrid.innerHTML = `<div class="yh-plaza-empty">Loading Plaza opportunities...</div>`;
+  }
+
+  try {
+    const result = await plazaApiFetch("/api/plaza/opportunities?limit=80");
+    const items = Array.isArray(result.opportunities) ? result.opportunities : [];
+
+    plazaServerOpportunities = items.map(normalizeServerOpportunityItem);
+    plazaServerOpportunitiesLoaded = true;
+
+    renderOpportunities();
+    return plazaServerOpportunities;
+  } catch (error) {
+    console.error("loadPlazaOpportunitiesFromServer error:", error);
+
+    if (plazaOpportunityGrid) {
+      plazaOpportunityGrid.innerHTML = `<div class="yh-plaza-empty">Could not load Plaza opportunities. Please refresh.</div>`;
+    }
+
+    return [];
+  } finally {
+    plazaOpportunitiesLoading = false;
+  }
+}
+
+async function createPlazaOpportunity(payload = {}) {
+  const result = await plazaApiFetch("/api/plaza/opportunities", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+
+  const opportunity = result.opportunity
+    ? normalizeServerOpportunityItem(result.opportunity)
+    : null;
+
+  if (opportunity) {
+    plazaServerOpportunities = [
+      opportunity,
+      ...plazaServerOpportunities.filter((item) => item.id !== opportunity.id)
+    ];
+    plazaServerOpportunitiesLoaded = true;
+  }
+
+  return opportunity;
+}
+function normalizeServerDirectoryItem(item, index = 0) {
+  return normalizeDirectoryItem({
+    id: item?.id || `server-member-${index + 1}`,
+    name: item?.name || item?.authorName || "Hustler",
+    region: item?.region || "Global",
+    division: item?.division || "academy",
+    source: item?.source || item?.division || "academy",
+    trust: item?.trust || "verified",
+    role: item?.role || "Member",
+    focus: item?.focus || "",
+    tags: Array.isArray(item?.tags) ? item.tags : []
+  }, index);
+}
+
+async function loadPlazaDirectoryFromServer(options = {}) {
+  if (plazaDirectoryLoading) return plazaServerDirectory;
+
+  plazaDirectoryLoading = true;
+
+  if (plazaDirectoryGrid && options.silent !== true) {
+    plazaDirectoryGrid.innerHTML = `<div class="yh-plaza-empty">Loading Plaza directory...</div>`;
+  }
+
+  try {
+    const result = await plazaApiFetch("/api/plaza/directory?limit=160");
+    const items = Array.isArray(result.directory) ? result.directory : [];
+
+    plazaServerDirectory = items.map(normalizeServerDirectoryItem);
+    plazaServerDirectoryLoaded = true;
+
+    populateRegionFilter();
+    renderDirectory();
+    return plazaServerDirectory;
+  } catch (error) {
+    console.error("loadPlazaDirectoryFromServer error:", error);
+
+    if (plazaDirectoryGrid) {
+      plazaDirectoryGrid.innerHTML = `<div class="yh-plaza-empty">Could not load Plaza directory. Please refresh.</div>`;
+    }
+
+    return [];
+  } finally {
+    plazaDirectoryLoading = false;
+  }
+}
+
+async function savePlazaDirectoryProfile(payload = {}) {
+  const result = await plazaApiFetch("/api/plaza/directory/profile", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+
+  const profile = result.profile ? normalizeServerDirectoryItem(result.profile) : null;
+
+  if (profile) {
+    plazaServerDirectory = [
+      profile,
+      ...plazaServerDirectory.filter((item) => item.id !== profile.id)
+    ];
+    plazaServerDirectoryLoaded = true;
+  }
+
+  return profile;
+}
 function normalizeDivision(value) {
   const raw = String(value || "").trim().toLowerCase();
   if (raw === "academy" || raw === "yha") return "academy";
@@ -1936,6 +2157,15 @@ const plazaNavButtons = Array.from(document.querySelectorAll("[data-nav-tab]"));
 const plazaFeedFilters = Array.from(document.querySelectorAll("[data-feed-filter]"));
 
 const plazaFeedGrid = document.getElementById("plazaFeedGrid");
+const plazaFeedComposerForm = document.getElementById("plazaFeedComposerForm");
+const plazaFeedComposerSubmitBtn = document.getElementById("plazaFeedComposerSubmitBtn");
+
+const plazaOpportunityComposerForm = document.getElementById("plazaOpportunityComposerForm");
+const plazaOpportunityComposerSubmitBtn = document.getElementById("plazaOpportunityComposerSubmitBtn");
+
+const plazaDirectoryComposerForm = document.getElementById("plazaDirectoryComposerForm");
+const plazaDirectoryComposerSubmitBtn = document.getElementById("plazaDirectoryComposerSubmitBtn");
+
 const plazaDirectoryGrid = document.getElementById("plazaDirectoryGrid");
 const plazaOpportunityGrid = document.getElementById("plazaOpportunityGrid");
 const plazaRegionGrid = document.getElementById("plazaRegionGrid");
@@ -2809,7 +3039,14 @@ function renderStats() {
 function renderFeed(filter = "all") {
   if (!plazaFeedGrid) return;
 
-  const items = plazaAdapter.getFeed(filter);
+  const normalizedFilter = String(filter || "all").trim().toLowerCase();
+  const sourceItems = plazaServerFeedLoaded
+    ? plazaServerFeedItems
+    : plazaAdapter.getFeed("all");
+
+  const items = normalizedFilter === "all"
+    ? sourceItems
+    : sourceItems.filter((item) => String(item.type || "").toLowerCase() === normalizedFilter);
 
   if (!items.length) {
     plazaFeedGrid.innerHTML = `<div class="yh-plaza-empty">No Plaza feed activity yet.</div>`;
@@ -2847,11 +3084,24 @@ function renderFeed(filter = "all") {
 function renderDirectory() {
   if (!plazaDirectoryGrid) return;
 
-  const items = plazaAdapter.getDirectory({
+  const filters = {
     region: plazaRegionFilter?.value || "all",
     division: plazaDivisionFilter?.value || "all",
     trust: plazaTrustFilter?.value || "all"
-  });
+  };
+
+  const sourceItems = plazaServerDirectoryLoaded
+    ? plazaServerDirectory
+    : plazaAdapter.getDirectory(filters);
+
+  const items = plazaServerDirectoryLoaded
+    ? sourceItems.filter((item) => {
+        const regionMatch = filters.region === "all" || item.region === filters.region;
+        const divisionMatch = filters.division === "all" || item.division === filters.division;
+        const trustMatch = filters.trust === "all" || item.trust === filters.trust;
+        return regionMatch && divisionMatch && trustMatch;
+      })
+    : sourceItems;
 
   if (!items.length) {
     plazaDirectoryGrid.innerHTML = `<div class="yh-plaza-empty">No Plaza directory members yet.</div>`;
@@ -2859,25 +3109,22 @@ function renderDirectory() {
   }
 
   plazaDirectoryGrid.innerHTML = items.map((item) => `
-    <article class="yh-plaza-directory-card" data-context-card="member" data-context-id="${escapeHtml(item.id)}">
+    <article class="yh-plaza-directory-card">
       <div class="yh-plaza-directory-card-head">
-        <div>
-          <span class="yh-plaza-directory-badge">${escapeHtml(getTrustLabel(item.trust))}</span>
-          <h3>${escapeHtml(item.name)}</h3>
-        </div>
-        <span class="yh-plaza-directory-badge">${escapeHtml(getSourceLabel(item.source))}</span>
+        <span class="yh-plaza-directory-badge">${escapeHtml(getDivisionLabel(item.division))}</span>
+        <span class="yh-plaza-directory-badge">${escapeHtml(getTrustLabel(item.trust))}</span>
       </div>
+      <h3>${escapeHtml(item.name)}</h3>
       <p>${escapeHtml(item.focus)}</p>
       <div class="yh-plaza-directory-meta">
         <span>${escapeHtml(item.role)}</span>
         <span>${escapeHtml(item.region)}</span>
-        <span>${escapeHtml(getDivisionLabel(item.division))}</span>
       </div>
-      <div class="yh-plaza-directory-tags">
-        ${item.tags.map((tag) => `<span class="yh-plaza-directory-tag">${escapeHtml(tag)}</span>`).join("")}
+      <div class="yh-plaza-card-tags">
+        ${item.tags.map((tag) => `<span>${escapeHtml(tag)}</span>`).join("")}
       </div>
       <div class="yh-plaza-card-actions">
-        <button type="button" class="yh-plaza-ghost-btn" data-member-id="${escapeHtml(item.id)}">${escapeHtml(getDirectoryActionLabel(item))}</button>
+        <button type="button" class="yh-plaza-ghost-btn" data-member-id="${escapeHtml(item.id)}">Request Connection</button>
       </div>
     </article>
   `).join("");
@@ -2886,7 +3133,9 @@ function renderDirectory() {
 function renderOpportunities() {
   if (!plazaOpportunityGrid) return;
 
-  const items = plazaAdapter.getOpportunities();
+  const items = plazaServerOpportunitiesLoaded
+    ? plazaServerOpportunities
+    : plazaAdapter.getOpportunities();
 
   if (!items.length) {
     plazaOpportunityGrid.innerHTML = `<div class="yh-plaza-empty">No Plaza opportunities yet.</div>`;
@@ -2964,10 +3213,21 @@ function renderBridge() {
 
 function populateRegionFilter() {
   if (!plazaRegionFilter) return;
-  const regions = Array.from(new Set(plazaState.directory.map((item) => item.region))).sort();
-  const baseOption = `<option value="all">All Regions</option>`;
-  const options = regions.map((region) => `<option value="${escapeHtml(region)}">${escapeHtml(region)}</option>`).join("");
-  plazaRegionFilter.innerHTML = baseOption + options;
+
+  const directoryItems = plazaServerDirectoryLoaded
+    ? plazaServerDirectory
+    : plazaAdapter.getState().directory;
+
+  const regions = new Set(directoryItems.map((item) => item.region).filter(Boolean));
+
+  plazaRegionFilter.innerHTML = `<option value="all">All Regions</option>`;
+
+  Array.from(regions).sort().forEach((region) => {
+    const option = document.createElement("option");
+    option.value = region;
+    option.textContent = region;
+    plazaRegionFilter.appendChild(option);
+  });
 }
 
 function renderRailSignals() {
@@ -5057,7 +5317,172 @@ function openIntroModal() {
   });
 }
 
-function initPlaza() {
+async function submitPlazaFeedComposer(event) {
+  event.preventDefault();
+
+  if (!plazaFeedComposerForm) return;
+
+  const submitButton = plazaFeedComposerSubmitBtn || event.submitter || null;
+  const lockKey = "form:plazaFeedComposer";
+
+  if (plazaActionLocks.has(lockKey)) return;
+
+  const formData = new FormData(plazaFeedComposerForm);
+  const payload = {
+    type: String(formData.get("type") || "introduction").trim(),
+    region: String(formData.get("region") || "Global").trim(),
+    title: String(formData.get("title") || "").trim(),
+    text: String(formData.get("text") || "").trim()
+  };
+
+  if (!payload.text) {
+    if (typeof showToast === "function") {
+      showToast("Write a Plaza signal first.", "error");
+    }
+    return;
+  }
+
+  plazaActionLocks.add(lockKey);
+  setButtonBusy(submitButton, "Posting...");
+
+  try {
+    await createPlazaFeedPost(payload);
+
+    plazaFeedComposerForm.reset();
+    plazaRuntime.feedFilter = "all";
+
+    plazaFeedFilters.forEach((item) => {
+      item.classList.toggle("is-active", item.dataset.feedFilter === "all");
+    });
+
+    renderFeed("all");
+
+    if (typeof showToast === "function") {
+      showToast("Plaza signal posted.", "success");
+    }
+  } catch (error) {
+    console.error("submitPlazaFeedComposer error:", error);
+
+    if (typeof showToast === "function") {
+      showToast(error.message || "Could not post Plaza signal.", "error");
+    }
+  } finally {
+    clearButtonBusy(submitButton);
+    plazaActionLocks.delete(lockKey);
+  }
+}
+async function submitPlazaOpportunityComposer(event) {
+  event.preventDefault();
+
+  if (!plazaOpportunityComposerForm) return;
+
+  const submitButton = plazaOpportunityComposerSubmitBtn || event.submitter || null;
+  const lockKey = "form:plazaOpportunityComposer";
+
+  if (plazaActionLocks.has(lockKey)) return;
+
+  const formData = new FormData(plazaOpportunityComposerForm);
+  const payload = {
+    type: String(formData.get("type") || "Opportunity").trim(),
+    region: String(formData.get("region") || "Global").trim(),
+    title: String(formData.get("title") || "").trim(),
+    text: String(formData.get("text") || "").trim()
+  };
+
+  if (!payload.title) {
+    if (typeof showToast === "function") {
+      showToast("Add an opportunity title first.", "error");
+    }
+    return;
+  }
+
+  if (!payload.text) {
+    if (typeof showToast === "function") {
+      showToast("Describe the opportunity first.", "error");
+    }
+    return;
+  }
+
+  plazaActionLocks.add(lockKey);
+  setButtonBusy(submitButton, "Posting...");
+
+  try {
+    await createPlazaOpportunity(payload);
+
+    plazaOpportunityComposerForm.reset();
+    renderOpportunities();
+
+    if (typeof showToast === "function") {
+      showToast("Plaza opportunity posted.", "success");
+    }
+  } catch (error) {
+    console.error("submitPlazaOpportunityComposer error:", error);
+
+    if (typeof showToast === "function") {
+      showToast(error.message || "Could not post Plaza opportunity.", "error");
+    }
+  } finally {
+    clearButtonBusy(submitButton);
+    plazaActionLocks.delete(lockKey);
+  }
+}
+async function submitPlazaDirectoryComposer(event) {
+  event.preventDefault();
+
+  if (!plazaDirectoryComposerForm) return;
+
+  const submitButton = plazaDirectoryComposerSubmitBtn || event.submitter || null;
+  const lockKey = "form:plazaDirectoryComposer";
+
+  if (plazaActionLocks.has(lockKey)) return;
+
+  const formData = new FormData(plazaDirectoryComposerForm);
+  const payload = {
+    division: String(formData.get("division") || "academy").trim(),
+    trust: String(formData.get("trust") || "verified").trim(),
+    region: String(formData.get("region") || "Global").trim(),
+    role: String(formData.get("role") || "").trim(),
+    tags: String(formData.get("tags") || "").trim(),
+    focus: String(formData.get("focus") || "").trim()
+  };
+
+  if (!payload.role) {
+    if (typeof showToast === "function") {
+      showToast("Add your directory role first.", "error");
+    }
+    return;
+  }
+
+  if (!payload.focus) {
+    if (typeof showToast === "function") {
+      showToast("Add your directory focus first.", "error");
+    }
+    return;
+  }
+
+  plazaActionLocks.add(lockKey);
+  setButtonBusy(submitButton, "Saving...");
+
+  try {
+    await savePlazaDirectoryProfile(payload);
+
+    renderDirectory();
+
+    if (typeof showToast === "function") {
+      showToast("Directory profile saved.", "success");
+    }
+  } catch (error) {
+    console.error("submitPlazaDirectoryComposer error:", error);
+
+    if (typeof showToast === "function") {
+      showToast(error.message || "Could not save directory profile.", "error");
+    }
+  } finally {
+    clearButtonBusy(submitButton);
+    plazaActionLocks.delete(lockKey);
+  }
+}
+async function initPlaza() {
   renderStats();
   populateRegionFilter();
 
@@ -5081,6 +5506,30 @@ function initPlaza() {
   renderOperationalPreviews();
   openScreen(restoredScreen, { resetHistory: true, pushHistory: false });
   bindEvents();
+
+  if (plazaFeedComposerForm) {
+    plazaFeedComposerForm.addEventListener("submit", submitPlazaFeedComposer);
+  }
+
+  if (plazaOpportunityComposerForm) {
+    plazaOpportunityComposerForm.addEventListener("submit", submitPlazaOpportunityComposer);
+  }
+
+  if (plazaDirectoryComposerForm) {
+    plazaDirectoryComposerForm.addEventListener("submit", submitPlazaDirectoryComposer);
+  }
+
+  await loadPlazaFeedFromServer({
+    silent: restoredScreen !== "feed"
+  });
+
+  await loadPlazaOpportunitiesFromServer({
+    silent: restoredScreen !== "opportunities"
+  });
+
+  await loadPlazaDirectoryFromServer({
+    silent: restoredScreen !== "directory"
+  });
 
   if (typeof window.translateCurrentPage === "function") {
     window.translateCurrentPage();
