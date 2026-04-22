@@ -13588,3 +13588,70 @@ body[data-yh-view="academy"] .academy-voice-audio-bank {
     opacity: 0 !important;
     pointer-events: none !important;
 }
+/* ==========================================
+   UNIVERSE HUB CTA UNIFICATION
+   Match Federation + Plaza buttons to Academy CTA
+   ========================================== */
+
+body[data-yh-view="hub"] #btn-open-federation-preview,
+body[data-yh-view="hub"] #btn-open-plazas-preview,
+body[data-yh-view="hub"] .yh-federation-gate-btn,
+body[data-yh-view="hub"] .yh-plaza-gate-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+    min-height: 56px !important;
+    padding: 0.95rem 1.2rem !important;
+    border-radius: 16px !important;
+    border: 1px solid rgba(56, 189, 248, 0.72) !important;
+    background: linear-gradient(180deg, #38bdf8 0%, #0ea5e9 100%) !important;
+    color: #f8fdff !important;
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+    line-height: 1.2 !important;
+    text-align: center !important;
+    box-shadow:
+        0 10px 26px rgba(14, 165, 233, 0.28),
+        inset 0 1px 0 rgba(255, 255, 255, 0.26) !important;
+    transition:
+        transform 0.18s ease,
+        box-shadow 0.18s ease,
+        filter 0.18s ease !important;
+}
+
+body[data-yh-view="hub"] #btn-open-federation-preview:hover,
+body[data-yh-view="hub"] #btn-open-plazas-preview:hover,
+body[data-yh-view="hub"] .yh-federation-gate-btn:hover,
+body[data-yh-view="hub"] .yh-plaza-gate-btn:hover,
+body[data-yh-view="hub"] #btn-open-federation-preview:focus-visible,
+body[data-yh-view="hub"] #btn-open-plazas-preview:focus-visible,
+body[data-yh-view="hub"] .yh-federation-gate-btn:focus-visible,
+body[data-yh-view="hub"] .yh-plaza-gate-btn:focus-visible {
+    transform: translateY(-1px) !important;
+    background: linear-gradient(180deg, #38bdf8 0%, #0ea5e9 100%) !important;
+    color: #f8fdff !important;
+    box-shadow:
+        0 14px 30px rgba(14, 165, 233, 0.34),
+        inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
+    filter: brightness(1.03) !important;
+}
+
+body[data-yh-view="hub"] #btn-open-federation-preview.is-pending-locked,
+body[data-yh-view="hub"] #btn-open-plazas-preview.is-pending-locked,
+body[data-yh-view="hub"] .yh-federation-gate-btn.is-pending-locked,
+body[data-yh-view="hub"] .yh-plaza-gate-btn.is-pending-locked,
+body[data-yh-view="hub"] #btn-open-federation-preview:disabled,
+body[data-yh-view="hub"] #btn-open-plazas-preview:disabled,
+body[data-yh-view="hub"] .yh-federation-gate-btn:disabled,
+body[data-yh-view="hub"] .yh-plaza-gate-btn:disabled {
+    opacity: 0.68 !important;
+    cursor: not-allowed !important;
+    pointer-events: none !important;
+    transform: none !important;
+    background: linear-gradient(180deg, #38bdf8 0%, #0ea5e9 100%) !important;
+    color: #f8fdff !important;
+    box-shadow:
+        0 10px 26px rgba(14, 165, 233, 0.18),
+        inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
+}
