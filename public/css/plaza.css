@@ -2085,3 +2085,232 @@ textarea:focus,
     border-radius: 1rem;
   }
 }
+/* =========================================================
+   PLAZA ACCESS APPLICATION GATE
+   ========================================================= */
+
+.yh-plaza-access-booting .yh-plaza-shell {
+  visibility: hidden;
+}
+
+.yh-plaza-access-locked {
+  overflow: auto;
+}
+
+.yh-plaza-access-locked .yh-plaza-shell {
+  display: none;
+}
+
+.yh-plaza-access-gate[hidden] {
+  display: none !important;
+}
+
+.yh-plaza-access-gate {
+  position: relative;
+  z-index: 50;
+  min-height: 100dvh;
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: clamp(18px, 4vw, 48px);
+  overflow-y: auto;
+  background:
+    radial-gradient(circle at top left, rgba(77, 139, 255, 0.22), transparent 34%),
+    radial-gradient(circle at top right, rgba(139, 180, 255, 0.12), transparent 28%),
+    linear-gradient(180deg, #050816 0%, #070b13 100%);
+}
+
+.yh-plaza-access-card {
+  width: min(980px, 100%);
+  border: 1px solid rgba(77, 139, 255, 0.18);
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, rgba(10, 16, 29, 0.97), rgba(7, 12, 22, 0.99));
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
+  padding: clamp(20px, 4vw, 38px);
+}
+
+.yh-plaza-access-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--yh-text);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin-bottom: 22px;
+}
+
+.yh-plaza-access-logo {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.yh-plaza-access-head {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.yh-plaza-access-head h1 {
+  margin: 0;
+  max-width: 780px;
+  font-size: clamp(2rem, 4vw, 4.1rem);
+  line-height: 0.98;
+  letter-spacing: -0.06em;
+  color: var(--yh-text);
+}
+
+.yh-plaza-access-head p {
+  margin: 0;
+  max-width: 760px;
+  color: var(--yh-text-soft);
+  line-height: 1.75;
+}
+
+.yh-plaza-access-status {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0;
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(77, 139, 255, 0.18);
+  background: rgba(77, 139, 255, 0.08);
+  color: var(--yh-text);
+}
+
+.yh-plaza-access-status strong {
+  font-size: 1.05rem;
+}
+
+.yh-plaza-access-status p {
+  margin: 0;
+  color: var(--yh-text-soft);
+  line-height: 1.65;
+}
+
+.yh-plaza-application-form {
+  display: grid;
+  gap: 18px;
+}
+
+.yh-plaza-application-section {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.yh-plaza-application-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.yh-plaza-application-field {
+  display: grid;
+  gap: 8px;
+  color: var(--yh-text-soft);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.yh-plaza-application-field span {
+  color: var(--yh-text);
+}
+
+.yh-plaza-application-field small {
+  color: var(--yh-text-soft);
+  font-weight: 500;
+}
+
+.yh-plaza-application-field input,
+.yh-plaza-application-field select,
+.yh-plaza-application-field textarea {
+  width: 100%;
+  border: 1px solid rgba(77, 139, 255, 0.22);
+  border-radius: 15px;
+  background: rgba(5, 8, 22, 0.72);
+  color: var(--yh-text);
+  padding: 12px 14px;
+  outline: none;
+  resize: vertical;
+}
+
+.yh-plaza-application-field select option {
+  background: #08111f;
+  color: #eef4ff;
+}
+
+.yh-plaza-application-field input:focus,
+.yh-plaza-application-field select:focus,
+.yh-plaza-application-field textarea:focus {
+  border-color: rgba(139, 180, 255, 0.72);
+  box-shadow: 0 0 0 4px rgba(77, 139, 255, 0.14);
+}
+
+.yh-plaza-application-member-fields,
+.yh-plaza-application-branch {
+  display: grid;
+  gap: 18px;
+}
+
+.yh-plaza-application-member-fields[hidden],
+.yh-plaza-application-branch[hidden],
+.yh-plaza-application-stop[hidden],
+#plazaCountryField[hidden],
+#plazaMarketplaceFields[hidden],
+#plazaServicesProductsField[hidden],
+#plazaReferralField[hidden],
+#plazaHowHeardField[hidden] {
+  display: none !important;
+}
+
+.yh-plaza-application-stop {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid rgba(255, 107, 107, 0.28);
+  border-radius: 18px;
+  background: rgba(255, 107, 107, 0.09);
+  color: var(--yh-text);
+}
+
+.yh-plaza-application-stop p {
+  margin: 0;
+  color: var(--yh-text-soft);
+  line-height: 1.65;
+}
+
+.yh-plaza-application-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 760px) {
+  .yh-plaza-access-gate {
+    padding: 14px;
+  }
+
+  .yh-plaza-access-card {
+    border-radius: 22px;
+    padding: 18px;
+  }
+
+  .yh-plaza-application-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .yh-plaza-application-actions {
+    flex-direction: column-reverse;
+  }
+
+  .yh-plaza-application-actions .yh-plaza-btn {
+    width: 100%;
+  }
+}

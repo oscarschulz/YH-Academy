@@ -11,10 +11,160 @@
     href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap"
     rel="stylesheet"
   />
-<link rel="stylesheet" href="/css/plaza.css?v=20260422-plaza-loader-logo-1" />
-<script src="/js/plaza.js?v=20260422-plaza-loader-logo-1" defer></script>
+<link rel="stylesheet" href="/css/plaza.css?v=20260422-plaza-application-gate-1" />
+<script src="/js/plaza.js?v=20260422-plaza-application-gate-1" defer></script>
 </head>
-<body data-yh-i18n-mode="attributes" class="yh-plaza-page">
+<body data-yh-i18n-mode="attributes" class="yh-plaza-page yh-plaza-access-booting">
+
+  <section class="yh-plaza-access-gate" id="plazaAccessGate" hidden>
+    <div class="yh-plaza-access-card">
+      <div class="yh-plaza-access-brand">
+        <img src="/images/logo.avif" alt="YH Logo" class="yh-plaza-access-logo" />
+        <span>YH Universe</span>
+      </div>
+
+      <div class="yh-plaza-access-head">
+        <span class="yh-plaza-section-kicker">Plaza Application</span>
+        <h1>The Plaza is application-gated.</h1>
+        <p>
+          The Plaza is only for existing Young Hustlers members from The Academy or The Federation.
+          Complete the form below and wait for admin approval before entering the Plaza universe.
+        </p>
+      </div>
+
+      <div class="yh-plaza-access-status" id="plazaAccessStatusCard" hidden></div>
+
+      <form class="yh-plaza-application-form" id="plazaApplicationForm" novalidate>
+        <div class="yh-plaza-application-section">
+          <label class="yh-plaza-application-field">
+            <span>Are you a member of Young Hustlers?</span>
+            <select id="plazaAppMembershipType" name="membershipType" required>
+              <option value="">Select your answer</option>
+              <option value="academy">Yes, in The Academy</option>
+              <option value="federation">Yes, in The Federation</option>
+              <option value="not_yet">Not yet, am just looking around</option>
+            </select>
+          </label>
+
+          <label class="yh-plaza-application-field">
+            <span>Drop your best e-mail</span>
+            <input id="plazaAppEmail" name="email" type="email" placeholder="you@example.com" required />
+          </label>
+
+          <div class="yh-plaza-application-stop" id="plazaApplicationStopNotice" hidden>
+            <strong>There is nothing to check here yet.</strong>
+            <p>Come back when you are already a member of The Academy or The Federation.</p>
+            <a href="/dashboard" class="yh-plaza-btn yh-plaza-btn-secondary">Back to Universe</a>
+          </div>
+        </div>
+
+        <div class="yh-plaza-application-member-fields" id="plazaApplicationMemberFields" hidden>
+          <div class="yh-plaza-application-section">
+            <div class="yh-plaza-application-grid">
+              <label class="yh-plaza-application-field">
+                <span>Name &amp; Surname</span>
+                <input id="plazaAppFullName" name="fullName" type="text" placeholder="Your full name" required />
+              </label>
+
+              <label class="yh-plaza-application-field">
+                <span>Age</span>
+                <input id="plazaAppAge" name="age" type="number" min="13" max="120" placeholder="Your age" required />
+              </label>
+            </div>
+
+            <label class="yh-plaza-application-field">
+              <span>What is one project you are currently building or planning?</span>
+              <textarea id="plazaAppCurrentProject" name="currentProject" rows="4" required></textarea>
+            </label>
+
+            <label class="yh-plaza-application-field">
+              <span>What resources do you need most right now? <small>(knowledge, income, network, mentorship, etc.)</small></span>
+              <textarea id="plazaAppResourcesNeeded" name="resourcesNeeded" rows="4" required></textarea>
+            </label>
+          </div>
+
+          <div class="yh-plaza-application-section">
+            <label class="yh-plaza-application-field">
+              <span id="plazaAppJoinedLabel">When did you join The Academy approximately?</span>
+              <input id="plazaAppJoinedAt" name="joinedAt" type="text" placeholder="Example: March 2026, last month, 2 weeks ago..." required />
+            </label>
+
+            <label class="yh-plaza-application-field">
+              <span id="plazaAppLearntLabel">What have you learnt so far in The Academy?</span>
+              <textarea id="plazaAppLearntSoFar" name="learntSoFar" rows="4" required></textarea>
+            </label>
+
+            <label class="yh-plaza-application-field">
+              <span id="plazaAppContributionLabel">What can you contribute as an Academy member?</span>
+              <textarea id="plazaAppContribution" name="contribution" rows="4" required></textarea>
+            </label>
+          </div>
+
+          <div class="yh-plaza-application-section">
+            <label class="yh-plaza-application-field">
+              <span>Are you planning to become a Patrón or a Leader of the Plaza?</span>
+              <select id="plazaAppWantsPatron" name="wantsPatron" required>
+                <option value="">Select your answer</option>
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </select>
+            </label>
+
+            <div class="yh-plaza-application-branch" id="plazaPatronYesFields" hidden>
+              <label class="yh-plaza-application-field">
+                <span>What do you expect if you were to become a Patrón of your Plaza?</span>
+                <textarea id="plazaAppPatronExpectation" name="patronExpectation" rows="4"></textarea>
+              </label>
+
+              <label class="yh-plaza-application-field">
+                <span>Have you built, managed, or led anything before?</span>
+                <textarea id="plazaAppLeadershipExperience" name="leadershipExperience" rows="4"></textarea>
+              </label>
+            </div>
+
+            <label class="yh-plaza-application-field" id="plazaCountryField" hidden>
+              <span>Country of Residence</span>
+              <input id="plazaAppCountry" name="country" type="text" placeholder="Your country" />
+            </label>
+          </div>
+
+          <div class="yh-plaza-application-section" id="plazaMarketplaceFields" hidden>
+            <label class="yh-plaza-application-field">
+              <span>Do you want to promote your services or products inside our marketplace?</span>
+              <select id="plazaAppWantsMarketplace" name="wantsMarketplace">
+                <option value="">Select your answer</option>
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </select>
+            </label>
+
+            <label class="yh-plaza-application-field" id="plazaServicesProductsField" hidden>
+              <span>What services/products do you provide?</span>
+              <textarea id="plazaAppServicesProducts" name="servicesProducts" rows="4"></textarea>
+            </label>
+
+            <label class="yh-plaza-application-field" id="plazaReferralField" hidden>
+              <span>Who referred you?</span>
+              <input id="plazaAppReferredBy" name="referredBy" type="text" placeholder="Name, username, or referral source" />
+            </label>
+
+            <label class="yh-plaza-application-field" id="plazaHowHeardField" hidden>
+              <span>In case no one referred you, how did you hear from us?</span>
+              <textarea id="plazaAppHowHeard" name="howHeard" rows="3"></textarea>
+            </label>
+          </div>
+
+          <div class="yh-plaza-application-actions">
+            <a href="/dashboard" class="yh-plaza-btn yh-plaza-btn-secondary">Back to Universe</a>
+            <button type="submit" class="yh-plaza-btn yh-plaza-btn-primary" id="plazaApplicationSubmitBtn">
+              Submit Plaza Application
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </section>
+
   <div class="yh-plaza-shell">
     <header class="yh-plaza-app-header">
       <div class="yh-plaza-app-brand">

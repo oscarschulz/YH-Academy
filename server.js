@@ -1401,7 +1401,7 @@ app.use('/uploads', express.static(ACADEMY_UPLOADS_ROOT, {
     }
 }));
 
-app.use(async (req, res, next) => {
+app.use((req, res, next) => {
     const pathName = String(req.path || '').replace(/\/+$/, '') || '/';
 
     if (pathName !== '/plaza' && pathName !== '/plaza.html') {
@@ -1414,18 +1414,7 @@ app.use(async (req, res, next) => {
         return res.redirect('/?redirect=plaza');
     }
 
-    try {
-        const snapshot = await getPlazaAccessSnapshotForUser(user.id, user);
-
-        if (snapshot.canEnterPlaza === true) {
-            return next();
-        }
-
-        return res.redirect('/dashboard?division=plazas&plazaAccess=required');
-    } catch (error) {
-        console.error('plaza html access gate error:', error);
-        return res.redirect('/dashboard?division=plazas&plazaAccess=required');
-    }
+    return next();
 });
 
 app.use(express.static(path.join(__dirname, 'public'), {
@@ -2939,7 +2928,58 @@ app.get('/api/plaza/application-status', requireApiUser, async (req, res) => {
     }
 });
 
-app.post('/api/plaza/application-intent', requireApiUser, async (req, res) => {
+function normalizePlazaApplicationShort(value = '', max = 180) {
+    return sanitizeText(value).slice(0, max);
+}
+
+function normalizePlazaApplicationLong(value = '', max = 1800) {
+    return sanitizeText(value).slice(0, max);
+}
+
+function normalizePlazaMembershipType(value = '') {
+    const raw = sanitizeText(value).toLowerCase();
+
+    if (raw === 'academy') return 'academy';
+    if (raw === 'federation') return 'federation';
+    if (raw === 'not_yet' || raw === 'not yet') return 'not_yet';
+
+    return '';
+}
+
+function normalizePlazaYesNo(value = '') {
+    const raw = sanitizeText(value).toLowerCase();
+
+    if (raw === 'yes') return 'yes';
+    if (raw === 'no') return 'no';
+
+    return '';
+}
+
+function getPlazaMembershipDivisionLabel(membershipType = '') {
+    if (membershipType === 'academy') return 'The Academy';
+    if (membershipType === 'federation') return 'The Federation';
+    return 'Young Hustlers';
+}
+
+function buildPlazaApplicationTags(application = {}) {
+    const tags = [];
+
+    [
+        application.membershipType,
+        application.country,
+        application.wantsPatron === 'yes' ? 'patron-track' : 'member-track',
+        application.wantsMarketplace === 'yes' ? 'marketplace' : '',
+        application.currentProject,
+        application.resourcesNeeded
+    ].forEach((value) => {
+        const clean = sanitizeText(value).toLowerCase();
+        if (clean && !tags.includes(clean)) tags.push(clean);
+    });
+
+    return tags.slice(0, 16);
+}
+
+app.post('/api/plaza/applications', requireApiUser, async (req, res) => {
     try {
         const userId = sanitizeText(req.user?.id);
 
@@ -2985,28 +3025,176 @@ app.post('/api/plaza/application-intent', requireApiUser, async (req, res) => {
             });
         }
 
+        const body = req.body || {};
+        const membershipType = normalizePlazaMembershipType(body.membershipType);
+
+        if (membershipType === 'not_yet') {
+            return res.status(403).json({
+                success: false,
+                message: 'There is nothing to check here yet, come back when you are already a member.'
+            });
+        }
+
+        if (membershipType !== 'academy' && membershipType !== 'federation') {
+            return res.status(400).json({
+                success: false,
+                message: 'Select whether you are in The Academy or The Federation.'
+            });
+        }
+
+        const wantsPatron = normalizePlazaYesNo(body.wantsPatron);
+        const wantsMarketplace = normalizePlazaYesNo(body.wantsMarketplace);
+
+        const applicationData = {
+            schemaVersion: normalizePlazaApplicationShort(body.schemaVersion || 'plaza-typeform-clone-v1'),
+            membershipType,
+            membershipDivisionLabel: getPlazaMembershipDivisionLabel(membershipType),
+
+            email: normalizePlazaApplicationShort(body.email || user.email || req.user?.email || '', 180).toLowerCase(),
+            fullName: normalizePlazaApplicationShort(body.fullName || user.fullName || user.name || user.displayName || req.user?.name || '', 160),
+            age: Number.parseInt(body.age, 10),
+
+            currentProject: normalizePlazaApplicationLong(body.currentProject),
+            resourcesNeeded: normalizePlazaApplicationLong(body.resourcesNeeded),
+
+            joinedAt: normalizePlazaApplicationShort(body.joinedAt, 160),
+            learntSoFar: normalizePlazaApplicationLong(body.learntSoFar),
+            contribution: normalizePlazaApplicationLong(body.contribution),
+
+            wantsPatron,
+            patronExpectation: wantsPatron === 'yes'
+                ? normalizePlazaApplicationLong(body.patronExpectation)
+                : '',
+            leadershipExperience: wantsPatron === 'yes'
+                ? normalizePlazaApplicationLong(body.leadershipExperience)
+                : '',
+
+            country: normalizePlazaApplicationShort(body.country, 160),
+
+            wantsMarketplace,
+            servicesProducts: wantsMarketplace === 'yes'
+                ? normalizePlazaApplicationLong(body.servicesProducts)
+                : '',
+
+            referredBy: normalizePlazaApplicationShort(body.referredBy, 220),
+            howHeard: normalizePlazaApplicationLong(body.howHeard, 900)
+        };
+
+        const missingFields = [];
+
+        if (!applicationData.email) missingFields.push('Drop your best e-mail');
+        if (!applicationData.fullName) missingFields.push('Name & Surname');
+        if (!Number.isFinite(applicationData.age) || applicationData.age < 13 || applicationData.age > 120) missingFields.push('Valid age');
+        if (!applicationData.currentProject) missingFields.push('Current project');
+        if (!applicationData.resourcesNeeded) missingFields.push('Resources needed');
+        if (!applicationData.joinedAt) missingFields.push(`When you joined ${applicationData.membershipDivisionLabel}`);
+        if (!applicationData.learntSoFar) missingFields.push(`What you have learnt so far in ${applicationData.membershipDivisionLabel}`);
+        if (!applicationData.contribution) missingFields.push(`What you can contribute as a ${membershipType === 'academy' ? 'Academy' : 'Federation'} member`);
+        if (!applicationData.wantsPatron) missingFields.push('Patrón / Leader answer');
+        if (!applicationData.country) missingFields.push('Country of Residence');
+        if (!applicationData.wantsMarketplace) missingFields.push('Marketplace answer');
+
+        if (applicationData.wantsPatron === 'yes') {
+            if (!applicationData.patronExpectation) missingFields.push('Patrón expectation');
+            if (!applicationData.leadershipExperience) missingFields.push('Leadership/building experience');
+        }
+
+        if (applicationData.wantsMarketplace === 'yes' && !applicationData.servicesProducts) {
+            missingFields.push('Services/products provided');
+        }
+
+        if (!applicationData.referredBy && !applicationData.howHeard) {
+            missingFields.push('Who referred you or how you heard from us');
+        }
+
+        if (missingFields.length) {
+            return res.status(400).json({
+                success: false,
+                message: `Please complete: ${missingFields.join(', ')}.`
+            });
+        }
+
         const nowIso = new Date().toISOString();
-        const applicationUrl = sanitizeText(req.body?.applicationUrl || 'https://ph33nwcjunf.typeform.com/theplazas');
 
         const application = {
             id: existingApplication?.id || `plaza_${userId}_${Date.now()}`,
             applicationType: 'plaza-access',
+            schemaVersion: applicationData.schemaVersion,
             division: 'Plaza',
             divisions: ['Plaza'],
             recommendedDivision: 'Plaza',
-            source: sanitizeText(req.body?.source || 'Dashboard Plaza Typeform'),
+            source: 'Internal Plaza application form',
             status: 'Under Review',
-            applicationUrl,
-            externalForm: 'Typeform',
-            submittedOutsideUniverse: true,
-            name: sanitizeText(user.fullName || user.name || user.displayName || req.user?.name || 'Plaza Applicant'),
-            email: sanitizeText(user.email || req.user?.email || '').toLowerCase(),
-            username: sanitizeText(user.username || req.user?.username || ''),
+
+            ...applicationData,
+
+            answers: {
+                membership: {
+                    question: 'Are you a member of Young Hustlers?',
+                    answer: membershipType
+                },
+                email: {
+                    question: 'Drop your best e-mail',
+                    answer: applicationData.email
+                },
+                identity: {
+                    nameQuestion: 'Name & Surname',
+                    fullName: applicationData.fullName,
+                    ageQuestion: 'Age',
+                    age: applicationData.age
+                },
+                project: {
+                    question: 'What is one project you are currently building or planning?',
+                    answer: applicationData.currentProject
+                },
+                resources: {
+                    question: 'What resources do you need most right now? (knowledge, income, network, mentorship, etc.)',
+                    answer: applicationData.resourcesNeeded
+                },
+                joined: {
+                    question: `When did you join ${applicationData.membershipDivisionLabel} approximately?`,
+                    answer: applicationData.joinedAt
+                },
+                learning: {
+                    question: `What have you learnt so far in ${applicationData.membershipDivisionLabel}?`,
+                    answer: applicationData.learntSoFar
+                },
+                contribution: {
+                    question: `What can you contribute as a ${membershipType === 'academy' ? 'Academy' : 'Federation'} member?`,
+                    answer: applicationData.contribution
+                },
+                patronTrack: {
+                    question: 'Are you planning to become a Patrón or a Leader of the Plaza?',
+                    answer: applicationData.wantsPatron,
+                    expectation: applicationData.patronExpectation,
+                    leadershipExperience: applicationData.leadershipExperience
+                },
+                country: {
+                    question: 'Country of Residence',
+                    answer: applicationData.country
+                },
+                marketplace: {
+                    question: 'Do you want to promote your services or products inside our marketplace?',
+                    answer: applicationData.wantsMarketplace,
+                    servicesProducts: applicationData.servicesProducts
+                },
+                referral: {
+                    referredByQuestion: 'Who referred you?',
+                    referredBy: applicationData.referredBy,
+                    howHeardQuestion: 'In case no one referred you, how did you hear from us?',
+                    howHeard: applicationData.howHeard
+                }
+            },
+
+            tags: buildPlazaApplicationTags(applicationData),
             createdAt: existingApplication?.createdAt || nowIso,
             updatedAt: nowIso,
             submittedAt: nowIso,
+            reviewedAt: '',
+            reviewedBy: '',
             notes: [
-                'Applicant marked the external Plaza Typeform as submitted from the Dashboard.',
+                'Submitted through the internal dynamic Plaza application form.',
+                'Questions mirror the Plaza Typeform logic.',
                 'Admin approval is required before Plaza access unlocks.'
             ]
         };
@@ -3016,6 +3204,7 @@ app.post('/api/plaza/application-intent', requireApiUser, async (req, res) => {
             plazaApplicationStatus: 'Under Review',
             plazaMembershipStatus: 'under review',
             plazaAccessStatus: 'under review',
+            plazaApplicationTags: application.tags,
             hasPlazaAccess: false,
             updatedAt: nowIso
         }, { merge: true });
@@ -3029,12 +3218,19 @@ app.post('/api/plaza/application-intent', requireApiUser, async (req, res) => {
             member: null
         });
     } catch (error) {
-        console.error('plaza application intent error:', error);
+        console.error('submit plaza application error:', error);
         return res.status(500).json({
             success: false,
-            message: 'Failed to mark Plaza application as submitted.'
+            message: 'Failed to submit Plaza application.'
         });
     }
+});
+
+app.post('/api/plaza/application-intent', requireApiUser, async (req, res) => {
+    return res.status(410).json({
+        success: false,
+        message: 'The old Typeform intent flow has been replaced. Please submit the internal Plaza application form.'
+    });
 });
 
 app.use('/api/plaza', requireApiUser, requirePlazaApiAccess);
