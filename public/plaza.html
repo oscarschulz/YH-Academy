@@ -11,8 +11,8 @@
     href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap"
     rel="stylesheet"
   />
-<link rel="stylesheet" href="/css/plaza.css?v=20260421-plaza-messages-server-1" />
-<script src="/js/plaza.js?v=20260421-plaza-messages-server-1" defer></script>
+<link rel="stylesheet" href="/css/plaza.css?v=20260421-plaza-messages-under-feed-1" />
+<script src="/js/plaza.js?v=20260421-plaza-messages-under-feed-1" defer></script>
 </head>
 <body data-yh-i18n-mode="attributes" class="yh-plaza-page">
   <div class="yh-plaza-shell">
@@ -41,6 +41,10 @@
               <span class="yh-plaza-nav-btn-title">Feed</span>
             </button>
 
+            <button type="button" class="yh-plaza-nav-btn" data-nav-tab="messages">
+              <span class="yh-plaza-nav-btn-title">Messages</span>
+            </button>
+
             <button type="button" class="yh-plaza-nav-btn" data-nav-tab="opportunities">
               <span class="yh-plaza-nav-btn-title">Opportunities</span>
             </button>
@@ -59,10 +63,6 @@
 
             <button type="button" class="yh-plaza-nav-btn" data-nav-tab="requests">
               <span class="yh-plaza-nav-btn-title">Requests</span>
-            </button>
-
-            <button type="button" class="yh-plaza-nav-btn" data-nav-tab="messages">
-              <span class="yh-plaza-nav-btn-title">Messages</span>
             </button>
 
             <a href="/dashboard" class="yh-plaza-nav-btn yh-plaza-universe-nav-link" id="plazaBackToUniverseBtn">
@@ -165,7 +165,6 @@
                 </div>
 
                 <div class="yh-plaza-feed-composer-actions">
-                  <span class="yh-plaza-feed-composer-note">Server-backed Plaza Feed. Posts are saved in Firestore.</span>
                   <button type="submit" class="yh-plaza-btn yh-plaza-btn-primary" id="plazaFeedComposerSubmitBtn">
                     Post Signal
                   </button>
@@ -223,7 +222,6 @@
                   </div>
 
                   <div class="yh-plaza-feed-composer-actions">
-                    <span class="yh-plaza-feed-composer-note">Server-backed Plaza Directory. Your profile is saved in Firestore.</span>
                     <button type="submit" class="yh-plaza-btn yh-plaza-btn-primary" id="plazaDirectoryComposerSubmitBtn">
                       Save Directory Profile
                     </button>
@@ -271,7 +269,6 @@
                 </div>
 
                 <div class="yh-plaza-feed-composer-actions">
-                  <span class="yh-plaza-feed-composer-note">Server-backed Plaza Opportunities. Saved in Firestore.</span>
                   <button type="submit" class="yh-plaza-btn yh-plaza-btn-primary" id="plazaOpportunityComposerSubmitBtn">
                     Post Opportunity
                   </button>
@@ -305,7 +302,6 @@
               </div>
 
               <div class="yh-plaza-feed-composer-actions">
-                <span class="yh-plaza-feed-composer-note">Server-backed Plaza Regions. Saved in Firestore.</span>
                 <button type="submit" class="yh-plaza-btn yh-plaza-btn-primary" id="plazaRegionComposerSubmitBtn">
                   Create Region Hub
                 </button>
@@ -369,7 +365,6 @@
                 </div>
 
                 <div class="yh-plaza-feed-composer-actions">
-                  <span class="yh-plaza-feed-composer-note">Server-backed Plaza Bridge. Saved in Firestore.</span>
                   <button type="submit" class="yh-plaza-btn yh-plaza-btn-primary" id="plazaBridgeComposerSubmitBtn">
                     Create Bridge Path
                   </button>
@@ -444,7 +439,6 @@
                     </div>
 
                     <div class="yh-plaza-feed-composer-actions">
-                      <span class="yh-plaza-feed-composer-note">Server-backed Plaza Requests. Saved in Firestore.</span>
                       <button type="submit" class="yh-plaza-btn yh-plaza-btn-primary" id="plazaRequestComposerSubmitBtn">
                         Submit Request
                       </button>
