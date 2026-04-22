@@ -75,6 +75,46 @@ function redirectToAcademyPage(section = 'home') {
     window.location.href = buildAcademyUrl(section);
 }
 
+function showUniverseDivisionEntryLoader(label = 'Loading...') {
+    const loaderText = String(label || 'Loading...').trim() || 'Loading...';
+
+    if (typeof showAcademyTabLoader === 'function') {
+        showAcademyTabLoader(loaderText);
+        return true;
+    }
+
+    const loader = document.getElementById('yh-tab-loader');
+    const text = document.getElementById('yh-tab-loader-text');
+
+    if (text) {
+        text.textContent = loaderText;
+    }
+
+    if (!loader) return false;
+
+    loader.classList.remove('hidden-step');
+    loader.classList.add('is-active');
+    loader.setAttribute('aria-hidden', 'false');
+    return true;
+}
+
+function hideUniverseDivisionEntryLoader() {
+    if (typeof hideAcademyTabLoader === 'function') {
+        hideAcademyTabLoader();
+        return;
+    }
+
+    const loader = document.getElementById('yh-tab-loader');
+    if (!loader) return;
+
+    loader.classList.remove('is-active');
+    loader.setAttribute('aria-hidden', 'true');
+
+    window.setTimeout(() => {
+        loader.classList.add('hidden-step');
+    }, 180);
+}
+
 function buildPlazaUrl() {
     return '/plaza.html';
 }
@@ -82,11 +122,10 @@ function buildPlazaUrl() {
 function redirectToPlazaPage() {
     const plazaUrl = buildPlazaUrl();
 
-    if (typeof showAcademyTabLoader === 'function') {
-        showAcademyTabLoader('Entering Plaza.');
+    if (showUniverseDivisionEntryLoader('Entering Plaza...')) {
         window.setTimeout(() => {
             window.location.href = plazaUrl;
-        }, 260);
+        }, 360);
         return;
     }
 
@@ -11618,8 +11657,8 @@ function openFederationLockedView(snapshot = null) {
         currentSnapshot?.canEnterFederation === true ||
         status === 'approved';
 
-    if (shouldShowEntryLoader && typeof showAcademyTabLoader === 'function') {
-        showAcademyTabLoader('Entering Federation.');
+    if (shouldShowEntryLoader) {
+        showUniverseDivisionEntryLoader('Entering Federation...');
     }
 
     const academyWrapperEl = document.getElementById('academy-wrapper');
@@ -11652,17 +11691,17 @@ function openFederationLockedView(snapshot = null) {
             loaderClosed = true;
 
             window.setTimeout(() => {
-                hideAcademyTabLoader();
+                hideUniverseDivisionEntryLoader();
             }, 180);
         };
 
         frame.addEventListener('load', closeFederationLoader, { once: true });
         window.setTimeout(closeFederationLoader, 1400);
-    } else if (shouldShowEntryLoader && typeof hideAcademyTabLoader === 'function') {
-        window.setTimeout(() => {
-            hideAcademyTabLoader();
-        }, 420);
-    }
+        } else if (shouldShowEntryLoader) {
+            window.setTimeout(() => {
+                hideUniverseDivisionEntryLoader();
+            }, 420);
+        }
 
     window.requestAnimationFrame(() => {
         window.scrollTo({ top: 0, left: 0, behavior: 'auto' });

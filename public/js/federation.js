@@ -2152,6 +2152,56 @@ function initDirectory() {
 let activeSectionId = "";
 let activeSectorFilter = "all";
 
+const FEDERATION_SECTION_LOADER_LABELS = {
+  command: "Loading Command...",
+  connect: "Loading Connect...",
+  directory: "Loading Directory...",
+  requests: "Loading My Requests...",
+  referrals: "Loading Referrals...",
+  status: "Loading My Access...",
+  expansion: "Loading Expansion..."
+};
+
+function getFederationSectionLoaderLabel(sectionId = "") {
+  const key = String(sectionId || "").replace(/^#/, "").trim();
+  return FEDERATION_SECTION_LOADER_LABELS[key] || "Loading Federation...";
+}
+
+function showFederationTabLoader(sectionIdOrLabel = "Loading Federation...") {
+  const loader = document.getElementById("yh-tab-loader");
+  const text = document.getElementById("yh-tab-loader-text");
+
+  const raw = String(sectionIdOrLabel || "").trim();
+  const label = raw.startsWith("Loading ") ? raw : getFederationSectionLoaderLabel(raw);
+
+  if (text) {
+    text.textContent = label || "Loading Federation...";
+  }
+
+  if (!loader) return;
+
+  loader.hidden = false;
+  loader.setAttribute("aria-hidden", "false");
+
+  window.requestAnimationFrame(() => {
+    loader.classList.add("is-active");
+  });
+}
+
+function hideFederationTabLoader() {
+  const loader = document.getElementById("yh-tab-loader");
+  if (!loader) return;
+
+  loader.classList.remove("is-active");
+  loader.setAttribute("aria-hidden", "true");
+
+  window.setTimeout(() => {
+    if (!loader.classList.contains("is-active")) {
+      loader.hidden = true;
+    }
+  }, 170);
+}
+
 function extractSectionId(value = "") {
   return String(value || "").replace(/^#/, "").trim();
 }
@@ -2187,10 +2237,20 @@ function getSafeSectionId(targetId = "") {
 }
 
 function setActiveSection(targetId = "", options = {}) {
-  const { syncHash = true } = options;
+  const { syncHash = true, showLoader = true } = options;
   const nextSectionId = getSafeSectionId(targetId);
 
   if (!nextSectionId) return;
+
+  const previousSectionId = activeSectionId || extractSectionId(window.location.hash) || "";
+  const shouldShowLoader =
+    showLoader !== false &&
+    Boolean(previousSectionId) &&
+    previousSectionId !== nextSectionId;
+
+  if (shouldShowLoader) {
+    showFederationTabLoader(nextSectionId);
+  }
 
   activeSectionId = nextSectionId;
   document.body.dataset.fedNavMode = "tabs";
@@ -2206,14 +2266,14 @@ function setActiveSection(targetId = "", options = {}) {
     section.classList.toggle("is-panel-hidden", !isActive);
   });
 
-    qsa(".fed-nav-link").forEach((link) => {
+  qsa(".fed-nav-link").forEach((link) => {
     link.classList.toggle(
       "active",
       extractSectionId(link.getAttribute("href")) === nextSectionId
     );
   });
 
-    if (typeof window.__yhfCloseMobileMore === "function") {
+  if (typeof window.__yhfCloseMobileMore === "function") {
     window.__yhfCloseMobileMore();
   }
 
@@ -2223,7 +2283,7 @@ function setActiveSection(targetId = "", options = {}) {
   }
 
   const main = qs("#fedMain");
-    if (main) {
+  if (main) {
     main.scrollTo({
       top: 0,
       behavior: "auto"
@@ -2238,20 +2298,36 @@ function setActiveSection(targetId = "", options = {}) {
     });
   }
 
+  let loaderWaitsForAsync = false;
+
   if (nextSectionId === "connect" || nextSectionId === "requests") {
-    loadFederationConnectData({ force: nextSectionId === "requests" }).catch((error) => {
-      console.error("Federation Connect active-section load error:", error);
-    });
+    loaderWaitsForAsync = true;
+
+    loadFederationConnectData({ force: nextSectionId === "requests" })
+      .catch((error) => {
+        console.error("Federation Connect active-section load error:", error);
+      })
+      .finally(() => {
+        if (shouldShowLoader) {
+          window.setTimeout(hideFederationTabLoader, 160);
+        }
+      });
   }
 
   if (syncHash && typeof history !== "undefined") {
     history.replaceState(null, "", `#${nextSectionId}`);
   }
+
+  if (shouldShowLoader && !loaderWaitsForAsync) {
+    window.requestAnimationFrame(() => {
+      window.setTimeout(hideFederationTabLoader, 260);
+    });
+  }
 }
 
 function refreshActiveSection() {
   const preferred = activeSectionId || extractSectionId(window.location.hash);
-  setActiveSection(preferred, { syncHash: Boolean(preferred) });
+  setActiveSection(preferred, { syncHash: Boolean(preferred), showLoader: false });
 }
 
 function initSectionNavigation() {

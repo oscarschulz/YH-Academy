@@ -2527,6 +2527,68 @@ const plazaScreens = Array.from(document.querySelectorAll("[data-plaza-screen]")
 const plazaNavButtons = Array.from(document.querySelectorAll("[data-nav-tab]"));
 const plazaFeedFilters = Array.from(document.querySelectorAll("[data-feed-filter]"));
 
+const PLAZA_SCREEN_LOADER_LABELS = {
+  feed: "Loading Feed...",
+  opportunities: "Loading Opportunities...",
+  directory: "Loading Directory...",
+  regions: "Loading Regions...",
+  bridge: "Loading Bridge...",
+  requests: "Loading Requests...",
+  messages: "Loading Messages...",
+  inbox: "Loading Inbox...",
+  notifications: "Loading Notifications...",
+  "incoming-detail": "Loading Sender Context...",
+  "opportunity-detail": "Loading Opportunity Detail...",
+  "project-detail": "Loading Project Detail...",
+  "region-hub": "Loading Region Hub...",
+  "bridge-detail": "Loading Bridge Detail..."
+};
+
+function getPlazaScreenLoaderLabel(screenName = "") {
+  const key = String(screenName || "").trim();
+  if (PLAZA_SCREEN_LOADER_LABELS[key]) return PLAZA_SCREEN_LOADER_LABELS[key];
+
+  const configTitle = String(plazaConfig?.[key]?.title || "").trim();
+  if (configTitle) return `Loading ${configTitle}...`;
+
+  return "Loading Plaza...";
+}
+
+function showPlazaTabLoader(screenNameOrLabel = "Loading Plaza...") {
+  const loader = document.getElementById("yh-tab-loader");
+  const text = document.getElementById("yh-tab-loader-text");
+
+  const raw = String(screenNameOrLabel || "").trim();
+  const label = raw.startsWith("Loading ") ? raw : getPlazaScreenLoaderLabel(raw);
+
+  if (text) {
+    text.textContent = label || "Loading Plaza...";
+  }
+
+  if (!loader) return;
+
+  loader.hidden = false;
+  loader.setAttribute("aria-hidden", "false");
+
+  window.requestAnimationFrame(() => {
+    loader.classList.add("is-active");
+  });
+}
+
+function hidePlazaTabLoader() {
+  const loader = document.getElementById("yh-tab-loader");
+  if (!loader) return;
+
+  loader.classList.remove("is-active");
+  loader.setAttribute("aria-hidden", "true");
+
+  window.setTimeout(() => {
+    if (!loader.classList.contains("is-active")) {
+      loader.hidden = true;
+    }
+  }, 170);
+}
+
 const plazaFeedGrid = document.getElementById("plazaFeedGrid");
 const plazaFeedComposerForm = document.getElementById("plazaFeedComposerForm");
 const plazaFeedComposerSubmitBtn = document.getElementById("plazaFeedComposerSubmitBtn");
@@ -3397,24 +3459,40 @@ function updateWorkspaceChrome(screenName) {
 }
 
 function openScreen(screenName, options = {}) {
+  const nextScreenName = String(screenName || "feed").trim() || "feed";
   const current = plazaRuntime.currentScreen;
+  const shouldShowLoader =
+    options.showLoader !== false &&
+    current &&
+    current !== nextScreenName;
+
+  if (shouldShowLoader) {
+    showPlazaTabLoader(nextScreenName);
+  }
+
   if (options.resetHistory) {
     plazaRuntime.history = [];
-  } else if (options.pushHistory !== false && current && current !== screenName) {
+  } else if (options.pushHistory !== false && current && current !== nextScreenName) {
     plazaRuntime.history.push(current);
   }
 
   plazaRuntime.previousScreen = current || "feed";
-  plazaRuntime.currentScreen = screenName;
+  plazaRuntime.currentScreen = nextScreenName;
 
   plazaScreens.forEach((screen) => {
-    const isActive = screen.dataset.plazaScreen === screenName;
+    const isActive = screen.dataset.plazaScreen === nextScreenName;
     screen.classList.toggle("is-active", isActive);
     screen.hidden = !isActive;
   });
 
-  updateWorkspaceChrome(screenName);
+  updateWorkspaceChrome(nextScreenName);
   savePlazaUiState();
+
+  if (shouldShowLoader) {
+    window.requestAnimationFrame(() => {
+      window.setTimeout(hidePlazaTabLoader, 260);
+    });
+  }
 }
 
 function goBackFromScreen() {
@@ -6681,7 +6759,7 @@ async function initPlaza() {
   renderNotificationsScreen();
   renderMessagesScreen();
   renderOperationalPreviews();
-  openScreen(restoredScreen, { resetHistory: true, pushHistory: false });
+openScreen(restoredScreen, { resetHistory: true, pushHistory: false, showLoader: false });
   bindEvents();
 
   if (plazaFeedComposerForm) {
