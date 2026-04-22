@@ -589,6 +589,22 @@ async function buildAdminBootstrapPayload() {
       academyDivisions.push('Federation');
     }
 
+    const plazaMembershipStatus = cleanText(
+      user.plazaMembershipStatus ||
+      user.plazaAccessStatus ||
+      user.plazaApplicationStatus ||
+      user.plazaApplication?.status ||
+      ''
+    ).toLowerCase();
+
+    const hasApprovedPlazaMembership =
+      plazaMembershipStatus === 'approved' ||
+      user.hasPlazaAccess === true;
+
+    if (hasApprovedPlazaMembership && !academyDivisions.includes('Plazas')) {
+      academyDivisions.push('Plazas');
+    }
+
     let roadmapStatus = 'Not in Academy';
 
     if (hasApprovedAcademyMembership) {
@@ -728,7 +744,66 @@ const applications = users.flatMap((user) => {
       openToAdminMatching: cleanText(app.openToAdminMatching || '')
     });
   }
+  if (user.plazaApplication && typeof user.plazaApplication === 'object') {
+    const app = user.plazaApplication;
 
+    output.push({
+      id: cleanText(app.id || `PLAZA-APP-${user.id}`),
+      name: cleanText(
+        app.fullName ||
+        app.name ||
+        user.fullName ||
+        user.name ||
+        user.displayName ||
+        user.username ||
+        'Unknown Plaza Applicant'
+      ),
+      username: cleanText(app.username || user.username || '').replace(/^@+/, ''),
+      email: cleanText(app.email || user.email || ''),
+      goal: cleanText(app.currentProject || 'Plaza access request'),
+      background: cleanText(
+        app.resourcesNeeded ||
+        app.contribution ||
+        [
+          app.membershipDivisionLabel,
+          app.country,
+          app.wantsPatron === 'yes' ? 'Patrón / Leader track' : '',
+          app.wantsMarketplace === 'yes' ? 'Marketplace provider' : ''
+        ].filter(Boolean).join(' • ')
+      ),
+      recommendedDivision: 'Plazas',
+      status: cleanText(app.status || user.plazaApplicationStatus || 'Under Review'),
+      aiScore: toNumber(app.aiScore, 0),
+      country: cleanText(app.country || user.country || ''),
+      locationCountry: cleanText(app.country || user.country || ''),
+      skills: Array.isArray(app.tags) ? app.tags : [],
+      networkValue: cleanText(app.contribution || app.resourcesNeeded || ''),
+      source: cleanText(app.source || 'Dashboard Plaza Application'),
+      submittedAt: toIso(app.submittedAt) || cleanText(app.submittedAt || ''),
+      notes: Array.isArray(app.notes) ? app.notes : [],
+      applicationType: 'plaza-access',
+      reviewLane: 'Plaza Access',
+
+      membershipType: cleanText(app.membershipType || ''),
+      membershipDivisionLabel: cleanText(app.membershipDivisionLabel || ''),
+      age: cleanText(app.age || ''),
+      currentProject: cleanText(app.currentProject || ''),
+      resourcesNeeded: cleanText(app.resourcesNeeded || ''),
+      joinedAt: cleanText(app.joinedAt || ''),
+      learntSoFar: cleanText(app.learntSoFar || ''),
+      contribution: cleanText(app.contribution || ''),
+      wantsPatron: cleanText(app.wantsPatron || ''),
+      patronExpectation: cleanText(app.patronExpectation || ''),
+      leadershipExperience: cleanText(app.leadershipExperience || ''),
+      wantsMarketplace: cleanText(app.wantsMarketplace || ''),
+      servicesProducts: cleanText(app.servicesProducts || ''),
+      referredByUsername: cleanText(app.referredBy || ''),
+      hearAboutUs: cleanText(app.howHeard || ''),
+      occupationAtAge: cleanText(app.currentProject || ''),
+      seriousness: cleanText(app.resourcesNeeded || ''),
+      nonNegotiable: cleanText(app.contribution || '')
+    });
+  }
   // Roadmap applications are no longer part of the manual admin review queue.
 
   return output;
@@ -1086,6 +1161,13 @@ apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async 
         return true;
       }
 
+      if (data.plazaApplication?.id === applicationId) {
+        matchedUserDoc = doc;
+        matchedField = 'plazaApplication';
+        matchedApplication = data.plazaApplication;
+        return true;
+      }
+
       return false;
     });
 
@@ -1150,9 +1232,13 @@ apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async 
       const nowIso = new Date().toISOString();
 
       const isFederationApplication = matchedField === 'federationApplication';
+      const isPlazaApplication = matchedField === 'plazaApplication';
+
       const reviewLabel = isFederationApplication
         ? 'Federation access'
-        : (matchedField === 'roadmapApplication' ? 'Roadmap' : 'Academy membership');
+        : isPlazaApplication
+          ? 'Plaza access'
+          : (matchedField === 'roadmapApplication' ? 'Roadmap' : 'Academy membership');
 
       const updatedApplication = {
         ...currentApplication,
@@ -1182,6 +1268,25 @@ apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async 
           updatePayload.federationApprovedAt = nowIso;
         } else {
           updatePayload.hasFederationAccess = false;
+        }
+      } else if (isPlazaApplication) {
+        updatePayload.plazaApplication = updatedApplication;
+        updatePayload.plazaApplicationStatus = nextStatus;
+        updatePayload.plazaApplicationReviewedAt = nowIso;
+        updatePayload.plazaApplicationReviewedBy = req.adminSession.username;
+        updatePayload.plazaMembershipStatus = nextStatus.toLowerCase();
+        updatePayload.plazaAccessStatus = nextStatus.toLowerCase();
+
+        if (nextStatus === 'Approved') {
+          updatePayload.hasPlazaAccess = true;
+          updatePayload.plazaApprovedAt = nowIso;
+          updatePayload.plazaRejectedAt = '';
+        } else {
+          updatePayload.hasPlazaAccess = false;
+
+          if (nextStatus === 'Rejected') {
+            updatePayload.plazaRejectedAt = nowIso;
+          }
         }
       } else {
         updatePayload.academyApplication = updatedApplication;
@@ -1232,7 +1337,7 @@ apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async 
         }
       }
 
-      updatePayload.academyApplication = updatedApplication;
+      updatePayload[matchedField] = updatedApplication;
 
       transaction.set(matchedUserDoc.ref, updatePayload, { merge: true });
 

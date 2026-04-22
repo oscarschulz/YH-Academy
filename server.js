@@ -2979,7 +2979,7 @@ function buildPlazaApplicationTags(application = {}) {
     return tags.slice(0, 16);
 }
 
-app.post('/api/plaza/applications', requireApiUser, async (req, res) => {
+app.post(['/api/plaza/application', '/api/plaza/applications'], requireApiUser, async (req, res) => {
     try {
         const userId = sanitizeText(req.user?.id);
 
