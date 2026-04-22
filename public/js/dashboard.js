@@ -633,13 +633,20 @@ async function refreshPlazaAccessStatusFromBackend(forceFresh = false) {
 
 function openPlazaApplicationModal() {
     const modal = document.getElementById('plaza-apply-modal');
+
     if (!modal) {
-        window.open(PLAZA_APPLICATION_FORM_URL, '_blank', 'noopener,noreferrer');
+        showToast('Plaza application modal is missing from the Dashboard.', 'error');
         return;
     }
 
+    renderDashboardPlazaApplicationForm();
+
     modal.classList.remove('hidden-step');
     document.body?.classList.add('plaza-application-open');
+
+    window.requestAnimationFrame(() => {
+        resetDashboardPlazaApplicationFlow();
+    });
 }
 
 function closePlazaApplicationModal() {
@@ -650,31 +657,528 @@ function closePlazaApplicationModal() {
     document.body?.classList.remove('plaza-application-open');
 }
 
-async function markPlazaTypeformSubmitted() {
-    const submitBtn = document.getElementById('btn-mark-plaza-typeform-submitted');
-    const originalText = submitBtn?.textContent || 'I submitted the form';
+const DASHBOARD_PLAZA_APPLICATION_SCHEMA_VERSION = 'plaza-dashboard-typeform-v1';
+
+const DASHBOARD_PLAZA_MEMBERSHIP_LABELS = {
+    academy: {
+        joined: 'When did you join The Academy approximately?',
+        learnt: 'What have you learnt so far in The Academy?',
+        contribution: 'What can you contribute as an Academy member?'
+    },
+    federation: {
+        joined: 'When did you join The Federation approximately?',
+        learnt: 'What have you learnt so far in The Federation?',
+        contribution: 'What can you contribute as a Federation member?'
+    }
+};
+
+let dashboardPlazaApplicationCurrentStep = 'membershipType';
+
+function renderDashboardPlazaApplicationForm() {
+    const modal = document.getElementById('plaza-apply-modal');
+    const card = modal?.querySelector('.modal-content');
+
+    if (!card) return;
+
+    card.innerHTML = `
+        <button
+            id="btn-close-plaza-apply"
+            type="button"
+            class="yh-federation-apply-close"
+            aria-label="Close Plaza application"
+        >
+            ✖
+        </button>
+
+        <div class="yh-federation-apply-head">
+            <div class="yh-dashboard-federation-kicker">Plaza Application</div>
+            <h2>Apply for Plaza Access</h2>
+            <p>
+                The Plaza is application-gated. Submit this internal Dashboard form first.
+                Your account stays locked until admin approves your Plaza application.
+            </p>
+        </div>
+
+        <form class="yh-dashboard-plaza-typeform" id="form-plaza-apply" novalidate>
+            <div class="yh-dashboard-plaza-progress">
+                <div class="yh-dashboard-plaza-progress-copy">
+                    <span id="dashboardPlazaProgressText">Question 1</span>
+                </div>
+                <div class="yh-dashboard-plaza-progress-track">
+                    <span id="dashboardPlazaProgressBar"></span>
+                </div>
+            </div>
+
+            <div class="yh-dashboard-plaza-step" data-dashboard-plaza-step="membershipType">
+                <label class="form-group">
+                    <span>1. Are you a member of Young Hustlers?</span>
+                    <select id="plazaAppMembershipType" name="membershipType" class="input-field styled-select" required>
+                        <option value="">Select your answer</option>
+                        <option value="academy">Yes, in The Academy</option>
+                        <option value="federation">Yes, in The Federation</option>
+                        <option value="not_yet">Not yet, am just looking around</option>
+                    </select>
+                </label>
+                <button type="button" class="btn-primary yh-dashboard-plaza-next" data-dashboard-plaza-next>Continue ➔</button>
+            </div>
+
+            <div class="yh-dashboard-plaza-step" data-dashboard-plaza-step="email" hidden>
+                <label class="form-group">
+                    <span>2. Drop your best e-mail</span>
+                    <input id="plazaAppEmail" name="email" type="email" class="input-field" placeholder="you@example.com" required>
+                </label>
+                <button type="button" class="btn-primary yh-dashboard-plaza-next" data-dashboard-plaza-next>Continue ➔</button>
+            </div>
+
+            <div class="yh-dashboard-plaza-stop yh-dashboard-plaza-step" data-dashboard-plaza-step="stop" hidden>
+                <h3>There is nothing to check here yet.</h3>
+                <p class="subtitle">
+                    Come back when you are already a member of The Academy or The Federation.
+                </p>
+                <button type="button" class="btn-secondary" id="btn-cancel-plaza-apply">Close</button>
+            </div>
+
+            <div id="dashboardPlazaMemberFields" hidden>
+                <div class="yh-dashboard-plaza-step" data-dashboard-plaza-step="fullName" hidden>
+                    <label class="form-group">
+                        <span>3. Name &amp; Surname</span>
+                        <input id="plazaAppFullName" name="fullName" type="text" class="input-field" placeholder="Your full name" required>
+                    </label>
+                    <button type="button" class="btn-primary yh-dashboard-plaza-next" data-dashboard-plaza-next>Continue ➔</button>
+                </div>
+
+                <div class="yh-dashboard-plaza-step" data-dashboard-plaza-step="age" hidden>
+                    <label class="form-group">
+                        <span>4. Age</span>
+                        <input id="plazaAppAge" name="age" type="number" min="13" max="120" class="input-field" placeholder="Your age" required>
+                    </label>
+                    <button type="button" class="btn-primary yh-dashboard-plaza-next" data-dashboard-plaza-next>Continue ➔</button>
+                </div>
+
+                <div class="yh-dashboard-plaza-step" data-dashboard-plaza-step="currentProject" hidden>
+                    <label class="form-group">
+                        <span>5. What is one project you are currently building or planning?</span>
+                        <textarea id="plazaAppCurrentProject" name="currentProject" rows="5" class="input-field" required></textarea>
+                    </label>
+                    <button type="button" class="btn-primary yh-dashboard-plaza-next" data-dashboard-plaza-next>Continue ➔</button>
+                </div>
+
+                <div class="yh-dashboard-plaza-step" data-dashboard-plaza-step="resourcesNeeded" hidden>
+                    <label class="form-group">
+                        <span>6. What resources do you need most right now? <small>(knowledge, income, network, mentorship, etc.)</small></span>
+                        <textarea id="plazaAppResourcesNeeded" name="resourcesNeeded" rows="5" class="input-field" required></textarea>
+                    </label>
+                    <button type="button" class="btn-primary yh-dashboard-plaza-next" data-dashboard-plaza-next>Continue ➔</button>
+                </div>
+
+                <div class="yh-dashboard-plaza-step" data-dashboard-plaza-step="joinedAt" hidden>
+                    <label class="form-group">
+                        <span id="plazaAppJoinedLabel">7. When did you join The Academy approximately?</span>
+                        <input id="plazaAppJoinedAt" name="joinedAt" type="text" class="input-field" placeholder="Example: March 2026, last month, 2 weeks ago..." required>
+                    </label>
+                    <button type="button" class="btn-primary yh-dashboard-plaza-next" data-dashboard-plaza-next>Continue ➔</button>
+                </div>
+
+                <div class="yh-dashboard-plaza-step" data-dashboard-plaza-step="learntSoFar" hidden>
+                    <label class="form-group">
+                        <span id="plazaAppLearntLabel">8. What have you learnt so far in The Academy?</span>
+                        <textarea id="plazaAppLearntSoFar" name="learntSoFar" rows="5" class="input-field" required></textarea>
+                    </label>
+                    <button type="button" class="btn-primary yh-dashboard-plaza-next" data-dashboard-plaza-next>Continue ➔</button>
+                </div>
+
+                <div class="yh-dashboard-plaza-step" data-dashboard-plaza-step="contribution" hidden>
+                    <label class="form-group">
+                        <span id="plazaAppContributionLabel">9. What can you contribute as an Academy member?</span>
+                        <textarea id="plazaAppContribution" name="contribution" rows="5" class="input-field" required></textarea>
+                    </label>
+                    <button type="button" class="btn-primary yh-dashboard-plaza-next" data-dashboard-plaza-next>Continue ➔</button>
+                </div>
+
+                <div class="yh-dashboard-plaza-step" data-dashboard-plaza-step="wantsPatron" hidden>
+                    <label class="form-group">
+                        <span>10. Are you planning to become a Patrón or a Leader of the Plaza?</span>
+                        <select id="plazaAppWantsPatron" name="wantsPatron" class="input-field styled-select" required>
+                            <option value="">Select your answer</option>
+                            <option value="yes">Yes</option>
+                            <option value="no">No</option>
+                        </select>
+                    </label>
+                    <button type="button" class="btn-primary yh-dashboard-plaza-next" data-dashboard-plaza-next>Continue ➔</button>
+                </div>
+
+                <div id="dashboardPlazaPatronYesFields" hidden>
+                    <div class="yh-dashboard-plaza-step" data-dashboard-plaza-step="patronExpectation" hidden>
+                        <label class="form-group">
+                            <span>11. What do you expect if you were to become a Patrón of your Plaza?</span>
+                            <textarea id="plazaAppPatronExpectation" name="patronExpectation" rows="5" class="input-field"></textarea>
+                        </label>
+                        <button type="button" class="btn-primary yh-dashboard-plaza-next" data-dashboard-plaza-next>Continue ➔</button>
+                    </div>
+
+                    <div class="yh-dashboard-plaza-step" data-dashboard-plaza-step="leadershipExperience" hidden>
+                        <label class="form-group">
+                            <span>12. Have you built, managed, or led anything before?</span>
+                            <textarea id="plazaAppLeadershipExperience" name="leadershipExperience" rows="5" class="input-field"></textarea>
+                        </label>
+                        <button type="button" class="btn-primary yh-dashboard-plaza-next" data-dashboard-plaza-next>Continue ➔</button>
+                    </div>
+                </div>
+
+                <div class="yh-dashboard-plaza-step" data-dashboard-plaza-step="country" hidden>
+                    <label class="form-group">
+                        <span>Country of Residence</span>
+                        <input id="plazaAppCountry" name="country" type="text" class="input-field" placeholder="Your country" required>
+                    </label>
+                    <button type="button" class="btn-primary yh-dashboard-plaza-next" data-dashboard-plaza-next>Continue ➔</button>
+                </div>
+
+                <div id="dashboardPlazaMarketplaceFields" hidden>
+                    <div class="yh-dashboard-plaza-step" data-dashboard-plaza-step="wantsMarketplace" hidden>
+                        <label class="form-group">
+                            <span>Do you want to promote your services or products inside our marketplace?</span>
+                            <select id="plazaAppWantsMarketplace" name="wantsMarketplace" class="input-field styled-select" required>
+                                <option value="">Select your answer</option>
+                                <option value="yes">Yes</option>
+                                <option value="no">No</option>
+                            </select>
+                        </label>
+                        <button type="button" class="btn-primary yh-dashboard-plaza-next" data-dashboard-plaza-next>Continue ➔</button>
+                    </div>
+
+                    <div class="yh-dashboard-plaza-step" data-dashboard-plaza-step="servicesProducts" hidden>
+                        <label class="form-group">
+                            <span>What services/products do you provide?</span>
+                            <textarea id="plazaAppServicesProducts" name="servicesProducts" rows="5" class="input-field"></textarea>
+                        </label>
+                        <button type="button" class="btn-primary yh-dashboard-plaza-next" data-dashboard-plaza-next>Continue ➔</button>
+                    </div>
+
+                    <div class="yh-dashboard-plaza-step" data-dashboard-plaza-step="referredBy" hidden>
+                        <label class="form-group">
+                            <span>Who referred you?</span>
+                            <input id="plazaAppReferredBy" name="referredBy" type="text" class="input-field" placeholder="Leave blank if nobody referred you.">
+                        </label>
+                        <button type="button" class="btn-primary yh-dashboard-plaza-next" data-dashboard-plaza-next>Continue ➔</button>
+                    </div>
+
+                    <div class="yh-dashboard-plaza-step" data-dashboard-plaza-step="howHeard" hidden>
+                        <label class="form-group">
+                            <span>In case no one referred you, how did you hear from us?</span>
+                            <textarea id="plazaAppHowHeard" name="howHeard" rows="4" class="input-field"></textarea>
+                        </label>
+                        <button type="button" class="btn-primary yh-dashboard-plaza-next" data-dashboard-plaza-next>Continue ➔</button>
+                    </div>
+                </div>
+
+                <div class="yh-dashboard-plaza-step yh-dashboard-plaza-submit-step" data-dashboard-plaza-step="submit" hidden>
+                    <p class="subtitle">
+                        Review your answers mentally. Once submitted, your Plaza access remains locked until admin approval.
+                    </p>
+
+                    <div class="yh-federation-form-actions">
+                        <button type="button" class="btn-secondary" id="btn-cancel-plaza-apply">Cancel</button>
+                        <button type="submit" class="btn-primary" id="btn-submit-plaza-application">
+                            Submit Plaza Application ➔
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </form>
+    `;
+
+    bindDashboardPlazaApplicationFormEvents();
+}
+
+function getDashboardPlazaInputValue(id = '') {
+    return String(document.getElementById(id)?.value || '').trim();
+}
+
+function setDashboardPlazaHidden(id = '', hidden = true) {
+    const node = document.getElementById(id);
+    if (!node) return;
+    node.hidden = Boolean(hidden);
+}
+
+function getDashboardPlazaStepNode(stepKey = '') {
+    return document.querySelector(`[data-dashboard-plaza-step="${stepKey}"]`);
+}
+
+function getDashboardPlazaInputForStep(stepKey = '') {
+    const map = {
+        membershipType: 'plazaAppMembershipType',
+        email: 'plazaAppEmail',
+        fullName: 'plazaAppFullName',
+        age: 'plazaAppAge',
+        currentProject: 'plazaAppCurrentProject',
+        resourcesNeeded: 'plazaAppResourcesNeeded',
+        joinedAt: 'plazaAppJoinedAt',
+        learntSoFar: 'plazaAppLearntSoFar',
+        contribution: 'plazaAppContribution',
+        wantsPatron: 'plazaAppWantsPatron',
+        patronExpectation: 'plazaAppPatronExpectation',
+        leadershipExperience: 'plazaAppLeadershipExperience',
+        country: 'plazaAppCountry',
+        wantsMarketplace: 'plazaAppWantsMarketplace',
+        servicesProducts: 'plazaAppServicesProducts',
+        referredBy: 'plazaAppReferredBy',
+        howHeard: 'plazaAppHowHeard'
+    };
+
+    return document.getElementById(map[stepKey] || '');
+}
+
+function syncDashboardPlazaApplicationLabels() {
+    const membershipType = getDashboardPlazaInputValue('plazaAppMembershipType');
+    const labels = DASHBOARD_PLAZA_MEMBERSHIP_LABELS[membershipType] || DASHBOARD_PLAZA_MEMBERSHIP_LABELS.academy;
+
+    const joinedLabel = document.getElementById('plazaAppJoinedLabel');
+    const learntLabel = document.getElementById('plazaAppLearntLabel');
+    const contributionLabel = document.getElementById('plazaAppContributionLabel');
+
+    if (joinedLabel) joinedLabel.textContent = `7. ${labels.joined}`;
+    if (learntLabel) learntLabel.textContent = `8. ${labels.learnt}`;
+    if (contributionLabel) contributionLabel.textContent = `9. ${labels.contribution}`;
+}
+
+function getDashboardPlazaApplicationFlow() {
+    const membershipType = getDashboardPlazaInputValue('plazaAppMembershipType');
+    const wantsPatron = getDashboardPlazaInputValue('plazaAppWantsPatron');
+    const wantsMarketplace = getDashboardPlazaInputValue('plazaAppWantsMarketplace');
+    const referredBy = getDashboardPlazaInputValue('plazaAppReferredBy');
+
+    const flow = ['membershipType', 'email'];
+
+    if (membershipType === 'not_yet') {
+        flow.push('stop');
+        return flow;
+    }
+
+    if (membershipType !== 'academy' && membershipType !== 'federation') {
+        return flow;
+    }
+
+    flow.push(
+        'fullName',
+        'age',
+        'currentProject',
+        'resourcesNeeded',
+        'joinedAt',
+        'learntSoFar',
+        'contribution',
+        'wantsPatron'
+    );
+
+    if (wantsPatron === 'yes') {
+        flow.push('patronExpectation', 'leadershipExperience', 'country');
+    } else if (wantsPatron === 'no') {
+        flow.push('country');
+    } else {
+        return flow;
+    }
+
+    flow.push('wantsMarketplace');
+
+    if (wantsMarketplace === 'yes') {
+        flow.push('servicesProducts', 'referredBy');
+    } else if (wantsMarketplace === 'no') {
+        flow.push('referredBy');
+    } else {
+        return flow;
+    }
+
+    if (!referredBy) {
+        flow.push('howHeard');
+    }
+
+    flow.push('submit');
+    return flow;
+}
+
+function syncDashboardPlazaProgress(stepKey = '') {
+    const flow = getDashboardPlazaApplicationFlow().filter((step) => step !== 'stop' && step !== 'submit');
+    const index = Math.max(flow.indexOf(stepKey), 0);
+    const total = Math.max(flow.length, 1);
+    const percent = stepKey === 'submit' ? 100 : Math.min(((index + 1) / total) * 100, 100);
+
+    const text = document.getElementById('dashboardPlazaProgressText');
+    const bar = document.getElementById('dashboardPlazaProgressBar');
+
+    if (text) {
+        text.textContent = stepKey === 'submit'
+            ? 'Ready to submit'
+            : `Question ${Math.min(index + 1, total)} of ${total}`;
+    }
+
+    if (bar) {
+        bar.style.width = `${percent}%`;
+    }
+}
+
+function setDashboardPlazaActiveStep(stepKey = 'membershipType') {
+    dashboardPlazaApplicationCurrentStep = stepKey;
+    syncDashboardPlazaApplicationLabels();
+
+    const memberStepKeys = new Set([
+        'fullName',
+        'age',
+        'currentProject',
+        'resourcesNeeded',
+        'joinedAt',
+        'learntSoFar',
+        'contribution',
+        'wantsPatron',
+        'patronExpectation',
+        'leadershipExperience',
+        'country',
+        'wantsMarketplace',
+        'servicesProducts',
+        'referredBy',
+        'howHeard',
+        'submit'
+    ]);
+
+    const patronStepKeys = new Set(['patronExpectation', 'leadershipExperience']);
+    const marketplaceStepKeys = new Set(['wantsMarketplace', 'servicesProducts', 'referredBy', 'howHeard']);
+
+    setDashboardPlazaHidden('dashboardPlazaMemberFields', !memberStepKeys.has(stepKey));
+    setDashboardPlazaHidden('dashboardPlazaPatronYesFields', !patronStepKeys.has(stepKey));
+    setDashboardPlazaHidden('dashboardPlazaMarketplaceFields', !marketplaceStepKeys.has(stepKey));
+
+    document.querySelectorAll('[data-dashboard-plaza-step]').forEach((node) => {
+        const isActive = node.dataset.dashboardPlazaStep === stepKey;
+        node.hidden = !isActive;
+        node.classList.toggle('is-active', isActive);
+    });
+
+    syncDashboardPlazaProgress(stepKey);
+
+    const input = getDashboardPlazaInputForStep(stepKey);
+    if (input) {
+        window.setTimeout(() => input.focus(), 60);
+    }
+}
+
+function resetDashboardPlazaApplicationFlow() {
+    dashboardPlazaApplicationCurrentStep = 'membershipType';
+    setDashboardPlazaActiveStep('membershipType');
+}
+
+function validateDashboardPlazaCurrentStep() {
+    const stepKey = dashboardPlazaApplicationCurrentStep;
+
+    if (stepKey === 'referredBy' || stepKey === 'stop' || stepKey === 'submit') {
+        return true;
+    }
+
+    const input = getDashboardPlazaInputForStep(stepKey);
+    if (!input) return true;
+
+    const value = String(input.value || '').trim();
+
+    if (!value) {
+        showToast('Please answer this question first.', 'error');
+        input.focus();
+        return false;
+    }
+
+    if (stepKey === 'email' && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(value)) {
+        showToast('Please enter a valid email address.', 'error');
+        input.focus();
+        return false;
+    }
+
+    if (stepKey === 'age') {
+        const age = Number.parseInt(value, 10);
+        if (!Number.isFinite(age) || age < 13 || age > 120) {
+            showToast('Please enter a valid age.', 'error');
+            input.focus();
+            return false;
+        }
+    }
+
+    return true;
+}
+
+function goToNextDashboardPlazaStep() {
+    if (!validateDashboardPlazaCurrentStep()) return;
+
+    const flow = getDashboardPlazaApplicationFlow();
+    const currentIndex = flow.indexOf(dashboardPlazaApplicationCurrentStep);
+    const nextStep = flow[currentIndex + 1] || 'submit';
+
+    setDashboardPlazaActiveStep(nextStep);
+}
+
+function buildDashboardPlazaApplicationPayload() {
+    const membershipType = getDashboardPlazaInputValue('plazaAppMembershipType');
+    const wantsPatron = getDashboardPlazaInputValue('plazaAppWantsPatron');
+    const wantsMarketplace = getDashboardPlazaInputValue('plazaAppWantsMarketplace');
+
+    return {
+        schemaVersion: DASHBOARD_PLAZA_APPLICATION_SCHEMA_VERSION,
+        source: 'Dashboard Plaza Application',
+
+        membershipType,
+        email: getDashboardPlazaInputValue('plazaAppEmail'),
+
+        fullName: getDashboardPlazaInputValue('plazaAppFullName'),
+        age: getDashboardPlazaInputValue('plazaAppAge'),
+        currentProject: getDashboardPlazaInputValue('plazaAppCurrentProject'),
+        resourcesNeeded: getDashboardPlazaInputValue('plazaAppResourcesNeeded'),
+
+        joinedAt: getDashboardPlazaInputValue('plazaAppJoinedAt'),
+        learntSoFar: getDashboardPlazaInputValue('plazaAppLearntSoFar'),
+        contribution: getDashboardPlazaInputValue('plazaAppContribution'),
+
+        wantsPatron,
+        patronExpectation: wantsPatron === 'yes' ? getDashboardPlazaInputValue('plazaAppPatronExpectation') : '',
+        leadershipExperience: wantsPatron === 'yes' ? getDashboardPlazaInputValue('plazaAppLeadershipExperience') : '',
+
+        country: getDashboardPlazaInputValue('plazaAppCountry'),
+
+        wantsMarketplace,
+        servicesProducts: wantsMarketplace === 'yes' ? getDashboardPlazaInputValue('plazaAppServicesProducts') : '',
+
+        referredBy: getDashboardPlazaInputValue('plazaAppReferredBy'),
+        howHeard: getDashboardPlazaInputValue('plazaAppHowHeard')
+    };
+}
+
+async function submitDashboardPlazaApplication(event) {
+    event.preventDefault();
+
+    const form = event.currentTarget;
+    const submitBtn = document.getElementById('btn-submit-plaza-application');
+    const originalText = submitBtn?.textContent || 'Submit Plaza Application ➔';
+
+    const membershipType = getDashboardPlazaInputValue('plazaAppMembershipType');
+    if (membershipType === 'not_yet') {
+        showToast('Only Academy or Federation members can apply for Plaza access.', 'error');
+        return;
+    }
 
     try {
         if (submitBtn) {
             submitBtn.disabled = true;
             submitBtn.setAttribute('aria-disabled', 'true');
-            submitBtn.textContent = 'Marking as submitted...';
+            submitBtn.textContent = 'Submitting...';
         }
 
-        const result = await academyAuthedFetch('/api/plaza/application-intent', {
+        const payload = buildDashboardPlazaApplicationPayload();
+
+        const result = await academyAuthedFetch('/api/plaza/application', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                applicationUrl: PLAZA_APPLICATION_FORM_URL,
-                source: 'Dashboard Plaza Typeform'
-            })
+            body: JSON.stringify(payload)
         });
 
-        const application = result?.application && typeof result.application === 'object'
-            ? result.application
-            : null;
+        const application =
+            result?.application && typeof result.application === 'object'
+                ? result.application
+                : payload;
 
         const snapshot = {
             hasApplication: true,
@@ -686,11 +1190,14 @@ async function markPlazaTypeformSubmitted() {
 
         writePlazaAccessStatusCache(snapshot);
         syncPlazaEntryButton(snapshot);
+
+        form.reset();
         closePlazaApplicationModal();
-        showToast('Plaza application marked as submitted. Admin approval is required before entry.', 'success');
+
+        showToast('Plaza application submitted. Admin approval is required before entry.', 'success');
     } catch (error) {
-        console.error('markPlazaTypeformSubmitted error:', error);
-        showToast(error?.message || 'Failed to mark Plaza application as submitted.', 'error');
+        console.error('submitDashboardPlazaApplication error:', error);
+        showToast(error?.message || 'Failed to submit Plaza application.', 'error');
     } finally {
         if (submitBtn) {
             submitBtn.disabled = false;
@@ -700,6 +1207,47 @@ async function markPlazaTypeformSubmitted() {
     }
 }
 
+function bindDashboardPlazaApplicationFormEvents() {
+    const form = document.getElementById('form-plaza-apply');
+    if (!form || form.dataset.bound === 'true') return;
+
+    form.dataset.bound = 'true';
+
+    document.getElementById('btn-close-plaza-apply')?.addEventListener('click', closePlazaApplicationModal);
+    document.getElementById('btn-cancel-plaza-apply')?.addEventListener('click', closePlazaApplicationModal);
+
+    form.querySelectorAll('[data-dashboard-plaza-next]').forEach((button) => {
+        button.addEventListener('click', goToNextDashboardPlazaStep);
+    });
+
+    form.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter') return;
+        if (event.target instanceof HTMLTextAreaElement) return;
+
+        const activeStep = getDashboardPlazaStepNode(dashboardPlazaApplicationCurrentStep);
+        if (!activeStep || !activeStep.contains(event.target)) return;
+
+        event.preventDefault();
+        goToNextDashboardPlazaStep();
+    });
+
+    ['plazaAppMembershipType', 'plazaAppWantsPatron', 'plazaAppWantsMarketplace', 'plazaAppReferredBy'].forEach((id) => {
+        document.getElementById(id)?.addEventListener('input', () => {
+            const flow = getDashboardPlazaApplicationFlow();
+            if (!flow.includes(dashboardPlazaApplicationCurrentStep)) {
+                setDashboardPlazaActiveStep(flow[flow.length - 1] || 'membershipType');
+            }
+            syncDashboardPlazaApplicationLabels();
+            syncDashboardPlazaProgress(dashboardPlazaApplicationCurrentStep);
+        });
+    });
+
+    form.addEventListener('submit', submitDashboardPlazaApplication);
+}
+
+async function markPlazaTypeformSubmitted() {
+    openPlazaApplicationModal();
+}
 async function handlePlazaGateClick(event) {
     event?.preventDefault?.();
     event?.stopPropagation?.();
@@ -713,7 +1261,7 @@ async function handlePlazaGateClick(event) {
     }
 
     if (!snapshot?.hasApplication || status === 'rejected') {
-        openPlazaApplicationModal();
+        redirectToPlazaPage();
         return;
     }
 
@@ -964,14 +1512,14 @@ document.getElementById('plaza-apply-modal')?.addEventListener('click', (event) 
     }
 });
 
-document.getElementById('btn-open-plaza-typeform')?.addEventListener('click', () => {
-    window.setTimeout(() => {
-        showToast('After submitting the Typeform, return here and click “I submitted the form”.', 'success');
-    }, 350);
+document.getElementById('btn-open-plaza-typeform')?.addEventListener('click', (event) => {
+    event.preventDefault();
+    openPlazaApplicationModal();
 });
 
-document.getElementById('btn-mark-plaza-typeform-submitted')?.addEventListener('click', () => {
-    markPlazaTypeformSubmitted();
+document.getElementById('btn-mark-plaza-typeform-submitted')?.addEventListener('click', (event) => {
+    event.preventDefault();
+    openPlazaApplicationModal();
 });
 
 document.getElementById('btn-open-federation-preview')?.addEventListener('click', () => {

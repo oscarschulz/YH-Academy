@@ -6509,11 +6509,8 @@ function showPlazaAccessGate(snapshot = {}) {
   }
 
   if (plazaApplicationForm) {
-    plazaApplicationForm.hidden = Boolean(snapshot.hasApplication && status !== "rejected");
+    plazaApplicationForm.hidden = true;
   }
-
-  prefillPlazaApplicationBasics();
-  resetPlazaApplicationFlow();
 }
 
 function unlockPlazaAccess() {
