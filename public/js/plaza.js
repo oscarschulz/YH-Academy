@@ -2640,6 +2640,8 @@ const plazaApplicationForm = document.getElementById("plazaApplicationForm");
 const plazaApplicationSubmitBtn = document.getElementById("plazaApplicationSubmitBtn");
 const plazaApplicationStopNotice = document.getElementById("plazaApplicationStopNotice");
 const plazaApplicationMemberFields = document.getElementById("plazaApplicationMemberFields");
+const plazaApplicationProgressText = document.getElementById("plazaApplicationProgressText");
+const plazaApplicationProgressBar = document.getElementById("plazaApplicationProgressBar");
 
 const plazaAppMembershipType = document.getElementById("plazaAppMembershipType");
 const plazaAppEmail = document.getElementById("plazaAppEmail");
@@ -6109,6 +6111,8 @@ function normalizePlazaApplicationStatus(value = "") {
   return raw;
 }
 
+let plazaApplicationCurrentStep = "membershipType";
+
 function getPlazaInputValue(input) {
   return String(input?.value || "").trim();
 }
@@ -6125,6 +6129,38 @@ function setPlazaRequired(input, required) {
 function setPlazaHidden(node, hidden) {
   if (!node) return;
   node.hidden = Boolean(hidden);
+}
+
+function getPlazaApplicationSteps() {
+  return Array.from(document.querySelectorAll("[data-plaza-app-step]"));
+}
+
+function getPlazaApplicationStepNode(stepKey = "") {
+  return document.querySelector(`[data-plaza-app-step="${CSS.escape(stepKey)}"]`);
+}
+
+function getPlazaApplicationInputForStep(stepKey = "") {
+  const map = {
+    membershipType: plazaAppMembershipType,
+    email: plazaAppEmail,
+    fullName: plazaAppFullName,
+    age: plazaAppAge,
+    currentProject: plazaAppCurrentProject,
+    resourcesNeeded: plazaAppResourcesNeeded,
+    joinedAt: plazaAppJoinedAt,
+    learntSoFar: plazaAppLearntSoFar,
+    contribution: plazaAppContribution,
+    wantsPatron: plazaAppWantsPatron,
+    patronExpectation: plazaAppPatronExpectation,
+    leadershipExperience: plazaAppLeadershipExperience,
+    country: plazaAppCountry,
+    wantsMarketplace: plazaAppWantsMarketplace,
+    servicesProducts: plazaAppServicesProducts,
+    referredBy: plazaAppReferredBy,
+    howHeard: plazaAppHowHeard
+  };
+
+  return map[stepKey] || null;
 }
 
 function prefillPlazaApplicationBasics() {
@@ -6150,20 +6186,73 @@ function prefillPlazaApplicationBasics() {
   } catch (_) {}
 }
 
-function syncPlazaMembershipBranch() {
+function syncPlazaApplicationLabels() {
   const membershipType = getPlazaInputValue(plazaAppMembershipType);
   const labels = PLAZA_MEMBERSHIP_LABELS[membershipType] || PLAZA_MEMBERSHIP_LABELS.academy;
-  const isMember = membershipType === "academy" || membershipType === "federation";
-  const isNotYet = membershipType === "not_yet";
 
-  setPlazaHidden(plazaApplicationStopNotice, !isNotYet);
-  setPlazaHidden(plazaApplicationMemberFields, !isMember);
+  if (plazaAppJoinedLabel) plazaAppJoinedLabel.textContent = `7. ${labels.joined}`;
+  if (plazaAppLearntLabel) plazaAppLearntLabel.textContent = `8. ${labels.learnt}`;
+  if (plazaAppContributionLabel) plazaAppContributionLabel.textContent = `9. ${labels.contribution}`;
+}
 
-  if (plazaAppJoinedLabel) plazaAppJoinedLabel.textContent = labels.joined;
-  if (plazaAppLearntLabel) plazaAppLearntLabel.textContent = labels.learnt;
-  if (plazaAppContributionLabel) plazaAppContributionLabel.textContent = labels.contribution;
+function getPlazaApplicationFlow() {
+  const membershipType = getPlazaInputValue(plazaAppMembershipType);
+  const wantsPatron = getPlazaInputValue(plazaAppWantsPatron);
+  const wantsMarketplace = getPlazaInputValue(plazaAppWantsMarketplace);
+  const referredBy = getPlazaInputValue(plazaAppReferredBy);
 
+  const flow = ["membershipType", "email"];
+
+  if (membershipType === "not_yet") {
+    flow.push("stop");
+    return flow;
+  }
+
+  if (membershipType !== "academy" && membershipType !== "federation") {
+    return flow;
+  }
+
+  flow.push(
+    "fullName",
+    "age",
+    "currentProject",
+    "resourcesNeeded",
+    "joinedAt",
+    "learntSoFar",
+    "contribution",
+    "wantsPatron"
+  );
+
+  if (wantsPatron === "yes") {
+    flow.push("patronExpectation", "leadershipExperience", "country");
+  } else if (wantsPatron === "no") {
+    flow.push("country");
+  } else {
+    return flow;
+  }
+
+  flow.push("wantsMarketplace");
+
+  if (wantsMarketplace === "yes") {
+    flow.push("servicesProducts", "referredBy");
+  } else if (wantsMarketplace === "no") {
+    flow.push("referredBy");
+  } else {
+    return flow;
+  }
+
+  if (!referredBy) {
+    flow.push("howHeard");
+  }
+
+  flow.push("submit");
+  return flow;
+}
+
+function syncPlazaApplicationRequiredState() {
   [
+    plazaAppMembershipType,
+    plazaAppEmail,
     plazaAppFullName,
     plazaAppAge,
     plazaAppCurrentProject,
@@ -6171,49 +6260,189 @@ function syncPlazaMembershipBranch() {
     plazaAppJoinedAt,
     plazaAppLearntSoFar,
     plazaAppContribution,
-    plazaAppWantsPatron
-  ].forEach((field) => setPlazaRequired(field, isMember));
+    plazaAppWantsPatron,
+    plazaAppPatronExpectation,
+    plazaAppLeadershipExperience,
+    plazaAppCountry,
+    plazaAppWantsMarketplace,
+    plazaAppServicesProducts,
+    plazaAppReferredBy,
+    plazaAppHowHeard
+  ].forEach((field) => {
+    setPlazaRequired(field, false);
+  });
 
-  syncPlazaPatronBranch();
+  const flow = new Set(getPlazaApplicationFlow());
+
+  setPlazaRequired(plazaAppMembershipType, true);
+  setPlazaRequired(plazaAppEmail, true);
+
+  if (flow.has("fullName")) setPlazaRequired(plazaAppFullName, true);
+  if (flow.has("age")) setPlazaRequired(plazaAppAge, true);
+  if (flow.has("currentProject")) setPlazaRequired(plazaAppCurrentProject, true);
+  if (flow.has("resourcesNeeded")) setPlazaRequired(plazaAppResourcesNeeded, true);
+  if (flow.has("joinedAt")) setPlazaRequired(plazaAppJoinedAt, true);
+  if (flow.has("learntSoFar")) setPlazaRequired(plazaAppLearntSoFar, true);
+  if (flow.has("contribution")) setPlazaRequired(plazaAppContribution, true);
+  if (flow.has("wantsPatron")) setPlazaRequired(plazaAppWantsPatron, true);
+  if (flow.has("patronExpectation")) setPlazaRequired(plazaAppPatronExpectation, true);
+  if (flow.has("leadershipExperience")) setPlazaRequired(plazaAppLeadershipExperience, true);
+  if (flow.has("country")) setPlazaRequired(plazaAppCountry, true);
+  if (flow.has("wantsMarketplace")) setPlazaRequired(plazaAppWantsMarketplace, true);
+  if (flow.has("servicesProducts")) setPlazaRequired(plazaAppServicesProducts, true);
+  if (flow.has("howHeard")) setPlazaRequired(plazaAppHowHeard, true);
+}
+
+function updatePlazaApplicationProgress(stepKey = "") {
+  const flow = getPlazaApplicationFlow().filter((step) => step !== "stop" && step !== "submit");
+  const index = Math.max(flow.indexOf(stepKey), 0);
+  const total = Math.max(flow.length, 1);
+  const percent = Math.min(((index + 1) / total) * 100, 100);
+
+  if (plazaApplicationProgressText) {
+    plazaApplicationProgressText.textContent = stepKey === "submit"
+      ? "Ready to submit"
+      : `Question ${Math.min(index + 1, total)} of ${total}`;
+  }
+
+  if (plazaApplicationProgressBar) {
+    plazaApplicationProgressBar.style.width = `${percent}%`;
+  }
+}
+
+function setPlazaApplicationActiveStep(stepKey = "membershipType", options = {}) {
+  plazaApplicationCurrentStep = stepKey;
+  syncPlazaApplicationLabels();
+  syncPlazaApplicationRequiredState();
+
+  const memberStepKeys = new Set([
+    "fullName",
+    "age",
+    "currentProject",
+    "resourcesNeeded",
+    "joinedAt",
+    "learntSoFar",
+    "contribution",
+    "wantsPatron",
+    "patronExpectation",
+    "leadershipExperience",
+    "country",
+    "wantsMarketplace",
+    "servicesProducts",
+    "referredBy",
+    "howHeard",
+    "submit"
+  ]);
+
+  const patronStepKeys = new Set(["patronExpectation", "leadershipExperience"]);
+  const marketplaceStepKeys = new Set(["wantsMarketplace", "servicesProducts", "referredBy", "howHeard"]);
+
+  setPlazaHidden(plazaApplicationMemberFields, !memberStepKeys.has(stepKey));
+  setPlazaHidden(plazaApplicationStopNotice, stepKey !== "stop");
+  setPlazaHidden(plazaPatronYesFields, !patronStepKeys.has(stepKey));
+  setPlazaHidden(plazaMarketplaceFields, !marketplaceStepKeys.has(stepKey));
+  setPlazaHidden(plazaServicesProductsField, stepKey !== "servicesProducts");
+  setPlazaHidden(plazaReferralField, stepKey !== "referredBy");
+  setPlazaHidden(plazaHowHeardField, stepKey !== "howHeard");
+
+  getPlazaApplicationSteps().forEach((stepNode) => {
+    const isActive = stepNode.dataset.plazaAppStep === stepKey;
+    stepNode.hidden = !isActive;
+
+    stepNode.querySelectorAll("input, select, textarea, button").forEach((field) => {
+      if (field instanceof HTMLButtonElement && field.type === "submit") return;
+      field.disabled = !isActive;
+    });
+  });
+
+  const activeInput = getPlazaApplicationInputForStep(stepKey);
+
+  if (activeInput && options.focus !== false) {
+    window.setTimeout(() => {
+      activeInput.focus();
+    }, 60);
+  }
+
+  updatePlazaApplicationProgress(stepKey);
+}
+
+function resetPlazaApplicationFlow() {
+  setPlazaApplicationActiveStep("membershipType", { focus: false });
+}
+
+function getPlazaNextApplicationStep(currentStep = plazaApplicationCurrentStep) {
+  const flow = getPlazaApplicationFlow();
+  const currentIndex = flow.indexOf(currentStep);
+
+  if (currentIndex === -1) return flow[0] || "membershipType";
+
+  return flow[currentIndex + 1] || "submit";
+}
+
+function validatePlazaApplicationStep(stepKey = plazaApplicationCurrentStep) {
+  if (stepKey === "referredBy") return true;
+  if (stepKey === "stop" || stepKey === "submit") return true;
+
+  const input = getPlazaApplicationInputForStep(stepKey);
+  if (!input) return true;
+
+  const value = getPlazaInputValue(input);
+
+  if (!value) {
+    if (typeof showToast === "function") {
+      showToast("Please answer this question first.", "error");
+    }
+    input.focus();
+    return false;
+  }
+
+  if (stepKey === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+    if (typeof showToast === "function") {
+      showToast("Please enter a valid email address.", "error");
+    }
+    input.focus();
+    return false;
+  }
+
+  if (stepKey === "age") {
+    const age = Number.parseInt(value, 10);
+    if (!Number.isFinite(age) || age < 13 || age > 120) {
+      if (typeof showToast === "function") {
+        showToast("Please enter a valid age.", "error");
+      }
+      input.focus();
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function goToNextPlazaApplicationStep() {
+  if (!validatePlazaApplicationStep(plazaApplicationCurrentStep)) return;
+
+  const nextStep = getPlazaNextApplicationStep(plazaApplicationCurrentStep);
+  setPlazaApplicationActiveStep(nextStep);
+}
+
+function syncPlazaMembershipBranch() {
+  syncPlazaApplicationLabels();
+  syncPlazaApplicationRequiredState();
+
+  if (plazaApplicationCurrentStep === "membershipType") return;
+
+  const flow = getPlazaApplicationFlow();
+  if (!flow.includes(plazaApplicationCurrentStep)) {
+    setPlazaApplicationActiveStep(flow[flow.length - 1] || "membershipType");
+  }
 }
 
 function syncPlazaPatronBranch() {
-  const wantsPatron = getPlazaInputValue(plazaAppWantsPatron);
-  const memberSelected =
-    getPlazaInputValue(plazaAppMembershipType) === "academy" ||
-    getPlazaInputValue(plazaAppMembershipType) === "federation";
-
-  const patronYes = memberSelected && wantsPatron === "yes";
-  const patronAnswered = memberSelected && (wantsPatron === "yes" || wantsPatron === "no");
-
-  setPlazaHidden(plazaPatronYesFields, !patronYes);
-  setPlazaHidden(plazaCountryField, !patronAnswered);
-  setPlazaHidden(plazaMarketplaceFields, !patronAnswered);
-
-  setPlazaRequired(plazaAppPatronExpectation, patronYes);
-  setPlazaRequired(plazaAppLeadershipExperience, patronYes);
-  setPlazaRequired(plazaAppCountry, patronAnswered);
-  setPlazaRequired(plazaAppWantsMarketplace, patronAnswered);
-
-  syncPlazaMarketplaceBranch();
+  syncPlazaApplicationRequiredState();
 }
 
 function syncPlazaMarketplaceBranch() {
-  const patronAnswered =
-    getPlazaInputValue(plazaAppWantsPatron) === "yes" ||
-    getPlazaInputValue(plazaAppWantsPatron) === "no";
-
-  const wantsMarketplace = getPlazaInputValue(plazaAppWantsMarketplace);
-  const marketplaceYes = patronAnswered && wantsMarketplace === "yes";
-  const marketplaceAnswered = patronAnswered && (wantsMarketplace === "yes" || wantsMarketplace === "no");
-
-  setPlazaHidden(plazaServicesProductsField, !marketplaceYes);
-  setPlazaHidden(plazaReferralField, !marketplaceAnswered);
-  setPlazaHidden(plazaHowHeardField, !marketplaceAnswered);
-
-  setPlazaRequired(plazaAppServicesProducts, marketplaceYes);
-  setPlazaRequired(plazaAppReferredBy, false);
-  setPlazaRequired(plazaAppHowHeard, marketplaceAnswered && !getPlazaInputValue(plazaAppReferredBy));
+  syncPlazaApplicationRequiredState();
 }
 
 function buildPlazaApplicationPayload() {
@@ -6284,7 +6513,7 @@ function showPlazaAccessGate(snapshot = {}) {
   }
 
   prefillPlazaApplicationBasics();
-  syncPlazaMembershipBranch();
+  resetPlazaApplicationFlow();
 }
 
 function unlockPlazaAccess() {
@@ -6312,7 +6541,7 @@ async function loadPlazaApplicationStatus() {
 async function submitPlazaApplication(event) {
   event?.preventDefault?.();
 
-  syncPlazaMarketplaceBranch();
+  syncPlazaApplicationRequiredState();
 
   const payload = buildPlazaApplicationPayload();
 
@@ -6366,14 +6595,37 @@ async function submitPlazaApplication(event) {
 }
 
 function bindPlazaApplicationGateEvents() {
+  if (!plazaApplicationForm || plazaApplicationForm.dataset.typeformBound === "true") return;
+
+  plazaApplicationForm.dataset.typeformBound = "true";
+
+  plazaApplicationForm.addEventListener("click", (event) => {
+    const nextButton = event.target.closest("[data-plaza-app-next]");
+    if (!nextButton) return;
+
+    event.preventDefault();
+    goToNextPlazaApplicationStep();
+  });
+
+  plazaApplicationForm.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+
+    const target = event.target;
+    if (target instanceof HTMLTextAreaElement) return;
+
+    const activeStep = getPlazaApplicationStepNode(plazaApplicationCurrentStep);
+    if (!activeStep || !activeStep.contains(target)) return;
+
+    event.preventDefault();
+    goToNextPlazaApplicationStep();
+  });
+
   plazaAppMembershipType?.addEventListener("change", syncPlazaMembershipBranch);
   plazaAppWantsPatron?.addEventListener("change", syncPlazaPatronBranch);
   plazaAppWantsMarketplace?.addEventListener("change", syncPlazaMarketplaceBranch);
   plazaAppReferredBy?.addEventListener("input", syncPlazaMarketplaceBranch);
 
-  if (plazaApplicationForm) {
-    plazaApplicationForm.addEventListener("submit", submitPlazaApplication);
-  }
+  plazaApplicationForm.addEventListener("submit", submitPlazaApplication);
 }
 
 async function ensurePlazaAccessBeforeBoot() {

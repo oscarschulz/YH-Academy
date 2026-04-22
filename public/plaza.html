@@ -11,8 +11,8 @@
     href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap"
     rel="stylesheet"
   />
-<link rel="stylesheet" href="/css/plaza.css?v=20260422-plaza-application-gate-1" />
-<script src="/js/plaza.js?v=20260422-plaza-application-gate-1" defer></script>
+<link rel="stylesheet" href="/css/plaza.css?v=20260422-plaza-typeform-flow-1" />
+<script src="/js/plaza.js?v=20260422-plaza-typeform-flow-1" defer></script>
 </head>
 <body data-yh-i18n-mode="attributes" class="yh-plaza-page yh-plaza-access-booting">
 
@@ -34,24 +34,41 @@
 
       <div class="yh-plaza-access-status" id="plazaAccessStatusCard" hidden></div>
 
-      <form class="yh-plaza-application-form" id="plazaApplicationForm" novalidate>
+      <form class="yh-plaza-application-form yh-plaza-typeform" id="plazaApplicationForm" novalidate>
+        <div class="yh-plaza-application-progress" id="plazaApplicationProgress">
+          <div class="yh-plaza-application-progress-copy">
+            <span id="plazaApplicationProgressText">Question 1</span>
+          </div>
+          <div class="yh-plaza-application-progress-track">
+            <span id="plazaApplicationProgressBar"></span>
+          </div>
+        </div>
+
         <div class="yh-plaza-application-section">
-          <label class="yh-plaza-application-field">
-            <span>Are you a member of Young Hustlers?</span>
+          <label class="yh-plaza-application-field yh-plaza-application-step" data-plaza-app-step="membershipType">
+            <span>1. Are you a member of Young Hustlers?</span>
             <select id="plazaAppMembershipType" name="membershipType" required>
               <option value="">Select your answer</option>
               <option value="academy">Yes, in The Academy</option>
               <option value="federation">Yes, in The Federation</option>
               <option value="not_yet">Not yet, am just looking around</option>
             </select>
+
+            <button type="button" class="yh-plaza-btn yh-plaza-btn-primary yh-plaza-application-next" data-plaza-app-next>
+              Continue
+            </button>
           </label>
 
-          <label class="yh-plaza-application-field">
-            <span>Drop your best e-mail</span>
+          <label class="yh-plaza-application-field yh-plaza-application-step" data-plaza-app-step="email" hidden>
+            <span>2. Drop your best e-mail</span>
             <input id="plazaAppEmail" name="email" type="email" placeholder="you@example.com" required />
+
+            <button type="button" class="yh-plaza-btn yh-plaza-btn-primary yh-plaza-application-next" data-plaza-app-next>
+              Continue
+            </button>
           </label>
 
-          <div class="yh-plaza-application-stop" id="plazaApplicationStopNotice" hidden>
+          <div class="yh-plaza-application-stop yh-plaza-application-step" id="plazaApplicationStopNotice" data-plaza-app-step="stop" hidden>
             <strong>There is nothing to check here yet.</strong>
             <p>Come back when you are already a member of The Academy or The Federation.</p>
             <a href="/dashboard" class="yh-plaza-btn yh-plaza-btn-secondary">Back to Universe</a>
@@ -60,101 +77,159 @@
 
         <div class="yh-plaza-application-member-fields" id="plazaApplicationMemberFields" hidden>
           <div class="yh-plaza-application-section">
-            <div class="yh-plaza-application-grid">
-              <label class="yh-plaza-application-field">
-                <span>Name &amp; Surname</span>
-                <input id="plazaAppFullName" name="fullName" type="text" placeholder="Your full name" required />
-              </label>
+            <label class="yh-plaza-application-field yh-plaza-application-step" data-plaza-app-step="fullName" hidden>
+              <span>3. Name &amp; Surname</span>
+              <input id="plazaAppFullName" name="fullName" type="text" placeholder="Your full name" required />
 
-              <label class="yh-plaza-application-field">
-                <span>Age</span>
-                <input id="plazaAppAge" name="age" type="number" min="13" max="120" placeholder="Your age" required />
-              </label>
-            </div>
-
-            <label class="yh-plaza-application-field">
-              <span>What is one project you are currently building or planning?</span>
-              <textarea id="plazaAppCurrentProject" name="currentProject" rows="4" required></textarea>
+              <button type="button" class="yh-plaza-btn yh-plaza-btn-primary yh-plaza-application-next" data-plaza-app-next>
+                Continue
+              </button>
             </label>
 
-            <label class="yh-plaza-application-field">
-              <span>What resources do you need most right now? <small>(knowledge, income, network, mentorship, etc.)</small></span>
-              <textarea id="plazaAppResourcesNeeded" name="resourcesNeeded" rows="4" required></textarea>
+            <label class="yh-plaza-application-field yh-plaza-application-step" data-plaza-app-step="age" hidden>
+              <span>4. Age</span>
+              <input id="plazaAppAge" name="age" type="number" min="13" max="120" placeholder="Your age" required />
+
+              <button type="button" class="yh-plaza-btn yh-plaza-btn-primary yh-plaza-application-next" data-plaza-app-next>
+                Continue
+              </button>
+            </label>
+
+            <label class="yh-plaza-application-field yh-plaza-application-step" data-plaza-app-step="currentProject" hidden>
+              <span>5. What is one project you are currently building or planning?</span>
+              <textarea id="plazaAppCurrentProject" name="currentProject" rows="5" required></textarea>
+
+              <button type="button" class="yh-plaza-btn yh-plaza-btn-primary yh-plaza-application-next" data-plaza-app-next>
+                Continue
+              </button>
+            </label>
+
+            <label class="yh-plaza-application-field yh-plaza-application-step" data-plaza-app-step="resourcesNeeded" hidden>
+              <span>6. What resources do you need most right now? <small>(knowledge, income, network, mentorship, etc.)</small></span>
+              <textarea id="plazaAppResourcesNeeded" name="resourcesNeeded" rows="5" required></textarea>
+
+              <button type="button" class="yh-plaza-btn yh-plaza-btn-primary yh-plaza-application-next" data-plaza-app-next>
+                Continue
+              </button>
             </label>
           </div>
 
           <div class="yh-plaza-application-section">
-            <label class="yh-plaza-application-field">
-              <span id="plazaAppJoinedLabel">When did you join The Academy approximately?</span>
+            <label class="yh-plaza-application-field yh-plaza-application-step" data-plaza-app-step="joinedAt" hidden>
+              <span id="plazaAppJoinedLabel">7. When did you join The Academy approximately?</span>
               <input id="plazaAppJoinedAt" name="joinedAt" type="text" placeholder="Example: March 2026, last month, 2 weeks ago..." required />
+
+              <button type="button" class="yh-plaza-btn yh-plaza-btn-primary yh-plaza-application-next" data-plaza-app-next>
+                Continue
+              </button>
             </label>
 
-            <label class="yh-plaza-application-field">
-              <span id="plazaAppLearntLabel">What have you learnt so far in The Academy?</span>
-              <textarea id="plazaAppLearntSoFar" name="learntSoFar" rows="4" required></textarea>
+            <label class="yh-plaza-application-field yh-plaza-application-step" data-plaza-app-step="learntSoFar" hidden>
+              <span id="plazaAppLearntLabel">8. What have you learnt so far in The Academy?</span>
+              <textarea id="plazaAppLearntSoFar" name="learntSoFar" rows="5" required></textarea>
+
+              <button type="button" class="yh-plaza-btn yh-plaza-btn-primary yh-plaza-application-next" data-plaza-app-next>
+                Continue
+              </button>
             </label>
 
-            <label class="yh-plaza-application-field">
-              <span id="plazaAppContributionLabel">What can you contribute as an Academy member?</span>
-              <textarea id="plazaAppContribution" name="contribution" rows="4" required></textarea>
+            <label class="yh-plaza-application-field yh-plaza-application-step" data-plaza-app-step="contribution" hidden>
+              <span id="plazaAppContributionLabel">9. What can you contribute as an Academy member?</span>
+              <textarea id="plazaAppContribution" name="contribution" rows="5" required></textarea>
+
+              <button type="button" class="yh-plaza-btn yh-plaza-btn-primary yh-plaza-application-next" data-plaza-app-next>
+                Continue
+              </button>
             </label>
           </div>
 
           <div class="yh-plaza-application-section">
-            <label class="yh-plaza-application-field">
-              <span>Are you planning to become a Patrón or a Leader of the Plaza?</span>
+            <label class="yh-plaza-application-field yh-plaza-application-step" data-plaza-app-step="wantsPatron" hidden>
+              <span>10. Are you planning to become a Patrón or a Leader of the Plaza?</span>
               <select id="plazaAppWantsPatron" name="wantsPatron" required>
                 <option value="">Select your answer</option>
                 <option value="yes">Yes</option>
                 <option value="no">No</option>
               </select>
+
+              <button type="button" class="yh-plaza-btn yh-plaza-btn-primary yh-plaza-application-next" data-plaza-app-next>
+                Continue
+              </button>
             </label>
 
             <div class="yh-plaza-application-branch" id="plazaPatronYesFields" hidden>
-              <label class="yh-plaza-application-field">
-                <span>What do you expect if you were to become a Patrón of your Plaza?</span>
-                <textarea id="plazaAppPatronExpectation" name="patronExpectation" rows="4"></textarea>
+              <label class="yh-plaza-application-field yh-plaza-application-step" data-plaza-app-step="patronExpectation" hidden>
+                <span>11. What do you expect if you were to become a Patrón of your Plaza?</span>
+                <textarea id="plazaAppPatronExpectation" name="patronExpectation" rows="5"></textarea>
+
+                <button type="button" class="yh-plaza-btn yh-plaza-btn-primary yh-plaza-application-next" data-plaza-app-next>
+                  Continue
+                </button>
               </label>
 
-              <label class="yh-plaza-application-field">
-                <span>Have you built, managed, or led anything before?</span>
-                <textarea id="plazaAppLeadershipExperience" name="leadershipExperience" rows="4"></textarea>
+              <label class="yh-plaza-application-field yh-plaza-application-step" data-plaza-app-step="leadershipExperience" hidden>
+                <span>12. Have you built, managed, or led anything before?</span>
+                <textarea id="plazaAppLeadershipExperience" name="leadershipExperience" rows="5"></textarea>
+
+                <button type="button" class="yh-plaza-btn yh-plaza-btn-primary yh-plaza-application-next" data-plaza-app-next>
+                  Continue
+                </button>
               </label>
             </div>
 
-            <label class="yh-plaza-application-field" id="plazaCountryField" hidden>
+            <label class="yh-plaza-application-field yh-plaza-application-step" id="plazaCountryField" data-plaza-app-step="country" hidden>
               <span>Country of Residence</span>
               <input id="plazaAppCountry" name="country" type="text" placeholder="Your country" />
+
+              <button type="button" class="yh-plaza-btn yh-plaza-btn-primary yh-plaza-application-next" data-plaza-app-next>
+                Continue
+              </button>
             </label>
           </div>
 
           <div class="yh-plaza-application-section" id="plazaMarketplaceFields" hidden>
-            <label class="yh-plaza-application-field">
+            <label class="yh-plaza-application-field yh-plaza-application-step" data-plaza-app-step="wantsMarketplace" hidden>
               <span>Do you want to promote your services or products inside our marketplace?</span>
               <select id="plazaAppWantsMarketplace" name="wantsMarketplace">
                 <option value="">Select your answer</option>
                 <option value="yes">Yes</option>
                 <option value="no">No</option>
               </select>
+
+              <button type="button" class="yh-plaza-btn yh-plaza-btn-primary yh-plaza-application-next" data-plaza-app-next>
+                Continue
+              </button>
             </label>
 
-            <label class="yh-plaza-application-field" id="plazaServicesProductsField" hidden>
+            <label class="yh-plaza-application-field yh-plaza-application-step" id="plazaServicesProductsField" data-plaza-app-step="servicesProducts" hidden>
               <span>What services/products do you provide?</span>
-              <textarea id="plazaAppServicesProducts" name="servicesProducts" rows="4"></textarea>
+              <textarea id="plazaAppServicesProducts" name="servicesProducts" rows="5"></textarea>
+
+              <button type="button" class="yh-plaza-btn yh-plaza-btn-primary yh-plaza-application-next" data-plaza-app-next>
+                Continue
+              </button>
             </label>
 
-            <label class="yh-plaza-application-field" id="plazaReferralField" hidden>
+            <label class="yh-plaza-application-field yh-plaza-application-step" id="plazaReferralField" data-plaza-app-step="referredBy" hidden>
               <span>Who referred you?</span>
-              <input id="plazaAppReferredBy" name="referredBy" type="text" placeholder="Name, username, or referral source" />
+              <input id="plazaAppReferredBy" name="referredBy" type="text" placeholder="Name, username, or referral source. Leave blank if nobody referred you." />
+
+              <button type="button" class="yh-plaza-btn yh-plaza-btn-primary yh-plaza-application-next" data-plaza-app-next>
+                Continue
+              </button>
             </label>
 
-            <label class="yh-plaza-application-field" id="plazaHowHeardField" hidden>
+            <label class="yh-plaza-application-field yh-plaza-application-step" id="plazaHowHeardField" data-plaza-app-step="howHeard" hidden>
               <span>In case no one referred you, how did you hear from us?</span>
-              <textarea id="plazaAppHowHeard" name="howHeard" rows="3"></textarea>
+              <textarea id="plazaAppHowHeard" name="howHeard" rows="4"></textarea>
+
+              <button type="button" class="yh-plaza-btn yh-plaza-btn-primary yh-plaza-application-next" data-plaza-app-next>
+                Continue
+              </button>
             </label>
           </div>
 
-          <div class="yh-plaza-application-actions">
+          <div class="yh-plaza-application-actions yh-plaza-application-step" data-plaza-app-step="submit" hidden>
             <a href="/dashboard" class="yh-plaza-btn yh-plaza-btn-secondary">Back to Universe</a>
             <button type="submit" class="yh-plaza-btn yh-plaza-btn-primary" id="plazaApplicationSubmitBtn">
               Submit Plaza Application
