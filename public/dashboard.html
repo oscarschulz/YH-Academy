@@ -301,10 +301,10 @@
                 </div>
             </section>
 
-            <section class="yh-universe-slide" data-division="plazas" aria-hidden="true">
-                <div class="portal-card">
+<section class="yh-universe-slide" data-division="plazas" aria-hidden="true">
+                <div class="portal-card yh-plaza-open-card">
                     <div class="yh-universe-meta">
-                        <span class="yh-universe-badge">Active</span>
+                        <span class="yh-universe-badge" id="plaza-entry-meta-badge">Application Gate</span>
                         <span class="yh-universe-meta-copy">Networking, opportunities, regions, requests</span>
                     </div>
 
@@ -312,18 +312,18 @@
                         <div class="portal-icon">🏪</div>
                         <h2 class="portal-title">The Plaza</h2>
                         <p class="portal-desc">
-                            Enter the bridge between Academy execution and Federation access. Discover opportunities,
-                            connect with operators, join regional hubs, and turn your movement into real-world leverage.
+                            Apply through the official Plaza form before entering the movement hub. Once admin approves
+                            your Plaza access, you can enter opportunities, directory, regions, requests, messages, and bridge paths.
                         </p>
                     </div>
 
                     <button
                         id="btn-open-plazas-preview"
-                        class="btn-primary w-full"
+                        class="btn-secondary w-full yh-plaza-gate-btn"
                         type="button"
                         style="padding: 14px; font-size: 1rem;"
                     >
-                        Enter Plaza ➔
+                        Apply for Plaza ➔
                     </button>
                 </div>
             </section>
@@ -714,6 +714,57 @@
                 </button>
             </div>
         </form>
+    </div>
+</div><div id="plaza-apply-modal" class="modal-overlay hidden-step yh-federation-apply-modal">
+    <div class="modal-content hide-scrollbar yh-federation-apply-card">
+        <button
+            id="btn-close-plaza-apply"
+            type="button"
+            class="yh-federation-apply-close"
+            aria-label="Close Plaza application"
+        >
+            ✖
+        </button>
+
+        <div class="yh-federation-apply-head">
+            <div class="yh-dashboard-federation-kicker">Plaza Application</div>
+            <h2>Apply for Plaza Access</h2>
+            <p>
+                The Plaza is the bridge between Academy execution and Federation-level access. Complete the official
+                Plaza application form first. After submission, mark it as submitted here so your account stays locked
+                in review until admin approval.
+            </p>
+        </div>
+
+        <div class="yh-federation-form-section">
+            <h3>Entry Rule</h3>
+            <p class="subtitle" style="line-height: 1.7; margin-bottom: 1rem;">
+                No auto-entry. The Typeform collects the application details. The Universe only unlocks Plaza after
+                admin manually approves your account.
+            </p>
+
+            <div class="yh-federation-form-actions">
+                <a
+                    class="btn-primary"
+                    id="btn-open-plaza-typeform"
+                    href="https://ph33nwcjunf.typeform.com/theplazas"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    Open Plaza Application Form ↗
+                </a>
+
+                <button type="button" class="btn-secondary" id="btn-mark-plaza-typeform-submitted">
+                    I submitted the form
+                </button>
+            </div>
+        </div>
+
+        <div class="yh-federation-form-actions">
+            <button type="button" class="btn-secondary" id="btn-cancel-plaza-apply">
+                Close
+            </button>
+        </div>
     </div>
 </div>
     <div id="academy-apply-modal" class="modal-overlay hidden-step" style="z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px;">

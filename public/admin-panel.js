@@ -388,6 +388,45 @@ function normalizeAdminFederationRequestRecord(record = {}) {
     updatedAt: String(record.updatedAt || '').trim()
   };
 }
+function normalizeAdminApplicationRecord(record = {}) {
+  const profile = getFederationProfileMap(record);
+  const isFederation = isFederationApplicationRecord(record);
+
+  return {
+    ...record,
+    id: String(record.id || '').trim(),
+    name: String(record.name || record.fullName || 'Applicant').trim(),
+    fullName: String(record.fullName || record.name || 'Applicant').trim(),
+    email: String(record.email || '').trim(),
+
+    recommendedDivision: String(record.recommendedDivision || record.division || 'Academy').trim(),
+    applicationType: String(record.applicationType || 'general').trim(),
+    status: String(record.status || 'Under Review').trim(),
+
+    roles: isFederation ? profile.roles : toAdminStringArray(record.roles),
+    level: isFederation ? profile.level : String(record.level || '').trim(),
+
+    audienceSize: isFederation ? profile.audienceSize : String(record.audienceSize || '').trim(),
+    activePlatforms: isFederation ? profile.activePlatforms : toAdminStringArray(record.activePlatforms),
+    capitalRange: isFederation ? profile.capitalRange : String(record.capitalRange || '').trim(),
+    teamSize: isFederation ? profile.teamSize : String(record.teamSize || '').trim(),
+    skillLevel: isFederation ? profile.skillLevel : String(record.skillLevel || '').trim(),
+
+    lookingFor: isFederation ? profile.lookingFor : String(record.lookingFor || '').trim(),
+    canOffer: isFederation ? profile.canOffer : String(record.canOffer || '').trim(),
+    wantsAccessTo: isFederation ? profile.wantsAccessTo : String(record.wantsAccessTo || '').trim(),
+    openTo: isFederation ? profile.openTo : toAdminStringArray(record.openTo),
+
+    opportunityInsight: isFederation ? profile.opportunityInsight : String(record.opportunityInsight || '').trim(),
+    tenKPlan: isFederation ? profile.tenKPlan : String(record.tenKPlan || '').trim(),
+    openToFeature: isFederation ? profile.openToFeature : String(record.openToFeature || '').trim(),
+
+    federationProfileMap: isFederation ? profile : record.federationProfileMap,
+    federationScore: isFederation ? profile.score : Number(record.federationScore || 0),
+    federationTier: isFederation ? profile.tier : String(record.federationTier || '').trim(),
+    federationTags: isFederation ? profile.tags : toAdminStringArray(record.federationTags)
+  };
+}
 function normalizeAdminBootstrapState(incomingState = {}) {
   const merged = mergeState(defaultState(), incomingState || {});
 
@@ -401,6 +440,9 @@ function normalizeAdminBootstrapState(incomingState = {}) {
 
   return {
     ...merged,
+    applications: Array.isArray(merged.applications)
+      ? merged.applications.map((record) => normalizeAdminApplicationRecord(record))
+      : [],
     academy: Array.isArray(merged.academy)
       ? merged.academy.map((record) => normalizeAdminAcademyRecord(record))
       : [],
@@ -617,7 +659,263 @@ function formatBadge(value) {
   const tone = map[value] || 'gray';
   return `<span class="badge badge-${tone}">${escapeHtml(value)}</span>`;
 }
+function toAdminStringArray(value, maxItems = 32) {
+  const source = Array.isArray(value)
+    ? value
+    : String(value || '')
+        .split(/[,|\n]/)
+        .map((item) => item.trim());
 
+  const seen = new Set();
+
+  return source
+    .map((item) => String(item || '').trim())
+    .filter(Boolean)
+    .filter((item) => {
+      const key = item.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, maxItems);
+}
+
+function isFederationApplicationRecord(record = {}) {
+  const division = String(record.recommendedDivision || record.division || '').trim().toLowerCase();
+  const type = String(record.applicationType || '').trim().toLowerCase();
+
+  return division === 'federation' || type.includes('federation');
+}
+
+function getFederationProfileMap(record = {}) {
+  const map =
+    record.federationProfileMap && typeof record.federationProfileMap === 'object'
+      ? record.federationProfileMap
+      : {};
+
+  const roles = toAdminStringArray(
+    map.roles ||
+    record.roles ||
+    record.roleTags ||
+    record.currentPositions ||
+    record.currentPosition ||
+    record.role
+  );
+
+  const activePlatforms = toAdminStringArray(map.activePlatforms || record.activePlatforms);
+  const openTo = toAdminStringArray(map.openTo || record.openTo);
+  const tags = toAdminStringArray(map.tags || record.federationTags || record.tags);
+
+  const score = Number(
+    record.federationScore ??
+    map.score ??
+    map.federationScore ??
+    record.aiScore ??
+    0
+  );
+
+  const tier = String(
+    record.federationTier ||
+    map.tier ||
+    map.federationTier ||
+    getFederationTierFromScore(score)
+  ).trim();
+
+  return {
+    roles,
+    role: String(map.role || record.role || record.profession || roles[0] || '').trim(),
+    primaryCategory: String(map.primaryCategory || record.primaryCategory || record.category || '').trim(),
+
+    level: String(map.level || record.level || '').trim(),
+
+    audienceSize: String(map.audienceSize || record.audienceSize || '').trim(),
+    activePlatforms,
+    capitalRange: String(map.capitalRange || record.capitalRange || '').trim(),
+    teamSize: String(map.teamSize || record.teamSize || '').trim(),
+    skillLevel: String(map.skillLevel || record.skillLevel || '').trim(),
+
+    lookingFor: String(map.lookingFor || record.lookingFor || record.whyJoin || record.wantedContactReason || '').trim(),
+    canOffer: String(map.canOffer || record.canOffer || record.valueBring || record.networkValue || '').trim(),
+    wantsAccessTo: String(map.wantsAccessTo || record.wantsAccessTo || record.introductions || record.wantedContactTypesRaw || '').trim(),
+    openTo,
+
+    opportunityInsight: String(map.opportunityInsight || record.opportunityInsight || '').trim(),
+    tenKPlan: String(map.tenKPlan || record.tenKPlan || '').trim(),
+    openToFeature: String(map.openToFeature || record.openToFeature || '').trim(),
+
+    tags,
+    score,
+    tier
+  };
+}
+
+function getFederationTierFromScore(score = 0) {
+  const safeScore = Math.max(0, Math.min(100, Number(score) || 0));
+
+  if (safeScore >= 90) return 'CORE';
+  if (safeScore >= 70) return 'OPERATOR';
+  if (safeScore >= 50) return 'CONTRIBUTOR';
+
+  return 'LOW_PRIORITY';
+}
+
+function getFederationApplicationScore(record = {}) {
+  return getFederationProfileMap(record).score;
+}
+
+function getFederationTierLabel(record = {}) {
+  const tier = String(getFederationProfileMap(record).tier || '').trim();
+
+  if (tier === 'LOW_PRIORITY') return 'Low Priority';
+  if (tier === 'CORE') return 'Core';
+  if (tier === 'OPERATOR') return 'Operator';
+  if (tier === 'CONTRIBUTOR') return 'Contributor';
+
+  return tier || 'Unranked';
+}
+
+function formatFederationTierBadge(record = {}) {
+  const tier = String(getFederationProfileMap(record).tier || '').trim();
+  const label = getFederationTierLabel(record);
+
+  const tone =
+    tier === 'CORE'
+      ? 'purple'
+      : tier === 'OPERATOR'
+        ? 'green'
+        : tier === 'CONTRIBUTOR'
+          ? 'blue'
+          : 'gray';
+
+  return `<span class="badge badge-${tone}">${escapeHtml(label)}</span>`;
+}
+
+function buildApplicationScoreMarkup(app = {}) {
+  const isFederation = isFederationApplicationRecord(app);
+
+  if (!isFederation) {
+    return `<strong>${Number(app.aiScore || 0)}</strong>`;
+  }
+
+  const score = getFederationApplicationScore(app);
+
+  return `
+    <div class="application-score-cell">
+      <strong>${escapeHtml(String(score))}</strong>
+      ${formatFederationTierBadge(app)}
+    </div>
+  `;
+}
+
+function buildAdminChipList(items = [], emptyText = '—') {
+  const values = toAdminStringArray(items);
+
+  if (!values.length) {
+    return `<span class="muted">${escapeHtml(emptyText)}</span>`;
+  }
+
+  return `
+    <div class="admin-chip-list">
+      ${values.map((item) => `<span>${escapeHtml(item)}</span>`).join('')}
+    </div>
+  `;
+}
+
+function buildFederationProfileMapMarkup(record = {}) {
+  if (!isFederationApplicationRecord(record)) return '';
+
+  const profile = getFederationProfileMap(record);
+
+  return `
+    <div class="drawer-section federation-profile-map-section">
+      <div class="federation-profile-map-head">
+        <div>
+          <h4>Federation Power Map</h4>
+          <p class="muted">Internal profile map for score, tier, resources, intent, and matching.</p>
+        </div>
+        <div class="federation-score-lockup">
+          <span>Score</span>
+          <strong>${escapeHtml(String(profile.score))}</strong>
+          ${formatFederationTierBadge(record)}
+        </div>
+      </div>
+
+      <div class="application-meta-grid federation-power-grid">
+        <div class="application-meta-item">
+          <span>Level</span>
+          <strong>${escapeHtml(profile.level || '—')}</strong>
+        </div>
+        <div class="application-meta-item">
+          <span>Primary Category</span>
+          <strong>${escapeHtml(profile.primaryCategory || '—')}</strong>
+        </div>
+        <div class="application-meta-item">
+          <span>Audience</span>
+          <strong>${escapeHtml(profile.audienceSize || '—')}</strong>
+        </div>
+        <div class="application-meta-item">
+          <span>Capital</span>
+          <strong>${escapeHtml(profile.capitalRange || '—')}</strong>
+        </div>
+        <div class="application-meta-item">
+          <span>Team</span>
+          <strong>${escapeHtml(profile.teamSize || '—')}</strong>
+        </div>
+        <div class="application-meta-item">
+          <span>Skill Level</span>
+          <strong>${escapeHtml(profile.skillLevel || '—')}</strong>
+        </div>
+      </div>
+
+      <div class="answer-stack federation-map-stack">
+        <div class="answer-card">
+          <span class="answer-label">Roles / Positions</span>
+          ${buildAdminChipList(profile.roles)}
+        </div>
+
+        <div class="answer-card">
+          <span class="answer-label">Active Platforms</span>
+          ${buildAdminChipList(profile.activePlatforms)}
+        </div>
+
+        <div class="answer-card">
+          <span class="answer-label">Open To</span>
+          ${buildAdminChipList(profile.openTo)}
+        </div>
+
+        <div class="answer-card">
+          <span class="answer-label">Federation Tags</span>
+          ${buildAdminChipList(profile.tags)}
+        </div>
+
+        <div class="answer-card">
+          <span class="answer-label">Looking For</span>
+          <p>${escapeHtml(profile.lookingFor || 'No answer submitted.')}</p>
+        </div>
+
+        <div class="answer-card">
+          <span class="answer-label">Can Offer</span>
+          <p>${escapeHtml(profile.canOffer || 'No answer submitted.')}</p>
+        </div>
+
+        <div class="answer-card">
+          <span class="answer-label">Wants Access To</span>
+          <p>${escapeHtml(profile.wantsAccessTo || 'No answer submitted.')}</p>
+        </div>
+
+        <div class="answer-card">
+          <span class="answer-label">Opportunity Insight</span>
+          <p>${escapeHtml(profile.opportunityInsight || 'No answer submitted.')}</p>
+        </div>
+
+        <div class="answer-card">
+          <span class="answer-label">10K People Plan</span>
+          <p>${escapeHtml(profile.tenKPlan || 'No answer submitted.')}</p>
+        </div>
+      </div>
+    </div>
+  `;
+}
 function normalizeCoachReplyFormatLabel(value) {
   const raw = String(value || '').trim().toLowerCase();
 
@@ -1174,7 +1472,7 @@ function renderOverview() {
   if (overviewApplicationsTableEl) {
     overviewApplicationsTableEl.innerHTML = state.applications
       .slice()
-      .sort((a, b) => Number(b.aiScore || 0) - Number(a.aiScore || 0))
+      .sort((a, b) => getFederationApplicationScore(b) - getFederationApplicationScore(a))
       .slice(0, 5)
       .map(app => {
         const appTypeLabel = String(app.applicationType || 'general')
@@ -1192,7 +1490,7 @@ function renderOverview() {
             ${makeCell('Goal / Background', getApplicationPreviewMarkup(app))}
             ${makeCell('Recommended', formatBadge(app.recommendedDivision || 'Academy'))}
             ${makeCell('Status', formatBadge(app.status || 'Under Review'))}
-            ${makeCell('AI Score', `${Number(app.aiScore || 0)}`)}
+            ${makeCell('Score / Tier', buildApplicationScoreMarkup(app))}
             ${makeCell('Actions', `<button class="badge-btn" data-open="application" data-id="${app.id}">View Form</button>`)}
           </tr>
         `;
@@ -2075,6 +2373,8 @@ if (type === 'application') {
   const approveAttrs = getApplicationDecisionButtonAttrs(currentStatus, 'Approved');
   const rejectAttrs = getApplicationDecisionButtonAttrs(currentStatus, 'Rejected');
   const waitlistAttrs = getApplicationDecisionButtonAttrs(currentStatus, 'Waitlisted');
+  const federationProfileMarkup = buildFederationProfileMapMarkup(record);
+  const federationTierBadge = isFederationApplicationRecord(record) ? formatFederationTierBadge(record) : '';
 
   return `
     <div class="drawer-section application-hero">
@@ -2088,6 +2388,7 @@ if (type === 'application') {
         <div class="application-badge-stack">
           ${formatBadge(record.status || 'Under Review')}
           ${formatBadge(record.recommendedDivision || 'Academy')}
+          ${federationTierBadge}
         </div>
       </div>
 
@@ -2109,8 +2410,11 @@ if (type === 'application') {
           <strong>${escapeHtml(record.submittedAt || 'Unknown')}</strong>
         </div>
         <div class="application-meta-item">
-          <span>AI Score</span>
-          <strong>${Number(record.aiScore || 0)}</strong>
+          <span>Score / Tier</span>
+          <strong>
+            ${escapeHtml(String(getFederationApplicationScore(record)))}
+            ${isFederationApplicationRecord(record) ? ` • ${escapeHtml(getFederationTierLabel(record))}` : ''}
+          </strong>
         </div>
         <div class="application-meta-item">
           <span>Country of residence</span>
@@ -2126,6 +2430,8 @@ if (type === 'application') {
         </div>
       </div>
     </div>
+
+    ${federationProfileMarkup}
 
     <div class="drawer-section">
       <h4>Identity & Routing</h4>
@@ -2892,6 +3198,18 @@ function syncMemberFromApplication(application) {
     email: application.email,
     divisions: [application.recommendedDivision],
     status: 'Active',
+    role: application.role || application.profession || 'Operator',
+    profession: application.role || application.profession || 'Operator',
+    primaryCategory: application.primaryCategory || application.category || '',
+    federationProfileMap: application.federationProfileMap || null,
+    federationScore: Number(application.federationScore || 0),
+    federationTier: application.federationTier || '',
+    federationTags: Array.isArray(application.federationTags) ? application.federationTags : [],
+    roles: Array.isArray(application.roles) ? application.roles : [],
+    lookingFor: application.lookingFor || '',
+    canOffer: application.canOffer || '',
+    wantsAccessTo: application.wantsAccessTo || '',
+    openTo: Array.isArray(application.openTo) ? application.openTo : [],
     activityScore: 50,
     roadmapStatus: isAcademyMembership
       ? 'Ready for roadmap setup'
@@ -2942,8 +3260,13 @@ function applyLocalApplicationReview(applicationId, nextStatus = 'Under Review')
         profession: application.role || application.profession || 'Operator',
         region: application.region || [application.city, application.country].filter(Boolean).join(', '),
         status: 'Verified',
-        influence: Number(application.influence || 0),
+        influence: Number(application.influence || application.federationScore || 0),
         tag: application.primaryCategory || 'Operator',
+        tier: application.federationTier || '',
+        federationScore: Number(application.federationScore || 0),
+        federationTier: application.federationTier || '',
+        federationTags: Array.isArray(application.federationTags) ? application.federationTags : [],
+        federationProfileMap: application.federationProfileMap || null,
         sourceApplicationId: application.id,
         memberId: memberId || application.memberId || '',
         approvedAt: nowIso,

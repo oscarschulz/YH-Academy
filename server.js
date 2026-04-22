@@ -1357,8 +1357,13 @@ if (
     p === '/dashboard/' ||
     p === '/academy' ||
     p === '/academy/' ||
+    p === '/plaza' ||
+    p === '/plaza/' ||
+    p === '/plaza.html' ||
     p === '/js/dashboard.js' ||
     p === '/js/academy.js' ||
+    p === '/js/plaza.js' ||
+    p === '/css/plaza.css' ||
     p === '/js/dashboard-mobile-fix.js' ||
     p === '/js/yh-shared-core.js' ||
     p === '/js/yh-shared-runtime.js'
@@ -1396,6 +1401,33 @@ app.use('/uploads', express.static(ACADEMY_UPLOADS_ROOT, {
     }
 }));
 
+app.use(async (req, res, next) => {
+    const pathName = String(req.path || '').replace(/\/+$/, '') || '/';
+
+    if (pathName !== '/plaza' && pathName !== '/plaza.html') {
+        return next();
+    }
+
+    const user = verifyRequestUser(req);
+
+    if (!user?.id) {
+        return res.redirect('/?redirect=plaza');
+    }
+
+    try {
+        const snapshot = await getPlazaAccessSnapshotForUser(user.id, user);
+
+        if (snapshot.canEnterPlaza === true) {
+            return next();
+        }
+
+        return res.redirect('/dashboard?division=plazas&plazaAccess=required');
+    } catch (error) {
+        console.error('plaza html access gate error:', error);
+        return res.redirect('/dashboard?division=plazas&plazaAccess=required');
+    }
+});
+
 app.use(express.static(path.join(__dirname, 'public'), {
     etag: true,
     lastModified: true,
@@ -1405,11 +1437,14 @@ app.use(express.static(path.join(__dirname, 'public'), {
         if (
             normalized.endsWith('/public/js/dashboard.js') ||
             normalized.endsWith('/public/js/academy.js') ||
+            normalized.endsWith('/public/js/plaza.js') ||
+            normalized.endsWith('/public/css/plaza.css') ||
             normalized.endsWith('/public/js/dashboard-mobile-fix.js') ||
             normalized.endsWith('/public/js/yh-shared-core.js') ||
             normalized.endsWith('/public/js/yh-shared-runtime.js') ||
             normalized.endsWith('/public/dashboard.html') ||
-            normalized.endsWith('/public/academy.html')
+            normalized.endsWith('/public/academy.html') ||
+            normalized.endsWith('/public/plaza.html')
         ) {
             res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
             res.setHeader('Pragma', 'no-cache');
@@ -1880,6 +1915,105 @@ function mapFederationMemberUserDoc(docSnap) {
         approvedAt: mapFederationConnectTimestamp(user.federationApprovedAt || user.updatedAt || application.reviewedAt),
         source: 'server'
     };
+}
+function normalizePlazaAccessStatus(value = '') {
+    const raw = sanitizeText(value).toLowerCase();
+
+    if (!raw) return '';
+    if (raw === 'approved' || raw === 'active') return 'approved';
+    if (raw === 'under review' || raw === 'pending' || raw === 'pending review' || raw === 'review') return 'under review';
+    if (raw === 'screening' || raw === 'in screening') return 'screening';
+    if (raw === 'shortlisted' || raw === 'shortlist') return 'shortlisted';
+    if (raw === 'waitlisted' || raw === 'waitlist') return 'waitlisted';
+    if (raw === 'rejected' || raw === 'denied' || raw === 'not approved') return 'rejected';
+
+    return raw;
+}
+
+function isPlazaApprovedServerUser(user = {}) {
+    const status = normalizePlazaAccessStatus(
+        user.plazaAccessStatus ||
+        user.plazaMembershipStatus ||
+        user.plazaApplicationStatus ||
+        user.plazaApplication?.status ||
+        ''
+    );
+
+    return user.hasPlazaAccess === true || status === 'approved';
+}
+
+function buildPlazaMemberSnapshot(userId = '', user = {}, requestUser = {}) {
+    return {
+        id: userId,
+        name: sanitizeText(user.fullName || user.name || user.displayName || requestUser.name || 'Plaza Member'),
+        email: sanitizeText(user.email || requestUser.email || '').toLowerCase(),
+        divisions: ['Plaza'],
+        status: 'Active'
+    };
+}
+
+async function getPlazaAccessSnapshotForUser(userId = '', requestUser = {}) {
+    const normalizedUserId = sanitizeText(userId);
+
+    if (!normalizedUserId) {
+        return {
+            hasApplication: false,
+            canEnterPlaza: false,
+            applicationStatus: '',
+            application: null,
+            member: null
+        };
+    }
+
+    const snap = await firestore.collection('users').doc(normalizedUserId).get();
+    const user = snap.exists ? (snap.data() || {}) : {};
+
+    const application =
+        user.plazaApplication && typeof user.plazaApplication === 'object'
+            ? user.plazaApplication
+            : null;
+
+    const status = normalizePlazaAccessStatus(
+        user.plazaAccessStatus ||
+        user.plazaMembershipStatus ||
+        user.plazaApplicationStatus ||
+        application?.status ||
+        ''
+    );
+
+    const approved = isPlazaApprovedServerUser(user);
+
+    return {
+        hasApplication: Boolean(application || status),
+        canEnterPlaza: approved,
+        applicationStatus: status,
+        application,
+        member: approved ? buildPlazaMemberSnapshot(normalizedUserId, user, requestUser) : null
+    };
+}
+
+async function requirePlazaApiAccess(req, res, next) {
+    try {
+        const snapshot = await getPlazaAccessSnapshotForUser(req.user?.id, req.user);
+
+        if (snapshot.canEnterPlaza === true) {
+            return next();
+        }
+
+        return res.status(403).json({
+            success: false,
+            message: 'Plaza access requires admin approval.',
+            plazaAccessRequired: true,
+            applicationStatus: snapshot.applicationStatus || '',
+            hasApplication: snapshot.hasApplication === true
+        });
+    } catch (error) {
+        console.error('requirePlazaApiAccess error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to verify Plaza access.'
+        });
+    }
 }
 function isFederationApprovedServerUser(user = {}) {
     const status = sanitizeText(
@@ -2787,6 +2921,123 @@ app.post('/api/federation/application', requireApiUser, async (req, res) => {
         });
     }
 });
+
+app.get('/api/plaza/application-status', requireApiUser, async (req, res) => {
+    try {
+        const snapshot = await getPlazaAccessSnapshotForUser(req.user?.id, req.user);
+
+        return res.json({
+            success: true,
+            ...snapshot
+        });
+    } catch (error) {
+        console.error('plaza application status error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load Plaza application status.'
+        });
+    }
+});
+
+app.post('/api/plaza/application-intent', requireApiUser, async (req, res) => {
+    try {
+        const userId = sanitizeText(req.user?.id);
+
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const userRef = firestore.collection('users').doc(userId);
+        const snap = await userRef.get();
+        const user = snap.exists ? (snap.data() || {}) : {};
+        const existingSnapshot = await getPlazaAccessSnapshotForUser(userId, req.user);
+
+        if (existingSnapshot.canEnterPlaza === true) {
+            return res.json({
+                success: true,
+                ...existingSnapshot
+            });
+        }
+
+        const existingApplication =
+            user.plazaApplication && typeof user.plazaApplication === 'object'
+                ? user.plazaApplication
+                : null;
+
+        const existingStatus = normalizePlazaAccessStatus(
+            user.plazaApplicationStatus ||
+            user.plazaMembershipStatus ||
+            existingApplication?.status ||
+            ''
+        );
+
+        if (existingApplication && existingStatus && existingStatus !== 'rejected') {
+            return res.json({
+                success: true,
+                hasApplication: true,
+                canEnterPlaza: false,
+                applicationStatus: existingStatus,
+                application: existingApplication,
+                member: null
+            });
+        }
+
+        const nowIso = new Date().toISOString();
+        const applicationUrl = sanitizeText(req.body?.applicationUrl || 'https://ph33nwcjunf.typeform.com/theplazas');
+
+        const application = {
+            id: existingApplication?.id || `plaza_${userId}_${Date.now()}`,
+            applicationType: 'plaza-access',
+            division: 'Plaza',
+            divisions: ['Plaza'],
+            recommendedDivision: 'Plaza',
+            source: sanitizeText(req.body?.source || 'Dashboard Plaza Typeform'),
+            status: 'Under Review',
+            applicationUrl,
+            externalForm: 'Typeform',
+            submittedOutsideUniverse: true,
+            name: sanitizeText(user.fullName || user.name || user.displayName || req.user?.name || 'Plaza Applicant'),
+            email: sanitizeText(user.email || req.user?.email || '').toLowerCase(),
+            username: sanitizeText(user.username || req.user?.username || ''),
+            createdAt: existingApplication?.createdAt || nowIso,
+            updatedAt: nowIso,
+            submittedAt: nowIso,
+            notes: [
+                'Applicant marked the external Plaza Typeform as submitted from the Dashboard.',
+                'Admin approval is required before Plaza access unlocks.'
+            ]
+        };
+
+        await userRef.set({
+            plazaApplication: application,
+            plazaApplicationStatus: 'Under Review',
+            plazaMembershipStatus: 'under review',
+            plazaAccessStatus: 'under review',
+            hasPlazaAccess: false,
+            updatedAt: nowIso
+        }, { merge: true });
+
+        return res.status(201).json({
+            success: true,
+            hasApplication: true,
+            canEnterPlaza: false,
+            applicationStatus: 'Under Review',
+            application,
+            member: null
+        });
+    } catch (error) {
+        console.error('plaza application intent error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to mark Plaza application as submitted.'
+        });
+    }
+});
+
+app.use('/api/plaza', requireApiUser, requirePlazaApiAccess);
 
 app.use('/api', apiRoutes);
 app.post('/api/realtime/live-rooms/:roomId/join', requireApiUser, async (req, res) => {

@@ -80,7 +80,17 @@ function buildPlazaUrl() {
 }
 
 function redirectToPlazaPage() {
-    window.location.href = buildPlazaUrl();
+    const plazaUrl = buildPlazaUrl();
+
+    if (typeof showAcademyTabLoader === 'function') {
+        showAcademyTabLoader('Entering Plaza.');
+        window.setTimeout(() => {
+            window.location.href = plazaUrl;
+        }, 260);
+        return;
+    }
+
+    window.location.href = plazaUrl;
 }
 
 let currentRoom = "YH-community";     // UI/display label
@@ -411,9 +421,10 @@ const universeFeatureContent = {
     },
     plazas: {
         kicker: 'Plaza Features',
-        title: 'Bridge between Academy and Federation',
-        desc: 'Enter the networking and opportunity layer of YH Universe. Discover operators, opportunities, regional hubs, requests, messages, and bridge paths from Academy execution toward Federation access.',
+        title: 'Application-gated movement hub',
+        desc: 'Apply through the official Plaza form first. Admin approval unlocks the networking and opportunity layer: operators, opportunities, regional hubs, requests, messages, and bridge paths.',
         chips: [
+            'Application gate',
             'Feed',
             'Opportunities',
             'Directory',
@@ -448,6 +459,266 @@ if (academySearchResultsPanel && !academySearchResultsPanel.dataset.overlayBound
             closeAcademySearchResultsPanel();
         }
     });
+}
+const PLAZA_APPLICATION_FORM_URL = 'https://ph33nwcjunf.typeform.com/theplazas';
+const YH_PLAZA_ACCESS_STATUS_CACHE_KEY = 'yh_plaza_access_status_v1';
+let plazaAccessStatusRefreshPromise = null;
+let plazaAccessStatusLastFetchAt = 0;
+const PLAZA_ACCESS_STATUS_MIN_REFRESH_GAP_MS = 10000;
+
+function normalizePlazaStatus(value = '') {
+    const raw = String(value || '').trim().toLowerCase();
+
+    if (!raw) return '';
+    if (raw === 'approved' || raw === 'active') return 'approved';
+    if (raw === 'under review' || raw === 'pending' || raw === 'pending review' || raw === 'review') return 'under review';
+    if (raw === 'screening' || raw === 'in screening') return 'screening';
+    if (raw === 'shortlisted' || raw === 'shortlist') return 'shortlisted';
+    if (raw === 'waitlisted' || raw === 'waitlist') return 'waitlisted';
+    if (raw === 'rejected' || raw === 'denied' || raw === 'not approved') return 'rejected';
+
+    return raw;
+}
+
+function getPlazaAccessSnapshot() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(YH_PLAZA_ACCESS_STATUS_CACHE_KEY) || '{}');
+        return {
+            hasApplication: parsed?.hasApplication === true,
+            canEnterPlaza: parsed?.canEnterPlaza === true,
+            applicationStatus: normalizePlazaStatus(parsed?.applicationStatus || ''),
+            application: parsed?.application && typeof parsed.application === 'object' ? parsed.application : null,
+            member: parsed?.member || null
+        };
+    } catch (_) {
+        return {
+            hasApplication: false,
+            canEnterPlaza: false,
+            applicationStatus: '',
+            application: null,
+            member: null
+        };
+    }
+}
+
+function writePlazaAccessStatusCache(snapshot = {}) {
+    try {
+        localStorage.setItem(YH_PLAZA_ACCESS_STATUS_CACHE_KEY, JSON.stringify({
+            hasApplication: snapshot?.hasApplication === true,
+            canEnterPlaza: snapshot?.canEnterPlaza === true,
+            applicationStatus: normalizePlazaStatus(snapshot?.applicationStatus || ''),
+            application: snapshot?.application || null,
+            member: snapshot?.member || null,
+            cachedAt: new Date().toISOString()
+        }));
+    } catch (_) {}
+}
+
+function getPlazaButtonCopy(snapshot = null) {
+    const currentSnapshot = snapshot || getPlazaAccessSnapshot();
+    const status = normalizePlazaStatus(currentSnapshot?.applicationStatus || '');
+
+    if (currentSnapshot?.canEnterPlaza || status === 'approved') return 'Enter Plaza ➔';
+    if (!currentSnapshot?.hasApplication) return 'Apply for Plaza ➔';
+    if (status === 'rejected') return 'Reapply for Plaza ➔';
+    if (status === 'screening') return 'Screening in Progress';
+    if (status === 'shortlisted') return 'Shortlisted — Awaiting Review';
+    if (status === 'waitlisted') return 'Waitlisted';
+    if (status === 'under review') return 'Pending Admin Approval';
+
+    return 'Application Pending';
+}
+
+function isPlazaPendingLocked(snapshot = null) {
+    const currentSnapshot = snapshot || getPlazaAccessSnapshot();
+    const status = normalizePlazaStatus(currentSnapshot?.applicationStatus || '');
+
+    return (
+        currentSnapshot?.hasApplication === true &&
+        currentSnapshot?.canEnterPlaza !== true &&
+        status !== 'approved' &&
+        status !== 'rejected'
+    );
+}
+
+function syncPlazaEntryButton(snapshot = null) {
+    const currentSnapshot = snapshot || getPlazaAccessSnapshot();
+    const button = document.getElementById('btn-open-plazas-preview');
+    const badge = document.getElementById('plaza-entry-meta-badge');
+    const label = getPlazaButtonCopy(currentSnapshot);
+    const pendingLocked = isPlazaPendingLocked(currentSnapshot);
+
+    if (button) {
+        button.textContent = label;
+        button.classList.toggle('btn-primary', currentSnapshot.canEnterPlaza === true);
+        button.classList.toggle('btn-secondary', currentSnapshot.canEnterPlaza !== true);
+        button.classList.toggle('is-pending-locked', pendingLocked);
+        button.disabled = pendingLocked;
+        button.setAttribute('aria-disabled', pendingLocked ? 'true' : 'false');
+        button.setAttribute(
+            'title',
+            pendingLocked
+                ? 'Your Plaza application is under review. Admin approval is required before entry.'
+                : ''
+        );
+    }
+
+    if (badge) {
+        badge.textContent = currentSnapshot.canEnterPlaza
+            ? 'Approved Access'
+            : currentSnapshot.hasApplication
+                ? 'Under Review'
+                : 'Application Gate';
+    }
+
+    if (currentSnapshot.hasApplication || currentSnapshot.canEnterPlaza) {
+        writePlazaAccessStatusCache(currentSnapshot);
+    }
+
+    return currentSnapshot;
+}
+
+async function refreshPlazaAccessStatusFromBackend(forceFresh = false) {
+    const now = Date.now();
+
+    if (
+        !forceFresh &&
+        plazaAccessStatusLastFetchAt &&
+        now - plazaAccessStatusLastFetchAt < PLAZA_ACCESS_STATUS_MIN_REFRESH_GAP_MS
+    ) {
+        return syncPlazaEntryButton(getPlazaAccessSnapshot());
+    }
+
+    if (plazaAccessStatusRefreshPromise) {
+        return plazaAccessStatusRefreshPromise;
+    }
+
+    plazaAccessStatusRefreshPromise = academyAuthedFetch('/api/plaza/application-status', {
+        method: 'GET'
+    })
+        .then((result) => {
+            plazaAccessStatusLastFetchAt = Date.now();
+
+            const application =
+                result?.application && typeof result.application === 'object'
+                    ? result.application
+                    : null;
+
+            const snapshot = {
+                hasApplication: result?.hasApplication === true || Boolean(application),
+                canEnterPlaza: result?.canEnterPlaza === true,
+                applicationStatus: normalizePlazaStatus(
+                    result?.applicationStatus ||
+                    application?.status ||
+                    ''
+                ),
+                application,
+                member: result?.member || null
+            };
+
+            writePlazaAccessStatusCache(snapshot);
+            syncPlazaEntryButton(snapshot);
+            return snapshot;
+        })
+        .catch((error) => {
+            console.error('refreshPlazaAccessStatusFromBackend error:', error);
+            return syncPlazaEntryButton(getPlazaAccessSnapshot());
+        })
+        .finally(() => {
+            plazaAccessStatusRefreshPromise = null;
+        });
+
+    return plazaAccessStatusRefreshPromise;
+}
+
+function openPlazaApplicationModal() {
+    const modal = document.getElementById('plaza-apply-modal');
+    if (!modal) {
+        window.open(PLAZA_APPLICATION_FORM_URL, '_blank', 'noopener,noreferrer');
+        return;
+    }
+
+    modal.classList.remove('hidden-step');
+    document.body?.classList.add('plaza-application-open');
+}
+
+function closePlazaApplicationModal() {
+    const modal = document.getElementById('plaza-apply-modal');
+    if (!modal) return;
+
+    modal.classList.add('hidden-step');
+    document.body?.classList.remove('plaza-application-open');
+}
+
+async function markPlazaTypeformSubmitted() {
+    const submitBtn = document.getElementById('btn-mark-plaza-typeform-submitted');
+    const originalText = submitBtn?.textContent || 'I submitted the form';
+
+    try {
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.setAttribute('aria-disabled', 'true');
+            submitBtn.textContent = 'Marking as submitted...';
+        }
+
+        const result = await academyAuthedFetch('/api/plaza/application-intent', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                applicationUrl: PLAZA_APPLICATION_FORM_URL,
+                source: 'Dashboard Plaza Typeform'
+            })
+        });
+
+        const application = result?.application && typeof result.application === 'object'
+            ? result.application
+            : null;
+
+        const snapshot = {
+            hasApplication: true,
+            canEnterPlaza: result?.canEnterPlaza === true,
+            applicationStatus: normalizePlazaStatus(result?.applicationStatus || application?.status || 'Under Review'),
+            application,
+            member: result?.member || null
+        };
+
+        writePlazaAccessStatusCache(snapshot);
+        syncPlazaEntryButton(snapshot);
+        closePlazaApplicationModal();
+        showToast('Plaza application marked as submitted. Admin approval is required before entry.', 'success');
+    } catch (error) {
+        console.error('markPlazaTypeformSubmitted error:', error);
+        showToast(error?.message || 'Failed to mark Plaza application as submitted.', 'error');
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.removeAttribute('aria-disabled');
+            submitBtn.textContent = originalText;
+        }
+    }
+}
+
+async function handlePlazaGateClick(event) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+
+    const snapshot = await refreshPlazaAccessStatusFromBackend(true);
+    const status = normalizePlazaStatus(snapshot?.applicationStatus || '');
+
+    if (snapshot?.canEnterPlaza || status === 'approved') {
+        redirectToPlazaPage();
+        return;
+    }
+
+    if (!snapshot?.hasApplication || status === 'rejected') {
+        openPlazaApplicationModal();
+        return;
+    }
+
+    syncPlazaEntryButton(snapshot);
+    showToast('Your Plaza application is under review. Admin approval is required before entry.', 'error');
 }
 function normalizeUniverseDivision(value = 'academy') {
     const allowedDivisions = ['academy', 'federation', 'plazas'];
@@ -532,7 +803,7 @@ function openDivisionPreview(targetDivision = 'plazas', options = {}) {
     if (viewFederation) viewFederation.classList.add('hidden-step');
 
     if (division === 'plazas') {
-        redirectToPlazaPage();
+        handlePlazaGateClick();
         return;
     }
 
@@ -659,7 +930,7 @@ document.querySelectorAll('.yh-universe-slide .portal-card').forEach((card) => {
         }
 
         if (division === 'plazas') {
-            redirectToPlazaPage();
+            handlePlazaGateClick(event);
             return;
         }
 
@@ -675,8 +946,32 @@ document.querySelectorAll('.yh-universe-slide .portal-card').forEach((card) => {
     });
 });
 
-document.getElementById('btn-open-plazas-preview')?.addEventListener('click', () => {
-    redirectToPlazaPage();
+document.getElementById('btn-open-plazas-preview')?.addEventListener('click', (event) => {
+    handlePlazaGateClick(event);
+});
+
+document.getElementById('btn-close-plaza-apply')?.addEventListener('click', () => {
+    closePlazaApplicationModal();
+});
+
+document.getElementById('btn-cancel-plaza-apply')?.addEventListener('click', () => {
+    closePlazaApplicationModal();
+});
+
+document.getElementById('plaza-apply-modal')?.addEventListener('click', (event) => {
+    if (event.target === event.currentTarget) {
+        closePlazaApplicationModal();
+    }
+});
+
+document.getElementById('btn-open-plaza-typeform')?.addEventListener('click', () => {
+    window.setTimeout(() => {
+        showToast('After submitting the Typeform, return here and click “I submitted the form”.', 'success');
+    }, 350);
+});
+
+document.getElementById('btn-mark-plaza-typeform-submitted')?.addEventListener('click', () => {
+    markPlazaTypeformSubmitted();
 });
 
 document.getElementById('btn-open-federation-preview')?.addEventListener('click', () => {
@@ -806,6 +1101,7 @@ if (shouldShowDashboardBootstrapLoader) {
 setTimeout(() => {
     Promise.allSettled([
         refreshFederationAccessStatusFromBackend(true),
+        refreshPlazaAccessStatusFromBackend(true),
         refreshAcademyMembershipStatus(true)
     ])
         .finally(() => {
