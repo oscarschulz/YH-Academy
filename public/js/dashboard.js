@@ -115,10 +115,35 @@ function hideUniverseDivisionEntryLoader() {
     }, 180);
 }
 
+let yhDashboardApplicationLoaderTimer = null;
+
+function runDashboardApplicationFormLoader(label = 'Opening Application...', callback = null) {
+    if (yhDashboardApplicationLoaderTimer) {
+        clearTimeout(yhDashboardApplicationLoaderTimer);
+        yhDashboardApplicationLoaderTimer = null;
+    }
+
+    const hasLoader = showUniverseDivisionEntryLoader(label);
+
+    if (!hasLoader) {
+        if (typeof callback === 'function') callback();
+        return;
+    }
+
+    yhDashboardApplicationLoaderTimer = window.setTimeout(() => {
+        try {
+            if (typeof callback === 'function') callback();
+        } finally {
+            window.setTimeout(() => {
+                hideUniverseDivisionEntryLoader();
+            }, 180);
+        }
+    }, 420);
+}
+
 function buildPlazaUrl() {
     return '/plaza.html';
 }
-
 function redirectToPlazaPage() {
     const plazaUrl = buildPlazaUrl();
 
@@ -674,13 +699,15 @@ function openPlazaApplicationModal() {
         return;
     }
 
-    renderDashboardPlazaApplicationForm();
+    runDashboardApplicationFormLoader('Opening Plaza Application...', () => {
+        renderDashboardPlazaApplicationForm();
 
-    modal.classList.remove('hidden-step');
-    document.body?.classList.add('plaza-application-open');
+        modal.classList.remove('hidden-step');
+        document.body?.classList.add('plaza-application-open');
 
-    window.requestAnimationFrame(() => {
-        resetDashboardPlazaApplicationFlow();
+        window.requestAnimationFrame(() => {
+            resetDashboardPlazaApplicationFlow();
+        });
     });
 }
 
@@ -11430,10 +11457,12 @@ function openFederationApplicationModal() {
     const modal = document.getElementById('federation-apply-modal');
     if (!modal) return;
 
-    prefillFederationApplicationForm();
-    modal.classList.remove('hidden-step');
-    document.body?.classList.add('federation-application-open');
-    resetSingleQuestionApplicationForm('form-federation-apply');
+    runDashboardApplicationFormLoader('Opening Federation Application...', () => {
+        prefillFederationApplicationForm();
+        modal.classList.remove('hidden-step');
+        document.body?.classList.add('federation-application-open');
+        resetSingleQuestionApplicationForm('form-federation-apply');
+    });
 }
 
 function closeFederationApplicationModal() {
