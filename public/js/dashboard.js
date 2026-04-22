@@ -12218,7 +12218,20 @@ async function handleAcademyLaunchClick(event) {
         event.stopPropagation?.();
     }
 
-    showAcademyTabLoader('Entering Academy...');
+    const cachedAcademySnapshot = typeof readAcademyMembershipCache === 'function'
+        ? readAcademyMembershipCache()
+        : null;
+
+    const cachedAcademyStatus = String(
+        cachedAcademySnapshot?.applicationStatus || ''
+    ).trim().toLowerCase();
+
+    showAcademyTabLoader(
+        cachedAcademySnapshot?.canEnterAcademy === true || cachedAcademyStatus === 'approved'
+            ? 'Entering Academy...'
+            : 'Opening Academy Application...'
+    );
+
     try {
         let membershipSnapshot = null;
 
@@ -12248,6 +12261,8 @@ async function handleAcademyLaunchClick(event) {
                 );
                 markAcademyCommunityApprovalToastSeen(membershipSnapshot);
             }
+
+            showAcademyTabLoader('Entering Academy...');
 
             // default on entry: roadmap if unlocked, otherwise community
             enterAcademyWorld('home');
@@ -12302,7 +12317,7 @@ async function runAcademyLaunch(event) {
     setDashboardButtonLoadingState(
         btnOpenApply,
         true,
-        btnOpenApply.dataset.loadingLabel || 'Opening...'
+        btnOpenApply.dataset.loadingLabel || 'Opening Academy Application...'
     );
 
     try {
