@@ -10794,6 +10794,7 @@ function openAcademyLauncher() {
     syncAcademyReferralFields();
     applyModal.classList.remove('hidden-step');
     document.body?.classList.add('academy-launcher-open');
+    resetSingleQuestionApplicationForm('form-academy-apply');
 }
 
 function closeAcademyLauncher() {
@@ -11393,6 +11394,7 @@ function openFederationApplicationModal() {
     prefillFederationApplicationForm();
     modal.classList.remove('hidden-step');
     document.body?.classList.add('federation-application-open');
+    resetSingleQuestionApplicationForm('form-federation-apply');
 }
 
 function closeFederationApplicationModal() {
@@ -12409,6 +12411,290 @@ document.getElementById('app-referred-by')?.addEventListener('input', syncAcadem
 applyAcademyIdentityPrefill();
 syncAcademyOccupationField();
 syncAcademyReferralFields();
+
+const YH_SINGLE_QUESTION_FORM_STATE = new WeakMap();
+
+function getSingleQuestionFormSteps(form) {
+    if (!form) return [];
+
+    const selector = form.id === 'form-federation-apply'
+        ? '.form-group, .yh-federation-check-row'
+        : '.form-group';
+
+    return Array.from(form.querySelectorAll(selector)).filter((node) => {
+        if (!node || node.closest('form') !== form) return false;
+        if (node.closest('.yh-one-question-controls')) return false;
+        if (node.closest('.yh-federation-form-actions')) return false;
+        return true;
+    });
+}
+
+function getSingleQuestionStepTitle(step) {
+    if (!step) return 'Application question';
+
+    const labelText = String(
+        step.querySelector('label')?.textContent ||
+        step.querySelector('span')?.textContent ||
+        step.textContent ||
+        ''
+    )
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    return labelText || 'Application question';
+}
+
+function rememberSingleQuestionControlState(control) {
+    if (!control || control.dataset.yhOriginalDisabled) return;
+    control.dataset.yhOriginalDisabled = control.disabled ? 'true' : 'false';
+}
+
+function setSingleQuestionStepControls(step, isActive) {
+    if (!step) return;
+
+    step.querySelectorAll('input, select, textarea, button').forEach((control) => {
+        rememberSingleQuestionControlState(control);
+
+        if (isActive) {
+            if (control.dataset.yhOriginalDisabled !== 'true') {
+                control.disabled = false;
+            }
+
+            delete control.dataset.yhStepDisabled;
+            return;
+        }
+
+        if (control.dataset.yhOriginalDisabled !== 'true') {
+            control.disabled = true;
+            control.dataset.yhStepDisabled = 'true';
+        }
+    });
+}
+
+function enableSingleQuestionFormControlsForSubmit(form) {
+    if (!form) return;
+
+    getSingleQuestionFormSteps(form).forEach((step) => {
+        step.querySelectorAll('input, select, textarea, button').forEach((control) => {
+            if (control.dataset.yhOriginalDisabled !== 'true') {
+                control.disabled = false;
+            }
+
+            delete control.dataset.yhStepDisabled;
+        });
+    });
+}
+
+function syncSingleQuestionFormSections(form, activeStep) {
+    if (!form || form.id !== 'form-federation-apply') return;
+
+    form.querySelectorAll('.yh-federation-form-section').forEach((section) => {
+        const isActiveSection = Boolean(activeStep && section.contains(activeStep));
+        section.classList.toggle('is-yh-one-question-section-active', isActiveSection);
+        section.hidden = !isActiveSection;
+    });
+}
+
+function validateSingleQuestionStep(step) {
+    if (!step) return false;
+
+    const controls = Array.from(step.querySelectorAll('input, select, textarea'));
+
+    for (const control of controls) {
+        if (!control || control.disabled) continue;
+
+        if (typeof control.checkValidity === 'function' && !control.checkValidity()) {
+            if (typeof control.reportValidity === 'function') {
+                control.reportValidity();
+            }
+
+            if (typeof control.focus === 'function') {
+                control.focus({ preventScroll: false });
+            }
+
+            return false;
+        }
+    }
+
+    return true;
+}
+
+function setSingleQuestionFormActiveStep(form, nextIndex = 0, options = {}) {
+    if (!form) return;
+
+    const state = YH_SINGLE_QUESTION_FORM_STATE.get(form);
+    const steps = state?.steps?.length ? state.steps : getSingleQuestionFormSteps(form);
+
+    if (!steps.length) return;
+
+    const safeIndex = Math.max(0, Math.min(Number(nextIndex) || 0, steps.length - 1));
+    const activeStep = steps[safeIndex];
+    const isFinalStep = safeIndex === steps.length - 1;
+
+    form.dataset.yhOneQuestionActiveIndex = String(safeIndex);
+    form.classList.toggle('is-yh-one-question-final', isFinalStep);
+
+    steps.forEach((step, index) => {
+        const isActive = index === safeIndex;
+
+        step.classList.toggle('is-yh-one-question-active', isActive);
+        step.hidden = !isActive;
+        setSingleQuestionStepControls(step, isActive);
+    });
+
+    syncSingleQuestionFormSections(form, activeStep);
+
+    const progressText = form.querySelector('[data-yh-one-question-progress-text]');
+    const progressTotal = form.querySelector('[data-yh-one-question-progress-total]');
+    const progressTitle = form.querySelector('[data-yh-one-question-title]');
+    const progressBar = form.querySelector('[data-yh-one-question-progress-bar]');
+    const prevBtn = form.querySelector('[data-yh-one-question-prev]');
+    const nextBtn = form.querySelector('[data-yh-one-question-next]');
+
+    if (progressText) {
+        progressText.textContent = `Question ${safeIndex + 1}`;
+    }
+
+    if (progressTotal) {
+        progressTotal.textContent = `${safeIndex + 1} of ${steps.length}`;
+    }
+
+    if (progressTitle) {
+        progressTitle.textContent = getSingleQuestionStepTitle(activeStep);
+    }
+
+    if (progressBar) {
+        progressBar.style.width = `${Math.round(((safeIndex + 1) / steps.length) * 100)}%`;
+    }
+
+    if (prevBtn) {
+        prevBtn.disabled = safeIndex === 0;
+        prevBtn.setAttribute('aria-disabled', safeIndex === 0 ? 'true' : 'false');
+    }
+
+    if (nextBtn) {
+        nextBtn.textContent = isFinalStep ? 'Ready to submit' : 'Continue ➔';
+        nextBtn.disabled = isFinalStep;
+        nextBtn.setAttribute('aria-disabled', isFinalStep ? 'true' : 'false');
+    }
+
+    if (options.focus !== false) {
+        window.requestAnimationFrame(() => {
+            const focusTarget = activeStep.querySelector('input:not([type="hidden"]), select, textarea, button');
+            focusTarget?.focus?.({ preventScroll: false });
+        });
+    }
+}
+
+function goSingleQuestionFormStep(form, direction = 1) {
+    if (!form) return;
+
+    const state = YH_SINGLE_QUESTION_FORM_STATE.get(form);
+    const steps = state?.steps?.length ? state.steps : getSingleQuestionFormSteps(form);
+    const currentIndex = Number(form.dataset.yhOneQuestionActiveIndex || 0);
+    const currentStep = steps[currentIndex];
+
+    if (direction > 0 && !validateSingleQuestionStep(currentStep)) return;
+
+    setSingleQuestionFormActiveStep(form, currentIndex + direction);
+}
+
+function resetSingleQuestionApplicationForm(formOrId) {
+    const form = typeof formOrId === 'string'
+        ? document.getElementById(formOrId)
+        : formOrId;
+
+    if (!form) return;
+
+    setSingleQuestionFormActiveStep(form, 0, { focus: true });
+}
+
+function initializeSingleQuestionApplicationForm(formOrId) {
+    const form = typeof formOrId === 'string'
+        ? document.getElementById(formOrId)
+        : formOrId;
+
+    if (!form || form.dataset.yhOneQuestionReady === 'true') return;
+
+    const steps = getSingleQuestionFormSteps(form);
+    if (!steps.length) return;
+
+    form.dataset.yhOneQuestionReady = 'true';
+    form.classList.add('yh-one-question-form');
+
+    const head = document.createElement('div');
+    head.className = 'yh-one-question-head';
+    head.innerHTML = `
+        <div class="yh-one-question-meta">
+            <span data-yh-one-question-progress-text>Question 1</span>
+            <span data-yh-one-question-progress-total>1 of ${steps.length}</span>
+        </div>
+        <div class="yh-one-question-title" data-yh-one-question-title>Application question</div>
+        <div class="yh-one-question-progress-track" aria-hidden="true">
+            <span class="yh-one-question-progress-bar" data-yh-one-question-progress-bar></span>
+        </div>
+    `;
+
+    const controls = document.createElement('div');
+    controls.className = 'yh-one-question-controls';
+    controls.innerHTML = `
+        <button type="button" class="btn-secondary" data-yh-one-question-prev>← Back</button>
+        <button type="button" class="btn-primary yh-one-question-next" data-yh-one-question-next>Continue ➔</button>
+    `;
+
+    form.prepend(head);
+
+    const submitArea =
+        form.querySelector('.yh-federation-form-actions') ||
+        form.querySelector('#btn-submit-ai');
+
+    if (submitArea?.parentElement) {
+        submitArea.parentElement.insertBefore(controls, submitArea);
+    } else {
+        form.appendChild(controls);
+    }
+
+    YH_SINGLE_QUESTION_FORM_STATE.set(form, {
+        steps,
+        activeIndex: 0
+    });
+
+    controls.querySelector('[data-yh-one-question-prev]')?.addEventListener('click', () => {
+        goSingleQuestionFormStep(form, -1);
+    });
+
+    controls.querySelector('[data-yh-one-question-next]')?.addEventListener('click', () => {
+        goSingleQuestionFormStep(form, 1);
+    });
+
+    form.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter') return;
+        if (event.target instanceof HTMLTextAreaElement) return;
+
+        const currentIndex = Number(form.dataset.yhOneQuestionActiveIndex || 0);
+        const isFinalStep = currentIndex >= steps.length - 1;
+
+        if (isFinalStep) return;
+
+        event.preventDefault();
+        goSingleQuestionFormStep(form, 1);
+    });
+
+    form.addEventListener('submit', () => {
+        enableSingleQuestionFormControlsForSubmit(form);
+    }, true);
+
+    setSingleQuestionFormActiveStep(form, 0, { focus: false });
+}
+
+function initializeSingleQuestionApplicationForms() {
+    initializeSingleQuestionApplicationForm('form-academy-apply');
+    initializeSingleQuestionApplicationForm('form-federation-apply');
+}
+
+window.resetSingleQuestionApplicationForm = resetSingleQuestionApplicationForm;
+
+initializeSingleQuestionApplicationForms();
 
 const escapeHtml = (value) => {
     if (value === null || value === undefined) return '';
