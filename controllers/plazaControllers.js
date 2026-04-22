@@ -5,6 +5,7 @@ const plazaFeedCol = firestore.collection('plazaFeedPosts');
 const plazaOpportunitiesCol = firestore.collection('plazaOpportunities');
 const plazaDirectoryCol = firestore.collection('plazaDirectoryProfiles');
 const plazaRegionsCol = firestore.collection('plazaRegions');
+const plazaBridgeCol = firestore.collection('plazaBridgePaths');
 
 function sanitizeText(value, fallback = '') {
     if (value === null || value === undefined) return fallback;
@@ -177,6 +178,37 @@ function mapPlazaRegionDoc(docSnap) {
         count: Number.isFinite(Number(data.count)) ? Number(data.count) : 0,
         label: sanitizeText(data.label || 'Region Hub'),
         text: sanitizeText(data.text || data.description || ''),
+        authorId: sanitizeText(data.authorId || data.createdByUserId),
+        authorName: sanitizeText(data.authorName || 'Hustler'),
+        authorEmail: sanitizeText(data.authorEmail).toLowerCase(),
+        status: sanitizeText(data.status || 'active'),
+        createdAt: mapTimestamp(data.createdAt),
+        updatedAt: mapTimestamp(data.updatedAt)
+    };
+}
+function normalizeBridgeLane(value = '') {
+    const raw = sanitizeText(value).toLowerCase();
+
+    if (raw === 'academy' || raw === 'yha') return 'academy';
+    if (raw === 'federation' || raw === 'yhf') return 'federation';
+    if (raw === 'both' || raw === 'cross' || raw === 'plaza') return 'both';
+
+    return 'academy';
+}
+
+function mapPlazaBridgeDoc(docSnap) {
+    const data = docSnap.data() || {};
+
+    return {
+        id: docSnap.id,
+        stage: sanitizeText(data.stage || 'Bridge Path'),
+        left: normalizeBridgeLane(data.left),
+        right: normalizeBridgeLane(data.right || 'federation'),
+        region: sanitizeText(data.region || 'Global'),
+        title: sanitizeText(data.title || 'Bridge signal'),
+        text: sanitizeText(data.text || data.description || ''),
+        nextStep: sanitizeText(data.nextStep || 'Review and decide the next structured move.'),
+        action: sanitizeText(data.action || 'Open Bridge Detail'),
         authorId: sanitizeText(data.authorId || data.createdByUserId),
         authorName: sanitizeText(data.authorName || 'Hustler'),
         authorEmail: sanitizeText(data.authorEmail).toLowerCase(),
@@ -648,6 +680,130 @@ exports.createRegion = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: 'Failed to create Plaza region.'
+        });
+    }
+};
+exports.getBridge = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Missing authenticated user.'
+            });
+        }
+
+        const limit = Math.min(
+            Math.max(parseInt(req.query.limit, 10) || 100, 1),
+            200
+        );
+
+        const snap = await plazaBridgeCol
+            .orderBy('updatedAt', 'desc')
+            .limit(limit)
+            .get();
+
+        const bridge = [];
+
+        snap.forEach((docSnap) => {
+            const data = docSnap.data() || {};
+            const status = sanitizeText(data.status || 'active').toLowerCase();
+
+            if (status !== 'active') return;
+
+            bridge.push(mapPlazaBridgeDoc(docSnap));
+        });
+
+        return res.json({
+            success: true,
+            bridge
+        });
+    } catch (error) {
+        console.error('plazaControllers.getBridge error:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load Plaza bridge paths.'
+        });
+    }
+};
+
+exports.createBridge = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Missing authenticated user.'
+            });
+        }
+
+        const stage = clampText(req.body?.stage, 100, 'Bridge Path') || 'Bridge Path';
+        const left = normalizeBridgeLane(req.body?.left || 'academy');
+        const right = normalizeBridgeLane(req.body?.right || 'federation');
+        const region = clampText(req.body?.region, 100, 'Global') || 'Global';
+        const title = clampText(req.body?.title, 140);
+        const text = clampText(
+            req.body?.text ||
+            req.body?.description ||
+            req.body?.body,
+            1200
+        );
+        const nextStep = clampText(
+            req.body?.nextStep,
+            220,
+            'Review and decide the next structured move.'
+        ) || 'Review and decide the next structured move.';
+
+        if (!title) {
+            return res.status(400).json({
+                success: false,
+                message: 'Bridge title is required.'
+            });
+        }
+
+        if (!text) {
+            return res.status(400).json({
+                success: false,
+                message: 'Bridge description is required.'
+            });
+        }
+
+        const now = Timestamp.now();
+
+        const payload = {
+            stage,
+            left,
+            right,
+            region,
+            title,
+            text,
+            nextStep,
+            action: 'Open Bridge Detail',
+            authorId: viewer.id,
+            authorFirebaseUid: viewer.firebaseUid,
+            authorEmail: viewer.email,
+            authorName: viewer.name,
+            status: 'active',
+            createdAt: now,
+            updatedAt: now
+        };
+
+        const ref = await plazaBridgeCol.add(payload);
+        const createdSnap = await ref.get();
+
+        return res.status(201).json({
+            success: true,
+            bridgePath: mapPlazaBridgeDoc(createdSnap)
+        });
+    } catch (error) {
+        console.error('plazaControllers.createBridge error:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to create Plaza bridge path.'
         });
     }
 };

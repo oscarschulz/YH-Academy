@@ -42,6 +42,10 @@ let plazaServerRegionsLoaded = false;
 let plazaServerRegions = [];
 let plazaRegionsLoading = false;
 
+let plazaServerBridgeLoaded = false;
+let plazaServerBridge = [];
+let plazaBridgeLoading = false;
+
 const OBJECTIVE_OPTIONS = [
   "Connection request",
   "Introduction",
@@ -361,6 +365,69 @@ async function createPlazaRegion(payload = {}) {
   }
 
   return region;
+}
+function normalizeServerBridgeItem(item, index = 0) {
+  return normalizeBridgeItem({
+    id: item?.id || `server-bridge-${index + 1}`,
+    stage: item?.stage || "Bridge Path",
+    left: item?.left || "academy",
+    right: item?.right || "federation",
+    region: item?.region || "Global",
+    title: item?.title || "Bridge signal",
+    text: item?.text || item?.description || "",
+    nextStep: item?.nextStep || "Review and decide the next structured move.",
+    action: item?.action || "Open Bridge Detail"
+  }, index);
+}
+
+async function loadPlazaBridgeFromServer(options = {}) {
+  if (plazaBridgeLoading) return plazaServerBridge;
+
+  plazaBridgeLoading = true;
+
+  if (plazaBridgeGrid && options.silent !== true) {
+    plazaBridgeGrid.innerHTML = `<div class="yh-plaza-empty">Loading Plaza bridge paths...</div>`;
+  }
+
+  try {
+    const result = await plazaApiFetch("/api/plaza/bridge?limit=120");
+    const items = Array.isArray(result.bridge) ? result.bridge : [];
+
+    plazaServerBridge = items.map(normalizeServerBridgeItem);
+    plazaServerBridgeLoaded = true;
+
+    renderBridge();
+    return plazaServerBridge;
+  } catch (error) {
+    console.error("loadPlazaBridgeFromServer error:", error);
+
+    if (plazaBridgeGrid) {
+      plazaBridgeGrid.innerHTML = `<div class="yh-plaza-empty">Could not load Plaza bridge paths. Please refresh.</div>`;
+    }
+
+    return [];
+  } finally {
+    plazaBridgeLoading = false;
+  }
+}
+
+async function createPlazaBridge(payload = {}) {
+  const result = await plazaApiFetch("/api/plaza/bridge", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+
+  const bridgePath = result.bridgePath ? normalizeServerBridgeItem(result.bridgePath) : null;
+
+  if (bridgePath) {
+    plazaServerBridge = [
+      bridgePath,
+      ...plazaServerBridge.filter((item) => item.id !== bridgePath.id)
+    ];
+    plazaServerBridgeLoaded = true;
+  }
+
+  return bridgePath;
 }
 function normalizeDivision(value) {
   const raw = String(value || "").trim().toLowerCase();
@@ -2232,6 +2299,9 @@ const plazaDirectoryComposerSubmitBtn = document.getElementById("plazaDirectoryC
 const plazaRegionComposerForm = document.getElementById("plazaRegionComposerForm");
 const plazaRegionComposerSubmitBtn = document.getElementById("plazaRegionComposerSubmitBtn");
 
+const plazaBridgeComposerForm = document.getElementById("plazaBridgeComposerForm");
+const plazaBridgeComposerSubmitBtn = document.getElementById("plazaBridgeComposerSubmitBtn");
+
 const plazaDirectoryGrid = document.getElementById("plazaDirectoryGrid");
 const plazaOpportunityGrid = document.getElementById("plazaOpportunityGrid");
 const plazaRegionGrid = document.getElementById("plazaRegionGrid");
@@ -3253,7 +3323,10 @@ function renderRegions() {
 function renderBridge() {
   if (!plazaBridgeGrid) return;
 
-  const items = plazaAdapter.getBridge();
+  const items = plazaServerBridgeLoaded
+    ? plazaServerBridge
+    : plazaAdapter.getBridge();
+
   if (!items.length) {
     plazaBridgeGrid.innerHTML = `<div class="yh-plaza-empty">No bridge paths are visible yet.</div>`;
     return;
@@ -5604,6 +5677,64 @@ async function submitPlazaRegionComposer(event) {
     plazaActionLocks.delete(lockKey);
   }
 }
+async function submitPlazaBridgeComposer(event) {
+  event.preventDefault();
+
+  if (!plazaBridgeComposerForm) return;
+
+  const submitButton = plazaBridgeComposerSubmitBtn || event.submitter || null;
+  const lockKey = "form:plazaBridgeComposer";
+
+  if (plazaActionLocks.has(lockKey)) return;
+
+  const formData = new FormData(plazaBridgeComposerForm);
+  const payload = {
+    stage: String(formData.get("stage") || "Bridge Path").trim(),
+    left: String(formData.get("left") || "academy").trim(),
+    right: String(formData.get("right") || "federation").trim(),
+    region: String(formData.get("region") || "Global").trim(),
+    title: String(formData.get("title") || "").trim(),
+    nextStep: String(formData.get("nextStep") || "Review and decide the next structured move.").trim(),
+    text: String(formData.get("text") || "").trim()
+  };
+
+  if (!payload.title) {
+    if (typeof showToast === "function") {
+      showToast("Add a bridge title first.", "error");
+    }
+    return;
+  }
+
+  if (!payload.text) {
+    if (typeof showToast === "function") {
+      showToast("Add a bridge description first.", "error");
+    }
+    return;
+  }
+
+  plazaActionLocks.add(lockKey);
+  setButtonBusy(submitButton, "Creating...");
+
+  try {
+    await createPlazaBridge(payload);
+
+    plazaBridgeComposerForm.reset();
+    renderBridge();
+
+    if (typeof showToast === "function") {
+      showToast("Bridge path created.", "success");
+    }
+  } catch (error) {
+    console.error("submitPlazaBridgeComposer error:", error);
+
+    if (typeof showToast === "function") {
+      showToast(error.message || "Could not create bridge path.", "error");
+    }
+  } finally {
+    clearButtonBusy(submitButton);
+    plazaActionLocks.delete(lockKey);
+  }
+}
 async function initPlaza() {
   renderStats();
   populateRegionFilter();
@@ -5645,6 +5776,10 @@ if (plazaRegionComposerForm) {
   plazaRegionComposerForm.addEventListener("submit", submitPlazaRegionComposer);
 }
 
+if (plazaBridgeComposerForm) {
+  plazaBridgeComposerForm.addEventListener("submit", submitPlazaBridgeComposer);
+}
+
 await loadPlazaFeedFromServer({
   silent: restoredScreen !== "feed"
 });
@@ -5659,6 +5794,10 @@ await loadPlazaDirectoryFromServer({
 
 await loadPlazaRegionsFromServer({
   silent: restoredScreen !== "regions"
+});
+
+await loadPlazaBridgeFromServer({
+  silent: restoredScreen !== "bridge"
 });
 
   if (typeof window.translateCurrentPage === "function") {

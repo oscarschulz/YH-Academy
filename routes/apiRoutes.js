@@ -100,6 +100,9 @@ router.post('/plaza/directory/profile', auth, plazaControllers.upsertDirectoryPr
 router.get('/plaza/regions', auth, plazaControllers.getRegions);
 router.post('/plaza/regions', auth, plazaControllers.createRegion);
 
+router.get('/plaza/bridge', auth, plazaControllers.getBridge);
+router.post('/plaza/bridge', auth, plazaControllers.createBridge);
+
 // ==========================================
 // 🧠 INTERNAL AI NURTURE ROUTES
 // ==========================================

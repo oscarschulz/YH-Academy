@@ -11,8 +11,8 @@
     href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap"
     rel="stylesheet"
   />
-<link rel="stylesheet" href="/css/plaza.css?v=20260421-plaza-regions-server-1" />
-<script src="/js/plaza.js?v=20260421-plaza-regions-server-1" defer></script>
+<link rel="stylesheet" href="/css/plaza.css?v=20260421-plaza-bridge-server-1" />
+<script src="/js/plaza.js?v=20260421-plaza-bridge-server-1" defer></script>
 </head>
 <body data-yh-i18n-mode="attributes" class="yh-plaza-page">
   <div class="yh-plaza-shell">
@@ -320,9 +320,66 @@
           </section>
 
             <section class="yh-plaza-panel yh-plaza-screen" id="plazaPanelBridge" data-plaza-panel="bridge" data-plaza-screen="bridge" role="tabpanel" hidden>
+              <form class="yh-plaza-feed-composer" id="plazaBridgeComposerForm">
+                <div class="yh-plaza-feed-composer-main">
+                  <label class="yh-plaza-feed-composer-field">
+                    <span>Stage</span>
+                    <input id="plazaBridgeComposerStage" name="stage" type="text" placeholder="Academy Ready, Plaza Visible, Federation Path..." maxlength="100" />
+                  </label>
+
+                  <label class="yh-plaza-feed-composer-field">
+                    <span>From</span>
+                    <select id="plazaBridgeComposerLeft" name="left">
+                      <option value="academy">Academy</option>
+                      <option value="plaza">Plaza</option>
+                      <option value="federation">Federation</option>
+                      <option value="both">Cross-Division</option>
+                    </select>
+                  </label>
+
+                  <label class="yh-plaza-feed-composer-field">
+                    <span>To</span>
+                    <select id="plazaBridgeComposerRight" name="right">
+                      <option value="plaza">Plaza</option>
+                      <option value="federation">Federation</option>
+                      <option value="academy">Academy</option>
+                      <option value="both">Cross-Division</option>
+                    </select>
+                  </label>
+
+                  <label class="yh-plaza-feed-composer-field">
+                    <span>Region</span>
+                    <input id="plazaBridgeComposerRegion" name="region" type="text" placeholder="Global, Lagos, Dubai..." maxlength="100" />
+                  </label>
+
+                  <label class="yh-plaza-feed-composer-field yh-plaza-feed-composer-field-wide">
+                    <span>Title</span>
+                    <input id="plazaBridgeComposerTitle" name="title" type="text" placeholder="Short bridge path title" maxlength="140" required />
+                  </label>
+
+                  <label class="yh-plaza-feed-composer-field yh-plaza-feed-composer-field-wide">
+                    <span>Next Step</span>
+                    <input id="plazaBridgeComposerNextStep" name="nextStep" type="text" placeholder="What should happen next?" maxlength="220" />
+                  </label>
+
+                  <label class="yh-plaza-feed-composer-field yh-plaza-feed-composer-field-wide yh-plaza-feed-composer-field-signal">
+                    <span>Description</span>
+                    <textarea id="plazaBridgeComposerText" name="text" placeholder="Describe how this bridge connects Academy execution, Plaza visibility, and Federation relevance." maxlength="1200" required></textarea>
+                  </label>
+                </div>
+
+                <div class="yh-plaza-feed-composer-actions">
+                  <span class="yh-plaza-feed-composer-note">Server-backed Plaza Bridge. Saved in Firestore.</span>
+                  <button type="submit" class="yh-plaza-btn yh-plaza-btn-primary" id="plazaBridgeComposerSubmitBtn">
+                    Create Bridge Path
+                  </button>
+                </div>
+              </form>
+
               <div class="yh-plaza-panel-note">
                 Bridge shows where Academy execution, Plaza visibility, and Federation relevance begin to connect.
               </div>
+
               <div class="yh-plaza-bridge-grid" id="plazaBridgeGrid"></div>
             </section>
 
