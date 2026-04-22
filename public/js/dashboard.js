@@ -422,7 +422,7 @@ const universeFeatureContent = {
     plazas: {
         kicker: 'Plaza Features',
         title: 'Application-gated movement hub',
-        desc: 'Apply through the official Plaza form first. Admin approval unlocks the networking and opportunity layer: operators, opportunities, regional hubs, requests, messages, and bridge paths.',
+        desc: 'Apply through the Dashboard Plaza application first. Admin approval unlocks the networking and opportunity layer: operators, opportunities, regional hubs, requests, messages, and bridge paths.',
         chips: [
             'Application gate',
             'Feed',
@@ -518,15 +518,11 @@ function getPlazaButtonCopy(snapshot = null) {
     const currentSnapshot = snapshot || getPlazaAccessSnapshot();
     const status = normalizePlazaStatus(currentSnapshot?.applicationStatus || '');
 
-    if (currentSnapshot?.canEnterPlaza || status === 'approved') return 'Enter Plaza ➔';
-    if (!currentSnapshot?.hasApplication) return 'Apply for Plaza ➔';
-    if (status === 'rejected') return 'Reapply for Plaza ➔';
-    if (status === 'screening') return 'Screening in Progress';
-    if (status === 'shortlisted') return 'Shortlisted — Awaiting Review';
-    if (status === 'waitlisted') return 'Waitlisted';
-    if (status === 'under review') return 'Pending Admin Approval';
+    if (currentSnapshot?.canEnterPlaza || status === 'approved') return 'Enter the Plaza ➔';
+    if (!currentSnapshot?.hasApplication) return 'Apply for the Plaza ➔';
+    if (status === 'rejected') return 'Reapply for the Plaza ➔';
 
-    return 'Application Pending';
+    return 'Pending Approval';
 }
 
 function isPlazaPendingLocked(snapshot = null) {
@@ -1261,12 +1257,12 @@ async function handlePlazaGateClick(event) {
     }
 
     if (!snapshot?.hasApplication || status === 'rejected') {
-        redirectToPlazaPage();
+        openPlazaApplicationModal();
         return;
     }
 
     syncPlazaEntryButton(snapshot);
-    showToast('Your Plaza application is under review. Admin approval is required before entry.', 'error');
+    showToast('Your Plaza application is pending approval. Admin approval is required before entry.', 'error');
 }
 function normalizeUniverseDivision(value = 'academy') {
     const allowedDivisions = ['academy', 'federation', 'plazas'];
@@ -1340,6 +1336,11 @@ function openDivisionPreview(targetDivision = 'plazas', options = {}) {
     const division = normalizeUniverseDivision(targetDivision);
     const shouldPersist = options.persist !== false;
 
+    if (division === 'plazas') {
+        handlePlazaGateClick();
+        return;
+    }
+
     const academyWrapper = document.getElementById('academy-wrapper');
     const viewPlazas = document.getElementById('view-plazas');
     const viewFederation = document.getElementById('view-federation');
@@ -1349,11 +1350,6 @@ function openDivisionPreview(targetDivision = 'plazas', options = {}) {
     if (universeHubView) universeHubView.style.display = 'none';
     if (viewPlazas) viewPlazas.classList.add('hidden-step');
     if (viewFederation) viewFederation.classList.add('hidden-step');
-
-    if (division === 'plazas') {
-        handlePlazaGateClick();
-        return;
-    }
 
     if (division === 'federation') {
         handleFederationGateClick();

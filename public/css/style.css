@@ -12121,7 +12121,9 @@ body.federation-application-open {
     }
 }
 .yh-federation-gate-btn.is-pending-locked,
-.yh-federation-gate-btn:disabled {
+.yh-federation-gate-btn:disabled,
+.yh-plaza-gate-btn.is-pending-locked,
+.yh-plaza-gate-btn:disabled {
     opacity: 0.68 !important;
     cursor: not-allowed !important;
     pointer-events: none !important;
@@ -12130,7 +12132,9 @@ body.federation-application-open {
 }
 
 .yh-federation-gate-btn.is-pending-locked:hover,
-.yh-federation-gate-btn:disabled:hover {
+.yh-federation-gate-btn:disabled:hover,
+.yh-plaza-gate-btn.is-pending-locked:hover,
+.yh-plaza-gate-btn:disabled:hover {
     background: transparent !important;
     color: var(--neon-blue) !important;
     transform: none !important;
