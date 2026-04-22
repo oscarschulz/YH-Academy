@@ -4482,7 +4482,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
 .fed-section.is-panel-hidden {
-  display: none !important;
+  display: none;
 }
 
 .fed-section.is-active-panel {

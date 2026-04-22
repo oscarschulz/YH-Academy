@@ -11067,6 +11067,14 @@ function queueFederationApplication(payload = {}) {
 
 function openFederationLockedView(snapshot = null) {
     const currentSnapshot = snapshot || getFederationAccessSnapshot();
+    const status = normalizeFederationStatus(currentSnapshot?.applicationStatus || '');
+    const shouldShowEntryLoader =
+        currentSnapshot?.canEnterFederation === true ||
+        status === 'approved';
+
+    if (shouldShowEntryLoader && typeof showAcademyTabLoader === 'function') {
+        showAcademyTabLoader('Entering Federation.');
+    }
 
     const academyWrapperEl = document.getElementById('academy-wrapper');
     const universeHubViewEl = document.getElementById('universe-hub-view');
@@ -11088,6 +11096,28 @@ function openFederationLockedView(snapshot = null) {
     persistDashboardShellView('federation', 'federation');
     syncFederationFrameAccess(currentSnapshot);
 
+    const frame = document.getElementById('yh-federation-frame');
+
+    if (shouldShowEntryLoader && frame && typeof hideAcademyTabLoader === 'function') {
+        let loaderClosed = false;
+
+        const closeFederationLoader = () => {
+            if (loaderClosed) return;
+            loaderClosed = true;
+
+            window.setTimeout(() => {
+                hideAcademyTabLoader();
+            }, 180);
+        };
+
+        frame.addEventListener('load', closeFederationLoader, { once: true });
+        window.setTimeout(closeFederationLoader, 1400);
+    } else if (shouldShowEntryLoader && typeof hideAcademyTabLoader === 'function') {
+        window.setTimeout(() => {
+            hideAcademyTabLoader();
+        }, 420);
+    }
+
     window.requestAnimationFrame(() => {
         window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
 
@@ -11095,7 +11125,6 @@ function openFederationLockedView(snapshot = null) {
             viewFederationEl.scrollTo({ top: 0, left: 0, behavior: 'auto' });
         }
 
-        const frame = document.getElementById('yh-federation-frame');
         try {
             frame?.contentWindow?.scrollTo?.(0, 0);
         } catch (_) {}

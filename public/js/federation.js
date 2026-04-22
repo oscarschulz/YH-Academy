@@ -3611,6 +3611,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   initFederationRequests();
   initReferralActions();
 
+  setActiveSection("command", { syncHash: false });
+
   await loadFederationServerState({ force: true });
 
   if (getCurrentUserState().type === "member") {
