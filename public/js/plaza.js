@@ -49,6 +49,10 @@ let plazaBridgeLoading = false;
 let plazaServerRequestsLoaded = false;
 let plazaServerRequests = [];
 let plazaRequestsLoading = false;
+
+let plazaServerMessagesLoaded = false;
+let plazaServerMessages = [];
+let plazaMessagesLoading = false;
 const OBJECTIVE_OPTIONS = [
   "Connection request",
   "Introduction",
@@ -544,6 +548,110 @@ async function deletePlazaRequestFromServer(requestId = "") {
   plazaServerRequestsLoaded = true;
 
   return true;
+}
+function normalizeServerConversationItem(item, index = 0) {
+  return normalizeConversationItem({
+    id: item?.id || `server-conversation-${index + 1}`,
+    title: item?.title || "Plaza conversation",
+    queueRole: item?.queueRole || "personal",
+    linkedRequestId: item?.linkedRequestId || "",
+    linkedInboxId: item?.linkedInboxId || "",
+    targetLabel: item?.targetLabel || "Plaza",
+    contextTitle: item?.contextTitle || "",
+    contextRoute: item?.contextRoute || "Plaza conversation",
+    participants: Array.isArray(item?.participants) ? item.participants : [],
+    status: item?.status || "active",
+    messages: Array.isArray(item?.messages) ? item.messages : [],
+    createdAt: item?.createdAt || new Date().toISOString(),
+    updatedAt: item?.updatedAt || item?.createdAt || new Date().toISOString()
+  }, index);
+}
+
+async function loadPlazaMessagesFromServer(options = {}) {
+  if (plazaMessagesLoading) return plazaServerMessages;
+
+  plazaMessagesLoading = true;
+
+  if (plazaMessagesList && options.silent !== true) {
+    plazaMessagesList.innerHTML = `<div class="yh-plaza-empty">Loading Plaza messages...</div>`;
+  }
+
+  try {
+    const result = await plazaApiFetch("/api/plaza/messages?limit=160");
+    const items = Array.isArray(result.conversations) ? result.conversations : [];
+
+    plazaServerMessages = items.map(normalizeServerConversationItem);
+    plazaServerMessagesLoaded = true;
+
+    renderMessagesScreen();
+    return plazaServerMessages;
+  } catch (error) {
+    console.error("loadPlazaMessagesFromServer error:", error);
+
+    if (plazaMessagesList) {
+      plazaMessagesList.innerHTML = `<div class="yh-plaza-empty">Could not load Plaza messages. Please refresh.</div>`;
+    }
+
+    return [];
+  } finally {
+    plazaMessagesLoading = false;
+  }
+}
+
+async function createPlazaConversationFromRequest(requestId = "") {
+  const cleanId = String(requestId || "").trim();
+  if (!cleanId) return null;
+
+  const result = await plazaApiFetch(`/api/plaza/messages/from-request/${encodeURIComponent(cleanId)}`, {
+    method: "POST",
+    body: JSON.stringify({})
+  });
+
+  const conversation = result.conversation
+    ? normalizeServerConversationItem(result.conversation)
+    : null;
+
+  if (conversation) {
+    plazaServerMessages = [
+      conversation,
+      ...plazaServerMessages.filter((item) => item.id !== conversation.id)
+    ];
+    plazaServerMessagesLoaded = true;
+  }
+
+  return conversation;
+}
+
+async function sendPlazaConversationReply(conversationId = "", text = "") {
+  const cleanId = String(conversationId || "").trim();
+  const cleanText = String(text || "").trim();
+
+  if (!cleanId || !cleanText) return null;
+
+  const result = await plazaApiFetch(`/api/plaza/messages/${encodeURIComponent(cleanId)}/replies`, {
+    method: "POST",
+    body: JSON.stringify({
+      text: cleanText
+    })
+  });
+
+  const conversation = result.conversation
+    ? normalizeServerConversationItem(result.conversation)
+    : null;
+
+  if (conversation) {
+    plazaServerMessages = plazaServerMessages.map((item) => (
+      item.id === conversation.id ? conversation : item
+    ));
+
+    if (!plazaServerMessages.some((item) => item.id === conversation.id)) {
+      plazaServerMessages.unshift(conversation);
+    }
+
+    plazaServerMessagesLoaded = true;
+  }
+
+  return conversation;
 }
 function normalizeDivision(value) {
   const raw = String(value || "").trim().toLowerCase();
@@ -3787,7 +3895,9 @@ function renderNotificationsScreen() {
 }
 
 function renderMessagesScreen() {
-  const items = plazaOpsAdapter.getConversations();
+  const items = plazaServerMessagesLoaded
+    ? plazaServerMessages
+    : plazaOpsAdapter.getConversations();
 
   if (plazaMessagesMeta) {
     plazaMessagesMeta.innerHTML = [
@@ -3798,7 +3908,7 @@ function renderMessagesScreen() {
   if (!plazaMessagesList) return;
   plazaMessagesList.innerHTML = items.length
     ? items.map(renderMessageCard).join("")
-    : `<div class="yh-plaza-empty">No conversation is open yet. Open one from Inbox when a request clears intake.</div>`;
+    : `<div class="yh-plaza-empty">No conversation is open yet. Move a request to Conversation Opened to create one.</div>`;
 }
 
 function renderConversationScreen(item) {
@@ -3831,7 +3941,10 @@ function renderConversationScreen(item) {
 }
 
 function openConversationScreen(conversationId) {
-  const item = plazaOpsAdapter.getConversationById(conversationId);
+  const item = plazaServerMessagesLoaded
+    ? plazaServerMessages.find((conversation) => conversation.id === conversationId)
+    : plazaOpsAdapter.getConversationById(conversationId);
+
   if (!item) return;
   renderConversationScreen(item);
 }
@@ -5230,6 +5343,17 @@ if (requestAdvanceBtn instanceof HTMLButtonElement) {
 
       if (updatedRequest) {
         plazaOpsAdapter.syncIncomingStatusFromRequest(updatedRequest);
+
+        if (updatedRequest.status === "Conversation Opened") {
+          const conversation = plazaServerRequestsLoaded
+            ? await createPlazaConversationFromRequest(updatedRequest.id)
+            : null;
+
+          if (conversation) {
+            renderMessagesScreen();
+          }
+        }
+
         renderRequestsPreview();
         renderRequestsScreen();
         renderInboxScreen();
@@ -5238,6 +5362,8 @@ if (requestAdvanceBtn instanceof HTMLButtonElement) {
 
         if (updatedRequest.status === "Matched" && safeArray(updatedRequest.matchedEntityLabels).length) {
           showToast(`Request matched toward ${updatedRequest.matchedEntityLabels[0]}.`);
+        } else if (updatedRequest.status === "Conversation Opened") {
+          showToast("Conversation opened inside Plaza Messages.");
         } else if (updatedRequest.status === "Closed") {
           showToast("Request closed inside Plaza.");
         } else {
@@ -5474,48 +5600,50 @@ if (requestAdvanceBtn instanceof HTMLButtonElement) {
       return;
     }
 
-    if (form.id === "plazaConversationForm") {
-      event.preventDefault();
-      const submitButton = event.submitter instanceof HTMLButtonElement ? event.submitter : null;
-      const lockKey = "form:plazaConversationForm";
+if (form.id === "plazaConversationForm") {
+  event.preventDefault();
+  const submitButton = event.submitter instanceof HTMLButtonElement ? event.submitter : null;
+  const lockKey = "form:plazaConversationForm";
 
-      if (plazaActionLocks.has(lockKey)) return;
-      plazaActionLocks.add(lockKey);
-      setButtonBusy(submitButton, "Sending...");
+  if (plazaActionLocks.has(lockKey)) return;
+  plazaActionLocks.add(lockKey);
+  setButtonBusy(submitButton, "Sending.");
 
-      try {
-        await new Promise((resolve) => window.requestAnimationFrame(resolve));
+  try {
+    await new Promise((resolve) => window.requestAnimationFrame(resolve));
 
-        const data = new FormData(form);
-        const conversationId = String(data.get("conversationId") || "");
-        const message = String(data.get("message") || "").trim();
+    const data = new FormData(form);
+    const conversationId = String(data.get("conversationId") || "");
+    const message = String(data.get("message") || "").trim();
 
-        if (!conversationId || !message) {
-          return;
-        }
+    if (!conversationId || !message) {
+      return;
+    }
 
-        const conversation = plazaOpsAdapter.sendConversationMessage(conversationId, {
+    const conversation = plazaServerMessagesLoaded
+      ? await sendPlazaConversationReply(conversationId, message)
+      : plazaOpsAdapter.sendConversationMessage(conversationId, {
           sender: "You",
           text: message
         });
 
-        if (conversation) {
-          form.reset();
-          if (plazaConversationIdField) {
-            plazaConversationIdField.value = conversation.id;
-          }
-          renderConversationScreen(conversation);
-          renderMessagesScreen();
-          renderNotificationsScreen();
-          renderOperationalPreviews();
-          showToast("Reply sent inside Plaza conversation.");
-        }
-      } finally {
-        clearButtonBusy(submitButton);
-        plazaActionLocks.delete(lockKey);
+    if (conversation) {
+      form.reset();
+      if (plazaConversationIdField) {
+        plazaConversationIdField.value = conversation.id;
       }
-      return;
+      renderConversationScreen(conversation);
+      renderMessagesScreen();
+      renderNotificationsScreen();
+      renderOperationalPreviews();
+      showToast("Reply sent inside Plaza conversation.");
     }
+  } finally {
+    clearButtonBusy(submitButton);
+    plazaActionLocks.delete(lockKey);
+  }
+  return;
+}
 
     if (form.id === "plazaWinForm") {
       event.preventDefault();
@@ -5990,6 +6118,10 @@ await loadPlazaBridgeFromServer({
 
 await loadPlazaRequestsFromServer({
   silent: restoredScreen !== "requests"
+});
+
+await loadPlazaMessagesFromServer({
+  silent: restoredScreen !== "messages"
 });
 
   if (typeof window.translateCurrentPage === "function") {

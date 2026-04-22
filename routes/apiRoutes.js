@@ -107,6 +107,10 @@ router.get('/plaza/requests', auth, plazaControllers.getRequests);
 router.post('/plaza/requests', auth, plazaControllers.createRequest);
 router.patch('/plaza/requests/:id/status', auth, plazaControllers.advanceRequestStatus);
 router.delete('/plaza/requests/:id', auth, plazaControllers.deleteRequest);
+
+router.get('/plaza/messages', auth, plazaControllers.getMessages);
+router.post('/plaza/messages/from-request/:requestId', auth, plazaControllers.createConversationFromRequest);
+router.post('/plaza/messages/:id/replies', auth, plazaControllers.createConversationReply);
 // ==========================================
 // 🧠 INTERNAL AI NURTURE ROUTES
 // ==========================================
