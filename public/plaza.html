@@ -11,8 +11,8 @@
     href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap"
     rel="stylesheet"
   />
-<link rel="stylesheet" href="/css/plaza.css?v=20260421-plaza-bridge-server-1" />
-<script src="/js/plaza.js?v=20260421-plaza-bridge-server-1" defer></script>
+<link rel="stylesheet" href="/css/plaza.css?v=20260421-plaza-requests-server-1" />
+<script src="/js/plaza.js?v=20260421-plaza-requests-server-1" defer></script>
 </head>
 <body data-yh-i18n-mode="attributes" class="yh-plaza-page">
   <div class="yh-plaza-shell">
@@ -383,21 +383,77 @@
               <div class="yh-plaza-bridge-grid" id="plazaBridgeGrid"></div>
             </section>
 
-            <section class="yh-plaza-screen" id="plazaScreenRequests" data-plaza-screen="requests" hidden>
-              <div class="yh-plaza-screen-shell">
-                <div class="yh-plaza-screen-head">
-                  <div>
-                    <span class="yh-plaza-section-kicker">Requests</span>
-                    <h2 class="yh-plaza-screen-title">Structured Plaza requests</h2>
-                    <p class="yh-plaza-panel-note">
-                      Track intro requests, opportunity requests, collaboration requests, regional requests,
-                      project access, and Federation escalation signals from one clean layer.
-                    </p>
+              <section class="yh-plaza-screen" id="plazaScreenRequests" data-plaza-screen="requests" hidden>
+                <div class="yh-plaza-screen-shell">
+                  <div class="yh-plaza-screen-head">
+                    <div>
+                      <span class="yh-plaza-section-kicker">Requests</span>
+                      <h2 class="yh-plaza-screen-title">Structured Plaza requests</h2>
+                      <p class="yh-plaza-panel-note">
+                        Track intro requests, opportunity requests, collaboration requests, regional requests,
+                        project access, and Federation escalation signals from one clean layer.
+                      </p>
+                    </div>
                   </div>
+
+                  <form class="yh-plaza-feed-composer" id="plazaRequestComposerForm">
+                    <div class="yh-plaza-feed-composer-main">
+                      <label class="yh-plaza-feed-composer-field">
+                        <span>Objective</span>
+                        <select id="plazaRequestComposerObjective" name="objective">
+                          <option value="Connection request">Connection request</option>
+                          <option value="Introduction">Introduction</option>
+                          <option value="Collaboration">Collaboration</option>
+                          <option value="Partnership">Partnership</option>
+                          <option value="Access">Access</option>
+                          <option value="Hiring">Hiring</option>
+                          <option value="Support">Support</option>
+                          <option value="Project request">Project request</option>
+                          <option value="Regional connection">Regional connection</option>
+                          <option value="Bridge request">Bridge request</option>
+                        </select>
+                      </label>
+
+                      <label class="yh-plaza-feed-composer-field">
+                        <span>Source</span>
+                        <select id="plazaRequestComposerSourceType" name="sourceType">
+                          <option value="general">General</option>
+                          <option value="member-connection">Directory member</option>
+                          <option value="opportunity">Opportunity</option>
+                          <option value="region">Region hub</option>
+                          <option value="bridge">Bridge path</option>
+                          <option value="project">Project</option>
+                          <option value="federation-escalation">Federation escalation</option>
+                        </select>
+                      </label>
+
+                      <label class="yh-plaza-feed-composer-field">
+                        <span>Region</span>
+                        <input id="plazaRequestComposerRegion" name="region" type="text" placeholder="Global, Lagos, Dubai..." maxlength="100" />
+                      </label>
+
+                      <label class="yh-plaza-feed-composer-field yh-plaza-feed-composer-field-wide">
+                        <span>Target / Context</span>
+                        <input id="plazaRequestComposerTargetLabel" name="targetLabel" type="text" placeholder="Who or what is this request about?" maxlength="160" />
+                      </label>
+
+                      <label class="yh-plaza-feed-composer-field yh-plaza-feed-composer-field-wide yh-plaza-feed-composer-field-signal">
+                        <span>Message</span>
+                        <textarea id="plazaRequestComposerMessage" name="message" placeholder="Explain the request clearly. What do you need, who should review it, and what outcome do you want?" maxlength="1400" required></textarea>
+                      </label>
+                    </div>
+
+                    <div class="yh-plaza-feed-composer-actions">
+                      <span class="yh-plaza-feed-composer-note">Server-backed Plaza Requests. Saved in Firestore.</span>
+                      <button type="submit" class="yh-plaza-btn yh-plaza-btn-primary" id="plazaRequestComposerSubmitBtn">
+                        Submit Request
+                      </button>
+                    </div>
+                  </form>
+
+                  <div class="yh-plaza-request-list" id="plazaRequestsScreenList"></div>
                 </div>
-                <div class="yh-plaza-request-list" id="plazaRequestsScreenList"></div>
-              </div>
-            </section>
+              </section>
 
             <section class="yh-plaza-screen" id="plazaScreenInbox" data-plaza-screen="inbox" hidden>
               <div class="yh-plaza-screen-shell">

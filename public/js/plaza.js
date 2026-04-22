@@ -46,6 +46,9 @@ let plazaServerBridgeLoaded = false;
 let plazaServerBridge = [];
 let plazaBridgeLoading = false;
 
+let plazaServerRequestsLoaded = false;
+let plazaServerRequests = [];
+let plazaRequestsLoading = false;
 const OBJECTIVE_OPTIONS = [
   "Connection request",
   "Introduction",
@@ -428,6 +431,119 @@ async function createPlazaBridge(payload = {}) {
   }
 
   return bridgePath;
+}
+function normalizeServerRequestItem(item, index = 0) {
+  return normalizeRequestItem({
+    id: item?.id || `server-request-${index + 1}`,
+    createdAt: item?.createdAt || new Date().toISOString(),
+    updatedAt: item?.updatedAt || item?.createdAt || new Date().toISOString(),
+    resolvedAt: item?.resolvedAt || "",
+    status: item?.status || "Submitted",
+    sourceType: item?.sourceType || "general",
+    targetId: item?.targetId || "",
+    targetLabel: item?.targetLabel || "General Plaza request",
+    context: item?.context || "",
+    region: item?.region || "",
+    name: item?.name || item?.authorName || "Hustler",
+    objective: item?.objective || "Connection request",
+    message: item?.message || "",
+    routeKey: item?.routeKey || item?.sourceType || "general",
+    routeLabel: item?.routeLabel || item?.targetLabel || "General Plaza request",
+    headline: item?.headline || "",
+    experience: item?.experience || "",
+    portfolioLink: item?.portfolioLink || "",
+    attachmentMeta: Array.isArray(item?.attachmentMeta) ? item.attachmentMeta : [],
+    matchedEntityLabels: Array.isArray(item?.matchedEntityLabels) ? item.matchedEntityLabels : [],
+    decisionSummary: item?.decisionSummary || "",
+    resolutionSummary: item?.resolutionSummary || "",
+    statusHistory: Array.isArray(item?.statusHistory) ? item.statusHistory : []
+  }, index);
+}
+
+async function loadPlazaRequestsFromServer(options = {}) {
+  if (plazaRequestsLoading) return plazaServerRequests;
+
+  plazaRequestsLoading = true;
+
+  if (plazaRequestsScreenList && options.silent !== true) {
+    plazaRequestsScreenList.innerHTML = `<div class="yh-plaza-empty">Loading Plaza requests...</div>`;
+  }
+
+  try {
+    const result = await plazaApiFetch("/api/plaza/requests?limit=160");
+    const items = Array.isArray(result.requests) ? result.requests : [];
+
+    plazaServerRequests = items.map(normalizeServerRequestItem);
+    plazaServerRequestsLoaded = true;
+
+    renderRequestsPreview();
+    renderRequestsScreen();
+    return plazaServerRequests;
+  } catch (error) {
+    console.error("loadPlazaRequestsFromServer error:", error);
+
+    if (plazaRequestsScreenList) {
+      plazaRequestsScreenList.innerHTML = `<div class="yh-plaza-empty">Could not load Plaza requests. Please refresh.</div>`;
+    }
+
+    return [];
+  } finally {
+    plazaRequestsLoading = false;
+  }
+}
+
+async function createPlazaRequest(payload = {}) {
+  const result = await plazaApiFetch("/api/plaza/requests", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+
+  const request = result.request ? normalizeServerRequestItem(result.request) : null;
+
+  if (request) {
+    plazaServerRequests = [
+      request,
+      ...plazaServerRequests.filter((item) => item.id !== request.id)
+    ];
+    plazaServerRequestsLoaded = true;
+  }
+
+  return request;
+}
+
+async function advancePlazaRequestStatus(requestId = "") {
+  const cleanId = String(requestId || "").trim();
+  if (!cleanId) return null;
+
+  const result = await plazaApiFetch(`/api/plaza/requests/${encodeURIComponent(cleanId)}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({})
+  });
+
+  const request = result.request ? normalizeServerRequestItem(result.request) : null;
+
+  if (request) {
+    plazaServerRequests = plazaServerRequests.map((item) => (
+      item.id === request.id ? request : item
+    ));
+    plazaServerRequestsLoaded = true;
+  }
+
+  return request;
+}
+
+async function deletePlazaRequestFromServer(requestId = "") {
+  const cleanId = String(requestId || "").trim();
+  if (!cleanId) return false;
+
+  await plazaApiFetch(`/api/plaza/requests/${encodeURIComponent(cleanId)}`, {
+    method: "DELETE"
+  });
+
+  plazaServerRequests = plazaServerRequests.filter((item) => item.id !== cleanId);
+  plazaServerRequestsLoaded = true;
+
+  return true;
 }
 function normalizeDivision(value) {
   const raw = String(value || "").trim().toLowerCase();
@@ -2302,6 +2418,9 @@ const plazaRegionComposerSubmitBtn = document.getElementById("plazaRegionCompose
 const plazaBridgeComposerForm = document.getElementById("plazaBridgeComposerForm");
 const plazaBridgeComposerSubmitBtn = document.getElementById("plazaBridgeComposerSubmitBtn");
 
+const plazaRequestComposerForm = document.getElementById("plazaRequestComposerForm");
+const plazaRequestComposerSubmitBtn = document.getElementById("plazaRequestComposerSubmitBtn");
+
 const plazaDirectoryGrid = document.getElementById("plazaDirectoryGrid");
 const plazaOpportunityGrid = document.getElementById("plazaOpportunityGrid");
 const plazaRegionGrid = document.getElementById("plazaRegionGrid");
@@ -3401,7 +3520,11 @@ function renderRailSignals() {
 function renderRequestsPreview() {
   if (!plazaRequestsPreview) return;
 
-  const items = plazaAdapter.getRequests().slice(0, 2);
+  const sourceItems = plazaServerRequestsLoaded
+    ? plazaServerRequests
+    : plazaAdapter.getRequests();
+
+  const items = sourceItems.slice(0, 2);
 
   if (!items.length) {
     plazaRequestsPreview.innerHTML = `<div class="yh-plaza-empty">No requests yet. Start one from a member card, opportunity, region hub, or bridge path.</div>`;
@@ -3417,10 +3540,14 @@ function renderRequestsPreview() {
 }
 function renderRequestsScreen() {
   if (!plazaRequestsScreenList) return;
-  const items = plazaAdapter.getRequests();
+
+  const items = plazaServerRequestsLoaded
+    ? plazaServerRequests
+    : plazaAdapter.getRequests();
+
   plazaRequestsScreenList.innerHTML = items.length
     ? items.map(renderRequestCard).join("")
-    : `<div class="yh-plaza-empty">No requests yet. Use Request Connection, a directory card, an opportunity, a bridge lane, or a region hub to create one.</div>`;
+    : `<div class="yh-plaza-empty">No requests yet. Use the form above or request a connection from a directory card, opportunity, bridge lane, or region hub.</div>`;
 }
 
 function getIncomingStatusClass(status) {
@@ -5057,69 +5184,70 @@ function bindEvents() {
       return;
     }
 
-    const confirmRequestDeleteBtn = target.closest("[data-confirm-request-delete]");
-    if (confirmRequestDeleteBtn instanceof HTMLButtonElement) {
-      const requestId = confirmRequestDeleteBtn.dataset.confirmRequestDelete || "";
+const confirmRequestDeleteBtn = target.closest("[data-confirm-request-delete]");
+if (confirmRequestDeleteBtn instanceof HTMLButtonElement) {
+  const requestId = confirmRequestDeleteBtn.dataset.confirmRequestDelete || "";
 
-      void runLockedButtonAction(
-        `request-delete:${requestId}`,
-        confirmRequestDeleteBtn,
-        "Deleting...",
-        () => {
-          const deleted = plazaAdapter.deleteRequest(requestId);
+  void runLockedButtonAction(
+    `request-delete:${requestId}`,
+    confirmRequestDeleteBtn,
+    "Deleting.",
+    async () => {
+      let deleted = false;
 
-          if (deleted) {
-            plazaOpsAdapter.removeIncomingByRequestId(requestId);
-            closeModal();
-            renderRequestsPreview();
-            renderRequestsScreen();
-            renderInboxScreen();
-            renderOperationalPreviews();
-            showToast("Request deleted from Plaza.");
-          }
+      if (plazaServerRequestsLoaded) {
+        deleted = await deletePlazaRequestFromServer(requestId);
+      } else {
+        deleted = plazaAdapter.deleteRequest(requestId);
+      }
+
+      if (deleted) {
+        plazaOpsAdapter.removeIncomingByRequestId(requestId);
+        closeModal();
+        renderRequestsPreview();
+        renderRequestsScreen();
+        renderInboxScreen();
+        renderOperationalPreviews();
+        showToast("Request deleted from Plaza.");
+      }
+    }
+  );
+  return;
+}
+
+const requestAdvanceBtn = target.closest("[data-request-advance]");
+if (requestAdvanceBtn instanceof HTMLButtonElement) {
+  const requestId = requestAdvanceBtn.dataset.requestAdvance || "";
+
+  void runLockedButtonAction(
+    `request-advance:${requestId}`,
+    requestAdvanceBtn,
+    "Processing.",
+    async () => {
+      const updatedRequest = plazaServerRequestsLoaded
+        ? await advancePlazaRequestStatus(requestId)
+        : plazaAdapter.advanceRequestStatus(requestId);
+
+      if (updatedRequest) {
+        plazaOpsAdapter.syncIncomingStatusFromRequest(updatedRequest);
+        renderRequestsPreview();
+        renderRequestsScreen();
+        renderInboxScreen();
+        renderNotificationsScreen();
+        renderOperationalPreviews();
+
+        if (updatedRequest.status === "Matched" && safeArray(updatedRequest.matchedEntityLabels).length) {
+          showToast(`Request matched toward ${updatedRequest.matchedEntityLabels[0]}.`);
+        } else if (updatedRequest.status === "Closed") {
+          showToast("Request closed inside Plaza.");
+        } else {
+          showToast(`Request moved to ${updatedRequest.status}.`);
         }
-      );
-      return;
+      }
     }
-
-    const requestAdvanceBtn = target.closest("[data-request-advance]");
-    if (requestAdvanceBtn instanceof HTMLButtonElement) {
-      const requestId = requestAdvanceBtn.dataset.requestAdvance || "";
-
-      void runLockedButtonAction(
-        `request-advance:${requestId}`,
-        requestAdvanceBtn,
-        "Processing...",
-        () => {
-          const updatedRequest = plazaAdapter.advanceRequestStatus(requestId);
-
-          if (updatedRequest) {
-            plazaOpsAdapter.syncIncomingStatusFromRequest(updatedRequest);
-            renderRequestsPreview();
-            renderRequestsScreen();
-            renderInboxScreen();
-            renderNotificationsScreen();
-            renderOperationalPreviews();
-
-            if (updatedRequest.status === "Matched" && safeArray(updatedRequest.matchedEntityLabels).length) {
-              showToast(`Request matched toward ${updatedRequest.matchedEntityLabels[0]}.`);
-            } else if (updatedRequest.status === "Closed") {
-              showToast("Request closed inside Plaza.");
-            } else {
-              showToast(`Request moved to ${updatedRequest.status}.`);
-            }
-          }
-        }
-      );
-      return;
-    }
-
-    const requestOpenContextBtn = target.closest("[data-request-open-context]");
-    if (requestOpenContextBtn instanceof HTMLElement) {
-      const requestId = requestOpenContextBtn.dataset.requestOpenContext || "";
-      openRequestContext(requestId);
-      return;
-    }
+  );
+  return;
+}
 
     const statJumpBtn = target.closest("[data-stat-jump]");
     if (statJumpBtn instanceof HTMLElement) {
@@ -5735,6 +5863,62 @@ async function submitPlazaBridgeComposer(event) {
     plazaActionLocks.delete(lockKey);
   }
 }
+async function submitPlazaRequestComposer(event) {
+  event.preventDefault();
+
+  if (!plazaRequestComposerForm) return;
+
+  const submitButton = plazaRequestComposerSubmitBtn || event.submitter || null;
+  const lockKey = "form:plazaRequestComposer";
+
+  if (plazaActionLocks.has(lockKey)) return;
+
+  const formData = new FormData(plazaRequestComposerForm);
+  const payload = {
+    objective: String(formData.get("objective") || "Connection request").trim(),
+    sourceType: String(formData.get("sourceType") || "general").trim(),
+    region: String(formData.get("region") || "").trim(),
+    targetLabel: String(formData.get("targetLabel") || "General Plaza request").trim(),
+    message: String(formData.get("message") || "").trim()
+  };
+
+  if (!payload.message) {
+    if (typeof showToast === "function") {
+      showToast("Add a request message first.", "error");
+    }
+    return;
+  }
+
+  plazaActionLocks.add(lockKey);
+  setButtonBusy(submitButton, "Submitting...");
+
+  try {
+    const request = await createPlazaRequest(payload);
+
+    if (request) {
+      plazaOpsAdapter.syncIncomingStatusFromRequest(request);
+    }
+
+    plazaRequestComposerForm.reset();
+    renderRequestsPreview();
+    renderRequestsScreen();
+    renderInboxScreen();
+    renderOperationalPreviews();
+
+    if (typeof showToast === "function") {
+      showToast("Plaza request submitted.", "success");
+    }
+  } catch (error) {
+    console.error("submitPlazaRequestComposer error:", error);
+
+    if (typeof showToast === "function") {
+      showToast(error.message || "Could not submit Plaza request.", "error");
+    }
+  } finally {
+    clearButtonBusy(submitButton);
+    plazaActionLocks.delete(lockKey);
+  }
+}
 async function initPlaza() {
   renderStats();
   populateRegionFilter();
@@ -5780,6 +5964,10 @@ if (plazaBridgeComposerForm) {
   plazaBridgeComposerForm.addEventListener("submit", submitPlazaBridgeComposer);
 }
 
+if (plazaRequestComposerForm) {
+  plazaRequestComposerForm.addEventListener("submit", submitPlazaRequestComposer);
+}
+
 await loadPlazaFeedFromServer({
   silent: restoredScreen !== "feed"
 });
@@ -5798,6 +5986,10 @@ await loadPlazaRegionsFromServer({
 
 await loadPlazaBridgeFromServer({
   silent: restoredScreen !== "bridge"
+});
+
+await loadPlazaRequestsFromServer({
+  silent: restoredScreen !== "requests"
 });
 
   if (typeof window.translateCurrentPage === "function") {

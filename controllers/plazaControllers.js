@@ -6,6 +6,7 @@ const plazaOpportunitiesCol = firestore.collection('plazaOpportunities');
 const plazaDirectoryCol = firestore.collection('plazaDirectoryProfiles');
 const plazaRegionsCol = firestore.collection('plazaRegions');
 const plazaBridgeCol = firestore.collection('plazaBridgePaths');
+const plazaRequestsCol = firestore.collection('plazaRequests');
 
 function sanitizeText(value, fallback = '') {
     if (value === null || value === undefined) return fallback;
@@ -215,6 +216,91 @@ function mapPlazaBridgeDoc(docSnap) {
         status: sanitizeText(data.status || 'active'),
         createdAt: mapTimestamp(data.createdAt),
         updatedAt: mapTimestamp(data.updatedAt)
+    };
+}
+function normalizeRequestStatus(value = '') {
+    const raw = sanitizeText(value).toLowerCase();
+
+    if (raw === 'draft') return 'Draft';
+    if (raw === 'under review' || raw === 'review') return 'Under Review';
+    if (raw === 'matched') return 'Matched';
+    if (raw === 'conversation opened' || raw === 'conversation') return 'Conversation Opened';
+    if (raw === 'closed') return 'Closed';
+
+    return 'Submitted';
+}
+
+function normalizeRequestObjective(value = '') {
+    const clean = sanitizeText(value);
+
+    const allowed = new Set([
+        'Connection request',
+        'Introduction',
+        'Collaboration',
+        'Partnership',
+        'Access',
+        'Hiring',
+        'Support',
+        'Project request',
+        'Regional connection',
+        'Bridge request'
+    ]);
+
+    return allowed.has(clean) ? clean : 'Connection request';
+}
+
+function getNextRequestStatus(currentStatus = '') {
+    const status = normalizeRequestStatus(currentStatus);
+
+    if (status === 'Submitted') return 'Under Review';
+    if (status === 'Under Review') return 'Matched';
+    if (status === 'Matched') return 'Conversation Opened';
+    if (status === 'Conversation Opened') return 'Closed';
+
+    return status;
+}
+
+function normalizeTextArray(value, maxItems = 12) {
+    if (!Array.isArray(value)) return [];
+
+    return value
+        .map((item) => sanitizeText(item))
+        .filter(Boolean)
+        .slice(0, maxItems);
+}
+
+function mapPlazaRequestDoc(docSnap) {
+    const data = docSnap.data() || {};
+    const status = normalizeRequestStatus(data.status);
+    const targetLabel = sanitizeText(data.targetLabel || 'General Plaza request');
+
+    return {
+        id: docSnap.id,
+        createdAt: mapTimestamp(data.createdAt),
+        updatedAt: mapTimestamp(data.updatedAt),
+        resolvedAt: mapTimestamp(data.resolvedAt),
+        status,
+        sourceType: sanitizeText(data.sourceType || 'general'),
+        targetId: sanitizeText(data.targetId),
+        targetLabel,
+        context: sanitizeText(data.context),
+        region: sanitizeText(data.region),
+        name: sanitizeText(data.name || data.authorName || 'Hustler'),
+        objective: normalizeRequestObjective(data.objective),
+        message: sanitizeText(data.message),
+        routeKey: sanitizeText(data.routeKey || data.sourceType || 'general'),
+        routeLabel: sanitizeText(data.routeLabel || targetLabel),
+        headline: sanitizeText(data.headline),
+        experience: sanitizeText(data.experience),
+        portfolioLink: sanitizeText(data.portfolioLink),
+        attachmentMeta: Array.isArray(data.attachmentMeta) ? data.attachmentMeta : [],
+        matchedEntityLabels: normalizeTextArray(data.matchedEntityLabels),
+        decisionSummary: sanitizeText(data.decisionSummary),
+        resolutionSummary: sanitizeText(data.resolutionSummary),
+        statusHistory: Array.isArray(data.statusHistory) ? data.statusHistory : [],
+        authorId: sanitizeText(data.authorId || data.createdByUserId),
+        authorName: sanitizeText(data.authorName || data.name || 'Hustler'),
+        authorEmail: sanitizeText(data.authorEmail).toLowerCase()
     };
 }
 exports.getFeed = async (req, res) => {
@@ -804,6 +890,267 @@ exports.createBridge = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: 'Failed to create Plaza bridge path.'
+        });
+    }
+};
+exports.getRequests = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Missing authenticated user.'
+            });
+        }
+
+        const limit = Math.min(
+            Math.max(parseInt(req.query.limit, 10) || 100, 1),
+            200
+        );
+
+        const snap = await plazaRequestsCol
+            .where('authorId', '==', viewer.id)
+            .orderBy('updatedAt', 'desc')
+            .limit(limit)
+            .get();
+
+        const requests = [];
+
+        snap.forEach((docSnap) => {
+            const data = docSnap.data() || {};
+            const recordStatus = sanitizeText(data.recordStatus || 'active').toLowerCase();
+
+            if (recordStatus !== 'active') return;
+
+            requests.push(mapPlazaRequestDoc(docSnap));
+        });
+
+        return res.json({
+            success: true,
+            requests
+        });
+    } catch (error) {
+        console.error('plazaControllers.getRequests error:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load Plaza requests.'
+        });
+    }
+};
+
+exports.createRequest = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Missing authenticated user.'
+            });
+        }
+
+        const objective = normalizeRequestObjective(req.body?.objective);
+        const message = clampText(req.body?.message, 1400);
+        const targetLabel = clampText(req.body?.targetLabel, 160, 'General Plaza request') || 'General Plaza request';
+        const sourceType = clampText(req.body?.sourceType, 80, 'general') || 'general';
+        const targetId = clampText(req.body?.targetId, 160);
+        const context = clampText(req.body?.context, 500);
+        const region = clampText(req.body?.region, 100);
+        const headline = clampText(req.body?.headline, 160);
+        const experience = clampText(req.body?.experience, 500);
+        const portfolioLink = clampText(req.body?.portfolioLink, 300);
+
+        if (!message) {
+            return res.status(400).json({
+                success: false,
+                message: 'Request message is required.'
+            });
+        }
+
+        const now = Timestamp.now();
+
+        const payload = {
+            sourceType,
+            targetId,
+            targetLabel,
+            context,
+            region,
+            name: viewer.name,
+            objective,
+            message,
+            status: 'Submitted',
+            routeKey: sourceType,
+            routeLabel: targetLabel,
+            headline,
+            experience,
+            portfolioLink,
+            attachmentMeta: [],
+            matchedEntityLabels: [],
+            decisionSummary: '',
+            resolutionSummary: '',
+            statusHistory: [
+                {
+                    status: 'Submitted',
+                    at: new Date().toISOString()
+                }
+            ],
+            authorId: viewer.id,
+            authorFirebaseUid: viewer.firebaseUid,
+            authorEmail: viewer.email,
+            authorName: viewer.name,
+            recordStatus: 'active',
+            createdAt: now,
+            updatedAt: now,
+            resolvedAt: ''
+        };
+
+        const ref = await plazaRequestsCol.add(payload);
+        const createdSnap = await ref.get();
+
+        return res.status(201).json({
+            success: true,
+            request: mapPlazaRequestDoc(createdSnap)
+        });
+    } catch (error) {
+        console.error('plazaControllers.createRequest error:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to create Plaza request.'
+        });
+    }
+};
+
+exports.advanceRequestStatus = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+        const requestId = sanitizeText(req.params.id);
+
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Missing authenticated user.'
+            });
+        }
+
+        if (!requestId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Request ID is required.'
+            });
+        }
+
+        const ref = plazaRequestsCol.doc(requestId);
+        const snap = await ref.get();
+
+        if (!snap.exists) {
+            return res.status(404).json({
+                success: false,
+                message: 'Request not found.'
+            });
+        }
+
+        const current = snap.data() || {};
+
+        if (sanitizeText(current.authorId) !== viewer.id) {
+            return res.status(403).json({
+                success: false,
+                message: 'You can only update your own Plaza requests.'
+            });
+        }
+
+        const currentStatus = normalizeRequestStatus(current.status);
+        const nextStatus = normalizeRequestStatus(req.body?.status || getNextRequestStatus(currentStatus));
+        const now = Timestamp.now();
+
+        const statusHistory = Array.isArray(current.statusHistory)
+            ? [...current.statusHistory]
+            : [];
+
+        if (nextStatus !== currentStatus) {
+            statusHistory.push({
+                status: nextStatus,
+                at: new Date().toISOString()
+            });
+        }
+
+        await ref.set({
+            status: nextStatus,
+            statusHistory,
+            resolvedAt: nextStatus === 'Closed' ? now : '',
+            updatedAt: now
+        }, { merge: true });
+
+        const updatedSnap = await ref.get();
+
+        return res.json({
+            success: true,
+            request: mapPlazaRequestDoc(updatedSnap)
+        });
+    } catch (error) {
+        console.error('plazaControllers.advanceRequestStatus error:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to update Plaza request.'
+        });
+    }
+};
+
+exports.deleteRequest = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+        const requestId = sanitizeText(req.params.id);
+
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Missing authenticated user.'
+            });
+        }
+
+        if (!requestId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Request ID is required.'
+            });
+        }
+
+        const ref = plazaRequestsCol.doc(requestId);
+        const snap = await ref.get();
+
+        if (!snap.exists) {
+            return res.status(404).json({
+                success: false,
+                message: 'Request not found.'
+            });
+        }
+
+        const current = snap.data() || {};
+
+        if (sanitizeText(current.authorId) !== viewer.id) {
+            return res.status(403).json({
+                success: false,
+                message: 'You can only delete your own Plaza requests.'
+            });
+        }
+
+        await ref.set({
+            recordStatus: 'deleted',
+            updatedAt: Timestamp.now()
+        }, { merge: true });
+
+        return res.json({
+            success: true
+        });
+    } catch (error) {
+        console.error('plazaControllers.deleteRequest error:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to delete Plaza request.'
         });
     }
 };
