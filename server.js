@@ -3226,6 +3226,299 @@ app.post('/api/plaza/applications', requireApiUser, async (req, res) => {
     }
 });
 
+app.post('/api/plaza/applications', requireApiUser, async (req, res, next) => {
+    req.url = '/api/plaza/application';
+    next();
+});
+
+function parseAdminEmailList(value = '') {
+    return String(value || '')
+        .split(',')
+        .map((item) => sanitizeText(item).toLowerCase())
+        .filter(Boolean);
+}
+
+async function isPlazaAdminReviewer(req) {
+    const requestEmail = sanitizeText(req.user?.email).toLowerCase();
+    const requestUserId = sanitizeText(req.user?.id || req.user?.firebaseUid);
+
+    const allowedEmails = new Set([
+        ...parseAdminEmailList(process.env.YH_ADMIN_EMAILS),
+        ...parseAdminEmailList(process.env.ADMIN_EMAILS),
+        ...parseAdminEmailList(process.env.PLAZA_ADMIN_EMAILS)
+    ]);
+
+    if (requestEmail && allowedEmails.has(requestEmail)) return true;
+
+    if (!requestUserId) return false;
+
+    try {
+        const userSnap = await firestore.collection('users').doc(requestUserId).get();
+        if (!userSnap.exists) return false;
+
+        const user = userSnap.data() || {};
+        const role = sanitizeText(user.role || user.accountRole || user.userRole).toLowerCase();
+        const accountType = sanitizeText(user.accountType || user.type).toLowerCase();
+
+        const permissions = Array.isArray(user.permissions)
+            ? user.permissions.map((item) => sanitizeText(item).toLowerCase())
+            : [];
+
+        const adminRoles = Array.isArray(user.adminRoles)
+            ? user.adminRoles.map((item) => sanitizeText(item).toLowerCase())
+            : [];
+
+        return (
+            user.isAdmin === true ||
+            user.admin === true ||
+            role === 'admin' ||
+            role === 'superadmin' ||
+            accountType === 'admin' ||
+            permissions.includes('admin') ||
+            permissions.includes('plaza_admin') ||
+            permissions.includes('plaza:review') ||
+            adminRoles.includes('plaza') ||
+            adminRoles.includes('plaza_admin') ||
+            adminRoles.includes('superadmin')
+        );
+    } catch (error) {
+        console.error('isPlazaAdminReviewer error:', error);
+        return false;
+    }
+}
+
+async function requirePlazaAdminReviewer(req, res, next) {
+    const allowed = await isPlazaAdminReviewer(req);
+
+    if (!allowed) {
+        return res.status(403).json({
+            success: false,
+            message: 'Admin access is required to review Plaza applications.'
+        });
+    }
+
+    next();
+}
+
+function normalizePlazaAdminReviewAction(value = '') {
+    const raw = sanitizeText(value).toLowerCase();
+
+    if (raw === 'approve' || raw === 'approved') return 'approved';
+    if (raw === 'reject' || raw === 'rejected' || raw === 'denied') return 'rejected';
+    if (raw === 'screening' || raw === 'in screening') return 'screening';
+    if (raw === 'shortlist' || raw === 'shortlisted') return 'shortlisted';
+    if (raw === 'waitlist' || raw === 'waitlisted') return 'waitlisted';
+    if (raw === 'pending' || raw === 'review' || raw === 'under review' || raw === 'pending review') return 'under review';
+
+    return '';
+}
+
+function getPlazaAdminStatusLabel(status = '') {
+    const normalized = normalizePlazaAccessStatus(status);
+
+    if (normalized === 'approved') return 'Approved';
+    if (normalized === 'rejected') return 'Rejected';
+    if (normalized === 'screening') return 'Screening';
+    if (normalized === 'shortlisted') return 'Shortlisted';
+    if (normalized === 'waitlisted') return 'Waitlisted';
+
+    return 'Under Review';
+}
+
+function mapPlazaAdminApplicationUserDoc(docSnap) {
+    const user = docSnap.data() || {};
+    const application =
+        user.plazaApplication && typeof user.plazaApplication === 'object'
+            ? user.plazaApplication
+            : null;
+
+    if (!application) return null;
+
+    const status = normalizePlazaAccessStatus(
+        user.plazaApplicationStatus ||
+        user.plazaAccessStatus ||
+        user.plazaMembershipStatus ||
+        application.status ||
+        'under review'
+    );
+
+    return {
+        id: sanitizeText(application.id || `plaza_${docSnap.id}`),
+        userId: docSnap.id,
+        fullName: sanitizeText(application.fullName || application.name || user.fullName || user.name || 'Plaza Applicant'),
+        email: sanitizeText(application.email || user.email || '').toLowerCase(),
+        membershipType: sanitizeText(application.membershipType),
+        country: sanitizeText(application.country || user.country),
+        wantsPatron: sanitizeText(application.wantsPatron),
+        wantsMarketplace: sanitizeText(application.wantsMarketplace),
+        status: getPlazaAdminStatusLabel(status),
+        normalizedStatus: status || 'under review',
+        canEnterPlaza: user.hasPlazaAccess === true || status === 'approved',
+        tags: Array.isArray(application.tags) ? application.tags : [],
+        submittedAt: application.submittedAt || application.createdAt || null,
+        updatedAt: application.updatedAt || user.updatedAt || null,
+        reviewedAt: application.reviewedAt || '',
+        reviewedBy: application.reviewedBy || '',
+        application
+    };
+}
+
+app.get('/api/admin/plaza/applications', requireApiUser, requirePlazaAdminReviewer, async (req, res) => {
+    try {
+        const usersSnap = await firestore.collection('users').limit(1000).get();
+        const applications = [];
+
+        usersSnap.forEach((docSnap) => {
+            const mapped = mapPlazaAdminApplicationUserDoc(docSnap);
+            if (mapped) applications.push(mapped);
+        });
+
+        applications.sort((a, b) => {
+            return String(b.submittedAt || b.updatedAt || '').localeCompare(String(a.submittedAt || a.updatedAt || ''));
+        });
+
+        return res.json({
+            success: true,
+            applications,
+            stats: {
+                total: applications.length,
+                pending: applications.filter((item) =>
+                    ['under review', 'screening', 'shortlisted', 'waitlisted'].includes(item.normalizedStatus)
+                ).length,
+                approved: applications.filter((item) => item.normalizedStatus === 'approved').length,
+                rejected: applications.filter((item) => item.normalizedStatus === 'rejected').length
+            }
+        });
+    } catch (error) {
+        console.error('admin plaza applications list error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load Plaza applications.'
+        });
+    }
+});
+
+app.patch('/api/admin/plaza/applications/:id/status', requireApiUser, requirePlazaAdminReviewer, async (req, res) => {
+    try {
+        const applicationId = sanitizeText(req.params.id);
+        const requestedStatus = normalizePlazaAdminReviewAction(req.body?.status || req.body?.action);
+
+        if (!applicationId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Missing Plaza application id.'
+            });
+        }
+
+        if (!requestedStatus) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid Plaza review status.'
+            });
+        }
+
+        let targetRef = firestore.collection('users').doc(applicationId);
+        let targetSnap = await targetRef.get();
+
+        if (!targetSnap.exists || !(targetSnap.data() || {}).plazaApplication) {
+            const usersSnap = await firestore.collection('users').limit(1000).get();
+
+            targetRef = null;
+            targetSnap = null;
+
+            usersSnap.forEach((docSnap) => {
+                if (targetRef) return;
+
+                const user = docSnap.data() || {};
+                const application =
+                    user.plazaApplication && typeof user.plazaApplication === 'object'
+                        ? user.plazaApplication
+                        : null;
+
+                if (sanitizeText(application?.id) === applicationId) {
+                    targetRef = docSnap.ref;
+                    targetSnap = docSnap;
+                }
+            });
+        }
+
+        if (!targetRef || !targetSnap?.exists) {
+            return res.status(404).json({
+                success: false,
+                message: 'Plaza application not found.'
+            });
+        }
+
+        const user = targetSnap.data() || {};
+        const existingApplication =
+            user.plazaApplication && typeof user.plazaApplication === 'object'
+                ? user.plazaApplication
+                : {};
+
+        const nextLabel = getPlazaAdminStatusLabel(requestedStatus);
+        const approved = requestedStatus === 'approved';
+        const nowIso = new Date().toISOString();
+
+        const reviewNote = sanitizeText(req.body?.note || req.body?.reviewNote).slice(0, 800);
+        const previousNotes = Array.isArray(existingApplication.notes)
+            ? existingApplication.notes
+            : [];
+
+        const updatedApplication = {
+            ...existingApplication,
+            id: sanitizeText(existingApplication.id || applicationId),
+            status: nextLabel,
+            reviewedAt: nowIso,
+            reviewedBy: sanitizeText(req.user?.email || req.user?.id || 'admin'),
+            updatedAt: nowIso,
+            notes: [
+                ...previousNotes,
+                reviewNote || `Admin updated Plaza application status to ${nextLabel}.`
+            ]
+        };
+
+        const updatePayload = {
+            plazaApplication: updatedApplication,
+            plazaApplicationStatus: nextLabel,
+            plazaMembershipStatus: requestedStatus,
+            plazaAccessStatus: requestedStatus,
+            hasPlazaAccess: approved,
+            updatedAt: nowIso
+        };
+
+        if (approved) {
+            updatePayload.plazaApprovedAt = nowIso;
+            updatePayload.plazaRejectedAt = '';
+        }
+
+        if (requestedStatus === 'rejected') {
+            updatePayload.plazaRejectedAt = nowIso;
+        }
+
+        await targetRef.set(updatePayload, { merge: true });
+
+        const freshSnap = await targetRef.get();
+        const mapped = mapPlazaAdminApplicationUserDoc(freshSnap);
+
+        return res.json({
+            success: true,
+            application: mapped,
+            hasApplication: true,
+            canEnterPlaza: approved,
+            applicationStatus: nextLabel,
+            member: approved
+                ? buildPlazaMemberSnapshot(freshSnap.id, freshSnap.data() || {}, req.user)
+                : null
+        });
+    } catch (error) {
+        console.error('admin plaza application status update error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to update Plaza application status.'
+        });
+    }
+});
+
 app.post('/api/plaza/application-intent', requireApiUser, async (req, res) => {
     return res.status(410).json({
         success: false,
@@ -3234,7 +3527,6 @@ app.post('/api/plaza/application-intent', requireApiUser, async (req, res) => {
 });
 
 app.use('/api/plaza', requireApiUser, requirePlazaApiAccess);
-
 app.use('/api', apiRoutes);
 app.post('/api/realtime/live-rooms/:roomId/join', requireApiUser, async (req, res) => {
     try {
