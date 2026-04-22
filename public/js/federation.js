@@ -1645,8 +1645,8 @@ function applicationToMember(application) {
     emailLower: normalizeEmail(application.email),
     name: application.fullName,
     username: createUsernameFromEmail(application.email),
-    role: application.role,
-    profession: application.role,
+    role: application.role || (Array.isArray(application.roles) ? application.roles[0] : "") || "Federation Operator",
+    profession: application.role || (Array.isArray(application.roles) ? application.roles[0] : "") || "Federation Operator",
     badge: buildMemberBadge(application),
     tag: buildFederationTagFromCategory(application.primaryCategory),
     category: application.primaryCategory,
@@ -1658,8 +1658,31 @@ function applicationToMember(application) {
     region: [application.city, application.country].filter(Boolean).join(", "),
     company: application.company || "Independent",
     description: buildMemberDescription(application),
-    strategicValue: application.valueBring || "",
-    notes: [application.whyJoin, application.valueBring, application.introductions].filter(Boolean),
+    strategicValue: application.canOffer || application.valueBring || "",
+    roles: Array.isArray(application.roles) ? application.roles : [],
+    level: application.level || "",
+    audienceSize: application.audienceSize || "",
+    activePlatforms: Array.isArray(application.activePlatforms) ? application.activePlatforms : [],
+    capitalRange: application.capitalRange || "",
+    teamSize: application.teamSize || "",
+    skillLevel: application.skillLevel || "",
+    lookingFor: application.lookingFor || "",
+    canOffer: application.canOffer || application.valueBring || "",
+    wantsAccessTo: application.wantsAccessTo || application.introductions || "",
+    openTo: Array.isArray(application.openTo) ? application.openTo : [],
+    federationProfileMap:
+      application.federationProfileMap && typeof application.federationProfileMap === "object"
+        ? application.federationProfileMap
+        : null,
+    federationTags: Array.isArray(application.federationTags) ? application.federationTags : [],
+    federationScore: Number(application.federationScore || 0),
+    federationTier: application.federationTier || "",
+    notes: [
+      application.whyJoin,
+      application.lookingFor,
+      application.canOffer || application.valueBring,
+      application.wantsAccessTo || application.introductions
+    ].filter(Boolean),
     activityScore: 0,
     roadmapStatus: "Federation",
     lastLogin: "Not tracked yet",
@@ -3192,12 +3215,164 @@ function initAdminActions() {
     }
   });
 }
+function getFederationFormArray(form, name) {
+  if (!form || !name) return [];
 
+  const fields = Array.from(form.querySelectorAll(`[name="${name}"]`));
+  const values = [];
+
+  fields.forEach((field) => {
+    const tag = String(field.tagName || "").toLowerCase();
+    const type = String(field.type || "").toLowerCase();
+
+    if (tag === "select" && field.multiple) {
+      values.push(
+        ...Array.from(field.selectedOptions || [])
+          .map((option) => option.value)
+          .filter(Boolean)
+      );
+      return;
+    }
+
+    if (type === "checkbox") {
+      if (field.checked) values.push(field.value || "on");
+      return;
+    }
+
+    const value = String(field.value || "").trim();
+    if (value) values.push(value);
+  });
+
+  return [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))];
+}
+
+function getFederationFormValue(form, name) {
+  if (!form || !name) return "";
+
+  const field = form.querySelector(`[name="${name}"]`);
+  if (!field) return "";
+
+  return String(field.value || "").trim();
+}
+
+function normalizeFederationApplicationPayload(raw = {}, form) {
+  const pullValue = (key) => {
+    const fromForm = getFederationFormValue(form, key);
+    if (fromForm) return fromForm;
+
+    return String(raw[key] || "").trim();
+  };
+
+  const pullArray = (key) => {
+    const fromForm = getFederationFormArray(form, key);
+    if (fromForm.length) return fromForm;
+
+    const rawValue = raw[key];
+
+    if (Array.isArray(rawValue)) {
+      return rawValue.map((item) => String(item || "").trim()).filter(Boolean);
+    }
+
+    return String(rawValue || "")
+      .split(/[,|\n]/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  };
+
+  const roles = pullArray("roles");
+  const activePlatforms = pullArray("activePlatforms");
+  const openTo = pullArray("openTo");
+
+  const role = roles[0] || pullValue("role") || "Federation Operator";
+  const lookingFor = pullValue("lookingFor") || pullValue("whyJoin");
+  const canOffer = pullValue("canOffer") || pullValue("valueBring");
+  const wantsAccessTo = pullValue("wantsAccessTo") || pullValue("introductions");
+
+  const profileLink =
+    pullValue("profileLink") ||
+    pullValue("linkedin") ||
+    pullValue("website") ||
+    pullValue("twitter");
+
+  return {
+    ...raw,
+
+    fullName: pullValue("fullName"),
+    email: pullValue("email"),
+    phone: pullValue("phone"),
+    telegram: pullValue("telegram"),
+    country: pullValue("country"),
+    city: pullValue("city"),
+
+    primaryCategory: pullValue("primaryCategory"),
+    roles,
+    role,
+    profession: role,
+    level: pullValue("level"),
+    company: pullValue("company"),
+    experience: pullValue("experience"),
+
+    audienceSize: pullValue("audienceSize"),
+    activePlatforms,
+    capitalRange: pullValue("capitalRange"),
+    teamSize: pullValue("teamSize"),
+    skillLevel: pullValue("skillLevel"),
+
+    lookingFor,
+    canOffer,
+    wantsAccessTo,
+    openTo,
+
+    opportunityInsight: pullValue("opportunityInsight"),
+    tenKPlan: pullValue("tenKPlan"),
+    openToFeature: pullValue("openToFeature"),
+
+    linkedin: pullValue("linkedin"),
+    website: pullValue("website"),
+    twitter: pullValue("twitter"),
+    profileLink,
+
+    referralCode: normalizeReferralCode(pullValue("referralCode")),
+    referralCodeUsed: normalizeReferralCode(pullValue("referralCode")),
+    referredBy: pullValue("referredBy"),
+    source: pullValue("source") || "Dashboard Federation Application",
+
+    whyJoin: lookingFor,
+    valueBring: canOffer,
+    networkValue: canOffer,
+    accessContribution: canOffer,
+    introductions: wantsAccessTo,
+    wantedContactReason: lookingFor,
+    wantedContactTypesRaw: wantsAccessTo,
+    contactTypesCanProvideRaw: canOffer,
+    openToAdminMatching: openTo.length ? "yes" : "limited",
+
+    federationProfileMap: {
+      roles,
+      role,
+      primaryCategory: pullValue("primaryCategory"),
+      level: pullValue("level"),
+      audienceSize: pullValue("audienceSize"),
+      activePlatforms,
+      capitalRange: pullValue("capitalRange"),
+      teamSize: pullValue("teamSize"),
+      skillLevel: pullValue("skillLevel"),
+      lookingFor,
+      canOffer,
+      wantsAccessTo,
+      openTo,
+      opportunityInsight: pullValue("opportunityInsight"),
+      tenKPlan: pullValue("tenKPlan"),
+      openToFeature: pullValue("openToFeature"),
+      profileVersion: 1
+    }
+  };
+}
 function initForm() {
   const form = qs("#federationForm");
   if (!form) return;
 
-  form.addEventListener("submit", (event) => {
+  form.addEventListener("submit", async (event) => {
     event.preventDefault();
 
     const validation = validateForm(form);
@@ -3206,18 +3381,42 @@ function initForm() {
       return;
     }
 
-    const payload = serializeForm(form);
+    const payload = normalizeFederationApplicationPayload(serializeForm(form), form);
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalText = submitBtn?.textContent || "Submit Federation Profile";
 
     try {
-      saveApplication(payload);
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Submitting...";
+      }
+
+      let applicationToStore = payload;
+
+      try {
+        const result = await federationConnectFetch("/api/federation/application", {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+
+        if (result?.application) {
+          applicationToStore = result.application;
+        }
+
+        await loadFederationServerState({ force: true });
+      } catch (serverError) {
+        console.warn("Federation application server sync failed. Local fallback will be used:", serverError);
+      }
+
+      saveApplication(applicationToStore);
 
       showFormFeedback(
-        "Application received. Your profile has been added to the Federation review pipeline.",
+        "Application received. Your Federation profile has been added to the review pipeline.",
         "success"
       );
 
       form.reset();
-            refreshFederationUI();
+      refreshFederationUI();
       setActiveSection("status");
     } catch (error) {
       console.error("Federation application save error:", error);
@@ -3225,6 +3424,11 @@ function initForm() {
         error.message || "Something went wrong while saving your application.",
         "error"
       );
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+      }
     }
   });
 }

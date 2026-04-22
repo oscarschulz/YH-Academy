@@ -1072,8 +1072,44 @@
             </div>
 
             <div class="fed-input-wrap">
-              <label for="role">Current Role / Position</label>
-              <input id="role" name="role" type="text" required />
+              <label for="roles">Your Roles / Positions</label>
+              <select id="roles" name="roles" multiple required>
+                <option value="Founder">Founder</option>
+                <option value="Business Owner">Business Owner</option>
+                <option value="Investor">Investor</option>
+                <option value="Lawyer">Lawyer</option>
+                <option value="Legal Strategist">Legal Strategist</option>
+                <option value="Politician">Politician</option>
+                <option value="Policy Advisor">Policy Advisor</option>
+                <option value="Influencer">Influencer</option>
+                <option value="Media Operator">Media Operator</option>
+                <option value="Developer">Developer</option>
+                <option value="AI Specialist">AI Specialist</option>
+                <option value="Cybersecurity Expert">Cybersecurity Expert</option>
+                <option value="Sales Operator">Sales Operator</option>
+                <option value="Real Estate Operator">Real Estate Operator</option>
+                <option value="Doctor">Doctor</option>
+                <option value="Engineer">Engineer</option>
+                <option value="Athlete">Athlete</option>
+                <option value="High-Level Connector">High-Level Connector</option>
+              </select>
+              <small class="fed-form-hint">Hold Ctrl/Cmd to select multiple roles.</small>
+            </div>
+
+            <input id="role" name="role" type="hidden" value="Federation Operator" />
+
+            <div class="fed-input-wrap">
+              <label for="level">Current Level</label>
+              <select id="level" name="level" required>
+                <option value="">Select level</option>
+                <option value="Starting / Exploring">Starting / Exploring</option>
+                <option value="Early Stage">Early Stage</option>
+                <option value="1K+ network or income level">1K+ network or income level</option>
+                <option value="10K+ network or income level">10K+ network or income level</option>
+                <option value="50K+ network or income level">50K+ network or income level</option>
+                <option value="Established / High-Level Operator">Established / High-Level Operator</option>
+                <option value="Strong influence or institutional access">Strong influence or institutional access</option>
+              </select>
             </div>
 
             <div class="fed-input-wrap">
@@ -1087,34 +1123,135 @@
             </div>
 
             <div class="fed-form-group fed-form-group-full">
-              <div class="fed-form-section-title">Strategic Value</div>
+              <div class="fed-form-section-title">Resources & Leverage</div>
+            </div>
+
+            <div class="fed-input-wrap">
+              <label for="audienceSize">Audience Size</label>
+              <select id="audienceSize" name="audienceSize">
+                <option value="">Select audience size</option>
+                <option value="None">None</option>
+                <option value="Under 10K">Under 10K</option>
+                <option value="10K+">10K+</option>
+                <option value="100K+">100K+</option>
+                <option value="1M+">1M+</option>
+              </select>
+            </div>
+
+            <div class="fed-input-wrap">
+              <label for="activePlatforms">Active Platforms</label>
+              <select id="activePlatforms" name="activePlatforms" multiple>
+                <option value="LinkedIn">LinkedIn</option>
+                <option value="X / Twitter">X / Twitter</option>
+                <option value="Instagram">Instagram</option>
+                <option value="TikTok">TikTok</option>
+                <option value="YouTube">YouTube</option>
+                <option value="Telegram">Telegram</option>
+                <option value="Discord">Discord</option>
+                <option value="WhatsApp">WhatsApp</option>
+                <option value="Private Network">Private Network</option>
+              </select>
+              <small class="fed-form-hint">Hold Ctrl/Cmd to select multiple platforms.</small>
+            </div>
+
+            <div class="fed-input-wrap">
+              <label for="capitalRange">Capital Access</label>
+              <select id="capitalRange" name="capitalRange">
+                <option value="">Select capital range</option>
+                <option value="None">None</option>
+                <option value="Under $1K">Under $1K</option>
+                <option value="$1K+">$1K+</option>
+                <option value="$10K+">$10K+</option>
+                <option value="$100K+">$100K+</option>
+              </select>
+            </div>
+
+            <div class="fed-input-wrap">
+              <label for="teamSize">Team Size</label>
+              <select id="teamSize" name="teamSize">
+                <option value="">Select team size</option>
+                <option value="Solo">Solo</option>
+                <option value="1-3">1-3</option>
+                <option value="3-10">3-10</option>
+                <option value="10+">10+</option>
+              </select>
+            </div>
+
+            <div class="fed-input-wrap">
+              <label for="skillLevel">Skill Level</label>
+              <select id="skillLevel" name="skillLevel">
+                <option value="">Select skill level</option>
+                <option value="Beginner">Beginner</option>
+                <option value="Intermediate">Intermediate</option>
+                <option value="Advanced">Advanced</option>
+                <option value="Elite">Elite</option>
+              </select>
+            </div>
+
+            <div class="fed-form-group fed-form-group-full">
+              <div class="fed-form-section-title">Network Intent</div>
             </div>
 
             <div class="fed-input-wrap fed-input-wrap-full">
-              <label for="whyJoin">Why do you want to join the Federation?</label>
-              <textarea id="whyJoin" name="whyJoin" rows="4" required></textarea>
+              <label for="lookingFor">What are you looking for inside the Federation?</label>
+              <textarea id="lookingFor" name="lookingFor" rows="4" required></textarea>
             </div>
 
             <div class="fed-input-wrap fed-input-wrap-full">
-              <label for="valueBring">What access, expertise, reach, capital, or network do you bring?</label>
-              <textarea id="valueBring" name="valueBring" rows="4" required></textarea>
+              <label for="canOffer">What can you offer the network?</label>
+              <textarea id="canOffer" name="canOffer" rows="4" required></textarea>
             </div>
 
             <div class="fed-input-wrap fed-input-wrap-full">
-              <label for="introductions">What kind of people can you introduce into the network?</label>
-              <textarea id="introductions" name="introductions" rows="4"></textarea>
+              <label for="wantsAccessTo">What kind of people, sectors, or opportunities do you want access to?</label>
+              <textarea id="wantsAccessTo" name="wantsAccessTo" rows="4"></textarea>
             </div>
 
             <div class="fed-input-wrap fed-input-wrap-full">
-              <label for="regionsConnected">Which cities, countries, or sectors are you connected to?</label>
-              <textarea id="regionsConnected" name="regionsConnected" rows="3"></textarea>
+              <label for="openTo">What are you open to?</label>
+              <select id="openTo" name="openTo" multiple required>
+                <option value="Networking">Networking</option>
+                <option value="Partnerships">Partnerships</option>
+                <option value="Investments">Investments</option>
+                <option value="Introductions">Introductions</option>
+                <option value="Mentorship">Mentorship</option>
+                <option value="Deal Flow">Deal Flow</option>
+                <option value="Hiring / Recruiting">Hiring / Recruiting</option>
+                <option value="Private Opportunities">Private Opportunities</option>
+                <option value="All of the above">All of the above</option>
+              </select>
+              <small class="fed-form-hint">Hold Ctrl/Cmd to select multiple options.</small>
+            </div>
+
+            <div class="fed-form-group fed-form-group-full">
+              <div class="fed-form-section-title">Intelligence Filter</div>
+            </div>
+
+            <div class="fed-input-wrap fed-input-wrap-full">
+              <label for="opportunityInsight">What major opportunity do you see right now that most people are missing?</label>
+              <textarea id="opportunityInsight" name="opportunityInsight" rows="4" required></textarea>
+            </div>
+
+            <div class="fed-input-wrap fed-input-wrap-full">
+              <label for="tenKPlan">If the Federation gave you access to 10,000 high-value people, what would you build?</label>
+              <textarea id="tenKPlan" name="tenKPlan" rows="4" required></textarea>
+            </div>
+
+            <div class="fed-input-wrap">
+              <label for="openToFeature">Can we feature your profile internally?</label>
+              <select id="openToFeature" name="openToFeature">
+                <option value="">Select answer</option>
+                <option value="yes">Yes</option>
+                <option value="limited">Limited visibility</option>
+                <option value="no">No</option>
+              </select>
             </div>
 
             <div class="fed-form-group fed-form-group-full">
               <div class="fed-form-section-title">Verification & Referral</div>
             </div>
 
-                        <div class="fed-input-wrap">
+            <div class="fed-input-wrap">
               <label for="linkedin">LinkedIn Profile</label>
               <input id="linkedin" name="linkedin" type="url" />
             </div>
@@ -1129,18 +1266,17 @@
               <input id="twitter" name="twitter" type="url" />
             </div>
 
-                        <div class="fed-input-wrap">
+            <div class="fed-input-wrap">
               <label for="referralCode">Referral Code</label>
               <input
                 id="referralCode"
                 name="referralCode"
                 type="text"
-                placeholder="Optional code from an approved Federation member"
-                autocomplete="off"
+                placeholder="Optional member referral code"
               />
-              <div class="fed-form-inline-note" id="referralCodeHint">
+              <small class="fed-form-hint" id="referralCodeHint">
                 Optional. Paste a valid member code to link your application.
-              </div>
+              </small>
             </div>
 
             <div class="fed-input-wrap">
@@ -1149,7 +1285,7 @@
                 id="referredBy"
                 name="referredBy"
                 type="text"
-                placeholder="Optional name if no code was provided"
+                placeholder="Auto-filled if valid code was provided"
               />
             </div>
 
@@ -1167,10 +1303,10 @@
 
             <div class="fed-form-actions fed-form-group-full">
               <button type="submit" class="fed-btn fed-btn-primary">
-                Submit for Review
+                Submit Federation Profile
               </button>
               <span class="fed-form-hint">
-                Status after submission: Pending Review
+                Status after submission: Under Review
               </span>
             </div>
 
@@ -1353,6 +1489,6 @@
     </aside>
   </div>
 
-<script src="/js/federation.js?v=20260418-federation-operating-layer-2"></script>
+<script src="/js/federation.js?v=20260422-federation-profile-map-1"></script>
 </body>
 </html>

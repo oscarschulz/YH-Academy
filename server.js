@@ -387,7 +387,313 @@ function sanitizeLeadMissionTextArray(value, maxItems = 32) {
         .map((item) => item.slice(0, 120))
         .slice(0, maxItems);
 }
+function sanitizeFederationTextArray(value, maxItems = 32, maxLength = 140) {
+    const source = Array.isArray(value)
+        ? value
+        : String(value || '')
+            .split(/[,|\n]/)
+            .map((item) => item.trim());
 
+    const seen = new Set();
+
+    return source
+        .map((item) => sanitizeText(item).slice(0, maxLength))
+        .filter(Boolean)
+        .filter((item) => {
+            const key = item.toLowerCase();
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        })
+        .slice(0, maxItems);
+}
+
+function getFederationProfileHaystack(profile = {}) {
+    return [
+        profile.role,
+        profile.primaryCategory,
+        profile.level,
+        profile.audienceSize,
+        profile.capitalRange,
+        profile.teamSize,
+        profile.skillLevel,
+        profile.lookingFor,
+        profile.canOffer,
+        profile.wantsAccessTo,
+        profile.opportunityInsight,
+        profile.tenKPlan,
+        ...(Array.isArray(profile.roles) ? profile.roles : []),
+        ...(Array.isArray(profile.activePlatforms) ? profile.activePlatforms : []),
+        ...(Array.isArray(profile.openTo) ? profile.openTo : [])
+    ]
+        .map((item) => sanitizeText(item).toLowerCase())
+        .filter(Boolean)
+        .join(' ');
+}
+
+function federationProfileHas(profile = {}, keywords = []) {
+    const haystack = getFederationProfileHaystack(profile);
+    return keywords.some((keyword) => haystack.includes(String(keyword || '').toLowerCase()));
+}
+
+function inferFederationCategoryFromProfile(profile = {}) {
+    if (federationProfileHas(profile, ['lawyer', 'legal', 'attorney', 'solicitor'])) {
+        return 'Lawyers & Legal Strategists';
+    }
+
+    if (federationProfileHas(profile, ['politician', 'policy', 'government', 'public office', 'advisor'])) {
+        return 'Politicians & Policy Advisors';
+    }
+
+    if (federationProfileHas(profile, ['founder', 'business owner', 'ceo', 'executive', 'investor', 'capital'])) {
+        return 'Entrepreneurs & Investors';
+    }
+
+    if (federationProfileHas(profile, ['influencer', 'creator', 'media', 'content', 'audience'])) {
+        return 'Influencers & Media Architects';
+    }
+
+    if (federationProfileHas(profile, ['cybersecurity', 'security', 'infosec', 'osint'])) {
+        return 'Cybersecurity Experts';
+    }
+
+    return 'Operators Across Industries';
+}
+
+function getFederationTier(score = 0) {
+    const safeScore = Math.max(0, Math.min(100, Number(score) || 0));
+
+    if (safeScore >= 90) return 'CORE';
+    if (safeScore >= 70) return 'OPERATOR';
+    if (safeScore >= 50) return 'CONTRIBUTOR';
+
+    return 'LOW_PRIORITY';
+}
+
+function calculateFederationScore(profile = {}) {
+    let roleScore = 0;
+    let levelScore = 0;
+    let resourceScore = 0;
+    let intentScore = 0;
+    let thinkingScore = 0;
+
+    if (federationProfileHas(profile, ['founder', 'business owner', 'ceo', 'executive', 'investor'])) {
+        roleScore = 25;
+    } else if (
+        federationProfileHas(profile, [
+            'influencer',
+            'creator',
+            'developer',
+            'engineer',
+            'automation',
+            'ai specialist',
+            'cybersecurity',
+            'marketer',
+            'growth',
+            'lawyer',
+            'doctor',
+            'politician',
+            'real estate',
+            'athlete'
+        ])
+    ) {
+        roleScore = 20;
+    } else if (sanitizeText(profile.role) || (Array.isArray(profile.roles) && profile.roles.length)) {
+        roleScore = 12;
+    }
+
+    const level = sanitizeText(profile.level).toLowerCase();
+
+    if (level.includes('50k') || level.includes('high-level') || level.includes('strong influence')) {
+        levelScore = 25;
+    } else if (level.includes('10k') || level.includes('established')) {
+        levelScore = 20;
+    } else if (level.includes('1k') || level.includes('growing')) {
+        levelScore = 15;
+    } else if (level.includes('early')) {
+        levelScore = 8;
+    } else if (level.includes('starting')) {
+        levelScore = 3;
+    }
+
+    const audience = sanitizeText(profile.audienceSize).toLowerCase();
+    if (audience.includes('1m')) resourceScore += 10;
+    else if (audience.includes('100k')) resourceScore += 9;
+    else if (audience.includes('10k')) resourceScore += 7;
+    else if (audience.includes('<10k') || audience.includes('under 10k')) resourceScore += 3;
+
+    const capital = sanitizeText(profile.capitalRange).toLowerCase();
+    if (capital.includes('100k')) resourceScore += 10;
+    else if (capital.includes('10k')) resourceScore += 8;
+    else if (capital.includes('1k')) resourceScore += 5;
+    else if (capital.includes('<$1k') || capital.includes('under')) resourceScore += 2;
+
+    const team = sanitizeText(profile.teamSize).toLowerCase();
+    if (team.includes('10+')) resourceScore += 5;
+    else if (team.includes('3–10') || team.includes('3-10')) resourceScore += 3;
+    else if (team.includes('1–3') || team.includes('1-3')) resourceScore += 1;
+
+    const skill = sanitizeText(profile.skillLevel).toLowerCase();
+    if (skill.includes('elite')) resourceScore += 5;
+    else if (skill.includes('advanced')) resourceScore += 4;
+    else if (skill.includes('intermediate')) resourceScore += 2;
+
+    resourceScore = Math.min(resourceScore, 25);
+
+    const openTo = Array.isArray(profile.openTo) ? profile.openTo.map((item) => sanitizeText(item).toLowerCase()) : [];
+
+    if (openTo.some((item) => item.includes('all'))) {
+        intentScore = 15;
+    } else if (openTo.length >= 3) {
+        intentScore = 12;
+    } else if (openTo.length >= 1) {
+        intentScore = 7;
+    }
+
+    if (sanitizeText(profile.lookingFor).length > 20) intentScore += 3;
+    if (sanitizeText(profile.canOffer).length > 20) intentScore += 3;
+
+    intentScore = Math.min(intentScore, 15);
+
+    const opportunityLength = sanitizeText(profile.opportunityInsight).length;
+    const tenKLength = sanitizeText(profile.tenKPlan).length;
+
+    if (opportunityLength >= 80 && tenKLength >= 80) {
+        thinkingScore = 10;
+    } else if (opportunityLength >= 40 && tenKLength >= 40) {
+        thinkingScore = 7;
+    } else if (opportunityLength >= 20 || tenKLength >= 20) {
+        thinkingScore = 4;
+    }
+
+    return Math.max(0, Math.min(100, roleScore + levelScore + resourceScore + intentScore + thinkingScore));
+}
+
+function deriveFederationTags(profile = {}, score = 0) {
+    const tags = new Set();
+
+    const addRoleTag = (role = '') => {
+        const clean = sanitizeText(role)
+            .toUpperCase()
+            .replace(/[^A-Z0-9]+/g, '_')
+            .replace(/^_+|_+$/g, '');
+
+        if (clean) tags.add(`ROLE_${clean}`);
+    };
+
+    (Array.isArray(profile.roles) ? profile.roles : []).forEach(addRoleTag);
+
+    if (sanitizeText(profile.role)) addRoleTag(profile.role);
+
+    if (federationProfileHas(profile, ['founder', 'business owner', 'ceo'])) tags.add('BUILDER');
+    if (federationProfileHas(profile, ['investor', 'capital'])) tags.add('CAPITAL');
+    if (federationProfileHas(profile, ['influencer', 'creator', 'audience', 'media'])) tags.add('AUDIENCE');
+    if (federationProfileHas(profile, ['developer', 'engineer', 'automation', 'ai', 'cybersecurity'])) tags.add('TECHNICAL_OPERATOR');
+    if (federationProfileHas(profile, ['lawyer', 'legal'])) tags.add('LEGAL');
+    if (federationProfileHas(profile, ['politician', 'policy', 'government'])) tags.add('POLICY');
+
+    if (sanitizeText(profile.audienceSize) && sanitizeText(profile.audienceSize).toLowerCase() !== 'none') {
+        tags.add('HAS_AUDIENCE');
+    }
+
+    if (sanitizeText(profile.capitalRange) && sanitizeText(profile.capitalRange).toLowerCase() !== 'none') {
+        tags.add('HAS_CAPITAL');
+    }
+
+    if (sanitizeText(profile.teamSize) && !['none', 'solo'].includes(sanitizeText(profile.teamSize).toLowerCase())) {
+        tags.add('HAS_TEAM');
+    }
+
+    const openTo = Array.isArray(profile.openTo) ? profile.openTo : [];
+
+    openTo.forEach((item) => {
+        const clean = sanitizeText(item)
+            .toUpperCase()
+            .replace(/[^A-Z0-9]+/g, '_')
+            .replace(/^_+|_+$/g, '');
+
+        if (clean) tags.add(`OPEN_${clean}`);
+    });
+
+    tags.add(`TIER_${getFederationTier(score)}`);
+
+    return Array.from(tags).slice(0, 40);
+}
+
+function buildFederationProfileMap(body = {}, fallback = {}) {
+    const roles = sanitizeFederationTextArray(
+        body.roles ||
+        body.roleTags ||
+        body.currentPositions ||
+        body.currentPosition,
+        16,
+        120
+    );
+
+    const role = sanitizeText(body.role || body.profession || roles[0] || fallback.role).slice(0, 180);
+
+    const baseProfile = {
+        roles: roles.length ? roles : (role ? [role] : []),
+        role,
+        primaryCategory: sanitizeText(body.primaryCategory || body.category).slice(0, 180),
+
+        level: sanitizeText(body.level).slice(0, 120),
+
+        audienceSize: sanitizeText(body.audienceSize).slice(0, 120),
+        activePlatforms: sanitizeFederationTextArray(body.activePlatforms, 12, 80),
+        capitalRange: sanitizeText(body.capitalRange).slice(0, 120),
+        teamSize: sanitizeText(body.teamSize).slice(0, 120),
+        skillLevel: sanitizeText(body.skillLevel).slice(0, 120),
+
+        lookingFor: sanitizeText(body.lookingFor || body.lookingForContact || body.wantedContactReason).slice(0, 1200),
+        canOffer: sanitizeText(body.canOffer || body.valueBring || body.networkValue).slice(0, 1200),
+        wantsAccessTo: sanitizeText(body.wantsAccessTo || body.wantedContactTypesRaw || body.introductions).slice(0, 1200),
+        openTo: sanitizeFederationTextArray(body.openTo, 12, 80),
+
+        opportunityInsight: sanitizeText(body.opportunityInsight).slice(0, 2500),
+        tenKPlan: sanitizeText(body.tenKPlan).slice(0, 2500),
+        openToFeature: sanitizeText(body.openToFeature).slice(0, 80),
+
+        profileVersion: 1
+    };
+
+    const primaryCategory =
+        baseProfile.primaryCategory ||
+        inferFederationCategoryFromProfile(baseProfile);
+
+    const profile = {
+        ...baseProfile,
+        primaryCategory
+    };
+
+    const score = calculateFederationScore(profile);
+    const tier = getFederationTier(score);
+    const tags = deriveFederationTags(profile, score);
+
+    return {
+        ...profile,
+        score,
+        tier,
+        tags,
+        resources: {
+            audienceSize: profile.audienceSize,
+            activePlatforms: profile.activePlatforms,
+            capitalRange: profile.capitalRange,
+            teamSize: profile.teamSize,
+            skillLevel: profile.skillLevel
+        },
+        intent: {
+            lookingFor: profile.lookingFor,
+            canOffer: profile.canOffer,
+            wantsAccessTo: profile.wantsAccessTo,
+            openTo: profile.openTo
+        },
+        thinking: {
+            opportunityInsight: profile.opportunityInsight,
+            tenKPlan: profile.tenKPlan
+        }
+    };
+}
 function mapFirestoreDate(value) {
     if (!value) return null;
     if (typeof value.toDate === 'function') return value.toDate().toISOString();
@@ -2325,12 +2631,16 @@ app.post('/api/federation/application', requireApiUser, async (req, res) => {
         const body = req.body || {};
         const nowIso = new Date().toISOString();
 
+        const profileMap = buildFederationProfileMap(body, {
+            role: body.role || body.profession
+        });
+
         const fullName = sanitizeText(body.fullName || body.name || req.user?.name || 'Federation Applicant').slice(0, 160);
         const email = sanitizeText(body.email || req.user?.email || '').toLowerCase().slice(0, 180);
-        const role = sanitizeText(body.role || body.profession).slice(0, 180);
+        const role = sanitizeText(profileMap.role || body.role || body.profession).slice(0, 180);
         const country = sanitizeText(body.country).slice(0, 120);
         const city = sanitizeText(body.city).slice(0, 120);
-        const primaryCategory = sanitizeText(body.primaryCategory || body.category).slice(0, 180);
+        const primaryCategory = sanitizeText(profileMap.primaryCategory || body.primaryCategory || body.category).slice(0, 180);
 
         if (!fullName || !email || !role || !country || !city || !primaryCategory) {
             return res.status(400).json({
@@ -2398,6 +2708,29 @@ app.post('/api/federation/application', requireApiUser, async (req, res) => {
             profileLink: sanitizeText(body.profileLink).slice(0, 500),
             primaryCategory,
 
+            roles: profileMap.roles,
+            level: profileMap.level,
+
+            audienceSize: profileMap.audienceSize,
+            activePlatforms: profileMap.activePlatforms,
+            capitalRange: profileMap.capitalRange,
+            teamSize: profileMap.teamSize,
+            skillLevel: profileMap.skillLevel,
+
+            lookingFor: profileMap.lookingFor,
+            canOffer: profileMap.canOffer,
+            wantsAccessTo: profileMap.wantsAccessTo,
+            openTo: profileMap.openTo,
+
+            opportunityInsight: profileMap.opportunityInsight,
+            tenKPlan: profileMap.tenKPlan,
+            openToFeature: profileMap.openToFeature,
+
+            federationProfileMap: profileMap,
+            federationTags: profileMap.tags,
+            federationScore: profileMap.score,
+            federationTier: profileMap.tier,
+
             goal: sanitizeText(body.goal || body.wantedContactReason || 'Apply for Federation access.').slice(0, 1200),
             background: sanitizeText(body.background || [role, body.company, primaryCategory, city, country].filter(Boolean).join(' • ')).slice(0, 1200),
             networkValue: sanitizeText(body.networkValue || body.valueBring).slice(0, 2500),
@@ -2431,6 +2764,10 @@ app.post('/api/federation/application', requireApiUser, async (req, res) => {
 
         await userRef.set({
             federationApplication: application,
+            federationProfileMap: profileMap,
+            federationTags: profileMap.tags,
+            federationScore: profileMap.score,
+            federationTier: profileMap.tier,
             federationApplicationStatus: 'Under Review',
             federationMembershipStatus: 'under review',
             hasFederationAccess: false,
