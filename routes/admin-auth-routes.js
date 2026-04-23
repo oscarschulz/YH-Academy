@@ -1282,6 +1282,152 @@ function prependUserInProductNotification(existing = [], notification = null) {
   return next.slice(0, USER_REVIEW_NOTIFICATION_LIMIT);
 }
 
+function getFederationConnectionRequestNotificationMeta(request = {}, action = 'status') {
+  const opportunityTitle = cleanText(request.opportunityTitle || 'your connection request');
+  const currency = cleanText(request.currency || 'USD').toUpperCase() || 'USD';
+  const pricingAmount = toNumber(request.pricingAmount, 0);
+  const status = cleanText(request.status).toLowerCase();
+  const paymentStatus = cleanText(request.paymentStatus).toLowerCase();
+
+  if (action === 'match') {
+    return {
+      title: 'Federation request matched',
+      text: `Admin matched ${opportunityTitle}. Open My Requests to review the routed opportunity and next step.`,
+      color: 'var(--green)',
+      avatarStr: 'F'
+    };
+  }
+
+  if (action === 'deal-package') {
+    if (paymentStatus === 'paid' || status === 'paid') {
+      return {
+        title: 'Federation request marked paid',
+        text: `Your deal package for ${opportunityTitle} is marked paid. Open My Requests to continue from the live transaction state.`,
+        color: 'var(--green)',
+        avatarStr: 'F'
+      };
+    }
+
+    return {
+      title: 'Deal package ready',
+      text: `A deal package for ${opportunityTitle} is now ready at ${currency} ${pricingAmount}. Open My Requests to review pricing and next steps.`,
+      color: 'var(--blue)',
+      avatarStr: 'F'
+    };
+  }
+
+  if (status === 'matched') {
+    return {
+      title: 'Federation request matched',
+      text: `Your request for ${opportunityTitle} is now matched. Open My Requests to review the routed connection path.`,
+      color: 'var(--green)',
+      avatarStr: 'F'
+    };
+  }
+
+  if (status === 'pricing_sent') {
+    return {
+      title: 'Pricing sent',
+      text: `Pricing for ${opportunityTitle} is now live. Open My Requests to review the package and decide your next step.`,
+      color: 'var(--blue)',
+      avatarStr: 'F'
+    };
+  }
+
+  if (status === 'paid') {
+    return {
+      title: 'Payment confirmed',
+      text: `Your request for ${opportunityTitle} is marked paid. Open My Requests to track delivery and intro progress.`,
+      color: 'var(--green)',
+      avatarStr: 'F'
+    };
+  }
+
+  if (status === 'intro_delivered') {
+    return {
+      title: 'Introduction delivered',
+      text: `The intro for ${opportunityTitle} has been delivered. Open My Requests to review the delivered state.`,
+      color: 'var(--green)',
+      avatarStr: 'F'
+    };
+  }
+
+  if (status === 'completed') {
+    return {
+      title: 'Federation request completed',
+      text: `Your request for ${opportunityTitle} has reached completion. Open My Requests to review the final state.`,
+      color: 'var(--green)',
+      avatarStr: 'F'
+    };
+  }
+
+  if (status === 'rejected') {
+    return {
+      title: 'Federation request rejected',
+      text: `Your request for ${opportunityTitle} was rejected. Open My Requests to review the final state and prepare a stronger next attempt.`,
+      color: 'var(--red)',
+      avatarStr: 'F'
+    };
+  }
+
+  return {
+    title: 'Federation request updated',
+    text: `Your request for ${opportunityTitle} has been updated. Open My Requests to review the latest state.`,
+    color: 'var(--blue)',
+    avatarStr: 'F'
+  };
+}
+
+async function appendFederationConnectionRequestNotificationToRequester(request = {}, action = 'status') {
+  const requesterUid = cleanText(request.requesterUid);
+
+  if (!requesterUid) return false;
+
+  const userRef = firestore.collection('users').doc(requesterUid);
+  const userSnap = await userRef.get();
+
+  if (!userSnap.exists) return false;
+
+  const user = userSnap.data() || {};
+  const nowIso = new Date().toISOString();
+  const meta = getFederationConnectionRequestNotificationMeta(request, action);
+
+  const notification = {
+    id: `fedreq_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    title: meta.title,
+    text: meta.text,
+    message: meta.text,
+    body: meta.text,
+    target: 'federation-requests',
+    targetType: 'federation-requests',
+    target_type: 'federation-requests',
+    targetId: cleanText(request.id || ''),
+    target_id: cleanText(request.id || ''),
+    color: meta.color,
+    avatarStr: meta.avatarStr,
+    initial: meta.avatarStr,
+    source: 'admin-federation-connect',
+    notificationType: 'federation-connect-request',
+    requestId: cleanText(request.id || ''),
+    requestStatus: cleanText(request.status || ''),
+    isRead: false,
+    is_read: false,
+    read: false,
+    createdAt: nowIso,
+    created_at: nowIso
+  };
+
+  await userRef.set({
+    inProductReviewNotifications: prependUserInProductNotification(
+      user.inProductReviewNotifications,
+      notification
+    ),
+    updatedAt: nowIso
+  }, { merge: true });
+
+  return true;
+}
+
 apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async (req, res) => {
   try {
     const applicationId = cleanText(req.params.id);
@@ -1975,10 +2121,15 @@ apiRouter.post('/api/admin/federation/connection-requests/:requestId/match', req
     });
 
     const updatedSnap = await requestRef.get();
+    const updatedRequest = mapAdminFederationConnectionRequestDoc(updatedSnap);
+
+    const requesterNotificationQueued =
+      await appendFederationConnectionRequestNotificationToRequester(updatedRequest, 'match');
 
     return res.json({
       success: true,
-      request: mapAdminFederationConnectionRequestDoc(updatedSnap)
+      request: updatedRequest,
+      requesterNotificationQueued
     });
   } catch (error) {
     console.error('admin federation request match error:', error);
@@ -2039,10 +2190,15 @@ apiRouter.post('/api/admin/federation/connection-requests/:requestId/deal-packag
     }, { merge: true });
 
     const updatedSnap = await requestRef.get();
+    const updatedRequest = mapAdminFederationConnectionRequestDoc(updatedSnap);
+
+    const requesterNotificationQueued =
+      await appendFederationConnectionRequestNotificationToRequester(updatedRequest, 'deal-package');
 
     return res.json({
       success: true,
-      request: mapAdminFederationConnectionRequestDoc(updatedSnap)
+      request: updatedRequest,
+      requesterNotificationQueued
     });
   } catch (error) {
     console.error('admin federation deal package update error:', error);
@@ -2111,10 +2267,15 @@ apiRouter.post('/api/admin/federation/connection-requests/:requestId/status', re
     await requestRef.set(statusPatch, { merge: true });
 
     const updatedSnap = await requestRef.get();
+    const updatedRequest = mapAdminFederationConnectionRequestDoc(updatedSnap);
+
+    const requesterNotificationQueued =
+      await appendFederationConnectionRequestNotificationToRequester(updatedRequest, 'status');
 
     return res.json({
       success: true,
-      request: mapAdminFederationConnectionRequestDoc(updatedSnap)
+      request: updatedRequest,
+      requesterNotificationQueued
     });
   } catch (error) {
     console.error('admin federation request status update error:', error);

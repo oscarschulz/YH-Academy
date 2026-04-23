@@ -3676,7 +3676,6 @@ function normalizeFederationApplicationPayload(raw = {}, form) {
 
   return {
     ...raw,
-
     fullName: pullValue("fullName"),
     email: pullValue("email"),
     phone: pullValue("phone"),

@@ -4969,6 +4969,16 @@ const openNotificationTarget = (target = '') => {
         return;
     }
 
+    if (
+        normalized === 'federation-requests' ||
+        normalized === 'federation_requests' ||
+        normalized === 'federation-request' ||
+        normalized === 'federation_request'
+    ) {
+        window.location.href = '/federation#requests';
+        return;
+    }
+
     if (normalized === 'plaza') {
         window.location.href = '/plaza';
         return;
