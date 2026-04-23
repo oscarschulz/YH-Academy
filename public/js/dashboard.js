@@ -4935,6 +4935,40 @@ const openNotificationTarget = (target = '') => {
         return;
     }
 
+    if (
+        normalized === 'federation-status' ||
+        normalized === 'federation_status' ||
+        normalized === 'federation-application' ||
+        normalized === 'federation_application'
+    ) {
+        refreshFederationAccessStatusFromBackend(true)
+            .then((snapshot) => {
+                const status = normalizeFederationStatus(snapshot?.applicationStatus || '');
+
+                if (snapshot?.canEnterFederation || status === 'approved') {
+                    window.location.href = '/federation';
+                    return;
+                }
+
+                if (!snapshot?.hasApplication || status === 'rejected') {
+                    if (typeof openFederationApplicationModal === 'function') {
+                        openFederationApplicationModal();
+                        return;
+                    }
+
+                    document.getElementById('btn-open-federation-application-from-lock')?.click();
+                    return;
+                }
+
+                syncFederationEntryButton();
+                showToast('Your Federation application is still in review.', 'error');
+            })
+            .catch(() => {
+                window.location.href = '/dashboard';
+            });
+        return;
+    }
+
     if (normalized === 'plaza') {
         window.location.href = '/plaza';
         return;

@@ -1120,7 +1120,7 @@ function getApplicationReviewNotificationMeta(matchedField = '', nextStatus = ''
       return {
         title: 'Federation application approved',
         text: 'You now have Federation access. Open Federation and activate your strategic layer.',
-        target: 'federation',
+        target: 'federation-status',
         color: 'var(--green)',
         avatarStr: 'F'
       };
@@ -1130,7 +1130,7 @@ function getApplicationReviewNotificationMeta(matchedField = '', nextStatus = ''
       return {
         title: 'Federation application waitlisted',
         text: 'Your candidacy is still alive, but you need stronger Plaza outcomes and proof before the next review cycle.',
-        target: 'federation',
+        target: 'federation-status',
         color: 'var(--amber)',
         avatarStr: 'F'
       };
@@ -1140,7 +1140,7 @@ function getApplicationReviewNotificationMeta(matchedField = '', nextStatus = ''
       return {
         title: 'Federation application not approved',
         text: 'Your current Federation application was not approved. Strengthen your Plaza signal and reapply with stronger leverage.',
-        target: 'federation',
+        target: 'federation-status',
         color: 'var(--red)',
         avatarStr: 'F'
       };
@@ -1149,7 +1149,7 @@ function getApplicationReviewNotificationMeta(matchedField = '', nextStatus = ''
     return {
       title: 'Federation application updated',
       text: `Your Federation application is now ${cleanText(nextStatus) || 'Under Review'}.`,
-      target: 'federation',
+      target: 'federation-status',
       color: 'var(--blue)',
       avatarStr: 'F'
     };
@@ -1160,7 +1160,7 @@ function getApplicationReviewNotificationMeta(matchedField = '', nextStatus = ''
       return {
         title: 'Plaza application approved',
         text: 'You can now enter Plaza. Complete your directory profile and activate your opportunity layer.',
-        target: 'plaza',
+        target: 'plaza-status',
         color: 'var(--green)',
         avatarStr: 'P'
       };
@@ -1170,7 +1170,7 @@ function getApplicationReviewNotificationMeta(matchedField = '', nextStatus = ''
       return {
         title: 'Plaza application waitlisted',
         text: 'Your Plaza application is waitlisted. Improve your Academy profile and economic signal before the next review.',
-        target: 'plaza',
+        target: 'plaza-status',
         color: 'var(--amber)',
         avatarStr: 'P'
       };
@@ -1180,7 +1180,7 @@ function getApplicationReviewNotificationMeta(matchedField = '', nextStatus = ''
       return {
         title: 'Plaza application not approved',
         text: 'Your Plaza application was not approved. You can submit a stronger application when your signal is clearer.',
-        target: 'plaza',
+        target: 'plaza-status',
         color: 'var(--red)',
         avatarStr: 'P'
       };
@@ -1189,7 +1189,7 @@ function getApplicationReviewNotificationMeta(matchedField = '', nextStatus = ''
     return {
       title: 'Plaza application updated',
       text: `Your Plaza application is now ${cleanText(nextStatus) || 'Under Review'}.`,
-      target: 'plaza',
+      target: 'plaza-status',
       color: 'var(--blue)',
       avatarStr: 'P'
     };
