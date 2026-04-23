@@ -12467,7 +12467,9 @@ function syncFederationFrameAccess(snapshot = null) {
 
         if (frame) {
             const targetSrc = frame.dataset.src || '/federation.html';
-            if (!frame.getAttribute('src') || frame.getAttribute('src') === 'about:blank') {
+            const currentSrc = frame.getAttribute('src') || '';
+
+            if (currentSrc !== targetSrc) {
                 frame.setAttribute('src', targetSrc);
             }
 
