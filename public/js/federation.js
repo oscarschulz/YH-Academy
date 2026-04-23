@@ -4010,6 +4010,7 @@ window.addEventListener("storage", (event) => {
     }
   });
 });
+
 document.addEventListener("DOMContentLoaded", async () => {
   ensureSeedMembers();
 
@@ -4019,6 +4020,30 @@ document.addEventListener("DOMContentLoaded", async () => {
   initFederationConnect();
   initFederationRequests();
   initReferralActions();
+
+  const bindUniverseReturnLink = (selector) => {
+    const link = document.querySelector(selector);
+    if (!link) return;
+
+    link.addEventListener("click", (event) => {
+      if (window.parent && window.parent !== window) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        try {
+          window.parent.postMessage(
+            { type: "yh:federation:return-to-universe" },
+            window.location.origin
+          );
+        } catch (_) {
+          window.top.location.href = "/dashboard";
+        }
+      }
+    });
+  };
+
+  bindUniverseReturnLink("#fedBackToUniverse");
+  bindUniverseReturnLink("#fedTopbarBackToUniverse");
 
   setActiveSection("command", { syncHash: false });
 

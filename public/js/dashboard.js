@@ -2611,7 +2611,7 @@ document.getElementById('btn-back-to-universe-from-federation')?.addEventListene
     event.preventDefault();
     event.stopPropagation();
 
-    showUniverseHub('federation', { animate: false });
+    returnToFederationCardInDashboard();
 });
 
 bindUniverseSwipe();
@@ -10002,6 +10002,16 @@ function enterAcademyWorld(defaultSection = 'home') {
     }
 }
 window.enterAcademyWorld = enterAcademyWorld;
+
+window.addEventListener('message', (event) => {
+    if (event.origin !== window.location.origin) return;
+
+    const type = String(event.data?.type || '').trim();
+    if (type !== 'yh:federation:return-to-universe') return;
+
+    returnToFederationCardInDashboard();
+});
+
 document.getElementById('btn-academy-back-universe')?.addEventListener('click', (event) => {
     event?.preventDefault?.();
     event?.stopPropagation?.();
@@ -12902,6 +12912,25 @@ function openFederationApprovedView(snapshot = null) {
 }
 
 function returnToFederationCardInDashboard() {
+    const viewFederationEl = document.getElementById('view-federation');
+    const federationLockEl = document.getElementById('federation-access-lock');
+    const federationFrameEl = document.getElementById('yh-federation-frame');
+
+    if (federationFrameEl) {
+        federationFrameEl.classList.add('hidden-step');
+        federationFrameEl.setAttribute('src', 'about:blank');
+    }
+
+    if (federationLockEl) {
+        federationLockEl.classList.add('hidden-step');
+    }
+
+    if (viewFederationEl) {
+        viewFederationEl.classList.add('hidden-step');
+        viewFederationEl.classList.remove('fade-in');
+        viewFederationEl.classList.remove('is-unlocked');
+    }
+
     showUniverseHub('federation', { animate: false });
     persistDashboardShellView('hub', 'federation');
     syncFederationEntryButton();
