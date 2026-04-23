@@ -4906,6 +4906,35 @@ const openNotificationTarget = (target = '') => {
         return;
     }
 
+    if (
+        normalized === 'plaza-status' ||
+        normalized === 'plaza_status' ||
+        normalized === 'plaza-application' ||
+        normalized === 'plaza_application'
+    ) {
+        refreshPlazaAccessStatusFromBackend(true)
+            .then((snapshot) => {
+                const status = normalizePlazaStatus(snapshot?.applicationStatus || '');
+
+                if (snapshot?.canEnterPlaza || status === 'approved') {
+                    redirectToPlazaPage();
+                    return;
+                }
+
+                if (!snapshot?.hasApplication || status === 'rejected') {
+                    openPlazaApplicationModal();
+                    return;
+                }
+
+                syncPlazaEntryButton(snapshot);
+                showToast('Your Plaza application is still in review.', 'error');
+            })
+            .catch(() => {
+                window.location.href = '/dashboard';
+            });
+        return;
+    }
+
     if (normalized === 'plaza') {
         window.location.href = '/plaza';
         return;

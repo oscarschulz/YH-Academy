@@ -2970,6 +2970,64 @@ function getUserInProductNotifications(user = {}) {
         .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
         .slice(0, USER_IN_PRODUCT_NOTIFICATION_LIMIT);
 }
+function buildInProductReviewNotification({
+    title = 'Application Update',
+    text = '',
+    target = '',
+    targetId = '',
+    applicationField = '',
+    applicationStatus = '',
+    color = 'var(--neon-blue)',
+    avatarStr = 'A',
+    source = 'admin-review',
+    notificationType = 'application-review'
+} = {}) {
+    const nowIso = new Date().toISOString();
+    const id = `review_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
+
+    return {
+        id,
+        title: sanitizeText(title || 'Application Update'),
+        text: sanitizeText(text),
+        message: sanitizeText(text),
+        body: sanitizeText(text),
+        target: sanitizeText(target),
+        targetType: sanitizeText(target),
+        target_type: sanitizeText(target),
+        targetId: sanitizeText(targetId),
+        target_id: sanitizeText(targetId),
+        color: sanitizeText(color || 'var(--neon-blue)'),
+        avatarStr: sanitizeText(avatarStr || 'A'),
+        initial: sanitizeText(avatarStr || 'A'),
+        source: sanitizeText(source || 'admin-review'),
+        notificationType: sanitizeText(notificationType || 'application-review'),
+        applicationField: sanitizeText(applicationField),
+        applicationStatus: sanitizeText(applicationStatus),
+        createdAt: nowIso,
+        created_at: nowIso,
+        isRead: false,
+        is_read: false,
+        read: false,
+        readAt: '',
+        read_at: ''
+    };
+}
+
+async function appendUserInProductNotification(userRef, user = {}, notification = {}) {
+    const current = getUserInProductNotifications(user);
+
+    const next = [
+        normalizeUserInProductNotification(notification),
+        ...current.filter((item) => sanitizeText(item?.id) !== sanitizeText(notification?.id))
+    ].slice(0, USER_IN_PRODUCT_NOTIFICATION_LIMIT);
+
+    await userRef.set({
+        inProductReviewNotifications: next,
+        updatedAt: new Date().toISOString()
+    }, { merge: true });
+
+    return next;
+}
 
 app.get('/api/member/system-notifications', requireApiUser, async (req, res) => {
     try {
@@ -3659,7 +3717,39 @@ app.patch('/api/admin/plaza/applications/:id/status', requireApiUser, requirePla
         await targetRef.set(updatePayload, { merge: true });
 
         const freshSnap = await targetRef.get();
+        const freshUser = freshSnap.exists ? (freshSnap.data() || {}) : {};
         const mapped = mapPlazaAdminApplicationUserDoc(freshSnap);
+
+        let plazaReviewText = `Your Plaza application is now ${nextLabel}.`;
+
+        if (requestedStatus === 'approved') {
+            plazaReviewText = 'Your Plaza application has been approved. Plaza access is now unlocked.';
+        } else if (requestedStatus === 'rejected') {
+            plazaReviewText = 'Your Plaza application was not approved. You can review your information and submit a stronger application again.';
+        } else if (requestedStatus === 'waitlisted') {
+            plazaReviewText = 'Your Plaza application has been waitlisted. Strengthen your signal and try again in the next review cycle.';
+        } else if (requestedStatus === 'shortlisted') {
+            plazaReviewText = 'Your Plaza application has been shortlisted. You are close to final review, but access is not unlocked yet.';
+        } else if (requestedStatus === 'screening') {
+            plazaReviewText = 'Your Plaza application is now in screening. Admin is reviewing your fit before final access decision.';
+        } else if (requestedStatus === 'under review') {
+            plazaReviewText = 'Your Plaza application is under review. Admin approval is still required before entry.';
+        }
+
+        await appendUserInProductNotification(
+            targetRef,
+            freshUser,
+            buildInProductReviewNotification({
+                title: `Plaza Application ${nextLabel}`,
+                text: plazaReviewText,
+                target: 'plaza-status',
+                targetId: sanitizeText(existingApplication.id || applicationId),
+                applicationField: 'plazaApplication',
+                applicationStatus: nextLabel,
+                color: approved ? 'var(--success)' : requestedStatus === 'rejected' ? 'var(--danger)' : 'var(--neon-blue)',
+                avatarStr: 'P'
+            })
+        );
 
         return res.json({
             success: true,
@@ -3668,7 +3758,7 @@ app.patch('/api/admin/plaza/applications/:id/status', requireApiUser, requirePla
             canEnterPlaza: approved,
             applicationStatus: nextLabel,
             member: approved
-                ? buildPlazaMemberSnapshot(freshSnap.id, freshSnap.data() || {}, req.user)
+                ? buildPlazaMemberSnapshot(freshSnap.id, freshUser, req.user)
                 : null
         });
     } catch (error) {
