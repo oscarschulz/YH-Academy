@@ -213,54 +213,94 @@
             </section>
 
               <section class="yh-plaza-panel yh-plaza-screen" id="plazaPanelDirectory" data-plaza-panel="directory" data-plaza-screen="directory" role="tabpanel" hidden>
-                <form class="yh-plaza-feed-composer" id="plazaDirectoryComposerForm">
-                  <div class="yh-plaza-feed-composer-main">
-                    <label class="yh-plaza-feed-composer-field">
-                      <span>Division</span>
-                      <select id="plazaDirectoryComposerDivision" name="division">
-                        <option value="academy">Academy</option>
-                        <option value="plaza">Plaza</option>
-                        <option value="federation">Federation</option>
-                        <option value="both">Cross-Division</option>
-                      </select>
-                    </label>
+              <form class="yh-plaza-feed-composer" id="plazaDirectoryComposerForm">
+                <div class="yh-plaza-feed-composer-main">
+                  <label class="yh-plaza-feed-composer-field">
+                    <span>Division</span>
+                    <select id="plazaDirectoryComposerDivision" name="division">
+                      <option value="academy">Academy</option>
+                      <option value="plaza">Plaza</option>
+                      <option value="federation">Federation</option>
+                      <option value="both">Cross-Division</option>
+                    </select>
+                  </label>
 
-                    <label class="yh-plaza-feed-composer-field">
-                      <span>Trust Layer</span>
-                      <select id="plazaDirectoryComposerTrust" name="trust">
-                        <option value="verified">Verified</option>
-                        <option value="connector">Trusted Connector</option>
-                        <option value="leader">Local Leader</option>
-                      </select>
-                    </label>
+                  <label class="yh-plaza-feed-composer-field">
+                    <span>Trust Layer</span>
+                    <select id="plazaDirectoryComposerTrust" name="trust">
+                      <option value="verified">Verified</option>
+                      <option value="connector">Trusted Connector</option>
+                      <option value="leader">Local Leader</option>
+                    </select>
+                  </label>
 
-                    <label class="yh-plaza-feed-composer-field">
-                      <span>Region</span>
-                      <input id="plazaDirectoryComposerRegion" name="region" type="text" placeholder="Global, Lagos, London, Dubai..." />
-                    </label>
+                  <label class="yh-plaza-feed-composer-field">
+                    <span>Region</span>
+                    <input id="plazaDirectoryComposerRegion" name="region" type="text" placeholder="Global, Lagos, London, Dubai..." />
+                  </label>
 
-                    <label class="yh-plaza-feed-composer-field yh-plaza-feed-composer-field-wide">
-                      <span>Role</span>
-                      <input id="plazaDirectoryComposerRole" name="role" type="text" placeholder="Builder, operator, designer, connector..." maxlength="120" required />
-                    </label>
+                  <label class="yh-plaza-feed-composer-field">
+                    <span>Availability</span>
+                    <select id="plazaDirectoryComposerAvailability" name="availability">
+                      <option value="">Select</option>
+                      <option value="open-now">Open now</option>
+                      <option value="part-time">Part-time</option>
+                      <option value="full-time">Full-time</option>
+                      <option value="selective">Selective</option>
+                    </select>
+                  </label>
 
-                    <label class="yh-plaza-feed-composer-field yh-plaza-feed-composer-field-wide">
-                      <span>Tags</span>
-                      <input id="plazaDirectoryComposerTags" name="tags" type="text" placeholder="Sales, AI, Design, Legal, Fitness..." maxlength="180" />
-                    </label>
+                  <label class="yh-plaza-feed-composer-field">
+                    <span>Work Mode</span>
+                    <select id="plazaDirectoryComposerWorkMode" name="workMode">
+                      <option value="">Select</option>
+                      <option value="remote">Remote</option>
+                      <option value="local">Local</option>
+                      <option value="hybrid">Hybrid</option>
+                      <option value="global">Global</option>
+                    </select>
+                  </label>
 
-                    <label class="yh-plaza-feed-composer-field yh-plaza-feed-composer-field-wide yh-plaza-feed-composer-field-signal">
-                      <span>Focus</span>
-                      <textarea id="plazaDirectoryComposerFocus" name="focus" placeholder="Explain what you do, what you are building, or what people can connect with you for." maxlength="500" required></textarea>
-                    </label>
-                  </div>
+                  <label class="yh-plaza-feed-composer-field">
+                    <span>Marketplace Mode</span>
+                    <select id="plazaDirectoryComposerMarketplaceMode" name="marketplaceMode">
+                      <option value="no">No</option>
+                      <option value="yes">Yes</option>
+                    </select>
+                  </label>
 
-                  <div class="yh-plaza-feed-composer-actions">
-                    <button type="submit" class="yh-plaza-btn yh-plaza-btn-primary" id="plazaDirectoryComposerSubmitBtn">
-                      Save Directory Profile
-                    </button>
-                  </div>
-                </form>
+                  <label class="yh-plaza-feed-composer-field yh-plaza-feed-composer-field-wide">
+                    <span>Role</span>
+                    <input id="plazaDirectoryComposerRole" name="role" type="text" placeholder="Builder, operator, designer, connector..." maxlength="120" required />
+                  </label>
+
+                  <label class="yh-plaza-feed-composer-field yh-plaza-feed-composer-field-wide">
+                    <span>Tags</span>
+                    <input id="plazaDirectoryComposerTags" name="tags" type="text" placeholder="Sales, AI, Design, Legal, Fitness..." maxlength="180" />
+                  </label>
+
+                  <label class="yh-plaza-feed-composer-field yh-plaza-feed-composer-field-wide">
+                    <span>Looking For</span>
+                    <input id="plazaDirectoryComposerLookingFor" name="lookingFor" type="text" placeholder="Clients, job, investor, partner, operator, supplier..." maxlength="240" />
+                  </label>
+
+                  <label class="yh-plaza-feed-composer-field yh-plaza-feed-composer-field-wide">
+                    <span>Can Offer</span>
+                    <input id="plazaDirectoryComposerCanOffer" name="canOffer" type="text" placeholder="Design, AI automation, outreach, legal help, intros, hiring..." maxlength="240" />
+                  </label>
+
+                  <label class="yh-plaza-feed-composer-field yh-plaza-feed-composer-field-wide yh-plaza-feed-composer-field-signal">
+                    <span>Focus</span>
+                    <textarea id="plazaDirectoryComposerFocus" name="focus" placeholder="Explain what you do, what you are building, or what people can connect with you for." maxlength="500" required></textarea>
+                  </label>
+                </div>
+
+                <div class="yh-plaza-feed-composer-actions">
+                  <button type="submit" class="yh-plaza-btn yh-plaza-btn-primary" id="plazaDirectoryComposerSubmitBtn">
+                    Save Directory Profile
+                  </button>
+                </div>
+              </form>
 
                 <div class="yh-plaza-panel-note">
                   Federation-linked people stay screened inside Plaza. Use structured connection requests to move deeper.

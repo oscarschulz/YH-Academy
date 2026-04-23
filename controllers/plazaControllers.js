@@ -163,6 +163,11 @@ function mapPlazaDirectoryDoc(docSnap) {
         role: sanitizeText(data.role || 'Member'),
         focus: sanitizeText(data.focus || ''),
         tags: normalizeTags(data.tags),
+        lookingFor: normalizeTags(data.lookingFor || data.looking_for),
+        canOffer: normalizeTags(data.canOffer || data.can_offer),
+        availability: sanitizeText(data.availability || ''),
+        workMode: sanitizeText(data.workMode || data.work_mode || ''),
+        marketplaceMode: sanitizeText(data.marketplaceMode || data.marketplace_mode || 'no').toLowerCase() === 'yes' ? 'yes' : 'no',
         authorId: sanitizeText(data.authorId || data.userId),
         authorName: sanitizeText(data.authorName || data.name || 'Hustler'),
         authorEmail: sanitizeText(data.authorEmail).toLowerCase(),
@@ -686,6 +691,11 @@ exports.upsertDirectoryProfile = async (req, res) => {
         const role = clampText(req.body?.role, 120);
         const focus = clampText(req.body?.focus, 500);
         const tags = normalizeTags(req.body?.tags);
+        const lookingFor = normalizeTags(req.body?.lookingFor || req.body?.looking_for).slice(0, 8);
+        const canOffer = normalizeTags(req.body?.canOffer || req.body?.can_offer).slice(0, 8);
+        const availability = clampText(req.body?.availability, 80);
+        const workMode = clampText(req.body?.workMode || req.body?.work_mode, 80);
+        const marketplaceMode = sanitizeText(req.body?.marketplaceMode || req.body?.marketplace_mode).toLowerCase() === 'yes' ? 'yes' : 'no';
 
         if (!role) {
             return res.status(400).json({
@@ -717,6 +727,11 @@ exports.upsertDirectoryProfile = async (req, res) => {
             role,
             focus,
             tags,
+            lookingFor,
+            canOffer,
+            availability,
+            workMode,
+            marketplaceMode,
             authorId: viewer.id,
             userId: viewer.id,
             authorFirebaseUid: viewer.firebaseUid,

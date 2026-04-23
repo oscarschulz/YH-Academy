@@ -174,13 +174,14 @@ body[data-yh-view="hub"] .desktop-user-strip-right {
 
 @media (max-width: 1280px) {
     body[data-yh-view="hub"] {
-        overflow: hidden !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
     }
 
     body[data-yh-view="hub"] .dashboard-layout {
         min-height: 100dvh !important;
-        height: 100dvh !important;
-        overflow: hidden !important;
+        height: auto !important;
+        overflow: visible !important;
     }
 
     body[data-yh-view="hub"] .yh-top-nav {
@@ -358,13 +359,14 @@ body[data-yh-view="hub"] .desktop-user-strip-right {
 }
 @media (max-width: 1180px), (max-height: 700px) {
     body[data-yh-view="hub"] {
-        overflow: hidden !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
     }
 
     body[data-yh-view="hub"] .dashboard-layout {
         min-height: 100dvh !important;
-        height: 100dvh !important;
-        overflow: hidden !important;
+        height: auto !important;
+        overflow: visible !important;
     }
 
     body[data-yh-view="hub"] .yh-top-nav {
@@ -906,12 +908,12 @@ body[data-yh-view="hub"] .desktop-user-strip-right {
 /* ========================================================= */
 
 @media (max-width: 768px) {
-        body[data-yh-view="hub"] .yh-top-nav {
+    body[data-yh-view="hub"] .yh-top-nav {
         position: sticky !important;
         top: 0 !important;
         z-index: 200 !important;
-        min-height: 60px !important;
-        height: 60px !important;
+        min-height: 56px !important;
+        height: 56px !important;
         padding: 0 12px !important;
         display: flex !important;
         flex-direction: row !important;
@@ -927,17 +929,17 @@ body[data-yh-view="hub"] .desktop-user-strip-right {
         width: auto !important;
         min-width: 0 !important;
         flex: 0 1 auto !important;
-        max-width: calc(100% - 120px) !important;
-        gap: 10px !important;
+        max-width: calc(100% - 108px) !important;
+        gap: 9px !important;
     }
 
     body[data-yh-view="hub"] .nav-brand img {
-        width: 28px !important;
-        height: 28px !important;
+        width: 26px !important;
+        height: 26px !important;
     }
 
     body[data-yh-view="hub"] .nav-brand span {
-        font-size: 0.96rem !important;
+        font-size: 0.92rem !important;
         letter-spacing: 0.04em !important;
     }
 
@@ -953,44 +955,42 @@ body[data-yh-view="hub"] .desktop-user-strip-right {
 
     body[data-yh-view="hub"] .btn-logout {
         width: auto !important;
-        min-height: 36px !important;
-        padding: 8px 10px !important;
+        min-height: 34px !important;
+        padding: 7px 10px !important;
         margin: 0 !important;
-        font-size: 0.72rem !important;
+        font-size: 0.68rem !important;
         line-height: 1 !important;
     }
 
     body[data-yh-view="hub"] .desktop-user-strip {
         display: block !important;
-        padding: 8px 12px 0 !important;
+        padding: 6px 12px 2px !important;
         background: transparent !important;
     }
 
     body[data-yh-view="hub"] .desktop-user-strip-inner {
-        display: flex !important;
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) auto !important;
         align-items: center !important;
-        justify-content: space-between !important;
-        gap: 8px !important;
+        gap: 10px !important;
         width: 100% !important;
-        flex-wrap: nowrap !important;
     }
 
     body[data-yh-view="hub"] .desktop-user-strip-left {
         display: flex !important;
         align-items: center !important;
-        gap: 8px !important;
-        flex: 1 1 auto !important;
         min-width: 0 !important;
         overflow: visible !important;
     }
 
     body[data-yh-view="hub"] .desktop-user-profile-cluster {
-        display: inline-flex !important;
-        flex-direction: row !important;
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) auto !important;
         align-items: center !important;
         gap: 8px !important;
         min-width: 0 !important;
-        width: auto !important;
+        width: 100% !important;
+        max-width: 100% !important;
         overflow: visible !important;
     }
 
@@ -1000,28 +1000,39 @@ body[data-yh-view="hub"] .desktop-user-strip-right {
         justify-content: flex-start !important;
         gap: 8px !important;
         min-width: 0 !important;
-        max-width: calc(100vw - 160px) !important;
+        width: 100% !important;
+        max-width: calc(100vw - 128px) !important;
+        overflow: hidden !important;
+    }
+
+    body[data-yh-view="hub"] .desktop-user-strip .profile-avatar-mini {
+        width: 34px !important;
+        height: 34px !important;
+        min-width: 34px !important;
+        font-size: 0.86rem !important;
     }
 
     body[data-yh-view="hub"] #top-nav-name {
         display: block !important;
-        max-width: 108px !important;
+        max-width: calc(100vw - 190px) !important;
         overflow: hidden !important;
         white-space: nowrap !important;
         text-overflow: ellipsis !important;
-        font-size: 0.82rem !important;
+        font-size: 0.8rem !important;
+        line-height: 1.1 !important;
     }
 
     body[data-yh-view="hub"] .mobile-notif-under-name,
-    body[data-yh-view="hub"] #notif-bell.notif-wrapper {
+    body[data-yh-view="hub"] #notif-bell.notif-wrapper,
+    body[data-yh-view="hub"] #notif-bell {
         display: inline-flex !important;
         align-items: center !important;
         justify-content: center !important;
-        width: 36px !important;
-        height: 36px !important;
-        min-width: 36px !important;
-        flex: 0 0 36px !important;
-        margin-left: auto !important;
+        width: 34px !important;
+        height: 34px !important;
+        min-width: 34px !important;
+        flex: 0 0 34px !important;
+        margin-left: 0 !important;
         margin-right: 0 !important;
         position: relative !important;
         align-self: center !important;
@@ -1033,17 +1044,18 @@ body[data-yh-view="hub"] .desktop-user-strip-right {
         left: auto !important;
         right: 0 !important;
         top: calc(100% + 8px) !important;
-        width: min(300px, calc(100vw - 24px)) !important;
-        max-width: calc(100vw - 24px) !important;
+        width: min(300px, calc(100vw - 20px)) !important;
+        max-width: calc(100vw - 20px) !important;
         transform: none !important;
     }
 
     body[data-yh-view="hub"] .desktop-user-strip-right {
-        display: flex !important;
+        display: inline-flex !important;
         align-items: center !important;
         justify-content: flex-end !important;
         gap: 8px !important;
         flex: 0 0 auto !important;
+        align-self: center !important;
     }
 
     body[data-yh-view="hub"] .yh-resources-menu-btn {
@@ -1057,6 +1069,7 @@ body[data-yh-view="hub"] .desktop-user-strip-right {
         overflow: hidden !important;
         justify-content: center !important;
         border-radius: 999px !important;
+        flex: 0 0 36px !important;
     }
 
     body[data-yh-view="hub"] .yh-resources-menu-icon {
@@ -1067,7 +1080,12 @@ body[data-yh-view="hub"] .desktop-user-strip-right {
     body[data-yh-view="hub"] .yh-resources-menu-panel {
         right: 0 !important;
         left: auto !important;
-        width: min(300px, calc(100vw - 24px)) !important;
+        width: min(300px, calc(100vw - 20px)) !important;
+    }
+
+    body[data-yh-view="hub"] {
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
     }
 
     body[data-yh-view="hub"] .dashboard-layout {
@@ -1085,127 +1103,240 @@ body[data-yh-view="hub"] .desktop-user-strip-right {
         bottom: auto !important;
         display: flex !important;
         flex-direction: column !important;
-        min-height: calc(100dvh - 108px) !important;
-        height: calc(100dvh - 108px) !important;
+        min-height: auto !important;
+        height: auto !important;
         overflow: visible !important;
-        padding: 24px 12px 24px !important;
+        padding: 24px 12px 40px !important;
         align-items: stretch !important;
-        justify-content: center !important;
+        justify-content: flex-start !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-intro {
-        margin-top: 8px !important;
+        margin-top: 6px !important;
         margin-bottom: 0 !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-carousel-shell {
         max-width: 100% !important;
-        gap: 12px !important;
-        margin-top: 6px !important;
+        gap: 10px !important;
+        margin-top: 4px !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-title {
-        font-size: 1.72rem !important;
-        line-height: 1.05 !important;
+        font-size: 1.62rem !important;
+        line-height: 1.02 !important;
+        letter-spacing: 0.01em !important;
+        margin-bottom: 0 !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-stage-nav {
-        padding: 0 34px !important;
-        margin-top: 6px !important;
+        display: grid !important;
+        grid-template-columns: 42px minmax(0, 1fr) 42px !important;
+        grid-template-rows: auto auto auto !important;
+        align-items: start !important;
+        row-gap: 8px !important;
+        column-gap: 8px !important;
+        padding: 0 !important;
+        margin-top: 4px !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-stage-body {
+        display: contents !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-carousel-column {
+        grid-column: 1 / -1 !important;
+        grid-row: 1 !important;
+        min-width: 0 !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-feature-panel--side {
+        grid-column: 1 / -1 !important;
+        grid-row: 3 !important;
+        width: 100% !important;
+        margin-top: 0 !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-side-nav {
+        position: static !important;
+        top: auto !important;
+        left: auto !important;
+        right: auto !important;
+        transform: none !important;
         display: inline-flex !important;
-        width: 40px !important;
-        height: 40px !important;
-        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.24) !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: 42px !important;
+        height: 42px !important;
+        margin: 0 !important;
+        box-shadow: 0 10px 22px rgba(0, 0, 0, 0.22) !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-side-nav:hover {
+        transform: scale(1.04) !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-side-nav span {
-        font-size: 1.25rem !important;
+        font-size: 1.12rem !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-side-nav-prev {
-        left: 0 !important;
+        grid-column: 1 !important;
+        grid-row: 2 !important;
+        justify-self: start !important;
+        align-self: center !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-side-nav-next {
-        right: 0 !important;
+        grid-column: 3 !important;
+        grid-row: 2 !important;
+        justify-self: end !important;
+        align-self: center !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-slide .portal-card {
         width: 100% !important;
         max-width: 100% !important;
-        padding: 14px 12px 12px !important;
-        border-radius: 16px !important;
-        gap: 10px !important;
+        padding: 13px 11px 11px !important;
+        border-radius: 15px !important;
+        gap: 9px !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-slide .portal-icon {
-        font-size: 2rem !important;
+        font-size: 1.9rem !important;
         margin-bottom: 0 !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-slide .portal-title {
-        font-size: 1.14rem !important;
-        line-height: 1.14 !important;
+        font-size: 1.08rem !important;
+        line-height: 1.1 !important;
         text-align: left !important;
+        margin-bottom: 0 !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-slide .portal-desc {
-        font-size: 0.84rem !important;
-        line-height: 1.48 !important;
+        font-size: 0.81rem !important;
+        line-height: 1.42 !important;
         text-align: left !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-meta {
         align-items: flex-start !important;
-        gap: 8px !important;
+        gap: 7px !important;
+        margin-bottom: 1px !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-meta-copy {
         width: 100% !important;
-        font-size: 0.78rem !important;
-        line-height: 1.42 !important;
+        font-size: 0.75rem !important;
+        line-height: 1.34 !important;
     }
 
     body[data-yh-view="hub"] #btn-open-academy-apply,
     body[data-yh-view="hub"] .academy-entry-button-visual,
     body[data-yh-view="hub"] .yh-universe-slide .btn-secondary {
-        min-height: 50px !important;
+        min-height: 48px !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-dots {
-        gap: 8px !important;
+        gap: 6px !important;
+        margin-top: 0 !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-dot {
-        width: 8px !important;
-        height: 8px !important;
+        width: 7px !important;
+        height: 7px !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-dot.active {
-        width: 22px !important;
+        width: 18px !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-feature-panel {
-        padding: 12px !important;
-        border-radius: 16px !important;
-        gap: 8px !important;
+        width: 100% !important;
+        padding: 10px 10px 11px !important;
+        border-radius: 14px !important;
+        gap: 7px !important;
+        margin-top: 0 !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-feature-panel--side {
+        width: 100% !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-feature-kicker {
+        font-size: 0.66rem !important;
+        letter-spacing: 0.07em !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-feature-title {
-        font-size: 0.94rem !important;
+        font-size: 0.88rem !important;
+        line-height: 1.24 !important;
+        margin-bottom: 0 !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-feature-desc {
-        font-size: 0.82rem !important;
-        line-height: 1.45 !important;
+        font-size: 0.77rem !important;
+        line-height: 1.38 !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-feature-chips {
+        gap: 6px !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-feature-chip {
-        font-size: 0.72rem !important;
-        padding: 6px 9px !important;
+        font-size: 0.66rem !important;
+        padding: 5px 8px !important;
+        border-radius: 999px !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-academy-strip,
+    body[data-yh-view="hub"] .yh-universe-federation-strip {
+        width: 100% !important;
+        margin-top: 12px !important;
+        padding: 4px 0 2px !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-academy-strip-head {
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        justify-content: flex-start !important;
+        gap: 4px !important;
+        margin-bottom: 8px !important;
+        padding: 0 2px !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-academy-strip-kicker {
+        font-size: 0.66rem !important;
+        letter-spacing: 0.07em !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-academy-strip-copy {
+        font-size: 0.74rem !important;
+        line-height: 1.32 !important;
+        text-align: left !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-academy-marquee {
+        border-radius: 14px !important;
+        padding: 2px 0 !important;
+        mask-image: linear-gradient(to right, transparent, #000 5%, #000 95%, transparent) !important;
+        -webkit-mask-image: linear-gradient(to right, transparent, #000 5%, #000 95%, transparent) !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-academy-marquee-group {
+        gap: 8px !important;
+        padding-right: 8px !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-academy-marquee-track {
+        animation-duration: 20s !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-academy-marquee-card {
+        width: clamp(132px, 38vw, 176px) !important;
+        border-radius: 12px !important;
     }
 
     body[data-yh-view="hub"] #academy-apply-modal {
@@ -1229,35 +1360,38 @@ body[data-yh-view="hub"] .desktop-user-strip-right {
 
 @media (max-width: 480px) {
     body[data-yh-view="hub"] .yh-top-nav {
-        min-height: 56px !important;
-        height: 56px !important;
+        min-height: 54px !important;
+        height: 54px !important;
         padding: 0 10px !important;
     }
 
     body[data-yh-view="hub"] .nav-brand {
         gap: 8px !important;
-        max-width: calc(100% - 108px) !important;
+        max-width: calc(100% - 96px) !important;
     }
 
     body[data-yh-view="hub"] .nav-brand img {
-        width: 26px !important;
-        height: 26px !important;
+        width: 24px !important;
+        height: 24px !important;
     }
 
     body[data-yh-view="hub"] .nav-brand span {
-        font-size: 0.88rem !important;
+        font-size: 0.84rem !important;
     }
 
     body[data-yh-view="hub"] .btn-logout {
-        padding: 7px 9px !important;
-        font-size: 0.68rem !important;
+        min-height: 32px !important;
+        padding: 6px 8px !important;
+        font-size: 0.64rem !important;
     }
 
     body[data-yh-view="hub"] .desktop-user-strip {
-        padding: 8px 10px 0 !important;
+        padding: 6px 10px 2px !important;
     }
 
     body[data-yh-view="hub"] .desktop-user-strip-inner {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) auto !important;
         gap: 8px !important;
         align-items: center !important;
     }
@@ -1268,45 +1402,55 @@ body[data-yh-view="hub"] .desktop-user-strip-right {
     }
 
     body[data-yh-view="hub"] .desktop-user-profile-cluster {
-        display: inline-flex !important;
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) auto !important;
         align-items: center !important;
         gap: 8px !important;
-        width: auto !important;
+        width: 100% !important;
         min-width: 0 !important;
     }
 
     body[data-yh-view="hub"] .desktop-user-strip .profile-mini {
         min-width: 0 !important;
-        max-width: calc(100vw - 116px) !important;
+        width: 100% !important;
+        max-width: calc(100vw - 112px) !important;
+    }
+
+    body[data-yh-view="hub"] .desktop-user-strip .profile-avatar-mini {
+        width: 32px !important;
+        height: 32px !important;
+        min-width: 32px !important;
+        font-size: 0.8rem !important;
     }
 
     body[data-yh-view="hub"] #top-nav-name {
-        max-width: 72px !important;
-        font-size: 0.78rem !important;
+        max-width: calc(100vw - 176px) !important;
+        font-size: 0.76rem !important;
     }
 
     body[data-yh-view="hub"] .mobile-notif-under-name,
-    body[data-yh-view="hub"] #notif-bell.notif-wrapper {
-        width: 36px !important;
-        height: 36px !important;
-        min-width: 36px !important;
-        flex: 0 0 36px !important;
-        margin-left: auto !important;
+    body[data-yh-view="hub"] #notif-bell.notif-wrapper,
+    body[data-yh-view="hub"] #notif-bell {
+        width: 34px !important;
+        height: 34px !important;
+        min-width: 34px !important;
+        flex: 0 0 34px !important;
+        margin-left: 0 !important;
         margin-right: 0 !important;
     }
 
     body[data-yh-view="hub"] .desktop-user-strip-right {
-        display: flex !important;
+        display: inline-flex !important;
         align-items: center !important;
         gap: 8px !important;
         flex: 0 0 auto !important;
     }
 
     body[data-yh-view="hub"] .yh-resources-menu-btn {
-        width: 36px !important;
-        min-width: 36px !important;
-        height: 36px !important;
-        min-height: 36px !important;
+        width: 34px !important;
+        min-width: 34px !important;
+        height: 34px !important;
+        min-height: 34px !important;
         padding: 0 !important;
         gap: 0 !important;
         font-size: 0 !important;
@@ -1316,61 +1460,156 @@ body[data-yh-view="hub"] .desktop-user-strip-right {
     }
 
     body[data-yh-view="hub"] .yh-resources-menu-icon {
-        font-size: 0.96rem !important;
+        font-size: 0.92rem !important;
         line-height: 1 !important;
     }
 
     body[data-yh-view="hub"] .yh-resources-menu-panel {
         right: 0 !important;
         left: auto !important;
-        width: min(292px, calc(100vw - 20px)) !important;
+        width: min(292px, calc(100vw - 16px)) !important;
     }
 
     body[data-yh-view="hub"] #universe-hub-view,
     body[data-yh-view="hub"] .universe-hub-view {
         min-height: calc(100svh - 104px) !important;
-        padding: 16px 10px 18px !important;
+        padding: 14px 10px 18px !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-intro {
-        margin-top: 8px !important;
-    }
-
-    body[data-yh-view="hub"] .yh-universe-title {
-        font-size: 1.5rem !important;
-    }
-
-    body[data-yh-view="hub"] .yh-universe-stage-nav {
-        padding: 0 30px !important;
         margin-top: 6px !important;
     }
 
+    body[data-yh-view="hub"] .yh-universe-title {
+        font-size: 1.46rem !important;
+        line-height: 1.01 !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-stage-nav {
+        grid-template-columns: 40px minmax(0, 1fr) 40px !important;
+        row-gap: 7px !important;
+        column-gap: 7px !important;
+        margin-top: 4px !important;
+        padding: 0 !important;
+    }
+
     body[data-yh-view="hub"] .yh-universe-side-nav {
-        width: 34px !important;
-        height: 34px !important;
+        width: 40px !important;
+        height: 40px !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-side-nav span {
-        font-size: 1.04rem !important;
+        font-size: 1.02rem !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-slide .portal-card {
-        padding: 13px 11px 11px !important;
+        padding: 12px 10px 10px !important;
+        border-radius: 14px !important;
+        gap: 8px !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-slide .portal-title {
-        font-size: 1.02rem !important;
+        font-size: 0.98rem !important;
+        line-height: 1.08 !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-slide .portal-desc,
     body[data-yh-view="hub"] .yh-universe-feature-desc {
-        font-size: 0.8rem !important;
+        font-size: 0.77rem !important;
+        line-height: 1.36 !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-meta-copy {
+        font-size: 0.72rem !important;
+        line-height: 1.3 !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-dots {
+        gap: 5px !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-dot {
+        width: 6px !important;
+        height: 6px !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-dot.active {
+        width: 16px !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-feature-panel {
+        padding: 9px 9px 10px !important;
+        border-radius: 13px !important;
+        gap: 6px !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-feature-kicker {
+        font-size: 0.64rem !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-feature-title {
+        font-size: 0.86rem !important;
+        line-height: 1.22 !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-feature-desc {
+        font-size: 0.75rem !important;
+        line-height: 1.36 !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-feature-chips {
+        gap: 5px !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-feature-chip {
+        font-size: 0.64rem !important;
+        padding: 5px 7px !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-academy-strip,
+    body[data-yh-view="hub"] .yh-universe-federation-strip {
+        margin-top: 10px !important;
+        padding: 2px 0 0 !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-academy-strip-head {
+        gap: 3px !important;
+        margin-bottom: 7px !important;
+        padding: 0 1px !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-academy-strip-kicker {
+        font-size: 0.62rem !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-academy-strip-copy {
+        font-size: 0.7rem !important;
+        line-height: 1.28 !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-academy-marquee {
+        border-radius: 12px !important;
+        padding: 0 !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-academy-marquee-group {
+        gap: 6px !important;
+        padding-right: 6px !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-academy-marquee-track {
+        animation-duration: 18s !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-academy-marquee-card {
+        width: 124px !important;
+        border-radius: 11px !important;
     }
 
     body[data-yh-view="hub"] #btn-open-academy-apply,
     body[data-yh-view="hub"] .academy-entry-button-visual,
     body[data-yh-view="hub"] .yh-universe-slide .btn-secondary {
-        min-height: 48px !important;
+        min-height: 46px !important;
     }
 
     body[data-yh-view="hub"] #academy-apply-modal .modal-content {
@@ -1401,7 +1640,8 @@ body[data-yh-view="hub"] .desktop-user-strip-right {
     }
 
     body[data-yh-view="hub"] .mobile-notif-under-name,
-    body[data-yh-view="hub"] #notif-bell.notif-wrapper {
+    body[data-yh-view="hub"] #notif-bell.notif-wrapper,
+    body[data-yh-view="hub"] #notif-bell {
         width: 34px !important;
         height: 34px !important;
         min-width: 34px !important;
@@ -1421,36 +1661,61 @@ body[data-yh-view="hub"] .desktop-user-strip-right {
 
     body[data-yh-view="hub"] #universe-hub-view,
     body[data-yh-view="hub"] .universe-hub-view {
-        padding: 14px 8px 18px !important;
+        padding: 12px 8px 18px !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-stage-nav {
-        padding: 0 28px !important;
+        grid-template-columns: 36px minmax(0, 1fr) 36px !important;
+        row-gap: 6px !important;
+        column-gap: 6px !important;
+        padding: 0 !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-side-nav {
-        width: 32px !important;
-        height: 32px !important;
+        width: 36px !important;
+        height: 36px !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-side-nav span {
-        font-size: 0.96rem !important;
+        font-size: 0.94rem !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-title {
-        font-size: 1.38rem !important;
+        font-size: 1.34rem !important;
+        line-height: 1 !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-slide .portal-card {
-        padding: 12px 10px 10px !important;
+        padding: 11px 9px 9px !important;
+        border-radius: 13px !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-slide .portal-title {
-        font-size: 0.96rem !important;
+        font-size: 0.94rem !important;
+        line-height: 1.06 !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-slide .portal-desc,
     body[data-yh-view="hub"] .yh-universe-feature-desc {
-        font-size: 0.78rem !important;
+        font-size: 0.75rem !important;
+        line-height: 1.32 !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-meta-copy {
+        font-size: 0.7rem !important;
+        line-height: 1.26 !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-dots {
+        gap: 4px !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-dot {
+        width: 6px !important;
+        height: 6px !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-dot.active {
+        width: 14px !important;
     }
 }

@@ -277,7 +277,12 @@ function normalizeServerDirectoryItem(item, index = 0) {
     trust: item?.trust || "verified",
     role: item?.role || "Member",
     focus: item?.focus || "",
-    tags: Array.isArray(item?.tags) ? item.tags : []
+    tags: Array.isArray(item?.tags) ? item.tags : [],
+    lookingFor: item?.lookingFor || item?.looking_for || [],
+    canOffer: item?.canOffer || item?.can_offer || [],
+    availability: item?.availability || "",
+    workMode: item?.workMode || item?.work_mode || "",
+    marketplaceMode: item?.marketplaceMode || item?.marketplace_mode || "no"
   }, index);
 }
 
@@ -722,6 +727,19 @@ function normalizeFeedItem(item, index) {
 function normalizeDirectoryItem(item, index) {
   const division = normalizeDivision(item?.division);
   const source = normalizeSource(item?.source, division);
+
+  const normalizeSignalList = (value) => {
+    if (Array.isArray(value)) {
+      return value.map((entry) => String(entry || "").trim()).filter(Boolean).slice(0, 8);
+    }
+
+    return String(value || "")
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+      .slice(0, 8);
+  };
+
   return {
     id: item?.id || `member-${index + 1}`,
     name: String(item?.name || "Unnamed member"),
@@ -731,7 +749,12 @@ function normalizeDirectoryItem(item, index) {
     trust: normalizeTrust(item?.trust),
     role: String(item?.role || "Member"),
     focus: String(item?.focus || "No focus added yet."),
-    tags: safeArray(item?.tags).map((tag) => String(tag))
+    tags: safeArray(item?.tags).map((tag) => String(tag)),
+    lookingFor: normalizeSignalList(item?.lookingFor || item?.looking_for),
+    canOffer: normalizeSignalList(item?.canOffer || item?.can_offer),
+    availability: String(item?.availability || ""),
+    workMode: String(item?.workMode || item?.work_mode || ""),
+    marketplaceMode: String(item?.marketplaceMode || item?.marketplace_mode || "no").toLowerCase() === "yes" ? "yes" : "no"
   };
 }
 
@@ -3605,15 +3628,45 @@ function renderDirectory() {
         <span class="yh-plaza-directory-badge">${escapeHtml(getDivisionLabel(item.division))}</span>
         <span class="yh-plaza-directory-badge">${escapeHtml(getTrustLabel(item.trust))}</span>
       </div>
+
       <h3>${escapeHtml(item.name)}</h3>
       <p>${escapeHtml(item.focus)}</p>
+
       <div class="yh-plaza-directory-meta">
         <span>${escapeHtml(item.role)}</span>
         <span>${escapeHtml(item.region)}</span>
       </div>
+
+      ${(item.availability || item.workMode || item.marketplaceMode === "yes") ? `
+        <div class="yh-plaza-directory-meta yh-plaza-directory-meta-secondary">
+          ${item.availability ? `<span>${escapeHtml(item.availability)}</span>` : ""}
+          ${item.workMode ? `<span>${escapeHtml(item.workMode)}</span>` : ""}
+          ${item.marketplaceMode === "yes" ? `<span>Marketplace</span>` : ""}
+        </div>
+      ` : ""}
+
       <div class="yh-plaza-card-tags">
         ${item.tags.map((tag) => `<span>${escapeHtml(tag)}</span>`).join("")}
       </div>
+
+      ${Array.isArray(item.lookingFor) && item.lookingFor.length ? `
+        <div class="yh-plaza-directory-signal-block">
+          <div class="yh-plaza-directory-signal-label">Looking For</div>
+          <div class="yh-plaza-directory-signal-list">
+            ${item.lookingFor.map((entry) => `<span>${escapeHtml(entry)}</span>`).join("")}
+          </div>
+        </div>
+      ` : ""}
+
+      ${Array.isArray(item.canOffer) && item.canOffer.length ? `
+        <div class="yh-plaza-directory-signal-block">
+          <div class="yh-plaza-directory-signal-label">Can Offer</div>
+          <div class="yh-plaza-directory-signal-list">
+            ${item.canOffer.map((entry) => `<span>${escapeHtml(entry)}</span>`).join("")}
+          </div>
+        </div>
+      ` : ""}
+
       <div class="yh-plaza-card-actions">
         <button type="button" class="yh-plaza-ghost-btn" data-member-id="${escapeHtml(item.id)}">Request Connection</button>
       </div>
@@ -5966,8 +6019,13 @@ async function submitPlazaDirectoryComposer(event) {
     division: String(formData.get("division") || "academy").trim(),
     trust: String(formData.get("trust") || "verified").trim(),
     region: String(formData.get("region") || "Global").trim(),
+    availability: String(formData.get("availability") || "").trim(),
+    workMode: String(formData.get("workMode") || "").trim(),
+    marketplaceMode: String(formData.get("marketplaceMode") || "no").trim(),
     role: String(formData.get("role") || "").trim(),
     tags: String(formData.get("tags") || "").trim(),
+    lookingFor: String(formData.get("lookingFor") || "").trim(),
+    canOffer: String(formData.get("canOffer") || "").trim(),
     focus: String(formData.get("focus") || "").trim()
   };
 

@@ -2442,3 +2442,43 @@ textarea:focus,
     opacity: 1;
   }
 }
+/* ========================================================= */
+/* PLAZA DIRECTORY ECONOMIC SIGNALS                          */
+/* ========================================================= */
+.yh-plaza-directory-meta-secondary {
+  margin-top: 8px;
+  opacity: 0.92;
+}
+
+.yh-plaza-directory-signal-block {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.yh-plaza-directory-signal-label {
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--yh-text-soft);
+  margin-bottom: 8px;
+}
+
+.yh-plaza-directory-signal-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.yh-plaza-directory-signal-list span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(77, 139, 255, 0.12);
+  border: 1px solid rgba(77, 139, 255, 0.18);
+  color: var(--yh-text);
+  font-size: 0.82rem;
+}

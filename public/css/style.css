@@ -4288,7 +4288,7 @@ body.academy-launcher-open {
 
 .yh-universe-carousel-shell {
     width: 100%;
-    max-width: 560px;
+    max-width: 1040px;
     display: flex;
     flex-direction: column;
     gap: 14px;
@@ -4297,9 +4297,25 @@ body.academy-launcher-open {
 .yh-universe-stage-nav {
     position: relative;
     width: 100%;
+    max-width: 1040px;
     display: flex;
     align-items: center;
     justify-content: center;
+    margin: 0 auto;
+}
+
+.yh-universe-stage-body {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.yh-universe-carousel-column {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
 }
 
 .yh-universe-side-nav {
@@ -4513,18 +4529,24 @@ body.academy-launcher-open {
 .yh-universe-feature-panel {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    padding: 14px 14px 16px;
-    border-radius: 18px;
+    gap: 8px;
+    padding: 12px 12px 13px;
+    border-radius: 16px;
     border: 1px solid rgba(14, 165, 233, 0.18);
     background: rgba(255, 255, 255, 0.03);
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
 }
 
+.yh-universe-feature-panel--side {
+    width: 100%;
+    height: fit-content;
+    align-self: stretch;
+}
+
 .yh-universe-feature-kicker {
     color: var(--neon-blue);
-    font-size: 0.72rem;
-    letter-spacing: 0.08em;
+    font-size: 0.68rem;
+    letter-spacing: 0.075em;
     text-transform: uppercase;
     font-weight: 700;
 }
@@ -4532,33 +4554,390 @@ body.academy-launcher-open {
 .yh-universe-feature-title {
     margin: 0;
     color: #fff;
-    font-size: 1.06rem;
-    line-height: 1.3;
+    font-size: 1rem;
+    line-height: 1.22;
 }
 
 .yh-universe-feature-desc {
     margin: 0;
     color: var(--text-muted);
-    font-size: 0.9rem;
-    line-height: 1.55;
+    font-size: 0.84rem;
+    line-height: 1.42;
 }
 
 .yh-universe-feature-chips {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 6px;
 }
 
 .yh-universe-feature-chip {
     display: inline-flex;
     align-items: center;
-    padding: 7px 11px;
+    padding: 6px 9px;
     border-radius: 999px;
     background: rgba(14, 165, 233, 0.1);
     border: 1px solid rgba(14, 165, 233, 0.18);
     color: #d9f3ff;
-    font-size: 0.78rem;
+    font-size: 0.72rem;
     line-height: 1;
+}
+
+@media (min-width: 1181px) {
+    .yh-universe-carousel-shell {
+        max-width: 1340px;
+    }
+
+    .yh-universe-stage-nav {
+        max-width: 1340px;
+    }
+
+    .yh-universe-stage-body {
+        display: grid;
+        grid-template-columns: 292px minmax(0, 1fr) 292px;
+        align-items: start;
+        gap: 16px;
+    }
+
+    .yh-universe-progress-rail {
+        grid-column: 1;
+        width: 292px;
+        min-width: 292px;
+        max-width: 292px;
+        flex: 0 0 292px;
+        align-self: start;
+    }
+
+    .yh-universe-progress-card {
+        height: auto;
+    }
+
+    .yh-universe-carousel-column {
+        grid-column: 2;
+        min-width: 0;
+    }
+
+    .yh-universe-feature-panel--side {
+        grid-column: 3;
+        width: 100%;
+        margin-top: 1px;
+    }
+
+    .yh-universe-slide .portal-card {
+        padding: 12px 14px 10px !important;
+        gap: 10px;
+        border-radius: 17px !important;
+    }
+
+    .yh-universe-meta {
+        gap: 8px;
+        margin-bottom: 0;
+    }
+
+    .yh-universe-meta-copy {
+        font-size: 0.8rem;
+        line-height: 1.32;
+    }
+
+    .yh-universe-slide .portal-title {
+        font-size: 1.42rem !important;
+        margin-bottom: 0 !important;
+    }
+
+    .yh-universe-slide .portal-desc {
+        font-size: 0.86rem !important;
+        line-height: 1.42 !important;
+    }
+
+    .yh-universe-slide .portal-icon--image {
+        width: clamp(96px, 16vw, 118px);
+        margin: 0 auto 2px !important;
+    }
+
+    .yh-universe-academy-strip,
+    .yh-universe-federation-strip {
+        margin-top: -22px;
+        padding-top: 0;
+    }
+
+    .yh-universe-academy-strip-head {
+        margin-bottom: 4px;
+    }
+
+    .yh-universe-academy-strip-copy {
+        font-size: 0.78rem;
+        line-height: 1.3;
+    }
+}
+
+.yh-universe-academy-strip {
+    display: none;
+    width: 100%;
+    margin-top: 18px;
+    padding: 12px 0 2px;
+}
+
+.yh-universe-academy-strip.is-active {
+    display: block;
+}
+
+.yh-universe-academy-strip-head {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+    padding: 0 4px;
+}
+
+.yh-universe-academy-strip-kicker {
+    color: var(--neon-blue);
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+.yh-universe-academy-strip-copy {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    line-height: 1.4;
+    text-align: right;
+}
+
+.yh-universe-academy-marquee {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    border-radius: 20px;
+    padding: 6px 0;
+    mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 8%, #000 92%, transparent);
+}
+
+.yh-universe-academy-marquee-track {
+    display: flex;
+    align-items: center;
+    width: max-content;
+    will-change: transform;
+    animation: yhAcademyMarqueeScroll 24s linear infinite;
+}
+
+.yh-universe-academy-marquee:hover .yh-universe-academy-marquee-track,
+.yh-universe-academy-marquee:focus-within .yh-universe-academy-marquee-track {
+    animation-play-state: paused;
+}
+
+.yh-universe-academy-marquee-group {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-shrink: 0;
+    padding-right: 14px;
+}
+
+.yh-universe-academy-marquee-card {
+    width: clamp(180px, 15vw, 236px);
+    aspect-ratio: 16 / 10;
+    flex: 0 0 auto;
+    border-radius: 18px;
+    overflow: hidden;
+    border: 1px solid rgba(56, 189, 248, 0.16);
+    background: rgba(255, 255, 255, 0.04);
+    box-shadow:
+        0 14px 34px rgba(0, 0, 0, 0.26),
+        inset 0 1px 0 rgba(255,255,255,0.05);
+    cursor: zoom-in;
+    transition:
+        transform 0.22s ease,
+        border-color 0.22s ease,
+        box-shadow 0.22s ease;
+    outline: none;
+}
+
+.yh-universe-academy-marquee-card:hover,
+.yh-universe-academy-marquee-card:focus-visible {
+    transform: translateY(-4px);
+    border-color: rgba(56, 189, 248, 0.34);
+    box-shadow:
+        0 18px 40px rgba(0, 0, 0, 0.34),
+        0 0 0 1px rgba(56, 189, 248, 0.18),
+        inset 0 1px 0 rgba(255,255,255,0.05);
+}
+
+.yh-universe-academy-marquee-card img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    user-select: none;
+    pointer-events: none;
+    transform: scale(1.01);
+}
+
+@keyframes yhAcademyMarqueeScroll {
+    from {
+        transform: translateX(0);
+    }
+    to {
+        transform: translateX(calc(-50% - 7px));
+    }
+}
+
+@media (max-width: 1180px) {
+    .yh-universe-academy-strip {
+        margin-top: 16px;
+    }
+
+    .yh-universe-academy-strip-head {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .yh-universe-academy-strip-copy {
+        text-align: left;
+    }
+
+    .yh-universe-academy-marquee-track {
+        animation-duration: 20s;
+    }
+
+    .yh-universe-academy-marquee-card {
+        width: clamp(160px, 42vw, 220px);
+    }
+}
+
+@media (max-width: 640px) {
+    .yh-universe-academy-strip {
+        margin-top: 14px;
+    }
+
+    .yh-universe-academy-strip-head {
+        margin-bottom: 10px;
+        gap: 6px;
+    }
+
+    .yh-universe-academy-strip-copy {
+        font-size: 0.76rem;
+    }
+
+    .yh-universe-academy-marquee-group {
+        gap: 10px;
+        padding-right: 10px;
+    }
+
+    .yh-universe-academy-marquee-track {
+        animation-duration: 18s;
+    }
+
+    .yh-universe-academy-marquee-card {
+        width: 148px;
+        border-radius: 14px;
+    }
+}
+
+.yh-universe-image-lightbox {
+    z-index: 12050 !important;
+    background: rgba(2, 6, 23, 0.82) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    padding: 24px !important;
+}
+
+.yh-universe-image-lightbox-dialog {
+    position: relative;
+    width: min(1100px, calc(100vw - 40px));
+    max-height: min(90vh, 900px);
+    padding: 18px 18px 14px;
+    border-radius: 24px;
+    background: rgba(8, 15, 30, 0.96);
+    border: 1px solid rgba(56, 189, 248, 0.22);
+    box-shadow: 0 28px 80px rgba(0, 0, 0, 0.55);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow: hidden;
+}
+
+.yh-universe-image-lightbox-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 42px;
+    height: 42px;
+    border: none;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    font-size: 1rem;
+    cursor: pointer;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.yh-universe-image-lightbox-close:hover {
+    background: rgba(56, 189, 248, 0.16);
+    transform: scale(1.04);
+}
+
+.yh-universe-image-lightbox-media-wrap {
+    width: 100%;
+    min-height: 0;
+    overflow: hidden;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.yh-universe-image-lightbox-img {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    max-height: min(78vh, 820px);
+    margin: 0 auto;
+    object-fit: contain;
+    border-radius: 18px;
+    background: #020617;
+}
+
+.yh-universe-image-lightbox-caption {
+    min-height: 18px;
+    color: var(--text-muted);
+    font-size: 0.84rem;
+    line-height: 1.4;
+    text-align: center;
+    padding: 0 8px 2px;
+}
+
+@media (max-width: 640px) {
+    .yh-universe-image-lightbox {
+        padding: 14px !important;
+    }
+
+    .yh-universe-image-lightbox-dialog {
+        width: min(100vw - 20px, 100%);
+        padding: 12px 12px 10px;
+        border-radius: 18px;
+    }
+
+    .yh-universe-image-lightbox-close {
+        top: 10px;
+        right: 10px;
+        width: 38px;
+        height: 38px;
+    }
+
+    .yh-universe-image-lightbox-img {
+        max-height: 72vh;
+        border-radius: 14px;
+    }
+
+    .yh-universe-image-lightbox-caption {
+        font-size: 0.78rem;
+    }
 }
 
 #academy-wrapper {
@@ -7221,7 +7600,7 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-world-map {
 
     body[data-yh-view="hub"] .yh-universe-carousel-shell {
         width: 100% !important;
-        max-width: 720px !important;
+        max-width: 1040px !important;
         margin: 0 auto !important;
     }
 }
@@ -7258,7 +7637,7 @@ body[data-yh-view="hub"] .yh-universe-hub-shell {
 
 body[data-yh-view="hub"] .yh-universe-carousel-shell {
     width: 100% !important;
-    max-width: 720px !important;
+    max-width: 1040px !important;
     margin: 0 auto !important;
 }
 
@@ -14722,4 +15101,135 @@ body[data-yh-page="apply"] .flip-card-front .step1-title {
 
 body[data-yh-page="apply"] .flip-card-front .step1-subtitle {
     margin-top: 0.12rem;
+}
+/* ========================================================= */
+/* YH DASHBOARD ECONOMIC SNAPSHOT                            */
+/* ========================================================= */
+.yh-universe-progress-rail {
+    width: min(292px, 100%);
+    flex: 0 0 292px;
+    display: flex;
+    align-items: flex-start;
+}
+
+.yh-universe-progress-card {
+    width: 100%;
+    background: rgba(8, 18, 34, 0.82);
+    border: 1px solid rgba(96, 165, 250, 0.16);
+    border-radius: 22px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+    padding: 15px 15px 14px;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+}
+
+.yh-universe-progress-kicker {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.11em;
+    color: #7dd3fc;
+    margin-bottom: 7px;
+}
+
+.yh-universe-progress-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #f8fbff;
+    margin-bottom: 6px;
+}
+
+.yh-universe-progress-copy {
+    font-size: 0.84rem;
+    line-height: 1.42;
+    color: #cbd5e1;
+    margin-bottom: 12px;
+}
+
+.yh-universe-progress-tier {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 9px 11px;
+    border-radius: 14px;
+    background: rgba(15, 23, 42, 0.58);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    margin-bottom: 10px;
+}
+
+.yh-universe-progress-tier-label {
+    font-size: 0.8rem;
+    color: #94a3b8;
+}
+
+.yh-universe-progress-tier strong {
+    font-size: 0.88rem;
+    color: #f8fbff;
+}
+
+.yh-universe-progress-status-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.yh-universe-progress-status-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 9px 11px;
+    border-radius: 14px;
+    background: rgba(9, 16, 28, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.yh-universe-progress-status-row span {
+    font-size: 0.82rem;
+    color: #94a3b8;
+}
+
+.yh-universe-progress-status-row strong {
+    font-size: 0.84rem;
+    color: #f8fbff;
+    text-align: right;
+}
+
+.yh-universe-progress-divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.08);
+    margin: 11px 0 9px;
+}
+
+.yh-universe-progress-meta-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: #7dd3fc;
+    margin-bottom: 4px;
+}
+
+.yh-universe-progress-meta-value {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #f8fbff;
+}
+
+.yh-universe-progress-meta-sub {
+    margin-top: 3px;
+    font-size: 0.8rem;
+    color: #94a3b8;
+    line-height: 1.3;
+}
+@media (max-width: 1100px) {
+    .yh-universe-stage-body {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .yh-universe-progress-rail {
+        width: 100%;
+        flex: 0 0 auto;
+    }
 }

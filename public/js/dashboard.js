@@ -140,7 +140,114 @@ function runDashboardApplicationFormLoader(label = 'Opening Application...', cal
         }
     }, 420);
 }
+function readYHJsonCache(key, fallback = null) {
+    try {
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fallback;
+    } catch (_) {
+        return fallback;
+    }
+}
 
+function normalizeYHEconStatus(value = '', fallback = 'Not Applied') {
+    const raw = String(value || '').trim().toLowerCase();
+
+    if (!raw) return fallback;
+    if (raw === 'approved' || raw === 'active') return 'Approved';
+    if (raw === 'under review' || raw === 'pending' || raw === 'pending review' || raw === 'review') return 'Under Review';
+    if (raw === 'screening' || raw === 'in screening') return 'Screening';
+    if (raw === 'shortlisted' || raw === 'shortlist') return 'Shortlisted';
+    if (raw === 'waitlisted' || raw === 'waitlist') return 'Waitlisted';
+    if (raw === 'rejected' || raw === 'denied' || raw === 'not approved') return 'Rejected';
+
+    return raw.charAt(0).toUpperCase() + raw.slice(1);
+}
+
+function getYHTrustTierLabel(academySnapshot = null, plazaSnapshot = null, federationSnapshot = null) {
+    const academyApproved = academySnapshot?.canEnterAcademy === true || String(academySnapshot?.applicationStatus || '').trim().toLowerCase() === 'approved';
+    const plazaApproved = plazaSnapshot?.canEnterPlaza === true || String(plazaSnapshot?.applicationStatus || '').trim().toLowerCase() === 'approved';
+    const federationApproved = federationSnapshot?.canEnterFederation === true || String(federationSnapshot?.applicationStatus || '').trim().toLowerCase() === 'approved';
+
+    if (federationApproved) return 'Strategic';
+    if (plazaApproved) return 'Active Connector';
+    if (academyApproved) return 'Builder';
+    return 'Guest';
+}
+
+function getYHNextStepCopy(academySnapshot = null, plazaSnapshot = null, federationSnapshot = null) {
+    const academyApproved = academySnapshot?.canEnterAcademy === true || String(academySnapshot?.applicationStatus || '').trim().toLowerCase() === 'approved';
+    const plazaApproved = plazaSnapshot?.canEnterPlaza === true || String(plazaSnapshot?.applicationStatus || '').trim().toLowerCase() === 'approved';
+    const federationApproved = federationSnapshot?.canEnterFederation === true || String(federationSnapshot?.applicationStatus || '').trim().toLowerCase() === 'approved';
+
+    if (!academyApproved) {
+        return 'Apply for The Academy first so you can unlock training, missions, and execution inside YH Universe.';
+    }
+
+    if (!plazaApproved) {
+        return 'Your next move is Plaza. Apply for access so you can turn your value into opportunities, requests, and connections.';
+    }
+
+    if (!federationApproved) {
+        return 'You already have movement inside the system. Build stronger trust, contribution, and leverage if you want to qualify for Federation.';
+    }
+
+    return 'You have reached the highest trust layer currently unlocked. Use the Universe to deepen access, opportunities, and strategic relationships.';
+}
+
+function renderYHEconomicSnapshot() {
+    const nameEl = document.getElementById('yh-econ-profile-name');
+    const roleEl = document.getElementById('yh-econ-profile-role');
+    const trustEl = document.getElementById('yh-econ-trust-tier');
+    const nextEl = document.getElementById('yh-econ-next-step');
+    const academyEl = document.getElementById('yh-econ-academy-status');
+    const plazaEl = document.getElementById('yh-econ-plaza-status');
+    const federationEl = document.getElementById('yh-econ-federation-status');
+
+    if (!nameEl || !roleEl || !trustEl || !nextEl || !academyEl || !plazaEl || !federationEl) {
+        return;
+    }
+
+    const academySnapshot =
+        readYHJsonCache('yh_academy_membership_status_v1', null) || {
+            canEnterAcademy: false,
+            applicationStatus: ''
+        };
+
+    const plazaSnapshot =
+        readYHJsonCache('yh_plaza_access_status_v1', null) || {
+            canEnterPlaza: false,
+            applicationStatus: ''
+        };
+
+    const federationSnapshot =
+        readYHJsonCache('yh_federation_access_status_v1', null) || {
+            canEnterFederation: false,
+            applicationStatus: ''
+        };
+
+    const fullName =
+        String(
+            localStorage.getItem('yh_user_full_name') ||
+            localStorage.getItem('yh_user_name') ||
+            'Hustler'
+        ).trim() || 'Hustler';
+
+    const roleCopy = getYHTrustTierLabel(academySnapshot, plazaSnapshot, federationSnapshot);
+
+    nameEl.textContent = fullName;
+    roleEl.textContent = roleCopy === 'Guest'
+        ? 'Building your path inside YH Universe'
+        : `${roleCopy} inside YH Universe`;
+
+    trustEl.textContent = roleCopy;
+    nextEl.textContent = getYHNextStepCopy(academySnapshot, plazaSnapshot, federationSnapshot);
+
+    academyEl.textContent = normalizeYHEconStatus(academySnapshot?.applicationStatus, academySnapshot?.canEnterAcademy ? 'Approved' : 'Not Applied');
+    plazaEl.textContent = normalizeYHEconStatus(plazaSnapshot?.applicationStatus, plazaSnapshot?.canEnterPlaza ? 'Approved' : 'Not Applied');
+    federationEl.textContent = normalizeYHEconStatus(federationSnapshot?.applicationStatus, federationSnapshot?.canEnterFederation ? 'Approved' : 'Not Applied');
+}
+
+window.renderYHEconomicSnapshot = renderYHEconomicSnapshot;
 function buildPlazaUrl() {
     return '/plaza.html';
 }
@@ -466,7 +573,14 @@ document.addEventListener('DOMContentLoaded', () => {
     var YH_ACADEMY_APPROVAL_BADGE_SEEN_KEY = 'yh_academy_approval_badge_seen_v1';
     var YH_ACADEMY_COMMUNITY_APPROVAL_TOAST_SEEN_KEY = 'yh_academy_community_approval_toast_seen_v1';
 
-    hydrateDashboardTopProfile().catch(() => {});
+    hydrateDashboardTopProfile()
+        .catch(() => {})
+        .finally(() => {
+            renderYHEconomicSnapshot();
+        });
+
+    initUniverseImageLightbox();
+    renderYHEconomicSnapshot();
 
     // --- UPDATED NAVIGATION & ROUTING LOGIC ---
 const universeFeatureContent = {
@@ -576,6 +690,8 @@ function writePlazaAccessStatusCache(snapshot = {}) {
             cachedAt: new Date().toISOString()
         }));
     } catch (_) {}
+
+    window.renderYHEconomicSnapshot?.();
 }
 
 function getPlazaButtonCopy(snapshot = null) {
@@ -1336,6 +1452,115 @@ function normalizeUniverseDivision(value = 'academy') {
     return allowedDivisions.includes(normalized) ? normalized : 'academy';
 }
 
+function openUniverseImageLightbox(src = '', alt = '') {
+    const overlay = document.getElementById('yh-universe-image-lightbox');
+    const image = document.getElementById('yh-universe-image-lightbox-img');
+    const caption = document.getElementById('yh-universe-image-lightbox-title');
+
+    if (!overlay || !image) return;
+    if (!src) return;
+
+    image.src = src;
+    image.alt = alt || 'Full image preview';
+
+    if (caption) {
+        caption.textContent = String(alt || '').trim();
+    }
+
+    overlay.classList.remove('hidden-step');
+    overlay.setAttribute('aria-hidden', 'false');
+    document.body?.classList.add('yh-universe-image-lightbox-open');
+}
+
+function closeUniverseImageLightbox() {
+    const overlay = document.getElementById('yh-universe-image-lightbox');
+    const image = document.getElementById('yh-universe-image-lightbox-img');
+    const caption = document.getElementById('yh-universe-image-lightbox-title');
+
+    if (!overlay) return;
+
+    overlay.classList.add('hidden-step');
+    overlay.setAttribute('aria-hidden', 'true');
+    document.body?.classList.remove('yh-universe-image-lightbox-open');
+
+    if (image) {
+        image.src = '';
+        image.alt = '';
+    }
+
+    if (caption) {
+        caption.textContent = '';
+    }
+}
+
+function initUniverseImageLightbox() {
+    const overlay = document.getElementById('yh-universe-image-lightbox');
+    const closeBtn = document.getElementById('yh-universe-image-lightbox-close');
+    const cards = Array.from(document.querySelectorAll('.yh-universe-academy-marquee-card'));
+
+    if (!overlay || overlay.dataset.bound === 'true') return;
+    overlay.dataset.bound = 'true';
+
+    cards.forEach((card) => {
+        const img = card.querySelector('img');
+        const src = img?.getAttribute('src') || '';
+        const alt = img?.getAttribute('alt') || 'Full image preview';
+
+        if (!src) return;
+
+        card.setAttribute('role', 'button');
+        card.setAttribute('tabindex', '0');
+        card.setAttribute('aria-label', `Open image: ${alt}`);
+
+        card.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            openUniverseImageLightbox(src, alt);
+        });
+
+        card.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            event.preventDefault();
+            openUniverseImageLightbox(src, alt);
+        });
+    });
+
+    closeBtn?.addEventListener('click', () => {
+        closeUniverseImageLightbox();
+    });
+
+    overlay.addEventListener('click', (event) => {
+        if (event.target === overlay) {
+            closeUniverseImageLightbox();
+        }
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !overlay.classList.contains('hidden-step')) {
+            closeUniverseImageLightbox();
+        }
+    });
+}
+
+function syncUniverseAcademyStrip(targetDivision = 'academy') {
+    const division = normalizeUniverseDivision(targetDivision);
+    const academyStrip = document.getElementById('yh-universe-academy-strip');
+    const federationStrip = document.getElementById('yh-universe-federation-strip');
+
+    const isAcademy = division === 'academy';
+    const isFederation = division === 'federation';
+
+    if (academyStrip) {
+        academyStrip.classList.toggle('is-active', isAcademy);
+        academyStrip.setAttribute('aria-hidden', isAcademy ? 'false' : 'true');
+    }
+
+    if (federationStrip) {
+        federationStrip.classList.toggle('is-active', isFederation);
+        federationStrip.setAttribute('aria-hidden', isFederation ? 'false' : 'true');
+    }
+}
+
 function syncUniverseFeaturePanel(targetDivision = 'academy') {
     const division = normalizeUniverseDivision(targetDivision);
     const copy = universeFeatureContent[division] || universeFeatureContent.academy;
@@ -1351,6 +1576,8 @@ function syncUniverseFeaturePanel(targetDivision = 'academy') {
     if (chips) {
         chips.innerHTML = copy.chips.map((chip) => `<span class="yh-universe-feature-chip">${chip}</span>`).join('');
     }
+
+    syncUniverseAcademyStrip(division);
 }
 
 function setUniverseSlide(targetDivision = 'academy', options = {}) {
@@ -11135,11 +11362,14 @@ function writeFederationStatusCache(snapshot = null) {
     try {
         if (!snapshot || typeof snapshot !== 'object') {
             localStorage.removeItem(YH_FEDERATION_STATUS_CACHE_KEY);
+            window.renderYHEconomicSnapshot?.();
             return;
         }
 
         localStorage.setItem(YH_FEDERATION_STATUS_CACHE_KEY, JSON.stringify(snapshot));
     } catch (_) {}
+
+    window.renderYHEconomicSnapshot?.();
 }
 
 function getCurrentFederationApplicantIdentity() {
@@ -11834,10 +12064,12 @@ function readAcademyMembershipCache() {
 function writeAcademyMembershipCache(snapshot = null) {
     if (!snapshot || typeof snapshot !== 'object') {
         localStorage.removeItem(YH_ACADEMY_MEMBERSHIP_CACHE_KEY);
+        window.renderYHEconomicSnapshot?.();
         return;
     }
 
     localStorage.setItem(YH_ACADEMY_MEMBERSHIP_CACHE_KEY, JSON.stringify(snapshot));
+    window.renderYHEconomicSnapshot?.();
 }
 var academyMembershipRefreshPromise = null;
 var academyMembershipRealtimeTimer = null;
