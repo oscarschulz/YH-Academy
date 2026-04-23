@@ -1347,7 +1347,6 @@ window.addEventListener('load', () => {
     const flipper = document.getElementById('auth-flipper');
     const btnFlipRegister = document.getElementById('btn-flip-register');
     const btnFlipLogin = document.getElementById('btn-flip-login');
-    const triggerArea = document.querySelector('.flip-trigger-area');
 
     const syncMobileAuthCardHeight = (options = {}) => {
         const animateFace = options.animateFace === true;
@@ -1509,13 +1508,6 @@ window.addEventListener('load', () => {
 
     if (btnFlipRegister) btnFlipRegister.addEventListener('click', flipToRegister);
     if (btnFlipLogin) btnFlipLogin.addEventListener('click', flipToLogin);
-
-    if (triggerArea) {
-        triggerArea.addEventListener('click', (e) => {
-            if (e.target.classList.contains('auth-stop-propagation')) return;
-            flipToRegister();
-        });
-    }
 
     syncMobileAuthCardHeight();
 
@@ -1995,33 +1987,418 @@ if (formRegisterSimple) {
     }
     const authSection = document.getElementById('yh-auth-section');
     const divisionsSection = document.getElementById('yh-divisions-section');
+    const isApplyLanding = document.body?.dataset?.yhPage === 'apply';
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const LANDING_SOUND_KEY = 'yh_landing_sound_enabled_v1';
 
-    const scrollToTarget = (target) => {
+    const landingSoundState = {
+        enabled: localStorage.getItem(LANDING_SOUND_KEY) !== '0'
+    };
+
+    let landingAudioCtx = null;
+    let lastManualScrollSoundAt = 0;
+    let lastManualScrollY = window.scrollY;
+    let meteorTimer = null;
+    let asteroidParallaxFrame = 0;
+
+    const getLandingAudioCtx = async () => {
+        if (!isApplyLanding) return null;
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return null;
+
+        if (!landingAudioCtx) {
+            landingAudioCtx = new AudioCtx();
+        }
+
+        if (landingAudioCtx.state === 'suspended') {
+            try {
+                await landingAudioCtx.resume();
+            } catch (_) {}
+        }
+
+        return landingAudioCtx;
+    };
+
+    const canPlayLandingSound = () => (
+        isApplyLanding &&
+        landingSoundState.enabled &&
+        !prefersReducedMotion.matches
+    );
+
+    const updateSoundToggleUI = () => {
+        const toggle = document.getElementById('yh-sound-toggle');
+        if (!toggle) return;
+
+        toggle.classList.toggle('is-muted', !landingSoundState.enabled);
+        toggle.setAttribute('aria-pressed', landingSoundState.enabled ? 'true' : 'false');
+
+        const icon = toggle.querySelector('.yh-sound-toggle-icon');
+        const label = toggle.querySelector('.yh-sound-toggle-label');
+
+        if (icon) icon.textContent = landingSoundState.enabled ? '🔊' : '🔇';
+        if (label) label.textContent = landingSoundState.enabled ? 'Sound On' : 'Sound Off';
+    };
+
+    const playLandingTone = async ({
+        freq = 220,
+        endFreq = null,
+        duration = 0.08,
+        type = 'sine',
+        gain = 0.018,
+        attack = 0.003,
+        release = 0.05,
+        detune = 0
+    } = {}) => {
+        if (!canPlayLandingSound()) return;
+
+        const ctx = await getLandingAudioCtx();
+        if (!ctx) return;
+
+        const now = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, now);
+        if (endFreq && endFreq !== freq) {
+            osc.frequency.exponentialRampToValueAtTime(Math.max(20, endFreq), now + duration);
+        }
+        osc.detune.setValueAtTime(detune, now);
+
+        gainNode.gain.setValueAtTime(0.0001, now);
+        gainNode.gain.linearRampToValueAtTime(gain, now + attack);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, now + duration + release);
+
+        osc.connect(gainNode);
+        gainNode.connect(ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + duration + release + 0.02);
+    };
+
+    const playUiClick = async () => {
+        await playLandingTone({
+            freq: 380,
+            endFreq: 305,
+            duration: 0.06,
+            type: 'triangle',
+            gain: 0.018,
+            attack: 0.002,
+            release: 0.045
+        });
+
+        await playLandingTone({
+            freq: 760,
+            endFreq: 645,
+            duration: 0.038,
+            type: 'sine',
+            gain: 0.011,
+            attack: 0.0012,
+            release: 0.03
+        });
+    };
+
+    const playFlipWhoosh = async () => {
+        await playLandingTone({
+            freq: 165,
+            endFreq: 460,
+            duration: 0.17,
+            type: 'triangle',
+            gain: 0.016,
+            attack: 0.003,
+            release: 0.08
+        });
+
+        await playLandingTone({
+            freq: 520,
+            endFreq: 350,
+            duration: 0.10,
+            type: 'sine',
+            gain: 0.007,
+            attack: 0.002,
+            release: 0.05
+        });
+    };
+
+    const playScrollWhoosh = async (gain = 0.0135) => {
+        await playLandingTone({
+            freq: 230,
+            endFreq: 138,
+            duration: 0.11,
+            type: 'sine',
+            gain,
+            attack: 0.004,
+            release: 0.06
+        });
+    };
+
+    const ensureLandingAmbientLayers = () => {
+        if (!isApplyLanding) return;
+
+        const shell = document.querySelector('#step-1.yh-landing-step .yh-landing-shell');
+        if (!shell) return;
+
+        if (!shell.querySelector('.yh-space-ambient')) {
+            const ambient = document.createElement('div');
+            ambient.className = 'yh-space-ambient';
+            ambient.setAttribute('aria-hidden', 'true');
+            ambient.innerHTML = `
+                <div class="yh-space-stars"></div>
+                <div class="yh-space-rays"></div>
+
+                <div class="yh-space-asteroid-layer yh-space-asteroid-layer--far">
+                    <span class="yh-space-asteroid asteroid-a"></span>
+                    <span class="yh-space-asteroid asteroid-b"></span>
+                </div>
+
+                <div class="yh-space-asteroid-layer yh-space-asteroid-layer--mid">
+                    <span class="yh-space-asteroid asteroid-c"></span>
+                    <span class="yh-space-asteroid asteroid-d"></span>
+                </div>
+
+                <div class="yh-space-asteroid-layer yh-space-asteroid-layer--near">
+                    <span class="yh-space-asteroid asteroid-e"></span>
+                </div>
+
+                <div class="yh-space-meteor-layer"></div>
+            `;
+
+            const bg = shell.querySelector('.yh-landing-bg');
+            if (bg && bg.nextSibling) {
+                shell.insertBefore(ambient, bg.nextSibling);
+            } else {
+                shell.appendChild(ambient);
+            }
+        }
+
+        const topbar = shell.querySelector('.yh-landing-topbar');
+        if (topbar && !topbar.querySelector('#yh-sound-toggle')) {
+            const toggle = document.createElement('button');
+            toggle.type = 'button';
+            toggle.id = 'yh-sound-toggle';
+            toggle.className = 'yh-sound-toggle';
+            toggle.setAttribute('aria-label', 'Toggle landing sound effects');
+            toggle.innerHTML = `
+                <span class="yh-sound-toggle-icon">🔊</span>
+                <span class="yh-sound-toggle-label">Sound On</span>
+            `;
+            topbar.appendChild(toggle);
+            updateSoundToggleUI();
+
+            toggle.addEventListener('click', async () => {
+                const wasEnabled = landingSoundState.enabled;
+
+                if (wasEnabled) {
+                    await getLandingAudioCtx();
+                    await playUiClick();
+                }
+
+                landingSoundState.enabled = !landingSoundState.enabled;
+                localStorage.setItem(LANDING_SOUND_KEY, landingSoundState.enabled ? '1' : '0');
+                updateSoundToggleUI();
+
+                if (!wasEnabled && landingSoundState.enabled) {
+                    await getLandingAudioCtx();
+                    await playUiClick();
+                }
+            });
+        }
+    };
+    const syncLandingAsteroidParallax = (now = performance.now()) => {
+        if (!isApplyLanding || prefersReducedMotion.matches) {
+            if (asteroidParallaxFrame) {
+                cancelAnimationFrame(asteroidParallaxFrame);
+            }
+            asteroidParallaxFrame = 0;
+            return;
+        }
+
+        const shell = document.querySelector('#step-1.yh-landing-step .yh-landing-shell');
+        if (!shell) {
+            asteroidParallaxFrame = window.requestAnimationFrame(syncLandingAsteroidParallax);
+            return;
+        }
+
+        const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+        const progress = Math.min(1, Math.max(0, window.scrollY / maxScroll));
+        const eased = 1 - Math.pow(1 - progress, 2);
+
+        const farLayer = shell.querySelector('.yh-space-asteroid-layer--far');
+        const midLayer = shell.querySelector('.yh-space-asteroid-layer--mid');
+        const nearLayer = shell.querySelector('.yh-space-asteroid-layer--near');
+
+        const t = now * 0.00024;
+
+        const farX = (-8 + eased * 10) + Math.sin(t * 0.9) * 6;
+        const farY = (eased * 18) + Math.cos(t * 0.7) * 5;
+
+        const midX = (eased * 14) + Math.sin(t * 1.1 + 1.4) * 8;
+        const midY = (eased * 28) + Math.cos(t * 0.95 + 0.8) * 7;
+
+        const nearX = (-12 + eased * 18) + Math.sin(t * 1.25 + 2.2) * 10;
+        const nearY = (eased * 40) + Math.cos(t * 1.05 + 1.6) * 9;
+
+        if (farLayer) {
+            farLayer.style.transform = `translate3d(${farX.toFixed(2)}px, ${farY.toFixed(2)}px, 0)`;
+        }
+
+        if (midLayer) {
+            midLayer.style.transform = `translate3d(${midX.toFixed(2)}px, ${midY.toFixed(2)}px, 0)`;
+        }
+
+        if (nearLayer) {
+            nearLayer.style.transform = `translate3d(${nearX.toFixed(2)}px, ${nearY.toFixed(2)}px, 0)`;
+        }
+
+        asteroidParallaxFrame = window.requestAnimationFrame(syncLandingAsteroidParallax);
+    };
+
+    const startLandingAsteroidParallax = () => {
+        if (asteroidParallaxFrame || !isApplyLanding || prefersReducedMotion.matches) return;
+        asteroidParallaxFrame = window.requestAnimationFrame(syncLandingAsteroidParallax);
+    };
+    const spawnMeteor = () => {
+        if (!isApplyLanding || prefersReducedMotion.matches) return;
+
+        const layer = document.querySelector('.yh-space-meteor-layer');
+        if (!layer) return;
+
+        const meteor = document.createElement('span');
+        meteor.className = 'yh-space-meteor';
+
+        const top = 5 + Math.random() * 28;
+        const left = 68 + Math.random() * 20;
+        const width = 150 + Math.random() * 110;
+        const duration = 2.5 + Math.random() * 1.8;
+
+        meteor.style.setProperty('--meteor-top', `${top}%`);
+        meteor.style.setProperty('--meteor-left', `${left}%`);
+        meteor.style.setProperty('--meteor-width', `${width}px`);
+        meteor.style.setProperty('--meteor-duration', `${duration}s`);
+
+        layer.appendChild(meteor);
+
+        window.setTimeout(() => {
+            meteor.remove();
+        }, Math.ceil((duration + 0.24) * 1000));
+    };
+
+    const scheduleNextMeteor = () => {
+        if (!isApplyLanding || prefersReducedMotion.matches) return;
+
+        clearTimeout(meteorTimer);
+        meteorTimer = window.setTimeout(() => {
+            spawnMeteor();
+            scheduleNextMeteor();
+        }, 4200 + Math.random() * 4200);
+    };
+
+    const scrollToTarget = (target, { withSound = false } = {}) => {
         if (!target) return;
+        if (withSound) void playScrollWhoosh(0.011);
         target.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
-    const openAuthPanel = () => {
-        scrollToTarget(authSection);
+    const openAuthPanel = ({ withSound = false } = {}) => {
+        scrollToTarget(authSection, { withSound });
+    };
+
+    ensureLandingAmbientLayers();
+    startLandingAsteroidParallax();
+    scheduleNextMeteor();
+    updateSoundToggleUI();
+
+    window.addEventListener('pointerdown', () => {
+        void getLandingAudioCtx();
+    }, { once: true, passive: true });
+
+    if (isApplyLanding) {
+        window.addEventListener('scroll', () => {
+            lastManualScrollY = window.scrollY;
+        }, { passive: true });
+
+        window.addEventListener('resize', () => {
+            if (!asteroidParallaxFrame) {
+                startLandingAsteroidParallax();
+            }
+        }, { passive: true });
+    }
+
+    const initLandingSectionReveal = () => {
+        if (!isApplyLanding) return;
+
+        const revealTargets = [
+            document.querySelector('.yh-landing-hero'),
+            document.querySelector('#yh-divisions-section'),
+            document.querySelector('#yh-auth-section'),
+            ...document.querySelectorAll('.yh-landing-metric-card'),
+            document.querySelector('.yh-landing-activity-panel'),
+            document.querySelector('.yh-landing-hero-visual'),
+            ...document.querySelectorAll('.yh-landing-division-card'),
+            document.querySelector('.yh-auth-card')
+        ].filter(Boolean);
+
+        revealTargets.forEach((element, index) => {
+            element.classList.add('yh-section-reveal');
+            element.setAttribute('data-reveal-delay', String(index % 4));
+        });
+
+        if (!('IntersectionObserver' in window)) {
+            revealTargets.forEach((element) => element.classList.add('is-visible'));
+            return;
+        }
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                if (!entry.isIntersecting) return;
+                entry.target.classList.add('is-visible');
+                observer.unobserve(entry.target);
+            });
+        }, {
+            threshold: 0.14,
+            rootMargin: '0px 0px -8% 0px'
+        });
+
+        revealTargets.forEach((element) => observer.observe(element));
     };
 
     const btnTopbar = document.getElementById('yh-scroll-auth');
     const btnHero = document.getElementById('yh-open-auth-main');
     const btnAcademy = document.getElementById('yh-open-auth-academy');
+    const btnPlaza = document.getElementById('yh-open-auth-plaza');
+    const btnFederation = document.getElementById('yh-open-auth-federation');
     const btnDivisions = document.getElementById('yh-scroll-divisions');
 
-    if (btnTopbar) btnTopbar.addEventListener('click', () => openAuthPanel());
-    if (btnHero) btnHero.addEventListener('click', () => openAuthPanel());
-    if (btnAcademy) btnAcademy.addEventListener('click', () => openAuthPanel());
-    if (btnDivisions) btnDivisions.addEventListener('click', () => scrollToTarget(divisionsSection));
+    if (btnTopbar) btnTopbar.addEventListener('click', () => openAuthPanel({ withSound: true }));
+    if (btnHero) btnHero.addEventListener('click', () => openAuthPanel({ withSound: true }));
+    if (btnAcademy) btnAcademy.addEventListener('click', () => openAuthPanel({ withSound: true }));
+    if (btnPlaza) btnPlaza.addEventListener('click', () => openAuthPanel({ withSound: true }));
+    if (btnFederation) btnFederation.addEventListener('click', () => openAuthPanel({ withSound: true }));
+    if (btnDivisions) btnDivisions.addEventListener('click', () => scrollToTarget(divisionsSection, { withSound: true }));
 
-    document.querySelectorAll('.yh-coming-soon-btn').forEach((button) => {
+    if (btnFlipRegister) btnFlipRegister.addEventListener('click', () => { void playFlipWhoosh(); });
+    if (btnFlipLogin) btnFlipLogin.addEventListener('click', () => { void playFlipWhoosh(); });
+
+    document.querySelectorAll('body[data-yh-page="apply"] button').forEach((button) => {
+        const id = button.id || '';
+
+        if (
+            id === 'btn-flip-register' ||
+            id === 'btn-flip-login' ||
+            id === 'yh-open-auth-main' ||
+            id === 'yh-open-auth-academy' ||
+            id === 'yh-open-auth-plaza' ||
+            id === 'yh-open-auth-federation' ||
+            id === 'yh-scroll-divisions' ||
+            id === 'yh-sound-toggle'
+        ) {
+            return;
+        }
+
         button.addEventListener('click', () => {
-            const label = button.getAttribute('data-soon') || 'This division';
-            showToast(
-                yhTText('{{division}} is coming soon to Young Hustlers Universe.', { division: label }),
-                'success'
-            );
+            void playUiClick();
         });
     });
+
+    initLandingSectionReveal();
 });

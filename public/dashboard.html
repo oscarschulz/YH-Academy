@@ -6,14 +6,12 @@
     <title>Dashboard | YH Universe</title>
     <link rel="icon" type="image/png" href="/images/logo.png">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css?v=20260419-compact-toast-1">
+<link rel="stylesheet" href="/css/style.css?v=20260423-dashboard-hub-lift-1">
 <link rel="stylesheet" href="/css/dashboard-mobile.css">
 </head>
 <body data-yh-view="hub" data-yh-page="dashboard">
 
-<div id="toast-notification dashboard" role="status" aria-live="polite">
-    <span id="toast-icon"></span><span id="toast-message">Notification</span>
-</div>
+<!-- Dashboard toast removed intentionally -->
 
 <div id="yh-dashboard-bootstrap-loader" class="yh-auth-transition-loader hidden-step" aria-hidden="true">
     <div class="yh-auth-transition-card">
@@ -244,7 +242,15 @@
                     </div>
 
                     <div class="yh-universe-card-core">
-                        <div class="portal-icon">🎓</div>
+                        <div class="portal-icon portal-icon--image" aria-hidden="true">
+                            <img
+                                class="portal-icon-img"
+                                src="/images/academy%20icon.png"
+                                alt=""
+                                loading="eager"
+                                decoding="async"
+                            >
+                        </div>
                         <h2 class="portal-title">The Academy</h2>
                         <p class="portal-desc">Enter the self-improvement division of YH Universe. Build your roadmap through AI-guided missions, join the community, and step into live voice sessions.</p>
                     </div>
@@ -272,6 +278,41 @@
                 </div>
             </section>
 
+            <section class="yh-universe-slide" data-division="plazas" aria-hidden="true">
+                <div class="portal-card yh-plaza-open-card">
+                    <div class="yh-universe-meta">
+                        <span class="yh-universe-badge" id="plaza-entry-meta-badge">Application Gate</span>
+                        <span class="yh-universe-meta-copy">Networking, opportunities, regions, requests</span>
+                    </div>
+
+                    <div class="yh-universe-card-core">
+                        <div class="portal-icon portal-icon--image" aria-hidden="true">
+                            <img
+                                class="portal-icon-img"
+                                src="/images/plaza%20icon.png"
+                                alt=""
+                                loading="eager"
+                                decoding="async"
+                            >
+                        </div>
+                        <h2 class="portal-title">The Plaza</h2>
+                        <p class="portal-desc">
+                            Apply through the Dashboard Plaza application before entering the movement hub. Once admin approves
+                            your Plaza access, you can enter opportunities, directory, regions, requests, messages, and bridge paths.
+                        </p>
+                    </div>
+
+                    <button
+                        id="btn-open-plazas-preview"
+                        class="btn-secondary w-full yh-plaza-gate-btn"
+                        type="button"
+                        style="padding: 14px; font-size: 1rem;"
+                    >
+                        Apply for the Plaza ➔
+                    </button>
+                </div>
+            </section>
+
             <section class="yh-universe-slide" data-division="federation" aria-hidden="true">
                 <div class="portal-card active-portal yh-federation-open-card">
                     <div class="yh-universe-meta">
@@ -280,7 +321,15 @@
                     </div>
 
                     <div class="yh-universe-card-core">
-                        <div class="portal-icon">🤝</div>
+                        <div class="portal-icon portal-icon--image" aria-hidden="true">
+                            <img
+                                class="portal-icon-img"
+                                src="/images/federation%20icon.png"
+                                alt=""
+                                loading="eager"
+                                decoding="async"
+                            >
+                        </div>
                         <h2 class="portal-title">The Federation</h2>
                         <p class="portal-desc">
                             Enter the strategic network layer of YH Universe. Request access, review your status,
@@ -300,33 +349,6 @@
 <!-- Federation pending status is shown directly inside the main Federation button. -->
                 </div>
             </section>
-
-<section class="yh-universe-slide" data-division="plazas" aria-hidden="true">
-                <div class="portal-card yh-plaza-open-card">
-                    <div class="yh-universe-meta">
-                        <span class="yh-universe-badge" id="plaza-entry-meta-badge">Application Gate</span>
-                        <span class="yh-universe-meta-copy">Networking, opportunities, regions, requests</span>
-                    </div>
-
-                    <div class="yh-universe-card-core">
-                        <div class="portal-icon">🏪</div>
-                        <h2 class="portal-title">The Plaza</h2>
-                        <p class="portal-desc">
-                            Apply through the Dashboard Plaza application before entering the movement hub. Once admin approves
-                            your Plaza access, you can enter opportunities, directory, regions, requests, messages, and bridge paths.
-                        </p>
-                    </div>
-
-                    <button
-                        id="btn-open-plazas-preview"
-                        class="btn-secondary w-full yh-plaza-gate-btn"
-                        type="button"
-                        style="padding: 14px; font-size: 1rem;"
-                    >
-                        Apply for the Plaza ➔
-                    </button>
-                </div>
-            </section>
         </div>
     </div>
 
@@ -342,8 +364,8 @@
 
 <div class="yh-universe-dots" aria-label="Universe sections">
     <button class="yh-universe-dot active" type="button" data-division="academy" aria-label="Go to Academy"></button>
-    <button class="yh-universe-dot" type="button" data-division="federation" aria-label="Go to Federation"></button>
     <button class="yh-universe-dot" type="button" data-division="plazas" aria-label="Go to Plazas"></button>
+    <button class="yh-universe-dot" type="button" data-division="federation" aria-label="Go to Federation"></button>
 </div>
 
                 <div class="yh-universe-feature-panel" id="yh-universe-feature-panel">

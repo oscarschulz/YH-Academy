@@ -1437,7 +1437,7 @@ function switchServer(targetDivision) {
 }
 
 function stepUniverseSlide(direction = 1) {
-    const divisions = ['academy', 'federation', 'plazas'];
+    const divisions = ['academy', 'plazas', 'federation'];
     const currentIndex = divisions.indexOf(activeUniverseDivision);
     const safeIndex = currentIndex >= 0 ? currentIndex : 0;
     const nextIndex = (safeIndex + (direction < 0 ? -1 : 1) + divisions.length) % divisions.length;
