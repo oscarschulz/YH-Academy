@@ -668,8 +668,13 @@ function prefillDashboardPlazaApplicationFromAcademy() {
         wantsMarketplaceInput.value = seed.wantsMarketplace;
     }
 
-    syncDashboardPlazaApplicationLabels();
-    syncDashboardPlazaProgress(dashboardPlazaApplicationCurrentStep);
+    if (typeof syncDashboardPlazaApplicationLabels === 'function') {
+        syncDashboardPlazaApplicationLabels();
+    }
+
+    if (typeof syncDashboardPlazaProgress === 'function') {
+        syncDashboardPlazaProgress(dashboardPlazaApplicationCurrentStep);
+    }
 }
 
 function getYHBridgeSignalState(academySnapshot = null, plazaSnapshot = null) {
@@ -1462,8 +1467,14 @@ function openPlazaApplicationModal() {
         window.requestAnimationFrame(() => {
             resetDashboardPlazaApplicationFlow();
             prefillDashboardPlazaApplicationFromAcademy();
-            syncDashboardPlazaApplicationLabels();
-            syncDashboardPlazaProgress(dashboardPlazaApplicationCurrentStep);
+
+            if (typeof syncDashboardPlazaApplicationLabels === 'function') {
+                syncDashboardPlazaApplicationLabels();
+            }
+
+            if (typeof syncDashboardPlazaProgress === 'function') {
+                syncDashboardPlazaProgress(dashboardPlazaApplicationCurrentStep);
+            }
         });
     });
 }
@@ -2069,8 +2080,14 @@ function bindDashboardPlazaApplicationFormEvents() {
             if (!flow.includes(dashboardPlazaApplicationCurrentStep)) {
                 setDashboardPlazaActiveStep(flow[flow.length - 1] || 'membershipType');
             }
-            syncDashboardPlazaApplicationLabels();
-            syncDashboardPlazaProgress(dashboardPlazaApplicationCurrentStep);
+
+            if (typeof syncDashboardPlazaApplicationLabels === 'function') {
+                syncDashboardPlazaApplicationLabels();
+            }
+
+            if (typeof syncDashboardPlazaProgress === 'function') {
+                syncDashboardPlazaProgress(dashboardPlazaApplicationCurrentStep);
+            }
         });
     });
 
@@ -2199,14 +2216,21 @@ function initUniverseImageLightbox() {
 function syncUniverseAcademyStrip(targetDivision = 'academy') {
     const division = normalizeUniverseDivision(targetDivision);
     const academyStrip = document.getElementById('yh-universe-academy-strip');
+    const plazaStrip = document.getElementById('yh-universe-plaza-strip');
     const federationStrip = document.getElementById('yh-universe-federation-strip');
 
     const isAcademy = division === 'academy';
+    const isPlaza = division === 'plazas';
     const isFederation = division === 'federation';
 
     if (academyStrip) {
         academyStrip.classList.toggle('is-active', isAcademy);
         academyStrip.setAttribute('aria-hidden', isAcademy ? 'false' : 'true');
+    }
+
+    if (plazaStrip) {
+        plazaStrip.classList.toggle('is-active', isPlaza);
+        plazaStrip.setAttribute('aria-hidden', isPlaza ? 'false' : 'true');
     }
 
     if (federationStrip) {
@@ -4890,6 +4914,77 @@ const openNotificationTarget = (target = '') => {
     if (normalized === 'federation') {
         window.location.href = '/federation';
     }
+};
+
+const renderRealtimeNotifications = (notifications = []) => {
+    if (!notifListContainer) return;
+
+    const list = (Array.isArray(notifications) ? notifications : [])
+        .map(normalizeRealtimeNotification);
+
+    notifListContainer.innerHTML = '';
+
+    if (!list.length) {
+        notifListContainer.innerHTML = `
+            <li class="notif-empty-state" id="notif-empty-state">No notifications yet.</li>
+        `;
+        updateNotificationBadgeUi([]);
+        return;
+    }
+
+    list.forEach((notification) => {
+        const notificationId = notification.id;
+        const title = notification.title;
+        const text = notification.text;
+        const avatarStr = notification.avatarStr;
+        const color = notification.color;
+        const target = notification.target;
+        const createdAt = notification.createdAt;
+        const isRead = notification.isRead;
+
+        const li = document.createElement('li');
+        li.className = `fade-in${isRead ? '' : ' unread'}`;
+
+        if (notificationId) {
+            li.setAttribute('data-notification-id', notificationId);
+        }
+
+        if (target) {
+            li.setAttribute('data-target', target);
+        }
+
+        if (notification.targetId) {
+            li.setAttribute('data-target-id', notification.targetId);
+        }
+
+        li.innerHTML = `
+            <div class="notif-img" style="background: ${escapeNotificationHtml(color)};">
+                ${escapeNotificationHtml(avatarStr)}
+            </div>
+            <div class="notif-text">
+                <strong>${escapeNotificationHtml(title)}</strong>
+                ${text ? ` ${escapeNotificationHtml(text)}` : ''}
+                <span class="notif-time">${escapeNotificationHtml(notificationTimeLabel(createdAt))}</span>
+            </div>
+        `;
+
+        li.addEventListener('click', async (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+
+            if (notificationId && !isRead) {
+                await markRealtimeNotificationRead(notificationId, false);
+                li.classList.remove('unread');
+            }
+
+            notifDropdown?.classList.remove('show');
+            openNotificationTarget(target);
+        });
+
+        notifListContainer.appendChild(li);
+    });
+
+    updateNotificationBadgeUi(list);
 };
 
 function isMemberSystemNotification(notification = {}) {

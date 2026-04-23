@@ -2496,8 +2496,8 @@ function extractSectionId(value = "") {
 
 function getNavigableSectionIds() {
   return qsa(".fed-section[data-section]")
-    .filter((section) => !section.hidden)
-    .map((section) => section.id);
+    .map((section) => String(section.id || "").trim())
+    .filter(Boolean);
 }
 
 function getPreferredDefaultSection() {
@@ -2544,12 +2544,10 @@ function setActiveSection(targetId = "", options = {}) {
   document.body.dataset.fedNavMode = "tabs";
 
   qsa(".fed-section[data-section]").forEach((section) => {
-    if (section.hidden) {
-      section.classList.remove("is-active-panel", "is-panel-hidden");
-      return;
-    }
-
     const isActive = section.id === nextSectionId;
+
+    section.hidden = !isActive;
+    section.setAttribute("aria-hidden", isActive ? "false" : "true");
     section.classList.toggle("is-active-panel", isActive);
     section.classList.toggle("is-panel-hidden", !isActive);
   });
