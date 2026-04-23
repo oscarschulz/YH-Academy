@@ -246,28 +246,34 @@
                     <strong id="yh-econ-trust-tier">Guest</strong>
                 </div>
 
-                <div class="yh-universe-progress-status-list">
-                    <div class="yh-universe-progress-status-row">
-                        <span>Academy</span>
-                        <strong id="yh-econ-academy-status">Not Applied</strong>
+                    <div class="yh-universe-progress-status-list">
+                        <div class="yh-universe-progress-status-row">
+                            <span>Academy</span>
+                            <strong id="yh-econ-academy-status">Not Applied</strong>
+                        </div>
+                        <div class="yh-universe-progress-status-row">
+                            <span>Plaza</span>
+                            <strong id="yh-econ-plaza-status">Not Applied</strong>
+                        </div>
+                        <div class="yh-universe-progress-status-row">
+                            <span>Plaza Profile</span>
+                            <strong id="yh-econ-plaza-profile-status">Not Seeded</strong>
+                        </div>
+                        <div class="yh-universe-progress-status-row">
+                            <span>Opportunity Score</span>
+                            <strong id="yh-econ-plaza-opportunity-score">Locked</strong>
+                        </div>
+                        <div class="yh-universe-progress-status-row">
+                            <span>Federation Readiness</span>
+                            <strong id="yh-econ-federation-readiness">Plaza First</strong>
+                        </div>
+                        <div class="yh-universe-progress-status-row">
+                            <span>Federation</span>
+                            <strong id="yh-econ-federation-status">Not Applied</strong>
+                        </div>
                     </div>
-                    <div class="yh-universe-progress-status-row">
-                        <span>Plaza</span>
-                        <strong id="yh-econ-plaza-status">Not Applied</strong>
-                    </div>
-                    <div class="yh-universe-progress-status-row">
-                        <span>Federation</span>
-                        <strong id="yh-econ-federation-status">Not Applied</strong>
-                    </div>
-                </div>
 
-                <div class="yh-universe-progress-divider"></div>
 
-                <div class="yh-universe-progress-meta">
-                    <div class="yh-universe-progress-meta-label">Current identity</div>
-                    <div class="yh-universe-progress-meta-value" id="yh-econ-profile-name">Hustler</div>
-                    <div class="yh-universe-progress-meta-sub" id="yh-econ-profile-role">Building your path inside YH Universe</div>
-                </div>
             </div>
         </aside>
 
@@ -399,7 +405,8 @@
             </div>
         </div>
 
-        <div class="yh-universe-feature-panel yh-universe-feature-panel--side" id="yh-universe-feature-panel">
+    <div class="yh-universe-side-stack">
+        <div class="yh-universe-feature-panel" id="yh-universe-feature-panel">
             <div class="yh-universe-feature-kicker" id="yh-universe-feature-kicker">Academy Features</div>
             <h3 class="yh-universe-feature-title" id="yh-universe-feature-title">Execution and self-improvement layer</h3>
             <p class="yh-universe-feature-desc" id="yh-universe-feature-desc">
@@ -414,6 +421,19 @@
                 <span class="yh-universe-feature-chip">My profile</span>
             </div>
         </div>
+
+        <div class="yh-universe-feature-panel yh-universe-bridge-panel" id="yh-econ-bridge-card">
+            <div class="yh-universe-feature-kicker">Bridge Signal</div>
+
+            <div class="yh-universe-progress-bridge-badge is-building" id="yh-econ-bridge-signal">
+                Still Building
+            </div>
+
+            <p class="yh-universe-feature-desc yh-universe-bridge-copy" id="yh-econ-bridge-copy">
+                Complete your Academy profile and missions to strengthen your Plaza handoff signal.
+            </p>
+        </div>
+    </div>
     </div>
 
     <button
@@ -1207,7 +1227,7 @@
 
 <script src="/js/yh-shared-core.js?v=20260418-toast-center-1"></script>
 <script src="/js/yh-shared-runtime.js?v=20260411-3"></script>
-<script src="/js/dashboard.js?v=20260419-auth-dashboard-bootstrap-loader-1"></script>
+<script src="/js/dashboard.js?v=20260423-universe-nav-fix-1"></script>
 <script src="/js/dashboard-mobile-fix.js?v=20260410-3"></script>
 </body>
 </html>

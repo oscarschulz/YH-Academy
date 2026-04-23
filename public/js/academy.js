@@ -263,6 +263,229 @@ function goToDashboardPage() {
     window.location.href = '/dashboard';
 }
 
+const YH_ACADEMY_STARTUP_BOOT_KEY = 'yh_academy_startup_boot_v1';
+const YH_ACADEMY_STARTUP_SECTION_KEY = 'yh_academy_startup_section_v1';
+let academyStartupBootDismissed = false;
+let academyStartupBootObserver = null;
+let academyStartupBootFailSafeTimer = null;
+
+function getAcademyStartupBootLoader() {
+    return document.getElementById('yh-academy-startup-loader');
+}
+
+function normalizeAcademyStartupSection(value = '') {
+    const clean = String(value || '').trim().toLowerCase();
+
+    if (['home', 'community', 'messages', 'voice', 'video', 'profile', 'missions', 'lead-missions'].includes(clean)) {
+        return clean;
+    }
+
+    return 'home';
+}
+
+function resolveAcademyStartupBootSection() {
+    try {
+        const stored = sessionStorage.getItem(YH_ACADEMY_STARTUP_SECTION_KEY);
+        if (stored) {
+            return normalizeAcademyStartupSection(stored);
+        }
+    } catch (_) {}
+
+    return normalizeAcademyStartupSection(getAcademySectionFromUrl());
+}
+
+function getAcademyStartupOverlayMeta(section = 'home') {
+    const normalized = normalizeAcademyStartupSection(section);
+
+    if (normalized === 'community') {
+        return {
+            icon: '📰',
+            title: 'Preparing Community Feed',
+            copy: 'Loading Community Feed...'
+        };
+    }
+
+    if (normalized === 'messages') {
+        return {
+            icon: '💬',
+            title: 'Preparing Messages',
+            copy: 'Loading Messages...'
+        };
+    }
+
+    if (normalized === 'voice') {
+        return {
+            icon: '🎙️',
+            title: 'Preparing Live Voice Lounge',
+            copy: 'Loading Live Voice Lounge...'
+        };
+    }
+
+    if (normalized === 'video') {
+        return {
+            icon: '📹',
+            title: 'Preparing Live Video Lounge',
+            copy: 'Loading Live Video Lounge...'
+        };
+    }
+
+    if (normalized === 'profile') {
+        return {
+            icon: '👤',
+            title: 'Preparing Profile',
+            copy: 'Loading Profile...'
+        };
+    }
+
+    if (normalized === 'lead-missions') {
+        return {
+            icon: '🎯',
+            title: 'Preparing Missions',
+            copy: 'Loading Missions...'
+        };
+    }
+
+    if (normalized === 'missions') {
+        return {
+            icon: '🧠',
+            title: 'Preparing Roadmap',
+            copy: 'Loading Roadmap...'
+        };
+    }
+
+    return {
+        icon: '🧠',
+        title: 'Preparing Roadmap',
+        copy: 'Loading Roadmap...'
+    };
+}
+
+function applyAcademyStartupOverlayMeta(meta = {}) {
+    const iconEl = document.getElementById('yh-academy-startup-loader-icon');
+    const titleEl = document.getElementById('yh-academy-startup-loader-title');
+    const textEl = document.getElementById('yh-academy-startup-loader-text');
+
+    const safeMeta = meta && typeof meta === 'object'
+        ? meta
+        : getAcademyStartupOverlayMeta(resolveAcademyStartupBootSection());
+
+    if (iconEl) {
+        iconEl.textContent = String(safeMeta.icon || '🧠').trim() || '🧠';
+    }
+
+    if (titleEl) {
+        titleEl.textContent = String(safeMeta.title || 'Preparing Roadmap').trim() || 'Preparing Roadmap';
+    }
+
+    if (textEl) {
+        textEl.textContent = String(safeMeta.copy || 'Loading Roadmap...').trim() || 'Loading Roadmap...';
+    }
+}
+
+function showAcademyStartupBootOverlay(section = '') {
+    const loader = getAcademyStartupBootLoader();
+
+    document.body?.classList.add('academy-startup-booting');
+
+    const nextSection =
+        String(section || '').trim() ||
+        resolveAcademyStartupBootSection();
+
+    applyAcademyStartupOverlayMeta(
+        getAcademyStartupOverlayMeta(nextSection)
+    );
+
+    if (!loader) return;
+
+    loader.classList.remove('hidden-step');
+    loader.classList.remove('is-exiting');
+    loader.setAttribute('aria-hidden', 'false');
+}
+
+function hideAcademyStartupBootOverlay() {
+    if (academyStartupBootDismissed) return;
+
+    academyStartupBootDismissed = true;
+
+    const loader = getAcademyStartupBootLoader();
+
+    if (academyStartupBootFailSafeTimer) {
+        clearTimeout(academyStartupBootFailSafeTimer);
+        academyStartupBootFailSafeTimer = null;
+    }
+
+    try {
+        sessionStorage.removeItem(YH_ACADEMY_STARTUP_BOOT_KEY);
+        sessionStorage.removeItem(YH_ACADEMY_STARTUP_SECTION_KEY);
+    } catch (_) {}
+
+    document.body?.classList.remove('academy-startup-booting');
+
+    if (!loader) return;
+
+    loader.classList.add('is-exiting');
+
+    window.setTimeout(() => {
+        loader.classList.add('hidden-step');
+        loader.setAttribute('aria-hidden', 'true');
+    }, 220);
+}
+
+function academyStartupBootShouldRelease() {
+    const loader = document.getElementById('yh-tab-loader');
+
+    const loaderHidden =
+        !loader ||
+        loader.hidden === true ||
+        loader.classList.contains('hidden-step') ||
+        loader.getAttribute('aria-hidden') === 'true';
+
+    const primaryView =
+        typeof academyGetCurrentPrimaryView === 'function'
+            ? academyGetCurrentPrimaryView()
+            : '';
+
+    return Boolean(primaryView) && loaderHidden;
+}
+
+function installAcademyStartupBootObserver() {
+    if (academyStartupBootObserver) return;
+
+    const tabLoader = document.getElementById('yh-tab-loader');
+
+    const evaluate = () => {
+        if (academyStartupBootShouldRelease()) {
+            hideAcademyStartupBootOverlay();
+        }
+    };
+
+    if (!tabLoader) {
+        window.requestAnimationFrame(evaluate);
+        return;
+    }
+
+    academyStartupBootObserver = new MutationObserver(() => {
+        evaluate();
+    });
+
+    academyStartupBootObserver.observe(tabLoader, {
+        attributes: true,
+        attributeFilter: ['class', 'aria-hidden', 'hidden']
+    });
+
+    window.requestAnimationFrame(evaluate);
+}
+
+function scheduleAcademyStartupBootFailSafe(delayMs = 7000) {
+    if (academyStartupBootFailSafeTimer) {
+        clearTimeout(academyStartupBootFailSafeTimer);
+    }
+
+    academyStartupBootFailSafeTimer = window.setTimeout(() => {
+        hideAcademyStartupBootOverlay();
+    }, delayMs);
+}
+
 function getAcademySectionFromUrl() {
     try {
         const url = new URL(window.location.href);
@@ -777,6 +1000,24 @@ document.addEventListener('DOMContentLoaded', () => {
     let pendingGroupMembers = [];
     let hasLoadedVaultOnce = false;
     const defaultAcademyWelcomeHtml = document.getElementById('chat-welcome-box')?.innerHTML || '';
+
+    const academyStartupFromDashboard = (() => {
+        try {
+            return sessionStorage.getItem(YH_ACADEMY_STARTUP_BOOT_KEY) === '1';
+        } catch (_) {
+            return false;
+        }
+    })();
+
+    const academyStartupInitialSection = resolveAcademyStartupBootSection();
+
+    showAcademyStartupBootOverlay(
+        academyStartupFromDashboard
+            ? academyStartupInitialSection
+            : academyStartupInitialSection
+    );
+    installAcademyStartupBootObserver();
+    scheduleAcademyStartupBootFailSafe();
 
     // --- UPDATED NAVIGATION & ROUTING LOGIC ---
 const universeFeatureContent = {
@@ -4672,7 +4913,175 @@ function buildAcademyMissionSignalSnapshot() {
         pending: 0
     });
 }
+function academyBuildHomeReadinessTone(score = 0, marketplaceReady = false) {
+    if (marketplaceReady) {
+        return {
+            badgeClass: 'is-ready',
+            label: 'Ready for Plaza'
+        };
+    }
 
+    if (score >= 75) {
+        return {
+            badgeClass: 'is-strong',
+            label: 'Strong Signal'
+        };
+    }
+
+    if (score >= 50) {
+        return {
+            badgeClass: 'is-building',
+            label: 'Building Momentum'
+        };
+    }
+
+    return {
+        badgeClass: 'is-early',
+        label: 'Still Building'
+    };
+}
+
+function academyHomeNormalizeSignalList(value = []) {
+    if (Array.isArray(value)) {
+        return value.map((item) => String(item || '').trim()).filter(Boolean);
+    }
+
+    return String(value || '')
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+}
+
+function academyRenderHomeReadinessCheckItem(label = '', active = false) {
+    return `
+        <div class="academy-home-readiness-check ${active ? 'is-active' : 'is-pending'}">
+            <span class="academy-home-readiness-check-icon">${active ? '✓' : '•'}</span>
+            <span>${academyFeedEscapeHtml(label)}</span>
+        </div>
+    `;
+}
+
+function academyRenderHomeSignalGroup(values = [], emptyLabel = 'Nothing added yet') {
+    const items = academyHomeNormalizeSignalList(values);
+
+    if (!items.length) {
+        return `<span class="academy-home-readiness-empty">${academyFeedEscapeHtml(emptyLabel)}</span>`;
+    }
+
+    return items.map((item) => {
+        return `<span class="academy-home-readiness-chip">${academyFeedEscapeHtml(item)}</span>`;
+    }).join('');
+}
+
+function academyInjectHomeReadinessPanel(homeData = null) {
+    if (!homeData || typeof homeData !== 'object') return;
+
+    const academyChat = document.getElementById('academy-chat');
+    const dynamicChatContainer = document.getElementById('dynamic-chat-history');
+
+    if (!academyChat || academyChat.classList.contains('hidden-step') || !dynamicChatContainer) {
+        return;
+    }
+
+    const chatMode = String(academyChat.getAttribute('data-chat-mode') || '').trim().toLowerCase();
+    if (chatMode !== 'home') return;
+
+    const stack = dynamicChatContainer.querySelector('.academy-home-stack');
+    if (!stack) return;
+
+    stack.querySelector('.academy-home-readiness-panel')?.remove();
+
+    const plazaReadiness = homeData?.plazaReadiness && typeof homeData.plazaReadiness === 'object'
+        ? homeData.plazaReadiness
+        : null;
+
+    const profileSignals = homeData?.profileSignals && typeof homeData.profileSignals === 'object'
+        ? homeData.profileSignals
+        : {};
+
+    if (!plazaReadiness) return;
+
+    const plazaReadinessScore = Number(plazaReadiness?.score || 0);
+    const plazaReadinessStatus = String(plazaReadiness?.statusLabel || 'Still Building').trim() || 'Still Building';
+    const plazaReadinessNextStep =
+        String(
+            plazaReadiness?.nextStep ||
+            'Complete your Academy profile and missions to build stronger Plaza readiness.'
+        ).trim() || 'Complete your Academy profile and missions to build stronger Plaza readiness.';
+
+    const marketplaceReady = plazaReadiness?.marketplaceReady === true;
+    const plazaReadinessTone = academyBuildHomeReadinessTone(plazaReadinessScore, marketplaceReady);
+
+    const profileRoleTrack = String(profileSignals?.roleTrack || 'Not set').trim() || 'Not set';
+    const profileAvailability = String(profileSignals?.availability || 'Not set').trim() || 'Not set';
+    const profileWorkMode = String(profileSignals?.workMode || 'Not set').trim() || 'Not set';
+    const profileProofFocus = String(profileSignals?.proofFocus || 'Not set').trim() || 'Not set';
+
+    const lookingForHtml = academyRenderHomeSignalGroup(
+        profileSignals?.lookingFor || [],
+        'Nothing added yet'
+    );
+
+    const canOfferHtml = academyRenderHomeSignalGroup(
+        profileSignals?.canOffer || [],
+        'Nothing added yet'
+    );
+
+    const readinessChecklistHtml = [
+        academyRenderHomeReadinessCheckItem('Role track defined', plazaReadiness?.signals?.roleTrack === true),
+        academyRenderHomeReadinessCheckItem('Looking-for signals added', plazaReadiness?.signals?.lookingFor === true),
+        academyRenderHomeReadinessCheckItem('Can-offer signals added', plazaReadiness?.signals?.canOffer === true),
+        academyRenderHomeReadinessCheckItem('Availability set', plazaReadiness?.signals?.availability === true),
+        academyRenderHomeReadinessCheckItem('Work mode set', plazaReadiness?.signals?.workMode === true),
+        academyRenderHomeReadinessCheckItem('Proof focus defined', plazaReadiness?.signals?.proofFocus === true)
+    ].join('');
+
+    const section = document.createElement('section');
+    section.className = 'academy-home-panel academy-home-readiness-panel';
+    section.innerHTML = `
+        <div class="academy-home-panel-label">Plaza Readiness</div>
+
+        <div class="academy-home-readiness-hero">
+            <div class="academy-home-readiness-score-card">
+                <div class="academy-home-readiness-score-value">${academyFeedEscapeHtml(String(plazaReadinessScore))}</div>
+                <div class="academy-home-readiness-score-copy">/ 100</div>
+            </div>
+
+            <div class="academy-home-readiness-summary">
+                <div class="academy-home-readiness-badge ${academyFeedEscapeHtml(plazaReadinessTone.badgeClass)}">
+                    ${academyFeedEscapeHtml(plazaReadinessStatus || plazaReadinessTone.label)}
+                </div>
+
+                <div class="academy-home-panel-copy academy-home-readiness-copy">
+                    ${academyFeedEscapeHtml(plazaReadinessNextStep)}
+                </div>
+            </div>
+        </div>
+
+        <div class="academy-home-readiness-grid">
+            ${readinessChecklistHtml}
+        </div>
+
+        <div class="academy-home-readiness-meta">
+            <div><strong>Role track:</strong> ${academyFeedEscapeHtml(profileRoleTrack)}</div>
+            <div><strong>Availability:</strong> ${academyFeedEscapeHtml(profileAvailability)}</div>
+            <div><strong>Work mode:</strong> ${academyFeedEscapeHtml(profileWorkMode)}</div>
+            <div><strong>Proof focus:</strong> ${academyFeedEscapeHtml(profileProofFocus)}</div>
+        </div>
+
+        <div class="academy-home-panel-label" style="margin-top:14px;">Looking For</div>
+        <div class="academy-home-chip-row academy-home-readiness-chip-row">
+            ${lookingForHtml}
+        </div>
+
+        <div class="academy-home-panel-label" style="margin-top:14px;">Can Offer</div>
+        <div class="academy-home-chip-row academy-home-readiness-chip-row">
+            ${canOfferHtml}
+        </div>
+    `;
+
+    stack.appendChild(section);
+}
 function applyAcademyHomeRuntimePatch(runtime = {}) {
     const cachedHome = readAcademyHomeCache() || {};
     const nextHome = {
@@ -5222,6 +5631,57 @@ function academyGetTrendMeta(currentValue, previousValue, mode = 'ratio-good') {
         background: 'rgba(239,68,68,0.10)'
     };
 }
+function academyBuildHomeReadinessTone(score = 0, marketplaceReady = false) {
+    if (marketplaceReady) {
+        return {
+            badgeClass: 'is-ready',
+            label: 'Ready for Plaza'
+        };
+    }
+
+    if (score >= 75) {
+        return {
+            badgeClass: 'is-strong',
+            label: 'Strong Signal'
+        };
+    }
+
+    if (score >= 50) {
+        return {
+            badgeClass: 'is-building',
+            label: 'Building Momentum'
+        };
+    }
+
+    return {
+        badgeClass: 'is-early',
+        label: 'Still Building'
+    };
+}
+
+function academyRenderHomeReadinessCheckItem(label = '', active = false) {
+    return `
+        <div class="academy-home-readiness-check ${active ? 'is-active' : 'is-pending'}">
+            <span class="academy-home-readiness-check-icon">${active ? '✓' : '•'}</span>
+            <span>${academyFeedEscapeHtml(label)}</span>
+        </div>
+    `;
+}
+
+function academyRenderHomeSignalGroup(values = [], emptyLabel = 'Nothing added yet') {
+    const items = Array.isArray(values)
+        ? values.map((item) => String(item || '').trim()).filter(Boolean)
+        : [];
+
+    if (!items.length) {
+        return `<span class="academy-home-readiness-empty">${academyFeedEscapeHtml(emptyLabel)}</span>`;
+    }
+
+    return items.map((item) => {
+        return `<span class="academy-home-readiness-chip">${academyFeedEscapeHtml(item)}</span>`;
+    }).join('');
+}
+
 function renderAcademyHome(homeData = null) {
     const activeLeadMissionsView = document.getElementById('academy-lead-missions-view');
 
@@ -6138,6 +6598,48 @@ if (dynamicChatContainer) {
                     </div>
                 </section>
 
+                <section class="academy-home-panel academy-home-readiness-panel">
+                    <div class="academy-home-panel-label">Plaza Readiness</div>
+
+                    <div class="academy-home-readiness-hero">
+                        <div class="academy-home-readiness-score-card">
+                            <div class="academy-home-readiness-score-value">${safeHtml(plazaReadinessScore)}</div>
+                            <div class="academy-home-readiness-score-copy">/ 100</div>
+                        </div>
+
+                        <div class="academy-home-readiness-summary">
+                            <div class="academy-home-readiness-badge ${plazaReadinessTone.badgeClass}">
+                                ${academyFeedEscapeHtml(plazaReadinessStatus || plazaReadinessTone.label)}
+                            </div>
+
+                            <div class="academy-home-panel-copy academy-home-readiness-copy">
+                                ${plazaReadinessNextStep}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="academy-home-readiness-grid">
+                        ${readinessChecklistHtml}
+                    </div>
+
+                    <div class="academy-home-readiness-meta">
+                        <div><strong>Role track:</strong> ${profileRoleTrack}</div>
+                        <div><strong>Availability:</strong> ${profileAvailability}</div>
+                        <div><strong>Work mode:</strong> ${profileWorkMode}</div>
+                        <div><strong>Proof focus:</strong> ${profileProofFocus}</div>
+                    </div>
+
+                    <div class="academy-home-panel-label" style="margin-top:14px;">Looking For</div>
+                    <div class="academy-home-chip-row academy-home-readiness-chip-row">
+                        ${lookingForHtml}
+                    </div>
+
+                    <div class="academy-home-panel-label" style="margin-top:14px;">Can Offer</div>
+                    <div class="academy-home-chip-row academy-home-readiness-chip-row">
+                        ${canOfferHtml}
+                    </div>
+                </section>
+
                 <section class="academy-home-panel">
                     <div class="academy-home-panel-label">Behavior Signals</div>
                     ${behaviorSignalsHtml}
@@ -6692,7 +7194,15 @@ function persistAcademyProfileCache(profile = null) {
 
         search_tags: Array.isArray(profile.search_tags)
             ? profile.search_tags.map((tag) => String(tag || '').trim()).filter(Boolean).slice(0, 8)
-            : []
+            : [],
+
+        role_track: String(profile.role_track || profile.roleTrack || '').trim(),
+        looking_for: academyNormalizeSignalList(profile.looking_for || profile.lookingFor),
+        can_offer: academyNormalizeSignalList(profile.can_offer || profile.canOffer),
+        availability: String(profile.availability || '').trim(),
+        work_mode: String(profile.work_mode || profile.workMode || '').trim(),
+        proof_focus: String(profile.proof_focus || profile.proofFocus || '').trim(),
+        marketplace_ready: academyYesNoToBool(profile.marketplace_ready ?? profile.marketplaceReady) ? 'yes' : 'no'
     };
 
     localStorage.setItem(ACADEMY_PROFILE_CACHE_KEY, JSON.stringify(normalized));
@@ -6891,6 +7401,23 @@ function writeAcademyProfileTags(tags = []) {
 
     localStorage.setItem('yh_user_profile_tags', JSON.stringify(normalized));
     return normalized;
+}
+
+function academyNormalizeSignalList(value = []) {
+    const source = Array.isArray(value)
+        ? value
+        : String(value || '').split(',');
+
+    return Array.from(new Set(
+        source
+            .map((item) => String(item || '').trim())
+            .filter(Boolean)
+    )).slice(0, 8);
+}
+
+function academyYesNoToBool(value = '') {
+    const raw = String(value ?? '').trim().toLowerCase();
+    return raw === 'yes' || raw === 'true' || raw === '1';
 }
 
 function getAcademyProfileStoredBio() {
@@ -7460,15 +7987,78 @@ function openAcademyProfileEditorModal() {
         uploadName: ''
     });
 
-    const displayNameInput = document.getElementById('academy-profile-edit-display-name');
-    const usernameInput = document.getElementById('academy-profile-edit-username');
-    const bioInput = document.getElementById('academy-profile-edit-bio');
-    const tagsInput = document.getElementById('academy-profile-edit-tags');
+const cachedProfile = readAcademyProfileCache() || {};
 
-    if (displayNameInput) displayNameInput.value = displayName;
-    if (usernameInput) usernameInput.value = username;
-    if (bioInput) bioInput.value = bio;
-    if (tagsInput) tagsInput.value = tags.join(', ');
+const displayNameInput = document.getElementById('academy-profile-edit-display-name');
+const usernameInput = document.getElementById('academy-profile-edit-username');
+const bioInput = document.getElementById('academy-profile-edit-bio');
+const tagsInput = document.getElementById('academy-profile-edit-tags');
+const roleTrackInput = document.getElementById('academy-profile-edit-role-track');
+const lookingForInput = document.getElementById('academy-profile-edit-looking-for');
+const canOfferInput = document.getElementById('academy-profile-edit-can-offer');
+const availabilityInput = document.getElementById('academy-profile-edit-availability');
+const workModeInput = document.getElementById('academy-profile-edit-work-mode');
+const proofFocusInput = document.getElementById('academy-profile-edit-proof-focus');
+const marketplaceReadyInput = document.getElementById('academy-profile-edit-marketplace-ready');
+
+if (displayNameInput) displayNameInput.value = displayName;
+if (usernameInput) usernameInput.value = username;
+if (bioInput) bioInput.value = bio;
+if (tagsInput) tagsInput.value = tags.join(', ');
+
+if (roleTrackInput) {
+    roleTrackInput.value = String(activeProfile.role_track || activeProfile.roleTrack || cachedProfile.role_track || '').trim();
+}
+
+if (lookingForInput) {
+    lookingForInput.value = academyNormalizeSignalList(
+        activeProfile.looking_for ||
+        activeProfile.lookingFor ||
+        cachedProfile.looking_for
+    ).join(', ');
+}
+
+if (canOfferInput) {
+    canOfferInput.value = academyNormalizeSignalList(
+        activeProfile.can_offer ||
+        activeProfile.canOffer ||
+        cachedProfile.can_offer
+    ).join(', ');
+}
+
+if (availabilityInput) {
+    availabilityInput.value = String(
+        activeProfile.availability ||
+        cachedProfile.availability ||
+        ''
+    ).trim();
+}
+
+if (workModeInput) {
+    workModeInput.value = String(
+        activeProfile.work_mode ||
+        activeProfile.workMode ||
+        cachedProfile.work_mode ||
+        ''
+    ).trim();
+}
+
+if (proofFocusInput) {
+    proofFocusInput.value = String(
+        activeProfile.proof_focus ||
+        activeProfile.proofFocus ||
+        cachedProfile.proof_focus ||
+        ''
+    ).trim();
+}
+
+if (marketplaceReadyInput) {
+    marketplaceReadyInput.value = academyYesNoToBool(
+        activeProfile.marketplace_ready ??
+        activeProfile.marketplaceReady ??
+        cachedProfile.marketplace_ready
+    ) ? 'yes' : 'no';
+}
 
     updateAcademyProfileEditorPreviewAvatar(avatar, displayName);
     updateAcademyProfileEditorPreviewCover(cover);
@@ -7607,6 +8197,7 @@ async function academyDeleteOwnProfileWithPassword(deleteBtn = null) {
 
         closeAcademyProfileSettingsModal();
         renderAcademyProfileView(academyProfileViewState.profile, { mode: 'self' });
+        renderAcademyOpportunityLayer(savedProfile, { mode: 'self' });
 
         if (typeof stabilizeAcademyMobileProfileLayout === 'function') {
             stabilizeAcademyMobileProfileLayout();
@@ -7880,18 +8471,33 @@ function ensureAcademyProfileEditorBindings() {
 
         const saveBtn = event.target.closest('#academy-profile-editor-save');
         if (saveBtn) {
-            const displayNameInput = document.getElementById('academy-profile-edit-display-name');
-            const usernameInput = document.getElementById('academy-profile-edit-username');
-            const bioInput = document.getElementById('academy-profile-edit-bio');
-            const tagsInput = document.getElementById('academy-profile-edit-tags');
+        const displayNameInput = document.getElementById('academy-profile-edit-display-name');
+        const usernameInput = document.getElementById('academy-profile-edit-username');
+        const bioInput = document.getElementById('academy-profile-edit-bio');
+        const tagsInput = document.getElementById('academy-profile-edit-tags');
+        const roleTrackInput = document.getElementById('academy-profile-edit-role-track');
+        const lookingForInput = document.getElementById('academy-profile-edit-looking-for');
+        const canOfferInput = document.getElementById('academy-profile-edit-can-offer');
+        const availabilityInput = document.getElementById('academy-profile-edit-availability');
+        const workModeInput = document.getElementById('academy-profile-edit-work-mode');
+        const proofFocusInput = document.getElementById('academy-profile-edit-proof-focus');
+        const marketplaceReadyInput = document.getElementById('academy-profile-edit-marketplace-ready');
 
-            const nextDisplayName = String(displayNameInput?.value || '').trim();
-            const nextUsername = sanitizeAcademyProfileUsername(usernameInput?.value || '');
-            const nextBio = String(bioInput?.value || '').trim();
-            const nextTags = String(tagsInput?.value || '')
-                .split(',')
-                .map((tag) => tag.trim())
-                .filter(Boolean);
+        const nextDisplayName = String(displayNameInput?.value || '').trim();
+        const nextUsername = sanitizeAcademyProfileUsername(usernameInput?.value || '');
+        const nextBio = String(bioInput?.value || '').trim();
+        const nextTags = String(tagsInput?.value || '')
+            .split(',')
+            .map((tag) => tag.trim())
+            .filter(Boolean);
+
+        const nextRoleTrack = String(roleTrackInput?.value || '').trim();
+        const nextLookingFor = academyNormalizeSignalList(lookingForInput?.value || '');
+        const nextCanOffer = academyNormalizeSignalList(canOfferInput?.value || '');
+        const nextAvailability = String(availabilityInput?.value || '').trim();
+        const nextWorkMode = String(workModeInput?.value || '').trim();
+        const nextProofFocus = String(proofFocusInput?.value || '').trim();
+        const nextMarketplaceReady = academyYesNoToBool(marketplaceReadyInput?.value || 'no');
 
             if (!nextDisplayName) {
                 showToast('Display name cannot be empty.', 'error');
@@ -7925,17 +8531,24 @@ function ensureAcademyProfileEditorBindings() {
                     nextCoverUrl = String(uploadedCover?.url || '').trim();
                 }
 
-                const result = await academyAuthedFetch('/api/academy/profile', {
-                    method: 'PATCH',
-                    body: JSON.stringify({
-                        display_name: nextDisplayName,
-                        username: nextUsername,
-                        bio: nextBio || 'Focused on execution, consistency, and long-term growth inside The Academy.',
-                        search_tags: nextTags,
-                        avatar: nextAvatarUrl,
-                        cover_photo: nextCoverUrl
-                    })
-                });
+                    const result = await academyAuthedFetch('/api/academy/profile', {
+                        method: 'PATCH',
+                        body: JSON.stringify({
+                            display_name: nextDisplayName,
+                            username: nextUsername,
+                            bio: nextBio || 'Focused on execution, consistency, and long-term growth inside The Academy.',
+                            search_tags: nextTags,
+                            avatar: nextAvatarUrl,
+                            cover_photo: nextCoverUrl,
+                            role_track: nextRoleTrack,
+                            looking_for: nextLookingFor,
+                            can_offer: nextCanOffer,
+                            availability: nextAvailability,
+                            work_mode: nextWorkMode,
+                            proof_focus: nextProofFocus,
+                            marketplace_ready: nextMarketplaceReady
+                        })
+                    });
 
                 const savedProfile =
                     result?.profile && typeof result.profile === 'object'
@@ -11454,6 +12067,7 @@ async function openAcademyProfileView(forceFresh = false) {
 
         const selfPayload = buildAcademySelfProfilePayload(profile);
         renderAcademyProfileView(selfPayload, { mode: 'self' });
+        renderAcademyOpportunityLayer(profile, { mode: 'self' });
         stabilizeAcademyMobileProfileLayout();
     } catch (error) {
         console.error('openAcademyProfileView error:', error);
@@ -11468,7 +12082,97 @@ async function openAcademyProfileView(forceFresh = false) {
         stabilizeAcademyMobileProfileLayout();
     }
 }
+function renderAcademyOpportunityLayer(profile = null, options = {}) {
+    const sideColumn = document.querySelector('.academy-profile-side-column');
+    if (!sideColumn) return;
 
+    let card = document.getElementById('academy-profile-opportunity-card');
+
+    const isSelf = options?.mode === 'self';
+
+    if (!isSelf) {
+        if (card) card.remove();
+        return;
+    }
+
+    const roleTrack = String(profile?.role_track || profile?.roleTrack || '').trim() || 'Not set yet';
+    const lookingFor = academyNormalizeSignalList(profile?.looking_for || profile?.lookingFor);
+    const canOffer = academyNormalizeSignalList(profile?.can_offer || profile?.canOffer);
+    const availability = String(profile?.availability || '').trim() || 'Not set';
+    const workMode = String(profile?.work_mode || profile?.workMode || '').trim() || 'Not set';
+    const proofFocus = String(profile?.proof_focus || profile?.proofFocus || '').trim() || 'Not set';
+    const marketplaceReady = academyYesNoToBool(profile?.marketplace_ready ?? profile?.marketplaceReady);
+
+    const readinessCopy = marketplaceReady
+        ? 'This profile is already marked as ready to feed into Plaza visibility and opportunity matching.'
+        : 'Complete your role track, offer/need signals, and proof focus so your profile becomes stronger for Plaza handoff.';
+
+    const renderSignalChips = (items = [], emptyLabel = 'Not set yet') => {
+        if (!Array.isArray(items) || items.length === 0) {
+            return `<span class="academy-profile-signal-empty">${academyFeedEscapeHtml(emptyLabel)}</span>`;
+        }
+
+        return items.map((item) => {
+            return `<span class="academy-profile-signal-chip">${academyFeedEscapeHtml(item)}</span>`;
+        }).join('');
+    };
+
+    if (!card) {
+        card = document.createElement('section');
+        card.className = 'academy-profile-card academy-profile-opportunity-card';
+        card.id = 'academy-profile-opportunity-card';
+        sideColumn.appendChild(card);
+    }
+
+    card.innerHTML = `
+        <div class="academy-profile-card-kicker">Opportunity Layer</div>
+        <h4 class="academy-profile-card-title">Plaza readiness</h4>
+
+        <div class="academy-profile-readiness-badge ${marketplaceReady ? 'is-ready' : 'is-building'}">
+            ${marketplaceReady ? 'Marketplace Ready' : 'Still Building'}
+        </div>
+
+        <div class="academy-profile-stat-list academy-profile-opportunity-stats">
+            <div class="academy-profile-stat-row">
+                <span>Role track</span>
+                <strong>${academyFeedEscapeHtml(roleTrack)}</strong>
+            </div>
+
+            <div class="academy-profile-stat-row">
+                <span>Availability</span>
+                <strong>${academyFeedEscapeHtml(availability)}</strong>
+            </div>
+
+            <div class="academy-profile-stat-row">
+                <span>Work mode</span>
+                <strong>${academyFeedEscapeHtml(workMode)}</strong>
+            </div>
+
+            <div class="academy-profile-stat-row">
+                <span>Proof focus</span>
+                <strong>${academyFeedEscapeHtml(proofFocus)}</strong>
+            </div>
+        </div>
+
+        <div class="academy-profile-opportunity-block">
+            <div class="academy-profile-opportunity-label">Looking for</div>
+            <div class="academy-profile-signal-list">
+                ${renderSignalChips(lookingFor)}
+            </div>
+        </div>
+
+        <div class="academy-profile-opportunity-block">
+            <div class="academy-profile-opportunity-label">Can offer</div>
+            <div class="academy-profile-signal-list">
+                ${renderSignalChips(canOffer)}
+            </div>
+        </div>
+
+        <div class="academy-profile-readiness-copy">
+            ${academyFeedEscapeHtml(readinessCopy)}
+        </div>
+    `;
+}
 async function openAcademyMemberProfileView(memberId = '') {
     const normalizedMemberId = normalizeAcademyFeedId(memberId);
     if (!normalizedMemberId) return;
@@ -11494,6 +12198,7 @@ async function openAcademyMemberProfileView(memberId = '') {
         document.getElementById('academy-member-browser-modal')?.classList.add('hidden-step');
 
         renderAcademyProfileView(profile, { mode: 'visited' });
+        renderAcademyOpportunityLayer(null, { mode: 'visited' });
     } catch (error) {
         console.error('openAcademyMemberProfileView error:', error);
         showToast(error?.message || 'Failed to load member profile.', 'error');
@@ -14700,7 +15405,26 @@ async function loadAcademyHome(forceFresh = false) {
         return null;
     }
 }
+if (
+    typeof renderAcademyHome === 'function' &&
+    window.__yhAcademyHomeReadinessWrapped !== true
+) {
+    const academyOriginalRenderHome = renderAcademyHome;
 
+    renderAcademyHome = function wrappedAcademyRenderHome(homeData = null) {
+        const result = academyOriginalRenderHome(homeData);
+
+        try {
+            academyInjectHomeReadinessPanel(homeData);
+        } catch (error) {
+            console.error('academyInjectHomeReadinessPanel error:', error);
+        }
+
+        return result;
+    };
+
+    window.__yhAcademyHomeReadinessWrapped = true;
+}
 function hideDivisionViews() {
     document.getElementById('view-plazas')?.classList.add('hidden-step');
     document.getElementById('view-federation')?.classList.add('hidden-step');
@@ -17776,6 +18500,12 @@ if (isStandaloneAcademyPage()) {
 
 // Restore last UI location after refresh/reload
 restoreDashboardViewState();
+
+window.requestAnimationFrame(() => {
+    if (academyStartupBootShouldRelease()) {
+        hideAcademyStartupBootOverlay();
+    }
+});
 
 const formApply = document.getElementById('form-academy-apply');
 

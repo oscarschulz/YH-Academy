@@ -332,6 +332,7 @@ async function savePlazaDirectoryProfile(payload = {}) {
       ...plazaServerDirectory.filter((item) => item.id !== profile.id)
     ];
     plazaServerDirectoryLoaded = true;
+    writePlazaDirectoryStatusCache(profile, { source: "manual" });
   }
 
   return profile;
@@ -6299,27 +6300,439 @@ function getPlazaApplicationInputForStep(stepKey = "") {
   return map[stepKey] || null;
 }
 
+function readPlazaCacheJson(key, fallback = null) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function normalizePlazaSeedList(value = []) {
+  const source = Array.isArray(value)
+    ? value
+    : String(value || "").split(",");
+
+  return Array.from(new Set(
+    source
+      .map((item) => String(item || "").trim())
+      .filter(Boolean)
+  )).slice(0, 8);
+}
+
+function joinPlazaSeedList(value = [], fallback = "") {
+  const normalized = normalizePlazaSeedList(value);
+  return normalized.length ? normalized.join(", ") : fallback;
+}
+
+function setPlazaInputIfBlank(input, nextValue) {
+  if (!input) return;
+  if (String(input.value || "").trim()) return;
+
+  const clean = String(nextValue ?? "").trim();
+  if (!clean) return;
+
+  input.value = clean;
+}
+
+function setPlazaComposerValueIfBlank(id, nextValue) {
+  const input = document.getElementById(id);
+  if (!input) return;
+  if (String(input.value || "").trim()) return;
+
+  const clean = String(nextValue ?? "").trim();
+  if (!clean) return;
+
+  input.value = clean;
+}
+
+function buildPlazaAcademySeed() {
+  const academyHome = readPlazaCacheJson("yh_academy_home", {}) || {};
+  const academySnapshot = readPlazaCacheJson("yh_academy_membership_status_v1", {}) || {};
+  const plazaSnapshot = readPlazaCacheJson("yh_plaza_access_status_v1", {}) || {};
+
+  const application =
+    plazaSnapshot?.application && typeof plazaSnapshot.application === "object"
+      ? plazaSnapshot.application
+      : {};
+
+  const profileSignals =
+    academyHome?.profileSignals && typeof academyHome.profileSignals === "object"
+      ? academyHome.profileSignals
+      : {};
+
+  const plazaReadiness =
+    academyHome?.plazaReadiness && typeof academyHome.plazaReadiness === "object"
+      ? academyHome.plazaReadiness
+      : {};
+
+  const roleTrack = String(
+    profileSignals?.roleTrack ||
+    application.currentProject ||
+    ""
+  ).trim();
+
+  const lookingFor = normalizePlazaSeedList(
+    profileSignals?.lookingFor ||
+    application.resourcesNeeded ||
+    []
+  );
+
+  const canOffer = normalizePlazaSeedList(
+    profileSignals?.canOffer ||
+    application.contribution ||
+    application.servicesProducts ||
+    []
+  );
+
+  const availability = String(profileSignals?.availability || "").trim();
+  const workMode = String(profileSignals?.workMode || "").trim();
+  const proofFocus = String(profileSignals?.proofFocus || "").trim();
+
+  const readinessScore = Number(plazaReadiness?.score || 0);
+  const readinessStatus = String(plazaReadiness?.statusLabel || "").trim();
+
+  const marketplaceReady =
+    plazaReadiness?.marketplaceReady === true ||
+    profileSignals?.marketplaceReady === true;
+
+  const membershipType = academySnapshot?.canEnterAcademy === true
+    ? "academy"
+    : String(application.membershipType || "").trim();
+
+  const email = String(
+    localStorage.getItem("yh_user_email") ||
+    localStorage.getItem("email") ||
+    application.email ||
+    ""
+  ).trim();
+
+  const fullName = String(
+    localStorage.getItem("yh_user_full_name") ||
+    localStorage.getItem("yh_user_name") ||
+    localStorage.getItem("name") ||
+    application.fullName ||
+    ""
+  ).trim();
+
+  const country = String(
+    localStorage.getItem("yh_user_country") ||
+    application.country ||
+    ""
+  ).trim();
+
+  const currentProject = [roleTrack, proofFocus].filter(Boolean).join(" — ");
+
+  return {
+    membershipType,
+    email,
+    fullName,
+    country,
+    roleTrack,
+    lookingFor,
+    canOffer,
+    availability,
+    workMode,
+    proofFocus,
+    readinessScore,
+    readinessStatus,
+    marketplaceReady,
+    currentProject,
+    resourcesNeeded: joinPlazaSeedList(lookingFor),
+    contribution: joinPlazaSeedList(canOffer),
+    servicesProducts: joinPlazaSeedList(canOffer),
+    wantsMarketplace: marketplaceReady || canOffer.length > 0 ? "yes" : ""
+  };
+}
+
 function prefillPlazaApplicationBasics() {
   try {
-    const storedEmail =
-      localStorage.getItem("yh_user_email") ||
-      localStorage.getItem("email") ||
-      "";
+    const seed = buildPlazaAcademySeed();
 
-    const storedName =
-      localStorage.getItem("yh_user_full_name") ||
-      localStorage.getItem("yh_user_name") ||
-      localStorage.getItem("name") ||
-      "";
+    setPlazaInputIfBlank(plazaAppMembershipType, seed.membershipType);
+    setPlazaInputIfBlank(plazaAppEmail, seed.email);
+    setPlazaInputIfBlank(plazaAppFullName, seed.fullName);
+    setPlazaInputIfBlank(plazaAppCurrentProject, seed.currentProject);
+    setPlazaInputIfBlank(plazaAppResourcesNeeded, seed.resourcesNeeded);
+    setPlazaInputIfBlank(plazaAppContribution, seed.contribution);
+    setPlazaInputIfBlank(plazaAppCountry, seed.country);
+    setPlazaInputIfBlank(plazaAppServicesProducts, seed.servicesProducts);
 
-    if (plazaAppEmail && !plazaAppEmail.value.trim()) {
-      plazaAppEmail.value = storedEmail;
+    if (
+      plazaAppWantsMarketplace &&
+      !String(plazaAppWantsMarketplace.value || "").trim() &&
+      seed.wantsMarketplace
+    ) {
+      plazaAppWantsMarketplace.value = seed.wantsMarketplace;
     }
 
-    if (plazaAppFullName && !plazaAppFullName.value.trim()) {
-      plazaAppFullName.value = storedName;
-    }
+    syncPlazaApplicationLabels();
+    syncPlazaApplicationRequiredState();
   } catch (_) {}
+}
+
+function prefillPlazaDirectoryComposerFromAcademySignal() {
+  const seed = buildPlazaAcademySeed();
+
+  const tags = Array.from(new Set(
+    [seed.roleTrack, ...seed.canOffer]
+      .map((item) => String(item || "").trim())
+      .filter(Boolean)
+  )).slice(0, 8).join(", ");
+
+  const focus =
+    String(seed.proofFocus || "").trim() ||
+    String(seed.currentProject || "").trim() ||
+    (seed.canOffer.length ? `Can offer: ${joinPlazaSeedList(seed.canOffer)}` : "");
+
+  setPlazaComposerValueIfBlank(
+    "plazaDirectoryComposerDivision",
+    seed.membershipType === "federation" ? "federation" : "academy"
+  );
+
+  setPlazaComposerValueIfBlank(
+    "plazaDirectoryComposerTrust",
+    seed.readinessScore >= 75 ? "connector" : "verified"
+  );
+
+  setPlazaComposerValueIfBlank(
+    "plazaDirectoryComposerRegion",
+    seed.country || "Global"
+  );
+
+  setPlazaComposerValueIfBlank(
+    "plazaDirectoryComposerAvailability",
+    seed.availability
+  );
+
+  setPlazaComposerValueIfBlank(
+    "plazaDirectoryComposerWorkMode",
+    seed.workMode
+  );
+
+  if (seed.marketplaceReady === true) {
+    setPlazaComposerValueIfBlank(
+      "plazaDirectoryComposerMarketplaceMode",
+      "yes"
+    );
+  }
+
+  setPlazaComposerValueIfBlank(
+    "plazaDirectoryComposerRole",
+    seed.roleTrack
+  );
+
+  setPlazaComposerValueIfBlank(
+    "plazaDirectoryComposerTags",
+    tags
+  );
+
+  setPlazaComposerValueIfBlank(
+    "plazaDirectoryComposerLookingFor",
+    joinPlazaSeedList(seed.lookingFor)
+  );
+
+  setPlazaComposerValueIfBlank(
+    "plazaDirectoryComposerCanOffer",
+    joinPlazaSeedList(seed.canOffer)
+  );
+
+  setPlazaComposerValueIfBlank(
+    "plazaDirectoryComposerFocus",
+    focus
+  );
+}
+const PLAZA_DIRECTORY_AUTOSEED_KEY = "yhPlazaDirectoryAutoSeedV1";
+const PLAZA_DIRECTORY_STATUS_CACHE_KEY = "yhPlazaDirectoryStatusV1";
+let plazaDirectoryAutoSeedPromise = null;
+
+function buildPlazaDirectoryPayloadFromAcademySignal() {
+  const seed = buildPlazaAcademySeed();
+
+  const role = String(seed.roleTrack || "").trim();
+  const tags = Array.from(new Set(
+    [seed.roleTrack, ...seed.canOffer]
+      .map((item) => String(item || "").trim())
+      .filter(Boolean)
+  )).slice(0, 8).join(", ");
+
+  const focus =
+    String(seed.proofFocus || "").trim() ||
+    String(seed.currentProject || "").trim() ||
+    (seed.canOffer.length ? `Can offer: ${joinPlazaSeedList(seed.canOffer)}` : "");
+
+  if (!role || !focus) {
+    return null;
+  }
+
+  return {
+    division: seed.membershipType === "federation" ? "federation" : "academy",
+    trust: seed.readinessScore >= 75 ? "connector" : "verified",
+    region: seed.country || "Global",
+    availability: seed.availability || "",
+    workMode: seed.workMode || "",
+    marketplaceMode: seed.marketplaceReady === true ? "yes" : "no",
+    role,
+    tags,
+    lookingFor: joinPlazaSeedList(seed.lookingFor),
+    canOffer: joinPlazaSeedList(seed.canOffer),
+    focus
+  };
+}
+
+function getPlazaDirectoryAutoSeedFingerprint(payload = {}) {
+  return JSON.stringify({
+    division: payload.division || "",
+    trust: payload.trust || "",
+    region: payload.region || "",
+    availability: payload.availability || "",
+    workMode: payload.workMode || "",
+    marketplaceMode: payload.marketplaceMode || "",
+    role: payload.role || "",
+    tags: payload.tags || "",
+    lookingFor: payload.lookingFor || "",
+    canOffer: payload.canOffer || "",
+    focus: payload.focus || ""
+  });
+}
+
+function hasPlazaDirectoryAutoSeeded(payload = {}) {
+  try {
+    const nextFingerprint = getPlazaDirectoryAutoSeedFingerprint(payload);
+    const storedFingerprint = String(localStorage.getItem(PLAZA_DIRECTORY_AUTOSEED_KEY) || "").trim();
+    return storedFingerprint && storedFingerprint === nextFingerprint;
+  } catch (_) {
+    return false;
+  }
+}
+
+function markPlazaDirectoryAutoSeeded(payload = {}) {
+  try {
+    localStorage.setItem(
+      PLAZA_DIRECTORY_AUTOSEED_KEY,
+      getPlazaDirectoryAutoSeedFingerprint(payload)
+    );
+  } catch (_) {}
+}
+function writePlazaDirectoryStatusCache(profile = null, options = {}) {
+  try {
+    if (!profile || typeof profile !== "object") {
+      localStorage.removeItem(PLAZA_DIRECTORY_STATUS_CACHE_KEY);
+      return;
+    }
+
+    const tags = Array.isArray(profile.tags) ? profile.tags : [];
+    const lookingFor = Array.isArray(profile.lookingFor) ? profile.lookingFor : [];
+    const canOffer = Array.isArray(profile.canOffer) ? profile.canOffer : [];
+
+    const role = String(profile.role || "").trim();
+    const focus = String(profile.focus || "").trim();
+    const marketplaceMode = String(profile.marketplaceMode || "no").trim().toLowerCase() === "yes";
+    const trust = String(profile.trust || "").trim().toLowerCase();
+    const source = String(options.source || "manual").trim() || "manual";
+    const availability = String(profile.availability || "").trim();
+    const workMode = String(profile.workMode || "").trim();
+    const region = String(profile.region || "").trim();
+
+    const readyForOpportunityFlow =
+      Boolean(role) &&
+      Boolean(focus) &&
+      (canOffer.length > 0 || tags.length > 0);
+
+    let opportunityScore = 0;
+
+    if (role) opportunityScore += 16;
+    if (focus) opportunityScore += 16;
+    if (canOffer.length > 0) opportunityScore += 18;
+    if (lookingFor.length > 0) opportunityScore += 10;
+    if (tags.length >= 2) opportunityScore += 10;
+    else if (tags.length === 1) opportunityScore += 6;
+    if (availability) opportunityScore += 8;
+    if (workMode) opportunityScore += 8;
+    if (marketplaceMode) opportunityScore += 8;
+    if (trust === "connector") opportunityScore += 4;
+    if (trust === "leader") opportunityScore += 8;
+
+    opportunityScore = Math.max(0, Math.min(100, opportunityScore));
+
+    const strategicEligible =
+      opportunityScore >= 85 &&
+      marketplaceMode === true &&
+      canOffer.length >= 2 &&
+      (trust === "connector" || trust === "leader");
+
+    let opportunityStage = "Weak";
+    let opportunityCopy = "Your Plaza profile exists, but it is still too thin for strong opportunity flow.";
+
+    if (strategicEligible) {
+      opportunityStage = "Ready for Strategic Escalation";
+      opportunityCopy = "Your Plaza profile is strong enough for strategic routing, higher-trust visibility, and escalation toward Federation-level leverage.";
+    } else if (opportunityScore >= 65) {
+      opportunityStage = "Ready for Matching";
+      opportunityCopy = "Your Plaza profile is strong enough to support direct matching, opportunity routing, and marketplace visibility.";
+    } else if (opportunityScore >= 40) {
+      opportunityStage = "Active";
+      opportunityCopy = "Your Plaza profile is active, but it still needs stronger signal before it becomes highly matchable.";
+    }
+
+    localStorage.setItem(
+      PLAZA_DIRECTORY_STATUS_CACHE_KEY,
+      JSON.stringify({
+        seeded: true,
+        source,
+        readyForOpportunityFlow,
+        profileId: String(profile.id || "").trim(),
+        role,
+        focus,
+        trust,
+        region,
+        marketplaceMode,
+        availability,
+        workMode,
+        tags,
+        lookingFor,
+        canOffer,
+        opportunityScore,
+        opportunityStage,
+        opportunityCopy,
+        strategicEligible,
+        cachedAt: new Date().toISOString()
+      })
+    );
+  } catch (_) {}
+}
+async function autoSavePlazaDirectoryProfileFromAcademySignal() {
+  if (plazaDirectoryAutoSeedPromise) return plazaDirectoryAutoSeedPromise;
+
+  const payload = buildPlazaDirectoryPayloadFromAcademySignal();
+  if (!payload) return null;
+
+  if (hasPlazaDirectoryAutoSeeded(payload)) {
+    return null;
+  }
+
+  plazaDirectoryAutoSeedPromise = (async () => {
+    try {
+      const profile = await savePlazaDirectoryProfile(payload);
+      markPlazaDirectoryAutoSeeded(payload);
+
+    if (profile) {
+      plazaServerDirectoryLoaded = true;
+      writePlazaDirectoryStatusCache(profile, { source: "auto-seed" });
+      renderDirectory();
+    }
+
+    return profile;
+    } catch (error) {
+      console.error("autoSavePlazaDirectoryProfileFromAcademySignal error:", error);
+      return null;
+    } finally {
+      plazaDirectoryAutoSeedPromise = null;
+    }
+  })();
+
+  return plazaDirectoryAutoSeedPromise;
 }
 
 function syncPlazaApplicationLabels() {
@@ -6655,7 +7068,12 @@ function unlockPlazaAccess() {
   if (plazaAccessGate) {
     plazaAccessGate.hidden = true;
   }
-}
+
+  window.requestAnimationFrame(() => {
+    prefillPlazaDirectoryComposerFromAcademySignal();
+    autoSavePlazaDirectoryProfileFromAcademySignal().catch(() => {});
+  });
+} 
 
 async function loadPlazaApplicationStatus() {
   const result = await plazaApiFetch("/api/plaza/application-status", {

@@ -1108,6 +1108,180 @@ apiRouter.get('/api/admin/bootstrap', requireAdminSession, async (req, res) => {
     });
   }
 });
+
+const USER_REVIEW_NOTIFICATION_LIMIT = 40;
+
+function getApplicationReviewNotificationMeta(matchedField = '', nextStatus = '') {
+  const field = cleanText(matchedField);
+  const status = cleanText(nextStatus).toLowerCase();
+
+  if (field === 'federationApplication') {
+    if (status === 'approved') {
+      return {
+        title: 'Federation application approved',
+        text: 'You now have Federation access. Open Federation and activate your strategic layer.',
+        target: 'federation',
+        color: 'var(--green)',
+        avatarStr: 'F'
+      };
+    }
+
+    if (status === 'waitlisted') {
+      return {
+        title: 'Federation application waitlisted',
+        text: 'Your candidacy is still alive, but you need stronger Plaza outcomes and proof before the next review cycle.',
+        target: 'federation',
+        color: 'var(--amber)',
+        avatarStr: 'F'
+      };
+    }
+
+    if (status === 'rejected') {
+      return {
+        title: 'Federation application not approved',
+        text: 'Your current Federation application was not approved. Strengthen your Plaza signal and reapply with stronger leverage.',
+        target: 'federation',
+        color: 'var(--red)',
+        avatarStr: 'F'
+      };
+    }
+
+    return {
+      title: 'Federation application updated',
+      text: `Your Federation application is now ${cleanText(nextStatus) || 'Under Review'}.`,
+      target: 'federation',
+      color: 'var(--blue)',
+      avatarStr: 'F'
+    };
+  }
+
+  if (field === 'plazaApplication') {
+    if (status === 'approved') {
+      return {
+        title: 'Plaza application approved',
+        text: 'You can now enter Plaza. Complete your directory profile and activate your opportunity layer.',
+        target: 'plaza',
+        color: 'var(--green)',
+        avatarStr: 'P'
+      };
+    }
+
+    if (status === 'waitlisted') {
+      return {
+        title: 'Plaza application waitlisted',
+        text: 'Your Plaza application is waitlisted. Improve your Academy profile and economic signal before the next review.',
+        target: 'plaza',
+        color: 'var(--amber)',
+        avatarStr: 'P'
+      };
+    }
+
+    if (status === 'rejected') {
+      return {
+        title: 'Plaza application not approved',
+        text: 'Your Plaza application was not approved. You can submit a stronger application when your signal is clearer.',
+        target: 'plaza',
+        color: 'var(--red)',
+        avatarStr: 'P'
+      };
+    }
+
+    return {
+      title: 'Plaza application updated',
+      text: `Your Plaza application is now ${cleanText(nextStatus) || 'Under Review'}.`,
+      target: 'plaza',
+      color: 'var(--blue)',
+      avatarStr: 'P'
+    };
+  }
+
+  if (field === 'academyApplication') {
+    if (status === 'approved') {
+      return {
+        title: 'Academy application approved',
+        text: 'You now have Academy access. Enter Academy and continue building your roadmap and execution signal.',
+        target: 'academy',
+        color: 'var(--green)',
+        avatarStr: 'A'
+      };
+    }
+
+    if (status === 'waitlisted') {
+      return {
+        title: 'Academy application waitlisted',
+        text: 'Your Academy application is waitlisted. Refine your entry signal before the next review cycle.',
+        target: 'academy',
+        color: 'var(--amber)',
+        avatarStr: 'A'
+      };
+    }
+
+    if (status === 'rejected') {
+      return {
+        title: 'Academy application not approved',
+        text: 'Your Academy application was not approved. You can return with a stronger application later.',
+        target: 'academy',
+        color: 'var(--red)',
+        avatarStr: 'A'
+      };
+    }
+
+    return {
+      title: 'Academy application updated',
+      text: `Your Academy application is now ${cleanText(nextStatus) || 'Under Review'}.`,
+      target: 'academy',
+      color: 'var(--blue)',
+      avatarStr: 'A'
+    };
+  }
+
+  return {
+    title: 'Application updated',
+    text: `Your application is now ${cleanText(nextStatus) || 'Under Review'}.`,
+    target: 'dashboard',
+    color: 'var(--blue)',
+    avatarStr: 'Y'
+  };
+}
+
+function buildApplicationReviewNotification({ matchedField = '', nextStatus = '', application = {}, nowIso = '' } = {}) {
+  const meta = getApplicationReviewNotificationMeta(matchedField, nextStatus);
+
+  return {
+    id: `review_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    title: meta.title,
+    text: meta.text,
+    message: meta.text,
+    body: meta.text,
+    target: meta.target,
+    targetType: meta.target,
+    target_type: meta.target,
+    targetId: cleanText(application.id || ''),
+    target_id: cleanText(application.id || ''),
+    color: meta.color,
+    avatarStr: meta.avatarStr,
+    initial: meta.avatarStr,
+    source: 'admin-review',
+    notificationType: 'application-review',
+    applicationField: cleanText(matchedField),
+    applicationStatus: cleanText(nextStatus),
+    isRead: false,
+    is_read: false,
+    read: false,
+    createdAt: nowIso,
+    created_at: nowIso
+  };
+}
+
+function prependUserInProductNotification(existing = [], notification = null) {
+  const current = Array.isArray(existing) ? existing : [];
+  const next = notification && typeof notification === 'object'
+    ? [notification, ...current]
+    : current;
+
+  return next.slice(0, USER_REVIEW_NOTIFICATION_LIMIT);
+}
+
 apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async (req, res) => {
   try {
     const applicationId = cleanText(req.params.id);
@@ -1337,6 +1511,18 @@ apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async 
         }
       }
 
+      const reviewNotification = buildApplicationReviewNotification({
+        matchedField,
+        nextStatus,
+        application: updatedApplication,
+        nowIso
+      });
+
+      updatePayload.inProductReviewNotifications = prependUserInProductNotification(
+        freshUser.inProductReviewNotifications,
+        reviewNotification
+      );
+
       updatePayload[matchedField] = updatedApplication;
 
       transaction.set(matchedUserDoc.ref, updatePayload, { merge: true });
@@ -1402,7 +1588,8 @@ apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async 
       application: responseApplication,
       alreadyReviewed: reviewResult.alreadyReviewed === true,
       approvalEmailSent,
-      approvalEmailError
+      approvalEmailError,
+      inProductNotificationQueued: reviewResult.alreadyReviewed !== true
     });
   } catch (error) {
     console.error('admin application review error:', error);

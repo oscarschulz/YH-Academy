@@ -648,6 +648,8 @@ function renderFederationConnectSection() {
   if (!section || !grid) return;
 
   const state = getCurrentUserState();
+  const readiness = getFederationStrategicReadinessState();
+  updateFederationStrategicReadinessSurface();
 
   if (state.type !== "member") {
     section.hidden = true;
@@ -694,11 +696,12 @@ function renderFederationConnectSection() {
   if (!filtered.length) {
     grid.innerHTML = `
       <article class="fed-command-card fed-connect-empty">
-        <div class="fed-sidebar-card-label">No Federation-ready leads yet</div>
-        <h4>Waiting for admin-routed Academy leads</h4>
+        <div class="fed-sidebar-card-label">${escapeHtml(readiness.connectReady ? "No Federation-ready leads yet" : "Connect readiness still building")}</div>
+        <h4>${escapeHtml(readiness.connectReady ? "Waiting for admin-routed Academy leads" : readiness.label)}</h4>
         <p class="fed-command-copy">
-          Once admin marks Academy Lead Mission records as Federation-ready, anonymized opportunities
-          will appear here for approved members to request.
+          ${escapeHtml(readiness.connectReady
+            ? "Once admin marks Academy Lead Mission records as Federation-ready, anonymized opportunities will appear here for approved members to request."
+            : readiness.copy)}
         </p>
       </article>
     `;
@@ -845,15 +848,19 @@ function closeFederationConnectRequest() {
   const selected = qs("#connectSelectedOpportunity");
   const leadField = qs("#connectRequestLeadId");
   const ownerField = qs("#connectRequestOwnerUid");
+  const readiness = getFederationStrategicReadinessState();
 
   if (form) form.reset();
   if (leadField) leadField.value = "";
   if (ownerField) ownerField.value = "";
 
   if (selected) {
-    selected.textContent = "Fill the request fields below. Admin will match your request against the Federation-ready lead database.";
+    selected.textContent = readiness.connectReady
+      ? "Fill the request fields below. Admin will match your request against the Federation-ready lead database."
+      : `Connect readiness: ${readiness.connectLabel}. ${readiness.copy}`;
   }
 
+  updateFederationStrategicReadinessSurface();
   showFederationConnectFeedback("", "success");
 }
 
@@ -1098,6 +1105,283 @@ function getCurrentUserState() {
   };
 }
 
+function readFederationJsonCache(key, fallback = null) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch (_) {
+    return fallback;
+  }
+}
+function getFederationLadderOutcomeSnapshot() {
+  return readFederationJsonCache("yh_federation_ladder_outcome_v1", {}) || {};
+}
+function getFederationStrategicReadinessState() {
+  const plazaSnapshot = readFederationJsonCache("yh_plaza_access_status_v1", {}) || {};
+  const federationSnapshot = readFederationJsonCache("yh_federation_access_status_v1", {}) || {};
+  const directorySnapshot = readFederationJsonCache("yhPlazaDirectoryStatusV1", {}) || {};
+  const ladderOutcome = getFederationLadderOutcomeSnapshot();
+
+  const plazaApproved =
+    plazaSnapshot?.canEnterPlaza === true ||
+    String(plazaSnapshot?.applicationStatus || "").trim().toLowerCase() === "approved" ||
+    directorySnapshot?.seeded === true;
+
+  const federationStatus = String(
+    federationSnapshot?.applicationStatus ||
+    ladderOutcome?.status ||
+    ""
+  ).trim().toLowerCase();
+
+  const federationApproved =
+    federationSnapshot?.canEnterFederation === true ||
+    federationStatus === "approved";
+
+  const score = Number(directorySnapshot?.opportunityScore || ladderOutcome?.score || 0);
+  const stage = String(directorySnapshot?.opportunityStage || "").trim();
+
+  if (!plazaApproved) {
+    return {
+      score: 0,
+      label: "Plaza First",
+      connectLabel: "Locked",
+      copy: "Federation candidacy starts after Plaza approval and signal-building inside Plaza.",
+      connectReady: false
+    };
+  }
+
+  if (!directorySnapshot || directorySnapshot.seeded !== true) {
+    return {
+      score: 0,
+      label: "Seed Plaza Profile",
+      connectLabel: "Locked",
+      copy: "Seed your Plaza profile first so the Federation layer can evaluate your signal.",
+      connectReady: false
+    };
+  }
+
+  if (federationStatus === "rejected") {
+    return {
+      score: Number(ladderOutcome?.score || score || 0),
+      label: "Review Rejected",
+      connectLabel: "Locked",
+      copy: String(
+        ladderOutcome?.copy ||
+        "Your Federation application was not approved in this cycle. Build stronger Plaza outcomes, trust, and leverage before reapplying."
+      ).trim(),
+      connectReady: false
+    };
+  }
+
+  if (federationStatus === "waitlisted") {
+    return {
+      score: Number(ladderOutcome?.score || score || 0),
+      label: "Waitlisted",
+      connectLabel: "Build More Signal",
+      copy: String(
+        ladderOutcome?.copy ||
+        "Your Federation application has been waitlisted. Strengthen your Plaza signal and strategic proof before the next review cycle."
+      ).trim(),
+      connectReady: false
+    };
+  }
+
+  if (federationStatus === "shortlisted") {
+    return {
+      score: Number(ladderOutcome?.score || score || 0),
+      label: "Shortlisted",
+      connectLabel: "Near Final Review",
+      copy: String(
+        ladderOutcome?.copy ||
+        "Your Federation application has reached shortlist status. You are near final review, but access is not unlocked yet."
+      ).trim(),
+      connectReady: false
+    };
+  }
+
+  if (federationStatus === "under review" || federationStatus === "screening") {
+    return {
+      score: Number(ladderOutcome?.score || score || 0),
+      label: federationStatus === "screening" ? "In Screening" : "In Federation Review",
+      connectLabel: "Locked",
+      copy: String(
+        ladderOutcome?.copy ||
+        "Your Federation application is currently in review. Admin is evaluating your candidacy against trust, leverage, and strategic value."
+      ).trim(),
+      connectReady: false
+    };
+  }
+
+  if (federationApproved) {
+    if (stage === "Ready for Strategic Escalation" || score >= 85) {
+      return {
+        score,
+        label: "Inside Federation",
+        connectLabel: "Ready",
+        copy: "Your Plaza layer is strong enough for strategic routing and higher-trust Connect readiness.",
+        connectReady: true
+      };
+    }
+
+    if (stage === "Ready for Matching" || score >= 65) {
+      return {
+        score,
+        label: "Inside Federation",
+        connectLabel: "Ready",
+        copy: "Your Plaza layer is strong enough for qualified Connect activity.",
+        connectReady: true
+      };
+    }
+
+    return {
+      score,
+      label: "Inside Federation",
+      connectLabel: "Build More Signal",
+      copy: "You are already inside Federation, but your Plaza layer still needs stronger signal for higher-trust Connect positioning.",
+      connectReady: false
+    };
+  }
+
+  if (stage === "Ready for Strategic Escalation" || score >= 85) {
+    return {
+      score,
+      label: "Strategic Candidate",
+      connectLabel: "Ready",
+      copy: "Your Plaza opportunity score is strong enough to support serious Federation candidacy and high-trust Connect readiness.",
+      connectReady: true
+    };
+  }
+
+  if (stage === "Ready for Matching" || score >= 65) {
+    return {
+      score,
+      label: "Ready for Review",
+      connectLabel: "Ready",
+      copy: "Your Plaza layer is strong enough for Federation review and qualified Connect readiness.",
+      connectReady: true
+    };
+  }
+
+  if (stage === "Active" || score >= 40) {
+    return {
+      score,
+      label: "Emerging Candidate",
+      connectLabel: "Build More Signal",
+      copy: "Your Plaza layer is active, but it still needs stronger outcomes and trust before serious Federation candidacy.",
+      connectReady: false
+    };
+  }
+
+  return {
+    score,
+    label: "Weak Candidate",
+    connectLabel: "Locked",
+    copy: "Build a stronger Plaza opportunity score before pushing toward Federation candidacy.",
+    connectReady: false
+  };
+}
+
+function getFederationTierFromScore(score = 0) {
+  const safeScore = Math.max(0, Math.min(100, Number(score) || 0));
+
+  if (safeScore >= 90) return "CORE";
+  if (safeScore >= 70) return "OPERATOR";
+  if (safeScore >= 50) return "CONTRIBUTOR";
+
+  return "LOW_PRIORITY";
+}
+
+function getFederationApplicationStrategicSnapshot() {
+  const directorySnapshot = readFederationJsonCache("yhPlazaDirectoryStatusV1", {}) || {};
+  const readiness = getFederationStrategicReadinessState();
+
+  const tags = Array.isArray(directorySnapshot?.tags)
+    ? directorySnapshot.tags.map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
+
+  const lookingFor = Array.isArray(directorySnapshot?.lookingFor)
+    ? directorySnapshot.lookingFor.map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
+
+  const canOffer = Array.isArray(directorySnapshot?.canOffer)
+    ? directorySnapshot.canOffer.map((item) => String(item || "").trim()).filter(Boolean)
+    : [];
+
+  const score = Number(readiness?.score || directorySnapshot?.opportunityScore || 0);
+
+  return {
+    score,
+    tier: getFederationTierFromScore(score),
+
+    plazaProfileStatus: directorySnapshot?.seeded === true ? "Seeded" : "Locked",
+    opportunityStage: String(directorySnapshot?.opportunityStage || "").trim() || "Locked",
+    opportunityCopy: String(directorySnapshot?.opportunityCopy || "").trim(),
+    federationReadinessLabel: String(readiness?.label || "Plaza First").trim() || "Plaza First",
+    federationReadinessCopy: String(readiness?.copy || "").trim(),
+    connectReady: readiness?.connectReady === true,
+
+    role: String(directorySnapshot?.role || "").trim(),
+    focus: String(directorySnapshot?.focus || "").trim(),
+    trust: String(directorySnapshot?.trust || "").trim(),
+    region: String(directorySnapshot?.region || "").trim(),
+    availability: String(directorySnapshot?.availability || "").trim(),
+    workMode: String(directorySnapshot?.workMode || "").trim(),
+    marketplaceMode: directorySnapshot?.marketplaceMode === true,
+
+    tags,
+    lookingFor,
+    canOffer,
+    lookingForText: lookingFor.join(", "),
+    canOfferText: canOffer.join(", ")
+  };
+}
+
+function buildFederationStrategicReadinessNoteMarkup() {
+  const readiness = getFederationStrategicReadinessState();
+  const scoreCopy = readiness.score > 0 ? ` Score ${readiness.score}.` : "";
+
+  return `
+    <div class="fed-state-inline-note">
+      Strategic readiness: ${escapeHtml(readiness.label)}.${escapeHtml(scoreCopy)} ${escapeHtml(readiness.copy)}
+    </div>
+  `;
+}
+
+function updateFederationStrategicReadinessSurface() {
+  const readiness = getFederationStrategicReadinessState();
+
+  const labelEl = qs("#federationStrategicReadinessLabel");
+  const connectEl = qs("#federationConnectReadinessLabel");
+  const copyEl = qs("#federationStrategicReadinessCopy");
+  const selectedEl = qs("#connectSelectedOpportunity");
+  const submitBtn = qs('#connectRequestForm button[type="submit"]');
+
+  if (labelEl) {
+    labelEl.textContent = readiness.score > 0
+      ? `${readiness.score} · ${readiness.label}`
+      : readiness.label;
+  }
+
+  if (connectEl) {
+    connectEl.textContent = readiness.connectLabel;
+  }
+
+  if (copyEl) {
+    copyEl.textContent = readiness.copy;
+  }
+
+  if (selectedEl && !String(qs("#connectRequestLeadId")?.value || "").trim()) {
+    selectedEl.textContent = readiness.connectReady
+      ? "Fill the request fields below. Admin will match your request against the Federation-ready lead database."
+      : `Connect readiness: ${readiness.connectLabel}. ${readiness.copy}`;
+  }
+
+  if (submitBtn) {
+    submitBtn.textContent = readiness.connectReady
+      ? "Submit Strategic Contact Request"
+      : "Submit Contact Request";
+  }
+}
 function buildMemberDescription(application) {
   const value = String(application.valueBring || "").trim();
   const why = String(application.whyJoin || "").trim();
@@ -1830,16 +2114,20 @@ function renderStats() {
   }
 
   if (positionTitle && positionText) {
+    const readiness = getFederationStrategicReadinessState();
+
     if (state.type === "member") {
       const snapshot = getReferralSnapshotForMember(state.member);
-      positionTitle.textContent = "You are inside the member operating layer";
-      positionText.textContent = `Your command and referral tools are active in this browser session. Current referral pipeline: ${snapshot.total} total, ${snapshot.pending} still in review, ${snapshot.approved} approved.`;
+      positionTitle.textContent = readiness.label === "Inside Federation"
+        ? "You are inside the member operating layer"
+        : readiness.label;
+      positionText.textContent = `${readiness.copy} Current referral pipeline: ${snapshot.total} total, ${snapshot.pending} still in review, ${snapshot.approved} approved.`;
     } else if (state.type === "applicant") {
       positionTitle.textContent = `Application status: ${state.application.status}`;
-      positionText.textContent = "Your current device session is tied to an application already in the Federation pipeline. Directory visibility stays protected until approval is granted.";
+      positionText.textContent = `${readiness.copy} Directory visibility stays protected until approval is granted.`;
     } else {
-      positionTitle.textContent = "Open for qualified applications";
-      positionText.textContent = "Visitors can request access or enter through a member referral code, but review remains manual and selective.";
+      positionTitle.textContent = readiness.label;
+      positionText.textContent = readiness.copy;
     }
   }
 
@@ -2682,7 +2970,14 @@ function saveApplication(payload) {
     goal: payload.whyJoin || "",
     background: backgroundSummary,
     networkValue: payload.valueBring || "",
-    aiScore: 0,
+    aiScore: Number(payload.aiScore || payload.federationScore || 0),
+    federationScore: Number(payload.federationScore || payload.aiScore || 0),
+    federationTier: String(payload.federationTier || "").trim(),
+    federationTags: Array.isArray(payload.federationTags) ? payload.federationTags : [],
+    strategicReadinessSnapshot:
+      payload.strategicReadinessSnapshot && typeof payload.strategicReadinessSnapshot === "object"
+        ? payload.strategicReadinessSnapshot
+        : null,
     source: referringMember
       ? `Federation referral • ${referringMember.name}`
       : (payload.source || "Direct Federation application"),
@@ -2725,6 +3020,7 @@ function renderCurrentUserPanel() {
   if (!container) return;
 
   const state = getCurrentUserState();
+  const strategicNote = buildFederationStrategicReadinessNoteMarkup();
 
   if (state.type === "visitor") {
     container.innerHTML = `
@@ -2745,6 +3041,7 @@ function renderCurrentUserPanel() {
           <span>Can view protected preview</span>
           <span>No private operating access yet</span>
         </div>
+        ${strategicNote}
       </article>
     `;
     return;
@@ -2791,6 +3088,7 @@ function renderCurrentUserPanel() {
           </div>
         </div>
         ${buildStatusTimelineMarkup(application.status)}
+        ${strategicNote}
       </article>
     `;
     return;
@@ -2839,6 +3137,7 @@ function renderCurrentUserPanel() {
       <div class="fed-state-inline-note">
         Referral pipeline: ${escapeHtml(String(snapshot.total))} total, ${escapeHtml(String(snapshot.pending))} in review, ${escapeHtml(String(snapshot.approved))} approved.
       </div>
+      ${strategicNote}
     </article>
   `;
 }
@@ -3332,6 +3631,8 @@ function getFederationFormValue(form, name) {
 }
 
 function normalizeFederationApplicationPayload(raw = {}, form) {
+  const strategic = getFederationApplicationStrategicSnapshot();
+
   const pullValue = (key) => {
     const fromForm = getFederationFormValue(form, key);
     if (fromForm) return fromForm;
@@ -3359,9 +3660,9 @@ function normalizeFederationApplicationPayload(raw = {}, form) {
   const activePlatforms = pullArray("activePlatforms");
   const openTo = pullArray("openTo");
 
-  const role = roles[0] || pullValue("role") || "Federation Operator";
-  const lookingFor = pullValue("lookingFor") || pullValue("whyJoin");
-  const canOffer = pullValue("canOffer") || pullValue("valueBring");
+  const role = roles[0] || pullValue("role") || strategic.role || "Federation Operator";
+  const lookingFor = pullValue("lookingFor") || pullValue("whyJoin") || strategic.lookingForText;
+  const canOffer = pullValue("canOffer") || pullValue("valueBring") || strategic.canOfferText;
   const wantsAccessTo = pullValue("wantsAccessTo") || pullValue("introductions");
 
   const profileLink =
@@ -3369,6 +3670,11 @@ function normalizeFederationApplicationPayload(raw = {}, form) {
     pullValue("linkedin") ||
     pullValue("website") ||
     pullValue("twitter");
+
+  const federationTags = Array.from(new Set([
+    ...pullArray("tags"),
+    ...strategic.tags
+  ])).slice(0, 8);
 
   return {
     ...raw,
@@ -3399,7 +3705,7 @@ function normalizeFederationApplicationPayload(raw = {}, form) {
     wantsAccessTo,
     openTo,
 
-    opportunityInsight: pullValue("opportunityInsight"),
+    opportunityInsight: pullValue("opportunityInsight") || strategic.federationReadinessCopy || strategic.opportunityCopy,
     tenKPlan: pullValue("tenKPlan"),
     openToFeature: pullValue("openToFeature"),
 
@@ -3423,6 +3729,12 @@ function normalizeFederationApplicationPayload(raw = {}, form) {
     contactTypesCanProvideRaw: canOffer,
     openToAdminMatching: openTo.length ? "yes" : "limited",
 
+    aiScore: strategic.score,
+    federationScore: strategic.score,
+    federationTier: strategic.tier,
+    federationTags,
+    strategicReadinessSnapshot: strategic,
+
     federationProfileMap: {
       roles,
       role,
@@ -3437,9 +3749,12 @@ function normalizeFederationApplicationPayload(raw = {}, form) {
       canOffer,
       wantsAccessTo,
       openTo,
-      opportunityInsight: pullValue("opportunityInsight"),
+      opportunityInsight: pullValue("opportunityInsight") || strategic.federationReadinessCopy || strategic.opportunityCopy,
       tenKPlan: pullValue("tenKPlan"),
       openToFeature: pullValue("openToFeature"),
+      tags: federationTags,
+      score: strategic.score,
+      tier: strategic.tier,
       profileVersion: 1
     }
   };
@@ -3677,6 +3992,26 @@ function exposeHelpers() {
     }
   };
 }
+window.addEventListener("storage", (event) => {
+  const watchedKeys = new Set([
+    "yh_federation_access_status_v1",
+    "yh_federation_ladder_outcome_v1",
+    "yh_federation_applications",
+    "yh_federation_members",
+    "yh_admin_panel_state_v3_live"
+  ]);
+
+  if (!watchedKeys.has(String(event.key || ""))) return;
+
+  window.requestAnimationFrame(() => {
+    try {
+      refreshFederationUI();
+      updateFederationStrategicReadinessSurface();
+    } catch (error) {
+      console.error("federation storage ladder sync error:", error);
+    }
+  });
+});
 document.addEventListener("DOMContentLoaded", async () => {
   ensureSeedMembers();
 

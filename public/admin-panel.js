@@ -391,6 +391,17 @@ function normalizeAdminFederationRequestRecord(record = {}) {
 function normalizeAdminApplicationRecord(record = {}) {
   const profile = getFederationProfileMap(record);
   const isFederation = isFederationApplicationRecord(record);
+  const strategic = normalizeAdminStrategicReadinessSnapshot(record);
+
+  const normalizedAiScore = isFederation
+    ? Number(
+        record.aiScore ||
+        record.federationScore ||
+        strategic.score ||
+        profile.score ||
+        0
+      )
+    : Number(record.aiScore || 0);
 
   return {
     ...record,
@@ -422,9 +433,12 @@ function normalizeAdminApplicationRecord(record = {}) {
     openToFeature: isFederation ? profile.openToFeature : String(record.openToFeature || '').trim(),
 
     federationProfileMap: isFederation ? profile : record.federationProfileMap,
-    federationScore: isFederation ? profile.score : Number(record.federationScore || 0),
-    federationTier: isFederation ? profile.tier : String(record.federationTier || '').trim(),
-    federationTags: isFederation ? profile.tags : toAdminStringArray(record.federationTags)
+    federationScore: isFederation ? profile.score : Number(record.federationScore || strategic.score || 0),
+    federationTier: isFederation ? profile.tier : String(record.federationTier || strategic.tier || '').trim(),
+    federationTags: isFederation ? profile.tags : toAdminStringArray(record.federationTags),
+
+    strategicReadinessSnapshot: strategic,
+    aiScore: normalizedAiScore
   };
 }
 function normalizeAdminBootstrapState(incomingState = {}) {
@@ -749,6 +763,52 @@ function getFederationProfileMap(record = {}) {
   };
 }
 
+function normalizeAdminStrategicReadinessSnapshot(record = {}) {
+  const snapshot =
+    record.strategicReadinessSnapshot && typeof record.strategicReadinessSnapshot === 'object'
+      ? record.strategicReadinessSnapshot
+      : record.federationStrategicSnapshot && typeof record.federationStrategicSnapshot === 'object'
+      ? record.federationStrategicSnapshot
+      : {};
+
+  const score = Number(
+    snapshot.score ??
+    snapshot.opportunityScore ??
+    record.federationScore ??
+    record.aiScore ??
+    0
+  );
+
+  const tier = String(
+    snapshot.tier ||
+    record.federationTier ||
+    getFederationTierFromScore(score)
+  ).trim();
+
+  return {
+    score,
+    tier,
+    plazaProfileStatus: String(snapshot.plazaProfileStatus || '').trim(),
+    opportunityStage: String(snapshot.opportunityStage || '').trim(),
+    opportunityCopy: String(snapshot.opportunityCopy || '').trim(),
+    federationReadinessLabel: String(snapshot.federationReadinessLabel || snapshot.label || '').trim(),
+    federationReadinessCopy: String(snapshot.federationReadinessCopy || snapshot.copy || '').trim(),
+    connectReady: snapshot.connectReady === true,
+
+    role: String(snapshot.role || record.role || record.profession || '').trim(),
+    focus: String(snapshot.focus || '').trim(),
+    trust: String(snapshot.trust || '').trim(),
+    region: String(snapshot.region || record.region || [record.city, record.country].filter(Boolean).join(', ')).trim(),
+    availability: String(snapshot.availability || '').trim(),
+    workMode: String(snapshot.workMode || '').trim(),
+    marketplaceMode: snapshot.marketplaceMode === true,
+
+    tags: toAdminStringArray(snapshot.tags),
+    lookingFor: toAdminStringArray(snapshot.lookingFor),
+    canOffer: toAdminStringArray(snapshot.canOffer)
+  };
+}
+
 function getFederationTierFromScore(score = 0) {
   const safeScore = Math.max(0, Math.min(100, Number(score) || 0));
 
@@ -916,6 +976,97 @@ function buildFederationProfileMapMarkup(record = {}) {
     </div>
   `;
 }
+
+function buildStrategicReadinessSnapshotMarkup(record = {}) {
+  if (!isFederationApplicationRecord(record)) return '';
+
+  const snapshot = normalizeAdminStrategicReadinessSnapshot(record);
+
+  const hasSignal =
+    snapshot.score > 0 ||
+    snapshot.federationReadinessLabel ||
+    snapshot.opportunityStage ||
+    snapshot.role ||
+    snapshot.focus;
+
+  if (!hasSignal) return '';
+
+  return `
+    <div class="drawer-section federation-profile-map-section">
+      <div class="federation-profile-map-head">
+        <div>
+          <h4>Strategic Readiness Snapshot</h4>
+          <p class="muted">This is the same ladder state sent from Plaza/Federation candidacy logic into admin review.</p>
+        </div>
+        <div class="federation-score-lockup">
+          <span>Score</span>
+          <strong>${escapeHtml(String(snapshot.score || 0))}</strong>
+          ${formatBadge(snapshot.federationReadinessLabel || 'Plaza First')}
+        </div>
+      </div>
+
+      <div class="application-meta-grid federation-power-grid">
+        <div class="application-meta-item">
+          <span>Readiness</span>
+          <strong>${escapeHtml(snapshot.federationReadinessLabel || '—')}</strong>
+        </div>
+        <div class="application-meta-item">
+          <span>Opportunity Stage</span>
+          <strong>${escapeHtml(snapshot.opportunityStage || '—')}</strong>
+        </div>
+        <div class="application-meta-item">
+          <span>Connect Ready</span>
+          <strong>${escapeHtml(snapshot.connectReady ? 'Yes' : 'No')}</strong>
+        </div>
+        <div class="application-meta-item">
+          <span>Trust</span>
+          <strong>${escapeHtml(snapshot.trust || '—')}</strong>
+        </div>
+        <div class="application-meta-item">
+          <span>Region</span>
+          <strong>${escapeHtml(snapshot.region || '—')}</strong>
+        </div>
+        <div class="application-meta-item">
+          <span>Work Mode</span>
+          <strong>${escapeHtml(snapshot.workMode || '—')}</strong>
+        </div>
+      </div>
+
+      <div class="answer-stack federation-map-stack">
+        <div class="answer-card">
+          <span class="answer-label">Snapshot Role</span>
+          <p>${escapeHtml(snapshot.role || 'No role carried over.')}</p>
+        </div>
+
+        <div class="answer-card">
+          <span class="answer-label">Snapshot Focus</span>
+          <p>${escapeHtml(snapshot.focus || 'No focus carried over.')}</p>
+        </div>
+
+        <div class="answer-card">
+          <span class="answer-label">Snapshot Looking For</span>
+          ${buildAdminChipList(snapshot.lookingFor, 'No looking-for signal carried over.')}
+        </div>
+
+        <div class="answer-card">
+          <span class="answer-label">Snapshot Can Offer</span>
+          ${buildAdminChipList(snapshot.canOffer, 'No can-offer signal carried over.')}
+        </div>
+
+        <div class="answer-card">
+          <span class="answer-label">Snapshot Tags</span>
+          ${buildAdminChipList(snapshot.tags, 'No strategic tags carried over.')}
+        </div>
+
+        <div class="answer-card">
+          <span class="answer-label">Readiness Copy</span>
+          <p>${escapeHtml(snapshot.federationReadinessCopy || snapshot.opportunityCopy || 'No strategic review copy available.')}</p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function normalizeCoachReplyFormatLabel(value) {
   const raw = String(value || '').trim().toLowerCase();
 
@@ -2432,6 +2583,7 @@ if (type === 'application') {
     </div>
 
     ${federationProfileMarkup}
+    ${buildStrategicReadinessSnapshotMarkup(record)}
 
     <div class="drawer-section">
       <h4>Identity & Routing</h4>
@@ -3227,6 +3379,164 @@ function syncMemberFromApplication(application) {
 
   return newMemberId;
 }
+const FEDERATION_ACCESS_STATUS_CACHE_KEY = 'yh_federation_access_status_v1';
+const FEDERATION_LADDER_OUTCOME_CACHE_KEY = 'yh_federation_ladder_outcome_v1';
+const FEDERATION_APPLICATIONS_STORAGE_KEY = 'yh_federation_applications';
+const FEDERATION_MEMBERS_STORAGE_KEY = 'yh_federation_members';
+
+function readAdminLocalJson(key, fallback = null) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function writeAdminLocalJson(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (_) {}
+}
+
+function normalizeFederationLadderStatus(value = '') {
+  const raw = String(value || '').trim().toLowerCase();
+
+  if (raw === 'approved' || raw === 'active') return 'approved';
+  if (raw === 'under review' || raw === 'pending' || raw === 'pending review' || raw === 'review') return 'under review';
+  if (raw === 'screening' || raw === 'in screening') return 'screening';
+  if (raw === 'shortlisted' || raw === 'shortlist') return 'shortlisted';
+  if (raw === 'waitlisted' || raw === 'waitlist') return 'waitlisted';
+  if (raw === 'rejected' || raw === 'denied' || raw === 'not approved') return 'rejected';
+
+  return raw;
+}
+
+function buildFederationLadderOutcomeSnapshot(application = {}, statusLabel = 'Under Review', member = null) {
+  const normalizedStatus = normalizeFederationLadderStatus(statusLabel);
+  const score = Number(application.federationScore || application.aiScore || 0);
+  const tier = String(application.federationTier || '').trim();
+
+  let strategicState = 'In Federation Review';
+  let copy = 'Your Federation application is currently in review. Admin is evaluating your candidacy against trust, leverage, and strategic value.';
+  let connectReady = false;
+
+  if (normalizedStatus === 'approved') {
+    strategicState = 'Inside Federation';
+    copy = 'Your Federation application has been approved. The strategic layer is now unlocked and your next state should reflect active Federation access.';
+    connectReady = true;
+  } else if (normalizedStatus === 'shortlisted') {
+    strategicState = 'Shortlisted';
+    copy = 'Your Federation application has reached shortlist status. You are near final review, but access is not unlocked yet.';
+  } else if (normalizedStatus === 'waitlisted') {
+    strategicState = 'Waitlisted';
+    copy = 'Your Federation application has been waitlisted. Strengthen your Plaza signal and strategic proof before the next review cycle.';
+  } else if (normalizedStatus === 'rejected') {
+    strategicState = 'Review Rejected';
+    copy = 'Your Federation application was not approved in this cycle. Build stronger Plaza outcomes, trust, and leverage before reapplying.';
+  } else if (normalizedStatus === 'screening') {
+    strategicState = 'In Screening';
+    copy = 'Your Federation application is currently being screened before final review.';
+  }
+
+  return {
+    applicationId: String(application.id || '').trim(),
+    email: String(application.email || '').trim().toLowerCase(),
+    status: normalizedStatus,
+    strategicState,
+    copy,
+    connectReady,
+    score,
+    tier,
+    reviewedAt: String(application.reviewedAt || '').trim(),
+    reviewedBy: 'admin-local-review',
+    memberId: String(member?.id || application.memberId || '').trim(),
+    cachedAt: new Date().toISOString()
+  };
+}
+
+function syncFederationReviewWriteback(application = {}, statusLabel = 'Under Review', member = null) {
+  const normalizedStatus = normalizeFederationLadderStatus(statusLabel);
+  const emailLower = String(application.email || '').trim().toLowerCase();
+
+  const applications = Array.isArray(readAdminLocalJson(FEDERATION_APPLICATIONS_STORAGE_KEY, []))
+    ? readAdminLocalJson(FEDERATION_APPLICATIONS_STORAGE_KEY, [])
+    : [];
+
+  const nextApplicationRecord = {
+    ...application,
+    email: emailLower,
+    status: String(statusLabel || 'Under Review').trim() || 'Under Review'
+  };
+
+  const nextApplications = [
+    nextApplicationRecord,
+    ...applications.filter((item) => {
+      const sameId = String(item?.id || '').trim() === String(application.id || '').trim();
+      const sameEmail = String(item?.email || '').trim().toLowerCase() === emailLower;
+      return !sameId && !sameEmail;
+    })
+  ];
+
+  writeAdminLocalJson(FEDERATION_APPLICATIONS_STORAGE_KEY, nextApplications);
+
+  if (normalizedStatus === 'approved' && member) {
+    const members = Array.isArray(readAdminLocalJson(FEDERATION_MEMBERS_STORAGE_KEY, []))
+      ? readAdminLocalJson(FEDERATION_MEMBERS_STORAGE_KEY, [])
+      : [];
+
+    const federationMember = {
+      id: String(member.id || application.memberId || '').trim() || `fed_member_${Date.now()}`,
+      email: emailLower,
+      emailLower,
+      name: String(member.name || application.name || application.fullName || 'Federation Member').trim(),
+      role: String(member.role || application.role || application.profession || 'Operator').trim(),
+      badge: String(member.badge || 'Verified').trim(),
+      category: String(member.primaryCategory || application.primaryCategory || 'Strategic Operator').trim(),
+      country: String(application.country || '').trim(),
+      city: String(application.city || '').trim(),
+      company: String(application.company || '').trim(),
+      description: String(
+        application.opportunityInsight ||
+        application.background ||
+        'Approved Federation member.'
+      ).trim(),
+      approvedAt: String(application.approvedAt || new Date().toISOString()).trim(),
+      source: 'admin-review',
+      referralCode: String(member.referralCode || '').trim()
+    };
+
+    const nextMembers = [
+      federationMember,
+      ...members.filter((item) => {
+        const sameId = String(item?.id || '').trim() === federationMember.id;
+        const sameEmail = String(item?.email || '').trim().toLowerCase() === emailLower;
+        return !sameId && !sameEmail;
+      })
+    ];
+
+    writeAdminLocalJson(FEDERATION_MEMBERS_STORAGE_KEY, nextMembers);
+  }
+
+  writeAdminLocalJson(FEDERATION_ACCESS_STATUS_CACHE_KEY, {
+    hasApplication: true,
+    canEnterFederation: normalizedStatus === 'approved',
+    applicationStatus: normalizedStatus,
+    application: nextApplicationRecord,
+    member: normalizedStatus === 'approved' && member
+      ? {
+          id: String(member.id || application.memberId || '').trim(),
+          email: emailLower,
+          name: String(member.name || application.name || application.fullName || 'Federation Member').trim()
+        }
+      : null
+  });
+
+  writeAdminLocalJson(
+    FEDERATION_LADDER_OUTCOME_CACHE_KEY,
+    buildFederationLadderOutcomeSnapshot(nextApplicationRecord, statusLabel, member)
+  );
+}
 function applyLocalApplicationReview(applicationId, nextStatus = 'Under Review') {
   const application = findById('applications', applicationId);
 
@@ -3247,10 +3557,19 @@ function applyLocalApplicationReview(applicationId, nextStatus = 'Under Review')
 
   application.notes.unshift(`Local admin review changed status to ${statusLabel}.`);
 
+  let memberId = '';
+  let syncedMember = null;
+
   if (statusLabel === 'Approved') {
     application.approvedAt = nowIso;
 
-    const memberId = syncMemberFromApplication(application);
+    memberId = syncMemberFromApplication(application) || '';
+
+    syncedMember = state.members.find((member) => {
+      return (
+        String(member?.email || '').trim().toLowerCase() === String(application.email || '').trim().toLowerCase()
+      );
+    }) || null;
 
     if (String(application.recommendedDivision || application.division || '').trim() === 'Federation') {
       const federationCandidate = {
@@ -3286,7 +3605,21 @@ function applyLocalApplicationReview(applicationId, nextStatus = 'Under Review')
         state.federation.unshift(federationCandidate);
       }
     }
+  } else if (String(application.recommendedDivision || application.division || '').trim() === 'Federation') {
+    const existingFederationIndex = state.federation.findIndex((item) => {
+      return item.id === application.id || item.sourceApplicationId === application.id;
+    });
+
+    if (existingFederationIndex >= 0) {
+      state.federation[existingFederationIndex] = {
+        ...state.federation[existingFederationIndex],
+        status: statusLabel,
+        updatedAt: nowIso
+      };
+    }
   }
+
+  syncFederationReviewWriteback(application, statusLabel, syncedMember);
 
   saveState();
   renderApp();

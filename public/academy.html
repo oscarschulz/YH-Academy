@@ -11,6 +11,137 @@
 </head>
 <body data-yh-view="academy" data-yh-page="academy">
 
+<div id="yh-academy-startup-loader" class="yh-academy-startup-loader" aria-hidden="false">
+<div class="yh-academy-startup-card">
+    <img src="/images/logo.avif" alt="Young Hustlers" class="yh-academy-startup-logo">
+
+    <div class="yh-academy-startup-head">
+        <div class="yh-academy-startup-icon" id="yh-academy-startup-loader-icon" aria-hidden="true">🧠</div>
+
+        <div class="yh-academy-startup-copy-wrap">
+            <div class="yh-academy-startup-title" id="yh-academy-startup-loader-title">Preparing Roadmap</div>
+            <div class="yh-academy-startup-copy" id="yh-academy-startup-loader-text">
+                Loading Roadmap...
+            </div>
+        </div>
+    </div>
+
+    <div class="yh-academy-startup-spinner" aria-hidden="true"></div>
+</div>
+</div>
+
+<script>
+  (function () {
+    function normalizeAcademyStartupSection(value) {
+      var clean = String(value || '').trim().toLowerCase();
+
+      if (
+        clean === 'home' ||
+        clean === 'community' ||
+        clean === 'messages' ||
+        clean === 'voice' ||
+        clean === 'video' ||
+        clean === 'profile' ||
+        clean === 'missions' ||
+        clean === 'lead-missions'
+      ) {
+        return clean;
+      }
+
+      return 'home';
+    }
+
+    function getAcademyStartupMeta(section) {
+      var normalized = normalizeAcademyStartupSection(section);
+
+      if (normalized === 'community') {
+        return {
+          icon: '📰',
+          title: 'Preparing Community Feed',
+          copy: 'Loading Community Feed...'
+        };
+      }
+
+      if (normalized === 'messages') {
+        return {
+          icon: '💬',
+          title: 'Preparing Messages',
+          copy: 'Loading Messages...'
+        };
+      }
+
+      if (normalized === 'voice') {
+        return {
+          icon: '🎙️',
+          title: 'Preparing Live Voice Lounge',
+          copy: 'Loading Live Voice Lounge...'
+        };
+      }
+
+      if (normalized === 'video') {
+        return {
+          icon: '📹',
+          title: 'Preparing Live Video Lounge',
+          copy: 'Loading Live Video Lounge...'
+        };
+      }
+
+      if (normalized === 'profile') {
+        return {
+          icon: '👤',
+          title: 'Preparing Profile',
+          copy: 'Loading Profile...'
+        };
+      }
+
+      if (normalized === 'lead-missions') {
+        return {
+          icon: '🎯',
+          title: 'Preparing Missions',
+          copy: 'Loading Missions...'
+        };
+      }
+
+      if (normalized === 'missions') {
+        return {
+          icon: '🧠',
+          title: 'Preparing Roadmap',
+          copy: 'Loading Roadmap...'
+        };
+      }
+
+      return {
+        icon: '🧠',
+        title: 'Preparing Roadmap',
+        copy: 'Loading Roadmap...'
+      };
+    }
+
+    try {
+      document.body.classList.add('academy-startup-booting');
+
+      var icon = document.getElementById('yh-academy-startup-loader-icon');
+      var title = document.getElementById('yh-academy-startup-loader-title');
+      var text = document.getElementById('yh-academy-startup-loader-text');
+      var storedSection = sessionStorage.getItem('yh_academy_startup_section_v1') || '';
+      var urlSection = '';
+
+      try {
+        urlSection = new URL(window.location.href).searchParams.get('section') || '';
+      } catch (_) {}
+
+      var section = normalizeAcademyStartupSection(storedSection || urlSection || 'home');
+      var meta = getAcademyStartupMeta(section);
+
+      if (icon) icon.textContent = meta.icon;
+      if (title) title.textContent = meta.title;
+      if (text) text.textContent = meta.copy;
+    } catch (_) {
+      document.body.classList.add('academy-startup-booting');
+    }
+  })();
+</script>
+
 <div id="toast-notification">
     <span id="toast-icon"></span><span id="toast-message">Notification</span>
 </div>
@@ -2033,6 +2164,86 @@
                     >
                     <div class="academy-profile-editor-field-note">
                         Separate tags with commas. These show as profile chips.
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="academy-profile-edit-role-track">Role track</label>
+                    <input
+                        type="text"
+                        id="academy-profile-edit-role-track"
+                        class="input-field"
+                        maxlength="80"
+                        placeholder="Operator, closer, designer, automator, connector..."
+                    >
+                    <div class="academy-profile-editor-field-note">
+                        This becomes your main economic direction inside The Academy.
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="academy-profile-edit-looking-for">Looking for</label>
+                    <input
+                        type="text"
+                        id="academy-profile-edit-looking-for"
+                        class="input-field"
+                        maxlength="240"
+                        placeholder="Clients, job, partner, mentor, operator, supplier..."
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="academy-profile-edit-can-offer">Can offer</label>
+                    <input
+                        type="text"
+                        id="academy-profile-edit-can-offer"
+                        class="input-field"
+                        maxlength="240"
+                        placeholder="Design, AI automation, outreach, research, legal help..."
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="academy-profile-edit-availability">Availability</label>
+                    <select id="academy-profile-edit-availability" class="input-field">
+                        <option value="">Select availability</option>
+                        <option value="Open now">Open now</option>
+                        <option value="Part-time">Part-time</option>
+                        <option value="Full-time">Full-time</option>
+                        <option value="Selective">Selective</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="academy-profile-edit-work-mode">Work mode</label>
+                    <select id="academy-profile-edit-work-mode" class="input-field">
+                        <option value="">Select work mode</option>
+                        <option value="Remote">Remote</option>
+                        <option value="Local">Local</option>
+                        <option value="Hybrid">Hybrid</option>
+                        <option value="Global">Global</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="academy-profile-edit-proof-focus">Proof focus</label>
+                    <input
+                        type="text"
+                        id="academy-profile-edit-proof-focus"
+                        class="input-field"
+                        maxlength="140"
+                        placeholder="What work are you building proof around?"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="academy-profile-edit-marketplace-ready">Marketplace ready</label>
+                    <select id="academy-profile-edit-marketplace-ready" class="input-field">
+                        <option value="no">No</option>
+                        <option value="yes">Yes</option>
+                    </select>
+                    <div class="academy-profile-editor-field-note">
+                        Turn this on once your profile is ready to feed into Plaza opportunities.
                     </div>
                 </div>
             </section>

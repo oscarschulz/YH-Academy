@@ -163,6 +163,20 @@ function normalizeYHEconStatus(value = '', fallback = 'Not Applied') {
     return raw.charAt(0).toUpperCase() + raw.slice(1);
 }
 
+function normalizeFederationStatus(value = '', fallback = 'under review') {
+    const raw = String(value || '').trim().toLowerCase();
+
+    if (!raw) return fallback;
+    if (raw === 'approved' || raw === 'active') return 'approved';
+    if (raw === 'under review' || raw === 'pending' || raw === 'pending review' || raw === 'review') return 'under review';
+    if (raw === 'screening' || raw === 'in screening') return 'screening';
+    if (raw === 'shortlisted' || raw === 'shortlist') return 'shortlisted';
+    if (raw === 'waitlisted' || raw === 'waitlist') return 'waitlisted';
+    if (raw === 'rejected' || raw === 'denied' || raw === 'not approved') return 'rejected';
+
+    return raw;
+}
+
 function getYHTrustTierLabel(academySnapshot = null, plazaSnapshot = null, federationSnapshot = null) {
     const academyApproved = academySnapshot?.canEnterAcademy === true || String(academySnapshot?.applicationStatus || '').trim().toLowerCase() === 'approved';
     const plazaApproved = plazaSnapshot?.canEnterPlaza === true || String(plazaSnapshot?.applicationStatus || '').trim().toLowerCase() === 'approved';
@@ -172,6 +186,563 @@ function getYHTrustTierLabel(academySnapshot = null, plazaSnapshot = null, feder
     if (plazaApproved) return 'Active Connector';
     if (academyApproved) return 'Builder';
     return 'Guest';
+}
+
+function getYHAcademyHomeSnapshot() {
+    return readYHJsonCache('yh_academy_home', null) || {};
+}
+function getYHPlazaDirectoryStatusSnapshot() {
+    return readYHJsonCache('yhPlazaDirectoryStatusV1', null) || {};
+}
+function getYHFederationLadderOutcomeSnapshot() {
+    return readYHJsonCache('yh_federation_ladder_outcome_v1', null) || {};
+}
+function getYHPlazaProfileStatusState(plazaSnapshot = null) {
+    const currentPlazaSnapshot = plazaSnapshot || {
+        canEnterPlaza: false,
+        applicationStatus: ''
+    };
+
+    const directorySnapshot = getYHPlazaDirectoryStatusSnapshot();
+    const plazaApproved =
+        currentPlazaSnapshot?.canEnterPlaza === true ||
+        String(currentPlazaSnapshot?.applicationStatus || '').trim().toLowerCase() === 'approved';
+
+    if (!plazaApproved) {
+        return {
+            label: 'Locked',
+            copy: 'Plaza must be approved before a Plaza profile can be seeded.'
+        };
+    }
+
+    if (!directorySnapshot || directorySnapshot.seeded !== true) {
+        return {
+            label: 'Not Seeded',
+            copy: 'Your Plaza access is approved, but your Plaza profile has not been seeded yet.'
+        };
+    }
+
+    if (directorySnapshot.readyForOpportunityFlow === true) {
+        return {
+            label: 'Ready',
+            copy: 'Your Plaza profile is seeded and ready for opportunity flow.'
+        };
+    }
+
+    return {
+        label: 'Seeded',
+        copy: 'Your Plaza profile exists, but it still needs stronger role/focus/offer signal for opportunity flow.'
+    };
+}
+function getYHPlazaOpportunityScoreState(plazaSnapshot = null) {
+    const currentPlazaSnapshot = plazaSnapshot || {
+        canEnterPlaza: false,
+        applicationStatus: ''
+    };
+
+    const directorySnapshot = getYHPlazaDirectoryStatusSnapshot();
+    const plazaApproved =
+        currentPlazaSnapshot?.canEnterPlaza === true ||
+        String(currentPlazaSnapshot?.applicationStatus || '').trim().toLowerCase() === 'approved';
+
+    if (!plazaApproved) {
+        return {
+            score: 0,
+            label: 'Locked',
+            copy: 'Plaza must be approved before opportunity scoring can begin.'
+        };
+    }
+
+    if (!directorySnapshot || directorySnapshot.seeded !== true) {
+        return {
+            score: 0,
+            label: 'Not Seeded',
+            copy: 'Your Plaza profile has not been seeded yet, so opportunity scoring is still blocked.'
+        };
+    }
+
+    const score = Number(directorySnapshot?.opportunityScore || 0);
+    const stage = String(directorySnapshot?.opportunityStage || '').trim();
+
+    if (stage) {
+        return {
+            score,
+            label: stage,
+            copy: String(
+                directorySnapshot?.opportunityCopy ||
+                'Your Plaza opportunity score has been calculated.'
+            ).trim()
+        };
+    }
+
+    if (score >= 85) {
+        return {
+            score,
+            label: 'Ready for Strategic Escalation',
+            copy: 'Your Plaza profile is strong enough for strategic routing and higher-trust opportunity flow.'
+        };
+    }
+
+    if (score >= 65) {
+        return {
+            score,
+            label: 'Ready for Matching',
+            copy: 'Your Plaza profile is strong enough for direct matching and opportunity routing.'
+        };
+    }
+
+    if (score >= 40) {
+        return {
+            score,
+            label: 'Active',
+            copy: 'Your Plaza profile is active, but it still needs stronger signal before it becomes highly matchable.'
+        };
+    }
+
+    return {
+        score,
+        label: 'Weak',
+        copy: 'Your Plaza profile exists, but it is still too thin for strong opportunity flow.'
+    };
+}
+function getYHFederationReadinessState(plazaSnapshot = null, federationSnapshot = null) {
+    const currentPlazaSnapshot = plazaSnapshot || {
+        canEnterPlaza: false,
+        applicationStatus: ''
+    };
+
+    const currentFederationSnapshot = federationSnapshot || {
+        canEnterFederation: false,
+        applicationStatus: ''
+    };
+
+    const federationOutcome = getYHFederationLadderOutcomeSnapshot();
+
+    const plazaApproved =
+        currentPlazaSnapshot?.canEnterPlaza === true ||
+        String(currentPlazaSnapshot?.applicationStatus || '').trim().toLowerCase() === 'approved';
+
+    const federationStatus = normalizeFederationStatus(
+        currentFederationSnapshot?.applicationStatus ||
+        federationOutcome?.status ||
+        ''
+    );
+
+    const federationApproved =
+        currentFederationSnapshot?.canEnterFederation === true ||
+        federationStatus === 'approved';
+
+    const plazaProfile = getYHPlazaProfileStatusState(currentPlazaSnapshot);
+    const plazaOpportunity = getYHPlazaOpportunityScoreState(currentPlazaSnapshot);
+
+    if (!plazaApproved) {
+        return {
+            score: 0,
+            label: 'Plaza First',
+            copy: 'Federation candidacy starts after Plaza approval and signal-building inside Plaza.',
+            connectReady: false
+        };
+    }
+
+    if (plazaProfile.label === 'Not Seeded') {
+        return {
+            score: 0,
+            label: 'Seed Plaza Profile',
+            copy: 'Seed your Plaza profile first so the Federation layer can evaluate your signal.',
+            connectReady: false
+        };
+    }
+
+    if (federationStatus === 'rejected') {
+        return {
+            score: Number(federationOutcome?.score || plazaOpportunity?.score || 0),
+            label: 'Review Rejected',
+            copy: String(
+                federationOutcome?.copy ||
+                'Your Federation application was not approved in this cycle. Build stronger Plaza outcomes, trust, and leverage before reapplying.'
+            ).trim(),
+            connectReady: false
+        };
+    }
+
+    if (federationStatus === 'waitlisted') {
+        return {
+            score: Number(federationOutcome?.score || plazaOpportunity?.score || 0),
+            label: 'Waitlisted',
+            copy: String(
+                federationOutcome?.copy ||
+                'Your Federation application has been waitlisted. Strengthen your Plaza signal and strategic proof before the next review cycle.'
+            ).trim(),
+            connectReady: false
+        };
+    }
+
+    if (federationStatus === 'shortlisted') {
+        return {
+            score: Number(federationOutcome?.score || plazaOpportunity?.score || 0),
+            label: 'Shortlisted',
+            copy: String(
+                federationOutcome?.copy ||
+                'Your Federation application has reached shortlist status. You are near final review, but access is not unlocked yet.'
+            ).trim(),
+            connectReady: false
+        };
+    }
+
+    if (federationStatus === 'under review' || federationStatus === 'screening') {
+        return {
+            score: Number(federationOutcome?.score || plazaOpportunity?.score || 0),
+            label: federationStatus === 'screening' ? 'In Screening' : 'In Federation Review',
+            copy: String(
+                federationOutcome?.copy ||
+                'Your Federation application is currently in review. Admin is evaluating your candidacy against trust, leverage, and strategic value.'
+            ).trim(),
+            connectReady: false
+        };
+    }
+
+    const score = Number(plazaOpportunity?.score || 0);
+
+    if (federationApproved) {
+        if (plazaOpportunity.label === 'Ready for Strategic Escalation' || score >= 85) {
+            return {
+                score,
+                label: 'Inside Federation',
+                copy: 'You are already inside Federation and your Plaza layer is strong enough for strategic routing and higher-trust Connect readiness.',
+                connectReady: true
+            };
+        }
+
+        if (plazaOpportunity.label === 'Ready for Matching' || score >= 65) {
+            return {
+                score,
+                label: 'Inside Federation',
+                copy: 'You are inside Federation and your Plaza layer is strong enough for qualified Connect activity.',
+                connectReady: true
+            };
+        }
+
+        return {
+            score,
+            label: 'Inside Federation',
+            copy: 'You are inside Federation, but your Plaza layer still needs stronger signal for higher-trust Connect positioning.',
+            connectReady: false
+        };
+    }
+
+    if (plazaOpportunity.label === 'Ready for Strategic Escalation' || score >= 85) {
+        return {
+            score,
+            label: 'Strategic Candidate',
+            copy: 'Your Plaza opportunity score is strong enough to support serious Federation candidacy and high-trust Connect readiness.',
+            connectReady: true
+        };
+    }
+
+    if (plazaOpportunity.label === 'Ready for Matching' || score >= 65) {
+        return {
+            score,
+            label: 'Ready for Review',
+            copy: 'Your Plaza layer is strong enough for Federation review and qualified Connect readiness.',
+            connectReady: true
+        };
+    }
+
+    if (plazaOpportunity.label === 'Active' || score >= 40) {
+        return {
+            score,
+            label: 'Emerging Candidate',
+            copy: 'Your Plaza layer is active, but it still needs stronger outcomes and trust before serious Federation candidacy.',
+            connectReady: false
+        };
+    }
+
+    return {
+        score,
+        label: 'Weak Candidate',
+        copy: 'Build a stronger Plaza opportunity score before pushing toward Federation candidacy.',
+        connectReady: false
+    };
+}
+function getDashboardFederationTierFromScore(score = 0) {
+    const safeScore = Math.max(0, Math.min(100, Number(score) || 0));
+
+    if (safeScore >= 90) return 'CORE';
+    if (safeScore >= 70) return 'OPERATOR';
+    if (safeScore >= 50) return 'CONTRIBUTOR';
+
+    return 'LOW_PRIORITY';
+}
+
+function getDashboardFederationStrategicSnapshot() {
+    const plazaSnapshot = readYHJsonCache('yh_plaza_access_status_v1', null) || {
+        canEnterPlaza: false,
+        applicationStatus: ''
+    };
+
+    const federationSnapshot = readYHJsonCache('yh_federation_access_status_v1', null) || {
+        canEnterFederation: false,
+        applicationStatus: ''
+    };
+
+    const directorySnapshot = getYHPlazaDirectoryStatusSnapshot();
+    const plazaProfileState = getYHPlazaProfileStatusState(plazaSnapshot);
+    const plazaOpportunityState = getYHPlazaOpportunityScoreState(plazaSnapshot);
+    const federationReadinessState = getYHFederationReadinessState(plazaSnapshot, federationSnapshot);
+
+    const tags = normalizeDashboardPlazaSignalList(
+        Array.isArray(directorySnapshot?.tags) ? directorySnapshot.tags : []
+    );
+
+    const lookingFor = normalizeDashboardPlazaSignalList(
+        Array.isArray(directorySnapshot?.lookingFor) ? directorySnapshot.lookingFor : []
+    );
+
+    const canOffer = normalizeDashboardPlazaSignalList(
+        Array.isArray(directorySnapshot?.canOffer) ? directorySnapshot.canOffer : []
+    );
+
+    const score = Number(
+        federationReadinessState?.score ??
+        plazaOpportunityState?.score ??
+        directorySnapshot?.opportunityScore ??
+        0
+    );
+
+    return {
+        score,
+        tier: getDashboardFederationTierFromScore(score),
+
+        plazaProfileStatus: String(plazaProfileState?.label || 'Locked').trim() || 'Locked',
+        opportunityStage: String(plazaOpportunityState?.label || 'Locked').trim() || 'Locked',
+        opportunityCopy: String(plazaOpportunityState?.copy || '').trim(),
+
+        federationReadinessLabel: String(federationReadinessState?.label || 'Plaza First').trim() || 'Plaza First',
+        federationReadinessCopy: String(federationReadinessState?.copy || '').trim(),
+        connectReady: federationReadinessState?.connectReady === true,
+
+        role: readDashboardPlazaSeedString(directorySnapshot?.role),
+        focus: readDashboardPlazaSeedString(directorySnapshot?.focus),
+        trust: readDashboardPlazaSeedString(directorySnapshot?.trust),
+        region: readDashboardPlazaSeedString(directorySnapshot?.region),
+        availability: readDashboardPlazaSeedString(directorySnapshot?.availability),
+        workMode: readDashboardPlazaSeedString(directorySnapshot?.workMode),
+        marketplaceMode: directorySnapshot?.marketplaceMode === true,
+
+        tags,
+        lookingFor,
+        canOffer,
+        lookingForText: joinDashboardPlazaSignalList(lookingFor),
+        canOfferText: joinDashboardPlazaSignalList(canOffer)
+    };
+}
+function readDashboardPlazaSeedString(value = '') {
+    return String(value || '').trim();
+}
+
+function normalizeDashboardPlazaSignalList(value = []) {
+    const source = Array.isArray(value)
+        ? value
+        : String(value || '').split(',');
+
+    return Array.from(new Set(
+        source
+            .map((item) => String(item || '').trim())
+            .filter(Boolean)
+    )).slice(0, 8);
+}
+
+function joinDashboardPlazaSignalList(value = [], fallback = '') {
+    const normalized = normalizeDashboardPlazaSignalList(value);
+    return normalized.length ? normalized.join(', ') : fallback;
+}
+
+function setDashboardPlazaValueIfBlank(id, nextValue) {
+    const input = document.getElementById(id);
+    if (!input) return;
+
+    if (String(input.value || '').trim()) return;
+
+    const clean = String(nextValue ?? '').trim();
+    if (!clean) return;
+
+    input.value = clean;
+}
+
+function buildDashboardPlazaAcademySeed() {
+    const academyHome = getYHAcademyHomeSnapshot();
+    const academySnapshot = readYHJsonCache('yh_academy_membership_status_v1', null) || {};
+    const federationSnapshot = readYHJsonCache('yh_federation_access_status_v1', null) || {};
+
+    const profileSignals =
+        academyHome?.profileSignals && typeof academyHome.profileSignals === 'object'
+            ? academyHome.profileSignals
+            : {};
+
+    const plazaReadiness =
+        academyHome?.plazaReadiness && typeof academyHome.plazaReadiness === 'object'
+            ? academyHome.plazaReadiness
+            : {};
+
+    const roleTrack = readDashboardPlazaSeedString(profileSignals?.roleTrack);
+    const lookingFor = normalizeDashboardPlazaSignalList(profileSignals?.lookingFor);
+    const canOffer = normalizeDashboardPlazaSignalList(profileSignals?.canOffer);
+    const availability = readDashboardPlazaSeedString(profileSignals?.availability);
+    const workMode = readDashboardPlazaSeedString(profileSignals?.workMode);
+    const proofFocus = readDashboardPlazaSeedString(profileSignals?.proofFocus);
+
+    const readinessScore = Number(plazaReadiness?.score || 0);
+    const readinessStatus =
+        readDashboardPlazaSeedString(plazaReadiness?.statusLabel) ||
+        readDashboardPlazaSeedString(getYHBridgeSignalState(academySnapshot, null)?.label);
+
+    const marketplaceReady =
+        plazaReadiness?.marketplaceReady === true ||
+        profileSignals?.marketplaceReady === true;
+
+    const membershipType = academySnapshot?.canEnterAcademy === true
+        ? 'academy'
+        : federationSnapshot?.canEnterFederation === true
+            ? 'federation'
+            : '';
+
+    const fullName = readDashboardPlazaSeedString(
+        localStorage.getItem('yh_user_full_name') ||
+        localStorage.getItem('yh_user_name') ||
+        ''
+    );
+
+    const email = readDashboardPlazaSeedString(
+        localStorage.getItem('yh_user_email') ||
+        localStorage.getItem('email') ||
+        ''
+    );
+
+    const country = readDashboardPlazaSeedString(
+        localStorage.getItem('yh_user_country') ||
+        ''
+    );
+
+    const currentProject = [roleTrack, proofFocus].filter(Boolean).join(' — ');
+
+    return {
+        membershipType,
+        fullName,
+        email,
+        country,
+        currentProject,
+        resourcesNeeded: joinDashboardPlazaSignalList(lookingFor),
+        contribution: joinDashboardPlazaSignalList(canOffer),
+        servicesProducts: joinDashboardPlazaSignalList(canOffer),
+        wantsMarketplace: marketplaceReady || canOffer.length > 0 ? 'yes' : '',
+        roleTrack,
+        lookingFor,
+        canOffer,
+        availability,
+        workMode,
+        proofFocus,
+        readinessScore,
+        readinessStatus,
+        marketplaceReady
+    };
+}
+
+function prefillDashboardPlazaApplicationFromAcademy() {
+    const seed = buildDashboardPlazaAcademySeed();
+
+    setDashboardPlazaValueIfBlank('plazaAppMembershipType', seed.membershipType);
+    setDashboardPlazaValueIfBlank('plazaAppEmail', seed.email);
+    setDashboardPlazaValueIfBlank('plazaAppFullName', seed.fullName);
+    setDashboardPlazaValueIfBlank('plazaAppCurrentProject', seed.currentProject);
+    setDashboardPlazaValueIfBlank('plazaAppResourcesNeeded', seed.resourcesNeeded);
+    setDashboardPlazaValueIfBlank('plazaAppContribution', seed.contribution);
+    setDashboardPlazaValueIfBlank('plazaAppCountry', seed.country);
+    setDashboardPlazaValueIfBlank('plazaAppServicesProducts', seed.servicesProducts);
+
+    const wantsMarketplaceInput = document.getElementById('plazaAppWantsMarketplace');
+    if (
+        wantsMarketplaceInput &&
+        !String(wantsMarketplaceInput.value || '').trim() &&
+        seed.wantsMarketplace
+    ) {
+        wantsMarketplaceInput.value = seed.wantsMarketplace;
+    }
+
+    syncDashboardPlazaApplicationLabels();
+    syncDashboardPlazaProgress(dashboardPlazaApplicationCurrentStep);
+}
+
+function getYHBridgeSignalState(academySnapshot = null, plazaSnapshot = null) {
+    const homeSnapshot = getYHAcademyHomeSnapshot();
+    const plazaReadiness =
+        homeSnapshot?.plazaReadiness && typeof homeSnapshot.plazaReadiness === 'object'
+            ? homeSnapshot.plazaReadiness
+            : null;
+
+    const academyApproved =
+        academySnapshot?.canEnterAcademy === true ||
+        String(academySnapshot?.applicationStatus || '').trim().toLowerCase() === 'approved';
+
+    if (!academyApproved) {
+        return {
+            label: 'Academy First',
+            badgeClass: 'is-early',
+            copy: 'Your bridge signal begins inside The Academy. Get approved first, then build your profile depth, execution, and readiness from there.'
+        };
+    }
+
+    if (!plazaReadiness) {
+        return {
+            label: 'Signal Pending',
+            badgeClass: 'is-building',
+            copy: 'We have not detected your latest Academy readiness signal yet. Open The Academy Home once so the Dashboard can sync your current Academy state.'
+        };
+    }
+
+    const score = Number(plazaReadiness?.score || 0);
+    const marketplaceReady = plazaReadiness?.marketplaceReady === true;
+
+    if (marketplaceReady) {
+        return {
+            label: 'Ready for Handoff',
+            badgeClass: 'is-ready',
+            copy: String(
+                plazaReadiness?.nextStep ||
+                'Your Academy profile is fully built for the next handoff stage. Keep your execution signal sharp and your profile complete.'
+            ).trim()
+        };
+    }
+
+    if (score >= 75) {
+        return {
+            label: 'Strong Academy Signal',
+            badgeClass: 'is-strong',
+            copy: String(
+                plazaReadiness?.nextStep ||
+                'Your Academy signal is strong. Finalize your profile quality, keep mission consistency high, and switch Marketplace Ready on when appropriate.'
+            ).trim()
+        };
+    }
+
+    if (score >= 50) {
+        return {
+            label: 'Building Momentum',
+            badgeClass: 'is-building',
+            copy: String(
+                plazaReadiness?.nextStep ||
+                'Your Academy signal is improving. Keep building profile depth, proof focus, and mission consistency.'
+            ).trim()
+        };
+    }
+
+    return {
+        label: 'Still Building',
+        badgeClass: 'is-early',
+        copy: String(
+            plazaReadiness?.nextStep ||
+            'Complete your Academy profile and missions to strengthen your Academy handoff signal.'
+        ).trim()
+    };
 }
 
 function getYHNextStepCopy(academySnapshot = null, plazaSnapshot = null, federationSnapshot = null) {
@@ -184,14 +755,27 @@ function getYHNextStepCopy(academySnapshot = null, plazaSnapshot = null, federat
     }
 
     if (!plazaApproved) {
-        return 'Your next move is Plaza. Apply for access so you can turn your value into opportunities, requests, and connections.';
+        const bridge = getYHBridgeSignalState(academySnapshot, plazaSnapshot);
+        return bridge?.copy || 'Your next move is Plaza. Apply for access so you can turn your value into opportunities, requests, and connections.';
+    }
+
+    const plazaProfile = getYHPlazaProfileStatusState(plazaSnapshot);
+    const plazaOpportunity = getYHPlazaOpportunityScoreState(plazaSnapshot);
+    const federationReadiness = getYHFederationReadinessState(plazaSnapshot, federationSnapshot);
+
+    if (plazaProfile.label === 'Not Seeded') {
+        return plazaProfile.copy;
+    }
+
+    if (plazaOpportunity.label === 'Weak' || plazaOpportunity.label === 'Active') {
+        return plazaOpportunity.copy;
     }
 
     if (!federationApproved) {
-        return 'You already have movement inside the system. Build stronger trust, contribution, and leverage if you want to qualify for Federation.';
+        return federationReadiness.copy;
     }
 
-    return 'You have reached the highest trust layer currently unlocked. Use the Universe to deepen access, opportunities, and strategic relationships.';
+    return federationReadiness.copy || 'You have reached the highest trust layer currently unlocked. Use the Universe to deepen access, opportunities, and strategic relationships.';
 }
 
 function renderYHEconomicSnapshot() {
@@ -201,9 +785,14 @@ function renderYHEconomicSnapshot() {
     const nextEl = document.getElementById('yh-econ-next-step');
     const academyEl = document.getElementById('yh-econ-academy-status');
     const plazaEl = document.getElementById('yh-econ-plaza-status');
+    const plazaProfileEl = document.getElementById('yh-econ-plaza-profile-status');
+    const plazaOpportunityEl = document.getElementById('yh-econ-plaza-opportunity-score');
+    const federationReadinessEl = document.getElementById('yh-econ-federation-readiness');
     const federationEl = document.getElementById('yh-econ-federation-status');
+    const bridgeSignalEl = document.getElementById('yh-econ-bridge-signal');
+    const bridgeCopyEl = document.getElementById('yh-econ-bridge-copy');
 
-    if (!nameEl || !roleEl || !trustEl || !nextEl || !academyEl || !plazaEl || !federationEl) {
+    if (!trustEl || !nextEl || !academyEl || !plazaEl || !federationEl) {
         return;
     }
 
@@ -233,23 +822,71 @@ function renderYHEconomicSnapshot() {
         ).trim() || 'Hustler';
 
     const roleCopy = getYHTrustTierLabel(academySnapshot, plazaSnapshot, federationSnapshot);
+    const bridgeSignal = getYHBridgeSignalState(academySnapshot, plazaSnapshot);
 
-    nameEl.textContent = fullName;
-    roleEl.textContent = roleCopy === 'Guest'
-        ? 'Building your path inside YH Universe'
-        : `${roleCopy} inside YH Universe`;
+    if (nameEl) {
+        nameEl.textContent = fullName;
+    }
+
+    if (roleEl) {
+        roleEl.textContent = roleCopy === 'Guest'
+            ? 'Building your path inside YH Universe'
+            : `${roleCopy} inside YH Universe`;
+    }
 
     trustEl.textContent = roleCopy;
     nextEl.textContent = getYHNextStepCopy(academySnapshot, plazaSnapshot, federationSnapshot);
 
-    academyEl.textContent = normalizeYHEconStatus(academySnapshot?.applicationStatus, academySnapshot?.canEnterAcademy ? 'Approved' : 'Not Applied');
-    plazaEl.textContent = normalizeYHEconStatus(plazaSnapshot?.applicationStatus, plazaSnapshot?.canEnterPlaza ? 'Approved' : 'Not Applied');
-    federationEl.textContent = normalizeYHEconStatus(federationSnapshot?.applicationStatus, federationSnapshot?.canEnterFederation ? 'Approved' : 'Not Applied');
-}
+    academyEl.textContent = normalizeYHEconStatus(
+        academySnapshot?.applicationStatus,
+        academySnapshot?.canEnterAcademy ? 'Approved' : 'Not Applied'
+    );
 
-window.renderYHEconomicSnapshot = renderYHEconomicSnapshot;
-function buildPlazaUrl() {
-    return '/plaza.html';
+    plazaEl.textContent = normalizeYHEconStatus(
+        plazaSnapshot?.applicationStatus,
+        plazaSnapshot?.canEnterPlaza ? 'Approved' : 'Not Applied'
+    );
+
+    federationEl.textContent = normalizeYHEconStatus(
+        federationSnapshot?.applicationStatus,
+        federationSnapshot?.canEnterFederation ? 'Approved' : 'Not Applied'
+    );
+
+    const plazaProfileState = getYHPlazaProfileStatusState(plazaSnapshot);
+    const plazaOpportunityState = getYHPlazaOpportunityScoreState(plazaSnapshot);
+    const federationReadinessState = getYHFederationReadinessState(plazaSnapshot, federationSnapshot);
+
+    if (plazaProfileEl) {
+        plazaProfileEl.textContent = String(plazaProfileState?.label || 'Not Seeded').trim() || 'Not Seeded';
+    }
+
+    if (plazaOpportunityEl) {
+        const scoreText = Number(plazaOpportunityState?.score || 0);
+        const stageText = String(plazaOpportunityState?.label || 'Locked').trim() || 'Locked';
+
+        plazaOpportunityEl.textContent =
+            stageText === 'Locked' || stageText === 'Not Seeded'
+                ? stageText
+                : `${scoreText} · ${stageText}`;
+    }
+
+    if (federationReadinessEl) {
+        federationReadinessEl.textContent = String(
+            federationReadinessState?.label || 'Plaza First'
+        ).trim() || 'Plaza First';
+    }
+
+    if (bridgeSignalEl) {
+        bridgeSignalEl.textContent = String(bridgeSignal?.label || 'Still Building').trim() || 'Still Building';
+        bridgeSignalEl.className = `yh-universe-progress-bridge-badge ${bridgeSignal?.badgeClass || 'is-building'}`;
+    }
+
+    if (bridgeCopyEl) {
+        bridgeCopyEl.textContent = String(
+            bridgeSignal?.copy ||
+            'Complete your Academy profile and missions to strengthen your Plaza handoff signal.'
+        ).trim();
+    }
 }
 function redirectToPlazaPage() {
     const plazaUrl = buildPlazaUrl();
@@ -581,7 +1218,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     initUniverseImageLightbox();
     renderYHEconomicSnapshot();
-
     // --- UPDATED NAVIGATION & ROUTING LOGIC ---
 const universeFeatureContent = {
     academy: {
@@ -628,6 +1264,8 @@ const universeFeatureContent = {
 };
 
 let activeUniverseDivision = 'academy';
+syncUniverseBridgeCardVisibility(activeUniverseDivision);
+
 const academySearchResultsPanel = document.getElementById('academy-search-results-panel');
 if (academySearchResultsPanel && !academySearchResultsPanel.dataset.overlayBound) {
     academySearchResultsPanel.dataset.overlayBound = 'true';
@@ -815,7 +1453,7 @@ function openPlazaApplicationModal() {
         return;
     }
 
-    runDashboardApplicationFormLoader('Opening Plaza Application...', () => {
+    runDashboardApplicationFormLoader('Opening Plaza Application.', () => {
         renderDashboardPlazaApplicationForm();
 
         modal.classList.remove('hidden-step');
@@ -823,6 +1461,9 @@ function openPlazaApplicationModal() {
 
         window.requestAnimationFrame(() => {
             resetDashboardPlazaApplicationFlow();
+            prefillDashboardPlazaApplicationFromAcademy();
+            syncDashboardPlazaApplicationLabels();
+            syncDashboardPlazaProgress(dashboardPlazaApplicationCurrentStep);
         });
     });
 }
@@ -1292,6 +1933,7 @@ function buildDashboardPlazaApplicationPayload() {
     const membershipType = getDashboardPlazaInputValue('plazaAppMembershipType');
     const wantsPatron = getDashboardPlazaInputValue('plazaAppWantsPatron');
     const wantsMarketplace = getDashboardPlazaInputValue('plazaAppWantsMarketplace');
+    const academySeed = buildDashboardPlazaAcademySeed();
 
     return {
         schemaVersion: DASHBOARD_PLAZA_APPLICATION_SCHEMA_VERSION,
@@ -1319,7 +1961,19 @@ function buildDashboardPlazaApplicationPayload() {
         servicesProducts: wantsMarketplace === 'yes' ? getDashboardPlazaInputValue('plazaAppServicesProducts') : '',
 
         referredBy: getDashboardPlazaInputValue('plazaAppReferredBy'),
-        howHeard: getDashboardPlazaInputValue('plazaAppHowHeard')
+        howHeard: getDashboardPlazaInputValue('plazaAppHowHeard'),
+
+        academySignalSnapshot: {
+            readinessScore: academySeed.readinessScore,
+            readinessStatus: academySeed.readinessStatus,
+            marketplaceReady: academySeed.marketplaceReady === true,
+            roleTrack: academySeed.roleTrack,
+            lookingFor: academySeed.lookingFor,
+            canOffer: academySeed.canOffer,
+            availability: academySeed.availability,
+            workMode: academySeed.workMode,
+            proofFocus: academySeed.proofFocus
+        }
     };
 }
 
@@ -1579,7 +2233,17 @@ function syncUniverseFeaturePanel(targetDivision = 'academy') {
 
     syncUniverseAcademyStrip(division);
 }
+function syncUniverseBridgeCardVisibility(targetDivision = 'academy') {
+    const division = normalizeUniverseDivision(targetDivision);
+    const bridgeCard = document.getElementById('yh-econ-bridge-card');
 
+    if (!bridgeCard) return;
+
+    const shouldShow = division === 'academy';
+
+    bridgeCard.classList.toggle('hidden-step', !shouldShow);
+    bridgeCard.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');
+}
 function setUniverseSlide(targetDivision = 'academy', options = {}) {
     const division = normalizeUniverseDivision(targetDivision);
     const track = document.getElementById('yh-universe-track');
@@ -1591,6 +2255,7 @@ function setUniverseSlide(targetDivision = 'academy', options = {}) {
 
     if (!track || !slides.length) {
         syncUniverseFeaturePanel(division);
+        syncUniverseBridgeCardVisibility(division);
         return division;
     }
 
@@ -1622,6 +2287,7 @@ function setUniverseSlide(targetDivision = 'academy', options = {}) {
     }
 
     syncUniverseFeaturePanel(division);
+    syncUniverseBridgeCardVisibility(division);
     return division;
 }
 
@@ -4193,80 +4859,75 @@ const openNotificationTarget = (target = '') => {
     }
 
     if (normalized === 'profile') {
-        document.querySelector('.profile-mini')?.click();
+        const profileNav = document.getElementById('nav-profile');
+
+        if (profileNav && typeof profileNav.click === 'function') {
+            profileNav.click();
+            return;
+        }
+
+        if (typeof openAcademyProfileView === 'function') {
+            openAcademyProfileView();
+            return;
+        }
     }
-};
 
-const renderRealtimeNotifications = (notifications = []) => {
-    if (!notifListContainer) return;
+    if (normalized === 'academy') {
+        if (typeof openAcademyRoadmapView === 'function') {
+            openAcademyRoadmapView();
+            return;
+        }
 
-    const list = (Array.isArray(notifications) ? notifications : [])
-        .map(normalizeRealtimeNotification);
-
-    notifListContainer.innerHTML = '';
-
-    if (!list.length) {
-        notifListContainer.innerHTML = `
-            <li class="notif-empty-state" id="notif-empty-state">No notifications yet.</li>
-        `;
-        updateNotificationBadgeUi([]);
+        window.location.href = '/academy';
         return;
     }
 
-    list.forEach((notification) => {
-        const notificationId = notification.id;
-        const title = notification.title;
-        const text = notification.text;
-        const avatarStr = notification.avatarStr;
-        const color = notification.color;
-        const target = notification.target;
-        const createdAt = notification.createdAt;
-        const isRead = notification.isRead;
+    if (normalized === 'plaza') {
+        window.location.href = '/plaza';
+        return;
+    }
 
-        const li = document.createElement('li');
-        li.className = `fade-in${isRead ? '' : ' unread'}`;
+    if (normalized === 'federation') {
+        window.location.href = '/federation';
+    }
+};
 
-        if (notificationId) {
-            li.setAttribute('data-notification-id', notificationId);
-        }
+function isMemberSystemNotification(notification = {}) {
+    const source = String(notification?.source || '').trim().toLowerCase();
+    const type = String(notification?.notificationType || '').trim().toLowerCase();
 
-        if (target) {
-            li.setAttribute('data-target', target);
-        }
+    return source === 'admin-review' || type === 'application-review';
+}
 
-        if (notification.targetId) {
-            li.setAttribute('data-target-id', notification.targetId);
-        }
+function mergeInProductNotifications(realtimeNotifications = [], memberNotifications = []) {
+    const merged = new Map();
 
-        li.innerHTML = `
-            <div class="notif-img" style="background: ${escapeNotificationHtml(color)};">
-                ${escapeNotificationHtml(avatarStr)}
-            </div>
-            <div class="notif-text">
-                <strong>${escapeNotificationHtml(title)}</strong>
-                ${text ? ` ${escapeNotificationHtml(text)}` : ''}
-                <span class="notif-time">${escapeNotificationHtml(notificationTimeLabel(createdAt))}</span>
-            </div>
-        `;
-
-        li.addEventListener('click', async (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-
-            if (notificationId && !isRead) {
-                await markRealtimeNotificationRead(notificationId, false);
-                li.classList.remove('unread');
-            }
-
-            notifDropdown?.classList.remove('show');
-            openNotificationTarget(target);
+    [...(Array.isArray(realtimeNotifications) ? realtimeNotifications : []), ...(Array.isArray(memberNotifications) ? memberNotifications : [])]
+        .map(normalizeRealtimeNotification)
+        .forEach((item) => {
+            const key = String(item?.id || item?.notificationId || '').trim();
+            if (!key) return;
+            merged.set(key, item);
         });
 
-        notifListContainer.appendChild(li);
+    return Array.from(merged.values()).sort((a, b) => {
+        return String(b.createdAt || b.created_at || '').localeCompare(String(a.createdAt || a.created_at || ''));
     });
+}
 
-    updateNotificationBadgeUi(list);
-};
+async function loadMemberSystemNotifications() {
+    try {
+        const result = await academyAuthedFetch('/api/member/system-notifications', {
+            method: 'GET'
+        });
+
+        return (Array.isArray(result?.notifications) ? result.notifications : [])
+            .map(normalizeRealtimeNotification);
+    } catch (error) {
+        console.error('loadMemberSystemNotifications error:', error);
+        return [];
+    }
+}
 
 async function loadRealtimeNotifications(forceFresh = false) {
     if (!notifListContainer) return [];
@@ -4279,12 +4940,29 @@ async function loadRealtimeNotifications(forceFresh = false) {
     }
 
     try {
-        const result = await academyAuthedFetch('/api/realtime/notifications', {
-            method: 'GET'
-        });
+        const [realtimeSettled, memberSettled] = await Promise.allSettled([
+            academyAuthedFetch('/api/realtime/notifications', {
+                method: 'GET'
+            }),
+            loadMemberSystemNotifications()
+        ]);
 
-        const notifications = (Array.isArray(result?.notifications) ? result.notifications : [])
-            .map(normalizeRealtimeNotification);
+        const realtimeNotifications =
+            realtimeSettled.status === 'fulfilled'
+                ? (Array.isArray(realtimeSettled.value?.notifications) ? realtimeSettled.value.notifications : [])
+                    .map(normalizeRealtimeNotification)
+                : [];
+
+        const memberNotifications =
+            memberSettled.status === 'fulfilled'
+                ? (Array.isArray(memberSettled.value) ? memberSettled.value : [])
+                    .map(normalizeRealtimeNotification)
+                : [];
+
+        const notifications = mergeInProductNotifications(
+            realtimeNotifications,
+            memberNotifications
+        );
 
         state.realtimeNotifications = notifications;
         renderRealtimeNotifications(notifications);
@@ -4305,14 +4983,23 @@ async function markRealtimeNotificationRead(notificationId, rerender = true) {
     if (!normalizedId) return;
 
     const state = getDashboardState();
+    const current = Array.isArray(state.realtimeNotifications) ? state.realtimeNotifications : [];
+    const matched = current
+        .map(normalizeRealtimeNotification)
+        .find((item) => String(item?.id || item?.notificationId || '').trim() === normalizedId);
 
     try {
-        await academyAuthedFetch(`/api/realtime/notifications/${encodeURIComponent(normalizedId)}/read`, {
-            method: 'POST'
-        });
+        if (isMemberSystemNotification(matched)) {
+            await academyAuthedFetch(`/api/member/system-notifications/${encodeURIComponent(normalizedId)}/read`, {
+                method: 'POST'
+            });
+        } else {
+            await academyAuthedFetch(`/api/realtime/notifications/${encodeURIComponent(normalizedId)}/read`, {
+                method: 'POST'
+            });
+        }
 
         const readAt = new Date().toISOString();
-        const current = Array.isArray(state.realtimeNotifications) ? state.realtimeNotifications : [];
 
         state.realtimeNotifications = current.map((item) => {
             const normalizedItem = normalizeRealtimeNotification(item);
@@ -4342,14 +5029,39 @@ async function markRealtimeNotificationRead(notificationId, rerender = true) {
 
 async function markAllRealtimeNotificationsRead() {
     const state = getDashboardState();
+    const current = Array.isArray(state.realtimeNotifications) ? state.realtimeNotifications : [];
 
     try {
-        await academyAuthedFetch('/api/realtime/notifications/read-all', {
-            method: 'POST'
-        });
+        const hasMemberSystemNotifications = current.some((item) => isMemberSystemNotification(item));
+        const hasRealtimeNotifications = current.some((item) => !isMemberSystemNotification(item));
+
+        const requests = [];
+
+        if (hasRealtimeNotifications) {
+            requests.push(
+                academyAuthedFetch('/api/realtime/notifications/read-all', {
+                    method: 'POST'
+                }).catch((error) => {
+                    console.error('academy realtime read-all error:', error);
+                    return null;
+                })
+            );
+        }
+
+        if (hasMemberSystemNotifications) {
+            requests.push(
+                academyAuthedFetch('/api/member/system-notifications/read-all', {
+                    method: 'POST'
+                }).catch((error) => {
+                    console.error('academy member-system read-all error:', error);
+                    return null;
+                })
+            );
+        }
+
+        await Promise.all(requests);
 
         const readAt = new Date().toISOString();
-        const current = Array.isArray(state.realtimeNotifications) ? state.realtimeNotifications : [];
 
         state.realtimeNotifications = current.map((item) => ({
             ...normalizeRealtimeNotification(item),
@@ -9141,12 +9853,28 @@ function enterAcademyWorld(defaultSection = 'home') {
     }
 
     showAcademyTabLoader('Entering Academy.');
+
     try {
+        try {
+            sessionStorage.setItem('yh_academy_startup_boot_v1', '1');
+            sessionStorage.setItem('yh_academy_startup_section_v1', targetSection);
+        } catch (_) {}
+
         closeAcademyLauncher();
         saveAcademyViewState(targetSection);
         redirectToAcademyPage(targetSection);
-    } finally {
+        return false;
+    } catch (error) {
+        console.error('enterAcademyWorld error:', error);
+
+        try {
+            sessionStorage.removeItem('yh_academy_startup_boot_v1');
+            sessionStorage.removeItem('yh_academy_startup_section_v1');
+        } catch (_) {}
+
         hideAcademyTabLoader();
+        showToast(error?.message || 'Failed to enter Academy.', 'error');
+        return false;
     }
 }
 window.enterAcademyWorld = enterAcademyWorld;
@@ -11669,6 +12397,7 @@ function syncFederationEntryButton() {
 
 function prefillFederationApplicationForm() {
     const identity = getCurrentFederationApplicantIdentity();
+    const strategic = getDashboardFederationStrategicSnapshot();
 
     const setValue = (id, value) => {
         const field = document.getElementById(id);
@@ -11677,10 +12406,44 @@ function prefillFederationApplicationForm() {
         }
     };
 
+    const setSelectValue = (id, value) => {
+        const field = document.getElementById(id);
+        if (!field || String(field.value || '').trim()) return;
+        if (!String(value || '').trim()) return;
+        field.value = value;
+    };
+
     setValue('fed-app-full-name', identity.name || '');
     setValue('fed-app-email', identity.email || '');
     setValue('fed-app-country', identity.country || '');
     setValue('fed-app-city', identity.city || '');
+
+    setValue('fed-app-role', strategic.role || '');
+    setValue('fed-app-value-bring', strategic.canOfferText || '');
+    setValue('fed-app-access-contribution', strategic.focus || strategic.canOfferText || strategic.federationReadinessCopy || '');
+    setValue('fed-app-regions-access', strategic.region || [identity.city, identity.country].filter(Boolean).join(', '));
+
+    setValue('fed-app-wanted-contact-types', strategic.lookingForText || '');
+    setValue('fed-app-wanted-contact-region', strategic.region || '');
+    setValue('fed-app-wanted-contact-reason', strategic.lookingForText || strategic.federationReadinessCopy || '');
+
+    setValue('fed-app-contact-types-can-provide', strategic.canOfferText || '');
+    setValue('fed-app-supply-regions', strategic.region || '');
+
+    setSelectValue(
+        'fed-app-looking-for-contact',
+        strategic.lookingForText ? 'Yes' : 'Maybe Later'
+    );
+
+    setSelectValue(
+        'fed-app-can-provide-contacts',
+        strategic.canOfferText ? 'Yes, through my network' : 'Not yet'
+    );
+
+    setSelectValue(
+        'fed-app-open-admin-matching',
+        strategic.connectReady ? 'Yes' : strategic.score >= 40 ? 'Only for serious opportunities' : 'No'
+    );
 }
 
 function openFederationApplicationModal() {
@@ -11705,6 +12468,7 @@ function closeFederationApplicationModal() {
 
 function collectFederationApplicationPayload(form) {
     const identity = getCurrentFederationApplicantIdentity();
+    const strategic = getDashboardFederationStrategicSnapshot();
     const nowIso = new Date().toISOString();
 
     const fullName = String(document.getElementById('fed-app-full-name')?.value || '').trim();
@@ -11731,6 +12495,12 @@ function collectFederationApplicationPayload(form) {
     const contactTypesCanProvideRaw = String(document.getElementById('fed-app-contact-types-can-provide')?.value || '').trim();
     const supplyRegions = String(document.getElementById('fed-app-supply-regions')?.value || '').trim();
     const openToAdminMatching = String(document.getElementById('fed-app-open-admin-matching')?.value || '').trim();
+
+    const federationTags = Array.from(new Set([
+        ...normalizeFederationListValue(contactTypesCanProvideRaw),
+        ...normalizeFederationListValue(wantedContactTypesRaw),
+        ...(Array.isArray(strategic.tags) ? strategic.tags : [])
+    ])).slice(0, 8);
 
     return {
         id: `FED-APP-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -11779,14 +12549,35 @@ function collectFederationApplicationPayload(form) {
         declarationAccurateInfo: document.getElementById('fed-app-declare-accurate')?.checked === true,
         declarationProfessionalUse: document.getElementById('fed-app-declare-professional')?.checked === true,
 
-        aiScore: 0,
+        aiScore: strategic.score,
+        federationScore: strategic.score,
+        federationTier: strategic.tier,
+        federationTags,
+        strategicReadinessSnapshot: strategic,
+
+        federationProfileMap: {
+            role: role || strategic.role || '',
+            primaryCategory: primaryCategory || '',
+            lookingFor: wantedContactReason || strategic.lookingForText || '',
+            canOffer: valueBring || strategic.canOfferText || '',
+            wantsAccessTo: wantedContactTypesRaw || '',
+            opportunityInsight: strategic.federationReadinessCopy || strategic.opportunityCopy || '',
+            tags: federationTags,
+            openTo: strategic.connectReady ? ['admin matching', 'strategic introductions'] : ['review'],
+            score: strategic.score,
+            tier: strategic.tier,
+            profileVersion: 1
+        },
+
         createdAt: nowIso,
         updatedAt: nowIso,
         submittedAt: nowIso,
         notes: [
             'Submitted through Dashboard Federation gate.',
             lookingForContact === 'Yes' ? 'Applicant has a Looking for Contact signal.' : '',
-            canProvideContacts && canProvideContacts !== 'Not yet' ? 'Applicant may supply contacts.' : ''
+            canProvideContacts && canProvideContacts !== 'Not yet' ? 'Applicant may supply contacts.' : '',
+            strategic.federationReadinessLabel ? `Strategic readiness: ${strategic.federationReadinessLabel}.` : '',
+            strategic.opportunityStage ? `Plaza opportunity stage: ${strategic.opportunityStage}.` : ''
         ].filter(Boolean)
     };
 }
@@ -11847,6 +12638,7 @@ async function refreshFederationAccessStatusFromBackend(forceFresh = false) {
 
     return federationAccessStatusRefreshPromise;
 }
+
 function queueFederationApplication(payload = {}) {
     const currentAdminState = readYhAdminPanelState() || {};
     const currentApplications = Array.isArray(currentAdminState.applications)
@@ -12458,6 +13250,8 @@ async function handleAcademyLaunchClick(event) {
         cachedAcademySnapshot?.applicationStatus || ''
     ).trim().toLowerCase();
 
+    let shouldReleaseLoader = true;
+
     showAcademyTabLoader(
         cachedAcademySnapshot?.canEnterAcademy === true || cachedAcademyStatus === 'approved'
             ? 'Entering Academy...'
@@ -12495,6 +13289,7 @@ async function handleAcademyLaunchClick(event) {
             }
 
             showAcademyTabLoader('Entering Academy...');
+            shouldReleaseLoader = false;
 
             // default on entry: roadmap if unlocked, otherwise community
             enterAcademyWorld('home');
@@ -12524,7 +13319,9 @@ async function handleAcademyLaunchClick(event) {
         openAcademyLauncher();
         return false;
     } finally {
-        hideAcademyTabLoader();
+        if (shouldReleaseLoader) {
+            hideAcademyTabLoader();
+        }
     }
 }
 window.handleAcademyLaunchClick = handleAcademyLaunchClick;
@@ -13330,6 +14127,23 @@ if (roadmapForm) {
         }
     });
 }
+window.addEventListener('storage', (event) => {
+    const watchedKeys = new Set([
+        'yh_federation_access_status_v1',
+        'yh_federation_ladder_outcome_v1',
+        'yh_admin_panel_state_v3_live'
+    ]);
 
+    if (!watchedKeys.has(String(event.key || ''))) return;
+
+    try {
+        const snapshot = getFederationAccessSnapshot();
+        syncFederationEntryButton();
+        syncFederationFrameAccess(snapshot);
+        renderYHEconomicSnapshot();
+    } catch (error) {
+        console.error('dashboard federation ladder storage sync error:', error);
+    }
+});
 // ✅ Close DOMContentLoaded wrapper
 });

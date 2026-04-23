@@ -2911,6 +2911,167 @@ app.post('/api/federation/application', requireApiUser, async (req, res) => {
     }
 });
 
+const USER_IN_PRODUCT_NOTIFICATION_LIMIT = 40;
+
+function normalizeUserInProductNotification(item = {}) {
+    const createdAt = mapTimestamp(
+        item?.createdAt ||
+        item?.created_at ||
+        item?.time ||
+        ''
+    );
+
+    const isRead =
+        item?.isRead === true ||
+        item?.is_read === true ||
+        item?.read === true ||
+        sanitizeText(item?.isRead).toLowerCase() === 'true' ||
+        sanitizeText(item?.is_read).toLowerCase() === 'true' ||
+        sanitizeText(item?.read).toLowerCase() === 'true' ||
+        Boolean(item?.readAt) ||
+        Boolean(item?.read_at);
+
+    return {
+        id: sanitizeText(item?.id || ''),
+        title: sanitizeText(item?.title || 'Notification'),
+        text: sanitizeText(item?.text || item?.message || item?.body || ''),
+        message: sanitizeText(item?.message || item?.text || item?.body || ''),
+        body: sanitizeText(item?.body || item?.text || item?.message || ''),
+        target: sanitizeText(item?.target || item?.targetType || item?.target_type || ''),
+        targetType: sanitizeText(item?.targetType || item?.target_type || item?.target || ''),
+        target_type: sanitizeText(item?.target_type || item?.targetType || item?.target || ''),
+        targetId: sanitizeText(item?.targetId || item?.target_id || ''),
+        target_id: sanitizeText(item?.target_id || item?.targetId || ''),
+        color: sanitizeText(item?.color || 'var(--neon-blue)'),
+        avatarStr: sanitizeText(item?.avatarStr || item?.initial || 'N'),
+        initial: sanitizeText(item?.initial || item?.avatarStr || 'N'),
+        source: sanitizeText(item?.source || 'admin-review'),
+        notificationType: sanitizeText(item?.notificationType || 'application-review'),
+        applicationField: sanitizeText(item?.applicationField || ''),
+        applicationStatus: sanitizeText(item?.applicationStatus || ''),
+        createdAt,
+        created_at: createdAt,
+        isRead,
+        is_read: isRead,
+        read: isRead,
+        readAt: mapTimestamp(item?.readAt || item?.read_at || ''),
+        read_at: mapTimestamp(item?.read_at || item?.readAt || '')
+    };
+}
+
+function getUserInProductNotifications(user = {}) {
+    const notifications = Array.isArray(user?.inProductReviewNotifications)
+        ? user.inProductReviewNotifications
+        : [];
+
+    return notifications
+        .map((item) => normalizeUserInProductNotification(item))
+        .filter((item) => item.id)
+        .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
+        .slice(0, USER_IN_PRODUCT_NOTIFICATION_LIMIT);
+}
+
+app.get('/api/member/system-notifications', requireApiUser, async (req, res) => {
+    try {
+        const userRef = firestore.collection('users').doc(req.user.id);
+        const userSnap = await userRef.get();
+        const user = userSnap.exists ? (userSnap.data() || {}) : {};
+
+        return res.json({
+            success: true,
+            notifications: getUserInProductNotifications(user)
+        });
+    } catch (error) {
+        console.error('member system notifications error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load member notifications.'
+        });
+    }
+});
+
+app.post('/api/member/system-notifications/:id/read', requireApiUser, async (req, res) => {
+    try {
+        const notificationId = sanitizeText(req.params.id);
+        if (!notificationId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Notification id is required.'
+            });
+        }
+
+        const userRef = firestore.collection('users').doc(req.user.id);
+        const userSnap = await userRef.get();
+        const user = userSnap.exists ? (userSnap.data() || {}) : {};
+        const current = getUserInProductNotifications(user);
+        const nowIso = new Date().toISOString();
+
+        const next = current.map((item) => {
+            if (sanitizeText(item.id) !== notificationId) return item;
+
+            return {
+                ...item,
+                isRead: true,
+                is_read: true,
+                read: true,
+                readAt: nowIso,
+                read_at: nowIso
+            };
+        });
+
+        await userRef.set({
+            inProductReviewNotifications: next,
+            updatedAt: nowIso
+        }, { merge: true });
+
+        return res.json({
+            success: true,
+            notifications: next
+        });
+    } catch (error) {
+        console.error('member system notification read error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to mark member notification as read.'
+        });
+    }
+});
+
+app.post('/api/member/system-notifications/read-all', requireApiUser, async (req, res) => {
+    try {
+        const userRef = firestore.collection('users').doc(req.user.id);
+        const userSnap = await userRef.get();
+        const user = userSnap.exists ? (userSnap.data() || {}) : {};
+        const current = getUserInProductNotifications(user);
+        const nowIso = new Date().toISOString();
+
+        const next = current.map((item) => ({
+            ...item,
+            isRead: true,
+            is_read: true,
+            read: true,
+            readAt: nowIso,
+            read_at: nowIso
+        }));
+
+        await userRef.set({
+            inProductReviewNotifications: next,
+            updatedAt: nowIso
+        }, { merge: true });
+
+        return res.json({
+            success: true,
+            notifications: next
+        });
+    } catch (error) {
+        console.error('member system notifications read-all error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to mark all member notifications as read.'
+        });
+    }
+});
+
 app.get('/api/plaza/application-status', requireApiUser, async (req, res) => {
     try {
         const snapshot = await getPlazaAccessSnapshotForUser(req.user?.id, req.user);

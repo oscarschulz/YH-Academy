@@ -174,6 +174,28 @@ function normalizeProfileTagList(values = []) {
     return out;
 }
 
+function normalizeProfileSignalList(values = []) {
+    const source = Array.isArray(values)
+        ? values
+        : String(values || '').split(',');
+
+    const seen = new Set();
+    const out = [];
+
+    for (const value of source) {
+        const clean = sanitizeString(value).slice(0, 48);
+        const lowered = clean.toLowerCase();
+
+        if (!clean || seen.has(lowered)) continue;
+        seen.add(lowered);
+        out.push(clean);
+
+        if (out.length >= 8) break;
+    }
+
+    return out;
+}
+
 function mapStoredProfileData(data = {}) {
     return {
         display_name: sanitizeString(
@@ -193,6 +215,18 @@ function mapStoredProfileData(data = {}) {
             data.description
         ),
         search_tags: normalizeProfileTagList(data.search_tags || data.searchTags),
+
+        role_track: sanitizeString(data.role_track || data.roleTrack),
+        looking_for: normalizeProfileSignalList(data.looking_for || data.lookingFor),
+        can_offer: normalizeProfileSignalList(data.can_offer || data.canOffer),
+        availability: sanitizeString(data.availability),
+        work_mode: sanitizeString(data.work_mode || data.workMode),
+        proof_focus: sanitizeString(data.proof_focus || data.proofFocus),
+        marketplace_ready:
+            data.marketplace_ready === true ||
+            data.marketplaceReady === true ||
+            sanitizeString(data.marketplace_ready || data.marketplaceReady).toLowerCase() === 'yes',
+
         version: toNumber(data.version, 1),
         createdAt: data.createdAt || null,
         updatedAt: data.updatedAt || null
@@ -216,30 +250,56 @@ async function setCurrentProfile(uid, payload) {
     const userExistingSnapshot = await userDocRef.get();
     const userExisting = userExistingSnapshot.exists ? (userExistingSnapshot.data() || {}) : {};
 
-    const normalized = mapStoredProfileData(payload || {});
-    const nextProfile = {
-        ...existing,
-        ...normalized,
-        role_label:
-            normalized.role_label ||
-            sanitizeString(existing.role_label || existing.roleLabel || 'Academy Member') ||
-            'Academy Member',
-        bio:
-            normalized.bio ||
-            sanitizeString(
-                existing.bio ||
-                existing.profileBio ||
-                'Focused on execution, consistency, and long-term growth inside The Academy.'
-            ),
-        search_tags: normalizeProfileTagList(
-            normalized.search_tags ||
-            existing.search_tags ||
-            existing.searchTags
+const normalized = mapStoredProfileData(payload || {});
+const nextProfile = {
+    ...existing,
+    ...normalized,
+    role_label:
+        normalized.role_label ||
+        sanitizeString(existing.role_label || existing.roleLabel || 'Academy Member') ||
+        'Academy Member',
+    bio:
+        normalized.bio ||
+        sanitizeString(
+            existing.bio ||
+            existing.profileBio ||
+            'Focused on execution, consistency, and long-term growth inside The Academy.'
         ),
-        updatedAt: ts,
-        createdAt: existing.createdAt || ts,
-        version: Math.max(1, toNumber(existing.version, 0) + 1)
-    };
+    search_tags: normalizeProfileTagList(
+        normalized.search_tags ||
+        existing.search_tags ||
+        existing.searchTags
+    ),
+    role_track:
+        normalized.role_track ||
+        sanitizeString(existing.role_track || existing.roleTrack),
+    looking_for: normalizeProfileSignalList(
+        normalized.looking_for ||
+        existing.looking_for ||
+        existing.lookingFor
+    ),
+    can_offer: normalizeProfileSignalList(
+        normalized.can_offer ||
+        existing.can_offer ||
+        existing.canOffer
+    ),
+    availability:
+        normalized.availability ||
+        sanitizeString(existing.availability),
+    work_mode:
+        normalized.work_mode ||
+        sanitizeString(existing.work_mode || existing.workMode),
+    proof_focus:
+        normalized.proof_focus ||
+        sanitizeString(existing.proof_focus || existing.proofFocus),
+    marketplace_ready:
+        normalized.marketplace_ready === true ||
+        existing.marketplace_ready === true ||
+        sanitizeString(existing.marketplace_ready || existing.marketplaceReady).toLowerCase() === 'yes',
+    updatedAt: ts,
+    createdAt: existing.createdAt || ts,
+    version: Math.max(1, toNumber(existing.version, 0) + 1)
+};
 
     await ref.set(nextProfile, { merge: true });
 
@@ -265,6 +325,15 @@ async function setCurrentProfile(uid, payload) {
             roleLabel: nextProfile.role_label || 'Academy Member',
             searchTags: nextProfile.search_tags,
             coverPhoto: nextProfile.cover_photo,
+
+            roleTrack: nextProfile.role_track || '',
+            lookingFor: Array.isArray(nextProfile.looking_for) ? nextProfile.looking_for : [],
+            canOffer: Array.isArray(nextProfile.can_offer) ? nextProfile.can_offer : [],
+            availability: nextProfile.availability || '',
+            workMode: nextProfile.work_mode || '',
+            proofFocus: nextProfile.proof_focus || '',
+            marketplaceReady: nextProfile.marketplace_ready === true,
+
             academyProfileUpdatedAt: ts,
             updatedAt: ts
         },
@@ -663,6 +732,188 @@ async function persistRoadmapBundle(uid, profile, plan, createdByModel) {
         version: nextVersion
     };
 }
+function buildAcademyPlazaReadinessPayload(profileDoc = {}, roadmap = {}, missions = []) {
+    const roleTrack = sanitizeString(profileDoc?.role_track || profileDoc?.roleTrack);
+    const lookingFor = normalizeProfileSignalList(profileDoc?.looking_for || profileDoc?.lookingFor);
+    const canOffer = normalizeProfileSignalList(profileDoc?.can_offer || profileDoc?.canOffer);
+    const availability = sanitizeString(profileDoc?.availability);
+    const workMode = sanitizeString(profileDoc?.work_mode || profileDoc?.workMode);
+    const proofFocus = sanitizeString(profileDoc?.proof_focus || profileDoc?.proofFocus);
+
+    const marketplaceReady =
+        profileDoc?.marketplace_ready === true ||
+        profileDoc?.marketplaceReady === true ||
+        sanitizeString(profileDoc?.marketplace_ready || profileDoc?.marketplaceReady).toLowerCase() === 'yes';
+
+    const completedCount = Array.isArray(missions)
+        ? missions.filter((item) => sanitizeString(item?.status).toLowerCase() === 'completed').length
+        : 0;
+
+    const totalCount = Array.isArray(missions) ? missions.length : 0;
+    const completionRatio = totalCount > 0 ? completedCount / totalCount : 0;
+
+    let score = 0;
+
+    if (roleTrack) score += 15;
+    if (lookingFor.length > 0) score += 15;
+    if (canOffer.length > 0) score += 20;
+    if (availability) score += 10;
+    if (workMode) score += 10;
+    if (proofFocus) score += 15;
+
+    if (completionRatio >= 0.8) score += 10;
+    else if (completionRatio >= 0.45) score += 6;
+    else if (completionRatio > 0) score += 3;
+
+    const roadmapReadiness = toNumber(roadmap?.readinessScore, 0);
+    score += Math.max(0, Math.min(5, Math.round(roadmapReadiness / 20)));
+
+    score = Math.max(0, Math.min(100, score));
+
+    let nextStep = 'Complete your Academy profile and missions to build stronger Plaza readiness.';
+
+    if (!roleTrack) {
+        nextStep = 'Choose your role track first so The Academy knows what economic direction you are building toward.';
+    } else if (canOffer.length === 0) {
+        nextStep = 'Clarify what you can offer so Plaza can match you to real opportunities later.';
+    } else if (lookingFor.length === 0) {
+        nextStep = 'Add what you are looking for so your next move inside Plaza becomes easier to match.';
+    } else if (!proofFocus) {
+        nextStep = 'Define your proof focus so your Academy work turns into visible commercial signal.';
+    } else if (completionRatio < 0.45) {
+        nextStep = 'Complete more missions consistently so your execution signal becomes strong enough for Plaza.';
+    } else if (!marketplaceReady) {
+        nextStep = 'Your signal is getting strong. Once your profile feels complete, turn on Marketplace Ready in your Academy profile.';
+    } else {
+        nextStep = 'Your Academy profile is ready to feed into Plaza visibility, matching, and opportunity flow.';
+    }
+
+    const statusLabel = marketplaceReady
+        ? 'Ready for Plaza'
+        : score >= 75
+            ? 'Strong Signal'
+            : score >= 50
+                ? 'Building Momentum'
+                : 'Still Building';
+
+    return {
+        score,
+        statusLabel,
+        nextStep,
+        marketplaceReady,
+        missionCompletionRatio: Number(completionRatio.toFixed(2)),
+        completedCount,
+        totalCount,
+        signals: {
+            roleTrack: Boolean(roleTrack),
+            lookingFor: lookingFor.length > 0,
+            canOffer: canOffer.length > 0,
+            availability: Boolean(availability),
+            workMode: Boolean(workMode),
+            proofFocus: Boolean(proofFocus)
+        },
+        profileSignals: {
+            roleTrack,
+            lookingFor,
+            canOffer,
+            availability,
+            workMode,
+            proofFocus,
+            marketplaceReady
+        }
+    };
+}
+
+function buildAcademyPlazaReadinessPayload(profileDoc = {}, roadmap = {}, missions = []) {
+    const roleTrack = sanitizeString(profileDoc?.role_track || profileDoc?.roleTrack);
+    const lookingFor = normalizeProfileSignalList(profileDoc?.looking_for || profileDoc?.lookingFor);
+    const canOffer = normalizeProfileSignalList(profileDoc?.can_offer || profileDoc?.canOffer);
+    const availability = sanitizeString(profileDoc?.availability);
+    const workMode = sanitizeString(profileDoc?.work_mode || profileDoc?.workMode);
+    const proofFocus = sanitizeString(profileDoc?.proof_focus || profileDoc?.proofFocus);
+
+    const marketplaceReady =
+        profileDoc?.marketplace_ready === true ||
+        profileDoc?.marketplaceReady === true ||
+        sanitizeString(profileDoc?.marketplace_ready || profileDoc?.marketplaceReady).toLowerCase() === 'yes';
+
+    const safeMissions = Array.isArray(missions) ? missions : [];
+    const completedCount = safeMissions.filter((item) => sanitizeString(item?.status).toLowerCase() === 'completed').length;
+    const totalCount = safeMissions.length;
+    const completionRatio = totalCount > 0 ? completedCount / totalCount : 0;
+
+    let score = 0;
+
+    if (roleTrack) score += 15;
+    if (lookingFor.length > 0) score += 15;
+    if (canOffer.length > 0) score += 20;
+    if (availability) score += 10;
+    if (workMode) score += 10;
+    if (proofFocus) score += 15;
+
+    if (completionRatio >= 0.8) score += 10;
+    else if (completionRatio >= 0.45) score += 6;
+    else if (completionRatio > 0) score += 3;
+
+    const roadmapReadiness = toNumber(roadmap?.readinessScore, 0);
+    score += Math.max(0, Math.min(5, Math.round(roadmapReadiness / 20)));
+
+    score = Math.max(0, Math.min(100, score));
+
+    let nextStep = 'Complete your Academy profile and missions to build stronger Plaza readiness.';
+
+    if (!roleTrack) {
+        nextStep = 'Choose your role track first so The Academy knows what economic direction you are building toward.';
+    } else if (canOffer.length === 0) {
+        nextStep = 'Clarify what you can offer so Plaza can match you to real opportunities later.';
+    } else if (lookingFor.length === 0) {
+        nextStep = 'Add what you are looking for so your next move inside Plaza becomes easier to match.';
+    } else if (!proofFocus) {
+        nextStep = 'Define your proof focus so your Academy work turns into visible commercial signal.';
+    } else if (completionRatio < 0.45) {
+        nextStep = 'Complete more missions consistently so your execution signal becomes strong enough for Plaza.';
+    } else if (!marketplaceReady) {
+        nextStep = 'Your signal is getting strong. Once your profile feels complete, turn on Marketplace Ready in your Academy profile.';
+    } else {
+        nextStep = 'Your Academy profile is ready to feed into Plaza visibility, matching, and opportunity flow.';
+    }
+
+    const statusLabel = marketplaceReady
+        ? 'Ready for Plaza'
+        : score >= 75
+            ? 'Strong Signal'
+            : score >= 50
+                ? 'Building Momentum'
+                : 'Still Building';
+
+    return {
+        score,
+        statusLabel,
+        nextStep,
+        marketplaceReady,
+        missionCompletionRatio: Number(completionRatio.toFixed(2)),
+        completedCount,
+        totalCount,
+        signals: {
+            roleTrack: Boolean(roleTrack),
+            lookingFor: lookingFor.length > 0,
+            canOffer: canOffer.length > 0,
+            availability: Boolean(availability),
+            workMode: Boolean(workMode),
+            proofFocus: Boolean(proofFocus)
+        },
+        profileSignals: {
+            roleTrack,
+            lookingFor,
+            canOffer,
+            availability,
+            workMode,
+            proofFocus,
+            marketplaceReady
+        }
+    };
+}
+
 async function buildAcademyHomePayload(uid, roadmapId = null) {
     const roadmap = roadmapId
         ? await getRoadmapById(uid, roadmapId)
@@ -677,8 +928,21 @@ async function buildAcademyHomePayload(uid, roadmapId = null) {
         getRecentCheckinStreakDays(uid)
     ]);
 
-    const completedCount = allMissions.filter((item) => item.status === 'completed').length;
-    const totalCount = allMissions.length;
+    const safeProfileDoc = profileDoc && typeof profileDoc === 'object' ? profileDoc : {};
+    const safeAllMissions = Array.isArray(allMissions) ? allMissions : [];
+    const completedCount = safeAllMissions.filter((item) => item.status === 'completed').length;
+    const totalCount = safeAllMissions.length;
+
+    const plazaReadiness = buildAcademyPlazaReadinessPayload(
+        safeProfileDoc,
+        roadmap || {},
+        safeAllMissions
+    );
+
+    const profileSignals =
+        plazaReadiness?.profileSignals && typeof plazaReadiness.profileSignals === 'object'
+            ? plazaReadiness.profileSignals
+            : {};
 
     return {
         success: true,
@@ -703,17 +967,18 @@ async function buildAcademyHomePayload(uid, roadmapId = null) {
         today: {
             missionsCompleted: completedCount,
             missionsTotal: totalCount,
-            streakDays
+            streakDays,
+            readinessScore: toNumber(roadmap.readinessScore, 0)
         },
         missions,
-        behaviorProfile: profileDoc?.behaviorProfile && typeof profileDoc.behaviorProfile === 'object'
-            ? profileDoc.behaviorProfile
+        behaviorProfile: safeProfileDoc?.behaviorProfile && typeof safeProfileDoc.behaviorProfile === 'object'
+            ? safeProfileDoc.behaviorProfile
             : {},
-        previousBehaviorProfile: profileDoc?.previousBehaviorProfile && typeof profileDoc.previousBehaviorProfile === 'object'
-            ? profileDoc.previousBehaviorProfile
+        previousBehaviorProfile: safeProfileDoc?.previousBehaviorProfile && typeof safeProfileDoc.previousBehaviorProfile === 'object'
+            ? safeProfileDoc.previousBehaviorProfile
             : {},
-        plannerStats: profileDoc?.plannerStats && typeof profileDoc.plannerStats === 'object'
-            ? profileDoc.plannerStats
+        plannerStats: safeProfileDoc?.plannerStats && typeof safeProfileDoc.plannerStats === 'object'
+            ? safeProfileDoc.plannerStats
             : {},
         adaptivePlanning: roadmap?.adaptivePlanning && typeof roadmap.adaptivePlanning === 'object'
             ? roadmap.adaptivePlanning
@@ -722,7 +987,9 @@ async function buildAcademyHomePayload(uid, roadmapId = null) {
             ? roadmap.nurtureTelemetry
             : {},
         plannerRunId: roadmap?.plannerRunId || '',
-        createdByModel: roadmap.createdByModel || 'academy-rule-engine-v1'
+        createdByModel: roadmap.createdByModel || 'academy-rule-engine-v1',
+        profileSignals,
+        plazaReadiness
     };
 }
 async function computeBehaviorProfile(uid) {
