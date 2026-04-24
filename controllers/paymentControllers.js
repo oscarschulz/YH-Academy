@@ -194,7 +194,88 @@ async function listMyPayments(req, res) {
         });
     }
 }
+function normalizeWithdrawalCurrency(value = 'USD') {
+    return cleanText(value || 'USD').toUpperCase() || 'USD';
+}
 
+async function resolveAcademyWithdrawalBalance(viewerId = '', currency = 'USD') {
+    const cleanViewerId = cleanText(viewerId);
+    const cleanCurrency = normalizeWithdrawalCurrency(currency);
+
+    if (!cleanViewerId) {
+        return {
+            currency: cleanCurrency,
+            approvedEarnings: 0,
+            reservedWithdrawals: 0,
+            available: 0
+        };
+    }
+
+    const earningsSnap = await firestore
+        .collection('users')
+        .doc(cleanViewerId)
+        .collection('academyLeadPayouts')
+        .get()
+        .catch(() => ({ docs: [] }));
+
+    const approvedEarnings = earningsSnap.docs.reduce((total, doc) => {
+        const payout = doc.data() || {};
+        const payoutCurrency = normalizeWithdrawalCurrency(payout.currency || cleanCurrency);
+
+        if (payoutCurrency !== cleanCurrency) return total;
+
+        const status = cleanLower(payout.status || '');
+        const payoutStatus = cleanLower(payout.payoutStatus || '');
+        const paymentStatus = cleanLower(payout.paymentStatus || '');
+
+        const isApprovedEarning =
+            status === 'approved' ||
+            status === 'ready_for_payment' ||
+            status === 'available';
+
+        const paymentIsConfirmed =
+            !paymentStatus ||
+            paymentStatus === 'paid' ||
+            paymentStatus === 'earned';
+
+        const alreadyMarkedPaid =
+            status === 'paid' ||
+            payoutStatus === 'paid';
+
+        if (!isApprovedEarning || !paymentIsConfirmed || alreadyMarkedPaid) {
+            return total;
+        }
+
+        return total + Math.max(0, toNumber(payout.amount, 0));
+    }, 0);
+
+    const existingPayouts = await paymentLedgerRepo
+        .listPayoutsForUser(cleanViewerId, 200)
+        .catch(() => []);
+
+    const reservedWithdrawals = existingPayouts.reduce((total, payout) => {
+        const payoutCurrency = normalizeWithdrawalCurrency(payout.currency || cleanCurrency);
+
+        if (payoutCurrency !== cleanCurrency) return total;
+
+        const status = cleanLower(payout.status || '');
+
+        if (!['pending_review', 'approved', 'processing', 'paid'].includes(status)) {
+            return total;
+        }
+
+        return total + Math.max(0, toNumber(payout.amount, 0));
+    }, 0);
+
+    const available = Math.max(0, approvedEarnings - reservedWithdrawals);
+
+    return {
+        currency: cleanCurrency,
+        approvedEarnings,
+        reservedWithdrawals,
+        available
+    };
+}
 async function createWithdrawalRequest(req, res) {
     try {
         const viewer = getViewer(req);
@@ -225,6 +306,17 @@ async function createWithdrawalRequest(req, res) {
             });
         }
 
+        const currency = normalizeWithdrawalCurrency(body.currency || 'USD');
+        const balance = await resolveAcademyWithdrawalBalance(viewer.id, currency);
+
+        if (amount > balance.available) {
+            return res.status(400).json({
+                success: false,
+                message: `Insufficient withdrawable balance. Available: ${balance.currency} ${balance.available.toFixed(2)}.`,
+                balance
+            });
+        }
+
         const payout = await paymentLedgerRepo.createPayoutRequest({
             receiverUid: viewer.id,
             receiverEmail: viewer.email,
@@ -239,7 +331,7 @@ async function createWithdrawalRequest(req, res) {
             provider: method === 'crypto' || method === 'cryptocurrency' ? 'oxapay' : 'manual',
 
             amount,
-            currency: cleanText(body.currency || 'USD').toUpperCase(),
+            currency,
 
             bankCountry: cleanText(body.bankCountry),
             bankName: cleanText(body.bankName),

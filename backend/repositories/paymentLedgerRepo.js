@@ -198,7 +198,10 @@ function mapPayoutRecordDoc(docSnap) {
 
         createdAt: toIso(data.createdAt),
         approvedAt: toIso(data.approvedAt),
+        processingAt: toIso(data.processingAt),
         paidAt: toIso(data.paidAt),
+        rejectedAt: toIso(data.rejectedAt),
+        failedAt: toIso(data.failedAt),
         updatedAt: toIso(data.updatedAt)
     };
 }
@@ -358,6 +361,58 @@ async function listAdminPayoutRecords(limit = 300) {
         .sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')));
 }
 
+async function updatePayoutRecordStatus(payoutId = '', input = {}) {
+    const cleanId = cleanText(payoutId);
+
+    if (!cleanId) {
+        throw new Error('Missing payout id.');
+    }
+
+    const ref = payoutLedgerCol.doc(cleanId);
+    const snap = await ref.get();
+
+    if (!snap.exists) {
+        const error = new Error('Payout request not found.');
+        error.statusCode = 404;
+        throw error;
+    }
+
+    const current = snap.data() || {};
+    const status = normalizePayoutStatus(input.status || current.status || 'pending_review');
+    const now = nowTs();
+
+    const payload = {
+        status,
+        adminNote: cleanText(input.adminNote || current.adminNote || ''),
+        updatedAt: now
+    };
+
+    if (status === 'approved') {
+        payload.approvedAt = current.approvedAt || now;
+    }
+
+    if (status === 'processing') {
+        payload.processingAt = current.processingAt || now;
+    }
+
+    if (status === 'paid') {
+        payload.paidAt = current.paidAt || now;
+    }
+
+    if (status === 'rejected') {
+        payload.rejectedAt = current.rejectedAt || now;
+    }
+
+    if (status === 'failed') {
+        payload.failedAt = current.failedAt || now;
+    }
+
+    await ref.set(payload, { merge: true });
+
+    const nextSnap = await ref.get();
+    return mapPayoutRecordDoc(nextSnap);
+}
+
 module.exports = {
     upsertPaymentRecord,
     listPaymentsForUser,
@@ -365,6 +420,7 @@ module.exports = {
     createPayoutRequest,
     listPayoutsForUser,
     listAdminPayoutRecords,
+    updatePayoutRecordStatus,
     mapPaymentRecordDoc,
     mapPayoutRecordDoc
 };

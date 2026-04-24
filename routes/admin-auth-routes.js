@@ -4,6 +4,7 @@ const express = require('express');
 const { Timestamp } = require('firebase-admin/firestore');
 const { firestore } = require('../config/firebaseAdmin');
 const academyFirestoreRepo = require('../backend/repositories/academyFirestoreRepo');
+const paymentLedgerRepo = require('../backend/repositories/paymentLedgerRepo');
 const { sendSystemMail } = require('../controllers/authControllers');
 
 const ADMIN_SESSION_COOKIE = 'yh_admin_session';
@@ -453,6 +454,60 @@ function buildAdminLeadMissionProjection(lead = {}, member = {}, payouts = [], d
   };
 }
 
+function buildAdminEconomySummary(paymentLedger = [], payoutLedger = []) {
+  const payments = Array.isArray(paymentLedger) ? paymentLedger : [];
+  const payouts = Array.isArray(payoutLedger) ? payoutLedger : [];
+
+  const paidPayments = payments.filter((payment) => {
+    return cleanText(payment.status).toLowerCase() === 'paid';
+  });
+
+  const pendingPayments = payments.filter((payment) => {
+    const status = cleanText(payment.status).toLowerCase();
+    return ['draft', 'checkout_started', 'pending'].includes(status);
+  });
+
+  const pendingPayouts = payouts.filter((payout) => {
+    const status = cleanText(payout.status).toLowerCase();
+    return ['pending_review', 'approved', 'processing'].includes(status);
+  });
+
+  const paidPayouts = payouts.filter((payout) => {
+    return cleanText(payout.status).toLowerCase() === 'paid';
+  });
+
+  const sumField = (records = [], field = 'amount') => {
+    return records.reduce((total, record) => {
+      const amount = toNumber(record?.[field], 0);
+      return total + (Number.isFinite(amount) ? amount : 0);
+    }, 0);
+  };
+
+  const providerCounts = payments.reduce((acc, payment) => {
+    const provider = cleanText(payment.provider || 'unselected').toLowerCase() || 'unselected';
+    acc[provider] = (acc[provider] || 0) + 1;
+    return acc;
+  }, {});
+
+  return {
+    paymentCount: payments.length,
+    paidPaymentCount: paidPayments.length,
+    pendingPaymentCount: pendingPayments.length,
+
+    payoutCount: payouts.length,
+    pendingPayoutCount: pendingPayouts.length,
+    paidPayoutCount: paidPayouts.length,
+
+    grossRevenue: sumField(payments, 'amount'),
+    paidRevenue: sumField(paidPayments, 'amount'),
+    universeCommission: sumField(paidPayments, 'platformCommissionAmount'),
+    operatorPayouts: sumField(payments, 'operatorPayoutAmount'),
+    paidOperatorPayouts: sumField(paidPayouts, 'amount'),
+
+    providerCounts
+  };
+}
+
 function mapAdminFederationConnectionRequestDoc(doc) {
   const data = doc.data() || {};
   const snapshot =
@@ -524,10 +579,98 @@ function mapAdminFederationConnectionRequestDoc(doc) {
   };
 }
 
+function mapAdminFederationDealRoomDoc(doc) {
+  const data = doc.data() || {};
+
+  const expectedValueAmount = toNumber(data.expectedValueAmount, 0);
+  const platformCommissionRate = Math.max(0, Math.min(100, toNumber(data.platformCommissionRate, 20)));
+  const platformCommissionAmount = toNumber(
+    data.platformCommissionAmount,
+    expectedValueAmount > 0 ? Math.round((expectedValueAmount * platformCommissionRate) / 100) : 0
+  );
+
+  return {
+    id: cleanText(doc.id),
+    title: cleanText(data.title || 'Federation Deal Room'),
+    roomType: cleanText(data.roomType || data.type || 'partnership'),
+    description: cleanText(data.description || data.text || ''),
+    partnerNeed: cleanText(data.partnerNeed || ''),
+    expectedValueAmount,
+    currency: cleanText(data.currency || 'USD').toUpperCase() || 'USD',
+    platformCommissionRate,
+    platformCommissionAmount,
+    adminStatus: cleanText(data.adminStatus || 'pending_admin_review'),
+    dealStatus: cleanText(data.dealStatus || 'proposed'),
+    commissionStatus: cleanText(data.commissionStatus || 'pending'),
+    sourceDivision: cleanText(data.sourceDivision || 'federation'),
+    sourceFeature: cleanText(data.sourceFeature || 'deal_rooms'),
+    creatorUid: cleanText(data.creatorUid),
+    creatorName: cleanText(data.creatorName || 'Federation Member'),
+    creatorEmail: cleanText(data.creatorEmail),
+    participantUids: Array.isArray(data.participantUids)
+      ? data.participantUids.map((item) => cleanText(item)).filter(Boolean)
+      : [],
+    linkedPlazaOpportunityId: cleanText(data.linkedPlazaOpportunityId),
+    academyMissionNeed: cleanText(data.academyMissionNeed),
+    adminNotes: cleanText(data.adminNotes),
+    createdAt: toIso(data.createdAt) || cleanText(data.createdAt || ''),
+    updatedAt: toIso(data.updatedAt) || cleanText(data.updatedAt || '')
+  };
+}
+
+function normalizeAdminPlazaStatus(value = '') {
+  const raw = cleanText(value || 'pending_review').toLowerCase();
+
+  if (raw === 'active' || raw === 'approved') return 'Active';
+  if (raw === 'flagged') return 'Flagged';
+  if (raw === 'archived') return 'Archived';
+  if (raw === 'pending review' || raw === 'pending_review' || raw === 'review') return 'Pending Review';
+
+  return 'Pending Review';
+}
+
+function mapAdminPlazaListingDoc(doc) {
+  const data = doc.data() || {};
+
+  const budgetMin = toNumber(data.budgetMin, 0);
+  const budgetMax = toNumber(data.budgetMax, 0);
+  const commissionRate = toNumber(data.commissionRate, 0);
+  const rawStatus = cleanText(data.status || data.reviewStatus || 'pending_review');
+
+  return {
+    id: cleanText(doc.id),
+    title: cleanText(data.title || 'Plaza opportunity'),
+    owner: cleanText(data.authorName || data.member || data.ownerName || 'Plaza Member'),
+    ownerUid: cleanText(data.authorId || data.createdByUserId || data.ownerUid),
+    ownerEmail: cleanText(data.authorEmail || data.ownerEmail),
+    type: cleanText(data.type || 'Opportunity'),
+    status: normalizeAdminPlazaStatus(rawStatus),
+    rawStatus,
+    reports: toNumber(data.reports, 0),
+    region: cleanText(data.region || 'Global'),
+    featured: data.featured === true,
+    text: cleanText(data.text || data.description || ''),
+    economyMode: cleanText(data.economyMode || data.compensationType || 'not_sure'),
+    currency: cleanText(data.currency || 'USD').toUpperCase() || 'USD',
+    budgetMin,
+    budgetMax,
+    commissionRate,
+    federationEscalation: cleanText(data.federationEscalation || 'none'),
+    monetizationNote: cleanText(data.monetizationNote || ''),
+    sourceDivision: cleanText(data.sourceDivision || 'plaza'),
+    sourceFeature: cleanText(data.sourceFeature || 'opportunities'),
+    createdAt: toIso(data.createdAt) || cleanText(data.createdAt || ''),
+    updatedAt: toIso(data.updatedAt) || cleanText(data.updatedAt || ''),
+    notes: Array.isArray(data.notes) ? data.notes : []
+  };
+}
+
 async function buildAdminBootstrapPayload() {
-  const [usersSnap, broadcastsSnap] = await Promise.all([
+  const [usersSnap, broadcastsSnap, paymentLedgerResult, payoutLedgerResult] = await Promise.all([
     firestore.collection('users').limit(300).get(),
-    firestore.collection('adminBroadcasts').orderBy('sentAt', 'desc').limit(100).get().catch(() => ({ docs: [] }))
+    firestore.collection('adminBroadcasts').orderBy('sentAt', 'desc').limit(100).get().catch(() => ({ docs: [] })),
+    paymentLedgerRepo.listAdminPaymentRecords(500).catch(() => []),
+    paymentLedgerRepo.listAdminPayoutRecords(500).catch(() => [])
   ]);
 
   const users = usersSnap.docs.map((doc) => ({
@@ -547,6 +690,9 @@ async function buildAdminBootstrapPayload() {
         };
       })
     : [];
+  const paymentLedger = Array.isArray(paymentLedgerResult) ? paymentLedgerResult : [];
+  const payoutLedger = Array.isArray(payoutLedgerResult) ? payoutLedgerResult : [];
+
   const members = users.map((user) => {
     const stats = user.stats || {};
     const academyDivisions = [];
@@ -925,6 +1071,36 @@ const applications = users.flatMap((user) => {
     federationConnectionRequests = [];
   }
 
+  let federationDealRooms = [];
+
+  try {
+    const dealRoomsSnap = await firestore
+      .collection('federationDealRooms')
+      .limit(300)
+      .get();
+
+    federationDealRooms = dealRoomsSnap.docs
+      .map((doc) => mapAdminFederationDealRoomDoc(doc))
+      .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  } catch (_) {
+    federationDealRooms = [];
+  }
+
+  let plazas = [];
+
+  try {
+    const plazaListingsSnap = await firestore
+      .collection('plazaOpportunities')
+      .limit(300)
+      .get();
+
+    plazas = plazaListingsSnap.docs
+      .map((doc) => mapAdminPlazaListingDoc(doc))
+      .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  } catch (_) {
+    plazas = [];
+  }
+
   const federationLeadDatabase = academyLeadMissions
     .filter((lead) => {
       const scopes = Array.isArray(lead.accessScopes) ? lead.accessScopes : [];
@@ -960,6 +1136,8 @@ const applications = users.flatMap((user) => {
       };
     });
 
+  const economySummary = buildAdminEconomySummary(paymentLedger, payoutLedger);
+
   return {
     ui: {
       currentView: 'overview',
@@ -979,16 +1157,24 @@ const applications = users.flatMap((user) => {
     academyLeadMissions,
     federationLeadDatabase,
     federationConnectionRequests,
+    federationDealRooms,
+    paymentLedger,
+    payoutLedger,
+    economy: economySummary,
     federation: [],
-    plazas: [],
+    plazas,
     support: [],
     broadcasts,
     analytics: {
       finance: {
-        totalRevenue: 0,
-        monthlyRevenue: 0,
-        averageOrderValue: 0,
-        profitMargin: 0,
+        totalRevenue: economySummary.paidRevenue || 0,
+        monthlyRevenue: economySummary.paidRevenue || 0,
+        averageOrderValue: economySummary.paidPaymentCount
+          ? Math.round((economySummary.paidRevenue || 0) / economySummary.paidPaymentCount)
+          : 0,
+        profitMargin: economySummary.paidRevenue
+          ? Math.round(((economySummary.universeCommission || 0) / economySummary.paidRevenue) * 100)
+          : 0,
         countriesReached: Array.from(new Set(members.map((m) => m.country).filter(Boolean))).length,
         averageReviewDays: 0
       },
@@ -1105,6 +1291,38 @@ apiRouter.get('/api/admin/bootstrap', requireAdminSession, async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to load admin bootstrap data.'
+    });
+  }
+});
+
+apiRouter.post('/api/admin/economy/payouts/:payoutId/status', requireAdminSession, async (req, res) => {
+  try {
+    const payoutId = cleanText(req.params.payoutId);
+    const status = cleanText(req.body?.status);
+    const adminNote = cleanText(req.body?.adminNote || '');
+
+    if (!payoutId || !status) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing payout id or status.'
+      });
+    }
+
+    const updatedPayout = await paymentLedgerRepo.updatePayoutRecordStatus(payoutId, {
+      status,
+      adminNote
+    });
+
+    return res.json({
+      success: true,
+      payout: updatedPayout
+    });
+  } catch (error) {
+    console.error('admin payout status update error:', error);
+
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Failed to update payout request.'
     });
   }
 });
@@ -2348,6 +2566,82 @@ apiRouter.post('/api/admin/federation/connection-requests/:requestId/deal-packag
     });
   }
 });
+
+apiRouter.post('/api/admin/federation/deal-rooms/:roomId/status', requireAdminSession, async (req, res) => {
+  try {
+    const roomId = cleanText(req.params.roomId);
+    const nextStatus = cleanText(req.body?.adminStatus || req.body?.status || 'pending_admin_review').toLowerCase();
+
+    const allowed = new Set([
+      'pending_admin_review',
+      'approved',
+      'in_discussion',
+      'commission_due',
+      'commission_paid',
+      'closed',
+      'rejected'
+    ]);
+
+    if (!roomId || !allowed.has(nextStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid Deal Room status update.'
+      });
+    }
+
+    const roomRef = firestore.collection('federationDealRooms').doc(roomId);
+    const snap = await roomRef.get();
+
+    if (!snap.exists) {
+      return res.status(404).json({
+        success: false,
+        message: 'Federation Deal Room not found.'
+      });
+    }
+
+    const commissionStatus =
+      nextStatus === 'commission_due'
+        ? 'due'
+        : nextStatus === 'commission_paid'
+          ? 'paid'
+          : undefined;
+
+    const patch = {
+      adminStatus: nextStatus,
+      dealStatus: nextStatus === 'closed'
+        ? 'closed'
+        : nextStatus === 'rejected'
+          ? 'rejected'
+          : nextStatus === 'approved'
+            ? 'approved'
+            : nextStatus === 'in_discussion'
+              ? 'in_discussion'
+              : snap.data()?.dealStatus || 'proposed',
+      updatedAt: Timestamp.now(),
+      reviewedBy: cleanText(req.adminSession?.username || 'admin')
+    };
+
+    if (commissionStatus) {
+      patch.commissionStatus = commissionStatus;
+    }
+
+    await roomRef.set(patch, { merge: true });
+
+    const freshSnap = await roomRef.get();
+
+    return res.json({
+      success: true,
+      room: mapAdminFederationDealRoomDoc(freshSnap)
+    });
+  } catch (error) {
+    console.error('admin federation deal room status update error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update Federation Deal Room.'
+    });
+  }
+});
+
 apiRouter.post('/api/admin/federation/connection-requests/:requestId/status', requireAdminSession, async (req, res) => {
   try {
     const requestId = cleanText(req.params.requestId);
@@ -2426,6 +2720,77 @@ apiRouter.post('/api/admin/federation/connection-requests/:requestId/status', re
     return res.status(500).json({
       success: false,
       message: 'Failed to update Federation connection request.'
+    });
+  }
+});
+
+apiRouter.post('/api/admin/plazas/:listingId/status', requireAdminSession, async (req, res) => {
+  try {
+    const listingId = cleanText(req.params.listingId);
+    const nextStatus = cleanText(req.body?.status || '').toLowerCase();
+    const featuredValue = req.body?.featured;
+
+    const allowedStatuses = new Set([
+      'pending_review',
+      'active',
+      'flagged',
+      'archived'
+    ]);
+
+    if (!listingId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Plaza listing id is required.'
+      });
+    }
+
+    const listingRef = firestore.collection('plazaOpportunities').doc(listingId);
+    const listingSnap = await listingRef.get();
+
+    if (!listingSnap.exists) {
+      return res.status(404).json({
+        success: false,
+        message: 'Plaza listing not found.'
+      });
+    }
+
+    const now = Timestamp.now();
+    const patch = {
+      updatedAt: now,
+      reviewedAt: now,
+      reviewedBy: cleanText(req.adminSession?.username || 'admin')
+    };
+
+    if (nextStatus) {
+      if (!allowedStatuses.has(nextStatus)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid Plaza listing status.'
+        });
+      }
+
+      patch.status = nextStatus;
+      patch.reviewStatus = nextStatus;
+    }
+
+    if (typeof featuredValue === 'boolean') {
+      patch.featured = featuredValue;
+      patch.featuredAt = featuredValue ? now : null;
+    }
+
+    await listingRef.set(patch, { merge: true });
+
+    const freshSnap = await listingRef.get();
+
+    return res.json({
+      success: true,
+      listing: mapAdminPlazaListingDoc(freshSnap)
+    });
+  } catch (error) {
+    console.error('admin plaza listing status update error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update Plaza listing.'
     });
   }
 });

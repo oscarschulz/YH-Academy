@@ -9787,6 +9787,7 @@ const academyLeadMissionsState = {
     followUps: [],
     payouts: [],
     deals: [],
+    withdrawalLedger: [],
     scripts: null
 };
 
@@ -9849,6 +9850,281 @@ function academyLeadMoneySummary(items = [], field = 'amount') {
     });
 
     return parts.length ? parts.join(' + ') : academyLeadFormatMoney(0, 'USD');
+}
+
+function academyLeadGetWithdrawalStatusLabel(value = '') {
+    const clean = String(value || 'pending_review').trim().toLowerCase();
+
+    if (clean === 'pending_review') return 'Pending Review';
+    if (clean === 'approved') return 'Approved';
+    if (clean === 'processing') return 'Processing';
+    if (clean === 'paid') return 'Paid';
+    if (clean === 'rejected') return 'Rejected';
+    if (clean === 'failed') return 'Failed';
+
+    return academyLeadFormatStatus(clean || 'pending_review');
+}
+
+function academyLeadGetWithdrawalDestination(item = {}) {
+    const method = String(item?.method || 'local_bank').trim().toLowerCase();
+
+    if (method === 'crypto') {
+        return [
+            item.cryptoCurrency || 'Crypto',
+            item.cryptoNetwork,
+            item.walletAddressMasked
+        ].filter(Boolean).join(' • ') || 'Crypto wallet';
+    }
+
+    if (method === 'card') {
+        return item.cardLast4 ? `Card •••• ${item.cardLast4}` : 'Card payout';
+    }
+
+    return [
+        item.bankName || 'Local bank',
+        item.accountNumberMasked
+    ].filter(Boolean).join(' • ');
+}
+
+function academyLeadRenderWithdrawalLedgerStatus() {
+    const withdrawals = academyLeadSafeArray(academyLeadMissionsState.withdrawalLedger);
+
+    const pending = withdrawals.filter((item) => {
+        return String(item?.status || '').trim().toLowerCase() === 'pending_review';
+    });
+
+    const approvedOrProcessing = withdrawals.filter((item) => {
+        const status = String(item?.status || '').trim().toLowerCase();
+        return status === 'approved' || status === 'processing';
+    });
+
+    const paid = withdrawals.filter((item) => {
+        return String(item?.status || '').trim().toLowerCase() === 'paid';
+    });
+
+    const rejectedOrFailed = withdrawals.filter((item) => {
+        const status = String(item?.status || '').trim().toLowerCase();
+        return status === 'rejected' || status === 'failed';
+    });
+
+    const summary = `
+        <div class="academy-lead-withdrawal-status-grid">
+            <article class="academy-lead-info-card">
+                <div class="academy-profile-card-kicker">Withdrawal Requests</div>
+                <h4 class="academy-lead-card-title">${withdrawals.length}</h4>
+                <p class="academy-lead-card-copy">All withdrawal requests submitted from your Academy earnings.</p>
+            </article>
+
+            <article class="academy-lead-info-card">
+                <div class="academy-profile-card-kicker">Pending Review</div>
+                <h4 class="academy-lead-card-title">${academyFeedEscapeHtml(academyLeadMoneySummary(pending, 'amount'))}</h4>
+                <p class="academy-lead-card-copy">${pending.length} request${pending.length === 1 ? '' : 's'} waiting for admin review.</p>
+            </article>
+
+            <article class="academy-lead-info-card">
+                <div class="academy-profile-card-kicker">Approved / Processing</div>
+                <h4 class="academy-lead-card-title">${academyFeedEscapeHtml(academyLeadMoneySummary(approvedOrProcessing, 'amount'))}</h4>
+                <p class="academy-lead-card-copy">${approvedOrProcessing.length} request${approvedOrProcessing.length === 1 ? '' : 's'} being prepared for release.</p>
+            </article>
+
+            <article class="academy-lead-info-card">
+                <div class="academy-profile-card-kicker">Paid Out</div>
+                <h4 class="academy-lead-card-title">${academyFeedEscapeHtml(academyLeadMoneySummary(paid, 'amount'))}</h4>
+                <p class="academy-lead-card-copy">${paid.length} completed payout${paid.length === 1 ? '' : 's'}.</p>
+            </article>
+        </div>
+    `;
+
+    if (!withdrawals.length) {
+        return `
+            <section class="academy-lead-withdrawal-status-panel">
+                <div class="academy-lead-withdrawal-status-head">
+                    <div>
+                        <div class="academy-profile-card-kicker">Withdrawal Status</div>
+                        <h4 class="academy-lead-card-title">No withdrawal requests yet</h4>
+                        <p class="academy-lead-card-copy">When you request a withdrawal, admin decisions will appear here.</p>
+                    </div>
+                    <button type="button" class="btn-secondary academy-lead-status-refresh-btn" id="btn-refresh-academy-withdrawal-status">
+                        Refresh Status
+                    </button>
+                </div>
+                ${summary}
+            </section>
+        `;
+    }
+
+    return `
+        <section class="academy-lead-withdrawal-status-panel">
+            <div class="academy-lead-withdrawal-status-head">
+                <div>
+                    <div class="academy-profile-card-kicker">Withdrawal Status</div>
+                    <h4 class="academy-lead-card-title">Admin payout decisions</h4>
+                    <p class="academy-lead-card-copy">
+                        This table updates from the provider-neutral payout ledger after admin marks a request Approved, Processing, Paid, Rejected, or Failed.
+                    </p>
+                </div>
+                <button type="button" class="btn-secondary academy-lead-status-refresh-btn" id="btn-refresh-academy-withdrawal-status">
+                    Refresh Status
+                </button>
+            </div>
+
+            ${summary}
+
+            <div class="academy-lead-table-wrap academy-lead-withdrawal-table-wrap">
+                <table class="academy-lead-table">
+                    <thead>
+                        <tr>
+                            <th>Method</th>
+                            <th>Amount</th>
+                            <th>Destination</th>
+                            <th>Status</th>
+                            <th>Admin Note</th>
+                            <th>Updated</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${withdrawals.map((item) => {
+                            const status = String(item?.status || 'pending_review').trim().toLowerCase();
+                            const statusLabel = academyLeadGetWithdrawalStatusLabel(status);
+
+                            return `
+                                <tr>
+                                    <td>
+                                        ${academyLeadSafeText(item.method || 'local_bank')}
+                                        <div class="academy-lead-list-meta">${academyLeadSafeText(item.provider || 'manual')}</div>
+                                    </td>
+                                    <td>${academyFeedEscapeHtml(academyLeadFormatMoney(item.amount, item.currency))}</td>
+                                    <td>${academyLeadSafeText(academyLeadGetWithdrawalDestination(item))}</td>
+                                    <td>
+                                        <span class="academy-lead-withdrawal-status-badge academy-withdrawal-status-${academyFeedEscapeHtml(status)}">
+                                            ${academyLeadSafeText(statusLabel)}
+                                        </span>
+                                    </td>
+                                    <td>${academyLeadSafeText(item.adminNote || '—')}</td>
+                                    <td>${academyLeadSafeText(item.updatedAt || item.paidAt || item.approvedAt || item.createdAt || '—')}</td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+
+            ${
+                rejectedOrFailed.length
+                    ? `<p class="academy-lead-card-copy academy-lead-withdrawal-warning">${rejectedOrFailed.length} withdrawal request${rejectedOrFailed.length === 1 ? '' : 's'} need attention. Check the admin note or submit a corrected request.</p>`
+                    : ''
+            }
+        </section>
+    `;
+}
+
+function academyLeadRenderEconomySummary(payouts = [], deals = []) {
+    const totals = {};
+
+    academyLeadSafeArray(items).forEach((item) => {
+        const currency = String(item?.currency || 'USD').trim().toUpperCase() || 'USD';
+        const amount = academyLeadNormalizeMoney(item?.[field]);
+
+        if (!amount) return;
+        totals[currency] = (totals[currency] || 0) + amount;
+    });
+
+    return totals;
+}
+
+function academyLeadSubtractMoneyTotals(base = {}, reserved = {}) {
+    const out = { ...base };
+
+    Object.entries(reserved || {}).forEach(([currency, amount]) => {
+        out[currency] = Math.max(0, academyLeadNormalizeMoney(out[currency]) - academyLeadNormalizeMoney(amount));
+    });
+
+    return out;
+}
+
+function academyLeadPickPrimaryCurrency(totals = {}) {
+    const entries = Object.entries(totals || {})
+        .filter(([, amount]) => academyLeadNormalizeMoney(amount) > 0)
+        .sort((a, b) => academyLeadNormalizeMoney(b[1]) - academyLeadNormalizeMoney(a[1]));
+
+    return entries[0]?.[0] || 'USD';
+}
+
+function academyLeadFormatMoneyTotals(totals = {}) {
+    const entries = Object.entries(totals || {})
+        .filter(([, amount]) => academyLeadNormalizeMoney(amount) > 0);
+
+    if (!entries.length) return academyLeadFormatMoney(0, 'USD');
+
+    return entries
+        .map(([currency, amount]) => academyLeadFormatMoney(amount, currency))
+        .join(' + ');
+}
+
+function academyLeadGetWithdrawableTotals() {
+    const approvedEarnings = academyLeadSafeArray(academyLeadMissionsState.payouts).filter((item) => {
+        const status = String(item?.status || '').trim().toLowerCase();
+        const payoutStatus = String(item?.payoutStatus || '').trim().toLowerCase();
+        const paymentStatus = String(item?.paymentStatus || '').trim().toLowerCase();
+
+        const isApproved =
+            status === 'approved' ||
+            status === 'ready_for_payment' ||
+            status === 'available';
+
+        const paymentConfirmed =
+            !paymentStatus ||
+            paymentStatus === 'paid' ||
+            paymentStatus === 'earned';
+
+        return isApproved && paymentConfirmed && status !== 'paid' && payoutStatus !== 'paid';
+    });
+
+    const reservedWithdrawals = academyLeadSafeArray(academyLeadMissionsState.withdrawalLedger).filter((item) => {
+        const status = String(item?.status || '').trim().toLowerCase();
+        return ['pending_review', 'approved', 'processing', 'paid'].includes(status);
+    });
+
+    const approvedTotals = academyLeadMoneyTotals(approvedEarnings, 'amount');
+    const reservedTotals = academyLeadMoneyTotals(reservedWithdrawals, 'amount');
+    const availableTotals = academyLeadSubtractMoneyTotals(approvedTotals, reservedTotals);
+
+    return {
+        approvedTotals,
+        reservedTotals,
+        availableTotals,
+        primaryCurrency: academyLeadPickPrimaryCurrency(availableTotals)
+    };
+}
+
+function academyLeadRenderWithdrawalSummary() {
+    const totals = academyLeadGetWithdrawableTotals();
+    const primaryCurrency = totals.primaryCurrency;
+    const availableAmount = academyLeadNormalizeMoney(totals.availableTotals[primaryCurrency]);
+
+    return `
+        <article class="academy-lead-withdrawal-card">
+            <div>
+                <div class="academy-profile-card-kicker">Withdrawable Earnings</div>
+                <h4 class="academy-lead-card-title">${academyFeedEscapeHtml(academyLeadFormatMoneyTotals(totals.availableTotals))}</h4>
+                <p class="academy-lead-card-copy">
+                    Approved earnings minus pending, processing, approved, or paid withdrawal requests.
+                    Reserved: ${academyFeedEscapeHtml(academyLeadFormatMoneyTotals(totals.reservedTotals))}.
+                </p>
+            </div>
+
+            <button
+                type="button"
+                class="btn-primary academy-lead-withdrawal-btn"
+                id="btn-open-academy-withdrawal"
+                data-withdrawal-currency="${academyFeedEscapeHtml(primaryCurrency)}"
+                data-withdrawal-available="${academyFeedEscapeHtml(String(availableAmount))}"
+                ${availableAmount > 0 ? '' : 'disabled aria-disabled="true"'}
+            >
+                Request Withdrawal
+            </button>
+        </article>
+    `;
 }
 
 function academyLeadRenderEconomySummary(payouts = [], deals = []) {
@@ -10198,9 +10474,59 @@ function openAcademyLeadEntryModal() {
     modal.setAttribute('aria-hidden', 'false');
 }
 
-function closeAcademyLeadEntryModal() {
-    const modal = document.getElementById('academy-lead-entry-modal');
-    const form = document.getElementById('academy-lead-entry-form');
+function syncAcademyWithdrawalMethodFields() {
+    const method = String(document.getElementById('academy-withdrawal-method')?.value || 'local_bank').trim();
+
+    document.querySelectorAll('.academy-withdrawal-method-field').forEach((field) => {
+        field.classList.add('hidden-step');
+    });
+
+    const selector =
+        method === 'crypto'
+            ? '.academy-withdrawal-crypto-field'
+            : method === 'card'
+                ? '.academy-withdrawal-card-field'
+                : '.academy-withdrawal-bank-field';
+
+    document.querySelectorAll(selector).forEach((field) => {
+        field.classList.remove('hidden-step');
+    });
+}
+
+function openAcademyLeadWithdrawalModal() {
+    const modal = document.getElementById('academy-lead-withdrawal-modal');
+    const form = document.getElementById('academy-lead-withdrawal-form');
+    const amountInput = document.getElementById('academy-withdrawal-amount');
+    const currencyInput = document.getElementById('academy-withdrawal-currency');
+    const note = document.getElementById('academy-withdrawal-balance-note');
+
+    if (!modal || !form) return;
+
+    const totals = academyLeadGetWithdrawableTotals();
+    const currency = academyLeadPickPrimaryCurrency(totals.availableTotals);
+    const available = academyLeadNormalizeMoney(totals.availableTotals[currency]);
+
+    form.reset();
+
+    if (currencyInput) currencyInput.value = currency;
+    if (amountInput) {
+        amountInput.value = available > 0 ? String(available.toFixed(2)) : '';
+        amountInput.max = String(available.toFixed(2));
+    }
+
+    if (note) {
+        note.textContent = `Available: ${academyLeadFormatMoney(available, currency)}. Admin will review before release.`;
+    }
+
+    syncAcademyWithdrawalMethodFields();
+
+    modal.classList.remove('hidden-step');
+    modal.setAttribute('aria-hidden', 'false');
+}
+
+function closeAcademyLeadWithdrawalModal() {
+    const modal = document.getElementById('academy-lead-withdrawal-modal');
+    const form = document.getElementById('academy-lead-withdrawal-form');
 
     if (modal) {
         modal.classList.add('hidden-step');
@@ -10210,6 +10536,53 @@ function closeAcademyLeadEntryModal() {
     if (form) {
         form.reset();
     }
+}
+
+async function submitAcademyLeadWithdrawalRequest(form) {
+    const formData = new FormData(form);
+    const method = String(formData.get('method') || 'local_bank').trim();
+    const currency = String(formData.get('currency') || 'USD').trim().toUpperCase() || 'USD';
+    const amount = academyLeadNormalizeMoney(formData.get('amount'));
+
+    if (!amount || amount <= 0) {
+        throw new Error('Enter a valid withdrawal amount.');
+    }
+
+    const totals = academyLeadGetWithdrawableTotals();
+    const available = academyLeadNormalizeMoney(totals.availableTotals[currency]);
+
+    if (amount > available) {
+        throw new Error(`You can only withdraw up to ${academyLeadFormatMoney(available, currency)}.`);
+    }
+
+    const payload = {
+        sourceDivision: 'academy',
+        sourceFeature: 'operator_withdrawal',
+        sourceRecordId: `academy_withdrawal_${Date.now()}`,
+        amount,
+        currency,
+        method,
+        bankCountry: String(formData.get('bankCountry') || '').trim(),
+        bankName: String(formData.get('bankName') || '').trim(),
+        accountName: String(formData.get('accountName') || '').trim(),
+        accountNumber: String(formData.get('accountNumber') || '').trim(),
+        cardLast4: String(formData.get('cardLast4') || '').trim(),
+        cryptoCurrency: String(formData.get('cryptoCurrency') || '').trim().toUpperCase(),
+        cryptoNetwork: String(formData.get('cryptoNetwork') || '').trim(),
+        walletAddress: String(formData.get('walletAddress') || '').trim(),
+        note: String(formData.get('note') || '').trim()
+    };
+
+    const result = await academyAuthedFetch('/api/payouts/withdrawal-requests', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+    });
+
+    if (!result?.success) {
+        throw new Error(result?.message || 'Failed to submit withdrawal request.');
+    }
+
+    return result;
 }
 
 function renderLeadMissionsReadme(meta = {}) {
@@ -10343,10 +10716,14 @@ function renderLeadMissionsPayouts(payouts = []) {
         safePayouts,
         academyLeadMissionsState.deals
     );
+    const withdrawalLedgerHtml = academyLeadRenderWithdrawalLedgerStatus();
+    const withdrawalHtml = academyLeadRenderWithdrawalSummary();
 
     if (!safePayouts.length) {
         panel.innerHTML = `
             ${summaryHtml}
+            ${withdrawalHtml}
+            ${withdrawalLedgerHtml}
             <div class="academy-member-browser-empty">No payout records yet.</div>
         `;
         return;
@@ -10354,6 +10731,8 @@ function renderLeadMissionsPayouts(payouts = []) {
 
     panel.innerHTML = `
         ${summaryHtml}
+        ${withdrawalHtml}
+        ${withdrawalLedgerHtml}
 
         <div class="academy-lead-table-wrap">
             <table class="academy-lead-table">
@@ -10417,6 +10796,7 @@ function renderLeadMissionsDeals(deals = []) {
 
     panel.innerHTML = `
         ${summaryHtml}
+        ${withdrawalLedgerHtml}
 
         <div class="academy-lead-table-wrap">
             <table class="academy-lead-table">
@@ -10518,11 +10898,18 @@ function hydrateAcademyLeadMissionsWorkspace(result = {}) {
 }
 
 async function loadAcademyLeadMissionsWorkspace() {
-    const result = await academyAuthedFetch('/api/academy/lead-missions/workspace', { method: 'GET' });
+    const [result, withdrawalResult] = await Promise.all([
+        academyAuthedFetch('/api/academy/lead-missions/workspace', { method: 'GET' }),
+        academyAuthedFetch('/api/payouts/my-ledger', { method: 'GET' }).catch(() => ({ success: false, payouts: [] }))
+    ]);
 
     if (!result?.success) {
         throw new Error(result?.message || 'Unable to load Leads workspace.');
     }
+
+    academyLeadMissionsState.withdrawalLedger = Array.isArray(withdrawalResult?.payouts)
+        ? withdrawalResult.payouts
+        : [];
 
     hydrateAcademyLeadMissionsWorkspace(result);
     switchAcademyLeadMissionsSubtab('readme');
@@ -10637,6 +11024,32 @@ document.getElementById('btn-open-mission-leads')?.addEventListener('click', () 
     openAcademyLeadMissionsView();
 });
 
+function openAcademyOpportunityMissionBridge(message = '') {
+    if (message && typeof showToast === 'function') {
+        showToast(message);
+    }
+
+    openAcademyLeadMissionsView();
+}
+
+document.getElementById('btn-open-mission-plaza-jobs')?.addEventListener('click', () => {
+    openAcademyOpportunityMissionBridge(
+        'Plaza Jobs are routed through your Leads workspace for now. Admin can mark records Plaza-ready.'
+    );
+});
+
+document.getElementById('btn-open-mission-federation-tasks')?.addEventListener('click', () => {
+    openAcademyOpportunityMissionBridge(
+        'Federation Tasks are routed through your Leads workspace. Admin can mark records Federation-ready.'
+    );
+});
+
+document.getElementById('btn-open-mission-opportunity-ops')?.addEventListener('click', () => {
+    openAcademyOpportunityMissionBridge(
+        'Opportunity Missions connect Academy execution with Plaza jobs and Federation deal flow.'
+    );
+});
+
 document.getElementById('btn-back-to-missions-hub')?.addEventListener('click', () => {
     openAcademyMissionsView();
 });
@@ -10701,6 +11114,88 @@ document.getElementById('btn-cancel-lead-entry')?.addEventListener('click', () =
 document.getElementById('academy-lead-entry-modal')?.addEventListener('click', (event) => {
     if (event.target?.id === 'academy-lead-entry-modal') {
         closeAcademyLeadEntryModal();
+    }
+});
+document.addEventListener('click', (event) => {
+    const openWithdrawalBtn = event.target.closest('#btn-open-academy-withdrawal');
+    if (!openWithdrawalBtn) return;
+
+    event.preventDefault();
+
+    if (openWithdrawalBtn.disabled) {
+        showToast('No withdrawable earnings yet.', 'error');
+        return;
+    }
+
+    openAcademyLeadWithdrawalModal();
+});
+
+document.getElementById('btn-cancel-academy-withdrawal')?.addEventListener('click', () => {
+    closeAcademyLeadWithdrawalModal();
+});
+
+document.getElementById('academy-lead-withdrawal-modal')?.addEventListener('click', (event) => {
+    if (event.target?.id === 'academy-lead-withdrawal-modal') {
+        closeAcademyLeadWithdrawalModal();
+    }
+});
+
+document.getElementById('academy-withdrawal-method')?.addEventListener('change', () => {
+    syncAcademyWithdrawalMethodFields();
+});
+
+document.getElementById('academy-lead-withdrawal-form')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    const form = event.currentTarget;
+    const submitBtn = document.getElementById('btn-submit-academy-withdrawal');
+
+    try {
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.setAttribute('aria-busy', 'true');
+        }
+
+        await submitAcademyLeadWithdrawalRequest(form);
+
+        showToast('Withdrawal request submitted for admin review.', 'success');
+        closeAcademyLeadWithdrawalModal();
+
+        await loadAcademyLeadMissionsWorkspace();
+        switchAcademyLeadMissionsSubtab('payouts');
+    } catch (error) {
+        console.error('academy withdrawal submit error:', error);
+        showToast(error?.message || 'Failed to submit withdrawal request.', 'error');
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.removeAttribute('aria-busy');
+        }
+    }
+});
+
+document.addEventListener('click', async (event) => {
+    const refreshBtn = event.target.closest('#btn-refresh-academy-withdrawal-status');
+    if (!refreshBtn) return;
+
+    event.preventDefault();
+
+    try {
+        refreshBtn.disabled = true;
+        refreshBtn.setAttribute('aria-busy', 'true');
+        refreshBtn.textContent = 'Refreshing...';
+
+        await loadAcademyLeadMissionsWorkspace();
+        switchAcademyLeadMissionsSubtab('payouts');
+
+        showToast('Withdrawal status refreshed.', 'success');
+    } catch (error) {
+        console.error('academy withdrawal status refresh error:', error);
+        showToast(error?.message || 'Failed to refresh withdrawal status.', 'error');
+    } finally {
+        refreshBtn.disabled = false;
+        refreshBtn.removeAttribute('aria-busy');
+        refreshBtn.textContent = 'Refresh Status';
     }
 });
 

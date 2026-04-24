@@ -208,6 +208,15 @@ const federationPaymentProviderState = {
   errorByRequestId: {}
 };
 
+const federationCheckoutReturnState = {
+  handled: false,
+  requestId: "",
+  provider: "",
+  status: "",
+  message: "",
+  type: "success"
+};
+
 function getFederationStoredAuthToken() {
   const keys = [
     "yh_auth_token",
@@ -270,6 +279,7 @@ const federationServerState = {
   members: [],
   referrals: null,
   command: null,
+  dealRooms: [],
   error: ""
 };
 
@@ -305,6 +315,30 @@ function normalizeFederationApplication(raw = {}) {
     status: String(raw.status || "Under Review").trim(),
     recommendedDivision: "Federation",
     applicationType: "federation-access"
+  };
+}
+
+function normalizeFederationDealRoom(raw = {}) {
+  return {
+    id: String(raw.id || makeId("deal_room")).trim(),
+    title: String(raw.title || "Federation Deal Room").trim(),
+    roomType: String(raw.roomType || raw.type || "partnership").trim(),
+    description: String(raw.description || raw.text || "").trim(),
+    partnerNeed: String(raw.partnerNeed || "").trim(),
+    expectedValueAmount: Number(raw.expectedValueAmount || 0),
+    currency: String(raw.currency || "USD").trim().toUpperCase() || "USD",
+    platformCommissionRate: Number(raw.platformCommissionRate || 0),
+    platformCommissionAmount: Number(raw.platformCommissionAmount || 0),
+    adminStatus: String(raw.adminStatus || "pending_admin_review").trim(),
+    dealStatus: String(raw.dealStatus || "proposed").trim(),
+    commissionStatus: String(raw.commissionStatus || "pending").trim(),
+    creatorName: String(raw.creatorName || "Federation Member").trim(),
+    creatorEmail: String(raw.creatorEmail || "").trim(),
+    academyMissionNeed: String(raw.academyMissionNeed || "").trim(),
+    linkedPlazaOpportunityId: String(raw.linkedPlazaOpportunityId || "").trim(),
+    adminNotes: String(raw.adminNotes || "").trim(),
+    createdAt: String(raw.createdAt || "").trim(),
+    updatedAt: String(raw.updatedAt || "").trim()
   };
 }
 
@@ -345,10 +379,11 @@ async function loadFederationServerState(options = {}) {
         : null;
 
     if (meResult.canEnterFederation === true) {
-      const [directorySettled, commandSettled, referralSettled] = await Promise.allSettled([
+      const [directorySettled, commandSettled, referralSettled, dealRoomsSettled] = await Promise.allSettled([
         federationConnectFetch("/api/federation/directory"),
         federationConnectFetch("/api/federation/command"),
-        federationConnectFetch("/api/federation/referrals")
+        federationConnectFetch("/api/federation/referrals"),
+        federationConnectFetch("/api/federation/deal-rooms")
       ]);
 
       if (directorySettled.status === "fulfilled") {
@@ -391,6 +426,16 @@ async function loadFederationServerState(options = {}) {
             : federationServerState.referrals;
       } else {
         console.error("Federation referrals load error:", referralSettled.reason);
+      }
+
+      if (dealRoomsSettled.status === "fulfilled") {
+        const dealRoomsResult = dealRoomsSettled.value || {};
+        federationServerState.dealRooms = Array.isArray(dealRoomsResult.rooms)
+          ? dealRoomsResult.rooms.map(normalizeFederationDealRoom)
+          : [];
+      } else {
+        console.error("Federation deal rooms load error:", dealRoomsSettled.reason);
+        federationServerState.dealRooms = [];
       }
     } else {
       federationServerState.members = [];
@@ -1074,6 +1119,183 @@ async function unlockFederationLeadDetails(requestId = "", button = null) {
   }
 }
 
+function getFederationCheckoutReturnContext() {
+  try {
+    const url = new URL(window.location.href);
+    const checkout = String(url.searchParams.get("checkout") || "").trim().toLowerCase();
+    const requestId = String(url.searchParams.get("request") || "").trim();
+
+    if (!checkout || !requestId) {
+      return {
+        hasReturn: false,
+        checkout: "",
+        requestId: "",
+        provider: "",
+        status: ""
+      };
+    }
+
+    let provider = "";
+    let status = checkout;
+
+    if (checkout === "success") {
+      provider = "stripe";
+      status = "success";
+    } else if (checkout === "cancelled" || checkout === "canceled") {
+      provider = "stripe";
+      status = "cancelled";
+    } else if (checkout === "oxapay-success") {
+      provider = "oxapay";
+      status = "success";
+    } else if (checkout === "oxapay-cancelled" || checkout === "oxapay-canceled") {
+      provider = "oxapay";
+      status = "cancelled";
+    }
+
+    return {
+      hasReturn: Boolean(provider && status),
+      checkout,
+      requestId,
+      provider,
+      status
+    };
+  } catch (_) {
+    return {
+      hasReturn: false,
+      checkout: "",
+      requestId: "",
+      provider: "",
+      status: ""
+    };
+  }
+}
+
+function setFederationCheckoutReturnNotice(message = "", type = "success", requestId = "", provider = "", status = "") {
+  federationCheckoutReturnState.message = String(message || "").trim();
+  federationCheckoutReturnState.type = type === "error" ? "error" : "success";
+  federationCheckoutReturnState.requestId = String(requestId || "").trim();
+  federationCheckoutReturnState.provider = String(provider || "").trim().toLowerCase();
+  federationCheckoutReturnState.status = String(status || "").trim().toLowerCase();
+
+  renderFederationRequestsSection();
+}
+
+function renderFederationCheckoutReturnNotice() {
+  const message = String(federationCheckoutReturnState.message || "").trim();
+
+  if (!message) return "";
+
+  const provider = getFederationPaymentProviderLabel(federationCheckoutReturnState.provider);
+  const typeLabel = federationCheckoutReturnState.type === "error" ? "Payment Notice" : "Payment Update";
+
+  return `
+    <article class="fed-command-card">
+      <div class="fed-sidebar-card-label">${escapeHtml(typeLabel)}</div>
+      <h4>${escapeHtml(provider)} checkout return</h4>
+      <p class="fed-command-copy">${escapeHtml(message)}</p>
+    </article>
+  `;
+}
+
+function cleanFederationCheckoutReturnUrl() {
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("checkout");
+    url.searchParams.delete("request");
+    url.searchParams.delete("session_id");
+
+    const nextUrl = `${url.pathname}${url.search}#requests`;
+    window.history.replaceState(null, "", nextUrl);
+  } catch (_) {}
+}
+
+async function handleFederationCheckoutReturn() {
+  const context = getFederationCheckoutReturnContext();
+
+  if (!context.hasReturn || federationCheckoutReturnState.handled) {
+    return false;
+  }
+
+  federationCheckoutReturnState.handled = true;
+
+  setFederationCheckoutReturnNotice(
+    context.status === "cancelled"
+      ? "Checkout was cancelled. You can choose Stripe or OxaPay again when you are ready."
+      : "Checking payment confirmation and refreshing your lead purchase request...",
+    context.status === "cancelled" ? "error" : "success",
+    context.requestId,
+    context.provider,
+    context.status
+  );
+
+  setActiveSection("requests", {
+    syncHash: true,
+    showLoader: true
+  });
+
+  await loadFederationConnectData({ force: true });
+
+  const request = federationConnectState.requests.find((item) => {
+    return String(item.id || "") === context.requestId;
+  });
+
+  if (context.status === "cancelled") {
+    setFederationCheckoutReturnNotice(
+      "Checkout was cancelled. Your lead purchase was not completed.",
+      "error",
+      context.requestId,
+      context.provider,
+      context.status
+    );
+    cleanFederationCheckoutReturnUrl();
+    return true;
+  }
+
+  if (!request) {
+    setFederationCheckoutReturnNotice(
+      "Checkout returned, but this request was not found in your request list yet. Refresh My Requests in a moment.",
+      "error",
+      context.requestId,
+      context.provider,
+      context.status
+    );
+    cleanFederationCheckoutReturnUrl();
+    return true;
+  }
+
+  if (isFederationRequestPaidForLeadUnlock(request)) {
+    setFederationCheckoutReturnNotice(
+      "Payment confirmed. Full lead details are now ready to unlock for this buyer account.",
+      "success",
+      context.requestId,
+      context.provider,
+      context.status
+    );
+
+    await unlockFederationLeadDetails(context.requestId).catch((error) => {
+      console.error("Federation post-checkout auto unlock error:", error);
+    });
+
+    cleanFederationCheckoutReturnUrl();
+    return true;
+  }
+
+  const isOxaPay = context.provider === "oxapay";
+
+  setFederationCheckoutReturnNotice(
+    isOxaPay
+      ? "OxaPay invoice opened successfully. If you already paid, the crypto confirmation may still be processing. Wait a moment, then refresh My Requests."
+      : "Stripe checkout returned, but payment confirmation has not reached the server yet. Wait a moment, then refresh My Requests.",
+    "success",
+    context.requestId,
+    context.provider,
+    context.status
+  );
+
+  cleanFederationCheckoutReturnUrl();
+  return true;
+}
+
 function showFederationConnectFeedback(message = "", type = "success") {
   const feedback = qs("#connectFeedback");
   if (!feedback) return;
@@ -1185,8 +1407,11 @@ function renderFederationRequestsSection() {
     return;
   }
 
+  const checkoutNotice = renderFederationCheckoutReturnNotice();
+
   if (!filtered.length) {
     list.innerHTML = `
+      ${checkoutNotice}
       <article class="fed-command-card">
         <div class="fed-sidebar-card-label">No Requests</div>
         <h4>No matching connection requests yet</h4>
@@ -1199,7 +1424,9 @@ function renderFederationRequestsSection() {
     return;
   }
 
-  list.innerHTML = filtered.map((request) => `
+  list.innerHTML = `
+    ${checkoutNotice}
+    ${filtered.map((request) => `
     <article class="fed-request-card">
       <div class="fed-request-card-head">
         <div>
@@ -1236,7 +1463,8 @@ function renderFederationRequestsSection() {
 
       ${renderFederationConnectDealMetrics(request)}
     </article>
-  `).join("");
+  `).join("")}
+  `;
 }
 
 function initFederationRequests() {
@@ -1245,6 +1473,202 @@ function initFederationRequests() {
 
   filter.dataset.bound = "true";
   filter.addEventListener("change", renderFederationRequestsSection);
+}
+
+function formatFederationDealRoomType(value = "") {
+  const raw = String(value || "").trim().toLowerCase();
+
+  const labels = {
+    partnership: "Partnership",
+    collaboration: "Collaboration",
+    joint_venture: "Joint Venture",
+    operator_hiring: "Operator Hiring",
+    investment: "Investment",
+    service_deal: "Service Deal"
+  };
+
+  return labels[raw] || "Partnership";
+}
+
+function formatFederationDealRoomStatus(value = "") {
+  const raw = String(value || "").trim().toLowerCase();
+
+  const labels = {
+    pending_admin_review: "Pending Admin Review",
+    approved: "Approved",
+    in_discussion: "In Discussion",
+    commission_due: "Commission Due",
+    commission_paid: "Commission Paid",
+    closed: "Closed",
+    rejected: "Rejected"
+  };
+
+  return labels[raw] || "Pending Admin Review";
+}
+
+function renderFederationDealRoomsSection() {
+  const list = qs("#federationDealRoomsList");
+  const totalEl = qs("#federationDealRoomsCount");
+  const pendingEl = qs("#federationDealRoomsPendingCount");
+
+  if (!list) return;
+
+  const rooms = Array.isArray(federationServerState.dealRooms)
+    ? federationServerState.dealRooms
+    : [];
+
+  if (totalEl) totalEl.textContent = String(rooms.length);
+  if (pendingEl) {
+    pendingEl.textContent = String(
+      rooms.filter((room) => String(room.adminStatus || "").toLowerCase() === "pending_admin_review").length
+    );
+  }
+
+  if (!rooms.length) {
+    list.innerHTML = `
+      <article class="fed-command-card">
+        <div class="fed-sidebar-card-label">No Deal Rooms</div>
+        <h4>No Federation Deal Rooms yet</h4>
+        <p class="fed-command-copy">
+          Submit a partnership, collab, hiring, investment, or service deal above.
+          Admin will supervise the room and track platform commission.
+        </p>
+      </article>
+    `;
+    return;
+  }
+
+  list.innerHTML = rooms.map((room) => `
+    <article class="fed-request-card">
+      <div class="fed-request-card-head">
+        <div>
+          <div class="fed-sidebar-card-label">${escapeHtml(formatFederationDealRoomType(room.roomType))}</div>
+          <h4>${escapeHtml(room.title)}</h4>
+        </div>
+        <span class="fed-state-badge ${getStatusBadgeClass(formatFederationDealRoomStatus(room.adminStatus))}">
+          ${escapeHtml(formatFederationDealRoomStatus(room.adminStatus))}
+        </span>
+      </div>
+
+      <p class="fed-command-copy">${escapeHtml(room.description || "No deal room description stored.")}</p>
+
+      <div class="fed-state-grid">
+        <div class="fed-state-metric">
+          <strong>${escapeHtml(formatFederationConnectMoney(room.expectedValueAmount, room.currency))}</strong>
+          <small>Expected value</small>
+        </div>
+        <div class="fed-state-metric">
+          <strong>${escapeHtml(String(room.platformCommissionRate || 0))}%</strong>
+          <small>Platform commission</small>
+        </div>
+        <div class="fed-state-metric">
+          <strong>${escapeHtml(formatFederationConnectMoney(room.platformCommissionAmount, room.currency))}</strong>
+          <small>Commission estimate</small>
+        </div>
+        <div class="fed-state-metric">
+          <strong>${escapeHtml(formatDate(room.createdAt))}</strong>
+          <small>Submitted</small>
+        </div>
+      </div>
+
+      ${room.partnerNeed ? `
+        <p class="fed-command-copy"><strong>Partner need:</strong> ${escapeHtml(room.partnerNeed)}</p>
+      ` : ""}
+
+      ${room.academyMissionNeed ? `
+        <p class="fed-command-copy"><strong>Academy support:</strong> ${escapeHtml(room.academyMissionNeed)}</p>
+      ` : ""}
+
+      ${room.adminNotes ? `
+        <p class="fed-command-copy"><strong>Admin notes:</strong> ${escapeHtml(room.adminNotes)}</p>
+      ` : ""}
+    </article>
+  `).join("");
+}
+
+async function submitFederationDealRoom(form) {
+  const feedback = qs("#dealRoomFeedback");
+  const submitBtn = form.querySelector('button[type="submit"]');
+
+  const payload = {
+    roomType: qs("#dealRoomType")?.value || "partnership",
+    currency: qs("#dealRoomCurrency")?.value || "USD",
+    expectedValueAmount: Number(qs("#dealRoomExpectedValue")?.value || 0),
+    platformCommissionRate: Number(qs("#dealRoomCommissionRate")?.value || 20),
+    title: qs("#dealRoomTitle")?.value || "",
+    description: qs("#dealRoomDescription")?.value || "",
+    partnerNeed: qs("#dealRoomPartnerNeed")?.value || "",
+    academyMissionNeed: qs("#dealRoomAcademyNeed")?.value || ""
+  };
+
+  try {
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.setAttribute("aria-busy", "true");
+    }
+
+    if (feedback) {
+      feedback.hidden = false;
+      feedback.classList.remove("error");
+      feedback.classList.add("success");
+      feedback.textContent = "Submitting Deal Room...";
+    }
+
+    const result = await federationConnectFetch("/api/federation/deal-rooms", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+
+    const room = result.room ? normalizeFederationDealRoom(result.room) : null;
+
+    if (room) {
+      federationServerState.dealRooms = [
+        room,
+        ...federationServerState.dealRooms.filter((item) => item.id !== room.id)
+      ];
+    }
+
+    form.reset();
+
+    const commissionRateInput = qs("#dealRoomCommissionRate");
+    const currencyInput = qs("#dealRoomCurrency");
+
+    if (commissionRateInput) commissionRateInput.value = "20";
+    if (currencyInput) currencyInput.value = "USD";
+
+    renderFederationDealRoomsSection();
+
+    if (feedback) {
+      feedback.classList.remove("error");
+      feedback.classList.add("success");
+      feedback.textContent = "Deal Room submitted. Admin can now review and supervise it.";
+    }
+  } catch (error) {
+    if (feedback) {
+      feedback.hidden = false;
+      feedback.classList.remove("success");
+      feedback.classList.add("error");
+      feedback.textContent = error?.message || "Failed to submit Deal Room.";
+    }
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.setAttribute("aria-busy", "false");
+    }
+  }
+}
+
+function initFederationDealRooms() {
+  const form = qs("#federationDealRoomForm");
+  if (form && form.dataset.bound !== "true") {
+    form.dataset.bound = "true";
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      submitFederationDealRoom(form);
+    });
+  }
+
+  renderFederationDealRoomsSection();
 }
 function renderFederationConnectSection() {
   const section = qs("#connect");
@@ -3268,6 +3692,23 @@ function setActiveSection(targetId = "", options = {}) {
       });
   }
 
+  if (nextSectionId === "deal-rooms") {
+    loaderWaitsForAsync = true;
+
+    loadFederationServerState({ force: true })
+      .then(() => {
+        renderFederationDealRoomsSection();
+      })
+      .catch((error) => {
+        console.error("Federation Deal Rooms active-section load error:", error);
+      })
+      .finally(() => {
+        if (shouldShowLoader) {
+          window.setTimeout(hideFederationTabLoader, 160);
+        }
+      });
+  }
+
   if (syncHash && typeof history !== "undefined") {
     history.replaceState(null, "", `#${nextSectionId}`);
   }
@@ -4686,6 +5127,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   initMobileAppShell();
   initFederationConnect();
   initFederationRequests();
+  initFederationDealRooms();
   initReferralActions();
 
   const bindUniverseReturnLink = (selector) => {
@@ -4719,6 +5161,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (getCurrentUserState().type === "member") {
     await loadFederationConnectData({ force: true }).catch((error) => {
       console.error("Initial Federation Connect load error:", error);
+    });
+
+    await handleFederationCheckoutReturn().catch((error) => {
+      console.error("Federation checkout return handler error:", error);
     });
   }
 

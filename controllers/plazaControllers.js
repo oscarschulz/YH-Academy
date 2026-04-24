@@ -87,6 +87,10 @@ function mapPlazaFeedDoc(docSnap) {
 function normalizeOpportunityType(value = '') {
     const raw = sanitizeText(value).toLowerCase();
 
+    if (raw === 'job' || raw === 'job opportunity' || raw === 'work opportunity') return 'Job Opportunity';
+    if (raw === 'hire talent' || raw === 'hire' || raw === 'hiring request') return 'Hire Talent';
+    if (raw === 'get hired' || raw === 'available for hire' || raw === 'talent listing') return 'Get Hired';
+    if (raw === 'operator bounty' || raw === 'bounty') return 'Operator Bounty';
     if (raw === 'hiring') return 'Hiring';
     if (raw === 'collaboration') return 'Collaboration';
     if (raw === 'partnership') return 'Partnership';
@@ -537,7 +541,8 @@ exports.createFeedPost = async (req, res) => {
             authorFirebaseUid: viewer.firebaseUid,
             authorEmail: viewer.email,
             authorName: viewer.name,
-            status: 'active',
+            status: 'pending_review',
+            reviewStatus: 'pending_review',
             createdAt: now,
             updatedAt: now
         };

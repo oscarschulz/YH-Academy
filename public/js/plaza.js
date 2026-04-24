@@ -6301,7 +6301,7 @@ async function submitPlazaOpportunityComposer(event) {
     renderOpportunities();
 
     if (typeof showToast === "function") {
-      showToast("Plaza opportunity posted.", "success");
+      showToast("Plaza opportunity submitted for admin review.", "success");
     }
   } catch (error) {
     console.error("submitPlazaOpportunityComposer error:", error);

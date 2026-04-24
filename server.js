@@ -2903,6 +2903,65 @@ function mapFederationRequestDoc(docSnap) {
     };
 }
 
+function normalizeFederationDealRoomType(value = '') {
+    const raw = sanitizeText(value).toLowerCase();
+
+    if (raw === 'partnership') return 'partnership';
+    if (raw === 'collaboration' || raw === 'collab') return 'collaboration';
+    if (raw === 'joint_venture' || raw === 'joint venture' || raw === 'jv') return 'joint_venture';
+    if (raw === 'operator_hiring' || raw === 'operator hiring' || raw === 'hiring') return 'operator_hiring';
+    if (raw === 'investment' || raw === 'investor') return 'investment';
+    if (raw === 'service_deal' || raw === 'service deal' || raw === 'service') return 'service_deal';
+
+    return 'partnership';
+}
+
+function normalizeFederationDealRoomStatus(value = '') {
+    const raw = sanitizeText(value).toLowerCase();
+
+    if (raw === 'pending_admin_review' || raw === 'pending review' || raw === 'review') return 'pending_admin_review';
+    if (raw === 'approved') return 'approved';
+    if (raw === 'in_discussion' || raw === 'discussion') return 'in_discussion';
+    if (raw === 'commission_due') return 'commission_due';
+    if (raw === 'commission_paid') return 'commission_paid';
+    if (raw === 'closed') return 'closed';
+    if (raw === 'rejected') return 'rejected';
+
+    return 'pending_admin_review';
+}
+
+function mapFederationDealRoomDoc(docSnap) {
+    const data = docSnap.data() || {};
+
+    return {
+        id: docSnap.id,
+        title: sanitizeText(data.title || 'Federation Deal Room'),
+        roomType: normalizeFederationDealRoomType(data.roomType || data.type),
+        description: sanitizeText(data.description || data.text || ''),
+        partnerNeed: sanitizeText(data.partnerNeed || ''),
+        expectedValueAmount: Math.max(0, Number(data.expectedValueAmount || 0)),
+        currency: sanitizeText(data.currency || 'USD').toUpperCase() || 'USD',
+        platformCommissionRate: Math.max(0, Math.min(100, Number(data.platformCommissionRate || 20))),
+        platformCommissionAmount: Math.max(0, Number(data.platformCommissionAmount || 0)),
+        adminStatus: normalizeFederationDealRoomStatus(data.adminStatus),
+        dealStatus: sanitizeText(data.dealStatus || 'proposed'),
+        commissionStatus: sanitizeText(data.commissionStatus || 'pending'),
+        sourceDivision: sanitizeText(data.sourceDivision || 'federation'),
+        sourceFeature: sanitizeText(data.sourceFeature || 'deal_rooms'),
+        creatorUid: sanitizeText(data.creatorUid),
+        creatorName: sanitizeText(data.creatorName || 'Federation Member'),
+        creatorEmail: sanitizeText(data.creatorEmail).toLowerCase(),
+        participantUids: Array.isArray(data.participantUids)
+            ? data.participantUids.map((item) => sanitizeText(item)).filter(Boolean)
+            : [],
+        linkedPlazaOpportunityId: sanitizeText(data.linkedPlazaOpportunityId),
+        academyMissionNeed: sanitizeText(data.academyMissionNeed),
+        adminNotes: sanitizeText(data.adminNotes),
+        createdAt: mapFederationConnectTimestamp(data.createdAt),
+        updatedAt: mapFederationConnectTimestamp(data.updatedAt)
+    };
+}
+
 async function getFederationReferralSnapshot(member = {}) {
     const referralCode = sanitizeText(member.referralCode).toUpperCase();
     const memberEmail = sanitizeText(member.email).toLowerCase();
@@ -3149,6 +3208,124 @@ app.get('/api/federation/referrals', requireApiUser, async (req, res) => {
         return res.status(500).json({
             success: false,
             message: 'Failed to load Federation referrals.'
+        });
+    }
+});
+
+app.get('/api/federation/deal-rooms', requireApiUser, async (req, res) => {
+    try {
+        const fedState = await getFederationUserState(req);
+
+        if (!fedState.approved) {
+            return res.status(403).json({
+                success: false,
+                message: 'Federation access is required.'
+            });
+        }
+
+        const snap = await firestore
+            .collection('federationDealRooms')
+            .where('participantUids', 'array-contains', fedState.userId)
+            .limit(100)
+            .get();
+
+        const rooms = [];
+        snap.forEach((docSnap) => rooms.push(mapFederationDealRoomDoc(docSnap)));
+
+        rooms.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+
+        return res.json({
+            success: true,
+            rooms
+        });
+    } catch (error) {
+        console.error('federation deal rooms list error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load Federation Deal Rooms.'
+        });
+    }
+});
+
+app.post('/api/federation/deal-rooms', requireApiUser, async (req, res) => {
+    try {
+        const fedState = await getFederationUserState(req);
+
+        if (!fedState.approved) {
+            return res.status(403).json({
+                success: false,
+                message: 'Federation access is required.'
+            });
+        }
+
+        const body = req.body || {};
+        const title = sanitizeText(body.title).slice(0, 140);
+        const description = sanitizeText(body.description || body.text).slice(0, 1600);
+
+        if (!title) {
+            return res.status(400).json({
+                success: false,
+                message: 'Deal room title is required.'
+            });
+        }
+
+        if (!description) {
+            return res.status(400).json({
+                success: false,
+                message: 'Deal room description is required.'
+            });
+        }
+
+        const expectedValueAmount = Math.max(0, Number(body.expectedValueAmount || 0));
+        const platformCommissionRate = Math.max(0, Math.min(100, Number(body.platformCommissionRate || 20)));
+        const platformCommissionAmount = expectedValueAmount > 0
+            ? Math.round((expectedValueAmount * platformCommissionRate) / 100)
+            : 0;
+
+        const now = Timestamp.now();
+
+        const payload = {
+            title,
+            roomType: normalizeFederationDealRoomType(body.roomType || body.type),
+            description,
+            partnerNeed: sanitizeText(body.partnerNeed).slice(0, 900),
+            expectedValueAmount,
+            currency: sanitizeText(body.currency || 'USD').toUpperCase().slice(0, 8) || 'USD',
+            platformCommissionRate,
+            platformCommissionAmount,
+
+            adminStatus: 'pending_admin_review',
+            dealStatus: 'proposed',
+            commissionStatus: platformCommissionAmount > 0 ? 'pending' : 'not_priced',
+
+            sourceDivision: 'federation',
+            sourceFeature: 'deal_rooms',
+
+            creatorUid: fedState.userId,
+            creatorName: sanitizeText(fedState.member?.name || req.user?.name || req.user?.username || 'Federation Member'),
+            creatorEmail: sanitizeText(fedState.member?.email || req.user?.email || '').toLowerCase(),
+            participantUids: [fedState.userId],
+
+            linkedPlazaOpportunityId: sanitizeText(body.linkedPlazaOpportunityId),
+            academyMissionNeed: sanitizeText(body.academyMissionNeed).slice(0, 900),
+            adminNotes: '',
+
+            createdAt: now,
+            updatedAt: now
+        };
+
+        const ref = await firestore.collection('federationDealRooms').add(payload);
+        const freshSnap = await ref.get();
+
+        return res.status(201).json({
+            success: true,
+            room: mapFederationDealRoomDoc(freshSnap)
+        });
+    } catch (error) {
+        console.error('federation deal rooms create error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to create Federation Deal Room.'
         });
     }
 });

@@ -41,6 +41,7 @@
 <nav class="fed-nav" id="fedNav">
   <a href="#command" class="fed-nav-link active" id="fedNavCommand">Command</a>
   <a href="#connect" class="fed-nav-link" id="fedNavConnect">Connect</a>
+  <a href="#deal-rooms" class="fed-nav-link" id="fedNavDealRooms">Deal Rooms</a>
   <a href="#directory" class="fed-nav-link">Directory</a>
   <a href="#requests" class="fed-nav-link" id="fedNavRequests">My Requests</a>
   <a href="#referrals" class="fed-nav-link">Referrals</a>
@@ -101,6 +102,11 @@
                 <small>Request verified introductions</small>
               </a>
 
+              <a href="#deal-rooms" class="fed-topbar-quick-link fed-nav-link" id="fedTopbarQuickDealRooms">
+                <strong>Deal Rooms</strong>
+                <small>Admin-supervised partnerships and collabs</small>
+              </a>
+
               <a href="#directory" class="fed-topbar-quick-link fed-nav-link">
                 <strong>Directory</strong>
                 <small>View approved Federation members</small>
@@ -132,6 +138,9 @@
 <div class="fed-topbar-actions">
   <button class="fed-btn fed-btn-primary" id="connectBtn" data-jump="#connect" type="button">
     Connect
+  </button>
+  <button class="fed-btn fed-btn-secondary" data-jump="#deal-rooms" type="button">
+    Deal Rooms
   </button>
   <button class="fed-btn fed-btn-secondary" data-jump="#directory" type="button">
     Directory
@@ -954,7 +963,117 @@
 
         <div class="fed-connect-requests" id="federationConnectRequestsPanel"></div>
       </section>
+      <section class="fed-section" id="deal-rooms" data-section="deal-rooms" hidden>
+        <div class="fed-section-head">
+          <div class="fed-kicker">Strategic Rooms</div>
+          <h3>Federation Deal Rooms</h3>
+          <p>
+            Create admin-supervised rooms for partnerships, collabs, operator hiring,
+            service deals, and strategic business moves. Every room is visible to admin,
+            and platform commission is tracked because the deal originated inside YH.
+          </p>
+        </div>
 
+        <div class="fed-connect-hero">
+          <article class="fed-command-card fed-connect-hero-card">
+            <div class="fed-sidebar-card-label">Admin Supervised</div>
+            <h4>Do deals inside the network, not outside it</h4>
+            <p class="fed-command-copy">
+              Deal Rooms are not casual community chats. They are structured business rooms
+              where admin can track participants, expected value, commission, and next actions.
+            </p>
+
+            <div class="fed-command-pills">
+              <span>Partnerships</span>
+              <span>Collabs</span>
+              <span>Operator Hiring</span>
+              <span>Commission Tracked</span>
+            </div>
+          </article>
+
+          <article class="fed-command-card">
+            <div class="fed-sidebar-card-label">Deal Room Stats</div>
+            <div class="fed-state-grid">
+              <div class="fed-state-metric">
+                <strong id="federationDealRoomsCount">0</strong>
+                <small>Your deal rooms</small>
+              </div>
+              <div class="fed-state-metric">
+                <strong id="federationDealRoomsPendingCount">0</strong>
+                <small>Admin review</small>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <div class="fed-connect-request-panel">
+          <form id="federationDealRoomForm" class="fed-form fed-connect-request-form" novalidate>
+            <div class="fed-form-group fed-form-group-full">
+              <div class="fed-form-section-title">Open a Deal Room</div>
+              <p class="fed-connect-selected">
+                Submit the partnership, collab, hiring, or business opportunity. Admin will supervise the room and track platform commission.
+              </p>
+            </div>
+
+            <div class="fed-input-wrap">
+              <label for="dealRoomType">Room Type</label>
+              <select id="dealRoomType" name="roomType">
+                <option value="partnership">Partnership</option>
+                <option value="collaboration">Collaboration</option>
+                <option value="joint_venture">Joint Venture</option>
+                <option value="operator_hiring">Operator Hiring</option>
+                <option value="investment">Investment Discussion</option>
+                <option value="service_deal">Service Deal</option>
+              </select>
+            </div>
+
+            <div class="fed-input-wrap">
+              <label for="dealRoomCurrency">Currency</label>
+              <input id="dealRoomCurrency" name="currency" type="text" value="USD" maxlength="8" />
+            </div>
+
+            <div class="fed-input-wrap">
+              <label for="dealRoomExpectedValue">Expected Deal Value</label>
+              <input id="dealRoomExpectedValue" name="expectedValueAmount" type="number" min="0" step="1" placeholder="0" />
+            </div>
+
+            <div class="fed-input-wrap">
+              <label for="dealRoomCommissionRate">Platform Commission %</label>
+              <input id="dealRoomCommissionRate" name="platformCommissionRate" type="number" min="0" max="100" step="1" value="20" />
+            </div>
+
+            <div class="fed-input-wrap fed-input-wrap-full">
+              <label for="dealRoomTitle">Deal Room Title</label>
+              <input id="dealRoomTitle" name="title" type="text" maxlength="140" placeholder="Example: Dubai real estate partner needed" required />
+            </div>
+
+            <div class="fed-input-wrap fed-input-wrap-full">
+              <label for="dealRoomDescription">Deal Description</label>
+              <textarea id="dealRoomDescription" name="description" rows="4" placeholder="Explain the business opportunity, people involved, and what admin should know." required></textarea>
+            </div>
+
+            <div class="fed-input-wrap fed-input-wrap-full">
+              <label for="dealRoomPartnerNeed">What kind of partner/collaborator do you need?</label>
+              <textarea id="dealRoomPartnerNeed" name="partnerNeed" rows="3"></textarea>
+            </div>
+
+            <div class="fed-input-wrap fed-input-wrap-full">
+              <label for="dealRoomAcademyNeed">Can Academy operators help with this?</label>
+              <textarea id="dealRoomAcademyNeed" name="academyMissionNeed" rows="3" placeholder="Example: research, lead sourcing, outreach list, contact discovery, due diligence..."></textarea>
+            </div>
+
+            <div class="fed-form-feedback" id="dealRoomFeedback" aria-live="polite"></div>
+
+            <div class="fed-form-actions fed-form-group-full">
+              <button type="submit" class="fed-btn fed-btn-primary">
+                Submit Deal Room
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <div class="fed-requests-list" id="federationDealRoomsList"></div>
+      </section>
       <section class="fed-section" id="requests" data-section="requests" hidden>
         <div class="fed-section-head">
           <div class="fed-kicker">Request Tracker</div>
@@ -1516,6 +1635,6 @@
     </aside>
   </div>
 
-<script src="/js/federation.js?v=20260424-stripe-lead-checkout-1"></script>
+<script src="/js/federation.js?v=20260424-payment-return-handler-1"></script>
 </body>
 </html>

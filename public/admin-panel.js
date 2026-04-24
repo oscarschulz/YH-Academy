@@ -59,6 +59,23 @@ const defaultState = () => ({
   academyLeadMissions: [],
   federationLeadDatabase: [],
   federationConnectionRequests: [],
+  federationDealRooms: [],
+  paymentLedger: [],
+  payoutLedger: [],
+  economy: {
+    paymentCount: 0,
+    paidPaymentCount: 0,
+    pendingPaymentCount: 0,
+    payoutCount: 0,
+    pendingPayoutCount: 0,
+    paidPayoutCount: 0,
+    grossRevenue: 0,
+    paidRevenue: 0,
+    universeCommission: 0,
+    operatorPayouts: 0,
+    paidOperatorPayouts: 0,
+    providerCounts: {}
+  },
   federation: [],
   plazas: [],
   support: [],
@@ -371,6 +388,15 @@ function normalizeAdminFederationRequestRecord(record = {}) {
     commissionStatus: String(record.commissionStatus || 'not_started').trim(),
     dealNotes: String(record.dealNotes || '').trim(),
 
+    paymentLedgerId: String(record.paymentLedgerId || '').trim(),
+    paymentLedgerStatus: String(record.paymentLedgerStatus || '').trim(),
+    selectedPaymentProvider: String(record.selectedPaymentProvider || '').trim(),
+    paymentProviderLabel: String(record.paymentProviderLabel || '').trim(),
+    paymentMethod: String(record.paymentMethod || '').trim(),
+    sourcePaymentMode: String(record.sourcePaymentMode || '').trim(),
+    leadAccessGrantId: String(record.leadAccessGrantId || '').trim(),
+    leadAccessStatus: String(record.leadAccessStatus || '').trim(),
+
     budgetRange: String(record.budgetRange || 'not_sure').trim(),
     urgency: String(record.urgency || 'normal').trim(),
     preferredIntroType: String(record.preferredIntroType || 'admin_brokered').trim(),
@@ -388,6 +414,127 @@ function normalizeAdminFederationRequestRecord(record = {}) {
     updatedAt: String(record.updatedAt || '').trim()
   };
 }
+function normalizeAdminFederationDealRoomRecord(record = {}) {
+  return {
+    ...record,
+    id: String(record.id || '').trim(),
+    title: String(record.title || 'Federation Deal Room').trim(),
+    roomType: String(record.roomType || record.type || 'partnership').trim(),
+    description: String(record.description || record.text || '').trim(),
+    partnerNeed: String(record.partnerNeed || '').trim(),
+    expectedValueAmount: Number(record.expectedValueAmount || 0),
+    currency: String(record.currency || 'USD').trim().toUpperCase() || 'USD',
+    platformCommissionRate: Number(record.platformCommissionRate || 0),
+    platformCommissionAmount: Number(record.platformCommissionAmount || 0),
+    adminStatus: String(record.adminStatus || 'pending_admin_review').trim(),
+    dealStatus: String(record.dealStatus || 'proposed').trim(),
+    commissionStatus: String(record.commissionStatus || 'pending').trim(),
+    sourceDivision: String(record.sourceDivision || 'federation').trim(),
+    sourceFeature: String(record.sourceFeature || 'deal_rooms').trim(),
+    creatorUid: String(record.creatorUid || '').trim(),
+    creatorName: String(record.creatorName || 'Federation Member').trim(),
+    creatorEmail: String(record.creatorEmail || '').trim(),
+    participantUids: Array.isArray(record.participantUids)
+      ? record.participantUids.map((item) => String(item || '').trim()).filter(Boolean)
+      : [],
+    linkedPlazaOpportunityId: String(record.linkedPlazaOpportunityId || '').trim(),
+    academyMissionNeed: String(record.academyMissionNeed || '').trim(),
+    adminNotes: String(record.adminNotes || '').trim(),
+    createdAt: String(record.createdAt || '').trim(),
+    updatedAt: String(record.updatedAt || '').trim()
+  };
+}
+function normalizeAdminPaymentLedgerRecord(record = {}) {
+  return {
+    ...record,
+    id: String(record.id || '').trim(),
+    sourceDivision: String(record.sourceDivision || '').trim(),
+    sourceFeature: String(record.sourceFeature || '').trim(),
+    sourceRecordId: String(record.sourceRecordId || '').trim(),
+
+    payerUid: String(record.payerUid || '').trim(),
+    payerEmail: String(record.payerEmail || '').trim(),
+    payerName: String(record.payerName || 'Federation Buyer').trim(),
+
+    provider: String(record.provider || 'unselected').trim().toLowerCase(),
+    providerPaymentId: String(record.providerPaymentId || '').trim(),
+    providerStatus: String(record.providerStatus || '').trim(),
+    paymentMethod: String(record.paymentMethod || 'unselected').trim(),
+
+    amount: Number(record.amount || 0),
+    currency: String(record.currency || 'USD').trim().toUpperCase() || 'USD',
+    cryptoAmount: Number(record.cryptoAmount || 0),
+    cryptoCurrency: String(record.cryptoCurrency || '').trim().toUpperCase(),
+    cryptoNetwork: String(record.cryptoNetwork || '').trim(),
+
+    status: String(record.status || 'draft').trim().toLowerCase(),
+    platformCommissionAmount: Number(record.platformCommissionAmount || 0),
+    operatorPayoutAmount: Number(record.operatorPayoutAmount || 0),
+
+    createdAt: String(record.createdAt || '').trim(),
+    updatedAt: String(record.updatedAt || '').trim(),
+    paidAt: String(record.paidAt || '').trim()
+  };
+}
+
+function normalizeAdminPayoutLedgerRecord(record = {}) {
+  return {
+    ...record,
+    id: String(record.id || '').trim(),
+
+    receiverUid: String(record.receiverUid || '').trim(),
+    receiverEmail: String(record.receiverEmail || '').trim(),
+    receiverName: String(record.receiverName || 'Operator').trim(),
+
+    sourceDivision: String(record.sourceDivision || 'academy').trim(),
+    sourceFeature: String(record.sourceFeature || '').trim(),
+    sourcePaymentId: String(record.sourcePaymentId || '').trim(),
+    sourceRecordId: String(record.sourceRecordId || '').trim(),
+
+    method: String(record.method || 'local_bank').trim().toLowerCase(),
+    provider: String(record.provider || 'manual').trim().toLowerCase(),
+
+    amount: Number(record.amount || 0),
+    currency: String(record.currency || 'USD').trim().toUpperCase() || 'USD',
+
+    bankCountry: String(record.bankCountry || '').trim(),
+    bankName: String(record.bankName || '').trim(),
+    accountName: String(record.accountName || '').trim(),
+    accountNumberMasked: String(record.accountNumberMasked || '').trim(),
+    cardLast4: String(record.cardLast4 || '').trim(),
+    cryptoCurrency: String(record.cryptoCurrency || '').trim().toUpperCase(),
+    cryptoNetwork: String(record.cryptoNetwork || '').trim(),
+    walletAddressMasked: String(record.walletAddressMasked || '').trim(),
+
+    status: String(record.status || 'pending_review').trim().toLowerCase(),
+    adminNote: String(record.adminNote || '').trim(),
+
+    createdAt: String(record.createdAt || '').trim(),
+    approvedAt: String(record.approvedAt || '').trim(),
+    paidAt: String(record.paidAt || '').trim(),
+    updatedAt: String(record.updatedAt || '').trim()
+  };
+}
+
+function normalizeAdminEconomySummary(record = {}) {
+  return {
+    paymentCount: Number(record.paymentCount || 0),
+    paidPaymentCount: Number(record.paidPaymentCount || 0),
+    pendingPaymentCount: Number(record.pendingPaymentCount || 0),
+    payoutCount: Number(record.payoutCount || 0),
+    pendingPayoutCount: Number(record.pendingPayoutCount || 0),
+    paidPayoutCount: Number(record.paidPayoutCount || 0),
+    grossRevenue: Number(record.grossRevenue || 0),
+    paidRevenue: Number(record.paidRevenue || 0),
+    universeCommission: Number(record.universeCommission || 0),
+    operatorPayouts: Number(record.operatorPayouts || 0),
+    paidOperatorPayouts: Number(record.paidOperatorPayouts || 0),
+    providerCounts: record.providerCounts && typeof record.providerCounts === 'object'
+      ? record.providerCounts
+      : {}
+  };
+}
+
 function normalizeAdminApplicationRecord(record = {}) {
   const profile = getFederationProfileMap(record);
   const isFederation = isFederationApplicationRecord(record);
@@ -464,7 +611,17 @@ function normalizeAdminBootstrapState(incomingState = {}) {
     federationLeadDatabase,
     federationConnectionRequests: Array.isArray(merged.federationConnectionRequests)
       ? merged.federationConnectionRequests.map((record) => normalizeAdminFederationRequestRecord(record))
-      : []
+      : [],
+    federationDealRooms: Array.isArray(merged.federationDealRooms)
+      ? merged.federationDealRooms.map((record) => normalizeAdminFederationDealRoomRecord(record))
+      : [],
+    paymentLedger: Array.isArray(merged.paymentLedger)
+      ? merged.paymentLedger.map((record) => normalizeAdminPaymentLedgerRecord(record))
+      : [],
+    payoutLedger: Array.isArray(merged.payoutLedger)
+      ? merged.payoutLedger.map((record) => normalizeAdminPayoutLedgerRecord(record))
+      : [],
+    economy: normalizeAdminEconomySummary(merged.economy || {})
   };
 }
 
@@ -638,6 +795,60 @@ function summarizeAdminMoney(records = [], field = 'pricingAmount') {
   });
 
   return parts.length ? parts.join(' + ') : formatAdminMoney(0, 'USD');
+}
+
+function getAdminEconomyMetrics() {
+  const payments = Array.isArray(state.paymentLedger) ? state.paymentLedger : [];
+  const payouts = Array.isArray(state.payoutLedger) ? state.payoutLedger : [];
+
+  const paidPayments = payments.filter((payment) => String(payment.status || '').toLowerCase() === 'paid');
+  const pendingPayments = payments.filter((payment) => {
+    const status = String(payment.status || '').toLowerCase();
+    return ['draft', 'checkout_started', 'pending'].includes(status);
+  });
+  const pendingPayouts = payouts.filter((payout) => {
+    const status = String(payout.status || '').toLowerCase();
+    return ['pending_review', 'approved', 'processing'].includes(status);
+  });
+
+  return {
+    paymentCount: payments.length,
+    paidPaymentCount: paidPayments.length,
+    pendingPaymentCount: pendingPayments.length,
+    payoutCount: payouts.length,
+    pendingPayoutCount: pendingPayouts.length,
+    paidRevenueLabel: summarizeAdminMoney(paidPayments, 'amount'),
+    grossRevenueLabel: summarizeAdminMoney(payments, 'amount'),
+    universeCommissionLabel: summarizeAdminMoney(paidPayments, 'platformCommissionAmount'),
+    operatorPayoutLabel: summarizeAdminMoney(payments, 'operatorPayoutAmount')
+  };
+}
+
+function formatAdminLedgerStatus(value = '') {
+  return String(value || 'not_started')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+async function updateAdminPayoutStatus(payoutId = '', status = '') {
+  const cleanId = String(payoutId || '').trim();
+  const cleanStatus = String(status || '').trim().toLowerCase();
+
+  if (!cleanId || !cleanStatus) {
+    throw new Error('Missing payout id or status.');
+  }
+
+  await adminFetchJson(`/api/admin/economy/payouts/${encodeURIComponent(cleanId)}/status`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      status: cleanStatus
+    })
+  });
+
+  await loadAdminBootstrap();
 }
 
 function getAdminFederationEconomyMetrics() {
@@ -2114,6 +2325,7 @@ function renderFederation() {
   const valueFilter = document.getElementById('federation-lead-value-filter')?.value || 'all';
   const countryFilter = document.getElementById('federation-lead-country-filter')?.value || 'all';
   const requestStatusFilter = document.getElementById('federation-request-status-filter')?.value || 'all';
+  const dealRoomStatusFilter = document.getElementById('federation-deal-room-status-filter')?.value || 'all';
 
   const leadRows = (state.federationLeadDatabase || []).filter((item) => {
     const value = String(item.strategicValue || 'standard').trim().toLowerCase();
@@ -2127,6 +2339,12 @@ function renderFederation() {
   const requestRows = (state.federationConnectionRequests || []).filter((item) => {
     const status = String(item.status || '').trim();
     return (requestStatusFilter === 'all' || status === requestStatusFilter)
+      && matchesSearch(item, query);
+  });
+
+  const dealRoomRows = (state.federationDealRooms || []).filter((item) => {
+    const status = String(item.adminStatus || '').trim();
+    return (dealRoomStatusFilter === 'all' || status === dealRoomStatusFilter)
       && matchesSearch(item, query);
   });
 
@@ -2160,6 +2378,11 @@ function renderFederation() {
       label: 'Connection Requests',
       value: state.federationConnectionRequests.length,
       foot: 'Looking-for-contact requests'
+    },
+    {
+      label: 'Deal Rooms',
+      value: (state.federationDealRooms || []).length,
+      foot: 'Admin-supervised partnerships'
     },
     {
       label: 'Pending Match',
@@ -2268,6 +2491,43 @@ function renderFederation() {
       </tr>
     `).join('') || makeEmptyRow(7, 'No Federation connection requests match the current filters.');
   }
+
+  const dealRoomsTable = document.getElementById('federation-deal-rooms-table');
+  if (dealRoomsTable) {
+    dealRoomsTable.innerHTML = dealRoomRows.map((item) => `
+      <tr>
+        ${makeCell('Room', `<strong>${escapeHtml(item.title || 'Federation Deal Room')}</strong><div class="muted mono">${escapeHtml(item.id)}</div>`)}
+        ${makeCell('Creator', `<strong>${escapeHtml(item.creatorName || 'Federation Member')}</strong><div class="muted">${escapeHtml(item.creatorEmail || item.creatorUid || '—')}</div>`)}
+        ${makeCell('Type', formatBadge(
+          String(item.roomType || 'partnership')
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, (char) => char.toUpperCase())
+        ))}
+        ${makeCell('Expected Value', escapeHtml(formatAdminMoney(item.expectedValueAmount || 0, item.currency || 'USD')))}
+        ${makeCell('Commission', `
+          <strong>${escapeHtml(formatAdminMoney(item.platformCommissionAmount || 0, item.currency || 'USD'))}</strong>
+          <div class="muted">${escapeHtml(item.platformCommissionRate || 0)}% • ${escapeHtml(String(item.commissionStatus || 'pending').replace(/_/g, ' '))}</div>
+        `)}
+        ${makeCell('Status', formatBadge(
+          String(item.adminStatus || 'pending_admin_review')
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, (char) => char.toUpperCase())
+        ))}
+        ${makeCell('Academy Link', item.academyMissionNeed ? `<div class="app-preview"><div class="app-preview-line"><p>${escapeHtml(item.academyMissionNeed)}</p></div></div>` : '—')}
+        ${makeCell('Actions', `
+          <div class="table-actions">
+            <button data-open="federationDealRoom" data-id="${item.id}">Open</button>
+            <button data-action="federation-deal-room-status-approved" data-id="${item.id}">Approve</button>
+            <button data-action="federation-deal-room-status-in_discussion" data-id="${item.id}">In Discussion</button>
+            <button data-action="federation-deal-room-status-commission_due" data-id="${item.id}">Commission Due</button>
+            <button data-action="federation-deal-room-status-commission_paid" data-id="${item.id}">Commission Paid</button>
+            <button data-action="federation-deal-room-status-closed" data-id="${item.id}">Close</button>
+            <button data-action="federation-deal-room-status-rejected" data-id="${item.id}">Reject</button>
+          </div>
+        `)}
+      </tr>
+    `).join('') || makeEmptyRow(8, 'No Federation Deal Rooms match the current filters.');
+  }
 }
 
 function renderPlazas() {
@@ -2339,6 +2599,117 @@ function renderSupport() {
       `)}
     </tr>
   `).join('') || makeEmptyRow(7, 'No support items match the current filters.');
+}
+
+function renderEconomy() {
+  const query = state.ui.globalSearch;
+  const providerFilter = document.getElementById('economy-payment-provider-filter')?.value || 'all';
+  const paymentStatusFilter = document.getElementById('economy-payment-status-filter')?.value || 'all';
+  const payoutMethodFilter = document.getElementById('economy-payout-method-filter')?.value || 'all';
+  const payoutStatusFilter = document.getElementById('economy-payout-status-filter')?.value || 'all';
+
+  const payments = (state.paymentLedger || []).filter((payment) => {
+    const provider = String(payment.provider || 'unselected').trim().toLowerCase();
+    const status = String(payment.status || 'draft').trim().toLowerCase();
+
+    return (providerFilter === 'all' || provider === providerFilter)
+      && (paymentStatusFilter === 'all' || status === paymentStatusFilter)
+      && matchesSearch(payment, query);
+  });
+
+  const payouts = (state.payoutLedger || []).filter((payout) => {
+    const method = String(payout.method || 'local_bank').trim().toLowerCase();
+    const status = String(payout.status || 'pending_review').trim().toLowerCase();
+
+    return (payoutMethodFilter === 'all' || method === payoutMethodFilter)
+      && (payoutStatusFilter === 'all' || status === payoutStatusFilter)
+      && matchesSearch(payout, query);
+  });
+
+  const metrics = getAdminEconomyMetrics();
+
+  const statsEl = document.getElementById('economy-control-stats');
+  if (statsEl) {
+    statsEl.innerHTML = [
+      { label: 'Paid Revenue', value: metrics.paidRevenueLabel, foot: `${metrics.paidPaymentCount} paid payments` },
+      { label: 'Gross Ledger', value: metrics.grossRevenueLabel, foot: `${metrics.paymentCount} payment records` },
+      { label: 'Universe Commission', value: metrics.universeCommissionLabel, foot: 'Confirmed commission from paid payments' },
+      { label: 'Operator Payouts', value: metrics.operatorPayoutLabel, foot: 'Total operator payout exposure' },
+      { label: 'Pending Payments', value: metrics.pendingPaymentCount, foot: 'Draft / checkout / pending' },
+      { label: 'Pending Withdrawals', value: metrics.pendingPayoutCount, foot: 'Needs payout review or execution' }
+    ].map((card) => `
+      <article class="stat-card">
+        <div class="stat-label">${escapeHtml(card.label)}</div>
+        <div class="stat-value">${escapeHtml(card.value)}</div>
+        <div class="stat-foot">${escapeHtml(card.foot)}</div>
+      </article>
+    `).join('');
+  }
+
+  const paymentTable = document.getElementById('economy-payment-ledger-table');
+  if (paymentTable) {
+    paymentTable.innerHTML = payments.map((payment) => `
+      <tr>
+        ${makeCell('Payer', `
+          <strong>${escapeHtml(payment.payerName || 'Federation Buyer')}</strong>
+          <div class="muted">${escapeHtml(payment.payerEmail || payment.payerUid || '—')}</div>
+        `)}
+        ${makeCell('Source', `
+          <strong>${escapeHtml([payment.sourceDivision, payment.sourceFeature].filter(Boolean).join(' / ') || '—')}</strong>
+          <div class="muted mono">${escapeHtml(payment.sourceRecordId || payment.id)}</div>
+        `)}
+        ${makeCell('Provider', `
+          ${formatBadge(formatAdminLedgerStatus(payment.provider || 'unselected'))}
+          <div class="muted">${escapeHtml(payment.paymentMethod || 'unselected')}</div>
+        `)}
+        ${makeCell('Amount', `<strong>${escapeHtml(formatAdminMoney(payment.amount || 0, payment.currency || 'USD'))}</strong>`)}
+        ${makeCell('Commission', escapeHtml(formatAdminMoney(payment.platformCommissionAmount || 0, payment.currency || 'USD')))}
+        ${makeCell('Operator', escapeHtml(formatAdminMoney(payment.operatorPayoutAmount || 0, payment.currency || 'USD')))}
+        ${makeCell('Status', formatBadge(formatAdminLedgerStatus(payment.status || 'draft')))}
+        ${makeCell('Updated', escapeHtml(payment.updatedAt || payment.createdAt || '—'))}
+      </tr>
+    `).join('') || makeEmptyRow(8, 'No payment ledger records match the current filters.');
+  }
+
+  const payoutTable = document.getElementById('economy-payout-ledger-table');
+  if (payoutTable) {
+    payoutTable.innerHTML = payouts.map((payout) => {
+      const destination = payout.method === 'crypto'
+        ? `${payout.cryptoCurrency || 'Crypto'} ${payout.cryptoNetwork ? `• ${payout.cryptoNetwork}` : ''} ${payout.walletAddressMasked || ''}`
+        : payout.method === 'card'
+          ? `Card ${payout.cardLast4 ? `•••• ${payout.cardLast4}` : ''}`
+          : `${payout.bankName || 'Bank'} ${payout.accountNumberMasked || ''}`;
+
+      return `
+        <tr>
+          ${makeCell('Receiver', `
+            <strong>${escapeHtml(payout.receiverName || 'Operator')}</strong>
+            <div class="muted">${escapeHtml(payout.receiverEmail || payout.receiverUid || '—')}</div>
+          `)}
+          ${makeCell('Method', `
+            ${formatBadge(formatAdminLedgerStatus(payout.method || 'local_bank'))}
+            <div class="muted">${escapeHtml(payout.provider || 'manual')}</div>
+          `)}
+          ${makeCell('Amount', `<strong>${escapeHtml(formatAdminMoney(payout.amount || 0, payout.currency || 'USD'))}</strong>`)}
+          ${makeCell('Destination', escapeHtml(destination || '—'))}
+          ${makeCell('Source', `
+            <strong>${escapeHtml([payout.sourceDivision, payout.sourceFeature].filter(Boolean).join(' / ') || '—')}</strong>
+            <div class="muted mono">${escapeHtml(payout.sourcePaymentId || payout.sourceRecordId || payout.id)}</div>
+          `)}
+          ${makeCell('Status', formatBadge(formatAdminLedgerStatus(payout.status || 'pending_review')))}
+          ${makeCell('Updated', escapeHtml(payout.updatedAt || payout.createdAt || '—'))}
+          ${makeCell('Actions', `
+            <div class="table-actions">
+              <button data-action="economy-payout-status-approved" data-id="${escapeHtml(payout.id)}">Approve</button>
+              <button data-action="economy-payout-status-processing" data-id="${escapeHtml(payout.id)}">Processing</button>
+              <button data-action="economy-payout-status-paid" data-id="${escapeHtml(payout.id)}">Paid</button>
+              <button data-action="economy-payout-status-rejected" data-id="${escapeHtml(payout.id)}">Reject</button>
+            </div>
+          `)}
+        </tr>
+      `;
+    }).join('') || makeEmptyRow(8, 'No payout ledger records match the current filters.');
+  }
 }
 
 function renderAnalytics() {
@@ -3044,6 +3415,56 @@ if (type === 'application') {
       </div>
     `;
   }
+    if (type === 'federationDealRoom') {
+    return `
+      <div class="drawer-section">
+        <h4>Federation Deal Room</h4>
+        <div class="kv-grid">
+          <div class="kv"><span>Title</span><strong>${escapeHtml(record.title || 'Federation Deal Room')}</strong></div>
+          <div class="kv"><span>Creator</span><strong>${escapeHtml(record.creatorName || 'Federation Member')}</strong></div>
+          <div class="kv"><span>Type</span><strong>${escapeHtml(String(record.roomType || 'partnership').replace(/_/g, ' '))}</strong></div>
+          <div class="kv"><span>Expected Value</span><strong>${escapeHtml(formatAdminMoney(record.expectedValueAmount || 0, record.currency || 'USD'))}</strong></div>
+          <div class="kv"><span>Commission Rate</span><strong>${escapeHtml(record.platformCommissionRate || 0)}%</strong></div>
+          <div class="kv"><span>Commission Amount</span><strong>${escapeHtml(formatAdminMoney(record.platformCommissionAmount || 0, record.currency || 'USD'))}</strong></div>
+          <div class="kv"><span>Admin Status</span><strong>${escapeHtml(String(record.adminStatus || 'pending_admin_review').replace(/_/g, ' '))}</strong></div>
+          <div class="kv"><span>Commission Status</span><strong>${escapeHtml(String(record.commissionStatus || 'pending').replace(/_/g, ' '))}</strong></div>
+        </div>
+      </div>
+
+      <div class="drawer-section">
+        <h4>Deal Description</h4>
+        <div class="stack-list">
+          <div class="stack-item"><p>${escapeHtml(record.description || 'No description saved.')}</p></div>
+        </div>
+      </div>
+
+      <div class="drawer-section">
+        <h4>Partner / Academy Need</h4>
+        <div class="stack-list">
+          <div class="stack-item">
+            <strong>Partner Need</strong>
+            <p>${escapeHtml(record.partnerNeed || 'No partner need saved.')}</p>
+          </div>
+          <div class="stack-item">
+            <strong>Academy Operator Support</strong>
+            <p>${escapeHtml(record.academyMissionNeed || 'No Academy support requested yet.')}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="drawer-section">
+        <h4>Admin Supervision Actions</h4>
+        <div class="inline-actions">
+          <button class="badge-btn" data-action="federation-deal-room-status-approved" data-id="${record.id}">Approve</button>
+          <button class="badge-btn" data-action="federation-deal-room-status-in_discussion" data-id="${record.id}">In Discussion</button>
+          <button class="badge-btn" data-action="federation-deal-room-status-commission_due" data-id="${record.id}">Commission Due</button>
+          <button class="badge-btn" data-action="federation-deal-room-status-commission_paid" data-id="${record.id}">Commission Paid</button>
+          <button class="badge-btn" data-action="federation-deal-room-status-closed" data-id="${record.id}">Close</button>
+          <button class="badge-btn" data-action="federation-deal-room-status-rejected" data-id="${record.id}">Reject</button>
+        </div>
+      </div>
+    `;
+  }
   if (type === 'federation') {
     return `
       <div class="drawer-section">
@@ -3370,6 +3791,7 @@ function openDrawer(type, id) {
     academyLeadMission: 'academyLeadMissions',
     federationLead: 'federationLeadDatabase',
     federationRequest: 'federationConnectionRequests',
+    federationDealRoom: 'federationDealRooms',
     federation: 'federation',
     plazas: 'plazas',
     support: 'support'
@@ -3386,9 +3808,11 @@ function openDrawer(type, id) {
       ? 'Lead Mission'
       : type === 'federationLead'
         ? 'Federation Lead'
-        : type === 'federationRequest'
-          ? 'Connection Request'
-          : type[0].toUpperCase() + type.slice(1);
+          : type === 'federationRequest'
+            ? 'Connection Request'
+            : type === 'federationDealRoom'
+              ? 'Federation Deal Room'
+              : type[0].toUpperCase() + type.slice(1);
 
   document.getElementById('drawer-title').textContent =
     record?.companyName ||
@@ -3948,6 +4372,7 @@ case 'federation-request-match-selected': {
   }
   break;
 }
+
 case 'federation-request-save-deal': {
   try {
     const record = findById('federationConnectionRequests', id);
@@ -3963,6 +4388,54 @@ case 'federation-request-save-deal': {
   }
   break;
 }
+
+case 'economy-payout-status-approved':
+case 'economy-payout-status-processing':
+case 'economy-payout-status-paid':
+case 'economy-payout-status-rejected': {
+  try {
+    const nextStatus = action.replace('economy-payout-status-', '');
+    await updateAdminPayoutStatus(id, nextStatus);
+    showToast(`Payout marked ${nextStatus.replace(/_/g, ' ')}.`);
+  } catch (error) {
+    if (error?.message !== 'No active admin session.') {
+      showToast(error.message || 'Failed to update payout request.');
+    }
+  }
+  break;
+}
+
+case 'federation-deal-room-status-approved':
+case 'federation-deal-room-status-in_discussion':
+case 'federation-deal-room-status-commission_due':
+case 'federation-deal-room-status-commission_paid':
+case 'federation-deal-room-status-closed':
+case 'federation-deal-room-status-rejected': {
+  try {
+    const record = findById('federationDealRooms', id);
+    if (!record) throw new Error('Federation Deal Room not found.');
+
+    const nextStatus = action.replace('federation-deal-room-status-', '');
+
+    await adminFetchJson(`/api/admin/federation/deal-rooms/${encodeURIComponent(id)}/status`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ adminStatus: nextStatus })
+    });
+
+    await loadAdminBootstrap();
+
+    showToast(`Federation Deal Room updated to ${nextStatus.replace(/_/g, ' ')}.`);
+  } catch (error) {
+    if (error?.message !== 'No active admin session.') {
+      showToast(error.message || 'Failed to update Federation Deal Room.');
+    }
+  }
+  break;
+}
+
 case 'federation-request-status-matched':
 case 'federation-request-status-pricing_sent':
 case 'federation-request-status-paid':
@@ -4005,23 +4478,52 @@ case 'federation-request-status-rejected': {
       break;
     }
     case 'plazas-approve': {
-      const record = findById('plazas', id);
-      if (!record) return;
-      record.status = 'Active';
-      record.notes.unshift('Approved by moderator.');
-      saveState();
-      renderApp();
-      showToast(`Listing ${record.title} approved.`);
+      try {
+        const record = findById('plazas', id);
+        if (!record) throw new Error('Plaza listing not found.');
+
+        await adminFetchJson(`/api/admin/plazas/${encodeURIComponent(id)}/status`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ status: 'active' })
+        });
+
+        await loadAdminBootstrap();
+
+        showToast(`Listing ${record.title} approved.`);
+      } catch (error) {
+        if (error?.message !== 'No active admin session.') {
+          showToast(error.message || 'Failed to approve Plaza listing.');
+        }
+      }
       break;
     }
+
     case 'plazas-feature': {
-      const record = findById('plazas', id);
-      if (!record) return;
-      record.featured = !record.featured;
-      record.notes.unshift(record.featured ? 'Featured on marketplace.' : 'Removed from featured.');
-      saveState();
-      renderApp();
-      showToast(`${record.title} ${record.featured ? 'featured' : 'unfeatured'}.`);
+      try {
+        const record = findById('plazas', id);
+        if (!record) throw new Error('Plaza listing not found.');
+
+        const nextFeatured = !record.featured;
+
+        await adminFetchJson(`/api/admin/plazas/${encodeURIComponent(id)}/status`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ featured: nextFeatured })
+        });
+
+        await loadAdminBootstrap();
+
+        showToast(`${record.title} ${nextFeatured ? 'featured' : 'unfeatured'}.`);
+      } catch (error) {
+        if (error?.message !== 'No active admin session.') {
+          showToast(error.message || 'Failed to update Plaza listing.');
+        }
+      }
       break;
     }
     case 'support-progress': {
@@ -4066,6 +4568,7 @@ function renderApp() {
   renderMembers();
   renderAcademy();
   renderFederation();
+  renderEconomy();
   renderPlazas();
   renderBroadcasts();
   renderSupport();
@@ -4104,6 +4607,11 @@ function bindEvents() {
     'federation-lead-value-filter',
     'federation-lead-country-filter',
     'federation-request-status-filter',
+    'economy-payment-provider-filter',
+    'economy-payment-status-filter',
+    'economy-payout-method-filter',
+    'economy-payout-status-filter',
+    'federation-deal-room-status-filter',
     'federation-status-filter',
     'federation-tag-filter',
     'plazas-type-filter',

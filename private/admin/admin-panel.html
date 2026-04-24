@@ -28,6 +28,7 @@
         <button class="nav-item" data-view="members">Members</button>
         <button class="nav-item" data-view="academy">Academy</button>
         <button class="nav-item" data-view="federation">Federation</button>
+        <button class="nav-item" data-view="economy">Economy</button>
         <button class="nav-item" data-view="plazas">Plazas</button>
         <button class="nav-item" data-view="communications">Communications</button>
         <button class="nav-item" data-view="support">Support</button>
@@ -417,8 +418,141 @@
             </table>
           </div>
         </div>
-      </section>
 
+        <div class="panel-card" style="margin-top:20px;">
+          <div class="panel-head wrap-head">
+            <div>
+              <p class="eyebrow">Federation Deal Rooms</p>
+              <h3>Admin-Supervised Partnerships & Collabs</h3>
+            </div>
+            <div class="toolbar">
+              <select id="federation-deal-room-status-filter">
+                <option value="all">All Room Statuses</option>
+                <option value="pending_admin_review">Pending Admin Review</option>
+                <option value="approved">Approved</option>
+                <option value="in_discussion">In Discussion</option>
+                <option value="commission_due">Commission Due</option>
+                <option value="commission_paid">Commission Paid</option>
+                <option value="closed">Closed</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Room</th>
+                  <th>Creator</th>
+                  <th>Type</th>
+                  <th>Expected Value</th>
+                  <th>Commission</th>
+                  <th>Status</th>
+                  <th>Academy Link</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="federation-deal-rooms-table"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+      <section class="view view-economy" id="view-economy">
+        <div class="stats-grid compact" id="economy-control-stats"></div>
+
+        <div class="panel-card">
+          <div class="panel-head wrap-head">
+            <div>
+              <p class="eyebrow">Admin Economy Control</p>
+              <h3>Payment Ledger</h3>
+            </div>
+            <div class="toolbar">
+              <select id="economy-payment-provider-filter">
+                <option value="all">All Providers</option>
+                <option value="stripe">Stripe</option>
+                <option value="oxapay">OxaPay</option>
+                <option value="manual">Manual</option>
+                <option value="unselected">Unselected</option>
+              </select>
+              <select id="economy-payment-status-filter">
+                <option value="all">All Payment Statuses</option>
+                <option value="draft">Draft</option>
+                <option value="checkout_started">Checkout Started</option>
+                <option value="pending">Pending</option>
+                <option value="paid">Paid</option>
+                <option value="failed">Failed</option>
+                <option value="expired">Expired</option>
+                <option value="refunded">Refunded</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Payer</th>
+                  <th>Source</th>
+                  <th>Provider</th>
+                  <th>Amount</th>
+                  <th>Commission</th>
+                  <th>Operator</th>
+                  <th>Status</th>
+                  <th>Updated</th>
+                </tr>
+              </thead>
+              <tbody id="economy-payment-ledger-table"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="panel-card" style="margin-top:20px;">
+          <div class="panel-head wrap-head">
+            <div>
+              <p class="eyebrow">Operator Withdrawals</p>
+              <h3>Payout Ledger</h3>
+            </div>
+            <div class="toolbar">
+              <select id="economy-payout-method-filter">
+                <option value="all">All Methods</option>
+                <option value="local_bank">Local Bank</option>
+                <option value="card">Card</option>
+                <option value="crypto">Crypto</option>
+                <option value="manual">Manual</option>
+              </select>
+              <select id="economy-payout-status-filter">
+                <option value="all">All Payout Statuses</option>
+                <option value="pending_review">Pending Review</option>
+                <option value="approved">Approved</option>
+                <option value="processing">Processing</option>
+                <option value="paid">Paid</option>
+                <option value="rejected">Rejected</option>
+                <option value="failed">Failed</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Receiver</th>
+                  <th>Method</th>
+                  <th>Amount</th>
+                  <th>Destination</th>
+                  <th>Source</th>
+                  <th>Status</th>
+                  <th>Updated</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="economy-payout-ledger-table"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
       <section class="view view-plazas" id="view-plazas">
         <div class="panel-card">
           <div class="panel-head wrap-head">
@@ -429,9 +563,18 @@
             <div class="toolbar">
               <select id="plazas-type-filter">
                 <option value="all">All Types</option>
-                <option value="Service">Service</option>
-                <option value="Job">Job</option>
-                <option value="Request">Request</option>
+                <option value="Opportunity">Opportunity</option>
+                <option value="Job Opportunity">Job Opportunity</option>
+                <option value="Hire Talent">Hire Talent</option>
+                <option value="Get Hired">Get Hired</option>
+                <option value="Operator Bounty">Operator Bounty</option>
+                <option value="Hiring">Hiring</option>
+                <option value="Service Request">Service Request</option>
+                <option value="Collaboration">Collaboration</option>
+                <option value="Partnership">Partnership</option>
+                <option value="Introduction">Introduction</option>
+                <option value="Project Opening">Project Opening</option>
+                <option value="Regional Support">Regional Support</option>
               </select>
               <select id="plazas-status-filter">
                 <option value="all">All Statuses</option>
@@ -702,6 +845,10 @@
     <button class="nav-item" data-view="communications">
       <span class="app-nav-icon">✉</span>
       <span class="app-nav-label">Comms</span>
+    </button>
+    <button class="nav-item" data-view="economy">
+      <span class="app-nav-icon">₿</span>
+      <span class="app-nav-label">Economy</span>
     </button>
     <button class="nav-item" data-view="analytics">
       <span class="app-nav-icon">▣</span>

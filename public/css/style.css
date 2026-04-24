@@ -15727,3 +15727,156 @@ body.academy-startup-booting {
         text-align: center;
     }
 }
+/* ==========================================
+   ACADEMY OPERATOR WITHDRAWAL UI
+   ========================================== */
+
+.academy-lead-withdrawal-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 18px;
+    margin: 18px 0;
+    border: 1px solid rgba(56, 189, 248, 0.22);
+    border-radius: 18px;
+    background: rgba(8, 18, 33, 0.72);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
+}
+
+.academy-lead-withdrawal-card > div {
+    min-width: 0;
+}
+
+.academy-lead-withdrawal-btn {
+    width: auto;
+    min-width: 190px;
+    flex: 0 0 auto;
+}
+
+.academy-withdrawal-method-field.hidden-step {
+    display: none !important;
+}
+
+#academy-withdrawal-balance-note {
+    margin-top: 7px;
+    line-height: 1.5;
+}
+
+@media (max-width: 768px) {
+    .academy-lead-withdrawal-card {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .academy-lead-withdrawal-btn {
+        width: 100%;
+        min-width: 0;
+    }
+}
+/* ==========================================
+   ACADEMY WITHDRAWAL STATUS SYNC
+   ========================================== */
+
+.academy-lead-withdrawal-status-panel {
+    margin: 18px 0;
+    padding: 18px;
+    border: 1px solid rgba(56, 189, 248, 0.2);
+    border-radius: 20px;
+    background: rgba(8, 18, 33, 0.74);
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.22);
+}
+
+.academy-lead-withdrawal-status-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 16px;
+}
+
+.academy-lead-status-refresh-btn {
+    width: auto;
+    min-width: 150px;
+    flex: 0 0 auto;
+}
+
+.academy-lead-withdrawal-status-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    margin: 16px 0;
+}
+
+.academy-lead-withdrawal-table-wrap {
+    margin-top: 16px;
+}
+
+.academy-lead-withdrawal-status-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 28px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    background: rgba(148, 163, 184, 0.1);
+    color: #e5edf7;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: capitalize;
+    white-space: nowrap;
+}
+
+.academy-withdrawal-status-pending_review {
+    border-color: rgba(245, 158, 11, 0.35);
+    background: rgba(245, 158, 11, 0.1);
+    color: #fbbf24;
+}
+
+.academy-withdrawal-status-approved,
+.academy-withdrawal-status-processing {
+    border-color: rgba(56, 189, 248, 0.36);
+    background: rgba(56, 189, 248, 0.1);
+    color: #7dd3fc;
+}
+
+.academy-withdrawal-status-paid {
+    border-color: rgba(34, 197, 94, 0.36);
+    background: rgba(34, 197, 94, 0.1);
+    color: #86efac;
+}
+
+.academy-withdrawal-status-rejected,
+.academy-withdrawal-status-failed {
+    border-color: rgba(239, 68, 68, 0.36);
+    background: rgba(239, 68, 68, 0.1);
+    color: #fca5a5;
+}
+
+.academy-lead-withdrawal-warning {
+    margin-top: 12px;
+    color: #fca5a5;
+}
+
+@media (max-width: 1024px) {
+    .academy-lead-withdrawal-status-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 720px) {
+    .academy-lead-withdrawal-status-head {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .academy-lead-status-refresh-btn {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .academy-lead-withdrawal-status-grid {
+        grid-template-columns: 1fr;
+    }
+}

@@ -720,6 +720,33 @@
                                     </span>
                                     <span class="academy-missions-module-arrow">→</span>
                                 </button>
+
+                                <button type="button" class="academy-missions-module-card" id="btn-open-mission-plaza-jobs">
+                                    <span class="academy-missions-module-icon">💼</span>
+                                    <span class="academy-missions-module-body">
+                                        <span class="academy-missions-module-title">Plaza Jobs</span>
+                                        <span class="academy-missions-module-copy">Work on admin-routed Plaza jobs, hiring requests, service requests, and operator bounties.</span>
+                                    </span>
+                                    <span class="academy-missions-module-arrow">→</span>
+                                </button>
+
+                                <button type="button" class="academy-missions-module-card" id="btn-open-mission-federation-tasks">
+                                    <span class="academy-missions-module-icon">🤝</span>
+                                    <span class="academy-missions-module-body">
+                                        <span class="academy-missions-module-title">Federation Tasks</span>
+                                        <span class="academy-missions-module-copy">Support Federation requests with research, lead sourcing, contact discovery, and deal preparation.</span>
+                                    </span>
+                                    <span class="academy-missions-module-arrow">→</span>
+                                </button>
+
+                                <button type="button" class="academy-missions-module-card" id="btn-open-mission-opportunity-ops">
+                                    <span class="academy-missions-module-icon">⚡</span>
+                                    <span class="academy-missions-module-body">
+                                        <span class="academy-missions-module-title">Opportunity Missions</span>
+                                        <span class="academy-missions-module-copy">Track paid opportunities that connect Academy execution with Plaza demand and Federation deal flow.</span>
+                                    </span>
+                                    <span class="academy-missions-module-arrow">→</span>
+                                </button>
                             </div>
                         </section>
 
@@ -1242,7 +1269,116 @@
                 </div>
             </div>
 
-            <main class="yh-main-chat hide-scrollbar hidden-step fade-in vault-main" id="vault-view">
+            <div id="academy-lead-withdrawal-modal" class="academy-lead-modal hidden-step" aria-hidden="true">
+                <div class="academy-lead-modal-card">
+                    <div class="academy-lead-modal-head academy-lead-modal-head-centered">
+                        <div class="academy-lead-modal-head-copy">
+                            <div class="academy-lead-modal-kicker">Operator Earnings</div>
+                            <h3 class="academy-lead-modal-title">Request Withdrawal</h3>
+                            <p class="academy-lead-modal-subtitle">
+                                Choose how you want to withdraw your approved Academy earnings. Admin will review and process the request.
+                            </p>
+                        </div>
+                    </div>
+
+                    <form id="academy-lead-withdrawal-form" class="academy-lead-form-grid">
+                        <div class="form-group">
+                            <label for="academy-withdrawal-amount">Amount</label>
+                            <input
+                                id="academy-withdrawal-amount"
+                                name="amount"
+                                class="input-field"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                required
+                            >
+                            <div class="academy-lead-list-meta" id="academy-withdrawal-balance-note">
+                                Available balance will appear here.
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="academy-withdrawal-currency">Currency</label>
+                            <select id="academy-withdrawal-currency" name="currency" class="input-field">
+                                <option value="USD">USD</option>
+                                <option value="EUR">EUR</option>
+                                <option value="GBP">GBP</option>
+                                <option value="NGN">NGN</option>
+                                <option value="PHP">PHP</option>
+                                <option value="INR">INR</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group academy-lead-form-span-2">
+                            <label for="academy-withdrawal-method">Withdrawal Method</label>
+                            <select id="academy-withdrawal-method" name="method" class="input-field" required>
+                                <option value="local_bank">Local Bank Transfer</option>
+                                <option value="card">Card</option>
+                                <option value="crypto">Cryptocurrency</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group academy-withdrawal-method-field academy-withdrawal-bank-field">
+                            <label for="academy-withdrawal-bank-country">Bank Country</label>
+                            <input id="academy-withdrawal-bank-country" name="bankCountry" class="input-field" type="text" placeholder="Nigeria, Philippines, India...">
+                        </div>
+
+                        <div class="form-group academy-withdrawal-method-field academy-withdrawal-bank-field">
+                            <label for="academy-withdrawal-bank-name">Bank Name</label>
+                            <input id="academy-withdrawal-bank-name" name="bankName" class="input-field" type="text">
+                        </div>
+
+                        <div class="form-group academy-withdrawal-method-field academy-withdrawal-bank-field">
+                            <label for="academy-withdrawal-account-name">Account Name</label>
+                            <input id="academy-withdrawal-account-name" name="accountName" class="input-field" type="text">
+                        </div>
+
+                        <div class="form-group academy-withdrawal-method-field academy-withdrawal-bank-field">
+                            <label for="academy-withdrawal-account-number">Account Number</label>
+                            <input id="academy-withdrawal-account-number" name="accountNumber" class="input-field" type="text">
+                        </div>
+
+                        <div class="form-group academy-withdrawal-method-field academy-withdrawal-card-field hidden-step">
+                            <label for="academy-withdrawal-card-last4">Card Last 4 Digits</label>
+                            <input id="academy-withdrawal-card-last4" name="cardLast4" class="input-field" type="text" maxlength="4" placeholder="1234">
+                        </div>
+
+                        <div class="form-group academy-withdrawal-method-field academy-withdrawal-crypto-field hidden-step">
+                            <label for="academy-withdrawal-crypto-currency">Crypto Currency</label>
+                            <select id="academy-withdrawal-crypto-currency" name="cryptoCurrency" class="input-field">
+                                <option value="">Select crypto</option>
+                                <option value="USDT">USDT</option>
+                                <option value="USDC">USDC</option>
+                                <option value="BTC">BTC</option>
+                                <option value="ETH">ETH</option>
+                                <option value="BNB">BNB</option>
+                                <option value="TON">TON</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group academy-withdrawal-method-field academy-withdrawal-crypto-field hidden-step">
+                            <label for="academy-withdrawal-crypto-network">Network</label>
+                            <input id="academy-withdrawal-crypto-network" name="cryptoNetwork" class="input-field" type="text" placeholder="TRC20, ERC20, BEP20...">
+                        </div>
+
+                        <div class="form-group academy-withdrawal-method-field academy-withdrawal-crypto-field academy-lead-form-span-2 hidden-step">
+                            <label for="academy-withdrawal-wallet-address">Wallet Address</label>
+                            <input id="academy-withdrawal-wallet-address" name="walletAddress" class="input-field" type="text">
+                        </div>
+
+                        <div class="form-group academy-lead-form-span-2">
+                            <label for="academy-withdrawal-note">Note for Admin</label>
+                            <textarea id="academy-withdrawal-note" name="note" class="input-field" rows="3" placeholder="Optional payout note..."></textarea>
+                        </div>
+
+                        <div class="academy-lead-form-actions academy-lead-form-span-2">
+                            <button type="button" class="btn-secondary" id="btn-cancel-academy-withdrawal">Cancel</button>
+                            <button type="submit" class="btn-primary" id="btn-submit-academy-withdrawal">Submit Withdrawal Request</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
                 <header class="chat-header"><div class="header-left"><span class="hash-big">🗄️</span><h3>The Vault</h3><div class="header-divider"></div><p class="header-topic">Your personal library of shared files, media, and links.</p></div></header>
                 <div class="vault-container hide-scrollbar">
                     <div class="vault-filters">
@@ -2104,7 +2240,7 @@
 
 <script src="/js/yh-shared-core.js?v=20260418-toast-center-1"></script>
 <script src="/js/yh-shared-runtime.js?v=20260411-4"></script>
-<script src="/js/academy.js?v=20260424-lead-marketplace-review-1"></script>
+<script src="/js/academy.js?v=20260424-operator-withdrawal-ui-1"></script>
 <div
     class="academy-profile-editor-overlay hidden-step"
     id="academy-profile-editor-overlay"
