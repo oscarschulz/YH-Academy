@@ -3814,10 +3814,16 @@ function resetPlazaToOverview() {
 
 function renderStats() {
   const stats = plazaAdapter.getStats();
-  if (plazaActiveMembersValue) plazaActiveMembersValue.textContent = String(stats.activeMembers);
-  if (plazaOpenOpportunitiesValue) plazaOpenOpportunitiesValue.textContent = String(stats.openOpportunities);
-  if (plazaRegionsValue) plazaRegionsValue.textContent = String(stats.regions);
-  if (plazaVerifiedConnectorsValue) plazaVerifiedConnectorsValue.textContent = String(stats.verifiedConnectors);
+
+  const activeMembersValue = document.getElementById("plazaActiveMembersValue");
+  const openOpportunitiesValue = document.getElementById("plazaOpenOpportunitiesValue");
+  const regionsValue = document.getElementById("plazaRegionsValue");
+  const verifiedConnectorsValue = document.getElementById("plazaVerifiedConnectorsValue");
+
+  if (activeMembersValue) activeMembersValue.textContent = String(stats.activeMembers || 0);
+  if (openOpportunitiesValue) openOpportunitiesValue.textContent = String(stats.openOpportunities || 0);
+  if (regionsValue) regionsValue.textContent = String(stats.regions || 0);
+  if (verifiedConnectorsValue) verifiedConnectorsValue.textContent = String(stats.verifiedConnectors || 0);
 }
 
 function renderFeed(filter = "all") {
