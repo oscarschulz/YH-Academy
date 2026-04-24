@@ -2105,7 +2105,125 @@ apiRouter.post('/api/admin/academy/:memberId/track', requireAdminSession, async 
     });
   }
 });
+function getAcademyRoutedMissionNotificationMeta(action = '', data = {}) {
+  const cleanAction = cleanText(action).toLowerCase();
+  const title = cleanText(data.title || data.routedSourceTitle || data.companyName || 'Academy routed mission');
+  const decision = cleanText(data.decision || '').toLowerCase();
+  const payoutAmount = toNumber(data.operatorPayoutAmount, 0);
+  const currency = cleanText(data.currency || 'USD').toUpperCase() || 'USD';
 
+  if (cleanAction === 'routed') {
+    return {
+      title: 'New Academy mission assigned',
+      text: `Admin assigned you a new mission: ${title}. Open Academy Missions and check Assigned Missions.`,
+      color: 'var(--blue)',
+      avatarStr: 'A',
+      status: 'assigned'
+    };
+  }
+
+  if (cleanAction === 'submitted') {
+    return {
+      title: 'Academy mission submitted',
+      text: `Your mission "${title}" has been submitted for admin review.`,
+      color: 'var(--amber)',
+      avatarStr: 'A',
+      status: 'submitted'
+    };
+  }
+
+  if (cleanAction === 'reviewed') {
+    if (decision === 'approved') {
+      return {
+        title: 'Academy mission approved',
+        text: payoutAmount > 0
+          ? `Your mission "${title}" was approved. Earnings added: ${currency} ${payoutAmount}.`
+          : `Your mission "${title}" was approved.`,
+        color: 'var(--green)',
+        avatarStr: 'A',
+        status: 'approved'
+      };
+    }
+
+    if (decision === 'revision_requested') {
+      return {
+        title: 'Academy mission needs revision',
+        text: `Admin requested a revision for "${title}". Open Assigned Missions and review the admin note.`,
+        color: 'var(--amber)',
+        avatarStr: 'A',
+        status: 'revision_requested'
+      };
+    }
+
+    if (decision === 'rejected') {
+      return {
+        title: 'Academy mission rejected',
+        text: `Admin rejected "${title}". Open Assigned Missions and review the reason.`,
+        color: 'var(--red)',
+        avatarStr: 'A',
+        status: 'rejected'
+      };
+    }
+  }
+
+  return {
+    title: 'Academy mission updated',
+    text: `Your Academy mission "${title}" has been updated.`,
+    color: 'var(--blue)',
+    avatarStr: 'A',
+    status: 'updated'
+  };
+}
+
+async function appendAcademyRoutedMissionNotificationToOperator(memberId = '', payload = {}) {
+  const operatorUid = cleanText(memberId);
+  if (!operatorUid) return false;
+
+  const userRef = firestore.collection('users').doc(operatorUid);
+  const userSnap = await userRef.get();
+
+  if (!userSnap.exists) return false;
+
+  const user = userSnap.data() || {};
+  const nowIso = new Date().toISOString();
+  const meta = getAcademyRoutedMissionNotificationMeta(payload.action, payload);
+
+  const notification = {
+    id: `academy_mission_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    title: meta.title,
+    text: meta.text,
+    message: meta.text,
+    body: meta.text,
+    target: 'academy-assigned-missions',
+    targetType: 'academy-assigned-missions',
+    target_type: 'academy-assigned-missions',
+    targetId: cleanText(payload.leadId || payload.missionId || ''),
+    target_id: cleanText(payload.leadId || payload.missionId || ''),
+    color: meta.color,
+    avatarStr: meta.avatarStr,
+    initial: meta.avatarStr,
+    source: 'admin-academy-missions',
+    notificationType: 'academy-routed-mission',
+    missionId: cleanText(payload.leadId || payload.missionId || ''),
+    missionStatus: cleanText(meta.status),
+    sourceDivision: cleanText(payload.sourceDivision || ''),
+    isRead: false,
+    is_read: false,
+    read: false,
+    createdAt: nowIso,
+    created_at: nowIso
+  };
+
+  await userRef.set({
+    inProductReviewNotifications: prependUserInProductNotification(
+      user.inProductReviewNotifications,
+      notification
+    ),
+    updatedAt: nowIso
+  }, { merge: true });
+
+  return true;
+}
 apiRouter.post('/api/admin/academy/route-opportunity-mission', requireAdminSession, async (req, res) => {
   try {
     const body = req.body || {};
@@ -2335,6 +2453,17 @@ apiRouter.post('/api/admin/academy/route-opportunity-mission', requireAdminSessi
       createdBy: cleanText(req.adminSession?.username || 'admin')
     });
 
+    await appendAcademyRoutedMissionNotificationToOperator(memberId, {
+      action: 'routed',
+      leadId: createdLead.id,
+      title,
+      sourceDivision,
+      sourceFeature,
+      missionType,
+      currency,
+      operatorPayoutAmount
+    });
+
     const freshLead = await academyFirestoreRepo.getLeadMissionLeadById(memberId, createdLead.id);
 
     return res.json({
@@ -2503,6 +2632,17 @@ apiRouter.post('/api/admin/academy/lead-missions/:memberId/:leadId/review', requ
       message: `Admin marked Lead Mission ${leadId} as ${decision.replace(/_/g, ' ')}.`,
       sentAt: nowIso,
       createdBy: cleanText(req.adminSession?.username || 'admin')
+    });
+
+    await appendAcademyRoutedMissionNotificationToOperator(memberId, {
+      action: 'reviewed',
+      leadId,
+      title: cleanText(lead.routedSourceTitle || lead.companyName || 'Academy routed mission'),
+      decision,
+      currency,
+      operatorPayoutAmount,
+      sourceDivision: cleanText(lead.sourceDivision || 'academy'),
+      sourceFeature: cleanText(lead.sourceFeature || 'routed_mission')
     });
 
     const freshSnap = await leadRef.get();

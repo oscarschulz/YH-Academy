@@ -4414,6 +4414,19 @@ function normalizeNotificationTarget(notification = {}) {
         return 'profile';
     }
 
+    if ([
+        'academy-assigned-missions',
+        'academy_assigned_missions',
+        'assigned-missions',
+        'assigned_missions',
+        'academy-routed-mission',
+        'academy_routed_mission',
+        'academy-mission',
+        'academy_mission'
+    ].includes(candidate)) {
+        return 'academy-assigned-missions';
+    }
+
     return candidate;
 }
 
@@ -4542,7 +4555,20 @@ const openNotificationTarget = (target = '') => {
 
         if (typeof openAcademyProfileView === 'function') {
             openAcademyProfileView();
+            return;
         }
+    }
+
+    if (normalized === 'academy-assigned-missions') {
+        if (typeof openAcademyLeadMissionsView === 'function') {
+            openAcademyLeadMissionsView({
+                initialSubtab: 'assigned',
+                skipRecruitmentGate: true
+            });
+            return;
+        }
+
+        document.getElementById('nav-lead-missions')?.click();
     }
 };
 
@@ -10915,6 +10941,96 @@ function renderAcademyAssignedMissions(leads = []) {
     `;
 }
 
+function academyInlineModalEscape(value = '') {
+    return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+}
+
+function openAcademyAssignedMissionProofModal(context = {}) {
+    return new Promise((resolve) => {
+        const existing = document.getElementById('academy-assigned-proof-modal');
+        if (existing) existing.remove();
+
+        const overlay = document.createElement('div');
+        overlay.id = 'academy-assigned-proof-modal';
+        overlay.style.position = 'fixed';
+        overlay.style.inset = '0';
+        overlay.style.zIndex = '30000';
+        overlay.style.background = 'rgba(0,0,0,.68)';
+        overlay.style.display = 'flex';
+        overlay.style.alignItems = 'center';
+        overlay.style.justifyContent = 'center';
+        overlay.style.padding = '18px';
+
+        const card = document.createElement('form');
+        card.style.width = 'min(94vw, 620px)';
+        card.style.maxHeight = '86vh';
+        card.style.overflow = 'auto';
+        card.style.background = '#0b1220';
+        card.style.border = '1px solid rgba(255,255,255,.14)';
+        card.style.borderRadius = '18px';
+        card.style.boxShadow = '0 24px 80px rgba(0,0,0,.48)';
+        card.style.padding = '20px';
+        card.style.color = '#f8fafc';
+
+        const title = context?.title || 'Submit Assigned Mission';
+        const brief = context?.brief || 'Paste the completion proof, result, link, summary, or delivery note for admin review.';
+
+        card.innerHTML = `
+            <div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:16px;">
+                <div>
+                    <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.14em;color:#8bb3ff;font-weight:700;">Academy Mission</div>
+                    <h3 style="margin:5px 0 4px;font-size:1.1rem;">${academyInlineModalEscape(title)}</h3>
+                    <p style="margin:0;color:#98a4b8;font-size:.86rem;line-height:1.5;">${academyInlineModalEscape(brief)}</p>
+                </div>
+                <button type="button" data-academy-proof-cancel style="border:0;background:rgba(255,255,255,.08);color:#fff;border-radius:10px;padding:8px 10px;">✕</button>
+            </div>
+
+            <label style="display:grid;gap:7px;font-size:.86rem;color:#dbeafe;">
+                <span style="font-weight:700;">Completion Proof</span>
+                <textarea name="completionProof" rows="7" required placeholder="Example: completed research, delivery link, summary of work, screenshots link, contact list link, or final result..." style="width:100%;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:#f8fafc;border-radius:12px;padding:11px 12px;outline:none;box-sizing:border-box;resize:vertical;"></textarea>
+            </label>
+
+            <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px;">
+                <button type="button" data-academy-proof-cancel style="border:1px solid rgba(255,255,255,.14);background:transparent;color:#f8fafc;border-radius:12px;padding:10px 14px;">Cancel</button>
+                <button type="submit" style="border:0;background:#4d8bff;color:#fff;border-radius:12px;padding:10px 14px;font-weight:700;">Submit for Review</button>
+            </div>
+        `;
+
+        function cleanup(value) {
+            overlay.remove();
+            resolve(value);
+        }
+
+        card.querySelectorAll('[data-academy-proof-cancel]').forEach((button) => {
+            button.addEventListener('click', () => cleanup(null));
+        });
+
+        overlay.addEventListener('click', (event) => {
+            if (event.target === overlay) cleanup(null);
+        });
+
+        card.addEventListener('submit', (event) => {
+            event.preventDefault();
+
+            const formData = new FormData(card);
+            const completionProof = String(formData.get('completionProof') || '').trim();
+
+            cleanup({ completionProof });
+        });
+
+        overlay.appendChild(card);
+        document.body.appendChild(overlay);
+
+        const textarea = card.querySelector('textarea[name="completionProof"]');
+        if (textarea) textarea.focus();
+    });
+}
+
 async function submitAcademyAssignedMission(leadId = '') {
     const cleanLeadId = String(leadId || '').trim();
 
@@ -10923,14 +11039,17 @@ async function submitAcademyAssignedMission(leadId = '') {
         return;
     }
 
-    const completionProof = window.prompt(
-        'Paste the completion proof, result, link, summary, or delivery note for admin review:',
-        ''
-    );
+    const mission = academyLeadSafeArray(academyLeadMissionsState.assignedMissions)
+        .find((item) => String(item.id || '').trim() === cleanLeadId);
 
-    if (completionProof === null) return;
+    const modalResult = await openAcademyAssignedMissionProofModal({
+        title: mission?.routedSourceTitle || mission?.companyName || 'Submit Assigned Mission',
+        brief: mission?.missionBrief || mission?.academyMissionNeed || mission?.nextAction || 'Paste the completion proof, result, link, summary, or delivery note for admin review.'
+    });
 
-    const cleanProof = String(completionProof || '').trim();
+    if (!modalResult) return;
+
+    const cleanProof = String(modalResult.completionProof || '').trim();
 
     if (!cleanProof) {
         showToast('Completion proof is required.', 'error');

@@ -7,7 +7,7 @@
     <link rel="icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css?v=20260423-dashboard-hub-lift-2">
+<link rel="stylesheet" href="/css/style.css?v=20260424-universe-profile-host-1">
 <link rel="stylesheet" href="/css/dashboard-mobile.css">
 </head>
 <body data-yh-view="hub" data-yh-page="dashboard">
@@ -1172,7 +1172,237 @@
         </div>
     </div>
 
-    
+<main
+    class="yh-main-chat hide-scrollbar hidden-step fade-in yh-dashboard-universe-profile-host"
+    id="academy-profile-view"
+    data-profile-layout="self"
+    aria-hidden="true"
+>
+    <header class="chat-header yh-dashboard-universe-profile-header">
+        <div class="header-left">
+            <span class="hash-big">👤</span>
+            <h3 id="academy-profile-header-title">YH Universe Profile</h3>
+            <div class="header-divider"></div>
+            <p class="header-topic" id="academy-profile-header-topic">
+                Unified identity, membership signal, and public-facing profile across YH Universe.
+            </p>
+        </div>
+
+        <div class="header-right academy-profile-header-right">
+            <button
+                type="button"
+                class="btn-secondary yh-dashboard-profile-close"
+                id="academy-profile-dashboard-close"
+                aria-label="Close YH Universe profile"
+            >
+                ← Back to Universe
+            </button>
+        </div>
+    </header>
+
+    <div class="chat-messages hide-scrollbar yh-dashboard-universe-profile-scroll">
+        <div class="academy-profile-shell">
+            <section class="academy-profile-hero-card academy-profile-cover-card">
+                <div class="academy-profile-cover-band"></div>
+
+                <div class="academy-profile-cover-body">
+                    <div class="academy-profile-cover-left">
+                        <div class="academy-profile-avatar-wrap">
+                            <div class="academy-profile-avatar" id="academy-profile-avatar">Y</div>
+                        </div>
+
+                        <div class="academy-profile-identity-block">
+                            <div class="academy-profile-name" id="academy-profile-name">Hustler</div>
+                            <div class="academy-profile-username" id="academy-profile-username">@yhmember</div>
+
+                            <div class="academy-profile-subline">
+                                <div class="academy-profile-role" id="academy-profile-role">YH Universe Member</div>
+                                <div class="academy-profile-pill" id="academy-profile-view-mode">Unified profile</div>
+                            </div>
+
+                            <div class="academy-profile-tag-list" id="academy-profile-tag-list"></div>
+                        </div>
+                    </div>
+
+                    <div class="academy-profile-hero-actions">
+                        <div class="academy-profile-action-row">
+                            <button
+                                type="button"
+                                class="btn-secondary academy-profile-action-btn academy-profile-action-btn-follow"
+                                id="academy-profile-primary-action"
+                                data-profile-action="toggle-follow"
+                            >Follow</button>
+
+                            <button
+                                type="button"
+                                class="btn-secondary academy-profile-action-btn academy-profile-action-btn-friend"
+                                id="academy-profile-secondary-action"
+                                data-profile-action="send-friend-request"
+                            >Add Friend</button>
+
+                            <button
+                                type="button"
+                                class="btn-primary academy-profile-action-btn academy-profile-action-btn-message"
+                                id="academy-profile-tertiary-action"
+                                data-profile-action="open-direct-message"
+                            >Message</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="academy-profile-social-strip" aria-label="YH Universe profile stats">
+                <article class="academy-profile-social-stat academy-profile-social-stat-self">
+                    <div class="academy-profile-social-label">Readiness</div>
+                    <div class="academy-profile-social-value" id="academy-profile-readiness">--</div>
+                </article>
+
+                <article class="academy-profile-social-stat academy-profile-social-stat-self">
+                    <div class="academy-profile-social-label">Daily progress</div>
+                    <div class="academy-profile-social-value" id="academy-profile-progress">0%</div>
+                </article>
+
+                <article class="academy-profile-social-stat academy-profile-social-stat-self">
+                    <div class="academy-profile-social-label">Active roadmap</div>
+                    <div class="academy-profile-social-value" id="academy-profile-roadmap">Not loaded</div>
+                </article>
+
+                <article class="academy-profile-social-stat academy-profile-social-stat-shared academy-profile-social-stat-followers" data-social-stat="followers">
+                    <div class="academy-profile-social-label">Followers</div>
+                    <div class="academy-profile-social-value" id="academy-profile-follower-count">--</div>
+                    <div class="academy-profile-social-meta" id="academy-profile-followers-meta">Universe audience</div>
+                </article>
+
+                <article class="academy-profile-social-stat academy-profile-social-stat-shared academy-profile-social-stat-following" data-social-stat="following">
+                    <div class="academy-profile-social-label">Following</div>
+                    <div class="academy-profile-social-value" id="academy-profile-following-count">--</div>
+                    <div class="academy-profile-social-meta" id="academy-profile-following-meta">Universe following</div>
+                </article>
+
+                <article class="academy-profile-social-stat academy-profile-social-stat-shared academy-profile-social-stat-friends" data-social-stat="friends">
+                    <div class="academy-profile-social-label">Friends</div>
+                    <div class="academy-profile-social-value" id="academy-profile-friends-count">--</div>
+                    <div class="academy-profile-social-meta" id="academy-profile-friends-meta">Accepted YH connections</div>
+                </article>
+
+                <article class="academy-profile-social-stat academy-profile-social-stat-shared academy-profile-social-stat-posts" data-social-stat="posts">
+                    <div class="academy-profile-social-label">Posts</div>
+                    <div class="academy-profile-social-value" id="academy-profile-post-count">0</div>
+                    <div class="academy-profile-social-meta" id="academy-profile-posts-meta">Recent profile activity</div>
+                </article>
+
+                <article
+                    class="academy-profile-social-stat academy-profile-social-stat-visited academy-profile-social-stat-status"
+                    id="academy-profile-status-stat"
+                    data-social-stat="status"
+                    data-status-tone="active"
+                >
+                    <div class="academy-profile-social-label">Status</div>
+                    <div class="academy-profile-social-value academy-profile-social-value-status" id="academy-profile-status">Active</div>
+                    <div class="academy-profile-social-meta" id="academy-profile-status-meta">Public YH member</div>
+                </article>
+
+                <article
+                    class="academy-profile-social-stat academy-profile-social-stat-visited academy-profile-social-stat-mutuals"
+                    id="academy-profile-mutual-stat"
+                    data-social-stat="mutuals"
+                    data-has-mutuals="false"
+                >
+                    <div class="academy-profile-social-label">Mutuals</div>
+                    <div class="academy-profile-social-value" id="academy-profile-mutual-count">0</div>
+                    <div class="academy-profile-social-meta" id="academy-profile-mutuals-meta">No shared YH connections yet</div>
+                </article>
+            </section>
+
+            <section class="academy-profile-content-grid">
+                <div class="academy-profile-main-column">
+                    <section class="academy-profile-card academy-profile-intro-card">
+                        <div class="academy-profile-intro-header">
+                            <div class="academy-profile-intro-heading">
+                                <div class="academy-profile-card-kicker" id="academy-profile-intro-kicker">About</div>
+                                <h4 class="academy-profile-card-title" id="academy-profile-intro-title">Universe identity summary</h4>
+                            </div>
+
+                            <div class="academy-profile-intro-visibility-badge" id="academy-profile-intro-visibility-badge">
+                                Unified profile
+                            </div>
+                        </div>
+
+                        <div class="academy-profile-bio academy-profile-bio-inline" id="academy-profile-bio">
+                            Focused on building discipline, momentum, and long-term growth inside YH Universe.
+                        </div>
+
+                        <div class="academy-profile-visit-note-panel">
+                            <div class="academy-profile-visit-note-title" id="academy-profile-visit-note-title">Profile summary</div>
+                            <div class="academy-profile-visit-note" id="academy-profile-visit-note">
+                                This is the unified YH Universe profile hub.
+                            </div>
+                        </div>
+
+                        <div class="academy-profile-intro-facts">
+                            <div class="academy-profile-intro-fact">
+                                <span>Role</span>
+                                <strong id="academy-profile-intro-role">YH Universe Member</strong>
+                            </div>
+
+                            <div class="academy-profile-intro-fact">
+                                <span>Username</span>
+                                <strong id="academy-profile-intro-username">@yhmember</strong>
+                            </div>
+
+                            <div class="academy-profile-intro-fact">
+                                <span>Profile mode</span>
+                                <strong id="academy-profile-intro-mode">Unified profile</strong>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="academy-profile-card academy-profile-recent-card">
+                        <div class="academy-profile-card-kicker" id="academy-profile-recent-kicker">Recent Activity</div>
+                        <h4 class="academy-profile-card-title" id="academy-profile-recent-title">Latest profile posts</h4>
+                        <div class="academy-profile-post-list" id="academy-profile-recent-posts">
+                            <div class="academy-profile-empty-state">No recent activity yet.</div>
+                        </div>
+                    </section>
+                </div>
+
+                <aside class="academy-profile-side-column">
+                    <section class="academy-profile-card academy-profile-context-card">
+                        <div class="academy-profile-card-kicker" id="academy-profile-context-kicker">Profile Context</div>
+                        <h4 class="academy-profile-card-title" id="academy-profile-context-title">Membership & identity details</h4>
+
+                        <div class="academy-profile-context-summary" id="academy-profile-context-summary">
+                            This profile represents the user’s unified identity across Academy, Plaza, and Federation.
+                        </div>
+
+                        <div class="academy-profile-stat-list">
+                            <div class="academy-profile-stat-row">
+                                <span>Member ID</span>
+                                <strong id="academy-profile-member-id">Not available yet</strong>
+                            </div>
+
+                            <div class="academy-profile-stat-row academy-profile-hidden-row">
+                                <span>Saved hidden posts</span>
+                                <strong id="academy-profile-hidden-count">0</strong>
+                            </div>
+
+                            <div class="academy-profile-stat-row academy-profile-relationship-row">
+                                <span>Relationship</span>
+                                <strong id="academy-profile-relationship-summary">Your own profile</strong>
+                            </div>
+
+                            <div class="academy-profile-stat-row academy-profile-context-note-row">
+                                <span>Profile visibility</span>
+                                <strong id="academy-profile-context-note">Visible inside YH Universe</strong>
+                            </div>
+                        </div>
+                    </section>
+                </aside>
+            </section>
+        </div>
+    </div>
+</main>
+
 <div id="academy-member-browser-modal" class="modal-overlay hidden-step">
     <div class="modal-content academy-member-browser-dialog">
         <div class="academy-member-browser-header">
@@ -1286,7 +1516,7 @@
 
 <script src="/js/yh-shared-core.js?v=20260418-toast-center-2"></script>
 <script src="/js/yh-shared-runtime.js?v=20260411-3"></script>
-<script src="/js/dashboard.js?v=20260424-dashboard-profile-redirect-1"></script>
+<script src="/js/dashboard.js?v=20260424-universe-profile-host-1"></script>
 <script src="/js/dashboard-mobile-fix.js?v=20260410-4"></script>
 </body>
 </html>

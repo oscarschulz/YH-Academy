@@ -3150,20 +3150,15 @@ function openDashboardProfileDirectory() {
 }
 
 document.querySelector('.profile-mini')?.addEventListener('click', () => {
-    const currentView = String(document.body?.getAttribute('data-yh-view') || '')
-        .trim()
-        .toLowerCase();
-
-    if (currentView === 'academy') {
-        openAcademyProfileView();
-        return;
-    }
-
-    openDashboardProfileDirectory();
+    openAcademyProfileView();
 });
 
 document.getElementById('academy-member-browser-close')?.addEventListener('click', () => {
     closeDashboardMemberBrowserModal();
+});
+
+document.getElementById('academy-profile-dashboard-close')?.addEventListener('click', () => {
+    closeDashboardUniverseProfileView();
 });
 
 document.getElementById('academy-member-browser-modal')?.addEventListener('click', (event) => {
@@ -7504,14 +7499,14 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
 
     if (profileHeaderTitle) {
         profileHeaderTitle.innerText = isSelf
-            ? 'My Profile'
-            : `${normalized.displayName}'s Profile`;
+            ? 'My YH Universe Profile'
+            : `${normalized.displayName}'s YH Universe Profile`;
     }
 
     if (profileHeaderTopic) {
         profileHeaderTopic.innerText = isSelf
-            ? 'Your Academy profile, execution visibility, and public-facing identity hub.'
-            : `Viewing ${normalized.displayName}'s Academy profile, public activity, and connection options.`;
+            ? 'Your unified YH Universe identity, membership signal, execution visibility, and public-facing profile hub.'
+            : `Viewing ${normalized.displayName}'s unified YH Universe profile, public activity, and connection options.`;
     }
 
     if (profileName) profileName.innerText = normalized.displayName;
@@ -7829,12 +7824,27 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
     renderAcademyProfileRecentPosts(normalized.recentPosts, { isSelf });
 }
 
+function closeDashboardUniverseProfileView() {
+    const profileView = document.getElementById('academy-profile-view');
+    if (!profileView) return;
+
+    profileView.classList.add('hidden-step');
+    profileView.classList.remove('fade-in');
+    profileView.setAttribute('aria-hidden', 'true');
+
+    document.body?.classList.remove('yh-universe-profile-open');
+}
+
 function revealAcademyProfileView() {
     const profileView = document.getElementById('academy-profile-view');
     if (!profileView) return;
 
+    document.body?.classList.add('yh-universe-profile-open');
+
     profileView.classList.remove('hidden-step');
     profileView.classList.remove('fade-in');
+    profileView.setAttribute('aria-hidden', 'false');
+
     void profileView.offsetWidth;
     profileView.classList.add('fade-in');
 }
