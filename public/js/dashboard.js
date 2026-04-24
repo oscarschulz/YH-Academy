@@ -7504,9 +7504,7 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
     }
 
     if (profileHeaderTopic) {
-        profileHeaderTopic.innerText = isSelf
-            ? 'Your unified YH Universe identity, membership signal, execution visibility, and public-facing profile hub.'
-            : `Viewing ${normalized.displayName}'s unified YH Universe profile, public activity, and connection options.`;
+        profileHeaderTopic.remove();
     }
 
     if (profileName) profileName.innerText = normalized.displayName;
@@ -10635,6 +10633,39 @@ document.getElementById('academy-search-results-panel')?.addEventListener('click
     if (navId) {
         document.getElementById(navId)?.click();
     }
+});
+
+function openDashboardUniverseProfileSearch(query = '') {
+    const cleanQuery = String(query || '').trim();
+    const browserInput = document.getElementById('academy-member-browser-search-input');
+
+    if (browserInput) {
+        browserInput.value = cleanQuery;
+    }
+
+    loadAcademyMemberBrowser(cleanQuery).catch((error) => {
+        console.error('openDashboardUniverseProfileSearch error:', error);
+        showToast(error?.message || 'Failed to search YH members.', 'error');
+    });
+}
+
+document.getElementById('yh-dashboard-profile-search-form')?.addEventListener('submit', (event) => {
+    event.preventDefault();
+
+    const query = String(
+        document.getElementById('yh-dashboard-profile-search-input')?.value || ''
+    ).trim();
+
+    openDashboardUniverseProfileSearch(query);
+});
+
+document.getElementById('yh-dashboard-profile-search-input')?.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter') return;
+
+    event.preventDefault();
+
+    const query = String(event.currentTarget?.value || '').trim();
+    openDashboardUniverseProfileSearch(query);
 });
 
 document.getElementById('academy-member-browser-close')?.addEventListener('click', () => {

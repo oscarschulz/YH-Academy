@@ -2054,7 +2054,42 @@ function renderAcademy() {
   const reviewFilter = document.getElementById('academy-review-filter').value;
   const leadStageFilter = document.getElementById('academy-lead-stage-filter')?.value || 'all';
   const leadScopeFilter = document.getElementById('academy-lead-scope-filter')?.value || 'all';
+  const leadReviewFilter = document.getElementById('academy-lead-review-filter')?.value || 'all';
   const query = state.ui.globalSearch;
+
+  const getLeadReviewQueueStatus = (item = {}) => {
+    const raw = String(
+      item.reviewStatus ||
+      item.assignmentStatus ||
+      item.taskStatus ||
+      item.pipelineStage ||
+      ''
+    ).trim().toLowerCase();
+
+    if (raw === 'pending_review') return 'submitted';
+    if (raw === 'submitted') return 'submitted';
+    if (raw === 'revision' || raw === 'needs_revision') return 'revision_requested';
+    if (raw === 'revision_requested') return 'revision_requested';
+    if (raw === 'approved') return 'approved';
+    if (raw === 'completed') return 'completed';
+    if (raw === 'rejected') return 'rejected';
+    if (raw === 'assigned') return 'assigned';
+
+    return raw || 'assigned';
+  };
+
+  const getLeadReviewQueueLabel = (item = {}) => {
+    const status = getLeadReviewQueueStatus(item);
+
+    if (status === 'submitted') return 'Submitted';
+    if (status === 'revision_requested') return 'Revision Requested';
+    if (status === 'approved') return 'Approved';
+    if (status === 'completed') return 'Completed';
+    if (status === 'rejected') return 'Rejected';
+    if (status === 'assigned') return 'Assigned';
+
+    return status.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+  };
 
   const roadmapRows = state.academy.filter(item => {
     return (focusFilter === 'all' || item.focus === focusFilter)
@@ -2064,8 +2099,11 @@ function renderAcademy() {
 
   const leadRows = state.academyLeadMissions.filter((item) => {
     const scopes = Array.isArray(item.accessScopes) ? item.accessScopes : [];
+    const reviewStatus = getLeadReviewQueueStatus(item);
+
     return (leadStageFilter === 'all' || item.pipelineStage === leadStageFilter)
       && (leadScopeFilter === 'all' || scopes.includes(leadScopeFilter))
+      && (leadReviewFilter === 'all' || reviewStatus === leadReviewFilter)
       && matchesSearch(item, query);
   });
 
@@ -2074,6 +2112,8 @@ function renderAcademy() {
     { label: 'Needs Review', value: state.academy.filter(a => a.status === 'Needs Review').length, foot: 'Records missing a live roadmap' },
     { label: 'At Risk', value: state.academy.filter(a => a.status === 'At Risk').length, foot: 'Low momentum members' },
     { label: 'Lead Records', value: state.academyLeadMissions.length, foot: 'Academy-origin network records' },
+    { label: 'Submitted Missions', value: state.academyLeadMissions.filter(item => getLeadReviewQueueStatus(item) === 'submitted').length, foot: 'Waiting for admin review' },
+    { label: 'Approved Missions', value: state.academyLeadMissions.filter(item => getLeadReviewQueueStatus(item) === 'approved' || getLeadReviewQueueStatus(item) === 'completed').length, foot: 'Reviewed and accepted' },
     { label: 'Federation Ready', value: state.academyLeadMissions.filter(item => item.federationReady === true).length, foot: 'Cross-division strategic routing' },
     { label: 'Plaza Ready', value: state.academyLeadMissions.filter(item => item.plazaReady === true).length, foot: 'Marketplace-ready relationships' }
   ];
@@ -2140,6 +2180,7 @@ function renderAcademy() {
           <div class="muted">${escapeHtml(item.contactName || '—')}${item.contactRole ? ` • ${escapeHtml(item.contactRole)}` : ''}</div>
         `)}
         ${makeCell('Stage', escapeHtml(item.pipelineStage || '—'))}
+        ${makeCell('Review', formatBadge(getLeadReviewQueueLabel(item)))}
         ${makeCell('Network Scope', scopeBadges || '—')}
         ${makeCell('Follow-up', escapeHtml(item.followUpDueDate || '—'))}
         ${makeCell('Strategic Value', formatBadge(
@@ -2166,7 +2207,7 @@ function renderAcademy() {
         `)}
       </tr>
     `;
-  }).join('') || makeEmptyRow(7, 'No Lead Missions records match the current filters.');
+  }).join('') || makeEmptyRow(8, 'No Lead Missions records match the current filters.');
 }
 function normalizeAdminMatchText(value = '') {
   return String(value || '').trim().toLowerCase();
@@ -5151,6 +5192,7 @@ function bindEvents() {
     'academy-review-filter',
     'academy-lead-stage-filter',
     'academy-lead-scope-filter',
+    'academy-lead-review-filter',
     'federation-lead-value-filter',
     'federation-lead-country-filter',
     'federation-request-status-filter',

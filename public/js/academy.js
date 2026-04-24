@@ -11276,12 +11276,19 @@ function renderLeadMissionsPayouts(payouts = []) {
                         <tr>
                             <td>
                                 ${academyLeadSafeText(item.sourceDivision || 'academy')}
+                                ${item.sourceRecordId ? `<div class="academy-lead-list-meta">Source: ${academyLeadSafeText(item.sourceRecordId)}</div>` : ''}
                                 ${item.federationRequestId ? `<div class="academy-lead-list-meta">Fed: ${academyLeadSafeText(item.federationRequestId)}</div>` : ''}
                             </td>
-                            <td>${academyLeadSafeText(item.basisType)}</td>
+                            <td>
+                                <strong>${academyLeadSafeText(item.title || 'Academy mission earning')}</strong>
+                                <div class="academy-lead-list-meta">${academyLeadSafeText(item.basisType || item.sourceFeature || 'routed_mission')}</div>
+                            </td>
                             <td>${academyFeedEscapeHtml(academyLeadFormatMoney(item.amount, item.currency))}</td>
                             <td>${academyFeedEscapeHtml(academyLeadFormatMoney(item.dealGrossValue, item.currency))}</td>
-                            <td>${academyLeadSafeText(academyLeadFormatStatus(item.status, 'pending_review'))}</td>
+                            <td>
+                                ${academyLeadSafeText(academyLeadFormatStatus(item.status, 'pending_review'))}
+                                <div class="academy-lead-list-meta">Payout: ${academyLeadSafeText(academyLeadFormatStatus(item.payoutStatus || 'not_requested'))}</div>
+                            </td>
                             <td>${academyLeadSafeText(academyLeadFormatStatus(item.paymentStatus, 'not_started'))}</td>
                             <td>
                                 ${academyFeedEscapeHtml(academyLeadFormatMoney(item.platformCommissionAmount, item.currency))}
@@ -11290,6 +11297,7 @@ function renderLeadMissionsPayouts(payouts = []) {
                             <td>
                                 ${academyLeadFormatDate(item.approvedAt)}
                                 <div class="academy-lead-list-meta">Paid: ${academyLeadFormatDate(item.paidAt)}</div>
+                                ${item.approvedBy ? `<div class="academy-lead-list-meta">By: ${academyLeadSafeText(item.approvedBy)}</div>` : ''}
                             </td>
                         </tr>
                     `).join('')}

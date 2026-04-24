@@ -1561,11 +1561,16 @@ function mapLeadMissionLeadDoc(doc) {
 
 function mapLeadMissionPayoutDoc(doc) {
     const data = doc.data() || {};
+    const metadata = data.metadata && typeof data.metadata === 'object' ? data.metadata : {};
+
     return {
         id: doc.id,
         leadId: sanitizeString(data.leadId),
         federationRequestId: sanitizeString(data.federationRequestId),
-        basisType: sanitizeString(data.basisType),
+
+        title: sanitizeString(data.title || data.payoutTitle || 'Academy mission earning'),
+        basisType: sanitizeString(data.basisType || metadata.missionType || data.sourceFeature || 'routed_mission'),
+
         amount: toNumber(data.amount, 0),
         currency: sanitizeString(data.currency || 'USD'),
         status: sanitizeString(data.status || 'pending_review'),
@@ -1573,11 +1578,21 @@ function mapLeadMissionPayoutDoc(doc) {
 
         sourceDivision: sanitizeString(data.sourceDivision || 'academy'),
         sourceFeature: sanitizeString(data.sourceFeature || ''),
-        dealGrossValue: toNumber(data.dealGrossValue, 0),
-        platformCommissionRate: toNumber(data.platformCommissionRate, 0),
-        platformCommissionAmount: toNumber(data.platformCommissionAmount, 0),
+        sourceRecordId: sanitizeString(data.sourceRecordId || ''),
+        sourcePaymentId: sanitizeString(data.sourcePaymentId || ''),
+
+        dealGrossValue: toNumber(data.dealGrossValue || metadata.opportunityValueAmount, 0),
+        platformCommissionRate: toNumber(data.platformCommissionRate || metadata.platformCommissionRate, 0),
+        platformCommissionAmount: toNumber(data.platformCommissionAmount || metadata.platformCommissionAmount, 0),
+
         paymentStatus: sanitizeString(data.paymentStatus || 'not_started'),
+        payoutStatus: sanitizeString(data.payoutStatus || 'not_requested'),
         commissionStatus: sanitizeString(data.commissionStatus || 'not_started'),
+
+        operatorUid: sanitizeString(data.operatorUid),
+        operatorName: sanitizeString(data.operatorName),
+        approvedBy: sanitizeString(data.approvedBy),
+        metadata,
 
         approvedAt: mapTimestamp(data.approvedAt),
         paidAt: mapTimestamp(data.paidAt),
