@@ -1465,8 +1465,12 @@ function openPlazaApplicationModal() {
         document.body?.classList.add('plaza-application-open');
 
         window.requestAnimationFrame(() => {
-            resetDashboardPlazaApplicationFlow();
             prefillDashboardPlazaApplicationFromAcademy();
+
+            const restoredDraft = restoreDashboardPlazaApplicationDraft();
+            if (!restoredDraft) {
+                resetDashboardPlazaApplicationFlow();
+            }
 
             if (typeof syncDashboardPlazaApplicationLabels === 'function') {
                 syncDashboardPlazaApplicationLabels();
@@ -1479,15 +1483,22 @@ function openPlazaApplicationModal() {
     });
 }
 
-function closePlazaApplicationModal() {
+function closePlazaApplicationModal(options = {}) {
     const modal = document.getElementById('plaza-apply-modal');
     if (!modal) return;
+
+    const shouldPreserveDraft = options?.preserveDraft !== false;
+
+    if (shouldPreserveDraft) {
+        writeDashboardPlazaApplicationDraft(dashboardPlazaApplicationCurrentStep);
+    }
 
     modal.classList.add('hidden-step');
     document.body?.classList.remove('plaza-application-open');
 }
 
 const DASHBOARD_PLAZA_APPLICATION_SCHEMA_VERSION = 'plaza-dashboard-typeform-v1';
+const DASHBOARD_PLAZA_APPLICATION_DRAFT_KEY = 'yh_dashboard_plaza_application_draft_v1';
 
 const DASHBOARD_PLAZA_MEMBERSHIP_LABELS = {
     academy: {
@@ -1758,6 +1769,97 @@ function getDashboardPlazaInputForStep(stepKey = '') {
     return document.getElementById(map[stepKey] || '');
 }
 
+function getDashboardPlazaApplicationFieldIds() {
+    return [
+        'plazaAppMembershipType',
+        'plazaAppEmail',
+        'plazaAppFullName',
+        'plazaAppAge',
+        'plazaAppCurrentProject',
+        'plazaAppResourcesNeeded',
+        'plazaAppJoinedAt',
+        'plazaAppLearntSoFar',
+        'plazaAppContribution',
+        'plazaAppWantsPatron',
+        'plazaAppPatronExpectation',
+        'plazaAppLeadershipExperience',
+        'plazaAppCountry',
+        'plazaAppWantsMarketplace',
+        'plazaAppServicesProducts',
+        'plazaAppReferredBy',
+        'plazaAppHowHeard'
+    ];
+}
+
+function readDashboardPlazaApplicationDraft() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(DASHBOARD_PLAZA_APPLICATION_DRAFT_KEY) || 'null');
+
+        if (!parsed || typeof parsed !== 'object') return null;
+        if (parsed.schemaVersion !== DASHBOARD_PLAZA_APPLICATION_SCHEMA_VERSION) return null;
+
+        return parsed;
+    } catch (_) {
+        return null;
+    }
+}
+
+function writeDashboardPlazaApplicationDraft(stepKey = dashboardPlazaApplicationCurrentStep) {
+    try {
+        const values = {};
+
+        getDashboardPlazaApplicationFieldIds().forEach((id) => {
+            const field = document.getElementById(id);
+            if (!field) return;
+            values[id] = String(field.value || '').trim();
+        });
+
+        const flow = getDashboardPlazaApplicationFlow();
+        const safeStep = flow.includes(stepKey)
+            ? stepKey
+            : flow.includes(dashboardPlazaApplicationCurrentStep)
+                ? dashboardPlazaApplicationCurrentStep
+                : 'membershipType';
+
+        localStorage.setItem(DASHBOARD_PLAZA_APPLICATION_DRAFT_KEY, JSON.stringify({
+            schemaVersion: DASHBOARD_PLAZA_APPLICATION_SCHEMA_VERSION,
+            currentStep: safeStep,
+            values,
+            savedAt: new Date().toISOString()
+        }));
+    } catch (_) {}
+}
+
+function restoreDashboardPlazaApplicationDraft() {
+    const draft = readDashboardPlazaApplicationDraft();
+    if (!draft || !draft.values || typeof draft.values !== 'object') return false;
+
+    Object.entries(draft.values).forEach(([id, value]) => {
+        const field = document.getElementById(id);
+        if (!field) return;
+        field.value = String(value || '');
+    });
+
+    if (typeof syncDashboardPlazaApplicationLabels === 'function') {
+        syncDashboardPlazaApplicationLabels();
+    }
+
+    const flow = getDashboardPlazaApplicationFlow();
+    const draftStep = String(draft.currentStep || '').trim();
+    const safeStep = flow.includes(draftStep)
+        ? draftStep
+        : flow[0] || 'membershipType';
+
+    setDashboardPlazaActiveStep(safeStep);
+    return true;
+}
+
+function clearDashboardPlazaApplicationDraft() {
+    try {
+        localStorage.removeItem(DASHBOARD_PLAZA_APPLICATION_DRAFT_KEY);
+    } catch (_) {}
+}
+
 function syncDashboardPlazaApplicationLabels() {
     const membershipType = getDashboardPlazaInputValue('plazaAppMembershipType');
     const labels = DASHBOARD_PLAZA_MEMBERSHIP_LABELS[membershipType] || DASHBOARD_PLAZA_MEMBERSHIP_LABELS.academy;
@@ -1887,6 +1989,8 @@ function setDashboardPlazaActiveStep(stepKey = 'membershipType') {
     if (input) {
         window.setTimeout(() => input.focus(), 60);
     }
+
+    writeDashboardPlazaApplicationDraft(stepKey);
 }
 
 function resetDashboardPlazaApplicationFlow() {
@@ -1912,7 +2016,7 @@ function validateDashboardPlazaCurrentStep() {
         return false;
     }
 
-    if (stepKey === 'email' && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(value)) {
+    if (stepKey === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
         showToast('Please enter a valid email address.', 'error');
         input.focus();
         return false;
@@ -2034,8 +2138,10 @@ async function submitDashboardPlazaApplication(event) {
         writePlazaAccessStatusCache(snapshot);
         syncPlazaEntryButton(snapshot);
 
+        clearDashboardPlazaApplicationDraft();
+
         form.reset();
-        closePlazaApplicationModal();
+        closePlazaApplicationModal({ preserveDraft: false });
 
         showToast('Plaza application submitted. Admin approval is required before entry.', 'success');
     } catch (error) {
@@ -2056,11 +2162,31 @@ function bindDashboardPlazaApplicationFormEvents() {
 
     form.dataset.bound = 'true';
 
+    const modal = document.getElementById('plaza-apply-modal');
+    if (modal && modal.dataset.plazaDraftOverlayBound !== 'true') {
+        modal.dataset.plazaDraftOverlayBound = 'true';
+
+        modal.addEventListener('click', (event) => {
+            if (event.target === modal) {
+                closePlazaApplicationModal();
+            }
+        });
+    }
+
     document.getElementById('btn-close-plaza-apply')?.addEventListener('click', closePlazaApplicationModal);
     document.getElementById('btn-cancel-plaza-apply')?.addEventListener('click', closePlazaApplicationModal);
 
     form.querySelectorAll('[data-dashboard-plaza-next]').forEach((button) => {
         button.addEventListener('click', goToNextDashboardPlazaStep);
+    });
+
+    form.querySelectorAll('input, select, textarea').forEach((field) => {
+        const persistDraft = () => {
+            writeDashboardPlazaApplicationDraft(dashboardPlazaApplicationCurrentStep);
+        };
+
+        field.addEventListener('input', persistDraft);
+        field.addEventListener('change', persistDraft);
     });
 
     form.addEventListener('keydown', (event) => {
@@ -2088,6 +2214,8 @@ function bindDashboardPlazaApplicationFormEvents() {
             if (typeof syncDashboardPlazaProgress === 'function') {
                 syncDashboardPlazaProgress(dashboardPlazaApplicationCurrentStep);
             }
+
+            writeDashboardPlazaApplicationDraft(dashboardPlazaApplicationCurrentStep);
         });
     });
 
