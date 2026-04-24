@@ -2657,11 +2657,11 @@ const plazaConfig = {
     breadcrumb: ["Plaza", "Requests"]
   },
   inbox: {
-    title: "Inbox Hub",
-    note: "Incoming requests, applications, support notes, and queue-owned work stay here until Plaza opens a conversation.",
-    navTab: null,
+    title: "Inbox",
+    note: "Incoming Plaza activity, requests, applications, and conversation handoffs connected to your role.",
+    navTab: "inbox",
     toolbar: null,
-    breadcrumb: ["Plaza", "Inbox Hub"]
+    breadcrumb: ["Plaza", "Inbox"]
   },
   "incoming-detail": {
     title: "Incoming Detail",
@@ -2678,11 +2678,11 @@ const plazaConfig = {
     breadcrumb: ["Plaza", "Notifications"]
   },
   messages: {
-    title: "Messages",
-    note: "Conversations opened from opportunities, requests, directory intros, regional hubs, and projects.",
+    title: "Conversations",
+    note: "Context-based chats opened from opportunities, requests, directory intros, regional hubs, and projects.",
     navTab: "messages",
     toolbar: null,
-    breadcrumb: ["Plaza", "Messages"]
+    breadcrumb: ["Plaza", "Conversations"]
   },
   conversation: {
     title: "Conversation",
@@ -2723,6 +2723,7 @@ const plazaConfig = {
 
 const PRIMARY_SCREENS = new Set([
   "feed",
+  "inbox",
   "opportunities",
   "directory",
   "regions",
@@ -4415,19 +4416,19 @@ function openConversationScreen(conversationId) {
   renderConversationScreen(item);
 }
 
-function openInboxScreen() {
+function openInboxScreen(options = {}) {
   renderInboxScreen();
-  openScreen("inbox");
+  openScreen("inbox", options);
 }
 
-function openNotificationsScreen() {
+function openNotificationsScreen(options = {}) {
   renderNotificationsScreen();
-  openScreen("notifications");
+  openScreen("notifications", options);
 }
 
-function openMessagesScreen() {
+function openMessagesScreen(options = {}) {
   renderMessagesScreen();
-  openScreen("messages");
+  openScreen("messages", options);
 }
 
 function renderIncomingDetailScreen(item) {
@@ -5506,7 +5507,19 @@ function bindEvents() {
 
   plazaNavButtons.forEach((button) => {
     button.addEventListener("click", () => {
-      openScreen(button.dataset.navTab, { resetHistory: true, pushHistory: false });
+      const targetTab = button.dataset.navTab || "feed";
+
+      if (targetTab === "inbox") {
+        openInboxScreen({ resetHistory: true, pushHistory: false });
+        return;
+      }
+
+      if (targetTab === "messages") {
+        openMessagesScreen({ resetHistory: true, pushHistory: false });
+        return;
+      }
+
+      openScreen(targetTab, { resetHistory: true, pushHistory: false });
     });
   });
 

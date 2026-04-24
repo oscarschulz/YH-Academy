@@ -1088,8 +1088,7 @@ exports.getRequests = async (req, res) => {
 
         const snap = await plazaRequestsCol
             .where('authorId', '==', viewer.id)
-            .orderBy('updatedAt', 'desc')
-            .limit(limit)
+            .limit(Math.max(limit, 200))
             .get();
 
         const requests = [];
@@ -1103,9 +1102,15 @@ exports.getRequests = async (req, res) => {
             requests.push(mapPlazaRequestDoc(docSnap));
         });
 
+        requests.sort((a, b) => {
+            return String(b.updatedAt || b.createdAt || '').localeCompare(
+                String(a.updatedAt || a.createdAt || '')
+            );
+        });
+
         return res.json({
             success: true,
-            requests
+            requests: requests.slice(0, limit)
         });
     } catch (error) {
         console.error('plazaControllers.getRequests error:', error);

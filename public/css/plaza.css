@@ -2629,3 +2629,595 @@ textarea:focus,
   color: var(--yh-text);
   font-size: 0.82rem;
 }
+/* ========================================================= */
+/* PLAZA UI/UX POLISH — STRUCTURE ONLY, NO PALETTE CHANGE     */
+/* ========================================================= */
+
+.yh-plaza-page {
+  background: #050816;
+}
+
+.yh-plaza-shell {
+  padding: 14px;
+  gap: 14px;
+}
+
+.yh-plaza-app-header {
+  flex: 0 0 auto;
+  min-height: 66px;
+  border-radius: 14px;
+}
+
+.yh-plaza-app-grid {
+  gap: 14px;
+  border-top: 0;
+  grid-template-columns: 250px minmax(0, 1fr) 260px;
+}
+
+.yh-plaza-sidebar,
+.yh-plaza-rail,
+.yh-plaza-workspace {
+  border-radius: 14px;
+}
+
+.yh-plaza-sidebar,
+.yh-plaza-rail {
+  padding: 0;
+  gap: 12px;
+}
+
+.yh-plaza-workspace {
+  padding: 0;
+}
+
+.yh-plaza-workspace-card {
+  min-height: 100%;
+  padding: 24px;
+}
+
+.yh-plaza-workspace-head {
+  align-items: center;
+  gap: 14px;
+}
+
+.yh-plaza-workspace-title {
+  margin-top: 12px;
+  margin-bottom: 8px;
+}
+
+.yh-plaza-workspace-note {
+  max-width: 860px;
+}
+
+.yh-plaza-toolbar-stack {
+  margin-top: 18px;
+  margin-bottom: 4px;
+}
+
+.yh-plaza-panel-toolbar,
+.yh-plaza-directory-toolbar {
+  margin-bottom: 16px;
+}
+
+.yh-plaza-pill-group {
+  gap: 10px;
+}
+
+.yh-plaza-pill,
+.yh-plaza-nav-btn,
+.yh-plaza-btn,
+.yh-plaza-ghost-btn {
+  min-height: 42px;
+}
+
+.yh-plaza-side-nav {
+  gap: 9px;
+}
+
+.yh-plaza-nav-btn {
+  justify-content: flex-start;
+}
+
+.yh-plaza-feed-composer {
+  margin: 16px 0 14px;
+  padding: 18px;
+}
+
+.yh-plaza-feed-composer-main {
+  grid-template-columns: 170px 210px minmax(0, 1fr);
+}
+
+.yh-plaza-feed-composer-field textarea {
+  min-height: 132px;
+}
+
+.yh-plaza-feed-composer-actions {
+  justify-content: flex-start;
+}
+
+.yh-plaza-feed-composer-actions .yh-plaza-btn {
+  width: auto;
+  min-width: 132px;
+}
+
+.yh-plaza-panel-note {
+  margin: 10px 0 8px;
+}
+
+.yh-plaza-feed-grid,
+.yh-plaza-directory-grid,
+.yh-plaza-opportunity-grid,
+.yh-plaza-region-grid,
+.yh-plaza-bridge-grid {
+  gap: 16px;
+}
+
+.yh-plaza-request-list {
+  gap: 16px;
+}
+
+.yh-plaza-screen-shell {
+  gap: 20px;
+}
+
+.yh-plaza-screen-head {
+  align-items: center;
+}
+
+.yh-plaza-screen-title {
+  margin-top: 10px;
+}
+
+.yh-plaza-screen-meta {
+  align-items: center;
+}
+
+.yh-plaza-ops-summary-grid {
+  gap: 12px;
+}
+
+.yh-plaza-message-card,
+.yh-plaza-inbox-card,
+.yh-plaza-request-card,
+.yh-plaza-notification-card {
+  min-width: 0;
+}
+
+.yh-plaza-empty {
+  padding: 18px;
+  border-radius: 14px;
+}
+
+@media (max-width: 1280px) {
+  .yh-plaza-shell {
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .yh-plaza-app-grid {
+    grid-template-columns: 230px minmax(0, 1fr) 240px;
+    gap: 10px;
+  }
+
+  .yh-plaza-workspace-card {
+    padding: 20px;
+  }
+
+  .yh-plaza-feed-composer-main {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .yh-plaza-feed-composer-field-wide,
+  .yh-plaza-feed-composer-field-signal {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 980px) {
+  .yh-plaza-shell {
+    height: auto;
+    min-height: 100dvh;
+    overflow-y: auto;
+  }
+
+  .yh-plaza-app-grid {
+    grid-template-columns: 1fr;
+    overflow: visible;
+  }
+
+  .yh-plaza-sidebar,
+  .yh-plaza-workspace,
+  .yh-plaza-rail {
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .yh-plaza-side-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .yh-plaza-workspace {
+    border-left: 0;
+    border-right: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .yh-plaza-shell {
+    padding: 8px;
+  }
+
+  .yh-plaza-app-header {
+    min-height: 58px;
+    padding: 0 16px;
+  }
+
+  .yh-plaza-side-nav {
+    grid-template-columns: 1fr;
+  }
+
+  .yh-plaza-workspace-card {
+    padding: 16px;
+  }
+
+  .yh-plaza-feed-composer-main {
+    grid-template-columns: 1fr;
+  }
+
+  .yh-plaza-feed-composer-actions .yh-plaza-btn {
+    width: 100%;
+  }
+}
+/* ========================================================= */
+/* PLAZA PREMIUM CARD ROUNDING + TEXT SPACING POLISH          */
+/* Structure only. No color palette changes.                  */
+/* ========================================================= */
+
+.yh-plaza-workspace-card,
+.yh-plaza-side-card,
+.yh-plaza-rail-card,
+.yh-plaza-feed-composer,
+.yh-plaza-feed-card,
+.yh-plaza-directory-card,
+.yh-plaza-opportunity-card,
+.yh-plaza-region-card,
+.yh-plaza-bridge-card,
+.yh-plaza-request-card,
+.yh-plaza-detail-block,
+.yh-plaza-mini-card,
+.yh-plaza-mini-spotlight,
+.yh-plaza-rail-mini,
+.yh-plaza-ops-summary-card,
+.yh-plaza-inbox-card,
+.yh-plaza-message-card,
+.yh-plaza-notification-card,
+.yh-plaza-conversation-bubble,
+.yh-plaza-empty,
+.yh-plaza-economy-panel,
+.yh-plaza-economy-item,
+.yh-plaza-request-section,
+.yh-plaza-application-stop,
+.yh-plaza-access-card,
+.yh-plaza-modal-card,
+.yh-plaza-drawer-card {
+  border-radius: 24px;
+}
+
+.yh-plaza-feed-composer,
+.yh-plaza-feed-card,
+.yh-plaza-directory-card,
+.yh-plaza-opportunity-card,
+.yh-plaza-region-card,
+.yh-plaza-bridge-card,
+.yh-plaza-request-card,
+.yh-plaza-detail-block,
+.yh-plaza-mini-card,
+.yh-plaza-mini-spotlight,
+.yh-plaza-rail-mini,
+.yh-plaza-ops-summary-card,
+.yh-plaza-inbox-card,
+.yh-plaza-message-card,
+.yh-plaza-notification-card,
+.yh-plaza-conversation-bubble {
+  padding: 22px;
+}
+
+.yh-plaza-ops-summary-grid,
+.yh-plaza-feed-grid,
+.yh-plaza-directory-grid,
+.yh-plaza-opportunity-grid,
+.yh-plaza-region-grid,
+.yh-plaza-bridge-grid,
+.yh-plaza-request-list,
+.yh-plaza-inbox-list,
+.yh-plaza-message-list,
+.yh-plaza-notification-list,
+.yh-plaza-conversation-thread,
+.yh-plaza-side-stack,
+.yh-plaza-spotlight-stack,
+.yh-plaza-rail-list {
+  gap: 18px;
+}
+
+.yh-plaza-ops-summary-card,
+.yh-plaza-mini-card,
+.yh-plaza-mini-spotlight,
+.yh-plaza-rail-mini,
+.yh-plaza-feed-card,
+.yh-plaza-directory-card,
+.yh-plaza-opportunity-card,
+.yh-plaza-region-card,
+.yh-plaza-bridge-card,
+.yh-plaza-request-card,
+.yh-plaza-detail-block,
+.yh-plaza-inbox-card,
+.yh-plaza-message-card,
+.yh-plaza-notification-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.yh-plaza-ops-summary-card span,
+.yh-plaza-ops-summary-card small,
+.yh-plaza-mini-card span,
+.yh-plaza-mini-card small,
+.yh-plaza-mini-spotlight span,
+.yh-plaza-mini-spotlight small,
+.yh-plaza-rail-mini span,
+.yh-plaza-rail-mini small,
+.yh-plaza-feed-card p,
+.yh-plaza-directory-card p,
+.yh-plaza-opportunity-card p,
+.yh-plaza-region-card p,
+.yh-plaza-bridge-card p,
+.yh-plaza-request-card p,
+.yh-plaza-detail-block p,
+.yh-plaza-inbox-card p,
+.yh-plaza-message-card p,
+.yh-plaza-notification-card p {
+  line-height: 1.72;
+}
+
+.yh-plaza-ops-summary-card strong,
+.yh-plaza-mini-card strong,
+.yh-plaza-mini-spotlight strong,
+.yh-plaza-rail-mini strong,
+.yh-plaza-feed-card strong,
+.yh-plaza-directory-card strong,
+.yh-plaza-opportunity-card strong,
+.yh-plaza-region-card strong,
+.yh-plaza-bridge-card strong,
+.yh-plaza-request-card strong,
+.yh-plaza-inbox-card strong,
+.yh-plaza-message-card strong,
+.yh-plaza-notification-card strong {
+  line-height: 1.25;
+}
+
+.yh-plaza-ops-summary-card strong {
+  margin-top: 2px;
+  margin-bottom: 2px;
+}
+
+.yh-plaza-inbox-card-head,
+.yh-plaza-notification-card-head,
+.yh-plaza-message-card-head,
+.yh-plaza-economy-panel-head,
+.yh-plaza-screen-head,
+.yh-plaza-workspace-head {
+  gap: 16px;
+}
+
+.yh-plaza-inbox-meta,
+.yh-plaza-message-meta,
+.yh-plaza-notification-meta,
+.yh-plaza-attachment-meta,
+.yh-plaza-request-flow,
+.yh-plaza-inline-actions,
+.yh-plaza-mini-card-actions {
+  gap: 12px;
+}
+
+.yh-plaza-role-filter-row {
+  gap: 12px;
+}
+
+.yh-plaza-role-chip,
+.yh-plaza-pill,
+.yh-plaza-nav-btn,
+.yh-plaza-btn,
+.yh-plaza-ghost-btn {
+  border-radius: 18px;
+}
+
+.yh-plaza-role-chip-count,
+.yh-plaza-chip,
+.yh-plaza-section-kicker,
+.yh-plaza-modal-kicker,
+.yh-plaza-queue-chip,
+.yh-plaza-kind-chip,
+.yh-plaza-notification-status,
+.yh-plaza-incoming-status,
+.yh-plaza-request-status,
+.yh-plaza-attachment-chip,
+.yh-plaza-opportunity-badge {
+  border-radius: 999px;
+}
+
+.yh-plaza-empty {
+  padding: 22px;
+  line-height: 1.7;
+}
+
+.yh-plaza-panel-note {
+  padding: 14px 18px;
+  border-radius: 22px;
+}
+
+@media (max-width: 1280px) {
+  .yh-plaza-feed-composer,
+  .yh-plaza-feed-card,
+  .yh-plaza-directory-card,
+  .yh-plaza-opportunity-card,
+  .yh-plaza-region-card,
+  .yh-plaza-bridge-card,
+  .yh-plaza-request-card,
+  .yh-plaza-detail-block,
+  .yh-plaza-mini-card,
+  .yh-plaza-mini-spotlight,
+  .yh-plaza-rail-mini,
+  .yh-plaza-ops-summary-card,
+  .yh-plaza-inbox-card,
+  .yh-plaza-message-card,
+  .yh-plaza-notification-card,
+  .yh-plaza-conversation-bubble {
+    padding: 20px;
+  }
+
+  .yh-plaza-ops-summary-grid,
+  .yh-plaza-feed-grid,
+  .yh-plaza-directory-grid,
+  .yh-plaza-opportunity-grid,
+  .yh-plaza-region-grid,
+  .yh-plaza-bridge-grid,
+  .yh-plaza-request-list,
+  .yh-plaza-inbox-list,
+  .yh-plaza-message-list,
+  .yh-plaza-notification-list {
+    gap: 16px;
+  }
+}
+
+@media (max-width: 640px) {
+  .yh-plaza-workspace-card,
+  .yh-plaza-side-card,
+  .yh-plaza-rail-card,
+  .yh-plaza-feed-composer,
+  .yh-plaza-feed-card,
+  .yh-plaza-directory-card,
+  .yh-plaza-opportunity-card,
+  .yh-plaza-region-card,
+  .yh-plaza-bridge-card,
+  .yh-plaza-request-card,
+  .yh-plaza-detail-block,
+  .yh-plaza-mini-card,
+  .yh-plaza-mini-spotlight,
+  .yh-plaza-rail-mini,
+  .yh-plaza-ops-summary-card,
+  .yh-plaza-inbox-card,
+  .yh-plaza-message-card,
+  .yh-plaza-notification-card,
+  .yh-plaza-conversation-bubble,
+  .yh-plaza-empty {
+    border-radius: 20px;
+  }
+
+  .yh-plaza-feed-composer,
+  .yh-plaza-feed-card,
+  .yh-plaza-directory-card,
+  .yh-plaza-opportunity-card,
+  .yh-plaza-region-card,
+  .yh-plaza-bridge-card,
+  .yh-plaza-request-card,
+  .yh-plaza-detail-block,
+  .yh-plaza-mini-card,
+  .yh-plaza-mini-spotlight,
+  .yh-plaza-rail-mini,
+  .yh-plaza-ops-summary-card,
+  .yh-plaza-inbox-card,
+  .yh-plaza-message-card,
+  .yh-plaza-notification-card,
+  .yh-plaza-conversation-bubble {
+    padding: 18px;
+  }
+}
+/* ========================================================= */
+/* PLAZA OPPORTUNITY CARD CHIP CONTAINMENT POLISH             */
+/* Keeps opportunity badges inside the card. No palette change */
+/* ========================================================= */
+
+.yh-plaza-opportunity-card {
+  min-width: 0;
+  overflow: hidden;
+  gap: 16px;
+}
+
+.yh-plaza-opportunity-card-head {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.yh-plaza-opportunity-card-head > * {
+  min-width: 0;
+}
+
+.yh-plaza-opportunity-badge {
+  max-width: 100%;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  text-align: center;
+  line-height: 1.25;
+  padding: 8px 11px;
+}
+
+.yh-plaza-opportunity-card .yh-plaza-opportunity-badge {
+  flex: 0 1 auto;
+}
+
+.yh-plaza-opportunity-card h3 {
+  margin-top: 8px;
+}
+
+.yh-plaza-opportunity-card > p {
+  margin-top: 0;
+}
+
+.yh-plaza-opportunity-card .yh-plaza-economy-panel {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.yh-plaza-opportunity-card .yh-plaza-economy-grid {
+  min-width: 0;
+}
+
+.yh-plaza-opportunity-card .yh-plaza-economy-item {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.yh-plaza-opportunity-card .yh-plaza-card-actions {
+  width: 100%;
+}
+
+.yh-plaza-opportunity-card .yh-plaza-card-actions .yh-plaza-btn,
+.yh-plaza-opportunity-card .yh-plaza-card-actions .yh-plaza-ghost-btn {
+  max-width: 100%;
+  white-space: normal;
+  text-align: center;
+  line-height: 1.25;
+}
+
+@media (max-width: 760px) {
+  .yh-plaza-opportunity-card-head {
+    gap: 7px;
+  }
+
+  .yh-plaza-opportunity-badge {
+    min-height: 32px;
+    padding: 7px 10px;
+    font-size: 11px;
+  }
+}
