@@ -3167,15 +3167,6 @@ document.getElementById('academy-member-browser-modal')?.addEventListener('click
     }
 });
 
-document.getElementById('academy-member-browser-search-input')?.addEventListener('input', (event) => {
-    loadAcademyMemberBrowser(event.currentTarget?.value || '').catch(() => {});
-});
-
-document.getElementById('academy-member-browser-search-input')?.addEventListener('keydown', (event) => {
-    if (event.key !== 'Enter') return;
-    event.preventDefault();
-    loadAcademyMemberBrowser(event.currentTarget?.value || '').catch(() => {});
-});
 
     // ==========================================
     // ⚡ REAL-TIME CHAT LOGIC (SOCKET.IO)
@@ -8164,19 +8155,21 @@ function openAcademyProfileView() {
 const YH_ACADEMY_VISIT_PROFILE_TARGET_KEY = 'yh_academy_visit_profile_target_v1';
 
 function shouldRedirectAcademyProfileVisitToStandaloneAcademy() {
-    const isDashboardHub =
+    const profileView = document.getElementById('academy-profile-view');
+
+    const isDashboardPage =
         typeof isStandaloneDashboardPage === 'function' &&
         isStandaloneDashboardPage();
 
-    const profileView = document.getElementById('academy-profile-view');
-    const academyWrapper = document.getElementById('academy-wrapper');
+    if (isDashboardPage && profileView) {
+        return false;
+    }
 
-    return (
-        isDashboardHub ||
-        !profileView ||
-        !academyWrapper ||
-        document.body?.getAttribute('data-yh-view') === 'hub'
-    );
+    if (document.body?.getAttribute('data-yh-page') === 'academy' && profileView) {
+        return false;
+    }
+
+    return !profileView;
 }
 
 function redirectToStandaloneAcademyMemberProfile(memberId = '') {
@@ -8447,7 +8440,7 @@ async function requestAcademyMemberSearch(query = '') {
 
 function academySyncSearchInputs(value = '', sourceInputId = '') {
     const normalizedValue = String(value || '');
-    ['academy-global-search-input', 'academy-member-browser-search-input'].forEach((id) => {
+    ['academy-global-search-input', 'academy-member-browser-search-input', 'yh-dashboard-profile-search-input'].forEach((id) => {
         if (id === sourceInputId) return;
         const input = document.getElementById(id);
         if (input && input.value !== normalizedValue) {
@@ -10635,18 +10628,57 @@ document.getElementById('academy-search-results-panel')?.addEventListener('click
     }
 });
 
-function openDashboardUniverseProfileSearch(query = '') {
+let yhDashboardProfileSearchDebounce = null;
+
+function setDashboardProfileSearchLoading(isLoading = false) {
+    const button = document.getElementById('yh-dashboard-profile-search-btn');
+    if (!button) return;
+
+    button.disabled = Boolean(isLoading);
+    button.textContent = isLoading ? 'Searching...' : 'Search';
+}
+
+async function openDashboardUniverseProfileSearch(query = '') {
     const cleanQuery = String(query || '').trim();
     const browserInput = document.getElementById('academy-member-browser-search-input');
+    const profileInput = document.getElementById('yh-dashboard-profile-search-input');
 
-    if (browserInput) {
+    if (browserInput && browserInput.value !== cleanQuery) {
         browserInput.value = cleanQuery;
     }
 
-    loadAcademyMemberBrowser(cleanQuery).catch((error) => {
+    if (profileInput && profileInput.value !== cleanQuery) {
+        profileInput.value = cleanQuery;
+    }
+
+    setDashboardProfileSearchLoading(true);
+
+    try {
+        await loadAcademyMemberBrowser(cleanQuery);
+    } catch (error) {
         console.error('openDashboardUniverseProfileSearch error:', error);
         showToast(error?.message || 'Failed to search YH members.', 'error');
-    });
+    } finally {
+        setDashboardProfileSearchLoading(false);
+    }
+}
+
+function scheduleDashboardUniverseProfileSearch(query = '', options = {}) {
+    const cleanQuery = String(query || '').trim();
+    const immediate = options?.immediate === true;
+
+    if (yhDashboardProfileSearchDebounce) {
+        clearTimeout(yhDashboardProfileSearchDebounce);
+        yhDashboardProfileSearchDebounce = null;
+    }
+
+    if (!immediate && cleanQuery.length > 0 && cleanQuery.length < 2) {
+        return;
+    }
+
+    yhDashboardProfileSearchDebounce = window.setTimeout(() => {
+        openDashboardUniverseProfileSearch(cleanQuery);
+    }, immediate ? 0 : 320);
 }
 
 document.getElementById('yh-dashboard-profile-search-form')?.addEventListener('submit', (event) => {
@@ -10656,7 +10688,12 @@ document.getElementById('yh-dashboard-profile-search-form')?.addEventListener('s
         document.getElementById('yh-dashboard-profile-search-input')?.value || ''
     ).trim();
 
-    openDashboardUniverseProfileSearch(query);
+    scheduleDashboardUniverseProfileSearch(query, { immediate: true });
+});
+
+document.getElementById('yh-dashboard-profile-search-input')?.addEventListener('input', (event) => {
+    const query = String(event.currentTarget?.value || '').trim();
+    scheduleDashboardUniverseProfileSearch(query);
 });
 
 document.getElementById('yh-dashboard-profile-search-input')?.addEventListener('keydown', (event) => {
@@ -10665,7 +10702,7 @@ document.getElementById('yh-dashboard-profile-search-input')?.addEventListener('
     event.preventDefault();
 
     const query = String(event.currentTarget?.value || '').trim();
-    openDashboardUniverseProfileSearch(query);
+    scheduleDashboardUniverseProfileSearch(query, { immediate: true });
 });
 
 document.getElementById('academy-member-browser-close')?.addEventListener('click', () => {

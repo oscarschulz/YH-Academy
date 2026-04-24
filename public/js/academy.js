@@ -13303,6 +13303,15 @@ async function openAcademyProfilePostInFeed(postId = '') {
     });
 }
 async function openAcademyProfileView(forceFresh = false) {
+    if (document.body?.getAttribute('data-yh-page') === 'academy') {
+        try {
+            sessionStorage.setItem('yh_dashboard_open_profile_v1', 'self');
+        } catch (_) {}
+
+        window.location.href = '/dashboard?view=profile';
+        return;
+    }
+
     const profileEntryLayoutContext = academyBuildProfileEntryLayoutContext();
 
     academyPushFeedFallbackHistory('profile');
@@ -16780,7 +16789,11 @@ function restoreDashboardViewState() {
     const targetSection = resolveAcademyRefreshSection();
 
     if (targetSection === 'profile') {
-        enterAcademyWorld('profile');
+        try {
+            sessionStorage.setItem('yh_dashboard_open_profile_v1', 'self');
+        } catch (_) {}
+
+        goToDashboardPage();
         return;
     }
 
@@ -16909,7 +16922,11 @@ function enterAcademyWorld(defaultSection = 'home') {
         }
 
         if (defaultSection === 'profile') {
-            openAcademyProfileView();
+            try {
+                sessionStorage.setItem('yh_dashboard_open_profile_v1', 'self');
+            } catch (_) {}
+
+            goToDashboardPage();
             return;
         }
 
