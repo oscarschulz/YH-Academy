@@ -321,6 +321,32 @@ function normalizeAdminLeadMissionRecord(record = {}) {
     networkTags: Array.from(new Set(networkTags.map((item) => String(item || '').trim().toLowerCase()).filter(Boolean))),
     strategicValue: String(record.strategicValue || 'standard').trim() || 'standard',
 
+    sourceFeature: String(record.sourceFeature || '').trim(),
+    sourceRecordId: String(record.sourceRecordId || '').trim(),
+    sourceRecordPath: String(record.sourceRecordPath || '').trim(),
+    routedFromAdmin: record.routedFromAdmin === true,
+    routedSourceTitle: String(record.routedSourceTitle || '').trim(),
+    assignedByAdmin: String(record.assignedByAdmin || '').trim(),
+    assignedAt: String(record.assignedAt || '').trim(),
+    assignmentStatus: String(record.assignmentStatus || '').trim(),
+    reviewStatus: String(record.reviewStatus || '').trim(),
+    completionProof: String(record.completionProof || '').trim(),
+    submittedAt: String(record.submittedAt || '').trim(),
+    submittedByName: String(record.submittedByName || '').trim(),
+    reviewedAt: String(record.reviewedAt || '').trim(),
+    reviewedBy: String(record.reviewedBy || '').trim(),
+    adminReviewNote: String(record.adminReviewNote || '').trim(),
+    missionType: String(record.missionType || '').trim(),
+    missionBrief: String(record.missionBrief || '').trim(),
+    academyMissionNeed: String(record.academyMissionNeed || '').trim(),
+    opportunityOwnerName: String(record.opportunityOwnerName || '').trim(),
+    opportunityValueAmount: Number(record.opportunityValueAmount || 0),
+    platformCommissionRate: Number(record.platformCommissionRate || 0),
+    platformCommissionAmount: Number(record.platformCommissionAmount || 0),
+    operatorPayoutAmount: Number(record.operatorPayoutAmount || 0),
+    earningLedgerId: String(record.earningLedgerId || '').trim(),
+    earningStatus: String(record.earningStatus || '').trim(),
+
     tier: String(record.tier || '').trim(),
     companyName: String(record.companyName || '').trim(),
     companyWebsite: String(record.companyWebsite || '').trim(),
@@ -2123,7 +2149,12 @@ function renderAcademy() {
         ))}
         ${makeCell('Actions', `
           <div class="table-actions">
-            <button data-open="academyLeadMission" data-id="${item.id}">Open</button>
+              <button data-open="academyLeadMission" data-id="${item.id}">Open</button>
+              ${String(item.assignmentStatus || item.taskStatus || item.pipelineStage || '').toLowerCase() === 'submitted' ? `
+                <button data-action="lead-review-approve" data-id="${item.id}">Approve</button>
+                <button data-action="lead-review-revision" data-id="${item.id}">Revision</button>
+                <button data-action="lead-review-reject" data-id="${item.id}">Reject</button>
+              ` : ''}
             <button data-action="lead-federation-ready" data-id="${item.id}">
               ${item.federationReady ? 'Unmark Federation' : 'Federation Ready'}
             </button>
@@ -2517,6 +2548,7 @@ function renderFederation() {
         ${makeCell('Actions', `
           <div class="table-actions">
             <button data-open="federationDealRoom" data-id="${item.id}">Open</button>
+            <button data-action="federation-deal-room-route-academy" data-id="${item.id}">Route to Academy</button>
             <button data-action="federation-deal-room-status-approved" data-id="${item.id}">Approve</button>
             <button data-action="federation-deal-room-status-in_discussion" data-id="${item.id}">In Discussion</button>
             <button data-action="federation-deal-room-status-commission_due" data-id="${item.id}">Commission Due</button>
@@ -2552,6 +2584,7 @@ function renderPlazas() {
       ${makeCell('Actions', `
         <div class="table-actions">
           <button data-open="plazas" data-id="${item.id}">Open</button>
+          <button data-action="plazas-route-academy" data-id="${item.id}">Route to Academy</button>
           <button data-action="plazas-approve" data-id="${item.id}">Approve</button>
           <button data-action="plazas-feature" data-id="${item.id}">${item.featured ? 'Unfeature' : 'Feature'}</button>
         </div>
@@ -3215,6 +3248,26 @@ if (type === 'application') {
       ))
       .join('');
 
+    const assignmentStatus = String(record.assignmentStatus || record.taskStatus || record.pipelineStage || '').trim().toLowerCase();
+    const isSubmittedForReview = assignmentStatus === 'submitted';
+    const hasRoutedMissionSignal =
+      record.routedFromAdmin === true ||
+      String(record.sourceMethod || '').trim().toLowerCase().startsWith('admin_routed_') ||
+      String(record.callType || '').trim().toLowerCase() === 'opportunity_mission' ||
+      Boolean(String(record.assignmentStatus || '').trim());
+
+    const routedMissionReviewActions = isSubmittedForReview ? `
+      <div class="drawer-section">
+        <h4>Mission Review Actions</h4>
+        <p class="muted">This mission has been submitted by the Academy operator and is waiting for admin review.</p>
+        <div class="inline-actions">
+          <button class="badge-btn" data-action="lead-review-approve" data-id="${record.id}">Approve Mission</button>
+          <button class="badge-btn" data-action="lead-review-revision" data-id="${record.id}">Request Revision</button>
+          <button class="badge-btn" data-action="lead-review-reject" data-id="${record.id}">Reject Mission</button>
+        </div>
+      </div>
+    ` : '';
+
     return `
       <div class="drawer-section">
         <h4>Lead Mission Record</h4>
@@ -3236,17 +3289,72 @@ if (type === 'application') {
       <div class="drawer-section">
         <h4>Network Routing</h4>
         <p><strong>Source Division:</strong> ${escapeHtml(record.sourceDivision || 'academy')}</p>
+        <p><strong>Source Feature:</strong> ${escapeHtml(record.sourceFeature || '—')}</p>
+        <p><strong>Source Record:</strong> ${escapeHtml(record.sourceRecordId || record.sourceRecordPath || '—')}</p>
         <p><strong>Access Scopes:</strong> ${scopeBadges || '—'}</p>
         <p><strong>Network Tags:</strong> ${tagBadges || '—'}</p>
         <p><strong>Federation Ready:</strong> ${record.federationReady ? 'Yes' : 'No'}</p>
         <p><strong>Plaza Ready:</strong> ${record.plazaReady ? 'Yes' : 'No'}</p>
       </div>
+
+      ${hasRoutedMissionSignal ? `
+        <div class="drawer-section">
+          <h4>Routed Academy Assignment</h4>
+          <div class="kv-grid">
+            <div class="kv"><span>Assignment Status</span><strong>${escapeHtml(record.assignmentStatus || record.taskStatus || record.pipelineStage || 'assigned')}</strong></div>
+            <div class="kv"><span>Review Status</span><strong>${escapeHtml(record.reviewStatus || '—')}</strong></div>
+            <div class="kv"><span>Mission Type</span><strong>${escapeHtml(record.missionType || record.contactType || 'opportunity_mission')}</strong></div>
+            <div class="kv"><span>Routed Source</span><strong>${escapeHtml(record.routedSourceTitle || record.companyName || '—')}</strong></div>
+            <div class="kv"><span>Assigned By</span><strong>${escapeHtml(record.assignedByAdmin || 'admin')}</strong></div>
+            <div class="kv"><span>Assigned At</span><strong>${escapeHtml(record.assignedAt || '—')}</strong></div>
+            <div class="kv"><span>Opportunity Value</span><strong>${escapeHtml(formatAdminMoney(record.opportunityValueAmount || 0, record.currency || 'USD'))}</strong></div>
+            <div class="kv"><span>Operator Payout</span><strong>${escapeHtml(formatAdminMoney(record.operatorPayoutAmount || 0, record.currency || 'USD'))}</strong></div>
+            <div class="kv"><span>Platform Commission</span><strong>${escapeHtml(formatAdminMoney(record.platformCommissionAmount || 0, record.currency || 'USD'))}</strong></div>
+            <div class="kv"><span>Commission Rate</span><strong>${escapeHtml(String(record.platformCommissionRate || 0))}%</strong></div>
+          </div>
+        </div>
+
+        <div class="drawer-section">
+          <h4>Mission Brief</h4>
+          <div class="stack-list">
+            <div class="stack-item">
+              <p>${escapeHtml(record.missionBrief || record.academyMissionNeed || record.nextAction || 'No mission brief saved.')}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="drawer-section">
+          <h4>Submitted Proof</h4>
+          <div class="stack-list">
+            <div class="stack-item">
+              <p>${escapeHtml(record.completionProof || 'No completion proof submitted yet.')}</p>
+              ${record.submittedAt ? `<p class="muted">Submitted: ${escapeHtml(record.submittedAt)}</p>` : ''}
+              ${record.submittedByName ? `<p class="muted">Submitted by: ${escapeHtml(record.submittedByName)}</p>` : ''}
+            </div>
+          </div>
+        </div>
+
+        <div class="drawer-section">
+          <h4>Admin Review Result</h4>
+          <div class="stack-list">
+            <div class="stack-item">
+              <p><strong>Reviewed By:</strong> ${escapeHtml(record.reviewedBy || '—')}</p>
+              <p><strong>Reviewed At:</strong> ${escapeHtml(record.reviewedAt || '—')}</p>
+              <p><strong>Admin Note:</strong> ${escapeHtml(record.adminReviewNote || 'No admin review note yet.')}</p>
+              <p><strong>Earning Status:</strong> ${escapeHtml(record.earningStatus || '—')}</p>
+              <p><strong>Earning Ledger:</strong> ${escapeHtml(record.earningLedgerId || '—')}</p>
+            </div>
+          </div>
+        </div>
+      ` : ''}
       <div class="drawer-section">
         <h4>Operator Notes</h4>
         <div class="stack-list">
           <div class="stack-item"><p>${escapeHtml(record.notes || 'No notes yet.')}</p></div>
         </div>
       </div>
+      ${routedMissionReviewActions}
+
       <div class="drawer-section">
         <h4>Admin Network Actions</h4>
         <div class="inline-actions">
@@ -3781,6 +3889,364 @@ async function updateAcademyLeadMissionNetwork(record, patch = {}) {
   if (refreshed) {
     openDrawer('academyLeadMission', refreshed.id);
   }
+}
+function getAdminAcademyOperatorOptions() {
+  const options = [];
+
+  (state.members || []).forEach((member) => {
+    const divisions = Array.isArray(member.divisions)
+      ? member.divisions.map((item) => String(item || '').trim().toLowerCase())
+      : [];
+
+    if (!divisions.includes('academy')) return;
+
+    const id = String(member.id || member.memberId || '').trim();
+    if (!id) return;
+
+    options.push({
+      id,
+      label: `${member.name || member.fullName || member.email || id} — ${id}`
+    });
+  });
+
+  (state.academy || []).forEach((member) => {
+    const id = String(member.memberId || member.id || member.ownerUid || '').trim();
+    if (!id) return;
+
+    if (options.some((item) => item.id === id)) return;
+
+    options.push({
+      id,
+      label: `${member.name || member.fullName || member.memberName || member.email || id} — ${id}`
+    });
+  });
+
+  return options;
+}
+
+function openAdminInlineModal(config = {}) {
+  return new Promise((resolve) => {
+    const existing = document.getElementById('yh-admin-inline-modal');
+    if (existing) existing.remove();
+
+    const fields = Array.isArray(config.fields) ? config.fields : [];
+
+    const overlay = document.createElement('div');
+    overlay.id = 'yh-admin-inline-modal';
+    overlay.style.position = 'fixed';
+    overlay.style.inset = '0';
+    overlay.style.zIndex = '30000';
+    overlay.style.background = 'rgba(0,0,0,.68)';
+    overlay.style.display = 'flex';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+    overlay.style.padding = '18px';
+
+    const card = document.createElement('form');
+    card.style.width = 'min(94vw, 620px)';
+    card.style.maxHeight = '86vh';
+    card.style.overflow = 'auto';
+    card.style.background = '#0b1220';
+    card.style.border = '1px solid rgba(255,255,255,.14)';
+    card.style.borderRadius = '18px';
+    card.style.boxShadow = '0 24px 80px rgba(0,0,0,.48)';
+    card.style.padding = '20px';
+    card.style.color = '#f8fafc';
+
+    card.innerHTML = `
+      <div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:16px;">
+        <div>
+          <div style="font-size:.75rem;text-transform:uppercase;letter-spacing:.14em;color:#8bb3ff;font-weight:700;">Admin Action</div>
+          <h3 style="margin:5px 0 4px;font-size:1.1rem;">${escapeHtml(config.title || 'Admin Action')}</h3>
+          <p style="margin:0;color:#98a4b8;font-size:.86rem;line-height:1.5;">${escapeHtml(config.description || '')}</p>
+        </div>
+        <button type="button" data-admin-modal-cancel style="border:0;background:rgba(255,255,255,.08);color:#fff;border-radius:10px;padding:8px 10px;">✕</button>
+      </div>
+
+      <div data-admin-modal-fields style="display:grid;gap:13px;"></div>
+
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px;">
+        <button type="button" data-admin-modal-cancel style="border:1px solid rgba(255,255,255,.14);background:transparent;color:#f8fafc;border-radius:12px;padding:10px 14px;">Cancel</button>
+        <button type="submit" style="border:0;background:#4d8bff;color:#fff;border-radius:12px;padding:10px 14px;font-weight:700;">${escapeHtml(config.submitLabel || 'Continue')}</button>
+      </div>
+    `;
+
+    const fieldsWrap = card.querySelector('[data-admin-modal-fields]');
+
+    fields.forEach((field) => {
+      const wrap = document.createElement('label');
+      wrap.style.display = 'grid';
+      wrap.style.gap = '7px';
+      wrap.style.fontSize = '.86rem';
+      wrap.style.color = '#dbeafe';
+
+      const label = document.createElement('span');
+      label.textContent = field.label || field.name || 'Field';
+      label.style.fontWeight = '700';
+
+      let input;
+
+      if (field.type === 'select') {
+        input = document.createElement('select');
+        (field.options || []).forEach((option) => {
+          const opt = document.createElement('option');
+          opt.value = option.value;
+          opt.textContent = option.label;
+          if (String(option.value) === String(field.value || '')) opt.selected = true;
+          input.appendChild(opt);
+        });
+      } else if (field.type === 'textarea') {
+        input = document.createElement('textarea');
+        input.rows = field.rows || 5;
+        input.value = field.value || '';
+      } else {
+        input = document.createElement('input');
+        input.type = field.type || 'text';
+        input.value = field.value || '';
+        if (field.min !== undefined) input.min = field.min;
+        if (field.max !== undefined) input.max = field.max;
+        if (field.step !== undefined) input.step = field.step;
+      }
+
+      input.name = field.name;
+      input.placeholder = field.placeholder || '';
+      input.required = field.required === true;
+      input.style.width = '100%';
+      input.style.border = '1px solid rgba(255,255,255,.14)';
+      input.style.background = 'rgba(255,255,255,.06)';
+      input.style.color = '#f8fafc';
+      input.style.borderRadius = '12px';
+      input.style.padding = '11px 12px';
+      input.style.outline = 'none';
+      input.style.boxSizing = 'border-box';
+
+      wrap.appendChild(label);
+      wrap.appendChild(input);
+      fieldsWrap.appendChild(wrap);
+    });
+
+    function cleanup(value) {
+      overlay.remove();
+      resolve(value);
+    }
+
+    card.querySelectorAll('[data-admin-modal-cancel]').forEach((button) => {
+      button.addEventListener('click', () => cleanup(null));
+    });
+
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) cleanup(null);
+    });
+
+    card.addEventListener('submit', (event) => {
+      event.preventDefault();
+
+      const output = {};
+      const formData = new FormData(card);
+
+      fields.forEach((field) => {
+        output[field.name] = String(formData.get(field.name) || '').trim();
+      });
+
+      cleanup(output);
+    });
+
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+
+    const firstInput = card.querySelector('select, textarea, input');
+    if (firstInput) firstInput.focus();
+  });
+}
+async function reviewAcademyRoutedMission(record, decision = '') {
+  if (!record?.memberId && !record?.ownerUid) {
+    throw new Error('Missing Lead Mission owner id.');
+  }
+
+  if (!record?.id) {
+    throw new Error('Missing Lead Mission id.');
+  }
+
+  const memberId = record.memberId || record.ownerUid;
+  const cleanDecision = String(decision || '').trim().toLowerCase();
+
+  const modalResult = await openAdminInlineModal({
+    title:
+      cleanDecision === 'approved'
+        ? 'Approve Academy Mission'
+        : cleanDecision === 'revision_requested'
+          ? 'Request Mission Revision'
+          : 'Reject Academy Mission',
+    description:
+      cleanDecision === 'approved'
+        ? 'Confirm the operator payout and add an optional approval note.'
+        : cleanDecision === 'revision_requested'
+          ? 'Tell the operator what needs to be corrected before approval.'
+          : 'Add the reason this mission is being rejected.',
+    submitLabel:
+      cleanDecision === 'approved'
+        ? 'Approve Mission'
+        : cleanDecision === 'revision_requested'
+          ? 'Send Revision'
+          : 'Reject Mission',
+    fields: [
+      ...(cleanDecision === 'approved'
+        ? [{
+            name: 'operatorPayoutAmount',
+            label: 'Operator Payout Amount',
+            type: 'number',
+            min: '0',
+            step: '1',
+            value: String(record.operatorPayoutAmount || 0),
+            required: true
+          }]
+        : []),
+      {
+        name: 'adminNote',
+        label:
+          cleanDecision === 'revision_requested'
+            ? 'Revision Note'
+            : cleanDecision === 'rejected'
+              ? 'Rejection Note'
+              : 'Approval Note',
+        type: 'textarea',
+        rows: 5,
+        value: '',
+        required: cleanDecision !== 'approved',
+        placeholder: 'Write the admin note here...'
+      }
+    ]
+  });
+
+  if (!modalResult) return null;
+
+  const payload = {
+    decision: cleanDecision,
+    adminNote: String(modalResult.adminNote || '').trim()
+  };
+
+  if (cleanDecision === 'approved') {
+    payload.operatorPayoutAmount = Number(modalResult.operatorPayoutAmount || 0);
+    payload.currency = record.currency || 'USD';
+  }
+
+  const { data } = await adminFetchJson(
+    `/api/admin/academy/lead-missions/${encodeURIComponent(memberId)}/${encodeURIComponent(record.id)}/review`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    }
+  );
+
+  await loadAdminBootstrap();
+
+  const refreshed = findById('academyLeadMissions', record.id);
+  if (refreshed) {
+    openDrawer('academyLeadMission', refreshed.id);
+  }
+
+  return data;
+}
+
+function getAcademyRouteMemberPromptDefault() {
+  const academyMember =
+    (state.members || []).find((member) => {
+      return Array.isArray(member.divisions) && member.divisions.includes('Academy');
+    }) ||
+    (state.academy || []).find((member) => member.memberId);
+
+  return academyMember?.id || academyMember?.memberId || '';
+}
+
+async function routeAdminOpportunityToAcademy(sourceType = '', record = {}) {
+  const sourceId = String(record?.id || '').trim();
+
+  if (!sourceId) {
+    throw new Error('Missing source record id.');
+  }
+
+  const defaultMemberId = getAcademyRouteMemberPromptDefault();
+  const operatorOptions = getAdminAcademyOperatorOptions();
+
+  const defaultBrief =
+    record.academyMissionNeed ||
+    record.partnerNeed ||
+    record.monetizationNote ||
+    record.text ||
+    record.description ||
+    `Review and execute: ${record.title || 'Opportunity Mission'}`;
+
+  const modalResult = await openAdminInlineModal({
+    title: 'Route to Academy Mission',
+    description: 'Choose the Academy operator and write the exact mission brief. This will create a real assigned mission in the operator workspace.',
+    submitLabel: 'Route Mission',
+    fields: [
+      operatorOptions.length
+        ? {
+            name: 'memberId',
+            label: 'Academy Operator',
+            type: 'select',
+            value: defaultMemberId,
+            required: true,
+            options: operatorOptions.map((item) => ({
+              value: item.id,
+              label: item.label
+            }))
+          }
+        : {
+            name: 'memberId',
+            label: 'Academy Operator / Member ID',
+            type: 'text',
+            value: defaultMemberId,
+            required: true,
+            placeholder: 'Paste Academy member ID'
+          },
+      {
+        name: 'missionBrief',
+        label: 'Operator Mission Brief',
+        type: 'textarea',
+        rows: 6,
+        value: String(defaultBrief || '').trim(),
+        required: true,
+        placeholder: 'Describe exactly what the Academy operator should do...'
+      }
+    ]
+  });
+
+  if (!modalResult) return null;
+
+  const cleanMemberId = String(modalResult.memberId || '').trim();
+
+  if (!cleanMemberId) {
+    throw new Error('Academy operator/member ID is required.');
+  }
+
+  const { data } = await adminFetchJson('/api/admin/academy/route-opportunity-mission', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      sourceType,
+      sourceId,
+      memberId: cleanMemberId,
+      missionBrief: String(modalResult.missionBrief || '').trim()
+    })
+  });
+
+  await loadAdminBootstrap();
+
+  const missionId = data?.mission?.id || '';
+  const routedMission = missionId ? findById('academyLeadMissions', missionId) : null;
+
+  if (routedMission) {
+    openDrawer('academyLeadMission', routedMission.id);
+  }
+
+  return data;
 }
 
 function openDrawer(type, id) {
@@ -4335,15 +4801,33 @@ case 'lead-set-strategic-value': {
     if (!record) throw new Error('Lead Mission record not found.');
 
     const currentValue = String(record.strategicValue || 'standard').trim() || 'standard';
-    const nextValue = window.prompt(
-      'Set strategic value: standard, watch, medium, high, or strategic',
-      currentValue
-    );
 
-    if (nextValue === null) return;
+    const modalResult = await openAdminInlineModal({
+      title: 'Set Strategic Value',
+      description: 'Choose how valuable this Academy Lead Mission is for Plaza, Federation, and the wider YH economy.',
+      submitLabel: 'Save Value',
+      fields: [
+        {
+          name: 'strategicValue',
+          label: 'Strategic Value',
+          type: 'select',
+          value: currentValue,
+          required: true,
+          options: [
+            { value: 'standard', label: 'Standard' },
+            { value: 'watch', label: 'Watch' },
+            { value: 'medium', label: 'Medium' },
+            { value: 'high', label: 'High' },
+            { value: 'strategic', label: 'Strategic' }
+          ]
+        }
+      ]
+    });
+
+    if (!modalResult) return;
 
     await updateAcademyLeadMissionNetwork(record, {
-      strategicValue: nextValue
+      strategicValue: String(modalResult.strategicValue || currentValue).trim()
     });
 
     showToast('Strategic value updated.');
@@ -4354,6 +4838,69 @@ case 'lead-set-strategic-value': {
   }
   break;
 }
+case 'lead-review-approve':
+case 'lead-review-revision':
+case 'lead-review-reject': {
+  try {
+    const record = findById('academyLeadMissions', id);
+    if (!record) throw new Error('Lead Mission record not found.');
+
+    const decision =
+      action === 'lead-review-approve'
+        ? 'approved'
+        : action === 'lead-review-revision'
+          ? 'revision_requested'
+          : 'rejected';
+
+    const result = await reviewAcademyRoutedMission(record, decision);
+
+    if (result) {
+      showToast(`Lead Mission marked ${decision.replace(/_/g, ' ')}.`);
+    }
+  } catch (error) {
+    if (error?.message !== 'No active admin session.') {
+      showToast(error.message || 'Failed to review Lead Mission.');
+    }
+  }
+  break;
+}
+
+case 'plazas-route-academy': {
+  try {
+    const record = findById('plazas', id);
+    if (!record) throw new Error('Plaza listing not found.');
+
+    const result = await routeAdminOpportunityToAcademy('plaza', record);
+
+    if (result) {
+      showToast('Plaza opportunity routed to Academy Mission.');
+    }
+  } catch (error) {
+    if (error?.message !== 'No active admin session.') {
+      showToast(error.message || 'Failed to route Plaza listing to Academy.');
+    }
+  }
+  break;
+}
+
+case 'federation-deal-room-route-academy': {
+  try {
+    const record = findById('federationDealRooms', id);
+    if (!record) throw new Error('Federation Deal Room not found.');
+
+    const result = await routeAdminOpportunityToAcademy('federation_deal_room', record);
+
+    if (result) {
+      showToast('Federation Deal Room routed to Academy Mission.');
+    }
+  } catch (error) {
+    if (error?.message !== 'No active admin session.') {
+      showToast(error.message || 'Failed to route Federation Deal Room to Academy.');
+    }
+  }
+  break;
+}
+
 case 'federation-request-match-selected': {
   try {
     const record = findById('federationConnectionRequests', id);

@@ -38,6 +38,11 @@ router.post('/verify-forgot-otp', authController.verifyForgotOTP);
 router.post('/reset-password', authController.resetPassword);
 
 
+// ==========================================
+// 🌌 YH UNIVERSE CANONICAL PROFILE ROUTES
+// ==========================================
+router.get('/universe/profile', auth, academyControllers.getUniverseProfile);
+
 router.post('/academy/membership-apply', auth, academyControllers.submitMembershipApplication);
 router.get('/academy/membership-status', auth, academyControllers.getMembershipStatus);
 router.post('/academy/roadmap-apply', auth, academyControllers.submitRoadmapApplication);
@@ -56,6 +61,8 @@ router.get('/academy/assistant/messages', auth, academyControllers.getAcademyCoa
 router.post('/academy/assistant/chat', auth, academyControllers.chatWithAcademyCoach);
 
 router.get('/academy/lead-missions/workspace', auth, academyControllers.getLeadMissionsWorkspace);
+router.get('/academy/opportunity-missions', auth, academyControllers.listAcademyOpportunityMissions);
+router.post('/academy/lead-missions/:id/submit', auth, academyControllers.submitRoutedLeadMission);
 router.get('/academy/lead-missions/leads', auth, academyControllers.listMyLeadMissionsLeads);
 router.post('/academy/lead-missions/leads', auth, academyControllers.createLeadMissionLead);
 router.get('/academy/lead-missions/leads/:id', auth, academyControllers.getMyLeadMissionLeadById);

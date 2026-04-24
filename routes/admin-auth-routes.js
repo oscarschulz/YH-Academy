@@ -413,7 +413,24 @@ function buildAdminLeadMissionProjection(lead = {}, member = {}, payouts = [], d
     memberId: cleanText(member.id),
     memberName: cleanText(member.name),
     operatorName: cleanText(member.name),
-    sourceDivision: 'academy',
+    sourceDivision: cleanText(lead.sourceDivision || 'academy') || 'academy',
+    sourceFeature: cleanText(lead.sourceFeature || ''),
+    sourceRecordId: cleanText(lead.sourceRecordId || ''),
+    sourceRecordPath: cleanText(lead.sourceRecordPath || ''),
+    routedFromAdmin: lead.routedFromAdmin === true,
+    routedSourceTitle: cleanText(lead.routedSourceTitle || ''),
+    assignedByAdmin: cleanText(lead.assignedByAdmin || ''),
+    assignedAt: toIso(lead.assignedAt) || cleanText(lead.assignedAt || ''),
+    assignmentStatus: cleanText(lead.assignmentStatus || ''),
+    missionType: cleanText(lead.missionType || ''),
+    missionBrief: cleanText(lead.missionBrief || ''),
+    academyMissionNeed: cleanText(lead.academyMissionNeed || ''),
+    opportunityOwnerName: cleanText(lead.opportunityOwnerName || ''),
+    opportunityValueAmount: toNumber(lead.opportunityValueAmount, 0),
+    platformCommissionRate: toNumber(lead.platformCommissionRate, 0),
+    platformCommissionAmount: toNumber(lead.platformCommissionAmount, 0),
+    operatorPayoutAmount: toNumber(lead.operatorPayoutAmount, 0),
+
     accessScopes: accessScopes.length ? accessScopes : ['academy'],
     federationReady: accessScopes.includes('federation'),
     plazaReady: accessScopes.includes('plazas'),
@@ -2089,6 +2106,423 @@ apiRouter.post('/api/admin/academy/:memberId/track', requireAdminSession, async 
   }
 });
 
+apiRouter.post('/api/admin/academy/route-opportunity-mission', requireAdminSession, async (req, res) => {
+  try {
+    const body = req.body || {};
+    const sourceType = cleanText(body.sourceType).toLowerCase();
+    const sourceId = cleanText(body.sourceId);
+    const memberId = cleanText(body.memberId || body.operatorId);
+    const customMissionBrief = cleanText(body.missionBrief);
+
+    if (!sourceType || !sourceId || !memberId) {
+      return res.status(400).json({
+        success: false,
+        message: 'sourceType, sourceId, and memberId are required.'
+      });
+    }
+
+    const userRef = firestore.collection('users').doc(memberId);
+    const userSnap = await userRef.get();
+
+    if (!userSnap.exists) {
+      return res.status(404).json({
+        success: false,
+        message: 'Academy operator not found.'
+      });
+    }
+
+    const operator = userSnap.data() || {};
+    const operatorName = cleanText(
+      operator.fullName ||
+      operator.name ||
+      operator.displayName ||
+      operator.username ||
+      memberId
+    );
+
+    let sourceRef = null;
+    let sourceSnap = null;
+    let sourceData = null;
+    let sourceCollection = '';
+    let sourceDivision = '';
+    let sourceFeature = '';
+    let missionType = '';
+    let accessScopes = ['academy'];
+    let networkTags = ['admin-routed'];
+    let title = '';
+    let description = '';
+    let ownerName = '';
+    let sourceStatus = '';
+    let currency = 'USD';
+    let valueAmount = 0;
+    let commissionRate = 0;
+    let commissionAmount = 0;
+    let operatorPayoutAmount = 0;
+    let region = '';
+    let typeLabel = '';
+    let academyNeed = '';
+
+    if (sourceType === 'plaza' || sourceType === 'plaza_listing' || sourceType === 'plaza-opportunity') {
+      sourceCollection = 'plazaOpportunities';
+      sourceDivision = 'plaza';
+      sourceFeature = 'opportunities';
+      missionType = 'plaza_job';
+      accessScopes = ['academy', 'plazas'];
+      networkTags = ['admin-routed', 'plaza-job'];
+
+      sourceRef = firestore.collection(sourceCollection).doc(sourceId);
+      sourceSnap = await sourceRef.get();
+
+      if (!sourceSnap.exists) {
+        return res.status(404).json({
+          success: false,
+          message: 'Plaza opportunity not found.'
+        });
+      }
+
+      sourceData = sourceSnap.data() || {};
+      title = cleanText(sourceData.title || 'Plaza opportunity');
+      description = cleanText(sourceData.text || sourceData.description || '');
+      ownerName = cleanText(sourceData.authorName || sourceData.ownerName || sourceData.member || 'Plaza Member');
+      sourceStatus = cleanText(sourceData.status || sourceData.reviewStatus || '');
+      currency = cleanText(sourceData.currency || 'USD').toUpperCase() || 'USD';
+      valueAmount = Math.max(
+        toNumber(sourceData.budgetMax, 0),
+        toNumber(sourceData.budgetMin, 0)
+      );
+      commissionRate = toNumber(sourceData.commissionRate, 0);
+      commissionAmount = valueAmount > 0 && commissionRate > 0
+        ? Math.round((valueAmount * commissionRate) / 100)
+        : 0;
+      region = cleanText(sourceData.region || 'Global');
+      typeLabel = cleanText(sourceData.type || 'Plaza Opportunity');
+      academyNeed = cleanText(
+        sourceData.academyMissionNeed ||
+        sourceData.operatorNeed ||
+        sourceData.monetizationNote ||
+        description
+      );
+    } else if (sourceType === 'federation' || sourceType === 'federation_deal_room' || sourceType === 'federation-deal-room') {
+      sourceCollection = 'federationDealRooms';
+      sourceDivision = 'federation';
+      sourceFeature = 'deal_rooms';
+      missionType = 'federation_task';
+      accessScopes = ['academy', 'federation'];
+      networkTags = ['admin-routed', 'federation-task'];
+
+      sourceRef = firestore.collection(sourceCollection).doc(sourceId);
+      sourceSnap = await sourceRef.get();
+
+      if (!sourceSnap.exists) {
+        return res.status(404).json({
+          success: false,
+          message: 'Federation Deal Room not found.'
+        });
+      }
+
+      sourceData = sourceSnap.data() || {};
+      title = cleanText(sourceData.title || 'Federation Deal Room');
+      description = cleanText(sourceData.description || '');
+      ownerName = cleanText(sourceData.creatorName || 'Federation Member');
+      sourceStatus = cleanText(sourceData.adminStatus || sourceData.dealStatus || '');
+      currency = cleanText(sourceData.currency || 'USD').toUpperCase() || 'USD';
+      valueAmount = toNumber(sourceData.expectedValueAmount, 0);
+      commissionRate = toNumber(sourceData.platformCommissionRate, 0);
+      commissionAmount = toNumber(
+        sourceData.platformCommissionAmount,
+        valueAmount > 0 && commissionRate > 0
+          ? Math.round((valueAmount * commissionRate) / 100)
+          : 0
+      );
+      region = 'Federation';
+      typeLabel = cleanText(sourceData.roomType || 'Federation Deal Room');
+      academyNeed = cleanText(sourceData.academyMissionNeed || sourceData.partnerNeed || description);
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid sourceType. Use plaza or federation_deal_room.'
+      });
+    }
+
+    const missionBrief = customMissionBrief || academyNeed || description || 'Admin-routed Academy operator mission.';
+    const now = Timestamp.now();
+    const nowIso = new Date().toISOString();
+
+    const createdLead = await academyFirestoreRepo.createLeadMissionLead(memberId, {
+      tier: sourceDivision === 'federation' ? 'Strategic Task' : 'Opportunity',
+      companyName: title,
+      companyWebsite: '',
+      contactName: ownerName,
+      contactRole: typeLabel,
+      contactType: missionType,
+      email: '',
+      phone: '',
+      city: region,
+      country: '',
+      sourceMethod: `admin_routed_${sourceDivision}`,
+      callOutcome: 'Assigned by admin',
+      interestLevel: 'high',
+      rapportLevel: 'admin-routed',
+      pipelineStage: 'assigned',
+      priority: sourceDivision === 'federation' ? 'high' : 'medium',
+      nextAction: missionBrief,
+      channel: 'admin',
+      taskStatus: 'assigned',
+      callType: 'opportunity_mission',
+      objection: '',
+      notes: [
+        `Source: ${sourceDivision} / ${sourceFeature} / ${sourceId}`,
+        description,
+        missionBrief
+      ].filter(Boolean).join('\n\n'),
+      followUpDueDate: '',
+
+      sellerPriceAmount: 0,
+      currency,
+      universeCommissionRate: commissionRate,
+      saleEnabled: false,
+
+      sourceDivision,
+      sourceFeature,
+      sourceRecordId: sourceId,
+      sourceRecordPath: `${sourceCollection}/${sourceId}`,
+      routedFromAdmin: true,
+      routedSourceTitle: title,
+      assignedByAdmin: cleanText(req.adminSession?.username || 'admin'),
+      assignedAt: now,
+      assignmentStatus: 'assigned',
+      missionType,
+      missionBrief,
+      academyMissionNeed: academyNeed,
+      opportunityOwnerName: ownerName,
+      opportunityValueAmount: valueAmount,
+      platformCommissionRate: commissionRate,
+      platformCommissionAmount: commissionAmount,
+      operatorPayoutAmount,
+
+      accessScopes,
+      federationReady: sourceDivision === 'federation',
+      plazaReady: sourceDivision === 'plaza',
+      federationListingStatus: sourceDivision === 'federation' ? 'admin_routed' : 'not_listed',
+      networkTags,
+      strategicValue: sourceDivision === 'federation' ? 'high' : 'medium',
+      status: 'active'
+    });
+
+    await userRef.collection('academyLeadMissions').doc(createdLead.id).set({
+      sourceStatusAtRouting: sourceStatus,
+      routedFromAdmin: true,
+      assignedByAdmin: cleanText(req.adminSession?.username || 'admin'),
+      assignedAt: now,
+      updatedAt: now
+    }, { merge: true });
+
+    await sourceRef.set({
+      routedToAcademy: true,
+      lastRoutedAcademyMissionId: createdLead.id,
+      lastRoutedAcademyMemberId: memberId,
+      lastRoutedAcademyMemberName: operatorName,
+      lastRoutedAcademyAt: now,
+      lastRoutedAcademyBy: cleanText(req.adminSession?.username || 'admin'),
+      updatedAt: now
+    }, { merge: true });
+
+    await firestore.collection('adminBroadcasts').add({
+      audience: operatorName,
+      subject: 'Academy Opportunity Mission routed',
+      message: `Admin routed ${title} from ${sourceDivision} to ${operatorName}.`,
+      sentAt: nowIso,
+      createdBy: cleanText(req.adminSession?.username || 'admin')
+    });
+
+    const freshLead = await academyFirestoreRepo.getLeadMissionLeadById(memberId, createdLead.id);
+
+    return res.json({
+      success: true,
+      message: 'Opportunity routed to Academy Mission.',
+      mission: freshLead,
+      memberId,
+      sourceType: sourceDivision,
+      sourceId
+    });
+  } catch (error) {
+    console.error('admin route opportunity mission error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to route opportunity to Academy Mission.'
+    });
+  }
+});
+apiRouter.post('/api/admin/academy/lead-missions/:memberId/:leadId/review', requireAdminSession, async (req, res) => {
+  try {
+    const memberId = cleanText(req.params.memberId);
+    const leadId = cleanText(req.params.leadId);
+    const body = req.body || {};
+    const decision = cleanText(body.decision || body.status || '').toLowerCase();
+
+    const allowed = new Set([
+      'approved',
+      'rejected',
+      'revision_requested'
+    ]);
+
+    if (!memberId || !leadId || !allowed.has(decision)) {
+      return res.status(400).json({
+        success: false,
+        message: 'memberId, leadId, and a valid review decision are required.'
+      });
+    }
+
+    const userRef = firestore.collection('users').doc(memberId);
+    const userSnap = await userRef.get();
+
+    if (!userSnap.exists) {
+      return res.status(404).json({
+        success: false,
+        message: 'Academy operator not found.'
+      });
+    }
+
+    const leadRef = userRef.collection('academyLeadMissions').doc(leadId);
+    const leadSnap = await leadRef.get();
+
+    if (!leadSnap.exists) {
+      return res.status(404).json({
+        success: false,
+        message: 'Lead Mission record not found.'
+      });
+    }
+
+    const lead = leadSnap.data() || {};
+    const now = Timestamp.now();
+    const nowIso = new Date().toISOString();
+    const adminNote = cleanText(body.adminNote || body.note || '').slice(0, 1200);
+    const currency = cleanText(lead.currency || body.currency || 'USD').toUpperCase() || 'USD';
+
+    const manualPayoutAmount =
+      body.operatorPayoutAmount !== undefined &&
+      body.operatorPayoutAmount !== null &&
+      body.operatorPayoutAmount !== ''
+        ? Math.max(0, toNumber(body.operatorPayoutAmount, 0))
+        : null;
+
+    const operatorPayoutAmount = manualPayoutAmount !== null
+      ? manualPayoutAmount
+      : Math.max(0, toNumber(lead.operatorPayoutAmount, 0));
+
+    const patch = {
+      reviewStatus: decision,
+      assignmentStatus: decision === 'approved'
+        ? 'approved'
+        : decision === 'rejected'
+          ? 'rejected'
+          : 'revision_requested',
+      taskStatus: decision === 'approved'
+        ? 'completed'
+        : decision === 'rejected'
+          ? 'rejected'
+          : 'revision_requested',
+      pipelineStage: decision === 'approved'
+        ? 'completed'
+        : decision === 'rejected'
+          ? 'rejected'
+          : 'revision_requested',
+      reviewedAt: now,
+      reviewedBy: cleanText(req.adminSession?.username || 'admin'),
+      adminReviewNote: adminNote,
+      updatedAt: now
+    };
+
+    if (decision === 'approved') {
+      patch.completedAt = now;
+      patch.callOutcome = 'Approved by admin';
+      patch.nextAction = 'Mission approved. Earnings can be withdrawn when available.';
+    }
+
+    if (decision === 'revision_requested') {
+      patch.callOutcome = 'Revision requested by admin';
+      patch.nextAction = adminNote || 'Admin requested revision.';
+    }
+
+    if (decision === 'rejected') {
+      patch.callOutcome = 'Rejected by admin';
+      patch.nextAction = adminNote || 'Mission rejected.';
+    }
+
+    await leadRef.set(patch, { merge: true });
+
+    let earning = null;
+
+    if (decision === 'approved' && operatorPayoutAmount > 0) {
+      const payoutRef = userRef.collection('academyLeadPayouts').doc(`earning_${leadId}`);
+
+      const payoutPayload = {
+        id: payoutRef.id,
+        leadId,
+        sourceDivision: cleanText(lead.sourceDivision || 'academy'),
+        sourceFeature: cleanText(lead.sourceFeature || 'routed_mission'),
+        sourceRecordId: cleanText(lead.sourceRecordId || leadId),
+        title: cleanText(lead.routedSourceTitle || lead.companyName || 'Academy routed mission'),
+        amount: operatorPayoutAmount,
+        currency,
+        status: 'approved',
+        paymentStatus: 'earned',
+        payoutStatus: 'not_requested',
+        operatorUid: memberId,
+        operatorName: cleanText(userSnap.data()?.fullName || userSnap.data()?.name || userSnap.data()?.username || memberId),
+        approvedBy: cleanText(req.adminSession?.username || 'admin'),
+        approvedAt: now,
+        updatedAt: now,
+        createdAt: lead.assignedAt || now,
+        metadata: {
+          missionType: cleanText(lead.missionType || ''),
+          platformCommissionRate: toNumber(lead.platformCommissionRate, 0),
+          platformCommissionAmount: toNumber(lead.platformCommissionAmount, 0),
+          opportunityValueAmount: toNumber(lead.opportunityValueAmount, 0)
+        }
+      };
+
+      await payoutRef.set(payoutPayload, { merge: true });
+      earning = {
+        id: payoutRef.id,
+        ...payoutPayload
+      };
+
+      await leadRef.set({
+        operatorPayoutAmount,
+        earningLedgerId: payoutRef.id,
+        earningStatus: 'approved',
+        earningApprovedAt: now,
+        updatedAt: now
+      }, { merge: true });
+    }
+
+    await firestore.collection('adminBroadcasts').add({
+      audience: cleanText(userSnap.data()?.fullName || userSnap.data()?.name || userSnap.data()?.username || memberId),
+      subject: 'Academy routed mission reviewed',
+      message: `Admin marked Lead Mission ${leadId} as ${decision.replace(/_/g, ' ')}.`,
+      sentAt: nowIso,
+      createdBy: cleanText(req.adminSession?.username || 'admin')
+    });
+
+    const freshSnap = await leadRef.get();
+
+    return res.json({
+      success: true,
+      lead: {
+        id: freshSnap.id,
+        ...(freshSnap.data() || {})
+      },
+      earning
+    });
+  } catch (error) {
+    console.error('admin academy routed mission review error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to review Academy routed mission.'
+    });
+  }
+});
 apiRouter.post('/api/admin/academy/lead-missions/:memberId/:leadId/network', requireAdminSession, async (req, res) => {
   try {
     const memberId = cleanText(req.params.memberId);

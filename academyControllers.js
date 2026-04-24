@@ -54,6 +54,92 @@ const dedupeStrings = (values, limit = 3) => {
     }
     return out;
 };
+
+function mapAcademyOpportunityTimestamp(value) {
+    if (!value) return '';
+    if (typeof value.toDate === 'function') return value.toDate().toISOString();
+    if (value instanceof Date) return value.toISOString();
+    return sanitize(value);
+}
+
+function normalizeAcademyOpportunityStatus(value = '') {
+    const raw = sanitize(value).toLowerCase();
+
+    if (raw === 'active' || raw === 'approved') return 'active';
+    if (raw === 'in_discussion' || raw === 'discussion') return 'in_discussion';
+    if (raw === 'commission_due') return 'commission_due';
+    if (raw === 'commission_paid') return 'commission_paid';
+    if (raw === 'closed') return 'closed';
+    if (raw === 'rejected') return 'rejected';
+
+    return raw || 'pending_review';
+}
+
+function mapPlazaOpportunityToAcademyMission(docSnap) {
+    const data = docSnap.data() || {};
+
+    const budgetMin = toFloat(data.budgetMin, 0);
+    const budgetMax = toFloat(data.budgetMax, 0);
+    const commissionRate = toFloat(data.commissionRate, 0);
+
+    return {
+        id: `plaza_${docSnap.id}`,
+        sourceId: docSnap.id,
+        sourceDivision: 'plaza',
+        sourceFeature: 'opportunities',
+        title: sanitize(data.title || 'Plaza opportunity'),
+        type: sanitize(data.type || 'Opportunity'),
+        status: normalizeAcademyOpportunityStatus(data.status || data.reviewStatus || 'active'),
+        description: sanitize(data.text || data.description || ''),
+        ownerName: sanitize(data.authorName || data.member || data.ownerName || 'Plaza Member'),
+        ownerUid: sanitize(data.authorId || data.createdByUserId || data.ownerUid),
+        region: sanitize(data.region || 'Global'),
+        economyMode: sanitize(data.economyMode || data.compensationType || 'not_sure'),
+        currency: sanitize(data.currency || 'USD').toUpperCase() || 'USD',
+        budgetMin,
+        budgetMax,
+        commissionRate,
+        federationEscalation: sanitize(data.federationEscalation || 'none'),
+        academyMissionNeed: sanitize(data.academyMissionNeed || data.operatorNeed || data.monetizationNote || ''),
+        createdAt: mapAcademyOpportunityTimestamp(data.createdAt),
+        updatedAt: mapAcademyOpportunityTimestamp(data.updatedAt)
+    };
+}
+
+function mapFederationDealRoomToAcademyMission(docSnap) {
+    const data = docSnap.data() || {};
+
+    const expectedValueAmount = toFloat(data.expectedValueAmount, 0);
+    const platformCommissionRate = toFloat(data.platformCommissionRate, 20);
+    const platformCommissionAmount = toFloat(
+        data.platformCommissionAmount,
+        expectedValueAmount > 0 ? Math.round((expectedValueAmount * platformCommissionRate) / 100) : 0
+    );
+
+    return {
+        id: `federation_${docSnap.id}`,
+        sourceId: docSnap.id,
+        sourceDivision: 'federation',
+        sourceFeature: 'deal_rooms',
+        title: sanitize(data.title || 'Federation Deal Room'),
+        type: sanitize(data.roomType || data.type || 'partnership'),
+        status: normalizeAcademyOpportunityStatus(data.adminStatus || data.dealStatus || 'pending_admin_review'),
+        description: sanitize(data.description || ''),
+        ownerName: sanitize(data.creatorName || 'Federation Member'),
+        ownerUid: sanitize(data.creatorUid),
+        region: 'Federation',
+        economyMode: 'deal_room',
+        currency: sanitize(data.currency || 'USD').toUpperCase() || 'USD',
+        expectedValueAmount,
+        platformCommissionRate,
+        platformCommissionAmount,
+        partnerNeed: sanitize(data.partnerNeed || ''),
+        academyMissionNeed: sanitize(data.academyMissionNeed || ''),
+        createdAt: mapAcademyOpportunityTimestamp(data.createdAt),
+        updatedAt: mapAcademyOpportunityTimestamp(data.updatedAt)
+    };
+}
+
 const FOUNDER_DOCTRINE = {
     principles: [
         'Build the body, discipline, and energy needed to carry bigger responsibilities.',
@@ -3019,6 +3105,920 @@ exports.submitMembershipApplication = async (req, res) => {
         });
     }
 };
+function normalizeUniverseDivisionStatus(value = '', fallback = 'not_applied') {
+    const raw = sanitize(value).toLowerCase();
+
+    if (!raw || raw === 'none' || raw === 'not applied' || raw === 'not_applied') return fallback;
+    if (raw === 'approved' || raw === 'active' || raw === 'member') return 'approved';
+    if (raw === 'under review' || raw === 'pending' || raw === 'pending review' || raw === 'review') return 'under_review';
+    if (raw === 'screening' || raw === 'in screening') return 'screening';
+    if (raw === 'shortlisted' || raw === 'shortlist') return 'shortlisted';
+    if (raw === 'waitlisted' || raw === 'waitlist') return 'waitlisted';
+    if (raw === 'rejected' || raw === 'denied' || raw === 'not approved') return 'rejected';
+
+    return raw.replace(/\s+/g, '_');
+}
+
+function getUniverseStatusLabel(status = '') {
+    const normalized = normalizeUniverseDivisionStatus(status);
+
+    if (normalized === 'approved') return 'Approved';
+    if (normalized === 'under_review') return 'Under Review';
+    if (normalized === 'screening') return 'Screening';
+    if (normalized === 'shortlisted') return 'Shortlisted';
+    if (normalized === 'waitlisted') return 'Waitlisted';
+    if (normalized === 'rejected') return 'Rejected';
+
+    return 'Not Applied';
+}
+
+function getUniverseDivisionMembershipLabel(divisionName = '', state = {}) {
+    const cleanDivisionName = sanitize(divisionName || 'Division');
+    const statusLabel = getUniverseStatusLabel(state.status);
+
+    if (state.isMember === true) {
+        return `${cleanDivisionName} member`;
+    }
+
+    if (state.hasApplication === true) {
+        if (state.status === 'rejected') {
+            return `Not a ${cleanDivisionName} member — application rejected`;
+        }
+
+        return `Not a ${cleanDivisionName} member — application ${statusLabel.toLowerCase()}`;
+    }
+
+    return `Not a ${cleanDivisionName} member`;
+}
+
+function normalizeUniverseSignalList(value = [], limit = 8) {
+    const source = Array.isArray(value)
+        ? value
+        : String(value || '').split(',');
+
+    const seen = new Set();
+    const out = [];
+
+    for (const item of source) {
+        const clean = sanitize(item);
+        if (!clean) continue;
+
+        const key = clean.toLowerCase();
+        if (seen.has(key)) continue;
+
+        seen.add(key);
+        out.push(clean);
+
+        if (out.length >= limit) break;
+    }
+
+    return out;
+}
+
+function normalizeUniverseAvatar(value = '') {
+    return sanitizeAcademyProfileAsset(value);
+}
+
+function buildUniversePlazaDirectoryProfile(rawProfile = null) {
+    if (!rawProfile || typeof rawProfile !== 'object') return null;
+
+    return {
+        role: sanitize(rawProfile.role || rawProfile.title || ''),
+        region: sanitize(rawProfile.region || rawProfile.country || ''),
+        division: sanitize(rawProfile.division || ''),
+        trust: sanitize(rawProfile.trust || rawProfile.trustLevel || ''),
+        focus: sanitize(rawProfile.focus || rawProfile.profileFocus || ''),
+        tags: normalizeUniverseSignalList(rawProfile.tags || rawProfile.searchTags),
+        lookingFor: normalizeUniverseSignalList(rawProfile.lookingFor || rawProfile.looking_for),
+        canOffer: normalizeUniverseSignalList(rawProfile.canOffer || rawProfile.can_offer),
+        availability: sanitize(rawProfile.availability || ''),
+        workMode: sanitize(rawProfile.workMode || rawProfile.work_mode || ''),
+        marketplaceMode: sanitize(rawProfile.marketplaceMode || rawProfile.marketplace_mode || ''),
+        updatedAt: rawProfile.updatedAt || ''
+    };
+}
+
+function buildUniverseFederationMemberProfile(uid = '', userData = {}) {
+    return {
+        id: sanitize(uid),
+        name: sanitize(
+            userData.fullName ||
+            userData.name ||
+            userData.displayName ||
+            userData.username ||
+            'Federation Member'
+        ),
+        username: sanitize(userData.username || ''),
+        email: sanitize(userData.email || '').toLowerCase(),
+        role: sanitize(
+            userData.federationRole ||
+            userData.role ||
+            userData.occupation ||
+            ''
+        ),
+        category: sanitize(
+            userData.federationCategory ||
+            userData.category ||
+            userData.industry ||
+            'Strategic Network'
+        ),
+        country: sanitize(userData.country || ''),
+        city: sanitize(userData.city || ''),
+        company: sanitize(userData.company || userData.companyName || ''),
+        referralCode: sanitize(userData.federationReferralCode || ''),
+        approvedAt: userData.federationApprovedAt || ''
+    };
+}
+
+function buildUniverseMembershipSummary(divisions = {}) {
+    const divisionLabels = {
+        academy: 'The Academy',
+        plaza: 'The Plaza',
+        federation: 'The Federation'
+    };
+
+    const memberDivisions = Object.entries(divisions)
+        .filter(([, state]) => state?.isMember === true)
+        .map(([key]) => ({
+            key,
+            label: divisionLabels[key] || key
+        }));
+
+    const nonMemberDivisions = Object.entries(divisions)
+        .filter(([, state]) => state?.isMember !== true)
+        .map(([key]) => ({
+            key,
+            label: divisionLabels[key] || key,
+            status: state?.status || 'not_applied',
+            statusLabel: state?.statusLabel || 'Not Applied',
+            hasApplication: state?.hasApplication === true
+        }));
+
+    const memberLabels = memberDivisions.map((item) => item.label);
+    let primaryMembershipLabel = 'Not a member of any YH Universe division yet.';
+
+    if (memberLabels.length === 1) {
+        primaryMembershipLabel = `Member of ${memberLabels[0]} only.`;
+    } else if (memberLabels.length === 2) {
+        primaryMembershipLabel = `Member of ${memberLabels[0]} and ${memberLabels[1]}.`;
+    } else if (memberLabels.length >= 3) {
+        primaryMembershipLabel = 'Member of all YH Universe divisions.';
+    }
+
+    return {
+        isMemberAnywhere: memberDivisions.length > 0,
+        primaryMembershipLabel,
+        memberDivisions,
+        nonMemberDivisions
+    };
+}
+
+function getUniverseTrustTier(divisions = {}) {
+    if (divisions.federation?.isMember === true) return 'Strategic';
+    if (divisions.plaza?.isMember === true) return 'Active Connector';
+    if (divisions.academy?.isMember === true) return 'Builder';
+    return 'Guest';
+}
+
+async function getUniverseSafeDoc(collectionName = '', docId = '') {
+    const cleanCollectionName = sanitize(collectionName);
+    const cleanDocId = sanitize(docId);
+
+    if (!cleanCollectionName || !cleanDocId) return null;
+
+    try {
+        const snap = await firestore.collection(cleanCollectionName).doc(cleanDocId).get();
+        return snap.exists ? (snap.data() || {}) : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+exports.getUniverseProfile = async (req, res) => {
+    try {
+        const uid = getAcademyAuthUid(req);
+
+        if (!uid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const userRef = firestore.collection('users').doc(uid);
+        const userSnapshot = await userRef.get();
+
+        if (!userSnapshot.exists) {
+            return res.status(404).json({
+                success: false,
+                message: 'User account not found.'
+            });
+        }
+
+        const userData = userSnapshot.data() || {};
+        const storedAcademyProfile = await academyFirestoreRepo.getCurrentProfile(uid).catch(() => null) || {};
+        const academyProfile = buildAcademyProfileResponse(uid, userData, storedAcademyProfile);
+
+        try {
+            const socialProfile = await academyCommunityRepo.getMemberProfile({
+                viewerId: uid,
+                targetUserId: uid
+            });
+
+            academyProfile.followers_count = socialProfile?.followers_count ?? academyProfile.followers_count ?? '—';
+            academyProfile.following_count = socialProfile?.following_count ?? academyProfile.following_count ?? '—';
+            academyProfile.friends_count = socialProfile?.friends_count ?? socialProfile?.friend_count ?? academyProfile.friends_count ?? '—';
+            academyProfile.friend_count = academyProfile.friends_count;
+
+            if (Number.isFinite(Number(socialProfile?.post_count))) {
+                academyProfile.post_count = Number(socialProfile.post_count);
+            }
+
+            if (Array.isArray(socialProfile?.recent_posts)) {
+                academyProfile.recent_posts = socialProfile.recent_posts;
+            }
+        } catch (_) {}
+
+        let academyAccessState = null;
+        try {
+            academyAccessState = await academyFirestoreRepo.getAccessState(uid);
+        } catch (_) {
+            academyAccessState = null;
+        }
+
+        const academyApplication =
+            userData.academyApplication && typeof userData.academyApplication === 'object'
+                ? userData.academyApplication
+                : null;
+
+        const plazaApplication =
+            userData.plazaApplication && typeof userData.plazaApplication === 'object'
+                ? userData.plazaApplication
+                : null;
+
+        const federationApplication =
+            userData.federationApplication && typeof userData.federationApplication === 'object'
+                ? userData.federationApplication
+                : null;
+
+        const academyStatus = normalizeUniverseDivisionStatus(
+            userData.academyMembershipStatus ||
+            userData.academyApplicationStatus ||
+            academyApplication?.status ||
+            ''
+        );
+
+        const plazaStatus = normalizeUniverseDivisionStatus(
+            userData.plazaAccessStatus ||
+            userData.plazaMembershipStatus ||
+            userData.plazaApplicationStatus ||
+            plazaApplication?.status ||
+            ''
+        );
+
+        const federationStatus = normalizeUniverseDivisionStatus(
+            userData.federationMembershipStatus ||
+            userData.federationApplicationStatus ||
+            federationApplication?.status ||
+            ''
+        );
+
+        const isAcademyMember =
+            userData.hasAcademyAccess === true ||
+            userData.canEnterAcademy === true ||
+            academyStatus === 'approved' ||
+            academyAccessState?.accessState === 'unlocked';
+
+        const isPlazaMember =
+            userData.hasPlazaAccess === true ||
+            plazaStatus === 'approved';
+
+        const isFederationMember =
+            userData.hasFederationAccess === true ||
+            federationStatus === 'approved';
+
+        const plazaDirectoryProfile = await getUniverseSafeDoc('plazaDirectoryProfiles', uid);
+
+        const divisions = {
+            academy: {
+                key: 'academy',
+                label: 'The Academy',
+                isMember: isAcademyMember,
+                hasApplication: Boolean(academyApplication || academyStatus !== 'not_applied'),
+                status: isAcademyMember ? 'approved' : academyStatus,
+                statusLabel: getUniverseStatusLabel(isAcademyMember ? 'approved' : academyStatus),
+                membershipLabel: '',
+                canEnter: isAcademyMember,
+                application: academyApplication,
+                profile: academyProfile,
+                accessState: academyAccessState || null
+            },
+            plaza: {
+                key: 'plaza',
+                label: 'The Plaza',
+                isMember: isPlazaMember,
+                hasApplication: Boolean(plazaApplication || plazaStatus !== 'not_applied'),
+                status: isPlazaMember ? 'approved' : plazaStatus,
+                statusLabel: getUniverseStatusLabel(isPlazaMember ? 'approved' : plazaStatus),
+                membershipLabel: '',
+                canEnter: isPlazaMember,
+                application: plazaApplication,
+                profile: buildUniversePlazaDirectoryProfile(plazaDirectoryProfile)
+            },
+            federation: {
+                key: 'federation',
+                label: 'The Federation',
+                isMember: isFederationMember,
+                hasApplication: Boolean(federationApplication || federationStatus !== 'not_applied'),
+                status: isFederationMember ? 'approved' : federationStatus,
+                statusLabel: getUniverseStatusLabel(isFederationMember ? 'approved' : federationStatus),
+                membershipLabel: '',
+                canEnter: isFederationMember,
+                application: federationApplication,
+                profile: isFederationMember ? buildUniverseFederationMemberProfile(uid, userData) : null
+            }
+        };
+
+        divisions.academy.membershipLabel = getUniverseDivisionMembershipLabel('The Academy', divisions.academy);
+        divisions.plaza.membershipLabel = getUniverseDivisionMembershipLabel('The Plaza', divisions.plaza);
+        divisions.federation.membershipLabel = getUniverseDivisionMembershipLabel('The Federation', divisions.federation);
+
+        const membershipSummary = buildUniverseMembershipSummary(divisions);
+        const trustTier = getUniverseTrustTier(divisions);
+
+        const fullName =
+            sanitize(
+                academyProfile.fullName ||
+                academyProfile.full_name ||
+                userData.fullName ||
+                userData.name ||
+                userData.displayName ||
+                userData.username ||
+                req.user?.name ||
+                'Hustler'
+            ) || 'Hustler';
+
+        const username = normalizeAcademyProfileUsername(
+            academyProfile.username ||
+            userData.username ||
+            '',
+            fullName
+        );
+
+        const avatar = normalizeUniverseAvatar(
+            academyProfile.avatar ||
+            userData.avatar ||
+            userData.profilePhoto ||
+            userData.photoURL ||
+            ''
+        );
+
+        const coverPhoto = normalizeUniverseAvatar(
+            academyProfile.cover_photo ||
+            academyProfile.coverPhoto ||
+            userData.coverPhoto ||
+            ''
+        );
+
+        const signals = {
+            lookingFor: normalizeUniverseSignalList(
+                academyProfile.looking_for ||
+                academyProfile.lookingFor ||
+                userData.lookingFor ||
+                plazaDirectoryProfile?.lookingFor
+            ),
+            canOffer: normalizeUniverseSignalList(
+                academyProfile.can_offer ||
+                academyProfile.canOffer ||
+                userData.canOffer ||
+                plazaDirectoryProfile?.canOffer
+            ),
+            availability: sanitize(
+                academyProfile.availability ||
+                userData.availability ||
+                plazaDirectoryProfile?.availability ||
+                ''
+            ),
+            workMode: sanitize(
+                academyProfile.work_mode ||
+                academyProfile.workMode ||
+                userData.workMode ||
+                plazaDirectoryProfile?.workMode ||
+                ''
+            ),
+            marketplaceReady:
+                academyProfile.marketplace_ready === true ||
+                academyProfile.marketplaceReady === true ||
+                userData.marketplaceReady === true,
+            tags: normalizeUniverseSignalList(
+                academyProfile.search_tags ||
+                academyProfile.searchTags ||
+                userData.searchTags ||
+                plazaDirectoryProfile?.tags
+            )
+        };
+
+        return res.json({
+            success: true,
+            profile: {
+                id: uid,
+                uid,
+                firebaseUid: uid,
+                email: sanitize(userData.email || req.user?.email || '').toLowerCase(),
+                fullName,
+                displayName: fullName,
+                username,
+                avatar,
+                profilePhoto: avatar,
+                photoURL: avatar,
+                coverPhoto,
+                bio: sanitize(
+                    academyProfile.bio ||
+                    userData.bio ||
+                    userData.profileBio ||
+                    'Focused on execution, consistency, and long-term growth inside YH Universe.'
+                ),
+                city: sanitize(userData.city || ''),
+                country: sanitize(userData.country || ''),
+                trustTier,
+                membershipSummary,
+                divisions,
+                signals,
+                source: 'universe-profile-v1'
+            }
+        });
+    } catch (error) {
+        console.error('getUniverseProfile error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load YH Universe profile.'
+        });
+    }
+};
+
+function normalizeUniverseProfileStatus(value = '', fallback = 'not_applied') {
+    const raw = sanitize(value).toLowerCase();
+
+    if (!raw || raw === 'none' || raw === 'not applied' || raw === 'not_applied') return fallback;
+    if (raw === 'approved' || raw === 'active' || raw === 'member') return 'approved';
+    if (raw === 'under review' || raw === 'pending' || raw === 'pending review' || raw === 'review') return 'under_review';
+    if (raw === 'screening' || raw === 'in screening') return 'screening';
+    if (raw === 'shortlisted' || raw === 'shortlist') return 'shortlisted';
+    if (raw === 'waitlisted' || raw === 'waitlist') return 'waitlisted';
+    if (raw === 'rejected' || raw === 'denied' || raw === 'not approved') return 'rejected';
+
+    return raw.replace(/\s+/g, '_');
+}
+
+function getUniverseProfileStatusLabel(status = '') {
+    const normalized = normalizeUniverseProfileStatus(status);
+
+    if (normalized === 'approved') return 'Approved';
+    if (normalized === 'under_review') return 'Under Review';
+    if (normalized === 'screening') return 'Screening';
+    if (normalized === 'shortlisted') return 'Shortlisted';
+    if (normalized === 'waitlisted') return 'Waitlisted';
+    if (normalized === 'rejected') return 'Rejected';
+
+    return 'Not Applied';
+}
+
+function buildUniverseDivisionState({
+    key = '',
+    label = '',
+    isMember = false,
+    status = '',
+    application = null,
+    canEnter = false,
+    profile = null,
+    extra = {}
+} = {}) {
+    const normalizedStatus = isMember
+        ? 'approved'
+        : normalizeUniverseProfileStatus(status);
+
+    const hasApplication = Boolean(
+        application ||
+        (normalizedStatus && normalizedStatus !== 'not_applied')
+    );
+
+    let membershipLabel = `Not a member of ${label}`;
+
+    if (isMember) {
+        membershipLabel = `Member of ${label}`;
+    } else if (hasApplication) {
+        membershipLabel = `Not a member of ${label} — application ${getUniverseProfileStatusLabel(normalizedStatus).toLowerCase()}`;
+    }
+
+    return {
+        key,
+        label,
+        isMember: isMember === true,
+        hasApplication,
+        status: normalizedStatus,
+        statusLabel: getUniverseProfileStatusLabel(normalizedStatus),
+        membershipLabel,
+        canEnter: canEnter === true || isMember === true,
+        application,
+        profile,
+        ...extra
+    };
+}
+
+function buildUniverseMembershipSummary(divisions = {}) {
+    const entries = Object.entries(divisions);
+
+    const memberDivisions = entries
+        .filter(([, state]) => state?.isMember === true)
+        .map(([key, state]) => ({
+            key,
+            label: state.label
+        }));
+
+    const nonMemberDivisions = entries
+        .filter(([, state]) => state?.isMember !== true)
+        .map(([key, state]) => ({
+            key,
+            label: state.label,
+            status: state.status || 'not_applied',
+            statusLabel: state.statusLabel || 'Not Applied',
+            hasApplication: state.hasApplication === true
+        }));
+
+    const labels = memberDivisions.map((item) => item.label);
+
+    let primaryMembershipLabel = 'Not a member of any YH Universe division yet.';
+
+    if (labels.length === 1) {
+        primaryMembershipLabel = `Member of ${labels[0]} only.`;
+    } else if (labels.length === 2) {
+        primaryMembershipLabel = `Member of ${labels[0]} and ${labels[1]}.`;
+    } else if (labels.length >= 3) {
+        primaryMembershipLabel = 'Member of all YH Universe divisions.';
+    }
+
+    return {
+        isMemberAnywhere: memberDivisions.length > 0,
+        primaryMembershipLabel,
+        memberDivisions,
+        nonMemberDivisions
+    };
+}
+
+function getUniverseTrustTier(divisions = {}) {
+    if (divisions.federation?.isMember === true) return 'Strategic';
+    if (divisions.plaza?.isMember === true) return 'Active Connector';
+    if (divisions.academy?.isMember === true) return 'Builder';
+    return 'Guest';
+}
+
+function normalizeUniverseSignalList(value = [], limit = 8) {
+    const source = Array.isArray(value)
+        ? value
+        : String(value || '').split(',');
+
+    const seen = new Set();
+    const out = [];
+
+    for (const item of source) {
+        const clean = sanitize(item);
+        if (!clean) continue;
+
+        const key = clean.toLowerCase();
+        if (seen.has(key)) continue;
+
+        seen.add(key);
+        out.push(clean);
+
+        if (out.length >= limit) break;
+    }
+
+    return out;
+}
+
+function mapUniversePlazaDirectoryProfile(raw = null) {
+    if (!raw || typeof raw !== 'object') return null;
+
+    return {
+        role: sanitize(raw.role || raw.title || ''),
+        region: sanitize(raw.region || raw.country || ''),
+        division: sanitize(raw.division || ''),
+        trust: sanitize(raw.trust || raw.trustLevel || ''),
+        focus: sanitize(raw.focus || raw.profileFocus || ''),
+        tags: normalizeUniverseSignalList(raw.tags || raw.searchTags),
+        lookingFor: normalizeUniverseSignalList(raw.lookingFor || raw.looking_for),
+        canOffer: normalizeUniverseSignalList(raw.canOffer || raw.can_offer),
+        availability: sanitize(raw.availability || ''),
+        workMode: sanitize(raw.workMode || raw.work_mode || ''),
+        marketplaceMode: sanitize(raw.marketplaceMode || raw.marketplace_mode || ''),
+        updatedAt: raw.updatedAt || ''
+    };
+}
+
+function mapUniverseFederationProfile(uid = '', userData = {}) {
+    return {
+        id: sanitize(uid),
+        name: sanitize(
+            userData.fullName ||
+            userData.name ||
+            userData.displayName ||
+            userData.username ||
+            'Federation Member'
+        ),
+        username: sanitize(userData.username || ''),
+        email: sanitize(userData.email || '').toLowerCase(),
+        role: sanitize(
+            userData.federationRole ||
+            userData.role ||
+            userData.occupation ||
+            ''
+        ),
+        category: sanitize(
+            userData.federationCategory ||
+            userData.category ||
+            userData.industry ||
+            'Strategic Network'
+        ),
+        country: sanitize(userData.country || ''),
+        city: sanitize(userData.city || ''),
+        company: sanitize(userData.company || userData.companyName || ''),
+        referralCode: sanitize(userData.federationReferralCode || ''),
+        approvedAt: userData.federationApprovedAt || ''
+    };
+}
+
+async function getUniverseSafeDoc(collectionName = '', docId = '') {
+    const cleanCollectionName = sanitize(collectionName);
+    const cleanDocId = sanitize(docId);
+
+    if (!cleanCollectionName || !cleanDocId) return null;
+
+    try {
+        const snap = await firestore.collection(cleanCollectionName).doc(cleanDocId).get();
+        return snap.exists ? (snap.data() || {}) : null;
+    } catch (_) {
+        return null;
+    }
+}
+
+exports.getUniverseProfile = async (req, res) => {
+    try {
+        const uid = getAcademyAuthUid(req);
+
+        if (!uid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const userRef = firestore.collection('users').doc(uid);
+        const userSnapshot = await userRef.get();
+
+        if (!userSnapshot.exists) {
+            return res.status(404).json({
+                success: false,
+                message: 'User account not found.'
+            });
+        }
+
+        const userData = userSnapshot.data() || {};
+
+        const storedAcademyProfile = await academyFirestoreRepo
+            .getCurrentProfile(uid)
+            .catch(() => null) || {};
+
+        const academyProfile = buildAcademyProfileResponse(uid, userData, storedAcademyProfile);
+
+        try {
+            const socialProfile = await academyCommunityRepo.getMemberProfile({
+                viewerId: uid,
+                targetUserId: uid
+            });
+
+            academyProfile.followers_count = socialProfile?.followers_count ?? academyProfile.followers_count ?? '—';
+            academyProfile.following_count = socialProfile?.following_count ?? academyProfile.following_count ?? '—';
+            academyProfile.friends_count = socialProfile?.friends_count ?? socialProfile?.friend_count ?? academyProfile.friends_count ?? '—';
+            academyProfile.friend_count = academyProfile.friends_count;
+
+            if (Number.isFinite(Number(socialProfile?.post_count))) {
+                academyProfile.post_count = Number(socialProfile.post_count);
+            }
+
+            if (Array.isArray(socialProfile?.recent_posts)) {
+                academyProfile.recent_posts = socialProfile.recent_posts;
+            }
+        } catch (_) {}
+
+        const academyApplication =
+            userData.academyApplication && typeof userData.academyApplication === 'object'
+                ? userData.academyApplication
+                : null;
+
+        const plazaApplication =
+            userData.plazaApplication && typeof userData.plazaApplication === 'object'
+                ? userData.plazaApplication
+                : null;
+
+        const federationApplication =
+            userData.federationApplication && typeof userData.federationApplication === 'object'
+                ? userData.federationApplication
+                : null;
+
+        let academyAccessState = null;
+        try {
+            academyAccessState = await academyFirestoreRepo.getAccessState(uid);
+        } catch (_) {
+            academyAccessState = null;
+        }
+
+        const rawAcademyStatus =
+            userData.academyMembershipStatus ||
+            userData.academyApplicationStatus ||
+            academyApplication?.status ||
+            '';
+
+        const rawPlazaStatus =
+            userData.plazaAccessStatus ||
+            userData.plazaMembershipStatus ||
+            userData.plazaApplicationStatus ||
+            plazaApplication?.status ||
+            '';
+
+        const rawFederationStatus =
+            userData.federationMembershipStatus ||
+            userData.federationApplicationStatus ||
+            federationApplication?.status ||
+            '';
+
+        const academyStatus = normalizeUniverseProfileStatus(rawAcademyStatus);
+        const plazaStatus = normalizeUniverseProfileStatus(rawPlazaStatus);
+        const federationStatus = normalizeUniverseProfileStatus(rawFederationStatus);
+
+        const isAcademyMember =
+            userData.hasAcademyAccess === true ||
+            userData.canEnterAcademy === true ||
+            academyStatus === 'approved' ||
+            academyAccessState?.accessState === 'unlocked';
+
+        const isPlazaMember =
+            userData.hasPlazaAccess === true ||
+            plazaStatus === 'approved';
+
+        const isFederationMember =
+            userData.hasFederationAccess === true ||
+            federationStatus === 'approved';
+
+        const plazaDirectoryRaw = await getUniverseSafeDoc('plazaDirectoryProfiles', uid);
+
+        const divisions = {
+            academy: buildUniverseDivisionState({
+                key: 'academy',
+                label: 'The Academy',
+                isMember: isAcademyMember,
+                status: academyStatus,
+                application: academyApplication,
+                canEnter: isAcademyMember,
+                profile: academyProfile,
+                extra: {
+                    accessState: academyAccessState || null
+                }
+            }),
+            plaza: buildUniverseDivisionState({
+                key: 'plaza',
+                label: 'The Plaza',
+                isMember: isPlazaMember,
+                status: plazaStatus,
+                application: plazaApplication,
+                canEnter: isPlazaMember,
+                profile: mapUniversePlazaDirectoryProfile(plazaDirectoryRaw)
+            }),
+            federation: buildUniverseDivisionState({
+                key: 'federation',
+                label: 'The Federation',
+                isMember: isFederationMember,
+                status: federationStatus,
+                application: federationApplication,
+                canEnter: isFederationMember,
+                profile: isFederationMember ? mapUniverseFederationProfile(uid, userData) : null
+            })
+        };
+
+        const membershipSummary = buildUniverseMembershipSummary(divisions);
+        const trustTier = getUniverseTrustTier(divisions);
+
+        const fullName = sanitize(
+            academyProfile.fullName ||
+            academyProfile.full_name ||
+            userData.fullName ||
+            userData.name ||
+            userData.displayName ||
+            userData.username ||
+            req.user?.name ||
+            'Hustler'
+        ) || 'Hustler';
+
+        const username = normalizeAcademyProfileUsername(
+            academyProfile.username ||
+            userData.username ||
+            '',
+            fullName
+        );
+
+        const avatar = sanitize(
+            academyProfile.avatar ||
+            userData.avatar ||
+            userData.profilePhoto ||
+            userData.photoURL ||
+            ''
+        );
+
+        const coverPhoto = sanitize(
+            academyProfile.cover_photo ||
+            academyProfile.coverPhoto ||
+            userData.coverPhoto ||
+            ''
+        );
+
+        const signals = {
+            lookingFor: normalizeUniverseSignalList(
+                userData.lookingFor ||
+                storedAcademyProfile.looking_for ||
+                storedAcademyProfile.lookingFor ||
+                plazaDirectoryRaw?.lookingFor ||
+                plazaDirectoryRaw?.looking_for
+            ),
+            canOffer: normalizeUniverseSignalList(
+                userData.canOffer ||
+                storedAcademyProfile.can_offer ||
+                storedAcademyProfile.canOffer ||
+                plazaDirectoryRaw?.canOffer ||
+                plazaDirectoryRaw?.can_offer
+            ),
+            availability: sanitize(
+                userData.availability ||
+                storedAcademyProfile.availability ||
+                plazaDirectoryRaw?.availability ||
+                ''
+            ),
+            workMode: sanitize(
+                userData.workMode ||
+                storedAcademyProfile.work_mode ||
+                storedAcademyProfile.workMode ||
+                plazaDirectoryRaw?.workMode ||
+                plazaDirectoryRaw?.work_mode ||
+                ''
+            ),
+            marketplaceReady:
+                userData.marketplaceReady === true ||
+                storedAcademyProfile.marketplace_ready === true ||
+                storedAcademyProfile.marketplaceReady === true,
+            tags: normalizeUniverseSignalList(
+                userData.searchTags ||
+                academyProfile.search_tags ||
+                storedAcademyProfile.search_tags ||
+                plazaDirectoryRaw?.tags
+            )
+        };
+
+        return res.json({
+            success: true,
+            profile: {
+                id: uid,
+                uid,
+                firebaseUid: uid,
+                email: sanitize(userData.email || req.user?.email || '').toLowerCase(),
+                fullName,
+                displayName: fullName,
+                username,
+                avatar,
+                profilePhoto: avatar,
+                photoURL: avatar,
+                coverPhoto,
+                bio: sanitize(
+                    academyProfile.bio ||
+                    userData.bio ||
+                    userData.profileBio ||
+                    'Focused on execution, consistency, and long-term growth inside YH Universe.'
+                ),
+                city: sanitize(userData.city || ''),
+                country: sanitize(userData.country || ''),
+                trustTier,
+                membershipSummary,
+                divisions,
+                signals,
+                source: 'universe-profile-v1'
+            }
+        });
+    } catch (error) {
+        console.error('getUniverseProfile error:', error);
+        return res.status(500).json({
+            success: false,
+            message: error?.message || 'Failed to load YH Universe profile.'
+        });
+    }
+};
+
 exports.getCurrentProfile = async (req, res) => {
     try {
         const uid = getAcademyAuthUid(req);
@@ -4620,6 +5620,72 @@ function normalizeLeadMissionPayload(body = {}) {
     };
 }
 
+exports.listAcademyOpportunityMissions = async (req, res) => {
+    try {
+        const uid = getAcademyAuthUid(req);
+
+        if (!uid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const [plazaSnap, federationSnap] = await Promise.all([
+            firestore.collection('plazaOpportunities').limit(150).get(),
+            firestore.collection('federationDealRooms').limit(150).get()
+        ]);
+
+        const plazaOpportunities = plazaSnap.docs
+            .map((docSnap) => mapPlazaOpportunityToAcademyMission(docSnap))
+            .filter((item) => {
+                const status = String(item.status || '').trim().toLowerCase();
+                const type = String(item.type || '').trim().toLowerCase();
+
+                const isActive = status === 'active';
+                const isJobLike = [
+                    'job opportunity',
+                    'hire talent',
+                    'operator bounty',
+                    'hiring',
+                    'service request',
+                    'project opening',
+                    'collaboration',
+                    'partnership'
+                ].includes(type);
+
+                return isActive && isJobLike;
+            });
+
+        const federationTasks = federationSnap.docs
+            .map((docSnap) => mapFederationDealRoomToAcademyMission(docSnap))
+            .filter((item) => {
+                const status = String(item.status || '').trim().toLowerCase();
+                const hasAcademyNeed = Boolean(String(item.academyMissionNeed || '').trim());
+
+                return hasAcademyNeed && ['approved', 'in_discussion', 'commission_due'].includes(status);
+            });
+
+        const opportunityMissions = [...plazaOpportunities, ...federationTasks]
+            .sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')));
+
+        return res.json({
+            success: true,
+            opportunityMissions,
+            summary: {
+                total: opportunityMissions.length,
+                plaza: plazaOpportunities.length,
+                federation: federationTasks.length
+            }
+        });
+    } catch (error) {
+        console.error('listAcademyOpportunityMissions error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load Academy Opportunity Missions.'
+        });
+    }
+};
 exports.getLeadMissionsWorkspace = async (req, res) => {
     try {
         const uid = getAcademyAuthUid(req);
@@ -4659,7 +5725,102 @@ exports.getLeadMissionsWorkspace = async (req, res) => {
         });
     }
 };
+exports.submitRoutedLeadMission = async (req, res) => {
+    try {
+        const uid = getAcademyAuthUid(req);
+        const leadId = sanitize(req.params?.id);
+        const body = req.body || {};
 
+        if (!uid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        if (!leadId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Mission id is required.'
+            });
+        }
+
+        const existingLead = await academyFirestoreRepo.getLeadMissionLeadById(uid, leadId);
+
+        if (!existingLead) {
+            return res.status(404).json({
+                success: false,
+                message: 'Assigned mission not found.'
+            });
+        }
+
+        const isRoutedMission =
+            existingLead.routedFromAdmin === true ||
+            String(existingLead.sourceMethod || '').trim().toLowerCase().startsWith('admin_routed_') ||
+            String(existingLead.callType || '').trim().toLowerCase() === 'opportunity_mission' ||
+            Boolean(String(existingLead.assignmentStatus || '').trim());
+
+        if (!isRoutedMission) {
+            return res.status(400).json({
+                success: false,
+                message: 'Only admin-routed Academy missions can be submitted here.'
+            });
+        }
+
+        const completionProof = sanitize(body.completionProof || body.proof || body.note).slice(0, 2500);
+
+        if (!completionProof) {
+            return res.status(400).json({
+                success: false,
+                message: 'Completion proof is required.'
+            });
+        }
+
+        const now = new Date().toISOString();
+
+        const currentNotes = sanitize(existingLead.notes || '');
+        const nextNotes = [
+            currentNotes,
+            `Submission proof (${now}):\n${completionProof}`
+        ].filter(Boolean).join('\n\n');
+
+        const updatedLead = await academyFirestoreRepo.updateLeadMissionLead(uid, leadId, {
+            taskStatus: 'submitted',
+            pipelineStage: 'submitted',
+            callOutcome: 'Submitted for admin review',
+            nextAction: 'Waiting for admin review',
+            notes: nextNotes,
+            status: 'active'
+        });
+
+        await firestore
+            .collection('users')
+            .doc(uid)
+            .collection('academyLeadMissions')
+            .doc(leadId)
+            .set({
+                assignmentStatus: 'submitted',
+                reviewStatus: 'pending_review',
+                completionProof,
+                submittedAt: Timestamp.now(),
+                submittedByUid: uid,
+                submittedByName: sanitize(req.user?.name || req.user?.username || 'Operator'),
+                updatedAt: Timestamp.now()
+            }, { merge: true });
+
+        return res.json({
+            success: true,
+            message: 'Mission submitted for admin review.',
+            lead: updatedLead
+        });
+    } catch (error) {
+        console.error('submitRoutedLeadMission error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to submit assigned mission.'
+        });
+    }
+};
 exports.listMyLeadMissionsLeads = async (req, res) => {
     try {
         const uid = getAcademyAuthUid(req);

@@ -4565,10 +4565,17 @@ app.post('/api/federation/application', requireApiUser, async (req, res) => {
     }
 });
 
+function mapSystemNotificationTimestamp(value) {
+    if (!value) return '';
+    if (typeof value.toDate === 'function') return value.toDate().toISOString();
+    if (value instanceof Date) return value.toISOString();
+    return sanitizeText(value);
+}
+
 const USER_IN_PRODUCT_NOTIFICATION_LIMIT = 40;
 
 function normalizeUserInProductNotification(item = {}) {
-    const createdAt = mapTimestamp(
+    const createdAt = mapSystemNotificationTimestamp(
         item?.createdAt ||
         item?.created_at ||
         item?.time ||
@@ -4608,8 +4615,8 @@ function normalizeUserInProductNotification(item = {}) {
         isRead,
         is_read: isRead,
         read: isRead,
-        readAt: mapTimestamp(item?.readAt || item?.read_at || ''),
-        read_at: mapTimestamp(item?.read_at || item?.readAt || '')
+        readAt: mapSystemNotificationTimestamp(item?.readAt || item?.read_at || ''),
+        read_at: mapSystemNotificationTimestamp(item?.read_at || item?.readAt || '')
     };
 }
 

@@ -9784,6 +9784,14 @@ function revealAcademyProfileView(options = {}) {
 
 const academyLeadMissionsState = {
     leads: [],
+    assignedMissions: [],
+    opportunityMissions: [],
+    opportunityMissionSummary: {
+        total: 0,
+        plaza: 0,
+        federation: 0
+    },
+    activeOpportunityMissionFilter: 'all',
     followUps: [],
     payouts: [],
     deals: [],
@@ -10672,6 +10680,402 @@ function renderLeadMissionsDatabase(leads = []) {
     `;
 }
 
+function getAcademyAssignedMissions(leads = []) {
+    return academyLeadSafeArray(leads).filter((lead) => {
+        return (
+            lead?.routedFromAdmin === true ||
+            String(lead?.sourceMethod || '').trim().toLowerCase().startsWith('admin_routed_') ||
+            String(lead?.callType || '').trim().toLowerCase() === 'opportunity_mission' ||
+            String(lead?.assignmentStatus || '').trim()
+        );
+    });
+}
+
+function academyLeadGetAssignedMissionValue(item = {}) {
+    const currency = String(item.currency || 'USD').trim().toUpperCase() || 'USD';
+    const opportunityValue = academyLeadNormalizeMoney(item.opportunityValueAmount);
+    const buyerPrice = academyLeadNormalizeMoney(item.buyerPriceAmount);
+    const sellerPrice = academyLeadNormalizeMoney(item.sellerPriceAmount);
+
+    if (opportunityValue) return academyLeadFormatMoney(opportunityValue, currency);
+    if (buyerPrice) return academyLeadFormatMoney(buyerPrice, currency);
+    if (sellerPrice) return academyLeadFormatMoney(sellerPrice, currency);
+
+    return 'To be discussed';
+}
+
+function renderAcademyAssignedMissions(leads = []) {
+    const panel = document.getElementById('academy-lead-panel-assigned');
+    if (!panel) return;
+
+    const assignedMissions = getAcademyAssignedMissions(leads);
+
+    academyLeadMissionsState.assignedMissions = assignedMissions;
+
+    if (!assignedMissions.length) {
+        panel.innerHTML = `
+            <div class="academy-lead-info-grid">
+                <article class="academy-lead-info-card">
+                    <div class="academy-profile-card-kicker">Assigned Missions</div>
+                    <h4 class="academy-lead-card-title">No admin-assigned missions yet</h4>
+                    <p class="academy-lead-card-copy">
+                        When admin routes a Plaza job or Federation task to you, it will appear here as a dedicated Academy operator mission.
+                    </p>
+                </article>
+
+                <article class="academy-lead-info-card">
+                    <div class="academy-profile-card-kicker">What appears here?</div>
+                    <h4 class="academy-lead-card-title">Plaza jobs + Federation tasks</h4>
+                    <p class="academy-lead-card-copy">
+                        These are not general leads. They are opportunities specifically assigned to you by admin from the YH economy flow.
+                    </p>
+                </article>
+            </div>
+        `;
+        return;
+    }
+
+    const plazaCount = assignedMissions.filter((item) => {
+        return String(item.sourceDivision || '').trim().toLowerCase() === 'plaza';
+    }).length;
+
+    const federationCount = assignedMissions.filter((item) => {
+        return String(item.sourceDivision || '').trim().toLowerCase() === 'federation';
+    }).length;
+
+    panel.innerHTML = `
+        <div class="academy-lead-info-grid">
+            <article class="academy-lead-info-card">
+                <div class="academy-profile-card-kicker">Assigned Missions</div>
+                <h4 class="academy-lead-card-title">${academyLeadSafeText(String(assignedMissions.length), '0')} active assignment${assignedMissions.length === 1 ? '' : 's'}</h4>
+                <p class="academy-lead-card-copy">
+                    Admin-routed missions assigned directly to your Academy operator workspace.
+                </p>
+            </article>
+
+            <article class="academy-lead-info-card">
+                <div class="academy-profile-card-kicker">Source Split</div>
+                <h4 class="academy-lead-card-title">Plaza: ${academyLeadSafeText(String(plazaCount), '0')} • Federation: ${academyLeadSafeText(String(federationCount), '0')}</h4>
+                <p class="academy-lead-card-copy">
+                    Plaza missions come from jobs/opportunities. Federation missions come from Deal Rooms and strategic tasks.
+                </p>
+            </article>
+        </div>
+
+        <div class="academy-lead-table-wrap" style="margin-top:16px;">
+            <table class="academy-lead-table">
+                <thead>
+                    <tr>
+                        <th>Source</th>
+                        <th>Mission</th>
+                        <th>Brief</th>
+                        <th>Value</th>
+                        <th>Commission</th>
+                        <th>Status</th>
+                        <th>Assigned By</th>
+                        <th>Assigned</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${assignedMissions.map((item) => `
+                        <tr>
+                            <td>
+                                <span class="academy-lead-badge">${academyLeadSafeText(academyLeadGetOpportunitySourceLabel(item.sourceDivision || 'academy'))}</span>
+                                ${item.sourceRecordId ? `<div class="academy-lead-list-meta">${academyLeadSafeText(item.sourceFeature || '')} • ${academyLeadSafeText(item.sourceRecordId)}</div>` : ''}
+                            </td>
+                            <td>
+                                <strong>${academyLeadSafeText(item.routedSourceTitle || item.companyName || 'Assigned mission')}</strong>
+                                <div class="academy-lead-list-meta">${academyLeadSafeText(item.missionType || item.contactType || 'opportunity_mission')}</div>
+                            </td>
+                            <td>${academyLeadSafeText(item.missionBrief || item.academyMissionNeed || item.nextAction || 'Admin will define the task.')}</td>
+                            <td>${academyLeadSafeText(academyLeadGetAssignedMissionValue(item))}</td>
+                            <td>
+                                ${academyLeadSafeText(academyLeadFormatMoney(item.platformCommissionAmount || 0, item.currency || 'USD'))}
+                                <div class="academy-lead-list-meta">${academyLeadSafeText(`${item.platformCommissionRate || 0}% platform rate`)}</div>
+                            </td>
+                            <td>${academyLeadSafeText(academyLeadFormatStatus(item.assignmentStatus || item.taskStatus || item.pipelineStage || 'assigned'))}</td>
+                            <td>${academyLeadSafeText(item.assignedByAdmin || 'admin')}</td>
+                            <td>${academyLeadFormatDate(item.assignedAt || item.updatedAt || item.createdAt)}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+function getAcademyAssignedMissions(leads = []) {
+    return academyLeadSafeArray(leads).filter((lead) => {
+        return (
+            lead?.routedFromAdmin === true ||
+            String(lead?.sourceMethod || '').trim().toLowerCase().startsWith('admin_routed_') ||
+            String(lead?.callType || '').trim().toLowerCase() === 'opportunity_mission' ||
+            String(lead?.assignmentStatus || '').trim()
+        );
+    });
+}
+
+function academyCanSubmitAssignedMission(item = {}) {
+    const status = String(item.assignmentStatus || item.taskStatus || item.pipelineStage || '').trim().toLowerCase();
+
+    return ![
+        'submitted',
+        'pending_review',
+        'approved',
+        'completed',
+        'rejected'
+    ].includes(status);
+}
+
+function academyLeadGetAssignedMissionValue(item = {}) {
+    const currency = String(item.currency || 'USD').trim().toUpperCase() || 'USD';
+    const opportunityValue = academyLeadNormalizeMoney(item.opportunityValueAmount);
+    const buyerPrice = academyLeadNormalizeMoney(item.buyerPriceAmount);
+    const sellerPrice = academyLeadNormalizeMoney(item.sellerPriceAmount);
+
+    if (opportunityValue) return academyLeadFormatMoney(opportunityValue, currency);
+    if (buyerPrice) return academyLeadFormatMoney(buyerPrice, currency);
+    if (sellerPrice) return academyLeadFormatMoney(sellerPrice, currency);
+
+    return 'To be discussed';
+}
+
+function renderAcademyAssignedMissions(leads = []) {
+    const panel = document.getElementById('academy-lead-panel-assigned');
+    if (!panel) return;
+
+    const assignedMissions = getAcademyAssignedMissions(leads);
+
+    academyLeadMissionsState.assignedMissions = assignedMissions;
+
+    if (!assignedMissions.length) {
+        panel.innerHTML = `
+            <div class="academy-lead-info-grid">
+                <article class="academy-lead-info-card">
+                    <div class="academy-profile-card-kicker">Assigned Missions</div>
+                    <h4 class="academy-lead-card-title">No admin-assigned missions yet</h4>
+                    <p class="academy-lead-card-copy">
+                        When admin routes a Plaza job or Federation task to you, it will appear here as a dedicated Academy operator mission.
+                    </p>
+                </article>
+
+                <article class="academy-lead-info-card">
+                    <div class="academy-profile-card-kicker">What appears here?</div>
+                    <h4 class="academy-lead-card-title">Plaza jobs + Federation tasks</h4>
+                    <p class="academy-lead-card-copy">
+                        These are not general leads. They are opportunities specifically assigned to you by admin from the YH economy flow.
+                    </p>
+                </article>
+            </div>
+        `;
+        return;
+    }
+
+    panel.innerHTML = `
+        <div class="academy-lead-table-wrap">
+            <table class="academy-lead-table">
+                <thead>
+                    <tr>
+                        <th>Source</th>
+                        <th>Mission</th>
+                        <th>Brief</th>
+                        <th>Value</th>
+                        <th>Status</th>
+                        <th>Assigned</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${assignedMissions.map((item) => `
+                        <tr>
+                            <td>
+                                <span class="academy-lead-badge">${academyLeadSafeText(academyLeadGetOpportunitySourceLabel(item.sourceDivision || 'academy'))}</span>
+                            </td>
+                            <td>
+                                <strong>${academyLeadSafeText(item.routedSourceTitle || item.companyName || 'Assigned mission')}</strong>
+                                <div class="academy-lead-list-meta">${academyLeadSafeText(item.missionType || item.contactType || 'opportunity_mission')}</div>
+                            </td>
+                            <td>${academyLeadSafeText(item.missionBrief || item.academyMissionNeed || item.nextAction || 'Admin will define the task.')}</td>
+                            <td>${academyLeadSafeText(academyLeadGetAssignedMissionValue(item))}</td>
+                            <td>${academyLeadSafeText(academyLeadFormatStatus(item.assignmentStatus || item.taskStatus || item.pipelineStage || 'assigned'))}</td>
+                            <td>${academyLeadFormatDate(item.assignedAt || item.updatedAt || item.createdAt)}</td>
+                            <td>
+                                ${academyCanSubmitAssignedMission(item) ? `
+                                    <button type="button" class="btn-primary" data-academy-assigned-action="submit" data-lead-id="${academyLeadSafeText(item.id)}">
+                                        Submit Proof
+                                    </button>
+                                ` : `
+                                    <span class="academy-lead-badge">${academyLeadSafeText(academyLeadFormatStatus(item.reviewStatus || item.assignmentStatus || 'waiting'))}</span>
+                                `}
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
+async function submitAcademyAssignedMission(leadId = '') {
+    const cleanLeadId = String(leadId || '').trim();
+
+    if (!cleanLeadId) {
+        showToast('Missing assigned mission id.', 'error');
+        return;
+    }
+
+    const completionProof = window.prompt(
+        'Paste the completion proof, result, link, summary, or delivery note for admin review:',
+        ''
+    );
+
+    if (completionProof === null) return;
+
+    const cleanProof = String(completionProof || '').trim();
+
+    if (!cleanProof) {
+        showToast('Completion proof is required.', 'error');
+        return;
+    }
+
+    try {
+        showAcademyTabLoader('Submitting Mission...');
+
+        const result = await academyAuthedFetch(`/api/academy/lead-missions/${encodeURIComponent(cleanLeadId)}/submit`, {
+            method: 'POST',
+            body: JSON.stringify({
+                completionProof: cleanProof
+            })
+        });
+
+        if (!result?.success) {
+            throw new Error(result?.message || 'Failed to submit mission.');
+        }
+
+        await loadAcademyLeadMissionsWorkspace('assigned');
+        showToast('Mission submitted for admin review.', 'success');
+    } catch (error) {
+        showToast(error?.message || 'Failed to submit mission.', 'error');
+    } finally {
+        hideAcademyTabLoader();
+    }
+}
+function academyLeadGetOpportunitySourceLabel(value = '') {
+    const clean = String(value || '').trim().toLowerCase();
+
+    if (clean === 'plaza') return 'Plaza';
+    if (clean === 'federation') return 'Federation';
+
+    return 'YH Universe';
+}
+
+function academyLeadGetOpportunityBudget(item = {}) {
+    const currency = String(item.currency || 'USD').trim().toUpperCase() || 'USD';
+    const min = academyLeadNormalizeMoney(item.budgetMin);
+    const max = academyLeadNormalizeMoney(item.budgetMax);
+    const expected = academyLeadNormalizeMoney(item.expectedValueAmount);
+
+    if (min && max && min !== max) {
+        return `${academyLeadFormatMoney(min, currency)} - ${academyLeadFormatMoney(max, currency)}`;
+    }
+
+    if (max) return academyLeadFormatMoney(max, currency);
+    if (min) return academyLeadFormatMoney(min, currency);
+    if (expected) return academyLeadFormatMoney(expected, currency);
+
+    return 'To be discussed';
+}
+
+function renderAcademyOpportunityMissions(opportunityMissions = []) {
+    const panel = document.getElementById('academy-lead-panel-opportunities');
+    if (!panel) return;
+
+    const filter = String(academyLeadMissionsState.activeOpportunityMissionFilter || 'all').trim().toLowerCase();
+
+    const items = academyLeadSafeArray(opportunityMissions).filter((item) => {
+        if (filter === 'all') return true;
+        return String(item?.sourceDivision || '').trim().toLowerCase() === filter;
+    });
+
+    const summary = academyLeadMissionsState.opportunityMissionSummary || {};
+
+    if (!items.length) {
+        panel.innerHTML = `
+            <div class="academy-lead-info-grid">
+                <article class="academy-lead-info-card">
+                    <div class="academy-profile-card-kicker">Opportunity Board</div>
+                    <h4 class="academy-lead-card-title">No available missions yet</h4>
+                    <p class="academy-lead-card-copy">
+                        Approved Plaza jobs and Federation deal tasks will appear here when admin opens them for Academy operators.
+                    </p>
+                </article>
+
+                <article class="academy-lead-info-card">
+                    <div class="academy-profile-card-kicker">Current Signals</div>
+                    <h4 class="academy-lead-card-title">${academyLeadSafeText(String(summary.total || 0), '0')} total opportunities</h4>
+                    <p class="academy-lead-card-copy">
+                        Plaza: ${academyLeadSafeText(String(summary.plaza || 0), '0')} • Federation: ${academyLeadSafeText(String(summary.federation || 0), '0')}
+                    </p>
+                </article>
+            </div>
+        `;
+        return;
+    }
+
+    panel.innerHTML = `
+        <div class="academy-lead-info-grid">
+            <article class="academy-lead-info-card">
+                <div class="academy-profile-card-kicker">Opportunity Board</div>
+                <h4 class="academy-lead-card-title">${academyLeadSafeText(String(items.length), '0')} available mission${items.length === 1 ? '' : 's'}</h4>
+                <p class="academy-lead-card-copy">
+                    These are approved cross-division opportunities from Plaza and Federation that Academy operators can support.
+                </p>
+            </article>
+
+            <article class="academy-lead-info-card">
+                <div class="academy-profile-card-kicker">Source Split</div>
+                <h4 class="academy-lead-card-title">Plaza: ${academyLeadSafeText(String(summary.plaza || 0), '0')} • Federation: ${academyLeadSafeText(String(summary.federation || 0), '0')}</h4>
+                <p class="academy-lead-card-copy">
+                    Plaza jobs come from approved marketplace listings. Federation tasks come from admin-supervised Deal Rooms.
+                </p>
+            </article>
+        </div>
+
+        <div class="academy-lead-table-wrap" style="margin-top:16px;">
+            <table class="academy-lead-table">
+                <thead>
+                    <tr>
+                        <th>Source</th>
+                        <th>Mission</th>
+                        <th>Type</th>
+                        <th>Value / Budget</th>
+                        <th>Region</th>
+                        <th>Need</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${items.map((item) => `
+                        <tr>
+                            <td><span class="academy-lead-badge">${academyLeadSafeText(academyLeadGetOpportunitySourceLabel(item.sourceDivision))}</span></td>
+                            <td>
+                                <strong>${academyLeadSafeText(item.title, 'Untitled opportunity')}</strong>
+                                <div style="color:var(--text-muted);font-size:.78rem;margin-top:4px;">
+                                    ${academyLeadSafeText(item.description || item.partnerNeed || 'No description available.')}
+                                </div>
+                            </td>
+                            <td>${academyLeadSafeText(item.type || item.sourceFeature)}</td>
+                            <td>${academyLeadSafeText(academyLeadGetOpportunityBudget(item))}</td>
+                            <td>${academyLeadSafeText(item.region || 'Global')}</td>
+                            <td>${academyLeadSafeText(item.academyMissionNeed || item.partnerNeed || 'Admin will define operator task.')}</td>
+                            <td>${academyLeadSafeText(academyLeadFormatStatus(item.status || 'active'))}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+}
+
 function renderLeadMissionsFollowups(followUps = []) {
     const panel = document.getElementById('academy-lead-panel-followup');
     if (!panel) return;
@@ -10884,6 +11288,12 @@ function switchAcademyLeadMissionsSubtab(target = 'readme') {
 
 function hydrateAcademyLeadMissionsWorkspace(result = {}) {
     academyLeadMissionsState.leads = Array.isArray(result.leads) ? result.leads : [];
+    academyLeadMissionsState.assignedMissions = getAcademyAssignedMissions(academyLeadMissionsState.leads);
+    academyLeadMissionsState.opportunityMissions = Array.isArray(result.opportunityMissions) ? result.opportunityMissions : [];
+    academyLeadMissionsState.opportunityMissionSummary =
+        result.opportunityMissionSummary && typeof result.opportunityMissionSummary === 'object'
+            ? result.opportunityMissionSummary
+            : { total: 0, plaza: 0, federation: 0 };
     academyLeadMissionsState.followUps = Array.isArray(result.followUps) ? result.followUps : [];
     academyLeadMissionsState.payouts = Array.isArray(result.payouts) ? result.payouts : [];
     academyLeadMissionsState.deals = Array.isArray(result.deals) ? result.deals : [];
@@ -10891,16 +11301,23 @@ function hydrateAcademyLeadMissionsWorkspace(result = {}) {
 
     renderLeadMissionsReadme(result.meta || {});
     renderLeadMissionsDatabase(academyLeadMissionsState.leads);
+    renderAcademyOpportunityMissions(academyLeadMissionsState.opportunityMissions);
+    renderAcademyAssignedMissions(academyLeadMissionsState.leads);
     renderLeadMissionsFollowups(academyLeadMissionsState.followUps);
     renderLeadMissionsPayouts(academyLeadMissionsState.payouts);
     renderLeadMissionsDeals(academyLeadMissionsState.deals);
     renderLeadMissionsScripts(academyLeadMissionsState.scripts);
 }
 
-async function loadAcademyLeadMissionsWorkspace() {
-    const [result, withdrawalResult] = await Promise.all([
+async function loadAcademyLeadMissionsWorkspace(initialSubtab = 'readme') {
+    const [result, withdrawalResult, opportunityResult] = await Promise.all([
         academyAuthedFetch('/api/academy/lead-missions/workspace', { method: 'GET' }),
-        academyAuthedFetch('/api/payouts/my-ledger', { method: 'GET' }).catch(() => ({ success: false, payouts: [] }))
+        academyAuthedFetch('/api/payouts/my-ledger', { method: 'GET' }).catch(() => ({ success: false, payouts: [] })),
+        academyAuthedFetch('/api/academy/opportunity-missions', { method: 'GET' }).catch(() => ({
+            success: false,
+            opportunityMissions: [],
+            summary: { total: 0, plaza: 0, federation: 0 }
+        }))
     ]);
 
     if (!result?.success) {
@@ -10911,8 +11328,17 @@ async function loadAcademyLeadMissionsWorkspace() {
         ? withdrawalResult.payouts
         : [];
 
+    result.opportunityMissions = Array.isArray(opportunityResult?.opportunityMissions)
+        ? opportunityResult.opportunityMissions
+        : [];
+
+    result.opportunityMissionSummary =
+        opportunityResult?.summary && typeof opportunityResult.summary === 'object'
+            ? opportunityResult.summary
+            : { total: 0, plaza: 0, federation: 0 };
+
     hydrateAcademyLeadMissionsWorkspace(result);
-    switchAcademyLeadMissionsSubtab('readme');
+    switchAcademyLeadMissionsSubtab(initialSubtab || 'readme');
     return result;
 }
 
@@ -11003,7 +11429,7 @@ async function openAcademyLeadMissionsView(options = {}) {
     revealAcademyMissionsViewShell();
     setAcademyMissionsPanel('leads');
 
-    Promise.resolve(loadAcademyLeadMissionsWorkspace())
+    Promise.resolve(loadAcademyLeadMissionsWorkspace(options?.initialSubtab || 'readme'))
         .catch((error) => {
             console.error('loadAcademyLeadMissionsWorkspace error:', error);
             showToast(error?.message || 'Failed to load Leads.', 'error');
@@ -11020,33 +11446,52 @@ document.querySelectorAll('.academy-lead-subtab').forEach((btn) => {
     });
 });
 
+document.addEventListener('click', (event) => {
+    const btn = event.target?.closest?.('[data-academy-assigned-action]');
+    if (!btn) return;
+
+    const action = String(btn.getAttribute('data-academy-assigned-action') || '').trim();
+    const leadId = String(btn.getAttribute('data-lead-id') || '').trim();
+
+    if (action === 'submit') {
+        submitAcademyAssignedMission(leadId);
+    }
+});
+
 document.getElementById('btn-open-mission-leads')?.addEventListener('click', () => {
     openAcademyLeadMissionsView();
 });
 
-function openAcademyOpportunityMissionBridge(message = '') {
+function openAcademyOpportunityMissionBridge(message = '', sourceFilter = 'all') {
+    academyLeadMissionsState.activeOpportunityMissionFilter = String(sourceFilter || 'all').trim().toLowerCase() || 'all';
+
     if (message && typeof showToast === 'function') {
         showToast(message);
     }
 
-    openAcademyLeadMissionsView();
+    openAcademyLeadMissionsView({
+        initialSubtab: 'opportunities'
+    });
 }
 
 document.getElementById('btn-open-mission-plaza-jobs')?.addEventListener('click', () => {
     openAcademyOpportunityMissionBridge(
-        'Plaza Jobs are routed through your Leads workspace for now. Admin can mark records Plaza-ready.'
+        'Opening approved Plaza jobs and operator opportunities.',
+        'plaza'
     );
 });
 
 document.getElementById('btn-open-mission-federation-tasks')?.addEventListener('click', () => {
     openAcademyOpportunityMissionBridge(
-        'Federation Tasks are routed through your Leads workspace. Admin can mark records Federation-ready.'
+        'Opening Federation tasks that need Academy operator support.',
+        'federation'
     );
 });
 
 document.getElementById('btn-open-mission-opportunity-ops')?.addEventListener('click', () => {
     openAcademyOpportunityMissionBridge(
-        'Opportunity Missions connect Academy execution with Plaza jobs and Federation deal flow.'
+        'Opening cross-division Opportunity Missions.',
+        'all'
     );
 });
 
