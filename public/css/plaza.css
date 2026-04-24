@@ -2118,6 +2118,55 @@ textarea {
   box-shadow: 0 0 18px rgba(14, 165, 233, 0.16);
 }
 
+.yh-plaza-side-nav .yh-plaza-nav-btn {
+  width: 100%;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(56, 189, 248, 0.18);
+  background: rgba(15, 23, 42, 0.42);
+  color: var(--yh-text-dim);
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.1;
+  box-shadow: none;
+  transform: none;
+  transition: 0.2s ease;
+}
+
+.yh-plaza-side-nav .yh-plaza-nav-btn:hover,
+.yh-plaza-side-nav .yh-plaza-nav-btn.is-active {
+  color: #ffffff;
+  border-color: rgba(14, 165, 233, 0.55);
+  background: rgba(14, 165, 233, 0.14);
+  box-shadow: 0 0 18px rgba(14, 165, 233, 0.16);
+  transform: none;
+}
+
+.yh-plaza-side-nav .yh-plaza-nav-btn-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.yh-plaza-side-nav .yh-plaza-universe-nav-link {
+  margin-top: 4px;
+  justify-content: center;
+  color: #8bd4ff;
+  border-color: rgba(77, 139, 255, 0.5);
+  background: rgba(77, 139, 255, 0.08);
+}
+
+.yh-plaza-side-nav .yh-plaza-universe-nav-link:hover {
+  color: #ffffff;
+  border-color: rgba(77, 139, 255, 0.72);
+  background: rgba(77, 139, 255, 0.16);
+}
+
 input,
 select,
 textarea,

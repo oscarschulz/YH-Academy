@@ -9768,6 +9768,10 @@ function academyLeadNormalizeMoney(amount = 0) {
     return Number.isFinite(numeric) ? numeric : 0;
 }
 
+function academyLeadSafeArray(value = []) {
+    return Array.isArray(value) ? value : [];
+}
+
 function academyLeadFormatStatus(value = '', fallback = 'not_started') {
     const clean = String(value || fallback || '').trim();
     return clean ? clean.replace(/_/g, ' ') : fallback.replace(/_/g, ' ');
@@ -9776,7 +9780,7 @@ function academyLeadFormatStatus(value = '', fallback = 'not_started') {
 function academyLeadMoneySummary(items = [], field = 'amount') {
     const totals = {};
 
-    safeArray(items).forEach((item) => {
+    academyLeadSafeArray(items).forEach((item) => {
         const currency = String(item?.currency || 'USD').trim().toUpperCase() || 'USD';
         const amount = academyLeadNormalizeMoney(item?.[field]);
 
@@ -9792,8 +9796,8 @@ function academyLeadMoneySummary(items = [], field = 'amount') {
 }
 
 function academyLeadRenderEconomySummary(payouts = [], deals = []) {
-    const safePayouts = safeArray(payouts);
-    const safeDeals = safeArray(deals);
+    const safePayouts = academyLeadSafeArray(payouts);
+    const safeDeals = academyLeadSafeArray(deals);
 
     const approvedPayouts = safePayouts.filter((item) => {
         const status = String(item?.status || '').trim().toLowerCase();
