@@ -8153,9 +8153,46 @@ function openAcademyProfileView() {
     renderAcademyProfileView(null, { mode: 'self' });
 }
 
+const YH_ACADEMY_VISIT_PROFILE_TARGET_KEY = 'yh_academy_visit_profile_target_v1';
+
+function shouldRedirectAcademyProfileVisitToStandaloneAcademy() {
+    const isDashboardHub =
+        typeof isStandaloneDashboardPage === 'function' &&
+        isStandaloneDashboardPage();
+
+    const profileView = document.getElementById('academy-profile-view');
+    const academyWrapper = document.getElementById('academy-wrapper');
+
+    return (
+        isDashboardHub ||
+        !profileView ||
+        !academyWrapper ||
+        document.body?.getAttribute('data-yh-view') === 'hub'
+    );
+}
+
+function redirectToStandaloneAcademyMemberProfile(memberId = '') {
+    const normalizedMemberId = normalizeAcademyFeedId(memberId);
+    if (!normalizedMemberId) return;
+
+    try {
+        sessionStorage.setItem(YH_ACADEMY_VISIT_PROFILE_TARGET_KEY, normalizedMemberId);
+        sessionStorage.setItem('yh_academy_startup_boot_v1', '1');
+        sessionStorage.setItem('yh_academy_startup_section_v1', 'profile');
+    } catch (_) {}
+
+    showAcademyTabLoader('Opening Profile...');
+    window.location.href = `/academy?section=profile&member=${encodeURIComponent(normalizedMemberId)}`;
+}
+
 async function openAcademyMemberProfileView(memberId = '') {
     const normalizedMemberId = normalizeAcademyFeedId(memberId);
     if (!normalizedMemberId) return;
+
+    if (shouldRedirectAcademyProfileVisitToStandaloneAcademy()) {
+        redirectToStandaloneAcademyMemberProfile(normalizedMemberId);
+        return;
+    }
 
     showAcademyTabLoader('Loading Profile...');
 
