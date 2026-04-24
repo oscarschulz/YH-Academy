@@ -75,6 +75,10 @@ function redirectToAcademyPage(section = 'home') {
     window.location.href = buildAcademyUrl(section);
 }
 
+function buildPlazaUrl() {
+    return '/plaza.html';
+}
+
 function showUniverseDivisionEntryLoader(label = 'Loading...') {
     const loaderText = String(label || 'Loading...').trim() || 'Loading...';
 
@@ -5108,7 +5112,7 @@ const openNotificationTarget = (target = '') => {
     }
 
     if (normalized === 'plaza') {
-        window.location.href = '/plaza';
+        redirectToPlazaPage();
         return;
     }
 
