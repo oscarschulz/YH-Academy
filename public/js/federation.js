@@ -196,6 +196,18 @@ const federationConnectState = {
   error: ""
 };
 
+const federationLeadUnlockState = {
+  loadingByRequestId: {},
+  detailsByRequestId: {},
+  errorByRequestId: {}
+};
+
+const federationPaymentProviderState = {
+  loadingByRequestId: {},
+  selectedByRequestId: {},
+  errorByRequestId: {}
+};
+
 function getFederationStoredAuthToken() {
   const keys = [
     "yh_auth_token",
@@ -551,17 +563,196 @@ function hasFederationConnectDealPackage(request = {}) {
     Boolean(dealNotes)
   );
 }
+function isFederationRequestPaidForLeadUnlock(request = {}) {
+  const status = String(request.status || "").trim().toLowerCase();
+  const paymentStatus = String(request.paymentStatus || "").trim().toLowerCase();
 
+  return (
+    status === "paid" ||
+    status === "intro_delivered" ||
+    status === "completed" ||
+    paymentStatus === "paid"
+  );
+}
+
+function canUnlockFederationLeadDetails(request = {}) {
+  return Boolean(
+    request?.id &&
+    request?.ownerUid &&
+    request?.leadId &&
+    isFederationRequestPaidForLeadUnlock(request)
+  );
+}
+
+function renderFederationUnlockedLeadValue(label = "", value = "") {
+  const cleanValue = String(value || "").trim();
+
+  if (!cleanValue) return "";
+
+  return `
+    <div class="fed-state-metric">
+      <strong>${escapeHtml(cleanValue)}</strong>
+      <small>${escapeHtml(label)}</small>
+    </div>
+  `;
+}
+
+function renderFederationUnlockedLeadPanel(request = {}) {
+  const requestId = String(request.id || "").trim();
+
+  if (!canUnlockFederationLeadDetails(request)) return "";
+
+  const details = federationLeadUnlockState.detailsByRequestId[requestId] || null;
+  const loading = federationLeadUnlockState.loadingByRequestId[requestId] === true;
+  const error = String(federationLeadUnlockState.errorByRequestId[requestId] || "").trim();
+
+  if (!details) {
+    return `
+      <div class="fed-card-actions">
+        <button
+          type="button"
+          class="fed-btn fed-btn-secondary"
+          data-federation-unlock-lead="${escapeHtml(requestId)}"
+          ${loading ? "disabled aria-busy=\"true\"" : ""}
+        >
+          ${loading ? "Unlocking Lead..." : "View Lead Details"}
+        </button>
+      </div>
+      ${
+        error
+          ? `<p class="fed-command-copy">${escapeHtml(error)}</p>`
+          : `<p class="fed-command-copy">Full contact details stay hidden until payment is confirmed.</p>`
+      }
+    `;
+  }
+
+  const detailRows = [
+    renderFederationUnlockedLeadValue("Contact", details.contactName),
+    renderFederationUnlockedLeadValue("Role", details.contactRole),
+    renderFederationUnlockedLeadValue("Company", details.companyName),
+    renderFederationUnlockedLeadValue("Website", details.companyWebsite),
+    renderFederationUnlockedLeadValue("Email", details.email),
+    renderFederationUnlockedLeadValue("Phone", details.phone),
+    renderFederationUnlockedLeadValue("Location", [details.city, details.country].filter(Boolean).join(", ")),
+    renderFederationUnlockedLeadValue("Source", details.sourceMethod),
+    renderFederationUnlockedLeadValue("Next Action", details.nextAction)
+  ].filter(Boolean).join("");
+
+  return `
+    <div class="fed-command-card">
+      <div class="fed-sidebar-card-label">Unlocked Lead Details</div>
+      <h4>${escapeHtml(details.companyName || details.contactName || "Purchased Lead")}</h4>
+      <div class="fed-state-grid">
+        ${detailRows || renderFederationUnlockedLeadValue("Status", "Unlocked")}
+      </div>
+      ${
+        details.notes
+          ? `<p class="fed-command-copy">${escapeHtml(details.notes)}</p>`
+          : ""
+      }
+    </div>
+  `;
+}
+function getFederationPaymentProviderLabel(provider = "") {
+  const clean = String(provider || "").trim().toLowerCase();
+
+  if (clean === "stripe") return "Stripe";
+  if (clean === "oxapay") return "OxaPay";
+
+  return "Unselected";
+}
+
+function renderFederationPaymentProviderPanel(request = {}) {
+  const requestId = String(request.id || "").trim();
+  if (!requestId || !canPayFederationConnectRequest(request)) return "";
+
+  const selectedProvider =
+    String(federationPaymentProviderState.selectedByRequestId[requestId] || request.selectedPaymentProvider || "").trim().toLowerCase();
+
+  const loading = federationPaymentProviderState.loadingByRequestId[requestId] === true;
+  const error = String(federationPaymentProviderState.errorByRequestId[requestId] || "").trim();
+
+  return `
+    <div class="fed-command-card">
+      <div class="fed-sidebar-card-label">Choose Payment Method</div>
+      <h4>Pay with Stripe or OxaPay</h4>
+      <p class="fed-command-copy">
+        This lead stays available as a lifetime Federation listing. Your payment unlocks access for your account only.
+      </p>
+
+      <div class="fed-card-actions">
+        <button
+          type="button"
+          class="fed-btn ${selectedProvider === "stripe" ? "fed-btn-primary" : "fed-btn-secondary"}"
+          data-federation-select-provider="${escapeHtml(requestId)}"
+          data-payment-provider="stripe"
+          ${loading ? "disabled aria-busy=\"true\"" : ""}
+        >
+          ${loading && selectedProvider === "stripe" ? "Selecting..." : "Stripe: Card / Bank / Wallet"}
+        </button>
+
+        <button
+          type="button"
+          class="fed-btn ${selectedProvider === "oxapay" ? "fed-btn-primary" : "fed-btn-secondary"}"
+          data-federation-select-provider="${escapeHtml(requestId)}"
+          data-payment-provider="oxapay"
+          ${loading ? "disabled aria-busy=\"true\"" : ""}
+        >
+          ${loading && selectedProvider === "oxapay" ? "Selecting..." : "OxaPay: Crypto"}
+        </button>
+      </div>
+
+      ${
+        selectedProvider === "stripe"
+          ? `
+            <div class="fed-card-actions">
+              <button
+                type="button"
+                class="fed-btn fed-btn-primary"
+                data-federation-start-stripe-checkout="${escapeHtml(requestId)}"
+                ${loading ? "disabled aria-busy=\"true\"" : ""}
+              >
+                Continue to Stripe Checkout
+              </button>
+            </div>
+            <p class="fed-command-copy">Stripe selected. Continue to secure checkout to unlock this lead after successful payment.</p>
+          `
+          : selectedProvider === "oxapay"
+            ? `
+              <div class="fed-card-actions">
+                <button
+                  type="button"
+                  class="fed-btn fed-btn-primary"
+                  data-federation-start-oxapay-checkout="${escapeHtml(requestId)}"
+                  ${loading ? "disabled aria-busy=\"true\"" : ""}
+                >
+                  Continue to OxaPay Crypto Invoice
+                </button>
+              </div>
+              <p class="fed-command-copy">OxaPay selected. Continue to crypto invoice checkout to unlock this lead after successful confirmation.</p>
+            `
+            : `<p class="fed-command-copy">Choose a provider to prepare the neutral payment ledger for this lead purchase.</p>`
+      }
+
+      ${
+        error
+          ? `<p class="fed-command-copy">${escapeHtml(error)}</p>`
+          : ""
+      }
+    </div>
+  `;
+}
 function renderFederationConnectDealMetrics(request = {}) {
   if (!hasFederationConnectDealPackage(request)) return "";
 
   const paymentStatus = getFederationConnectPaymentStatus(request);
+  const isPaid = isFederationRequestPaidForLeadUnlock(request);
 
   return `
     <div class="fed-state-grid">
       <div class="fed-state-metric">
         <strong>${escapeHtml(formatFederationConnectMoney(request.pricingAmount, request.currency))}</strong>
-        <small>Package price</small>
+        <small>Total access price</small>
       </div>
       <div class="fed-state-metric">
         <strong>${escapeHtml(String(request.paymentStatus || "not_started").replace(/_/g, " "))}</strong>
@@ -569,7 +760,7 @@ function renderFederationConnectDealMetrics(request = {}) {
       </div>
       <div class="fed-state-metric">
         <strong>${escapeHtml(formatFederationConnectMoney(request.platformCommissionAmount, request.currency))}</strong>
-        <small>Platform commission</small>
+        <small>Universe commission</small>
       </div>
       <div class="fed-state-metric">
         <strong>${escapeHtml(formatFederationConnectMoney(request.operatorPayoutAmount, request.currency))}</strong>
@@ -585,27 +776,24 @@ function renderFederationConnectDealMetrics(request = {}) {
 
     ${
       canPayFederationConnectRequest(request)
-        ? `
-          <div class="fed-card-actions">
-            <button
-              type="button"
-              class="fed-btn fed-btn-primary"
-              data-federation-pay-intro="${escapeHtml(request.id)}"
-            >
-              Pay for Introduction
-            </button>
-          </div>
-        `
-        : paymentStatus === "paid"
-          ? `<p class="fed-command-copy">Payment confirmed. Admin will deliver or complete the introduction path.</p>`
-          : ""
+        ? renderFederationPaymentProviderPanel(request)
+        : isPaid
+          ? `
+            <p class="fed-command-copy">Payment confirmed. Full lead details can now be unlocked for this buyer only.</p>
+            ${renderFederationUnlockedLeadPanel(request)}
+          `
+          : paymentStatus === "paid"
+            ? `<p class="fed-command-copy">Payment confirmed. Lead details can now be unlocked.</p>`
+            : ""
     }
   `;
 }
 
-async function startFederationPaidIntroCheckout(requestId = "", button = null) {
+async function selectFederationPaymentProvider(requestId = "", provider = "", button = null) {
   const cleanId = String(requestId || "").trim();
-  if (!cleanId) return;
+  const cleanProvider = String(provider || "").trim().toLowerCase();
+
+  if (!cleanId || !["stripe", "oxapay"].includes(cleanProvider)) return;
 
   const request = federationConnectState.requests.find((item) => String(item.id || "") === cleanId);
 
@@ -619,20 +807,106 @@ async function startFederationPaidIntroCheckout(requestId = "", button = null) {
     return;
   }
 
-  const originalText = button?.textContent || "Pay for Introduction";
+  const originalText = button?.textContent || getFederationPaymentProviderLabel(cleanProvider);
+
+  try {
+    federationPaymentProviderState.loadingByRequestId[cleanId] = true;
+    federationPaymentProviderState.selectedByRequestId[cleanId] = cleanProvider;
+    federationPaymentProviderState.errorByRequestId[cleanId] = "";
+
+    if (button) {
+      button.disabled = true;
+      button.setAttribute("aria-busy", "true");
+      button.textContent = "Selecting...";
+    }
+
+    renderFederationRequestsSection();
+
+    const result = await federationConnectFetch(
+      `/api/federation/connect/requests/${encodeURIComponent(cleanId)}/payment-provider`,
+      {
+        method: "POST",
+        body: JSON.stringify({ provider: cleanProvider })
+      }
+    );
+
+    if (!result?.payment?.id) {
+      throw new Error("Payment ledger was not returned.");
+    }
+
+    federationConnectState.requests = federationConnectState.requests.map((item) => {
+      if (String(item.id || "") !== cleanId) return item;
+
+      return {
+        ...item,
+        paymentLedgerId: result.payment.id,
+        paymentLedgerStatus: result.payment.status,
+        selectedPaymentProvider: result.provider || cleanProvider,
+        paymentProviderLabel: result.providerLabel || getFederationPaymentProviderLabel(cleanProvider),
+        paymentProviderOptions: result.payment.providerOptions || ["stripe", "oxapay"],
+        sourcePaymentMode: "lead_purchase"
+      };
+    });
+
+    renderFederationRequestsSection();
+    renderFederationConnectRequestsPanel();
+
+    showFederationConnectFeedback(
+      `${result.providerLabel || getFederationPaymentProviderLabel(cleanProvider)} selected. Checkout connection comes next.`,
+      "success"
+    );
+  } catch (error) {
+    console.error("Federation payment provider selection error:", error);
+    federationPaymentProviderState.errorByRequestId[cleanId] =
+      error?.message || "Failed to select payment provider.";
+
+    renderFederationRequestsSection();
+    showFederationConnectFeedback(federationPaymentProviderState.errorByRequestId[cleanId], "error");
+  } finally {
+    federationPaymentProviderState.loadingByRequestId[cleanId] = false;
+
+    if (button) {
+      button.disabled = false;
+      button.setAttribute("aria-busy", "false");
+      button.textContent = originalText;
+    }
+  }
+}
+
+async function startFederationPaidIntroCheckout(requestId = "", button = null) {
+  return selectFederationPaymentProvider(requestId, "stripe", button);
+}
+
+async function startFederationStripeCheckout(requestId = "", button = null) {
+  const cleanId = String(requestId || "").trim();
+  if (!cleanId) return;
+
+  const request = federationConnectState.requests.find((item) => String(item.id || "") === cleanId);
+
+  if (!request) {
+    showFederationConnectFeedback("Could not find this Federation request. Refresh and try again.", "error");
+    return;
+  }
+
+  if (!canPayFederationConnectRequest(request)) {
+    showFederationConnectFeedback("This request is not ready for Stripe checkout.", "error");
+    return;
+  }
+
+  const originalText = button?.textContent || "Continue to Stripe Checkout";
 
   try {
     if (button) {
       button.disabled = true;
       button.setAttribute("aria-busy", "true");
-      button.textContent = "Opening Checkout...";
+      button.textContent = "Opening Stripe...";
     }
 
     const result = await federationConnectFetch(
       `/api/federation/connect/requests/${encodeURIComponent(cleanId)}/checkout-session`,
       {
         method: "POST",
-        body: JSON.stringify({})
+        body: JSON.stringify({ provider: "stripe" })
       }
     );
 
@@ -640,10 +914,157 @@ async function startFederationPaidIntroCheckout(requestId = "", button = null) {
       throw new Error("Stripe checkout URL was not returned.");
     }
 
+    federationConnectState.requests = federationConnectState.requests.map((item) => {
+      if (String(item.id || "") !== cleanId) return item;
+
+      return {
+        ...item,
+        paymentLedgerId: result.paymentLedgerId || item.paymentLedgerId || "",
+        paymentLedgerStatus: "checkout_started",
+        selectedPaymentProvider: "stripe",
+        paymentProviderLabel: "Stripe",
+        paymentStatus: "checkout_started",
+        stripeCheckoutSessionId: result.checkoutSessionId || item.stripeCheckoutSessionId || ""
+      };
+    });
+
     window.top.location.href = result.url;
   } catch (error) {
-    console.error("Federation paid intro checkout error:", error);
+    console.error("Federation Stripe checkout error:", error);
     showFederationConnectFeedback(error?.message || "Failed to open Stripe Checkout.", "error");
+
+    if (button) {
+      button.disabled = false;
+      button.setAttribute("aria-busy", "false");
+      button.textContent = originalText;
+    }
+  }
+}
+
+async function startFederationOxaPayCheckout(requestId = "", button = null) {
+  const cleanId = String(requestId || "").trim();
+  if (!cleanId) return;
+
+  const request = federationConnectState.requests.find((item) => String(item.id || "") === cleanId);
+
+  if (!request) {
+    showFederationConnectFeedback("Could not find this Federation request. Refresh and try again.", "error");
+    return;
+  }
+
+  if (!canPayFederationConnectRequest(request)) {
+    showFederationConnectFeedback("This request is not ready for OxaPay checkout.", "error");
+    return;
+  }
+
+  const originalText = button?.textContent || "Continue to OxaPay Crypto Invoice";
+
+  try {
+    if (button) {
+      button.disabled = true;
+      button.setAttribute("aria-busy", "true");
+      button.textContent = "Opening OxaPay...";
+    }
+
+    const result = await federationConnectFetch(
+      `/api/federation/connect/requests/${encodeURIComponent(cleanId)}/oxapay-invoice`,
+      {
+        method: "POST",
+        body: JSON.stringify({ provider: "oxapay" })
+      }
+    );
+
+    if (!result?.url) {
+      throw new Error("OxaPay invoice URL was not returned.");
+    }
+
+    federationConnectState.requests = federationConnectState.requests.map((item) => {
+      if (String(item.id || "") !== cleanId) return item;
+
+      return {
+        ...item,
+        paymentLedgerId: result.paymentLedgerId || item.paymentLedgerId || "",
+        paymentLedgerStatus: "checkout_started",
+        selectedPaymentProvider: "oxapay",
+        paymentProviderLabel: "OxaPay",
+        paymentStatus: "checkout_started",
+        oxapayTrackId: result.oxapayTrackId || item.oxapayTrackId || ""
+      };
+    });
+
+    window.top.location.href = result.url;
+  } catch (error) {
+    console.error("Federation OxaPay checkout error:", error);
+    showFederationConnectFeedback(error?.message || "Failed to open OxaPay invoice.", "error");
+
+    if (button) {
+      button.disabled = false;
+      button.setAttribute("aria-busy", "false");
+      button.textContent = originalText;
+    }
+  }
+}
+
+async function unlockFederationLeadDetails(requestId = "", button = null) {
+  const cleanId = String(requestId || "").trim();
+  if (!cleanId) return;
+
+  const request = federationConnectState.requests.find((item) => String(item.id || "") === cleanId);
+
+  if (!request || !canUnlockFederationLeadDetails(request)) {
+    showFederationConnectFeedback("This request is not ready to unlock lead details yet.", "error");
+    return;
+  }
+
+  const originalText = button?.textContent || "View Lead Details";
+
+  try {
+    federationLeadUnlockState.loadingByRequestId[cleanId] = true;
+    federationLeadUnlockState.errorByRequestId[cleanId] = "";
+
+    if (button) {
+      button.disabled = true;
+      button.setAttribute("aria-busy", "true");
+      button.textContent = "Unlocking...";
+    }
+
+    renderFederationRequestsSection();
+
+    const result = await federationConnectFetch(
+      `/api/federation/connect/requests/${encodeURIComponent(cleanId)}/unlocked-lead`,
+      {
+        method: "GET"
+      }
+    );
+
+    if (!result?.lead) {
+      throw new Error("Unlocked lead details were not returned.");
+    }
+
+    federationLeadUnlockState.detailsByRequestId[cleanId] = result.lead;
+
+    federationConnectState.requests = federationConnectState.requests.map((item) => {
+      if (String(item.id || "") !== cleanId) return item;
+
+      return {
+        ...item,
+        leadAccessGrantId: result.grant?.id || item.leadAccessGrantId || "",
+        leadAccessStatus: result.grant?.accessStatus || "unlocked"
+      };
+    });
+
+    renderFederationRequestsSection();
+    renderFederationConnectRequestsPanel();
+    showFederationConnectFeedback("Lead details unlocked for this paid request.", "success");
+  } catch (error) {
+    console.error("Federation lead unlock error:", error);
+    federationLeadUnlockState.errorByRequestId[cleanId] =
+      error?.message || "Failed to unlock lead details.";
+
+    renderFederationRequestsSection();
+    showFederationConnectFeedback(federationLeadUnlockState.errorByRequestId[cleanId], "error");
+  } finally {
+    federationLeadUnlockState.loadingByRequestId[cleanId] = false;
 
     if (button) {
       button.disabled = false;
@@ -1136,6 +1557,51 @@ function initFederationConnect() {
   });
 
   document.addEventListener("click", (event) => {
+    const oxapayCheckoutBtn = event.target.closest("[data-federation-start-oxapay-checkout]");
+    if (oxapayCheckoutBtn) {
+      event.preventDefault();
+      event.stopPropagation();
+      startFederationOxaPayCheckout(
+        oxapayCheckoutBtn.getAttribute("data-federation-start-oxapay-checkout") || "",
+        oxapayCheckoutBtn
+      );
+      return;
+    }
+
+    const stripeCheckoutBtn = event.target.closest("[data-federation-start-stripe-checkout]");
+    if (stripeCheckoutBtn) {
+      event.preventDefault();
+      event.stopPropagation();
+      startFederationStripeCheckout(
+        stripeCheckoutBtn.getAttribute("data-federation-start-stripe-checkout") || "",
+        stripeCheckoutBtn
+      );
+      return;
+    }
+
+    const providerBtn = event.target.closest("[data-federation-select-provider]");
+    if (providerBtn) {
+      event.preventDefault();
+      event.stopPropagation();
+      selectFederationPaymentProvider(
+        providerBtn.getAttribute("data-federation-select-provider") || "",
+        providerBtn.getAttribute("data-payment-provider") || "",
+        providerBtn
+      );
+      return;
+    }
+
+    const unlockLeadBtn = event.target.closest("[data-federation-unlock-lead]");
+    if (unlockLeadBtn) {
+      event.preventDefault();
+      event.stopPropagation();
+      unlockFederationLeadDetails(
+        unlockLeadBtn.getAttribute("data-federation-unlock-lead") || "",
+        unlockLeadBtn
+      );
+      return;
+    }
+
     const payIntroBtn = event.target.closest("[data-federation-pay-intro]");
     if (payIntroBtn) {
       event.preventDefault();

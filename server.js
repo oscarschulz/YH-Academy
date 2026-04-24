@@ -7,10 +7,11 @@ const fs = require('fs');
 const crypto = require('crypto');
 const cors = require('cors');
 const { firestore } = require('./config/firebaseAdmin');
-const { Timestamp } = require('firebase-admin/firestore');
+const { Timestamp, FieldValue } = require('firebase-admin/firestore');
 const jwt = require('jsonwebtoken');
 const publicLandingEventsRepo = require('./backend/repositories/publicLandingEventsRepo');
 const realtimeFirestoreRepo = require('./backend/repositories/realtimeFirestoreRepo');
+const paymentLedgerRepo = require('./backend/repositories/paymentLedgerRepo');
 const app = express();
 app.set('trust proxy', 1);
 
@@ -196,6 +197,9 @@ function mapFederationConnectOpportunityDoc(docSnap) {
         currency,
         saleReviewStatus: sanitizeText(lead.saleReviewStatus || 'approved'),
         saleStatus: sanitizeText(lead.saleStatus || 'listed'),
+        listingAvailability: sanitizeText(lead.listingAvailability || 'lifetime'),
+        unlimitedPurchases: lead.unlimitedPurchases !== false,
+        purchaseCount: Math.max(0, Number(lead.purchaseCount || 0)),
 
         summary: sanitizeText(
             lead.notes ||
@@ -204,6 +208,270 @@ function mapFederationConnectOpportunityDoc(docSnap) {
         ).slice(0, 220),
         updatedAt: mapFederationConnectTimestamp(lead.updatedAt || lead.adminNetworkUpdatedAt || lead.createdAt),
         createdAt: mapFederationConnectTimestamp(lead.createdAt)
+    };
+}
+
+function buildFederationLeadAccessGrantId(requesterUid = '', requestId = '') {
+    return `fedlead_${sanitizeText(requesterUid)}_${sanitizeText(requestId)}`
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]+/g, '_')
+        .slice(0, 240);
+}
+
+function normalizeFederationPaymentProvider(value = '') {
+    const raw = sanitizeText(value).toLowerCase();
+
+    if (raw === 'stripe') return 'stripe';
+    if (raw === 'oxapay') return 'oxapay';
+
+    return '';
+}
+
+function getFederationPaymentProviderLabel(provider = '') {
+    const normalized = normalizeFederationPaymentProvider(provider);
+
+    if (normalized === 'stripe') return 'Stripe';
+    if (normalized === 'oxapay') return 'OxaPay';
+
+    return 'Unselected';
+}
+
+function getFederationPaymentMethodLabel(provider = '') {
+    const normalized = normalizeFederationPaymentProvider(provider);
+
+    if (normalized === 'stripe') return 'card_bank_wallet';
+    if (normalized === 'oxapay') return 'crypto';
+
+    return 'unselected';
+}
+
+function getOxaPayMerchantApiKey() {
+    const key = sanitizeText(
+        process.env.OXAPAY_MERCHANT_API_KEY ||
+        process.env.OXAPAY_API_KEY ||
+        ''
+    );
+
+    if (!key) {
+        const error = new Error('OXAPAY_MERCHANT_API_KEY is not configured.');
+        error.statusCode = 503;
+        throw error;
+    }
+
+    return key;
+}
+
+function isOxaPaySandboxEnabled() {
+    return String(process.env.OXAPAY_SANDBOX || '').trim().toLowerCase() === 'true';
+}
+
+function buildFederationLeadPurchaseOrderId(requestId = '') {
+    return `yh_fedlead_${sanitizeText(requestId)}`
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]+/g, '_')
+        .slice(0, 120);
+}
+
+function extractFederationRequestIdFromOrderId(orderId = '') {
+    const clean = sanitizeText(orderId).toLowerCase();
+
+    if (!clean.startsWith('yh_fedlead_')) return '';
+
+    return sanitizeText(clean.replace(/^yh_fedlead_/, ''));
+}
+
+function verifyOxaPayWebhookSignature(rawBody = Buffer.from(''), hmacHeader = '') {
+    const merchantKey = getOxaPayMerchantApiKey();
+    const expected = crypto
+        .createHmac('sha512', merchantKey)
+        .update(rawBody)
+        .digest('hex');
+
+    const received = sanitizeText(hmacHeader);
+
+    if (!expected || !received) return false;
+
+    try {
+        return crypto.timingSafeEqual(
+            Buffer.from(expected, 'hex'),
+            Buffer.from(received, 'hex')
+        );
+    } catch (_) {
+        return false;
+    }
+}
+
+async function callOxaPayInvoiceApi(payload = {}) {
+    const response = await fetch('https://api.oxapay.com/v1/payment/invoice', {
+        method: 'POST',
+        headers: {
+            merchant_api_key: getOxaPayMerchantApiKey(),
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+    });
+
+    let data = null;
+
+    try {
+        data = await response.json();
+    } catch (_) {
+        data = null;
+    }
+
+    if (!response.ok || Number(data?.status || 0) >= 400 || data?.error?.message) {
+        const error = new Error(
+            data?.error?.message ||
+            data?.message ||
+            `OxaPay invoice request failed with status ${response.status}.`
+        );
+        error.statusCode = response.status || 500;
+        error.payload = data;
+        throw error;
+    }
+
+    return data || {};
+}
+
+function isFederationLeadPurchasePaid(request = {}) {
+    const status = sanitizeText(request.status).toLowerCase();
+    const paymentStatus = sanitizeText(request.paymentStatus).toLowerCase();
+
+    return (
+        status === 'paid' ||
+        status === 'intro_delivered' ||
+        status === 'completed' ||
+        paymentStatus === 'paid'
+    );
+}
+
+function mapUnlockedFederationLeadDetails(lead = {}, context = {}) {
+    const pricingAmount = Math.max(0, Number(context.pricingAmount || lead.buyerPriceAmount || 0));
+    const operatorPayoutAmount = Math.max(0, Number(context.operatorPayoutAmount || lead.sellerPriceAmount || 0));
+    const platformCommissionAmount = Math.max(0, Number(context.platformCommissionAmount || lead.universeCommissionAmount || 0));
+    const currency = sanitizeText(context.currency || lead.currency || 'USD').toUpperCase() || 'USD';
+
+    return {
+        leadId: sanitizeText(context.leadId),
+        ownerUid: sanitizeText(context.ownerUid),
+        requestId: sanitizeText(context.requestId),
+
+        companyName: sanitizeText(lead.companyName),
+        companyWebsite: sanitizeText(lead.companyWebsite),
+        contactName: sanitizeText(lead.contactName),
+        contactRole: sanitizeText(lead.contactRole),
+        contactType: sanitizeText(lead.contactType),
+        email: sanitizeText(lead.email).toLowerCase(),
+        phone: sanitizeText(lead.phone),
+        city: sanitizeText(lead.city),
+        country: sanitizeText(lead.country),
+
+        tier: sanitizeText(lead.tier),
+        sourceMethod: sanitizeText(lead.sourceMethod),
+        pipelineStage: sanitizeText(lead.pipelineStage),
+        priority: sanitizeText(lead.priority),
+        nextAction: sanitizeText(lead.nextAction),
+        channel: sanitizeText(lead.channel),
+        callOutcome: sanitizeText(lead.callOutcome),
+        interestLevel: sanitizeText(lead.interestLevel),
+        rapportLevel: sanitizeText(lead.rapportLevel),
+        objection: sanitizeText(lead.objection),
+        notes: sanitizeText(lead.notes).slice(0, 2000),
+        followUpDueDate: sanitizeText(lead.followUpDueDate),
+
+        pricingAmount,
+        operatorPayoutAmount,
+        platformCommissionAmount,
+        currency,
+
+        unlockedAt: mapFederationConnectTimestamp(Timestamp.now())
+    };
+}
+
+async function ensureFederationLeadAccessGrant({
+    requestId = '',
+    requesterUid = '',
+    request = {},
+    leadSnap = null,
+    paymentRecordId = ''
+} = {}) {
+    const cleanRequestId = sanitizeText(requestId);
+    const cleanRequesterUid = sanitizeText(requesterUid);
+    const ownerUid = sanitizeText(request.ownerUid);
+    const leadId = sanitizeText(request.leadId);
+
+    if (!cleanRequestId || !cleanRequesterUid || !ownerUid || !leadId || !leadSnap?.exists) {
+        return null;
+    }
+
+    const grantId = buildFederationLeadAccessGrantId(cleanRequesterUid, cleanRequestId);
+    const now = Timestamp.now();
+
+    const grantPayload = {
+        requestId: cleanRequestId,
+        requesterUid: cleanRequesterUid,
+        requesterEmail: sanitizeText(request.requesterEmail).toLowerCase(),
+        requesterName: sanitizeText(request.requesterName || 'Federation Member'),
+
+        ownerUid,
+        leadId,
+        leadPath: sanitizeText(leadSnap.ref.path),
+
+        sourceDivision: 'federation',
+        sourceFeature: 'lead_purchase',
+        accessStatus: 'unlocked',
+        paymentStatus: 'paid',
+        paymentRecordId: sanitizeText(paymentRecordId || request.paymentLedgerId || ''),
+        federationRequestId: cleanRequestId,
+
+        pricingAmount: Math.max(0, Number(request.pricingAmount || 0)),
+        currency: sanitizeText(request.currency || 'USD').toUpperCase() || 'USD',
+        platformCommissionAmount: Math.max(0, Number(request.platformCommissionAmount || 0)),
+        operatorPayoutAmount: Math.max(0, Number(request.operatorPayoutAmount || 0)),
+
+        unlockedAt: now,
+        updatedAt: now,
+        createdAt: now
+    };
+
+    const grantRef = firestore.collection('federationLeadAccessGrants').doc(grantId);
+    const existingGrant = await grantRef.get();
+
+    await grantRef.set({
+        ...grantPayload,
+        ...(existingGrant.exists ? { createdAt: existingGrant.data()?.createdAt || now } : {})
+    }, { merge: true });
+
+    await firestore.collection('federationConnectionRequests').doc(cleanRequestId).set({
+        leadAccessGrantId: grantId,
+        leadAccessStatus: 'unlocked',
+        leadUnlockedAt: now,
+        updatedAt: now
+    }, { merge: true });
+
+    await leadSnap.ref.set({
+        saleStatus: 'listed',
+        federationListingStatus: 'listed',
+        listingAvailability: 'lifetime',
+        unlimitedPurchases: true,
+        lastPurchasedAt: now,
+        updatedAt: now,
+        ...(!existingGrant.exists ? { purchaseCount: FieldValue.increment(1) } : {})
+    }, { merge: true });
+
+    const nextSnap = await grantRef.get();
+    const grant = nextSnap.data() || {};
+
+    return {
+        id: grantId,
+        requestId: sanitizeText(grant.requestId),
+        ownerUid: sanitizeText(grant.ownerUid),
+        leadId: sanitizeText(grant.leadId),
+        requesterUid: sanitizeText(grant.requesterUid),
+        accessStatus: sanitizeText(grant.accessStatus || 'unlocked'),
+        paymentStatus: sanitizeText(grant.paymentStatus || 'paid'),
+        unlockedAt: mapFederationConnectTimestamp(grant.unlockedAt),
+        updatedAt: mapFederationConnectTimestamp(grant.updatedAt)
     };
 }
 
@@ -1559,8 +1827,9 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
             const session = event.data?.object || {};
             const metadata = session.metadata || {};
 
-            if (metadata.kind === 'federation_paid_intro') {
+            if (metadata.kind === 'federation_paid_intro' || metadata.kind === 'federation_lead_purchase') {
                 const requestId = sanitizeText(metadata.requestId || session.client_reference_id);
+                const paymentLedgerId = sanitizeText(metadata.paymentLedgerId);
 
                 if (requestId && session.payment_status === 'paid') {
                     const requestRef = firestore.collection('federationConnectionRequests').doc(requestId);
@@ -1574,6 +1843,10 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
                             status: 'paid',
                             adminStatus: 'active',
                             paymentStatus: 'paid',
+                            paymentLedgerStatus: 'paid',
+                            selectedPaymentProvider: 'stripe',
+                            paymentProviderLabel: 'Stripe',
+                            paymentMethod: 'card_bank_wallet',
                             payoutStatus: sanitizeText(current.payoutStatus).toLowerCase() === 'paid' ? 'paid' : 'approved',
                             commissionStatus: 'earned',
                             stripeCheckoutSessionId: sanitizeText(session.id),
@@ -1584,6 +1857,40 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
                             updatedAt: now,
                             paymentUpdatedAt: now
                         };
+                        await paymentLedgerRepo.upsertPaymentRecord({
+                            id: paymentLedgerId || sanitizeText(current.paymentLedgerId),
+                            sourceDivision: 'federation',
+                            sourceFeature: metadata.kind === 'federation_lead_purchase' ? 'lead_purchase' : 'paid_intro',
+                            sourceRecordId: requestId,
+
+                            payerUid: sanitizeText(current.requesterUid || metadata.requesterUid),
+                            payerEmail: sanitizeText(current.requesterEmail).toLowerCase(),
+                            payerName: sanitizeText(current.requesterName || 'Federation Member'),
+
+                            provider: 'stripe',
+                            providerOptions: ['stripe', 'oxapay'],
+                            providerPaymentId: sanitizeText(session.payment_intent || session.id),
+                            providerCheckoutUrl: '',
+                            providerStatus: sanitizeText(session.payment_status || 'paid'),
+
+                            amount: Math.max(0, Number(current.pricingAmount || 0)),
+                            currency: sanitizeText(current.currency || 'USD').toUpperCase() || 'USD',
+
+                            status: 'paid',
+                            paymentMethod: 'card_bank_wallet',
+
+                            platformCommissionAmount: Math.max(0, Number(current.platformCommissionAmount || 0)),
+                            operatorPayoutAmount: Math.max(0, Number(current.operatorPayoutAmount || 0)),
+
+                            metadata: {
+                                requestId,
+                                ownerUid: sanitizeText(current.ownerUid || metadata.ownerUid),
+                                leadId: sanitizeText(current.leadId || metadata.leadId),
+                                stripeCheckoutSessionId: sanitizeText(session.id),
+                                stripePaymentIntentId: sanitizeText(session.payment_intent),
+                                sourcePaymentMode: sanitizeText(current.sourcePaymentMode || 'lead_purchase')
+                            }
+                        });
 
                         await requestRef.set(paymentPatch, { merge: true });
 
@@ -1647,6 +1954,214 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
             success: false,
             message: 'Stripe webhook handling failed.'
         });
+    }
+});
+
+app.post('/api/oxapay/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+    const rawBody = Buffer.isBuffer(req.body)
+        ? req.body
+        : Buffer.from(String(req.body || ''), 'utf8');
+
+    try {
+        const hmacHeader = req.headers.hmac || req.headers.HMAC || req.headers['HMAC'];
+
+        if (!verifyOxaPayWebhookSignature(rawBody, hmacHeader)) {
+            return res.status(400).send('Invalid HMAC signature');
+        }
+
+        let payload = null;
+
+        try {
+            payload = JSON.parse(rawBody.toString('utf8') || '{}');
+        } catch (_) {
+            return res.status(400).send('Invalid JSON data');
+        }
+
+        const oxapayStatus = sanitizeText(payload.status).toLowerCase();
+        const oxapayType = sanitizeText(payload.type).toLowerCase();
+        const trackId = sanitizeText(payload.track_id);
+        const orderId = sanitizeText(payload.order_id);
+        const requestIdFromOrder = extractFederationRequestIdFromOrderId(orderId);
+
+        if (oxapayType !== 'invoice') {
+            return res.status(200).send('ok');
+        }
+
+        let requestSnap = null;
+        let requestRef = null;
+
+        if (requestIdFromOrder) {
+            requestRef = firestore.collection('federationConnectionRequests').doc(requestIdFromOrder);
+            requestSnap = await requestRef.get();
+        }
+
+        if ((!requestSnap || !requestSnap.exists) && trackId) {
+            const querySnap = await firestore
+                .collection('federationConnectionRequests')
+                .where('oxapayTrackId', '==', trackId)
+                .limit(1)
+                .get();
+
+            if (!querySnap.empty) {
+                requestSnap = querySnap.docs[0];
+                requestRef = requestSnap.ref;
+            }
+        }
+
+        if (!requestSnap || !requestSnap.exists || !requestRef) {
+            return res.status(200).send('ok');
+        }
+
+        const requestId = requestSnap.id;
+        const current = requestSnap.data() || {};
+        const now = Timestamp.now();
+
+        const isPaid = oxapayStatus === 'paid';
+        const isPaying = oxapayStatus === 'paying';
+
+        if (isPaid) {
+            const paymentPatch = {
+                status: 'paid',
+                adminStatus: 'active',
+                paymentStatus: 'paid',
+                paymentLedgerStatus: 'paid',
+                selectedPaymentProvider: 'oxapay',
+                paymentProviderLabel: 'OxaPay',
+                paymentMethod: 'crypto',
+                payoutStatus: sanitizeText(current.payoutStatus).toLowerCase() === 'paid' ? 'paid' : 'approved',
+                commissionStatus: 'earned',
+                oxapayTrackId: trackId,
+                oxapayOrderId: orderId,
+                oxapayStatus: sanitizeText(payload.status),
+                oxapayCurrency: sanitizeText(payload.currency),
+                oxapayValue: Number(payload.value || 0),
+                oxapaySentValue: Number(payload.sent_value || 0),
+                paidAt: now,
+                updatedAt: now,
+                paymentUpdatedAt: now
+            };
+
+            await paymentLedgerRepo.upsertPaymentRecord({
+                id: sanitizeText(current.paymentLedgerId),
+                sourceDivision: 'federation',
+                sourceFeature: 'lead_purchase',
+                sourceRecordId: requestId,
+
+                payerUid: sanitizeText(current.requesterUid),
+                payerEmail: sanitizeText(current.requesterEmail).toLowerCase(),
+                payerName: sanitizeText(current.requesterName || 'Federation Member'),
+
+                provider: 'oxapay',
+                providerOptions: ['stripe', 'oxapay'],
+                providerPaymentId: trackId,
+                providerCheckoutUrl: '',
+                providerStatus: sanitizeText(payload.status),
+
+                amount: Math.max(0, Number(current.pricingAmount || payload.amount || 0)),
+                currency: sanitizeText(current.currency || 'USD').toUpperCase() || 'USD',
+
+                cryptoAmount: Number(payload.value || payload.sent_value || 0),
+                cryptoCurrency: sanitizeText(payload.currency).toUpperCase(),
+                cryptoNetwork: sanitizeText(payload.txs?.[0]?.network || ''),
+
+                status: 'paid',
+                paymentMethod: 'crypto',
+
+                platformCommissionAmount: Math.max(0, Number(current.platformCommissionAmount || 0)),
+                operatorPayoutAmount: Math.max(0, Number(current.operatorPayoutAmount || 0)),
+
+                metadata: {
+                    requestId,
+                    ownerUid: sanitizeText(current.ownerUid),
+                    leadId: sanitizeText(current.leadId),
+                    oxapayTrackId: trackId,
+                    oxapayOrderId: orderId,
+                    oxapayPayload: payload,
+                    sourcePaymentMode: sanitizeText(current.sourcePaymentMode || 'lead_purchase')
+                }
+            });
+
+            await requestRef.set(paymentPatch, { merge: true });
+
+            const syncedRequest = {
+                id: requestId,
+                ...current,
+                ...paymentPatch
+            };
+
+            const academyEconomySynced =
+                await syncStripePaidFederationRequestToAcademyEconomy(
+                    syncedRequest,
+                    'oxapay_invoice_paid'
+                );
+
+            await firestore.collection('adminBroadcasts').add({
+                audience: sanitizeText(current.requesterName || current.requesterEmail || 'Federation Member'),
+                subject: 'Federation lead purchase crypto payment confirmed',
+                message: academyEconomySynced
+                    ? `OxaPay payment confirmed for Federation lead purchase ${requestId}. Academy earnings mirror was updated.`
+                    : `OxaPay payment confirmed for Federation lead purchase ${requestId}. Academy mirror is waiting for a matched lead.`,
+                sentAt: new Date().toISOString(),
+                createdBy: 'oxapay-webhook'
+            }).catch(() => null);
+        } else if (isPaying) {
+            await requestRef.set({
+                paymentStatus: 'paying',
+                paymentLedgerStatus: 'pending',
+                selectedPaymentProvider: 'oxapay',
+                paymentProviderLabel: 'OxaPay',
+                paymentMethod: 'crypto',
+                oxapayTrackId: trackId,
+                oxapayOrderId: orderId,
+                oxapayStatus: sanitizeText(payload.status),
+                updatedAt: now,
+                paymentUpdatedAt: now
+            }, { merge: true });
+
+            await paymentLedgerRepo.upsertPaymentRecord({
+                id: sanitizeText(current.paymentLedgerId),
+                sourceDivision: 'federation',
+                sourceFeature: 'lead_purchase',
+                sourceRecordId: requestId,
+
+                payerUid: sanitizeText(current.requesterUid),
+                payerEmail: sanitizeText(current.requesterEmail).toLowerCase(),
+                payerName: sanitizeText(current.requesterName || 'Federation Member'),
+
+                provider: 'oxapay',
+                providerOptions: ['stripe', 'oxapay'],
+                providerPaymentId: trackId,
+                providerStatus: sanitizeText(payload.status),
+
+                amount: Math.max(0, Number(current.pricingAmount || payload.amount || 0)),
+                currency: sanitizeText(current.currency || 'USD').toUpperCase() || 'USD',
+
+                cryptoAmount: Number(payload.value || payload.sent_value || 0),
+                cryptoCurrency: sanitizeText(payload.currency).toUpperCase(),
+                cryptoNetwork: sanitizeText(payload.txs?.[0]?.network || ''),
+
+                status: 'pending',
+                paymentMethod: 'crypto',
+
+                platformCommissionAmount: Math.max(0, Number(current.platformCommissionAmount || 0)),
+                operatorPayoutAmount: Math.max(0, Number(current.operatorPayoutAmount || 0)),
+
+                metadata: {
+                    requestId,
+                    ownerUid: sanitizeText(current.ownerUid),
+                    leadId: sanitizeText(current.leadId),
+                    oxapayTrackId: trackId,
+                    oxapayOrderId: orderId,
+                    oxapayPayload: payload,
+                    sourcePaymentMode: sanitizeText(current.sourcePaymentMode || 'lead_purchase')
+                }
+            });
+        }
+
+        return res.status(200).send('ok');
+    } catch (error) {
+        console.error('oxapay webhook handler error:', error);
+        return res.status(500).send('OxaPay webhook handling failed');
     }
 });
 
@@ -2738,6 +3253,427 @@ app.get('/api/federation/connect/opportunities', requireApiUser, async (req, res
     }
 });
 
+app.get('/api/federation/connect/requests/:requestId/unlocked-lead', requireApiUser, async (req, res) => {
+    try {
+        const requestId = sanitizeText(req.params.requestId);
+        const requesterUid = sanitizeText(req.user?.id);
+
+        if (!requestId || !requesterUid) {
+            return res.status(400).json({
+                success: false,
+                message: 'Missing Federation request id.'
+            });
+        }
+
+        const requestRef = firestore.collection('federationConnectionRequests').doc(requestId);
+        const requestSnap = await requestRef.get();
+
+        if (!requestSnap.exists) {
+            return res.status(404).json({
+                success: false,
+                message: 'Federation request not found.'
+            });
+        }
+
+        const request = requestSnap.data() || {};
+
+        if (sanitizeText(request.requesterUid) !== requesterUid) {
+            return res.status(403).json({
+                success: false,
+                message: 'You can only unlock lead details for your own paid request.'
+            });
+        }
+
+        if (!isFederationLeadPurchasePaid(request)) {
+            return res.status(402).json({
+                success: false,
+                message: 'Payment must be confirmed before lead details can unlock.'
+            });
+        }
+
+        const ownerUid = sanitizeText(request.ownerUid);
+        const leadId = sanitizeText(request.leadId);
+
+        if (!ownerUid || !leadId) {
+            return res.status(400).json({
+                success: false,
+                message: 'This request is not connected to a specific Academy lead.'
+            });
+        }
+
+        const leadRef = firestore
+            .collection('users')
+            .doc(ownerUid)
+            .collection('academyLeadMissions')
+            .doc(leadId);
+
+        const leadSnap = await leadRef.get();
+
+        if (!leadSnap.exists) {
+            return res.status(404).json({
+                success: false,
+                message: 'The purchased lead no longer exists.'
+            });
+        }
+
+        const lead = leadSnap.data() || {};
+
+        if (lead.federationReady !== true) {
+            return res.status(403).json({
+                success: false,
+                message: 'This lead is no longer Federation-ready.'
+            });
+        }
+
+        const grant = await ensureFederationLeadAccessGrant({
+            requestId,
+            requesterUid,
+            request,
+            leadSnap,
+            paymentRecordId: sanitizeText(request.paymentLedgerId || request.stripeCheckoutSessionId || '')
+        });
+
+        const unlockedLead = mapUnlockedFederationLeadDetails(lead, {
+            requestId,
+            ownerUid,
+            leadId,
+            pricingAmount: request.pricingAmount,
+            operatorPayoutAmount: request.operatorPayoutAmount,
+            platformCommissionAmount: request.platformCommissionAmount,
+            currency: request.currency
+        });
+
+        return res.json({
+            success: true,
+            grant,
+            lead: unlockedLead
+        });
+    } catch (error) {
+        console.error('federation unlocked lead details error:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to unlock Federation lead details.'
+        });
+    }
+});
+
+app.post('/api/federation/connect/requests/:requestId/payment-provider', requireApiUser, async (req, res) => {
+    try {
+        const requestId = sanitizeText(req.params.requestId);
+        const requesterUid = sanitizeText(req.user?.id);
+        const provider = normalizeFederationPaymentProvider(req.body?.provider);
+
+        if (!requestId || !requesterUid) {
+            return res.status(400).json({
+                success: false,
+                message: 'Missing Federation request id.'
+            });
+        }
+
+        if (!provider) {
+            return res.status(400).json({
+                success: false,
+                message: 'Choose Stripe or OxaPay.'
+            });
+        }
+
+        const requestRef = firestore.collection('federationConnectionRequests').doc(requestId);
+        const requestSnap = await requestRef.get();
+
+        if (!requestSnap.exists) {
+            return res.status(404).json({
+                success: false,
+                message: 'Federation request not found.'
+            });
+        }
+
+        const request = requestSnap.data() || {};
+
+        if (sanitizeText(request.requesterUid) !== requesterUid) {
+            return res.status(403).json({
+                success: false,
+                message: 'You can only choose a payment provider for your own request.'
+            });
+        }
+
+        if (isFederationLeadPurchasePaid(request)) {
+            return res.status(400).json({
+                success: false,
+                message: 'This request is already paid.'
+            });
+        }
+
+        const pricingAmount = Math.max(0, Number(request.pricingAmount || request.dealPackage?.pricingAmount || 0));
+        const currency = sanitizeText(request.currency || request.dealPackage?.currency || 'USD').toUpperCase() || 'USD';
+
+        if (!pricingAmount) {
+            return res.status(400).json({
+                success: false,
+                message: 'This Federation lead has no access price yet.'
+            });
+        }
+
+        const payment = await paymentLedgerRepo.upsertPaymentRecord({
+            id: sanitizeText(request.paymentLedgerId),
+            sourceDivision: 'federation',
+            sourceFeature: 'lead_purchase',
+            sourceRecordId: requestId,
+
+            payerUid: requesterUid,
+            payerEmail: sanitizeText(request.requesterEmail || req.user?.email).toLowerCase(),
+            payerName: sanitizeText(request.requesterName || req.user?.name || 'Federation Member'),
+
+            provider,
+            providerOptions: ['stripe', 'oxapay'],
+            status: 'draft',
+            paymentMethod: getFederationPaymentMethodLabel(provider),
+
+            amount: pricingAmount,
+            currency,
+
+            platformCommissionAmount: Math.max(0, Number(request.platformCommissionAmount || 0)),
+            operatorPayoutAmount: Math.max(0, Number(request.operatorPayoutAmount || 0)),
+
+            metadata: {
+                ownerUid: sanitizeText(request.ownerUid),
+                leadId: sanitizeText(request.leadId),
+                requestId,
+                opportunityTitle: sanitizeText(request.opportunityTitle || 'Federation lead purchase'),
+                listingAvailability: 'lifetime',
+                unlimitedPurchases: true
+            }
+        });
+
+        await requestRef.set({
+            paymentLedgerId: payment.id,
+            paymentLedgerStatus: payment.status,
+            selectedPaymentProvider: provider,
+            paymentProviderLabel: getFederationPaymentProviderLabel(provider),
+            paymentProviderOptions: ['stripe', 'oxapay'],
+            paymentMethod: getFederationPaymentMethodLabel(provider),
+            sourcePaymentMode: 'lead_purchase',
+            listingAvailability: 'lifetime',
+            unlimitedPurchases: true,
+            paymentProviderSelectedAt: Timestamp.now(),
+            updatedAt: Timestamp.now()
+        }, { merge: true });
+
+        return res.json({
+            success: true,
+            provider,
+            providerLabel: getFederationPaymentProviderLabel(provider),
+            payment,
+            checkoutReady: false,
+            nextProviderPatch:
+                provider === 'stripe'
+                    ? 'Stripe Checkout will be connected to this ledger next.'
+                    : 'OxaPay crypto invoice checkout will be connected to this ledger next.'
+        });
+    } catch (error) {
+        console.error('federation payment provider selection error:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: error?.message || 'Failed to select payment provider.'
+        });
+    }
+});
+
+app.post('/api/federation/connect/requests/:requestId/oxapay-invoice', requireApiUser, async (req, res) => {
+    try {
+        const requestId = sanitizeText(req.params.requestId);
+        const requesterUid = sanitizeText(req.user?.id);
+
+        if (!requestId || !requesterUid) {
+            return res.status(400).json({
+                success: false,
+                message: 'Missing Federation request id.'
+            });
+        }
+
+        const requestRef = firestore.collection('federationConnectionRequests').doc(requestId);
+        const requestSnap = await requestRef.get();
+
+        if (!requestSnap.exists) {
+            return res.status(404).json({
+                success: false,
+                message: 'Federation connection request not found.'
+            });
+        }
+
+        const request = requestSnap.data() || {};
+
+        if (sanitizeText(request.requesterUid) !== requesterUid) {
+            return res.status(403).json({
+                success: false,
+                message: 'You can only pay for your own Federation request.'
+            });
+        }
+
+        if (isFederationPaidStatus(request.status) || sanitizeText(request.paymentStatus).toLowerCase() === 'paid') {
+            return res.status(400).json({
+                success: false,
+                message: 'This Federation request is already paid.'
+            });
+        }
+
+        const selectedProvider = normalizeFederationPaymentProvider(request.selectedPaymentProvider);
+
+        if (selectedProvider && selectedProvider !== 'oxapay') {
+            return res.status(400).json({
+                success: false,
+                message: 'This request is currently set to Stripe. Choose OxaPay before opening a crypto invoice.'
+            });
+        }
+
+        const pricingAmount = Math.max(0, Number(request.pricingAmount || request.dealPackage?.pricingAmount || 0));
+        const currency = sanitizeText(request.currency || request.dealPackage?.currency || 'USD').toUpperCase() || 'USD';
+
+        if (!pricingAmount) {
+            return res.status(400).json({
+                success: false,
+                message: 'This Federation lead has no access price yet.'
+            });
+        }
+
+        const payment = await paymentLedgerRepo.upsertPaymentRecord({
+            id: sanitizeText(request.paymentLedgerId),
+            sourceDivision: 'federation',
+            sourceFeature: 'lead_purchase',
+            sourceRecordId: requestId,
+
+            payerUid: requesterUid,
+            payerEmail: sanitizeText(request.requesterEmail || req.user?.email).toLowerCase(),
+            payerName: sanitizeText(request.requesterName || req.user?.name || 'Federation Member'),
+
+            provider: 'oxapay',
+            providerOptions: ['stripe', 'oxapay'],
+            status: 'checkout_started',
+            paymentMethod: 'crypto',
+
+            amount: pricingAmount,
+            currency,
+
+            platformCommissionAmount: Math.max(0, Number(request.platformCommissionAmount || 0)),
+            operatorPayoutAmount: Math.max(0, Number(request.operatorPayoutAmount || 0)),
+
+            metadata: {
+                ownerUid: sanitizeText(request.ownerUid),
+                leadId: sanitizeText(request.leadId),
+                requestId,
+                opportunityTitle: sanitizeText(request.opportunityTitle || 'Federation lead purchase'),
+                listingAvailability: 'lifetime',
+                unlimitedPurchases: true
+            }
+        });
+
+        const baseUrl = resolvePublicBaseUrl(req);
+        const orderId = buildFederationLeadPurchaseOrderId(requestId);
+        const requesterEmail = sanitizeText(request.requesterEmail || req.user?.email).toLowerCase();
+        const title = sanitizeText(request.opportunityTitle || 'Federation lead purchase').slice(0, 120);
+
+        const invoicePayload = {
+            amount: Number(pricingAmount.toFixed(2)),
+            currency,
+            lifetime: Math.max(15, Math.min(2880, Number(process.env.OXAPAY_INVOICE_LIFETIME_MINUTES || 60))),
+            fee_paid_by_payer: Number(process.env.OXAPAY_FEE_PAID_BY_PAYER || 1),
+            mixed_payment: true,
+            callback_url: `${baseUrl}/api/oxapay/webhook`,
+            return_url: `${baseUrl}/federation.html?checkout=oxapay-success&request=${encodeURIComponent(requestId)}`,
+            email: requesterEmail || undefined,
+            order_id: orderId,
+            thanks_message: 'Payment received. Return to Federation to unlock your purchased lead.',
+            description: `YH Federation Lead Access: ${title}`,
+            sandbox: isOxaPaySandboxEnabled()
+        };
+
+        const invoiceResult = await callOxaPayInvoiceApi(invoicePayload);
+        const invoice = invoiceResult.data || {};
+
+        const trackId = sanitizeText(invoice.track_id);
+        const paymentUrl = sanitizeText(invoice.payment_url);
+
+        if (!trackId || !paymentUrl) {
+            return res.status(502).json({
+                success: false,
+                message: 'OxaPay did not return a valid invoice link.'
+            });
+        }
+
+        await paymentLedgerRepo.upsertPaymentRecord({
+            id: payment.id,
+            sourceDivision: 'federation',
+            sourceFeature: 'lead_purchase',
+            sourceRecordId: requestId,
+
+            payerUid: requesterUid,
+            payerEmail: requesterEmail,
+            payerName: sanitizeText(request.requesterName || req.user?.name || 'Federation Member'),
+
+            provider: 'oxapay',
+            providerOptions: ['stripe', 'oxapay'],
+            providerPaymentId: trackId,
+            providerCheckoutUrl: paymentUrl,
+            providerStatus: 'invoice_created',
+
+            amount: pricingAmount,
+            currency,
+
+            status: 'checkout_started',
+            paymentMethod: 'crypto',
+
+            platformCommissionAmount: Math.max(0, Number(request.platformCommissionAmount || 0)),
+            operatorPayoutAmount: Math.max(0, Number(request.operatorPayoutAmount || 0)),
+
+            metadata: {
+                requestId,
+                ownerUid: sanitizeText(request.ownerUid),
+                leadId: sanitizeText(request.leadId),
+                oxapayTrackId: trackId,
+                oxapayOrderId: orderId,
+                oxapayInvoicePayload: invoicePayload,
+                listingAvailability: 'lifetime',
+                unlimitedPurchases: true
+            }
+        });
+
+        await requestRef.set({
+            paymentLedgerId: sanitizeText(payment.id),
+            paymentLedgerStatus: 'checkout_started',
+            selectedPaymentProvider: 'oxapay',
+            paymentProviderLabel: 'OxaPay',
+            paymentProviderOptions: ['stripe', 'oxapay'],
+            paymentMethod: 'crypto',
+            sourcePaymentMode: 'lead_purchase',
+            paymentStatus: 'checkout_started',
+            oxapayTrackId: trackId,
+            oxapayOrderId: orderId,
+            oxapayInvoiceUrl: paymentUrl,
+            oxapayInvoiceExpiredAt: invoice.expired_at || null,
+            oxapayInvoiceCreatedAt: invoice.date || null,
+            checkoutStartedAt: Timestamp.now(),
+            updatedAt: Timestamp.now()
+        }, { merge: true });
+
+        return res.json({
+            success: true,
+            provider: 'oxapay',
+            providerLabel: 'OxaPay',
+            paymentLedgerId: payment.id,
+            oxapayTrackId: trackId,
+            url: paymentUrl
+        });
+    } catch (error) {
+        console.error('federation lead purchase oxapay invoice error:', error);
+
+        return res.status(error.statusCode || 500).json({
+            success: false,
+            message: error.message || 'Failed to start OxaPay crypto invoice for Federation lead purchase.'
+        });
+    }
+});
+
 app.post('/api/federation/connect/requests/:requestId/checkout-session', requireApiUser, async (req, res) => {
     try {
         const requestId = sanitizeText(req.params.requestId);
@@ -2776,6 +3712,15 @@ app.post('/api/federation/connect/requests/:requestId/checkout-session', require
             });
         }
 
+        const selectedProvider = normalizeFederationPaymentProvider(request.selectedPaymentProvider);
+
+        if (selectedProvider && selectedProvider !== 'stripe') {
+            return res.status(400).json({
+                success: false,
+                message: 'This request is currently set to OxaPay. Choose Stripe before opening Stripe Checkout.'
+            });
+        }
+
         const pricingAmount = Math.max(0, Number(request.pricingAmount || request.dealPackage?.pricingAmount || 0));
         const currency = sanitizeText(request.currency || request.dealPackage?.currency || 'USD').toUpperCase() || 'USD';
         const unitAmount = toStripeMinorUnit(pricingAmount, currency);
@@ -2783,13 +3728,44 @@ app.post('/api/federation/connect/requests/:requestId/checkout-session', require
         if (!pricingAmount || !unitAmount) {
             return res.status(400).json({
                 success: false,
-                message: 'Admin has not priced this Federation introduction yet.'
+                message: 'This Federation lead has no access price yet.'
             });
         }
 
+        const payment = await paymentLedgerRepo.upsertPaymentRecord({
+            id: sanitizeText(request.paymentLedgerId),
+            sourceDivision: 'federation',
+            sourceFeature: 'lead_purchase',
+            sourceRecordId: requestId,
+
+            payerUid: requesterUid,
+            payerEmail: sanitizeText(request.requesterEmail || req.user?.email).toLowerCase(),
+            payerName: sanitizeText(request.requesterName || req.user?.name || 'Federation Member'),
+
+            provider: 'stripe',
+            providerOptions: ['stripe', 'oxapay'],
+            status: 'checkout_started',
+            paymentMethod: 'card_bank_wallet',
+
+            amount: pricingAmount,
+            currency,
+
+            platformCommissionAmount: Math.max(0, Number(request.platformCommissionAmount || 0)),
+            operatorPayoutAmount: Math.max(0, Number(request.operatorPayoutAmount || 0)),
+
+            metadata: {
+                ownerUid: sanitizeText(request.ownerUid),
+                leadId: sanitizeText(request.leadId),
+                requestId,
+                opportunityTitle: sanitizeText(request.opportunityTitle || 'Federation lead purchase'),
+                listingAvailability: 'lifetime',
+                unlimitedPurchases: true
+            }
+        });
+
         const stripe = getStripeClient();
         const baseUrl = resolvePublicBaseUrl(req);
-        const title = sanitizeText(request.opportunityTitle || 'Federation paid introduction').slice(0, 120);
+        const title = sanitizeText(request.opportunityTitle || 'Federation lead purchase').slice(0, 120);
         const requesterEmail = sanitizeText(request.requesterEmail || req.user?.email).toLowerCase();
 
         const session = await stripe.checkout.sessions.create({
@@ -2801,7 +3777,7 @@ app.post('/api/federation/connect/requests/:requestId/checkout-session', require
                     price_data: {
                         currency: currency.toLowerCase(),
                         product_data: {
-                            name: `YH Federation Paid Introduction`,
+                            name: 'YH Federation Lead Access',
                             description: title
                         },
                         unit_amount: unitAmount
@@ -2812,26 +3788,72 @@ app.post('/api/federation/connect/requests/:requestId/checkout-session', require
             success_url: `${baseUrl}/federation.html?checkout=success&request=${encodeURIComponent(requestId)}&session_id={CHECKOUT_SESSION_ID}`,
             cancel_url: `${baseUrl}/federation.html?checkout=cancelled&request=${encodeURIComponent(requestId)}`,
             metadata: {
-                kind: 'federation_paid_intro',
+                kind: 'federation_lead_purchase',
                 requestId,
                 requesterUid,
                 ownerUid: sanitizeText(request.ownerUid),
                 leadId: sanitizeText(request.leadId),
+                paymentLedgerId: sanitizeText(payment.id),
                 sourceDivision: 'federation',
-                sourceFeature: 'connect'
+                sourceFeature: 'lead_purchase',
+                listingAvailability: 'lifetime',
+                unlimitedPurchases: 'true'
             },
             payment_intent_data: {
                 metadata: {
-                    kind: 'federation_paid_intro',
+                    kind: 'federation_lead_purchase',
                     requestId,
                     requesterUid,
                     ownerUid: sanitizeText(request.ownerUid),
-                    leadId: sanitizeText(request.leadId)
+                    leadId: sanitizeText(request.leadId),
+                    paymentLedgerId: sanitizeText(payment.id)
                 }
             }
         });
 
+        await paymentLedgerRepo.upsertPaymentRecord({
+            id: payment.id,
+            sourceDivision: 'federation',
+            sourceFeature: 'lead_purchase',
+            sourceRecordId: requestId,
+
+            payerUid: requesterUid,
+            payerEmail: requesterEmail,
+            payerName: sanitizeText(request.requesterName || req.user?.name || 'Federation Member'),
+
+            provider: 'stripe',
+            providerOptions: ['stripe', 'oxapay'],
+            providerPaymentId: sanitizeText(session.id),
+            providerCheckoutUrl: sanitizeText(session.url),
+            providerStatus: 'checkout_started',
+
+            amount: pricingAmount,
+            currency,
+
+            status: 'checkout_started',
+            paymentMethod: 'card_bank_wallet',
+
+            platformCommissionAmount: Math.max(0, Number(request.platformCommissionAmount || 0)),
+            operatorPayoutAmount: Math.max(0, Number(request.operatorPayoutAmount || 0)),
+
+            metadata: {
+                requestId,
+                ownerUid: sanitizeText(request.ownerUid),
+                leadId: sanitizeText(request.leadId),
+                stripeCheckoutSessionId: sanitizeText(session.id),
+                listingAvailability: 'lifetime',
+                unlimitedPurchases: true
+            }
+        });
+
         await requestRef.set({
+            paymentLedgerId: sanitizeText(payment.id),
+            paymentLedgerStatus: 'checkout_started',
+            selectedPaymentProvider: 'stripe',
+            paymentProviderLabel: 'Stripe',
+            paymentProviderOptions: ['stripe', 'oxapay'],
+            paymentMethod: 'card_bank_wallet',
+            sourcePaymentMode: 'lead_purchase',
             paymentStatus: 'checkout_started',
             stripeCheckoutSessionId: sanitizeText(session.id),
             stripeCheckoutSessionUrl: sanitizeText(session.url),
@@ -2841,17 +3863,21 @@ app.post('/api/federation/connect/requests/:requestId/checkout-session', require
 
         return res.json({
             success: true,
+            provider: 'stripe',
+            providerLabel: 'Stripe',
+            paymentLedgerId: payment.id,
             checkoutSessionId: session.id,
             url: session.url
         });
     } catch (error) {
-        console.error('federation paid intro checkout session error:', error);
+        console.error('federation lead purchase stripe checkout session error:', error);
         return res.status(error.statusCode || 500).json({
             success: false,
-            message: error.message || 'Failed to start Federation paid introduction checkout.'
+            message: error.message || 'Failed to start Stripe checkout for Federation lead purchase.'
         });
     }
 });
+
 
 app.get('/api/federation/connect/my-requests', requireApiUser, async (req, res) => {
     try {
@@ -2922,6 +3948,19 @@ app.get('/api/federation/connect/my-requests', requireApiUser, async (req, res) 
                     payoutStatus: sanitizeText(data.payoutStatus || data.dealPackage?.payoutStatus || 'not_started'),
                     commissionStatus: sanitizeText(data.commissionStatus || data.dealPackage?.commissionStatus || 'not_started'),
                     dealNotes: sanitizeText(data.dealNotes || data.dealPackage?.dealNotes),
+
+                    paymentLedgerId: sanitizeText(data.paymentLedgerId),
+                    paymentLedgerStatus: sanitizeText(data.paymentLedgerStatus || 'draft'),
+                    selectedPaymentProvider: sanitizeText(data.selectedPaymentProvider),
+                    paymentProviderLabel: sanitizeText(data.paymentProviderLabel),
+                    paymentProviderOptions: Array.isArray(data.paymentProviderOptions)
+                        ? data.paymentProviderOptions
+                        : ['stripe', 'oxapay'],
+                    sourcePaymentMode: sanitizeText(data.sourcePaymentMode || 'lead_purchase'),
+
+                    leadAccessGrantId: sanitizeText(data.leadAccessGrantId),
+                    leadAccessStatus: sanitizeText(data.leadAccessStatus),
+                    leadUnlockedAt: mapFederationConnectTimestamp(data.leadUnlockedAt),
 
                     budgetRange: sanitizeText(data.budgetRange || 'not_sure'),
                     urgency: sanitizeText(data.urgency || 'normal'),
@@ -3050,6 +4089,23 @@ app.post('/api/federation/connect/requests', requireApiUser, async (req, res) =>
 
         const now = Timestamp.now();
 
+        const selectedLeadHasListedPrice =
+            hasSelectedLead &&
+            Math.max(0, Number(opportunity.buyerPriceAmount || 0)) > 0;
+
+        const selectedLeadPricingPatch = selectedLeadHasListedPrice
+            ? {
+                pricingAmount: Math.max(0, Number(opportunity.buyerPriceAmount || 0)),
+                currency: sanitizeText(opportunity.currency || 'USD').toUpperCase() || 'USD',
+                platformCommissionRate: Math.max(0, Math.min(100, Number(opportunity.universeCommissionRate || 0))),
+                platformCommissionAmount: Math.max(0, Number(opportunity.universeCommissionAmount || 0)),
+                operatorPayoutAmount: Math.max(0, Number(opportunity.sellerPriceAmount || 0)),
+                paymentStatus: 'not_started',
+                paymentProviderOptions: ['stripe', 'oxapay'],
+                sourcePaymentMode: 'lead_purchase'
+            }
+            : {};
+
         const requestPayload = {
             requesterUid,
             requesterEmail,
@@ -3068,6 +4124,8 @@ app.post('/api/federation/connect/requests', requireApiUser, async (req, res) =>
             opportunityTitle: opportunity.title,
             opportunitySnapshot: opportunity,
 
+            ...selectedLeadPricingPatch,
+
             requestReason,
             intendedUse: sanitizeText(body.intendedUse).slice(0, 1200),
             budgetRange: normalizeFederationConnectBudgetRange(body.budgetRange),
@@ -3075,8 +4133,8 @@ app.post('/api/federation/connect/requests', requireApiUser, async (req, res) =>
             preferredIntroType: normalizeFederationConnectIntroType(body.preferredIntroType),
             notes: sanitizeText(body.notes).slice(0, 1200),
 
-            status: 'pending_admin_match',
-            adminStatus: 'pending_review',
+            status: selectedLeadHasListedPrice ? 'pricing_sent' : 'pending_admin_match',
+            adminStatus: selectedLeadHasListedPrice ? 'listed_payment_ready' : 'pending_review',
             payoutStatus: 'not_started',
             commissionStatus: 'not_started',
 
