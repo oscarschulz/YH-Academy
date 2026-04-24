@@ -2001,6 +2001,142 @@ function normalizeAdminDealPackage(body = {}) {
     dealNotes: cleanText(body.dealNotes || '').slice(0, 2000)
   };
 }
+function getAcademyMirrorDealStatusFromFederationRequest(request = {}) {
+  const status = cleanText(request.status).toLowerCase();
+  const paymentStatus = cleanText(request.paymentStatus).toLowerCase();
+
+  if (status === 'completed') return 'completed';
+  if (status === 'intro_delivered') return 'intro_delivered';
+  if (status === 'paid' || paymentStatus === 'paid') return 'paid';
+  if (status === 'pricing_sent') return 'priced';
+  if (status === 'matched') return 'matched';
+
+  return 'under_review';
+}
+
+function getAcademyMirrorPayoutStatusFromFederationRequest(request = {}) {
+  const payoutStatus = cleanText(request.payoutStatus).toLowerCase();
+  const paymentStatus = cleanText(request.paymentStatus).toLowerCase();
+  const status = cleanText(request.status).toLowerCase();
+
+  if (payoutStatus === 'paid') return 'paid';
+  if (payoutStatus === 'approved') return 'approved';
+  if (payoutStatus === 'held') return 'held';
+
+  if (status === 'paid' || status === 'intro_delivered' || status === 'completed' || paymentStatus === 'paid') {
+    return 'approved';
+  }
+
+  return 'pending_review';
+}
+
+async function syncFederationRequestToAcademyEconomy(request = {}, action = 'status') {
+  try {
+    const requestId = cleanText(request.id);
+    const ownerUid = cleanText(request.ownerUid);
+    const leadId = cleanText(request.leadId);
+
+    if (!requestId || !ownerUid || !leadId) {
+      return false;
+    }
+
+    const userRef = firestore.collection('users').doc(ownerUid);
+    const leadRef = userRef.collection('academyLeadMissions').doc(leadId);
+    const leadSnap = await leadRef.get();
+
+    if (!leadSnap.exists) {
+      return false;
+    }
+
+    const now = Timestamp.now();
+
+    const pricingAmount = Math.max(0, toNumber(request.pricingAmount, 0));
+    const platformCommissionRate = Math.max(0, Math.min(100, toNumber(request.platformCommissionRate, 0)));
+    const platformCommissionAmount = Math.max(0, toNumber(request.platformCommissionAmount, 0));
+    const operatorPayoutAmount = Math.max(0, toNumber(request.operatorPayoutAmount, 0));
+    const currency = cleanText(request.currency || 'USD').toUpperCase() || 'USD';
+
+    const dealStatus = getAcademyMirrorDealStatusFromFederationRequest(request);
+    const payoutStatus = getAcademyMirrorPayoutStatusFromFederationRequest(request);
+
+    const mirrorId = `fedreq_${requestId}`;
+    const dealRef = userRef.collection('academyLeadDeals').doc(mirrorId);
+    const payoutRef = userRef.collection('academyLeadPayouts').doc(mirrorId);
+
+    const [dealSnap, payoutSnap] = await Promise.all([
+      dealRef.get(),
+      payoutRef.get()
+    ]);
+
+    const opportunityTitle = cleanText(request.opportunityTitle || 'Federation paid introduction');
+    const adminNote = cleanText(
+      request.dealNotes ||
+      request.requestReason ||
+      `Federation Connect package synced from ${action}.`
+    ).slice(0, 900);
+
+    await dealRef.set({
+      leadId,
+      federationRequestId: requestId,
+      dealType: 'federation_paid_introduction',
+      dealStatus,
+      grossValue: pricingAmount,
+      currency,
+      platformCommissionRate,
+      platformCommissionAmount,
+      operatorPayoutAmount,
+      paymentStatus: cleanText(request.paymentStatus || 'not_started'),
+      payoutStatus: cleanText(request.payoutStatus || 'not_started'),
+      commissionStatus: cleanText(request.commissionStatus || 'not_started'),
+      opportunityTitle,
+      operatorVisibleNote: adminNote,
+      sourceDivision: 'federation',
+      sourceFeature: 'connect',
+      ...(dealSnap.exists ? {} : { createdAt: now }),
+      updatedAt: now
+    }, { merge: true });
+
+    if (operatorPayoutAmount > 0 || pricingAmount > 0) {
+      await payoutRef.set({
+        leadId,
+        federationRequestId: requestId,
+        basisType: 'federation_paid_introduction',
+        amount: operatorPayoutAmount,
+        currency,
+        status: payoutStatus,
+        adminNote,
+        sourceDivision: 'federation',
+        sourceFeature: 'connect',
+        dealGrossValue: pricingAmount,
+        platformCommissionRate,
+        platformCommissionAmount,
+        paymentStatus: cleanText(request.paymentStatus || 'not_started'),
+        commissionStatus: cleanText(request.commissionStatus || 'not_started'),
+        ...(payoutSnap.exists ? {} : { createdAt: now }),
+        ...(['approved', 'paid'].includes(payoutStatus) ? { approvedAt: now } : {}),
+        ...(payoutStatus === 'paid' ? { paidAt: now } : {}),
+        updatedAt: now
+      }, { merge: true });
+    }
+
+    await leadRef.set({
+      federationRequestId: requestId,
+      lastFederationRequestStatus: cleanText(request.status || ''),
+      lastFederationDealStatus: dealStatus,
+      lastFederationDealValue: pricingAmount,
+      lastFederationOperatorPayout: operatorPayoutAmount,
+      lastFederationPaymentStatus: cleanText(request.paymentStatus || 'not_started'),
+      lastFederationEconomySyncedAt: now,
+      updatedAt: now
+    }, { merge: true });
+
+    return true;
+  } catch (error) {
+    console.error('sync federation request to academy economy error:', error);
+    return false;
+  }
+}
+
 function buildAdminMatchedFederationOpportunitySnapshot(lead = {}, ownerUid = '', leadId = '') {
   const contactRole = cleanText(lead.contactRole || lead.role || lead.contactType || 'strategic contact');
   const city = cleanText(lead.city);
@@ -2192,12 +2328,16 @@ apiRouter.post('/api/admin/federation/connection-requests/:requestId/deal-packag
     const updatedSnap = await requestRef.get();
     const updatedRequest = mapAdminFederationConnectionRequestDoc(updatedSnap);
 
+    const academyEconomySynced =
+      await syncFederationRequestToAcademyEconomy(updatedRequest, 'deal-package');
+
     const requesterNotificationQueued =
       await appendFederationConnectionRequestNotificationToRequester(updatedRequest, 'deal-package');
 
     return res.json({
       success: true,
       request: updatedRequest,
+      academyEconomySynced,
       requesterNotificationQueued
     });
   } catch (error) {
@@ -2269,12 +2409,16 @@ apiRouter.post('/api/admin/federation/connection-requests/:requestId/status', re
     const updatedSnap = await requestRef.get();
     const updatedRequest = mapAdminFederationConnectionRequestDoc(updatedSnap);
 
+    const academyEconomySynced =
+      await syncFederationRequestToAcademyEconomy(updatedRequest, 'status');
+
     const requesterNotificationQueued =
       await appendFederationConnectionRequestNotificationToRequester(updatedRequest, 'status');
 
     return res.json({
       success: true,
       request: updatedRequest,
+      academyEconomySynced,
       requesterNotificationQueued
     });
   } catch (error) {

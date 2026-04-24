@@ -478,6 +478,85 @@ function formatFederationConnectUrgency(value = "") {
   return labels[raw] || "Normal";
 }
 
+function formatFederationConnectMoney(amount = 0, currency = "USD") {
+  const numeric = Number(amount || 0);
+  const cleanCurrency = String(currency || "USD").trim().toUpperCase() || "USD";
+
+  if (!Number.isFinite(numeric) || numeric <= 0) return "—";
+
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: cleanCurrency,
+      maximumFractionDigits: 0
+    }).format(numeric);
+  } catch (_) {
+    return `${cleanCurrency} ${numeric}`;
+  }
+}
+
+function hasFederationConnectDealPackage(request = {}) {
+  const paymentStatus = String(request.paymentStatus || "").trim().toLowerCase();
+  const payoutStatus = String(request.payoutStatus || "").trim().toLowerCase();
+  const commissionStatus = String(request.commissionStatus || "").trim().toLowerCase();
+  const dealNotes = String(request.dealNotes || "").trim();
+
+  const hasRealPaymentStatus =
+    paymentStatus &&
+    paymentStatus !== "not_started" &&
+    paymentStatus !== "none";
+
+  const hasRealPayoutStatus =
+    payoutStatus &&
+    payoutStatus !== "not_started" &&
+    payoutStatus !== "none";
+
+  const hasRealCommissionStatus =
+    commissionStatus &&
+    commissionStatus !== "not_started" &&
+    commissionStatus !== "none";
+
+  return (
+    Number(request.pricingAmount || 0) > 0 ||
+    Number(request.platformCommissionAmount || 0) > 0 ||
+    Number(request.operatorPayoutAmount || 0) > 0 ||
+    hasRealPaymentStatus ||
+    hasRealPayoutStatus ||
+    hasRealCommissionStatus ||
+    Boolean(dealNotes)
+  );
+}
+
+function renderFederationConnectDealMetrics(request = {}) {
+  if (!hasFederationConnectDealPackage(request)) return "";
+
+  return `
+    <div class="fed-state-grid">
+      <div class="fed-state-metric">
+        <strong>${escapeHtml(formatFederationConnectMoney(request.pricingAmount, request.currency))}</strong>
+        <small>Package price</small>
+      </div>
+      <div class="fed-state-metric">
+        <strong>${escapeHtml(String(request.paymentStatus || "not_started").replace(/_/g, " "))}</strong>
+        <small>Payment</small>
+      </div>
+      <div class="fed-state-metric">
+        <strong>${escapeHtml(formatFederationConnectMoney(request.platformCommissionAmount, request.currency))}</strong>
+        <small>Platform commission</small>
+      </div>
+      <div class="fed-state-metric">
+        <strong>${escapeHtml(formatFederationConnectMoney(request.operatorPayoutAmount, request.currency))}</strong>
+        <small>Operator payout</small>
+      </div>
+    </div>
+    ${
+      request.dealNotes
+        ? `<p class="fed-command-copy">${escapeHtml(request.dealNotes)}</p>`
+        : ""
+    }
+  `;
+}
+
 function showFederationConnectFeedback(message = "", type = "success") {
   const feedback = qs("#connectFeedback");
   if (!feedback) return;
@@ -544,7 +623,16 @@ function renderFederationConnectRequestsPanel() {
           <div class="fed-connect-request-item">
             <div>
               <strong>${escapeHtml(request.opportunityTitle || "Connection request")}</strong>
-              <small>${escapeHtml(formatFederationConnectStatus(request.status))} • ${escapeHtml(formatFederationConnectBudget(request.budgetRange))} • ${escapeHtml(formatFederationConnectUrgency(request.urgency))}</small>
+              <small>
+                ${escapeHtml(formatFederationConnectStatus(request.status))}
+                • ${escapeHtml(formatFederationConnectBudget(request.budgetRange))}
+                • ${escapeHtml(formatFederationConnectUrgency(request.urgency))}
+                ${
+                  hasFederationConnectDealPackage(request)
+                    ? ` • ${escapeHtml(formatFederationConnectMoney(request.pricingAmount, request.currency))} • ${escapeHtml(String(request.paymentStatus || "not_started").replace(/_/g, " "))}`
+                    : ""
+                }
+              </small>
             </div>
             <span>${escapeHtml(formatDate(request.createdAt))}</span>
           </div>
@@ -628,6 +716,8 @@ function renderFederationRequestsSection() {
           <small>Submitted</small>
         </div>
       </div>
+
+      ${renderFederationConnectDealMetrics(request)}
     </article>
   `).join("");
 }

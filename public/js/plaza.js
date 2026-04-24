@@ -122,6 +122,251 @@ function titleCase(value) {
     .join(" ");
 }
 
+function normalizePlazaMoneyValue(value = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+}
+
+function formatPlazaCurrencyAmount(amount = 0, currency = "USD") {
+  const numeric = normalizePlazaMoneyValue(amount);
+  const cleanCurrency = String(currency || "USD").trim().toUpperCase() || "USD";
+
+  if (!numeric) return "";
+
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: cleanCurrency,
+      maximumFractionDigits: 0
+    }).format(numeric);
+  } catch (_) {
+    return `${cleanCurrency} ${numeric}`;
+  }
+}
+
+function formatPlazaMoneyRange(item = {}) {
+  const currency = String(item.currency || "USD").trim().toUpperCase() || "USD";
+  const min = normalizePlazaMoneyValue(item.budgetMin);
+  const max = normalizePlazaMoneyValue(item.budgetMax);
+
+  if (min && max && min !== max) {
+    return `${formatPlazaCurrencyAmount(min, currency)} - ${formatPlazaCurrencyAmount(max, currency)}`;
+  }
+
+  if (max) return formatPlazaCurrencyAmount(max, currency);
+  if (min) return formatPlazaCurrencyAmount(min, currency);
+
+  return "";
+}
+
+function getPlazaOpportunityEconomyLabel(item = {}) {
+  const mode = String(item.economyMode || "not_sure").trim().toLowerCase();
+
+  const labels = {
+    free: "Free / Signal",
+    paid: "Paid",
+    commission: "Commission",
+    revenue_share: "Revenue Share",
+    bounty: "Bounty",
+    equity: "Equity",
+    not_sure: "Economy TBD"
+  };
+
+  return labels[mode] || "Economy TBD";
+}
+
+function getPlazaOpportunityEscalationLabel(item = {}) {
+  const mode = String(item.federationEscalation || "none").trim().toLowerCase();
+
+  const labels = {
+    none: "",
+    academy_payout_signal: "Academy Payout Signal",
+    federation_candidate: "Federation Candidate",
+    federation_paid_intro: "Federation Paid Intro"
+  };
+
+  return labels[mode] || "";
+}
+
+function getPlazaOpportunityCommissionLabel(item = {}) {
+  const rate = Math.min(100, normalizePlazaMoneyValue(item.commissionRate));
+
+  if (!rate) return "";
+
+  return `${rate}% commission`;
+}
+
+function getPlazaOpportunitySourceLabel(item = {}) {
+  const source = String(item.sourceDivision || "plaza").trim().toLowerCase();
+
+  if (source === "academy") return "Academy Signal";
+  if (source === "federation") return "Federation Signal";
+  if (source === "cross") return "Cross-Division Signal";
+
+  return "Plaza Marketplace";
+}
+
+function getPlazaOpportunityPathClass(item = {}) {
+  const escalation = String(item.federationEscalation || "none").trim().toLowerCase();
+  const mode = String(item.economyMode || "not_sure").trim().toLowerCase();
+
+  if (escalation === "federation_paid_intro") return "is-federation-path";
+  if (escalation === "federation_candidate") return "is-federation-candidate";
+  if (escalation === "academy_payout_signal") return "is-academy-payout-path";
+  if (mode === "paid" || mode === "commission" || mode === "bounty" || mode === "revenue_share") return "is-marketplace-ready";
+
+  return "is-marketplace-signal";
+}
+
+function getPlazaOpportunityPrimaryActionLabel(item = {}) {
+  const escalation = String(item.federationEscalation || "none").trim().toLowerCase();
+  const mode = String(item.economyMode || "not_sure").trim().toLowerCase();
+  const objective = normalizeObjective(item.type || item.tag || "");
+
+  if (escalation === "federation_paid_intro") return "Request Federation Paid Intro";
+  if (escalation === "federation_candidate") return "Request Federation Screening";
+  if (escalation === "academy_payout_signal") return "Open Academy Payout Path";
+  if (objective === "Hiring") return "Apply Through Plaza";
+  if (mode === "paid") return "Open Paid Opportunity";
+  if (mode === "commission") return "Request Commission Deal";
+  if (mode === "revenue_share") return "Request Revenue Share Path";
+  if (mode === "bounty") return "Claim Bounty Path";
+  if (mode === "equity") return "Request Equity Discussion";
+
+  return item.action || "Open Opportunity Detail";
+}
+
+function getPlazaOpportunityRequestSourceType(item = {}) {
+  const escalation = String(item.federationEscalation || "none").trim().toLowerCase();
+
+  if (escalation === "federation_paid_intro" || escalation === "federation_candidate") {
+    return "federation-escalation";
+  }
+
+  return "opportunity";
+}
+
+function getPlazaOpportunityRequestObjective(item = {}) {
+  const escalation = String(item.federationEscalation || "none").trim().toLowerCase();
+  const objective = normalizeObjective(item.type || item.tag || "");
+
+  if (escalation === "federation_paid_intro") return "Introduction";
+  if (escalation === "federation_candidate") return "Access";
+  if (escalation === "academy_payout_signal") return "Project request";
+
+  return objective === "Connection request" ? "Access" : objective;
+}
+
+function getPlazaOpportunityChipList(item = {}) {
+  return [
+    item.type,
+    item.region,
+    getPlazaOpportunityEconomyLabel(item),
+    formatPlazaMoneyRange(item),
+    getPlazaOpportunityCommissionLabel(item),
+    getPlazaOpportunityEscalationLabel(item),
+    getPlazaOpportunitySourceLabel(item),
+    item.academySignalLabel
+  ]
+    .map((entry) => String(entry || "").trim())
+    .filter(Boolean);
+}
+
+function renderPlazaOpportunityChips(item = {}, extraChips = []) {
+  return [
+    ...getPlazaOpportunityChipList(item),
+    ...safeArray(extraChips)
+  ]
+    .map((entry) => String(entry || "").trim())
+    .filter(Boolean)
+    .map((entry) => `<span class="yh-plaza-opportunity-badge">${escapeHtml(entry)}</span>`)
+    .join("");
+}
+
+function buildPlazaOpportunityEconomyContext(item = {}) {
+  const economy = getPlazaOpportunityEconomyLabel(item);
+  const moneyRange = formatPlazaMoneyRange(item);
+  const commission = getPlazaOpportunityCommissionLabel(item);
+  const escalation = getPlazaOpportunityEscalationLabel(item);
+  const source = getPlazaOpportunitySourceLabel(item);
+
+  return [
+    economy ? `Economy: ${economy}` : "",
+    moneyRange ? `Budget/price: ${moneyRange}` : "",
+    commission ? `Commission: ${commission}` : "",
+    escalation ? `Escalation: ${escalation}` : "",
+    source ? `Source: ${source}` : ""
+  ]
+    .filter(Boolean)
+    .join(" • ");
+}
+
+function renderPlazaOpportunityEconomyPanel(item = {}) {
+  const moneyRange = formatPlazaMoneyRange(item);
+  const commission = getPlazaOpportunityCommissionLabel(item);
+  const escalation = getPlazaOpportunityEscalationLabel(item);
+  const source = getPlazaOpportunitySourceLabel(item);
+  const note = String(item.monetizationNote || "").trim();
+
+  if (!moneyRange && !commission && !escalation && !note) {
+    return "";
+  }
+
+  return `
+    <div class="yh-plaza-economy-panel">
+      <div class="yh-plaza-economy-panel-head">
+        <span>Marketplace Economics</span>
+        <strong>${escapeHtml(getPlazaOpportunityEconomyLabel(item))}</strong>
+      </div>
+
+      <div class="yh-plaza-economy-grid">
+        <div class="yh-plaza-economy-item">
+          <small>Budget / Price</small>
+          <strong>${escapeHtml(moneyRange || "Not priced yet")}</strong>
+        </div>
+
+        <div class="yh-plaza-economy-item">
+          <small>Commission</small>
+          <strong>${escapeHtml(commission || "No commission set")}</strong>
+        </div>
+
+        <div class="yh-plaza-economy-item">
+          <small>Escalation</small>
+          <strong>${escapeHtml(escalation || "Plaza only")}</strong>
+        </div>
+
+        <div class="yh-plaza-economy-item">
+          <small>Source</small>
+          <strong>${escapeHtml(source)}</strong>
+        </div>
+      </div>
+
+      ${
+        note
+          ? `<div class="yh-plaza-economy-note">${escapeHtml(note)}</div>`
+          : ""
+      }
+    </div>
+  `;
+}
+
+function buildPlazaOpportunityRequestMessage(item = {}) {
+  const type = String(item.type || item.tag || "opportunity").trim();
+  const region = String(item.region || "Global").trim();
+  const title = String(item.title || "this opportunity").trim();
+  const economyContext = buildPlazaOpportunityEconomyContext(item);
+  const note = String(item.monetizationNote || "").trim();
+
+  return [
+    `I want to respond to this ${type.toLowerCase()} inside Plaza: ${title}.`,
+    region ? `Region: ${region}.` : "",
+    economyContext ? `Economy context: ${economyContext}.` : "",
+    note ? `Monetization note: ${note}` : ""
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
 async function plazaApiFetch(path, options = {}) {
   const response = await fetch(path, {
     credentials: "include",
@@ -212,7 +457,19 @@ function normalizeServerOpportunityItem(item, index = 0) {
     region: item?.region || "Global",
     title: item?.title || "Plaza opportunity",
     text: item?.text || item?.description || "",
-    action: item?.action || "Open"
+    action: item?.action || "Open",
+
+    economyMode: item?.economyMode || item?.compensationType || "not_sure",
+    currency: item?.currency || "USD",
+    budgetMin: item?.budgetMin || 0,
+    budgetMax: item?.budgetMax || 0,
+    commissionRate: item?.commissionRate || 0,
+    federationEscalation: item?.federationEscalation || "none",
+    monetizationNote: item?.monetizationNote || "",
+    marketplaceMode: item?.marketplaceMode || "marketplace",
+    sourceDivision: item?.sourceDivision || "plaza",
+    sourceLeadId: item?.sourceLeadId || "",
+    academySignalLabel: item?.academySignalLabel || ""
   }, index);
 }
 
@@ -766,7 +1023,19 @@ function normalizeOpportunityItem(item, index) {
     region: String(item?.region || "Unknown region"),
     title: String(item?.title || "New opportunity"),
     text: String(item?.text || "No opportunity details yet."),
-    action: String(item?.action || "Open")
+    action: String(item?.action || "Open"),
+
+    economyMode: String(item?.economyMode || "not_sure"),
+    currency: String(item?.currency || "USD").trim().toUpperCase() || "USD",
+    budgetMin: normalizePlazaMoneyValue(item?.budgetMin),
+    budgetMax: normalizePlazaMoneyValue(item?.budgetMax),
+    commissionRate: normalizePlazaMoneyValue(item?.commissionRate),
+    federationEscalation: String(item?.federationEscalation || "none"),
+    monetizationNote: String(item?.monetizationNote || ""),
+    marketplaceMode: String(item?.marketplaceMode || "marketplace"),
+    sourceDivision: String(item?.sourceDivision || "plaza"),
+    sourceLeadId: String(item?.sourceLeadId || ""),
+    academySignalLabel: String(item?.academySignalLabel || "")
   };
 }
 
@@ -3687,19 +3956,28 @@ function renderOpportunities() {
     return;
   }
 
-  plazaOpportunityGrid.innerHTML = items.map((item) => `
-    <article class="yh-plaza-opportunity-card">
-      <div class="yh-plaza-opportunity-card-head">
-        <span class="yh-plaza-opportunity-badge">${escapeHtml(item.type)}</span>
-        <span class="yh-plaza-opportunity-badge">${escapeHtml(item.region)}</span>
-      </div>
-      <h3>${escapeHtml(item.title)}</h3>
-      <p>${escapeHtml(item.text)}</p>
-      <div class="yh-plaza-card-actions">
-        <button type="button" class="yh-plaza-ghost-btn" data-opportunity-id="${escapeHtml(item.id)}">Open Opportunity Detail</button>
-      </div>
-    </article>
-  `).join("");
+  plazaOpportunityGrid.innerHTML = items.map((item) => {
+    const pathClass = getPlazaOpportunityPathClass(item);
+
+    return `
+      <article class="yh-plaza-opportunity-card ${escapeHtml(pathClass)}" data-economy-mode="${escapeHtml(item.economyMode)}">
+        <div class="yh-plaza-opportunity-card-head">
+          ${renderPlazaOpportunityChips(item)}
+        </div>
+
+        <h3>${escapeHtml(item.title)}</h3>
+        <p>${escapeHtml(item.text)}</p>
+
+        ${renderPlazaOpportunityEconomyPanel(item)}
+
+        <div class="yh-plaza-card-actions">
+          <button type="button" class="yh-plaza-ghost-btn" data-opportunity-id="${escapeHtml(item.id)}">
+            ${escapeHtml(getPlazaOpportunityPrimaryActionLabel(item))}
+          </button>
+        </div>
+      </article>
+    `;
+  }).join("");
 }
 
 function renderRegions() {
@@ -4685,11 +4963,10 @@ function renderOpportunityDetailScreen(item) {
 
   const relatedMembers = plazaAdapter.getRelatedMembers(item.region);
   const relatedBridge = plazaAdapter.getRegionBridge(item.region);
+  const economyContext = buildPlazaOpportunityEconomyContext(item);
 
   plazaOpportunityDetailTitle.textContent = item.title;
-  plazaOpportunityDetailMeta.innerHTML = [item.type, item.region, "Plaza movement layer"]
-    .map((meta) => `<span class="yh-plaza-view-chip">${escapeHtml(meta)}</span>`)
-    .join("");
+  plazaOpportunityDetailMeta.innerHTML = renderPlazaOpportunityChips(item, ["Plaza movement layer"]);
 
   plazaOpportunityDetailBody.innerHTML = `
     <div class="yh-plaza-detail-grid">
@@ -4697,19 +4974,35 @@ function renderOpportunityDetailScreen(item) {
         <span class="yh-plaza-view-chip">Overview</span>
         <h3>${escapeHtml(item.title)}</h3>
         <p>${escapeHtml(item.text)}</p>
-        <div class="yh-plaza-card-note">Action path: ${escapeHtml(item.action)}</div>
+        <div class="yh-plaza-card-note">Action path: ${escapeHtml(getPlazaOpportunityPrimaryActionLabel(item))}</div>
       </article>
+
+      <article class="yh-plaza-detail-block">
+        <span class="yh-plaza-view-chip">Marketplace Economics</span>
+        ${renderPlazaOpportunityEconomyPanel(item) || `<div class="yh-plaza-empty">No monetization details have been added yet.</div>`}
+      </article>
+    </div>
+
+    <div class="yh-plaza-detail-grid">
       <article class="yh-plaza-detail-block">
         <span class="yh-plaza-view-chip">Why it sits in Plaza</span>
         <p>This opportunity is visible in Plaza because it needs discovery, trusted matching, and a structured next step instead of random outreach.</p>
-        <div class="yh-plaza-card-note">Use the primary action to open a tracked request that will appear in My Requests.</div>
+        <div class="yh-plaza-card-note">${escapeHtml(economyContext || "Use the primary action to open a tracked request that will appear in My Requests.")}</div>
+      </article>
+
+      <article class="yh-plaza-detail-block">
+        <span class="yh-plaza-view-chip">Escalation Logic</span>
+        <p>${escapeHtml(getPlazaOpportunityEscalationLabel(item) || "This opportunity currently stays inside Plaza unless the requester or admin turns it into a Federation escalation.")}</p>
+        <div class="yh-plaza-card-note">Source: ${escapeHtml(getPlazaOpportunitySourceLabel(item))}</div>
       </article>
     </div>
+
     <div class="yh-plaza-detail-grid">
       <article class="yh-plaza-detail-block">
         <span class="yh-plaza-view-chip">Relevant members</span>
         ${relatedMembers.length ? relatedMembers.map(renderMiniMemberCard).join("") : `<div class="yh-plaza-empty">No matching members surfaced yet.</div>`}
       </article>
+
       <article class="yh-plaza-detail-block">
         <span class="yh-plaza-view-chip">Related bridge lanes</span>
         ${relatedBridge.length ? relatedBridge.map(renderMiniBridgeCard).join("") : `<div class="yh-plaza-empty">No bridge lane surfaced for this region yet.</div>`}
@@ -4719,7 +5012,7 @@ function renderOpportunityDetailScreen(item) {
 
   if (plazaOpportunityDetailPrimaryBtn) {
     plazaOpportunityDetailPrimaryBtn.dataset.detailAction = `request-opportunity:${item.id}`;
-    plazaOpportunityDetailPrimaryBtn.textContent = item.action;
+    plazaOpportunityDetailPrimaryBtn.textContent = getPlazaOpportunityPrimaryActionLabel(item);
   }
 
   openScreen("opportunity-detail");
@@ -5104,38 +5397,40 @@ function handleDetailPrimaryAction(action) {
     const item = plazaAdapter.getOpportunityById(id) || plazaAdapter.getFeedById(id);
     if (!item) return;
 
-    const rawOpportunityObjective = String(item.type || item.tag || "").trim();
-    const normalizedOpportunityObjective =
-      normalizeObjective(rawOpportunityObjective) === "Connection request"
-        ? "Access"
-        : normalizeObjective(rawOpportunityObjective);
+    const normalizedOpportunityObjective = getPlazaOpportunityRequestObjective(item);
+    const sourceType = getPlazaOpportunityRequestSourceType(item);
+    const economyContext = buildPlazaOpportunityEconomyContext(item);
+    const requestContext = [
+      item.type || item.tag || "Opportunity",
+      economyContext
+    ].filter(Boolean).join(" • ");
 
     if (normalizedOpportunityObjective === "Hiring") {
       buildApplicationDrawer({
         kicker: "Plaza Application",
         title: item.title,
-        sourceType: "opportunity",
+        sourceType,
         targetId: item.id,
         targetLabel: item.title,
         region: item.region,
-        context: item.type || item.tag || "Hiring",
-        message: `I want to apply for this ${String(item.title || "role").toLowerCase()} opportunity in ${item.region}.`,
-        submitLabel: item.action || "Submit Application"
+        context: requestContext,
+        message: buildPlazaOpportunityRequestMessage(item),
+        submitLabel: getPlazaOpportunityPrimaryActionLabel(item)
       });
       return;
     }
 
     buildRequestDrawer({
-      kicker: "Opportunity Request",
+      kicker: sourceType === "federation-escalation" ? "Federation Escalation Request" : "Opportunity Request",
       title: item.title,
-      sourceType: "opportunity",
+      sourceType,
       targetId: item.id,
       targetLabel: item.title,
       region: item.region,
-      context: item.type || item.tag || "Opportunity",
+      context: requestContext,
       objective: normalizedOpportunityObjective,
-      message: `I want to respond to this ${(item.type || item.tag || "opportunity").toString().toLowerCase()} opportunity in ${item.region}.`,
-      submitLabel: item.action || "Send Request"
+      message: buildPlazaOpportunityRequestMessage(item),
+      submitLabel: getPlazaOpportunityPrimaryActionLabel(item)
     });
     return;
   }
@@ -5965,7 +6260,15 @@ async function submitPlazaOpportunityComposer(event) {
     type: String(formData.get("type") || "Opportunity").trim(),
     region: String(formData.get("region") || "Global").trim(),
     title: String(formData.get("title") || "").trim(),
-    text: String(formData.get("text") || "").trim()
+    text: String(formData.get("text") || "").trim(),
+
+    economyMode: String(formData.get("economyMode") || "not_sure").trim(),
+    currency: String(formData.get("currency") || "USD").trim().toUpperCase(),
+    budgetMin: normalizePlazaMoneyValue(formData.get("budgetMin")),
+    budgetMax: normalizePlazaMoneyValue(formData.get("budgetMax")),
+    commissionRate: normalizePlazaMoneyValue(formData.get("commissionRate")),
+    federationEscalation: String(formData.get("federationEscalation") || "none").trim(),
+    monetizationNote: String(formData.get("monetizationNote") || "").trim()
   };
 
   if (!payload.title) {

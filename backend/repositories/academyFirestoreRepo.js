@@ -1530,11 +1530,21 @@ function mapLeadMissionPayoutDoc(doc) {
     return {
         id: doc.id,
         leadId: sanitizeString(data.leadId),
+        federationRequestId: sanitizeString(data.federationRequestId),
         basisType: sanitizeString(data.basisType),
         amount: toNumber(data.amount, 0),
         currency: sanitizeString(data.currency || 'USD'),
         status: sanitizeString(data.status || 'pending_review'),
         adminNote: sanitizeString(data.adminNote),
+
+        sourceDivision: sanitizeString(data.sourceDivision || 'academy'),
+        sourceFeature: sanitizeString(data.sourceFeature || ''),
+        dealGrossValue: toNumber(data.dealGrossValue, 0),
+        platformCommissionRate: toNumber(data.platformCommissionRate, 0),
+        platformCommissionAmount: toNumber(data.platformCommissionAmount, 0),
+        paymentStatus: sanitizeString(data.paymentStatus || 'not_started'),
+        commissionStatus: sanitizeString(data.commissionStatus || 'not_started'),
+
         approvedAt: mapTimestamp(data.approvedAt),
         paidAt: mapTimestamp(data.paidAt),
         createdAt: mapTimestamp(data.createdAt),
@@ -1547,10 +1557,21 @@ function mapLeadMissionDealDoc(doc) {
     return {
         id: doc.id,
         leadId: sanitizeString(data.leadId),
+        federationRequestId: sanitizeString(data.federationRequestId),
         dealType: sanitizeString(data.dealType),
         dealStatus: sanitizeString(data.dealStatus || 'under_review'),
         grossValue: toNumber(data.grossValue, 0),
         currency: sanitizeString(data.currency || 'USD'),
+
+        platformCommissionRate: toNumber(data.platformCommissionRate, 0),
+        platformCommissionAmount: toNumber(data.platformCommissionAmount, 0),
+        operatorPayoutAmount: toNumber(data.operatorPayoutAmount, 0),
+        paymentStatus: sanitizeString(data.paymentStatus || 'not_started'),
+        payoutStatus: sanitizeString(data.payoutStatus || 'not_started'),
+        commissionStatus: sanitizeString(data.commissionStatus || 'not_started'),
+        sourceDivision: sanitizeString(data.sourceDivision || 'academy'),
+        sourceFeature: sanitizeString(data.sourceFeature || ''),
+
         operatorVisibleNote: sanitizeString(data.operatorVisibleNote),
         createdAt: mapTimestamp(data.createdAt),
         updatedAt: mapTimestamp(data.updatedAt)

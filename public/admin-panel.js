@@ -607,6 +607,78 @@ function formatCurrency(value) {
   }).format(value || 0);
 }
 
+function formatAdminMoney(value = 0, currency = 'USD') {
+  const amount = Number(value || 0);
+  const cleanCurrency = String(currency || 'USD').trim().toUpperCase() || 'USD';
+
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: cleanCurrency,
+      maximumFractionDigits: 0
+    }).format(Number.isFinite(amount) ? amount : 0);
+  } catch (_) {
+    return `${cleanCurrency} ${Number.isFinite(amount) ? amount : 0}`;
+  }
+}
+
+function summarizeAdminMoney(records = [], field = 'pricingAmount') {
+  const totals = {};
+
+  (Array.isArray(records) ? records : []).forEach((record) => {
+    const currency = String(record?.currency || 'USD').trim().toUpperCase() || 'USD';
+    const amount = Number(record?.[field] || 0);
+
+    if (!Number.isFinite(amount) || amount <= 0) return;
+    totals[currency] = (totals[currency] || 0) + amount;
+  });
+
+  const parts = Object.entries(totals).map(([currency, amount]) => {
+    return formatAdminMoney(amount, currency);
+  });
+
+  return parts.length ? parts.join(' + ') : formatAdminMoney(0, 'USD');
+}
+
+function getAdminFederationEconomyMetrics() {
+  const requests = Array.isArray(state.federationConnectionRequests)
+    ? state.federationConnectionRequests
+    : [];
+
+  const pricedRequests = requests.filter((request) => {
+    const status = String(request.status || '').trim().toLowerCase();
+    return (
+      Number(request.pricingAmount || 0) > 0 ||
+      Number(request.operatorPayoutAmount || 0) > 0 ||
+      ['pricing_sent', 'paid', 'intro_delivered', 'completed'].includes(status)
+    );
+  });
+
+  const paidRequests = requests.filter((request) => {
+    const status = String(request.status || '').trim().toLowerCase();
+    const paymentStatus = String(request.paymentStatus || '').trim().toLowerCase();
+
+    return status === 'paid' ||
+      status === 'intro_delivered' ||
+      status === 'completed' ||
+      paymentStatus === 'paid';
+  });
+
+  const mirroredRequests = pricedRequests.filter((request) => {
+    return String(request.ownerUid || '').trim() && String(request.leadId || '').trim();
+  });
+
+  return {
+    pricedCount: pricedRequests.length,
+    paidCount: paidRequests.length,
+    mirroredCount: mirroredRequests.length,
+    grossValueLabel: summarizeAdminMoney(pricedRequests, 'pricingAmount'),
+    paidValueLabel: summarizeAdminMoney(paidRequests, 'pricingAmount'),
+    platformCommissionLabel: summarizeAdminMoney(pricedRequests, 'platformCommissionAmount'),
+    operatorPayoutLabel: summarizeAdminMoney(pricedRequests, 'operatorPayoutAmount')
+  };
+}
+
 function formatBadge(value) {
   const map = {
     New: 'blue',
@@ -2071,6 +2143,8 @@ function renderFederation() {
     countrySelect.dataset.hydrated = 'true';
   }
 
+  const economy = getAdminFederationEconomyMetrics();
+
   const stats = [
     {
       label: 'Federation Leads',
@@ -2091,6 +2165,26 @@ function renderFederation() {
       label: 'Pending Match',
       value: state.federationConnectionRequests.filter((item) => ['pending_admin_match', 'pending_review'].includes(String(item.status || '').toLowerCase())).length,
       foot: 'Needs admin action'
+    },
+    {
+      label: 'Priced Packages',
+      value: economy.pricedCount,
+      foot: `${economy.mirroredCount} mirrored to Academy earnings`
+    },
+    {
+      label: 'Package Gross',
+      value: economy.grossValueLabel,
+      foot: `${economy.paidValueLabel} paid / delivered`
+    },
+    {
+      label: 'Platform Commission',
+      value: economy.platformCommissionLabel,
+      foot: 'Projected YH commission'
+    },
+    {
+      label: 'Operator Payouts',
+      value: economy.operatorPayoutLabel,
+      foot: 'Projected Academy operator payout'
     }
   ];
 
@@ -2150,9 +2244,9 @@ function renderFederation() {
         ${makeCell('Looking For', `<strong>${escapeHtml(item.opportunityTitle || 'Connection request')}</strong><div class="muted">${escapeHtml([item.contactRole, item.city, item.country].filter(Boolean).join(' • ') || item.category || '—')}</div>`)}
         ${makeCell('Reason', `<div class="app-preview"><div class="app-preview-line"><p>${escapeHtml(item.requestReason || 'No reason provided.')}</p></div></div>`)}
         ${makeCell('Deal Package', `
-          <strong>${escapeHtml(item.currency || 'USD')} ${escapeHtml(item.pricingAmount || 0)}</strong>
-          <div class="muted">Commission: ${escapeHtml(item.currency || 'USD')} ${escapeHtml(item.platformCommissionAmount || 0)} • Operator: ${escapeHtml(item.currency || 'USD')} ${escapeHtml(item.operatorPayoutAmount || 0)}</div>
-          <div class="muted">${escapeHtml(String(item.paymentStatus || 'not_started').replace(/_/g, ' '))}</div>
+          <strong>${escapeHtml(formatAdminMoney(item.pricingAmount || 0, item.currency || 'USD'))}</strong>
+          <div class="muted">Commission: ${escapeHtml(formatAdminMoney(item.platformCommissionAmount || 0, item.currency || 'USD'))} • Operator: ${escapeHtml(formatAdminMoney(item.operatorPayoutAmount || 0, item.currency || 'USD'))}</div>
+          <div class="muted">Payment: ${escapeHtml(String(item.paymentStatus || 'not_started').replace(/_/g, ' '))} • Payout: ${escapeHtml(String(item.payoutStatus || 'not_started').replace(/_/g, ' '))}</div>
         `)}
         ${makeCell('Status', formatBadge(
           String(item.status || 'pending_admin_match')
@@ -3184,13 +3278,19 @@ async function saveFederationConnectionDealPackage(record) {
     dealNotes: document.getElementById(getDealPackageFieldId(requestId, 'notes'))?.value || ''
   };
 
-  await adminFetchJson(
+  const { data } = await adminFetchJson(
     `/api/admin/federation/connection-requests/${encodeURIComponent(requestId)}/deal-package`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     }
+  );
+
+  showToast(
+    data?.academyEconomySynced
+      ? 'Deal package saved and Academy earnings synced.'
+      : 'Deal package saved. Academy earnings sync is waiting for a matched lead.'
   );
 
   await loadAdminBootstrap();
@@ -3208,7 +3308,7 @@ async function updateFederationConnectionRequestStatus(record, status = '') {
     throw new Error('Missing Federation request id or status.');
   }
 
-  await adminFetchJson(
+  const { data } = await adminFetchJson(
     `/api/admin/federation/connection-requests/${encodeURIComponent(requestId)}/status`,
     {
       method: 'POST',
@@ -3217,6 +3317,12 @@ async function updateFederationConnectionRequestStatus(record, status = '') {
       },
       body: JSON.stringify({ status: nextStatus })
     }
+  );
+
+  showToast(
+    data?.academyEconomySynced
+      ? 'Request status updated and Academy earnings synced.'
+      : 'Request status updated. Academy earnings sync is waiting for a matched lead.'
   );
 
   await loadAdminBootstrap();

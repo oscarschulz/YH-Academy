@@ -6347,7 +6347,11 @@ body.academy-feed-share-open {
 }
 
 .yh-landing-icon {
-    font-size: 1.8rem;
+    width: 60px;
+    height: 60px;
+    object-fit: contain;
+    display: block;
+    flex: 0 0 auto;
 }
 
 .yh-landing-division-card h3 {

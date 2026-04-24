@@ -9763,6 +9763,86 @@ function academyLeadFormatMoney(amount = 0, currency = 'USD') {
     }
 }
 
+function academyLeadNormalizeMoney(amount = 0) {
+    const numeric = Number(amount || 0);
+    return Number.isFinite(numeric) ? numeric : 0;
+}
+
+function academyLeadFormatStatus(value = '', fallback = 'not_started') {
+    const clean = String(value || fallback || '').trim();
+    return clean ? clean.replace(/_/g, ' ') : fallback.replace(/_/g, ' ');
+}
+
+function academyLeadMoneySummary(items = [], field = 'amount') {
+    const totals = {};
+
+    safeArray(items).forEach((item) => {
+        const currency = String(item?.currency || 'USD').trim().toUpperCase() || 'USD';
+        const amount = academyLeadNormalizeMoney(item?.[field]);
+
+        if (!amount) return;
+        totals[currency] = (totals[currency] || 0) + amount;
+    });
+
+    const parts = Object.entries(totals).map(([currency, total]) => {
+        return academyLeadFormatMoney(total, currency);
+    });
+
+    return parts.length ? parts.join(' + ') : academyLeadFormatMoney(0, 'USD');
+}
+
+function academyLeadRenderEconomySummary(payouts = [], deals = []) {
+    const safePayouts = safeArray(payouts);
+    const safeDeals = safeArray(deals);
+
+    const approvedPayouts = safePayouts.filter((item) => {
+        const status = String(item?.status || '').trim().toLowerCase();
+        return status === 'approved' || status === 'paid';
+    });
+
+    const paidPayouts = safePayouts.filter((item) => {
+        return String(item?.status || '').trim().toLowerCase() === 'paid';
+    });
+
+    const activeDeals = safeDeals.filter((item) => {
+        const status = String(item?.dealStatus || '').trim().toLowerCase();
+        return status && status !== 'rejected' && status !== 'cancelled';
+    });
+
+    const federationDeals = safeDeals.filter((item) => {
+        return String(item?.sourceDivision || '').trim().toLowerCase() === 'federation' ||
+            String(item?.dealType || '').trim().toLowerCase().includes('federation');
+    });
+
+    return `
+        <div class="academy-lead-readme-grid">
+            <article class="academy-lead-info-card">
+                <div class="academy-profile-card-kicker">Pending / Total Payouts</div>
+                <h4 class="academy-lead-card-title">${academyFeedEscapeHtml(academyLeadMoneySummary(safePayouts, 'amount'))}</h4>
+                <p class="academy-lead-card-copy">${safePayouts.length} payout record${safePayouts.length === 1 ? '' : 's'} tracked from lead missions and Federation introductions.</p>
+            </article>
+
+            <article class="academy-lead-info-card">
+                <div class="academy-profile-card-kicker">Approved Payouts</div>
+                <h4 class="academy-lead-card-title">${academyFeedEscapeHtml(academyLeadMoneySummary(approvedPayouts, 'amount'))}</h4>
+                <p class="academy-lead-card-copy">${approvedPayouts.length} approved or ready-for-payment payout${approvedPayouts.length === 1 ? '' : 's'}.</p>
+            </article>
+
+            <article class="academy-lead-info-card">
+                <div class="academy-profile-card-kicker">Paid Out</div>
+                <h4 class="academy-lead-card-title">${academyFeedEscapeHtml(academyLeadMoneySummary(paidPayouts, 'amount'))}</h4>
+                <p class="academy-lead-card-copy">${paidPayouts.length} payout${paidPayouts.length === 1 ? '' : 's'} marked paid.</p>
+            </article>
+
+            <article class="academy-lead-info-card">
+                <div class="academy-profile-card-kicker">Deal Value</div>
+                <h4 class="academy-lead-card-title">${academyFeedEscapeHtml(academyLeadMoneySummary(activeDeals, 'grossValue'))}</h4>
+                <p class="academy-lead-card-copy">${federationDeals.length} Federation paid introduction deal${federationDeals.length === 1 ? '' : 's'} mirrored into Academy.</p>
+            </article>
+        </div>
+    `;
+}
+
 const ACADEMY_LEAD_RECRUITMENT_PROFILE_STORAGE_KEY = 'yh_academy_lead_recruitment_profile_v1';
 
 function getAcademyLeadRecruitmentProfileStorageKey() {
@@ -10198,31 +10278,57 @@ function renderLeadMissionsPayouts(payouts = []) {
     const panel = document.getElementById('academy-lead-panel-payouts');
     if (!panel) return;
 
-    if (!Array.isArray(payouts) || !payouts.length) {
-        panel.innerHTML = `<div class="academy-member-browser-empty">No payout records yet.</div>`;
+    const safePayouts = Array.isArray(payouts) ? payouts : [];
+    const summaryHtml = academyLeadRenderEconomySummary(
+        safePayouts,
+        academyLeadMissionsState.deals
+    );
+
+    if (!safePayouts.length) {
+        panel.innerHTML = `
+            ${summaryHtml}
+            <div class="academy-member-browser-empty">No payout records yet.</div>
+        `;
         return;
     }
 
     panel.innerHTML = `
+        ${summaryHtml}
+
         <div class="academy-lead-table-wrap">
             <table class="academy-lead-table">
                 <thead>
                     <tr>
+                        <th>Source</th>
                         <th>Basis</th>
-                        <th>Amount</th>
+                        <th>Payout</th>
+                        <th>Deal Value</th>
                         <th>Status</th>
-                        <th>Approved</th>
-                        <th>Paid</th>
+                        <th>Payment</th>
+                        <th>Commission</th>
+                        <th>Approved / Paid</th>
                     </tr>
                 </thead>
                 <tbody>
-                    ${payouts.map((item) => `
+                    ${safePayouts.map((item) => `
                         <tr>
+                            <td>
+                                ${academyLeadSafeText(item.sourceDivision || 'academy')}
+                                ${item.federationRequestId ? `<div class="academy-lead-list-meta">Fed: ${academyLeadSafeText(item.federationRequestId)}</div>` : ''}
+                            </td>
                             <td>${academyLeadSafeText(item.basisType)}</td>
                             <td>${academyFeedEscapeHtml(academyLeadFormatMoney(item.amount, item.currency))}</td>
-                            <td>${academyLeadSafeText(item.status)}</td>
-                            <td>${academyLeadFormatDate(item.approvedAt)}</td>
-                            <td>${academyLeadFormatDate(item.paidAt)}</td>
+                            <td>${academyFeedEscapeHtml(academyLeadFormatMoney(item.dealGrossValue, item.currency))}</td>
+                            <td>${academyLeadSafeText(academyLeadFormatStatus(item.status, 'pending_review'))}</td>
+                            <td>${academyLeadSafeText(academyLeadFormatStatus(item.paymentStatus, 'not_started'))}</td>
+                            <td>
+                                ${academyFeedEscapeHtml(academyLeadFormatMoney(item.platformCommissionAmount, item.currency))}
+                                <div class="academy-lead-list-meta">${academyLeadSafeText(`${item.platformCommissionRate || 0}% rate`)}</div>
+                            </td>
+                            <td>
+                                ${academyLeadFormatDate(item.approvedAt)}
+                                <div class="academy-lead-list-meta">Paid: ${academyLeadFormatDate(item.paidAt)}</div>
+                            </td>
                         </tr>
                     `).join('')}
                 </tbody>
@@ -10235,29 +10341,54 @@ function renderLeadMissionsDeals(deals = []) {
     const panel = document.getElementById('academy-lead-panel-deals');
     if (!panel) return;
 
-    if (!Array.isArray(deals) || !deals.length) {
-        panel.innerHTML = `<div class="academy-member-browser-empty">No deal records yet.</div>`;
+    const safeDeals = Array.isArray(deals) ? deals : [];
+    const summaryHtml = academyLeadRenderEconomySummary(
+        academyLeadMissionsState.payouts,
+        safeDeals
+    );
+
+    if (!safeDeals.length) {
+        panel.innerHTML = `
+            ${summaryHtml}
+            <div class="academy-member-browser-empty">No deal records yet.</div>
+        `;
         return;
     }
 
     panel.innerHTML = `
+        ${summaryHtml}
+
         <div class="academy-lead-table-wrap">
             <table class="academy-lead-table">
                 <thead>
                     <tr>
+                        <th>Source</th>
                         <th>Deal Type</th>
                         <th>Status</th>
                         <th>Gross Value</th>
+                        <th>Operator Payout</th>
+                        <th>Payment</th>
+                        <th>Commission</th>
                         <th>Updated</th>
                         <th>Note</th>
                     </tr>
                 </thead>
                 <tbody>
-                    ${deals.map((item) => `
+                    ${safeDeals.map((item) => `
                         <tr>
+                            <td>
+                                ${academyLeadSafeText(item.sourceDivision || 'academy')}
+                                ${item.federationRequestId ? `<div class="academy-lead-list-meta">Fed: ${academyLeadSafeText(item.federationRequestId)}</div>` : ''}
+                            </td>
                             <td>${academyLeadSafeText(item.dealType)}</td>
-                            <td>${academyLeadSafeText(item.dealStatus)}</td>
+                            <td>${academyLeadSafeText(academyLeadFormatStatus(item.dealStatus, 'under_review'))}</td>
                             <td>${academyFeedEscapeHtml(academyLeadFormatMoney(item.grossValue, item.currency))}</td>
+                            <td>${academyFeedEscapeHtml(academyLeadFormatMoney(item.operatorPayoutAmount, item.currency))}</td>
+                            <td>${academyLeadSafeText(academyLeadFormatStatus(item.paymentStatus, 'not_started'))}</td>
+                            <td>
+                                ${academyFeedEscapeHtml(academyLeadFormatMoney(item.platformCommissionAmount, item.currency))}
+                                <div class="academy-lead-list-meta">${academyLeadSafeText(`${item.platformCommissionRate || 0}% rate • ${academyLeadFormatStatus(item.commissionStatus, 'not_started')}`)}</div>
+                            </td>
                             <td>${academyLeadFormatDate(item.updatedAt)}</td>
                             <td>${academyLeadSafeText(item.operatorVisibleNote)}</td>
                         </tr>

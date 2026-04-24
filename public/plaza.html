@@ -11,8 +11,8 @@
     href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap"
     rel="stylesheet"
   />
-<link rel="stylesheet" href="/css/plaza.css?v=20260422-plaza-typeform-flow-1" />
-<script src="/js/plaza.js?v=20260422-plaza-typeform-flow-1" defer></script>
+<link rel="stylesheet" href="/css/plaza.css?v=20260424-plaza-economy-ui-1" />
+<script src="/js/plaza.js?v=20260424-plaza-economy-ui-1" defer></script>
 </head>
 <body data-yh-i18n-mode="attributes" class="yh-plaza-page yh-plaza-access-booting">
 
@@ -331,6 +331,49 @@
                     <input id="plazaOpportunityComposerRegion" name="region" type="text" placeholder="Global, Lagos, London, Dubai..." />
                   </label>
 
+                  <label class="yh-plaza-feed-composer-field">
+                    <span>Economy</span>
+                    <select id="plazaOpportunityComposerEconomyMode" name="economyMode">
+                      <option value="not_sure">Not sure yet</option>
+                      <option value="free">Free / signal only</option>
+                      <option value="paid">Paid</option>
+                      <option value="commission">Commission</option>
+                      <option value="revenue_share">Revenue share</option>
+                      <option value="bounty">Bounty</option>
+                      <option value="equity">Equity</option>
+                    </select>
+                  </label>
+
+                  <label class="yh-plaza-feed-composer-field">
+                    <span>Currency</span>
+                    <input id="plazaOpportunityComposerCurrency" name="currency" type="text" value="USD" maxlength="8" />
+                  </label>
+
+                  <label class="yh-plaza-feed-composer-field">
+                    <span>Budget / Price Min</span>
+                    <input id="plazaOpportunityComposerBudgetMin" name="budgetMin" type="number" min="0" step="1" placeholder="0" />
+                  </label>
+
+                  <label class="yh-plaza-feed-composer-field">
+                    <span>Budget / Price Max</span>
+                    <input id="plazaOpportunityComposerBudgetMax" name="budgetMax" type="number" min="0" step="1" placeholder="0" />
+                  </label>
+
+                  <label class="yh-plaza-feed-composer-field">
+                    <span>Commission %</span>
+                    <input id="plazaOpportunityComposerCommissionRate" name="commissionRate" type="number" min="0" max="100" step="1" placeholder="0" />
+                  </label>
+
+                  <label class="yh-plaza-feed-composer-field">
+                    <span>Escalation</span>
+                    <select id="plazaOpportunityComposerFederationEscalation" name="federationEscalation">
+                      <option value="none">No escalation yet</option>
+                      <option value="academy_payout_signal">Academy payout signal</option>
+                      <option value="federation_candidate">Federation candidate</option>
+                      <option value="federation_paid_intro">Federation paid intro</option>
+                    </select>
+                  </label>
+
                   <label class="yh-plaza-feed-composer-field yh-plaza-feed-composer-field-wide">
                     <span>Title</span>
                     <input id="plazaOpportunityComposerTitle" name="title" type="text" placeholder="Short opportunity title" maxlength="140" required />
@@ -339,6 +382,11 @@
                   <label class="yh-plaza-feed-composer-field yh-plaza-feed-composer-field-wide yh-plaza-feed-composer-field-signal">
                     <span>Details</span>
                     <textarea id="plazaOpportunityComposerText" name="text" placeholder="Describe the opportunity, who it is for, and what the next step should be." maxlength="1600" required></textarea>
+                  </label>
+
+                  <label class="yh-plaza-feed-composer-field yh-plaza-feed-composer-field-wide yh-plaza-feed-composer-field-signal">
+                    <span>Monetization Note</span>
+                    <textarea id="plazaOpportunityComposerMonetizationNote" name="monetizationNote" placeholder="Explain pricing, commission, payout logic, or how this opportunity can become a paid intro." maxlength="1000"></textarea>
                   </label>
                 </div>
 
@@ -350,7 +398,7 @@
               </form>
 
               <div class="yh-plaza-panel-note">
-                This is the practical movement layer of Plaza: collaboration, hiring, intros, access, and execution support.
+                This is the monetized movement layer of Plaza: paid opportunities, commission paths, bounties, service requests, Academy payout signals, and Federation-ready introductions.
               </div>
 
               <div class="yh-plaza-opportunity-grid" id="plazaOpportunityGrid"></div>

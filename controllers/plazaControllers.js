@@ -98,6 +98,38 @@ function normalizeOpportunityType(value = '') {
     return 'Opportunity';
 }
 
+function normalizeOpportunityMoney(value, fallback = 0) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+function normalizeOpportunityCurrency(value = 'USD') {
+    return sanitizeText(value || 'USD').toUpperCase().slice(0, 8) || 'USD';
+}
+
+function normalizeOpportunityEconomyMode(value = '') {
+    const raw = sanitizeText(value).toLowerCase();
+
+    if (raw === 'free') return 'free';
+    if (raw === 'paid') return 'paid';
+    if (raw === 'commission') return 'commission';
+    if (raw === 'revenue_share' || raw === 'revenue share') return 'revenue_share';
+    if (raw === 'bounty') return 'bounty';
+    if (raw === 'equity') return 'equity';
+
+    return 'not_sure';
+}
+
+function normalizeOpportunityFederationEscalation(value = '') {
+    const raw = sanitizeText(value).toLowerCase();
+
+    if (raw === 'federation_candidate') return 'federation_candidate';
+    if (raw === 'federation_paid_intro') return 'federation_paid_intro';
+    if (raw === 'academy_payout_signal') return 'academy_payout_signal';
+
+    return 'none';
+}
+
 function mapPlazaOpportunityDoc(docSnap) {
     const data = docSnap.data() || {};
 
@@ -108,6 +140,20 @@ function mapPlazaOpportunityDoc(docSnap) {
         title: sanitizeText(data.title || 'Plaza opportunity'),
         text: sanitizeText(data.text || data.description || ''),
         action: sanitizeText(data.action || 'Open Opportunity Detail'),
+
+        economyMode: normalizeOpportunityEconomyMode(data.economyMode || data.compensationType),
+        currency: normalizeOpportunityCurrency(data.currency),
+        budgetMin: normalizeOpportunityMoney(data.budgetMin),
+        budgetMax: normalizeOpportunityMoney(data.budgetMax),
+        commissionRate: Math.max(0, Math.min(100, normalizeOpportunityMoney(data.commissionRate))),
+        federationEscalation: normalizeOpportunityFederationEscalation(data.federationEscalation),
+        monetizationNote: sanitizeText(data.monetizationNote || ''),
+        marketplaceMode: sanitizeText(data.marketplaceMode || 'marketplace'),
+
+        sourceDivision: sanitizeText(data.sourceDivision || 'plaza'),
+        sourceLeadId: sanitizeText(data.sourceLeadId || ''),
+        academySignalLabel: sanitizeText(data.academySignalLabel || ''),
+
         authorId: sanitizeText(data.authorId || data.createdByUserId),
         authorName: sanitizeText(data.authorName || 'Hustler'),
         authorEmail: sanitizeText(data.authorEmail).toLowerCase(),
@@ -580,6 +626,18 @@ exports.createOpportunity = async (req, res) => {
 
         const region = clampText(req.body?.region, 80, 'Global') || 'Global';
 
+        const economyMode = normalizeOpportunityEconomyMode(
+            req.body?.economyMode ||
+            req.body?.compensationType
+        );
+
+        const currency = normalizeOpportunityCurrency(req.body?.currency || 'USD');
+        const budgetMin = normalizeOpportunityMoney(req.body?.budgetMin);
+        const budgetMax = normalizeOpportunityMoney(req.body?.budgetMax);
+        const commissionRate = Math.max(0, Math.min(100, normalizeOpportunityMoney(req.body?.commissionRate)));
+        const federationEscalation = normalizeOpportunityFederationEscalation(req.body?.federationEscalation);
+        const monetizationNote = clampText(req.body?.monetizationNote, 1000);
+
         if (!title) {
             return res.status(400).json({
                 success: false,
@@ -602,6 +660,17 @@ exports.createOpportunity = async (req, res) => {
             title,
             text,
             action: 'Open Opportunity Detail',
+
+            economyMode,
+            currency,
+            budgetMin,
+            budgetMax,
+            commissionRate,
+            federationEscalation,
+            monetizationNote,
+            marketplaceMode: economyMode === 'free' ? 'signal' : 'marketplace',
+            sourceDivision: 'plaza',
+
             authorId: viewer.id,
             authorFirebaseUid: viewer.firebaseUid,
             authorEmail: viewer.email,
