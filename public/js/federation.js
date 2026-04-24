@@ -495,6 +495,22 @@ function formatFederationConnectMoney(amount = 0, currency = "USD") {
   }
 }
 
+function getFederationConnectPaymentStatus(request = {}) {
+  return String(request.paymentStatus || "not_started").trim().toLowerCase();
+}
+
+function canPayFederationConnectRequest(request = {}) {
+  const paymentStatus = getFederationConnectPaymentStatus(request);
+  const status = String(request.status || "").trim().toLowerCase();
+  const amount = Number(request.pricingAmount || 0);
+
+  if (!Number.isFinite(amount) || amount <= 0) return false;
+  if (paymentStatus === "paid") return false;
+  if (status === "paid" || status === "intro_delivered" || status === "completed" || status === "rejected") return false;
+
+  return true;
+}
+
 function hasFederationConnectDealPackage(request = {}) {
   const paymentStatus = String(request.paymentStatus || "").trim().toLowerCase();
   const payoutStatus = String(request.payoutStatus || "").trim().toLowerCase();
@@ -530,6 +546,8 @@ function hasFederationConnectDealPackage(request = {}) {
 function renderFederationConnectDealMetrics(request = {}) {
   if (!hasFederationConnectDealPackage(request)) return "";
 
+  const paymentStatus = getFederationConnectPaymentStatus(request);
+
   return `
     <div class="fed-state-grid">
       <div class="fed-state-metric">
@@ -549,12 +567,81 @@ function renderFederationConnectDealMetrics(request = {}) {
         <small>Operator payout</small>
       </div>
     </div>
+
     ${
       request.dealNotes
         ? `<p class="fed-command-copy">${escapeHtml(request.dealNotes)}</p>`
         : ""
     }
+
+    ${
+      canPayFederationConnectRequest(request)
+        ? `
+          <div class="fed-card-actions">
+            <button
+              type="button"
+              class="fed-btn fed-btn-primary"
+              data-federation-pay-intro="${escapeHtml(request.id)}"
+            >
+              Pay for Introduction
+            </button>
+          </div>
+        `
+        : paymentStatus === "paid"
+          ? `<p class="fed-command-copy">Payment confirmed. Admin will deliver or complete the introduction path.</p>`
+          : ""
+    }
   `;
+}
+
+async function startFederationPaidIntroCheckout(requestId = "", button = null) {
+  const cleanId = String(requestId || "").trim();
+  if (!cleanId) return;
+
+  const request = federationConnectState.requests.find((item) => String(item.id || "") === cleanId);
+
+  if (!request) {
+    showFederationConnectFeedback("Could not find this Federation request. Refresh and try again.", "error");
+    return;
+  }
+
+  if (!canPayFederationConnectRequest(request)) {
+    showFederationConnectFeedback("This Federation request is not ready for payment.", "error");
+    return;
+  }
+
+  const originalText = button?.textContent || "Pay for Introduction";
+
+  try {
+    if (button) {
+      button.disabled = true;
+      button.setAttribute("aria-busy", "true");
+      button.textContent = "Opening Checkout...";
+    }
+
+    const result = await federationConnectFetch(
+      `/api/federation/connect/requests/${encodeURIComponent(cleanId)}/checkout-session`,
+      {
+        method: "POST",
+        body: JSON.stringify({})
+      }
+    );
+
+    if (!result?.url) {
+      throw new Error("Stripe checkout URL was not returned.");
+    }
+
+    window.top.location.href = result.url;
+  } catch (error) {
+    console.error("Federation paid intro checkout error:", error);
+    showFederationConnectFeedback(error?.message || "Failed to open Stripe Checkout.", "error");
+
+    if (button) {
+      button.disabled = false;
+      button.setAttribute("aria-busy", "false");
+      button.textContent = originalText;
+    }
+  }
 }
 
 function showFederationConnectFeedback(message = "", type = "success") {
@@ -1035,6 +1122,17 @@ function initFederationConnect() {
   });
 
   document.addEventListener("click", (event) => {
+    const payIntroBtn = event.target.closest("[data-federation-pay-intro]");
+    if (payIntroBtn) {
+      event.preventDefault();
+      event.stopPropagation();
+      startFederationPaidIntroCheckout(
+        payIntroBtn.getAttribute("data-federation-pay-intro") || "",
+        payIntroBtn
+      );
+      return;
+    }
+
     const openBtn = event.target.closest("[data-connect-open-request]");
     if (openBtn) {
       openFederationConnectRequest(openBtn.getAttribute("data-connect-open-request") || "");

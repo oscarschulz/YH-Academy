@@ -6301,6 +6301,62 @@ const roadmapPrimaryPillarMeta = getRoadmapPillarUiMeta(focusAreas[0] || 'genera
             </div>
         </section>
     `;
+
+    const plazaReadiness = homeData?.plazaReadiness && typeof homeData.plazaReadiness === 'object'
+        ? homeData.plazaReadiness
+        : {};
+
+    const profileSignals = homeData?.profileSignals && typeof homeData.profileSignals === 'object'
+        ? homeData.profileSignals
+        : (
+            plazaReadiness?.profileSignals && typeof plazaReadiness.profileSignals === 'object'
+                ? plazaReadiness.profileSignals
+                : {}
+        );
+
+    const plazaReadinessScore = toNumberSafe(plazaReadiness?.score, 0);
+    const marketplaceReady = plazaReadiness?.marketplaceReady === true;
+    const plazaReadinessTone = academyBuildHomeReadinessTone(plazaReadinessScore, marketplaceReady);
+
+    const plazaReadinessStatus = safeHtml(
+        String(plazaReadiness?.statusLabel || plazaReadinessTone.label || 'Still Building').trim() || 'Still Building'
+    );
+
+    const plazaReadinessNextStep = safeHtml(
+        String(
+            plazaReadiness?.nextStep ||
+            'Complete your Academy profile and missions to build stronger Plaza readiness.'
+        ).trim() || 'Complete your Academy profile and missions to build stronger Plaza readiness.'
+    );
+
+    const profileRoleTrack = safeHtml(String(profileSignals?.roleTrack || 'Not set').trim() || 'Not set');
+    const profileAvailability = safeHtml(String(profileSignals?.availability || 'Not set').trim() || 'Not set');
+    const profileWorkMode = safeHtml(String(profileSignals?.workMode || 'Not set').trim() || 'Not set');
+    const profileProofFocus = safeHtml(String(profileSignals?.proofFocus || 'Not set').trim() || 'Not set');
+
+    const lookingForHtml = academyRenderHomeSignalGroup(
+        profileSignals?.lookingFor || [],
+        'Nothing added yet'
+    );
+
+    const canOfferHtml = academyRenderHomeSignalGroup(
+        profileSignals?.canOffer || [],
+        'Nothing added yet'
+    );
+
+    const readinessSignals = plazaReadiness?.signals && typeof plazaReadiness.signals === 'object'
+        ? plazaReadiness.signals
+        : {};
+
+    const readinessChecklistHtml = [
+        academyRenderHomeReadinessCheckItem('Role track defined', readinessSignals.roleTrack === true),
+        academyRenderHomeReadinessCheckItem('Looking-for signals added', readinessSignals.lookingFor === true),
+        academyRenderHomeReadinessCheckItem('Can-offer signals added', readinessSignals.canOffer === true),
+        academyRenderHomeReadinessCheckItem('Availability set', readinessSignals.availability === true),
+        academyRenderHomeReadinessCheckItem('Work mode set', readinessSignals.workMode === true),
+        academyRenderHomeReadinessCheckItem('Proof focus defined', readinessSignals.proofFocus === true)
+    ].join('');
+
 const missionsHtml = missions.length
         ? missions.map((mission, index) => {
             const missionId = safeHtml(mission.id || '');

@@ -190,6 +190,169 @@ function mapFederationConnectOpportunityDoc(docSnap) {
 
 const AUTH_COOKIE_NAME = 'yh_auth_token';
 
+let yhStripeClient = null;
+
+function getStripeClient() {
+    const secretKey = sanitizeText(process.env.STRIPE_SECRET_KEY);
+
+    if (!secretKey) {
+        const error = new Error('STRIPE_SECRET_KEY is not configured.');
+        error.statusCode = 503;
+        throw error;
+    }
+
+    if (!yhStripeClient) {
+        const Stripe = require('stripe');
+        yhStripeClient = new Stripe(secretKey);
+    }
+
+    return yhStripeClient;
+}
+
+function resolvePublicBaseUrl(req = null) {
+    const envBase = sanitizeText(
+        process.env.PUBLIC_BASE_URL ||
+        process.env.APP_BASE_URL ||
+        process.env.BASE_URL
+    ).replace(/\/+$/, '');
+
+    if (envBase) return envBase;
+
+    const protocol = sanitizeText(req?.headers?.['x-forwarded-proto'] || req?.protocol || 'http').split(',')[0];
+    const host = sanitizeText(req?.headers?.['x-forwarded-host'] || req?.headers?.host || 'localhost:3000').split(',')[0];
+
+    return `${protocol}://${host}`.replace(/\/+$/, '');
+}
+
+function isStripeZeroDecimalCurrency(currency = 'USD') {
+    const zeroDecimalCurrencies = new Set([
+        'BIF', 'CLP', 'DJF', 'GNF', 'JPY', 'KMF', 'KRW',
+        'MGA', 'PYG', 'RWF', 'UGX', 'VND', 'VUV', 'XAF',
+        'XOF', 'XPF'
+    ]);
+
+    return zeroDecimalCurrencies.has(String(currency || '').trim().toUpperCase());
+}
+
+function toStripeMinorUnit(amount = 0, currency = 'USD') {
+    const numeric = Number(amount || 0);
+
+    if (!Number.isFinite(numeric) || numeric <= 0) return 0;
+
+    return isStripeZeroDecimalCurrency(currency)
+        ? Math.round(numeric)
+        : Math.round(numeric * 100);
+}
+
+function isFederationPaidStatus(value = '') {
+    const clean = sanitizeText(value).toLowerCase();
+    return clean === 'paid' || clean === 'completed' || clean === 'intro_delivered';
+}
+
+async function syncStripePaidFederationRequestToAcademyEconomy(request = {}, action = 'stripe_checkout_completed') {
+    try {
+        const requestId = sanitizeText(request.id);
+        const ownerUid = sanitizeText(request.ownerUid);
+        const leadId = sanitizeText(request.leadId);
+
+        if (!requestId || !ownerUid || !leadId) {
+            return false;
+        }
+
+        const userRef = firestore.collection('users').doc(ownerUid);
+        const leadRef = userRef.collection('academyLeadMissions').doc(leadId);
+        const leadSnap = await leadRef.get();
+
+        if (!leadSnap.exists) {
+            return false;
+        }
+
+        const now = Timestamp.now();
+        const pricingAmount = Math.max(0, Number(request.pricingAmount || request.dealPackage?.pricingAmount || 0));
+        const platformCommissionRate = Math.max(0, Math.min(100, Number(request.platformCommissionRate || request.dealPackage?.platformCommissionRate || 0)));
+        const platformCommissionAmount = Math.max(0, Number(request.platformCommissionAmount || request.dealPackage?.platformCommissionAmount || 0));
+        const operatorPayoutAmount = Math.max(0, Number(request.operatorPayoutAmount || request.dealPackage?.operatorPayoutAmount || 0));
+        const currency = sanitizeText(request.currency || request.dealPackage?.currency || 'USD').toUpperCase() || 'USD';
+        const mirrorId = `fedreq_${requestId}`;
+
+        const dealRef = userRef.collection('academyLeadDeals').doc(mirrorId);
+        const payoutRef = userRef.collection('academyLeadPayouts').doc(mirrorId);
+
+        const [dealSnap, payoutSnap] = await Promise.all([
+            dealRef.get(),
+            payoutRef.get()
+        ]);
+
+        const adminNote = sanitizeText(
+            request.dealNotes ||
+            `Stripe payment confirmed for Federation paid introduction via ${action}.`
+        ).slice(0, 900);
+
+        await dealRef.set({
+            leadId,
+            federationRequestId: requestId,
+            dealType: 'federation_paid_introduction',
+            dealStatus: 'paid',
+            grossValue: pricingAmount,
+            currency,
+            platformCommissionRate,
+            platformCommissionAmount,
+            operatorPayoutAmount,
+            paymentStatus: 'paid',
+            payoutStatus: 'approved',
+            commissionStatus: 'earned',
+            stripeCheckoutSessionId: sanitizeText(request.stripeCheckoutSessionId),
+            stripePaymentIntentId: sanitizeText(request.stripePaymentIntentId),
+            opportunityTitle: sanitizeText(request.opportunityTitle || 'Federation paid introduction'),
+            operatorVisibleNote: adminNote,
+            sourceDivision: 'federation',
+            sourceFeature: 'connect',
+            ...(dealSnap.exists ? {} : { createdAt: now }),
+            updatedAt: now
+        }, { merge: true });
+
+        if (operatorPayoutAmount > 0 || pricingAmount > 0) {
+            await payoutRef.set({
+                leadId,
+                federationRequestId: requestId,
+                basisType: 'federation_paid_introduction',
+                amount: operatorPayoutAmount,
+                currency,
+                status: 'approved',
+                adminNote,
+                sourceDivision: 'federation',
+                sourceFeature: 'connect',
+                dealGrossValue: pricingAmount,
+                platformCommissionRate,
+                platformCommissionAmount,
+                paymentStatus: 'paid',
+                commissionStatus: 'earned',
+                stripeCheckoutSessionId: sanitizeText(request.stripeCheckoutSessionId),
+                stripePaymentIntentId: sanitizeText(request.stripePaymentIntentId),
+                ...(payoutSnap.exists ? {} : { createdAt: now }),
+                approvedAt: now,
+                updatedAt: now
+            }, { merge: true });
+        }
+
+        await leadRef.set({
+            federationRequestId: requestId,
+            lastFederationRequestStatus: 'paid',
+            lastFederationDealStatus: 'paid',
+            lastFederationDealValue: pricingAmount,
+            lastFederationOperatorPayout: operatorPayoutAmount,
+            lastFederationPaymentStatus: 'paid',
+            lastFederationEconomySyncedAt: now,
+            updatedAt: now
+        }, { merge: true });
+
+        return true;
+    } catch (error) {
+        console.error('sync stripe paid federation request to academy economy error:', error);
+        return false;
+    }
+}
+
 function parseCookieHeader(raw = '') {
     const out = {};
 
@@ -1346,6 +1509,128 @@ app.use(cors({
     },
     credentials: true
 }));
+
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+    let event = null;
+
+    try {
+        const stripe = getStripeClient();
+        const signature = req.headers['stripe-signature'];
+        const webhookSecret = sanitizeText(process.env.STRIPE_WEBHOOK_SECRET);
+
+        if (webhookSecret) {
+            event = stripe.webhooks.constructEvent(req.body, signature, webhookSecret);
+        } else {
+            if (process.env.NODE_ENV === 'production') {
+                return res.status(500).json({
+                    success: false,
+                    message: 'STRIPE_WEBHOOK_SECRET is required in production.'
+                });
+            }
+
+            event = JSON.parse(Buffer.isBuffer(req.body) ? req.body.toString('utf8') : String(req.body || '{}'));
+        }
+    } catch (error) {
+        console.error('stripe webhook signature/parse error:', error);
+        return res.status(400).send(`Webhook Error: ${error.message}`);
+    }
+
+    try {
+        if (event.type === 'checkout.session.completed') {
+            const session = event.data?.object || {};
+            const metadata = session.metadata || {};
+
+            if (metadata.kind === 'federation_paid_intro') {
+                const requestId = sanitizeText(metadata.requestId || session.client_reference_id);
+
+                if (requestId && session.payment_status === 'paid') {
+                    const requestRef = firestore.collection('federationConnectionRequests').doc(requestId);
+                    const requestSnap = await requestRef.get();
+
+                    if (requestSnap.exists) {
+                        const current = requestSnap.data() || {};
+                        const now = Timestamp.now();
+
+                        const paymentPatch = {
+                            status: 'paid',
+                            adminStatus: 'active',
+                            paymentStatus: 'paid',
+                            payoutStatus: sanitizeText(current.payoutStatus).toLowerCase() === 'paid' ? 'paid' : 'approved',
+                            commissionStatus: 'earned',
+                            stripeCheckoutSessionId: sanitizeText(session.id),
+                            stripePaymentIntentId: sanitizeText(session.payment_intent),
+                            stripeCustomerId: sanitizeText(session.customer),
+                            stripePaymentMode: sanitizeText(session.mode || 'payment'),
+                            paidAt: now,
+                            updatedAt: now,
+                            paymentUpdatedAt: now
+                        };
+
+                        await requestRef.set(paymentPatch, { merge: true });
+
+                        const syncedRequest = {
+                            id: requestId,
+                            ...current,
+                            ...paymentPatch
+                        };
+
+                        const academyEconomySynced =
+                            await syncStripePaidFederationRequestToAcademyEconomy(
+                                syncedRequest,
+                                'stripe_checkout_completed'
+                            );
+
+                        await firestore.collection('adminBroadcasts').add({
+                            audience: sanitizeText(current.requesterName || current.requesterEmail || 'Federation Member'),
+                            subject: 'Federation paid introduction payment confirmed',
+                            message: academyEconomySynced
+                                ? `Stripe payment confirmed for Federation request ${requestId}. Academy earnings mirror was updated.`
+                                : `Stripe payment confirmed for Federation request ${requestId}. Academy mirror is waiting for a matched lead.`,
+                            sentAt: new Date().toISOString(),
+                            createdBy: 'stripe-webhook'
+                        }).catch(() => null);
+                    }
+                }
+            }
+        }
+
+        if (event.type === 'checkout.session.expired') {
+            const session = event.data?.object || {};
+            const metadata = session.metadata || {};
+
+            if (metadata.kind === 'federation_paid_intro') {
+                const requestId = sanitizeText(metadata.requestId || session.client_reference_id);
+
+                if (requestId) {
+                    const requestRef = firestore.collection('federationConnectionRequests').doc(requestId);
+                    const requestSnap = await requestRef.get();
+
+                    if (requestSnap.exists) {
+                        const current = requestSnap.data() || {};
+                        const currentPaymentStatus = sanitizeText(current.paymentStatus || 'not_started').toLowerCase();
+
+                        if (currentPaymentStatus !== 'paid') {
+                            await requestRef.set({
+                                paymentStatus: 'checkout_expired',
+                                stripeCheckoutExpiredAt: Timestamp.now(),
+                                updatedAt: Timestamp.now()
+                            }, { merge: true });
+                        }
+                    }
+                }
+            }
+        }
+
+        return res.json({ received: true });
+    } catch (error) {
+        console.error('stripe webhook handler error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Stripe webhook handling failed.'
+        });
+    }
+});
+
 app.use(express.json({ limit: '12mb' }));
 app.use(express.urlencoded({ extended: true, limit: '12mb' }));
 app.use((req, res, next) => {
@@ -2430,6 +2715,121 @@ app.get('/api/federation/connect/opportunities', requireApiUser, async (req, res
             success: true,
             opportunities: [],
             warning: 'Federation Connect opportunities could not be loaded.'
+        });
+    }
+});
+
+app.post('/api/federation/connect/requests/:requestId/checkout-session', requireApiUser, async (req, res) => {
+    try {
+        const requestId = sanitizeText(req.params.requestId);
+        const requesterUid = sanitizeText(req.user?.id);
+
+        if (!requestId || !requesterUid) {
+            return res.status(400).json({
+                success: false,
+                message: 'Missing Federation request id.'
+            });
+        }
+
+        const requestRef = firestore.collection('federationConnectionRequests').doc(requestId);
+        const requestSnap = await requestRef.get();
+
+        if (!requestSnap.exists) {
+            return res.status(404).json({
+                success: false,
+                message: 'Federation connection request not found.'
+            });
+        }
+
+        const request = requestSnap.data() || {};
+
+        if (sanitizeText(request.requesterUid) !== requesterUid) {
+            return res.status(403).json({
+                success: false,
+                message: 'You can only pay for your own Federation request.'
+            });
+        }
+
+        if (isFederationPaidStatus(request.status) || sanitizeText(request.paymentStatus).toLowerCase() === 'paid') {
+            return res.status(400).json({
+                success: false,
+                message: 'This Federation request is already paid.'
+            });
+        }
+
+        const pricingAmount = Math.max(0, Number(request.pricingAmount || request.dealPackage?.pricingAmount || 0));
+        const currency = sanitizeText(request.currency || request.dealPackage?.currency || 'USD').toUpperCase() || 'USD';
+        const unitAmount = toStripeMinorUnit(pricingAmount, currency);
+
+        if (!pricingAmount || !unitAmount) {
+            return res.status(400).json({
+                success: false,
+                message: 'Admin has not priced this Federation introduction yet.'
+            });
+        }
+
+        const stripe = getStripeClient();
+        const baseUrl = resolvePublicBaseUrl(req);
+        const title = sanitizeText(request.opportunityTitle || 'Federation paid introduction').slice(0, 120);
+        const requesterEmail = sanitizeText(request.requesterEmail || req.user?.email).toLowerCase();
+
+        const session = await stripe.checkout.sessions.create({
+            mode: 'payment',
+            client_reference_id: requestId,
+            customer_email: requesterEmail || undefined,
+            line_items: [
+                {
+                    price_data: {
+                        currency: currency.toLowerCase(),
+                        product_data: {
+                            name: `YH Federation Paid Introduction`,
+                            description: title
+                        },
+                        unit_amount: unitAmount
+                    },
+                    quantity: 1
+                }
+            ],
+            success_url: `${baseUrl}/federation.html?checkout=success&request=${encodeURIComponent(requestId)}&session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${baseUrl}/federation.html?checkout=cancelled&request=${encodeURIComponent(requestId)}`,
+            metadata: {
+                kind: 'federation_paid_intro',
+                requestId,
+                requesterUid,
+                ownerUid: sanitizeText(request.ownerUid),
+                leadId: sanitizeText(request.leadId),
+                sourceDivision: 'federation',
+                sourceFeature: 'connect'
+            },
+            payment_intent_data: {
+                metadata: {
+                    kind: 'federation_paid_intro',
+                    requestId,
+                    requesterUid,
+                    ownerUid: sanitizeText(request.ownerUid),
+                    leadId: sanitizeText(request.leadId)
+                }
+            }
+        });
+
+        await requestRef.set({
+            paymentStatus: 'checkout_started',
+            stripeCheckoutSessionId: sanitizeText(session.id),
+            stripeCheckoutSessionUrl: sanitizeText(session.url),
+            checkoutStartedAt: Timestamp.now(),
+            updatedAt: Timestamp.now()
+        }, { merge: true });
+
+        return res.json({
+            success: true,
+            checkoutSessionId: session.id,
+            url: session.url
+        });
+    } catch (error) {
+        console.error('federation paid intro checkout session error:', error);
+        return res.status(error.statusCode || 500).json({
+            success: false,
+            message: error.message || 'Failed to start Federation paid introduction checkout.'
         });
     }
 });
