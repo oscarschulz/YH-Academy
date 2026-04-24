@@ -159,6 +159,16 @@ function mapFederationConnectOpportunityDoc(docSnap) {
         'Strategic Contact'
     );
 
+    const sellerPriceAmount = Math.max(0, Number(lead.sellerPriceAmount || 0));
+    const universeCommissionRate = Math.max(0, Math.min(100, Number(lead.universeCommissionRate || 20)));
+    const universeCommissionAmount = sellerPriceAmount > 0
+        ? Math.max(0, Number(lead.universeCommissionAmount || ((sellerPriceAmount * universeCommissionRate) / 100)))
+        : 0;
+    const buyerPriceAmount = sellerPriceAmount > 0
+        ? Math.max(0, Number(lead.buyerPriceAmount || (sellerPriceAmount + universeCommissionAmount)))
+        : 0;
+    const currency = sanitizeText(lead.currency || 'USD').toUpperCase() || 'USD';
+
     return {
         id: `${ownerUid}_${leadId}`,
         leadId,
@@ -178,6 +188,15 @@ function mapFederationConnectOpportunityDoc(docSnap) {
         hasEmail: Boolean(sanitizeText(lead.email)),
         hasPhone: Boolean(sanitizeText(lead.phone)),
         hasDirectContact: Boolean(sanitizeText(lead.email) || sanitizeText(lead.phone)),
+
+        sellerPriceAmount,
+        universeCommissionRate,
+        universeCommissionAmount,
+        buyerPriceAmount,
+        currency,
+        saleReviewStatus: sanitizeText(lead.saleReviewStatus || 'approved'),
+        saleStatus: sanitizeText(lead.saleStatus || 'listed'),
+
         summary: sanitizeText(
             lead.notes ||
             lead.description ||

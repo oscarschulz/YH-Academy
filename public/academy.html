@@ -1182,6 +1182,53 @@
                             <input id="lead-follow-up-date" name="followUpDueDate" class="input-field" type="date">
                         </div>
 
+                        <div class="form-group">
+                            <label for="lead-seller-price">Operator Selling Price</label>
+                            <input
+                                id="lead-seller-price"
+                                name="sellerPriceAmount"
+                                class="input-field"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                placeholder="Example: 100"
+                            >
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lead-sale-currency">Currency</label>
+                            <select id="lead-sale-currency" name="currency" class="input-field">
+                                <option value="USD">USD</option>
+                                <option value="EUR">EUR</option>
+                                <option value="GBP">GBP</option>
+                                <option value="NGN">NGN</option>
+                                <option value="PHP">PHP</option>
+                                <option value="INR">INR</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lead-universe-commission-rate">Universe Commission %</label>
+                            <input
+                                id="lead-universe-commission-rate"
+                                name="universeCommissionRate"
+                                class="input-field"
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="0.01"
+                                value="20"
+                            >
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lead-sale-enabled">Marketplace Listing</label>
+                            <select id="lead-sale-enabled" name="saleEnabled" class="input-field">
+                                <option value="true">Submit for Federation marketplace review</option>
+                                <option value="false">Private lead only</option>
+                            </select>
+                        </div>
+
                         <div class="form-group academy-lead-form-span-2">
                             <label for="lead-notes">Notes</label>
                             <textarea id="lead-notes" name="notes" class="input-field" rows="4"></textarea>
@@ -2057,7 +2104,7 @@
 
 <script src="/js/yh-shared-core.js?v=20260418-toast-center-1"></script>
 <script src="/js/yh-shared-runtime.js?v=20260411-4"></script>
-<script src="/js/academy.js?v=20260424-academy-home-readiness-scope-1"></script>
+<script src="/js/academy.js?v=20260424-lead-marketplace-review-1"></script>
 <div
     class="academy-profile-editor-overlay hidden-step"
     id="academy-profile-editor-overlay"

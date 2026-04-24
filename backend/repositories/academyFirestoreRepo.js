@@ -1520,6 +1520,18 @@ function mapLeadMissionLeadDoc(doc) {
         notes: sanitizeString(data.notes),
         followUpDueDate: sanitizeString(data.followUpDueDate),
         status: sanitizeString(data.status || 'active'),
+
+        sellerPriceAmount: toNumber(data.sellerPriceAmount, 0),
+        currency: sanitizeString(data.currency || 'USD'),
+        universeCommissionRate: toNumber(data.universeCommissionRate, 20),
+        universeCommissionAmount: toNumber(data.universeCommissionAmount, 0),
+        buyerPriceAmount: toNumber(data.buyerPriceAmount, 0),
+        saleEnabled: data.saleEnabled === true,
+        saleReviewStatus: sanitizeString(data.saleReviewStatus || 'not_listed'),
+        saleStatus: sanitizeString(data.saleStatus || 'not_listed'),
+        federationReady: data.federationReady === true,
+        federationListingStatus: sanitizeString(data.federationListingStatus || 'not_listed'),
+
         createdAt: mapTimestamp(data.createdAt),
         updatedAt: mapTimestamp(data.updatedAt)
     };
@@ -1597,6 +1609,15 @@ async function createLeadMissionLead(uid, payload = {}) {
     const ref = academyLeadMissionsCol(uid).doc();
     const ts = nowTs();
 
+    const sellerPriceAmount = Math.max(0, toNumber(payload.sellerPriceAmount, 0));
+    const currency = sanitizeString(payload.currency || 'USD').toUpperCase() || 'USD';
+    const universeCommissionRate = Math.max(0, Math.min(100, toNumber(payload.universeCommissionRate, 20)));
+    const universeCommissionAmount = sellerPriceAmount > 0
+        ? Number(((sellerPriceAmount * universeCommissionRate) / 100).toFixed(2))
+        : 0;
+    const buyerPriceAmount = Number((sellerPriceAmount + universeCommissionAmount).toFixed(2));
+    const saleEnabled = payload.saleEnabled === true || sellerPriceAmount > 0;
+
     const lead = {
         tier: sanitizeString(payload.tier),
         companyName: sanitizeString(payload.companyName),
@@ -1621,6 +1642,19 @@ async function createLeadMissionLead(uid, payload = {}) {
         objection: sanitizeString(payload.objection),
         notes: sanitizeString(payload.notes),
         followUpDueDate: sanitizeString(payload.followUpDueDate),
+
+        sellerPriceAmount,
+        currency,
+        universeCommissionRate,
+        universeCommissionAmount,
+        buyerPriceAmount,
+        saleEnabled,
+        saleReviewStatus: saleEnabled ? 'pending_admin_review' : 'not_listed',
+        saleStatus: saleEnabled ? 'pending_admin_review' : 'not_listed',
+
+        federationReady: false,
+        federationListingStatus: 'not_listed',
+
         status: 'active',
         createdAt: ts,
         updatedAt: ts

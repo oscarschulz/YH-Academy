@@ -9,6 +9,7 @@ const academyCommunityControllers = require('../controllers/academyCommunityCont
 const plazaControllers = require('../controllers/plazaControllers');
 const aiNurtureControllers = require('../controllers/aiNurtureControllers');
 const publicLandingController = require('../controllers/publicLandingController');
+const paymentControllers = require('../controllers/paymentControllers');
 const aiNurtureGate = require('../backend/middlewares/aiNurtureGate');
 
 // ==========================================
@@ -111,6 +112,18 @@ router.delete('/plaza/requests/:id', auth, plazaControllers.deleteRequest);
 router.get('/plaza/messages', auth, plazaControllers.getMessages);
 router.post('/plaza/messages/from-request/:requestId', auth, plazaControllers.createConversationFromRequest);
 router.post('/plaza/messages/:id/replies', auth, plazaControllers.createConversationReply);
+
+// ==========================================
+// 💳 YH PROVIDER-NEUTRAL PAYMENT LEDGER ROUTES
+// ==========================================
+router.get('/payments/options', auth, paymentControllers.getPaymentOptions);
+router.get('/payments/my-ledger', auth, paymentControllers.listMyPayments);
+router.post('/payments/federation/connect/requests/:requestId/ledger', auth, paymentControllers.createFederationPaidIntroLedger);
+
+router.get('/payouts/options', auth, paymentControllers.getPayoutOptions);
+router.get('/payouts/my-ledger', auth, paymentControllers.listMyPayouts);
+router.post('/payouts/withdrawal-requests', auth, paymentControllers.createWithdrawalRequest);
+
 // ==========================================
 // 🧠 INTERNAL AI NURTURE ROUTES
 // ==========================================

@@ -4581,6 +4581,10 @@ exports.chatWithAcademyCoach = async (req, res) => {
     }
 };
 function normalizeLeadMissionPayload(body = {}) {
+    const sellerPriceAmount = Math.max(0, toFloat(body.sellerPriceAmount, 0));
+    const universeCommissionRate = Math.max(0, Math.min(100, toFloat(body.universeCommissionRate, 20)));
+    const saleEnabledRaw = sanitize(body.saleEnabled).toLowerCase();
+
     return {
         tier: sanitize(body.tier),
         companyName: sanitize(body.companyName),
@@ -4604,7 +4608,15 @@ function normalizeLeadMissionPayload(body = {}) {
         callType: sanitize(body.callType),
         objection: sanitize(body.objection),
         notes: sanitize(body.notes),
-        followUpDueDate: sanitize(body.followUpDueDate)
+        followUpDueDate: sanitize(body.followUpDueDate),
+
+        sellerPriceAmount,
+        currency: sanitize(body.currency || 'USD').toUpperCase() || 'USD',
+        universeCommissionRate,
+        saleEnabled:
+            saleEnabledRaw === 'true' ||
+            saleEnabledRaw === 'on' ||
+            sellerPriceAmount > 0
     };
 }
 

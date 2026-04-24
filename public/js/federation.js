@@ -419,6 +419,15 @@ function normalizeFederationConnectOpportunity(raw = {}) {
     hasEmail: raw.hasEmail === true,
     hasPhone: raw.hasPhone === true,
     hasDirectContact: raw.hasDirectContact === true || raw.hasEmail === true || raw.hasPhone === true,
+
+    sellerPriceAmount: Number(raw.sellerPriceAmount || 0),
+    universeCommissionRate: Number(raw.universeCommissionRate || 0),
+    universeCommissionAmount: Number(raw.universeCommissionAmount || 0),
+    buyerPriceAmount: Number(raw.buyerPriceAmount || 0),
+    currency: String(raw.currency || "USD").trim().toUpperCase() || "USD",
+    saleReviewStatus: String(raw.saleReviewStatus || "approved").trim(),
+    saleStatus: String(raw.saleStatus || "listed").trim(),
+
     summary: String(raw.summary || "Academy-sourced lead marked Federation-ready by admin.").trim(),
     updatedAt: String(raw.updatedAt || "").trim(),
     createdAt: String(raw.createdAt || "").trim()
@@ -903,6 +912,11 @@ function renderFederationConnectSection() {
         <span>${escapeHtml(opportunity.tier)}</span>
         <span>${escapeHtml([opportunity.city, opportunity.country].filter(Boolean).join(", ") || "Private region")}</span>
         <span>${opportunity.hasDirectContact ? "Contact on file" : "Intro required"}</span>
+        ${
+          Number(opportunity.buyerPriceAmount || 0) > 0
+            ? `<span>${escapeHtml(formatFederationConnectMoney(opportunity.buyerPriceAmount, opportunity.currency))} total access price</span>`
+            : `<span>Price set by admin</span>`
+        }
       </div>
 
       <div class="fed-connect-card-foot">
