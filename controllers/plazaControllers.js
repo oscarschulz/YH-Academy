@@ -680,7 +680,8 @@ exports.createOpportunity = async (req, res) => {
             authorFirebaseUid: viewer.firebaseUid,
             authorEmail: viewer.email,
             authorName: viewer.name,
-            status: 'active',
+            status: 'pending_review',
+            reviewStatus: 'pending_review',
             createdAt: now,
             updatedAt: now
         };
