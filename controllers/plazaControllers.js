@@ -445,6 +445,72 @@ function buildConversationFromRequestPayload(requestId, requestData = {}, viewer
         updatedAt: Timestamp.now()
     };
 }
+
+function buildConversationFromMemberPayload(targetUserId = '', targetUser = {}, viewer = {}, initialMessage = '') {
+    const nowIso = new Date().toISOString();
+
+    const targetName = sanitizeText(
+        targetUser.fullName ||
+        targetUser.name ||
+        targetUser.displayName ||
+        targetUser.username ||
+        'YH Member'
+    );
+
+    const viewerName = sanitizeText(viewer.name || viewer.username || 'Hustler');
+
+    const targetRole = sanitizeText(
+        targetUser.roleLabel ||
+        targetUser.role ||
+        targetUser.federationRole ||
+        targetUser.profession ||
+        'YH Universe Member'
+    );
+
+    const contextTitle = `${targetRole} • ${sanitizeText(targetUser.city || targetUser.country || 'YH Universe')}`;
+
+    return {
+        title: `Plaza DM: ${viewerName} ↔ ${targetName}`,
+        queueRole: 'personal',
+        linkedRequestId: '',
+        linkedInboxId: '',
+        targetLabel: targetName,
+        targetId: sanitizeText(targetUserId),
+        contextTitle,
+        contextRoute: 'Plaza Directory Message',
+        participants: [viewerName, targetName].filter(Boolean),
+        participantIds: [sanitizeText(viewer.id), sanitizeText(targetUserId)]
+            .filter(Boolean)
+            .filter((value, index, arr) => arr.indexOf(value) === index),
+        status: 'active',
+        messages: [
+            {
+                id: `message-${Date.now()}-system`,
+                sender: 'Plaza System',
+                type: 'system',
+                text: `Conversation opened from Plaza Directory. Target: ${targetName}.`,
+                createdAt: nowIso
+            },
+            ...(sanitizeText(initialMessage) ? [
+                {
+                    id: `message-${Date.now()}-intro`,
+                    sender: viewerName,
+                    type: 'message',
+                    text: sanitizeText(initialMessage).slice(0, 1200),
+                    createdAt: nowIso
+                }
+            ] : [])
+        ],
+        authorId: sanitizeText(viewer.id),
+        authorFirebaseUid: sanitizeText(viewer.firebaseUid),
+        authorEmail: sanitizeText(viewer.email).toLowerCase(),
+        authorName: viewerName,
+        recordStatus: 'active',
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now()
+    };
+}
+
 exports.getFeed = async (req, res) => {
     try {
         const viewer = getViewerFromRequest(req);
@@ -1452,6 +1518,91 @@ exports.createConversationFromRequest = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: 'Failed to open Plaza conversation.'
+        });
+    }
+};
+
+exports.createConversationFromMember = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+        const targetUserId = sanitizeText(req.params.targetUserId || req.body?.targetUserId);
+        const initialMessage = sanitizeText(req.body?.message || req.body?.initialMessage || '');
+
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Missing authenticated user.'
+            });
+        }
+
+        if (!targetUserId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Target member id is required.'
+            });
+        }
+
+        if (targetUserId === viewer.id) {
+            return res.status(400).json({
+                success: false,
+                message: 'You cannot open a Plaza message with yourself.'
+            });
+        }
+
+        const targetSnap = await firestore.collection('users').doc(targetUserId).get();
+
+        if (!targetSnap.exists) {
+            return res.status(404).json({
+                success: false,
+                message: 'Target member was not found.'
+            });
+        }
+
+        const targetUser = targetSnap.data() || {};
+        const participantKey = [viewer.id, targetUserId].sort().join('_');
+        const conversationId = `member_${participantKey}`;
+        const conversationRef = plazaConversationsCol.doc(conversationId);
+        const conversationSnap = await conversationRef.get();
+
+        if (!conversationSnap.exists) {
+            const payload = buildConversationFromMemberPayload(
+                targetUserId,
+                targetUser,
+                viewer,
+                initialMessage
+            );
+
+            await conversationRef.set(payload, { merge: true });
+        } else if (initialMessage) {
+            const existing = conversationSnap.data() || {};
+            const messages = normalizeConversationMessages(existing.messages);
+
+            messages.push({
+                id: `message-${Date.now()}-intro`,
+                sender: viewer.name || 'Hustler',
+                type: 'message',
+                text: initialMessage.slice(0, 1200),
+                createdAt: new Date().toISOString()
+            });
+
+            await conversationRef.set({
+                messages,
+                updatedAt: Timestamp.now()
+            }, { merge: true });
+        }
+
+        const updatedSnap = await conversationRef.get();
+
+        return res.status(conversationSnap.exists ? 200 : 201).json({
+            success: true,
+            conversation: mapPlazaConversationDoc(updatedSnap)
+        });
+    } catch (error) {
+        console.error('plazaControllers.createConversationFromMember error:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to open Plaza member conversation.'
         });
     }
 };

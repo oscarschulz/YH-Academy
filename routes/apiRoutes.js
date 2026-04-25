@@ -42,6 +42,7 @@ router.post('/reset-password', authController.resetPassword);
 // 🌌 YH UNIVERSE CANONICAL PROFILE ROUTES
 // ==========================================
 router.get('/universe/profile', auth, academyControllers.getUniverseProfile);
+router.get('/universe/profile/:targetUserId', auth, academyControllers.getUniverseMemberProfile);
 
 router.post('/academy/membership-apply', auth, academyControllers.submitMembershipApplication);
 router.get('/academy/membership-status', auth, academyControllers.getMembershipStatus);
@@ -118,6 +119,7 @@ router.delete('/plaza/requests/:id', auth, plazaControllers.deleteRequest);
 
 router.get('/plaza/messages', auth, plazaControllers.getMessages);
 router.post('/plaza/messages/from-request/:requestId', auth, plazaControllers.createConversationFromRequest);
+router.post('/plaza/messages/from-member/:targetUserId', auth, plazaControllers.createConversationFromMember);
 router.post('/plaza/messages/:id/replies', auth, plazaControllers.createConversationReply);
 
 // ==========================================

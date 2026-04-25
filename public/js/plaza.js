@@ -114,6 +114,286 @@ function escapeHtml(value) {
     .replace(/'/g, "&#039;");
 }
 
+function getYHProfileInitials(name = "YH") {
+  const parts = String(name || "YH")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (!parts.length) return "YH";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+
+  return `${parts[0].charAt(0)}${parts[1].charAt(0)}`.toUpperCase();
+}
+
+function normalizeYHAvatarUrl(value = "") {
+  const clean = String(value || "").trim();
+  if (!clean) return "";
+
+  if (
+    clean.startsWith("http://") ||
+    clean.startsWith("https://") ||
+    clean.startsWith("/") ||
+    clean.startsWith("data:image/")
+  ) {
+    return clean;
+  }
+
+  return `/${clean.replace(/^\/+/, "")}`;
+}
+
+function getPlazaCardProfileTarget(item = {}, allowIdFallback = false) {
+  const target = String(
+    item.userId ||
+    item.authorId ||
+    item.authorUid ||
+    item.ownerUid ||
+    item.createdByUserId ||
+    item.createdBy ||
+    ""
+  ).trim();
+
+  if (target) return target;
+
+  return allowIdFallback ? String(item.id || "").trim() : "";
+}
+
+function renderPlazaCardOwnerButton(item = {}, options = {}) {
+  const targetUserId = String(
+    options.targetUserId ||
+    getPlazaCardProfileTarget(item, options.allowIdFallback === true)
+  ).trim();
+
+  const name = String(
+    options.name ||
+    item.authorName ||
+    item.member ||
+    item.name ||
+    item.ownerName ||
+    "YH Member"
+  ).trim();
+
+  const subtitle = String(
+    options.subtitle ||
+    item.role ||
+    item.type ||
+    item.tag ||
+    item.region ||
+    "YH Universe Member"
+  ).trim();
+
+  const avatar = normalizeYHAvatarUrl(
+    options.avatar ||
+    item.avatar ||
+    item.authorAvatar ||
+    item.profilePhoto ||
+    item.photoURL ||
+    item.ownerAvatar ||
+    ""
+  );
+
+  const isClickable = Boolean(targetUserId);
+
+  return `
+    <button
+      type="button"
+      class="yh-card-owner ${isClickable ? "is-clickable" : "is-placeholder"}"
+      ${isClickable ? `data-plaza-profile-id="${escapeHtml(targetUserId)}"` : "disabled aria-disabled=\"true\""}
+      title="${isClickable ? `View ${escapeHtml(name)} profile` : "Profile unavailable"}"
+    >
+      <span class="yh-card-owner-avatar" aria-hidden="true">
+        ${
+          avatar
+            ? `<img src="${escapeHtml(avatar)}" alt="">`
+            : `<span>${escapeHtml(getYHProfileInitials(name))}</span>`
+        }
+      </span>
+
+      <span class="yh-card-owner-meta">
+        <strong>${escapeHtml(name)}</strong>
+        <small>${escapeHtml(subtitle)}</small>
+      </span>
+    </button>
+  `;
+}
+
+function getPlazaProfileFallbackItem(targetUserId = "") {
+  const cleanId = String(targetUserId || "").trim();
+  if (!cleanId) return null;
+
+  const pools = [
+    plazaServerDirectory,
+    plazaServerFeedItems,
+    plazaServerOpportunities,
+    plazaServerRequests,
+    plazaServerMessages
+  ];
+
+  for (const pool of pools) {
+    const match = safeArray(pool).find((item) => {
+      return (
+        String(item.userId || "").trim() === cleanId ||
+        String(item.authorId || "").trim() === cleanId ||
+        String(item.authorUid || "").trim() === cleanId ||
+        String(item.ownerUid || "").trim() === cleanId ||
+        String(item.createdByUserId || "").trim() === cleanId ||
+        String(item.id || "").trim() === cleanId
+      );
+    });
+
+    if (match) return match;
+  }
+
+  return null;
+}
+
+function renderPlazaUniverseProfilePreview(profile = {}, fallbackItem = null) {
+  const name = String(
+    profile.fullName ||
+    profile.displayName ||
+    fallbackItem?.name ||
+    fallbackItem?.authorName ||
+    fallbackItem?.member ||
+    "YH Member"
+  ).trim();
+
+  const avatar = normalizeYHAvatarUrl(
+    profile.avatar ||
+    profile.profilePhoto ||
+    profile.photoURL ||
+    fallbackItem?.avatar ||
+    fallbackItem?.authorAvatar ||
+    ""
+  );
+
+  const username = String(profile.username || "").replace(/^@+/, "");
+  const location = [profile.city, profile.country].filter(Boolean).join(", ");
+  const signals = profile.signals || {};
+  const lookingFor = safeArray(signals.lookingFor);
+  const canOffer = safeArray(signals.canOffer);
+  const tags = safeArray(signals.tags);
+
+  return `
+    <div class="yh-profile-preview">
+      <div class="yh-profile-preview-cover">
+        ${
+          profile.coverPhoto
+            ? `<img src="${escapeHtml(normalizeYHAvatarUrl(profile.coverPhoto))}" alt="">`
+            : ""
+        }
+      </div>
+
+      <div class="yh-profile-preview-main">
+        <div class="yh-profile-preview-avatar">
+          ${
+            avatar
+              ? `<img src="${escapeHtml(avatar)}" alt="${escapeHtml(name)}">`
+              : `<span>${escapeHtml(getYHProfileInitials(name))}</span>`
+          }
+        </div>
+
+        <div>
+          <h4>${escapeHtml(name)}</h4>
+          <p>${escapeHtml(username ? `@${username}` : profile.trustTier || "YH Universe Member")}</p>
+        </div>
+      </div>
+
+      <p class="yh-profile-preview-bio">
+        ${escapeHtml(profile.bio || fallbackItem?.focus || fallbackItem?.text || "No profile bio added yet.")}
+      </p>
+
+      <div class="yh-profile-preview-meta">
+        ${location ? `<span>${escapeHtml(location)}</span>` : ""}
+        ${profile.trustTier ? `<span>${escapeHtml(profile.trustTier)}</span>` : ""}
+        ${signals.availability ? `<span>${escapeHtml(signals.availability)}</span>` : ""}
+        ${signals.workMode ? `<span>${escapeHtml(signals.workMode)}</span>` : ""}
+      </div>
+
+      ${
+        lookingFor.length
+          ? `
+            <div class="yh-profile-preview-signal">
+              <strong>Looking For</strong>
+              <div>${lookingFor.map((entry) => `<span>${escapeHtml(entry)}</span>`).join("")}</div>
+            </div>
+          `
+          : ""
+      }
+
+      ${
+        canOffer.length
+          ? `
+            <div class="yh-profile-preview-signal">
+              <strong>Can Offer</strong>
+              <div>${canOffer.map((entry) => `<span>${escapeHtml(entry)}</span>`).join("")}</div>
+            </div>
+          `
+          : ""
+      }
+
+      ${
+        tags.length
+          ? `
+            <div class="yh-profile-preview-signal">
+              <strong>Tags</strong>
+              <div>${tags.map((entry) => `<span>${escapeHtml(entry)}</span>`).join("")}</div>
+            </div>
+          `
+          : ""
+      }
+    </div>
+  `;
+}
+
+async function openPlazaUniverseProfileFromCard(targetUserId = "") {
+  const cleanId = String(targetUserId || "").trim();
+
+  if (!cleanId) {
+    showToast("This card has no linked profile yet.");
+    return;
+  }
+
+  const fallbackItem = getPlazaProfileFallbackItem(cleanId);
+
+  openModal({
+    kicker: "YH Universe Profile",
+    title: "Loading profile...",
+    bodyHtml: `<div class="yh-plaza-modal-copy">Loading unified YH profile...</div>`
+  });
+
+  try {
+    const result = await plazaApiFetch(`/api/universe/profile/${encodeURIComponent(cleanId)}`);
+    const profile = result.profile || {};
+
+    if (plazaModalTitle) {
+      plazaModalTitle.textContent =
+        profile.fullName ||
+        profile.displayName ||
+        fallbackItem?.name ||
+        fallbackItem?.member ||
+        "YH Universe Profile";
+    }
+
+    if (plazaModalBody) {
+      plazaModalBody.innerHTML = renderPlazaUniverseProfilePreview(profile, fallbackItem);
+    }
+  } catch (error) {
+    console.error("openPlazaUniverseProfileFromCard error:", error);
+
+    if (plazaModalTitle) {
+      plazaModalTitle.textContent = "Profile unavailable";
+    }
+
+    if (plazaModalBody) {
+      plazaModalBody.innerHTML = `
+        <div class="yh-plaza-modal-copy">
+          ${escapeHtml(error.message || "Could not load this profile yet.")}
+        </div>
+      `;
+    }
+  }
+}
+
 function titleCase(value) {
   return String(value || "")
     .split(/[\s_-]+/)
@@ -390,6 +670,10 @@ function normalizeServerFeedItem(item, index = 0) {
   return normalizeFeedItem({
     id: item?.id || `server-feed-${index + 1}`,
     type: item?.type || "introduction",
+    userId: item?.userId || item?.authorId || item?.createdByUserId || "",
+    authorId: item?.authorId || item?.userId || item?.createdByUserId || "",
+    authorName: item?.authorName || item?.member || "Hustler",
+    authorAvatar: item?.authorAvatar || item?.avatar || item?.profilePhoto || item?.photoURL || "",
     member: item?.member || item?.authorName || "Hustler",
     source: item?.source || "plaza",
     division: item?.division || "both",
@@ -467,6 +751,11 @@ function normalizeServerOpportunityItem(item, index = 0) {
     federationEscalation: item?.federationEscalation || "none",
     monetizationNote: item?.monetizationNote || "",
     marketplaceMode: item?.marketplaceMode || "marketplace",
+    userId: item?.userId || item?.authorId || item?.ownerUid || item?.createdByUserId || "",
+    authorId: item?.authorId || item?.userId || item?.ownerUid || item?.createdByUserId || "",
+    authorName: item?.authorName || item?.ownerName || "Plaza Member",
+    authorAvatar: item?.authorAvatar || item?.avatar || item?.profilePhoto || item?.photoURL || item?.ownerAvatar || "",
+
     sourceDivision: item?.sourceDivision || "plaza",
     sourceLeadId: item?.sourceLeadId || "",
     academySignalLabel: item?.academySignalLabel || ""
@@ -525,8 +814,13 @@ async function createPlazaOpportunity(payload = {}) {
   return opportunity;
 }
 function normalizeServerDirectoryItem(item, index = 0) {
+  const userId = String(item?.userId || item?.authorId || item?.id || "").trim();
+
   return normalizeDirectoryItem({
-    id: item?.id || `server-member-${index + 1}`,
+    id: item?.id || userId || `server-member-${index + 1}`,
+    userId,
+    authorId: item?.authorId || userId,
+    avatar: item?.avatar || item?.profilePhoto || item?.photoURL || item?.authorAvatar || "",
     name: item?.name || item?.authorName || "Hustler",
     region: item?.region || "Global",
     division: item?.division || "academy",
@@ -594,6 +888,23 @@ async function savePlazaDirectoryProfile(payload = {}) {
 
   return profile;
 }
+function getPlazaDirectoryItemById(id = "") {
+  const cleanId = String(id || "").trim();
+  if (!cleanId) return null;
+
+  const serverItem = plazaServerDirectory.find((item) => {
+    return (
+      String(item.id || "").trim() === cleanId ||
+      String(item.userId || "").trim() === cleanId ||
+      String(item.authorId || "").trim() === cleanId
+    );
+  });
+
+  if (serverItem) return serverItem;
+
+  return plazaAdapter.getMemberById(cleanId);
+}
+
 function normalizeServerRegionItem(item, index = 0) {
   return normalizeRegionItem({
     id: item?.id || `server-region-${index + 1}`,
@@ -902,6 +1213,35 @@ async function createPlazaConversationFromRequest(requestId = "") {
   return conversation;
 }
 
+async function createPlazaConversationFromMember(targetUserId = "", initialMessage = "") {
+  const cleanId = String(targetUserId || "").trim();
+
+  if (!cleanId) {
+    throw new Error("Target Plaza member is missing.");
+  }
+
+  const result = await plazaApiFetch(`/api/plaza/messages/from-member/${encodeURIComponent(cleanId)}`, {
+    method: "POST",
+    body: JSON.stringify({
+      message: initialMessage || `I opened this conversation from the Plaza directory.`
+    })
+  });
+
+  const conversation = result.conversation
+    ? normalizeServerConversationItem(result.conversation)
+    : null;
+
+  if (conversation) {
+    plazaServerMessages = [
+      conversation,
+      ...plazaServerMessages.filter((item) => item.id !== conversation.id)
+    ];
+    plazaServerMessagesLoaded = true;
+  }
+
+  return conversation;
+}
+
 async function sendPlazaConversationReply(conversationId = "", text = "") {
   const cleanId = String(conversationId || "").trim();
   const cleanText = String(text || "").trim();
@@ -968,10 +1308,15 @@ function normalizeFeedItem(item, index) {
   const division = normalizeDivision(item?.division);
   const source = normalizeSource(item?.source, division);
   const type = String(item?.type || "introduction").trim().toLowerCase();
+
   return {
     id: item?.id || `feed-${index + 1}`,
     type,
-    member: String(item?.member || "Unknown member"),
+    userId: String(item?.userId || item?.authorId || item?.authorUid || item?.createdByUserId || "").trim(),
+    authorId: String(item?.authorId || item?.userId || item?.authorUid || item?.createdByUserId || "").trim(),
+    authorName: String(item?.authorName || item?.member || item?.name || "Unknown member").trim(),
+    authorAvatar: normalizeYHAvatarUrl(item?.authorAvatar || item?.avatar || item?.profilePhoto || item?.photoURL || ""),
+    member: String(item?.member || item?.authorName || "Unknown member"),
     source,
     division,
     region: String(item?.region || "Unknown region"),
@@ -1000,7 +1345,10 @@ function normalizeDirectoryItem(item, index) {
 
   return {
     id: item?.id || `member-${index + 1}`,
-    name: String(item?.name || "Unnamed member"),
+    userId: String(item?.userId || item?.authorId || item?.id || "").trim(),
+    authorId: String(item?.authorId || item?.userId || item?.id || "").trim(),
+    avatar: normalizeYHAvatarUrl(item?.avatar || item?.profilePhoto || item?.photoURL || item?.authorAvatar || ""),
+    name: String(item?.name || item?.authorName || "Unnamed member"),
     region: String(item?.region || "Unknown region"),
     division,
     source,
@@ -1024,6 +1372,11 @@ function normalizeOpportunityItem(item, index) {
     title: String(item?.title || "New opportunity"),
     text: String(item?.text || "No opportunity details yet."),
     action: String(item?.action || "Open"),
+
+    userId: String(item?.userId || item?.authorId || item?.ownerUid || item?.createdByUserId || "").trim(),
+    authorId: String(item?.authorId || item?.userId || item?.ownerUid || item?.createdByUserId || "").trim(),
+    authorName: String(item?.authorName || item?.ownerName || item?.member || "Plaza Member").trim(),
+    authorAvatar: normalizeYHAvatarUrl(item?.authorAvatar || item?.avatar || item?.profilePhoto || item?.photoURL || item?.ownerAvatar || ""),
 
     economyMode: String(item?.economyMode || "not_sure"),
     currency: String(item?.currency || "USD").trim().toUpperCase() || "USD",
@@ -3857,6 +4210,12 @@ function renderFeed(filter = "all") {
           <span class="yh-plaza-feed-tag">${escapeHtml(item.tag)}</span>
           <span class="yh-plaza-feed-tag">${escapeHtml(getSourceLabel(item.source))}</span>
         </div>
+        ${renderPlazaCardOwnerButton(item, {
+          name: item.authorName || item.member,
+          subtitle: `${getSourceLabel(item.source)} • ${getDivisionLabel(item.division)}`,
+          avatar: item.authorAvatar
+        })}
+
         <h3>${escapeHtml(item.title)}</h3>
         <p>${escapeHtml(item.text)}</p>
         <div class="yh-plaza-feed-meta">
@@ -3906,7 +4265,14 @@ function renderDirectory() {
         <span class="yh-plaza-directory-badge">${escapeHtml(getTrustLabel(item.trust))}</span>
       </div>
 
-      <h3>${escapeHtml(item.name)}</h3>
+      ${renderPlazaCardOwnerButton(item, {
+        name: item.name,
+        subtitle: `${item.role} • ${item.region}`,
+        avatar: item.avatar,
+        targetUserId: getPlazaCardProfileTarget(item, true),
+        allowIdFallback: true
+      })}
+
       <p>${escapeHtml(item.focus)}</p>
 
       <div class="yh-plaza-directory-meta">
@@ -3945,6 +4311,8 @@ function renderDirectory() {
       ` : ""}
 
       <div class="yh-plaza-card-actions">
+        <button type="button" class="yh-plaza-ghost-btn" data-plaza-profile-id="${escapeHtml(item.userId || item.authorId || item.id)}">View Profile</button>
+        <button type="button" class="yh-plaza-ghost-btn" data-plaza-profile-message="${escapeHtml(item.userId || item.authorId || item.id)}">Message in Plaza</button>
         <button type="button" class="yh-plaza-ghost-btn" data-member-id="${escapeHtml(item.id)}">Request Connection</button>
       </div>
     </article>
@@ -3971,6 +4339,12 @@ function renderOpportunities() {
         <div class="yh-plaza-opportunity-card-head">
           ${renderPlazaOpportunityChips(item)}
         </div>
+
+        ${renderPlazaCardOwnerButton(item, {
+          name: item.authorName || "Plaza Member",
+          subtitle: `${getPlazaOpportunitySourceLabel(item)} • ${item.region}`,
+          avatar: item.authorAvatar
+        })}
 
         <h3>${escapeHtml(item.title)}</h3>
         <p>${escapeHtml(item.text)}</p>
@@ -5396,6 +5770,167 @@ function openMemberRequest(item) {
   });
 }
 
+function renderPlazaUniverseProfileBody(profile = {}, item = null) {
+  const divisions = profile.divisions || {};
+  const signals = profile.signals || {};
+  const targetUserId = String(profile.targetUid || profile.uid || profile.id || item?.userId || item?.authorId || item?.id || "").trim();
+
+  const divisionChips = Object.values(divisions)
+    .filter(Boolean)
+    .map((division) => {
+      const status = division.isMember ? "Member" : (division.statusLabel || "Not Applied");
+      return `<span>${escapeHtml(division.label || division.key)}: ${escapeHtml(status)}</span>`;
+    })
+    .join("");
+
+  const lookingFor = safeArray(signals.lookingFor);
+  const canOffer = safeArray(signals.canOffer);
+  const tags = safeArray(signals.tags);
+
+  return `
+    <div class="yh-universe-profile-card">
+      <div class="yh-universe-profile-cover">
+        ${profile.coverPhoto ? `<img src="${escapeHtml(profile.coverPhoto)}" alt="">` : ""}
+      </div>
+
+      <div class="yh-universe-profile-head">
+        <div class="yh-universe-profile-avatar">
+          ${
+            profile.avatar
+              ? `<img src="${escapeHtml(profile.avatar)}" alt="${escapeHtml(profile.fullName || "YH Member")}">`
+              : `<span>${escapeHtml(String(profile.fullName || profile.displayName || "Y").charAt(0).toUpperCase())}</span>`
+          }
+        </div>
+
+        <div>
+          <h4>${escapeHtml(profile.fullName || profile.displayName || item?.name || "YH Member")}</h4>
+          <p>${escapeHtml(profile.username ? `@${profile.username}` : profile.trustTier || "YH Universe Member")}</p>
+        </div>
+      </div>
+
+      <p class="yh-universe-profile-bio">${escapeHtml(profile.bio || item?.focus || "No profile bio added yet.")}</p>
+
+      <div class="yh-universe-profile-meta">
+        ${profile.city || profile.country ? `<span>${escapeHtml([profile.city, profile.country].filter(Boolean).join(", "))}</span>` : ""}
+        ${profile.trustTier ? `<span>${escapeHtml(profile.trustTier)}</span>` : ""}
+        ${signals.availability ? `<span>${escapeHtml(signals.availability)}</span>` : ""}
+        ${signals.workMode ? `<span>${escapeHtml(signals.workMode)}</span>` : ""}
+      </div>
+
+      ${divisionChips ? `<div class="yh-universe-profile-divisions">${divisionChips}</div>` : ""}
+
+      ${lookingFor.length ? `
+        <div class="yh-universe-profile-signal">
+          <strong>Looking For</strong>
+          <div>${lookingFor.map((entry) => `<span>${escapeHtml(entry)}</span>`).join("")}</div>
+        </div>
+      ` : ""}
+
+      ${canOffer.length ? `
+        <div class="yh-universe-profile-signal">
+          <strong>Can Offer</strong>
+          <div>${canOffer.map((entry) => `<span>${escapeHtml(entry)}</span>`).join("")}</div>
+        </div>
+      ` : ""}
+
+      ${tags.length ? `
+        <div class="yh-universe-profile-signal">
+          <strong>Tags</strong>
+          <div>${tags.map((entry) => `<span>${escapeHtml(entry)}</span>`).join("")}</div>
+        </div>
+      ` : ""}
+
+      <div class="yh-universe-profile-actions">
+        <button type="button" class="yh-plaza-btn yh-plaza-btn-primary" data-plaza-profile-message="${escapeHtml(targetUserId)}">
+          Message in Plaza
+        </button>
+        ${item ? `
+          <button type="button" class="yh-plaza-btn yh-plaza-btn-secondary" data-member-id="${escapeHtml(item.id)}">
+            Request Connection
+          </button>
+        ` : ""}
+      </div>
+    </div>
+  `;
+}
+
+async function openPlazaUniverseProfile(targetUserId = "", fallbackItem = null) {
+  const cleanId = String(targetUserId || "").trim();
+
+  if (!cleanId) {
+    showToast("This member profile is missing a user id.");
+    return;
+  }
+
+  openModal({
+    kicker: "YH Universe Profile",
+    title: "Loading profile...",
+    bodyHtml: `<div class="yh-plaza-modal-copy">Loading unified YH Universe profile...</div>`
+  });
+
+  try {
+    const result = await plazaApiFetch(`/api/universe/profile/${encodeURIComponent(cleanId)}`);
+    const profile = result.profile || {};
+
+    if (plazaModalTitle) {
+      plazaModalTitle.textContent = profile.fullName || profile.displayName || fallbackItem?.name || "YH Universe Profile";
+    }
+
+    if (plazaModalBody) {
+      plazaModalBody.innerHTML = renderPlazaUniverseProfileBody(profile, fallbackItem);
+    }
+  } catch (error) {
+    console.error("openPlazaUniverseProfile error:", error);
+
+    if (plazaModalTitle) {
+      plazaModalTitle.textContent = "Profile unavailable";
+    }
+
+    if (plazaModalBody) {
+      plazaModalBody.innerHTML = `
+        <div class="yh-plaza-modal-copy">
+          ${escapeHtml(error.message || "Could not load this member profile.")}
+        </div>
+      `;
+    }
+  }
+}
+
+async function openPlazaScopedMemberMessage(targetUserId = "", button = null) {
+  const cleanId = String(targetUserId || "").trim();
+
+  if (!cleanId) {
+    showToast("This member is missing a user id.");
+    return;
+  }
+
+  const originalText = button?.textContent || "";
+
+  try {
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Opening...";
+    }
+
+    const conversation = await createPlazaConversationFromMember(cleanId);
+
+    if (conversation) {
+      closeModal();
+      renderMessagesScreen();
+      renderConversationScreen(conversation);
+      showToast("Plaza conversation opened.");
+    }
+  } catch (error) {
+    console.error("openPlazaScopedMemberMessage error:", error);
+    showToast(error.message || "Could not open Plaza message.");
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = originalText;
+    }
+  }
+}
+
 function handleDetailPrimaryAction(action) {
   if (!action) return;
 
@@ -5730,9 +6265,29 @@ function bindEvents() {
       return;
     }
 
+    const plazaProfileBtn = target.closest("[data-plaza-profile-id]");
+    if (plazaProfileBtn instanceof HTMLElement) {
+      const targetUserId = plazaProfileBtn.dataset.plazaProfileId || "";
+      void openPlazaUniverseProfileFromCard(targetUserId);
+      return;
+    }
+
     const memberBtn = target.closest("[data-member-id]");
     if (memberBtn instanceof HTMLElement) {
       openMemberRequest(plazaAdapter.getMemberById(memberBtn.dataset.memberId));
+      return;
+    }
+
+    const plazaProfileMessageBtn = target.closest("[data-plaza-profile-message]");
+    if (plazaProfileMessageBtn instanceof HTMLButtonElement) {
+      const targetUserId = plazaProfileMessageBtn.dataset.plazaProfileMessage || "";
+      void openPlazaScopedMemberMessage(targetUserId, plazaProfileMessageBtn);
+      return;
+    }
+
+    const memberBtn = target.closest("[data-member-id]");
+    if (memberBtn instanceof HTMLElement) {
+      openMemberRequest(getPlazaDirectoryItemById(memberBtn.dataset.memberId));
       return;
     }
 

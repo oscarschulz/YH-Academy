@@ -4019,6 +4019,59 @@ exports.getUniverseProfile = async (req, res) => {
     }
 };
 
+exports.getUniverseMemberProfile = async (req, res) => {
+    const viewerUid = getAcademyAuthUid(req);
+    const targetUid = sanitize(req.params?.targetUserId || req.params?.id || '');
+
+    if (!viewerUid) {
+        return res.status(401).json({
+            success: false,
+            message: 'Unauthorized.'
+        });
+    }
+
+    if (!targetUid) {
+        return res.status(400).json({
+            success: false,
+            message: 'Target user id is required.'
+        });
+    }
+
+    const originalJson = res.json.bind(res);
+
+    res.json = (payload) => {
+        if (payload?.success === true && payload?.profile) {
+            const isSelf = targetUid === viewerUid;
+
+            payload.profile.isSelf = isSelf;
+            payload.profile.viewerUid = viewerUid;
+            payload.profile.targetUid = targetUid;
+
+            if (!isSelf) {
+                payload.profile.email = '';
+                payload.profile.privateEmail = '';
+            }
+
+            payload.profile.source = 'universe-profile-shared-v1';
+        }
+
+        return originalJson(payload);
+    };
+
+    const targetReq = Object.create(req);
+
+    targetReq.user = {
+        ...(req.user || {}),
+        id: targetUid,
+        firebaseUid: targetUid,
+        uid: targetUid,
+        email: '',
+        name: ''
+    };
+
+    return exports.getUniverseProfile(targetReq, res);
+};
+
 exports.getCurrentProfile = async (req, res) => {
     try {
         const uid = getAcademyAuthUid(req);

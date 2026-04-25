@@ -188,6 +188,279 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
+function getFederationProfileInitials(name = "YH") {
+  const parts = String(name || "YH")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (!parts.length) return "YH";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+
+  return `${parts[0].charAt(0)}${parts[1].charAt(0)}`.toUpperCase();
+}
+
+function normalizeFederationAvatarUrl(value = "") {
+  const clean = String(value || "").trim();
+  if (!clean) return "";
+
+  if (
+    clean.startsWith("http://") ||
+    clean.startsWith("https://") ||
+    clean.startsWith("/") ||
+    clean.startsWith("data:image/")
+  ) {
+    return clean;
+  }
+
+  return `/${clean.replace(/^\/+/, "")}`;
+}
+
+function getFederationProfileTarget(member = {}) {
+  return String(
+    member.userId ||
+    member.id ||
+    member.firebaseUid ||
+    member.uid ||
+    ""
+  ).trim();
+}
+
+function renderFederationCardOwnerButton(member = {}, options = {}) {
+  const disabled = options.disabled === true;
+  const targetUserId = disabled ? "" : getFederationProfileTarget(member);
+  const name = String(member.name || "Federation Member").trim();
+  const subtitle = String(member.role || member.category || "Federation Member").trim();
+  const avatar = normalizeFederationAvatarUrl(
+    member.avatar ||
+    member.profilePhoto ||
+    member.photoURL ||
+    member.authorAvatar ||
+    ""
+  );
+
+  return `
+    <button
+      type="button"
+      class="fed-card-owner ${targetUserId ? "is-clickable" : "is-placeholder"}"
+      ${targetUserId ? `data-federation-profile-id="${escapeHtml(targetUserId)}"` : "disabled aria-disabled=\"true\""}
+      title="${targetUserId ? `View ${escapeHtml(name)} profile` : "Profile protected"}"
+    >
+      <span class="fed-card-owner-avatar" aria-hidden="true">
+        ${
+          avatar
+            ? `<img src="${escapeHtml(avatar)}" alt="">`
+            : `<span>${escapeHtml(getFederationProfileInitials(name))}</span>`
+        }
+      </span>
+
+      <span class="fed-card-owner-meta">
+        <strong>${escapeHtml(name)}</strong>
+        <small>${escapeHtml(subtitle)}</small>
+      </span>
+    </button>
+  `;
+}
+
+function getFederationMemberById(id = "") {
+  const cleanId = String(id || "").trim();
+
+  if (!cleanId) return null;
+
+  return getMembers().find((member) => {
+    return (
+      String(member.id || "").trim() === cleanId ||
+      String(member.userId || "").trim() === cleanId ||
+      String(member.firebaseUid || "").trim() === cleanId ||
+      String(member.uid || "").trim() === cleanId ||
+      String(member.email || "").trim().toLowerCase() === cleanId.toLowerCase()
+    );
+  }) || null;
+}
+
+function ensureFederationProfileModal() {
+  let overlay = document.getElementById("fedUniverseProfileModal");
+
+  if (overlay) return overlay;
+
+  overlay = document.createElement("div");
+  overlay.id = "fedUniverseProfileModal";
+  overlay.className = "fed-universe-profile-modal";
+  overlay.setAttribute("aria-hidden", "true");
+
+  overlay.innerHTML = `
+    <div class="fed-universe-profile-backdrop" data-fed-profile-close></div>
+
+    <div class="fed-universe-profile-card" role="dialog" aria-modal="true" aria-labelledby="fedUniverseProfileTitle">
+      <div class="fed-universe-profile-headbar">
+        <div>
+          <span class="fed-sidebar-card-label">YH Universe Profile</span>
+          <h3 id="fedUniverseProfileTitle">Loading profile...</h3>
+        </div>
+
+        <button type="button" class="fed-universe-profile-close" data-fed-profile-close aria-label="Close profile">×</button>
+      </div>
+
+      <div class="fed-universe-profile-body" id="fedUniverseProfileBody"></div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  overlay.addEventListener("click", (event) => {
+    const closeTrigger = event.target.closest("[data-fed-profile-close]");
+    if (!closeTrigger) return;
+    closeFederationProfileModal();
+  });
+
+  return overlay;
+}
+
+function closeFederationProfileModal() {
+  const overlay = document.getElementById("fedUniverseProfileModal");
+  if (!overlay) return;
+
+  overlay.classList.remove("is-open");
+  overlay.setAttribute("aria-hidden", "true");
+}
+
+function renderFederationProfilePreview(profile = {}, fallbackMember = null) {
+  const name = String(
+    profile.fullName ||
+    profile.displayName ||
+    fallbackMember?.name ||
+    "Federation Member"
+  ).trim();
+
+  const avatar = normalizeFederationAvatarUrl(
+    profile.avatar ||
+    profile.profilePhoto ||
+    profile.photoURL ||
+    fallbackMember?.avatar ||
+    fallbackMember?.profilePhoto ||
+    fallbackMember?.photoURL ||
+    ""
+  );
+
+  const username = String(profile.username || "").replace(/^@+/, "");
+  const location = [profile.city, profile.country].filter(Boolean).join(", ");
+  const signals = profile.signals || {};
+  const lookingFor = Array.isArray(signals.lookingFor) ? signals.lookingFor : [];
+  const canOffer = Array.isArray(signals.canOffer) ? signals.canOffer : [];
+
+  return `
+    <div class="fed-profile-preview-cover">
+      ${
+        profile.coverPhoto
+          ? `<img src="${escapeHtml(normalizeFederationAvatarUrl(profile.coverPhoto))}" alt="">`
+          : ""
+      }
+    </div>
+
+    <div class="fed-profile-preview-main">
+      <div class="fed-profile-preview-avatar">
+        ${
+          avatar
+            ? `<img src="${escapeHtml(avatar)}" alt="${escapeHtml(name)}">`
+            : `<span>${escapeHtml(getFederationProfileInitials(name))}</span>`
+        }
+      </div>
+
+      <div>
+        <h4>${escapeHtml(name)}</h4>
+        <p>${escapeHtml(username ? `@${username}` : profile.trustTier || fallbackMember?.badge || "Federation Member")}</p>
+      </div>
+    </div>
+
+    <p class="fed-profile-preview-copy">
+      ${escapeHtml(profile.bio || fallbackMember?.description || "Approved YH Universe member.")}
+    </p>
+
+    <div class="fed-profile-preview-meta">
+      ${location ? `<span>${escapeHtml(location)}</span>` : ""}
+      ${profile.trustTier ? `<span>${escapeHtml(profile.trustTier)}</span>` : ""}
+      ${fallbackMember?.category ? `<span>${escapeHtml(fallbackMember.category)}</span>` : ""}
+      ${fallbackMember?.company ? `<span>${escapeHtml(fallbackMember.company)}</span>` : ""}
+    </div>
+
+    ${
+      lookingFor.length
+        ? `
+          <div class="fed-profile-preview-signal">
+            <strong>Looking For</strong>
+            <div>${lookingFor.map((entry) => `<span>${escapeHtml(entry)}</span>`).join("")}</div>
+          </div>
+        `
+        : ""
+    }
+
+    ${
+      canOffer.length
+        ? `
+          <div class="fed-profile-preview-signal">
+            <strong>Can Offer</strong>
+            <div>${canOffer.map((entry) => `<span>${escapeHtml(entry)}</span>`).join("")}</div>
+          </div>
+        `
+        : ""
+    }
+
+    <div class="fed-profile-preview-actions">
+      <button type="button" class="fed-btn fed-btn-primary" data-jump="#connect">
+        Message in Federation
+      </button>
+      <button type="button" class="fed-btn fed-btn-secondary" data-jump="#connect">
+        Request Strategic Intro
+      </button>
+    </div>
+
+    <p class="fed-profile-preview-note">
+      Federation communication stays protected. Use Connect to request a scoped message, strategic intro, or admin-brokered path.
+    </p>
+  `;
+}
+
+async function openFederationProfileFromCard(targetUserId = "") {
+  const cleanId = String(targetUserId || "").trim();
+
+  if (!cleanId) return;
+
+  const fallbackMember = getFederationMemberById(cleanId);
+  const overlay = ensureFederationProfileModal();
+  const title = document.getElementById("fedUniverseProfileTitle");
+  const body = document.getElementById("fedUniverseProfileBody");
+
+  if (title) title.textContent = "Loading profile...";
+  if (body) body.innerHTML = `<p class="fed-profile-preview-copy">Loading unified YH profile...</p>`;
+
+  overlay.classList.add("is-open");
+  overlay.setAttribute("aria-hidden", "false");
+
+  try {
+    const result = await federationConnectFetch(`/api/universe/profile/${encodeURIComponent(cleanId)}`);
+    const profile = result.profile || {};
+
+    if (title) {
+      title.textContent =
+        profile.fullName ||
+        profile.displayName ||
+        fallbackMember?.name ||
+        "YH Universe Profile";
+    }
+
+    if (body) {
+      body.innerHTML = renderFederationProfilePreview(profile, fallbackMember);
+    }
+  } catch (error) {
+    console.error("openFederationProfileFromCard error:", error);
+
+    if (title) title.textContent = "Profile unavailable";
+    if (body) {
+      body.innerHTML = `<p class="fed-profile-preview-copy">${escapeHtml(error.message || "Could not load this profile yet.")}</p>`;
+    }
+  }
+}
 const federationConnectState = {
   loading: false,
   loaded: false,
@@ -299,6 +572,9 @@ function normalizeFederationMember(raw = {}) {
     city: String(raw.city || "").trim(),
     company: String(raw.company || "").trim(),
     description: String(raw.description || raw.bio || "Approved Federation member.").trim(),
+    avatar: normalizeFederationAvatarUrl(raw.avatar || raw.profilePhoto || raw.photoURL || raw.authorAvatar || ""),
+    profilePhoto: normalizeFederationAvatarUrl(raw.profilePhoto || raw.avatar || raw.photoURL || ""),
+    photoURL: normalizeFederationAvatarUrl(raw.photoURL || raw.avatar || raw.profilePhoto || ""),
     approvedAt: String(raw.approvedAt || raw.createdAt || raw.updatedAt || "").trim(),
     source: String(raw.source || "server").trim(),
     referralCode: String(raw.referralCode || "").trim()
@@ -2086,6 +2362,20 @@ function setMembers(members) {
   writeStorage(STORAGE_KEYS.members, members);
 }
 
+function getFederationMemberById(id = "") {
+  const cleanId = String(id || "").trim();
+
+  if (!cleanId) return null;
+
+  return getMembers().find((member) => {
+    return (
+      String(member.id || "").trim() === cleanId ||
+      String(member.userId || "").trim() === cleanId ||
+      String(member.email || "").trim().toLowerCase() === cleanId.toLowerCase()
+    );
+  }) || null;
+}
+
 function ensureSeedMembers() {
   /*
    * Federation no longer seeds mock members into the live UI.
@@ -2638,6 +2928,243 @@ function redactDirectoryMember(member, mode = "preview") {
     badge: isPartial ? "Screened" : "Private",
     __redacted: true
   };
+}
+
+function ensureFederationUniverseProfileModal() {
+  let overlay = document.getElementById("fedUniverseProfileModal");
+
+  if (overlay) return overlay;
+
+  overlay = document.createElement("div");
+  overlay.id = "fedUniverseProfileModal";
+  overlay.className = "fed-universe-profile-modal";
+  overlay.setAttribute("aria-hidden", "true");
+
+  overlay.innerHTML = `
+    <div class="fed-universe-profile-backdrop" data-fed-profile-close></div>
+    <div class="fed-universe-profile-card" role="dialog" aria-modal="true" aria-labelledby="fedUniverseProfileTitle">
+      <div class="fed-universe-profile-headbar">
+        <div>
+          <span class="fed-sidebar-card-label">YH Universe Profile</span>
+          <h3 id="fedUniverseProfileTitle">Loading profile...</h3>
+        </div>
+        <button type="button" class="fed-universe-profile-close" data-fed-profile-close aria-label="Close profile">×</button>
+      </div>
+      <div class="fed-universe-profile-body" id="fedUniverseProfileBody"></div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  overlay.addEventListener("click", (event) => {
+    const closeTrigger = event.target.closest("[data-fed-profile-close]");
+    if (!closeTrigger) return;
+    closeFederationUniverseProfileModal();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeFederationUniverseProfileModal();
+    }
+  });
+
+  return overlay;
+}
+
+function closeFederationUniverseProfileModal() {
+  const overlay = document.getElementById("fedUniverseProfileModal");
+  if (!overlay) return;
+
+  overlay.classList.remove("is-open");
+  overlay.setAttribute("aria-hidden", "true");
+}
+
+function renderFederationUniverseProfileBody(profile = {}, member = null) {
+  const divisions = profile.divisions || {};
+  const signals = profile.signals || {};
+  const targetUserId = String(profile.targetUid || profile.uid || profile.id || member?.userId || member?.id || "").trim();
+
+  const divisionChips = Object.values(divisions)
+    .filter(Boolean)
+    .map((division) => {
+      const status = division.isMember ? "Member" : (division.statusLabel || "Not Applied");
+      return `<span>${escapeHtml(division.label || division.key)}: ${escapeHtml(status)}</span>`;
+    })
+    .join("");
+
+  const lookingFor = Array.isArray(signals.lookingFor) ? signals.lookingFor : [];
+  const canOffer = Array.isArray(signals.canOffer) ? signals.canOffer : [];
+  const tags = Array.isArray(signals.tags) ? signals.tags : [];
+
+  return `
+    <div class="fed-universe-profile-cover">
+      ${profile.coverPhoto ? `<img src="${escapeHtml(profile.coverPhoto)}" alt="">` : ""}
+    </div>
+
+    <div class="fed-universe-profile-main">
+      <div class="fed-universe-profile-avatar">
+        ${
+          profile.avatar
+            ? `<img src="${escapeHtml(profile.avatar)}" alt="${escapeHtml(profile.fullName || "YH Member")}">`
+            : `<span>${escapeHtml(String(profile.fullName || profile.displayName || "Y").charAt(0).toUpperCase())}</span>`
+        }
+      </div>
+
+      <div>
+        <h4>${escapeHtml(profile.fullName || profile.displayName || member?.name || "Federation Member")}</h4>
+        <p>${escapeHtml(profile.username ? `@${profile.username}` : profile.trustTier || "Strategic Member")}</p>
+      </div>
+    </div>
+
+    <p class="fed-universe-profile-copy">${escapeHtml(profile.bio || member?.description || "Approved YH Universe member.")}</p>
+
+    <div class="fed-universe-profile-meta">
+      ${profile.city || profile.country ? `<span>${escapeHtml([profile.city, profile.country].filter(Boolean).join(", "))}</span>` : ""}
+      ${profile.trustTier ? `<span>${escapeHtml(profile.trustTier)}</span>` : ""}
+      ${member?.category ? `<span>${escapeHtml(member.category)}</span>` : ""}
+      ${member?.company ? `<span>${escapeHtml(member.company)}</span>` : ""}
+    </div>
+
+    ${divisionChips ? `<div class="fed-universe-profile-meta">${divisionChips}</div>` : ""}
+
+    ${lookingFor.length ? `
+      <div class="fed-universe-profile-signal">
+        <strong>Looking For</strong>
+        <div>${lookingFor.map((entry) => `<span>${escapeHtml(entry)}</span>`).join("")}</div>
+      </div>
+    ` : ""}
+
+    ${canOffer.length ? `
+      <div class="fed-universe-profile-signal">
+        <strong>Can Offer</strong>
+        <div>${canOffer.map((entry) => `<span>${escapeHtml(entry)}</span>`).join("")}</div>
+      </div>
+    ` : ""}
+
+    ${tags.length ? `
+      <div class="fed-universe-profile-signal">
+        <strong>Tags</strong>
+        <div>${tags.map((entry) => `<span>${escapeHtml(entry)}</span>`).join("")}</div>
+      </div>
+    ` : ""}
+
+    <div class="fed-universe-profile-actions">
+      <button type="button" class="fed-btn fed-btn-primary" data-federation-profile-message="${escapeHtml(targetUserId)}">
+        Message in Federation
+      </button>
+      <button type="button" class="fed-btn fed-btn-secondary" data-jump="#connect">
+        Request Strategic Intro
+      </button>
+    </div>
+
+    <div class="fed-universe-profile-note" id="fedUniverseProfileNote">
+      Federation messages are protected. This creates a scoped Federation request that admin can review, match, or convert into a deeper intro flow.
+    </div>
+  `;
+}
+
+async function openFederationUniverseProfile(targetUserId = "", fallbackMember = null) {
+  const cleanId = String(targetUserId || "").trim();
+  const overlay = ensureFederationUniverseProfileModal();
+  const title = document.getElementById("fedUniverseProfileTitle");
+  const body = document.getElementById("fedUniverseProfileBody");
+
+  if (!cleanId) {
+    return;
+  }
+
+  if (title) title.textContent = "Loading profile...";
+  if (body) body.innerHTML = `<p class="fed-universe-profile-copy">Loading unified YH Universe profile...</p>`;
+
+  overlay.classList.add("is-open");
+  overlay.setAttribute("aria-hidden", "false");
+
+  try {
+    const result = await federationConnectFetch(`/api/universe/profile/${encodeURIComponent(cleanId)}`);
+    const profile = result.profile || {};
+
+    if (title) {
+      title.textContent = profile.fullName || profile.displayName || fallbackMember?.name || "YH Universe Profile";
+    }
+
+    if (body) {
+      body.innerHTML = renderFederationUniverseProfileBody(profile, fallbackMember);
+    }
+  } catch (error) {
+    console.error("openFederationUniverseProfile error:", error);
+
+    if (title) title.textContent = "Profile unavailable";
+    if (body) {
+      body.innerHTML = `<p class="fed-universe-profile-copy">${escapeHtml(error.message || "Could not load this Federation profile.")}</p>`;
+    }
+  }
+}
+
+async function submitFederationProfileMessageRequest(targetUserId = "", button = null) {
+  const member = getFederationMemberById(targetUserId);
+
+  if (!member) {
+    return;
+  }
+
+  const originalText = button?.textContent || "Message in Federation";
+  const note = document.getElementById("fedUniverseProfileNote");
+
+  try {
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Sending...";
+    }
+
+    const payload = {
+      contactName: member.name,
+      contactRole: member.role || "Federation Member",
+      contactType: member.category || "Strategic Network",
+      city: member.city || "",
+      country: member.country || "Global",
+      sourceMethod: "Federation Directory",
+      channel: "Federation scoped message",
+      pipelineStage: "Member profile message",
+      priority: "normal",
+      requestedTier: member.badge || "Verified",
+      requestReason: `I want to open a scoped Federation message with ${member.name} from the Federation directory.`,
+      intendedUse: "Direct Federation member communication inside YH Universe.",
+      budgetRange: "not_sure",
+      urgency: "normal",
+      preferredIntroType: "admin_brokered",
+      notes: `Target member user id: ${member.userId || member.id}. This was created from the shared Universe Profile modal.`
+    };
+
+    const result = await federationConnectFetch("/api/federation/connect/requests", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+
+    if (result?.request) {
+      federationConnectState.requests = [
+        result.request,
+        ...federationConnectState.requests.filter((item) => item.id !== result.request.id)
+      ];
+    }
+
+    if (note) {
+      note.textContent = "Federation message request sent. Check My Requests for admin review and next steps.";
+    }
+
+    await loadFederationConnectData({ force: true });
+    renderFederationConnectSection();
+  } catch (error) {
+    console.error("submitFederationProfileMessageRequest error:", error);
+
+    if (note) {
+      note.textContent = error.message || "Could not send Federation message request.";
+    }
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = originalText;
+    }
+  }
 }
 
 function buildStatusTimelineMarkup(status = "Pending") {
@@ -3447,14 +3974,12 @@ function renderDirectory(items = getMembers()) {
     visibleItems
       .map((member) => {
         const isRedacted = Boolean(member.__redacted);
+        const targetUserId = getFederationProfileTarget(member);
 
         return `
-          <article class="fed-member-card ${isRedacted ? "is-redacted" : ""}">
-            <div class="fed-member-top">
-              <div>
-                <div class="fed-member-name">${escapeHtml(member.name)}</div>
-                <div class="fed-member-role">${escapeHtml(member.role)}</div>
-              </div>
+          <article class="fed-member-card ${isRedacted ? "is-redacted" : ""}" data-federation-member-card="${escapeHtml(targetUserId)}">
+            <div class="fed-member-top fed-member-top-with-avatar">
+              ${renderFederationCardOwnerButton(member, { disabled: isRedacted })}
               <div class="fed-member-badge">${escapeHtml(member.badge || "Approved")}</div>
             </div>
 
@@ -3474,7 +3999,16 @@ function renderDirectory(items = getMembers()) {
             ${
               isRedacted
                 ? `<div class="fed-member-lock">Protected until approval</div>`
-                : ""
+                : `
+                  <div class="fed-member-actions">
+                    <button type="button" class="fed-btn fed-btn-secondary" data-federation-profile-id="${escapeHtml(targetUserId)}">
+                      View Profile
+                    </button>
+                    <button type="button" class="fed-btn fed-btn-primary" data-jump="#connect">
+                      Message in Federation
+                    </button>
+                  </div>
+                `
             }
           </article>
         `;
@@ -3520,10 +4054,29 @@ function initDirectory() {
   populateFilters();
   renderDirectory();
 
+  const directoryGrid = qs("#directoryGrid");
+
+  if (directoryGrid && directoryGrid.dataset.profileOwnerBound !== "true") {
+    directoryGrid.dataset.profileOwnerBound = "true";
+
+    directoryGrid.addEventListener("click", (event) => {
+      const profileBtn = event.target.closest("[data-federation-profile-id]");
+
+      if (profileBtn) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const targetUserId = profileBtn.getAttribute("data-federation-profile-id") || "";
+        void openFederationProfileFromCard(targetUserId);
+      }
+    });
+  }
+
   ["#memberSearch", "#categoryFilter", "#countryFilter"].forEach((selector) => {
     const el = qs(selector);
-    if (!el) return;
+    if (!el || el.dataset.directoryFilterBound === "true") return;
 
+    el.dataset.directoryFilterBound = "true";
     el.addEventListener("input", applyDirectoryFilters);
     el.addEventListener("change", applyDirectoryFilters);
   });

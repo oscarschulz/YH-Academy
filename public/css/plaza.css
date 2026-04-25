@@ -3221,3 +3221,296 @@ textarea:focus,
     font-size: 11px;
   }
 }
+/* ========================================================= */
+/* SHARED YH UNIVERSE PROFILE MODAL - PLAZA                  */
+/* ========================================================= */
+.yh-universe-profile-card {
+  display: grid;
+  gap: 18px;
+}
+
+.yh-universe-profile-cover {
+  min-height: 96px;
+  border-radius: 22px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top left, rgba(77, 139, 255, 0.28), transparent 34%),
+    linear-gradient(135deg, rgba(18, 28, 48, 0.96), rgba(8, 13, 24, 0.98));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.yh-universe-profile-cover img {
+  width: 100%;
+  height: 100%;
+  min-height: 96px;
+  object-fit: cover;
+  display: block;
+}
+
+.yh-universe-profile-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.yh-universe-profile-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 22px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  background: rgba(77, 139, 255, 0.16);
+  border: 1px solid rgba(77, 139, 255, 0.28);
+  color: #eef4ff;
+  font-weight: 800;
+  font-size: 1.35rem;
+}
+
+.yh-universe-profile-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.yh-universe-profile-head h4 {
+  margin: 0;
+  font-size: 1.08rem;
+  color: var(--yh-text);
+}
+
+.yh-universe-profile-head p,
+.yh-universe-profile-bio {
+  margin: 4px 0 0;
+  color: var(--yh-text-soft);
+  line-height: 1.7;
+}
+
+.yh-universe-profile-meta,
+.yh-universe-profile-divisions,
+.yh-universe-profile-signal div,
+.yh-universe-profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.yh-universe-profile-meta span,
+.yh-universe-profile-divisions span,
+.yh-universe-profile-signal span {
+  border-radius: 999px;
+  padding: 7px 10px;
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--yh-text-soft);
+  font-size: 0.76rem;
+}
+
+.yh-universe-profile-signal {
+  display: grid;
+  gap: 8px;
+}
+
+.yh-universe-profile-signal strong {
+  color: var(--yh-text);
+  font-size: 0.82rem;
+}
+
+.yh-universe-profile-actions {
+  padding-top: 4px;
+}
+/* ========================================================= */
+/* CLICKABLE PROFILE OWNER BUTTONS - PLAZA                   */
+/* ========================================================= */
+.yh-card-owner {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  margin: 12px 0 10px;
+  padding: 10px;
+  border-radius: 18px;
+  border: 1px solid rgba(var(--yh-accent-rgb), 0.14);
+  background:
+    linear-gradient(135deg, rgba(var(--yh-accent-rgb), 0.08), rgba(255,255,255,0.025));
+  color: var(--yh-text);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease;
+}
+
+.yh-card-owner.is-clickable:hover {
+  transform: translateY(-1px);
+  border-color: rgba(var(--yh-accent-rgb), 0.34);
+  background:
+    linear-gradient(135deg, rgba(var(--yh-accent-rgb), 0.14), rgba(255,255,255,0.04));
+}
+
+.yh-card-owner.is-placeholder {
+  opacity: 0.72;
+  cursor: default;
+}
+
+.yh-card-owner-avatar {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 16px;
+  border: 1px solid rgba(var(--yh-accent-rgb), 0.24);
+  background:
+    radial-gradient(circle at top left, rgba(var(--yh-accent-rgb), 0.28), transparent 55%),
+    rgba(255,255,255,0.045);
+  color: var(--yh-text);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.yh-card-owner-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.yh-card-owner-meta {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.yh-card-owner-meta strong {
+  min-width: 0;
+  color: var(--yh-text);
+  font-size: 0.92rem;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.yh-card-owner-meta small {
+  min-width: 0;
+  color: var(--yh-text-soft);
+  font-size: 0.76rem;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ========================================================= */
+/* LIGHTWEIGHT UNIVERSE PROFILE PREVIEW - PLAZA              */
+/* ========================================================= */
+.yh-profile-preview {
+  display: grid;
+  gap: 16px;
+}
+
+.yh-profile-preview-cover {
+  min-height: 96px;
+  border-radius: 22px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top left, rgba(var(--yh-accent-rgb), 0.28), transparent 34%),
+    linear-gradient(135deg, rgba(18, 28, 48, 0.96), rgba(8, 13, 24, 0.98));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.yh-profile-preview-cover img {
+  width: 100%;
+  min-height: 96px;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.yh-profile-preview-main {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.yh-profile-preview-avatar {
+  width: 64px;
+  height: 64px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 22px;
+  border: 1px solid rgba(var(--yh-accent-rgb), 0.28);
+  background: rgba(var(--yh-accent-rgb), 0.16);
+  color: var(--yh-text);
+  font-weight: 800;
+  font-size: 1.1rem;
+}
+
+.yh-profile-preview-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.yh-profile-preview-main h4 {
+  margin: 0;
+  color: var(--yh-text);
+  font-size: 1.08rem;
+}
+
+.yh-profile-preview-main p,
+.yh-profile-preview-bio {
+  margin: 4px 0 0;
+  color: var(--yh-text-soft);
+  line-height: 1.7;
+}
+
+.yh-profile-preview-meta,
+.yh-profile-preview-signal div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.yh-profile-preview-meta span,
+.yh-profile-preview-signal span {
+  border-radius: 999px;
+  padding: 7px 10px;
+  background: rgba(255,255,255,0.055);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: var(--yh-text-soft);
+  font-size: 0.76rem;
+}
+
+.yh-profile-preview-signal {
+  display: grid;
+  gap: 8px;
+}
+
+.yh-profile-preview-signal strong {
+  color: var(--yh-text);
+  font-size: 0.82rem;
+}
+
+@media (max-width: 560px) {
+  .yh-card-owner {
+    padding: 9px;
+  }
+
+  .yh-card-owner-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 14px;
+  }
+
+  .yh-profile-preview-main {
+    align-items: flex-start;
+  }
+}
