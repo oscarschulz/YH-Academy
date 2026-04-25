@@ -258,7 +258,82 @@ async function upsertPaymentRecord(input = {}) {
     const nextSnap = await ref.get();
     return mapPaymentRecordDoc(nextSnap);
 }
+async function getPaymentRecordById(paymentId = '') {
+    const cleanId = cleanText(paymentId);
 
+    if (!cleanId) {
+        throw new Error('Missing payment id.');
+    }
+
+    const snap = await paymentLedgerCol.doc(cleanId).get();
+
+    if (!snap.exists) {
+        const error = new Error('Payment record not found.');
+        error.statusCode = 404;
+        throw error;
+    }
+
+    return mapPaymentRecordDoc(snap);
+}
+
+async function updatePaymentRecordStatus(paymentId = '', input = {}) {
+    const cleanId = cleanText(paymentId);
+
+    if (!cleanId) {
+        throw new Error('Missing payment id.');
+    }
+
+    const ref = paymentLedgerCol.doc(cleanId);
+    const snap = await ref.get();
+
+    if (!snap.exists) {
+        const error = new Error('Payment record not found.');
+        error.statusCode = 404;
+        throw error;
+    }
+
+    const current = snap.data() || {};
+    const status = normalizePaymentStatus(input.status || current.status || 'draft');
+    const now = nowTs();
+
+    const payload = {
+        status,
+        provider: input.provider === undefined
+            ? normalizePaymentProvider(current.provider || 'unselected')
+            : normalizePaymentProvider(input.provider || 'unselected'),
+        paymentMethod: input.paymentMethod === undefined
+            ? cleanText(current.paymentMethod || 'unselected')
+            : cleanText(input.paymentMethod || 'unselected'),
+        providerStatus: input.providerStatus === undefined
+            ? cleanText(current.providerStatus || '')
+            : cleanText(input.providerStatus || ''),
+        updatedAt: now
+    };
+
+    if (input.providerPaymentId !== undefined) {
+        payload.providerPaymentId = cleanText(input.providerPaymentId);
+    }
+
+    if (input.providerCheckoutUrl !== undefined) {
+        payload.providerCheckoutUrl = cleanText(input.providerCheckoutUrl);
+    }
+
+    if (input.metadata && typeof input.metadata === 'object') {
+        payload.metadata = {
+            ...(current.metadata && typeof current.metadata === 'object' ? current.metadata : {}),
+            ...input.metadata
+        };
+    }
+
+    if (status === 'paid') {
+        payload.paidAt = current.paidAt || now;
+    }
+
+    await ref.set(payload, { merge: true });
+
+    const nextSnap = await ref.get();
+    return mapPaymentRecordDoc(nextSnap);
+}
 async function listPaymentsForUser(uid = '', limit = 80) {
     const cleanUid = cleanText(uid);
     if (!cleanUid) return [];
@@ -415,6 +490,8 @@ async function updatePayoutRecordStatus(payoutId = '', input = {}) {
 
 module.exports = {
     upsertPaymentRecord,
+    getPaymentRecordById,
+    updatePaymentRecordStatus,
     listPaymentsForUser,
     listAdminPaymentRecords,
     createPayoutRequest,

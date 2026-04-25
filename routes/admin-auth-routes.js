@@ -1445,6 +1445,277 @@ const applications = users.flatMap((user) => {
       }
     });
   });
+function normalizeAdminPlazaCommissionRate(value = null, fallback = 0.2) {
+  const parsed = toNumber(value, fallback);
+
+  if (!Number.isFinite(parsed)) return fallback;
+
+  if (parsed > 1) {
+    return Math.max(0, Math.min(1, parsed / 100));
+  }
+
+  return Math.max(0, Math.min(1, parsed));
+}
+
+function roundAdminMoney(value = 0) {
+  return Math.round(Math.max(0, toNumber(value, 0)) * 100) / 100;
+}
+
+function getAdminPlazaOpportunityOwnerUid(opportunity = {}, payment = {}) {
+  return cleanText(
+    payment?.metadata?.ownerUid ||
+    opportunity.ownerUid ||
+    opportunity.authorId ||
+    opportunity.authorUid ||
+    opportunity.createdByUserId ||
+    opportunity.createdBy ||
+    opportunity.userId ||
+    ''
+  );
+}
+
+function getAdminPlazaOpportunityTitle(opportunity = {}, payment = {}) {
+  return cleanText(
+    payment?.metadata?.opportunityTitle ||
+    opportunity.title ||
+    opportunity.name ||
+    opportunity.text ||
+    opportunity.description ||
+    'Plaza opportunity deal'
+  ).slice(0, 220);
+}
+
+async function upsertAdminPlazaOpportunityPayoutEarning({
+  ownerUid = '',
+  ownerEmail = '',
+  ownerName = '',
+  opportunityId = '',
+  opportunityTitle = '',
+  payment = {},
+  amount = 0,
+  currency = 'USD',
+  grossAmount = 0,
+  platformCommissionAmount = 0,
+  commissionRate = 0,
+  adminUsername = 'admin'
+} = {}) {
+  const cleanOwnerUid = cleanText(ownerUid);
+  const cleanOpportunityId = cleanText(opportunityId);
+
+  if (!cleanOwnerUid || !cleanOpportunityId) {
+    return null;
+  }
+
+  const payoutId = `plaza_${cleanOpportunityId}`.replace(/[^a-zA-Z0-9_-]+/g, '_').slice(0, 180);
+  const now = Timestamp.now();
+
+  const payoutRef = firestore
+    .collection('users')
+    .doc(cleanOwnerUid)
+    .collection('academyLeadPayouts')
+    .doc(payoutId);
+
+  const payload = {
+    id: payoutId,
+
+    sourceDivision: 'plaza',
+    sourceFeature: 'opportunity_deal',
+    sourceRecordId: cleanOpportunityId,
+    sourcePaymentId: cleanText(payment.id),
+
+    title: cleanText(opportunityTitle || 'Plaza opportunity deal'),
+    opportunityTitle: cleanText(opportunityTitle || 'Plaza opportunity deal'),
+
+    receiverUid: cleanOwnerUid,
+    receiverEmail: cleanText(ownerEmail).toLowerCase(),
+    receiverName: cleanText(ownerName || 'Plaza Operator'),
+
+    payerUid: cleanText(payment.payerUid),
+    payerEmail: cleanText(payment.payerEmail).toLowerCase(),
+    payerName: cleanText(payment.payerName || 'Plaza Buyer'),
+
+    grossAmount: roundAdminMoney(grossAmount),
+    platformCommissionAmount: roundAdminMoney(platformCommissionAmount),
+    operatorPayoutAmount: roundAdminMoney(amount),
+    payoutAmount: roundAdminMoney(amount),
+    amount: roundAdminMoney(amount),
+    currency: cleanText(currency || 'USD').toUpperCase() || 'USD',
+
+    commissionRate: normalizeAdminPlazaCommissionRate(commissionRate, 0),
+
+    status: 'available',
+    payoutStatus: 'unrequested',
+    paymentStatus: 'paid',
+
+    createdAt: now,
+    updatedAt: now,
+    approvedAt: now,
+    approvedBy: cleanText(adminUsername || 'admin'),
+
+    metadata: {
+      source: 'admin_plaza_payment_settlement',
+      paymentLedgerId: cleanText(payment.id),
+      opportunityId: cleanOpportunityId
+    }
+  };
+
+  await payoutRef.set(payload, { merge: true });
+
+  const payoutSnap = await payoutRef.get();
+
+  return {
+    id: payoutSnap.id,
+    ...(payoutSnap.data() || {})
+  };
+}
+
+apiRouter.post('/api/admin/economy/payments/:paymentId/settle', requireAdminSession, async (req, res) => {
+  try {
+    const paymentId = cleanText(req.params.paymentId);
+
+    if (!paymentId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing payment id.'
+      });
+    }
+
+    const payment = await paymentLedgerRepo.getPaymentRecordById(paymentId);
+
+    const sourceDivision = cleanText(payment.sourceDivision).toLowerCase();
+    const sourceFeature = cleanText(payment.sourceFeature).toLowerCase();
+    const opportunityId = cleanText(payment.sourceRecordId);
+
+    if (sourceDivision !== 'plaza' || sourceFeature !== 'opportunity_deal') {
+      return res.status(400).json({
+        success: false,
+        message: 'Only Plaza opportunity payment ledgers can be settled with this action.'
+      });
+    }
+
+    if (!opportunityId) {
+      return res.status(400).json({
+        success: false,
+        message: 'This payment ledger has no linked Plaza opportunity id.'
+      });
+    }
+
+    const opportunityRef = firestore.collection('plazaOpportunities').doc(opportunityId);
+    const opportunitySnap = await opportunityRef.get();
+
+    if (!opportunitySnap.exists) {
+      return res.status(404).json({
+        success: false,
+        message: 'Linked Plaza opportunity not found.'
+      });
+    }
+
+    const opportunity = opportunitySnap.data() || {};
+    const ownerUid = getAdminPlazaOpportunityOwnerUid(opportunity, payment);
+
+    if (!ownerUid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Linked Plaza opportunity has no owner/operator attached.'
+      });
+    }
+
+    const currency = cleanText(payment.currency || opportunity.currency || 'USD').toUpperCase() || 'USD';
+    const grossAmount = roundAdminMoney(payment.amount || opportunity.pricingAmount || 0);
+    const commissionRate = normalizeAdminPlazaCommissionRate(
+      payment?.metadata?.commissionRate ??
+      opportunity.commissionRate ??
+      opportunity.platformCommissionRate ??
+      0.2,
+      0.2
+    );
+
+    const platformCommissionAmount = roundAdminMoney(
+      payment.platformCommissionAmount ||
+      opportunity.platformCommissionAmount ||
+      grossAmount * commissionRate
+    );
+
+    const operatorPayoutAmount = roundAdminMoney(
+      payment.operatorPayoutAmount ||
+      opportunity.operatorPayoutAmount ||
+      Math.max(0, grossAmount - platformCommissionAmount)
+    );
+
+    const updatedPayment = await paymentLedgerRepo.updatePaymentRecordStatus(paymentId, {
+      status: 'paid',
+      provider: cleanText(req.body?.provider || payment.provider || 'manual'),
+      paymentMethod: cleanText(req.body?.paymentMethod || payment.paymentMethod || 'manual'),
+      providerStatus: 'admin_paid',
+      metadata: {
+        adminSettlement: true,
+        settledBy: cleanText(req.adminSession?.username || 'admin'),
+        settledAt: new Date().toISOString()
+      }
+    });
+
+    const opportunityTitle = getAdminPlazaOpportunityTitle(opportunity, payment);
+
+    await opportunityRef.set({
+      pricingAmount: grossAmount,
+      currency,
+      commissionRate,
+      platformCommissionAmount,
+      operatorPayoutAmount,
+
+      paymentLedgerId: updatedPayment.id,
+      paymentLedgerStatus: 'paid',
+      paymentStatus: 'paid',
+      dealStatus: 'paid',
+      paidAt: Timestamp.now(),
+      adminSettledAt: Timestamp.now(),
+      adminSettledBy: cleanText(req.adminSession?.username || 'admin'),
+      updatedAt: Timestamp.now()
+    }, { merge: true });
+
+    const payoutEarning = await upsertAdminPlazaOpportunityPayoutEarning({
+      ownerUid,
+      ownerEmail: cleanText(opportunity.ownerEmail || opportunity.authorEmail || ''),
+      ownerName: cleanText(opportunity.ownerName || opportunity.authorName || opportunity.member || 'Plaza Operator'),
+
+      opportunityId,
+      opportunityTitle,
+
+      payment: updatedPayment,
+
+      amount: operatorPayoutAmount,
+      currency,
+      grossAmount,
+      platformCommissionAmount,
+      commissionRate,
+      adminUsername: cleanText(req.adminSession?.username || 'admin')
+    });
+
+    return res.json({
+      success: true,
+      payment: updatedPayment,
+      payoutEarning,
+      opportunity: {
+        id: opportunityId,
+        paymentLedgerId: updatedPayment.id,
+        paymentLedgerStatus: 'paid',
+        paymentStatus: 'paid',
+        dealStatus: 'paid',
+        pricingAmount: grossAmount,
+        currency,
+        platformCommissionAmount,
+        operatorPayoutAmount
+      }
+    });
+  } catch (error) {
+    console.error('admin plaza payment settlement error:', error);
+
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message || 'Failed to settle Plaza payment.'
+    });
+  }
+});
 apiRouter.get('/api/admin/bootstrap', requireAdminSession, async (req, res) => {
   try {
     const state = await buildAdminBootstrapPayload();

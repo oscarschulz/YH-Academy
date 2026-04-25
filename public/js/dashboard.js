@@ -1300,7 +1300,43 @@ function renderYHWalletMethods(containerId = '', methods = []) {
         </article>
     `).join('');
 }
+function renderYHWalletDivisionBreakdown(balance = {}) {
+    const container = document.getElementById('yh-wallet-division-breakdown');
+    if (!container) return;
 
+    const breakdown =
+        balance?.divisionBreakdown && typeof balance.divisionBreakdown === 'object'
+            ? balance.divisionBreakdown
+            : {};
+
+    const currency = String(balance?.currency || 'USD').trim().toUpperCase() || 'USD';
+
+    const divisions = [
+        ['academy', 'Academy'],
+        ['plaza', 'Plaza'],
+        ['federation', 'Federation']
+    ];
+
+    container.innerHTML = divisions.map(([key, label]) => {
+        const item = breakdown[key] || {};
+        const approved = Number(item.approvedEarnings || 0);
+        const reserved = Number(item.reservedWithdrawals || 0);
+        const available = Number(item.available || Math.max(0, approved - reserved));
+
+        return `
+            <article class="yh-wallet-division-card">
+                <div>
+                    <span>${escapeYHWalletHtml(label)}</span>
+                    <strong>${escapeYHWalletHtml(formatYHWalletMoney(available, currency))}</strong>
+                </div>
+                <small>
+                    Approved: ${escapeYHWalletHtml(formatYHWalletMoney(approved, currency))}
+                    · Reserved: ${escapeYHWalletHtml(formatYHWalletMoney(reserved, currency))}
+                </small>
+            </article>
+        `;
+    }).join('');
+}
 function renderYHWalletLedger(containerId = '', records = [], type = 'payment') {
     const container = document.getElementById(containerId);
     if (!container) return;
@@ -1348,6 +1384,8 @@ function renderYHWalletSnapshot(snapshot = {}) {
     if (availableEl) availableEl.textContent = formatYHWalletMoney(balance.available || 0, currency);
     if (approvedEl) approvedEl.textContent = formatYHWalletMoney(balance.approvedEarnings || 0, currency);
     if (reservedEl) reservedEl.textContent = formatYHWalletMoney(balance.reservedWithdrawals || 0, currency);
+
+    renderYHWalletDivisionBreakdown(balance);
 
     renderYHWalletMethods('yh-wallet-payment-methods', snapshot.paymentProviders || []);
     renderYHWalletMethods('yh-wallet-payout-methods', snapshot.payoutMethods || []);
@@ -1407,8 +1445,8 @@ async function submitYHWalletWithdrawal(event) {
     }
 
     const payload = {
-        sourceDivision: 'academy',
-        sourceFeature: 'member_withdrawal',
+        sourceDivision: 'wallet',
+        sourceFeature: 'universal_withdrawal',
         amount,
         currency,
         method,

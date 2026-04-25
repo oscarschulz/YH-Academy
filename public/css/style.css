@@ -16654,3 +16654,48 @@ body[data-yh-page="dashboard"] .yh-dashboard-profile-search-btn {
         padding-right: 46px;
     }
 }
+/* ========================================================= */
+/* YH WALLET DIVISION BALANCE BREAKDOWN                      */
+/* ========================================================= */
+
+.yh-wallet-division-panel {
+    margin-bottom: 16px;
+}
+
+.yh-wallet-division-breakdown {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.yh-wallet-division-card {
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    background: rgba(15, 23, 42, 0.72);
+    border-radius: 18px;
+    padding: 15px;
+    display: grid;
+    gap: 8px;
+}
+
+.yh-wallet-division-card span {
+    display: block;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+}
+
+.yh-wallet-division-card strong {
+    display: block;
+    margin-top: 5px;
+    font-size: clamp(1.15rem, 2vw, 1.55rem);
+}
+
+.yh-wallet-division-card small {
+    color: rgba(226, 232, 240, 0.68);
+    line-height: 1.5;
+}
+
+@media (max-width: 900px) {
+    .yh-wallet-division-breakdown {
+        grid-template-columns: 1fr;
+    }
+}

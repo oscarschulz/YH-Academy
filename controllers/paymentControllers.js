@@ -175,7 +175,308 @@ async function createFederationPaidIntroLedger(req, res) {
         });
     }
 }
+function normalizePlazaCommissionRate(value = null, fallback = 0.2) {
+    const parsed = toNumber(value, fallback);
 
+    if (!Number.isFinite(parsed)) return fallback;
+
+    if (parsed > 1) {
+        return Math.max(0, Math.min(1, parsed / 100));
+    }
+
+    return Math.max(0, Math.min(1, parsed));
+}
+
+function roundMoney(value = 0) {
+    return Math.round(Math.max(0, toNumber(value, 0)) * 100) / 100;
+}
+
+function getPlazaOpportunityOwnerUid(opportunity = {}) {
+    return cleanText(
+        opportunity.ownerUid ||
+        opportunity.authorId ||
+        opportunity.authorUid ||
+        opportunity.createdByUserId ||
+        opportunity.createdBy ||
+        opportunity.userId ||
+        ''
+    );
+}
+
+function getPlazaOpportunityTitle(opportunity = {}) {
+    return cleanText(
+        opportunity.title ||
+        opportunity.name ||
+        opportunity.text ||
+        opportunity.description ||
+        'Plaza opportunity deal'
+    ).slice(0, 220);
+}
+
+function getPlazaOpportunityAmount(opportunity = {}, body = {}) {
+    return Math.max(
+        0,
+        toNumber(
+            body.amount ||
+            body.pricingAmount ||
+            body.price ||
+            opportunity.pricingAmount ||
+            opportunity.price ||
+            opportunity.budgetAmount ||
+            opportunity.budgetMax ||
+            opportunity.budgetMin ||
+            0
+        )
+    );
+}
+
+function shouldSettlePlazaPaymentNow() {
+    return false;
+}
+
+async function upsertPlazaOpportunityPayoutEarning({
+    ownerUid = '',
+    ownerEmail = '',
+    ownerName = '',
+    opportunityId = '',
+    opportunityTitle = '',
+    payment = {},
+    payer = {},
+    amount = 0,
+    currency = 'USD',
+    grossAmount = 0,
+    platformCommissionAmount = 0,
+    commissionRate = 0
+} = {}) {
+    const cleanOwnerUid = cleanText(ownerUid);
+    const cleanOpportunityId = cleanText(opportunityId);
+
+    if (!cleanOwnerUid || !cleanOpportunityId) {
+        return null;
+    }
+
+    const payoutId = `plaza_${cleanOpportunityId}`.replace(/[^a-zA-Z0-9_-]+/g, '_').slice(0, 180);
+    const now = Timestamp.now();
+
+    const payoutRef = firestore
+        .collection('users')
+        .doc(cleanOwnerUid)
+        .collection('academyLeadPayouts')
+        .doc(payoutId);
+
+    const payload = {
+        id: payoutId,
+
+        sourceDivision: 'plaza',
+        sourceFeature: 'opportunity_deal',
+        sourceRecordId: cleanOpportunityId,
+        sourcePaymentId: cleanText(payment.id),
+
+        title: cleanText(opportunityTitle || 'Plaza opportunity deal'),
+        opportunityTitle: cleanText(opportunityTitle || 'Plaza opportunity deal'),
+
+        receiverUid: cleanOwnerUid,
+        receiverEmail: cleanText(ownerEmail).toLowerCase(),
+        receiverName: cleanText(ownerName || 'Plaza Operator'),
+
+        payerUid: cleanText(payer.id),
+        payerEmail: cleanText(payer.email).toLowerCase(),
+        payerName: cleanText(payer.name || 'Plaza Buyer'),
+
+        grossAmount: roundMoney(grossAmount),
+        platformCommissionAmount: roundMoney(platformCommissionAmount),
+        operatorPayoutAmount: roundMoney(amount),
+        payoutAmount: roundMoney(amount),
+        amount: roundMoney(amount),
+        currency: normalizeWithdrawalCurrency(currency),
+
+        commissionRate: normalizePlazaCommissionRate(commissionRate, 0),
+
+        status: 'available',
+        payoutStatus: 'unrequested',
+        paymentStatus: 'paid',
+
+        createdAt: now,
+        updatedAt: now,
+        approvedAt: now,
+
+        metadata: {
+            source: 'plaza_opportunity_payment',
+            paymentLedgerId: cleanText(payment.id),
+            opportunityId: cleanOpportunityId
+        }
+    };
+
+    await payoutRef.set(payload, { merge: true });
+
+    const payoutSnap = await payoutRef.get();
+
+    return {
+        id: payoutSnap.id,
+        ...(payoutSnap.data() || {})
+    };
+}
+
+async function createPlazaOpportunityPaymentLedger(req, res) {
+    try {
+        const viewer = getViewer(req);
+        const opportunityId = cleanText(req.params.opportunityId);
+        const body = req.body || {};
+
+        if (!viewer.id || !opportunityId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Missing Plaza opportunity id.'
+            });
+        }
+
+        const opportunityRef = firestore.collection('plazaOpportunities').doc(opportunityId);
+        const opportunitySnap = await opportunityRef.get();
+
+        if (!opportunitySnap.exists) {
+            return res.status(404).json({
+                success: false,
+                message: 'Plaza opportunity not found.'
+            });
+        }
+
+        const opportunity = opportunitySnap.data() || {};
+        const ownerUid = getPlazaOpportunityOwnerUid(opportunity);
+
+        if (!ownerUid) {
+            return res.status(400).json({
+                success: false,
+                message: 'This Plaza opportunity has no owner/operator attached yet.'
+            });
+        }
+
+        if (ownerUid === viewer.id) {
+            return res.status(400).json({
+                success: false,
+                message: 'You cannot create a payment ledger for your own Plaza opportunity.'
+            });
+        }
+
+        const amount = getPlazaOpportunityAmount(opportunity, body);
+        const currency = normalizeWithdrawalCurrency(
+            body.currency ||
+            opportunity.currency ||
+            'USD'
+        );
+
+        if (!amount) {
+            return res.status(400).json({
+                success: false,
+                message: 'Set a Plaza opportunity amount before creating a payment ledger.'
+            });
+        }
+
+        const commissionRate = normalizePlazaCommissionRate(
+            body.commissionRate ??
+            opportunity.commissionRate ??
+            opportunity.platformCommissionRate ??
+            0.2,
+            0.2
+        );
+
+        const platformCommissionAmount = roundMoney(amount * commissionRate);
+        const operatorPayoutAmount = roundMoney(amount - platformCommissionAmount);
+        const opportunityTitle = getPlazaOpportunityTitle(opportunity);
+        const settleNow = shouldSettlePlazaPaymentNow(body, opportunity);
+        const ledgerStatus = settleNow ? 'paid' : 'draft';
+
+        const payment = await paymentLedgerRepo.upsertPaymentRecord({
+            sourceDivision: 'plaza',
+            sourceFeature: 'opportunity_deal',
+            sourceRecordId: opportunityId,
+
+            payerUid: viewer.id,
+            payerEmail: viewer.email,
+            payerName: viewer.name,
+
+            provider: cleanLower(body.provider || 'unselected'),
+            providerOptions: ['stripe', 'oxapay', 'manual'],
+            status: ledgerStatus,
+            paymentMethod: cleanLower(body.paymentMethod || 'unselected'),
+
+            amount,
+            currency,
+
+            platformCommissionAmount,
+            operatorPayoutAmount,
+
+            metadata: {
+                ownerUid,
+                opportunityId,
+                opportunityTitle,
+                opportunityStatus: cleanText(opportunity.status || opportunity.reviewStatus || ''),
+                commissionRate,
+                settlementMode: settleNow ? 'manual_paid' : 'ledger_created'
+            }
+        });
+
+        const opportunityUpdate = {
+            pricingAmount: amount,
+            currency,
+            commissionRate,
+            platformCommissionAmount,
+            operatorPayoutAmount,
+
+            paymentLedgerId: payment.id,
+            paymentLedgerStatus: payment.status,
+            paymentProviderOptions: ['stripe', 'oxapay', 'manual'],
+            paymentLedgerUpdatedAt: Timestamp.now(),
+            updatedAt: Timestamp.now()
+        };
+
+        if (settleNow) {
+            opportunityUpdate.paymentStatus = 'paid';
+            opportunityUpdate.paidAt = Timestamp.now();
+            opportunityUpdate.dealStatus = 'paid';
+        }
+
+        await opportunityRef.set(opportunityUpdate, { merge: true });
+
+        let payoutEarning = null;
+
+        if (settleNow) {
+            payoutEarning = await upsertPlazaOpportunityPayoutEarning({
+                ownerUid,
+                ownerEmail: cleanText(opportunity.ownerEmail || opportunity.authorEmail || ''),
+                ownerName: cleanText(opportunity.ownerName || opportunity.authorName || opportunity.member || 'Plaza Operator'),
+
+                opportunityId,
+                opportunityTitle,
+
+                payment,
+                payer: viewer,
+
+                amount: operatorPayoutAmount,
+                currency,
+                grossAmount: amount,
+                platformCommissionAmount,
+                commissionRate
+            });
+        }
+
+        return res.status(201).json({
+            success: true,
+            payment,
+            payoutEarning,
+            opportunity: {
+                id: opportunityId,
+                ...opportunityUpdate
+            }
+        });
+    } catch (error) {
+        console.error('create plaza opportunity payment ledger error:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: error?.message || 'Failed to create Plaza payment ledger.'
+        });
+    }
+}
 async function listMyPayments(req, res) {
     try {
         const viewer = getViewer(req);
@@ -198,18 +499,82 @@ function normalizeWithdrawalCurrency(value = 'USD') {
     return cleanText(value || 'USD').toUpperCase() || 'USD';
 }
 
+function getUniversalBalanceDivision(value = '') {
+    const raw = cleanLower(value || '');
+
+    if (raw === 'federation' || raw.includes('federation')) return 'federation';
+    if (raw === 'plaza' || raw === 'plazas' || raw.includes('plaza')) return 'plaza';
+    if (raw === 'academy' || raw.includes('academy')) return 'academy';
+
+    return 'academy';
+}
+
+function createUniversalDivisionBreakdown(currency = 'USD') {
+    return {
+        academy: {
+            label: 'Academy',
+            currency,
+            approvedEarnings: 0,
+            reservedWithdrawals: 0,
+            available: 0
+        },
+        plaza: {
+            label: 'Plaza',
+            currency,
+            approvedEarnings: 0,
+            reservedWithdrawals: 0,
+            available: 0
+        },
+        federation: {
+            label: 'Federation',
+            currency,
+            approvedEarnings: 0,
+            reservedWithdrawals: 0,
+            available: 0
+        }
+    };
+}
+
+function isApprovedUniversalEarning(record = {}) {
+    const status = cleanLower(record.status || '');
+    const payoutStatus = cleanLower(record.payoutStatus || '');
+    const paymentStatus = cleanLower(record.paymentStatus || '');
+
+    const isApprovedEarning =
+        status === 'approved' ||
+        status === 'ready_for_payment' ||
+        status === 'available';
+
+    const paymentIsConfirmed =
+        !paymentStatus ||
+        paymentStatus === 'paid' ||
+        paymentStatus === 'earned';
+
+    const alreadyMarkedPaid =
+        status === 'paid' ||
+        payoutStatus === 'paid';
+
+    return isApprovedEarning && paymentIsConfirmed && !alreadyMarkedPaid;
+}
+
 async function resolveAcademyWithdrawalBalance(viewerId = '', currency = 'USD') {
     const cleanViewerId = cleanText(viewerId);
     const cleanCurrency = normalizeWithdrawalCurrency(currency);
 
+    const emptyBreakdown = createUniversalDivisionBreakdown(cleanCurrency);
+
     if (!cleanViewerId) {
         return {
+            scope: 'universal',
             currency: cleanCurrency,
             approvedEarnings: 0,
             reservedWithdrawals: 0,
-            available: 0
+            available: 0,
+            divisionBreakdown: emptyBreakdown
         };
     }
+
+    const divisionBreakdown = createUniversalDivisionBreakdown(cleanCurrency);
 
     const earningsSnap = await firestore
         .collection('users')
@@ -223,30 +588,28 @@ async function resolveAcademyWithdrawalBalance(viewerId = '', currency = 'USD') 
         const payoutCurrency = normalizeWithdrawalCurrency(payout.currency || cleanCurrency);
 
         if (payoutCurrency !== cleanCurrency) return total;
+        if (!isApprovedUniversalEarning(payout)) return total;
 
-        const status = cleanLower(payout.status || '');
-        const payoutStatus = cleanLower(payout.payoutStatus || '');
-        const paymentStatus = cleanLower(payout.paymentStatus || '');
+        const amount = Math.max(
+            0,
+            toNumber(
+                payout.amount ||
+                payout.operatorPayoutAmount ||
+                payout.payoutAmount ||
+                0
+            )
+        );
 
-        const isApprovedEarning =
-            status === 'approved' ||
-            status === 'ready_for_payment' ||
-            status === 'available';
+        const division = getUniversalBalanceDivision(
+            payout.sourceDivision ||
+            payout.division ||
+            payout.source ||
+            'academy'
+        );
 
-        const paymentIsConfirmed =
-            !paymentStatus ||
-            paymentStatus === 'paid' ||
-            paymentStatus === 'earned';
+        divisionBreakdown[division].approvedEarnings += amount;
 
-        const alreadyMarkedPaid =
-            status === 'paid' ||
-            payoutStatus === 'paid';
-
-        if (!isApprovedEarning || !paymentIsConfirmed || alreadyMarkedPaid) {
-            return total;
-        }
-
-        return total + Math.max(0, toNumber(payout.amount, 0));
+        return total + amount;
     }, 0);
 
     const existingPayouts = await paymentLedgerRepo
@@ -264,16 +627,30 @@ async function resolveAcademyWithdrawalBalance(viewerId = '', currency = 'USD') 
             return total;
         }
 
-        return total + Math.max(0, toNumber(payout.amount, 0));
+        const amount = Math.max(0, toNumber(payout.amount, 0));
+        const division = getUniversalBalanceDivision(payout.sourceDivision || 'wallet');
+
+        if (divisionBreakdown[division]) {
+            divisionBreakdown[division].reservedWithdrawals += amount;
+        }
+
+        return total + amount;
     }, 0);
+
+    Object.keys(divisionBreakdown).forEach((division) => {
+        const item = divisionBreakdown[division];
+        item.available = Math.max(0, item.approvedEarnings - item.reservedWithdrawals);
+    });
 
     const available = Math.max(0, approvedEarnings - reservedWithdrawals);
 
     return {
+        scope: 'universal',
         currency: cleanCurrency,
         approvedEarnings,
         reservedWithdrawals,
-        available
+        available,
+        divisionBreakdown
     };
 }
 async function getMyPayoutBalance(req, res) {
@@ -417,6 +794,7 @@ module.exports = {
     getPaymentOptions,
     getPayoutOptions,
     createFederationPaidIntroLedger,
+    createPlazaOpportunityPaymentLedger,
     listMyPayments,
     getMyPayoutBalance,
     createWithdrawalRequest,

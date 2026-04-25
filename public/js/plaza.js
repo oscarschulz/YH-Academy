@@ -546,7 +546,8 @@ function getPlazaOpportunityChipList(item = {}) {
     getPlazaOpportunityCommissionLabel(item),
     getPlazaOpportunityEscalationLabel(item),
     getPlazaOpportunitySourceLabel(item),
-    item.academySignalLabel
+    item.academySignalLabel,
+    getPlazaOpportunityPaymentStatusChip(item)
   ]
     .map((entry) => String(entry || "").trim())
     .filter(Boolean);
@@ -620,6 +621,8 @@ function renderPlazaOpportunityEconomyPanel(item = {}) {
           <strong>${escapeHtml(source)}</strong>
         </div>
       </div>
+
+      ${renderPlazaOpportunityPaymentSummary(item)}
 
       ${
         note
@@ -758,6 +761,18 @@ function normalizeServerOpportunityItem(item, index = 0) {
 
     sourceDivision: item?.sourceDivision || "plaza",
     sourceLeadId: item?.sourceLeadId || "",
+
+    pricingAmount: item?.pricingAmount || item?.amount || item?.price || 0,
+    paymentLedgerId: item?.paymentLedgerId || "",
+    paymentLedgerStatus: item?.paymentLedgerStatus || "",
+    paymentStatus: item?.paymentStatus || "",
+    dealStatus: item?.dealStatus || "",
+    platformCommissionAmount: item?.platformCommissionAmount || 0,
+    operatorPayoutAmount: item?.operatorPayoutAmount || 0,
+    paymentProviderOptions: Array.isArray(item?.paymentProviderOptions)
+      ? item.paymentProviderOptions
+      : [],
+
     academySignalLabel: item?.academySignalLabel || ""
   }, index);
 }
@@ -813,6 +828,288 @@ async function createPlazaOpportunity(payload = {}) {
 
   return opportunity;
 }
+
+function getPlazaOpportunityById(id = "") {
+  const cleanId = String(id || "").trim();
+  if (!cleanId) return null;
+
+  const serverItem = plazaServerOpportunities.find((item) => {
+    return String(item.id || "").trim() === cleanId;
+  });
+
+  if (serverItem) return serverItem;
+
+  return plazaAdapter.getOpportunityById(cleanId) || null;
+}
+
+function getPlazaOpportunityDefaultAmount(item = {}) {
+  const amount = Number(
+    item.pricingAmount ||
+    item.price ||
+    item.amount ||
+    item.budgetAmount ||
+    item.budgetMax ||
+    item.budgetMin ||
+    0
+  );
+
+  return Number.isFinite(amount) && amount > 0 ? amount : 0;
+}
+
+function getPlazaOpportunityPaymentStatusLabel(item = {}) {
+  const paymentStatus = String(item.paymentStatus || "").trim().toLowerCase();
+  const ledgerStatus = String(item.paymentLedgerStatus || "").trim().toLowerCase();
+
+  if (paymentStatus === "paid" || ledgerStatus === "paid") return "Paid";
+  if (ledgerStatus === "draft") return "Ledger Draft";
+  if (item.paymentLedgerId) return "Ledger Created";
+
+  return "Not Started";
+}
+function getPlazaOpportunityPaymentStatusChip(item = {}) {
+  const label = getPlazaOpportunityPaymentStatusLabel(item);
+
+  if (label === "Paid") return "Payment Paid";
+  if (label === "Ledger Draft") return "Payment Draft";
+  if (label === "Ledger Created") return "Payment Ledger";
+
+  return "";
+}
+
+function getPlazaOpportunityGrossAmount(item = {}) {
+  return normalizePlazaMoneyValue(
+    item.pricingAmount ||
+    item.amount ||
+    item.price ||
+    item.budgetAmount ||
+    item.budgetMax ||
+    item.budgetMin ||
+    0
+  );
+}
+
+function getPlazaOpportunityCommissionAmount(item = {}) {
+  const explicitCommission = normalizePlazaMoneyValue(item.platformCommissionAmount);
+
+  if (explicitCommission) return explicitCommission;
+
+  const gross = getPlazaOpportunityGrossAmount(item);
+  const rate = Number(item.commissionRate || 0);
+
+  if (!gross || !rate) return 0;
+
+  const normalizedRate = rate > 1 ? rate / 100 : rate;
+  return Math.round(gross * normalizedRate * 100) / 100;
+}
+
+function getPlazaOpportunityOperatorPayoutAmount(item = {}) {
+  const explicitPayout = normalizePlazaMoneyValue(item.operatorPayoutAmount);
+
+  if (explicitPayout) return explicitPayout;
+
+  const gross = getPlazaOpportunityGrossAmount(item);
+  const commission = getPlazaOpportunityCommissionAmount(item);
+
+  return Math.max(0, Math.round((gross - commission) * 100) / 100);
+}
+
+function renderPlazaOpportunityPaymentSummary(item = {}) {
+  const statusLabel = getPlazaOpportunityPaymentStatusLabel(item);
+  const gross = getPlazaOpportunityGrossAmount(item);
+  const commission = getPlazaOpportunityCommissionAmount(item);
+  const operatorPayout = getPlazaOpportunityOperatorPayoutAmount(item);
+  const currency = String(item.currency || "USD").trim().toUpperCase() || "USD";
+
+  if (!item.paymentLedgerId && !gross && statusLabel === "Not Started") {
+    return "";
+  }
+
+  return `
+    <div class="yh-plaza-card-note yh-plaza-card-note-strong">
+      Payment Status: ${escapeHtml(statusLabel)}
+      ${item.paymentLedgerId ? ` • Ledger: ${escapeHtml(item.paymentLedgerId)}` : ""}
+    </div>
+
+    <div class="yh-plaza-economy-grid">
+      <div class="yh-plaza-economy-item">
+        <small>Gross Deal</small>
+        <strong>${escapeHtml(formatPlazaCurrencyAmount(gross, currency) || `${currency} 0`)}</strong>
+      </div>
+
+      <div class="yh-plaza-economy-item">
+        <small>YH Commission</small>
+        <strong>${escapeHtml(formatPlazaCurrencyAmount(commission, currency) || `${currency} 0`)}</strong>
+      </div>
+
+      <div class="yh-plaza-economy-item">
+        <small>Operator Payout</small>
+        <strong>${escapeHtml(formatPlazaCurrencyAmount(operatorPayout, currency) || `${currency} 0`)}</strong>
+      </div>
+
+      <div class="yh-plaza-economy-item">
+        <small>Provider</small>
+        <strong>${escapeHtml(safeArray(item.paymentProviderOptions).join(", ") || "Manual / Ledger")}</strong>
+      </div>
+    </div>
+  `;
+}
+
+function refreshPlazaWalletAfterMonetization() {
+  try {
+    localStorage.setItem(
+      "yh_wallet_needs_refresh_v1",
+      JSON.stringify({
+        source: "plaza",
+        reason: "plaza_opportunity_payment",
+        updatedAt: new Date().toISOString()
+      })
+    );
+  } catch (_) {}
+
+  if (typeof window.refreshYHWalletSnapshot === "function") {
+    window.refreshYHWalletSnapshot(true).catch(() => {});
+  }
+}
+
+async function createPlazaOpportunityPaymentLedger(opportunityId = "", payload = {}) {
+  const cleanId = String(opportunityId || "").trim();
+
+  if (!cleanId) {
+    throw new Error("Missing Plaza opportunity id.");
+  }
+
+  const result = await plazaApiFetch(`/api/payments/plaza/opportunities/${encodeURIComponent(cleanId)}/ledger`, {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+
+  const current = getPlazaOpportunityById(cleanId) || {};
+  const updatedOpportunity = result.opportunity
+    ? normalizeServerOpportunityItem({
+        ...current,
+        ...result.opportunity,
+        id: cleanId
+      })
+    : null;
+
+  if (updatedOpportunity) {
+    plazaServerOpportunities = [
+      updatedOpportunity,
+      ...plazaServerOpportunities.filter((item) => item.id !== cleanId)
+    ];
+    plazaServerOpportunitiesLoaded = true;
+    renderOpportunities();
+  }
+
+  await loadPlazaOpportunitiesFromServer({ silent: true }).catch(() => null);
+  refreshPlazaWalletAfterMonetization();
+
+  return result;
+}
+
+function openPlazaOpportunityPaymentModal(opportunityId = "", mode = "draft") {
+  const item = getPlazaOpportunityById(opportunityId);
+
+  if (!item) {
+    showToast("Plaza opportunity not found.");
+    return;
+  }
+
+  if (mode === "manual_paid") {
+    showToast("Manual paid settlement is now handled by Admin inside the Economy panel.");
+    return;
+  }
+
+  const defaultAmount = getPlazaOpportunityDefaultAmount(item);
+  const defaultCurrency = String(item.currency || "USD").trim().toUpperCase() || "USD";
+  const defaultCommission = Number(item.commissionRate || 0.2);
+  const isPaidMode = false;
+
+  openModal({
+    kicker: isPaidMode ? "Manual Plaza Payment" : "Plaza Payment Ledger",
+    title: isPaidMode ? "Mark this Plaza deal as manually paid?" : "Create payment ledger for this Plaza opportunity",
+    bodyHtml: `
+      <form id="plaza-payment-ledger-form" data-opportunity-id="${escapeHtml(item.id)}" data-payment-mode="${escapeHtml(mode)}">
+        <div class="yh-plaza-modal-copy">
+          This creates a real payment ledger for <strong>${escapeHtml(item.title || "this Plaza opportunity")}</strong>.
+          This creates or updates a draft payment ledger. Admin will verify/settle the payment from the Economy panel before any operator payout appears in the Wallet.
+        </div>
+
+        <div class="yh-plaza-form-grid">
+          <label class="yh-plaza-field">
+            <span>Deal Amount</span>
+            <input
+              type="number"
+              min="1"
+              step="0.01"
+              name="amount"
+              value="${escapeHtml(String(defaultAmount || ""))}"
+              placeholder="300"
+              required
+            >
+          </label>
+
+          <label class="yh-plaza-field">
+            <span>Currency</span>
+            <select name="currency" required>
+              ${["USD", "EUR", "NGN", "PHP", "INR"].map((currency) => `
+                <option value="${escapeHtml(currency)}" ${currency === defaultCurrency ? "selected" : ""}>
+                  ${escapeHtml(currency)}
+                </option>
+              `).join("")}
+            </select>
+          </label>
+
+          <label class="yh-plaza-field">
+            <span>YH Commission Rate</span>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              name="commissionRate"
+              value="${escapeHtml(String(defaultCommission > 1 ? defaultCommission : defaultCommission * 100))}"
+              placeholder="20"
+              required
+            >
+          </label>
+        </div>
+
+        <div class="yh-plaza-card-note">
+          Current status: ${escapeHtml(getPlazaOpportunityPaymentStatusLabel(item))}
+          ${item.paymentLedgerId ? ` • Ledger: ${escapeHtml(item.paymentLedgerId)}` : ""}
+        </div>
+
+        <div class="yh-plaza-form-actions">
+          <button type="button" class="yh-plaza-btn yh-plaza-btn-secondary" data-close-modal>
+            Cancel
+          </button>
+          <button type="submit" class="yh-plaza-btn yh-plaza-btn-primary">
+            ${isPaidMode ? "Mark Manual Paid" : "Create Payment Ledger"}
+          </button>
+        </div>
+      </form>
+    `
+  });
+}
+
+function renderPlazaOpportunityPaymentActions(item = {}) {
+  const statusLabel = getPlazaOpportunityPaymentStatusLabel(item);
+  const isPaid = statusLabel === "Paid";
+  const hasLedger = Boolean(item.paymentLedgerId);
+
+  return `
+    <button
+      type="button"
+      class="yh-plaza-ghost-btn"
+      data-plaza-payment-ledger="${escapeHtml(item.id)}"
+      ${isPaid ? "disabled aria-disabled=\"true\"" : ""}
+    >
+      ${isPaid ? "Paid" : hasLedger ? "Update Payment Ledger" : "Create Payment Ledger"}
+    </button>
+  `;
+}
+
 function normalizeServerDirectoryItem(item, index = 0) {
   const userId = String(item?.userId || item?.authorId || item?.id || "").trim();
 
@@ -1388,6 +1685,18 @@ function normalizeOpportunityItem(item, index) {
     marketplaceMode: String(item?.marketplaceMode || "marketplace"),
     sourceDivision: String(item?.sourceDivision || "plaza"),
     sourceLeadId: String(item?.sourceLeadId || ""),
+
+    pricingAmount: normalizePlazaMoneyValue(item?.pricingAmount || item?.amount || item?.price),
+    paymentLedgerId: String(item?.paymentLedgerId || ""),
+    paymentLedgerStatus: String(item?.paymentLedgerStatus || ""),
+    paymentStatus: String(item?.paymentStatus || ""),
+    dealStatus: String(item?.dealStatus || ""),
+    platformCommissionAmount: normalizePlazaMoneyValue(item?.platformCommissionAmount),
+    operatorPayoutAmount: normalizePlazaMoneyValue(item?.operatorPayoutAmount),
+    paymentProviderOptions: Array.isArray(item?.paymentProviderOptions)
+      ? item.paymentProviderOptions
+      : [],
+
     academySignalLabel: String(item?.academySignalLabel || "")
   };
 }
@@ -4355,6 +4664,7 @@ function renderOpportunities() {
           <button type="button" class="yh-plaza-ghost-btn" data-opportunity-id="${escapeHtml(item.id)}">
             ${escapeHtml(getPlazaOpportunityPrimaryActionLabel(item))}
           </button>
+          ${renderPlazaOpportunityPaymentActions(item)}
         </div>
       </article>
     `;
@@ -6420,6 +6730,19 @@ if (requestAdvanceBtn instanceof HTMLButtonElement) {
   return;
 }
 
+const plazaPaymentLedgerBtn = target.closest("[data-plaza-payment-ledger]");
+if (plazaPaymentLedgerBtn instanceof HTMLButtonElement) {
+  const opportunityId = plazaPaymentLedgerBtn.dataset.plazaPaymentLedger || "";
+  openPlazaOpportunityPaymentModal(opportunityId, "draft");
+  return;
+}
+
+const plazaMarkPaidBtn = target.closest("[data-plaza-mark-paid]");
+if (plazaMarkPaidBtn instanceof HTMLButtonElement) {
+  showToast("Manual paid settlement is now handled by Admin inside the Economy panel.");
+  return;
+}
+
     const statJumpBtn = target.closest("[data-stat-jump]");
     if (statJumpBtn instanceof HTMLElement) {
       openScreen(statJumpBtn.dataset.statJump || "feed", { resetHistory: true, pushHistory: false });
@@ -6429,6 +6752,49 @@ if (requestAdvanceBtn instanceof HTMLButtonElement) {
   document.addEventListener("submit", async (event) => {
     const form = event.target;
     if (!(form instanceof HTMLFormElement)) return;
+
+    if (form.id === "plaza-payment-ledger-form") {
+      event.preventDefault();
+
+      const submitButton = event.submitter instanceof HTMLButtonElement
+        ? event.submitter
+        : form.querySelector("button[type='submit']");
+
+      const opportunityId = form.dataset.opportunityId || "";
+      const paymentMode = form.dataset.paymentMode || "draft";
+      const amount = Number(new FormData(form).get("amount") || 0);
+      const currency = String(new FormData(form).get("currency") || "USD").trim().toUpperCase() || "USD";
+      const commissionInput = Number(new FormData(form).get("commissionRate") || 20);
+      const commissionRate = commissionInput > 1 ? commissionInput / 100 : commissionInput;
+
+      if (!amount || amount <= 0) {
+        showToast("Enter a valid Plaza deal amount.");
+        return;
+      }
+
+      await runLockedButtonAction(
+        `plaza-payment-ledger:${opportunityId}:draft`,
+        submitButton,
+        "Creating Ledger...",
+        async () => {
+          await createPlazaOpportunityPaymentLedger(opportunityId, {
+            amount,
+            currency,
+            commissionRate,
+            provider: "unselected",
+            paymentMethod: "unselected",
+            paymentStatus: "draft",
+            markPaid: false,
+            settleNow: false
+          });
+
+          closeModal();
+          showToast("Plaza payment ledger created. Admin must mark it paid before payout is unlocked.");
+        }
+      );
+
+      return;
+    }
 
     if (form.id === "plazaIntroForm") {
       event.preventDefault();

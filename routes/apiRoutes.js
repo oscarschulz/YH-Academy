@@ -129,6 +129,7 @@ router.post('/plaza/messages/:id/replies', auth, plazaControllers.createConversa
 router.get('/payments/options', auth, paymentControllers.getPaymentOptions);
 router.get('/payments/my-ledger', auth, paymentControllers.listMyPayments);
 router.post('/payments/federation/connect/requests/:requestId/ledger', auth, paymentControllers.createFederationPaidIntroLedger);
+router.post('/payments/plaza/opportunities/:opportunityId/ledger', auth, paymentControllers.createPlazaOpportunityPaymentLedger);
 
 router.get('/payouts/options', auth, paymentControllers.getPayoutOptions);
 router.get('/payouts/balance', auth, paymentControllers.getMyPayoutBalance);

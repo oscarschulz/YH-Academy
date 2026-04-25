@@ -962,7 +962,56 @@ function formatAdminLedgerStatus(value = '') {
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
+function isAdminPlazaOpportunityPayment(payment = {}) {
+  const sourceDivision = String(payment.sourceDivision || '').trim().toLowerCase();
+  const sourceFeature = String(payment.sourceFeature || '').trim().toLowerCase();
 
+  return sourceDivision === 'plaza' && sourceFeature === 'opportunity_deal';
+}
+
+function buildAdminPaymentLedgerActions(payment = {}) {
+  const id = String(payment.id || '').trim();
+  const status = String(payment.status || 'draft').trim().toLowerCase();
+
+  if (!id) return '';
+
+  if (!isAdminPlazaOpportunityPayment(payment)) {
+    return '<span class="muted">—</span>';
+  }
+
+  if (status === 'paid') {
+    return '<span class="admin-decision-final admin-decision-final-approved">Paid • Settled</span>';
+  }
+
+  return `
+    <div class="table-actions">
+      <button data-action="economy-payment-settle-paid" data-id="${escapeHtml(id)}">
+        Mark Paid
+      </button>
+    </div>
+  `;
+}
+
+async function settleAdminPaymentAsPaid(paymentId = '') {
+  const cleanId = String(paymentId || '').trim();
+
+  if (!cleanId) {
+    throw new Error('Missing payment id.');
+  }
+
+  await adminFetchJson(`/api/admin/economy/payments/${encodeURIComponent(cleanId)}/settle`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      provider: 'manual',
+      paymentMethod: 'manual'
+    })
+  });
+
+  await loadAdminBootstrap();
+}
 async function updateAdminPayoutStatus(payoutId = '', status = '') {
   const cleanId = String(payoutId || '').trim();
   const cleanStatus = String(status || '').trim().toLowerCase();
@@ -3060,8 +3109,9 @@ function renderEconomy() {
         ${makeCell('Operator', escapeHtml(formatAdminMoney(payment.operatorPayoutAmount || 0, payment.currency || 'USD')))}
         ${makeCell('Status', formatBadge(formatAdminLedgerStatus(payment.status || 'draft')))}
         ${makeCell('Updated', escapeHtml(payment.updatedAt || payment.createdAt || '—'))}
+        ${makeCell('Actions', buildAdminPaymentLedgerActions(payment))}
       </tr>
-    `).join('') || makeEmptyRow(8, 'No payment ledger records match the current filters.');
+    `).join('') || makeEmptyRow(9, 'No payment ledger records match the current filters.');
   }
 
   const payoutTable = document.getElementById('economy-payout-ledger-table');
@@ -5853,7 +5903,34 @@ case 'federation-request-save-deal': {
   }
   break;
 }
+case 'economy-payment-settle-paid': {
+  try {
+    const payment = findById('paymentLedger', id);
 
+    if (!payment) {
+      throw new Error('Payment ledger record not found.');
+    }
+
+    if (!isAdminPlazaOpportunityPayment(payment)) {
+      throw new Error('Only Plaza opportunity payment ledgers can be settled here.');
+    }
+
+    const confirmed = window.confirm(
+      'Mark this Plaza payment as paid? This will create/update the operator payout earning and make it visible in the Wallet under Plaza.'
+    );
+
+    if (!confirmed) return;
+
+    await settleAdminPaymentAsPaid(id);
+
+    showToast('Plaza payment marked paid. Operator payout earning created.');
+  } catch (error) {
+    if (error?.message !== 'No active admin session.') {
+      showToast(error.message || 'Failed to settle Plaza payment.');
+    }
+  }
+  break;
+}
 case 'economy-payout-status-approved':
 case 'economy-payout-status-processing':
 case 'economy-payout-status-paid':
