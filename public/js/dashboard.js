@@ -7280,15 +7280,321 @@ function buildAcademySelfProfilePayload() {
         recent_posts: cachedPosts.slice(0, 6)
     };
 }
+const YH_UNIVERSE_PROFILE_DIVISION_LABELS = {
+    academy: 'Academy',
+    plaza: 'Plaza',
+    federation: 'Federation'
+};
 
+function normalizeYHUniverseDivisionMap(divisions = {}) {
+    const source = divisions && typeof divisions === 'object' ? divisions : {};
+
+    const normalizeOne = (key) => {
+        const raw = source[key] && typeof source[key] === 'object' ? source[key] : {};
+
+        return {
+            key,
+            label: raw.label || YH_UNIVERSE_PROFILE_DIVISION_LABELS[key] || key,
+            isMember: raw.isMember === true,
+            hasApplication: raw.hasApplication === true,
+            status: String(raw.status || (raw.isMember ? 'approved' : 'not_applied')).trim(),
+            statusLabel: String(raw.statusLabel || (raw.isMember ? 'Approved' : 'Not Applied')).trim(),
+            membershipLabel: String(raw.membershipLabel || '').trim(),
+            canEnter: raw.canEnter === true || raw.isMember === true,
+            profile: raw.profile && typeof raw.profile === 'object' ? raw.profile : null,
+            application: raw.application && typeof raw.application === 'object' ? raw.application : null
+        };
+    };
+
+    return {
+        academy: normalizeOne('academy'),
+        plaza: normalizeOne('plaza'),
+        federation: normalizeOne('federation')
+    };
+}
+
+function getYHUniverseMemberDivisionKeys(divisions = {}) {
+    return Object.entries(normalizeYHUniverseDivisionMap(divisions))
+        .filter(([, state]) => state.isMember === true)
+        .map(([key]) => key);
+}
+
+function getYHUniverseActivityDivisionKeys(profile = {}) {
+    const memberKeys = getYHUniverseMemberDivisionKeys(profile.divisions || {});
+    return memberKeys.length ? memberKeys : ['academy'];
+}
+
+function getYHUniverseDivisionTone(state = {}) {
+    const status = String(state.status || '').toLowerCase();
+
+    if (state.isMember) return 'member';
+    if (status === 'under_review' || status === 'pending' || status === 'screening') return 'pending';
+    if (status === 'waitlisted' || status === 'shortlisted') return 'watching';
+    if (status === 'rejected') return 'blocked';
+
+    return 'locked';
+}
+
+function getYHUniverseDivisionSnapshotCopy(key = '', state = {}, profile = {}) {
+    const divisionProfile = state.profile || {};
+
+    if (key === 'academy') {
+        const readiness = profile.readiness && profile.readiness !== '—'
+            ? `Readiness ${profile.readiness}`
+            : 'Roadmap and execution profile';
+
+        return state.isMember
+            ? readiness
+            : state.statusLabel || 'Not applied';
+    }
+
+    if (key === 'plaza') {
+        const focus = divisionProfile.focus || profile.signals?.availability || '';
+        return state.isMember
+            ? (focus || 'Networking, opportunities, and bridge visibility')
+            : state.statusLabel || 'Not applied';
+    }
+
+    if (key === 'federation') {
+        const role = divisionProfile.role || divisionProfile.category || '';
+        return state.isMember
+            ? (role || 'Strategic access and high-value network layer')
+            : state.statusLabel || 'Not applied';
+    }
+
+    return state.statusLabel || 'Not applied';
+}
+
+function mergeYHUniverseProfilePayload(universeProfile = {}, academyProfile = {}) {
+    const signals = universeProfile.signals && typeof universeProfile.signals === 'object'
+        ? universeProfile.signals
+        : {};
+
+    const divisions = normalizeYHUniverseDivisionMap(universeProfile.divisions || academyProfile.divisions || {});
+    const searchTags = Array.isArray(signals.tags)
+        ? signals.tags
+        : Array.isArray(academyProfile.search_tags)
+            ? academyProfile.search_tags
+            : Array.isArray(academyProfile.searchTags)
+                ? academyProfile.searchTags
+                : [];
+
+    return {
+        ...academyProfile,
+        id: universeProfile.id || universeProfile.uid || academyProfile.id || academyProfile.user_id || '',
+        user_id: universeProfile.id || universeProfile.uid || academyProfile.user_id || academyProfile.id || '',
+        display_name:
+            universeProfile.displayName ||
+            universeProfile.fullName ||
+            academyProfile.display_name ||
+            academyProfile.fullName ||
+            academyProfile.username ||
+            'YH Member',
+        fullName:
+            universeProfile.fullName ||
+            universeProfile.displayName ||
+            academyProfile.fullName ||
+            academyProfile.display_name ||
+            '',
+        username: universeProfile.username || academyProfile.username || '',
+        avatar:
+            universeProfile.avatar ||
+            universeProfile.profilePhoto ||
+            universeProfile.photoURL ||
+            academyProfile.avatar ||
+            '',
+        role_label:
+            universeProfile.trustTier
+                ? `${universeProfile.trustTier} Member`
+                : (academyProfile.role_label || 'YH Universe Member'),
+        bio:
+            universeProfile.bio ||
+            academyProfile.bio ||
+            'Focused on execution, consistency, and long-term growth inside YH Universe.',
+        search_tags: searchTags,
+        recent_posts: Array.isArray(academyProfile.recent_posts)
+            ? academyProfile.recent_posts
+            : Array.isArray(academyProfile.recentPosts)
+                ? academyProfile.recentPosts
+                : [],
+        followers_count: academyProfile.followers_count ?? academyProfile.followerCount ?? '—',
+        following_count: academyProfile.following_count ?? academyProfile.followingCount ?? '—',
+        friends_count: academyProfile.friends_count ?? academyProfile.friend_count ?? academyProfile.friendCount ?? '—',
+        post_count: academyProfile.post_count ?? academyProfile.postCount ?? 0,
+        hidden_count: academyProfile.hidden_count ?? 0,
+        divisions,
+        membershipSummary: universeProfile.membershipSummary || academyProfile.membershipSummary || null,
+        signals,
+        trustTier: universeProfile.trustTier || academyProfile.trustTier || '',
+        activities: Array.isArray(universeProfile.activities) ? universeProfile.activities : [],
+        snapshot: universeProfile.snapshot || academyProfile.snapshot || null,
+        source: universeProfile.source || academyProfile.source || 'dashboard-profile'
+    };
+}
+
+function normalizeYHUniverseActivityItem(item = {}, fallbackDivision = 'academy') {
+    const division = String(item.division || item.sourceDivision || fallbackDivision || 'academy')
+        .trim()
+        .toLowerCase();
+
+    return {
+        id: String(item.id || `${division}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`).trim(),
+        division: ['academy', 'plaza', 'federation'].includes(division) ? division : 'academy',
+        title: String(item.title || item.label || 'Profile activity').trim(),
+        body: String(item.body || item.text || item.description || '').trim(),
+        meta: String(item.meta || item.createdLabel || item.statusLabel || '').trim(),
+        sourceId: String(item.sourceId || item.postId || item.id || '').trim(),
+        actionType: String(item.actionType || '').trim(),
+        likeCount: Number(item.likeCount || item.like_count || 0),
+        commentCount: Number(item.commentCount || item.comment_count || 0),
+        createdAt: item.createdAt || item.created_at || ''
+    };
+}
+
+function mapYHAcademyPostToUniverseActivity(post = {}) {
+    const postId = normalizeAcademyFeedId(post?.id);
+    const body = String(post?.body || post?.text || '').trim();
+    const preview = body
+        ? body.slice(0, 220)
+        : (post?.share ? 'Shared a post from the Academy feed.' : 'Academy profile update');
+
+    return normalizeYHUniverseActivityItem({
+        id: postId || `academy-post-${Date.now()}`,
+        division: 'academy',
+        title: 'Academy post',
+        body: preview,
+        meta: academyFeedTimeLabel(post?.created_at || post?.createdAt || null),
+        sourceId: postId,
+        actionType: postId ? 'academy-post' : '',
+        likeCount: Number(post?.like_count || 0),
+        commentCount: Number(post?.comment_count || 0),
+        createdAt: post?.created_at || post?.createdAt || ''
+    }, 'academy');
+}
+
+function buildYHUniverseSyntheticActivities(profile = {}) {
+    const divisions = normalizeYHUniverseDivisionMap(profile.divisions || {});
+    const activities = [];
+
+    if (divisions.academy.isMember) {
+        activities.push(normalizeYHUniverseActivityItem({
+            id: 'academy-membership-snapshot',
+            division: 'academy',
+            title: 'Academy identity active',
+            body: profile.readiness && profile.readiness !== '—'
+                ? `Readiness signal: ${profile.readiness}.`
+                : 'Academy profile, roadmap, and execution layer are connected.',
+            meta: divisions.academy.statusLabel || 'Approved'
+        }, 'academy'));
+    }
+
+    if (divisions.plaza.isMember) {
+        const plazaProfile = divisions.plaza.profile || {};
+        activities.push(normalizeYHUniverseActivityItem({
+            id: 'plaza-membership-snapshot',
+            division: 'plaza',
+            title: 'Plaza profile active',
+            body: plazaProfile.focus || 'Networking, directory visibility, bridge paths, and opportunity signals are connected.',
+            meta: divisions.plaza.statusLabel || 'Approved'
+        }, 'plaza'));
+    }
+
+    if (divisions.federation.isMember) {
+        const federationProfile = divisions.federation.profile || {};
+        activities.push(normalizeYHUniverseActivityItem({
+            id: 'federation-membership-snapshot',
+            division: 'federation',
+            title: 'Federation access active',
+            body: federationProfile.role || federationProfile.category || 'Strategic network layer is connected.',
+            meta: divisions.federation.statusLabel || 'Approved'
+        }, 'federation'));
+    }
+
+    if (!activities.length) {
+        activities.push(normalizeYHUniverseActivityItem({
+            id: 'universe-profile-snapshot',
+            division: 'academy',
+            title: 'YH Universe profile created',
+            body: 'This profile is ready to collect activity as the user joins Academy, Plaza, and Federation.',
+            meta: 'Profile snapshot'
+        }, 'academy'));
+    }
+
+    return activities;
+}
+
+function getYHUniverseProfileActivities(profile = {}) {
+    const serverActivities = Array.isArray(profile.activities)
+        ? profile.activities.map((item) => normalizeYHUniverseActivityItem(item))
+        : [];
+
+    const academyActivities = Array.isArray(profile.recentPosts)
+        ? profile.recentPosts.map(mapYHAcademyPostToUniverseActivity)
+        : [];
+
+    const syntheticActivities = buildYHUniverseSyntheticActivities(profile);
+
+    const seen = new Set();
+
+    return [
+        ...serverActivities,
+        ...academyActivities,
+        ...syntheticActivities
+    ].filter((activity) => {
+        const key = `${activity.division}:${activity.id}:${activity.title}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    }).slice(0, 24);
+}
+
+function renderYHUniverseProfileSnapshot(profile = {}) {
+    const introCard = document.querySelector('#academy-profile-view .academy-profile-intro-card');
+    if (!introCard) return;
+
+    const divisions = normalizeYHUniverseDivisionMap(profile.divisions || {});
+    const activeKeys = getYHUniverseActivityDivisionKeys(profile);
+
+    let snapshot = document.getElementById('yh-universe-division-snapshot');
+    if (!snapshot) {
+        snapshot = document.createElement('div');
+        snapshot.id = 'yh-universe-division-snapshot';
+        snapshot.className = 'yh-universe-profile-snapshot-grid';
+
+        const anchor = introCard.querySelector('.academy-profile-intro-facts');
+        if (anchor) {
+            anchor.insertAdjacentElement('afterend', snapshot);
+        } else {
+            introCard.appendChild(snapshot);
+        }
+    }
+
+    snapshot.innerHTML = ['academy', 'plaza', 'federation'].map((key) => {
+        const state = divisions[key];
+        const tone = getYHUniverseDivisionTone(state);
+        const isRelevant = activeKeys.includes(key);
+        const label = YH_UNIVERSE_PROFILE_DIVISION_LABELS[key] || state.label || key;
+
+        return `
+            <article class="yh-universe-profile-snapshot-card is-${academyFeedEscapeHtml(key)} is-${academyFeedEscapeHtml(tone)} ${isRelevant ? 'is-member-division' : ''}">
+                <div class="yh-universe-profile-snapshot-top">
+                    <span>${academyFeedEscapeHtml(label)}</span>
+                    <strong>${academyFeedEscapeHtml(state.statusLabel || 'Not Applied')}</strong>
+                </div>
+                <p>${academyFeedEscapeHtml(getYHUniverseDivisionSnapshotCopy(key, state, profile))}</p>
+            </article>
+        `;
+    }).join('');
+}
 function normalizeAcademyProfilePayload(profile = {}, options = {}) {
     const displayName =
         String(
             profile?.display_name ||
+            profile?.displayName ||
             profile?.fullName ||
             profile?.username ||
-            'Academy Member'
-        ).trim() || 'Academy Member';
+            'YH Member'
+        ).trim() || 'YH Member';
 
     const usernameRaw = String(profile?.username || '').trim().replace(/^@/, '');
     const recentPostsInput = Array.isArray(profile?.recent_posts)
@@ -7301,25 +7607,36 @@ function normalizeAcademyProfilePayload(profile = {}, options = {}) {
         ? profile.search_tags
             .map((tag) => String(tag || '').trim().replace(/^#/, ''))
             .filter(Boolean)
-        : [];
+        : Array.isArray(profile?.signals?.tags)
+            ? profile.signals.tags
+                .map((tag) => String(tag || '').trim().replace(/^#/, ''))
+                .filter(Boolean)
+            : [];
+
+    const divisions = normalizeYHUniverseDivisionMap(profile?.divisions || {});
+    const signals = profile?.signals && typeof profile.signals === 'object'
+        ? profile.signals
+        : {};
 
     return {
         mode: String(options?.mode || profile?.mode || 'self').trim().toLowerCase() === 'visited' ? 'visited' : 'self',
-        id: String(profile?.id || profile?.user_id || '').trim(),
+        id: String(profile?.id || profile?.uid || profile?.firebaseUid || profile?.user_id || '').trim(),
         displayName,
         usernameRaw,
-        username: usernameRaw ? `@${usernameRaw}` : '@academy-member',
-        avatar: String(profile?.avatar || '').trim(),
-        roleLabel: String(profile?.role_label || 'Academy Member').trim() || 'Academy Member',
+        username: usernameRaw ? `@${usernameRaw}` : '@yh-member',
+        avatar: String(profile?.avatar || profile?.profilePhoto || profile?.photoURL || '').trim(),
+        roleLabel: String(profile?.role_label || profile?.roleLabel || profile?.trustTier || 'YH Universe Member').trim() || 'YH Universe Member',
         bio:
             String(
                 profile?.bio ||
-                'Focused on execution, consistency, and long-term growth inside The Academy.'
+                'Focused on execution, consistency, and long-term growth inside YH Universe.'
             ).trim(),
         readiness: String(profile?.readiness ?? profile?.readinessScore ?? '—'),
         progress: String(profile?.progress ?? profile?.daily_progress ?? '—').replace(' Daily Progress', ''),
         roadmap: String(profile?.roadmap_status || profile?.roadmap || '—'),
         followersCount: profile?.followers_count ?? profile?.followerCount ?? '—',
+        followingCount: profile?.following_count ?? profile?.followingCount ?? '—',
+        friendsCount: profile?.friends_count ?? profile?.friend_count ?? profile?.friendCount ?? '—',
         postCount: Number.isFinite(Number(profile?.post_count))
             ? Number(profile.post_count)
             : recentPostsInput.length,
@@ -7336,7 +7653,13 @@ function normalizeAcademyProfilePayload(profile = {}, options = {}) {
         incomingFriendRequestId: String(profile?.incoming_friend_request_id || '').trim(),
         mutualFriendCount: Number(profile?.mutual_friend_count || 0),
         searchTags,
-        recentPosts: recentPostsInput.filter(Boolean)
+        recentPosts: recentPostsInput.filter(Boolean),
+        divisions,
+        membershipSummary: profile?.membershipSummary || null,
+        signals,
+        trustTier: String(profile?.trustTier || '').trim(),
+        activities: Array.isArray(profile?.activities) ? profile.activities : [],
+        snapshot: profile?.snapshot || null
     };
 }
 
@@ -7345,46 +7668,100 @@ function renderAcademyProfileRecentPosts(posts = [], options = {}) {
     if (!list) return;
 
     const isSelf = options?.isSelf === true;
+    const profile = options?.profile || academyProfileViewState?.profile || {};
+    const profileWithPosts = {
+        ...profile,
+        recentPosts: Array.isArray(profile.recentPosts) ? profile.recentPosts : posts
+    };
 
-    if (!Array.isArray(posts) || posts.length === 0) {
+    const availableDivisionKeys = getYHUniverseActivityDivisionKeys(profileWithPosts);
+    const activities = getYHUniverseProfileActivities(profileWithPosts)
+        .filter((activity) => availableDivisionKeys.includes(activity.division));
+
+    let controls = document.getElementById('yh-universe-profile-activity-controls');
+
+    if (!controls) {
+        controls = document.createElement('div');
+        controls.id = 'yh-universe-profile-activity-controls';
+        controls.className = 'yh-universe-profile-activity-controls';
+
+        list.insertAdjacentElement('beforebegin', controls);
+    }
+
+    const currentValue = String(document.getElementById('yh-universe-profile-activity-filter')?.value || 'all').trim();
+    const safeValue = currentValue === 'all' || availableDivisionKeys.includes(currentValue)
+        ? currentValue
+        : 'all';
+
+    const optionHtml = [
+        availableDivisionKeys.length > 1 ? `<option value="all">All Activity</option>` : '',
+        ...availableDivisionKeys.map((key) => {
+            const label = YH_UNIVERSE_PROFILE_DIVISION_LABELS[key] || key;
+            return `<option value="${academyFeedEscapeHtml(key)}">${academyFeedEscapeHtml(label)} Activity</option>`;
+        })
+    ].join('');
+
+    controls.innerHTML = `
+        <label for="yh-universe-profile-activity-filter">Activity scope</label>
+        <select id="yh-universe-profile-activity-filter" class="yh-universe-profile-activity-filter">
+            ${optionHtml}
+        </select>
+    `;
+
+    const select = document.getElementById('yh-universe-profile-activity-filter');
+    if (select) {
+        select.value = safeValue;
+    }
+
+    const selectedDivision = String(select?.value || safeValue || 'all').trim();
+    const filteredActivities = activities.filter((activity) => {
+        return selectedDivision === 'all' || activity.division === selectedDivision;
+    });
+
+    if (!filteredActivities.length) {
         list.innerHTML = `
             <div class="academy-profile-empty-state">
                 ${isSelf
-                    ? 'You have no recent Academy post activity yet.'
-                    : 'This member has no recent public Academy activity yet.'}
+                    ? 'No visible activity for this division yet.'
+                    : 'This member has no visible activity for this division yet.'}
             </div>
         `;
         return;
     }
 
-    list.innerHTML = posts.map((post) => {
-        const postId = normalizeAcademyFeedId(post?.id);
-        const body = String(post?.body || post?.text || '').trim();
-        const preview = body
-            ? body.slice(0, 220)
-            : (post?.share ? 'Shared a post from the Academy feed.' : 'Activity update');
-
-        const createdLabel = academyFeedTimeLabel(post?.created_at || post?.createdAt || null);
-        const likeCount = Number(post?.like_count || 0);
-        const commentCount = Number(post?.comment_count || 0);
+    list.innerHTML = filteredActivities.map((activity) => {
+        const divisionLabel = YH_UNIVERSE_PROFILE_DIVISION_LABELS[activity.division] || activity.division;
+        const isAcademyPost = activity.division === 'academy' && activity.actionType === 'academy-post' && activity.sourceId;
 
         return `
             <article
-                class="academy-profile-post-card"
-                data-profile-post-id="${academyFeedEscapeHtml(postId)}"
-                style="${postId ? 'cursor:pointer;' : ''}"
+                class="academy-profile-post-card yh-universe-activity-card is-${academyFeedEscapeHtml(activity.division)}"
+                ${isAcademyPost ? `data-profile-post-id="${academyFeedEscapeHtml(activity.sourceId)}" style="cursor:pointer;"` : ''}
             >
-                <div class="academy-profile-post-meta">${academyFeedEscapeHtml(createdLabel)}</div>
-                <div class="academy-profile-post-body">${academyFeedEscapeHtml(preview)}</div>
-                <div class="academy-profile-post-stats">${likeCount} likes • ${commentCount} comments</div>
+                <div class="yh-universe-activity-head">
+                    <span class="yh-universe-activity-division">${academyFeedEscapeHtml(divisionLabel)}</span>
+                    <span class="academy-profile-post-meta">${academyFeedEscapeHtml(activity.meta || 'Profile activity')}</span>
+                </div>
+
+                <div class="academy-profile-post-body">
+                    <strong>${academyFeedEscapeHtml(activity.title || 'Activity')}</strong>
+                    ${activity.body ? `<p>${academyFeedEscapeHtml(activity.body)}</p>` : ''}
+                </div>
+
                 ${
-                    postId
+                    activity.division === 'academy'
+                        ? `<div class="academy-profile-post-stats">${activity.likeCount || 0} likes • ${activity.commentCount || 0} comments</div>`
+                        : ''
+                }
+
+                ${
+                    isAcademyPost
                         ? `
                             <div style="margin-top:12px;display:flex;justify-content:flex-end;">
                                 <button
                                     type="button"
                                     class="btn-secondary"
-                                    data-profile-post-id="${academyFeedEscapeHtml(postId)}"
+                                    data-profile-post-id="${academyFeedEscapeHtml(activity.sourceId)}"
                                     style="width:auto;min-width:132px;"
                                 >Open in Feed</button>
                             </div>
@@ -7601,12 +7978,16 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
         profileMemberId.innerText = normalized.id || 'Not available yet';
     }
 
+    const memberDivisionLabels = getYHUniverseActivityDivisionKeys(normalized)
+        .map((key) => YH_UNIVERSE_PROFILE_DIVISION_LABELS[key] || key);
+
     const resolvedVisitNoteTitle = isSelf
-        ? 'Profile summary'
+        ? 'Universe profile summary'
         : 'Why this profile is visible';
+
     const resolvedVisitNoteText = isSelf
-        ? 'This is your personal Academy control view. Track your own execution, visibility, and public profile from here.'
-        : 'You are viewing this member through the Academy social layer. This panel helps you quickly judge who they are before you follow, connect, or message.';
+        ? 'This is your unified YH Universe identity across Academy, Plaza, and Federation. Your visible profile snapshot updates as each division becomes active.'
+        : `You are viewing this member’s YH Universe snapshot across ${memberDivisionLabels.join(', ') || 'available divisions'}.`;
     const resolvedRelationshipSummary = isSelf
         ? 'This is your own profile'
         : resolvedStatusTone === 'friends'
@@ -7619,8 +8000,8 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
                         ? 'You already follow this member'
                         : 'Not connected yet';
     const resolvedContextSummary = isSelf
-        ? 'This panel is about your own profile control, execution visibility, and personal Academy presence.'
-        : 'This panel gives a fast public-facing read on the member and your current relationship state inside Academy.';
+        ? 'This panel summarizes your own profile control, division access, public identity, and cross-division visibility.'
+        : 'This panel gives a fast public-facing read on this member’s available YH Universe identity and your current relationship state.';
     const resolvedContextNote = isSelf
         ? 'Visible inside your Academy profile shell'
         : mutualCountValue > 0
@@ -7653,8 +8034,8 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
 
     if (profileIntroTitle) {
         profileIntroTitle.innerText = isSelf
-            ? 'Your Academy identity'
-            : 'Public member introduction';
+            ? 'Your YH Universe identity'
+            : 'YH Universe member introduction';
     }
 
     if (profileIntroVisibilityBadge) {
@@ -7681,8 +8062,8 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
 
     if (profileContextTitle) {
         profileContextTitle.innerText = isSelf
-            ? 'Control & identity details'
-            : 'Identity & connection details';
+            ? 'Universe identity details'
+            : 'Universe identity & connection details';
     }
 
     if (profileContextSummary) {
@@ -7811,7 +8192,8 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
         }
     }
 
-    renderAcademyProfileRecentPosts(normalized.recentPosts, { isSelf });
+    renderYHUniverseProfileSnapshot(normalized);
+    renderAcademyProfileRecentPosts(normalized.recentPosts, { isSelf, profile: normalized });
 }
 function getDashboardUniverseProfileDraft() {
     const profile =
@@ -8283,16 +8665,36 @@ async function fetchAcademyMemberProfile(memberId = '') {
         throw new Error('Missing member id.');
     }
 
-    const result = await academyAuthedFetch(
-        `/api/academy/community/members/${encodeURIComponent(normalizedMemberId)}/profile`,
-        { method: 'GET' }
-    );
+    const [academyResult, universeResult] = await Promise.allSettled([
+        academyAuthedFetch(
+            `/api/academy/community/members/${encodeURIComponent(normalizedMemberId)}/profile`,
+            { method: 'GET' }
+        ),
+        academyAuthedFetch(
+            `/api/universe/profile/${encodeURIComponent(normalizedMemberId)}`,
+            { method: 'GET' }
+        )
+    ]);
 
-    if (!result?.profile) {
-        throw new Error('Profile not found.');
+    const academyProfile =
+        academyResult.status === 'fulfilled' && academyResult.value?.profile
+            ? academyResult.value.profile
+            : {};
+
+    const universeProfile =
+        universeResult.status === 'fulfilled' && universeResult.value?.profile
+            ? universeResult.value.profile
+            : {};
+
+    if (!academyProfile.id && !universeProfile.id && !universeProfile.uid) {
+        throw new Error(
+            academyResult.status === 'rejected'
+                ? academyResult.reason?.message || 'Profile not found.'
+                : 'Profile not found.'
+        );
     }
 
-    return result.profile;
+    return mergeYHUniverseProfilePayload(universeProfile, academyProfile);
 }
 
 function academyBuildDirectMessageRoomEntry(room = {}, profile = {}) {
@@ -8578,6 +8980,27 @@ async function openAcademyProfilePostInFeed(postId = '') {
         }, 1800);
     });
 }
+async function hydrateDashboardSelfUniverseProfile() {
+    try {
+        const result = await academyAuthedFetch('/api/universe/profile', { method: 'GET' });
+
+        if (!result?.profile) return;
+
+        const currentProfile =
+            academyProfileViewState?.profile && academyProfileViewState.mode === 'self'
+                ? academyProfileViewState.profile
+                : buildAcademySelfProfilePayload();
+
+        const merged = mergeYHUniverseProfilePayload(result.profile, currentProfile);
+
+        if (academyProfileViewState?.mode === 'self') {
+            renderAcademyProfileView(merged, { mode: 'self' });
+        }
+    } catch (error) {
+        console.warn('hydrateDashboardSelfUniverseProfile skipped:', error?.message || error);
+    }
+}
+
 function openAcademyProfileView() {
     saveAcademyViewState('profile');
     hideAcademyViewsForFeed();
@@ -8589,6 +9012,7 @@ function openAcademyProfileView() {
     currentRoomMeta = null;
 
     renderAcademyProfileView(null, { mode: 'self' });
+    hydrateDashboardSelfUniverseProfile();
 }
 
 const YH_ACADEMY_VISIT_PROFILE_TARGET_KEY = 'yh_academy_visit_profile_target_v1';
@@ -11045,6 +11469,17 @@ document.getElementById('academy-profile-view')?.addEventListener('click', async
 });
 document.getElementById('academy-profile-view')?.addEventListener('click', (event) => {
     const postBtn = event.target.closest('[data-profile-post-id]');
+document.getElementById('academy-profile-view')?.addEventListener('change', (event) => {
+    if (event.target?.id !== 'yh-universe-profile-activity-filter') return;
+
+    const activeProfile = academyProfileViewState?.profile;
+    if (!activeProfile) return;
+
+    renderAcademyProfileRecentPosts(activeProfile.recentPosts || [], {
+        isSelf: academyProfileViewState.mode === 'self',
+        profile: activeProfile
+    });
+});
     if (!postBtn) return;
 
     const postId = normalizeAcademyFeedId(postBtn.getAttribute('data-profile-post-id'));

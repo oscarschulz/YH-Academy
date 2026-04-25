@@ -16165,3 +16165,167 @@ body[data-yh-page="dashboard"] .yh-dashboard-profile-search-btn {
         flex-direction: column;
     }
 }
+/* ========================================================= */
+/* DASHBOARD TRUE YH UNIVERSE PROFILE SNAPSHOT               */
+/* ========================================================= */
+.yh-universe-profile-snapshot-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.yh-universe-profile-snapshot-card {
+    min-width: 0;
+    border-radius: 18px;
+    padding: 13px 14px;
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    background: rgba(15, 23, 42, 0.58);
+}
+
+.yh-universe-profile-snapshot-card.is-member {
+    border-color: rgba(56, 189, 248, 0.3);
+    background:
+        radial-gradient(circle at top left, rgba(56, 189, 248, 0.14), transparent 42%),
+        rgba(15, 23, 42, 0.68);
+}
+
+.yh-universe-profile-snapshot-card.is-pending,
+.yh-universe-profile-snapshot-card.is-watching {
+    border-color: rgba(250, 204, 21, 0.26);
+    background:
+        radial-gradient(circle at top left, rgba(250, 204, 21, 0.1), transparent 42%),
+        rgba(15, 23, 42, 0.62);
+}
+
+.yh-universe-profile-snapshot-card.is-blocked {
+    border-color: rgba(248, 113, 113, 0.24);
+}
+
+.yh-universe-profile-snapshot-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.yh-universe-profile-snapshot-top span {
+    color: #e0f2fe;
+    font-size: 0.82rem;
+    font-weight: 800;
+}
+
+.yh-universe-profile-snapshot-top strong {
+    padding: 5px 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.055);
+    color: var(--text-muted);
+    font-size: 0.68rem;
+    white-space: nowrap;
+}
+
+.yh-universe-profile-snapshot-card.is-member .yh-universe-profile-snapshot-top strong {
+    color: #7dd3fc;
+    background: rgba(14, 165, 233, 0.12);
+}
+
+.yh-universe-profile-snapshot-card p {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    line-height: 1.55;
+}
+
+.yh-universe-profile-activity-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin: 14px 0 12px;
+    padding: 12px;
+    border-radius: 16px;
+    border: 1px solid rgba(56, 189, 248, 0.14);
+    background: rgba(15, 23, 42, 0.5);
+}
+
+.yh-universe-profile-activity-controls label {
+    color: #dbeafe;
+    font-size: 0.8rem;
+    font-weight: 800;
+}
+
+.yh-universe-profile-activity-filter {
+    width: min(240px, 100%);
+    border-radius: 12px;
+    border: 1px solid rgba(56, 189, 248, 0.24);
+    background: rgba(2, 6, 23, 0.7);
+    color: #f8fbff;
+    padding: 10px 12px;
+    outline: none;
+}
+
+.yh-universe-activity-card {
+    position: relative;
+}
+
+.yh-universe-activity-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.yh-universe-activity-division {
+    display: inline-flex;
+    width: fit-content;
+    border-radius: 999px;
+    padding: 5px 8px;
+    background: rgba(56, 189, 248, 0.1);
+    border: 1px solid rgba(56, 189, 248, 0.18);
+    color: #7dd3fc;
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.yh-universe-activity-card.is-plaza .yh-universe-activity-division {
+    background: rgba(34, 197, 94, 0.1);
+    border-color: rgba(34, 197, 94, 0.2);
+    color: #86efac;
+}
+
+.yh-universe-activity-card.is-federation .yh-universe-activity-division {
+    background: rgba(250, 204, 21, 0.1);
+    border-color: rgba(250, 204, 21, 0.2);
+    color: #fde68a;
+}
+
+.yh-universe-activity-card .academy-profile-post-body strong {
+    display: block;
+    color: #f8fbff;
+    margin-bottom: 5px;
+}
+
+.yh-universe-activity-card .academy-profile-post-body p {
+    margin: 0;
+    color: var(--text-muted);
+    line-height: 1.6;
+}
+
+@media (max-width: 820px) {
+    .yh-universe-profile-snapshot-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .yh-universe-profile-activity-controls {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .yh-universe-profile-activity-filter {
+        width: 100%;
+    }
+}

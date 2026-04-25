@@ -3759,8 +3759,129 @@ async function getUniverseSafeDoc(collectionName = '', docId = '') {
     } catch (_) {
         return null;
     }
+    function mapUniverseProfileTimestamp(value) {
+    if (!value) return '';
+    if (typeof value.toDate === 'function') return value.toDate().toISOString();
+    if (value instanceof Date) return value.toISOString();
+    return sanitize(value);
 }
 
+function buildUniverseProfileActivity({
+    id = '',
+    division = 'academy',
+    title = '',
+    body = '',
+    meta = '',
+    sourceId = '',
+    actionType = '',
+    createdAt = ''
+} = {}) {
+    return {
+        id: sanitize(id || `${division}_${Date.now()}`),
+        division: sanitize(division || 'academy'),
+        title: sanitize(title || 'Profile activity'),
+        body: sanitize(body || ''),
+        meta: sanitize(meta || ''),
+        sourceId: sanitize(sourceId || ''),
+        actionType: sanitize(actionType || ''),
+        createdAt: mapUniverseProfileTimestamp(createdAt)
+    };
+}
+
+function buildUniverseProfileActivities({
+    academyProfile = {},
+    divisions = {},
+    academyApplication = null,
+    plazaApplication = null,
+    federationApplication = null,
+    plazaDirectoryRaw = null
+} = {}) {
+    const activities = [];
+
+    const recentPosts = Array.isArray(academyProfile.recent_posts)
+        ? academyProfile.recent_posts
+        : [];
+
+    recentPosts.slice(0, 8).forEach((post) => {
+        activities.push(buildUniverseProfileActivity({
+            id: sanitize(post.id || post.postId || ''),
+            division: 'academy',
+            title: 'Academy post',
+            body: sanitize(post.body || post.text || 'Academy public activity').slice(0, 220),
+            meta: 'Academy activity',
+            sourceId: sanitize(post.id || post.postId || ''),
+            actionType: 'academy-post',
+            createdAt: post.created_at || post.createdAt || ''
+        }));
+    });
+
+    if (divisions.academy?.isMember === true) {
+        activities.push(buildUniverseProfileActivity({
+            id: 'academy_membership_snapshot',
+            division: 'academy',
+            title: 'Academy membership active',
+            body: 'Roadmap, community profile, posts, and execution visibility are connected.',
+            meta: divisions.academy.statusLabel || 'Approved',
+            createdAt: academyApplication?.reviewedAt || academyApplication?.createdAt || ''
+        }));
+    }
+
+    if (divisions.plaza?.isMember === true) {
+        activities.push(buildUniverseProfileActivity({
+            id: 'plaza_membership_snapshot',
+            division: 'plaza',
+            title: 'Plaza profile active',
+            body: sanitize(
+                plazaDirectoryRaw?.focus ||
+                plazaDirectoryRaw?.role ||
+                'Directory visibility, networking, requests, and opportunity signals are connected.'
+            ),
+            meta: divisions.plaza.statusLabel || 'Approved',
+            createdAt: plazaDirectoryRaw?.updatedAt || plazaApplication?.reviewedAt || plazaApplication?.createdAt || ''
+        }));
+    }
+
+    if (divisions.federation?.isMember === true) {
+        activities.push(buildUniverseProfileActivity({
+            id: 'federation_membership_snapshot',
+            division: 'federation',
+            title: 'Federation access active',
+            body: 'Strategic access, high-value network visibility, Connect, and deal-room signals are connected.',
+            meta: divisions.federation.statusLabel || 'Approved',
+            createdAt: federationApplication?.reviewedAt || federationApplication?.createdAt || ''
+        }));
+    }
+
+    return activities.slice(0, 24);
+}
+
+function buildUniverseProfileSnapshot({ divisions = {}, signals = {}, academyProfile = {}, plazaDirectoryRaw = null } = {}) {
+    return {
+        divisionCards: ['academy', 'plaza', 'federation'].map((key) => {
+            const state = divisions[key] || {};
+
+            return {
+                key,
+                label: state.label || key,
+                isMember: state.isMember === true,
+                status: state.status || 'not_applied',
+                statusLabel: state.statusLabel || 'Not Applied',
+                headline:
+                    key === 'academy'
+                        ? sanitize(academyProfile.roadmap_status || academyProfile.roadmap || 'Roadmap and execution layer')
+                        : key === 'plaza'
+                            ? sanitize(plazaDirectoryRaw?.focus || plazaDirectoryRaw?.role || 'Networking and opportunities layer')
+                            : 'Strategic access layer'
+            };
+        }),
+        signals: {
+            lookingFor: normalizeUniverseSignalList(signals.lookingFor || []),
+            canOffer: normalizeUniverseSignalList(signals.canOffer || []),
+            tags: normalizeUniverseSignalList(signals.tags || [])
+        }
+    };
+   }
+}
 exports.getUniverseProfile = async (req, res) => {
     try {
         const uid = getAcademyAuthUid(req);
@@ -3981,6 +4102,22 @@ exports.getUniverseProfile = async (req, res) => {
             )
         };
 
+        const activities = buildUniverseProfileActivities({
+            academyProfile,
+            divisions,
+            academyApplication,
+            plazaApplication,
+            federationApplication,
+            plazaDirectoryRaw
+        });
+
+        const snapshot = buildUniverseProfileSnapshot({
+            divisions,
+            signals,
+            academyProfile,
+            plazaDirectoryRaw
+        });
+
         return res.json({
             success: true,
             profile: {
@@ -4007,6 +4144,8 @@ exports.getUniverseProfile = async (req, res) => {
                 membershipSummary,
                 divisions,
                 signals,
+                activities,
+                snapshot,
                 source: 'universe-profile-v1'
             }
         });
