@@ -10052,7 +10052,7 @@ function academyLeadRenderWithdrawalLedgerStatus() {
     `;
 }
 
-function academyLeadRenderEconomySummary(payouts = [], deals = []) {
+function academyLeadMoneyTotals(items = [], field = 'amount') {
     const totals = {};
 
     academyLeadSafeArray(items).forEach((item) => {
@@ -10060,6 +10060,7 @@ function academyLeadRenderEconomySummary(payouts = [], deals = []) {
         const amount = academyLeadNormalizeMoney(item?.[field]);
 
         if (!amount) return;
+
         totals[currency] = (totals[currency] || 0) + amount;
     });
 
