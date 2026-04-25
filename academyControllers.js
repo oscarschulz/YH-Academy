@@ -3759,7 +3759,9 @@ async function getUniverseSafeDoc(collectionName = '', docId = '') {
     } catch (_) {
         return null;
     }
-    function mapUniverseProfileTimestamp(value) {
+}
+
+function mapUniverseProfileTimestamp(value) {
     if (!value) return '';
     if (typeof value.toDate === 'function') return value.toDate().toISOString();
     if (value instanceof Date) return value.toISOString();
@@ -3881,7 +3883,7 @@ function buildUniverseProfileSnapshot({ divisions = {}, signals = {}, academyPro
         }
     };
    }
-}
+
 exports.getUniverseProfile = async (req, res) => {
     try {
         const uid = getAcademyAuthUid(req);
