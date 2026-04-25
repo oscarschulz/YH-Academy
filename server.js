@@ -2746,17 +2746,28 @@ app.patch('/api/realtime/rooms/:roomId/block', requireApiUser, async (req, res) 
             });
         }
 
-        await context.roomRef.set({
-            blocked_by_user_ids: FieldValue.arrayUnion(...blockedUserIds),
-            blocked_by_owner_user_ids: FieldValue.arrayUnion(userId),
-            hidden_for_user_ids: FieldValue.arrayUnion(userId),
-            updated_at: Timestamp.now()
-        }, { merge: true });
+        const blocked = req.body?.blocked !== false;
+
+        const patch = blocked
+            ? {
+                blocked_by_user_ids: FieldValue.arrayUnion(...blockedUserIds),
+                blocked_by_owner_user_ids: FieldValue.arrayUnion(userId),
+                hidden_for_user_ids: FieldValue.arrayRemove(userId),
+                updated_at: Timestamp.now()
+            }
+            : {
+                blocked_by_user_ids: FieldValue.arrayRemove(...blockedUserIds),
+                blocked_by_owner_user_ids: FieldValue.arrayRemove(userId),
+                hidden_for_user_ids: FieldValue.arrayRemove(userId),
+                updated_at: Timestamp.now()
+            };
+
+        await context.roomRef.set(patch, { merge: true });
 
         io.to(roomId).emit('roomAccessUpdated', {
             roomId,
-            action: 'block',
-            blocked: true,
+            action: blocked ? 'block' : 'unblock',
+            blocked,
             blockedByUserId: userId,
             blockedUserIds
         });
@@ -2764,14 +2775,14 @@ app.patch('/api/realtime/rooms/:roomId/block', requireApiUser, async (req, res) 
         return res.json({
             success: true,
             roomId,
-            blocked: true,
+            blocked,
             blockedUserIds
         });
     } catch (error) {
         console.error('block realtime room error:', error);
         return res.status(500).json({
             success: false,
-            message: 'Failed to block conversation.'
+            message: 'Failed to update block status.'
         });
     }
 });

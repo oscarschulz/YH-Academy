@@ -12459,6 +12459,171 @@ function academyReadMessageRooms() {
             return String(a?.name || '').localeCompare(String(b?.name || ''));
         });
 }
+
+const YH_ACADEMY_ROOM_MODERATION_STATE_KEY = 'yh_academy_room_moderation_state_v1';
+
+function academyReadRoomModerationStateMap() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(YH_ACADEMY_ROOM_MODERATION_STATE_KEY) || '{}');
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch (_) {
+        return {};
+    }
+}
+
+function academyReadRoomModerationLocalState(roomId = '') {
+    const normalizedRoomId = normalizeRoomKey(roomId);
+    if (!normalizedRoomId) return {};
+
+    const map = academyReadRoomModerationStateMap();
+    const state = map[normalizedRoomId];
+
+    return state && typeof state === 'object' && !Array.isArray(state) ? state : {};
+}
+
+function academyWriteRoomModerationLocalState(roomId = '', patch = {}) {
+    const normalizedRoomId = normalizeRoomKey(roomId);
+    if (!normalizedRoomId || !patch || typeof patch !== 'object') return;
+
+    try {
+        const map = academyReadRoomModerationStateMap();
+        const previous = map[normalizedRoomId] && typeof map[normalizedRoomId] === 'object'
+            ? map[normalizedRoomId]
+            : {};
+
+        map[normalizedRoomId] = {
+            ...previous,
+            ...patch,
+            updatedAt: new Date().toISOString()
+        };
+
+        localStorage.setItem(YH_ACADEMY_ROOM_MODERATION_STATE_KEY, JSON.stringify(map));
+    } catch (_) {}
+}
+
+function academyGetRoomStringArray(room = {}, ...keys) {
+    for (const key of keys) {
+        const value = room?.[key];
+
+        if (Array.isArray(value)) {
+            return value
+                .map((item) => normalizeAcademyFeedId(item))
+                .filter(Boolean);
+        }
+    }
+
+    return [];
+}
+
+function academyGetRoomModerationFlags(room = {}) {
+    const roomId = normalizeRoomKey(room?.roomId || room?.id || room?.room_key || '');
+    const currentUserId = academyGetCurrentUserIdForRoomModeration();
+    const localState = academyReadRoomModerationLocalState(roomId);
+
+    const restrictedByUserIds = academyGetRoomStringArray(
+        room,
+        'restricted_by_user_ids',
+        'restrictedByUserIds'
+    );
+
+    const blockedByOwnerUserIds = academyGetRoomStringArray(
+        room,
+        'blocked_by_owner_user_ids',
+        'blockedByOwnerUserIds'
+    );
+
+    const blockedByUserIds = academyGetRoomStringArray(
+        room,
+        'blocked_by_user_ids',
+        'blockedByUserIds'
+    );
+
+    const hiddenForUserIds = academyGetRoomStringArray(
+        room,
+        'hidden_for_user_ids',
+        'hiddenForUserIds'
+    );
+
+    const serverRestrictedByMe =
+        room?.is_restricted_by_me === true ||
+        room?.isRestrictedByMe === true ||
+        (currentUserId && restrictedByUserIds.includes(currentUserId));
+
+    const serverBlockedByMe =
+        room?.is_blocked_by_me === true ||
+        room?.isBlockedByMe === true ||
+        (currentUserId && blockedByOwnerUserIds.includes(currentUserId));
+
+    const isRestrictedByMe = serverRestrictedByMe || localState.restricted === true;
+    const isBlockedByMe = serverBlockedByMe || localState.blocked === true;
+
+    const isBlockedForMe =
+        room?.is_blocked === true ||
+        room?.isBlocked === true ||
+        (currentUserId && blockedByUserIds.includes(currentUserId));
+
+    const isHiddenForMe =
+        (
+            room?.is_hidden === true ||
+            room?.isHidden === true ||
+            (currentUserId && hiddenForUserIds.includes(currentUserId))
+        ) && !isBlockedByMe;
+
+    return {
+        isRestrictedByMe,
+        isBlockedByMe,
+        isBlockedForMe,
+        isHiddenForMe
+    };
+}
+
+function academySyncMessagesThreadRoomActionLabels(threadMenu, roomId = '', room = {}) {
+    if (!threadMenu) return;
+
+    const buttons = Array.from(threadMenu.querySelectorAll('[data-thread-room-action]'));
+
+    const getButton = (actions = []) => {
+        return buttons.find((button) => {
+            const action = String(button.getAttribute('data-thread-room-action') || '').trim().toLowerCase();
+            return actions.includes(action);
+        });
+    };
+
+    const hideButton = getButton(['hide']);
+    const restrictButton = getButton(['restrict', 'unrestrict']);
+    const blockButton = getButton(['block', 'unblock']);
+
+    const flags = academyGetRoomModerationFlags({
+        ...room,
+        roomId: room?.roomId || room?.id || roomId,
+        id: room?.id || roomId
+    });
+
+    const restrictAction = flags.isRestrictedByMe ? 'unrestrict' : 'restrict';
+    const restrictLabel = flags.isRestrictedByMe ? 'Unrestrict' : 'Restrict';
+
+    const blockAction = flags.isBlockedByMe ? 'unblock' : 'block';
+    const blockLabel = flags.isBlockedByMe ? 'Unblock' : 'Block';
+
+    if (hideButton) {
+        hideButton.setAttribute('data-thread-room-action', 'hide');
+        hideButton.setAttribute('data-thread-room-id', roomId || '');
+        hideButton.textContent = 'Delete conversation';
+    }
+
+    if (restrictButton) {
+        restrictButton.setAttribute('data-thread-room-action', restrictAction);
+        restrictButton.setAttribute('data-thread-room-id', roomId || '');
+        restrictButton.textContent = restrictLabel;
+    }
+
+    if (blockButton) {
+        blockButton.setAttribute('data-thread-room-action', blockAction);
+        blockButton.setAttribute('data-thread-room-id', roomId || '');
+        blockButton.textContent = blockLabel;
+    }
+}
+
 function academyNormalizeRealtimeRoomEntry(room = {}) {
     const roomId = String(room?.id || room?.roomId || room?.room_key || '').trim();
     const roomType = String(room?.room_type || room?.type || 'group').trim().toLowerCase() === 'dm' ? 'dm' : 'group';
@@ -12503,6 +12668,13 @@ function academyNormalizeRealtimeRoomEntry(room = {}) {
         recipientId = memberIds.find((memberId) => memberId && memberId !== currentUserId) || '';
     }
 
+    const moderationFlags = academyGetRoomModerationFlags({
+        ...room,
+        id: roomId,
+        roomId,
+        member_ids: memberIds
+    });
+
     return {
         id: roomId,
         roomId,
@@ -12516,8 +12688,10 @@ function academyNormalizeRealtimeRoomEntry(room = {}) {
         avatarUrl,
         unreadCount,
         muted: room?.is_muted === true || room?.isMuted === true,
-        isHidden: room?.is_hidden === true || room?.isHidden === true,
-        isBlocked: room?.is_blocked === true || room?.isBlocked === true,
+        isRestrictedByMe: moderationFlags.isRestrictedByMe === true,
+        isBlockedByMe: moderationFlags.isBlockedByMe === true,
+        isHidden: moderationFlags.isHiddenForMe === true,
+        isBlocked: moderationFlags.isBlockedForMe === true,
         lastMessage: String(room?.last_message_text || room?.lastMessage || '').trim(),
         lastMessageAuthor: String(room?.last_message_author || room?.lastMessageAuthor || '').trim(),
         lastMessageAt: String(room?.last_message_at || room?.lastMessageAt || room?.updated_at || room?.updatedAt || '').trim(),
@@ -12665,8 +12839,10 @@ async function academyApplyInboxRoomAction(roomId = '', action = '') {
     const endpointMap = {
         mute: `/api/realtime/rooms/${encodeURIComponent(normalizedRoomId)}/mute`,
         restrict: `/api/realtime/rooms/${encodeURIComponent(normalizedRoomId)}/restrict`,
+        unrestrict: `/api/realtime/rooms/${encodeURIComponent(normalizedRoomId)}/restrict`,
         hide: `/api/realtime/rooms/${encodeURIComponent(normalizedRoomId)}/hide`,
-        block: `/api/realtime/rooms/${encodeURIComponent(normalizedRoomId)}/block`
+        block: `/api/realtime/rooms/${encodeURIComponent(normalizedRoomId)}/block`,
+        unblock: `/api/realtime/rooms/${encodeURIComponent(normalizedRoomId)}/block`
     };
 
     const endpoint = endpointMap[normalizedAction];
@@ -12677,15 +12853,21 @@ async function academyApplyInboxRoomAction(roomId = '', action = '') {
             ? { muted: true }
             : normalizedAction === 'restrict'
                 ? { restricted: true }
-                : normalizedAction === 'block'
-                    ? { blocked: true }
-                    : {};
+                : normalizedAction === 'unrestrict'
+                    ? { restricted: false }
+                    : normalizedAction === 'block'
+                        ? { blocked: true }
+                        : normalizedAction === 'unblock'
+                            ? { blocked: false }
+                            : {};
 
     const labelMap = {
         mute: 'Conversation muted.',
         restrict: 'User restricted. They can no longer send messages to you.',
+        unrestrict: 'User unrestricted. They can message you again.',
         hide: 'Conversation deleted from your inbox only.',
-        block: 'User blocked. They can no longer contact you.'
+        block: 'User blocked. They can no longer contact you.',
+        unblock: 'User unblocked. They can contact you again.'
     };
 
     try {
@@ -12694,7 +12876,23 @@ async function academyApplyInboxRoomAction(roomId = '', action = '') {
             body: JSON.stringify(body)
         });
 
-        if (normalizedAction === 'hide' || normalizedAction === 'block') {
+        if (normalizedAction === 'restrict') {
+            academyWriteRoomModerationLocalState(normalizedRoomId, { restricted: true });
+        }
+
+        if (normalizedAction === 'unrestrict') {
+            academyWriteRoomModerationLocalState(normalizedRoomId, { restricted: false });
+        }
+
+        if (normalizedAction === 'block') {
+            academyWriteRoomModerationLocalState(normalizedRoomId, { blocked: true });
+        }
+
+        if (normalizedAction === 'unblock') {
+            academyWriteRoomModerationLocalState(normalizedRoomId, { blocked: false });
+        }
+
+        if (normalizedAction === 'hide') {
             const activeRoomId = normalizeRoomKey(academyMessagesInboxState.activeRoomId);
             if (activeRoomId && activeRoomId === normalizedRoomId) {
                 academyReturnToMessagesInboxHome();
@@ -12703,7 +12901,17 @@ async function academyApplyInboxRoomAction(roomId = '', action = '') {
 
         academyCloseInboxRoomMenu();
         academyCloseMessagesThreadMenu();
+
         await academyHydrateMessageRooms(true);
+
+        const activeRoomId = normalizeRoomKey(academyMessagesInboxState.activeRoomId);
+        if (activeRoomId && activeRoomId === normalizedRoomId) {
+            const updatedRoom = academyResolveMessageRoomById(normalizedRoomId);
+            if (updatedRoom) {
+                academyRenderMessagesThreadHeader(updatedRoom);
+            }
+        }
+
         showToast(labelMap[normalizedAction] || 'Conversation updated.');
     } catch (error) {
         const message = String(error?.message || '').trim();
@@ -12780,9 +12988,7 @@ function academyClearMessagesThreadHeader() {
 
     if (threadMenu) {
         threadMenu.classList.remove('is-open');
-        threadMenu.querySelectorAll('[data-thread-room-action]').forEach((button) => {
-            button.setAttribute('data-thread-room-id', '');
-        });
+        academySyncMessagesThreadRoomActionLabels(threadMenu, '', {});
     }
 
     academyMessagesInboxState.openThreadMenu = false;
@@ -12868,9 +13074,7 @@ function academyRenderMessagesThreadHeader(room = {}) {
 
     if (threadMenu) {
         threadMenu.classList.remove('is-open');
-        threadMenu.querySelectorAll('[data-thread-room-action]').forEach((button) => {
-            button.setAttribute('data-thread-room-id', roomId);
-        });
+        academySyncMessagesThreadRoomActionLabels(threadMenu, roomId, room);
     }
 
     academyMessagesInboxState.openThreadMenu = false;
@@ -13035,6 +13239,14 @@ function renderAcademyMessagesInboxList() {
         const roomTypeLabel = roomType === 'group' ? 'Group' : 'DM';
         const timeLabel = academyFormatInboxTime(room?.lastMessageAt || '');
         const isMuted = room?.muted === true;
+        const isRestrictedByMe = room?.isRestrictedByMe === true;
+        const isBlockedByMe = room?.isBlockedByMe === true;
+
+        const restrictAction = isRestrictedByMe ? 'unrestrict' : 'restrict';
+        const restrictLabel = isRestrictedByMe ? 'Unrestrict' : 'Restrict';
+
+        const blockAction = isBlockedByMe ? 'unblock' : 'block';
+        const blockLabel = isBlockedByMe ? 'Unblock' : 'Block';
 
         const messageProfileId = roomType === 'dm'
             ? normalizeAcademyFeedId(room?.recipientId || room?.recipient_id || '')
@@ -13074,6 +13286,8 @@ function renderAcademyMessagesInboxList() {
                         <span class="academy-messages-inbox-meta">
                             <span class="academy-messages-inbox-roomtype">${academyFeedEscapeHtml(roomTypeLabel)}</span>
                             ${isMuted ? `<span class="academy-messages-inbox-muted">Muted</span>` : ''}
+                            ${isRestrictedByMe ? `<span class="academy-messages-inbox-muted">Restricted</span>` : ''}
+                            ${isBlockedByMe ? `<span class="academy-messages-inbox-muted">Blocked</span>` : ''}
                             ${unread > 0 ? `<span class="academy-messages-inbox-badge">${academyFeedEscapeHtml(String(unread))}</span>` : ''}
                         </span>
                     </span>
@@ -13093,8 +13307,8 @@ function renderAcademyMessagesInboxList() {
                         data-room-menu-id="${academyFeedEscapeHtml(roomId)}"
                     >
                         <button type="button" data-room-action="hide" data-room-id="${academyFeedEscapeHtml(roomId)}">Delete conversation</button>
-                        <button type="button" data-room-action="restrict" data-room-id="${academyFeedEscapeHtml(roomId)}">Restrict</button>
-                        <button type="button" data-room-action="block" data-room-id="${academyFeedEscapeHtml(roomId)}">Block</button>
+                        <button type="button" data-room-action="${academyFeedEscapeHtml(restrictAction)}" data-room-id="${academyFeedEscapeHtml(roomId)}">${academyFeedEscapeHtml(restrictLabel)}</button>
+                        <button type="button" data-room-action="${academyFeedEscapeHtml(blockAction)}" data-room-id="${academyFeedEscapeHtml(roomId)}">${academyFeedEscapeHtml(blockLabel)}</button>
                     </div>
                 </div>
             </div>
