@@ -745,141 +745,61 @@ function buildAcademyPlazaReadinessPayload(profileDoc = {}, roadmap = {}, missio
         profileDoc?.marketplaceReady === true ||
         sanitizeString(profileDoc?.marketplace_ready || profileDoc?.marketplaceReady).toLowerCase() === 'yes';
 
-    const completedCount = Array.isArray(missions)
-        ? missions.filter((item) => sanitizeString(item?.status).toLowerCase() === 'completed').length
-        : 0;
-
-    const totalCount = Array.isArray(missions) ? missions.length : 0;
-    const completionRatio = totalCount > 0 ? completedCount / totalCount : 0;
-
-    let score = 0;
-
-    if (roleTrack) score += 15;
-    if (lookingFor.length > 0) score += 15;
-    if (canOffer.length > 0) score += 20;
-    if (availability) score += 10;
-    if (workMode) score += 10;
-    if (proofFocus) score += 15;
-
-    if (completionRatio >= 0.8) score += 10;
-    else if (completionRatio >= 0.45) score += 6;
-    else if (completionRatio > 0) score += 3;
-
-    const roadmapReadiness = toNumber(roadmap?.readinessScore, 0);
-    score += Math.max(0, Math.min(5, Math.round(roadmapReadiness / 20)));
-
-    score = Math.max(0, Math.min(100, score));
-
-    let nextStep = 'Complete your Academy profile and missions to build stronger Plaza readiness.';
-
-    if (!roleTrack) {
-        nextStep = 'Choose your role track first so The Academy knows what economic direction you are building toward.';
-    } else if (canOffer.length === 0) {
-        nextStep = 'Clarify what you can offer so Plaza can match you to real opportunities later.';
-    } else if (lookingFor.length === 0) {
-        nextStep = 'Add what you are looking for so your next move inside Plaza becomes easier to match.';
-    } else if (!proofFocus) {
-        nextStep = 'Define your proof focus so your Academy work turns into visible commercial signal.';
-    } else if (completionRatio < 0.45) {
-        nextStep = 'Complete more missions consistently so your execution signal becomes strong enough for Plaza.';
-    } else if (!marketplaceReady) {
-        nextStep = 'Your signal is getting strong. Once your profile feels complete, turn on Marketplace Ready in your Academy profile.';
-    } else {
-        nextStep = 'Your Academy profile is ready to feed into Plaza visibility, matching, and opportunity flow.';
-    }
-
-    const statusLabel = marketplaceReady
-        ? 'Ready for Plaza'
-        : score >= 75
-            ? 'Strong Signal'
-            : score >= 50
-                ? 'Building Momentum'
-                : 'Still Building';
-
-    return {
-        score,
-        statusLabel,
-        nextStep,
-        marketplaceReady,
-        missionCompletionRatio: Number(completionRatio.toFixed(2)),
-        completedCount,
-        totalCount,
-        signals: {
-            roleTrack: Boolean(roleTrack),
-            lookingFor: lookingFor.length > 0,
-            canOffer: canOffer.length > 0,
-            availability: Boolean(availability),
-            workMode: Boolean(workMode),
-            proofFocus: Boolean(proofFocus)
-        },
-        profileSignals: {
-            roleTrack,
-            lookingFor,
-            canOffer,
-            availability,
-            workMode,
-            proofFocus,
-            marketplaceReady
-        }
-    };
-}
-
-function buildAcademyPlazaReadinessPayload(profileDoc = {}, roadmap = {}, missions = []) {
-    const roleTrack = sanitizeString(profileDoc?.role_track || profileDoc?.roleTrack);
-    const lookingFor = normalizeProfileSignalList(profileDoc?.looking_for || profileDoc?.lookingFor);
-    const canOffer = normalizeProfileSignalList(profileDoc?.can_offer || profileDoc?.canOffer);
-    const availability = sanitizeString(profileDoc?.availability);
-    const workMode = sanitizeString(profileDoc?.work_mode || profileDoc?.workMode);
-    const proofFocus = sanitizeString(profileDoc?.proof_focus || profileDoc?.proofFocus);
-
-    const marketplaceReady =
-        profileDoc?.marketplace_ready === true ||
-        profileDoc?.marketplaceReady === true ||
-        sanitizeString(profileDoc?.marketplace_ready || profileDoc?.marketplaceReady).toLowerCase() === 'yes';
-
     const safeMissions = Array.isArray(missions) ? missions : [];
-    const completedCount = safeMissions.filter((item) => sanitizeString(item?.status).toLowerCase() === 'completed').length;
+    const completedCount = safeMissions.filter((item) => {
+        return sanitizeString(item?.status).toLowerCase() === 'completed';
+    }).length;
+
     const totalCount = safeMissions.length;
     const completionRatio = totalCount > 0 ? completedCount / totalCount : 0;
 
-    let score = 0;
+    let profileScore = 0;
 
-    if (roleTrack) score += 15;
-    if (lookingFor.length > 0) score += 15;
-    if (canOffer.length > 0) score += 20;
-    if (availability) score += 10;
-    if (workMode) score += 10;
-    if (proofFocus) score += 15;
+    if (roleTrack) profileScore += 12;
+    if (lookingFor.length > 0) profileScore += 12;
+    if (canOffer.length > 0) profileScore += 16;
+    if (availability) profileScore += 8;
+    if (workMode) profileScore += 8;
+    if (proofFocus) profileScore += 14;
 
-    if (completionRatio >= 0.8) score += 10;
-    else if (completionRatio >= 0.45) score += 6;
-    else if (completionRatio > 0) score += 3;
+    profileScore = Math.max(0, Math.min(70, profileScore));
+
+    const missionRatioScore =
+        completionRatio >= 0.8
+            ? 10
+            : completionRatio >= 0.45
+                ? 6
+                : completionRatio > 0
+                    ? 3
+                    : 0;
+
+    const missionVolumeScore =
+        completedCount >= 8
+            ? 10
+            : completedCount >= 5
+                ? 8
+                : completedCount >= 3
+                    ? 6
+                    : completedCount > 0
+                        ? 3
+                        : 0;
+
+    const missionExecutionScore = Math.max(
+        0,
+        Math.min(25, missionRatioScore + missionVolumeScore)
+    );
 
     const roadmapReadiness = toNumber(roadmap?.readinessScore, 0);
-    score += Math.max(0, Math.min(5, Math.round(roadmapReadiness / 20)));
+    const roadmapScore = Math.max(0, Math.min(5, Math.round(roadmapReadiness / 20)));
+    const marketplaceScore = marketplaceReady ? 5 : 0;
 
-    score = Math.max(0, Math.min(100, score));
-    const completedCount = safeMissions.filter((item) => sanitizeString(item?.status).toLowerCase() === 'completed').length;
-    const totalCount = safeMissions.length;
-    const completionRatio = totalCount > 0 ? completedCount / totalCount : 0;
-
-    let score = 0;
-
-    if (roleTrack) score += 15;
-    if (lookingFor.length > 0) score += 15;
-    if (canOffer.length > 0) score += 20;
-    if (availability) score += 10;
-    if (workMode) score += 10;
-    if (proofFocus) score += 15;
-
-    if (completionRatio >= 0.8) score += 10;
-    else if (completionRatio >= 0.45) score += 6;
-    else if (completionRatio > 0) score += 3;
-
-    const roadmapReadiness = toNumber(roadmap?.readinessScore, 0);
-    score += Math.max(0, Math.min(5, Math.round(roadmapReadiness / 20)));
-
-    score = Math.max(0, Math.min(100, score));
+    const score = Math.max(
+        0,
+        Math.min(
+            100,
+            profileScore + missionExecutionScore + roadmapScore + marketplaceScore
+        )
+    );
 
     let nextStep = 'Complete your Academy profile and Roadmap missions to build stronger Plaza readiness.';
 
@@ -951,7 +871,6 @@ function buildAcademyPlazaReadinessPayload(profileDoc = {}, roadmap = {}, missio
         }
     };
 }
-
 async function buildAcademyHomePayload(uid, roadmapId = null) {
     const roadmap = roadmapId
         ? await getRoadmapById(uid, roadmapId)
