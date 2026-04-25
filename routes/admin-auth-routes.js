@@ -1647,8 +1647,6 @@ async function appendAdminEconomyNotificationToUser(ownerUid = '', notification 
 
   return normalizedNotification;
 }
-  return normalizedNotification;
-}
 
 apiRouter.post('/api/admin/economy/payments/:paymentId/settle', requireAdminSession, async (req, res) => {
   try {
@@ -4130,7 +4128,7 @@ apiRouter.post('/api/admin/logout', (req, res) => {
 });
 
 return { pageRouter, apiRouter };
-
+}
 module.exports = {
   createAdminRouters,
   createPasswordHash
