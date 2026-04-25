@@ -16397,3 +16397,260 @@ body[data-yh-page="dashboard"] .yh-dashboard-profile-search-btn {
         padding-right: 0;
     }
 }
+/* ========================================================= */
+/* YH UNIVERSAL WALLET / ECONOMY MODAL                       */
+/* ========================================================= */
+
+.yh-wallet-open {
+    overflow: hidden;
+}
+
+.yh-wallet-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: rgba(2, 6, 23, 0.78);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    overflow: auto;
+}
+
+.yh-wallet-modal:not(.hidden-step) {
+    display: flex;
+}
+
+.yh-wallet-dialog {
+    width: min(1120px, 96vw);
+    max-height: min(88vh, 920px);
+    overflow: auto;
+    position: relative;
+    background:
+        radial-gradient(circle at top left, rgba(56, 189, 248, 0.14), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(139, 92, 246, 0.13), transparent 26%),
+        rgba(6, 16, 31, 0.96);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: 26px;
+    padding: clamp(18px, 3vw, 30px);
+    box-shadow: 0 30px 100px rgba(0, 0, 0, 0.55);
+}
+
+.yh-wallet-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 42px;
+    height: 42px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.06);
+    color: #ffffff;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+}
+
+.yh-wallet-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 18px;
+    padding-right: 54px;
+    margin-bottom: 20px;
+}
+
+.yh-wallet-head h2 {
+    margin: 4px 0 8px;
+    font-size: clamp(1.5rem, 3vw, 2.25rem);
+}
+
+.yh-wallet-head p {
+    margin: 0;
+    color: var(--text-muted);
+    max-width: 720px;
+    line-height: 1.7;
+}
+
+.yh-wallet-refresh {
+    width: auto;
+    min-width: 120px;
+}
+
+.yh-wallet-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 16px;
+}
+
+.yh-wallet-stat-card,
+.yh-wallet-panel,
+.yh-wallet-method-card,
+.yh-wallet-ledger-card {
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    background: rgba(15, 23, 42, 0.72);
+    border-radius: 20px;
+}
+
+.yh-wallet-stat-card {
+    padding: 18px;
+}
+
+.yh-wallet-stat-card span,
+.yh-wallet-panel-head span,
+.yh-wallet-method-card span,
+.yh-wallet-ledger-card span,
+.yh-wallet-empty {
+    color: var(--text-muted);
+}
+
+.yh-wallet-stat-card strong {
+    display: block;
+    margin: 8px 0;
+    font-size: clamp(1.35rem, 3vw, 2rem);
+}
+
+.yh-wallet-stat-card small {
+    color: rgba(226, 232, 240, 0.68);
+    line-height: 1.5;
+}
+
+.yh-wallet-grid,
+.yh-wallet-ledger-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.yh-wallet-panel {
+    padding: 18px;
+}
+
+.yh-wallet-panel h3 {
+    margin: 0 0 14px;
+}
+
+.yh-wallet-panel-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 14px;
+}
+
+.yh-wallet-panel-head h3 {
+    margin: 0;
+}
+
+.yh-wallet-method-list,
+.yh-wallet-ledger-list {
+    display: grid;
+    gap: 10px;
+}
+
+.yh-wallet-method-card,
+.yh-wallet-ledger-card {
+    padding: 14px;
+}
+
+.yh-wallet-method-card strong,
+.yh-wallet-ledger-card strong {
+    display: block;
+}
+
+.yh-wallet-method-card small {
+    display: block;
+    margin-top: 5px;
+    color: rgba(226, 232, 240, 0.68);
+}
+
+.yh-wallet-ledger-card {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.yh-wallet-ledger-card > div:last-child {
+    text-align: right;
+}
+
+.yh-wallet-withdrawal-form {
+    display: grid;
+    gap: 14px;
+}
+
+.yh-wallet-form-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.yh-wallet-form-wide {
+    grid-column: span 3;
+}
+
+.yh-wallet-submit {
+    max-width: 360px;
+}
+
+.yh-wallet-empty {
+    padding: 14px;
+    border: 1px dashed rgba(148, 163, 184, 0.22);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.yh-wallet-open-btn {
+    width: auto;
+    min-width: 110px;
+    padding: 10px 16px;
+}
+
+@media (max-width: 900px) {
+    .yh-wallet-head,
+    .yh-wallet-panel-head,
+    .yh-wallet-ledger-card {
+        flex-direction: column;
+    }
+
+    .yh-wallet-refresh,
+    .yh-wallet-submit {
+        width: 100%;
+        max-width: none;
+    }
+
+    .yh-wallet-stats,
+    .yh-wallet-grid,
+    .yh-wallet-ledger-grid,
+    .yh-wallet-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .yh-wallet-form-wide {
+        grid-column: auto;
+    }
+
+    .yh-wallet-ledger-card > div:last-child {
+        text-align: left;
+    }
+}
+
+@media (max-width: 520px) {
+    .yh-wallet-modal {
+        padding: 10px;
+        align-items: stretch;
+    }
+
+    .yh-wallet-dialog {
+        width: 100%;
+        max-height: 94vh;
+        border-radius: 20px;
+        padding: 16px;
+    }
+
+    .yh-wallet-head {
+        padding-right: 46px;
+    }
+}

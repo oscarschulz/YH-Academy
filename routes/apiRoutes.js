@@ -131,6 +131,7 @@ router.get('/payments/my-ledger', auth, paymentControllers.listMyPayments);
 router.post('/payments/federation/connect/requests/:requestId/ledger', auth, paymentControllers.createFederationPaidIntroLedger);
 
 router.get('/payouts/options', auth, paymentControllers.getPayoutOptions);
+router.get('/payouts/balance', auth, paymentControllers.getMyPayoutBalance);
 router.get('/payouts/my-ledger', auth, paymentControllers.listMyPayouts);
 router.post('/payouts/withdrawal-requests', auth, paymentControllers.createWithdrawalRequest);
 

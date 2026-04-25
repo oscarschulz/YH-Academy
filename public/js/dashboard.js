@@ -1207,6 +1207,273 @@ function renderYHEconomicSnapshot() {
         ).trim();
     }
 }
+const YH_WALLET_CACHE_KEY = 'yh_wallet_snapshot_v1';
+
+function formatYHWalletMoney(amount = 0, currency = 'USD') {
+    const cleanCurrency = String(currency || 'USD').trim().toUpperCase() || 'USD';
+    const value = Number(amount || 0);
+
+    try {
+        return new Intl.NumberFormat(undefined, {
+            style: 'currency',
+            currency: cleanCurrency,
+            maximumFractionDigits: 2
+        }).format(Number.isFinite(value) ? value : 0);
+    } catch (_) {
+        return `${cleanCurrency} ${(Number.isFinite(value) ? value : 0).toFixed(2)}`;
+    }
+}
+
+function escapeYHWalletHtml(value = '') {
+    if (typeof academyFeedEscapeHtml === 'function') {
+        return academyFeedEscapeHtml(value);
+    }
+
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function normalizeYHWalletStatusLabel(value = '') {
+    const clean = String(value || '').trim().replace(/[_-]+/g, ' ');
+    return clean ? clean.replace(/\b\w/g, (char) => char.toUpperCase()) : 'Not Set';
+}
+
+async function fetchYHWalletSnapshot(currency = 'USD') {
+    const [
+        paymentOptions,
+        payoutOptions,
+        balanceResult,
+        paymentsResult,
+        payoutsResult
+    ] = await Promise.all([
+        academyAuthedFetch('/api/payments/options', { method: 'GET' }),
+        academyAuthedFetch('/api/payouts/options', { method: 'GET' }),
+        academyAuthedFetch(`/api/payouts/balance?currency=${encodeURIComponent(currency)}`, { method: 'GET' }),
+        academyAuthedFetch('/api/payments/my-ledger', { method: 'GET' }),
+        academyAuthedFetch('/api/payouts/my-ledger', { method: 'GET' })
+    ]);
+
+    const snapshot = {
+        paymentProviders: Array.isArray(paymentOptions?.paymentProviders)
+            ? paymentOptions.paymentProviders
+            : [],
+        payoutMethods: Array.isArray(payoutOptions?.payoutMethods)
+            ? payoutOptions.payoutMethods
+            : [],
+        balance: balanceResult?.balance || {
+            currency,
+            approvedEarnings: 0,
+            reservedWithdrawals: 0,
+            available: 0
+        },
+        payments: Array.isArray(paymentsResult?.payments)
+            ? paymentsResult.payments
+            : [],
+        payouts: Array.isArray(payoutsResult?.payouts)
+            ? payoutsResult.payouts
+            : [],
+        refreshedAt: new Date().toISOString()
+    };
+
+    writeYHJsonCache(YH_WALLET_CACHE_KEY, snapshot);
+    return snapshot;
+}
+
+function renderYHWalletMethods(containerId = '', methods = []) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    if (!Array.isArray(methods) || !methods.length) {
+        container.innerHTML = '<div class="yh-wallet-empty">No methods available yet.</div>';
+        return;
+    }
+
+    container.innerHTML = methods.map((method) => `
+        <article class="yh-wallet-method-card">
+            <strong>${escapeYHWalletHtml(method.label || method.id || 'Method')}</strong>
+            <span>${escapeYHWalletHtml(normalizeYHWalletStatusLabel(method.status || 'available'))}</span>
+            <small>${escapeYHWalletHtml(method.provider || method.id || 'provider-neutral')}</small>
+        </article>
+    `).join('');
+}
+
+function renderYHWalletLedger(containerId = '', records = [], type = 'payment') {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    if (!Array.isArray(records) || !records.length) {
+        container.innerHTML = `<div class="yh-wallet-empty">No ${type === 'payment' ? 'payments' : 'payouts'} yet.</div>`;
+        return;
+    }
+
+    container.innerHTML = records.slice(0, 12).map((record) => {
+        const isPayment = type === 'payment';
+        const title = isPayment
+            ? [record.sourceDivision, record.sourceFeature].filter(Boolean).join(' / ') || 'Payment'
+            : [record.sourceDivision, record.sourceFeature].filter(Boolean).join(' / ') || 'Payout';
+
+        const amount = formatYHWalletMoney(record.amount || 0, record.currency || 'USD');
+        const status = normalizeYHWalletStatusLabel(record.status || 'draft');
+        const meta = isPayment
+            ? `${record.provider || 'unselected'} · ${record.paymentMethod || 'unselected'}`
+            : `${record.method || 'local_bank'} · ${record.provider || 'manual'}`;
+
+        return `
+            <article class="yh-wallet-ledger-card">
+                <div>
+                    <strong>${escapeYHWalletHtml(title)}</strong>
+                    <span>${escapeYHWalletHtml(meta)}</span>
+                </div>
+                <div>
+                    <strong>${escapeYHWalletHtml(amount)}</strong>
+                    <span>${escapeYHWalletHtml(status)}</span>
+                </div>
+            </article>
+        `;
+    }).join('');
+}
+
+function renderYHWalletSnapshot(snapshot = {}) {
+    const balance = snapshot?.balance || {};
+    const currency = balance.currency || 'USD';
+
+    const availableEl = document.getElementById('yh-wallet-available-balance');
+    const approvedEl = document.getElementById('yh-wallet-approved-earnings');
+    const reservedEl = document.getElementById('yh-wallet-reserved-withdrawals');
+
+    if (availableEl) availableEl.textContent = formatYHWalletMoney(balance.available || 0, currency);
+    if (approvedEl) approvedEl.textContent = formatYHWalletMoney(balance.approvedEarnings || 0, currency);
+    if (reservedEl) reservedEl.textContent = formatYHWalletMoney(balance.reservedWithdrawals || 0, currency);
+
+    renderYHWalletMethods('yh-wallet-payment-methods', snapshot.paymentProviders || []);
+    renderYHWalletMethods('yh-wallet-payout-methods', snapshot.payoutMethods || []);
+    renderYHWalletLedger('yh-wallet-payments-list', snapshot.payments || [], 'payment');
+    renderYHWalletLedger('yh-wallet-payouts-list', snapshot.payouts || [], 'payout');
+}
+
+async function refreshYHWalletSnapshot(forceFresh = false) {
+    const currency = String(document.getElementById('yh-wallet-withdraw-currency')?.value || 'USD').trim() || 'USD';
+
+    if (!forceFresh) {
+        const cached = readYHJsonCache(YH_WALLET_CACHE_KEY, null);
+        if (cached && typeof cached === 'object') {
+            renderYHWalletSnapshot(cached);
+        }
+    }
+
+    const snapshot = await fetchYHWalletSnapshot(currency);
+    renderYHWalletSnapshot(snapshot);
+    return snapshot;
+}
+
+function openYHWalletModal() {
+    const modal = document.getElementById('yh-wallet-modal');
+    if (!modal) return;
+
+    modal.classList.remove('hidden-step');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body?.classList.add('yh-wallet-open');
+
+    refreshYHWalletSnapshot(false).catch((error) => {
+        console.error('refreshYHWalletSnapshot error:', error);
+        showToast(error?.message || 'Failed to load wallet.', 'error');
+    });
+}
+
+function closeYHWalletModal() {
+    const modal = document.getElementById('yh-wallet-modal');
+    if (!modal) return;
+
+    modal.classList.add('hidden-step');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body?.classList.remove('yh-wallet-open');
+}
+
+async function submitYHWalletWithdrawal(event) {
+    event?.preventDefault?.();
+
+    const submitBtn = document.querySelector('#yh-wallet-withdrawal-form .yh-wallet-submit');
+    const method = String(document.getElementById('yh-wallet-withdraw-method')?.value || 'local_bank').trim();
+    const currency = String(document.getElementById('yh-wallet-withdraw-currency')?.value || 'USD').trim().toUpperCase() || 'USD';
+    const amount = Number(document.getElementById('yh-wallet-withdraw-amount')?.value || 0);
+
+    if (!amount || amount <= 0) {
+        showToast('Enter a valid withdrawal amount.', 'error');
+        return;
+    }
+
+    const payload = {
+        sourceDivision: 'academy',
+        sourceFeature: 'member_withdrawal',
+        amount,
+        currency,
+        method,
+
+        bankCountry: document.getElementById('yh-wallet-bank-country')?.value || '',
+        bankName: document.getElementById('yh-wallet-bank-name')?.value || '',
+        accountName: document.getElementById('yh-wallet-account-name')?.value || '',
+        accountNumber: document.getElementById('yh-wallet-account-number')?.value || '',
+
+        cardNumber: document.getElementById('yh-wallet-account-number')?.value || '',
+
+        cryptoCurrency: document.getElementById('yh-wallet-crypto-currency')?.value || '',
+        cryptoNetwork: document.getElementById('yh-wallet-crypto-network')?.value || '',
+        walletAddress: document.getElementById('yh-wallet-wallet-address')?.value || '',
+
+        note: document.getElementById('yh-wallet-wallet-address')?.value || ''
+    };
+
+    try {
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.setAttribute('aria-busy', 'true');
+            submitBtn.textContent = 'Submitting...';
+        }
+
+        await academyAuthedFetch('/api/payouts/withdrawal-requests', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+
+        showToast('Withdrawal request submitted for admin review.', 'success');
+        document.getElementById('yh-wallet-withdrawal-form')?.reset();
+        await refreshYHWalletSnapshot(true);
+    } catch (error) {
+        console.error('submitYHWalletWithdrawal error:', error);
+        showToast(error?.message || 'Failed to submit withdrawal request.', 'error');
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.setAttribute('aria-busy', 'false');
+            submitBtn.textContent = 'Submit Withdrawal Request';
+        }
+    }
+}
+
+function bootYHWalletPanel() {
+    document.getElementById('btn-open-yh-wallet')?.addEventListener('click', openYHWalletModal);
+    document.getElementById('yh-wallet-close')?.addEventListener('click', closeYHWalletModal);
+    document.getElementById('yh-wallet-refresh')?.addEventListener('click', () => {
+        refreshYHWalletSnapshot(true)
+            .then(() => showToast('Wallet refreshed.', 'success'))
+            .catch((error) => showToast(error?.message || 'Failed to refresh wallet.', 'error'));
+    });
+
+    document.getElementById('yh-wallet-modal')?.addEventListener('click', (event) => {
+        if (event.target?.id === 'yh-wallet-modal') {
+            closeYHWalletModal();
+        }
+    });
+
+    document.getElementById('yh-wallet-withdrawal-form')?.addEventListener('submit', submitYHWalletWithdrawal);
+}
+
+window.openYHWalletModal = openYHWalletModal;
+window.refreshYHWalletSnapshot = refreshYHWalletSnapshot;
 function redirectToPlazaPage() {
     const plazaUrl = buildPlazaUrl();
 
@@ -1537,6 +1804,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     initUniverseImageLightbox();
     renderYHEconomicSnapshot();
+    bootYHWalletPanel();
     // --- UPDATED NAVIGATION & ROUTING LOGIC ---
 const universeFeatureContent = {
     academy: {

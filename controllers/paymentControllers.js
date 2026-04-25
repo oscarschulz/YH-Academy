@@ -276,6 +276,33 @@ async function resolveAcademyWithdrawalBalance(viewerId = '', currency = 'USD') 
         available
     };
 }
+async function getMyPayoutBalance(req, res) {
+    try {
+        const viewer = getViewer(req);
+        const currency = normalizeWithdrawalCurrency(req.query?.currency || 'USD');
+
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const balance = await resolveAcademyWithdrawalBalance(viewer.id, currency);
+
+        return res.json({
+            success: true,
+            balance
+        });
+    } catch (error) {
+        console.error('get payout balance error:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: error?.message || 'Failed to load payout balance.'
+        });
+    }
+}
 async function createWithdrawalRequest(req, res) {
     try {
         const viewer = getViewer(req);
@@ -391,6 +418,7 @@ module.exports = {
     getPayoutOptions,
     createFederationPaidIntroLedger,
     listMyPayments,
+    getMyPayoutBalance,
     createWithdrawalRequest,
     listMyPayouts
 };
