@@ -186,7 +186,19 @@ function normalizeFederationStatus(value = '', fallback = 'under review') {
 
     return raw;
 }
+function normalizePlazaStatus(value = '', fallback = '') {
+    const raw = String(value || '').trim().toLowerCase();
 
+    if (!raw) return fallback;
+    if (raw === 'approved' || raw === 'active') return 'approved';
+    if (raw === 'under review' || raw === 'pending' || raw === 'pending review' || raw === 'review') return 'under review';
+    if (raw === 'screening' || raw === 'in screening') return 'screening';
+    if (raw === 'shortlisted' || raw === 'shortlist') return 'shortlisted';
+    if (raw === 'waitlisted' || raw === 'waitlist') return 'waitlisted';
+    if (raw === 'rejected' || raw === 'denied' || raw === 'not approved') return 'rejected';
+
+    return raw;
+}
 function getYHTrustTierLabel(academySnapshot = null, plazaSnapshot = null, federationSnapshot = null) {
     const academyApproved = academySnapshot?.canEnterAcademy === true || String(academySnapshot?.applicationStatus || '').trim().toLowerCase() === 'approved';
     const plazaApproved = plazaSnapshot?.canEnterPlaza === true || String(plazaSnapshot?.applicationStatus || '').trim().toLowerCase() === 'approved';
@@ -836,10 +848,74 @@ function buildDashboardPlazaAcademySeed() {
     };
 }
 
+function getDashboardPlazaForcedMembershipType() {
+    const academySnapshot = readYHJsonCache('yh_academy_membership_status_v1', null) || {};
+    const federationSnapshot = readYHJsonCache('yh_federation_access_status_v1', null) || {};
+    const progressionGate = getDashboardDivisionProgressionGate('plaza', getPlazaAccessSnapshot());
+
+    if (
+        academySnapshot?.canEnterAcademy === true ||
+        String(academySnapshot?.applicationStatus || '').trim().toLowerCase() === 'approved'
+    ) {
+        return 'academy';
+    }
+
+    if (
+        federationSnapshot?.canEnterFederation === true ||
+        String(federationSnapshot?.applicationStatus || '').trim().toLowerCase() === 'approved'
+    ) {
+        return 'federation';
+    }
+
+    if (progressionGate.track === 'direct_strategic') {
+        return 'direct_strategic';
+    }
+
+    return '';
+}
+
+function syncDashboardPlazaMembershipTypeControl() {
+    const field = document.getElementById('plazaAppMembershipType');
+    if (!field) return;
+
+    const forcedMembershipType = getDashboardPlazaForcedMembershipType();
+
+    if (forcedMembershipType) {
+        field.value = forcedMembershipType;
+        field.disabled = true;
+        field.dataset.lockedMembershipType = 'true';
+        field.setAttribute('aria-disabled', 'true');
+
+        field.title =
+            forcedMembershipType === 'academy'
+                ? 'Your Plaza application is locked to Academy Progression because your Academy access is already approved.'
+                : forcedMembershipType === 'federation'
+                    ? 'Your Plaza application is locked to Federation because your Federation access is already approved.'
+                    : 'Your Plaza application is locked to Direct Strategic Review because you are not moving through Academy progression yet.';
+
+        return;
+    }
+
+    field.disabled = false;
+    field.dataset.lockedMembershipType = 'false';
+    field.setAttribute('aria-disabled', 'false');
+    field.removeAttribute('title');
+}
+
 function prefillDashboardPlazaApplicationFromAcademy() {
     const seed = buildDashboardPlazaAcademySeed();
 
-    setDashboardPlazaValueIfBlank('plazaAppMembershipType', seed.membershipType);
+    const forcedMembershipType = getDashboardPlazaForcedMembershipType();
+    const membershipField = document.getElementById('plazaAppMembershipType');
+
+    if (membershipField && forcedMembershipType) {
+        membershipField.value = forcedMembershipType;
+    } else {
+        setDashboardPlazaValueIfBlank('plazaAppMembershipType', seed.membershipType);
+    }
+
+    syncDashboardPlazaMembershipTypeControl();
+
     setDashboardPlazaValueIfBlank('plazaAppEmail', seed.email);
     setDashboardPlazaValueIfBlank('plazaAppFullName', seed.fullName);
     setDashboardPlazaValueIfBlank('plazaAppCurrentProject', seed.currentProject);
@@ -1476,20 +1552,6 @@ let plazaAccessStatusRefreshPromise = null;
 let plazaAccessStatusLastFetchAt = 0;
 const PLAZA_ACCESS_STATUS_MIN_REFRESH_GAP_MS = 10000;
 
-function normalizePlazaStatus(value = '') {
-    const raw = String(value || '').trim().toLowerCase();
-
-    if (!raw) return '';
-    if (raw === 'approved' || raw === 'active') return 'approved';
-    if (raw === 'under review' || raw === 'pending' || raw === 'pending review' || raw === 'review') return 'under review';
-    if (raw === 'screening' || raw === 'in screening') return 'screening';
-    if (raw === 'shortlisted' || raw === 'shortlist') return 'shortlisted';
-    if (raw === 'waitlisted' || raw === 'waitlist') return 'waitlisted';
-    if (raw === 'rejected' || raw === 'denied' || raw === 'not approved') return 'rejected';
-
-    return raw;
-}
-
 function getPlazaAccessSnapshot() {
     try {
         const parsed = JSON.parse(localStorage.getItem(YH_PLAZA_ACCESS_STATUS_CACHE_KEY) || '{}');
@@ -2064,6 +2126,8 @@ function restoreDashboardPlazaApplicationDraft() {
         field.value = String(value || '');
     });
 
+    syncDashboardPlazaMembershipTypeControl();
+
     if (typeof syncDashboardPlazaApplicationLabels === 'function') {
         syncDashboardPlazaApplicationLabels();
     }
@@ -2279,8 +2343,10 @@ function buildDashboardPlazaApplicationPayload() {
     const academySeed = buildDashboardPlazaAcademySeed();
     const progressionGate = getDashboardDivisionProgressionGate('plaza', getPlazaAccessSnapshot());
     const academyProgression = progressionGate.academyProgression || getYHAcademyProgressionSnapshot();
+    const forcedMembershipType = getDashboardPlazaForcedMembershipType();
 
     const membershipType =
+        forcedMembershipType ||
         rawMembershipType ||
         (progressionGate.track === 'direct_strategic' ? 'direct_strategic' : rawMembershipType);
 
@@ -2353,7 +2419,12 @@ async function submitDashboardPlazaApplication(event) {
 
     await refreshDashboardAcademyHomeSnapshot(true);
 
-    const membershipType = getDashboardPlazaInputValue('plazaAppMembershipType');
+    syncDashboardPlazaMembershipTypeControl();
+
+    const membershipType =
+        getDashboardPlazaForcedMembershipType() ||
+        getDashboardPlazaInputValue('plazaAppMembershipType');
+
     const progressionGate = getDashboardDivisionProgressionGate('plaza', getPlazaAccessSnapshot());
 
     if (progressionGate.locked) {
