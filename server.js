@@ -802,6 +802,74 @@ async function markRoomAsReadForUser(userId, roomId) {
 
     return true;
 }
+
+function getChatRoomStringArray(roomData = {}, key = '') {
+    return Array.isArray(roomData?.[key])
+        ? roomData[key].map((value) => String(value)).filter(Boolean)
+        : [];
+}
+
+function getChatRoomMemberIds(roomData = {}) {
+    return getChatRoomStringArray(roomData, 'member_ids');
+}
+
+function isChatRoomDirectMessage(roomData = {}) {
+    const roomType = sanitizeText(roomData.room_type || roomData.type).toLowerCase();
+    const memberIds = getChatRoomMemberIds(roomData);
+
+    return roomType === 'dm' || memberIds.length === 2;
+}
+
+async function getUserOwnedChatRoomActionContext(userId = '', roomId = '') {
+    const cleanUserId = sanitizeText(userId);
+    const cleanRoomId = sanitizeText(roomId);
+
+    if (!cleanUserId || !cleanRoomId || cleanRoomId === 'YH-community' || cleanRoomId === 'main-chat') {
+        return {
+            ok: false,
+            status: 400,
+            message: 'Valid private room is required.'
+        };
+    }
+
+    const roomRef = chatRoomsCol.doc(cleanRoomId);
+    const roomSnap = await roomRef.get();
+
+    if (!roomSnap.exists) {
+        return {
+            ok: false,
+            status: 404,
+            message: 'Conversation not found.'
+        };
+    }
+
+    const roomData = roomSnap.data() || {};
+    const memberIds = getChatRoomMemberIds(roomData);
+
+    if (!memberIds.includes(String(cleanUserId))) {
+        return {
+            ok: false,
+            status: 403,
+            message: 'Access denied for this room.'
+        };
+    }
+
+    return {
+        ok: true,
+        roomRef,
+        roomSnap,
+        roomData,
+        memberIds,
+        otherMemberIds: memberIds.filter((memberId) => memberId && memberId !== String(cleanUserId))
+    };
+}
+
+function sendChatRoomActionError(res, context) {
+    return res.status(context?.status || 500).json({
+        success: false,
+        message: context?.message || 'Conversation action failed.'
+    });
+}
 function mapChatMessageDoc(doc) {
     const data = doc.data() || {};
     const authorId = sanitizeText(
@@ -1336,7 +1404,46 @@ io.on('connection', (socket) => {
             if (!roomId || !text) return;
 
             const allowed = await canUserAccessRoom(socket.user.id, roomId);
-            if (!allowed) return;
+            if (!allowed) {
+                socket.emit('sendMessageError', {
+                    roomId,
+                    message: 'You can no longer access this conversation.'
+                });
+                return;
+            }
+
+            const roomRef = chatRoomsCol.doc(roomId);
+            const roomSnap = await roomRef.get();
+            const roomData = roomSnap.exists ? (roomSnap.data() || {}) : {};
+            const memberIds = roomSnap.exists ? getChatRoomMemberIds(roomData) : [];
+
+            if (roomSnap.exists) {
+                const blockedByUserIds = getChatRoomStringArray(roomData, 'blocked_by_user_ids');
+                if (blockedByUserIds.includes(String(socket.user.id))) {
+                    socket.emit('sendMessageError', {
+                        roomId,
+                        message: 'You can no longer send messages in this conversation.'
+                    });
+                    return;
+                }
+
+                const restrictedByUserIds = getChatRoomStringArray(roomData, 'restricted_by_user_ids');
+                const recipientIds = memberIds.filter((memberId) => {
+                    return memberId && memberId !== String(socket.user.id);
+                });
+
+                const recipientRestrictedSender = recipientIds.some((memberId) => {
+                    return restrictedByUserIds.includes(String(memberId));
+                });
+
+                if (recipientRestrictedSender) {
+                    socket.emit('sendMessageError', {
+                        roomId,
+                        message: 'This member has restricted messages from you.'
+                    });
+                    return;
+                }
+            }
 
             const authorName = sanitizeText(socket.user.name || socket.user.username || 'Hustler');
 
@@ -1355,15 +1462,7 @@ io.on('connection', (socket) => {
             const ref = chatMessagesCol.doc();
             await ref.set(payload);
 
-            const roomRef = chatRoomsCol.doc(roomId);
-            const roomSnap = await roomRef.get();
-
             if (roomSnap.exists) {
-                const roomData = roomSnap.data() || {};
-                const memberIds = Array.isArray(roomData.member_ids)
-                    ? roomData.member_ids.map((value) => String(value)).filter(Boolean)
-                    : [];
-
                 const unreadCounts =
                     roomData.unread_counts && typeof roomData.unread_counts === 'object'
                         ? { ...roomData.unread_counts }
@@ -1376,9 +1475,7 @@ io.on('connection', (socket) => {
                             : (Number(unreadCounts[memberId]) || 0) + 1;
                 });
 
-                const hiddenForUserIds = Array.isArray(roomData.hidden_for_user_ids)
-                    ? roomData.hidden_for_user_ids.map((value) => String(value)).filter(Boolean)
-                    : [];
+                const hiddenForUserIds = getChatRoomStringArray(roomData, 'hidden_for_user_ids');
 
                 const nextHiddenForUserIds = hiddenForUserIds.filter((value) => {
                     return !memberIds.includes(String(value));
@@ -2544,6 +2641,140 @@ app.post(
         }
     }
 );
+
+app.patch('/api/realtime/rooms/:roomId/hide', requireApiUser, async (req, res) => {
+    try {
+        const roomId = sanitizeText(req.params.roomId);
+        const userId = sanitizeText(req.user?.id);
+        const context = await getUserOwnedChatRoomActionContext(userId, roomId);
+
+        if (!context.ok) {
+            return sendChatRoomActionError(res, context);
+        }
+
+        await context.roomRef.set({
+            hidden_for_user_ids: FieldValue.arrayUnion(userId),
+            deleted_for_user_ids: FieldValue.arrayUnion(userId),
+            updated_at: Timestamp.now()
+        }, { merge: true });
+
+        return res.json({
+            success: true,
+            roomId,
+            hidden: true,
+            deletedForCurrentUserOnly: true
+        });
+    } catch (error) {
+        console.error('hide realtime room error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to delete conversation from your inbox.'
+        });
+    }
+});
+
+app.patch('/api/realtime/rooms/:roomId/restrict', requireApiUser, async (req, res) => {
+    try {
+        const roomId = sanitizeText(req.params.roomId);
+        const userId = sanitizeText(req.user?.id);
+        const context = await getUserOwnedChatRoomActionContext(userId, roomId);
+
+        if (!context.ok) {
+            return sendChatRoomActionError(res, context);
+        }
+
+        if (!isChatRoomDirectMessage(context.roomData)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Restrict is only available for direct messages.'
+            });
+        }
+
+        const restricted = req.body?.restricted !== false;
+
+        await context.roomRef.set({
+            restricted_by_user_ids: restricted
+                ? FieldValue.arrayUnion(userId)
+                : FieldValue.arrayRemove(userId),
+            updated_at: Timestamp.now()
+        }, { merge: true });
+
+        io.to(roomId).emit('roomAccessUpdated', {
+            roomId,
+            action: 'restrict',
+            restricted,
+            restrictedByUserId: userId
+        });
+
+        return res.json({
+            success: true,
+            roomId,
+            restricted
+        });
+    } catch (error) {
+        console.error('restrict realtime room error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to restrict conversation.'
+        });
+    }
+});
+
+app.patch('/api/realtime/rooms/:roomId/block', requireApiUser, async (req, res) => {
+    try {
+        const roomId = sanitizeText(req.params.roomId);
+        const userId = sanitizeText(req.user?.id);
+        const context = await getUserOwnedChatRoomActionContext(userId, roomId);
+
+        if (!context.ok) {
+            return sendChatRoomActionError(res, context);
+        }
+
+        if (!isChatRoomDirectMessage(context.roomData)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Block is only available for direct messages.'
+            });
+        }
+
+        const blockedUserIds = context.otherMemberIds;
+
+        if (!blockedUserIds.length) {
+            return res.status(400).json({
+                success: false,
+                message: 'No user found to block.'
+            });
+        }
+
+        await context.roomRef.set({
+            blocked_by_user_ids: FieldValue.arrayUnion(...blockedUserIds),
+            blocked_by_owner_user_ids: FieldValue.arrayUnion(userId),
+            hidden_for_user_ids: FieldValue.arrayUnion(userId),
+            updated_at: Timestamp.now()
+        }, { merge: true });
+
+        io.to(roomId).emit('roomAccessUpdated', {
+            roomId,
+            action: 'block',
+            blocked: true,
+            blockedByUserId: userId,
+            blockedUserIds
+        });
+
+        return res.json({
+            success: true,
+            roomId,
+            blocked: true,
+            blockedUserIds
+        });
+    } catch (error) {
+        console.error('block realtime room error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to block conversation.'
+        });
+    }
+});
 
 app.post('/api/realtime/rooms/:roomId/read', requireApiUser, async (req, res) => {
     try {

@@ -952,7 +952,20 @@ function sendSystemNotification(title, text, avatarStr, color, target) {
 
         document.getElementById('notif-dropdown')?.classList.remove('show');
 
-        if (target === 'announcements') document.getElementById('nav-announcements')?.click();
+        if (
+            target === 'wallet' ||
+            target === 'economy' ||
+            target === 'payout' ||
+            target === 'wallet-payout' ||
+            target === 'wallet_payout'
+        ) {
+            try {
+                sessionStorage.setItem('yh_open_wallet_on_dashboard_v1', '1');
+            } catch (_) {}
+
+            window.location.href = '/dashboard?wallet=1';
+        }
+        else if (target === 'announcements') document.getElementById('nav-announcements')?.click();
         else if (target === 'main-chat') document.getElementById('nav-chat')?.click();
         else if (target === 'dm') document.getElementById('btn-open-dm-modal')?.click();
         else if (target === 'profile') {
@@ -2230,6 +2243,32 @@ socket.on('chatHistory', (history) => {
     socket.on('messageDeleted', (msgId) => {
         const bubble = document.querySelector(`.chat-bubble[data-dbid="${msgId}"]`);
         if(bubble) bubble.remove();
+    });
+
+    socket.on('sendMessageError', (payload = {}) => {
+        const message = String(payload?.message || 'Message could not be sent.').trim();
+        showToast(message);
+    });
+
+    socket.on('roomAccessUpdated', async (payload = {}) => {
+        const roomId = normalizeRoomKey(payload?.roomId || payload?.room_id);
+        const activeRoomId =
+            normalizeRoomKey(academyMessagesInboxState.activeRoomId) ||
+            normalizeRoomKey(getActiveRoomId());
+
+        const currentUserId = academyGetCurrentUserIdForRoomModeration();
+        const blockedUserIds = Array.isArray(payload?.blockedUserIds)
+            ? payload.blockedUserIds.map((value) => normalizeAcademyFeedId(value)).filter(Boolean)
+            : [];
+
+        const isBlockedCurrentUser = currentUserId && blockedUserIds.includes(currentUserId);
+
+        if (isBlockedCurrentUser && roomId && activeRoomId === roomId) {
+            academyReturnToMessagesInboxHome();
+            showToast('This conversation is no longer available.');
+        }
+
+        await academyHydrateMessageRooms(true);
     });
 
     function formatAcademyMessageTime(value) {
@@ -4529,6 +4568,21 @@ const updateNotificationBadgeUi = (notifications = []) => {
 
 const openNotificationTarget = (target = '') => {
     const normalized = String(target || '').trim().toLowerCase();
+
+    if (
+        normalized === 'wallet' ||
+        normalized === 'economy' ||
+        normalized === 'payout' ||
+        normalized === 'wallet-payout' ||
+        normalized === 'wallet_payout'
+    ) {
+        try {
+            sessionStorage.setItem('yh_open_wallet_on_dashboard_v1', '1');
+        } catch (_) {}
+
+        window.location.href = '/dashboard?wallet=1';
+        return;
+    }
 
     if (normalized === 'announcements') {
         document.getElementById('nav-announcements')?.click();
@@ -12058,6 +12112,15 @@ function sendAcademyThreadMessage(customText = null) {
     input.value = '';
 }
 
+function academyGetCurrentUserIdForRoomModeration() {
+    return (
+        normalizeAcademyFeedId(getStoredUserValue('yh_user_id', '')) ||
+        normalizeAcademyFeedId(getStoredUserValue('yh_user_uid', '')) ||
+        normalizeAcademyFeedId(getStoredUserValue('yh_user_firebase_uid', '')) ||
+        normalizeAcademyFeedId(getStoredUserValue('yh_user_email', ''))
+    );
+}
+
 function sendAcademyComposerMessage(customText = null) {
     if (academyCoachModeActive) {
         academySendCoachMessage(customText);
@@ -12601,7 +12664,7 @@ async function academyApplyInboxRoomAction(roomId = '', action = '') {
 
     const endpointMap = {
         mute: `/api/realtime/rooms/${encodeURIComponent(normalizedRoomId)}/mute`,
-        restrict: `/api/realtime/rooms/${encodeURIComponent(normalizedRoomId)}/mute`,
+        restrict: `/api/realtime/rooms/${encodeURIComponent(normalizedRoomId)}/restrict`,
         hide: `/api/realtime/rooms/${encodeURIComponent(normalizedRoomId)}/hide`,
         block: `/api/realtime/rooms/${encodeURIComponent(normalizedRoomId)}/block`
     };
@@ -12610,34 +12673,42 @@ async function academyApplyInboxRoomAction(roomId = '', action = '') {
     if (!endpoint) return;
 
     const body =
-        normalizedAction === 'mute' || normalizedAction === 'restrict'
+        normalizedAction === 'mute'
             ? { muted: true }
-            : normalizedAction === 'block'
-                ? { blocked: true }
-                : {};
+            : normalizedAction === 'restrict'
+                ? { restricted: true }
+                : normalizedAction === 'block'
+                    ? { blocked: true }
+                    : {};
 
     const labelMap = {
         mute: 'Conversation muted.',
-        restrict: 'Conversation restricted.',
-        hide: 'Conversation removed from your inbox.',
-        block: 'Conversation blocked.'
+        restrict: 'User restricted. They can no longer send messages to you.',
+        hide: 'Conversation deleted from your inbox only.',
+        block: 'User blocked. They can no longer contact you.'
     };
 
-    await academyAuthedFetch(endpoint, {
-        method: 'PATCH',
-        body: JSON.stringify(body)
-    });
+    try {
+        await academyAuthedFetch(endpoint, {
+            method: 'PATCH',
+            body: JSON.stringify(body)
+        });
 
-    if (normalizedAction === 'hide' || normalizedAction === 'block') {
-        const activeRoomId = normalizeRoomKey(academyMessagesInboxState.activeRoomId);
-        if (activeRoomId && activeRoomId === normalizedRoomId) {
-            academyReturnToMessagesInboxHome();
+        if (normalizedAction === 'hide' || normalizedAction === 'block') {
+            const activeRoomId = normalizeRoomKey(academyMessagesInboxState.activeRoomId);
+            if (activeRoomId && activeRoomId === normalizedRoomId) {
+                academyReturnToMessagesInboxHome();
+            }
         }
-    }
 
-    academyCloseInboxRoomMenu();
-    await academyHydrateMessageRooms(true);
-    showToast(labelMap[normalizedAction] || 'Conversation updated.');
+        academyCloseInboxRoomMenu();
+        academyCloseMessagesThreadMenu();
+        await academyHydrateMessageRooms(true);
+        showToast(labelMap[normalizedAction] || 'Conversation updated.');
+    } catch (error) {
+        const message = String(error?.message || '').trim();
+        showToast(message || 'Failed to update conversation.');
+    }
 }
 
 function academyResolveMessageRoomById(roomId = '') {

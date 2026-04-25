@@ -1492,6 +1492,31 @@ async function submitYHWalletWithdrawal(event) {
     }
 }
 
+function bootYHWalletDeepLink() {
+    let shouldOpenWallet = false;
+
+    try {
+        const url = new URL(window.location.href);
+        shouldOpenWallet =
+            url.searchParams.get('wallet') === '1' ||
+            sessionStorage.getItem('yh_open_wallet_on_dashboard_v1') === '1';
+
+        sessionStorage.removeItem('yh_open_wallet_on_dashboard_v1');
+    } catch (_) {
+        shouldOpenWallet = false;
+    }
+
+    if (!shouldOpenWallet) return;
+
+    window.setTimeout(() => {
+        openYHWalletModal();
+
+        if (typeof refreshYHWalletSnapshot === 'function') {
+            refreshYHWalletSnapshot(true).catch(() => {});
+        }
+    }, 240);
+}
+
 function bootYHWalletPanel() {
     document.getElementById('btn-open-yh-wallet')?.addEventListener('click', openYHWalletModal);
     document.getElementById('yh-wallet-close')?.addEventListener('click', closeYHWalletModal);
@@ -1508,6 +1533,8 @@ function bootYHWalletPanel() {
     });
 
     document.getElementById('yh-wallet-withdrawal-form')?.addEventListener('submit', submitYHWalletWithdrawal);
+
+    bootYHWalletDeepLink();
 }
 
 window.openYHWalletModal = openYHWalletModal;
@@ -5886,6 +5913,25 @@ const updateNotificationBadgeUi = (notifications = []) => {
 
 const openNotificationTarget = (target = '') => {
     const normalized = String(target || '').trim().toLowerCase();
+
+    if (normalized === 'wallet' || normalized === 'economy' || normalized === 'payout') {
+        if (typeof openYHWalletModal === 'function') {
+            openYHWalletModal();
+
+            if (typeof refreshYHWalletSnapshot === 'function') {
+                refreshYHWalletSnapshot(true).catch(() => {});
+            }
+
+            return;
+        }
+
+        try {
+            sessionStorage.setItem('yh_open_wallet_on_dashboard_v1', '1');
+        } catch (_) {}
+
+        window.location.href = '/dashboard';
+        return;
+    }
 
     if (normalized === 'announcements') {
         document.getElementById('nav-announcements')?.click();

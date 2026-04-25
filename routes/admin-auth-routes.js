@@ -1568,6 +1568,87 @@ async function upsertAdminPlazaOpportunityPayoutEarning({
     ...(payoutSnap.data() || {})
   };
 }
+const ADMIN_ECONOMY_NOTIFICATION_LIMIT = 40;
+
+function buildAdminEconomyNotification({
+  id = '',
+  title = '',
+  text = '',
+  target = 'wallet',
+  targetId = '',
+  color = 'var(--green)',
+  avatarStr = '₿',
+  sourceDivision = 'plaza',
+  amount = 0,
+  currency = 'USD'
+} = {}) {
+  const nowIso = new Date().toISOString();
+
+  return {
+    id: cleanText(id || `economy_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`),
+    title: cleanText(title || 'Wallet update'),
+    text: cleanText(text || 'Your Wallet has been updated.'),
+    message: cleanText(text || 'Your Wallet has been updated.'),
+    body: cleanText(text || 'Your Wallet has been updated.'),
+
+    target: cleanText(target || 'wallet'),
+    targetType: cleanText(target || 'wallet'),
+    target_type: cleanText(target || 'wallet'),
+    targetId: cleanText(targetId),
+    target_id: cleanText(targetId),
+
+    color: cleanText(color || 'var(--green)'),
+    avatarStr: cleanText(avatarStr || '₿'),
+    initial: cleanText(avatarStr || '₿'),
+
+    source: 'admin-review',
+    notificationType: 'wallet-payout',
+    sourceDivision: cleanText(sourceDivision || 'plaza'),
+
+    amount: roundAdminMoney(amount),
+    currency: cleanText(currency || 'USD').toUpperCase() || 'USD',
+
+    createdAt: nowIso,
+    created_at: nowIso,
+
+    isRead: false,
+    is_read: false,
+    read: false,
+    readAt: '',
+    read_at: ''
+  };
+}
+
+async function appendAdminEconomyNotificationToUser(ownerUid = '', notification = {}) {
+  const cleanOwnerUid = cleanText(ownerUid);
+
+  if (!cleanOwnerUid) return null;
+
+  const userRef = firestore.collection('users').doc(cleanOwnerUid);
+  const userSnap = await userRef.get();
+  const user = userSnap.exists ? (userSnap.data() || {}) : {};
+
+  const current = Array.isArray(user.inProductReviewNotifications)
+    ? user.inProductReviewNotifications
+    : [];
+
+  const normalizedNotification = buildAdminEconomyNotification(notification);
+  const notificationId = cleanText(normalizedNotification.id);
+
+  const next = [
+    normalizedNotification,
+    ...current.filter((item) => cleanText(item?.id) !== notificationId)
+  ].slice(0, ADMIN_ECONOMY_NOTIFICATION_LIMIT);
+
+  await userRef.set({
+    inProductReviewNotifications: next,
+    updatedAt: new Date().toISOString()
+  }, { merge: true });
+
+  return normalizedNotification;
+}
+  return normalizedNotification;
+}
 
 apiRouter.post('/api/admin/economy/payments/:paymentId/settle', requireAdminSession, async (req, res) => {
   try {
@@ -1691,10 +1772,24 @@ apiRouter.post('/api/admin/economy/payments/:paymentId/settle', requireAdminSess
       adminUsername: cleanText(req.adminSession?.username || 'admin')
     });
 
+    const settlementNotification = await appendAdminEconomyNotificationToUser(ownerUid, {
+      id: `wallet_plaza_paid_${updatedPayment.id}`,
+      title: 'Plaza payout is now available',
+      text: `${opportunityTitle} has been marked paid. ${currency} ${operatorPayoutAmount.toFixed(2)} is now available in your Wallet under Plaza.`,
+      target: 'wallet',
+      targetId: updatedPayment.id,
+      color: 'var(--green)',
+      avatarStr: '₿',
+      sourceDivision: 'plaza',
+      amount: operatorPayoutAmount,
+      currency
+    });
+
     return res.json({
       success: true,
       payment: updatedPayment,
       payoutEarning,
+      notification: settlementNotification,
       opportunity: {
         id: opportunityId,
         paymentLedgerId: updatedPayment.id,
@@ -4035,7 +4130,6 @@ apiRouter.post('/api/admin/logout', (req, res) => {
 });
 
 return { pageRouter, apiRouter };
-}
 
 module.exports = {
   createAdminRouters,
