@@ -288,7 +288,33 @@ function getDashboardAcademyScoreLockedMessage(error = {}, fallback = '') {
 
     return copy || 'Your Academy score is still below the unlock requirement.';
 }
+function isDashboardDivisionOverrideActive(override = null) {
+    if (!override || typeof override !== 'object') return false;
 
+    const active = override.unlocked === true || override.active === true;
+
+    if (!active) return false;
+
+    const expiresAt = String(override.expiresAt || '').trim();
+
+    if (!expiresAt) return true;
+
+    const expiresMs = Date.parse(expiresAt);
+
+    if (!Number.isFinite(expiresMs)) return true;
+
+    return expiresMs > Date.now();
+}
+
+function getDashboardDivisionOverrideCopy(division = 'plaza', override = null) {
+    const label = String(division || '').trim().toLowerCase() === 'federation'
+        ? 'Federation'
+        : 'Plaza';
+
+    const reason = String(override?.reason || '').trim();
+
+    return reason || `Admin manually unlocked your ${label} application gate.`;
+}
 function getYHPlazaDirectoryStatusSnapshot() {
     return readYHJsonCache('yhPlazaDirectoryStatusV1', null) || {};
 }
@@ -351,6 +377,29 @@ function getDashboardDivisionProgressionGate(division = 'plaza', accessSnapshot 
             currentScore: academyProgression.score,
             academyProgression,
             copy: 'Access is already approved.'
+        };
+    }
+
+    const divisionOverride =
+        accessSnapshot?.divisionOverride && typeof accessSnapshot.divisionOverride === 'object'
+            ? accessSnapshot.divisionOverride
+            : (
+                accessSnapshot?.application?.divisionOverride &&
+                typeof accessSnapshot.application.divisionOverride === 'object'
+                    ? accessSnapshot.application.divisionOverride
+                    : null
+            );
+
+    if (isDashboardDivisionOverrideActive(divisionOverride)) {
+        return {
+            locked: false,
+            track: 'admin_override',
+            label: 'Admin Override',
+            requiredScore,
+            currentScore: academyProgression.score,
+            academyProgression,
+            divisionOverride,
+            copy: getDashboardDivisionOverrideCopy(normalizedDivision, divisionOverride)
         };
     }
 
@@ -1555,11 +1604,17 @@ const PLAZA_ACCESS_STATUS_MIN_REFRESH_GAP_MS = 10000;
 function getPlazaAccessSnapshot() {
     try {
         const parsed = JSON.parse(localStorage.getItem(YH_PLAZA_ACCESS_STATUS_CACHE_KEY) || '{}');
+        const application =
+            parsed?.application && typeof parsed.application === 'object'
+                ? parsed.application
+                : null;
+
         return {
             hasApplication: parsed?.hasApplication === true,
             canEnterPlaza: parsed?.canEnterPlaza === true,
             applicationStatus: normalizePlazaStatus(parsed?.applicationStatus || ''),
-            application: parsed?.application && typeof parsed.application === 'object' ? parsed.application : null,
+            application,
+            divisionOverride: parsed?.divisionOverride || application?.divisionOverride || null,
             member: parsed?.member || null
         };
     } catch (_) {
@@ -1568,6 +1623,7 @@ function getPlazaAccessSnapshot() {
             canEnterPlaza: false,
             applicationStatus: '',
             application: null,
+            divisionOverride: null,
             member: null
         };
     }
@@ -1575,11 +1631,17 @@ function getPlazaAccessSnapshot() {
 
 function writePlazaAccessStatusCache(snapshot = {}) {
     try {
+        const application =
+            snapshot?.application && typeof snapshot.application === 'object'
+                ? snapshot.application
+                : null;
+
         localStorage.setItem(YH_PLAZA_ACCESS_STATUS_CACHE_KEY, JSON.stringify({
             hasApplication: snapshot?.hasApplication === true,
             canEnterPlaza: snapshot?.canEnterPlaza === true,
             applicationStatus: normalizePlazaStatus(snapshot?.applicationStatus || ''),
-            application: snapshot?.application || null,
+            application,
+            divisionOverride: snapshot?.divisionOverride || application?.divisionOverride || null,
             member: snapshot?.member || null,
             cachedAt: new Date().toISOString()
         }));
@@ -1600,6 +1662,10 @@ function getPlazaButtonCopy(snapshot = null) {
     }
 
     if (!currentSnapshot?.hasApplication) {
+        if (progressionGate.track === 'admin_override') {
+            return 'Apply via Admin Override ➔';
+        }
+
         return progressionGate.track === 'direct_strategic'
             ? 'Apply for Plaza Strategic Review ➔'
             : 'Apply for the Plaza ➔';
@@ -1652,13 +1718,15 @@ function syncPlazaEntryButton(snapshot = null) {
     if (badge) {
         badge.textContent = currentSnapshot.canEnterPlaza
             ? 'Approved Access'
-            : scoreLocked
-                ? `Score ${progressionGate.currentScore}/${progressionGate.requiredScore}`
-                : currentSnapshot.hasApplication
-                    ? 'Under Review'
-                    : progressionGate.track === 'direct_strategic'
-                        ? 'Strategic Review'
-                        : 'Application Gate';
+            : progressionGate.track === 'admin_override'
+                ? 'Admin Override'
+                : scoreLocked
+                    ? `Score ${progressionGate.currentScore}/${progressionGate.requiredScore}`
+                    : currentSnapshot.hasApplication
+                        ? 'Under Review'
+                        : progressionGate.track === 'direct_strategic'
+                            ? 'Strategic Review'
+                            : 'Application Gate';
     }
 
     if (currentSnapshot.hasApplication || currentSnapshot.canEnterPlaza) {
@@ -1703,6 +1771,7 @@ async function refreshPlazaAccessStatusFromBackend(forceFresh = false) {
                     ''
                 ),
                 application,
+                divisionOverride: result?.divisionOverride || application?.divisionOverride || null,
                 member: result?.member || null
             };
 
@@ -1922,6 +1991,46 @@ function renderDashboardPlazaApplicationForm() {
                     <button type="button" class="btn-primary yh-dashboard-plaza-next" data-dashboard-plaza-next>Continue ➔</button>
                 </div>
 
+                <div class="yh-dashboard-plaza-step" data-dashboard-plaza-step="strategicRole" hidden>
+                    <label class="form-group">
+                        <span>10. What is your strongest strategic role, status, or position?</span>
+                        <textarea id="plazaAppStrategicRole" name="strategicRole" rows="5" class="input-field" placeholder="Example: founder, investor, lawyer, creator, operator, community leader, connector..." required></textarea>
+                    </label>
+                    <button type="button" class="btn-primary yh-dashboard-plaza-next" data-dashboard-plaza-next>Continue ➔</button>
+                </div>
+
+                <div class="yh-dashboard-plaza-step" data-dashboard-plaza-step="strategicProof" hidden>
+                    <label class="form-group">
+                        <span>11. What proof can you show that you are already valuable?</span>
+                        <textarea id="plazaAppStrategicProof" name="strategicProof" rows="5" class="input-field" placeholder="Mention achievements, portfolio, audience, company, projects, revenue, network, leadership, or public proof." required></textarea>
+                    </label>
+                    <button type="button" class="btn-primary yh-dashboard-plaza-next" data-dashboard-plaza-next>Continue ➔</button>
+                </div>
+
+                <div class="yh-dashboard-plaza-step" data-dashboard-plaza-step="audienceOrNetwork" hidden>
+                    <label class="form-group">
+                        <span>12. Describe your audience, network, or access.</span>
+                        <textarea id="plazaAppAudienceOrNetwork" name="audienceOrNetwork" rows="5" class="input-field" placeholder="Who can you reach? What communities, industries, cities, or high-value people do you have access to?" required></textarea>
+                    </label>
+                    <button type="button" class="btn-primary yh-dashboard-plaza-next" data-dashboard-plaza-next>Continue ➔</button>
+                </div>
+
+                <div class="yh-dashboard-plaza-step" data-dashboard-plaza-step="capitalOrAccess" hidden>
+                    <label class="form-group">
+                        <span>13. Do you have capital, deal flow, hiring power, distribution, or useful access?</span>
+                        <textarea id="plazaAppCapitalOrAccess" name="capitalOrAccess" rows="5" class="input-field" placeholder="Explain what kind of leverage you can bring into the Plaza." required></textarea>
+                    </label>
+                    <button type="button" class="btn-primary yh-dashboard-plaza-next" data-dashboard-plaza-next>Continue ➔</button>
+                </div>
+
+                <div class="yh-dashboard-plaza-step" data-dashboard-plaza-step="highValueReason" hidden>
+                    <label class="form-group">
+                        <span>14. Why should admin treat your application as high-value?</span>
+                        <textarea id="plazaAppHighValueReason" name="highValueReason" rows="5" class="input-field" placeholder="Be specific. Explain why you should bypass the normal Academy progression path." required></textarea>
+                    </label>
+                    <button type="button" class="btn-primary yh-dashboard-plaza-next" data-dashboard-plaza-next>Continue ➔</button>
+                </div>
+
                 <div class="yh-dashboard-plaza-step" data-dashboard-plaza-step="wantsPatron" hidden>
                     <label class="form-group">
                         <span>10. Are you planning to become a Patrón or a Leader of the Plaza?</span>
@@ -2042,6 +2151,11 @@ function getDashboardPlazaInputForStep(stepKey = '') {
         joinedAt: 'plazaAppJoinedAt',
         learntSoFar: 'plazaAppLearntSoFar',
         contribution: 'plazaAppContribution',
+        strategicRole: 'plazaAppStrategicRole',
+        strategicProof: 'plazaAppStrategicProof',
+        audienceOrNetwork: 'plazaAppAudienceOrNetwork',
+        capitalOrAccess: 'plazaAppCapitalOrAccess',
+        highValueReason: 'plazaAppHighValueReason',
         wantsPatron: 'plazaAppWantsPatron',
         patronExpectation: 'plazaAppPatronExpectation',
         leadershipExperience: 'plazaAppLeadershipExperience',
@@ -2066,6 +2180,11 @@ function getDashboardPlazaApplicationFieldIds() {
         'plazaAppJoinedAt',
         'plazaAppLearntSoFar',
         'plazaAppContribution',
+        'plazaAppStrategicRole',
+        'plazaAppStrategicProof',
+        'plazaAppAudienceOrNetwork',
+        'plazaAppCapitalOrAccess',
+        'plazaAppHighValueReason',
         'plazaAppWantsPatron',
         'plazaAppPatronExpectation',
         'plazaAppLeadershipExperience',
@@ -2148,17 +2267,98 @@ function clearDashboardPlazaApplicationDraft() {
     } catch (_) {}
 }
 
-function syncDashboardPlazaApplicationLabels() {
+function getDashboardPlazaQuestionCopyMap() {
     const membershipType = getDashboardPlazaInputValue('plazaAppMembershipType');
     const labels = DASHBOARD_PLAZA_MEMBERSHIP_LABELS[membershipType] || DASHBOARD_PLAZA_MEMBERSHIP_LABELS.academy;
 
-    const joinedLabel = document.getElementById('plazaAppJoinedLabel');
-    const learntLabel = document.getElementById('plazaAppLearntLabel');
-    const contributionLabel = document.getElementById('plazaAppContributionLabel');
+    return {
+        membershipType: 'Are you a member of Young Hustlers?',
+        email: 'Drop your best e-mail',
+        fullName: 'Name & Surname',
+        age: 'Age',
+        currentProject: 'What is one project you are currently building or planning?',
+        resourcesNeeded: 'What resources do you need most right now? knowledge, income, network, mentorship, etc.',
+        joinedAt: labels.joined,
+        learntSoFar: labels.learnt,
+        contribution: labels.contribution,
 
-    if (joinedLabel) joinedLabel.textContent = `7. ${labels.joined}`;
-    if (learntLabel) learntLabel.textContent = `8. ${labels.learnt}`;
-    if (contributionLabel) contributionLabel.textContent = `9. ${labels.contribution}`;
+        strategicRole: 'What is your strongest strategic role, status, or position?',
+        strategicProof: 'What proof can you show that you are already valuable?',
+        audienceOrNetwork: 'Describe your audience, network, or access.',
+        capitalOrAccess: 'Do you have capital, deal flow, hiring power, distribution, or useful access?',
+        highValueReason: 'Why should admin treat your application as high-value?',
+
+        wantsPatron: 'Are you planning to become a Patrón or a Leader of the Plaza?',
+        patronExpectation: 'What do you expect if you were to become a Patrón of your Plaza?',
+        leadershipExperience: 'Have you built, managed, or led anything before?',
+        country: 'Country of Residence',
+        wantsMarketplace: 'Do you provide any services/products others in the Plaza could buy, use, or request?',
+        servicesProducts: 'What services/products do you provide?',
+        referredBy: 'Who referred you? If nobody, leave this blank.',
+        howHeard: 'If nobody referred you, how did you hear from us?'
+    };
+}
+
+function syncDashboardPlazaApplicationModeCopy() {
+    const modal = document.getElementById('plaza-apply-modal');
+    const head = modal?.querySelector('.yh-federation-apply-head');
+    if (!head) return;
+
+    const kicker = head.querySelector('.yh-dashboard-federation-kicker');
+    const title = head.querySelector('h2');
+    const copy = head.querySelector('p');
+
+    const membershipType = getDashboardPlazaInputValue('plazaAppMembershipType');
+    const progressionGate = getDashboardDivisionProgressionGate('plaza', getPlazaAccessSnapshot());
+
+    const isDirectStrategic =
+        membershipType === 'direct_strategic' ||
+        progressionGate.track === 'direct_strategic';
+
+    const isAdminOverride = progressionGate.track === 'admin_override';
+
+    if (kicker) {
+        kicker.textContent = isDirectStrategic
+            ? 'Plaza Strategic Review'
+            : isAdminOverride
+                ? 'Plaza Admin Override'
+                : 'Plaza Application';
+    }
+
+    if (title) {
+        title.textContent = isDirectStrategic
+            ? 'Apply for Plaza Strategic Review'
+            : isAdminOverride
+                ? 'Apply through Admin Override'
+                : 'Apply for Plaza Access';
+    }
+
+    if (copy) {
+        copy.textContent = isDirectStrategic
+            ? 'This route is for high-value applicants who are not moving through the normal Academy score ladder. Admin will review your proof, network, capital, access, and strategic contribution.'
+            : isAdminOverride
+                ? 'Admin has manually unlocked this application gate. You can submit even before reaching the normal Academy score requirement.'
+                : 'The Plaza is application-gated. Submit this internal Dashboard form first. Your account stays locked until admin approves your Plaza application.';
+    }
+}
+
+function syncDashboardPlazaDynamicQuestionLabels() {
+    const flow = getDashboardPlazaApplicationFlow().filter((step) => step !== 'stop' && step !== 'submit');
+    const copyMap = getDashboardPlazaQuestionCopyMap();
+
+    flow.forEach((stepKey, index) => {
+        const stepNode = getDashboardPlazaStepNode(stepKey);
+        const labelSpan = stepNode?.querySelector('label.form-group > span');
+
+        if (!labelSpan || !copyMap[stepKey]) return;
+
+        labelSpan.textContent = `${index + 1}. ${copyMap[stepKey]}`;
+    });
+}
+
+function syncDashboardPlazaApplicationLabels() {
+    syncDashboardPlazaApplicationModeCopy();
+    syncDashboardPlazaDynamicQuestionLabels();
 }
 
 function getDashboardPlazaApplicationFlow() {
@@ -2189,9 +2389,20 @@ function getDashboardPlazaApplicationFlow() {
         'resourcesNeeded',
         'joinedAt',
         'learntSoFar',
-        'contribution',
-        'wantsPatron'
+        'contribution'
     );
+
+    if (membershipType === 'direct_strategic') {
+        flow.push(
+            'strategicRole',
+            'strategicProof',
+            'audienceOrNetwork',
+            'capitalOrAccess',
+            'highValueReason'
+        );
+    }
+
+    flow.push('wantsPatron');
 
     if (wantsPatron === 'yes') {
         flow.push('patronExpectation', 'leadershipExperience', 'country');
@@ -2251,6 +2462,11 @@ function setDashboardPlazaActiveStep(stepKey = 'membershipType') {
         'joinedAt',
         'learntSoFar',
         'contribution',
+        'strategicRole',
+        'strategicProof',
+        'audienceOrNetwork',
+        'capitalOrAccess',
+        'highValueReason',
         'wantsPatron',
         'patronExpectation',
         'leadershipExperience',
@@ -2333,6 +2549,7 @@ function goToNextDashboardPlazaStep() {
     const currentIndex = flow.indexOf(dashboardPlazaApplicationCurrentStep);
     const nextStep = flow[currentIndex + 1] || 'submit';
 
+    syncDashboardPlazaApplicationLabels();
     setDashboardPlazaActiveStep(nextStep);
 }
 
@@ -2376,6 +2593,14 @@ function buildDashboardPlazaApplicationPayload() {
         joinedAt: getDashboardPlazaInputValue('plazaAppJoinedAt'),
         learntSoFar: getDashboardPlazaInputValue('plazaAppLearntSoFar'),
         contribution: getDashboardPlazaInputValue('plazaAppContribution'),
+
+        directStrategicProfile: {
+            strategicRole: getDashboardPlazaInputValue('plazaAppStrategicRole'),
+            strategicProof: getDashboardPlazaInputValue('plazaAppStrategicProof'),
+            audienceOrNetwork: getDashboardPlazaInputValue('plazaAppAudienceOrNetwork'),
+            capitalOrAccess: getDashboardPlazaInputValue('plazaAppCapitalOrAccess'),
+            highValueReason: getDashboardPlazaInputValue('plazaAppHighValueReason')
+        },
 
         wantsPatron,
         patronExpectation: wantsPatron === 'yes' ? getDashboardPlazaInputValue('plazaAppPatronExpectation') : '',
@@ -3014,6 +3239,8 @@ document.getElementById('form-federation-apply')?.addEventListener('submit', asy
 
     const form = event.currentTarget;
     const submitBtn = document.getElementById('btn-submit-federation-application');
+
+    syncFederationDirectStrategicApplicationMode();
 
     if (!form.checkValidity()) {
         form.reportValidity();
@@ -13866,7 +14093,8 @@ function getFederationAccessSnapshot() {
             canEnterFederation: true,
             applicationStatus: 'approved',
             member,
-            application: application || cached?.application || null
+            application: application || cached?.application || null,
+            divisionOverride: application?.divisionOverride || cached?.divisionOverride || cached?.application?.divisionOverride || null
         };
     }
 
@@ -13878,7 +14106,8 @@ function getFederationAccessSnapshot() {
             canEnterFederation: status === 'approved',
             applicationStatus: status || 'under review',
             member: null,
-            application
+            application,
+            divisionOverride: application?.divisionOverride || null
         };
     }
 
@@ -13899,7 +14128,8 @@ function getFederationAccessSnapshot() {
             canEnterFederation: status === 'approved',
             applicationStatus: status || 'under review',
             member: null,
-            application: cachedApplication
+            application: cachedApplication,
+            divisionOverride: cached?.divisionOverride || cachedApplication?.divisionOverride || null
         };
     }
 
@@ -13908,7 +14138,8 @@ function getFederationAccessSnapshot() {
         canEnterFederation: false,
         applicationStatus: '',
         member: null,
-        application: null
+        application: null,
+        divisionOverride: null
     };
 }
 
@@ -14063,9 +14294,13 @@ function syncFederationEntryButton() {
     const progressionGate = getDashboardDivisionProgressionGate('federation', snapshot);
     const scoreLocked = progressionGate.locked === true;
 
+    const adminOverrideUnlocked = progressionGate.track === 'admin_override';
+
     const label = scoreLocked
         ? `Locked: Academy Score ${progressionGate.currentScore}/${progressionGate.requiredScore}`
-        : getFederationButtonCopy(snapshot);
+        : adminOverrideUnlocked && !snapshot.canEnterFederation
+            ? 'Apply via Admin Override'
+            : getFederationButtonCopy(snapshot);
 
     const pendingLocked = isFederationPendingLocked(snapshot);
     const locked = pendingLocked || scoreLocked;
@@ -14102,6 +14337,9 @@ function syncFederationEntryButton() {
         if (scoreLocked) {
             stateBadge.classList.remove('is-hidden');
             stateBadge.textContent = `Score ${progressionGate.currentScore}/${progressionGate.requiredScore}`;
+        } else if (adminOverrideUnlocked && !snapshot.canEnterFederation) {
+            stateBadge.classList.remove('is-hidden');
+            stateBadge.textContent = 'Admin Override';
         } else {
             stateBadge.classList.add('is-hidden');
             stateBadge.textContent = '';
@@ -14184,6 +14422,7 @@ async function openFederationApplicationModal() {
 
     runDashboardApplicationFormLoader('Opening Federation Application...', () => {
         prefillFederationApplicationForm();
+        syncFederationDirectStrategicApplicationMode();
         modal.classList.remove('hidden-step');
         document.body?.classList.add('federation-application-open');
         resetSingleQuestionApplicationForm('form-federation-apply');
@@ -14197,7 +14436,53 @@ function closeFederationApplicationModal() {
     modal.classList.add('hidden-step');
     document.body?.classList.remove('federation-application-open');
 }
+function isDashboardFederationDirectStrategicMode() {
+    const progressionGate = getDashboardDivisionProgressionGate('federation', getFederationAccessSnapshot());
+    return progressionGate.track === 'direct_strategic';
+}
 
+function syncFederationDirectStrategicApplicationMode() {
+    const isDirectStrategic = isDashboardFederationDirectStrategicMode();
+    const section = document.getElementById('fed-direct-strategic-section');
+
+    if (section) {
+        section.hidden = !isDirectStrategic;
+    }
+
+    [
+        'fed-app-direct-authority-proof',
+        'fed-app-direct-proof-links',
+        'fed-app-direct-network-size',
+        'fed-app-direct-capital-access'
+    ].forEach((id) => {
+        const field = document.getElementById(id);
+        if (!field) return;
+
+        field.required = isDirectStrategic;
+        field.disabled = !isDirectStrategic;
+    });
+
+    const optionalRiskField = document.getElementById('fed-app-direct-risk-note');
+    if (optionalRiskField) {
+        optionalRiskField.disabled = !isDirectStrategic;
+    }
+
+    const head = document.querySelector('#federation-apply-modal .yh-federation-apply-head');
+    const title = head?.querySelector('h2');
+    const copy = head?.querySelector('p');
+
+    if (title) {
+        title.textContent = isDirectStrategic
+            ? 'Apply for Federation Strategic Review'
+            : 'Apply for Federation Access';
+    }
+
+    if (copy) {
+        copy.textContent = isDirectStrategic
+            ? 'This route is for high-value applicants who are not moving through the normal Academy score ladder. Admin will review your authority, proof, network, capital, and strategic value.'
+            : 'Apply to enter the private strategic layer of Young Hustlers. Access is reviewed based on trust, leverage, network value, regional relevance, and your ability to contribute or request high-value introductions.';
+    }
+}
 function collectFederationApplicationPayload(form) {
     const identity = getCurrentFederationApplicantIdentity();
     const strategic = getDashboardFederationStrategicSnapshot();
@@ -14229,6 +14514,12 @@ function collectFederationApplicationPayload(form) {
     const contactTypesCanProvideRaw = String(document.getElementById('fed-app-contact-types-can-provide')?.value || '').trim();
     const supplyRegions = String(document.getElementById('fed-app-supply-regions')?.value || '').trim();
     const openToAdminMatching = String(document.getElementById('fed-app-open-admin-matching')?.value || '').trim();
+
+    const directAuthorityProof = String(document.getElementById('fed-app-direct-authority-proof')?.value || '').trim();
+    const directProofLinks = String(document.getElementById('fed-app-direct-proof-links')?.value || '').trim();
+    const directNetworkSize = String(document.getElementById('fed-app-direct-network-size')?.value || '').trim();
+    const directCapitalAccess = String(document.getElementById('fed-app-direct-capital-access')?.value || '').trim();
+    const directRiskNote = String(document.getElementById('fed-app-direct-risk-note')?.value || '').trim();
 
     const federationTags = Array.from(new Set([
         ...normalizeFederationListValue(contactTypesCanProvideRaw),
@@ -14264,6 +14555,14 @@ function collectFederationApplicationPayload(form) {
             completedCount: academyProgression.completedCount,
             totalCount: academyProgression.totalCount,
             missionExecutionScore: academyProgression.missionExecutionScore
+        },
+
+        directStrategicProof: {
+            authorityProof: directAuthorityProof,
+            proofLinks: directProofLinks,
+            networkSize: directNetworkSize,
+            capitalAccess: directCapitalAccess,
+            riskNote: directRiskNote
         },
 
         name: fullName || identity.name || 'Federation Applicant',
@@ -14375,6 +14674,7 @@ async function refreshFederationAccessStatusFromBackend(forceFresh = false) {
                     ''
                 ),
                 application,
+                divisionOverride: result?.divisionOverride || application?.divisionOverride || null,
                 member: result?.member || null
             };
 
@@ -14450,7 +14750,8 @@ function queueFederationApplication(payload = {}) {
         hasApplication: true,
         canEnterFederation: false,
         applicationStatus: normalizeFederationStatus(payload.status || 'under review'),
-        application: payload
+        application: payload,
+        divisionOverride: payload.divisionOverride || null
     });
 
     return payload;

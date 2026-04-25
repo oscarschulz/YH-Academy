@@ -2825,12 +2825,14 @@ async function getPlazaAccessSnapshotForUser(userId = '', requestUser = {}) {
     );
 
     const approved = isPlazaApprovedServerUser(user);
+    const divisionOverride = getUserDivisionOverride(user, 'plaza');
 
     return {
         hasApplication: Boolean(application || status),
         canEnterPlaza: approved,
         applicationStatus: status,
         application,
+        divisionOverride,
         member: approved ? buildPlazaMemberSnapshot(normalizedUserId, user, requestUser) : null
     };
 }
@@ -3100,6 +3102,7 @@ app.get('/api/federation/me', requireApiUser, async (req, res) => {
             applicationStatus: rawStatus,
             canEnterFederation: fedState.approved,
             member: fedState.member,
+            divisionOverride: getUserDivisionOverride(user, 'federation'),
             referrals
         });
     } catch (error) {
@@ -4404,12 +4407,15 @@ app.get('/api/federation/application-status', requireApiUser, async (req, res) =
             user.hasFederationAccess === true ||
             status.toLowerCase() === 'approved';
 
+        const divisionOverride = getUserDivisionOverride(user, 'federation');
+
         return res.json({
             success: true,
             hasApplication: Boolean(application),
             canEnterFederation: approved,
             applicationStatus: status,
             application,
+            divisionOverride,
             member: approved
                 ? {
                     id: userId,
@@ -4529,6 +4535,16 @@ app.post('/api/federation/application', requireApiUser, async (req, res) => {
             directStrategicApplicant: applicationTrack === 'direct_strategic',
             academySignalSnapshot,
             academyUnlockRequirement,
+            directStrategicProof:
+                body.directStrategicProof && typeof body.directStrategicProof === 'object'
+                    ? {
+                        authorityProof: sanitizeText(body.directStrategicProof.authorityProof).slice(0, 2500),
+                        proofLinks: sanitizeText(body.directStrategicProof.proofLinks).slice(0, 1800),
+                        networkSize: sanitizeText(body.directStrategicProof.networkSize).slice(0, 900),
+                        capitalAccess: sanitizeText(body.directStrategicProof.capitalAccess).slice(0, 900),
+                        riskNote: sanitizeText(body.directStrategicProof.riskNote).slice(0, 1200)
+                    }
+                    : {},
 
             name: fullName,
             fullName,
@@ -4883,6 +4899,34 @@ function getSafeObject(value = {}) {
         : {};
 }
 
+function isDivisionOverrideActive(override = {}) {
+    const data = getSafeObject(override);
+    const active = data.unlocked === true || data.active === true;
+
+    if (!active) return false;
+
+    const expiresAt = sanitizeText(data.expiresAt || '');
+
+    if (!expiresAt) return true;
+
+    const expiresMs = Date.parse(expiresAt);
+
+    if (!Number.isFinite(expiresMs)) return true;
+
+    return expiresMs > Date.now();
+}
+
+function getUserDivisionOverride(user = {}, division = 'plaza') {
+    const normalizedDivision = sanitizeText(division).toLowerCase() === 'federation'
+        ? 'federation'
+        : 'plaza';
+
+    const overrides = getSafeObject(user.divisionApplicationOverrides);
+    const override = getSafeObject(overrides[normalizedDivision]);
+
+    return isDivisionOverrideActive(override) ? override : null;
+}
+
 function normalizeDivisionApplicationTrack(value = '', fallback = 'academy_progression') {
     const raw = sanitizeText(value).toLowerCase();
 
@@ -4901,7 +4945,8 @@ function buildServerAcademyUnlockRequirement({
     division = 'plaza',
     track = 'academy_progression',
     academySignalSnapshot = {},
-    academyUnlockRequirement = {}
+    academyUnlockRequirement = {},
+    divisionOverride = null
 } = {}) {
     const normalizedDivision = sanitizeText(division).toLowerCase() === 'federation'
         ? 'federation'
@@ -4927,6 +4972,20 @@ function buildServerAcademyUnlockRequirement({
     );
 
     const normalizedTrack = normalizeDivisionApplicationTrack(track);
+    const activeOverride = getSafeObject(divisionOverride);
+
+    if (isDivisionOverrideActive(activeOverride)) {
+        return {
+            division: normalizedDivision,
+            track: 'admin_override',
+            requiredScore,
+            currentScore,
+            unlocked: true,
+            label: 'Admin Override',
+            copy: sanitizeText(activeOverride.reason || '') || `Admin manually unlocked ${normalizedDivision} application access.`,
+            divisionOverride: activeOverride
+        };
+    }
 
     if (normalizedTrack === 'direct_strategic') {
         return {
@@ -5015,6 +5074,15 @@ async function buildServerDivisionGatePayloadForUser({
     track = 'academy_progression'
 } = {}) {
     let homePayload = null;
+    let userRecord = {};
+
+    try {
+        const userSnap = await firestore.collection('users').doc(userId).get();
+        userRecord = userSnap.exists ? (userSnap.data() || {}) : {};
+    } catch (error) {
+        console.error('buildServerDivisionGatePayloadForUser user override error:', error);
+        userRecord = {};
+    }
 
     try {
         homePayload = await academyFirestoreRepo.buildAcademyHomePayload(userId);
@@ -5057,16 +5125,20 @@ async function buildServerDivisionGatePayloadForUser({
         proofFocus: sanitizeText(profileSignals.proofFocus || '')
     };
 
+    const divisionOverride = getUserDivisionOverride(userRecord, division);
+
     const academyUnlockRequirement = buildServerAcademyUnlockRequirement({
         division,
         track,
         academySignalSnapshot,
-        academyUnlockRequirement: {}
+        academyUnlockRequirement: {},
+        divisionOverride
     });
 
     return {
         academySignalSnapshot,
-        academyUnlockRequirement
+        academyUnlockRequirement,
+        divisionOverride
     };
 }
 
@@ -5204,6 +5276,11 @@ app.post(['/api/plaza/application', '/api/plaza/applications'], requireApiUser, 
         const wantsPatron = normalizePlazaYesNo(body.wantsPatron);
         const wantsMarketplace = normalizePlazaYesNo(body.wantsMarketplace);
 
+        const directStrategicProfileSource =
+            body.directStrategicProfile && typeof body.directStrategicProfile === 'object'
+                ? body.directStrategicProfile
+                : {};
+
         const applicationData = {
             schemaVersion: normalizePlazaApplicationShort(body.schemaVersion || 'plaza-typeform-clone-v1'),
             membershipType,
@@ -5224,6 +5301,14 @@ app.post(['/api/plaza/application', '/api/plaza/applications'], requireApiUser, 
             joinedAt: normalizePlazaApplicationShort(body.joinedAt, 160),
             learntSoFar: normalizePlazaApplicationLong(body.learntSoFar),
             contribution: normalizePlazaApplicationLong(body.contribution),
+
+            directStrategicProfile: {
+                strategicRole: normalizePlazaApplicationLong(directStrategicProfileSource.strategicRole, 1200),
+                strategicProof: normalizePlazaApplicationLong(directStrategicProfileSource.strategicProof, 1800),
+                audienceOrNetwork: normalizePlazaApplicationLong(directStrategicProfileSource.audienceOrNetwork, 1800),
+                capitalOrAccess: normalizePlazaApplicationLong(directStrategicProfileSource.capitalOrAccess, 1800),
+                highValueReason: normalizePlazaApplicationLong(directStrategicProfileSource.highValueReason, 1800)
+            },
 
             wantsPatron,
             patronExpectation: wantsPatron === 'yes'
@@ -5260,6 +5345,29 @@ app.post(['/api/plaza/application', '/api/plaza/applications'], requireApiUser, 
                     : `What you can contribute as a ${membershipType === 'academy' ? 'Academy' : 'Federation'} member`
             );
         }
+
+        if (membershipType === 'direct_strategic') {
+            if (!applicationData.directStrategicProfile.strategicRole) {
+                missingFields.push('Strategic role / status');
+            }
+
+            if (!applicationData.directStrategicProfile.strategicProof) {
+                missingFields.push('Strategic proof');
+            }
+
+            if (!applicationData.directStrategicProfile.audienceOrNetwork) {
+                missingFields.push('Audience, network, or access');
+            }
+
+            if (!applicationData.directStrategicProfile.capitalOrAccess) {
+                missingFields.push('Capital, deal flow, hiring power, or useful access');
+            }
+
+            if (!applicationData.directStrategicProfile.highValueReason) {
+                missingFields.push('Why admin should treat this as high-value');
+            }
+        }
+
         if (!applicationData.wantsPatron) missingFields.push('Patrón / Leader answer');
         if (!applicationData.country) missingFields.push('Country of Residence');
         if (!applicationData.wantsMarketplace) missingFields.push('Marketplace answer');
@@ -5334,6 +5442,14 @@ app.post(['/api/plaza/application', '/api/plaza/applications'], requireApiUser, 
                         ? 'What high-value contribution can you bring into Plaza?'
                         : `What can you contribute as a ${membershipType === 'academy' ? 'Academy' : 'Federation'} member?`,
                     answer: applicationData.contribution
+                },
+                directStrategicProfile: {
+                    question: 'Direct strategic applicant proof',
+                    strategicRole: applicationData.directStrategicProfile.strategicRole || '',
+                    strategicProof: applicationData.directStrategicProfile.strategicProof || '',
+                    audienceOrNetwork: applicationData.directStrategicProfile.audienceOrNetwork || '',
+                    capitalOrAccess: applicationData.directStrategicProfile.capitalOrAccess || '',
+                    highValueReason: applicationData.directStrategicProfile.highValueReason || ''
                 },
                 patronTrack: {
                     question: 'Are you planning to become a Patrón or a Leader of the Plaza?',

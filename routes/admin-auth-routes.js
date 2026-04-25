@@ -1021,6 +1021,10 @@ const applications = users.flatMap((user) => {
         app.academyUnlockRequirement && typeof app.academyUnlockRequirement === 'object'
           ? app.academyUnlockRequirement
           : {},
+      directStrategicProof:
+        app.directStrategicProof && typeof app.directStrategicProof === 'object'
+          ? app.directStrategicProof
+          : {},
 
       role: cleanText(app.role || app.profession || ''),
       profession: cleanText(app.profession || app.role || ''),
@@ -1092,6 +1096,10 @@ const applications = users.flatMap((user) => {
       academyUnlockRequirement:
         app.academyUnlockRequirement && typeof app.academyUnlockRequirement === 'object'
           ? app.academyUnlockRequirement
+          : {},
+      directStrategicProfile:
+        app.directStrategicProfile && typeof app.directStrategicProfile === 'object'
+          ? app.directStrategicProfile
           : {},
 
       membershipType: cleanText(app.membershipType || ''),
@@ -3574,7 +3582,170 @@ apiRouter.post('/api/admin/broadcasts', requireAdminSession, async (req, res) =>
     });
   }
 });
+apiRouter.post('/api/admin/applications/:applicationId/division-override', requireAdminSession, async (req, res) => {
+  try {
+    const applicationId = cleanText(req.params.applicationId);
+    const requestedDivision = cleanText(req.body?.division || '').toLowerCase();
+    const unlocked = req.body?.unlocked === true;
+    const reason = cleanText(req.body?.reason || req.body?.adminNote || '');
+    const expiresAt = cleanText(req.body?.expiresAt || '');
 
+    if (!applicationId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Application id is required.'
+      });
+    }
+
+    const usersSnap = await firestore.collection('users').limit(5000).get();
+
+    let matchedUserDoc = null;
+    let matchedUser = null;
+    let matchedField = '';
+    let inferredDivision = '';
+
+    usersSnap.forEach((docSnap) => {
+      if (matchedUserDoc) return;
+
+      const user = docSnap.data() || {};
+      const plazaApplication =
+        user.plazaApplication && typeof user.plazaApplication === 'object'
+          ? user.plazaApplication
+          : null;
+
+      const federationApplication =
+        user.federationApplication && typeof user.federationApplication === 'object'
+          ? user.federationApplication
+          : null;
+
+      if (cleanText(plazaApplication?.id) === applicationId) {
+        matchedUserDoc = docSnap;
+        matchedUser = user;
+        matchedField = 'plazaApplication';
+        inferredDivision = 'plaza';
+        return;
+      }
+
+      if (cleanText(federationApplication?.id) === applicationId) {
+        matchedUserDoc = docSnap;
+        matchedUser = user;
+        matchedField = 'federationApplication';
+        inferredDivision = 'federation';
+      }
+    });
+
+    if (!matchedUserDoc || !matchedUser || !matchedField) {
+      return res.status(404).json({
+        success: false,
+        message: 'Application owner not found.'
+      });
+    }
+
+    const division = ['plaza', 'federation'].includes(requestedDivision)
+      ? requestedDivision
+      : inferredDivision;
+
+    if (!['plaza', 'federation'].includes(division)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Division must be plaza or federation.'
+      });
+    }
+
+    const nowIso = new Date().toISOString();
+
+    const override = {
+      division,
+      active: unlocked,
+      unlocked,
+      status: unlocked ? 'active' : 'inactive',
+      reason: reason || (unlocked
+        ? `Manual ${division} application unlock granted by admin.`
+        : `Manual ${division} application unlock removed by admin.`),
+      expiresAt,
+      updatedAt: nowIso,
+      updatedBy: cleanText(req.adminSession?.username || 'admin')
+    };
+
+    const existingOverrides =
+      matchedUser.divisionApplicationOverrides &&
+      typeof matchedUser.divisionApplicationOverrides === 'object'
+        ? matchedUser.divisionApplicationOverrides
+        : {};
+
+    const currentApplication =
+      matchedUser[matchedField] && typeof matchedUser[matchedField] === 'object'
+        ? matchedUser[matchedField]
+        : {};
+
+    const currentRequirement =
+      currentApplication.academyUnlockRequirement &&
+      typeof currentApplication.academyUnlockRequirement === 'object'
+        ? currentApplication.academyUnlockRequirement
+        : {};
+
+    const currentTrack = cleanText(currentRequirement.track || '').toLowerCase();
+    const shouldRestoreDirectStrategic =
+      currentApplication.directStrategicApplicant === true ||
+      cleanText(currentApplication.applicationTrack || '').toLowerCase() === 'direct_strategic' ||
+      cleanText(currentApplication.membershipType || '').toLowerCase() === 'direct_strategic';
+
+    const restoredTrack = shouldRestoreDirectStrategic
+      ? 'direct_strategic'
+      : 'academy_progression';
+
+    const nextRequirement = {
+      ...currentRequirement,
+      track: unlocked
+        ? 'admin_override'
+        : currentTrack === 'admin_override'
+          ? restoredTrack
+          : (currentRequirement.track || restoredTrack),
+      unlocked,
+      label: unlocked
+        ? 'Admin Override'
+        : shouldRestoreDirectStrategic
+          ? 'Direct Strategic Review'
+          : (currentRequirement.label === 'Admin Override' ? 'Academy Score Locked' : (currentRequirement.label || 'Academy Score Locked')),
+      copy: override.reason,
+      divisionOverride: override
+    };
+
+    const nextApplication = {
+      ...currentApplication,
+      divisionOverride: override,
+      academyUnlockRequirement: nextRequirement,
+      updatedAt: nowIso,
+      adminOverrideUpdatedAt: nowIso,
+      adminOverrideUpdatedBy: override.updatedBy
+    };
+
+    await matchedUserDoc.ref.set({
+      divisionApplicationOverrides: {
+        ...existingOverrides,
+        [division]: override
+      },
+      [matchedField]: nextApplication,
+      updatedAt: nowIso,
+      adminDivisionOverrideUpdatedAt: nowIso,
+      adminDivisionOverrideUpdatedBy: override.updatedBy
+    }, { merge: true });
+
+    return res.json({
+      success: true,
+      division,
+      override,
+      application: nextApplication
+    });
+  } catch (error) {
+    console.error('admin division override error:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update division override.'
+    });
+  }
+});
 apiRouter.post('/api/admin/logout', (req, res) => {
   const env = getEnvConfig();
   const cookies = parseCookies(req);

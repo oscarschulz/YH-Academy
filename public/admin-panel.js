@@ -674,6 +674,25 @@ function normalizeAdminApplicationRecord(record = {}) {
       record.academyUnlockRequirement && typeof record.academyUnlockRequirement === 'object'
         ? record.academyUnlockRequirement
         : {},
+    divisionOverride:
+      record.divisionOverride && typeof record.divisionOverride === 'object'
+        ? record.divisionOverride
+        : (
+          record.academyUnlockRequirement &&
+          typeof record.academyUnlockRequirement === 'object' &&
+          record.academyUnlockRequirement.divisionOverride &&
+          typeof record.academyUnlockRequirement.divisionOverride === 'object'
+            ? record.academyUnlockRequirement.divisionOverride
+            : null
+        ),
+    directStrategicProfile:
+      record.directStrategicProfile && typeof record.directStrategicProfile === 'object'
+        ? record.directStrategicProfile
+        : {},
+    directStrategicProof:
+      record.directStrategicProof && typeof record.directStrategicProof === 'object'
+        ? record.directStrategicProof
+        : {},
 
     roles: isFederation ? profile.roles : toAdminStringArray(record.roles),
     level: isFederation ? profile.level : String(record.level || '').trim(),
@@ -1373,7 +1392,96 @@ function buildFederationProfileMapMarkup(record = {}) {
     </div>
   `;
 }
+function buildAdminDirectStrategicApplicationMarkup(record = {}) {
+  const isDirect =
+    record.directStrategicApplicant === true ||
+    String(record.applicationTrack || '').trim().toLowerCase() === 'direct_strategic';
 
+  if (!isDirect) return '';
+
+  const plazaProfile =
+    record.directStrategicProfile && typeof record.directStrategicProfile === 'object'
+      ? record.directStrategicProfile
+      : {};
+
+  const federationProof =
+    record.directStrategicProof && typeof record.directStrategicProof === 'object'
+      ? record.directStrategicProof
+      : {};
+
+  const hasPlazaProof = Object.keys(plazaProfile).some((key) => {
+    return String(plazaProfile[key] || '').trim();
+  });
+
+  const hasFederationProof = Object.keys(federationProof).some((key) => {
+    return String(federationProof[key] || '').trim();
+  });
+
+  if (!hasPlazaProof && !hasFederationProof) return '';
+
+  return `
+    <div class="drawer-section federation-profile-map-section">
+      <h4>Direct Strategic Review Proof</h4>
+      <p class="muted">Extra proof submitted because this applicant is applying outside the normal Academy progression ladder.</p>
+
+      <div class="answer-stack federation-map-stack">
+        ${
+          hasPlazaProof
+            ? `
+              <div class="answer-card">
+                <span class="answer-label">Strategic Role / Status</span>
+                <p>${escapeHtml(plazaProfile.strategicRole || '—')}</p>
+              </div>
+              <div class="answer-card">
+                <span class="answer-label">Strategic Proof</span>
+                <p>${escapeHtml(plazaProfile.strategicProof || '—')}</p>
+              </div>
+              <div class="answer-card">
+                <span class="answer-label">Audience / Network / Access</span>
+                <p>${escapeHtml(plazaProfile.audienceOrNetwork || '—')}</p>
+              </div>
+              <div class="answer-card">
+                <span class="answer-label">Capital / Deal Flow / Hiring Power</span>
+                <p>${escapeHtml(plazaProfile.capitalOrAccess || '—')}</p>
+              </div>
+              <div class="answer-card">
+                <span class="answer-label">Why High-Value</span>
+                <p>${escapeHtml(plazaProfile.highValueReason || '—')}</p>
+              </div>
+            `
+            : ''
+        }
+
+        ${
+          hasFederationProof
+            ? `
+              <div class="answer-card">
+                <span class="answer-label">Authority Proof</span>
+                <p>${escapeHtml(federationProof.authorityProof || '—')}</p>
+              </div>
+              <div class="answer-card">
+                <span class="answer-label">Proof Links / References</span>
+                <p>${escapeHtml(federationProof.proofLinks || '—')}</p>
+              </div>
+              <div class="answer-card">
+                <span class="answer-label">Audience / Network Size</span>
+                <p>${escapeHtml(federationProof.networkSize || '—')}</p>
+              </div>
+              <div class="answer-card">
+                <span class="answer-label">Capital / Deal / Hiring Access</span>
+                <p>${escapeHtml(federationProof.capitalAccess || '—')}</p>
+              </div>
+              <div class="answer-card">
+                <span class="answer-label">Risk / Verification Note</span>
+                <p>${escapeHtml(federationProof.riskNote || '—')}</p>
+              </div>
+            `
+            : ''
+        }
+      </div>
+    </div>
+  `;
+}
 function buildStrategicReadinessSnapshotMarkup(record = {}) {
   if (!isFederationApplicationRecord(record)) return '';
 
@@ -2168,7 +2276,7 @@ function renderOverview() {
             ${makeCell('Goal / Background', getApplicationPreviewMarkup(app))}
             ${makeCell('Recommended', formatBadge(app.recommendedDivision || 'Academy'))}
             ${makeCell('Status', formatBadge(app.status || 'Under Review'))}
-            ${makeCell('Score / Tier', buildApplicationScoreMarkup(app))}
+            ${makeCell('Score / Gate', buildAdminApplicationQueueSignalMarkup(app))}
             ${makeCell('Actions', `<button class="badge-btn" data-open="application" data-id="${app.id}">View Form</button>`)}
           </tr>
         `;
@@ -2196,11 +2304,13 @@ function renderOverview() {
 function renderApplications() {
   const statusFilter = document.getElementById('applications-status-filter').value;
   const divisionFilter = document.getElementById('applications-division-filter').value;
+  const gateFilter = document.getElementById('applications-gate-filter')?.value || 'all';
   const query = state.ui.globalSearch;
 
   const rows = state.applications.filter(app => {
     return (statusFilter === 'all' || app.status === statusFilter)
       && (divisionFilter === 'all' || app.recommendedDivision === divisionFilter)
+      && matchesAdminApplicationGateFilter(app, gateFilter)
       && matchesSearch(app, query);
   });
 
@@ -2222,7 +2332,7 @@ function renderApplications() {
         ${makeCell('Goal / Background', getApplicationPreviewMarkup(app))}
         ${makeCell('Recommended', formatBadge(app.recommendedDivision))}
         ${makeCell('Status', formatBadge(appStatus))}
-        ${makeCell('AI Score', `${Number(app.aiScore || 0)}`)}
+        ${makeCell('Score / Gate', buildAdminApplicationQueueSignalMarkup(app))}
         ${makeCell('Actions', decisionActionsMarkup)}
       </tr>
     `;
@@ -3229,7 +3339,189 @@ function formatAdminApplicationTrackLabel(value = '', directStrategic = false) {
     ? raw.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
     : 'Not Set';
 }
+function isAdminDivisionOverrideActive(override = null) {
+  if (!override || typeof override !== 'object') return false;
 
+  const active = override.unlocked === true || override.active === true;
+
+  if (!active) return false;
+
+  const expiresAt = String(override.expiresAt || '').trim();
+
+  if (!expiresAt) return true;
+
+  const expiresMs = Date.parse(expiresAt);
+
+  if (!Number.isFinite(expiresMs)) return true;
+
+  return expiresMs > Date.now();
+}
+
+function getAdminApplicationDivision(record = {}) {
+  const raw = String(
+    record.recommendedDivision ||
+    record.division ||
+    record.reviewLane ||
+    record.applicationType ||
+    ''
+  ).trim().toLowerCase();
+
+  if (raw.includes('federation')) return 'federation';
+  if (raw.includes('plaza')) return 'plaza';
+
+  return '';
+}
+
+function buildAdminDivisionOverrideActions(record = {}) {
+  const id = String(record.id || '').trim();
+  const division = getAdminApplicationDivision(record);
+  const override =
+    record.divisionOverride && typeof record.divisionOverride === 'object'
+      ? record.divisionOverride
+      : (
+        record.academyUnlockRequirement &&
+        typeof record.academyUnlockRequirement === 'object' &&
+        record.academyUnlockRequirement.divisionOverride &&
+        typeof record.academyUnlockRequirement.divisionOverride === 'object'
+          ? record.academyUnlockRequirement.divisionOverride
+          : null
+      );
+
+  if (!id || !division) return '';
+
+  const active = isAdminDivisionOverrideActive(override);
+
+  return `
+    <div class="table-actions" style="margin-top:14px;">
+      <button data-action="application-set-override" data-id="${escapeHtml(id)}">
+        ${active ? 'Update Manual Unlock' : 'Manual Unlock'}
+      </button>
+      ${
+        active
+          ? `<button data-action="application-clear-override" data-id="${escapeHtml(id)}">Remove Unlock</button>`
+          : ''
+      }
+      ${
+        active
+          ? `<span class="admin-decision-final">Admin Override Active</span>`
+          : ''
+      }
+    </div>
+  `;
+}
+function getAdminApplicationGateSignal(record = {}) {
+  const requirement =
+    record.academyUnlockRequirement && typeof record.academyUnlockRequirement === 'object'
+      ? record.academyUnlockRequirement
+      : {};
+
+  const override =
+    record.divisionOverride && typeof record.divisionOverride === 'object'
+      ? record.divisionOverride
+      : (
+        requirement.divisionOverride && typeof requirement.divisionOverride === 'object'
+          ? requirement.divisionOverride
+          : null
+      );
+
+  if (isAdminDivisionOverrideActive(override)) {
+    return {
+      key: 'manual_override',
+      label: 'Manual Override Active',
+      badge: 'Admin Override'
+    };
+  }
+
+  const track = String(record.applicationTrack || requirement.track || '').trim().toLowerCase();
+  const directStrategic =
+    record.directStrategicApplicant === true ||
+    track === 'direct_strategic';
+
+  if (directStrategic) {
+    return {
+      key: 'direct_strategic',
+      label: 'Direct Strategic Review',
+      badge: 'Strategic Review'
+    };
+  }
+
+  if (requirement.unlocked === false) {
+    return {
+      key: 'score_locked',
+      label: 'Academy Score Locked',
+      badge: 'Score Locked'
+    };
+  }
+
+  if (requirement.unlocked === true && track === 'academy_progression') {
+    return {
+      key: 'eligible_by_score',
+      label: 'Eligible by Score',
+      badge: 'Eligible'
+    };
+  }
+
+  if (track === 'academy_progression') {
+    return {
+      key: 'academy_progression',
+      label: 'Academy Progression',
+      badge: 'Progression'
+    };
+  }
+
+  if (track === 'approved') {
+    return {
+      key: 'approved',
+      label: 'Approved Access',
+      badge: 'Approved'
+    };
+  }
+
+  return {
+    key: 'not_set',
+    label: 'Not Set',
+    badge: 'Not Set'
+  };
+}
+
+function buildAdminApplicationQueueSignalMarkup(record = {}) {
+  const signal = getAdminApplicationGateSignal(record);
+  const requirement =
+    record.academyUnlockRequirement && typeof record.academyUnlockRequirement === 'object'
+      ? record.academyUnlockRequirement
+      : {};
+
+  const academySignal =
+    record.academySignalSnapshot && typeof record.academySignalSnapshot === 'object'
+      ? record.academySignalSnapshot
+      : {};
+
+  const score = Number(
+    academySignal.readinessScore ??
+    requirement.currentScore ??
+    record.aiScore ??
+    0
+  );
+
+  const requiredScore = Number(requirement.requiredScore || 0);
+
+  return `
+    <div class="application-gate-cell">
+      <div>${formatBadge(signal.badge)}</div>
+      <div class="muted mono" style="margin-top:6px;">
+        ${escapeHtml(String(score || 0))}${requiredScore ? ` / ${escapeHtml(String(requiredScore))}` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function matchesAdminApplicationGateFilter(record = {}, gateFilter = 'all') {
+  const filter = String(gateFilter || 'all').trim();
+
+  if (filter === 'all') return true;
+
+  return getAdminApplicationGateSignal(record).key === filter;
+}
 function buildAdminAcademySignalMarkup(record = {}) {
   const signal =
     record.academySignalSnapshot && typeof record.academySignalSnapshot === 'object'
@@ -3241,9 +3533,19 @@ function buildAdminAcademySignalMarkup(record = {}) {
       ? record.academyUnlockRequirement
       : {};
 
+  const divisionOverride =
+    record.divisionOverride && typeof record.divisionOverride === 'object'
+      ? record.divisionOverride
+      : (
+        requirement.divisionOverride && typeof requirement.divisionOverride === 'object'
+          ? requirement.divisionOverride
+          : null
+      );
+
   const hasSignal =
     Object.keys(signal).length > 0 ||
     Object.keys(requirement).length > 0 ||
+    Boolean(divisionOverride) ||
     record.applicationTrack ||
     record.directStrategicApplicant === true;
 
@@ -3294,6 +3596,7 @@ function buildAdminAcademySignalMarkup(record = {}) {
           ? `<p class="muted" style="margin-top:12px;">${escapeHtml(requirement.copy)}</p>`
           : ''
       }
+      ${buildAdminDivisionOverrideActions(record)}
     </div>
   `;
 }
@@ -3411,6 +3714,7 @@ if (type === 'application') {
     ${buildAdminAcademySignalMarkup(record)}
     ${federationProfileMarkup}
     ${buildStrategicReadinessSnapshotMarkup(record)}
+    ${buildAdminDirectStrategicApplicationMarkup(record)}
     <div class="drawer-section">
       <h4>Identity & Routing</h4>
       <div class="kv-grid application-kv-grid">
@@ -5099,6 +5403,114 @@ case 'waitlist-application': {
   }
   break;
 }
+
+case 'application-set-override': {
+  try {
+    const application = findById('applications', id);
+
+    if (!application) {
+      throw new Error('Application not found.');
+    }
+
+    const division = getAdminApplicationDivision(application);
+
+    if (!division) {
+      throw new Error('Only Plaza and Federation applications can receive manual unlock overrides.');
+    }
+
+    const modalResult = await openAdminInlineModal({
+      title: 'Manual Division Unlock',
+      description: 'Unlock this application gate even if the Academy score requirement has not been reached.',
+      submitLabel: 'Save Unlock',
+      fields: [
+        {
+          name: 'division',
+          label: 'Division',
+          type: 'text',
+          value: division,
+          required: true
+        },
+        {
+          name: 'adminNote',
+          label: 'Override Reason',
+          type: 'textarea',
+          rows: 5,
+          value: 'Manual admin unlock for strategic review.',
+          required: true
+        },
+        {
+          name: 'expiresAt',
+          label: 'Expiry ISO Date — optional',
+          type: 'text',
+          placeholder: 'Example: 2026-12-31T23:59:59.000Z',
+          value: ''
+        }
+      ]
+    });
+
+    if (!modalResult) return;
+
+    await adminFetchJson(`/api/admin/applications/${encodeURIComponent(id)}/division-override`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        division: String(modalResult.division || division).trim().toLowerCase(),
+        unlocked: true,
+        reason: modalResult.adminNote,
+        expiresAt: modalResult.expiresAt
+      })
+    });
+
+    await loadAdminBootstrap();
+    openDrawer('application', id);
+    showToast('Manual application unlock saved.');
+  } catch (error) {
+    showToast(error.message || 'Failed to save manual unlock.');
+  }
+  break;
+}
+
+case 'application-clear-override': {
+  try {
+    const application = findById('applications', id);
+
+    if (!application) {
+      throw new Error('Application not found.');
+    }
+
+    const division = getAdminApplicationDivision(application);
+
+    if (!division) {
+      throw new Error('Only Plaza and Federation applications can remove manual unlock overrides.');
+    }
+
+    const confirmed = window.confirm('Remove this manual unlock override?');
+
+    if (!confirmed) return;
+
+    await adminFetchJson(`/api/admin/applications/${encodeURIComponent(id)}/division-override`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        division,
+        unlocked: false,
+        reason: 'Manual unlock removed by admin.'
+      })
+    });
+
+    await loadAdminBootstrap();
+    openDrawer('application', id);
+    showToast('Manual application unlock removed.');
+  } catch (error) {
+    showToast(error.message || 'Failed to remove manual unlock.');
+  }
+  break;
+}
+
     case 'toggle-member-status': {
       const member = findById('members', id);
       if (!member) return;
