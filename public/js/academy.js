@@ -10503,10 +10503,36 @@ async function syncAcademyLeadRecruitmentProfileToBackend(profile = {}) {
 
 function openAcademyLeadEntryModal() {
     const modal = document.getElementById('academy-lead-entry-modal');
+    const form = document.getElementById('academy-lead-entry-form');
+
     if (!modal) return;
+
+    if (form) {
+        form.reset();
+
+        const currencyInput = document.getElementById('lead-sale-currency');
+        const saleEnabledInput = document.getElementById('lead-sale-enabled');
+
+        if (currencyInput) currencyInput.value = 'USD';
+        if (saleEnabledInput) saleEnabledInput.value = 'true';
+    }
 
     modal.classList.remove('hidden-step');
     modal.setAttribute('aria-hidden', 'false');
+}
+
+function closeAcademyLeadEntryModal() {
+    const modal = document.getElementById('academy-lead-entry-modal');
+    const form = document.getElementById('academy-lead-entry-form');
+
+    if (modal) {
+        modal.classList.add('hidden-step');
+        modal.setAttribute('aria-hidden', 'true');
+    }
+
+    if (form) {
+        form.reset();
+    }
 }
 
 function syncAcademyWithdrawalMethodFields() {
