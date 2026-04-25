@@ -10797,7 +10797,6 @@ function renderAcademyAssignedMissions(leads = []) {
                         <th>Mission</th>
                         <th>Brief</th>
                         <th>Value</th>
-                        <th>Commission</th>
                         <th>Status</th>
                         <th>Assigned By</th>
                         <th>Assigned</th>
@@ -10816,10 +10815,6 @@ function renderAcademyAssignedMissions(leads = []) {
                             </td>
                             <td>${academyLeadSafeText(item.missionBrief || item.academyMissionNeed || item.nextAction || 'Admin will define the task.')}</td>
                             <td>${academyLeadSafeText(academyLeadGetAssignedMissionValue(item))}</td>
-                            <td>
-                                ${academyLeadSafeText(academyLeadFormatMoney(item.platformCommissionAmount || 0, item.currency || 'USD'))}
-                                <div class="academy-lead-list-meta">${academyLeadSafeText(`${item.platformCommissionRate || 0}% platform rate`)}</div>
-                            </td>
                             <td>${academyLeadSafeText(academyLeadFormatStatus(item.assignmentStatus || item.taskStatus || item.pipelineStage || 'assigned'))}</td>
                             <td>${academyLeadSafeText(item.assignedByAdmin || 'admin')}</td>
                             <td>${academyLeadFormatDate(item.assignedAt || item.updatedAt || item.createdAt)}</td>
@@ -11268,7 +11263,6 @@ function renderLeadMissionsPayouts(payouts = []) {
                         <th>Deal Value</th>
                         <th>Status</th>
                         <th>Payment</th>
-                        <th>Commission</th>
                         <th>Approved / Paid</th>
                     </tr>
                 </thead>
@@ -11291,10 +11285,6 @@ function renderLeadMissionsPayouts(payouts = []) {
                                 <div class="academy-lead-list-meta">Payout: ${academyLeadSafeText(academyLeadFormatStatus(item.payoutStatus || 'not_requested'))}</div>
                             </td>
                             <td>${academyLeadSafeText(academyLeadFormatStatus(item.paymentStatus, 'not_started'))}</td>
-                            <td>
-                                ${academyFeedEscapeHtml(academyLeadFormatMoney(item.platformCommissionAmount, item.currency))}
-                                <div class="academy-lead-list-meta">${academyLeadSafeText(`${item.platformCommissionRate || 0}% rate`)}</div>
-                            </td>
                             <td>
                                 ${academyLeadFormatDate(item.approvedAt)}
                                 <div class="academy-lead-list-meta">Paid: ${academyLeadFormatDate(item.paidAt)}</div>
@@ -11780,6 +11770,13 @@ document.getElementById('academy-lead-entry-form')?.addEventListener('submit', a
     const formData = new FormData(form);
 
     const payload = Object.fromEntries(formData.entries());
+
+    delete payload.universeCommissionRate;
+    delete payload.universeCommissionAmount;
+    delete payload.platformCommissionRate;
+    delete payload.platformCommissionAmount;
+    delete payload.operatorPayoutAmount;
+    delete payload.buyerPriceAmount;
 
     try {
         if (submitBtn) {

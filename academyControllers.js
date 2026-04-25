@@ -6220,6 +6220,13 @@ exports.createLeadMissionLead = async (req, res) => {
 
         const payload = normalizeLeadMissionPayload(req.body || {});
 
+        payload.universeCommissionRate = 0;
+        payload.universeCommissionAmount = 0;
+        payload.platformCommissionRate = 0;
+        payload.platformCommissionAmount = 0;
+        payload.operatorPayoutAmount = 0;
+        payload.buyerPriceAmount = Math.max(0, Number(payload.sellerPriceAmount || 0));
+
         if (!payload.tier || !payload.companyName) {
             return res.status(400).json({
                 success: false,
@@ -6289,6 +6296,14 @@ exports.updateMyLeadMissionLead = async (req, res) => {
         }
 
         const payload = normalizeLeadMissionPayload(req.body || {});
+
+        delete payload.universeCommissionRate;
+        delete payload.universeCommissionAmount;
+        delete payload.platformCommissionRate;
+        delete payload.platformCommissionAmount;
+        delete payload.operatorPayoutAmount;
+        delete payload.buyerPriceAmount;
+
         const lead = await academyFirestoreRepo.updateLeadMissionLead(uid, leadId, payload);
 
         if (!lead) {

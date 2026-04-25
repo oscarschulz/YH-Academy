@@ -1648,7 +1648,7 @@ async function createLeadMissionLead(uid, payload = {}) {
 
     const sellerPriceAmount = Math.max(0, toNumber(payload.sellerPriceAmount, 0));
     const currency = sanitizeString(payload.currency || 'USD').toUpperCase() || 'USD';
-    const universeCommissionRate = Math.max(0, Math.min(100, toNumber(payload.universeCommissionRate, 20)));
+    const universeCommissionRate = Math.max(0, Math.min(100, toNumber(payload.universeCommissionRate, 0)));
     const universeCommissionAmount = sellerPriceAmount > 0
         ? Number(((sellerPriceAmount * universeCommissionRate) / 100).toFixed(2))
         : 0;
