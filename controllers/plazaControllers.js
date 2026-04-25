@@ -41,6 +41,100 @@ function mapTimestamp(value) {
     return String(value || '');
 }
 
+function getPublicProfileAvatar(data = {}) {
+    return sanitizeText(
+        data.avatar ||
+        data.profilePhoto ||
+        data.photoURL ||
+        data.academyAvatar ||
+        data.profile_photo ||
+        ''
+    );
+}
+
+function getPublicProfileName(data = {}) {
+    return sanitizeText(
+        data.fullName ||
+        data.displayName ||
+        data.name ||
+        data.username ||
+        'Hustler'
+    );
+}
+
+function getPlazaOwnerId(item = {}) {
+    return sanitizeText(
+        item.userId ||
+        item.authorId ||
+        item.authorFirebaseUid ||
+        item.createdByUserId ||
+        item.ownerUid ||
+        ''
+    );
+}
+
+async function hydratePlazaOwnerProfiles(items = []) {
+    const safeItems = Array.isArray(items) ? items : [];
+
+    const ownerIds = [
+        ...new Set(
+            safeItems
+                .map((item) => getPlazaOwnerId(item))
+                .filter(Boolean)
+        )
+    ];
+
+    if (!ownerIds.length) return safeItems;
+
+    const profileMap = new Map();
+
+    await Promise.all(
+        ownerIds.map(async (ownerId) => {
+            try {
+                const snap = await firestore.collection('users').doc(ownerId).get();
+                if (!snap.exists) return;
+
+                const data = snap.data() || {};
+                const avatar = getPublicProfileAvatar(data);
+                const name = getPublicProfileName(data);
+
+                profileMap.set(ownerId, {
+                    id: ownerId,
+                    name,
+                    avatar,
+                    profilePhoto: avatar,
+                    photoURL: avatar,
+                    username: sanitizeText(data.username || '')
+                });
+            } catch (_) {}
+        })
+    );
+
+    return safeItems.map((item) => {
+        const ownerId = getPlazaOwnerId(item);
+        const profile = profileMap.get(ownerId) || {};
+
+        const avatar =
+            sanitizeText(item.avatar) ||
+            sanitizeText(item.authorAvatar) ||
+            sanitizeText(item.profilePhoto) ||
+            sanitizeText(item.photoURL) ||
+            sanitizeText(profile.avatar);
+
+        return {
+            ...item,
+            userId: sanitizeText(item.userId || ownerId),
+            authorId: sanitizeText(item.authorId || ownerId),
+            authorName: sanitizeText(item.authorName || item.name || profile.name || 'Hustler'),
+            avatar,
+            authorAvatar: avatar,
+            profilePhoto: avatar,
+            photoURL: avatar,
+            username: sanitizeText(item.username || profile.username || '')
+        };
+    });
+}
+
 function normalizeFeedType(value = '') {
     const raw = sanitizeText(value).toLowerCase();
 
@@ -77,9 +171,14 @@ function mapPlazaFeedDoc(docSnap) {
         text: sanitizeText(data.text || data.body || ''),
         tag: sanitizeText(data.tag || getFeedTypeTag(type)),
         action: sanitizeText(data.action || 'Open'),
-        authorId: sanitizeText(data.authorId || data.createdByUserId),
+        userId: sanitizeText(data.userId || data.authorId || data.createdByUserId),
+        authorId: sanitizeText(data.authorId || data.userId || data.createdByUserId),
         authorName: sanitizeText(data.authorName || data.member || 'Hustler'),
         authorEmail: sanitizeText(data.authorEmail).toLowerCase(),
+        avatar: getPublicProfileAvatar(data),
+        authorAvatar: getPublicProfileAvatar(data),
+        profilePhoto: getPublicProfileAvatar(data),
+        photoURL: getPublicProfileAvatar(data),
         createdAt: mapTimestamp(data.createdAt),
         updatedAt: mapTimestamp(data.updatedAt)
     };
@@ -158,9 +257,14 @@ function mapPlazaOpportunityDoc(docSnap) {
         sourceLeadId: sanitizeText(data.sourceLeadId || ''),
         academySignalLabel: sanitizeText(data.academySignalLabel || ''),
 
-        authorId: sanitizeText(data.authorId || data.createdByUserId),
-        authorName: sanitizeText(data.authorName || 'Hustler'),
+        userId: sanitizeText(data.userId || data.authorId || data.createdByUserId || data.ownerUid),
+        authorId: sanitizeText(data.authorId || data.userId || data.createdByUserId || data.ownerUid),
+        authorName: sanitizeText(data.authorName || data.ownerName || 'Hustler'),
         authorEmail: sanitizeText(data.authorEmail).toLowerCase(),
+        avatar: getPublicProfileAvatar(data),
+        authorAvatar: getPublicProfileAvatar(data),
+        profilePhoto: getPublicProfileAvatar(data),
+        photoURL: getPublicProfileAvatar(data),
         status: sanitizeText(data.status || 'active'),
         createdAt: mapTimestamp(data.createdAt),
         updatedAt: mapTimestamp(data.updatedAt)
@@ -218,9 +322,14 @@ function mapPlazaDirectoryDoc(docSnap) {
         availability: sanitizeText(data.availability || ''),
         workMode: sanitizeText(data.workMode || data.work_mode || ''),
         marketplaceMode: sanitizeText(data.marketplaceMode || data.marketplace_mode || 'no').toLowerCase() === 'yes' ? 'yes' : 'no',
-        authorId: sanitizeText(data.authorId || data.userId),
+        userId: sanitizeText(data.userId || data.authorId || docSnap.id),
+        authorId: sanitizeText(data.authorId || data.userId || docSnap.id),
         authorName: sanitizeText(data.authorName || data.name || 'Hustler'),
         authorEmail: sanitizeText(data.authorEmail).toLowerCase(),
+        avatar: getPublicProfileAvatar(data),
+        authorAvatar: getPublicProfileAvatar(data),
+        profilePhoto: getPublicProfileAvatar(data),
+        photoURL: getPublicProfileAvatar(data),
         status: sanitizeText(data.status || 'active'),
         createdAt: mapTimestamp(data.createdAt),
         updatedAt: mapTimestamp(data.updatedAt)
@@ -543,9 +652,11 @@ exports.getFeed = async (req, res) => {
             feed.push(mapPlazaFeedDoc(docSnap));
         });
 
+        const hydratedFeed = await hydratePlazaOwnerProfiles(feed);
+
         return res.json({
             success: true,
-            feed
+            feed: hydratedFeed
         });
     } catch (error) {
         console.error('plazaControllers.getFeed error:', error);
@@ -616,9 +727,11 @@ exports.createFeedPost = async (req, res) => {
         const ref = await plazaFeedCol.add(payload);
         const createdSnap = await ref.get();
 
+        const hydratedPost = await hydratePlazaOwnerProfiles([mapPlazaFeedDoc(createdSnap)]);
+
         return res.status(201).json({
             success: true,
-            post: mapPlazaFeedDoc(createdSnap)
+            post: hydratedPost[0] || mapPlazaFeedDoc(createdSnap)
         });
     } catch (error) {
         console.error('plazaControllers.createFeedPost error:', error);
@@ -661,9 +774,11 @@ exports.getOpportunities = async (req, res) => {
             opportunities.push(mapPlazaOpportunityDoc(docSnap));
         });
 
+        const hydratedOpportunities = await hydratePlazaOwnerProfiles(opportunities);
+
         return res.json({
             success: true,
-            opportunities
+            opportunities: hydratedOpportunities
         });
     } catch (error) {
         console.error('plazaControllers.getOpportunities error:', error);
@@ -755,9 +870,11 @@ exports.createOpportunity = async (req, res) => {
         const ref = await plazaOpportunitiesCol.add(payload);
         const createdSnap = await ref.get();
 
+        const hydratedOpportunity = await hydratePlazaOwnerProfiles([mapPlazaOpportunityDoc(createdSnap)]);
+
         return res.status(201).json({
             success: true,
-            opportunity: mapPlazaOpportunityDoc(createdSnap)
+            opportunity: hydratedOpportunity[0] || mapPlazaOpportunityDoc(createdSnap)
         });
     } catch (error) {
         console.error('plazaControllers.createOpportunity error:', error);
@@ -800,9 +917,11 @@ exports.getDirectory = async (req, res) => {
             directory.push(mapPlazaDirectoryDoc(docSnap));
         });
 
+        const hydratedDirectory = await hydratePlazaOwnerProfiles(directory);
+
         return res.json({
             success: true,
-            directory
+            directory: hydratedDirectory
         });
     } catch (error) {
         console.error('plazaControllers.getDirectory error:', error);
@@ -887,9 +1006,11 @@ exports.upsertDirectoryProfile = async (req, res) => {
 
         const updatedSnap = await ref.get();
 
+        const hydratedProfile = await hydratePlazaOwnerProfiles([mapPlazaDirectoryDoc(updatedSnap)]);
+
         return res.status(existingSnap.exists ? 200 : 201).json({
             success: true,
-            profile: mapPlazaDirectoryDoc(updatedSnap)
+            profile: hydratedProfile[0] || mapPlazaDirectoryDoc(updatedSnap)
         });
     } catch (error) {
         console.error('plazaControllers.upsertDirectoryProfile error:', error);

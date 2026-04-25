@@ -4215,7 +4215,58 @@ exports.updateCurrentProfile = async (req, res) => {
                     req.body?.searchTags ??
                     req.body?.tags
                 )
-                : normalizeAcademyProfileTags(currentProfile.search_tags)
+                : normalizeAcademyProfileTags(currentProfile.search_tags),
+
+            role_track: sanitize(
+                req.body?.role_track ||
+                req.body?.roleTrack ||
+                currentProfile.role_track ||
+                currentProfile.roleTrack ||
+                ''
+            ).slice(0, 80),
+
+            looking_for: normalizeUniverseSignalList(
+                req.body?.looking_for ||
+                req.body?.lookingFor ||
+                currentProfile.looking_for ||
+                currentProfile.lookingFor ||
+                []
+            ),
+
+            can_offer: normalizeUniverseSignalList(
+                req.body?.can_offer ||
+                req.body?.canOffer ||
+                currentProfile.can_offer ||
+                currentProfile.canOffer ||
+                []
+            ),
+
+            availability: sanitize(
+                req.body?.availability ||
+                currentProfile.availability ||
+                ''
+            ).slice(0, 48),
+
+            work_mode: sanitize(
+                req.body?.work_mode ||
+                req.body?.workMode ||
+                currentProfile.work_mode ||
+                currentProfile.workMode ||
+                ''
+            ).slice(0, 48),
+
+            proof_focus: sanitize(
+                req.body?.proof_focus ||
+                req.body?.proofFocus ||
+                currentProfile.proof_focus ||
+                currentProfile.proofFocus ||
+                ''
+            ).slice(0, 140),
+
+            marketplace_ready:
+                req.body?.marketplace_ready === true ||
+                req.body?.marketplaceReady === true ||
+                sanitize(req.body?.marketplace_ready || req.body?.marketplaceReady || '').toLowerCase() === 'yes'
         };
 
         const savedProfile = await academyFirestoreRepo.setCurrentProfile(uid, payload);
@@ -4437,6 +4488,121 @@ exports.deleteCurrentProfile = async (req, res) => {
         });
     }
 };
+exports.deleteCurrentAccount = async (req, res) => {
+    try {
+        const uid = getAcademyAuthUid(req);
+
+        if (!uid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const password = String(
+            req.body?.password ||
+            req.body?.currentPassword ||
+            ''
+        );
+
+        if (!password.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Account password is required.'
+            });
+        }
+
+        const userRef = firestore.collection('users').doc(uid);
+        const userSnapshot = await userRef.get();
+
+        if (!userSnapshot.exists) {
+            return res.status(404).json({
+                success: false,
+                message: 'User account not found.'
+            });
+        }
+
+        const userData = userSnapshot.data() || {};
+        const passwordHash = String(userData.password || userData.passwordHash || '');
+
+        if (!passwordHash) {
+            return res.status(400).json({
+                success: false,
+                message: 'This account does not have a password configured.'
+            });
+        }
+
+        const passwordMatches = await bcrypt.compare(password, passwordHash).catch(() => false);
+
+        if (!passwordMatches) {
+            return res.status(403).json({
+                success: false,
+                message: 'Incorrect account password.'
+            });
+        }
+
+        const nowIso = new Date().toISOString();
+
+        try {
+            await academyFirestoreRepo.deleteCurrentProfile(uid);
+        } catch (profileError) {
+            console.warn('deleteCurrentAccount profile cleanup skipped:', profileError?.message || profileError);
+        }
+
+        await userRef.set(
+            {
+                accountDeleted: true,
+                accountStatus: 'deleted',
+                deletedAt: nowIso,
+                updatedAt: nowIso,
+
+                displayName: 'Deleted Account',
+                fullName: 'Deleted Account',
+                name: 'Deleted Account',
+                username: `deleted_${uid.slice(0, 8)}`,
+                bio: '',
+                profileBio: '',
+                avatar: '',
+                profilePhoto: '',
+                photoURL: '',
+                coverPhoto: '',
+                searchTags: [],
+
+                password: '',
+                passwordHash: '',
+                passwordClearedAt: nowIso
+            },
+            { merge: true }
+        );
+
+        const cookieParts = [
+            'yh_auth_token=',
+            'HttpOnly',
+            'Path=/',
+            'SameSite=Strict',
+            'Max-Age=0'
+        ];
+
+        if (process.env.NODE_ENV === 'production') {
+            cookieParts.push('Secure');
+        }
+
+        res.setHeader('Set-Cookie', cookieParts.join('; '));
+
+        return res.json({
+            success: true,
+            deleted: true,
+            message: 'Account deleted successfully.'
+        });
+    } catch (error) {
+        console.error('deleteCurrentAccount error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to delete account.'
+        });
+    }
+};
+
 exports.getMembershipStatus = async (req, res) => {
     try {
         const uid = getAcademyAuthUid(req);

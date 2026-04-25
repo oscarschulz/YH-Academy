@@ -7734,9 +7734,9 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
         primaryAction.dataset.actionRank = isSelf ? 'own-primary-community' : 'visited-secondary-follow';
 
         if (isSelf) {
-            primaryAction.innerText = 'Open Community';
-            primaryAction.dataset.profileAction = 'open-community';
-            primaryAction.setAttribute('aria-label', 'Open Community');
+            primaryAction.innerText = 'Edit Profile';
+            primaryAction.dataset.profileAction = 'edit-universe-profile';
+            primaryAction.setAttribute('aria-label', 'Edit YH Universe Profile');
         } else {
             primaryAction.innerText = normalized.followedByMe ? 'Following' : 'Follow';
             primaryAction.dataset.profileAction = 'toggle-follow';
@@ -7750,7 +7750,7 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
     }
 
     if (secondaryAction) {
-        secondaryAction.classList.remove('hidden-step', 'is-following');
+        secondaryAction.classList.remove('hidden-step', 'is-following', 'yh-profile-danger-action');
         secondaryAction.classList.remove('btn-primary');
         secondaryAction.classList.add('btn-secondary');
         secondaryAction.disabled = false;
@@ -7759,9 +7759,10 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
         secondaryAction.dataset.actionRank = isSelf ? 'own-secondary-roadmap' : 'visited-secondary-friend';
 
         if (isSelf) {
-            secondaryAction.innerText = 'Open Roadmap';
-            secondaryAction.dataset.profileAction = 'open-roadmap';
-            secondaryAction.setAttribute('aria-label', 'Open Roadmap');
+            secondaryAction.innerText = 'Delete Account';
+            secondaryAction.dataset.profileAction = 'open-delete-account';
+            secondaryAction.classList.add('yh-profile-danger-action');
+            secondaryAction.setAttribute('aria-label', 'Delete YH Universe account');
         } else if (normalized.isFriend) {
             secondaryAction.innerText = 'Friends';
             secondaryAction.dataset.profileAction = 'friend-state';
@@ -7812,7 +7813,445 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
 
     renderAcademyProfileRecentPosts(normalized.recentPosts, { isSelf });
 }
+function getDashboardUniverseProfileDraft() {
+    const profile =
+        academyProfileViewState?.profile && typeof academyProfileViewState.profile === 'object'
+            ? academyProfileViewState.profile
+            : {};
 
+    const readCache = (() => {
+        try {
+            return JSON.parse(localStorage.getItem('yh_academy_profile_cache_v1') || 'null') || {};
+        } catch (_) {
+            return {};
+        }
+    })();
+
+    const displayName = String(
+        profile.display_name ||
+        profile.displayName ||
+        profile.fullName ||
+        profile.full_name ||
+        readCache.display_name ||
+        localStorage.getItem('yh_user_name') ||
+        'Hustler'
+    ).trim();
+
+    const username = String(
+        profile.username ||
+        readCache.username ||
+        localStorage.getItem('yh_user_username') ||
+        ''
+    ).replace(/^@+/, '').trim();
+
+    const bio = String(
+        profile.bio ||
+        readCache.bio ||
+        localStorage.getItem('yh_user_profile_bio') ||
+        ''
+    ).trim();
+
+    const tags = Array.isArray(profile.search_tags)
+        ? profile.search_tags
+        : Array.isArray(profile.searchTags)
+            ? profile.searchTags
+            : Array.isArray(readCache.search_tags)
+                ? readCache.search_tags
+                : [];
+
+    const lookingFor = Array.isArray(profile.looking_for)
+        ? profile.looking_for
+        : Array.isArray(profile.lookingFor)
+            ? profile.lookingFor
+            : Array.isArray(readCache.looking_for)
+                ? readCache.looking_for
+                : [];
+
+    const canOffer = Array.isArray(profile.can_offer)
+        ? profile.can_offer
+        : Array.isArray(profile.canOffer)
+            ? profile.canOffer
+            : Array.isArray(readCache.can_offer)
+                ? readCache.can_offer
+                : [];
+
+    return {
+        displayName,
+        username,
+        bio,
+        tags,
+        roleTrack: String(profile.role_track || profile.roleTrack || readCache.role_track || '').trim(),
+        lookingFor,
+        canOffer,
+        availability: String(profile.availability || readCache.availability || '').trim(),
+        workMode: String(profile.work_mode || profile.workMode || readCache.work_mode || '').trim(),
+        proofFocus: String(profile.proof_focus || profile.proofFocus || readCache.proof_focus || '').trim(),
+        marketplaceReady:
+            profile.marketplace_ready === true ||
+            profile.marketplaceReady === true ||
+            String(profile.marketplace_ready || profile.marketplaceReady || readCache.marketplace_ready || '').trim().toLowerCase() === 'yes'
+    };
+}
+
+function ensureDashboardUniverseProfileEditor() {
+    let overlay = document.getElementById('yh-dashboard-profile-editor-overlay');
+    if (overlay) return overlay;
+
+    overlay = document.createElement('div');
+    overlay.id = 'yh-dashboard-profile-editor-overlay';
+    overlay.className = 'yh-dashboard-profile-modal hidden-step';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-labelledby', 'yh-dashboard-profile-editor-title');
+
+    overlay.innerHTML = `
+        <div class="yh-dashboard-profile-modal-card">
+            <div class="yh-dashboard-profile-modal-head">
+                <div>
+                    <div class="yh-dashboard-profile-modal-kicker">Unified Profile</div>
+                    <h3 id="yh-dashboard-profile-editor-title">Edit YH Universe Profile</h3>
+                    <p>These details power your identity across Academy, Plaza, and Federation.</p>
+                </div>
+
+                <button type="button" class="yh-dashboard-profile-modal-close" data-dashboard-profile-close aria-label="Close">✕</button>
+            </div>
+
+            <div class="yh-dashboard-profile-modal-body hide-scrollbar">
+                <div class="yh-dashboard-profile-field">
+                    <label for="yh-dashboard-profile-display-name">Display name</label>
+                    <input id="yh-dashboard-profile-display-name" class="input-field" maxlength="60" placeholder="Your public name">
+                </div>
+
+                <div class="yh-dashboard-profile-field">
+                    <label for="yh-dashboard-profile-username">Username</label>
+                    <input id="yh-dashboard-profile-username" class="input-field" maxlength="32" placeholder="username">
+                </div>
+
+                <div class="yh-dashboard-profile-field">
+                    <label for="yh-dashboard-profile-bio">Bio</label>
+                    <textarea id="yh-dashboard-profile-bio" class="input-field" rows="4" maxlength="280" placeholder="Short public bio"></textarea>
+                </div>
+
+                <div class="yh-dashboard-profile-field">
+                    <label for="yh-dashboard-profile-tags">Profile tags</label>
+                    <input id="yh-dashboard-profile-tags" class="input-field" placeholder="AI, outreach, design, business">
+                    <small>Separate tags with commas.</small>
+                </div>
+
+                <div class="yh-dashboard-profile-field">
+                    <label for="yh-dashboard-profile-role-track">Role track</label>
+                    <input id="yh-dashboard-profile-role-track" class="input-field" placeholder="Builder, closer, designer, operator...">
+                </div>
+
+                <div class="yh-dashboard-profile-field">
+                    <label for="yh-dashboard-profile-looking-for">Looking for</label>
+                    <input id="yh-dashboard-profile-looking-for" class="input-field" placeholder="Clients, partners, mentors, investors...">
+                    <small>Separate items with commas.</small>
+                </div>
+
+                <div class="yh-dashboard-profile-field">
+                    <label for="yh-dashboard-profile-can-offer">Can offer</label>
+                    <input id="yh-dashboard-profile-can-offer" class="input-field" placeholder="Design, automation, leads, sales...">
+                    <small>Separate items with commas.</small>
+                </div>
+
+                <div class="yh-dashboard-profile-grid-2">
+                    <div class="yh-dashboard-profile-field">
+                        <label for="yh-dashboard-profile-availability">Availability</label>
+                        <select id="yh-dashboard-profile-availability" class="input-field">
+                            <option value="">Select availability</option>
+                            <option value="Open now">Open now</option>
+                            <option value="Part-time">Part-time</option>
+                            <option value="Full-time">Full-time</option>
+                            <option value="Selective">Selective</option>
+                        </select>
+                    </div>
+
+                    <div class="yh-dashboard-profile-field">
+                        <label for="yh-dashboard-profile-work-mode">Work mode</label>
+                        <select id="yh-dashboard-profile-work-mode" class="input-field">
+                            <option value="">Select work mode</option>
+                            <option value="Remote">Remote</option>
+                            <option value="Local">Local</option>
+                            <option value="Hybrid">Hybrid</option>
+                            <option value="Global">Global</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="yh-dashboard-profile-field">
+                    <label for="yh-dashboard-profile-proof-focus">Proof focus</label>
+                    <input id="yh-dashboard-profile-proof-focus" class="input-field" maxlength="140" placeholder="What are you building proof around?">
+                </div>
+
+                <div class="yh-dashboard-profile-field">
+                    <label for="yh-dashboard-profile-marketplace-ready">Marketplace ready</label>
+                    <select id="yh-dashboard-profile-marketplace-ready" class="input-field">
+                        <option value="no">No</option>
+                        <option value="yes">Yes</option>
+                    </select>
+                    <small>Turn this on when you are ready for Plaza visibility and opportunity matching.</small>
+                </div>
+            </div>
+
+            <div class="yh-dashboard-profile-modal-actions">
+                <button type="button" class="btn-secondary" data-dashboard-profile-close>Cancel</button>
+                <button type="button" class="btn-primary" id="yh-dashboard-profile-save-btn">Save Profile</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener('click', (event) => {
+        const closeBtn = event.target.closest('[data-dashboard-profile-close]');
+        if (!closeBtn) return;
+        closeDashboardUniverseProfileEditor();
+    });
+
+    document.getElementById('yh-dashboard-profile-save-btn')?.addEventListener('click', (event) => {
+        saveDashboardUniverseProfile(event.currentTarget);
+    });
+
+    return overlay;
+}
+
+function splitDashboardSignalList(value = '') {
+    return String(value || '')
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .slice(0, 12);
+}
+
+function openDashboardUniverseProfileEditor() {
+    const overlay = ensureDashboardUniverseProfileEditor();
+    const draft = getDashboardUniverseProfileDraft();
+
+    const setValue = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.value = value;
+    };
+
+    setValue('yh-dashboard-profile-display-name', draft.displayName);
+    setValue('yh-dashboard-profile-username', draft.username);
+    setValue('yh-dashboard-profile-bio', draft.bio);
+    setValue('yh-dashboard-profile-tags', draft.tags.join(', '));
+    setValue('yh-dashboard-profile-role-track', draft.roleTrack);
+    setValue('yh-dashboard-profile-looking-for', draft.lookingFor.join(', '));
+    setValue('yh-dashboard-profile-can-offer', draft.canOffer.join(', '));
+    setValue('yh-dashboard-profile-availability', draft.availability);
+    setValue('yh-dashboard-profile-work-mode', draft.workMode);
+    setValue('yh-dashboard-profile-proof-focus', draft.proofFocus);
+    setValue('yh-dashboard-profile-marketplace-ready', draft.marketplaceReady ? 'yes' : 'no');
+
+    overlay.classList.remove('hidden-step');
+}
+
+function closeDashboardUniverseProfileEditor() {
+    document.getElementById('yh-dashboard-profile-editor-overlay')?.classList.add('hidden-step');
+}
+
+async function saveDashboardUniverseProfile(button = null) {
+    const displayName = String(document.getElementById('yh-dashboard-profile-display-name')?.value || '').trim();
+    const username = String(document.getElementById('yh-dashboard-profile-username')?.value || '').replace(/^@+/, '').trim();
+    const bio = String(document.getElementById('yh-dashboard-profile-bio')?.value || '').trim();
+
+    if (!displayName) {
+        showToast('Display name is required.', 'error');
+        document.getElementById('yh-dashboard-profile-display-name')?.focus();
+        return;
+    }
+
+    if (!username) {
+        showToast('Username is required.', 'error');
+        document.getElementById('yh-dashboard-profile-username')?.focus();
+        return;
+    }
+
+    const payload = {
+        display_name: displayName,
+        username,
+        bio,
+        search_tags: splitDashboardSignalList(document.getElementById('yh-dashboard-profile-tags')?.value || ''),
+        role_track: String(document.getElementById('yh-dashboard-profile-role-track')?.value || '').trim(),
+        looking_for: splitDashboardSignalList(document.getElementById('yh-dashboard-profile-looking-for')?.value || ''),
+        can_offer: splitDashboardSignalList(document.getElementById('yh-dashboard-profile-can-offer')?.value || ''),
+        availability: String(document.getElementById('yh-dashboard-profile-availability')?.value || '').trim(),
+        work_mode: String(document.getElementById('yh-dashboard-profile-work-mode')?.value || '').trim(),
+        proof_focus: String(document.getElementById('yh-dashboard-profile-proof-focus')?.value || '').trim(),
+        marketplace_ready: String(document.getElementById('yh-dashboard-profile-marketplace-ready')?.value || '').trim().toLowerCase() === 'yes'
+    };
+
+    await runDashboardButtonAction(button, 'Saving Profile.', async () => {
+        const result = await academyAuthedFetch('/api/academy/profile', {
+            method: 'PATCH',
+            body: JSON.stringify(payload)
+        });
+
+        if (!result?.profile) {
+            throw new Error(result?.message || 'Profile save succeeded but no profile was returned.');
+        }
+
+        try {
+            localStorage.setItem('yh_academy_profile_cache_v1', JSON.stringify(result.profile));
+            localStorage.setItem('yh_user_name', result.profile.display_name || displayName);
+            localStorage.setItem('yh_user_username', result.profile.username || username);
+            localStorage.setItem('yh_user_profile_bio', result.profile.bio || bio);
+        } catch (_) {}
+
+        academyProfileViewState.profile = normalizeAcademyProfilePayload(
+            buildAcademySelfProfilePayload(result.profile),
+            { mode: 'self' }
+        );
+
+        closeDashboardUniverseProfileEditor();
+        renderAcademyProfileView(academyProfileViewState.profile, { mode: 'self' });
+        showToast('YH Universe profile updated.', 'success');
+    });
+}
+
+function ensureDashboardDeleteAccountModal() {
+    let overlay = document.getElementById('yh-dashboard-delete-account-overlay');
+    if (overlay) return overlay;
+
+    overlay = document.createElement('div');
+    overlay.id = 'yh-dashboard-delete-account-overlay';
+    overlay.className = 'yh-dashboard-profile-modal hidden-step';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-labelledby', 'yh-dashboard-delete-account-title');
+
+    overlay.innerHTML = `
+        <div class="yh-dashboard-profile-modal-card yh-dashboard-delete-account-card">
+            <div class="yh-dashboard-profile-modal-head">
+                <div>
+                    <div class="yh-dashboard-profile-modal-kicker is-danger">Danger Zone</div>
+                    <h3 id="yh-dashboard-delete-account-title">Delete YH Universe Account</h3>
+                    <p>This will disable your login account and remove your public profile identity from active use.</p>
+                </div>
+
+                <button type="button" class="yh-dashboard-profile-modal-close" data-dashboard-delete-account-close aria-label="Close">✕</button>
+            </div>
+
+            <div class="yh-dashboard-profile-modal-body hide-scrollbar">
+                <div class="yh-dashboard-danger-warning">
+                    <strong>This action is serious.</strong>
+                    <span>Your password is required before the account can be deleted.</span>
+                </div>
+
+                <div class="yh-dashboard-profile-field">
+                    <label for="yh-dashboard-delete-account-password">Current password</label>
+                    <input
+                        type="password"
+                        id="yh-dashboard-delete-account-password"
+                        class="input-field"
+                        autocomplete="current-password"
+                        placeholder="Enter your password"
+                    >
+                </div>
+
+                <div class="yh-dashboard-profile-field">
+                    <label for="yh-dashboard-delete-account-confirm">Type DELETE to confirm</label>
+                    <input
+                        type="text"
+                        id="yh-dashboard-delete-account-confirm"
+                        class="input-field"
+                        autocomplete="off"
+                        placeholder="DELETE"
+                    >
+                </div>
+            </div>
+
+            <div class="yh-dashboard-profile-modal-actions">
+                <button type="button" class="btn-secondary" data-dashboard-delete-account-close>Cancel</button>
+                <button type="button" class="btn-secondary academy-profile-danger-btn" id="yh-dashboard-delete-account-submit">Delete Account</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener('click', (event) => {
+        const closeBtn = event.target.closest('[data-dashboard-delete-account-close]');
+        if (!closeBtn) return;
+        closeDashboardDeleteAccountModal();
+    });
+
+    document.getElementById('yh-dashboard-delete-account-submit')?.addEventListener('click', (event) => {
+        deleteDashboardAccountWithPassword(event.currentTarget);
+    });
+
+    return overlay;
+}
+
+function openDashboardDeleteAccountModal() {
+    const overlay = ensureDashboardDeleteAccountModal();
+
+    const passwordInput = document.getElementById('yh-dashboard-delete-account-password');
+    const confirmInput = document.getElementById('yh-dashboard-delete-account-confirm');
+
+    if (passwordInput) passwordInput.value = '';
+    if (confirmInput) confirmInput.value = '';
+
+    overlay.classList.remove('hidden-step');
+}
+
+function closeDashboardDeleteAccountModal() {
+    document.getElementById('yh-dashboard-delete-account-overlay')?.classList.add('hidden-step');
+}
+
+async function deleteDashboardAccountWithPassword(button = null) {
+    const passwordInput = document.getElementById('yh-dashboard-delete-account-password');
+    const confirmInput = document.getElementById('yh-dashboard-delete-account-confirm');
+
+    const password = String(passwordInput?.value || '');
+    const confirmation = String(confirmInput?.value || '').trim();
+
+    if (!password.trim()) {
+        showToast('Enter your password first.', 'error');
+        passwordInput?.focus();
+        return;
+    }
+
+    if (confirmation !== 'DELETE') {
+        showToast('Type DELETE to confirm account deletion.', 'error');
+        confirmInput?.focus();
+        return;
+    }
+
+    const confirmed = await openYHConfirmModal({
+        title: 'Delete your YH Universe account?',
+        message: 'Your account will be disabled and you will be logged out.',
+        okText: 'Delete Account',
+        cancelText: 'Cancel',
+        tone: 'danger'
+    });
+
+    if (!confirmed) return;
+
+    await runDashboardButtonAction(button, 'Deleting Account.', async () => {
+        const result = await academyAuthedFetch('/api/account', {
+            method: 'DELETE',
+            body: JSON.stringify({ password })
+        });
+
+        if (!result?.success) {
+            throw new Error(result?.message || 'Failed to delete account.');
+        }
+
+        try {
+            localStorage.clear();
+            sessionStorage.clear();
+        } catch (_) {}
+
+        showToast('Account deleted.', 'success');
+
+        window.setTimeout(() => {
+            window.location.href = '/';
+        }, 500);
+    });
+}
 function closeDashboardUniverseProfileView() {
     const profileView = document.getElementById('academy-profile-view');
     if (!profileView) return;
@@ -10475,6 +10914,16 @@ document.getElementById('academy-profile-view')?.addEventListener('click', async
     if (!actionBtn) return;
 
     const action = String(actionBtn.getAttribute('data-profile-action') || '').trim();
+
+    if (action === 'edit-universe-profile') {
+        openDashboardUniverseProfileEditor();
+        return;
+    }
+
+    if (action === 'open-delete-account') {
+        openDashboardDeleteAccountModal();
+        return;
+    }
 
     if (action === 'open-community') {
         openAcademyFeedView();

@@ -2720,6 +2720,40 @@ function mapFederationMemberUserDoc(docSnap) {
             user.bio ||
             'Approved Federation member with verified strategic access.'
         ).slice(0, 240),
+        avatar: sanitizeText(
+            user.avatar ||
+            user.profilePhoto ||
+            user.photoURL ||
+            application.avatar ||
+            application.profilePhoto ||
+            application.photoURL ||
+            ''
+        ),
+        profilePhoto: sanitizeText(
+            user.profilePhoto ||
+            user.avatar ||
+            user.photoURL ||
+            application.profilePhoto ||
+            application.avatar ||
+            application.photoURL ||
+            ''
+        ),
+        photoURL: sanitizeText(
+            user.photoURL ||
+            user.avatar ||
+            user.profilePhoto ||
+            application.photoURL ||
+            application.avatar ||
+            application.profilePhoto ||
+            ''
+        ),
+        coverPhoto: sanitizeText(
+            user.coverPhoto ||
+            user.cover_photo ||
+            application.coverPhoto ||
+            application.cover_photo ||
+            ''
+        ),
         approvedAt: mapFederationConnectTimestamp(user.federationApprovedAt || user.updatedAt || application.reviewedAt),
         source: 'server'
     };
