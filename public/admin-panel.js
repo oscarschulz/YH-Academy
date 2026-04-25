@@ -190,13 +190,79 @@ function endAdminAction(action = '', id = '') {
   setAdminActionBusy(action, id, false);
 }
 
+const ADMIN_APPLICATION_FINAL_STATUSES = new Set([
+  'approved',
+  'rejected',
+  'waitlisted'
+]);
+
+function normalizeAdminApplicationStatus(value = '') {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, ' ');
+}
+
+function isApplicationFinalStatus(status = '') {
+  return ADMIN_APPLICATION_FINAL_STATUSES.has(normalizeAdminApplicationStatus(status));
+}
+
+function getApplicationFinalStatusLabel(status = '') {
+  const normalized = normalizeAdminApplicationStatus(status);
+
+  if (normalized === 'approved') return 'Approved';
+  if (normalized === 'rejected') return 'Rejected';
+  if (normalized === 'waitlisted') return 'Waitlisted';
+
+  return 'Finalized';
+}
+
 function getApplicationDecisionButtonAttrs(currentStatus = '', targetStatus = '') {
-  const current = String(currentStatus || '').trim().toLowerCase();
-  const target = String(targetStatus || '').trim().toLowerCase();
+  const current = normalizeAdminApplicationStatus(currentStatus);
+  const target = normalizeAdminApplicationStatus(targetStatus);
+
+  if (isApplicationFinalStatus(current)) {
+    return ' disabled aria-disabled="true" data-action-locked="true"';
+  }
 
   return current && current === target
     ? ' disabled aria-disabled="true" data-action-locked="true"'
     : '';
+}
+
+function buildApplicationDecisionActions(record = {}, options = {}) {
+  const id = String(record.id || '').trim();
+  const status = String(record.status || 'Under Review').trim() || 'Under Review';
+  const buttonClass = String(options.buttonClass || '').trim();
+  const buttonClassAttr = buttonClass ? ` class="${escapeHtml(buttonClass)}"` : '';
+
+  if (!id) return '';
+
+  if (isApplicationFinalStatus(status)) {
+    const finalLabel = getApplicationFinalStatusLabel(status);
+
+    return `
+      <div class="table-actions application-finished-actions">
+        <button${buttonClassAttr} data-open="application" data-id="${escapeHtml(id)}">View Form</button>
+        <span class="admin-decision-final admin-decision-final-${normalizeAdminApplicationStatus(status)}">
+          ${escapeHtml(finalLabel)} • Decision Finalized
+        </span>
+      </div>
+    `;
+  }
+
+  const approveAttrs = getApplicationDecisionButtonAttrs(status, 'Approved');
+  const rejectAttrs = getApplicationDecisionButtonAttrs(status, 'Rejected');
+  const waitlistAttrs = getApplicationDecisionButtonAttrs(status, 'Waitlisted');
+
+  return `
+    <div class="table-actions">
+      <button${buttonClassAttr} data-open="application" data-id="${escapeHtml(id)}">View Form</button>
+      <button${buttonClassAttr} data-action="approve-application" data-id="${escapeHtml(id)}"${approveAttrs}>Approve</button>
+      <button${buttonClassAttr} data-action="reject-application" data-id="${escapeHtml(id)}"${rejectAttrs}>Reject</button>
+      <button${buttonClassAttr} data-action="waitlist-application" data-id="${escapeHtml(id)}"${waitlistAttrs}>Waitlist</button>
+    </div>
+  `;
 }
 
 function getAdminCoachModeKeyFromReplyFormat(value = '') {
@@ -2123,9 +2189,7 @@ function renderApplications() {
 
     const appSource = String(app.source || 'Unknown').trim() || 'Unknown';
     const appStatus = String(app.status || 'Under Review').trim() || 'Under Review';
-    const approveAttrs = getApplicationDecisionButtonAttrs(appStatus, 'Approved');
-    const rejectAttrs = getApplicationDecisionButtonAttrs(appStatus, 'Rejected');
-    const waitlistAttrs = getApplicationDecisionButtonAttrs(appStatus, 'Waitlisted');
+    const decisionActionsMarkup = buildApplicationDecisionActions(app);
 
     return `
       <tr>
@@ -2137,14 +2201,7 @@ function renderApplications() {
         ${makeCell('Recommended', formatBadge(app.recommendedDivision))}
         ${makeCell('Status', formatBadge(appStatus))}
         ${makeCell('AI Score', `${Number(app.aiScore || 0)}`)}
-        ${makeCell('Actions', `
-          <div class="table-actions">
-            <button data-open="application" data-id="${app.id}">View Form</button>
-            <button data-action="approve-application" data-id="${app.id}"${approveAttrs}>Approve</button>
-            <button data-action="reject-application" data-id="${app.id}"${rejectAttrs}>Reject</button>
-            <button data-action="waitlist-application" data-id="${app.id}"${waitlistAttrs}>Waitlist</button>
-          </div>
-        `)}
+        ${makeCell('Actions', decisionActionsMarkup)}
       </tr>
     `;
   }).join('') || makeEmptyRow(9, 'No applications match the current filters.');
@@ -3190,9 +3247,9 @@ if (type === 'application') {
   const rawSkillsText = profile?.skills || record.background || '';
   const age = record.age || profile?.age || '';
   const currentStatus = String(record.status || 'Under Review').trim() || 'Under Review';
-  const approveAttrs = getApplicationDecisionButtonAttrs(currentStatus, 'Approved');
-  const rejectAttrs = getApplicationDecisionButtonAttrs(currentStatus, 'Rejected');
-  const waitlistAttrs = getApplicationDecisionButtonAttrs(currentStatus, 'Waitlisted');
+  const applicationDecisionActionsMarkup = buildApplicationDecisionActions(record, {
+    buttonClass: 'badge-btn'
+  });
   const federationProfileMarkup = buildFederationProfileMapMarkup(record);
   const federationTierBadge = isFederationApplicationRecord(record) ? formatFederationTierBadge(record) : '';
 
@@ -3342,9 +3399,7 @@ if (type === 'application') {
       </div>
 
       <div class="inline-actions application-inline-actions">
-        <button class="badge-btn" data-action="approve-application" data-id="${record.id}"${approveAttrs}>Approve</button>
-        <button class="badge-btn" data-action="reject-application" data-id="${record.id}"${rejectAttrs}>Reject</button>
-        <button class="badge-btn" data-action="waitlist-application" data-id="${record.id}"${waitlistAttrs}>Waitlist</button>
+        ${applicationDecisionActionsMarkup}
       </div>
     </div>
   `;
@@ -3873,14 +3928,24 @@ function setDrawerHeadControls(type, record) {
   subtools.hidden = false;
   statusEl.innerHTML = formatBadge(currentStatus);
 
-  statusSelect.innerHTML = `
-    <option value="">Quick Status</option>
-    <option value="approve-application"${currentStatus === 'Approved' ? ' disabled' : ''}>Set Approved</option>
-    <option value="reject-application"${currentStatus === 'Rejected' ? ' disabled' : ''}>Set Rejected</option>
-    <option value="waitlist-application"${currentStatus === 'Waitlisted' ? ' disabled' : ''}>Set Waitlisted</option>
-  `;
-  statusSelect.value = '';
-  statusSelect.dataset.id = record.id;
+  if (isApplicationFinalStatus(currentStatus)) {
+    statusSelect.innerHTML = `
+      <option value="">Decision Finalized</option>
+    `;
+    statusSelect.value = '';
+    statusSelect.disabled = true;
+    statusSelect.dataset.id = record.id;
+  } else {
+    statusSelect.disabled = false;
+    statusSelect.innerHTML = `
+      <option value="">Quick Status</option>
+      <option value="approve-application">Set Approved</option>
+      <option value="reject-application">Set Rejected</option>
+      <option value="waitlist-application">Set Waitlisted</option>
+    `;
+    statusSelect.value = '';
+    statusSelect.dataset.id = record.id;
+  }
 
   copyBtn.hidden = !email;
   copyBtn.dataset.email = email;
@@ -4794,6 +4859,16 @@ function applyLocalApplicationReview(applicationId, nextStatus = 'Under Review')
   return application;
 }
 async function handleAction(action, id) {
+  if (isAdminReviewAction(action)) {
+    const application = findById('applications', id);
+    const currentStatus = String(application?.status || '').trim();
+
+    if (application && isApplicationFinalStatus(currentStatus)) {
+      showToast(`Application already ${getApplicationFinalStatusLabel(currentStatus)}. Decision is finalized.`);
+      return;
+    }
+  }
+
   switch (action) {
 case 'approve-application': {
   try {
