@@ -337,7 +337,121 @@ function normalizeAdminStrategicValue(value = '') {
 
   return allowed.has(raw) ? raw : 'standard';
 }
+function normalizeAdminLeadSaleStatus(value = '', saleEnabled = false, buyerPriceAmount = 0) {
+  const raw = cleanText(value).toLowerCase();
 
+  const allowed = new Set([
+    'not_listed',
+    'pending_admin_review',
+    'listed',
+    'paused'
+  ]);
+
+  if (!saleEnabled || Number(buyerPriceAmount || 0) <= 0) {
+    return 'not_listed';
+  }
+
+  return allowed.has(raw) ? raw : 'listed';
+}
+
+function normalizeAdminLeadSaleReviewStatus(value = '', saleEnabled = false, buyerPriceAmount = 0) {
+  const raw = cleanText(value).toLowerCase();
+
+  const allowed = new Set([
+    'not_listed',
+    'pending_admin_review',
+    'approved',
+    'rejected'
+  ]);
+
+  if (!saleEnabled || Number(buyerPriceAmount || 0) <= 0) {
+    return 'not_listed';
+  }
+
+  return allowed.has(raw) ? raw : 'approved';
+}
+
+function hasAdminLeadPricingPatch(body = {}) {
+  return [
+    'sellerPriceAmount',
+    'currency',
+    'universeCommissionRate',
+    'saleEnabled',
+    'saleStatus',
+    'saleReviewStatus'
+  ].some((key) => Object.prototype.hasOwnProperty.call(body, key));
+}
+
+function normalizeAdminLeadPricingPatch(body = {}, existingLead = {}) {
+  if (!hasAdminLeadPricingPatch(body)) return {};
+
+  const sellerPriceAmount = Math.max(
+    0,
+    toNumber(
+      Object.prototype.hasOwnProperty.call(body, 'sellerPriceAmount')
+        ? body.sellerPriceAmount
+        : existingLead.sellerPriceAmount,
+      0
+    )
+  );
+
+  const currency = cleanText(
+    Object.prototype.hasOwnProperty.call(body, 'currency')
+      ? body.currency
+      : existingLead.currency || 'USD'
+  ).toUpperCase() || 'USD';
+
+  const universeCommissionRate = Math.max(
+    0,
+    Math.min(
+      100,
+      toNumber(
+        Object.prototype.hasOwnProperty.call(body, 'universeCommissionRate')
+          ? body.universeCommissionRate
+          : existingLead.universeCommissionRate,
+        20
+      )
+    )
+  );
+
+  const universeCommissionAmount = sellerPriceAmount > 0
+    ? Number(((sellerPriceAmount * universeCommissionRate) / 100).toFixed(2))
+    : 0;
+
+  const buyerPriceAmount = Number((sellerPriceAmount + universeCommissionAmount).toFixed(2));
+
+  const saleEnabled = Object.prototype.hasOwnProperty.call(body, 'saleEnabled')
+    ? body.saleEnabled === true || cleanText(body.saleEnabled).toLowerCase() === 'true'
+    : existingLead.saleEnabled === true;
+
+  const saleStatus = normalizeAdminLeadSaleStatus(
+    Object.prototype.hasOwnProperty.call(body, 'saleStatus')
+      ? body.saleStatus
+      : existingLead.saleStatus,
+    saleEnabled,
+    buyerPriceAmount
+  );
+
+  const saleReviewStatus = normalizeAdminLeadSaleReviewStatus(
+    Object.prototype.hasOwnProperty.call(body, 'saleReviewStatus')
+      ? body.saleReviewStatus
+      : existingLead.saleReviewStatus,
+    saleEnabled,
+    buyerPriceAmount
+  );
+
+  return {
+    sellerPriceAmount,
+    currency,
+    universeCommissionRate,
+    universeCommissionAmount,
+    buyerPriceAmount,
+    saleEnabled,
+    saleStatus,
+    saleReviewStatus,
+    federationListingStatus: saleStatus === 'listed' ? 'listed' : saleStatus
+  };
+}
 function buildNextLeadMissionAccessScopes(existingLead = {}, patch = {}) {
   const existingScopes = normalizeAdminNetworkScopeList(
     existingLead.accessScopes ||
@@ -427,6 +541,17 @@ function buildAdminLeadMissionProjection(lead = {}, member = {}, payouts = [], d
     academyMissionNeed: cleanText(lead.academyMissionNeed || ''),
     opportunityOwnerName: cleanText(lead.opportunityOwnerName || ''),
     opportunityValueAmount: toNumber(lead.opportunityValueAmount, 0),
+
+    sellerPriceAmount: toNumber(lead.sellerPriceAmount, 0),
+    currency: cleanText(lead.currency || 'USD').toUpperCase() || 'USD',
+    universeCommissionRate: toNumber(lead.universeCommissionRate, 0),
+    universeCommissionAmount: toNumber(lead.universeCommissionAmount, 0),
+    buyerPriceAmount: toNumber(lead.buyerPriceAmount, 0),
+    saleEnabled: lead.saleEnabled === true,
+    saleReviewStatus: cleanText(lead.saleReviewStatus || 'not_listed'),
+    saleStatus: cleanText(lead.saleStatus || 'not_listed'),
+    federationListingStatus: cleanText(lead.federationListingStatus || 'not_listed'),
+
     platformCommissionRate: toNumber(lead.platformCommissionRate, 0),
     platformCommissionAmount: toNumber(lead.platformCommissionAmount, 0),
     operatorPayoutAmount: toNumber(lead.operatorPayoutAmount, 0),
@@ -2711,6 +2836,9 @@ apiRouter.post('/api/admin/academy/lead-missions/:memberId/:leadId/network', req
       patch.strategicValue = normalizeAdminStrategicValue(body.strategicValue);
     }
 
+    const pricingPatch = normalizeAdminLeadPricingPatch(body, existingLead);
+    Object.assign(patch, pricingPatch);
+
     if (!Object.keys(patch).length) {
       return res.status(400).json({
         success: false,
@@ -2721,11 +2849,27 @@ apiRouter.post('/api/admin/academy/lead-missions/:memberId/:leadId/network', req
     const routing = buildNextLeadMissionAccessScopes(existingLead, patch);
     const nowIso = new Date().toISOString();
 
+    const directLeadPatch = {};
+    [
+      'strategicValue',
+      'sellerPriceAmount',
+      'currency',
+      'universeCommissionRate',
+      'universeCommissionAmount',
+      'buyerPriceAmount',
+      'saleEnabled',
+      'saleStatus',
+      'saleReviewStatus',
+      'federationListingStatus'
+    ].forEach((key) => {
+      if (Object.prototype.hasOwnProperty.call(patch, key)) {
+        directLeadPatch[key] = patch[key];
+      }
+    });
+
     const updatePayload = {
       ...routing,
-      ...(Object.prototype.hasOwnProperty.call(patch, 'strategicValue')
-        ? { strategicValue: patch.strategicValue }
-        : {}),
+      ...directLeadPatch,
       sourceDivision: cleanText(existingLead.sourceDivision || 'academy') || 'academy',
       adminNetworkUpdatedAt: nowIso,
       adminNetworkUpdatedBy: req.adminSession.username,

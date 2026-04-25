@@ -407,6 +407,17 @@ function normalizeAdminLeadMissionRecord(record = {}) {
     academyMissionNeed: String(record.academyMissionNeed || '').trim(),
     opportunityOwnerName: String(record.opportunityOwnerName || '').trim(),
     opportunityValueAmount: Number(record.opportunityValueAmount || 0),
+
+    sellerPriceAmount: Number(record.sellerPriceAmount || 0),
+    currency: String(record.currency || 'USD').trim().toUpperCase() || 'USD',
+    universeCommissionRate: Number(record.universeCommissionRate || 0),
+    universeCommissionAmount: Number(record.universeCommissionAmount || 0),
+    buyerPriceAmount: Number(record.buyerPriceAmount || 0),
+    saleEnabled: record.saleEnabled === true,
+    saleReviewStatus: String(record.saleReviewStatus || 'not_listed').trim(),
+    saleStatus: String(record.saleStatus || 'not_listed').trim(),
+    federationListingStatus: String(record.federationListingStatus || 'not_listed').trim(),
+
     platformCommissionRate: Number(record.platformCommissionRate || 0),
     platformCommissionAmount: Number(record.platformCommissionAmount || 0),
     operatorPayoutAmount: Number(record.operatorPayoutAmount || 0),
@@ -3582,6 +3593,54 @@ if (type === 'application') {
       ${routedMissionReviewActions}
 
       <div class="drawer-section">
+        <h4>Lead Pricing / Sale Setup</h4>
+        <p class="muted" style="margin-top:0;">
+          Admin controls the operator payout, Universe commission, and total buyer price for Federation lead purchases.
+        </p>
+
+        <div class="kv-grid">
+          <div class="kv">
+            <span>Operator Payout</span>
+            <strong>${escapeHtml(formatAdminMoney(record.sellerPriceAmount || 0, record.currency || 'USD'))}</strong>
+          </div>
+          <div class="kv">
+            <span>Universe Commission Rate</span>
+            <strong>${escapeHtml(String(record.universeCommissionRate || 0))}%</strong>
+          </div>
+          <div class="kv">
+            <span>Universe Commission Amount</span>
+            <strong>${escapeHtml(formatAdminMoney(record.universeCommissionAmount || 0, record.currency || 'USD'))}</strong>
+          </div>
+          <div class="kv">
+            <span>Total Buyer Price</span>
+            <strong>${escapeHtml(formatAdminMoney(record.buyerPriceAmount || 0, record.currency || 'USD'))}</strong>
+          </div>
+          <div class="kv">
+            <span>Sale Enabled</span>
+            <strong>${record.saleEnabled ? 'Yes' : 'No'}</strong>
+          </div>
+          <div class="kv">
+            <span>Sale Status</span>
+            <strong>${escapeHtml(record.saleStatus || 'not_listed')}</strong>
+          </div>
+          <div class="kv">
+            <span>Review Status</span>
+            <strong>${escapeHtml(record.saleReviewStatus || 'not_listed')}</strong>
+          </div>
+          <div class="kv">
+            <span>Federation Listing</span>
+            <strong>${escapeHtml(record.federationListingStatus || 'not_listed')}</strong>
+          </div>
+        </div>
+
+        <div class="inline-actions" style="margin-top:12px;">
+          <button class="badge-btn" data-action="lead-set-pricing" data-id="${record.id}">
+            Set Lead Pricing
+          </button>
+        </div>
+      </div>
+
+      <div class="drawer-section">
         <h4>Admin Network Actions</h4>
         <div class="inline-actions">
           <button class="badge-btn" data-action="lead-federation-ready" data-id="${record.id}">
@@ -5080,6 +5139,118 @@ case 'lead-set-strategic-value': {
   } catch (error) {
     if (error?.message !== 'No active admin session.') {
       showToast(error.message || 'Failed to update strategic value.');
+    }
+  }
+  break;
+}
+case 'lead-set-pricing': {
+  try {
+    const record = findById('academyLeadMissions', id);
+    if (!record) throw new Error('Lead Mission record not found.');
+
+    const currentCurrency = String(record.currency || 'USD').trim().toUpperCase() || 'USD';
+    const currentSellerPrice = Number(record.sellerPriceAmount || 0);
+    const currentCommissionRate = Number(record.universeCommissionRate || 20);
+    const currentSaleEnabled = record.saleEnabled === true ? 'true' : 'false';
+    const currentSaleStatus = String(record.saleStatus || 'not_listed').trim() || 'not_listed';
+    const currentReviewStatus = String(record.saleReviewStatus || 'not_listed').trim() || 'not_listed';
+
+    const modalResult = await openAdminInlineModal({
+      title: 'Set Lead Pricing',
+      description: 'Set the operator payout, Universe commission, and final buyer price for this Academy lead. Total buyer price is calculated automatically.',
+      submitLabel: 'Save Lead Pricing',
+      fields: [
+        {
+          name: 'sellerPriceAmount',
+          label: 'Operator Payout / Seller Price',
+          type: 'number',
+          min: '0',
+          step: '0.01',
+          value: String(currentSellerPrice || ''),
+          placeholder: 'Example: 100',
+          required: true
+        },
+        {
+          name: 'currency',
+          label: 'Currency',
+          type: 'select',
+          value: currentCurrency,
+          required: true,
+          options: [
+            { value: 'USD', label: 'USD' },
+            { value: 'EUR', label: 'EUR' },
+            { value: 'GBP', label: 'GBP' },
+            { value: 'NGN', label: 'NGN' },
+            { value: 'PHP', label: 'PHP' },
+            { value: 'INR', label: 'INR' }
+          ]
+        },
+        {
+          name: 'universeCommissionRate',
+          label: 'Universe Commission %',
+          type: 'number',
+          min: '0',
+          max: '100',
+          step: '0.01',
+          value: String(currentCommissionRate || 20),
+          placeholder: 'Example: 20',
+          required: true
+        },
+        {
+          name: 'saleEnabled',
+          label: 'Enable Sale / Marketplace Listing',
+          type: 'select',
+          value: currentSaleEnabled,
+          required: true,
+          options: [
+            { value: 'true', label: 'Yes — make this sellable' },
+            { value: 'false', label: 'No — keep private / not listed' }
+          ]
+        },
+        {
+          name: 'saleStatus',
+          label: 'Sale Status',
+          type: 'select',
+          value: currentSaleStatus,
+          required: true,
+          options: [
+            { value: 'not_listed', label: 'Not Listed' },
+            { value: 'pending_admin_review', label: 'Pending Admin Review' },
+            { value: 'listed', label: 'Listed / Sellable' },
+            { value: 'paused', label: 'Paused' }
+          ]
+        },
+        {
+          name: 'saleReviewStatus',
+          label: 'Review Status',
+          type: 'select',
+          value: currentReviewStatus,
+          required: true,
+          options: [
+            { value: 'not_listed', label: 'Not Listed' },
+            { value: 'pending_admin_review', label: 'Pending Admin Review' },
+            { value: 'approved', label: 'Approved' },
+            { value: 'rejected', label: 'Rejected' }
+          ]
+        }
+      ]
+    });
+
+    if (!modalResult) return;
+
+    await updateAcademyLeadMissionNetwork(record, {
+      sellerPriceAmount: Number(modalResult.sellerPriceAmount || 0),
+      currency: String(modalResult.currency || currentCurrency).trim().toUpperCase(),
+      universeCommissionRate: Number(modalResult.universeCommissionRate || 0),
+      saleEnabled: String(modalResult.saleEnabled || 'false') === 'true',
+      saleStatus: String(modalResult.saleStatus || 'not_listed').trim(),
+      saleReviewStatus: String(modalResult.saleReviewStatus || 'not_listed').trim()
+    });
+
+    showToast('Lead pricing updated.');
+  } catch (error) {
+    if (error?.message !== 'No active admin session.') {
+      showToast(error.message || 'Failed to update lead pricing.');
     }
   }
   break;
