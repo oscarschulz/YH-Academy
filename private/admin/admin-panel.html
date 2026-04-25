@@ -22,18 +22,136 @@
         </div>
       </div>
 
-      <nav class="sidebar-nav">
-        <button class="nav-item active" data-view="overview">Overview</button>
-        <button class="nav-item" data-view="applications">Applications</button>
-        <button class="nav-item" data-view="members">Members</button>
-        <button class="nav-item" data-view="academy">Academy</button>
-        <button class="nav-item" data-view="federation">Federation</button>
-        <button class="nav-item" data-view="economy">Economy</button>
-        <button class="nav-item" data-view="plazas">Plazas</button>
-        <button class="nav-item" data-view="communications">Communications</button>
-        <button class="nav-item" data-view="support">Support</button>
-        <button class="nav-item" data-view="analytics">Analytics</button>
-        <button class="nav-item" data-view="settings">Settings</button>
+      <nav class="sidebar-nav" aria-label="Admin navigation">
+        <div class="admin-nav-group">
+          <div class="admin-nav-group-title">Command</div>
+
+          <button class="nav-item active" data-view="overview" data-label="Overview">
+            <span class="admin-nav-main">
+              <span class="admin-nav-icon">⌂</span>
+              <span class="admin-nav-copy">
+                <span class="admin-nav-title">Overview</span>
+                <span class="admin-nav-sub">Daily control room</span>
+              </span>
+            </span>
+          </button>
+
+          <button class="nav-item" data-view="analytics" data-label="Analytics">
+            <span class="admin-nav-main">
+              <span class="admin-nav-icon">▣</span>
+              <span class="admin-nav-copy">
+                <span class="admin-nav-title">Analytics</span>
+                <span class="admin-nav-sub">Growth, revenue, signals</span>
+              </span>
+            </span>
+          </button>
+        </div>
+
+        <div class="admin-nav-group">
+          <div class="admin-nav-group-title">People</div>
+
+          <button class="nav-item" data-view="applications" data-label="Applications">
+            <span class="admin-nav-main">
+              <span class="admin-nav-icon">☰</span>
+              <span class="admin-nav-copy">
+                <span class="admin-nav-title">Applications</span>
+                <span class="admin-nav-sub">Approve, reject, waitlist</span>
+              </span>
+            </span>
+          </button>
+
+          <button class="nav-item" data-view="members" data-label="Members">
+            <span class="admin-nav-main">
+              <span class="admin-nav-icon">◉</span>
+              <span class="admin-nav-copy">
+                <span class="admin-nav-title">Members</span>
+                <span class="admin-nav-sub">All users and access</span>
+              </span>
+            </span>
+          </button>
+        </div>
+
+        <div class="admin-nav-group">
+          <div class="admin-nav-group-title">Divisions</div>
+
+          <button class="nav-item" data-view="academy" data-label="Academy">
+            <span class="admin-nav-main">
+              <span class="admin-nav-icon">🧠</span>
+              <span class="admin-nav-copy">
+                <span class="admin-nav-title">Academy</span>
+                <span class="admin-nav-sub">Roadmaps, missions, leads</span>
+              </span>
+            </span>
+          </button>
+
+          <button class="nav-item" data-view="federation" data-label="Federation">
+            <span class="admin-nav-main">
+              <span class="admin-nav-icon">♛</span>
+              <span class="admin-nav-copy">
+                <span class="admin-nav-title">Federation</span>
+                <span class="admin-nav-sub">Connect, deals, requests</span>
+              </span>
+            </span>
+          </button>
+
+          <button class="nav-item" data-view="plazas" data-label="Plazas">
+            <span class="admin-nav-main">
+              <span class="admin-nav-icon">◇</span>
+              <span class="admin-nav-copy">
+                <span class="admin-nav-title">Plaza</span>
+                <span class="admin-nav-sub">Opportunities and listings</span>
+              </span>
+            </span>
+          </button>
+        </div>
+
+        <div class="admin-nav-group">
+          <div class="admin-nav-group-title">Money</div>
+
+          <button class="nav-item" data-view="economy" data-label="Economy">
+            <span class="admin-nav-main">
+              <span class="admin-nav-icon">₿</span>
+              <span class="admin-nav-copy">
+                <span class="admin-nav-title">Economy</span>
+                <span class="admin-nav-sub">Payments, payouts, commission</span>
+              </span>
+            </span>
+          </button>
+        </div>
+
+        <div class="admin-nav-group">
+          <div class="admin-nav-group-title">Comms & System</div>
+
+          <button class="nav-item" data-view="communications" data-label="Communications">
+            <span class="admin-nav-main">
+              <span class="admin-nav-icon">✉</span>
+              <span class="admin-nav-copy">
+                <span class="admin-nav-title">Communications</span>
+                <span class="admin-nav-sub">Broadcasts and updates</span>
+              </span>
+            </span>
+          </button>
+
+          <button class="nav-item" data-view="support" data-label="Support">
+            <span class="admin-nav-main">
+              <span class="admin-nav-icon">?</span>
+              <span class="admin-nav-copy">
+                <span class="admin-nav-title">Support</span>
+                <span class="admin-nav-sub">Tickets and disputes</span>
+              </span>
+            </span>
+          </button>
+
+          <button class="nav-item" data-view="settings" data-label="Settings">
+            <span class="admin-nav-main">
+              <span class="admin-nav-icon">⚙</span>
+              <span class="admin-nav-copy">
+                <span class="admin-nav-title">Settings</span>
+                <span class="admin-nav-sub">Roles, toggles, system</span>
+              </span>
+            </span>
+          </button>
+        </div>
       </nav>
 
       <div class="sidebar-footer">
@@ -840,32 +958,115 @@
   <div class="drawer-backdrop" id="drawer-backdrop" hidden></div>
 
   <nav class="app-bottom-nav" aria-label="App Navigation">
-    <button class="nav-item active" data-view="overview">
+    <button class="nav-item active" data-view="overview" data-label="Overview">
       <span class="app-nav-icon">⌂</span>
       <span class="app-nav-label">Overview</span>
     </button>
-    <button class="nav-item" data-view="applications">
+
+    <button class="nav-item" data-view="applications" data-label="Applications">
       <span class="app-nav-icon">☰</span>
-      <span class="app-nav-label">Applications</span>
+      <span class="app-nav-label">Apps</span>
     </button>
-    <button class="nav-item" data-view="members">
+
+    <button class="nav-item" data-view="members" data-label="Members">
       <span class="app-nav-icon">◉</span>
       <span class="app-nav-label">Members</span>
     </button>
-    <button class="nav-item" data-view="communications">
-      <span class="app-nav-icon">✉</span>
-      <span class="app-nav-label">Comms</span>
-    </button>
-    <button class="nav-item" data-view="economy">
+
+    <button class="nav-item" data-view="economy" data-label="Economy">
       <span class="app-nav-icon">₿</span>
-      <span class="app-nav-label">Economy</span>
+      <span class="app-nav-label">Money</span>
     </button>
-    <button class="nav-item" data-view="analytics">
-      <span class="app-nav-icon">▣</span>
-      <span class="app-nav-label">Analytics</span>
+
+    <button class="admin-mobile-more-btn" id="admin-mobile-more-toggle" type="button" aria-expanded="false" aria-controls="admin-mobile-more-sheet">
+      <span class="app-nav-icon">⋯</span>
+      <span class="app-nav-label">More</span>
     </button>
   </nav>
 
+  <div class="admin-mobile-more-backdrop" id="admin-mobile-more-backdrop" hidden></div>
+
+  <div class="admin-mobile-more-sheet" id="admin-mobile-more-sheet" hidden aria-hidden="true">
+    <div class="admin-mobile-more-head">
+      <div>
+        <p class="eyebrow">Admin Menu</p>
+        <h3>More Controls</h3>
+      </div>
+      <button type="button" class="icon-btn" id="admin-mobile-more-close" aria-label="Close menu">✕</button>
+    </div>
+
+    <div class="admin-mobile-more-grid">
+      <button class="nav-item" data-view="academy" data-label="Academy">
+        <span class="admin-nav-main">
+          <span class="admin-nav-icon">🧠</span>
+          <span class="admin-nav-copy">
+            <span class="admin-nav-title">Academy</span>
+            <span class="admin-nav-sub">Missions and leads</span>
+          </span>
+        </span>
+      </button>
+
+      <button class="nav-item" data-view="federation" data-label="Federation">
+        <span class="admin-nav-main">
+          <span class="admin-nav-icon">♛</span>
+          <span class="admin-nav-copy">
+            <span class="admin-nav-title">Federation</span>
+            <span class="admin-nav-sub">Connect and deals</span>
+          </span>
+        </span>
+      </button>
+
+      <button class="nav-item" data-view="plazas" data-label="Plazas">
+        <span class="admin-nav-main">
+          <span class="admin-nav-icon">◇</span>
+          <span class="admin-nav-copy">
+            <span class="admin-nav-title">Plaza</span>
+            <span class="admin-nav-sub">Listings and opportunities</span>
+          </span>
+        </span>
+      </button>
+
+      <button class="nav-item" data-view="communications" data-label="Communications">
+        <span class="admin-nav-main">
+          <span class="admin-nav-icon">✉</span>
+          <span class="admin-nav-copy">
+            <span class="admin-nav-title">Communications</span>
+            <span class="admin-nav-sub">Broadcasts</span>
+          </span>
+        </span>
+      </button>
+
+      <button class="nav-item" data-view="support" data-label="Support">
+        <span class="admin-nav-main">
+          <span class="admin-nav-icon">?</span>
+          <span class="admin-nav-copy">
+            <span class="admin-nav-title">Support</span>
+            <span class="admin-nav-sub">Tickets</span>
+          </span>
+        </span>
+      </button>
+
+      <button class="nav-item" data-view="analytics" data-label="Analytics">
+        <span class="admin-nav-main">
+          <span class="admin-nav-icon">▣</span>
+          <span class="admin-nav-copy">
+            <span class="admin-nav-title">Analytics</span>
+            <span class="admin-nav-sub">Performance</span>
+          </span>
+        </span>
+      </button>
+
+      <button class="nav-item" data-view="settings" data-label="Settings">
+        <span class="admin-nav-main">
+          <span class="admin-nav-icon">⚙</span>
+          <span class="admin-nav-copy">
+            <span class="admin-nav-title">Settings</span>
+            <span class="admin-nav-sub">System controls</span>
+          </span>
+        </span>
+      </button>
+    </div>
+  </div>
   <div class="toast" id="toast"></div>
 <link rel="stylesheet" href="/admin-panel.css" />
 <script src="/admin-panel.js"></script>

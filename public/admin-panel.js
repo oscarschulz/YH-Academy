@@ -1573,10 +1573,18 @@ function setView(view) {
     section.toggleAttribute('data-app-active', isActive);
   });
 
+  const desktopNavItem = document.querySelector(`.sidebar .nav-item[data-view="${view}"]`);
+  const mobileNavItem = document.querySelector(`.app-bottom-nav .nav-item[data-view="${view}"]`);
+  const mobileSheetNavItem = document.querySelector(`.admin-mobile-more-sheet .nav-item[data-view="${view}"]`);
+
   const desktopLabel =
-    document.querySelector(`.sidebar .nav-item[data-view="${view}"]`)?.textContent?.trim()
-    || document.querySelector(`.app-bottom-nav .nav-item[data-view="${view}"] .app-nav-label`)?.textContent?.trim()
-    || 'Overview';
+    desktopNavItem?.dataset?.label ||
+    desktopNavItem?.querySelector('.admin-nav-title')?.textContent?.trim() ||
+    mobileNavItem?.dataset?.label ||
+    mobileNavItem?.querySelector('.app-nav-label')?.textContent?.trim() ||
+    mobileSheetNavItem?.dataset?.label ||
+    mobileSheetNavItem?.querySelector('.admin-nav-title')?.textContent?.trim() ||
+    'Overview';
 
   const title = document.getElementById('page-title');
   if (title) title.textContent = desktopLabel;
@@ -1586,6 +1594,16 @@ function setView(view) {
 
   document.body.dataset.currentView = view;
 
+  const primaryMobileViews = new Set(['overview', 'applications', 'members', 'economy']);
+  const mobileMoreToggle = document.getElementById('admin-mobile-more-toggle');
+  if (mobileMoreToggle) {
+    mobileMoreToggle.classList.toggle('active', !primaryMobileViews.has(view));
+  }
+
+  if (typeof closeAdminMobileMoreMenu === 'function') {
+    closeAdminMobileMoreMenu();
+  }
+
   if (window.innerWidth <= 980) {
     closeDrawer();
     requestAnimationFrame(() => {
@@ -1594,7 +1612,56 @@ function setView(view) {
     });
   }
 }
+function getAdminMobileMoreMenuParts() {
+  return {
+    toggle: document.getElementById('admin-mobile-more-toggle'),
+    sheet: document.getElementById('admin-mobile-more-sheet'),
+    backdrop: document.getElementById('admin-mobile-more-backdrop'),
+    closeBtn: document.getElementById('admin-mobile-more-close')
+  };
+}
 
+function openAdminMobileMoreMenu() {
+  const { toggle, sheet, backdrop } = getAdminMobileMoreMenuParts();
+
+  if (!sheet || !backdrop) return;
+
+  sheet.hidden = false;
+  backdrop.hidden = false;
+  sheet.setAttribute('aria-hidden', 'false');
+
+  if (toggle) {
+    toggle.setAttribute('aria-expanded', 'true');
+  }
+}
+
+function closeAdminMobileMoreMenu() {
+  const { toggle, sheet, backdrop } = getAdminMobileMoreMenuParts();
+
+  if (sheet) {
+    sheet.hidden = true;
+    sheet.setAttribute('aria-hidden', 'true');
+  }
+
+  if (backdrop) {
+    backdrop.hidden = true;
+  }
+
+  if (toggle) {
+    toggle.setAttribute('aria-expanded', 'false');
+  }
+}
+
+function toggleAdminMobileMoreMenu() {
+  const { sheet } = getAdminMobileMoreMenuParts();
+
+  if (!sheet || sheet.hidden) {
+    openAdminMobileMoreMenu();
+    return;
+  }
+
+  closeAdminMobileMoreMenu();
+}
 function ensureAnalyticsLayout() {
   const analyticsView = document.getElementById('view-analytics');
   if (!analyticsView) return;
@@ -1887,22 +1954,85 @@ function renderOverview() {
   }
 
   if (priorityActionsEl) {
-    const actions = [
-      `${pendingApplications} applications need review`,
-      `${state.support.filter(t => t.status === 'Open').length} support tickets still open`,
-      `${state.academy.filter(a => a.status !== 'On Track').length} Academy members need intervention`,
-      `${flaggedListings} Plazas listings need moderation`
+    const openSupportTickets = state.support.filter(t => t.status === 'Open').length;
+    const academyInterventions = state.academy.filter(a => a.status !== 'On Track').length;
+    const economyMetrics = getAdminEconomyMetrics();
+    const pendingFederationRequests = state.federationConnectionRequests.filter((request) => {
+      const status = String(request.status || '').trim().toLowerCase();
+      const paymentStatus = String(request.paymentStatus || '').trim().toLowerCase();
+
+      return (
+        ['pending_admin_match', 'pending_review', 'matched', 'pricing_sent'].includes(status) ||
+        ['not_started', 'pending', 'checkout_started'].includes(paymentStatus)
+      );
+    }).length;
+
+    const quickActions = [
+      {
+        icon: '☰',
+        title: 'Review Applications',
+        copy: `${pendingApplications} application(s) need intake action.`,
+        meta: 'Open Applications',
+        view: 'applications',
+        badge: 'High'
+      },
+      {
+        icon: '♛',
+        title: 'Match Federation Requests',
+        copy: `${pendingFederationRequests} Federation request(s) may need matching, pricing, or payment review.`,
+        meta: 'Open Federation',
+        view: 'federation',
+        badge: 'High'
+      },
+      {
+        icon: '🧠',
+        title: 'Check Academy Leads',
+        copy: `${academyInterventions} Academy record(s) need intervention or review.`,
+        meta: 'Open Academy',
+        view: 'academy',
+        badge: 'Medium'
+      },
+      {
+        icon: '₿',
+        title: 'Check Payments & Payouts',
+        copy: `${economyMetrics.pendingPaymentCount} pending payment(s), ${economyMetrics.pendingPayoutCount} pending payout(s).`,
+        meta: 'Open Economy',
+        view: 'economy',
+        badge: 'High'
+      },
+      {
+        icon: '◇',
+        title: 'Review Plaza Listings',
+        copy: `${flaggedListings} Plaza listing(s) need moderation.`,
+        meta: 'Open Plaza',
+        view: 'plazas',
+        badge: flaggedListings ? 'Medium' : 'Low'
+      },
+      {
+        icon: '?',
+        title: 'Open Support Tickets',
+        copy: `${openSupportTickets} support ticket(s) still open.`,
+        meta: 'Open Support',
+        view: 'support',
+        badge: openSupportTickets ? 'Medium' : 'Low'
+      }
     ];
 
-    priorityActionsEl.innerHTML = actions.map((text, index) => `
-      <div class="stack-item">
-        <div class="stack-item-head">
-          <strong>Queue ${index + 1}</strong>
-          ${formatBadge(index === 0 ? 'High' : index === 1 ? 'Medium' : 'Low')}
-        </div>
-        <p>${escapeHtml(text)}</p>
+    priorityActionsEl.innerHTML = `
+      <div class="quick-action-grid">
+        ${quickActions.map((action) => `
+          <button type="button" class="quick-action-card" data-admin-jump-view="${escapeHtml(action.view)}">
+            <div class="quick-action-top">
+              <span class="quick-action-icon">${escapeHtml(action.icon)}</span>
+              ${formatBadge(action.badge)}
+            </div>
+            <div class="quick-action-title">${escapeHtml(action.title)}</div>
+            <p class="quick-action-copy">${escapeHtml(action.copy)}</p>
+            <span class="quick-action-meta">${escapeHtml(action.meta)} →</span>
+          </button>
+        `).join('')}
       </div>
-    `).join('');
+    `;
   }
 
   if (systemAlertsEl) {
@@ -5167,9 +5297,33 @@ function renderApp() {
 function bindEvents() {
   document.querySelectorAll('.nav-item').forEach(btn => {
     btn.addEventListener('click', () => {
-      setView(btn.dataset.view);
+      const nextView = String(btn.dataset.view || '').trim();
+      if (!nextView) return;
+
+      setView(nextView);
       saveState();
     });
+  });
+
+  const mobileMoreToggle = document.getElementById('admin-mobile-more-toggle');
+  if (mobileMoreToggle) {
+    mobileMoreToggle.addEventListener('click', toggleAdminMobileMoreMenu);
+  }
+
+  const mobileMoreClose = document.getElementById('admin-mobile-more-close');
+  if (mobileMoreClose) {
+    mobileMoreClose.addEventListener('click', closeAdminMobileMoreMenu);
+  }
+
+  const mobileMoreBackdrop = document.getElementById('admin-mobile-more-backdrop');
+  if (mobileMoreBackdrop) {
+    mobileMoreBackdrop.addEventListener('click', closeAdminMobileMoreMenu);
+  }
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      closeAdminMobileMoreMenu();
+    }
   });
 
     ['global-search', 'global-search-desktop'].forEach(id => {
@@ -5212,8 +5366,18 @@ function bindEvents() {
   });
 
   document.body.addEventListener('click', async (e) => {
+    const jumpBtn = e.target.closest('[data-admin-jump-view]');
     const openBtn = e.target.closest('[data-open]');
     const actionBtn = e.target.closest('[data-action]');
+
+    if (jumpBtn) {
+      const nextView = String(jumpBtn.dataset.adminJumpView || '').trim();
+      if (nextView) {
+        setView(nextView);
+        saveState();
+      }
+      return;
+    }
 
     if (openBtn) {
       openDrawer(openBtn.dataset.open, openBtn.dataset.id);
