@@ -6272,12 +6272,6 @@ function bindEvents() {
       return;
     }
 
-    const memberBtn = target.closest("[data-member-id]");
-    if (memberBtn instanceof HTMLElement) {
-      openMemberRequest(plazaAdapter.getMemberById(memberBtn.dataset.memberId));
-      return;
-    }
-
     const plazaProfileMessageBtn = target.closest("[data-plaza-profile-message]");
     if (plazaProfileMessageBtn instanceof HTMLButtonElement) {
       const targetUserId = plazaProfileMessageBtn.dataset.plazaProfileMessage || "";
