@@ -11118,10 +11118,21 @@ body.academy-profile-image-preview-open {
 
 #academy-profile-view .academy-profile-post-list {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-auto-rows: minmax(260px, auto);
     align-items: stretch;
     gap: 14px;
     margin-top: 0;
+    max-height: calc((260px * 2) + 14px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 4px;
+    scrollbar-width: none;
+}
+
+#academy-profile-view .academy-profile-post-list::-webkit-scrollbar {
+    width: 0;
+    height: 0;
 }
 #academy-profile-view .academy-profile-post-list .academy-profile-empty-state {
     grid-column: 1 / -1;
@@ -16340,8 +16351,18 @@ body[data-yh-page="dashboard"] .yh-dashboard-profile-search-btn {
     }
     
 }
+@media (max-width: 1180px) {
+    #academy-profile-view .academy-profile-post-list {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        max-height: calc((260px * 2) + 14px);
+    }
+}
+
 @media (max-width: 860px) {
     #academy-profile-view .academy-profile-post-list {
         grid-template-columns: 1fr;
+        max-height: none;
+        overflow-y: visible;
+        padding-right: 0;
     }
 }
