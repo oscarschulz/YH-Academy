@@ -664,6 +664,17 @@ function normalizeAdminApplicationRecord(record = {}) {
     applicationType: String(record.applicationType || 'general').trim(),
     status: String(record.status || 'Under Review').trim(),
 
+    applicationTrack: String(record.applicationTrack || '').trim(),
+    directStrategicApplicant: record.directStrategicApplicant === true,
+    academySignalSnapshot:
+      record.academySignalSnapshot && typeof record.academySignalSnapshot === 'object'
+        ? record.academySignalSnapshot
+        : {},
+    academyUnlockRequirement:
+      record.academyUnlockRequirement && typeof record.academyUnlockRequirement === 'object'
+        ? record.academyUnlockRequirement
+        : {},
+
     roles: isFederation ? profile.roles : toAdminStringArray(record.roles),
     level: isFederation ? profile.level : String(record.level || '').trim(),
 
@@ -3207,7 +3218,85 @@ document.getElementById('roles-list').innerHTML = state.roles.length
     </div>
   `).join('');
 }
+function formatAdminApplicationTrackLabel(value = '', directStrategic = false) {
+  const raw = String(value || '').trim().toLowerCase();
 
+  if (directStrategic || raw === 'direct_strategic') return 'Direct Strategic Review';
+  if (raw === 'academy_progression') return 'Academy Progression';
+  if (raw === 'approved') return 'Approved Access';
+
+  return raw
+    ? raw.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
+    : 'Not Set';
+}
+
+function buildAdminAcademySignalMarkup(record = {}) {
+  const signal =
+    record.academySignalSnapshot && typeof record.academySignalSnapshot === 'object'
+      ? record.academySignalSnapshot
+      : {};
+
+  const requirement =
+    record.academyUnlockRequirement && typeof record.academyUnlockRequirement === 'object'
+      ? record.academyUnlockRequirement
+      : {};
+
+  const hasSignal =
+    Object.keys(signal).length > 0 ||
+    Object.keys(requirement).length > 0 ||
+    record.applicationTrack ||
+    record.directStrategicApplicant === true;
+
+  if (!hasSignal) return '';
+
+  const readinessScore = Number(
+    signal.readinessScore ??
+    requirement.currentScore ??
+    0
+  );
+
+  const requiredScore = Number(requirement.requiredScore || 0);
+  const completedCount = Number(signal.completedCount || 0);
+  const totalCount = Number(signal.totalCount || 0);
+  const missionExecutionScore = Number(signal.missionExecutionScore || 0);
+
+  return `
+    <div class="drawer-section">
+      <h4>Application Track & Academy Signal</h4>
+      <div class="kv-grid application-kv-grid">
+        <div class="kv">
+          <span>Track</span>
+          <strong>${escapeHtml(formatAdminApplicationTrackLabel(record.applicationTrack, record.directStrategicApplicant))}</strong>
+        </div>
+        <div class="kv">
+          <span>Academy Score</span>
+          <strong>${escapeHtml(String(readinessScore || 0))}${requiredScore ? ` / ${escapeHtml(String(requiredScore))}` : ''}</strong>
+        </div>
+        <div class="kv">
+          <span>Unlock Status</span>
+          <strong>${requirement.unlocked === true ? 'Unlocked' : requirement.unlocked === false ? 'Locked' : 'Review Needed'}</strong>
+        </div>
+        <div class="kv">
+          <span>Academy Status</span>
+          <strong>${escapeHtml(signal.readinessStatus || requirement.label || '—')}</strong>
+        </div>
+        <div class="kv">
+          <span>Roadmap Missions</span>
+          <strong>${escapeHtml(String(completedCount))}${totalCount ? ` / ${escapeHtml(String(totalCount))}` : ''}</strong>
+        </div>
+        <div class="kv">
+          <span>Mission Execution Score</span>
+          <strong>${escapeHtml(String(missionExecutionScore || 0))}</strong>
+        </div>
+      </div>
+      ${
+        requirement.copy
+          ? `<p class="muted" style="margin-top:12px;">${escapeHtml(requirement.copy)}</p>`
+          : ''
+      }
+    </div>
+  `;
+}
 function getDrawerTemplate(type, record) {
   if (!record) return '<div class="drawer-section"><p class="muted">Record not found.</p></div>';
 
@@ -3319,9 +3408,9 @@ if (type === 'application') {
       </div>
     </div>
 
+    ${buildAdminAcademySignalMarkup(record)}
     ${federationProfileMarkup}
     ${buildStrategicReadinessSnapshotMarkup(record)}
-
     <div class="drawer-section">
       <h4>Identity & Routing</h4>
       <div class="kv-grid application-kv-grid">

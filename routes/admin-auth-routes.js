@@ -1011,6 +1011,17 @@ const applications = users.flatMap((user) => {
       applicationType: 'federation-access',
       reviewLane: 'Federation Access',
 
+      applicationTrack: cleanText(app.applicationTrack || ''),
+      directStrategicApplicant: app.directStrategicApplicant === true,
+      academySignalSnapshot:
+        app.academySignalSnapshot && typeof app.academySignalSnapshot === 'object'
+          ? app.academySignalSnapshot
+          : {},
+      academyUnlockRequirement:
+        app.academyUnlockRequirement && typeof app.academyUnlockRequirement === 'object'
+          ? app.academyUnlockRequirement
+          : {},
+
       role: cleanText(app.role || app.profession || ''),
       profession: cleanText(app.profession || app.role || ''),
       city: cleanText(app.city || ''),
@@ -1071,6 +1082,17 @@ const applications = users.flatMap((user) => {
       notes: Array.isArray(app.notes) ? app.notes : [],
       applicationType: 'plaza-access',
       reviewLane: 'Plaza Access',
+
+      applicationTrack: cleanText(app.applicationTrack || ''),
+      directStrategicApplicant: app.directStrategicApplicant === true,
+      academySignalSnapshot:
+        app.academySignalSnapshot && typeof app.academySignalSnapshot === 'object'
+          ? app.academySignalSnapshot
+          : {},
+      academyUnlockRequirement:
+        app.academyUnlockRequirement && typeof app.academyUnlockRequirement === 'object'
+          ? app.academyUnlockRequirement
+          : {},
 
       membershipType: cleanText(app.membershipType || ''),
       membershipDivisionLabel: cleanText(app.membershipDivisionLabel || ''),

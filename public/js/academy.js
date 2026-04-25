@@ -4940,21 +4940,37 @@ function buildAcademyMissionSignalSnapshot() {
     });
 }
 function academyBuildHomeReadinessTone(score = 0, marketplaceReady = false) {
-    if (marketplaceReady) {
+    const numericScore = Number(score || 0);
+
+    if (marketplaceReady && numericScore >= 90) {
+        return {
+            badgeClass: 'is-ready',
+            label: 'Priority Plaza Candidate'
+        };
+    }
+
+    if (marketplaceReady && numericScore >= 75) {
         return {
             badgeClass: 'is-ready',
             label: 'Ready for Plaza'
         };
     }
 
-    if (score >= 75) {
+    if (numericScore >= 75) {
         return {
             badgeClass: 'is-strong',
-            label: 'Strong Signal'
+            label: 'Strong Academy Signal'
         };
     }
 
-    if (score >= 50) {
+    if (numericScore >= 60) {
+        return {
+            badgeClass: 'is-building',
+            label: 'Eligible for Plaza Review'
+        };
+    }
+
+    if (numericScore >= 40) {
         return {
             badgeClass: 'is-building',
             label: 'Building Momentum'

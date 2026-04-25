@@ -12,6 +12,7 @@ const jwt = require('jsonwebtoken');
 const publicLandingEventsRepo = require('./backend/repositories/publicLandingEventsRepo');
 const realtimeFirestoreRepo = require('./backend/repositories/realtimeFirestoreRepo');
 const paymentLedgerRepo = require('./backend/repositories/paymentLedgerRepo');
+const academyFirestoreRepo = require('./backend/repositories/academyFirestoreRepo');
 const app = express();
 app.set('trust proxy', 1);
 
@@ -4490,6 +4491,25 @@ app.post('/api/federation/application', requireApiUser, async (req, res) => {
             });
         }
 
+        const applicationTrack = resolveServerDivisionApplicationTrack({
+            incomingTrack: body.applicationTrack,
+            membershipType: body.membershipType,
+            user
+        });
+
+        const federationGate = await buildServerDivisionGatePayloadForUser({
+            userId,
+            division: 'federation',
+            track: applicationTrack
+        });
+
+        if (rejectIfAcademyProgressionLocked(res, federationGate.academyUnlockRequirement)) {
+            return;
+        }
+
+        const academySignalSnapshot = federationGate.academySignalSnapshot;
+        const academyUnlockRequirement = federationGate.academyUnlockRequirement;
+
         const applicationId =
             sanitizeText(body.id) ||
             `FED-APP-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
@@ -4504,6 +4524,11 @@ app.post('/api/federation/application', requireApiUser, async (req, res) => {
             reviewLane: 'Federation Access',
             source: sanitizeText(body.source || 'Dashboard Federation Application'),
             status: 'Under Review',
+
+            applicationTrack,
+            directStrategicApplicant: applicationTrack === 'direct_strategic',
+            academySignalSnapshot,
+            academyUnlockRequirement,
 
             name: fullName,
             fullName,
@@ -4849,12 +4874,208 @@ function normalizePlazaApplicationShort(value = '', max = 180) {
 function normalizePlazaApplicationLong(value = '', max = 1800) {
     return sanitizeText(value).slice(0, max);
 }
+const YH_PLAZA_ACADEMY_UNLOCK_SCORE = 60;
+const YH_FEDERATION_ACADEMY_UNLOCK_SCORE = 80;
+
+function getSafeObject(value = {}) {
+    return value && typeof value === 'object' && !Array.isArray(value)
+        ? value
+        : {};
+}
+
+function normalizeDivisionApplicationTrack(value = '', fallback = 'academy_progression') {
+    const raw = sanitizeText(value).toLowerCase();
+
+    if (raw === 'direct_strategic' || raw === 'direct strategic' || raw === 'strategic') {
+        return 'direct_strategic';
+    }
+
+    if (raw === 'academy_progression' || raw === 'academy progression' || raw === 'academy') {
+        return 'academy_progression';
+    }
+
+    return fallback;
+}
+
+function buildServerAcademyUnlockRequirement({
+    division = 'plaza',
+    track = 'academy_progression',
+    academySignalSnapshot = {},
+    academyUnlockRequirement = {}
+} = {}) {
+    const normalizedDivision = sanitizeText(division).toLowerCase() === 'federation'
+        ? 'federation'
+        : 'plaza';
+
+    const requirement = getSafeObject(academyUnlockRequirement);
+    const signal = getSafeObject(academySignalSnapshot);
+
+    const requiredScore = normalizedDivision === 'federation'
+        ? YH_FEDERATION_ACADEMY_UNLOCK_SCORE
+        : YH_PLAZA_ACADEMY_UNLOCK_SCORE;
+
+    const currentScore = Math.max(
+        0,
+        Math.min(
+            100,
+            Number(
+                requirement.currentScore ??
+                signal.readinessScore ??
+                0
+            )
+        )
+    );
+
+    const normalizedTrack = normalizeDivisionApplicationTrack(track);
+
+    if (normalizedTrack === 'direct_strategic') {
+        return {
+            division: normalizedDivision,
+            track: normalizedTrack,
+            requiredScore,
+            currentScore,
+            unlocked: true,
+            label: 'Direct Strategic Review',
+            copy: 'Direct strategic applicants bypass Academy score gating and require manual admin review.'
+        };
+    }
+
+    return {
+        division: normalizedDivision,
+        track: normalizedTrack,
+        requiredScore,
+        currentScore,
+        unlocked: currentScore >= requiredScore,
+        label: currentScore >= requiredScore
+            ? 'Academy Progression Eligible'
+            : 'Academy Score Locked',
+        copy: currentScore >= requiredScore
+            ? `Academy score requirement reached for ${normalizedDivision}.`
+            : `Reach Academy Score ${requiredScore} to unlock ${normalizedDivision}. Current score: ${currentScore}.`
+    };
+}
+
+function rejectIfAcademyProgressionLocked(res, requirement = {}) {
+    if (requirement.track === 'direct_strategic' || requirement.unlocked === true) {
+        return false;
+    }
+
+    res.status(403).json({
+        success: false,
+        code: 'ACADEMY_SCORE_LOCKED',
+        message: requirement.copy || 'Academy score requirement has not been reached yet.',
+        academyUnlockRequirement: requirement
+    });
+
+    return true;
+}
+
+function isServerAcademyApprovedUser(user = {}) {
+    const academyStatus = sanitizeText(
+        user.academyApplicationStatus ||
+        user.academyMembershipStatus ||
+        user.academyStatus ||
+        ''
+    ).toLowerCase();
+
+    const divisions = Array.isArray(user.divisions)
+        ? user.divisions.map((item) => sanitizeText(item).toLowerCase())
+        : [];
+
+    return (
+        user.hasAcademyAccess === true ||
+        user.canEnterAcademy === true ||
+        academyStatus === 'approved' ||
+        academyStatus === 'active' ||
+        divisions.includes('academy')
+    );
+}
+
+function resolveServerDivisionApplicationTrack({
+    incomingTrack = '',
+    membershipType = '',
+    user = {}
+} = {}) {
+    const fallback = membershipType === 'direct_strategic'
+        ? 'direct_strategic'
+        : 'academy_progression';
+
+    const normalizedTrack = normalizeDivisionApplicationTrack(incomingTrack, fallback);
+
+    if (isServerAcademyApprovedUser(user)) {
+        return 'academy_progression';
+    }
+
+    return normalizedTrack;
+}
+
+async function buildServerDivisionGatePayloadForUser({
+    userId = '',
+    division = 'plaza',
+    track = 'academy_progression'
+} = {}) {
+    let homePayload = null;
+
+    try {
+        homePayload = await academyFirestoreRepo.buildAcademyHomePayload(userId);
+    } catch (error) {
+        console.error('buildServerDivisionGatePayloadForUser academy score error:', error);
+        homePayload = null;
+    }
+
+    const plazaReadiness =
+        homePayload?.plazaReadiness && typeof homePayload.plazaReadiness === 'object'
+            ? homePayload.plazaReadiness
+            : {};
+
+    const profileSignals =
+        homePayload?.profileSignals && typeof homePayload.profileSignals === 'object'
+            ? homePayload.profileSignals
+            : {};
+
+    const scoreBreakdown =
+        plazaReadiness?.scoreBreakdown && typeof plazaReadiness.scoreBreakdown === 'object'
+            ? plazaReadiness.scoreBreakdown
+            : {};
+
+    const academySignalSnapshot = {
+        academyApproved: true,
+        readinessScore: Math.max(0, Math.min(100, Number(plazaReadiness.score || 0))),
+        readinessStatus: sanitizeText(plazaReadiness.statusLabel || ''),
+        marketplaceReady: plazaReadiness.marketplaceReady === true,
+
+        missionCompletionRatio: Number(plazaReadiness.missionCompletionRatio || 0),
+        completedCount: Number(plazaReadiness.completedCount || 0),
+        totalCount: Number(plazaReadiness.totalCount || 0),
+        missionExecutionScore: Number(scoreBreakdown.missionExecutionScore || 0),
+
+        roleTrack: sanitizeText(profileSignals.roleTrack || ''),
+        lookingFor: Array.isArray(profileSignals.lookingFor) ? profileSignals.lookingFor : [],
+        canOffer: Array.isArray(profileSignals.canOffer) ? profileSignals.canOffer : [],
+        availability: sanitizeText(profileSignals.availability || ''),
+        workMode: sanitizeText(profileSignals.workMode || ''),
+        proofFocus: sanitizeText(profileSignals.proofFocus || '')
+    };
+
+    const academyUnlockRequirement = buildServerAcademyUnlockRequirement({
+        division,
+        track,
+        academySignalSnapshot,
+        academyUnlockRequirement: {}
+    });
+
+    return {
+        academySignalSnapshot,
+        academyUnlockRequirement
+    };
+}
 
 function normalizePlazaMembershipType(value = '') {
     const raw = sanitizeText(value).toLowerCase();
 
     if (raw === 'academy') return 'academy';
     if (raw === 'federation') return 'federation';
+    if (raw === 'direct_strategic' || raw === 'direct strategic' || raw === 'strategic') return 'direct_strategic';
     if (raw === 'not_yet' || raw === 'not yet') return 'not_yet';
 
     return '';
@@ -4872,6 +5093,7 @@ function normalizePlazaYesNo(value = '') {
 function getPlazaMembershipDivisionLabel(membershipType = '') {
     if (membershipType === 'academy') return 'The Academy';
     if (membershipType === 'federation') return 'The Federation';
+    if (membershipType === 'direct_strategic') return 'Direct Strategic Applicant';
     return 'Young Hustlers';
 }
 
@@ -4949,12 +5171,35 @@ app.post(['/api/plaza/application', '/api/plaza/applications'], requireApiUser, 
             });
         }
 
-        if (membershipType !== 'academy' && membershipType !== 'federation') {
+        if (
+            membershipType !== 'academy' &&
+            membershipType !== 'federation' &&
+            membershipType !== 'direct_strategic'
+        ) {
             return res.status(400).json({
                 success: false,
-                message: 'Select whether you are in The Academy or The Federation.'
+                message: 'Select whether you are in The Academy, The Federation, or applying as a direct strategic applicant.'
             });
         }
+
+        const applicationTrack = resolveServerDivisionApplicationTrack({
+            incomingTrack: body.applicationTrack,
+            membershipType,
+            user
+        });
+
+        const plazaGate = await buildServerDivisionGatePayloadForUser({
+            userId,
+            division: 'plaza',
+            track: applicationTrack
+        });
+
+        if (rejectIfAcademyProgressionLocked(res, plazaGate.academyUnlockRequirement)) {
+            return;
+        }
+
+        const academySignalSnapshot = plazaGate.academySignalSnapshot;
+        const academyUnlockRequirement = plazaGate.academyUnlockRequirement;
 
         const wantsPatron = normalizePlazaYesNo(body.wantsPatron);
         const wantsMarketplace = normalizePlazaYesNo(body.wantsMarketplace);
@@ -4963,6 +5208,11 @@ app.post(['/api/plaza/application', '/api/plaza/applications'], requireApiUser, 
             schemaVersion: normalizePlazaApplicationShort(body.schemaVersion || 'plaza-typeform-clone-v1'),
             membershipType,
             membershipDivisionLabel: getPlazaMembershipDivisionLabel(membershipType),
+
+            applicationTrack,
+            directStrategicApplicant: applicationTrack === 'direct_strategic',
+            academySignalSnapshot,
+            academyUnlockRequirement,
 
             email: normalizePlazaApplicationShort(body.email || user.email || req.user?.email || '', 180).toLowerCase(),
             fullName: normalizePlazaApplicationShort(body.fullName || user.fullName || user.name || user.displayName || req.user?.name || '', 160),
@@ -5003,7 +5253,13 @@ app.post(['/api/plaza/application', '/api/plaza/applications'], requireApiUser, 
         if (!applicationData.resourcesNeeded) missingFields.push('Resources needed');
         if (!applicationData.joinedAt) missingFields.push(`When you joined ${applicationData.membershipDivisionLabel}`);
         if (!applicationData.learntSoFar) missingFields.push(`What you have learnt so far in ${applicationData.membershipDivisionLabel}`);
-        if (!applicationData.contribution) missingFields.push(`What you can contribute as a ${membershipType === 'academy' ? 'Academy' : 'Federation'} member`);
+        if (!applicationData.contribution) {
+            missingFields.push(
+                membershipType === 'direct_strategic'
+                    ? 'What high-value contribution you can bring into Plaza'
+                    : `What you can contribute as a ${membershipType === 'academy' ? 'Academy' : 'Federation'} member`
+            );
+        }
         if (!applicationData.wantsPatron) missingFields.push('Patrón / Leader answer');
         if (!applicationData.country) missingFields.push('Country of Residence');
         if (!applicationData.wantsMarketplace) missingFields.push('Marketplace answer');
@@ -5074,7 +5330,9 @@ app.post(['/api/plaza/application', '/api/plaza/applications'], requireApiUser, 
                     answer: applicationData.learntSoFar
                 },
                 contribution: {
-                    question: `What can you contribute as a ${membershipType === 'academy' ? 'Academy' : 'Federation'} member?`,
+                    question: membershipType === 'direct_strategic'
+                        ? 'What high-value contribution can you bring into Plaza?'
+                        : `What can you contribute as a ${membershipType === 'academy' ? 'Academy' : 'Federation'} member?`,
                     answer: applicationData.contribution
                 },
                 patronTrack: {

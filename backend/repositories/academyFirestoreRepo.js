@@ -859,8 +859,29 @@ function buildAcademyPlazaReadinessPayload(profileDoc = {}, roadmap = {}, missio
     score += Math.max(0, Math.min(5, Math.round(roadmapReadiness / 20)));
 
     score = Math.max(0, Math.min(100, score));
+    const completedCount = safeMissions.filter((item) => sanitizeString(item?.status).toLowerCase() === 'completed').length;
+    const totalCount = safeMissions.length;
+    const completionRatio = totalCount > 0 ? completedCount / totalCount : 0;
 
-    let nextStep = 'Complete your Academy profile and missions to build stronger Plaza readiness.';
+    let score = 0;
+
+    if (roleTrack) score += 15;
+    if (lookingFor.length > 0) score += 15;
+    if (canOffer.length > 0) score += 20;
+    if (availability) score += 10;
+    if (workMode) score += 10;
+    if (proofFocus) score += 15;
+
+    if (completionRatio >= 0.8) score += 10;
+    else if (completionRatio >= 0.45) score += 6;
+    else if (completionRatio > 0) score += 3;
+
+    const roadmapReadiness = toNumber(roadmap?.readinessScore, 0);
+    score += Math.max(0, Math.min(5, Math.round(roadmapReadiness / 20)));
+
+    score = Math.max(0, Math.min(100, score));
+
+    let nextStep = 'Complete your Academy profile and Roadmap missions to build stronger Plaza readiness.';
 
     if (!roleTrack) {
         nextStep = 'Choose your role track first so The Academy knows what economic direction you are building toward.';
@@ -870,21 +891,28 @@ function buildAcademyPlazaReadinessPayload(profileDoc = {}, roadmap = {}, missio
         nextStep = 'Add what you are looking for so your next move inside Plaza becomes easier to match.';
     } else if (!proofFocus) {
         nextStep = 'Define your proof focus so your Academy work turns into visible commercial signal.';
-    } else if (completionRatio < 0.45) {
-        nextStep = 'Complete more missions consistently so your execution signal becomes strong enough for Plaza.';
+    } else if (completedCount < 3) {
+        nextStep = 'Complete at least 3 Roadmap missions so Plaza can see real execution, not just profile setup.';
+    } else if (missionExecutionScore < 22) {
+        nextStep = 'Complete more Roadmap missions consistently. Your Plaza signal rises as your execution record grows.';
     } else if (!marketplaceReady) {
-        nextStep = 'Your signal is getting strong. Once your profile feels complete, turn on Marketplace Ready in your Academy profile.';
+        nextStep = 'Your Academy execution signal is getting stronger. Turn on Marketplace Ready once your profile feels complete.';
     } else {
-        nextStep = 'Your Academy profile is ready to feed into Plaza visibility, matching, and opportunity flow.';
+        nextStep = 'Your Academy execution record is strong enough to support Plaza visibility, matching, and opportunity flow.';
     }
 
-    const statusLabel = marketplaceReady
-        ? 'Ready for Plaza'
-        : score >= 75
-            ? 'Strong Signal'
-            : score >= 50
-                ? 'Building Momentum'
-                : 'Still Building';
+    const statusLabel =
+        marketplaceReady && score >= 90
+            ? 'Priority Plaza Candidate'
+            : marketplaceReady && score >= 75
+                ? 'Ready for Plaza'
+                : score >= 75
+                    ? 'Strong Academy Signal'
+                    : score >= 60
+                        ? 'Eligible for Plaza Review'
+                        : score >= 40
+                            ? 'Building Momentum'
+                            : 'Still Building';
 
     return {
         score,
@@ -894,13 +922,23 @@ function buildAcademyPlazaReadinessPayload(profileDoc = {}, roadmap = {}, missio
         missionCompletionRatio: Number(completionRatio.toFixed(2)),
         completedCount,
         totalCount,
+        scoreBreakdown: {
+            profileScore,
+            missionExecutionScore,
+            missionRatioScore,
+            missionVolumeScore,
+            roadmapScore,
+            marketplaceScore
+        },
         signals: {
             roleTrack: Boolean(roleTrack),
             lookingFor: lookingFor.length > 0,
             canOffer: canOffer.length > 0,
             availability: Boolean(availability),
             workMode: Boolean(workMode),
-            proofFocus: Boolean(proofFocus)
+            proofFocus: Boolean(proofFocus),
+            roadmapMissionExecution: missionExecutionScore >= 22,
+            roadmapMissionVolume: completedCount >= 3
         },
         profileSignals: {
             roleTrack,
