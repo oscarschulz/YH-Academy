@@ -3612,3 +3612,19 @@ textarea:focus,
 .yh-plaza-workspace-card .yh-plaza-feed-composer-field textarea {
   border-radius: 22px;
 }
+/* =========================================================
+   PLAZA CENTER PANEL REAL SOFT-EDGE FIX
+   Fixes the large gray tab panel background behind each center tab.
+   ========================================================= */
+
+.yh-plaza-tab-panels > .yh-plaza-panel,
+.yh-plaza-screen-stack > .yh-plaza-panel,
+.yh-plaza-panel.yh-plaza-screen {
+  border-radius: 28px;
+  overflow: hidden;
+}
+
+.yh-plaza-tab-panels > .yh-plaza-panel.is-active,
+.yh-plaza-screen-stack > .yh-plaza-panel.is-active {
+  border-radius: 28px;
+}
