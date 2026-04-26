@@ -3571,3 +3571,21 @@ textarea:focus,
 .yh-plaza-notification-card {
   overflow: hidden;
 }
+.yh-plaza-screen-shell {
+  padding: 22px;
+  border: 1px solid rgba(56, 189, 248, 0.12);
+  background: rgba(15, 23, 42, 0.48);
+}
+
+.yh-plaza-screen-head {
+  padding: 4px 0 8px;
+}
+
+.yh-plaza-request-list,
+.yh-plaza-feed-grid,
+.yh-plaza-directory-grid,
+.yh-plaza-opportunity-grid,
+.yh-plaza-region-grid,
+.yh-plaza-bridge-grid {
+  border-radius: 24px;
+}
