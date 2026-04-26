@@ -7,7 +7,7 @@
     <link rel="icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css?v=20260426-profile-assets-1">
+<link rel="stylesheet" href="/css/style.css?v=20260426-inline-community-search-1">
 <link rel="stylesheet" href="/css/academy-thread-bottom-fix.css?v=20260417-2">
 </head>
 <body data-yh-view="academy" data-yh-page="academy">
@@ -467,11 +467,28 @@
                             <input
                                 type="text"
                                 id="academy-global-search-input"
-                                placeholder="Search members or tags."
+                                placeholder="Search users, posts, captions, or tags."
                                 class="academy-header-search-input"
                                 autocomplete="off"
                                 spellcheck="false"
                             >
+
+                            <div id="academy-search-results-panel" class="academy-search-results-panel academy-search-inline-results hidden-step" aria-live="polite">
+                                <div class="academy-search-results-shell">
+                                    <div class="academy-search-results-head">
+                                        <div class="academy-search-results-title">Community search</div>
+                                        <div class="academy-search-results-actions">
+                                            <button type="button" class="academy-search-results-close" id="academy-search-results-close" aria-label="Close search results">
+                                                ✕
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div class="academy-search-results-inner" id="academy-search-results-inner">
+                                        <div class="academy-search-result-empty">Start typing to search users, posts, captions, and tags.</div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         <button class="btn-secondary" id="academy-feed-refresh-btn" type="button">Refresh Feed</button>
@@ -2160,25 +2177,7 @@
         </div>
     </div>
 </div>
-<div id="academy-search-results-panel" class="academy-search-results-panel hidden-step" aria-live="polite">
-    <div class="academy-search-results-shell">
-        <div class="academy-search-results-head">
-            <div class="academy-search-results-title">Search results</div>
-            <div class="academy-search-results-actions">
-                <button type="button" class="academy-search-results-open" id="academy-search-open-directory">
-                    Open directory
-                </button>
-                <button type="button" class="academy-search-results-close" id="academy-search-results-close" aria-label="Close search results">
-                    ✕
-                </button>
-            </div>
-        </div>
-
-        <div class="academy-search-results-inner" id="academy-search-results-inner">
-            <div class="academy-search-result-empty">Start typing to search members or Academy tags.</div>
-        </div>
-    </div>
-</div>
+<!-- Academy search results now render inline under the community search field. -->
 <div id="academy-member-browser-modal" class="modal-overlay hidden-step">
     <div class="modal-content academy-member-browser-dialog">
         <div class="academy-member-browser-header">
@@ -2235,7 +2234,7 @@
 
 <script src="/js/yh-shared-core.js?v=20260418-toast-center-1"></script>
 <script src="/js/yh-shared-runtime.js?v=20260411-4"></script>
-<script src="/js/academy.js?v=20260426-profile-assets-1"></script>
+<script src="/js/academy.js?v=20260426-inline-community-search-1"></script>
 <div
     class="academy-profile-editor-overlay hidden-step"
     id="academy-profile-editor-overlay"

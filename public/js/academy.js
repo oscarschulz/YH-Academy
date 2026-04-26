@@ -14496,15 +14496,93 @@ function academyPostMatchesSearch(post = {}, query = '') {
 
     const haystack = [
         post?.body,
+        post?.caption,
+        post?.text,
+        post?.title,
         post?.display_name,
         post?.fullName,
         post?.username,
-        post?.role_label
+        post?.role_label,
+        post?.matched_post_preview
     ]
         .map((value) => String(value || '').trim().toLowerCase())
         .join(' ');
 
     return aliases.some((alias) => haystack.includes(alias));
+}
+
+function academySearchCleanPreviewText(value = '', maxLength = 150) {
+    const clean = String(value || '')
+        .replace(/\s+/g, ' ')
+        .replace(/Shared from\s+/i, 'Shared from ')
+        .trim();
+
+    if (!clean) return '';
+
+    return clean.length > maxLength
+        ? `${clean.slice(0, maxLength).trim()}...`
+        : clean;
+}
+
+function academySearchExtractPostPreview(post = {}) {
+    const body = String(post?.body || post?.caption || post?.text || '').trim();
+    if (!body) return '';
+
+    const sharedParts = body
+        .split(/\n\s*\n/)
+        .map((part) => part.trim())
+        .filter(Boolean);
+
+    const firstUsefulPart =
+        sharedParts.find((part) => !/^Shared from\s+/i.test(part)) ||
+        sharedParts[0] ||
+        body;
+
+    return academySearchCleanPreviewText(firstUsefulPart, 150);
+}
+
+function academyBuildCommunitySearchPostResults(query = '', limit = 8) {
+    const normalizedQuery = String(query || '').trim();
+    if (normalizedQuery.length < 2) return [];
+
+    const hiddenPosts = typeof readAcademyHiddenPostIds === 'function'
+        ? readAcademyHiddenPostIds()
+        : [];
+
+    const posts = typeof readAcademyFeedCachePosts === 'function'
+        ? readAcademyFeedCachePosts()
+        : [];
+
+    return posts
+        .filter((post) => {
+            const postId = normalizeAcademyFeedId(post?.id);
+            if (!postId || hiddenPosts.includes(postId)) return false;
+            return academyPostMatchesSearch(post, normalizedQuery);
+        })
+        .slice(0, limit)
+        .map((post) => {
+            const displayName =
+                post.display_name ||
+                post.fullName ||
+                post.username ||
+                'Academy Member';
+
+            const username = String(post.username || '').trim();
+            const preview = academySearchExtractPostPreview(post);
+            const hasMedia = Boolean(post.media_url || post.image_url || post.video_url);
+
+            return {
+                id: normalizeAcademyFeedId(post.id),
+                type: 'post',
+                displayName,
+                username,
+                roleLabel: post.role_label || 'Academy Member',
+                preview,
+                createdAt: post.created_at || post.createdAt || '',
+                hasMedia,
+                authorId: normalizeAcademyFeedId(post.user_id || post.author_id || post.userId || '')
+            };
+        });
 }
 
 function academyRenderMemberBrowserList(members = [], query = '') {
@@ -14740,7 +14818,7 @@ function resolveAcademyTagFromQuery(query = '') {
     return '';
 }
 
-function renderAcademySearchResultsPanel(members = [], query = '') {
+function renderAcademySearchResultsPanel(members = [], query = '', posts = []) {
     const panel = document.getElementById('academy-search-results-panel');
     const inner = document.getElementById('academy-search-results-inner');
     if (!panel || !inner) return;
@@ -14748,6 +14826,9 @@ function renderAcademySearchResultsPanel(members = [], query = '') {
     const normalizedQuery = String(query || '').trim();
     const hashtagSearch = isAcademyHashtagSearch(normalizedQuery);
     const safeQuery = academyFeedEscapeHtml(normalizedQuery);
+    const safeMembers = Array.isArray(members) ? members : [];
+    const safePosts = Array.isArray(posts) ? posts : [];
+    const totalResults = safeMembers.length + safePosts.length;
 
     if (!normalizedQuery) {
         closeAcademySearchResultsPanel();
@@ -14757,17 +14838,13 @@ function renderAcademySearchResultsPanel(members = [], query = '') {
     panel.classList.remove('hidden-step');
     document.body?.classList.add('academy-search-results-open');
 
-    if (!Array.isArray(members) || members.length === 0) {
+    if (totalResults === 0) {
         inner.innerHTML = `
             <section class="academy-search-result-summary">
-                <div class="academy-search-result-kicker">Academy Search</div>
-                <h3 class="academy-search-result-heading">
-                    ${hashtagSearch ? `Profiles posting ${safeQuery}` : `Search results for “${safeQuery}”`}
-                </h3>
+                <div class="academy-search-result-kicker">Community Search</div>
+                <h3 class="academy-search-result-heading">No results for “${safeQuery}”</h3>
                 <p class="academy-search-result-copy">
-                    ${hashtagSearch
-                        ? `No profiles have posted ${safeQuery} yet.`
-                        : `No members matched “${safeQuery}”.`}
+                    Try another name, username, post caption, hashtag, or community keyword.
                 </p>
             </section>
 
@@ -14775,93 +14852,149 @@ function renderAcademySearchResultsPanel(members = [], query = '') {
                 <div class="academy-search-result-empty-icon">🔎</div>
                 <div class="academy-search-result-empty-title">Nothing matched yet</div>
                 <div class="academy-search-result-empty-copy">
-                    Try a different name, username, or hashtag. The search runs automatically while you type.
+                    This search checks users, profile tags, post captions, post body text, and hashtags in the Academy community.
                 </div>
             </section>
         `;
         return;
     }
 
+    const memberHtml = safeMembers.length
+        ? `
+            <section class="academy-search-result-section">
+                <div class="academy-search-result-section-title">Users</div>
+                <div class="academy-search-result-list">
+                    ${safeMembers.map((member) => {
+                        const displayName =
+                            member.display_name ||
+                            member.fullName ||
+                            member.username ||
+                            'Academy Member';
+
+                        const username = String(member.username || '').trim();
+                        const followerCount = Number(member.followers_count || 0);
+                        const isFollowing = member.followed_by_me === true || member.followed_by_me === 1;
+                        const avatar = academyResolveMemberAvatarUrl(member);
+
+                        const tagLine = hashtagSearch
+                            ? (Array.isArray(member.matched_hashtags) && member.matched_hashtags.length
+                                ? member.matched_hashtags.slice(0, 4).map((tag) => `#${String(tag).replace(/^#/, '')}`).join(' • ')
+                                : normalizedQuery)
+                            : (Array.isArray(member.search_tags) && member.search_tags.length
+                                ? member.search_tags.slice(0, 4).map((tag) => `#${String(tag).replace(/^#/, '')}`).join(' • ')
+                                : '');
+
+                        const preview = hashtagSearch ? String(member.matched_post_preview || '').trim() : '';
+                        const countLine = hashtagSearch
+                            ? `${Number(member.matched_posts_count || 0)} matching post${Number(member.matched_posts_count || 0) === 1 ? '' : 's'}`
+                            : `${followerCount} followers`;
+
+                        return `
+                            <article class="academy-search-result-card academy-search-result-card-user">
+                                <div class="academy-search-result-main">
+                                    <div
+                                        class="academy-search-result-avatar"
+                                        style="${avatar ? `background-image:url('${academyFeedEscapeHtml(avatar)}');background-size:cover;background-position:center;` : ''}"
+                                    >${avatar ? '' : academyFeedEscapeHtml((displayName || 'A').charAt(0).toUpperCase())}</div>
+
+                                    <div class="academy-search-result-copy-wrap">
+                                        <div class="academy-search-result-name">${academyFeedEscapeHtml(displayName)}</div>
+                                        <div class="academy-search-result-meta">
+                                            ${academyFeedEscapeHtml(member.role_label || 'Academy Member')}
+                                            ${username ? ` • @${academyFeedEscapeHtml(username)}` : ''}
+                                            • ${academyFeedEscapeHtml(countLine)}
+                                        </div>
+                                        ${tagLine ? `<div class="academy-search-result-tags">${academyFeedEscapeHtml(tagLine)}</div>` : ''}
+                                        ${preview ? `<div class="academy-search-result-preview">${academyFeedEscapeHtml(preview)}</div>` : ''}
+                                    </div>
+                                </div>
+
+                                <div class="academy-search-result-actions">
+                                    <button
+                                        type="button"
+                                        class="btn-primary academy-member-card-visit"
+                                        data-member-profile-id="${academyFeedEscapeHtml(member.id)}"
+                                    >Visit</button>
+
+                                    <button
+                                        type="button"
+                                        class="btn-secondary academy-member-card-follow ${isFollowing ? 'is-following is-unfollow-action' : ''}"
+                                        data-member-follow-id="${academyFeedEscapeHtml(member.id)}"
+                                        data-member-follow-state="${isFollowing ? 'following' : 'not-following'}"
+                                    >${isFollowing ? 'Unfollow' : 'Follow'}</button>
+                                </div>
+                            </article>
+                        `;
+                    }).join('')}
+                </div>
+            </section>
+        `
+        : '';
+
+    const postHtml = safePosts.length
+        ? `
+            <section class="academy-search-result-section">
+                <div class="academy-search-result-section-title">Posts & captions</div>
+                <div class="academy-search-result-list">
+                    ${safePosts.map((post) => {
+                        const safePostId = academyFeedEscapeHtml(post.id);
+                        const safeAuthorId = academyFeedEscapeHtml(post.authorId || '');
+                        const safeName = academyFeedEscapeHtml(post.displayName || 'Academy Member');
+                        const safeUsername = academyFeedEscapeHtml(post.username || '');
+                        const safePreview = academyFeedEscapeHtml(post.preview || 'Post matched your search.');
+                        const mediaLabel = post.hasMedia ? ' • Media post' : '';
+
+                        return `
+                            <article class="academy-search-result-card academy-search-result-card-post">
+                                <div class="academy-search-result-main">
+                                    <div class="academy-search-result-avatar academy-search-result-post-icon">📰</div>
+
+                                    <div class="academy-search-result-copy-wrap">
+                                        <div class="academy-search-result-name">Post by ${safeName}</div>
+                                        <div class="academy-search-result-meta">
+                                            ${academyFeedEscapeHtml(post.roleLabel || 'Academy Member')}
+                                            ${safeUsername ? ` • @${safeUsername}` : ''}
+                                            ${academyFeedEscapeHtml(mediaLabel)}
+                                        </div>
+                                        <div class="academy-search-result-preview">${safePreview}</div>
+                                    </div>
+                                </div>
+
+                                <div class="academy-search-result-actions">
+                                    <button
+                                        type="button"
+                                        class="btn-primary academy-search-open-post-btn"
+                                        data-community-post-id="${safePostId}"
+                                    >Open Post</button>
+
+                                    ${
+                                        safeAuthorId
+                                            ? `<button type="button" class="btn-secondary academy-member-card-visit" data-member-profile-id="${safeAuthorId}">Author</button>`
+                                            : ''
+                                    }
+                                </div>
+                            </article>
+                        `;
+                    }).join('')}
+                </div>
+            </section>
+        `
+        : '';
+
     inner.innerHTML = `
         <section class="academy-search-result-summary">
-            <div class="academy-search-result-kicker">Academy Search</div>
-            <h3 class="academy-search-result-heading">
-                ${hashtagSearch ? `Profiles posting ${safeQuery}` : `Search results for “${safeQuery}”`}
-            </h3>
+            <div class="academy-search-result-kicker">Community Search</div>
+            <h3 class="academy-search-result-heading">Results for “${safeQuery}”</h3>
             <p class="academy-search-result-copy">
-                ${hashtagSearch
-                    ? `These profiles have actual community posts containing ${safeQuery}.`
-                    : `Matching member profiles are shown below.`}
+                Searching users, profile tags, posts, captions, body text, and hashtags inside the Academy community.
             </p>
             <div class="academy-search-result-count">
-                ${members.length} ${members.length === 1 ? 'profile' : 'profiles'} found
+                ${totalResults} result${totalResults === 1 ? '' : 's'} found
             </div>
         </section>
 
-        <div class="academy-search-result-list">
-            ${members.map((member) => {
-                const displayName =
-                    member.display_name ||
-                    member.fullName ||
-                    member.username ||
-                    'Academy Member';
-
-                const username = String(member.username || '').trim();
-                const followerCount = Number(member.followers_count || 0);
-                const isFollowing = member.followed_by_me === true || member.followed_by_me === 1;
-                const avatar = academyResolveMemberAvatarUrl(member);
-
-                const tagLine = hashtagSearch
-                    ? (Array.isArray(member.matched_hashtags) && member.matched_hashtags.length
-                        ? member.matched_hashtags.slice(0, 4).map((tag) => `#${String(tag).replace(/^#/, '')}`).join(' • ')
-                        : normalizedQuery)
-                    : (Array.isArray(member.search_tags) && member.search_tags.length
-                        ? member.search_tags.slice(0, 4).map((tag) => `#${String(tag).replace(/^#/, '')}`).join(' • ')
-                        : '');
-
-                const preview = hashtagSearch ? String(member.matched_post_preview || '').trim() : '';
-                const countLine = hashtagSearch
-                    ? `${Number(member.matched_posts_count || 0)} matching post${Number(member.matched_posts_count || 0) === 1 ? '' : 's'}`
-                    : `${followerCount} followers`;
-
-                return `
-                    <article class="academy-search-result-card">
-                        <div class="academy-search-result-main">
-                            <div
-                                class="academy-search-result-avatar"
-                                style="${avatar ? `background-image:url('${academyFeedEscapeHtml(avatar)}');background-size:cover;background-position:center;` : ''}"
-                            >${avatar ? '' : academyFeedEscapeHtml((displayName || 'A').charAt(0).toUpperCase())}</div>
-
-                            <div class="academy-search-result-copy-wrap">
-                                <div class="academy-search-result-name">${academyFeedEscapeHtml(displayName)}</div>
-                                <div class="academy-search-result-meta">
-                                    ${academyFeedEscapeHtml(member.role_label || 'Academy Member')}
-                                    ${username ? ` • @${academyFeedEscapeHtml(username)}` : ''}
-                                    • ${academyFeedEscapeHtml(countLine)}
-                                </div>
-                                ${tagLine ? `<div class="academy-search-result-tags">${academyFeedEscapeHtml(tagLine)}</div>` : ''}
-                                ${preview ? `<div class="academy-search-result-preview">${academyFeedEscapeHtml(preview)}</div>` : ''}
-                            </div>
-                        </div>
-
-                        <div class="academy-search-result-actions">
-                            <button
-                                type="button"
-                                class="btn-primary academy-member-card-visit"
-                                data-member-profile-id="${academyFeedEscapeHtml(member.id)}"
-                            >Visit Profile</button>
-
-                            <button
-                                type="button"
-                                class="btn-secondary academy-member-card-follow ${isFollowing ? 'is-following is-unfollow-action' : ''}"
-                                data-member-follow-id="${academyFeedEscapeHtml(member.id)}"
-                                data-member-follow-state="${isFollowing ? 'following' : 'not-following'}"
-                            >${isFollowing ? 'Unfollow' : 'Follow'}</button>
-                        </div>
-                    </article>
-                `;
-            }).join('')}
-        </div>
+        ${memberHtml}
+        ${postHtml}
     `;
 }
 async function loadAcademyMemberBrowser(query = '') {
@@ -14895,16 +15028,20 @@ async function applyAcademySearch(query = '', options = {}) {
     academySyncSearchInputs(normalizedQuery, sourceInputId);
 
     const shouldRun = normalizedQuery.length >= 2;
+    const cachedPosts = typeof readAcademyFeedCachePosts === 'function'
+        ? readAcademyFeedCachePosts()
+        : [];
+
+    const filteredPosts = shouldRun
+        ? cachedPosts.filter((post) => academyPostMatchesSearch(post, normalizedQuery))
+        : cachedPosts;
+
+    const postResults = shouldRun
+        ? academyBuildCommunitySearchPostResults(normalizedQuery, 8)
+        : [];
 
     if (!document.getElementById('academy-feed-view')?.classList.contains('hidden-step')) {
-        if (!shouldRun) {
-            renderAcademyFeed(readAcademyFeedCachePosts());
-        } else {
-            const filteredPosts = readAcademyFeedCachePosts().filter((post) =>
-                academyPostMatchesSearch(post, normalizedQuery)
-            );
-            renderAcademyFeed(filteredPosts);
-        }
+        renderAcademyFeed(filteredPosts);
     }
 
     if (!shouldRun) {
@@ -14923,7 +15060,7 @@ async function applyAcademySearch(query = '', options = {}) {
         return;
     }
 
-    renderAcademySearchResultsPanel(members, normalizedQuery);
+    renderAcademySearchResultsPanel(members, normalizedQuery, postResults);
 
     const modal = document.getElementById('academy-member-browser-modal');
     if (modal && !modal.classList.contains('hidden-step')) {
@@ -17978,6 +18115,31 @@ document.getElementById('academy-search-results-panel')?.addEventListener('click
         if (targetUserId) {
             openAcademyMemberProfileView(targetUserId);
         }
+        return;
+    }
+
+    const postBtn = event.target.closest('[data-community-post-id]');
+    if (postBtn) {
+        const postId = normalizeAcademyFeedId(postBtn.getAttribute('data-community-post-id'));
+        if (!postId) return;
+
+        closeAcademySearchResultsPanel();
+
+        if (typeof openAcademyProfilePostInFeed === 'function') {
+            openAcademyProfilePostInFeed(postId).catch((error) => {
+                console.error('open community search post error:', error);
+                showToast(error?.message || 'Failed to open post.', 'error');
+            });
+            return;
+        }
+
+        const card = document.querySelector(`.academy-feed-card[data-post-id="${postId}"]`);
+        if (card) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            card.classList.add('academy-search-opened-post');
+            window.setTimeout(() => card.classList.remove('academy-search-opened-post'), 1200);
+        }
+
         return;
     }
 

@@ -16804,3 +16804,180 @@ body[data-yh-page="dashboard"] .yh-dashboard-profile-search-btn {
         grid-template-columns: 1fr;
     }
 }
+/* =========================================
+   ACADEMY INLINE COMMUNITY SEARCH RESULTS
+   Search results now live under the search input, not as a modal.
+   ========================================= */
+
+body.academy-search-results-open {
+    overflow: auto !important;
+}
+
+#academy-wrapper .academy-feed-search-wrap {
+    position: relative !important;
+    overflow: visible !important;
+    z-index: 240 !important;
+}
+
+#academy-wrapper .academy-feed-search-wrap > #academy-search-results-panel,
+#academy-search-results-panel.academy-search-inline-results {
+    position: absolute !important;
+    inset: auto 0 auto auto !important;
+    top: calc(100% + 10px) !important;
+    right: 0 !important;
+    left: auto !important;
+    width: min(560px, calc(100vw - 32px)) !important;
+    max-width: min(560px, calc(100vw - 32px)) !important;
+    max-height: min(560px, calc(100vh - 210px)) !important;
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    z-index: 9999 !important;
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 22px !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+#academy-wrapper .academy-feed-search-wrap > #academy-search-results-panel.hidden-step,
+#academy-search-results-panel.academy-search-inline-results.hidden-step {
+    display: none !important;
+}
+
+#academy-wrapper .academy-feed-search-wrap > #academy-search-results-panel:not(.hidden-step),
+#academy-search-results-panel.academy-search-inline-results:not(.hidden-step) {
+    display: block !important;
+}
+
+#academy-search-results-panel.academy-search-inline-results .academy-search-results-shell {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    display: grid !important;
+    gap: 0 !important;
+    border-radius: 22px !important;
+    overflow: hidden !important;
+    background: rgba(3, 7, 18, 0.96) !important;
+    border: 1px solid rgba(56, 189, 248, 0.26) !important;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.46) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+}
+
+#academy-search-results-panel.academy-search-inline-results .academy-search-results-head {
+    width: 100% !important;
+    padding: 12px 14px !important;
+    border: 0 !important;
+    border-bottom: 1px solid rgba(56, 189, 248, 0.16) !important;
+    border-radius: 0 !important;
+    background: rgba(8, 17, 34, 0.94) !important;
+    box-shadow: none !important;
+}
+
+#academy-search-results-panel.academy-search-inline-results .academy-search-results-inner {
+    width: 100% !important;
+    max-height: min(460px, calc(100vh - 270px)) !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding: 12px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+#academy-search-results-panel .academy-search-result-section {
+    display: grid;
+    gap: 8px;
+}
+
+#academy-search-results-panel .academy-search-result-section + .academy-search-result-section {
+    margin-top: 4px;
+}
+
+#academy-search-results-panel .academy-search-result-section-title {
+    color: #7dd3fc;
+    font-size: 0.72rem;
+    line-height: 1.2;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0 2px;
+}
+
+#academy-search-results-panel .academy-search-result-card-post {
+    border-color: rgba(125, 211, 252, 0.18) !important;
+}
+
+#academy-search-results-panel .academy-search-result-post-icon {
+    background: rgba(14, 165, 233, 0.14) !important;
+    border: 1px solid rgba(56, 189, 248, 0.22) !important;
+    color: #e0f2fe !important;
+    font-size: 1rem !important;
+}
+
+#academy-search-results-panel .academy-search-open-post-btn,
+#academy-search-results-panel .academy-member-card-visit,
+#academy-search-results-panel .academy-member-card-follow {
+    min-height: 36px !important;
+    padding: 8px 10px !important;
+    border-radius: 12px !important;
+    font-size: 0.78rem !important;
+}
+
+.academy-feed-card.academy-search-opened-post {
+    outline: 2px solid rgba(56, 189, 248, 0.86);
+    box-shadow:
+        0 0 0 6px rgba(56, 189, 248, 0.12),
+        0 20px 60px rgba(14, 165, 233, 0.18);
+}
+
+@media (max-width: 900px) {
+    #academy-wrapper .academy-feed-header-right {
+        overflow: visible !important;
+    }
+
+    #academy-wrapper .academy-feed-search-wrap {
+        width: 100% !important;
+    }
+
+    #academy-wrapper .academy-feed-search-wrap > #academy-search-results-panel,
+    #academy-search-results-panel.academy-search-inline-results {
+        left: 0 !important;
+        right: auto !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        max-height: min(520px, calc(100vh - 210px)) !important;
+    }
+
+    #academy-search-results-panel.academy-search-inline-results .academy-search-results-inner {
+        max-height: min(420px, calc(100vh - 270px)) !important;
+    }
+}
+
+@media (max-width: 520px) {
+    #academy-search-results-panel.academy-search-inline-results .academy-search-results-head {
+        padding: 10px 12px !important;
+    }
+
+    #academy-search-results-panel.academy-search-inline-results .academy-search-results-inner {
+        padding: 10px !important;
+    }
+
+    #academy-search-results-panel .academy-search-result-card {
+        grid-template-columns: 1fr !important;
+    }
+
+    #academy-search-results-panel .academy-search-result-actions {
+        justify-content: stretch !important;
+    }
+
+    #academy-search-results-panel .academy-search-open-post-btn,
+    #academy-search-results-panel .academy-member-card-visit,
+    #academy-search-results-panel .academy-member-card-follow {
+        width: 100% !important;
+    }
+}
