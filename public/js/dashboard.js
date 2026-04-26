@@ -8746,6 +8746,39 @@ async function dashboardCreateVerifiedBadgeLedger(division = 'academy', button =
             })
         });
 
+        const pendingBadge =
+            result?.badge && typeof result.badge === 'object'
+                ? result.badge
+                : {
+                    active: false,
+                    status: 'pending_payment',
+                    division: cleanDivision,
+                    code: cleanDivision === 'federation' ? 'YHF' : 'YHA',
+                    asset: cleanDivision === 'federation'
+                        ? '/images/yhf%20badge.png'
+                        : '/images/yha%20badge.png',
+                    paymentLedgerId: String(result?.payment?.id || ''),
+                    paymentStatus: String(result?.payment?.status || 'draft')
+                };
+
+        if (academyProfileViewState?.profile && typeof academyProfileViewState.profile === 'object') {
+            const nextProfile = {
+                ...academyProfileViewState.profile,
+                verificationBadges: {
+                    ...(academyProfileViewState.profile.verificationBadges || {}),
+                    [cleanDivision]: {
+                        ...(academyProfileViewState.profile.verificationBadges?.[cleanDivision] || {}),
+                        ...pendingBadge,
+                        active: false,
+                        status: 'pending_payment'
+                    }
+                }
+            };
+
+            academyProfileViewState.profile = nextProfile;
+            renderAcademyProfileView(nextProfile, { mode: academyProfileViewState.mode || 'self' });
+        }
+
         showToast(
             cleanDivision === 'federation'
                 ? 'YHF badge payment request created. Admin will activate it after payment confirmation.'
@@ -8753,7 +8786,32 @@ async function dashboardCreateVerifiedBadgeLedger(division = 'academy', button =
             'success'
         );
 
-        await hydrateDashboardSelfUniverseProfile();
+        await hydrateDashboardSelfUniverseProfile().catch((error) => {
+            console.warn('hydrate after badge payment request failed:', error);
+            return null;
+        });
+
+        if (academyProfileViewState?.profile && typeof academyProfileViewState.profile === 'object') {
+            const hydratedBadge = academyProfileViewState.profile.verificationBadges?.[cleanDivision];
+
+            if (!hydratedBadge || !String(hydratedBadge.status || '').trim()) {
+                const nextProfile = {
+                    ...academyProfileViewState.profile,
+                    verificationBadges: {
+                        ...(academyProfileViewState.profile.verificationBadges || {}),
+                        [cleanDivision]: {
+                            ...(academyProfileViewState.profile.verificationBadges?.[cleanDivision] || {}),
+                            ...pendingBadge,
+                            active: false,
+                            status: 'pending_payment'
+                        }
+                    }
+                };
+
+                academyProfileViewState.profile = nextProfile;
+                renderAcademyProfileView(nextProfile, { mode: academyProfileViewState.mode || 'self' });
+            }
+        }
 
         return result;
     } catch (error) {
