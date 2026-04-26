@@ -2299,6 +2299,47 @@ if (formRegisterSimple) {
                 startLandingAsteroidParallax();
             }
         }, { passive: true });
+
+        const normalizeLandingWheelDelta = (event) => {
+            let deltaY = Number(event.deltaY || 0);
+
+            if (event.deltaMode === 1) {
+                deltaY *= 18;
+            } else if (event.deltaMode === 2) {
+                deltaY *= window.innerHeight || 720;
+            }
+
+            return deltaY;
+        };
+
+        const handleLandingPageWheel = (event) => {
+            if (!document.body || document.body.dataset.yhPage !== 'apply') return;
+
+            // Keep browser zoom / pinch zoom available.
+            if (event.ctrlKey || event.metaKey) return;
+
+            const deltaY = normalizeLandingWheelDelta(event);
+            if (!Number.isFinite(deltaY) || Math.abs(deltaY) < 0.5) return;
+
+            event.preventDefault();
+
+            if (typeof event.stopImmediatePropagation === 'function') {
+                event.stopImmediatePropagation();
+            } else {
+                event.stopPropagation();
+            }
+
+            window.scrollBy({
+                top: deltaY,
+                left: 0,
+                behavior: 'auto'
+            });
+        };
+
+        window.addEventListener('wheel', handleLandingPageWheel, {
+            passive: false,
+            capture: true
+        });
     }
 
     const initLandingSectionReveal = () => {

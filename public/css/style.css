@@ -6737,15 +6737,39 @@ body[data-yh-page="apply"] {
 }
 body[data-yh-page="apply"] #yh-world-map,
 body[data-yh-page="apply"] #yh-world-map canvas,
+body[data-yh-page="apply"] .yh-landing-shell,
+body[data-yh-page="apply"] .yh-landing-hero,
+body[data-yh-page="apply"] .yh-landing-hero-grid,
+body[data-yh-page="apply"] .yh-landing-hero-copy,
+body[data-yh-page="apply"] .yh-landing-hero-visual,
 body[data-yh-page="apply"] .yh-landing-map-stage-wrap,
 body[data-yh-page="apply"] .yh-landing-globe-stage,
-body[data-yh-page="apply"] .yh-landing-hero-copy,
 body[data-yh-page="apply"] .yh-landing-activity-panel,
 body[data-yh-page="apply"] .yh-landing-activity-rail,
 body[data-yh-page="apply"] .yh-landing-activity-card,
-body[data-yh-page="apply"] .yh-landing-activity-stream {
+body[data-yh-page="apply"] .yh-landing-activity-stream,
+body[data-yh-page="apply"] .yh-landing-activity-event,
+body[data-yh-page="apply"] .yh-landing-metrics,
+body[data-yh-page="apply"] .yh-landing-metric-card,
+body[data-yh-page="apply"] .yh-landing-cta-row,
+body[data-yh-page="apply"] .yh-landing-cta-stack,
+body[data-yh-page="apply"] .yh-landing-section,
+body[data-yh-page="apply"] .yh-landing-division-grid,
+body[data-yh-page="apply"] .yh-landing-division-card,
+body[data-yh-page="apply"] .yh-landing-auth-wrap,
+body[data-yh-page="apply"] .yh-auth-card {
     overscroll-behavior: auto;
     touch-action: pan-y;
+}
+body[data-yh-page="apply"] .yh-landing-bg,
+body[data-yh-page="apply"] .yh-landing-bg-image,
+body[data-yh-page="apply"] .yh-landing-bg-overlay,
+body[data-yh-page="apply"] .yh-space-asteroid-layer,
+body[data-yh-page="apply"] .yh-space-meteor-layer,
+body[data-yh-page="apply"] .yh-landing-visual-glow,
+body[data-yh-page="apply"] .yh-landing-visual-noise,
+body[data-yh-page="apply"] .yh-landing-map-overlay {
+    pointer-events: none;
 }
 
 body[data-yh-page="apply"] #step-1.yh-landing-step {
