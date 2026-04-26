@@ -3757,7 +3757,7 @@ bindUniverseSwipe();
 const shouldShowDashboardBootstrapLoader = shouldRunPostLoginDashboardBootstrap();
 
 if (shouldShowDashboardBootstrapLoader) {
-    showDashboardBootstrapLoader('Checking your Academy, Federation, and Plaza access...');
+    showDashboardBootstrapLoader('Checking your Academy, Plazas, and Federation access...');
     scheduleDashboardBootstrapFailSafe(6500);
 } else {
     hideDashboardBootstrapLoader();
