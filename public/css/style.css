@@ -6729,7 +6729,12 @@ html {
     scroll-behavior: smooth;
 }
 
+html:has(body[data-yh-page="apply"]) {
+    scroll-behavior: auto;
+}
+
 body[data-yh-page="apply"] {
+    scroll-behavior: auto;
     overflow-x: hidden;
     overflow-y: auto;
     overscroll-behavior-y: auto;

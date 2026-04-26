@@ -2333,16 +2333,50 @@ if (formRegisterSimple) {
             }
         }, { passive: true });
 
+        const LANDING_WHEEL_SPEED = 1.85;
+        const LANDING_WHEEL_MAX_STEP = 980;
+
+        let landingWheelPendingY = 0;
+        let landingWheelFrame = 0;
+
         const normalizeLandingWheelDelta = (event) => {
             let deltaY = Number(event.deltaY || 0);
 
             if (event.deltaMode === 1) {
-                deltaY *= 18;
+                deltaY *= 20;
             } else if (event.deltaMode === 2) {
                 deltaY *= window.innerHeight || 720;
             }
 
             return deltaY;
+        };
+
+        const clampLandingWheelDelta = (value) => {
+            if (!Number.isFinite(value)) return 0;
+            return Math.max(-LANDING_WHEEL_MAX_STEP, Math.min(LANDING_WHEEL_MAX_STEP, value));
+        };
+
+        const flushLandingWheelScroll = () => {
+            landingWheelFrame = 0;
+
+            if (!landingWheelPendingY) return;
+
+            const html = document.documentElement;
+            const maxScrollTop = Math.max(0, html.scrollHeight - window.innerHeight);
+            const nextScrollTop = Math.max(
+                0,
+                Math.min(maxScrollTop, window.scrollY + landingWheelPendingY)
+            );
+
+            landingWheelPendingY = 0;
+
+            window.scrollTo({
+                top: nextScrollTop,
+                left: 0,
+                behavior: 'auto'
+            });
+
+            startLandingAsteroidParallax();
         };
 
         const handleLandingPageWheel = (event) => {
@@ -2351,8 +2385,8 @@ if (formRegisterSimple) {
             // Keep browser zoom / pinch zoom available.
             if (event.ctrlKey || event.metaKey) return;
 
-            const deltaY = normalizeLandingWheelDelta(event);
-            if (!Number.isFinite(deltaY) || Math.abs(deltaY) < 0.5) return;
+            const rawDeltaY = normalizeLandingWheelDelta(event);
+            if (!Number.isFinite(rawDeltaY) || Math.abs(rawDeltaY) < 0.5) return;
 
             event.preventDefault();
 
@@ -2362,11 +2396,12 @@ if (formRegisterSimple) {
                 event.stopPropagation();
             }
 
-            window.scrollBy({
-                top: deltaY,
-                left: 0,
-                behavior: 'auto'
-            });
+            const acceleratedDeltaY = clampLandingWheelDelta(rawDeltaY * LANDING_WHEEL_SPEED);
+            landingWheelPendingY = clampLandingWheelDelta(landingWheelPendingY + acceleratedDeltaY);
+
+            if (!landingWheelFrame) {
+                landingWheelFrame = window.requestAnimationFrame(flushLandingWheelScroll);
+            }
         };
 
         window.addEventListener('wheel', handleLandingPageWheel, {
