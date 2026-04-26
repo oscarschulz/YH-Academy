@@ -1977,12 +1977,14 @@ if (formRegisterSimple) {
     const isApplyLanding = document.body?.dataset?.yhPage === 'apply';
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
     const LANDING_SOUND_KEY = 'yh_landing_sound_enabled_v1';
+    const LANDING_CLICK_SOUND_SRC = '/sounds/landing-button-click.wav?v=20260426-landing-click-1';
 
     const landingSoundState = {
         enabled: localStorage.getItem(LANDING_SOUND_KEY) !== '0'
     };
 
     let landingAudioCtx = null;
+    let landingClickAudio = null;
     let lastManualScrollSoundAt = 0;
     let lastManualScrollY = window.scrollY;
     let meteorTimer = null;
@@ -2011,6 +2013,36 @@ if (formRegisterSimple) {
         landingSoundState.enabled &&
         !prefersReducedMotion.matches
     );
+
+    const preloadLandingClickSound = () => {
+        if (!isApplyLanding || landingClickAudio) return landingClickAudio;
+
+        landingClickAudio = new Audio(LANDING_CLICK_SOUND_SRC);
+        landingClickAudio.preload = 'auto';
+        landingClickAudio.volume = 0.42;
+
+        try {
+            landingClickAudio.load();
+        } catch (_) {}
+
+        return landingClickAudio;
+    };
+
+    const playLandingClickSound = async (volume = 0.42) => {
+        if (!canPlayLandingSound()) return;
+
+        const baseAudio = preloadLandingClickSound();
+        if (!baseAudio) return;
+
+        try {
+            const sound = baseAudio.cloneNode(true);
+            sound.volume = Math.max(0, Math.min(1, Number(volume) || 0.42));
+            sound.currentTime = 0;
+            await sound.play();
+        } catch (_) {
+            // Browser may block audio until the first user gesture. Ignore silently.
+        }
+    };
 
     const updateSoundToggleUI = () => {
         const toggle = document.getElementById('yh-sound-toggle');
@@ -2064,59 +2096,15 @@ if (formRegisterSimple) {
     };
 
     const playUiClick = async () => {
-        await playLandingTone({
-            freq: 380,
-            endFreq: 305,
-            duration: 0.06,
-            type: 'triangle',
-            gain: 0.018,
-            attack: 0.002,
-            release: 0.045
-        });
-
-        await playLandingTone({
-            freq: 760,
-            endFreq: 645,
-            duration: 0.038,
-            type: 'sine',
-            gain: 0.011,
-            attack: 0.0012,
-            release: 0.03
-        });
+        await playLandingClickSound(0.42);
     };
 
     const playFlipWhoosh = async () => {
-        await playLandingTone({
-            freq: 165,
-            endFreq: 460,
-            duration: 0.17,
-            type: 'triangle',
-            gain: 0.016,
-            attack: 0.003,
-            release: 0.08
-        });
-
-        await playLandingTone({
-            freq: 520,
-            endFreq: 350,
-            duration: 0.10,
-            type: 'sine',
-            gain: 0.007,
-            attack: 0.002,
-            release: 0.05
-        });
+        await playLandingClickSound(0.42);
     };
 
-    const playScrollWhoosh = async (gain = 0.0135) => {
-        await playLandingTone({
-            freq: 230,
-            endFreq: 138,
-            duration: 0.11,
-            type: 'sine',
-            gain,
-            attack: 0.004,
-            release: 0.06
-        });
+    const playScrollWhoosh = async () => {
+        await playLandingClickSound(0.42);
     };
 
     const ensureLandingAmbientLayers = () => {
@@ -2297,6 +2285,7 @@ if (formRegisterSimple) {
 
     window.addEventListener('pointerdown', () => {
         void getLandingAudioCtx();
+        preloadLandingClickSound();
     }, { once: true, passive: true });
 
     if (isApplyLanding) {
