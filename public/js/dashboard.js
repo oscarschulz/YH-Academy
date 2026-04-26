@@ -8729,8 +8729,10 @@ function dashboardRenderVerifiedBadgeAvailButton(profile = {}, division = 'acade
     `;
 }
 
-async function dashboardCreateVerifiedBadgeLedger(division = 'academy', button = null) {
+async function dashboardCreateVerifiedBadgeLedger(division = 'academy', button = null, options = {}) {
     const cleanDivision = division === 'federation' ? 'federation' : 'academy';
+    const provider = String(options.provider || 'manual').trim().toLowerCase() || 'manual';
+    const paymentMethod = String(options.paymentMethod || 'manual').trim().toLowerCase() || 'manual';
 
     if (button) {
         button.disabled = true;
@@ -8743,15 +8745,15 @@ async function dashboardCreateVerifiedBadgeLedger(division = 'academy', button =
         const result = await academyAuthedFetch(`/api/payments/badges/${encodeURIComponent(cleanDivision)}/ledger`, {
             method: 'POST',
             body: JSON.stringify({
-                provider: 'unselected',
-                paymentMethod: 'unselected'
+                provider,
+                paymentMethod
             })
         });
 
         showToast(
             cleanDivision === 'federation'
-                ? 'YHF badge payment ledger created. Admin will activate it after payment confirmation.'
-                : 'YHA badge payment ledger created. Admin will activate it after payment confirmation.',
+                ? 'YHF badge payment request created. Admin will activate it after payment confirmation.'
+                : 'YHA badge payment request created. Admin will activate it after payment confirmation.',
             'success'
         );
 
@@ -8760,7 +8762,7 @@ async function dashboardCreateVerifiedBadgeLedger(division = 'academy', button =
         return result;
     } catch (error) {
         console.error('dashboard verified badge ledger error:', error);
-        showToast(error?.message || 'Failed to create badge payment ledger.', 'error');
+        showToast(error?.message || 'Failed to create badge payment request.', 'error');
         throw error;
     } finally {
         if (button) {
@@ -8776,7 +8778,11 @@ async function dashboardCreateVerifiedBadgeLedger(division = 'academy', button =
 }
 let dashboardBadgeAvailModalState = {
     division: 'academy',
-    button: null
+    button: null,
+    step: 'overview',
+    provider: 'manual',
+    paymentMethod: 'manual',
+    payment: null
 };
 
 function dashboardGetVerifiedBadgePlanMeta(division = 'academy') {
@@ -8827,7 +8833,7 @@ function ensureDashboardBadgeAvailModal() {
                 </div>
 
                 <div>
-                    <p class="yh-badge-avail-kicker">Optional Verification Add-on</p>
+                    <p class="yh-badge-avail-kicker" id="yh-badge-avail-kicker">Optional Verification Add-on</p>
                     <h3 id="yh-badge-avail-title">Academy Verification Badge</h3>
                     <p id="yh-badge-avail-summary">For approved Academy members.</p>
                 </div>
@@ -8838,36 +8844,104 @@ function ensureDashboardBadgeAvailModal() {
                 <strong id="yh-badge-avail-amount">$2.81/month</strong>
             </div>
 
-            <div class="yh-badge-avail-steps">
-                <h4>How availment works</h4>
+            <div class="yh-badge-avail-panel" data-badge-modal-panel="overview">
+                <div class="yh-badge-avail-steps">
+                    <h4>How availment works</h4>
 
-                <div class="yh-badge-avail-step">
-                    <span>1</span>
-                    <p>Click <strong>Create Payment Request</strong> to create your badge payment ledger.</p>
+                    <div class="yh-badge-avail-step">
+                        <span>1</span>
+                        <p>Review the badge details and continue to payment selection.</p>
+                    </div>
+
+                    <div class="yh-badge-avail-step">
+                        <span>2</span>
+                        <p>Choose a payment method. Manual admin payment is available now.</p>
+                    </div>
+
+                    <div class="yh-badge-avail-step">
+                        <span>3</span>
+                        <p>Once admin marks the payment as paid, your badge activates automatically.</p>
+                    </div>
                 </div>
 
-                <div class="yh-badge-avail-step">
-                    <span>2</span>
-                    <p>Admin confirms the payment manually from the Economy Payment Ledger.</p>
+                <div class="yh-badge-avail-note">
+                    This badge is optional. It does not unlock Academy or Federation access. It only adds the verified symbol to your profile.
                 </div>
 
-                <div class="yh-badge-avail-step">
-                    <span>3</span>
-                    <p>Once marked paid, your badge becomes active and appears beside your profile name.</p>
+                <div class="yh-badge-avail-actions">
+                    <button type="button" class="btn-secondary yh-badge-avail-cancel" data-yh-badge-modal-close>
+                        Cancel
+                    </button>
+                    <button type="button" class="btn-primary yh-badge-avail-next" data-yh-badge-modal-next>
+                        Continue to Payment
+                    </button>
                 </div>
             </div>
 
-            <div class="yh-badge-avail-note">
-                This badge is optional. It does not unlock Academy or Federation access. It only adds the verified symbol to your profile.
+            <div class="yh-badge-avail-panel hidden-step" data-badge-modal-panel="payment">
+                <div class="yh-badge-payment-head">
+                    <h4>Choose payment method</h4>
+                    <p>Select how you want to request payment confirmation for this badge.</p>
+                </div>
+
+                <div class="yh-badge-payment-options">
+                    <button type="button" class="yh-badge-payment-option is-selected" data-yh-badge-payment-provider="manual" data-yh-badge-payment-method="manual">
+                        <span class="yh-badge-payment-option-main">
+                            <strong>Manual Admin Payment</strong>
+                            <small>Available now. Admin confirms payment from the Economy Payment Ledger.</small>
+                        </span>
+                        <span class="yh-badge-payment-status">Available</span>
+                    </button>
+
+                    <button type="button" class="yh-badge-payment-option is-disabled" disabled aria-disabled="true">
+                        <span class="yh-badge-payment-option-main">
+                            <strong>Card / Bank / Wallet</strong>
+                            <small>Stripe checkout will be connected later.</small>
+                        </span>
+                        <span class="yh-badge-payment-status">Coming Soon</span>
+                    </button>
+
+                    <button type="button" class="yh-badge-payment-option is-disabled" disabled aria-disabled="true">
+                        <span class="yh-badge-payment-option-main">
+                            <strong>Crypto Payment</strong>
+                            <small>OxaPay crypto checkout will be connected later.</small>
+                        </span>
+                        <span class="yh-badge-payment-status">Coming Soon</span>
+                    </button>
+                </div>
+
+                <div class="yh-badge-avail-note">
+                    After creating the payment request, the badge status becomes pending until admin confirms payment.
+                </div>
+
+                <div class="yh-badge-avail-actions">
+                    <button type="button" class="btn-secondary yh-badge-avail-back" data-yh-badge-modal-back>
+                        Back
+                    </button>
+                    <button type="button" class="btn-primary yh-badge-avail-confirm" id="yh-badge-avail-confirm">
+                        Create Payment Request
+                    </button>
+                </div>
             </div>
 
-            <div class="yh-badge-avail-actions">
-                <button type="button" class="btn-secondary yh-badge-avail-cancel" data-yh-badge-modal-close>
-                    Cancel
-                </button>
-                <button type="button" class="btn-primary yh-badge-avail-confirm" id="yh-badge-avail-confirm">
-                    Create Payment Request
-                </button>
+            <div class="yh-badge-avail-panel hidden-step" data-badge-modal-panel="success">
+                <div class="yh-badge-success-card">
+                    <div class="yh-badge-success-icon">✓</div>
+                    <h4>Payment request created</h4>
+                    <p id="yh-badge-success-copy">
+                        Your badge payment request is now pending admin confirmation.
+                    </p>
+                </div>
+
+                <div class="yh-badge-avail-note">
+                    Open the Wallet or contact admin if you need to send proof. Once marked paid, the badge will appear beside your profile name.
+                </div>
+
+                <div class="yh-badge-avail-actions yh-badge-avail-actions-single">
+                    <button type="button" class="btn-primary" data-yh-badge-modal-close>
+                        Done
+                    </button>
+                </div>
             </div>
         </div>
     `;
@@ -8881,6 +8955,38 @@ function ensureDashboardBadgeAvailModal() {
             return;
         }
 
+        const nextTrigger = event.target.closest('[data-yh-badge-modal-next]');
+        if (nextTrigger) {
+            event.preventDefault();
+            dashboardSetBadgeAvailModalStep('payment');
+            return;
+        }
+
+        const backTrigger = event.target.closest('[data-yh-badge-modal-back]');
+        if (backTrigger) {
+            event.preventDefault();
+            dashboardSetBadgeAvailModalStep('overview');
+            return;
+        }
+
+        const paymentOption = event.target.closest('[data-yh-badge-payment-provider]');
+        if (paymentOption) {
+            event.preventDefault();
+
+            dashboardBadgeAvailModalState.provider =
+                paymentOption.getAttribute('data-yh-badge-payment-provider') || 'manual';
+
+            dashboardBadgeAvailModalState.paymentMethod =
+                paymentOption.getAttribute('data-yh-badge-payment-method') || 'manual';
+
+            modal.querySelectorAll('.yh-badge-payment-option').forEach((option) => {
+                option.classList.remove('is-selected');
+            });
+
+            paymentOption.classList.add('is-selected');
+            return;
+        }
+
         const confirmButton = event.target.closest('#yh-badge-avail-confirm');
         if (!confirmButton) return;
 
@@ -8888,22 +8994,62 @@ function ensureDashboardBadgeAvailModal() {
 
         const division = dashboardBadgeAvailModalState.division || 'academy';
         const sourceButton = dashboardBadgeAvailModalState.button || null;
+        const provider = dashboardBadgeAvailModalState.provider || 'manual';
+        const paymentMethod = dashboardBadgeAvailModalState.paymentMethod || 'manual';
 
-        closeDashboardBadgeAvailModal();
+        confirmButton.disabled = true;
+        confirmButton.setAttribute('aria-busy', 'true');
+        confirmButton.textContent = 'Creating Request...';
 
-        await dashboardCreateVerifiedBadgeLedger(division, sourceButton).catch(() => null);
+        try {
+            const result = await dashboardCreateVerifiedBadgeLedger(division, sourceButton, {
+                provider,
+                paymentMethod
+            });
+
+            dashboardBadgeAvailModalState.payment = result?.payment || null;
+
+            const plan = dashboardGetVerifiedBadgePlanMeta(division);
+            const successCopy = modal.querySelector('#yh-badge-success-copy');
+
+            if (successCopy) {
+                successCopy.textContent = `${plan.code} badge payment request is pending admin confirmation.`;
+            }
+
+            dashboardSetBadgeAvailModalStep('success');
+        } finally {
+            confirmButton.disabled = false;
+            confirmButton.removeAttribute('aria-busy');
+            confirmButton.textContent = 'Create Payment Request';
+        }
     });
 
     return modal;
 }
+function dashboardSetBadgeAvailModalStep(step = 'overview') {
+    const modal = document.getElementById('yh-badge-avail-modal');
+    if (!modal) return;
 
+    const cleanStep = ['overview', 'payment', 'success'].includes(step) ? step : 'overview';
+
+    dashboardBadgeAvailModalState.step = cleanStep;
+
+    modal.querySelectorAll('[data-badge-modal-panel]').forEach((panel) => {
+        const isActive = panel.getAttribute('data-badge-modal-panel') === cleanStep;
+        panel.classList.toggle('hidden-step', !isActive);
+    });
+}
 function openDashboardBadgeAvailModal(division = 'academy', button = null) {
     const modal = ensureDashboardBadgeAvailModal();
     const plan = dashboardGetVerifiedBadgePlanMeta(division);
 
     dashboardBadgeAvailModalState = {
         division: plan.division,
-        button
+        button,
+        step: 'overview',
+        provider: 'manual',
+        paymentMethod: 'manual',
+        payment: null
     };
 
     const iconWrap = modal.querySelector('#yh-badge-avail-icon-wrap');
@@ -8925,7 +9071,14 @@ function openDashboardBadgeAvailModal(division = 'academy', button = null) {
     if (title) title.textContent = plan.name;
     if (summary) summary.textContent = plan.summary;
     if (amount) amount.textContent = plan.amount;
+    modal.querySelectorAll('.yh-badge-payment-option').forEach((option) => {
+        option.classList.toggle(
+            'is-selected',
+            option.getAttribute('data-yh-badge-payment-provider') === 'manual'
+        );
+    });
 
+    dashboardSetBadgeAvailModalStep('overview');
     modal.classList.remove('hidden-step');
     modal.classList.add('is-open');
     modal.setAttribute('aria-hidden', 'false');
