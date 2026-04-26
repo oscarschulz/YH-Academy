@@ -3589,3 +3589,26 @@ textarea:focus,
 .yh-plaza-bridge-grid {
   border-radius: 24px;
 }
+/* =========================================================
+   PLAZA FORM COMPOSER SOFT-EDGE FIX
+   Targets the gray form cards inside center content.
+   ========================================================= */
+
+.yh-plaza-tab-panels .yh-plaza-feed-composer,
+.yh-plaza-screen-stack .yh-plaza-feed-composer,
+.yh-plaza-workspace-card .yh-plaza-feed-composer {
+  border-radius: 32px;
+  overflow: hidden;
+}
+
+.yh-plaza-tab-panels .yh-plaza-feed-composer-field input,
+.yh-plaza-tab-panels .yh-plaza-feed-composer-field select,
+.yh-plaza-tab-panels .yh-plaza-feed-composer-field textarea,
+.yh-plaza-screen-stack .yh-plaza-feed-composer-field input,
+.yh-plaza-screen-stack .yh-plaza-feed-composer-field select,
+.yh-plaza-screen-stack .yh-plaza-feed-composer-field textarea,
+.yh-plaza-workspace-card .yh-plaza-feed-composer-field input,
+.yh-plaza-workspace-card .yh-plaza-feed-composer-field select,
+.yh-plaza-workspace-card .yh-plaza-feed-composer-field textarea {
+  border-radius: 22px;
+}
