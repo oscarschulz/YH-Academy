@@ -14480,7 +14480,7 @@ function academyPostMatchesSearch(post = {}, query = '') {
 
     if (isAcademyHashtagSearch(normalizedQuery)) {
         const needle = normalizedQuery.replace(/^#/, '');
-        const matches = String(post?.body || '')
+        const matches = String(post?.body || post?.caption || post?.text || '')
             .toLowerCase()
             .match(/#[a-z0-9_][a-z0-9_-]*/g) || [];
 
@@ -14511,6 +14511,311 @@ function academyPostMatchesSearch(post = {}, query = '') {
     return aliases.some((alias) => haystack.includes(alias));
 }
 
+function academySearchCleanPreviewText(value = '', maxLength = 150) {
+    const clean = String(value || '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    if (!clean) return '';
+
+    return clean.length > maxLength
+        ? `${clean.slice(0, maxLength).trim()}...`
+        : clean;
+}
+
+function academySearchExtractPostPreview(post = {}) {
+    return academySearchCleanPreviewText(
+        post?.body ||
+        post?.caption ||
+        post?.text ||
+        post?.title ||
+        '',
+        150
+    );
+}
+
+function academyBuildCommunitySearchPostResults(query = '', limit = 8) {
+    const normalizedQuery = String(query || '').trim();
+    if (normalizedQuery.length < 2) return [];
+
+    const hiddenPosts = typeof readAcademyHiddenPostIds === 'function'
+        ? readAcademyHiddenPostIds()
+        : [];
+
+    const posts = typeof readAcademyFeedCachePosts === 'function'
+        ? readAcademyFeedCachePosts()
+        : [];
+
+    return posts
+        .filter((post) => {
+            const postId = normalizeAcademyFeedId(post?.id);
+            if (!postId || hiddenPosts.includes(postId)) return false;
+            return academyPostMatchesSearch(post, normalizedQuery);
+        })
+        .slice(0, limit)
+        .map((post) => {
+            const displayName =
+                post.display_name ||
+                post.fullName ||
+                post.username ||
+                'Academy Member';
+
+            return {
+                id: normalizeAcademyFeedId(post.id),
+                type: 'post',
+                displayName,
+                username: String(post.username || '').trim(),
+                roleLabel: post.role_label || 'Academy Member',
+                preview: academySearchExtractPostPreview(post),
+                createdAt: post.created_at || post.createdAt || '',
+                hasMedia: Boolean(post.media_url || post.image_url || post.video_url),
+                authorId: normalizeAcademyFeedId(post.user_id || post.author_id || post.userId || '')
+            };
+        });
+}
+
+const academyCommunitySearchCommentsCache = new Map();
+
+function academySearchCommentMatchesSearch(comment = {}, query = '') {
+    const normalizedQuery = normalizeAcademySearchValue(query);
+    if (!normalizedQuery) return false;
+
+    if (isAcademyHashtagSearch(normalizedQuery)) {
+        const needle = normalizedQuery.replace(/^#/, '');
+        const matches = String(comment?.body || '')
+            .toLowerCase()
+            .match(/#[a-z0-9_][a-z0-9_-]*/g) || [];
+
+        const hashtags = matches
+            .map((tag) => String(tag).replace(/^#/, '').trim())
+            .filter(Boolean);
+
+        return hashtags.includes(needle);
+    }
+
+    const aliases = academySearchAliasesFor(normalizedQuery);
+    if (!aliases.length) return false;
+
+    const haystack = [
+        comment?.body,
+        comment?.display_name,
+        comment?.fullName,
+        comment?.username,
+        comment?.role_label
+    ]
+        .map((value) => String(value || '').trim().toLowerCase())
+        .join(' ');
+
+    return aliases.some((alias) => haystack.includes(alias));
+}
+
+function academySearchFlattenComments(comments = []) {
+    const out = [];
+
+    const walk = (items = []) => {
+        (Array.isArray(items) ? items : []).forEach((comment) => {
+            if (!comment || typeof comment !== 'object') return;
+
+            out.push(comment);
+
+            if (Array.isArray(comment.children) && comment.children.length) {
+                walk(comment.children);
+            }
+        });
+    };
+
+    walk(comments);
+    return out;
+}
+
+function academyWriteCommunitySearchCommentsCache(postId = '', comments = []) {
+    const normalizedPostId = normalizeAcademyFeedId(postId);
+    if (!normalizedPostId) return;
+
+    academyCommunitySearchCommentsCache.set(normalizedPostId, {
+        at: Date.now(),
+        comments: Array.isArray(comments) ? comments : []
+    });
+}
+
+async function academyFetchCommentsForCommunitySearch(postId = '') {
+    const normalizedPostId = normalizeAcademyFeedId(postId);
+    if (!normalizedPostId) return [];
+
+    const cached = academyCommunitySearchCommentsCache.get(normalizedPostId);
+    if (cached && Array.isArray(cached.comments) && (Date.now() - Number(cached.at || 0)) < 60000) {
+        return cached.comments;
+    }
+
+    try {
+        const result = await academyAuthedFetch(`/api/academy/feed/posts/${encodeURIComponent(normalizedPostId)}/comments`, {
+            method: 'GET'
+        });
+
+        const comments = Array.isArray(result?.comments) ? result.comments : [];
+        academyWriteCommunitySearchCommentsCache(normalizedPostId, comments);
+
+        return comments;
+    } catch (error) {
+        console.warn('community comment search fetch skipped:', error?.message || error);
+        return [];
+    }
+}
+
+function academyBuildCommentAuthorSearchMember(comment = {}, context = {}) {
+    const memberId = normalizeAcademyFeedId(
+        comment.user_id ||
+        comment.authorId ||
+        comment.userId ||
+        ''
+    );
+
+    if (!memberId) return null;
+
+    const displayName =
+        comment.display_name ||
+        comment.fullName ||
+        comment.username ||
+        'Academy Member';
+
+    return {
+        id: memberId,
+        display_name: displayName,
+        fullName: displayName,
+        username: String(comment.username || '').trim(),
+        role_label: comment.role_label || 'Academy Member',
+        avatar: comment.avatar || '',
+        avatarUrl: comment.avatarUrl || '',
+        profilePhoto: comment.profilePhoto || '',
+        photoURL: comment.photoURL || '',
+        followers_count: comment.followers_count || 0,
+        followed_by_me: comment.followed_by_me === true,
+        search_tags: ['commented', 'community-reply'],
+        matched_post_preview: context.preview || academySearchCleanPreviewText(comment.body || '', 130),
+        matched_posts_count: 1,
+        searchMatchType: context.isReply ? 'reply-author' : 'comment-author'
+    };
+}
+
+async function academyBuildCommunitySearchCommentResults(query = '', limit = 10) {
+    const normalizedQuery = String(query || '').trim();
+    if (normalizedQuery.length < 2) {
+        return {
+            commentResults: [],
+            commentAuthorMembers: [],
+            matchedPostIds: []
+        };
+    }
+
+    const hiddenPosts = typeof readAcademyHiddenPostIds === 'function'
+        ? readAcademyHiddenPostIds()
+        : [];
+
+    const posts = typeof readAcademyFeedCachePosts === 'function'
+        ? readAcademyFeedCachePosts()
+        : [];
+
+    const candidatePosts = posts
+        .filter((post) => {
+            const postId = normalizeAcademyFeedId(post?.id);
+            if (!postId || hiddenPosts.includes(postId)) return false;
+
+            const commentCount = Number(
+                post.comment_count ??
+                post.comments_count ??
+                post.commentCount ??
+                0
+            );
+
+            return commentCount > 0 || academyCommunitySearchCommentsCache.has(postId);
+        })
+        .slice(0, 24);
+
+    const commentGroups = await Promise.all(candidatePosts.map(async (post) => {
+        const postId = normalizeAcademyFeedId(post?.id);
+        const comments = await academyFetchCommentsForCommunitySearch(postId);
+
+        return {
+            post,
+            postId,
+            comments: academySearchFlattenComments(comments)
+        };
+    }));
+
+    const commentResults = [];
+    const memberMap = new Map();
+    const matchedPostIds = new Set();
+
+    commentGroups.forEach(({ post, postId, comments }) => {
+        comments.forEach((comment) => {
+            if (!academySearchCommentMatchesSearch(comment, normalizedQuery)) return;
+
+            matchedPostIds.add(postId);
+
+            const parentCommentId = normalizeAcademyFeedId(
+                comment.parent_comment_id ||
+                comment.parentCommentId ||
+                ''
+            );
+
+            const displayName =
+                comment.display_name ||
+                comment.fullName ||
+                comment.username ||
+                'Academy Member';
+
+            const memberId = normalizeAcademyFeedId(
+                comment.user_id ||
+                comment.authorId ||
+                comment.userId ||
+                ''
+            );
+
+            const preview = academySearchCleanPreviewText(comment.body || '', 150);
+
+            commentResults.push({
+                id: normalizeAcademyFeedId(comment.id),
+                postId,
+                type: parentCommentId ? 'reply' : 'comment',
+                displayName,
+                username: String(comment.username || '').trim(),
+                roleLabel: comment.role_label || 'Academy Member',
+                preview,
+                createdAt: comment.created_at || comment.createdAt || '',
+                authorId: memberId,
+                postPreview: academySearchExtractPostPreview(post)
+            });
+
+            const member = academyBuildCommentAuthorSearchMember(comment, {
+                preview,
+                isReply: Boolean(parentCommentId)
+            });
+
+            if (member && !memberMap.has(member.id)) {
+                memberMap.set(member.id, member);
+            }
+        });
+    });
+
+    return {
+        commentResults: commentResults.slice(0, limit),
+        commentAuthorMembers: Array.from(memberMap.values()).slice(0, limit),
+        matchedPostIds: Array.from(matchedPostIds)
+    };
+}
+
+function academyMergeSearchMembers(primaryMembers = [], extraMembers = []) {
+    const map = new Map();
+
+    [...(Array.isArray(primaryMembers) ? primaryMembers : []), ...(Array.isArray(extraMembers) ? extraMembers : [])]
+        .forEach((member) => {
+            const id = normalizeAcademyFeedId(member?.id || member?.user_id || member?.userId || '');
+            if (!id || map.has(id)) return;
+            map.set(id, member);
+        });
+
+    return Array.from(map.values());
+}
 function academySearchCleanPreviewText(value = '', maxLength = 150) {
     const clean = String(value || '')
         .replace(/\s+/g, ' ')
@@ -14818,7 +15123,7 @@ function resolveAcademyTagFromQuery(query = '') {
     return '';
 }
 
-function renderAcademySearchResultsPanel(members = [], query = '', posts = []) {
+function renderAcademySearchResultsPanel(members = [], query = '', posts = [], comments = []) {
     const panel = document.getElementById('academy-search-results-panel');
     const inner = document.getElementById('academy-search-results-inner');
     if (!panel || !inner) return;
@@ -14828,7 +15133,8 @@ function renderAcademySearchResultsPanel(members = [], query = '', posts = []) {
     const safeQuery = academyFeedEscapeHtml(normalizedQuery);
     const safeMembers = Array.isArray(members) ? members : [];
     const safePosts = Array.isArray(posts) ? posts : [];
-    const totalResults = safeMembers.length + safePosts.length;
+    const safeComments = Array.isArray(comments) ? comments : [];
+    const totalResults = safeMembers.length + safePosts.length + safeComments.length;
 
     if (!normalizedQuery) {
         closeAcademySearchResultsPanel();
@@ -14844,7 +15150,7 @@ function renderAcademySearchResultsPanel(members = [], query = '', posts = []) {
                 <div class="academy-search-result-kicker">Community Search</div>
                 <h3 class="academy-search-result-heading">No results for “${safeQuery}”</h3>
                 <p class="academy-search-result-copy">
-                    Try another name, username, post caption, hashtag, or community keyword.
+                    Try another name, username, post caption, comment, reply, hashtag, or community keyword.
                 </p>
             </section>
 
@@ -14852,7 +15158,7 @@ function renderAcademySearchResultsPanel(members = [], query = '', posts = []) {
                 <div class="academy-search-result-empty-icon">🔎</div>
                 <div class="academy-search-result-empty-title">Nothing matched yet</div>
                 <div class="academy-search-result-empty-copy">
-                    This search checks users, profile tags, post captions, post body text, and hashtags in the Academy community.
+                    This search checks users, posts, captions, comments, replies, and hashtags inside the Academy community.
                 </div>
             </section>
         `;
@@ -14884,10 +15190,12 @@ function renderAcademySearchResultsPanel(members = [], query = '', posts = []) {
                                 ? member.search_tags.slice(0, 4).map((tag) => `#${String(tag).replace(/^#/, '')}`).join(' • ')
                                 : '');
 
-                        const preview = hashtagSearch ? String(member.matched_post_preview || '').trim() : '';
-                        const countLine = hashtagSearch
-                            ? `${Number(member.matched_posts_count || 0)} matching post${Number(member.matched_posts_count || 0) === 1 ? '' : 's'}`
-                            : `${followerCount} followers`;
+                        const preview = String(member.matched_post_preview || '').trim();
+                        const countLine = member.searchMatchType
+                            ? 'matched through comments/replies'
+                            : hashtagSearch
+                                ? `${Number(member.matched_posts_count || 0)} matching post${Number(member.matched_posts_count || 0) === 1 ? '' : 's'}`
+                                : `${followerCount} followers`;
 
                         return `
                             <article class="academy-search-result-card academy-search-result-card-user">
@@ -14914,7 +15222,7 @@ function renderAcademySearchResultsPanel(members = [], query = '', posts = []) {
                                         type="button"
                                         class="btn-primary academy-member-card-visit"
                                         data-member-profile-id="${academyFeedEscapeHtml(member.id)}"
-                                    >Visit</button>
+                                    >Visit Profile</button>
 
                                     <button
                                         type="button"
@@ -14942,7 +15250,6 @@ function renderAcademySearchResultsPanel(members = [], query = '', posts = []) {
                         const safeName = academyFeedEscapeHtml(post.displayName || 'Academy Member');
                         const safeUsername = academyFeedEscapeHtml(post.username || '');
                         const safePreview = academyFeedEscapeHtml(post.preview || 'Post matched your search.');
-                        const mediaLabel = post.hasMedia ? ' • Media post' : '';
 
                         return `
                             <article class="academy-search-result-card academy-search-result-card-post">
@@ -14954,7 +15261,7 @@ function renderAcademySearchResultsPanel(members = [], query = '', posts = []) {
                                         <div class="academy-search-result-meta">
                                             ${academyFeedEscapeHtml(post.roleLabel || 'Academy Member')}
                                             ${safeUsername ? ` • @${safeUsername}` : ''}
-                                            ${academyFeedEscapeHtml(mediaLabel)}
+                                            ${post.hasMedia ? ' • Media post' : ''}
                                         </div>
                                         <div class="academy-search-result-preview">${safePreview}</div>
                                     </div>
@@ -14981,12 +15288,61 @@ function renderAcademySearchResultsPanel(members = [], query = '', posts = []) {
         `
         : '';
 
+    const commentHtml = safeComments.length
+        ? `
+            <section class="academy-search-result-section">
+                <div class="academy-search-result-section-title">Comments & replies</div>
+                <div class="academy-search-result-list">
+                    ${safeComments.map((comment) => {
+                        const safePostId = academyFeedEscapeHtml(comment.postId || '');
+                        const safeAuthorId = academyFeedEscapeHtml(comment.authorId || '');
+                        const safeName = academyFeedEscapeHtml(comment.displayName || 'Academy Member');
+                        const safeUsername = academyFeedEscapeHtml(comment.username || '');
+                        const safePreview = academyFeedEscapeHtml(comment.preview || 'Comment matched your search.');
+                        const resultType = comment.type === 'reply' ? 'Reply' : 'Comment';
+
+                        return `
+                            <article class="academy-search-result-card academy-search-result-card-comment">
+                                <div class="academy-search-result-main">
+                                    <div class="academy-search-result-avatar academy-search-result-post-icon">💬</div>
+
+                                    <div class="academy-search-result-copy-wrap">
+                                        <div class="academy-search-result-name">${resultType} by ${safeName}</div>
+                                        <div class="academy-search-result-meta">
+                                            ${academyFeedEscapeHtml(comment.roleLabel || 'Academy Member')}
+                                            ${safeUsername ? ` • @${safeUsername}` : ''}
+                                        </div>
+                                        <div class="academy-search-result-preview">${safePreview}</div>
+                                    </div>
+                                </div>
+
+                                <div class="academy-search-result-actions">
+                                    <button
+                                        type="button"
+                                        class="btn-primary academy-search-open-post-btn"
+                                        data-community-post-id="${safePostId}"
+                                    >Open Thread</button>
+
+                                    ${
+                                        safeAuthorId
+                                            ? `<button type="button" class="btn-secondary academy-member-card-visit" data-member-profile-id="${safeAuthorId}">Author</button>`
+                                            : ''
+                                    }
+                                </div>
+                            </article>
+                        `;
+                    }).join('')}
+                </div>
+            </section>
+        `
+        : '';
+
     inner.innerHTML = `
         <section class="academy-search-result-summary">
             <div class="academy-search-result-kicker">Community Search</div>
             <h3 class="academy-search-result-heading">Results for “${safeQuery}”</h3>
             <p class="academy-search-result-copy">
-                Searching users, profile tags, posts, captions, body text, and hashtags inside the Academy community.
+                Searching users, posts, captions, comments, replies, body text, and hashtags inside the Academy community.
             </p>
             <div class="academy-search-result-count">
                 ${totalResults} result${totalResults === 1 ? '' : 's'} found
@@ -14995,6 +15351,7 @@ function renderAcademySearchResultsPanel(members = [], query = '', posts = []) {
 
         ${memberHtml}
         ${postHtml}
+        ${commentHtml}
     `;
 }
 async function loadAcademyMemberBrowser(query = '') {
@@ -15032,19 +15389,19 @@ async function applyAcademySearch(query = '', options = {}) {
         ? readAcademyFeedCachePosts()
         : [];
 
-    const filteredPosts = shouldRun
-        ? cachedPosts.filter((post) => academyPostMatchesSearch(post, normalizedQuery))
-        : cachedPosts;
-
-    const postResults = shouldRun
+    const directPostResults = shouldRun
         ? academyBuildCommunitySearchPostResults(normalizedQuery, 8)
         : [];
 
-    if (!document.getElementById('academy-feed-view')?.classList.contains('hidden-step')) {
-        renderAcademyFeed(filteredPosts);
-    }
+    const directFilteredPosts = shouldRun
+        ? cachedPosts.filter((post) => academyPostMatchesSearch(post, normalizedQuery))
+        : cachedPosts;
 
     if (!shouldRun) {
+        if (!document.getElementById('academy-feed-view')?.classList.contains('hidden-step')) {
+            renderAcademyFeed(cachedPosts);
+        }
+
         closeAcademySearchResultsPanel();
 
         const modal = document.getElementById('academy-member-browser-modal');
@@ -15054,17 +15411,56 @@ async function applyAcademySearch(query = '', options = {}) {
         return;
     }
 
-    const members = await requestAcademyMemberSearch(normalizedQuery);
+    if (!document.getElementById('academy-feed-view')?.classList.contains('hidden-step')) {
+        renderAcademyFeed(directFilteredPosts);
+    }
+
+    const [members, commentSearch] = await Promise.all([
+        requestAcademyMemberSearch(normalizedQuery),
+        academyBuildCommunitySearchCommentResults(normalizedQuery, 10)
+    ]);
 
     if (requestToken !== academySearchRequestToken) {
         return;
     }
 
-    renderAcademySearchResultsPanel(members, normalizedQuery, postResults);
+    const mergedMembers = academyMergeSearchMembers(
+        members,
+        commentSearch.commentAuthorMembers
+    );
+
+    const matchedPostIds = Array.isArray(commentSearch.matchedPostIds)
+        ? commentSearch.matchedPostIds
+        : [];
+
+    if (!document.getElementById('academy-feed-view')?.classList.contains('hidden-step')) {
+        const visiblePostMap = new Map();
+
+        directFilteredPosts.forEach((post) => {
+            const id = normalizeAcademyFeedId(post?.id);
+            if (id) visiblePostMap.set(id, post);
+        });
+
+        cachedPosts.forEach((post) => {
+            const id = normalizeAcademyFeedId(post?.id);
+            if (id && matchedPostIds.includes(id)) {
+                visiblePostMap.set(id, post);
+            }
+        });
+
+        renderAcademyFeed(Array.from(visiblePostMap.values()));
+    }
+
+    renderAcademySearchResultsPanel(
+        mergedMembers,
+        normalizedQuery,
+        directPostResults,
+        commentSearch.commentResults
+    );
 
     const modal = document.getElementById('academy-member-browser-modal');
     if (modal && !modal.classList.contains('hidden-step')) {
-        academyRenderMemberBrowserList(members, normalizedQuery);
+        academyRenderMemberBrowserList(mergedMembers, normalizedQuery);
     }
 }
 
@@ -17112,6 +17508,7 @@ async function academyFeedLoadComments(postId, forceOpen = false) {
         });
 
         const comments = Array.isArray(result?.comments) ? result.comments : [];
+        academyWriteCommunitySearchCommentsCache(postId, comments);
 
         if (!comments.length) {
             list.innerHTML = `<div class="academy-feed-comments-empty">No comments yet.</div>`;
@@ -18125,19 +18522,17 @@ document.getElementById('academy-search-results-panel')?.addEventListener('click
 
         closeAcademySearchResultsPanel();
 
-        if (typeof openAcademyProfilePostInFeed === 'function') {
-            openAcademyProfilePostInFeed(postId).catch((error) => {
-                console.error('open community search post error:', error);
-                showToast(error?.message || 'Failed to open post.', 'error');
-            });
-            return;
-        }
+        if (!document.getElementById('academy-feed-view')?.classList.contains('hidden-step')) {
+            const card = document.querySelector(`.academy-feed-card[data-post-id="${postId}"]`);
+            if (card) {
+                card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                card.classList.add('academy-search-opened-post');
+                window.setTimeout(() => card.classList.remove('academy-search-opened-post'), 1200);
+            }
 
-        const card = document.querySelector(`.academy-feed-card[data-post-id="${postId}"]`);
-        if (card) {
-            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            card.classList.add('academy-search-opened-post');
-            window.setTimeout(() => card.classList.remove('academy-search-opened-post'), 1200);
+            academyFeedLoadComments(postId, true).catch((error) => {
+                console.error('open search comment thread error:', error);
+            });
         }
 
         return;
