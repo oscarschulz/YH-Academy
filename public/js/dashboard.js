@@ -1720,13 +1720,34 @@ function scheduleDashboardBootstrapFailSafe(delayMs = 6500) {
 }
 
 async function hydrateDashboardTopProfile(forceFresh = false) {
+    const cachedProfile = (() => {
+        try {
+            return JSON.parse(localStorage.getItem('yh_academy_profile_cache_v1') || 'null') || {};
+        } catch (_) {
+            return {};
+        }
+    })();
+
     const fallbackName =
-        String(getStoredUserValue('yh_user_name', 'Hustler') || 'Hustler').trim() ||
-        'Hustler';
+        String(
+            cachedProfile.display_name ||
+            cachedProfile.displayName ||
+            cachedProfile.fullName ||
+            cachedProfile.full_name ||
+            cachedProfile.name ||
+            getStoredUserValue('yh_user_name', 'Hustler') ||
+            'Hustler'
+        ).trim() || 'Hustler';
 
     const fallbackAvatar = normalizeAvatarUrl(
-        getStoredUserValue('yh_user_avatar', '') || ''
+        cachedProfile.avatar ||
+        cachedProfile.profilePhoto ||
+        cachedProfile.photoURL ||
+        getStoredUserValue('yh_user_avatar', '') ||
+        ''
     );
+
+    updateUserProfile(fallbackName, fallbackAvatar || '');
 
     try {
         const result = await academyAuthedFetch('/api/academy/profile', {
@@ -1736,32 +1757,54 @@ async function hydrateDashboardTopProfile(forceFresh = false) {
         const profile =
             result?.profile && typeof result.profile === 'object'
                 ? result.profile
-                : null;
+                : {};
 
         const nextName =
             String(
-                profile?.display_name ||
-                profile?.displayName ||
-                profile?.fullName ||
-                profile?.name ||
+                profile.display_name ||
+                profile.displayName ||
+                profile.fullName ||
+                profile.full_name ||
+                profile.name ||
                 fallbackName
             ).trim() || fallbackName;
 
         const nextAvatar = normalizeAvatarUrl(
-            profile?.avatar ||
-            profile?.profilePhoto ||
-            profile?.photoURL ||
+            profile.avatar ||
+            profile.profilePhoto ||
+            profile.photoURL ||
             fallbackAvatar ||
             ''
         );
 
-        localStorage.setItem('yh_user_name', nextName);
+        const nextCachedProfile = {
+            ...cachedProfile,
+            ...profile,
+            display_name: nextName,
+            displayName: nextName,
+            avatar: nextAvatar || profile.avatar || cachedProfile.avatar || '',
+            updatedAt: new Date().toISOString()
+        };
 
-        if (nextAvatar) {
-            localStorage.setItem('yh_user_avatar', nextAvatar);
-        } else if (!fallbackAvatar) {
-            localStorage.removeItem('yh_user_avatar');
-        }
+        try {
+            localStorage.setItem('yh_academy_profile_cache_v1', JSON.stringify(nextCachedProfile));
+            localStorage.setItem('yh_user_name', nextName);
+            localStorage.setItem('yh_user_full_name', nextName);
+            localStorage.setItem('yh_user_display_name', nextName);
+
+            if (nextCachedProfile.username) {
+                localStorage.setItem('yh_user_username', String(nextCachedProfile.username).replace(/^@+/, ''));
+            }
+
+            if (nextAvatar) {
+                localStorage.setItem('yh_user_avatar', nextAvatar);
+            }
+
+            const coverPhoto = String(nextCachedProfile.cover_photo || nextCachedProfile.coverPhoto || '').trim();
+            if (coverPhoto) {
+                localStorage.setItem('yh_user_cover_photo', coverPhoto);
+            }
+        } catch (_) {}
 
         updateUserProfile(nextName, nextAvatar || '');
         return { name: nextName, avatar: nextAvatar };
@@ -8255,34 +8298,157 @@ let academyProfileViewState = {
     profile: null
 };
 
+const YH_DASHBOARD_SELF_PROFILE_CACHE_KEY = 'yh_academy_profile_cache_v1';
+const YH_DASHBOARD_VISITED_PROFILE_CACHE_KEY = 'yh_universe_visited_profile_cache_v1';
+
+function dashboardGetSelfProfileCache() {
+    const cached = readYHJsonCache(YH_DASHBOARD_SELF_PROFILE_CACHE_KEY, null);
+    return cached && typeof cached === 'object' ? cached : {};
+}
+
+function dashboardPersistSelfProfileCache(profile = {}) {
+    if (!profile || typeof profile !== 'object') return;
+
+    const current = dashboardGetSelfProfileCache();
+    const nextProfile = {
+        ...current,
+        ...profile,
+        updatedAt: new Date().toISOString()
+    };
+
+    writeYHJsonCache(YH_DASHBOARD_SELF_PROFILE_CACHE_KEY, nextProfile);
+
+    const displayName = String(
+        nextProfile.display_name ||
+        nextProfile.displayName ||
+        nextProfile.fullName ||
+        nextProfile.full_name ||
+        nextProfile.name ||
+        ''
+    ).trim();
+
+    const username = String(nextProfile.username || '').replace(/^@+/, '').trim();
+    const avatar = String(nextProfile.avatar || nextProfile.profilePhoto || nextProfile.photoURL || '').trim();
+    const coverPhoto = String(nextProfile.cover_photo || nextProfile.coverPhoto || '').trim();
+
+    try {
+        if (displayName) {
+            localStorage.setItem('yh_user_name', displayName);
+            localStorage.setItem('yh_user_full_name', displayName);
+            localStorage.setItem('yh_user_display_name', displayName);
+        }
+
+        if (username) {
+            localStorage.setItem('yh_user_username', username);
+        }
+
+        if (avatar) {
+            localStorage.setItem('yh_user_avatar', avatar);
+        }
+
+        if (coverPhoto) {
+            localStorage.setItem('yh_user_cover_photo', coverPhoto);
+        }
+    } catch (_) {}
+}
+
+function dashboardReadVisitedProfileCacheMap() {
+    const cached = readYHJsonCache(YH_DASHBOARD_VISITED_PROFILE_CACHE_KEY, null);
+    return cached && typeof cached === 'object' ? cached : {};
+}
+
+function dashboardGetVisitedProfileCache(memberId = '') {
+    const normalizedMemberId = normalizeAcademyFeedId(memberId);
+    if (!normalizedMemberId) return null;
+
+    const cacheMap = dashboardReadVisitedProfileCacheMap();
+    const cachedProfile = cacheMap[normalizedMemberId];
+
+    return cachedProfile && typeof cachedProfile === 'object'
+        ? cachedProfile
+        : null;
+}
+
+function dashboardPersistVisitedProfileCache(profile = {}) {
+    const normalizedMemberId = normalizeAcademyFeedId(profile?.id || profile?.user_id || profile?.uid || '');
+    if (!normalizedMemberId || !profile || typeof profile !== 'object') return;
+
+    const cacheMap = dashboardReadVisitedProfileCacheMap();
+
+    cacheMap[normalizedMemberId] = {
+        ...profile,
+        id: normalizedMemberId,
+        cachedAt: new Date().toISOString()
+    };
+
+    const entries = Object.entries(cacheMap)
+        .sort(([, left], [, right]) => {
+            return new Date(right?.cachedAt || 0).getTime() - new Date(left?.cachedAt || 0).getTime();
+        })
+        .slice(0, 50);
+
+    writeYHJsonCache(YH_DASHBOARD_VISITED_PROFILE_CACHE_KEY, Object.fromEntries(entries));
+}
+
 function buildAcademySelfProfilePayload() {
     const cachedHome = readAcademyHomeCache() || {};
-    const displayName = String(localStorage.getItem('yh_user_name') || 'Hustler').trim() || 'Hustler';
+    const cachedProfile = dashboardGetSelfProfileCache();
+
+    const displayName = String(
+        cachedProfile.display_name ||
+        cachedProfile.displayName ||
+        cachedProfile.fullName ||
+        cachedProfile.full_name ||
+        localStorage.getItem('yh_user_name') ||
+        'Hustler'
+    ).trim() || 'Hustler';
+
     const usernameRaw =
-        String(getStoredUserValue('yh_user_username', '')).trim().replace(/^@/, '') ||
+        String(
+            cachedProfile.username ||
+            getStoredUserValue('yh_user_username', '') ||
+            localStorage.getItem('yh_user_username') ||
+            ''
+        ).trim().replace(/^@+/, '') ||
         displayName.toLowerCase().replace(/\s+/g, '');
 
-    const savedAvatar = String(getStoredUserValue('yh_user_avatar', '')).trim();
+    const savedAvatar = String(
+        cachedProfile.avatar ||
+        cachedProfile.profilePhoto ||
+        cachedProfile.photoURL ||
+        getStoredUserValue('yh_user_avatar', '') ||
+        localStorage.getItem('yh_user_avatar') ||
+        ''
+    ).trim();
+
     const savedCover = String(
+        cachedProfile.cover_photo ||
+        cachedProfile.coverPhoto ||
         getStoredUserValue('yh_user_cover_photo', '') ||
         localStorage.getItem('yh_user_cover_photo') ||
         ''
     ).trim();
+
     const hiddenPosts = readAcademyHiddenPostIds();
 
     const readinessValue =
+        cachedProfile.readiness ??
+        cachedProfile.readinessScore ??
         cachedHome?.roadmap?.readinessScore ??
         cachedHome?.readinessScore ??
         cachedHome?.summary?.readinessScore ??
         '—';
 
     const roadmapStatus =
+        cachedProfile.roadmap_status ||
+        cachedProfile.roadmapStatus ||
         cachedHome?.roadmap?.status ||
         cachedHome?.roadmapStatus ||
         'Not loaded';
 
     const progressText =
         document.getElementById('progress-text')?.innerText ||
+        cachedProfile.progress ||
         '0% Daily Progress';
 
     const cachedPosts = readAcademyFeedCachePosts()
@@ -8303,27 +8469,55 @@ function buildAcademySelfProfilePayload() {
         });
 
     return {
+        ...cachedProfile,
         mode: 'self',
         id:
+            cachedProfile.id ||
+            cachedProfile.user_id ||
+            cachedProfile.uid ||
             String(getStoredUserValue('yh_user_id', '')).trim() ||
             String(getStoredUserValue('yh_user_uid', '')).trim(),
         display_name: displayName,
+        displayName,
+        fullName: cachedProfile.fullName || cachedProfile.full_name || displayName,
         username: usernameRaw,
         avatar: savedAvatar,
         cover_photo: savedCover,
         coverPhoto: savedCover,
-        role_label: 'Academy Member',
-        bio: 'Focused on execution, consistency, and long-term growth inside The Academy.',
+        role_label: cachedProfile.role_label || cachedProfile.roleLabel || 'Academy Member',
+        bio: cachedProfile.bio || 'Focused on execution, consistency, and long-term growth inside The Academy.',
         readiness: String(readinessValue),
-        progress: progressText.replace(' Daily Progress', ''),
+        progress: String(progressText).replace(' Daily Progress', ''),
         roadmap_status: String(roadmapStatus),
-        followers_count: '—',
-        post_count: cachedPosts.length,
-        hidden_count: hiddenPosts.length,
-        status: 'Active',
-        search_tags: [],
-        verificationBadges: {},
-        recent_posts: cachedPosts.slice(0, 6)
+        followers_count: cachedProfile.followers_count ?? cachedProfile.followersCount ?? '—',
+        following_count: cachedProfile.following_count ?? cachedProfile.followingCount ?? '—',
+        friends_count: cachedProfile.friends_count ?? cachedProfile.friend_count ?? cachedProfile.friendsCount ?? cachedProfile.friendCount ?? '—',
+        post_count: Number.isFinite(Number(cachedProfile.post_count ?? cachedProfile.postCount))
+            ? Number(cachedProfile.post_count ?? cachedProfile.postCount)
+            : cachedPosts.length,
+        hidden_count: cachedProfile.hidden_count ?? hiddenPosts.length,
+        status: cachedProfile.status || 'Active',
+        search_tags: Array.isArray(cachedProfile.search_tags)
+            ? cachedProfile.search_tags
+            : Array.isArray(cachedProfile.searchTags)
+                ? cachedProfile.searchTags
+                : [],
+        verificationBadges: cachedProfile.verificationBadges && typeof cachedProfile.verificationBadges === 'object'
+            ? cachedProfile.verificationBadges
+            : {},
+        divisions: cachedProfile.divisions && typeof cachedProfile.divisions === 'object'
+            ? cachedProfile.divisions
+            : {},
+        membershipSummary: cachedProfile.membershipSummary || null,
+        signals: cachedProfile.signals && typeof cachedProfile.signals === 'object'
+            ? cachedProfile.signals
+            : {},
+        trustTier: cachedProfile.trustTier || '',
+        activities: Array.isArray(cachedProfile.activities) ? cachedProfile.activities : [],
+        snapshot: cachedProfile.snapshot || null,
+        recent_posts: Array.isArray(cachedProfile.recent_posts) && cachedProfile.recent_posts.length
+            ? cachedProfile.recent_posts
+            : cachedPosts.slice(0, 6)
     };
 }
 const YH_UNIVERSE_PROFILE_DIVISION_LABELS = {
@@ -10953,6 +11147,7 @@ async function hydrateDashboardSelfUniverseProfile() {
                 : buildAcademySelfProfilePayload();
 
         const merged = mergeYHUniverseProfilePayload(result.profile, currentProfile);
+        dashboardPersistSelfProfileCache(merged);
 
         if (academyProfileViewState?.mode === 'self') {
             renderAcademyProfileView(merged, { mode: 'self' });
@@ -11019,11 +11214,10 @@ async function openAcademyMemberProfileView(memberId = '') {
         return;
     }
 
-    showAcademyTabLoader('Loading Profile...');
+    const cachedProfile = dashboardGetVisitedProfileCache(normalizedMemberId);
+    let renderedCachedProfile = false;
 
-    try {
-        const profile = await fetchAcademyMemberProfile(normalizedMemberId);
-
+    const revealVisitedProfileShell = () => {
         hideAcademyViewsForFeed();
         setAcademySidebarActive('');
         revealAcademyProfileView();
@@ -11034,11 +11228,31 @@ async function openAcademyMemberProfileView(memberId = '') {
 
         closeAcademySearchResultsPanel();
         document.getElementById('academy-member-browser-modal')?.classList.add('hidden-step');
+    };
+
+    if (cachedProfile) {
+        revealVisitedProfileShell();
+        renderAcademyProfileView(cachedProfile, { mode: 'visited' });
+        renderedCachedProfile = true;
+    } else {
+        showAcademyTabLoader('Loading Profile...');
+    }
+
+    try {
+        const profile = await fetchAcademyMemberProfile(normalizedMemberId);
+        dashboardPersistVisitedProfileCache(profile);
+
+        if (!renderedCachedProfile) {
+            revealVisitedProfileShell();
+        }
 
         renderAcademyProfileView(profile, { mode: 'visited' });
     } catch (error) {
         console.error('openAcademyMemberProfileView error:', error);
-        showToast(error?.message || 'Failed to load member profile.', 'error');
+
+        if (!renderedCachedProfile) {
+            showToast(error?.message || 'Failed to load member profile.', 'error');
+        }
     } finally {
         hideAcademyTabLoader();
     }
