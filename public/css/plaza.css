@@ -3514,3 +3514,60 @@ textarea:focus,
     align-items: flex-start;
   }
 }
+/* =========================================================
+   PLAZA CENTER CONTENT SOFT-EDGE CARDS
+   ========================================================= */
+
+.yh-plaza-workspace-card,
+.yh-plaza-screen-shell,
+.yh-plaza-screen-head,
+.yh-plaza-screen-body,
+.yh-plaza-feed-composer,
+.yh-plaza-panel-note,
+.yh-plaza-empty,
+.yh-plaza-empty-subtle,
+.yh-plaza-feed-card,
+.yh-plaza-directory-card,
+.yh-plaza-opportunity-card,
+.yh-plaza-region-card,
+.yh-plaza-bridge-card,
+.yh-plaza-detail-block,
+.yh-plaza-request-card,
+.yh-plaza-mini-card,
+.yh-plaza-ops-summary-card,
+.yh-plaza-inbox-card,
+.yh-plaza-message-card,
+.yh-plaza-notification-card,
+.yh-plaza-conversation-bubble,
+.yh-plaza-economy-panel,
+.yh-plaza-economy-item,
+.yh-plaza-request-section,
+.yh-plaza-flow-note {
+  border-radius: 24px;
+}
+
+.yh-plaza-workspace-card,
+.yh-plaza-screen-shell {
+  overflow: hidden;
+}
+
+.yh-plaza-empty,
+.yh-plaza-empty-subtle {
+  border-radius: 22px;
+}
+
+.yh-plaza-feed-composer,
+.yh-plaza-feed-card,
+.yh-plaza-directory-card,
+.yh-plaza-opportunity-card,
+.yh-plaza-region-card,
+.yh-plaza-bridge-card,
+.yh-plaza-detail-block,
+.yh-plaza-request-card,
+.yh-plaza-mini-card,
+.yh-plaza-ops-summary-card,
+.yh-plaza-inbox-card,
+.yh-plaza-message-card,
+.yh-plaza-notification-card {
+  overflow: hidden;
+}
