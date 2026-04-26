@@ -1978,6 +1978,7 @@ if (formRegisterSimple) {
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
     const LANDING_SOUND_KEY = 'yh_landing_sound_enabled_v1';
     const LANDING_CLICK_SOUND_SRC = '/sounds/landing-button-click.wav?v=20260426-landing-click-1';
+    const LANDING_FLIP_SOUND_SRC = '/sounds/mixkit-gear-fast-lock-tap-2857.wav?v=20260426-flip-lock-tap-1';
 
     const landingSoundState = {
         enabled: localStorage.getItem(LANDING_SOUND_KEY) !== '0'
@@ -1985,6 +1986,7 @@ if (formRegisterSimple) {
 
     let landingAudioCtx = null;
     let landingClickAudio = null;
+    let landingFlipAudio = null;
     let lastManualScrollSoundAt = 0;
     let lastManualScrollY = window.scrollY;
     let meteorTimer = null;
@@ -2037,6 +2039,36 @@ if (formRegisterSimple) {
         try {
             const sound = baseAudio.cloneNode(true);
             sound.volume = Math.max(0, Math.min(1, Number(volume) || 0.42));
+            sound.currentTime = 0;
+            await sound.play();
+        } catch (_) {
+            // Browser may block audio until the first user gesture. Ignore silently.
+        }
+    };
+
+    const preloadLandingFlipSound = () => {
+        if (!isApplyLanding || landingFlipAudio) return landingFlipAudio;
+
+        landingFlipAudio = new Audio(LANDING_FLIP_SOUND_SRC);
+        landingFlipAudio.preload = 'auto';
+        landingFlipAudio.volume = 0.46;
+
+        try {
+            landingFlipAudio.load();
+        } catch (_) {}
+
+        return landingFlipAudio;
+    };
+
+    const playLandingFlipSound = async (volume = 0.46) => {
+        if (!canPlayLandingSound()) return;
+
+        const baseAudio = preloadLandingFlipSound();
+        if (!baseAudio) return;
+
+        try {
+            const sound = baseAudio.cloneNode(true);
+            sound.volume = Math.max(0, Math.min(1, Number(volume) || 0.46));
             sound.currentTime = 0;
             await sound.play();
         } catch (_) {
@@ -2100,7 +2132,7 @@ if (formRegisterSimple) {
     };
 
     const playFlipWhoosh = async () => {
-        await playLandingClickSound(0.42);
+        await playLandingFlipSound(0.46);
     };
 
     const playScrollWhoosh = async () => {
@@ -2286,6 +2318,7 @@ if (formRegisterSimple) {
     window.addEventListener('pointerdown', () => {
         void getLandingAudioCtx();
         preloadLandingClickSound();
+        preloadLandingFlipSound();
     }, { once: true, passive: true });
 
     if (isApplyLanding) {
