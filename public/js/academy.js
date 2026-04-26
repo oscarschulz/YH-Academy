@@ -15385,23 +15385,12 @@ async function applyAcademySearch(query = '', options = {}) {
     academySyncSearchInputs(normalizedQuery, sourceInputId);
 
     const shouldRun = normalizedQuery.length >= 2;
-    const cachedPosts = typeof readAcademyFeedCachePosts === 'function'
-        ? readAcademyFeedCachePosts()
-        : [];
 
     const directPostResults = shouldRun
         ? academyBuildCommunitySearchPostResults(normalizedQuery, 8)
         : [];
 
-    const directFilteredPosts = shouldRun
-        ? cachedPosts.filter((post) => academyPostMatchesSearch(post, normalizedQuery))
-        : cachedPosts;
-
     if (!shouldRun) {
-        if (!document.getElementById('academy-feed-view')?.classList.contains('hidden-step')) {
-            renderAcademyFeed(cachedPosts);
-        }
-
         closeAcademySearchResultsPanel();
 
         const modal = document.getElementById('academy-member-browser-modal');
@@ -15409,10 +15398,6 @@ async function applyAcademySearch(query = '', options = {}) {
             loadAcademyMemberBrowser('').catch(() => {});
         }
         return;
-    }
-
-    if (!document.getElementById('academy-feed-view')?.classList.contains('hidden-step')) {
-        renderAcademyFeed(directFilteredPosts);
     }
 
     const [members, commentSearch] = await Promise.all([
@@ -15428,28 +15413,6 @@ async function applyAcademySearch(query = '', options = {}) {
         members,
         commentSearch.commentAuthorMembers
     );
-
-    const matchedPostIds = Array.isArray(commentSearch.matchedPostIds)
-        ? commentSearch.matchedPostIds
-        : [];
-
-    if (!document.getElementById('academy-feed-view')?.classList.contains('hidden-step')) {
-        const visiblePostMap = new Map();
-
-        directFilteredPosts.forEach((post) => {
-            const id = normalizeAcademyFeedId(post?.id);
-            if (id) visiblePostMap.set(id, post);
-        });
-
-        cachedPosts.forEach((post) => {
-            const id = normalizeAcademyFeedId(post?.id);
-            if (id && matchedPostIds.includes(id)) {
-                visiblePostMap.set(id, post);
-            }
-        });
-
-        renderAcademyFeed(Array.from(visiblePostMap.values()));
-    }
 
     renderAcademySearchResultsPanel(
         mergedMembers,
@@ -17308,6 +17271,8 @@ function academyFeedRenderCommentNode(postId, comment = {}, depth = 0, seen = ne
     const canHide = comment.can_hide !== false;
     const safeDepth = Math.max(0, Number(comment.depth ?? depth) || depth || 0);
     const childComments = Array.isArray(comment.children) ? comment.children : [];
+    const hasChildren = childComments.length > 0;
+    const isReply = safeDepth > 0;
 
     const avatarHtml = avatarUrl
         ? `
@@ -17333,7 +17298,7 @@ function academyFeedRenderCommentNode(postId, comment = {}, depth = 0, seen = ne
         : '';
 
     return `
-        <div class="academy-feed-comment-node" data-comment-id="${academyFeedEscapeHtml(commentId)}" data-post-id="${academyFeedEscapeHtml(postId)}" data-depth="${safeDepth}">
+        <div class="academy-feed-comment-node ${isReply ? 'is-reply' : 'is-root-comment'} ${hasChildren ? 'has-replies' : ''}" data-comment-id="${academyFeedEscapeHtml(commentId)}" data-post-id="${academyFeedEscapeHtml(postId)}" data-depth="${safeDepth}">
             <div class="academy-feed-comment-card">
                 ${avatarHtml}
 
@@ -18522,18 +18487,30 @@ document.getElementById('academy-search-results-panel')?.addEventListener('click
 
         closeAcademySearchResultsPanel();
 
-        if (!document.getElementById('academy-feed-view')?.classList.contains('hidden-step')) {
+        const cachedPosts = typeof readAcademyFeedCachePosts === 'function'
+            ? readAcademyFeedCachePosts()
+            : [];
+
+        const matchedPost = cachedPosts.find((post) => {
+            return normalizeAcademyFeedId(post?.id) === postId;
+        });
+
+        if (matchedPost) {
+            renderAcademyFeed([matchedPost]);
+        }
+
+        window.setTimeout(() => {
             const card = document.querySelector(`.academy-feed-card[data-post-id="${postId}"]`);
             if (card) {
                 card.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 card.classList.add('academy-search-opened-post');
-                window.setTimeout(() => card.classList.remove('academy-search-opened-post'), 1200);
+                window.setTimeout(() => card.classList.remove('academy-search-opened-post'), 1400);
             }
 
             academyFeedLoadComments(postId, true).catch((error) => {
-                console.error('open search comment thread error:', error);
+                console.error('open search result thread error:', error);
             });
-        }
+        }, 80);
 
         return;
     }

@@ -17149,3 +17149,91 @@ body[data-yh-view="academy"].academy-search-results-open #academy-feed-view .aca
         width: 100%;
     }
 }
+/* =========================================
+   ACADEMY COMMENT THREAD TREE CONNECTORS
+   Makes parent/reply relationships clearer
+   ========================================= */
+
+#academy-feed-view .academy-feed-comment-node {
+    position: relative !important;
+    display: grid !important;
+    gap: 8px !important;
+    min-width: 0 !important;
+}
+
+#academy-feed-view .academy-feed-comment-card {
+    position: relative !important;
+}
+
+#academy-feed-view .academy-feed-comment-node.is-reply::before {
+    content: '' !important;
+    position: absolute !important;
+    left: -18px !important;
+    top: 23px !important;
+    width: 18px !important;
+    height: 1px !important;
+    background: linear-gradient(90deg, rgba(56, 189, 248, 0.72), rgba(56, 189, 248, 0.16)) !important;
+    pointer-events: none !important;
+}
+
+#academy-feed-view .academy-feed-comment-node.has-replies > .academy-feed-comment-card::after {
+    content: '' !important;
+    position: absolute !important;
+    left: 29px !important;
+    top: 46px !important;
+    bottom: -9px !important;
+    width: 1px !important;
+    background: linear-gradient(180deg, rgba(56, 189, 248, 0.56), rgba(56, 189, 248, 0.08)) !important;
+    pointer-events: none !important;
+}
+
+#academy-feed-view .academy-feed-comment-children {
+    position: relative !important;
+    display: grid !important;
+    gap: 8px !important;
+    margin-left: 29px !important;
+    padding-left: 22px !important;
+    border-left: 1px solid rgba(56, 189, 248, 0.30) !important;
+}
+
+#academy-feed-view .academy-feed-comment-children::before {
+    content: '' !important;
+    position: absolute !important;
+    left: -1px !important;
+    top: -8px !important;
+    bottom: 50% !important;
+    width: 1px !important;
+    background: rgba(56, 189, 248, 0.48) !important;
+    pointer-events: none !important;
+}
+
+#academy-feed-view .academy-feed-comment-children > .academy-feed-comment-node:last-child::after {
+    content: '' !important;
+    position: absolute !important;
+    left: -23px !important;
+    top: 24px !important;
+    bottom: 0 !important;
+    width: 3px !important;
+    background: #07111f !important;
+    pointer-events: none !important;
+}
+
+@media (max-width: 520px) {
+    #academy-feed-view .academy-feed-comment-children {
+        margin-left: 18px !important;
+        padding-left: 16px !important;
+    }
+
+    #academy-feed-view .academy-feed-comment-node.is-reply::before {
+        left: -14px !important;
+        width: 14px !important;
+    }
+
+    #academy-feed-view .academy-feed-comment-node.has-replies > .academy-feed-comment-card::after {
+        left: 25px !important;
+    }
+
+    #academy-feed-view .academy-feed-comment-children > .academy-feed-comment-node:last-child::after {
+        left: -17px !important;
+    }
+}
