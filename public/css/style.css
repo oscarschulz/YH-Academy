@@ -10745,6 +10745,42 @@ body > #academy-search-results-panel:not(.hidden-step),
     justify-content: flex-end;
 }
 
+#academy-profile-view .academy-profile-back-btn {
+    width: auto;
+    min-width: 84px;
+    min-height: 38px;
+    padding: 8px 13px;
+    border-radius: 999px;
+    border: 1px solid rgba(56, 189, 248, 0.32);
+    background: rgba(8, 18, 40, 0.72);
+    color: #bae6fd;
+    font-size: 0.82rem;
+    font-weight: 800;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+    transition:
+        transform 0.18s ease,
+        border-color 0.18s ease,
+        background 0.18s ease,
+        color 0.18s ease;
+}
+
+#academy-profile-view .academy-profile-back-btn:hover {
+    transform: translateY(-1px);
+    border-color: rgba(56, 189, 248, 0.58);
+    background: rgba(14, 165, 233, 0.14);
+    color: #f8fbff;
+}
+
+#academy-profile-view[data-profile-layout="self"] .academy-profile-back-btn {
+    display: none !important;
+}
+
 #academy-profile-view .academy-profile-header-edit-btn {
     width: auto;
     min-width: 158px;
@@ -10756,6 +10792,13 @@ body > #academy-search-results-panel:not(.hidden-step),
 }
 
 @media (max-width: 768px) {
+    #academy-profile-view .academy-profile-back-btn {
+        min-width: 76px;
+        min-height: 36px;
+        padding: 8px 12px;
+        font-size: 0.78rem;
+    }
+
     #academy-profile-view .academy-profile-header-edit-btn {
         width: 100%;
         min-width: 0;

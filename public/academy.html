@@ -7,7 +7,7 @@
     <link rel="icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css?v=20260426-inbox-row-loading-1">
+<link rel="stylesheet" href="/css/style.css?v=20260426-profile-back-1">
 <link rel="stylesheet" href="/css/academy-thread-bottom-fix.css?v=20260417-2">
 </head>
 <body data-yh-view="academy" data-yh-page="academy">
@@ -1397,7 +1397,16 @@
 <main class="yh-main-chat hide-scrollbar hidden-step fade-in" id="academy-profile-view" data-profile-layout="self">
     <header class="chat-header">
         <div class="header-left">
-            <span class="hash-big">👤</span>
+            <button
+                type="button"
+                class="academy-profile-back-btn hidden-step"
+                id="academy-profile-back-btn"
+                aria-label="Go back to previous Academy page"
+                aria-hidden="true"
+            >
+                ← Back
+            </button>
+
             <h3 id="academy-profile-header-title">My Profile</h3>
             <div class="header-divider"></div>
             <p class="header-topic" id="academy-profile-header-topic">Profile integrations, identity view, and visitable Academy member profiles.</p>
@@ -2224,7 +2233,7 @@
 
 <script src="/js/yh-shared-core.js?v=20260418-toast-center-1"></script>
 <script src="/js/yh-shared-runtime.js?v=20260411-4"></script>
-<script src="/js/academy.js?v=20260426-inbox-row-loading-1"></script>
+<script src="/js/academy.js?v=20260426-profile-back-1"></script>
 <div
     class="academy-profile-editor-overlay hidden-step"
     id="academy-profile-editor-overlay"
