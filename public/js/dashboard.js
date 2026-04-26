@@ -1816,10 +1816,119 @@ function sendSystemNotification(title, text, avatarStr, color, target) {
     }
 }
 
+function installDashboardProfileWholePageScrollBridge() {
+    if (window.__yhDashboardProfileWholePageScrollBridgeInstalled) return;
+    window.__yhDashboardProfileWholePageScrollBridgeInstalled = true;
+
+    const getProfileHost = () => {
+        const host = document.getElementById('academy-profile-view');
+
+        if (
+            !host ||
+            !host.classList.contains('yh-dashboard-universe-profile-host') ||
+            host.classList.contains('hidden-step')
+        ) {
+            return null;
+        }
+
+        return host;
+    };
+
+    const getProfileScrollTarget = () => {
+        const host = getProfileHost();
+        if (!host) return null;
+
+        return host.querySelector('.yh-dashboard-universe-profile-scroll');
+    };
+
+    const shouldIgnoreWheelTarget = (target) => {
+        const element = target?.nodeType === 1 ? target : target?.parentElement;
+        if (!element || typeof element.closest !== 'function') return false;
+
+        return !!element.closest(
+            '.yh-dashboard-profile-modal, .yh-confirm-overlay, input, textarea, select, [contenteditable="true"]'
+        );
+    };
+
+    document.addEventListener('wheel', (event) => {
+        const host = getProfileHost();
+        if (!host) return;
+        if (!host.contains(event.target)) return;
+
+        const scrollTarget = getProfileScrollTarget();
+        if (!scrollTarget) return;
+
+        if (scrollTarget.contains(event.target)) {
+            return;
+        }
+
+        if (shouldIgnoreWheelTarget(event.target)) {
+            return;
+        }
+
+        const maxScroll = scrollTarget.scrollHeight - scrollTarget.clientHeight;
+        if (maxScroll <= 0) return;
+
+        const nextScrollTop = Math.max(
+            0,
+            Math.min(maxScroll, scrollTarget.scrollTop + event.deltaY)
+        );
+
+        if (nextScrollTop === scrollTarget.scrollTop) return;
+
+        event.preventDefault();
+        scrollTarget.scrollTop = nextScrollTop;
+    }, { passive: false });
+
+    let touchStartY = 0;
+
+    document.addEventListener('touchstart', (event) => {
+        const host = getProfileHost();
+        if (!host || !host.contains(event.target)) return;
+
+        touchStartY = Number(event.touches?.[0]?.clientY || 0);
+    }, { passive: true });
+
+    document.addEventListener('touchmove', (event) => {
+        const host = getProfileHost();
+        if (!host) return;
+        if (!host.contains(event.target)) return;
+
+        const scrollTarget = getProfileScrollTarget();
+        if (!scrollTarget) return;
+
+        if (scrollTarget.contains(event.target)) {
+            return;
+        }
+
+        if (shouldIgnoreWheelTarget(event.target)) {
+            return;
+        }
+
+        const currentY = Number(event.touches?.[0]?.clientY || 0);
+        const deltaY = touchStartY - currentY;
+        touchStartY = currentY;
+
+        const maxScroll = scrollTarget.scrollHeight - scrollTarget.clientHeight;
+        if (maxScroll <= 0) return;
+
+        const nextScrollTop = Math.max(
+            0,
+            Math.min(maxScroll, scrollTarget.scrollTop + deltaY)
+        );
+
+        if (nextScrollTop === scrollTarget.scrollTop) return;
+
+        event.preventDefault();
+        scrollTarget.scrollTop = nextScrollTop;
+    }, { passive: false });
+}
+
 // ==========================================
 // MAIN DASHBOARD LOGIC (ON LOAD)
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
+    installDashboardProfileWholePageScrollBridge();
 
     let currentVaultFolder = null; 
     let selectedVaultIndex = null;
