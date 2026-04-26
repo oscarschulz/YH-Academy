@@ -170,6 +170,32 @@ async function createVerifiedBadgePaymentLedger(req, res) {
             });
         }
 
+        const userData = userSnap.data() || {};
+        const currentBadges =
+            userData.verificationBadges && typeof userData.verificationBadges === 'object'
+                ? userData.verificationBadges
+                : {};
+
+        const currentBadge =
+            currentBadges[plan.division] && typeof currentBadges[plan.division] === 'object'
+                ? currentBadges[plan.division]
+                : {};
+
+        const currentBadgeStatus = cleanLower(currentBadge.status || '');
+
+        if (
+            currentBadge.active === true ||
+            currentBadgeStatus === 'active' ||
+            currentBadgeStatus === 'verified'
+        ) {
+            return res.status(409).json({
+                success: false,
+                message: `${plan.code} badge is already active.`,
+                division: plan.division,
+                badge: currentBadge
+            });
+        }
+
         const recordId = getVerifiedBadgePaymentRecordId(viewer.id, plan.division);
 
         const payment = await paymentLedgerRepo.upsertPaymentRecord({

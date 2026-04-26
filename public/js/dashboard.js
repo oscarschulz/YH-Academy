@@ -8474,6 +8474,14 @@ function mergeYHUniverseProfilePayload(universeProfile = {}, academyProfile = {}
         trustTier: universeProfile.trustTier || academyProfile.trustTier || '',
         activities: Array.isArray(universeProfile.activities) ? universeProfile.activities : [],
         snapshot: universeProfile.snapshot || academyProfile.snapshot || null,
+        verificationBadges:
+            universeProfile.verificationBadges && typeof universeProfile.verificationBadges === 'object'
+                ? universeProfile.verificationBadges
+                : (
+                    academyProfile.verificationBadges && typeof academyProfile.verificationBadges === 'object'
+                        ? academyProfile.verificationBadges
+                        : {}
+                ),
         source: universeProfile.source || academyProfile.source || 'dashboard-profile'
     };
 }
