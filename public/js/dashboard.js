@@ -8656,6 +8656,114 @@ function academyRenderVerificationBadge(profile = {}, division = 'academy') {
         </span>
     `;
 }
+function dashboardGetVerificationBadgeStatus(profile = {}, division = 'academy') {
+    const cleanDivision = division === 'federation' ? 'federation' : 'academy';
+    const badges = profile?.verificationBadges && typeof profile.verificationBadges === 'object'
+        ? profile.verificationBadges
+        : {};
+
+    const badge = badges[cleanDivision] && typeof badges[cleanDivision] === 'object'
+        ? badges[cleanDivision]
+        : {};
+
+    return String(badge.status || '').trim().toLowerCase();
+}
+
+function dashboardCanShowBadgeAvailButton(profile = {}, division = 'academy') {
+    const cleanDivision = division === 'federation' ? 'federation' : 'academy';
+    const divisions = normalizeYHUniverseDivisionMap(profile?.divisions || {});
+    const divisionState = divisions[cleanDivision] || {};
+
+    return divisionState.isMember === true || divisionState.canEnter === true;
+}
+
+function dashboardRenderVerifiedBadgeAvailButton(profile = {}, division = 'academy') {
+    const cleanDivision = division === 'federation' ? 'federation' : 'academy';
+
+    if (!dashboardCanShowBadgeAvailButton(profile, cleanDivision)) {
+        return '';
+    }
+
+    const activeBadge = academyGetVerificationBadge(profile, cleanDivision);
+    const status = dashboardGetVerificationBadgeStatus(profile, cleanDivision);
+    const isPending = ['pending', 'pending_payment', 'draft', 'checkout_started'].includes(status);
+
+    if (activeBadge) {
+        return `
+            <button
+                type="button"
+                class="btn-secondary academy-profile-action-btn yh-badge-avail-btn yh-badge-avail-btn--${academyFeedEscapeHtml(cleanDivision)}"
+                disabled
+                aria-disabled="true"
+            >
+                ${cleanDivision === 'federation' ? 'YHF Badge Active' : 'YHA Badge Active'}
+            </button>
+        `;
+    }
+
+    return `
+        <button
+            type="button"
+            class="btn-secondary academy-profile-action-btn yh-badge-avail-btn yh-badge-avail-btn--${academyFeedEscapeHtml(cleanDivision)}"
+            data-yh-dashboard-avail-badge="${academyFeedEscapeHtml(cleanDivision)}"
+            ${isPending ? 'data-badge-pending="true"' : ''}
+        >
+            ${isPending
+                ? cleanDivision === 'federation'
+                    ? 'YHF Payment Pending'
+                    : 'YHA Payment Pending'
+                : cleanDivision === 'federation'
+                    ? 'Avail YHF Badge'
+                    : 'Avail YHA Badge'}
+        </button>
+    `;
+}
+
+async function dashboardCreateVerifiedBadgeLedger(division = 'academy', button = null) {
+    const cleanDivision = division === 'federation' ? 'federation' : 'academy';
+
+    if (button) {
+        button.disabled = true;
+        button.setAttribute('aria-busy', 'true');
+        button.dataset.originalText = button.textContent || '';
+        button.textContent = 'Creating Ledger...';
+    }
+
+    try {
+        const result = await academyAuthedFetch(`/api/payments/badges/${encodeURIComponent(cleanDivision)}/ledger`, {
+            method: 'POST',
+            body: JSON.stringify({
+                provider: 'unselected',
+                paymentMethod: 'unselected'
+            })
+        });
+
+        showToast(
+            cleanDivision === 'federation'
+                ? 'YHF badge payment ledger created. Admin will activate it after payment confirmation.'
+                : 'YHA badge payment ledger created. Admin will activate it after payment confirmation.',
+            'success'
+        );
+
+        await hydrateDashboardSelfUniverseProfile();
+
+        return result;
+    } catch (error) {
+        console.error('dashboard verified badge ledger error:', error);
+        showToast(error?.message || 'Failed to create badge payment ledger.', 'error');
+        throw error;
+    } finally {
+        if (button) {
+            button.disabled = false;
+            button.removeAttribute('aria-busy');
+
+            if (button.dataset.originalText) {
+                button.textContent = button.dataset.originalText;
+                delete button.dataset.originalText;
+            }
+        }
+    }
+}
 function normalizeAcademyProfilePayload(profile = {}, options = {}) {
     const displayName =
         String(
@@ -8974,8 +9082,28 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
         profileName.innerHTML = `
             <span class="academy-profile-name-text">${academyFeedEscapeHtml(normalized.displayName)}</span>
             ${academyRenderVerificationBadge(normalized, 'academy')}
+            ${academyRenderVerificationBadge(normalized, 'federation')}
         `;
     }
+
+    const profileActionRow = document.querySelector('#academy-profile-view .academy-profile-action-row');
+    if (profileActionRow) {
+        profileActionRow
+            .querySelectorAll('[data-yh-dashboard-avail-badge], .yh-badge-avail-btn')
+            .forEach((node) => node.remove());
+
+        if (isSelf) {
+            const badgeButtonsHtml = [
+                dashboardRenderVerifiedBadgeAvailButton(normalized, 'academy'),
+                dashboardRenderVerifiedBadgeAvailButton(normalized, 'federation')
+            ].filter(Boolean).join('');
+
+            if (badgeButtonsHtml) {
+                profileActionRow.insertAdjacentHTML('beforeend', badgeButtonsHtml);
+            }
+        }
+    }
+
     if (profileUsername) profileUsername.innerText = normalized.username;
     if (profileRole) profileRole.innerText = normalized.roleLabel;
     if (profileBio) profileBio.innerText = normalized.bio;
@@ -12890,6 +13018,15 @@ document.getElementById('academy-profile-view')?.addEventListener('click', async
     }
 });
 document.getElementById('academy-profile-view')?.addEventListener('click', (event) => {
+        const badgeAvailButton = event.target.closest('[data-yh-dashboard-avail-badge]');
+    if (badgeAvailButton) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const division = badgeAvailButton.getAttribute('data-yh-dashboard-avail-badge') || 'academy';
+        dashboardCreateVerifiedBadgeLedger(division, badgeAvailButton).catch(() => null);
+        return;
+    }
     const postBtn = event.target.closest('[data-profile-post-id]');
 document.getElementById('academy-profile-view')?.addEventListener('change', (event) => {
     if (event.target?.id !== 'yh-universe-profile-activity-filter') return;
