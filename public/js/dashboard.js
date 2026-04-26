@@ -353,7 +353,10 @@ function getYHAcademyProgressionSnapshot() {
 }
 
 function getDashboardDivisionProgressionGate(division = 'plaza', accessSnapshot = null) {
-    const normalizedDivision = String(division || '').trim().toLowerCase();
+    const normalizedDivision = String(division || '').trim().toLowerCase() === 'federation'
+        ? 'federation'
+        : 'plaza';
+
     const academyProgression = getYHAcademyProgressionSnapshot();
 
     const requiredScore = normalizedDivision === 'federation'
@@ -376,30 +379,8 @@ function getDashboardDivisionProgressionGate(division = 'plaza', accessSnapshot 
             requiredScore,
             currentScore: academyProgression.score,
             academyProgression,
+            ready: true,
             copy: 'Access is already approved.'
-        };
-    }
-
-    const divisionOverride =
-        accessSnapshot?.divisionOverride && typeof accessSnapshot.divisionOverride === 'object'
-            ? accessSnapshot.divisionOverride
-            : (
-                accessSnapshot?.application?.divisionOverride &&
-                typeof accessSnapshot.application.divisionOverride === 'object'
-                    ? accessSnapshot.application.divisionOverride
-                    : null
-            );
-
-    if (isDashboardDivisionOverrideActive(divisionOverride)) {
-        return {
-            locked: false,
-            track: 'admin_override',
-            label: 'Admin Override',
-            requiredScore,
-            currentScore: academyProgression.score,
-            academyProgression,
-            divisionOverride,
-            copy: getDashboardDivisionOverrideCopy(normalizedDivision, divisionOverride)
         };
     }
 
@@ -411,30 +392,32 @@ function getDashboardDivisionProgressionGate(division = 'plaza', accessSnapshot 
             requiredScore,
             currentScore: academyProgression.score,
             academyProgression,
-            copy: 'This applicant is not moving through the Academy progression ladder. Treat as direct high-value strategic review.'
+            ready: false,
+            copy: 'Application is open. This user is not moving through Academy progression yet, so admin should review them as a direct strategic applicant.'
         };
     }
 
-    if (academyProgression.score < requiredScore) {
-        return {
-            locked: true,
-            track: 'academy_progression',
-            label: 'Academy Score Locked',
-            requiredScore,
-            currentScore: academyProgression.score,
-            academyProgression,
-            copy: `Reach Academy Score ${requiredScore} to unlock this application. Current score: ${academyProgression.score}.`
-        };
-    }
+    const ready = academyProgression.score >= requiredScore;
+
+    const label = normalizedDivision === 'federation'
+        ? ready
+            ? 'Federation-ready'
+            : 'Building Federation Signal'
+        : ready
+            ? 'Plaza-ready'
+            : 'Building Plaza Signal';
 
     return {
         locked: false,
         track: 'academy_progression',
-        label: 'Academy Progression Eligible',
+        label,
         requiredScore,
         currentScore: academyProgression.score,
         academyProgression,
-        copy: `Academy progression requirement reached. Current score: ${academyProgression.score}/${requiredScore}.`
+        ready,
+        copy: ready
+            ? `Application is open. Academy Score ${academyProgression.score}/${requiredScore} shows this user is ${label}.`
+            : `Application is open anytime. Academy Score ${academyProgression.score}/${requiredScore} is now only a readiness signal, not an application lock.`
     };
 }
 
@@ -1990,15 +1973,7 @@ function getPlazaButtonCopy(snapshot = null) {
 
     if (currentSnapshot?.canEnterPlaza || status === 'approved') return 'Enter the Plaza ➔';
 
-    if (progressionGate.locked) {
-        return `Locked: Academy Score ${progressionGate.currentScore}/${progressionGate.requiredScore}`;
-    }
-
     if (!currentSnapshot?.hasApplication) {
-        if (progressionGate.track === 'admin_override') {
-            return 'Apply via Admin Override ➔';
-        }
-
         return progressionGate.track === 'direct_strategic'
             ? 'Apply for Plaza Strategic Review ➔'
             : 'Apply for the Plaza ➔';
@@ -2051,15 +2026,11 @@ function syncPlazaEntryButton(snapshot = null) {
     if (badge) {
         badge.textContent = currentSnapshot.canEnterPlaza
             ? 'Approved Access'
-            : progressionGate.track === 'admin_override'
-                ? 'Admin Override'
-                : scoreLocked
-                    ? `Score ${progressionGate.currentScore}/${progressionGate.requiredScore}`
-                    : currentSnapshot.hasApplication
-                        ? 'Under Review'
-                        : progressionGate.track === 'direct_strategic'
-                            ? 'Strategic Review'
-                            : 'Application Gate';
+            : currentSnapshot.hasApplication
+                ? 'Under Review'
+                : progressionGate.track === 'direct_strategic'
+                    ? 'Strategic Review'
+                    : `${progressionGate.label} • Score ${progressionGate.currentScore}/${progressionGate.requiredScore}`;
     }
 
     if (currentSnapshot.hasApplication || currentSnapshot.canEnterPlaza) {
@@ -14646,16 +14617,10 @@ function syncFederationEntryButton() {
     const progressionGate = getDashboardDivisionProgressionGate('federation', snapshot);
     const scoreLocked = progressionGate.locked === true;
 
-    const adminOverrideUnlocked = progressionGate.track === 'admin_override';
-
-    const label = scoreLocked
-        ? `Locked: Academy Score ${progressionGate.currentScore}/${progressionGate.requiredScore}`
-        : adminOverrideUnlocked && !snapshot.canEnterFederation
-            ? 'Apply via Admin Override'
-            : getFederationButtonCopy(snapshot);
+    const label = getFederationButtonCopy(snapshot);
 
     const pendingLocked = isFederationPendingLocked(snapshot);
-    const locked = pendingLocked || scoreLocked;
+    const locked = pendingLocked;
 
     if (button) {
         button.textContent = label;
@@ -14667,11 +14632,9 @@ function syncFederationEntryButton() {
         button.setAttribute('aria-disabled', locked ? 'true' : 'false');
         button.setAttribute(
             'title',
-            scoreLocked
-                ? progressionGate.copy
-                : pendingLocked
-                    ? 'Your Federation application is under review. Admin approval is required before entry.'
-                    : ''
+            pendingLocked
+                ? 'Your Federation application is under review. Admin approval is required before entry.'
+                : progressionGate.copy || ''
         );
     }
 
@@ -14686,12 +14649,11 @@ function syncFederationEntryButton() {
     }
 
     if (stateBadge) {
-        if (scoreLocked) {
+        if (!snapshot.canEnterFederation && !pendingLocked) {
             stateBadge.classList.remove('is-hidden');
-            stateBadge.textContent = `Score ${progressionGate.currentScore}/${progressionGate.requiredScore}`;
-        } else if (adminOverrideUnlocked && !snapshot.canEnterFederation) {
-            stateBadge.classList.remove('is-hidden');
-            stateBadge.textContent = 'Admin Override';
+            stateBadge.textContent = progressionGate.track === 'direct_strategic'
+                ? 'Strategic Review'
+                : `${progressionGate.label} • Score ${progressionGate.currentScore}/${progressionGate.requiredScore}`;
         } else {
             stateBadge.classList.add('is-hidden');
             stateBadge.textContent = '';

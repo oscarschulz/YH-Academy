@@ -5311,6 +5311,7 @@ function buildServerAcademyUnlockRequirement({
 
     const normalizedTrack = normalizeDivisionApplicationTrack(track);
     const activeOverride = getSafeObject(divisionOverride);
+    const ready = currentScore >= requiredScore;
 
     if (isDivisionOverrideActive(activeOverride)) {
         return {
@@ -5319,8 +5320,9 @@ function buildServerAcademyUnlockRequirement({
             requiredScore,
             currentScore,
             unlocked: true,
+            ready,
             label: 'Admin Override',
-            copy: sanitizeText(activeOverride.reason || '') || `Admin manually unlocked ${normalizedDivision} application access.`,
+            copy: sanitizeText(activeOverride.reason || '') || `Application is open. Admin override remains recorded as context only.`,
             divisionOverride: activeOverride
         };
     }
@@ -5332,39 +5334,36 @@ function buildServerAcademyUnlockRequirement({
             requiredScore,
             currentScore,
             unlocked: true,
+            ready: false,
             label: 'Direct Strategic Review',
-            copy: 'Direct strategic applicants bypass Academy score gating and require manual admin review.'
+            copy: 'Application is open. This applicant is not moving through Academy progression yet, so admin should review them as direct strategic.'
         };
     }
+
+    const label = normalizedDivision === 'federation'
+        ? ready
+            ? 'Federation-ready'
+            : 'Building Federation Signal'
+        : ready
+            ? 'Plaza-ready'
+            : 'Building Plaza Signal';
 
     return {
         division: normalizedDivision,
         track: normalizedTrack,
         requiredScore,
         currentScore,
-        unlocked: currentScore >= requiredScore,
-        label: currentScore >= requiredScore
-            ? 'Academy Progression Eligible'
-            : 'Academy Score Locked',
-        copy: currentScore >= requiredScore
-            ? `Academy score requirement reached for ${normalizedDivision}.`
-            : `Reach Academy Score ${requiredScore} to unlock ${normalizedDivision}. Current score: ${currentScore}.`
+        unlocked: true,
+        ready,
+        label,
+        copy: ready
+            ? `Application is open. Academy Score ${currentScore}/${requiredScore} is a strong ${normalizedDivision} readiness signal.`
+            : `Application is open anytime. Academy Score ${currentScore}/${requiredScore} is only a readiness signal, not a lock.`
     };
 }
 
 function rejectIfAcademyProgressionLocked(res, requirement = {}) {
-    if (requirement.track === 'direct_strategic' || requirement.unlocked === true) {
-        return false;
-    }
-
-    res.status(403).json({
-        success: false,
-        code: 'ACADEMY_SCORE_LOCKED',
-        message: requirement.copy || 'Academy score requirement has not been reached yet.',
-        academyUnlockRequirement: requirement
-    });
-
-    return true;
+    return false;
 }
 
 function isServerAcademyApprovedUser(user = {}) {
