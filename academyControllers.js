@@ -16,6 +16,54 @@ const sanitize = (value) => {
     return String(value).replace(/</g, '&lt;').replace(/>/g, '&gt;').trim();
 };
 
+function buildPublicLandingEventLocation(req = {}) {
+    const body = req && req.body && typeof req.body === 'object' ? req.body : {};
+    const sources = [
+        body.eventLocation,
+        body.activityLocation,
+        body.currentLocation,
+        body.requestLocation,
+        body.location,
+        body.geo,
+        body
+    ].filter((source) => source && typeof source === 'object');
+
+    const readString = (keys = []) => {
+        for (const source of sources) {
+            for (const key of keys) {
+                const value = sanitize(source?.[key]);
+                if (value) return value;
+            }
+        }
+        return '';
+    };
+
+    const readNumber = (keys = []) => {
+        for (const source of sources) {
+            for (const key of keys) {
+                const rawValue = source?.[key];
+                if (rawValue === null || rawValue === undefined || rawValue === '') continue;
+
+                const parsed = Number(rawValue);
+                if (Number.isFinite(parsed)) return parsed;
+            }
+        }
+        return NaN;
+    };
+
+    const eventLat = readNumber(['eventLat', 'eventLatitude', 'currentLat', 'currentLatitude', 'lat', 'latitude']);
+    const eventLng = readNumber(['eventLng', 'eventLongitude', 'currentLng', 'currentLongitude', 'lng', 'longitude', 'lon']);
+
+    return {
+        eventCity: readString(['eventCity', 'locationCity', 'currentCity', 'city', 'town', 'municipality']),
+        eventCountry: readString(['eventCountry', 'locationCountry', 'currentCountry', 'country', 'countryOfResidence']),
+        eventCountryCode: readString(['eventCountryCode', 'locationCountryCode', 'currentCountryCode', 'countryCode']).toUpperCase(),
+        ...(Number.isFinite(eventLat) ? { eventLat } : {}),
+        ...(Number.isFinite(eventLng) ? { eventLng } : {}),
+        eventLocationText: readString(['eventLocationText', 'locationText', 'geoDisplayName', 'displayName', 'formattedAddress'])
+    };
+}
+
 const toInt = (value, fallback = 0) => {
     const parsed = parseInt(value, 10);
     return Number.isFinite(parsed) ? parsed : fallback;
@@ -2457,7 +2505,8 @@ exports.completeMission = async (req, res) => {
         });
 
         try {
-            await publicLandingEventsRepo.createEventForUser(uid, {
+await publicLandingEventsRepo.createEventForUser(uid, {
+                ...buildPublicLandingEventLocation(req),
                 type: 'academy_mission_completed',
                 slot: 'academy',
                 category: 'academy',
@@ -2580,7 +2629,8 @@ exports.updateMissionStatus = async (req, res) => {
 
         try {
             if (status === 'completed') {
-                await publicLandingEventsRepo.createEventForUser(uid, {
+await publicLandingEventsRepo.createEventForUser(uid, {
+                ...buildPublicLandingEventLocation(req),
                     type: 'academy_mission_completed',
                     slot: 'academy',
                     category: 'academy',
@@ -2604,7 +2654,8 @@ exports.updateMissionStatus = async (req, res) => {
                     ringRepeatPeriod: 700
                 });
             } else if (status === 'skipped') {
-                await publicLandingEventsRepo.createEventForUser(uid, {
+await publicLandingEventsRepo.createEventForUser(uid, {
+                ...buildPublicLandingEventLocation(req),
                     type: 'academy_mission_skipped',
                     slot: 'academy',
                     category: 'academy',
@@ -2628,7 +2679,8 @@ exports.updateMissionStatus = async (req, res) => {
                     ringRepeatPeriod: 760
                 });
             } else if (status === 'stuck') {
-                await publicLandingEventsRepo.createEventForUser(uid, {
+await publicLandingEventsRepo.createEventForUser(uid, {
+                ...buildPublicLandingEventLocation(req),
                     type: 'academy_mission_stuck',
                     slot: 'academy',
                     category: 'academy',
@@ -3089,7 +3141,8 @@ exports.submitMembershipApplication = async (req, res) => {
         );
 
         try {
-            await publicLandingEventsRepo.createEventForUser(uid, {
+await publicLandingEventsRepo.createEventForUser(uid, {
+                ...buildPublicLandingEventLocation(req),
                 type: 'academy_membership_application',
                 slot: 'academy',
                 category: 'academy',
@@ -4912,7 +4965,8 @@ exports.submitCheckin = async (req, res) => {
         }
 
         try {
-            await publicLandingEventsRepo.createEventForUser(uid, {
+await publicLandingEventsRepo.createEventForUser(uid, {
+                ...buildPublicLandingEventLocation(req),
                 type: 'academy_checkin_saved',
                 slot: 'academy',
                 category: 'academy',
@@ -5245,7 +5299,8 @@ exports.submitRoadmapApplication = async (req, res) => {
         );
 
         try {
-            await publicLandingEventsRepo.createEventForUser(uid, {
+await publicLandingEventsRepo.createEventForUser(uid, {
+                ...buildPublicLandingEventLocation(req),
                 type: 'academy_roadmap_application',
                 slot: 'academy',
                 category: 'academy',
@@ -5318,7 +5373,8 @@ exports.refreshRoadmap = async (req, res) => {
         const plannerResult = await generateAndPersistPlanFirestore(uid, profile, { mode: 'refresh' });
 
         try {
-            await publicLandingEventsRepo.createEventForUser(uid, {
+await publicLandingEventsRepo.createEventForUser(uid, {
+                ...buildPublicLandingEventLocation(req),
                 type: 'academy_roadmap_refresh',
                 slot: 'academy',
                 category: 'academy',

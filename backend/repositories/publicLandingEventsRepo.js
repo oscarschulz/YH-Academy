@@ -137,6 +137,16 @@ function deriveGeoFromText({ city = '', country = '' } = {}) {
 }
 
 function buildLocationText(geo = {}) {
+    const explicitLocationText = sanitizeText(
+        geo.locationText ||
+        geo.eventLocationText ||
+        geo.geoDisplayName ||
+        geo.displayName ||
+        ''
+    );
+
+    if (explicitLocationText) return explicitLocationText;
+
     const city = sanitizeText(geo.city);
     const country = sanitizeText(geo.country);
 
@@ -144,6 +154,239 @@ function buildLocationText(geo = {}) {
     if (country) return country;
     if (city) return city;
     return 'their region';
+}
+
+function isValidLandingGeo(geo = {}) {
+    return Number.isFinite(Number(geo?.lat)) && Number.isFinite(Number(geo?.lng));
+}
+
+function getLandingGeoSources(options = {}) {
+    return [
+        options,
+        options.eventLocation,
+        options.activityLocation,
+        options.currentLocation,
+        options.requestLocation,
+        options.location,
+        options.geo,
+        options.payload?.eventLocation,
+        options.payload?.activityLocation,
+        options.payload?.currentLocation,
+        options.payload?.location,
+        options.payload?.geo
+    ].filter((source) => source && typeof source === 'object');
+}
+
+function pickLandingGeoText(options = {}, keys = []) {
+    for (const source of getLandingGeoSources(options)) {
+        for (const key of keys) {
+            const value = sanitizeText(source?.[key]);
+            if (value) return value;
+        }
+    }
+
+    return '';
+}
+
+function pickLandingGeoNumber(options = {}, keys = []) {
+    for (const source of getLandingGeoSources(options)) {
+        for (const key of keys) {
+            const rawValue = source?.[key];
+            if (rawValue === null || rawValue === undefined || rawValue === '') continue;
+
+            const value = toNumber(rawValue, NaN);
+            if (Number.isFinite(value)) return value;
+        }
+    }
+
+    return NaN;
+}
+
+function hasExplicitLandingEventGeo(options = {}) {
+    return Boolean(
+        pickLandingGeoText(options, [
+            'eventCity',
+            'locationCity',
+            'currentCity',
+            'city',
+            'eventCountry',
+            'locationCountry',
+            'currentCountry',
+            'country',
+            'countryOfResidence',
+            'eventLocationText',
+            'locationText',
+            'geoDisplayName',
+            'displayName',
+            'formattedAddress'
+        ]) ||
+        Number.isFinite(pickLandingGeoNumber(options, [
+            'eventLat',
+            'eventLatitude',
+            'currentLat',
+            'currentLatitude',
+            'lat',
+            'latitude'
+        ])) ||
+        Number.isFinite(pickLandingGeoNumber(options, [
+            'eventLng',
+            'eventLongitude',
+            'currentLng',
+            'currentLongitude',
+            'lng',
+            'longitude',
+            'lon'
+        ]))
+    );
+}
+
+function splitLandingLocationText(locationText = '') {
+    const cleanLocationText = normalizeGeoText(locationText);
+    if (!cleanLocationText) return { city: '', country: '' };
+
+    const parts = cleanLocationText
+        .split(',')
+        .map((part) => normalizeGeoText(part))
+        .filter(Boolean);
+
+    if (parts.length >= 2) {
+        return {
+            city: parts.slice(0, -1).join(', '),
+            country: parts[parts.length - 1]
+        };
+    }
+
+    return {
+        city: '',
+        country: cleanLocationText
+    };
+}
+
+async function resolveLandingEventGeo(options = {}) {
+    const locationText = pickLandingGeoText(options, [
+        'eventLocationText',
+        'locationText',
+        'geoDisplayName',
+        'displayName',
+        'formattedAddress'
+    ]);
+
+    const parsedLocationText = splitLandingLocationText(locationText);
+
+    const city = pickLandingGeoText(options, [
+        'eventCity',
+        'locationCity',
+        'currentCity',
+        'city',
+        'town',
+        'municipality'
+    ]) || parsedLocationText.city;
+
+    const country = pickLandingGeoText(options, [
+        'eventCountry',
+        'locationCountry',
+        'currentCountry',
+        'country',
+        'countryOfResidence'
+    ]) || parsedLocationText.country;
+
+    const countryCode = pickLandingGeoText(options, [
+        'eventCountryCode',
+        'locationCountryCode',
+        'currentCountryCode',
+        'countryCode'
+    ]).toUpperCase();
+
+    const lat = pickLandingGeoNumber(options, [
+        'eventLat',
+        'eventLatitude',
+        'currentLat',
+        'currentLatitude',
+        'lat',
+        'latitude'
+    ]);
+
+    const lng = pickLandingGeoNumber(options, [
+        'eventLng',
+        'eventLongitude',
+        'currentLng',
+        'currentLongitude',
+        'lng',
+        'longitude',
+        'lon'
+    ]);
+
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        return {
+            city,
+            country,
+            countryCode,
+            lat,
+            lng,
+            locationText,
+            geoSource: 'landing_event_payload_coordinates',
+            geoPrecision: 'event_coordinates',
+            geoDisplayName: locationText || [city, country].filter(Boolean).join(', ')
+        };
+    }
+
+    if (!city && !country && !locationText) return null;
+
+    try {
+        const resolvedGeo = await geocodingService.resolveLocation({
+            city,
+            country: country || locationText,
+            fallbackToCountryCentroid: true
+        });
+
+        if (isValidLandingGeo(resolvedGeo)) {
+            return {
+                city: sanitizeText(resolvedGeo.city) || city,
+                country: sanitizeText(resolvedGeo.country) || country || locationText,
+                countryCode: sanitizeText(resolvedGeo.countryCode || countryCode).toUpperCase(),
+                lat: Number(resolvedGeo.lat),
+                lng: Number(resolvedGeo.lng),
+                locationText: locationText || sanitizeText(resolvedGeo.geoDisplayName),
+                geoSource: sanitizeText(resolvedGeo.geoSource || 'landing_event_payload_geocoded'),
+                geoProvider: sanitizeText(resolvedGeo.geoProvider),
+                geoPrecision: sanitizeText(resolvedGeo.geoPrecision || 'city'),
+                ...(Number.isFinite(Number(resolvedGeo.geoConfidence))
+                    ? { geoConfidence: Number(resolvedGeo.geoConfidence) }
+                    : {}),
+                geoDisplayName: sanitizeText(resolvedGeo.geoDisplayName) || locationText || [city, country].filter(Boolean).join(', '),
+                geoUpdatedAt: resolvedGeo.geoUpdatedAt || nowIso()
+            };
+        }
+    } catch (error) {
+        console.warn('publicLandingEventsRepo.resolveLandingEventGeo failed:', error?.message || error);
+    }
+
+    const derivedGeo = deriveGeoFromText({
+        city,
+        country: country || locationText
+    });
+
+    if (isValidLandingGeo(derivedGeo)) {
+        return {
+            ...derivedGeo,
+            locationText: locationText || [derivedGeo.city, derivedGeo.country].filter(Boolean).join(', '),
+            geoSource: derivedGeo.geoSource || 'landing_event_payload_country_centroid',
+            geoDisplayName: locationText || [derivedGeo.city, derivedGeo.country].filter(Boolean).join(', ')
+        };
+    }
+
+    return {
+        city,
+        country: country || locationText,
+        countryCode,
+        locationText,
+        lat: null,
+        lng: null,
+        geoSource: 'landing_event_payload_unresolved',
+        geoPrecision: 'unresolved',
+        geoDisplayName: locationText || [city, country].filter(Boolean).join(', '),
+        geoUpdatedAt: nowIso()
+    };
 }
 
 async function getUserGeo(userId) {
@@ -275,8 +518,32 @@ async function getUserGeo(userId) {
 }
 
 async function createEventForUser(userId, options = {}) {
-    const geo = await getUserGeo(userId);
-    if (!geo) {
+    const userGeo = await getUserGeo(userId);
+    const eventGeoRequested = hasExplicitLandingEventGeo(options);
+    const eventGeo = await resolveLandingEventGeo(options);
+
+    if (eventGeoRequested && !isValidLandingGeo(eventGeo)) {
+        console.warn(
+            `publicLandingEventsRepo.createEventForUser skipped: explicit event geo could not be resolved for user ${sanitizeText(userId) || 'unknown'}`,
+            {
+                city: sanitizeText(eventGeo?.city),
+                country: sanitizeText(eventGeo?.country),
+                locationText: sanitizeText(eventGeo?.locationText || eventGeo?.geoDisplayName),
+                geoSource: sanitizeText(eventGeo?.geoSource)
+            }
+        );
+        return null;
+    }
+
+    const geo = {
+        ...(userGeo || {}),
+        ...(isValidLandingGeo(eventGeo) ? eventGeo : {}),
+        userId: sanitizeText(userGeo?.userId || userId),
+        username: sanitizeText(userGeo?.username),
+        actorName: sanitizeText(options.actorName || userGeo?.actorName || userGeo?.username || 'A member')
+    };
+
+    if (!isValidLandingGeo(geo)) {
         console.warn(`publicLandingEventsRepo.createEventForUser skipped: missing valid geo for user ${sanitizeText(userId) || 'unknown'}`);
         return null;
     }
@@ -366,11 +633,17 @@ async function createEventForUser(userId, options = {}) {
         ...(Number.isFinite(ringMaxRadius) ? { ringMaxRadius } : {}),
         ...(Number.isFinite(ringPropagationSpeed) ? { ringPropagationSpeed } : {}),
         ...(Number.isFinite(ringRepeatPeriod) ? { ringRepeatPeriod } : {}),
-        lat: geo.lat,
-        lng: geo.lng,
-        city: geo.city,
-        country: geo.country,
-        countryCode: geo.countryCode,
+        lat: Number(geo.lat),
+        lng: Number(geo.lng),
+        city: sanitizeText(geo.city),
+        country: sanitizeText(geo.country),
+        countryCode: sanitizeText(geo.countryCode).toUpperCase(),
+        geoSource: sanitizeText(geo.geoSource || (eventGeoRequested ? 'landing_event_payload' : 'user_profile_geo')),
+        ...(sanitizeText(geo.geoProvider) ? { geoProvider: sanitizeText(geo.geoProvider) } : {}),
+        ...(sanitizeText(geo.geoPrecision) ? { geoPrecision: sanitizeText(geo.geoPrecision) } : {}),
+        ...(Number.isFinite(Number(geo.geoConfidence)) ? { geoConfidence: Number(geo.geoConfidence) } : {}),
+        ...(sanitizeText(geo.geoDisplayName) ? { geoDisplayName: sanitizeText(geo.geoDisplayName) } : {}),
+        ...(sanitizeText(geo.geoUpdatedAt) ? { geoUpdatedAt: sanitizeText(geo.geoUpdatedAt) } : {}),
         userId: geo.userId,
         createdAt,
         expiresAt
@@ -557,6 +830,12 @@ async function createAcademyActionEvent(userId, actionKey = '', details = {}) {
 
     return createEventForUser(userId, {
         ...preset,
+        eventCity: details.eventCity ?? details.locationCity ?? details.currentCity ?? details.city ?? details.location?.city ?? details.geo?.city ?? details.currentLocation?.city,
+        eventCountry: details.eventCountry ?? details.locationCountry ?? details.currentCountry ?? details.country ?? details.countryOfResidence ?? details.location?.country ?? details.geo?.country ?? details.currentLocation?.country,
+        eventCountryCode: details.eventCountryCode ?? details.locationCountryCode ?? details.currentCountryCode ?? details.countryCode ?? details.location?.countryCode ?? details.geo?.countryCode ?? details.currentLocation?.countryCode,
+        eventLat: details.eventLat ?? details.eventLatitude ?? details.currentLat ?? details.currentLatitude ?? details.lat ?? details.latitude ?? details.location?.lat ?? details.location?.latitude ?? details.geo?.lat ?? details.geo?.latitude ?? details.currentLocation?.lat ?? details.currentLocation?.latitude,
+        eventLng: details.eventLng ?? details.eventLongitude ?? details.currentLng ?? details.currentLongitude ?? details.lng ?? details.longitude ?? details.lon ?? details.location?.lng ?? details.location?.longitude ?? details.geo?.lng ?? details.geo?.longitude ?? details.currentLocation?.lng ?? details.currentLocation?.longitude,
+        eventLocationText: details.eventLocationText ?? details.locationText ?? details.geoDisplayName ?? details.location?.locationText ?? details.location?.geoDisplayName ?? details.geo?.locationText ?? details.geo?.geoDisplayName ?? details.currentLocation?.locationText,
         ...(Number.isFinite(ttlSeconds) ? { ttlSeconds } : {})
     });
 }
