@@ -8144,6 +8144,11 @@ function buildAcademySelfProfilePayload() {
         displayName.toLowerCase().replace(/\s+/g, '');
 
     const savedAvatar = String(getStoredUserValue('yh_user_avatar', '')).trim();
+    const savedCover = String(
+        getStoredUserValue('yh_user_cover_photo', '') ||
+        localStorage.getItem('yh_user_cover_photo') ||
+        ''
+    ).trim();
     const hiddenPosts = readAcademyHiddenPostIds();
 
     const readinessValue =
@@ -8186,6 +8191,8 @@ function buildAcademySelfProfilePayload() {
         display_name: displayName,
         username: usernameRaw,
         avatar: savedAvatar,
+        cover_photo: savedCover,
+        coverPhoto: savedCover,
         role_label: 'Academy Member',
         bio: 'Focused on execution, consistency, and long-term growth inside The Academy.',
         readiness: String(readinessValue),
@@ -8544,6 +8551,7 @@ function normalizeAcademyProfilePayload(profile = {}, options = {}) {
         usernameRaw,
         username: usernameRaw ? `@${usernameRaw}` : '@yh-member',
         avatar: String(profile?.avatar || profile?.profilePhoto || profile?.photoURL || '').trim(),
+        coverPhoto: String(profile?.cover_photo || profile?.coverPhoto || profile?.coverPhotoUrl || '').trim(),
         roleLabel: String(profile?.role_label || profile?.roleLabel || profile?.trustTier || 'YH Universe Member').trim() || 'YH Universe Member',
         bio:
             String(
@@ -8721,6 +8729,7 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
     const profileHeaderTitle = document.getElementById('academy-profile-header-title');
     const profileHeaderTopic = document.getElementById('academy-profile-header-topic');
     const profileAvatar = document.getElementById('academy-profile-avatar');
+    const profileCoverBand = document.getElementById('academy-profile-view')?.querySelector('.academy-profile-cover-band');
     const profileName = document.getElementById('academy-profile-name');
     const profileUsername = document.getElementById('academy-profile-username');
     const profileRole = document.getElementById('academy-profile-role');
@@ -8778,9 +8787,29 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
             profileAvatar.style.backgroundImage = `url(${normalized.avatar})`;
             profileAvatar.style.backgroundSize = 'cover';
             profileAvatar.style.backgroundPosition = 'center';
+            profileAvatar.setAttribute('data-profile-image-preview', normalized.avatar);
+            profileAvatar.setAttribute('data-profile-image-preview-type', 'profile photo');
         } else {
             profileAvatar.innerText = normalized.displayName.charAt(0).toUpperCase();
             profileAvatar.style.backgroundImage = 'none';
+            profileAvatar.removeAttribute('data-profile-image-preview');
+            profileAvatar.removeAttribute('data-profile-image-preview-type');
+        }
+    }
+
+    if (profileCoverBand) {
+        const resolvedCoverPhoto = normalizeDashboardProfileAssetUrl(normalized.coverPhoto || '');
+
+        if (resolvedCoverPhoto) {
+            profileCoverBand.style.backgroundImage = `linear-gradient(180deg, rgba(10, 22, 39, 0.12), rgba(10, 22, 39, 0.58)), url("${resolvedCoverPhoto}")`;
+            profileCoverBand.style.backgroundSize = 'cover';
+            profileCoverBand.style.backgroundPosition = 'center';
+            profileCoverBand.setAttribute('data-profile-image-preview', resolvedCoverPhoto);
+            profileCoverBand.setAttribute('data-profile-image-preview-type', 'cover photo');
+        } else {
+            profileCoverBand.style.backgroundImage = '';
+            profileCoverBand.removeAttribute('data-profile-image-preview');
+            profileCoverBand.removeAttribute('data-profile-image-preview-type');
         }
     }
 
@@ -9152,6 +9181,26 @@ function getDashboardUniverseProfileDraft() {
         ''
     ).trim();
 
+    const avatar = String(
+        profile.avatar ||
+        profile.profilePhoto ||
+        profile.photoURL ||
+        readCache.avatar ||
+        readCache.profilePhoto ||
+        readCache.photoURL ||
+        localStorage.getItem('yh_user_avatar') ||
+        ''
+    ).trim();
+
+    const coverPhoto = String(
+        profile.cover_photo ||
+        profile.coverPhoto ||
+        readCache.cover_photo ||
+        readCache.coverPhoto ||
+        localStorage.getItem('yh_user_cover_photo') ||
+        ''
+    ).trim();
+
     const tags = Array.isArray(profile.search_tags)
         ? profile.search_tags
         : Array.isArray(profile.searchTags)
@@ -9180,6 +9229,8 @@ function getDashboardUniverseProfileDraft() {
         displayName,
         username,
         bio,
+        avatar,
+        coverPhoto,
         tags,
         roleTrack: String(profile.role_track || profile.roleTrack || readCache.role_track || '').trim(),
         lookingFor,
@@ -9193,7 +9244,186 @@ function getDashboardUniverseProfileDraft() {
             String(profile.marketplace_ready || profile.marketplaceReady || readCache.marketplace_ready || '').trim().toLowerCase() === 'yes'
     };
 }
+const dashboardProfileEditorAssetState = {
+    avatar: {
+        file: null,
+        previewUrl: ''
+    },
+    cover: {
+        file: null,
+        previewUrl: ''
+    }
+};
 
+function normalizeDashboardProfileAssetUrl(value = '') {
+    const clean = String(value || '').trim();
+    if (!clean) return '';
+
+    if (
+        clean.startsWith('http://') ||
+        clean.startsWith('https://') ||
+        clean.startsWith('/') ||
+        clean.startsWith('data:image/') ||
+        clean.startsWith('blob:')
+    ) {
+        return clean;
+    }
+
+    return `/${clean.replace(/^\/+/, '')}`;
+}
+
+function revokeDashboardProfileBlobUrl(value = '') {
+    const clean = String(value || '').trim();
+
+    if (!clean.startsWith('blob:')) return;
+
+    try {
+        URL.revokeObjectURL(clean);
+    } catch (_) {}
+}
+
+function getDashboardProfileEditorDisplayName() {
+    return String(
+        document.getElementById('yh-dashboard-profile-display-name')?.value ||
+        localStorage.getItem('yh_user_name') ||
+        'Hustler'
+    ).trim() || 'Hustler';
+}
+
+function renderDashboardProfileEditorAvatarPreview(previewUrl = '', displayName = '') {
+    const avatar = document.getElementById('yh-dashboard-profile-avatar-preview');
+    if (!avatar) return;
+
+    const resolvedUrl = normalizeDashboardProfileAssetUrl(previewUrl);
+    const resolvedName = String(displayName || getDashboardProfileEditorDisplayName() || 'YH').trim();
+
+    if (resolvedUrl) {
+        avatar.textContent = '';
+        avatar.style.backgroundImage = `url("${resolvedUrl}")`;
+        avatar.style.backgroundSize = 'cover';
+        avatar.style.backgroundPosition = 'center';
+        return;
+    }
+
+    avatar.style.backgroundImage = 'none';
+    avatar.textContent = resolvedName.charAt(0).toUpperCase() || 'Y';
+}
+
+function renderDashboardProfileEditorCoverPreview(previewUrl = '') {
+    const cover = document.getElementById('yh-dashboard-profile-cover-preview');
+    if (!cover) return;
+
+    const resolvedUrl = normalizeDashboardProfileAssetUrl(previewUrl);
+
+    if (resolvedUrl) {
+        cover.style.backgroundImage = `linear-gradient(180deg, rgba(5, 12, 28, 0.08), rgba(5, 12, 28, 0.58)), url("${resolvedUrl}")`;
+        cover.style.backgroundSize = 'cover';
+        cover.style.backgroundPosition = 'center';
+        cover.setAttribute('data-has-cover', 'true');
+        return;
+    }
+
+    cover.style.backgroundImage = '';
+    cover.removeAttribute('data-has-cover');
+}
+
+function setDashboardProfileEditorAsset(kind = 'avatar', options = {}) {
+    const normalizedKind = kind === 'cover' ? 'cover' : 'avatar';
+    const current = dashboardProfileEditorAssetState[normalizedKind] || {};
+
+    if (current.previewUrl && current.previewUrl !== options.previewUrl) {
+        revokeDashboardProfileBlobUrl(current.previewUrl);
+    }
+
+    dashboardProfileEditorAssetState[normalizedKind] = {
+        file: options.file || null,
+        previewUrl: String(options.previewUrl || '').trim()
+    };
+
+    if (normalizedKind === 'cover') {
+        renderDashboardProfileEditorCoverPreview(options.previewUrl || '');
+    } else {
+        renderDashboardProfileEditorAvatarPreview(options.previewUrl || '', getDashboardProfileEditorDisplayName());
+    }
+}
+
+function validateDashboardProfileImageFile(file = null, kind = 'avatar') {
+    if (!file) return false;
+
+    if (!String(file.type || '').toLowerCase().startsWith('image/')) {
+        showToast(`${kind === 'cover' ? 'Cover photo' : 'Profile picture'} must be an image file.`, 'error');
+        return false;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+        showToast(`${kind === 'cover' ? 'Cover photo' : 'Profile picture'} is too large. Max 10MB allowed.`, 'error');
+        return false;
+    }
+
+    return true;
+}
+
+function handleDashboardProfileAssetFile(file = null, kind = 'avatar') {
+    const normalizedKind = kind === 'cover' ? 'cover' : 'avatar';
+
+    if (!validateDashboardProfileImageFile(file, normalizedKind)) return;
+
+    const previewUrl = URL.createObjectURL(file);
+
+    setDashboardProfileEditorAsset(normalizedKind, {
+        file,
+        previewUrl
+    });
+}
+
+function buildDashboardProfileUploadName(kind = 'avatar', originalName = 'profile.jpg') {
+    const safeKind = kind === 'cover' ? 'cover' : 'avatar';
+    const safeName = String(originalName || `${safeKind}.jpg`)
+        .trim()
+        .replace(/[^\w.\-]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 90) || `${safeKind}.jpg`;
+
+    return `${safeKind}-${safeName}`;
+}
+
+async function uploadDashboardProfileAsset(file = null, kind = 'avatar') {
+    if (!file) return '';
+
+    const token = getStoredAuthToken();
+    const mimeType = String(file.type || 'image/jpeg').trim() || 'image/jpeg';
+    const normalizedKind = kind === 'cover' ? 'cover' : 'avatar';
+
+    const response = await fetch('/api/academy/profile/uploads', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            'Content-Type': mimeType,
+            'X-File-Name': encodeURIComponent(buildDashboardProfileUploadName(normalizedKind, file.name || 'profile.jpg')),
+            'X-File-Mime': mimeType,
+            'X-Asset-Kind': normalizedKind
+        },
+        body: file
+    });
+
+    const responseType = String(response.headers.get('content-type') || '').toLowerCase();
+    const result = responseType.includes('application/json')
+        ? await response.json().catch(() => ({}))
+        : { success: false, message: await response.text().catch(() => 'Upload failed.') };
+
+    if (response.status === 401) {
+        showToast('Your session expired. Please log in again.', 'error');
+        window.location.href = '/';
+        throw new Error(result.message || 'Session expired.');
+    }
+
+    if (!response.ok || result?.success === false || !result?.media?.url) {
+        throw new Error(result?.message || 'Failed to upload profile image.');
+    }
+
+    return String(result.media.url || '').trim();
+}
 function ensureDashboardUniverseProfileEditor() {
     let overlay = document.getElementById('yh-dashboard-profile-editor-overlay');
     if (overlay) return overlay;
@@ -9218,6 +9448,49 @@ function ensureDashboardUniverseProfileEditor() {
             </div>
 
             <div class="yh-dashboard-profile-modal-body hide-scrollbar">
+                <section class="yh-dashboard-profile-media-editor">
+                    <div class="yh-dashboard-profile-cover-preview" id="yh-dashboard-profile-cover-preview">
+                        <button
+                            type="button"
+                            class="btn-secondary yh-dashboard-profile-media-btn yh-dashboard-profile-cover-btn"
+                            id="yh-dashboard-profile-cover-trigger"
+                        >
+                            Change Cover Photo
+                        </button>
+                    </div>
+
+                    <div class="yh-dashboard-profile-avatar-editor-row">
+                        <div class="yh-dashboard-profile-avatar-preview" id="yh-dashboard-profile-avatar-preview">Y</div>
+
+                        <div class="yh-dashboard-profile-avatar-copy">
+                            <strong>Profile picture</strong>
+                            <span>This is shown on your profile, member search, and visited member views.</span>
+                        </div>
+
+                        <button
+                            type="button"
+                            class="btn-secondary yh-dashboard-profile-media-btn"
+                            id="yh-dashboard-profile-avatar-trigger"
+                        >
+                            Change Profile Picture
+                        </button>
+                    </div>
+
+                    <input
+                        type="file"
+                        id="yh-dashboard-profile-avatar-input"
+                        accept="image/*"
+                        style="display:none;"
+                    >
+
+                    <input
+                        type="file"
+                        id="yh-dashboard-profile-cover-input"
+                        accept="image/*"
+                        style="display:none;"
+                    >
+                </section>
+
                 <div class="yh-dashboard-profile-field">
                     <label for="yh-dashboard-profile-display-name">Display name</label>
                     <input id="yh-dashboard-profile-display-name" class="input-field" maxlength="60" placeholder="Your public name">
@@ -9314,6 +9587,32 @@ function ensureDashboardUniverseProfileEditor() {
         saveDashboardUniverseProfile(event.currentTarget);
     });
 
+    document.getElementById('yh-dashboard-profile-avatar-trigger')?.addEventListener('click', () => {
+        document.getElementById('yh-dashboard-profile-avatar-input')?.click();
+    });
+
+    document.getElementById('yh-dashboard-profile-cover-trigger')?.addEventListener('click', () => {
+        document.getElementById('yh-dashboard-profile-cover-input')?.click();
+    });
+
+    document.getElementById('yh-dashboard-profile-avatar-input')?.addEventListener('change', (event) => {
+        const file = event.target?.files?.[0] || null;
+        event.target.value = '';
+        handleDashboardProfileAssetFile(file, 'avatar');
+    });
+
+    document.getElementById('yh-dashboard-profile-cover-input')?.addEventListener('change', (event) => {
+        const file = event.target?.files?.[0] || null;
+        event.target.value = '';
+        handleDashboardProfileAssetFile(file, 'cover');
+    });
+
+    document.getElementById('yh-dashboard-profile-display-name')?.addEventListener('input', () => {
+        if (!dashboardProfileEditorAssetState.avatar.previewUrl) {
+            renderDashboardProfileEditorAvatarPreview('', getDashboardProfileEditorDisplayName());
+        }
+    });
+
     return overlay;
 }
 
@@ -9328,6 +9627,16 @@ function splitDashboardSignalList(value = '') {
 function openDashboardUniverseProfileEditor() {
     const overlay = ensureDashboardUniverseProfileEditor();
     const draft = getDashboardUniverseProfileDraft();
+
+    setDashboardProfileEditorAsset('avatar', {
+        file: null,
+        previewUrl: draft.avatar || ''
+    });
+
+    setDashboardProfileEditorAsset('cover', {
+        file: null,
+        previewUrl: draft.coverPhoto || ''
+    });
 
     const setValue = (id, value) => {
         const el = document.getElementById(id);
@@ -9385,6 +9694,26 @@ async function saveDashboardUniverseProfile(button = null) {
     };
 
     await runDashboardButtonAction(button, 'Saving Profile.', async () => {
+        let nextAvatarUrl = String(dashboardProfileEditorAssetState.avatar.previewUrl || '').trim();
+        let nextCoverUrl = String(dashboardProfileEditorAssetState.cover.previewUrl || '').trim();
+
+        if (dashboardProfileEditorAssetState.avatar.file) {
+            nextAvatarUrl = await uploadDashboardProfileAsset(
+                dashboardProfileEditorAssetState.avatar.file,
+                'avatar'
+            );
+        }
+
+        if (dashboardProfileEditorAssetState.cover.file) {
+            nextCoverUrl = await uploadDashboardProfileAsset(
+                dashboardProfileEditorAssetState.cover.file,
+                'cover'
+            );
+        }
+
+        payload.avatar = nextAvatarUrl;
+        payload.cover_photo = nextCoverUrl;
+
         const result = await academyAuthedFetch('/api/academy/profile', {
             method: 'PATCH',
             body: JSON.stringify(payload)
@@ -9399,12 +9728,34 @@ async function saveDashboardUniverseProfile(button = null) {
             localStorage.setItem('yh_user_name', result.profile.display_name || displayName);
             localStorage.setItem('yh_user_username', result.profile.username || username);
             localStorage.setItem('yh_user_profile_bio', result.profile.bio || bio);
+
+            if (result.profile.avatar) {
+                localStorage.setItem('yh_user_avatar', result.profile.avatar);
+            } else {
+                localStorage.removeItem('yh_user_avatar');
+            }
+
+            if (result.profile.cover_photo) {
+                localStorage.setItem('yh_user_cover_photo', result.profile.cover_photo);
+            } else {
+                localStorage.removeItem('yh_user_cover_photo');
+            }
         } catch (_) {}
 
         academyProfileViewState.profile = normalizeAcademyProfilePayload(
             buildAcademySelfProfilePayload(result.profile),
             { mode: 'self' }
         );
+
+        setDashboardProfileEditorAsset('avatar', {
+            file: null,
+            previewUrl: String(result.profile.avatar || '').trim()
+        });
+
+        setDashboardProfileEditorAsset('cover', {
+            file: null,
+            previewUrl: String(result.profile.cover_photo || '').trim()
+        });
 
         closeDashboardUniverseProfileEditor();
         renderAcademyProfileView(academyProfileViewState.profile, { mode: 'self' });
