@@ -354,12 +354,12 @@ textarea.input-field { resize: none; }
     right: auto !important;
     bottom: auto !important;
 
-    width: max-content !important;
-    inline-size: max-content !important;
+    width: fit-content !important;
+    inline-size: fit-content !important;
     min-width: 0 !important;
-    max-width: min(calc(100vw - 32px), 360px) !important;
+    max-width: min(calc(100vw - 36px), 520px) !important;
 
-    padding: 7px 11px !important;
+    padding: 8px 14px !important;
     border-radius: 999px !important;
     background: rgba(16, 185, 129, 0.14) !important;
     border: 1px solid rgba(16, 185, 129, 0.85) !important;
@@ -372,19 +372,19 @@ textarea.input-field { resize: none; }
 
     font-weight: 800 !important;
     font-size: 0.82rem !important;
-    line-height: 1.15 !important;
+    line-height: 1.25 !important;
 
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    gap: 7px !important;
+    gap: 8px !important;
 
     text-align: center !important;
     box-sizing: border-box !important;
-    white-space: nowrap !important;
+    white-space: normal !important;
     word-break: normal !important;
-    overflow-wrap: normal !important;
-    overflow: hidden !important;
+    overflow-wrap: anywhere !important;
+    overflow: visible !important;
 
     transform: translate(-50%, -50%) scale(0.96) !important;
     opacity: 0 !important;
@@ -413,13 +413,13 @@ textarea.input-field { resize: none; }
     display: inline-block !important;
     width: auto !important;
     min-width: 0 !important;
-    max-width: min(calc(100vw - 74px), 290px) !important;
-    line-height: 1.15 !important;
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    overflow-wrap: normal !important;
+    max-width: min(calc(100vw - 88px), 450px) !important;
+    line-height: 1.25 !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    overflow-wrap: anywhere !important;
     word-break: normal !important;
-    text-overflow: ellipsis !important;
+    text-overflow: clip !important;
     text-align: center !important;
 }
 
@@ -440,6 +440,19 @@ textarea.input-field { resize: none; }
     background: rgba(16, 185, 129, 0.14) !important;
     border-color: rgba(16, 185, 129, 0.85) !important;
     color: #34d399 !important;
+}
+
+@media (max-width: 520px) {
+    #toast-notification {
+        max-width: calc(100vw - 28px) !important;
+        padding: 8px 12px !important;
+        border-radius: 18px !important;
+        font-size: 0.78rem !important;
+    }
+
+    #toast-message {
+        max-width: calc(100vw - 78px) !important;
+    }
 }
 /* ==========================================
    AUTH → DASHBOARD TRANSITION LOADER
