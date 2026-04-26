@@ -10354,17 +10354,416 @@ function validateDashboardProfileImageFile(file = null, kind = 'avatar') {
     return true;
 }
 
+let dashboardProfileCropperState = {
+    kind: 'avatar',
+    file: null,
+    sourceUrl: '',
+    image: null,
+    zoom: 1,
+    baseScale: 1,
+    offsetX: 0,
+    offsetY: 0,
+    isDragging: false,
+    dragStartX: 0,
+    dragStartY: 0,
+    dragBaseX: 0,
+    dragBaseY: 0
+};
+
 function handleDashboardProfileAssetFile(file = null, kind = 'avatar') {
     const normalizedKind = kind === 'cover' ? 'cover' : 'avatar';
 
     if (!validateDashboardProfileImageFile(file, normalizedKind)) return;
 
-    const previewUrl = URL.createObjectURL(file);
+    openDashboardProfileImageCropper(file, normalizedKind);
+}
 
-    setDashboardProfileEditorAsset(normalizedKind, {
+function getDashboardCropperOutputSize(kind = 'avatar') {
+    return kind === 'cover'
+        ? { width: 1600, height: 600 }
+        : { width: 512, height: 512 };
+}
+
+function ensureDashboardProfileImageCropper() {
+    let modal = document.getElementById('yh-dashboard-profile-cropper-modal');
+
+    if (modal) return modal;
+
+    modal = document.createElement('div');
+    modal.id = 'yh-dashboard-profile-cropper-modal';
+    modal.className = 'yh-dashboard-profile-cropper-modal hidden-step';
+    modal.setAttribute('aria-hidden', 'true');
+
+    modal.innerHTML = `
+        <div class="yh-dashboard-profile-cropper-backdrop" data-profile-cropper-close></div>
+
+        <div class="yh-dashboard-profile-cropper-card" role="dialog" aria-modal="true" aria-labelledby="yh-dashboard-profile-cropper-title">
+            <div class="yh-dashboard-profile-cropper-header">
+                <div>
+                    <p class="yh-dashboard-profile-cropper-kicker">Image Cropper</p>
+                    <h3 id="yh-dashboard-profile-cropper-title">Crop Image</h3>
+                    <span id="yh-dashboard-profile-cropper-copy">Drag and zoom the image before applying.</span>
+                </div>
+
+                <button type="button" class="yh-dashboard-profile-cropper-close" data-profile-cropper-close aria-label="Close cropper">
+                    ✕
+                </button>
+            </div>
+
+            <div class="yh-dashboard-profile-cropper-stage" id="yh-dashboard-profile-cropper-stage">
+                <div class="yh-dashboard-profile-cropper-frame" id="yh-dashboard-profile-cropper-frame">
+                    <img id="yh-dashboard-profile-cropper-image" alt="Crop preview" draggable="false">
+                    <div class="yh-dashboard-profile-cropper-grid" aria-hidden="true"></div>
+                </div>
+            </div>
+
+            <div class="yh-dashboard-profile-cropper-controls">
+                <label for="yh-dashboard-profile-cropper-zoom">
+                    Zoom
+                    <input
+                        id="yh-dashboard-profile-cropper-zoom"
+                        type="range"
+                        min="1"
+                        max="3"
+                        step="0.01"
+                        value="1"
+                    >
+                </label>
+            </div>
+
+            <div class="yh-dashboard-profile-cropper-actions">
+                <button type="button" class="btn-secondary" data-profile-cropper-close>
+                    Cancel
+                </button>
+                <button type="button" class="btn-primary" id="yh-dashboard-profile-cropper-apply">
+                    Apply Crop
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const frame = modal.querySelector('#yh-dashboard-profile-cropper-frame');
+    const zoomInput = modal.querySelector('#yh-dashboard-profile-cropper-zoom');
+    const applyButton = modal.querySelector('#yh-dashboard-profile-cropper-apply');
+
+    modal.addEventListener('click', (event) => {
+        const closeTrigger = event.target.closest('[data-profile-cropper-close]');
+        if (!closeTrigger) return;
+
+        closeDashboardProfileImageCropper();
+    });
+
+    zoomInput?.addEventListener('input', () => {
+        dashboardProfileCropperState.zoom = Number(zoomInput.value || 1) || 1;
+        clampDashboardProfileCropperOffset();
+        renderDashboardProfileCropperImage();
+    });
+
+    frame?.addEventListener('pointerdown', (event) => {
+        if (!dashboardProfileCropperState.image) return;
+
+        dashboardProfileCropperState.isDragging = true;
+        dashboardProfileCropperState.dragStartX = event.clientX;
+        dashboardProfileCropperState.dragStartY = event.clientY;
+        dashboardProfileCropperState.dragBaseX = dashboardProfileCropperState.offsetX;
+        dashboardProfileCropperState.dragBaseY = dashboardProfileCropperState.offsetY;
+
+        frame.setPointerCapture?.(event.pointerId);
+        frame.classList.add('is-dragging');
+    });
+
+    frame?.addEventListener('pointermove', (event) => {
+        if (!dashboardProfileCropperState.isDragging) return;
+
+        dashboardProfileCropperState.offsetX =
+            dashboardProfileCropperState.dragBaseX + (event.clientX - dashboardProfileCropperState.dragStartX);
+
+        dashboardProfileCropperState.offsetY =
+            dashboardProfileCropperState.dragBaseY + (event.clientY - dashboardProfileCropperState.dragStartY);
+
+        clampDashboardProfileCropperOffset();
+        renderDashboardProfileCropperImage();
+    });
+
+    const stopDragging = (event) => {
+        if (!dashboardProfileCropperState.isDragging) return;
+
+        dashboardProfileCropperState.isDragging = false;
+        frame?.releasePointerCapture?.(event.pointerId);
+        frame?.classList.remove('is-dragging');
+    };
+
+    frame?.addEventListener('pointerup', stopDragging);
+    frame?.addEventListener('pointercancel', stopDragging);
+    frame?.addEventListener('pointerleave', stopDragging);
+
+    applyButton?.addEventListener('click', () => {
+        applyDashboardProfileImageCrop().catch((error) => {
+            console.error('applyDashboardProfileImageCrop error:', error);
+            showToast(error?.message || 'Failed to crop image.', 'error');
+        });
+    });
+
+    return modal;
+}
+
+function openDashboardProfileImageCropper(file = null, kind = 'avatar') {
+    const normalizedKind = kind === 'cover' ? 'cover' : 'avatar';
+    const modal = ensureDashboardProfileImageCropper();
+    const frame = modal.querySelector('#yh-dashboard-profile-cropper-frame');
+    const imageEl = modal.querySelector('#yh-dashboard-profile-cropper-image');
+    const zoomInput = modal.querySelector('#yh-dashboard-profile-cropper-zoom');
+    const title = modal.querySelector('#yh-dashboard-profile-cropper-title');
+    const copy = modal.querySelector('#yh-dashboard-profile-cropper-copy');
+
+    if (!file || !imageEl || !frame) return;
+
+    const sourceUrl = URL.createObjectURL(file);
+    const image = new Image();
+
+    dashboardProfileCropperState = {
+        kind: normalizedKind,
         file,
+        sourceUrl,
+        image: null,
+        zoom: 1,
+        baseScale: 1,
+        offsetX: 0,
+        offsetY: 0,
+        isDragging: false,
+        dragStartX: 0,
+        dragStartY: 0,
+        dragBaseX: 0,
+        dragBaseY: 0
+    };
+
+    frame.classList.toggle('is-cover', normalizedKind === 'cover');
+    frame.classList.toggle('is-avatar', normalizedKind !== 'cover');
+
+    if (title) {
+        title.textContent = normalizedKind === 'cover'
+            ? 'Crop Cover Photo'
+            : 'Crop Profile Picture';
+    }
+
+    if (copy) {
+        copy.textContent = normalizedKind === 'cover'
+            ? 'Use a wide crop for the profile hero cover.'
+            : 'Use a square crop for your public profile picture.';
+    }
+
+    if (zoomInput) {
+        zoomInput.value = '1';
+    }
+
+    modal.classList.remove('hidden-step');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body?.classList.add('yh-dashboard-profile-cropper-open');
+
+    image.onload = () => {
+        dashboardProfileCropperState.image = image;
+        imageEl.src = sourceUrl;
+
+        window.requestAnimationFrame(() => {
+            resetDashboardProfileCropperTransform();
+            renderDashboardProfileCropperImage();
+        });
+    };
+
+    image.onerror = () => {
+        closeDashboardProfileImageCropper();
+        showToast('Failed to read selected image.', 'error');
+    };
+
+    image.src = sourceUrl;
+}
+
+function closeDashboardProfileImageCropper() {
+    const modal = document.getElementById('yh-dashboard-profile-cropper-modal');
+    const imageEl = document.getElementById('yh-dashboard-profile-cropper-image');
+
+    if (modal) {
+        modal.classList.add('hidden-step');
+        modal.setAttribute('aria-hidden', 'true');
+    }
+
+    if (imageEl) {
+        imageEl.removeAttribute('src');
+        imageEl.style.width = '';
+        imageEl.style.height = '';
+        imageEl.style.transform = '';
+    }
+
+    document.body?.classList.remove('yh-dashboard-profile-cropper-open');
+
+    if (dashboardProfileCropperState.sourceUrl) {
+        revokeDashboardProfileBlobUrl(dashboardProfileCropperState.sourceUrl);
+    }
+
+    dashboardProfileCropperState = {
+        kind: 'avatar',
+        file: null,
+        sourceUrl: '',
+        image: null,
+        zoom: 1,
+        baseScale: 1,
+        offsetX: 0,
+        offsetY: 0,
+        isDragging: false,
+        dragStartX: 0,
+        dragStartY: 0,
+        dragBaseX: 0,
+        dragBaseY: 0
+    };
+}
+
+function getDashboardProfileCropperGeometry() {
+    const frame = document.getElementById('yh-dashboard-profile-cropper-frame');
+    const image = dashboardProfileCropperState.image;
+
+    if (!frame || !image) return null;
+
+    const rect = frame.getBoundingClientRect();
+    const naturalWidth = Number(image.naturalWidth || image.width || 0);
+    const naturalHeight = Number(image.naturalHeight || image.height || 0);
+
+    if (!rect.width || !rect.height || !naturalWidth || !naturalHeight) return null;
+
+    const baseScale = Math.max(rect.width / naturalWidth, rect.height / naturalHeight);
+    const scale = baseScale * Number(dashboardProfileCropperState.zoom || 1);
+
+    return {
+        frameWidth: rect.width,
+        frameHeight: rect.height,
+        naturalWidth,
+        naturalHeight,
+        baseScale,
+        scale,
+        displayWidth: naturalWidth * scale,
+        displayHeight: naturalHeight * scale
+    };
+}
+
+function resetDashboardProfileCropperTransform() {
+    const geometry = getDashboardProfileCropperGeometry();
+    if (!geometry) return;
+
+    dashboardProfileCropperState.baseScale = geometry.baseScale;
+    dashboardProfileCropperState.zoom = 1;
+    dashboardProfileCropperState.offsetX = 0;
+    dashboardProfileCropperState.offsetY = 0;
+
+    const zoomInput = document.getElementById('yh-dashboard-profile-cropper-zoom');
+    if (zoomInput) zoomInput.value = '1';
+}
+
+function clampDashboardProfileCropperOffset() {
+    const geometry = getDashboardProfileCropperGeometry();
+    if (!geometry) return;
+
+    const maxX = Math.max(0, (geometry.displayWidth - geometry.frameWidth) / 2);
+    const maxY = Math.max(0, (geometry.displayHeight - geometry.frameHeight) / 2);
+
+    dashboardProfileCropperState.offsetX = Math.max(
+        -maxX,
+        Math.min(maxX, Number(dashboardProfileCropperState.offsetX || 0))
+    );
+
+    dashboardProfileCropperState.offsetY = Math.max(
+        -maxY,
+        Math.min(maxY, Number(dashboardProfileCropperState.offsetY || 0))
+    );
+}
+
+function renderDashboardProfileCropperImage() {
+    const imageEl = document.getElementById('yh-dashboard-profile-cropper-image');
+    const geometry = getDashboardProfileCropperGeometry();
+
+    if (!imageEl || !geometry) return;
+
+    imageEl.style.width = `${geometry.displayWidth}px`;
+    imageEl.style.height = `${geometry.displayHeight}px`;
+    imageEl.style.transform = `
+        translate(-50%, -50%)
+        translate(${dashboardProfileCropperState.offsetX}px, ${dashboardProfileCropperState.offsetY}px)
+    `;
+}
+
+function canvasToDashboardProfileBlob(canvas) {
+    return new Promise((resolve, reject) => {
+        canvas.toBlob((blob) => {
+            if (!blob) {
+                reject(new Error('Could not generate cropped image.'));
+                return;
+            }
+
+            resolve(blob);
+        }, 'image/jpeg', 0.92);
+    });
+}
+
+async function applyDashboardProfileImageCrop() {
+    const geometry = getDashboardProfileCropperGeometry();
+    const image = dashboardProfileCropperState.image;
+    const file = dashboardProfileCropperState.file;
+    const kind = dashboardProfileCropperState.kind === 'cover' ? 'cover' : 'avatar';
+
+    if (!geometry || !image || !file) {
+        throw new Error('No image is ready to crop.');
+    }
+
+    const output = getDashboardCropperOutputSize(kind);
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+
+    if (!context) {
+        throw new Error('Your browser could not prepare the image crop.');
+    }
+
+    canvas.width = output.width;
+    canvas.height = output.height;
+
+    const imageLeft = (geometry.frameWidth / 2) + dashboardProfileCropperState.offsetX - (geometry.displayWidth / 2);
+    const imageTop = (geometry.frameHeight / 2) + dashboardProfileCropperState.offsetY - (geometry.displayHeight / 2);
+
+    const sourceX = Math.max(0, -imageLeft / geometry.scale);
+    const sourceY = Math.max(0, -imageTop / geometry.scale);
+    const sourceWidth = Math.min(geometry.naturalWidth - sourceX, geometry.frameWidth / geometry.scale);
+    const sourceHeight = Math.min(geometry.naturalHeight - sourceY, geometry.frameHeight / geometry.scale);
+
+    context.drawImage(
+        image,
+        sourceX,
+        sourceY,
+        sourceWidth,
+        sourceHeight,
+        0,
+        0,
+        output.width,
+        output.height
+    );
+
+    const blob = await canvasToDashboardProfileBlob(canvas);
+    const croppedName = buildDashboardProfileUploadName(
+        kind,
+        `cropped-${file.name || `${kind}.jpg`}`
+    );
+
+    const croppedFile = new File([blob], croppedName, {
+        type: 'image/jpeg',
+        lastModified: Date.now()
+    });
+
+    const previewUrl = URL.createObjectURL(croppedFile);
+
+    setDashboardProfileEditorAsset(kind, {
+        file: croppedFile,
         previewUrl
     });
+
+    closeDashboardProfileImageCropper();
 }
 
 function buildDashboardProfileUploadName(kind = 'avatar', originalName = 'profile.jpg') {

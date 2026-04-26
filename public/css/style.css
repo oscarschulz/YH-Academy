@@ -17924,3 +17924,204 @@ body[data-yh-page="dashboard"] #academy-profile-view .hash-big-profile-img {
     height: 100%;
     object-fit: contain;
 }
+/* =========================================================
+   DASHBOARD PROFILE IMAGE CROPPER
+   ========================================================= */
+
+.yh-dashboard-profile-cropper-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 15000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+}
+
+.yh-dashboard-profile-cropper-modal.hidden-step {
+    display: none !important;
+}
+
+.yh-dashboard-profile-cropper-backdrop {
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(circle at 50% 20%, rgba(56, 189, 248, 0.14), transparent 38%),
+        rgba(2, 6, 23, 0.82);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+}
+
+.yh-dashboard-profile-cropper-card {
+    position: relative;
+    width: min(94vw, 720px);
+    max-height: min(92vh, 780px);
+    overflow-y: auto;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    border-radius: 24px;
+    background:
+        linear-gradient(145deg, rgba(9, 19, 37, 0.98), rgba(5, 10, 24, 0.98)),
+        rgba(15, 23, 42, 0.96);
+    box-shadow:
+        0 30px 90px rgba(0, 0, 0, 0.62),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    padding: 20px;
+}
+
+.yh-dashboard-profile-cropper-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.yh-dashboard-profile-cropper-kicker {
+    margin: 0 0 5px;
+    color: var(--neon-blue);
+    font-size: 0.7rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 1.1px;
+}
+
+.yh-dashboard-profile-cropper-header h3 {
+    margin: 0 0 5px;
+    color: #ffffff;
+    font-size: 1.2rem;
+}
+
+.yh-dashboard-profile-cropper-header span {
+    color: #9fb0c8;
+    font-size: 0.86rem;
+    line-height: 1.45;
+}
+
+.yh-dashboard-profile-cropper-close {
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    background: rgba(15, 23, 42, 0.78);
+    color: #e5eef8;
+    cursor: pointer;
+    font-weight: 900;
+}
+
+.yh-dashboard-profile-cropper-stage {
+    min-height: 390px;
+    border-radius: 22px;
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    background:
+        radial-gradient(circle at center, rgba(56, 189, 248, 0.08), transparent 42%),
+        rgba(2, 6, 23, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 22px;
+    margin-bottom: 16px;
+}
+
+.yh-dashboard-profile-cropper-frame {
+    position: relative;
+    width: min(72vw, 330px);
+    aspect-ratio: 1 / 1;
+    overflow: hidden;
+    border-radius: 999px;
+    border: 2px solid rgba(56, 189, 248, 0.76);
+    background: rgba(15, 23, 42, 0.9);
+    box-shadow:
+        0 0 0 9999px rgba(2, 6, 23, 0.56),
+        0 0 34px rgba(56, 189, 248, 0.22);
+    cursor: grab;
+    touch-action: none;
+}
+
+.yh-dashboard-profile-cropper-frame.is-cover {
+    width: min(82vw, 610px);
+    aspect-ratio: 8 / 3;
+    border-radius: 18px;
+}
+
+.yh-dashboard-profile-cropper-frame.is-dragging {
+    cursor: grabbing;
+}
+
+.yh-dashboard-profile-cropper-frame img {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    max-width: none;
+    max-height: none;
+    user-select: none;
+    pointer-events: none;
+    transform-origin: center center;
+    will-change: transform, width, height;
+}
+
+.yh-dashboard-profile-cropper-grid {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+        linear-gradient(to right, transparent 33.333%, rgba(255, 255, 255, 0.22) 33.333%, rgba(255, 255, 255, 0.22) 34%, transparent 34%, transparent 66.666%, rgba(255, 255, 255, 0.22) 66.666%, rgba(255, 255, 255, 0.22) 67.333%, transparent 67.333%),
+        linear-gradient(to bottom, transparent 33.333%, rgba(255, 255, 255, 0.22) 33.333%, rgba(255, 255, 255, 0.22) 34%, transparent 34%, transparent 66.666%, rgba(255, 255, 255, 0.22) 66.666%, rgba(255, 255, 255, 0.22) 67.333%, transparent 67.333%);
+    opacity: 0.45;
+}
+
+.yh-dashboard-profile-cropper-controls {
+    margin-bottom: 16px;
+}
+
+.yh-dashboard-profile-cropper-controls label {
+    display: grid;
+    gap: 8px;
+    color: #dbeafe;
+    font-size: 0.84rem;
+    font-weight: 800;
+}
+
+.yh-dashboard-profile-cropper-controls input[type="range"] {
+    width: 100%;
+    accent-color: var(--neon-blue);
+}
+
+.yh-dashboard-profile-cropper-actions {
+    display: grid;
+    grid-template-columns: 1fr 1.35fr;
+    gap: 10px;
+}
+
+.yh-dashboard-profile-cropper-actions .btn-primary,
+.yh-dashboard-profile-cropper-actions .btn-secondary {
+    min-height: 46px;
+    border-radius: 14px;
+}
+
+body.yh-dashboard-profile-cropper-open {
+    overflow: hidden;
+}
+
+@media (max-width: 560px) {
+    .yh-dashboard-profile-cropper-card {
+        padding: 16px;
+        border-radius: 20px;
+    }
+
+    .yh-dashboard-profile-cropper-stage {
+        min-height: 310px;
+        padding: 16px;
+    }
+
+    .yh-dashboard-profile-cropper-frame {
+        width: min(76vw, 280px);
+    }
+
+    .yh-dashboard-profile-cropper-frame.is-cover {
+        width: min(84vw, 360px);
+    }
+
+    .yh-dashboard-profile-cropper-actions {
+        grid-template-columns: 1fr;
+    }
+}
