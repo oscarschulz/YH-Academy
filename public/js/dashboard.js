@@ -241,8 +241,18 @@ async function refreshDashboardAcademyHomeSnapshot(forceFresh = false) {
 
             if (result && typeof result === 'object') {
                 writeYHJsonCache('yh_academy_home', result);
-                syncPlazaEntryButton(getPlazaAccessSnapshot());
-                syncFederationEntryButton();
+
+                if (
+                    typeof syncPlazaEntryButton === 'function' &&
+                    typeof getPlazaAccessSnapshot === 'function'
+                ) {
+                    syncPlazaEntryButton(getPlazaAccessSnapshot());
+                }
+
+                if (typeof syncFederationEntryButton === 'function') {
+                    syncFederationEntryButton();
+                }
+
                 window.renderYHEconomicSnapshot?.();
                 return result;
             }
@@ -13017,17 +13027,36 @@ document.getElementById('academy-profile-view')?.addEventListener('click', async
             });
     }
 });
-document.getElementById('academy-profile-view')?.addEventListener('click', (event) => {
-        const badgeAvailButton = event.target.closest('[data-yh-dashboard-avail-badge]');
+document.getElementById('academy-profile-view')?.addEventListener('click', async (event) => {
+    const target =
+        event.target instanceof Element
+            ? event.target
+            : event.target?.parentElement;
+
+    if (!target) return;
+
+    const badgeAvailButton = target.closest('[data-yh-dashboard-avail-badge]');
     if (badgeAvailButton) {
         event.preventDefault();
         event.stopPropagation();
 
         const division = badgeAvailButton.getAttribute('data-yh-dashboard-avail-badge') || 'academy';
-        dashboardCreateVerifiedBadgeLedger(division, badgeAvailButton).catch(() => null);
+        await dashboardCreateVerifiedBadgeLedger(division, badgeAvailButton).catch(() => null);
         return;
     }
-    const postBtn = event.target.closest('[data-profile-post-id]');
+
+    const postBtn = target.closest('[data-profile-post-id]');
+    if (!postBtn) return;
+
+    const postId = normalizeAcademyFeedId(postBtn.getAttribute('data-profile-post-id'));
+    if (!postId) return;
+
+    openAcademyProfilePostInFeed(postId).catch((error) => {
+        console.error('openAcademyProfilePostInFeed error:', error);
+        showToast(error?.message || 'Failed to open profile post.', 'error');
+    });
+});
+
 document.getElementById('academy-profile-view')?.addEventListener('change', (event) => {
     if (event.target?.id !== 'yh-universe-profile-activity-filter') return;
 
@@ -13037,16 +13066,6 @@ document.getElementById('academy-profile-view')?.addEventListener('change', (eve
     renderAcademyProfileRecentPosts(activeProfile.recentPosts || [], {
         isSelf: academyProfileViewState.mode === 'self',
         profile: activeProfile
-    });
-});
-    if (!postBtn) return;
-
-    const postId = normalizeAcademyFeedId(postBtn.getAttribute('data-profile-post-id'));
-    if (!postId) return;
-
-    openAcademyProfilePostInFeed(postId).catch((error) => {
-        console.error('openAcademyProfilePostInFeed error:', error);
-        showToast(error?.message || 'Failed to open profile post.', 'error');
     });
 });
 document.getElementById('academy-search-results-panel')?.addEventListener('click', (event) => {

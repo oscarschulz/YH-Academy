@@ -5918,22 +5918,31 @@ case 'economy-payment-settle-paid': {
       throw new Error('Payment ledger record not found.');
     }
 
-    if (!isAdminPlazaOpportunityPayment(payment)) {
-      throw new Error('Only Plaza opportunity payment ledgers can be settled here.');
+    const isPlazaPayment = isAdminPlazaOpportunityPayment(payment);
+    const isBadgePayment = isAdminVerifiedBadgePayment(payment);
+
+    if (!isPlazaPayment && !isBadgePayment) {
+      throw new Error('Only Plaza opportunity and verified badge payment ledgers can be settled here.');
     }
 
     const confirmed = window.confirm(
-      'Mark this Plaza payment as paid? This will create/update the operator payout earning and make it visible in the Wallet under Plaza.'
+      isBadgePayment
+        ? 'Mark this badge payment as paid and activate the member verification badge?'
+        : 'Mark this Plaza payment as paid? This will create/update the operator payout earning and make it visible in the Wallet under Plaza.'
     );
 
     if (!confirmed) return;
 
     await settleAdminPaymentAsPaid(id);
 
-    showToast('Plaza payment marked paid. Operator payout earning created.');
+    showToast(
+      isBadgePayment
+        ? 'Badge payment marked paid. Member verification badge activated.'
+        : 'Plaza payment marked paid. Operator payout earning created.'
+    );
   } catch (error) {
     if (error?.message !== 'No active admin session.') {
-      showToast(error.message || 'Failed to settle Plaza payment.');
+      showToast(error.message || 'Failed to settle payment.');
     }
   }
   break;

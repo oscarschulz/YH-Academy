@@ -80,6 +80,7 @@ function getPayoutOptions(req, res) {
         ]
     });
 }
+
 const VERIFIED_BADGE_PLANS = {
     academy: {
         division: 'academy',
