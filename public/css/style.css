@@ -6725,9 +6725,21 @@ body.academy-feed-share-open {
 
 
 /* FIX: Remove modal behavior for landing page */
+html {
+    scroll-behavior: smooth;
+}
+
 body[data-yh-page="apply"] {
     overflow-x: hidden;
     overflow-y: auto;
+    overscroll-behavior-y: auto;
+    touch-action: pan-y;
+}
+body[data-yh-page="apply"] #yh-world-map,
+body[data-yh-page="apply"] #yh-world-map canvas,
+body[data-yh-page="apply"] .yh-landing-map-stage-wrap,
+body[data-yh-page="apply"] .yh-landing-globe-stage {
+    overscroll-behavior: auto;
 }
 
 body[data-yh-page="apply"] #step-1.yh-landing-step {

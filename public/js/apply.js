@@ -1154,8 +1154,8 @@ async function initLandingMapShell() {
         controls.autoRotateSpeed = 0.35;
         controls.enablePan = false;
         controls.enableRotate = true;
-        controls.enableZoom = true;
-        controls.zoomSpeed = 1.08;
+        controls.enableZoom = false;
+        controls.zoomSpeed = 0;
         controls.enableDamping = true;
         controls.dampingFactor = 0.08;
 
@@ -1221,9 +1221,9 @@ async function initLandingMapShell() {
         return pointerDistance <= screenRadius;
     };
 
-    const syncZoomGate = (clientX, clientY) => {
+    const syncZoomGate = () => {
         if (!controls) return;
-        controls.enableZoom = isPointerOnVisibleGlobe(clientX, clientY);
+        controls.enableZoom = false;
     };
 
     const wheelTarget = (
@@ -1231,22 +1231,9 @@ async function initLandingMapShell() {
         renderer.domElement
     ) ? renderer.domElement : mapEl;
 
-    const handleWheelZoomGate = (event) => {
+    const handleWheelZoomGate = () => {
         if (!controls) return;
-
-        const isOnSphere = isPointerOnVisibleGlobe(event.clientX, event.clientY);
-        controls.enableZoom = isOnSphere;
-
-        if (!isOnSphere) {
-            if (typeof event.stopImmediatePropagation === 'function') {
-                event.stopImmediatePropagation();
-            } else {
-                event.stopPropagation();
-            }
-            return;
-        }
-
-        event.preventDefault();
+        controls.enableZoom = false;
     };
 
     mapEl.addEventListener('pointermove', (event) => {
