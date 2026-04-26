@@ -9223,6 +9223,9 @@ function normalizeAcademyProfilePayload(profile = {}, options = {}) {
         snapshot: profile?.snapshot || null,
         verificationBadges: profile?.verificationBadges && typeof profile.verificationBadges === 'object'
             ? profile.verificationBadges
+            : {},
+        verificationBadges: profile?.verificationBadges && typeof profile.verificationBadges === 'object'
+            ? profile.verificationBadges
             : {}
     };
 }
@@ -9642,9 +9645,18 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
     }
 
     if (profileViewMode) {
-        profileViewMode.innerText = isSelf
-            ? 'Own profile'
-            : 'Visited profile';
+        const profileModeLabel = isSelf ? 'Own profile' : 'Visited profile';
+        const profileModeBadges = isSelf
+            ? `
+                ${academyRenderVerificationBadge(normalized, 'academy')}
+                ${academyRenderVerificationBadge(normalized, 'federation')}
+            `
+            : '';
+
+        profileViewMode.innerHTML = `
+            <span class="academy-profile-view-mode-text">${academyFeedEscapeHtml(profileModeLabel)}</span>
+            ${profileModeBadges}
+        `;
     }
 
     if (profileIntroKicker) {
