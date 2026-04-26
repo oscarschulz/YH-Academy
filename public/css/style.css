@@ -2811,6 +2811,55 @@ body[data-yh-view="academy"] .chat-messages {
     background: rgba(14, 165, 233, 0.12);
 }
 
+.academy-messages-inbox-card.is-action-loading {
+    z-index: 25;
+}
+
+.academy-messages-inbox-card.is-action-loading .academy-messages-inbox-item {
+    opacity: 0.64;
+    pointer-events: none;
+}
+
+.academy-messages-inbox-row-loader {
+    position: absolute;
+    inset: 8px 52px 8px 8px;
+    z-index: 40;
+    border-radius: 14px;
+    background: rgba(3, 7, 18, 0.58);
+    border: 1px solid rgba(56, 189, 248, 0.18);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: #bae6fd;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    pointer-events: none;
+}
+
+.academy-messages-inbox-row-spinner {
+    width: 14px;
+    height: 14px;
+    border-radius: 999px;
+    border: 2px solid rgba(186, 230, 253, 0.24);
+    border-top-color: rgba(186, 230, 253, 0.95);
+    animation: yh-btn-spin 0.78s linear infinite;
+    flex: 0 0 auto;
+}
+
+.academy-messages-inbox-card.is-action-loading .academy-messages-inbox-menu {
+    display: none;
+}
+
+.academy-messages-inbox-card.is-action-loading .academy-messages-inbox-menu-trigger {
+    opacity: 0.55;
+    cursor: wait;
+    pointer-events: none;
+}
+
 .academy-messages-inbox-card.is-active,
 .academy-messages-inbox-card:focus-within {
     z-index: 20;

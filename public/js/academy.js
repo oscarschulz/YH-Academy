@@ -12165,8 +12165,37 @@ const academyMessagesInboxState = {
     hydratedOnce: false,
     openMenuRoomId: '',
     openThreadMenu: false,
-    homeThreadHtml: ''
+    homeThreadHtml: '',
+    actionLoadingRoomId: '',
+    actionLoadingType: ''
 };
+function academyGetInboxActionLoadingLabel(action = '') {
+    const cleanAction = String(action || '').trim().toLowerCase();
+
+    if (cleanAction === 'hide') return 'Deleting...';
+    if (cleanAction === 'restrict') return 'Restricting...';
+    if (cleanAction === 'unrestrict') return 'Unrestricting...';
+    if (cleanAction === 'block') return 'Blocking...';
+    if (cleanAction === 'unblock') return 'Unblocking...';
+    if (cleanAction === 'mute') return 'Muting...';
+
+    return 'Updating...';
+}
+
+function academySetInboxRoomActionLoading(roomId = '', action = '') {
+    academyMessagesInboxState.actionLoadingRoomId = normalizeRoomKey(roomId);
+    academyMessagesInboxState.actionLoadingType = String(action || '').trim().toLowerCase();
+    academyMessagesInboxState.openMenuRoomId = '';
+
+    renderAcademyMessagesInboxList();
+}
+
+function academyClearInboxRoomActionLoading() {
+    academyMessagesInboxState.actionLoadingRoomId = '';
+    academyMessagesInboxState.actionLoadingType = '';
+
+    renderAcademyMessagesInboxList();
+}
 function academyResetMessagesThreadState() {
     academyMessagesInboxState.activeRoomId = '';
     currentRoom = null;
@@ -12871,6 +12900,8 @@ async function academyApplyInboxRoomAction(roomId = '', action = '') {
     };
 
     try {
+        academySetInboxRoomActionLoading(normalizedRoomId, normalizedAction);
+
         await academyAuthedFetch(endpoint, {
             method: 'PATCH',
             body: JSON.stringify(body)
@@ -12902,7 +12933,7 @@ async function academyApplyInboxRoomAction(roomId = '', action = '') {
         academyCloseInboxRoomMenu();
         academyCloseMessagesThreadMenu();
 
-        await academyHydrateMessageRooms(true);
+        await academyHydrateMessageRooms(false);
 
         const activeRoomId = normalizeRoomKey(academyMessagesInboxState.activeRoomId);
         if (activeRoomId && activeRoomId === normalizedRoomId) {
@@ -12916,6 +12947,8 @@ async function academyApplyInboxRoomAction(roomId = '', action = '') {
     } catch (error) {
         const message = String(error?.message || '').trim();
         showToast(message || 'Failed to update conversation.');
+    } finally {
+        academyClearInboxRoomActionLoading();
     }
 }
 
@@ -13248,6 +13281,13 @@ function renderAcademyMessagesInboxList() {
         const blockAction = isBlockedByMe ? 'unblock' : 'block';
         const blockLabel = isBlockedByMe ? 'Unblock' : 'Block';
 
+        const isActionLoading =
+            normalizeRoomKey(academyMessagesInboxState.actionLoadingRoomId) === normalizedRoomId;
+
+        const actionLoadingLabel = academyGetInboxActionLoadingLabel(
+            academyMessagesInboxState.actionLoadingType
+        );
+
         const messageProfileId = roomType === 'dm'
             ? normalizeAcademyFeedId(room?.recipientId || room?.recipient_id || '')
             : '';
@@ -13267,11 +13307,12 @@ function renderAcademyMessagesInboxList() {
         }
 
         return `
-            <div class="academy-messages-inbox-card ${isActive ? 'is-active' : ''}" data-room-card-id="${academyFeedEscapeHtml(roomId)}">
+            <div class="academy-messages-inbox-card ${isActive ? 'is-active' : ''} ${isActionLoading ? 'is-action-loading' : ''}" data-room-card-id="${academyFeedEscapeHtml(roomId)}">
                 <button
                     type="button"
                     class="academy-messages-inbox-item ${isActive ? 'is-active' : ''}"
                     data-inbox-room-id="${academyFeedEscapeHtml(roomId)}"
+                    ${isActionLoading ? 'disabled aria-busy="true"' : ''}
                 >
                     ${avatarHtml}
 
@@ -13293,6 +13334,13 @@ function renderAcademyMessagesInboxList() {
                     </span>
                 </button>
 
+                ${isActionLoading ? `
+                    <div class="academy-messages-inbox-row-loader" aria-live="polite">
+                        <span class="academy-messages-inbox-row-spinner" aria-hidden="true"></span>
+                        <span>${academyFeedEscapeHtml(actionLoadingLabel)}</span>
+                    </div>
+                ` : ''}
+
                 <div class="academy-messages-inbox-actions">
                     <button
                         type="button"
@@ -13300,6 +13348,7 @@ function renderAcademyMessagesInboxList() {
                         data-room-menu-trigger="${academyFeedEscapeHtml(roomId)}"
                         aria-label="Conversation options"
                         title="Conversation options"
+                        ${isActionLoading ? 'disabled aria-disabled="true"' : ''}
                     >⋯</button>
 
                     <div
