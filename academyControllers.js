@@ -1380,23 +1380,47 @@ function buildAcademyProfileResponse(uid, userData = {}, storedProfile = {}) {
         displayName
     );
 
+    const avatarAsset = sanitizeAcademyProfileAsset(
+        storedProfile.avatar ||
+        storedProfile.avatarUrl ||
+        storedProfile.profile_photo ||
+        storedProfile.profilePhoto ||
+        storedProfile.photo_url ||
+        storedProfile.photoURL ||
+        userData.avatar ||
+        userData.avatarUrl ||
+        userData.profilePhoto ||
+        userData.photoURL
+    );
+
+    const coverAsset = sanitizeAcademyProfileAsset(
+        storedProfile.cover_photo ||
+        storedProfile.coverPhoto ||
+        storedProfile.cover ||
+        storedProfile.cover_url ||
+        storedProfile.coverUrl ||
+        storedProfile.coverURL ||
+        userData.cover_photo ||
+        userData.coverPhoto ||
+        userData.cover ||
+        userData.coverUrl ||
+        userData.coverURL
+    );
+
     return {
         id: sanitize(uid),
         full_name: canonicalFullName,
         fullName: canonicalFullName,
         display_name: displayName,
         username,
-        avatar: sanitizeAcademyProfileAsset(
-            storedProfile.avatar ||
-            userData.avatar ||
-            userData.profilePhoto ||
-            userData.photoURL
-        ),
-        cover_photo: sanitizeAcademyProfileAsset(
-            storedProfile.cover_photo ||
-            storedProfile.coverPhoto ||
-            userData.coverPhoto
-        ),
+        avatar: avatarAsset,
+        avatarUrl: avatarAsset,
+        profilePhoto: avatarAsset,
+        photoURL: avatarAsset,
+        cover_photo: coverAsset,
+        coverPhoto: coverAsset,
+        cover: coverAsset,
+        coverUrl: coverAsset,
         role_label: sanitize(
             storedProfile.role_label ||
             storedProfile.roleLabel ||

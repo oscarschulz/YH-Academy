@@ -7502,8 +7502,20 @@ function academyNormalizeProfileAssetUrl(value = '') {
         return `/${raw.replace('uploads/academy/profile/', 'uploads/academy-profile/')}`;
     }
 
+    if (raw.startsWith('/uploads/academy-profile/')) {
+        return raw;
+    }
+
     if (raw.startsWith('uploads/academy-profile/')) {
         return `/${raw}`;
+    }
+
+    if (raw.startsWith('/uploads/academy-profiles/')) {
+        return raw.replace('/uploads/academy-profiles/', '/uploads/academy-profile/');
+    }
+
+    if (raw.startsWith('uploads/academy-profiles/')) {
+        return `/${raw.replace('uploads/academy-profiles/', 'uploads/academy-profile/')}`;
     }
 
     if (raw.startsWith('/academy-profile/')) {
@@ -7512,6 +7524,14 @@ function academyNormalizeProfileAssetUrl(value = '') {
 
     if (raw.startsWith('academy-profile/')) {
         return `/uploads/${raw}`;
+    }
+
+    if (raw.startsWith('/public/uploads/')) {
+        return raw.replace('/public/uploads/', '/uploads/');
+    }
+
+    if (raw.startsWith('public/uploads/')) {
+        return `/${raw.replace('public/uploads/', 'uploads/')}`;
     }
 
     if (/^[a-z0-9._-]+\.(jpg|jpeg|png|webp|gif|avif)$/i.test(raw)) {
@@ -7523,6 +7543,15 @@ function academyNormalizeProfileAssetUrl(value = '') {
     }
 
     return `/${raw.replace(/^\/+/, '')}`;
+}
+
+function academyFirstProfileAssetUrl(...values) {
+    for (const value of values) {
+        const normalized = academyNormalizeProfileAssetUrl(value);
+        if (normalized) return normalized;
+    }
+
+    return '';
 }
 
 function readAcademyProfileCache() {
@@ -7551,8 +7580,19 @@ function persistAcademyProfileCache(profile = null) {
         ).trim(),
         display_name: String(profile.display_name || profile.displayName || '').trim(),
         username: String(profile.username || '').trim().replace(/^@/, ''),
-        avatar: academyNormalizeProfileAssetUrl(profile.avatar || ''),
-        cover_photo: academyNormalizeProfileAssetUrl(profile.cover_photo || profile.coverPhoto || ''),
+        avatar: academyFirstProfileAssetUrl(
+            profile.avatar,
+            profile.avatarUrl,
+            profile.profilePhoto,
+            profile.photoURL
+        ),
+        cover_photo: academyFirstProfileAssetUrl(
+            profile.cover_photo,
+            profile.coverPhoto,
+            profile.cover,
+            profile.coverUrl,
+            profile.coverURL
+        ),
         role_label: String(profile.role_label || profile.roleLabel || 'Academy Member').trim(),
         bio: String(profile.bio || '').trim(),
 
@@ -7663,16 +7703,20 @@ function syncAcademyProfileLocalMirrors(profile = null) {
             displayName
         );
 
-    const avatar = academyNormalizeProfileAssetUrl(
-        profile.avatar ||
-        profile.profilePhoto ||
-        profile.photoURL ||
+    const avatar = academyFirstProfileAssetUrl(
+        profile.avatar,
+        profile.avatarUrl,
+        profile.profilePhoto,
+        profile.photoURL,
         getStoredUserValue('yh_user_avatar', '')
     );
 
-    const coverPhoto = academyNormalizeProfileAssetUrl(
-        profile.cover_photo ||
-        profile.coverPhoto ||
+    const coverPhoto = academyFirstProfileAssetUrl(
+        profile.cover_photo,
+        profile.coverPhoto,
+        profile.cover,
+        profile.coverUrl,
+        profile.coverURL,
         getAcademyProfileStoredCover()
     );
 
@@ -9193,18 +9237,25 @@ function normalizeAcademyProfilePayload(profile = {}, options = {}) {
         displayName: fullName,
         usernameRaw,
         username: usernameRaw ? `@${usernameRaw}` : '@academy-member',
-        avatar: academyNormalizeProfileAssetUrl(
-            profile?.avatar ||
-            profile?.avatarUrl ||
-            profile?.profilePhoto ||
-            profile?.photoURL ||
-            ''
+        avatar: academyFirstProfileAssetUrl(
+            profile?.avatar,
+            profile?.avatarUrl,
+            profile?.profile_photo,
+            profile?.profilePhoto,
+            profile?.photo_url,
+            profile?.photoURL,
+            profile?.image,
+            profile?.imageUrl
         ),
-        coverPhoto: academyNormalizeProfileAssetUrl(
-            profile?.cover_photo ||
-            profile?.coverPhoto ||
-            profile?.cover ||
-            ''
+        coverPhoto: academyFirstProfileAssetUrl(
+            profile?.cover_photo,
+            profile?.coverPhoto,
+            profile?.cover,
+            profile?.cover_url,
+            profile?.coverUrl,
+            profile?.coverURL,
+            profile?.banner,
+            profile?.bannerUrl
         ),
         roleLabel: String(profile?.role_label || profile?.roleLabel || 'Academy Member').trim() || 'Academy Member',
         bio:
@@ -9463,7 +9514,13 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
         }
     }
 
-    const resolvedAvatarPhoto = academyNormalizeProfileAssetUrl(normalized.avatar || '');
+    const resolvedAvatarPhoto = academyFirstProfileAssetUrl(
+        normalized.avatar,
+        normalized.avatarUrl,
+        normalized.profilePhoto,
+        normalized.photoURL,
+        isSelf ? getStoredUserValue('yh_user_avatar', '') : ''
+    );
 
     if (profileAvatar) {
         if (resolvedAvatarPhoto) {
@@ -9487,10 +9544,13 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
         }
     }
 
-    const resolvedCoverPhoto = academyNormalizeProfileAssetUrl(
-        isSelf
-            ? getAcademyProfileStoredCover()
-            : String(normalized.coverPhoto || normalized.cover_photo || '').trim()
+    const resolvedCoverPhoto = academyFirstProfileAssetUrl(
+        normalized.coverPhoto,
+        normalized.cover_photo,
+        normalized.cover,
+        normalized.coverUrl,
+        normalized.coverURL,
+        isSelf ? getAcademyProfileStoredCover() : ''
     );
 
     if (profileCoverBand) {
@@ -12197,8 +12257,6 @@ async function fetchAcademyMemberProfile(memberId = '') {
         throw new Error('Missing member id.');
     }
 
-    await academyEnsureMemberProfileAccessAllowed(normalizedMemberId);
-
     const result = await academyAuthedFetch(
         `/api/academy/community/members/${encodeURIComponent(normalizedMemberId)}/profile`,
         { method: 'GET' }
@@ -12208,7 +12266,77 @@ async function fetchAcademyMemberProfile(memberId = '') {
         throw new Error('Profile not found.');
     }
 
-    return result.profile;
+    let canonicalProfile = null;
+
+    try {
+        const canonicalResult = await academyAuthedFetch(
+            `/api/universe/profile/${encodeURIComponent(normalizedMemberId)}`,
+            { method: 'GET' }
+        );
+
+        canonicalProfile =
+            canonicalResult?.profile && typeof canonicalResult.profile === 'object'
+                ? canonicalResult.profile
+                : null;
+    } catch (error) {
+        console.warn('visited profile canonical asset fallback skipped:', error?.message || error);
+    }
+
+    const communityProfile = result.profile || {};
+    const mergedProfile = {
+        ...(canonicalProfile || {}),
+        ...communityProfile
+    };
+
+    const resolvedAvatar = academyFirstProfileAssetUrl(
+        communityProfile.avatar,
+        communityProfile.avatarUrl,
+        communityProfile.profile_photo,
+        communityProfile.profilePhoto,
+        communityProfile.photo_url,
+        communityProfile.photoURL,
+        canonicalProfile?.avatar,
+        canonicalProfile?.avatarUrl,
+        canonicalProfile?.profile_photo,
+        canonicalProfile?.profilePhoto,
+        canonicalProfile?.photo_url,
+        canonicalProfile?.photoURL
+    );
+
+    const resolvedCover = academyFirstProfileAssetUrl(
+        communityProfile.cover_photo,
+        communityProfile.coverPhoto,
+        communityProfile.cover,
+        communityProfile.cover_url,
+        communityProfile.coverUrl,
+        communityProfile.coverURL,
+        communityProfile.banner,
+        communityProfile.bannerUrl,
+        canonicalProfile?.cover_photo,
+        canonicalProfile?.coverPhoto,
+        canonicalProfile?.cover,
+        canonicalProfile?.cover_url,
+        canonicalProfile?.coverUrl,
+        canonicalProfile?.coverURL,
+        canonicalProfile?.banner,
+        canonicalProfile?.bannerUrl
+    );
+
+    if (resolvedAvatar) {
+        mergedProfile.avatar = resolvedAvatar;
+        mergedProfile.avatarUrl = resolvedAvatar;
+        mergedProfile.profilePhoto = resolvedAvatar;
+        mergedProfile.photoURL = resolvedAvatar;
+    }
+
+    if (resolvedCover) {
+        mergedProfile.cover_photo = resolvedCover;
+        mergedProfile.coverPhoto = resolvedCover;
+        mergedProfile.cover = resolvedCover;
+        mergedProfile.coverUrl = resolvedCover;
+    }
+
+    return mergedProfile;
 }
 
 function academyBuildDirectMessageRoomEntry(room = {}, profile = {}) {
@@ -16288,7 +16416,7 @@ async function academyFeedSubmitShare() {
         });
 
         academyFeedCloseShareModal();
-        showToast('Post shared to community.', 'success');
+        showToast('Post shared to the Academy.', 'success');
         loadAcademyFeed(true);
     } catch (error) {
         showToast(error.message || 'Failed to share post.', 'error');
@@ -16469,7 +16597,7 @@ async function academyFeedSubmitPost() {
         });
 
         resetAcademyFeedComposer();
-        showToast('Posted to YHA Community.', 'success');
+        showToast('Posted to the Academy.', 'success');
         loadAcademyFeed(true);
     } catch (error) {
         showToast(error.message || 'Failed to create post.', 'error');
