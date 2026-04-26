@@ -8774,6 +8774,171 @@ async function dashboardCreateVerifiedBadgeLedger(division = 'academy', button =
         }
     }
 }
+let dashboardBadgeAvailModalState = {
+    division: 'academy',
+    button: null
+};
+
+function dashboardGetVerifiedBadgePlanMeta(division = 'academy') {
+    const cleanDivision = division === 'federation' ? 'federation' : 'academy';
+
+    if (cleanDivision === 'federation') {
+        return {
+            division: 'federation',
+            code: 'YHF',
+            name: 'Federation Verification Badge',
+            amount: '$28.12/month',
+            asset: '/images/yhf%20badge.png',
+            accentClass: 'is-federation',
+            summary: 'For approved Federation members who want the YHF verification symbol on their public YH Universe profile.'
+        };
+    }
+
+    return {
+        division: 'academy',
+        code: 'YHA',
+        name: 'Academy Verification Badge',
+        amount: '$2.81/month',
+        asset: '/images/yha%20badge.png',
+        accentClass: 'is-academy',
+        summary: 'For approved Academy members who want the YHA verification symbol on their public YH Universe profile.'
+    };
+}
+
+function ensureDashboardBadgeAvailModal() {
+    let modal = document.getElementById('yh-badge-avail-modal');
+
+    if (modal) return modal;
+
+    modal = document.createElement('div');
+    modal.id = 'yh-badge-avail-modal';
+    modal.className = 'yh-badge-avail-modal hidden-step';
+    modal.setAttribute('aria-hidden', 'true');
+
+    modal.innerHTML = `
+        <div class="yh-badge-avail-backdrop" data-yh-badge-modal-close></div>
+
+        <div class="yh-badge-avail-card" role="dialog" aria-modal="true" aria-labelledby="yh-badge-avail-title">
+            <button type="button" class="yh-badge-avail-close" data-yh-badge-modal-close aria-label="Close badge availment modal">×</button>
+
+            <div class="yh-badge-avail-hero">
+                <div class="yh-badge-avail-icon-wrap" id="yh-badge-avail-icon-wrap">
+                    <img id="yh-badge-avail-icon" src="/images/yha%20badge.png" alt="">
+                </div>
+
+                <div>
+                    <p class="yh-badge-avail-kicker">Optional Verification Add-on</p>
+                    <h3 id="yh-badge-avail-title">Academy Verification Badge</h3>
+                    <p id="yh-badge-avail-summary">For approved Academy members.</p>
+                </div>
+            </div>
+
+            <div class="yh-badge-avail-price-card">
+                <span>Subscription amount</span>
+                <strong id="yh-badge-avail-amount">$2.81/month</strong>
+            </div>
+
+            <div class="yh-badge-avail-steps">
+                <h4>How availment works</h4>
+
+                <div class="yh-badge-avail-step">
+                    <span>1</span>
+                    <p>Click <strong>Create Payment Request</strong> to create your badge payment ledger.</p>
+                </div>
+
+                <div class="yh-badge-avail-step">
+                    <span>2</span>
+                    <p>Admin confirms the payment manually from the Economy Payment Ledger.</p>
+                </div>
+
+                <div class="yh-badge-avail-step">
+                    <span>3</span>
+                    <p>Once marked paid, your badge becomes active and appears beside your profile name.</p>
+                </div>
+            </div>
+
+            <div class="yh-badge-avail-note">
+                This badge is optional. It does not unlock Academy or Federation access. It only adds the verified symbol to your profile.
+            </div>
+
+            <div class="yh-badge-avail-actions">
+                <button type="button" class="btn-secondary yh-badge-avail-cancel" data-yh-badge-modal-close>
+                    Cancel
+                </button>
+                <button type="button" class="btn-primary yh-badge-avail-confirm" id="yh-badge-avail-confirm">
+                    Create Payment Request
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    modal.addEventListener('click', async (event) => {
+        const closeTrigger = event.target.closest('[data-yh-badge-modal-close]');
+        if (closeTrigger) {
+            closeDashboardBadgeAvailModal();
+            return;
+        }
+
+        const confirmButton = event.target.closest('#yh-badge-avail-confirm');
+        if (!confirmButton) return;
+
+        event.preventDefault();
+
+        const division = dashboardBadgeAvailModalState.division || 'academy';
+        const sourceButton = dashboardBadgeAvailModalState.button || null;
+
+        closeDashboardBadgeAvailModal();
+
+        await dashboardCreateVerifiedBadgeLedger(division, sourceButton).catch(() => null);
+    });
+
+    return modal;
+}
+
+function openDashboardBadgeAvailModal(division = 'academy', button = null) {
+    const modal = ensureDashboardBadgeAvailModal();
+    const plan = dashboardGetVerifiedBadgePlanMeta(division);
+
+    dashboardBadgeAvailModalState = {
+        division: plan.division,
+        button
+    };
+
+    const iconWrap = modal.querySelector('#yh-badge-avail-icon-wrap');
+    const icon = modal.querySelector('#yh-badge-avail-icon');
+    const title = modal.querySelector('#yh-badge-avail-title');
+    const summary = modal.querySelector('#yh-badge-avail-summary');
+    const amount = modal.querySelector('#yh-badge-avail-amount');
+
+    if (iconWrap) {
+        iconWrap.classList.remove('is-academy', 'is-federation');
+        iconWrap.classList.add(plan.accentClass);
+    }
+
+    if (icon) {
+        icon.src = plan.asset;
+        icon.alt = `${plan.code} badge`;
+    }
+
+    if (title) title.textContent = plan.name;
+    if (summary) summary.textContent = plan.summary;
+    if (amount) amount.textContent = plan.amount;
+
+    modal.classList.remove('hidden-step');
+    modal.classList.add('is-open');
+    modal.setAttribute('aria-hidden', 'false');
+}
+
+function closeDashboardBadgeAvailModal() {
+    const modal = document.getElementById('yh-badge-avail-modal');
+    if (!modal) return;
+
+    modal.classList.remove('is-open');
+    modal.classList.add('hidden-step');
+    modal.setAttribute('aria-hidden', 'true');
+}
 function normalizeAcademyProfilePayload(profile = {}, options = {}) {
     const displayName =
         String(
@@ -13041,7 +13206,7 @@ document.getElementById('academy-profile-view')?.addEventListener('click', async
         event.stopPropagation();
 
         const division = badgeAvailButton.getAttribute('data-yh-dashboard-avail-badge') || 'academy';
-        await dashboardCreateVerifiedBadgeLedger(division, badgeAvailButton).catch(() => null);
+        openDashboardBadgeAvailModal(division, badgeAvailButton);
         return;
     }
 

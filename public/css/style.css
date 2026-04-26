@@ -17445,3 +17445,250 @@ body[data-yh-page="dashboard"] #academy-profile-view .hash-big-profile-img {
         width: 100%;
     }
 }
+/* =========================================================
+   DASHBOARD VERIFIED BADGE AVAILMENT MODAL
+   ========================================================= */
+
+.yh-badge-avail-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 13000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+}
+
+.yh-badge-avail-modal.hidden-step {
+    display: none !important;
+}
+
+.yh-badge-avail-backdrop {
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(circle at 50% 20%, rgba(56, 189, 248, 0.13), transparent 38%),
+        rgba(2, 6, 23, 0.78);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+}
+
+.yh-badge-avail-card {
+    position: relative;
+    width: min(94vw, 520px);
+    max-height: min(86vh, 720px);
+    overflow-y: auto;
+    border: 1px solid rgba(56, 189, 248, 0.28);
+    border-radius: 24px;
+    background:
+        linear-gradient(145deg, rgba(9, 19, 37, 0.96), rgba(5, 10, 24, 0.98)),
+        rgba(15, 23, 42, 0.96);
+    box-shadow:
+        0 28px 90px rgba(0, 0, 0, 0.62),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    padding: 22px;
+}
+
+.yh-badge-avail-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    background: rgba(15, 23, 42, 0.76);
+    color: #e5eef8;
+    cursor: pointer;
+    font-size: 1.25rem;
+    line-height: 1;
+}
+
+.yh-badge-avail-hero {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding-right: 32px;
+    margin-bottom: 18px;
+}
+
+.yh-badge-avail-icon-wrap {
+    width: 78px;
+    height: 78px;
+    border-radius: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    background: rgba(56, 189, 248, 0.08);
+    border: 1px solid rgba(56, 189, 248, 0.22);
+    box-shadow: 0 0 28px rgba(56, 189, 248, 0.18);
+}
+
+.yh-badge-avail-icon-wrap.is-federation {
+    background: rgba(250, 204, 21, 0.08);
+    border-color: rgba(250, 204, 21, 0.26);
+    box-shadow: 0 0 28px rgba(250, 204, 21, 0.18);
+}
+
+.yh-badge-avail-icon-wrap img {
+    width: 58px;
+    height: 58px;
+    object-fit: contain;
+    display: block;
+}
+
+.yh-badge-avail-kicker {
+    margin: 0 0 6px;
+    color: var(--neon-blue);
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+}
+
+.yh-badge-avail-hero h3 {
+    margin: 0 0 7px;
+    color: #ffffff;
+    font-size: clamp(1.15rem, 3vw, 1.45rem);
+    line-height: 1.2;
+}
+
+.yh-badge-avail-hero p {
+    margin: 0;
+    color: #9fb0c8;
+    font-size: 0.9rem;
+    line-height: 1.55;
+}
+
+.yh-badge-avail-price-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: 18px;
+    background: rgba(56, 189, 248, 0.08);
+    border: 1px solid rgba(56, 189, 248, 0.18);
+    margin-bottom: 16px;
+}
+
+.yh-badge-avail-price-card span {
+    color: #9fb0c8;
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.yh-badge-avail-price-card strong {
+    color: #ffffff;
+    font-size: 1.05rem;
+}
+
+.yh-badge-avail-steps {
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    background: rgba(15, 23, 42, 0.54);
+    border-radius: 18px;
+    padding: 15px;
+    margin-bottom: 14px;
+}
+
+.yh-badge-avail-steps h4 {
+    margin: 0 0 12px;
+    font-size: 0.95rem;
+    color: #ffffff;
+}
+
+.yh-badge-avail-step {
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 10px 0;
+    border-top: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.yh-badge-avail-step:first-of-type {
+    border-top: 0;
+    padding-top: 0;
+}
+
+.yh-badge-avail-step:last-child {
+    padding-bottom: 0;
+}
+
+.yh-badge-avail-step span {
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.28);
+    color: #7dd3fc;
+    font-size: 0.8rem;
+    font-weight: 900;
+}
+
+.yh-badge-avail-step p {
+    margin: 0;
+    color: #aab8cc;
+    font-size: 0.88rem;
+    line-height: 1.55;
+}
+
+.yh-badge-avail-note {
+    color: #94a3b8;
+    font-size: 0.82rem;
+    line-height: 1.55;
+    padding: 12px 14px;
+    border-radius: 16px;
+    background: rgba(148, 163, 184, 0.07);
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    margin-bottom: 16px;
+}
+
+.yh-badge-avail-actions {
+    display: grid;
+    grid-template-columns: 1fr 1.35fr;
+    gap: 10px;
+}
+
+.yh-badge-avail-actions .btn-primary,
+.yh-badge-avail-actions .btn-secondary {
+    min-height: 46px;
+    border-radius: 14px;
+}
+
+@media (max-width: 520px) {
+    .yh-badge-avail-card {
+        padding: 18px;
+        border-radius: 20px;
+    }
+
+    .yh-badge-avail-hero {
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .yh-badge-avail-icon-wrap {
+        width: 64px;
+        height: 64px;
+        border-radius: 20px;
+    }
+
+    .yh-badge-avail-icon-wrap img {
+        width: 48px;
+        height: 48px;
+    }
+
+    .yh-badge-avail-price-card,
+    .yh-badge-avail-actions {
+        grid-template-columns: 1fr;
+    }
+
+    .yh-badge-avail-price-card {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
