@@ -16981,3 +16981,58 @@ body.academy-search-results-open {
         width: 100% !important;
     }
 }
+/* =========================================
+   ACADEMY INLINE SEARCH STACKING FIX
+   Keeps inline search results above composer/cards
+   ========================================= */
+
+body[data-yh-view="academy"] #academy-feed-view {
+    isolation: isolate !important;
+}
+
+body[data-yh-view="academy"] #academy-feed-view .chat-header,
+body[data-yh-view="academy"] #academy-feed-view .academy-feed-header {
+    position: relative !important;
+    z-index: 30000 !important;
+    overflow: visible !important;
+}
+
+body[data-yh-view="academy"] #academy-feed-view .academy-feed-header-right {
+    position: relative !important;
+    z-index: 30010 !important;
+    overflow: visible !important;
+}
+
+body[data-yh-view="academy"] #academy-feed-view .academy-feed-search-wrap {
+    position: relative !important;
+    z-index: 30020 !important;
+    overflow: visible !important;
+}
+
+body[data-yh-view="academy"] #academy-feed-view #academy-search-results-panel,
+body[data-yh-view="academy"] #academy-feed-view #academy-search-results-panel.academy-search-inline-results {
+    z-index: 30030 !important;
+    pointer-events: auto !important;
+}
+
+body[data-yh-view="academy"] #academy-feed-view #academy-search-results-panel .academy-search-results-shell {
+    position: relative !important;
+    z-index: 30031 !important;
+}
+
+body[data-yh-view="academy"] #academy-feed-view .chat-messages,
+body[data-yh-view="academy"] #academy-feed-view .academy-feed-composer,
+body[data-yh-view="academy"] #academy-feed-view .academy-feed-card {
+    position: relative !important;
+    z-index: 1 !important;
+}
+
+body[data-yh-view="academy"] #academy-feed-view .academy-feed-composer:focus-within,
+body[data-yh-view="academy"] #academy-feed-view .academy-feed-card:hover {
+    z-index: 2 !important;
+}
+
+body[data-yh-view="academy"].academy-search-results-open #academy-feed-view .academy-feed-composer,
+body[data-yh-view="academy"].academy-search-results-open #academy-feed-view .academy-feed-card {
+    z-index: 1 !important;
+}
