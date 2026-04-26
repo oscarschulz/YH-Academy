@@ -2200,12 +2200,15 @@
         </div>
 
         <div style="padding: 0 22px 14px;">
-            <input
-                type="text"
-                id="academy-member-browser-search-input"
-                class="input-field"
-                placeholder="Search names, usernames, or tags like The Academy, YHA, roadmap..."
-            >
+                <input
+                    type="search"
+                    id="academy-member-browser-search-input"
+                    class="input-field"
+                    placeholder="Search names, usernames, or tags like The Academy, YHA, roadmap..."
+                    autocomplete="off"
+                    autocapitalize="off"
+                    spellcheck="false"
+                >
             <div id="academy-member-browser-summary" style="margin-top:10px;color:var(--text-muted);font-size:0.84rem;">
                 Type in the Academy search bar to browse members and matching tags.
             </div>
@@ -2306,6 +2309,9 @@
                         class="input-field"
                         maxlength="60"
                         placeholder="Your display name"
+                        autocomplete="off"
+                        autocapitalize="off"
+                        spellcheck="false"
                     >
                 </div>
 
@@ -2317,6 +2323,9 @@
                         class="input-field"
                         maxlength="32"
                         placeholder="@username"
+                        autocomplete="off"
+                        autocapitalize="off"
+                        spellcheck="false"
                     >
                 </div>
 
