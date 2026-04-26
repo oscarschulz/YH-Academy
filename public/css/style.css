@@ -6738,8 +6738,14 @@ body[data-yh-page="apply"] {
 body[data-yh-page="apply"] #yh-world-map,
 body[data-yh-page="apply"] #yh-world-map canvas,
 body[data-yh-page="apply"] .yh-landing-map-stage-wrap,
-body[data-yh-page="apply"] .yh-landing-globe-stage {
+body[data-yh-page="apply"] .yh-landing-globe-stage,
+body[data-yh-page="apply"] .yh-landing-hero-copy,
+body[data-yh-page="apply"] .yh-landing-activity-panel,
+body[data-yh-page="apply"] .yh-landing-activity-rail,
+body[data-yh-page="apply"] .yh-landing-activity-card,
+body[data-yh-page="apply"] .yh-landing-activity-stream {
     overscroll-behavior: auto;
+    touch-action: pan-y;
 }
 
 body[data-yh-page="apply"] #step-1.yh-landing-step {
@@ -8889,18 +8895,17 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
     text-align: left;
     color: var(--text-main);
     cursor: pointer;
-    transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    touch-action: pan-y;
+    transition: border-color 0.18s ease, background 0.18s ease;
 }
 
 .yh-landing-activity-event:hover {
-    transform: translateY(-2px);
     border-color: rgba(56, 189, 248, 0.28);
-    box-shadow: 0 12px 26px rgba(2, 8, 23, 0.28);
 }
 
 .yh-landing-activity-event.is-active {
     border-color: rgba(56, 189, 248, 0.32);
-    box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.12), 0 14px 32px rgba(2, 8, 23, 0.32);
+    box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.12);
 }
 
 .yh-landing-activity-event strong {
@@ -17322,7 +17327,18 @@ body[data-yh-page="dashboard"] #academy-profile-view .hash-big-profile-img {
     pointer-events: none;
     user-select: none;
 }
+@media (max-width: 768px) {
+    body[data-yh-page="apply"] .yh-space-asteroid-layer--near,
+    body[data-yh-page="apply"] .yh-space-meteor-layer {
+        display: none;
+    }
 
+    body[data-yh-page="apply"] .yh-landing-activity-event:hover,
+    body[data-yh-page="apply"] .yh-landing-metric-card:hover {
+        transform: none;
+        box-shadow: none;
+    }
+}
 @media (max-width: 768px) {
     body[data-yh-page="dashboard"] #academy-profile-view .hash-big.hash-big--profile-image {
         width: 36px;

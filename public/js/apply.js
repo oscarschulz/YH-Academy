@@ -2202,7 +2202,7 @@ if (formRegisterSimple) {
 
         const shell = document.querySelector('#step-1.yh-landing-step .yh-landing-shell');
         if (!shell) {
-            asteroidParallaxFrame = window.requestAnimationFrame(syncLandingAsteroidParallax);
+            asteroidParallaxFrame = 0;
             return;
         }
 
@@ -2237,7 +2237,7 @@ if (formRegisterSimple) {
             nearLayer.style.transform = `translate3d(${nearX.toFixed(2)}px, ${nearY.toFixed(2)}px, 0)`;
         }
 
-        asteroidParallaxFrame = window.requestAnimationFrame(syncLandingAsteroidParallax);
+        asteroidParallaxFrame = 0;
     };
 
     const startLandingAsteroidParallax = () => {
@@ -2302,6 +2302,7 @@ if (formRegisterSimple) {
     if (isApplyLanding) {
         window.addEventListener('scroll', () => {
             lastManualScrollY = window.scrollY;
+            startLandingAsteroidParallax();
         }, { passive: true });
 
         window.addEventListener('resize', () => {
