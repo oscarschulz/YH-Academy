@@ -15393,10 +15393,18 @@ async function applyAcademySearch(query = '', options = {}) {
     if (!shouldRun) {
         closeAcademySearchResultsPanel();
 
+        const feedView = document.getElementById('academy-feed-view');
+        const isFeedVisible = feedView && !feedView.classList.contains('hidden-step');
+
+        if (isFeedVisible && typeof renderAcademyFeed === 'function') {
+            renderAcademyFeed(readAcademyFeedCachePosts());
+        }
+
         const modal = document.getElementById('academy-member-browser-modal');
         if (modal && !modal.classList.contains('hidden-step') && normalizedQuery.length === 0) {
             loadAcademyMemberBrowser('').catch(() => {});
         }
+
         return;
     }
 
