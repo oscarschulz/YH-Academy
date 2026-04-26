@@ -8299,6 +8299,83 @@ let academyProfileViewState = {
 };
 
 const YH_DASHBOARD_SELF_PROFILE_CACHE_KEY = 'yh_academy_profile_cache_v1';
+
+function dashboardGetSelfProfileCache() {
+    const cached = readYHJsonCache(YH_DASHBOARD_SELF_PROFILE_CACHE_KEY, null);
+    return cached && typeof cached === 'object' ? cached : {};
+}
+
+function dashboardIsMeaningfulBadgeState(badge = {}) {
+    if (!badge || typeof badge !== 'object') return false;
+
+    const status = String(badge.status || '').trim().toLowerCase();
+
+    return (
+        badge.active === true ||
+        ['active', 'verified', 'pending', 'pending_payment', 'draft', 'checkout_started'].includes(status)
+    );
+}
+
+function dashboardGetPreservedVerificationBadges(...profiles) {
+    const merged = {};
+
+    profiles.forEach((profile) => {
+        const badges =
+            profile?.verificationBadges && typeof profile.verificationBadges === 'object'
+                ? profile.verificationBadges
+                : {};
+
+        ['academy', 'federation'].forEach((division) => {
+            const badge = badges[division] && typeof badges[division] === 'object'
+                ? badges[division]
+                : null;
+
+            if (!dashboardIsMeaningfulBadgeState(badge)) return;
+
+            merged[division] = {
+                ...(merged[division] || {}),
+                ...badge
+            };
+        });
+    });
+
+    return merged;
+}
+
+function dashboardMergeProfileKeepingBadges(nextProfile = {}, ...fallbackProfiles) {
+    const cleanProfile = nextProfile && typeof nextProfile === 'object' ? nextProfile : {};
+
+    const verificationBadges = dashboardGetPreservedVerificationBadges(
+        cleanProfile,
+        ...fallbackProfiles,
+        academyProfileViewState?.profile,
+        dashboardGetSelfProfileCache()
+    );
+
+    return {
+        ...cleanProfile,
+        verificationBadges
+    };
+}
+
+function dashboardPersistSelfProfileCache(profile = {}) {
+    if (!profile || typeof profile !== 'object') return;
+
+    const currentCache = dashboardGetSelfProfileCache();
+    const mergedProfile = dashboardMergeProfileKeepingBadges(
+        profile,
+        currentCache,
+        academyProfileViewState?.profile
+    );
+
+    writeYHJsonCache(YH_DASHBOARD_SELF_PROFILE_CACHE_KEY, {
+        ...currentCache,
+        ...mergedProfile,
+        updatedAt: new Date().toISOString()
+    });
+}
+
+const YH_DASHBOARD_SELF_PROFILE_CACHE_KEY = 'yh_academy_profile_cache_v1';
 const YH_DASHBOARD_VISITED_PROFILE_CACHE_KEY = 'yh_universe_visited_profile_cache_v1';
 
 function dashboardGetSelfProfileCache() {
@@ -8390,22 +8467,29 @@ function dashboardPersistVisitedProfileCache(profile = {}) {
     writeYHJsonCache(YH_DASHBOARD_VISITED_PROFILE_CACHE_KEY, Object.fromEntries(entries));
 }
 
-function buildAcademySelfProfilePayload() {
-    const cachedHome = readAcademyHomeCache() || {};
+function buildAcademySelfProfilePayload(profile = {}) {
+    const incomingProfile = profile && typeof profile === 'object' ? profile : {};
     const cachedProfile = dashboardGetSelfProfileCache();
+    const mergedProfile = dashboardMergeProfileKeepingBadges(
+        incomingProfile,
+        cachedProfile,
+        academyProfileViewState?.profile
+    );
+
+    const cachedHome = readAcademyHomeCache() || {};
 
     const displayName = String(
-        cachedProfile.display_name ||
-        cachedProfile.displayName ||
-        cachedProfile.fullName ||
-        cachedProfile.full_name ||
+        mergedProfile.display_name ||
+        mergedProfile.displayName ||
+        mergedProfile.fullName ||
+        mergedProfile.full_name ||
         localStorage.getItem('yh_user_name') ||
         'Hustler'
     ).trim() || 'Hustler';
 
     const usernameRaw =
         String(
-            cachedProfile.username ||
+            mergedProfile.username ||
             getStoredUserValue('yh_user_username', '') ||
             localStorage.getItem('yh_user_username') ||
             ''
@@ -8413,17 +8497,17 @@ function buildAcademySelfProfilePayload() {
         displayName.toLowerCase().replace(/\s+/g, '');
 
     const savedAvatar = String(
-        cachedProfile.avatar ||
-        cachedProfile.profilePhoto ||
-        cachedProfile.photoURL ||
+        mergedProfile.avatar ||
+        mergedProfile.profilePhoto ||
+        mergedProfile.photoURL ||
         getStoredUserValue('yh_user_avatar', '') ||
         localStorage.getItem('yh_user_avatar') ||
         ''
     ).trim();
 
     const savedCover = String(
-        cachedProfile.cover_photo ||
-        cachedProfile.coverPhoto ||
+        mergedProfile.cover_photo ||
+        mergedProfile.coverPhoto ||
         getStoredUserValue('yh_user_cover_photo', '') ||
         localStorage.getItem('yh_user_cover_photo') ||
         ''
@@ -8432,23 +8516,23 @@ function buildAcademySelfProfilePayload() {
     const hiddenPosts = readAcademyHiddenPostIds();
 
     const readinessValue =
-        cachedProfile.readiness ??
-        cachedProfile.readinessScore ??
+        mergedProfile.readiness ??
+        mergedProfile.readinessScore ??
         cachedHome?.roadmap?.readinessScore ??
         cachedHome?.readinessScore ??
         cachedHome?.summary?.readinessScore ??
         '—';
 
     const roadmapStatus =
-        cachedProfile.roadmap_status ||
-        cachedProfile.roadmapStatus ||
+        mergedProfile.roadmap_status ||
+        mergedProfile.roadmapStatus ||
         cachedHome?.roadmap?.status ||
         cachedHome?.roadmapStatus ||
         'Not loaded';
 
     const progressText =
         document.getElementById('progress-text')?.innerText ||
-        cachedProfile.progress ||
+        mergedProfile.progress ||
         '0% Daily Progress';
 
     const cachedPosts = readAcademyFeedCachePosts()
@@ -8469,54 +8553,57 @@ function buildAcademySelfProfilePayload() {
         });
 
     return {
-        ...cachedProfile,
+        ...mergedProfile,
         mode: 'self',
         id:
-            cachedProfile.id ||
-            cachedProfile.user_id ||
-            cachedProfile.uid ||
+            mergedProfile.id ||
+            mergedProfile.user_id ||
+            mergedProfile.uid ||
             String(getStoredUserValue('yh_user_id', '')).trim() ||
             String(getStoredUserValue('yh_user_uid', '')).trim(),
         display_name: displayName,
         displayName,
-        fullName: cachedProfile.fullName || cachedProfile.full_name || displayName,
+        fullName: mergedProfile.fullName || mergedProfile.full_name || displayName,
         username: usernameRaw,
         avatar: savedAvatar,
         cover_photo: savedCover,
         coverPhoto: savedCover,
-        role_label: cachedProfile.role_label || cachedProfile.roleLabel || 'Academy Member',
-        bio: cachedProfile.bio || 'Focused on execution, consistency, and long-term growth inside The Academy.',
+        role_label: mergedProfile.role_label || mergedProfile.roleLabel || 'Academy Member',
+        bio: mergedProfile.bio || 'Focused on execution, consistency, and long-term growth inside The Academy.',
         readiness: String(readinessValue),
         progress: String(progressText).replace(' Daily Progress', ''),
         roadmap_status: String(roadmapStatus),
-        followers_count: cachedProfile.followers_count ?? cachedProfile.followersCount ?? '—',
-        following_count: cachedProfile.following_count ?? cachedProfile.followingCount ?? '—',
-        friends_count: cachedProfile.friends_count ?? cachedProfile.friend_count ?? cachedProfile.friendsCount ?? cachedProfile.friendCount ?? '—',
-        post_count: Number.isFinite(Number(cachedProfile.post_count ?? cachedProfile.postCount))
-            ? Number(cachedProfile.post_count ?? cachedProfile.postCount)
+        followers_count: mergedProfile.followers_count ?? mergedProfile.followersCount ?? '—',
+        following_count: mergedProfile.following_count ?? mergedProfile.followingCount ?? '—',
+        friends_count: mergedProfile.friends_count ?? mergedProfile.friend_count ?? mergedProfile.friendsCount ?? mergedProfile.friendCount ?? '—',
+        post_count: Number.isFinite(Number(mergedProfile.post_count ?? mergedProfile.postCount))
+            ? Number(mergedProfile.post_count ?? mergedProfile.postCount)
             : cachedPosts.length,
-        hidden_count: cachedProfile.hidden_count ?? hiddenPosts.length,
-        status: cachedProfile.status || 'Active',
-        search_tags: Array.isArray(cachedProfile.search_tags)
-            ? cachedProfile.search_tags
-            : Array.isArray(cachedProfile.searchTags)
-                ? cachedProfile.searchTags
+        hidden_count: mergedProfile.hidden_count ?? hiddenPosts.length,
+        status: mergedProfile.status || 'Active',
+        search_tags: Array.isArray(mergedProfile.search_tags)
+            ? mergedProfile.search_tags
+            : Array.isArray(mergedProfile.searchTags)
+                ? mergedProfile.searchTags
                 : [],
-        verificationBadges: cachedProfile.verificationBadges && typeof cachedProfile.verificationBadges === 'object'
-            ? cachedProfile.verificationBadges
+        verificationBadges: dashboardGetPreservedVerificationBadges(
+            mergedProfile,
+            incomingProfile,
+            cachedProfile,
+            academyProfileViewState?.profile
+        ),
+        divisions: mergedProfile.divisions && typeof mergedProfile.divisions === 'object'
+            ? mergedProfile.divisions
             : {},
-        divisions: cachedProfile.divisions && typeof cachedProfile.divisions === 'object'
-            ? cachedProfile.divisions
+        membershipSummary: mergedProfile.membershipSummary || null,
+        signals: mergedProfile.signals && typeof mergedProfile.signals === 'object'
+            ? mergedProfile.signals
             : {},
-        membershipSummary: cachedProfile.membershipSummary || null,
-        signals: cachedProfile.signals && typeof cachedProfile.signals === 'object'
-            ? cachedProfile.signals
-            : {},
-        trustTier: cachedProfile.trustTier || '',
-        activities: Array.isArray(cachedProfile.activities) ? cachedProfile.activities : [],
-        snapshot: cachedProfile.snapshot || null,
-        recent_posts: Array.isArray(cachedProfile.recent_posts) && cachedProfile.recent_posts.length
-            ? cachedProfile.recent_posts
+        trustTier: mergedProfile.trustTier || '',
+        activities: Array.isArray(mergedProfile.activities) ? mergedProfile.activities : [],
+        snapshot: mergedProfile.snapshot || null,
+        recent_posts: Array.isArray(mergedProfile.recent_posts) && mergedProfile.recent_posts.length
+            ? mergedProfile.recent_posts
             : cachedPosts.slice(0, 6)
     };
 }
@@ -8668,14 +8755,12 @@ function mergeYHUniverseProfilePayload(universeProfile = {}, academyProfile = {}
         trustTier: universeProfile.trustTier || academyProfile.trustTier || '',
         activities: Array.isArray(universeProfile.activities) ? universeProfile.activities : [],
         snapshot: universeProfile.snapshot || academyProfile.snapshot || null,
-        verificationBadges:
-            universeProfile.verificationBadges && typeof universeProfile.verificationBadges === 'object'
-                ? universeProfile.verificationBadges
-                : (
-                    academyProfile.verificationBadges && typeof academyProfile.verificationBadges === 'object'
-                        ? academyProfile.verificationBadges
-                        : {}
-                ),
+        verificationBadges: dashboardGetPreservedVerificationBadges(
+            universeProfile,
+            academyProfile,
+            academyProfileViewState?.profile,
+            dashboardGetSelfProfileCache()
+        ),
         source: universeProfile.source || academyProfile.source || 'dashboard-profile'
     };
 }
@@ -9423,12 +9508,11 @@ function normalizeAcademyProfilePayload(profile = {}, options = {}) {
         trustTier: String(profile?.trustTier || '').trim(),
         activities: Array.isArray(profile?.activities) ? profile.activities : [],
         snapshot: profile?.snapshot || null,
-        verificationBadges: profile?.verificationBadges && typeof profile.verificationBadges === 'object'
-            ? profile.verificationBadges
-            : {},
-        verificationBadges: profile?.verificationBadges && typeof profile.verificationBadges === 'object'
-            ? profile.verificationBadges
-            : {}
+        verificationBadges: dashboardGetPreservedVerificationBadges(
+            profile,
+            academyProfileViewState?.profile,
+            dashboardGetSelfProfileCache()
+        )
     };
 }
 
@@ -10608,42 +10692,57 @@ async function saveDashboardUniverseProfile(button = null) {
             throw new Error(result?.message || 'Profile save succeeded but no profile was returned.');
         }
 
-        try {
-            localStorage.setItem('yh_academy_profile_cache_v1', JSON.stringify(result.profile));
-            localStorage.setItem('yh_user_name', result.profile.display_name || displayName);
-            localStorage.setItem('yh_user_username', result.profile.username || username);
-            localStorage.setItem('yh_user_profile_bio', result.profile.bio || bio);
+        const preservedProfile = dashboardMergeProfileKeepingBadges(
+            result.profile,
+            academyProfileViewState?.profile,
+            dashboardGetSelfProfileCache()
+        );
 
-            if (result.profile.avatar) {
-                localStorage.setItem('yh_user_avatar', result.profile.avatar);
+        try {
+            dashboardPersistSelfProfileCache(preservedProfile);
+
+            localStorage.setItem('yh_user_name', preservedProfile.display_name || preservedProfile.displayName || displayName);
+            localStorage.setItem('yh_user_username', preservedProfile.username || username);
+            localStorage.setItem('yh_user_profile_bio', preservedProfile.bio || bio);
+
+            if (preservedProfile.avatar) {
+                localStorage.setItem('yh_user_avatar', preservedProfile.avatar);
             } else {
                 localStorage.removeItem('yh_user_avatar');
             }
 
-            if (result.profile.cover_photo) {
-                localStorage.setItem('yh_user_cover_photo', result.profile.cover_photo);
+            if (preservedProfile.cover_photo || preservedProfile.coverPhoto) {
+                localStorage.setItem('yh_user_cover_photo', preservedProfile.cover_photo || preservedProfile.coverPhoto);
             } else {
                 localStorage.removeItem('yh_user_cover_photo');
             }
         } catch (_) {}
 
         academyProfileViewState.profile = normalizeAcademyProfilePayload(
-            buildAcademySelfProfilePayload(result.profile),
+            buildAcademySelfProfilePayload(preservedProfile),
             { mode: 'self' }
         );
 
+        dashboardPersistSelfProfileCache(academyProfileViewState.profile);
+
         setDashboardProfileEditorAsset('avatar', {
             file: null,
-            previewUrl: String(result.profile.avatar || '').trim()
+            previewUrl: String(preservedProfile.avatar || '').trim()
         });
 
         setDashboardProfileEditorAsset('cover', {
             file: null,
-            previewUrl: String(result.profile.cover_photo || '').trim()
+            previewUrl: String(preservedProfile.cover_photo || preservedProfile.coverPhoto || '').trim()
         });
 
         closeDashboardUniverseProfileEditor();
         renderAcademyProfileView(academyProfileViewState.profile, { mode: 'self' });
+
+        hydrateDashboardSelfUniverseProfile().catch((error) => {
+            console.warn('hydrate after profile save failed:', error);
+            return null;
+        });
+
         showToast('YH Universe profile updated.', 'success');
     });
 }
