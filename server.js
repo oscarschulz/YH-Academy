@@ -57,7 +57,61 @@ const sanitizeText = (value, fallback = '') => {
     if (value === null || value === undefined) return fallback;
     return String(value).trim();
 };
+const YH_VERIFICATION_BADGE_PLANS = {
+    academy: {
+        division: 'academy',
+        code: 'YHA',
+        amountMonthly: 2.81,
+        currency: 'USD',
+        interval: 'month',
+        asset: '/images/yha%20badge.png'
+    },
+    federation: {
+        division: 'federation',
+        code: 'YHF',
+        amountMonthly: 28.12,
+        currency: 'USD',
+        interval: 'month',
+        asset: '/images/yhf%20badge.png'
+    }
+};
 
+function normalizeYHVerificationBadgeState(rawBadge = {}, division = 'academy') {
+    const cleanDivision = division === 'federation' ? 'federation' : 'academy';
+    const plan = YH_VERIFICATION_BADGE_PLANS[cleanDivision];
+    const badge = rawBadge && typeof rawBadge === 'object' ? rawBadge : {};
+    const rawStatus = sanitizeText(badge.status || '').toLowerCase();
+
+    const active =
+        badge.active === true ||
+        rawStatus === 'active' ||
+        rawStatus === 'verified';
+
+    return {
+        active,
+        status: active ? 'active' : (rawStatus || 'none'),
+        division: cleanDivision,
+        code: plan.code,
+        amountMonthly: plan.amountMonthly,
+        currency: plan.currency,
+        interval: plan.interval,
+        asset: plan.asset,
+        activatedAt: sanitizeText(badge.activatedAt || badge.approvedAt || ''),
+        expiresAt: sanitizeText(badge.expiresAt || '')
+    };
+}
+
+function buildYHVerificationBadges(userData = {}) {
+    const source =
+        userData.verificationBadges && typeof userData.verificationBadges === 'object'
+            ? userData.verificationBadges
+            : {};
+
+    return {
+        academy: normalizeYHVerificationBadgeState(source.academy, 'academy'),
+        federation: normalizeYHVerificationBadgeState(source.federation, 'federation')
+    };
+}
 const mapChatTimestamp = (value) => {
     if (!value) return null;
     if (typeof value.toDate === 'function') return value.toDate().toISOString();
@@ -3048,6 +3102,7 @@ function mapFederationMemberUserDoc(docSnap) {
         name,
         role,
         badge: sanitizeText(user.federationBadge || application.badge || 'Verified'),
+        verificationBadges: buildYHVerificationBadges(user),
         category,
         country,
         city,

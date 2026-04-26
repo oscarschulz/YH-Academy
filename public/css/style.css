@@ -17377,3 +17377,71 @@ body[data-yh-page="dashboard"] #academy-profile-view .hash-big-profile-img {
         min-height: 36px;
     }
 }
+/* =========================================================
+   YH VERIFIED BADGE ICONS
+   ========================================================= */
+
+#academy-profile-view .academy-profile-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+#academy-profile-view .academy-profile-name-text {
+    min-width: 0;
+}
+
+.yh-verified-badge-icon {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    vertical-align: middle;
+    filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.26));
+}
+
+.yh-verified-badge-icon img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: contain;
+}
+
+.yh-verified-badge-icon--federation {
+    filter: drop-shadow(0 0 12px rgba(250, 204, 21, 0.28));
+}
+
+@media (max-width: 768px) {
+    #academy-profile-view .academy-profile-name {
+        gap: 6px;
+    }
+
+    #academy-profile-view .yh-verified-badge-icon {
+        width: 28px;
+        height: 28px;
+    }
+}
+/* =========================================================
+   VERIFIED BADGE AVAILMENT BUTTONS
+   ========================================================= */
+
+.yh-badge-avail-btn {
+    width: auto;
+    min-width: 150px;
+    white-space: nowrap;
+}
+
+.yh-badge-avail-btn[data-badge-pending="true"] {
+    border-color: rgba(250, 204, 21, 0.28);
+    background: rgba(250, 204, 21, 0.08);
+    color: #fde68a;
+}
+
+@media (max-width: 768px) {
+    .yh-badge-avail-btn {
+        width: 100%;
+    }
+}

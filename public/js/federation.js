@@ -226,7 +226,117 @@ function getFederationProfileTarget(member = {}) {
     ""
   ).trim();
 }
+function federationGetVerificationBadge(member = {}, division = 'federation') {
+  const cleanDivision = division === "academy" ? "academy" : "federation";
+  const badges = member?.verificationBadges && typeof member.verificationBadges === "object"
+    ? member.verificationBadges
+    : {};
 
+  const badge = badges[cleanDivision] && typeof badges[cleanDivision] === "object"
+    ? badges[cleanDivision]
+    : {};
+
+  const status = String(badge.status || "").trim().toLowerCase();
+  const active = badge.active === true || status === "active" || status === "verified";
+
+  if (!active) return null;
+
+  return {
+    division: cleanDivision,
+    code: cleanDivision === "academy" ? "YHA" : "YHF",
+    asset: badge.asset || (cleanDivision === "academy"
+      ? "/images/yha%20badge.png"
+      : "/images/yhf%20badge.png")
+  };
+}
+
+function renderFederationVerificationBadge(member = {}, division = "federation") {
+  const badge = federationGetVerificationBadge(member, division);
+  if (!badge) return "";
+
+  return `
+    <span class="yh-verified-badge-icon yh-verified-badge-icon--${escapeHtml(badge.division)}" title="Verified member" aria-label="Verified member">
+      <img src="${escapeHtml(badge.asset)}" alt="" loading="lazy" decoding="async">
+    </span>
+  `;
+}
+function federationGetVerificationBadgeStatus(member = {}, division = "federation") {
+  const cleanDivision = division === "academy" ? "academy" : "federation";
+  const badges = member?.verificationBadges && typeof member.verificationBadges === "object"
+    ? member.verificationBadges
+    : {};
+
+  const badge = badges[cleanDivision] && typeof badges[cleanDivision] === "object"
+    ? badges[cleanDivision]
+    : {};
+
+  return String(badge.status || "").trim().toLowerCase();
+}
+
+function renderFederationVerifiedBadgeAvailButton(member = {}) {
+  const activeBadge = federationGetVerificationBadge(member, "federation");
+  const status = federationGetVerificationBadgeStatus(member, "federation");
+  const isPending = ["pending", "pending_payment", "draft", "checkout_started"].includes(status);
+
+  if (activeBadge) {
+    return `
+      <button type="button" class="fed-btn-secondary yh-fed-badge-avail-btn" disabled aria-disabled="true">
+        YHF Badge Active
+      </button>
+    `;
+  }
+
+  return `
+    <button
+      type="button"
+      class="fed-btn-secondary yh-fed-badge-avail-btn"
+      data-yh-avail-federation-badge="federation"
+      ${isPending ? "data-badge-pending=\"true\"" : ""}
+    >
+      ${isPending ? "Badge Payment Pending" : "Avail YHF Badge"}
+    </button>
+  `;
+}
+
+async function createFederationVerifiedBadgeLedger(button = null) {
+  if (button) {
+    button.disabled = true;
+    button.setAttribute("aria-busy", "true");
+    button.dataset.originalText = button.textContent || "";
+    button.textContent = "Creating Ledger...";
+  }
+
+  try {
+    const result = await federationConnectFetch("/api/payments/badges/federation/ledger", {
+      method: "POST",
+      body: JSON.stringify({
+        provider: "unselected",
+        paymentMethod: "unselected"
+      })
+    });
+
+    showToast("YHF badge payment ledger created. Admin will activate it after payment confirmation.", "success");
+
+    await loadFederationServerState({ force: true }).catch(() => null);
+    renderAll();
+
+    return result;
+  } catch (error) {
+    console.error("create federation verified badge ledger error:", error);
+    showToast(error?.message || "Failed to create YHF badge payment ledger.", "error");
+    throw error;
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.removeAttribute("aria-busy");
+
+      if (button.dataset.originalText) {
+        button.textContent = button.dataset.originalText;
+        delete button.dataset.originalText;
+      }
+    }
+  }
+}
 function renderFederationCardOwnerButton(member = {}, options = {}) {
   const disabled = options.disabled === true;
   const targetUserId = disabled ? "" : getFederationProfileTarget(member);
@@ -256,7 +366,10 @@ function renderFederationCardOwnerButton(member = {}, options = {}) {
       </span>
 
       <span class="fed-card-owner-meta">
-        <strong>${escapeHtml(name)}</strong>
+        <strong class="fed-card-owner-name-line">
+          <span class="fed-card-owner-name-text">${escapeHtml(name)}</span>
+          ${renderFederationVerificationBadge(member, "federation")}
+        </strong>
         <small>${escapeHtml(subtitle)}</small>
       </span>
     </button>
@@ -407,6 +520,7 @@ function renderFederationProfilePreview(profile = {}, fallbackMember = null) {
     }
 
     <div class="fed-profile-preview-actions">
+          ${renderFederationVerifiedBadgeAvailButton(fallbackMember || profile)}
       <button type="button" class="fed-btn fed-btn-primary" data-jump="#connect">
         Message in Federation
       </button>
@@ -5707,8 +5821,24 @@ document.addEventListener("DOMContentLoaded", async () => {
   bindUniverseReturnLink("#fedBackToUniverse");
   bindUniverseReturnLink("#fedTopbarBackToUniverse");
 
-  setActiveSection("command", { syncHash: false });
+  document.addEventListener("click", async (event) => {
+    const target =
+      event.target instanceof Element
+        ? event.target
+        : event.target?.parentElement;
 
+    if (!target) return;
+
+    const badgeButton = target.closest("[data-yh-avail-federation-badge]");
+    if (!badgeButton) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    await createFederationVerifiedBadgeLedger(badgeButton).catch(() => null);
+  });
+
+  setActiveSection("command", { syncHash: false });
   await loadFederationServerState({ force: true });
 
   if (getCurrentUserState().type === "member") {

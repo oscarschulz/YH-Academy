@@ -80,6 +80,153 @@ function getPayoutOptions(req, res) {
         ]
     });
 }
+const VERIFIED_BADGE_PLANS = {
+    academy: {
+        division: 'academy',
+        code: 'YHA',
+        amountMonthly: 2.81,
+        currency: 'USD',
+        interval: 'month',
+        asset: '/images/yha%20badge.png',
+        sourceFeature: 'verified_badge',
+        publicName: 'Academy Verified Badge'
+    },
+    federation: {
+        division: 'federation',
+        code: 'YHF',
+        amountMonthly: 28.12,
+        currency: 'USD',
+        interval: 'month',
+        asset: '/images/yhf%20badge.png',
+        sourceFeature: 'verified_badge',
+        publicName: 'Federation Verified Badge'
+    }
+};
+
+function normalizeVerifiedBadgeDivision(value = '') {
+    const clean = cleanLower(value);
+
+    if (clean === 'academy' || clean === 'yha') return 'academy';
+    if (clean === 'federation' || clean === 'yhf') return 'federation';
+
+    return '';
+}
+
+function getVerifiedBadgePlan(division = '') {
+    const normalizedDivision = normalizeVerifiedBadgeDivision(division);
+    return normalizedDivision ? VERIFIED_BADGE_PLANS[normalizedDivision] : null;
+}
+
+function getVerifiedBadgePaymentRecordId(viewerId = '', division = '') {
+    const cleanViewerId = cleanText(viewerId).replace(/[^a-zA-Z0-9_-]+/g, '_');
+    const cleanDivision = normalizeVerifiedBadgeDivision(division) || 'badge';
+
+    return `verified_badge_${cleanDivision}_${cleanViewerId}`.slice(0, 180);
+}
+
+function buildPendingVerifiedBadgePayload(plan = {}, payment = {}) {
+    return {
+        active: false,
+        status: 'pending_payment',
+        code: cleanText(plan.code),
+        division: cleanText(plan.division),
+        amountMonthly: toNumber(plan.amountMonthly, 0),
+        currency: cleanText(plan.currency || 'USD').toUpperCase() || 'USD',
+        interval: cleanText(plan.interval || 'month'),
+        asset: cleanText(plan.asset),
+        paymentLedgerId: cleanText(payment.id),
+        paymentStatus: cleanText(payment.status || 'draft'),
+        updatedAt: new Date().toISOString()
+    };
+}
+
+async function createVerifiedBadgePaymentLedger(req, res) {
+    try {
+        const viewer = getViewer(req);
+        const plan = getVerifiedBadgePlan(req.params.division || req.body?.division);
+
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        if (!plan) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid badge division. Use academy or federation.'
+            });
+        }
+
+        const userRef = firestore.collection('users').doc(viewer.id);
+        const userSnap = await userRef.get();
+
+        if (!userSnap.exists) {
+            return res.status(404).json({
+                success: false,
+                message: 'User account not found.'
+            });
+        }
+
+        const recordId = getVerifiedBadgePaymentRecordId(viewer.id, plan.division);
+
+        const payment = await paymentLedgerRepo.upsertPaymentRecord({
+            id: recordId,
+            sourceDivision: plan.division,
+            sourceFeature: plan.sourceFeature,
+            sourceRecordId: `${viewer.id}_${plan.division}`,
+
+            payerUid: viewer.id,
+            payerEmail: viewer.email,
+            payerName: viewer.name,
+
+            provider: cleanLower(req.body?.provider || 'unselected'),
+            providerOptions: ['stripe', 'oxapay', 'manual'],
+            status: 'draft',
+            paymentMethod: cleanLower(req.body?.paymentMethod || 'unselected'),
+
+            amount: plan.amountMonthly,
+            currency: plan.currency,
+
+            platformCommissionAmount: plan.amountMonthly,
+            operatorPayoutAmount: 0,
+
+            metadata: {
+                badgeDivision: plan.division,
+                badgeCode: plan.code,
+                badgeAsset: plan.asset,
+                badgePublicName: plan.publicName,
+                billingInterval: plan.interval,
+                userId: viewer.id,
+                userEmail: viewer.email,
+                userName: viewer.name
+            }
+        });
+
+        await userRef.set({
+            verificationBadges: {
+                [plan.division]: buildPendingVerifiedBadgePayload(plan, payment)
+            },
+            updatedAt: new Date().toISOString()
+        }, { merge: true });
+
+        return res.status(201).json({
+            success: true,
+            message: `${plan.code} badge payment ledger created.`,
+            division: plan.division,
+            badge: buildPendingVerifiedBadgePayload(plan, payment),
+            payment
+        });
+    } catch (error) {
+        console.error('create verified badge payment ledger error:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: error?.message || 'Failed to create verified badge payment ledger.'
+        });
+    }
+}
 
 async function createFederationPaidIntroLedger(req, res) {
     try {
@@ -793,6 +940,7 @@ async function listMyPayouts(req, res) {
 module.exports = {
     getPaymentOptions,
     getPayoutOptions,
+    createVerifiedBadgePaymentLedger,
     createFederationPaidIntroLedger,
     createPlazaOpportunityPaymentLedger,
     listMyPayments,

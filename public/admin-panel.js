@@ -968,25 +968,32 @@ function isAdminPlazaOpportunityPayment(payment = {}) {
 
   return sourceDivision === 'plaza' && sourceFeature === 'opportunity_deal';
 }
+function isAdminVerifiedBadgePayment(payment = {}) {
+  const sourceDivision = String(payment.sourceDivision || '').trim().toLowerCase();
+  const sourceFeature = String(payment.sourceFeature || '').trim().toLowerCase();
 
+  return ['academy', 'federation'].includes(sourceDivision) && sourceFeature === 'verified_badge';
+}
 function buildAdminPaymentLedgerActions(payment = {}) {
   const id = String(payment.id || '').trim();
   const status = String(payment.status || 'draft').trim().toLowerCase();
+  const isPlazaPayment = isAdminPlazaOpportunityPayment(payment);
+  const isBadgePayment = isAdminVerifiedBadgePayment(payment);
 
   if (!id) return '';
 
-  if (!isAdminPlazaOpportunityPayment(payment)) {
+  if (!isPlazaPayment && !isBadgePayment) {
     return '<span class="muted">—</span>';
   }
 
   if (status === 'paid') {
-    return '<span class="admin-decision-final admin-decision-final-approved">Paid • Settled</span>';
+    return `<span class="admin-decision-final admin-decision-final-approved">${isBadgePayment ? 'Paid • Badge Active' : 'Paid • Settled'}</span>`;
   }
 
   return `
     <div class="table-actions">
       <button data-action="economy-payment-settle-paid" data-id="${escapeHtml(id)}">
-        Mark Paid
+        ${isBadgePayment ? 'Mark Paid + Activate' : 'Mark Paid'}
       </button>
     </div>
   `;

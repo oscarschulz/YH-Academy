@@ -15,7 +15,61 @@ const sanitize = (value) => {
     if (value === null || value === undefined) return '';
     return String(value).replace(/</g, '&lt;').replace(/>/g, '&gt;').trim();
 };
+const YH_VERIFICATION_BADGE_PLANS = {
+    academy: {
+        division: 'academy',
+        code: 'YHA',
+        amountMonthly: 2.81,
+        currency: 'USD',
+        interval: 'month',
+        asset: '/images/yha%20badge.png'
+    },
+    federation: {
+        division: 'federation',
+        code: 'YHF',
+        amountMonthly: 28.12,
+        currency: 'USD',
+        interval: 'month',
+        asset: '/images/yhf%20badge.png'
+    }
+};
 
+function normalizeYHVerificationBadgeState(rawBadge = {}, division = 'academy') {
+    const cleanDivision = division === 'federation' ? 'federation' : 'academy';
+    const plan = YH_VERIFICATION_BADGE_PLANS[cleanDivision];
+    const badge = rawBadge && typeof rawBadge === 'object' ? rawBadge : {};
+    const rawStatus = sanitize(badge.status || '').toLowerCase();
+
+    const active =
+        badge.active === true ||
+        rawStatus === 'active' ||
+        rawStatus === 'verified';
+
+    return {
+        active,
+        status: active ? 'active' : (rawStatus || 'none'),
+        division: cleanDivision,
+        code: plan.code,
+        amountMonthly: plan.amountMonthly,
+        currency: plan.currency,
+        interval: plan.interval,
+        asset: plan.asset,
+        activatedAt: sanitize(badge.activatedAt || badge.approvedAt || ''),
+        expiresAt: sanitize(badge.expiresAt || '')
+    };
+}
+
+function buildYHVerificationBadges(userData = {}) {
+    const source =
+        userData.verificationBadges && typeof userData.verificationBadges === 'object'
+            ? userData.verificationBadges
+            : {};
+
+    return {
+        academy: normalizeYHVerificationBadgeState(source.academy, 'academy'),
+        federation: normalizeYHVerificationBadgeState(source.federation, 'federation')
+    };
+}
 function buildPublicLandingEventLocation(req = {}) {
     const body = req && req.body && typeof req.body === 'object' ? req.body : {};
     const sources = [
@@ -4197,6 +4251,8 @@ exports.getUniverseProfile = async (req, res) => {
             plazaDirectoryRaw
         });
 
+        const verificationBadges = buildYHVerificationBadges(userData);
+
         return res.json({
             success: true,
             profile: {
@@ -4225,6 +4281,7 @@ exports.getUniverseProfile = async (req, res) => {
                 signals,
                 activities,
                 snapshot,
+                verificationBadges,
                 source: 'universe-profile-v1'
             }
         });
@@ -4304,8 +4361,9 @@ exports.getCurrentProfile = async (req, res) => {
         const userRef = firestore.collection('users').doc(uid);
         const userSnapshot = await userRef.get();
         const userData = userSnapshot.exists ? (userSnapshot.data() || {}) : {};
-            const storedProfile = await academyFirestoreRepo.getCurrentProfile(uid) || {};
-            const profileResponse = buildAcademyProfileResponse(uid, userData, storedProfile);
+        const storedProfile = await academyFirestoreRepo.getCurrentProfile(uid) || {};
+        const profileResponse = buildAcademyProfileResponse(uid, userData, storedProfile);
+        profileResponse.verificationBadges = buildYHVerificationBadges(userData);
 
             try {
                 const socialProfile = await academyCommunityRepo.getMemberProfile({

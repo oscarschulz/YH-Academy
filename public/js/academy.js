@@ -9200,12 +9200,137 @@ function buildAcademySelfProfilePayload(profileSource = null) {
                 ? Number(cachedProfile.post_count ?? cachedProfile.postCount)
                 : cachedPosts.length,
 
+        verificationBadges: cachedProfile.verificationBadges && typeof cachedProfile.verificationBadges === 'object'
+            ? cachedProfile.verificationBadges
+            : {},
+
         recent_posts: Array.isArray(cachedProfile.recent_posts) && cachedProfile.recent_posts.length
             ? cachedProfile.recent_posts
             : cachedPosts.slice(0, 6)
     };
 }
+function academyGetVerificationBadge(profile = {}, division = 'academy') {
+    const cleanDivision = division === 'federation' ? 'federation' : 'academy';
+    const badges = profile?.verificationBadges && typeof profile.verificationBadges === 'object'
+        ? profile.verificationBadges
+        : {};
 
+    const badge = badges[cleanDivision] && typeof badges[cleanDivision] === 'object'
+        ? badges[cleanDivision]
+        : {};
+
+    const status = String(badge.status || '').trim().toLowerCase();
+    const active = badge.active === true || status === 'active' || status === 'verified';
+
+    if (!active) return null;
+
+    return {
+        division: cleanDivision,
+        code: cleanDivision === 'federation' ? 'YHF' : 'YHA',
+        asset: badge.asset || (cleanDivision === 'federation'
+            ? '/images/yhf%20badge.png'
+            : '/images/yha%20badge.png')
+    };
+}
+
+function academyRenderVerificationBadge(profile = {}, division = 'academy') {
+    const badge = academyGetVerificationBadge(profile, division);
+    if (!badge) return '';
+
+    return `
+        <span class="yh-verified-badge-icon yh-verified-badge-icon--${academyFeedEscapeHtml(badge.division)}" title="Verified member" aria-label="Verified member">
+            <img src="${academyFeedEscapeHtml(badge.asset)}" alt="" loading="lazy" decoding="async">
+        </span>
+    `;
+}
+function academyGetVerificationBadgeStatus(profile = {}, division = 'academy') {
+    const cleanDivision = division === 'federation' ? 'federation' : 'academy';
+    const badges = profile?.verificationBadges && typeof profile.verificationBadges === 'object'
+        ? profile.verificationBadges
+        : {};
+
+    const badge = badges[cleanDivision] && typeof badges[cleanDivision] === 'object'
+        ? badges[cleanDivision]
+        : {};
+
+    return String(badge.status || '').trim().toLowerCase();
+}
+
+function academyRenderVerifiedBadgeAvailButton(profile = {}, division = 'academy') {
+    const cleanDivision = division === 'federation' ? 'federation' : 'academy';
+    const activeBadge = academyGetVerificationBadge(profile, cleanDivision);
+    const status = academyGetVerificationBadgeStatus(profile, cleanDivision);
+    const isPending = ['pending', 'pending_payment', 'draft', 'checkout_started'].includes(status);
+
+    if (activeBadge) {
+        return `
+            <button type="button" class="btn-secondary academy-profile-action-btn yh-badge-avail-btn" disabled aria-disabled="true">
+                ${cleanDivision === 'federation' ? 'YHF Badge Active' : 'YHA Badge Active'}
+            </button>
+        `;
+    }
+
+    return `
+        <button
+            type="button"
+            class="btn-secondary academy-profile-action-btn yh-badge-avail-btn"
+            data-yh-avail-badge="${academyFeedEscapeHtml(cleanDivision)}"
+            ${isPending ? 'data-badge-pending="true"' : ''}
+        >
+            ${isPending
+                ? 'Badge Payment Pending'
+                : cleanDivision === 'federation'
+                    ? 'Avail YHF Badge'
+                    : 'Avail YHA Badge'}
+        </button>
+    `;
+}
+
+async function academyCreateVerifiedBadgeLedger(division = 'academy', button = null) {
+    const cleanDivision = division === 'federation' ? 'federation' : 'academy';
+
+    if (button) {
+        button.disabled = true;
+        button.setAttribute('aria-busy', 'true');
+        button.dataset.originalText = button.textContent || '';
+        button.textContent = 'Creating Ledger...';
+    }
+
+    try {
+        const result = await academyAuthedFetch(`/api/payments/badges/${encodeURIComponent(cleanDivision)}/ledger`, {
+            method: 'POST',
+            body: JSON.stringify({
+                provider: 'unselected',
+                paymentMethod: 'unselected'
+            })
+        });
+
+        showToast(
+            cleanDivision === 'federation'
+                ? 'YHF badge payment ledger created. Admin will activate it after payment confirmation.'
+                : 'YHA badge payment ledger created. Admin will activate it after payment confirmation.',
+            'success'
+        );
+
+        await openAcademyProfileView(true);
+
+        return result;
+    } catch (error) {
+        console.error('academy verified badge ledger error:', error);
+        showToast(error?.message || 'Failed to create badge payment ledger.', 'error');
+        throw error;
+    } finally {
+        if (button) {
+            button.disabled = false;
+            button.removeAttribute('aria-busy');
+
+            if (button.dataset.originalText) {
+                button.textContent = button.dataset.originalText;
+                delete button.dataset.originalText;
+            }
+        }
+    }
+}
 function normalizeAcademyProfilePayload(profile = {}, options = {}) {
     const fullName =
         String(
@@ -9300,7 +9425,10 @@ function normalizeAcademyProfilePayload(profile = {}, options = {}) {
         incomingFriendRequestId: String(profile?.incoming_friend_request_id || '').trim(),
         mutualFriendCount: Number(profile?.mutual_friend_count || 0),
         searchTags,
-        recentPosts: recentPostsInput.filter(Boolean)
+        recentPosts: recentPostsInput.filter(Boolean),
+        verificationBadges: profile?.verificationBadges && typeof profile.verificationBadges === 'object'
+            ? profile.verificationBadges
+            : {}
     };
 }
 
@@ -9580,6 +9708,20 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
 
     academySyncVisitedProfileBackButton(isSelf);
 
+    const profileActionRow = document.querySelector('#academy-profile-view .academy-profile-action-row');
+    if (profileActionRow) {
+        profileActionRow.querySelectorAll('[data-yh-avail-badge], .yh-badge-avail-btn').forEach((node) => node.remove());
+
+        if (isSelf) {
+            profileActionRow.insertAdjacentHTML(
+                'beforeend',
+                academyRenderVerifiedBadgeAvailButton(normalized, 'academy')
+            );
+        }
+    }
+
+    renderAcademyProfileRecentPosts(normalized.recentPosts, { isSelf });
+
     if (profileHeaderTitle) {
         profileHeaderTitle.innerText = isSelf
             ? 'My Profile'
@@ -9592,7 +9734,12 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
             : `Viewing ${normalized.displayName}'s Academy profile, public activity, and connection options.`;
     }
 
-    if (profileName) profileName.innerText = normalized.displayName;
+    if (profileName) {
+        profileName.innerHTML = `
+            <span class="academy-profile-name-text">${academyFeedEscapeHtml(normalized.displayName)}</span>
+            ${academyRenderVerificationBadge(normalized, 'academy')}
+        `;
+    }
 
     if (isSelf) {
         try {
@@ -21600,6 +21747,24 @@ if (roadmapForm) {
         }
     });
 }
+
+document.addEventListener('click', async (event) => {
+    const target =
+        event.target instanceof Element
+            ? event.target
+            : event.target?.parentElement;
+
+    if (!target) return;
+
+    const badgeAvailButton = target.closest('[data-yh-avail-badge]');
+    if (!badgeAvailButton) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const division = badgeAvailButton.getAttribute('data-yh-avail-badge') || 'academy';
+    await academyCreateVerifiedBadgeLedger(division, badgeAvailButton).catch(() => null);
+});
 
 // ✅ Close DOMContentLoaded wrapper
 });

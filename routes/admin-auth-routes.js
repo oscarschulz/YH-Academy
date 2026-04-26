@@ -1665,10 +1665,96 @@ apiRouter.post('/api/admin/economy/payments/:paymentId/settle', requireAdminSess
     const sourceFeature = cleanText(payment.sourceFeature).toLowerCase();
     const opportunityId = cleanText(payment.sourceRecordId);
 
+    if (sourceFeature === 'verified_badge' && ['academy', 'federation'].includes(sourceDivision)) {
+      const payerUid = cleanText(payment.payerUid);
+      const badgeCode = sourceDivision === 'federation' ? 'YHF' : 'YHA';
+      const badgeAsset = sourceDivision === 'federation'
+        ? '/images/yhf%20badge.png'
+        : '/images/yha%20badge.png';
+
+      if (!payerUid) {
+        return res.status(400).json({
+          success: false,
+          message: 'This verified badge payment has no payer user id.'
+        });
+      }
+
+      const now = new Date();
+      const expiresAt = new Date(now);
+      expiresAt.setMonth(expiresAt.getMonth() + 1);
+
+      const updatedPayment = await paymentLedgerRepo.updatePaymentRecordStatus(paymentId, {
+        status: 'paid',
+        provider: cleanText(req.body?.provider || payment.provider || 'manual'),
+        paymentMethod: cleanText(req.body?.paymentMethod || payment.paymentMethod || 'manual'),
+        providerStatus: 'admin_paid',
+        metadata: {
+          ...(payment.metadata && typeof payment.metadata === 'object' ? payment.metadata : {}),
+          adminSettlement: true,
+          settledBy: cleanText(req.adminSession?.username || 'admin'),
+          settledAt: now.toISOString(),
+          badgeActivated: true,
+          badgeDivision: sourceDivision,
+          badgeCode
+        }
+      });
+
+      const userRef = firestore.collection('users').doc(payerUid);
+
+      await userRef.set({
+        verificationBadges: {
+          [sourceDivision]: {
+            active: true,
+            status: 'active',
+            code: badgeCode,
+            division: sourceDivision,
+            amountMonthly: roundAdminMoney(payment.amount || 0),
+            currency: cleanText(payment.currency || 'USD').toUpperCase() || 'USD',
+            interval: 'month',
+            asset: badgeAsset,
+            paymentLedgerId: updatedPayment.id,
+            paymentStatus: 'paid',
+            activatedAt: now.toISOString(),
+            approvedAt: now.toISOString(),
+            expiresAt: expiresAt.toISOString(),
+            verifiedBy: cleanText(req.adminSession?.username || 'admin'),
+            updatedAt: now.toISOString()
+          }
+        },
+        updatedAt: now.toISOString()
+      }, { merge: true });
+
+      const notification = await appendAdminEconomyNotificationToUser(payerUid, {
+        id: `verified_badge_active_${sourceDivision}_${updatedPayment.id}`,
+        title: `${badgeCode} badge is now active`,
+        text: `Your ${badgeCode} verification badge is now active until ${expiresAt.toISOString().slice(0, 10)}.`,
+        target: 'profile',
+        targetId: updatedPayment.id,
+        color: sourceDivision === 'federation' ? 'var(--amber)' : 'var(--blue)',
+        avatarStr: badgeCode,
+        sourceDivision,
+        amount: roundAdminMoney(payment.amount || 0),
+        currency: cleanText(payment.currency || 'USD').toUpperCase() || 'USD'
+      });
+
+      return res.json({
+        success: true,
+        payment: updatedPayment,
+        badgeActivation: {
+          division: sourceDivision,
+          code: badgeCode,
+          active: true,
+          payerUid,
+          expiresAt: expiresAt.toISOString()
+        },
+        notification
+      });
+    }
+
     if (sourceDivision !== 'plaza' || sourceFeature !== 'opportunity_deal') {
       return res.status(400).json({
         success: false,
-        message: 'Only Plaza opportunity payment ledgers can be settled with this action.'
+        message: 'Only Plaza opportunity and verified badge payment ledgers can be settled with this action.'
       });
     }
 

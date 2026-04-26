@@ -8312,6 +8312,7 @@ function buildAcademySelfProfilePayload() {
         hidden_count: hiddenPosts.length,
         status: 'Active',
         search_tags: [],
+        verificationBadges: {},
         recent_posts: cachedPosts.slice(0, 6)
     };
 }
@@ -8621,6 +8622,40 @@ function renderYHUniverseProfileSnapshot(profile = {}) {
         `;
     }).join('');
 }
+function academyGetVerificationBadge(profile = {}, division = 'academy') {
+    const cleanDivision = division === 'federation' ? 'federation' : 'academy';
+    const badges = profile?.verificationBadges && typeof profile.verificationBadges === 'object'
+        ? profile.verificationBadges
+        : {};
+
+    const badge = badges[cleanDivision] && typeof badges[cleanDivision] === 'object'
+        ? badges[cleanDivision]
+        : {};
+
+    const status = String(badge.status || '').trim().toLowerCase();
+    const active = badge.active === true || status === 'active' || status === 'verified';
+
+    if (!active) return null;
+
+    return {
+        division: cleanDivision,
+        code: cleanDivision === 'federation' ? 'YHF' : 'YHA',
+        asset: badge.asset || (cleanDivision === 'federation'
+            ? '/images/yhf%20badge.png'
+            : '/images/yha%20badge.png')
+    };
+}
+
+function academyRenderVerificationBadge(profile = {}, division = 'academy') {
+    const badge = academyGetVerificationBadge(profile, division);
+    if (!badge) return '';
+
+    return `
+        <span class="yh-verified-badge-icon yh-verified-badge-icon--${academyFeedEscapeHtml(badge.division)}" title="Verified member" aria-label="Verified member">
+            <img src="${academyFeedEscapeHtml(badge.asset)}" alt="" loading="lazy" decoding="async">
+        </span>
+    `;
+}
 function normalizeAcademyProfilePayload(profile = {}, options = {}) {
     const displayName =
         String(
@@ -8695,7 +8730,10 @@ function normalizeAcademyProfilePayload(profile = {}, options = {}) {
         signals,
         trustTier: String(profile?.trustTier || '').trim(),
         activities: Array.isArray(profile?.activities) ? profile.activities : [],
-        snapshot: profile?.snapshot || null
+        snapshot: profile?.snapshot || null,
+        verificationBadges: profile?.verificationBadges && typeof profile.verificationBadges === 'object'
+            ? profile.verificationBadges
+            : {}
     };
 }
 
@@ -8932,7 +8970,12 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
         profileHeaderTopic.remove();
     }
 
-    if (profileName) profileName.innerText = normalized.displayName;
+    if (profileName) {
+        profileName.innerHTML = `
+            <span class="academy-profile-name-text">${academyFeedEscapeHtml(normalized.displayName)}</span>
+            ${academyRenderVerificationBadge(normalized, 'academy')}
+        `;
+    }
     if (profileUsername) profileUsername.innerText = normalized.username;
     if (profileRole) profileRole.innerText = normalized.roleLabel;
     if (profileBio) profileBio.innerText = normalized.bio;
