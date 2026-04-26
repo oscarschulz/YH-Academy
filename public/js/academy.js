@@ -12042,11 +12042,39 @@ document.getElementById('academy-lead-entry-form')?.addEventListener('submit', a
     }
 });
 
+async function academyEnsureMemberProfileAccessAllowed(memberId = '') {
+    const normalizedMemberId = normalizeAcademyFeedId(memberId);
+
+    if (!normalizedMemberId) {
+        throw new Error('Missing member id.');
+    }
+
+    try {
+        await academyAuthedFetch(
+            `/api/realtime/profile-access/${encodeURIComponent(normalizedMemberId)}`,
+            { method: 'GET' }
+        );
+
+        return true;
+    } catch (error) {
+        const message = String(error?.message || '').trim();
+        const blockedError = new Error(message || 'This profile is not available.');
+
+        blockedError.isProfileAccessBlocked =
+            error?.blocked === true ||
+            /profile is not available|not available|blocked/i.test(message);
+
+        throw blockedError;
+    }
+}
+
 async function fetchAcademyMemberProfile(memberId = '') {
     const normalizedMemberId = normalizeAcademyFeedId(memberId);
     if (!normalizedMemberId) {
         throw new Error('Missing member id.');
     }
+
+    await academyEnsureMemberProfileAccessAllowed(normalizedMemberId);
 
     const result = await academyAuthedFetch(
         `/api/academy/community/members/${encodeURIComponent(normalizedMemberId)}/profile`,
@@ -13982,7 +14010,25 @@ async function openAcademyMemberProfileView(memberId = '') {
         renderAcademyOpportunityLayer(null, { mode: 'visited' });
     } catch (error) {
         console.error('openAcademyMemberProfileView error:', error);
-        showToast(error?.message || 'Failed to load member profile.', 'error');
+
+        const message = String(error?.message || '').trim();
+        const isBlockedProfile =
+            error?.isProfileAccessBlocked === true ||
+            /profile is not available|not available|blocked/i.test(message);
+
+        if (isBlockedProfile) {
+            showToast('This profile is not available.', 'error');
+
+            if (typeof closeAcademySearchResultsPanel === 'function') {
+                closeAcademySearchResultsPanel();
+            }
+
+            document.getElementById('academy-member-browser-modal')?.classList.add('hidden-step');
+
+            return;
+        }
+
+        showToast(message || 'Failed to load member profile.', 'error');
     } finally {
         hideAcademyTabLoader();
     }

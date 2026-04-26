@@ -776,6 +776,65 @@ async function canUserAccessRoom(userId, roomId) {
     return true;
 }
 
+async function getAcademyProfileAccessBlockStatus(viewerId = '', targetUserId = '') {
+    const cleanViewerId = sanitizeText(viewerId);
+    const cleanTargetUserId = sanitizeText(targetUserId);
+
+    if (!cleanViewerId || !cleanTargetUserId || cleanViewerId === cleanTargetUserId) {
+        return {
+            blocked: false,
+            roomId: ''
+        };
+    }
+
+    const roomsSnap = await chatRoomsCol
+        .where('member_ids', 'array-contains', cleanViewerId)
+        .limit(100)
+        .get();
+
+    for (const doc of roomsSnap.docs) {
+        const roomData = doc.data() || {};
+
+        const memberIds = Array.isArray(roomData.member_ids)
+            ? roomData.member_ids.map((value) => String(value)).filter(Boolean)
+            : [];
+
+        if (!memberIds.includes(cleanTargetUserId)) continue;
+
+        const roomType = sanitizeText(roomData.room_type || roomData.type).toLowerCase();
+        const isDirectRoom = roomType === 'dm' || memberIds.length === 2;
+
+        if (!isDirectRoom) continue;
+
+        const blockedByUserIds = Array.isArray(roomData.blocked_by_user_ids)
+            ? roomData.blocked_by_user_ids.map((value) => String(value)).filter(Boolean)
+            : [];
+
+        const blockedByOwnerUserIds = Array.isArray(roomData.blocked_by_owner_user_ids)
+            ? roomData.blocked_by_owner_user_ids.map((value) => String(value)).filter(Boolean)
+            : [];
+
+        const targetBlockedViewer =
+            blockedByUserIds.includes(cleanViewerId) &&
+            (
+                blockedByOwnerUserIds.includes(cleanTargetUserId) ||
+                !blockedByOwnerUserIds.length
+            );
+
+        if (targetBlockedViewer) {
+            return {
+                blocked: true,
+                roomId: doc.id
+            };
+        }
+    }
+
+    return {
+        blocked: false,
+        roomId: ''
+    };
+}
+
 async function markRoomAsReadForUser(userId, roomId) {
     const cleanUserId = sanitizeText(userId);
     const cleanRoomId = sanitizeText(roomId);
@@ -2641,6 +2700,43 @@ app.post(
         }
     }
 );
+
+app.get('/api/realtime/profile-access/:targetUserId', requireApiUser, async (req, res) => {
+    try {
+        const viewerId = sanitizeText(req.user?.id);
+        const targetUserId = sanitizeText(req.params.targetUserId);
+
+        if (!viewerId || !targetUserId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Missing profile access target.'
+            });
+        }
+
+        const access = await getAcademyProfileAccessBlockStatus(viewerId, targetUserId);
+
+        if (access.blocked) {
+            return res.status(403).json({
+                success: false,
+                blocked: true,
+                roomId: access.roomId,
+                message: 'This profile is not available.'
+            });
+        }
+
+        return res.json({
+            success: true,
+            allowed: true,
+            blocked: false
+        });
+    } catch (error) {
+        console.error('academy profile access check error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to verify profile access.'
+        });
+    }
+});
 
 app.patch('/api/realtime/rooms/:roomId/hide', requireApiUser, async (req, res) => {
     try {
