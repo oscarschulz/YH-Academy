@@ -2333,8 +2333,8 @@ if (formRegisterSimple) {
             }
         }, { passive: true });
 
-        const LANDING_WHEEL_SPEED = 0.85;
-        const LANDING_WHEEL_MAX_STEP = 980;
+        const LANDING_WHEEL_SPEED = 0.50;
+        const LANDING_WHEEL_MAX_STEP = 900;
 
         let landingWheelPendingY = 0;
         let landingWheelFrame = 0;
