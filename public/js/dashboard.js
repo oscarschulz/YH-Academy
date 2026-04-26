@@ -8690,10 +8690,6 @@ function dashboardCanShowBadgeAvailButton(profile = {}, division = 'academy') {
 function dashboardRenderVerifiedBadgeAvailButton(profile = {}, division = 'academy') {
     const cleanDivision = division === 'federation' ? 'federation' : 'academy';
 
-    if (!dashboardCanShowBadgeAvailButton(profile, cleanDivision)) {
-        return '';
-    }
-
     const activeBadge = academyGetVerificationBadge(profile, cleanDivision);
     const status = dashboardGetVerificationBadgeStatus(profile, cleanDivision);
     const isPending = ['pending', 'pending_payment', 'draft', 'checkout_started'].includes(status);
@@ -9427,7 +9423,16 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
             ].filter(Boolean).join('');
 
             if (badgeButtonsHtml) {
-                profileActionRow.insertAdjacentHTML('beforeend', badgeButtonsHtml);
+                const deleteActionAnchor =
+                    secondaryAction && secondaryAction.parentElement === profileActionRow
+                        ? secondaryAction
+                        : null;
+
+                if (deleteActionAnchor) {
+                    deleteActionAnchor.insertAdjacentHTML('beforebegin', badgeButtonsHtml);
+                } else {
+                    profileActionRow.insertAdjacentHTML('beforeend', badgeButtonsHtml);
+                }
             }
         }
     }
