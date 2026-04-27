@@ -10367,7 +10367,11 @@ let dashboardProfileCropperState = {
     dragStartX: 0,
     dragStartY: 0,
     dragBaseX: 0,
-    dragBaseY: 0
+    dragBaseY: 0,
+    activePointers: new Map(),
+    isPinching: false,
+    pinchStartDistance: 0,
+    pinchStartZoom: 1
 };
 
 function handleDashboardProfileAssetFile(file = null, kind = 'avatar') {
@@ -10382,6 +10386,70 @@ function getDashboardCropperOutputSize(kind = 'avatar') {
     return kind === 'cover'
         ? { width: 1600, height: 600 }
         : { width: 512, height: 512 };
+}
+
+function getDashboardCropperMaxZoom(kind = 'avatar') {
+    return kind === 'cover' ? 3.5 : 4;
+}
+
+function clampDashboardProfileCropperZoom(value = 1) {
+    const maxZoom = getDashboardCropperMaxZoom(dashboardProfileCropperState.kind);
+    const numericZoom = Number(value || 1) || 1;
+
+    return Math.max(1, Math.min(maxZoom, numericZoom));
+}
+
+function syncDashboardProfileCropperZoomInput() {
+    const zoomInput = document.getElementById('yh-dashboard-profile-cropper-zoom');
+    if (!zoomInput) return;
+
+    zoomInput.min = '1';
+    zoomInput.max = String(getDashboardCropperMaxZoom(dashboardProfileCropperState.kind));
+    zoomInput.step = '0.01';
+    zoomInput.value = String(clampDashboardProfileCropperZoom(dashboardProfileCropperState.zoom));
+}
+
+function setDashboardProfileCropperZoom(value = 1, options = {}) {
+    dashboardProfileCropperState.zoom = clampDashboardProfileCropperZoom(value);
+
+    if (options.syncInput !== false) {
+        syncDashboardProfileCropperZoomInput();
+    }
+
+    clampDashboardProfileCropperOffset();
+    renderDashboardProfileCropperImage();
+}
+
+function getDashboardProfileCropperPointerList() {
+    const pointers = dashboardProfileCropperState.activePointers;
+    if (!(pointers instanceof Map)) return [];
+
+    return Array.from(pointers.values());
+}
+
+function getDashboardProfileCropperPinchDistance() {
+    const pointers = getDashboardProfileCropperPointerList();
+    if (pointers.length < 2) return 0;
+
+    const first = pointers[0];
+    const second = pointers[1];
+    const dx = Number(second.clientX || 0) - Number(first.clientX || 0);
+    const dy = Number(second.clientY || 0) - Number(first.clientY || 0);
+
+    return Math.hypot(dx, dy);
+}
+
+function resetDashboardProfileCropperGestureState() {
+    dashboardProfileCropperState.isDragging = false;
+    dashboardProfileCropperState.isPinching = false;
+    dashboardProfileCropperState.pinchStartDistance = 0;
+    dashboardProfileCropperState.pinchStartZoom = clampDashboardProfileCropperZoom(dashboardProfileCropperState.zoom);
+
+    if (dashboardProfileCropperState.activePointers instanceof Map) {
+        dashboardProfileCropperState.activePointers.clear();
+    } else {
+        dashboardProfileCropperState.activePointers = new Map();
+    }
 }
 
 function ensureDashboardProfileImageCropper() {
@@ -10419,16 +10487,37 @@ function ensureDashboardProfileImageCropper() {
 
             <div class="yh-dashboard-profile-cropper-controls">
                 <label for="yh-dashboard-profile-cropper-zoom">
-                    Zoom
-                    <input
-                        id="yh-dashboard-profile-cropper-zoom"
-                        type="range"
-                        min="1"
-                        max="3"
-                        step="0.01"
-                        value="1"
-                    >
+                    <span>Zoom / Size</span>
+                    <div class="yh-dashboard-profile-cropper-zoom-wrap">
+                        <button
+                            type="button"
+                            class="yh-dashboard-profile-cropper-zoom-btn"
+                            data-profile-cropper-zoom-out
+                            aria-label="Zoom out"
+                        >−</button>
+
+                        <input
+                            id="yh-dashboard-profile-cropper-zoom"
+                            type="range"
+                            min="1"
+                            max="4"
+                            step="0.01"
+                            value="1"
+                            aria-label="Crop zoom"
+                        >
+
+                        <button
+                            type="button"
+                            class="yh-dashboard-profile-cropper-zoom-btn"
+                            data-profile-cropper-zoom-in
+                            aria-label="Zoom in"
+                        >+</button>
+                    </div>
                 </label>
+
+                <p class="yh-dashboard-profile-cropper-help" id="yh-dashboard-profile-cropper-help">
+                    Drag the photo to center the visible crop. Pinch on mobile or use the size control on desktop.
+                </p>
             </div>
 
             <div class="yh-dashboard-profile-cropper-actions">
@@ -10446,6 +10535,8 @@ function ensureDashboardProfileImageCropper() {
 
     const frame = modal.querySelector('#yh-dashboard-profile-cropper-frame');
     const zoomInput = modal.querySelector('#yh-dashboard-profile-cropper-zoom');
+    const zoomOutButton = modal.querySelector('[data-profile-cropper-zoom-out]');
+    const zoomInButton = modal.querySelector('[data-profile-cropper-zoom-in]');
     const applyButton = modal.querySelector('#yh-dashboard-profile-cropper-apply');
 
     modal.addEventListener('click', (event) => {
@@ -10456,13 +10547,42 @@ function ensureDashboardProfileImageCropper() {
     });
 
     zoomInput?.addEventListener('input', () => {
-        dashboardProfileCropperState.zoom = Number(zoomInput.value || 1) || 1;
-        clampDashboardProfileCropperOffset();
-        renderDashboardProfileCropperImage();
+        setDashboardProfileCropperZoom(Number(zoomInput.value || 1) || 1, { syncInput: false });
+    });
+
+    zoomOutButton?.addEventListener('click', () => {
+        setDashboardProfileCropperZoom(Number(dashboardProfileCropperState.zoom || 1) - 0.12);
+    });
+
+    zoomInButton?.addEventListener('click', () => {
+        setDashboardProfileCropperZoom(Number(dashboardProfileCropperState.zoom || 1) + 0.12);
     });
 
     frame?.addEventListener('pointerdown', (event) => {
         if (!dashboardProfileCropperState.image) return;
+
+        event.preventDefault();
+
+        if (!(dashboardProfileCropperState.activePointers instanceof Map)) {
+            dashboardProfileCropperState.activePointers = new Map();
+        }
+
+        dashboardProfileCropperState.activePointers.set(event.pointerId, {
+            clientX: event.clientX,
+            clientY: event.clientY
+        });
+
+        frame.setPointerCapture?.(event.pointerId);
+
+        if (dashboardProfileCropperState.activePointers.size >= 2) {
+            dashboardProfileCropperState.isDragging = false;
+            dashboardProfileCropperState.isPinching = true;
+            dashboardProfileCropperState.pinchStartDistance = getDashboardProfileCropperPinchDistance();
+            dashboardProfileCropperState.pinchStartZoom = clampDashboardProfileCropperZoom(dashboardProfileCropperState.zoom);
+            frame.classList.remove('is-dragging');
+            frame.classList.add('is-pinching');
+            return;
+        }
 
         dashboardProfileCropperState.isDragging = true;
         dashboardProfileCropperState.dragStartX = event.clientX;
@@ -10470,11 +10590,33 @@ function ensureDashboardProfileImageCropper() {
         dashboardProfileCropperState.dragBaseX = dashboardProfileCropperState.offsetX;
         dashboardProfileCropperState.dragBaseY = dashboardProfileCropperState.offsetY;
 
-        frame.setPointerCapture?.(event.pointerId);
         frame.classList.add('is-dragging');
     });
 
     frame?.addEventListener('pointermove', (event) => {
+        if (!dashboardProfileCropperState.image) return;
+        if (!(dashboardProfileCropperState.activePointers instanceof Map)) return;
+        if (!dashboardProfileCropperState.activePointers.has(event.pointerId)) return;
+
+        event.preventDefault();
+
+        dashboardProfileCropperState.activePointers.set(event.pointerId, {
+            clientX: event.clientX,
+            clientY: event.clientY
+        });
+
+        if (dashboardProfileCropperState.isPinching && dashboardProfileCropperState.activePointers.size >= 2) {
+            const nextDistance = getDashboardProfileCropperPinchDistance();
+            const startDistance = Number(dashboardProfileCropperState.pinchStartDistance || 0);
+
+            if (nextDistance > 0 && startDistance > 0) {
+                const ratio = nextDistance / startDistance;
+                setDashboardProfileCropperZoom(Number(dashboardProfileCropperState.pinchStartZoom || 1) * ratio);
+            }
+
+            return;
+        }
+
         if (!dashboardProfileCropperState.isDragging) return;
 
         dashboardProfileCropperState.offsetX =
@@ -10487,17 +10629,43 @@ function ensureDashboardProfileImageCropper() {
         renderDashboardProfileCropperImage();
     });
 
-    const stopDragging = (event) => {
-        if (!dashboardProfileCropperState.isDragging) return;
+    const stopDashboardCropperPointer = (event) => {
+        if (!(dashboardProfileCropperState.activePointers instanceof Map)) return;
+
+        dashboardProfileCropperState.activePointers.delete(event.pointerId);
+
+        try {
+            frame?.releasePointerCapture?.(event.pointerId);
+        } catch (_) {}
+
+        if (dashboardProfileCropperState.activePointers.size >= 2) {
+            dashboardProfileCropperState.pinchStartDistance = getDashboardProfileCropperPinchDistance();
+            dashboardProfileCropperState.pinchStartZoom = clampDashboardProfileCropperZoom(dashboardProfileCropperState.zoom);
+            return;
+        }
+
+        dashboardProfileCropperState.isPinching = false;
+        frame?.classList.remove('is-pinching');
+
+        if (dashboardProfileCropperState.activePointers.size === 1) {
+            const remainingPointer = getDashboardProfileCropperPointerList()[0];
+
+            dashboardProfileCropperState.isDragging = true;
+            dashboardProfileCropperState.dragStartX = remainingPointer.clientX;
+            dashboardProfileCropperState.dragStartY = remainingPointer.clientY;
+            dashboardProfileCropperState.dragBaseX = dashboardProfileCropperState.offsetX;
+            dashboardProfileCropperState.dragBaseY = dashboardProfileCropperState.offsetY;
+            frame?.classList.add('is-dragging');
+            return;
+        }
 
         dashboardProfileCropperState.isDragging = false;
-        frame?.releasePointerCapture?.(event.pointerId);
         frame?.classList.remove('is-dragging');
     };
 
-    frame?.addEventListener('pointerup', stopDragging);
-    frame?.addEventListener('pointercancel', stopDragging);
-    frame?.addEventListener('pointerleave', stopDragging);
+    frame?.addEventListener('pointerup', stopDashboardCropperPointer);
+    frame?.addEventListener('pointercancel', stopDashboardCropperPointer);
+    frame?.addEventListener('lostpointercapture', stopDashboardCropperPointer);
 
     applyButton?.addEventListener('click', () => {
         applyDashboardProfileImageCrop().catch((error) => {
@@ -10536,7 +10704,11 @@ function openDashboardProfileImageCropper(file = null, kind = 'avatar') {
         dragStartX: 0,
         dragStartY: 0,
         dragBaseX: 0,
-        dragBaseY: 0
+        dragBaseY: 0,
+        activePointers: new Map(),
+        isPinching: false,
+        pinchStartDistance: 0,
+        pinchStartZoom: 1
     };
 
     frame.classList.toggle('is-cover', normalizedKind === 'cover');
@@ -10550,11 +10722,14 @@ function openDashboardProfileImageCropper(file = null, kind = 'avatar') {
 
     if (copy) {
         copy.textContent = normalizedKind === 'cover'
-            ? 'Use a wide crop for the profile hero cover.'
-            : 'Use a square crop for your public profile picture.';
+            ? 'Only the center wide viewport will be saved. Drag to position, then resize with pinch or zoom controls.'
+            : 'Only the center circle viewport will be saved. Drag to position, then resize with pinch or zoom controls.';
     }
 
     if (zoomInput) {
+        zoomInput.min = '1';
+        zoomInput.max = String(getDashboardCropperMaxZoom(normalizedKind));
+        zoomInput.step = '0.01';
         zoomInput.value = '1';
     }
 
@@ -10615,7 +10790,11 @@ function closeDashboardProfileImageCropper() {
         dragStartX: 0,
         dragStartY: 0,
         dragBaseX: 0,
-        dragBaseY: 0
+        dragBaseY: 0,
+        activePointers: new Map(),
+        isPinching: false,
+        pinchStartDistance: 0,
+        pinchStartZoom: 1
     };
 }
 
@@ -10656,7 +10835,11 @@ function resetDashboardProfileCropperTransform() {
     dashboardProfileCropperState.offsetY = 0;
 
     const zoomInput = document.getElementById('yh-dashboard-profile-cropper-zoom');
-    if (zoomInput) zoomInput.value = '1';
+    if (zoomInput) {
+        zoomInput.min = '1';
+        zoomInput.max = String(getDashboardCropperMaxZoom(dashboardProfileCropperState.kind));
+        zoomInput.value = '1';
+    }
 }
 
 function clampDashboardProfileCropperOffset() {
