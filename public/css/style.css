@@ -18,12 +18,16 @@
 * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
 
 body {
-    background: #002261;
+    background:
+        radial-gradient(circle at top left, rgba(56, 189, 248, 0.08), transparent 28%),
+        linear-gradient(180deg, #050816 0%, #07111f 52%, #020617 100%);
+    background-color: #050816;
     color: var(--text-main);
     width: 100%;
     min-height: 100vh;
     overflow-x: hidden;
     overflow-y: auto;
+    color-scheme: dark;
 }
 
 /* ========================================================= */
@@ -468,8 +472,8 @@ textarea.input-field { resize: none; }
     justify-items: center;
     padding: 24px;
     background:
-        radial-gradient(circle at center, rgba(14, 165, 233, 0.14), transparent 38%),
-        rgba(2, 6, 23, 0.92);
+        radial-gradient(circle at center, rgba(56, 189, 248, 0.08), transparent 38%),
+        rgba(2, 6, 23, 0.96);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
 }
@@ -9253,7 +9257,9 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
     align-items: center;
     justify-content: center;
     padding: 18px;
-    background: rgba(0,0,0,0.55);
+    background:
+        radial-gradient(circle at center, rgba(56, 189, 248, 0.08), transparent 38%),
+        rgba(2, 6, 23, 0.96);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     opacity: 0;

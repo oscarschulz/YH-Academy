@@ -2535,7 +2535,9 @@ textarea:focus,
   align-items: center;
   justify-content: center;
   padding: 18px;
-  background: rgba(0, 0, 0, 0.55);
+  background:
+    radial-gradient(circle at center, rgba(56, 189, 248, 0.08), transparent 38%),
+    rgba(2, 6, 23, 0.96);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   opacity: 0;
