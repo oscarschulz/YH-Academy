@@ -1832,7 +1832,7 @@ function sendSystemNotification(title, text, avatarStr, color, target) {
             }
         }
 
-        document.getElementById('notif-dropdown')?.classList.remove('show');
+        closeDashboardNotificationsDropdown();
 
         if (target === 'announcements') document.getElementById('nav-announcements')?.click();
         else if (target === 'main-chat') document.getElementById('nav-chat')?.click();
@@ -5836,6 +5836,22 @@ const markAllRead = document.getElementById('mark-all-read');
 const notifListContainer = document.getElementById('notif-list-container');
 const notifBadge = document.getElementById('notif-badge-count');
 
+function setDashboardNotificationsOpenState(isOpen = false) {
+    const open = isOpen === true;
+
+    document.body?.classList.toggle('yh-notifications-open', open);
+    notifBell?.classList.toggle('yh-notif-open', open);
+
+    if (notifDropdown) {
+        notifDropdown.setAttribute('aria-hidden', open ? 'false' : 'true');
+    }
+}
+
+function closeDashboardNotificationsDropdown() {
+    notifDropdown?.classList.remove('show');
+    setDashboardNotificationsOpenState(false);
+}
+
 const escapeNotificationHtml = (value = '') =>
     String(value)
         .replace(/&/g, '&amp;')
@@ -6443,16 +6459,19 @@ if (notifBell && notifDropdown) {
         if (e.target === markAllRead) return;
         if (e.target.closest('.notif-list li')) return;
 
-        notifDropdown.classList.toggle('show');
+        const willOpen = !notifDropdown.classList.contains('show');
 
-        if (notifDropdown.classList.contains('show')) {
+        notifDropdown.classList.toggle('show', willOpen);
+        setDashboardNotificationsOpenState(willOpen);
+
+        if (willOpen) {
             await loadRealtimeNotifications(true);
         }
     });
 
     document.addEventListener('click', (e) => {
         if (!notifBell.contains(e.target)) {
-            notifDropdown.classList.remove('show');
+            closeDashboardNotificationsDropdown();
         }
     });
 
