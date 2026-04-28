@@ -28,6 +28,7 @@
 
     const els = {
         refreshBtn: document.getElementById('collections-refresh-btn'),
+        logoutBtn: document.getElementById('collections-logout-btn'),
         loading: document.getElementById('collections-loading'),
         error: document.getElementById('collections-error'),
         empty: document.getElementById('collections-empty'),
@@ -75,7 +76,21 @@
     }
 
     function getCollectionsAccessKey() {
+        const parts = window.location.pathname.split('/').filter(Boolean);
+
+        if (parts[0] === 'collections' && parts[1]) {
+            return decodeURIComponent(parts[1]);
+        }
+
         return '';
+    }
+
+    function getCollectionsLoginUrl() {
+        const accessKey = getCollectionsAccessKey();
+
+        return accessKey
+            ? `/collections-login/${encodeURIComponent(accessKey)}`
+            : '/';
     }
 
     function getStoredAuthToken() {
@@ -454,7 +469,11 @@
             }
 
             if (Number(error.status) === 404) {
-                showError('Collections login session is invalid or expired. Open the private Collections login URL again.');
+                showError('Collections login session is invalid or expired. Redirecting to login...');
+
+                window.setTimeout(() => {
+                    window.location.href = getCollectionsLoginUrl();
+                }, 900);
             } else {
                 showError(error.message || 'Failed to load collections.');
             }
@@ -487,9 +506,29 @@
 
         render();
     }
+    async function logoutCollectionsSession() {
+        if (els.logoutBtn) {
+            els.logoutBtn.disabled = true;
+            els.logoutBtn.textContent = 'Logging out...';
+        }
 
+        try {
+            await fetch('/collections-logout', {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+        } catch (error) {
+            console.warn('Collections logout failed:', error);
+        } finally {
+            window.location.href = getCollectionsLoginUrl();
+        }
+    }
     function bindEvents() {
         els.refreshBtn?.addEventListener('click', loadCollections);
+        els.logoutBtn?.addEventListener('click', logoutCollectionsSession);
 
         els.sideLinks.forEach((link) => {
             link.addEventListener('click', () => {

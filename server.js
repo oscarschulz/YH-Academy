@@ -2764,6 +2764,7 @@ if (
     p === '/plaza.html' ||
     p === '/collections' ||
     p === '/collections/' ||
+    p.startsWith('/collections/') ||
     p.startsWith('/collections-login/') ||
     p.startsWith('/collections-assets/') ||
     p === '/js/dashboard.js' ||
@@ -2988,7 +2989,7 @@ app.post('/collections-login/:loginAccessKey', async (req, res) => {
 
     return res.json({
         success: true,
-        redirectUrl: '/collections'
+        redirectUrl: `/collections/${encodeURIComponent(loginAccessKey)}`
     });
 });
 
@@ -3003,8 +3004,18 @@ app.post('/collections-logout', (req, res) => {
 });
 
 app.get('/collections', (req, res) => {
-    if (!hasCollectionsAccessSession(req)) {
+    return res.status(404).send('Not found');
+});
+
+app.get('/collections/:loginAccessKey', (req, res) => {
+    const loginAccessKey = sanitizeText(req.params.loginAccessKey || '');
+
+    if (!isValidCollectionsLoginUrlKey(loginAccessKey)) {
         return res.status(404).send('Not found');
+    }
+
+    if (!hasCollectionsAccessSession(req)) {
+        return res.redirect(`/collections-login/${encodeURIComponent(loginAccessKey)}`);
     }
 
     const filePath = path.join(__dirname, 'private', 'collections', 'collections.html');

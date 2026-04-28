@@ -212,6 +212,7 @@ body {
 
 .collections-top-link,
 .collections-refresh-btn,
+.collections-logout-btn,
 .collections-view-toggle button,
 .collections-open-link,
 .collections-copy-btn {
@@ -227,9 +228,15 @@ body {
     cursor: pointer;
 }
 
-.collections-refresh-btn:disabled {
+.collections-refresh-btn:disabled,
+.collections-logout-btn:disabled {
     opacity: 0.55;
     cursor: wait;
+}
+
+.collections-logout-btn {
+    border-color: rgba(248, 113, 113, 0.32);
+    background: rgba(248, 113, 113, 0.08);
 }
 
 .collections-stats {
