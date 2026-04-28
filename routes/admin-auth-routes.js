@@ -4,6 +4,7 @@ const express = require('express');
 const { Timestamp } = require('firebase-admin/firestore');
 const { firestore } = require('../config/firebaseAdmin');
 const academyFirestoreRepo = require('../backend/repositories/academyFirestoreRepo');
+const universeCollectionMirrorRepo = require('../backend/repositories/universeCollectionMirrorRepo');
 const paymentLedgerRepo = require('../backend/repositories/paymentLedgerRepo');
 const { sendSystemMail } = require('../controllers/authControllers');
 
@@ -3071,13 +3072,23 @@ apiRouter.post('/api/admin/academy/route-opportunity-mission', requireAdminSessi
 
     const freshLead = await academyFirestoreRepo.getLeadMissionLeadById(memberId, createdLead.id);
 
+    await universeCollectionMirrorRepo.mirrorAcademyLead({
+        action: 'admin_routed',
+        operatorUid: memberId,
+        operator: {
+            id: memberId,
+            name: operatorName
+        },
+        lead: freshLead
+    });
+
     return res.json({
-      success: true,
-      message: 'Opportunity routed to Academy Mission.',
-      mission: freshLead,
-      memberId,
-      sourceType: sourceDivision,
-      sourceId
+        success: true,
+        message: 'Opportunity routed to Academy Mission.',
+        mission: freshLead,
+        memberId,
+        sourceType: sourceDivision,
+        sourceId
     });
   } catch (error) {
     console.error('admin route opportunity mission error:', error);
@@ -3251,14 +3262,26 @@ apiRouter.post('/api/admin/academy/lead-missions/:memberId/:leadId/review', requ
     });
 
     const freshSnap = await leadRef.get();
-
-    return res.json({
-      success: true,
-      lead: {
+    const freshLeadForMirror = {
         id: freshSnap.id,
         ...(freshSnap.data() || {})
-      },
-      earning
+    };
+
+    await universeCollectionMirrorRepo.mirrorAcademyLead({
+        action: `admin_review_${decision}`,
+        operatorUid: memberId,
+        operator: {
+            id: memberId,
+            name: cleanText(userSnap.data()?.fullName || userSnap.data()?.name || userSnap.data()?.username || memberId),
+            email: cleanText(userSnap.data()?.email || '')
+        },
+        lead: freshLeadForMirror
+    });
+
+    return res.json({
+        success: true,
+        lead: freshLeadForMirror,
+        earning
     });
   } catch (error) {
     console.error('admin academy routed mission review error:', error);
@@ -3367,13 +3390,25 @@ apiRouter.post('/api/admin/academy/lead-missions/:memberId/:leadId/network', req
     });
 
     const updatedSnap = await leadRef.get();
+    const updatedLeadForMirror = {
+      id: updatedSnap.id,
+      ...(updatedSnap.data() || {})
+    };
+
+    await universeCollectionMirrorRepo.mirrorAcademyLead({
+      action: 'admin_network_updated',
+      operatorUid: memberId,
+      operator: {
+        id: memberId,
+        name: cleanText(userSnap.data()?.fullName || userSnap.data()?.name || userSnap.data()?.username || memberId),
+        email: cleanText(userSnap.data()?.email || '')
+      },
+      lead: updatedLeadForMirror
+    });
 
     return res.json({
       success: true,
-      lead: {
-        id: updatedSnap.id,
-        ...(updatedSnap.data() || {})
-      }
+      lead: updatedLeadForMirror
     });
   } catch (error) {
     console.error('admin lead mission network update error:', error);

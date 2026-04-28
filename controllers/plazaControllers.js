@@ -1,5 +1,6 @@
 const { firestore } = require('../config/firebaseAdmin');
 const { Timestamp } = require('firebase-admin/firestore');
+const universeCollectionMirrorRepo = require('../backend/repositories/universeCollectionMirrorRepo');
 
 const plazaFeedCol = firestore.collection('plazaFeedPosts');
 const plazaOpportunitiesCol = firestore.collection('plazaOpportunities');
@@ -728,10 +729,17 @@ exports.createFeedPost = async (req, res) => {
         const createdSnap = await ref.get();
 
         const hydratedPost = await hydratePlazaOwnerProfiles([mapPlazaFeedDoc(createdSnap)]);
+        const mappedPost = hydratedPost[0] || mapPlazaFeedDoc(createdSnap);
+
+        await universeCollectionMirrorRepo.mirrorPlazaFeedPost({
+            action: 'created',
+            viewer,
+            post: mappedPost
+        });
 
         return res.status(201).json({
             success: true,
-            post: hydratedPost[0] || mapPlazaFeedDoc(createdSnap)
+            post: mappedPost
         });
     } catch (error) {
         console.error('plazaControllers.createFeedPost error:', error);
@@ -871,10 +879,17 @@ exports.createOpportunity = async (req, res) => {
         const createdSnap = await ref.get();
 
         const hydratedOpportunity = await hydratePlazaOwnerProfiles([mapPlazaOpportunityDoc(createdSnap)]);
+        const mappedOpportunity = hydratedOpportunity[0] || mapPlazaOpportunityDoc(createdSnap);
+
+        await universeCollectionMirrorRepo.mirrorPlazaOpportunity({
+            action: 'created',
+            viewer,
+            opportunity: mappedOpportunity
+        });
 
         return res.status(201).json({
             success: true,
-            opportunity: hydratedOpportunity[0] || mapPlazaOpportunityDoc(createdSnap)
+            opportunity: mappedOpportunity
         });
     } catch (error) {
         console.error('plazaControllers.createOpportunity error:', error);

@@ -10,6 +10,8 @@ const plazaControllers = require('../controllers/plazaControllers');
 const aiNurtureControllers = require('../controllers/aiNurtureControllers');
 const publicLandingController = require('../controllers/publicLandingController');
 const paymentControllers = require('../controllers/paymentControllers');
+const universeCollectionsControllers = require('../controllers/universeCollectionsControllers');
+const universeCollectionsReadControllers = require('../controllers/universeCollectionsReadControllers');
 const aiNurtureGate = require('../backend/middlewares/aiNurtureGate');
 
 // ==========================================
@@ -43,6 +45,22 @@ router.post('/reset-password', authController.resetPassword);
 // ==========================================
 router.get('/universe/profile', auth, academyControllers.getUniverseProfile);
 router.get('/universe/profile/:targetUserId', auth, academyControllers.getUniverseMemberProfile);
+
+// ==========================================
+// 🗂️ YH UNIVERSE COLLECTIONS / RESOURCES ROUTES
+// ==========================================
+router.get('/universe/collections', auth, universeCollectionsControllers.listCollections);
+router.post('/universe/collections', auth, universeCollectionsControllers.createCollectionItem);
+
+// Private read routes for the secret-key Collections page.
+// These must stay above /universe/collections/:id.
+router.get('/universe/collections/bootstrap', auth, universeCollectionsReadControllers.getCollectionsBootstrap);
+router.get('/universe/collections/index', auth, universeCollectionsReadControllers.listCollectionIndex);
+router.get('/universe/collections/leads', auth, universeCollectionsReadControllers.listFederationLeadInventory);
+
+router.get('/universe/collections/:id', auth, universeCollectionsControllers.getCollectionItem);
+router.patch('/universe/collections/:id', auth, universeCollectionsControllers.updateMyCollectionItem);
+router.delete('/universe/collections/:id', auth, universeCollectionsControllers.deleteMyCollectionItem);
 
 router.post('/academy/membership-apply', auth, academyControllers.submitMembershipApplication);
 router.get('/academy/membership-status', auth, academyControllers.getMembershipStatus);

@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Collections Database | YH Universe</title>
+    <link rel="icon" type="image/avif" href="/images/logo.avif?v=20260428-private-collections-1">
+    <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260428-private-collections-1">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" id="collections-css-link">
+    <script>
+        (function () {
+            const parts = window.location.pathname.split('/').filter(Boolean);
+            const accessKey = parts[1] || '';
+            window.__YH_COLLECTIONS_ACCESS_KEY__ = accessKey;
+
+            const css = document.getElementById('collections-css-link');
+            if (css) {
+                css.href = '/collections-assets/' + encodeURIComponent(accessKey) + '/collections.css?v=20260428-private-collections-1';
+            }
+        })();
+    </script>
+</head>
+<body data-yh-page="collections-database">
+    <div class="collections-shell">
+        <header class="collections-topbar">
+            <a href="/dashboard" class="collections-brand" aria-label="Back to dashboard">
+                <img src="/images/logo.avif" alt="YH Universe">
+                <span>YH Collections</span>
+            </a>
+
+            <div class="collections-top-actions">
+                <a href="/dashboard" class="collections-top-link">Dashboard</a>
+                <button type="button" class="collections-refresh-btn" id="collections-refresh-btn">Refresh</button>
+            </div>
+        </header>
+
+        <main class="collections-main">
+            <section class="collections-hero">
+                <div class="collections-hero-copy">
+                    <div class="collections-kicker">Private Universe Database</div>
+                    <h1>Collections</h1>
+                    <p>
+                        Central private database for mirrored Universe inputs from Academy, Plaza, and Federation.
+                        This page reads member/operator-submitted resources, opportunities, and lead marketplace records from the new Firestore database.
+                    </p>
+                </div>
+
+                <div class="collections-hero-card">
+                    <span>Access Mode</span>
+                    <strong>Secret Key Protected</strong>
+                    <p>Only users with the private URL and valid login access can open this view.</p>
+                </div>
+            </section>
+
+            <section class="collections-stats" aria-label="Collections overview">
+                <article class="collections-stat-card">
+                    <span>Total Items</span>
+                    <strong id="collections-stat-total">0</strong>
+                </article>
+
+                <article class="collections-stat-card">
+                    <span>Lead Marketplace</span>
+                    <strong id="collections-stat-leads">0</strong>
+                </article>
+
+                <article class="collections-stat-card">
+                    <span>Approved / Listed</span>
+                    <strong id="collections-stat-approved">0</strong>
+                </article>
+
+                <article class="collections-stat-card">
+                    <span>Monetized</span>
+                    <strong id="collections-stat-monetized">0</strong>
+                </article>
+            </section>
+
+            <section class="collections-panel">
+                <div class="collections-tabs" role="tablist" aria-label="Collection modes">
+                    <button type="button" class="collections-tab is-active" data-collections-mode="all">All</button>
+                    <button type="button" class="collections-tab" data-collections-mode="resources">Resources</button>
+                    <button type="button" class="collections-tab" data-collections-mode="leads">Lead Marketplace</button>
+                    <button type="button" class="collections-tab" data-collections-mode="opportunities">Opportunities</button>
+                    <button type="button" class="collections-tab" data-collections-mode="mine">My Submissions</button>
+                    <button type="button" class="collections-tab" data-collections-mode="pending">Pending Review</button>
+                </div>
+
+                <div class="collections-filter-row">
+                    <label class="collections-search">
+                        <span>Search</span>
+                        <input id="collections-search-input" type="search" placeholder="Search title, tags, category, division...">
+                    </label>
+
+                    <label>
+                        <span>Division</span>
+                        <select id="collections-division-filter">
+                            <option value="all">All divisions</option>
+                            <option value="academy">Academy</option>
+                            <option value="plaza">Plaza</option>
+                            <option value="federation">Federation</option>
+                            <option value="universe">Universe</option>
+                        </select>
+                    </label>
+
+                    <label>
+                        <span>Status</span>
+                        <select id="collections-status-filter">
+                            <option value="all">All statuses</option>
+                            <option value="approved">Approved</option>
+                            <option value="listed">Listed</option>
+                            <option value="pending_review">Pending Review</option>
+                            <option value="rejected">Rejected</option>
+                            <option value="archived">Archived</option>
+                        </select>
+                    </label>
+                </div>
+
+                <div class="collections-state collections-loading" id="collections-loading">
+                    Loading Universe Collections...
+                </div>
+
+                <div class="collections-state collections-error hidden-step" id="collections-error"></div>
+
+                <div class="collections-grid" id="collections-grid" aria-live="polite"></div>
+
+                <div class="collections-state collections-empty hidden-step" id="collections-empty">
+                    No collection items found yet.
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        (function () {
+            const accessKey = window.__YH_COLLECTIONS_ACCESS_KEY__ || '';
+            const script = document.createElement('script');
+            script.src = '/collections-assets/' + encodeURIComponent(accessKey) + '/collections.js?v=20260428-private-collections-1';
+            script.defer = true;
+            document.body.appendChild(script);
+        })();
+    </script>
+</body>
+</html>

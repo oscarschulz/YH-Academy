@@ -6,4 +6,16 @@ node_modules/
 
 google-credentials.json
 config/firebase-service-account.json
-config/firebase-service-account.*.json
+config/firebase-service-account.*.jsonconfig/yhu-database-service-account.json
+collections-service-account.base64.txt
+
+# Firebase service account keys - DO NOT COMMIT
+/config/yhu-database-service-account.json
+/collections-service-account.base64.txt
+*service-account*.json
+*.service-account.json
+
+.env
+.env.local
+.env.production
+.env.development

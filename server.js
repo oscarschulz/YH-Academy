@@ -2390,6 +2390,8 @@ if (
     p === '/plaza' ||
     p === '/plaza/' ||
     p === '/plaza.html' ||
+    p.startsWith('/collections/') ||
+    p.startsWith('/collections-assets/') ||
     p === '/js/dashboard.js' ||
     p === '/js/academy.js' ||
     p === '/js/plaza.js' ||
@@ -2430,6 +2432,76 @@ app.use('/uploads', express.static(ACADEMY_UPLOADS_ROOT, {
         res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     }
 }));
+
+function getCollectionsPageAccessKey() {
+    return sanitizeText(process.env.YH_COLLECTIONS_PAGE_ACCESS_KEY || '');
+}
+
+function isValidCollectionsPageKey(value = '') {
+    const expected = getCollectionsPageAccessKey();
+    const received = sanitizeText(value);
+
+    if (!expected || !received) return false;
+
+    try {
+        const a = Buffer.from(expected, 'utf8');
+        const b = Buffer.from(received, 'utf8');
+
+        if (a.length !== b.length) return false;
+
+        return crypto.timingSafeEqual(a, b);
+    } catch (_) {
+        return false;
+    }
+}
+
+function sendPrivateCollectionsFile(req, res, fileName = '') {
+    const accessKey = sanitizeText(req.params.accessKey || '');
+
+    if (!isValidCollectionsPageKey(accessKey)) {
+        return res.status(404).send('Not found');
+    }
+
+    const privateCollectionsDir = path.join(__dirname, 'private', 'collections');
+    const safeFileName = sanitizeText(fileName).replace(/[^a-zA-Z0-9._-]/g, '');
+    const filePath = path.join(privateCollectionsDir, safeFileName);
+
+    if (!filePath.startsWith(privateCollectionsDir)) {
+        return res.status(404).send('Not found');
+    }
+
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
+
+    return res.sendFile(filePath);
+}
+
+app.get('/collections/:accessKey', (req, res) => {
+    const accessKey = sanitizeText(req.params.accessKey || '');
+
+    if (!isValidCollectionsPageKey(accessKey)) {
+        return res.status(404).send('Not found');
+    }
+
+    const filePath = path.join(__dirname, 'private', 'collections', 'collections.html');
+
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
+
+    return res.sendFile(filePath);
+});
+
+app.get('/collections-assets/:accessKey/collections.css', (req, res) => {
+    return sendPrivateCollectionsFile(req, res, 'collections.css');
+});
+
+app.get('/collections-assets/:accessKey/collections.js', (req, res) => {
+    return sendPrivateCollectionsFile(req, res, 'collections.js');
+});
 
 app.use((req, res, next) => {
     const pathName = String(req.path || '').replace(/\/+$/, '') || '/';
@@ -2553,6 +2625,7 @@ const apiLimiter = rateLimit({
             if (path === '/plaza/bridge' || path.startsWith('/plaza/bridge/')) return true;
             if (path === '/plaza/requests' || path.startsWith('/plaza/requests/')) return true;
             if (path === '/plaza/messages' || path.startsWith('/plaza/messages/')) return true;
+            if (path === '/universe/collections' || path.startsWith('/universe/collections/')) return true;
         }
 
         return false;

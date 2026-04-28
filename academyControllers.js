@@ -5,6 +5,7 @@ const academyFirestoreRepo = require('./backend/repositories/academyFirestoreRep
 const academyCommunityRepo = require('./backend/repositories/academyCommunityFirestoreRepo');
 const academyPlannerKnowledgeContext = require('./backend/services/academyPlannerKnowledgeContext');
 const publicLandingEventsRepo = require('./backend/repositories/publicLandingEventsRepo');
+const universeCollectionMirrorRepo = require('./backend/repositories/universeCollectionMirrorRepo');
 const { firestore } = require('./config/firebaseAdmin');
 
 const ACADEMY_UPLOADS_ROOT = path.resolve(
@@ -6306,6 +6307,21 @@ exports.submitRoutedLeadMission = async (req, res) => {
                 updatedAt: Timestamp.now()
             }, { merge: true });
 
+        await universeCollectionMirrorRepo.mirrorAcademyLead({
+            action: 'submitted_for_review',
+            operatorUid: uid,
+            operator: req.user,
+            lead: {
+                ...updatedLead,
+                id: leadId,
+                assignmentStatus: 'submitted',
+                reviewStatus: 'pending_review',
+                completionProof,
+                submittedByUid: uid,
+                submittedByName: sanitize(req.user?.name || req.user?.username || 'Operator')
+            }
+        });
+
         return res.json({
             success: true,
             message: 'Mission submitted for admin review.',
@@ -6373,6 +6389,13 @@ exports.createLeadMissionLead = async (req, res) => {
         }
 
         const lead = await academyFirestoreRepo.createLeadMissionLead(uid, payload);
+
+        await universeCollectionMirrorRepo.mirrorAcademyLead({
+            action: 'created',
+            operatorUid: uid,
+            operator: req.user,
+            lead
+        });
 
         return res.status(201).json({
             success: true,
@@ -6450,6 +6473,13 @@ exports.updateMyLeadMissionLead = async (req, res) => {
                 message: 'Lead not found.'
             });
         }
+
+        await universeCollectionMirrorRepo.mirrorAcademyLead({
+            action: 'updated',
+            operatorUid: uid,
+            operator: req.user,
+            lead
+        });
 
         return res.json({
             success: true,
