@@ -9039,6 +9039,57 @@ function dashboardGetVerificationBadgeStatus(profile = {}, division = 'academy')
     return String(badge.status || '').trim().toLowerCase();
 }
 
+function dashboardGetVerificationBadgeSnapshot(profile = {}, division = 'academy') {
+    const cleanDivision = division === 'federation' ? 'federation' : 'academy';
+    const badges = profile?.verificationBadges && typeof profile.verificationBadges === 'object'
+        ? profile.verificationBadges
+        : {};
+
+    return badges[cleanDivision] && typeof badges[cleanDivision] === 'object'
+        ? badges[cleanDivision]
+        : {};
+}
+
+function dashboardIsVerificationBadgePaymentPending(profile = {}, division = 'academy') {
+    const badge = dashboardGetVerificationBadgeSnapshot(profile, division);
+
+    const status = String(badge.status || '').trim().toLowerCase();
+    const paymentStatus = String(badge.paymentStatus || '').trim().toLowerCase();
+    const provider = String(badge.provider || '').trim().toLowerCase();
+
+    const automatedProviders = new Set(['stripe', 'paypal', 'oxapay']);
+    const cancelledOrInactiveStatuses = new Set([
+        'checkout_started',
+        'cancelled',
+        'canceled',
+        'expired',
+        'failed',
+        'void',
+        'abandoned'
+    ]);
+
+    if (badge.active === true || status === 'active' || status === 'verified') {
+        return false;
+    }
+
+    if (
+        automatedProviders.has(provider) &&
+        (
+            cancelledOrInactiveStatuses.has(status) ||
+            cancelledOrInactiveStatuses.has(paymentStatus)
+        )
+    ) {
+        return false;
+    }
+
+    if (paymentStatus === 'checkout_started') {
+        return false;
+    }
+
+    return ['pending', 'pending_payment', 'draft', 'manual_pending'].includes(status) ||
+        ['pending', 'pending_payment', 'draft', 'manual_pending'].includes(paymentStatus);
+}
+
 function dashboardCanShowBadgeAvailButton(profile = {}, division = 'academy') {
     const cleanDivision = division === 'federation' ? 'federation' : 'academy';
     const divisions = normalizeYHUniverseDivisionMap(profile?.divisions || {});
@@ -9051,8 +9102,7 @@ function dashboardRenderVerifiedBadgeAvailButton(profile = {}, division = 'acade
     const cleanDivision = division === 'federation' ? 'federation' : 'academy';
 
     const activeBadge = academyGetVerificationBadge(profile, cleanDivision);
-    const status = dashboardGetVerificationBadgeStatus(profile, cleanDivision);
-    const isPending = ['pending', 'pending_payment', 'draft', 'checkout_started'].includes(status);
+    const isPending = dashboardIsVerificationBadgePaymentPending(profile, cleanDivision);
 
     if (activeBadge) {
         return `

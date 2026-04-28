@@ -135,9 +135,24 @@ function getVerifiedBadgePaymentRecordId(viewerId = '', division = '') {
 }
 
 function buildPendingVerifiedBadgePayload(plan = {}, payment = {}) {
+    const provider = cleanLower(payment.provider || 'unselected');
+    const paymentStatus = cleanLower(payment.status || 'draft');
+    const providerStatus = cleanLower(payment.providerStatus || '');
+
+    const isAutomatedCheckoutProvider = ['stripe', 'paypal', 'oxapay'].includes(provider);
+
+    const badgeStatus =
+        isAutomatedCheckoutProvider && paymentStatus === 'checkout_started'
+            ? 'checkout_started'
+            : paymentStatus === 'cancelled' || paymentStatus === 'canceled'
+                ? 'cancelled'
+                : paymentStatus === 'expired' || paymentStatus === 'failed'
+                    ? paymentStatus
+                    : 'pending_payment';
+
     return {
         active: false,
-        status: 'pending_payment',
+        status: badgeStatus,
         code: cleanText(plan.code),
         division: cleanText(plan.division),
         amountMonthly: toNumber(plan.amountMonthly, 0),
@@ -145,7 +160,10 @@ function buildPendingVerifiedBadgePayload(plan = {}, payment = {}) {
         interval: cleanText(plan.interval || 'month'),
         asset: cleanText(plan.asset),
         paymentLedgerId: cleanText(payment.id),
-        paymentStatus: cleanText(payment.status || 'draft'),
+        paymentStatus: paymentStatus || 'draft',
+        provider,
+        providerStatus,
+        paymentMethod: cleanText(payment.paymentMethod || 'unselected'),
         updatedAt: new Date().toISOString()
     };
 }
