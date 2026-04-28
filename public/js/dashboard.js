@@ -11545,7 +11545,7 @@ async function deleteDashboardAccountWithPassword(button = null) {
 
     const confirmed = await openYHConfirmModal({
         title: 'Delete your YH Universe account?',
-        message: 'Your account will be disabled and you will be logged out.',
+        message: 'Your account will be permanently deleted from the database and you will be logged out.',
         okText: 'Delete Account',
         cancelText: 'Cancel',
         tone: 'danger'

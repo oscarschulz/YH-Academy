@@ -4765,6 +4765,44 @@ exports.deleteCurrentProfile = async (req, res) => {
         });
     }
 };
+async function hardDeleteUserAccountFromFirestore(userRef) {
+    if (!userRef || typeof userRef.delete !== 'function') {
+        throw new Error('Invalid user reference for account deletion.');
+    }
+
+    if (firestore && typeof firestore.recursiveDelete === 'function') {
+        await firestore.recursiveDelete(userRef);
+        return {
+            mode: 'recursiveDelete',
+            userDocumentDeleted: true,
+            userSubcollectionsDeleted: true
+        };
+    }
+
+    await userRef.delete();
+
+    return {
+        mode: 'documentDelete',
+        userDocumentDeleted: true,
+        userSubcollectionsDeleted: false
+    };
+}
+
+function buildExpiredAuthCookie() {
+    const cookieParts = [
+        'yh_auth_token=',
+        'HttpOnly',
+        'Path=/',
+        'SameSite=Strict',
+        'Max-Age=0'
+    ];
+
+    if (process.env.NODE_ENV === 'production') {
+        cookieParts.push('Secure');
+    }
+
+    return cookieParts.join('; ');
+}
 exports.deleteCurrentAccount = async (req, res) => {
     try {
         const uid = getAcademyAuthUid(req);
@@ -4818,57 +4856,16 @@ exports.deleteCurrentAccount = async (req, res) => {
             });
         }
 
-        const nowIso = new Date().toISOString();
+        const deletionResult = await hardDeleteUserAccountFromFirestore(userRef);
 
-        try {
-            await academyFirestoreRepo.deleteCurrentProfile(uid);
-        } catch (profileError) {
-            console.warn('deleteCurrentAccount profile cleanup skipped:', profileError?.message || profileError);
-        }
-
-        await userRef.set(
-            {
-                accountDeleted: true,
-                accountStatus: 'deleted',
-                deletedAt: nowIso,
-                updatedAt: nowIso,
-
-                displayName: 'Deleted Account',
-                fullName: 'Deleted Account',
-                name: 'Deleted Account',
-                username: `deleted_${uid.slice(0, 8)}`,
-                bio: '',
-                profileBio: '',
-                avatar: '',
-                profilePhoto: '',
-                photoURL: '',
-                coverPhoto: '',
-                searchTags: [],
-
-                password: '',
-                passwordHash: '',
-                passwordClearedAt: nowIso
-            },
-            { merge: true }
-        );
-
-        const cookieParts = [
-            'yh_auth_token=',
-            'HttpOnly',
-            'Path=/',
-            'SameSite=Strict',
-            'Max-Age=0'
-        ];
-
-        if (process.env.NODE_ENV === 'production') {
-            cookieParts.push('Secure');
-        }
-
-        res.setHeader('Set-Cookie', cookieParts.join('; '));
+        res.setHeader('Set-Cookie', buildExpiredAuthCookie());
 
         return res.json({
             success: true,
             deleted: true,
+            hardDeleted: true,
+            uid,
+            deletion: deletionResult,
             message: 'Account deleted successfully.'
         });
     } catch (error) {
