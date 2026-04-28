@@ -60,6 +60,7 @@ function normalizePaymentProvider(value = 'unselected') {
     const raw = cleanLower(value || 'unselected');
 
     if (raw === 'stripe') return 'stripe';
+    if (raw === 'paypal' || raw === 'ewallet' || raw === 'e-wallet') return 'paypal';
     if (raw === 'oxapay') return 'oxapay';
     if (raw === 'manual') return 'manual';
 
@@ -132,7 +133,7 @@ function mapPaymentRecordDoc(docSnap) {
         payerName: cleanText(data.payerName),
 
         provider: normalizePaymentProvider(data.provider),
-        providerOptions: Array.isArray(data.providerOptions) ? data.providerOptions : ['stripe', 'oxapay'],
+        providerOptions: Array.isArray(data.providerOptions) ? data.providerOptions : ['stripe', 'paypal', 'oxapay'],
         providerPaymentId: cleanText(data.providerPaymentId),
         providerCheckoutUrl: cleanText(data.providerCheckoutUrl),
         providerStatus: cleanText(data.providerStatus),
@@ -228,7 +229,7 @@ async function upsertPaymentRecord(input = {}) {
         provider: normalizePaymentProvider(input.provider || 'unselected'),
         providerOptions: Array.isArray(input.providerOptions) && input.providerOptions.length
             ? input.providerOptions.map(normalizePaymentProvider).filter((item) => item !== 'unselected')
-            : ['stripe', 'oxapay'],
+            : ['stripe', 'paypal', 'oxapay'],
         providerPaymentId: cleanText(input.providerPaymentId),
         providerCheckoutUrl: cleanText(input.providerCheckoutUrl),
         providerStatus: cleanText(input.providerStatus),

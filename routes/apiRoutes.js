@@ -146,8 +146,10 @@ router.post('/plaza/messages/:id/replies', auth, plazaControllers.createConversa
 // ==========================================
 router.get('/payments/options', auth, paymentControllers.getPaymentOptions);
 router.get('/payments/my-ledger', auth, paymentControllers.listMyPayments);
+router.get('/payments/badges/paypal/return', paymentControllers.captureVerifiedBadgePayPalReturn);
 router.post('/payments/badges/:division/ledger', auth, paymentControllers.createVerifiedBadgePaymentLedger);
 router.post('/payments/badges/:division/checkout-session', auth, paymentControllers.createVerifiedBadgeStripeCheckoutSession);
+router.post('/payments/badges/:division/paypal-order', auth, paymentControllers.createVerifiedBadgePayPalOrder);
 router.post('/payments/badges/:division/oxapay-invoice', auth, paymentControllers.createVerifiedBadgeOxaPayInvoice);
 router.post('/payments/federation/connect/requests/:requestId/ledger', auth, paymentControllers.createFederationPaidIntroLedger);
 router.post('/payments/plaza/opportunities/:opportunityId/ledger', auth, paymentControllers.createPlazaOpportunityPaymentLedger);
