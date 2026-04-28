@@ -1535,6 +1535,21 @@ function bootYHWalletDeepLink() {
 }
 
 function bootYHWalletPanel() {
+    document.getElementById('btn-open-dashboard-profile-editor')?.addEventListener('click', () => {
+        const openProfileEditor =
+            typeof window.openDashboardUniverseProfileEditor === 'function'
+                ? window.openDashboardUniverseProfileEditor
+                : null;
+
+        if (!openProfileEditor) {
+            console.error('Dashboard profile editor opener is not available yet.');
+            showToast('Profile editor is still loading. Please try again.', 'error');
+            return;
+        }
+
+        openProfileEditor();
+    });
+
     document.getElementById('btn-open-yh-wallet')?.addEventListener('click', openYHWalletModal);
     document.getElementById('yh-wallet-close')?.addEventListener('click', closeYHWalletModal);
     document.getElementById('yh-wallet-refresh')?.addEventListener('click', () => {
@@ -9268,15 +9283,201 @@ async function dashboardCreateVerifiedBadgeLedger(division = 'academy', button =
     }
 }
 
-function getBadgePaymentMethodForDashboardProvider(provider = '') {
-    const clean = String(provider || '').trim().toLowerCase();
+let dashboardBadgePaymentProviderConfigCache = null;
+let dashboardBadgePaymentProviderConfigPromise = null;
 
-    if (clean === 'stripe') return 'card_bank_wallet';
-    if (clean === 'paypal') return 'ewallet';
-    if (clean === 'oxapay') return 'crypto';
-    if (clean === 'manual') return 'manual';
+function normalizeDashboardBadgeProviderStatus(value = '') {
+    const clean = String(value || '').trim().toLowerCase();
 
-    return 'unselected';
+    if (clean === 'active' || clean === 'enabled' || clean === 'ready') return 'active';
+    if (clean === 'fallback' || clean === 'manual') return 'fallback';
+    if (clean === 'setup_required' || clean === 'missing_keys' || clean === 'disabled') return 'setup_required';
+
+    return clean || 'setup_required';
+}
+
+function dashboardGetBadgeProviderConfig(provider = '') {
+    const cleanProvider = String(provider || '').trim().toLowerCase();
+
+    if (!cleanProvider) {
+        return {
+            id: '',
+            label: 'Payment Method',
+            status: 'setup_required',
+            configured: false
+        };
+    }
+
+    if (dashboardBadgePaymentProviderConfigCache?.[cleanProvider]) {
+        return dashboardBadgePaymentProviderConfigCache[cleanProvider];
+    }
+
+    if (cleanProvider === 'manual') {
+        return {
+            id: 'manual',
+            label: 'Manual Admin Payment',
+            status: 'fallback',
+            configured: true
+        };
+    }
+
+    return {
+        id: cleanProvider,
+        label: cleanProvider === 'stripe'
+            ? 'Card / Bank / Wallet Payment'
+            : cleanProvider === 'paypal'
+                ? 'E-Wallet Payment'
+                : cleanProvider === 'oxapay'
+                    ? 'Crypto Payment'
+                    : 'Payment Method',
+        status: 'active',
+        configured: true
+    };
+}
+
+function dashboardIsBadgeProviderSelectable(provider = '') {
+    const cleanProvider = String(provider || '').trim().toLowerCase();
+    const config = dashboardGetBadgeProviderConfig(cleanProvider);
+    const status = normalizeDashboardBadgeProviderStatus(config?.status || '');
+
+    if (cleanProvider === 'manual') return true;
+
+    return config?.configured === true && status === 'active';
+}
+
+function dashboardSelectBadgePaymentOption(modal = null, preferredProvider = 'stripe') {
+    const root = modal || document.getElementById('yh-badge-avail-modal');
+    if (!root) return false;
+
+    const options = Array.from(root.querySelectorAll('.yh-badge-payment-option'));
+    const selectableOptions = options.filter((option) => (
+        !option.disabled &&
+        !option.classList.contains('is-disabled') &&
+        option.getAttribute('aria-disabled') !== 'true'
+    ));
+
+    const cleanPreferred = String(preferredProvider || '').trim().toLowerCase() || 'stripe';
+    const providerOrder = [cleanPreferred, 'stripe', 'paypal', 'oxapay', 'manual']
+        .filter((provider, index, values) => provider && values.indexOf(provider) === index);
+
+    const selectedOption = providerOrder
+        .map((provider) => selectableOptions.find((option) => (
+            option.getAttribute('data-yh-badge-payment-provider') === provider
+        )))
+        .find(Boolean) || selectableOptions[0] || null;
+
+    options.forEach((option) => {
+        option.classList.toggle('is-selected', option === selectedOption);
+    });
+
+    if (!selectedOption) return false;
+
+    dashboardBadgeAvailModalState.provider =
+        selectedOption.getAttribute('data-yh-badge-payment-provider') || 'manual';
+
+    dashboardBadgeAvailModalState.paymentMethod =
+        selectedOption.getAttribute('data-yh-badge-payment-method') ||
+        getBadgePaymentMethodForDashboardProvider(dashboardBadgeAvailModalState.provider);
+
+    return true;
+}
+
+function dashboardApplyBadgePaymentProviderStatuses(modal = null, options = {}) {
+    const root = modal || document.getElementById('yh-badge-avail-modal');
+    if (!root) return;
+
+    const isLoading = options.loading === true;
+
+    root.querySelectorAll('.yh-badge-payment-option').forEach((option) => {
+        const provider = String(option.getAttribute('data-yh-badge-payment-provider') || '').trim().toLowerCase();
+        const config = dashboardGetBadgeProviderConfig(provider);
+        const status = normalizeDashboardBadgeProviderStatus(config?.status || '');
+        const selectable = provider === 'manual' || (!isLoading && dashboardIsBadgeProviderSelectable(provider));
+        const statusEl = option.querySelector('.yh-badge-payment-status');
+
+        option.disabled = !selectable;
+        option.classList.toggle('is-disabled', !selectable);
+        option.classList.toggle('is-selected', selectable && option.classList.contains('is-selected'));
+        option.setAttribute('aria-disabled', selectable ? 'false' : 'true');
+        option.title = selectable
+            ? ''
+            : `${config?.label || 'This payment method'} is not configured yet.`;
+
+        if (statusEl) {
+            if (isLoading && provider !== 'manual') {
+                statusEl.textContent = 'Checking...';
+            } else if (!selectable) {
+                statusEl.textContent = 'Setup Required';
+            } else if (provider === 'manual' || status === 'fallback') {
+                statusEl.textContent = 'Fallback';
+            } else {
+                statusEl.textContent = 'Active';
+            }
+        }
+    });
+
+    const currentProvider = dashboardBadgeAvailModalState.provider || 'stripe';
+
+    if (
+        !dashboardBadgeAvailModalState.paymentProviderSelectionTouched ||
+        !dashboardIsBadgeProviderSelectable(currentProvider)
+    ) {
+        dashboardSelectBadgePaymentOption(root, isLoading ? 'manual' : 'stripe');
+    }
+}
+
+async function hydrateDashboardBadgePaymentProviderConfig(forceFresh = false) {
+    if (!forceFresh && dashboardBadgePaymentProviderConfigCache) {
+        return dashboardBadgePaymentProviderConfigCache;
+    }
+
+    if (!forceFresh && dashboardBadgePaymentProviderConfigPromise) {
+        return dashboardBadgePaymentProviderConfigPromise;
+    }
+
+    dashboardBadgePaymentProviderConfigPromise = academyAuthedFetch('/api/payments/options', {
+        method: 'GET'
+    })
+        .then((result) => {
+            const providers = Array.isArray(result?.paymentProviders)
+                ? result.paymentProviders
+                : [];
+
+            const nextConfig = {};
+
+            providers.forEach((provider) => {
+                const id = String(provider?.id || '').trim().toLowerCase();
+                if (!id) return;
+
+                nextConfig[id] = {
+                    ...provider,
+                    id,
+                    status: normalizeDashboardBadgeProviderStatus(provider?.status || ''),
+                    configured:
+                        provider?.configured === true ||
+                        normalizeDashboardBadgeProviderStatus(provider?.status || '') === 'active' ||
+                        normalizeDashboardBadgeProviderStatus(provider?.status || '') === 'fallback'
+                };
+            });
+
+            dashboardBadgePaymentProviderConfigCache = {
+                stripe: nextConfig.stripe || dashboardGetBadgeProviderConfig('stripe'),
+                paypal: nextConfig.paypal || dashboardGetBadgeProviderConfig('paypal'),
+                oxapay: nextConfig.oxapay || dashboardGetBadgeProviderConfig('oxapay'),
+                manual: nextConfig.manual || dashboardGetBadgeProviderConfig('manual')
+            };
+
+            return dashboardBadgePaymentProviderConfigCache;
+        })
+        .catch((error) => {
+            console.warn('hydrateDashboardBadgePaymentProviderConfig error:', error);
+            return dashboardBadgePaymentProviderConfigCache;
+        })
+        .finally(() => {
+            dashboardBadgePaymentProviderConfigPromise = null;
+        });
+
+    return dashboardBadgePaymentProviderConfigPromise;
 }
 let dashboardBadgeAvailModalState = {
     division: 'academy',
@@ -9284,7 +9485,8 @@ let dashboardBadgeAvailModalState = {
     step: 'overview',
     provider: 'manual',
     paymentMethod: 'manual',
-    payment: null
+    payment: null,
+    paymentProviderSelectionTouched: false
 };
 
 function dashboardGetVerifiedBadgePlanMeta(division = 'academy') {
@@ -9357,7 +9559,7 @@ function ensureDashboardBadgeAvailModal() {
 
                     <div class="yh-badge-avail-step">
                         <span>2</span>
-                        <p>Choose a payment method. Manual admin payment is available now.</p>
+                        <p>Choose Stripe, PayPal, OxaPay, or manual admin payment. Unconfigured automated providers are disabled until their keys are added.</p>
                     </div>
 
                     <div class="yh-badge-avail-step">
@@ -9387,12 +9589,20 @@ function ensureDashboardBadgeAvailModal() {
                 </div>
 
                 <div class="yh-badge-payment-options">
+                    <button type="button" class="yh-badge-payment-option" data-yh-badge-payment-provider="stripe" data-yh-badge-payment-method="card_bank_wallet">
+                        <span class="yh-badge-payment-option-main">
+                            <strong>Card / Bank / Wallet Payment</strong>
+                            <small>Pay securely through Stripe Checkout.</small>
+                        </span>
+                        <span class="yh-badge-payment-status">Checking...</span>
+                    </button>
+
                     <button type="button" class="yh-badge-payment-option" data-yh-badge-payment-provider="paypal" data-yh-badge-payment-method="ewallet">
                         <span class="yh-badge-payment-option-main">
                             <strong>E-Wallet Payment</strong>
                             <small>Pay globally through PayPal e-wallet checkout.</small>
                         </span>
-                        <span class="yh-badge-payment-status">Active</span>
+                        <span class="yh-badge-payment-status">Checking...</span>
                     </button>
 
                     <button type="button" class="yh-badge-payment-option" data-yh-badge-payment-provider="oxapay" data-yh-badge-payment-method="crypto">
@@ -9400,7 +9610,7 @@ function ensureDashboardBadgeAvailModal() {
                             <strong>Crypto Payment</strong>
                             <small>Pay through an OxaPay crypto invoice.</small>
                         </span>
-                        <span class="yh-badge-payment-status">Active</span>
+                        <span class="yh-badge-payment-status">Checking...</span>
                     </button>
 
                     <button type="button" class="yh-badge-payment-option" data-yh-badge-payment-provider="manual" data-yh-badge-payment-method="manual">
@@ -9475,17 +9685,20 @@ function ensureDashboardBadgeAvailModal() {
         if (paymentOption) {
             event.preventDefault();
 
-            dashboardBadgeAvailModalState.provider =
-                paymentOption.getAttribute('data-yh-badge-payment-provider') || 'manual';
+            if (
+                paymentOption.disabled ||
+                paymentOption.classList.contains('is-disabled') ||
+                paymentOption.getAttribute('aria-disabled') === 'true'
+            ) {
+                showToast('This payment method is not configured yet. Choose another option or add the missing keys first.', 'error');
+                return;
+            }
 
-            dashboardBadgeAvailModalState.paymentMethod =
-                paymentOption.getAttribute('data-yh-badge-payment-method') || 'manual';
-
-            modal.querySelectorAll('.yh-badge-payment-option').forEach((option) => {
-                option.classList.remove('is-selected');
-            });
-
-            paymentOption.classList.add('is-selected');
+            dashboardBadgeAvailModalState.paymentProviderSelectionTouched = true;
+            dashboardSelectBadgePaymentOption(
+                modal,
+                paymentOption.getAttribute('data-yh-badge-payment-provider') || 'manual'
+            );
             return;
         }
 
@@ -9498,6 +9711,12 @@ function ensureDashboardBadgeAvailModal() {
         const sourceButton = dashboardBadgeAvailModalState.button || null;
         const provider = dashboardBadgeAvailModalState.provider || 'manual';
         const paymentMethod = dashboardBadgeAvailModalState.paymentMethod || 'manual';
+
+        if (!dashboardIsBadgeProviderSelectable(provider)) {
+            showToast('This payment method is not configured yet. Choose another option or add the missing keys first.', 'error');
+            dashboardApplyBadgePaymentProviderStatuses(modal);
+            return;
+        }
 
         confirmButton.disabled = true;
         confirmButton.setAttribute('aria-busy', 'true');
@@ -9555,7 +9774,8 @@ function openDashboardBadgeAvailModal(division = 'academy', button = null) {
         step: 'overview',
         provider: 'stripe',
         paymentMethod: 'card_bank_wallet',
-        payment: null
+        payment: null,
+        paymentProviderSelectionTouched: false
     };
 
     const iconWrap = modal.querySelector('#yh-badge-avail-icon-wrap');
@@ -9577,12 +9797,15 @@ function openDashboardBadgeAvailModal(division = 'academy', button = null) {
     if (title) title.textContent = plan.name;
     if (summary) summary.textContent = plan.summary;
     if (amount) amount.textContent = plan.amount;
-    modal.querySelectorAll('.yh-badge-payment-option').forEach((option) => {
-        option.classList.toggle(
-            'is-selected',
-            option.getAttribute('data-yh-badge-payment-provider') === 'stripe'
-        );
-    });
+
+    dashboardApplyBadgePaymentProviderStatuses(modal, { loading: true });
+    hydrateDashboardBadgePaymentProviderConfig()
+        .then(() => {
+            dashboardApplyBadgePaymentProviderStatuses(modal);
+        })
+        .catch(() => {
+            dashboardApplyBadgePaymentProviderStatuses(modal);
+        });
 
     dashboardSetBadgeAvailModalStep('overview');
     modal.classList.remove('hidden-step');
@@ -10194,12 +10417,13 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
         primaryAction.disabled = false;
         delete primaryAction.dataset.memberProfileId;
         delete primaryAction.dataset.friendRequestId;
-        primaryAction.dataset.actionRank = isSelf ? 'own-primary-community' : 'visited-secondary-follow';
+        delete primaryAction.dataset.profileAction;
+        primaryAction.dataset.actionRank = isSelf ? 'own-primary-hidden' : 'visited-secondary-follow';
 
         if (isSelf) {
-            primaryAction.innerText = 'Edit Profile';
-            primaryAction.dataset.profileAction = 'edit-universe-profile';
-            primaryAction.setAttribute('aria-label', 'Edit YH Universe Profile');
+            primaryAction.innerText = '';
+            primaryAction.classList.add('hidden-step');
+            primaryAction.setAttribute('aria-label', 'Edit Profile moved to dashboard top bar');
         } else {
             primaryAction.innerText = normalized.followedByMe ? 'Following' : 'Follow';
             primaryAction.dataset.profileAction = 'toggle-follow';
@@ -11377,6 +11601,9 @@ function openDashboardUniverseProfileEditor() {
 function closeDashboardUniverseProfileEditor() {
     document.getElementById('yh-dashboard-profile-editor-overlay')?.classList.add('hidden-step');
 }
+
+window.openDashboardUniverseProfileEditor = openDashboardUniverseProfileEditor;
+window.closeDashboardUniverseProfileEditor = closeDashboardUniverseProfileEditor;
 
 async function saveDashboardUniverseProfile(button = null) {
     const displayName = String(document.getElementById('yh-dashboard-profile-display-name')?.value || '').trim();

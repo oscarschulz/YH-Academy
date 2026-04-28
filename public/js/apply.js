@@ -851,7 +851,6 @@ function bindLandingGlobeResize() {
 
     if (window.visualViewport) {
         window.visualViewport.addEventListener('resize', schedule, { passive: true });
-        window.visualViewport.addEventListener('scroll', schedule, { passive: true });
     }
 }
 
@@ -862,13 +861,17 @@ function startLandingCloudSpin() {
 
     const CLOUDS_ROTATION_SPEED = -0.006; // deg/frame, aligned with repo example motion
 
-    const tick = () => {
-        if (yhLandingCloudsMesh && !document.hidden) {
-            yhLandingCloudsMesh.rotation.y += (CLOUDS_ROTATION_SPEED * Math.PI) / 180;
-        }
+        const tick = () => {
+            if (
+                yhLandingCloudsMesh &&
+                !document.hidden &&
+                !document.body?.classList.contains('yh-landing-is-scrolling')
+            ) {
+                yhLandingCloudsMesh.rotation.y += (CLOUDS_ROTATION_SPEED * Math.PI) / 180;
+            }
 
-        yhLandingMapSpinRaf = requestAnimationFrame(tick);
-    };
+            yhLandingMapSpinRaf = requestAnimationFrame(tick);
+        };
 
     yhLandingMapSpinRaf = requestAnimationFrame(tick);
 }
@@ -927,7 +930,11 @@ function addLandingGlobeClouds(world) {
             world.scene().add(clouds);
 
             const rotateClouds = () => {
-                if (yhLandingCloudsMesh && !document.hidden) {
+                if (
+                    yhLandingCloudsMesh &&
+                    !document.hidden &&
+                    !document.body?.classList.contains('yh-landing-is-scrolling')
+                ) {
                     yhLandingCloudsMesh.rotation.y += (CLOUDS_ROTATION_SPEED * Math.PI) / 180;
                 }
 
@@ -2211,6 +2218,33 @@ if (formRegisterSimple) {
             });
         }
     };
+    let landingAsteroidLayerCache = null;
+    let landingAsteroidLayerCacheShell = null;
+
+    const getLandingAsteroidLayers = () => {
+        const shell = document.querySelector('#step-1.yh-landing-step .yh-landing-shell');
+
+        if (!shell) {
+            landingAsteroidLayerCache = null;
+            landingAsteroidLayerCacheShell = null;
+            return null;
+        }
+
+        if (landingAsteroidLayerCache && landingAsteroidLayerCacheShell === shell) {
+            return landingAsteroidLayerCache;
+        }
+
+        landingAsteroidLayerCacheShell = shell;
+        landingAsteroidLayerCache = {
+            shell,
+            farLayer: shell.querySelector('.yh-space-asteroid-layer--far'),
+            midLayer: shell.querySelector('.yh-space-asteroid-layer--mid'),
+            nearLayer: shell.querySelector('.yh-space-asteroid-layer--near')
+        };
+
+        return landingAsteroidLayerCache;
+    };
+
     const syncLandingAsteroidParallax = (now = performance.now()) => {
         if (!isApplyLanding || prefersReducedMotion.matches) {
             if (asteroidParallaxFrame) {
@@ -2220,8 +2254,8 @@ if (formRegisterSimple) {
             return;
         }
 
-        const shell = document.querySelector('#step-1.yh-landing-step .yh-landing-shell');
-        if (!shell) {
+        const layers = getLandingAsteroidLayers();
+        if (!layers) {
             asteroidParallaxFrame = 0;
             return;
         }
@@ -2229,43 +2263,48 @@ if (formRegisterSimple) {
         const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
         const progress = Math.min(1, Math.max(0, window.scrollY / maxScroll));
         const eased = 1 - Math.pow(1 - progress, 2);
+        const t = now * 0.00018;
 
-        const farLayer = shell.querySelector('.yh-space-asteroid-layer--far');
-        const midLayer = shell.querySelector('.yh-space-asteroid-layer--mid');
-        const nearLayer = shell.querySelector('.yh-space-asteroid-layer--near');
+        const farX = (-5 + eased * 7) + Math.sin(t * 0.9) * 3;
+        const farY = (eased * 10) + Math.cos(t * 0.7) * 3;
 
-        const t = now * 0.00024;
+        const midX = (eased * 9) + Math.sin(t * 1.1 + 1.4) * 4;
+        const midY = (eased * 16) + Math.cos(t * 0.95 + 0.8) * 4;
 
-        const farX = (-8 + eased * 10) + Math.sin(t * 0.9) * 6;
-        const farY = (eased * 18) + Math.cos(t * 0.7) * 5;
+        const nearX = (-8 + eased * 12) + Math.sin(t * 1.25 + 2.2) * 5;
+        const nearY = (eased * 24) + Math.cos(t * 1.05 + 1.6) * 5;
 
-        const midX = (eased * 14) + Math.sin(t * 1.1 + 1.4) * 8;
-        const midY = (eased * 28) + Math.cos(t * 0.95 + 0.8) * 7;
-
-        const nearX = (-12 + eased * 18) + Math.sin(t * 1.25 + 2.2) * 10;
-        const nearY = (eased * 40) + Math.cos(t * 1.05 + 1.6) * 9;
-
-        if (farLayer) {
-            farLayer.style.transform = `translate3d(${farX.toFixed(2)}px, ${farY.toFixed(2)}px, 0)`;
+        if (layers.farLayer) {
+            layers.farLayer.style.transform = `translate3d(${farX.toFixed(1)}px, ${farY.toFixed(1)}px, 0)`;
         }
 
-        if (midLayer) {
-            midLayer.style.transform = `translate3d(${midX.toFixed(2)}px, ${midY.toFixed(2)}px, 0)`;
+        if (layers.midLayer) {
+            layers.midLayer.style.transform = `translate3d(${midX.toFixed(1)}px, ${midY.toFixed(1)}px, 0)`;
         }
 
-        if (nearLayer) {
-            nearLayer.style.transform = `translate3d(${nearX.toFixed(2)}px, ${nearY.toFixed(2)}px, 0)`;
+        if (layers.nearLayer) {
+            layers.nearLayer.style.transform = `translate3d(${nearX.toFixed(1)}px, ${nearY.toFixed(1)}px, 0)`;
         }
 
         asteroidParallaxFrame = 0;
     };
 
     const startLandingAsteroidParallax = () => {
-        if (asteroidParallaxFrame || !isApplyLanding || prefersReducedMotion.matches) return;
+        if (
+            asteroidParallaxFrame ||
+            !isApplyLanding ||
+            prefersReducedMotion.matches ||
+            document.body?.classList.contains('yh-landing-is-scrolling')
+        ) return;
+
         asteroidParallaxFrame = window.requestAnimationFrame(syncLandingAsteroidParallax);
     };
     const spawnMeteor = () => {
-        if (!isApplyLanding || prefersReducedMotion.matches) return;
+        if (
+            !isApplyLanding ||
+            prefersReducedMotion.matches ||
+            document.body?.classList.contains('yh-landing-is-scrolling')
+        ) return;
 
         const layer = document.querySelector('.yh-space-meteor-layer');
         if (!layer) return;
@@ -2324,6 +2363,11 @@ if (formRegisterSimple) {
     if (isApplyLanding) {
         window.addEventListener('scroll', () => {
             lastManualScrollY = window.scrollY;
+
+            if (document.body?.classList.contains('yh-landing-is-scrolling')) {
+                return;
+            }
+
             startLandingAsteroidParallax();
         }, { passive: true });
 
@@ -2333,11 +2377,39 @@ if (formRegisterSimple) {
             }
         }, { passive: true });
 
-        const LANDING_WHEEL_SPEED = 0.50;
-        const LANDING_WHEEL_MAX_STEP = 900;
+        const LANDING_WHEEL_SPEED = 0.34;
+        const LANDING_WHEEL_MAX_STEP = 520;
 
         let landingWheelPendingY = 0;
         let landingWheelFrame = 0;
+        let landingWheelScrollClassTimer = 0;
+
+        const setLandingGlobePerfMode = (isScrolling = false) => {
+            if (!yhLandingMapInstance || typeof yhLandingMapInstance.controls !== 'function') return;
+
+            const controls = yhLandingMapInstance.controls();
+            if (!controls) return;
+
+            controls.autoRotate = !isScrolling;
+
+            if (typeof controls.update === 'function') {
+                controls.update();
+            }
+        };
+
+        const setLandingScrollPerfMode = () => {
+            if (!document.body || document.body.dataset.yhPage !== 'apply') return;
+
+            document.body.classList.add('yh-landing-is-scrolling');
+            setLandingGlobePerfMode(true);
+
+            clearTimeout(landingWheelScrollClassTimer);
+            landingWheelScrollClassTimer = window.setTimeout(() => {
+                document.body?.classList.remove('yh-landing-is-scrolling');
+                setLandingGlobePerfMode(false);
+                startLandingAsteroidParallax();
+            }, 320);
+        };
 
         const normalizeLandingWheelDelta = (event) => {
             let deltaY = Number(event.deltaY || 0);
@@ -2375,8 +2447,6 @@ if (formRegisterSimple) {
                 left: 0,
                 behavior: 'auto'
             });
-
-            startLandingAsteroidParallax();
         };
 
         const handleLandingPageWheel = (event) => {
@@ -2389,6 +2459,7 @@ if (formRegisterSimple) {
             if (!Number.isFinite(rawDeltaY) || Math.abs(rawDeltaY) < 0.5) return;
 
             event.preventDefault();
+            setLandingScrollPerfMode();
 
             if (typeof event.stopImmediatePropagation === 'function') {
                 event.stopImmediatePropagation();

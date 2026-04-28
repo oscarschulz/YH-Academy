@@ -29,36 +29,65 @@ function getViewer(req) {
 }
 
 function getPaymentOptions(req, res) {
+    const stripeConfigured = !!cleanText(process.env.STRIPE_SECRET_KEY);
+    const paypalConfigured =
+        !!cleanText(process.env.PAYPAL_CLIENT_ID) &&
+        !!cleanText(process.env.PAYPAL_CLIENT_SECRET);
+
+    const oxapayConfigured = !!cleanText(
+        process.env.OXAPAY_MERCHANT_API_KEY ||
+        process.env.OXAPAY_API_KEY ||
+        ''
+    );
+
+    const providerStatus = (configured, fallbackStatus = 'active') => (
+        configured ? fallbackStatus : 'setup_required'
+    );
+
     return res.json({
         success: true,
         paymentProviders: [
             {
                 id: 'stripe',
-                label: 'Pay with Card / Bank / Wallet',
-                status: 'active',
+                label: 'Card / Bank / Wallet Payment',
+                status: providerStatus(stripeConfigured),
+                configured: stripeConfigured,
                 methods: ['card', 'bank', 'wallet'],
-                currencies: ['fiat']
+                currencies: ['fiat'],
+                setupMessage: stripeConfigured
+                    ? ''
+                    : 'STRIPE_SECRET_KEY is not configured.'
             },
             {
                 id: 'paypal',
-                label: 'Pay with E-Wallet',
-                status: 'active',
+                label: 'E-Wallet Payment',
+                status: providerStatus(paypalConfigured),
+                configured: paypalConfigured,
                 methods: ['ewallet', 'paypal'],
-                currencies: ['fiat']
+                currencies: ['fiat'],
+                setupMessage: paypalConfigured
+                    ? ''
+                    : 'PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET must be configured.'
             },
             {
                 id: 'oxapay',
-                label: 'Pay with Crypto',
-                status: 'active',
+                label: 'Crypto Payment',
+                status: providerStatus(oxapayConfigured),
+                configured: oxapayConfigured,
                 methods: ['crypto'],
-                currencies: ['crypto']
+                currencies: ['crypto'],
+                setupMessage: oxapayConfigured
+                    ? ''
+                    : 'OXAPAY_MERCHANT_API_KEY is not configured.'
             },
             {
                 id: 'manual',
                 label: 'Manual Admin Payment',
                 status: 'fallback',
+                configured: true,
                 methods: ['manual'],
-                currencies: ['fiat', 'crypto']
+                currencies: ['fiat', 'crypto'],
+                setupMessage: ''
             }
         ]
     });
