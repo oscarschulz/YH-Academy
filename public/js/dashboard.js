@@ -6491,18 +6491,33 @@ const resourcesMenuBtn = document.getElementById('yh-resources-menu-btn');
 const resourcesMenuPanel = document.getElementById('yh-resources-menu-panel');
 
 if (resourcesMenu && resourcesMenuBtn && resourcesMenuPanel) {
-    const closeResourcesMenu = () => {
-        resourcesMenuPanel.classList.remove('show');
-        resourcesMenuBtn.setAttribute('aria-expanded', 'false');
+    const setDashboardResourcesMenuOpenState = (isOpen = false) => {
+        const open = isOpen === true;
+
+        document.body?.classList.toggle('yh-resources-menu-open', open);
+        resourcesMenu.classList.toggle('yh-resources-menu-open', open);
+        resourcesMenuPanel.classList.toggle('show', open);
+        resourcesMenuPanel.setAttribute('aria-hidden', open ? 'false' : 'true');
+        resourcesMenuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
     };
+
+    const closeResourcesMenu = () => {
+        setDashboardResourcesMenuOpenState(false);
+    };
+
+    resourcesMenuPanel.setAttribute('aria-hidden', resourcesMenuPanel.classList.contains('show') ? 'false' : 'true');
 
     resourcesMenuBtn.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
 
         const willOpen = !resourcesMenuPanel.classList.contains('show');
-        resourcesMenuPanel.classList.toggle('show', willOpen);
-        resourcesMenuBtn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+
+        if (willOpen && typeof closeDashboardNotificationsDropdown === 'function') {
+            closeDashboardNotificationsDropdown();
+        }
+
+        setDashboardResourcesMenuOpenState(willOpen);
     });
 
     resourcesMenuPanel.addEventListener('click', (event) => {
