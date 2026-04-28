@@ -120,20 +120,31 @@
 
         const result = await response.json().catch(() => ({}));
 
+        const buildRequestError = (fallbackMessage = 'Request failed.') => {
+            const error = new Error(result?.message || fallbackMessage);
+            error.status = response.status;
+            error.statusCode = response.status;
+            error.data = result;
+            error.payload = result;
+            error.code = result?.code || '';
+            error.url = url;
+            return error;
+        };
+
         if (response.status === 401) {
             if (typeof showToast === 'function') {
                 showToast('Your session expired. Please log in again.', 'error');
             }
             window.location.href = '/';
-            throw new Error(result.message || 'Session expired.');
+            throw buildRequestError('Session expired.');
         }
 
         if (response.status === 400) {
-            throw new Error(result.message || 'Request failed.');
+            throw buildRequestError('Request failed.');
         }
 
         if (!response.ok || result.success === false) {
-            throw new Error(result.message || 'Request failed.');
+            throw buildRequestError('Request failed.');
         }
 
         return result;

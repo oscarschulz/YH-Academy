@@ -225,6 +225,20 @@ function getYHAcademyHomeSnapshot() {
     return readYHJsonCache('yh_academy_home', null) || {};
 }
 
+function isExpectedDashboardAcademyHomeAccessError(error = {}) {
+    const status = Number(error?.status || error?.statusCode || 0);
+    const message = String(error?.message || error?.data?.message || error?.payload?.message || '').toLowerCase();
+
+    return (
+        status === 403 &&
+        (
+            message.includes('academy membership not approved') ||
+            message.includes('membership not approved') ||
+            message.includes('academy not approved')
+        )
+    );
+}
+
 async function refreshDashboardAcademyHomeSnapshot(forceFresh = false) {
     const now = Date.now();
 
@@ -267,7 +281,10 @@ async function refreshDashboardAcademyHomeSnapshot(forceFresh = false) {
             return getYHAcademyHomeSnapshot();
         })
         .catch((error) => {
-            console.error('refreshDashboardAcademyHomeSnapshot error:', error);
+            if (!isExpectedDashboardAcademyHomeAccessError(error)) {
+                console.error('refreshDashboardAcademyHomeSnapshot error:', error);
+            }
+
             return getYHAcademyHomeSnapshot();
         })
         .finally(() => {
@@ -11531,7 +11548,10 @@ async function deleteDashboardAccountWithPassword(button = null) {
     await runDashboardButtonAction(button, 'Deleting Account.', async () => {
         const result = await academyAuthedFetch('/api/account', {
             method: 'DELETE',
-            body: JSON.stringify({ password })
+            body: JSON.stringify({
+                password,
+                currentPassword: password
+            })
         });
 
         if (!result?.success) {
@@ -14800,7 +14820,13 @@ function setDashboardButtonLoadingState(button, isLoading = false, loadingLabel 
 
 async function runDashboardButtonAction(button, loadingLabel, action) {
     if (!button) {
-        return await action();
+        try {
+            return await action();
+        } catch (error) {
+            console.warn('Dashboard action failed:', error);
+            showToast(error?.message || 'Action failed. Please try again.', 'error');
+            return false;
+        }
     }
 
     if (button.dataset.loading === 'true') return false;
@@ -14809,6 +14835,10 @@ async function runDashboardButtonAction(button, loadingLabel, action) {
 
     try {
         return await action();
+    } catch (error) {
+        console.warn('Dashboard action failed:', error);
+        showToast(error?.message || 'Action failed. Please try again.', 'error');
+        return false;
     } finally {
         if (button.isConnected) {
             setDashboardButtonLoadingState(button, false);
