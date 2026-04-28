@@ -9256,11 +9256,60 @@ function academyGetVerificationBadgeStatus(profile = {}, division = 'academy') {
     return String(badge.status || '').trim().toLowerCase();
 }
 
-function academyRenderVerifiedBadgeAvailButton(profile = {}, division = 'academy') {
+function academyGetVerificationBadgeSnapshot(profile = {}, division = 'academy') {
     const cleanDivision = division === 'federation' ? 'federation' : 'academy';
+    const badges = profile?.verificationBadges && typeof profile.verificationBadges === 'object'
+        ? profile.verificationBadges
+        : {};
+
+    return badges[cleanDivision] && typeof badges[cleanDivision] === 'object'
+        ? badges[cleanDivision]
+        : {};
+}
+
+function academyIsVerificationBadgePaymentPending(profile = {}, division = 'academy') {
+    const badge = academyGetVerificationBadgeSnapshot(profile, division);
+
+    const status = String(badge.status || '').trim().toLowerCase();
+    const paymentStatus = String(badge.paymentStatus || '').trim().toLowerCase();
+    const provider = String(badge.provider || '').trim().toLowerCase();
+
+    const automatedProviders = new Set(['stripe', 'paypal', 'oxapay']);
+    const cancelledOrInactiveStatuses = new Set([
+        'checkout_started',
+        'cancelled',
+        'canceled',
+        'expired',
+        'failed',
+        'void',
+        'abandoned'
+    ]);
+
+    if (badge.active === true || status === 'active' || status === 'verified') {
+        return false;
+    }
+
+    if (
+        automatedProviders.has(provider) &&
+        (
+            cancelledOrInactiveStatuses.has(status) ||
+            cancelledOrInactiveStatuses.has(paymentStatus)
+        )
+    ) {
+        return false;
+    }
+
+    if (paymentStatus === 'checkout_started') {
+        return false;
+    }
+
+    return ['pending', 'pending_payment', 'draft', 'manual_pending'].includes(status) ||
+        ['pending', 'pending_payment', 'draft', 'manual_pending'].includes(paymentStatus);
+}
+
+function academyRenderVerifiedBadgeAvailButton(profile = {}, division = 'academy') {
     const activeBadge = academyGetVerificationBadge(profile, cleanDivision);
-    const status = academyGetVerificationBadgeStatus(profile, cleanDivision);
-    const isPending = ['pending', 'pending_payment', 'draft', 'checkout_started'].includes(status);
+    const isPending = academyIsVerificationBadgePaymentPending(profile, cleanDivision);
 
     if (activeBadge) {
         return `

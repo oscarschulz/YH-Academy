@@ -9192,7 +9192,17 @@ async function dashboardCreateVerifiedBadgeLedger(division = 'academy', button =
                     paymentStatus: String(result?.payment?.status || 'checkout_started')
                 };
 
-        if (academyProfileViewState?.profile && typeof academyProfileViewState.profile === 'object') {
+        const shouldRenderPendingLocally =
+            !result?.url &&
+            !isStripe &&
+            !isPayPal &&
+            !isOxaPay;
+
+        if (
+            shouldRenderPendingLocally &&
+            academyProfileViewState?.profile &&
+            typeof academyProfileViewState.profile === 'object'
+        ) {
             const nextProfile = {
                 ...academyProfileViewState.profile,
                 verificationBadges: {
