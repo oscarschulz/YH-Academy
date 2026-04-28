@@ -112,6 +112,269 @@ function buildYHVerificationBadges(userData = {}) {
         federation: normalizeYHVerificationBadgeState(source.federation, 'federation')
     };
 }
+
+function normalizeYHVerifiedBadgeDivision(value = '') {
+    const clean = sanitizeText(value).toLowerCase();
+
+    if (clean === 'academy' || clean === 'yha') return 'academy';
+    if (clean === 'federation' || clean === 'yhf') return 'federation';
+
+    return '';
+}
+
+function getYHVerifiedBadgePlan(division = '') {
+    const cleanDivision = normalizeYHVerifiedBadgeDivision(division);
+    return cleanDivision ? YH_VERIFICATION_BADGE_PLANS[cleanDivision] : null;
+}
+
+function roundYHMoney(value = 0) {
+    const amount = Number(value);
+    return Number.isFinite(amount) ? Math.round(amount * 100) / 100 : 0;
+}
+
+function extractYHVerifiedBadgePaymentIdFromOrderId(orderId = '') {
+    const clean = sanitizeText(orderId).toLowerCase();
+
+    if (!clean.startsWith('yh_badge_')) return '';
+
+    return sanitizeText(clean.replace(/^yh_badge_/, ''));
+}
+
+function buildActiveYHVerifiedBadgePayload(plan = {}, payment = {}, context = {}) {
+    const now = new Date();
+    const expiresAt = new Date(now);
+    expiresAt.setMonth(expiresAt.getMonth() + 1);
+
+    return {
+        active: true,
+        status: 'active',
+        code: sanitizeText(plan.code),
+        division: sanitizeText(plan.division),
+        amountMonthly: roundYHMoney(payment.amount || plan.amountMonthly || 0),
+        currency: sanitizeText(payment.currency || plan.currency || 'USD').toUpperCase() || 'USD',
+        interval: sanitizeText(plan.interval || 'month'),
+        asset: sanitizeText(plan.asset),
+        paymentLedgerId: sanitizeText(payment.id),
+        paymentStatus: 'paid',
+        provider: sanitizeText(context.provider || payment.provider || ''),
+        providerPaymentId: sanitizeText(context.providerPaymentId || payment.providerPaymentId || ''),
+        activatedAt: now.toISOString(),
+        approvedAt: now.toISOString(),
+        expiresAt: expiresAt.toISOString(),
+        verifiedBy: sanitizeText(context.verifiedBy || 'payment-webhook'),
+        updatedAt: now.toISOString()
+    };
+}
+
+async function appendYHVerifiedBadgePaymentNotification(payerUid = '', notification = {}) {
+    const cleanPayerUid = sanitizeText(payerUid);
+    if (!cleanPayerUid) return null;
+
+    const userRef = firestore.collection('users').doc(cleanPayerUid);
+    const userSnap = await userRef.get();
+    const userData = userSnap.exists ? (userSnap.data() || {}) : {};
+
+    const current = Array.isArray(userData.inProductReviewNotifications)
+        ? userData.inProductReviewNotifications
+        : [];
+
+    const nowIso = new Date().toISOString();
+    const id = sanitizeText(notification.id || `badge_payment_${Date.now()}`);
+
+    const nextNotification = {
+        id,
+        title: sanitizeText(notification.title || 'Badge payment confirmed'),
+        text: sanitizeText(notification.text || 'Your verification badge payment was confirmed.'),
+        target: sanitizeText(notification.target || 'profile'),
+        targetId: sanitizeText(notification.targetId || ''),
+        color: sanitizeText(notification.color || 'var(--blue)'),
+        avatarStr: sanitizeText(notification.avatarStr || 'YH'),
+        sourceDivision: sanitizeText(notification.sourceDivision || ''),
+        amount: roundYHMoney(notification.amount || 0),
+        currency: sanitizeText(notification.currency || 'USD').toUpperCase() || 'USD',
+        createdAt: nowIso,
+        created_at: nowIso,
+        isRead: false,
+        is_read: false,
+        read: false,
+        readAt: '',
+        read_at: ''
+    };
+
+    const next = [
+        nextNotification,
+        ...current.filter((item) => sanitizeText(item?.id) !== id)
+    ].slice(0, 40);
+
+    await userRef.set({
+        inProductReviewNotifications: next,
+        updatedAt: nowIso
+    }, { merge: true });
+
+    return nextNotification;
+}
+
+async function resolveYHVerifiedBadgePaymentFromWebhook(paymentId = '', trackId = '') {
+    const cleanPaymentId = sanitizeText(paymentId);
+
+    if (cleanPaymentId) {
+        try {
+            const payment = await paymentLedgerRepo.getPaymentRecordById(cleanPaymentId);
+            if (sanitizeText(payment.sourceFeature).toLowerCase() === 'verified_badge') {
+                return payment;
+            }
+        } catch (_) {}
+    }
+
+    const cleanTrackId = sanitizeText(trackId);
+
+    if (cleanTrackId) {
+        const querySnap = await firestore
+            .collection('yhPaymentLedger')
+            .where('providerPaymentId', '==', cleanTrackId)
+            .limit(1)
+            .get();
+
+        if (!querySnap.empty) {
+            const doc = querySnap.docs[0];
+            const data = doc.data() || {};
+            const sourceFeature = sanitizeText(data.sourceFeature).toLowerCase();
+
+            if (sourceFeature === 'verified_badge') {
+                return {
+                    id: doc.id,
+                    sourceDivision: sanitizeText(data.sourceDivision),
+                    sourceFeature,
+                    sourceRecordId: sanitizeText(data.sourceRecordId),
+                    payerUid: sanitizeText(data.payerUid),
+                    payerEmail: sanitizeText(data.payerEmail).toLowerCase(),
+                    payerName: sanitizeText(data.payerName),
+                    provider: sanitizeText(data.provider),
+                    providerOptions: Array.isArray(data.providerOptions) ? data.providerOptions : ['stripe', 'oxapay', 'manual'],
+                    providerPaymentId: sanitizeText(data.providerPaymentId),
+                    providerCheckoutUrl: sanitizeText(data.providerCheckoutUrl),
+                    providerStatus: sanitizeText(data.providerStatus),
+                    amount: Number(data.amount || 0),
+                    currency: sanitizeText(data.currency || 'USD').toUpperCase() || 'USD',
+                    status: sanitizeText(data.status || 'draft'),
+                    paymentMethod: sanitizeText(data.paymentMethod || 'unselected'),
+                    platformCommissionAmount: Number(data.platformCommissionAmount || 0),
+                    operatorPayoutAmount: Number(data.operatorPayoutAmount || 0),
+                    metadata: data.metadata && typeof data.metadata === 'object' ? data.metadata : {}
+                };
+            }
+        }
+    }
+
+    return null;
+}
+
+async function syncYHVerifiedBadgePaymentStatus(payment = {}, status = 'pending', context = {}) {
+    const cleanStatus = sanitizeText(status || 'pending').toLowerCase();
+    const sourceDivision = normalizeYHVerifiedBadgeDivision(
+        payment.sourceDivision ||
+        payment.metadata?.badgeDivision ||
+        context.badgeDivision
+    );
+
+    const plan = getYHVerifiedBadgePlan(sourceDivision);
+    if (!plan) return null;
+
+    const payerUid = sanitizeText(payment.payerUid || payment.metadata?.userId || context.userId);
+    if (!payerUid) return null;
+
+    const updatedPayment = await paymentLedgerRepo.upsertPaymentRecord({
+        id: sanitizeText(payment.id || context.paymentLedgerId),
+        sourceDivision: plan.division,
+        sourceFeature: 'verified_badge',
+        sourceRecordId: sanitizeText(payment.sourceRecordId || `${payerUid}_${plan.division}`),
+
+        payerUid,
+        payerEmail: sanitizeText(payment.payerEmail || payment.metadata?.userEmail || context.userEmail).toLowerCase(),
+        payerName: sanitizeText(payment.payerName || payment.metadata?.userName || 'YH Member'),
+
+        provider: sanitizeText(context.provider || payment.provider || 'unselected'),
+        providerOptions: ['stripe', 'oxapay', 'manual'],
+        providerPaymentId: sanitizeText(context.providerPaymentId || payment.providerPaymentId),
+        providerCheckoutUrl: sanitizeText(payment.providerCheckoutUrl),
+        providerStatus: sanitizeText(context.providerStatus || payment.providerStatus || cleanStatus),
+
+        status: cleanStatus,
+        paymentMethod: sanitizeText(context.paymentMethod || payment.paymentMethod || 'unselected'),
+
+        amount: roundYHMoney(payment.amount || plan.amountMonthly || 0),
+        currency: sanitizeText(payment.currency || plan.currency || 'USD').toUpperCase() || 'USD',
+
+        platformCommissionAmount: roundYHMoney(payment.platformCommissionAmount || payment.amount || plan.amountMonthly || 0),
+        operatorPayoutAmount: 0,
+
+        metadata: {
+            ...(payment.metadata && typeof payment.metadata === 'object' ? payment.metadata : {}),
+            badgeDivision: plan.division,
+            badgeCode: plan.code,
+            badgeAsset: plan.asset,
+            badgePublicName: plan.division === 'federation' ? 'Federation Verified Badge' : 'Academy Verified Badge',
+            billingInterval: plan.interval,
+            userId: payerUid,
+            paymentWebhookStatus: cleanStatus,
+            ...(context.metadata && typeof context.metadata === 'object' ? context.metadata : {})
+        }
+    });
+
+    const badgeStatus =
+        cleanStatus === 'paid'
+            ? 'active'
+            : cleanStatus === 'expired' || cleanStatus === 'failed' || cleanStatus === 'cancelled'
+                ? cleanStatus
+                : 'pending_payment';
+
+    const userBadgePayload =
+        cleanStatus === 'paid'
+            ? buildActiveYHVerifiedBadgePayload(plan, updatedPayment, context)
+            : {
+                active: false,
+                status: badgeStatus,
+                code: plan.code,
+                division: plan.division,
+                amountMonthly: roundYHMoney(updatedPayment.amount || plan.amountMonthly || 0),
+                currency: sanitizeText(updatedPayment.currency || plan.currency || 'USD').toUpperCase() || 'USD',
+                interval: plan.interval,
+                asset: plan.asset,
+                paymentLedgerId: updatedPayment.id,
+                paymentStatus: cleanStatus,
+                provider: sanitizeText(context.provider || updatedPayment.provider || ''),
+                providerPaymentId: sanitizeText(context.providerPaymentId || updatedPayment.providerPaymentId || ''),
+                updatedAt: new Date().toISOString()
+            };
+
+    await firestore.collection('users').doc(payerUid).set({
+        verificationBadges: {
+            [plan.division]: userBadgePayload
+        },
+        updatedAt: new Date().toISOString()
+    }, { merge: true });
+
+    if (cleanStatus === 'paid') {
+        await appendYHVerifiedBadgePaymentNotification(payerUid, {
+            id: `verified_badge_active_${plan.division}_${updatedPayment.id}`,
+            title: `${plan.code} badge is now active`,
+            text: `Your ${plan.code} verification badge payment was confirmed. The badge is now active on your profile.`,
+            target: 'profile',
+            targetId: updatedPayment.id,
+            color: plan.division === 'federation' ? 'var(--amber)' : 'var(--blue)',
+            avatarStr: plan.code,
+            sourceDivision: plan.division,
+            amount: roundYHMoney(updatedPayment.amount || 0),
+            currency: sanitizeText(updatedPayment.currency || 'USD').toUpperCase() || 'USD'
+        }).catch(() => null);
+    }
+
+    return {
+        payment: updatedPayment,
+        badge: userBadgePayload,
+        payerUid
+    };
+}
 const mapChatTimestamp = (value) => {
     if (!value) return null;
     if (typeof value.toDate === 'function') return value.toDate().toISOString();
@@ -2038,6 +2301,42 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
             const session = event.data?.object || {};
             const metadata = session.metadata || {};
 
+            if (metadata.kind === 'verified_badge') {
+                const paymentLedgerId = sanitizeText(metadata.paymentLedgerId || session.client_reference_id);
+
+                if (paymentLedgerId && session.payment_status === 'paid') {
+                    const payment = await resolveYHVerifiedBadgePaymentFromWebhook(paymentLedgerId, '');
+
+                    if (payment) {
+                        await syncYHVerifiedBadgePaymentStatus(payment, 'paid', {
+                            provider: 'stripe',
+                            providerPaymentId: sanitizeText(session.payment_intent || session.id),
+                            providerStatus: sanitizeText(session.payment_status || 'paid'),
+                            paymentMethod: 'card_bank_wallet',
+                            paymentLedgerId,
+                            badgeDivision: sanitizeText(metadata.badgeDivision),
+                            userId: sanitizeText(metadata.userId),
+                            userEmail: sanitizeText(metadata.userEmail),
+                            verifiedBy: 'stripe-webhook',
+                            metadata: {
+                                stripeCheckoutSessionId: sanitizeText(session.id),
+                                stripePaymentIntentId: sanitizeText(session.payment_intent),
+                                stripeCustomerId: sanitizeText(session.customer),
+                                stripePaymentMode: sanitizeText(session.mode || 'payment')
+                            }
+                        });
+
+                        await firestore.collection('adminBroadcasts').add({
+                            audience: sanitizeText(payment.payerName || payment.payerEmail || 'YH Member'),
+                            subject: 'Verified badge payment confirmed',
+                            message: `Stripe payment confirmed for ${sanitizeText(metadata.badgeCode || 'YH')} badge payment ${paymentLedgerId}.`,
+                            sentAt: new Date().toISOString(),
+                            createdBy: 'stripe-webhook'
+                        }).catch(() => null);
+                    }
+                }
+            }
+
             if (metadata.kind === 'federation_paid_intro' || metadata.kind === 'federation_lead_purchase') {
                 const requestId = sanitizeText(metadata.requestId || session.client_reference_id);
                 const paymentLedgerId = sanitizeText(metadata.paymentLedgerId);
@@ -2135,6 +2434,29 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
             const session = event.data?.object || {};
             const metadata = session.metadata || {};
 
+            if (metadata.kind === 'verified_badge') {
+                const paymentLedgerId = sanitizeText(metadata.paymentLedgerId || session.client_reference_id);
+
+                if (paymentLedgerId) {
+                    const payment = await resolveYHVerifiedBadgePaymentFromWebhook(paymentLedgerId, '');
+
+                    if (payment && sanitizeText(payment.status).toLowerCase() !== 'paid') {
+                        await syncYHVerifiedBadgePaymentStatus(payment, 'expired', {
+                            provider: 'stripe',
+                            providerPaymentId: sanitizeText(session.id),
+                            providerStatus: 'checkout_expired',
+                            paymentMethod: 'card_bank_wallet',
+                            paymentLedgerId,
+                            badgeDivision: sanitizeText(metadata.badgeDivision),
+                            userId: sanitizeText(metadata.userId),
+                            metadata: {
+                                stripeCheckoutSessionId: sanitizeText(session.id)
+                            }
+                        });
+                    }
+                }
+            }
+
             if (metadata.kind === 'federation_paid_intro') {
                 const requestId = sanitizeText(metadata.requestId || session.client_reference_id);
 
@@ -2195,6 +2517,54 @@ app.post('/api/oxapay/webhook', express.raw({ type: 'application/json' }), async
         const requestIdFromOrder = extractFederationRequestIdFromOrderId(orderId);
 
         if (oxapayType !== 'invoice') {
+            return res.status(200).send('ok');
+        }
+
+        const badgePaymentIdFromOrder = extractYHVerifiedBadgePaymentIdFromOrderId(orderId);
+        const badgePayment = await resolveYHVerifiedBadgePaymentFromWebhook(badgePaymentIdFromOrder, trackId);
+
+        if (badgePayment) {
+            const badgeStatus =
+                oxapayStatus === 'paid'
+                    ? 'paid'
+                    : oxapayStatus === 'paying'
+                        ? 'pending'
+                        : ['expired', 'failed', 'cancelled', 'canceled'].includes(oxapayStatus)
+                            ? (oxapayStatus === 'canceled' ? 'cancelled' : oxapayStatus)
+                            : '';
+
+            if (badgeStatus) {
+                await syncYHVerifiedBadgePaymentStatus(badgePayment, badgeStatus, {
+                    provider: 'oxapay',
+                    providerPaymentId: trackId,
+                    providerStatus: sanitizeText(payload.status),
+                    paymentMethod: 'crypto',
+                    paymentLedgerId: badgePayment.id,
+                    badgeDivision: badgePayment.sourceDivision || badgePayment.metadata?.badgeDivision,
+                    userId: badgePayment.payerUid || badgePayment.metadata?.userId,
+                    verifiedBy: 'oxapay-webhook',
+                    metadata: {
+                        oxapayTrackId: trackId,
+                        oxapayOrderId: orderId,
+                        oxapayStatus: sanitizeText(payload.status),
+                        oxapayCurrency: sanitizeText(payload.currency),
+                        oxapayValue: Number(payload.value || 0),
+                        oxapaySentValue: Number(payload.sent_value || 0),
+                        oxapayPayload: payload
+                    }
+                });
+
+                if (badgeStatus === 'paid') {
+                    await firestore.collection('adminBroadcasts').add({
+                        audience: sanitizeText(badgePayment.payerName || badgePayment.payerEmail || 'YH Member'),
+                        subject: 'Verified badge crypto payment confirmed',
+                        message: `OxaPay payment confirmed for ${sanitizeText(badgePayment.metadata?.badgeCode || 'YH')} badge payment ${badgePayment.id}.`,
+                        sentAt: new Date().toISOString(),
+                        createdBy: 'oxapay-webhook'
+                    }).catch(() => null);
+                }
+            }
+
             return res.status(200).send('ok');
         }
 

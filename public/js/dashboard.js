@@ -9070,22 +9070,38 @@ function dashboardRenderVerifiedBadgeAvailButton(profile = {}, division = 'acade
 
 async function dashboardCreateVerifiedBadgeLedger(division = 'academy', button = null, options = {}) {
     const cleanDivision = division === 'federation' ? 'federation' : 'academy';
-    const provider = String(options.provider || 'manual').trim().toLowerCase() || 'manual';
-    const paymentMethod = String(options.paymentMethod || 'manual').trim().toLowerCase() || 'manual';
+    const provider = String(options.provider || 'stripe').trim().toLowerCase() || 'stripe';
+    const paymentMethod = String(options.paymentMethod || '').trim().toLowerCase() || getBadgePaymentMethodForDashboardProvider(provider);
+
+    const isStripe = provider === 'stripe';
+    const isOxaPay = provider === 'oxapay';
+
+    const endpoint = isStripe
+        ? `/api/payments/badges/${encodeURIComponent(cleanDivision)}/checkout-session`
+        : isOxaPay
+            ? `/api/payments/badges/${encodeURIComponent(cleanDivision)}/oxapay-invoice`
+            : `/api/payments/badges/${encodeURIComponent(cleanDivision)}/ledger`;
 
     if (button) {
         button.disabled = true;
         button.setAttribute('aria-busy', 'true');
         button.dataset.originalText = button.textContent || '';
-        button.textContent = 'Creating Ledger...';
+        button.textContent = isStripe
+            ? 'Opening Stripe...'
+            : isOxaPay
+                ? 'Opening OxaPay...'
+                : 'Creating Ledger...';
     }
 
     try {
-        const result = await academyAuthedFetch(`/api/payments/badges/${encodeURIComponent(cleanDivision)}/ledger`, {
+        const returnTo = `${window.location.pathname || '/dashboard'}${window.location.search || ''}`;
+
+        const result = await academyAuthedFetch(endpoint, {
             method: 'POST',
             body: JSON.stringify({
                 provider,
-                paymentMethod
+                paymentMethod,
+                returnTo
             })
         });
 
@@ -9100,8 +9116,8 @@ async function dashboardCreateVerifiedBadgeLedger(division = 'academy', button =
                     asset: cleanDivision === 'federation'
                         ? '/images/yhf%20badge.png'
                         : '/images/yha%20badge.png',
-                    paymentLedgerId: String(result?.payment?.id || ''),
-                    paymentStatus: String(result?.payment?.status || 'draft')
+                    paymentLedgerId: String(result?.payment?.id || result?.paymentLedgerId || ''),
+                    paymentStatus: String(result?.payment?.status || 'checkout_started')
                 };
 
         if (academyProfileViewState?.profile && typeof academyProfileViewState.profile === 'object') {
@@ -9122,6 +9138,22 @@ async function dashboardCreateVerifiedBadgeLedger(division = 'academy', button =
             renderAcademyProfileView(nextProfile, { mode: academyProfileViewState.mode || 'self' });
         }
 
+        if ((isStripe || isOxaPay) && result?.url) {
+            showToast(
+                isStripe
+                    ? `Opening Stripe Checkout for ${cleanDivision === 'federation' ? 'YHF' : 'YHA'} badge...`
+                    : `Opening OxaPay invoice for ${cleanDivision === 'federation' ? 'YHF' : 'YHA'} badge...`,
+                'success'
+            );
+
+            window.top.location.href = result.url;
+
+            return {
+                ...result,
+                redirecting: true
+            };
+        }
+
         showToast(
             cleanDivision === 'federation'
                 ? 'YHF badge payment request created. Admin will activate it after payment confirmation.'
@@ -9134,32 +9166,10 @@ async function dashboardCreateVerifiedBadgeLedger(division = 'academy', button =
             return null;
         });
 
-        if (academyProfileViewState?.profile && typeof academyProfileViewState.profile === 'object') {
-            const hydratedBadge = academyProfileViewState.profile.verificationBadges?.[cleanDivision];
-
-            if (!hydratedBadge || !String(hydratedBadge.status || '').trim()) {
-                const nextProfile = {
-                    ...academyProfileViewState.profile,
-                    verificationBadges: {
-                        ...(academyProfileViewState.profile.verificationBadges || {}),
-                        [cleanDivision]: {
-                            ...(academyProfileViewState.profile.verificationBadges?.[cleanDivision] || {}),
-                            ...pendingBadge,
-                            active: false,
-                            status: 'pending_payment'
-                        }
-                    }
-                };
-
-                academyProfileViewState.profile = nextProfile;
-                renderAcademyProfileView(nextProfile, { mode: academyProfileViewState.mode || 'self' });
-            }
-        }
-
         return result;
     } catch (error) {
         console.error('dashboard verified badge ledger error:', error);
-        showToast(error?.message || 'Failed to create badge payment request.', 'error');
+        showToast(error?.message || 'Failed to start badge payment.', 'error');
         throw error;
     } finally {
         if (button) {
@@ -9172,6 +9182,16 @@ async function dashboardCreateVerifiedBadgeLedger(division = 'academy', button =
             }
         }
     }
+}
+
+function getBadgePaymentMethodForDashboardProvider(provider = '') {
+    const clean = String(provider || '').trim().toLowerCase();
+
+    if (clean === 'stripe') return 'card_bank_wallet';
+    if (clean === 'oxapay') return 'crypto';
+    if (clean === 'manual') return 'manual';
+
+    return 'unselected';
 }
 let dashboardBadgeAvailModalState = {
     division: 'academy',
@@ -9282,33 +9302,33 @@ function ensureDashboardBadgeAvailModal() {
                 </div>
 
                 <div class="yh-badge-payment-options">
-                    <button type="button" class="yh-badge-payment-option is-selected" data-yh-badge-payment-provider="manual" data-yh-badge-payment-method="manual">
-                        <span class="yh-badge-payment-option-main">
-                            <strong>Manual Admin Payment</strong>
-                            <small>Available now. Admin confirms payment from the Economy Payment Ledger.</small>
-                        </span>
-                        <span class="yh-badge-payment-status">Available</span>
-                    </button>
-
-                    <button type="button" class="yh-badge-payment-option is-disabled" disabled aria-disabled="true">
+                    <button type="button" class="yh-badge-payment-option is-selected" data-yh-badge-payment-provider="stripe" data-yh-badge-payment-method="card_bank_wallet">
                         <span class="yh-badge-payment-option-main">
                             <strong>Card / Bank / Wallet</strong>
-                            <small>Stripe checkout will be connected later.</small>
+                            <small>Pay securely through Stripe Checkout.</small>
                         </span>
-                        <span class="yh-badge-payment-status">Coming Soon</span>
+                        <span class="yh-badge-payment-status">Active</span>
                     </button>
 
-                    <button type="button" class="yh-badge-payment-option is-disabled" disabled aria-disabled="true">
+                    <button type="button" class="yh-badge-payment-option" data-yh-badge-payment-provider="oxapay" data-yh-badge-payment-method="crypto">
                         <span class="yh-badge-payment-option-main">
                             <strong>Crypto Payment</strong>
-                            <small>OxaPay crypto checkout will be connected later.</small>
+                            <small>Pay through an OxaPay crypto invoice.</small>
                         </span>
-                        <span class="yh-badge-payment-status">Coming Soon</span>
+                        <span class="yh-badge-payment-status">Active</span>
+                    </button>
+
+                    <button type="button" class="yh-badge-payment-option" data-yh-badge-payment-provider="manual" data-yh-badge-payment-method="manual">
+                        <span class="yh-badge-payment-option-main">
+                            <strong>Manual Admin Payment</strong>
+                            <small>Fallback option. Admin confirms payment from the Economy Payment Ledger.</small>
+                        </span>
+                        <span class="yh-badge-payment-status">Fallback</span>
                     </button>
                 </div>
 
                 <div class="yh-badge-avail-note">
-                    After creating the payment request, the badge status becomes pending until admin confirms payment.
+                    Stripe and OxaPay activate the badge automatically after successful webhook confirmation. Manual payment remains available as an admin fallback.
                 </div>
 
                 <div class="yh-badge-avail-actions">
@@ -9316,7 +9336,7 @@ function ensureDashboardBadgeAvailModal() {
                         Back
                     </button>
                     <button type="button" class="btn-primary yh-badge-avail-confirm" id="yh-badge-avail-confirm">
-                        Create Payment Request
+                        Continue to Selected Payment
                     </button>
                 </div>
             </div>
@@ -9406,6 +9426,10 @@ function ensureDashboardBadgeAvailModal() {
 
             dashboardBadgeAvailModalState.payment = result?.payment || null;
 
+            if (result?.redirecting || result?.url) {
+                return;
+            }
+
             const plan = dashboardGetVerifiedBadgePlanMeta(division);
             const successCopy = modal.querySelector('#yh-badge-success-copy');
 
@@ -9417,7 +9441,7 @@ function ensureDashboardBadgeAvailModal() {
         } finally {
             confirmButton.disabled = false;
             confirmButton.removeAttribute('aria-busy');
-            confirmButton.textContent = 'Create Payment Request';
+            confirmButton.textContent = 'Continue to Selected Payment';
         }
     });
 
@@ -9444,8 +9468,8 @@ function openDashboardBadgeAvailModal(division = 'academy', button = null) {
         division: plan.division,
         button,
         step: 'overview',
-        provider: 'manual',
-        paymentMethod: 'manual',
+        provider: 'stripe',
+        paymentMethod: 'card_bank_wallet',
         payment: null
     };
 
@@ -9471,7 +9495,7 @@ function openDashboardBadgeAvailModal(division = 'academy', button = null) {
     modal.querySelectorAll('.yh-badge-payment-option').forEach((option) => {
         option.classList.toggle(
             'is-selected',
-            option.getAttribute('data-yh-badge-payment-provider') === 'manual'
+            option.getAttribute('data-yh-badge-payment-provider') === 'stripe'
         );
     });
 

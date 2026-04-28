@@ -298,22 +298,78 @@ function renderFederationVerifiedBadgeAvailButton(member = {}) {
   `;
 }
 
-async function createFederationVerifiedBadgeLedger(button = null) {
+function chooseFederationVerifiedBadgeProvider() {
+  const selected = window.prompt(
+    'Choose payment method:\n\nType "stripe" for Card / Bank / Wallet.\nType "oxapay" for Crypto.\nType "manual" for admin-confirmed fallback.',
+    'stripe'
+  );
+
+  const clean = String(selected || '').trim().toLowerCase();
+
+  if (clean === 'stripe' || clean === 'oxapay' || clean === 'manual') {
+    return clean;
+  }
+
+  return '';
+}
+
+function getFederationBadgePaymentMethodForProvider(provider = '') {
+  const clean = String(provider || '').trim().toLowerCase();
+
+  if (clean === 'stripe') return 'card_bank_wallet';
+  if (clean === 'oxapay') return 'crypto';
+  if (clean === 'manual') return 'manual';
+
+  return 'unselected';
+}
+
+async function createFederationVerifiedBadgeLedger(button = null, options = {}) {
+  const provider = String(options.provider || chooseFederationVerifiedBadgeProvider() || '').trim().toLowerCase();
+
+  if (!provider) return null;
+
+  const paymentMethod = getFederationBadgePaymentMethodForProvider(provider);
+  const isStripe = provider === 'stripe';
+  const isOxaPay = provider === 'oxapay';
+
+  const endpoint = isStripe
+    ? "/api/payments/badges/federation/checkout-session"
+    : isOxaPay
+      ? "/api/payments/badges/federation/oxapay-invoice"
+      : "/api/payments/badges/federation/ledger";
+
   if (button) {
     button.disabled = true;
     button.setAttribute("aria-busy", "true");
     button.dataset.originalText = button.textContent || "";
-    button.textContent = "Creating Ledger...";
+    button.textContent = isStripe
+      ? "Opening Stripe..."
+      : isOxaPay
+        ? "Opening OxaPay..."
+        : "Creating Ledger...";
   }
 
   try {
-    const result = await federationConnectFetch("/api/payments/badges/federation/ledger", {
+    const result = await federationConnectFetch(endpoint, {
       method: "POST",
       body: JSON.stringify({
-        provider: "unselected",
-        paymentMethod: "unselected"
+        provider,
+        paymentMethod,
+        returnTo: `${window.location.pathname || "/federation.html"}${window.location.search || ""}`
       })
     });
+
+    if ((isStripe || isOxaPay) && result?.url) {
+      showToast(
+        isStripe
+          ? "Opening Stripe Checkout..."
+          : "Opening OxaPay crypto invoice...",
+        "success"
+      );
+
+      window.top.location.href = result.url;
+      return result;
+    }
 
     showToast("YHF badge payment ledger created. Admin will activate it after payment confirmation.", "success");
 
@@ -322,8 +378,8 @@ async function createFederationVerifiedBadgeLedger(button = null) {
 
     return result;
   } catch (error) {
-    console.error("create federation verified badge ledger error:", error);
-    showToast(error?.message || "Failed to create YHF badge payment ledger.", "error");
+    console.error("create federation verified badge payment error:", error);
+    showToast(error?.message || "Failed to start YHF badge payment.", "error");
     throw error;
   } finally {
     if (button) {

@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Collections Database | YH Universe</title>
-    <link rel="icon" type="image/avif" href="/images/logo.avif?v=20260428-private-collections-1">
-    <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260428-private-collections-1">
+    <link rel="icon" type="image/avif" href="/images/logo.avif?v=20260428-private-collections-ui-2">
+    <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260428-private-collections-ui-2">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" id="collections-css-link">
     <script>
@@ -16,103 +16,139 @@
 
             const css = document.getElementById('collections-css-link');
             if (css) {
-                css.href = '/collections-assets/' + encodeURIComponent(accessKey) + '/collections.css?v=20260428-private-collections-1';
+                css.href = '/collections-assets/' + encodeURIComponent(accessKey) + '/collections.css?v=20260428-private-collections-ui-2';
             }
         })();
     </script>
 </head>
 <body data-yh-page="collections-database">
-    <div class="collections-shell">
-        <header class="collections-topbar">
+    <div class="collections-app">
+        <aside class="collections-sidebar">
             <a href="/dashboard" class="collections-brand" aria-label="Back to dashboard">
                 <img src="/images/logo.avif" alt="YH Universe">
-                <span>YH Collections</span>
+                <span>
+                    <strong>YH</strong>
+                    Collections
+                </span>
             </a>
 
-            <div class="collections-top-actions">
-                <a href="/dashboard" class="collections-top-link">Dashboard</a>
-                <button type="button" class="collections-refresh-btn" id="collections-refresh-btn">Refresh</button>
+            <div class="collections-sidebar-label">Database Views</div>
+
+            <nav class="collections-side-nav" aria-label="Collections navigation">
+                <button type="button" class="collections-side-link is-active" data-collections-mode="all">
+                    <span>All Collections</span>
+                    <strong id="count-all">0</strong>
+                </button>
+                <button type="button" class="collections-side-link" data-collections-mode="resources">
+                    <span>Resources</span>
+                    <strong id="count-resources">0</strong>
+                </button>
+                <button type="button" class="collections-side-link" data-collections-mode="leads">
+                    <span>Lead Marketplace</span>
+                    <strong id="count-leads">0</strong>
+                </button>
+                <button type="button" class="collections-side-link" data-collections-mode="opportunities">
+                    <span>Opportunities</span>
+                    <strong id="count-opportunities">0</strong>
+                </button>
+                <button type="button" class="collections-side-link" data-collections-mode="mine">
+                    <span>My Submissions</span>
+                    <strong id="count-mine">0</strong>
+                </button>
+                <button type="button" class="collections-side-link" data-collections-mode="pending">
+                    <span>Pending Review</span>
+                    <strong id="count-pending">0</strong>
+                </button>
+            </nav>
+
+            <div class="collections-sidebar-note">
+                <span>Private View</span>
+                <p>This page is hidden behind a secret URL and only reads mirrored records from the new database.</p>
             </div>
-        </header>
+        </aside>
 
         <main class="collections-main">
-            <section class="collections-hero">
-                <div class="collections-hero-copy">
+            <header class="collections-topbar">
+                <div>
                     <div class="collections-kicker">Private Universe Database</div>
                     <h1>Collections</h1>
-                    <p>
-                        Central private database for mirrored Universe inputs from Academy, Plaza, and Federation.
-                        This page reads member/operator-submitted resources, opportunities, and lead marketplace records from the new Firestore database.
-                    </p>
+                    <p>Browse mirrored member/operator inputs from Academy, Plaza, and Federation.</p>
                 </div>
 
-                <div class="collections-hero-card">
-                    <span>Access Mode</span>
-                    <strong>Secret Key Protected</strong>
-                    <p>Only users with the private URL and valid login access can open this view.</p>
+                <div class="collections-top-actions">
+                    <a href="/dashboard" class="collections-top-link">Dashboard</a>
+                    <button type="button" class="collections-refresh-btn" id="collections-refresh-btn">Refresh</button>
                 </div>
-            </section>
+            </header>
 
             <section class="collections-stats" aria-label="Collections overview">
                 <article class="collections-stat-card">
                     <span>Total Items</span>
                     <strong id="collections-stat-total">0</strong>
+                    <small>All visible records</small>
                 </article>
 
                 <article class="collections-stat-card">
                     <span>Lead Marketplace</span>
                     <strong id="collections-stat-leads">0</strong>
+                    <small>Federation lead inventory</small>
                 </article>
 
                 <article class="collections-stat-card">
                     <span>Approved / Listed</span>
                     <strong id="collections-stat-approved">0</strong>
+                    <small>Ready for visibility</small>
                 </article>
 
                 <article class="collections-stat-card">
                     <span>Monetized</span>
                     <strong id="collections-stat-monetized">0</strong>
+                    <small>Paid-access records</small>
                 </article>
             </section>
 
-            <section class="collections-panel">
-                <div class="collections-tabs" role="tablist" aria-label="Collection modes">
-                    <button type="button" class="collections-tab is-active" data-collections-mode="all">All</button>
-                    <button type="button" class="collections-tab" data-collections-mode="resources">Resources</button>
-                    <button type="button" class="collections-tab" data-collections-mode="leads">Lead Marketplace</button>
-                    <button type="button" class="collections-tab" data-collections-mode="opportunities">Opportunities</button>
-                    <button type="button" class="collections-tab" data-collections-mode="mine">My Submissions</button>
-                    <button type="button" class="collections-tab" data-collections-mode="pending">Pending Review</button>
+            <section class="collections-toolbar">
+                <label class="collections-search">
+                    <span>Search Database</span>
+                    <input id="collections-search-input" type="search" placeholder="Search by title, tag, category, division, operator...">
+                </label>
+
+                <label>
+                    <span>Division</span>
+                    <select id="collections-division-filter">
+                        <option value="all">All divisions</option>
+                        <option value="academy">Academy</option>
+                        <option value="plaza">Plaza</option>
+                        <option value="federation">Federation</option>
+                        <option value="universe">Universe</option>
+                    </select>
+                </label>
+
+                <label>
+                    <span>Status</span>
+                    <select id="collections-status-filter">
+                        <option value="all">All statuses</option>
+                        <option value="approved">Approved</option>
+                        <option value="listed">Listed</option>
+                        <option value="pending_review">Pending Review</option>
+                        <option value="rejected">Rejected</option>
+                        <option value="archived">Archived</option>
+                    </select>
+                </label>
+
+                <div class="collections-view-toggle" aria-label="View mode">
+                    <button type="button" class="is-active" id="collections-grid-view">Grid</button>
+                    <button type="button" id="collections-table-view">Table</button>
                 </div>
+            </section>
 
-                <div class="collections-filter-row">
-                    <label class="collections-search">
-                        <span>Search</span>
-                        <input id="collections-search-input" type="search" placeholder="Search title, tags, category, division...">
-                    </label>
-
-                    <label>
-                        <span>Division</span>
-                        <select id="collections-division-filter">
-                            <option value="all">All divisions</option>
-                            <option value="academy">Academy</option>
-                            <option value="plaza">Plaza</option>
-                            <option value="federation">Federation</option>
-                            <option value="universe">Universe</option>
-                        </select>
-                    </label>
-
-                    <label>
-                        <span>Status</span>
-                        <select id="collections-status-filter">
-                            <option value="all">All statuses</option>
-                            <option value="approved">Approved</option>
-                            <option value="listed">Listed</option>
-                            <option value="pending_review">Pending Review</option>
-                            <option value="rejected">Rejected</option>
-                            <option value="archived">Archived</option>
-                        </select>
-                    </label>
+            <section class="collections-content">
+                <div class="collections-content-head">
+                    <div>
+                        <h2 id="collections-view-title">All Collections</h2>
+                        <p id="collections-view-subtitle">Showing all visible mirrored records.</p>
+                    </div>
+                    <div class="collections-result-count" id="collections-result-count">0 results</div>
                 </div>
 
                 <div class="collections-state collections-loading" id="collections-loading">
@@ -123,18 +159,59 @@
 
                 <div class="collections-grid" id="collections-grid" aria-live="polite"></div>
 
+                <div class="collections-table-wrap hidden-step" id="collections-table-wrap">
+                    <table class="collections-table">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Type</th>
+                                <th>Division</th>
+                                <th>Status</th>
+                                <th>Submitted By</th>
+                                <th>Value</th>
+                            </tr>
+                        </thead>
+                        <tbody id="collections-table-body"></tbody>
+                    </table>
+                </div>
+
                 <div class="collections-state collections-empty hidden-step" id="collections-empty">
-                    No collection items found yet.
+                    No collection items found for this view.
                 </div>
             </section>
         </main>
+
+        <aside class="collections-inspector" id="collections-inspector" aria-label="Collection item details">
+            <div class="collections-inspector-empty" id="collections-inspector-empty">
+                <span>Item Details</span>
+                <p>Select any card or table row to inspect its public metadata.</p>
+            </div>
+
+            <div class="collections-inspector-body hidden-step" id="collections-inspector-body">
+                <div class="collections-inspector-head">
+                    <div>
+                        <span id="inspector-type">Collection Item</span>
+                        <h3 id="inspector-title">Untitled</h3>
+                    </div>
+                    <button type="button" id="inspector-close" aria-label="Close details">×</button>
+                </div>
+
+                <p id="inspector-summary"></p>
+
+                <div class="collections-inspector-meta" id="inspector-meta"></div>
+
+                <div class="collections-inspector-tags" id="inspector-tags"></div>
+
+                <div class="collections-inspector-actions" id="inspector-actions"></div>
+            </div>
+        </aside>
     </div>
 
     <script>
         (function () {
             const accessKey = window.__YH_COLLECTIONS_ACCESS_KEY__ || '';
             const script = document.createElement('script');
-            script.src = '/collections-assets/' + encodeURIComponent(accessKey) + '/collections.js?v=20260428-private-collections-1';
+            script.src = '/collections-assets/' + encodeURIComponent(accessKey) + '/collections.js?v=20260428-private-collections-ui-2';
             script.defer = true;
             document.body.appendChild(script);
         })();

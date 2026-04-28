@@ -9286,24 +9286,79 @@ function academyRenderVerifiedBadgeAvailButton(profile = {}, division = 'academy
     `;
 }
 
-async function academyCreateVerifiedBadgeLedger(division = 'academy', button = null) {
+function academyChooseVerifiedBadgeProvider() {
+    const selected = window.prompt(
+        'Choose payment method:\n\nType "stripe" for Card / Bank / Wallet.\nType "oxapay" for Crypto.\nType "manual" for admin-confirmed fallback.',
+        'stripe'
+    );
+
+    const clean = String(selected || '').trim().toLowerCase();
+
+    if (clean === 'stripe' || clean === 'oxapay' || clean === 'manual') {
+        return clean;
+    }
+
+    return '';
+}
+
+function academyGetBadgePaymentMethodForProvider(provider = '') {
+    const clean = String(provider || '').trim().toLowerCase();
+
+    if (clean === 'stripe') return 'card_bank_wallet';
+    if (clean === 'oxapay') return 'crypto';
+    if (clean === 'manual') return 'manual';
+
+    return 'unselected';
+}
+
+async function academyCreateVerifiedBadgeLedger(division = 'academy', button = null, options = {}) {
     const cleanDivision = division === 'federation' ? 'federation' : 'academy';
+    const provider = String(options.provider || academyChooseVerifiedBadgeProvider() || '').trim().toLowerCase();
+
+    if (!provider) return null;
+
+    const paymentMethod = academyGetBadgePaymentMethodForProvider(provider);
+    const isStripe = provider === 'stripe';
+    const isOxaPay = provider === 'oxapay';
+
+    const endpoint = isStripe
+        ? `/api/payments/badges/${encodeURIComponent(cleanDivision)}/checkout-session`
+        : isOxaPay
+            ? `/api/payments/badges/${encodeURIComponent(cleanDivision)}/oxapay-invoice`
+            : `/api/payments/badges/${encodeURIComponent(cleanDivision)}/ledger`;
 
     if (button) {
         button.disabled = true;
         button.setAttribute('aria-busy', 'true');
         button.dataset.originalText = button.textContent || '';
-        button.textContent = 'Creating Ledger...';
+        button.textContent = isStripe
+            ? 'Opening Stripe...'
+            : isOxaPay
+                ? 'Opening OxaPay...'
+                : 'Creating Ledger...';
     }
 
     try {
-        const result = await academyAuthedFetch(`/api/payments/badges/${encodeURIComponent(cleanDivision)}/ledger`, {
+        const result = await academyAuthedFetch(endpoint, {
             method: 'POST',
             body: JSON.stringify({
-                provider: 'unselected',
-                paymentMethod: 'unselected'
+                provider,
+                paymentMethod,
+                returnTo: `${window.location.pathname || '/academy'}${window.location.search || ''}`
             })
         });
+
+        if ((isStripe || isOxaPay) && result?.url) {
+            showToast(
+                isStripe
+                    ? 'Opening Stripe Checkout...'
+                    : 'Opening OxaPay crypto invoice...',
+                'success'
+            );
+
+            window.top.location.href = result.url;
+            return result;
+        }
 
         showToast(
             cleanDivision === 'federation'
@@ -9316,8 +9371,8 @@ async function academyCreateVerifiedBadgeLedger(division = 'academy', button = n
 
         return result;
     } catch (error) {
-        console.error('academy verified badge ledger error:', error);
-        showToast(error?.message || 'Failed to create badge payment ledger.', 'error');
+        console.error('academy verified badge payment error:', error);
+        showToast(error?.message || 'Failed to start badge payment.', 'error');
         throw error;
     } finally {
         if (button) {

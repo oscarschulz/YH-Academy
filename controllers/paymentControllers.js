@@ -1,5 +1,6 @@
 const { firestore } = require('../config/firebaseAdmin');
 const { Timestamp } = require('firebase-admin/firestore');
+const Stripe = require('stripe');
 const paymentLedgerRepo = require('../backend/repositories/paymentLedgerRepo');
 
 function cleanText(value, fallback = '') {
@@ -33,14 +34,14 @@ function getPaymentOptions(req, res) {
             {
                 id: 'stripe',
                 label: 'Pay with Card / Bank / Wallet',
-                status: 'planned',
+                status: 'active',
                 methods: ['card', 'bank', 'wallet'],
                 currencies: ['fiat']
             },
             {
                 id: 'oxapay',
                 label: 'Pay with Crypto',
-                status: 'planned',
+                status: 'active',
                 methods: ['crypto'],
                 currencies: ['crypto']
             },
@@ -140,18 +141,248 @@ function buildPendingVerifiedBadgePayload(plan = {}, payment = {}) {
         updatedAt: new Date().toISOString()
     };
 }
+function getBadgeStripeClient() {
+    const key = cleanText(process.env.STRIPE_SECRET_KEY);
 
-async function createVerifiedBadgePaymentLedger(req, res) {
+    if (!key) {
+        const error = new Error('STRIPE_SECRET_KEY is not configured.');
+        error.statusCode = 503;
+        throw error;
+    }
+
+    return new Stripe(key);
+}
+
+function resolveBadgePublicBaseUrl(req = null) {
+    const configured = cleanText(
+        process.env.PUBLIC_BASE_URL ||
+        process.env.APP_BASE_URL ||
+        process.env.BASE_URL ||
+        ''
+    );
+
+    if (configured) return configured.replace(/\/+$/, '');
+
+    const proto = cleanText(
+        req?.headers?.['x-forwarded-proto'] ||
+        req?.protocol ||
+        'https'
+    ).split(',')[0];
+
+    const host = cleanText(
+        req?.headers?.['x-forwarded-host'] ||
+        req?.headers?.host ||
+        ''
+    ).split(',')[0];
+
+    if (!host) {
+        const error = new Error('PUBLIC_BASE_URL is not configured.');
+        error.statusCode = 503;
+        throw error;
+    }
+
+    return `${proto}://${host}`.replace(/\/+$/, '');
+}
+
+function normalizeBadgeReturnPath(value = '') {
+    const clean = cleanText(value || '/dashboard');
+
+    if (!clean || !clean.startsWith('/') || clean.startsWith('//')) {
+        return '/dashboard';
+    }
+
+    return clean;
+}
+
+function buildBadgeReturnUrl(req, params = {}) {
+    const baseUrl = resolveBadgePublicBaseUrl(req);
+    const returnPath = normalizeBadgeReturnPath(req.body?.returnTo || req.body?.returnPath || '/dashboard');
+    const joiner = returnPath.includes('?') ? '&' : '?';
+    const query = new URLSearchParams(params).toString();
+
+    return `${baseUrl}${returnPath}${joiner}${query}`;
+}
+
+function getBadgePaymentMethodForProvider(provider = '') {
+    const clean = cleanLower(provider);
+
+    if (clean === 'stripe') return 'card_bank_wallet';
+    if (clean === 'oxapay') return 'crypto';
+    if (clean === 'manual') return 'manual';
+
+    return 'unselected';
+}
+
+function getOxaPayMerchantApiKey() {
+    const key = cleanText(
+        process.env.OXAPAY_MERCHANT_API_KEY ||
+        process.env.OXAPAY_API_KEY ||
+        ''
+    );
+
+    if (!key) {
+        const error = new Error('OXAPAY_MERCHANT_API_KEY is not configured.');
+        error.statusCode = 503;
+        throw error;
+    }
+
+    return key;
+}
+
+function isOxaPaySandboxEnabled() {
+    return String(process.env.OXAPAY_SANDBOX || '').trim().toLowerCase() === 'true';
+}
+
+function buildVerifiedBadgeOrderId(paymentId = '') {
+    return `yh_badge_${cleanText(paymentId)}`
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]+/g, '_')
+        .slice(0, 120);
+}
+
+async function callOxaPayInvoiceApi(payload = {}) {
+    const response = await fetch('https://api.oxapay.com/v1/payment/invoice', {
+        method: 'POST',
+        headers: {
+            merchant_api_key: getOxaPayMerchantApiKey(),
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+    });
+
+    let data = null;
+
+    try {
+        data = await response.json();
+    } catch (_) {
+        data = null;
+    }
+
+    if (!response.ok || Number(data?.status || 0) >= 400 || data?.error?.message) {
+        const error = new Error(
+            data?.error?.message ||
+            data?.message ||
+            `OxaPay invoice request failed with status ${response.status}.`
+        );
+        error.statusCode = response.status || 500;
+        error.payload = data;
+        throw error;
+    }
+
+    return data || {};
+}
+
+async function createOrRefreshVerifiedBadgePayment(viewer = {}, plan = {}, options = {}) {
+    if (!viewer.id) {
+        const error = new Error('Unauthorized.');
+        error.statusCode = 401;
+        throw error;
+    }
+
+    if (!plan?.division) {
+        const error = new Error('Invalid badge division. Use academy or federation.');
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const userRef = firestore.collection('users').doc(viewer.id);
+    const userSnap = await userRef.get();
+
+    if (!userSnap.exists) {
+        const error = new Error('User account not found.');
+        error.statusCode = 404;
+        throw error;
+    }
+
+    const userData = userSnap.data() || {};
+    const currentBadges =
+        userData.verificationBadges && typeof userData.verificationBadges === 'object'
+            ? userData.verificationBadges
+            : {};
+
+    const currentBadge =
+        currentBadges[plan.division] && typeof currentBadges[plan.division] === 'object'
+            ? currentBadges[plan.division]
+            : {};
+
+    const currentBadgeStatus = cleanLower(currentBadge.status || '');
+
+    if (
+        currentBadge.active === true ||
+        currentBadgeStatus === 'active' ||
+        currentBadgeStatus === 'verified'
+    ) {
+        const error = new Error(`${plan.code} badge is already active.`);
+        error.statusCode = 409;
+        error.payload = {
+            division: plan.division,
+            badge: currentBadge
+        };
+        throw error;
+    }
+
+    const provider = cleanLower(options.provider || 'unselected');
+    const paymentMethod = cleanText(options.paymentMethod || getBadgePaymentMethodForProvider(provider));
+    const status = cleanLower(options.status || 'draft') || 'draft';
+    const recordId = getVerifiedBadgePaymentRecordId(viewer.id, plan.division);
+
+    const payment = await paymentLedgerRepo.upsertPaymentRecord({
+        id: recordId,
+        sourceDivision: plan.division,
+        sourceFeature: plan.sourceFeature,
+        sourceRecordId: `${viewer.id}_${plan.division}`,
+
+        payerUid: viewer.id,
+        payerEmail: viewer.email,
+        payerName: viewer.name,
+
+        provider,
+        providerOptions: ['stripe', 'oxapay', 'manual'],
+        providerPaymentId: cleanText(options.providerPaymentId),
+        providerCheckoutUrl: cleanText(options.providerCheckoutUrl),
+        providerStatus: cleanText(options.providerStatus),
+
+        status,
+        paymentMethod,
+
+        amount: plan.amountMonthly,
+        currency: plan.currency,
+
+        platformCommissionAmount: plan.amountMonthly,
+        operatorPayoutAmount: 0,
+
+        metadata: {
+            badgeDivision: plan.division,
+            badgeCode: plan.code,
+            badgeAsset: plan.asset,
+            badgePublicName: plan.publicName,
+            billingInterval: plan.interval,
+            userId: viewer.id,
+            userEmail: viewer.email,
+            userName: viewer.name,
+            ...(options.metadata && typeof options.metadata === 'object' ? options.metadata : {})
+        }
+    });
+
+    await userRef.set({
+        verificationBadges: {
+            [plan.division]: buildPendingVerifiedBadgePayload(plan, payment)
+        },
+        updatedAt: new Date().toISOString()
+    }, { merge: true });
+
+    return {
+        userRef,
+        userData,
+        payment,
+        badge: buildPendingVerifiedBadgePayload(plan, payment)
+    };
+}
+
+async function createVerifiedBadgeStripeCheckoutSession(req, res) {
     try {
         const viewer = getViewer(req);
         const plan = getVerifiedBadgePlan(req.params.division || req.body?.division);
-
-        if (!viewer.id) {
-            return res.status(401).json({
-                success: false,
-                message: 'Unauthorized.'
-            });
-        }
 
         if (!plan) {
             return res.status(400).json({
@@ -160,46 +391,58 @@ async function createVerifiedBadgePaymentLedger(req, res) {
             });
         }
 
-        const userRef = firestore.collection('users').doc(viewer.id);
-        const userSnap = await userRef.get();
+        const stripe = getBadgeStripeClient();
 
-        if (!userSnap.exists) {
-            return res.status(404).json({
-                success: false,
-                message: 'User account not found.'
-            });
-        }
+        const initial = await createOrRefreshVerifiedBadgePayment(viewer, plan, {
+            provider: 'stripe',
+            paymentMethod: 'card_bank_wallet',
+            status: 'checkout_started',
+            providerStatus: 'checkout_starting'
+        });
 
-        const userData = userSnap.data() || {};
-        const currentBadges =
-            userData.verificationBadges && typeof userData.verificationBadges === 'object'
-                ? userData.verificationBadges
-                : {};
+        const successUrl = buildBadgeReturnUrl(req, {
+            badge_checkout: 'stripe-success',
+            division: plan.division,
+            payment: initial.payment.id
+        });
 
-        const currentBadge =
-            currentBadges[plan.division] && typeof currentBadges[plan.division] === 'object'
-                ? currentBadges[plan.division]
-                : {};
+        const cancelUrl = buildBadgeReturnUrl(req, {
+            badge_checkout: 'stripe-cancelled',
+            division: plan.division,
+            payment: initial.payment.id
+        });
 
-        const currentBadgeStatus = cleanLower(currentBadge.status || '');
-
-        if (
-            currentBadge.active === true ||
-            currentBadgeStatus === 'active' ||
-            currentBadgeStatus === 'verified'
-        ) {
-            return res.status(409).json({
-                success: false,
-                message: `${plan.code} badge is already active.`,
-                division: plan.division,
-                badge: currentBadge
-            });
-        }
-
-        const recordId = getVerifiedBadgePaymentRecordId(viewer.id, plan.division);
+        const session = await stripe.checkout.sessions.create({
+            mode: 'payment',
+            client_reference_id: initial.payment.id,
+            customer_email: viewer.email || undefined,
+            success_url: successUrl,
+            cancel_url: cancelUrl,
+            line_items: [
+                {
+                    quantity: 1,
+                    price_data: {
+                        currency: plan.currency.toLowerCase(),
+                        unit_amount: Math.round(Number(plan.amountMonthly || 0) * 100),
+                        product_data: {
+                            name: plan.publicName,
+                            description: `${plan.code} verification badge for YH Universe`
+                        }
+                    }
+                }
+            ],
+            metadata: {
+                kind: 'verified_badge',
+                paymentLedgerId: initial.payment.id,
+                badgeDivision: plan.division,
+                badgeCode: plan.code,
+                userId: viewer.id,
+                userEmail: viewer.email
+            }
+        });
 
         const payment = await paymentLedgerRepo.upsertPaymentRecord({
-            id: recordId,
+            id: initial.payment.id,
             sourceDivision: plan.division,
             sourceFeature: plan.sourceFeature,
             sourceRecordId: `${viewer.id}_${plan.division}`,
@@ -208,10 +451,14 @@ async function createVerifiedBadgePaymentLedger(req, res) {
             payerEmail: viewer.email,
             payerName: viewer.name,
 
-            provider: cleanLower(req.body?.provider || 'unselected'),
+            provider: 'stripe',
             providerOptions: ['stripe', 'oxapay', 'manual'],
-            status: 'draft',
-            paymentMethod: cleanLower(req.body?.paymentMethod || 'unselected'),
+            providerPaymentId: cleanText(session.id),
+            providerCheckoutUrl: cleanText(session.url),
+            providerStatus: 'checkout_session_created',
+
+            status: 'checkout_started',
+            paymentMethod: 'card_bank_wallet',
 
             amount: plan.amountMonthly,
             currency: plan.currency,
@@ -227,30 +474,194 @@ async function createVerifiedBadgePaymentLedger(req, res) {
                 billingInterval: plan.interval,
                 userId: viewer.id,
                 userEmail: viewer.email,
-                userName: viewer.name
+                userName: viewer.name,
+                stripeCheckoutSessionId: cleanText(session.id)
             }
         });
 
-        await userRef.set({
+        await initial.userRef.set({
             verificationBadges: {
                 [plan.division]: buildPendingVerifiedBadgePayload(plan, payment)
             },
             updatedAt: new Date().toISOString()
         }, { merge: true });
 
+        return res.json({
+            success: true,
+            provider: 'stripe',
+            providerLabel: 'Stripe',
+            division: plan.division,
+            badge: buildPendingVerifiedBadgePayload(plan, payment),
+            payment,
+            paymentLedgerId: payment.id,
+            checkoutSessionId: session.id,
+            url: session.url
+        });
+    } catch (error) {
+        console.error('verified badge stripe checkout error:', error);
+
+        return res.status(error.statusCode || 500).json({
+            success: false,
+            message: error?.message || 'Failed to start Stripe Checkout for verified badge.'
+        });
+    }
+}
+
+async function createVerifiedBadgeOxaPayInvoice(req, res) {
+    try {
+        const viewer = getViewer(req);
+        const plan = getVerifiedBadgePlan(req.params.division || req.body?.division);
+
+        if (!plan) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid badge division. Use academy or federation.'
+            });
+        }
+
+        const initial = await createOrRefreshVerifiedBadgePayment(viewer, plan, {
+            provider: 'oxapay',
+            paymentMethod: 'crypto',
+            status: 'checkout_started',
+            providerStatus: 'invoice_starting'
+        });
+
+        const baseUrl = resolveBadgePublicBaseUrl(req);
+        const orderId = buildVerifiedBadgeOrderId(initial.payment.id);
+
+        const invoicePayload = {
+            amount: Number(Number(plan.amountMonthly || 0).toFixed(2)),
+            currency: plan.currency,
+            lifetime: Math.max(15, Math.min(2880, Number(process.env.OXAPAY_INVOICE_LIFETIME_MINUTES || 60))),
+            fee_paid_by_payer: Number(process.env.OXAPAY_FEE_PAID_BY_PAYER || 1),
+            mixed_payment: true,
+            callback_url: `${baseUrl}/api/oxapay/webhook`,
+            return_url: buildBadgeReturnUrl(req, {
+                badge_checkout: 'oxapay-success',
+                division: plan.division,
+                payment: initial.payment.id
+            }),
+            email: viewer.email || undefined,
+            order_id: orderId,
+            thanks_message: 'Payment received. Return to YH Universe to see your badge status.',
+            description: `${plan.publicName}: ${plan.code}`,
+            sandbox: isOxaPaySandboxEnabled()
+        };
+
+        const invoiceResult = await callOxaPayInvoiceApi(invoicePayload);
+        const invoice = invoiceResult.data || {};
+
+        const trackId = cleanText(invoice.track_id);
+        const paymentUrl = cleanText(invoice.payment_url);
+
+        if (!trackId || !paymentUrl) {
+            return res.status(502).json({
+                success: false,
+                message: 'OxaPay did not return a valid invoice link.'
+            });
+        }
+
+        const payment = await paymentLedgerRepo.upsertPaymentRecord({
+            id: initial.payment.id,
+            sourceDivision: plan.division,
+            sourceFeature: plan.sourceFeature,
+            sourceRecordId: `${viewer.id}_${plan.division}`,
+
+            payerUid: viewer.id,
+            payerEmail: viewer.email,
+            payerName: viewer.name,
+
+            provider: 'oxapay',
+            providerOptions: ['stripe', 'oxapay', 'manual'],
+            providerPaymentId: trackId,
+            providerCheckoutUrl: paymentUrl,
+            providerStatus: 'invoice_created',
+
+            status: 'checkout_started',
+            paymentMethod: 'crypto',
+
+            amount: plan.amountMonthly,
+            currency: plan.currency,
+
+            platformCommissionAmount: plan.amountMonthly,
+            operatorPayoutAmount: 0,
+
+            metadata: {
+                badgeDivision: plan.division,
+                badgeCode: plan.code,
+                badgeAsset: plan.asset,
+                badgePublicName: plan.publicName,
+                billingInterval: plan.interval,
+                userId: viewer.id,
+                userEmail: viewer.email,
+                userName: viewer.name,
+                oxapayTrackId: trackId,
+                oxapayOrderId: orderId,
+                oxapayInvoicePayload: invoicePayload
+            }
+        });
+
+        await initial.userRef.set({
+            verificationBadges: {
+                [plan.division]: buildPendingVerifiedBadgePayload(plan, payment)
+            },
+            updatedAt: new Date().toISOString()
+        }, { merge: true });
+
+        return res.json({
+            success: true,
+            provider: 'oxapay',
+            providerLabel: 'OxaPay',
+            division: plan.division,
+            badge: buildPendingVerifiedBadgePayload(plan, payment),
+            payment,
+            paymentLedgerId: payment.id,
+            oxapayTrackId: trackId,
+            url: paymentUrl
+        });
+    } catch (error) {
+        console.error('verified badge oxapay invoice error:', error);
+
+        return res.status(error.statusCode || 500).json({
+            success: false,
+            message: error?.message || 'Failed to start OxaPay invoice for verified badge.'
+        });
+    }
+}
+
+async function createVerifiedBadgePaymentLedger(req, res) {
+    try {
+        const viewer = getViewer(req);
+        const plan = getVerifiedBadgePlan(req.params.division || req.body?.division);
+
+        if (!plan) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid badge division. Use academy or federation.'
+            });
+        }
+
+        const result = await createOrRefreshVerifiedBadgePayment(viewer, plan, {
+            provider: cleanLower(req.body?.provider || 'manual'),
+            paymentMethod: cleanLower(req.body?.paymentMethod || 'manual'),
+            status: 'draft',
+            providerStatus: 'manual_payment_requested'
+        });
+
         return res.status(201).json({
             success: true,
             message: `${plan.code} badge payment ledger created.`,
             division: plan.division,
-            badge: buildPendingVerifiedBadgePayload(plan, payment),
-            payment
+            badge: result.badge,
+            payment: result.payment
         });
     } catch (error) {
         console.error('create verified badge payment ledger error:', error);
 
-        return res.status(500).json({
+        return res.status(error.statusCode || 500).json({
             success: false,
-            message: error?.message || 'Failed to create verified badge payment ledger.'
+            message: error?.message || 'Failed to create verified badge payment ledger.',
+            ...(error.payload && typeof error.payload === 'object' ? error.payload : {})
         });
     }
 }
@@ -968,6 +1379,8 @@ module.exports = {
     getPaymentOptions,
     getPayoutOptions,
     createVerifiedBadgePaymentLedger,
+    createVerifiedBadgeStripeCheckoutSession,
+    createVerifiedBadgeOxaPayInvoice,
     createFederationPaidIntroLedger,
     createPlazaOpportunityPaymentLedger,
     listMyPayments,
