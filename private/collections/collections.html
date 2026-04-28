@@ -7,29 +7,18 @@
     <link rel="icon" type="image/avif" href="/images/logo.avif?v=20260428-private-collections-ui-2">
     <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260428-private-collections-ui-2">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" id="collections-css-link">
-    <script>
-        (function () {
-            const parts = window.location.pathname.split('/').filter(Boolean);
-            const accessKey = parts[1] || '';
-            window.__YH_COLLECTIONS_ACCESS_KEY__ = accessKey;
-
-            const css = document.getElementById('collections-css-link');
-            if (css) {
-                css.href = '/collections-assets/' + encodeURIComponent(accessKey) + '/collections.css?v=20260428-private-collections-ui-2';
-            }
-        })();
-    </script>
+    <link rel="stylesheet" href="/collections-assets/collections.css?v=20260428-private-collections-login-1">
 </head>
 <body data-yh-page="collections-database">
     <div class="collections-app">
         <aside class="collections-sidebar">
+            <div class="collections-brand" aria-label="YH Collections">
                 <img src="/images/logo.avif" alt="YH Universe">
                 <span>
                     <strong>YH</strong>
                     Collections
                 </span>
-            </a>
+            </div>
 
             <div class="collections-sidebar-label">Database Views</div>
 
@@ -205,14 +194,6 @@
         </aside>
     </div>
 
-    <script>
-        (function () {
-            const accessKey = window.__YH_COLLECTIONS_ACCESS_KEY__ || '';
-            const script = document.createElement('script');
-            script.src = '/collections-assets/' + encodeURIComponent(accessKey) + '/collections.js?v=20260428-private-collections-ui-2';
-            script.defer = true;
-            document.body.appendChild(script);
-        })();
-    </script>
+    <script src="/collections-assets/collections.js?v=20260428-private-collections-login-1" defer></script>
 </body>
 </html>

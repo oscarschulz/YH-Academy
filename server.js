@@ -2762,7 +2762,9 @@ if (
     p === '/plaza' ||
     p === '/plaza/' ||
     p === '/plaza.html' ||
-    p.startsWith('/collections/') ||
+    p === '/collections' ||
+    p === '/collections/' ||
+    p.startsWith('/collections-login/') ||
     p.startsWith('/collections-assets/') ||
     p === '/js/dashboard.js' ||
     p === '/js/academy.js' ||
@@ -2805,32 +2807,132 @@ app.use('/uploads', express.static(ACADEMY_UPLOADS_ROOT, {
     }
 }));
 
-function getCollectionsPageAccessKey() {
-    return sanitizeText(process.env.YH_COLLECTIONS_PAGE_ACCESS_KEY || '');
+const COLLECTIONS_ACCESS_COOKIE_NAME = 'yh_collections_access_token';
+const COLLECTIONS_ACCESS_TTL_MS = 12 * 60 * 60 * 1000;
+
+function sendPrivateNoStoreHeaders(res) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
 }
 
-function isValidCollectionsPageKey(value = '') {
-    const expected = getCollectionsPageAccessKey();
-    const received = sanitizeText(value);
+function getCollectionsLoginUrlKey() {
+    return sanitizeText(process.env.YH_COLLECTIONS_LOGIN_URL_KEY || '');
+}
 
-    if (!expected || !received) return false;
+function getCollectionsLoginPassword() {
+    return sanitizeText(process.env.YH_COLLECTIONS_LOGIN_PASSWORD || '');
+}
+
+function getCollectionsAccessTokenSecret() {
+    return sanitizeText(process.env.YH_COLLECTIONS_ACCESS_TOKEN_SECRET || '');
+}
+
+function safeTimingCompareText(left = '', right = '') {
+    const a = Buffer.from(sanitizeText(left), 'utf8');
+    const b = Buffer.from(sanitizeText(right), 'utf8');
+
+    if (!a.length || !b.length || a.length !== b.length) return false;
 
     try {
-        const a = Buffer.from(expected, 'utf8');
-        const b = Buffer.from(received, 'utf8');
-
-        if (a.length !== b.length) return false;
-
         return crypto.timingSafeEqual(a, b);
     } catch (_) {
         return false;
     }
 }
 
-function sendPrivateCollectionsFile(req, res, fileName = '') {
-    const accessKey = sanitizeText(req.params.accessKey || '');
+function isValidCollectionsLoginUrlKey(value = '') {
+    const expected = getCollectionsLoginUrlKey();
+    const received = sanitizeText(value);
 
-    if (!isValidCollectionsPageKey(accessKey)) {
+    return Boolean(expected && received && safeTimingCompareText(expected, received));
+}
+
+function isValidCollectionsLoginPassword(value = '') {
+    const expected = getCollectionsLoginPassword();
+    const received = sanitizeText(value);
+
+    return Boolean(expected && received && safeTimingCompareText(expected, received));
+}
+
+function createCollectionsAccessToken() {
+    const secret = getCollectionsAccessTokenSecret();
+
+    if (!secret) {
+        const error = new Error('YH_COLLECTIONS_ACCESS_TOKEN_SECRET is not configured.');
+        error.statusCode = 503;
+        throw error;
+    }
+
+    const payload = Buffer.from(JSON.stringify({
+        scope: 'yh_collections',
+        iat: Date.now(),
+        exp: Date.now() + COLLECTIONS_ACCESS_TTL_MS
+    })).toString('base64url');
+
+    const signature = crypto
+        .createHmac('sha256', secret)
+        .update(payload)
+        .digest('base64url');
+
+    return `${payload}.${signature}`;
+}
+
+function verifyCollectionsAccessToken(token = '') {
+    const secret = getCollectionsAccessTokenSecret();
+    const cleanToken = sanitizeText(token);
+
+    if (!secret || !cleanToken || !cleanToken.includes('.')) return false;
+
+    const [payload, signature] = cleanToken.split('.');
+
+    if (!payload || !signature) return false;
+
+    const expectedSignature = crypto
+        .createHmac('sha256', secret)
+        .update(payload)
+        .digest('base64url');
+
+    if (!safeTimingCompareText(expectedSignature, signature)) return false;
+
+    try {
+        const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+
+        return (
+            decoded &&
+            decoded.scope === 'yh_collections' &&
+            Number(decoded.exp || 0) > Date.now()
+        );
+    } catch (_) {
+        return false;
+    }
+}
+
+function getCollectionsAccessCookie(req = {}) {
+    const cookies = parseCookieHeader(req.headers?.cookie || '');
+    return sanitizeText(cookies[COLLECTIONS_ACCESS_COOKIE_NAME] || '');
+}
+
+function hasCollectionsAccessSession(req = {}) {
+    return verifyCollectionsAccessToken(getCollectionsAccessCookie(req));
+}
+
+function getCollectionsCookieOptions(req = {}) {
+    const forwardedProto = sanitizeText(req.headers?.['x-forwarded-proto'] || '').toLowerCase();
+    const secure = req.secure === true || forwardedProto === 'https';
+
+    return {
+        httpOnly: true,
+        secure,
+        sameSite: 'lax',
+        path: '/',
+        maxAge: COLLECTIONS_ACCESS_TTL_MS
+    };
+}
+
+function sendPrivateCollectionsFile(req, res, fileName = '') {
+    if (!hasCollectionsAccessSession(req)) {
         return res.status(404).send('Not found');
     }
 
@@ -2842,36 +2944,81 @@ function sendPrivateCollectionsFile(req, res, fileName = '') {
         return res.status(404).send('Not found');
     }
 
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-    res.setHeader('Surrogate-Control', 'no-store');
+    sendPrivateNoStoreHeaders(res);
 
     return res.sendFile(filePath);
 }
 
-app.get('/collections/:accessKey', (req, res) => {
-    const accessKey = sanitizeText(req.params.accessKey || '');
+app.get('/collections-login/:loginAccessKey', (req, res) => {
+    const loginAccessKey = sanitizeText(req.params.loginAccessKey || '');
 
-    if (!isValidCollectionsPageKey(accessKey)) {
+    if (!isValidCollectionsLoginUrlKey(loginAccessKey)) {
+        return res.status(404).send('Not found');
+    }
+
+    const filePath = path.join(__dirname, 'private', 'collections-login', 'login.html');
+
+    sendPrivateNoStoreHeaders(res);
+
+    return res.sendFile(filePath);
+});
+
+app.post('/collections-login/:loginAccessKey', async (req, res) => {
+    const loginAccessKey = sanitizeText(req.params.loginAccessKey || '');
+
+    if (!isValidCollectionsLoginUrlKey(loginAccessKey)) {
+        return res.status(404).json({
+            success: false,
+            message: 'Not found.'
+        });
+    }
+
+    const password = sanitizeText(req.body?.password || '');
+
+    if (!isValidCollectionsLoginPassword(password)) {
+        return res.status(403).json({
+            success: false,
+            message: 'Invalid Collections password.'
+        });
+    }
+
+    const token = createCollectionsAccessToken();
+
+    res.cookie(COLLECTIONS_ACCESS_COOKIE_NAME, token, getCollectionsCookieOptions(req));
+
+    return res.json({
+        success: true,
+        redirectUrl: '/collections'
+    });
+});
+
+app.post('/collections-logout', (req, res) => {
+    res.clearCookie(COLLECTIONS_ACCESS_COOKIE_NAME, {
+        path: '/'
+    });
+
+    return res.json({
+        success: true
+    });
+});
+
+app.get('/collections', (req, res) => {
+    if (!hasCollectionsAccessSession(req)) {
         return res.status(404).send('Not found');
     }
 
     const filePath = path.join(__dirname, 'private', 'collections', 'collections.html');
 
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-    res.setHeader('Surrogate-Control', 'no-store');
+    sendPrivateNoStoreHeaders(res);
 
     return res.sendFile(filePath);
 });
 
-app.get('/collections-assets/:accessKey/collections.css', (req, res) => {
+app.get('/collections-assets/collections.css', (req, res) => {
     return sendPrivateCollectionsFile(req, res, 'collections.css');
 });
 
-app.get('/collections-assets/:accessKey/collections.js', (req, res) => {
+app.get('/collections-assets/collections.js', (req, res) => {
     return sendPrivateCollectionsFile(req, res, 'collections.js');
 });
 

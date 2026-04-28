@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Collections Login | YH Universe</title>
+    <link rel="icon" type="image/avif" href="/images/logo.avif?v=20260428-collections-login-1">
+    <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260428-collections-login-1">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --yh-bg: #050816;
+            --yh-panel: rgba(8, 18, 34, 0.82);
+            --yh-border: rgba(56, 189, 248, 0.22);
+            --yh-border-strong: rgba(56, 189, 248, 0.4);
+            --yh-text: #f8fbff;
+            --yh-muted: #94a3b8;
+            --yh-blue: #38bdf8;
+            --yh-red: #f87171;
+            --yh-green: #22c55e;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 22px;
+            background:
+                radial-gradient(circle at top left, rgba(56, 189, 248, 0.12), transparent 30%),
+                radial-gradient(circle at bottom right, rgba(34, 197, 94, 0.08), transparent 26%),
+                linear-gradient(180deg, #050816 0%, #07111f 54%, #020617 100%);
+            color: var(--yh-text);
+        }
+
+        .collections-login-card {
+            width: min(460px, 100%);
+            border: 1px solid var(--yh-border);
+            border-radius: 28px;
+            padding: 28px;
+            background: var(--yh-panel);
+            box-shadow: 0 28px 90px rgba(0, 0, 0, 0.38);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+        }
+
+        .collections-login-brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 26px;
+        }
+
+        .collections-login-brand img {
+            width: 52px;
+            height: 52px;
+            border-radius: 16px;
+            object-fit: contain;
+            filter: drop-shadow(0 0 16px rgba(56, 189, 248, 0.36));
+        }
+
+        .collections-login-brand span {
+            display: grid;
+            gap: 2px;
+            font-weight: 800;
+        }
+
+        .collections-login-brand small {
+            color: var(--yh-blue);
+            font-size: 0.72rem;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+        }
+
+        h1 {
+            font-size: clamp(2rem, 7vw, 3.3rem);
+            line-height: 0.95;
+            letter-spacing: -0.06em;
+            margin-bottom: 12px;
+        }
+
+        p {
+            color: var(--yh-muted);
+            font-size: 0.92rem;
+            line-height: 1.65;
+            margin-bottom: 22px;
+        }
+
+        form {
+            display: grid;
+            gap: 14px;
+        }
+
+        label {
+            display: grid;
+            gap: 8px;
+            color: var(--yh-muted);
+            font-size: 0.76rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        input {
+            width: 100%;
+            min-height: 52px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.09);
+            background: rgba(2, 6, 23, 0.62);
+            color: #fff;
+            outline: none;
+            padding: 0 15px;
+            font-size: 0.95rem;
+        }
+
+        input:focus {
+            border-color: var(--yh-border-strong);
+            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.09);
+        }
+
+        button {
+            min-height: 52px;
+            border-radius: 16px;
+            border: 1px solid rgba(56, 189, 248, 0.36);
+            background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(14, 165, 233, 0.08));
+            color: #fff;
+            font-weight: 900;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: wait;
+        }
+
+        .collections-login-message {
+            min-height: 22px;
+            color: var(--yh-red);
+            font-size: 0.84rem;
+            font-weight: 700;
+        }
+
+        .collections-login-message.is-success {
+            color: var(--yh-green);
+        }
+    </style>
+</head>
+<body>
+    <main class="collections-login-card">
+        <div class="collections-login-brand">
+            <img src="/images/logo.avif" alt="YH Universe">
+            <span>
+                <small>Private Database</small>
+                YH Collections
+            </span>
+        </div>
+
+        <h1>Collections Login</h1>
+        <p>Enter the private Collections password to open the Universe database page.</p>
+
+        <form id="collections-login-form">
+            <label>
+                Collections Password
+                <input id="collections-login-password" type="password" autocomplete="current-password" placeholder="Enter password" required>
+            </label>
+
+            <button id="collections-login-submit" type="submit">Open Collections</button>
+
+            <div class="collections-login-message" id="collections-login-message"></div>
+        </form>
+    </main>
+
+    <script>
+        (function () {
+            const form = document.getElementById('collections-login-form');
+            const passwordInput = document.getElementById('collections-login-password');
+            const submitBtn = document.getElementById('collections-login-submit');
+            const message = document.getElementById('collections-login-message');
+
+            function setMessage(text = '', success = false) {
+                message.textContent = text;
+                message.classList.toggle('is-success', success);
+            }
+
+            form.addEventListener('submit', async (event) => {
+                event.preventDefault();
+
+                const password = String(passwordInput.value || '').trim();
+
+                if (!password) {
+                    setMessage('Enter the Collections password.');
+                    return;
+                }
+
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Checking...';
+                setMessage('');
+
+                try {
+                    const response = await fetch(window.location.pathname, {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ password })
+                    });
+
+                    const data = await response.json().catch(() => ({}));
+
+                    if (!response.ok || data.success === false) {
+                        throw new Error(data.message || 'Login failed.');
+                    }
+
+                    setMessage('Access granted. Opening Collections...', true);
+
+                    window.setTimeout(() => {
+                        window.location.href = data.redirectUrl || '/collections';
+                    }, 350);
+                } catch (error) {
+                    setMessage(error.message || 'Login failed.');
+                } finally {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Open Collections';
+                }
+            });
+        })();
+    </script>
+</body>
+</html>

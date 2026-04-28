@@ -75,7 +75,7 @@
     }
 
     function getCollectionsAccessKey() {
-        return String(window.__YH_COLLECTIONS_ACCESS_KEY__ || '').trim();
+        return '';
     }
 
     function getStoredAuthToken() {
@@ -108,11 +108,9 @@
 
     async function authedFetch(url, options = {}) {
         const token = getStoredAuthToken();
-        const accessKey = getCollectionsAccessKey();
 
         const headers = {
             'Content-Type': 'application/json',
-            'x-yh-collections-key': accessKey,
             ...(options.headers || {})
         };
 
@@ -456,7 +454,7 @@
             }
 
             if (Number(error.status) === 404) {
-                showError('Collections access key is invalid or missing.');
+                showError('Collections login session is invalid or expired. Open the private Collections login URL again.');
             } else {
                 showError(error.message || 'Failed to load collections.');
             }
