@@ -1,6 +1,7 @@
 const { firestore } = require('../config/firebaseAdmin');
 const { Timestamp } = require('firebase-admin/firestore');
 const Stripe = require('stripe');
+const crypto = require('crypto');
 const paymentLedgerRepo = require('../backend/repositories/paymentLedgerRepo');
 
 function cleanText(value, fallback = '') {
@@ -233,11 +234,25 @@ function isOxaPaySandboxEnabled() {
     return String(process.env.OXAPAY_SANDBOX || '').trim().toLowerCase() === 'true';
 }
 
-function buildVerifiedBadgeOrderId(paymentId = '') {
-    return `yh_badge_${cleanText(paymentId)}`
+function buildVerifiedBadgeOrderId(paymentId = '', division = '') {
+    const cleanDivision = normalizeVerifiedBadgeDivision(division) || 'badge';
+
+    const cleanPaymentId = cleanText(paymentId)
         .toLowerCase()
         .replace(/[^a-z0-9_-]+/g, '_')
-        .slice(0, 120);
+        .replace(/^_+|_+$/g, '');
+
+    const seed =
+        cleanPaymentId ||
+        `${cleanDivision}_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+
+    const digest = crypto
+        .createHash('sha256')
+        .update(seed)
+        .digest('hex')
+        .slice(0, 18);
+
+    return `yh_badge_${cleanDivision}_${digest}`.slice(0, 50);
 }
 
 async function callOxaPayInvoiceApi(payload = {}) {
@@ -527,7 +542,7 @@ async function createVerifiedBadgeOxaPayInvoice(req, res) {
         });
 
         const baseUrl = resolveBadgePublicBaseUrl(req);
-        const orderId = buildVerifiedBadgeOrderId(initial.payment.id);
+        const orderId = buildVerifiedBadgeOrderId(initial.payment.id, plan.division);
 
         const invoicePayload = {
             amount: Number(Number(plan.amountMonthly || 0).toFixed(2)),

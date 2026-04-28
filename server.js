@@ -137,7 +137,9 @@ function extractYHVerifiedBadgePaymentIdFromOrderId(orderId = '') {
 
     if (!clean.startsWith('yh_badge_')) return '';
 
-    return sanitizeText(clean.replace(/^yh_badge_/, ''));
+    const maybePaymentId = sanitizeText(clean.replace(/^yh_badge_/, ''));
+
+    return maybePaymentId.startsWith('verified_badge_') ? maybePaymentId : '';
 }
 
 function buildActiveYHVerifiedBadgePayload(plan = {}, payment = {}, context = {}) {
