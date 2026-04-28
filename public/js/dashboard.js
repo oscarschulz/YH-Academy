@@ -234,13 +234,57 @@ function isExpectedDashboardAcademyHomeAccessError(error = {}) {
         (
             message.includes('academy membership not approved') ||
             message.includes('membership not approved') ||
-            message.includes('academy not approved')
+            message.includes('academy not approved') ||
+            message.includes('not approved') ||
+            message.includes('forbidden')
         )
     );
 }
 
+function readDashboardAcademyMembershipSnapshotForHomeGate() {
+    try {
+        if (typeof readAcademyMembershipCache === 'function') {
+            const cached = readAcademyMembershipCache();
+            if (cached && typeof cached === 'object') return cached;
+        }
+    } catch (_) {}
+
+    return readYHJsonCache('yh_academy_membership_status_v1', null);
+}
+
+function dashboardShouldFetchAcademyHomeSnapshot(membershipSnapshot = null) {
+    if (!membershipSnapshot || typeof membershipSnapshot !== 'object') {
+        return true;
+    }
+
+    if (membershipSnapshot.canEnterAcademy === true) {
+        return true;
+    }
+
+    const status = String(membershipSnapshot.applicationStatus || '').trim().toLowerCase();
+
+    if (status === 'approved' || status === 'active') {
+        return true;
+    }
+
+    if (
+        Object.prototype.hasOwnProperty.call(membershipSnapshot, 'canEnterAcademy') &&
+        membershipSnapshot.canEnterAcademy === false
+    ) {
+        return false;
+    }
+
+    return true;
+}
+
 async function refreshDashboardAcademyHomeSnapshot(forceFresh = false) {
     const now = Date.now();
+    const membershipSnapshot = readDashboardAcademyMembershipSnapshotForHomeGate();
+
+    if (!dashboardShouldFetchAcademyHomeSnapshot(membershipSnapshot)) {
+        dashboardAcademyHomeLastRefreshAt = Date.now();
+        return getYHAcademyHomeSnapshot();
+    }
 
     if (
         !forceFresh &&
@@ -1300,6 +1344,62 @@ async function fetchYHWalletSnapshot(currency = 'USD') {
     return snapshot;
 }
 
+function getYHWalletMethodIcon(method = {}) {
+    const id = String(method.id || method.provider || method.label || '').toLowerCase();
+
+    if (id.includes('stripe') || id.includes('card') || id.includes('bank')) return '💳';
+    if (id.includes('paypal') || id.includes('wallet') || id.includes('e-wallet')) return '🌐';
+    if (id.includes('oxapay') || id.includes('crypto')) return '₿';
+    if (id.includes('local') || id.includes('manual')) return '🏦';
+
+    return '↗';
+}
+
+function getYHWalletStatusTone(status = '') {
+    const clean = String(status || '').trim().toLowerCase();
+
+    if (['active', 'available', 'enabled', 'ready', 'ledger_ready'].includes(clean)) return 'is-ready';
+    if (['setup_required', 'planned', 'coming_soon', 'pending'].includes(clean)) return 'is-pending';
+    if (['fallback', 'manual'].includes(clean)) return 'is-fallback';
+
+    return 'is-neutral';
+}
+
+function getYHWalletMethodHint(method = {}) {
+    const id = String(method.id || method.provider || method.label || '').toLowerCase();
+    const status = String(method.status || '').toLowerCase();
+
+    if (status === 'setup_required') {
+        return 'Needs provider setup before users can complete payments through this method.';
+    }
+
+    if (id.includes('stripe')) {
+        return 'Best for card, bank, and supported wallet payments.';
+    }
+
+    if (id.includes('paypal') || id.includes('e-wallet')) {
+        return 'Best for global e-wallet payments where PayPal is supported.';
+    }
+
+    if (id.includes('oxapay') || id.includes('crypto')) {
+        return 'Best for crypto invoice payments and crypto-friendly users.';
+    }
+
+    if (id.includes('local_bank')) {
+        return 'Admin-reviewed local bank payout route.';
+    }
+
+    if (id.includes('card')) {
+        return 'Admin-reviewed card payout route.';
+    }
+
+    if (id.includes('manual')) {
+        return 'Fallback route handled by admin confirmation.';
+    }
+
+    return 'Available inside the YH wallet economy layer.';
+}
+
 function renderYHWalletMethods(containerId = '', methods = []) {
     const container = document.getElementById(containerId);
     if (!container) return;
@@ -1309,13 +1409,28 @@ function renderYHWalletMethods(containerId = '', methods = []) {
         return;
     }
 
-    container.innerHTML = methods.map((method) => `
-        <article class="yh-wallet-method-card">
-            <strong>${escapeYHWalletHtml(method.label || method.id || 'Method')}</strong>
-            <span>${escapeYHWalletHtml(normalizeYHWalletStatusLabel(method.status || 'available'))}</span>
-            <small>${escapeYHWalletHtml(method.provider || method.id || 'provider-neutral')}</small>
-        </article>
-    `).join('');
+    container.innerHTML = methods.map((method) => {
+        const status = String(method.status || 'available').trim();
+        const statusTone = getYHWalletStatusTone(status);
+        const icon = getYHWalletMethodIcon(method);
+        const provider = method.provider || method.id || 'provider-neutral';
+
+        return `
+            <article class="yh-wallet-method-card yh-wallet-method-card--guided">
+                <div class="yh-wallet-method-icon" aria-hidden="true">${escapeYHWalletHtml(icon)}</div>
+                <div class="yh-wallet-method-main">
+                    <div class="yh-wallet-method-title-row">
+                        <strong>${escapeYHWalletHtml(method.label || method.id || 'Method')}</strong>
+                        <span class="yh-wallet-status-pill ${escapeYHWalletHtml(statusTone)}">
+                            ${escapeYHWalletHtml(normalizeYHWalletStatusLabel(status))}
+                        </span>
+                    </div>
+                    <small>${escapeYHWalletHtml(provider)}</small>
+                    <p>${escapeYHWalletHtml(getYHWalletMethodHint(method))}</p>
+                </div>
+            </article>
+        `;
+    }).join('');
 }
 function renderYHWalletDivisionBreakdown(balance = {}) {
     const container = document.getElementById('yh-wallet-division-breakdown');
@@ -1365,25 +1480,29 @@ function renderYHWalletLedger(containerId = '', records = [], type = 'payment') 
 
     container.innerHTML = records.slice(0, 12).map((record) => {
         const isPayment = type === 'payment';
+        const sourceDivision = String(record.sourceDivision || '').trim();
+        const sourceFeature = String(record.sourceFeature || '').trim();
         const title = isPayment
-            ? [record.sourceDivision, record.sourceFeature].filter(Boolean).join(' / ') || 'Payment'
-            : [record.sourceDivision, record.sourceFeature].filter(Boolean).join(' / ') || 'Payout';
+            ? [sourceDivision, sourceFeature].filter(Boolean).join(' / ') || 'Payment'
+            : [sourceDivision, sourceFeature].filter(Boolean).join(' / ') || 'Payout';
 
         const amount = formatYHWalletMoney(record.amount || 0, record.currency || 'USD');
-        const status = normalizeYHWalletStatusLabel(record.status || 'draft');
+        const statusRaw = String(record.status || (isPayment ? 'draft' : 'pending_review')).trim();
+        const status = normalizeYHWalletStatusLabel(statusRaw);
+        const statusTone = getYHWalletStatusTone(statusRaw);
         const meta = isPayment
             ? `${record.provider || 'unselected'} · ${record.paymentMethod || 'unselected'}`
             : `${record.method || 'local_bank'} · ${record.provider || 'manual'}`;
 
         return `
-            <article class="yh-wallet-ledger-card">
-                <div>
+            <article class="yh-wallet-ledger-card yh-wallet-ledger-card--guided">
+                <div class="yh-wallet-ledger-main">
                     <strong>${escapeYHWalletHtml(title)}</strong>
                     <span>${escapeYHWalletHtml(meta)}</span>
                 </div>
-                <div>
+                <div class="yh-wallet-ledger-side">
                     <strong>${escapeYHWalletHtml(amount)}</strong>
-                    <span>${escapeYHWalletHtml(status)}</span>
+                    <span class="yh-wallet-status-pill ${escapeYHWalletHtml(statusTone)}">${escapeYHWalletHtml(status)}</span>
                 </div>
             </article>
         `;
@@ -3840,12 +3959,23 @@ if (shouldShowDashboardBootstrapLoader) {
 }
 
 setTimeout(() => {
-    refreshDashboardAcademyHomeSnapshot(true)
-        .then(() => Promise.allSettled([
-            refreshFederationAccessStatusFromBackend(true),
-            refreshPlazaAccessStatusFromBackend(true),
-            refreshAcademyMembershipStatus(true)
-        ]))
+    Promise.allSettled([
+        refreshAcademyMembershipStatus(true),
+        refreshFederationAccessStatusFromBackend(true),
+        refreshPlazaAccessStatusFromBackend(true)
+    ])
+        .then(async ([academyResult]) => {
+            const academySnapshot =
+                academyResult?.status === 'fulfilled'
+                    ? academyResult.value
+                    : readDashboardAcademyMembershipSnapshotForHomeGate();
+
+            if (dashboardShouldFetchAcademyHomeSnapshot(academySnapshot)) {
+                await refreshDashboardAcademyHomeSnapshot(true);
+            } else {
+                window.renderYHEconomicSnapshot?.();
+            }
+        })
         .finally(() => {
             syncPlazaEntryButton(getPlazaAccessSnapshot());
             syncFederationEntryButton();

@@ -7,7 +7,7 @@
     <link rel="icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css?v=20260428-dashboard-profile-top-edit-1">
+<link rel="stylesheet" href="/css/style.css?v=20260428-wallet-ux-403-fix-1">
 <link rel="stylesheet" href="/css/dashboard-mobile.css">
 </head>
 <body data-yh-view="hub" data-yh-page="dashboard">
@@ -1574,33 +1574,55 @@
                 <div class="yh-dashboard-federation-kicker">YH Economy</div>
                 <h2 id="yh-wallet-title">Universal Wallet</h2>
                 <p>
-                    Track your payments, earnings, payout requests, and withdrawal methods across Academy,
-                    Plaza, and Federation.
+                    A simple money dashboard for tracking payment methods, approved earnings, withdrawal requests,
+                    and payout history across Academy, Plaza, and Federation.
                 </p>
             </div>
 
-            <button type="button" class="btn-secondary yh-wallet-refresh" id="yh-wallet-refresh">
-                Refresh
-            </button>
+            <div class="yh-wallet-head-actions">
+                <button type="button" class="btn-secondary yh-wallet-refresh" id="yh-wallet-refresh">
+                    Refresh
+                </button>
+            </div>
+        </div>
+
+        <div class="yh-wallet-guide" aria-label="How the wallet works">
+            <article class="yh-wallet-guide-step">
+                <span>01</span>
+                <strong>Payments come in</strong>
+                <p>Stripe, PayPal, OxaPay, or manual admin confirmation can create payment records.</p>
+            </article>
+
+            <article class="yh-wallet-guide-step">
+                <span>02</span>
+                <strong>Earnings become approved</strong>
+                <p>Approved commissions, mission payouts, and deal earnings appear in your wallet balance.</p>
+            </article>
+
+            <article class="yh-wallet-guide-step">
+                <span>03</span>
+                <strong>You request withdrawal</strong>
+                <p>Submit payout details. Admin reviews, processes, and updates the payout status.</p>
+            </article>
         </div>
 
         <div class="yh-wallet-stats">
-            <article class="yh-wallet-stat-card">
-                <span>Available Balance</span>
+            <article class="yh-wallet-stat-card is-primary">
+                <span>Available to Withdraw</span>
                 <strong id="yh-wallet-available-balance">$0.00</strong>
-                <small>Withdrawable amount after reserved requests.</small>
+                <small>This is the amount you can request after reserved withdrawals are removed.</small>
             </article>
 
             <article class="yh-wallet-stat-card">
-                <span>Approved Earnings</span>
+                <span>Total Approved Earnings</span>
                 <strong id="yh-wallet-approved-earnings">$0.00</strong>
-                <small>Approved operator earnings.</small>
+                <small>Money already approved from YH economy activities.</small>
             </article>
 
             <article class="yh-wallet-stat-card">
                 <span>Reserved Withdrawals</span>
                 <strong id="yh-wallet-reserved-withdrawals">$0.00</strong>
-                <small>Pending, approved, processing, or paid withdrawal requests.</small>
+                <small>Funds already tied to pending, approved, processing, or paid payout requests.</small>
             </article>
         </div>
 
@@ -1617,24 +1639,41 @@
 
         <div class="yh-wallet-grid">
             <section class="yh-wallet-panel">
-                <h3>Payment Methods</h3>
+                <div class="yh-wallet-panel-head">
+                    <div>
+                        <h3>Payment Methods</h3>
+                        <p class="yh-wallet-panel-copy">How users can pay into the YH economy.</p>
+                    </div>
+                </div>
+
                 <div id="yh-wallet-payment-methods" class="yh-wallet-method-list">
                     <div class="yh-wallet-empty">Loading payment methods...</div>
                 </div>
             </section>
 
             <section class="yh-wallet-panel">
-                <h3>Payout Methods</h3>
+                <div class="yh-wallet-panel-head">
+                    <div>
+                        <h3>Payout Methods</h3>
+                        <p class="yh-wallet-panel-copy">How approved earnings can be withdrawn after admin review.</p>
+                    </div>
+                </div>
+
                 <div id="yh-wallet-payout-methods" class="yh-wallet-method-list">
                     <div class="yh-wallet-empty">Loading payout methods...</div>
                 </div>
             </section>
         </div>
 
-        <section class="yh-wallet-panel">
+        <section class="yh-wallet-panel yh-wallet-withdraw-panel">
             <div class="yh-wallet-panel-head">
-                <h3>Request Withdrawal</h3>
-                <span>Admin reviews and processes payout requests.</span>
+                <div>
+                    <h3>Request Withdrawal</h3>
+                    <p class="yh-wallet-panel-copy">
+                        Use this when you already have available balance. Fill only the payout details relevant to your selected method.
+                    </p>
+                </div>
+                <span>Admin-reviewed payout</span>
             </div>
 
             <form id="yh-wallet-withdrawal-form" class="yh-wallet-withdrawal-form">
@@ -1708,14 +1747,26 @@
 
         <div class="yh-wallet-ledger-grid">
             <section class="yh-wallet-panel">
-                <h3>My Payments</h3>
+                <div class="yh-wallet-panel-head">
+                    <div>
+                        <h3>Payment History</h3>
+                        <p class="yh-wallet-panel-copy">Badge payments, Plaza payments, Federation payments, and other money-in records.</p>
+                    </div>
+                </div>
+
                 <div id="yh-wallet-payments-list" class="yh-wallet-ledger-list">
                     <div class="yh-wallet-empty">No payments loaded yet.</div>
                 </div>
             </section>
 
             <section class="yh-wallet-panel">
-                <h3>My Payouts</h3>
+                <div class="yh-wallet-panel-head">
+                    <div>
+                        <h3>Payout History</h3>
+                        <p class="yh-wallet-panel-copy">Withdrawal requests and admin payout status updates.</p>
+                    </div>
+                </div>
+
                 <div id="yh-wallet-payouts-list" class="yh-wallet-ledger-list">
                     <div class="yh-wallet-empty">No payouts loaded yet.</div>
                 </div>
