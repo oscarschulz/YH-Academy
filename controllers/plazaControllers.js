@@ -9,7 +9,235 @@ const plazaRegionsCol = firestore.collection('plazaRegions');
 const plazaBridgeCol = firestore.collection('plazaBridgePaths');
 const plazaRequestsCol = firestore.collection('plazaRequests');
 const plazaConversationsCol = firestore.collection('plazaConversations');
+const YH_CANONICAL_PLAZA_VERSION = '2026-04-29-official-plazas-v1';
 
+const YH_CANONICAL_PLAZA_REGIONS = [
+    {
+        id: 'yh-africa-plaza-1',
+        continent: 'Africa',
+        network: 'Africa Federation',
+        plazaNumber: 1,
+        region: 'Africa Plaza 1',
+        label: 'Africa • Plaza 1',
+        sourceUrl: 'https://www.younghustlers.net/plazas/africa-plaza',
+        countries: ['Botswana', 'Mauritius', 'Namibia', 'Seychelles']
+    },
+    {
+        id: 'yh-africa-plaza-2',
+        continent: 'Africa',
+        network: 'Africa Federation',
+        plazaNumber: 2,
+        region: 'Africa Plaza 2',
+        label: 'Africa • Plaza 2',
+        sourceUrl: 'https://www.younghustlers.net/plazas/africa-plaza',
+        countries: ['Ghana', 'Morocco', 'Rwanda', 'Senegal', 'Zambia']
+    },
+    {
+        id: 'yh-africa-plaza-3',
+        continent: 'Africa',
+        network: 'Africa Federation',
+        plazaNumber: 3,
+        region: 'Africa Plaza 3',
+        label: 'Africa • Plaza 3',
+        sourceUrl: 'https://www.younghustlers.net/plazas/africa-plaza',
+        countries: ['Benin', 'Eswatini (Swaziland)', 'Gabon', 'Lesotho', 'Malawi', 'Tanzania', 'Tunisia']
+    },
+    {
+        id: 'yh-africa-plaza-4',
+        continent: 'Africa',
+        network: 'Africa Federation',
+        plazaNumber: 4,
+        region: 'Africa Plaza 4',
+        label: 'Africa • Plaza 4',
+        sourceUrl: 'https://www.younghustlers.net/plazas/africa-plaza',
+        countries: ['Algeria', "Côte d'Ivoire", 'Egypt', 'Ethiopia', 'Kenya', 'Liberia', 'Madagascar', 'Mozambique', 'Nigeria', 'South Africa', 'Uganda']
+    },
+    {
+        id: 'yh-africa-plaza-5',
+        continent: 'Africa',
+        network: 'Africa Federation',
+        plazaNumber: 5,
+        region: 'Africa Plaza 5',
+        label: 'Africa • Plaza 5',
+        sourceUrl: 'https://www.younghustlers.net/plazas/africa-plaza',
+        countries: ['Angola', 'Burkina Faso', 'Burundi', 'Cameroon', 'Central African Republic', 'Chad', 'Democratic Republic of the Congo', 'Eritrea', 'Libya', 'Mali', 'Niger', 'Somalia', 'South Sudan', 'Sudan', 'Zimbabwe']
+    },
+
+    {
+        id: 'yh-asia-plaza-1',
+        continent: 'Asia',
+        network: 'Asian Network',
+        plazaNumber: 1,
+        region: 'Asia Plaza 1',
+        label: 'Asia • Plaza 1',
+        sourceUrl: 'https://www.younghustlers.net/plazas/asia-plaza',
+        countries: ['Japan', 'Singapore', 'South Korea', 'Taiwan']
+    },
+    {
+        id: 'yh-asia-plaza-2',
+        continent: 'Asia',
+        network: 'Asian Network',
+        plazaNumber: 2,
+        region: 'Asia Plaza 2',
+        label: 'Asia • Plaza 2',
+        sourceUrl: 'https://www.younghustlers.net/plazas/asia-plaza',
+        countries: ['Bhutan', 'Brunei', 'Malaysia', 'Qatar', 'United Arab Emirates']
+    },
+    {
+        id: 'yh-asia-plaza-3',
+        continent: 'Asia',
+        network: 'Asian Network',
+        plazaNumber: 3,
+        region: 'Asia Plaza 3',
+        label: 'Asia • Plaza 3',
+        sourceUrl: 'https://www.younghustlers.net/plazas/asia-plaza',
+        countries: ['China', 'Georgia', 'Jordan', 'Kazakhstan', 'Kuwait', 'Oman', 'Saudi Arabia']
+    },
+    {
+        id: 'yh-asia-plaza-4',
+        continent: 'Asia',
+        network: 'Asian Network',
+        plazaNumber: 4,
+        region: 'Asia Plaza 4',
+        label: 'Asia • Plaza 4',
+        sourceUrl: 'https://www.younghustlers.net/plazas/asia-plaza',
+        countries: ['Armenia', 'Azerbaijan', 'Bahrain', 'Indonesia', 'Israel', 'Laos', 'Lebanon', 'Maldives', 'Nepal', 'Sri Lanka', 'Thailand', 'Uzbekistan', 'Vietnam']
+    },
+    {
+        id: 'yh-asia-plaza-5',
+        continent: 'Asia',
+        network: 'Asian Network',
+        plazaNumber: 5,
+        region: 'Asia Plaza 5',
+        label: 'Asia • Plaza 5',
+        sourceUrl: 'https://www.younghustlers.net/plazas/asia-plaza',
+        countries: ['Afghanistan', 'Bangladesh', 'Cambodia', 'India', 'Iran', 'Iraq', 'Myanmar (Burma)', 'North Korea', 'Pakistan', 'Palestine', 'Philippines', 'Syria', 'Tajikistan', 'Turkmenistan', 'Yemen']
+    },
+
+    {
+        id: 'yh-latam-plaza-1',
+        continent: 'South America',
+        network: 'LATAM Network',
+        plazaNumber: 1,
+        region: 'LATAM Plaza 1',
+        label: 'LATAM • Plaza 1',
+        sourceUrl: 'https://www.younghustlers.net/plazas/south-america-plaza',
+        countries: ['Chile', 'Uruguay', 'Costa Rica', 'Panamá', 'Cuba']
+    },
+    {
+        id: 'yh-latam-plaza-2',
+        continent: 'South America',
+        network: 'LATAM Network',
+        plazaNumber: 2,
+        region: 'LATAM Plaza 2',
+        label: 'LATAM • Plaza 2',
+        sourceUrl: 'https://www.younghustlers.net/plazas/south-america-plaza',
+        countries: ['Argentina', 'Belize', 'Brazil', 'Colombia', 'Dominican Republic', 'Ecuador', 'Guatemala', 'Mexico', 'Paraguay', 'Peru']
+    },
+    {
+        id: 'yh-latam-plaza-3',
+        continent: 'South America',
+        network: 'LATAM Network',
+        plazaNumber: 3,
+        region: 'LATAM Plaza 3',
+        label: 'LATAM • Plaza 3',
+        sourceUrl: 'https://www.younghustlers.net/plazas/south-america-plaza',
+        countries: ['Bolivia', 'El Salvador', 'Guyana', 'Haiti', 'Honduras', 'Nicaragua', 'Venezuela']
+    },
+
+    {
+        id: 'yh-europe-plaza-1',
+        continent: 'Europe',
+        network: 'European Network',
+        plazaNumber: 1,
+        region: 'Europe Plaza 1',
+        label: 'Europe • Plaza 1',
+        sourceUrl: 'https://www.younghustlers.net/plazas/europe-plaza',
+        countries: ['Austria', 'Denmark', 'Finland', 'Iceland', 'Ireland', 'Luxembourg', 'Norway', 'Switzerland']
+    },
+    {
+        id: 'yh-europe-plaza-2',
+        continent: 'Europe',
+        network: 'European Network',
+        plazaNumber: 2,
+        region: 'Europe Plaza 2',
+        label: 'Europe • Plaza 2',
+        sourceUrl: 'https://www.younghustlers.net/plazas/europe-plaza',
+        countries: ['Portugal', 'Slovenia', 'Sweden', 'Netherlands', 'Germany', 'Belgium']
+    },
+    {
+        id: 'yh-europe-plaza-3',
+        continent: 'Europe',
+        network: 'European Network',
+        plazaNumber: 3,
+        region: 'Europe Plaza 3',
+        label: 'Europe • Plaza 3',
+        sourceUrl: 'https://www.younghustlers.net/plazas/europe-plaza',
+        countries: ['Croatia', 'Czech Republic', 'Estonia', 'France', 'Hungary', 'Italy', 'Latvia', 'Lithuania', 'Poland', 'Slovakia', 'Spain', 'United Kingdom']
+    },
+    {
+        id: 'yh-europe-plaza-4',
+        continent: 'Europe',
+        network: 'European Network',
+        plazaNumber: 4,
+        region: 'Europe Plaza 4',
+        label: 'Europe • Plaza 4',
+        sourceUrl: 'https://www.younghustlers.net/plazas/europe-plaza',
+        countries: ['Albania', 'Bosnia and Herzegovina', 'Bulgaria', 'Cyprus', 'Greece', 'Montenegro', 'North Macedonia', 'Romania', 'Serbia', 'Turkey']
+    },
+    {
+        id: 'yh-europe-plaza-5',
+        continent: 'Europe',
+        network: 'European Network',
+        plazaNumber: 5,
+        region: 'Europe Plaza 5',
+        label: 'Europe • Plaza 5',
+        sourceUrl: 'https://www.younghustlers.net/plazas/europe-plaza',
+        countries: ['Belarus', 'Kosovo', 'Moldova', 'Russia', 'Ukraine']
+    },
+
+    {
+        id: 'yh-north-america-plaza-1',
+        continent: 'North America',
+        network: 'North American Network',
+        plazaNumber: 1,
+        region: 'North America Plaza 1',
+        label: 'North America • Plaza 1',
+        sourceUrl: 'https://www.younghustlers.net/plazas/north-america-plaza',
+        countries: ['United States of America']
+    },
+    {
+        id: 'yh-north-america-plaza-2',
+        continent: 'North America',
+        network: 'North American Network',
+        plazaNumber: 2,
+        region: 'North America Plaza 2',
+        label: 'North America • Plaza 2',
+        sourceUrl: 'https://www.younghustlers.net/plazas/north-america-plaza',
+        countries: ['Canada']
+    },
+
+    {
+        id: 'yh-oceania-plaza-1',
+        continent: 'Oceania',
+        network: 'Oceanian Network',
+        plazaNumber: 1,
+        region: 'Oceania Plaza 1',
+        label: 'Oceania • Plaza 1',
+        sourceUrl: 'https://www.younghustlers.net/plazas/oceania-plaza',
+        countries: ['Australia', 'New Zealand', 'Palau', 'Samoa', 'Tonga', 'Tuvalu']
+    },
+    {
+        id: 'yh-oceania-plaza-2',
+        continent: 'Oceania',
+        network: 'Oceanian Network',
+        plazaNumber: 2,
+        region: 'Oceania Plaza 2',
+        label: 'Oceania • Plaza 2',
+        sourceUrl: 'https://www.younghustlers.net/plazas/oceania-plaza',
+        countries: ['Fiji', 'Kiribati', 'Marshall Islands', 'Micronesia', 'Nauru', 'Papua New Guinea', 'Solomon Islands', 'Vanuatu']
+    }
+];
 function sanitizeText(value, fallback = '') {
     if (value === null || value === undefined) return fallback;
     return String(value).trim();
@@ -18,7 +246,93 @@ function sanitizeText(value, fallback = '') {
 function clampText(value, max = 500, fallback = '') {
     return sanitizeText(value, fallback).slice(0, max);
 }
+function normalizePlazaRegionCountries(value = []) {
+    if (Array.isArray(value)) {
+        return value
+            .map((item) => sanitizeText(item))
+            .filter(Boolean)
+            .slice(0, 80);
+    }
 
+    return sanitizeText(value)
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .slice(0, 80);
+}
+
+function normalizePlazaRegionDocId(value = '') {
+    return sanitizeText(value)
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 120);
+}
+
+function buildCanonicalPlazaRegionPayload(plaza = {}, sortOrder = 0, now = Timestamp.now()) {
+    const countries = normalizePlazaRegionCountries(plaza.countries);
+    const region = sanitizeText(plaza.region || 'YH Plaza');
+    const network = sanitizeText(plaza.network || 'YH Regional Network');
+    const continent = sanitizeText(plaza.continent || '');
+
+    return {
+        region,
+        label: sanitizeText(plaza.label || region),
+        text: `${network} regional hub covering ${countries.length} countries: ${countries.join(', ')}.`,
+        count: countries.length,
+        countryCount: countries.length,
+        countries,
+        continent,
+        network,
+        plazaNumber: Number(plaza.plazaNumber || 0),
+        sourceUrl: sanitizeText(plaza.sourceUrl || ''),
+        source: 'younghustlers.net/plazas',
+        isCanonical: true,
+        canonicalRegionId: sanitizeText(plaza.id || normalizePlazaRegionDocId(region)),
+        canonicalDataVersion: YH_CANONICAL_PLAZA_VERSION,
+        sortOrder: Number(sortOrder || 0),
+        action: 'Enter Region Hub',
+        status: 'active',
+        authorId: 'system',
+        authorFirebaseUid: 'system',
+        authorEmail: '',
+        authorName: 'YH Universe',
+        createdAt: now,
+        updatedAt: now
+    };
+}
+
+async function ensureCanonicalPlazaRegionsSeeded() {
+    const now = Timestamp.now();
+
+    await Promise.all(
+        YH_CANONICAL_PLAZA_REGIONS.map(async (plaza, index) => {
+            const docId = normalizePlazaRegionDocId(plaza.id || plaza.region);
+            if (!docId) return;
+
+            const ref = plazaRegionsCol.doc(docId);
+            const snap = await ref.get();
+            const existing = snap.exists ? (snap.data() || {}) : {};
+            const currentVersion = sanitizeText(existing.canonicalDataVersion);
+
+            if (
+                snap.exists &&
+                currentVersion === YH_CANONICAL_PLAZA_VERSION &&
+                sanitizeText(existing.status || 'active').toLowerCase() === 'active'
+            ) {
+                return;
+            }
+
+            const payload = buildCanonicalPlazaRegionPayload(plaza, index + 1, now);
+
+            await ref.set({
+                ...payload,
+                createdAt: existing.createdAt || payload.createdAt,
+                updatedAt: now
+            }, { merge: true });
+        })
+    );
+}
 function getViewerFromRequest(req) {
     return {
         id: sanitizeText(req.user?.id || req.user?.firebaseUid || req.user?.uid),
@@ -195,6 +509,7 @@ function normalizeOpportunityType(value = '') {
     if (raw === 'collaboration') return 'Collaboration';
     if (raw === 'partnership') return 'Partnership';
     if (raw === 'introduction' || raw === 'intro') return 'Introduction';
+    if (raw === 'service listing' || raw === 'service offer' || raw === 'offer service') return 'Service Listing';
     if (raw === 'service request' || raw === 'service') return 'Service Request';
     if (raw === 'project' || raw === 'project opening') return 'Project Opening';
     if (raw === 'regional' || raw === 'regional support') return 'Regional Support';
@@ -223,7 +538,43 @@ function normalizeOpportunityEconomyMode(value = '') {
 
     return 'not_sure';
 }
+function normalizeOpportunityServiceTags(value = []) {
+    if (Array.isArray(value)) {
+        return value
+            .map((item) => sanitizeText(item))
+            .filter(Boolean)
+            .slice(0, 12);
+    }
 
+    return sanitizeText(value)
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .slice(0, 12);
+}
+
+function normalizeOpportunityServicePriceType(value = '') {
+    const raw = sanitizeText(value).toLowerCase();
+
+    if (raw === 'fixed' || raw === 'fixed_price' || raw === 'fixed price') return 'fixed';
+    if (raw === 'hourly' || raw === 'per_hour' || raw === 'per hour') return 'hourly';
+    if (raw === 'package' || raw === 'packages') return 'package';
+    if (raw === 'custom' || raw === 'quote' || raw === 'custom_quote') return 'custom_quote';
+    if (raw === 'commission') return 'commission';
+
+    return 'custom_quote';
+}
+
+function normalizeOpportunityServiceProviderType(value = '') {
+    const raw = sanitizeText(value).toLowerCase();
+
+    if (raw === 'academy' || raw === 'academy_member' || raw === 'academy member') return 'academy_member';
+    if (raw === 'plaza' || raw === 'plaza_provider' || raw === 'plaza provider') return 'plaza_provider';
+    if (raw === 'federation' || raw === 'federation_member' || raw === 'federation member') return 'federation_member';
+    if (raw === 'agency' || raw === 'team') return 'agency_team';
+
+    return 'plaza_provider';
+}
 function normalizeOpportunityFederationEscalation(value = '') {
     const raw = sanitizeText(value).toLowerCase();
 
@@ -261,6 +612,14 @@ function mapPlazaOpportunityDoc(docSnap) {
         federationEscalation: normalizeOpportunityFederationEscalation(data.federationEscalation),
         monetizationNote: sanitizeText(data.monetizationNote || ''),
         marketplaceMode: sanitizeText(data.marketplaceMode || 'marketplace'),
+
+        serviceCategory: sanitizeText(data.serviceCategory || ''),
+        serviceTags: normalizeOpportunityServiceTags(data.serviceTags),
+        servicePriceType: normalizeOpportunityServicePriceType(data.servicePriceType),
+        serviceDeliveryTime: sanitizeText(data.serviceDeliveryTime || ''),
+        serviceProviderType: normalizeOpportunityServiceProviderType(data.serviceProviderType),
+        serviceRequirements: sanitizeText(data.serviceRequirements || ''),
+        serviceOutcome: sanitizeText(data.serviceOutcome || ''),
 
         paymentLedgerId: sanitizeText(data.paymentLedgerId || ''),
         paymentLedgerStatus: sanitizeText(data.paymentLedgerStatus || ''),
@@ -362,13 +721,35 @@ function mapPlazaDirectoryDoc(docSnap) {
 }
 function mapPlazaRegionDoc(docSnap) {
     const data = docSnap.data() || {};
+    const countries = normalizePlazaRegionCountries(data.countries);
+    const count = Number.isFinite(Number(data.count))
+        ? Number(data.count)
+        : countries.length;
 
     return {
         id: docSnap.id,
         region: sanitizeText(data.region || data.name || 'Global'),
-        count: Number.isFinite(Number(data.count)) ? Number(data.count) : 0,
+        count,
+        countryCount: Number.isFinite(Number(data.countryCount))
+            ? Number(data.countryCount)
+            : countries.length,
         label: sanitizeText(data.label || 'Region Hub'),
         text: sanitizeText(data.text || data.description || ''),
+        continent: sanitizeText(data.continent || ''),
+        network: sanitizeText(data.network || ''),
+        plazaNumber: Number.isFinite(Number(data.plazaNumber))
+            ? Number(data.plazaNumber)
+            : 0,
+        countries,
+        sourceUrl: sanitizeText(data.sourceUrl || data.source_url || ''),
+        source: sanitizeText(data.source || ''),
+        isCanonical: data.isCanonical === true,
+        canonicalRegionId: sanitizeText(data.canonicalRegionId || ''),
+        canonicalDataVersion: sanitizeText(data.canonicalDataVersion || ''),
+        sortOrder: Number.isFinite(Number(data.sortOrder))
+            ? Number(data.sortOrder)
+            : 9999,
+        action: sanitizeText(data.action || 'Enter Region Hub'),
         authorId: sanitizeText(data.authorId || data.createdByUserId),
         authorName: sanitizeText(data.authorName || 'Hustler'),
         authorEmail: sanitizeText(data.authorEmail).toLowerCase(),
@@ -431,6 +812,7 @@ function normalizeRequestObjective(value = '') {
         'Access',
         'Hiring',
         'Support',
+        'Service Request',
         'Project request',
         'Regional connection',
         'Bridge request'
@@ -450,13 +832,93 @@ function getNextRequestStatus(currentStatus = '') {
     return status;
 }
 
-function normalizeTextArray(value, maxItems = 12) {
-    if (!Array.isArray(value)) return [];
+function normalizeRequestTagArray(value, maxItems = 12) {
+    if (Array.isArray(value)) {
+        return value
+            .map((item) => sanitizeText(item))
+            .filter(Boolean)
+            .slice(0, maxItems);
+    }
 
-    return value
-        .map((item) => sanitizeText(item))
+    return sanitizeText(value)
+        .split(',')
+        .map((item) => item.trim())
         .filter(Boolean)
         .slice(0, maxItems);
+}
+
+function normalizeRouteKeyPart(value = '') {
+    return sanitizeText(value)
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .slice(0, 80);
+}
+
+function buildPlazaRequestRouteMeta(input = {}) {
+    const sourceType = sanitizeText(input.sourceType || 'general').toLowerCase();
+    const objective = normalizeRequestObjective(input.objective);
+    const targetLabel = sanitizeText(input.targetLabel || 'General Plaza request');
+    const region = sanitizeText(input.region || '');
+    const providerName = sanitizeText(input.providerName || '');
+    const serviceCategory = sanitizeText(input.serviceCategory || '');
+    const serviceTags = normalizeRequestTagArray(input.serviceTags);
+
+    let routeKey = sanitizeText(input.routeKey || '');
+    let routeLabel = sanitizeText(input.routeLabel || '');
+
+    if (!routeKey) {
+        if (sourceType === 'federation-escalation') {
+            routeKey = 'federation_escalation';
+        } else if (sourceType === 'service' || objective === 'Service Request') {
+            routeKey = 'service_request';
+        } else if (sourceType === 'opportunity' && objective === 'Hiring') {
+            routeKey = 'plaza_hiring';
+        } else if (sourceType === 'regional' || objective === 'Regional connection') {
+            routeKey = 'regional_connection';
+        } else if (sourceType === 'bridge' || objective === 'Bridge request') {
+            routeKey = 'bridge_request';
+        } else {
+            routeKey = normalizeRouteKeyPart(`${sourceType}_${objective}`) || 'general_request';
+        }
+    }
+
+    if (!routeLabel) {
+        if (routeKey === 'service_request') {
+            routeLabel = serviceCategory
+                ? `Service request • ${serviceCategory}`
+                : `Service request • ${targetLabel}`;
+        } else if (routeKey === 'federation_escalation') {
+            routeLabel = `Federation escalation • ${targetLabel}`;
+        } else if (routeKey === 'plaza_hiring') {
+            routeLabel = `Hiring route • ${targetLabel}`;
+        } else if (routeKey === 'regional_connection') {
+            routeLabel = `Regional connection • ${region || targetLabel}`;
+        } else if (routeKey === 'bridge_request') {
+            routeLabel = `Bridge request • ${targetLabel}`;
+        } else {
+            routeLabel = targetLabel;
+        }
+    }
+
+    const matchedEntityLabels = [
+        providerName ? `Provider: ${providerName}` : '',
+        serviceCategory ? `Service: ${serviceCategory}` : '',
+        region ? `Region: ${region}` : '',
+        ...serviceTags.map((tag) => `Tag: ${tag}`)
+    ].filter(Boolean).slice(0, 12);
+
+    return {
+        routeKey,
+        routeLabel,
+        matchedEntityLabels,
+        matchingStatus: sanitizeText(input.matchingStatus || 'queued_for_review'),
+        matchingPriority: sanitizeText(input.matchingPriority || 'normal'),
+        decisionSummary: sanitizeText(input.decisionSummary) ||
+            `Plaza should review this ${objective.toLowerCase()} and route it to the right operator, provider, region, or escalation lane.`,
+        resolutionSummary: sanitizeText(input.resolutionSummary) ||
+            'Resolution will be updated after Plaza review, matching, conversation, delivery, or closure.'
+    };
 }
 
 function mapPlazaRequestDoc(docSnap) {
@@ -478,8 +940,21 @@ function mapPlazaRequestDoc(docSnap) {
         name: sanitizeText(data.name || data.authorName || 'Hustler'),
         objective: normalizeRequestObjective(data.objective),
         message: sanitizeText(data.message),
+
+        providerId: sanitizeText(data.providerId || data.ownerUid || data.operatorUid || ''),
+        providerName: sanitizeText(data.providerName || data.ownerName || data.operatorName || ''),
+        serviceCategory: sanitizeText(data.serviceCategory || ''),
+        serviceTags: normalizeRequestTagArray(data.serviceTags),
+        serviceProviderType: sanitizeText(data.serviceProviderType || ''),
+        servicePriceType: sanitizeText(data.servicePriceType || ''),
+        serviceDeliveryTime: sanitizeText(data.serviceDeliveryTime || ''),
+        requestIntent: sanitizeText(data.requestIntent || ''),
+        requestPriority: sanitizeText(data.requestPriority || 'normal'),
+
         routeKey: sanitizeText(data.routeKey || data.sourceType || 'general'),
         routeLabel: sanitizeText(data.routeLabel || targetLabel),
+        matchingStatus: sanitizeText(data.matchingStatus || ''),
+        matchingPriority: sanitizeText(data.matchingPriority || ''),
         headline: sanitizeText(data.headline),
         experience: sanitizeText(data.experience),
         portfolioLink: sanitizeText(data.portfolioLink),
@@ -856,6 +1331,14 @@ exports.createOpportunity = async (req, res) => {
         const federationEscalation = normalizeOpportunityFederationEscalation(req.body?.federationEscalation);
         const monetizationNote = clampText(req.body?.monetizationNote, 1000);
 
+        const serviceCategory = clampText(req.body?.serviceCategory, 120);
+        const serviceTags = normalizeOpportunityServiceTags(req.body?.serviceTags);
+        const servicePriceType = normalizeOpportunityServicePriceType(req.body?.servicePriceType);
+        const serviceDeliveryTime = clampText(req.body?.serviceDeliveryTime, 120);
+        const serviceProviderType = normalizeOpportunityServiceProviderType(req.body?.serviceProviderType);
+        const serviceRequirements = clampText(req.body?.serviceRequirements, 1000);
+        const serviceOutcome = clampText(req.body?.serviceOutcome, 1000);
+
         if (!title) {
             return res.status(400).json({
                 success: false,
@@ -877,7 +1360,7 @@ exports.createOpportunity = async (req, res) => {
             region,
             title,
             text,
-            action: 'Open Opportunity Detail',
+            action: type === 'Service Listing' ? 'Request Service' : 'Open Opportunity Detail',
 
             economyMode,
             currency,
@@ -886,7 +1369,20 @@ exports.createOpportunity = async (req, res) => {
             commissionRate,
             federationEscalation,
             monetizationNote,
-            marketplaceMode: economyMode === 'free' ? 'signal' : 'marketplace',
+            marketplaceMode: type === 'Service Listing'
+                ? 'service_marketplace'
+                : economyMode === 'free'
+                    ? 'signal'
+                    : 'marketplace',
+
+            serviceCategory,
+            serviceTags,
+            servicePriceType,
+            serviceDeliveryTime,
+            serviceProviderType,
+            serviceRequirements,
+            serviceOutcome,
+
             sourceDivision: 'plaza',
 
             authorId: viewer.id,
@@ -934,6 +1430,8 @@ exports.getDirectory = async (req, res) => {
                 message: 'Missing authenticated user.'
             });
         }
+
+                await ensureCanonicalPlazaRegionsSeeded();
 
         const limit = Math.min(
             Math.max(parseInt(req.query.limit, 10) || 100, 1),
@@ -1092,8 +1590,24 @@ exports.getRegions = async (req, res) => {
             regions.push(mapPlazaRegionDoc(docSnap));
         });
 
+        regions.sort((a, b) => {
+            const aCanonical = a.isCanonical === true ? 0 : 1;
+            const bCanonical = b.isCanonical === true ? 0 : 1;
+
+            if (aCanonical !== bCanonical) return aCanonical - bCanonical;
+
+            const aSort = Number.isFinite(Number(a.sortOrder)) ? Number(a.sortOrder) : 9999;
+            const bSort = Number.isFinite(Number(b.sortOrder)) ? Number(b.sortOrder) : 9999;
+
+            if (aSort !== bSort) return aSort - bSort;
+
+            return String(a.region || '').localeCompare(String(b.region || ''));
+        });
+
         return res.json({
             success: true,
+            canonicalVersion: YH_CANONICAL_PLAZA_VERSION,
+            canonicalCount: YH_CANONICAL_PLAZA_REGIONS.length,
             regions
         });
     } catch (error) {
@@ -1125,7 +1639,11 @@ exports.createRegion = async (req, res) => {
             req.body?.body,
             900
         );
-
+        const countries = normalizePlazaRegionCountries(req.body?.countries);
+        const continent = clampText(req.body?.continent, 80);
+        const network = clampText(req.body?.network, 120);
+        const sourceUrl = clampText(req.body?.sourceUrl || req.body?.source_url, 240);
+        const plazaNumber = Number(req.body?.plazaNumber || req.body?.plaza_number || 0);
         if (!region) {
             return res.status(400).json({
                 success: false,
@@ -1146,7 +1664,19 @@ exports.createRegion = async (req, res) => {
             region,
             label,
             text,
-            count: 0,
+            count: countries.length,
+            countryCount: countries.length,
+            countries,
+            continent,
+            network,
+            plazaNumber: Number.isFinite(plazaNumber) ? plazaNumber : 0,
+            sourceUrl,
+            source: 'manual',
+            isCanonical: false,
+            canonicalRegionId: '',
+            canonicalDataVersion: '',
+            sortOrder: 9999,
+            action: 'Enter Region Hub',
             authorId: viewer.id,
             authorFirebaseUid: viewer.firebaseUid,
             authorEmail: viewer.email,
@@ -1370,10 +1900,37 @@ exports.createRequest = async (req, res) => {
         const experience = clampText(req.body?.experience, 500);
         const portfolioLink = clampText(req.body?.portfolioLink, 300);
 
-        if (!message) {
+        const providerId = clampText(req.body?.providerId, 160);
+        const providerName = clampText(req.body?.providerName, 160);
+        const serviceCategory = clampText(req.body?.serviceCategory, 140);
+        const serviceTags = normalizeRequestTagArray(req.body?.serviceTags);
+        const serviceProviderType = clampText(req.body?.serviceProviderType, 100);
+        const servicePriceType = clampText(req.body?.servicePriceType, 80);
+        const serviceDeliveryTime = clampText(req.body?.serviceDeliveryTime, 120);
+        const requestIntent = clampText(req.body?.requestIntent, 160);
+        const requestPriority = clampText(req.body?.requestPriority, 80, 'normal') || 'normal';
+        const requestedStatus = normalizeRequestStatus(req.body?.status || 'Submitted');
+
+        const routeMeta = buildPlazaRequestRouteMeta({
+            sourceType,
+            objective,
+            targetLabel,
+            region,
+            providerName,
+            serviceCategory,
+            serviceTags,
+            routeKey: req.body?.routeKey,
+            routeLabel: req.body?.routeLabel,
+            matchingStatus: req.body?.matchingStatus,
+            matchingPriority: req.body?.matchingPriority,
+            decisionSummary: req.body?.decisionSummary,
+            resolutionSummary: req.body?.resolutionSummary
+        });
+
+        if (requestedStatus !== 'Draft' && !message) {
             return res.status(400).json({
                 success: false,
-                message: 'Request message is required.'
+                message: 'Request message is required before submitting.'
             });
         }
 
@@ -1388,19 +1945,31 @@ exports.createRequest = async (req, res) => {
             name: viewer.name,
             objective,
             message,
-            status: 'Submitted',
-            routeKey: sourceType,
-            routeLabel: targetLabel,
+            status: requestedStatus,
+            providerId,
+            providerName,
+            serviceCategory,
+            serviceTags,
+            serviceProviderType,
+            servicePriceType,
+            serviceDeliveryTime,
+            requestIntent,
+            requestPriority,
+
+            routeKey: routeMeta.routeKey,
+            routeLabel: routeMeta.routeLabel,
+            matchingStatus: routeMeta.matchingStatus,
+            matchingPriority: routeMeta.matchingPriority,
             headline,
             experience,
             portfolioLink,
             attachmentMeta: [],
-            matchedEntityLabels: [],
-            decisionSummary: '',
-            resolutionSummary: '',
+            matchedEntityLabels: routeMeta.matchedEntityLabels,
+            decisionSummary: routeMeta.decisionSummary,
+            resolutionSummary: routeMeta.resolutionSummary,
             statusHistory: [
                 {
-                    status: 'Submitted',
+                    status: requestedStatus,
                     at: new Date().toISOString()
                 }
             ],
@@ -1411,7 +1980,7 @@ exports.createRequest = async (req, res) => {
             recordStatus: 'active',
             createdAt: now,
             updatedAt: now,
-            resolvedAt: ''
+            resolvedAt: requestedStatus === 'Closed' ? now : ''
         };
 
         const ref = await plazaRequestsCol.add(payload);
@@ -1427,6 +1996,170 @@ exports.createRequest = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: 'Failed to create Plaza request.'
+        });
+    }
+};
+exports.updateRequest = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+        const requestId = sanitizeText(req.params.id);
+
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Missing authenticated user.'
+            });
+        }
+
+        if (!requestId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Request ID is required.'
+            });
+        }
+
+        const ref = plazaRequestsCol.doc(requestId);
+        const snap = await ref.get();
+
+        if (!snap.exists) {
+            return res.status(404).json({
+                success: false,
+                message: 'Request not found.'
+            });
+        }
+
+        const current = snap.data() || {};
+        const recordStatus = sanitizeText(current.recordStatus || 'active').toLowerCase();
+
+        if (recordStatus !== 'active') {
+            return res.status(404).json({
+                success: false,
+                message: 'Request not found.'
+            });
+        }
+
+        if (sanitizeText(current.authorId) !== viewer.id) {
+            return res.status(403).json({
+                success: false,
+                message: 'You can only update your own Plaza requests.'
+            });
+        }
+
+        const currentStatus = normalizeRequestStatus(current.status);
+        const nextStatus = normalizeRequestStatus(req.body?.status || currentStatus || 'Submitted');
+
+        const objective = normalizeRequestObjective(req.body?.objective || current.objective);
+        const message = clampText(req.body?.message ?? current.message, 1400);
+        const targetLabel = clampText(req.body?.targetLabel ?? current.targetLabel, 160, 'General Plaza request') || 'General Plaza request';
+        const sourceType = clampText(req.body?.sourceType ?? current.sourceType, 80, 'general') || 'general';
+        const targetId = clampText(req.body?.targetId ?? current.targetId, 160);
+        const context = clampText(req.body?.context ?? current.context, 500);
+        const region = clampText(req.body?.region ?? current.region, 100);
+        const headline = clampText(req.body?.headline ?? current.headline, 160);
+        const experience = clampText(req.body?.experience ?? current.experience, 500);
+        const portfolioLink = clampText(req.body?.portfolioLink ?? current.portfolioLink, 300);
+
+        const providerId = clampText(req.body?.providerId ?? current.providerId, 160);
+        const providerName = clampText(req.body?.providerName ?? current.providerName, 160);
+        const serviceCategory = clampText(req.body?.serviceCategory ?? current.serviceCategory, 140);
+        const serviceTags = normalizeRequestTagArray(req.body?.serviceTags ?? current.serviceTags);
+        const serviceProviderType = clampText(req.body?.serviceProviderType ?? current.serviceProviderType, 100);
+        const servicePriceType = clampText(req.body?.servicePriceType ?? current.servicePriceType, 80);
+        const serviceDeliveryTime = clampText(req.body?.serviceDeliveryTime ?? current.serviceDeliveryTime, 120);
+        const requestIntent = clampText(req.body?.requestIntent ?? current.requestIntent, 160);
+        const requestPriority = clampText(req.body?.requestPriority ?? current.requestPriority, 80, 'normal') || 'normal';
+
+        if (nextStatus !== 'Draft' && !message) {
+            return res.status(400).json({
+                success: false,
+                message: 'Request message is required before submitting.'
+            });
+        }
+
+        const routeMeta = buildPlazaRequestRouteMeta({
+            sourceType,
+            objective,
+            targetLabel,
+            region,
+            providerName,
+            serviceCategory,
+            serviceTags,
+            routeKey: req.body?.routeKey ?? current.routeKey,
+            routeLabel: req.body?.routeLabel ?? current.routeLabel,
+            matchingStatus: req.body?.matchingStatus ?? current.matchingStatus,
+            matchingPriority: req.body?.matchingPriority ?? current.matchingPriority,
+            decisionSummary: req.body?.decisionSummary ?? current.decisionSummary,
+            resolutionSummary: req.body?.resolutionSummary ?? current.resolutionSummary
+        });
+
+        const now = Timestamp.now();
+
+        const statusHistory = Array.isArray(current.statusHistory)
+            ? [...current.statusHistory]
+            : [];
+
+        if (!statusHistory.length) {
+            statusHistory.push({
+                status: currentStatus,
+                at: mapTimestamp(current.createdAt) || new Date().toISOString()
+            });
+        }
+
+        if (nextStatus !== currentStatus) {
+            statusHistory.push({
+                status: nextStatus,
+                at: new Date().toISOString()
+            });
+        }
+
+        await ref.set({
+            sourceType,
+            targetId,
+            targetLabel,
+            context,
+            region,
+            name: clampText(req.body?.name ?? current.name ?? viewer.name, 160, viewer.name) || viewer.name,
+            objective,
+            message,
+
+            providerId,
+            providerName,
+            serviceCategory,
+            serviceTags,
+            serviceProviderType,
+            servicePriceType,
+            serviceDeliveryTime,
+            requestIntent,
+            requestPriority,
+
+            status: nextStatus,
+            routeKey: routeMeta.routeKey,
+            routeLabel: routeMeta.routeLabel,
+            matchingStatus: routeMeta.matchingStatus,
+            matchingPriority: routeMeta.matchingPriority,
+            headline,
+            experience,
+            portfolioLink,
+            matchedEntityLabels: routeMeta.matchedEntityLabels,
+            decisionSummary: routeMeta.decisionSummary,
+            resolutionSummary: routeMeta.resolutionSummary,
+            statusHistory,
+            resolvedAt: nextStatus === 'Closed' ? now : '',
+            updatedAt: now
+        }, { merge: true });
+
+        const updatedSnap = await ref.get();
+
+        return res.json({
+            success: true,
+            request: mapPlazaRequestDoc(updatedSnap)
+        });
+    } catch (error) {
+        console.error('plazaControllers.updateRequest error:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to update Plaza request.'
         });
     }
 };

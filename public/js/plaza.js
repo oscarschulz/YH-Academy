@@ -287,6 +287,7 @@ const OBJECTIVE_OPTIONS = [
   "Access",
   "Hiring",
   "Support",
+  "Service Request",
   "Project request",
   "Regional connection",
   "Bridge request"
@@ -728,7 +729,9 @@ function getPlazaOpportunityPrimaryActionLabel(item = {}) {
   const escalation = String(item.federationEscalation || "none").trim().toLowerCase();
   const mode = String(item.economyMode || "not_sure").trim().toLowerCase();
   const objective = normalizeObjective(item.type || item.tag || "");
+  const type = String(item.type || "").trim().toLowerCase();
 
+  if (type === "service listing") return "Request Service";
   if (escalation === "federation_paid_intro") return "Request Federation Paid Intro";
   if (escalation === "federation_candidate") return "Request Federation Screening";
   if (escalation === "academy_payout_signal") return "Open Academy Payout Path";
@@ -755,7 +758,9 @@ function getPlazaOpportunityRequestSourceType(item = {}) {
 function getPlazaOpportunityRequestObjective(item = {}) {
   const escalation = String(item.federationEscalation || "none").trim().toLowerCase();
   const objective = normalizeObjective(item.type || item.tag || "");
+  const type = String(item.type || "").trim().toLowerCase();
 
+  if (type === "service listing") return "Service Request";
   if (escalation === "federation_paid_intro") return "Introduction";
   if (escalation === "federation_candidate") return "Access";
   if (escalation === "academy_payout_signal") return "Project request";
@@ -772,6 +777,10 @@ function getPlazaOpportunityChipList(item = {}) {
     getPlazaOpportunityCommissionLabel(item),
     getPlazaOpportunityEscalationLabel(item),
     getPlazaOpportunitySourceLabel(item),
+    item.serviceCategory,
+    item.servicePriceType ? `Price: ${titleCase(item.servicePriceType)}` : "",
+    item.serviceDeliveryTime ? `Delivery: ${item.serviceDeliveryTime}` : "",
+    ...safeArray(item.serviceTags),
     item.academySignalLabel,
     getPlazaOpportunityPaymentStatusChip(item)
   ]
@@ -802,12 +811,63 @@ function buildPlazaOpportunityEconomyContext(item = {}) {
     moneyRange ? `Budget/price: ${moneyRange}` : "",
     commission ? `Commission: ${commission}` : "",
     escalation ? `Escalation: ${escalation}` : "",
-    source ? `Source: ${source}` : ""
+    source ? `Source: ${source}` : "",
+    item.serviceCategory ? `Service category: ${item.serviceCategory}` : "",
+    item.servicePriceType ? `Service pricing: ${titleCase(item.servicePriceType)}` : "",
+    item.serviceDeliveryTime ? `Delivery time: ${item.serviceDeliveryTime}` : ""
   ]
     .filter(Boolean)
     .join(" • ");
 }
+function renderPlazaOpportunityServicePanel(item = {}) {
+  const type = String(item.type || "").trim().toLowerCase();
+  const hasServiceData =
+    type === "service listing" ||
+    item.serviceCategory ||
+    safeArray(item.serviceTags).length ||
+    item.servicePriceType ||
+    item.serviceDeliveryTime ||
+    item.serviceOutcome ||
+    item.serviceRequirements;
 
+  if (!hasServiceData) return "";
+
+  return `
+    <div class="yh-plaza-card-note">
+      <strong>Service Listing:</strong>
+      ${
+        item.serviceCategory
+          ? `Category: ${escapeHtml(item.serviceCategory)}. `
+          : ""
+      }
+      ${
+        item.servicePriceType
+          ? `Pricing: ${escapeHtml(titleCase(item.servicePriceType))}. `
+          : ""
+      }
+      ${
+        item.serviceDeliveryTime
+          ? `Delivery: ${escapeHtml(item.serviceDeliveryTime)}. `
+          : ""
+      }
+      ${
+        safeArray(item.serviceTags).length
+          ? `Tags: ${escapeHtml(safeArray(item.serviceTags).join(", "))}. `
+          : ""
+      }
+      ${
+        item.serviceOutcome
+          ? `<br><span><strong>Outcome:</strong> ${escapeHtml(item.serviceOutcome)}</span>`
+          : ""
+      }
+      ${
+        item.serviceRequirements
+          ? `<br><span><strong>Requirements:</strong> ${escapeHtml(item.serviceRequirements)}</span>`
+          : ""
+      }
+    </div>
+  `;
+}
 function renderPlazaOpportunityEconomyPanel(item = {}) {
   const moneyRange = formatPlazaMoneyRange(item);
   const commission = getPlazaOpportunityCommissionLabel(item);
@@ -861,7 +921,70 @@ function renderPlazaOpportunityEconomyPanel(item = {}) {
     </div>
   `;
 }
+function buildPlazaOpportunityRequestRoutingMeta(item = {}, sourceType = "opportunity", objective = "Connection request") {
+  const type = String(item.type || "").trim().toLowerCase();
+  const providerId = String(
+    item.authorId ||
+    item.userId ||
+    item.ownerUid ||
+    item.createdByUserId ||
+    ""
+  ).trim();
 
+  const providerName = String(
+    item.authorName ||
+    item.ownerName ||
+    item.member ||
+    item.name ||
+    ""
+  ).trim();
+
+  const serviceCategory = String(item.serviceCategory || "").trim();
+  const serviceTags = safeArray(item.serviceTags)
+    .map((entry) => String(entry || "").trim())
+    .filter(Boolean)
+    .slice(0, 12);
+
+  const isService = type === "service listing" || objective === "Service Request";
+
+  const routeKey =
+    isService
+      ? "service_request"
+      : sourceType === "federation-escalation"
+        ? "federation_escalation"
+        : objective === "Hiring"
+          ? "plaza_hiring"
+          : objective === "Regional connection"
+            ? "regional_connection"
+            : objective === "Bridge request"
+              ? "bridge_request"
+              : "plaza_request";
+
+  const routeLabel =
+    isService
+      ? `Service request • ${serviceCategory || item.title || "Plaza service"}`
+      : sourceType === "federation-escalation"
+        ? `Federation escalation • ${item.title || "Opportunity"}`
+        : objective === "Hiring"
+          ? `Hiring route • ${item.title || "Opportunity"}`
+          : `${objective} • ${item.title || "Plaza request"}`;
+
+  return {
+    providerId,
+    providerName,
+    serviceCategory,
+    serviceTags: serviceTags.join(", "),
+    serviceProviderType: String(item.serviceProviderType || "").trim(),
+    servicePriceType: String(item.servicePriceType || "").trim(),
+    serviceDeliveryTime: String(item.serviceDeliveryTime || "").trim(),
+    requestIntent: isService ? "request_service" : "respond_to_opportunity",
+    requestPriority: sourceType === "federation-escalation" ? "high" : "normal",
+    routeKey,
+    routeLabel,
+    matchingStatus: "queued_for_review",
+    matchingPriority: sourceType === "federation-escalation" ? "high" : "normal"
+  };
+}
 function buildPlazaOpportunityRequestMessage(item = {}) {
   const type = String(item.type || item.tag || "opportunity").trim();
   const region = String(item.region || "Global").trim();
@@ -870,9 +993,13 @@ function buildPlazaOpportunityRequestMessage(item = {}) {
   const note = String(item.monetizationNote || "").trim();
 
   return [
-    `I want to respond to this ${type.toLowerCase()} inside Plaza: ${title}.`,
+    String(item.type || "").trim().toLowerCase() === "service listing"
+      ? `I want to request this service inside Plaza: ${title}.`
+      : `I want to respond to this ${type.toLowerCase()} inside Plaza: ${title}.`,
     region ? `Region: ${region}.` : "",
     economyContext ? `Economy context: ${economyContext}.` : "",
+    item.serviceOutcome ? `Expected outcome: ${item.serviceOutcome}.` : "",
+    item.serviceRequirements ? `Provider requirements: ${item.serviceRequirements}.` : "",
     note ? `Monetization note: ${note}` : ""
   ]
     .filter(Boolean)
@@ -983,6 +1110,15 @@ function normalizeServerOpportunityItem(item, index = 0) {
     federationEscalation: item?.federationEscalation || "none",
     monetizationNote: item?.monetizationNote || "",
     marketplaceMode: item?.marketplaceMode || "marketplace",
+
+    serviceCategory: item?.serviceCategory || "",
+    serviceTags: Array.isArray(item?.serviceTags) ? item.serviceTags : [],
+    servicePriceType: item?.servicePriceType || "custom_quote",
+    serviceDeliveryTime: item?.serviceDeliveryTime || "",
+    serviceProviderType: item?.serviceProviderType || "",
+    serviceRequirements: item?.serviceRequirements || "",
+    serviceOutcome: item?.serviceOutcome || "",
+
     userId: item?.userId || item?.authorId || item?.ownerUid || item?.createdByUserId || "",
     authorId: item?.authorId || item?.userId || item?.ownerUid || item?.createdByUserId || "",
     authorName: item?.authorName || item?.ownerName || "Plaza Member",
@@ -1649,8 +1785,21 @@ function normalizeServerRequestItem(item, index = 0) {
     name: item?.name || item?.authorName || "Hustler",
     objective: item?.objective || "Connection request",
     message: item?.message || "",
+
+    providerId: item?.providerId || "",
+    providerName: item?.providerName || "",
+    serviceCategory: item?.serviceCategory || "",
+    serviceTags: Array.isArray(item?.serviceTags) ? item.serviceTags : [],
+    serviceProviderType: item?.serviceProviderType || "",
+    servicePriceType: item?.servicePriceType || "",
+    serviceDeliveryTime: item?.serviceDeliveryTime || "",
+    requestIntent: item?.requestIntent || "",
+    requestPriority: item?.requestPriority || "normal",
+
     routeKey: item?.routeKey || item?.sourceType || "general",
     routeLabel: item?.routeLabel || item?.targetLabel || "General Plaza request",
+    matchingStatus: item?.matchingStatus || "",
+    matchingPriority: item?.matchingPriority || "",
     headline: item?.headline || "",
     experience: item?.experience || "",
     portfolioLink: item?.portfolioLink || "",
@@ -1694,9 +1843,15 @@ async function loadPlazaRequestsFromServer(options = {}) {
   }
 }
 
-async function createPlazaRequest(payload = {}) {
-  const result = await plazaApiFetch("/api/plaza/requests", {
-    method: "POST",
+async function updatePlazaRequestOnServer(requestId = "", payload = {}) {
+  const cleanId = String(requestId || "").trim();
+
+  if (!cleanId) {
+    throw new Error("Missing Plaza request id.");
+  }
+
+  const result = await plazaApiFetch(`/api/plaza/requests/${encodeURIComponent(cleanId)}`, {
+    method: "PATCH",
     body: JSON.stringify(payload)
   });
 
@@ -1996,6 +2151,20 @@ function normalizeOpportunityItem(item, index) {
     sourceDivision: String(item?.sourceDivision || "plaza"),
     sourceLeadId: String(item?.sourceLeadId || ""),
 
+    serviceCategory: String(item?.serviceCategory || ""),
+    serviceTags: Array.isArray(item?.serviceTags)
+      ? item.serviceTags.map((tag) => String(tag || "").trim()).filter(Boolean).slice(0, 12)
+      : String(item?.serviceTags || "")
+          .split(",")
+          .map((tag) => tag.trim())
+          .filter(Boolean)
+          .slice(0, 12),
+    servicePriceType: String(item?.servicePriceType || "custom_quote"),
+    serviceDeliveryTime: String(item?.serviceDeliveryTime || ""),
+    serviceProviderType: String(item?.serviceProviderType || ""),
+    serviceRequirements: String(item?.serviceRequirements || ""),
+    serviceOutcome: String(item?.serviceOutcome || ""),
+
     pricingAmount: normalizePlazaMoneyValue(item?.pricingAmount || item?.amount || item?.price),
     paymentLedgerId: String(item?.paymentLedgerId || ""),
     paymentLedgerStatus: String(item?.paymentLedgerStatus || ""),
@@ -2048,6 +2217,13 @@ function normalizeBridgeItem(item, index) {
 function normalizeRequestItem(item, index) {
   const objective = normalizeObjective(item?.objective || item?.goal || "Connection request");
   const status = normalizeRequestStatus(item?.status || "Submitted");
+  const serviceTags = Array.isArray(item?.serviceTags)
+    ? item.serviceTags.map((entry) => String(entry || "").trim()).filter(Boolean).slice(0, 12)
+    : String(item?.serviceTags || "")
+        .split(",")
+        .map((entry) => entry.trim())
+        .filter(Boolean)
+        .slice(0, 12);
 
   return {
     id: item?.id || `req-${index + 1}`,
@@ -2063,8 +2239,21 @@ function normalizeRequestItem(item, index) {
     name: String(item?.name || "Unknown requester"),
     objective,
     message: String(item?.message || ""),
+
+    providerId: String(item?.providerId || ""),
+    providerName: String(item?.providerName || ""),
+    serviceCategory: String(item?.serviceCategory || ""),
+    serviceTags,
+    serviceProviderType: String(item?.serviceProviderType || ""),
+    servicePriceType: String(item?.servicePriceType || ""),
+    serviceDeliveryTime: String(item?.serviceDeliveryTime || ""),
+    requestIntent: String(item?.requestIntent || ""),
+    requestPriority: String(item?.requestPriority || "normal"),
+
     routeKey: String(item?.routeKey || ""),
     routeLabel: String(item?.routeLabel || ""),
+    matchingStatus: String(item?.matchingStatus || ""),
+    matchingPriority: String(item?.matchingPriority || ""),
     headline: String(item?.headline || ""),
     experience: String(item?.experience || ""),
     portfolioLink: String(item?.portfolioLink || ""),
@@ -4978,6 +5167,7 @@ function renderOpportunities() {
         <h3>${escapeHtml(item.title)}</h3>
         <p>${escapeHtml(item.text)}</p>
 
+        ${renderPlazaOpportunityServicePanel(item)}
         ${renderPlazaOpportunityEconomyPanel(item)}
 
         <div class="yh-plaza-card-actions">
@@ -5731,6 +5921,20 @@ function buildRequestDrawer(config = {}) {
   const requestStatus = normalizeRequestStatus(config.status || "Submitted");
   const isEditing = !!requestId;
 
+  const providerId = config.providerId || "";
+  const providerName = config.providerName || "";
+  const serviceCategory = config.serviceCategory || "";
+  const serviceTags = config.serviceTags || "";
+  const serviceProviderType = config.serviceProviderType || "";
+  const servicePriceType = config.servicePriceType || "";
+  const serviceDeliveryTime = config.serviceDeliveryTime || "";
+  const requestIntent = config.requestIntent || "";
+  const requestPriority = config.requestPriority || "normal";
+  const routeKey = config.routeKey || "";
+  const routeLabel = config.routeLabel || "";
+  const matchingStatus = config.matchingStatus || "";
+  const matchingPriority = config.matchingPriority || "";
+
   const primaryLabel =
     config.submitLabel ||
     (isEditing && requestStatus === "Closed"
@@ -5786,6 +5990,19 @@ function buildRequestDrawer(config = {}) {
         <input type="hidden" name="targetLabel" value="${escapeHtml(targetLabel)}" />
         <input type="hidden" name="context" value="${escapeHtml(context)}" />
         <input type="hidden" name="region" value="${escapeHtml(region)}" />
+        <input type="hidden" name="providerId" value="${escapeHtml(providerId)}" />
+        <input type="hidden" name="providerName" value="${escapeHtml(providerName)}" />
+        <input type="hidden" name="serviceCategory" value="${escapeHtml(serviceCategory)}" />
+        <input type="hidden" name="serviceTags" value="${escapeHtml(serviceTags)}" />
+        <input type="hidden" name="serviceProviderType" value="${escapeHtml(serviceProviderType)}" />
+        <input type="hidden" name="servicePriceType" value="${escapeHtml(servicePriceType)}" />
+        <input type="hidden" name="serviceDeliveryTime" value="${escapeHtml(serviceDeliveryTime)}" />
+        <input type="hidden" name="requestIntent" value="${escapeHtml(requestIntent)}" />
+        <input type="hidden" name="requestPriority" value="${escapeHtml(requestPriority)}" />
+        <input type="hidden" name="routeKey" value="${escapeHtml(routeKey)}" />
+        <input type="hidden" name="routeLabel" value="${escapeHtml(routeLabel)}" />
+        <input type="hidden" name="matchingStatus" value="${escapeHtml(matchingStatus)}" />
+        <input type="hidden" name="matchingPriority" value="${escapeHtml(matchingPriority)}" />
         <label>
           <span>Your name</span>
           <input type="text" name="name" placeholder="Your name" value="${escapeHtml(name)}" required />
@@ -6630,7 +6847,7 @@ function handleDetailPrimaryAction(action) {
 
   if (action.startsWith("request-opportunity:")) {
     const id = action.split(":")[1];
-    const item = plazaAdapter.getOpportunityById(id) || plazaAdapter.getFeedById(id);
+    const item = getPlazaOpportunityById(id) || plazaAdapter.getOpportunityById(id) || plazaAdapter.getFeedById(id);
     if (!item) return;
 
     const normalizedOpportunityObjective = getPlazaOpportunityRequestObjective(item);
@@ -6640,6 +6857,12 @@ function handleDetailPrimaryAction(action) {
       item.type || item.tag || "Opportunity",
       economyContext
     ].filter(Boolean).join(" • ");
+
+    const routeMeta = buildPlazaOpportunityRequestRoutingMeta(
+      item,
+      sourceType,
+      normalizedOpportunityObjective
+    );
 
     if (normalizedOpportunityObjective === "Hiring") {
       buildApplicationDrawer({
@@ -6651,7 +6874,8 @@ function handleDetailPrimaryAction(action) {
         region: item.region,
         context: requestContext,
         message: buildPlazaOpportunityRequestMessage(item),
-        submitLabel: getPlazaOpportunityPrimaryActionLabel(item)
+        submitLabel: getPlazaOpportunityPrimaryActionLabel(item),
+        ...routeMeta
       });
       return;
     }
@@ -7014,7 +7238,9 @@ function bindEvents() {
         requestCloseBtn,
         "Closing...",
         () => {
-          const updatedRequest = plazaAdapter.closeRequest(requestId);
+          const updatedRequest = plazaServerRequestsLoaded
+            ? await updatePlazaRequestOnServer(requestId, { status: "Closed" })
+            : plazaAdapter.closeRequest(requestId);
 
           if (updatedRequest) {
             plazaOpsAdapter.syncIncomingStatusFromRequest(updatedRequest);
@@ -7245,7 +7471,22 @@ if (plazaMarkPaidBtn instanceof HTMLButtonElement) {
           region: String(data.get("region") || ""),
           name: String(data.get("name") || "Unknown requester"),
           objective: String(data.get("objective") || "Connection request"),
-          message: String(data.get("message") || "")
+          message: String(data.get("message") || ""),
+
+          providerId: String(data.get("providerId") || ""),
+          providerName: String(data.get("providerName") || ""),
+          serviceCategory: String(data.get("serviceCategory") || ""),
+          serviceTags: String(data.get("serviceTags") || ""),
+          serviceProviderType: String(data.get("serviceProviderType") || ""),
+          servicePriceType: String(data.get("servicePriceType") || ""),
+          serviceDeliveryTime: String(data.get("serviceDeliveryTime") || ""),
+          requestIntent: String(data.get("requestIntent") || ""),
+          requestPriority: String(data.get("requestPriority") || "normal"),
+
+          routeKey: String(data.get("routeKey") || ""),
+          routeLabel: String(data.get("routeLabel") || ""),
+          matchingStatus: String(data.get("matchingStatus") || ""),
+          matchingPriority: String(data.get("matchingPriority") || "")
         };
 
         const targetStatus =
@@ -7255,15 +7496,41 @@ if (plazaMarkPaidBtn instanceof HTMLButtonElement) {
               ? "Submitted"
               : existingRequest?.status || "Submitted";
 
-        const savedRequest = existingRequest
-          ? plazaAdapter.updateRequest(requestId, {
-              ...payload,
-              status: targetStatus
-            })
-          : plazaAdapter.createRequest({
+        let savedRequest = null;
+
+        if (requestId && plazaServerRequestsLoaded && typeof updatePlazaRequestOnServer === "function") {
+          try {
+            savedRequest = await updatePlazaRequestOnServer(requestId, {
               ...payload,
               status: targetStatus
             });
+          } catch (error) {
+            console.error("update structured Plaza request on server failed:", error);
+          }
+        }
+
+        if (!savedRequest) {
+          try {
+            savedRequest = await createPlazaRequest({
+              ...payload,
+              status: targetStatus
+            });
+          } catch (error) {
+            console.error("create structured Plaza request on server failed:", error);
+          }
+        }
+
+        if (!savedRequest) {
+          savedRequest = existingRequest
+            ? plazaAdapter.updateRequest(requestId, {
+                ...payload,
+                status: targetStatus
+              })
+            : plazaAdapter.createRequest({
+                ...payload,
+                status: targetStatus
+              });
+        }
 
         if (targetStatus === "Draft") {
           plazaOpsAdapter.removeIncomingByRequestId(savedRequest.id);
@@ -7349,15 +7616,41 @@ if (plazaMarkPaidBtn instanceof HTMLButtonElement) {
               ? "Submitted"
               : existingRequest?.status || "Submitted";
 
-        const savedRequest = existingRequest
-          ? plazaAdapter.updateRequest(requestId, {
-              ...payload,
-              status: targetStatus
-            })
-          : plazaAdapter.createRequest({
+        let savedRequest = null;
+
+        if (requestId && plazaServerRequestsLoaded && typeof updatePlazaRequestOnServer === "function") {
+          try {
+            savedRequest = await updatePlazaRequestOnServer(requestId, {
               ...payload,
               status: targetStatus
             });
+          } catch (error) {
+            console.error("update Plaza application request on server failed:", error);
+          }
+        }
+
+        if (!savedRequest) {
+          try {
+            savedRequest = await createPlazaRequest({
+              ...payload,
+              status: targetStatus
+            });
+          } catch (error) {
+            console.error("create Plaza application request on server failed:", error);
+          }
+        }
+
+        if (!savedRequest) {
+          savedRequest = existingRequest
+            ? plazaAdapter.updateRequest(requestId, {
+                ...payload,
+                status: targetStatus
+              })
+            : plazaAdapter.createRequest({
+                ...payload,
+                status: targetStatus
+              });
+        }
 
         if (targetStatus === "Draft") {
           plazaOpsAdapter.removeIncomingByRequestId(savedRequest.id);
@@ -7587,7 +7880,15 @@ async function submitPlazaOpportunityComposer(event) {
     budgetMax: normalizePlazaMoneyValue(formData.get("budgetMax")),
     commissionRate: normalizePlazaMoneyValue(formData.get("commissionRate")),
     federationEscalation: String(formData.get("federationEscalation") || "none").trim(),
-    monetizationNote: String(formData.get("monetizationNote") || "").trim()
+    monetizationNote: String(formData.get("monetizationNote") || "").trim(),
+
+    serviceCategory: String(formData.get("serviceCategory") || "").trim(),
+    serviceTags: String(formData.get("serviceTags") || "").trim(),
+    servicePriceType: String(formData.get("servicePriceType") || "custom_quote").trim(),
+    serviceDeliveryTime: String(formData.get("serviceDeliveryTime") || "").trim(),
+    serviceProviderType: String(formData.get("serviceProviderType") || "plaza_provider").trim(),
+    serviceRequirements: String(formData.get("serviceRequirements") || "").trim(),
+    serviceOutcome: String(formData.get("serviceOutcome") || "").trim()
   };
 
   if (!payload.title) {
@@ -7816,7 +8117,11 @@ async function submitPlazaRequestComposer(event) {
     sourceType: String(formData.get("sourceType") || "general").trim(),
     region: String(formData.get("region") || "").trim(),
     targetLabel: String(formData.get("targetLabel") || "General Plaza request").trim(),
-    message: String(formData.get("message") || "").trim()
+    message: String(formData.get("message") || "").trim(),
+    requestIntent: "manual_plaza_request",
+    requestPriority: "normal",
+    matchingStatus: "queued_for_review",
+    matchingPriority: "normal"
   };
 
   if (!payload.message) {

@@ -13,8 +13,8 @@
     href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap"
     rel="stylesheet"
   />
-<link rel="stylesheet" href="/css/plaza.css?v=20260429-top-universe-1" />
-<script src="/js/plaza.js?v=20260425-profile-owner-2" defer></script>
+<link rel="stylesheet" href="/css/plaza.css?v=20260429-server-drafts-1" />
+<script src="/js/plaza.js?v=20260429-server-drafts-1" defer></script>
 </head>
 <body data-yh-i18n-mode="attributes" class="yh-plaza-page yh-plaza-access-booting">
 
@@ -330,6 +330,7 @@
                       <option value="Collaboration">Collaboration</option>
                       <option value="Partnership">Partnership</option>
                       <option value="Introduction">Introduction</option>
+                      <option value="Service Listing">Service Listing</option>
                       <option value="Service Request">Service Request</option>
                       <option value="Project Opening">Project Opening</option>
                       <option value="Regional Support">Regional Support</option>
@@ -383,6 +384,51 @@
                       <option value="federation_paid_intro">Federation paid intro</option>
                     </select>
                   </label>
+                                    <label class="yh-plaza-feed-composer-field">
+                    <span>Service Category</span>
+                    <input id="plazaOpportunityComposerServiceCategory" name="serviceCategory" type="text" placeholder="AI automation, design, outreach, legal, editing..." maxlength="120" />
+                  </label>
+
+                  <label class="yh-plaza-feed-composer-field">
+                    <span>Service Price Type</span>
+                    <select id="plazaOpportunityComposerServicePriceType" name="servicePriceType">
+                      <option value="custom_quote">Custom quote</option>
+                      <option value="fixed">Fixed price</option>
+                      <option value="hourly">Hourly</option>
+                      <option value="package">Package</option>
+                      <option value="commission">Commission</option>
+                    </select>
+                  </label>
+
+                  <label class="yh-plaza-feed-composer-field">
+                    <span>Delivery Time</span>
+                    <input id="plazaOpportunityComposerServiceDeliveryTime" name="serviceDeliveryTime" type="text" placeholder="24 hours, 3 days, 1 week..." maxlength="120" />
+                  </label>
+
+                  <label class="yh-plaza-feed-composer-field">
+                    <span>Provider Type</span>
+                    <select id="plazaOpportunityComposerServiceProviderType" name="serviceProviderType">
+                      <option value="plaza_provider">Plaza Provider</option>
+                      <option value="academy_member">Academy Member</option>
+                      <option value="federation_member">Federation Member</option>
+                      <option value="agency_team">Agency / Team</option>
+                    </select>
+                  </label>
+
+                  <label class="yh-plaza-feed-composer-field yh-plaza-feed-composer-field-wide">
+                    <span>Service Tags</span>
+                    <input id="plazaOpportunityComposerServiceTags" name="serviceTags" type="text" placeholder="automation, landing pages, leads, design, editing..." maxlength="240" />
+                  </label>
+
+                  <label class="yh-plaza-feed-composer-field yh-plaza-feed-composer-field-wide yh-plaza-feed-composer-field-signal">
+                    <span>Service Outcome</span>
+                    <textarea id="plazaOpportunityComposerServiceOutcome" name="serviceOutcome" placeholder="What will the seeker receive after hiring this provider?" maxlength="1000"></textarea>
+                  </label>
+
+                  <label class="yh-plaza-feed-composer-field yh-plaza-feed-composer-field-wide yh-plaza-feed-composer-field-signal">
+                    <span>Requirements From Seeker</span>
+                    <textarea id="plazaOpportunityComposerServiceRequirements" name="serviceRequirements" placeholder="What must the seeker provide before the service can start?" maxlength="1000"></textarea>
+                  </label>
 
                   <label class="yh-plaza-feed-composer-field yh-plaza-feed-composer-field-wide">
                     <span>Title</span>
@@ -408,7 +454,7 @@
               </form>
 
               <div class="yh-plaza-panel-note">
-                This is the monetized movement layer of Plaza: job opportunities, hire/get-hired posts, commission paths, bounties, service requests, Academy payout signals, and Federation-ready introductions. Plaza access remains locked until the member is Plaza-ready and admin-approved.
+                  This is the monetized movement layer of Plaza: service listings, job opportunities, hire/get-hired posts, commission paths, bounties, service requests, Academy payout signals, and Federation-ready introductions. Plaza access remains locked until the member is Plaza-ready and admin-approved.
               </div>
 
               <div class="yh-plaza-opportunity-grid" id="plazaOpportunityGrid"></div>
@@ -535,6 +581,7 @@
                           <option value="Access">Access</option>
                           <option value="Hiring">Hiring</option>
                           <option value="Support">Support</option>
+                          <option value="Service Request">Service Request</option>
                           <option value="Project request">Project request</option>
                           <option value="Regional connection">Regional connection</option>
                           <option value="Bridge request">Bridge request</option>

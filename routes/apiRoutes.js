@@ -133,6 +133,7 @@ router.post('/plaza/bridge', auth, plazaControllers.createBridge);
 
 router.get('/plaza/requests', auth, plazaControllers.getRequests);
 router.post('/plaza/requests', auth, plazaControllers.createRequest);
+router.patch('/plaza/requests/:id', auth, plazaControllers.updateRequest);
 router.patch('/plaza/requests/:id/status', auth, plazaControllers.advanceRequestStatus);
 router.delete('/plaza/requests/:id', auth, plazaControllers.deleteRequest);
 
