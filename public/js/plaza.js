@@ -7419,7 +7419,8 @@ function bindEvents() {
 
     const opportunityBtn = target.closest("[data-opportunity-id]");
     if (opportunityBtn instanceof HTMLElement) {
-      renderOpportunityDetailScreen(plazaAdapter.getOpportunityById(opportunityBtn.dataset.opportunityId));
+      const opportunity = getPlazaOpportunityById(opportunityBtn.dataset.opportunityId) || plazaAdapter.getOpportunityById(opportunityBtn.dataset.opportunityId);
+      renderOpportunityDetailScreen(opportunity);
       return;
     }
 
@@ -7451,7 +7452,7 @@ function bindEvents() {
         `request-close:${requestId}`,
         requestCloseBtn,
         "Closing...",
-        () => {
+        async () => {
           const updatedRequest = plazaServerRequestsLoaded
             ? await updatePlazaRequestOnServer(requestId, { status: "Closed" })
             : plazaAdapter.closeRequest(requestId);

@@ -56,6 +56,15 @@ a {
   text-decoration: none;
 }
 
+html.yh-federation-view-active .yh-top-nav .yh-dashboard-top-edit-btn,
+html.yh-federation-view-active .yh-top-nav .yh-wallet-open-btn,
+html.yh-federation-view-active .yh-top-nav .btn-logout,
+body.yh-federation-view-active .yh-top-nav .yh-dashboard-top-edit-btn,
+body.yh-federation-view-active .yh-top-nav .yh-wallet-open-btn,
+body.yh-federation-view-active .yh-top-nav .btn-logout {
+  display: none;
+}
+
 button,
 input,
 select,
@@ -234,9 +243,7 @@ textarea {
   backdrop-filter: blur(16px);
   padding: 8px 4px 16px;
   margin-bottom: 10px;
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
+  display: grid;
   gap: 18px;
 }
 
@@ -253,6 +260,42 @@ textarea {
   font-size: clamp(1.8rem, 3vw, 2.6rem);
   font-weight: 800;
   letter-spacing: -0.04em;
+}
+
+.fed-topbar-head {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  width: 100%;
+  min-width: 0;
+  padding-right: 210px;
+}
+
+.fed-topbar-copy {
+  min-width: 0;
+}
+
+.fed-topbar-universe-corner {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+}
+
+@media (max-width: 980px) {
+  .fed-topbar-head {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding-right: 0;
+  }
+
+  .fed-topbar-universe-corner {
+    position: static;
+    justify-self: end;
+  }
 }
 
 .fed-topbar-actions,

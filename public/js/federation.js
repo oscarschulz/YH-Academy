@@ -1,3 +1,19 @@
+function markFederationViewActive() {
+  document.documentElement.classList.add("yh-federation-view-active");
+
+  if (document.body) {
+    document.body.classList.add("yh-federation-view-active");
+  }
+}
+
+markFederationViewActive();
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", markFederationViewActive);
+} else {
+  markFederationViewActive();
+}
+
 const STORAGE_KEYS = {
   applications: "yh_federation_applications",
   members: "yh_federation_members",
