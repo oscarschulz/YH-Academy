@@ -1310,6 +1310,7 @@ const applications = users.flatMap((user) => {
     });
 
   const economySummary = buildAdminEconomySummary(paymentLedger, payoutLedger);
+  const plazaRoutingDesk = await buildAdminPlazaRoutingDeskSnapshot(120);
 
   return {
     ui: {
@@ -1336,6 +1337,7 @@ const applications = users.flatMap((user) => {
     economy: economySummary,
     federation: [],
     plazas,
+    plazaRoutingDesk,
     support: [],
     broadcasts,
     analytics: {
@@ -1484,6 +1486,233 @@ function getAdminPlazaOpportunityTitle(opportunity = {}, payment = {}) {
     opportunity.description ||
     'Plaza opportunity deal'
   ).slice(0, 220);
+}
+
+function mapAdminPlazaRequestDoc(docSnap) {
+  const data = docSnap.data() || {};
+
+  const serviceTags = Array.isArray(data.serviceTags)
+    ? data.serviceTags.map((item) => cleanText(item)).filter(Boolean)
+    : cleanText(data.serviceTags)
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+  const matchedEntityLabels = Array.isArray(data.matchedEntityLabels)
+    ? data.matchedEntityLabels.map((item) => cleanText(item)).filter(Boolean)
+    : [];
+
+  return {
+    id: docSnap.id,
+    createdAt: toIso(data.createdAt) || cleanText(data.createdAt || ''),
+    updatedAt: toIso(data.updatedAt) || cleanText(data.updatedAt || ''),
+    resolvedAt: toIso(data.resolvedAt) || cleanText(data.resolvedAt || ''),
+
+    status: cleanText(data.status || 'Submitted'),
+    recordStatus: cleanText(data.recordStatus || 'active'),
+
+    sourceType: cleanText(data.sourceType || 'general'),
+    targetId: cleanText(data.targetId || ''),
+    targetLabel: cleanText(data.targetLabel || 'General Plaza request'),
+    context: cleanText(data.context || ''),
+    region: cleanText(data.region || ''),
+
+    requesterId: cleanText(data.authorId || data.createdByUserId || ''),
+    requesterName: cleanText(data.authorName || data.name || 'Hustler'),
+    requesterEmail: cleanText(data.authorEmail || '').toLowerCase(),
+
+    objective: cleanText(data.objective || 'Connection request'),
+    message: cleanText(data.message || ''),
+
+    providerId: cleanText(data.providerId || ''),
+    providerName: cleanText(data.providerName || ''),
+    serviceCategory: cleanText(data.serviceCategory || ''),
+    serviceTags,
+    serviceProviderType: cleanText(data.serviceProviderType || ''),
+    servicePriceType: cleanText(data.servicePriceType || ''),
+    serviceDeliveryTime: cleanText(data.serviceDeliveryTime || ''),
+    requestIntent: cleanText(data.requestIntent || ''),
+    requestPriority: cleanText(data.requestPriority || 'normal'),
+
+    routeKey: cleanText(data.routeKey || data.sourceType || 'general'),
+    routeLabel: cleanText(data.routeLabel || data.targetLabel || 'General Plaza request'),
+    matchingStatus: cleanText(data.matchingStatus || ''),
+    matchingPriority: cleanText(data.matchingPriority || ''),
+
+    adminRoutingLane: cleanText(data.adminRoutingLane || ''),
+    adminAssignedToUid: cleanText(data.adminAssignedToUid || ''),
+    adminAssignedToName: cleanText(data.adminAssignedToName || ''),
+    adminDecision: cleanText(data.adminDecision || ''),
+    adminRouteNote: cleanText(data.adminRouteNote || ''),
+    adminRoutedBy: cleanText(data.adminRoutedBy || ''),
+    adminRoutedAt: toIso(data.adminRoutedAt) || cleanText(data.adminRoutedAt || ''),
+
+    headline: cleanText(data.headline || ''),
+    experience: cleanText(data.experience || ''),
+    portfolioLink: cleanText(data.portfolioLink || ''),
+
+    attachmentMeta: Array.isArray(data.attachmentMeta) ? data.attachmentMeta : [],
+    matchedEntityLabels,
+    decisionSummary: cleanText(data.decisionSummary || ''),
+    resolutionSummary: cleanText(data.resolutionSummary || ''),
+    statusHistory: Array.isArray(data.statusHistory) ? data.statusHistory : []
+  };
+}
+
+function normalizeAdminPlazaRequestStatus(value = '') {
+  const raw = cleanText(value);
+
+  const allowed = new Set([
+    'Draft',
+    'Submitted',
+    'Under Review',
+    'Matched',
+    'Conversation Opened',
+    'Closed'
+  ]);
+
+  return allowed.has(raw) ? raw : '';
+}
+
+function normalizeAdminPlazaRoutingLane(value = '') {
+  const raw = cleanText(value).toLowerCase();
+
+  if (raw === 'academy' || raw === 'academy_operator') return 'academy_operator';
+  if (raw === 'plaza' || raw === 'plaza_provider') return 'plaza_provider';
+  if (raw === 'federation' || raw === 'federation_escalation') return 'federation_escalation';
+  if (raw === 'regional' || raw === 'regional_leader') return 'regional_leader';
+  if (raw === 'conversation' || raw === 'open_conversation') return 'open_conversation';
+  if (raw === 'manual' || raw === 'manual_review') return 'manual_review';
+
+  return 'manual_review';
+}
+
+function getAdminPlazaRoutingLaneLabel(lane = '') {
+  const clean = normalizeAdminPlazaRoutingLane(lane);
+
+  const labels = {
+    academy_operator: 'Academy Operator',
+    plaza_provider: 'Plaza Provider',
+    federation_escalation: 'Federation Escalation',
+    regional_leader: 'Regional Leader',
+    open_conversation: 'Open Conversation',
+    manual_review: 'Manual Review'
+  };
+
+  return labels[clean] || 'Manual Review';
+}
+
+async function buildAdminPlazaRoutingDeskSnapshot(limit = 80) {
+  const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 80, 1), 200);
+
+  const snap = await firestore
+    .collection('plazaRequests')
+    .orderBy('updatedAt', 'desc')
+    .limit(safeLimit)
+    .get();
+
+  const requests = snap.docs
+    .map(mapAdminPlazaRequestDoc)
+    .filter((item) => item.recordStatus !== 'deleted');
+
+  const summary = requests.reduce((acc, item) => {
+    const statusKey = item.status || 'Unknown';
+    const laneKey = item.adminRoutingLane || item.routeKey || 'unrouted';
+
+    acc.total += 1;
+    acc.byStatus[statusKey] = (acc.byStatus[statusKey] || 0) + 1;
+    acc.byLane[laneKey] = (acc.byLane[laneKey] || 0) + 1;
+
+    if (!item.adminRoutingLane) acc.unrouted += 1;
+    if (item.status === 'Submitted' || item.status === 'Under Review') acc.needsReview += 1;
+    if (item.matchingPriority === 'high' || item.requestPriority === 'high') acc.highPriority += 1;
+
+    return acc;
+  }, {
+    total: 0,
+    unrouted: 0,
+    needsReview: 0,
+    highPriority: 0,
+    byStatus: {},
+    byLane: {}
+  });
+
+  return {
+    summary,
+    requests
+  };
+}
+
+function buildAdminPlazaRequestRoutePatch(body = {}, adminUsername = 'admin') {
+  const lane = normalizeAdminPlazaRoutingLane(body.routingLane || body.adminRoutingLane);
+  const laneLabel = getAdminPlazaRoutingLaneLabel(lane);
+  const nextStatus = normalizeAdminPlazaRequestStatus(body.status);
+  const now = Timestamp.now();
+
+  const routeLabel =
+    cleanText(body.routeLabel) ||
+    cleanText(body.targetLabel) ||
+    `${laneLabel} route`;
+
+  const matchingStatus =
+    cleanText(body.matchingStatus) ||
+    (lane === 'manual_review' ? 'queued_for_review' : 'routed');
+
+  const matchingPriority =
+    cleanText(body.matchingPriority) ||
+    cleanText(body.requestPriority) ||
+    (lane === 'federation_escalation' ? 'high' : 'normal');
+
+  const adminDecision =
+    cleanText(body.adminDecision) ||
+    `Route to ${laneLabel}`;
+
+  const decisionSummary =
+    cleanText(body.decisionSummary) ||
+    `Admin routed this Plaza request to ${laneLabel}.`;
+
+  const resolutionSummary =
+    cleanText(body.resolutionSummary) ||
+    'Awaiting next operational action from the assigned lane.';
+
+  const matchedEntityLabels = [
+    `Route: ${laneLabel}`,
+    cleanText(body.assignedToName || body.adminAssignedToName)
+      ? `Assigned: ${cleanText(body.assignedToName || body.adminAssignedToName)}`
+      : '',
+    cleanText(body.serviceCategory)
+      ? `Service: ${cleanText(body.serviceCategory)}`
+      : '',
+    cleanText(body.region)
+      ? `Region: ${cleanText(body.region)}`
+      : ''
+  ].filter(Boolean);
+
+  const patch = {
+    adminRoutingLane: lane,
+    adminAssignedToUid: cleanText(body.assignedToUid || body.adminAssignedToUid || ''),
+    adminAssignedToName: cleanText(body.assignedToName || body.adminAssignedToName || ''),
+    adminDecision,
+    adminRouteNote: cleanText(body.adminRouteNote || body.adminNote || ''),
+    adminRoutedBy: cleanText(adminUsername || 'admin'),
+    adminRoutedAt: now,
+
+    routeKey: lane,
+    routeLabel,
+    matchingStatus,
+    matchingPriority,
+    decisionSummary,
+    resolutionSummary,
+    matchedEntityLabels,
+
+    updatedAt: now
+  };
+
+  if (nextStatus) {
+    patch.status = nextStatus;
+  }
+
+  return patch;
 }
 
 async function upsertAdminPlazaOpportunityPayoutEarning({
@@ -1914,6 +2143,116 @@ apiRouter.get('/api/admin/bootstrap', requireAdminSession, async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to load admin bootstrap data.'
+    });
+  }
+});
+
+apiRouter.get('/api/admin/plaza/requests', requireAdminSession, async (req, res) => {
+  try {
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 120, 1), 200);
+    const statusFilter = cleanText(req.query.status || '');
+    const laneFilter = cleanText(req.query.lane || req.query.routingLane || '');
+
+    const desk = await buildAdminPlazaRoutingDeskSnapshot(limit);
+
+    const requests = desk.requests.filter((item) => {
+      const statusMatches = !statusFilter || item.status === statusFilter;
+      const laneMatches =
+        !laneFilter ||
+        item.adminRoutingLane === laneFilter ||
+        item.routeKey === laneFilter;
+
+      return statusMatches && laneMatches;
+    });
+
+    return res.json({
+      success: true,
+      summary: desk.summary,
+      requests
+    });
+  } catch (error) {
+    console.error('admin plaza requests routing desk error:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to load Plaza request routing desk.'
+    });
+  }
+});
+
+apiRouter.post('/api/admin/plaza/requests/:requestId/route', requireAdminSession, async (req, res) => {
+  try {
+    const requestId = cleanText(req.params.requestId);
+
+    if (!requestId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Plaza request id is required.'
+      });
+    }
+
+    const requestRef = firestore.collection('plazaRequests').doc(requestId);
+    const requestSnap = await requestRef.get();
+
+    if (!requestSnap.exists) {
+      return res.status(404).json({
+        success: false,
+        message: 'Plaza request not found.'
+      });
+    }
+
+    const current = requestSnap.data() || {};
+    const currentHistory = Array.isArray(current.statusHistory)
+      ? current.statusHistory
+      : [];
+
+    const patch = buildAdminPlazaRequestRoutePatch(
+      {
+        ...current,
+        ...(req.body || {})
+      },
+      req.adminSession?.username || 'admin'
+    );
+
+    const nextStatus = cleanText(patch.status || current.status || 'Under Review');
+    const currentStatus = cleanText(current.status || '');
+
+    const statusHistory = [...currentHistory];
+
+    if (!statusHistory.length) {
+      statusHistory.push({
+        status: currentStatus || 'Submitted',
+        at: toIso(current.createdAt) || new Date().toISOString()
+      });
+    }
+
+    if (nextStatus && nextStatus !== currentStatus) {
+      statusHistory.push({
+        status: nextStatus,
+        at: new Date().toISOString(),
+        by: cleanText(req.adminSession?.username || 'admin'),
+        source: 'admin_routing_desk'
+      });
+    }
+
+    await requestRef.set({
+      ...patch,
+      status: nextStatus,
+      statusHistory
+    }, { merge: true });
+
+    const updatedSnap = await requestRef.get();
+
+    return res.json({
+      success: true,
+      request: mapAdminPlazaRequestDoc(updatedSnap)
+    });
+  } catch (error) {
+    console.error('admin plaza request route error:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to route Plaza request.'
     });
   }
 });

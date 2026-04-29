@@ -1165,6 +1165,10 @@ textarea {
 }
 
 .fed-topbar {
+  display: grid;
+  grid-template-columns: 1fr;
+  align-items: stretch;
+  gap: 12px;
   padding: 6px 4px 18px;
   margin-bottom: 18px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
@@ -2493,6 +2497,14 @@ body[data-fed-state="member"] #overview .fed-chip {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+
+.fed-topbar-universe-corner {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  margin-left: auto;
 }
 
 .fed-topbar-copy {
@@ -2878,11 +2890,28 @@ body[data-fed-state="member"] #overview .fed-chip {
   }
 
   .fed-topbar-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: flex-start;
+    gap: 8px;
   }
 
   .fed-topbar-quick {
     display: block;
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .fed-topbar-universe-corner {
+    min-height: 40px;
+    padding: 0 10px;
+    border-radius: 13px;
+    font-size: 0;
+  }
+
+  .fed-topbar-universe-corner::before {
+    content: "← Universe";
+    font-size: 0.78rem;
   }
 
   .fed-topbar-quick-summary {

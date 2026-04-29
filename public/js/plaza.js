@@ -276,6 +276,14 @@ let plazaServerRequestsLoaded = false;
 let plazaServerRequests = [];
 let plazaRequestsLoading = false;
 
+const PLAZA_REQUEST_AUTOSAVE_DELAY_MS = 1800;
+const plazaRequestAutosaveState = {
+  timer: null,
+  inFlight: false,
+  lastSignature: "",
+  lastSavedRequestId: ""
+};
+
 let plazaServerMessagesLoaded = false;
 let plazaServerMessages = [];
 let plazaMessagesLoading = false;
@@ -1866,6 +1874,198 @@ async function updatePlazaRequestOnServer(requestId = "", payload = {}) {
   }
 
   return request;
+}
+function clearPlazaRequestAutosaveTimer() {
+  if (plazaRequestAutosaveState.timer) {
+    window.clearTimeout(plazaRequestAutosaveState.timer);
+    plazaRequestAutosaveState.timer = null;
+  }
+}
+
+function getPlazaRequestAutosaveStatusNode(form) {
+  if (!(form instanceof HTMLFormElement)) return null;
+
+  const node = form.querySelector("[data-plaza-request-autosave-status]");
+  return node instanceof HTMLElement ? node : null;
+}
+
+function setPlazaRequestAutosaveStatus(form, message = "") {
+  const node = getPlazaRequestAutosaveStatusNode(form);
+  if (!node) return;
+
+  node.textContent = message;
+  node.hidden = !message;
+}
+
+function getPlazaRequestFormPayload(form) {
+  if (!(form instanceof HTMLFormElement)) return null;
+
+  const data = new FormData(form);
+  const isApplication = form.id === "plazaApplicationForm";
+
+  const basePayload = {
+    sourceType: String(data.get("sourceType") || (isApplication ? "opportunity" : "general")),
+    targetId: String(data.get("targetId") || ""),
+    targetLabel: String(data.get("targetLabel") || (isApplication ? "Hiring lane" : "General Plaza request")),
+    context: String(data.get("context") || ""),
+    region: String(data.get("region") || ""),
+    name: String(data.get("name") || (isApplication ? "Unknown applicant" : "Unknown requester")),
+    objective: isApplication
+      ? "Hiring"
+      : String(data.get("objective") || "Connection request"),
+    message: String(data.get("message") || ""),
+
+    providerId: String(data.get("providerId") || ""),
+    providerName: String(data.get("providerName") || ""),
+    serviceCategory: String(data.get("serviceCategory") || ""),
+    serviceTags: String(data.get("serviceTags") || ""),
+    serviceProviderType: String(data.get("serviceProviderType") || ""),
+    servicePriceType: String(data.get("servicePriceType") || ""),
+    serviceDeliveryTime: String(data.get("serviceDeliveryTime") || ""),
+    requestIntent: String(data.get("requestIntent") || ""),
+    requestPriority: String(data.get("requestPriority") || "normal"),
+
+    routeKey: String(data.get("routeKey") || ""),
+    routeLabel: String(data.get("routeLabel") || ""),
+    matchingStatus: String(data.get("matchingStatus") || ""),
+    matchingPriority: String(data.get("matchingPriority") || "")
+  };
+
+  if (!isApplication) {
+    return basePayload;
+  }
+
+  return {
+    ...basePayload,
+    headline: String(data.get("headline") || ""),
+    experience: String(data.get("experience") || ""),
+    portfolioLink: String(data.get("portfolioLink") || "")
+  };
+}
+
+function getPlazaRequestAutosaveSignature(form) {
+  const requestIdField = form.querySelector('input[name="requestId"]');
+  const requestId =
+    requestIdField instanceof HTMLInputElement
+      ? String(requestIdField.value || "").trim()
+      : "";
+
+  const payload = getPlazaRequestFormPayload(form) || {};
+
+  return JSON.stringify({
+    formId: form.id,
+    requestId,
+    payload
+  });
+}
+
+function hasMeaningfulPlazaRequestDraftContent(payload = {}) {
+  return [
+    payload.name,
+    payload.message,
+    payload.headline,
+    payload.experience,
+    payload.portfolioLink,
+    payload.serviceCategory,
+    payload.serviceTags,
+    payload.targetId,
+    payload.targetLabel
+  ]
+    .map((item) => String(item || "").trim())
+    .some(Boolean);
+}
+
+async function autosavePlazaRequestDraft(form) {
+  if (!(form instanceof HTMLFormElement)) return null;
+  if (form.id !== "plazaStructuredRequestForm" && form.id !== "plazaApplicationForm") return null;
+  if (!document.body.contains(form)) return null;
+  if (plazaRequestAutosaveState.inFlight) return null;
+
+  const payload = getPlazaRequestFormPayload(form);
+  if (!payload || !hasMeaningfulPlazaRequestDraftContent(payload)) return null;
+
+  const currentSignature = getPlazaRequestAutosaveSignature(form);
+  if (currentSignature === plazaRequestAutosaveState.lastSignature) return null;
+
+  const requestIdField = form.querySelector('input[name="requestId"]');
+  const requestId =
+    requestIdField instanceof HTMLInputElement
+      ? String(requestIdField.value || "").trim()
+      : "";
+
+  plazaRequestAutosaveState.inFlight = true;
+  setPlazaRequestAutosaveStatus(form, "Autosaving draft...");
+
+  try {
+    const savedRequest = requestId
+      ? await updatePlazaRequestOnServer(requestId, {
+          ...payload,
+          status: "Draft"
+        })
+      : await createPlazaRequest({
+          ...payload,
+          status: "Draft"
+        });
+
+    if (savedRequest?.id && requestIdField instanceof HTMLInputElement) {
+      requestIdField.value = savedRequest.id;
+      plazaRequestAutosaveState.lastSavedRequestId = savedRequest.id;
+    }
+
+    plazaRequestAutosaveState.lastSignature = getPlazaRequestAutosaveSignature(form);
+
+    if (savedRequest?.id) {
+      plazaOpsAdapter.removeIncomingByRequestId(savedRequest.id);
+    }
+
+    renderRequestsPreview();
+    renderRequestsScreen();
+    setPlazaRequestAutosaveStatus(form, "Draft autosaved.");
+
+    window.setTimeout(() => {
+      if (document.body.contains(form)) {
+        setPlazaRequestAutosaveStatus(form, "");
+      }
+    }, 2200);
+
+    return savedRequest;
+  } catch (error) {
+    console.error("autosave Plaza request draft failed:", error);
+    setPlazaRequestAutosaveStatus(form, "Autosave failed. Use Save as Draft.");
+    return null;
+  } finally {
+    plazaRequestAutosaveState.inFlight = false;
+  }
+}
+
+function schedulePlazaRequestDraftAutosave(form) {
+  if (!(form instanceof HTMLFormElement)) return;
+  if (form.id !== "plazaStructuredRequestForm" && form.id !== "plazaApplicationForm") return;
+
+  clearPlazaRequestAutosaveTimer();
+
+  plazaRequestAutosaveState.timer = window.setTimeout(() => {
+    autosavePlazaRequestDraft(form);
+  }, PLAZA_REQUEST_AUTOSAVE_DELAY_MS);
+}
+
+function installPlazaRequestDraftAutosave(formId = "") {
+  const form = document.getElementById(formId);
+  if (!(form instanceof HTMLFormElement)) return;
+
+  const eligibleSelectors = [
+    "input[name='name']",
+    "input[name='headline']",
+    "input[name='portfolioLink']",
+    "select[name='objective']",
+    "textarea[name='message']",
+    "textarea[name='experience']"
+  ].join(",");
+
+  form.querySelectorAll(eligibleSelectors).forEach((field) => {
+    field.addEventListener("input", () => schedulePlazaRequestDraftAutosave(form));
+    field.addEventListener("change", () => schedulePlazaRequestDraftAutosave(form));
+  });
 }
 
 async function advancePlazaRequestStatus(requestId = "") {
@@ -4643,6 +4843,8 @@ function openDrawer({ kicker, title, bodyHtml }) {
 }
 
 function closeDrawer() {
+  clearPlazaRequestAutosaveTimer();
+
   if (!plazaDrawer) return;
   plazaDrawer.classList.remove("is-open");
   plazaDrawer.setAttribute("aria-hidden", "true");
@@ -6018,6 +6220,8 @@ function buildRequestDrawer(config = {}) {
           <textarea name="message" placeholder="Explain what you need and why you are a fit" required>${escapeHtml(message)}</textarea>
         </label>
 
+        <div class="yh-plaza-card-note" data-plaza-request-autosave-status hidden></div>
+
         <div class="yh-plaza-form-actions">
           <button
             type="submit"
@@ -6039,6 +6243,10 @@ function buildRequestDrawer(config = {}) {
         </div>
       </form>
     `
+  });
+
+  window.requestAnimationFrame(() => {
+    installPlazaRequestDraftAutosave("plazaStructuredRequestForm");
   });
 }
 
@@ -6130,6 +6338,8 @@ function buildApplicationDrawer(config = {}) {
           <textarea name="message" placeholder="Why are you a fit for this role or lane?" required>${escapeHtml(config.message || "")}</textarea>
         </label>
 
+        <div class="yh-plaza-card-note" data-plaza-request-autosave-status hidden></div>
+
         <div class="yh-plaza-form-actions">
           <button
             type="submit"
@@ -6151,6 +6361,10 @@ function buildApplicationDrawer(config = {}) {
         </div>
       </form>
     `
+  });
+
+  window.requestAnimationFrame(() => {
+    installPlazaRequestDraftAutosave("plazaApplicationForm");
   });
 }
 function openGeneralConnectDrawer() {
