@@ -693,6 +693,8 @@
         </div>
       </section>
       <section class="view view-plazas" id="view-plazas">
+        <div class="stats-grid compact admin-plaza-routing-stats" id="plaza-routing-stats"></div>
+
         <div class="panel-card">
           <div class="panel-head wrap-head">
             <div>
@@ -708,6 +710,7 @@
                 <option value="Get Hired">Get Hired</option>
                 <option value="Operator Bounty">Operator Bounty</option>
                 <option value="Hiring">Hiring</option>
+                <option value="Service Listing">Service Listing</option>
                 <option value="Service Request">Service Request</option>
                 <option value="Collaboration">Collaboration</option>
                 <option value="Partnership">Partnership</option>
@@ -738,6 +741,53 @@
                 </tr>
               </thead>
               <tbody id="plazas-table"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="panel-card admin-plaza-routing-panel">
+          <div class="panel-head wrap-head">
+            <div>
+              <p class="eyebrow">Routing Desk</p>
+              <h3>Plaza Requests & Service Matching</h3>
+            </div>
+            <div class="toolbar">
+              <select id="plaza-routing-status-filter">
+                <option value="all">All Request Statuses</option>
+                <option value="Draft">Draft</option>
+                <option value="Submitted">Submitted</option>
+                <option value="Under Review">Under Review</option>
+                <option value="Matched">Matched</option>
+                <option value="Conversation Opened">Conversation Opened</option>
+                <option value="Closed">Closed</option>
+              </select>
+              <select id="plaza-routing-lane-filter">
+                <option value="all">All Routing Lanes</option>
+                <option value="manual_review">Manual Review</option>
+                <option value="academy_operator">Academy Operator</option>
+                <option value="plaza_provider">Plaza Provider</option>
+                <option value="federation_escalation">Federation Escalation</option>
+                <option value="regional_leader">Regional Leader</option>
+                <option value="open_conversation">Open Conversation</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Request</th>
+                  <th>Requester</th>
+                  <th>Route</th>
+                  <th>Service</th>
+                  <th>Status</th>
+                  <th>Priority</th>
+                  <th>Updated</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="plaza-routing-requests-table"></tbody>
             </table>
           </div>
         </div>

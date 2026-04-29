@@ -78,6 +78,17 @@ const defaultState = () => ({
   },
   federation: [],
   plazas: [],
+  plazaRoutingDesk: {
+    summary: {
+      total: 0,
+      unrouted: 0,
+      needsReview: 0,
+      highPriority: 0,
+      byStatus: {},
+      byLane: {}
+    },
+    requests: []
+  },
   support: [],
   broadcasts: [],
   analytics: {
@@ -637,7 +648,95 @@ function normalizeAdminEconomySummary(record = {}) {
       : {}
   };
 }
+function normalizeAdminPlazaRequestRecord(record = {}) {
+  const serviceTags = Array.isArray(record.serviceTags)
+    ? record.serviceTags.map((item) => String(item || '').trim()).filter(Boolean)
+    : String(record.serviceTags || '')
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
 
+  const matchedEntityLabels = Array.isArray(record.matchedEntityLabels)
+    ? record.matchedEntityLabels.map((item) => String(item || '').trim()).filter(Boolean)
+    : [];
+
+  return {
+    ...record,
+    id: String(record.id || '').trim(),
+    createdAt: String(record.createdAt || '').trim(),
+    updatedAt: String(record.updatedAt || '').trim(),
+    resolvedAt: String(record.resolvedAt || '').trim(),
+
+    status: String(record.status || 'Submitted').trim(),
+    recordStatus: String(record.recordStatus || 'active').trim(),
+
+    sourceType: String(record.sourceType || 'general').trim(),
+    targetId: String(record.targetId || '').trim(),
+    targetLabel: String(record.targetLabel || 'General Plaza request').trim(),
+    context: String(record.context || '').trim(),
+    region: String(record.region || '').trim(),
+
+    requesterId: String(record.requesterId || record.authorId || '').trim(),
+    requesterName: String(record.requesterName || record.authorName || record.name || 'Hustler').trim(),
+    requesterEmail: String(record.requesterEmail || record.authorEmail || '').trim(),
+
+    objective: String(record.objective || 'Connection request').trim(),
+    message: String(record.message || '').trim(),
+
+    providerId: String(record.providerId || '').trim(),
+    providerName: String(record.providerName || '').trim(),
+    serviceCategory: String(record.serviceCategory || '').trim(),
+    serviceTags,
+    serviceProviderType: String(record.serviceProviderType || '').trim(),
+    servicePriceType: String(record.servicePriceType || '').trim(),
+    serviceDeliveryTime: String(record.serviceDeliveryTime || '').trim(),
+    requestIntent: String(record.requestIntent || '').trim(),
+    requestPriority: String(record.requestPriority || 'normal').trim(),
+
+    routeKey: String(record.routeKey || record.sourceType || 'general').trim(),
+    routeLabel: String(record.routeLabel || record.targetLabel || 'General Plaza request').trim(),
+    matchingStatus: String(record.matchingStatus || '').trim(),
+    matchingPriority: String(record.matchingPriority || '').trim(),
+
+    adminRoutingLane: String(record.adminRoutingLane || '').trim(),
+    adminAssignedToUid: String(record.adminAssignedToUid || '').trim(),
+    adminAssignedToName: String(record.adminAssignedToName || '').trim(),
+    adminDecision: String(record.adminDecision || '').trim(),
+    adminRouteNote: String(record.adminRouteNote || '').trim(),
+    adminRoutedBy: String(record.adminRoutedBy || '').trim(),
+    adminRoutedAt: String(record.adminRoutedAt || '').trim(),
+
+    headline: String(record.headline || '').trim(),
+    experience: String(record.experience || '').trim(),
+    portfolioLink: String(record.portfolioLink || '').trim(),
+
+    attachmentMeta: Array.isArray(record.attachmentMeta) ? record.attachmentMeta : [],
+    matchedEntityLabels,
+    decisionSummary: String(record.decisionSummary || '').trim(),
+    resolutionSummary: String(record.resolutionSummary || '').trim(),
+    statusHistory: Array.isArray(record.statusHistory) ? record.statusHistory : []
+  };
+}
+
+function normalizeAdminPlazaRoutingDesk(record = {}) {
+  const summary = record.summary && typeof record.summary === 'object'
+    ? record.summary
+    : {};
+
+  return {
+    summary: {
+      total: Number(summary.total || 0),
+      unrouted: Number(summary.unrouted || 0),
+      needsReview: Number(summary.needsReview || 0),
+      highPriority: Number(summary.highPriority || 0),
+      byStatus: summary.byStatus && typeof summary.byStatus === 'object' ? summary.byStatus : {},
+      byLane: summary.byLane && typeof summary.byLane === 'object' ? summary.byLane : {}
+    },
+    requests: Array.isArray(record.requests)
+      ? record.requests.map((item) => normalizeAdminPlazaRequestRecord(item))
+      : []
+  };
+}
 function normalizeAdminApplicationRecord(record = {}) {
   const profile = getFederationProfileMap(record);
   const isFederation = isFederationApplicationRecord(record);
@@ -754,7 +853,8 @@ function normalizeAdminBootstrapState(incomingState = {}) {
     payoutLedger: Array.isArray(merged.payoutLedger)
       ? merged.payoutLedger.map((record) => normalizeAdminPayoutLedgerRecord(record))
       : [],
-    economy: normalizeAdminEconomySummary(merged.economy || {})
+    economy: normalizeAdminEconomySummary(merged.economy || {}),
+    plazaRoutingDesk: normalizeAdminPlazaRoutingDesk(merged.plazaRoutingDesk || {})
   };
 }
 
@@ -1776,8 +1876,33 @@ function buildAcademyCoachInspectorMarkup(record = {}) {
   `;
 }
 
+function getAdminPlazaRoutingRequests() {
+  return state.plazaRoutingDesk && Array.isArray(state.plazaRoutingDesk.requests)
+    ? state.plazaRoutingDesk.requests
+    : [];
+}
+
+function getAdminPlazaRoutingSummary() {
+  return state.plazaRoutingDesk && state.plazaRoutingDesk.summary
+    ? state.plazaRoutingDesk.summary
+    : {
+        total: 0,
+        unrouted: 0,
+        needsReview: 0,
+        highPriority: 0,
+        byStatus: {},
+        byLane: {}
+      };
+}
+
 function findById(collection, id) {
-  return state[collection].find(item => item.id === id);
+  const cleanId = String(id || '').trim();
+
+  if (collection === 'plazaRoutingRequests') {
+    return getAdminPlazaRoutingRequests().find((item) => String(item.id || '').trim() === cleanId);
+  }
+
+  return state[collection]?.find(item => String(item.id || '').trim() === cleanId);
 }
 
 function matchesSearch(record, query) {
@@ -2978,9 +3103,124 @@ function renderFederation() {
   }
 }
 
+function getAdminPlazaLaneLabel(value = '') {
+  const clean = String(value || '').trim();
+
+  const labels = {
+    academy_operator: 'Academy Operator',
+    plaza_provider: 'Plaza Provider',
+    federation_escalation: 'Federation Escalation',
+    regional_leader: 'Regional Leader',
+    open_conversation: 'Open Conversation',
+    manual_review: 'Manual Review',
+    service_request: 'Service Request',
+    federation_escalation_request: 'Federation Escalation'
+  };
+
+  return labels[clean] || clean.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()) || 'Unrouted';
+}
+
+function renderPlazaRoutingStats() {
+  const statsEl = document.getElementById('plaza-routing-stats');
+  if (!statsEl) return;
+
+  const summary = getAdminPlazaRoutingSummary();
+
+  statsEl.innerHTML = [
+    {
+      label: 'Total Requests',
+      value: summary.total || 0,
+      foot: 'All Plaza request records'
+    },
+    {
+      label: 'Needs Review',
+      value: summary.needsReview || 0,
+      foot: 'Submitted or under review'
+    },
+    {
+      label: 'Unrouted',
+      value: summary.unrouted || 0,
+      foot: 'No admin lane selected'
+    },
+    {
+      label: 'High Priority',
+      value: summary.highPriority || 0,
+      foot: 'Urgent or Federation-linked'
+    }
+  ].map((card) => `
+    <article class="stat-card">
+      <div class="stat-label">${escapeHtml(card.label)}</div>
+      <div class="stat-value">${escapeHtml(card.value)}</div>
+      <div class="stat-foot">${escapeHtml(card.foot)}</div>
+    </article>
+  `).join('');
+}
+
+function renderPlazaRoutingDesk() {
+  const tableEl = document.getElementById('plaza-routing-requests-table');
+  if (!tableEl) return;
+
+  const statusFilter = document.getElementById('plaza-routing-status-filter')?.value || 'all';
+  const laneFilter = document.getElementById('plaza-routing-lane-filter')?.value || 'all';
+  const query = state.ui.globalSearch;
+
+  const rows = getAdminPlazaRoutingRequests().filter((item) => {
+    const lane = item.adminRoutingLane || item.routeKey || 'manual_review';
+
+    return (
+      (statusFilter === 'all' || item.status === statusFilter) &&
+      (laneFilter === 'all' || lane === laneFilter) &&
+      matchesSearch(item, query)
+    );
+  });
+
+  tableEl.innerHTML = rows.map((item) => {
+    const lane = item.adminRoutingLane || item.routeKey || 'manual_review';
+    const service = [
+      item.serviceCategory,
+      item.servicePriceType,
+      item.serviceDeliveryTime
+    ].filter(Boolean).join(' • ');
+
+    return `
+      <tr>
+        ${makeCell('Request', `
+          <strong>${escapeHtml(item.targetLabel || item.objective || 'Plaza Request')}</strong>
+          <div class="muted mono">${escapeHtml(item.id)}</div>
+          <div class="muted">${escapeHtml(item.objective || item.sourceType || 'Connection request')}</div>
+        `)}
+        ${makeCell('Requester', `
+          <strong>${escapeHtml(item.requesterName || item.name || 'Hustler')}</strong>
+          <div class="muted">${escapeHtml(item.requesterEmail || '')}</div>
+        `)}
+        ${makeCell('Route', `
+          ${formatBadge(getAdminPlazaLaneLabel(lane))}
+          <div class="muted">${escapeHtml(item.routeLabel || item.matchingStatus || 'Awaiting route')}</div>
+        `)}
+        ${makeCell('Service', `
+          <strong>${escapeHtml(service || item.providerName || '—')}</strong>
+          <div class="muted">${escapeHtml((item.serviceTags || []).join(', '))}</div>
+        `)}
+        ${makeCell('Status', formatBadge(item.status || 'Submitted'))}
+        ${makeCell('Priority', formatBadge(item.matchingPriority || item.requestPriority || 'normal'))}
+        ${makeCell('Updated', escapeHtml(item.updatedAt || item.createdAt || '—'))}
+        ${makeCell('Actions', `
+          <div class="table-actions">
+            <button data-open="plazaRequest" data-id="${escapeHtml(item.id)}">Open</button>
+            <button data-action="plaza-request-route-academy" data-id="${escapeHtml(item.id)}">Academy</button>
+            <button data-action="plaza-request-route-provider" data-id="${escapeHtml(item.id)}">Provider</button>
+            <button data-action="plaza-request-route-federation" data-id="${escapeHtml(item.id)}">Federation</button>
+            <button data-action="plaza-request-open-conversation" data-id="${escapeHtml(item.id)}">Conversation</button>
+          </div>
+        `)}
+      </tr>
+    `;
+  }).join('') || makeEmptyRow(8, 'No Plaza routing requests match the current filters.');
+}
+
 function renderPlazas() {
-  const typeFilter = document.getElementById('plazas-type-filter').value;
-  const statusFilter = document.getElementById('plazas-status-filter').value;
+  const typeFilter = document.getElementById('plazas-type-filter')?.value || 'all';
+  const statusFilter = document.getElementById('plazas-status-filter')?.value || 'all';
   const query = state.ui.globalSearch;
 
   const rows = state.plazas.filter(item => {
@@ -2989,24 +3229,31 @@ function renderPlazas() {
       && matchesSearch(item, query);
   });
 
-    document.getElementById('plazas-table').innerHTML = rows.map(item => `
-    <tr>
-      ${makeCell('Listing', `<strong>${escapeHtml(item.title)}</strong><div class="muted mono">${escapeHtml(item.id)}</div>`)}
-      ${makeCell('Owner', escapeHtml(item.owner))}
-      ${makeCell('Type', formatBadge(item.type))}
-      ${makeCell('Status', formatBadge(item.status))}
-      ${makeCell('Reports', `${item.reports}`)}
-      ${makeCell('Region', escapeHtml(item.region))}
-      ${makeCell('Actions', `
-        <div class="table-actions">
-          <button data-open="plazas" data-id="${item.id}">Open</button>
-          <button data-action="plazas-route-academy" data-id="${item.id}">Route to Academy</button>
-          <button data-action="plazas-approve" data-id="${item.id}">Approve</button>
-          <button data-action="plazas-feature" data-id="${item.id}">${item.featured ? 'Unfeature' : 'Feature'}</button>
-        </div>
-      `)}
-    </tr>
-  `).join('') || makeEmptyRow(7, 'No Plazas listings match the current filters.');
+  const plazasTable = document.getElementById('plazas-table');
+
+  if (plazasTable) {
+    plazasTable.innerHTML = rows.map(item => `
+      <tr>
+        ${makeCell('Listing', `<strong>${escapeHtml(item.title)}</strong><div class="muted mono">${escapeHtml(item.id)}</div>`)}
+        ${makeCell('Owner', escapeHtml(item.owner))}
+        ${makeCell('Type', formatBadge(item.type))}
+        ${makeCell('Status', formatBadge(item.status))}
+        ${makeCell('Reports', `${item.reports}`)}
+        ${makeCell('Region', escapeHtml(item.region))}
+        ${makeCell('Actions', `
+          <div class="table-actions">
+            <button data-open="plazas" data-id="${item.id}">Open</button>
+            <button data-action="plazas-route-academy" data-id="${item.id}">Route to Academy</button>
+            <button data-action="plazas-approve" data-id="${item.id}">Approve</button>
+            <button data-action="plazas-feature" data-id="${item.id}">${item.featured ? 'Unfeature' : 'Feature'}</button>
+          </div>
+        `)}
+      </tr>
+    `).join('') || makeEmptyRow(7, 'No Plazas listings match the current filters.');
+  }
+
+  renderPlazaRoutingStats();
+  renderPlazaRoutingDesk();
 }
 
 function renderBroadcasts() {
@@ -4358,6 +4605,77 @@ if (type === 'application') {
       </div>
     `;
   }
+  if (type === 'plazaRequest') {
+    const lane = record.adminRoutingLane || record.routeKey || 'manual_review';
+    const serviceTags = Array.isArray(record.serviceTags) ? record.serviceTags : [];
+    const matchedLabels = Array.isArray(record.matchedEntityLabels) ? record.matchedEntityLabels : [];
+
+    return `
+      <div class="drawer-section">
+        <h4>Request Snapshot</h4>
+        <div class="kv-grid">
+          <div class="kv"><span>Target</span><strong>${escapeHtml(record.targetLabel || 'General Plaza request')}</strong></div>
+          <div class="kv"><span>Requester</span><strong>${escapeHtml(record.requesterName || record.name || 'Hustler')}</strong></div>
+          <div class="kv"><span>Email</span><strong>${escapeHtml(record.requesterEmail || '—')}</strong></div>
+          <div class="kv"><span>Objective</span>${formatBadge(record.objective || 'Connection request')}</div>
+          <div class="kv"><span>Status</span>${formatBadge(record.status || 'Submitted')}</div>
+          <div class="kv"><span>Priority</span>${formatBadge(record.matchingPriority || record.requestPriority || 'normal')}</div>
+          <div class="kv"><span>Route</span>${formatBadge(getAdminPlazaLaneLabel(lane))}</div>
+          <div class="kv"><span>Region</span><strong>${escapeHtml(record.region || '—')}</strong></div>
+        </div>
+      </div>
+
+      <div class="drawer-section">
+        <h4>Request Message</h4>
+        <div class="stack-list">
+          <div class="stack-item">
+            <p>${escapeHtml(record.message || 'No request message submitted yet.')}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="drawer-section">
+        <h4>Service / Provider Context</h4>
+        <div class="kv-grid">
+          <div class="kv"><span>Provider</span><strong>${escapeHtml(record.providerName || record.adminAssignedToName || '—')}</strong></div>
+          <div class="kv"><span>Service Category</span><strong>${escapeHtml(record.serviceCategory || '—')}</strong></div>
+          <div class="kv"><span>Provider Type</span><strong>${escapeHtml(record.serviceProviderType || '—')}</strong></div>
+          <div class="kv"><span>Pricing</span><strong>${escapeHtml(record.servicePriceType || '—')}</strong></div>
+          <div class="kv"><span>Delivery</span><strong>${escapeHtml(record.serviceDeliveryTime || '—')}</strong></div>
+          <div class="kv"><span>Tags</span><strong>${escapeHtml(serviceTags.join(', ') || '—')}</strong></div>
+        </div>
+      </div>
+
+      <div class="drawer-section">
+        <h4>Admin Routing</h4>
+        <div class="kv-grid">
+          <div class="kv"><span>Route Label</span><strong>${escapeHtml(record.routeLabel || '—')}</strong></div>
+          <div class="kv"><span>Matching Status</span><strong>${escapeHtml(record.matchingStatus || '—')}</strong></div>
+          <div class="kv"><span>Assigned To</span><strong>${escapeHtml(record.adminAssignedToName || '—')}</strong></div>
+          <div class="kv"><span>Routed By</span><strong>${escapeHtml(record.adminRoutedBy || '—')}</strong></div>
+          <div class="kv"><span>Routed At</span><strong>${escapeHtml(record.adminRoutedAt || '—')}</strong></div>
+          <div class="kv"><span>Matched Labels</span><strong>${escapeHtml(matchedLabels.join(', ') || '—')}</strong></div>
+        </div>
+        <div class="stack-list" style="margin-top:12px;">
+          <div class="stack-item"><p><strong>Decision:</strong> ${escapeHtml(record.decisionSummary || record.adminDecision || 'No decision yet.')}</p></div>
+          <div class="stack-item"><p><strong>Resolution:</strong> ${escapeHtml(record.resolutionSummary || 'Awaiting next operational action.')}</p></div>
+          <div class="stack-item"><p><strong>Admin Note:</strong> ${escapeHtml(record.adminRouteNote || '—')}</p></div>
+        </div>
+      </div>
+
+      <div class="drawer-section">
+        <h4>Route Actions</h4>
+        <div class="inline-actions">
+          <button class="badge-btn" data-action="plaza-request-route-academy" data-id="${record.id}">Route to Academy</button>
+          <button class="badge-btn" data-action="plaza-request-route-provider" data-id="${record.id}">Route to Provider</button>
+          <button class="badge-btn" data-action="plaza-request-route-federation" data-id="${record.id}">Route to Federation</button>
+          <button class="badge-btn" data-action="plaza-request-route-regional" data-id="${record.id}">Route to Regional Leader</button>
+          <button class="badge-btn" data-action="plaza-request-open-conversation" data-id="${record.id}">Open Conversation Lane</button>
+          <button class="badge-btn" data-action="plaza-request-status-closed" data-id="${record.id}">Close Request</button>
+        </div>
+      </div>
+    `;
+  }
 
   if (type === 'support') {
     return `
@@ -4428,8 +4746,34 @@ function setDrawerHeadControls(type, record) {
     drawer.dataset.recordId = record?.id || '';
   }
 
-  if (type !== 'application' || !record) return;
+  if (!record) return;
   if (!subtools || !statusEl || !statusSelect || !copyBtn) return;
+
+  if (type === 'plazaRequest') {
+    const currentStatus = String(record.status || 'Submitted').trim() || 'Submitted';
+    const email = String(record.requesterEmail || '').trim();
+
+    subtools.hidden = false;
+    statusEl.innerHTML = formatBadge(currentStatus);
+
+    statusSelect.disabled = false;
+    statusSelect.innerHTML = `
+      <option value="">Quick Status</option>
+      <option value="plaza-request-status-under-review">Set Under Review</option>
+      <option value="plaza-request-status-matched">Set Matched</option>
+      <option value="plaza-request-status-conversation-opened">Set Conversation Opened</option>
+      <option value="plaza-request-status-closed">Set Closed</option>
+    `;
+    statusSelect.value = '';
+    statusSelect.dataset.id = record.id;
+
+    copyBtn.hidden = !email;
+    copyBtn.dataset.email = email;
+    copyBtn.dataset.id = record.id;
+    return;
+  }
+
+  if (type !== 'application') return;
 
   const currentStatus = String(record.status || 'Under Review').trim() || 'Under Review';
   const email = String(record.email || '').trim();
@@ -4494,7 +4838,20 @@ async function copyTextToClipboard(text) {
 async function handleDrawerStatusChange(action, id) {
   if (!action || !id) return;
 
+  const drawer = document.getElementById('detail-drawer');
+  const recordType = String(drawer?.dataset?.recordType || '').trim();
+
   await handleAction(action, id);
+
+  if (recordType === 'plazaRequest') {
+    const refreshed = findById('plazaRoutingRequests', id);
+    if (refreshed) {
+      openDrawer('plazaRequest', id);
+    } else {
+      closeDrawer();
+    }
+    return;
+  }
 
   const refreshed = findById('applications', id);
   if (refreshed) {
@@ -5023,7 +5380,9 @@ function openDrawer(type, id) {
             ? 'Connection Request'
             : type === 'federationDealRoom'
               ? 'Federation Deal Room'
-              : type[0].toUpperCase() + type.slice(1);
+              : type === 'plazaRequest'
+                ? 'Plaza Request'
+                : type[0].toUpperCase() + type.slice(1);
 
   document.getElementById('drawer-title').textContent =
     record?.companyName ||
@@ -5367,6 +5726,193 @@ function applyLocalApplicationReview(applicationId, nextStatus = 'Under Review')
 
   return application;
 }
+async function routeAdminPlazaRequest(requestId = '', patch = {}) {
+  const cleanId = String(requestId || '').trim();
+
+  if (!cleanId) {
+    throw new Error('Missing Plaza request id.');
+  }
+
+  const { data } = await adminFetchJson(`/api/admin/plaza/requests/${encodeURIComponent(cleanId)}/route`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(patch)
+  });
+
+  await loadAdminBootstrap();
+
+  return data.request || null;
+}
+
+function getPlazaRequestRouteDefaults(action = '') {
+  const clean = String(action || '').trim();
+
+  const map = {
+    'plaza-request-route-academy': {
+      routingLane: 'academy_operator',
+      status: 'Under Review',
+      matchingStatus: 'routed_to_academy',
+      matchingPriority: 'normal',
+      title: 'Route to Academy Operator',
+      description: 'Send this request to the Academy operator lane for task execution, lead work, research, or service delivery.'
+    },
+    'plaza-request-route-provider': {
+      routingLane: 'plaza_provider',
+      status: 'Matched',
+      matchingStatus: 'routed_to_provider',
+      matchingPriority: 'normal',
+      title: 'Route to Plaza Provider',
+      description: 'Assign this request to a Plaza service provider or marketplace operator.'
+    },
+    'plaza-request-route-federation': {
+      routingLane: 'federation_escalation',
+      status: 'Under Review',
+      matchingStatus: 'routed_to_federation',
+      matchingPriority: 'high',
+      title: 'Escalate to Federation',
+      description: 'Move this request into a Federation-relevant lane for strategic contacts, high-level introductions, or deal review.'
+    },
+    'plaza-request-route-regional': {
+      routingLane: 'regional_leader',
+      status: 'Under Review',
+      matchingStatus: 'routed_to_regional_leader',
+      matchingPriority: 'normal',
+      title: 'Route to Regional Leader',
+      description: 'Send this request to a regional Plaza leader or location-based reviewer.'
+    },
+    'plaza-request-open-conversation': {
+      routingLane: 'open_conversation',
+      status: 'Conversation Opened',
+      matchingStatus: 'conversation_ready',
+      matchingPriority: 'normal',
+      title: 'Open Conversation Lane',
+      description: 'Mark this request as ready for a structured conversation or handoff.'
+    }
+  };
+
+  return map[clean] || {
+    routingLane: 'manual_review',
+    status: 'Under Review',
+    matchingStatus: 'queued_for_review',
+    matchingPriority: 'normal',
+    title: 'Manual Review',
+    description: 'Keep this request in manual Plaza review.'
+  };
+}
+
+async function openPlazaRequestRoutingModal(action = '', requestId = '') {
+  const record = findById('plazaRoutingRequests', requestId);
+  if (!record) throw new Error('Plaza request not found.');
+
+  const defaults = getPlazaRequestRouteDefaults(action);
+
+  const modalResult = await openAdminInlineModal({
+    title: defaults.title,
+    description: defaults.description,
+    submitLabel: 'Save Route',
+    fields: [
+      {
+        name: 'routingLane',
+        label: 'Routing Lane',
+        type: 'select',
+        value: defaults.routingLane,
+        required: true,
+        options: [
+          { value: 'manual_review', label: 'Manual Review' },
+          { value: 'academy_operator', label: 'Academy Operator' },
+          { value: 'plaza_provider', label: 'Plaza Provider' },
+          { value: 'federation_escalation', label: 'Federation Escalation' },
+          { value: 'regional_leader', label: 'Regional Leader' },
+          { value: 'open_conversation', label: 'Open Conversation' }
+        ]
+      },
+      {
+        name: 'status',
+        label: 'Request Status',
+        type: 'select',
+        value: defaults.status,
+        required: true,
+        options: [
+          { value: 'Submitted', label: 'Submitted' },
+          { value: 'Under Review', label: 'Under Review' },
+          { value: 'Matched', label: 'Matched' },
+          { value: 'Conversation Opened', label: 'Conversation Opened' },
+          { value: 'Closed', label: 'Closed' }
+        ]
+      },
+      {
+        name: 'assignedToName',
+        label: 'Assigned To / Route Owner',
+        type: 'text',
+        value: record.adminAssignedToName || record.providerName || '',
+        placeholder: 'Example: Academy Ops, Plaza Provider, Regional Leader'
+      },
+      {
+        name: 'adminRouteNote',
+        label: 'Admin Route Note',
+        type: 'textarea',
+        rows: 4,
+        value: record.adminRouteNote || '',
+        placeholder: 'Explain why this request is being routed here.'
+      }
+    ]
+  });
+
+  if (!modalResult) return null;
+
+  const updated = await routeAdminPlazaRequest(requestId, {
+    routingLane: modalResult.routingLane || defaults.routingLane,
+    status: modalResult.status || defaults.status,
+    matchingStatus: defaults.matchingStatus,
+    matchingPriority: defaults.matchingPriority,
+    assignedToName: modalResult.assignedToName || '',
+    adminRouteNote: modalResult.adminRouteNote || '',
+    targetLabel: record.targetLabel,
+    serviceCategory: record.serviceCategory,
+    region: record.region
+  });
+
+  const refreshed = findById('plazaRoutingRequests', requestId);
+
+  if (refreshed) {
+    openDrawer('plazaRequest', requestId);
+  }
+
+  return updated;
+}
+
+async function updatePlazaRequestQuickStatus(requestId = '', status = '') {
+  const cleanStatus = String(status || '').trim();
+  const record = findById('plazaRoutingRequests', requestId);
+
+  if (!record) throw new Error('Plaza request not found.');
+  if (!cleanStatus) throw new Error('Missing Plaza request status.');
+
+  await routeAdminPlazaRequest(requestId, {
+    routingLane: record.adminRoutingLane || record.routeKey || 'manual_review',
+    status: cleanStatus,
+    matchingStatus: cleanStatus === 'Closed'
+      ? 'closed'
+      : cleanStatus === 'Conversation Opened'
+        ? 'conversation_ready'
+        : cleanStatus === 'Matched'
+          ? 'matched'
+          : 'queued_for_review',
+    matchingPriority: record.matchingPriority || record.requestPriority || 'normal',
+    targetLabel: record.targetLabel,
+    serviceCategory: record.serviceCategory,
+    region: record.region
+  });
+
+  const refreshed = findById('plazaRoutingRequests', requestId);
+
+  if (refreshed) {
+    openDrawer('plazaRequest', requestId);
+  }
+}
+
 async function handleAction(action, id) {
   if (isAdminReviewAction(action)) {
     const application = findById('applications', id);
@@ -5839,6 +6385,45 @@ case 'lead-review-reject': {
   }
   break;
 }
+case 'plaza-request-route-academy':
+case 'plaza-request-route-provider':
+case 'plaza-request-route-federation':
+case 'plaza-request-route-regional':
+case 'plaza-request-open-conversation': {
+  try {
+    await openPlazaRequestRoutingModal(action, id);
+    showToast('Plaza request route saved.');
+  } catch (error) {
+    if (error?.message !== 'No active admin session.') {
+      showToast(error.message || 'Failed to route Plaza request.');
+    }
+  }
+  break;
+}
+
+case 'plaza-request-status-under-review':
+case 'plaza-request-status-matched':
+case 'plaza-request-status-conversation-opened':
+case 'plaza-request-status-closed': {
+  try {
+    const statusMap = {
+      'plaza-request-status-under-review': 'Under Review',
+      'plaza-request-status-matched': 'Matched',
+      'plaza-request-status-conversation-opened': 'Conversation Opened',
+      'plaza-request-status-closed': 'Closed'
+    };
+
+    const nextStatus = statusMap[action] || 'Under Review';
+
+    await updatePlazaRequestQuickStatus(id, nextStatus);
+    showToast(`Plaza request marked ${nextStatus}.`);
+  } catch (error) {
+    if (error?.message !== 'No active admin session.') {
+      showToast(error.message || 'Failed to update Plaza request status.');
+    }
+  }
+  break;
+}
 
 case 'plazas-route-academy': {
   try {
@@ -6199,6 +6784,8 @@ function bindEvents() {
     'federation-tag-filter',
     'plazas-type-filter',
     'plazas-status-filter',
+    'plaza-routing-status-filter',
+    'plaza-routing-lane-filter',
     'support-status-filter'
   ].forEach(id => {
     const el = document.getElementById(id);
