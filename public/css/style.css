@@ -1905,15 +1905,24 @@ img, video, canvas {
     padding: 16px 12px 14px;
     height: 100%;
 }
-#academy-wrapper .academy-back-universe-btn {
-    width: 100%;
+body[data-yh-view="academy"] .academy-universe-return-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    width: auto;
+    min-width: 0;
+}
+
+body[data-yh-view="academy"] .academy-top-universe-btn {
+    width: auto;
+    min-width: max-content;
     min-height: 42px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    margin: 4px 0 0;
-    padding: 10px 12px;
+    margin: 0;
+    padding: 10px 14px;
     border-radius: 14px;
     border: 1px solid rgba(77, 139, 255, 0.5);
     background: rgba(77, 139, 255, 0.08);
@@ -1926,11 +1935,21 @@ img, video, canvas {
     transition: 0.2s ease;
 }
 
-#academy-wrapper .academy-back-universe-btn:hover {
+body[data-yh-view="academy"] .academy-top-universe-btn:hover {
     color: #ffffff;
     border-color: rgba(77, 139, 255, 0.72);
     background: rgba(77, 139, 255, 0.16);
     transform: translateY(-1px);
+}
+
+@media (max-width: 768px) {
+    body[data-yh-view="academy"] .academy-top-universe-btn {
+        min-height: 38px;
+        padding: 8px 10px;
+        border-radius: 12px;
+        font-size: 0.78rem;
+        letter-spacing: 0;
+    }
 }
 #academy-wrapper .channel-search-container {
     padding-bottom: 0.85rem;
@@ -13976,10 +13995,6 @@ body[data-yh-view="academy"] #academy-profile-view .academy-profile-mobile-menu-
 }
 
 @media (max-width: 768px) {
-    body[data-yh-view="academy"] .yh-top-nav .nav-actions {
-        display: none !important;
-    }
-
     body[data-yh-view="academy"] .yh-top-nav .nav-actions .btn-logout {
         display: none !important;
     }
@@ -15153,9 +15168,7 @@ body[data-yh-view="academy"] .academy-profile-danger-btn:hover {
    One profile menu for Edit Profile, Settings, Logout
    ========================================= */
 
-body[data-yh-view="academy"] .yh-top-nav .nav-actions,
-body[data-yh-view="academy"] .yh-top-nav .nav-actions .btn-logout,
-body[data-yh-view="academy"] .yh-top-nav .academy-nav-actions-empty {
+body[data-yh-view="academy"] .yh-top-nav .nav-actions .btn-logout {
     display: none !important;
 }
 

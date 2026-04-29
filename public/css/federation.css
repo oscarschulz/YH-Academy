@@ -154,7 +154,8 @@ textarea {
 }
 
 .fed-universe-back-btn {
-  width: 100%;
+  width: auto;
+  min-width: max-content;
   min-height: 42px;
   display: inline-flex;
   align-items: center;

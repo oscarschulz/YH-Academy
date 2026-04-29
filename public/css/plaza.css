@@ -2167,6 +2167,44 @@ textarea {
   background: rgba(77, 139, 255, 0.16);
 }
 
+.yh-plaza-top-universe-btn {
+  width: auto;
+  min-width: max-content;
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(77, 139, 255, 0.5);
+  background: rgba(77, 139, 255, 0.08);
+  color: #8bd4ff;
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  text-align: center;
+  transition: 0.2s ease;
+}
+
+.yh-plaza-top-universe-btn:hover {
+  color: #ffffff;
+  border-color: rgba(77, 139, 255, 0.72);
+  background: rgba(77, 139, 255, 0.16);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 640px) {
+  .yh-plaza-top-universe-btn {
+    min-height: 38px;
+    padding: 8px 10px;
+    border-radius: 12px;
+    font-size: 0.78rem;
+    letter-spacing: 0;
+  }
+}
+
 input,
 select,
 textarea,
