@@ -2249,3 +2249,59 @@ body.drawer-open {
     grid-template-columns: 1fr;
   }
 }
+/* ========================================================= */
+/* Plaza Request Routing Desk                                */
+/* ========================================================= */
+
+.admin-plaza-routing-stats {
+  margin-bottom: 20px;
+}
+
+.admin-plaza-routing-panel {
+  margin-top: 20px;
+}
+
+.admin-plaza-routing-panel .table-actions {
+  align-items: flex-start;
+}
+
+.admin-plaza-routing-panel .table-actions button {
+  white-space: nowrap;
+}
+
+.admin-plaza-routing-panel td[data-label="Request"] strong,
+.admin-plaza-routing-panel td[data-label="Requester"] strong,
+.admin-plaza-routing-panel td[data-label="Service"] strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.admin-plaza-routing-panel td[data-label="Route"] .badge,
+.admin-plaza-routing-panel td[data-label="Status"] .badge,
+.admin-plaza-routing-panel td[data-label="Priority"] .badge {
+  margin-bottom: 6px;
+}
+
+.view-plazas .stats-grid.compact {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (max-width: 980px) {
+  .view-plazas .stats-grid.compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-plaza-routing-panel .toolbar {
+    width: 100%;
+  }
+
+  .admin-plaza-routing-panel .toolbar select {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 560px) {
+  .view-plazas .stats-grid.compact {
+    grid-template-columns: 1fr;
+  }
+}
