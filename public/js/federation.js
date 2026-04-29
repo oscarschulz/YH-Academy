@@ -640,6 +640,7 @@ function renderFederationProfilePreview(profile = {}, fallbackMember = null) {
   const signals = profile.signals || {};
   const lookingFor = Array.isArray(signals.lookingFor) ? signals.lookingFor : [];
   const canOffer = Array.isArray(signals.canOffer) ? signals.canOffer : [];
+  const targetUserId = getFederationProfileTarget(fallbackMember || profile);
 
   return `
     <div class="fed-profile-preview-cover">
@@ -699,8 +700,12 @@ function renderFederationProfilePreview(profile = {}, fallbackMember = null) {
     }
 
     <div class="fed-profile-preview-actions">
-          ${renderFederationVerifiedBadgeAvailButton(fallbackMember || profile)}
-      <button type="button" class="fed-btn fed-btn-primary" data-jump="#connect">
+      ${renderFederationVerifiedBadgeAvailButton(fallbackMember || profile)}
+      <button
+        type="button"
+        class="fed-btn fed-btn-primary"
+        ${targetUserId ? `data-federation-profile-message="${escapeHtml(targetUserId)}"` : `data-jump="#connect"`}
+      >
         Message in Federation
       </button>
       <button type="button" class="fed-btn fed-btn-secondary" data-jump="#connect">
@@ -4657,6 +4662,13 @@ function initSectionNavigation() {
     if (!safeId) return;
 
     event.preventDefault();
+
+    closeFederationProfileModal();
+
+    if (typeof closeFederationUniverseProfileModal === "function") {
+      closeFederationUniverseProfileModal();
+    }
+
     setActiveSection(safeId);
   });
 
@@ -4721,6 +4733,9 @@ function initMobileAppShell() {
 }
 
 function initMapHover() {
+  const mapRoot = qs("#fedMap");
+  if (mapRoot?.dataset.mapHoverBound === "true") return;
+
   const overlayCity = qs(".fed-map-overlay-city");
   const overlayCountry = qs(".fed-map-overlay-country");
   const overlayMeta = qs("#mapOverlayMeta");
@@ -4733,6 +4748,8 @@ function initMapHover() {
   const nodes = qsa(".fed-map-node");
 
   if (!overlayCity || !overlayCountry || !map || !shell || !routeSvg || !nodes.length) return;
+
+  mapRoot.dataset.mapHoverBound = "true";
 
   const routePairs = MAP_ROUTE_PAIRS;
   let activeNode = null;
@@ -5562,7 +5579,9 @@ function updateApplicationStatus(applicationId, nextStatus) {
 
 function initAdminModeToggle() {
   const toggle = qs("#adminModeToggle");
-  if (!toggle) return;
+  if (!toggle || toggle.dataset.adminToggleBound === "true") return;
+
+  toggle.dataset.adminToggleBound = "true";
 
   toggle.addEventListener("click", () => {
     setAdminMode(!isAdminModeEnabled());
@@ -5572,7 +5591,9 @@ function initAdminModeToggle() {
 
 function initAdminActions() {
   const list = qs("#adminApplicationList");
-  if (!list) return;
+  if (!list || list.dataset.adminActionsBound === "true") return;
+
+  list.dataset.adminActionsBound = "true";
 
   list.addEventListener("click", (event) => {
     const button = event.target.closest("[data-admin-action]");
@@ -5783,7 +5804,9 @@ function normalizeFederationApplicationPayload(raw = {}, form) {
 }
 function initForm() {
   const form = qs("#federationForm");
-  if (!form) return;
+  if (!form || form.dataset.federationFormBound === "true") return;
+
+  form.dataset.federationFormBound = "true";
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -5850,7 +5873,10 @@ function initSessionLookup() {
   const form = qs("#sessionLookupForm");
   const clearBtn = qs("#clearSessionBtn");
 
-  if (!form || !clearBtn) return;
+  if (!form || !clearBtn || form.dataset.sessionLookupBound === "true") return;
+
+  form.dataset.sessionLookupBound = "true";
+  clearBtn.dataset.sessionLookupBound = "true";
 
   form.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -6041,10 +6067,20 @@ document.addEventListener("DOMContentLoaded", async () => {
   initDirectory();
   initSectionNavigation();
   initMobileAppShell();
+
+  initMapHover();
+  initSectorExperience();
+  initForm();
+  initSessionLookup();
+  initReferralFormAssist();
+
   initFederationConnect();
   initFederationRequests();
   initFederationDealRooms();
   initReferralActions();
+
+  initAdminModeToggle();
+  initAdminActions();
 
   const bindUniverseReturnLink = (selector) => {
     const link = document.querySelector(selector);
@@ -6079,6 +6115,17 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (!target) return;
 
+    const profileMessageButton = target.closest("[data-federation-profile-message]");
+    if (profileMessageButton) {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const targetUserId = profileMessageButton.getAttribute("data-federation-profile-message") || "";
+      await submitFederationProfileMessageRequest(targetUserId, profileMessageButton);
+      renderFederationRequestsSection();
+      return;
+    }
+
     const badgeButton = target.closest("[data-yh-avail-federation-badge]");
     if (!badgeButton) return;
 
@@ -6087,7 +6134,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     await createFederationVerifiedBadgeLedger(badgeButton).catch(() => null);
   });
-
   setActiveSection("command", { syncHash: false });
   await loadFederationServerState({ force: true });
 
