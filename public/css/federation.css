@@ -236,9 +236,8 @@ textarea {
 }
 
 .fed-topbar {
-  position: sticky;
-  top: 0;
-  z-index: 20;
+  position: relative;
+  z-index: 1;
   background: linear-gradient(180deg, rgba(8, 13, 23, 0.96), rgba(8, 13, 23, 0.72));
   backdrop-filter: blur(16px);
   padding: 8px 4px 16px;
@@ -2747,9 +2746,8 @@ body[data-fed-state="member"] #overview .fed-chip {
   }
 
   .fed-topbar {
-    position: sticky;
-    top: 0;
-    z-index: 30;
+    position: relative;
+    z-index: 1;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     align-items: stretch;
@@ -2898,9 +2896,8 @@ body[data-fed-state="member"] #overview .fed-chip {
   }
 
     .fed-topbar {
-    position: sticky;
-    top: 0;
-    z-index: 30;
+    position: relative;
+    z-index: 1;
     display: grid;
     gap: 8px;
     padding: max(4px, env(safe-area-inset-top)) 0 10px;
