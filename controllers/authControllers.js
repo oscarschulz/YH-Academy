@@ -165,6 +165,8 @@ async function generateUniqueUsername(fullName, preferredUsername = '') {
     return `${base}${Date.now().toString().slice(-6)}`;
 }
 
+const AUTH_SESSION_EXPIRES_IN = process.env.AUTH_SESSION_EXPIRES_IN || '3650d';
+
 function issueJwt(user) {
     return jwt.sign(
         {
@@ -175,7 +177,7 @@ function issueJwt(user) {
             username: user.username
         },
         process.env.JWT_SECRET,
-        { expiresIn: '7d' }
+        { expiresIn: AUTH_SESSION_EXPIRES_IN }
     );
 }
 
@@ -230,7 +232,7 @@ function publicUser(user) {
 }
 
 const AUTH_COOKIE_NAME = 'yh_auth_token';
-const AUTH_COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const AUTH_COOKIE_MAX_AGE_MS = Number(process.env.AUTH_COOKIE_MAX_AGE_MS || (3650 * 24 * 60 * 60 * 1000));
 
 function setAuthCookie(res, token) {
     const isSecure = process.env.NODE_ENV === 'production';

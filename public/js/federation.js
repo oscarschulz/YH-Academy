@@ -1865,14 +1865,31 @@ async function handleFederationCheckoutReturn() {
   return true;
 }
 
-function showFederationConnectFeedback(message = "", type = "success") {
-  const feedback = qs("#connectFeedback");
-  if (!feedback) return;
+function showFederationConnectFeedback(message = "", type = "success", options = {}) {
+  const cleanMessage = String(message || "").trim();
+  const isError = type === "error";
+  const feedbackTargets = [
+    qs("#connectFeedback"),
+    qs("#connectFormFeedback")
+  ].filter(Boolean);
 
-  feedback.textContent = message;
-  feedback.classList.toggle("success", type !== "error");
-  feedback.classList.toggle("error", type === "error");
-  feedback.hidden = !message;
+  feedbackTargets.forEach((feedback) => {
+    feedback.textContent = cleanMessage;
+    feedback.classList.toggle("success", Boolean(cleanMessage) && !isError);
+    feedback.classList.toggle("error", Boolean(cleanMessage) && isError);
+    feedback.hidden = !cleanMessage;
+    feedback.setAttribute("role", isError ? "alert" : "status");
+  });
+
+  if (cleanMessage && options.focus === true) {
+    const preferredFeedback = qs("#connectFormFeedback") || qs("#connectFeedback");
+
+    if (preferredFeedback) {
+      preferredFeedback.setAttribute("tabindex", "-1");
+      preferredFeedback.scrollIntoView({ behavior: "smooth", block: "center" });
+      window.setTimeout(() => preferredFeedback.focus({ preventScroll: true }), 160);
+    }
+  }
 }
 
 function getFilteredFederationConnectOpportunities() {
@@ -2469,7 +2486,24 @@ function closeFederationConnectRequest() {
   showFederationConnectFeedback("", "success");
 }
 
+function focusFederationConnectField(form, fieldName = "") {
+  if (!form || !fieldName) return;
+
+  const field = form.elements[fieldName];
+  if (!field || typeof field.focus !== "function") return;
+
+  window.requestAnimationFrame(() => {
+    field.focus({ preventScroll: true });
+
+    if (typeof field.scrollIntoView === "function") {
+      field.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  });
+}
+
 async function submitFederationConnectRequest(form) {
+  if (!form || form.dataset.submitting === "true") return;
+
   const payload = {
     leadId: String(form.elements.leadId?.value || "").trim(),
     ownerUid: String(form.elements.ownerUid?.value || "").trim(),
@@ -2495,13 +2529,27 @@ async function submitFederationConnectRequest(form) {
     notes: String(form.elements.notes?.value || "").trim()
   };
 
-  if (!payload.contactRole || !payload.contactType || !payload.country) {
-    showFederationConnectFeedback("Please add at least contact role, contact type, and country.", "error");
+  if (!payload.contactRole) {
+    showFederationConnectFeedback("Add the contact role before submitting this request.", "error", { focus: true });
+    focusFederationConnectField(form, "contactRole");
+    return;
+  }
+
+  if (!payload.contactType) {
+    showFederationConnectFeedback("Select the contact type before submitting this request.", "error", { focus: true });
+    focusFederationConnectField(form, "contactType");
+    return;
+  }
+
+  if (!payload.country) {
+    showFederationConnectFeedback("Add the country before submitting this request.", "error", { focus: true });
+    focusFederationConnectField(form, "country");
     return;
   }
 
   if (payload.requestReason.length < 12) {
-    showFederationConnectFeedback("Please explain why you need this contact.", "error");
+    showFederationConnectFeedback("Explain why you need this contact. Minimum 12 characters.", "error", { focus: true });
+    focusFederationConnectField(form, "requestReason");
     return;
   }
 
@@ -2509,10 +2557,15 @@ async function submitFederationConnectRequest(form) {
   const originalText = submitBtn?.textContent || "Submit Contact Request";
 
   try {
+    form.dataset.submitting = "true";
+
     if (submitBtn) {
       submitBtn.disabled = true;
+      submitBtn.setAttribute("aria-busy", "true");
       submitBtn.textContent = "Submitting...";
     }
+
+    showFederationConnectFeedback("Submitting your contact request...", "success", { focus: true });
 
     const result = await federationConnectFetch("/api/federation/connect/requests", {
       method: "POST",
@@ -2527,14 +2580,28 @@ async function submitFederationConnectRequest(form) {
     }
 
     closeFederationConnectRequest();
-    showFederationConnectFeedback("Connection request submitted. Admin will review and match this request.", "success");
+    renderFederationConnectRequestsPanel();
+    renderFederationRequestsSection();
+    showFederationConnectFeedback(
+      "Connection request submitted. Admin will review and match this request.",
+      "success",
+      { focus: true }
+    );
+
     await loadFederationConnectData({ force: true });
   } catch (error) {
     console.error("Federation Connect submit error:", error);
-    showFederationConnectFeedback(error?.message || "Failed to submit connection request.", "error");
+    showFederationConnectFeedback(
+      error?.message || "Failed to submit connection request.",
+      "error",
+      { focus: true }
+    );
   } finally {
+    delete form.dataset.submitting;
+
     if (submitBtn) {
       submitBtn.disabled = false;
+      submitBtn.setAttribute("aria-busy", "false");
       submitBtn.textContent = originalText;
     }
   }
@@ -2614,14 +2681,16 @@ function initFederationConnect() {
 
     if (event.target.closest("#connectRequestCancel")) {
       closeFederationConnectRequest();
+      showFederationConnectFeedback("Contact request form cleared.", "success", { focus: true });
     }
   });
 
   const form = qs("#connectRequestForm");
-  if (form) {
+  if (form && form.dataset.bound !== "true") {
+    form.dataset.bound = "true";
     form.addEventListener("submit", (event) => {
       event.preventDefault();
-      submitFederationConnectRequest(form);
+      void submitFederationConnectRequest(form);
     });
   }
 }
@@ -4298,7 +4367,7 @@ function renderDirectory(items = getMembers()) {
                       View Profile
                     </button>
                     <button type="button" class="fed-btn fed-btn-primary" data-jump="#connect">
-                      Message in Federation
+                      Open Connect
                     </button>
                   </div>
                 `
@@ -4381,6 +4450,7 @@ let activeSectorFilter = "all";
 const FEDERATION_SECTION_LOADER_LABELS = {
   command: "Loading Command...",
   connect: "Loading Connect...",
+  "deal-rooms": "Loading Deal Rooms...",
   directory: "Loading Directory...",
   requests: "Loading My Requests...",
   referrals: "Loading Referrals...",
@@ -5999,6 +6069,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   bindUniverseReturnLink("#fedBackToUniverse");
   bindUniverseReturnLink("#fedTopbarBackToUniverse");
+  bindUniverseReturnLink("#fedMobileBackToUniverse");
 
   document.addEventListener("click", async (event) => {
     const target =

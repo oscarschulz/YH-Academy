@@ -15,7 +15,7 @@
     href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap"
     rel="stylesheet"
   />
-<link rel="stylesheet" href="/css/federation.css?v=20260429-parent-top-back-1" />
+<link rel="stylesheet" href="/css/federation.css?v=20260430-fed-actions-1" />
 </head>
 <body data-yh-view="federation" data-yh-page="federation">
 
@@ -947,6 +947,13 @@
               <textarea id="connectNotes" name="notes" rows="3"></textarea>
             </div>
 
+            <div
+              class="fed-form-feedback fed-connect-inline-feedback"
+              id="connectFormFeedback"
+              aria-live="polite"
+              hidden
+            ></div>
+
             <div class="fed-form-actions fed-form-group-full">
               <button type="submit" class="fed-btn fed-btn-primary">
                 Submit Contact Request
@@ -1582,7 +1589,7 @@
           <small>View your member profile and access state</small>
         </a>
 
-        <a href="/dashboard" class="fed-app-more-link fed-app-more-universe-link">
+        <a href="/dashboard" target="_top" class="fed-app-more-link fed-app-more-universe-link" id="fedMobileBackToUniverse">
           <strong>← Go back to Universe</strong>
           <small>Return to the main Universe dashboard</small>
         </a>
@@ -1632,6 +1639,6 @@
     </aside>
   </div>
 
-<script src="/js/federation.js?v=20260429-parent-top-back-1"></script>
+<script src="/js/federation.js?v=20260430-fed-actions-1"></script>
 </body>
 </html>
