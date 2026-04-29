@@ -30,9 +30,6 @@ function getViewer(req) {
 
 function getPaymentOptions(req, res) {
     const stripeConfigured = !!cleanText(process.env.STRIPE_SECRET_KEY);
-    const paypalConfigured =
-        !!cleanText(process.env.PAYPAL_CLIENT_ID) &&
-        !!cleanText(process.env.PAYPAL_CLIENT_SECRET);
 
     const oxapayConfigured = !!cleanText(
         process.env.OXAPAY_MERCHANT_API_KEY ||
@@ -49,25 +46,14 @@ function getPaymentOptions(req, res) {
         paymentProviders: [
             {
                 id: 'stripe',
-                label: 'Card / Bank / Wallet Payment',
+                label: 'Card / Bank Payment',
                 status: providerStatus(stripeConfigured),
                 configured: stripeConfigured,
-                methods: ['card', 'bank', 'wallet'],
+                methods: ['card', 'bank'],
                 currencies: ['fiat'],
                 setupMessage: stripeConfigured
                     ? ''
                     : 'STRIPE_SECRET_KEY is not configured.'
-            },
-            {
-                id: 'paypal',
-                label: 'E-Wallet Payment',
-                status: providerStatus(paypalConfigured),
-                configured: paypalConfigured,
-                methods: ['ewallet', 'paypal'],
-                currencies: ['fiat'],
-                setupMessage: paypalConfigured
-                    ? ''
-                    : 'PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET must be configured.'
             },
             {
                 id: 'oxapay',
@@ -111,7 +97,7 @@ function getPayoutOptions(req, res) {
             },
             {
                 id: 'crypto',
-                label: 'Withdraw to Crypto Wallet',
+                label: 'Withdraw to Crypto Address',
                 provider: 'oxapay',
                 status: 'ledger_ready'
             }
@@ -168,7 +154,7 @@ function buildPendingVerifiedBadgePayload(plan = {}, payment = {}) {
     const paymentStatus = cleanLower(payment.status || 'draft');
     const providerStatus = cleanLower(payment.providerStatus || '');
 
-    const isAutomatedCheckoutProvider = ['stripe', 'paypal', 'oxapay'].includes(provider);
+    const isAutomatedCheckoutProvider = ['stripe', 'oxapay'].includes(provider);
 
     const badgeStatus =
         isAutomatedCheckoutProvider && paymentStatus === 'checkout_started'
@@ -262,7 +248,6 @@ function getBadgePaymentMethodForProvider(provider = '') {
     const clean = cleanLower(provider);
 
     if (clean === 'stripe') return 'card_bank_wallet';
-    if (clean === 'paypal') return 'ewallet';
     if (clean === 'oxapay') return 'crypto';
     if (clean === 'manual') return 'manual';
 
@@ -341,202 +326,6 @@ async function callOxaPayInvoiceApi(payload = {}) {
 
     return data || {};
 }
-function getPayPalBaseUrl() {
-    const env = cleanLower(process.env.PAYPAL_ENV || 'sandbox');
-
-    return env === 'live'
-        ? 'https://api-m.paypal.com'
-        : 'https://api-m.sandbox.paypal.com';
-}
-
-function getPayPalCredentials() {
-    const clientId = cleanText(process.env.PAYPAL_CLIENT_ID);
-    const clientSecret = cleanText(process.env.PAYPAL_CLIENT_SECRET);
-
-    if (!clientId || !clientSecret) {
-        const error = new Error('PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET must be configured.');
-        error.statusCode = 503;
-        throw error;
-    }
-
-    return { clientId, clientSecret };
-}
-
-async function getPayPalAccessToken() {
-    const { clientId, clientSecret } = getPayPalCredentials();
-    const baseUrl = getPayPalBaseUrl();
-
-    const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
-
-    const response = await fetch(`${baseUrl}/v1/oauth2/token`, {
-        method: 'POST',
-        headers: {
-            Authorization: `Basic ${auth}`,
-            'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        body: 'grant_type=client_credentials'
-    });
-
-    const data = await response.json().catch(() => null);
-
-    if (!response.ok || !data?.access_token) {
-        const error = new Error(data?.error_description || data?.error || 'Failed to get PayPal access token.');
-        error.statusCode = response.status || 500;
-        error.payload = data;
-        throw error;
-    }
-
-    return data.access_token;
-}
-
-async function callPayPalApi(pathname = '', options = {}) {
-    const token = await getPayPalAccessToken();
-    const baseUrl = getPayPalBaseUrl();
-
-    const response = await fetch(`${baseUrl}${pathname}`, {
-        method: options.method || 'GET',
-        headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            ...(options.headers || {})
-        },
-        body: options.body ? JSON.stringify(options.body) : undefined
-    });
-
-    const data = await response.json().catch(() => null);
-
-    if (!response.ok) {
-        const error = new Error(
-            data?.message ||
-            data?.details?.[0]?.description ||
-            `PayPal request failed with status ${response.status}.`
-        );
-        error.statusCode = response.status || 500;
-        error.payload = data;
-        throw error;
-    }
-
-    return data || {};
-}
-
-function buildPayPalBadgeInvoiceId(paymentId = '') {
-    const cleanPaymentId = cleanText(paymentId)
-        .toLowerCase()
-        .replace(/[^a-z0-9_-]+/g, '_')
-        .replace(/^_+|_+$/g, '');
-
-    const digest = crypto
-        .createHash('sha256')
-        .update(cleanPaymentId || `${Date.now()}_${Math.random()}`)
-        .digest('hex')
-        .slice(0, 18);
-
-    return `yh_badge_${digest}`;
-}
-
-function buildBadgePayPalReturnUrl(req, paymentId = '', returnTo = '/dashboard') {
-    const baseUrl = resolveBadgePublicBaseUrl(req);
-    const safeReturnTo = normalizeBadgeReturnPath(returnTo || '/dashboard');
-
-    const query = new URLSearchParams({
-        payment: cleanText(paymentId),
-        returnTo: safeReturnTo
-    }).toString();
-
-    return `${baseUrl}/api/payments/badges/paypal/return?${query}`;
-}
-
-function buildActiveVerifiedBadgePayloadForProvider(plan = {}, payment = {}, context = {}) {
-    const now = new Date();
-    const expiresAt = new Date(now);
-    expiresAt.setMonth(expiresAt.getMonth() + 1);
-
-    return {
-        active: true,
-        status: 'active',
-        code: cleanText(plan.code),
-        division: cleanText(plan.division),
-        amountMonthly: toNumber(payment.amount || plan.amountMonthly, 0),
-        currency: cleanText(payment.currency || plan.currency || 'USD').toUpperCase() || 'USD',
-        interval: cleanText(plan.interval || 'month'),
-        asset: cleanText(plan.asset),
-        paymentLedgerId: cleanText(payment.id),
-        paymentStatus: 'paid',
-        provider: cleanText(context.provider || payment.provider || ''),
-        providerPaymentId: cleanText(context.providerPaymentId || payment.providerPaymentId || ''),
-        activatedAt: now.toISOString(),
-        approvedAt: now.toISOString(),
-        expiresAt: expiresAt.toISOString(),
-        verifiedBy: cleanText(context.verifiedBy || 'paypal-return-capture'),
-        updatedAt: now.toISOString()
-    };
-}
-
-async function activateVerifiedBadgeFromProviderPayment(payment = {}, context = {}) {
-    const sourceDivision = normalizeVerifiedBadgeDivision(
-        payment.sourceDivision ||
-        payment.metadata?.badgeDivision ||
-        context.badgeDivision
-    );
-
-    const plan = getVerifiedBadgePlan(sourceDivision);
-
-    if (!plan) {
-        const error = new Error('Invalid badge payment division.');
-        error.statusCode = 400;
-        throw error;
-    }
-
-    const payerUid = cleanText(payment.payerUid || payment.metadata?.userId);
-
-    if (!payerUid) {
-        const error = new Error('This verified badge payment has no payer user id.');
-        error.statusCode = 400;
-        throw error;
-    }
-
-    const updatedPayment = await paymentLedgerRepo.updatePaymentRecordStatus(payment.id, {
-        status: 'paid',
-        provider: cleanText(context.provider || payment.provider || 'paypal'),
-        paymentMethod: cleanText(context.paymentMethod || payment.paymentMethod || 'ewallet'),
-        providerStatus: cleanText(context.providerStatus || 'completed'),
-        providerPaymentId: cleanText(context.providerPaymentId || payment.providerPaymentId || ''),
-        metadata: {
-            ...(payment.metadata && typeof payment.metadata === 'object' ? payment.metadata : {}),
-            providerPaymentCaptured: true,
-            providerCapturedAt: new Date().toISOString(),
-            badgeActivated: true,
-            badgeDivision: plan.division,
-            badgeCode: plan.code,
-            ...(context.metadata && typeof context.metadata === 'object' ? context.metadata : {})
-        }
-    });
-
-    const badge = buildActiveVerifiedBadgePayloadForProvider(plan, updatedPayment, context);
-
-    await firestore.collection('users').doc(payerUid).set({
-        verificationBadges: {
-            [plan.division]: badge
-        },
-        updatedAt: new Date().toISOString()
-    }, { merge: true });
-
-    return {
-        payment: updatedPayment,
-        badge,
-        payerUid
-    };
-}
-
-function findPayPalApproveLink(order = {}) {
-    const links = Array.isArray(order.links) ? order.links : [];
-
-    const approve = links.find((link) => {
-        return cleanLower(link.rel) === 'approve' && cleanText(link.href);
-    });
-
-    return cleanText(approve?.href);
-}
 
 async function createOrRefreshVerifiedBadgePayment(viewer = {}, plan = {}, options = {}) {
     if (!viewer.id) {
@@ -603,7 +392,7 @@ async function createOrRefreshVerifiedBadgePayment(viewer = {}, plan = {}, optio
         payerName: viewer.name,
 
         provider,
-        providerOptions: ['stripe', 'paypal', 'oxapay', 'manual'],
+        providerOptions: ['stripe', 'oxapay', 'manual'],
         providerPaymentId: cleanText(options.providerPaymentId),
         providerCheckoutUrl: cleanText(options.providerCheckoutUrl),
         providerStatus: cleanText(options.providerStatus),
@@ -718,7 +507,7 @@ async function createVerifiedBadgeStripeCheckoutSession(req, res) {
             payerName: viewer.name,
 
             provider: 'stripe',
-            providerOptions: ['stripe', 'paypal', 'oxapay', 'manual'],
+            providerOptions: ['stripe', 'oxapay', 'manual'],
             providerPaymentId: cleanText(session.id),
             providerCheckoutUrl: cleanText(session.url),
             providerStatus: 'checkout_session_created',
@@ -838,7 +627,7 @@ async function createVerifiedBadgeOxaPayInvoice(req, res) {
             payerName: viewer.name,
 
             provider: 'oxapay',
-            providerOptions: ['stripe', 'paypal', 'oxapay', 'manual'],
+            providerOptions: ['stripe', 'oxapay', 'manual'],
             providerPaymentId: trackId,
             providerCheckoutUrl: paymentUrl,
             providerStatus: 'invoice_created',
@@ -894,213 +683,7 @@ async function createVerifiedBadgeOxaPayInvoice(req, res) {
         });
     }
 }
-async function createVerifiedBadgePayPalOrder(req, res) {
-    try {
-        const viewer = getViewer(req);
-        const plan = getVerifiedBadgePlan(req.params.division || req.body?.division);
 
-        if (!plan) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid badge division. Use academy or federation.'
-            });
-        }
-
-        const initial = await createOrRefreshVerifiedBadgePayment(viewer, plan, {
-            provider: 'paypal',
-            paymentMethod: 'ewallet',
-            status: 'checkout_started',
-            providerStatus: 'order_starting'
-        });
-
-        const returnTo = normalizeBadgeReturnPath(req.body?.returnTo || req.body?.returnPath || '/dashboard');
-
-        const order = await callPayPalApi('/v2/checkout/orders', {
-            method: 'POST',
-            body: {
-                intent: 'CAPTURE',
-                purchase_units: [
-                    {
-                        reference_id: initial.payment.id,
-                        invoice_id: buildPayPalBadgeInvoiceId(initial.payment.id),
-                        custom_id: initial.payment.id,
-                        description: `${plan.publicName}: ${plan.code}`,
-                        amount: {
-                            currency_code: plan.currency,
-                            value: Number(Number(plan.amountMonthly || 0).toFixed(2)).toFixed(2)
-                        }
-                    }
-                ],
-                application_context: {
-                    brand_name: 'Young Hustlers Universe',
-                    landing_page: 'LOGIN',
-                    user_action: 'PAY_NOW',
-                    shipping_preference: 'NO_SHIPPING',
-                    return_url: buildBadgePayPalReturnUrl(req, initial.payment.id, returnTo),
-                    cancel_url: buildBadgeReturnUrl(req, {
-                        badge_checkout: 'paypal-cancelled',
-                        division: plan.division,
-                        payment: initial.payment.id
-                    })
-                }
-            }
-        });
-
-        const approveUrl = findPayPalApproveLink(order);
-
-        if (!order?.id || !approveUrl) {
-            return res.status(502).json({
-                success: false,
-                message: 'PayPal did not return a valid approval link.'
-            });
-        }
-
-        const payment = await paymentLedgerRepo.upsertPaymentRecord({
-            id: initial.payment.id,
-            sourceDivision: plan.division,
-            sourceFeature: plan.sourceFeature,
-            sourceRecordId: `${viewer.id}_${plan.division}`,
-
-            payerUid: viewer.id,
-            payerEmail: viewer.email,
-            payerName: viewer.name,
-
-            provider: 'paypal',
-            providerOptions: ['stripe', 'paypal', 'oxapay', 'manual'],
-            providerPaymentId: cleanText(order.id),
-            providerCheckoutUrl: approveUrl,
-            providerStatus: cleanText(order.status || 'created'),
-
-            status: 'checkout_started',
-            paymentMethod: 'ewallet',
-
-            amount: plan.amountMonthly,
-            currency: plan.currency,
-
-            platformCommissionAmount: plan.amountMonthly,
-            operatorPayoutAmount: 0,
-
-            metadata: {
-                badgeDivision: plan.division,
-                badgeCode: plan.code,
-                badgeAsset: plan.asset,
-                badgePublicName: plan.publicName,
-                billingInterval: plan.interval,
-                userId: viewer.id,
-                userEmail: viewer.email,
-                userName: viewer.name,
-                paypalOrderId: cleanText(order.id),
-                paypalOrderStatus: cleanText(order.status || 'created')
-            }
-        });
-
-        await initial.userRef.set({
-            verificationBadges: {
-                [plan.division]: buildPendingVerifiedBadgePayload(plan, payment)
-            },
-            updatedAt: new Date().toISOString()
-        }, { merge: true });
-
-        return res.json({
-            success: true,
-            provider: 'paypal',
-            providerLabel: 'PayPal',
-            division: plan.division,
-            badge: buildPendingVerifiedBadgePayload(plan, payment),
-            payment,
-            paymentLedgerId: payment.id,
-            paypalOrderId: order.id,
-            url: approveUrl
-        });
-    } catch (error) {
-        console.error('verified badge paypal order error:', error);
-
-        return res.status(error.statusCode || 500).json({
-            success: false,
-            message: error?.message || 'Failed to start PayPal order for verified badge.'
-        });
-    }
-}
-
-async function captureVerifiedBadgePayPalReturn(req, res) {
-    const fallbackRedirect = '/dashboard?badge_checkout=paypal-error';
-
-    try {
-        const paymentId = cleanText(req.query?.payment);
-        const paypalOrderId = cleanText(req.query?.token || req.query?.orderId || req.query?.orderID);
-        const returnTo = normalizeBadgeReturnPath(req.query?.returnTo || '/dashboard');
-
-        if (!paymentId || !paypalOrderId) {
-            return res.redirect(fallbackRedirect);
-        }
-
-        const payment = await paymentLedgerRepo.getPaymentRecordById(paymentId);
-
-        const sourceFeature = cleanLower(payment.sourceFeature || '');
-        const sourceDivision = normalizeVerifiedBadgeDivision(payment.sourceDivision || payment.metadata?.badgeDivision);
-
-        if (sourceFeature !== 'verified_badge' || !sourceDivision) {
-            return res.redirect(`${returnTo}${returnTo.includes('?') ? '&' : '?'}badge_checkout=paypal-invalid`);
-        }
-
-        const storedOrderId = cleanText(payment.providerPaymentId || payment.metadata?.paypalOrderId);
-
-        if (storedOrderId !== paypalOrderId) {
-            return res.redirect(`${returnTo}${returnTo.includes('?') ? '&' : '?'}badge_checkout=paypal-mismatch`);
-        }
-
-        if (cleanLower(payment.status) === 'paid') {
-            return res.redirect(`${returnTo}${returnTo.includes('?') ? '&' : '?'}badge_checkout=paypal-success&division=${encodeURIComponent(sourceDivision)}&payment=${encodeURIComponent(payment.id)}`);
-        }
-
-        const capture = await callPayPalApi(`/v2/checkout/orders/${encodeURIComponent(paypalOrderId)}/capture`, {
-            method: 'POST',
-            body: {}
-        });
-
-        const captureStatus = cleanLower(capture.status || '');
-        const captureId = cleanText(
-            capture.purchase_units?.[0]?.payments?.captures?.[0]?.id ||
-            capture.id ||
-            ''
-        );
-
-        if (captureStatus !== 'completed') {
-            await paymentLedgerRepo.updatePaymentRecordStatus(payment.id, {
-                status: 'pending',
-                provider: 'paypal',
-                paymentMethod: 'ewallet',
-                providerPaymentId: paypalOrderId,
-                providerStatus: cleanText(capture.status || 'pending'),
-                metadata: {
-                    paypalCaptureStatus: cleanText(capture.status || ''),
-                    paypalCaptureResponse: capture
-                }
-            });
-
-            return res.redirect(`${returnTo}${returnTo.includes('?') ? '&' : '?'}badge_checkout=paypal-pending&division=${encodeURIComponent(sourceDivision)}&payment=${encodeURIComponent(payment.id)}`);
-        }
-
-        await activateVerifiedBadgeFromProviderPayment(payment, {
-            provider: 'paypal',
-            paymentMethod: 'ewallet',
-            providerPaymentId: paypalOrderId,
-            providerStatus: 'completed',
-            verifiedBy: 'paypal-return-capture',
-            metadata: {
-                paypalOrderId,
-                paypalCaptureId: captureId,
-                paypalCaptureStatus: cleanText(capture.status || 'COMPLETED'),
-                paypalCaptureResponse: capture
-            }
-        });
-
-        return res.redirect(`${returnTo}${returnTo.includes('?') ? '&' : '?'}badge_checkout=paypal-success&division=${encodeURIComponent(sourceDivision)}&payment=${encodeURIComponent(payment.id)}`);
-    } catch (error) {
-        console.error('capture verified badge paypal return error:', error);
-        return res.redirect(fallbackRedirect);
-    }
-}
 async function createVerifiedBadgePaymentLedger(req, res) {
     try {
         const viewer = getViewer(req);
@@ -1452,7 +1035,7 @@ async function createPlazaOpportunityPaymentLedger(req, res) {
             payerName: viewer.name,
 
             provider: cleanLower(body.provider || 'unselected'),
-            providerOptions: ['stripe', 'paypal', 'oxapay', 'manual'],
+            providerOptions: ['stripe', 'oxapay', 'manual'],
             status: ledgerStatus,
             paymentMethod: cleanLower(body.paymentMethod || 'unselected'),
 
@@ -1468,7 +1051,15 @@ async function createPlazaOpportunityPaymentLedger(req, res) {
                 opportunityTitle,
                 opportunityStatus: cleanText(opportunity.status || opportunity.reviewStatus || ''),
                 commissionRate,
-                settlementMode: settleNow ? 'manual_paid' : 'ledger_created'
+                settlementMode: settleNow ? 'manual_paid' : 'ledger_created',
+                transactionType: 'internal_plaza_service_transaction',
+                transactionContext: 'Service seeker to Academy member/service provider',
+                serviceProviderUid: ownerUid,
+                serviceProviderName: cleanText(opportunity.ownerName || opportunity.authorName || opportunity.member || 'Plaza Operator'),
+                serviceSeekerUid: viewer.id,
+                serviceSeekerName: viewer.name,
+                payoutUnlockRule: 'Admin must verify/settle payment before provider payout becomes available.',
+                settlementPolicy: 'Draft ledger first, admin settlement second, wallet payout third.'
             }
         });
 
@@ -1481,7 +1072,14 @@ async function createPlazaOpportunityPaymentLedger(req, res) {
 
             paymentLedgerId: payment.id,
             paymentLedgerStatus: payment.status,
-            providerOptions: ['stripe', 'paypal', 'oxapay', 'manual'],
+            providerOptions: ['stripe', 'oxapay', 'manual'],
+            paymentProviderOptions: ['stripe', 'oxapay', 'manual'],
+
+            internalTransactionType: 'service_marketplace_deal',
+            serviceProviderUid: ownerUid,
+            serviceSeekerUid: viewer.id,
+            payoutUnlockRule: 'admin_settlement_required',
+
             paymentLedgerUpdatedAt: Timestamp.now(),
             updatedAt: Timestamp.now()
         };
@@ -1853,8 +1451,6 @@ module.exports = {
     createVerifiedBadgePaymentLedger,
     createVerifiedBadgeStripeCheckoutSession,
     createVerifiedBadgeOxaPayInvoice,
-    createVerifiedBadgePayPalOrder,
-    captureVerifiedBadgePayPalReturn,
     createFederationPaidIntroLedger,
     createPlazaOpportunityPaymentLedger,
     listMyPayments,

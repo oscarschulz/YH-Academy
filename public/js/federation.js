@@ -300,13 +300,13 @@ function renderFederationVerifiedBadgeAvailButton(member = {}) {
 
 function chooseFederationVerifiedBadgeProvider() {
   const selected = window.prompt(
-    'Choose payment method:\n\nType "stripe" for Card / Bank / Wallet.\nType "paypal" for E-Wallet.\nType "oxapay" for Crypto.\nType "manual" for admin-confirmed fallback.',
+    'Choose payment method:\n\nType "stripe" for Card / Bank.\nType "oxapay" for Crypto.\nType "manual" for admin-confirmed fallback.',
     'stripe'
   );
 
   const clean = String(selected || '').trim().toLowerCase();
 
-  if (clean === 'stripe' || clean === 'paypal' || clean === 'oxapay' || clean === 'manual') {
+  if (clean === 'stripe' || clean === 'oxapay' || clean === 'manual') {
     return clean;
   }
 
@@ -316,8 +316,7 @@ function chooseFederationVerifiedBadgeProvider() {
 function getFederationBadgePaymentMethodForProvider(provider = '') {
   const clean = String(provider || '').trim().toLowerCase();
 
-  if (clean === 'stripe') return 'card_bank_wallet';
-  if (clean === 'paypal') return 'ewallet';
+  if (clean === 'stripe') return 'card_bank';
   if (clean === 'oxapay') return 'crypto';
   if (clean === 'manual') return 'manual';
 
@@ -331,16 +330,13 @@ async function createFederationVerifiedBadgeLedger(button = null, options = {}) 
 
   const paymentMethod = getFederationBadgePaymentMethodForProvider(provider);
   const isStripe = provider === 'stripe';
-  const isPayPal = provider === 'paypal';
   const isOxaPay = provider === 'oxapay';
 
   const endpoint = isStripe
     ? "/api/payments/badges/federation/checkout-session"
-    : isPayPal
-      ? "/api/payments/badges/federation/paypal-order"
-      : isOxaPay
-        ? "/api/payments/badges/federation/oxapay-invoice"
-        : "/api/payments/badges/federation/ledger";
+    : isOxaPay
+      ? "/api/payments/badges/federation/oxapay-invoice"
+      : "/api/payments/badges/federation/ledger";
 
   if (button) {
     button.disabled = true;
@@ -348,11 +344,9 @@ async function createFederationVerifiedBadgeLedger(button = null, options = {}) 
     button.dataset.originalText = button.textContent || "";
     button.textContent = isStripe
       ? "Opening Stripe..."
-      : isPayPal
-        ? "Opening PayPal..."
-        : isOxaPay
-          ? "Opening OxaPay..."
-          : "Creating Ledger...";
+      : isOxaPay
+        ? "Opening OxaPay..."
+        : "Creating Ledger...";
   }
 
   try {
@@ -365,13 +359,11 @@ async function createFederationVerifiedBadgeLedger(button = null, options = {}) 
       })
     });
 
-    if ((isStripe || isPayPal || isOxaPay) && result?.url) {
+    if ((isStripe || isOxaPay) && result?.url) {
       showToast(
         isStripe
           ? "Opening Stripe Checkout..."
-          : isPayPal
-            ? "Opening PayPal e-wallet checkout..."
-            : "Opening OxaPay crypto invoice...",
+          : "Opening OxaPay crypto invoice...",
         "success"
       );
 

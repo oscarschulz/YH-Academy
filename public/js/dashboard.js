@@ -1347,9 +1347,8 @@ async function fetchYHWalletSnapshot(currency = 'USD') {
 function getYHWalletMethodIcon(method = {}) {
     const id = String(method.id || method.provider || method.label || '').toLowerCase();
 
-    if (id.includes('stripe') || id.includes('card') || id.includes('bank')) return '💳';
-    if (id.includes('paypal') || id.includes('wallet') || id.includes('e-wallet')) return '🌐';
     if (id.includes('oxapay') || id.includes('crypto')) return '₿';
+    if (id.includes('stripe') || id.includes('card') || id.includes('bank')) return '💳';
     if (id.includes('local') || id.includes('manual')) return '🏦';
 
     return '↗';
@@ -1374,11 +1373,7 @@ function getYHWalletMethodHint(method = {}) {
     }
 
     if (id.includes('stripe')) {
-        return 'Best for card, bank, and supported wallet payments.';
-    }
-
-    if (id.includes('paypal') || id.includes('e-wallet')) {
-        return 'Best for global e-wallet payments where PayPal is supported.';
+        return 'Best for card and bank payments through Stripe.';
     }
 
     if (id.includes('oxapay') || id.includes('crypto')) {
@@ -9202,7 +9197,7 @@ function dashboardIsVerificationBadgePaymentPending(profile = {}, division = 'ac
     const paymentStatus = String(badge.paymentStatus || '').trim().toLowerCase();
     const provider = String(badge.provider || '').trim().toLowerCase();
 
-    const automatedProviders = new Set(['stripe', 'paypal', 'oxapay']);
+    const automatedProviders = new Set(['stripe', 'oxapay']);
     const cancelledOrInactiveStatuses = new Set([
         'checkout_started',
         'cancelled',
@@ -9286,16 +9281,13 @@ async function dashboardCreateVerifiedBadgeLedger(division = 'academy', button =
     const paymentMethod = String(options.paymentMethod || '').trim().toLowerCase() || getBadgePaymentMethodForDashboardProvider(provider);
 
     const isStripe = provider === 'stripe';
-    const isPayPal = provider === 'paypal';
     const isOxaPay = provider === 'oxapay';
 
     const endpoint = isStripe
         ? `/api/payments/badges/${encodeURIComponent(cleanDivision)}/checkout-session`
-        : isPayPal
-            ? `/api/payments/badges/${encodeURIComponent(cleanDivision)}/paypal-order`
-            : isOxaPay
-                ? `/api/payments/badges/${encodeURIComponent(cleanDivision)}/oxapay-invoice`
-                : `/api/payments/badges/${encodeURIComponent(cleanDivision)}/ledger`;
+        : isOxaPay
+            ? `/api/payments/badges/${encodeURIComponent(cleanDivision)}/oxapay-invoice`
+            : `/api/payments/badges/${encodeURIComponent(cleanDivision)}/ledger`;
 
     if (button) {
         button.disabled = true;
@@ -9303,11 +9295,9 @@ async function dashboardCreateVerifiedBadgeLedger(division = 'academy', button =
         button.dataset.originalText = button.textContent || '';
         button.textContent = isStripe
             ? 'Opening Stripe...'
-            : isPayPal
-                ? 'Opening PayPal...'
-                : isOxaPay
-                    ? 'Opening OxaPay...'
-                    : 'Creating Ledger...';
+            : isOxaPay
+                ? 'Opening OxaPay...'
+                : 'Creating Ledger...';
     }
 
     try {
@@ -9340,7 +9330,6 @@ async function dashboardCreateVerifiedBadgeLedger(division = 'academy', button =
         const shouldRenderPendingLocally =
             !result?.url &&
             !isStripe &&
-            !isPayPal &&
             !isOxaPay;
 
         if (
@@ -9365,23 +9354,21 @@ async function dashboardCreateVerifiedBadgeLedger(division = 'academy', button =
             renderAcademyProfileView(nextProfile, { mode: academyProfileViewState.mode || 'self' });
         }
 
-        if ((isStripe || isPayPal || isOxaPay) && result?.url) {
-            showToast(
-                isStripe
-                    ? `Opening Stripe Checkout for ${cleanDivision === 'federation' ? 'YHF' : 'YHA'} badge...`
-                    : isPayPal
-                        ? `Opening PayPal e-wallet checkout for ${cleanDivision === 'federation' ? 'YHF' : 'YHA'} badge...`
+            if ((isStripe || isOxaPay) && result?.url) {
+                showToast(
+                    isStripe
+                        ? `Opening Stripe Checkout for ${cleanDivision === 'federation' ? 'YHF' : 'YHA'} badge...`
                         : `Opening OxaPay invoice for ${cleanDivision === 'federation' ? 'YHF' : 'YHA'} badge...`,
-                'success'
-            );
+                    'success'
+                );
 
-            window.top.location.href = result.url;
+                window.top.location.href = result.url;
 
-            return {
-                ...result,
-                redirecting: true
-            };
-        }
+                return {
+                    ...result,
+                    redirecting: true
+                };
+            }
 
         showToast(
             cleanDivision === 'federation'
@@ -9454,12 +9441,10 @@ function dashboardGetBadgeProviderConfig(provider = '') {
     return {
         id: cleanProvider,
         label: cleanProvider === 'stripe'
-            ? 'Card / Bank / Wallet Payment'
-            : cleanProvider === 'paypal'
-                ? 'E-Wallet Payment'
-                : cleanProvider === 'oxapay'
-                    ? 'Crypto Payment'
-                    : 'Payment Method',
+            ? 'Card / Bank Payment'
+            : cleanProvider === 'oxapay'
+                ? 'Crypto Payment'
+                : 'Payment Method',
         status: 'active',
         configured: true
     };
@@ -9487,7 +9472,7 @@ function dashboardSelectBadgePaymentOption(modal = null, preferredProvider = 'st
     ));
 
     const cleanPreferred = String(preferredProvider || '').trim().toLowerCase() || 'stripe';
-    const providerOrder = [cleanPreferred, 'stripe', 'paypal', 'oxapay', 'manual']
+    const providerOrder = [cleanPreferred, 'stripe', 'oxapay', 'manual']
         .filter((provider, index, values) => provider && values.indexOf(provider) === index);
 
     const selectedOption = providerOrder
@@ -9592,7 +9577,6 @@ async function hydrateDashboardBadgePaymentProviderConfig(forceFresh = false) {
 
             dashboardBadgePaymentProviderConfigCache = {
                 stripe: nextConfig.stripe || dashboardGetBadgeProviderConfig('stripe'),
-                paypal: nextConfig.paypal || dashboardGetBadgeProviderConfig('paypal'),
                 oxapay: nextConfig.oxapay || dashboardGetBadgeProviderConfig('oxapay'),
                 manual: nextConfig.manual || dashboardGetBadgeProviderConfig('manual')
             };
@@ -9689,7 +9673,7 @@ function ensureDashboardBadgeAvailModal() {
 
                     <div class="yh-badge-avail-step">
                         <span>2</span>
-                        <p>Choose Stripe, PayPal, OxaPay, or manual admin payment. Unconfigured automated providers are disabled until their keys are added.</p>
+                        <p>Choose Stripe, OxaPay, or manual admin payment. Unconfigured automated providers are disabled until their keys are added.</p>
                     </div>
 
                     <div class="yh-badge-avail-step">
@@ -9719,18 +9703,10 @@ function ensureDashboardBadgeAvailModal() {
                 </div>
 
                 <div class="yh-badge-payment-options">
-                    <button type="button" class="yh-badge-payment-option" data-yh-badge-payment-provider="stripe" data-yh-badge-payment-method="card_bank_wallet">
+                    <button type="button" class="yh-badge-payment-option" data-yh-badge-payment-provider="stripe" data-yh-badge-payment-method="card_bank">
                         <span class="yh-badge-payment-option-main">
-                            <strong>Card / Bank / Wallet Payment</strong>
+                            <strong>Card / Bank Payment</strong>
                             <small>Pay securely through Stripe Checkout.</small>
-                        </span>
-                        <span class="yh-badge-payment-status">Checking...</span>
-                    </button>
-
-                    <button type="button" class="yh-badge-payment-option" data-yh-badge-payment-provider="paypal" data-yh-badge-payment-method="ewallet">
-                        <span class="yh-badge-payment-option-main">
-                            <strong>E-Wallet Payment</strong>
-                            <small>Pay globally through PayPal e-wallet checkout.</small>
                         </span>
                         <span class="yh-badge-payment-status">Checking...</span>
                     </button>
@@ -9753,7 +9729,7 @@ function ensureDashboardBadgeAvailModal() {
                 </div>
 
                 <div class="yh-badge-avail-note">
-                    Stripe, PayPal, and OxaPay can activate the badge after successful payment confirmation. Manual payment remains available as an admin fallback.
+                    Stripe and OxaPay can activate the badge after successful payment confirmation. Manual payment remains available as an admin fallback.
                 </div>
 
                 <div class="yh-badge-avail-actions">
@@ -9903,7 +9879,7 @@ function openDashboardBadgeAvailModal(division = 'academy', button = null) {
         button,
         step: 'overview',
         provider: 'stripe',
-        paymentMethod: 'card_bank_wallet',
+        paymentMethod: 'card_bank',
         payment: null,
         paymentProviderSelectionTouched: false
     };

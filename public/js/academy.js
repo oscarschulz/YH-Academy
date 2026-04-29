@@ -9274,7 +9274,7 @@ function academyIsVerificationBadgePaymentPending(profile = {}, division = 'acad
     const paymentStatus = String(badge.paymentStatus || '').trim().toLowerCase();
     const provider = String(badge.provider || '').trim().toLowerCase();
 
-    const automatedProviders = new Set(['stripe', 'paypal', 'oxapay']);
+    const automatedProviders = new Set(['stripe', 'oxapay']);
     const cancelledOrInactiveStatuses = new Set([
         'checkout_started',
         'cancelled',
@@ -9337,13 +9337,13 @@ function academyRenderVerifiedBadgeAvailButton(profile = {}, division = 'academy
 
 function academyChooseVerifiedBadgeProvider() {
     const selected = window.prompt(
-        'Choose payment method:\n\nType "stripe" for Card / Bank / Wallet.\nType "paypal" for E-Wallet.\nType "oxapay" for Crypto.\nType "manual" for admin-confirmed fallback.',
+        'Choose payment method:\n\nType "stripe" for Card / Bank.\nType "oxapay" for Crypto.\nType "manual" for admin-confirmed fallback.',
         'stripe'
     );
 
     const clean = String(selected || '').trim().toLowerCase();
 
-    if (clean === 'stripe' || clean === 'paypal' || clean === 'oxapay' || clean === 'manual') {
+    if (clean === 'stripe' || clean === 'oxapay' || clean === 'manual') {
         return clean;
     }
 
@@ -9353,8 +9353,7 @@ function academyChooseVerifiedBadgeProvider() {
 function academyGetBadgePaymentMethodForProvider(provider = '') {
     const clean = String(provider || '').trim().toLowerCase();
 
-    if (clean === 'stripe') return 'card_bank_wallet';
-    if (clean === 'paypal') return 'ewallet';
+    if (clean === 'stripe') return 'card_bank';
     if (clean === 'oxapay') return 'crypto';
     if (clean === 'manual') return 'manual';
 
@@ -9369,16 +9368,13 @@ async function academyCreateVerifiedBadgeLedger(division = 'academy', button = n
 
     const paymentMethod = academyGetBadgePaymentMethodForProvider(provider);
     const isStripe = provider === 'stripe';
-    const isPayPal = provider === 'paypal';
     const isOxaPay = provider === 'oxapay';
 
     const endpoint = isStripe
         ? `/api/payments/badges/${encodeURIComponent(cleanDivision)}/checkout-session`
-        : isPayPal
-            ? `/api/payments/badges/${encodeURIComponent(cleanDivision)}/paypal-order`
-            : isOxaPay
-                ? `/api/payments/badges/${encodeURIComponent(cleanDivision)}/oxapay-invoice`
-                : `/api/payments/badges/${encodeURIComponent(cleanDivision)}/ledger`;
+        : isOxaPay
+            ? `/api/payments/badges/${encodeURIComponent(cleanDivision)}/oxapay-invoice`
+            : `/api/payments/badges/${encodeURIComponent(cleanDivision)}/ledger`;
 
     if (button) {
         button.disabled = true;
@@ -9386,11 +9382,9 @@ async function academyCreateVerifiedBadgeLedger(division = 'academy', button = n
         button.dataset.originalText = button.textContent || '';
         button.textContent = isStripe
             ? 'Opening Stripe...'
-            : isPayPal
-                ? 'Opening PayPal...'
-                : isOxaPay
-                    ? 'Opening OxaPay...'
-                    : 'Creating Ledger...';
+            : isOxaPay
+                ? 'Opening OxaPay...'
+                : 'Creating Ledger...';
     }
 
     try {
@@ -9403,13 +9397,11 @@ async function academyCreateVerifiedBadgeLedger(division = 'academy', button = n
             })
         });
 
-        if ((isStripe || isPayPal || isOxaPay) && result?.url) {
+        if ((isStripe || isOxaPay) && result?.url) {
             showToast(
                 isStripe
                     ? 'Opening Stripe Checkout...'
-                    : isPayPal
-                        ? 'Opening PayPal e-wallet checkout...'
-                        : 'Opening OxaPay crypto invoice...',
+                    : 'Opening OxaPay crypto invoice...',
                 'success'
             );
 

@@ -236,6 +236,11 @@ function normalizeOpportunityFederationEscalation(value = '') {
 
 function mapPlazaOpportunityDoc(docSnap) {
     const data = docSnap.data() || {};
+    const providerOptions = Array.isArray(data.paymentProviderOptions)
+        ? data.paymentProviderOptions
+        : Array.isArray(data.providerOptions)
+            ? data.providerOptions
+            : [];
 
     return {
         id: docSnap.id,
@@ -249,10 +254,29 @@ function mapPlazaOpportunityDoc(docSnap) {
         currency: normalizeOpportunityCurrency(data.currency),
         budgetMin: normalizeOpportunityMoney(data.budgetMin),
         budgetMax: normalizeOpportunityMoney(data.budgetMax),
+        pricingAmount: normalizeOpportunityMoney(data.pricingAmount || data.amount || data.price),
         commissionRate: Math.max(0, Math.min(100, normalizeOpportunityMoney(data.commissionRate))),
+        platformCommissionAmount: normalizeOpportunityMoney(data.platformCommissionAmount),
+        operatorPayoutAmount: normalizeOpportunityMoney(data.operatorPayoutAmount),
         federationEscalation: normalizeOpportunityFederationEscalation(data.federationEscalation),
         monetizationNote: sanitizeText(data.monetizationNote || ''),
         marketplaceMode: sanitizeText(data.marketplaceMode || 'marketplace'),
+
+        paymentLedgerId: sanitizeText(data.paymentLedgerId || ''),
+        paymentLedgerStatus: sanitizeText(data.paymentLedgerStatus || ''),
+        paymentStatus: sanitizeText(data.paymentStatus || ''),
+        dealStatus: sanitizeText(data.dealStatus || ''),
+        paymentProviderOptions: providerOptions,
+        providerOptions,
+        paidAt: mapTimestamp(data.paidAt),
+        paymentLedgerUpdatedAt: mapTimestamp(data.paymentLedgerUpdatedAt),
+        adminSettledAt: mapTimestamp(data.adminSettledAt),
+        adminSettledBy: sanitizeText(data.adminSettledBy || ''),
+
+        internalTransactionType: sanitizeText(data.internalTransactionType || ''),
+        serviceProviderUid: sanitizeText(data.serviceProviderUid || data.ownerUid || data.authorId || ''),
+        serviceSeekerUid: sanitizeText(data.serviceSeekerUid || ''),
+        payoutUnlockRule: sanitizeText(data.payoutUnlockRule || ''),
 
         sourceDivision: sanitizeText(data.sourceDivision || 'plaza'),
         sourceLeadId: sanitizeText(data.sourceLeadId || ''),

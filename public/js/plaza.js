@@ -25,7 +25,233 @@ const PLAZA_UI_STATE_KEY = "yhPlazaUiStateCleanV1";
 const PLAZA_INBOX_KEY = "yhPlazaInboxCleanV1";
 const PLAZA_NOTIFICATIONS_KEY = "yhPlazaNotificationsCleanV1";
 const PLAZA_CONVERSATIONS_KEY = "yhPlazaConversationsCleanV1";
+const YH_CANONICAL_PLAZAS = [
+  {
+    id: "yh-africa-plaza-1",
+    continent: "Africa",
+    network: "Africa Federation",
+    plazaNumber: 1,
+    region: "Africa Plaza 1",
+    label: "Africa • Plaza 1",
+    sourceUrl: "https://www.younghustlers.net/plazas/africa-plaza",
+    countries: ["Botswana", "Mauritius", "Namibia", "Seychelles"]
+  },
+  {
+    id: "yh-africa-plaza-2",
+    continent: "Africa",
+    network: "Africa Federation",
+    plazaNumber: 2,
+    region: "Africa Plaza 2",
+    label: "Africa • Plaza 2",
+    sourceUrl: "https://www.younghustlers.net/plazas/africa-plaza",
+    countries: ["Ghana", "Morocco", "Rwanda", "Senegal", "Zambia"]
+  },
+  {
+    id: "yh-africa-plaza-3",
+    continent: "Africa",
+    network: "Africa Federation",
+    plazaNumber: 3,
+    region: "Africa Plaza 3",
+    label: "Africa • Plaza 3",
+    sourceUrl: "https://www.younghustlers.net/plazas/africa-plaza",
+    countries: ["Benin", "Eswatini (Swaziland)", "Gabon", "Lesotho", "Malawi", "Tanzania", "Tunisia"]
+  },
+  {
+    id: "yh-africa-plaza-4",
+    continent: "Africa",
+    network: "Africa Federation",
+    plazaNumber: 4,
+    region: "Africa Plaza 4",
+    label: "Africa • Plaza 4",
+    sourceUrl: "https://www.younghustlers.net/plazas/africa-plaza",
+    countries: ["Algeria", "Côte d'Ivoire", "Egypt", "Ethiopia", "Kenya", "Liberia", "Madagascar", "Mozambique", "Nigeria", "South Africa", "Uganda"]
+  },
+  {
+    id: "yh-africa-plaza-5",
+    continent: "Africa",
+    network: "Africa Federation",
+    plazaNumber: 5,
+    region: "Africa Plaza 5",
+    label: "Africa • Plaza 5",
+    sourceUrl: "https://www.younghustlers.net/plazas/africa-plaza",
+    countries: ["Angola", "Burkina Faso", "Burundi", "Cameroon", "Central African Republic", "Chad", "Democratic Republic of the Congo", "Eritrea", "Libya", "Mali", "Niger", "Somalia", "South Sudan", "Sudan", "Zimbabwe"]
+  },
 
+  {
+    id: "yh-asia-plaza-1",
+    continent: "Asia",
+    network: "Asian Network",
+    plazaNumber: 1,
+    region: "Asia Plaza 1",
+    label: "Asia • Plaza 1",
+    sourceUrl: "https://www.younghustlers.net/plazas/asia-plaza",
+    countries: ["Japan", "Singapore", "South Korea", "Taiwan"]
+  },
+  {
+    id: "yh-asia-plaza-2",
+    continent: "Asia",
+    network: "Asian Network",
+    plazaNumber: 2,
+    region: "Asia Plaza 2",
+    label: "Asia • Plaza 2",
+    sourceUrl: "https://www.younghustlers.net/plazas/asia-plaza",
+    countries: ["Bhutan", "Brunei", "Malaysia", "Qatar", "United Arab Emirates"]
+  },
+  {
+    id: "yh-asia-plaza-3",
+    continent: "Asia",
+    network: "Asian Network",
+    plazaNumber: 3,
+    region: "Asia Plaza 3",
+    label: "Asia • Plaza 3",
+    sourceUrl: "https://www.younghustlers.net/plazas/asia-plaza",
+    countries: ["China", "Georgia", "Jordan", "Kazakhstan", "Kuwait", "Oman", "Saudi Arabia"]
+  },
+  {
+    id: "yh-asia-plaza-4",
+    continent: "Asia",
+    network: "Asian Network",
+    plazaNumber: 4,
+    region: "Asia Plaza 4",
+    label: "Asia • Plaza 4",
+    sourceUrl: "https://www.younghustlers.net/plazas/asia-plaza",
+    countries: ["Armenia", "Azerbaijan", "Bahrain", "Indonesia", "Israel", "Laos", "Lebanon", "Maldives", "Nepal", "Sri Lanka", "Thailand", "Uzbekistan", "Vietnam"]
+  },
+  {
+    id: "yh-asia-plaza-5",
+    continent: "Asia",
+    network: "Asian Network",
+    plazaNumber: 5,
+    region: "Asia Plaza 5",
+    label: "Asia • Plaza 5",
+    sourceUrl: "https://www.younghustlers.net/plazas/asia-plaza",
+    countries: ["Afghanistan", "Bangladesh", "Cambodia", "India", "Iran", "Iraq", "Myanmar (Burma)", "North Korea", "Pakistan", "Palestine", "Philippines", "Syria", "Tajikistan", "Turkmenistan", "Yemen"]
+  },
+
+  {
+    id: "yh-latam-plaza-1",
+    continent: "South America",
+    network: "LATAM Network",
+    plazaNumber: 1,
+    region: "LATAM Plaza 1",
+    label: "LATAM • Plaza 1",
+    sourceUrl: "https://www.younghustlers.net/plazas/south-america-plaza",
+    countries: ["Chile", "Uruguay", "Costa Rica", "Panamá", "Cuba"]
+  },
+  {
+    id: "yh-latam-plaza-2",
+    continent: "South America",
+    network: "LATAM Network",
+    plazaNumber: 2,
+    region: "LATAM Plaza 2",
+    label: "LATAM • Plaza 2",
+    sourceUrl: "https://www.younghustlers.net/plazas/south-america-plaza",
+    countries: ["Argentina", "Belize", "Brazil", "Colombia", "Dominican Republic", "Ecuador", "Guatemala", "Mexico", "Paraguay", "Peru"]
+  },
+  {
+    id: "yh-latam-plaza-3",
+    continent: "South America",
+    network: "LATAM Network",
+    plazaNumber: 3,
+    region: "LATAM Plaza 3",
+    label: "LATAM • Plaza 3",
+    sourceUrl: "https://www.younghustlers.net/plazas/south-america-plaza",
+    countries: ["Bolivia", "El Salvador", "Guyana", "Haiti", "Honduras", "Nicaragua", "Venezuela"]
+  },
+
+  {
+    id: "yh-europe-plaza-1",
+    continent: "Europe",
+    network: "European Network",
+    plazaNumber: 1,
+    region: "Europe Plaza 1",
+    label: "Europe • Plaza 1",
+    sourceUrl: "https://www.younghustlers.net/plazas/europe-plaza",
+    countries: ["Austria", "Denmark", "Finland", "Iceland", "Ireland", "Luxembourg", "Norway", "Switzerland"]
+  },
+  {
+    id: "yh-europe-plaza-2",
+    continent: "Europe",
+    network: "European Network",
+    plazaNumber: 2,
+    region: "Europe Plaza 2",
+    label: "Europe • Plaza 2",
+    sourceUrl: "https://www.younghustlers.net/plazas/europe-plaza",
+    countries: ["Portugal", "Slovenia", "Sweden", "Netherlands", "Germany", "Belgium"]
+  },
+  {
+    id: "yh-europe-plaza-3",
+    continent: "Europe",
+    network: "European Network",
+    plazaNumber: 3,
+    region: "Europe Plaza 3",
+    label: "Europe • Plaza 3",
+    sourceUrl: "https://www.younghustlers.net/plazas/europe-plaza",
+    countries: ["Croatia", "Czech Republic", "Estonia", "France", "Hungary", "Italy", "Latvia", "Lithuania", "Poland", "Slovakia", "Spain", "United Kingdom"]
+  },
+  {
+    id: "yh-europe-plaza-4",
+    continent: "Europe",
+    network: "European Network",
+    plazaNumber: 4,
+    region: "Europe Plaza 4",
+    label: "Europe • Plaza 4",
+    sourceUrl: "https://www.younghustlers.net/plazas/europe-plaza",
+    countries: ["Albania", "Bosnia and Herzegovina", "Bulgaria", "Cyprus", "Greece", "Montenegro", "North Macedonia", "Romania", "Serbia", "Turkey"]
+  },
+  {
+    id: "yh-europe-plaza-5",
+    continent: "Europe",
+    network: "European Network",
+    plazaNumber: 5,
+    region: "Europe Plaza 5",
+    label: "Europe • Plaza 5",
+    sourceUrl: "https://www.younghustlers.net/plazas/europe-plaza",
+    countries: ["Belarus", "Kosovo", "Moldova", "Russia", "Ukraine"]
+  },
+
+  {
+    id: "yh-north-america-plaza-1",
+    continent: "North America",
+    network: "North American Network",
+    plazaNumber: 1,
+    region: "North America Plaza 1",
+    label: "North America • Plaza 1",
+    sourceUrl: "https://www.younghustlers.net/plazas/north-america-plaza",
+    countries: ["United States of America"]
+  },
+  {
+    id: "yh-north-america-plaza-2",
+    continent: "North America",
+    network: "North American Network",
+    plazaNumber: 2,
+    region: "North America Plaza 2",
+    label: "North America • Plaza 2",
+    sourceUrl: "https://www.younghustlers.net/plazas/north-america-plaza",
+    countries: ["Canada"]
+  },
+
+  {
+    id: "yh-oceania-plaza-1",
+    continent: "Oceania",
+    network: "Oceanian Network",
+    plazaNumber: 1,
+    region: "Oceania Plaza 1",
+    label: "Oceania • Plaza 1",
+    sourceUrl: "https://www.younghustlers.net/plazas/oceania-plaza",
+    countries: ["Australia", "New Zealand", "Palau", "Samoa", "Tonga", "Tuvalu"]
+  },
+  {
+    id: "yh-oceania-plaza-2",
+    continent: "Oceania",
+    network: "Oceanian Network",
+    plazaNumber: 2,
+    region: "Oceania Plaza 2",
+    label: "Oceania • Plaza 2",
+    sourceUrl: "https://www.younghustlers.net/plazas/oceania-plaza",
+    countries: ["Fiji", "Kiribati", "Marshall Islands", "Micronesia", "Nauru", "Papua New Guinea", "Solomon Islands", "Vanuatu"]
+  }
+];
 let plazaServerFeedLoaded = false;
 let plazaServerFeedItems = [];
 let plazaFeedLoading = false;
@@ -588,8 +814,10 @@ function renderPlazaOpportunityEconomyPanel(item = {}) {
   const escalation = getPlazaOpportunityEscalationLabel(item);
   const source = getPlazaOpportunitySourceLabel(item);
   const note = String(item.monetizationNote || "").trim();
+  const economyMode = String(item.economyMode || "not_sure").trim().toLowerCase();
+  const hasInternalTransactionContext = ["paid", "commission", "revenue_share", "bounty", "equity"].includes(economyMode) || Boolean(item.paymentLedgerId);
 
-  if (!moneyRange && !commission && !escalation && !note) {
+  if (!moneyRange && !commission && !escalation && !note && !hasInternalTransactionContext) {
     return "";
   }
 
@@ -623,6 +851,7 @@ function renderPlazaOpportunityEconomyPanel(item = {}) {
       </div>
 
       ${renderPlazaOpportunityPaymentSummary(item)}
+      ${renderPlazaOpportunityInternalTransactionJustification(item)}
 
       ${
         note
@@ -912,7 +1141,23 @@ function getPlazaOpportunityOperatorPayoutAmount(item = {}) {
 
   return Math.max(0, Math.round((gross - commission) * 100) / 100);
 }
+function getPlazaTransactionSafetyReminderCopy() {
+  return [
+    "For user flexibility, parties may arrange transactions outside YH Universe.",
+    "However, off-platform transactions are not verified, protected, or settled by YH Universe.",
+    "Any loss, fraud, failed delivery, illegal activity, chargeback, or dispute arising from an external arrangement remains the sole responsibility of the parties involved.",
+    "For safer recordkeeping, use the internal Plaza ledger and admin verification flow whenever possible."
+  ].join(" ");
+}
 
+function renderPlazaTransactionSafetyReminder() {
+  return `
+    <div class="yh-plaza-card-note">
+      <strong>Transaction Safety Reminder:</strong>
+      ${escapeHtml(getPlazaTransactionSafetyReminderCopy())}
+    </div>
+  `;
+}
 function renderPlazaOpportunityPaymentSummary(item = {}) {
   const statusLabel = getPlazaOpportunityPaymentStatusLabel(item);
   const gross = getPlazaOpportunityGrossAmount(item);
@@ -951,9 +1196,56 @@ function renderPlazaOpportunityPaymentSummary(item = {}) {
         <strong>${escapeHtml(safeArray(item.paymentProviderOptions).join(", ") || "Manual / Ledger")}</strong>
       </div>
     </div>
+
+    ${renderPlazaTransactionSafetyReminder()}
   `;
 }
+function getPlazaOpportunityInternalTransactionJustification(item = {}) {
+  const economyMode = String(item.economyMode || "not_sure").trim().toLowerCase();
+  const statusLabel = getPlazaOpportunityPaymentStatusLabel(item);
+  const hasLedger = Boolean(item.paymentLedgerId);
+  const gross = getPlazaOpportunityGrossAmount(item);
+  const operatorPayout = getPlazaOpportunityOperatorPayoutAmount(item);
+  const currency = String(item.currency || "USD").trim().toUpperCase() || "USD";
 
+  const isMonetizedPath =
+    hasLedger ||
+    gross > 0 ||
+    ["paid", "commission", "revenue_share", "bounty", "equity"].includes(economyMode);
+
+  if (!isMonetizedPath) {
+    return null;
+  }
+
+  const payoutCopy = operatorPayout
+    ? `${formatPlazaCurrencyAmount(operatorPayout, currency)} is reserved as the provider/operator payout once payment is confirmed.`
+    : "The provider/operator payout is calculated after the deal amount and YH commission are set.";
+
+  return {
+    title: "Internal Plaza Transaction",
+    statusLabel,
+    text: [
+      "This is not a public checkout flow. It is an internal Plaza ledger used to track a deal between a service seeker and a trusted Academy member or service provider.",
+      "The seeker creates the ledger, YH/Admin verifies the real payment, then the provider payout becomes available in Wallet under Plaza.",
+      payoutCopy
+    ].join(" ")
+  };
+}
+
+function renderPlazaOpportunityInternalTransactionJustification(item = {}) {
+  const context = getPlazaOpportunityInternalTransactionJustification(item);
+
+  if (!context) return "";
+
+  return `
+    <div class="yh-plaza-economy-note">
+      <strong>${escapeHtml(context.title)}:</strong>
+      ${escapeHtml(context.text)}
+      <br>
+      <span>Status: ${escapeHtml(context.statusLabel)}</span>
+    </div>
+  `;
+}
 function refreshPlazaWalletAfterMonetization() {
   try {
     localStorage.setItem(
@@ -1031,8 +1323,12 @@ function openPlazaOpportunityPaymentModal(opportunityId = "", mode = "draft") {
     bodyHtml: `
       <form id="plaza-payment-ledger-form" data-opportunity-id="${escapeHtml(item.id)}" data-payment-mode="${escapeHtml(mode)}">
         <div class="yh-plaza-modal-copy">
-          This creates a real payment ledger for <strong>${escapeHtml(item.title || "this Plaza opportunity")}</strong>.
-          This creates or updates a draft payment ledger. Admin will verify/settle the payment from the Economy panel before any operator payout appears in the Wallet.
+          This starts an internal Plaza transaction for <strong>${escapeHtml(item.title || "this Plaza opportunity")}</strong>.
+          The service seeker creates the ledger first. YH/Admin verifies the real payment before the Academy member or service provider receives an available payout in Wallet.
+          This protects both sides: the seeker gets a tracked deal record, and the provider only receives a payout after settlement is confirmed.
+          <br><br>
+          <strong>Transaction Safety Reminder:</strong>
+          ${escapeHtml(getPlazaTransactionSafetyReminderCopy())}
         </div>
 
         <div class="yh-plaza-form-grid">
@@ -1105,7 +1401,7 @@ function renderPlazaOpportunityPaymentActions(item = {}) {
       data-plaza-payment-ledger="${escapeHtml(item.id)}"
       ${isPaid ? "disabled aria-disabled=\"true\"" : ""}
     >
-      ${isPaid ? "Paid" : hasLedger ? "Update Payment Ledger" : "Create Payment Ledger"}
+      ${isPaid ? "Paid" : hasLedger ? "Update Internal Ledger" : "Start Internal Transaction"}
     </button>
   `;
 }
@@ -1202,13 +1498,27 @@ function getPlazaDirectoryItemById(id = "") {
   return plazaAdapter.getMemberById(cleanId);
 }
 
+function getPlazaRegionById(id = "") {
+  const cleanId = String(id || "").trim();
+  if (!cleanId) return null;
+
+  return getPlazaRegionsForRender().find((item) => {
+    return String(item.id || "").trim() === cleanId;
+  }) || null;
+}
+
 function normalizeServerRegionItem(item, index = 0) {
   return normalizeRegionItem({
     id: item?.id || `server-region-${index + 1}`,
     region: item?.region || item?.name || "Global",
     count: Number(item?.count || 0),
     label: item?.label || "Region Hub",
-    text: item?.text || item?.description || ""
+    text: item?.text || item?.description || "",
+    continent: item?.continent || "",
+    network: item?.network || "",
+    plazaNumber: item?.plazaNumber || item?.plaza_number || "",
+    countries: Array.isArray(item?.countries) ? item.countries : [],
+    sourceUrl: item?.sourceUrl || item?.source_url || ""
   }, index);
 }
 
@@ -1702,12 +2012,22 @@ function normalizeOpportunityItem(item, index) {
 }
 
 function normalizeRegionItem(item, index) {
+  const countries = Array.isArray(item?.countries)
+    ? item.countries.map((country) => String(country || "").trim()).filter(Boolean)
+    : [];
+
   return {
     id: item?.id || `region-${index + 1}`,
     region: String(item?.region || "Unknown region"),
     count: Number(item?.count || 0),
     label: String(item?.label || "Region Hub"),
-    text: String(item?.text || "No region details yet.")
+    text: String(item?.text || "No region details yet."),
+    continent: String(item?.continent || ""),
+    network: String(item?.network || ""),
+    plazaNumber: item?.plazaNumber || "",
+    countries,
+    countryCount: countries.length,
+    sourceUrl: String(item?.sourceUrl || "")
   };
 }
 
@@ -4671,31 +4991,82 @@ function renderOpportunities() {
   }).join("");
 }
 
+function getYHCanonicalPlazaRegions() {
+  return YH_CANONICAL_PLAZAS.map((plaza, index) => {
+    const countries = safeArray(plaza.countries).map((country) => String(country || "").trim()).filter(Boolean);
+
+    return normalizeRegionItem({
+      ...plaza,
+      count: countries.length,
+      text: `${plaza.network} regional hub covering ${countries.length} countries: ${countries.join(", ")}.`
+    }, index);
+  });
+}
+
+function getPlazaRegionsForRender() {
+  const serverItems = plazaServerRegionsLoaded ? safeArray(plazaServerRegions) : [];
+
+  if (serverItems.length) {
+    return serverItems;
+  }
+
+  const adapterItems = !plazaServerRegionsLoaded
+    ? safeArray(plazaAdapter.getRegions())
+    : [];
+
+  if (adapterItems.length) {
+    return adapterItems;
+  }
+
+  return getYHCanonicalPlazaRegions();
+}
+
+function renderPlazaRegionCountryList(item = {}) {
+  const countries = safeArray(item.countries)
+    .map((country) => String(country || "").trim())
+    .filter(Boolean);
+
+  if (!countries.length) return "";
+
+  return `
+    <div class="yh-plaza-card-note">
+      <strong>${escapeHtml(String(countries.length))} Countries:</strong>
+      ${escapeHtml(countries.join(", "))}
+    </div>
+  `;
+}
+
 function renderRegions() {
   if (!plazaRegionGrid) return;
 
-  const items = plazaServerRegionsLoaded
-    ? plazaServerRegions
-    : plazaAdapter.getRegions();
+  const items = getPlazaRegionsForRender();
 
   if (!items.length) {
     plazaRegionGrid.innerHTML = `<div class="yh-plaza-empty">No regional hubs yet.</div>`;
     return;
   }
 
-  plazaRegionGrid.innerHTML = items.map((item) => `
-    <article class="yh-plaza-region-card">
-      <div class="yh-plaza-region-card-head">
-        <span class="yh-plaza-region-badge">${escapeHtml(item.label)}</span>
-        <span class="yh-plaza-region-badge">${escapeHtml(String(item.count))} members</span>
-      </div>
-      <h3>${escapeHtml(item.region)}</h3>
-      <p>${escapeHtml(item.text)}</p>
-      <div class="yh-plaza-card-actions">
-        <button type="button" class="yh-plaza-ghost-btn" data-region-id="${escapeHtml(item.id)}">Enter Region Hub</button>
-      </div>
-    </article>
-  `).join("");
+  plazaRegionGrid.innerHTML = items.map((item) => {
+    const countryCount = Number(item.countryCount || safeArray(item.countries).length || 0);
+    const countLabel = countryCount
+      ? `${countryCount} countries`
+      : `${Number(item.count || 0)} members`;
+
+    return `
+      <article class="yh-plaza-region-card">
+        <div class="yh-plaza-region-card-head">
+          <span class="yh-plaza-region-badge">${escapeHtml(item.label)}</span>
+          <span class="yh-plaza-region-badge">${escapeHtml(countLabel)}</span>
+        </div>
+        <h3>${escapeHtml(item.region)}</h3>
+        <p>${escapeHtml(item.text)}</p>
+        ${renderPlazaRegionCountryList(item)}
+        <div class="yh-plaza-card-actions">
+          <button type="button" class="yh-plaza-ghost-btn" data-region-id="${escapeHtml(item.id)}">Enter Region Hub</button>
+        </div>
+      </article>
+    `;
+  }).join("");
 }
 
 function renderBridge() {
@@ -5760,23 +6131,36 @@ function renderRegionHubScreen(item) {
   const members = plazaAdapter.getRegionMembers(item.region);
   const opportunities = plazaAdapter.getRegionOpportunities(item.region);
   const bridgeItems = plazaAdapter.getRegionBridge(item.region);
+  const countries = safeArray(item.countries).map((country) => String(country || "").trim()).filter(Boolean);
+  const countryCount = countries.length;
 
   plazaRegionHubTitle.textContent = item.region;
-  plazaRegionHubMeta.innerHTML = [item.label, `${item.count} visible members`, "Regional clustering"]
+  plazaRegionHubMeta.innerHTML = [
+    item.label,
+    item.network || item.continent || "",
+    countryCount ? `${countryCount} countries` : `${item.count} visible members`,
+    "Regional clustering"
+  ]
+    .filter(Boolean)
     .map((meta) => `<span class="yh-plaza-view-chip">${escapeHtml(meta)}</span>`)
     .join("");
 
   plazaRegionHubBody.innerHTML = `
     <div class="yh-plaza-detail-grid">
       <article class="yh-plaza-detail-block">
-        <span class="yh-plaza-view-chip">Regional signal</span>
+        <span class="yh-plaza-view-chip">Official YH Plaza</span>
         <h3>${escapeHtml(item.region)}</h3>
         <p>${escapeHtml(item.text)}</p>
         <div class="yh-plaza-card-note">Hub label: ${escapeHtml(item.label)}</div>
+        ${
+          countries.length
+            ? `<div class="yh-plaza-card-note"><strong>Countries inside this Plaza:</strong> ${escapeHtml(countries.join(", "))}</div>`
+            : ""
+        }
       </article>
       <article class="yh-plaza-detail-block">
         <span class="yh-plaza-view-chip">Hub purpose</span>
-        <p>Region Hubs cluster members, opportunities, and bridge paths inside one local view so Plaza can move from broad discovery into local action.</p>
+        <p>This Plaza groups members by country and region so local networking, service requests, opportunities, and leadership growth can happen inside one structured YH regional hub.</p>
         <div class="yh-plaza-card-note">Use the primary action to open a tracked regional request.</div>
       </article>
     </div>
@@ -6308,7 +6692,7 @@ function handleDetailPrimaryAction(action) {
 
   if (action.startsWith("request-region:")) {
     const id = action.split(":")[1];
-    const item = plazaAdapter.getRegionById(id);
+    const item = getPlazaRegionById(id) || plazaAdapter.getRegionById(id);
     if (!item) return;
     buildRequestDrawer({
       kicker: "Regional Request",
@@ -6603,7 +6987,8 @@ function bindEvents() {
 
     const regionBtn = target.closest("[data-region-id]");
     if (regionBtn instanceof HTMLElement) {
-      renderRegionHubScreen(plazaAdapter.getRegionById(regionBtn.dataset.regionId));
+      const region = getPlazaRegionById(regionBtn.dataset.regionId) || plazaAdapter.getRegionById(regionBtn.dataset.regionId);
+      renderRegionHubScreen(region);
       return;
     }
 
@@ -6789,7 +7174,7 @@ if (plazaMarkPaidBtn instanceof HTMLButtonElement) {
           });
 
           closeModal();
-          showToast("Plaza payment ledger created. Admin must mark it paid before payout is unlocked.");
+          showToast("Plaza payment ledger created. Admin must mark it paid before payout is unlocked. Off-platform transactions remain at users’ own risk.");
         }
       );
 
