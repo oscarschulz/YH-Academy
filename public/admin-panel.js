@@ -5362,6 +5362,7 @@ function openDrawer(type, id) {
     federationDealRoom: 'federationDealRooms',
     federation: 'federation',
     plazas: 'plazas',
+    plazaRequest: 'plazaRoutingRequests',
     support: 'support'
   };
 
