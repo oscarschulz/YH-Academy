@@ -1,9 +1,116 @@
-function markFederationViewActive() {
+function getFederationParentDocument() {
+  try {
+    if (window.parent && window.parent !== window && window.parent.document) {
+      return window.parent.document;
+    }
+  } catch (_) {}
+
+  return document;
+}
+
+function installFederationParentTopNavStyle(parentDoc) {
+  if (!parentDoc || parentDoc.getElementById("yh-federation-parent-nav-style")) return;
+
+  const style = parentDoc.createElement("style");
+  style.id = "yh-federation-parent-nav-style";
+  style.textContent = `
+    html.yh-federation-view-active .yh-top-nav .yh-dashboard-top-edit-btn,
+    html.yh-federation-view-active .yh-top-nav .yh-wallet-open-btn,
+    html.yh-federation-view-active .yh-top-nav .btn-logout,
+    body.yh-federation-view-active .yh-top-nav .yh-dashboard-top-edit-btn,
+    body.yh-federation-view-active .yh-top-nav .yh-wallet-open-btn,
+    body.yh-federation-view-active .yh-top-nav .btn-logout {
+      display: none !important;
+    }
+
+    html.yh-federation-view-active .yh-top-nav .nav-actions,
+    body.yh-federation-view-active .yh-top-nav .nav-actions {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: flex-end !important;
+      gap: 10px !important;
+    }
+
+    html.yh-federation-view-active .yh-top-nav .fed-dashboard-universe-back-btn,
+    body.yh-federation-view-active .yh-top-nav .fed-dashboard-universe-back-btn {
+      width: auto !important;
+      min-width: max-content !important;
+      min-height: 42px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 8px !important;
+      padding: 10px 14px !important;
+      border-radius: 14px !important;
+      border: 1px solid rgba(77, 139, 255, 0.5) !important;
+      background: rgba(77, 139, 255, 0.08) !important;
+      color: #8bd4ff !important;
+      font-size: 0.9rem !important;
+      font-weight: 800 !important;
+      letter-spacing: 0.02em !important;
+      line-height: 1.1 !important;
+      text-align: center !important;
+      text-decoration: none !important;
+      box-shadow: none !important;
+      transition: 0.2s ease !important;
+    }
+
+    html.yh-federation-view-active .yh-top-nav .fed-dashboard-universe-back-btn:hover,
+    body.yh-federation-view-active .yh-top-nav .fed-dashboard-universe-back-btn:hover {
+      color: #ffffff !important;
+      border-color: rgba(77, 139, 255, 0.72) !important;
+      background: rgba(77, 139, 255, 0.16) !important;
+      transform: translateY(-1px) !important;
+    }
+  `;
+
+  parentDoc.head.appendChild(style);
+}
+
+function syncFederationParentTopNav() {
+  const parentDoc = getFederationParentDocument();
+
   document.documentElement.classList.add("yh-federation-view-active");
 
   if (document.body) {
     document.body.classList.add("yh-federation-view-active");
   }
+
+  if (!parentDoc) return false;
+
+  parentDoc.documentElement.classList.add("yh-federation-view-active");
+
+  if (parentDoc.body) {
+    parentDoc.body.classList.add("yh-federation-view-active");
+  }
+
+  installFederationParentTopNavStyle(parentDoc);
+
+  const navActions = parentDoc.querySelector(".yh-top-nav .nav-actions");
+  if (!navActions) return false;
+
+  let backButton = parentDoc.getElementById("fedDashboardTopBackToUniverse");
+
+  if (!backButton) {
+    backButton = parentDoc.createElement("a");
+    backButton.id = "fedDashboardTopBackToUniverse";
+    backButton.className = "fed-dashboard-universe-back-btn";
+    backButton.href = "/dashboard";
+    backButton.target = "_top";
+    backButton.textContent = "← Go back to Universe";
+    backButton.setAttribute("aria-label", "Go back to Universe dashboard");
+    navActions.appendChild(backButton);
+  }
+
+  return true;
+}
+
+function markFederationViewActive() {
+  if (syncFederationParentTopNav()) return;
+
+  window.setTimeout(syncFederationParentTopNav, 120);
+  window.setTimeout(syncFederationParentTopNav, 420);
+  window.setTimeout(syncFederationParentTopNav, 900);
 }
 
 markFederationViewActive();

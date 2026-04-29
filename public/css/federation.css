@@ -62,7 +62,7 @@ html.yh-federation-view-active .yh-top-nav .btn-logout,
 body.yh-federation-view-active .yh-top-nav .yh-dashboard-top-edit-btn,
 body.yh-federation-view-active .yh-top-nav .yh-wallet-open-btn,
 body.yh-federation-view-active .yh-top-nav .btn-logout {
-  display: none;
+  display: none !important;
 }
 
 button,
@@ -263,39 +263,16 @@ textarea {
 }
 
 .fed-topbar-head {
-  position: relative;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 18px;
   width: 100%;
   min-width: 0;
-  padding-right: 210px;
 }
 
 .fed-topbar-copy {
   min-width: 0;
-}
-
-.fed-topbar-universe-corner {
-  position: absolute;
-  top: 0;
-  right: 0;
-  z-index: 2;
-}
-
-@media (max-width: 980px) {
-  .fed-topbar-head {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 12px;
-    padding-right: 0;
-  }
-
-  .fed-topbar-universe-corner {
-    position: static;
-    justify-self: end;
-  }
 }
 
 .fed-topbar-actions,
