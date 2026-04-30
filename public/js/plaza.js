@@ -1744,7 +1744,7 @@ async function loadPlazaRegionsFromServer(options = {}) {
   plazaRegionsLoading = true;
 
   if (plazaRegionGrid && options.silent !== true) {
-    plazaRegionGrid.innerHTML = `<div class="yh-plaza-empty">Loading Plaza regions...</div>`;
+    plazaRegionGrid.innerHTML = `<div class="yh-plaza-empty">Loading Plazas regions...</div>`;
   }
 
   try {
@@ -1763,7 +1763,7 @@ async function loadPlazaRegionsFromServer(options = {}) {
     console.error("loadPlazaRegionsFromServer error:", error);
 
     if (plazaRegionGrid) {
-      plazaRegionGrid.innerHTML = `<div class="yh-plaza-empty">Could not load Plaza regions. Please refresh.</div>`;
+      plazaRegionGrid.innerHTML = `<div class="yh-plaza-empty">Could not load Plazas regions. Please refresh.</div>`;
     }
 
     return [];
@@ -1810,7 +1810,7 @@ async function loadPlazaBridgeFromServer(options = {}) {
   plazaBridgeLoading = true;
 
   if (plazaBridgeGrid && options.silent !== true) {
-    plazaBridgeGrid.innerHTML = `<div class="yh-plaza-empty">Loading Plaza bridge paths...</div>`;
+    plazaBridgeGrid.innerHTML = `<div class="yh-plaza-empty">Loading Plazas bridge paths...</div>`;
   }
 
   try {
@@ -1826,7 +1826,7 @@ async function loadPlazaBridgeFromServer(options = {}) {
     console.error("loadPlazaBridgeFromServer error:", error);
 
     if (plazaBridgeGrid) {
-      plazaBridgeGrid.innerHTML = `<div class="yh-plaza-empty">Could not load Plaza bridge paths. Please refresh.</div>`;
+      plazaBridgeGrid.innerHTML = `<div class="yh-plaza-empty">Could not load Plazas bridge paths. Please refresh.</div>`;
     }
 
     return [];
@@ -2213,7 +2213,7 @@ async function loadPlazaMessagesFromServer(options = {}) {
   plazaMessagesLoading = true;
 
   if (plazaMessagesList && options.silent !== true) {
-    plazaMessagesList.innerHTML = `<div class="yh-plaza-empty">Loading Plaza messages...</div>`;
+    plazaMessagesList.innerHTML = `<div class="yh-plaza-empty">Loading Plazas messages...</div>`;
   }
 
   try {
@@ -2229,7 +2229,7 @@ async function loadPlazaMessagesFromServer(options = {}) {
     console.error("loadPlazaMessagesFromServer error:", error);
 
     if (plazaMessagesList) {
-      plazaMessagesList.innerHTML = `<div class="yh-plaza-empty">Could not load Plaza messages. Please refresh.</div>`;
+      plazaMessagesList.innerHTML = `<div class="yh-plaza-empty">Could not load Plazas messages. Please refresh.</div>`;
     }
 
     return [];
@@ -4193,133 +4193,133 @@ const plazaConfig = {
     note: "Network movement, wins, introductions, opportunities, and regional updates across YH Universe.",
     navTab: "feed",
     toolbar: "feed",
-    breadcrumb: ["Plaza", "Feed"]
+    breadcrumb: ["Plazas", "Feed"]
   },
   opportunities: {
     title: "Opportunities",
     note: "Find work, collaboration, projects, partnerships, introductions, service needs, and regional openings.",
     navTab: "opportunities",
     toolbar: null,
-    breadcrumb: ["Plaza", "Opportunities"]
+    breadcrumb: ["Plazas", "Opportunities"]
   },
   directory: {
     title: "Directory",
     note: "Find builders, operators, service providers, regional connectors, and Federation-linked members by role and trust layer.",
     navTab: "directory",
     toolbar: "directory",
-    breadcrumb: ["Plaza", "Directory"]
+    breadcrumb: ["Plazas", "Directory"]
   },
   regions: {
     title: "Regions",
     note: "Organize movement locally through city and country hubs that cluster members, opportunities, requests, and real-world access.",
     navTab: "regions",
     toolbar: null,
-    breadcrumb: ["Plaza", "Regions"]
+    breadcrumb: ["Plazas", "Regions"]
   },
   atlas: {
-    title: "Plaza Atlas",
+    title: "Plazas Atlas",
     note: "Visualize the official Plaza topology, countries, networks, and Patron / Leader coverage.",
     navTab: "atlas",
     toolbar: null,
-    breadcrumb: ["Plaza", "Atlas"]
+    breadcrumb: ["Plazas", "Atlas"]
   },
   patron: {
     title: "Become Patron",
     note: "Apply to become the approved Patron or Leader for one official Plaza.",
     navTab: "patron",
     toolbar: null,
-    breadcrumb: ["Plaza", "Patron Application"]
+    breadcrumb: ["Plazas", "Patron Application"]
   },
   "patron-desk": {
     title: "Patron Desk",
     note: "Manage regional Patron operations, routed requests, recommendations, and commission payout visibility.",
     navTab: "patron-desk",
     toolbar: null,
-    breadcrumb: ["Plaza", "Patron Desk"]
+    breadcrumb: ["Plazas", "Patron Desk"]
   },
   bridge: {
     title: "Bridge",
     note: "Track how Academy execution turns into Plaza visibility and later becomes Federation-relevant access.",
     navTab: "bridge",
     toolbar: null,
-    breadcrumb: ["Plaza", "Bridge"]
+    breadcrumb: ["Plazas", "Bridge"]
   },
   requests: {
     title: "Requests",
     note: "Track intro, opportunity, collaboration, service, regional, project, and Federation escalation requests.",
     navTab: "requests",
     toolbar: null,
-    breadcrumb: ["Plaza", "Requests"]
+    breadcrumb: ["Plazas", "Requests"]
   },
   inbox: {
     title: "Inbox",
     note: "Incoming Plaza activity, requests, applications, and conversation handoffs connected to your role.",
     navTab: "inbox",
     toolbar: null,
-    breadcrumb: ["Plaza", "Inbox"]
+    breadcrumb: ["Plazas", "Inbox"]
   },
   "incoming-detail": {
     title: "Incoming Detail",
     note: "Review routing ownership, incoming package, and conversation conversion without leaving Plaza.",
     navTab: null,
     toolbar: null,
-    breadcrumb: ["Plaza", "Inbox Hub", "Incoming Detail"]
+    breadcrumb: ["Plazas", "Inbox Hub", "Incoming Detail"]
   },
   notifications: {
     title: "Notifications",
     note: "Awareness events point toward inbox items, requests, and conversations without replacing those workflows.",
     navTab: null,
     toolbar: null,
-    breadcrumb: ["Plaza", "Notifications"]
+    breadcrumb: ["Plazas", "Notifications"]
   },
   messages: {
     title: "Conversations",
     note: "Context-based chats opened from opportunities, requests, directory intros, regional hubs, and projects.",
     navTab: "messages",
     toolbar: null,
-    breadcrumb: ["Plaza", "Conversations"]
+    breadcrumb: ["Plazas", "Conversations"]
   },
   meetups: {
     title: "Meetups",
     note: "Coordinate regional Plaza meetups, local networking sessions, and patron-led gatherings.",
     navTab: "meetups",
     toolbar: null,
-    breadcrumb: ["Plaza", "Meetups"]
+    breadcrumb: ["Plazas", "Meetups"]
   },
   conversation: {
     title: "Conversation",
     note: "Message threads stay tied to their opening route, queue owner, and original Plaza context.",
     navTab: null,
     toolbar: null,
-    breadcrumb: ["Plaza", "Messages", "Conversation"]
+    breadcrumb: ["Plazas", "Messages", "Conversation"]
   },
   "opportunity-detail": {
     title: "Opportunity Detail",
     note: "Structured fit, related members, and next-step routing inside the same Plaza workspace.",
     navTab: "opportunities",
     toolbar: null,
-    breadcrumb: ["Plaza", "Opportunities", "Opportunity Detail"]
+    breadcrumb: ["Plazas", "Opportunities", "Opportunity Detail"]
   },
   "project-detail": {
     title: "Project Detail",
     note: "Cross-division projects now stay inside Plaza as an internal screen instead of breaking the workflow.",
     navTab: "feed",
     toolbar: null,
-    breadcrumb: ["Plaza", "Feed", "Project Detail"]
+    breadcrumb: ["Plazas", "Feed", "Project Detail"]
   },
   "region-hub": {
     title: "Region Hub",
     note: "Local movement, members, and next steps stay inside the same embedded YH Universe workspace.",
     navTab: "regions",
     toolbar: null,
-    breadcrumb: ["Plaza", "Regions", "Region Hub"]
+    breadcrumb: ["Plazas", "Regions", "Region Hub"]
   },
   "bridge-detail": {
     title: "Bridge Detail",
     note: "Bridge lanes now behave like first-class internal screens with clean routing and tracked next steps.",
     navTab: "bridge",
     toolbar: null,
-    breadcrumb: ["Plaza", "Bridge", "Bridge Detail"]
+    breadcrumb: ["Plazas", "Bridge", "Bridge Detail"]
   }
 };
 
@@ -4454,10 +4454,10 @@ function getPlazaScreenLoaderLabel(screenName = "") {
   const configTitle = String(plazaConfig?.[key]?.title || "").trim();
   if (configTitle) return `Loading ${configTitle}...`;
 
-  return "Loading Plaza...";
+  return "Loading Plazas...";
 }
 
-function showPlazaTabLoader(screenNameOrLabel = "Loading Plaza...") {
+function showPlazaTabLoader(screenNameOrLabel = "Loading Plazas...") {
   const loader = document.getElementById("yh-tab-loader");
   const text = document.getElementById("yh-tab-loader-text");
 
@@ -7211,8 +7211,8 @@ function buildRequestDrawer(config = {}) {
 }
 
 function buildApplicationDrawer(config = {}) {
-  const title = config.title || "Apply through Plaza.";
-  const kicker = config.kicker || "Plaza Application";
+  const title = config.title || "Apply through Plazas.";
+  const kicker = config.kicker || "Plazas Application";
   const sourceType = config.sourceType || "opportunity";
   const context = config.context || "";
   const region = config.region || "";
@@ -8065,7 +8065,7 @@ function handleDetailPrimaryAction(action) {
 
     if (normalizedOpportunityObjective === "Hiring") {
       buildApplicationDrawer({
-        kicker: "Plaza Application",
+        kicker: "Plazas Application",
         title: item.title,
         sourceType,
         targetId: item.id,
@@ -10376,7 +10376,7 @@ async function submitPlazaApplication(event) {
 
   if (payload.membershipType === "not_yet") {
     if (typeof showToast === "function") {
-      showToast("Plaza is only open to Academy or Federation members.", "error");
+      showToast("The Plazas are only open to Academy or Federation members.", "error");
     }
     return;
   }
@@ -10409,13 +10409,13 @@ async function submitPlazaApplication(event) {
     });
 
     if (typeof showToast === "function") {
-      showToast("Plaza application submitted. Wait for admin approval.", "success");
+      showToast("Plazas application submitted. Wait for admin approval.", "success");
     }
   } catch (error) {
     console.error("submitPlazaApplication error:", error);
 
     if (typeof showToast === "function") {
-      showToast(error.message || "Could not submit Plaza application.", "error");
+      showToast(error.message || "Could not submit Plazas application.", "error");
     }
   } finally {
     clearButtonBusy(plazaApplicationSubmitBtn);
@@ -10479,7 +10479,7 @@ async function ensurePlazaAccessBeforeBoot() {
     });
 
     if (typeof showToast === "function") {
-      showToast(error.message || "Could not verify Plaza access.", "error");
+      showToast(error.message || "Could not verify Plazas access.", "error");
     }
 
     return false;

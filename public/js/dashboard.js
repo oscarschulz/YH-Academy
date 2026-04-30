@@ -739,8 +739,8 @@ function getDashboardDivisionProgressionGate(division = 'plaza', accessSnapshot 
             ? 'Federation-ready'
             : 'Building Federation Signal'
         : ready
-            ? 'Plaza-ready'
-            : 'Building Plaza Signal';
+            ? 'Plazas-ready'
+            : 'Building Plazas Signal';
 
     return {
         locked: false,
@@ -770,27 +770,27 @@ function getYHPlazaProfileStatusState(plazaSnapshot = null) {
     if (!plazaApproved) {
         return {
             label: 'Locked',
-            copy: 'Plaza must be approved before a Plaza profile can be seeded.'
+            copy: 'Access to the Plazas must be approved before a Plazas profile can be seeded.'
         };
     }
 
     if (!directorySnapshot || directorySnapshot.seeded !== true) {
         return {
             label: 'Not Seeded',
-            copy: 'Your Plaza access is approved, but your Plaza profile has not been seeded yet.'
+            copy: 'Your Plazas access is approved, but your Plazas profile has not been seeded yet.'
         };
     }
 
     if (directorySnapshot.readyForOpportunityFlow === true) {
         return {
             label: 'Ready',
-            copy: 'Your Plaza profile is seeded and ready for opportunity flow.'
+            copy: 'Your Plazas profile is seeded and ready for opportunity flow.'
         };
     }
 
     return {
         label: 'Seeded',
-        copy: 'Your Plaza profile exists, but it still needs stronger role/focus/offer signal for opportunity flow.'
+        copy: 'Your Plazas profile exists, but it still needs stronger role/focus/offer signal for opportunity flow.'
     };
 }
 function getYHPlazaOpportunityScoreState(plazaSnapshot = null) {
@@ -808,7 +808,7 @@ function getYHPlazaOpportunityScoreState(plazaSnapshot = null) {
         return {
             score: 0,
             label: 'Locked',
-            copy: 'Plaza must be approved before opportunity scoring can begin.'
+            copy: 'Plazas must be approved before opportunity scoring can begin.'
         };
     }
 
@@ -816,7 +816,7 @@ function getYHPlazaOpportunityScoreState(plazaSnapshot = null) {
         return {
             score: 0,
             label: 'Not Seeded',
-            copy: 'Your Plaza profile has not been seeded yet, so opportunity scoring is still blocked.'
+            copy: 'Your Plazas profile has not been seeded yet, so opportunity scoring is still blocked.'
         };
     }
 
@@ -829,7 +829,7 @@ function getYHPlazaOpportunityScoreState(plazaSnapshot = null) {
             label: stage,
             copy: String(
                 directorySnapshot?.opportunityCopy ||
-                'Your Plaza opportunity score has been calculated.'
+                'Your Plazas opportunity score has been calculated.'
             ).trim()
         };
     }
@@ -838,7 +838,7 @@ function getYHPlazaOpportunityScoreState(plazaSnapshot = null) {
         return {
             score,
             label: 'Ready for Strategic Escalation',
-            copy: 'Your Plaza profile is strong enough for strategic routing and higher-trust opportunity flow.'
+            copy: 'Your Plazas profile is strong enough for strategic routing and higher-trust opportunity flow.'
         };
     }
 
@@ -846,7 +846,7 @@ function getYHPlazaOpportunityScoreState(plazaSnapshot = null) {
         return {
             score,
             label: 'Ready for Matching',
-            copy: 'Your Plaza profile is strong enough for direct matching and opportunity routing.'
+            copy: 'Your Plazas profile is strong enough for direct matching and opportunity routing.'
         };
     }
 
@@ -854,14 +854,14 @@ function getYHPlazaOpportunityScoreState(plazaSnapshot = null) {
         return {
             score,
             label: 'Active',
-            copy: 'Your Plaza profile is active, but it still needs stronger signal before it becomes highly matchable.'
+            copy: 'Your Plazas profile is active, but it still needs stronger signal before it becomes highly matchable.'
         };
     }
 
     return {
         score,
         label: 'Weak',
-        copy: 'Your Plaza profile exists, but it is still too thin for strong opportunity flow.'
+        copy: 'Your Plazas profile exists, but it is still too thin for strong opportunity flow.'
     };
 }
 function getYHFederationReadinessState(plazaSnapshot = null, federationSnapshot = null) {
@@ -897,8 +897,8 @@ function getYHFederationReadinessState(plazaSnapshot = null, federationSnapshot 
     if (!plazaApproved) {
         return {
             score: 0,
-            label: 'Plaza First',
-            copy: 'Federation candidacy starts after Plaza approval and signal-building inside Plaza.',
+            label: 'Plazas First',
+            copy: 'Federation candidacy starts after Plazas approval and signal-building inside Plazas.',
             connectReady: false
         };
     }
@@ -906,8 +906,8 @@ function getYHFederationReadinessState(plazaSnapshot = null, federationSnapshot 
     if (plazaProfile.label === 'Not Seeded') {
         return {
             score: 0,
-            label: 'Seed Plaza Profile',
-            copy: 'Seed your Plaza profile first so the Federation layer can evaluate your signal.',
+            label: 'Seed Plazas Profile',
+            copy: 'Seed your Plazas profile first so the Federation layer can evaluate your signal.',
             connectReady: false
         };
     }
@@ -918,7 +918,7 @@ function getYHFederationReadinessState(plazaSnapshot = null, federationSnapshot 
             label: 'Review Rejected',
             copy: String(
                 federationOutcome?.copy ||
-                'Your Federation application was not approved in this cycle. Build stronger Plaza outcomes, trust, and leverage before reapplying.'
+                'Your Federation application was not approved in this cycle. Build stronger Plazas outcomes, trust, and leverage before reapplying.'
             ).trim(),
             connectReady: false
         };
@@ -930,7 +930,7 @@ function getYHFederationReadinessState(plazaSnapshot = null, federationSnapshot 
             label: 'Waitlisted',
             copy: String(
                 federationOutcome?.copy ||
-                'Your Federation application has been waitlisted. Strengthen your Plaza signal and strategic proof before the next review cycle.'
+                'Your Federation application has been waitlisted. Strengthen your Plazas signal and strategic proof before the next review cycle.'
             ).trim(),
             connectReady: false
         };
@@ -967,7 +967,7 @@ function getYHFederationReadinessState(plazaSnapshot = null, federationSnapshot 
             return {
                 score,
                 label: 'Inside Federation',
-                copy: 'You are already inside Federation and your Plaza layer is strong enough for strategic routing and higher-trust Connect readiness.',
+                copy: 'You are already inside Federation and your Plazas layer is strong enough for strategic routing and higher-trust Connect readiness.',
                 connectReady: true
             };
         }
@@ -976,7 +976,7 @@ function getYHFederationReadinessState(plazaSnapshot = null, federationSnapshot 
             return {
                 score,
                 label: 'Inside Federation',
-                copy: 'You are inside Federation and your Plaza layer is strong enough for qualified Connect activity.',
+                copy: 'You are inside Federation and your Plazas layer is strong enough for qualified Connect activity.',
                 connectReady: true
             };
         }
@@ -984,7 +984,7 @@ function getYHFederationReadinessState(plazaSnapshot = null, federationSnapshot 
         return {
             score,
             label: 'Inside Federation',
-            copy: 'You are inside Federation, but your Plaza layer still needs stronger signal for higher-trust Connect positioning.',
+            copy: 'You are inside Federation, but your Plazas layer still needs stronger signal for higher-trust Connect positioning.',
             connectReady: false
         };
     }
@@ -993,7 +993,7 @@ function getYHFederationReadinessState(plazaSnapshot = null, federationSnapshot 
         return {
             score,
             label: 'Strategic Candidate',
-            copy: 'Your Plaza opportunity score is strong enough to support serious Federation candidacy and high-trust Connect readiness.',
+            copy: 'Your Plazas opportunity score is strong enough to support serious Federation candidacy and high-trust Connect readiness.',
             connectReady: true
         };
     }
@@ -1002,7 +1002,7 @@ function getYHFederationReadinessState(plazaSnapshot = null, federationSnapshot 
         return {
             score,
             label: 'Ready for Review',
-            copy: 'Your Plaza layer is strong enough for Federation review and qualified Connect readiness.',
+            copy: 'Your Plazas layer is strong enough for Federation review and qualified Connect readiness.',
             connectReady: true
         };
     }
@@ -1011,7 +1011,7 @@ function getYHFederationReadinessState(plazaSnapshot = null, federationSnapshot 
         return {
             score,
             label: 'Emerging Candidate',
-            copy: 'Your Plaza layer is active, but it still needs stronger outcomes and trust before serious Federation candidacy.',
+            copy: 'Your Plazas layer is active, but it still needs stronger outcomes and trust before serious Federation candidacy.',
             connectReady: false
         };
     }
@@ -1019,7 +1019,7 @@ function getYHFederationReadinessState(plazaSnapshot = null, federationSnapshot 
     return {
         score,
         label: 'Weak Candidate',
-        copy: 'Build a stronger Plaza opportunity score before pushing toward Federation candidacy.',
+        copy: 'Build a stronger Plazas opportunity score before pushing toward Federation candidacy.',
         connectReady: false
     };
 }
@@ -1076,7 +1076,7 @@ function getDashboardFederationStrategicSnapshot() {
         opportunityStage: String(plazaOpportunityState?.label || 'Locked').trim() || 'Locked',
         opportunityCopy: String(plazaOpportunityState?.copy || '').trim(),
 
-        federationReadinessLabel: String(federationReadinessState?.label || 'Plaza First').trim() || 'Plaza First',
+        federationReadinessLabel: String(federationReadinessState?.label || 'Plazas First').trim() || 'Plazas First',
         federationReadinessCopy: String(federationReadinessState?.copy || '').trim(),
         connectReady: federationReadinessState?.connectReady === true,
 
@@ -1393,7 +1393,7 @@ function getYHNextStepCopy(academySnapshot = null, plazaSnapshot = null, federat
 
     if (!plazaApproved) {
         const bridge = getYHBridgeSignalState(academySnapshot, plazaSnapshot);
-        return bridge?.copy || 'Your next move is Plaza. Apply for access so you can turn your value into opportunities, requests, and connections.';
+        return bridge?.copy || 'Your next move are the Plazas. Apply for access so you can turn your value into opportunities, requests, and connections.';
     }
 
     const plazaProfile = getYHPlazaProfileStatusState(plazaSnapshot);
@@ -1521,7 +1521,7 @@ function renderYHEconomicSnapshot() {
     if (bridgeCopyEl) {
         bridgeCopyEl.textContent = String(
             bridgeSignal?.copy ||
-            'Complete your Academy profile and missions to strengthen your Plaza handoff signal.'
+            'Complete your Academy profile and missions to strengthen your Plazas handoff signal.'
         ).trim();
     }
 }
@@ -1945,7 +1945,7 @@ window.refreshYHWalletSnapshot = refreshYHWalletSnapshot;
 function redirectToPlazaPage() {
     const plazaUrl = buildPlazaUrl();
 
-    if (showUniverseDivisionEntryLoader('Entering Plaza...')) {
+    if (showUniverseDivisionEntryLoader('Entering the Plazas...')) {
         window.setTimeout(() => {
             window.location.href = plazaUrl;
         }, 360);
@@ -2436,9 +2436,9 @@ const universeFeatureContent = {
         ]
     },
     plazas: {
-        kicker: 'Plaza Features',
+        kicker: 'Plazas Features',
         title: 'Application-gated movement hub',
-        desc: 'Apply through the Dashboard Plaza application first. Admin approval unlocks the networking and opportunity layer: operators, opportunities, regional hubs, requests, messages, and bridge paths.',
+        desc: 'Apply through the Dashboard Plazas application first. Admin approval unlocks the networking and opportunity layer: operators, opportunities, regional hubs, requests, messages, and bridge paths.',
         chips: [
             'Application gate',
             'Feed',
@@ -2538,15 +2538,15 @@ function getPlazaButtonCopy(snapshot = null) {
     const status = normalizePlazaStatus(currentSnapshot?.applicationStatus || '');
     const progressionGate = getDashboardDivisionProgressionGate('plaza', currentSnapshot);
 
-    if (currentSnapshot?.canEnterPlaza || status === 'approved') return 'Enter the Plaza ➔';
+    if (currentSnapshot?.canEnterPlaza || status === 'approved') return 'Enter the Plazas ➔';
 
     if (!currentSnapshot?.hasApplication) {
         return progressionGate.track === 'direct_strategic'
-            ? 'Apply for Plaza Strategic Review ➔'
-            : 'Apply for the Plaza ➔';
+            ? 'Apply for Plazas Strategic Review ➔'
+            : 'Apply for the Plazas ➔';
     }
 
-    if (status === 'rejected') return 'Reapply for the Plaza ➔';
+    if (status === 'rejected') return 'Reapply for the Plazas ➔';
 
     return 'Pending Approval';
 }
@@ -2585,7 +2585,7 @@ function syncPlazaEntryButton(snapshot = null) {
             scoreLocked
                 ? progressionGate.copy
                 : pendingLocked
-                    ? 'Your Plaza application is under review. Admin approval is required before entry.'
+                    ? 'Your Plazas application is under review. Admin approval is required before entry.'
                     : ''
         );
     }
@@ -2674,11 +2674,11 @@ async function openPlazaApplicationModal() {
     }
 
     if (!modal) {
-        showToast('Plaza application modal is missing from the Dashboard.', 'error');
+        showToast('Plazas application modal is missing from the Dashboard.', 'error');
         return;
     }
 
-    runDashboardApplicationFormLoader('Opening Plaza Application.', () => {
+    runDashboardApplicationFormLoader('Opening Plazas Application.', () => {
         renderDashboardPlazaApplicationForm();
 
         modal.classList.remove('hidden-step');
@@ -2734,7 +2734,7 @@ const DASHBOARD_PLAZA_MEMBERSHIP_LABELS = {
     direct_strategic: {
         joined: 'What is your current professional or strategic background?',
         learnt: 'What proof, experience, audience, capital, network, or access do you already have?',
-        contribution: 'What high-value contribution can you bring into Plaza?'
+        contribution: 'What high-value contribution can you bring into the Plazas?'
     }
 };
 
@@ -2751,17 +2751,17 @@ function renderDashboardPlazaApplicationForm() {
             id="btn-close-plaza-apply"
             type="button"
             class="yh-federation-apply-close"
-            aria-label="Close Plaza application"
+            aria-label="Close Plazas application"
         >
             ✖
         </button>
 
         <div class="yh-federation-apply-head">
-            <div class="yh-dashboard-federation-kicker">Plaza Application</div>
-            <h2>Apply for Plaza Access</h2>
+            <div class="yh-dashboard-federation-kicker">Plazas Application</div>
+            <h2>Apply for Plazas Access</h2>
             <p>
-                The Plaza is application-gated. Submit this internal Dashboard form first.
-                Your account stays locked until admin approves your Plaza application.
+                The Plazas are application-gated. Submit this internal Dashboard form first.
+                Your account stays locked until admin approves your Plazas application.
             </p>
         </div>
 
@@ -2889,7 +2889,7 @@ function renderDashboardPlazaApplicationForm() {
                 <div class="yh-dashboard-plaza-step" data-dashboard-plaza-step="capitalOrAccess" hidden>
                     <label class="form-group">
                         <span>13. Do you have capital, deal flow, hiring power, distribution, or useful access?</span>
-                        <textarea id="plazaAppCapitalOrAccess" name="capitalOrAccess" rows="5" class="input-field" placeholder="Explain what kind of leverage you can bring into the Plaza." required></textarea>
+                        <textarea id="plazaAppCapitalOrAccess" name="capitalOrAccess" rows="5" class="input-field" placeholder="Explain what kind of leverage you can bring into the Plazas." required></textarea>
                     </label>
                     <button type="button" class="btn-primary yh-dashboard-plaza-next" data-dashboard-plaza-next>Continue ➔</button>
                 </div>
@@ -3159,11 +3159,11 @@ function getDashboardPlazaQuestionCopyMap() {
         capitalOrAccess: 'Do you have capital, deal flow, hiring power, distribution, or useful access?',
         highValueReason: 'Why should admin treat your application as high-value?',
 
-        wantsPatron: 'Are you planning to become a Patrón or a Leader of the Plaza?',
-        patronExpectation: 'What do you expect if you were to become a Patrón of your Plaza?',
+        wantsPatron: 'Are you planning to become a Patrón or a Leader of the Plazas?',
+        patronExpectation: 'What do you expect if you were to become a Patrón of your selected Plazas region?',
         leadershipExperience: 'Have you built, managed, or led anything before?',
         country: 'Country of Residence',
-        wantsMarketplace: 'Do you provide any services/products others in the Plaza could buy, use, or request?',
+        wantsMarketplace: 'Do you provide any services/products others in the Plazas could buy, use, or request?',
         servicesProducts: 'What services/products do you provide?',
         referredBy: 'Who referred you? If nobody, leave this blank.',
         howHeard: 'If nobody referred you, how did you hear from us?'
@@ -3190,18 +3190,18 @@ function syncDashboardPlazaApplicationModeCopy() {
 
     if (kicker) {
         kicker.textContent = isDirectStrategic
-            ? 'Plaza Strategic Review'
+            ? 'Plazas Strategic Review'
             : isAdminOverride
-                ? 'Plaza Admin Override'
-                : 'Plaza Application';
+                ? 'Plazas Admin Override'
+                : 'Plazas Application';
     }
 
     if (title) {
         title.textContent = isDirectStrategic
-            ? 'Apply for Plaza Strategic Review'
+            ? 'Apply for Plazas Strategic Review'
             : isAdminOverride
                 ? 'Apply through Admin Override'
-                : 'Apply for Plaza Access';
+                : 'Apply for Plazas Access';
     }
 
     if (copy) {
@@ -3209,7 +3209,7 @@ function syncDashboardPlazaApplicationModeCopy() {
             ? 'This route is for high-value applicants who are not moving through the normal Academy score ladder. Admin will review your proof, network, capital, access, and strategic contribution.'
             : isAdminOverride
                 ? 'Admin has manually unlocked this application gate. You can submit even before reaching the normal Academy score requirement.'
-                : 'The Plaza is application-gated. Submit this internal Dashboard form first. Your account stays locked until admin approves your Plaza application.';
+                : 'The Plazas are application-gated. Submit this internal Dashboard form first. Your account stays locked until admin approves your Plazas application.';
     }
 }
 
@@ -9338,7 +9338,7 @@ function buildYHUniverseSyntheticActivities(profile = {}) {
         activities.push(normalizeYHUniverseActivityItem({
             id: 'plaza-membership-snapshot',
             division: 'plaza',
-            title: 'Plaza profile active',
+            title: 'Plazas profile active',
             body: plazaProfile.focus || 'Networking, directory visibility, bridge paths, and opportunity signals are connected.',
             meta: divisions.plaza.statusLabel || 'Approved'
         }, 'plaza'));
@@ -9360,7 +9360,7 @@ function buildYHUniverseSyntheticActivities(profile = {}) {
             id: 'universe-profile-snapshot',
             division: 'academy',
             title: 'YH Universe profile created',
-            body: 'This profile is ready to collect activity as the user joins Academy, Plaza, and Federation.',
+            body: 'This profile is ready to collect activity as the user joins Academy, the Plazas, and Federation.',
             meta: 'Profile snapshot'
         }, 'academy'));
     }

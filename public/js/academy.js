@@ -1283,7 +1283,7 @@ const universeFeatureContent = {
         chips: ['Daily roadmap', 'Community feed',]
     },
     plazas: {
-        kicker: 'Plaza Features',
+        kicker: 'Plazas Features',
         title: 'Marketplace and service layer',
         desc: 'Position your skills, discover opportunities, and turn your network into an active business engine.',
         chips: ['Offer services', 'Hire talent', 'Monetize network']
@@ -5241,14 +5241,14 @@ function academyBuildHomeReadinessTone(score = 0, marketplaceReady = false) {
     if (marketplaceReady && numericScore >= 90) {
         return {
             badgeClass: 'is-ready',
-            label: 'Priority Plaza Candidate'
+            label: 'Priority Plazas Candidate'
         };
     }
 
     if (marketplaceReady && numericScore >= 75) {
         return {
             badgeClass: 'is-ready',
-            label: 'Ready for Plaza'
+            label: 'Ready for the Plazas'
         };
     }
 
@@ -5262,7 +5262,7 @@ function academyBuildHomeReadinessTone(score = 0, marketplaceReady = false) {
     if (numericScore >= 60) {
         return {
             badgeClass: 'is-building',
-            label: 'Eligible for Plaza Review'
+            label: 'Eligible for Plazas Review'
         };
     }
 
@@ -5344,7 +5344,7 @@ function academyInjectHomeReadinessPanel(homeData = null) {
     const plazaReadinessNextStep =
         String(
             plazaReadiness?.nextStep ||
-            'Complete your Academy profile and missions to build stronger Plaza readiness.'
+            'Complete your Academy profile and missions to build stronger Plazas readiness.'
         ).trim() || 'Complete your Academy profile and missions to build stronger Plaza readiness.';
 
     const marketplaceReady = plazaReadiness?.marketplaceReady === true;
@@ -5377,7 +5377,7 @@ function academyInjectHomeReadinessPanel(homeData = null) {
     const section = document.createElement('section');
     section.className = 'academy-home-panel academy-home-readiness-panel';
     section.innerHTML = `
-        <div class="academy-home-panel-label">Plaza Readiness</div>
+        <div class="academy-home-panel-label">Plazas Readiness</div>
 
         <div class="academy-home-readiness-hero">
             <div class="academy-home-readiness-score-card">
@@ -11407,13 +11407,13 @@ function renderAcademyAssignedMissions(leads = []) {
                     <div class="academy-profile-card-kicker">Assigned Missions</div>
                     <h4 class="academy-lead-card-title">No admin-assigned missions yet</h4>
                     <p class="academy-lead-card-copy">
-                        When admin routes a Plaza job or Federation task to you, it will appear here as a dedicated Academy operator mission.
+                        When admin routes a job from the Plazas or a Federation task to you, it will appear here as a dedicated Academy operator mission.
                     </p>
                 </article>
 
                 <article class="academy-lead-info-card">
                     <div class="academy-profile-card-kicker">What appears here?</div>
-                    <h4 class="academy-lead-card-title">Plaza jobs + Federation tasks</h4>
+                    <h4 class="academy-lead-card-title">Plazas jobs + Federation tasks</h4>
                     <p class="academy-lead-card-copy">
                         These are not general leads. They are opportunities specifically assigned to you by admin from the YH economy flow.
                     </p>
@@ -11445,7 +11445,7 @@ function renderAcademyAssignedMissions(leads = []) {
                 <div class="academy-profile-card-kicker">Source Split</div>
                 <h4 class="academy-lead-card-title">Plaza: ${academyLeadSafeText(String(plazaCount), '0')} • Federation: ${academyLeadSafeText(String(federationCount), '0')}</h4>
                 <p class="academy-lead-card-copy">
-                    Plaza missions come from jobs/opportunities. Federation missions come from Deal Rooms and strategic tasks.
+                    Plazas missions come from jobs/opportunities. Federation missions come from Deal Rooms and strategic tasks.
                 </p>
             </article>
         </div>
@@ -11543,7 +11543,7 @@ function renderAcademyAssignedMissions(leads = []) {
 
                 <article class="academy-lead-info-card">
                     <div class="academy-profile-card-kicker">What appears here?</div>
-                    <h4 class="academy-lead-card-title">Plaza jobs + Federation tasks</h4>
+                    <h4 class="academy-lead-card-title">Plazas jobs + Federation tasks</h4>
                     <p class="academy-lead-card-copy">
                         These are not general leads. They are opportunities specifically assigned to you by admin from the YH economy flow.
                     </p>
@@ -11738,7 +11738,7 @@ async function submitAcademyAssignedMission(leadId = '') {
 function academyLeadGetOpportunitySourceLabel(value = '') {
     const clean = String(value || '').trim().toLowerCase();
 
-    if (clean === 'plaza') return 'Plaza';
+    if (clean === 'plaza') return 'Plazas';
     if (clean === 'federation') return 'Federation';
 
     return 'YH Universe';
@@ -11781,7 +11781,7 @@ function renderAcademyOpportunityMissions(opportunityMissions = []) {
                     <div class="academy-profile-card-kicker">Opportunity Board</div>
                     <h4 class="academy-lead-card-title">No available missions yet</h4>
                     <p class="academy-lead-card-copy">
-                        Approved Plaza jobs and Federation deal tasks will appear here when admin opens them for Academy operators.
+                        Approved jobs from the Plazas and Federation deal tasks will appear here when admin opens them for Academy operators.
                     </p>
                 </article>
 
@@ -11803,7 +11803,7 @@ function renderAcademyOpportunityMissions(opportunityMissions = []) {
                 <div class="academy-profile-card-kicker">Opportunity Board</div>
                 <h4 class="academy-lead-card-title">${academyLeadSafeText(String(items.length), '0')} available mission${items.length === 1 ? '' : 's'}</h4>
                 <p class="academy-lead-card-copy">
-                    These are approved cross-division opportunities from Plaza and Federation that Academy operators can support.
+                    These are approved cross-division opportunities from the Plazas and Federation that Academy operators can support.
                 </p>
             </article>
 
@@ -11811,7 +11811,7 @@ function renderAcademyOpportunityMissions(opportunityMissions = []) {
                 <div class="academy-profile-card-kicker">Source Split</div>
                 <h4 class="academy-lead-card-title">Plaza: ${academyLeadSafeText(String(summary.plaza || 0), '0')} • Federation: ${academyLeadSafeText(String(summary.federation || 0), '0')}</h4>
                 <p class="academy-lead-card-copy">
-                    Plaza jobs come from approved marketplace listings. Federation tasks come from admin-supervised Deal Rooms.
+                    Plazas jobs come from approved marketplace listings. Federation tasks come from admin-supervised Deal Rooms.
                 </p>
             </article>
         </div>
@@ -12262,7 +12262,7 @@ function openAcademyOpportunityMissionBridge(message = '', sourceFilter = 'all')
 
 document.getElementById('btn-open-mission-plaza-jobs')?.addEventListener('click', () => {
     openAcademyOpportunityMissionBridge(
-        'Opening approved Plaza jobs and operator opportunities.',
+        'Opening approved jobs from the Plazas and operator opportunities.',
         'plaza'
     );
 });
@@ -14416,8 +14416,8 @@ function renderAcademyOpportunityLayer(profile = null, options = {}) {
     const marketplaceReady = academyYesNoToBool(profile?.marketplace_ready ?? profile?.marketplaceReady);
 
     const readinessCopy = marketplaceReady
-        ? 'This profile is already marked as ready to feed into Plaza visibility and opportunity matching.'
-        : 'Complete your role track, offer/need signals, and proof focus so your profile becomes stronger for Plaza handoff.';
+        ? 'This profile is already marked as ready to feed into Plazas visibility and opportunity matching.'
+        : 'Complete your role track, offer/need signals, and proof focus so your profile becomes stronger for Plazas handoff.';
 
     const renderSignalChips = (items = [], emptyLabel = 'Not set yet') => {
         if (!Array.isArray(items) || items.length === 0) {
@@ -14438,7 +14438,7 @@ function renderAcademyOpportunityLayer(profile = null, options = {}) {
 
     card.innerHTML = `
         <div class="academy-profile-card-kicker">Opportunity Layer</div>
-        <h4 class="academy-profile-card-title">Plaza readiness</h4>
+        <h4 class="academy-profile-card-title">Plazas readiness</h4>
 
         <div class="academy-profile-readiness-badge ${marketplaceReady ? 'is-ready' : 'is-building'}">
             ${marketplaceReady ? 'Marketplace Ready' : 'Still Building'}
