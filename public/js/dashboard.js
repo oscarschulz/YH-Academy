@@ -112,21 +112,170 @@ function getDashboardAuthUserSnapshot() {
     };
 }
 
+const YH_DASHBOARD_TOP_PROFILE_CACHE_KEY = 'yh_academy_profile_cache_v1';
+
+function dashboardGetTopProfileCache() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(YH_DASHBOARD_TOP_PROFILE_CACHE_KEY) || '{}');
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch (_) {
+        return {};
+    }
+}
+
+function dashboardWriteTopProfileCache(profile = {}) {
+    if (!profile || typeof profile !== 'object') return;
+
+    try {
+        localStorage.setItem(YH_DASHBOARD_TOP_PROFILE_CACHE_KEY, JSON.stringify(profile));
+    } catch (_) {}
+}
+
+function dashboardResolveTopProfileDisplayName(profile = {}, fallback = '') {
+    const safeProfile = profile && typeof profile === 'object' ? profile : {};
+    const cachedProfile = dashboardGetTopProfileCache();
+    const authUser = getDashboardAuthUserSnapshot();
+
+    const candidates = [
+        safeProfile.display_name,
+        safeProfile.displayName,
+        safeProfile.fullName,
+        safeProfile.full_name,
+        safeProfile.name,
+
+        authUser.display_name,
+        authUser.displayName,
+        authUser.fullName,
+        authUser.full_name,
+        authUser.name,
+
+        cachedProfile.display_name,
+        cachedProfile.displayName,
+        cachedProfile.fullName,
+        cachedProfile.full_name,
+        cachedProfile.name,
+
+        localStorage.getItem('yh_user_full_name'),
+        localStorage.getItem('yh_user_display_name'),
+        localStorage.getItem('yh_user_name'),
+
+        getStoredUserValue('yh_user_full_name', ''),
+        getStoredUserValue('yh_user_display_name', ''),
+        getStoredUserValue('yh_user_name', ''),
+
+        authUser.username,
+        authUser.email,
+
+        fallback
+    ];
+
+    const resolved = candidates
+        .map((value) => String(value || '').trim())
+        .find((value) => value && value.toLowerCase() !== 'hustler');
+
+    return resolved || String(fallback || '').trim() || 'Hustler';
+}
+
+function dashboardResolveTopProfileAvatar(profile = {}, fallback = '') {
+    const safeProfile = profile && typeof profile === 'object' ? profile : {};
+    const cachedProfile = dashboardGetTopProfileCache();
+    const authUser = getDashboardAuthUserSnapshot();
+
+    return sharedNormalizeAvatarUrl(
+        safeProfile.avatar ||
+        safeProfile.avatar_url ||
+        safeProfile.avatarUrl ||
+        safeProfile.profile_photo ||
+        safeProfile.profilePhoto ||
+        safeProfile.photo_url ||
+        safeProfile.photoURL ||
+
+        authUser.avatar ||
+        authUser.avatar_url ||
+        authUser.avatarUrl ||
+        authUser.profile_photo ||
+        authUser.profilePhoto ||
+        authUser.photo_url ||
+        authUser.photoURL ||
+
+        cachedProfile.avatar ||
+        cachedProfile.avatar_url ||
+        cachedProfile.avatarUrl ||
+        cachedProfile.profile_photo ||
+        cachedProfile.profilePhoto ||
+        cachedProfile.photo_url ||
+        cachedProfile.photoURL ||
+
+        localStorage.getItem('yh_user_avatar') ||
+        getStoredUserValue('yh_user_avatar', '') ||
+        fallback ||
+        ''
+    );
+}
+
+function dashboardPersistTopProfileCache(profile = {}) {
+    if (!profile || typeof profile !== 'object') return;
+
+    const currentCache = dashboardGetTopProfileCache();
+    const displayName = dashboardResolveTopProfileDisplayName(profile, '');
+    const username = String(profile.username || '').replace(/^@+/, '').trim();
+    const avatar = dashboardResolveTopProfileAvatar(profile, '');
+    const coverPhoto = String(profile.cover_photo || profile.coverPhoto || '').trim();
+
+    const nextProfile = {
+        ...currentCache,
+        ...profile,
+        display_name: displayName,
+        displayName,
+        fullName: profile.fullName || profile.full_name || displayName,
+        avatar: avatar || profile.avatar || currentCache.avatar || '',
+        avatar_url: avatar || profile.avatar_url || currentCache.avatar_url || '',
+        avatarUrl: avatar || profile.avatarUrl || currentCache.avatarUrl || '',
+        profilePhoto: avatar || profile.profilePhoto || currentCache.profilePhoto || '',
+        photoURL: avatar || profile.photoURL || currentCache.photoURL || '',
+        cover_photo: coverPhoto || profile.cover_photo || currentCache.cover_photo || '',
+        coverPhoto: coverPhoto || profile.coverPhoto || currentCache.coverPhoto || '',
+        updatedAt: new Date().toISOString()
+    };
+
+    dashboardWriteTopProfileCache(nextProfile);
+
+    try {
+        if (displayName) {
+            localStorage.setItem('yh_user_name', displayName);
+            localStorage.setItem('yh_user_full_name', displayName);
+            localStorage.setItem('yh_user_display_name', displayName);
+        }
+
+        if (username) {
+            localStorage.setItem('yh_user_username', username);
+        }
+
+        if (avatar) {
+            localStorage.setItem('yh_user_avatar', avatar);
+        }
+
+        if (nextProfile.cover_photo || nextProfile.coverPhoto) {
+            localStorage.setItem('yh_user_cover_photo', nextProfile.cover_photo || nextProfile.coverPhoto);
+        }
+    } catch (_) {}
+}
+
 function getDashboardCurrentDisplayName() {
-    return dashboardResolveProfileDisplayName(
-        dashboardGetSelfProfileCache?.() || {},
+    return dashboardResolveTopProfileDisplayName(
+        dashboardGetTopProfileCache(),
         getStoredUserValue('yh_user_name', 'Hustler')
     );
 }
 
 function syncDashboardTopProfileIdentity(profile = {}) {
     const safeProfile = profile && typeof profile === 'object' ? profile : {};
-    const displayName = dashboardResolveProfileDisplayName(
+    const displayName = dashboardResolveTopProfileDisplayName(
         safeProfile,
         getStoredUserValue('yh_user_name', 'Hustler')
     );
 
-    const avatar = dashboardResolveProfileAvatar(
+    const avatar = dashboardResolveTopProfileAvatar(
         safeProfile,
         getStoredUserValue('yh_user_avatar', '')
     );
@@ -1981,14 +2130,14 @@ function scheduleDashboardBootstrapFailSafe(delayMs = 6500) {
 }
 
 async function hydrateDashboardTopProfile(forceFresh = false) {
-    const cachedProfile = dashboardGetSelfProfileCache();
+    const cachedProfile = dashboardGetTopProfileCache();
 
-    const initialName = dashboardResolveProfileDisplayName(
+    const initialName = dashboardResolveTopProfileDisplayName(
         cachedProfile,
         getStoredUserValue('yh_user_name', 'Hustler')
     );
 
-    const initialAvatar = dashboardResolveProfileAvatar(
+    const initialAvatar = dashboardResolveTopProfileAvatar(
         cachedProfile,
         getStoredUserValue('yh_user_avatar', '')
     );
@@ -2022,14 +2171,13 @@ async function hydrateDashboardTopProfile(forceFresh = false) {
                     : {};
         }
 
-        const mergedProfile = dashboardMergeProfileKeepingBadges(
-            profile,
-            cachedProfile,
-            academyProfileViewState?.profile
-        );
+        const mergedProfile = {
+            ...cachedProfile,
+            ...(profile && typeof profile === 'object' ? profile : {})
+        };
 
-        const nextName = dashboardResolveProfileDisplayName(mergedProfile, initialName);
-        const nextAvatar = dashboardResolveProfileAvatar(mergedProfile, initialAvatar);
+        const nextName = dashboardResolveTopProfileDisplayName(mergedProfile, initialName);
+        const nextAvatar = dashboardResolveTopProfileAvatar(mergedProfile, initialAvatar);
 
         const nextCachedProfile = {
             ...cachedProfile,
@@ -2038,10 +2186,14 @@ async function hydrateDashboardTopProfile(forceFresh = false) {
             displayName: nextName,
             fullName: mergedProfile.fullName || mergedProfile.full_name || nextName,
             avatar: nextAvatar || mergedProfile.avatar || cachedProfile.avatar || '',
+            avatar_url: nextAvatar || mergedProfile.avatar_url || cachedProfile.avatar_url || '',
+            avatarUrl: nextAvatar || mergedProfile.avatarUrl || cachedProfile.avatarUrl || '',
+            profilePhoto: nextAvatar || mergedProfile.profilePhoto || cachedProfile.profilePhoto || '',
+            photoURL: nextAvatar || mergedProfile.photoURL || cachedProfile.photoURL || '',
             updatedAt: new Date().toISOString()
         };
 
-        dashboardPersistSelfProfileCache(nextCachedProfile);
+        dashboardPersistTopProfileCache(nextCachedProfile);
         updateUserProfile(nextName, nextAvatar || '');
 
         return {
@@ -2252,7 +2404,7 @@ document.addEventListener('DOMContentLoaded', () => {
     var YH_ACADEMY_COMMUNITY_APPROVAL_TOAST_SEEN_KEY = 'yh_academy_community_approval_toast_seen_v1';
 
     syncDashboardTopProfileIdentity(
-        dashboardGetSelfProfileCache?.() || getDashboardAuthUserSnapshot?.() || {}
+        dashboardGetTopProfileCache()
     );
 
     hydrateDashboardTopProfile()
