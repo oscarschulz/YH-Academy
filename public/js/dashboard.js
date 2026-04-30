@@ -8673,16 +8673,28 @@ function dashboardResolveProfileAvatar(profile = {}, fallback = '') {
     return normalizeAvatarUrl(
         profile?.avatar ||
         profile?.avatar_url ||
+        profile?.avatarUrl ||
+        profile?.profile_photo ||
         profile?.profilePhoto ||
+        profile?.photo_url ||
         profile?.photoURL ||
+
         authUser?.avatar ||
         authUser?.avatar_url ||
+        authUser?.avatarUrl ||
+        authUser?.profile_photo ||
         authUser?.profilePhoto ||
+        authUser?.photo_url ||
         authUser?.photoURL ||
+
         cachedProfile?.avatar ||
         cachedProfile?.avatar_url ||
+        cachedProfile?.avatarUrl ||
+        cachedProfile?.profile_photo ||
         cachedProfile?.profilePhoto ||
+        cachedProfile?.photo_url ||
         cachedProfile?.photoURL ||
+
         localStorage.getItem('yh_user_avatar') ||
         getStoredUserValue('yh_user_avatar', '') ||
         fallback ||

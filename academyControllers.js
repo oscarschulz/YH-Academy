@@ -1398,7 +1398,15 @@ function sanitizeAcademyProfileAsset(value = '') {
     const clean = sanitize(value);
     if (!clean) return '';
 
-    if (/^data:/i.test(clean)) return '';
+    if (/^data:/i.test(clean)) {
+        const compactDataUrl = clean.replace(/\s+/g, '');
+        const isSafeDataImage = /^data:image\/(?:png|jpe?g|webp|gif|avif);base64,[a-z0-9+/=]+$/i.test(compactDataUrl);
+
+        if (!isSafeDataImage) return '';
+        if (compactDataUrl.length > 1500000) return '';
+
+        return compactDataUrl;
+    }
 
     let normalized = '';
 
@@ -1457,57 +1465,96 @@ function normalizeAcademyProfileUsername(value = '', fallback = 'hustler') {
 }
 
 function buildAcademyProfileResponse(uid, userData = {}, storedProfile = {}) {
+    const universeProfile =
+        userData.universeProfile && typeof userData.universeProfile === 'object'
+            ? userData.universeProfile
+            : {};
+
+    const academyProfileFromUser =
+        userData.academyProfile && typeof userData.academyProfile === 'object'
+            ? userData.academyProfile
+            : {};
+
+    const genericProfile =
+        userData.profile && typeof userData.profile === 'object'
+            ? userData.profile
+            : {};
+
+    const profileSources = [
+        storedProfile,
+        universeProfile,
+        academyProfileFromUser,
+        genericProfile,
+        userData
+    ].filter((source) => source && typeof source === 'object');
+
+    const pickProfileValue = (...keys) => {
+        for (const source of profileSources) {
+            for (const key of keys) {
+                const value = sanitize(source?.[key]);
+                if (value) return value;
+            }
+        }
+
+        return '';
+    };
+
     const displayName =
         sanitize(
-            storedProfile.display_name ||
-            storedProfile.displayName ||
-            userData.displayName ||
-            userData.fullName ||
-            userData.name ||
-            userData.username ||
+            pickProfileValue(
+                'display_name',
+                'displayName',
+                'fullName',
+                'full_name',
+                'name'
+            ) ||
+            pickProfileValue('username', 'userName', 'handle') ||
             'Hustler'
         ) || 'Hustler';
 
     const canonicalFullName =
         sanitize(
-            userData.fullName ||
-            userData.name ||
-            storedProfile.full_name ||
-            storedProfile.fullName ||
-            storedProfile.name ||
+            pickProfileValue(
+                'fullName',
+                'full_name',
+                'name',
+                'displayName',
+                'display_name'
+            ) ||
             displayName
         ) || displayName;
 
     const username = normalizeAcademyProfileUsername(
-        storedProfile.username || userData.username || '',
+        pickProfileValue('username', 'userName', 'handle'),
         displayName
     );
 
     const avatarAsset = sanitizeAcademyProfileAsset(
-        storedProfile.avatar ||
-        storedProfile.avatarUrl ||
-        storedProfile.profile_photo ||
-        storedProfile.profilePhoto ||
-        storedProfile.photo_url ||
-        storedProfile.photoURL ||
-        userData.avatar ||
-        userData.avatarUrl ||
-        userData.profilePhoto ||
-        userData.photoURL
+        pickProfileValue(
+            'avatar',
+            'avatarUrl',
+            'avatar_url',
+            'profile_photo',
+            'profilePhoto',
+            'profile_picture',
+            'profilePicture',
+            'photo_url',
+            'photoURL',
+            'image_url_avatar'
+        )
     );
 
     const coverAsset = sanitizeAcademyProfileAsset(
-        storedProfile.cover_photo ||
-        storedProfile.coverPhoto ||
-        storedProfile.cover ||
-        storedProfile.cover_url ||
-        storedProfile.coverUrl ||
-        storedProfile.coverURL ||
-        userData.cover_photo ||
-        userData.coverPhoto ||
-        userData.cover ||
-        userData.coverUrl ||
-        userData.coverURL
+        pickProfileValue(
+            'cover_photo',
+            'coverPhoto',
+            'cover',
+            'cover_url',
+            'coverUrl',
+            'coverURL',
+            'cover_image',
+            'coverImage'
+        )
     );
 
     return {

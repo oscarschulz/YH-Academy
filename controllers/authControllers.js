@@ -174,7 +174,9 @@ function issueJwt(user) {
             firebaseUid: user.id,
             email: user.email || '',
             name: user.fullName,
-            username: user.username
+            username: user.username,
+            displayName: user.fullName || user.displayName || user.name || user.username || '',
+            avatar: user.avatar || user.profilePhoto || user.photoURL || ''
         },
         process.env.JWT_SECRET,
         { expiresIn: AUTH_SESSION_EXPIRES_IN }
@@ -213,6 +215,9 @@ function publicUser(user) {
     ).trim();
 
     return {
+        id: String(user.id || '').trim(),
+        uid: String(user.id || '').trim(),
+        firebaseUid: String(user.id || '').trim(),
         fullName,
         displayName: fullName,
         firstName,
