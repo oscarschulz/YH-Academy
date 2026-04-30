@@ -6841,6 +6841,154 @@ app.post('/api/plaza/application-intent', requireApiUser, async (req, res) => {
     });
 });
 
+function buildDashboardSelfProfilePayload(userId = '', user = {}, requestUser = {}) {
+    const profile =
+        user.universeProfile && typeof user.universeProfile === 'object'
+            ? user.universeProfile
+            : user.academyProfile && typeof user.academyProfile === 'object'
+                ? user.academyProfile
+                : user.profile && typeof user.profile === 'object'
+                    ? user.profile
+                    : {};
+
+    const email = sanitizeText(
+        profile.email ||
+        user.email ||
+        requestUser.email ||
+        ''
+    ).toLowerCase();
+
+    const displayName = sanitizeText(
+        profile.display_name ||
+        profile.displayName ||
+        profile.fullName ||
+        profile.full_name ||
+        profile.name ||
+        user.display_name ||
+        user.displayName ||
+        user.fullName ||
+        user.full_name ||
+        user.name ||
+        requestUser.name ||
+        requestUser.username ||
+        ''
+    ).slice(0, 160);
+
+    const username = sanitizeText(
+        profile.username ||
+        user.username ||
+        requestUser.username ||
+        ''
+    ).replace(/^@+/, '').slice(0, 60);
+
+    const safeName =
+        displayName ||
+        username ||
+        email.split('@')[0] ||
+        'Hustler';
+
+    const avatar = sanitizeText(
+        profile.avatar ||
+        profile.avatar_url ||
+        profile.profilePhoto ||
+        profile.photoURL ||
+        user.avatar ||
+        user.avatar_url ||
+        user.avatarUrl ||
+        user.profilePhoto ||
+        user.photoURL ||
+        ''
+    );
+
+    const coverPhoto = sanitizeText(
+        profile.cover_photo ||
+        profile.coverPhoto ||
+        profile.coverUrl ||
+        user.cover_photo ||
+        user.coverPhoto ||
+        user.coverUrl ||
+        ''
+    );
+
+    return {
+        id: userId,
+        uid: userId,
+        user_id: userId,
+
+        email,
+        display_name: safeName,
+        displayName: safeName,
+        fullName: safeName,
+        full_name: safeName,
+        name: safeName,
+        username,
+
+        bio: sanitizeText(profile.bio || user.bio || '').slice(0, 500),
+        avatar,
+        avatar_url: avatar,
+        profilePhoto: avatar,
+        photoURL: avatar,
+        cover_photo: coverPhoto,
+        coverPhoto,
+
+        search_tags: Array.isArray(profile.search_tags)
+            ? profile.search_tags
+            : Array.isArray(user.search_tags)
+                ? user.search_tags
+                : [],
+
+        role_track: sanitizeText(profile.role_track || user.role_track || user.roleTrack || ''),
+        looking_for: Array.isArray(profile.looking_for)
+            ? profile.looking_for
+            : Array.isArray(user.looking_for)
+                ? user.looking_for
+                : [],
+        can_offer: Array.isArray(profile.can_offer)
+            ? profile.can_offer
+            : Array.isArray(user.can_offer)
+                ? user.can_offer
+                : [],
+
+        availability: sanitizeText(profile.availability || user.availability || ''),
+        work_mode: sanitizeText(profile.work_mode || user.work_mode || user.workMode || ''),
+        proof_focus: sanitizeText(profile.proof_focus || user.proof_focus || user.proofFocus || ''),
+        marketplace_ready: profile.marketplace_ready === true || user.marketplace_ready === true,
+
+        verificationBadges: buildYHVerificationBadges(user),
+        updatedAt: sanitizeText(profile.updatedAt || user.updatedAt || '')
+    };
+}
+
+app.get(['/api/universe/profile', '/api/academy/profile'], requireApiUser, async (req, res) => {
+    try {
+        const userId = sanitizeText(req.user?.id || req.user?.firebaseUid);
+
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const userRef = firestore.collection('users').doc(userId);
+        const userSnap = await userRef.get();
+        const user = userSnap.exists ? (userSnap.data() || {}) : {};
+
+        const profile = buildDashboardSelfProfilePayload(userId, user, req.user || {});
+
+        return res.json({
+            success: true,
+            profile
+        });
+    } catch (error) {
+        console.error('dashboard self profile load error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load profile.'
+        });
+    }
+});
+
 app.use('/api/plaza', requireApiUser, requirePlazaApiAccess);
 app.use('/api', apiRoutes);
 app.post('/api/realtime/live-rooms/:roomId/join', requireApiUser, async (req, res) => {

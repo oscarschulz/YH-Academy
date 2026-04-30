@@ -30,6 +30,88 @@ const socket = io({
 
 const myName = getStoredUserValue('yh_user_name', "Hustler");
 
+function decodeDashboardJwtPayload(token = '') {
+    const cleanToken = String(token || '').trim();
+    const parts = cleanToken.split('.');
+
+    if (parts.length < 2) return {};
+
+    try {
+        const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
+
+        const json = decodeURIComponent(
+            Array.from(atob(padded))
+                .map((char) => `%${char.charCodeAt(0).toString(16).padStart(2, '0')}`)
+                .join('')
+        );
+
+        const parsed = JSON.parse(json);
+        return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (_) {
+        return {};
+    }
+}
+
+function readDashboardStoredUserObject(key = '') {
+    const cleanKey = String(key || '').trim();
+    if (!cleanKey) return null;
+
+    const stores = [sessionStorage, localStorage];
+
+    for (const store of stores) {
+        try {
+            const raw = store.getItem(cleanKey);
+            if (!raw) continue;
+
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                return parsed;
+            }
+        } catch (_) {}
+    }
+
+    return null;
+}
+
+function getDashboardAuthUserSnapshot() {
+    const tokenPayload = decodeDashboardJwtPayload(getStoredAuthToken());
+
+    const storedProfiles = [
+        readDashboardStoredUserObject('yh_current_user'),
+        readDashboardStoredUserObject('yh_user'),
+        readDashboardStoredUserObject('currentUser'),
+        readDashboardStoredUserObject('user')
+    ].filter(Boolean);
+
+    const sources = [
+        ...storedProfiles,
+        storedProfiles.find((item) => item?.user && typeof item.user === 'object')?.user,
+        tokenPayload,
+        tokenPayload?.user && typeof tokenPayload.user === 'object' ? tokenPayload.user : null
+    ].filter(Boolean);
+
+    const pick = (...keys) => {
+        for (const source of sources) {
+            for (const key of keys) {
+                const value = String(source?.[key] || '').trim();
+                if (value) return value;
+            }
+        }
+
+        return '';
+    };
+
+    return {
+        id: pick('id', 'uid', 'firebaseUid', 'user_id'),
+        email: pick('email', 'emailLower'),
+        username: pick('username', 'userName', 'handle'),
+        display_name: pick('display_name', 'displayName', 'fullName', 'full_name', 'name'),
+        avatar: pick('avatar', 'avatarUrl', 'avatar_url', 'photoURL', 'profilePhoto', 'profile_picture'),
+        cover_photo: pick('cover_photo', 'coverPhoto', 'coverUrl', 'cover_url')
+    };
+}
+
 function getDashboardCurrentDisplayName() {
     return dashboardResolveProfileDisplayName(
         dashboardGetSelfProfileCache?.() || {},
@@ -8542,6 +8624,7 @@ function dashboardMergeProfileKeepingBadges(nextProfile = {}, ...fallbackProfile
 
 function dashboardResolveProfileDisplayName(profile = {}, fallback = '') {
     const cachedProfile = dashboardGetSelfProfileCache();
+    const authUser = getDashboardAuthUserSnapshot();
 
     const candidates = [
         profile?.display_name,
@@ -8549,6 +8632,12 @@ function dashboardResolveProfileDisplayName(profile = {}, fallback = '') {
         profile?.fullName,
         profile?.full_name,
         profile?.name,
+
+        authUser?.display_name,
+        authUser?.displayName,
+        authUser?.fullName,
+        authUser?.full_name,
+        authUser?.name,
 
         cachedProfile?.display_name,
         cachedProfile?.displayName,
@@ -8564,6 +8653,9 @@ function dashboardResolveProfileDisplayName(profile = {}, fallback = '') {
         getStoredUserValue('yh_user_display_name', ''),
         getStoredUserValue('yh_user_name', ''),
 
+        authUser?.username,
+        authUser?.email,
+
         fallback
     ];
 
@@ -8576,12 +8668,19 @@ function dashboardResolveProfileDisplayName(profile = {}, fallback = '') {
 
 function dashboardResolveProfileAvatar(profile = {}, fallback = '') {
     const cachedProfile = dashboardGetSelfProfileCache();
+    const authUser = getDashboardAuthUserSnapshot();
 
     return normalizeAvatarUrl(
         profile?.avatar ||
+        profile?.avatar_url ||
         profile?.profilePhoto ||
         profile?.photoURL ||
+        authUser?.avatar ||
+        authUser?.avatar_url ||
+        authUser?.profilePhoto ||
+        authUser?.photoURL ||
         cachedProfile?.avatar ||
+        cachedProfile?.avatar_url ||
         cachedProfile?.profilePhoto ||
         cachedProfile?.photoURL ||
         localStorage.getItem('yh_user_avatar') ||
