@@ -119,6 +119,32 @@ function getDashboardCurrentDisplayName() {
     );
 }
 
+function syncDashboardTopProfileIdentity(profile = {}) {
+    const safeProfile = profile && typeof profile === 'object' ? profile : {};
+    const displayName = dashboardResolveProfileDisplayName(
+        safeProfile,
+        getStoredUserValue('yh_user_name', 'Hustler')
+    );
+
+    const avatar = dashboardResolveProfileAvatar(
+        safeProfile,
+        getStoredUserValue('yh_user_avatar', '')
+    );
+
+    updateUserProfile(displayName, avatar || '');
+
+    const profileMini = document.querySelector('.desktop-user-strip .profile-mini');
+    if (profileMini) {
+        profileMini.setAttribute('data-user', displayName || 'Me');
+        profileMini.setAttribute('title', displayName || 'Me');
+    }
+
+    return {
+        name: displayName,
+        avatar: avatar || ''
+    };
+}
+
 const {
     showAcademyTabLoader,
     hideAcademyTabLoader,
@@ -2225,11 +2251,19 @@ document.addEventListener('DOMContentLoaded', () => {
     var YH_ACADEMY_APPROVAL_BADGE_SEEN_KEY = 'yh_academy_approval_badge_seen_v1';
     var YH_ACADEMY_COMMUNITY_APPROVAL_TOAST_SEEN_KEY = 'yh_academy_community_approval_toast_seen_v1';
 
+    syncDashboardTopProfileIdentity(
+        dashboardGetSelfProfileCache?.() || getDashboardAuthUserSnapshot?.() || {}
+    );
+
     hydrateDashboardTopProfile()
         .catch(() => {})
         .finally(() => {
             renderYHEconomicSnapshot();
         });
+
+    window.setTimeout(() => {
+        hydrateDashboardTopProfile(true).catch(() => {});
+    }, 900);
 
     initUniverseImageLightbox();
     renderYHEconomicSnapshot();
@@ -8751,6 +8785,8 @@ function dashboardPersistSelfProfileCache(profile = {}) {
             localStorage.setItem('yh_user_cover_photo', nextProfile.cover_photo || nextProfile.coverPhoto);
         }
     } catch (_) {}
+
+    syncDashboardTopProfileIdentity(nextProfile);
 }
 
 function dashboardReadVisitedProfileCacheMap() {
@@ -12441,6 +12477,7 @@ async function hydrateDashboardSelfUniverseProfile() {
 
         const merged = mergeYHUniverseProfilePayload(result.profile, currentProfile);
         dashboardPersistSelfProfileCache(merged);
+        syncDashboardTopProfileIdentity(merged);
 
         if (academyProfileViewState?.mode === 'self') {
             renderAcademyProfileView(merged, { mode: 'self' });
