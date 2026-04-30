@@ -1123,6 +1123,61 @@ const applications = users.flatMap((user) => {
       nonNegotiable: cleanText(app.contribution || '')
     });
   }
+
+  if (user.plazaPatronApplication && typeof user.plazaPatronApplication === 'object') {
+    const app = user.plazaPatronApplication;
+
+    output.push({
+      id: cleanText(app.id || `PLAZA-PATRON-${user.id}`),
+      name: cleanText(
+        app.fullName ||
+        app.name ||
+        user.fullName ||
+        user.name ||
+        user.displayName ||
+        user.username ||
+        'Unknown Patron Applicant'
+      ),
+      username: cleanText(app.username || user.username || '').replace(/^@+/, ''),
+      email: cleanText(app.email || user.email || ''),
+      goal: cleanText(app.plazaPlan || 'Wants to become a Plaza Patron / Leader'),
+      background: cleanText(
+        app.leadershipExperience ||
+        [
+          app.preferredRole,
+          app.region,
+          app.baseCity,
+          app.country
+        ].filter(Boolean).join(' • ')
+      ),
+      recommendedDivision: 'Plazas',
+      status: cleanText(app.status || user.plazaPatronApplicationStatus || 'Under Review'),
+      aiScore: toNumber(app.aiScore, 0),
+      country: cleanText(app.country || user.country || ''),
+      locationCountry: cleanText(app.country || user.country || ''),
+      skills: Array.isArray(app.tags) ? app.tags : [],
+      networkValue: cleanText(app.whyYou || app.plazaPlan || ''),
+      source: cleanText(app.source || 'Plaza Patron Application'),
+      submittedAt: toIso(app.submittedAt) || cleanText(app.submittedAt || ''),
+      notes: Array.isArray(app.notes) ? app.notes : [],
+      applicationType: 'plaza-patron-leader',
+      reviewLane: 'Plaza Patron / Leader',
+
+      regionId: cleanText(app.regionId || ''),
+      region: cleanText(app.region || ''),
+      continent: cleanText(app.continent || ''),
+      network: cleanText(app.network || ''),
+      preferredRole: cleanText(app.preferredRole || 'Regional Patron'),
+      baseCity: cleanText(app.baseCity || ''),
+      communicationHandle: cleanText(app.communicationHandle || ''),
+      leadershipExperience: cleanText(app.leadershipExperience || ''),
+      plazaPlan: cleanText(app.plazaPlan || ''),
+      meetupPlan: cleanText(app.meetupPlan || ''),
+      proofLink: cleanText(app.proofLink || ''),
+      whyYou: cleanText(app.whyYou || '')
+    });
+  }
+
   // Roadmap applications are no longer part of the manual admin review queue.
 
   return output;
@@ -2262,6 +2317,15 @@ apiRouter.post('/api/admin/economy/payouts/:payoutId/status', requireAdminSessio
     const payoutId = cleanText(req.params.payoutId);
     const status = cleanText(req.body?.status);
     const adminNote = cleanText(req.body?.adminNote || '');
+    const provider = cleanText(req.body?.provider || '');
+    const method = cleanText(req.body?.method || '');
+    const providerPaymentId = cleanText(
+      req.body?.providerPaymentId ||
+      req.body?.transferReference ||
+      req.body?.adminDisbursementReference ||
+      ''
+    );
+    const providerStatus = cleanText(req.body?.providerStatus || req.body?.disbursementStatus || '');
 
     if (!payoutId || !status) {
       return res.status(400).json({
@@ -2272,12 +2336,119 @@ apiRouter.post('/api/admin/economy/payouts/:payoutId/status', requireAdminSessio
 
     const updatedPayout = await paymentLedgerRepo.updatePayoutRecordStatus(payoutId, {
       status,
-      adminNote
+      adminNote,
+      provider,
+      method,
+      providerPaymentId,
+      providerStatus,
+      metadata: {
+        adminUpdatedBy: cleanText(req.adminSession?.username || 'admin'),
+        adminUpdatedAt: new Date().toISOString(),
+        adminDisbursementReference: providerPaymentId
+      }
     });
+
+    const sourceDivision = cleanText(updatedPayout.sourceDivision).toLowerCase();
+    const sourceFeature = cleanText(updatedPayout.sourceFeature).toLowerCase();
+    const normalizedStatus = cleanText(updatedPayout.status).toLowerCase();
+
+    let patronPayoutSync = null;
+
+    if (sourceDivision === 'plaza' && sourceFeature === 'plaza_patron_commission') {
+      const metadata = updatedPayout.metadata && typeof updatedPayout.metadata === 'object'
+        ? updatedPayout.metadata
+        : {};
+
+      const patronPayoutRecordId = cleanText(metadata.patronPayoutRecordId);
+      const outcomeId = cleanText(metadata.outcomeId || updatedPayout.sourcePaymentId || updatedPayout.sourceRecordId);
+
+      const patronPayoutUpdate = {
+        payoutLedgerId: updatedPayout.id,
+        payoutLedgerStatus: updatedPayout.status,
+        status: updatedPayout.status,
+        adminNote,
+        provider: cleanText(updatedPayout.provider || provider || 'manual'),
+        providerPaymentId: cleanText(updatedPayout.providerPaymentId || providerPaymentId || ''),
+        updatedAt: Timestamp.now()
+      };
+
+      if (normalizedStatus === 'approved') {
+        patronPayoutUpdate.approvedAt = Timestamp.now();
+      }
+
+      if (normalizedStatus === 'processing') {
+        patronPayoutUpdate.processingAt = Timestamp.now();
+      }
+
+      if (normalizedStatus === 'paid') {
+        patronPayoutUpdate.paidAt = Timestamp.now();
+      }
+
+      if (normalizedStatus === 'rejected') {
+        patronPayoutUpdate.rejectedAt = Timestamp.now();
+      }
+
+      if (patronPayoutRecordId) {
+        await firestore
+          .collection('plazaPatronPayouts')
+          .doc(patronPayoutRecordId)
+          .set(patronPayoutUpdate, { merge: true });
+
+        patronPayoutSync = {
+          id: patronPayoutRecordId,
+          ...patronPayoutUpdate
+        };
+      }
+
+      if (outcomeId) {
+        await firestore
+          .collection('plazaPatronIntroOutcomes')
+          .doc(outcomeId)
+          .set({
+            payoutLedgerId: updatedPayout.id,
+            payoutStatus: updatedPayout.status,
+            updatedAt: Timestamp.now()
+          }, { merge: true });
+      }
+    }
+
+    const receiverUid = cleanText(updatedPayout.receiverUid);
+
+    if (receiverUid) {
+      const payoutStatusCopy = {
+        approved: 'Your payout has been approved and is waiting for processing.',
+        processing: 'Your payout is now processing.',
+        paid: 'Your payout has been marked as paid.',
+        rejected: 'Your payout request was rejected.',
+        failed: 'Your payout attempt failed.'
+      };
+
+      const copy = payoutStatusCopy[normalizedStatus] || `Your payout status is now ${updatedPayout.status}.`;
+
+      await appendAdminEconomyNotificationToUser(receiverUid, {
+        id: `payout_${updatedPayout.status}_${updatedPayout.id}`,
+        title: sourceFeature === 'plaza_patron_commission'
+          ? 'Plaza Patron payout updated'
+          : 'Payout status updated',
+        text: `${copy}${adminNote ? ` Admin note: ${adminNote}` : ''}`,
+        target: 'wallet',
+        targetId: updatedPayout.id,
+        color: normalizedStatus === 'paid'
+          ? 'var(--green)'
+          : normalizedStatus === 'rejected' || normalizedStatus === 'failed'
+            ? 'var(--red)'
+            : 'var(--blue)',
+        avatarStr: '₿',
+        sourceDivision: updatedPayout.sourceDivision || 'wallet',
+        amount: updatedPayout.amount,
+        currency: updatedPayout.currency
+      });
+    }
 
     return res.json({
       success: true,
-      payout: updatedPayout
+      payout: updatedPayout,
+      patronPayoutSync
     });
   } catch (error) {
     console.error('admin payout status update error:', error);
@@ -2334,7 +2505,45 @@ function getApplicationReviewNotificationMeta(matchedField = '', nextStatus = ''
       avatarStr: 'F'
     };
   }
+  if (field === 'plazaPatronApplication') {
+    if (status === 'approved') {
+      return {
+        title: 'Plaza Patron application approved',
+        text: 'You are now the approved Patron / Leader for your selected Plaza. Start coordinating your regional movement.',
+        target: 'plaza-patron-status',
+        color: 'var(--green)',
+        avatarStr: 'P'
+      };
+    }
 
+    if (status === 'waitlisted') {
+      return {
+        title: 'Plaza Patron application waitlisted',
+        text: 'Your Patron application is waitlisted. Strengthen your leadership proof, local activity, and meetup plan before the next review.',
+        target: 'plaza-patron-status',
+        color: 'var(--amber)',
+        avatarStr: 'P'
+      };
+    }
+
+    if (status === 'rejected') {
+      return {
+        title: 'Plaza Patron application not approved',
+        text: 'Your Patron application was not approved. You can improve your leadership signal and apply again later.',
+        target: 'plaza-patron-status',
+        color: 'var(--red)',
+        avatarStr: 'P'
+      };
+    }
+
+    return {
+      title: 'Plaza Patron application updated',
+      text: `Your Patron application is now ${cleanText(nextStatus) || 'Under Review'}.`,
+      target: 'plaza-patron-status',
+      color: 'var(--blue)',
+      avatarStr: 'P'
+    };
+  }
   if (field === 'plazaApplication') {
     if (status === 'approved') {
       return {
@@ -2668,6 +2877,13 @@ apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async 
         return true;
       }
 
+      if (data.plazaPatronApplication?.id === applicationId) {
+        matchedUserDoc = doc;
+        matchedField = 'plazaPatronApplication';
+        matchedApplication = data.plazaPatronApplication;
+        return true;
+      }
+
       return false;
     });
 
@@ -2733,12 +2949,15 @@ apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async 
 
       const isFederationApplication = matchedField === 'federationApplication';
       const isPlazaApplication = matchedField === 'plazaApplication';
+      const isPlazaPatronApplication = matchedField === 'plazaPatronApplication';
 
       const reviewLabel = isFederationApplication
         ? 'Federation access'
         : isPlazaApplication
           ? 'Plaza access'
-          : (matchedField === 'roadmapApplication' ? 'Roadmap' : 'Academy membership');
+          : isPlazaPatronApplication
+            ? 'Plaza Patron leadership'
+            : (matchedField === 'roadmapApplication' ? 'Roadmap' : 'Academy membership');
 
       const updatedApplication = {
         ...currentApplication,
@@ -2787,6 +3006,134 @@ apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async 
           if (nextStatus === 'Rejected') {
             updatePayload.plazaRejectedAt = nowIso;
           }
+        }
+      } else if (isPlazaPatronApplication) {
+        updatePayload.plazaPatronApplication = updatedApplication;
+        updatePayload.plazaPatronApplicationStatus = nextStatus;
+        updatePayload.plazaPatronApplicationReviewedAt = nowIso;
+        updatePayload.plazaPatronApplicationReviewedBy = req.adminSession.username;
+        updatePayload.plazaPatronStatus = nextStatus.toLowerCase();
+
+        if (nextStatus === 'Approved') {
+          updatePayload.hasPlazaPatronRole = true;
+          updatePayload.plazaPatronApprovedAt = nowIso;
+          updatePayload.plazaPatronRejectedAt = '';
+          updatePayload.plazaPatronBenefits = [
+            'Official Plaza Patron badge',
+            'Featured profile inside assigned Plaza',
+            'Priority regional directory placement',
+            'Visible leadership title on Plaza Atlas and Region Hub',
+            'Create and lead official Plaza meetups',
+            'Host regional Plaza chat and welcome new members',
+            'Route regional requests, introductions, opportunities, and collaborations',
+            'Recommend high-value members for Federation review',
+            'Coordinate with other Patrons across continents',
+            'Earn eligibility for commission from admin-verified successful introductions',
+            'Earn eligibility for bonuses from verified connection outcomes',
+            'Earn eligibility for revenue share from paid meetups, sponsorships, and premium local events'
+          ];
+          updatePayload.plazaPatronPrivileges = [
+            'lead_regional_chat',
+            'create_official_meetups',
+            'route_connection_requests',
+            'recommend_federation_candidates',
+            'receive_connection_commission_eligibility',
+            'host_official_plaza_events',
+            'coordinate_regional_opportunities',
+            'access_patron_priority_visibility'
+          ];
+          updatePayload.plazaPatronCommissionPolicy = {
+            introCommissionRange: '5%–15%',
+            introCommissionLabel: 'Connection commission',
+            meetupRevenueShare: 'Eligible',
+            federationEscalationBonus: 'Eligible after verified high-value handoff',
+            adminControlled: true,
+            note: 'Final payout rules remain admin-controlled and can vary by deal, event, region, and verified outcome.'
+          };
+
+          const regionId = cleanText(updatedApplication.regionId || '');
+
+          if (regionId) {
+            const regionRef = firestore.collection('plazaRegions').doc(regionId);
+
+            transaction.set(regionRef, {
+              patronName: cleanText(
+                updatedApplication.fullName ||
+                updatedApplication.name ||
+                freshUser.fullName ||
+                freshUser.name ||
+                freshUser.displayName ||
+                freshUser.username ||
+                'Plaza Patron'
+              ),
+              patronRole: cleanText(updatedApplication.preferredRole || 'Regional Patron'),
+              patronUserId: freshUserSnap.id,
+              patronStatus: 'active',
+              patronContactHint: cleanText(
+                updatedApplication.plazaPlan ||
+                `Approved Patron / Leader for ${cleanText(updatedApplication.region || 'this Plaza')}.`
+              ),
+              patronBenefits: [
+                'Official Plaza Patron badge',
+                'Featured profile inside assigned Plaza',
+                'Priority regional directory placement',
+                'Visible leadership title on Plaza Atlas and Region Hub',
+                'Create and lead official Plaza meetups',
+                'Host regional Plaza chat and welcome new members',
+                'Route regional requests, introductions, opportunities, and collaborations',
+                'Recommend high-value members for Federation review',
+                'Coordinate with other Patrons across continents',
+                'Earn eligibility for commission from admin-verified successful introductions',
+                'Earn eligibility for bonuses from verified connection outcomes',
+                'Earn eligibility for revenue share from paid meetups, sponsorships, and premium local events'
+              ],
+              patronPrivileges: [
+                'lead_regional_chat',
+                'create_official_meetups',
+                'route_connection_requests',
+                'recommend_federation_candidates',
+                'receive_connection_commission_eligibility',
+                'host_official_plaza_events',
+                'coordinate_regional_opportunities',
+                'access_patron_priority_visibility'
+              ],
+              patronCommissionPolicy: {
+                introCommissionRange: '5%–15%',
+                introCommissionLabel: 'Connection commission',
+                meetupRevenueShare: 'Eligible',
+                federationEscalationBonus: 'Eligible after verified high-value handoff',
+                adminControlled: true,
+                note: 'Final payout rules remain admin-controlled and can vary by deal, event, region, and verified outcome.'
+              },
+              patronAuthority: {
+                canLeadRegionalChat: true,
+                canCreateOfficialMeetups: true,
+                canRouteRequests: true,
+                canRecommendFederationCandidates: true,
+                canHostOfficialEvents: true,
+                canQualifyForCommission: true
+              },
+              updatedAt: Timestamp.now()
+            }, { merge: true });
+          }
+        } else {
+          updatePayload.hasPlazaPatronRole = false;
+
+          if (nextStatus === 'Rejected') {
+            updatePayload.plazaPatronRejectedAt = nowIso;
+          }
+        }
+
+        if (updatedApplication.id) {
+          transaction.set(
+            firestore.collection('plazaPatronApplications').doc(updatedApplication.id),
+            {
+              ...updatedApplication,
+              userId: freshUserSnap.id,
+              updatedAt: Timestamp.now()
+            },
+            { merge: true }
+          );
         }
       } else {
         updatePayload.academyApplication = updatedApplication;

@@ -1,6 +1,7 @@
 const { firestore } = require('../config/firebaseAdmin');
 const { Timestamp } = require('firebase-admin/firestore');
 const universeCollectionMirrorRepo = require('../backend/repositories/universeCollectionMirrorRepo');
+const paymentLedgerRepo = require('../backend/repositories/paymentLedgerRepo');
 
 const plazaFeedCol = firestore.collection('plazaFeedPosts');
 const plazaOpportunitiesCol = firestore.collection('plazaOpportunities');
@@ -9,7 +10,49 @@ const plazaRegionsCol = firestore.collection('plazaRegions');
 const plazaBridgeCol = firestore.collection('plazaBridgePaths');
 const plazaRequestsCol = firestore.collection('plazaRequests');
 const plazaConversationsCol = firestore.collection('plazaConversations');
+const plazaMeetupsCol = firestore.collection('plazaMeetups');
+const plazaPatronApplicationsCol = firestore.collection('plazaPatronApplications');
+const plazaPatronAnnouncementsCol = firestore.collection('plazaPatronAnnouncements');
+const plazaPatronRecommendationsCol = firestore.collection('plazaPatronFederationRecommendations');
+const plazaPatronIntroOutcomesCol = firestore.collection('plazaPatronIntroOutcomes');
+const plazaPatronPayoutsCol = firestore.collection('plazaPatronPayouts');
+const usersCol = firestore.collection('users');
 const YH_CANONICAL_PLAZA_VERSION = '2026-04-29-official-plazas-v1';
+
+const PLAZA_PATRON_BENEFITS = [
+    'Official Plaza Patron badge',
+    'Featured profile inside assigned Plaza',
+    'Priority regional directory placement',
+    'Visible leadership title on Plaza Atlas and Region Hub',
+    'Create and lead official Plaza meetups',
+    'Host regional Plaza chat and welcome new members',
+    'Route regional requests, introductions, opportunities, and collaborations',
+    'Recommend high-value members for Federation review',
+    'Coordinate with other Patrons across continents',
+    'Earn eligibility for commission from admin-verified successful introductions',
+    'Earn eligibility for bonuses from verified connection outcomes',
+    'Earn eligibility for revenue share from paid meetups, sponsorships, and premium local events'
+];
+
+const PLAZA_PATRON_PRIVILEGES = [
+    'lead_regional_chat',
+    'create_official_meetups',
+    'route_connection_requests',
+    'recommend_federation_candidates',
+    'receive_connection_commission_eligibility',
+    'host_official_plaza_events',
+    'coordinate_regional_opportunities',
+    'access_patron_priority_visibility'
+];
+
+const PLAZA_PATRON_COMMISSION_POLICY = {
+    introCommissionRange: '5%–15%',
+    introCommissionLabel: 'Connection commission',
+    meetupRevenueShare: 'Eligible',
+    federationEscalationBonus: 'Eligible after verified high-value handoff',
+    adminControlled: true,
+    note: 'Final payout rules remain admin-controlled and can vary by deal, event, region, and verified outcome.'
+};
 
 const YH_CANONICAL_PLAZA_REGIONS = [
     {
@@ -292,6 +335,20 @@ function buildCanonicalPlazaRegionPayload(plaza = {}, sortOrder = 0, now = Times
         canonicalDataVersion: YH_CANONICAL_PLAZA_VERSION,
         sortOrder: Number(sortOrder || 0),
         action: 'Enter Region Hub',
+        patronName: sanitizeText(plaza.patronName || `${sanitizeText(plaza.label || region)} Patron`),
+        patronRole: sanitizeText(plaza.patronRole || 'Regional Patron'),
+        patronUserId: sanitizeText(plaza.patronUserId || ''),
+        patronStatus: sanitizeText(plaza.patronStatus || 'open'),
+        patronContactHint: sanitizeText(
+            plaza.patronContactHint ||
+            `This Plaza is open for an approved Patron or Leader to coordinate networking, meetups, and local movement.`
+        ),
+        patronBenefits: Array.isArray(plaza.patronBenefits) ? plaza.patronBenefits : PLAZA_PATRON_BENEFITS,
+        patronPrivileges: Array.isArray(plaza.patronPrivileges) ? plaza.patronPrivileges : PLAZA_PATRON_PRIVILEGES,
+        patronCommissionPolicy:
+            plaza.patronCommissionPolicy && typeof plaza.patronCommissionPolicy === 'object'
+                ? plaza.patronCommissionPolicy
+                : PLAZA_PATRON_COMMISSION_POLICY,
         status: 'active',
         authorId: 'system',
         authorFirebaseUid: 'system',
@@ -348,7 +405,182 @@ function getViewerFromRequest(req) {
         )
     };
 }
+function normalizePatronPrivilegeList(value = []) {
+    if (!Array.isArray(value)) return [];
 
+    return value
+        .map((item) => sanitizeText(item).toLowerCase())
+        .filter(Boolean);
+}
+
+function isSameUserId(a = '', b = '') {
+    return sanitizeText(a) && sanitizeText(a) === sanitizeText(b);
+}
+
+async function findPlazaRegionByRegionName(regionName = '') {
+    const cleanRegion = sanitizeText(regionName);
+
+    if (!cleanRegion) return null;
+
+    const snap = await plazaRegionsCol
+        .where('region', '==', cleanRegion)
+        .limit(1)
+        .get();
+
+    if (snap.empty) return null;
+
+    const docSnap = snap.docs[0];
+
+    return {
+        id: docSnap.id,
+        data: docSnap.data() || {},
+        snap: docSnap
+    };
+}
+
+async function resolvePlazaRegionContext(regionIdOrName = '') {
+    const clean = sanitizeText(regionIdOrName);
+
+    if (!clean) return null;
+
+    const directRef = plazaRegionsCol.doc(clean);
+    const directSnap = await directRef.get();
+
+    if (directSnap.exists) {
+        return {
+            id: directSnap.id,
+            data: directSnap.data() || {},
+            snap: directSnap
+        };
+    }
+
+    return findPlazaRegionByRegionName(clean);
+}
+
+async function resolvePatronRouteMetaForRegion(regionIdOrName = '') {
+    const regionContext = await resolvePlazaRegionContext(regionIdOrName);
+
+    if (!regionContext) {
+        return {
+            routedToPatron: false,
+            patronRouteStatus: 'no_region_match',
+            patronRegionId: '',
+            patronRegion: sanitizeText(regionIdOrName),
+            patronUserId: '',
+            patronName: '',
+            patronRole: ''
+        };
+    }
+
+    const regionData = regionContext.data || {};
+    const patronUserId = sanitizeText(regionData.patronUserId || regionData.leaderUserId || '');
+    const patronStatus = sanitizeText(regionData.patronStatus || regionData.leaderStatus || '').toLowerCase();
+    const hasActivePatron = Boolean(patronUserId && patronStatus === 'active');
+
+    return {
+        routedToPatron: hasActivePatron,
+        patronRouteStatus: hasActivePatron ? 'routed_to_patron' : 'open_no_active_patron',
+        patronRegionId: regionContext.id,
+        patronRegion: sanitizeText(regionData.region || regionData.name || regionIdOrName),
+        patronUserId,
+        patronName: sanitizeText(regionData.patronName || regionData.leaderName || ''),
+        patronRole: sanitizeText(regionData.patronRole || regionData.leaderRole || 'Regional Patron'),
+        patronInboxRole: hasActivePatron ? 'plaza-patron' : ''
+    };
+}
+
+async function getApprovedPatronContextForRegion(regionId = '', viewer = {}, requiredPrivilege = '') {
+    const cleanRegionId = sanitizeText(regionId);
+
+    if (!cleanRegionId) {
+        return {
+            ok: false,
+            statusCode: 400,
+            message: 'Plaza region is required.'
+        };
+    }
+
+    const regionRef = plazaRegionsCol.doc(cleanRegionId);
+    const regionSnap = await regionRef.get();
+
+    if (!regionSnap.exists) {
+        return {
+            ok: false,
+            statusCode: 404,
+            message: 'Plaza region not found.'
+        };
+    }
+
+    const regionData = regionSnap.data() || {};
+    const patronUserId = sanitizeText(regionData.patronUserId || regionData.leaderUserId || '');
+    const patronStatus = sanitizeText(regionData.patronStatus || regionData.leaderStatus || '').toLowerCase();
+
+    const userSnap = await usersCol.doc(viewer.id).get();
+    const userData = userSnap.exists ? (userSnap.data() || {}) : {};
+    const application =
+        userData.plazaPatronApplication && typeof userData.plazaPatronApplication === 'object'
+            ? userData.plazaPatronApplication
+            : {};
+
+    const userPrivileges = normalizePatronPrivilegeList(userData.plazaPatronPrivileges);
+    const regionPrivileges = normalizePatronPrivilegeList(regionData.patronPrivileges);
+    const mergedPrivileges = Array.from(new Set([...userPrivileges, ...regionPrivileges]));
+
+    const isAssignedPatron =
+        isSameUserId(patronUserId, viewer.id) ||
+        isSameUserId(patronUserId, viewer.firebaseUid);
+
+    const hasApprovedRole =
+        userData.hasPlazaPatronRole === true &&
+        sanitizeText(userData.plazaPatronStatus || userData.plazaPatronApplicationStatus).toLowerCase() === 'approved';
+
+    const applicationMatchesRegion =
+        sanitizeText(application.regionId) === cleanRegionId ||
+        sanitizeText(application.region) === sanitizeText(regionData.region || regionData.name);
+
+    if (!isAssignedPatron || !hasApprovedRole || !applicationMatchesRegion || patronStatus !== 'active') {
+        return {
+            ok: false,
+            statusCode: 403,
+            message: 'Only the approved active Patron for this Plaza can use this Patron benefit.'
+        };
+    }
+
+    const cleanPrivilege = sanitizeText(requiredPrivilege).toLowerCase();
+
+    if (cleanPrivilege && !mergedPrivileges.includes(cleanPrivilege)) {
+        return {
+            ok: false,
+            statusCode: 403,
+            message: `Your Patron role does not include the required privilege: ${cleanPrivilege}.`
+        };
+    }
+
+    return {
+        ok: true,
+        regionId: cleanRegionId,
+        regionRef,
+        regionSnap,
+        region: mapPlazaRegionDoc(regionSnap),
+        regionData,
+        userData,
+        privileges: mergedPrivileges
+    };
+}
+
+function sendPatronContextError(res, context = {}) {
+    return res.status(context.statusCode || 403).json({
+        success: false,
+        message: context.message || 'Patron permission denied.'
+    });
+}
+
+function calculatePatronCommissionAmount(grossAmount = 0, commissionRate = 10) {
+    const gross = Math.max(0, Number(grossAmount || 0));
+    const rate = Math.max(0, Math.min(100, Number(commissionRate || 0)));
+
+    return Math.round(((gross * rate) / 100) * 100) / 100;
+}
 function mapTimestamp(value) {
     if (!value) return '';
     if (typeof value.toDate === 'function') return value.toDate().toISOString();
@@ -750,12 +982,82 @@ function mapPlazaRegionDoc(docSnap) {
             ? Number(data.sortOrder)
             : 9999,
         action: sanitizeText(data.action || 'Enter Region Hub'),
+        patronName: sanitizeText(data.patronName || data.leaderName || `${sanitizeText(data.region || data.name || 'Plaza')} Patron`),
+        patronRole: sanitizeText(data.patronRole || data.leaderRole || 'Regional Patron'),
+        patronUserId: sanitizeText(data.patronUserId || data.leaderUserId || ''),
+        patronStatus: sanitizeText(data.patronStatus || data.leaderStatus || 'open'),
+        patronContactHint: sanitizeText(
+            data.patronContactHint ||
+            data.leaderContactHint ||
+            'This Plaza is open for an approved Patron or Leader to coordinate networking, meetups, and local movement.'
+        ),
+        patronBenefits: Array.isArray(data.patronBenefits) ? data.patronBenefits : PLAZA_PATRON_BENEFITS,
+        patronPrivileges: Array.isArray(data.patronPrivileges) ? data.patronPrivileges : PLAZA_PATRON_PRIVILEGES,
+        patronCommissionPolicy:
+            data.patronCommissionPolicy && typeof data.patronCommissionPolicy === 'object'
+                ? data.patronCommissionPolicy
+                : PLAZA_PATRON_COMMISSION_POLICY,
+        patronAuthority:
+            data.patronAuthority && typeof data.patronAuthority === 'object'
+                ? data.patronAuthority
+                : {},
         authorId: sanitizeText(data.authorId || data.createdByUserId),
         authorName: sanitizeText(data.authorName || 'Hustler'),
         authorEmail: sanitizeText(data.authorEmail).toLowerCase(),
         status: sanitizeText(data.status || 'active'),
         createdAt: mapTimestamp(data.createdAt),
         updatedAt: mapTimestamp(data.updatedAt)
+    };
+}
+function normalizePlazaPatronStatus(value = '') {
+    const raw = sanitizeText(value).toLowerCase();
+
+    if (raw === 'approved') return 'Approved';
+    if (raw === 'rejected') return 'Rejected';
+    if (raw === 'waitlisted') return 'Waitlisted';
+    if (raw === 'shortlisted') return 'Shortlisted';
+
+    return 'Under Review';
+}
+
+function mapPlazaPatronApplicationPayload(application = {}, userId = '') {
+    return {
+        id: sanitizeText(application.id || ''),
+        userId: sanitizeText(application.userId || userId),
+        firebaseUid: sanitizeText(application.firebaseUid || ''),
+        email: sanitizeText(application.email || '').toLowerCase(),
+        fullName: sanitizeText(application.fullName || application.name || 'Plaza Patron Applicant'),
+        username: sanitizeText(application.username || ''),
+        regionId: sanitizeText(application.regionId || ''),
+        region: sanitizeText(application.region || ''),
+        continent: sanitizeText(application.continent || ''),
+        network: sanitizeText(application.network || ''),
+        preferredRole: sanitizeText(application.preferredRole || 'Regional Patron'),
+        baseCity: sanitizeText(application.baseCity || ''),
+        country: sanitizeText(application.country || ''),
+        communicationHandle: sanitizeText(application.communicationHandle || ''),
+        leadershipExperience: sanitizeText(application.leadershipExperience || ''),
+        plazaPlan: sanitizeText(application.plazaPlan || ''),
+        meetupPlan: sanitizeText(application.meetupPlan || ''),
+        proofLink: sanitizeText(application.proofLink || ''),
+        whyYou: sanitizeText(application.whyYou || ''),
+        patronBenefits: Array.isArray(application.patronBenefits) ? application.patronBenefits : PLAZA_PATRON_BENEFITS,
+        patronPrivileges: Array.isArray(application.patronPrivileges) ? application.patronPrivileges : PLAZA_PATRON_PRIVILEGES,
+        commissionPolicy:
+            application.commissionPolicy && typeof application.commissionPolicy === 'object'
+                ? application.commissionPolicy
+                : PLAZA_PATRON_COMMISSION_POLICY,
+        status: normalizePlazaPatronStatus(application.status || 'Under Review'),
+        applicationType: 'plaza-patron-leader',
+        reviewLane: 'Plaza Patron / Leader',
+        source: sanitizeText(application.source || 'Plaza Patron Application'),
+        tags: Array.isArray(application.tags) ? application.tags : [],
+        notes: Array.isArray(application.notes) ? application.notes : [],
+        submittedAt: mapTimestamp(application.submittedAt) || sanitizeText(application.submittedAt || ''),
+        reviewedAt: sanitizeText(application.reviewedAt || ''),
+        reviewedBy: sanitizeText(application.reviewedBy || ''),
+        createdAt: mapTimestamp(application.createdAt) || sanitizeText(application.createdAt || ''),
+        updatedAt: mapTimestamp(application.updatedAt) || sanitizeText(application.updatedAt || '')
     };
 }
 function normalizeBridgeLane(value = '') {
@@ -955,6 +1257,18 @@ function mapPlazaRequestDoc(docSnap) {
         routeLabel: sanitizeText(data.routeLabel || targetLabel),
         matchingStatus: sanitizeText(data.matchingStatus || ''),
         matchingPriority: sanitizeText(data.matchingPriority || ''),
+
+        routedToPatron: data.routedToPatron === true,
+        patronRouteStatus: sanitizeText(data.patronRouteStatus || ''),
+        patronRegionId: sanitizeText(data.patronRegionId || ''),
+        patronRegion: sanitizeText(data.patronRegion || ''),
+        patronUserId: sanitizeText(data.patronUserId || ''),
+        patronName: sanitizeText(data.patronName || ''),
+        patronRole: sanitizeText(data.patronRole || ''),
+        patronInboxRole: sanitizeText(data.patronInboxRole || ''),
+        patronHandledAt: mapTimestamp(data.patronHandledAt),
+        patronHandledBy: sanitizeText(data.patronHandledBy || ''),
+        patronActionNote: sanitizeText(data.patronActionNote || ''),
         headline: sanitizeText(data.headline),
         experience: sanitizeText(data.experience),
         portfolioLink: sanitizeText(data.portfolioLink),
@@ -1054,7 +1368,94 @@ function buildConversationFromRequestPayload(requestId, requestData = {}, viewer
         updatedAt: Timestamp.now()
     };
 }
+function buildConversationFromRegionPayload(regionId = '', regionData = {}, viewer = {}) {
+    const nowIso = new Date().toISOString();
+    const regionName = sanitizeText(regionData.region || regionData.name || 'YH Plaza');
+    const patronName = sanitizeText(regionData.patronName || regionData.leaderName || `${regionName} Patron`);
+    const viewerName = sanitizeText(viewer.name || viewer.username || 'Hustler');
 
+    return {
+        title: `${regionName} Plaza Chat`,
+        queueRole: 'personal',
+        linkedRequestId: '',
+        linkedInboxId: '',
+        targetLabel: regionName,
+        targetId: sanitizeText(regionId),
+        regionId: sanitizeText(regionId),
+        contextTitle: `${regionName} networking, meetups, and regional coordination`,
+        contextRoute: 'Regional Plaza Chat',
+        participants: [viewerName, patronName, regionName]
+            .filter(Boolean)
+            .filter((value, index, arr) => arr.indexOf(value) === index),
+        participantIds: [sanitizeText(viewer.id)].filter(Boolean),
+        status: 'active',
+        messages: [
+            {
+                id: `message-${Date.now()}-system`,
+                sender: 'Plaza System',
+                type: 'system',
+                text: `Regional Plaza chat opened for ${regionName}. Patron/Leader: ${patronName}.`,
+                createdAt: nowIso
+            }
+        ],
+        authorId: sanitizeText(viewer.id),
+        authorFirebaseUid: sanitizeText(viewer.firebaseUid),
+        authorEmail: sanitizeText(viewer.email).toLowerCase(),
+        authorName: viewerName,
+        recordStatus: 'active',
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now()
+    };
+}
+
+function normalizeMeetupFormat(value = '') {
+    const raw = sanitizeText(value).toLowerCase();
+
+    if (raw === 'online') return 'online';
+    if (raw === 'hybrid') return 'hybrid';
+
+    return 'in-person';
+}
+
+function mapPlazaMeetupDoc(docSnap) {
+    const data = docSnap.data() || {};
+
+    return {
+        id: docSnap.id,
+        title: sanitizeText(data.title || 'Plaza meetup'),
+        regionId: sanitizeText(data.regionId || ''),
+        region: sanitizeText(data.region || 'YH Plaza'),
+        format: normalizeMeetupFormat(data.format),
+        location: sanitizeText(data.location || ''),
+        scheduledAt: sanitizeText(data.scheduledAt || data.startsAt || ''),
+        description: sanitizeText(data.description || data.text || ''),
+        patronName: sanitizeText(data.patronName || 'Plaza Patron'),
+        patronRole: sanitizeText(data.patronRole || 'Regional Patron'),
+        isOfficial: data.isOfficial === true,
+        officialByPatron: data.officialByPatron === true,
+        officialPatronUserId: sanitizeText(data.officialPatronUserId || ''),
+        officialPatronName: sanitizeText(data.officialPatronName || ''),
+        patronStatusNote: sanitizeText(data.patronStatusNote || ''),
+        featuredByPatron: data.featuredByPatron === true,
+        hostId: sanitizeText(data.hostId || data.authorId || ''),
+        hostName: sanitizeText(data.hostName || data.authorName || 'Hustler'),
+        attendeeIds: Array.isArray(data.attendeeIds)
+            ? data.attendeeIds.map((item) => sanitizeText(item)).filter(Boolean)
+            : [],
+        attendees: Array.isArray(data.attendees)
+            ? data.attendees.map((item) => sanitizeText(item)).filter(Boolean)
+            : [],
+        attendeeCount: Number.isFinite(Number(data.attendeeCount))
+            ? Number(data.attendeeCount)
+            : Array.isArray(data.attendeeIds)
+                ? data.attendeeIds.length
+                : 0,
+        status: sanitizeText(data.status || 'planned'),
+        recordStatus: sanitizeText(data.recordStatus || 'active'),
+        createdAt: mapTimestamp(data.createdAt),
+        updatedAt: mapTimestamp(data.updatedAt)
+    };
+}
 function buildConversationFromMemberPayload(targetUserId = '', targetUser = {}, viewer = {}, initialMessage = '') {
     const nowIso = new Date().toISOString();
 
@@ -1454,11 +1855,55 @@ exports.getDirectory = async (req, res) => {
             directory.push(mapPlazaDirectoryDoc(docSnap));
         });
 
+        const activePatronSnaps = await plazaRegionsCol
+            .where('patronStatus', '==', 'active')
+            .limit(200)
+            .get();
+
+        const patronRegionByUserId = new Map();
+
+        activePatronSnaps.forEach((docSnap) => {
+            const regionData = docSnap.data() || {};
+            const patronUserId = sanitizeText(regionData.patronUserId || '');
+
+            if (!patronUserId) return;
+
+            patronRegionByUserId.set(patronUserId, {
+                regionId: docSnap.id,
+                region: sanitizeText(regionData.region || regionData.name || ''),
+                patronName: sanitizeText(regionData.patronName || ''),
+                patronRole: sanitizeText(regionData.patronRole || 'Regional Patron')
+            });
+        });
+
         const hydratedDirectory = await hydratePlazaOwnerProfiles(directory);
+
+        const prioritizedDirectory = hydratedDirectory
+            .map((item) => {
+                const ownerId = sanitizeText(item.userId || item.authorId || item.id);
+                const patronRegion = patronRegionByUserId.get(ownerId) || null;
+
+                return {
+                    ...item,
+                    isPlazaPatron: Boolean(patronRegion),
+                    patronRegionId: patronRegion?.regionId || '',
+                    patronRegion: patronRegion?.region || '',
+                    patronRole: patronRegion?.patronRole || ''
+                };
+            })
+            .sort((a, b) => {
+                if (a.isPlazaPatron !== b.isPlazaPatron) {
+                    return a.isPlazaPatron ? -1 : 1;
+                }
+
+                return String(b.updatedAt || b.createdAt || '').localeCompare(
+                    String(a.updatedAt || a.createdAt || '')
+                );
+            });
 
         return res.json({
             success: true,
-            directory: hydratedDirectory
+            directory: prioritizedDirectory
         });
     } catch (error) {
         console.error('plazaControllers.getDirectory error:', error);
@@ -1644,6 +2089,15 @@ exports.createRegion = async (req, res) => {
         const network = clampText(req.body?.network, 120);
         const sourceUrl = clampText(req.body?.sourceUrl || req.body?.source_url, 240);
         const plazaNumber = Number(req.body?.plazaNumber || req.body?.plaza_number || 0);
+        const patronName = clampText(req.body?.patronName || req.body?.leaderName || `${region} Patron`, 140);
+        const patronRole = clampText(req.body?.patronRole || req.body?.leaderRole || 'Regional Patron', 100);
+        const patronUserId = clampText(req.body?.patronUserId || req.body?.leaderUserId, 120);
+        const patronContactHint = clampText(
+            req.body?.patronContactHint ||
+            req.body?.leaderContactHint ||
+            `Responsible for coordination, networking, and meetup leadership inside ${region}.`,
+            300
+        );
         if (!region) {
             return res.status(400).json({
                 success: false,
@@ -1659,6 +2113,7 @@ exports.createRegion = async (req, res) => {
         }
 
         const now = Timestamp.now();
+        const patronRouteMeta = await resolvePatronRouteMetaForRegion(region);
 
         const payload = {
             region,
@@ -1677,6 +2132,11 @@ exports.createRegion = async (req, res) => {
             canonicalDataVersion: '',
             sortOrder: 9999,
             action: 'Enter Region Hub',
+            patronName,
+            patronRole,
+            patronUserId,
+            patronStatus: patronUserId ? 'active' : 'open',
+            patronContactHint,
             authorId: viewer.id,
             authorFirebaseUid: viewer.firebaseUid,
             authorEmail: viewer.email,
@@ -1699,6 +2159,871 @@ exports.createRegion = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: 'Failed to create Plaza region.'
+        });
+    }
+};
+exports.getPatronApplicationStatus = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Missing authenticated user.'
+            });
+        }
+
+        const userSnap = await usersCol.doc(viewer.id).get();
+        const user = userSnap.exists ? (userSnap.data() || {}) : {};
+        const application =
+            user.plazaPatronApplication && typeof user.plazaPatronApplication === 'object'
+                ? user.plazaPatronApplication
+                : null;
+
+        return res.json({
+            success: true,
+            hasApplication: Boolean(application),
+            status: application
+                ? normalizePlazaPatronStatus(application.status || user.plazaPatronApplicationStatus)
+                : '',
+            application: application
+                ? mapPlazaPatronApplicationPayload(application, viewer.id)
+                : null
+        });
+    } catch (error) {
+        console.error('plazaControllers.getPatronApplicationStatus error:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load Patron application status.'
+        });
+    }
+};
+
+exports.submitPatronApplication = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Missing authenticated user.'
+            });
+        }
+
+        const userRef = usersCol.doc(viewer.id);
+        const userSnap = await userRef.get();
+        const user = userSnap.exists ? (userSnap.data() || {}) : {};
+
+        const plazaStatus = sanitizeText(
+            user.plazaMembershipStatus ||
+            user.plazaAccessStatus ||
+            user.plazaApplicationStatus ||
+            user.plazaApplication?.status ||
+            ''
+        ).toLowerCase();
+
+        const hasPlazaAccess =
+            user.hasPlazaAccess === true ||
+            plazaStatus === 'approved';
+
+        if (!hasPlazaAccess) {
+            return res.status(403).json({
+                success: false,
+                message: 'You need approved Plaza access before applying to become a Patron or Leader.'
+            });
+        }
+
+        const regionId = sanitizeText(req.body?.regionId || req.body?.region_id);
+        const preferredRole = clampText(req.body?.preferredRole || req.body?.role || 'Regional Patron', 100);
+        const fullName = clampText(
+            req.body?.fullName ||
+            req.body?.name ||
+            user.fullName ||
+            user.name ||
+            user.displayName ||
+            viewer.name,
+            140
+        );
+        const baseCity = clampText(req.body?.baseCity || req.body?.city, 100);
+        const country = clampText(req.body?.country || user.country, 100);
+        const communicationHandle = clampText(req.body?.communicationHandle || req.body?.telegram || req.body?.contact, 160);
+        const leadershipExperience = clampText(req.body?.leadershipExperience || req.body?.experience, 1200);
+        const plazaPlan = clampText(req.body?.plazaPlan || req.body?.plan, 1200);
+        const meetupPlan = clampText(req.body?.meetupPlan || req.body?.meetups, 900);
+        const proofLink = clampText(req.body?.proofLink || req.body?.profileLink || req.body?.portfolio, 260);
+        const whyYou = clampText(req.body?.whyYou || req.body?.why, 900);
+
+        if (!regionId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Select the Plaza you want to lead.'
+            });
+        }
+
+        if (!fullName) {
+            return res.status(400).json({
+                success: false,
+                message: 'Your name is required.'
+            });
+        }
+
+        if (!leadershipExperience) {
+            return res.status(400).json({
+                success: false,
+                message: 'Leadership experience is required.'
+            });
+        }
+
+        if (!plazaPlan) {
+            return res.status(400).json({
+                success: false,
+                message: 'Plaza leadership plan is required.'
+            });
+        }
+
+        if (!whyYou) {
+            return res.status(400).json({
+                success: false,
+                message: 'Explain why you should become Patron or Leader.'
+            });
+        }
+
+        const regionSnap = await plazaRegionsCol.doc(regionId).get();
+
+        if (!regionSnap.exists) {
+            return res.status(404).json({
+                success: false,
+                message: 'Selected Plaza was not found.'
+            });
+        }
+
+        const regionData = regionSnap.data() || {};
+        const now = Timestamp.now();
+        const nowIso = new Date().toISOString();
+
+        const existingApplication =
+            user.plazaPatronApplication && typeof user.plazaPatronApplication === 'object'
+                ? user.plazaPatronApplication
+                : {};
+
+        const applicationId = sanitizeText(existingApplication.id || `PLAZA-PATRON-${Date.now()}-${viewer.id}`);
+
+        const application = {
+            id: applicationId,
+            userId: viewer.id,
+            firebaseUid: viewer.firebaseUid,
+            email: viewer.email,
+            fullName,
+            username: sanitizeText(user.username || viewer.username),
+            regionId,
+            region: sanitizeText(regionData.region || regionData.name || 'YH Plaza'),
+            continent: sanitizeText(regionData.continent || ''),
+            network: sanitizeText(regionData.network || ''),
+            preferredRole,
+            baseCity,
+            country,
+            communicationHandle,
+            leadershipExperience,
+            plazaPlan,
+            meetupPlan,
+            proofLink,
+            whyYou,
+            patronBenefits: PLAZA_PATRON_BENEFITS,
+            patronPrivileges: PLAZA_PATRON_PRIVILEGES,
+            commissionPolicy: PLAZA_PATRON_COMMISSION_POLICY,
+            status: 'Under Review',
+            applicationType: 'plaza-patron-leader',
+            reviewLane: 'Plaza Patron / Leader',
+            source: 'Plaza Patron Application',
+            tags: [
+                'plaza-patron',
+                sanitizeText(regionData.continent || ''),
+                sanitizeText(regionData.network || ''),
+                preferredRole
+            ].filter(Boolean),
+            notes: [
+                'Submitted from the internal Plaza Patron / Leader application form.'
+            ],
+            submittedAt: nowIso,
+            createdAt: existingApplication.createdAt || now,
+            updatedAt: now
+        };
+
+        await userRef.set({
+            plazaPatronApplication: application,
+            plazaPatronApplicationStatus: 'Under Review',
+            plazaPatronStatus: 'under review',
+            updatedAt: nowIso
+        }, { merge: true });
+
+        await plazaPatronApplicationsCol.doc(applicationId).set({
+            ...application,
+            createdAt: existingApplication.createdAt || now,
+            updatedAt: now
+        }, { merge: true });
+
+        return res.status(existingApplication.id ? 200 : 201).json({
+            success: true,
+            hasApplication: true,
+            status: 'Under Review',
+            application: mapPlazaPatronApplicationPayload(application, viewer.id)
+        });
+    } catch (error) {
+        console.error('plazaControllers.submitPatronApplication error:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to submit Patron application.'
+        });
+    }
+};
+exports.getPatronDesk = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Missing authenticated user.'
+            });
+        }
+
+        const userSnap = await usersCol.doc(viewer.id).get();
+        const user = userSnap.exists ? (userSnap.data() || {}) : {};
+        const application =
+            user.plazaPatronApplication && typeof user.plazaPatronApplication === 'object'
+                ? user.plazaPatronApplication
+                : {};
+
+        if (user.hasPlazaPatronRole !== true || sanitizeText(user.plazaPatronStatus).toLowerCase() !== 'approved') {
+            return res.status(403).json({
+                success: false,
+                message: 'Only approved Plaza Patrons can open the Patron Desk.'
+            });
+        }
+
+        const regionId = sanitizeText(application.regionId);
+
+        if (!regionId) {
+            return res.status(404).json({
+                success: false,
+                message: 'No Patron region is attached to this account.'
+            });
+        }
+
+        const patronContext = await getApprovedPatronContextForRegion(regionId, viewer);
+
+        if (!patronContext.ok) {
+            return sendPatronContextError(res, patronContext);
+        }
+
+        const routedRequestsSnap = await plazaRequestsCol
+            .where('patronUserId', '==', viewer.id)
+            .limit(120)
+            .get();
+
+        const routedRequests = [];
+
+        routedRequestsSnap.forEach((docSnap) => {
+            const data = docSnap.data() || {};
+            const recordStatus = sanitizeText(data.recordStatus || 'active').toLowerCase();
+
+            if (recordStatus !== 'active') return;
+
+            routedRequests.push(mapPlazaRequestDoc(docSnap));
+        });
+
+        routedRequests.sort((a, b) => {
+            return String(b.updatedAt || b.createdAt || '').localeCompare(
+                String(a.updatedAt || a.createdAt || '')
+            );
+        });
+
+        const meetupsSnap = await plazaMeetupsCol
+            .where('officialPatronUserId', '==', viewer.id)
+            .limit(80)
+            .get();
+
+        const meetups = [];
+
+        meetupsSnap.forEach((docSnap) => {
+            const data = docSnap.data() || {};
+            const recordStatus = sanitizeText(data.recordStatus || 'active').toLowerCase();
+
+            if (recordStatus === 'deleted') return;
+
+            meetups.push(mapPlazaMeetupDoc(docSnap));
+        });
+
+        const recommendationsSnap = await plazaPatronRecommendationsCol
+            .where('patronUserId', '==', viewer.id)
+            .limit(80)
+            .get();
+
+        const recommendations = [];
+
+        recommendationsSnap.forEach((docSnap) => {
+            const data = docSnap.data() || {};
+
+            recommendations.push({
+                id: docSnap.id,
+                memberId: sanitizeText(data.memberId || ''),
+                memberName: sanitizeText(data.memberName || ''),
+                regionId: sanitizeText(data.regionId || ''),
+                region: sanitizeText(data.region || ''),
+                reason: sanitizeText(data.reason || ''),
+                status: sanitizeText(data.status || 'pending_admin_review'),
+                createdAt: mapTimestamp(data.createdAt),
+                updatedAt: mapTimestamp(data.updatedAt)
+            });
+        });
+
+        const payoutsSnap = await plazaPatronPayoutsCol
+            .where('patronUserId', '==', viewer.id)
+            .limit(80)
+            .get();
+
+        const payouts = [];
+
+        payoutsSnap.forEach((docSnap) => {
+            const data = docSnap.data() || {};
+
+            payouts.push({
+                id: docSnap.id,
+                outcomeId: sanitizeText(data.outcomeId || ''),
+                payoutLedgerId: sanitizeText(data.payoutLedgerId || ''),
+                payoutLedgerStatus: sanitizeText(data.payoutLedgerStatus || data.status || 'pending_review'),
+                regionId: sanitizeText(data.regionId || ''),
+                region: sanitizeText(data.region || ''),
+                grossAmount: Number(data.grossAmount || 0),
+                commissionRate: Number(data.commissionRate || 0),
+                commissionAmount: Number(data.commissionAmount || 0),
+                currency: sanitizeText(data.currency || 'USD'),
+                status: sanitizeText(data.status || 'pending_admin_review'),
+                adminNote: sanitizeText(data.adminNote || ''),
+                provider: sanitizeText(data.provider || 'manual'),
+                providerPaymentId: sanitizeText(data.providerPaymentId || ''),
+                createdAt: mapTimestamp(data.createdAt),
+                updatedAt: mapTimestamp(data.updatedAt),
+                paidAt: mapTimestamp(data.paidAt)
+            });
+        });
+
+        const walletPayouts = await paymentLedgerRepo
+            .listPayoutsForUser(viewer.id, 120)
+            .then((items) => {
+                return items.filter((item) => {
+                    return sanitizeText(item.sourceDivision).toLowerCase() === 'plaza' &&
+                        sanitizeText(item.sourceFeature).toLowerCase() === 'plaza_patron_commission';
+                });
+            })
+            .catch(() => []);
+
+        return res.json({
+            success: true,
+            patron: {
+                userId: viewer.id,
+                name: viewer.name,
+                regionId,
+                region: patronContext.region,
+                privileges: patronContext.privileges,
+                commissionPolicy: user.plazaPatronCommissionPolicy || PLAZA_PATRON_COMMISSION_POLICY
+            },
+            routedRequests,
+            officialMeetups: meetups,
+            recommendations,
+            payouts,
+            walletPayouts
+        });
+    } catch (error) {
+        console.error('plazaControllers.getPatronDesk error:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load Patron Desk.'
+        });
+    }
+};
+
+exports.createPatronAnnouncement = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+        const regionId = sanitizeText(req.body?.regionId || req.body?.region_id);
+        const title = clampText(req.body?.title || 'Patron announcement', 140);
+        const text = clampText(req.body?.text || req.body?.message || req.body?.body, 1200);
+
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Missing authenticated user.'
+            });
+        }
+
+        if (!text) {
+            return res.status(400).json({
+                success: false,
+                message: 'Announcement text is required.'
+            });
+        }
+
+        const patronContext = await getApprovedPatronContextForRegion(regionId, viewer, 'lead_regional_chat');
+
+        if (!patronContext.ok) {
+            return sendPatronContextError(res, patronContext);
+        }
+
+        const now = Timestamp.now();
+        const regionName = sanitizeText(patronContext.regionData.region || patronContext.regionData.name || 'YH Plaza');
+
+        const payload = {
+            title,
+            text,
+            regionId,
+            region: regionName,
+            patronUserId: viewer.id,
+            patronName: viewer.name,
+            status: 'active',
+            createdAt: now,
+            updatedAt: now
+        };
+
+        const ref = await plazaPatronAnnouncementsCol.add(payload);
+
+        const conversationId = `region_${regionId}`;
+        const conversationRef = plazaConversationsCol.doc(conversationId);
+        const conversationSnap = await conversationRef.get();
+
+        if (conversationSnap.exists) {
+            const conversationData = conversationSnap.data() || {};
+            const messages = normalizeConversationMessages(conversationData.messages);
+
+            messages.push({
+                id: `patron-announcement-${Date.now()}`,
+                sender: viewer.name || 'Plaza Patron',
+                type: 'patron_announcement',
+                text: `${title}: ${text}`,
+                createdAt: new Date().toISOString()
+            });
+
+            await conversationRef.set({
+                messages,
+                updatedAt: Timestamp.now()
+            }, { merge: true });
+        }
+
+        return res.status(201).json({
+            success: true,
+            announcement: {
+                id: ref.id,
+                ...payload,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            }
+        });
+    } catch (error) {
+        console.error('plazaControllers.createPatronAnnouncement error:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to create Patron announcement.'
+        });
+    }
+};
+
+exports.updatePatronRoutedRequestStatus = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+        const requestId = sanitizeText(req.params.id);
+        const nextStatus = normalizeRequestStatus(req.body?.status || 'Under Review');
+        const patronActionNote = clampText(req.body?.note || req.body?.patronActionNote, 900);
+
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Missing authenticated user.'
+            });
+        }
+
+        if (!requestId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Request ID is required.'
+            });
+        }
+
+        const ref = plazaRequestsCol.doc(requestId);
+        const snap = await ref.get();
+
+        if (!snap.exists) {
+            return res.status(404).json({
+                success: false,
+                message: 'Request not found.'
+            });
+        }
+
+        const current = snap.data() || {};
+        const regionId = sanitizeText(current.patronRegionId || '');
+
+        const patronContext = await getApprovedPatronContextForRegion(regionId, viewer, 'route_connection_requests');
+
+        if (!patronContext.ok) {
+            return sendPatronContextError(res, patronContext);
+        }
+
+        if (sanitizeText(current.patronUserId) !== viewer.id) {
+            return res.status(403).json({
+                success: false,
+                message: 'This request is not routed to your Patron Desk.'
+            });
+        }
+
+        const statusHistory = Array.isArray(current.statusHistory)
+            ? [...current.statusHistory]
+            : [];
+
+        statusHistory.push({
+            status: nextStatus,
+            at: new Date().toISOString(),
+            by: viewer.id,
+            byRole: 'plaza-patron'
+        });
+
+        await ref.set({
+            status: nextStatus,
+            patronRouteStatus: 'handled_by_patron',
+            patronHandledAt: Timestamp.now(),
+            patronHandledBy: viewer.id,
+            patronActionNote,
+            statusHistory,
+            updatedAt: Timestamp.now()
+        }, { merge: true });
+
+        const updatedSnap = await ref.get();
+
+        return res.json({
+            success: true,
+            request: mapPlazaRequestDoc(updatedSnap)
+        });
+    } catch (error) {
+        console.error('plazaControllers.updatePatronRoutedRequestStatus error:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to update routed Patron request.'
+        });
+    }
+};
+
+exports.createPatronFederationRecommendation = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+        const regionId = sanitizeText(req.body?.regionId || req.body?.region_id);
+        const memberId = sanitizeText(req.body?.memberId || req.body?.targetUserId || req.body?.userId);
+        const memberName = clampText(req.body?.memberName || req.body?.name, 160);
+        const reason = clampText(req.body?.reason || req.body?.message || req.body?.why, 1400);
+        const recommendedRole = clampText(req.body?.recommendedRole || req.body?.role, 160);
+        const proofLink = clampText(req.body?.proofLink || req.body?.link, 260);
+
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Missing authenticated user.'
+            });
+        }
+
+        if (!memberId && !memberName) {
+            return res.status(400).json({
+                success: false,
+                message: 'Member ID or member name is required.'
+            });
+        }
+
+        if (!reason) {
+            return res.status(400).json({
+                success: false,
+                message: 'Recommendation reason is required.'
+            });
+        }
+
+        const patronContext = await getApprovedPatronContextForRegion(regionId, viewer, 'recommend_federation_candidates');
+
+        if (!patronContext.ok) {
+            return sendPatronContextError(res, patronContext);
+        }
+
+        const now = Timestamp.now();
+        const regionName = sanitizeText(patronContext.regionData.region || patronContext.regionData.name || '');
+
+        const payload = {
+            memberId,
+            memberName,
+            reason,
+            recommendedRole,
+            proofLink,
+            regionId,
+            region: regionName,
+            patronUserId: viewer.id,
+            patronName: viewer.name,
+            status: 'pending_admin_review',
+            reviewLane: 'Federation Recommendation',
+            source: 'Plaza Patron Recommendation',
+            createdAt: now,
+            updatedAt: now
+        };
+
+        const ref = await plazaPatronRecommendationsCol.add(payload);
+
+        return res.status(201).json({
+            success: true,
+            recommendation: {
+                id: ref.id,
+                ...payload,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            }
+        });
+    } catch (error) {
+        console.error('plazaControllers.createPatronFederationRecommendation error:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to create Federation recommendation.'
+        });
+    }
+};
+
+exports.createPatronIntroOutcome = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+        const regionId = sanitizeText(req.body?.regionId || req.body?.region_id);
+        const introTitle = clampText(req.body?.introTitle || req.body?.title, 180);
+        const introSummary = clampText(req.body?.introSummary || req.body?.summary || req.body?.description, 1600);
+        const connectedParties = normalizeRequestTagArray(req.body?.connectedParties, 12);
+        const grossAmount = Math.max(0, Number(req.body?.grossAmount || req.body?.dealValue || 0));
+        const currency = sanitizeText(req.body?.currency || 'USD').toUpperCase() || 'USD';
+        const commissionRate = Math.max(5, Math.min(15, Number(req.body?.commissionRate || 10)));
+        const commissionAmount = calculatePatronCommissionAmount(grossAmount, commissionRate);
+
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Missing authenticated user.'
+            });
+        }
+
+        if (!introTitle || !introSummary) {
+            return res.status(400).json({
+                success: false,
+                message: 'Intro title and summary are required.'
+            });
+        }
+
+        const patronContext = await getApprovedPatronContextForRegion(regionId, viewer, 'receive_connection_commission_eligibility');
+
+        if (!patronContext.ok) {
+            return sendPatronContextError(res, patronContext);
+        }
+
+        const now = Timestamp.now();
+        const regionName = sanitizeText(patronContext.regionData.region || patronContext.regionData.name || '');
+
+        const outcomePayload = {
+            introTitle,
+            introSummary,
+            connectedParties,
+            grossAmount,
+            currency,
+            commissionRate,
+            commissionAmount,
+            regionId,
+            region: regionName,
+            patronUserId: viewer.id,
+            patronName: viewer.name,
+            status: 'pending_admin_review',
+            payoutStatus: grossAmount > 0 ? 'eligible_pending_admin_review' : 'no_monetary_value_logged',
+            source: 'Plaza Patron Intro Outcome',
+            createdAt: now,
+            updatedAt: now
+        };
+
+        const outcomeRef = await plazaPatronIntroOutcomesCol.add(outcomePayload);
+
+        let payout = null;
+        let walletPayout = null;
+
+        if (commissionAmount > 0) {
+            const payoutPayload = {
+                outcomeId: outcomeRef.id,
+                payoutLedgerId: '',
+                payoutLedgerStatus: 'pending_review',
+                regionId,
+                region: regionName,
+                patronUserId: viewer.id,
+                patronName: viewer.name,
+                grossAmount,
+                commissionRate,
+                commissionAmount,
+                currency,
+                status: 'pending_review',
+                source: 'Plaza Patron Commission',
+                provider: 'manual',
+                providerPaymentId: '',
+                adminNote: 'Awaiting admin review and manual payout disbursement.',
+                createdAt: now,
+                updatedAt: now
+            };
+
+            const payoutRef = await plazaPatronPayoutsCol.add(payoutPayload);
+
+            walletPayout = await paymentLedgerRepo.createPayoutRequest({
+                receiverUid: viewer.id,
+                receiverEmail: viewer.email,
+                receiverName: viewer.name,
+
+                sourceDivision: 'plaza',
+                sourceFeature: 'plaza_patron_commission',
+                sourcePaymentId: outcomeRef.id,
+                sourceRecordId: `patron_intro_${outcomeRef.id}`,
+
+                method: 'manual',
+                provider: 'manual',
+
+                amount: commissionAmount,
+                currency,
+
+                status: 'pending_review',
+                adminNote: 'Patron intro commission requires admin review before disbursement.',
+
+                metadata: {
+                    requestSource: 'plaza_patron_intro_outcome',
+                    patronPayoutRecordId: payoutRef.id,
+                    outcomeId: outcomeRef.id,
+                    regionId,
+                    region: regionName,
+                    patronUserId: viewer.id,
+                    patronName: viewer.name,
+                    grossAmount,
+                    commissionRate,
+                    commissionAmount,
+                    currency,
+                    payoutUnlockRule: 'Admin must verify the intro outcome and then mark payout as approved/processing/paid.'
+                }
+            });
+
+            await payoutRef.set({
+                payoutLedgerId: walletPayout.id,
+                payoutLedgerStatus: walletPayout.status,
+                updatedAt: Timestamp.now()
+            }, { merge: true });
+
+            await outcomeRef.set({
+                payoutLedgerId: walletPayout.id,
+                payoutRecordId: payoutRef.id,
+                payoutStatus: walletPayout.status,
+                updatedAt: Timestamp.now()
+            }, { merge: true });
+
+            payout = {
+                id: payoutRef.id,
+                ...payoutPayload,
+                payoutLedgerId: walletPayout.id,
+                payoutLedgerStatus: walletPayout.status,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            };
+        }
+
+        return res.status(201).json({
+            success: true,
+            outcome: {
+                id: outcomeRef.id,
+                ...outcomePayload,
+                payoutLedgerId: walletPayout?.id || '',
+                payoutRecordId: payout?.id || '',
+                payoutStatus: walletPayout?.status || outcomePayload.payoutStatus,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            },
+            payout,
+            walletPayout
+        });
+    } catch (error) {
+        console.error('plazaControllers.createPatronIntroOutcome error:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to log Patron intro outcome.'
+        });
+    }
+};
+
+exports.updatePatronMeetupStatus = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+        const meetupId = sanitizeText(req.params.id);
+        const status = clampText(req.body?.status || 'planned', 80, 'planned') || 'planned';
+        const patronStatusNote = clampText(req.body?.patronStatusNote || req.body?.note, 900);
+        const featuredByPatron =
+            req.body?.featuredByPatron === true ||
+            sanitizeText(req.body?.featuredByPatron).toLowerCase() === 'true';
+
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Missing authenticated user.'
+            });
+        }
+
+        if (!meetupId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Meetup ID is required.'
+            });
+        }
+
+        const ref = plazaMeetupsCol.doc(meetupId);
+        const snap = await ref.get();
+
+        if (!snap.exists) {
+            return res.status(404).json({
+                success: false,
+                message: 'Meetup not found.'
+            });
+        }
+
+        const meetup = snap.data() || {};
+        const regionId = sanitizeText(meetup.regionId || '');
+
+        const patronContext = await getApprovedPatronContextForRegion(regionId, viewer, 'create_official_meetups');
+
+        if (!patronContext.ok) {
+            return sendPatronContextError(res, patronContext);
+        }
+
+        await ref.set({
+            status,
+            isOfficial: true,
+            officialByPatron: true,
+            officialPatronUserId: viewer.id,
+            officialPatronName: viewer.name,
+            featuredByPatron,
+            patronStatusNote,
+            updatedAt: Timestamp.now()
+        }, { merge: true });
+
+        const updatedSnap = await ref.get();
+
+        return res.json({
+            success: true,
+            meetup: mapPlazaMeetupDoc(updatedSnap)
+        });
+    } catch (error) {
+        console.error('plazaControllers.updatePatronMeetupStatus error:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to update Patron meetup status.'
         });
     }
 };
@@ -1942,6 +3267,7 @@ exports.createRequest = async (req, res) => {
             targetLabel,
             context,
             region,
+            ...patronRouteMeta,
             name: viewer.name,
             objective,
             message,
@@ -2093,6 +3419,7 @@ exports.updateRequest = async (req, res) => {
         });
 
         const now = Timestamp.now();
+        const patronRouteMeta = await resolvePatronRouteMetaForRegion(region);
 
         const statusHistory = Array.isArray(current.statusHistory)
             ? [...current.statusHistory]
@@ -2118,6 +3445,7 @@ exports.updateRequest = async (req, res) => {
             targetLabel,
             context,
             region,
+            ...patronRouteMeta,
             name: clampText(req.body?.name ?? current.name ?? viewer.name, 160, viewer.name) || viewer.name,
             objective,
             message,
@@ -2295,6 +3623,185 @@ exports.deleteRequest = async (req, res) => {
         });
     }
 };
+exports.getMeetups = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Missing authenticated user.'
+            });
+        }
+
+        const limit = Math.min(
+            Math.max(parseInt(req.query.limit, 10) || 80, 1),
+            160
+        );
+
+        const snap = await plazaMeetupsCol
+            .orderBy('createdAt', 'desc')
+            .limit(limit)
+            .get();
+
+        const meetups = [];
+
+        snap.forEach((docSnap) => {
+            const data = docSnap.data() || {};
+            const recordStatus = sanitizeText(data.recordStatus || 'active').toLowerCase();
+
+            if (recordStatus === 'deleted') return;
+
+            meetups.push(mapPlazaMeetupDoc(docSnap));
+        });
+
+        return res.json({
+            success: true,
+            meetups
+        });
+    } catch (error) {
+        console.error('plazaControllers.getMeetups error:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load Plaza meetups.'
+        });
+    }
+};
+
+exports.createMeetup = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Missing authenticated user.'
+            });
+        }
+
+        const regionId = sanitizeText(req.body?.regionId || req.body?.region_id);
+        const title = clampText(req.body?.title, 140);
+        const format = normalizeMeetupFormat(req.body?.format);
+        const location = clampText(req.body?.location, 180);
+        const scheduledAt = clampText(req.body?.scheduledAt || req.body?.startsAt, 80);
+        const description = clampText(
+            req.body?.description ||
+            req.body?.text ||
+            req.body?.body,
+            1200
+        );
+
+        if (!regionId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Plaza region is required.'
+            });
+        }
+
+        if (!title) {
+            return res.status(400).json({
+                success: false,
+                message: 'Meetup title is required.'
+            });
+        }
+
+        if (!location) {
+            return res.status(400).json({
+                success: false,
+                message: 'Meetup location or link is required.'
+            });
+        }
+
+        if (!scheduledAt) {
+            return res.status(400).json({
+                success: false,
+                message: 'Meetup date and time is required.'
+            });
+        }
+
+        if (!description) {
+            return res.status(400).json({
+                success: false,
+                message: 'Meetup brief is required.'
+            });
+        }
+
+        const regionSnap = await plazaRegionsCol.doc(regionId).get();
+
+        if (!regionSnap.exists) {
+            return res.status(404).json({
+                success: false,
+                message: 'Plaza region not found.'
+            });
+        }
+
+        const regionData = regionSnap.data() || {};
+        const region = sanitizeText(regionData.region || regionData.name || 'YH Plaza');
+        const patronName = sanitizeText(regionData.patronName || regionData.leaderName || `${region} Patron`);
+        const patronRole = sanitizeText(regionData.patronRole || regionData.leaderRole || 'Regional Patron');
+        const wantsOfficialMeetup =
+            req.body?.isOfficial === true ||
+            req.body?.official === true ||
+            sanitizeText(req.body?.isOfficial || req.body?.official).toLowerCase() === 'true';
+
+        let patronContext = null;
+
+        if (wantsOfficialMeetup) {
+            patronContext = await getApprovedPatronContextForRegion(regionSnap.id, viewer, 'create_official_meetups');
+
+            if (!patronContext.ok) {
+                return sendPatronContextError(res, patronContext);
+            }
+        }
+
+        const now = Timestamp.now();
+
+        const payload = {
+            title,
+            regionId,
+            region,
+            format,
+            location,
+            scheduledAt,
+            description,
+            patronName,
+            patronRole,
+            isOfficial: wantsOfficialMeetup,
+            officialByPatron: wantsOfficialMeetup,
+            officialPatronUserId: wantsOfficialMeetup ? viewer.id : '',
+            officialPatronName: wantsOfficialMeetup ? viewer.name : '',
+            patronStatusNote: wantsOfficialMeetup ? 'Official Patron-led Plaza meetup.' : '',
+            featuredByPatron: wantsOfficialMeetup,
+            hostId: viewer.id,
+            hostFirebaseUid: viewer.firebaseUid,
+            hostEmail: viewer.email,
+            hostName: viewer.name,
+            attendeeIds: [viewer.id].filter(Boolean),
+            attendees: [viewer.name].filter(Boolean),
+            attendeeCount: 1,
+            status: 'planned',
+            recordStatus: 'active',
+            createdAt: now,
+            updatedAt: now
+        };
+
+        const ref = await plazaMeetupsCol.add(payload);
+        const createdSnap = await ref.get();
+
+        return res.status(201).json({
+            success: true,
+            meetup: mapPlazaMeetupDoc(createdSnap)
+        });
+    } catch (error) {
+        console.error('plazaControllers.createMeetup error:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to create Plaza meetup.'
+        });
+    }
+};
 exports.getMessages = async (req, res) => {
     try {
         const viewer = getViewerFromRequest(req);
@@ -2414,7 +3921,76 @@ exports.createConversationFromRequest = async (req, res) => {
         });
     }
 };
+exports.createConversationFromRegion = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+        const regionId = sanitizeText(req.params.regionId);
 
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Missing authenticated user.'
+            });
+        }
+
+        if (!regionId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Region ID is required.'
+            });
+        }
+
+        const regionRef = plazaRegionsCol.doc(regionId);
+        const regionSnap = await regionRef.get();
+
+        if (!regionSnap.exists) {
+            return res.status(404).json({
+                success: false,
+                message: 'Plaza region not found.'
+            });
+        }
+
+        const regionData = regionSnap.data() || {};
+        const conversationId = `region_${regionId}`;
+        const conversationRef = plazaConversationsCol.doc(conversationId);
+        const conversationSnap = await conversationRef.get();
+
+        if (!conversationSnap.exists) {
+            const payload = buildConversationFromRegionPayload(regionId, regionData, viewer);
+
+            await conversationRef.set(payload, { merge: true });
+        } else {
+            const existing = conversationSnap.data() || {};
+            const participantIds = normalizeConversationParticipants(existing.participantIds);
+            const participants = normalizeConversationParticipants(existing.participants);
+            const viewerName = sanitizeText(viewer.name || viewer.username || 'Hustler');
+
+            await conversationRef.set({
+                participantIds: participantIds.includes(viewer.id)
+                    ? participantIds
+                    : [...participantIds, viewer.id],
+                participants: participants.includes(viewerName)
+                    ? participants
+                    : [...participants, viewerName],
+                updatedAt: Timestamp.now()
+            }, { merge: true });
+        }
+
+        const updatedSnap = await conversationRef.get();
+
+        return res.status(conversationSnap.exists ? 200 : 201).json({
+            success: true,
+            conversation: mapPlazaConversationDoc(updatedSnap)
+        });
+    } catch (error) {
+        console.error('plazaControllers.createConversationFromRegion error:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to open regional Plaza conversation.'
+        });
+    }
+};
 exports.createConversationFromMember = async (req, res) => {
     try {
         const viewer = getViewerFromRequest(req);

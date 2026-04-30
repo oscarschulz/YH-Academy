@@ -178,6 +178,8 @@ function mapPayoutRecordDoc(docSnap) {
 
         method: normalizePayoutMethod(data.method),
         provider: normalizePaymentProvider(data.provider || 'manual'),
+        providerPaymentId: cleanText(data.providerPaymentId),
+        providerStatus: cleanText(data.providerStatus),
 
         amount: toNumber(data.amount, 0),
         currency: normalizeCurrency(data.currency),
@@ -384,6 +386,8 @@ async function createPayoutRequest(input = {}) {
 
         method,
         provider: normalizePaymentProvider(input.provider || (method === 'crypto' ? 'oxapay' : 'manual')),
+        providerPaymentId: cleanText(input.providerPaymentId),
+        providerStatus: cleanText(input.providerStatus),
 
         amount: Math.max(0, toNumber(input.amount, 0)),
         currency: normalizeCurrency(input.currency),
@@ -458,9 +462,37 @@ async function updatePayoutRecordStatus(payoutId = '', input = {}) {
     const status = normalizePayoutStatus(input.status || current.status || 'pending_review');
     const now = nowTs();
 
+    const currentMetadata =
+        current.metadata && typeof current.metadata === 'object'
+            ? current.metadata
+            : {};
+
+    const inputMetadata =
+        input.metadata && typeof input.metadata === 'object'
+            ? input.metadata
+            : {};
+
+    const providerPaymentId = cleanText(
+        input.providerPaymentId ||
+        input.transferReference ||
+        input.adminDisbursementReference ||
+        current.providerPaymentId ||
+        ''
+    );
+
     const payload = {
         status,
+        method: input.method ? normalizePayoutMethod(input.method) : normalizePayoutMethod(current.method),
+        provider: input.provider ? normalizePaymentProvider(input.provider) : normalizePaymentProvider(current.provider || 'manual'),
+        providerPaymentId,
+        providerStatus: cleanText(input.providerStatus || input.disbursementStatus || current.providerStatus || ''),
         adminNote: cleanText(input.adminNote || current.adminNote || ''),
+        metadata: {
+            ...currentMetadata,
+            ...inputMetadata,
+            adminDisbursementReference: providerPaymentId || cleanText(currentMetadata.adminDisbursementReference || ''),
+            adminDisbursementUpdatedAt: new Date().toISOString()
+        },
         updatedAt: now
     };
 

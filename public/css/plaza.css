@@ -3668,3 +3668,265 @@ textarea:focus,
 .yh-plaza-screen-stack > .yh-plaza-panel.is-active {
   border-radius: 28px;
 }
+/* ========================================================= */
+/* PLAZA ATLAS + PATRON APPLICATION                          */
+/* ========================================================= */
+
+.yh-plaza-atlas-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.yh-plaza-atlas-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(77, 139, 255, 0.16);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top left, rgba(77, 139, 255, 0.14), transparent 38%),
+    linear-gradient(180deg, rgba(11, 19, 34, 0.96), rgba(5, 8, 16, 0.99));
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.24);
+}
+
+.yh-plaza-atlas-card-body {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+}
+
+.yh-plaza-topology-map {
+  position: relative;
+  min-height: 230px;
+  overflow: hidden;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    radial-gradient(circle at 50% 45%, rgba(77, 139, 255, 0.22), transparent 38%),
+    linear-gradient(135deg, rgba(8, 15, 28, 0.98), rgba(4, 8, 15, 0.98));
+  isolation: isolate;
+}
+
+.yh-plaza-topology-map::before {
+  content: "";
+  position: absolute;
+  inset: 24px;
+  border-radius: 46% 54% 50% 50%;
+  border: 1px solid rgba(139, 180, 255, 0.28);
+  background:
+    radial-gradient(circle at 25% 25%, rgba(255, 255, 255, 0.12), transparent 18%),
+    radial-gradient(circle at 72% 58%, rgba(77, 139, 255, 0.18), transparent 28%),
+    rgba(77, 139, 255, 0.06);
+  box-shadow:
+    inset 0 0 42px rgba(77, 139, 255, 0.1),
+    0 0 52px rgba(77, 139, 255, 0.08);
+  z-index: 1;
+}
+
+.yh-plaza-topology-map::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, transparent 49%, rgba(255, 255, 255, 0.045) 50%, transparent 51%),
+    linear-gradient(0deg, transparent 49%, rgba(255, 255, 255, 0.035) 50%, transparent 51%);
+  background-size: 34px 34px;
+  opacity: 0.65;
+  z-index: 0;
+}
+
+.yh-plaza-topology-grid {
+  position: absolute;
+  inset: -30%;
+  background:
+    repeating-radial-gradient(circle at 50% 50%, rgba(139, 180, 255, 0.08) 0 1px, transparent 1px 22px);
+  transform: rotate(-14deg);
+  opacity: 0.55;
+  z-index: 0;
+}
+
+.yh-plaza-topology-core {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 3;
+  display: grid;
+  gap: 4px;
+  min-width: 150px;
+  max-width: 210px;
+  padding: 13px 16px;
+  border: 1px solid rgba(139, 180, 255, 0.28);
+  border-radius: 18px;
+  background: rgba(5, 8, 16, 0.84);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  text-align: center;
+  transform: translate(-50%, -50%);
+}
+
+.yh-plaza-topology-core strong {
+  color: #f8fbff;
+  font-size: 0.92rem;
+  line-height: 1.25;
+}
+
+.yh-plaza-topology-core span {
+  color: var(--yh-text-soft);
+  font-size: 0.74rem;
+  line-height: 1.35;
+}
+
+.yh-plaza-topology-node {
+  position: absolute;
+  z-index: 4;
+  max-width: 132px;
+  overflow: hidden;
+  padding: 7px 9px;
+  border: 1px solid rgba(238, 244, 255, 0.13);
+  border-radius: 999px;
+  background: rgba(7, 12, 22, 0.82);
+  color: #eaf2ff;
+  font-size: 0.69rem;
+  font-weight: 700;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.22);
+}
+
+.yh-plaza-topology-node-1 { left: 8%; top: 16%; }
+.yh-plaza-topology-node-2 { right: 8%; top: 18%; }
+.yh-plaza-topology-node-3 { left: 12%; top: 48%; }
+.yh-plaza-topology-node-4 { right: 10%; top: 48%; }
+.yh-plaza-topology-node-5 { left: 18%; bottom: 14%; }
+.yh-plaza-topology-node-6 { right: 18%; bottom: 14%; }
+.yh-plaza-topology-node-7 { left: 40%; top: 8%; }
+.yh-plaza-topology-node-8 { left: 39%; bottom: 8%; }
+
+.yh-plaza-topology-node-more {
+  right: 14px;
+  bottom: 14px;
+  border-color: rgba(77, 139, 255, 0.35);
+  color: var(--yh-accent-2);
+}
+
+.yh-plaza-topology-map.is-africa::before {
+  border-radius: 52% 42% 58% 44%;
+}
+
+.yh-plaza-topology-map.is-asia::before {
+  border-radius: 64% 36% 48% 52%;
+}
+
+.yh-plaza-topology-map.is-europe::before {
+  border-radius: 44% 56% 42% 58%;
+}
+
+.yh-plaza-topology-map.is-latam::before {
+  border-radius: 38% 58% 62% 42%;
+}
+
+.yh-plaza-topology-map.is-north-america::before {
+  border-radius: 58% 44% 40% 60%;
+}
+
+.yh-plaza-topology-map.is-oceania::before {
+  border-radius: 48% 52% 36% 64%;
+}
+
+@media (max-width: 980px) {
+  .yh-plaza-atlas-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .yh-plaza-topology-map {
+    min-height: 260px;
+  }
+
+  .yh-plaza-topology-node {
+    max-width: 110px;
+    font-size: 0.64rem;
+  }
+
+  .yh-plaza-topology-core {
+    min-width: 132px;
+    max-width: 176px;
+  }
+}
+/* =========================================================
+   PLAZA PATRON DESK UI
+   ========================================================= */
+
+.yh-plaza-patron-desk-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin: 18px 0;
+}
+
+.yh-plaza-patron-desk-card {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid rgba(var(--yh-accent-rgb), 0.16);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at top left, rgba(var(--yh-accent-rgb), 0.14), transparent 42%),
+    linear-gradient(180deg, rgba(10, 17, 30, 0.94), rgba(5, 8, 16, 0.98));
+}
+
+.yh-plaza-patron-desk-card span {
+  color: var(--yh-text-soft);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.yh-plaza-patron-desk-card strong {
+  color: var(--yh-text);
+  font-size: clamp(1.35rem, 2vw, 2.15rem);
+  line-height: 1;
+}
+
+.yh-plaza-patron-desk-card small {
+  color: var(--yh-text-soft);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.yh-plaza-patron-desk-section {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 26px;
+  background: rgba(5, 8, 16, 0.34);
+}
+
+.yh-plaza-patron-desk-list {
+  display: grid;
+  gap: 12px;
+}
+
+@media (max-width: 1120px) {
+  .yh-plaza-patron-desk-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .yh-plaza-patron-desk-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .yh-plaza-patron-desk-section {
+    padding: 12px;
+    border-radius: 20px;
+  }
+}

@@ -287,6 +287,28 @@ const plazaRequestAutosaveState = {
 let plazaServerMessagesLoaded = false;
 let plazaServerMessages = [];
 let plazaMessagesLoading = false;
+
+let plazaServerMeetupsLoaded = false;
+let plazaServerMeetups = [];
+let plazaMeetupsLoading = false;
+
+let plazaMyPatronApplicationLoaded = false;
+let plazaMyPatronApplication = null;
+let plazaPatronApplicationLoading = false;
+
+let plazaPatronDeskLoaded = false;
+let plazaPatronDeskLoading = false;
+let plazaPatronDeskData = {
+  isPatron: false,
+  patron: null,
+  regions: [],
+  routedRequests: [],
+  recommendations: [],
+  payouts: [],
+  walletPayouts: [],
+  message: ""
+};
+
 const OBJECTIVE_OPTIONS = [
   "Connection request",
   "Introduction",
@@ -318,6 +340,41 @@ const INCOMING_STATUS_FLOW = [
   "Conversation Opened",
   "Closed"
 ];
+
+const PLAZA_PATRON_BENEFIT_GROUPS = {
+  status: [
+    "Official Plaza Patron badge",
+    "Featured profile inside assigned Plaza",
+    "Priority placement in regional directory",
+    "Visible leadership title on Atlas and Region Hub"
+  ],
+  control: [
+    "Create and lead official Plaza meetups",
+    "Host regional Plaza chat and welcome new members",
+    "Pin coordination notes, meetup direction, and regional updates",
+    "Route local requests, intros, opportunities, and collaboration signals"
+  ],
+  network: [
+    "Access stronger members and verified connectors in the assigned Plaza",
+    "Recommend high-value members for Federation review",
+    "Coordinate with other Patrons across continents",
+    "Escalate strong regional opportunities to higher-level network access"
+  ],
+  money: [
+    "Earn commission from successful regional introductions",
+    "Receive bonuses from verified connection outcomes",
+    "Monetize official meetups, sponsorships, and premium local events",
+    "Qualify for revenue share from paid Plaza features in the assigned region"
+  ]
+};
+
+const PLAZA_PATRON_COMMISSION_POLICY = {
+  introCommissionRange: "5%–15%",
+  introCommissionLabel: "Connection commission",
+  meetupRevenueShare: "Eligible",
+  federationEscalationBonus: "Eligible after verified high-value handoff",
+  note: "Final payout rules remain admin-controlled and can vary by deal, event, region, and verified outcome."
+};
 const PLAZA_APPLICATION_SCHEMA_VERSION = "plaza-typeform-clone-v1";
 
 const PLAZA_MEMBERSHIP_LABELS = {
@@ -1662,7 +1719,22 @@ function normalizeServerRegionItem(item, index = 0) {
     network: item?.network || "",
     plazaNumber: item?.plazaNumber || item?.plaza_number || "",
     countries: Array.isArray(item?.countries) ? item.countries : [],
-    sourceUrl: item?.sourceUrl || item?.source_url || ""
+    sourceUrl: item?.sourceUrl || item?.source_url || "",
+    patronName: item?.patronName || item?.leaderName || "",
+    patronRole: item?.patronRole || item?.leaderRole || "",
+    patronUserId: item?.patronUserId || item?.leaderUserId || "",
+    patronStatus: item?.patronStatus || item?.leaderStatus || "",
+    patronContactHint: item?.patronContactHint || item?.leaderContactHint || "",
+    patronBenefits: Array.isArray(item?.patronBenefits) ? item.patronBenefits : [],
+    patronPrivileges: Array.isArray(item?.patronPrivileges) ? item.patronPrivileges : [],
+    patronCommissionPolicy:
+      item?.patronCommissionPolicy && typeof item.patronCommissionPolicy === "object"
+        ? item.patronCommissionPolicy
+        : null,
+    patronAuthority:
+      item?.patronAuthority && typeof item.patronAuthority === "object"
+        ? item.patronAuthority
+        : null
   }, index);
 }
 
@@ -1683,6 +1755,9 @@ async function loadPlazaRegionsFromServer(options = {}) {
     plazaServerRegionsLoaded = true;
 
     renderRegions();
+    renderAtlasScreen();
+    populateMeetupRegionSelect();
+    populatePatronRegionSelect();
     return plazaServerRegions;
   } catch (error) {
     console.error("loadPlazaRegionsFromServer error:", error);
@@ -1808,6 +1883,18 @@ function normalizeServerRequestItem(item, index = 0) {
     routeLabel: item?.routeLabel || item?.targetLabel || "General Plaza request",
     matchingStatus: item?.matchingStatus || "",
     matchingPriority: item?.matchingPriority || "",
+
+    routedToPatron: item?.routedToPatron === true,
+    patronRouteStatus: item?.patronRouteStatus || "",
+    patronRegionId: item?.patronRegionId || "",
+    patronRegion: item?.patronRegion || "",
+    patronUserId: item?.patronUserId || "",
+    patronName: item?.patronName || "",
+    patronRole: item?.patronRole || "",
+    patronInboxRole: item?.patronInboxRole || "",
+    patronHandledAt: item?.patronHandledAt || "",
+    patronHandledBy: item?.patronHandledBy || "",
+    patronActionNote: item?.patronActionNote || "",
     headline: item?.headline || "",
     experience: item?.experience || "",
     portfolioLink: item?.portfolioLink || "",
@@ -2174,7 +2261,108 @@ async function createPlazaConversationFromRequest(requestId = "") {
 
   return conversation;
 }
+async function createPlazaConversationFromRegion(regionId = "") {
+  const cleanId = String(regionId || "").trim();
 
+  if (!cleanId) {
+    throw new Error("Region ID is missing.");
+  }
+
+  const result = await plazaApiFetch(`/api/plaza/messages/from-region/${encodeURIComponent(cleanId)}`, {
+    method: "POST",
+    body: JSON.stringify({})
+  });
+
+  const conversation = result.conversation
+    ? normalizeServerConversationItem(result.conversation)
+    : null;
+
+  if (conversation) {
+    plazaServerMessages = [
+      conversation,
+      ...plazaServerMessages.filter((item) => item.id !== conversation.id)
+    ];
+    plazaServerMessagesLoaded = true;
+  }
+
+  return conversation;
+}
+
+function normalizeServerMeetupItem(item, index = 0) {
+  return {
+    id: item?.id || `server-meetup-${index + 1}`,
+    title: String(item?.title || "Plaza meetup"),
+    regionId: String(item?.regionId || ""),
+    region: String(item?.region || "YH Plaza"),
+    format: String(item?.format || "in-person"),
+    location: String(item?.location || ""),
+    scheduledAt: String(item?.scheduledAt || item?.startsAt || ""),
+    description: String(item?.description || item?.text || ""),
+    patronName: String(item?.patronName || "Plaza Patron"),
+    patronRole: String(item?.patronRole || "Regional Patron"),
+    isOfficial: item?.isOfficial === true,
+    officialByPatron: item?.officialByPatron === true,
+    officialPatronUserId: String(item?.officialPatronUserId || ""),
+    officialPatronName: String(item?.officialPatronName || ""),
+    patronStatusNote: String(item?.patronStatusNote || ""),
+    featuredByPatron: item?.featuredByPatron === true,
+    hostName: String(item?.hostName || "Hustler"),
+    attendeeCount: Number(item?.attendeeCount || 0),
+    status: String(item?.status || "planned"),
+    createdAt: item?.createdAt || new Date().toISOString(),
+    updatedAt: item?.updatedAt || item?.createdAt || new Date().toISOString()
+  };
+}
+
+async function loadPlazaMeetupsFromServer(options = {}) {
+  if (plazaMeetupsLoading) return plazaServerMeetups;
+
+  plazaMeetupsLoading = true;
+
+  if (plazaMeetupsList && options.silent !== true) {
+    plazaMeetupsList.innerHTML = `<div class="yh-plaza-empty">Loading Plaza meetups...</div>`;
+  }
+
+  try {
+    const result = await plazaApiFetch("/api/plaza/meetups?limit=120");
+    const meetups = Array.isArray(result.meetups) ? result.meetups : [];
+
+    plazaServerMeetups = meetups.map(normalizeServerMeetupItem);
+    plazaServerMeetupsLoaded = true;
+
+    renderMeetupsScreen();
+    return plazaServerMeetups;
+  } catch (error) {
+    console.error("loadPlazaMeetupsFromServer error:", error);
+
+    if (plazaMeetupsList) {
+      plazaMeetupsList.innerHTML = `<div class="yh-plaza-empty">Could not load Plaza meetups. Please refresh.</div>`;
+    }
+
+    return [];
+  } finally {
+    plazaMeetupsLoading = false;
+  }
+}
+
+async function createPlazaMeetup(payload = {}) {
+  const result = await plazaApiFetch("/api/plaza/meetups", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+
+  const meetup = result.meetup ? normalizeServerMeetupItem(result.meetup) : null;
+
+  if (meetup) {
+    plazaServerMeetups = [
+      meetup,
+      ...plazaServerMeetups.filter((item) => item.id !== meetup.id)
+    ];
+    plazaServerMeetupsLoaded = true;
+  }
+
+  return meetup;
+}
 async function createPlazaConversationFromMember(targetUserId = "", initialMessage = "") {
   const cleanId = String(targetUserId || "").trim();
 
@@ -2396,7 +2584,22 @@ function normalizeRegionItem(item, index) {
     plazaNumber: item?.plazaNumber || "",
     countries,
     countryCount: countries.length,
-    sourceUrl: String(item?.sourceUrl || "")
+    sourceUrl: String(item?.sourceUrl || ""),
+    patronName: String(item?.patronName || item?.leaderName || `${item?.region || "Plaza"} Patron`),
+    patronRole: String(item?.patronRole || item?.leaderRole || "Regional Patron"),
+    patronUserId: String(item?.patronUserId || item?.leaderUserId || ""),
+    patronStatus: String(item?.patronStatus || item?.leaderStatus || "active"),
+    patronContactHint: String(item?.patronContactHint || item?.leaderContactHint || "Coordinates networking, local movement, and meetup direction for this Plaza."),
+    patronBenefits: Array.isArray(item?.patronBenefits) ? item.patronBenefits : [],
+    patronPrivileges: Array.isArray(item?.patronPrivileges) ? item.patronPrivileges : [],
+    patronCommissionPolicy:
+      item?.patronCommissionPolicy && typeof item.patronCommissionPolicy === "object"
+        ? item.patronCommissionPolicy
+        : null,
+    patronAuthority:
+      item?.patronAuthority && typeof item.patronAuthority === "object"
+        ? item.patronAuthority
+        : null
   };
 }
 
@@ -4013,6 +4216,27 @@ const plazaConfig = {
     toolbar: null,
     breadcrumb: ["Plaza", "Regions"]
   },
+  atlas: {
+    title: "Plaza Atlas",
+    note: "Visualize the official Plaza topology, countries, networks, and Patron / Leader coverage.",
+    navTab: "atlas",
+    toolbar: null,
+    breadcrumb: ["Plaza", "Atlas"]
+  },
+  patron: {
+    title: "Become Patron",
+    note: "Apply to become the approved Patron or Leader for one official Plaza.",
+    navTab: "patron",
+    toolbar: null,
+    breadcrumb: ["Plaza", "Patron Application"]
+  },
+  "patron-desk": {
+    title: "Patron Desk",
+    note: "Manage regional Patron operations, routed requests, recommendations, and commission payout visibility.",
+    navTab: "patron-desk",
+    toolbar: null,
+    breadcrumb: ["Plaza", "Patron Desk"]
+  },
   bridge: {
     title: "Bridge",
     note: "Track how Academy execution turns into Plaza visibility and later becomes Federation-relevant access.",
@@ -4054,6 +4278,13 @@ const plazaConfig = {
     navTab: "messages",
     toolbar: null,
     breadcrumb: ["Plaza", "Conversations"]
+  },
+  meetups: {
+    title: "Meetups",
+    note: "Coordinate regional Plaza meetups, local networking sessions, and patron-led gatherings.",
+    navTab: "meetups",
+    toolbar: null,
+    breadcrumb: ["Plaza", "Meetups"]
   },
   conversation: {
     title: "Conversation",
@@ -4098,9 +4329,13 @@ const PRIMARY_SCREENS = new Set([
   "opportunities",
   "directory",
   "regions",
+  "atlas",
+  "patron",
+  "patron-desk",
   "bridge",
   "requests",
-  "messages"
+  "messages",
+  "meetups"
 ]);
 
 const plazaRuntime = {
@@ -4197,6 +4432,9 @@ const PLAZA_SCREEN_LOADER_LABELS = {
   opportunities: "Loading Opportunities...",
   directory: "Loading Directory...",
   regions: "Loading Regions...",
+  atlas: "Loading Plaza Atlas...",
+  patron: "Loading Patron Application...",
+  "patron-desk": "Loading Patron Desk...",
   bridge: "Loading Bridge...",
   requests: "Loading Requests...",
   messages: "Loading Messages...",
@@ -4291,6 +4529,32 @@ const plazaNotificationRoleFilters = document.getElementById("plazaNotificationR
 const plazaNotificationsList = document.getElementById("plazaNotificationsList");
 const plazaMessagesMeta = document.getElementById("plazaMessagesMeta");
 const plazaMessagesList = document.getElementById("plazaMessagesList");
+
+const plazaAtlasSummary = document.getElementById("plazaAtlasSummary");
+const plazaAtlasGrid = document.getElementById("plazaAtlasGrid");
+
+const plazaPatronApplicationMeta = document.getElementById("plazaPatronApplicationMeta");
+const plazaPatronApplicationStatusCard = document.getElementById("plazaPatronApplicationStatusCard");
+const plazaPatronApplicationForm = document.getElementById("plazaPatronApplicationForm");
+const plazaPatronRegionSelect = document.getElementById("plazaPatronRegionSelect");
+const plazaPatronApplicationSubmitBtn = document.getElementById("plazaPatronApplicationSubmitBtn");
+const plazaPatronBenefitsGrid = document.getElementById("plazaPatronBenefitsGrid");
+const plazaPatronPowerGrid = document.getElementById("plazaPatronPowerGrid");
+const plazaPatronEconomicGrid = document.getElementById("plazaPatronEconomicGrid");
+
+const plazaPatronDeskMeta = document.getElementById("plazaPatronDeskMeta");
+const plazaPatronDeskStatusCard = document.getElementById("plazaPatronDeskStatusCard");
+const plazaPatronDeskSummaryGrid = document.getElementById("plazaPatronDeskSummaryGrid");
+const plazaPatronDeskRegionsList = document.getElementById("plazaPatronDeskRegionsList");
+const plazaPatronDeskRequestsList = document.getElementById("plazaPatronDeskRequestsList");
+const plazaPatronDeskPayoutsList = document.getElementById("plazaPatronDeskPayoutsList");
+const plazaPatronDeskRecommendationsList = document.getElementById("plazaPatronDeskRecommendationsList");
+
+const plazaMeetupsMeta = document.getElementById("plazaMeetupsMeta");
+const plazaMeetupsList = document.getElementById("plazaMeetupsList");
+const plazaMeetupComposerForm = document.getElementById("plazaMeetupComposerForm");
+const plazaMeetupRegionSelect = document.getElementById("plazaMeetupRegionSelect");
+const plazaMeetupComposerSubmitBtn = document.getElementById("plazaMeetupComposerSubmitBtn");
 const plazaConversationTitle = document.getElementById("plazaConversationTitle");
 const plazaConversationMeta = document.getElementById("plazaConversationMeta");
 const plazaConversationThread = document.getElementById("plazaConversationThread");
@@ -4740,6 +5004,19 @@ function buildRequestViewModel(item) {
     nextStepCopy: getRequestNextStepCopy(normalizedSourceType, normalizedStatus),
     routeLabel,
     likelyRoute: String(item?.likelyRoute || getRequestLikelyRoute(item)),
+
+    routedToPatron: item?.routedToPatron === true,
+    patronRouteStatus: String(item?.patronRouteStatus || ""),
+    patronRegionId: String(item?.patronRegionId || ""),
+    patronRegion: String(item?.patronRegion || ""),
+    patronUserId: String(item?.patronUserId || ""),
+    patronName: String(item?.patronName || ""),
+    patronRole: String(item?.patronRole || ""),
+    patronInboxRole: String(item?.patronInboxRole || ""),
+    patronHandledAt: item?.patronHandledAt || "",
+    patronHandledBy: String(item?.patronHandledBy || ""),
+    patronActionNote: String(item?.patronActionNote || ""),
+
     suggestedMatches,
     matchedEntityLabels,
     decisionSummary: String(item?.decisionSummary || `${routeLabel} is active inside Plaza.`),
@@ -4930,6 +5207,25 @@ function renderRequestCard(item) {
         <div class="yh-plaza-card-note yh-plaza-card-note-strong">Deterministic route</div>
         <div class="yh-plaza-card-note">${escapeHtml(viewModel.routeLabel)}</div>
         <div class="yh-plaza-card-note">${escapeHtml(viewModel.likelyRoute)}</div>
+
+        ${
+          viewModel.routedToPatron
+            ? `
+              <div class="yh-plaza-card-note yh-plaza-card-note-strong">
+                Routed to Patron
+              </div>
+              <div class="yh-plaza-card-note">
+                ${escapeHtml(viewModel.patronName || "Plaza Patron")}
+                ${viewModel.patronRole ? ` • ${escapeHtml(viewModel.patronRole)}` : ""}
+                ${viewModel.patronRegion ? ` • ${escapeHtml(viewModel.patronRegion)}` : ""}
+              </div>
+              <div class="yh-plaza-card-note">
+                Status: ${escapeHtml(viewModel.patronRouteStatus || "routed_to_patron")}
+                ${viewModel.patronActionNote ? ` • Note: ${escapeHtml(viewModel.patronActionNote)}` : ""}
+              </div>
+            `
+            : ""
+        }
       </div>
 
             <div class="yh-plaza-request-section">
@@ -5427,7 +5723,309 @@ function renderPlazaRegionCountryList(item = {}) {
     </div>
   `;
 }
+function getPlazaTopologyClass(item = {}) {
+  const continent = String(item.continent || item.network || item.region || "").toLowerCase();
 
+  if (continent.includes("africa")) return "is-africa";
+  if (continent.includes("asia")) return "is-asia";
+  if (continent.includes("europe")) return "is-europe";
+  if (continent.includes("north")) return "is-north-america";
+  if (continent.includes("south") || continent.includes("latam")) return "is-latam";
+  if (continent.includes("oceania")) return "is-oceania";
+
+  return "is-global";
+}
+
+function renderPlazaTopologyVisual(item = {}) {
+  const countries = safeArray(item.countries)
+    .map((country) => String(country || "").trim())
+    .filter(Boolean);
+
+  const visibleCountries = countries.slice(0, 8);
+  const hiddenCount = Math.max(countries.length - visibleCountries.length, 0);
+  const topologyClass = getPlazaTopologyClass(item);
+
+  return `
+    <div class="yh-plaza-topology-map ${escapeHtml(topologyClass)}" aria-label="${escapeHtml(item.region)} topology">
+      <div class="yh-plaza-topology-grid" aria-hidden="true"></div>
+      <div class="yh-plaza-topology-core">
+        <strong>${escapeHtml(item.region)}</strong>
+        <span>${escapeHtml(item.network || item.continent || "YH Plaza")}</span>
+      </div>
+      <div class="yh-plaza-topology-nodes">
+        ${
+          visibleCountries.map((country, index) => `
+            <span class="yh-plaza-topology-node yh-plaza-topology-node-${index + 1}">
+              ${escapeHtml(country)}
+            </span>
+          `).join("")
+        }
+        ${
+          hiddenCount
+            ? `<span class="yh-plaza-topology-node yh-plaza-topology-node-more">+${escapeHtml(String(hiddenCount))}</span>`
+            : ""
+        }
+      </div>
+    </div>
+  `;
+}
+function getAllPlazaPatronBenefits() {
+  return [
+    ...PLAZA_PATRON_BENEFIT_GROUPS.status,
+    ...PLAZA_PATRON_BENEFIT_GROUPS.control,
+    ...PLAZA_PATRON_BENEFIT_GROUPS.network,
+    ...PLAZA_PATRON_BENEFIT_GROUPS.money
+  ];
+}
+
+function getRegionPatronBenefits(item = {}) {
+  const savedBenefits = Array.isArray(item.patronBenefits)
+    ? item.patronBenefits.map((benefit) => String(benefit || "").trim()).filter(Boolean)
+    : [];
+
+  return savedBenefits.length ? savedBenefits : getAllPlazaPatronBenefits();
+}
+
+function getRegionPatronPrivileges(item = {}) {
+  const savedPrivileges = Array.isArray(item.patronPrivileges)
+    ? item.patronPrivileges.map((benefit) => String(benefit || "").trim()).filter(Boolean)
+    : [];
+
+  return savedPrivileges.length
+    ? savedPrivileges
+    : [
+        "lead_regional_chat",
+        "create_official_meetups",
+        "route_connection_requests",
+        "recommend_federation_candidates",
+        "receive_connection_commission_eligibility",
+        "host_official_plaza_events"
+      ];
+}
+
+function renderPatronBenefitList(items = []) {
+  const cleanItems = safeArray(items)
+    .map((item) => String(item || "").trim())
+    .filter(Boolean);
+
+  if (!cleanItems.length) {
+    return `<div class="yh-plaza-empty">No Patron benefits configured yet.</div>`;
+  }
+
+  return cleanItems
+    .map((item) => `<div class="yh-plaza-card-note">${escapeHtml(item)}</div>`)
+    .join("");
+}
+
+function renderPatronBenefitsScreen() {
+  if (plazaPatronBenefitsGrid) {
+    plazaPatronBenefitsGrid.innerHTML = renderPatronBenefitList([
+      ...PLAZA_PATRON_BENEFIT_GROUPS.status,
+      ...PLAZA_PATRON_BENEFIT_GROUPS.network
+    ]);
+  }
+
+  if (plazaPatronPowerGrid) {
+    plazaPatronPowerGrid.innerHTML = renderPatronBenefitList(PLAZA_PATRON_BENEFIT_GROUPS.control);
+  }
+
+  if (plazaPatronEconomicGrid) {
+    plazaPatronEconomicGrid.innerHTML = `
+      ${renderPatronBenefitList(PLAZA_PATRON_BENEFIT_GROUPS.money)}
+      <div class="yh-plaza-card-note">
+        <strong>${escapeHtml(PLAZA_PATRON_COMMISSION_POLICY.introCommissionLabel)}:</strong>
+        ${escapeHtml(PLAZA_PATRON_COMMISSION_POLICY.introCommissionRange)} on admin-verified successful introductions.
+      </div>
+      <div class="yh-plaza-card-note">
+        <strong>Revenue Share:</strong>
+        ${escapeHtml(PLAZA_PATRON_COMMISSION_POLICY.meetupRevenueShare)} for paid meetups, sponsorships, and premium regional events.
+      </div>
+      <div class="yh-plaza-card-note">
+        ${escapeHtml(PLAZA_PATRON_COMMISSION_POLICY.note)}
+      </div>
+    `;
+  }
+
+  if (plazaPatronApplicationMeta) {
+    plazaPatronApplicationMeta.innerHTML = [
+      "Official badge",
+      "Regional authority",
+      "Meetup control",
+      "Commission eligible"
+    ].map((meta) => `<span class="yh-plaza-view-chip">${escapeHtml(meta)}</span>`).join("");
+  }
+}
+
+function renderPatronBenefitsPreview(item = {}) {
+  const benefits = getRegionPatronBenefits(item).slice(0, 4);
+
+  return `
+    <div class="yh-plaza-card-note">
+      <strong>Patron Benefits:</strong>
+      ${escapeHtml(benefits.join(" • "))}
+    </div>
+  `;
+}
+function renderAtlasScreen() {
+  if (!plazaAtlasGrid) return;
+
+  const items = getPlazaRegionsForRender();
+  const totalCountries = items.reduce((sum, item) => {
+    return sum + safeArray(item.countries).length;
+  }, 0);
+
+  const activePatrons = items.filter((item) => {
+    return String(item.patronStatus || "").toLowerCase() === "active" && String(item.patronUserId || "").trim();
+  }).length;
+
+  if (plazaAtlasSummary) {
+    plazaAtlasSummary.innerHTML = [
+      `${items.length} Plazas`,
+      `${totalCountries} Countries`,
+      `${activePatrons} Active Patrons`
+    ].map((meta) => `<span class="yh-plaza-view-chip">${escapeHtml(meta)}</span>`).join("");
+  }
+
+  if (!items.length) {
+    plazaAtlasGrid.innerHTML = `<div class="yh-plaza-empty">No Plaza topology data is available yet.</div>`;
+    return;
+  }
+
+  plazaAtlasGrid.innerHTML = items.map((item) => {
+    const patronActive = String(item.patronStatus || "").toLowerCase() === "active" && String(item.patronUserId || "").trim();
+
+    return `
+      <article class="yh-plaza-atlas-card">
+        ${renderPlazaTopologyVisual(item)}
+
+        <div class="yh-plaza-atlas-card-body">
+          <div class="yh-plaza-region-card-head">
+            <span class="yh-plaza-region-badge">${escapeHtml(item.label || item.region)}</span>
+            <span class="yh-plaza-region-badge">${escapeHtml(String(safeArray(item.countries).length))} countries</span>
+          </div>
+
+          <h3>${escapeHtml(item.region)}</h3>
+          <p>${escapeHtml(item.text || "Official Plaza topology layer.")}</p>
+
+          <div class="yh-plaza-card-note">
+            <strong>Patron / Leader:</strong>
+            ${escapeHtml(patronActive ? item.patronName : "Open for approved applicant")}
+          </div>
+
+          ${renderPatronBenefitsPreview(item)}
+
+          <div class="yh-plaza-card-actions">
+            <button type="button" class="yh-plaza-ghost-btn" data-atlas-region-id="${escapeHtml(item.id)}">Open Hub</button>
+            <button type="button" class="yh-plaza-ghost-btn" data-patron-apply-region="${escapeHtml(item.id)}">Apply as Patron</button>
+          </div>
+        </div>
+      </article>
+    `;
+  }).join("");
+}
+
+function openAtlasScreen(options = {}) {
+  renderAtlasScreen();
+  openScreen("atlas", options);
+}
+
+function populatePatronRegionSelect() {
+  if (!plazaPatronRegionSelect) return;
+
+  const regions = getPlazaRegionsForRender();
+
+  plazaPatronRegionSelect.innerHTML = `<option value="">Select Plaza</option>`;
+
+  regions.forEach((region) => {
+    const patronActive = String(region.patronStatus || "").toLowerCase() === "active" && String(region.patronUserId || "").trim();
+    const option = document.createElement("option");
+
+    option.value = region.id;
+    option.textContent = `${region.region}${patronActive ? ` • Current Patron: ${region.patronName}` : " • Open"}`;
+
+    plazaPatronRegionSelect.appendChild(option);
+  });
+}
+
+function renderPlazaPatronApplicationStatus() {
+  if (!plazaPatronApplicationStatusCard) return;
+
+  const application = plazaMyPatronApplication;
+
+  if (!application) {
+    plazaPatronApplicationStatusCard.hidden = true;
+    plazaPatronApplicationStatusCard.innerHTML = "";
+    return;
+  }
+
+  plazaPatronApplicationStatusCard.hidden = false;
+  plazaPatronApplicationStatusCard.innerHTML = `
+    <strong>Your Patron application is ${escapeHtml(application.status || "Under Review")}.</strong>
+    <p>
+      Plaza: ${escapeHtml(application.region || "Selected Plaza")} • Role: ${escapeHtml(application.preferredRole || "Regional Patron")}
+    </p>
+    <p>
+      If approved, you receive official Plaza leadership status, regional coordination authority, meetup control, Federation recommendation power, and commission eligibility from verified connection outcomes.
+    </p>
+  `;
+}
+
+async function loadPlazaPatronApplicationStatus(options = {}) {
+  if (plazaPatronApplicationLoading) return plazaMyPatronApplication;
+
+  plazaPatronApplicationLoading = true;
+
+  try {
+    const result = await plazaApiFetch("/api/plaza/patron-application-status");
+    plazaMyPatronApplication = result.application || null;
+    plazaMyPatronApplicationLoaded = true;
+
+    renderPlazaPatronApplicationStatus();
+
+    return plazaMyPatronApplication;
+  } catch (error) {
+    console.error("loadPlazaPatronApplicationStatus error:", error);
+
+    if (options.silent !== true && typeof showToast === "function") {
+      showToast(error.message || "Could not load Patron application status.", "error");
+    }
+
+    return null;
+  } finally {
+    plazaPatronApplicationLoading = false;
+  }
+}
+
+async function submitPlazaPatronApplicationPayload(payload = {}) {
+  const result = await plazaApiFetch("/api/plaza/patron-applications", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+
+  plazaMyPatronApplication = result.application || null;
+  plazaMyPatronApplicationLoaded = true;
+
+  renderPlazaPatronApplicationStatus();
+
+  return plazaMyPatronApplication;
+}
+
+function openPatronApplicationScreen(options = {}) {
+  populatePatronRegionSelect();
+  renderPatronBenefitsScreen();
+  renderPlazaPatronApplicationStatus();
+  openScreen("patron", options);
+}
+
+function prefillPatronApplicationFromRegion(regionId = "") {
+  populatePatronRegionSelect();
+
+  if (plazaPatronRegionSelect) {
+    plazaPatronRegionSelect.value = String(regionId || "");
+  }
+
+  openPatronApplicationScreen({ resetHistory: false, pushHistory: true });
+}
 function renderRegions() {
   if (!plazaRegionGrid) return;
 
@@ -5450,11 +6048,22 @@ function renderRegions() {
           <span class="yh-plaza-region-badge">${escapeHtml(item.label)}</span>
           <span class="yh-plaza-region-badge">${escapeHtml(countLabel)}</span>
         </div>
+        ${renderPlazaTopologyVisual(item)}
         <h3>${escapeHtml(item.region)}</h3>
         <p>${escapeHtml(item.text)}</p>
         ${renderPlazaRegionCountryList(item)}
+        <div class="yh-plaza-card-note">
+          <strong>Patron / Leader:</strong>
+          ${escapeHtml(
+            String(item.patronStatus || "").toLowerCase() === "active" && String(item.patronUserId || "").trim()
+              ? item.patronName
+              : "Open for approved applicant"
+          )}
+        </div>
+        ${renderPatronBenefitsPreview(item)}
         <div class="yh-plaza-card-actions">
           <button type="button" class="yh-plaza-ghost-btn" data-region-id="${escapeHtml(item.id)}">Enter Region Hub</button>
+          <button type="button" class="yh-plaza-ghost-btn" data-patron-apply-region="${escapeHtml(item.id)}">Apply as Patron</button>
         </div>
       </article>
     `;
@@ -5492,7 +6101,20 @@ function renderBridge() {
     </article>
   `).join("");
 }
+function populateMeetupRegionSelect() {
+  if (!plazaMeetupRegionSelect) return;
 
+  const regions = getPlazaRegionsForRender();
+
+  plazaMeetupRegionSelect.innerHTML = `<option value="">Select Plaza</option>`;
+
+  regions.forEach((region) => {
+    const option = document.createElement("option");
+    option.value = region.id;
+    option.textContent = `${region.region}${region.patronName ? ` • ${region.patronName}` : ""}`;
+    plazaMeetupRegionSelect.appendChild(option);
+  });
+}
 function populateRegionFilter() {
   if (!plazaRegionFilter) return;
 
@@ -5731,7 +6353,252 @@ function renderMessageCard(item) {
     </article>
   `;
 }
+function normalizePatronDeskData(payload = {}) {
+  return {
+    isPatron: payload.isPatron === true,
+    patron: payload.patron || null,
+    regions: safeArray(payload.regions),
+    routedRequests: safeArray(payload.routedRequests),
+    recommendations: safeArray(payload.recommendations),
+    payouts: safeArray(payload.payouts),
+    walletPayouts: safeArray(payload.walletPayouts),
+    message: String(payload.message || "")
+  };
+}
 
+async function loadPlazaPatronDeskFromServer(options = {}) {
+  if (plazaPatronDeskLoading) return plazaPatronDeskData;
+
+  plazaPatronDeskLoading = true;
+
+  if (plazaPatronDeskStatusCard && options.silent !== true) {
+    plazaPatronDeskStatusCard.innerHTML = `<strong>Loading Patron Desk...</strong><p>Checking your active Plaza Patron assignment.</p>`;
+  }
+
+  try {
+    const result = await plazaApiFetch("/api/plaza/patron/desk");
+
+    plazaPatronDeskData = normalizePatronDeskData(result);
+    plazaPatronDeskLoaded = true;
+
+    renderPatronDeskScreen();
+
+    return plazaPatronDeskData;
+  } catch (error) {
+    console.error("loadPlazaPatronDeskFromServer error:", error);
+
+    plazaPatronDeskData = {
+      isPatron: false,
+      patron: null,
+      regions: [],
+      routedRequests: [],
+      recommendations: [],
+      payouts: [],
+      walletPayouts: [],
+      message: error.message || "Could not load Patron Desk."
+    };
+
+    plazaPatronDeskLoaded = true;
+    renderPatronDeskScreen();
+
+    return plazaPatronDeskData;
+  } finally {
+    plazaPatronDeskLoading = false;
+  }
+}
+
+function renderPatronDeskSummaryCard(label = "", value = "", note = "") {
+  return `
+    <article class="yh-plaza-patron-desk-card">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(String(value))}</strong>
+      <small>${escapeHtml(note)}</small>
+    </article>
+  `;
+}
+
+function renderPatronDeskRegionCard(region = {}) {
+  return `
+    <article class="yh-plaza-message-card">
+      <div class="yh-plaza-message-card-head">
+        <div>
+          <span class="yh-plaza-queue-chip">${escapeHtml(region.continent || region.network || "Plaza")}</span>
+          <h3>${escapeHtml(region.region || "Assigned Plaza")}</h3>
+        </div>
+        <span class="yh-plaza-kind-chip">${escapeHtml(region.patronStatus || "active")}</span>
+      </div>
+
+      <p>${escapeHtml(region.text || "You are assigned as the Patron / Leader for this Plaza region.")}</p>
+
+      <div class="yh-plaza-message-meta">
+        <span>${escapeHtml(region.network || "YH Network")}</span>
+        <span>${escapeHtml(String(region.countryCount || safeArray(region.countries).length || 0))} countries</span>
+        <span>${escapeHtml(region.patronRole || "Regional Patron")}</span>
+      </div>
+    </article>
+  `;
+}
+
+function renderPatronDeskRequestCard(item = {}) {
+  return `
+    <article class="yh-plaza-request-card">
+      <div class="yh-plaza-request-card-head">
+        <div>
+          <span class="yh-plaza-request-status">${escapeHtml(item.status || "Submitted")}</span>
+          <h3>${escapeHtml(item.objective || "Regional request")}</h3>
+        </div>
+        <span class="yh-plaza-view-chip">${escapeHtml(item.region || item.patronRegion || "Plaza")}</span>
+      </div>
+
+      <div class="yh-plaza-card-note yh-plaza-card-note-strong">
+        ${escapeHtml(item.targetLabel || "General Plaza request")}
+      </div>
+
+      <p>${escapeHtml(item.message || "No request message available.")}</p>
+
+      <div class="yh-plaza-card-note">
+        Route: ${escapeHtml(item.routeLabel || item.patronRouteStatus || "Patron review")}
+      </div>
+
+      ${
+        item.patronActionNote
+          ? `<div class="yh-plaza-card-note">Patron note: ${escapeHtml(item.patronActionNote)}</div>`
+          : ""
+      }
+
+      <div class="yh-plaza-message-meta">
+        <span>${escapeHtml(item.name || item.authorName || "Requester")}</span>
+        <span>${escapeHtml(item.updatedAt ? formatDate(item.updatedAt) : item.createdAt ? formatDate(item.createdAt) : "Just now")}</span>
+      </div>
+    </article>
+  `;
+}
+
+function renderPatronDeskPayoutCard(item = {}) {
+  const amount = Number(item.commissionAmount || item.amount || 0);
+  const currency = String(item.currency || "USD").trim().toUpperCase() || "USD";
+  const status = item.payoutLedgerStatus || item.status || "pending_review";
+
+  return `
+    <article class="yh-plaza-message-card">
+      <div class="yh-plaza-message-card-head">
+        <div>
+          <span class="yh-plaza-queue-chip">${escapeHtml(status)}</span>
+          <h3>${escapeHtml(formatPlazaCurrencyAmount(amount, currency) || `${currency} ${amount}`)}</h3>
+        </div>
+        <span class="yh-plaza-kind-chip">${escapeHtml(item.region || item.sourceDivision || "Plaza")}</span>
+      </div>
+
+      <p>${escapeHtml(item.adminNote || item.metadata?.payoutUnlockRule || "Awaiting admin review / payout processing.")}</p>
+
+      <div class="yh-plaza-message-meta">
+        <span>Ledger: ${escapeHtml(item.payoutLedgerId || item.id || "Pending")}</span>
+        <span>${escapeHtml(item.provider || "manual")}</span>
+        <span>${escapeHtml(item.updatedAt ? formatDate(item.updatedAt) : item.createdAt ? formatDate(item.createdAt) : "Just now")}</span>
+      </div>
+    </article>
+  `;
+}
+
+function renderPatronDeskRecommendationCard(item = {}) {
+  return `
+    <article class="yh-plaza-message-card">
+      <div class="yh-plaza-message-card-head">
+        <div>
+          <span class="yh-plaza-queue-chip">${escapeHtml(item.status || "pending_admin_review")}</span>
+          <h3>${escapeHtml(item.memberName || item.memberId || "Federation candidate")}</h3>
+        </div>
+        <span class="yh-plaza-kind-chip">${escapeHtml(item.region || "Plaza")}</span>
+      </div>
+
+      <p>${escapeHtml(item.reason || "No recommendation reason available.")}</p>
+
+      <div class="yh-plaza-message-meta">
+        <span>${escapeHtml(item.recommendedRole || "Recommended member")}</span>
+        <span>${escapeHtml(item.updatedAt ? formatDate(item.updatedAt) : item.createdAt ? formatDate(item.createdAt) : "Just now")}</span>
+      </div>
+    </article>
+  `;
+}
+
+function renderPatronDeskScreen() {
+  const data = plazaPatronDeskData || {};
+  const isPatron = data.isPatron === true;
+
+  const regions = safeArray(data.regions);
+  const routedRequests = safeArray(data.routedRequests);
+  const recommendations = safeArray(data.recommendations);
+  const payouts = [
+    ...safeArray(data.payouts),
+    ...safeArray(data.walletPayouts)
+  ];
+
+  if (plazaPatronDeskMeta) {
+    plazaPatronDeskMeta.innerHTML = [
+      `${regions.length} assigned Plazas`,
+      `${routedRequests.length} routed requests`,
+      `${payouts.length} payout records`
+    ].map((item) => `<span class="yh-plaza-view-chip">${escapeHtml(item)}</span>`).join("");
+  }
+
+  if (plazaPatronDeskStatusCard) {
+    if (!plazaPatronDeskLoaded) {
+      plazaPatronDeskStatusCard.innerHTML = `<strong>Patron Desk ready.</strong><p>Open this tab to load your active Patron assignment.</p>`;
+    } else if (!isPatron) {
+      plazaPatronDeskStatusCard.innerHTML = `
+        <strong>No active Patron assignment found.</strong>
+        <p>${escapeHtml(data.message || "Once admin assigns you as an active Patron for a Plaza, your Desk will appear here.")}</p>
+      `;
+    } else {
+      plazaPatronDeskStatusCard.innerHTML = `
+        <strong>Active Patron Desk</strong>
+        <p>${escapeHtml(data.patron?.name || "You")} currently lead ${escapeHtml(String(regions.length))} Plaza region${regions.length === 1 ? "" : "s"}.</p>
+      `;
+    }
+  }
+
+  if (plazaPatronDeskSummaryGrid) {
+    plazaPatronDeskSummaryGrid.innerHTML = [
+      renderPatronDeskSummaryCard("Assigned Plazas", regions.length, "Regions where you are the active Patron"),
+      renderPatronDeskSummaryCard("Routed Requests", routedRequests.length, "Requests attached to your Patron region"),
+      renderPatronDeskSummaryCard("Recommendations", recommendations.length, "Federation recommendations submitted"),
+      renderPatronDeskSummaryCard("Payout Records", payouts.length, "Commission payout ledger visibility")
+    ].join("");
+  }
+
+  if (plazaPatronDeskRegionsList) {
+    plazaPatronDeskRegionsList.innerHTML = regions.length
+      ? regions.map(renderPatronDeskRegionCard).join("")
+      : `<div class="yh-plaza-empty">No assigned Patron region yet.</div>`;
+  }
+
+  if (plazaPatronDeskRequestsList) {
+    plazaPatronDeskRequestsList.innerHTML = routedRequests.length
+      ? routedRequests.map(renderPatronDeskRequestCard).join("")
+      : `<div class="yh-plaza-empty">No routed regional requests yet.</div>`;
+  }
+
+  if (plazaPatronDeskPayoutsList) {
+    plazaPatronDeskPayoutsList.innerHTML = payouts.length
+      ? payouts.map(renderPatronDeskPayoutCard).join("")
+      : `<div class="yh-plaza-empty">No Patron commission payout record yet.</div>`;
+  }
+
+  if (plazaPatronDeskRecommendationsList) {
+    plazaPatronDeskRecommendationsList.innerHTML = recommendations.length
+      ? recommendations.map(renderPatronDeskRecommendationCard).join("")
+      : `<div class="yh-plaza-empty">No Federation recommendation has been logged yet.</div>`;
+  }
+}
+
+function openPatronDeskScreen(options = {}) {
+  renderPatronDeskScreen();
+  openScreen("patron-desk", options);
+
+  if (!plazaPatronDeskLoaded) {
+    void loadPlazaPatronDeskFromServer({ silent: false });
+  }
+}
 function renderInboxScreen() {
   const allItems = plazaOpsAdapter.getInbox({ role: "all" });
   const roleValue = plazaRuntime.activeInboxRole || "all";
@@ -5807,7 +6674,100 @@ function renderNotificationsScreen() {
     ? items.map(renderNotificationCard).join("")
     : `<div class="yh-plaza-empty">No notifications are visible in this lane yet.</div>`;
 }
+function renderMeetupCard(item) {
+  return `
+    <article class="yh-plaza-message-card">
+      <div class="yh-plaza-message-card-head">
+        <div>
+          <span class="yh-plaza-queue-chip">${escapeHtml(item.format)}</span>
+          <h3>${escapeHtml(item.title)}</h3>
+        </div>
+        <span class="yh-plaza-kind-chip">${escapeHtml(item.status)}</span>
+      </div>
 
+      <p>${escapeHtml(item.description || "No meetup brief added yet.")}</p>
+
+      <div class="yh-plaza-message-meta">
+        <span>${escapeHtml(item.region)}</span>
+        <span>${escapeHtml(item.location)}</span>
+        <span>${escapeHtml(item.scheduledAt ? formatDate(item.scheduledAt) : "Date pending")}</span>
+      </div>
+
+      <div class="yh-plaza-card-note">
+        Patron/Leader: ${escapeHtml(item.patronName || "Plaza Patron")} • Host: ${escapeHtml(item.hostName || "Hustler")}
+      </div>
+
+      ${
+        item.isOfficial
+          ? `<div class="yh-plaza-card-note"><strong>Official Patron Meetup:</strong> ${escapeHtml(item.officialPatronName || item.patronName || "Plaza Patron")} ${item.patronStatusNote ? `• ${escapeHtml(item.patronStatusNote)}` : ""}</div>`
+          : ""
+      }
+    </article>
+  `;
+}
+
+function renderMeetupsScreen() {
+  const items = plazaServerMeetupsLoaded ? plazaServerMeetups : [];
+
+  if (plazaMeetupsMeta) {
+    plazaMeetupsMeta.innerHTML = [
+      `${items.length} planned meetups`
+    ].map((item) => `<span class="yh-plaza-view-chip">${escapeHtml(item)}</span>`).join("");
+  }
+
+  if (!plazaMeetupsList) return;
+
+  plazaMeetupsList.innerHTML = items.length
+    ? items.map(renderMeetupCard).join("")
+    : `<div class="yh-plaza-empty">No Plaza meetup has been planned yet.</div>`;
+}
+
+function openMeetupsScreen(options = {}) {
+  populateMeetupRegionSelect();
+  renderMeetupsScreen();
+  openScreen("meetups", options);
+}
+
+function prefillPlazaMeetupFromRegion(regionId = "") {
+  const region = getPlazaRegionById(regionId) || plazaAdapter.getRegionById(regionId);
+
+  if (!region) {
+    showToast("Region not found.");
+    return;
+  }
+
+  populateMeetupRegionSelect();
+
+  if (plazaMeetupRegionSelect) {
+    plazaMeetupRegionSelect.value = region.id;
+  }
+
+  openMeetupsScreen({ resetHistory: false, pushHistory: true });
+}
+
+async function openPlazaRegionChat(regionId = "", button = null) {
+  const cleanId = String(regionId || "").trim();
+
+  if (!cleanId) {
+    showToast("Region chat is missing its Plaza ID.");
+    return;
+  }
+
+  await runLockedButtonAction(
+    `region-chat:${cleanId}`,
+    button,
+    "Opening...",
+    async () => {
+      const conversation = await createPlazaConversationFromRegion(cleanId);
+
+      if (conversation) {
+        renderMessagesScreen();
+        renderConversationScreen(conversation);
+        showToast("Regional Plaza chat opened.");
+      }
+    }
+  );
+}
 function renderMessagesScreen() {
   const items = plazaServerMessagesLoaded
     ? plazaServerMessages
@@ -6564,6 +7524,12 @@ function renderRegionHubScreen(item) {
   const bridgeItems = plazaAdapter.getRegionBridge(item.region);
   const countries = safeArray(item.countries).map((country) => String(country || "").trim()).filter(Boolean);
   const countryCount = countries.length;
+  const patronName = item.patronName || `${item.region} Patron`;
+  const patronRole = item.patronRole || "Regional Patron";
+  const patronHint = item.patronContactHint || `Coordinates networking, local movement, and meetup direction for ${item.region}.`;
+  const regionMeetups = plazaServerMeetupsLoaded
+    ? plazaServerMeetups.filter((meetup) => meetup.regionId === item.id || meetup.region === item.region)
+    : [];
 
   plazaRegionHubTitle.textContent = item.region;
   plazaRegionHubMeta.innerHTML = [
@@ -6590,9 +7556,20 @@ function renderRegionHubScreen(item) {
         }
       </article>
       <article class="yh-plaza-detail-block">
-        <span class="yh-plaza-view-chip">Hub purpose</span>
-        <p>This Plaza groups members by country and region so local networking, service requests, opportunities, and leadership growth can happen inside one structured YH regional hub.</p>
-        <div class="yh-plaza-card-note">Use the primary action to open a tracked regional request.</div>
+        <span class="yh-plaza-view-chip">Plaza Patron / Leader</span>
+        <h3>${escapeHtml(patronName)}</h3>
+        <p>${escapeHtml(patronRole)} for ${escapeHtml(item.region)}.</p>
+        <div class="yh-plaza-card-note">${escapeHtml(patronHint)}</div>
+        ${renderPatronBenefitsPreview(item)}
+        <div class="yh-plaza-card-note">
+          <strong>Authority:</strong>
+          Lead chat, organize meetups, route regional requests, recommend members for Federation, and qualify for verified-intro commissions.
+        </div>
+        <div class="yh-plaza-card-actions">
+          <button type="button" class="yh-plaza-ghost-btn" data-region-chat="${escapeHtml(item.id)}">Open Plaza Chat</button>
+          <button type="button" class="yh-plaza-ghost-btn" data-region-meetup="${escapeHtml(item.id)}">Plan Meetup</button>
+          <button type="button" class="yh-plaza-ghost-btn" data-patron-apply-region="${escapeHtml(item.id)}">Apply as Patron</button>
+        </div>
       </article>
     </div>
     <div class="yh-plaza-detail-grid">
@@ -6606,7 +7583,15 @@ function renderRegionHubScreen(item) {
       </article>
     </div>
     <div class="yh-plaza-detail-grid">
-      <article class="yh-plaza-detail-block yh-plaza-detail-block-full">
+      <article class="yh-plaza-detail-block">
+        <span class="yh-plaza-view-chip">Upcoming meetups</span>
+        ${
+          regionMeetups.length
+            ? regionMeetups.map(renderMeetupCard).join("")
+            : `<div class="yh-plaza-empty">No meetup has been planned for this Plaza yet.</div>`
+        }
+      </article>
+      <article class="yh-plaza-detail-block">
         <span class="yh-plaza-view-chip">Bridge movement</span>
         ${bridgeItems.length ? bridgeItems.map(renderMiniBridgeCard).join("") : `<div class="yh-plaza-empty">No bridge path surfaced in this region yet.</div>`}
       </article>
@@ -7186,6 +8171,26 @@ function bindEvents() {
         return;
       }
 
+      if (targetTab === "meetups") {
+        openMeetupsScreen({ resetHistory: true, pushHistory: false });
+        return;
+      }
+
+      if (targetTab === "atlas") {
+        openAtlasScreen({ resetHistory: true, pushHistory: false });
+        return;
+      }
+
+      if (targetTab === "patron") {
+        openPatronApplicationScreen({ resetHistory: true, pushHistory: false });
+        return;
+      }
+
+      if (targetTab === "patron-desk") {
+        openPatronDeskScreen({ resetHistory: true, pushHistory: false });
+        return;
+      }
+
       openScreen(targetTab, { resetHistory: true, pushHistory: false });
     });
   });
@@ -7421,6 +8426,25 @@ function bindEvents() {
     if (opportunityBtn instanceof HTMLElement) {
       const opportunity = getPlazaOpportunityById(opportunityBtn.dataset.opportunityId) || plazaAdapter.getOpportunityById(opportunityBtn.dataset.opportunityId);
       renderOpportunityDetailScreen(opportunity);
+      return;
+    }
+
+    const atlasRegionBtn = target.closest("[data-atlas-region-id]");
+    if (atlasRegionBtn instanceof HTMLElement) {
+      const region = getPlazaRegionById(atlasRegionBtn.dataset.atlasRegionId) || plazaAdapter.getRegionById(atlasRegionBtn.dataset.atlasRegionId);
+      renderRegionHubScreen(region);
+      return;
+    }
+
+    const patronApplyBtn = target.closest("[data-patron-apply-region]");
+    if (patronApplyBtn instanceof HTMLElement) {
+      prefillPatronApplicationFromRegion(patronApplyBtn.dataset.patronApplyRegion || "");
+      return;
+    }
+
+    const regionMeetupBtn = target.closest("[data-region-meetup]");
+    if (regionMeetupBtn instanceof HTMLElement) {
+      prefillPlazaMeetupFromRegion(regionMeetupBtn.dataset.regionMeetup || "");
       return;
     }
 
@@ -8253,6 +9277,118 @@ async function submitPlazaRegionComposer(event) {
     if (typeof showToast === "function") {
       showToast(error.message || "Could not create region hub.", "error");
     }
+  } finally {
+    clearButtonBusy(submitButton);
+    plazaActionLocks.delete(lockKey);
+  }
+}
+async function submitPlazaMeetupComposer(event) {
+  event.preventDefault();
+
+  if (!plazaMeetupComposerForm) return;
+
+  const submitButton = plazaMeetupComposerSubmitBtn || event.submitter || null;
+  const lockKey = "form:plazaMeetupComposer";
+
+  if (plazaActionLocks.has(lockKey)) return;
+
+  const formData = new FormData(plazaMeetupComposerForm);
+  const payload = {
+    regionId: String(formData.get("regionId") || "").trim(),
+    format: String(formData.get("format") || "in-person").trim(),
+    title: String(formData.get("title") || "").trim(),
+    scheduledAt: String(formData.get("scheduledAt") || "").trim(),
+    location: String(formData.get("location") || "").trim(),
+    description: String(formData.get("description") || "").trim()
+  };
+
+  if (!payload.regionId) {
+    showToast("Select a Plaza first.", "error");
+    return;
+  }
+
+  if (!payload.title || !payload.scheduledAt || !payload.location || !payload.description) {
+    showToast("Complete the meetup details first.", "error");
+    return;
+  }
+
+  plazaActionLocks.add(lockKey);
+  setButtonBusy(submitButton, "Creating...");
+
+  try {
+    await createPlazaMeetup(payload);
+
+    plazaMeetupComposerForm.reset();
+    renderMeetupsScreen();
+
+    showToast("Plaza meetup created.");
+  } catch (error) {
+    console.error("submitPlazaMeetupComposer error:", error);
+    showToast(error.message || "Could not create Plaza meetup.", "error");
+  } finally {
+    clearButtonBusy(submitButton);
+    plazaActionLocks.delete(lockKey);
+  }
+}
+async function submitPlazaPatronApplicationForm(event) {
+  event.preventDefault();
+
+  if (!plazaPatronApplicationForm) return;
+
+  const submitButton = plazaPatronApplicationSubmitBtn || event.submitter || null;
+  const lockKey = "form:plazaPatronApplication";
+
+  if (plazaActionLocks.has(lockKey)) return;
+
+  const formData = new FormData(plazaPatronApplicationForm);
+  const payload = {
+    regionId: String(formData.get("regionId") || "").trim(),
+    preferredRole: String(formData.get("preferredRole") || "Regional Patron").trim(),
+    fullName: String(formData.get("fullName") || "").trim(),
+    baseCity: String(formData.get("baseCity") || "").trim(),
+    country: String(formData.get("country") || "").trim(),
+    communicationHandle: String(formData.get("communicationHandle") || "").trim(),
+    leadershipExperience: String(formData.get("leadershipExperience") || "").trim(),
+    plazaPlan: String(formData.get("plazaPlan") || "").trim(),
+    meetupPlan: String(formData.get("meetupPlan") || "").trim(),
+    proofLink: String(formData.get("proofLink") || "").trim(),
+    whyYou: String(formData.get("whyYou") || "").trim()
+  };
+
+  if (!payload.regionId) {
+    showToast("Select the Plaza you want to lead.", "error");
+    return;
+  }
+
+  if (!payload.fullName) {
+    showToast("Add your name first.", "error");
+    return;
+  }
+
+  if (!payload.leadershipExperience) {
+    showToast("Add your leadership experience first.", "error");
+    return;
+  }
+
+  if (!payload.plazaPlan) {
+    showToast("Add your Plaza leadership plan first.", "error");
+    return;
+  }
+
+  if (!payload.whyYou) {
+    showToast("Explain why admin should choose you.", "error");
+    return;
+  }
+
+  plazaActionLocks.add(lockKey);
+  setButtonBusy(submitButton, "Submitting...");
+
+  try {
+    await submitPlazaPatronApplicationPayload(payload);
+    showToast("Patron application submitted for admin review.", "success");
+  } catch (error) {
+    console.error("submitPlazaPatronApplicationForm error:", error);
+    showToast(error.message || "Could not submit Patron application.", "error");
   } finally {
     clearButtonBusy(submitButton);
     plazaActionLocks.delete(lockKey);
@@ -9358,6 +10494,7 @@ async function initPlaza() {
 
   renderStats();
   populateRegionFilter();
+  populateMeetupRegionSelect();
 
   const restoredScreen = restorePlazaUiState();
 
@@ -9369,6 +10506,11 @@ async function initPlaza() {
   renderDirectory();
   renderOpportunities();
   renderRegions();
+  renderAtlasScreen();
+  populatePatronRegionSelect();
+  renderPatronBenefitsScreen();
+  renderPlazaPatronApplicationStatus();
+  renderPatronDeskScreen();
   renderBridge();
   renderRailSignals();
   renderRequestsPreview();
@@ -9376,6 +10518,7 @@ async function initPlaza() {
   renderInboxScreen();
   renderNotificationsScreen();
   renderMessagesScreen();
+  renderMeetupsScreen();
   renderOperationalPreviews();
 openScreen(restoredScreen, { resetHistory: true, pushHistory: false, showLoader: false });
   bindEvents();
@@ -9394,6 +10537,14 @@ if (plazaDirectoryComposerForm) {
 
 if (plazaRegionComposerForm) {
   plazaRegionComposerForm.addEventListener("submit", submitPlazaRegionComposer);
+}
+
+if (plazaMeetupComposerForm) {
+  plazaMeetupComposerForm.addEventListener("submit", submitPlazaMeetupComposer);
+}
+
+if (plazaPatronApplicationForm) {
+  plazaPatronApplicationForm.addEventListener("submit", submitPlazaPatronApplicationForm);
 }
 
 if (plazaBridgeComposerForm) {
@@ -9417,7 +10568,15 @@ await loadPlazaDirectoryFromServer({
 });
 
 await loadPlazaRegionsFromServer({
-  silent: restoredScreen !== "regions"
+  silent: restoredScreen !== "regions" && restoredScreen !== "atlas" && restoredScreen !== "patron"
+});
+
+await loadPlazaPatronApplicationStatus({
+  silent: restoredScreen !== "patron"
+});
+
+await loadPlazaPatronDeskFromServer({
+  silent: restoredScreen !== "patron-desk"
 });
 
 await loadPlazaBridgeFromServer({
@@ -9430,6 +10589,10 @@ await loadPlazaRequestsFromServer({
 
 await loadPlazaMessagesFromServer({
   silent: restoredScreen !== "messages"
+});
+
+await loadPlazaMeetupsFromServer({
+  silent: restoredScreen !== "meetups"
 });
 
   if (typeof window.translateCurrentPage === "function") {

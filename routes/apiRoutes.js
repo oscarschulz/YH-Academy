@@ -128,6 +128,15 @@ router.post('/plaza/directory/profile', auth, plazaControllers.upsertDirectoryPr
 router.get('/plaza/regions', auth, plazaControllers.getRegions);
 router.post('/plaza/regions', auth, plazaControllers.createRegion);
 
+router.get('/plaza/patron-application-status', auth, plazaControllers.getPatronApplicationStatus);
+router.post('/plaza/patron-applications', auth, plazaControllers.submitPatronApplication);
+
+router.get('/plaza/patron/desk', auth, plazaControllers.getPatronDesk);
+router.post('/plaza/patron/announcements', auth, plazaControllers.createPatronAnnouncement);
+router.patch('/plaza/patron/requests/:id/status', auth, plazaControllers.updatePatronRoutedRequestStatus);
+router.post('/plaza/patron/recommendations', auth, plazaControllers.createPatronFederationRecommendation);
+router.post('/plaza/patron/intro-outcomes', auth, plazaControllers.createPatronIntroOutcome);
+
 router.get('/plaza/bridge', auth, plazaControllers.getBridge);
 router.post('/plaza/bridge', auth, plazaControllers.createBridge);
 
@@ -140,7 +149,12 @@ router.delete('/plaza/requests/:id', auth, plazaControllers.deleteRequest);
 router.get('/plaza/messages', auth, plazaControllers.getMessages);
 router.post('/plaza/messages/from-request/:requestId', auth, plazaControllers.createConversationFromRequest);
 router.post('/plaza/messages/from-member/:targetUserId', auth, plazaControllers.createConversationFromMember);
+router.post('/plaza/messages/from-region/:regionId', auth, plazaControllers.createConversationFromRegion);
 router.post('/plaza/messages/:id/replies', auth, plazaControllers.createConversationReply);
+
+router.get('/plaza/meetups', auth, plazaControllers.getMeetups);
+router.post('/plaza/meetups', auth, plazaControllers.createMeetup);
+router.patch('/plaza/meetups/:id/patron-status', auth, plazaControllers.updatePatronMeetupStatus);
 
 // ==========================================
 // 💳 YH PROVIDER-NEUTRAL PAYMENT LEDGER ROUTES

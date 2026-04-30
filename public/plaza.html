@@ -66,7 +66,7 @@
     <div class="yh-plaza-app-grid">
       <aside class="yh-plaza-sidebar">
         <section class="yh-plaza-side-card yh-plaza-side-card-primary">
-          <span class="yh-plaza-section-kicker">The Plaza</span>
+          <span class="yh-plaza-section-kicker">The Plazas</span>
           <h2>Movement Hub</h2>
         </section>
 
@@ -88,6 +88,10 @@
               <span class="yh-plaza-nav-btn-title">Conversations</span>
             </button>
 
+            <button type="button" class="yh-plaza-nav-btn" data-nav-tab="meetups">
+              <span class="yh-plaza-nav-btn-title">Meetups</span>
+            </button>
+
             <button type="button" class="yh-plaza-nav-btn" data-nav-tab="opportunities">
               <span class="yh-plaza-nav-btn-title">Opportunities</span>
             </button>
@@ -100,10 +104,21 @@
               <span class="yh-plaza-nav-btn-title">Regions</span>
             </button>
 
+            <button type="button" class="yh-plaza-nav-btn" data-nav-tab="atlas">
+              <span class="yh-plaza-nav-btn-title">Plaza Atlas</span>
+            </button>
+
+            <button type="button" class="yh-plaza-nav-btn" data-nav-tab="patron">
+              <span class="yh-plaza-nav-btn-title">Become Patron</span>
+            </button>
+
+            <button type="button" class="yh-plaza-nav-btn" data-nav-tab="patron-desk">
+              <span class="yh-plaza-nav-btn-title">Patron Desk</span>
+            </button>
+
             <button type="button" class="yh-plaza-nav-btn" data-nav-tab="bridge">
               <span class="yh-plaza-nav-btn-title">Bridge</span>
             </button>
-
             <button type="button" class="yh-plaza-nav-btn" data-nav-tab="requests">
               <span class="yh-plaza-nav-btn-title">Requests</span>
             </button>
@@ -658,7 +673,192 @@
                 <div class="yh-plaza-screen-body" id="plazaIncomingDetailBody"></div>
               </div>
             </section>
+            <section class="yh-plaza-screen" id="plazaScreenAtlas" data-plaza-screen="atlas" hidden>
+              <div class="yh-plaza-screen-shell">
+                <div class="yh-plaza-screen-head">
+                  <div>
+                    <span class="yh-plaza-section-kicker">Plaza Atlas</span>
+                    <h2 class="yh-plaza-screen-title">Plaza topology map</h2>
+                    <p class="yh-plaza-panel-note">
+                      A visual map-style overview of the official Plazas, their countries, network layer, and current Patron / Leader status.
+                    </p>
+                  </div>
+                  <div class="yh-plaza-screen-meta" id="plazaAtlasSummary"></div>
+                </div>
 
+                <div class="yh-plaza-atlas-grid" id="plazaAtlasGrid"></div>
+              </div>
+            </section>
+
+            <section class="yh-plaza-screen" id="plazaScreenPatron" data-plaza-screen="patron" hidden>
+              <div class="yh-plaza-screen-shell">
+                <div class="yh-plaza-screen-head">
+                  <div>
+                    <span class="yh-plaza-section-kicker">Patron / Leader</span>
+                    <h2 class="yh-plaza-screen-title">Become a Plaza Patron</h2>
+                    <p class="yh-plaza-panel-note">
+                      Apply to become the approved Patron or Leader for a specific Plaza. Approved Patrons become official regional operators with visibility, authority, meetup control, and connection-based earning opportunities.
+                    </p>
+                  </div>
+                  <div class="yh-plaza-screen-meta" id="plazaPatronApplicationMeta"></div>
+                </div>
+
+                <div class="yh-plaza-detail-grid">
+                  <article class="yh-plaza-detail-block">
+                    <span class="yh-plaza-view-chip">Status Benefits</span>
+                    <div id="plazaPatronBenefitsGrid"></div>
+                  </article>
+
+                  <article class="yh-plaza-detail-block">
+                    <span class="yh-plaza-view-chip">Control Benefits</span>
+                    <div id="plazaPatronPowerGrid"></div>
+                  </article>
+                </div>
+
+                <div class="yh-plaza-detail-grid">
+                  <article class="yh-plaza-detail-block yh-plaza-detail-block-full">
+                    <span class="yh-plaza-view-chip">Money Benefits</span>
+                    <div id="plazaPatronEconomicGrid"></div>
+                  </article>
+                </div>
+
+                <div class="yh-plaza-access-status" id="plazaPatronApplicationStatusCard" hidden></div>
+
+                <form class="yh-plaza-feed-composer" id="plazaPatronApplicationForm">
+                  <div class="yh-plaza-feed-composer-main">
+                    <label class="yh-plaza-feed-composer-field">
+                      <span>Plaza You Want To Lead</span>
+                      <select id="plazaPatronRegionSelect" name="regionId" required>
+                        <option value="">Select Plaza</option>
+                      </select>
+                    </label>
+
+                    <label class="yh-plaza-feed-composer-field">
+                      <span>Preferred Role</span>
+                      <select id="plazaPatronPreferredRole" name="preferredRole" required>
+                        <option value="Regional Patron">Regional Patron</option>
+                        <option value="Plaza Leader">Plaza Leader</option>
+                        <option value="Community Connector">Community Connector</option>
+                        <option value="Meetup Coordinator">Meetup Coordinator</option>
+                      </select>
+                    </label>
+
+                    <label class="yh-plaza-feed-composer-field">
+                      <span>Your Name</span>
+                      <input id="plazaPatronFullName" name="fullName" type="text" placeholder="Your full name" maxlength="140" required />
+                    </label>
+
+                    <label class="yh-plaza-feed-composer-field">
+                      <span>Base City</span>
+                      <input id="plazaPatronBaseCity" name="baseCity" type="text" placeholder="Lagos, Manila, London..." maxlength="100" />
+                    </label>
+
+                    <label class="yh-plaza-feed-composer-field">
+                      <span>Country</span>
+                      <input id="plazaPatronCountry" name="country" type="text" placeholder="Your country" maxlength="100" />
+                    </label>
+
+                    <label class="yh-plaza-feed-composer-field">
+                      <span>Contact Handle</span>
+                      <input id="plazaPatronCommunicationHandle" name="communicationHandle" type="text" placeholder="Telegram, email, X, WhatsApp..." maxlength="160" />
+                    </label>
+
+                    <label class="yh-plaza-feed-composer-field yh-plaza-feed-composer-field-wide yh-plaza-feed-composer-field-signal">
+                      <span>Leadership Experience</span>
+                      <textarea id="plazaPatronLeadershipExperience" name="leadershipExperience" placeholder="What have you led before? Communities, teams, student bodies, events, operations, groups..." maxlength="1200" required></textarea>
+                    </label>
+
+                    <label class="yh-plaza-feed-composer-field yh-plaza-feed-composer-field-wide yh-plaza-feed-composer-field-signal">
+                      <span>Plaza Leadership Plan</span>
+                      <textarea id="plazaPatronPlan" name="plazaPlan" placeholder="How will you grow, organize, and activate this Plaza?" maxlength="1200" required></textarea>
+                    </label>
+
+                    <label class="yh-plaza-feed-composer-field yh-plaza-feed-composer-field-wide yh-plaza-feed-composer-field-signal">
+                      <span>Meetup Plan</span>
+                      <textarea id="plazaPatronMeetupPlan" name="meetupPlan" placeholder="How will you set up meetups, local circles, or online calls for this Plaza?" maxlength="900"></textarea>
+                    </label>
+
+                    <label class="yh-plaza-feed-composer-field yh-plaza-feed-composer-field-wide">
+                      <span>Proof Link</span>
+                      <input id="plazaPatronProofLink" name="proofLink" type="url" placeholder="Portfolio, social profile, community proof, event proof..." maxlength="260" />
+                    </label>
+
+                    <label class="yh-plaza-feed-composer-field yh-plaza-feed-composer-field-wide yh-plaza-feed-composer-field-signal">
+                      <span>Why Should Admin Choose You?</span>
+                      <textarea id="plazaPatronWhyYou" name="whyYou" placeholder="Explain why you are the right person to lead this Plaza." maxlength="900" required></textarea>
+                    </label>
+                  </div>
+
+                  <div class="yh-plaza-feed-composer-actions">
+                    <button type="submit" class="yh-plaza-btn yh-plaza-btn-primary" id="plazaPatronApplicationSubmitBtn">
+                      Submit Patron Application
+                    </button>
+                  </div>
+                </form>
+
+                <div class="yh-plaza-panel-note">
+                  Approval automatically upgrades the selected Plaza: the applicant becomes the official Patron / Leader shown in the Plaza Atlas, Region Hub, and regional coordination surfaces.
+                </div>
+              </div>
+            </section>
+                        <section class="yh-plaza-screen" id="plazaScreenPatronDesk" data-plaza-screen="patron-desk" hidden>
+              <div class="yh-plaza-screen-shell">
+                <div class="yh-plaza-screen-head">
+                  <div>
+                    <span class="yh-plaza-section-kicker">Patron Desk</span>
+                    <h2 class="yh-plaza-screen-title">Regional Patron operations</h2>
+                    <p class="yh-plaza-panel-note">
+                      Track assigned Plaza regions, routed requests, Federation recommendations, and Patron commission payout status from one command desk.
+                    </p>
+                  </div>
+                  <div class="yh-plaza-screen-meta" id="plazaPatronDeskMeta"></div>
+                </div>
+
+                <div class="yh-plaza-access-status" id="plazaPatronDeskStatusCard"></div>
+
+                <div class="yh-plaza-patron-desk-grid" id="plazaPatronDeskSummaryGrid"></div>
+
+                <div class="yh-plaza-patron-desk-section">
+                  <div class="yh-plaza-screen-head">
+                    <div>
+                      <span class="yh-plaza-section-kicker">Regions</span>
+                      <h3 class="yh-plaza-screen-title">Your assigned Plazas</h3>
+                    </div>
+                  </div>
+                  <div class="yh-plaza-patron-desk-list" id="plazaPatronDeskRegionsList"></div>
+                </div>
+
+                <div class="yh-plaza-patron-desk-section">
+                  <div class="yh-plaza-screen-head">
+                    <div>
+                      <span class="yh-plaza-section-kicker">Requests</span>
+                      <h3 class="yh-plaza-screen-title">Routed regional requests</h3>
+                    </div>
+                  </div>
+                  <div class="yh-plaza-patron-desk-list" id="plazaPatronDeskRequestsList"></div>
+                </div>
+
+                <div class="yh-plaza-patron-desk-section">
+                  <div class="yh-plaza-screen-head">
+                    <div>
+                      <span class="yh-plaza-section-kicker">Payouts</span>
+                      <h3 class="yh-plaza-screen-title">Commission ledger</h3>
+                    </div>
+                  </div>
+                  <div class="yh-plaza-patron-desk-list" id="plazaPatronDeskPayoutsList"></div>
+                </div>
+
+                <div class="yh-plaza-patron-desk-section">
+                  <div class="yh-plaza-screen-head">
+                    <div>
+                      <span class="yh-plaza-section-kicker">Federation</span>
+                      <h3 class="yh-plaza-screen-title">Recommendations</h3>
+                    </div>
+                  </div>
+                  <div class="yh-plaza-patron-desk-list" id="plazaPatronDeskRecommendationsList"></div>
+                </div>
+              </div>
+            </section>
             <section class="yh-plaza-screen" id="plazaScreenNotifications" data-plaza-screen="notifications" hidden>
               <div class="yh-plaza-screen-shell">
                 <div class="yh-plaza-screen-head">
@@ -688,6 +888,74 @@
                   <div class="yh-plaza-screen-meta" id="plazaMessagesMeta"></div>
                 </div>
                 <div class="yh-plaza-request-list" id="plazaMessagesList"></div>
+              </div>
+            </section>
+
+            <section class="yh-plaza-screen" id="plazaScreenMeetups" data-plaza-screen="meetups" hidden>
+              <div class="yh-plaza-screen-shell">
+                <div class="yh-plaza-screen-head">
+                  <div>
+                    <span class="yh-plaza-section-kicker">Meetups</span>
+                    <h2 class="yh-plaza-screen-title">Plaza meetup coordination</h2>
+                    <p class="yh-plaza-panel-note">
+                      Plan regional meetups, founder circles, local networking sessions, and patron-led Plaza gatherings.
+                      Every meetup stays attached to a specific Plaza and its Patron/Leader.
+                    </p>
+                  </div>
+                  <div class="yh-plaza-screen-meta" id="plazaMeetupsMeta"></div>
+                </div>
+
+                <form class="yh-plaza-feed-composer" id="plazaMeetupComposerForm">
+                  <div class="yh-plaza-feed-composer-main">
+                    <label class="yh-plaza-feed-composer-field">
+                      <span>Plaza / Region</span>
+                      <select id="plazaMeetupRegionSelect" name="regionId" required>
+                        <option value="">Select Plaza</option>
+                      </select>
+                    </label>
+
+                    <label class="yh-plaza-feed-composer-field">
+                      <span>Meetup Format</span>
+                      <select id="plazaMeetupFormat" name="format">
+                        <option value="in-person">In-person</option>
+                        <option value="online">Online</option>
+                        <option value="hybrid">Hybrid</option>
+                      </select>
+                    </label>
+
+                    <label class="yh-plaza-feed-composer-field yh-plaza-feed-composer-field-wide">
+                      <span>Title</span>
+                      <input id="plazaMeetupTitle" name="title" type="text" placeholder="Lagos Builder Meetup, Manila Networking Circle..." maxlength="140" required />
+                    </label>
+
+                    <label class="yh-plaza-feed-composer-field">
+                      <span>Date & Time</span>
+                      <input id="plazaMeetupDateTime" name="scheduledAt" type="datetime-local" required />
+                    </label>
+
+                    <label class="yh-plaza-feed-composer-field">
+                      <span>Location / Link</span>
+                      <input id="plazaMeetupLocation" name="location" type="text" placeholder="Venue, city, or meeting link" maxlength="180" required />
+                    </label>
+
+                    <label class="yh-plaza-feed-composer-field yh-plaza-feed-composer-field-wide yh-plaza-feed-composer-field-signal">
+                      <span>Meetup Brief</span>
+                      <textarea id="plazaMeetupDescription" name="description" placeholder="What is the meetup for? Who should attend? What should members prepare?" maxlength="1200" required></textarea>
+                    </label>
+                  </div>
+
+                  <div class="yh-plaza-feed-composer-actions">
+                    <button type="submit" class="yh-plaza-btn yh-plaza-btn-primary" id="plazaMeetupComposerSubmitBtn">
+                      Set Up Meetup
+                    </button>
+                  </div>
+                </form>
+
+                <div class="yh-plaza-panel-note">
+                  Meetups are Plaza-level coordination items. Patrons/Leaders can use them to turn online networking into structured local movement.
+                </div>
+
+                <div class="yh-plaza-request-list" id="plazaMeetupsList"></div>
               </div>
             </section>
 
