@@ -1503,6 +1503,53 @@ window.addEventListener('load', () => {
     if (btnFlipRegister) btnFlipRegister.addEventListener('click', flipToRegister);
     if (btnFlipLogin) btnFlipLogin.addEventListener('click', flipToLogin);
 
+    function handleDeletedAccountAuthResult(result = {}, options = {}) {
+        const isDeletedAccount =
+            result?.accountDeleted === true ||
+            result?.registrationRequired === true ||
+            Number(options?.status || 0) === 410;
+
+        if (!isDeletedAccount) return false;
+
+        const email = String(options?.email || options?.identifier || '').trim().toLowerCase();
+        const registerEmailInput = document.getElementById('reg-email');
+
+        try {
+            clearPendingVerifyEmail();
+            clearAcademyClientStateForFreshAuth();
+        } catch (_) {}
+
+        if (registerEmailInput && email.includes('@')) {
+            registerEmailInput.value = email;
+        }
+
+        try {
+            const forgotEmailInput = document.getElementById('forgot-email-input');
+            const forgotOtpInput = document.getElementById('forgot-otp-code');
+            const resetNewPasswordInput = document.getElementById('reset-new-password');
+            const resetConfirmPasswordInput = document.getElementById('reset-confirm-password');
+
+            if (forgotEmailInput) forgotEmailInput.value = '';
+            if (forgotOtpInput) forgotOtpInput.value = '';
+            if (resetNewPasswordInput) resetNewPasswordInput.value = '';
+            if (resetConfirmPasswordInput) resetConfirmPasswordInput.value = '';
+        } catch (_) {}
+
+        showStep(1);
+        flipToRegister();
+
+        window.setTimeout(() => {
+            registerEmailInput?.focus();
+        }, 220);
+
+        showToast(
+            result?.message || 'This account has been deleted. Please register again.',
+            'error'
+        );
+
+        return true;
+    }
+
     syncMobileAuthCardHeight();
 
     window.addEventListener('resize', () => syncMobileAuthCardHeight(), { passive: true });
@@ -1680,6 +1727,15 @@ if (result.success) {
 
     return;
 }
+
+        if (handleDeletedAccountAuthResult(result, {
+            status: response.status,
+            identifier
+        })) {
+            btnLogin.innerText = yhT('auth.login');
+            btnLogin.disabled = false;
+            return;
+        }
 
         if (response.status === 403 && result.verificationRequired) {
             const verificationEmail = String(result.email || identifier).trim().toLowerCase();
@@ -1948,7 +2004,18 @@ if (formRegisterSimple) {
             try {
                 const response = await fetch('/api/forgot-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
                 const result = await response.json();
-                if (result.success) { resetEmailHolder = email; showStep(4); startForgotTimer(); } else { showToast(result.message, "error"); }
+                if (result.success) {
+                    resetEmailHolder = email;
+                    showStep(4);
+                    startForgotTimer();
+                } else if (handleDeletedAccountAuthResult(result, {
+                    status: response.status,
+                    email
+                })) {
+                    resetEmailHolder = "";
+                } else {
+                    showToast(result.message, "error");
+                }
             } catch (error) { showToast("Server error.", "error"); } finally { submitBtn.innerText = yhT('auth.sendRecoveryCode'); submitBtn.disabled = false; }
         });
     }
@@ -1961,7 +2028,18 @@ if (formRegisterSimple) {
             try {
                 const response = await fetch('/api/verify-forgot-otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: resetEmailHolder, otpCode }) });
                 const result = await response.json();
-                if (result.success) { clearInterval(forgotTimerInterval); showStep(5); } else { showToast(result.message, "error"); }
+                if (result.success) {
+                    clearInterval(forgotTimerInterval);
+                    showStep(5);
+                } else if (handleDeletedAccountAuthResult(result, {
+                    status: response.status,
+                    email: resetEmailHolder
+                })) {
+                    clearInterval(forgotTimerInterval);
+                    resetEmailHolder = "";
+                } else {
+                    showToast(result.message, "error");
+                }
             } catch (error) { showToast("Server error.", "error"); } finally { submitBtn.innerText = yhT('auth.verifyCode'); submitBtn.disabled = false; }
         });
     }
@@ -1975,7 +2053,19 @@ if (formRegisterSimple) {
             try {
                 const response = await fetch('/api/reset-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: resetEmailHolder, newPassword }) });
                 const result = await response.json();
-                if (result.success) { formResetPass.reset(); resetEmailHolder = ""; showStep(6); } else { showToast(result.message, "error"); }
+                if (result.success) {
+                    formResetPass.reset();
+                    resetEmailHolder = "";
+                    showStep(6);
+                } else if (handleDeletedAccountAuthResult(result, {
+                    status: response.status,
+                    email: resetEmailHolder
+                })) {
+                    formResetPass.reset();
+                    resetEmailHolder = "";
+                } else {
+                    showToast(result.message, "error");
+                }
             } catch (error) { showToast("Server error.", "error"); } finally { submitBtn.innerText = yhT('auth.saveNewPassword'); submitBtn.disabled = false; }
         });
     }

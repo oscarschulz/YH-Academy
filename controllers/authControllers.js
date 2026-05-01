@@ -84,19 +84,124 @@ const addMinutesToIsoFromValue = (value, minutes = 0) => {
 
 const usersCollection = () => firestore.collection(USERS_COLLECTION);
 
+const DELETED_ACCOUNT_MESSAGE = 'This account has been deleted. Please register again.';
+
+function normalizeAccountStatusText(value = '') {
+    return String(value || '').trim().toLowerCase().replace(/\s+/g, '_');
+}
+
+function isDeletedAccountRecord(user = {}) {
+    if (!user || typeof user !== 'object') return false;
+
+    const status = normalizeAccountStatusText(
+        user.accountStatus ||
+        user.userStatus ||
+        user.status ||
+        ''
+    );
+
+    const deletionStatus = normalizeAccountStatusText(
+        user.deletionStatus ||
+        user.deleteStatus ||
+        ''
+    );
+
+    const fullName = normalizeAccountStatusText(
+        user.fullName ||
+        user.displayName ||
+        user.name ||
+        ''
+    );
+
+    const username = normalizeAccountStatusText(user.username || '');
+
+    const hasDeletedFlag =
+        user.deleted === true ||
+        user.isDeleted === true ||
+        user.accountDeleted === true ||
+        user.isAccountDeleted === true ||
+        user.disabled === true ||
+        user.isDisabled === true ||
+        Boolean(user.deletedAt || user.accountDeletedAt || user.disabledAt);
+
+    const hasDeletedStatus = [
+        'deleted',
+        'disabled',
+        'deactivated',
+        'removed',
+        'archived'
+    ].includes(status);
+
+    const hasDeletionStatus = [
+        'deleted',
+        'soft_deleted',
+        'hard_deleted',
+        'disabled',
+        'deactivated'
+    ].includes(deletionStatus);
+
+    const isLegacyDeletedPlaceholder =
+        ['deleted', 'deleted_user', 'deleted_account'].includes(fullName) ||
+        ['deleted', 'deleteduser', 'deleted_account'].includes(username);
+
+    return hasDeletedFlag || hasDeletedStatus || hasDeletionStatus || isLegacyDeletedPlaceholder;
+}
+
+function deletedAccountResponsePayload(message = DELETED_ACCOUNT_MESSAGE) {
+    return {
+        success: false,
+        accountDeleted: true,
+        registrationRequired: true,
+        message
+    };
+}
+
+async function purgeDeletedUserRecords(records = []) {
+    const deletedRecords = (Array.isArray(records) ? records : [])
+        .filter((record) => record?.id && isDeletedAccountRecord(record));
+
+    for (const record of deletedRecords) {
+        const ref = usersCollection().doc(record.id);
+
+        if (firestore && typeof firestore.recursiveDelete === 'function') {
+            await firestore.recursiveDelete(ref);
+        } else {
+            await ref.delete();
+        }
+    }
+
+    return deletedRecords.length;
+}
+
 async function findUserByEmail(email = '') {
     const normalizedEmail = String(email || '').trim().toLowerCase();
     if (!normalizedEmail) return null;
 
     const snap = await usersCollection()
         .where('email', '==', normalizedEmail)
-        .limit(1)
+        .limit(10)
         .get();
 
     if (snap.empty) return null;
 
-    const doc = snap.docs[0];
-    return { id: doc.id, ...doc.data() };
+    const users = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    return users.find((user) => !isDeletedAccountRecord(user)) || null;
+}
+
+async function findDeletedUsersByEmail(email = '') {
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    if (!normalizedEmail) return [];
+
+    const snap = await usersCollection()
+        .where('email', '==', normalizedEmail)
+        .limit(10)
+        .get();
+
+    if (snap.empty) return [];
+
+    return snap.docs
+        .map((doc) => ({ id: doc.id, ...doc.data() }))
+        .filter((user) => isDeletedAccountRecord(user));
 }
 
 async function findUserByUsername(username = '') {
@@ -109,13 +214,33 @@ async function findUserByUsername(username = '') {
 
     const snap = await usersCollection()
         .where('username', '==', normalizedUsername)
-        .limit(1)
+        .limit(10)
         .get();
 
     if (snap.empty) return null;
 
-    const doc = snap.docs[0];
-    return { id: doc.id, ...doc.data() };
+    const users = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    return users.find((user) => !isDeletedAccountRecord(user)) || null;
+}
+
+async function findDeletedUsersByUsername(username = '') {
+    const normalizedUsername = String(username || '')
+        .trim()
+        .replace(/^@+/, '')
+        .toLowerCase();
+
+    if (!normalizedUsername) return [];
+
+    const snap = await usersCollection()
+        .where('username', '==', normalizedUsername)
+        .limit(10)
+        .get();
+
+    if (snap.empty) return [];
+
+    return snap.docs
+        .map((doc) => ({ id: doc.id, ...doc.data() }))
+        .filter((user) => isDeletedAccountRecord(user));
 }
 
 async function findUserByIdentifier(identifier = '') {
@@ -131,6 +256,23 @@ async function findUserByIdentifier(identifier = '') {
     return findUserByUsername(normalizedUsername);
 }
 
+async function findDeletedUserByIdentifier(identifier = '') {
+    const normalized = String(identifier || '').trim();
+    if (!normalized) return null;
+
+    const normalizedEmail = normalized.toLowerCase();
+    const normalizedUsername = normalized.replace(/^@+/, '').toLowerCase();
+
+    const deletedByEmail = normalizedEmail.includes('@')
+        ? await findDeletedUsersByEmail(normalizedEmail)
+        : [];
+
+    if (deletedByEmail.length) return deletedByEmail[0];
+
+    const deletedByUsername = await findDeletedUsersByUsername(normalizedUsername);
+    return deletedByUsername[0] || null;
+}
+
 async function findUserByEmailAndOtp(email = '', otpCode = '') {
     const normalizedEmail = String(email || '').trim().toLowerCase();
     const normalizedOtp = String(otpCode || '').trim();
@@ -140,13 +282,13 @@ async function findUserByEmailAndOtp(email = '', otpCode = '') {
     const snap = await usersCollection()
         .where('email', '==', normalizedEmail)
         .where('verificationCode', '==', normalizedOtp)
-        .limit(1)
+        .limit(10)
         .get();
 
     if (snap.empty) return null;
 
-    const doc = snap.docs[0];
-    return { id: doc.id, ...doc.data() };
+    const users = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    return users.find((user) => !isDeletedAccountRecord(user)) || null;
 }
 
 async function generateUniqueUsername(fullName, preferredUsername = '') {
@@ -637,6 +779,8 @@ exports.registerUser = async (req, res) => {
             });
         }
 
+        await purgeDeletedUserRecords(await findDeletedUsersByEmail(email));
+
         username = await generateUniqueUsername(fullName, username);
 
         const registrationGeo = await geocodingService.resolveLocation({
@@ -820,10 +964,20 @@ exports.loginUser = async (req, res) => {
         const user = await findUserByIdentifier(identifier);
 
         if (!user) {
+            const deletedUser = await findDeletedUserByIdentifier(identifier);
+
+            if (deletedUser) {
+                return res.status(410).json(deletedAccountResponsePayload());
+            }
+
             return res.status(400).json({
                 success: false,
                 message: 'Invalid email/username or password.'
             });
+        }
+
+        if (isDeletedAccountRecord(user)) {
+            return res.status(410).json(deletedAccountResponsePayload());
         }
 
         if (user.isVerified !== true) {
@@ -874,10 +1028,20 @@ exports.forgotPassword = async (req, res) => {
 
         const user = await findUserByEmail(email);
         if (!user) {
+            const deletedUsers = await findDeletedUsersByEmail(email);
+
+            if (deletedUsers.length) {
+                return res.status(410).json(deletedAccountResponsePayload());
+            }
+
             return res.status(400).json({
                 success: false,
                 message: 'Email not found in our system.'
             });
+        }
+
+        if (isDeletedAccountRecord(user)) {
+            return res.status(410).json(deletedAccountResponsePayload());
         }
 
         const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
@@ -915,10 +1079,20 @@ exports.verifyForgotOTP = async (req, res) => {
 
         const user = await findUserByEmail(email);
         if (!user) {
+            const deletedUsers = await findDeletedUsersByEmail(email);
+
+            if (deletedUsers.length) {
+                return res.status(410).json(deletedAccountResponsePayload());
+            }
+
             return res.status(400).json({
                 success: false,
                 message: 'Invalid or expired reset code.'
             });
+        }
+
+        if (isDeletedAccountRecord(user)) {
+            return res.status(410).json(deletedAccountResponsePayload());
         }
 
         const storedCode = String(user.passwordResetCode || '').trim();
@@ -956,10 +1130,20 @@ exports.resetPassword = async (req, res) => {
 
         const user = await findUserByEmail(email);
         if (!user) {
+            const deletedUsers = await findDeletedUsersByEmail(email);
+
+            if (deletedUsers.length) {
+                return res.status(410).json(deletedAccountResponsePayload());
+            }
+
             return res.status(400).json({
                 success: false,
                 message: 'Email not found in our system.'
             });
+        }
+
+        if (isDeletedAccountRecord(user)) {
+            return res.status(410).json(deletedAccountResponsePayload());
         }
 
         const verifiedAt = String(user.passwordResetVerifiedAt || '').trim();
