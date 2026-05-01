@@ -516,6 +516,163 @@ function getYHTrustTierLabel(academySnapshot = null, plazaSnapshot = null, feder
     return 'Guest';
 }
 
+const YH_DIVISION_PENDING_REFRESH_INTERVAL_MS = 2500;
+let yhDivisionPendingRefreshTimer = null;
+let yhDivisionPendingRefreshInFlight = false;
+
+function normalizeDashboardPendingStatus(value = '') {
+    return String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[_-]+/g, ' ');
+}
+
+function isDashboardPendingReviewStatus(value = '') {
+    const status = normalizeDashboardPendingStatus(value);
+
+    return (
+        status === 'under review' ||
+        status === 'pending' ||
+        status === 'pending review' ||
+        status === 'review' ||
+        status === 'new' ||
+        status === 'screening' ||
+        status === 'shortlisted' ||
+        status === 'waitlisted'
+    );
+}
+
+function isDashboardAcademyPendingSnapshot(snapshot = null) {
+    const data = snapshot && typeof snapshot === 'object'
+        ? snapshot
+        : (typeof readAcademyMembershipCache === 'function' ? readAcademyMembershipCache() : null);
+
+    if (!data || typeof data !== 'object') return false;
+
+    return (
+        data.hasApplication === true &&
+        data.canEnterAcademy !== true &&
+        isDashboardPendingReviewStatus(data.applicationStatus)
+    );
+}
+
+function isDashboardPlazaPendingSnapshot(snapshot = null) {
+    const data = snapshot && typeof snapshot === 'object'
+        ? snapshot
+        : (typeof getPlazaAccessSnapshot === 'function' ? getPlazaAccessSnapshot() : null);
+
+    if (!data || typeof data !== 'object') return false;
+
+    return (
+        data.hasApplication === true &&
+        data.canEnterPlaza !== true &&
+        isDashboardPendingReviewStatus(data.applicationStatus)
+    );
+}
+
+function isDashboardFederationPendingSnapshot(snapshot = null) {
+    const data = snapshot && typeof snapshot === 'object'
+        ? snapshot
+        : (typeof getFederationAccessSnapshot === 'function' ? getFederationAccessSnapshot() : null);
+
+    if (!data || typeof data !== 'object') return false;
+
+    return (
+        data.hasApplication === true &&
+        data.canEnterFederation !== true &&
+        isDashboardPendingReviewStatus(data.applicationStatus)
+    );
+}
+
+function shouldDashboardPollDivisionAccess() {
+    return (
+        isDashboardAcademyPendingSnapshot() ||
+        isDashboardPlazaPendingSnapshot() ||
+        isDashboardFederationPendingSnapshot()
+    );
+}
+
+async function refreshDashboardDivisionAccessNow() {
+    if (yhDivisionPendingRefreshInFlight) return;
+
+    yhDivisionPendingRefreshInFlight = true;
+
+    try {
+        const tasks = [];
+
+        if (typeof refreshAcademyMembershipStatus === 'function') {
+            tasks.push(refreshAcademyMembershipStatus(true));
+        }
+
+        if (typeof refreshPlazaAccessStatusFromBackend === 'function') {
+            tasks.push(refreshPlazaAccessStatusFromBackend(true));
+        }
+
+        if (typeof refreshFederationAccessStatusFromBackend === 'function') {
+            tasks.push(refreshFederationAccessStatusFromBackend(true));
+        }
+
+        await Promise.allSettled(tasks);
+
+        if (typeof syncAcademyEntryButton === 'function') {
+            syncAcademyEntryButton(
+                typeof readAcademyMembershipCache === 'function'
+                    ? readAcademyMembershipCache()
+                    : null
+            );
+        }
+
+        if (typeof syncPlazaEntryButton === 'function') {
+            syncPlazaEntryButton(
+                typeof getPlazaAccessSnapshot === 'function'
+                    ? getPlazaAccessSnapshot()
+                    : null
+            );
+        }
+
+        if (typeof syncFederationEntryButton === 'function') {
+            syncFederationEntryButton();
+        }
+
+        if (typeof window.renderYHEconomicSnapshot === 'function') {
+            window.renderYHEconomicSnapshot();
+        }
+    } finally {
+        yhDivisionPendingRefreshInFlight = false;
+
+        if (!shouldDashboardPollDivisionAccess()) {
+            stopDashboardDivisionAccessRefreshLoop();
+        }
+    }
+}
+
+function startDashboardDivisionAccessRefreshLoop() {
+    if (yhDivisionPendingRefreshTimer) return;
+
+    window.setTimeout(() => {
+        refreshDashboardDivisionAccessNow().catch(() => {});
+    }, 300);
+
+    yhDivisionPendingRefreshTimer = window.setInterval(() => {
+        refreshDashboardDivisionAccessNow().catch(() => {});
+    }, YH_DIVISION_PENDING_REFRESH_INTERVAL_MS);
+}
+
+function stopDashboardDivisionAccessRefreshLoop() {
+    if (!yhDivisionPendingRefreshTimer) return;
+
+    clearInterval(yhDivisionPendingRefreshTimer);
+    yhDivisionPendingRefreshTimer = null;
+}
+
+function syncDashboardDivisionAccessPolling() {
+    if (shouldDashboardPollDivisionAccess()) {
+        startDashboardDivisionAccessRefreshLoop();
+    } else {
+        stopDashboardDivisionAccessRefreshLoop();
+    }
+}
+
 let dashboardAcademyHomeRefreshPromise = null;
 let dashboardAcademyHomeLastRefreshAt = 0;
 const DASHBOARD_ACADEMY_HOME_MIN_REFRESH_GAP_MS = 2500;
@@ -2646,6 +2803,8 @@ function syncPlazaEntryButton(snapshot = null) {
         writePlazaAccessStatusCache(currentSnapshot);
     }
 
+    syncDashboardDivisionAccessPolling();
+
     return currentSnapshot;
 }
 
@@ -3608,6 +3767,7 @@ async function submitDashboardPlazaApplication(event) {
 
         writePlazaAccessStatusCache(snapshot);
         syncPlazaEntryButton(snapshot);
+        startDashboardDivisionAccessRefreshLoop();
 
         clearDashboardPlazaApplicationDraft();
 
@@ -4217,6 +4377,7 @@ document.getElementById('form-federation-apply')?.addEventListener('submit', asy
 
         writeFederationStatusCache(snapshot);
         syncFederationEntryButton();
+        startDashboardDivisionAccessRefreshLoop();
         returnToFederationCardInDashboard();
 
         showToast('Federation application submitted for admin review.', 'success');
@@ -4285,6 +4446,7 @@ setTimeout(() => {
             syncPlazaEntryButton(getPlazaAccessSnapshot());
             syncFederationEntryButton();
             startAcademyMembershipRealtimeSync();
+            syncDashboardDivisionAccessPolling();
 
             if (shouldShowDashboardBootstrapLoader) {
                 setTimeout(() => {
@@ -15702,7 +15864,13 @@ function syncAcademyEntryButton(snapshot = null) {
         snapshot?.applicationStatus ||
         readAcademyMembershipCache()?.applicationStatus ||
         ''
-    ).trim().toLowerCase();
+    ).trim().toLowerCase().replace(/[_-]+/g, ' ');
+
+    window.setTimeout(() => {
+        if (typeof syncDashboardDivisionAccessPolling === 'function') {
+            syncDashboardDivisionAccessPolling();
+        }
+    }, 0);
 
     if (entryWrap) {
         entryWrap.style.width = '100%';
@@ -15786,11 +15954,22 @@ function syncAcademyEntryButton(snapshot = null) {
         return;
     }
 
-    if (membershipStatus === 'under review' || membershipStatus === 'new') {
+    if (membershipStatus === 'under review' || membershipStatus === 'pending' || membershipStatus === 'pending review' || membershipStatus === 'new') {
         btnOpenApply.dataset.idleLabel = 'Application Pending';
         btnOpenApply.dataset.loadingLabel = 'Checking status...';
         btnOpenApply.setAttribute('data-academy-state', 'pending');
         setDashboardButtonLoadingState(btnOpenApply, false);
+
+        btnOpenApply.disabled = true;
+        btnOpenApply.setAttribute('aria-disabled', 'true');
+        btnOpenApply.setAttribute('title', 'Your Academy application is under review. Admin approval is required before entry.');
+        btnOpenApply.style.cursor = 'not-allowed';
+
+        if (academyEntryShell) {
+            academyEntryShell.style.cursor = 'not-allowed';
+            academyEntryShell.setAttribute('aria-disabled', 'true');
+            academyEntryShell.setAttribute('title', 'Your Academy application is under review. Admin approval is required before entry.');
+        }
 
         if (stateBadge) {
             stateBadge.innerHTML = `
@@ -15800,6 +15979,8 @@ function syncAcademyEntryButton(snapshot = null) {
             stateBadge.classList.remove('is-hidden');
             stateBadge.classList.add('is-pending');
         }
+
+        startDashboardDivisionAccessRefreshLoop();
         return;
     }
     if (membershipStatus === 'waitlisted') {
@@ -17527,6 +17708,8 @@ function syncFederationEntryButton() {
         writeFederationStatusCache(snapshot);
     }
 
+    syncDashboardDivisionAccessPolling();
+
     return snapshot;
 }
 
@@ -18601,6 +18784,15 @@ async function runAcademyLaunch(event) {
     if (btnOpenApply.dataset.loading === 'true') return false;
     if (academyLaunchLock) return false;
 
+    const academyState = String(btnOpenApply.getAttribute('data-academy-state') || '').trim().toLowerCase();
+
+    if (academyState === 'pending' || academyState === 'waitlisted') {
+        showToast('Your Academy application is still under admin review.', 'error');
+        startDashboardDivisionAccessRefreshLoop();
+        refreshAcademyMembershipStatus(true).catch(() => {});
+        return false;
+    }
+
     academyLaunchLock = true;
     setDashboardButtonLoadingState(
         btnOpenApply,
@@ -19177,13 +19369,20 @@ try {
             : null;
 
     queueAcademyMembershipApplication(payload, savedApplication);
-    writeAcademyMembershipCache({
+
+    const academyPendingSnapshot = {
         hasApplication: true,
         applicationStatus: String(savedApplication?.status || 'Under Review').trim().toLowerCase(),
         hasRoadmapAccess: false,
         canEnterAcademy: false,
         application: savedApplication
-    });
+    };
+
+    writeAcademyMembershipCache(academyPendingSnapshot);
+    syncAcademyEntryButton(academyPendingSnapshot);
+    syncRoadmapTabIndicator(academyPendingSnapshot);
+    startDashboardDivisionAccessRefreshLoop();
+
     localStorage.setItem(
         'yh_academy_application_profile',
         JSON.stringify(savedApplication?.academyProfile || payload)
