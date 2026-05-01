@@ -2512,8 +2512,10 @@ if (formRegisterSimple) {
             }
         }, { passive: true });
 
-        const LANDING_WHEEL_SPEED = 0.34;
-        const LANDING_WHEEL_MAX_STEP = 520;
+        const LANDING_WHEEL_SPEED = 0.58;
+        const LANDING_TRACKPAD_SPEED = 1.84;
+        const LANDING_TRACKPAD_DELTA_THRESHOLD = 18;
+        const LANDING_WHEEL_MAX_STEP = 680;
 
         let landingWheelPendingY = 0;
         let landingWheelFrame = 0;
@@ -2602,7 +2604,12 @@ if (formRegisterSimple) {
                 event.stopPropagation();
             }
 
-            const acceleratedDeltaY = clampLandingWheelDelta(rawDeltaY * LANDING_WHEEL_SPEED);
+            const wheelMagnitude = Math.abs(rawDeltaY);
+            const wheelSpeed = wheelMagnitude <= LANDING_TRACKPAD_DELTA_THRESHOLD
+                ? LANDING_TRACKPAD_SPEED
+                : LANDING_WHEEL_SPEED;
+
+            const acceleratedDeltaY = clampLandingWheelDelta(rawDeltaY * wheelSpeed);
             landingWheelPendingY = clampLandingWheelDelta(landingWheelPendingY + acceleratedDeltaY);
 
             if (!landingWheelFrame) {

@@ -16099,7 +16099,9 @@ body[data-yh-page="apply"].yh-landing-is-scrolling .yh-space-stars::after,
 body[data-yh-page="apply"].yh-landing-is-scrolling .yh-space-rays::before,
 body[data-yh-page="apply"].yh-landing-is-scrolling .yh-space-rays::after,
 body[data-yh-page="apply"].yh-landing-is-scrolling .yh-space-meteor,
-body[data-yh-page="apply"].yh-landing-is-scrolling .yh-space-asteroid {
+body[data-yh-page="apply"].yh-landing-is-scrolling .yh-space-asteroid,
+body[data-yh-page="apply"].yh-landing-is-scrolling .yh-landing-map-stage-wrap::before,
+body[data-yh-page="apply"].yh-landing-is-scrolling .yh-landing-map-stage-wrap::after {
     animation-play-state: paused;
 }
 
