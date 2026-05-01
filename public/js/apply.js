@@ -1699,6 +1699,7 @@ async function handleLoginSubmit() {
     try {
         const response = await fetch('/api/login', {
             method: 'POST',
+            credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ identifier, password })
         });
@@ -1744,10 +1745,16 @@ if (result.success) {
                 setPendingVerifyEmail(verificationEmail);
             }
 
-            document.getElementById('otp-input').value = '';
+            const otpInput = document.getElementById('otp-input');
+            if (otpInput) otpInput.value = '';
+
             showStep(2);
             startOTPTimer();
-            showToast(result.message, "error");
+
+            showToast(
+                result.message || "Verification code sent to your email. Enter the OTP to continue.",
+                result.otpSent ? "success" : "error"
+            );
 
             btnLogin.innerText = yhT('auth.login');
             btnLogin.disabled = false;
@@ -1829,6 +1836,7 @@ if (formRegisterSimple) {
 
             const response = await fetch('/api/register', {
                 method: 'POST',
+                credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     fullName,
@@ -1847,10 +1855,29 @@ if (formRegisterSimple) {
                 sessionStorage.setItem('yh_pending_profile_avatar', profilePhotoDataUrl);
                 localStorage.setItem('yh_pending_profile_avatar', profilePhotoDataUrl);
 
-                setPendingVerifyEmail(email);
-                showToast(result.message, "success");
-                showStep(2);
-                startOTPTimer();
+                clearPendingVerifyEmail();
+
+                if (loginEmailInput) {
+                    loginEmailInput.value = email;
+                }
+
+                if (loginPasswordInput) {
+                    loginPasswordInput.value = '';
+                }
+
+                formRegisterSimple.reset();
+
+                showStep(1);
+                flipToLogin();
+
+                window.setTimeout(() => {
+                    loginEmailInput?.focus();
+                }, 220);
+
+                showToast(result.message || "Registration successful. Please log in to verify your account.", "success");
+
+                submitBtn.innerText = yhT('auth.createAccount');
+                submitBtn.disabled = false;
             } else {
                 showToast(result.message, "error");
                 submitBtn.innerText = yhT('auth.createAccount');
@@ -1948,6 +1975,7 @@ if (formRegisterSimple) {
             try {
                 const response = await fetch('/api/verify-otp', {
                     method: 'POST',
+                    credentials: 'include',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email, otpCode })
                 });
@@ -1965,7 +1993,15 @@ if (formRegisterSimple) {
                         email: result.user?.email || email
                     }, result.token);
 
-                    setTimeout(() => { window.location.href = '/dashboard'; }, 1000);
+                    try {
+                        sessionStorage.setItem(YH_POST_LOGIN_DASHBOARD_BOOTSTRAP_KEY, '1');
+                    } catch (_) {}
+
+                    showPostLoginTransitionLoader('Syncing your access and preparing your dashboard...');
+
+                    setTimeout(() => {
+                        window.location.assign(`/dashboard?auth=${Date.now()}`);
+                    }, 450);
                 } else {
                     showToast(result.message, "error");
                     submitBtn.innerText = yhT('auth.verifyEnter');

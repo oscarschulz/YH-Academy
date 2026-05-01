@@ -790,7 +790,6 @@ exports.registerUser = async (req, res) => {
         });
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
-        const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
         const createdAt = nowIso();
 
         userRef = usersCollection().doc();
@@ -821,26 +820,17 @@ exports.registerUser = async (req, res) => {
             profilePhoto: profilePhotoDataUrl,
             photoURL: profilePhotoDataUrl,
             password: hashedPassword,
-            verificationCode: otpCode,
+            verificationCode: null,
+            verificationCodeIssuedAt: null,
             isVerified: false,
             createdAt,
             updatedAt: createdAt
         });
 
-        try {
-            await sendOtpMail({
-                to: email,
-                subject: 'YH Universe - Verification Code',
-                html: verificationMailHtml(otpCode)
-            });
-        } catch (mailError) {
-            await userRef.delete().catch(() => null);
-            throw mailError;
-        }
-
         return res.json({
             success: true,
-            message: 'Registration successful! Check your email for the verification code.'
+            loginRequired: true,
+            message: 'Registration successful. Please log in to verify your account.'
         });
     } catch (error) {
         console.error('Register Error:', error);
@@ -980,20 +970,35 @@ exports.loginUser = async (req, res) => {
             return res.status(410).json(deletedAccountResponsePayload());
         }
 
-        if (user.isVerified !== true) {
-            return res.status(403).json({
-                success: false,
-                verificationRequired: true,
-                email: user.email || '',
-                message: 'Account not verified. Please check your email and enter your OTP code first.'
-            });
-        }
-
         const isMatch = await bcrypt.compare(password, user.password || '');
         if (!isMatch) {
             return res.status(400).json({
                 success: false,
                 message: 'Invalid email/username or password.'
+            });
+        }
+
+        if (user.isVerified !== true) {
+            const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+            await usersCollection().doc(user.id).update({
+                verificationCode: otpCode,
+                verificationCodeIssuedAt: nowIso(),
+                updatedAt: nowIso()
+            });
+
+            await sendOtpMail({
+                to: user.email,
+                subject: 'YH Universe - Verification Code',
+                html: verificationMailHtml(otpCode)
+            });
+
+            return res.status(403).json({
+                success: false,
+                verificationRequired: true,
+                otpSent: true,
+                email: user.email || '',
+                message: 'Verification code sent to your email. Enter the OTP to continue.'
             });
         }
 
