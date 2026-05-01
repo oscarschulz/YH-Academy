@@ -8794,7 +8794,21 @@ const YH_DASHBOARD_VISITED_PROFILE_CACHE_KEY = 'yh_universe_visited_profile_cach
 
 function dashboardGetSelfProfileCache() {
     const cached = readYHJsonCache(YH_DASHBOARD_SELF_PROFILE_CACHE_KEY, null);
-    return cached && typeof cached === 'object' ? cached : {};
+
+    if (!cached || typeof cached !== 'object' || Array.isArray(cached)) {
+        return {};
+    }
+
+    if (!dashboardCanReuseCachedProfile(cached)) {
+        try {
+            localStorage.removeItem(YH_DASHBOARD_SELF_PROFILE_CACHE_KEY);
+            sessionStorage.removeItem(YH_DASHBOARD_SELF_PROFILE_CACHE_KEY);
+        } catch (_) {}
+
+        return {};
+    }
+
+    return cached;
 }
 
 function dashboardIsMeaningfulBadgeState(badge = {}) {
@@ -8808,27 +8822,62 @@ function dashboardIsMeaningfulBadgeState(badge = {}) {
     );
 }
 
-function dashboardGetPreservedVerificationBadges(...profiles) {
+function dashboardGetProfileIdentityKey(profile = {}) {
+    const safeProfile = profile && typeof profile === 'object' ? profile : {};
+
+    return String(
+        safeProfile.id ||
+        safeProfile.uid ||
+        safeProfile.firebaseUid ||
+        safeProfile.user_id ||
+        safeProfile.userId ||
+        safeProfile.email ||
+        ''
+    ).trim().toLowerCase();
+}
+
+function dashboardGetCurrentAuthIdentityKey() {
+    const authUser = getDashboardAuthUserSnapshot();
+
+    return String(
+        authUser.id ||
+        authUser.uid ||
+        authUser.firebaseUid ||
+        authUser.email ||
+        localStorage.getItem('yh_user_email') ||
+        sessionStorage.getItem('yh_user_email') ||
+        ''
+    ).trim().toLowerCase();
+}
+
+function dashboardCanReuseCachedProfile(profile = {}) {
+    const profileKey = dashboardGetProfileIdentityKey(profile);
+    const authKey = dashboardGetCurrentAuthIdentityKey();
+
+    if (!profileKey || !authKey) return false;
+
+    return profileKey === authKey;
+}
+
+function dashboardGetPreservedVerificationBadges(nextProfile = {}) {
+    const cleanProfile = nextProfile && typeof nextProfile === 'object' ? nextProfile : {};
+    const badges =
+        cleanProfile.verificationBadges && typeof cleanProfile.verificationBadges === 'object'
+            ? cleanProfile.verificationBadges
+            : {};
+
     const merged = {};
 
-    profiles.forEach((profile) => {
-        const badges =
-            profile?.verificationBadges && typeof profile.verificationBadges === 'object'
-                ? profile.verificationBadges
-                : {};
+    ['academy', 'federation'].forEach((division) => {
+        const badge = badges[division] && typeof badges[division] === 'object'
+            ? badges[division]
+            : null;
 
-        ['academy', 'federation'].forEach((division) => {
-            const badge = badges[division] && typeof badges[division] === 'object'
-                ? badges[division]
-                : null;
+        if (!dashboardIsMeaningfulBadgeState(badge)) return;
 
-            if (!dashboardIsMeaningfulBadgeState(badge)) return;
-
-            merged[division] = {
-                ...(merged[division] || {}),
-                ...badge
-            };
-        });
+        merged[division] = {
+            ...badge
+        };
     });
 
     return merged;
@@ -8837,16 +8886,14 @@ function dashboardGetPreservedVerificationBadges(...profiles) {
 function dashboardMergeProfileKeepingBadges(nextProfile = {}, ...fallbackProfiles) {
     const cleanProfile = nextProfile && typeof nextProfile === 'object' ? nextProfile : {};
 
-    const verificationBadges = dashboardGetPreservedVerificationBadges(
-        cleanProfile,
-        ...fallbackProfiles,
-        academyProfileViewState?.profile,
-        dashboardGetSelfProfileCache()
-    );
+    const trustedProfile =
+        dashboardCanReuseCachedProfile(cleanProfile)
+            ? cleanProfile
+            : {};
 
     return {
         ...cleanProfile,
-        verificationBadges
+        verificationBadges: dashboardGetPreservedVerificationBadges(trustedProfile)
     };
 }
 
@@ -8946,9 +8993,15 @@ function dashboardPersistSelfProfileCache(profile = {}) {
     const avatar = dashboardResolveProfileAvatar(mergedProfile, '');
     const coverPhoto = String(mergedProfile.cover_photo || mergedProfile.coverPhoto || '').trim();
 
+    const authUser = getDashboardAuthUserSnapshot();
+
     const nextProfile = {
         ...currentCache,
         ...mergedProfile,
+        id: mergedProfile.id || mergedProfile.uid || mergedProfile.firebaseUid || authUser.id || authUser.firebaseUid || '',
+        uid: mergedProfile.uid || mergedProfile.id || mergedProfile.firebaseUid || authUser.id || authUser.firebaseUid || '',
+        firebaseUid: mergedProfile.firebaseUid || mergedProfile.uid || mergedProfile.id || authUser.firebaseUid || authUser.id || '',
+        email: mergedProfile.email || authUser.email || localStorage.getItem('yh_user_email') || '',
         display_name: displayName,
         displayName,
         fullName: mergedProfile.fullName || mergedProfile.full_name || displayName,

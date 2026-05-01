@@ -164,6 +164,15 @@ function clearAcademyClientStateForFreshAuth() {
         'yh_admin_panel_state_v3_live',
         'yh_force_academy_application_after_auth',
 
+        // clear profile/badge caches so old account badges do not leak into a new login
+        'yh_academy_profile_cache_v1',
+        'yh_universe_visited_profile_cache_v1',
+        'yh_dashboard_view_state_v1',
+        'yhPlazaDirectoryStatusV1',
+        'yh_federation_ladder_outcome_v1',
+        'yh_plaza_access_status_v1',
+        'yh_federation_access_status_v1',
+
         // clear old auth/user session artifacts so account switching does not leak old identity
         'yh_user_loggedIn',
         'yh_user_name',

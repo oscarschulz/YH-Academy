@@ -309,6 +309,16 @@ async function generateUniqueUsername(fullName, preferredUsername = '') {
 
 const AUTH_SESSION_EXPIRES_IN = process.env.AUTH_SESSION_EXPIRES_IN || '3650d';
 
+function isCompactProfileAsset(value = '') {
+    const clean = String(value || '').trim();
+
+    if (!clean) return '';
+    if (clean.startsWith('data:image/')) return '';
+    if (clean.length > 1200) return '';
+
+    return clean;
+}
+
 function issueJwt(user) {
     return jwt.sign(
         {
@@ -318,7 +328,7 @@ function issueJwt(user) {
             name: user.fullName,
             username: user.username,
             displayName: user.fullName || user.displayName || user.name || user.username || '',
-            avatar: user.avatar || user.profilePhoto || user.photoURL || ''
+            avatar: isCompactProfileAsset(user.avatar || user.profilePhoto || user.photoURL || '')
         },
         process.env.JWT_SECRET,
         { expiresIn: AUTH_SESSION_EXPIRES_IN }
