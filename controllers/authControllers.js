@@ -382,35 +382,34 @@ const AUTH_COOKIE_NAME = 'yh_auth_token';
 const AUTH_COOKIE_MAX_AGE_MS = Number(process.env.AUTH_COOKIE_MAX_AGE_MS || (3650 * 24 * 60 * 60 * 1000));
 
 function setAuthCookie(res, token) {
-    const isSecure = process.env.NODE_ENV === 'production';
+    const isSecure =
+        process.env.NODE_ENV === 'production' ||
+        String(process.env.PUBLIC_BASE_URL || '').trim().startsWith('https://') ||
+        String(process.env.APP_BASE_URL || '').trim().startsWith('https://') ||
+        String(process.env.BASE_URL || '').trim().startsWith('https://');
 
-    const parts = [
-        `${AUTH_COOKIE_NAME}=${encodeURIComponent(token)}`,
-        'HttpOnly',
-        'Path=/',
-        'SameSite=Strict',
-        `Max-Age=${Math.floor(AUTH_COOKIE_MAX_AGE_MS / 1000)}`
-    ];
-
-    if (isSecure) parts.push('Secure');
-
-    res.setHeader('Set-Cookie', parts.join('; '));
+    res.cookie(AUTH_COOKIE_NAME, token, {
+        httpOnly: true,
+        secure: isSecure,
+        sameSite: 'lax',
+        path: '/',
+        maxAge: AUTH_COOKIE_MAX_AGE_MS
+    });
 }
 
 function clearAuthCookie(res) {
-    const isSecure = process.env.NODE_ENV === 'production';
+    const isSecure =
+        process.env.NODE_ENV === 'production' ||
+        String(process.env.PUBLIC_BASE_URL || '').trim().startsWith('https://') ||
+        String(process.env.APP_BASE_URL || '').trim().startsWith('https://') ||
+        String(process.env.BASE_URL || '').trim().startsWith('https://');
 
-    const parts = [
-        `${AUTH_COOKIE_NAME}=`,
-        'HttpOnly',
-        'Path=/',
-        'SameSite=Strict',
-        'Max-Age=0'
-    ];
-
-    if (isSecure) parts.push('Secure');
-
-    res.setHeader('Set-Cookie', parts.join('; '));
+    res.clearCookie(AUTH_COOKIE_NAME, {
+        httpOnly: true,
+        secure: isSecure,
+        sameSite: 'lax',
+        path: '/'
+    });
 }
 
 function renderPremiumOtpEmail({

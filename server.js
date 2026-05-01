@@ -3187,6 +3187,26 @@ const { pageRouter: adminPageRouter, apiRouter: adminApiRouter } = createAdminRo
 app.use(adminApiRouter);
 app.use(adminPageRouter);
 
+function sendYHProtectedPage(req, res, fileName = 'dashboard.html', redirectKey = 'dashboard') {
+    const user = verifyRequestUser(req);
+
+    if (!user?.id) {
+        return res.redirect(`/?redirect=${encodeURIComponent(redirectKey)}`);
+    }
+
+    sendPrivateNoStoreHeaders(res);
+
+    return res.sendFile(path.join(__dirname, 'public', fileName));
+}
+
+app.get(['/dashboard', '/dashboard/'], (req, res) => {
+    return sendYHProtectedPage(req, res, 'dashboard.html', 'dashboard');
+});
+
+app.get(['/academy', '/academy/'], (req, res) => {
+    return sendYHProtectedPage(req, res, 'academy.html', 'academy');
+});
+
 app.use('/', viewRoutes);
 
 app.post(
