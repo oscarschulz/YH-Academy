@@ -1261,12 +1261,12 @@ async function initLandingMapShell() {
     }, { passive: true });
 
     wheelTarget.addEventListener('wheel', handleWheelZoomGate, {
-        passive: false,
+        passive: true,
         capture: true
     });
 
     mapEl.addEventListener('wheel', handleWheelZoomGate, {
-        passive: false,
+        passive: true,
         capture: true
     });
 
@@ -2512,7 +2512,18 @@ if (formRegisterSimple) {
             }
         }, { passive: true });
 
-        const LANDING_WHEEL_SPEED = 0.58;
+        const ua = String(navigator.userAgent || '');
+        const vendor = String(navigator.vendor || '');
+        const isLandingSafariBrowser =
+            vendor.includes('Apple') &&
+            /Safari/i.test(ua) &&
+            !/(Chrome|Chromium|CriOS|FxiOS|Edg|EdgiOS|OPR|Opera)/i.test(ua);
+
+        if (isLandingSafariBrowser) {
+            document.body.classList.add('yh-safari-browser');
+        }
+
+        const LANDING_WHEEL_SPEED = 0.9;
         const LANDING_TRACKPAD_SPEED = 1.84;
         const LANDING_TRACKPAD_DELTA_THRESHOLD = 18;
         const LANDING_WHEEL_MAX_STEP = 680;
@@ -2595,8 +2606,13 @@ if (formRegisterSimple) {
             const rawDeltaY = normalizeLandingWheelDelta(event);
             if (!Number.isFinite(rawDeltaY) || Math.abs(rawDeltaY) < 0.5) return;
 
-            event.preventDefault();
             setLandingScrollPerfMode();
+
+            if (isLandingSafariBrowser) {
+                return;
+            }
+
+            event.preventDefault();
 
             if (typeof event.stopImmediatePropagation === 'function') {
                 event.stopImmediatePropagation();
@@ -2618,7 +2634,7 @@ if (formRegisterSimple) {
         };
 
         window.addEventListener('wheel', handleLandingPageWheel, {
-            passive: false,
+            passive: isLandingSafariBrowser,
             capture: true
         });
     }

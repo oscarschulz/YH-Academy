@@ -16105,6 +16105,15 @@ body[data-yh-page="apply"].yh-landing-is-scrolling .yh-landing-map-stage-wrap::a
     animation-play-state: paused;
 }
 
+body[data-yh-page="apply"].yh-safari-browser.yh-landing-is-scrolling .yh-landing-proof-item,
+body[data-yh-page="apply"].yh-safari-browser.yh-landing-is-scrolling .yh-landing-metric-card,
+body[data-yh-page="apply"].yh-safari-browser.yh-landing-is-scrolling .yh-landing-map-stat,
+body[data-yh-page="apply"].yh-safari-browser.yh-landing-is-scrolling .yh-landing-map-kicker,
+body[data-yh-page="apply"].yh-safari-browser.yh-landing-is-scrolling .yh-landing-division-card {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
 body[data-yh-page="apply"] .yh-auth-card.form-card-ultrawide {
     width: min(92vw, 760px);
     max-width: 760px;
