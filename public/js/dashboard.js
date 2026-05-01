@@ -29,7 +29,49 @@ const socket = io({
 });
 
 const myName = getStoredUserValue('yh_user_name', "Hustler");
+function enforceDashboardClientAuthGate() {
+    const token = typeof getStoredAuthToken === 'function'
+        ? String(getStoredAuthToken() || '').trim()
+        : '';
 
+    if (token) return true;
+
+    try {
+        [
+            'yh_user_loggedIn',
+            'yh_user_name',
+            'yh_user_username',
+            'yh_user_email',
+            'yh_user_avatar',
+            'yh_user_first_name',
+            'yh_user_firstname',
+            'yh_user_surname',
+            'yh_user_last_name',
+            'yh_user_lastname',
+            'yh_user_city',
+            'yh_user_location_city',
+            'yh_user_country',
+            'yh_user_country_of_residence',
+            'yh_user_location_country',
+            'yh_academy_access',
+            'yh_academy_home',
+            'yh_academy_membership_status_v1',
+            'yh_academy_application_profile',
+            'yh_academy_roadmap_profile_v1',
+            'yh_academy_roadmap_locked_v1'
+        ].forEach((key) => {
+            localStorage.removeItem(key);
+            sessionStorage.removeItem(key);
+        });
+    } catch (_) {}
+
+    window.location.replace('/?redirect=dashboard');
+    return false;
+}
+
+if (!enforceDashboardClientAuthGate()) {
+    throw new Error('Dashboard auth token missing.');
+}
 function decodeDashboardJwtPayload(token = '') {
     const cleanToken = String(token || '').trim();
     const parts = cleanToken.split('.');

@@ -3199,12 +3199,17 @@ function sendYHProtectedPage(req, res, fileName = 'dashboard.html', redirectKey 
     return res.sendFile(path.join(__dirname, 'public', fileName));
 }
 
+function sendYHSoftProtectedShell(req, res, fileName = 'dashboard.html') {
+    sendPrivateNoStoreHeaders(res);
+    return res.sendFile(path.join(__dirname, 'public', fileName));
+}
+
 app.get(['/dashboard', '/dashboard/'], (req, res) => {
-    return sendYHProtectedPage(req, res, 'dashboard.html', 'dashboard');
+    return sendYHSoftProtectedShell(req, res, 'dashboard.html');
 });
 
 app.get(['/academy', '/academy/'], (req, res) => {
-    return sendYHProtectedPage(req, res, 'academy.html', 'academy');
+    return sendYHSoftProtectedShell(req, res, 'academy.html');
 });
 
 app.use('/', viewRoutes);

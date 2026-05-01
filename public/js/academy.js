@@ -3,6 +3,20 @@
 // ==========================================
 // 1. GLOBAL AUTH, SOCKET & UTILITIES
 // ==========================================
+(function enforceAcademyClientAuthGate() {
+    const token = (
+        sessionStorage.getItem('yh_token') ||
+        localStorage.getItem('yh_token') ||
+        sessionStorage.getItem('token') ||
+        localStorage.getItem('token') ||
+        ''
+    ).trim();
+
+    if (token) return;
+
+    window.location.replace('/?redirect=academy');
+    throw new Error('Academy auth token missing.');
+})();
 const {
     getStoredAuthToken,
     getStoredUserValue,
