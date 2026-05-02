@@ -4485,24 +4485,25 @@ body.academy-launcher-open {
     border: 1px solid rgba(56, 189, 248, 0.22);
     background:
         linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.018)),
-        rgba(6, 14, 28, 0.985);
+        rgba(6, 14, 28, 0.992);
     box-shadow:
-        0 24px 60px rgba(0, 0, 0, 0.56),
-        0 0 0 1px rgba(56, 189, 248, 0.08),
+        0 34px 90px rgba(0, 0, 0, 0.72),
+        0 0 0 1px rgba(56, 189, 248, 0.16),
         inset 0 1px 0 rgba(255,255,255,0.05);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
     display: none;
     gap: 10px;
-    z-index: 26001;
+    z-index: 2147483001 !important;
     pointer-events: auto;
+    isolation: isolate;
 }
 
 .yh-resources-menu-panel.show {
-    display: grid;
-    visibility: visible;
-    opacity: 1;
-    z-index: 32001 !important;
+    display: grid !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    z-index: 2147483001 !important;
 }
 body.yh-resources-menu-open .desktop-user-strip {
     position: relative;
@@ -4539,7 +4540,7 @@ body.yh-resources-menu-open::after {
     content: '';
     position: fixed;
     inset: 0;
-    z-index: 31999;
+    z-index: 2147483000;
     pointer-events: none;
     background: rgba(2, 6, 23, 0.08);
 }
