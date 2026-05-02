@@ -15437,6 +15437,19 @@ function closeAcademySearchResultsPanel() {
     document.body?.classList.remove('academy-search-results-open');
 }
 
+function academyBlurCommunitySearchInput() {
+    const activeElement = document.activeElement;
+    const globalSearchInput = document.getElementById('academy-global-search-input');
+    const memberSearchInput = document.getElementById('academy-member-browser-search-input');
+
+    if (
+        activeElement === globalSearchInput ||
+        activeElement === memberSearchInput
+    ) {
+        activeElement.blur();
+    }
+}
+
 function resolveAcademyTagFromQuery(query = '') {
     const normalizedQuery = normalizeAcademySearchValue(query);
     if (!normalizedQuery) return '';
@@ -19128,33 +19141,8 @@ document.getElementById('academy-member-browser-modal')?.addEventListener('click
     }
 });
 
-document.getElementById('academy-member-browser-search-input')?.addEventListener('input', (event) => {
-    const nextValue = String(event.target?.value || '');
-    const academySearchInput = document.getElementById('academy-global-search-input');
-
-    if (academySearchInput && academySearchInput.value !== nextValue) {
-        academySearchInput.value = nextValue;
-    }
-
-    clearTimeout(academyMemberSearchDebounce);
-    academyMemberSearchDebounce = setTimeout(() => {
-        applyAcademySearch(nextValue);
-    }, 320);
-});
-
-document.getElementById('academy-global-search-input')?.addEventListener('input', (event) => {
-    const nextValue = String(event.target?.value || '');
-    const browserInput = document.getElementById('academy-member-browser-search-input');
-
-    if (browserInput && browserInput.value !== nextValue) {
-        browserInput.value = nextValue;
-    }
-
-    clearTimeout(academyMemberSearchDebounce);
-    academyMemberSearchDebounce = setTimeout(() => {
-        applyAcademySearch(nextValue);
-    }, 320);
-});
+/* Legacy duplicate Academy search listeners removed.
+   Search is now handled only by scheduleAcademySearch() above. */
 document.getElementById('academy-feed-share-cancel')?.addEventListener('click', () => {
     document.getElementById('academy-feed-share-modal')?.classList.add('hidden-step');
 });
@@ -19189,6 +19177,14 @@ document.getElementById('academy-checkin-modal')?.addEventListener('click', (eve
     }
 });
 document.getElementById('academy-feed-list')?.addEventListener('click', async (event) => {
+    const feedActionTarget = event.target?.closest?.(
+        '.academy-feed-like-btn, .academy-feed-comments-toggle-btn, .academy-feed-share-btn, .academy-feed-post-menu-btn, .academy-feed-comment-submit-btn, .academy-feed-comment-reply-btn, .academy-feed-comment-reply-submit-btn, .academy-feed-comment-edit-btn, .academy-feed-comment-edit-save-btn, .academy-feed-comment-menu-btn'
+    );
+
+    if (feedActionTarget) {
+        academyBlurCommunitySearchInput();
+        closeAcademySearchResultsPanel();
+    }
     const authorTrigger = event.target.closest('.academy-feed-author-trigger');
     if (authorTrigger) {
         const memberId = normalizeAcademyFeedId(authorTrigger.getAttribute('data-member-profile-id'));
