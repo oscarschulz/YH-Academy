@@ -6866,8 +6866,8 @@ app.post('/api/plaza/application-intent', requireApiUser, async (req, res) => {
     });
 });
 
-function buildDashboardSelfProfilePayload(userId = '', user = {}, requestUser = {}) {
-    const profile =
+function buildDashboardSelfProfilePayload(userId = '', user = {}, requestUser = {}, storedProfile = {}) {
+    const baseProfile =
         user.universeProfile && typeof user.universeProfile === 'object'
             ? user.universeProfile
             : user.academyProfile && typeof user.academyProfile === 'object'
@@ -6875,6 +6875,16 @@ function buildDashboardSelfProfilePayload(userId = '', user = {}, requestUser = 
                 : user.profile && typeof user.profile === 'object'
                     ? user.profile
                     : {};
+
+    const savedProfile =
+        storedProfile && typeof storedProfile === 'object' && !Array.isArray(storedProfile)
+            ? storedProfile
+            : {};
+
+    const profile = {
+        ...baseProfile,
+        ...savedProfile
+    };
 
     const email = sanitizeText(
         profile.email ||
@@ -6935,6 +6945,79 @@ function buildDashboardSelfProfilePayload(userId = '', user = {}, requestUser = 
         ''
     );
 
+    const searchTags = Array.isArray(profile.search_tags)
+        ? profile.search_tags
+        : Array.isArray(profile.searchTags)
+            ? profile.searchTags
+            : Array.isArray(user.search_tags)
+                ? user.search_tags
+                : Array.isArray(user.searchTags)
+                    ? user.searchTags
+                    : [];
+
+    const roleTrack = sanitizeText(
+        profile.role_track ||
+        profile.roleTrack ||
+        user.role_track ||
+        user.roleTrack ||
+        ''
+    );
+
+    const lookingFor = Array.isArray(profile.looking_for)
+        ? profile.looking_for
+        : Array.isArray(profile.lookingFor)
+            ? profile.lookingFor
+            : Array.isArray(user.looking_for)
+                ? user.looking_for
+                : Array.isArray(user.lookingFor)
+                    ? user.lookingFor
+                    : [];
+
+    const canOffer = Array.isArray(profile.can_offer)
+        ? profile.can_offer
+        : Array.isArray(profile.canOffer)
+            ? profile.canOffer
+            : Array.isArray(user.can_offer)
+                ? user.can_offer
+                : Array.isArray(user.canOffer)
+                    ? user.canOffer
+                    : [];
+
+    const availability = sanitizeText(
+        profile.availability ||
+        user.availability ||
+        ''
+    );
+
+    const workMode = sanitizeText(
+        profile.work_mode ||
+        profile.workMode ||
+        user.work_mode ||
+        user.workMode ||
+        ''
+    );
+
+    const proofFocus = sanitizeText(
+        profile.proof_focus ||
+        profile.proofFocus ||
+        user.proof_focus ||
+        user.proofFocus ||
+        ''
+    );
+
+    const marketplaceReady =
+        profile.marketplace_ready === true ||
+        profile.marketplaceReady === true ||
+        user.marketplace_ready === true ||
+        user.marketplaceReady === true ||
+        sanitizeText(
+            profile.marketplace_ready ||
+            profile.marketplaceReady ||
+            user.marketplace_ready ||
+            user.marketplaceReady ||
+            ''
+        ).toLowerCase() === 'yes';
+
     return {
         id: userId,
         uid: userId,
@@ -6956,28 +7039,28 @@ function buildDashboardSelfProfilePayload(userId = '', user = {}, requestUser = 
         cover_photo: coverPhoto,
         coverPhoto,
 
-        search_tags: Array.isArray(profile.search_tags)
-            ? profile.search_tags
-            : Array.isArray(user.search_tags)
-                ? user.search_tags
-                : [],
+        search_tags: searchTags,
+        searchTags,
 
-        role_track: sanitizeText(profile.role_track || user.role_track || user.roleTrack || ''),
-        looking_for: Array.isArray(profile.looking_for)
-            ? profile.looking_for
-            : Array.isArray(user.looking_for)
-                ? user.looking_for
-                : [],
-        can_offer: Array.isArray(profile.can_offer)
-            ? profile.can_offer
-            : Array.isArray(user.can_offer)
-                ? user.can_offer
-                : [],
+        role_track: roleTrack,
+        roleTrack,
 
-        availability: sanitizeText(profile.availability || user.availability || ''),
-        work_mode: sanitizeText(profile.work_mode || user.work_mode || user.workMode || ''),
-        proof_focus: sanitizeText(profile.proof_focus || user.proof_focus || user.proofFocus || ''),
-        marketplace_ready: profile.marketplace_ready === true || user.marketplace_ready === true,
+        looking_for: lookingFor,
+        lookingFor,
+
+        can_offer: canOffer,
+        canOffer,
+
+        availability,
+
+        work_mode: workMode,
+        workMode,
+
+        proof_focus: proofFocus,
+        proofFocus,
+
+        marketplace_ready: marketplaceReady,
+        marketplaceReady,
 
         verificationBadges: buildYHVerificationBadges(user),
         updatedAt: sanitizeText(profile.updatedAt || user.updatedAt || '')
@@ -6999,7 +7082,14 @@ app.get(['/api/universe/profile', '/api/academy/profile'], requireApiUser, async
         const userSnap = await userRef.get();
         const user = userSnap.exists ? (userSnap.data() || {}) : {};
 
-        const profile = buildDashboardSelfProfilePayload(userId, user, req.user || {});
+        const storedProfile = await academyFirestoreRepo
+            .getCurrentProfile(userId)
+            .catch((error) => {
+                console.warn('dashboard self profile stored profile fallback:', error?.message || error);
+                return null;
+            }) || {};
+
+        const profile = buildDashboardSelfProfilePayload(userId, user, req.user || {}, storedProfile);
 
         return res.json({
             success: true,

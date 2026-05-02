@@ -9157,6 +9157,79 @@ function dashboardPersistSelfProfileCache(profile = {}) {
 
     const authUser = getDashboardAuthUserSnapshot();
 
+    const profileSearchTags = Array.isArray(mergedProfile.search_tags)
+        ? mergedProfile.search_tags
+        : Array.isArray(mergedProfile.searchTags)
+            ? mergedProfile.searchTags
+            : Array.isArray(currentCache.search_tags)
+                ? currentCache.search_tags
+                : Array.isArray(currentCache.searchTags)
+                    ? currentCache.searchTags
+                    : [];
+
+    const profileLookingFor = Array.isArray(mergedProfile.looking_for)
+        ? mergedProfile.looking_for
+        : Array.isArray(mergedProfile.lookingFor)
+            ? mergedProfile.lookingFor
+            : Array.isArray(currentCache.looking_for)
+                ? currentCache.looking_for
+                : Array.isArray(currentCache.lookingFor)
+                    ? currentCache.lookingFor
+                    : [];
+
+    const profileCanOffer = Array.isArray(mergedProfile.can_offer)
+        ? mergedProfile.can_offer
+        : Array.isArray(mergedProfile.canOffer)
+            ? mergedProfile.canOffer
+            : Array.isArray(currentCache.can_offer)
+                ? currentCache.can_offer
+                : Array.isArray(currentCache.canOffer)
+                    ? currentCache.canOffer
+                    : [];
+
+    const profileRoleTrack = String(
+        mergedProfile.role_track ||
+        mergedProfile.roleTrack ||
+        currentCache.role_track ||
+        currentCache.roleTrack ||
+        ''
+    ).trim();
+
+    const profileAvailability = String(
+        mergedProfile.availability ||
+        currentCache.availability ||
+        ''
+    ).trim();
+
+    const profileWorkMode = String(
+        mergedProfile.work_mode ||
+        mergedProfile.workMode ||
+        currentCache.work_mode ||
+        currentCache.workMode ||
+        ''
+    ).trim();
+
+    const profileProofFocus = String(
+        mergedProfile.proof_focus ||
+        mergedProfile.proofFocus ||
+        currentCache.proof_focus ||
+        currentCache.proofFocus ||
+        ''
+    ).trim();
+
+    const profileMarketplaceReady =
+        mergedProfile.marketplace_ready === true ||
+        mergedProfile.marketplaceReady === true ||
+        currentCache.marketplace_ready === true ||
+        currentCache.marketplaceReady === true ||
+        String(
+            mergedProfile.marketplace_ready ||
+            mergedProfile.marketplaceReady ||
+            currentCache.marketplace_ready ||
+            currentCache.marketplaceReady ||
+            ''
+        ).trim().toLowerCase() === 'yes';
+
     const nextProfile = {
         ...currentCache,
         ...mergedProfile,
@@ -9170,10 +9243,35 @@ function dashboardPersistSelfProfileCache(profile = {}) {
         avatar: avatar || mergedProfile.avatar || currentCache.avatar || '',
         cover_photo: coverPhoto || mergedProfile.cover_photo || currentCache.cover_photo || '',
         coverPhoto: coverPhoto || mergedProfile.coverPhoto || currentCache.coverPhoto || '',
+
+        search_tags: profileSearchTags,
+        searchTags: profileSearchTags,
+
+        role_track: profileRoleTrack,
+        roleTrack: profileRoleTrack,
+
+        looking_for: profileLookingFor,
+        lookingFor: profileLookingFor,
+
+        can_offer: profileCanOffer,
+        canOffer: profileCanOffer,
+
+        availability: profileAvailability,
+
+        work_mode: profileWorkMode,
+        workMode: profileWorkMode,
+
+        proof_focus: profileProofFocus,
+        proofFocus: profileProofFocus,
+
+        marketplace_ready: profileMarketplaceReady,
+        marketplaceReady: profileMarketplaceReady,
+
         updatedAt: new Date().toISOString()
     };
 
     writeYHJsonCache(YH_DASHBOARD_SELF_PROFILE_CACHE_KEY, nextProfile);
+    dashboardWriteTopProfileCache(nextProfile);
 
     try {
         if (displayName) {
@@ -9508,6 +9606,78 @@ function mergeYHUniverseProfilePayload(universeProfile = {}, academyProfile = {}
             academyProfile.bio ||
             'Focused on execution, consistency, and long-term growth inside YH Universe.',
         search_tags: searchTags,
+        searchTags,
+
+        role_track: universeProfile.role_track || universeProfile.roleTrack || academyProfile.role_track || academyProfile.roleTrack || '',
+        roleTrack: universeProfile.roleTrack || universeProfile.role_track || academyProfile.roleTrack || academyProfile.role_track || '',
+
+        looking_for: Array.isArray(universeProfile.looking_for)
+            ? universeProfile.looking_for
+            : Array.isArray(universeProfile.lookingFor)
+                ? universeProfile.lookingFor
+                : Array.isArray(signals.lookingFor)
+                    ? signals.lookingFor
+                    : Array.isArray(academyProfile.looking_for)
+                        ? academyProfile.looking_for
+                        : Array.isArray(academyProfile.lookingFor)
+                            ? academyProfile.lookingFor
+                            : [],
+        lookingFor: Array.isArray(universeProfile.lookingFor)
+            ? universeProfile.lookingFor
+            : Array.isArray(universeProfile.looking_for)
+                ? universeProfile.looking_for
+                : Array.isArray(signals.lookingFor)
+                    ? signals.lookingFor
+                    : Array.isArray(academyProfile.lookingFor)
+                        ? academyProfile.lookingFor
+                        : Array.isArray(academyProfile.looking_for)
+                            ? academyProfile.looking_for
+                            : [],
+
+        can_offer: Array.isArray(universeProfile.can_offer)
+            ? universeProfile.can_offer
+            : Array.isArray(universeProfile.canOffer)
+                ? universeProfile.canOffer
+                : Array.isArray(signals.canOffer)
+                    ? signals.canOffer
+                    : Array.isArray(academyProfile.can_offer)
+                        ? academyProfile.can_offer
+                        : Array.isArray(academyProfile.canOffer)
+                            ? academyProfile.canOffer
+                            : [],
+        canOffer: Array.isArray(universeProfile.canOffer)
+            ? universeProfile.canOffer
+            : Array.isArray(universeProfile.can_offer)
+                ? universeProfile.can_offer
+                : Array.isArray(signals.canOffer)
+                    ? signals.canOffer
+                    : Array.isArray(academyProfile.canOffer)
+                        ? academyProfile.canOffer
+                        : Array.isArray(academyProfile.can_offer)
+                            ? academyProfile.can_offer
+                            : [],
+
+        availability: universeProfile.availability || signals.availability || academyProfile.availability || '',
+
+        work_mode: universeProfile.work_mode || universeProfile.workMode || signals.workMode || academyProfile.work_mode || academyProfile.workMode || '',
+        workMode: universeProfile.workMode || universeProfile.work_mode || signals.workMode || academyProfile.workMode || academyProfile.work_mode || '',
+
+        proof_focus: universeProfile.proof_focus || universeProfile.proofFocus || academyProfile.proof_focus || academyProfile.proofFocus || '',
+        proofFocus: universeProfile.proofFocus || universeProfile.proof_focus || academyProfile.proofFocus || academyProfile.proof_focus || '',
+
+        marketplace_ready:
+            universeProfile.marketplace_ready === true ||
+            universeProfile.marketplaceReady === true ||
+            signals.marketplaceReady === true ||
+            academyProfile.marketplace_ready === true ||
+            academyProfile.marketplaceReady === true,
+        marketplaceReady:
+            universeProfile.marketplaceReady === true ||
+            universeProfile.marketplace_ready === true ||
+            signals.marketplaceReady === true ||
+            academyProfile.marketplaceReady === true ||
+            academyProfile.marketplace_ready === true,
+
         recent_posts: Array.isArray(academyProfile.recent_posts)
             ? academyProfile.recent_posts
             : Array.isArray(academyProfile.recentPosts)
@@ -11170,11 +11340,28 @@ function getDashboardUniverseProfileDraft() {
             : {};
 
     const readCache = (() => {
+        let academyCache = {};
+        let dashboardCache = {};
+
         try {
-            return JSON.parse(localStorage.getItem('yh_academy_profile_cache_v1') || 'null') || {};
+            academyCache = JSON.parse(localStorage.getItem('yh_academy_profile_cache_v1') || 'null') || {};
         } catch (_) {
-            return {};
+            academyCache = {};
         }
+
+        try {
+            dashboardCache =
+                typeof dashboardGetSelfProfileCache === 'function'
+                    ? dashboardGetSelfProfileCache()
+                    : {};
+        } catch (_) {
+            dashboardCache = {};
+        }
+
+        return {
+            ...academyCache,
+            ...dashboardCache
+        };
     })();
 
     const displayName = String(
