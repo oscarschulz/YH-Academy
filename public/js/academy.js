@@ -12580,8 +12580,8 @@ function setAcademyMissionsPanel(target = 'hub') {
         headerTitle.textContent = isLeads
             ? 'leads'
             : isPlaybook
-                ? 'mission playbook'
-                : 'missions';
+                ? 'Mission playbook'
+                : 'Missions';
     }
 
     if (headerTopic) {
