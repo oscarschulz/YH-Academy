@@ -5951,6 +5951,285 @@ async function requestGeminiAcademyCoach(payload = {}) {
     };
 }
 
+function buildDashboardBasicAssistantMessages(payload = {}) {
+    const history = (Array.isArray(payload.previousMessages) ? payload.previousMessages : [])
+        .slice(-8)
+        .map((item) => ({
+            role: sanitize(item?.role) === 'assistant' ? 'assistant' : 'user',
+            content: trimCoachText(item?.text, 500)
+        }))
+        .filter((item) => item.content);
+
+    const profile = payload.profile && typeof payload.profile === 'object'
+        ? payload.profile
+        : {};
+
+    return [
+        {
+            role: 'system',
+            content: [
+                'You are the YH Universe Dashboard Assistant.',
+                'You help logged-in users with basic questions about their dashboard, profile, account setup, Academy, Plazas, Federation, applications, profile editing, tickets, navigation, and general platform usage.',
+                'You are not the Academy roadmap coach. Do not require roadmap approval, missions, or check-ins.',
+                'Answer simply, clearly, and practically.',
+                'If the user asks about a technical issue, give short troubleshooting steps and ask for the exact error only when necessary.',
+                'If the issue sounds like it needs admin or developer action, tell the user it should be escalated as a support ticket.',
+                'Do not claim you completed backend/admin work unless the user clearly asked and the system actually performed it.',
+                'Keep answers concise. Use 1 to 4 short paragraphs or a short numbered list only when useful.'
+            ].join(' ')
+        },
+        ...history,
+        {
+            role: 'user',
+            content: JSON.stringify({
+                message: trimCoachText(payload.message || '', 1200),
+                contextHint: sanitize(payload.contextHint || 'dashboard_ticket'),
+                user: {
+                    displayName: trimCoachText(
+                        profile.display_name ||
+                        profile.displayName ||
+                        profile.full_name ||
+                        profile.fullName ||
+                        profile.name ||
+                        '',
+                        120
+                    ),
+                    username: trimCoachText(profile.username || '', 80),
+                    bio: trimCoachText(profile.bio || '', 220),
+                    roleTrack: trimCoachText(profile.role_track || profile.roleTrack || '', 120),
+                    availability: trimCoachText(profile.availability || '', 80),
+                    workMode: trimCoachText(profile.work_mode || profile.workMode || '', 80),
+                    marketplaceReady:
+                        profile.marketplace_ready === true ||
+                        profile.marketplaceReady === true
+                }
+            })
+        }
+    ];
+}
+
+function buildLocalDashboardAssistantFallback(payload = {}, error = null) {
+    const message = sanitize(payload.message || '').toLowerCase();
+
+    const lines = [];
+
+    if (/profile|edit profile|picture|avatar|bio|username|save/.test(message)) {
+        lines.push('For profile issues, first save the profile, close the modal, then reopen it to confirm the saved fields are still there.');
+        lines.push('If the fields disappear after refresh, it usually means the frontend save worked but the backend hydration response is not returning the same saved fields.');
+    } else if (/application|academy|plaza|federation|pending|approved|enter/.test(message)) {
+        lines.push('For access issues, check whether your application status is pending, approved, rejected, or not submitted yet.');
+        lines.push('If it is pending, the button should stay disabled until admin approval. If it is approved, the button should change to Enter.');
+    } else if (/ticket|support|bug|error|issue/.test(message)) {
+        lines.push('Create a ticket with the exact issue, what page you were on, what you clicked, and any console error or screenshot.');
+        lines.push('That gives the team enough information to reproduce and fix it faster.');
+    } else {
+        lines.push('I can help with basic Dashboard questions, profile setup, access status, tickets, and navigation.');
+        lines.push('Tell me what you clicked, what you expected to happen, and what actually happened.');
+    }
+
+    if (error?.message) {
+        lines.push('The live AI request did not complete, so this fallback answer was generated locally.');
+    }
+
+    return lines.join('\n').trim();
+}
+
+async function requestGeminiDashboardBasicAssistant(payload = {}) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey || typeof fetch !== 'function') {
+        throw new Error('Gemini Dashboard Assistant is not configured.');
+    }
+
+    const model = sanitize(
+        process.env.GEMINI_DASHBOARD_ASSISTANT_MODEL ||
+        process.env.GEMINI_COACH_MODEL ||
+        process.env.GEMINI_PLANNER_MODEL ||
+        process.env.ACADEMY_PLANNER_MODEL ||
+        'gemini-2.5-flash'
+    ) || 'gemini-2.5-flash';
+
+    const requestBody = {
+        model,
+        messages: buildDashboardBasicAssistantMessages(payload),
+        temperature: 0.35
+    };
+
+    const reasoningEffort = sanitize(
+        process.env.GEMINI_DASHBOARD_ASSISTANT_REASONING_EFFORT ||
+        process.env.GEMINI_COACH_REASONING_EFFORT ||
+        process.env.GEMINI_PLANNER_REASONING_EFFORT ||
+        ''
+    );
+
+    if (reasoningEffort) {
+        requestBody.reasoning_effort = reasoningEffort;
+    }
+
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`
+        },
+        body: JSON.stringify(requestBody)
+    });
+
+    const rawBody = await response.text();
+    const data = safeJsonParse(rawBody, {});
+
+    if (!response.ok) {
+        throw new Error(
+            trimCoachText(
+                data?.error?.message || rawBody || 'Gemini Dashboard Assistant request failed.',
+                400
+            )
+        );
+    }
+
+    const message = data?.choices?.[0]?.message;
+    if (!message) {
+        throw new Error('Gemini Dashboard Assistant returned no message.');
+    }
+
+    const rawContent = typeof message.content === 'string'
+        ? message.content
+        : Array.isArray(message.content)
+            ? message.content.map((part) => part?.text || '').join('')
+            : '';
+
+    const reply = sanitize(rawContent || '').trim();
+
+    if (!reply) {
+        throw new Error('Gemini Dashboard Assistant returned an empty reply.');
+    }
+
+    return {
+        reply,
+        provider: 'gemini',
+        model
+    };
+}
+
+exports.getDashboardAssistantMessages = async (req, res) => {
+    try {
+        const uid = getAcademyAuthUid(req);
+
+        if (!uid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const conversationId = sanitize(req.query?.conversationId || 'dashboard_ticket_main') || 'dashboard_ticket_main';
+        const messages = await academyFirestoreRepo.listCoachMessages(uid, conversationId, 30);
+
+        return res.json({
+            success: true,
+            conversationId,
+            messages
+        });
+    } catch (error) {
+        console.error('getDashboardAssistantMessages error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load Dashboard Assistant messages.'
+        });
+    }
+};
+
+exports.chatWithDashboardAssistant = async (req, res) => {
+    try {
+        const uid = getAcademyAuthUid(req);
+
+        if (!uid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const conversationId = sanitize(req.body?.conversationId || 'dashboard_ticket_main') || 'dashboard_ticket_main';
+        const message = sanitize(req.body?.message || '');
+        const contextHint = sanitize(req.body?.contextHint || 'dashboard_ticket');
+
+        if (!message) {
+            return res.status(400).json({
+                success: false,
+                message: 'Message is required.'
+            });
+        }
+
+        const [profileDoc, history] = await Promise.all([
+            academyFirestoreRepo.getCurrentProfile(uid).catch(() => ({})),
+            academyFirestoreRepo.listCoachMessages(uid, conversationId, 12)
+        ]);
+
+        await academyFirestoreRepo.createCoachMessage(uid, {
+            conversationId,
+            role: 'user',
+            text: message,
+            contextHint,
+            responseStyleVersion: 'dashboard-assistant-v1'
+        });
+
+        const assistantPayload = {
+            message,
+            contextHint,
+            previousMessages: history,
+            profile: profileDoc && typeof profileDoc === 'object' ? profileDoc : {}
+        };
+
+        let aiResult;
+
+        try {
+            aiResult = await requestGeminiDashboardBasicAssistant(assistantPayload);
+        } catch (assistantError) {
+            console.error('requestGeminiDashboardBasicAssistant error:', assistantError);
+            aiResult = {
+                reply: buildLocalDashboardAssistantFallback(assistantPayload, assistantError),
+                provider: 'dashboard-fallback',
+                model: 'rule-based-dashboard-assistant-v1',
+                fallback: true
+            };
+        }
+
+        await academyFirestoreRepo.createCoachMessage(uid, {
+            conversationId,
+            role: 'assistant',
+            text: aiResult.reply,
+            contextHint,
+            provider: aiResult.provider,
+            model: aiResult.model,
+            replyFormat: 'dashboard_basic',
+            coachModeKey: 'dashboard_basic',
+            responseStyleVersion: 'dashboard-assistant-v1',
+            grounding: {
+                usedProfile: Boolean(profileDoc && typeof profileDoc === 'object'),
+                usedFallback: aiResult.fallback === true,
+                assistantScope: 'dashboard_basic'
+            }
+        });
+
+        return res.json({
+            success: true,
+            reply: aiResult.reply,
+            conversationId,
+            provider: aiResult.provider,
+            model: aiResult.model,
+            replyFormat: 'dashboard_basic',
+            responseStyleVersion: 'dashboard-assistant-v1',
+            fallback: aiResult.fallback === true
+        });
+    } catch (error) {
+        console.error('chatWithDashboardAssistant error:', error);
+        return res.status(500).json({
+            success: false,
+            message: error?.message || 'Failed to get Dashboard Assistant reply.'
+        });
+    }
+};
+
 exports.getAcademyCoachMessages = async (req, res) => {
     try {
         const uid = getAcademyAuthUid(req);

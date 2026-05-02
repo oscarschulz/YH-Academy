@@ -12359,6 +12359,7 @@ function ensureDashboardUniverseProfileEditor() {
 
             <div class="yh-dashboard-profile-modal-actions">
                 <button type="button" class="btn-secondary" data-dashboard-profile-close>Cancel</button>
+                <button type="button" class="btn-secondary yh-dashboard-create-ticket-btn" id="yh-dashboard-create-ticket-btn">Create a Ticket</button>
                 <button type="button" class="btn-primary" id="yh-dashboard-profile-save-btn">Save Profile</button>
             </div>
         </div>
@@ -12374,6 +12375,10 @@ function ensureDashboardUniverseProfileEditor() {
 
     document.getElementById('yh-dashboard-profile-save-btn')?.addEventListener('click', (event) => {
         saveDashboardUniverseProfile(event.currentTarget);
+    });
+
+    document.getElementById('yh-dashboard-create-ticket-btn')?.addEventListener('click', () => {
+        openDashboardBasicAssistantPanel();
     });
 
     document.getElementById('yh-dashboard-profile-avatar-trigger')?.addEventListener('click', () => {
@@ -12451,8 +12456,215 @@ function closeDashboardUniverseProfileEditor() {
     document.getElementById('yh-dashboard-profile-editor-overlay')?.classList.add('hidden-step');
 }
 
+const YH_DASHBOARD_BASIC_ASSISTANT_CONVERSATION_ID = 'dashboard_ticket_main';
+
+function renderDashboardBasicAssistantMessages(messages = []) {
+    const list = document.getElementById('yh-dashboard-basic-assistant-messages');
+    if (!list) return;
+
+    const cleanMessages = Array.isArray(messages) ? messages : [];
+
+    if (!cleanMessages.length) {
+        list.innerHTML = `
+            <div class="yh-dashboard-basic-assistant-empty">
+                Ask a basic question about your dashboard, profile, access, applications, or a bug you want to report.
+            </div>
+        `;
+        return;
+    }
+
+    list.innerHTML = cleanMessages
+        .map((message) => {
+            const role = String(message?.role || '').trim().toLowerCase() === 'user' ? 'user' : 'assistant';
+            const label = role === 'user' ? 'You' : 'YH Assistant';
+            const text = academyFeedEscapeHtml(message?.text || message?.content || '');
+
+            return `
+                <div class="yh-dashboard-basic-assistant-message is-${role}">
+                    <div class="yh-dashboard-basic-assistant-message-label">${label}</div>
+                    <div class="yh-dashboard-basic-assistant-message-bubble">${text.replace(/\n/g, '<br>')}</div>
+                </div>
+            `;
+        })
+        .join('');
+
+    list.scrollTop = list.scrollHeight;
+}
+
+async function loadDashboardBasicAssistantMessages() {
+    const list = document.getElementById('yh-dashboard-basic-assistant-messages');
+    if (list) {
+        list.innerHTML = `<div class="yh-dashboard-basic-assistant-empty">Loading assistant...</div>`;
+    }
+
+    const result = await academyAuthedFetch(
+        `/api/dashboard/assistant/messages?conversationId=${encodeURIComponent(YH_DASHBOARD_BASIC_ASSISTANT_CONVERSATION_ID)}`,
+        { method: 'GET' }
+    );
+
+    const messages = Array.isArray(result?.messages) ? result.messages : [];
+    renderDashboardBasicAssistantMessages(messages);
+    return messages;
+}
+
+function ensureDashboardBasicAssistantPanel() {
+    let panel = document.getElementById('yh-dashboard-basic-assistant-panel');
+    if (panel) return panel;
+
+    panel = document.createElement('div');
+    panel.id = 'yh-dashboard-basic-assistant-panel';
+    panel.className = 'yh-dashboard-basic-assistant hidden-step';
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-modal', 'false');
+    panel.setAttribute('aria-labelledby', 'yh-dashboard-basic-assistant-title');
+
+    panel.innerHTML = `
+        <div class="yh-dashboard-basic-assistant-card">
+            <div class="yh-dashboard-basic-assistant-head">
+                <div>
+                    <div class="yh-dashboard-basic-assistant-kicker">Support Ticket</div>
+                    <h3 id="yh-dashboard-basic-assistant-title">YH Dashboard Assistant</h3>
+                    <p>Ask basic questions or explain the issue you want to report.</p>
+                </div>
+
+                <button type="button" class="yh-dashboard-basic-assistant-close" id="yh-dashboard-basic-assistant-close" aria-label="Close assistant">✕</button>
+            </div>
+
+            <div class="yh-dashboard-basic-assistant-messages hide-scrollbar" id="yh-dashboard-basic-assistant-messages"></div>
+
+            <form class="yh-dashboard-basic-assistant-form" id="yh-dashboard-basic-assistant-form">
+                <input
+                    type="text"
+                    id="yh-dashboard-basic-assistant-input"
+                    class="input-field"
+                    placeholder="Ask about your dashboard or describe the issue..."
+                    autocomplete="off"
+                >
+                <button type="submit" class="btn-primary" id="yh-dashboard-basic-assistant-send">Send</button>
+            </form>
+        </div>
+    `;
+
+    document.body.appendChild(panel);
+
+    document.getElementById('yh-dashboard-basic-assistant-close')?.addEventListener('click', () => {
+        closeDashboardBasicAssistantPanel();
+    });
+
+    document.getElementById('yh-dashboard-basic-assistant-form')?.addEventListener('submit', (event) => {
+        event.preventDefault();
+        sendDashboardBasicAssistantMessage().catch((error) => {
+            showToast(error?.message || 'Failed to send assistant message.', 'error');
+        });
+    });
+
+    return panel;
+}
+
+async function openDashboardBasicAssistantPanel() {
+    const panel = ensureDashboardBasicAssistantPanel();
+
+    panel.classList.remove('hidden-step');
+
+    try {
+        await loadDashboardBasicAssistantMessages();
+    } catch (error) {
+        renderDashboardBasicAssistantMessages([
+            {
+                role: 'assistant',
+                text: error?.message || 'Assistant history could not be loaded. You can still try sending a message.'
+            }
+        ]);
+    }
+
+    document.getElementById('yh-dashboard-basic-assistant-input')?.focus();
+}
+
+function closeDashboardBasicAssistantPanel() {
+    document.getElementById('yh-dashboard-basic-assistant-panel')?.classList.add('hidden-step');
+}
+
+async function sendDashboardBasicAssistantMessage() {
+    const input = document.getElementById('yh-dashboard-basic-assistant-input');
+    const sendBtn = document.getElementById('yh-dashboard-basic-assistant-send');
+    const rawText = String(input?.value || '');
+    const text = rawText.trim();
+
+    if (!text) return;
+
+    if (input) input.value = '';
+    if (sendBtn) sendBtn.disabled = true;
+    if (input) input.disabled = true;
+
+    const existingMessages = await loadDashboardBasicAssistantMessages().catch(() => []);
+
+    renderDashboardBasicAssistantMessages([
+        ...existingMessages,
+        {
+            role: 'user',
+            text,
+            createdAt: new Date().toISOString()
+        },
+        {
+            role: 'assistant',
+            text: 'Thinking...',
+            createdAt: new Date().toISOString()
+        }
+    ]);
+
+    try {
+        const result = await academyAuthedFetch('/api/dashboard/assistant/chat', {
+            method: 'POST',
+            body: JSON.stringify({
+                conversationId: YH_DASHBOARD_BASIC_ASSISTANT_CONVERSATION_ID,
+                message: text,
+                contextHint: 'dashboard_ticket'
+            })
+        });
+
+        const refreshedMessages = await loadDashboardBasicAssistantMessages().catch(() => []);
+
+        if (!refreshedMessages.length && result?.reply) {
+            renderDashboardBasicAssistantMessages([
+                {
+                    role: 'user',
+                    text,
+                    createdAt: new Date().toISOString()
+                },
+                {
+                    role: 'assistant',
+                    text: result.reply,
+                    createdAt: new Date().toISOString()
+                }
+            ]);
+        }
+    } catch (error) {
+        renderDashboardBasicAssistantMessages([
+            ...existingMessages,
+            {
+                role: 'user',
+                text,
+                createdAt: new Date().toISOString()
+            },
+            {
+                role: 'assistant',
+                text: error?.message || 'I could not send that message. Please try again.',
+                createdAt: new Date().toISOString()
+            }
+        ]);
+
+        throw error;
+    } finally {
+        if (sendBtn) sendBtn.disabled = false;
+        if (input) input.disabled = false;
+        input?.focus();
+    }
+}
+
 window.openDashboardUniverseProfileEditor = openDashboardUniverseProfileEditor;
 window.closeDashboardUniverseProfileEditor = closeDashboardUniverseProfileEditor;
+window.openDashboardBasicAssistantPanel = openDashboardBasicAssistantPanel;
+window.closeDashboardBasicAssistantPanel = closeDashboardBasicAssistantPanel;
 
 async function saveDashboardUniverseProfile(button = null) {
     const displayName = String(document.getElementById('yh-dashboard-profile-display-name')?.value || '').trim();

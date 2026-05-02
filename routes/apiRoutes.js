@@ -80,6 +80,9 @@ router.post('/academy/roadmap/refresh', auth, academyControllers.refreshRoadmap)
 router.get('/academy/assistant/messages', auth, academyControllers.getAcademyCoachMessages);
 router.post('/academy/assistant/chat', auth, academyControllers.chatWithAcademyCoach);
 
+router.get('/dashboard/assistant/messages', auth, academyControllers.getDashboardAssistantMessages);
+router.post('/dashboard/assistant/chat', auth, academyControllers.chatWithDashboardAssistant);
+
 router.get('/academy/lead-missions/workspace', auth, academyControllers.getLeadMissionsWorkspace);
 router.get('/academy/opportunity-missions', auth, academyControllers.listAcademyOpportunityMissions);
 router.post('/academy/lead-missions/:id/submit', auth, academyControllers.submitRoutedLeadMission);

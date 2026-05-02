@@ -17446,6 +17446,17 @@ body[data-yh-page="dashboard"] .yh-dashboard-profile-search-btn {
     width: 100%;
 }
 
+.yh-dashboard-create-ticket-btn {
+    border-color: rgba(56, 189, 248, 0.42) !important;
+    color: #bae6fd !important;
+    background: rgba(14, 165, 233, 0.08) !important;
+}
+
+.yh-dashboard-create-ticket-btn:hover {
+    background: rgba(14, 165, 233, 0.16) !important;
+    color: #fff !important;
+}
+
 .yh-profile-danger-action {
     border-color: rgba(239, 68, 68, 0.75) !important;
     color: #fecaca !important;
@@ -17476,6 +17487,138 @@ body[data-yh-page="dashboard"] .yh-dashboard-profile-search-btn {
     font-size: 0.88rem;
 }
 
+.yh-dashboard-basic-assistant {
+    position: fixed;
+    top: 86px;
+    right: 24px;
+    z-index: 2200;
+    width: min(420px, calc(100vw - 32px));
+    max-height: calc(100vh - 112px);
+}
+
+.yh-dashboard-basic-assistant-card {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: 22px;
+    border: 1px solid rgba(56, 189, 248, 0.24);
+    background:
+        radial-gradient(circle at top right, rgba(56, 189, 248, 0.16), transparent 42%),
+        linear-gradient(180deg, rgba(10, 20, 40, 0.98), rgba(5, 12, 28, 0.98));
+    box-shadow: 0 28px 90px rgba(0, 0, 0, 0.58);
+}
+
+.yh-dashboard-basic-assistant-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 16px 16px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.yh-dashboard-basic-assistant-kicker {
+    color: var(--neon-blue);
+    font-size: 0.68rem;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.yh-dashboard-basic-assistant-head h3 {
+    margin: 5px 0 5px;
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 850;
+}
+
+.yh-dashboard-basic-assistant-head p {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    line-height: 1.45;
+}
+
+.yh-dashboard-basic-assistant-close {
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.05);
+    color: #e2e8f0;
+    cursor: pointer;
+}
+
+.yh-dashboard-basic-assistant-messages {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 260px;
+    max-height: min(48vh, 420px);
+    padding: 14px;
+    overflow-y: auto;
+}
+
+.yh-dashboard-basic-assistant-empty {
+    margin: auto;
+    max-width: 300px;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    line-height: 1.55;
+    text-align: center;
+}
+
+.yh-dashboard-basic-assistant-message {
+    display: grid;
+    gap: 5px;
+}
+
+.yh-dashboard-basic-assistant-message.is-user {
+    justify-items: end;
+}
+
+.yh-dashboard-basic-assistant-message-label {
+    color: #7dd3fc;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.yh-dashboard-basic-assistant-message-bubble {
+    max-width: 88%;
+    padding: 10px 12px;
+    border-radius: 15px;
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    background: rgba(15, 23, 42, 0.72);
+    color: #dbeafe;
+    font-size: 0.82rem;
+    line-height: 1.55;
+}
+
+.yh-dashboard-basic-assistant-message.is-user .yh-dashboard-basic-assistant-message-bubble {
+    border-color: rgba(56, 189, 248, 0.24);
+    background: rgba(14, 165, 233, 0.14);
+    color: #f8fbff;
+}
+
+.yh-dashboard-basic-assistant-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 86px;
+    gap: 10px;
+    padding: 12px 14px 14px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.yh-dashboard-basic-assistant-form .input-field {
+    min-height: 44px;
+}
+
+.yh-dashboard-basic-assistant-form .btn-primary {
+    min-height: 44px;
+    padding-inline: 12px;
+}
+
 @media (max-width: 700px) {
     .yh-dashboard-profile-modal {
         align-items: stretch;
@@ -17493,6 +17636,22 @@ body[data-yh-page="dashboard"] .yh-dashboard-profile-search-btn {
 
     .yh-dashboard-profile-modal-actions {
         flex-direction: column;
+    }
+
+    .yh-dashboard-basic-assistant {
+        top: 14px;
+        right: 12px;
+        left: 12px;
+        width: auto;
+        max-height: calc(100vh - 28px);
+    }
+
+    .yh-dashboard-basic-assistant-messages {
+        max-height: 50vh;
+    }
+
+    .yh-dashboard-basic-assistant-form {
+        grid-template-columns: 1fr;
     }
 }
 /* ========================================================= */
