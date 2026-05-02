@@ -19377,8 +19377,13 @@ body[data-yh-page="dashboard"] #academy-profile-view .hash-big-profile-img {
     position: absolute;
     top: 50%;
     left: 50%;
-    max-width: none;
-    max-height: none;
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: none !important;
+    max-height: none !important;
+    object-fit: contain !important;
+    object-position: center center !important;
     user-select: none;
     pointer-events: none;
     transform-origin: center center;

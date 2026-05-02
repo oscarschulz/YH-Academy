@@ -21949,6 +21949,105 @@ document.addEventListener('click', async (event) => {
     const division = badgeAvailButton.getAttribute('data-yh-avail-badge') || 'academy';
     await academyCreateVerifiedBadgeLedger(division, badgeAvailButton).catch(() => null);
 });
+/* =========================================================
+   DASHBOARD PROFILE CROPPER ASPECT-RATIO GUARD
+   Prevents zoom from stretching the uploaded image vertically.
+   ========================================================= */
 
+function yhFixDashboardProfileCropperImageAspect() {
+    const frame = document.querySelector('.yh-dashboard-profile-cropper-frame');
+    const image = frame?.querySelector('img');
+
+    if (!frame || !image) return;
+
+    const naturalWidth = Number(image.naturalWidth || 0);
+    const naturalHeight = Number(image.naturalHeight || 0);
+
+    if (!naturalWidth || !naturalHeight) return;
+
+    const ratio = naturalWidth / naturalHeight;
+
+    image.style.maxWidth = 'none';
+    image.style.maxHeight = 'none';
+    image.style.objectFit = 'contain';
+    image.style.objectPosition = 'center center';
+
+    const currentWidth = Number.parseFloat(image.style.width || '');
+    const currentHeight = Number.parseFloat(image.style.height || '');
+
+    if (Number.isFinite(currentWidth) && currentWidth > 0) {
+        const correctedHeight = currentWidth / ratio;
+
+        if (!Number.isFinite(currentHeight) || Math.abs(currentHeight - correctedHeight) > 1) {
+            image.style.height = `${correctedHeight}px`;
+        }
+
+        return;
+    }
+
+    if (Number.isFinite(currentHeight) && currentHeight > 0) {
+        const correctedWidth = currentHeight * ratio;
+
+        if (!Number.isFinite(currentWidth) || Math.abs(currentWidth - correctedWidth) > 1) {
+            image.style.width = `${correctedWidth}px`;
+        }
+    }
+}
+
+function yhScheduleDashboardProfileCropperAspectFix() {
+    window.requestAnimationFrame(() => {
+        yhFixDashboardProfileCropperImageAspect();
+
+        window.requestAnimationFrame(() => {
+            yhFixDashboardProfileCropperImageAspect();
+        });
+    });
+}
+
+document.addEventListener('input', (event) => {
+    if (
+        event.target?.matches?.('.yh-dashboard-profile-cropper-controls input[type="range"]') ||
+        event.target?.closest?.('.yh-dashboard-profile-cropper-controls')
+    ) {
+        yhScheduleDashboardProfileCropperAspectFix();
+    }
+}, true);
+
+document.addEventListener('pointermove', (event) => {
+    if (event.target?.closest?.('.yh-dashboard-profile-cropper-modal')) {
+        yhScheduleDashboardProfileCropperAspectFix();
+    }
+}, true);
+
+document.addEventListener('pointerup', (event) => {
+    if (event.target?.closest?.('.yh-dashboard-profile-cropper-modal')) {
+        yhScheduleDashboardProfileCropperAspectFix();
+    }
+}, true);
+
+window.addEventListener('load', yhScheduleDashboardProfileCropperAspectFix);
+
+const yhDashboardProfileCropperAspectObserver = new MutationObserver((mutations) => {
+    for (const mutation of mutations) {
+        const target = mutation.target;
+
+        if (
+            target?.matches?.('.yh-dashboard-profile-cropper-frame img') ||
+            target?.querySelector?.('.yh-dashboard-profile-cropper-frame img')
+        ) {
+            yhScheduleDashboardProfileCropperAspectFix();
+            break;
+        }
+    }
+});
+
+if (document.body) {
+    yhDashboardProfileCropperAspectObserver.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['style', 'class', 'src']
+    });
+}
 // ✅ Close DOMContentLoaded wrapper
 });
