@@ -10948,12 +10948,16 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
 
         if (resolvedCoverPhoto) {
             profileCoverBand.style.backgroundImage = `linear-gradient(180deg, rgba(10, 22, 39, 0.12), rgba(10, 22, 39, 0.58)), url("${resolvedCoverPhoto}")`;
-            profileCoverBand.style.backgroundSize = 'cover';
+            profileCoverBand.style.backgroundSize = '100% 100%';
             profileCoverBand.style.backgroundPosition = 'center';
+            profileCoverBand.style.backgroundRepeat = 'no-repeat';
             profileCoverBand.setAttribute('data-profile-image-preview', resolvedCoverPhoto);
             profileCoverBand.setAttribute('data-profile-image-preview-type', 'cover photo');
         } else {
             profileCoverBand.style.backgroundImage = '';
+            profileCoverBand.style.backgroundSize = '';
+            profileCoverBand.style.backgroundPosition = '';
+            profileCoverBand.style.backgroundRepeat = '';
             profileCoverBand.removeAttribute('data-profile-image-preview');
             profileCoverBand.removeAttribute('data-profile-image-preview-type');
         }
@@ -11524,13 +11528,17 @@ function renderDashboardProfileEditorCoverPreview(previewUrl = '') {
 
     if (resolvedUrl) {
         cover.style.backgroundImage = `linear-gradient(180deg, rgba(5, 12, 28, 0.08), rgba(5, 12, 28, 0.58)), url("${resolvedUrl}")`;
-        cover.style.backgroundSize = 'cover';
+        cover.style.backgroundSize = '100% 100%';
         cover.style.backgroundPosition = 'center';
+        cover.style.backgroundRepeat = 'no-repeat';
         cover.setAttribute('data-has-cover', 'true');
         return;
     }
 
     cover.style.backgroundImage = '';
+    cover.style.backgroundSize = '';
+    cover.style.backgroundPosition = '';
+    cover.style.backgroundRepeat = '';
     cover.removeAttribute('data-has-cover');
 }
 
