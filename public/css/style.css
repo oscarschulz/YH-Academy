@@ -4418,10 +4418,11 @@ body.academy-launcher-open {
     display: inline-flex;
     align-items: center;
     align-self: center;
+    isolation: isolate;
 }
 
 .yh-resources-menu.yh-resources-menu-open {
-    z-index: 16000;
+    z-index: 26000;
 }
 .yh-resources-menu-btn {
     width: auto !important;
@@ -4473,28 +4474,34 @@ body.academy-launcher-open {
 }
 
 .yh-resources-menu-panel {
-    position: absolute;
-    top: calc(100% + 12px);
-    right: 0;
-    width: 340px;
+    position: fixed;
+    top: 128px;
+    right: clamp(14px, 1.6vw, 28px);
+    width: min(340px, calc(100vw - 28px));
+    max-height: calc(100vh - 150px);
+    overflow-y: auto;
     padding: 15px;
     border-radius: 22px;
     border: 1px solid rgba(56, 189, 248, 0.22);
     background:
         linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.018)),
-        rgba(6, 14, 28, 0.97);
+        rgba(6, 14, 28, 0.985);
     box-shadow:
-        0 24px 60px rgba(0, 0, 0, 0.46),
+        0 24px 60px rgba(0, 0, 0, 0.56),
+        0 0 0 1px rgba(56, 189, 248, 0.08),
         inset 0 1px 0 rgba(255,255,255,0.05);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     display: none;
     gap: 10px;
-    z-index: 16001;
+    z-index: 26001;
+    pointer-events: auto;
 }
 
 .yh-resources-menu-panel.show {
     display: grid;
+    visibility: visible;
+    opacity: 1;
 }
 
 .yh-resources-menu-panel-head {
