@@ -954,7 +954,40 @@ h3 { font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem; color: var(--ne
     justify-content: flex-end;
     gap: 10px;
 }
+.academy-profile-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
 
+.academy-profile-header-left .academy-profile-back-btn:not(.hidden-step) {
+    order: 0;
+    flex: 0 0 auto;
+}
+
+.academy-profile-header-left #academy-profile-header-title {
+    order: 1;
+    margin: 0;
+    min-width: 0;
+    white-space: nowrap;
+}
+
+.academy-profile-header-left .academy-profile-header-divider {
+    order: 2;
+}
+
+.academy-profile-header-left #academy-profile-header-topic {
+    order: 3;
+}
+
+#academy-profile-view[data-profile-layout="visited"] .academy-profile-header-left #academy-profile-header-title {
+    color: #ffffff;
+}
+
+#academy-profile-view[data-profile-layout="self"] .academy-profile-header-left .academy-profile-back-btn {
+    display: none !important;
+}
 @media (min-width: 1025px) {
     body[data-yh-view="academy"] #academy-chat[data-chat-mode="messages"] .chat-header .header-right,
     body[data-yh-view="academy"] #academy-chat[data-chat-mode="thread"] .chat-header .header-right {

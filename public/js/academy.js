@@ -9961,15 +9961,27 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
     renderAcademyProfileRecentPosts(normalized.recentPosts, { isSelf });
 
     if (profileHeaderTitle) {
+        const cleanProfileName = String(normalized.displayName || 'Member').trim() || 'Member';
+
         profileHeaderTitle.innerText = isSelf
             ? 'My Profile'
-            : `${normalized.displayName}'s Profile`;
+            : `${cleanProfileName}'s Profile`;
+
+        profileHeaderTitle.setAttribute(
+            'data-profile-header-mode',
+            isSelf ? 'self' : 'visited'
+        );
     }
 
     if (profileHeaderTopic) {
         profileHeaderTopic.innerText = isSelf
             ? 'Your Academy profile, execution visibility, and public-facing identity hub.'
-            : `Viewing ${normalized.displayName}'s Academy profile, public activity, and connection options.`;
+            : `Viewing ${String(normalized.displayName || 'this member').trim() || 'this member'}'s Academy profile, public activity, and connection options.`;
+
+        profileHeaderTopic.setAttribute(
+            'data-profile-header-mode',
+            isSelf ? 'self' : 'visited'
+        );
     }
 
     if (profileName) {
