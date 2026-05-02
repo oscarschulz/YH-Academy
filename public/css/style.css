@@ -4502,8 +4502,47 @@ body.academy-launcher-open {
     display: grid;
     visibility: visible;
     opacity: 1;
+    z-index: 32001 !important;
+}
+body.yh-resources-menu-open .desktop-user-strip {
+    position: relative;
+    z-index: 32000 !important;
+    overflow: visible !important;
+    isolation: isolate;
 }
 
+body.yh-resources-menu-open .desktop-user-strip-inner,
+body.yh-resources-menu-open .desktop-user-strip-right,
+body.yh-resources-menu-open .yh-resources-menu {
+    overflow: visible !important;
+    z-index: 32000 !important;
+}
+
+body.yh-resources-menu-open .yh-resources-menu-panel {
+    position: fixed !important;
+    z-index: 32001 !important;
+    pointer-events: auto !important;
+}
+
+body.yh-resources-menu-open .dashboard-core,
+body.yh-resources-menu-open .academy-main-content,
+body.yh-resources-menu-open #academy-feed-view,
+body.yh-resources-menu-open .academy-feed-layout,
+body.yh-resources-menu-open .academy-feed-main,
+body.yh-resources-menu-open .academy-feed-right-rail,
+body.yh-resources-menu-open .academy-feed-card,
+body.yh-resources-menu-open .academy-feed-composer {
+    z-index: auto !important;
+}
+
+body.yh-resources-menu-open::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 31999;
+    pointer-events: none;
+    background: rgba(2, 6, 23, 0.08);
+}
 .yh-resources-menu-panel-head {
     display: grid;
     gap: 4px;
