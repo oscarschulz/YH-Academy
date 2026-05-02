@@ -8129,13 +8129,20 @@ function academyProfileRenderCropper() {
         zoom.value = String(cropper.scale || cropper.minScale || 1);
     }
 
-    const renderedWidth = Math.max(1, cropper.naturalWidth * cropper.scale);
-    const renderedHeight = Math.max(1, cropper.naturalHeight * cropper.scale);
+    const baseScale = Math.max(0.0001, Number(cropper.minScale) || 1);
+    const activeScale = Math.max(baseScale, Number(cropper.scale) || baseScale);
+    const visualZoom = Math.max(1, activeScale / baseScale);
 
-    image.style.width = `${renderedWidth}px`;
-    image.style.height = `${renderedHeight}px`;
-    image.style.objectFit = 'contain';
-    image.style.transform = `translate(calc(-50% + ${cropper.offsetX}px), calc(-50% + ${cropper.offsetY}px))`;
+    const baseWidth = Math.max(1, cropper.naturalWidth * baseScale);
+    const baseHeight = Math.max(1, cropper.naturalHeight * baseScale);
+
+    image.style.width = `${baseWidth}px`;
+    image.style.height = `${baseHeight}px`;
+    image.style.aspectRatio = `${cropper.naturalWidth} / ${cropper.naturalHeight}`;
+    image.style.objectFit = 'fill';
+    image.style.left = `calc(50% + ${cropper.offsetX}px)`;
+    image.style.top = `calc(50% + ${cropper.offsetY}px)`;
+    image.style.transform = `translate(-50%, -50%) scale(${visualZoom})`;
 }
 
 function academyProfileCloseCropperModal() {
@@ -8161,6 +8168,10 @@ function academyProfileCloseCropperModal() {
         image.removeAttribute('src');
         image.style.width = '';
         image.style.height = '';
+        image.style.aspectRatio = '';
+        image.style.objectFit = '';
+        image.style.left = '';
+        image.style.top = '';
         image.style.transform = '';
     }
 
