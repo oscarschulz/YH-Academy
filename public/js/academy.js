@@ -5053,23 +5053,103 @@ async function markAllRealtimeNotificationsRead() {
     }
 }
 
+function positionAcademyNotificationDropdown() {
+    if (!notifBell || !notifDropdown) return;
+
+    const bellRect = notifBell.getBoundingClientRect();
+    const panelWidth = Math.min(340, Math.max(280, window.innerWidth - 28));
+    const preferredRight = Math.max(14, window.innerWidth - bellRect.right);
+    const right = Math.min(
+        Math.max(14, preferredRight),
+        Math.max(14, window.innerWidth - panelWidth - 14)
+    );
+    const top = Math.max(82, Math.min(bellRect.bottom + 12, window.innerHeight - 120));
+
+    notifDropdown.style.position = 'fixed';
+    notifDropdown.style.top = `${top}px`;
+    notifDropdown.style.right = `${right}px`;
+    notifDropdown.style.left = 'auto';
+    notifDropdown.style.width = `min(340px, calc(100vw - 28px))`;
+    notifDropdown.style.maxHeight = `calc(100vh - ${top + 20}px)`;
+    notifDropdown.style.zIndex = '2147483003';
+    notifDropdown.style.pointerEvents = 'auto';
+}
+
+function closeAcademyNotificationDropdown() {
+    if (!notifDropdown) return;
+
+    notifDropdown.classList.remove('show');
+    notifDropdown.setAttribute('aria-hidden', 'true');
+    notifBell?.classList.remove('yh-notif-open');
+    document.body?.classList.remove('yh-notif-menu-open');
+}
+
+async function openAcademyNotificationDropdown() {
+    if (!notifBell || !notifDropdown) return;
+
+    if (notifDropdown.parentElement !== document.body) {
+        document.body.appendChild(notifDropdown);
+    }
+
+    positionAcademyNotificationDropdown();
+
+    notifDropdown.classList.add('show');
+    notifDropdown.setAttribute('aria-hidden', 'false');
+    notifBell.classList.add('yh-notif-open');
+    document.body?.classList.add('yh-notif-menu-open');
+
+    await loadRealtimeNotifications(true);
+}
+
 if (notifBell && notifDropdown) {
+    notifDropdown.setAttribute('aria-hidden', notifDropdown.classList.contains('show') ? 'false' : 'true');
+
     notifBell.addEventListener('click', async (e) => {
         if (e.target === markAllRead) return;
         if (e.target.closest('.notif-list li')) return;
 
-        notifDropdown.classList.toggle('show');
+        e.preventDefault();
+        e.stopPropagation();
 
-        if (notifDropdown.classList.contains('show')) {
-            await loadRealtimeNotifications(true);
+        const willOpen = !notifDropdown.classList.contains('show');
+
+        if (resourcesMenuPanel) {
+            resourcesMenuPanel.classList.remove('show');
+            resourcesMenuPanel.setAttribute('aria-hidden', 'true');
+            document.body?.classList.remove('yh-resources-menu-open');
         }
+
+        if (willOpen) {
+            await openAcademyNotificationDropdown();
+        } else {
+            closeAcademyNotificationDropdown();
+        }
+    });
+
+    notifDropdown.addEventListener('click', (e) => {
+        e.stopPropagation();
     });
 
     document.addEventListener('click', (e) => {
-        if (!notifBell.contains(e.target)) {
-            notifDropdown.classList.remove('show');
+        if (
+            !notifBell.contains(e.target) &&
+            !notifDropdown.contains(e.target)
+        ) {
+            closeAcademyNotificationDropdown();
         }
     });
+
+    window.addEventListener('resize', () => {
+        if (notifDropdown.classList.contains('show')) {
+            positionAcademyNotificationDropdown();
+        }
+    });
+
+    window.addEventListener('scroll', () => {
+        if (notifDropdown.classList.contains('show')) {
+            positionAcademyNotificationDropdown();
+        }
+    }, true);
 
     if (markAllRead) {
         markAllRead.addEventListener('click', async (e) => {
@@ -5133,8 +5213,8 @@ if (resourcesMenu && resourcesMenuBtn && resourcesMenuPanel) {
 
         const willOpen = !resourcesMenuPanel.classList.contains('show');
 
-        if (willOpen && notifDropdown) {
-            notifDropdown.classList.remove('show');
+        if (willOpen && typeof closeAcademyNotificationDropdown === 'function') {
+            closeAcademyNotificationDropdown();
         }
 
         setAcademyResourcesMenuOpenState(willOpen);
