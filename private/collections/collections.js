@@ -12,7 +12,8 @@
             totalItems: 0,
             totalLeads: 0,
             approvedItems: 0,
-            monetizedItems: 0
+            monetizedItems: 0,
+            missionPlaybooks: 0
         },
         loading: false
     };
@@ -20,6 +21,7 @@
     const viewCopy = {
         all: ['All Collections', 'Showing all visible mirrored records.'],
         resources: ['Resources', 'Scripts, tools, templates, links, documents, and reusable materials.'],
+        'mission-playbooks': ['Mission Playbooks', 'Academy mission templates, outreach systems, tracking requirements, and proof rules.'],
         leads: ['Lead Marketplace', 'Federation lead inventory mirrored from operator submissions.'],
         opportunities: ['Opportunities', 'Plaza and cross-division opportunity records.'],
         mine: ['My Submissions', 'Records submitted by the current logged-in user.'],
@@ -47,9 +49,11 @@
         total: document.getElementById('collections-stat-total'),
         leads: document.getElementById('collections-stat-leads'),
         approved: document.getElementById('collections-stat-approved'),
+        missions: document.getElementById('collections-stat-missions'),
         monetized: document.getElementById('collections-stat-monetized'),
         countAll: document.getElementById('count-all'),
         countResources: document.getElementById('count-resources'),
+        countMissionPlaybooks: document.getElementById('count-mission-playbooks'),
         countLeads: document.getElementById('count-leads'),
         countOpportunities: document.getElementById('count-opportunities'),
         countMine: document.getElementById('count-mine'),
@@ -160,7 +164,10 @@
         const clean = String(value || '').replace(/_/g, ' ').trim();
         return clean ? clean.replace(/\b\w/g, (char) => char.toUpperCase()) : 'Pending Review';
     }
-
+    function normalizeTypeLabel(value = '') {
+        const clean = String(value || 'item').replace(/_/g, ' ').trim();
+        return clean ? clean.replace(/\b\w/g, (char) => char.toUpperCase()) : 'Item';
+    }
     function getCardStatus(item = {}) {
         if (item.listingStatus === 'listed') return 'listed';
         return item.reviewStatus || 'pending_review';
@@ -193,16 +200,32 @@
 
         return combined;
     }
-
+    function isMissionPlaybookItem(item = {}) {
+        return (
+            item.itemType === 'mission_playbook' ||
+            item.sourceFeature === 'missions' ||
+            item.sourceSystem === 'academy_mission_playbooks' ||
+            String(item.category || '').toLowerCase().includes('mission playbook')
+        );
+    }
     function getVisibleItems() {
         if (state.mode === 'leads') return Array.isArray(state.leads) ? state.leads : [];
+        if (state.mode === 'mission-playbooks') return getAllItems().filter(isMissionPlaybookItem);
         return getAllItems();
     }
 
     function countByMode(mode = 'all') {
         const all = getAllItems();
 
-        if (mode === 'resources') return all.filter((item) => item.itemType !== 'lead' && item.itemType !== 'opportunity').length;
+        if (mode === 'resources') {
+            return all.filter((item) => (
+                item.itemType !== 'lead' &&
+                item.itemType !== 'opportunity' &&
+                !isMissionPlaybookItem(item)
+            )).length;
+        }
+
+        if (mode === 'mission-playbooks') return all.filter(isMissionPlaybookItem).length;
         if (mode === 'leads') return all.filter((item) => item.itemType === 'lead').length;
         if (mode === 'opportunities') return all.filter((item) => item.itemType === 'opportunity').length;
         if (mode === 'pending') return all.filter((item) => item.reviewStatus === 'pending_review').length;
@@ -238,10 +261,12 @@
         if (els.total) els.total.textContent = String(stats.totalItems || allItems.length || 0);
         if (els.leads) els.leads.textContent = String(stats.totalLeads || allItems.filter((item) => item.itemType === 'lead').length || 0);
         if (els.approved) els.approved.textContent = String(stats.approvedItems || allItems.filter((item) => item.reviewStatus === 'approved' || item.listingStatus === 'listed').length || 0);
+        if (els.missions) els.missions.textContent = String(stats.missionPlaybooks || allItems.filter(isMissionPlaybookItem).length || 0);
         if (els.monetized) els.monetized.textContent = String(stats.monetizedItems || allItems.filter((item) => item.monetized).length || 0);
 
         if (els.countAll) els.countAll.textContent = String(countByMode('all'));
         if (els.countResources) els.countResources.textContent = String(countByMode('resources'));
+        if (els.countMissionPlaybooks) els.countMissionPlaybooks.textContent = String(countByMode('mission-playbooks'));
         if (els.countLeads) els.countLeads.textContent = String(countByMode('leads'));
         if (els.countOpportunities) els.countOpportunities.textContent = String(countByMode('opportunities'));
         if (els.countMine) els.countMine.textContent = String(countByMode('mine'));
@@ -270,11 +295,12 @@
 
     function renderBadges(item = {}) {
         const status = getCardStatus(item);
+        const missionTypeClass = isMissionPlaybookItem(item) ? ' type-mission_playbook' : '';
 
         return `
             <div class="collections-card-badges">
-                <span class="collections-badge">${escapeHtml(item.itemType || 'item')}</span>
-                <span class="collections-badge">${escapeHtml(item.sourceDivision || 'universe')}</span>
+                <span class="collections-badge${missionTypeClass}">${escapeHtml(normalizeTypeLabel(item.itemType || 'item'))}</span>
+                <span class="collections-badge">${escapeHtml(normalizeTypeLabel(item.sourceDivision || 'universe'))}</span>
                 <span class="collections-badge status-${escapeHtml(status)}">${escapeHtml(normalizeStatusLabel(status))}</span>
             </div>
         `;
@@ -283,13 +309,23 @@
     function renderOpenAction(item = {}) {
         const url = String(item.resourceUrl || item.publicMeta?.resourceUrl || '').trim();
 
-        if (!url) return '<span></span>';
+        if (url) {
+            return `
+                <a class="collections-open-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">
+                    Open ↗
+                </a>
+            `;
+        }
 
-        return `
-            <a class="collections-open-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">
-                Open ↗
-            </a>
-        `;
+        if (isMissionPlaybookItem(item)) {
+            return `
+                <a class="collections-open-link" href="/academy?section=lead-missions" onclick="event.stopPropagation()">
+                    Open Mission →
+                </a>
+            `;
+        }
+
+        return '<span></span>';
     }
 
     function renderCard(item = {}) {
@@ -297,9 +333,10 @@
         const createdByName = item.createdByName || 'YH Member';
         const category = item.category || item.itemType || 'Collection Item';
         const selectedClass = state.activeId === item.id ? ' is-selected' : '';
+        const typeClass = isMissionPlaybookItem(item) ? ' is-mission-playbook' : '';
 
         return `
-            <article class="collections-card${selectedClass}" data-collection-id="${escapeHtml(item.id || '')}">
+            <article class="collections-card${selectedClass}${typeClass}" data-collection-id="${escapeHtml(item.id || '')}">
                 <div class="collections-card-top">
                     ${renderBadges(item)}
 
@@ -337,7 +374,7 @@
                         <span>${escapeHtml(item.summary || item.publicMeta?.summary || 'No summary available')}</span>
                     </div>
                 </td>
-                <td>${escapeHtml(item.itemType || 'item')}</td>
+                <td>${escapeHtml(normalizeTypeLabel(item.itemType || 'item'))}</td>
                 <td>${escapeHtml(item.sourceDivision || 'universe')}</td>
                 <td><span class="collections-badge status-${escapeHtml(status)}">${escapeHtml(normalizeStatusLabel(status))}</span></td>
                 <td>${escapeHtml(item.createdByName || 'YH Member')}</td>
@@ -378,6 +415,9 @@
             rows.splice(4, 0, ['Location', meta.location || [meta.city, meta.country].filter(Boolean).join(', ')]);
         }
 
+        if (meta.reward) rows.splice(4, 0, ['Reward', meta.reward]);
+        if (meta.bonus) rows.splice(4, 0, ['Bonus', meta.bonus]);
+        if (meta.missionKey) rows.splice(4, 0, ['Mission Key', meta.missionKey]);
         if (meta.tier) rows.splice(4, 0, ['Tier', meta.tier]);
         if (meta.contactRole) rows.splice(4, 0, ['Contact Role', meta.contactRole]);
 
@@ -385,7 +425,7 @@
         els.inspectorEmpty?.classList.add('hidden-step');
         els.inspectorBody?.classList.remove('hidden-step');
 
-        if (els.inspectorType) els.inspectorType.textContent = item.itemType || 'Collection Item';
+        if (els.inspectorType) els.inspectorType.textContent = normalizeTypeLabel(item.itemType || 'Collection Item');
         if (els.inspectorTitle) els.inspectorTitle.textContent = item.title || 'Untitled item';
         if (els.inspectorSummary) els.inspectorSummary.textContent = item.summary || meta.summary || 'No summary available yet.';
 

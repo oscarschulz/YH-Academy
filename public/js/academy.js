@@ -12314,7 +12314,7 @@ function hydrateAcademyLeadMissionsWorkspace(result = {}) {
     renderLeadMissionsScripts(academyLeadMissionsState.scripts);
 }
 
-async function loadAcademyLeadMissionsWorkspace(initialSubtab = 'readme') {
+async function loadAcademyLeadMissionsWorkspace(initialSubtab = 'database') {
     const [result, withdrawalResult, opportunityResult] = await Promise.all([
         academyAuthedFetch('/api/academy/lead-missions/workspace', { method: 'GET' }),
         academyAuthedFetch('/api/payouts/my-ledger', { method: 'GET' }).catch(() => ({ success: false, payouts: [] })),
@@ -12343,7 +12343,7 @@ async function loadAcademyLeadMissionsWorkspace(initialSubtab = 'readme') {
             : { total: 0, plaza: 0, federation: 0 };
 
     hydrateAcademyLeadMissionsWorkspace(result);
-    switchAcademyLeadMissionsSubtab(initialSubtab || 'readme');
+    switchAcademyLeadMissionsSubtab(initialSubtab || 'database');
     return result;
 }
 const ACADEMY_MISSION_PLAYBOOKS = [
@@ -12659,7 +12659,7 @@ async function openAcademyLeadMissionsView(options = {}) {
 
     academyRememberLastNonProfileLocation('lead-missions', {
         missionPanel: 'leads',
-        initialSubtab: options?.initialSubtab || 'readme'
+        initialSubtab: options?.initialSubtab || 'database'
     });
 
     showAcademyTabLoader('Loading Leads...');
@@ -12668,9 +12668,9 @@ async function openAcademyLeadMissionsView(options = {}) {
     revealAcademyMissionsViewShell();
     setAcademyMissionsPanel('leads');
 
-    Promise.resolve(loadAcademyLeadMissionsWorkspace(options?.initialSubtab || 'readme'))
+    Promise.resolve(loadAcademyLeadMissionsWorkspace(options?.initialSubtab || 'database'))
         .catch((error) => {
-            console.error('loadAcademyLeadMissionsWorkspace error:', error);
+            console.error('loadAcademyLeadMissionsWorkspace error:', error); 
             showToast(error?.message || 'Failed to load Leads.', 'error');
         })
         .finally(() => {
@@ -12680,7 +12680,7 @@ async function openAcademyLeadMissionsView(options = {}) {
 
 document.querySelectorAll('.academy-lead-subtab').forEach((btn) => {
     btn.addEventListener('click', () => {
-        const target = String(btn.getAttribute('data-lead-subtab') || 'readme').trim() || 'readme';
+        const target = String(btn.getAttribute('data-lead-subtab') || 'database').trim() || 'database';
         switchAcademyLeadMissionsSubtab(target);
     });
 });

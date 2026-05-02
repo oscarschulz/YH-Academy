@@ -241,7 +241,7 @@ body {
 
 .collections-stats {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 12px;
 }
 
@@ -421,7 +421,26 @@ body {
     text-transform: uppercase;
     letter-spacing: 0.08em;
 }
+.collections-badge.type-mission_playbook {
+    color: #ddd6fe;
+    background: rgba(139, 92, 246, 0.1);
+    border-color: rgba(139, 92, 246, 0.26);
+}
 
+.collections-card.is-mission-playbook {
+    border-color: rgba(139, 92, 246, 0.22);
+    background:
+        radial-gradient(circle at top right, rgba(139, 92, 246, 0.12), transparent 38%),
+        rgba(255, 255, 255, 0.035);
+}
+
+.collections-card.is-mission-playbook:hover,
+.collections-card.is-mission-playbook.is-selected {
+    border-color: rgba(139, 92, 246, 0.42);
+    background:
+        radial-gradient(circle at top right, rgba(139, 92, 246, 0.18), transparent 40%),
+        rgba(255, 255, 255, 0.055);
+}
 .collections-badge.status-approved,
 .collections-badge.status-listed {
     color: #bbf7d0;
