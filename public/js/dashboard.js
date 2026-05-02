@@ -12358,9 +12358,14 @@ function ensureDashboardUniverseProfileEditor() {
             </div>
 
             <div class="yh-dashboard-profile-modal-actions">
-                <button type="button" class="btn-secondary" data-dashboard-profile-close>Cancel</button>
+                <div class="yh-dashboard-profile-primary-actions">
+                    <button type="button" class="btn-secondary" data-dashboard-profile-close>Cancel</button>
+                    <button type="button" class="btn-primary" id="yh-dashboard-profile-save-btn">Save Profile</button>
+                </div>
+
+                <div class="yh-dashboard-ticket-question">Have questions?</div>
+
                 <button type="button" class="btn-secondary yh-dashboard-create-ticket-btn" id="yh-dashboard-create-ticket-btn">Create a Ticket</button>
-                <button type="button" class="btn-primary" id="yh-dashboard-profile-save-btn">Save Profile</button>
             </div>
         </div>
     `;
