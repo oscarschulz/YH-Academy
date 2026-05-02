@@ -7,7 +7,7 @@
     <link rel="icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css?v=20260502-academy-notif-right-overlay-1">
+<link rel="stylesheet" href="/css/style.css?v=20260502-academy-mission-playbooks-1">
 <link rel="stylesheet" href="/css/academy-thread-bottom-fix.css?v=20260417-2">
 </head>
 <body data-yh-view="academy" data-yh-page="academy">
@@ -713,51 +713,79 @@
                     <div class="academy-lead-missions-shell">
                         <section class="academy-lead-missions-hero" id="academy-missions-hub-panel">
                             <div>
-                                <div class="academy-profile-card-kicker">Mission Modules</div>
+                                <div class="academy-profile-card-kicker">Mission Playbooks</div>
                                 <h2 class="academy-lead-missions-title">Missions</h2>
                                 <p class="academy-lead-missions-copy">
-                                    Choose the type of mission you want to work on. More modules can be added here later.
+                                    Build useful contacts, open doors, track every lead, and get paid when accepted Federation leads are confirmed.
                                 </p>
                             </div>
 
-                            <div class="academy-missions-module-grid">
-                                <button type="button" class="academy-missions-module-card" id="btn-open-mission-leads">
-                                    <span class="academy-missions-module-icon">📇</span>
-                                    <span class="academy-missions-module-body">
-                                        <span class="academy-missions-module-title">Leads</span>
-                                        <span class="academy-missions-module-copy">Open your private leads workspace, follow-ups, payouts, deals, and scripts.</span>
+                            <div class="academy-mission-playbook-grid">
+                                <button
+                                    type="button"
+                                    class="academy-mission-playbook-card"
+                                    data-yh-mission-playbook-open="three-handshakes-away"
+                                >
+                                    <span class="academy-mission-playbook-icon">🤝</span>
+                                    <span class="academy-mission-playbook-body">
+                                        <span class="academy-mission-playbook-kicker">Beginner Friendly • Social Outreach</span>
+                                        <span class="academy-mission-playbook-title">3-Handshakes-Away Mission</span>
+                                        <span class="academy-mission-playbook-copy">
+                                            Use Instagram/X connection chains to reach valuable people through mutual links, replies, contacts, and directions.
+                                        </span>
+                                        <span class="academy-mission-playbook-meta">
+                                            Tools: Instagram, X, CRM Sheet, screenshots, optional AI rewriting.
+                                        </span>
                                     </span>
-                                    <span class="academy-missions-module-arrow">→</span>
+                                    <span class="academy-mission-playbook-arrow">Open Mission →</span>
                                 </button>
 
-                                <button type="button" class="academy-missions-module-card" id="btn-open-mission-plaza-jobs">
-                                    <span class="academy-missions-module-icon">💼</span>
-                                    <span class="academy-missions-module-body">
-                                    <span class="academy-missions-module-title">Plazas Jobs</span>
-                                    <span class="academy-missions-module-copy">Work on admin-routed jobs from the Plazas, hiring requests, service requests, and operator bounties.</span>
+                                <button
+                                    type="button"
+                                    class="academy-mission-playbook-card"
+                                    data-yh-mission-playbook-open="cold-calling"
+                                >
+                                    <span class="academy-mission-playbook-icon">📞</span>
+                                    <span class="academy-mission-playbook-body">
+                                        <span class="academy-mission-playbook-kicker">Direct Execution • Company Outreach</span>
+                                        <span class="academy-mission-playbook-title">Cold-Calling Mission</span>
+                                        <span class="academy-mission-playbook-copy">
+                                            Call real companies, collect direct contacts, build rapport, and warm leads for future Federation access.
+                                        </span>
+                                        <span class="academy-mission-playbook-meta">
+                                            Tools: phone number, Google Maps, Google Search, AI research, CRM Sheet, WhatsApp.
+                                        </span>
                                     </span>
-                                    <span class="academy-missions-module-arrow">→</span>
-                                </button>
-
-                                <button type="button" class="academy-missions-module-card" id="btn-open-mission-federation-tasks">
-                                    <span class="academy-missions-module-icon">🤝</span>
-                                    <span class="academy-missions-module-body">
-                                        <span class="academy-missions-module-title">Federation Tasks</span>
-                                        <span class="academy-missions-module-copy">Support Federation requests with research, lead sourcing, contact discovery, and deal preparation.</span>
-                                    </span>
-                                    <span class="academy-missions-module-arrow">→</span>
-                                </button>
-
-                                <button type="button" class="academy-missions-module-card" id="btn-open-mission-opportunity-ops">
-                                    <span class="academy-missions-module-icon">⚡</span>
-                                    <span class="academy-missions-module-body">
-                                        <span class="academy-missions-module-title">Opportunity Missions</span>
-                                        <span class="academy-missions-module-copy">Track paid opportunities that connect Academy execution with demand from the Plazas and Federation deal flow.</span>
-                                    </span>
-                                    <span class="academy-missions-module-arrow">→</span>
+                                    <span class="academy-mission-playbook-arrow">Open Mission →</span>
                                 </button>
                             </div>
+
+                            <div class="academy-mission-playbook-footer">
+                                <div>
+                                    <strong>Payment logic:</strong>
+                                    $9 for Tier/Level 1, $6 for Tier/Level 2, $3 for Tier/Level 3 accepted Federation leads.
+                                </div>
+                                <div>
+                                    <strong>Bonus:</strong>
+                                    $28.12 when 28 accepted Federation leads are completed in one month.
+                                </div>
+                            </div>
                         </section>
+
+                        <div class="academy-mission-playbook-panel hidden-step" id="academy-mission-playbook-panel">
+                            <section class="academy-mission-playbook-detail-shell">
+                                <div class="academy-mission-playbook-detail-head">
+                                    <button type="button" class="btn-secondary academy-mission-playbook-back" id="btn-back-to-missions-playbook-hub">
+                                        ← Back to Missions
+                                    </button>
+                                    <button type="button" class="btn-primary academy-mission-playbook-start" id="btn-start-current-playbook-mission">
+                                        Start / Track This Mission
+                                    </button>
+                                </div>
+
+                                <div id="academy-mission-playbook-detail"></div>
+                            </section>
+                        </div>
 
                         <div class="academy-lead-missions-workspace hidden-step" id="academy-lead-missions-workspace">
                             <section class="academy-lead-missions-hero">
@@ -2197,7 +2225,7 @@
 
 <script src="/js/yh-shared-core.js?v=20260418-toast-center-1"></script>
 <script src="/js/yh-shared-runtime.js?v=20260411-4"></script>
-<script src="/js/academy.js?v=20260502-academy-notif-right-overlay-1"></script>
+<script src="/js/academy.js?v=20260502-academy-mission-playbooks-1"></script>
 <div
     class="academy-profile-editor-overlay hidden-step"
     id="academy-profile-editor-overlay"

@@ -306,8 +306,84 @@ function buildStats(items = [], leads = []) {
         totalLeads: leads.length,
         pendingItems: items.filter((item) => item.reviewStatus === 'pending_review').length,
         approvedItems: items.filter((item) => item.reviewStatus === 'approved' || item.listingStatus === 'listed').length,
-        monetizedItems: items.filter((item) => item.monetized === true).length
+        monetizedItems: items.filter((item) => item.monetized === true).length,
+        missionPlaybooks: items.filter((item) => item.itemType === 'mission_playbook').length
     };
+}
+
+function buildAcademyMissionPlaybookCollectionItems() {
+    const nowIso = '2026-04-18T00:00:00.000Z';
+
+    return [
+        {
+            id: 'academy_mission_playbook_three_handshakes_away',
+            itemType: 'mission_playbook',
+            title: '3-Handshakes-Away Mission',
+            summary: 'A social outreach playbook for finding valuable contacts through Instagram/X connection chains, mutual links, replies, and directions.',
+            sourceDivision: 'academy',
+            targetDivision: 'academy',
+            sourceFeature: 'missions',
+            sourceSystem: 'academy_mission_playbooks',
+            sourceRecordId: 'three-handshakes-away',
+            sourceRecordPath: 'academy/mission-playbooks/three-handshakes-away',
+            accessLevel: 'academy',
+            visibility: 'division_members',
+            reviewStatus: 'approved',
+            listingStatus: 'listed',
+            category: 'Academy Mission Playbook',
+            tags: ['academy', 'missions', 'outreach', 'social', 'federation leads'],
+            createdByUid: 'system',
+            createdByEmail: '',
+            createdByName: 'YH System',
+            createdByUsername: 'system',
+            createdByAvatar: '',
+            publicMeta: {
+                missionKey: 'three-handshakes-away',
+                reward: '$9/$6/$3 per accepted Federation lead',
+                bonus: '$28.12 for 28 accepted leads in one month'
+            },
+            privateMetaAvailable: false,
+            monetized: false,
+            resourceUrl: '',
+            createdAt: nowIso,
+            updatedAt: nowIso,
+            source: 'mission_playbook'
+        },
+        {
+            id: 'academy_mission_playbook_cold_calling',
+            itemType: 'mission_playbook',
+            title: 'Cold-Calling Mission',
+            summary: 'A direct outreach playbook for calling companies, collecting direct contacts, building rapport, and warming Federation leads.',
+            sourceDivision: 'academy',
+            targetDivision: 'academy',
+            sourceFeature: 'missions',
+            sourceSystem: 'academy_mission_playbooks',
+            sourceRecordId: 'cold-calling',
+            sourceRecordPath: 'academy/mission-playbooks/cold-calling',
+            accessLevel: 'academy',
+            visibility: 'division_members',
+            reviewStatus: 'approved',
+            listingStatus: 'listed',
+            category: 'Academy Mission Playbook',
+            tags: ['academy', 'missions', 'cold calling', 'company outreach', 'federation leads'],
+            createdByUid: 'system',
+            createdByEmail: '',
+            createdByName: 'YH System',
+            createdByUsername: 'system',
+            createdByAvatar: '',
+            publicMeta: {
+                missionKey: 'cold-calling',
+                reward: '$9/$6/$3 per accepted Federation lead',
+                bonus: '$28.12 for 28 accepted leads in one month'
+            },
+            privateMetaAvailable: false,
+            monetized: false,
+            resourceUrl: '',
+            createdAt: nowIso,
+            updatedAt: nowIso,
+            source: 'mission_playbook'
+        }
+    ];
 }
 
 async function getCollectionDocs(collectionName, limit = 300) {
@@ -326,6 +402,7 @@ async function listIndexItems(viewer = {}, filters = {}) {
     ]);
 
     const merged = [
+        ...buildAcademyMissionPlaybookCollectionItems(),
         ...indexDocs.map(mapIndexDoc),
         ...resourceDocs.map(mapResourceDoc)
     ];

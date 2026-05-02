@@ -56,6 +56,7 @@ const defaultState = () => ({
   applications: [],
   members: [],
   academy: [],
+  missionPlaybooks: [],
   academyLeadMissions: [],
   federationLeadDatabase: [],
   federationConnectionRequests: [],
@@ -838,6 +839,9 @@ function normalizeAdminBootstrapState(incomingState = {}) {
       : [],
     academy: Array.isArray(merged.academy)
       ? merged.academy.map((record) => normalizeAdminAcademyRecord(record))
+      : [],
+    missionPlaybooks: Array.isArray(merged.missionPlaybooks)
+      ? merged.missionPlaybooks
       : [],
     academyLeadMissions,
     federationLeadDatabase,
@@ -2617,7 +2621,32 @@ function renderAcademy() {
     { label: 'Federation Ready', value: state.academyLeadMissions.filter(item => item.federationReady === true).length, foot: 'Cross-division strategic routing' },
     { label: 'Plaza Ready', value: state.academyLeadMissions.filter(item => item.plazaReady === true).length, foot: 'Marketplace-ready relationships' }
   ];
+  const playbookTable = document.getElementById('academy-mission-playbooks-table');
+  if (playbookTable) {
+    playbookTable.innerHTML = (Array.isArray(state.missionPlaybooks) ? state.missionPlaybooks : []).map((mission) => {
+      const payout = mission?.payoutRules && typeof mission.payoutRules === 'object'
+        ? mission.payoutRules
+        : {};
 
+      const payoutText = [
+        payout.level1 || payout.tier1 ? `$${payout.level1 || payout.tier1} top tier` : '',
+        payout.level2 || payout.tier2 ? `$${payout.level2 || payout.tier2} mid tier` : '',
+        payout.level3 || payout.tier3 ? `$${payout.level3 || payout.tier3} low tier` : '',
+        payout.bonusAmount ? `$${payout.bonusAmount} bonus` : ''
+      ].filter(Boolean).join(' • ') || 'Configured in mission';
+
+      return `
+        <tr>
+          ${makeCell('Mission', `<strong>${escapeHtml(mission.title || 'Mission')}</strong><div class="muted">${escapeHtml(mission.summary || '')}</div>`)}
+          ${makeCell('Type', formatBadge(String(mission.missionType || 'mission').replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())))}
+          ${makeCell('Difficulty', formatBadge(String(mission.difficulty || 'active').replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())))}
+          ${makeCell('Tools', escapeHtml((Array.isArray(mission.tools) ? mission.tools : []).join(', ') || '—'))}
+          ${makeCell('Proof Required', escapeHtml((Array.isArray(mission.proofRequired) ? mission.proofRequired : []).join(', ') || '—'))}
+          ${makeCell('Payout', escapeHtml(payoutText))}
+        </tr>
+      `;
+    }).join('') || makeEmptyRow(6, 'No mission playbooks loaded.');
+  }
   document.getElementById('academy-stats').innerHTML = stats.map(card => `
     <article class="stat-card">
       <div class="stat-label">${escapeHtml(card.label)}</div>

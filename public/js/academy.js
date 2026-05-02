@@ -12346,28 +12346,255 @@ async function loadAcademyLeadMissionsWorkspace(initialSubtab = 'readme') {
     switchAcademyLeadMissionsSubtab(initialSubtab || 'readme');
     return result;
 }
+const ACADEMY_MISSION_PLAYBOOKS = [
+    {
+        key: 'three-handshakes-away',
+        icon: '🤝',
+        title: '3-Handshakes-Away Mission',
+        kicker: 'Social Outreach Mission',
+        difficulty: 'Beginner Friendly',
+        objective: 'Use social media connection chains to reach valuable people through mutual links, replies, contacts, and directions.',
+        bestFor: 'Members who prefer online outreach before live phone calls.',
+        tools: [
+            'Instagram',
+            'Twitter / X',
+            'Public social media profile',
+            'Google Sheet or Excel CRM',
+            'Screenshots for proof',
+            'Optional: ChatGPT, Gemini, or Claude for message rewriting',
+            'Optional: laptop or computer for tracking'
+        ],
+        steps: [
+            'Choose a target person, company, niche, or industry.',
+            'Open the target’s following or follower list.',
+            'Find a reachable prospect who is connected to the target but not too famous.',
+            'Send a simple DM mentioning the connection and asking a quick question.',
+            'If there is no reply, go to that prospect’s connections and choose two more people.',
+            'Repeat the chain up to Level 3 instead of staying stuck on one person.',
+            'Track the prospect, platform, profile link, connection level, message, and reply status.',
+            'Warm the conversation toward a reply, useful information, contact, or direction.',
+            'Only mention The Federation when the conversation feels natural.'
+        ],
+        templates: [
+            'Hey (Name), quick one — I saw that (X person/company) follows you. I’ve been looking into that space recently and wanted to ask you something quick.',
+            'Hey (Name), quick one — I came across your profile through (X connection). I’ve been speaking with a few people in that circle recently and had a quick question.',
+            'Hey (Name), got a question in regard to (his/her company).'
+        ],
+        tracking: [
+            'Target name or company',
+            'Target profile link',
+            'Prospect name',
+            'Prospect profile link',
+            'Platform used',
+            'Connection level: Level 1, Level 2, or Level 3',
+            'Message sent',
+            'Reply status',
+            'Contact collected, if any',
+            'Screenshot proof',
+            'CRM row proof',
+            'Notes about the connection'
+        ],
+        successCriteria: [
+            'You got a reply, useful information, a contact, or direction to another person.',
+            'The prospect was tracked properly in the CRM.',
+            'The lead is warmed up without looking like spam or forced recruitment.',
+            'The lead can later be introduced to The Federation when it makes sense.'
+        ],
+        payment: [
+            '$9 — Level 1 lead accepted into The Federation',
+            '$6 — Level 2 lead accepted into The Federation',
+            '$3 — Level 3 lead accepted into The Federation',
+            '$28.12 bonus if 28 accepted Federation leads are completed in one month'
+        ]
+    },
+    {
+        key: 'cold-calling',
+        icon: '📞',
+        title: 'Cold-Calling Mission',
+        kicker: 'Company Outreach Mission',
+        difficulty: 'Direct Execution',
+        objective: 'Call companies, speak with useful people, collect direct contacts, and build relationships that can later become Federation leads.',
+        bestFor: 'Members ready to talk directly with companies and gather real-world contacts.',
+        tools: [
+            'Phone number that can call locally or internationally',
+            'Google Maps',
+            'Google Search',
+            'Company websites',
+            'ChatGPT, Gemini, or Claude for lead research',
+            'Google Sheet or Excel CRM',
+            'WhatsApp or another direct contact channel',
+            'Optional: Loom for recording practice calls',
+            'Optional: Hushed or another virtual number app'
+        ],
+        steps: [
+            'Pick an industry or company type, such as law firms, insurance companies, agencies, clinics, or real estate firms.',
+            'Find companies using Google Maps, Google Search, company websites, or AI.',
+            'Study the company website before calling.',
+            'Find one specific thing to mention, such as a promo, service, hiring page, partnership, or price.',
+            'Call the company and start with curiosity instead of selling.',
+            'Adapt your script depending on who answers: receptionist, sales rep, or owner.',
+            'Collect the useful contact: name, role, and direct contact method.',
+            'Track the lead inside the assigned Sheet or CRM.',
+            'Send a soft follow-up after the call.',
+            'Build rapport over days or weeks before mentioning The Federation.'
+        ],
+        templates: [
+            'Hey, I’m calling because I saw something on your website and wanted to ask a quick question.',
+            'I noticed you offer (specific service/promo/product). I’m currently comparing a few options and wanted to understand how this works.',
+            'What’s usually the easiest way to reach you if I have a quick follow-up question later?',
+            'Hey (Name), it’s (Your Name) from earlier — saved your contact 👍',
+            'By the way, random question — how long have you been in the (niche) space?'
+        ],
+        tracking: [
+            'Company name',
+            'Industry',
+            'Country and city',
+            'Lead name',
+            'Lead role',
+            'Lead tier',
+            'Contact method collected',
+            'Call result',
+            'Follow-up status',
+            'Screenshot or CRM row proof',
+            'Notes about the conversation'
+        ],
+        successCriteria: [
+            'You spoke with a real person from a company.',
+            'You collected at least name, role, and best contact method.',
+            'The lead was tracked properly in the assigned CRM.',
+            'You started rapport without forcing The Federation.',
+            'The lead can later be warmed and introduced when the timing is right.'
+        ],
+        payment: [
+            '$9 — Tier 1 lead accepted into The Federation',
+            '$6 — Tier 2 lead accepted into The Federation',
+            '$3 — Tier 3 lead accepted into The Federation',
+            '$28.12 bonus if 28 accepted Federation leads are completed in one month'
+        ]
+    }
+];
 
+let academyCurrentMissionPlaybookKey = '';
+
+function academyGetMissionPlaybook(key = '') {
+    const cleanKey = String(key || '').trim();
+    return ACADEMY_MISSION_PLAYBOOKS.find((mission) => mission.key === cleanKey) || null;
+}
+
+function academyRenderMissionPlaybookList(title = '', items = []) {
+    const cleanItems = Array.isArray(items) ? items : [];
+
+    if (!cleanItems.length) return '';
+
+    return `
+        <section class="academy-mission-playbook-section">
+            <h4>${academyFeedEscapeHtml(title)}</h4>
+            <ul>
+                ${cleanItems.map((item) => `<li>${academyFeedEscapeHtml(item)}</li>`).join('')}
+            </ul>
+        </section>
+    `;
+}
+
+function renderAcademyMissionPlaybookDetail(mission = {}) {
+    const panel = document.getElementById('academy-mission-playbook-detail');
+    if (!panel || !mission?.key) return;
+
+    panel.innerHTML = `
+        <article class="academy-mission-playbook-detail-card">
+            <div class="academy-mission-playbook-detail-hero">
+                <div class="academy-mission-playbook-detail-icon">${academyFeedEscapeHtml(mission.icon || '🎯')}</div>
+                <div>
+                    <div class="academy-profile-card-kicker">${academyFeedEscapeHtml(mission.kicker || 'Mission')}</div>
+                    <h2>${academyFeedEscapeHtml(mission.title || 'Mission')}</h2>
+                    <p>${academyFeedEscapeHtml(mission.objective || '')}</p>
+                    <div class="academy-mission-playbook-badges">
+                        <span>${academyFeedEscapeHtml(mission.difficulty || 'Mission')}</span>
+                        <span>${academyFeedEscapeHtml(mission.bestFor || 'Academy operators')}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="academy-mission-playbook-sections-grid">
+                ${academyRenderMissionPlaybookList('Tools Needed', mission.tools)}
+                ${academyRenderMissionPlaybookList('Step-by-Step Tasks', mission.steps)}
+                ${academyRenderMissionPlaybookList('Scripts / Templates', mission.templates)}
+                ${academyRenderMissionPlaybookList('Tracking Requirements', mission.tracking)}
+                ${academyRenderMissionPlaybookList('Proof / Success Criteria', mission.successCriteria)}
+                ${academyRenderMissionPlaybookList('Payments & Bonus', mission.payment)}
+            </div>
+        </article>
+    `;
+}
+
+function setAcademyMissionPlaybookPanel(key = '') {
+    const mission = academyGetMissionPlaybook(key);
+
+    if (!mission) {
+        showToast('Mission playbook not found.', 'error');
+        return;
+    }
+
+    academyCurrentMissionPlaybookKey = mission.key;
+    renderAcademyMissionPlaybookDetail(mission);
+    setAcademyMissionsPanel('playbook');
+}
+
+function startCurrentAcademyMissionPlaybook() {
+    const mission = academyGetMissionPlaybook(academyCurrentMissionPlaybookKey);
+
+    if (!mission) {
+        showToast('Open a mission first.', 'error');
+        return;
+    }
+
+    showToast(`Opening tracking workspace for ${mission.title}.`, 'success');
+
+    openAcademyLeadMissionsView({
+        skipRecruitmentGate: true,
+        initialSubtab: 'database'
+    });
+}
 function setAcademyMissionsPanel(target = 'hub') {
     const mode = String(target || 'hub').trim().toLowerCase();
     const isLeads = mode === 'leads';
+    const isPlaybook = mode === 'playbook';
 
     const headerIcon = document.getElementById('academy-missions-header-icon');
     const headerTitle = document.getElementById('academy-missions-header-title');
     const headerTopic = document.getElementById('academy-missions-header-topic');
     const headerActions = document.getElementById('academy-lead-missions-actions');
     const hubPanel = document.getElementById('academy-missions-hub-panel');
+    const playbookPanel = document.getElementById('academy-mission-playbook-panel');
     const leadsWorkspace = document.getElementById('academy-lead-missions-workspace');
 
-    if (headerIcon) headerIcon.textContent = isLeads ? '📇' : '🎯';
-    if (headerTitle) headerTitle.textContent = isLeads ? 'leads' : 'missions';
+    if (headerIcon) {
+        headerIcon.textContent = isLeads
+            ? '📇'
+            : isPlaybook
+                ? '🎯'
+                : '🎯';
+    }
+
+    if (headerTitle) {
+        headerTitle.textContent = isLeads
+            ? 'leads'
+            : isPlaybook
+                ? 'mission playbook'
+                : 'missions';
+    }
+
     if (headerTopic) {
         headerTopic.textContent = isLeads
             ? 'Private operator leads, follow-ups, payouts, and deal records.'
-            : 'Choose a mission module to enter your workspace.';
+            : isPlaybook
+                ? 'Follow the mission steps, use the templates, track proof, and submit accepted leads.'
+                : 'Choose a mission, follow the steps, track your progress, and submit proof.';
     }
 
     if (headerActions) headerActions.classList.toggle('hidden-step', !isLeads);
-    if (hubPanel) hubPanel.classList.toggle('hidden-step', isLeads);
+    if (hubPanel) hubPanel.classList.toggle('hidden-step', isLeads || isPlaybook);
+    if (playbookPanel) playbookPanel.classList.toggle('hidden-step', !isPlaybook);
     if (leadsWorkspace) leadsWorkspace.classList.toggle('hidden-step', !isLeads);
 }
 
@@ -12470,8 +12697,20 @@ document.addEventListener('click', (event) => {
     }
 });
 
-document.getElementById('btn-open-mission-leads')?.addEventListener('click', () => {
-    openAcademyLeadMissionsView();
+document.querySelectorAll('[data-yh-mission-playbook-open]').forEach((button) => {
+    button.addEventListener('click', () => {
+        const key = String(button.getAttribute('data-yh-mission-playbook-open') || '').trim();
+        setAcademyMissionPlaybookPanel(key);
+    });
+});
+
+document.getElementById('btn-back-to-missions-playbook-hub')?.addEventListener('click', () => {
+    academyCurrentMissionPlaybookKey = '';
+    setAcademyMissionsPanel('hub');
+});
+
+document.getElementById('btn-start-current-playbook-mission')?.addEventListener('click', () => {
+    startCurrentAcademyMissionPlaybook();
 });
 
 function openAcademyOpportunityMissionBridge(message = '', sourceFilter = 'all') {

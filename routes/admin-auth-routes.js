@@ -807,7 +807,52 @@ function mapAdminPlazaListingDoc(doc) {
     notes: Array.isArray(data.notes) ? data.notes : []
   };
 }
-
+function buildAdminMissionPlaybookTemplates() {
+  return [
+    {
+      id: 'mission-template-three-handshakes-away',
+      key: 'three-handshakes-away',
+      title: '3-Handshakes-Away Mission',
+      missionType: 'social_outreach',
+      sourceDivision: 'academy',
+      status: 'active',
+      difficulty: 'beginner_friendly',
+      summary: 'Reach valuable people online through connection chains, mutual links, replies, contacts, and directions.',
+      tools: ['Instagram', 'Twitter/X', 'CRM Sheet', 'Screenshots', 'Optional AI rewriting'],
+      proofRequired: ['Target profile', 'Prospect profile', 'Connection level', 'Message sent', 'Reply status', 'Screenshot proof', 'CRM row proof'],
+      payoutRules: {
+        level1: 9,
+        level2: 6,
+        level3: 3,
+        bonusTarget: 28,
+        bonusAmount: 28.12,
+        currency: 'USD'
+      },
+      updatedAt: '2026-04-18T00:00:00.000Z'
+    },
+    {
+      id: 'mission-template-cold-calling',
+      key: 'cold-calling',
+      title: 'Cold-Calling Mission',
+      missionType: 'company_outreach',
+      sourceDivision: 'academy',
+      status: 'active',
+      difficulty: 'direct_execution',
+      summary: 'Call companies, collect direct contacts, build rapport, and warm leads for Federation access.',
+      tools: ['Phone number', 'Google Maps', 'Google Search', 'Company websites', 'AI research', 'CRM Sheet', 'WhatsApp'],
+      proofRequired: ['Company name', 'Lead name', 'Lead role', 'Lead tier', 'Contact method', 'Call result', 'Follow-up status', 'CRM row proof'],
+      payoutRules: {
+        tier1: 9,
+        tier2: 6,
+        tier3: 3,
+        bonusTarget: 28,
+        bonusAmount: 28.12,
+        currency: 'USD'
+      },
+      updatedAt: '2026-04-17T00:00:00.000Z'
+    }
+  ];
+}
 async function buildAdminBootstrapPayload() {
   const [usersSnap, broadcastsSnap, paymentLedgerResult, payoutLedgerResult] = await Promise.all([
     firestore.collection('users').limit(300).get(),
@@ -1383,6 +1428,7 @@ const applications = users.flatMap((user) => {
     applications,
     members,
     academy,
+    missionPlaybooks: buildAdminMissionPlaybookTemplates(),
     academyLeadMissions,
     federationLeadDatabase,
     federationConnectionRequests,

@@ -6441,7 +6441,118 @@ function normalizeLeadMissionPayload(body = {}) {
             sellerPriceAmount > 0
     };
 }
+function getAcademyMissionPlaybooks() {
+    return [
+        {
+            key: 'three-handshakes-away',
+            title: '3-Handshakes-Away Mission',
+            type: 'social_outreach',
+            order: 1,
+            status: 'active',
+            difficulty: 'beginner_friendly',
+            shortDescription: 'Use social media connection chains to reach valuable people through mutual links, replies, contacts, and directions.',
+            tools: [
+                'Instagram',
+                'Twitter/X',
+                'Public social profile',
+                'Google Sheet or Excel CRM',
+                'Screenshots',
+                'Optional AI rewriting'
+            ],
+            trackingFields: [
+                'targetName',
+                'targetProfileUrl',
+                'prospectName',
+                'prospectProfileUrl',
+                'platform',
+                'connectionLevel',
+                'messageSent',
+                'replyStatus',
+                'contactCollected',
+                'proofUrl',
+                'notes'
+            ],
+            rewards: {
+                level1: 9,
+                level2: 6,
+                level3: 3,
+                monthlyBonusTarget: 28,
+                monthlyBonusAmount: 28.12,
+                currency: 'USD'
+            }
+        },
+        {
+            key: 'cold-calling',
+            title: 'Cold-Calling Mission',
+            type: 'company_outreach',
+            order: 2,
+            status: 'active',
+            difficulty: 'direct_execution',
+            shortDescription: 'Call companies, collect direct contacts, build rapport, and warm leads for future Federation access.',
+            tools: [
+                'Phone number',
+                'Google Maps',
+                'Google Search',
+                'Company websites',
+                'ChatGPT/Gemini/Claude',
+                'Google Sheet or Excel CRM',
+                'WhatsApp',
+                'Optional Loom',
+                'Optional virtual number app'
+            ],
+            trackingFields: [
+                'companyName',
+                'industry',
+                'city',
+                'country',
+                'contactName',
+                'contactRole',
+                'leadTier',
+                'contactMethod',
+                'callResult',
+                'followUpStatus',
+                'proofUrl',
+                'notes'
+            ],
+            rewards: {
+                tier1: 9,
+                tier2: 6,
+                tier3: 3,
+                monthlyBonusTarget: 28,
+                monthlyBonusAmount: 28.12,
+                currency: 'USD'
+            }
+        }
+    ];
+}
 
+exports.getAcademyMissionPlaybooks = async (req, res) => {
+    try {
+        const uid = getAcademyAuthUid(req);
+
+        if (!uid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        return res.json({
+            success: true,
+            missionPlaybooks: getAcademyMissionPlaybooks(),
+            meta: {
+                source: 'academy_mission_playbooks_v1',
+                description: 'Canonical Academy mission playbooks shown in the Missions tab.'
+            }
+        });
+    } catch (error) {
+        console.error('getAcademyMissionPlaybooks error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load Academy Mission Playbooks.'
+        });
+    }
+};
 exports.listAcademyOpportunityMissions = async (req, res) => {
     try {
         const uid = getAcademyAuthUid(req);

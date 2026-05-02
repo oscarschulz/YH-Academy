@@ -83,6 +83,7 @@ router.post('/academy/assistant/chat', auth, academyControllers.chatWithAcademyC
 router.get('/dashboard/assistant/messages', auth, academyControllers.getDashboardAssistantMessages);
 router.post('/dashboard/assistant/chat', auth, academyControllers.chatWithDashboardAssistant);
 
+router.get('/academy/mission-playbooks', auth, academyControllers.getAcademyMissionPlaybooks);
 router.get('/academy/lead-missions/workspace', auth, academyControllers.getLeadMissionsWorkspace);
 router.get('/academy/opportunity-missions', auth, academyControllers.listAcademyOpportunityMissions);
 router.post('/academy/lead-missions/:id/submit', auth, academyControllers.submitRoutedLeadMission);
