@@ -12030,10 +12030,11 @@ body.academy-profile-image-preview-open {
 
 .academy-profile-cropper-stage {
     position: relative;
-    width: 100%;
+    width: min(100%, 560px);
     aspect-ratio: 1 / 1;
+    margin: 0 auto;
     overflow: hidden;
-    border-radius: 22px;
+    border-radius: 999px;
     border: 1px solid rgba(255, 255, 255, 0.08);
     background:
         radial-gradient(circle at top, rgba(56, 189, 248, 0.14), transparent 58%),
@@ -12044,7 +12045,9 @@ body.academy-profile-image-preview-open {
 }
 
 .academy-profile-cropper-overlay[data-crop-kind="cover"] .academy-profile-cropper-stage {
+    width: 100%;
     aspect-ratio: 8 / 3;
+    border-radius: 22px;
 }
 
 .academy-profile-cropper-stage.is-dragging {
@@ -12055,22 +12058,28 @@ body.academy-profile-image-preview-open {
     position: absolute;
     top: 50%;
     left: 50%;
+    display: block;
     max-width: none;
     max-height: none;
     transform-origin: center center;
     pointer-events: none;
     user-select: none;
     -webkit-user-drag: none;
+    will-change: width, height, transform;
 }
 
 .academy-profile-cropper-frame {
     position: absolute;
     inset: 0;
-    border-radius: 22px;
+    border-radius: inherit;
     pointer-events: none;
     box-shadow:
-        inset 0 0 0 2px rgba(255, 255, 255, 0.24),
+        inset 0 0 0 2px rgba(255, 255, 255, 0.28),
         inset 0 0 0 999px rgba(2, 6, 23, 0.06);
+}
+
+.academy-profile-cropper-overlay[data-crop-kind="cover"] .academy-profile-cropper-frame {
+    border-radius: 22px;
 }
 
 .academy-profile-cropper-controls {

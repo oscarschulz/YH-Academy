@@ -8052,14 +8052,54 @@ function academyProfileClampCropOffsets() {
     const stageRect = stage.getBoundingClientRect();
     const stageWidth = Math.max(1, stageRect.width || 0);
     const stageHeight = Math.max(1, stageRect.height || 0);
-    const scaledWidth = cropper.naturalWidth * cropper.scale;
-    const scaledHeight = cropper.naturalHeight * cropper.scale;
+    const scaledWidth = Math.max(1, cropper.naturalWidth * cropper.scale);
+    const scaledHeight = Math.max(1, cropper.naturalHeight * cropper.scale);
 
     const maxOffsetX = Math.max(0, (scaledWidth - stageWidth) / 2);
     const maxOffsetY = Math.max(0, (scaledHeight - stageHeight) / 2);
 
-    cropper.offsetX = Math.max(-maxOffsetX, Math.min(maxOffsetX, cropper.offsetX));
-    cropper.offsetY = Math.max(-maxOffsetY, Math.min(maxOffsetY, cropper.offsetY));
+    cropper.offsetX = maxOffsetX > 0
+        ? Math.max(-maxOffsetX, Math.min(maxOffsetX, cropper.offsetX))
+        : 0;
+
+    cropper.offsetY = maxOffsetY > 0
+        ? Math.max(-maxOffsetY, Math.min(maxOffsetY, cropper.offsetY))
+        : 0;
+}
+
+function academyProfileSetCropperScale(nextScale, anchorClientX = null, anchorClientY = null) {
+    const { stage, zoom } = academyProfileGetCropperElements();
+    const cropper = academyProfileEditorState.cropper;
+
+    if (!cropper.kind) return;
+
+    const minScale = Math.max(0.0001, Number(cropper.minScale) || 1);
+    const maxScale = Math.max(minScale, Number(cropper.maxScale) || minScale);
+    const previousScale = Math.max(minScale, Number(cropper.scale) || minScale);
+    const cleanScale = Number.parseFloat(nextScale);
+    const clampedScale = Number.isFinite(cleanScale)
+        ? Math.max(minScale, Math.min(maxScale, cleanScale))
+        : minScale;
+
+    if (stage && Number.isFinite(anchorClientX) && Number.isFinite(anchorClientY)) {
+        const rect = stage.getBoundingClientRect();
+        const anchorX = anchorClientX - rect.left - (rect.width / 2);
+        const anchorY = anchorClientY - rect.top - (rect.height / 2);
+        const scaleRatio = clampedScale / previousScale;
+
+        cropper.offsetX = anchorX - ((anchorX - cropper.offsetX) * scaleRatio);
+        cropper.offsetY = anchorY - ((anchorY - cropper.offsetY) * scaleRatio);
+    }
+
+    cropper.scale = clampedScale;
+
+    academyProfileClampCropOffsets();
+
+    if (zoom) {
+        zoom.value = String(cropper.scale);
+    }
+
+    academyProfileRenderCropper();
 }
 
 function academyProfileRenderCropper() {
@@ -8078,8 +8118,8 @@ function academyProfileRenderCropper() {
 
     if (note) {
         note.innerText = cropper.kind === 'cover'
-            ? 'Drag and zoom until the wide crop looks right, then apply it.'
-            : 'Drag and zoom until the square crop looks right, then apply it.';
+            ? 'Drag the image to position it, then zoom in/out until the wide crop looks right.'
+            : 'Drag the image inside the circle, then zoom in/out until your face/content is centered.';
     }
 
     if (zoom) {
@@ -8089,9 +8129,13 @@ function academyProfileRenderCropper() {
         zoom.value = String(cropper.scale || cropper.minScale || 1);
     }
 
-    image.style.width = `${cropper.naturalWidth}px`;
-    image.style.height = `${cropper.naturalHeight}px`;
-    image.style.transform = `translate(calc(-50% + ${cropper.offsetX}px), calc(-50% + ${cropper.offsetY}px)) scale(${cropper.scale})`;
+    const renderedWidth = Math.max(1, cropper.naturalWidth * cropper.scale);
+    const renderedHeight = Math.max(1, cropper.naturalHeight * cropper.scale);
+
+    image.style.width = `${renderedWidth}px`;
+    image.style.height = `${renderedHeight}px`;
+    image.style.objectFit = 'contain';
+    image.style.transform = `translate(calc(-50% + ${cropper.offsetX}px), calc(-50% + ${cropper.offsetY}px))`;
 }
 
 function academyProfileCloseCropperModal() {
@@ -8176,11 +8220,12 @@ function academyProfileOpenCropper(file, kind = 'avatar') {
                 stageWidth / cropper.naturalWidth,
                 stageHeight / cropper.naturalHeight
             );
-            cropper.maxScale = Math.max(cropper.minScale * 4, cropper.minScale + 0.25);
+            cropper.maxScale = Math.max(cropper.minScale * 6, cropper.minScale + 1.5, 2);
             cropper.scale = cropper.minScale;
             cropper.offsetX = 0;
             cropper.offsetY = 0;
 
+            academyProfileClampCropOffsets();
             academyProfileRenderCropper();
         });
     };
@@ -8314,13 +8359,7 @@ function ensureAcademyProfileCropperBindings() {
         const cropper = academyProfileEditorState.cropper;
         if (!cropper.kind) return;
 
-        const nextScale = Number.parseFloat(event.target.value);
-        cropper.scale = Number.isFinite(nextScale)
-            ? Math.max(cropper.minScale, Math.min(cropper.maxScale, nextScale))
-            : cropper.minScale;
-
-        academyProfileClampCropOffsets();
-        academyProfileRenderCropper();
+        academyProfileSetCropperScale(event.target.value);
     });
 
     stage?.addEventListener('pointerdown', (event) => {
@@ -8361,6 +8400,12 @@ function ensureAcademyProfileCropperBindings() {
         if (!cropper.dragging) return;
         if (event?.pointerId !== undefined && cropper.pointerId !== event.pointerId) return;
 
+        try {
+            if (stage && event?.pointerId !== undefined) {
+                stage.releasePointerCapture(event.pointerId);
+            }
+        } catch (_) {}
+
         cropper.dragging = false;
         cropper.pointerId = null;
         stage?.classList.remove('is-dragging');
@@ -8368,6 +8413,19 @@ function ensureAcademyProfileCropperBindings() {
 
     stage?.addEventListener('pointerup', endCropDrag);
     stage?.addEventListener('pointercancel', endCropDrag);
+
+    stage?.addEventListener('wheel', (event) => {
+        const cropper = academyProfileEditorState.cropper;
+        if (!cropper.kind) return;
+
+        event.preventDefault();
+
+        const direction = event.deltaY > 0 ? -1 : 1;
+        const zoomStep = Math.max(0.03, cropper.scale * 0.08);
+        const nextScale = cropper.scale + (direction * zoomStep);
+
+        academyProfileSetCropperScale(nextScale, event.clientX, event.clientY);
+    }, { passive: false });
 
     window.addEventListener('resize', () => {
         const cropper = academyProfileEditorState.cropper;
@@ -8385,7 +8443,7 @@ function ensureAcademyProfileCropperBindings() {
                 stageWidth / cropper.naturalWidth,
                 stageHeight / cropper.naturalHeight
             );
-            cropper.maxScale = Math.max(cropper.minScale * 4, cropper.minScale + 0.25);
+            cropper.maxScale = Math.max(cropper.minScale * 6, cropper.minScale + 1.5, 2);
             cropper.scale = Math.max(cropper.minScale, Math.min(cropper.maxScale, cropper.scale));
 
             academyProfileClampCropOffsets();
