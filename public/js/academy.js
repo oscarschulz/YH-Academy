@@ -5984,14 +5984,12 @@ function academyStartRoadmapAiMotion() {
 
     roadmapAiMoveCount = 0;
 
-    academySetRoadmapAiBubbleText('Talk to me!');
-    window.setTimeout(() => {
-        if (!academyMoveRoadmapAiNearCurrentMission()) {
-            academyMoveRoadmapAiRandomly();
-        }
-    }, 250);
+    agent.style.removeProperty('--roadmap-ai-x');
+    agent.style.removeProperty('--roadmap-ai-y');
+    agent.classList.remove('is-near-current', 'is-random-moving', 'is-bouncing');
 
-    roadmapAiMotionTimer = window.setInterval(academyMoveRoadmapAiRandomly, 5200);
+    academySetRoadmapAiBubbleText('Need help?');
+
     roadmapAiBubbleTimer = window.setInterval(academyRotateRoadmapAiBubble, 3800);
 }
 function academyNormalizeRoadmapFoundationMissions(missions = [], system = {}) {
@@ -6227,6 +6225,11 @@ function academyInjectRoadmapTransformationSystem(homeData = {}) {
 
     stack.querySelector('.roadmap-transformation-system')?.remove();
 
+    academyStopRoadmapAiMotion();
+    document.querySelectorAll('body > .roadmap-ai-play-zone').forEach((node) => {
+        node.remove();
+    });
+
     const system = homeData?.transformationSystem && typeof homeData.transformationSystem === 'object'
         ? homeData.transformationSystem
         : {};
@@ -6368,6 +6371,14 @@ function academyInjectRoadmapTransformationSystem(homeData = {}) {
     `;
 
     stack.prepend(section);
+
+    const roadmapAiPlayZone = section.querySelector('.roadmap-ai-play-zone');
+
+    if (roadmapAiPlayZone) {
+        document.body.appendChild(roadmapAiPlayZone);
+        academySetRoadmapAiBubbleText('Need help?');
+        academyStartRoadmapAiMotion();
+    }
 }
 
 function academyInstallRoadmapTransformationActions() {
