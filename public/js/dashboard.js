@@ -12465,8 +12465,56 @@ function openDashboardUniverseProfileEditor() {
     overlay.classList.remove('hidden-step');
 }
 
-function closeDashboardUniverseProfileEditor() {
+const YH_DASHBOARD_PROFILE_RETURN_TO_ACADEMY_ROADMAP_KEY = 'yh_dashboard_profile_return_to_academy_roadmap_v1';
+const YH_DASHBOARD_PROFILE_RETURN_SOURCE_KEY = 'yh_dashboard_profile_return_source_v1';
+
+function dashboardShouldReturnToAcademyRoadmapAfterProfileEdit() {
+    try {
+        const params = new URL(window.location.href).searchParams;
+
+        return (
+            sessionStorage.getItem(YH_DASHBOARD_PROFILE_RETURN_TO_ACADEMY_ROADMAP_KEY) === '1' ||
+            (
+                params.get('source') === 'academy-readiness' &&
+                params.get('return') === 'academy-roadmap'
+            )
+        );
+    } catch (_) {
+        return false;
+    }
+}
+
+function dashboardClearAcademyRoadmapProfileReturnState() {
+    try {
+        sessionStorage.removeItem(YH_DASHBOARD_PROFILE_RETURN_TO_ACADEMY_ROADMAP_KEY);
+        sessionStorage.removeItem(YH_DASHBOARD_PROFILE_RETURN_SOURCE_KEY);
+        sessionStorage.removeItem('yh_open_dashboard_profile_editor_v1');
+    } catch (_) {}
+}
+
+function dashboardReturnToAcademyRoadmapAfterProfileEdit() {
+    if (!dashboardShouldReturnToAcademyRoadmapAfterProfileEdit()) return false;
+
+    try {
+        sessionStorage.setItem('yh_academy_startup_section_v1', 'missions');
+        sessionStorage.setItem('yh_academy_profile_return_refresh_v1', '1');
+    } catch (_) {}
+
+    dashboardClearAcademyRoadmapProfileReturnState();
+
+    window.setTimeout(() => {
+        window.location.href = '/academy?section=missions&source=profile-readiness-return';
+    }, 120);
+
+    return true;
+}
+
+function closeDashboardUniverseProfileEditor(options = {}) {
     document.getElementById('yh-dashboard-profile-editor-overlay')?.classList.add('hidden-step');
+
+    if (options?.skipAcademyReturn === true) return;
+
+    dashboardReturnToAcademyRoadmapAfterProfileEdit();
 }
 
 function bootDashboardProfileEditorDeepLink() {
@@ -12493,7 +12541,7 @@ function bootDashboardProfileEditorDeepLink() {
         if (typeof openDashboardUniverseProfileEditor === 'function') {
             openDashboardUniverseProfileEditor();
         }
-    }, 520);
+    }, 420);
 }
 
 if (document.readyState === 'loading') {

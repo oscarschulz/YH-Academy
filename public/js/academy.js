@@ -229,6 +229,23 @@ window.addEventListener('pageshow', () => {
         if (typeof syncAcademyMobileProfileSpacingGuard === 'function') {
             syncAcademyMobileProfileSpacingGuard();
         }
+
+        try {
+            const shouldRefreshRoadmap =
+                sessionStorage.getItem('yh_academy_profile_return_refresh_v1') === '1';
+
+            if (shouldRefreshRoadmap) {
+                sessionStorage.removeItem('yh_academy_profile_return_refresh_v1');
+
+                window.setTimeout(() => {
+                    if (typeof handleAcademyRoadmapTabIntent === 'function') {
+                        handleAcademyRoadmapTabIntent();
+                    } else {
+                        document.getElementById('nav-missions')?.click();
+                    }
+                }, 420);
+            }
+        } catch (_) {}
     });
 });
 
@@ -5628,9 +5645,12 @@ function academyRenderHomeSignalGroup(values = [], emptyLabel = 'Nothing added y
 function academyOpenDashboardProfileEditorFromReadiness() {
     try {
         sessionStorage.setItem('yh_open_dashboard_profile_editor_v1', '1');
+        sessionStorage.setItem('yh_dashboard_profile_return_to_academy_roadmap_v1', '1');
+        sessionStorage.setItem('yh_dashboard_profile_return_source_v1', 'academy-readiness');
+        sessionStorage.setItem('yh_academy_startup_section_v1', 'missions');
     } catch (_) {}
 
-    window.location.href = '/dashboard?profile=edit&source=academy-readiness';
+    window.location.href = '/dashboard?profile=edit&source=academy-readiness&return=academy-roadmap';
 }
 
 if (!window.__academyPlazaReadinessProfileEditBound) {
