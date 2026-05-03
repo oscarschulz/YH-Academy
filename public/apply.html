@@ -7,7 +7,7 @@
     <link rel="icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
 <link rel="stylesheet" href="/css/responsive-apply.css?v=20260416-apply-responsive-1">
-<link rel="stylesheet" href="/css/style.css?v=20260502-safari-scroll-1">
+<link rel="stylesheet" href="/css/style.css?v=20260503-auth-profile-crop-01">
 </head>
 <body data-yh-page="apply">
 
@@ -350,7 +350,40 @@
         <label for="reg-profile-photo" class="yh-upload-label" id="reg-profile-photo-label">
             Choose profile photo
         </label>
-        <div class="yh-upload-help">Required. JPG, PNG, WEBP accepted.</div>
+
+        <div id="reg-profile-photo-preview" class="yh-upload-preview hidden-step" aria-hidden="true">
+            <img id="reg-profile-photo-preview-img" class="yh-upload-preview-img" alt="Cropped profile preview">
+            <button type="button" id="reg-profile-photo-recrop" class="yh-upload-recrop-btn">Adjust crop</button>
+        </div>
+
+        <div class="yh-upload-help">Required. JPG, PNG, WEBP accepted. You can drag and crop before creating your account.</div>
+    </div>
+</div>
+
+<div id="yh-profile-cropper-modal" class="yh-profile-cropper-modal hidden-step" aria-hidden="true">
+    <div class="yh-profile-cropper-dialog" role="dialog" aria-modal="true" aria-labelledby="yh-profile-cropper-title">
+        <div class="yh-profile-cropper-head">
+            <div>
+                <h3 id="yh-profile-cropper-title">Crop Profile Photo</h3>
+                <p>Drag the image to position it, then zoom until it fits perfectly.</p>
+            </div>
+            <button type="button" id="yh-profile-cropper-close" class="yh-profile-cropper-close" aria-label="Close cropper">×</button>
+        </div>
+
+        <div class="yh-profile-cropper-body">
+            <div id="yh-profile-cropper-stage" class="yh-profile-cropper-stage">
+                <img id="yh-profile-cropper-image" alt="Profile photo crop area" draggable="false">
+                <div class="yh-profile-cropper-ring" aria-hidden="true"></div>
+            </div>
+
+            <label class="yh-profile-cropper-zoom-label" for="yh-profile-cropper-zoom">Zoom</label>
+            <input type="range" id="yh-profile-cropper-zoom" class="yh-profile-cropper-zoom" min="1" max="4" step="0.01" value="1">
+        </div>
+
+        <div class="yh-profile-cropper-actions">
+            <button type="button" id="yh-profile-cropper-cancel" class="btn-secondary">Cancel</button>
+            <button type="button" id="yh-profile-cropper-apply" class="btn-primary">Use Cropped Photo</button>
+        </div>
     </div>
 </div>
 
@@ -516,6 +549,6 @@
     </div>
 
 <script src="https://cdn.jsdelivr.net/npm/globe.gl"></script>
-<script src="/js/apply.js?v=20260502-safari-scroll-1"></script>
+<script src="/js/apply.js?v=20260503-auth-profile-crop-01"></script>
 </body>
 </html>

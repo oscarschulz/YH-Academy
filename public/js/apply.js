@@ -1598,37 +1598,241 @@ const readFileAsDataURL = (file) => new Promise((resolve, reject) => {
     reader.readAsDataURL(file);
 });
 
+const createImageFromDataURL = (dataUrl) => new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = dataUrl;
+});
+
+const cropImageElementToDataURL = (img, crop = {}, size = 320, quality = 0.82) => new Promise((resolve, reject) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+        reject(new Error('Canvas is not supported.'));
+        return;
+    }
+
+    const sourceX = Number.isFinite(Number(crop.sourceX)) ? Number(crop.sourceX) : 0;
+    const sourceY = Number.isFinite(Number(crop.sourceY)) ? Number(crop.sourceY) : 0;
+    const sourceWidth = Number.isFinite(Number(crop.sourceWidth)) ? Number(crop.sourceWidth) : img.width;
+    const sourceHeight = Number.isFinite(Number(crop.sourceHeight)) ? Number(crop.sourceHeight) : img.height;
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(
+        img,
+        sourceX,
+        sourceY,
+        sourceWidth,
+        sourceHeight,
+        0,
+        0,
+        size,
+        size
+    );
+
+    resolve(canvas.toDataURL('image/jpeg', quality));
+});
+
 const compressImageToDataURL = (file, size = 320, quality = 0.82) => new Promise((resolve, reject) => {
     const reader = new FileReader();
 
-    reader.onload = () => {
-        const img = new Image();
-        img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = size;
-            canvas.height = size;
-
-            const ctx = canvas.getContext('2d');
-            if (!ctx) {
-                reject(new Error('Canvas is not supported.'));
-                return;
-            }
-
+    reader.onload = async () => {
+        try {
+            const img = await createImageFromDataURL(reader.result);
             const side = Math.min(img.width, img.height);
             const sx = (img.width - side) / 2;
             const sy = (img.height - side) / 2;
 
-            ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size);
-            resolve(canvas.toDataURL('image/jpeg', quality));
-        };
+            const dataUrl = await cropImageElementToDataURL(img, {
+                sourceX: sx,
+                sourceY: sy,
+                sourceWidth: side,
+                sourceHeight: side
+            }, size, quality);
 
-        img.onerror = reject;
-        img.src = reader.result;
+            resolve(dataUrl);
+        } catch (error) {
+            reject(error);
+        }
     };
 
     reader.onerror = reject;
     reader.readAsDataURL(file);
 });
+
+const yhRegisterProfileCropState = {
+    file: null,
+    dataUrl: '',
+    image: null,
+    naturalWidth: 0,
+    naturalHeight: 0,
+    baseWidth: 0,
+    baseHeight: 0,
+    scale: 1,
+    x: 0,
+    y: 0,
+    isDragging: false,
+    pointerId: null,
+    dragStartX: 0,
+    dragStartY: 0,
+    startX: 0,
+    startY: 0,
+    croppedDataUrl: ''
+};
+
+const getRegisterCropperElements = () => ({
+    modal: document.getElementById('yh-profile-cropper-modal'),
+    stage: document.getElementById('yh-profile-cropper-stage'),
+    imageEl: document.getElementById('yh-profile-cropper-image'),
+    zoom: document.getElementById('yh-profile-cropper-zoom'),
+    closeBtn: document.getElementById('yh-profile-cropper-close'),
+    cancelBtn: document.getElementById('yh-profile-cropper-cancel'),
+    applyBtn: document.getElementById('yh-profile-cropper-apply'),
+    input: document.getElementById('reg-profile-photo'),
+    label: document.getElementById('reg-profile-photo-label'),
+    preview: document.getElementById('reg-profile-photo-preview'),
+    previewImg: document.getElementById('reg-profile-photo-preview-img'),
+    recropBtn: document.getElementById('reg-profile-photo-recrop')
+});
+
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
+const updateRegisterCropperImage = () => {
+    const { stage, imageEl, zoom } = getRegisterCropperElements();
+    if (!stage || !imageEl || !yhRegisterProfileCropState.image) return;
+
+    const stageRect = stage.getBoundingClientRect();
+    const stageSize = Math.max(1, Math.min(stageRect.width, stageRect.height));
+    const naturalWidth = yhRegisterProfileCropState.naturalWidth;
+    const naturalHeight = yhRegisterProfileCropState.naturalHeight;
+
+    const baseScale = Math.max(stageSize / naturalWidth, stageSize / naturalHeight);
+    const baseWidth = naturalWidth * baseScale;
+    const baseHeight = naturalHeight * baseScale;
+
+    yhRegisterProfileCropState.baseWidth = baseWidth;
+    yhRegisterProfileCropState.baseHeight = baseHeight;
+
+    const scaledWidth = baseWidth * yhRegisterProfileCropState.scale;
+    const scaledHeight = baseHeight * yhRegisterProfileCropState.scale;
+    const maxX = Math.max(0, (scaledWidth - stageSize) / 2);
+    const maxY = Math.max(0, (scaledHeight - stageSize) / 2);
+
+    yhRegisterProfileCropState.x = clamp(yhRegisterProfileCropState.x, -maxX, maxX);
+    yhRegisterProfileCropState.y = clamp(yhRegisterProfileCropState.y, -maxY, maxY);
+
+    imageEl.style.width = `${baseWidth}px`;
+    imageEl.style.height = `${baseHeight}px`;
+    imageEl.style.transform = `translate(-50%, -50%) translate(${yhRegisterProfileCropState.x}px, ${yhRegisterProfileCropState.y}px) scale(${yhRegisterProfileCropState.scale})`;
+
+    if (zoom) zoom.value = String(yhRegisterProfileCropState.scale);
+};
+
+const openRegisterProfileCropper = async (file) => {
+    const { modal, imageEl, zoom, label } = getRegisterCropperElements();
+    if (!modal || !imageEl || !file) return;
+
+    const dataUrl = await readFileAsDataURL(file);
+    const img = await createImageFromDataURL(dataUrl);
+
+    yhRegisterProfileCropState.file = file;
+    yhRegisterProfileCropState.dataUrl = dataUrl;
+    yhRegisterProfileCropState.image = img;
+    yhRegisterProfileCropState.naturalWidth = img.width;
+    yhRegisterProfileCropState.naturalHeight = img.height;
+    yhRegisterProfileCropState.scale = 1;
+    yhRegisterProfileCropState.x = 0;
+    yhRegisterProfileCropState.y = 0;
+    yhRegisterProfileCropState.croppedDataUrl = '';
+
+    imageEl.src = dataUrl;
+    imageEl.alt = file.name || 'Selected profile photo';
+    if (zoom) zoom.value = '1';
+    if (label) label.innerText = 'Crop selected photo';
+
+    modal.classList.remove('hidden-step');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('yh-profile-cropper-open');
+
+    requestAnimationFrame(updateRegisterCropperImage);
+};
+
+const closeRegisterProfileCropper = () => {
+    const { modal } = getRegisterCropperElements();
+    if (!modal) return;
+
+    modal.classList.add('hidden-step');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('yh-profile-cropper-open');
+};
+
+const clearRegisterProfileCropper = () => {
+    const { input, label, preview, previewImg, imageEl } = getRegisterCropperElements();
+
+    yhRegisterProfileCropState.file = null;
+    yhRegisterProfileCropState.dataUrl = '';
+    yhRegisterProfileCropState.image = null;
+    yhRegisterProfileCropState.naturalWidth = 0;
+    yhRegisterProfileCropState.naturalHeight = 0;
+    yhRegisterProfileCropState.scale = 1;
+    yhRegisterProfileCropState.x = 0;
+    yhRegisterProfileCropState.y = 0;
+    yhRegisterProfileCropState.croppedDataUrl = '';
+
+    if (input) input.value = '';
+    if (label) label.innerText = yhT('auth.choosePhoto');
+    if (preview) {
+        preview.classList.add('hidden-step');
+        preview.setAttribute('aria-hidden', 'true');
+    }
+    if (previewImg) previewImg.removeAttribute('src');
+    if (imageEl) imageEl.removeAttribute('src');
+};
+
+const getRegisterCropSourceRect = () => {
+    const { stage } = getRegisterCropperElements();
+    const img = yhRegisterProfileCropState.image;
+    if (!stage || !img) return null;
+
+    const stageRect = stage.getBoundingClientRect();
+    const stageSize = Math.max(1, Math.min(stageRect.width, stageRect.height));
+    const renderScale = (yhRegisterProfileCropState.baseWidth * yhRegisterProfileCropState.scale) / img.width;
+
+    return {
+        sourceX: ((-stageSize / 2) - yhRegisterProfileCropState.x) / renderScale + (img.width / 2),
+        sourceY: ((-stageSize / 2) - yhRegisterProfileCropState.y) / renderScale + (img.height / 2),
+        sourceWidth: stageSize / renderScale,
+        sourceHeight: stageSize / renderScale
+    };
+};
+
+const applyRegisterProfileCrop = async () => {
+    const { label, preview, previewImg } = getRegisterCropperElements();
+    const img = yhRegisterProfileCropState.image;
+    const crop = getRegisterCropSourceRect();
+
+    if (!img || !crop) {
+        showToast('Please choose a profile photo first.', 'error');
+        return;
+    }
+
+    const croppedDataUrl = await cropImageElementToDataURL(img, crop, 320, 0.82);
+    yhRegisterProfileCropState.croppedDataUrl = croppedDataUrl;
+
+    if (previewImg) previewImg.src = croppedDataUrl;
+    if (preview) {
+        preview.classList.remove('hidden-step');
+        preview.setAttribute('aria-hidden', 'false');
+    }
+    if (label) label.innerText = yhRegisterProfileCropState.file?.name || 'Profile photo ready';
+
+    closeRegisterProfileCropper();
+};
 
 const bindPasswordVisibilityToggles = () => {
     document.querySelectorAll('.yh-password-toggle').forEach((btn) => {
@@ -1645,27 +1849,123 @@ const bindPasswordVisibilityToggles = () => {
 };
 
 const bindRegisterPhotoUpload = () => {
-    const input = document.getElementById('reg-profile-photo');
-    const label = document.getElementById('reg-profile-photo-label');
+    const {
+        input,
+        label,
+        stage,
+        zoom,
+        closeBtn,
+        cancelBtn,
+        applyBtn,
+        recropBtn
+    } = getRegisterCropperElements();
 
     if (!input || !label) return;
 
-    input.addEventListener('change', () => {
+    input.addEventListener('change', async () => {
         const file = input.files?.[0];
 
         if (!file) {
-            label.innerText = yhT('auth.choosePhoto');
+            clearRegisterProfileCropper();
             return;
         }
 
         if (!file.type.startsWith('image/')) {
             showToast('Please choose an image file.', 'error');
-            input.value = '';
-            label.innerText = yhT('auth.choosePhoto');
+            clearRegisterProfileCropper();
             return;
         }
 
-        label.innerText = file.name;
+        try {
+            await openRegisterProfileCropper(file);
+        } catch (error) {
+            showToast('Unable to open this image. Please choose another photo.', 'error');
+            clearRegisterProfileCropper();
+        }
+    });
+
+    if (zoom) {
+        zoom.addEventListener('input', () => {
+            yhRegisterProfileCropState.scale = Number(zoom.value) || 1;
+            updateRegisterCropperImage();
+        });
+    }
+
+    if (stage) {
+        stage.addEventListener('pointerdown', (event) => {
+            if (!yhRegisterProfileCropState.image) return;
+
+            yhRegisterProfileCropState.isDragging = true;
+            yhRegisterProfileCropState.pointerId = event.pointerId;
+            yhRegisterProfileCropState.dragStartX = event.clientX;
+            yhRegisterProfileCropState.dragStartY = event.clientY;
+            yhRegisterProfileCropState.startX = yhRegisterProfileCropState.x;
+            yhRegisterProfileCropState.startY = yhRegisterProfileCropState.y;
+
+            stage.setPointerCapture?.(event.pointerId);
+            stage.classList.add('is-dragging');
+            event.preventDefault();
+        });
+
+        stage.addEventListener('pointermove', (event) => {
+            if (!yhRegisterProfileCropState.isDragging) return;
+
+            yhRegisterProfileCropState.x = yhRegisterProfileCropState.startX + (event.clientX - yhRegisterProfileCropState.dragStartX);
+            yhRegisterProfileCropState.y = yhRegisterProfileCropState.startY + (event.clientY - yhRegisterProfileCropState.dragStartY);
+            updateRegisterCropperImage();
+        });
+
+        const stopDragging = (event) => {
+            if (!yhRegisterProfileCropState.isDragging) return;
+
+            yhRegisterProfileCropState.isDragging = false;
+            stage.classList.remove('is-dragging');
+            if (event?.pointerId === yhRegisterProfileCropState.pointerId) {
+                stage.releasePointerCapture?.(event.pointerId);
+            }
+            yhRegisterProfileCropState.pointerId = null;
+        };
+
+        stage.addEventListener('pointerup', stopDragging);
+        stage.addEventListener('pointercancel', stopDragging);
+        stage.addEventListener('lostpointercapture', stopDragging);
+    }
+
+    closeBtn?.addEventListener('click', () => {
+        if (!yhRegisterProfileCropState.croppedDataUrl) {
+            clearRegisterProfileCropper();
+        }
+        closeRegisterProfileCropper();
+    });
+
+    cancelBtn?.addEventListener('click', () => {
+        if (!yhRegisterProfileCropState.croppedDataUrl) {
+            clearRegisterProfileCropper();
+        }
+        closeRegisterProfileCropper();
+    });
+
+    applyBtn?.addEventListener('click', () => {
+        applyRegisterProfileCrop().catch(() => {
+            showToast('Could not crop this image. Please try another photo.', 'error');
+        });
+    });
+
+    recropBtn?.addEventListener('click', () => {
+        if (!yhRegisterProfileCropState.file) {
+            input.click();
+            return;
+        }
+
+        openRegisterProfileCropper(yhRegisterProfileCropState.file).catch(() => {
+            showToast('Unable to reopen this image. Please choose another photo.', 'error');
+            clearRegisterProfileCropper();
+        });
+    });
+
+    window.addEventListener('resize', () => {
+        if (!yhRegisterProfileCropState.image) return;
+        requestAnimationFrame(updateRegisterCropperImage);
     });
 };
     const bootstrapPendingVerification = () => {
@@ -1841,7 +2141,8 @@ if (formRegisterSimple) {
         submitBtn.disabled = true;
 
         try {
-            const profilePhotoDataUrl = await compressImageToDataURL(profilePhotoFile, 320, 0.82);
+            const profilePhotoDataUrl = yhRegisterProfileCropState.croppedDataUrl ||
+                await compressImageToDataURL(profilePhotoFile, 320, 0.82);
 
             const response = await fetch('/api/register', {
                 method: 'POST',
@@ -1875,6 +2176,7 @@ if (formRegisterSimple) {
                 }
 
                 formRegisterSimple.reset();
+                clearRegisterProfileCropper();
 
                 showStep(1);
                 flipToLogin();

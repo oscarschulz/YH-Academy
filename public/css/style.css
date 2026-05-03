@@ -9850,6 +9850,12 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
     display: flex;
     justify-content: center;
     align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 10px 12px;
+    border: 1px solid rgba(56, 189, 248, 0.18);
+    border-radius: 14px;
+    background: rgba(2, 8, 23, 0.28);
 }
 
 .yh-upload-preview-img {
@@ -9859,6 +9865,167 @@ body[data-yh-view="hub"] .yh-universe-carousel-shell {
     object-fit: cover;
     border: 1px solid rgba(56, 189, 248, 0.3);
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+}
+
+.yh-upload-recrop-btn {
+    width: auto;
+    min-height: 36px;
+    padding: 0 14px;
+    border-radius: 999px;
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    background: rgba(14, 165, 233, 0.08);
+    color: var(--neon-blue);
+    font-size: 0.78rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.yh-upload-recrop-btn:hover {
+    background: rgba(14, 165, 233, 0.16);
+    color: #fff;
+}
+
+body.yh-profile-cropper-open {
+    overflow: hidden;
+}
+
+.yh-profile-cropper-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 15000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(2, 6, 23, 0.76);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+}
+
+.yh-profile-cropper-dialog {
+    width: min(94vw, 430px);
+    border: 1px solid rgba(56, 189, 248, 0.24);
+    border-radius: 22px;
+    background:
+        radial-gradient(circle at top, rgba(56, 189, 248, 0.12), transparent 42%),
+        rgba(12, 23, 42, 0.98);
+    box-shadow: 0 28px 80px rgba(0, 0, 0, 0.52);
+    padding: 18px;
+}
+
+.yh-profile-cropper-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 16px;
+}
+
+.yh-profile-cropper-head h3 {
+    margin: 0 0 6px;
+    color: #fff;
+    font-size: 1.05rem;
+}
+
+.yh-profile-cropper-head p {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    line-height: 1.4;
+}
+
+.yh-profile-cropper-close {
+    width: 34px;
+    height: 34px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06);
+    color: #fff;
+    cursor: pointer;
+    font-size: 1.2rem;
+    line-height: 1;
+}
+
+.yh-profile-cropper-body {
+    display: grid;
+    justify-items: center;
+    gap: 12px;
+}
+
+.yh-profile-cropper-stage {
+    position: relative;
+    width: min(72vw, 280px);
+    height: min(72vw, 280px);
+    min-width: 210px;
+    min-height: 210px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.38);
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    border: 1px solid rgba(56, 189, 248, 0.18);
+    box-shadow:
+        inset 0 0 0 999px rgba(2, 6, 23, 0.02),
+        0 20px 52px rgba(0, 0, 0, 0.38);
+}
+
+.yh-profile-cropper-stage.is-dragging {
+    cursor: grabbing;
+}
+
+.yh-profile-cropper-stage img {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    max-width: none;
+    height: auto;
+    transform-origin: center center;
+    user-select: none;
+    pointer-events: none;
+    will-change: transform;
+}
+
+.yh-profile-cropper-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    border: 2px solid rgba(255, 255, 255, 0.86);
+    box-shadow:
+        inset 0 0 0 1px rgba(56, 189, 248, 0.34),
+        0 0 0 999px rgba(2, 6, 23, 0.28);
+    pointer-events: none;
+}
+
+.yh-profile-cropper-zoom-label {
+    width: min(72vw, 280px);
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-weight: 800;
+}
+
+.yh-profile-cropper-zoom {
+    width: min(72vw, 280px);
+    accent-color: var(--neon-blue);
+}
+
+.yh-profile-cropper-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 16px;
+}
+
+@media (max-width: 520px) {
+    .yh-profile-cropper-dialog {
+        padding: 16px;
+        border-radius: 18px;
+    }
+
+    .yh-profile-cropper-actions {
+        grid-template-columns: 1fr;
+    }
 }
 
 .yh-password-shell {
