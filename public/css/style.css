@@ -1770,8 +1770,10 @@ body.yh-notif-menu-open::after {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: 18px;
-    min-height: 760px;
-    overflow: hidden;
+    width: 100%;
+    max-width: none;
+    min-height: 0;
+    overflow: visible;
 }
 
 .roadmap-clean-main {
@@ -2267,16 +2269,20 @@ body.yh-notif-menu-open::after {
 }
 
 .roadmap-ai-play-zone {
-    position: absolute;
-    inset: 18px;
-    z-index: 20;
+    position: fixed;
+    right: clamp(18px, 3vw, 34px);
+    bottom: clamp(82px, 8vh, 118px);
+    z-index: 1090;
+    width: auto;
+    height: auto;
+    inset: auto;
     pointer-events: none;
 }
 
 .roadmap-ai-agent {
-    position: absolute;
-    top: 0;
-    left: 0;
+    position: relative;
+    top: auto;
+    left: auto;
     z-index: 21;
     display: inline-flex;
     align-items: center;
@@ -2286,12 +2292,12 @@ body.yh-notif-menu-open::after {
     color: #f8fafc;
     pointer-events: auto;
     cursor: pointer;
-    transform: translate3d(var(--roadmap-ai-x, 18px), var(--roadmap-ai-y, 18px), 0);
+    transform: none;
     transition:
-        transform 1.15s cubic-bezier(0.22, 1, 0.36, 1),
         filter 0.25s ease,
         opacity 0.25s ease;
-    will-change: transform;
+    will-change: filter, opacity;
+    animation: roadmapAiFloat 2.8s ease-in-out infinite alternate;
 }
 
 .roadmap-ai-bubble {
@@ -2427,15 +2433,17 @@ body.yh-notif-menu-open::after {
     }
 
     .roadmap-clean-shell {
-        min-height: 860px;
+        min-height: 0;
     }
 
     .roadmap-ai-play-zone {
-        inset: 14px;
+        right: 18px;
+        bottom: 92px;
+        inset: auto;
     }
 
     .roadmap-ai-agent {
-        transition-duration: 0.9s;
+        transition-duration: 0.25s;
     }
 
     .roadmap-coach-panel {
@@ -2486,19 +2494,19 @@ body.yh-notif-menu-open::after {
     }
 
     .roadmap-clean-shell {
-        min-height: 920px;
+        min-height: 0;
     }
 
     .roadmap-ai-play-zone {
-        inset: 10px;
+        right: 12px;
+        bottom: 86px;
+        inset: auto;
     }
 
     .roadmap-ai-agent {
-        transform:
-            translate3d(var(--roadmap-ai-x, 10px), var(--roadmap-ai-y, 10px), 0)
-            scale(0.88);
-        transform-origin: top left;
-        transition-duration: 0.85s;
+        transform: scale(0.88);
+        transform-origin: bottom right;
+        transition-duration: 0.25s;
     }
 
     .roadmap-coach-panel {
@@ -3271,6 +3279,9 @@ body[data-yh-view="academy"] .chat-messages {
     display: flex;
     flex-direction: column;
     gap: 14px;
+    width: 100%;
+    max-width: none;
+    margin: 0;
     padding-bottom: 12px;
 }
 
@@ -3535,15 +3546,28 @@ body[data-yh-view="academy"] .chat-messages {
     padding: 0;
 }
 
-#academy-chat[data-chat-mode="home"] .academy-home-stack {
+#academy-chat[data-chat-mode="home"] .academy-messages-thread-shell,
+#academy-chat[data-chat-mode="home"] .academy-messages-thread-shell #dynamic-chat-history,
+#academy-chat[data-chat-mode="home"] #chat-welcome-box,
+#academy-chat[data-chat-mode="home"] .academy-home-stack,
+#academy-chat[data-chat-mode="home"] .roadmap-transformation-system,
+#academy-chat[data-chat-mode="home"] .roadmap-clean-shell,
+#academy-chat[data-chat-mode="home"] .roadmap-clean-main {
     width: 100%;
-    max-width: 860px;
-    margin: 0 auto;
+    max-width: none;
+    margin-left: 0;
+    margin-right: 0;
 }
 
 #academy-chat[data-chat-mode="home"] .academy-home-panel,
-#academy-chat[data-chat-mode="home"] .academy-home-hero {
+#academy-chat[data-chat-mode="home"] .academy-home-hero,
+#academy-chat[data-chat-mode="home"] .academy-home-stats,
+#academy-chat[data-chat-mode="home"] .roadmap-clean-hero,
+#academy-chat[data-chat-mode="home"] .roadmap-clean-grid,
+#academy-chat[data-chat-mode="home"] .roadmap-transform-card,
+#academy-chat[data-chat-mode="home"] .roadmap-mission-board {
     width: 100%;
+    max-width: none;
 }
 
 #academy-chat[data-chat-mode="messages"] .academy-messages-thread-shell #dynamic-chat-history,
