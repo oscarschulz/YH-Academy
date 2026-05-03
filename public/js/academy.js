@@ -5866,14 +5866,63 @@ function academySetRoadmapAiBubbleText(text = '') {
     if (!clean) return;
 
     bubble.textContent = clean;
+
+    window.requestAnimationFrame(() => {
+        const { agent } = academyGetRoadmapAiNodes();
+        if (!agent) return;
+
+        const currentX = parseFloat(agent.style.getPropertyValue('--roadmap-ai-x')) || 12;
+        const currentY = parseFloat(agent.style.getPropertyValue('--roadmap-ai-y')) || 180;
+
+        const mode = agent.classList.contains('is-near-current') ? 'current' : 'random';
+        academyPlaceRoadmapAiAgent(currentX, currentY, mode);
+    });
+}
+
+function academyClampRoadmapAiPosition(x = 0, y = 0) {
+    const { zone, agent } = academyGetRoadmapAiNodes();
+
+    if (!zone || !agent) {
+        return {
+            x: Math.max(0, Math.round(x)),
+            y: Math.max(0, Math.round(y))
+        };
+    }
+
+    const zoneWidth = zone.clientWidth || 0;
+    const zoneHeight = zone.clientHeight || 0;
+    const agentWidth = agent.offsetWidth || 168;
+    const agentHeight = agent.offsetHeight || 72;
+
+    const safePaddingLeft = 12;
+    const safePaddingRight = 12;
+    const safePaddingBottom = 12;
+    const safeTop = 120;
+
+    const maxX = Math.max(
+        safePaddingLeft,
+        zoneWidth - agentWidth - safePaddingRight
+    );
+
+    const maxY = Math.max(
+        safeTop,
+        zoneHeight - agentHeight - safePaddingBottom
+    );
+
+    return {
+        x: Math.min(maxX, Math.max(safePaddingLeft, Math.round(x))),
+        y: Math.min(maxY, Math.max(safeTop, Math.round(y)))
+    };
 }
 
 function academyPlaceRoadmapAiAgent(x = 18, y = 18, mode = 'random') {
     const { agent } = academyGetRoadmapAiNodes();
     if (!agent) return;
 
-    agent.style.setProperty('--roadmap-ai-x', `${Math.max(0, Math.round(x))}px`);
-    agent.style.setProperty('--roadmap-ai-y', `${Math.max(0, Math.round(y))}px`);
+    const clamped = academyClampRoadmapAiPosition(x, y);
+
+    agent.style.setProperty('--roadmap-ai-x', `${clamped.x}px`);
+    agent.style.setProperty('--roadmap-ai-y', `${clamped.y}px`);
 
     agent.classList.remove('is-near-current', 'is-random-moving', 'is-bouncing');
 
@@ -5932,19 +5981,30 @@ function academyMoveRoadmapAiRandomly() {
 
     const zoneWidth = zone.clientWidth || 0;
     const zoneHeight = zone.clientHeight || 0;
-    const agentWidth = agent.offsetWidth || 150;
-    const agentHeight = agent.offsetHeight || 70;
+    const agentWidth = agent.offsetWidth || 168;
+    const agentHeight = agent.offsetHeight || 72;
 
     if (zoneWidth < 180 || zoneHeight < 240) return;
 
     roadmapAiMoveCount += 1;
 
-    const safePadding = 14;
-    const maxX = Math.max(safePadding, zoneWidth - agentWidth - safePadding);
-    const maxY = Math.max(120, zoneHeight - agentHeight - safePadding);
+    const safePaddingLeft = 12;
+    const safePaddingRight = 12;
+    const safeTop = 120;
+    const safeBottom = 12;
 
-    const x = academyRandomBetween(safePadding, maxX);
-    const y = academyRandomBetween(120, maxY);
+    const maxX = Math.max(
+        safePaddingLeft,
+        zoneWidth - agentWidth - safePaddingRight
+    );
+
+    const maxY = Math.max(
+        safeTop,
+        zoneHeight - agentHeight - safeBottom
+    );
+
+    const x = academyRandomBetween(safePaddingLeft, maxX);
+    const y = academyRandomBetween(safeTop, maxY);
 
     academyPlaceRoadmapAiAgent(x, y, 'random');
 }
@@ -5988,6 +6048,21 @@ function academyStartRoadmapAiMotion() {
     window.setTimeout(academyMoveRoadmapAiRandomly, 220);
     roadmapAiMotionTimer = window.setInterval(academyMoveRoadmapAiRandomly, 5200);
     roadmapAiBubbleTimer = window.setInterval(academyRotateRoadmapAiBubble, 3800);
+}
+
+if (!window.__academyRoadmapAiResizeBound) {
+    window.__academyRoadmapAiResizeBound = true;
+
+    window.addEventListener('resize', () => {
+        const { agent } = academyGetRoadmapAiNodes();
+        if (!agent) return;
+
+        const currentX = parseFloat(agent.style.getPropertyValue('--roadmap-ai-x')) || 12;
+        const currentY = parseFloat(agent.style.getPropertyValue('--roadmap-ai-y')) || 180;
+        const mode = agent.classList.contains('is-near-current') ? 'current' : 'random';
+
+        academyPlaceRoadmapAiAgent(currentX, currentY, mode);
+    });
 }
 function academyNormalizeRoadmapFoundationMissions(missions = [], system = {}) {
     const safeMissions = Array.isArray(missions) ? missions.filter(Boolean) : [];
