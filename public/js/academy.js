@@ -5647,6 +5647,10 @@ function academyOpenRoadmapProfileEditorFromReadiness() {
         sessionStorage.setItem('yh_academy_startup_section_v1', 'missions');
     } catch (_) {}
 
+    if (typeof ensureAcademyProfileEditorBindings === 'function') {
+        ensureAcademyProfileEditorBindings();
+    }
+
     if (typeof openAcademyProfileEditorModal === 'function') {
         openAcademyProfileEditorModal({
             source: 'roadmap-readiness',
@@ -9610,6 +9614,10 @@ function openAcademyProfileEditorModal(options = {}) {
         options?.forceSelf === true ||
         launchSource === 'roadmap-readiness';
 
+    if (typeof ensureAcademyProfileEditorBindings === 'function') {
+        ensureAcademyProfileEditorBindings();
+    }
+
     if (academyProfileViewState?.mode !== 'self' && !forceSelfEditor) return;
 
     academyProfileEditorLaunchSource = launchSource;
@@ -10103,7 +10111,11 @@ function ensureAcademyProfileEditorBindings() {
 
         const closeBtn = event.target.closest('#academy-profile-editor-close, #academy-profile-editor-cancel');
         if (closeBtn) {
+            event.preventDefault();
+            event.stopPropagation();
+
             closeAcademyProfileEditorModal();
+            academyProfileEditorLaunchSource = '';
             return;
         }
 
@@ -10115,7 +10127,11 @@ function ensureAcademyProfileEditorBindings() {
 
         const overlay = event.target.closest('#academy-profile-editor-overlay');
         if (overlay && event.target === overlay) {
+            event.preventDefault();
+            event.stopPropagation();
+
             closeAcademyProfileEditorModal();
+            academyProfileEditorLaunchSource = '';
             return;
         }
 
@@ -10151,6 +10167,9 @@ function ensureAcademyProfileEditorBindings() {
 
         const saveBtn = event.target.closest('#academy-profile-editor-save');
         if (saveBtn) {
+            event.preventDefault();
+            event.stopPropagation();
+
         const displayNameInput = document.getElementById('academy-profile-edit-display-name');
         const usernameInput = document.getElementById('academy-profile-edit-username');
         const bioInput = document.getElementById('academy-profile-edit-bio');
@@ -10335,6 +10354,22 @@ function ensureAcademyProfileEditorBindings() {
 
             academyProfileOpenCropper(file, 'cover');
         });
+    }
+}
+
+if (!window.__academyProfileEditorBindingsBooted) {
+    window.__academyProfileEditorBindingsBooted = true;
+
+    const bootAcademyProfileEditorBindings = () => {
+        if (typeof ensureAcademyProfileEditorBindings === 'function') {
+            ensureAcademyProfileEditorBindings();
+        }
+    };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bootAcademyProfileEditorBindings);
+    } else {
+        window.setTimeout(bootAcademyProfileEditorBindings, 0);
     }
 }
 
