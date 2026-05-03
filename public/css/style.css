@@ -2427,26 +2427,28 @@ body.yh-notif-menu-open::after {
     transition: width 0.25s ease;
 }
 
+.yh-right-sidebar.has-roadmap-ai-agent {
+    position: relative;
+    overflow: hidden;
+}
+
 .roadmap-ai-play-zone {
-    position: fixed;
-    top: 50%;
-    right: clamp(24px, 3vw, 44px);
-    bottom: auto;
-    left: auto;
-    z-index: 14000;
-    width: auto;
-    height: auto;
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+    width: 100%;
+    height: 100%;
     pointer-events: none;
-    transform: translateY(-50%);
+    transform: none;
 }
 
 .roadmap-ai-agent {
-    position: relative;
-    top: auto;
+    position: absolute;
+    top: 0;
+    left: 0;
     right: auto;
     bottom: auto;
-    left: auto;
-    z-index: 21;
+    z-index: 31;
     display: inline-flex;
     align-items: center;
     gap: 10px;
@@ -2455,12 +2457,12 @@ body.yh-notif-menu-open::after {
     color: #f8fafc;
     pointer-events: auto;
     cursor: pointer;
-    transform: none;
+    transform: translate3d(var(--roadmap-ai-x, 16px), var(--roadmap-ai-y, 180px), 0);
     transition:
+        transform 1.15s cubic-bezier(0.22, 1, 0.36, 1),
         filter 0.25s ease,
         opacity 0.25s ease;
-    will-change: filter, opacity;
-    animation: roadmapAiFloat 2.8s ease-in-out infinite alternate;
+    will-change: transform, filter, opacity;
 }
 
 .roadmap-ai-bubble {
@@ -2522,6 +2524,10 @@ body.yh-notif-menu-open::after {
 
 .roadmap-ai-agent:hover {
     filter: brightness(1.12);
+}
+
+.yh-right-sidebar.has-roadmap-ai-agent:hover .roadmap-ai-agent {
+    transition-duration: 0.55s;
 }
 
 .roadmap-ai-agent.is-near-current .roadmap-ai-robot {
@@ -2600,15 +2606,13 @@ body.yh-notif-menu-open::after {
     }
 
     .roadmap-ai-play-zone {
-        top: 50%;
-        right: 18px;
-        bottom: auto;
-        left: auto;
-        transform: translateY(-50%);
+        position: absolute;
+        inset: 0;
+        transform: none;
     }
 
     .roadmap-ai-agent {
-        transition-duration: 0.25s;
+        transition-duration: 0.9s;
     }
 
     .roadmap-coach-panel {
@@ -2663,17 +2667,17 @@ body.yh-notif-menu-open::after {
     }
 
     .roadmap-ai-play-zone {
-        top: auto;
-        right: 12px;
-        bottom: 92px;
-        left: auto;
+        position: absolute;
+        inset: 0;
         transform: none;
     }
 
     .roadmap-ai-agent {
-        transform: scale(0.88);
-        transform-origin: bottom right;
-        transition-duration: 0.25s;
+        transform:
+            translate3d(var(--roadmap-ai-x, 12px), var(--roadmap-ai-y, 180px), 0)
+            scale(0.88);
+        transform-origin: top left;
+        transition-duration: 0.85s;
     }
 
     .roadmap-coach-panel {

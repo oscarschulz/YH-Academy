@@ -5926,28 +5926,25 @@ function academyMoveRoadmapAiNearCurrentMission() {
 function academyMoveRoadmapAiRandomly() {
     const { shell, zone, agent } = academyGetRoadmapAiNodes();
 
-    if (!shell || !zone || !agent) return;
+    if (!zone || !agent) return;
 
-    if (shell.classList.contains('is-coach-open')) return;
+    if (shell?.classList.contains('is-coach-open')) return;
 
     const zoneWidth = zone.clientWidth || 0;
     const zoneHeight = zone.clientHeight || 0;
     const agentWidth = agent.offsetWidth || 150;
     const agentHeight = agent.offsetHeight || 70;
 
-    if (zoneWidth < 220 || zoneHeight < 180) return;
+    if (zoneWidth < 180 || zoneHeight < 240) return;
 
     roadmapAiMoveCount += 1;
 
-    if (roadmapAiMoveCount % 4 === 0 && academyMoveRoadmapAiNearCurrentMission()) {
-        return;
-    }
+    const safePadding = 14;
+    const maxX = Math.max(safePadding, zoneWidth - agentWidth - safePadding);
+    const maxY = Math.max(120, zoneHeight - agentHeight - safePadding);
 
-    const maxX = Math.max(18, zoneWidth - agentWidth - 18);
-    const maxY = Math.max(18, zoneHeight - agentHeight - 18);
-
-    const x = academyRandomBetween(18, maxX);
-    const y = academyRandomBetween(18, maxY);
+    const x = academyRandomBetween(safePadding, maxX);
+    const y = academyRandomBetween(120, maxY);
 
     academyPlaceRoadmapAiAgent(x, y, 'random');
 }
@@ -5984,12 +5981,12 @@ function academyStartRoadmapAiMotion() {
 
     roadmapAiMoveCount = 0;
 
-    agent.style.removeProperty('--roadmap-ai-x');
-    agent.style.removeProperty('--roadmap-ai-y');
     agent.classList.remove('is-near-current', 'is-random-moving', 'is-bouncing');
 
     academySetRoadmapAiBubbleText('Need help?');
 
+    window.setTimeout(academyMoveRoadmapAiRandomly, 220);
+    roadmapAiMotionTimer = window.setInterval(academyMoveRoadmapAiRandomly, 5200);
     roadmapAiBubbleTimer = window.setInterval(academyRotateRoadmapAiBubble, 3800);
 }
 function academyNormalizeRoadmapFoundationMissions(missions = [], system = {}) {
@@ -6226,7 +6223,7 @@ function academyInjectRoadmapTransformationSystem(homeData = {}) {
     stack.querySelector('.roadmap-transformation-system')?.remove();
 
     academyStopRoadmapAiMotion();
-    document.querySelectorAll('body > .roadmap-ai-play-zone').forEach((node) => {
+    document.querySelectorAll('body > .roadmap-ai-play-zone, .yh-right-sidebar > .roadmap-ai-play-zone').forEach((node) => {
         node.remove();
     });
 
@@ -6373,8 +6370,14 @@ function academyInjectRoadmapTransformationSystem(homeData = {}) {
     stack.prepend(section);
 
     const roadmapAiPlayZone = section.querySelector('.roadmap-ai-play-zone');
+    const academyRightSidebar = document.querySelector('.yh-right-sidebar');
 
-    if (roadmapAiPlayZone) {
+    if (roadmapAiPlayZone && academyRightSidebar) {
+        academyRightSidebar.appendChild(roadmapAiPlayZone);
+        academyRightSidebar.classList.add('has-roadmap-ai-agent');
+        academySetRoadmapAiBubbleText('Need help?');
+        academyStartRoadmapAiMotion();
+    } else if (roadmapAiPlayZone) {
         document.body.appendChild(roadmapAiPlayZone);
         academySetRoadmapAiBubbleText('Need help?');
         academyStartRoadmapAiMotion();
