@@ -544,9 +544,18 @@ async function listRecentCheckins(uid, roadmapId = null, limit = 5) {
             roadmapId: sanitizeString(data.roadmapId),
             energyScore: toNumber(data.energyScore, 0),
             moodScore: toNumber(data.moodScore, 0),
+            disciplineScore: toNumber(data.disciplineScore, 0),
+            completedToday: data.completedToday === true,
+            badHabitAvoided: data.badHabitAvoided === true,
+            avoidanceCategory: sanitizeString(data.avoidanceCategory),
+            avoidanceNote: sanitizeString(data.avoidanceNote),
+            reflectionText: sanitizeString(data.reflectionText),
+            correctionForTomorrow: sanitizeString(data.correctionForTomorrow),
             completedSummary: sanitizeString(data.completedSummary),
             blockerText: sanitizeString(data.blockerText),
             tomorrowFocus: sanitizeString(data.tomorrowFocus),
+            recoveryDay: data.recoveryDay === true,
+            checkinDate: sanitizeString(data.checkinDate),
             aiFeedback: data.aiFeedback && typeof data.aiFeedback === 'object' ? data.aiFeedback : {},
             createdAt: data.createdAt || null
         };
@@ -572,9 +581,18 @@ async function createCheckin(uid, roadmapId, payload = {}) {
         roadmapId: sanitizeString(roadmapId),
         energyScore: toNumber(payload.energyScore, 0),
         moodScore: toNumber(payload.moodScore, 0),
+        disciplineScore: toNumber(payload.disciplineScore, 0),
+        completedToday: payload.completedToday === true,
+        badHabitAvoided: payload.badHabitAvoided === true,
+        avoidanceCategory: sanitizeString(payload.avoidanceCategory),
+        avoidanceNote: sanitizeString(payload.avoidanceNote),
+        reflectionText: sanitizeString(payload.reflectionText),
+        correctionForTomorrow: sanitizeString(payload.correctionForTomorrow),
         completedSummary: sanitizeString(payload.completedSummary),
         blockerText: sanitizeString(payload.blockerText),
         tomorrowFocus: sanitizeString(payload.tomorrowFocus),
+        recoveryDay: payload.recoveryDay === true,
+        checkinDate: sanitizeString(payload.checkinDate),
         aiFeedback: payload.aiFeedback && typeof payload.aiFeedback === 'object'
             ? payload.aiFeedback
             : {},
@@ -589,7 +607,210 @@ async function createCheckin(uid, roadmapId, payload = {}) {
         ...checkin
     };
 }
+function academyTimestampToDate(value, fallback = new Date()) {
+    if (!value) return fallback;
 
+    if (typeof value.toDate === 'function') {
+        return value.toDate();
+    }
+
+    if (value instanceof Date) {
+        return value;
+    }
+
+    const parsed = new Date(value);
+    return Number.isFinite(parsed.getTime()) ? parsed : fallback;
+}
+
+function academyDateKey(date = new Date()) {
+    const safeDate = date instanceof Date ? date : new Date(date);
+    return safeDate.toISOString().slice(0, 10);
+}
+
+function academyStartOfDay(date = new Date()) {
+    const safeDate = academyTimestampToDate(date);
+    safeDate.setHours(0, 0, 0, 0);
+    return safeDate;
+}
+
+function academyAddDays(date = new Date(), days = 0) {
+    const safeDate = academyStartOfDay(date);
+    safeDate.setDate(safeDate.getDate() + toNumber(days, 0));
+    return safeDate;
+}
+
+function academyPreviousOrCurrentSunday(date = new Date()) {
+    const safeDate = academyStartOfDay(date);
+    const day = safeDate.getDay();
+    safeDate.setDate(safeDate.getDate() - day);
+    return safeDate;
+}
+
+function academyBuildYearTransformationMap(focusArea = '') {
+    const normalized = sanitizeString(focusArea).toLowerCase();
+
+    const baseMap = [
+        'Foundation',
+        'Discipline',
+        'Skill Building',
+        'Money / Career Progress',
+        'Network Expansion',
+        'Physical Standard',
+        'Mental Strength',
+        'Communication',
+        'Execution Power',
+        'Leadership',
+        'Scale',
+        'Identity Upgrade'
+    ];
+
+    if (normalized.includes('money') || normalized.includes('business') || normalized.includes('wealth')) {
+        return [
+            'Discipline Foundation',
+            'Skill Selection',
+            'Offer Building',
+            'Lead Generation',
+            'Sales Practice',
+            'First Revenue System',
+            'Brand Trust',
+            'Partnerships',
+            'Automation',
+            'Scaling',
+            'Team / Delegation',
+            'Identity Upgrade'
+        ];
+    }
+
+    if (normalized.includes('fitness') || normalized.includes('health')) {
+        return [
+            'Discipline Foundation',
+            'Routine Consistency',
+            'Nutrition Control',
+            'Strength Base',
+            'Cardio Standard',
+            'Recovery',
+            'Body Composition',
+            'Confidence',
+            'Physical Identity',
+            'Lifestyle Lock-In',
+            'Performance',
+            'Identity Upgrade'
+        ];
+    }
+
+    if (normalized.includes('mindset') || normalized.includes('psychology')) {
+        return [
+            'Mental Foundation',
+            'Self-Control',
+            'Emotional Awareness',
+            'Confidence',
+            'Focus',
+            'Stress Control',
+            'Fear Reduction',
+            'Identity Work',
+            'Consistency',
+            'Discipline Lock-In',
+            'Leadership Mindset',
+            'Identity Upgrade'
+        ];
+    }
+
+    return baseMap;
+}
+
+function academyBuildTransformationSystem(roadmap = {}, checkins = []) {
+    const now = academyStartOfDay(new Date());
+    const roadmapCreatedAt = academyTimestampToDate(roadmap.createdAt, now);
+    const foundationStartDate = academyPreviousOrCurrentSunday(roadmapCreatedAt);
+    const foundationEndDate = academyAddDays(foundationStartDate, 27);
+    const yearEndDate = academyAddDays(foundationStartDate, 365);
+
+    const msPerDay = 24 * 60 * 60 * 1000;
+    const rawDayNumber = Math.floor((now.getTime() - foundationStartDate.getTime()) / msPerDay) + 1;
+    const currentDay = Math.max(1, Math.min(28, rawDayNumber));
+    const phase =
+        rawDayNumber <= 28
+            ? 'foundation_active'
+            : 'year_transformation_active';
+
+    const safeCheckins = Array.isArray(checkins) ? checkins : [];
+    const checkinDates = new Set(
+        safeCheckins
+            .map((item) => sanitizeString(item.checkinDate) || academyDateKey(academyTimestampToDate(item.createdAt, now)))
+            .filter(Boolean)
+    );
+
+    const todayKey = academyDateKey(now);
+    const hasCheckedInToday = checkinDates.has(todayKey);
+
+    let currentStreak = 0;
+    for (let offset = 0; offset < 28; offset += 1) {
+        const key = academyDateKey(academyAddDays(now, -offset));
+        if (!checkinDates.has(key)) break;
+        currentStreak += 1;
+    }
+
+    const elapsedFoundationDays = Math.max(1, Math.min(28, rawDayNumber));
+    const completedDays = checkinDates.size;
+    const missedDays = Math.max(0, elapsedFoundationDays - completedDays);
+
+    const foundationDays = Array.from({ length: 28 }).map((_, index) => {
+        const dayNumber = index + 1;
+        const dayDate = academyAddDays(foundationStartDate, index);
+        const key = academyDateKey(dayDate);
+        const isFuture = dayDate.getTime() > now.getTime();
+        const isCurrent = key === todayKey;
+        const completed = checkinDates.has(key);
+
+        let status = 'locked';
+
+        if (completed) status = 'completed';
+        else if (isCurrent) status = 'current';
+        else if (!isFuture) status = 'missed';
+
+        return {
+            dayNumber,
+            date: key,
+            status
+        };
+    });
+
+    const latestCheckin = safeCheckins[0] || null;
+    const recoveryDay = missedDays > 0 && !hasCheckedInToday;
+
+    const focusArea = Array.isArray(roadmap.focusAreas) ? roadmap.focusAreas[0] : '';
+
+    return {
+        phase,
+        phaseLabel: phase === 'foundation_active'
+            ? '28-Day Foundation Active'
+            : '12-Month Transformation Active',
+        foundationStartDate: academyDateKey(foundationStartDate),
+        foundationEndDate: academyDateKey(foundationEndDate),
+        yearEndDate: academyDateKey(yearEndDate),
+        currentDay,
+        totalFoundationDays: 28,
+        completedDays,
+        missedDays,
+        currentStreak,
+        hasCheckedInToday,
+        recoveryDay,
+        todayStatus: hasCheckedInToday ? 'completed' : recoveryDay ? 'recovery' : 'current',
+        foundationDays,
+        yearMap: academyBuildYearTransformationMap(focusArea),
+        todayPrompt: {
+            title: hasCheckedInToday ? 'Today is logged.' : 'Show up for today.',
+            mission: hasCheckedInToday
+                ? 'You already checked in today. Keep the standard and return tomorrow.'
+                : 'Take one focused action that moves your life forward. Keep it simple. Keep it honest.',
+            standard: hasCheckedInToday
+                ? 'Protect the progress you made today.'
+                : 'Say no to one thing that pulls you back.',
+            reflection: 'What small action did you take today that your future self will respect?'
+        },
+        latestCheckin
+    };
+}
 async function getRecentCheckinStreakDays(uid) {
     const snapshot = await academyCheckinsCol(uid).get();
     const cutoff = sevenDaysAgoTs().toDate().getTime();
@@ -878,17 +1099,23 @@ async function buildAcademyHomePayload(uid, roadmapId = null) {
 
     if (!roadmap) return null;
 
-    const [profileDoc, missions, allMissions, streakDays] = await Promise.all([
+    const [profileDoc, missions, allMissions, streakDays, recentCheckins] = await Promise.all([
         getCurrentProfile(uid),
         listRecentMissions(uid, roadmap.id, 5),
         listAllMissionsByRoadmap(uid, roadmap.id),
-        getRecentCheckinStreakDays(uid)
+        getRecentCheckinStreakDays(uid),
+        listRecentCheckins(uid, roadmap.id, 60)
     ]);
 
     const safeProfileDoc = profileDoc && typeof profileDoc === 'object' ? profileDoc : {};
     const safeAllMissions = Array.isArray(allMissions) ? allMissions : [];
     const completedCount = safeAllMissions.filter((item) => item.status === 'completed').length;
     const totalCount = safeAllMissions.length;
+
+    const transformationSystem = academyBuildTransformationSystem(
+        roadmap || {},
+        recentCheckins || []
+    );
 
     const plazaReadiness = buildAcademyPlazaReadinessPayload(
         safeProfileDoc,
@@ -928,6 +1155,8 @@ async function buildAcademyHomePayload(uid, roadmapId = null) {
             readinessScore: toNumber(roadmap.readinessScore, 0)
         },
         missions,
+        transformationSystem,
+        recentCheckins,
         behaviorProfile: safeProfileDoc?.behaviorProfile && typeof safeProfileDoc.behaviorProfile === 'object'
             ? safeProfileDoc.behaviorProfile
             : {},

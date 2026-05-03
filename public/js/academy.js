@@ -5568,6 +5568,246 @@ function academyInjectHomeReadinessPanel(homeData = null) {
 
     stack.appendChild(section);
 }
+
+function academyFormatRoadmapLabel(value = '') {
+    return String(value || '')
+        .replace(/[_-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function academyRenderFoundationDayGrid(days = []) {
+    const safeDays = Array.isArray(days) && days.length
+        ? days
+        : Array.from({ length: 28 }).map((_, index) => ({
+            dayNumber: index + 1,
+            status: index === 0 ? 'current' : 'locked'
+        }));
+
+    return safeDays.map((day) => {
+        const status = String(day.status || 'locked').trim().toLowerCase();
+        const label =
+            status === 'completed' ? '✓' :
+            status === 'current' ? String(day.dayNumber || '') :
+            status === 'missed' ? '•' :
+            String(day.dayNumber || '');
+
+        return `
+            <div class="roadmap-foundation-day is-${academyFeedEscapeHtml(status)}" title="Day ${academyFeedEscapeHtml(day.dayNumber)} · ${academyFeedEscapeHtml(status)}">
+                <span>${academyFeedEscapeHtml(label)}</span>
+                <small>Day ${academyFeedEscapeHtml(day.dayNumber)}</small>
+            </div>
+        `;
+    }).join('');
+}
+
+function academyRenderYearTransformationMap(months = []) {
+    const safeMonths = Array.isArray(months) && months.length
+        ? months
+        : [
+            'Foundation',
+            'Discipline',
+            'Skill Building',
+            'Money / Career Progress',
+            'Network Expansion',
+            'Physical Standard',
+            'Mental Strength',
+            'Communication',
+            'Execution Power',
+            'Leadership',
+            'Scale',
+            'Identity Upgrade'
+        ];
+
+    return safeMonths.map((label, index) => {
+        return `
+            <div class="roadmap-year-month">
+                <span>Month ${index + 1}</span>
+                <strong>${academyFeedEscapeHtml(label)}</strong>
+            </div>
+        `;
+    }).join('');
+}
+
+function academyInjectRoadmapTransformationSystem(homeData = {}) {
+    const dynamicChatContainer = document.getElementById('dynamic-chat-history');
+    if (!dynamicChatContainer) return;
+
+    const stack = dynamicChatContainer.querySelector('.academy-home-stack');
+    if (!stack) return;
+
+    stack.querySelector('.roadmap-transformation-system')?.remove();
+
+    const system = homeData?.transformationSystem && typeof homeData.transformationSystem === 'object'
+        ? homeData.transformationSystem
+        : {};
+
+    const roadmap = homeData?.roadmap && typeof homeData.roadmap === 'object'
+        ? homeData.roadmap
+        : {};
+
+    const currentDay = Number(system.currentDay || 1);
+    const totalFoundationDays = Number(system.totalFoundationDays || 28);
+    const completedDays = Number(system.completedDays || 0);
+    const missedDays = Number(system.missedDays || 0);
+    const currentStreak = Number(system.currentStreak || 0);
+    const phaseLabel = String(system.phaseLabel || '28-Day Foundation Active').trim();
+    const foundationStartDate = String(system.foundationStartDate || 'Starting soon').trim();
+    const foundationEndDate = String(system.foundationEndDate || '—').trim();
+    const yearEndDate = String(system.yearEndDate || '—').trim();
+    const hasCheckedInToday = system.hasCheckedInToday === true;
+    const recoveryDay = system.recoveryDay === true;
+    const todayPrompt = system.todayPrompt && typeof system.todayPrompt === 'object'
+        ? system.todayPrompt
+        : {};
+
+    const focusArea = Array.isArray(roadmap.focusAreas) && roadmap.focusAreas.length
+        ? roadmap.focusAreas[0]
+        : 'Life Transformation';
+
+    const section = document.createElement('section');
+    section.className = 'roadmap-transformation-system';
+    section.innerHTML = `
+        <section class="roadmap-transform-hero">
+            <div class="roadmap-transform-hero-copy">
+                <div class="roadmap-transform-eyebrow">Academy Roadmap</div>
+                <h2>Build the Foundation in 28 Days. Transform Your Life in 12 Months.</h2>
+                <p>
+                    The first 28 days are designed to help you build the habit of showing up, saying no to what pulls you back,
+                    and taking one honest step every day. You do not need to fix everything today. You only need to begin.
+                </p>
+
+                <div class="roadmap-transform-actions">
+                    <button type="button" class="btn-primary academy-home-action-btn" data-roadmap-cta="today-work">Start Today’s Work</button>
+                    <button type="button" class="btn-secondary academy-home-action-btn" data-roadmap-cta="coach">Talk to AI Coach</button>
+                    <button type="button" class="btn-secondary academy-home-action-btn" data-roadmap-cta="progress">View My Progress</button>
+                </div>
+            </div>
+
+            <div class="roadmap-transform-status-card">
+                <div class="roadmap-transform-status-kicker">${academyFeedEscapeHtml(phaseLabel)}</div>
+                <strong>Day ${academyFeedEscapeHtml(currentDay)} of ${academyFeedEscapeHtml(totalFoundationDays)}</strong>
+                <span>Started: ${academyFeedEscapeHtml(foundationStartDate)}</span>
+                <span>Foundation ends: ${academyFeedEscapeHtml(foundationEndDate)}</span>
+                <span>12-month target: ${academyFeedEscapeHtml(yearEndDate)}</span>
+            </div>
+        </section>
+
+        <section class="roadmap-transform-grid">
+            <div class="roadmap-transform-card roadmap-today-card">
+                <div class="academy-home-panel-label">Today’s Work</div>
+                <h3>${academyFeedEscapeHtml(todayPrompt.title || 'Show up for today.')}</h3>
+                <p>${academyFeedEscapeHtml(todayPrompt.mission || 'Take one focused action that moves your life forward. Keep it simple. Keep it honest.')}</p>
+                <div class="roadmap-soft-rule">
+                    <strong>Today’s standard:</strong>
+                    <span>${academyFeedEscapeHtml(todayPrompt.standard || 'Say no to one thing that pulls you back.')}</span>
+                </div>
+                <div class="roadmap-soft-rule">
+                    <strong>Before you leave:</strong>
+                    <span>${academyFeedEscapeHtml(todayPrompt.reflection || 'What small action did you take today that your future self will respect?')}</span>
+                </div>
+                <button type="button" class="btn-primary academy-home-action-btn" data-roadmap-cta="today-work">
+                    ${hasCheckedInToday ? 'Today Is Logged ✓' : recoveryDay ? 'Restart Today' : 'Check In for Today'}
+                </button>
+            </div>
+
+            <div class="roadmap-transform-card">
+                <div class="academy-home-panel-label">Transformation Status</div>
+                <div class="roadmap-transform-stat-list">
+                    <div><span>Current focus</span><strong>${academyFeedEscapeHtml(academyFormatRoadmapLabel(focusArea))}</strong></div>
+                    <div><span>Current streak</span><strong>${academyFeedEscapeHtml(currentStreak)} days</strong></div>
+                    <div><span>Completed days</span><strong>${academyFeedEscapeHtml(completedDays)}</strong></div>
+                    <div><span>Missed days</span><strong>${academyFeedEscapeHtml(missedDays)}</strong></div>
+                </div>
+                <p class="roadmap-transform-note">
+                    ${recoveryDay
+                        ? 'You missed a day. That does not cancel the work. Restart with one honest action today.'
+                        : 'You are not here to become perfect in one day. You are here to build the standard of showing up.'}
+                </p>
+            </div>
+        </section>
+
+        <section class="roadmap-transform-card">
+            <div class="academy-home-panel-label">28-Day Foundation</div>
+            <p class="roadmap-transform-note">
+                A guided reset for discipline, focus, and better daily standards. Every day is a new day to work.
+            </p>
+            <div class="roadmap-foundation-grid">
+                ${academyRenderFoundationDayGrid(system.foundationDays || [])}
+            </div>
+        </section>
+
+        <section class="roadmap-transform-grid">
+            <div class="roadmap-transform-card">
+                <div class="academy-home-panel-label">Say No Tracker</div>
+                <h3>Choose one thing to leave behind today.</h3>
+                <p class="roadmap-transform-note">
+                    Improvement is also subtraction. Today, say no to one thing that keeps pulling you back.
+                </p>
+                <button type="button" class="btn-secondary academy-home-action-btn" data-roadmap-cta="today-work">Log What I Said No To</button>
+            </div>
+
+            <div class="roadmap-transform-card" id="roadmap-transform-progress-card">
+                <div class="academy-home-panel-label">Progress</div>
+                <div class="roadmap-transform-progress-bar">
+                    <div style="width:${Math.max(0, Math.min(100, Math.round((completedDays / totalFoundationDays) * 100)))}%;"></div>
+                </div>
+                <p class="roadmap-transform-note">
+                    You have shown up ${academyFeedEscapeHtml(completedDays)} out of ${academyFeedEscapeHtml(totalFoundationDays)} foundation days.
+                </p>
+            </div>
+        </section>
+
+        <section class="roadmap-transform-card">
+            <div class="academy-home-panel-label">12-Month Transformation Map</div>
+            <p class="roadmap-transform-note">
+                The first 28 days build the standard. The next 12 months compound that standard into a different life.
+            </p>
+            <div class="roadmap-year-map">
+                ${academyRenderYearTransformationMap(system.yearMap || [])}
+            </div>
+        </section>
+
+        <button type="button" class="roadmap-ai-agent" data-roadmap-cta="coach" aria-label="Open Academy AI Coach">
+            <span class="roadmap-ai-agent-orb">AI</span>
+            <span class="roadmap-ai-agent-copy">Coach</span>
+        </button>
+    `;
+
+    stack.prepend(section);
+}
+
+function academyInstallRoadmapTransformationActions() {
+    document.querySelectorAll('[data-roadmap-cta]').forEach((button) => {
+        if (button.dataset.roadmapCtaBound === 'true') return;
+        button.dataset.roadmapCtaBound = 'true';
+
+        button.addEventListener('click', async () => {
+            const action = String(button.getAttribute('data-roadmap-cta') || '').trim();
+
+            if (action === 'today-work') {
+                academyOpenCheckin();
+                return;
+            }
+
+            if (action === 'coach') {
+                await runDashboardButtonAction(button, 'Opening AI Coach...', async () => {
+                    await openAcademyCoachView(true);
+                });
+                return;
+            }
+
+            if (action === 'progress') {
+                document.getElementById('roadmap-transform-progress-card')?.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center'
+                });
+            }
+        });
+    });
+}
+
 function applyAcademyHomeRuntimePatch(runtime = {}) {
     const cachedHome = readAcademyHomeCache() || {};
     const nextHome = {
@@ -5957,6 +6197,12 @@ async function academySubmitCheckin(event) {
     const completedInput = document.getElementById('academy-checkin-completed');
     const blockersInput = document.getElementById('academy-checkin-blockers');
     const focusInput = document.getElementById('academy-checkin-focus');
+    const completedTodayInput = document.getElementById('academy-checkin-completed-today');
+    const disciplineInput = document.getElementById('academy-checkin-discipline');
+    const avoidanceCategoryInput = document.getElementById('academy-checkin-avoidance-category');
+    const avoidanceNoteInput = document.getElementById('academy-checkin-say-no-note');
+    const reflectionInput = document.getElementById('academy-checkin-reflection');
+    const correctionInput = document.getElementById('academy-checkin-correction');
 
     if (submitBtn?.dataset?.loading === 'true') {
         return;
@@ -5967,6 +6213,12 @@ async function academySubmitCheckin(event) {
     const completedSummary = String(completedInput?.value || '').trim();
     const blockerText = String(blockersInput?.value || '').trim();
     const tomorrowFocus = String(focusInput?.value || '').trim();
+    const completedToday = String(completedTodayInput?.value || 'true').trim() === 'true';
+    const disciplineScore = String(disciplineInput?.value || '').trim();
+    const avoidanceCategory = String(avoidanceCategoryInput?.value || '').trim();
+    const avoidanceNote = String(avoidanceNoteInput?.value || '').trim();
+    const reflectionText = String(reflectionInput?.value || '').trim();
+    const correctionForTomorrow = String(correctionInput?.value || '').trim();
 
     if (!energyScore || !moodScore || !completedSummary || !tomorrowFocus) {
         showToast('Please complete the required check-in fields.', 'error');
@@ -5983,9 +6235,17 @@ async function academySubmitCheckin(event) {
             body: JSON.stringify({
                 energyScore,
                 moodScore,
+                disciplineScore,
+                completedToday,
+                badHabitAvoided: Boolean(avoidanceCategory || avoidanceNote),
+                avoidanceCategory,
+                avoidanceNote,
+                reflectionText,
+                correctionForTomorrow,
                 completedSummary,
                 blockerText,
                 tomorrowFocus,
+                checkinDate: new Date().toISOString().slice(0, 10),
                 missionSignals: buildAcademyMissionSignalSnapshot()
             })
         });
@@ -5994,7 +6254,9 @@ async function academySubmitCheckin(event) {
             behaviorProfile: result?.behaviorProfile,
             previousBehaviorProfile: result?.previousBehaviorProfile,
             plannerStats: result?.plannerStats,
-            adaptivePlanning: result?.adaptivePlanning
+            adaptivePlanning: result?.adaptivePlanning,
+            transformationSystem: result?.transformationSystem,
+            recentCheckins: result?.recentCheckins
         });
 
         didSucceed = true;
@@ -7074,17 +7336,18 @@ const missionsHtml = missions.length
         chatWelcomeBox.innerHTML = `
             <section class="academy-home-hero">
                 <div class="academy-home-hero-copy">
-                    <div class="academy-home-eyebrow">Academy Home</div>
+                    <div class="academy-home-eyebrow">Academy Roadmap</div>
                     <h2 class="academy-home-title">Welcome back, ${safeHtml(myName)}</h2>
                     <p class="academy-home-copy">
-                        This is your roadmap-first Academy landing. Act on missions, send check-ins, and watch how the AI adjusts to your execution pattern.
+                        You do not need to fix your whole life today. Start with one honest action, one better choice,
+                        and one check-in. The Roadmap will help you build the standard over time.
                     </p>
                 </div>
 
                 <div class="academy-home-actions">
-                    <button id="academy-home-refresh-roadmap" type="button" class="btn-primary academy-home-action-btn">Refresh Roadmap</button>
-                    <button id="academy-home-open-checkin" type="button" class="btn-secondary academy-home-action-btn">Daily Check-In</button>
-                    <button id="academy-home-open-coach" type="button" class="btn-secondary academy-home-action-btn">Ask AI Coach</button>
+                    <button id="academy-home-open-checkin" type="button" class="btn-primary academy-home-action-btn">Start Today’s Work</button>
+                    <button id="academy-home-open-coach" type="button" class="btn-secondary academy-home-action-btn">Talk to AI Coach</button>
+                    <button id="academy-home-refresh-roadmap" type="button" class="btn-secondary academy-home-action-btn">Refresh Roadmap</button>
                     <button id="academy-home-enter-chat" type="button" class="btn-secondary academy-home-action-btn">Open Community</button>
                 </div>
             </section>
@@ -7096,17 +7359,17 @@ const missionsHtml = missions.length
                 </div>
 
                 <div class="academy-home-stat-card">
-                    <div class="academy-home-stat-label">Completed</div>
+                    <div class="academy-home-stat-label">Missions</div>
                     <div class="academy-home-stat-value">${safeHtml(missionsCompleted)}<span> / ${safeHtml(missionsTotal)}</span></div>
                 </div>
 
                 <div class="academy-home-stat-card">
-                    <div class="academy-home-stat-label">7-Day Streak</div>
+                    <div class="academy-home-stat-label">Current Streak</div>
                     <div class="academy-home-stat-value">${safeHtml(streakDays)}</div>
                 </div>
 
                 <div class="academy-home-stat-card">
-                    <div class="academy-home-stat-label">Sustainable Load</div>
+                    <div class="academy-home-stat-label">Daily Load</div>
                     <div class="academy-home-stat-value">${maxSustainableDailyMinutes > 0 ? safeHtml(maxSustainableDailyMinutes) : '—'}<span>${maxSustainableDailyMinutes > 0 ? ' mins' : ''}</span></div>
                 </div>
             </section>
@@ -7203,6 +7466,9 @@ if (dynamicChatContainer) {
             </div>
         `;
     }
+
+    academyInjectRoadmapTransformationSystem(homeData);
+    academyInstallRoadmapTransformationActions();
 
     document.getElementById('academy-home-enter-chat')?.addEventListener('click', () => {
         document.getElementById('nav-chat')?.click();
@@ -20870,6 +21136,127 @@ function collectRoadmapScopeAnswers(scopeKey = '') {
     }, {});
 }
 
+function readRoadmapInputValue(id = '') {
+    return String(document.getElementById(id)?.value || '').trim();
+}
+
+function getRoadmapDailyMinutes() {
+    const dailyHours = Number(readRoadmapInputValue('roadmap-daily-hours'));
+
+    if (!Number.isFinite(dailyHours) || dailyHours <= 0) {
+        return '';
+    }
+
+    return String(Math.round(dailyHours * 60));
+}
+
+function isWeakRoadmapAnswer(value = '') {
+    const clean = String(value || '').trim().toLowerCase();
+
+    if (!clean) return true;
+
+    const weakAnswers = new Set([
+        'idk',
+        'i dont know',
+        "i don't know",
+        'none',
+        'nothing',
+        'money',
+        'success',
+        'fitness',
+        'business',
+        'discipline',
+        'good',
+        'better'
+    ]);
+
+    return clean.length < 12 || weakAnswers.has(clean);
+}
+
+function calculateRoadmapAccuracyScore() {
+    let score = 0;
+
+    const requiredChecks = [
+        readRoadmapInputValue('roadmap-focus-area-key'),
+        readRoadmapInputValue('roadmap-current-level'),
+        readRoadmapInputValue('roadmap-target-30'),
+        readRoadmapInputValue('roadmap-daily-hours'),
+        readRoadmapInputValue('roadmap-weekly-hours'),
+        readRoadmapInputValue('roadmap-blocker-text')
+    ];
+
+    requiredChecks.forEach((value) => {
+        if (String(value || '').trim()) score += 10;
+    });
+
+    if (!isWeakRoadmapAnswer(readRoadmapInputValue('roadmap-target-30'))) score += 12;
+    if (!isWeakRoadmapAnswer(readRoadmapInputValue('roadmap-blocker-text'))) score += 12;
+    if (readRoadmapInputValue('roadmap-obstacle-type')) score += 6;
+    if (readRoadmapInputValue('roadmap-goal-type')) score += 5;
+    if (readRoadmapInputValue('roadmap-intensity')) score += 5;
+    if (readRoadmapInputValue('roadmap-best-execution-window')) score += 5;
+    if (readRoadmapInputValue('roadmap-routine-snapshot').length >= 24) score += 5;
+
+    return Math.max(0, Math.min(100, score));
+}
+
+function updateRoadmapDiagnosisPreview() {
+    const score = calculateRoadmapAccuracyScore();
+    const scoreEl = document.getElementById('roadmap-accuracy-score');
+    const fillEl = document.getElementById('roadmap-accuracy-fill');
+    const copyEl = document.getElementById('roadmap-diagnosis-copy');
+
+    if (scoreEl) {
+        scoreEl.textContent = `${score}%`;
+    }
+
+    if (fillEl) {
+        fillEl.style.width = `${score}%`;
+    }
+
+    if (copyEl) {
+        if (score >= 85) {
+            copyEl.textContent = 'Strong profile. The AI has enough context to build a sharper and more personal roadmap.';
+        } else if (score >= 60) {
+            copyEl.textContent = 'Good start. Add more detail to your target, bottleneck, or routine to improve roadmap accuracy.';
+        } else if (score >= 30) {
+            copyEl.textContent = 'Basic profile detected. The roadmap can be created, but your answers are still too broad.';
+        } else {
+            copyEl.textContent = 'Start answering the form. The AI will estimate how clear your roadmap profile is before submission.';
+        }
+    }
+}
+
+function installRoadmapSmartFormListeners() {
+    const form = document.getElementById('form-academy-roadmap');
+    if (!form || form.dataset.smartRoadmapListenersInstalled === 'true') return;
+
+    form.dataset.smartRoadmapListenersInstalled = 'true';
+
+    form.addEventListener('input', updateRoadmapDiagnosisPreview);
+    form.addEventListener('change', updateRoadmapDiagnosisPreview);
+
+    form.addEventListener('click', (event) => {
+        const chip = event.target instanceof Element
+            ? event.target.closest('[data-roadmap-chip-target]')
+            : null;
+
+        if (!chip) return;
+
+        const targetId = chip.getAttribute('data-roadmap-chip-target') || '';
+        const value = chip.getAttribute('data-roadmap-chip-value') || '';
+        const target = document.getElementById(targetId);
+
+        if (!target) return;
+
+        target.value = value;
+        target.dispatchEvent(new Event('input', { bubbles: true }));
+        target.focus();
+    });
+
+    updateRoadmapDiagnosisPreview();
+}
+
 function setRoadmapIntakePhase(step = 1) {
     const phase1 = document.getElementById('roadmap-phase-1');
     const phase2 = document.getElementById('roadmap-phase-2');
@@ -20896,10 +21283,12 @@ function resetRoadmapIntakeModalState() {
     if (schemaEl) schemaEl.value = '';
 
     const versionEl = document.getElementById('roadmap-intake-version');
-    if (versionEl) versionEl.value = '2';
+    if (versionEl) versionEl.value = '3';
 
     renderRoadmapScopeQuestions('');
     setRoadmapIntakePhase(1);
+    installRoadmapSmartFormListeners();
+    updateRoadmapDiagnosisPreview();
 
     const submitBtn = document.getElementById('btn-submit-roadmap-intake');
     if (submitBtn) {
@@ -22196,7 +22585,7 @@ roadmapContinueBtn?.addEventListener('click', () => {
 
     document.getElementById('roadmap-focus-area-key').value = selectedScopeKey;
     document.getElementById('roadmap-schema-key').value = config.schemaKey;
-    document.getElementById('roadmap-intake-version').value = '2';
+    document.getElementById('roadmap-intake-version').value = '3';
 
     renderRoadmapScopeQuestions(selectedScopeKey);
     setRoadmapIntakePhase(2);
@@ -22232,7 +22621,7 @@ if (roadmapForm) {
         const submitBtn = document.getElementById('btn-submit-roadmap-intake');
         const focusAreaKey = document.getElementById('roadmap-focus-area-key')?.value?.trim() || '';
         const schemaKey = document.getElementById('roadmap-schema-key')?.value?.trim() || '';
-        const intakeVersion = Number(document.getElementById('roadmap-intake-version')?.value || '2') || 2;
+        const intakeVersion = Number(document.getElementById('roadmap-intake-version')?.value || '3') || 3;
         const scopeConfig = getRoadmapScopeConfig(focusAreaKey);
 
         if (!scopeConfig) {
@@ -22242,27 +22631,57 @@ if (roadmapForm) {
             return;
         }
 
+        const target30Days = readRoadmapInputValue('roadmap-target-30');
+        const blockerText = readRoadmapInputValue('roadmap-blocker-text');
+
+        if (isWeakRoadmapAnswer(target30Days)) {
+            showToast('Make your 30-day target more specific before building your roadmap.', 'error');
+            document.getElementById('roadmap-target-30')?.focus();
+            return;
+        }
+
+        if (isWeakRoadmapAnswer(blockerText)) {
+            showToast('Explain your biggest bottleneck more clearly before building your roadmap.', 'error');
+            document.getElementById('roadmap-blocker-text')?.focus();
+            return;
+        }
+
         if (submitBtn) {
             submitBtn.disabled = true;
-            submitBtn.innerText = 'Creating Roadmap...';
+            submitBtn.innerText = 'Analyzing answers...';
         }
+
+        updateRoadmapDiagnosisPreview();
 
         const payload = {
             focusArea: scopeConfig.label,
             focusAreaKey,
             schemaKey,
             intakeVersion,
-            currentLevel: document.getElementById('roadmap-current-level')?.value?.trim() || '',
-            target30Days: document.getElementById('roadmap-target-30')?.value?.trim() || '',
-            dailyHours: document.getElementById('roadmap-daily-hours')?.value?.trim() || '',
-            weeklyHours: document.getElementById('roadmap-weekly-hours')?.value?.trim() || '',
-            sleepHours: document.getElementById('roadmap-sleep-hours')?.value?.trim() || '',
-            energyLevel: document.getElementById('roadmap-energy-level')?.value?.trim() || '',
-            stressLevel: document.getElementById('roadmap-stress-level')?.value?.trim() || '',
-            badHabit: document.getElementById('roadmap-bad-habit')?.value?.trim() || '',
-            blockerText: document.getElementById('roadmap-blocker-text')?.value?.trim() || '',
-            coachTone: document.getElementById('roadmap-coach-tone')?.value?.trim() || 'balanced',
-            firstQuickWin: document.getElementById('roadmap-first-win')?.value?.trim() || '',
+            currentLevel: readRoadmapInputValue('roadmap-current-level'),
+            target30Days,
+            dailyHours: readRoadmapInputValue('roadmap-daily-hours'),
+            dailyMinutes: getRoadmapDailyMinutes(),
+            weeklyHours: readRoadmapInputValue('roadmap-weekly-hours'),
+            sleepHours: readRoadmapInputValue('roadmap-sleep-hours'),
+            energyScore: readRoadmapInputValue('roadmap-energy-level'),
+            stressScore: readRoadmapInputValue('roadmap-stress-score'),
+            badHabit: readRoadmapInputValue('roadmap-bad-habit'),
+            blockerText,
+            coachTone: readRoadmapInputValue('roadmap-coach-tone') || 'balanced',
+            firstQuickWin: readRoadmapInputValue('roadmap-first-win'),
+
+            goalType: readRoadmapInputValue('roadmap-goal-type'),
+            roadmapIntensity: readRoadmapInputValue('roadmap-intensity') || 'balanced',
+            bestExecutionWindow: readRoadmapInputValue('roadmap-best-execution-window'),
+            accountabilityStyle: readRoadmapInputValue('roadmap-accountability-style') || 'mentor_style',
+            missionFormat: readRoadmapInputValue('roadmap-mission-format') || 'simple_checklist',
+            weeklyReviewDay: readRoadmapInputValue('roadmap-weekly-review-day') || 'Saturday',
+            obstacleType: readRoadmapInputValue('roadmap-obstacle-type'),
+            progressVisibility: readRoadmapInputValue('roadmap-progress-visibility') || 'private',
+            routineSnapshot: readRoadmapInputValue('roadmap-routine-snapshot'),
+            roadmapAccuracyScore: calculateRoadmapAccuracyScore(),
+
             scopeAnswers: collectRoadmapScopeAnswers(focusAreaKey),
             submittedAt: new Date().toISOString()
         };

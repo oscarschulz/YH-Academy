@@ -2907,9 +2907,20 @@ exports.submitCheckin = async (req, res) => {
 
         const energyScore = clamp(toInt(req.body.energyScore, 0), 0, 10);
         const moodScore = clamp(toInt(req.body.moodScore, 0), 0, 10);
+        const disciplineScore = clamp(toInt(req.body.disciplineScore, 0), 0, 10);
+        const completedToday = req.body.completedToday === true || sanitize(req.body.completedToday).toLowerCase() === 'true';
+        const avoidanceCategory = sanitize(req.body.avoidanceCategory || '');
+        const avoidanceNote = sanitize(req.body.avoidanceNote || '');
+        const reflectionText = sanitize(req.body.reflectionText || '');
+        const correctionForTomorrow = sanitize(req.body.correctionForTomorrow || '');
         const completedSummary = sanitize(req.body.completedSummary || '');
         const blockerText = sanitize(req.body.blockerText || '');
         const tomorrowFocus = sanitize(req.body.tomorrowFocus || '');
+        const badHabitAvoided =
+            req.body.badHabitAvoided === true ||
+            sanitize(req.body.badHabitAvoided).toLowerCase() === 'true' ||
+            Boolean(avoidanceCategory || avoidanceNote);
+        const checkinDate = sanitize(req.body.checkinDate || new Date().toISOString().slice(0, 10));
         const rawMissionSignals = req.body?.missionSignals && typeof req.body.missionSignals === 'object'
             ? req.body.missionSignals
             : {};
@@ -2924,9 +2935,17 @@ exports.submitCheckin = async (req, res) => {
         await academyFirestoreRepo.createCheckin(uid, activeRoadmap.id, {
             energyScore,
             moodScore,
+            disciplineScore,
+            completedToday,
+            badHabitAvoided,
+            avoidanceCategory,
+            avoidanceNote,
+            reflectionText,
+            correctionForTomorrow,
             completedSummary,
             blockerText,
             tomorrowFocus,
+            checkinDate,
             aiFeedback: {
                 type: 'daily_checkin',
                 missionSignals
@@ -2980,7 +2999,9 @@ exports.submitCheckin = async (req, res) => {
             behaviorProfile: behaviorState.behaviorProfile,
             previousBehaviorProfile: behaviorState.previousBehaviorProfile,
             plannerStats: behaviorState.plannerStats,
-            adaptivePlanning: homePayload?.adaptivePlanning || {}
+            adaptivePlanning: homePayload?.adaptivePlanning || {},
+            transformationSystem: homePayload?.transformationSystem || {},
+            recentCheckins: homePayload?.recentCheckins || []
         });
     } catch (error) {
         console.error('Submit Check-in Error:', error);
@@ -5269,6 +5290,11 @@ exports.submitRoadmapApplication = async (req, res) => {
                 ? req.body.scopeAnswers
                 : safeJsonParse(req.body?.scopeAnswers, {});
 
+        const rawDailyHours = toFloat(req.body?.dailyHours, 0);
+        const resolvedDailyMinutes =
+            sanitize(req.body?.dailyMinutes || '') ||
+            (rawDailyHours > 0 ? String(Math.round(rawDailyHours * 60)) : '');
+
         const roadmapIntake = {
             focusArea: resolvedFocusArea,
             focusAreaKey: sanitize(resolvedFocusAreaKey),
@@ -5276,18 +5302,31 @@ exports.submitRoadmapApplication = async (req, res) => {
                 req.body?.schemaKey ||
                 (resolvedFocusAreaKey ? `${resolvedFocusAreaKey}_v1` : '')
             ),
-            intakeVersion: toInt(req.body?.intakeVersion, 2) || 2,
+            intakeVersion: toInt(req.body?.intakeVersion, 3) || 3,
             currentLevel: sanitize(req.body?.currentLevel || ''),
             target30Days: sanitize(req.body?.target30Days || ''),
-            dailyMinutes: sanitize(req.body?.dailyMinutes || ''),
+            dailyHours: sanitize(req.body?.dailyHours || ''),
+            dailyMinutes: resolvedDailyMinutes,
             weeklyHours: sanitize(req.body?.weeklyHours || ''),
             sleepHours: sanitize(req.body?.sleepHours || ''),
-            energyScore: sanitize(req.body?.energyScore || ''),
-            stressScore: sanitize(req.body?.stressScore || ''),
+            energyScore: sanitize(req.body?.energyScore || req.body?.energyLevel || ''),
+            stressScore: sanitize(req.body?.stressScore || req.body?.stressLevel || ''),
             badHabit: sanitize(req.body?.badHabit || ''),
             blockerText: sanitize(req.body?.blockerText || ''),
             coachTone: sanitize(req.body?.coachTone || 'balanced'),
             firstQuickWin: sanitize(req.body?.firstQuickWin || ''),
+
+            goalType: sanitize(req.body?.goalType || ''),
+            roadmapIntensity: sanitize(req.body?.roadmapIntensity || 'balanced'),
+            bestExecutionWindow: sanitize(req.body?.bestExecutionWindow || ''),
+            accountabilityStyle: sanitize(req.body?.accountabilityStyle || 'mentor_style'),
+            missionFormat: sanitize(req.body?.missionFormat || 'simple_checklist'),
+            weeklyReviewDay: sanitize(req.body?.weeklyReviewDay || 'Saturday'),
+            obstacleType: sanitize(req.body?.obstacleType || ''),
+            progressVisibility: sanitize(req.body?.progressVisibility || 'private'),
+            routineSnapshot: sanitize(req.body?.routineSnapshot || ''),
+            roadmapAccuracyScore: toInt(req.body?.roadmapAccuracyScore, 0),
+
             scopeAnswers: sanitizeNestedScopeAnswers(rawScopeAnswers),
             submittedAt: sanitize(req.body?.submittedAt || new Date().toISOString())
         };
@@ -5320,6 +5359,18 @@ exports.submitRoadmapApplication = async (req, res) => {
                 schemaKey: roadmapIntake.schemaKey,
                 intakeVersion: roadmapIntake.intakeVersion,
                 currentLevel: roadmapIntake.currentLevel,
+
+                goalType: roadmapIntake.goalType,
+                roadmapIntensity: roadmapIntake.roadmapIntensity,
+                bestExecutionWindow: roadmapIntake.bestExecutionWindow,
+                accountabilityStyle: roadmapIntake.accountabilityStyle,
+                missionFormat: roadmapIntake.missionFormat,
+                weeklyReviewDay: roadmapIntake.weeklyReviewDay,
+                obstacleType: roadmapIntake.obstacleType,
+                progressVisibility: roadmapIntake.progressVisibility,
+                routineSnapshot: roadmapIntake.routineSnapshot,
+                roadmapAccuracyScore: roadmapIntake.roadmapAccuracyScore,
+
                 scopeAnswers: roadmapIntake.scopeAnswers
             },
             pillarContext: roadmapIntake.focusAreaKey
@@ -5332,8 +5383,13 @@ exports.submitRoadmapApplication = async (req, res) => {
                 : {},
             biggestImmediateProblem: roadmapIntake.blockerText,
             next30DaysWin: roadmapIntake.target30Days,
-            preferredWorkStyle: roadmapIntake.currentLevel,
-            accountabilityStyle: roadmapIntake.coachTone,
+            preferredWorkStyle: roadmapIntake.missionFormat || roadmapIntake.currentLevel,
+            accountabilityStyle: roadmapIntake.accountabilityStyle || roadmapIntake.coachTone,
+            roadmapIntensity: roadmapIntake.roadmapIntensity,
+            bestExecutionWindow: roadmapIntake.bestExecutionWindow,
+            weeklyReviewDay: roadmapIntake.weeklyReviewDay,
+            obstacleType: roadmapIntake.obstacleType,
+            routineSnapshot: roadmapIntake.routineSnapshot,
             firstQuickWin: roadmapIntake.firstQuickWin,
             seriousness: sanitize(
                 storedProfile?.seriousness ||
@@ -5364,15 +5420,21 @@ exports.submitRoadmapApplication = async (req, res) => {
             goal: roadmapIntake.target30Days || roadmapIntake.focusArea || 'Roadmap application',
             background: [
                 roadmapIntake.currentLevel,
+                roadmapIntake.goalType,
+                roadmapIntake.roadmapIntensity,
+                roadmapIntake.obstacleType,
                 roadmapIntake.blockerText,
                 roadmapIntake.firstQuickWin
             ].filter(Boolean).join(' • ') || 'No roadmap summary submitted.',
-            aiScore: 0,
+            aiScore: roadmapIntake.roadmapAccuracyScore || 0,
             country: sanitize(storedProfile?.country || ''),
             skills: [
                 roadmapIntake.focusArea,
                 roadmapIntake.currentLevel,
-                roadmapIntake.coachTone
+                roadmapIntake.coachTone,
+                roadmapIntake.roadmapIntensity,
+                roadmapIntake.missionFormat,
+                roadmapIntake.bestExecutionWindow
             ].filter(Boolean),
             networkValue: 'Unknown',
             submittedAt: nowIso,

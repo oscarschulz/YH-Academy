@@ -1730,11 +1730,11 @@
             <form id="form-academy-roadmap">
                 <input type="hidden" id="roadmap-focus-area-key" value="">
                 <input type="hidden" id="roadmap-schema-key" value="">
-                <input type="hidden" id="roadmap-intake-version" value="2">
+                <input type="hidden" id="roadmap-intake-version" value="3">
 
                 <div id="roadmap-phase-1" class="roadmap-intake-phase">
                 <div class="text-center mb-1-25">
-                    <div class="roadmap-step-kicker">Step 1 of 2</div>
+                <div class="roadmap-step-kicker">Step 1 of 2 · Choose pillar</div>
                     <h2 class="yh-title-small" style="color: var(--neon-blue);">Choose your main Academy pillar</h2>
                     <p class="yh-subtitle-small">Pick one pillar first. Step 2 will instantly adapt based on the pillar you select.</p>
                 </div>
@@ -1761,7 +1761,7 @@
 
                 <div id="roadmap-phase-2" class="roadmap-intake-phase hidden-step">
                     <div class="roadmap-scope-header mb-small">
-                        <div class="roadmap-step-kicker">Step 2 of 2</div>
+                        <div class="roadmap-step-kicker">Step 2 of 2 · AI diagnosis</div>
                         <h3 id="roadmap-scope-heading" class="roadmap-scope-title">AI intake questions</h3>
                         <p id="roadmap-scope-help" class="roadmap-scope-copy">Answer the questions below so the AI can build a more accurate roadmap for you.</p>
                         <div id="roadmap-selected-scope-label" class="roadmap-selected-scope-chip">No scope selected</div>
@@ -1791,7 +1791,7 @@
                         <div class="form-row">
                             <div class="form-group w-full mb-small">
                                 <label>Daily Time Available (hours)</label>
-                                <input type="number" id="roadmap-daily-minutes" required class="input-field" placeholder="e.g. 1.5">
+                                <input type="number" id="roadmap-daily-hours" required class="input-field" min="0" step="0.25" placeholder="e.g. 1.5">
                             </div>
                             <div class="form-group w-full mb-small">
                                 <label>Weekly Time Available (hours)</label>
@@ -1853,6 +1853,153 @@
                                 <option value="supportive">Supportive</option>
                             </select>
                         </div>
+
+                        <div class="roadmap-smart-section">
+                            <div class="roadmap-shared-kicker">Execution profile</div>
+                            <p class="roadmap-smart-copy">
+                                These answers help the AI adjust your roadmap intensity, mission style, accountability, and weekly review flow.
+                            </p>
+
+                            <div class="form-row">
+                                <div class="form-group w-full mb-small">
+                                    <label>Roadmap Goal Type</label>
+                                    <select id="roadmap-goal-type" class="input-field styled-select">
+                                        <option value="" selected>Select goal type.</option>
+                                        <option value="30_day_reset">30-day reset</option>
+                                        <option value="skill_building">Skill-building roadmap</option>
+                                        <option value="money_making">Money-making roadmap</option>
+                                        <option value="discipline">Discipline roadmap</option>
+                                        <option value="study_exam">Study / exam roadmap</option>
+                                        <option value="networking">Networking roadmap</option>
+                                        <option value="body_transformation">Body transformation roadmap</option>
+                                        <option value="deep_knowledge">Deep knowledge roadmap</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group w-full mb-small">
+                                    <label>Roadmap Intensity</label>
+                                    <select id="roadmap-intensity" class="input-field styled-select">
+                                        <option value="balanced" selected>Balanced</option>
+                                        <option value="light">Light</option>
+                                        <option value="aggressive">Aggressive</option>
+                                        <option value="elite">Elite Mode</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group w-full mb-small">
+                                    <label>Best Execution Time</label>
+                                    <select id="roadmap-best-execution-window" class="input-field styled-select">
+                                        <option value="" selected>Select time.</option>
+                                        <option value="morning">Morning</option>
+                                        <option value="afternoon">Afternoon</option>
+                                        <option value="night">Night</option>
+                                        <option value="late_night">Late night</option>
+                                        <option value="no_fixed_time">No fixed time</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group w-full mb-small">
+                                    <label>Accountability Style</label>
+                                    <select id="roadmap-accountability-style" class="input-field styled-select">
+                                        <option value="mentor_style" selected>Mentor-style coaching</option>
+                                        <option value="gentle">Gentle reminders</option>
+                                        <option value="strict_pressure">Strict pressure</option>
+                                        <option value="competitive">Competitive ranking</option>
+                                        <option value="private_tracking">Private self-tracking</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group w-full mb-small">
+                                    <label>Preferred Mission Format</label>
+                                    <select id="roadmap-mission-format" class="input-field styled-select">
+                                        <option value="simple_checklist" selected>Simple checklist</option>
+                                        <option value="detailed_steps">Detailed instructions</option>
+                                        <option value="challenge_mode">Challenge mode</option>
+                                        <option value="study_guide">Study guide style</option>
+                                        <option value="business_execution">Business execution style</option>
+                                        <option value="reflection_style">Reflection style</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group w-full mb-small">
+                                    <label>Weekly Review Day</label>
+                                    <select id="roadmap-weekly-review-day" class="input-field styled-select">
+                                        <option value="Saturday" selected>Saturday</option>
+                                        <option value="Sunday">Sunday</option>
+                                        <option value="Monday">Monday</option>
+                                        <option value="Friday">Friday</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group w-full mb-small">
+                                    <label>Obstacle Diagnosis</label>
+                                    <select id="roadmap-obstacle-type" class="input-field styled-select">
+                                        <option value="" selected>Select main obstacle.</option>
+                                        <option value="confusion">Confusion / no clear direction</option>
+                                        <option value="low_energy">Low energy</option>
+                                        <option value="fear">Fear of starting</option>
+                                        <option value="no_money">No money</option>
+                                        <option value="no_time">No time</option>
+                                        <option value="bad_habits">Bad habits</option>
+                                        <option value="lack_of_support">Lack of support</option>
+                                        <option value="too_many_ideas">Too many ideas</option>
+                                        <option value="procrastination">Procrastination</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group w-full mb-small">
+                                    <label>Progress Visibility</label>
+                                    <select id="roadmap-progress-visibility" class="input-field styled-select">
+                                        <option value="private" selected>Private</option>
+                                        <option value="mentor_admin">Visible to mentors/admin only</option>
+                                        <option value="community">Visible to community</option>
+                                        <option value="milestones_only">Visible only when I complete milestones</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-group mb-small">
+                                <label>Current Routine Snapshot</label>
+                                <textarea id="roadmap-routine-snapshot" class="input-field" rows="3" placeholder="Wake-up time, work/school hours, free time, distractions, sleep time..."></textarea>
+                            </div>
+                        </div>
+
+                        <div class="roadmap-answer-chip-panel">
+                            <div class="roadmap-shared-kicker">Quick answer chips</div>
+                            <p class="roadmap-smart-copy">Click a chip to quickly fill your biggest bottleneck.</p>
+
+                            <div class="roadmap-answer-chip-row">
+                                <button type="button" class="roadmap-answer-chip" data-roadmap-chip-target="roadmap-blocker-text" data-roadmap-chip-value="I procrastinate too much and struggle to stay consistent.">Procrastination</button>
+                                <button type="button" class="roadmap-answer-chip" data-roadmap-chip-target="roadmap-blocker-text" data-roadmap-chip-value="I do not have a clear direction yet, so I keep jumping between ideas.">No clear direction</button>
+                                <button type="button" class="roadmap-answer-chip" data-roadmap-chip-target="roadmap-blocker-text" data-roadmap-chip-value="I have low energy and find it hard to execute consistently every day.">Low energy</button>
+                                <button type="button" class="roadmap-answer-chip" data-roadmap-chip-target="roadmap-blocker-text" data-roadmap-chip-value="I get distracted easily and waste time on low-value activities.">Distractions</button>
+                                <button type="button" class="roadmap-answer-chip" data-roadmap-chip-target="roadmap-blocker-text" data-roadmap-chip-value="I have too many ideas and need help focusing on one clear path.">Too many ideas</button>
+                            </div>
+                        </div>
+
+                        <div class="roadmap-diagnosis-card">
+                            <div class="roadmap-diagnosis-head">
+                                <div>
+                                    <div class="roadmap-shared-kicker">AI Diagnosis Preview</div>
+                                    <h4>Roadmap Accuracy</h4>
+                                </div>
+                                <strong id="roadmap-accuracy-score">0%</strong>
+                            </div>
+
+                            <div class="roadmap-accuracy-track">
+                                <div id="roadmap-accuracy-fill" class="roadmap-accuracy-fill"></div>
+                            </div>
+
+                            <p id="roadmap-diagnosis-copy">
+                                Start answering the form. The AI will estimate how clear your roadmap profile is before submission.
+                            </p>
+                        </div>
                     </div>
 
                     <div class="roadmap-phase-actions roadmap-phase-actions-split">
@@ -1909,6 +2056,52 @@
                 <div class="form-group mb-small">
                     <label for="academy-checkin-blockers">What blocked or slowed you down?</label>
                     <textarea id="academy-checkin-blockers" class="input-field" rows="3" placeholder="Distractions, late sleep, unclear plan, low energy."></textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group w-full mb-small">
+                        <label for="academy-checkin-completed-today">Did you show up today?</label>
+                        <select id="academy-checkin-completed-today" class="input-field styled-select">
+                            <option value="true" selected>Yes, I showed up</option>
+                            <option value="false">Not fully, but I want to reset</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group w-full mb-small">
+                        <label for="academy-checkin-discipline">Discipline Score (0-10)</label>
+                        <input id="academy-checkin-discipline" type="number" min="0" max="10" step="1" value="7" class="input-field">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group w-full mb-small">
+                        <label for="academy-checkin-avoidance-category">What did you say no to today?</label>
+                        <select id="academy-checkin-avoidance-category" class="input-field styled-select">
+                            <option value="" selected>Select one, if any.</option>
+                            <option value="distraction">Distraction</option>
+                            <option value="procrastination">Procrastination</option>
+                            <option value="bad_spending">Bad spending</option>
+                            <option value="laziness">Laziness</option>
+                            <option value="negative_people">Negative people</option>
+                            <option value="comfort">Comfort</option>
+                            <option value="late_sleeping">Late sleeping</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group w-full mb-small">
+                        <label for="academy-checkin-say-no-note">Say-no note</label>
+                        <input id="academy-checkin-say-no-note" class="input-field" placeholder="e.g. I avoided scrolling before work.">
+                    </div>
+                </div>
+
+                <div class="form-group mb-small">
+                    <label for="academy-checkin-reflection">Small reflection</label>
+                    <textarea id="academy-checkin-reflection" class="input-field" rows="3" placeholder="What small action did you take today that your future self will respect?"></textarea>
+                </div>
+
+                <div class="form-group mb-small">
+                    <label for="academy-checkin-correction">What will you correct tomorrow?</label>
+                    <textarea id="academy-checkin-correction" class="input-field" rows="2" placeholder="Keep it simple. One honest correction is enough."></textarea>
                 </div>
 
                 <div class="form-group mb-small">
