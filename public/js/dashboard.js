@@ -12469,6 +12469,39 @@ function closeDashboardUniverseProfileEditor() {
     document.getElementById('yh-dashboard-profile-editor-overlay')?.classList.add('hidden-step');
 }
 
+function bootDashboardProfileEditorDeepLink() {
+    let shouldOpen = false;
+
+    try {
+        const params = new URL(window.location.href).searchParams;
+
+        shouldOpen =
+            sessionStorage.getItem('yh_open_dashboard_profile_editor_v1') === '1' ||
+            params.get('profile') === 'edit' ||
+            params.get('open') === 'profile-editor';
+    } catch (_) {
+        shouldOpen = false;
+    }
+
+    if (!shouldOpen) return;
+
+    try {
+        sessionStorage.removeItem('yh_open_dashboard_profile_editor_v1');
+    } catch (_) {}
+
+    window.setTimeout(() => {
+        if (typeof openDashboardUniverseProfileEditor === 'function') {
+            openDashboardUniverseProfileEditor();
+        }
+    }, 520);
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bootDashboardProfileEditorDeepLink);
+} else {
+    window.setTimeout(bootDashboardProfileEditorDeepLink, 0);
+}
+
 const YH_DASHBOARD_BASIC_ASSISTANT_CONVERSATION_ID = 'dashboard_ticket_main';
 
 function renderDashboardBasicAssistantMessages(messages = []) {

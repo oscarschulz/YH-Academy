@@ -5458,7 +5458,32 @@ function academyRenderHomeSignalGroup(values = [], emptyLabel = 'Nothing added y
         return `<span class="academy-home-readiness-chip">${academyFeedEscapeHtml(item)}</span>`;
     }).join('');
 }
+function academyOpenDashboardProfileEditorFromReadiness() {
+    try {
+        sessionStorage.setItem('yh_open_dashboard_profile_editor_v1', '1');
+    } catch (_) {}
 
+    window.location.href = '/dashboard?profile=edit&source=academy-readiness';
+}
+
+if (!window.__academyPlazaReadinessProfileEditBound) {
+    window.__academyPlazaReadinessProfileEditBound = true;
+
+    document.addEventListener('click', (event) => {
+        const target =
+            event.target instanceof Element
+                ? event.target
+                : event.target?.parentElement;
+
+        if (!target) return;
+
+        const button = target.closest('[data-academy-dashboard-profile-edit]');
+        if (!button) return;
+
+        event.preventDefault();
+        academyOpenDashboardProfileEditorFromReadiness();
+    });
+}
 function academyInjectHomeReadinessPanel(homeData = null) {
     if (!homeData || typeof homeData !== 'object') return;
 
@@ -5540,6 +5565,16 @@ function academyInjectHomeReadinessPanel(homeData = null) {
 
                 <div class="academy-home-panel-copy academy-home-readiness-copy">
                     ${academyFeedEscapeHtml(plazaReadinessNextStep)}
+                </div>
+
+                <div class="academy-home-readiness-action-row">
+                    <button
+                        type="button"
+                        class="btn-secondary academy-home-readiness-profile-btn"
+                        data-academy-dashboard-profile-edit="true"
+                    >
+                        Update Profile to Improve Plaza Readiness
+                    </button>
                 </div>
             </div>
         </div>
@@ -5629,7 +5664,221 @@ function academyRenderYearTransformationMap(months = []) {
         `;
     }).join('');
 }
+const ROADMAP_AI_BUBBLE_LINES = [
+    'Talk to me!',
+    'Need help?',
+    'Ask me anything',
+    'Stuck today?',
+    'Need a reset?',
+    'Want a 1-hour plan?'
+];
 
+let roadmapAiMotionTimer = null;
+let roadmapAiBubbleTimer = null;
+let roadmapAiMoveCount = 0;
+
+function academyRandomBetween(min = 0, max = 1) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function academyGetRoadmapAiNodes() {
+    return {
+        shell: document.querySelector('.roadmap-clean-shell'),
+        zone: document.querySelector('.roadmap-ai-play-zone'),
+        agent: document.querySelector('.roadmap-ai-agent'),
+        bubble: document.querySelector('.roadmap-ai-bubble'),
+        currentMission: document.querySelector('.roadmap-mission-day-card.is-current')
+    };
+}
+
+function academySetRoadmapAiBubbleText(text = '') {
+    const bubble = document.querySelector('.roadmap-ai-bubble');
+    if (!bubble) return;
+
+    const clean = String(text || '').trim();
+    if (!clean) return;
+
+    bubble.textContent = clean;
+}
+
+function academyPlaceRoadmapAiAgent(x = 18, y = 18, mode = 'random') {
+    const { agent } = academyGetRoadmapAiNodes();
+    if (!agent) return;
+
+    agent.style.setProperty('--roadmap-ai-x', `${Math.max(0, Math.round(x))}px`);
+    agent.style.setProperty('--roadmap-ai-y', `${Math.max(0, Math.round(y))}px`);
+
+    agent.classList.remove('is-near-current', 'is-random-moving', 'is-bouncing');
+
+    if (mode === 'current') {
+        agent.classList.add('is-near-current');
+    } else {
+        agent.classList.add('is-random-moving');
+    }
+
+    window.setTimeout(() => {
+        if (!agent.isConnected) return;
+        agent.classList.add('is-bouncing');
+    }, 80);
+
+    window.setTimeout(() => {
+        if (!agent.isConnected) return;
+        agent.classList.remove('is-bouncing');
+    }, 980);
+}
+
+function academyMoveRoadmapAiNearCurrentMission() {
+    const { zone, agent, currentMission } = academyGetRoadmapAiNodes();
+
+    if (!zone || !agent || !currentMission) {
+        return false;
+    }
+
+    const zoneRect = zone.getBoundingClientRect();
+    const missionRect = currentMission.getBoundingClientRect();
+
+    const agentWidth = agent.offsetWidth || 150;
+    const agentHeight = agent.offsetHeight || 70;
+
+    const targetX = Math.min(
+        Math.max(12, missionRect.left - zoneRect.left + missionRect.width - 32),
+        Math.max(12, zoneRect.width - agentWidth - 12)
+    );
+
+    const targetY = Math.min(
+        Math.max(12, missionRect.top - zoneRect.top - 12),
+        Math.max(12, zoneRect.height - agentHeight - 12)
+    );
+
+    academySetRoadmapAiBubbleText('Today’s mission?');
+    academyPlaceRoadmapAiAgent(targetX, targetY, 'current');
+
+    return true;
+}
+
+function academyMoveRoadmapAiRandomly() {
+    const { shell, zone, agent } = academyGetRoadmapAiNodes();
+
+    if (!shell || !zone || !agent) return;
+
+    if (shell.classList.contains('is-coach-open')) return;
+
+    const zoneWidth = zone.clientWidth || 0;
+    const zoneHeight = zone.clientHeight || 0;
+    const agentWidth = agent.offsetWidth || 150;
+    const agentHeight = agent.offsetHeight || 70;
+
+    if (zoneWidth < 220 || zoneHeight < 180) return;
+
+    roadmapAiMoveCount += 1;
+
+    if (roadmapAiMoveCount % 4 === 0 && academyMoveRoadmapAiNearCurrentMission()) {
+        return;
+    }
+
+    const maxX = Math.max(18, zoneWidth - agentWidth - 18);
+    const maxY = Math.max(18, zoneHeight - agentHeight - 18);
+
+    const x = academyRandomBetween(18, maxX);
+    const y = academyRandomBetween(18, maxY);
+
+    academyPlaceRoadmapAiAgent(x, y, 'random');
+}
+
+function academyRotateRoadmapAiBubble() {
+    const { shell } = academyGetRoadmapAiNodes();
+
+    if (shell?.classList.contains('is-coach-open')) return;
+
+    const next = ROADMAP_AI_BUBBLE_LINES[
+        academyRandomBetween(0, ROADMAP_AI_BUBBLE_LINES.length - 1)
+    ];
+
+    academySetRoadmapAiBubbleText(next);
+}
+
+function academyStopRoadmapAiMotion() {
+    if (roadmapAiMotionTimer) {
+        window.clearInterval(roadmapAiMotionTimer);
+        roadmapAiMotionTimer = null;
+    }
+
+    if (roadmapAiBubbleTimer) {
+        window.clearInterval(roadmapAiBubbleTimer);
+        roadmapAiBubbleTimer = null;
+    }
+}
+
+function academyStartRoadmapAiMotion() {
+    academyStopRoadmapAiMotion();
+
+    const { agent } = academyGetRoadmapAiNodes();
+    if (!agent) return;
+
+    roadmapAiMoveCount = 0;
+
+    academySetRoadmapAiBubbleText('Talk to me!');
+    window.setTimeout(() => {
+        if (!academyMoveRoadmapAiNearCurrentMission()) {
+            academyMoveRoadmapAiRandomly();
+        }
+    }, 250);
+
+    roadmapAiMotionTimer = window.setInterval(academyMoveRoadmapAiRandomly, 5200);
+    roadmapAiBubbleTimer = window.setInterval(academyRotateRoadmapAiBubble, 3800);
+}
+function academyNormalizeRoadmapFoundationMissions(missions = [], system = {}) {
+    const safeMissions = Array.isArray(missions) ? missions.filter(Boolean) : [];
+
+    const sortedMissions = safeMissions
+        .slice()
+        .sort((a, b) => {
+            const aDay = Number(a.foundationDay || a.sortOrder || 0);
+            const bDay = Number(b.foundationDay || b.sortOrder || 0);
+            return aDay - bDay;
+        });
+
+    if (sortedMissions.length >= 28) {
+        return sortedMissions.slice(0, 28);
+    }
+
+    const missionByDay = new Map();
+
+    sortedMissions.forEach((mission, index) => {
+        const day = Number(mission.foundationDay || mission.sortOrder || index + 1);
+        if (day > 0 && day <= 28 && !missionByDay.has(day)) {
+            missionByDay.set(day, {
+                ...mission,
+                foundationDay: day
+            });
+        }
+    });
+
+    const foundationDays = Array.isArray(system?.foundationDays)
+        ? system.foundationDays
+        : [];
+
+    return Array.from({ length: 28 }).map((_, index) => {
+        const dayNumber = index + 1;
+        const existingMission = missionByDay.get(dayNumber);
+
+        if (existingMission) {
+            return existingMission;
+        }
+
+        const dayMeta = foundationDays.find((item) => Number(item.dayNumber) === dayNumber) || {};
+
+        return {
+            id: dayMeta.missionId || '',
+            foundationDay: dayNumber,
+            sortOrder: dayNumber,
+            title: dayMeta.missionTitle || `Day ${dayNumber}: Foundation Work`,
+            description: dayMeta.missionDescription || 'Take one honest action that supports your Roadmap foundation.',
+            status: dayMeta.status || (dayNumber === Number(system.currentDay || 1) ? 'current' : 'locked'),
+            missionType: 'foundation_28_day_display'
+        };
+    });
+}
 function academyRenderFoundationMissionBoard(missions = [], system = {}) {
     const safeMissions = Array.isArray(missions) && missions.length
         ? missions
@@ -5742,7 +5991,8 @@ async function academySendRoadmapCoachPanelMessage(customText = '') {
             body: JSON.stringify({
                 conversationId: academyCoachConversationId,
                 message: text,
-                contextHint: 'roadmap_inline_panel'
+                contextHint: 'academy_roadmap_inline_panel',
+                assistantScope: 'academy_only'
             })
         });
 
@@ -5785,10 +6035,20 @@ function academyToggleRoadmapCoachPanel(forceOpen = null) {
     panel.classList.toggle('hidden-step', !shouldOpen);
     panel.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
 
+    const shell = document.querySelector('.roadmap-clean-shell');
+    if (shell) {
+        shell.classList.toggle('is-coach-open', shouldOpen);
+    }
+
     if (shouldOpen) {
+        academyStopRoadmapAiMotion();
+        academySetRoadmapAiBubbleText('I’m here');
         academyLoadRoadmapCoachPanel(true).catch(() => {});
         document.getElementById('roadmap-coach-input')?.focus();
+        return;
     }
+
+    academyStartRoadmapAiMotion();
 }
 
 function academyInjectRoadmapTransformationSystem(homeData = {}) {
@@ -5808,11 +6068,16 @@ function academyInjectRoadmapTransformationSystem(homeData = {}) {
         ? homeData.roadmap
         : {};
 
-    const foundationMissions = Array.isArray(homeData?.foundationMissions)
+    const rawFoundationMissions = Array.isArray(homeData?.foundationMissions)
         ? homeData.foundationMissions
         : Array.isArray(homeData?.missions)
             ? homeData.missions
             : [];
+
+    const foundationMissions = academyNormalizeRoadmapFoundationMissions(
+        rawFoundationMissions,
+        system
+    );
 
     const currentDay = Number(system.currentDay || 1);
     const totalFoundationDays = Number(system.totalFoundationDays || 28);
@@ -5912,9 +6177,10 @@ function academyInjectRoadmapTransformationSystem(homeData = {}) {
                 <div class="roadmap-coach-messages" id="roadmap-coach-messages"></div>
 
                 <div class="roadmap-coach-prompts">
-                    <button type="button" data-roadmap-coach-prompt="What should I focus on today?">Today’s focus</button>
-                    <button type="button" data-roadmap-coach-prompt="I missed a day. Help me reset without overthinking.">Reset me</button>
-                    <button type="button" data-roadmap-coach-prompt="Give me a simple 1-hour plan for my current Roadmap mission.">1-hour plan</button>
+                    <button type="button" data-roadmap-coach-prompt="What should I do for today’s Academy mission?">Today’s mission</button>
+                    <button type="button" data-roadmap-coach-prompt="I missed a Roadmap day. Help me reset without overthinking.">Reset me</button>
+                    <button type="button" data-roadmap-coach-prompt="Give me a simple 1-hour plan for my current Academy Roadmap mission.">1-hour plan</button>
+                    <button type="button" data-roadmap-coach-prompt="Help me write my daily Academy check-in clearly.">Check-in help</button>
                 </div>
 
                 <form class="roadmap-coach-form" id="roadmap-coach-form">
@@ -5922,15 +6188,16 @@ function academyInjectRoadmapTransformationSystem(homeData = {}) {
                     <button type="submit" id="roadmap-coach-send" class="btn-primary">Send</button>
                 </form>
             </aside>
+            <div class="roadmap-ai-play-zone">
+                <button type="button" class="roadmap-ai-agent" data-roadmap-cta="coach" aria-label="Open Academy AI Coach">
+                    <span class="roadmap-ai-bubble">Talk to me!</span>
+                    <span class="roadmap-ai-robot">
+                        <span class="roadmap-ai-robot-face">🤖</span>
+                        <span class="roadmap-ai-wave">👋</span>
+                    </span>
+                </button>
+            </div>
         </div>
-
-        <button type="button" class="roadmap-ai-agent" data-roadmap-cta="coach" aria-label="Open Academy AI Coach">
-            <span class="roadmap-ai-bubble">Talk to me</span>
-            <span class="roadmap-ai-robot">
-                <span class="roadmap-ai-robot-face">🤖</span>
-                <span class="roadmap-ai-wave">👋</span>
-            </span>
-        </button>
     `;
 
     stack.prepend(section);
@@ -7596,6 +7863,16 @@ if (dynamicChatContainer) {
 
                             <div class="academy-home-panel-copy academy-home-readiness-copy">
                                 ${plazaReadinessNextStep}
+                            </div>
+
+                            <div class="academy-home-readiness-action-row">
+                                <button
+                                    type="button"
+                                    class="btn-secondary academy-home-readiness-profile-btn"
+                                    data-academy-dashboard-profile-edit="true"
+                                >
+                                    Update Profile to Improve Plaza Readiness
+                                </button>
                             </div>
                         </div>
                     </div>

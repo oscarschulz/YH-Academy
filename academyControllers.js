@@ -3287,6 +3287,7 @@ exports.submitCheckin = async (req, res) => {
             previousBehaviorProfile: behaviorState.previousBehaviorProfile,
             plannerStats: behaviorState.plannerStats,
             adaptivePlanning: homePayload?.adaptivePlanning || {},
+            foundationMissions: homePayload?.foundationMissions || [],
             transformationSystem: homePayload?.transformationSystem || {},
             recentCheckins: homePayload?.recentCheckins || []
         });
@@ -6069,6 +6070,10 @@ function buildAcademyCoachMessages(payload = {}) {
             role: 'system',
             content: [
                 `You are the ${coachMode.title} for Young Hustlers.`,
+                'You are strictly an Academy assistant.',
+                'Only help with Academy-related matters: Roadmap execution, missions, 28-day foundation, daily check-ins, habits, discipline, focus, behavior signals, weekly review, adaptive planning, and progress inside Young Hustlers.',
+                'Do not answer unrelated questions about entertainment, coding, weather, recipes, general web search, medical diagnosis, legal advice, celebrity topics, or topics outside the Academy system.',
+                'If the user asks something outside Academy scope, briefly redirect them back to their Roadmap, missions, check-ins, or today’s work.',
                 'Your job is to help the user execute their existing roadmap, not replace it.',
                 'Stay grounded in the active roadmap, recent missions, recent check-ins, behavior signals, planner stats, and adaptive planning context.',
                 coachMode.systemGuidance,
@@ -6584,7 +6589,69 @@ exports.chatWithDashboardAssistant = async (req, res) => {
         });
     }
 };
+function isClearlyOutsideAcademyCoachScope(message = '') {
+    const text = sanitize(message).toLowerCase();
 
+    if (!text) return false;
+
+    const academyTerms = [
+        'academy',
+        'roadmap',
+        'mission',
+        'missions',
+        'check-in',
+        'checkin',
+        'streak',
+        'foundation',
+        '28 day',
+        '28-day',
+        'daily work',
+        'today',
+        'reset',
+        'stuck',
+        'discipline',
+        'habit',
+        'focus',
+        'weekly review',
+        'progress',
+        'coach',
+        'yh',
+        'young hustlers'
+    ];
+
+    if (academyTerms.some((term) => text.includes(term))) {
+        return false;
+    }
+
+    const clearlyOutsideTerms = [
+        'weather',
+        'recipe',
+        'cook',
+        'movie',
+        'lyrics',
+        'song',
+        'celebrity',
+        'football score',
+        'stock price',
+        'crypto price',
+        'medical diagnosis',
+        'legal advice',
+        'write code',
+        'debug my code',
+        'translate this',
+        'dating advice',
+        'relationship advice'
+    ];
+
+    return clearlyOutsideTerms.some((term) => text.includes(term));
+}
+
+function buildAcademyOnlyRedirectReply() {
+    return [
+        'I can only help with Academy work here: your Roadmap, missions, daily check-ins, 28-day foundation, habits, discipline, focus, weekly review, and progress inside Young Hustlers.',
+        'Bring it back to your Academy Roadmap and I’ll help you choose the next simple action.'
+    ].join('\n\n');
+}
 exports.getAcademyCoachMessages = async (req, res) => {
     try {
         const uid = getAcademyAuthUid(req);
@@ -6641,6 +6708,45 @@ exports.chatWithAcademyCoach = async (req, res) => {
             });
         }
 
+        if (isClearlyOutsideAcademyCoachScope(message)) {
+            const redirectReply = buildAcademyOnlyRedirectReply();
+
+            await academyFirestoreRepo.createCoachMessage(uid, {
+                conversationId,
+                role: 'user',
+                text: message,
+                contextHint,
+                responseStyleVersion: 'academy-only-guard-v1'
+            });
+
+            await academyFirestoreRepo.createCoachMessage(uid, {
+                conversationId,
+                role: 'assistant',
+                text: redirectReply,
+                contextHint,
+                provider: 'academy-scope-guard',
+                model: 'rule-based-academy-scope-v1',
+                replyFormat: 'academy_scope_redirect',
+                coachModeKey: 'academy_only',
+                responseStyleVersion: 'academy-only-guard-v1',
+                grounding: {
+                    assistantScope: 'academy_only',
+                    blockedOutsideAcademy: true
+                }
+            });
+
+            return res.json({
+                success: true,
+                reply: redirectReply,
+                conversationId,
+                provider: 'academy-scope-guard',
+                model: 'rule-based-academy-scope-v1',
+                replyFormat: 'academy_scope_redirect',
+                responseStyleVersion: 'academy-only-guard-v1',
+                fallback: true
+            });
+        }
+
         const [profileDoc, homePayload, plannerRun, history] = await Promise.all([
             academyFirestoreRepo.getCurrentProfile(uid),
             academyFirestoreRepo.buildAcademyHomePayload(uid),
@@ -6681,7 +6787,11 @@ exports.chatWithAcademyCoach = async (req, res) => {
                 : {},
             roadmap: homePayload?.roadmap || {},
             weeklyCheckpoint: homePayload?.weeklyCheckpoint || {},
-            missions: Array.isArray(homePayload?.missions) ? homePayload.missions : [],
+            missions: Array.isArray(homePayload?.foundationMissions) && homePayload.foundationMissions.length
+                ? homePayload.foundationMissions
+                : (Array.isArray(homePayload?.missions) ? homePayload.missions : []),
+            foundationMissions: Array.isArray(homePayload?.foundationMissions) ? homePayload.foundationMissions : [],
+            transformationSystem: homePayload?.transformationSystem || {},
             recentCheckins,
             behaviorProfile: homePayload?.behaviorProfile || {},
             previousBehaviorProfile: homePayload?.previousBehaviorProfile || {},

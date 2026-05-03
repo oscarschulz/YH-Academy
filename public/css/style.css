@@ -1770,6 +1770,8 @@ body.yh-notif-menu-open::after {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: 18px;
+    min-height: 760px;
+    overflow: hidden;
 }
 
 .roadmap-clean-main {
@@ -2264,18 +2266,32 @@ body.yh-notif-menu-open::after {
     transition: width 0.25s ease;
 }
 
+.roadmap-ai-play-zone {
+    position: absolute;
+    inset: 18px;
+    z-index: 20;
+    pointer-events: none;
+}
+
 .roadmap-ai-agent {
-    position: fixed;
-    right: clamp(18px, 3vw, 34px);
-    bottom: clamp(82px, 8vh, 118px);
-    z-index: 1090;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 21;
     display: inline-flex;
     align-items: center;
     gap: 10px;
     border: none;
     background: transparent;
     color: #f8fafc;
-    animation: roadmapAiFloat 2.8s ease-in-out infinite alternate;
+    pointer-events: auto;
+    cursor: pointer;
+    transform: translate3d(var(--roadmap-ai-x, 18px), var(--roadmap-ai-y, 18px), 0);
+    transition:
+        transform 1.15s cubic-bezier(0.22, 1, 0.36, 1),
+        filter 0.25s ease,
+        opacity 0.25s ease;
+    will-change: transform;
 }
 
 .roadmap-ai-bubble {
@@ -2288,6 +2304,7 @@ body.yh-notif-menu-open::after {
     font-size: 0.78rem;
     font-weight: 900;
     box-shadow: 0 14px 34px rgba(0, 0, 0, 0.32);
+    white-space: nowrap;
 }
 
 .roadmap-ai-bubble::after {
@@ -2329,6 +2346,55 @@ body.yh-notif-menu-open::after {
     animation: roadmapWaveHand 1.1s ease-in-out infinite alternate;
 }
 
+.roadmap-clean-shell.is-coach-open .roadmap-ai-agent {
+    opacity: 0.55;
+    filter: saturate(0.8);
+}
+
+.roadmap-ai-agent:hover {
+    filter: brightness(1.12);
+}
+
+.roadmap-ai-agent.is-near-current .roadmap-ai-robot {
+    box-shadow:
+        0 0 0 6px rgba(14, 165, 233, 0.12),
+        0 18px 42px rgba(14, 165, 233, 0.25);
+}
+
+.roadmap-ai-agent.is-bouncing .roadmap-ai-robot {
+    animation: roadmapRobotBounce 0.9s ease both;
+}
+
+.roadmap-ai-agent.is-bouncing .roadmap-ai-bubble {
+    animation: roadmapBubblePop 0.55s ease both;
+}
+
+@keyframes roadmapRobotBounce {
+    0% {
+        transform: translateY(0) scale(1);
+    }
+    35% {
+        transform: translateY(-10px) scale(1.04);
+    }
+    70% {
+        transform: translateY(2px) scale(0.98);
+    }
+    100% {
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes roadmapBubblePop {
+    0% {
+        transform: scale(0.92);
+        opacity: 0.7;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
 @keyframes roadmapWaveHand {
     from {
         transform: rotate(-10deg);
@@ -2360,12 +2426,23 @@ body.yh-notif-menu-open::after {
         max-height: 360px;
     }
 
+    .roadmap-clean-shell {
+        min-height: 860px;
+    }
+
+    .roadmap-ai-play-zone {
+        inset: 14px;
+    }
+
+    .roadmap-ai-agent {
+        transition-duration: 0.9s;
+    }
+
     .roadmap-coach-panel {
         top: 86px;
         right: 14px;
         bottom: 86px;
     }
-
     .roadmap-year-map {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -2399,11 +2476,29 @@ body.yh-notif-menu-open::after {
     }
 
     .roadmap-ai-bubble {
-        display: none;
+        display: inline-flex;
+        font-size: 0.7rem;
+        padding: 7px 10px;
     }
 
     .roadmap-mission-track {
         grid-template-columns: 1fr;
+    }
+
+    .roadmap-clean-shell {
+        min-height: 920px;
+    }
+
+    .roadmap-ai-play-zone {
+        inset: 10px;
+    }
+
+    .roadmap-ai-agent {
+        transform:
+            translate3d(var(--roadmap-ai-x, 10px), var(--roadmap-ai-y, 10px), 0)
+            scale(0.88);
+        transform-origin: top left;
+        transition-duration: 0.85s;
     }
 
     .roadmap-coach-panel {
@@ -18131,6 +18226,24 @@ body[data-yh-page="apply"] .flip-card-front .step1-subtitle {
 
 .academy-home-readiness-copy {
     margin: 0;
+}
+
+.academy-home-readiness-action-row {
+    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.academy-home-readiness-profile-btn {
+    width: auto;
+    min-height: 38px;
+    padding: 0.68rem 0.9rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    white-space: normal;
+    text-align: center;
 }
 
 .academy-home-readiness-grid {

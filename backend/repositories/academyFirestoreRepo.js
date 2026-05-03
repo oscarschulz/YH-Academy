@@ -1350,7 +1350,7 @@ async function buildAcademyHomePayload(uid, roadmapId = null) {
             streakDays,
             readinessScore: toNumber(roadmap.readinessScore, 0)
         },
-        missions,
+        missions: foundationMissions.length ? foundationMissions : safeAllMissions,
         foundationMissions: foundationMissions.length ? foundationMissions : safeAllMissions,
         transformationSystem,
         recentCheckins,
