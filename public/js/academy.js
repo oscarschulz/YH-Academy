@@ -5642,15 +5642,20 @@ function academyRenderHomeSignalGroup(values = [], emptyLabel = 'Nothing added y
         return `<span class="academy-home-readiness-chip">${academyFeedEscapeHtml(item)}</span>`;
     }).join('');
 }
-function academyOpenDashboardProfileEditorFromReadiness() {
+function academyOpenRoadmapProfileEditorFromReadiness() {
     try {
-        sessionStorage.setItem('yh_open_dashboard_profile_editor_v1', '1');
-        sessionStorage.setItem('yh_dashboard_profile_return_to_academy_roadmap_v1', '1');
-        sessionStorage.setItem('yh_dashboard_profile_return_source_v1', 'academy-readiness');
         sessionStorage.setItem('yh_academy_startup_section_v1', 'missions');
     } catch (_) {}
 
-    window.location.href = '/dashboard?profile=edit&source=academy-readiness&return=academy-roadmap';
+    if (typeof openAcademyProfileEditorModal === 'function') {
+        openAcademyProfileEditorModal({
+            source: 'roadmap-readiness',
+            forceSelf: true
+        });
+        return;
+    }
+
+    showToast('Profile editor is not available yet. Please refresh and try again.', 'error');
 }
 
 if (!window.__academyPlazaReadinessProfileEditBound) {
@@ -5668,7 +5673,7 @@ if (!window.__academyPlazaReadinessProfileEditBound) {
         if (!button) return;
 
         event.preventDefault();
-        academyOpenDashboardProfileEditorFromReadiness();
+        academyOpenRoadmapProfileEditorFromReadiness();
     });
 }
 function academyInjectHomeReadinessPanel(homeData = null) {
@@ -9597,15 +9602,36 @@ function closeAcademyProfileEditorModal() {
     document.getElementById('academy-profile-editor-overlay')?.classList.add('hidden-step');
 }
 
-function openAcademyProfileEditorModal() {
-    if (academyProfileViewState?.mode !== 'self') return;
+let academyProfileEditorLaunchSource = '';
+
+function openAcademyProfileEditorModal(options = {}) {
+    const launchSource = String(options?.source || '').trim();
+    const forceSelfEditor =
+        options?.forceSelf === true ||
+        launchSource === 'roadmap-readiness';
+
+    if (academyProfileViewState?.mode !== 'self' && !forceSelfEditor) return;
+
+    academyProfileEditorLaunchSource = launchSource;
 
     academyProfileCloseCropperModal();
+
+    if (forceSelfEditor && academyProfileViewState?.mode !== 'self') {
+        const cachedSelfProfile = readAcademyProfileCache() || {};
+        academyProfileViewState = {
+            mode: 'self',
+            memberId: '',
+            profile: normalizeAcademyProfilePayload(
+                buildAcademySelfProfilePayload(cachedSelfProfile),
+                { mode: 'self' }
+            )
+        };
+    }
 
     const activeProfile =
         academyProfileViewState?.profile && typeof academyProfileViewState.profile === 'object'
             ? academyProfileViewState.profile
-            : buildAcademySelfProfilePayload();
+            : buildAcademySelfProfilePayload(readAcademyProfileCache() || {});
 
     const displayName =
         String(activeProfile.display_name || getStoredUserValue('yh_user_name', 'Hustler')).trim() || 'Hustler';
@@ -10231,7 +10257,25 @@ function ensureAcademyProfileEditorBindings() {
                     { mode: 'self' }
                 );
 
+                const launchedFromRoadmapReadiness =
+                    academyProfileEditorLaunchSource === 'roadmap-readiness';
+
                 closeAcademyProfileEditorModal();
+
+                if (launchedFromRoadmapReadiness) {
+                    academyProfileEditorLaunchSource = '';
+
+                    if (typeof loadAcademyHome === 'function') {
+                        await loadAcademyHome(true);
+                    } else if (typeof openAcademyRoadmapView === 'function') {
+                        openAcademyRoadmapView(true);
+                    }
+
+                    showToast('Profile updated. Plaza readiness refreshed.', 'success');
+                    return;
+                }
+
+                academyProfileEditorLaunchSource = '';
                 renderAcademyProfileView(academyProfileViewState.profile, { mode: 'self' });
                 showToast('Profile updated successfully.', 'success');
             });
