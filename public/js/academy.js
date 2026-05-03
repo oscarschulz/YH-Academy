@@ -3325,48 +3325,215 @@ const btnLeaveStage = document.getElementById('btn-leave-stage');
         });
     }
 
-    // --- EMOJI, GIF, GIFT LOGIC ---
-    const btnGift = document.querySelector('span[title="Send Gift"]');
-    const btnGif = document.querySelector('span[title="Open GIF picker"]');
-    const btnEmoji = document.querySelector('span[title="Select emoji"]');
+    // --- COMPOSER EXTRAS: GIFT, GIF, EMOJI ---
+    const composerExtras = document.getElementById('chat-input-extras');
 
-    if(btnGift) { btnGift.addEventListener('click', () => { document.getElementById('gift-modal').classList.remove('hidden-step'); }); }
-
-    const closeGiftModal = document.getElementById('close-gift-modal');
-    const giftModal = document.getElementById('gift-modal');
-    if(closeGiftModal && giftModal) {
-        closeGiftModal.addEventListener('click', () => giftModal.classList.add('hidden-step'));
-        giftModal.addEventListener('click', (e) => { if(e.target === giftModal) giftModal.classList.add('hidden-step'); });
+    function getAcademyComposerInput() {
+        return document.getElementById('chat-input');
     }
 
-    const giftItems = document.querySelectorAll('#gift-modal .modal-body > div > div'); 
-    giftItems.forEach(giftBox => {
-        giftBox.addEventListener('click', () => {
-            showToast("Connecting to Payment Gateway...", "success");
-            setTimeout(() => {
-                showToast("Gift sent successfully! +XP added to target.", "success");
-                giftModal.classList.add('hidden-step');
-            }, 1500);
+    function getAcademyComposerArea() {
+        return document.getElementById('chat-input-area');
+    }
+
+    function isAcademyComposerAvailable() {
+        const composerArea = getAcademyComposerArea();
+
+        if (!composerArea) return false;
+
+        const isHidden =
+            composerArea.classList.contains('hidden-step') ||
+            composerArea.getAttribute('aria-hidden') === 'true' ||
+            window.getComputedStyle(composerArea).display === 'none';
+
+        return !isHidden;
+    }
+
+    function closeAcademyComposerMenu() {
+        const existing = document.getElementById('academy-composer-menu');
+        if (existing) existing.remove();
+
+        document.querySelectorAll('[data-composer-action]').forEach((button) => {
+            button.classList.remove('is-active');
+            button.setAttribute('aria-expanded', 'false');
         });
+    }
+
+    function insertIntoAcademyComposer(text = '', options = {}) {
+        const input = getAcademyComposerInput();
+        const cleanText = String(text || '');
+
+        if (!input || !cleanText) return;
+
+        const start = Number.isFinite(input.selectionStart) ? input.selectionStart : input.value.length;
+        const end = Number.isFinite(input.selectionEnd) ? input.selectionEnd : input.value.length;
+
+        const before = input.value.slice(0, start);
+        const after = input.value.slice(end);
+        const prefix = before && !before.endsWith(' ') ? ' ' : '';
+        const suffix = after && !after.startsWith(' ') ? ' ' : '';
+
+        input.value = `${before}${prefix}${cleanText}${suffix}${after}`.trimStart();
+
+        const nextCaret = Math.min(
+            input.value.length,
+            before.length + prefix.length + cleanText.length + suffix.length
+        );
+
+        input.focus();
+        input.setSelectionRange(nextCaret, nextCaret);
+
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+
+        if (options.sendNow === true) {
+            sendMessage();
+        }
+    }
+
+    function buildAcademyComposerMenu(action = '', trigger = null) {
+        closeAcademyComposerMenu();
+
+        if (!isAcademyComposerAvailable()) {
+            showToast('Open a message thread first.', 'error');
+            return null;
+        }
+
+        const menu = document.createElement('div');
+        menu.id = 'academy-composer-menu';
+        menu.className = 'academy-composer-menu';
+        menu.setAttribute('data-menu-type', action);
+
+        const menuTitle =
+            action === 'gift'
+                ? 'Send a quick gift'
+                : action === 'gif'
+                    ? 'Choose a GIF'
+                    : 'Pick an emoji';
+
+        const items =
+            action === 'gift'
+                ? [
+                    { label: 'Respect', value: '🎁 Respect Gift' },
+                    { label: 'Energy', value: '⚡ Energy Gift' },
+                    { label: 'Win', value: '🏆 Win Gift' },
+                    { label: 'Support', value: '🤝 Support Gift' }
+                ]
+                : action === 'gif'
+                    ? [
+                        { label: 'Hype', value: 'GIF: Hype Mode 🔥' },
+                        { label: 'Win', value: 'GIF: Big Win 🏆' },
+                        { label: 'Focus', value: 'GIF: Locked In 🎯' },
+                        { label: 'Respect', value: 'GIF: Respect 🤝' }
+                    ]
+                    : [
+                        { label: '🔥', value: '🔥' },
+                        { label: '💯', value: '💯' },
+                        { label: '😂', value: '😂' },
+                        { label: '🧠', value: '🧠' },
+                        { label: '🚀', value: '🚀' },
+                        { label: '🤝', value: '🤝' },
+                        { label: '🎯', value: '🎯' },
+                        { label: '✅', value: '✅' }
+                    ];
+
+        menu.innerHTML = `
+            <div class="academy-composer-menu-head">
+                <strong>${academyFeedEscapeHtml(menuTitle)}</strong>
+                <button type="button" class="academy-composer-menu-close" aria-label="Close composer menu">✕</button>
+            </div>
+            <div class="academy-composer-menu-grid">
+                ${items.map((item) => {
+                    return `
+                        <button
+                            type="button"
+                            class="academy-composer-menu-item"
+                            data-composer-insert="${academyFeedEscapeHtml(item.value)}"
+                            data-composer-send="${action === 'gift' || action === 'gif' ? 'true' : 'false'}"
+                        >
+                            ${academyFeedEscapeHtml(item.label)}
+                        </button>
+                    `;
+                }).join('')}
+            </div>
+        `;
+
+        document.body.appendChild(menu);
+
+        const rect = trigger?.getBoundingClientRect?.();
+        const menuWidth = 260;
+
+        if (rect) {
+            const left = Math.min(
+                Math.max(12, rect.left + rect.width - menuWidth),
+                window.innerWidth - menuWidth - 12
+            );
+
+            menu.style.left = `${left}px`;
+            menu.style.top = `${Math.max(12, rect.top - 12)}px`;
+            menu.style.transform = 'translateY(-100%)';
+        }
+
+        trigger?.classList.add('is-active');
+        trigger?.setAttribute('aria-expanded', 'true');
+
+        return menu;
+    }
+
+    if (composerExtras && composerExtras.dataset.composerExtrasBound !== 'true') {
+        composerExtras.dataset.composerExtrasBound = 'true';
+
+        composerExtras.addEventListener('click', (event) => {
+            const button = event.target instanceof Element
+                ? event.target.closest('[data-composer-action]')
+                : null;
+
+            if (!button) return;
+
+            event.preventDefault();
+
+            const action = String(button.getAttribute('data-composer-action') || '').trim();
+
+            if (!action) return;
+
+            if (button.classList.contains('is-active')) {
+                closeAcademyComposerMenu();
+                return;
+            }
+
+            buildAcademyComposerMenu(action, button);
+        });
+    }
+
+    document.addEventListener('click', (event) => {
+        const target = event.target instanceof Element ? event.target : null;
+        if (!target) return;
+
+        if (target.closest('#academy-composer-menu') || target.closest('#chat-input-extras')) {
+            return;
+        }
+
+        closeAcademyComposerMenu();
     });
 
-    if(btnGif) { btnGif.addEventListener('click', () => { showToast("GIF API (Tenor/Giphy) requires Backend connection.", "error"); }); }
+    document.addEventListener('click', (event) => {
+        const target = event.target instanceof Element ? event.target : null;
+        if (!target) return;
 
-    if (btnEmoji) {
-        btnEmoji.addEventListener('click', () => {
-            if (typeof picmoPopup !== 'undefined') {
-                if(!window.emojiPicker) {
-                    window.emojiPicker = picmoPopup.createPopup({ animate: true, theme: 'dark' }, { triggerElement: btnEmoji, referenceElement: btnEmoji, position: 'top-end' });
-                    window.emojiPicker.addEventListener('emoji:select', (selection) => {
-                        if(chatInputArea) { chatInputArea.value += selection.emoji; chatInputArea.focus(); }
-                    });
-                }
-                window.emojiPicker.toggle();
-            } else {
-                showToast("Emoji Library is loading... please wait.", "error");
-            }
-        });
-    }
+        const closeButton = target.closest('.academy-composer-menu-close');
+        if (closeButton) {
+            closeAcademyComposerMenu();
+            return;
+        }
+
+        const item = target.closest('[data-composer-insert]');
+        if (!item) return;
+
+        const value = item.getAttribute('data-composer-insert') || '';
+        const sendNow = item.getAttribute('data-composer-send') === 'true';
+
+        insertIntoAcademyComposer(value, { sendNow });
+        closeAcademyComposerMenu();
+    });
 
     // --- STAGE CONTROLS, WEBRTC & INVITE ---
     let localStream = null;

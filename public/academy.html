@@ -7,7 +7,7 @@
     <link rel="icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css?v=20260503-roadmap-full-width-ai-right-1">
+<link rel="stylesheet" href="/css/style.css?v=20260503-composer-actions-1">
 <link rel="stylesheet" href="/css/academy-thread-bottom-fix.css?v=20260417-2">
 </head>
 <body data-yh-view="academy" data-yh-page="academy">
@@ -679,8 +679,10 @@
                                                 </svg>
                                             </button>
                                         </div>
-                                        <div class="input-extras">
-                                            <span title="Send Gift">🎁</span><span title="Open GIF picker">GIF</span><span title="Select emoji">😀</span>
+                                        <div class="input-extras" id="chat-input-extras">
+                                            <button type="button" class="composer-extra-btn" data-composer-action="gift" title="Send Gift" aria-label="Send Gift">🎁</button>
+                                            <button type="button" class="composer-extra-btn" data-composer-action="gif" title="Open GIF picker" aria-label="Open GIF picker">GIF</button>
+                                            <button type="button" class="composer-extra-btn" data-composer-action="emoji" title="Select emoji" aria-label="Select emoji">😀</button>
                                         </div>
                                     </div>
                                 </div>
@@ -2427,7 +2429,7 @@
 
 <script src="/js/yh-shared-core.js?v=20260418-toast-center-1"></script>
 <script src="/js/yh-shared-runtime.js?v=20260411-4"></script>
-<script src="/js/academy.js?v=20260503-roadmap-full-width-ai-right-1"></script>
+<script src="/js/academy.js?v=20260503-composer-actions-1"></script>
 <div
     class="academy-profile-editor-overlay hidden-step"
     id="academy-profile-editor-overlay"

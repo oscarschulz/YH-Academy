@@ -1167,13 +1167,172 @@ body.yh-notif-menu-open::after {
 .chat-input-container { position: relative; flex: 1; display: flex; align-items: center; }
 .chat-text-input { flex: 1; background: transparent; border: none; outline: none; padding: 10px 0; color: #fff; font-size: 0.95rem; padding-right: 45px; }
 .chat-text-input::placeholder { color: var(--text-muted); opacity: 0.7; }
-.chat-send-btn { position: absolute; right: 10px; background: transparent; border: none; color: var(--neon-blue); cursor: pointer; transition: 0.2s; padding: 5px; z-index: 10; display: flex; align-items: center; justify-content: center; }
-.chat-send-btn:hover { color: #fff; transform: scale(1.1) rotate(-10deg); text-shadow: 0 0 10px rgba(14, 165, 233, 0.8); }
+.chat-send-btn {
+    position: absolute;
+    right: 8px;
+    width: 40px;
+    height: 40px;
+    background: rgba(14, 165, 233, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.24);
+    color: #7dd3fc;
+    cursor: pointer;
+    transition:
+        transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
+        background 0.22s ease,
+        border-color 0.22s ease,
+        color 0.22s ease,
+        box-shadow 0.22s ease;
+    padding: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 14px;
+}
 
-.input-extras { display: flex; gap: 10px; align-items: center; }
-.input-extras span { background: rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; color: var(--text-main); transition: 0.2s; display: flex; align-items: center; border: 1px solid rgba(255,255,255,0.05); }
-.input-extras span:hover { background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.2); transform: translateY(-2px); }
+.chat-send-btn:hover {
+    color: #ffffff;
+    background: rgba(14, 165, 233, 0.22);
+    border-color: rgba(56, 189, 248, 0.48);
+    transform: translateY(-2px) scale(1.04);
+    box-shadow: 0 12px 24px rgba(14, 165, 233, 0.16);
+    text-shadow: none;
+}
 
+.chat-send-btn:active {
+    transform: translateY(0) scale(0.96);
+}
+
+.input-extras {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.input-extras span,
+.input-extras .composer-extra-btn {
+    min-width: 42px;
+    height: 38px;
+    background: rgba(255,255,255,0.05);
+    padding: 8px 12px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: var(--text-main);
+    transition:
+        transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
+        background 0.22s ease,
+        border-color 0.22s ease,
+        color 0.22s ease,
+        box-shadow 0.22s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255,255,255,0.05);
+    font-weight: 800;
+}
+
+.input-extras .composer-extra-btn {
+    appearance: none;
+    -webkit-appearance: none;
+    font-family: inherit;
+}
+
+.input-extras span:hover,
+.input-extras .composer-extra-btn:hover,
+.input-extras .composer-extra-btn.is-active {
+    background: rgba(255,255,255,0.15);
+    border-color: rgba(255,255,255,0.2);
+    color: #ffffff;
+    transform: translateY(-2px) scale(1.04);
+    box-shadow: 0 12px 24px rgba(2, 6, 23, 0.22);
+}
+
+.input-extras span:active,
+.input-extras .composer-extra-btn:active {
+    transform: translateY(0) scale(0.96);
+}
+.academy-composer-menu {
+    position: fixed;
+    z-index: 14000;
+    width: min(260px, calc(100vw - 24px));
+    padding: 12px;
+    border-radius: 18px;
+    border: 1px solid rgba(56, 189, 248, 0.24);
+    background: rgba(8, 18, 33, 0.96);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.44), 0 0 0 1px rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    animation: academyComposerMenuIn 0.18s ease both;
+}
+
+.academy-composer-menu-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.academy-composer-menu-head strong {
+    color: #f8fafc;
+    font-size: 0.82rem;
+}
+
+.academy-composer-menu-close {
+    width: 26px;
+    height: 26px;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.06);
+    color: #cbd5e1;
+    cursor: pointer;
+}
+
+.academy-composer-menu-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.academy-composer-menu-item {
+    min-height: 40px;
+    border-radius: 13px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.055);
+    color: #e5f2ff;
+    font-weight: 800;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition:
+        transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1),
+        background 0.2s ease,
+        border-color 0.2s ease,
+        color 0.2s ease;
+}
+
+.academy-composer-menu-item:hover {
+    transform: translateY(-2px) scale(1.02);
+    background: rgba(14, 165, 233, 0.16);
+    border-color: rgba(56, 189, 248, 0.32);
+    color: #ffffff;
+}
+
+.academy-composer-menu-item:active {
+    transform: translateY(0) scale(0.96);
+}
+
+@keyframes academyComposerMenuIn {
+    from {
+        opacity: 0;
+        transform: translateY(calc(-100% + 8px)) scale(0.96);
+    }
+    to {
+        opacity: 1;
+    }
+}
 /* --- OTHER VIEWS --- */
 .vault-main { background: rgba(10, 15, 25, 0.85); }
 .vault-search { width: 200px; border-radius: 20px; }
@@ -14039,11 +14198,17 @@ body.academy-profile-image-preview-open {
 .chat-input-area.yh-messenger-composer .chat-send-btn:hover {
     background: rgba(14, 165, 233, 0.28);
     color: #ffffff;
-    transform: translateY(-1px);
+    transform: translateY(calc(-50% - 2px)) scale(1.04);
+    box-shadow: 0 12px 24px rgba(14, 165, 233, 0.16);
     text-shadow: none;
 }
 
-.chat-input-area.yh-messenger-composer .input-extras span {
+.chat-input-area.yh-messenger-composer .chat-send-btn:active {
+    transform: translateY(-50%) scale(0.96);
+}
+
+.chat-input-area.yh-messenger-composer .input-extras span,
+.chat-input-area.yh-messenger-composer .input-extras .composer-extra-btn {
     border-radius: 12px;
 }
 
