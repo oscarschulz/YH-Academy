@@ -2099,7 +2099,291 @@ function normalizeGeneratedMission(mission = {}, context = {}) {
         sortOrder: Math.max(1, toInt(mission.sortOrder, 1))
     };
 }
+function academyHumanizeRoadmapValue(value = '') {
+    return sanitize(value)
+        .replace(/[_-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
 
+function academySummarizeScopeAnswers(scopeAnswers = {}) {
+    const source = scopeAnswers && typeof scopeAnswers === 'object' ? scopeAnswers : {};
+
+    return Object.entries(source)
+        .map(([key, value]) => {
+            const cleanValue = sanitize(value);
+            if (!cleanValue) return '';
+
+            const cleanKey = academyHumanizeRoadmapValue(key);
+            return `${cleanKey}: ${cleanValue}`;
+        })
+        .filter(Boolean)
+        .slice(0, 4)
+        .join(' | ');
+}
+
+function academyBuildFoundationMissionTemplates(focusAreaKey = '') {
+    const key = sanitize(focusAreaKey).toLowerCase();
+
+    const base = [
+        {
+            title: 'Set Today’s Standard',
+            action: 'Write one clear standard you will follow today.',
+            done: 'One daily standard is written and visible before work begins.',
+            why: 'A clear standard gives the day direction without overwhelming the user.'
+        },
+        {
+            title: 'Remove One Distraction',
+            action: 'Identify one distraction and remove it from your environment for today.',
+            done: 'One distraction is named, reduced, or removed for the day.',
+            why: 'Transformation becomes easier when the user subtracts what keeps pulling them backward.'
+        },
+        {
+            title: 'Complete One Focused Action',
+            action: 'Complete one focused action connected to your 30-day target.',
+            done: 'One measurable action is completed and logged.',
+            why: 'Small daily execution creates visible momentum over time.'
+        },
+        {
+            title: 'Review Your Weak Pattern',
+            action: 'Write down the pattern that usually makes you inconsistent.',
+            done: 'One weak pattern is identified with a simple correction.',
+            why: 'The user cannot correct what they refuse to observe.'
+        },
+        {
+            title: 'Protect Your Energy',
+            action: 'Choose one simple action that protects your energy today.',
+            done: 'One energy-protecting action is completed.',
+            why: 'Better energy makes discipline easier to sustain.'
+        },
+        {
+            title: 'Practice Saying No',
+            action: 'Say no to one habit, distraction, or low-value action today.',
+            done: 'One thing was consciously refused and logged.',
+            why: 'Self-control is built through repeated small refusals.'
+        },
+        {
+            title: 'Close the Day Honestly',
+            action: 'Write a short evening reflection on what improved and what must be corrected.',
+            done: 'A short honest reflection is written before the day ends.',
+            why: 'Reflection turns daily action into long-term self-awareness.'
+        }
+    ];
+
+    const money = [
+        {
+            title: 'Clarify Your Money Target',
+            action: 'Write the exact income, skill, offer, or business result you want to move toward.',
+            done: 'A specific money or business target is written clearly.',
+            why: 'Money progress starts faster when the user stops thinking vaguely.'
+        },
+        {
+            title: 'Choose One Valuable Skill',
+            action: 'Choose one skill that can make you useful in the market and write why it matters.',
+            done: 'One monetizable skill is selected and explained.',
+            why: 'Income improves when the user builds real value first.'
+        },
+        {
+            title: 'Map One Simple Offer',
+            action: 'Draft one simple offer you could sell to a person or business.',
+            done: 'One offer is written with who it helps and what result it gives.',
+            why: 'A simple offer turns ambition into something that can be tested.'
+        },
+        {
+            title: 'Find Proof of Demand',
+            action: 'List five people, businesses, or markets that already pay for this type of result.',
+            done: 'Five demand examples are listed.',
+            why: 'The user learns to follow demand instead of guessing.'
+        }
+    ];
+
+    const mindset = [
+        {
+            title: 'Name Your Inner Block',
+            action: 'Write the thought, fear, or emotion that usually slows you down.',
+            done: 'One inner block is named honestly.',
+            why: 'Mental growth starts when the user can clearly see the internal enemy.'
+        },
+        {
+            title: 'Replace One Weak Thought',
+            action: 'Take one weak thought and rewrite it into a stronger operating belief.',
+            done: 'One weak thought is replaced with one stronger belief.',
+            why: 'A better internal script supports better external action.'
+        },
+        {
+            title: 'Do One Thing Before You Feel Ready',
+            action: 'Complete one useful action even if you do not feel fully ready.',
+            done: 'One action is completed before motivation feels perfect.',
+            why: 'Confidence grows after action, not before it.'
+        },
+        {
+            title: 'Reduce Overthinking',
+            action: 'Pick one decision you have delayed and choose the next small step.',
+            done: 'One delayed decision has a next action attached.',
+            why: 'Clarity increases when decisions become smaller.'
+        }
+    ];
+
+    const fitness = [
+        {
+            title: 'Move Your Body Today',
+            action: 'Complete one realistic body movement session based on your current level.',
+            done: 'One movement session is completed.',
+            why: 'Physical discipline gives the user energy and identity proof.'
+        },
+        {
+            title: 'Control One Meal',
+            action: 'Make one food decision today that supports your health goal.',
+            done: 'One intentional food decision is completed.',
+            why: 'Health transformation becomes easier through repeated simple choices.'
+        },
+        {
+            title: 'Track Your Body Signal',
+            action: 'Record your energy, sleep, or training consistency honestly.',
+            done: 'One body signal is tracked.',
+            why: 'The user needs feedback before improving health patterns.'
+        },
+        {
+            title: 'Protect Recovery',
+            action: 'Choose one recovery action such as sleep, stretching, hydration, or rest.',
+            done: 'One recovery action is completed.',
+            why: 'Recovery protects long-term consistency.'
+        }
+    ];
+
+    const communication = [
+        {
+            title: 'Send One Better Message',
+            action: 'Write or send one clear message that improves a relationship, opportunity, or network connection.',
+            done: 'One clear message is written or sent.',
+            why: 'Communication improves through deliberate repetitions.'
+        },
+        {
+            title: 'Practice One Conversation Skill',
+            action: 'Practice one skill such as asking better questions, listening, or speaking clearly.',
+            done: 'One communication skill is practiced intentionally.',
+            why: 'Networking confidence grows from small controlled practice.'
+        },
+        {
+            title: 'Map One Useful Contact',
+            action: 'Identify one person who could help your growth and write why they matter.',
+            done: 'One useful contact is mapped.',
+            why: 'A stronger network starts with intentional awareness.'
+        },
+        {
+            title: 'Reduce Social Fear',
+            action: 'Do one small social action you would normally avoid.',
+            done: 'One avoided social action is completed.',
+            why: 'Social confidence grows when avoidance reduces.'
+        }
+    ];
+
+    if (key.includes('money') || key.includes('business') || key.includes('wealth')) return [...money, ...base];
+    if (key.includes('mindset') || key.includes('psychology')) return [...mindset, ...base];
+    if (key.includes('fitness') || key.includes('health')) return [...fitness, ...base];
+    if (key.includes('communication') || key.includes('network')) return [...communication, ...base];
+
+    return base;
+}
+
+function academyBuild28DayFoundationMissions(profile = {}, context = {}, seedMissions = []) {
+    const dynamicIntake =
+        profile.dynamicIntake && typeof profile.dynamicIntake === 'object'
+            ? profile.dynamicIntake
+            : {};
+
+    const focusAreaKey = sanitize(profile.focusAreaKey || dynamicIntake.focusAreaKey || '');
+    const focusArea = sanitize(profile.topPriorityPillar || dynamicIntake.focusArea || 'Life Transformation') || 'Life Transformation';
+    const target30Days = sanitize(profile.next30DaysWin || profile.goals6mo || dynamicIntake.target30Days || '');
+    const blockerText = sanitize(profile.biggestImmediateProblem || profile.blockerText || dynamicIntake.blockerText || '');
+    const obstacleType = academyHumanizeRoadmapValue(profile.obstacleType || dynamicIntake.obstacleType || '');
+    const missionFormat = academyHumanizeRoadmapValue(profile.preferredWorkStyle || dynamicIntake.missionFormat || '');
+    const accountabilityStyle = academyHumanizeRoadmapValue(profile.accountabilityStyle || dynamicIntake.accountabilityStyle || '');
+    const bestExecutionWindow = academyHumanizeRoadmapValue(profile.bestExecutionWindow || dynamicIntake.bestExecutionWindow || '');
+    const routineSnapshot = sanitize(profile.routineSnapshot || dynamicIntake.routineSnapshot || '');
+    const scopeSummary = academySummarizeScopeAnswers(profile.scopeAnswers || dynamicIntake.scopeAnswers || {});
+
+    const adaptivePlanning =
+        context.adaptivePlanning && typeof context.adaptivePlanning === 'object'
+            ? context.adaptivePlanning
+            : {};
+
+    const dailyLoadCap = Math.max(15, toInt(adaptivePlanning.dailyLoadCap, 35) || 35);
+    const roadmapIntensity = sanitize(profile.roadmapIntensity || dynamicIntake.roadmapIntensity || 'balanced');
+    const templates = academyBuildFoundationMissionTemplates(focusAreaKey);
+    const seeds = Array.isArray(seedMissions) && seedMissions.length
+        ? seedMissions
+        : [];
+
+    const weeklyThemes = [
+        'Awareness and Standards',
+        'Discipline and Subtraction',
+        'Skill and Execution',
+        'Identity and Review'
+    ];
+
+    return Array.from({ length: 28 }).map((_, index) => {
+        const dayNumber = index + 1;
+        const weekNumber = Math.floor(index / 7) + 1;
+        const template = templates[index % templates.length] || templates[0];
+        const seed = seeds[index % Math.max(1, seeds.length)] || {};
+        const estimatedMinutes =
+            roadmapIntensity === 'elite'
+                ? Math.min(90, Math.max(dailyLoadCap, 45))
+                : roadmapIntensity === 'aggressive'
+                    ? Math.min(75, Math.max(dailyLoadCap, 35))
+                    : roadmapIntensity === 'light'
+                        ? Math.min(30, Math.max(15, dailyLoadCap))
+                        : Math.min(50, Math.max(20, dailyLoadCap));
+
+        const hydrationParts = [
+            target30Days ? `30-day target: ${target30Days}` : '',
+            blockerText ? `current blocker: ${blockerText}` : '',
+            obstacleType ? `obstacle type: ${obstacleType}` : '',
+            bestExecutionWindow ? `best execution time: ${bestExecutionWindow}` : '',
+            missionFormat ? `preferred format: ${missionFormat}` : '',
+            accountabilityStyle ? `accountability style: ${accountabilityStyle}` : '',
+            scopeSummary ? `activation answers: ${scopeSummary}` : '',
+            routineSnapshot ? `routine snapshot: ${routineSnapshot}` : ''
+        ].filter(Boolean);
+
+        const description = [
+            template.action,
+            hydrationParts.length
+                ? `Use this context from your Roadmap activation: ${hydrationParts.join(' • ')}.`
+                : 'Keep it simple, honest, and realistic for today.',
+            'Do this as one focused action, not a full-life overhaul.'
+        ].join(' ');
+
+        return {
+            ...seed,
+            pillar: focusArea,
+            title: `Day ${dayNumber}: ${template.title}`,
+            description: ensureMissionSentence(description),
+            doneLooksLike: ensureMissionSentence(template.done),
+            whyItMatters: ensureMissionSentence(template.why),
+            frequency: 'daily',
+            dueDate: addDaysISO(index),
+            estimatedMinutes,
+            sortOrder: dayNumber,
+            selectionReason: `28-day foundation mission hydrated from Roadmap activation answers. Week ${weekNumber}: ${weeklyThemes[weekNumber - 1] || 'Foundation'}.`,
+            foundationDay: dayNumber,
+            foundationWeek: weekNumber,
+            foundationMonth: 1,
+            missionType: 'foundation_28_day',
+            activationHydration: {
+                focusAreaKey,
+                target30Days,
+                blockerText,
+                obstacleType,
+                missionFormat,
+                accountabilityStyle,
+                bestExecutionWindow,
+                scopeSummary
+            }
+        };
+    });
+}
 async function refreshBehaviorState(uid) {
     const behaviorProfile = await academyFirestoreRepo.computeBehaviorProfile(uid);
     const savedProfileDoc = await academyFirestoreRepo.saveBehaviorProfile(uid, behaviorProfile);
@@ -2256,7 +2540,10 @@ async function generateAndPersistPlanFirestore(uid, profile, options = {}) {
             };
         }
     }
-
+    adaptedMissions = academyBuild28DayFoundationMissions(profile, {
+        ...context,
+        adaptivePlanning
+    }, adaptedMissions);
     normalizedPlan.roadmap = {
         ...(normalizedPlan.roadmap || {}),
         coachTone: sanitize(adaptivePlanning.coachToneOverride || normalizedPlan?.roadmap?.coachTone || profile.coachTone || 'balanced') || 'balanced',
@@ -5359,6 +5646,10 @@ exports.submitRoadmapApplication = async (req, res) => {
                 schemaKey: roadmapIntake.schemaKey,
                 intakeVersion: roadmapIntake.intakeVersion,
                 currentLevel: roadmapIntake.currentLevel,
+                target30Days: roadmapIntake.target30Days,
+                blockerText: roadmapIntake.blockerText,
+                dailyHours: roadmapIntake.dailyHours,
+                dailyMinutes: roadmapIntake.dailyMinutes,
 
                 goalType: roadmapIntake.goalType,
                 roadmapIntensity: roadmapIntake.roadmapIntensity,
@@ -5383,6 +5674,8 @@ exports.submitRoadmapApplication = async (req, res) => {
                 : {},
             biggestImmediateProblem: roadmapIntake.blockerText,
             next30DaysWin: roadmapIntake.target30Days,
+            roadmapDailyHours: roadmapIntake.dailyHours,
+            roadmapDailyMinutes: roadmapIntake.dailyMinutes,
             preferredWorkStyle: roadmapIntake.missionFormat || roadmapIntake.currentLevel,
             accountabilityStyle: roadmapIntake.accountabilityStyle || roadmapIntake.coachTone,
             roadmapIntensity: roadmapIntake.roadmapIntensity,

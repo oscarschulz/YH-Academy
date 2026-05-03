@@ -53,6 +53,13 @@ const mapMissionDoc = (doc) => {
         completionNote: sanitizeString(data.completionNote),
         source: sanitizeString(data.source || 'rule'),
         sortOrder: toNumber(data.sortOrder, 0),
+        foundationDay: toNumber(data.foundationDay, 0),
+        foundationWeek: toNumber(data.foundationWeek, 0),
+        foundationMonth: toNumber(data.foundationMonth, 0),
+        missionType: sanitizeString(data.missionType || ''),
+        activationHydration: data.activationHydration && typeof data.activationHydration === 'object'
+            ? data.activationHydration
+            : {},
         selectionReason: sanitizeString(data.selectionReason),
         primaryBottleneck: sanitizeString(data.primaryBottleneck),
         generatedByProvider: sanitizeString(data.generatedByProvider),
@@ -910,6 +917,13 @@ async function persistRoadmapBundle(uid, profile, plan, createdByModel) {
             source: sanitizeString(mission.source || missionSource),
             completionNote: '',
             sortOrder: toNumber(mission.sortOrder, 0),
+            foundationDay: toNumber(mission.foundationDay, 0),
+            foundationWeek: toNumber(mission.foundationWeek, 0),
+            foundationMonth: toNumber(mission.foundationMonth, 0),
+            missionType: sanitizeString(mission.missionType || ''),
+            activationHydration: mission.activationHydration && typeof mission.activationHydration === 'object'
+                ? mission.activationHydration
+                : {},
             selectionReason: sanitizeString(mission.selectionReason),
             primaryBottleneck: sanitizeString(mission.primaryBottleneck),
             generatedByProvider: sanitizeString(mission.generatedByProvider),
@@ -1092,6 +1106,176 @@ function buildAcademyPlazaReadinessPayload(profileDoc = {}, roadmap = {}, missio
         }
     };
 }
+function academyToDate(value, fallback = new Date()) {
+    if (!value) return fallback;
+    if (typeof value.toDate === 'function') return value.toDate();
+    if (value instanceof Date) return value;
+
+    const parsed = new Date(value);
+    return Number.isFinite(parsed.getTime()) ? parsed : fallback;
+}
+
+function academyDateKey(date = new Date()) {
+    return academyToDate(date).toISOString().slice(0, 10);
+}
+
+function academyStartOfDay(date = new Date()) {
+    const safeDate = academyToDate(date);
+    safeDate.setHours(0, 0, 0, 0);
+    return safeDate;
+}
+
+function academyAddDays(date = new Date(), days = 0) {
+    const safeDate = academyStartOfDay(date);
+    safeDate.setDate(safeDate.getDate() + toNumber(days, 0));
+    return safeDate;
+}
+
+function academyBuildYearMapFromFocus(focusArea = '') {
+    const clean = sanitizeString(focusArea).toLowerCase();
+
+    if (clean.includes('money') || clean.includes('business') || clean.includes('wealth')) {
+        return [
+            'Foundation',
+            'Skill Selection',
+            'Offer Building',
+            'Lead Generation',
+            'Sales Practice',
+            'First Revenue System',
+            'Brand Trust',
+            'Partnerships',
+            'Automation',
+            'Scaling',
+            'Delegation',
+            'Identity Upgrade'
+        ];
+    }
+
+    if (clean.includes('fitness') || clean.includes('health')) {
+        return [
+            'Foundation',
+            'Routine Consistency',
+            'Nutrition Control',
+            'Strength Base',
+            'Cardio Standard',
+            'Recovery',
+            'Body Composition',
+            'Confidence',
+            'Lifestyle Lock-In',
+            'Performance',
+            'Long-Term Health',
+            'Identity Upgrade'
+        ];
+    }
+
+    return [
+        'Foundation',
+        'Discipline',
+        'Skill Building',
+        'Money / Career Progress',
+        'Network Expansion',
+        'Physical Standard',
+        'Mental Strength',
+        'Communication',
+        'Execution Power',
+        'Leadership',
+        'Scale',
+        'Identity Upgrade'
+    ];
+}
+
+function academyBuildTransformationSystem(roadmap = {}, checkins = [], missions = []) {
+    const now = academyStartOfDay(new Date());
+    const createdAt = academyToDate(roadmap.createdAt, now);
+    const foundationStartDate = academyStartOfDay(createdAt);
+    const foundationEndDate = academyAddDays(foundationStartDate, 27);
+    const yearEndDate = academyAddDays(foundationStartDate, 365);
+
+    const msPerDay = 24 * 60 * 60 * 1000;
+    const rawDayNumber = Math.floor((now.getTime() - foundationStartDate.getTime()) / msPerDay) + 1;
+    const currentDay = Math.max(1, Math.min(28, rawDayNumber));
+
+    const safeCheckins = Array.isArray(checkins) ? checkins : [];
+    const checkinDates = new Set(
+        safeCheckins
+            .map((item) => sanitizeString(item.checkinDate) || academyDateKey(academyToDate(item.createdAt, now)))
+            .filter(Boolean)
+    );
+
+    const todayKey = academyDateKey(now);
+    const hasCheckedInToday = checkinDates.has(todayKey);
+
+    let currentStreak = 0;
+    for (let offset = 0; offset < 28; offset += 1) {
+        const key = academyDateKey(academyAddDays(now, -offset));
+        if (!checkinDates.has(key)) break;
+        currentStreak += 1;
+    }
+
+    const safeMissions = Array.isArray(missions) ? missions : [];
+    const missionByDay = new Map();
+
+    safeMissions.forEach((mission) => {
+        const day = toNumber(mission.foundationDay, 0);
+        if (day > 0 && day <= 28 && !missionByDay.has(day)) {
+            missionByDay.set(day, mission);
+        }
+    });
+
+    const elapsedFoundationDays = Math.max(1, Math.min(28, rawDayNumber));
+    const completedDays = checkinDates.size;
+    const missedDays = Math.max(0, elapsedFoundationDays - completedDays);
+    const recoveryDay = missedDays > 0 && !hasCheckedInToday;
+
+    const foundationDays = Array.from({ length: 28 }).map((_, index) => {
+        const dayNumber = index + 1;
+        const dayDate = academyAddDays(foundationStartDate, index);
+        const date = academyDateKey(dayDate);
+        const mission = missionByDay.get(dayNumber) || null;
+
+        const completed = checkinDates.has(date);
+        const isCurrent = date === todayKey;
+        const isFuture = dayDate.getTime() > now.getTime();
+
+        let status = 'locked';
+        if (completed) status = 'completed';
+        else if (isCurrent) status = recoveryDay ? 'recovery' : 'current';
+        else if (!isFuture) status = 'missed';
+
+        return {
+            dayNumber,
+            date,
+            status,
+            missionId: mission?.id || '',
+            missionTitle: mission?.title || '',
+            missionDescription: mission?.description || ''
+        };
+    });
+
+    const focusArea = Array.isArray(roadmap.focusAreas) && roadmap.focusAreas.length
+        ? roadmap.focusAreas[0]
+        : 'Life Transformation';
+
+    const todayMission = missionByDay.get(currentDay) || safeMissions[0] || null;
+
+    return {
+        phase: rawDayNumber <= 28 ? 'foundation_active' : 'year_transformation_active',
+        phaseLabel: rawDayNumber <= 28 ? '28-Day Foundation Active' : '12-Month Transformation Active',
+        foundationStartDate: academyDateKey(foundationStartDate),
+        foundationEndDate: academyDateKey(foundationEndDate),
+        yearEndDate: academyDateKey(yearEndDate),
+        currentDay,
+        totalFoundationDays: 28,
+        completedDays,
+        missedDays,
+        currentStreak,
+        hasCheckedInToday,
+        recoveryDay,
+        todayMission,
+        foundationDays,
+        yearMap: academyBuildYearMapFromFocus(focusArea)
+    };
+}
 async function buildAcademyHomePayload(uid, roadmapId = null) {
     const roadmap = roadmapId
         ? await getRoadmapById(uid, roadmapId)
@@ -1112,9 +1296,21 @@ async function buildAcademyHomePayload(uid, roadmapId = null) {
     const completedCount = safeAllMissions.filter((item) => item.status === 'completed').length;
     const totalCount = safeAllMissions.length;
 
+    const foundationMissions = safeAllMissions
+        .filter((mission) => {
+            return (
+                sanitizeString(mission.missionType) === 'foundation_28_day' ||
+                toNumber(mission.foundationDay, 0) > 0
+            );
+        })
+        .sort((a, b) => {
+            return toNumber(a.foundationDay || a.sortOrder, 0) - toNumber(b.foundationDay || b.sortOrder, 0);
+        });
+
     const transformationSystem = academyBuildTransformationSystem(
         roadmap || {},
-        recentCheckins || []
+        recentCheckins || [],
+        foundationMissions.length ? foundationMissions : safeAllMissions
     );
 
     const plazaReadiness = buildAcademyPlazaReadinessPayload(
@@ -1155,6 +1351,7 @@ async function buildAcademyHomePayload(uid, roadmapId = null) {
             readinessScore: toNumber(roadmap.readinessScore, 0)
         },
         missions,
+        foundationMissions: foundationMissions.length ? foundationMissions : safeAllMissions,
         transformationSystem,
         recentCheckins,
         behaviorProfile: safeProfileDoc?.behaviorProfile && typeof safeProfileDoc.behaviorProfile === 'object'

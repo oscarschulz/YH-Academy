@@ -5630,6 +5630,167 @@ function academyRenderYearTransformationMap(months = []) {
     }).join('');
 }
 
+function academyRenderFoundationMissionBoard(missions = [], system = {}) {
+    const safeMissions = Array.isArray(missions) && missions.length
+        ? missions
+        : Array.isArray(system.foundationDays)
+            ? system.foundationDays.map((day) => ({
+                id: day.missionId || '',
+                foundationDay: day.dayNumber,
+                title: day.missionTitle || `Day ${day.dayNumber}: Foundation Work`,
+                description: day.missionDescription || 'Take one honest action today.',
+                status: day.status || 'locked'
+            }))
+            : [];
+
+    return safeMissions.slice(0, 28).map((mission, index) => {
+        const day = Number(mission.foundationDay || index + 1);
+        const status = String(mission.status || '').trim().toLowerCase();
+        const isCurrent = day === Number(system.currentDay || 1);
+        const displayStatus = status === 'completed'
+            ? 'completed'
+            : isCurrent
+                ? 'current'
+                : status || 'pending';
+
+        return `
+            <button
+                type="button"
+                class="roadmap-mission-day-card is-${academyFeedEscapeHtml(displayStatus)}"
+                data-roadmap-day="${academyFeedEscapeHtml(day)}"
+                data-roadmap-mission-id="${academyFeedEscapeHtml(mission.id || '')}"
+            >
+                <span class="roadmap-mission-day-number">Day ${academyFeedEscapeHtml(day)}</span>
+                <strong>${academyFeedEscapeHtml(mission.title || `Foundation Day ${day}`)}</strong>
+                <small>${academyFeedEscapeHtml(mission.description || 'Take one focused action today.').slice(0, 120)}</small>
+            </button>
+        `;
+    }).join('');
+}
+
+function academyRenderRoadmapCoachMessages(messages = []) {
+    const box = document.getElementById('roadmap-coach-messages');
+    if (!box) return;
+
+    if (!Array.isArray(messages) || !messages.length) {
+        box.innerHTML = `
+            <div class="roadmap-coach-empty">
+                <strong>Ask your Academy Coach.</strong>
+                <span>Use this box when you are stuck, confused, or need a simple plan for today.</span>
+            </div>
+        `;
+        return;
+    }
+
+    box.innerHTML = messages.map((message) => {
+        const role = String(message.role || '').toLowerCase() === 'assistant' ? 'assistant' : 'user';
+        const text = message.text || message.message || '';
+
+        return `
+            <div class="roadmap-coach-bubble is-${role}">
+                ${academyFeedEscapeHtml(text)}
+            </div>
+        `;
+    }).join('');
+
+    box.scrollTop = box.scrollHeight;
+}
+
+async function academyLoadRoadmapCoachPanel(forceRefresh = false) {
+    const box = document.getElementById('roadmap-coach-messages');
+    if (!box) return [];
+
+    if (forceRefresh) {
+        box.innerHTML = `<div class="roadmap-coach-empty">Loading Academy Coach...</div>`;
+    }
+
+    const result = await academyAuthedFetch(`/api/academy/assistant/messages?conversationId=${encodeURIComponent(academyCoachConversationId)}`, {
+        method: 'GET'
+    });
+
+    const messages = Array.isArray(result?.messages) ? result.messages : [];
+    academyRenderRoadmapCoachMessages(messages);
+    return messages;
+}
+
+async function academySendRoadmapCoachPanelMessage(customText = '') {
+    const input = document.getElementById('roadmap-coach-input');
+    const sendBtn = document.getElementById('roadmap-coach-send');
+
+    const text = String(customText || input?.value || '').trim();
+    if (!text) return;
+
+    try {
+        if (sendBtn) sendBtn.disabled = true;
+        if (input) {
+            input.disabled = true;
+            input.value = '';
+        }
+
+        const oldMessages = await academyLoadRoadmapCoachPanel(false).catch(() => []);
+        academyRenderRoadmapCoachMessages([
+            ...oldMessages,
+            {
+                role: 'user',
+                text,
+                createdAt: new Date().toISOString()
+            }
+        ]);
+
+        const result = await academyAuthedFetch('/api/academy/assistant/chat', {
+            method: 'POST',
+            body: JSON.stringify({
+                conversationId: academyCoachConversationId,
+                message: text,
+                contextHint: 'roadmap_inline_panel'
+            })
+        });
+
+        const refreshed = await academyLoadRoadmapCoachPanel(true).catch(() => []);
+
+        if (!refreshed.length && result?.reply) {
+            academyRenderRoadmapCoachMessages([
+                {
+                    role: 'user',
+                    text,
+                    createdAt: new Date().toISOString()
+                },
+                {
+                    role: 'assistant',
+                    text: result.reply,
+                    createdAt: new Date().toISOString()
+                }
+            ]);
+        }
+    } catch (error) {
+        showToast(error.message || 'Failed to get AI Coach reply.', 'error');
+    } finally {
+        if (sendBtn) sendBtn.disabled = false;
+        if (input) {
+            input.disabled = false;
+            input.focus();
+        }
+    }
+}
+
+function academyToggleRoadmapCoachPanel(forceOpen = null) {
+    const panel = document.getElementById('roadmap-coach-panel');
+    if (!panel) return;
+
+    const shouldOpen =
+        forceOpen === null
+            ? panel.classList.contains('hidden-step')
+            : Boolean(forceOpen);
+
+    panel.classList.toggle('hidden-step', !shouldOpen);
+    panel.setAttribute('aria-hidden', shouldOpen ? 'false' : 'true');
+
+    if (shouldOpen) {
+        academyLoadRoadmapCoachPanel(true).catch(() => {});
+        document.getElementById('roadmap-coach-input')?.focus();
+    }
+}
+
 function academyInjectRoadmapTransformationSystem(homeData = {}) {
     const dynamicChatContainer = document.getElementById('dynamic-chat-history');
     if (!dynamicChatContainer) return;
@@ -5647,20 +5808,20 @@ function academyInjectRoadmapTransformationSystem(homeData = {}) {
         ? homeData.roadmap
         : {};
 
+    const foundationMissions = Array.isArray(homeData?.foundationMissions)
+        ? homeData.foundationMissions
+        : Array.isArray(homeData?.missions)
+            ? homeData.missions
+            : [];
+
     const currentDay = Number(system.currentDay || 1);
     const totalFoundationDays = Number(system.totalFoundationDays || 28);
     const completedDays = Number(system.completedDays || 0);
     const missedDays = Number(system.missedDays || 0);
     const currentStreak = Number(system.currentStreak || 0);
     const phaseLabel = String(system.phaseLabel || '28-Day Foundation Active').trim();
-    const foundationStartDate = String(system.foundationStartDate || 'Starting soon').trim();
-    const foundationEndDate = String(system.foundationEndDate || '—').trim();
-    const yearEndDate = String(system.yearEndDate || '—').trim();
-    const hasCheckedInToday = system.hasCheckedInToday === true;
-    const recoveryDay = system.recoveryDay === true;
-    const todayPrompt = system.todayPrompt && typeof system.todayPrompt === 'object'
-        ? system.todayPrompt
-        : {};
+    const todayMission = system.todayMission || foundationMissions.find((mission) => Number(mission.foundationDay) === currentDay) || foundationMissions[0] || {};
+    const progressPercent = Math.max(0, Math.min(100, Math.round((completedDays / totalFoundationDays) * 100)));
 
     const focusArea = Array.isArray(roadmap.focusAreas) && roadmap.focusAreas.length
         ? roadmap.focusAreas[0]
@@ -5669,109 +5830,106 @@ function academyInjectRoadmapTransformationSystem(homeData = {}) {
     const section = document.createElement('section');
     section.className = 'roadmap-transformation-system';
     section.innerHTML = `
-        <section class="roadmap-transform-hero">
-            <div class="roadmap-transform-hero-copy">
-                <div class="roadmap-transform-eyebrow">Academy Roadmap</div>
-                <h2>Build the Foundation in 28 Days. Transform Your Life in 12 Months.</h2>
-                <p>
-                    The first 28 days are designed to help you build the habit of showing up, saying no to what pulls you back,
-                    and taking one honest step every day. You do not need to fix everything today. You only need to begin.
-                </p>
+        <div class="roadmap-clean-shell">
+            <section class="roadmap-clean-main">
+                <div class="roadmap-clean-hero">
+                    <div>
+                        <div class="roadmap-transform-eyebrow">Academy Roadmap</div>
+                        <h2>Build the Foundation in 28 Days.</h2>
+                        <p>
+                            Keep it simple. One honest action today. One better standard tomorrow.
+                            Your missions are built from your Roadmap activation answers.
+                        </p>
+                    </div>
 
-                <div class="roadmap-transform-actions">
-                    <button type="button" class="btn-primary academy-home-action-btn" data-roadmap-cta="today-work">Start Today’s Work</button>
-                    <button type="button" class="btn-secondary academy-home-action-btn" data-roadmap-cta="coach">Talk to AI Coach</button>
-                    <button type="button" class="btn-secondary academy-home-action-btn" data-roadmap-cta="progress">View My Progress</button>
+                    <div class="roadmap-clean-status">
+                        <span>${academyFeedEscapeHtml(phaseLabel)}</span>
+                        <strong>Day ${academyFeedEscapeHtml(currentDay)} / ${academyFeedEscapeHtml(totalFoundationDays)}</strong>
+                        <small>${academyFeedEscapeHtml(academyFormatRoadmapLabel(focusArea))}</small>
+                    </div>
                 </div>
-            </div>
 
-            <div class="roadmap-transform-status-card">
-                <div class="roadmap-transform-status-kicker">${academyFeedEscapeHtml(phaseLabel)}</div>
-                <strong>Day ${academyFeedEscapeHtml(currentDay)} of ${academyFeedEscapeHtml(totalFoundationDays)}</strong>
-                <span>Started: ${academyFeedEscapeHtml(foundationStartDate)}</span>
-                <span>Foundation ends: ${academyFeedEscapeHtml(foundationEndDate)}</span>
-                <span>12-month target: ${academyFeedEscapeHtml(yearEndDate)}</span>
-            </div>
-        </section>
+                <div class="roadmap-clean-grid">
+                    <div class="roadmap-transform-card roadmap-today-card">
+                        <div class="academy-home-panel-label">Today’s Mission</div>
+                        <h3>${academyFeedEscapeHtml(todayMission.title || 'Show up for today.')}</h3>
+                        <p>${academyFeedEscapeHtml(todayMission.description || 'Take one focused action that moves your life forward. Keep it simple. Keep it honest.')}</p>
 
-        <section class="roadmap-transform-grid">
-            <div class="roadmap-transform-card roadmap-today-card">
-                <div class="academy-home-panel-label">Today’s Work</div>
-                <h3>${academyFeedEscapeHtml(todayPrompt.title || 'Show up for today.')}</h3>
-                <p>${academyFeedEscapeHtml(todayPrompt.mission || 'Take one focused action that moves your life forward. Keep it simple. Keep it honest.')}</p>
-                <div class="roadmap-soft-rule">
-                    <strong>Today’s standard:</strong>
-                    <span>${academyFeedEscapeHtml(todayPrompt.standard || 'Say no to one thing that pulls you back.')}</span>
+                        <div class="roadmap-transform-actions">
+                            <button type="button" class="btn-primary academy-home-action-btn" data-roadmap-cta="today-work">Check In for Today</button>
+                            ${todayMission.id ? `
+                                <button
+                                    type="button"
+                                    class="btn-secondary academy-home-action-btn"
+                                    data-academy-action="complete"
+                                    data-mission-id="${academyFeedEscapeHtml(todayMission.id)}"
+                                    data-mission-title="${academyFeedEscapeHtml(todayMission.title || '')}"
+                                >
+                                    Mark Mission Complete
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+
+                    <div class="roadmap-transform-card roadmap-compact-progress">
+                        <div class="academy-home-panel-label">Progress</div>
+                        <div class="roadmap-transform-stat-list">
+                            <div><span>Streak</span><strong>${academyFeedEscapeHtml(currentStreak)} days</strong></div>
+                            <div><span>Completed</span><strong>${academyFeedEscapeHtml(completedDays)}</strong></div>
+                            <div><span>Missed</span><strong>${academyFeedEscapeHtml(missedDays)}</strong></div>
+                            <div><span>Total</span><strong>${academyFeedEscapeHtml(totalFoundationDays)}</strong></div>
+                        </div>
+                        <div class="roadmap-transform-progress-bar">
+                            <div style="width:${progressPercent}%;"></div>
+                        </div>
+                    </div>
                 </div>
-                <div class="roadmap-soft-rule">
-                    <strong>Before you leave:</strong>
-                    <span>${academyFeedEscapeHtml(todayPrompt.reflection || 'What small action did you take today that your future self will respect?')}</span>
+
+                <section class="roadmap-transform-card roadmap-mission-board" id="roadmap-transform-progress-card">
+                    <div class="roadmap-mission-board-head">
+                        <div>
+                            <div class="academy-home-panel-label">28-Day Mission Plan</div>
+                            <h3>Your monthly foundation missions</h3>
+                        </div>
+                        <span>${academyFeedEscapeHtml(foundationMissions.length || 28)} missions</span>
+                    </div>
+
+                    <div class="roadmap-mission-track">
+                        ${academyRenderFoundationMissionBoard(foundationMissions, system)}
+                    </div>
+                </section>
+            </section>
+
+            <aside class="roadmap-coach-panel hidden-step" id="roadmap-coach-panel" aria-hidden="true">
+                <div class="roadmap-coach-head">
+                    <div>
+                        <div class="academy-home-panel-label">Academy AI Coach</div>
+                        <h3>Roadmap Assistant</h3>
+                    </div>
+                    <button type="button" class="roadmap-coach-close" data-roadmap-cta="coach-close">✕</button>
                 </div>
-                <button type="button" class="btn-primary academy-home-action-btn" data-roadmap-cta="today-work">
-                    ${hasCheckedInToday ? 'Today Is Logged ✓' : recoveryDay ? 'Restart Today' : 'Check In for Today'}
-                </button>
-            </div>
 
-            <div class="roadmap-transform-card">
-                <div class="academy-home-panel-label">Transformation Status</div>
-                <div class="roadmap-transform-stat-list">
-                    <div><span>Current focus</span><strong>${academyFeedEscapeHtml(academyFormatRoadmapLabel(focusArea))}</strong></div>
-                    <div><span>Current streak</span><strong>${academyFeedEscapeHtml(currentStreak)} days</strong></div>
-                    <div><span>Completed days</span><strong>${academyFeedEscapeHtml(completedDays)}</strong></div>
-                    <div><span>Missed days</span><strong>${academyFeedEscapeHtml(missedDays)}</strong></div>
+                <div class="roadmap-coach-messages" id="roadmap-coach-messages"></div>
+
+                <div class="roadmap-coach-prompts">
+                    <button type="button" data-roadmap-coach-prompt="What should I focus on today?">Today’s focus</button>
+                    <button type="button" data-roadmap-coach-prompt="I missed a day. Help me reset without overthinking.">Reset me</button>
+                    <button type="button" data-roadmap-coach-prompt="Give me a simple 1-hour plan for my current Roadmap mission.">1-hour plan</button>
                 </div>
-                <p class="roadmap-transform-note">
-                    ${recoveryDay
-                        ? 'You missed a day. That does not cancel the work. Restart with one honest action today.'
-                        : 'You are not here to become perfect in one day. You are here to build the standard of showing up.'}
-                </p>
-            </div>
-        </section>
 
-        <section class="roadmap-transform-card">
-            <div class="academy-home-panel-label">28-Day Foundation</div>
-            <p class="roadmap-transform-note">
-                A guided reset for discipline, focus, and better daily standards. Every day is a new day to work.
-            </p>
-            <div class="roadmap-foundation-grid">
-                ${academyRenderFoundationDayGrid(system.foundationDays || [])}
-            </div>
-        </section>
-
-        <section class="roadmap-transform-grid">
-            <div class="roadmap-transform-card">
-                <div class="academy-home-panel-label">Say No Tracker</div>
-                <h3>Choose one thing to leave behind today.</h3>
-                <p class="roadmap-transform-note">
-                    Improvement is also subtraction. Today, say no to one thing that keeps pulling you back.
-                </p>
-                <button type="button" class="btn-secondary academy-home-action-btn" data-roadmap-cta="today-work">Log What I Said No To</button>
-            </div>
-
-            <div class="roadmap-transform-card" id="roadmap-transform-progress-card">
-                <div class="academy-home-panel-label">Progress</div>
-                <div class="roadmap-transform-progress-bar">
-                    <div style="width:${Math.max(0, Math.min(100, Math.round((completedDays / totalFoundationDays) * 100)))}%;"></div>
-                </div>
-                <p class="roadmap-transform-note">
-                    You have shown up ${academyFeedEscapeHtml(completedDays)} out of ${academyFeedEscapeHtml(totalFoundationDays)} foundation days.
-                </p>
-            </div>
-        </section>
-
-        <section class="roadmap-transform-card">
-            <div class="academy-home-panel-label">12-Month Transformation Map</div>
-            <p class="roadmap-transform-note">
-                The first 28 days build the standard. The next 12 months compound that standard into a different life.
-            </p>
-            <div class="roadmap-year-map">
-                ${academyRenderYearTransformationMap(system.yearMap || [])}
-            </div>
-        </section>
+                <form class="roadmap-coach-form" id="roadmap-coach-form">
+                    <input id="roadmap-coach-input" class="input-field" placeholder="Ask your AI Coach..." autocomplete="off">
+                    <button type="submit" id="roadmap-coach-send" class="btn-primary">Send</button>
+                </form>
+            </aside>
+        </div>
 
         <button type="button" class="roadmap-ai-agent" data-roadmap-cta="coach" aria-label="Open Academy AI Coach">
-            <span class="roadmap-ai-agent-orb">AI</span>
-            <span class="roadmap-ai-agent-copy">Coach</span>
+            <span class="roadmap-ai-bubble">Talk to me</span>
+            <span class="roadmap-ai-robot">
+                <span class="roadmap-ai-robot-face">🤖</span>
+                <span class="roadmap-ai-wave">👋</span>
+            </span>
         </button>
     `;
 
@@ -5792,9 +5950,12 @@ function academyInstallRoadmapTransformationActions() {
             }
 
             if (action === 'coach') {
-                await runDashboardButtonAction(button, 'Opening AI Coach...', async () => {
-                    await openAcademyCoachView(true);
-                });
+                academyToggleRoadmapCoachPanel(true);
+                return;
+            }
+
+            if (action === 'coach-close') {
+                academyToggleRoadmapCoachPanel(false);
                 return;
             }
 
@@ -5806,8 +5967,26 @@ function academyInstallRoadmapTransformationActions() {
             }
         });
     });
-}
 
+    const coachForm = document.getElementById('roadmap-coach-form');
+    if (coachForm && coachForm.dataset.bound !== 'true') {
+        coachForm.dataset.bound = 'true';
+
+        coachForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            academySendRoadmapCoachPanelMessage();
+        });
+    }
+
+    document.querySelectorAll('[data-roadmap-coach-prompt]').forEach((button) => {
+        if (button.dataset.bound === 'true') return;
+        button.dataset.bound = 'true';
+
+        button.addEventListener('click', () => {
+            academySendRoadmapCoachPanelMessage(button.getAttribute('data-roadmap-coach-prompt') || '');
+        });
+    });
+}
 function applyAcademyHomeRuntimePatch(runtime = {}) {
     const cachedHome = readAcademyHomeCache() || {};
     const nextHome = {
@@ -7346,8 +7525,6 @@ const missionsHtml = missions.length
 
                 <div class="academy-home-actions">
                     <button id="academy-home-open-checkin" type="button" class="btn-primary academy-home-action-btn">Start Today’s Work</button>
-                    <button id="academy-home-open-coach" type="button" class="btn-secondary academy-home-action-btn">Talk to AI Coach</button>
-                    <button id="academy-home-refresh-roadmap" type="button" class="btn-secondary academy-home-action-btn">Refresh Roadmap</button>
                     <button id="academy-home-enter-chat" type="button" class="btn-secondary academy-home-action-btn">Open Community</button>
                 </div>
             </section>
