@@ -6302,8 +6302,8 @@ function academyRenderFoundationMissionBoard(missions = [], system = {}) {
                 data-roadmap-day="${academyFeedEscapeHtml(day)}"
                 data-roadmap-mission-id="${academyFeedEscapeHtml(mission.id || '')}"
             >
-                <span class="roadmap-mission-day-number">Day ${academyFeedEscapeHtml(day)}</span>
-                <strong>${academyFeedEscapeHtml(mission.title || `Foundation Day ${day}`)}</strong>
+                <span class="roadmap-mission-day-number">Sprint ${academyFeedEscapeHtml(String(day).padStart(2, '0'))}</span>
+                <strong>${academyFeedEscapeHtml(mission.title || `Foundation Sprint ${day}`)}</strong>
                 <small>${academyFeedEscapeHtml(mission.description || 'Take one focused action today.').slice(0, 120)}</small>
             </button>
         `;
@@ -6513,6 +6513,16 @@ function academyInjectRoadmapTransformationSystem(homeData = {}) {
     const phaseLabel = String(system.phaseLabel || '28-Day Foundation Active').trim();
     const todayMission = system.todayMission || foundationMissions.find((mission) => Number(mission.foundationDay) === currentDay) || foundationMissions[0] || {};
     const progressPercent = Math.max(0, Math.min(100, Math.round((completedDays / totalFoundationDays) * 100)));
+    const roadmapDoctrine = system.roadmapDoctrine && typeof system.roadmapDoctrine === 'object'
+        ? system.roadmapDoctrine
+        : {};
+    const foundationDisplayLabel = String(system.foundationDisplayLabel || roadmapDoctrine.foundationName || 'Foundation Sprint').trim();
+    const sprintDayLabel = String(system.sprintDayLabel || `Sprint ${String(currentDay).padStart(2, '0')}`).trim();
+    const fullGrindStatus = String(system.fullGrindStatus || 'locked').trim().toLowerCase();
+    const fullGrindDaysRemaining = Number(system.fullGrindDaysRemaining || Math.max(0, 29 - currentDay));
+    const fullGrindStatusLabel = fullGrindStatus === 'active'
+        ? 'Full-Grind Mode Active'
+        : `Full-Grind unlocks in ${Math.max(0, fullGrindDaysRemaining)} sprint days`;
 
     const focusArea = Array.isArray(roadmap.focusAreas) && roadmap.focusAreas.length
         ? roadmap.focusAreas[0]
@@ -6526,33 +6536,34 @@ function academyInjectRoadmapTransformationSystem(homeData = {}) {
                 <div class="roadmap-clean-hero">
                     <div>
                         <div class="roadmap-transform-eyebrow">Academy Roadmap</div>
-                        <h2>Change your life in 28 days. Build it across 12 months.</h2>
+                        <h2>Build the habit first. Enter Full-Grind Mode after the sprint.</h2>
                         <p>
-                            Starting next Sunday, the first 28 days become your foundation phase. This is where you install the philosophy, mentality, and daily standard that prepare you to start big time.
+                            Your first phase is one continuous Foundation Sprint. Each sprint day installs discipline, routine, and daily execution. Once the sprint is complete, the 12-month Full-Grind Mode begins.
                         </p>
 
                         <div class="roadmap-journey-strip">
                             <div>
                                 <span>01</span>
-                                <strong>28-Day Foundation</strong>
-                                <small>Build discipline, clarity, and daily execution.</small>
+                                <strong>Foundation Sprint</strong>
+                                <small>One continuous sprint to install the daily standard.</small>
                             </div>
                             <div>
                                 <span>02</span>
-                                <strong>12-Month Growth</strong>
-                                <small>Turn the foundation into long-term progress.</small>
+                                <strong>Full-Grind Unlock</strong>
+                                <small>The serious 12-month transformation begins after the sprint.</small>
                             </div>
                             <div>
                                 <span>03</span>
-                                <strong>AI Guidance</strong>
-                                <small>Use the Roadmap Assistant when you feel stuck.</small>
+                                <strong>Human AI Coach</strong>
+                                <small>Use stress, pressure, and confusion as fuel for useful action.</small>
                             </div>
                         </div>
                     </div>
 
                     <div class="roadmap-clean-status">
-                        <span>${academyFeedEscapeHtml(phaseLabel)}</span>
-                        <strong>Day ${academyFeedEscapeHtml(currentDay)} / ${academyFeedEscapeHtml(totalFoundationDays)}</strong>
+                        <span>${academyFeedEscapeHtml(phaseLabel || foundationDisplayLabel)}</span>
+                        <strong>${academyFeedEscapeHtml(sprintDayLabel)}</strong>
+                        <small>${academyFeedEscapeHtml(fullGrindStatusLabel)}</small>
                         <small>${academyFeedEscapeHtml(academyFormatRoadmapLabel(focusArea))}</small>
                     </div>
                 </div>
@@ -6598,10 +6609,10 @@ function academyInjectRoadmapTransformationSystem(homeData = {}) {
                 <section class="roadmap-transform-card roadmap-mission-board" id="roadmap-transform-progress-card">
                     <div class="roadmap-mission-board-head">
                         <div>
-                            <div class="academy-home-panel-label">28-Day Roadmap</div>
-                            <h3>Your foundation path</h3>
+                            <div class="academy-home-panel-label">${academyFeedEscapeHtml(foundationDisplayLabel)}</div>
+                            <h3>One sprint. One daily action.</h3>
                         </div>
-                        <span>${academyFeedEscapeHtml(foundationMissions.length || 28)} missions</span>
+                        <span>Daily actions</span>
                     </div>
 
                     <div class="roadmap-mission-track">
@@ -6622,10 +6633,10 @@ function academyInjectRoadmapTransformationSystem(homeData = {}) {
                 <div class="roadmap-coach-messages" id="roadmap-coach-messages"></div>
 
                 <div class="roadmap-coach-prompts">
-                    <button type="button" data-roadmap-coach-prompt="What should I do for today’s Academy mission?">Today’s mission</button>
-                    <button type="button" data-roadmap-coach-prompt="I missed a Roadmap day. Help me reset without overthinking.">Reset me</button>
-                    <button type="button" data-roadmap-coach-prompt="Give me a simple 1-hour plan for my current Academy Roadmap mission.">1-hour plan</button>
-                    <button type="button" data-roadmap-coach-prompt="Help me write my daily Academy check-in clearly.">Check-in help</button>
+                    <button type="button" data-roadmap-coach-prompt="I’m stressed. Redirect me into something useful right now.">Stress reset</button>
+                    <button type="button" data-roadmap-coach-prompt="Give me a 10-minute reset action before I waste time.">10-min reset</button>
+                    <button type="button" data-roadmap-coach-prompt="Turn my anger or pressure into action for today’s mission.">Convert pressure</button>
+                    <button type="button" data-roadmap-coach-prompt="Make today’s Foundation Sprint action simple and doable.">Sprint action</button>
                 </div>
 
                 <form class="roadmap-coach-form" id="roadmap-coach-form">

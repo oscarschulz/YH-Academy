@@ -1171,51 +1171,68 @@ function academyBuildYearMapFromFocus(focusArea = '') {
 
     if (clean.includes('money') || clean.includes('business') || clean.includes('wealth')) {
         return [
-            'Foundation',
-            'Skill Selection',
+            'Habit Foundation',
+            'Full-Grind Entry',
+            'Income Skill Lock-In',
             'Offer Building',
-            'Lead Generation',
-            'Sales Practice',
+            'Daily Lead Flow',
+            'Sales Pressure',
             'First Revenue System',
-            'Brand Trust',
-            'Partnerships',
-            'Automation',
-            'Scaling',
-            'Delegation',
-            'Identity Upgrade'
+            'Trust and Brand',
+            'Automation Layer',
+            'Scaling Push',
+            'Delegation Standard',
+            'Life Upgrade Review'
         ];
     }
 
     if (clean.includes('fitness') || clean.includes('health')) {
         return [
-            'Foundation',
-            'Routine Consistency',
+            'Habit Foundation',
+            'Full-Grind Entry',
+            'Routine Lock-In',
             'Nutrition Control',
             'Strength Base',
             'Cardio Standard',
-            'Recovery',
+            'Recovery Discipline',
             'Body Composition',
-            'Confidence',
+            'Confidence Standard',
             'Lifestyle Lock-In',
-            'Performance',
-            'Long-Term Health',
-            'Identity Upgrade'
+            'Performance Push',
+            'Life Upgrade Review'
+        ];
+    }
+
+    if (clean.includes('mindset') || clean.includes('psychology')) {
+        return [
+            'Habit Foundation',
+            'Full-Grind Entry',
+            'Self-Control',
+            'Emotional Control',
+            'Focus Standard',
+            'Stress Conversion',
+            'Fear Reduction',
+            'Identity Work',
+            'Consistency Lock-In',
+            'Pressure Handling',
+            'Leadership Mindset',
+            'Life Upgrade Review'
         ];
     }
 
     return [
-        'Foundation',
-        'Discipline',
+        'Habit Foundation',
+        'Full-Grind Entry',
+        'Discipline Lock-In',
         'Skill Building',
         'Money / Career Progress',
-        'Network Expansion',
         'Physical Standard',
         'Mental Strength',
-        'Communication',
+        'Communication Power',
         'Execution Power',
         'Leadership',
         'Scale',
-        'Identity Upgrade'
+        'Life Upgrade Review'
     ];
 }
 
@@ -1293,9 +1310,32 @@ function academyBuildTransformationSystem(roadmap = {}, checkins = [], missions 
 
     const todayMission = missionByDay.get(currentDay) || safeMissions[0] || null;
 
+    const isFoundationPhase = rawDayNumber <= 28;
+    const fullGrindUnlockDay = 29;
+    const fullGrindStatus = isFoundationPhase ? 'locked' : 'active';
+    const fullGrindDaysRemaining = isFoundationPhase ? Math.max(0, fullGrindUnlockDay - currentDay) : 0;
+    const sprintDayLabel = isFoundationPhase
+        ? `Sprint ${String(currentDay).padStart(2, '0')}`
+        : 'Full-Grind Active';
+
     return {
-        phase: rawDayNumber <= 28 ? 'foundation_active' : 'year_transformation_active',
-        phaseLabel: rawDayNumber <= 28 ? '28-Day Foundation Active' : '12-Month Transformation Active',
+        phase: isFoundationPhase ? 'foundation_active' : 'year_transformation_active',
+        phaseLabel: isFoundationPhase ? 'Habit Foundation Sprint' : '12-Month Full-Grind Mode',
+        roadmapDoctrine: {
+            foundationDays: 28,
+            yearMonths: 12,
+            foundationName: 'Habit Foundation Sprint',
+            postFoundationName: '12-Month Full-Grind Mode',
+            doctrine: 'Build the habit in 28 days. Change your life in 12 months.',
+            fullGrindStartsAfterDay: 28,
+            uiMode: 'single_sprint'
+        },
+        foundationUiMode: 'single_sprint',
+        foundationDisplayLabel: 'Foundation Sprint',
+        sprintDayLabel,
+        fullGrindStatus,
+        fullGrindUnlockDay,
+        fullGrindDaysRemaining,
         foundationStartDate: academyDateKey(foundationStartDate),
         foundationEndDate: academyDateKey(foundationEndDate),
         yearEndDate: academyDateKey(yearEndDate),

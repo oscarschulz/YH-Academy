@@ -6249,7 +6249,69 @@ function getAcademyCoachModeMeta(payload = {}) {
         weeklyLinePrefix: 'Make sure the work moves this weekly outcome forward'
     };
 }
+function detectRoadmapEmotionalState(message = '') {
+    const text = sanitize(message).toLowerCase();
 
+    if (/stress|stressed|overwhelmed|pressure|anxious|anxiety|angry|mad|rage|frustrated|tired|lazy|lost|confused|burnt out|burned out|sad|down|unmotivated|distracted|wasting time/i.test(text)) {
+        if (/angry|mad|rage|frustrated/i.test(text)) return 'pressure_or_anger';
+        if (/tired|lazy|unmotivated|burnt out|burned out/i.test(text)) return 'low_energy_resistance';
+        if (/confused|lost|overwhelmed/i.test(text)) return 'overwhelmed_or_confused';
+        if (/distracted|wasting time/i.test(text)) return 'distraction_loop';
+        return 'stress_or_friction';
+    }
+
+    return 'neutral';
+}
+
+function buildRoadmapStressRedirect(message = '') {
+    const state = detectRoadmapEmotionalState(message);
+
+    const redirects = {
+        pressure_or_anger: {
+            detected: true,
+            state,
+            resetAction: 'Do 20 squats or 10 push-ups immediately.',
+            nextAction: 'Write one sentence naming what triggered the pressure, then complete one micro-action from today’s mission.',
+            toneRule: 'Acknowledge the anger briefly, then convert it into physical movement and mission execution.'
+        },
+        low_energy_resistance: {
+            detected: true,
+            state,
+            resetAction: 'Drink water, stand up, stretch for 60 seconds, then set a 10-minute timer.',
+            nextAction: 'Complete the smallest useful version of today’s mission.',
+            toneRule: 'Do not shame the user. Reduce friction and move them into a tiny win.'
+        },
+        overwhelmed_or_confused: {
+            detected: true,
+            state,
+            resetAction: 'Take 3 slow breaths, close extra tabs, and choose only one task.',
+            nextAction: 'Write the next visible action in one sentence, then do it for 10 minutes.',
+            toneRule: 'Simplify hard. Do not give a long lecture.'
+        },
+        distraction_loop: {
+            detected: true,
+            state,
+            resetAction: 'Put the phone away for 15 minutes and start a single timer.',
+            nextAction: 'Do one micro-action from the Foundation Sprint before checking anything else.',
+            toneRule: 'Be firm and direct. Break the distraction loop immediately.'
+        },
+        stress_or_friction: {
+            detected: true,
+            state,
+            resetAction: 'Do 10 push-ups, drink water, and sit back down.',
+            nextAction: 'Write one sentence about what is actually bothering you, then complete one small mission step.',
+            toneRule: 'Acknowledge stress once, then redirect it into movement and proof.'
+        }
+    };
+
+    return redirects[state] || {
+        detected: false,
+        state: 'neutral',
+        resetAction: '',
+        nextAction: '',
+        toneRule: ''
+    };
+}
 function detectAcademyCoachReplyFormat(payload = {}, reply = '') {
     const coachMode = getAcademyCoachModeMeta(payload);
     const text = sanitize(reply || '');
@@ -6297,6 +6359,10 @@ function buildAcademyCoachMessages(payload = {}) {
                 'Prioritize what the user should do today or this week.',
                 'If the user is stuck, simplify the next action without becoming vague.',
                 'If the user has low energy or low time, adapt the advice accordingly.',
+                'The Roadmap doctrine is: build the habit in 28 days, then enter 12 months of Full-Grind Mode. The first phase should feel like one Foundation Sprint, not four separate weeks.',
+                'When the user is stressed, angry, distracted, lazy, overwhelmed, or mentally stuck, talk like a human execution coach. Acknowledge the state briefly, then redirect the energy into a useful action.',
+                'For stress or pressure, prescribe a simple physical reset such as 10 push-ups, 20 squats, a 60-second stretch, water, or a 10-minute timer, then connect it back to today’s Roadmap mission.',
+                'Do not over-comfort the user. Convert emotion into movement, proof, and one visible mission step.',
                 'If a major strategic change is needed, say so and recommend a roadmap refresh instead of silently rewriting the full roadmap in chat.',
                 'Do not output generic hype or filler.',
                 'Do not contradict the existing roadmap unless there is a clear reason.',
@@ -6308,6 +6374,8 @@ function buildAcademyCoachMessages(payload = {}) {
             role: 'user',
             content: JSON.stringify({
                 ...compactPayload,
+                emotionalState: payload.emotionalState || 'neutral',
+                stressRedirect: payload.stressRedirect || null,
                 coachMode: {
                     key: coachMode.key,
                     title: coachMode.title
@@ -6349,6 +6417,14 @@ function buildLocalAcademyCoachFallback(payload = {}, error = null) {
     const nextMissionMinutes = toInt(nextMission?.estimatedMinutes, 0);
 
     const replyLines = [coachMode.fallbackPrefix];
+    const stressRedirect = payload?.stressRedirect && typeof payload.stressRedirect === 'object'
+        ? payload.stressRedirect
+        : buildRoadmapStressRedirect(payload?.message || '');
+
+    if (stressRedirect.detected) {
+        replyLines.push(`Reset action: ${stressRedirect.resetAction}`);
+        replyLines.push(`Then: ${stressRedirect.nextAction}`);
+    }
 
     if (coachMode.key === 'politics') {
         if (roadmapDirection) {
@@ -6988,6 +7064,8 @@ exports.chatWithAcademyCoach = async (req, res) => {
         const coachPayload = {
             message,
             contextHint,
+            emotionalState: detectRoadmapEmotionalState(message),
+            stressRedirect: buildRoadmapStressRedirect(message),
             previousMessages: history,
             profile: profileDoc && typeof profileDoc === 'object'
                 ? {
