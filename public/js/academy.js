@@ -6310,6 +6310,17 @@ function academyRenderFoundationMissionBoard(missions = [], system = {}) {
     }).join('');
 }
 
+function academyRenderRoadmapCoachTypingBubble() {
+    return `
+        <div class="roadmap-coach-bubble is-assistant is-typing" data-roadmap-coach-typing="true">
+            <span class="roadmap-coach-typing-copy">Roadmap Assistant is thinking</span>
+            <span class="roadmap-coach-typing-dots" aria-hidden="true">
+                <i></i><i></i><i></i>
+            </span>
+        </div>
+    `;
+}
+
 function academyRenderRoadmapCoachMessages(messages = []) {
     const box = document.getElementById('roadmap-coach-messages');
     if (!box) return;
@@ -6325,6 +6336,10 @@ function academyRenderRoadmapCoachMessages(messages = []) {
     }
 
     box.innerHTML = messages.map((message) => {
+        if (message?.isTyping === true) {
+            return academyRenderRoadmapCoachTypingBubble();
+        }
+
         const role = String(message.role || '').toLowerCase() === 'assistant' ? 'assistant' : 'user';
         const text = message.text || message.message || '';
 
@@ -6370,14 +6385,26 @@ async function academySendRoadmapCoachPanelMessage(customText = '') {
         }
 
         const oldMessages = await academyLoadRoadmapCoachPanel(false).catch(() => []);
+        const optimisticUserMessage = {
+            role: 'user',
+            text,
+            createdAt: new Date().toISOString()
+        };
+
         academyRenderRoadmapCoachMessages([
             ...oldMessages,
+            optimisticUserMessage,
             {
-                role: 'user',
-                text,
+                role: 'assistant',
+                isTyping: true,
+                text: 'Roadmap Assistant is thinking...',
                 createdAt: new Date().toISOString()
             }
         ]);
+
+        if (input) {
+            input.placeholder = 'Roadmap Assistant is thinking...';
+        }
 
         const result = await academyAuthedFetch('/api/academy/assistant/chat', {
             method: 'POST',
@@ -6389,7 +6416,7 @@ async function academySendRoadmapCoachPanelMessage(customText = '') {
             })
         });
 
-        const refreshed = await academyLoadRoadmapCoachPanel(true).catch(() => []);
+        const refreshed = await academyLoadRoadmapCoachPanel(false).catch(() => []);
 
         if (!refreshed.length && result?.reply) {
             academyRenderRoadmapCoachMessages([
@@ -6411,6 +6438,7 @@ async function academySendRoadmapCoachPanelMessage(customText = '') {
         if (sendBtn) sendBtn.disabled = false;
         if (input) {
             input.disabled = false;
+            input.placeholder = 'Ask your AI Coach...';
             input.focus();
         }
     }
