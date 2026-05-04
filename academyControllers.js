@@ -1072,9 +1072,41 @@ function buildPlannerSchema() {
                     frequency: { type: 'string', enum: ['daily', 'weekly', 'one-off'] },
                     dueDate: { type: 'string' },
                     estimatedMinutes: { type: 'integer', minimum: 5, maximum: 180 },
-                    sortOrder: { type: 'integer', minimum: 1, maximum: 10 }
+                    sortOrder: { type: 'integer', minimum: 1, maximum: 10 },
+                    missionObjective: { type: 'string' },
+                    microActions: {
+                        type: 'array',
+                        minItems: 2,
+                        maxItems: 4,
+                        items: { type: 'string' }
+                    },
+                    proofOfCompletion: { type: 'string' },
+                    reflectionPrompt: { type: 'string' },
+                    difficultyLevel: { type: 'string', enum: ['easy', 'standard', 'hard', 'elite'] },
+                    lifeAreaImpact: {
+                        type: 'array',
+                        minItems: 1,
+                        maxItems: 4,
+                        items: { type: 'string' }
+                    }
                 },
-                required: ['pillar', 'title', 'description', 'doneLooksLike', 'whyItMatters', 'frequency', 'dueDate', 'estimatedMinutes', 'sortOrder']
+                required: [
+                    'pillar',
+                    'title',
+                    'description',
+                    'doneLooksLike',
+                    'whyItMatters',
+                    'frequency',
+                    'dueDate',
+                    'estimatedMinutes',
+                    'sortOrder',
+                    'missionObjective',
+                    'microActions',
+                    'proofOfCompletion',
+                    'reflectionPrompt',
+                    'difficultyLevel',
+                    'lifeAreaImpact'
+                ]
                 }
             }
         },
@@ -1146,6 +1178,12 @@ function buildPlannerMessages(profile, context = {}) {
                 'Keep description operational and step-like. Sentence one should tell the user exactly what to do. Sentence two may add scope, constraint, or context if needed.',
                 'Every mission must include doneLooksLike that states the concrete finish condition or visible output.',
                 'Make doneLooksLike externally visible and easy to judge. It should sound like something a reviewer could verify.',
+                'Every mission must also include missionObjective, microActions, proofOfCompletion, reflectionPrompt, difficultyLevel, and lifeAreaImpact.',
+                'microActions must break the mission into 2 to 4 concrete sub-actions the user can actually follow today.',
+                'proofOfCompletion must describe the exact evidence the user should have after finishing the mission.',
+                'reflectionPrompt must make the user review behavior, friction, discipline, decision-making, or identity, not generic feelings.',
+                'difficultyLevel must match the adaptive planner: easy for recovery, standard for steady, hard for acceleration, elite only for high-intensity users.',
+                'lifeAreaImpact must name the real areas affected, such as discipline, wealth, health, mindset, communication, knowledge, politics, or philosophy.',
                 'The planner is adaptive. Use the planning context and trend summary to decide whether to reduce, stabilize, or raise challenge.',
                 'If recovery risk is high, simplify the workload, reduce friction, and include health or discipline stabilizers.',
                 'If execution reliability is improving and friction is low, you may raise challenge in a controlled way.',
@@ -2071,6 +2109,103 @@ function coerceMissionDoneLooksLike(doneLooksLike = '', title = '', description 
     return 'A concrete output is finished and ready to review.';
 }
 
+function normalizeMissionTextArray(values = [], fallback = [], limit = 4) {
+    const source = Array.isArray(values)
+        ? values
+        : String(values || '').split(/\n|•|- /g);
+
+    const fallbackSource = Array.isArray(fallback) ? fallback : [];
+    const seen = new Set();
+    const out = [];
+
+    for (const value of [...source, ...fallbackSource]) {
+        const clean = normalizeMissionText(value);
+        const key = clean.toLowerCase();
+
+        if (!clean || seen.has(key)) continue;
+
+        seen.add(key);
+        out.push(ensureMissionSentence(clean));
+
+        if (out.length >= limit) break;
+    }
+
+    return out;
+}
+
+function buildMissionFallbackMicroActions(title = '', description = '') {
+    const safeTitle = normalizeMissionText(title);
+    const safeDescription = normalizeMissionText(description);
+
+    return [
+        safeTitle ? `Open your notes and write the mission title: ${safeTitle}` : 'Open your notes and write today’s Roadmap mission.',
+        safeDescription || 'Complete the smallest useful version of the mission without overthinking.',
+        'Write one sentence proving what you completed before ending the session.'
+    ];
+}
+
+function normalizeMissionDifficulty(value = '', fallback = 'standard') {
+    const clean = sanitize(value).toLowerCase();
+
+    if (['easy', 'standard', 'hard', 'elite'].includes(clean)) {
+        return clean;
+    }
+
+    return fallback;
+}
+
+function normalizeMissionLifeAreaImpact(values = [], fallbackPillar = '') {
+    const fallback = [
+        fallbackPillar,
+        /money|wealth|business|income|offer|client/i.test(fallbackPillar) ? 'wealth' : '',
+        /health|fitness|body|energy/i.test(fallbackPillar) ? 'health' : '',
+        'discipline'
+    ].filter(Boolean);
+
+    return normalizeMissionTextArray(values, fallback, 4)
+        .map((value) => value.replace(/[.!?]+$/g, '').toLowerCase())
+        .filter(Boolean);
+}
+
+function normalizeMissionDepthFields(mission = {}, context = {}) {
+    const title = normalizeMissionText(mission.title);
+    const description = normalizeMissionText(mission.description);
+    const pillar = sanitize(mission.pillar || context?.profile?.topPriorityPillar || 'discipline') || 'discipline';
+    const adaptiveMode = sanitize(context?.adaptivePlanning?.mode || '').toLowerCase();
+    const challengeLevel = sanitize(context?.adaptivePlanning?.challengeLevel || '').toLowerCase();
+
+    const fallbackDifficulty =
+        adaptiveMode === 'recovery' || challengeLevel === 'reduced'
+            ? 'easy'
+            : adaptiveMode === 'acceleration' || challengeLevel === 'raised'
+                ? 'hard'
+                : 'standard';
+
+    const objectiveFallback = title
+        ? `Complete one concrete action connected to "${title}" and create visible proof.`
+        : 'Complete one concrete Roadmap action and create visible proof.';
+
+    return {
+        missionObjective: ensureMissionSentence(mission.missionObjective || objectiveFallback),
+        microActions: normalizeMissionTextArray(
+            mission.microActions,
+            buildMissionFallbackMicroActions(title, description),
+            4
+        ),
+        proofOfCompletion: coerceMissionDoneLooksLike(
+            mission.proofOfCompletion || mission.doneLooksLike,
+            title,
+            description
+        ),
+        reflectionPrompt: ensureMissionSentence(
+            mission.reflectionPrompt ||
+            'What made this mission easy or difficult today, and what will you adjust tomorrow?'
+        ),
+        difficultyLevel: normalizeMissionDifficulty(mission.difficultyLevel || mission.difficulty, fallbackDifficulty),
+        lifeAreaImpact: normalizeMissionLifeAreaImpact(mission.lifeAreaImpact, pillar)
+    };
+}
+
 function normalizeGeneratedMission(mission = {}, context = {}) {
     const maxDailyMinutes = Math.max(
         15,
@@ -2080,7 +2215,7 @@ function normalizeGeneratedMission(mission = {}, context = {}) {
     const normalizedTitle = sanitize(mission.title);
     const normalizedDescription = coerceMissionDescription(mission.description, normalizedTitle);
 
-    return {
+    const baseMission = {
         pillar: sanitize(mission.pillar),
         title: normalizedTitle,
         description: normalizedDescription,
@@ -2097,6 +2232,14 @@ function normalizeGeneratedMission(mission = {}, context = {}) {
             Math.max(10, toInt(mission.estimatedMinutes, 20))
         ),
         sortOrder: Math.max(1, toInt(mission.sortOrder, 1))
+    };
+
+    return {
+        ...baseMission,
+        ...normalizeMissionDepthFields({
+            ...mission,
+            ...baseMission
+        }, context)
     };
 }
 function academyHumanizeRoadmapValue(value = '') {
@@ -2355,6 +2498,46 @@ function academyBuild28DayFoundationMissions(profile = {}, context = {}, seedMis
             'Do this as one focused action, not a full-life overhaul.'
         ].join(' ');
 
+        const missionObjective = ensureMissionSentence(
+            `Move ${focusArea} forward by completing Day ${dayNumber}'s foundation action with visible proof.`
+        );
+
+        const microActions = normalizeMissionTextArray(
+            seed.microActions,
+            [
+                `Open your Roadmap note and write Day ${dayNumber}: ${template.title}.`,
+                template.action,
+                template.done,
+                'Write one sentence about what you completed before ending the session.'
+            ],
+            4
+        );
+
+        const proofOfCompletion = coerceMissionDoneLooksLike(
+            seed.proofOfCompletion || template.done,
+            template.title,
+            description
+        );
+
+        const reflectionPrompt = ensureMissionSentence(
+            seed.reflectionPrompt ||
+            `What did Day ${dayNumber} reveal about your discipline, friction, or current standard?`
+        );
+
+        const difficultyLevel =
+            roadmapIntensity === 'elite'
+                ? 'elite'
+                : roadmapIntensity === 'aggressive'
+                    ? 'hard'
+                    : roadmapIntensity === 'light'
+                        ? 'easy'
+                        : 'standard';
+
+        const lifeAreaImpact = normalizeMissionLifeAreaImpact(
+            seed.lifeAreaImpact,
+            `${focusArea} ${weeklyThemes[weekNumber - 1] || 'discipline'}`
+        );
+
         return {
             ...seed,
             pillar: focusArea,
@@ -2362,6 +2545,12 @@ function academyBuild28DayFoundationMissions(profile = {}, context = {}, seedMis
             description: ensureMissionSentence(description),
             doneLooksLike: ensureMissionSentence(template.done),
             whyItMatters: ensureMissionSentence(template.why),
+            missionObjective,
+            microActions,
+            proofOfCompletion,
+            reflectionPrompt,
+            difficultyLevel,
+            lifeAreaImpact,
             frequency: 'daily',
             dueDate: addDaysISO(index),
             estimatedMinutes,

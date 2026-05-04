@@ -16,6 +16,29 @@ const toNumber = (value, fallback = 0) => {
     return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+const sanitizeStringArray = (values = [], limit = 4) => {
+    const source = Array.isArray(values)
+        ? values
+        : String(values || '').split(/\n|•|- /g);
+
+    const seen = new Set();
+    const out = [];
+
+    for (const value of source) {
+        const clean = sanitizeString(value);
+        const key = clean.toLowerCase();
+
+        if (!clean || seen.has(key)) continue;
+
+        seen.add(key);
+        out.push(clean);
+
+        if (out.length >= limit) break;
+    }
+
+    return out;
+};
+
 const userRef = (uid) => usersCollection.doc(String(uid));
 const academyMetaDoc = (uid, docId) => userRef(uid).collection('academy').doc(docId);
 const academyRoadmapsCol = (uid) => userRef(uid).collection('academyRoadmaps');
@@ -46,6 +69,12 @@ const mapMissionDoc = (doc) => {
         description: sanitizeString(data.description),
         doneLooksLike: sanitizeString(data.doneLooksLike),
         whyItMatters: sanitizeString(data.whyItMatters),
+        missionObjective: sanitizeString(data.missionObjective),
+        microActions: sanitizeStringArray(data.microActions, 4),
+        proofOfCompletion: sanitizeString(data.proofOfCompletion),
+        reflectionPrompt: sanitizeString(data.reflectionPrompt),
+        difficultyLevel: sanitizeString(data.difficultyLevel || 'standard'),
+        lifeAreaImpact: sanitizeStringArray(data.lifeAreaImpact, 4),
         status: sanitizeString(data.status || 'pending'),
         frequency: sanitizeString(data.frequency),
         dueDate: sanitizeString(data.dueDate),
@@ -910,6 +939,12 @@ async function persistRoadmapBundle(uid, profile, plan, createdByModel) {
             description: sanitizeString(mission.description),
             doneLooksLike: sanitizeString(mission.doneLooksLike),
             whyItMatters: sanitizeString(mission.whyItMatters),
+            missionObjective: sanitizeString(mission.missionObjective),
+            microActions: sanitizeStringArray(mission.microActions, 4),
+            proofOfCompletion: sanitizeString(mission.proofOfCompletion),
+            reflectionPrompt: sanitizeString(mission.reflectionPrompt),
+            difficultyLevel: sanitizeString(mission.difficultyLevel || 'standard'),
+            lifeAreaImpact: sanitizeStringArray(mission.lifeAreaImpact, 4),
             frequency: sanitizeString(mission.frequency),
             dueDate: sanitizeString(mission.dueDate),
             estimatedMinutes: toNumber(mission.estimatedMinutes, 0),

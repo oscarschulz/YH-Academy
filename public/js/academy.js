@@ -6145,6 +6145,133 @@ function academyNormalizeRoadmapFoundationMissions(missions = [], system = {}) {
         };
     });
 }
+
+function academyNormalizeMissionDetailList(values = [], fallback = [], limit = 4) {
+    const source = Array.isArray(values)
+        ? values
+        : String(values || '').split(/\n|•|- /g);
+
+    const fallbackSource = Array.isArray(fallback) ? fallback : [];
+    const seen = new Set();
+    const out = [];
+
+    [...source, ...fallbackSource].forEach((value) => {
+        const clean = String(value || '').trim();
+        const key = clean.toLowerCase();
+
+        if (!clean || seen.has(key) || out.length >= limit) return;
+
+        seen.add(key);
+        out.push(clean);
+    });
+
+    return out;
+}
+
+function academyRenderRoadmapMissionBundleDetails(mission = {}, options = {}) {
+    const compact = options?.compact === true;
+    const title = String(mission.title || 'today’s Roadmap mission').trim();
+    const description = String(mission.description || 'Complete one focused action that moves your Roadmap forward.').trim();
+
+    const objective = String(
+        mission.missionObjective ||
+        `Complete one concrete action connected to ${title} and create visible proof.`
+    ).trim();
+
+    const microActions = academyNormalizeMissionDetailList(
+        mission.microActions,
+        [
+            `Write the mission title: ${title}.`,
+            description,
+            'Write one sentence proving what you completed.'
+        ],
+        compact ? 3 : 4
+    );
+
+    const proof = String(
+        mission.proofOfCompletion ||
+        mission.doneLooksLike ||
+        'A concrete output is finished and ready to review.'
+    ).trim();
+
+    const reflection = String(
+        mission.reflectionPrompt ||
+        'What made this mission easy or difficult today, and what will you adjust tomorrow?'
+    ).trim();
+
+    const difficulty = String(mission.difficultyLevel || 'standard').trim();
+    const impacts = academyNormalizeMissionDetailList(mission.lifeAreaImpact, [mission.pillar || 'discipline'], 4);
+
+    return `
+        <div style="
+            margin-top:${compact ? '12px' : '14px'};
+            display:grid;
+            gap:${compact ? '8px' : '10px'};
+        ">
+            <div style="
+                padding:10px 12px;
+                border-radius:14px;
+                border:1px solid rgba(125,211,252,0.16);
+                background:rgba(14,165,233,0.055);
+                color:#dbeafe;
+                font-size:${compact ? '0.82rem' : '0.88rem'};
+                line-height:1.6;
+            ">
+                <strong style="color:#fff;">Objective:</strong> ${academyFeedEscapeHtml(objective)}
+            </div>
+
+            <div style="
+                padding:10px 12px;
+                border-radius:14px;
+                border:1px solid rgba(255,255,255,0.08);
+                background:rgba(255,255,255,0.025);
+            ">
+                <strong style="display:block;color:#fff;font-size:${compact ? '0.78rem' : '0.84rem'};margin-bottom:6px;">Micro-actions</strong>
+                <ol style="margin:0;padding-left:18px;color:#d1d5db;font-size:${compact ? '0.8rem' : '0.86rem'};line-height:1.65;">
+                    ${microActions.map((item) => `<li>${academyFeedEscapeHtml(item)}</li>`).join('')}
+                </ol>
+            </div>
+
+            <div style="
+                padding:10px 12px;
+                border-radius:14px;
+                border:1px solid rgba(34,197,94,0.16);
+                background:rgba(34,197,94,0.045);
+                color:#d1fae5;
+                font-size:${compact ? '0.8rem' : '0.86rem'};
+                line-height:1.6;
+            ">
+                <strong style="color:#fff;">Proof:</strong> ${academyFeedEscapeHtml(proof)}
+            </div>
+
+            ${compact ? '' : `
+                <div style="
+                    padding:10px 12px;
+                    border-radius:14px;
+                    border:1px solid rgba(168,85,247,0.16);
+                    background:rgba(168,85,247,0.045);
+                    color:#ede9fe;
+                    font-size:0.86rem;
+                    line-height:1.6;
+                ">
+                    <strong style="color:#fff;">Reflection:</strong> ${academyFeedEscapeHtml(reflection)}
+                </div>
+            `}
+
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <span style="padding:5px 9px;border-radius:999px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:var(--text-muted);font-size:0.74rem;text-transform:capitalize;">
+                    Difficulty: ${academyFeedEscapeHtml(difficulty)}
+                </span>
+                ${impacts.map((impact) => `
+                    <span style="padding:5px 9px;border-radius:999px;border:1px solid rgba(14,165,233,0.18);background:rgba(14,165,233,0.06);color:#bae6fd;font-size:0.74rem;">
+                        ${academyFeedEscapeHtml(impact)}
+                    </span>
+                `).join('')}
+            </div>
+        </div>
+    `;
+}
+
 function academyRenderFoundationMissionBoard(missions = [], system = {}) {
     const safeMissions = Array.isArray(missions) && missions.length
         ? missions
@@ -6407,6 +6534,8 @@ function academyInjectRoadmapTransformationSystem(homeData = {}) {
                         <div class="academy-home-panel-label">Today’s Mission</div>
                         <h3>${academyFeedEscapeHtml(todayMission.title || 'Show up for today.')}</h3>
                         <p>${academyFeedEscapeHtml(todayMission.description || 'Take one focused action that moves your life forward. Keep it simple. Keep it honest.')}</p>
+
+                        ${academyRenderRoadmapMissionBundleDetails(todayMission, { compact: true })}
 
                         <div class="roadmap-transform-actions">
                             <button type="button" class="btn-primary academy-home-action-btn" data-roadmap-cta="today-work">Start Today</button>
@@ -7871,6 +8000,43 @@ const missionsHtml = missions.length
                 mission.doneLooksLike || 'A concrete output is finished and ready to review, use, or submit.'
             );
             const whyItMatters = safeHtml(mission.whyItMatters || '');
+            const missionObjective = safeHtml(
+                mission.missionObjective || `Complete one concrete action connected to ${mission.title || `Mission ${index + 1}`}.`
+            );
+            const proofOfCompletion = safeHtml(
+                mission.proofOfCompletion || mission.doneLooksLike || 'A concrete output is finished and ready to review.'
+            );
+            const reflectionPrompt = safeHtml(
+                mission.reflectionPrompt || 'What made this mission easy or difficult, and what will you adjust next?'
+            );
+            const difficultyLevel = safeHtml(mission.difficultyLevel || 'standard');
+
+            const microActions = Array.isArray(mission.microActions) && mission.microActions.length
+                ? mission.microActions
+                : [
+                    `Write the mission title: ${mission.title || `Mission ${index + 1}`}.`,
+                    mission.description || 'Complete the smallest useful version of this mission.',
+                    'Write one sentence proving what you completed.'
+                ];
+
+            const lifeAreaImpact = Array.isArray(mission.lifeAreaImpact) && mission.lifeAreaImpact.length
+                ? mission.lifeAreaImpact
+                : [mission.pillar || pillarMeta.label];
+
+            const microActionsHtml = microActions
+                .slice(0, 4)
+                .map((item) => `<li>${safeHtml(item)}</li>`)
+                .join('');
+
+            const lifeAreaImpactHtml = lifeAreaImpact
+                .slice(0, 4)
+                .map((impact) => `
+                    <span style="padding:5px 9px;border-radius:999px;border:1px solid rgba(14,165,233,0.18);background:rgba(14,165,233,0.06);color:#bae6fd;font-size:0.74rem;">
+                        ${safeHtml(impact)}
+                    </span>
+                `)
+                .join('');
+
             const isCompleted = statusRaw === 'completed';
 
             const statusMeta =
@@ -8040,6 +8206,64 @@ const missionsHtml = missions.length
         color:#d1d5db;
     ">
         <strong style="color:#fff;">${safeHtml(doneLooksLikeLabel)}:</strong> ${doneLooksLike}
+    </div>
+
+    <div style="
+        padding:10px 12px;
+        border-radius:12px;
+        border:1px solid rgba(125,211,252,0.16);
+        background:rgba(14,165,233,0.055);
+        font-size:0.88rem;
+        line-height:1.65;
+        color:#dbeafe;
+    ">
+        <strong style="color:#fff;">Objective:</strong> ${missionObjective}
+    </div>
+
+    <div style="
+        padding:10px 12px;
+        border-radius:12px;
+        border:1px solid rgba(255,255,255,0.07);
+        background:rgba(255,255,255,0.025);
+        font-size:0.88rem;
+        line-height:1.65;
+        color:#d1d5db;
+    ">
+        <strong style="display:block;color:#fff;margin-bottom:6px;">Micro-actions:</strong>
+        <ol style="margin:0;padding-left:18px;line-height:1.65;">
+            ${microActionsHtml}
+        </ol>
+    </div>
+
+    <div style="
+        padding:10px 12px;
+        border-radius:12px;
+        border:1px solid rgba(34,197,94,0.16);
+        background:rgba(34,197,94,0.045);
+        font-size:0.88rem;
+        line-height:1.65;
+        color:#d1fae5;
+    ">
+        <strong style="color:#fff;">Proof:</strong> ${proofOfCompletion}
+    </div>
+
+    <div style="
+        padding:10px 12px;
+        border-radius:12px;
+        border:1px solid rgba(168,85,247,0.16);
+        background:rgba(168,85,247,0.045);
+        font-size:0.88rem;
+        line-height:1.65;
+        color:#ede9fe;
+    ">
+        <strong style="color:#fff;">Reflection:</strong> ${reflectionPrompt}
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <span style="padding:5px 9px;border-radius:999px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:var(--text-muted);font-size:0.74rem;text-transform:capitalize;">
+            Difficulty: ${difficultyLevel}
+        </span>
+        ${lifeAreaImpactHtml}
     </div>
 
         ${whyItMatters ? `
