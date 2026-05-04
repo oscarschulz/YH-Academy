@@ -8177,38 +8177,6 @@ const missionsHtml = missions.length
                         </div>
                     </div>
 
-                    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
-                        <span
-                            style="
-                                display:inline-flex;
-                                align-items:center;
-                                gap:6px;
-                                padding:6px 10px;
-                                border-radius:999px;
-                                border:1px solid rgba(255,255,255,0.08);
-                                background:rgba(255,255,255,0.03);
-                                color:var(--text-muted);
-                                font-size:0.84rem;
-                            "
-                        >
-                            📅 Due: ${dueDate}
-                        </span>
-                        <span
-                            style="
-                                display:inline-flex;
-                                align-items:center;
-                                gap:6px;
-                                padding:6px 10px;
-                                border-radius:999px;
-                                border:1px solid rgba(255,255,255,0.08);
-                                background:rgba(255,255,255,0.03);
-                                color:var(--text-muted);
-                                font-size:0.84rem;
-                            "
-                        >
-                            ⏱️ ${estimatedMinutes} mins
-                        </span>
-                    </div>
 
                     <div style="margin-top:12px;display:grid;gap:10px;">
     <div style="
