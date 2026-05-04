@@ -21861,6 +21861,7 @@ function escapeRoadmapHtml(value = '') {
 function getRoadmapScopeConfig(scopeKey = '') {
     return ROADMAP_SCOPE_CONFIG[String(scopeKey || '').trim()] || null;
 }
+
 const ROADMAP_EVOLUTION_LABELS = {
     focused_mastery: 'Focused Mastery',
     rotating_life_upgrade: 'Rotating Life Upgrade',
@@ -21950,6 +21951,7 @@ function updateRoadmapDnaPreview() {
     const scoreEl = document.getElementById('roadmap-accuracy-score');
     if (scoreEl) scoreEl.textContent = `${score}%`;
 }
+
 function renderRoadmapScopeField(field = {}) {
     const fieldId = `roadmap-scope-answer-${field.key}`;
     const requiredAttr = field.required ? 'required' : '';
@@ -23621,10 +23623,10 @@ if (roadmapForm) {
             return;
         }
 
-        const phase2 = document.getElementById('roadmap-phase-2');
-        if (phase2?.classList.contains('hidden-step')) {
-            showToast('Choose your roadmap focus first.', 'error');
-            document.getElementById('roadmap-focus-area')?.focus();
+        const currentBuilderPhase = Number(readRoadmapInputValue('roadmap-builder-phase') || '1') || 1;
+        if (currentBuilderPhase < 5) {
+            showToast('Preview and confirm your Roadmap DNA first.', 'error');
+            setRoadmapIntakePhase(Math.max(1, Math.min(5, currentBuilderPhase)));
             return;
         }
 
@@ -23635,12 +23637,12 @@ if (roadmapForm) {
         const submitBtn = document.getElementById('btn-submit-roadmap-intake');
         const focusAreaKey = document.getElementById('roadmap-focus-area-key')?.value?.trim() || '';
         const schemaKey = document.getElementById('roadmap-schema-key')?.value?.trim() || '';
-        const intakeVersion = Number(document.getElementById('roadmap-intake-version')?.value || '3') || 3;
+        const intakeVersion = Number(document.getElementById('roadmap-intake-version')?.value || '4') || 4;
         const scopeConfig = getRoadmapScopeConfig(focusAreaKey);
 
         if (!scopeConfig) {
             showToast('Choose your roadmap focus first.', 'error');
-            setRoadmapIntakePhase(1);
+            setRoadmapIntakePhase(2);
             document.getElementById('roadmap-focus-area')?.focus();
             return;
         }
@@ -23649,13 +23651,15 @@ if (roadmapForm) {
         const blockerText = readRoadmapInputValue('roadmap-blocker-text');
 
         if (isWeakRoadmapAnswer(target30Days)) {
-            showToast('Make your 30-day target more specific before building your roadmap.', 'error');
+            showToast('Make your 28-day target more specific before building your roadmap.', 'error');
+            setRoadmapIntakePhase(3);
             document.getElementById('roadmap-target-30')?.focus();
             return;
         }
 
         if (isWeakRoadmapAnswer(blockerText)) {
             showToast('Explain your biggest bottleneck more clearly before building your roadmap.', 'error');
+            setRoadmapIntakePhase(3);
             document.getElementById('roadmap-blocker-text')?.focus();
             return;
         }
@@ -23706,23 +23710,23 @@ if (roadmapForm) {
 
             scopeAnswers: collectRoadmapScopeAnswers(focusAreaKey),
             seasonPlan: {
-            currentSeason: {
-                month: 1,
-                label: readRoadmapInputValue('roadmap-first-season-label') || '28-Day Foundation Reset',
-                pillar: focusAreaKey,
-                pillarLabel: scopeConfig.label,
-                durationDays: 28,
-                status: 'active_after_creation'
+                currentSeason: {
+                    month: 1,
+                    label: readRoadmapInputValue('roadmap-first-season-label') || '28-Day Foundation Reset',
+                    pillar: focusAreaKey,
+                    pillarLabel: scopeConfig.label,
+                    durationDays: 28,
+                    status: 'active_after_creation'
+                },
+                nextSeason: {
+                    month: 2,
+                    label: 'Next Monthly Focus',
+                    selectionMode: readRoadmapInputValue('roadmap-monthly-focus-mode') || 'ai_recommend',
+                    status: 'pending_review'
+                },
+                reviewCadence: 'monthly',
+                totalMonths: 12
             },
-            nextSeason: {
-                month: 2,
-                label: 'Next Monthly Focus',
-                selectionMode: readRoadmapInputValue('roadmap-monthly-focus-mode') || 'ai_recommend',
-                status: 'pending_review'
-            },
-            reviewCadence: 'monthly',
-            totalMonths: 12
-        },
             submittedAt: new Date().toISOString()
         };
 
