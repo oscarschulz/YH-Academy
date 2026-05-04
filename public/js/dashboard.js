@@ -6465,10 +6465,37 @@ const markAllRead = document.getElementById('mark-all-read');
 const notifListContainer = document.getElementById('notif-list-container');
 const notifBadge = document.getElementById('notif-badge-count');
 
+function positionDashboardNotificationDropdown() {
+    if (!notifBell || !notifDropdown) return;
+
+    const bellRect = notifBell.getBoundingClientRect();
+    const viewportPad = 14;
+    const panelWidth = Math.min(340, Math.max(280, window.innerWidth - (viewportPad * 2)));
+
+    const preferredLeft = bellRect.right - panelWidth;
+    const maxLeft = Math.max(viewportPad, window.innerWidth - panelWidth - viewportPad);
+    const left = Math.min(Math.max(viewportPad, preferredLeft), maxLeft);
+    const top = Math.max(82, Math.min(bellRect.bottom + 8, window.innerHeight - 120));
+
+    notifDropdown.style.position = 'fixed';
+    notifDropdown.style.top = `${top}px`;
+    notifDropdown.style.left = `${left}px`;
+    notifDropdown.style.right = 'auto';
+    notifDropdown.style.width = `min(340px, calc(100vw - 28px))`;
+    notifDropdown.style.maxHeight = `calc(100vh - ${top + 16}px)`;
+    notifDropdown.style.zIndex = '2147483003';
+    notifDropdown.style.pointerEvents = 'auto';
+}
+
 function setDashboardNotificationsOpenState(isOpen = false) {
     const open = isOpen === true;
 
+    if (open) {
+        positionDashboardNotificationDropdown();
+    }
+
     document.body?.classList.toggle('yh-notifications-open', open);
+    document.body?.classList.toggle('yh-notif-menu-open', open);
     notifBell?.classList.toggle('yh-notif-open', open);
 
     if (notifDropdown) {
@@ -7088,21 +7115,49 @@ if (notifBell && notifDropdown) {
         if (e.target === markAllRead) return;
         if (e.target.closest('.notif-list li')) return;
 
+        e.preventDefault();
+        e.stopPropagation();
+
         const willOpen = !notifDropdown.classList.contains('show');
+
+        if (willOpen && resourcesMenuPanel) {
+            resourcesMenuPanel.classList.remove('show');
+            resourcesMenuPanel.setAttribute('aria-hidden', 'true');
+            resourcesMenuBtn?.setAttribute('aria-expanded', 'false');
+            resourcesMenu?.classList.remove('yh-resources-menu-open');
+            document.body?.classList.remove('yh-resources-menu-open');
+        }
 
         notifDropdown.classList.toggle('show', willOpen);
         setDashboardNotificationsOpenState(willOpen);
 
         if (willOpen) {
+            positionDashboardNotificationDropdown();
             await loadRealtimeNotifications(true);
         }
     });
 
+    notifDropdown.addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
+
     document.addEventListener('click', (e) => {
-        if (!notifBell.contains(e.target)) {
+        if (!notifBell.contains(e.target) && !notifDropdown.contains(e.target)) {
             closeDashboardNotificationsDropdown();
         }
     });
+
+    window.addEventListener('resize', () => {
+        if (notifDropdown.classList.contains('show')) {
+            positionDashboardNotificationDropdown();
+        }
+    });
+
+    window.addEventListener('scroll', () => {
+        if (notifDropdown.classList.contains('show')) {
+            positionDashboardNotificationDropdown();
+        }
+    }, true);
 
     if (markAllRead) {
         markAllRead.addEventListener('click', async (e) => {
@@ -7120,8 +7175,32 @@ const resourcesMenuBtn = document.getElementById('yh-resources-menu-btn');
 const resourcesMenuPanel = document.getElementById('yh-resources-menu-panel');
 
 if (resourcesMenu && resourcesMenuBtn && resourcesMenuPanel) {
+    const positionDashboardResourcesPanel = () => {
+        const btnRect = resourcesMenuBtn.getBoundingClientRect();
+        const viewportPad = 14;
+        const panelWidth = Math.min(340, Math.max(280, window.innerWidth - (viewportPad * 2)));
+
+        const preferredRight = Math.max(viewportPad, window.innerWidth - btnRect.right);
+        const maxRight = Math.max(viewportPad, window.innerWidth - panelWidth - viewportPad);
+        const right = Math.min(Math.max(viewportPad, preferredRight), maxRight);
+        const top = Math.max(82, Math.min(btnRect.bottom + 8, window.innerHeight - 120));
+
+        resourcesMenuPanel.style.position = 'fixed';
+        resourcesMenuPanel.style.top = `${top}px`;
+        resourcesMenuPanel.style.right = `${right}px`;
+        resourcesMenuPanel.style.left = 'auto';
+        resourcesMenuPanel.style.width = `min(340px, calc(100vw - 28px))`;
+        resourcesMenuPanel.style.maxHeight = `calc(100vh - ${top + 16}px)`;
+        resourcesMenuPanel.style.zIndex = '32001';
+        resourcesMenuPanel.style.pointerEvents = 'auto';
+    };
+
     const setDashboardResourcesMenuOpenState = (isOpen = false) => {
         const open = isOpen === true;
+
+        if (open) {
+            positionDashboardResourcesPanel();
+        }
 
         document.body?.classList.toggle('yh-resources-menu-open', open);
         resourcesMenu.classList.toggle('yh-resources-menu-open', open);
@@ -7154,10 +7233,25 @@ if (resourcesMenu && resourcesMenuBtn && resourcesMenuPanel) {
     });
 
     document.addEventListener('click', (event) => {
-        if (!resourcesMenu.contains(event.target)) {
+        if (
+            !resourcesMenu.contains(event.target) &&
+            !resourcesMenuPanel.contains(event.target)
+        ) {
             closeResourcesMenu();
         }
     });
+
+    window.addEventListener('resize', () => {
+        if (resourcesMenuPanel.classList.contains('show')) {
+            positionDashboardResourcesPanel();
+        }
+    });
+
+    window.addEventListener('scroll', () => {
+        if (resourcesMenuPanel.classList.contains('show')) {
+            positionDashboardResourcesPanel();
+        }
+    }, true);
 }
 
     const closeMiniProfileBtn = document.getElementById('close-mini-profile'); const miniProfileModal = document.getElementById('mini-profile-modal');
