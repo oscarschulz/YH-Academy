@@ -7654,16 +7654,27 @@ body.yh-resources-menu-open .yh-universe-side-nav {
     }
 }
 /* ==========================================
-   ACADEMY FEED COMPACT TUNING
+   ACADEMY FEED FULL-WIDTH CENTER STAGE
    ========================================== */
 
 #academy-feed-view .academy-feed-shell {
-    max-width: 820px;
+    width: 100%;
+    max-width: none;
+    margin-left: 0;
+    margin-right: 0;
+}
+
+#academy-feed-view .academy-community-layer-panel,
+#academy-feed-view .academy-feed-composer-card,
+#academy-feed-view .academy-feed-card,
+#academy-feed-view #academy-feed-list {
+    width: 100%;
+    max-width: none;
 }
 
 #academy-feed-view .academy-feed-card,
 #academy-feed-view .academy-feed-composer-card {
-    padding: 12px;
+    padding: 14px;
     border-radius: 18px;
 }
 
@@ -21996,4 +22007,22 @@ body.yh-dashboard-profile-cropper-open {
 
 .academy-niche-action-btn.is-primary {
     min-width: 68px;
+}
+/* ==========================================
+   COMMUNITY FEED CARD WIDTH LOCK
+   Keeps feed cards aligned to center content borders
+   ========================================== */
+
+body[data-yh-view="academy"] #academy-feed-view .academy-feed-shell,
+body[data-yh-view="academy"] #academy-feed-view .academy-community-layer-panel,
+body[data-yh-view="academy"] #academy-feed-view .academy-feed-composer-card,
+body[data-yh-view="academy"] #academy-feed-view #academy-feed-list,
+body[data-yh-view="academy"] #academy-feed-view .academy-feed-card {
+    width: 100% !important;
+    max-width: none !important;
+}
+
+body[data-yh-view="academy"] #academy-feed-view .academy-feed-shell {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
 }
