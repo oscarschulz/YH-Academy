@@ -978,6 +978,90 @@ let currentRoomMeta = {
     roomId: 'YH-community'
 };
 
+const ACADEMY_MESSAGE_MAX_FILE_BYTES = 50 * 1024 * 1024;
+let academySelectedMessageFile = null;
+let academyUploadingMessageFile = false;
+
+function academyFormatFileSize(bytes = 0) {
+    const size = Number(bytes) || 0;
+
+    if (size >= 1024 * 1024) {
+        return `${(size / (1024 * 1024)).toFixed(size >= 10 * 1024 * 1024 ? 0 : 1)} MB`;
+    }
+
+    if (size >= 1024) {
+        return `${Math.ceil(size / 1024)} KB`;
+    }
+
+    return `${size} B`;
+}
+
+function academyClearSelectedMessageFile() {
+    academySelectedMessageFile = null;
+
+    const input = document.getElementById('chat-file-input');
+    const preview = document.getElementById('academy-message-file-preview');
+
+    if (input) input.value = '';
+
+    if (preview) {
+        preview.classList.add('hidden-step');
+        preview.innerHTML = '';
+    }
+}
+
+function academyRenderSelectedMessageFile(file = null) {
+    const preview = document.getElementById('academy-message-file-preview');
+    if (!preview) return;
+
+    if (!file) {
+        academyClearSelectedMessageFile();
+        return;
+    }
+
+    preview.classList.remove('hidden-step');
+    preview.innerHTML = `
+        <div class="academy-message-file-chip">
+            <span class="academy-message-file-chip-icon">📎</span>
+            <span class="academy-message-file-chip-copy">
+                <strong>${academyFeedEscapeHtml(file.name || 'Selected file')}</strong>
+                <small>${academyFeedEscapeHtml(academyFormatFileSize(file.size || 0))}</small>
+            </span>
+            <button type="button" class="academy-message-file-remove" id="academy-message-file-remove" aria-label="Remove selected file">✕</button>
+        </div>
+    `;
+}
+
+async function academyUploadSelectedMessageFile() {
+    const file = academySelectedMessageFile;
+
+    if (!file) return null;
+
+    if (file.size > ACADEMY_MESSAGE_MAX_FILE_BYTES) {
+        academyClearSelectedMessageFile();
+        throw new Error('File must be 50MB or smaller.');
+    }
+
+    const response = await fetch('/api/academy/messages/uploads', {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${getStoredAuthToken()}`,
+            'Content-Type': file.type || 'application/octet-stream',
+            'X-File-Name': encodeURIComponent(file.name || 'upload'),
+            'X-File-Mime': file.type || 'application/octet-stream'
+        },
+        body: file
+    });
+
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok || result?.success === false || !result?.attachment?.url) {
+        throw new Error(result?.message || 'Failed to upload file.');
+    }
+
+    return result.attachment;
+}
+
 function getActiveRoomId() {
     return sharedGetActiveRoomId({
         currentRoomMeta,
@@ -2575,6 +2659,24 @@ socket.on('chatHistory', (history) => {
         const safeAuthor = academyFeedEscapeHtml(msg.author || 'Hustler');
         const safeText = academyFeedEscapeHtml(msg.text || '').replace(/\n/g, '<br>');
         const safeTime = academyFeedEscapeHtml(formatAcademyMessageTime(msg.time));
+        const attachment = msg?.attachment && typeof msg.attachment === 'object' ? msg.attachment : null;
+        const attachmentUrl = String(attachment?.url || '').trim();
+        const attachmentName = String(attachment?.originalName || attachment?.name || 'Attachment').trim();
+        const attachmentKind = String(attachment?.kind || '').trim().toLowerCase();
+        const attachmentMime = String(attachment?.mimeType || '').trim().toLowerCase();
+        const attachmentSize = Number(attachment?.sizeBytes || 0);
+        const attachmentHtml = attachmentUrl
+            ? `
+                <a class="academy-message-attachment-card" href="${academyFeedEscapeHtml(attachmentUrl)}" target="_blank" rel="noopener noreferrer" download>
+                    <span class="academy-message-attachment-icon">${attachmentKind === 'image' ? '🖼️' : attachmentKind === 'video' ? '🎬' : '📎'}</span>
+                    <span class="academy-message-attachment-copy">
+                        <strong>${academyFeedEscapeHtml(attachmentName)}</strong>
+                        <small>${academyFeedEscapeHtml(attachmentMime || 'file')} ${attachmentSize ? `• ${academyFeedEscapeHtml(academyFormatFileSize(attachmentSize))}` : ''}</small>
+                    </span>
+                    <span class="academy-message-attachment-action">Open</span>
+                </a>
+            `
+            : '';
         const safeAvatarUrl = academyFeedEscapeHtml(msg.avatar || '');
         const messageAuthorId = normalizeAcademyFeedId(
             msg.authorId ||
@@ -2627,6 +2729,7 @@ socket.on('chatHistory', (history) => {
                     <span class="bubble-time">${safeTime}</span>
                 </div>
                 <div class="bubble-body">${safeText}</div>
+                ${attachmentHtml}
                 ${showCommunityActions ? `<div class="chat-actions"><button class="upvote-btn" data-id="${academyFeedEscapeHtml(msg.id || '')}" title="Agree with this">🔥 <span class="upvote-count">${msg.upvotes || 0}</span></button></div>` : ''}
             </div>
         `;
@@ -3118,7 +3221,7 @@ async function openAcademyCoachView(forceRefresh = true) {
         }
     }
 
-    function sendMessage(customText = null) {
+    function sendMessage(customText = null, attachment = null) {
         if (academyCoachModeActive) {
             academySendCoachMessage(customText);
             return;
@@ -3128,8 +3231,9 @@ async function openAcademyCoachView(forceRefresh = true) {
         if(!chatInputArea && customText === null) return;
 
         let rawText = customText !== null ? customText : chatInputArea.value;
-        let text = rawText.trim();
-        if (!text && !rawText.includes("chat-attachment")) return;
+        let text = String(rawText || '').trim();
+        const hasAttachment = attachment && typeof attachment === 'object' && attachment.url;
+        if (!text && !hasAttachment) return;
 
         let initial = myName.charAt(0).toUpperCase();
         let savedAvatar = localStorage.getItem('yh_user_avatar') || "";
@@ -3165,7 +3269,8 @@ const outboundMessage = {
     roomId: activeRoomId,
     room: activeRoomId,
     roomName: activeRoomLabel,
-    text: text,
+    text: text || (hasAttachment ? `📎 ${attachment.originalName || 'Attachment'}` : ''),
+    attachment: hasAttachment ? attachment : null,
     author: myName,
     initial: initial,
     avatar: savedAvatar,
@@ -14535,7 +14640,7 @@ function focusAcademyChatComposer() {
         input.setSelectionRange(value.length, value.length);
     });
 }
-function sendAcademyThreadMessage(customText = null) {
+function sendAcademyThreadMessage(customText = null, attachment = null) {
     const input = document.getElementById('chat-input');
     const activeRoomId = getActiveRoomId();
     const activeRoomLabel = getActiveRoomLabel();
@@ -14546,7 +14651,8 @@ function sendAcademyThreadMessage(customText = null) {
 
     const rawText = customText !== null ? String(customText) : String(input.value || '');
     const text = rawText.trim();
-    if (!text) return;
+    const hasAttachment = attachment && typeof attachment === 'object' && attachment.url;
+    if (!text && !hasAttachment) return;
 
     const outboundMessage = {
         roomId: activeRoomId,
@@ -14555,7 +14661,8 @@ function sendAcademyThreadMessage(customText = null) {
         author: getStoredUserValue('yh_user_name', 'Hustler'),
         initial: String(getStoredUserValue('yh_user_name', 'Hustler') || 'H').charAt(0).toUpperCase(),
         avatar: '',
-        text,
+        text: text || (hasAttachment ? `📎 ${attachment.originalName || 'Attachment'}` : ''),
+        attachment: hasAttachment ? attachment : null,
         time: new Date().toISOString(),
         type: activeRoomType,
         privacy: 'private',
@@ -14582,20 +14689,55 @@ function academyGetCurrentUserIdForRoomModeration() {
     );
 }
 
-function sendAcademyComposerMessage(customText = null) {
+async function sendAcademyComposerMessage(customText = null) {
+    if (academyUploadingMessageFile) return;
+
     if (academyCoachModeActive) {
+        if (academySelectedMessageFile) {
+            showToast('File sending is available in Messages, not AI Coach yet.', 'error');
+            return;
+        }
+
         academySendCoachMessage(customText);
         return;
     }
 
+    const input = document.getElementById('chat-input');
+    const sendBtn = document.getElementById('chat-send-btn');
     const activeRoomType = String(currentRoomMeta?.type || '').trim().toLowerCase();
+    const rawText = customText !== null ? String(customText) : String(input?.value || '');
+    const hasText = Boolean(rawText.trim());
+    const hasFile = Boolean(academySelectedMessageFile);
 
-    if (activeRoomType === 'dm' || activeRoomType === 'group') {
-        sendAcademyThreadMessage(customText);
-        return;
+    if (!hasText && !hasFile) return;
+
+    let attachment = null;
+
+    try {
+        academyUploadingMessageFile = true;
+        if (sendBtn) sendBtn.disabled = true;
+
+        if (hasFile) {
+            if (sendBtn) sendBtn.setAttribute('aria-busy', 'true');
+            attachment = await academyUploadSelectedMessageFile();
+        }
+
+        if (activeRoomType === 'dm' || activeRoomType === 'group') {
+            sendAcademyThreadMessage(customText, attachment);
+        } else {
+            sendMessage(customText, attachment);
+        }
+
+        academyClearSelectedMessageFile();
+    } catch (error) {
+        showToast(error.message || 'Failed to send file.', 'error');
+    } finally {
+        academyUploadingMessageFile = false;
+        if (sendBtn) {
+            sendBtn.disabled = false;
+            sendBtn.removeAttribute('aria-busy');
+        }
     }
-
-    sendMessage(customText);
 }
 
 function bindAcademyMessagesComposer() {
@@ -14604,17 +14746,50 @@ function bindAcademyMessagesComposer() {
 
     const chatInput = document.getElementById('chat-input');
     const chatSendBtn = document.getElementById('chat-send-btn');
+    const uploadBtn = document.getElementById('btn-chat-upload');
+    const fileInput = document.getElementById('chat-file-input');
 
-    chatInput?.addEventListener('keydown', (event) => {
+    chatInput?.addEventListener('keydown', async (event) => {
         if (event.key === 'Enter' && !event.shiftKey) {
             event.preventDefault();
-            sendAcademyComposerMessage();
+            await sendAcademyComposerMessage();
         }
     });
 
-    chatSendBtn?.addEventListener('click', (event) => {
+    chatSendBtn?.addEventListener('click', async (event) => {
         event.preventDefault();
-        sendAcademyComposerMessage();
+        await sendAcademyComposerMessage();
+    });
+
+    uploadBtn?.addEventListener('click', (event) => {
+        event.preventDefault();
+        fileInput?.click();
+    });
+
+    fileInput?.addEventListener('change', () => {
+        const file = fileInput.files?.[0] || null;
+
+        if (!file) {
+            academyClearSelectedMessageFile();
+            return;
+        }
+
+        if (file.size > ACADEMY_MESSAGE_MAX_FILE_BYTES) {
+            academyClearSelectedMessageFile();
+            showToast('File must be 50MB or smaller.', 'error');
+            return;
+        }
+
+        academySelectedMessageFile = file;
+        academyRenderSelectedMessageFile(file);
+    });
+
+    document.getElementById('academy-message-file-preview')?.addEventListener('click', (event) => {
+        const removeBtn = event.target?.closest?.('#academy-message-file-remove');
+        if (!removeBtn) return;
+
+        event.preventDefault();
+        academyClearSelectedMessageFile();
     });
 }
 

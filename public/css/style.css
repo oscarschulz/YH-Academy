@@ -22147,3 +22147,142 @@ body[data-yh-view="academy"] #academy-feed-view .academy-feed-shell {
         height: 22px;
     }
 }
+/* ==========================================
+   ACADEMY MESSAGES FILE SENDING
+   ========================================== */
+
+.academy-message-file-preview {
+    display: flex;
+    align-items: center;
+    min-width: 180px;
+    max-width: 280px;
+}
+
+.academy-message-file-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    min-height: 42px;
+    padding: 8px 10px;
+    border-radius: 14px;
+    border: 1px solid rgba(56, 189, 248, 0.28);
+    background: rgba(56, 189, 248, 0.075);
+    color: #e0f2fe;
+}
+
+.academy-message-file-chip-icon {
+    width: 26px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: rgba(56, 189, 248, 0.12);
+    flex: 0 0 auto;
+}
+
+.academy-message-file-chip-copy {
+    min-width: 0;
+    display: grid;
+    gap: 1px;
+    flex: 1;
+}
+
+.academy-message-file-chip-copy strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.78rem;
+    color: #f8fafc;
+}
+
+.academy-message-file-chip-copy small {
+    color: var(--text-muted);
+    font-size: 0.68rem;
+}
+
+.academy-message-file-remove {
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    border: 1px solid rgba(248, 113, 113, 0.28);
+    background: rgba(248, 113, 113, 0.08);
+    color: #fecaca;
+    cursor: pointer;
+    flex: 0 0 auto;
+}
+
+.academy-message-attachment-card {
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: min(100%, 360px);
+    padding: 10px 12px;
+    border-radius: 14px;
+    border: 1px solid rgba(56, 189, 248, 0.24);
+    background:
+        radial-gradient(circle at top left, rgba(56, 189, 248, 0.12), transparent 34%),
+        rgba(15, 23, 42, 0.76);
+    color: #e0f2fe;
+    text-decoration: none;
+}
+
+.academy-message-attachment-card:hover {
+    border-color: rgba(56, 189, 248, 0.55);
+    background: rgba(56, 189, 248, 0.1);
+}
+
+.academy-message-attachment-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(56, 189, 248, 0.12);
+    flex: 0 0 auto;
+}
+
+.academy-message-attachment-copy {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+}
+
+.academy-message-attachment-copy strong {
+    color: #f8fafc;
+    font-size: 0.84rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.academy-message-attachment-copy small {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.academy-message-attachment-action {
+    font-size: 0.72rem;
+    color: #7dd3fc;
+    font-weight: 800;
+    flex: 0 0 auto;
+}
+
+@media (max-width: 700px) {
+    .academy-message-file-preview {
+        width: 100%;
+        max-width: none;
+        order: 3;
+    }
+
+    .chat-input-wrapper {
+        flex-wrap: wrap;
+    }
+}

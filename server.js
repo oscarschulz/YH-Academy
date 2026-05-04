@@ -1271,6 +1271,15 @@ function mapChatMessageDoc(doc) {
         avatar: sanitizeText(data.avatar),
         text: sanitizeText(data.text),
         time: sanitizeText(data.time || mapChatTimestamp(data.created_at)),
+        attachment: data.attachment && typeof data.attachment === 'object'
+            ? {
+                url: sanitizeText(data.attachment.url),
+                originalName: sanitizeText(data.attachment.originalName || data.attachment.name || 'Attachment'),
+                mimeType: sanitizeText(data.attachment.mimeType),
+                sizeBytes: Number.isFinite(Number(data.attachment.sizeBytes)) ? Number(data.attachment.sizeBytes) : 0,
+                kind: sanitizeText(data.attachment.kind || 'file')
+            }
+            : null,
         upvotes: Number.isFinite(Number(data.upvotes)) ? Number(data.upvotes) : 0
     };
 }
@@ -1778,8 +1787,27 @@ io.on('connection', (socket) => {
         try {
             const roomId = sanitizeText(data?.room);
             const text = sanitizeText(data?.text);
+            const incomingAttachment =
+                data?.attachment && typeof data.attachment === 'object'
+                    ? data.attachment
+                    : null;
 
-            if (!roomId || !text) return;
+            const attachment = incomingAttachment
+                ? {
+                    url: sanitizeText(incomingAttachment.url),
+                    originalName: sanitizeText(incomingAttachment.originalName || incomingAttachment.name || 'Attachment'),
+                    mimeType: sanitizeText(incomingAttachment.mimeType),
+                    sizeBytes: Number.isFinite(Number(incomingAttachment.sizeBytes)) ? Number(incomingAttachment.sizeBytes) : 0,
+                    kind: sanitizeText(incomingAttachment.kind || 'file')
+                }
+                : null;
+
+            const hasValidAttachment =
+                attachment &&
+                attachment.url.startsWith('/uploads/academy-messages/') &&
+                attachment.originalName;
+
+            if (!roomId || (!text && !hasValidAttachment)) return;
 
             const allowed = await canUserAccessRoom(socket.user.id, roomId);
             if (!allowed) {
@@ -1830,7 +1858,8 @@ io.on('connection', (socket) => {
                 author: authorName,
                 initial: authorName.charAt(0).toUpperCase(),
                 avatar: '',
-                text,
+                text: text || (hasValidAttachment ? `📎 ${attachment.originalName}` : ''),
+                attachment: hasValidAttachment ? attachment : null,
                 time: new Date().toISOString(),
                 upvotes: 0,
                 created_at: Timestamp.now(),
@@ -1860,7 +1889,7 @@ io.on('connection', (socket) => {
                 });
 
                 await roomRef.set({
-                    last_message_text: text,
+                    last_message_text: payload.text,
                     last_message_author: authorName,
                     last_message_at: Timestamp.now(),
                     unread_counts: unreadCounts,
@@ -1880,6 +1909,7 @@ io.on('connection', (socket) => {
                 initial: payload.initial,
                 avatar: payload.avatar,
                 text: payload.text,
+                attachment: payload.attachment,
                 time: payload.time,
                 upvotes: 0
             };
@@ -2137,9 +2167,11 @@ const ACADEMY_UPLOADS_ROOT = path.resolve(
 );
 const ACADEMY_FEED_UPLOAD_DIR = path.join(ACADEMY_UPLOADS_ROOT, 'academy-feed');
 const ACADEMY_PROFILE_UPLOAD_DIR = path.join(ACADEMY_UPLOADS_ROOT, 'academy-profile');
+const ACADEMY_MESSAGE_UPLOAD_DIR = path.join(ACADEMY_UPLOADS_ROOT, 'academy-messages');
 const ACADEMY_FEED_MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const ACADEMY_FEED_MAX_VIDEO_BYTES = 100 * 1024 * 1024;
 const ACADEMY_PROFILE_MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+const ACADEMY_MESSAGE_MAX_FILE_BYTES = 50 * 1024 * 1024;
 
 function sanitizeUploadSegment(value = '') {
     return String(value || '')
@@ -2175,7 +2207,19 @@ function getUploadExtFromMime(mime = '') {
         'video/quicktime': '.mov',
         'video/webm': '.webm',
         'video/ogg': '.ogv',
-        'video/x-matroska': '.mkv'
+        'video/x-matroska': '.mkv',
+        'application/pdf': '.pdf',
+        'text/plain': '.txt',
+        'text/csv': '.csv',
+        'application/json': '.json',
+        'application/zip': '.zip',
+        'application/x-zip-compressed': '.zip',
+        'application/msword': '.doc',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+        'application/vnd.ms-excel': '.xls',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+        'application/vnd.ms-powerpoint': '.ppt',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation': '.pptx'
     };
 
     return map[clean] || '';
@@ -2218,7 +2262,39 @@ async function saveAcademyFeedUploadToLocal({ buffer, mimeType = '', originalNam
         originalName: baseOriginalName
     };
 }
+async function saveAcademyMessageUploadToLocal({ buffer, mimeType = '', originalName = '', userId = '' }) {
+    const cleanMimeType = sanitizeText(mimeType || 'application/octet-stream').toLowerCase().split(';')[0] || 'application/octet-stream';
+    const safeUserId = sanitizeUploadSegment(userId || 'member');
 
+    const decodedOriginalName = safeDecodeUploadHeaderValue(originalName || 'upload');
+    const baseOriginalName = path.basename(decodedOriginalName || 'upload');
+    const fileExtFromName = path.extname(baseOriginalName).toLowerCase();
+    const safeBaseName = sanitizeUploadSegment(path.basename(baseOriginalName, fileExtFromName) || 'upload');
+
+    const fileExt =
+        fileExtFromName ||
+        getUploadExtFromMime(cleanMimeType) ||
+        '.bin';
+
+    const fileName = `${Date.now()}_${safeUserId}_${crypto.randomBytes(6).toString('hex')}_${safeBaseName}${fileExt}`;
+
+    await fs.promises.mkdir(ACADEMY_MESSAGE_UPLOAD_DIR, { recursive: true });
+
+    const filePath = path.join(ACADEMY_MESSAGE_UPLOAD_DIR, fileName);
+    await fs.promises.writeFile(filePath, buffer);
+
+    return {
+        url: `/uploads/academy-messages/${fileName}`,
+        kind: cleanMimeType.startsWith('image/')
+            ? 'image'
+            : cleanMimeType.startsWith('video/')
+                ? 'video'
+                : 'file',
+        mimeType: cleanMimeType,
+        sizeBytes: buffer.length,
+        originalName: baseOriginalName || fileName
+    };
+}
 async function saveAcademyProfileUploadToLocal({
     buffer,
     mimeType = '',
@@ -3213,6 +3289,63 @@ app.get(['/academy', '/academy/'], (req, res) => {
 });
 
 app.use('/', viewRoutes);
+app.post(
+    '/api/academy/messages/uploads',
+    requireApiUser,
+    express.raw({
+        type: ['*/*'],
+        limit: '55mb'
+    }),
+    async (req, res) => {
+        try {
+            const mimeType = sanitizeText(
+                req.headers?.['x-file-mime'] ||
+                req.headers?.['content-type'] ||
+                'application/octet-stream'
+            ).toLowerCase().split(';')[0] || 'application/octet-stream';
+
+            const originalName = safeDecodeUploadHeaderValue(req.headers?.['x-file-name'] || 'upload');
+
+            const buffer = Buffer.isBuffer(req.body)
+                ? req.body
+                : typeof req.body === 'string'
+                    ? Buffer.from(req.body)
+                    : Buffer.alloc(0);
+
+            if (!buffer.length) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'No file data received.'
+                });
+            }
+
+            if (buffer.length > ACADEMY_MESSAGE_MAX_FILE_BYTES) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'File must be 50MB or smaller.'
+                });
+            }
+
+            const attachment = await saveAcademyMessageUploadToLocal({
+                buffer,
+                mimeType,
+                originalName,
+                userId: req.user.id
+            });
+
+            return res.status(201).json({
+                success: true,
+                attachment
+            });
+        } catch (error) {
+            console.error('academy message upload error:', error);
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to upload message file.'
+            });
+        }
+    }
+);
 
 app.post(
     '/api/academy/feed/uploads',
