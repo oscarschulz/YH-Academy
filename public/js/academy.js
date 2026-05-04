@@ -21861,7 +21861,95 @@ function escapeRoadmapHtml(value = '') {
 function getRoadmapScopeConfig(scopeKey = '') {
     return ROADMAP_SCOPE_CONFIG[String(scopeKey || '').trim()] || null;
 }
+const ROADMAP_EVOLUTION_LABELS = {
+    focused_mastery: 'Focused Mastery',
+    rotating_life_upgrade: 'Rotating Life Upgrade',
+    ai_guided_seasons: 'AI-Guided Seasons',
+    user_chosen_monthly: 'Choose Monthly Myself'
+};
 
+const ROADMAP_MONTHLY_FOCUS_LABELS = {
+    continue_same_pillar: 'Continue same pillar',
+    rotate_monthly: 'Rotate monthly',
+    ai_recommend: 'AI recommends monthly focus',
+    user_choose_monthly: 'User chooses monthly focus'
+};
+
+function getRoadmapEvolutionLabel(value = '') {
+    return ROADMAP_EVOLUTION_LABELS[String(value || '').trim()] || 'AI-Guided Seasons';
+}
+
+function getRoadmapMonthlyFocusLabel(value = '') {
+    return ROADMAP_MONTHLY_FOCUS_LABELS[String(value || '').trim()] || 'AI recommends monthly focus';
+}
+
+function setRoadmapHiddenInputValue(id = '', value = '') {
+    const input = document.getElementById(id);
+    if (!input) return;
+
+    input.value = String(value || '').trim();
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function getSelectedRoadmapScopeConfig() {
+    const focusAreaKey =
+        readRoadmapInputValue('roadmap-focus-area-key') ||
+        readRoadmapInputValue('roadmap-focus-area');
+
+    return getRoadmapScopeConfig(focusAreaKey);
+}
+
+function syncRoadmapBuilderCardStates() {
+    const selectedEvolution = readRoadmapInputValue('roadmap-evolution-style') || 'ai_guided_seasons';
+    const selectedPillar = readRoadmapInputValue('roadmap-focus-area-key') || readRoadmapInputValue('roadmap-focus-area');
+
+    document.querySelectorAll('[data-roadmap-evolution-value]').forEach((card) => {
+        const isSelected = card.getAttribute('data-roadmap-evolution-value') === selectedEvolution;
+        card.classList.toggle('is-selected', isSelected);
+        card.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+    });
+
+    document.querySelectorAll('[data-roadmap-pillar-value]').forEach((card) => {
+        const isSelected = card.getAttribute('data-roadmap-pillar-value') === selectedPillar;
+        card.classList.toggle('is-selected', isSelected);
+        card.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+    });
+}
+
+function updateRoadmapBuilderProgress(step = 1) {
+    const currentStep = Math.max(1, Math.min(5, Number(step || 1)));
+
+    document.querySelectorAll('[data-roadmap-progress-step]').forEach((item) => {
+        const itemStep = Number(item.getAttribute('data-roadmap-progress-step') || '0');
+        item.classList.toggle('is-active', itemStep === currentStep);
+        item.classList.toggle('is-complete', itemStep < currentStep);
+    });
+
+    setRoadmapHiddenInputValue('roadmap-builder-phase', String(currentStep));
+}
+
+function updateRoadmapDnaPreview() {
+    const config = getSelectedRoadmapScopeConfig();
+    const dailyHours = readRoadmapInputValue('roadmap-daily-hours');
+    const dailyMinutes = getRoadmapDailyMinutes();
+    const score = calculateRoadmapAccuracyScore();
+    const obstacle = readRoadmapInputValue('roadmap-obstacle-type') || readRoadmapInputValue('roadmap-blocker-text');
+
+    const setText = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = String(value || '').trim() || 'Not set';
+    };
+
+    setText('roadmap-dna-season', readRoadmapInputValue('roadmap-first-season-label') || '28-Day Foundation Reset');
+    setText('roadmap-dna-focus', config?.label || 'Not selected');
+    setText('roadmap-dna-style', getRoadmapEvolutionLabel(readRoadmapInputValue('roadmap-evolution-style')));
+    setText('roadmap-dna-load', dailyMinutes ? `${dailyMinutes} minutes/day` : (dailyHours ? `${dailyHours} hours/day` : 'Not set'));
+    setText('roadmap-dna-tone', readRoadmapInputValue('roadmap-coach-tone') || 'Balanced');
+    setText('roadmap-dna-risk', obstacle ? academyFormatRoadmapLabel(obstacle).slice(0, 54) : 'Not diagnosed');
+
+    const scoreEl = document.getElementById('roadmap-accuracy-score');
+    if (scoreEl) scoreEl.textContent = `${score}%`;
+}
 function renderRoadmapScopeField(field = {}) {
     const fieldId = `roadmap-scope-answer-${field.key}`;
     const requiredAttr = field.required ? 'required' : '';
@@ -22008,7 +22096,8 @@ function calculateRoadmapAccuracyScore() {
     let score = 0;
 
     const requiredChecks = [
-        readRoadmapInputValue('roadmap-focus-area-key'),
+        readRoadmapInputValue('roadmap-evolution-style'),
+        readRoadmapInputValue('roadmap-focus-area-key') || readRoadmapInputValue('roadmap-focus-area'),
         readRoadmapInputValue('roadmap-current-level'),
         readRoadmapInputValue('roadmap-target-30'),
         readRoadmapInputValue('roadmap-daily-hours'),
@@ -22017,16 +22106,22 @@ function calculateRoadmapAccuracyScore() {
     ];
 
     requiredChecks.forEach((value) => {
-        if (String(value || '').trim()) score += 10;
+        if (String(value || '').trim()) score += 9;
     });
 
     if (!isWeakRoadmapAnswer(readRoadmapInputValue('roadmap-target-30'))) score += 12;
     if (!isWeakRoadmapAnswer(readRoadmapInputValue('roadmap-blocker-text'))) score += 12;
-    if (readRoadmapInputValue('roadmap-obstacle-type')) score += 6;
-    if (readRoadmapInputValue('roadmap-goal-type')) score += 5;
-    if (readRoadmapInputValue('roadmap-intensity')) score += 5;
-    if (readRoadmapInputValue('roadmap-best-execution-window')) score += 5;
-    if (readRoadmapInputValue('roadmap-routine-snapshot').length >= 24) score += 5;
+    if (readRoadmapInputValue('roadmap-goal-type')) score += 4;
+    if (readRoadmapInputValue('roadmap-intensity')) score += 4;
+    if (readRoadmapInputValue('roadmap-obstacle-type')) score += 4;
+    if (readRoadmapInputValue('roadmap-best-execution-window')) score += 3;
+    if (readRoadmapInputValue('roadmap-routine-snapshot').length >= 24) score += 3;
+
+    const focusAreaKey = readRoadmapInputValue('roadmap-focus-area-key') || readRoadmapInputValue('roadmap-focus-area');
+    const scopeAnswers = collectRoadmapScopeAnswers(focusAreaKey);
+    const answeredScopeCount = Object.values(scopeAnswers).filter((value) => String(value || '').trim()).length;
+
+    score += Math.min(8, answeredScopeCount * 2);
 
     return Math.max(0, Math.min(100, score));
 }
@@ -22047,15 +22142,18 @@ function updateRoadmapDiagnosisPreview() {
 
     if (copyEl) {
         if (score >= 85) {
-            copyEl.textContent = 'Strong profile. The AI has enough context to build a sharper and more personal roadmap.';
+            copyEl.textContent = 'Strong Roadmap DNA. The AI has enough context to build a sharper first season and better monthly focus recommendations.';
         } else if (score >= 60) {
-            copyEl.textContent = 'Good start. Add more detail to your target, bottleneck, or routine to improve roadmap accuracy.';
+            copyEl.textContent = 'Good profile. Add more detail to your target, bottleneck, or optional routine details to improve personalization.';
         } else if (score >= 30) {
-            copyEl.textContent = 'Basic profile detected. The roadmap can be created, but your answers are still too broad.';
+            copyEl.textContent = 'Basic Roadmap DNA detected. The system can build your foundation, but the monthly seasons may be broader.';
         } else {
-            copyEl.textContent = 'Start answering the form. The AI will estimate how clear your roadmap profile is before submission.';
+            copyEl.textContent = 'Start with the essentials. The AI will estimate how clear your Roadmap DNA is before submission.';
         }
     }
+
+    syncRoadmapBuilderCardStates();
+    updateRoadmapDnaPreview();
 }
 
 function installRoadmapSmartFormListeners() {
@@ -22068,58 +22166,99 @@ function installRoadmapSmartFormListeners() {
     form.addEventListener('change', updateRoadmapDiagnosisPreview);
 
     form.addEventListener('click', (event) => {
-        const chip = event.target instanceof Element
-            ? event.target.closest('[data-roadmap-chip-target]')
+        const target = event.target instanceof Element
+            ? event.target
             : null;
 
+        if (!target) return;
+
+        const evolutionCard = target.closest('[data-roadmap-evolution-value]');
+        if (evolutionCard) {
+            const evolutionValue = evolutionCard.getAttribute('data-roadmap-evolution-value') || 'ai_guided_seasons';
+            const monthlyMode = evolutionCard.getAttribute('data-roadmap-monthly-focus-mode') || 'ai_recommend';
+
+            setRoadmapHiddenInputValue('roadmap-evolution-style', evolutionValue);
+            setRoadmapHiddenInputValue('roadmap-monthly-focus-mode', monthlyMode);
+            syncRoadmapBuilderCardStates();
+            updateRoadmapDiagnosisPreview();
+            return;
+        }
+
+        const pillarCard = target.closest('[data-roadmap-pillar-value]');
+        if (pillarCard) {
+            const pillarValue = pillarCard.getAttribute('data-roadmap-pillar-value') || '';
+            const focusSelect = document.getElementById('roadmap-focus-area');
+            const config = getRoadmapScopeConfig(pillarValue);
+
+            if (focusSelect) {
+                focusSelect.value = pillarValue;
+                focusSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+
+            if (config) {
+                setRoadmapHiddenInputValue('roadmap-focus-area-key', pillarValue);
+                setRoadmapHiddenInputValue('roadmap-schema-key', config.schemaKey);
+                renderRoadmapScopeQuestions(pillarValue);
+            }
+
+            syncRoadmapBuilderCardStates();
+            updateRoadmapDiagnosisPreview();
+            return;
+        }
+
+        const chip = target.closest('[data-roadmap-chip-target]');
         if (!chip) return;
 
         const targetId = chip.getAttribute('data-roadmap-chip-target') || '';
         const value = chip.getAttribute('data-roadmap-chip-value') || '';
-        const target = document.getElementById(targetId);
+        const input = document.getElementById(targetId);
 
-        if (!target) return;
+        if (!input) return;
 
-        target.value = value;
-        target.dispatchEvent(new Event('input', { bubbles: true }));
-        target.focus();
+        input.value = value;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.focus();
     });
 
     updateRoadmapDiagnosisPreview();
 }
 
 function setRoadmapIntakePhase(step = 1) {
-    const phase1 = document.getElementById('roadmap-phase-1');
-    const phase2 = document.getElementById('roadmap-phase-2');
+    const currentStep = Math.max(1, Math.min(5, Number(step || 1)));
 
-    if (step === 2) {
-        phase1?.classList.add('hidden-step');
-        phase2?.classList.remove('hidden-step');
-        return;
+    for (let phaseNumber = 1; phaseNumber <= 5; phaseNumber += 1) {
+        const phase = document.getElementById(`roadmap-phase-${phaseNumber}`);
+        if (!phase) continue;
+
+        phase.classList.toggle('hidden-step', phaseNumber !== currentStep);
     }
 
-    phase2?.classList.add('hidden-step');
-    phase1?.classList.remove('hidden-step');
+    updateRoadmapBuilderProgress(currentStep);
+    syncRoadmapBuilderCardStates();
+    updateRoadmapDiagnosisPreview();
 }
 
 function resetRoadmapIntakeModalState() {
-    // Avoid TDZ on roadmapForm (it is declared later in the file)
     const form = document.getElementById('form-academy-roadmap');
     if (form) form.reset();
 
-    const focusKeyEl = document.getElementById('roadmap-focus-area-key');
-    if (focusKeyEl) focusKeyEl.value = '';
+    setRoadmapHiddenInputValue('roadmap-focus-area-key', '');
+    setRoadmapHiddenInputValue('roadmap-schema-key', '');
+    setRoadmapHiddenInputValue('roadmap-intake-version', '4');
+    setRoadmapHiddenInputValue('roadmap-builder-phase', '1');
+    setRoadmapHiddenInputValue('roadmap-evolution-style', 'ai_guided_seasons');
+    setRoadmapHiddenInputValue('roadmap-monthly-focus-mode', 'ai_recommend');
+    setRoadmapHiddenInputValue('roadmap-season-start-mode', 'next_sunday');
+    setRoadmapHiddenInputValue('roadmap-first-season-label', '28-Day Foundation Reset');
 
-    const schemaEl = document.getElementById('roadmap-schema-key');
-    if (schemaEl) schemaEl.value = '';
-
-    const versionEl = document.getElementById('roadmap-intake-version');
-    if (versionEl) versionEl.value = '3';
+    const focusSelect = document.getElementById('roadmap-focus-area');
+    if (focusSelect) focusSelect.value = '';
 
     renderRoadmapScopeQuestions('');
     setRoadmapIntakePhase(1);
     installRoadmapSmartFormListeners();
     updateRoadmapDiagnosisPreview();
+    updateRoadmapDnaPreview();
 
     const submitBtn = document.getElementById('btn-submit-roadmap-intake');
     if (submitBtn) {
@@ -23386,8 +23525,6 @@ try {
 }
 
 const roadmapForm = document.getElementById('form-academy-roadmap');
-const roadmapContinueBtn = document.getElementById('btn-roadmap-continue');
-const roadmapBackBtn = document.getElementById('btn-roadmap-back');
 
 closeRoadmapBtn?.addEventListener('click', closeRoadmapIntake);
 
@@ -23403,29 +23540,75 @@ document.addEventListener('keydown', (event) => {
     }
 });
 
-roadmapContinueBtn?.addEventListener('click', () => {
-    const focusAreaSelect = document.getElementById('roadmap-focus-area');
-    const selectedScopeKey = String(focusAreaSelect?.value || '').trim();
+const bindRoadmapBuilderButton = (id = '', handler = () => {}) => {
+    document.getElementById(id)?.addEventListener('click', handler);
+};
+
+bindRoadmapBuilderButton('btn-roadmap-start', () => {
+    setRoadmapIntakePhase(2);
+});
+
+bindRoadmapBuilderButton('btn-roadmap-pillar-back', () => {
+    setRoadmapIntakePhase(1);
+});
+
+bindRoadmapBuilderButton('btn-roadmap-continue', () => {
+    const selectedScopeKey = readRoadmapInputValue('roadmap-focus-area');
     const config = getRoadmapScopeConfig(selectedScopeKey);
 
     if (!selectedScopeKey || !config) {
-        showToast('Choose your roadmap focus first.', 'error');
-        focusAreaSelect?.focus();
+        showToast('Choose your first Roadmap focus first.', 'error');
+        document.getElementById('roadmap-focus-area')?.focus();
         return;
     }
 
-    document.getElementById('roadmap-focus-area-key').value = selectedScopeKey;
-    document.getElementById('roadmap-schema-key').value = config.schemaKey;
-    document.getElementById('roadmap-intake-version').value = '3';
+    setRoadmapHiddenInputValue('roadmap-focus-area-key', selectedScopeKey);
+    setRoadmapHiddenInputValue('roadmap-schema-key', config.schemaKey);
+    setRoadmapHiddenInputValue('roadmap-intake-version', '4');
 
     renderRoadmapScopeQuestions(selectedScopeKey);
-    setRoadmapIntakePhase(2);
+    setRoadmapIntakePhase(3);
     document.querySelector('#roadmap-scope-questions .input-field')?.focus();
 });
 
-roadmapBackBtn?.addEventListener('click', () => {
-    setRoadmapIntakePhase(1);
-    document.getElementById('roadmap-focus-area')?.focus();
+bindRoadmapBuilderButton('btn-roadmap-diagnosis-back', () => {
+    setRoadmapIntakePhase(2);
+});
+
+bindRoadmapBuilderButton('btn-roadmap-diagnosis-next', () => {
+    if (!roadmapForm?.reportValidity()) return;
+
+    const target30Days = readRoadmapInputValue('roadmap-target-30');
+    const blockerText = readRoadmapInputValue('roadmap-blocker-text');
+
+    if (isWeakRoadmapAnswer(target30Days)) {
+        showToast('Make your 28-day target more specific before continuing.', 'error');
+        document.getElementById('roadmap-target-30')?.focus();
+        return;
+    }
+
+    if (isWeakRoadmapAnswer(blockerText)) {
+        showToast('Explain your biggest bottleneck more clearly before continuing.', 'error');
+        document.getElementById('roadmap-blocker-text')?.focus();
+        return;
+    }
+
+    updateRoadmapDiagnosisPreview();
+    updateRoadmapDnaPreview();
+    setRoadmapIntakePhase(4);
+});
+
+bindRoadmapBuilderButton('btn-roadmap-preview-back', () => {
+    setRoadmapIntakePhase(3);
+});
+
+bindRoadmapBuilderButton('btn-roadmap-preview-next', () => {
+    updateRoadmapDnaPreview();
+    setRoadmapIntakePhase(5);
+});
+
+bindRoadmapBuilderButton('btn-roadmap-commit-back', () => {
+    setRoadmapIntakePhase(4);
 });
 
 if (roadmapForm) {
@@ -23489,6 +23672,14 @@ if (roadmapForm) {
             focusAreaKey,
             schemaKey,
             intakeVersion,
+            roadmapEvolutionStyle: readRoadmapInputValue('roadmap-evolution-style') || 'ai_guided_seasons',
+            roadmapEvolutionLabel: getRoadmapEvolutionLabel(readRoadmapInputValue('roadmap-evolution-style')),
+            monthlyFocusMode: readRoadmapInputValue('roadmap-monthly-focus-mode') || 'ai_recommend',
+            monthlyFocusLabel: getRoadmapMonthlyFocusLabel(readRoadmapInputValue('roadmap-monthly-focus-mode')),
+            seasonStartMode: readRoadmapInputValue('roadmap-season-start-mode') || 'next_sunday',
+            firstSeasonLabel: readRoadmapInputValue('roadmap-first-season-label') || '28-Day Foundation Reset',
+            foundationPhaseDays: 28,
+            yearPlanMonths: 12,
             currentLevel: readRoadmapInputValue('roadmap-current-level'),
             target30Days,
             dailyHours: readRoadmapInputValue('roadmap-daily-hours'),
@@ -23514,6 +23705,24 @@ if (roadmapForm) {
             roadmapAccuracyScore: calculateRoadmapAccuracyScore(),
 
             scopeAnswers: collectRoadmapScopeAnswers(focusAreaKey),
+            seasonPlan: {
+            currentSeason: {
+                month: 1,
+                label: readRoadmapInputValue('roadmap-first-season-label') || '28-Day Foundation Reset',
+                pillar: focusAreaKey,
+                pillarLabel: scopeConfig.label,
+                durationDays: 28,
+                status: 'active_after_creation'
+            },
+            nextSeason: {
+                month: 2,
+                label: 'Next Monthly Focus',
+                selectionMode: readRoadmapInputValue('roadmap-monthly-focus-mode') || 'ai_recommend',
+                status: 'pending_review'
+            },
+            reviewCadence: 'monthly',
+            totalMonths: 12
+        },
             submittedAt: new Date().toISOString()
         };
 
@@ -23536,7 +23745,7 @@ if (roadmapForm) {
                 roadmapApplicationStatus: String(
                     roadmapApplication?.status || 'Approved'
                 ).trim().toLowerCase(),
-                hasRoadmapAccess: result?.hasRoadmapAccess === true || true
+                hasRoadmapAccess: result?.hasRoadmapAccess === true
             };
 
             writeAcademyMembershipCache(nextSnapshot);

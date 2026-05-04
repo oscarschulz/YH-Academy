@@ -5590,7 +5590,20 @@ exports.submitRoadmapApplication = async (req, res) => {
                 req.body?.schemaKey ||
                 (resolvedFocusAreaKey ? `${resolvedFocusAreaKey}_v1` : '')
             ),
-            intakeVersion: toInt(req.body?.intakeVersion, 3) || 3,
+            intakeVersion: toInt(req.body?.intakeVersion, 4) || 4,
+            roadmapEvolutionStyle: sanitize(req.body?.roadmapEvolutionStyle || 'ai_guided_seasons'),
+            roadmapEvolutionLabel: sanitize(req.body?.roadmapEvolutionLabel || 'AI-Guided Seasons'),
+            monthlyFocusMode: sanitize(req.body?.monthlyFocusMode || 'ai_recommend'),
+            monthlyFocusLabel: sanitize(req.body?.monthlyFocusLabel || 'AI recommends monthly focus'),
+            seasonStartMode: sanitize(req.body?.seasonStartMode || 'next_sunday'),
+            firstSeasonLabel: sanitize(req.body?.firstSeasonLabel || '28-Day Foundation Reset'),
+            foundationPhaseDays: toInt(req.body?.foundationPhaseDays, 28) || 28,
+            yearPlanMonths: toInt(req.body?.yearPlanMonths, 12) || 12,
+            seasonPlan: sanitizeNestedScopeAnswers(
+                req.body?.seasonPlan && typeof req.body.seasonPlan === 'object'
+                    ? req.body.seasonPlan
+                    : safeJsonParse(req.body?.seasonPlan, {})
+            ),
             currentLevel: sanitize(req.body?.currentLevel || ''),
             target30Days: sanitize(req.body?.target30Days || ''),
             dailyHours: sanitize(req.body?.dailyHours || ''),
@@ -5646,6 +5659,15 @@ exports.submitRoadmapApplication = async (req, res) => {
                 focusAreaKey: roadmapIntake.focusAreaKey,
                 schemaKey: roadmapIntake.schemaKey,
                 intakeVersion: roadmapIntake.intakeVersion,
+                roadmapEvolutionStyle: roadmapIntake.roadmapEvolutionStyle,
+                roadmapEvolutionLabel: roadmapIntake.roadmapEvolutionLabel,
+                monthlyFocusMode: roadmapIntake.monthlyFocusMode,
+                monthlyFocusLabel: roadmapIntake.monthlyFocusLabel,
+                seasonStartMode: roadmapIntake.seasonStartMode,
+                firstSeasonLabel: roadmapIntake.firstSeasonLabel,
+                foundationPhaseDays: roadmapIntake.foundationPhaseDays,
+                yearPlanMonths: roadmapIntake.yearPlanMonths,
+                seasonPlan: roadmapIntake.seasonPlan,
                 currentLevel: roadmapIntake.currentLevel,
                 target30Days: roadmapIntake.target30Days,
                 blockerText: roadmapIntake.blockerText,
@@ -5670,7 +5692,11 @@ exports.submitRoadmapApplication = async (req, res) => {
                     key: roadmapIntake.focusAreaKey,
                     label: roadmapIntake.focusArea,
                     schemaKey: roadmapIntake.schemaKey,
-                    answers: roadmapIntake.scopeAnswers
+                    answers: roadmapIntake.scopeAnswers,
+                    evolutionStyle: roadmapIntake.roadmapEvolutionStyle,
+                    monthlyFocusMode: roadmapIntake.monthlyFocusMode,
+                    firstSeasonLabel: roadmapIntake.firstSeasonLabel,
+                    seasonPlan: roadmapIntake.seasonPlan
                 }
                 : {},
             biggestImmediateProblem: roadmapIntake.blockerText,
