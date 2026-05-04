@@ -18868,8 +18868,9 @@ const ACADEMY_FEED_LAYER_STATE_KEY = 'yh_academy_feed_layer_state_v1';
 const ACADEMY_FEED_NICHE_STATE_KEY = 'yh_academy_feed_niche_state_v1';
 
 let academyFeedLayerState = {
-    layer: 'global',
+    layer: 'circle',
     activeNicheKey: '',
+    nicheMenuOpen: false,
     circleMode: 'friends',
     defaultNicheKey: '',
     joinedNiches: [],
@@ -18878,9 +18879,10 @@ let academyFeedLayerState = {
 
 function academyNormalizeFeedLayer(value = '') {
     const clean = String(value || '').trim().toLowerCase();
+    if (clean === 'global') return 'global';
     if (clean === 'niches' || clean === 'niche') return 'niches';
     if (clean === 'circle') return 'circle';
-    return 'global';
+    return 'circle';
 }
 
 function academyNormalizeCircleMode(value = '') {
@@ -18917,6 +18919,7 @@ function academyReadFeedLayerState() {
                 layer: academyNormalizeFeedLayer(parsed.layer),
                 circleMode: academyNormalizeCircleMode(parsed.circleMode),
                 activeNicheKey: academyNormalizeNicheKey(parsed.activeNicheKey),
+                nicheMenuOpen: parsed.nicheMenuOpen === true,
                 defaultNicheKey: academyNormalizeNicheKey(parsed.defaultNicheKey),
                 joinedNiches: Array.isArray(parsed.joinedNiches) ? parsed.joinedNiches : [],
                 niches: Array.isArray(parsed.niches) && parsed.niches.length ? parsed.niches : ACADEMY_COMMUNITY_NICHES
@@ -19108,16 +19111,24 @@ function academySyncFeedLayerShell() {
         btn.classList.toggle('is-active', academyNormalizeCircleMode(btn.getAttribute('data-circle-mode')) === state.circleMode);
     });
 
-    nicheDash?.classList.toggle('hidden-step', layer !== 'niches');
+    const shouldShowNicheMenu = layer === 'niches' && (state.nicheMenuOpen === true || !state.activeNicheKey);
+
+    nicheDash?.classList.toggle('hidden-step', !shouldShowNicheMenu);
     circleTabs?.classList.toggle('hidden-step', layer !== 'circle');
 
     if (layer === 'niches') {
         const niche = academyGetNicheMeta(state.activeNicheKey);
-        if (title) title.textContent = niche?.label ? `Niches · ${niche.label}` : 'Niches';
-        if (copy) copy.textContent = niche?.label
-            ? `This is your ${niche.label} niche feed. You can join it, make it default, or browse other niches anytime.`
-            : 'Choose a niche, join the ones you care about, and set your recommended niche.';
-        academyRenderNicheDashboard();
+
+        if (shouldShowNicheMenu) {
+            if (title) title.textContent = 'Choose a Niche';
+            if (copy) copy.textContent = 'Pick a niche first. After selection, this menu will close and the selected niche feed will load.';
+            academyRenderNicheDashboard();
+        } else {
+            if (title) title.textContent = niche?.label ? `Niches · ${niche.label}` : 'Niches';
+            if (copy) copy.textContent = niche?.label
+                ? `You are viewing the ${niche.label} niche feed. Click the Niches tab again anytime to switch niche.`
+                : 'Click the Niches tab again to choose a niche.';
+        }
     } else if (layer === 'circle') {
         if (title) title.textContent = `Circle · ${academyFormatRoadmapLabel(state.circleMode)}`;
         if (copy) copy.textContent = 'See posts from your friends, people you follow, or members who follow you.';
@@ -19169,21 +19180,34 @@ async function academyPrimeCommunityFeedShell() {
     academySyncFeedLayerShell();
 }
 
-async function academySwitchFeedLayer(layer = 'global', options = {}) {
+async function academySwitchFeedLayer(layer = 'circle', options = {}) {
     academyFeedLayerState.layer = academyNormalizeFeedLayer(layer);
 
     if (academyFeedLayerState.layer === 'circle') {
         academyFeedLayerState.circleMode = academyNormalizeCircleMode(options.circleMode || academyFeedLayerState.circleMode);
+        academyFeedLayerState.nicheMenuOpen = false;
+    }
+
+    if (academyFeedLayerState.layer === 'global') {
+        academyFeedLayerState.nicheMenuOpen = false;
     }
 
     if (academyFeedLayerState.layer === 'niches') {
-        if (!academyFeedLayerState.activeNicheKey) {
-            academyFeedLayerState.activeNicheKey =
-                academyFeedLayerState.defaultNicheKey ||
-                academyFeedLayerState.joinedNiches?.[0]?.key ||
-                academyFeedLayerState.niches?.[0]?.key ||
-                '';
+        academyFeedLayerState.nicheMenuOpen = true;
+        academyFeedLayerState.activeNicheKey = '';
+        academyWriteFeedLayerState();
+        academySyncFeedLayerShell();
+
+        const list = document.getElementById('academy-feed-list');
+        if (list) {
+            list.innerHTML = `
+                <div style="text-align:center;color:var(--text-muted);padding:2rem;">
+                    Choose a niche above to load its feed.
+                </div>
+            `;
         }
+
+        return;
     }
 
     academyWriteFeedLayerState();
@@ -19197,6 +19221,7 @@ async function academyOpenNiche(nicheKey = '') {
 
     academyFeedLayerState.layer = 'niches';
     academyFeedLayerState.activeNicheKey = cleanKey;
+    academyFeedLayerState.nicheMenuOpen = false;
     academyWriteFeedLayerState();
     academySyncFeedLayerShell();
     await loadAcademyFeed(true);
@@ -19215,6 +19240,7 @@ async function academyJoinNiche(nicheKey = '', makeDefault = false) {
     academyFeedLayerState.defaultNicheKey = academyNormalizeNicheKey(result?.defaultNicheKey || academyFeedLayerState.defaultNicheKey);
     academyFeedLayerState.activeNicheKey = cleanKey;
     academyFeedLayerState.layer = 'niches';
+    academyFeedLayerState.nicheMenuOpen = false;
     academyWriteFeedLayerState();
     academySyncFeedLayerShell();
     showToast('Niche joined.', 'success');
@@ -19234,6 +19260,7 @@ async function academySetDefaultNiche(nicheKey = '') {
     academyFeedLayerState.defaultNicheKey = academyNormalizeNicheKey(result?.defaultNicheKey || cleanKey);
     academyFeedLayerState.activeNicheKey = cleanKey;
     academyFeedLayerState.layer = 'niches';
+    academyFeedLayerState.nicheMenuOpen = false;
     academyWriteFeedLayerState();
     academySyncFeedLayerShell();
     showToast('Default niche updated.', 'success');
@@ -19250,16 +19277,21 @@ async function academyLeaveNiche(nicheKey = '') {
 
     academyFeedLayerState.joinedNiches = Array.isArray(result?.joinedNiches) ? result.joinedNiches : [];
     academyFeedLayerState.defaultNicheKey = academyNormalizeNicheKey(result?.defaultNicheKey || '');
-    academyFeedLayerState.activeNicheKey =
-        academyFeedLayerState.defaultNicheKey ||
-        academyFeedLayerState.joinedNiches?.[0]?.key ||
-        academyFeedLayerState.niches?.[0]?.key ||
-        '';
+    academyFeedLayerState.activeNicheKey = '';
     academyFeedLayerState.layer = 'niches';
+    academyFeedLayerState.nicheMenuOpen = true;
     academyWriteFeedLayerState();
     academySyncFeedLayerShell();
     showToast('Niche removed from your joined list.', 'success');
-    await loadAcademyFeed(true);
+
+    const list = document.getElementById('academy-feed-list');
+    if (list) {
+        list.innerHTML = `
+            <div style="text-align:center;color:var(--text-muted);padding:2rem;">
+                Choose another niche above to load its feed.
+            </div>
+        `;
+    }
 }
 
 const ACADEMY_TAG_SEARCH_ALIASES = {
