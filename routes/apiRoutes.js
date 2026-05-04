@@ -117,6 +117,11 @@ router.get('/academy/community/members', auth, academyCommunityControllers.getMe
 router.get('/academy/community/members/:id/profile', auth, academyCommunityControllers.getMemberProfile);
 router.post('/academy/community/members/:id/follow', auth, academyCommunityControllers.toggleMemberFollow);
 
+router.get('/academy/community/niches', auth, academyCommunityControllers.getNiches);
+router.post('/academy/community/niches/:nicheKey/join', auth, academyCommunityControllers.joinNiche);
+router.post('/academy/community/niches/:nicheKey/default', auth, academyCommunityControllers.setDefaultNiche);
+router.delete('/academy/community/niches/:nicheKey', auth, academyCommunityControllers.leaveNiche);
+
 // ==========================================
 // 🏪 YH PLAZA FEED ROUTES
 // ==========================================

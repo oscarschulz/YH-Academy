@@ -7,6 +7,23 @@ const friendRequestsCol = firestore.collection('academyFriendRequests');
 const friendshipsCol = firestore.collection('academyFriendships');
 const academyFollowsCol = firestore.collection('academyUserFollows');
 
+const ACADEMY_COMMUNITY_NICHES = [
+    { key: 'ecommerce', label: 'E-commerce', description: 'Stores, products, fulfillment, branding, and online selling.' },
+    { key: 'digital_products', label: 'Digital Products', description: 'PDFs, templates, courses, paid resources, and productized knowledge.' },
+    { key: 'sales_marketing', label: 'Sales & Marketing', description: 'Offers, funnels, persuasion, copywriting, and customer acquisition.' },
+    { key: 'affiliate_marketing', label: 'Affiliate Marketing', description: 'Traffic, links, partnerships, and commission-based income.' },
+    { key: 'freelancing', label: 'Freelancing', description: 'Skills, clients, outreach, delivery, pricing, and reputation.' },
+    { key: 'saas', label: 'SaaS', description: 'Software ideas, validation, product building, and recurring revenue.' },
+    { key: 'seo', label: 'SEO', description: 'Search traffic, content systems, keywords, ranking, and discovery.' },
+    { key: 'market_investing', label: 'Market Investing', description: 'Markets, risk, research, and long-term capital growth.' },
+    { key: 'fitness_health', label: 'Fitness & Health', description: 'Body, energy, training, nutrition, sleep, and discipline.' },
+    { key: 'mindset_psychology', label: 'Mindset & Psychology', description: 'Self-control, identity, focus, discipline, and emotional mastery.' },
+    { key: 'communication_networking', label: 'Communication & Networking', description: 'Confidence, public speaking, outreach, relationships, and influence.' },
+    { key: 'ai_automation', label: 'AI & Automation', description: 'AI tools, automation systems, workflows, agents, and business leverage.' },
+    { key: 'politics_2030_agenda', label: 'Politics & 2030 Agenda', description: 'Power, governance, policy, global systems, and strategic awareness.' },
+    { key: 'philosophy', label: 'Philosophy', description: 'Reasoning, ethics, worldview, meaning, argument, and truth-seeking.' }
+];
+
 const nowTs = () => Timestamp.now();
 
 const sanitizeText = (value, fallback = '') => {
@@ -34,6 +51,38 @@ const friendshipKeyFor = (a, b) => {
 const followKeyFor = (followerId, followingId) => {
     return `${normalizeUserId(followerId)}_${normalizeUserId(followingId)}`;
 };
+
+const normalizeNicheKey = (value = '') => {
+    return sanitizeText(value)
+        .toLowerCase()
+        .replace(/^#/, '')
+        .replace(/\s+/g, '_')
+        .replace(/[^a-z0-9_-]/g, '')
+        .slice(0, 64);
+};
+
+function getNicheMeta(nicheKey = '') {
+    const cleanKey = normalizeNicheKey(nicheKey);
+    return ACADEMY_COMMUNITY_NICHES.find((item) => item.key === cleanKey) || null;
+}
+
+function normalizeFeedScope(value = '') {
+    const clean = sanitizeText(value).toLowerCase();
+
+    if (clean === 'niche' || clean === 'niches') return 'niche';
+    if (clean === 'circle') return 'circle';
+
+    return 'global';
+}
+
+function normalizeCircleRelation(value = '') {
+    const clean = sanitizeText(value).toLowerCase();
+
+    if (clean === 'following') return 'following';
+    if (clean === 'followers') return 'followers';
+
+    return 'friends';
+}
 
 const mapTimestamp = (value) => {
     if (!value) return null;
@@ -190,6 +239,31 @@ async function getFriendIdsForUser(userId) {
 
     return Array.from(ids);
 }
+async function getFollowingIdsForUser(userId) {
+    const normalizedUserId = normalizeUserId(userId);
+    if (!normalizedUserId) return [];
+
+    const snap = await academyFollowsCol
+        .where('followerId', '==', normalizedUserId)
+        .get();
+
+    return snap.docs
+        .map((doc) => sanitizeText(doc.data()?.followingId))
+        .filter(Boolean);
+}
+
+async function getFollowerIdsForUser(userId) {
+    const normalizedUserId = normalizeUserId(userId);
+    if (!normalizedUserId) return [];
+
+    const snap = await academyFollowsCol
+        .where('followingId', '==', normalizedUserId)
+        .get();
+
+    return snap.docs
+        .map((doc) => sanitizeText(doc.data()?.followerId))
+        .filter(Boolean);
+}
 
 async function getMutualFriendCount(viewerId, targetUserId) {
     const normalizedViewerId = normalizeUserId(viewerId);
@@ -284,6 +358,13 @@ function mapPostDoc(doc, extras = {}) {
         media_type: sanitizeText(data.mediaType),
         media_size: toInt(data.mediaSize, 0),
         visibility: sanitizeText(data.visibility || 'academy'),
+        feedScope: sanitizeText(data.feedScope || 'global'),
+        feed_scope: sanitizeText(data.feedScope || 'global'),
+        nicheKey: sanitizeText(data.nicheKey),
+        niche_key: sanitizeText(data.nicheKey),
+        nicheLabel: sanitizeText(data.nicheLabel),
+        niche_label: sanitizeText(data.nicheLabel),
+        audience: sanitizeText(data.audience || data.visibility || 'academy'),
         is_pinned: toBool(data.isPinned),
         is_deleted: toBool(data.isDeleted),
         hidden_by_me: viewerId ? hiddenForUserIds.includes(viewerId) : false,
@@ -412,10 +493,29 @@ function buildSearchPostPreview(value = '', maxLength = 140) {
     return `${clean.slice(0, maxLength - 1).trimEnd()}…`;
 }
 
-async function listFeed({ viewerId, limit = 25 }) {
+async function listFeed({ viewerId, limit = 25, scope = 'global', nicheKey = '', relation = '' }) {
     const normalizedViewerId = normalizeUserId(viewerId);
     const normalizedLimit = Math.max(1, Math.min(toInt(limit, 25), 50));
-    const sourceLimit = Math.min(normalizedLimit * 3, 120);
+    const normalizedScope = normalizeFeedScope(scope);
+    const normalizedNicheKey = normalizeNicheKey(nicheKey);
+    const normalizedRelation = normalizeCircleRelation(relation);
+    const sourceLimit = Math.min(normalizedLimit * 8, 180);
+
+    let allowedAuthorIds = null;
+
+    if (normalizedScope === 'circle') {
+        const ids =
+            normalizedRelation === 'following'
+                ? await getFollowingIdsForUser(normalizedViewerId)
+                : normalizedRelation === 'followers'
+                    ? await getFollowerIdsForUser(normalizedViewerId)
+                    : await getFriendIdsForUser(normalizedViewerId);
+
+        allowedAuthorIds = new Set([
+            normalizedViewerId,
+            ...ids
+        ].filter(Boolean));
+    }
 
     const snap = await feedPostsCol
         .where('isDeleted', '==', false)
@@ -429,7 +529,23 @@ async function listFeed({ viewerId, limit = 25 }) {
             ? data.hiddenForUserIds.map((value) => sanitizeText(value)).filter(Boolean)
             : [];
 
-        return !normalizedViewerId || !hiddenForUserIds.includes(normalizedViewerId);
+        if (normalizedViewerId && hiddenForUserIds.includes(normalizedViewerId)) {
+            return false;
+        }
+
+        const postScope = normalizeFeedScope(data.feedScope || 'global');
+        const postNicheKey = normalizeNicheKey(data.nicheKey);
+        const authorId = normalizeUserId(data.authorId);
+
+        if (normalizedScope === 'niche') {
+            return postScope === 'niche' && postNicheKey === normalizedNicheKey;
+        }
+
+        if (normalizedScope === 'circle') {
+            return Boolean(allowedAuthorIds && allowedAuthorIds.has(authorId));
+        }
+
+        return postScope === 'global';
     }).slice(0, normalizedLimit);
 
     const posts = await Promise.all(
@@ -464,6 +580,10 @@ async function createPost({
     mediaType,
     mediaSize,
     visibility,
+    feedScope = 'global',
+    nicheKey = '',
+    nicheLabel = '',
+    audience = '',
     share = null
 }) {
     const viewerProfile = await getViewerProfile(viewer);
@@ -483,6 +603,20 @@ async function createPost({
     const cleanMediaType = sanitizeText(mediaType);
     const cleanMediaSize = Math.max(0, toInt(mediaSize, 0));
     const cleanVisibility = sanitizeText(visibility || 'academy') || 'academy';
+    const cleanFeedScope = normalizeFeedScope(feedScope);
+    const cleanNicheKey = normalizeNicheKey(nicheKey);
+    const nicheMeta = getNicheMeta(cleanNicheKey);
+    const cleanNicheLabel = sanitizeText(nicheLabel) || nicheMeta?.label || '';
+    const cleanAudience =
+        cleanFeedScope === 'niche'
+            ? 'niche'
+            : cleanFeedScope === 'circle'
+                ? (sanitizeText(audience) || 'friends')
+                : 'global';
+
+    if (cleanFeedScope === 'niche' && !nicheMeta) {
+        throw new Error('Valid niche is required.');
+    }
 
     if (!cleanBody && !cleanMediaUrl && !share) {
         throw new Error('Post body, image, video, or share payload is required.');
@@ -498,6 +632,10 @@ async function createPost({
         mediaType: cleanMediaType,
         mediaSize: cleanMediaSize,
         visibility: cleanVisibility,
+        feedScope: cleanFeedScope,
+        nicheKey: cleanFeedScope === 'niche' ? cleanNicheKey : '',
+        nicheLabel: cleanFeedScope === 'niche' ? cleanNicheLabel : '',
+        audience: cleanAudience,
         isPinned: false,
         isDeleted: false,
         createdAt: nowTs(),
@@ -1471,8 +1609,169 @@ async function toggleMemberFollow({ viewerId, targetUserId }) {
         following_count: followingCount
     };
 }
+function normalizeCommunityNicheRecord(record = {}) {
+    const key = normalizeNicheKey(record.key || record.nicheKey);
+    const meta = getNicheMeta(key);
+
+    if (!key || !meta) return null;
+
+    return {
+        key,
+        label: meta.label,
+        description: meta.description,
+        joinedAt: mapTimestamp(record.joinedAt) || new Date().toISOString(),
+        lastVisitedAt: mapTimestamp(record.lastVisitedAt) || '',
+        isDefault: record.isDefault === true
+    };
+}
+
+async function getCommunityNicheState({ viewerId }) {
+    const normalizedViewerId = normalizeUserId(viewerId);
+    if (!normalizedViewerId) {
+        throw new Error('viewerId is required.');
+    }
+
+    const userSnap = await usersCol.doc(normalizedViewerId).get();
+    const userData = userSnap.exists ? (userSnap.data() || {}) : {};
+    const rawCommunityNiches =
+        userData.communityNiches && typeof userData.communityNiches === 'object'
+            ? userData.communityNiches
+            : {};
+
+    const rawJoined = Array.isArray(rawCommunityNiches.joinedNiches)
+        ? rawCommunityNiches.joinedNiches
+        : [];
+
+    const joinedNiches = rawJoined
+        .map(normalizeCommunityNicheRecord)
+        .filter(Boolean);
+
+    const defaultNicheKeyRaw = normalizeNicheKey(rawCommunityNiches.defaultNicheKey);
+    const defaultNicheKey =
+        joinedNiches.some((item) => item.key === defaultNicheKeyRaw)
+            ? defaultNicheKeyRaw
+            : joinedNiches[0]?.key || '';
+
+    const normalizedJoined = joinedNiches.map((item) => ({
+        ...item,
+        isDefault: item.key === defaultNicheKey
+    }));
+
+    return {
+        niches: ACADEMY_COMMUNITY_NICHES,
+        defaultNicheKey,
+        joinedNiches: normalizedJoined
+    };
+}
+
+async function persistCommunityNicheState(viewerId, joinedNiches = [], defaultNicheKey = '') {
+    const normalizedViewerId = normalizeUserId(viewerId);
+    const cleanDefaultNicheKey = normalizeNicheKey(defaultNicheKey);
+
+    const normalizedJoined = joinedNiches
+        .map(normalizeCommunityNicheRecord)
+        .filter(Boolean)
+        .map((item) => ({
+            ...item,
+            isDefault: item.key === cleanDefaultNicheKey
+        }));
+
+    const nextDefault =
+        normalizedJoined.some((item) => item.key === cleanDefaultNicheKey)
+            ? cleanDefaultNicheKey
+            : normalizedJoined[0]?.key || '';
+
+    const finalJoined = normalizedJoined.map((item) => ({
+        ...item,
+        isDefault: item.key === nextDefault
+    }));
+
+    await usersCol.doc(normalizedViewerId).set({
+        communityNiches: {
+            defaultNicheKey: nextDefault,
+            joinedNiches: finalJoined,
+            updatedAt: nowTs()
+        },
+        updatedAt: nowTs()
+    }, { merge: true });
+
+    return getCommunityNicheState({ viewerId: normalizedViewerId });
+}
+
+async function joinCommunityNiche({ viewerId, nicheKey, makeDefault = false }) {
+    const normalizedViewerId = normalizeUserId(viewerId);
+    const cleanNicheKey = normalizeNicheKey(nicheKey);
+    const meta = getNicheMeta(cleanNicheKey);
+
+    if (!normalizedViewerId) throw new Error('viewerId is required.');
+    if (!meta) throw new Error('Niche not found.');
+
+    const current = await getCommunityNicheState({ viewerId: normalizedViewerId });
+    const existing = current.joinedNiches.find((item) => item.key === cleanNicheKey);
+    const nowIso = new Date().toISOString();
+
+    const joinedNiches = existing
+        ? current.joinedNiches.map((item) => item.key === cleanNicheKey ? { ...item, lastVisitedAt: nowIso } : item)
+        : [
+            ...current.joinedNiches,
+            {
+                key: meta.key,
+                label: meta.label,
+                description: meta.description,
+                joinedAt: nowIso,
+                lastVisitedAt: nowIso,
+                isDefault: false
+            }
+        ];
+
+    const nextDefault =
+        makeDefault || !current.defaultNicheKey
+            ? cleanNicheKey
+            : current.defaultNicheKey;
+
+    return persistCommunityNicheState(normalizedViewerId, joinedNiches, nextDefault);
+}
+
+async function setDefaultCommunityNiche({ viewerId, nicheKey }) {
+    const normalizedViewerId = normalizeUserId(viewerId);
+    const cleanNicheKey = normalizeNicheKey(nicheKey);
+    const meta = getNicheMeta(cleanNicheKey);
+
+    if (!normalizedViewerId) throw new Error('viewerId is required.');
+    if (!meta) throw new Error('Niche not found.');
+
+    const joined = await joinCommunityNiche({
+        viewerId: normalizedViewerId,
+        nicheKey: cleanNicheKey,
+        makeDefault: true
+    });
+
+    return joined;
+}
+
+async function leaveCommunityNiche({ viewerId, nicheKey }) {
+    const normalizedViewerId = normalizeUserId(viewerId);
+    const cleanNicheKey = normalizeNicheKey(nicheKey);
+
+    if (!normalizedViewerId) throw new Error('viewerId is required.');
+    if (!cleanNicheKey) throw new Error('nicheKey is required.');
+
+    const current = await getCommunityNicheState({ viewerId: normalizedViewerId });
+    const joinedNiches = current.joinedNiches.filter((item) => item.key !== cleanNicheKey);
+    const nextDefault =
+        current.defaultNicheKey === cleanNicheKey
+            ? joinedNiches[0]?.key || ''
+            : current.defaultNicheKey;
+
+    return persistCommunityNicheState(normalizedViewerId, joinedNiches, nextDefault);
+}
+
 module.exports = {
     getViewerProfile,
+    getCommunityNicheState,
+    joinCommunityNiche,
+    setDefaultCommunityNiche,
+    leaveCommunityNiche,
     listFeed,
     createPost,
     updatePost,

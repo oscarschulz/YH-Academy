@@ -36,13 +36,23 @@ exports.getFeed = async (req, res) => {
         }
 
         const limit = Number.parseInt(req.query.limit, 10) || 25;
+        const scope = sanitizeText(req.query.scope || 'global').toLowerCase();
+        const nicheKey = sanitizeText(req.query.niche || req.query.nicheKey || '').toLowerCase();
+        const relation = sanitizeText(req.query.relation || '').toLowerCase();
+
         const posts = await academyCommunityRepo.listFeed({
             viewerId: viewer.id,
-            limit
+            limit,
+            scope,
+            nicheKey,
+            relation
         });
 
         return res.json({
             success: true,
+            scope,
+            nicheKey,
+            relation,
             posts
         });
     } catch (error) {
@@ -100,6 +110,18 @@ exports.createPost = async (req, res) => {
         const visibility =
             sanitizeText(req.body?.visibility) || 'academy';
 
+        const feedScope =
+            sanitizeText(req.body?.feedScope || req.body?.feed_scope || 'global').toLowerCase();
+
+        const nicheKey =
+            sanitizeText(req.body?.nicheKey || req.body?.niche_key || '').toLowerCase();
+
+        const nicheLabel =
+            sanitizeText(req.body?.nicheLabel || req.body?.niche_label || '');
+
+        const audience =
+            sanitizeText(req.body?.audience || '').toLowerCase();
+
         const share = req.body?.share || null;
 
         const post = await academyCommunityRepo.createPost({
@@ -111,6 +133,10 @@ exports.createPost = async (req, res) => {
             mediaType,
             mediaSize,
             visibility,
+            feedScope,
+            nicheKey,
+            nicheLabel,
+            audience,
             share
         });
 
@@ -146,6 +172,117 @@ exports.createPost = async (req, res) => {
         );
     }
 };
+exports.getNiches = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Missing authenticated user.'
+            });
+        }
+
+        const nicheState = await academyCommunityRepo.getCommunityNicheState({
+            viewerId: viewer.id
+        });
+
+        return res.json({
+            success: true,
+            ...nicheState
+        });
+    } catch (error) {
+        console.error('academyCommunityControllers.getNiches error:', error);
+        return sendError(res, error, 'Failed to load community niches.');
+    }
+};
+
+exports.joinNiche = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Missing authenticated user.'
+            });
+        }
+
+        const nicheKey = sanitizeText(req.params?.nicheKey).toLowerCase();
+        const makeDefault = req.body?.makeDefault === true;
+
+        const nicheState = await academyCommunityRepo.joinCommunityNiche({
+            viewerId: viewer.id,
+            nicheKey,
+            makeDefault
+        });
+
+        return res.json({
+            success: true,
+            ...nicheState
+        });
+    } catch (error) {
+        console.error('academyCommunityControllers.joinNiche error:', error);
+        return sendError(res, error, 'Failed to join niche.');
+    }
+};
+
+exports.setDefaultNiche = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Missing authenticated user.'
+            });
+        }
+
+        const nicheKey = sanitizeText(req.params?.nicheKey).toLowerCase();
+
+        const nicheState = await academyCommunityRepo.setDefaultCommunityNiche({
+            viewerId: viewer.id,
+            nicheKey
+        });
+
+        return res.json({
+            success: true,
+            ...nicheState
+        });
+    } catch (error) {
+        console.error('academyCommunityControllers.setDefaultNiche error:', error);
+        return sendError(res, error, 'Failed to set default niche.');
+    }
+};
+
+exports.leaveNiche = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Missing authenticated user.'
+            });
+        }
+
+        const nicheKey = sanitizeText(req.params?.nicheKey).toLowerCase();
+
+        const nicheState = await academyCommunityRepo.leaveCommunityNiche({
+            viewerId: viewer.id,
+            nicheKey
+        });
+
+        return res.json({
+            success: true,
+            ...nicheState
+        });
+    } catch (error) {
+        console.error('academyCommunityControllers.leaveNiche error:', error);
+        return sendError(res, error, 'Failed to leave niche.');
+    }
+};
+
 exports.updatePost = async (req, res) => {
     try {
         const viewer = getViewerFromRequest(req);

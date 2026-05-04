@@ -7,7 +7,7 @@
     <link rel="icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css?v=20260504-roadmap-fullgrind-doctrine-1">
+<link rel="stylesheet" href="/css/style.css?v=20260504-community-feed-layers-1">
 <link rel="stylesheet" href="/css/academy-thread-bottom-fix.css?v=20260417-2">
 </head>
 <body data-yh-view="academy" data-yh-page="academy">
@@ -499,6 +499,36 @@
 
                 <div class="chat-messages hide-scrollbar" style="padding: 16px;">
                     <div class="academy-feed-shell">
+                        <section class="academy-community-layer-panel">
+                            <div class="academy-community-layer-head">
+                                <div>
+                                    <div class="academy-community-layer-kicker">Community Feed</div>
+                                    <h3 id="academy-community-layer-title">Global Community</h3>
+                                    <p id="academy-community-layer-copy">Everyone inside the Academy can post, comment, like, and interact here.</p>
+                                </div>
+                            </div>
+
+                            <div class="academy-community-layer-tabs" id="academy-feed-layer-switcher" role="tablist" aria-label="Community feed layers">
+                                <button type="button" class="academy-community-layer-tab is-active" data-feed-layer="global">🌍 Global Community</button>
+                                <button type="button" class="academy-community-layer-tab" data-feed-layer="niches">🧩 Niches</button>
+                                <button type="button" class="academy-community-layer-tab" data-feed-layer="circle">👥 Circle</button>
+                            </div>
+
+                            <div class="academy-circle-subtabs hidden-step" id="academy-circle-subtabs">
+                                <button type="button" class="academy-circle-subtab is-active" data-circle-mode="friends">Friends</button>
+                                <button type="button" class="academy-circle-subtab" data-circle-mode="following">Following</button>
+                                <button type="button" class="academy-circle-subtab" data-circle-mode="followers">Followers</button>
+                            </div>
+
+                            <div class="academy-niche-dashboard hidden-step" id="academy-niche-dashboard">
+                                <div class="academy-niche-loading">Loading your niches...</div>
+                            </div>
+
+                            <div class="academy-feed-target-pill" id="academy-feed-target-pill">
+                                Posting to Global Community
+                            </div>
+                        </section>
+
 <div class="academy-feed-composer-card academy-feed-composer-facebook">
                             <div class="academy-feed-composer-top">
                                 <div class="profile-avatar-mini academy-feed-composer-avatar" id="academy-feed-composer-avatar">Y</div>
@@ -2569,7 +2599,7 @@
 
 <script src="/js/yh-shared-core.js?v=20260418-toast-center-1"></script>
 <script src="/js/yh-shared-runtime.js?v=20260411-4"></script>
-<script src="/js/academy.js?v=20260504-roadmap-fullgrind-doctrine-1"></script>
+<script src="/js/academy.js?v=20260504-community-feed-layers-1"></script>
 <div
     class="academy-profile-editor-overlay hidden-step"
     id="academy-profile-editor-overlay"

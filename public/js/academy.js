@@ -8750,7 +8750,7 @@ function openAcademyFeedView(forceReload = false) {
     currentRoomId = null;
     currentRoomMeta = null;
 
-    Promise.resolve(loadAcademyFeed(forceReload))
+    Promise.resolve(academyPrimeCommunityFeedShell().then(() => loadAcademyFeed(forceReload)))
         .catch((error) => {
             console.error('loadAcademyFeed error:', error);
             showToast(error?.message || 'Failed to load Academy feed.', 'error');
@@ -18485,8 +18485,12 @@ async function loadAcademyFeed(forceReload = false) {
     const list = document.getElementById('academy-feed-list');
     if (!list) return;
 
+    academySyncFeedLayerShell();
+
+    const cacheKey = academyBuildFeedCacheKey();
+
     if (!forceReload) {
-        const cached = localStorage.getItem('yh_academy_feed_cache');
+        const cached = localStorage.getItem(cacheKey);
         if (cached) {
             try {
                 const parsed = JSON.parse(cached);
@@ -18502,8 +18506,9 @@ async function loadAcademyFeed(forceReload = false) {
     }
 
     try {
-        const result = await academyAuthedFetch('/api/academy/feed?limit=20', { method: 'GET' });
+        const result = await academyAuthedFetch(academyBuildFeedQueryUrl(), { method: 'GET' });
         const posts = Array.isArray(result?.posts) ? result.posts : [];
+        localStorage.setItem(cacheKey, JSON.stringify({ posts }));
         localStorage.setItem('yh_academy_feed_cache', JSON.stringify({ posts }));
         renderAcademyFeed(posts);
 
@@ -18670,6 +18675,12 @@ function renderAcademyFeed(posts = []) {
 
         const canEditPost = Boolean(post.can_edit || isOwner);
         const canDeletePost = Boolean(post.can_delete || isOwner);
+        const postFeedScope = String(post.feedScope || post.feed_scope || 'global').trim().toLowerCase();
+        const postNicheLabel = String(post.nicheLabel || post.niche_label || '').trim();
+        const nicheBadgeHtml =
+            postFeedScope === 'niche' && postNicheLabel
+                ? `<div class="academy-feed-niche-badge">🧩 ${academyFeedEscapeHtml(postNicheLabel)}</div>`
+                : '';
         const hiddenPosts = readAcademyHiddenPostIds();
         const normalizedPostId = normalizeAcademyFeedId(post.id);
 
@@ -18719,6 +18730,7 @@ function renderAcademyFeed(posts = []) {
                             </div>
                         </div>
 
+                        ${nicheBadgeHtml}
                         ${bodyBlockHtml}
                         ${postEditFormHtml}
                         ${sharedEmbedHtml}
@@ -18834,6 +18846,421 @@ let academyVoiceRtcState = {
     isMuted: false,
     hasJoinedSignaling: false
 };
+
+const ACADEMY_COMMUNITY_NICHES = [
+    { key: 'ecommerce', label: 'E-commerce', description: 'Stores, products, fulfillment, branding, and online selling.' },
+    { key: 'digital_products', label: 'Digital Products', description: 'PDFs, templates, courses, paid resources, and productized knowledge.' },
+    { key: 'sales_marketing', label: 'Sales & Marketing', description: 'Offers, funnels, persuasion, copywriting, and customer acquisition.' },
+    { key: 'affiliate_marketing', label: 'Affiliate Marketing', description: 'Traffic, links, partnerships, and commission-based income.' },
+    { key: 'freelancing', label: 'Freelancing', description: 'Skills, clients, outreach, delivery, pricing, and reputation.' },
+    { key: 'saas', label: 'SaaS', description: 'Software ideas, validation, product building, and recurring revenue.' },
+    { key: 'seo', label: 'SEO', description: 'Search traffic, content systems, keywords, ranking, and discovery.' },
+    { key: 'market_investing', label: 'Market Investing', description: 'Markets, risk, research, and long-term capital growth.' },
+    { key: 'fitness_health', label: 'Fitness & Health', description: 'Body, energy, training, nutrition, sleep, and discipline.' },
+    { key: 'mindset_psychology', label: 'Mindset & Psychology', description: 'Self-control, identity, focus, discipline, and emotional mastery.' },
+    { key: 'communication_networking', label: 'Communication & Networking', description: 'Confidence, public speaking, outreach, relationships, and influence.' },
+    { key: 'ai_automation', label: 'AI & Automation', description: 'AI tools, automation systems, workflows, agents, and business leverage.' },
+    { key: 'politics_2030_agenda', label: 'Politics & 2030 Agenda', description: 'Power, governance, policy, global systems, and strategic awareness.' },
+    { key: 'philosophy', label: 'Philosophy', description: 'Reasoning, ethics, worldview, meaning, argument, and truth-seeking.' }
+];
+
+const ACADEMY_FEED_LAYER_STATE_KEY = 'yh_academy_feed_layer_state_v1';
+const ACADEMY_FEED_NICHE_STATE_KEY = 'yh_academy_feed_niche_state_v1';
+
+let academyFeedLayerState = {
+    layer: 'global',
+    activeNicheKey: '',
+    circleMode: 'friends',
+    defaultNicheKey: '',
+    joinedNiches: [],
+    niches: ACADEMY_COMMUNITY_NICHES
+};
+
+function academyNormalizeFeedLayer(value = '') {
+    const clean = String(value || '').trim().toLowerCase();
+    if (clean === 'niches' || clean === 'niche') return 'niches';
+    if (clean === 'circle') return 'circle';
+    return 'global';
+}
+
+function academyNormalizeCircleMode(value = '') {
+    const clean = String(value || '').trim().toLowerCase();
+    if (clean === 'following') return 'following';
+    if (clean === 'followers') return 'followers';
+    return 'friends';
+}
+
+function academyNormalizeNicheKey(value = '') {
+    return String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/^#/, '')
+        .replace(/\s+/g, '_')
+        .replace(/[^a-z0-9_-]/g, '')
+        .slice(0, 64);
+}
+
+function academyGetNicheMeta(nicheKey = '') {
+    const cleanKey = academyNormalizeNicheKey(nicheKey);
+    return (academyFeedLayerState.niches || ACADEMY_COMMUNITY_NICHES).find((item) => item.key === cleanKey) ||
+        ACADEMY_COMMUNITY_NICHES.find((item) => item.key === cleanKey) ||
+        null;
+}
+
+function academyReadFeedLayerState() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(ACADEMY_FEED_LAYER_STATE_KEY) || '{}');
+        if (parsed && typeof parsed === 'object') {
+            academyFeedLayerState = {
+                ...academyFeedLayerState,
+                ...parsed,
+                layer: academyNormalizeFeedLayer(parsed.layer),
+                circleMode: academyNormalizeCircleMode(parsed.circleMode),
+                activeNicheKey: academyNormalizeNicheKey(parsed.activeNicheKey),
+                defaultNicheKey: academyNormalizeNicheKey(parsed.defaultNicheKey),
+                joinedNiches: Array.isArray(parsed.joinedNiches) ? parsed.joinedNiches : [],
+                niches: Array.isArray(parsed.niches) && parsed.niches.length ? parsed.niches : ACADEMY_COMMUNITY_NICHES
+            };
+        }
+    } catch (_) {}
+
+    return academyFeedLayerState;
+}
+
+function academyWriteFeedLayerState() {
+    try {
+        localStorage.setItem(ACADEMY_FEED_LAYER_STATE_KEY, JSON.stringify(academyFeedLayerState));
+    } catch (_) {}
+}
+
+function academyBuildFeedCacheKey() {
+    const state = academyReadFeedLayerState();
+
+    if (state.layer === 'niches') {
+        return `yh_academy_feed_cache_niche_${state.activeNicheKey || 'none'}`;
+    }
+
+    if (state.layer === 'circle') {
+        return `yh_academy_feed_cache_circle_${state.circleMode || 'friends'}`;
+    }
+
+    return 'yh_academy_feed_cache_global';
+}
+
+function academyGetActiveFeedContext() {
+    const state = academyReadFeedLayerState();
+
+    if (state.layer === 'niches') {
+        const niche = academyGetNicheMeta(state.activeNicheKey);
+        return {
+            scope: 'niche',
+            feedScope: 'niche',
+            nicheKey: niche?.key || state.activeNicheKey || '',
+            nicheLabel: niche?.label || '',
+            audience: 'niche',
+            label: niche?.label ? `Niche: ${niche.label}` : 'Niche'
+        };
+    }
+
+    if (state.layer === 'circle') {
+        const mode = academyNormalizeCircleMode(state.circleMode);
+        return {
+            scope: 'circle',
+            feedScope: 'circle',
+            relation: mode,
+            audience: mode,
+            label: `Circle: ${academyFormatRoadmapLabel(mode)}`
+        };
+    }
+
+    return {
+        scope: 'global',
+        feedScope: 'global',
+        audience: 'global',
+        label: 'Global Community'
+    };
+}
+
+function academyBuildFeedQueryUrl() {
+    const context = academyGetActiveFeedContext();
+    const params = new URLSearchParams({ limit: '20' });
+
+    if (context.scope === 'niche') {
+        params.set('scope', 'niche');
+        params.set('niche', context.nicheKey || '');
+    } else if (context.scope === 'circle') {
+        params.set('scope', 'circle');
+        params.set('relation', context.relation || 'friends');
+    } else {
+        params.set('scope', 'global');
+    }
+
+    return `/api/academy/feed?${params.toString()}`;
+}
+
+function academyUpdateFeedComposerContext() {
+    const context = academyGetActiveFeedContext();
+    const pill = document.getElementById('academy-feed-target-pill');
+    const input = document.getElementById('academy-feed-composer-input');
+
+    if (pill) {
+        pill.textContent = `Posting to ${context.label}`;
+    }
+
+    if (input) {
+        if (context.scope === 'niche') {
+            input.placeholder = `Share something inside ${context.nicheLabel || 'this niche'}...`;
+        } else if (context.scope === 'circle') {
+            input.placeholder = `Share something with your ${context.relation || 'circle'}...`;
+        } else {
+            input.placeholder = 'What are you working on today inside The Academy?';
+        }
+    }
+}
+
+function academyRenderNicheCard(niche = {}, options = {}) {
+    const joined = options.joined === true;
+    const isDefault = options.isDefault === true;
+    const isActive = academyNormalizeNicheKey(academyFeedLayerState.activeNicheKey) === niche.key;
+
+    return `
+        <div class="academy-niche-card ${isActive ? 'is-active' : ''} ${isDefault ? 'is-default' : ''}" data-niche-card="${academyFeedEscapeHtml(niche.key)}">
+            <strong>${academyFeedEscapeHtml(niche.label)}</strong>
+            <p>${academyFeedEscapeHtml(niche.description || 'Join this niche to personalize your Academy feed.')}</p>
+            <div class="academy-niche-card-actions">
+                <button type="button" class="academy-niche-action-btn is-primary" data-open-niche="${academyFeedEscapeHtml(niche.key)}">Open</button>
+                ${
+                    joined
+                        ? `
+                            <button type="button" class="academy-niche-action-btn" data-default-niche="${academyFeedEscapeHtml(niche.key)}">${isDefault ? 'Default' : 'Make Default'}</button>
+                            <button type="button" class="academy-niche-action-btn is-danger" data-leave-niche="${academyFeedEscapeHtml(niche.key)}">Leave</button>
+                        `
+                        : `<button type="button" class="academy-niche-action-btn" data-join-niche="${academyFeedEscapeHtml(niche.key)}">Join</button>`
+                }
+            </div>
+        </div>
+    `;
+}
+
+function academyRenderNicheDashboard() {
+    const wrap = document.getElementById('academy-niche-dashboard');
+    if (!wrap) return;
+
+    const state = academyReadFeedLayerState();
+    const niches = Array.isArray(state.niches) && state.niches.length ? state.niches : ACADEMY_COMMUNITY_NICHES;
+    const joined = Array.isArray(state.joinedNiches) ? state.joinedNiches : [];
+    const joinedKeys = new Set(joined.map((item) => academyNormalizeNicheKey(item.key)));
+    const defaultKey = academyNormalizeNicheKey(state.defaultNicheKey);
+    const recommended = niches.find((item) => item.key === defaultKey) || joined[0] || niches[0];
+    const explore = niches.filter((item) => !joinedKeys.has(item.key));
+
+    wrap.innerHTML = `
+        <div class="academy-niche-section">
+            <div class="academy-niche-section-head">
+                <div class="academy-niche-section-title">Recommended Niche</div>
+            </div>
+            <div class="academy-niche-card-grid">
+                ${recommended ? academyRenderNicheCard(recommended, { joined: joinedKeys.has(recommended.key), isDefault: recommended.key === defaultKey }) : ''}
+            </div>
+        </div>
+
+        <div class="academy-niche-section">
+            <div class="academy-niche-section-head">
+                <div class="academy-niche-section-title">Joined Niches</div>
+            </div>
+            <div class="academy-niche-card-grid">
+                ${
+                    joined.length
+                        ? joined.map((item) => academyRenderNicheCard(item, { joined: true, isDefault: item.key === defaultKey })).join('')
+                        : `<div class="academy-niche-loading">You have not joined a niche yet. Open one below and press Join.</div>`
+                }
+            </div>
+        </div>
+
+        <div class="academy-niche-section">
+            <div class="academy-niche-section-head">
+                <div class="academy-niche-section-title">Explore More Niches</div>
+            </div>
+            <div class="academy-niche-card-grid">
+                ${
+                    explore.length
+                        ? explore.map((item) => academyRenderNicheCard(item, { joined: false, isDefault: false })).join('')
+                        : `<div class="academy-niche-loading">You have joined all available niches.</div>`
+                }
+            </div>
+        </div>
+    `;
+}
+
+function academySyncFeedLayerShell() {
+    const state = academyReadFeedLayerState();
+    const layer = academyNormalizeFeedLayer(state.layer);
+    const title = document.getElementById('academy-community-layer-title');
+    const copy = document.getElementById('academy-community-layer-copy');
+    const nicheDash = document.getElementById('academy-niche-dashboard');
+    const circleTabs = document.getElementById('academy-circle-subtabs');
+
+    document.querySelectorAll('[data-feed-layer]').forEach((btn) => {
+        btn.classList.toggle('is-active', academyNormalizeFeedLayer(btn.getAttribute('data-feed-layer')) === layer);
+    });
+
+    document.querySelectorAll('[data-circle-mode]').forEach((btn) => {
+        btn.classList.toggle('is-active', academyNormalizeCircleMode(btn.getAttribute('data-circle-mode')) === state.circleMode);
+    });
+
+    nicheDash?.classList.toggle('hidden-step', layer !== 'niches');
+    circleTabs?.classList.toggle('hidden-step', layer !== 'circle');
+
+    if (layer === 'niches') {
+        const niche = academyGetNicheMeta(state.activeNicheKey);
+        if (title) title.textContent = niche?.label ? `Niches · ${niche.label}` : 'Niches';
+        if (copy) copy.textContent = niche?.label
+            ? `This is your ${niche.label} niche feed. You can join it, make it default, or browse other niches anytime.`
+            : 'Choose a niche, join the ones you care about, and set your recommended niche.';
+        academyRenderNicheDashboard();
+    } else if (layer === 'circle') {
+        if (title) title.textContent = `Circle · ${academyFormatRoadmapLabel(state.circleMode)}`;
+        if (copy) copy.textContent = 'See posts from your friends, people you follow, or members who follow you.';
+    } else {
+        if (title) title.textContent = 'Global Community';
+        if (copy) copy.textContent = 'Everyone inside the Academy can post, comment, like, and interact here.';
+    }
+
+    academyUpdateFeedComposerContext();
+}
+
+async function academyLoadCommunityNicheState() {
+    const local = academyReadFeedLayerState();
+
+    try {
+        const result = await academyAuthedFetch('/api/academy/community/niches', { method: 'GET' });
+
+        academyFeedLayerState = {
+            ...academyFeedLayerState,
+            niches: Array.isArray(result?.niches) && result.niches.length ? result.niches : ACADEMY_COMMUNITY_NICHES,
+            joinedNiches: Array.isArray(result?.joinedNiches) ? result.joinedNiches : [],
+            defaultNicheKey: academyNormalizeNicheKey(result?.defaultNicheKey)
+        };
+
+        if (!academyFeedLayerState.activeNicheKey) {
+            academyFeedLayerState.activeNicheKey =
+                academyFeedLayerState.defaultNicheKey ||
+                academyFeedLayerState.joinedNiches?.[0]?.key ||
+                academyFeedLayerState.niches?.[0]?.key ||
+                '';
+        }
+
+        academyWriteFeedLayerState();
+        return academyFeedLayerState;
+    } catch (error) {
+        academyFeedLayerState = {
+            ...academyFeedLayerState,
+            ...local,
+            niches: local.niches?.length ? local.niches : ACADEMY_COMMUNITY_NICHES
+        };
+
+        return academyFeedLayerState;
+    }
+}
+
+async function academyPrimeCommunityFeedShell() {
+    academyReadFeedLayerState();
+    await academyLoadCommunityNicheState();
+    academySyncFeedLayerShell();
+}
+
+async function academySwitchFeedLayer(layer = 'global', options = {}) {
+    academyFeedLayerState.layer = academyNormalizeFeedLayer(layer);
+
+    if (academyFeedLayerState.layer === 'circle') {
+        academyFeedLayerState.circleMode = academyNormalizeCircleMode(options.circleMode || academyFeedLayerState.circleMode);
+    }
+
+    if (academyFeedLayerState.layer === 'niches') {
+        if (!academyFeedLayerState.activeNicheKey) {
+            academyFeedLayerState.activeNicheKey =
+                academyFeedLayerState.defaultNicheKey ||
+                academyFeedLayerState.joinedNiches?.[0]?.key ||
+                academyFeedLayerState.niches?.[0]?.key ||
+                '';
+        }
+    }
+
+    academyWriteFeedLayerState();
+    academySyncFeedLayerShell();
+    await loadAcademyFeed(true);
+}
+
+async function academyOpenNiche(nicheKey = '') {
+    const cleanKey = academyNormalizeNicheKey(nicheKey);
+    if (!cleanKey) return;
+
+    academyFeedLayerState.layer = 'niches';
+    academyFeedLayerState.activeNicheKey = cleanKey;
+    academyWriteFeedLayerState();
+    academySyncFeedLayerShell();
+    await loadAcademyFeed(true);
+}
+
+async function academyJoinNiche(nicheKey = '', makeDefault = false) {
+    const cleanKey = academyNormalizeNicheKey(nicheKey);
+    if (!cleanKey) return;
+
+    const result = await academyAuthedFetch(`/api/academy/community/niches/${encodeURIComponent(cleanKey)}/join`, {
+        method: 'POST',
+        body: JSON.stringify({ makeDefault })
+    });
+
+    academyFeedLayerState.joinedNiches = Array.isArray(result?.joinedNiches) ? result.joinedNiches : academyFeedLayerState.joinedNiches;
+    academyFeedLayerState.defaultNicheKey = academyNormalizeNicheKey(result?.defaultNicheKey || academyFeedLayerState.defaultNicheKey);
+    academyFeedLayerState.activeNicheKey = cleanKey;
+    academyFeedLayerState.layer = 'niches';
+    academyWriteFeedLayerState();
+    academySyncFeedLayerShell();
+    showToast('Niche joined.', 'success');
+    await loadAcademyFeed(true);
+}
+
+async function academySetDefaultNiche(nicheKey = '') {
+    const cleanKey = academyNormalizeNicheKey(nicheKey);
+    if (!cleanKey) return;
+
+    const result = await academyAuthedFetch(`/api/academy/community/niches/${encodeURIComponent(cleanKey)}/default`, {
+        method: 'POST',
+        body: JSON.stringify({})
+    });
+
+    academyFeedLayerState.joinedNiches = Array.isArray(result?.joinedNiches) ? result.joinedNiches : academyFeedLayerState.joinedNiches;
+    academyFeedLayerState.defaultNicheKey = academyNormalizeNicheKey(result?.defaultNicheKey || cleanKey);
+    academyFeedLayerState.activeNicheKey = cleanKey;
+    academyFeedLayerState.layer = 'niches';
+    academyWriteFeedLayerState();
+    academySyncFeedLayerShell();
+    showToast('Default niche updated.', 'success');
+    await loadAcademyFeed(true);
+}
+
+async function academyLeaveNiche(nicheKey = '') {
+    const cleanKey = academyNormalizeNicheKey(nicheKey);
+    if (!cleanKey) return;
+
+    const result = await academyAuthedFetch(`/api/academy/community/niches/${encodeURIComponent(cleanKey)}`, {
+        method: 'DELETE'
+    });
+
+    academyFeedLayerState.joinedNiches = Array.isArray(result?.joinedNiches) ? result.joinedNiches : [];
+    academyFeedLayerState.defaultNicheKey = academyNormalizeNicheKey(result?.defaultNicheKey || '');
+    academyFeedLayerState.activeNicheKey =
+        academyFeedLayerState.defaultNicheKey ||
+        academyFeedLayerState.joinedNiches?.[0]?.key ||
+        academyFeedLayerState.niches?.[0]?.key ||
+        '';
+    academyFeedLayerState.layer = 'niches';
+    academyWriteFeedLayerState();
+    academySyncFeedLayerShell();
+    showToast('Niche removed from your joined list.', 'success');
+    await loadAcademyFeed(true);
+}
 
 const ACADEMY_TAG_SEARCH_ALIASES = {
     academy: ['academy', 'the academy', 'yha'],
@@ -19133,6 +19560,7 @@ async function academyFeedSubmitPost() {
 
     const body = String(input.value || '').trim();
     const media = academyFeedGetComposerMediaState();
+    const feedContext = academyGetActiveFeedContext();
 
     if (!body && !media.url) {
         showToast('Write something or attach a photo/video before posting.', 'error');
@@ -19153,12 +19581,16 @@ async function academyFeedSubmitPost() {
                 mediaUrl: media.url,
                 mediaKind: media.kind,
                 mediaType: media.type,
-                mediaSize: media.size
+                mediaSize: media.size,
+                feedScope: feedContext.feedScope,
+                nicheKey: feedContext.nicheKey || '',
+                nicheLabel: feedContext.nicheLabel || '',
+                audience: feedContext.audience || 'global'
             })
         });
 
         resetAcademyFeedComposer();
-        showToast('Posted to the Academy.', 'success');
+        showToast(`Posted to ${feedContext.label}.`, 'success');
         loadAcademyFeed(true);
     } catch (error) {
         showToast(error.message || 'Failed to create post.', 'error');
@@ -20370,6 +20802,62 @@ document.getElementById('academy-feed-refresh-btn')?.addEventListener('click', a
     await runDashboardButtonAction(button, 'Refreshing Feed...', async () => {
         await loadAcademyFeed(true);
     });
+});
+
+document.getElementById('academy-feed-layer-switcher')?.addEventListener('click', async (event) => {
+    const button = event.target?.closest?.('[data-feed-layer]');
+    if (!button) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    await academySwitchFeedLayer(button.getAttribute('data-feed-layer') || 'global');
+});
+
+document.getElementById('academy-circle-subtabs')?.addEventListener('click', async (event) => {
+    const button = event.target?.closest?.('[data-circle-mode]');
+    if (!button) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    await academySwitchFeedLayer('circle', {
+        circleMode: button.getAttribute('data-circle-mode') || 'friends'
+    });
+});
+
+document.getElementById('academy-niche-dashboard')?.addEventListener('click', async (event) => {
+    const openBtn = event.target?.closest?.('[data-open-niche]');
+    const joinBtn = event.target?.closest?.('[data-join-niche]');
+    const defaultBtn = event.target?.closest?.('[data-default-niche]');
+    const leaveBtn = event.target?.closest?.('[data-leave-niche]');
+
+    const button = openBtn || joinBtn || defaultBtn || leaveBtn;
+    if (!button) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (openBtn) {
+        await academyOpenNiche(openBtn.getAttribute('data-open-niche') || '');
+        return;
+    }
+
+    if (joinBtn) {
+        const key = joinBtn.getAttribute('data-join-niche') || '';
+        const hasDefault = Boolean(academyReadFeedLayerState().defaultNicheKey);
+        await academyJoinNiche(key, !hasDefault);
+        return;
+    }
+
+    if (defaultBtn) {
+        await academySetDefaultNiche(defaultBtn.getAttribute('data-default-niche') || '');
+        return;
+    }
+
+    if (leaveBtn) {
+        await academyLeaveNiche(leaveBtn.getAttribute('data-leave-niche') || '');
+    }
 });
 
 document.getElementById('academy-feed-upload-btn')?.addEventListener('click', () => {

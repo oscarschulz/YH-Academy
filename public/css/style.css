@@ -21641,3 +21641,216 @@ body.yh-dashboard-profile-cropper-open {
         grid-template-columns: 1fr;
     }
 }
+/* ==========================================
+   COMMUNITY FEED LAYERS: GLOBAL / NICHES / CIRCLE
+   ========================================== */
+
+.academy-community-layer-panel {
+    display: grid;
+    gap: 12px;
+    padding: 14px;
+    margin-bottom: 14px;
+    border-radius: 20px;
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    background:
+        radial-gradient(circle at top right, rgba(56, 189, 248, 0.1), transparent 34%),
+        rgba(15, 23, 42, 0.72);
+}
+
+.academy-community-layer-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.academy-community-layer-kicker {
+    color: #7dd3fc;
+    font-size: 0.72rem;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+}
+
+.academy-community-layer-head h3 {
+    margin: 0;
+    color: #f8fafc;
+    font-size: 1.1rem;
+}
+
+.academy-community-layer-head p {
+    margin: 5px 0 0;
+    color: var(--text-muted);
+    font-size: 0.84rem;
+    line-height: 1.55;
+}
+
+.academy-community-layer-tabs,
+.academy-circle-subtabs {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.academy-community-layer-tab,
+.academy-circle-subtab,
+.academy-niche-action-btn {
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    background: rgba(255, 255, 255, 0.035);
+    color: #cbd5e1;
+    border-radius: 999px;
+    padding: 8px 12px;
+    font-size: 0.8rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+
+.academy-community-layer-tab:hover,
+.academy-circle-subtab:hover,
+.academy-niche-action-btn:hover {
+    transform: translateY(-1px);
+    border-color: rgba(56, 189, 248, 0.45);
+    background: rgba(56, 189, 248, 0.08);
+    color: #f8fafc;
+}
+
+.academy-community-layer-tab.is-active,
+.academy-circle-subtab.is-active {
+    border-color: rgba(56, 189, 248, 0.65);
+    background: rgba(56, 189, 248, 0.14);
+    color: #e0f2fe;
+}
+
+.academy-niche-dashboard {
+    display: grid;
+    gap: 12px;
+}
+
+.academy-niche-section {
+    display: grid;
+    gap: 9px;
+}
+
+.academy-niche-section-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: center;
+}
+
+.academy-niche-section-title {
+    color: #f8fafc;
+    font-size: 0.86rem;
+    font-weight: 900;
+}
+
+.academy-niche-card-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 9px;
+}
+
+.academy-niche-card {
+    display: grid;
+    gap: 7px;
+    align-content: start;
+    min-height: 118px;
+    padding: 12px;
+    border-radius: 16px;
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.academy-niche-card.is-active {
+    border-color: rgba(56, 189, 248, 0.55);
+    background: rgba(56, 189, 248, 0.1);
+}
+
+.academy-niche-card.is-default {
+    border-color: rgba(34, 197, 94, 0.42);
+}
+
+.academy-niche-card strong {
+    color: #f8fafc;
+    font-size: 0.9rem;
+}
+
+.academy-niche-card p {
+    color: var(--text-muted);
+    font-size: 0.76rem;
+    line-height: 1.45;
+    margin: 0;
+}
+
+.academy-niche-card-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 3px;
+}
+
+.academy-niche-action-btn {
+    padding: 6px 9px;
+    font-size: 0.72rem;
+}
+
+.academy-niche-action-btn.is-primary {
+    background: rgba(56, 189, 248, 0.14);
+    border-color: rgba(56, 189, 248, 0.45);
+    color: #e0f2fe;
+}
+
+.academy-niche-action-btn.is-danger {
+    border-color: rgba(248, 113, 113, 0.28);
+    color: #fecaca;
+}
+
+.academy-feed-target-pill {
+    width: fit-content;
+    max-width: 100%;
+    padding: 7px 11px;
+    border-radius: 999px;
+    border: 1px solid rgba(56, 189, 248, 0.18);
+    background: rgba(56, 189, 248, 0.07);
+    color: #bae6fd;
+    font-size: 0.76rem;
+    font-weight: 800;
+}
+
+.academy-feed-niche-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 6px;
+    padding: 5px 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(56, 189, 248, 0.16);
+    background: rgba(56, 189, 248, 0.06);
+    color: #bae6fd;
+    font-size: 0.72rem;
+    font-weight: 800;
+}
+
+.academy-niche-loading {
+    color: var(--text-muted);
+    font-size: 0.84rem;
+}
+
+@media (max-width: 900px) {
+    .academy-niche-card-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .academy-community-layer-tabs,
+    .academy-circle-subtabs {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .academy-community-layer-tab,
+    .academy-circle-subtab {
+        width: 100%;
+    }
+}
