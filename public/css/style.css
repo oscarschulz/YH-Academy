@@ -22026,3 +22026,124 @@ body[data-yh-view="academy"] #academy-feed-view .academy-feed-shell {
     margin-left: 0 !important;
     margin-right: 0 !important;
 }
+/* ==========================================
+   ACADEMY CUSTOM IMAGE ICONS
+   ========================================== */
+
+.academy-ui-icon {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    object-fit: contain;
+    object-position: center;
+    vertical-align: middle;
+    flex: 0 0 auto;
+    pointer-events: none;
+    filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.34));
+}
+
+.academy-ui-icon-sidebar {
+    width: 26px;
+    height: 26px;
+}
+
+.academy-ui-icon-mobile {
+    width: 22px;
+    height: 22px;
+    margin-right: 8px;
+}
+
+.academy-ui-icon-bottom {
+    width: 24px;
+    height: 24px;
+}
+
+.academy-ui-icon-header {
+    width: 42px;
+    height: 42px;
+}
+
+.academy-ui-icon-tab {
+    width: 24px;
+    height: 24px;
+}
+
+.academy-ui-icon-section {
+    width: 22px;
+    height: 22px;
+    margin-right: 8px;
+}
+
+.academy-ui-icon-resources {
+    width: 22px;
+    height: 22px;
+    margin-right: 6px;
+}
+
+.academy-hash-image-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.academy-mobile-nav-item-main {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.academy-mobile-nav-item-main .academy-ui-icon-mobile {
+    margin-right: 0;
+}
+
+.sidebar-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.academy-mobile-bottom-nav-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.academy-community-layer-tab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+}
+
+.academy-sidebar-section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.academy-sidebar-section-title .academy-ui-icon-section {
+    margin-right: 0;
+}
+
+.yh-resources-menu-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+@media (max-width: 430px) {
+    .academy-ui-icon-tab {
+        width: 20px;
+        height: 20px;
+    }
+
+    .academy-ui-icon-header {
+        width: 34px;
+        height: 34px;
+    }
+
+    .academy-ui-icon-bottom {
+        width: 22px;
+        height: 22px;
+    }
+}
