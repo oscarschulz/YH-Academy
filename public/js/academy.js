@@ -6313,7 +6313,7 @@ function academyRenderFoundationMissionBoard(missions = [], system = {}) {
 function academyRenderRoadmapCoachTypingBubble() {
     return `
         <div class="roadmap-coach-bubble is-assistant is-typing" data-roadmap-coach-typing="true">
-            <span class="roadmap-coach-typing-copy">Roadmap Assistant is thinking</span>
+            <span class="roadmap-coach-typing-copy">Roadmap Assistant is thinking...</span>
             <span class="roadmap-coach-typing-dots" aria-hidden="true">
                 <i></i><i></i><i></i>
             </span>
