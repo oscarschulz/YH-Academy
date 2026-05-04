@@ -6371,11 +6371,28 @@ function academyInjectRoadmapTransformationSystem(homeData = {}) {
                 <div class="roadmap-clean-hero">
                     <div>
                         <div class="roadmap-transform-eyebrow">Academy Roadmap</div>
-                        <h2>Build the Foundation in 28 Days.</h2>
+                        <h2>Change your life in 28 days. Build it across 12 months.</h2>
                         <p>
-                            Keep it simple. One honest action today. One better standard tomorrow.
-                            Your missions are built from your Roadmap activation answers.
+                            Starting next Sunday, the first 28 days become your foundation phase. This is where you install the philosophy, mentality, and daily standard that prepare you to start big time.
                         </p>
+
+                        <div class="roadmap-journey-strip">
+                            <div>
+                                <span>01</span>
+                                <strong>28-Day Foundation</strong>
+                                <small>Build discipline, clarity, and daily execution.</small>
+                            </div>
+                            <div>
+                                <span>02</span>
+                                <strong>12-Month Growth</strong>
+                                <small>Turn the foundation into long-term progress.</small>
+                            </div>
+                            <div>
+                                <span>03</span>
+                                <strong>AI Guidance</strong>
+                                <small>Use the Roadmap Assistant when you feel stuck.</small>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="roadmap-clean-status">
@@ -6392,7 +6409,7 @@ function academyInjectRoadmapTransformationSystem(homeData = {}) {
                         <p>${academyFeedEscapeHtml(todayMission.description || 'Take one focused action that moves your life forward. Keep it simple. Keep it honest.')}</p>
 
                         <div class="roadmap-transform-actions">
-                            <button type="button" class="btn-primary academy-home-action-btn" data-roadmap-cta="today-work">Check In for Today</button>
+                            <button type="button" class="btn-primary academy-home-action-btn" data-roadmap-cta="today-work">Start Today</button>
                             ${todayMission.id ? `
                                 <button
                                     type="button"
@@ -6401,7 +6418,7 @@ function academyInjectRoadmapTransformationSystem(homeData = {}) {
                                     data-mission-id="${academyFeedEscapeHtml(todayMission.id)}"
                                     data-mission-title="${academyFeedEscapeHtml(todayMission.title || '')}"
                                 >
-                                    Mark Mission Complete
+                                    Complete Mission
                                 </button>
                             ` : ''}
                         </div>
@@ -6424,8 +6441,8 @@ function academyInjectRoadmapTransformationSystem(homeData = {}) {
                 <section class="roadmap-transform-card roadmap-mission-board" id="roadmap-transform-progress-card">
                     <div class="roadmap-mission-board-head">
                         <div>
-                            <div class="academy-home-panel-label">28-Day Mission Plan</div>
-                            <h3>Your monthly foundation missions</h3>
+                            <div class="academy-home-panel-label">28-Day Roadmap</div>
+                            <h3>Your foundation path</h3>
                         </div>
                         <span>${academyFeedEscapeHtml(foundationMissions.length || 28)} missions</span>
                     </div>
@@ -8069,10 +8086,15 @@ const missionsHtml = missions.length
                 <div class="academy-home-hero-copy">
                     <div class="academy-home-eyebrow">Academy Roadmap</div>
                     <h2 class="academy-home-title">Welcome back, ${safeHtml(myName)}</h2>
-                    <p class="academy-home-copy">
-                        You do not need to fix your whole life today. Start with one honest action, one better choice,
-                        and one check-in. The Roadmap will help you build the standard over time.
-                    </p>
+                    <div class="academy-home-copy academy-roadmap-intro-copy">
+                        <strong>Change your life within the next 28 days, then build it throughout the next 12 months.</strong>
+                        <span>
+                            Starting next Sunday, treat the first 28 days as your foundation phase. Use that period to install the philosophy, mentality, and daily standard that prepare you for bigger execution.
+                        </span>
+                        <span>
+                            Roadmap is designed for members who still need to improve their life structure, discipline, direction, health, money, mindset, and communication.
+                        </span>
+                    </div>
                 </div>
 
                 <div class="academy-home-actions">

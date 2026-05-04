@@ -1942,31 +1942,82 @@ body.yh-notif-menu-open::after {
 
 .roadmap-clean-hero {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(190px, 260px);
-    gap: 18px;
-    padding: clamp(18px, 3vw, 28px);
-    border-radius: 24px;
-    border: 1px solid rgba(14, 165, 233, 0.22);
+    grid-template-columns: minmax(0, 1fr) minmax(180px, 240px);
+    gap: 20px;
+    padding: clamp(18px, 2.6vw, 26px);
+    border-radius: 22px;
+    border: 1px solid rgba(148, 163, 184, 0.16);
     background:
-        radial-gradient(circle at top right, rgba(14, 165, 233, 0.13), transparent 38%),
-        rgba(8, 18, 33, 0.82);
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.26);
+        radial-gradient(circle at top right, rgba(14, 165, 233, 0.12), transparent 38%),
+        linear-gradient(135deg, rgba(15, 23, 42, 0.94), rgba(8, 18, 33, 0.82));
+    box-shadow: 0 16px 38px rgba(0, 0, 0, 0.22);
 }
 
 .roadmap-clean-hero h2 {
     margin: 0;
     color: #f8fafc;
-    font-size: clamp(1.55rem, 3vw, 2.6rem);
-    line-height: 1.05;
-    letter-spacing: -0.04em;
+    font-size: clamp(1.55rem, 2.8vw, 2.35rem);
+    line-height: 1.08;
+    letter-spacing: -0.035em;
 }
 
 .roadmap-clean-hero p {
-    max-width: 680px;
+    max-width: 720px;
     margin: 10px 0 0;
-    color: var(--text-muted);
+    color: #cbd5e1;
     font-size: 0.95rem;
     line-height: 1.7;
+}
+
+.academy-roadmap-intro-copy {
+    display: grid;
+    gap: 8px;
+}
+
+.academy-roadmap-intro-copy strong {
+    color: #f8fafc;
+    font-size: 1rem;
+    line-height: 1.55;
+}
+
+.academy-roadmap-intro-copy span {
+    display: block;
+    color: var(--text-muted);
+    line-height: 1.65;
+}
+
+.roadmap-journey-strip {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 18px;
+}
+
+.roadmap-journey-strip > div {
+    display: grid;
+    gap: 6px;
+    padding: 12px;
+    border-radius: 16px;
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.roadmap-journey-strip span {
+    color: #7dd3fc;
+    font-size: 0.68rem;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+}
+
+.roadmap-journey-strip strong {
+    color: #f8fafc;
+    font-size: 0.88rem;
+}
+
+.roadmap-journey-strip small {
+    color: var(--text-muted);
+    font-size: 0.76rem;
+    line-height: 1.45;
 }
 
 .roadmap-clean-status {
@@ -1999,8 +2050,8 @@ body.yh-notif-menu-open::after {
 
 .roadmap-clean-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.65fr);
-    gap: 18px;
+    grid-template-columns: minmax(0, 1.1fr) minmax(260px, 0.9fr);
+    gap: 14px;
 }
 
 .roadmap-mission-board {
@@ -2032,26 +2083,32 @@ body.yh-notif-menu-open::after {
 }
 
 .roadmap-mission-track {
-    max-height: 420px;
+    max-height: 460px;
     overflow: auto;
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 10px;
     padding-right: 4px;
     scrollbar-width: thin;
 }
 
 .roadmap-mission-day-card {
-    min-height: 132px;
+    min-height: 118px;
     display: grid;
     align-content: start;
     gap: 8px;
     text-align: left;
     padding: 12px;
-    border-radius: 16px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    background: rgba(255, 255, 255, 0.035);
+    border-radius: 14px;
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    background: rgba(255, 255, 255, 0.032);
     color: #f8fafc;
+    transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+.roadmap-mission-day-card:hover {
+    transform: translateY(-1px);
+    border-color: rgba(14, 165, 233, 0.32);
+    background: rgba(14, 165, 233, 0.06);
 }
 
 .roadmap-mission-day-card.is-current {
@@ -2282,8 +2339,9 @@ body.yh-notif-menu-open::after {
 
 .roadmap-transform-card {
     display: grid;
-    gap: 14px;
-    padding: 18px;
+    gap: 12px;
+    padding: 16px;
+    border-radius: 20px;
 }
 
 .roadmap-transform-card h3 {
@@ -2593,7 +2651,8 @@ body.yh-notif-menu-open::after {
     .roadmap-transform-hero,
     .roadmap-transform-grid,
     .roadmap-clean-hero,
-    .roadmap-clean-grid {
+    .roadmap-clean-grid,
+    .roadmap-journey-strip {
         grid-template-columns: 1fr;
     }
 
