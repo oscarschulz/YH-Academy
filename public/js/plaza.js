@@ -309,6 +309,16 @@ let plazaPatronDeskData = {
   message: ""
 };
 
+function isCurrentUserApprovedPlazaPatron() {
+  const application = plazaMyPatronApplication && typeof plazaMyPatronApplication === "object"
+    ? plazaMyPatronApplication
+    : null;
+
+  const status = String(application?.status || "").trim().toLowerCase();
+
+  return status === "approved";
+}
+
 const OBJECTIVE_OPTIONS = [
   "Connection request",
   "Introduction",
@@ -6385,7 +6395,15 @@ async function loadPlazaPatronDeskFromServer(options = {}) {
 
     return plazaPatronDeskData;
   } catch (error) {
-    console.error("loadPlazaPatronDeskFromServer error:", error);
+    const message = String(error?.message || "").trim();
+    const isExpectedAccessGate =
+      message.toLowerCase().includes("only approved plaza patrons") ||
+      message.toLowerCase().includes("patron desk") ||
+      message.toLowerCase().includes("not approved");
+
+    if (!isExpectedAccessGate) {
+      console.error("loadPlazaPatronDeskFromServer error:", error);
+    }
 
     plazaPatronDeskData = {
       isPatron: false,
@@ -6395,7 +6413,7 @@ async function loadPlazaPatronDeskFromServer(options = {}) {
       recommendations: [],
       payouts: [],
       walletPayouts: [],
-      message: error.message || "Could not load Patron Desk."
+      message: message || "Once admin approves you as a Plaza Patron, your Patron Desk will appear here."
     };
 
     plazaPatronDeskLoaded = true;
@@ -6594,6 +6612,23 @@ function renderPatronDeskScreen() {
 function openPatronDeskScreen(options = {}) {
   renderPatronDeskScreen();
   openScreen("patron-desk", options);
+
+  if (!isCurrentUserApprovedPlazaPatron()) {
+    plazaPatronDeskLoaded = true;
+    plazaPatronDeskData = {
+      isPatron: false,
+      patron: null,
+      regions: [],
+      routedRequests: [],
+      recommendations: [],
+      payouts: [],
+      walletPayouts: [],
+      message: "Patron Desk unlocks after admin approves your Plaza Patron application."
+    };
+
+    renderPatronDeskScreen();
+    return;
+  }
 
   if (!plazaPatronDeskLoaded) {
     void loadPlazaPatronDeskFromServer({ silent: false });
@@ -10575,9 +10610,25 @@ await loadPlazaPatronApplicationStatus({
   silent: restoredScreen !== "patron"
 });
 
-await loadPlazaPatronDeskFromServer({
-  silent: restoredScreen !== "patron-desk"
-});
+if (isCurrentUserApprovedPlazaPatron()) {
+  await loadPlazaPatronDeskFromServer({
+    silent: restoredScreen !== "patron-desk"
+  });
+} else {
+  plazaPatronDeskLoaded = true;
+  plazaPatronDeskData = {
+    isPatron: false,
+    patron: null,
+    regions: [],
+    routedRequests: [],
+    recommendations: [],
+    payouts: [],
+    walletPayouts: [],
+    message: "Patron Desk unlocks after admin approves your Plaza Patron application."
+  };
+
+  renderPatronDeskScreen();
+}
 
 await loadPlazaBridgeFromServer({
   silent: restoredScreen !== "bridge"

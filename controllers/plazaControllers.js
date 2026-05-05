@@ -2397,18 +2397,32 @@ exports.getPatronDesk = async (req, res) => {
                 : {};
 
         if (user.hasPlazaPatronRole !== true || sanitizeText(user.plazaPatronStatus).toLowerCase() !== 'approved') {
-            return res.status(403).json({
-                success: false,
-                message: 'Only approved Plaza Patrons can open the Patron Desk.'
+            return res.json({
+                success: true,
+                isPatron: false,
+                patron: null,
+                regions: [],
+                routedRequests: [],
+                recommendations: [],
+                payouts: [],
+                walletPayouts: [],
+                message: 'Patron Desk unlocks after admin approves your Plaza Patron application.'
             });
         }
 
         const regionId = sanitizeText(application.regionId);
 
         if (!regionId) {
-            return res.status(404).json({
-                success: false,
-                message: 'No Patron region is attached to this account.'
+            return res.json({
+                success: true,
+                isPatron: false,
+                patron: null,
+                regions: [],
+                routedRequests: [],
+                recommendations: [],
+                payouts: [],
+                walletPayouts: [],
+                message: 'No Patron region is attached to this account yet.'
             });
         }
 
