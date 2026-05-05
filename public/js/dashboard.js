@@ -2156,9 +2156,110 @@ function writeYHUniverseReferralCache(snapshot = {}) {
     writeYHJsonCache(YH_UNIVERSE_REFERRAL_CACHE_KEY, snapshot);
 }
 
+function normalizeYHUniverseReferralStatusLabel(value = '', rewardStatus = '') {
+    const status = String(value || '').trim().toLowerCase();
+    const reward = String(rewardStatus || '').trim().toLowerCase();
+
+    if (reward === 'created' || status === 'reward_created') return 'Reward Created';
+    if (status === 'qualified' || reward === 'qualified') return 'Qualified';
+    if (status === 'rejected' || reward === 'rejected') return 'Rejected';
+    if (status === 'pending') return 'Pending';
+
+    return status
+        ? status.replace(/[_-]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
+        : 'Pending';
+}
+
+function getYHUniverseReferralStatusTone(value = '', rewardStatus = '') {
+    const status = String(value || '').trim().toLowerCase();
+    const reward = String(rewardStatus || '').trim().toLowerCase();
+
+    if (reward === 'created' || status === 'reward_created') return 'earned';
+    if (status === 'qualified' || reward === 'qualified') return 'qualified';
+    if (status === 'rejected' || reward === 'rejected') return 'rejected';
+
+    return 'pending';
+}
+
+function formatYHUniverseReferralDate(value = '') {
+    const clean = String(value || '').trim();
+    if (!clean) return 'No date yet';
+
+    const date = new Date(clean);
+    if (Number.isNaN(date.getTime())) return clean;
+
+    return date.toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+    });
+}
+
+function getYHUniverseReferralDisplayName(item = {}) {
+    const candidates = [
+        item.referredName,
+        item.referredUsername ? `@${String(item.referredUsername).replace(/^@+/, '')}` : '',
+        item.referredEmail,
+        item.referredUid
+    ];
+
+    return candidates
+        .map((value) => String(value || '').trim())
+        .find(Boolean) || 'Referred member';
+}
+
+function renderYHUniverseReferralList(referrals = []) {
+    const listEl = document.getElementById('yh-universe-referral-list');
+    if (!listEl) return;
+
+    const items = Array.isArray(referrals) ? referrals.slice(0, 8) : [];
+
+    if (!items.length) {
+        listEl.innerHTML = `
+            <div class="yh-universe-referral-empty">
+                No referrals yet. Copy your link and invite your first acquaintance into YH Universe.
+            </div>
+        `;
+        return;
+    }
+
+    listEl.innerHTML = items.map((item) => {
+        const name = getYHUniverseReferralDisplayName(item);
+        const statusLabel = normalizeYHUniverseReferralStatusLabel(item.status, item.rewardStatus);
+        const tone = getYHUniverseReferralStatusTone(item.status, item.rewardStatus);
+        const division = String(item.qualifiedDivision || '').trim();
+        const rewardAmount = Number(item.rewardAmount || 0);
+        const currency = String(item.currency || 'USD').trim().toUpperCase() || 'USD';
+        const earned = item.rewardStatus === 'created' || item.status === 'reward_created';
+        const date = item.rewardCreatedAt || item.qualifiedAt || item.capturedAt;
+
+        return `
+            <article class="yh-universe-referral-item" data-referral-tone="${academyFeedEscapeHtml(tone)}">
+                <div class="yh-universe-referral-avatar">${academyFeedEscapeHtml(String(name || 'Y').charAt(0).toUpperCase())}</div>
+
+                <div class="yh-universe-referral-item-main">
+                    <div class="yh-universe-referral-item-top">
+                        <strong>${academyFeedEscapeHtml(name)}</strong>
+                        <span class="yh-universe-referral-status" data-referral-tone="${academyFeedEscapeHtml(tone)}">
+                            ${academyFeedEscapeHtml(statusLabel)}
+                        </span>
+                    </div>
+
+                    <div class="yh-universe-referral-item-meta">
+                        <span>${academyFeedEscapeHtml(formatYHUniverseReferralDate(date))}</span>
+                        ${division ? `<span>Division: ${academyFeedEscapeHtml(division)}</span>` : `<span>Awaiting approval</span>`}
+                        ${earned ? `<span>${academyFeedEscapeHtml(formatYHUniverseReferralMoney(rewardAmount, currency))}</span>` : ''}
+                    </div>
+                </div>
+            </article>
+        `;
+    }).join('');
+}
+
 function renderYHUniverseReferralSnapshot(snapshot = {}) {
     const referral = snapshot?.referral || {};
     const stats = snapshot?.stats || {};
+    const referrals = Array.isArray(snapshot?.referrals) ? snapshot.referrals : [];
 
     const linkEl = document.getElementById('yh-universe-referral-link');
     const codeEl = document.getElementById('yh-universe-referral-code');
@@ -2188,6 +2289,8 @@ function renderYHUniverseReferralSnapshot(snapshot = {}) {
             stats.currency || referral.currency || 'USD'
         );
     }
+
+    renderYHUniverseReferralList(referrals);
 }
 
 async function refreshYHUniverseReferralSnapshot(forceFresh = false) {
@@ -2236,8 +2339,18 @@ async function copyYHUniverseReferralLink() {
 function bootYHUniverseReferralPanel() {
     document.getElementById('yh-universe-referral-copy-btn')?.addEventListener('click', copyYHUniverseReferralLink);
 
+    document.getElementById('yh-universe-referral-refresh-btn')?.addEventListener('click', () => {
+        refreshYHUniverseReferralSnapshot(true)
+            .then(() => showToast('Referral list refreshed.', 'success'))
+            .catch((error) => {
+                console.error('refreshYHUniverseReferralSnapshot error:', error);
+                showToast('Unable to refresh referrals right now.', 'error');
+            });
+    });
+
     refreshYHUniverseReferralSnapshot(false).catch((error) => {
         console.error('refreshYHUniverseReferralSnapshot error:', error);
+        renderYHUniverseReferralList([]);
     });
 }
 

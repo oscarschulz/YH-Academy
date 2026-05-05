@@ -7,7 +7,7 @@
     <link rel="icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css?v=20260505-universe-referrals-1">
+<link rel="stylesheet" href="/css/style.css?v=20260505-universe-referral-list-1">
 <link rel="stylesheet" href="/css/dashboard-mobile.css">
 </head>
 <body data-yh-view="hub" data-yh-page="dashboard">
@@ -258,6 +258,8 @@
                     </div>
                 </section>
 
+
+
                 <section class="yh-universe-referral-card" id="yh-universe-referral-card" aria-label="Universe referral program">
                     <div class="yh-universe-referral-main">
                         <div class="yh-universe-referral-kicker">Universe Referral Program</div>
@@ -297,6 +299,23 @@
                             <span>Total Earned</span>
                             <strong id="yh-universe-referral-earned">$0.00</strong>
                         </article>
+                    </div>
+
+                    <div class="yh-universe-referral-recent">
+                        <div class="yh-universe-referral-recent-head">
+                            <div>
+                                <div class="yh-universe-referral-kicker">Recent Referrals</div>
+                                <h4 class="yh-universe-referral-recent-title">People you invited</h4>
+                            </div>
+
+                            <button type="button" class="btn-secondary yh-universe-referral-refresh-btn" id="yh-universe-referral-refresh-btn">
+                                Refresh
+                            </button>
+                        </div>
+
+                        <div class="yh-universe-referral-list" id="yh-universe-referral-list">
+                            <div class="yh-universe-referral-empty">Loading recent referrals...</div>
+                        </div>
                     </div>
                 </section>
 
@@ -1890,7 +1909,7 @@
 
 <script src="/js/yh-shared-core.js?v=20260418-toast-center-2"></script>
 <script src="/js/yh-shared-runtime.js?v=20260411-3"></script>
-<script src="/js/dashboard.js?v=20260505-universe-referrals-1"></script>
+<script src="/js/dashboard.js?v=20260505-universe-referral-list-1"></script>
 <script src="/js/dashboard-mobile-fix.js?v=20260410-4"></script>
 </body>
 </html>
