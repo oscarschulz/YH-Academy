@@ -312,6 +312,216 @@ function toNumber(value, fallback = 0) {
   return Number.isFinite(num) ? num : fallback;
 }
 
+const UNIVERSE_REFERRAL_LEDGER_COLLECTION = 'universeReferralLedger';
+const UNIVERSE_REFERRAL_REWARD_AMOUNT = Number(process.env.UNIVERSE_REFERRAL_REWARD_AMOUNT || 5.60);
+const UNIVERSE_REFERRAL_REWARD_CURRENCY = cleanText(process.env.UNIVERSE_REFERRAL_REWARD_CURRENCY || 'USD').toUpperCase() || 'USD';
+
+function normalizeUniverseReferralQualificationDivision(value = '') {
+  const raw = cleanText(value).toLowerCase();
+
+  if (raw === 'academyapplication' || raw === 'academy' || raw.includes('academy')) return 'academy';
+  if (raw === 'plazaapplication' || raw === 'plaza' || raw === 'plazas' || raw.includes('plaza')) return 'plaza';
+  if (raw === 'plazapatronapplication' || raw.includes('patron')) return 'plaza';
+  if (raw === 'federationapplication' || raw === 'federation' || raw.includes('federation')) return 'federation';
+
+  return 'universe';
+}
+
+async function qualifyUniverseReferralRewardForUser({
+  referredUid = '',
+  qualifiedDivision = 'universe',
+  approvedBy = 'admin',
+  approvalSource = 'admin_review'
+} = {}) {
+  const cleanReferredUid = cleanText(referredUid);
+  const cleanQualifiedDivision = normalizeUniverseReferralQualificationDivision(qualifiedDivision);
+
+  if (!cleanReferredUid) {
+    return null;
+  }
+
+  const referredUserRef = firestore.collection('users').doc(cleanReferredUid);
+  const referredUserSnap = await referredUserRef.get();
+
+  if (!referredUserSnap.exists) {
+    return null;
+  }
+
+  const referredUser = referredUserSnap.data() || {};
+  const referredBy = referredUser.referredBy && typeof referredUser.referredBy === 'object'
+    ? referredUser.referredBy
+    : {};
+
+  const referrerUid = cleanText(referredBy.referrerUid);
+  const referralCode = cleanText(referredBy.code || referredBy.referralCode);
+
+  if (!referrerUid || referrerUid === cleanReferredUid) {
+    return null;
+  }
+
+  const ledgerId = `universe_ref_${referrerUid}_${cleanReferredUid}`;
+  const ledgerRef = firestore.collection(UNIVERSE_REFERRAL_LEDGER_COLLECTION).doc(ledgerId);
+  const ledgerSnap = await ledgerRef.get();
+  const existingLedger = ledgerSnap.exists ? (ledgerSnap.data() || {}) : {};
+
+  const existingRewardStatus = cleanText(existingLedger.rewardStatus).toLowerCase();
+  const existingStatus = cleanText(existingLedger.status).toLowerCase();
+  const existingPayoutRecordId = cleanText(existingLedger.payoutRecordId);
+
+  if (
+    existingRewardStatus === 'created' ||
+    existingStatus === 'reward_created' ||
+    existingPayoutRecordId
+  ) {
+    return {
+      ledgerId,
+      payoutRecordId: existingPayoutRecordId,
+      alreadyRewarded: true,
+      status: existingStatus || 'reward_created'
+    };
+  }
+
+  const referrerSnap = await firestore.collection('users').doc(referrerUid).get();
+
+  if (!referrerSnap.exists) {
+    await ledgerRef.set({
+      status: 'rejected',
+      rewardStatus: 'rejected',
+      rejectionReason: 'Referrer user not found during qualification.',
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+
+    return null;
+  }
+
+  const referrer = referrerSnap.data() || {};
+  const rewardAmount = Math.max(0, toNumber(existingLedger.rewardAmount, UNIVERSE_REFERRAL_REWARD_AMOUNT));
+  const currency = cleanText(existingLedger.currency || UNIVERSE_REFERRAL_REWARD_CURRENCY).toUpperCase() || 'USD';
+
+  if (!rewardAmount) {
+    return null;
+  }
+
+  const payoutRecordId = `universe_referral_${referrerUid}_${cleanReferredUid}`
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, '_')
+    .slice(0, 220);
+
+  const nowIso = new Date().toISOString();
+
+  await ledgerRef.set({
+    referrerUid,
+    referrerEmail: cleanText(existingLedger.referrerEmail || referredBy.referrerEmail || referrer.email).toLowerCase(),
+    referrerName: cleanText(existingLedger.referrerName || referredBy.referrerName || referrer.fullName || referrer.name || referrer.displayName || referrer.username || 'YH Member'),
+    referrerUsername: cleanText(existingLedger.referrerUsername || referredBy.referrerUsername || referrer.username),
+
+    referredUid: cleanReferredUid,
+    referredEmail: cleanText(existingLedger.referredEmail || referredUser.email).toLowerCase(),
+    referredName: cleanText(existingLedger.referredName || referredUser.fullName || referredUser.name || referredUser.displayName || referredUser.username || 'Referred Member'),
+    referredUsername: cleanText(existingLedger.referredUsername || referredUser.username),
+
+    referralCode,
+    source: 'universe',
+    sourceDivision: 'universe',
+
+    status: 'qualified',
+    rewardStatus: 'qualified',
+    qualifiedDivision: cleanQualifiedDivision,
+    rewardAmount,
+    currency,
+
+    qualifiedAt: nowIso,
+    qualifiedBy: cleanText(approvedBy || 'admin'),
+    approvalSource: cleanText(approvalSource || 'admin_review'),
+    updatedAt: nowIso
+  }, { merge: true });
+
+  const payout = await paymentLedgerRepo.createPayoutRequest({
+    id: payoutRecordId,
+    receiverUid: referrerUid,
+    receiverEmail: cleanText(existingLedger.referrerEmail || referredBy.referrerEmail || referrer.email).toLowerCase(),
+    receiverName: cleanText(existingLedger.referrerName || referredBy.referrerName || referrer.fullName || referrer.name || referrer.displayName || referrer.username || 'YH Member'),
+
+    sourceDivision: 'universe',
+    sourceFeature: 'paid_referral',
+    sourceRecordId: ledgerId,
+    sourcePaymentId: ledgerId,
+
+    method: 'manual',
+    provider: 'manual',
+    providerStatus: 'earned',
+
+    amount: rewardAmount,
+    currency,
+    status: 'approved',
+    adminNote: 'Universe referral reward created automatically after referred member approval.',
+
+    metadata: {
+      rewardType: 'universe_paid_referral',
+      referralLedgerId: ledgerId,
+      referralCode,
+      referredUid: cleanReferredUid,
+      referredEmail: cleanText(existingLedger.referredEmail || referredUser.email).toLowerCase(),
+      referredName: cleanText(existingLedger.referredName || referredUser.fullName || referredUser.name || referredUser.displayName || referredUser.username || 'Referred Member'),
+      qualifiedDivision: cleanQualifiedDivision,
+      approvalSource: cleanText(approvalSource || 'admin_review'),
+      approvedBy: cleanText(approvedBy || 'admin'),
+      rewardRule: 'first_approved_universe_division'
+    }
+  });
+
+  await ledgerRef.set({
+    status: 'reward_created',
+    rewardStatus: 'created',
+    payoutRecordId: payout.id,
+    rewardCreatedAt: nowIso,
+    updatedAt: nowIso
+  }, { merge: true });
+
+  await referredUserRef.set({
+    referredBy: {
+      ...referredBy,
+      rewardStatus: 'created',
+      referralLedgerId: ledgerId,
+      referralPayoutRecordId: payout.id,
+      qualifiedDivision: cleanQualifiedDivision,
+      qualifiedAt: nowIso
+    },
+    updatedAt: nowIso
+  }, { merge: true });
+
+  await firestore.collection('users').doc(referrerUid).set({
+    universeReferralStats: {
+      lastQualifiedAt: nowIso,
+      lastPayoutRecordId: payout.id,
+      lastRewardAmount: rewardAmount,
+      currency
+    },
+    updatedAt: nowIso
+  }, { merge: true });
+
+  await appendAdminEconomyNotificationToUser(referrerUid, {
+    id: `universe_referral_reward_${payout.id}`,
+    title: 'Universe referral reward earned',
+    text: `Your referral became active in ${cleanQualifiedDivision}. ${currency} ${rewardAmount.toFixed(2)} has been added to your wallet ledger.`,
+    target: 'wallet',
+    targetId: payout.id,
+    color: 'var(--green)',
+    avatarStr: 'YH',
+    sourceDivision: 'universe',
+    amount: rewardAmount,
+    currency
+  }).catch(() => null);
+
+  return {
+    ledgerId,
+    payoutRecordId: payout.id,
+    payout,
+    alreadyRewarded: false,
+    status: 'reward_created'
+  };
+}
+
 function normalizeAdminNetworkScopeList(values = []) {
   const source = Array.isArray(values) ? values : [values];
 
@@ -3302,13 +3512,28 @@ apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async 
       }
     }
 
+    let universeReferralReward = null;
+
+    if (nextStatus === 'Approved' && reviewResult.alreadyReviewed !== true) {
+      universeReferralReward = await qualifyUniverseReferralRewardForUser({
+        referredUid: matchedUserDoc.id,
+        qualifiedDivision: matchedField,
+        approvedBy: req.adminSession?.username || 'admin',
+        approvalSource: `admin_application_review:${matchedField}`
+      }).catch((error) => {
+        console.error('universe referral qualification error:', error);
+        return null;
+      });
+    }
+
     return res.json({
       success: true,
       application: responseApplication,
       alreadyReviewed: reviewResult.alreadyReviewed === true,
       approvalEmailSent,
       approvalEmailError,
-      inProductNotificationQueued: reviewResult.alreadyReviewed !== true
+      inProductNotificationQueued: reviewResult.alreadyReviewed !== true,
+      universeReferralReward
     });
   } catch (error) {
     console.error('admin application review error:', error);
@@ -3347,9 +3572,25 @@ apiRouter.post('/api/admin/applications/:id/review', requireAdminSession, async 
       updatedAt: new Date().toISOString()
     }, { merge: true });
 
+    const normalizedNextStatus = cleanText(nextStatus).toLowerCase();
+    let universeReferralReward = null;
+
+    if (['approved', 'active', 'verified'].includes(normalizedNextStatus)) {
+      universeReferralReward = await qualifyUniverseReferralRewardForUser({
+        referredUid: memberId,
+        qualifiedDivision: 'universe',
+        approvedBy: req.adminSession?.username || 'admin',
+        approvalSource: 'admin_member_status'
+      }).catch((error) => {
+        console.error('universe referral member-status qualification error:', error);
+        return null;
+      });
+    }
+
     return res.json({
       success: true,
-      status: nextStatus
+      status: nextStatus,
+      universeReferralReward
     });
   } catch (error) {
     console.error('admin member status error:', error);

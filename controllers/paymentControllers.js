@@ -1157,6 +1157,7 @@ function normalizeWithdrawalCurrency(value = 'USD') {
 function getUniversalBalanceDivision(value = '') {
     const raw = cleanLower(value || '');
 
+    if (raw === 'universe' || raw.includes('universe') || raw.includes('referral')) return 'universe';
     if (raw === 'federation' || raw.includes('federation')) return 'federation';
     if (raw === 'plaza' || raw === 'plazas' || raw.includes('plaza')) return 'plaza';
     if (raw === 'academy' || raw.includes('academy')) return 'academy';
@@ -1166,6 +1167,13 @@ function getUniversalBalanceDivision(value = '') {
 
 function createUniversalDivisionBreakdown(currency = 'USD') {
     return {
+        universe: {
+            label: 'Universe Referrals',
+            currency,
+            approvedEarnings: 0,
+            reservedWithdrawals: 0,
+            available: 0
+        },
         academy: {
             label: 'Academy',
             currency,
