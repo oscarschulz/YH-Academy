@@ -386,7 +386,64 @@ a {
   border-color: rgba(14, 165, 233, 0.55);
   box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.08);
 }
+/* Meetup composer layout fix */
+#plazaMeetupComposerForm .yh-plaza-feed-composer-main {
+  grid-template-columns: minmax(220px, 0.85fr) minmax(260px, 1fr) minmax(0, 2fr);
+  column-gap: 18px;
+  row-gap: 14px;
+  align-items: start;
+}
 
+#plazaMeetupComposerForm .yh-plaza-feed-composer-field,
+#plazaMeetupComposerForm .yh-plaza-feed-composer-field input,
+#plazaMeetupComposerForm .yh-plaza-feed-composer-field select,
+#plazaMeetupComposerForm .yh-plaza-feed-composer-field textarea {
+  min-width: 0;
+}
+
+#plazaMeetupComposerForm .yh-plaza-feed-composer-field:has(#plazaMeetupDateTime) {
+  grid-column: 1 / 2;
+}
+
+#plazaMeetupComposerForm .yh-plaza-feed-composer-field:has(#plazaMeetupLocation) {
+  grid-column: 2 / 4;
+}
+
+#plazaMeetupComposerForm .yh-plaza-feed-composer-field-signal {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 1280px) {
+  #plazaMeetupComposerForm .yh-plaza-feed-composer-main {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #plazaMeetupComposerForm .yh-plaza-feed-composer-field:has(#plazaMeetupDateTime) {
+    grid-column: 1 / 2;
+  }
+
+  #plazaMeetupComposerForm .yh-plaza-feed-composer-field:has(#plazaMeetupLocation) {
+    grid-column: 2 / 3;
+  }
+
+  #plazaMeetupComposerForm .yh-plaza-feed-composer-field-wide,
+  #plazaMeetupComposerForm .yh-plaza-feed-composer-field-signal {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  #plazaMeetupComposerForm .yh-plaza-feed-composer-main {
+    grid-template-columns: 1fr;
+  }
+
+  #plazaMeetupComposerForm .yh-plaza-feed-composer-field:has(#plazaMeetupDateTime),
+  #plazaMeetupComposerForm .yh-plaza-feed-composer-field:has(#plazaMeetupLocation),
+  #plazaMeetupComposerForm .yh-plaza-feed-composer-field-wide,
+  #plazaMeetupComposerForm .yh-plaza-feed-composer-field-signal {
+    grid-column: 1 / -1;
+  }
+}
 .yh-plaza-feed-composer-actions {
   display: flex;
   justify-content: space-between;
