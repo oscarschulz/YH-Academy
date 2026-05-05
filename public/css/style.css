@@ -1266,6 +1266,10 @@ body.yh-notif-menu-open::after {
     animation: academyComposerMenuIn 0.18s ease both;
 }
 
+.academy-composer-menu[data-menu-type="gif"] {
+    width: min(360px, calc(100vw - 24px));
+}
+
 .academy-composer-menu-head {
     display: flex;
     align-items: center;
@@ -1297,6 +1301,11 @@ body.yh-notif-menu-open::after {
     gap: 8px;
 }
 
+.academy-composer-menu-grid-gif {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
 .academy-composer-menu-item {
     min-height: 40px;
     border-radius: 13px;
@@ -1310,7 +1319,8 @@ body.yh-notif-menu-open::after {
         transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1),
         background 0.2s ease,
         border-color 0.2s ease,
-        color 0.2s ease;
+        color 0.2s ease,
+        box-shadow 0.2s ease;
 }
 
 .academy-composer-menu-item:hover {
@@ -1322,6 +1332,67 @@ body.yh-notif-menu-open::after {
 
 .academy-composer-menu-item:active {
     transform: translateY(0) scale(0.96);
+}
+
+.academy-composer-menu-item-gif {
+    min-height: 148px;
+    padding: 10px;
+    display: grid;
+    gap: 8px;
+    text-align: left;
+    align-content: start;
+    background:
+        linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(8, 18, 33, 0.92));
+}
+
+.academy-composer-menu-gif-thumb {
+    position: relative;
+    display: block;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    overflow: hidden;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+}
+
+.academy-composer-menu-gif-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.academy-composer-menu-gif-badge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 4px 7px;
+    border-radius: 999px;
+    background: rgba(8, 18, 33, 0.82);
+    border: 1px solid rgba(56, 189, 248, 0.32);
+    color: #e0f2fe;
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+}
+
+.academy-composer-menu-gif-meta {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+.academy-composer-menu-gif-meta strong {
+    font-size: 0.8rem;
+    color: #f8fafc;
+    line-height: 1.2;
+}
+
+.academy-composer-menu-gif-meta span {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    line-height: 1.3;
 }
 
 @keyframes academyComposerMenuIn {
@@ -22232,6 +22303,43 @@ body[data-yh-view="academy"] #academy-feed-view .academy-feed-shell {
 .academy-message-attachment-card:hover {
     border-color: rgba(56, 189, 248, 0.55);
     background: rgba(56, 189, 248, 0.1);
+}
+
+.academy-message-attachment-card-preview {
+    align-items: stretch;
+}
+
+.academy-message-attachment-preview {
+    position: relative;
+    width: 84px;
+    min-width: 84px;
+    height: 84px;
+    overflow: hidden;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+    flex: 0 0 auto;
+}
+
+.academy-message-attachment-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.academy-message-attachment-badge {
+    position: absolute;
+    top: 7px;
+    right: 7px;
+    padding: 4px 7px;
+    border-radius: 999px;
+    background: rgba(8, 18, 33, 0.82);
+    border: 1px solid rgba(56, 189, 248, 0.32);
+    color: #e0f2fe;
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
 }
 
 .academy-message-attachment-icon {

@@ -979,6 +979,40 @@ let currentRoomMeta = {
 };
 
 const ACADEMY_MESSAGE_MAX_FILE_BYTES = 50 * 1024 * 1024;
+const ACADEMY_MESSAGE_GIF_LIBRARY = [
+    {
+        key: 'hype-mode',
+        label: 'Hype Mode',
+        caption: 'Energy / celebration',
+        fileName: 'academy-gif-hype-mode.webp',
+        src: '/assets/academy/gifs/academy-gif-hype-mode.webp',
+        mimeType: 'image/webp'
+    },
+    {
+        key: 'big-win',
+        label: 'Big Win',
+        caption: 'Victory / success',
+        fileName: 'academy-gif-big-win.webp',
+        src: '/assets/academy/gifs/academy-gif-big-win.webp',
+        mimeType: 'image/webp'
+    },
+    {
+        key: 'locked-in',
+        label: 'Locked In',
+        caption: 'Focus / grind mode',
+        fileName: 'academy-gif-locked-in.webp',
+        src: '/assets/academy/gifs/academy-gif-locked-in.webp',
+        mimeType: 'image/webp'
+    },
+    {
+        key: 'respect',
+        label: 'Respect',
+        caption: 'Respect / support',
+        fileName: 'academy-gif-respect.webp',
+        src: '/assets/academy/gifs/academy-gif-respect.webp',
+        mimeType: 'image/webp'
+    }
+];
 let academySelectedMessageFile = null;
 let academyUploadingMessageFile = false;
 
@@ -994,6 +1028,22 @@ function academyFormatFileSize(bytes = 0) {
     }
 
     return `${size} B`;
+}
+
+function academyGetMessageGifAttachment(index = 0) {
+    const item = ACADEMY_MESSAGE_GIF_LIBRARY[index];
+    if (!item) return null;
+
+    return {
+        url: item.src,
+        previewUrl: item.src,
+        kind: 'image',
+        mimeType: item.mimeType || 'image/webp',
+        originalName: item.label,
+        sizeBytes: 0,
+        category: 'gif',
+        isAnimated: true
+    };
 }
 
 function academyClearSelectedMessageFile() {
@@ -2661,19 +2711,44 @@ socket.on('chatHistory', (history) => {
         const safeTime = academyFeedEscapeHtml(formatAcademyMessageTime(msg.time));
         const attachment = msg?.attachment && typeof msg.attachment === 'object' ? msg.attachment : null;
         const attachmentUrl = String(attachment?.url || '').trim();
+        const attachmentPreviewUrl = String(attachment?.previewUrl || attachmentUrl || '').trim();
         const attachmentName = String(attachment?.originalName || attachment?.name || 'Attachment').trim();
         const attachmentKind = String(attachment?.kind || '').trim().toLowerCase();
         const attachmentMime = String(attachment?.mimeType || '').trim().toLowerCase();
+        const attachmentCategory = String(attachment?.category || '').trim().toLowerCase();
         const attachmentSize = Number(attachment?.sizeBytes || 0);
+        const isImageAttachment = attachmentKind === 'image' || attachmentMime.startsWith('image/');
+        const isAnimatedAttachment =
+            Boolean(attachment?.isAnimated) ||
+            attachmentCategory === 'gif' ||
+            attachmentMime === 'image/gif' ||
+            attachmentMime === 'image/webp';
+
         const attachmentHtml = attachmentUrl
             ? `
-                <a class="academy-message-attachment-card" href="${academyFeedEscapeHtml(attachmentUrl)}" target="_blank" rel="noopener noreferrer" download>
-                    <span class="academy-message-attachment-icon">${attachmentKind === 'image' ? '🖼️' : attachmentKind === 'video' ? '🎬' : '📎'}</span>
+                <a
+                    class="academy-message-attachment-card ${isImageAttachment ? 'academy-message-attachment-card-preview' : ''}"
+                    href="${academyFeedEscapeHtml(attachmentUrl)}"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    ${
+                        isImageAttachment
+                            ? `
+                                <span class="academy-message-attachment-preview">
+                                    <img src="${academyFeedEscapeHtml(attachmentPreviewUrl || attachmentUrl)}" alt="${academyFeedEscapeHtml(attachmentName)}">
+                                    ${isAnimatedAttachment ? `<span class="academy-message-attachment-badge">GIF</span>` : ''}
+                                </span>
+                            `
+                            : `
+                                <span class="academy-message-attachment-icon">${attachmentKind === 'video' ? '🎬' : '📎'}</span>
+                            `
+                    }
                     <span class="academy-message-attachment-copy">
                         <strong>${academyFeedEscapeHtml(attachmentName)}</strong>
                         <small>${academyFeedEscapeHtml(attachmentMime || 'file')} ${attachmentSize ? `• ${academyFeedEscapeHtml(academyFormatFileSize(attachmentSize))}` : ''}</small>
                     </span>
-                    <span class="academy-message-attachment-action">Open</span>
+                    <span class="academy-message-attachment-action">${isImageAttachment ? 'Open clip' : 'Open'}</span>
                 </a>
             `
             : '';
@@ -3529,7 +3604,7 @@ const btnLeaveStage = document.getElementById('btn-leave-stage');
             action === 'gift'
                 ? 'Send a quick gift'
                 : action === 'gif'
-                    ? 'Choose a GIF'
+                    ? 'Choose a GIF clip'
                     : 'Pick an emoji';
 
         const items =
@@ -3540,49 +3615,72 @@ const btnLeaveStage = document.getElementById('btn-leave-stage');
                     { label: 'Win', value: '🏆 Win Gift' },
                     { label: 'Support', value: '🤝 Support Gift' }
                 ]
-                : action === 'gif'
-                    ? [
-                        { label: 'Hype', value: 'GIF: Hype Mode 🔥' },
-                        { label: 'Win', value: 'GIF: Big Win 🏆' },
-                        { label: 'Focus', value: 'GIF: Locked In 🎯' },
-                        { label: 'Respect', value: 'GIF: Respect 🤝' }
-                    ]
-                    : [
-                        { label: '🔥', value: '🔥' },
-                        { label: '💯', value: '💯' },
-                        { label: '😂', value: '😂' },
-                        { label: '🧠', value: '🧠' },
-                        { label: '🚀', value: '🚀' },
-                        { label: '🤝', value: '🤝' },
-                        { label: '🎯', value: '🎯' },
-                        { label: '✅', value: '✅' }
-                    ];
+                : [
+                    { label: '🔥', value: '🔥' },
+                    { label: '💯', value: '💯' },
+                    { label: '😂', value: '😂' },
+                    { label: '🧠', value: '🧠' },
+                    { label: '🚀', value: '🚀' },
+                    { label: '🤝', value: '🤝' },
+                    { label: '🎯', value: '🎯' },
+                    { label: '✅', value: '✅' }
+                ];
+
+        const menuBody =
+            action === 'gif'
+                ? `
+                    <div class="academy-composer-menu-grid academy-composer-menu-grid-gif">
+                        ${ACADEMY_MESSAGE_GIF_LIBRARY.map((item, index) => {
+                            return `
+                                <button
+                                    type="button"
+                                    class="academy-composer-menu-item academy-composer-menu-item-gif"
+                                    data-composer-gif-index="${index}"
+                                    aria-label="Send ${academyFeedEscapeHtml(item.label)} GIF clip"
+                                    title="${academyFeedEscapeHtml(item.label)}"
+                                >
+                                    <span class="academy-composer-menu-gif-thumb">
+                                        <img src="${academyFeedEscapeHtml(item.src)}" alt="${academyFeedEscapeHtml(item.label)}">
+                                        <span class="academy-composer-menu-gif-badge">GIF</span>
+                                    </span>
+                                    <span class="academy-composer-menu-gif-meta">
+                                        <strong>${academyFeedEscapeHtml(item.label)}</strong>
+                                        <span>${academyFeedEscapeHtml(item.caption)}</span>
+                                    </span>
+                                </button>
+                            `;
+                        }).join('')}
+                    </div>
+                `
+                : `
+                    <div class="academy-composer-menu-grid">
+                        ${items.map((item) => {
+                            return `
+                                <button
+                                    type="button"
+                                    class="academy-composer-menu-item"
+                                    data-composer-insert="${academyFeedEscapeHtml(item.value)}"
+                                    data-composer-send="${action === 'gift' ? 'true' : 'false'}"
+                                >
+                                    ${academyFeedEscapeHtml(item.label)}
+                                </button>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
 
         menu.innerHTML = `
             <div class="academy-composer-menu-head">
                 <strong>${academyFeedEscapeHtml(menuTitle)}</strong>
                 <button type="button" class="academy-composer-menu-close" aria-label="Close composer menu">✕</button>
             </div>
-            <div class="academy-composer-menu-grid">
-                ${items.map((item) => {
-                    return `
-                        <button
-                            type="button"
-                            class="academy-composer-menu-item"
-                            data-composer-insert="${academyFeedEscapeHtml(item.value)}"
-                            data-composer-send="${action === 'gift' || action === 'gif' ? 'true' : 'false'}"
-                        >
-                            ${academyFeedEscapeHtml(item.label)}
-                        </button>
-                    `;
-                }).join('')}
-            </div>
+            ${menuBody}
         `;
 
         document.body.appendChild(menu);
 
         const rect = trigger?.getBoundingClientRect?.();
-        const menuWidth = 260;
+        const menuWidth = action === 'gif' ? 360 : 260;
 
         if (rect) {
             const left = Math.min(
@@ -3643,6 +3741,22 @@ const btnLeaveStage = document.getElementById('btn-leave-stage');
 
         const closeButton = target.closest('.academy-composer-menu-close');
         if (closeButton) {
+            closeAcademyComposerMenu();
+            return;
+        }
+
+        const gifItem = target.closest('[data-composer-gif-index]');
+        if (gifItem) {
+            const gifIndex = Number(gifItem.getAttribute('data-composer-gif-index'));
+            const gifAttachment = academyGetMessageGifAttachment(gifIndex);
+
+            if (!gifAttachment?.url) {
+                showToast('GIF clip not found.', 'error');
+                closeAcademyComposerMenu();
+                return;
+            }
+
+            sendMessage('', gifAttachment);
             closeAcademyComposerMenu();
             return;
         }

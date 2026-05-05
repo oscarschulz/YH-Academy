@@ -1248,6 +1248,32 @@ function sendChatRoomActionError(res, context) {
         message: context?.message || 'Conversation action failed.'
     });
 }
+function sanitizeChatMessageAttachment(raw = null) {
+    if (!raw || typeof raw !== 'object') return null;
+
+    const url = sanitizeText(raw.url);
+    if (!url) return null;
+
+    const previewUrl = sanitizeText(raw.previewUrl || raw.preview_url || url) || url;
+    const originalName = sanitizeText(raw.originalName || raw.name || 'Attachment') || 'Attachment';
+    const kind = sanitizeText(raw.kind || '').toLowerCase();
+    const mimeType = sanitizeText(raw.mimeType || raw.mime || '').toLowerCase();
+    const category = sanitizeText(raw.category || '').toLowerCase();
+    const sizeBytes = Number.isFinite(Number(raw.sizeBytes)) ? Number(raw.sizeBytes) : 0;
+
+    return {
+        url,
+        previewUrl,
+        originalName,
+        name: originalName,
+        kind,
+        mimeType,
+        category,
+        sizeBytes,
+        isAnimated: Boolean(raw.isAnimated) || category === 'gif' || mimeType === 'image/gif' || mimeType === 'image/webp'
+    };
+}
+
 function mapChatMessageDoc(doc) {
     const data = doc.data() || {};
     const authorId = sanitizeText(
@@ -1270,16 +1296,8 @@ function mapChatMessageDoc(doc) {
         initial: sanitizeText(data.initial),
         avatar: sanitizeText(data.avatar),
         text: sanitizeText(data.text),
+        attachment: sanitizeChatMessageAttachment(data.attachment),
         time: sanitizeText(data.time || mapChatTimestamp(data.created_at)),
-        attachment: data.attachment && typeof data.attachment === 'object'
-            ? {
-                url: sanitizeText(data.attachment.url),
-                originalName: sanitizeText(data.attachment.originalName || data.attachment.name || 'Attachment'),
-                mimeType: sanitizeText(data.attachment.mimeType),
-                sizeBytes: Number.isFinite(Number(data.attachment.sizeBytes)) ? Number(data.attachment.sizeBytes) : 0,
-                kind: sanitizeText(data.attachment.kind || 'file')
-            }
-            : null,
         upvotes: Number.isFinite(Number(data.upvotes)) ? Number(data.upvotes) : 0
     };
 }
@@ -1787,24 +1805,14 @@ io.on('connection', (socket) => {
         try {
             const roomId = sanitizeText(data?.room);
             const text = sanitizeText(data?.text);
-            const incomingAttachment =
-                data?.attachment && typeof data.attachment === 'object'
-                    ? data.attachment
-                    : null;
-
-            const attachment = incomingAttachment
-                ? {
-                    url: sanitizeText(incomingAttachment.url),
-                    originalName: sanitizeText(incomingAttachment.originalName || incomingAttachment.name || 'Attachment'),
-                    mimeType: sanitizeText(incomingAttachment.mimeType),
-                    sizeBytes: Number.isFinite(Number(incomingAttachment.sizeBytes)) ? Number(incomingAttachment.sizeBytes) : 0,
-                    kind: sanitizeText(incomingAttachment.kind || 'file')
-                }
-                : null;
+            const attachment = sanitizeChatMessageAttachment(data?.attachment);
 
             const hasValidAttachment =
                 attachment &&
-                attachment.url.startsWith('/uploads/academy-messages/') &&
+                (
+                    attachment.url.startsWith('/uploads/academy-messages/') ||
+                    attachment.url.startsWith('/assets/academy/gifs/')
+                ) &&
                 attachment.originalName;
 
             if (!roomId || (!text && !hasValidAttachment)) return;
@@ -1852,13 +1860,20 @@ io.on('connection', (socket) => {
             }
 
             const authorName = sanitizeText(socket.user.name || socket.user.username || 'Hustler');
+            const fallbackText = hasValidAttachment
+                ? (
+                    attachment.category === 'gif' || attachment.isAnimated
+                        ? `GIF · ${attachment.originalName || 'Clip'}`
+                        : `📎 ${attachment.originalName || 'Attachment'}`
+                )
+                : '';
 
             const payload = {
                 room: roomId,
                 author: authorName,
                 initial: authorName.charAt(0).toUpperCase(),
                 avatar: '',
-                text: text || (hasValidAttachment ? `📎 ${attachment.originalName}` : ''),
+                text: text || fallbackText,
                 attachment: hasValidAttachment ? attachment : null,
                 time: new Date().toISOString(),
                 upvotes: 0,
