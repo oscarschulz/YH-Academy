@@ -2141,6 +2141,108 @@ function bootYHWalletPanel() {
 
 window.openYHWalletModal = openYHWalletModal;
 window.refreshYHWalletSnapshot = refreshYHWalletSnapshot;
+
+const YH_UNIVERSE_REFERRAL_CACHE_KEY = 'yh_universe_referral_snapshot_v1';
+
+function formatYHUniverseReferralMoney(amount = 0, currency = 'USD') {
+    return formatYHWalletMoney(amount, currency);
+}
+
+function readYHUniverseReferralCache() {
+    return readYHJsonCache(YH_UNIVERSE_REFERRAL_CACHE_KEY, null) || {};
+}
+
+function writeYHUniverseReferralCache(snapshot = {}) {
+    writeYHJsonCache(YH_UNIVERSE_REFERRAL_CACHE_KEY, snapshot);
+}
+
+function renderYHUniverseReferralSnapshot(snapshot = {}) {
+    const referral = snapshot?.referral || {};
+    const stats = snapshot?.stats || {};
+
+    const linkEl = document.getElementById('yh-universe-referral-link');
+    const codeEl = document.getElementById('yh-universe-referral-code');
+    const totalEl = document.getElementById('yh-universe-referral-total');
+    const qualifiedEl = document.getElementById('yh-universe-referral-qualified');
+    const earnedEl = document.getElementById('yh-universe-referral-earned');
+
+    if (linkEl) {
+        linkEl.value = String(referral.link || '').trim() || 'Referral link unavailable';
+    }
+
+    if (codeEl) {
+        codeEl.textContent = String(referral.code || 'Not ready').trim() || 'Not ready';
+    }
+
+    if (totalEl) {
+        totalEl.textContent = String(Number(stats.total || 0));
+    }
+
+    if (qualifiedEl) {
+        qualifiedEl.textContent = String(Number(stats.qualified || 0));
+    }
+
+    if (earnedEl) {
+        earnedEl.textContent = formatYHUniverseReferralMoney(
+            Number(stats.totalEarned || 0),
+            stats.currency || referral.currency || 'USD'
+        );
+    }
+}
+
+async function refreshYHUniverseReferralSnapshot(forceFresh = false) {
+    if (!forceFresh) {
+        const cached = readYHUniverseReferralCache();
+        if (cached && typeof cached === 'object' && cached.referral) {
+            renderYHUniverseReferralSnapshot(cached);
+        }
+    }
+
+    const snapshot = await academyAuthedFetch('/api/universe/referrals/me', {
+        method: 'GET'
+    });
+
+    if (snapshot && typeof snapshot === 'object') {
+        writeYHUniverseReferralCache(snapshot);
+        renderYHUniverseReferralSnapshot(snapshot);
+    }
+
+    return snapshot;
+}
+
+async function copyYHUniverseReferralLink() {
+    const linkEl = document.getElementById('yh-universe-referral-link');
+    const link = String(linkEl?.value || '').trim();
+
+    if (!link || link === 'Referral link unavailable' || link === 'Loading referral link...') {
+        showToast('Referral link is still loading.', 'error');
+        return;
+    }
+
+    try {
+        await navigator.clipboard.writeText(link);
+        showToast('Universe referral link copied.', 'success');
+    } catch (_) {
+        try {
+            linkEl?.select?.();
+            document.execCommand('copy');
+            showToast('Universe referral link copied.', 'success');
+        } catch (error) {
+            showToast('Copy failed. Select the link manually.', 'error');
+        }
+    }
+}
+
+function bootYHUniverseReferralPanel() {
+    document.getElementById('yh-universe-referral-copy-btn')?.addEventListener('click', copyYHUniverseReferralLink);
+
+    refreshYHUniverseReferralSnapshot(false).catch((error) => {
+        console.error('refreshYHUniverseReferralSnapshot error:', error);
+    });
+}
+
+window.refreshYHUniverseReferralSnapshot = refreshYHUniverseReferralSnapshot;
+
 function redirectToPlazaPage() {
     const plazaUrl = buildPlazaUrl();
 
@@ -2619,6 +2721,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initUniverseImageLightbox();
     renderYHEconomicSnapshot();
     bootYHWalletPanel();
+    bootYHUniverseReferralPanel();
     // --- UPDATED NAVIGATION & ROUTING LOGIC ---
 const universeFeatureContent = {
     academy: {

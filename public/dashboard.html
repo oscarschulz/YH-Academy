@@ -7,7 +7,7 @@
     <link rel="icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css?v=20260505-dashboard-popovers-3">
+<link rel="stylesheet" href="/css/style.css?v=20260505-universe-referrals-1">
 <link rel="stylesheet" href="/css/dashboard-mobile.css">
 </head>
 <body data-yh-view="hub" data-yh-page="dashboard">
@@ -255,6 +255,48 @@
                             <span class="yh-universe-command-pill-label">Lower Stage</span>
                             <strong>Activity + Visual Feed</strong>
                         </div>
+                    </div>
+                </section>
+
+                <section class="yh-universe-referral-card" id="yh-universe-referral-card" aria-label="Universe referral program">
+                    <div class="yh-universe-referral-main">
+                        <div class="yh-universe-referral-kicker">Universe Referral Program</div>
+                        <h3 class="yh-universe-referral-title">Invite acquaintances into YH Universe.</h3>
+                        <p class="yh-universe-referral-copy">
+                            Share your global Universe link. When someone you invited becomes active in any division, your reward can be tracked inside the wallet system.
+                        </p>
+
+                        <div class="yh-universe-referral-link-row">
+                            <input
+                                type="text"
+                                id="yh-universe-referral-link"
+                                class="yh-universe-referral-link"
+                                value="Loading referral link..."
+                                readonly
+                            >
+                            <button type="button" class="btn-secondary yh-universe-referral-copy-btn" id="yh-universe-referral-copy-btn">
+                                Copy Link
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="yh-universe-referral-stats">
+                        <article>
+                            <span>Referral Code</span>
+                            <strong id="yh-universe-referral-code">Loading...</strong>
+                        </article>
+                        <article>
+                            <span>Total Invited</span>
+                            <strong id="yh-universe-referral-total">0</strong>
+                        </article>
+                        <article>
+                            <span>Qualified</span>
+                            <strong id="yh-universe-referral-qualified">0</strong>
+                        </article>
+                        <article>
+                            <span>Total Earned</span>
+                            <strong id="yh-universe-referral-earned">$0.00</strong>
+                        </article>
                     </div>
                 </section>
 
@@ -1848,7 +1890,7 @@
 
 <script src="/js/yh-shared-core.js?v=20260418-toast-center-2"></script>
 <script src="/js/yh-shared-runtime.js?v=20260411-3"></script>
-<script src="/js/dashboard.js?v=20260505-dashboard-popovers-3"></script>
+<script src="/js/dashboard.js?v=20260505-universe-referrals-1"></script>
 <script src="/js/dashboard-mobile-fix.js?v=20260410-4"></script>
 </body>
 </html>

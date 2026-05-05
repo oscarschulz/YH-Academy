@@ -6,6 +6,9 @@ const publicLandingEventsRepo = require('../backend/repositories/publicLandingEv
 const geocodingService = require('../backend/services/geocodingService');
 
 const USERS_COLLECTION = 'users';
+const UNIVERSE_REFERRAL_LEDGER_COLLECTION = 'universeReferralLedger';
+const UNIVERSE_REFERRAL_REWARD_AMOUNT = Number(process.env.UNIVERSE_REFERRAL_REWARD_AMOUNT || 5.60);
+const UNIVERSE_REFERRAL_REWARD_CURRENCY = String(process.env.UNIVERSE_REFERRAL_REWARD_CURRENCY || 'USD').trim().toUpperCase() || 'USD';
 const OTP_FROM_EMAIL = process.env.OTP_FROM_EMAIL || 'YH Universe <noreply@younghustlers.net>';
 const OTP_REPLY_TO = process.env.OTP_REPLY_TO || 'support@younghustlers.net';
 const OTP_SUPPORT_EMAIL = process.env.OTP_SUPPORT_EMAIL || 'support@younghustlers.net';
@@ -83,6 +86,214 @@ const addMinutesToIsoFromValue = (value, minutes = 0) => {
 };
 
 const usersCollection = () => firestore.collection(USERS_COLLECTION);
+const universeReferralLedgerCollection = () => firestore.collection(UNIVERSE_REFERRAL_LEDGER_COLLECTION);
+
+function normalizeUniverseReferralCode(value = '') {
+    return String(value || '')
+        .trim()
+        .toUpperCase()
+        .replace(/[^A-Z0-9_-]+/g, '')
+        .slice(0, 48);
+}
+
+function buildUniverseReferralCodeBase(fullName = '', username = '') {
+    const rawBase = String(username || fullName || 'member')
+        .trim()
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, '')
+        .slice(0, 12) || 'MEMBER';
+
+    return `YH-${rawBase}`;
+}
+
+async function generateUniqueUniverseReferralCode({ fullName = '', username = '' } = {}) {
+    const base = buildUniverseReferralCodeBase(fullName, username);
+
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+        const suffix = attempt === 0
+            ? randomSuffix(4).toUpperCase()
+            : randomSuffix(6).toUpperCase();
+
+        const code = normalizeUniverseReferralCode(`${base}-${suffix}`);
+        const existing = await usersCollection()
+            .where('universeReferral.code', '==', code)
+            .limit(1)
+            .get();
+
+        if (existing.empty) {
+            return code;
+        }
+    }
+
+    return normalizeUniverseReferralCode(`${base}-${Date.now().toString(36).toUpperCase()}`);
+}
+
+async function resolveUniverseReferrerByCode(referralCode = '') {
+    const cleanCode = normalizeUniverseReferralCode(referralCode);
+    if (!cleanCode) return null;
+
+    const snapshot = await usersCollection()
+        .where('universeReferral.code', '==', cleanCode)
+        .limit(1)
+        .get();
+
+    if (snapshot.empty) return null;
+
+    const doc = snapshot.docs[0];
+    const data = doc.data() || {};
+
+    return {
+        uid: doc.id,
+        id: doc.id,
+        code: cleanCode,
+        email: String(data.email || '').trim().toLowerCase(),
+        name: String(
+            data.fullName ||
+            data.displayName ||
+            data.name ||
+            data.username ||
+            'YH Member'
+        ).trim(),
+        username: String(data.username || '').trim()
+    };
+}
+
+async function buildUniverseReferralAttribution({ referralCode = '', referredUid = '', referredEmail = '' } = {}) {
+    const cleanCode = normalizeUniverseReferralCode(referralCode);
+    const cleanReferredUid = String(referredUid || '').trim();
+    const cleanReferredEmail = String(referredEmail || '').trim().toLowerCase();
+
+    if (!cleanCode || !cleanReferredUid) return null;
+
+    const referrer = await resolveUniverseReferrerByCode(cleanCode);
+    if (!referrer?.uid) return null;
+
+    if (referrer.uid === cleanReferredUid) return null;
+    if (referrer.email && cleanReferredEmail && referrer.email === cleanReferredEmail) return null;
+
+    return {
+        source: 'universe',
+        code: cleanCode,
+        referrerUid: referrer.uid,
+        referrerEmail: referrer.email,
+        referrerName: referrer.name,
+        referrerUsername: referrer.username,
+        capturedAt: nowIso()
+    };
+}
+
+async function createPendingUniverseReferralLedger({
+    referredUid = '',
+    referredEmail = '',
+    referredName = '',
+    referredUsername = '',
+    referredBy = null
+} = {}) {
+    if (!referredBy?.referrerUid || !referredUid) return null;
+
+    const ledgerId = `universe_ref_${referredBy.referrerUid}_${referredUid}`;
+    const ref = universeReferralLedgerCollection().doc(ledgerId);
+    const existing = await ref.get();
+
+    if (existing.exists) {
+        return {
+            id: existing.id,
+            ...(existing.data() || {})
+        };
+    }
+
+    const payload = {
+        referrerUid: referredBy.referrerUid,
+        referrerEmail: referredBy.referrerEmail || '',
+        referrerName: referredBy.referrerName || '',
+        referrerUsername: referredBy.referrerUsername || '',
+
+        referredUid,
+        referredEmail: String(referredEmail || '').trim().toLowerCase(),
+        referredName: String(referredName || '').trim(),
+        referredUsername: String(referredUsername || '').trim(),
+
+        referralCode: referredBy.code || '',
+        source: 'universe',
+        sourceDivision: 'universe',
+
+        status: 'pending',
+        rewardStatus: 'not_qualified',
+        qualifiedDivision: '',
+        rewardAmount: UNIVERSE_REFERRAL_REWARD_AMOUNT,
+        currency: UNIVERSE_REFERRAL_REWARD_CURRENCY,
+
+        capturedAt: nowIso(),
+        qualifiedAt: '',
+        rewardCreatedAt: '',
+        payoutRecordId: '',
+        updatedAt: nowIso()
+    };
+
+    await ref.set(payload, { merge: true });
+
+    return {
+        id: ledgerId,
+        ...payload
+    };
+}
+
+function buildUniverseReferralBaseUrl(req = {}) {
+    const envBase = String(
+        process.env.PUBLIC_BASE_URL ||
+        process.env.APP_BASE_URL ||
+        process.env.BASE_URL ||
+        ''
+    ).trim().replace(/\/+$/, '');
+
+    if (envBase) return envBase;
+
+    const protocol = req.protocol || 'https';
+    const host = typeof req.get === 'function' ? req.get('host') : '';
+
+    return host ? `${protocol}://${host}` : '';
+}
+
+async function ensureUniverseReferralForUser(userId = '', userData = {}) {
+    const cleanUserId = String(userId || '').trim();
+    if (!cleanUserId) return null;
+
+    const currentReferral =
+        userData.universeReferral && typeof userData.universeReferral === 'object'
+            ? userData.universeReferral
+            : {};
+
+    const currentCode = normalizeUniverseReferralCode(currentReferral.code);
+    if (currentCode) {
+        return {
+            ...currentReferral,
+            code: currentCode,
+            status: String(currentReferral.status || 'active').trim() || 'active'
+        };
+    }
+
+    const code = await generateUniqueUniverseReferralCode({
+        fullName: userData.fullName || userData.displayName || userData.name || '',
+        username: userData.username || ''
+    });
+
+    const nextReferral = {
+        code,
+        status: 'active',
+        createdAt: nowIso(),
+        updatedAt: nowIso()
+    };
+
+    await usersCollection().doc(cleanUserId).set(
+        {
+            universeReferral: nextReferral,
+            updatedAt: nowIso()
+        },
+        { merge: true }
+    );
+
+    return nextReferral;
+}
 
 const DELETED_ACCOUNT_MESSAGE = 'This account has been deleted. Please register again.';
 
@@ -761,7 +972,8 @@ exports.registerUser = async (req, res) => {
             city,
             country,
             password,
-            profilePhotoDataUrl
+            profilePhotoDataUrl,
+            referralCode
         } = req.body;
 
         fullName = String(fullName || '').trim();
@@ -772,6 +984,7 @@ exports.registerUser = async (req, res) => {
         country = String(country || '').trim();
         password = String(password || '');
         profilePhotoDataUrl = String(profilePhotoDataUrl || '').trim();
+        referralCode = normalizeUniverseReferralCode(referralCode || req.body?.ref || req.body?.universeReferralCode || '');
 
         if (!fullName || !email || !username || !city || !country || !password || !profilePhotoDataUrl) {
             return res.status(400).json({
@@ -803,6 +1016,17 @@ exports.registerUser = async (req, res) => {
 
         userRef = usersCollection().doc();
 
+        const universeReferralCode = await generateUniqueUniverseReferralCode({
+            fullName,
+            username
+        });
+
+        const referredBy = await buildUniverseReferralAttribution({
+            referralCode,
+            referredUid: userRef.id,
+            referredEmail: email
+        });
+
         await userRef.set({
             fullName,
             email,
@@ -832,9 +1056,31 @@ exports.registerUser = async (req, res) => {
             verificationCode: null,
             verificationCodeIssuedAt: null,
             isVerified: false,
+            universeReferral: {
+                code: universeReferralCode,
+                status: 'active',
+                createdAt,
+                updatedAt: createdAt
+            },
+            ...(referredBy
+                ? {
+                    referredBy,
+                    referralCapturedAt: createdAt
+                }
+                : {}),
             createdAt,
             updatedAt: createdAt
         });
+
+        if (referredBy) {
+            await createPendingUniverseReferralLedger({
+                referredUid: userRef.id,
+                referredEmail: email,
+                referredName: fullName,
+                referredUsername: username,
+                referredBy
+            });
+        }
 
         return res.json({
             success: true,
@@ -1035,6 +1281,99 @@ exports.logoutUser = async (req, res) => {
         success: true,
         message: 'Logged out successfully.'
     });
+};
+exports.getMyUniverseReferrals = async (req, res) => {
+    try {
+        const userId = String(req.user?.id || req.user?.firebaseUid || req.user?.uid || '').trim();
+
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: 'Missing authenticated user.'
+            });
+        }
+
+        const userSnap = await usersCollection().doc(userId).get();
+
+        if (!userSnap.exists) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found.'
+            });
+        }
+
+        const userData = userSnap.data() || {};
+        const universeReferral = await ensureUniverseReferralForUser(userId, userData);
+        const referralCode = normalizeUniverseReferralCode(universeReferral?.code);
+
+        const ledgerSnapshot = await universeReferralLedgerCollection()
+            .where('referrerUid', '==', userId)
+            .limit(200)
+            .get();
+
+        const referrals = ledgerSnapshot.docs
+            .map((doc) => {
+                const data = doc.data() || {};
+
+                return {
+                    id: doc.id,
+                    referredUid: String(data.referredUid || '').trim(),
+                    referredEmail: String(data.referredEmail || '').trim().toLowerCase(),
+                    referredName: String(data.referredName || '').trim(),
+                    referredUsername: String(data.referredUsername || '').trim(),
+                    referralCode: normalizeUniverseReferralCode(data.referralCode),
+                    status: String(data.status || 'pending').trim().toLowerCase(),
+                    rewardStatus: String(data.rewardStatus || 'not_qualified').trim().toLowerCase(),
+                    qualifiedDivision: String(data.qualifiedDivision || '').trim().toLowerCase(),
+                    rewardAmount: Number(data.rewardAmount || UNIVERSE_REFERRAL_REWARD_AMOUNT) || UNIVERSE_REFERRAL_REWARD_AMOUNT,
+                    currency: String(data.currency || UNIVERSE_REFERRAL_REWARD_CURRENCY).trim().toUpperCase(),
+                    capturedAt: String(data.capturedAt || '').trim(),
+                    qualifiedAt: String(data.qualifiedAt || '').trim(),
+                    rewardCreatedAt: String(data.rewardCreatedAt || '').trim(),
+                    payoutRecordId: String(data.payoutRecordId || '').trim()
+                };
+            })
+            .sort((a, b) => String(b.capturedAt || '').localeCompare(String(a.capturedAt || '')));
+
+        const total = referrals.length;
+        const pending = referrals.filter((item) => item.status === 'pending').length;
+        const qualified = referrals.filter((item) => ['qualified', 'reward_created'].includes(item.status)).length;
+        const rewardCreated = referrals.filter((item) => item.rewardStatus === 'created' || item.status === 'reward_created').length;
+        const totalEarned = referrals
+            .filter((item) => item.rewardStatus === 'created' || item.status === 'reward_created')
+            .reduce((sum, item) => sum + (Number(item.rewardAmount) || 0), 0);
+
+        const baseUrl = buildUniverseReferralBaseUrl(req);
+        const referralLink = baseUrl && referralCode
+            ? `${baseUrl}/?ref=${encodeURIComponent(referralCode)}`
+            : `/?ref=${encodeURIComponent(referralCode)}`;
+
+        return res.json({
+            success: true,
+            referral: {
+                code: referralCode,
+                link: referralLink,
+                status: String(universeReferral?.status || 'active').trim() || 'active',
+                rewardAmount: UNIVERSE_REFERRAL_REWARD_AMOUNT,
+                currency: UNIVERSE_REFERRAL_REWARD_CURRENCY
+            },
+            stats: {
+                total,
+                pending,
+                qualified,
+                rewardCreated,
+                totalEarned,
+                currency: UNIVERSE_REFERRAL_REWARD_CURRENCY
+            },
+            referrals: referrals.slice(0, 25)
+        });
+    } catch (error) {
+        console.error('getMyUniverseReferrals error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load Universe referrals.'
+        });
+    }
 };
 exports.forgotPassword = async (req, res) => {
     try {

@@ -45,6 +45,7 @@ router.post('/reset-password', authController.resetPassword);
 // ==========================================
 router.get('/universe/profile', auth, academyControllers.getUniverseProfile);
 router.get('/universe/profile/:targetUserId', auth, academyControllers.getUniverseMemberProfile);
+router.get('/universe/referrals/me', auth, authController.getMyUniverseReferrals);
 
 // ==========================================
 // 🗂️ YH UNIVERSE COLLECTIONS / RESOURCES ROUTES
