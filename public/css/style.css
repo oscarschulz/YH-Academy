@@ -748,9 +748,9 @@ h3 { font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem; color: var(--ne
 .notif-badge { position: absolute; top: -2px; right: -2px; background: #ef4444; color: #fff; font-size: 0.6rem; font-weight: bold; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; border-radius: 50%; border: 2px solid #0f172a; }
 .notif-dropdown {
     position: fixed;
-    top: 128px;
-    right: 20px;
-    left: auto;
+    top: 0;
+    right: auto;
+    left: 0;
     width: min(340px, calc(100vw - 28px));
     max-width: calc(100vw - 28px);
     max-height: calc(100vh - 150px);
@@ -5717,7 +5717,7 @@ body.academy-launcher-open {
 
 .yh-resources-menu-panel {
     position: fixed;
-    top: 128px;
+    top: 0;
     right: clamp(14px, 1.6vw, 28px);
     width: min(340px, calc(100vw - 28px));
     max-height: calc(100vh - 150px);

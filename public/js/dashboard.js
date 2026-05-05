@@ -6472,17 +6472,21 @@ function positionDashboardNotificationDropdown() {
     const viewportPad = 14;
     const panelWidth = Math.min(340, Math.max(280, window.innerWidth - (viewportPad * 2)));
 
-    const preferredLeft = bellRect.right - panelWidth;
+    const anchorRight = bellRect.left + (bellRect.width / 2);
+    const preferredLeft = anchorRight - panelWidth;
     const maxLeft = Math.max(viewportPad, window.innerWidth - panelWidth - viewportPad);
     const left = Math.min(Math.max(viewportPad, preferredLeft), maxLeft);
-    const top = Math.max(82, Math.min(bellRect.bottom + 8, window.innerHeight - 120));
+
+    const preferredTop = bellRect.bottom + 6;
+    const maxTop = Math.max(viewportPad, window.innerHeight - 120);
+    const top = Math.min(Math.max(viewportPad, preferredTop), maxTop);
 
     notifDropdown.style.position = 'fixed';
     notifDropdown.style.top = `${top}px`;
     notifDropdown.style.left = `${left}px`;
     notifDropdown.style.right = 'auto';
     notifDropdown.style.width = `min(340px, calc(100vw - 28px))`;
-    notifDropdown.style.maxHeight = `calc(100vh - ${top + 16}px)`;
+    notifDropdown.style.maxHeight = `calc(100vh - ${top + 14}px)`;
     notifDropdown.style.zIndex = '2147483003';
     notifDropdown.style.pointerEvents = 'auto';
 }
@@ -7180,17 +7184,20 @@ if (resourcesMenu && resourcesMenuBtn && resourcesMenuPanel) {
         const viewportPad = 14;
         const panelWidth = Math.min(340, Math.max(280, window.innerWidth - (viewportPad * 2)));
 
-        const preferredRight = Math.max(viewportPad, window.innerWidth - btnRect.right);
-        const maxRight = Math.max(viewportPad, window.innerWidth - panelWidth - viewportPad);
-        const right = Math.min(Math.max(viewportPad, preferredRight), maxRight);
-        const top = Math.max(82, Math.min(btnRect.bottom + 8, window.innerHeight - 120));
+        const preferredLeft = btnRect.right - panelWidth;
+        const maxLeft = Math.max(viewportPad, window.innerWidth - panelWidth - viewportPad);
+        const left = Math.min(Math.max(viewportPad, preferredLeft), maxLeft);
+
+        const preferredTop = btnRect.bottom + 6;
+        const maxTop = Math.max(viewportPad, window.innerHeight - 120);
+        const top = Math.min(Math.max(viewportPad, preferredTop), maxTop);
 
         resourcesMenuPanel.style.position = 'fixed';
         resourcesMenuPanel.style.top = `${top}px`;
-        resourcesMenuPanel.style.right = `${right}px`;
-        resourcesMenuPanel.style.left = 'auto';
+        resourcesMenuPanel.style.left = `${left}px`;
+        resourcesMenuPanel.style.right = 'auto';
         resourcesMenuPanel.style.width = `min(340px, calc(100vw - 28px))`;
-        resourcesMenuPanel.style.maxHeight = `calc(100vh - ${top + 16}px)`;
+        resourcesMenuPanel.style.maxHeight = `calc(100vh - ${top + 14}px)`;
         resourcesMenuPanel.style.zIndex = '32001';
         resourcesMenuPanel.style.pointerEvents = 'auto';
     };
