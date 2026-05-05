@@ -138,6 +138,51 @@ function showToast(message, type = "success") {
     }, 3000);
 }
 const YH_POST_LOGIN_DASHBOARD_BOOTSTRAP_KEY = 'yh_post_login_dashboard_bootstrap_v1';
+const YH_UNIVERSE_REFERRAL_CODE_KEY = 'yh_universe_referral_code_v1';
+
+function normalizeYHUniverseReferralCode(value = '') {
+    return String(value || '')
+        .trim()
+        .toUpperCase()
+        .replace(/[^A-Z0-9_-]+/g, '')
+        .slice(0, 48);
+}
+
+function captureYHUniverseReferralFromUrl() {
+    try {
+        const url = new URL(window.location.href);
+        const referralCode = normalizeYHUniverseReferralCode(
+            url.searchParams.get('ref') ||
+            url.searchParams.get('referral') ||
+            url.searchParams.get('referralCode') ||
+            ''
+        );
+
+        if (!referralCode) return '';
+
+        sessionStorage.setItem(YH_UNIVERSE_REFERRAL_CODE_KEY, referralCode);
+        localStorage.setItem(YH_UNIVERSE_REFERRAL_CODE_KEY, referralCode);
+
+        return referralCode;
+    } catch (_) {
+        return '';
+    }
+}
+
+function getYHUniverseReferralCode() {
+    return normalizeYHUniverseReferralCode(
+        sessionStorage.getItem(YH_UNIVERSE_REFERRAL_CODE_KEY) ||
+        localStorage.getItem(YH_UNIVERSE_REFERRAL_CODE_KEY) ||
+        ''
+    );
+}
+
+function clearYHUniverseReferralCode() {
+    try {
+        sessionStorage.removeItem(YH_UNIVERSE_REFERRAL_CODE_KEY);
+        localStorage.removeItem(YH_UNIVERSE_REFERRAL_CODE_KEY);
+    } catch (_) {}
+}
 
 function showPostLoginTransitionLoader(label = 'Syncing your access and preparing your dashboard...') {
     const loader = document.getElementById('yh-post-login-loader');
@@ -1297,6 +1342,8 @@ async function initLandingMapShell() {
 }
 
 window.addEventListener('load', () => {
+    captureYHUniverseReferralFromUrl();
+
     // Prevent landing-page redirect loops caused by stale browser auth flags.
     // The server-side /dashboard cookie gate is now the source of truth.
     localStorage.removeItem('yh_user_loggedIn');
@@ -2110,6 +2157,7 @@ if (formRegisterSimple) {
         const city = document.getElementById('reg-city').value.trim();
         const country = document.getElementById('reg-country').value.trim();
         const profilePhotoFile = document.getElementById('reg-profile-photo')?.files?.[0] || null;
+        const referralCode = getYHUniverseReferralCode();
 
         if (password !== confirmPassword) {
             showToast("Passwords do not match.", "error");
@@ -2155,7 +2203,8 @@ if (formRegisterSimple) {
                     city,
                     country,
                     password,
-                    profilePhotoDataUrl
+                    profilePhotoDataUrl,
+                    referralCode
                 })
             });
 
@@ -2166,6 +2215,7 @@ if (formRegisterSimple) {
                 localStorage.setItem('yh_pending_profile_avatar', profilePhotoDataUrl);
 
                 clearPendingVerifyEmail();
+                clearYHUniverseReferralCode();
 
                 if (loginEmailInput) {
                     loginEmailInput.value = email;
