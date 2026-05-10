@@ -887,6 +887,60 @@
                   </div>
                   <div class="yh-plaza-screen-meta" id="plazaMessagesMeta"></div>
                 </div>
+                <section class="yh-plaza-cross-division-panel" aria-labelledby="plazaBusinessConversationTitle">
+                  <div class="yh-plaza-cross-division-head">
+                    <div>
+                      <span class="yh-plaza-section-kicker">Business Bridge</span>
+                      <h3 id="plazaBusinessConversationTitle">Start a cross-division business conversation</h3>
+                      <p class="yh-plaza-panel-note">
+                        Search Academy, Plaza, and Federation members, then open a structured business chat from Plaza.
+                      </p>
+                    </div>
+                  </div>
+
+                  <form class="yh-plaza-cross-division-form" id="plazaBusinessMemberSearchForm">
+                    <label class="yh-plaza-feed-composer-field">
+                      <span>Search member</span>
+                      <input id="plazaBusinessMemberSearchInput" name="q" type="search" placeholder="Name, role, city, skill, or division" maxlength="120" />
+                    </label>
+
+                    <label class="yh-plaza-feed-composer-field">
+                      <span>Division</span>
+                      <select id="plazaBusinessMemberDivisionFilter" name="division">
+                        <option value="all">All divisions</option>
+                        <option value="academy">Academy</option>
+                        <option value="plaza">Plaza</option>
+                        <option value="federation">Federation</option>
+                      </select>
+                    </label>
+
+                    <label class="yh-plaza-feed-composer-field">
+                      <span>Business purpose</span>
+                      <select id="plazaBusinessPurposeSelect" name="businessPurpose">
+                        <option value="Business collaboration">Business collaboration</option>
+                        <option value="Partnership">Partnership</option>
+                        <option value="Service request">Service request</option>
+                        <option value="Investment or deal flow">Investment or deal flow</option>
+                        <option value="Introduction request">Introduction request</option>
+                        <option value="Hiring or project work">Hiring or project work</option>
+                      </select>
+                    </label>
+
+                    <label class="yh-plaza-feed-composer-field yh-plaza-feed-composer-field-wide yh-plaza-feed-composer-field-signal">
+                      <span>Opening message</span>
+                      <textarea id="plazaBusinessInitialMessage" name="message" placeholder="Write the business reason for opening this conversation." maxlength="1200"></textarea>
+                    </label>
+
+                    <div class="yh-plaza-feed-composer-actions">
+                      <button type="submit" class="yh-plaza-btn yh-plaza-btn-secondary" id="plazaBusinessMemberSearchBtn">Search Members</button>
+                    </div>
+                  </form>
+
+                  <div class="yh-plaza-cross-division-results" id="plazaBusinessMemberResults">
+                    <div class="yh-plaza-empty-subtle">Search for a member to open a cross-division business conversation.</div>
+                  </div>
+                </section>
+
                 <div class="yh-plaza-request-list" id="plazaMessagesList"></div>
               </div>
             </section>

@@ -405,6 +405,104 @@ function getViewerFromRequest(req) {
         )
     };
 }
+
+function normalizeCrossDivisionLabel(value = '') {
+    const raw = sanitizeText(value).toLowerCase();
+    if (raw === 'academy' || raw === 'yha' || raw === 'academy_member') return 'academy';
+    if (raw === 'plaza' || raw === 'plazas' || raw === 'plaza_member') return 'plaza';
+    if (raw === 'federation' || raw === 'yhf' || raw === 'federation_member') return 'federation';
+    if (raw === 'all' || raw === 'any') return 'all';
+    return '';
+}
+
+function inferUserPrimaryDivision(user = {}) {
+    const explicit = normalizeCrossDivisionLabel(
+        user.primaryDivision ||
+        user.division ||
+        user.memberDivision ||
+        user.activeDivision ||
+        ''
+    );
+
+    if (explicit && explicit !== 'all') return explicit;
+
+    const plazaStatus = sanitizeText(
+        user.plazaAccessStatus ||
+        user.plazaMembershipStatus ||
+        user.plazaApplicationStatus ||
+        user.plazaApplication?.status ||
+        ''
+    ).toLowerCase();
+
+    if (user.hasPlazaAccess === true || plazaStatus === 'approved') return 'plaza';
+
+    const federationStatus = sanitizeText(
+        user.federationMembershipStatus ||
+        user.federationApplicationStatus ||
+        user.federationApplication?.status ||
+        ''
+    ).toLowerCase();
+
+    if (user.hasFederationAccess === true || federationStatus === 'approved') return 'federation';
+
+    return 'academy';
+}
+
+function getCrossDivisionPublicAvatar(user = {}) {
+    return sanitizeText(
+        user.avatar ||
+        user.avatarUrl ||
+        user.avatar_url ||
+        user.profilePhoto ||
+        user.profile_photo ||
+        user.photoURL ||
+        user.photoUrl ||
+        ''
+    );
+}
+
+function buildCrossDivisionSearchText(user = {}, id = '') {
+    return [
+        id,
+        user.username,
+        user.name,
+        user.fullName,
+        user.displayName,
+        user.email,
+        user.role,
+        user.roleLabel,
+        user.federationRole,
+        user.profession,
+        user.city,
+        user.country,
+        user.countryOfResidence,
+        user.headline,
+        user.bio
+    ].map((item) => sanitizeText(item).toLowerCase()).filter(Boolean).join(' ');
+}
+
+function mapCrossDivisionBusinessMemberDoc(docSnap) {
+    const data = docSnap.data() || {};
+    const division = inferUserPrimaryDivision(data);
+    const name = sanitizeText(data.fullName || data.name || data.displayName || data.username || 'YH Member');
+    const role = sanitizeText(data.roleLabel || data.role || data.federationRole || data.profession || data.headline || 'YH Universe Member');
+    const location = [
+        sanitizeText(data.city || data.currentCity || ''),
+        sanitizeText(data.country || data.countryOfResidence || '')
+    ].filter(Boolean).join(', ');
+
+    return {
+        id: docSnap.id,
+        name,
+        username: sanitizeText(data.username || '').replace(/^@+/, ''),
+        division,
+        divisionLabel: division.charAt(0).toUpperCase() + division.slice(1),
+        role,
+        location,
+        avatar: getCrossDivisionPublicAvatar(data),
+        headline: sanitizeText(data.headline || data.bio || role).slice(0, 180)
+    };
+}
 function normalizePatronPrivilegeList(value = []) {
     if (!Array.isArray(value)) return [];
 
@@ -3816,6 +3914,56 @@ exports.createMeetup = async (req, res) => {
         });
     }
 };
+
+exports.getBusinessMembers = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+
+        if (!viewer.id) {
+            return res.status(401).json({ success: false, message: 'Missing authenticated user.' });
+        }
+
+        const requestedDivision = normalizeCrossDivisionLabel(req.query.division || 'all') || 'all';
+        const search = sanitizeText(req.query.q || req.query.search || '').toLowerCase();
+        const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 80, 1), 120);
+        const snap = await usersCol.limit(450).get();
+        const members = [];
+
+        snap.forEach((docSnap) => {
+            if (docSnap.id === viewer.id) return;
+
+            const data = docSnap.data() || {};
+            const recordStatus = sanitizeText(data.recordStatus || data.status || 'active').toLowerCase();
+
+            if (recordStatus === 'deleted' || recordStatus === 'banned' || recordStatus === 'suspended') return;
+
+            const member = mapCrossDivisionBusinessMemberDoc(docSnap);
+
+            if (requestedDivision !== 'all' && member.division !== requestedDivision) return;
+            if (search && !buildCrossDivisionSearchText(data, docSnap.id).includes(search)) return;
+
+            members.push(member);
+        });
+
+        members.sort((left, right) => {
+            const order = { plaza: 0, federation: 1, academy: 2 };
+            const leftOrder = order[left.division] ?? 9;
+            const rightOrder = order[right.division] ?? 9;
+
+            if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+            return String(left.name || '').localeCompare(String(right.name || ''));
+        });
+
+        return res.json({ success: true, members: members.slice(0, limit) });
+    } catch (error) {
+        console.error('plazaControllers.getBusinessMembers error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load cross-division business members.'
+        });
+    }
+};
+
 exports.getMessages = async (req, res) => {
     try {
         const viewer = getViewerFromRequest(req);
@@ -4005,6 +4153,171 @@ exports.createConversationFromRegion = async (req, res) => {
         });
     }
 };
+
+exports.createConversationFromBusinessMember = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+        const targetUserId = sanitizeText(req.params.targetUserId || req.body?.targetUserId);
+        const businessPurpose = clampText(
+            req.body?.businessPurpose ||
+            req.body?.purpose ||
+            'Business collaboration',
+            140,
+            'Business collaboration'
+        );
+
+        const initialMessage = clampText(req.body?.message || req.body?.initialMessage || '', 1200);
+
+        if (!viewer.id) {
+            return res.status(401).json({ success: false, message: 'Missing authenticated user.' });
+        }
+
+        if (!targetUserId) {
+            return res.status(400).json({ success: false, message: 'Target member id is required.' });
+        }
+
+        if (targetUserId === viewer.id) {
+            return res.status(400).json({
+                success: false,
+                message: 'You cannot open a business conversation with yourself.'
+            });
+        }
+
+        const targetSnap = await usersCol.doc(targetUserId).get();
+
+        if (!targetSnap.exists) {
+            return res.status(404).json({ success: false, message: 'Target member was not found.' });
+        }
+
+        const targetUser = targetSnap.data() || {};
+        const targetName = sanitizeText(
+            targetUser.fullName ||
+            targetUser.name ||
+            targetUser.displayName ||
+            targetUser.username ||
+            'YH Member'
+        );
+
+        const viewerName = sanitizeText(viewer.name || viewer.username || 'Hustler');
+        const targetRole = sanitizeText(
+            targetUser.roleLabel ||
+            targetUser.role ||
+            targetUser.federationRole ||
+            targetUser.profession ||
+            targetUser.headline ||
+            'YH Universe Member'
+        );
+
+        const targetDivision = inferUserPrimaryDivision(targetUser);
+        const targetLocation = sanitizeText(
+            targetUser.city ||
+            targetUser.currentCity ||
+            targetUser.country ||
+            targetUser.countryOfResidence ||
+            'YH Universe'
+        );
+
+        const participantKey = [viewer.id, targetUserId].sort().join('_');
+        const conversationId = 'business_' + participantKey;
+        const conversationRef = plazaConversationsCol.doc(conversationId);
+        const conversationSnap = await conversationRef.get();
+        const nowIso = new Date().toISOString();
+
+        if (!conversationSnap.exists) {
+            await conversationRef.set({
+                title: 'Plaza Business Chat: ' + viewerName + ' ↔ ' + targetName,
+                queueRole: 'personal',
+                linkedRequestId: '',
+                linkedInboxId: '',
+                targetLabel: targetName,
+                targetId: targetUserId,
+                contextTitle: targetRole + ' • ' + targetLocation,
+                contextRoute: 'Cross-Division Business Conversation',
+                scope: 'cross_division_business',
+                sourceDivision: 'plaza',
+                targetDivision,
+                businessPurpose,
+                participantDivisions: {
+                    [viewer.id]: 'plaza',
+                    [targetUserId]: targetDivision
+                },
+                participantRoles: {
+                    [viewer.id]: 'Plaza member',
+                    [targetUserId]: targetRole
+                },
+                participants: [viewerName, targetName].filter(Boolean),
+                participantIds: [viewer.id, targetUserId]
+                    .filter(Boolean)
+                    .filter((value, index, arr) => arr.indexOf(value) === index),
+                status: 'active',
+                messages: [
+                    {
+                        id: 'message-' + Date.now() + '-system',
+                        sender: 'Plaza System',
+                        type: 'system',
+                        text:
+                            'Cross-division business conversation opened from Plaza. Purpose: ' +
+                            businessPurpose +
+                            '. Target: ' +
+                            targetName +
+                            ' (' +
+                            targetDivision +
+                            ').',
+                        createdAt: nowIso
+                    },
+                    ...(initialMessage
+                        ? [{
+                            id: 'message-' + Date.now() + '-intro',
+                            sender: viewerName,
+                            type: 'message',
+                            text: initialMessage,
+                            createdAt: nowIso
+                        }]
+                        : [])
+                ],
+                authorId: viewer.id,
+                authorFirebaseUid: viewer.firebaseUid,
+                authorEmail: sanitizeText(viewer.email).toLowerCase(),
+                authorName: viewerName,
+                recordStatus: 'active',
+                createdAt: Timestamp.now(),
+                updatedAt: Timestamp.now()
+            }, { merge: true });
+        } else if (initialMessage) {
+            const existing = conversationSnap.data() || {};
+            const messages = normalizeConversationMessages(existing.messages);
+
+            messages.push({
+                id: 'message-' + Date.now() + '-business-intro',
+                sender: viewerName,
+                type: 'message',
+                text: initialMessage,
+                createdAt: nowIso
+            });
+
+            await conversationRef.set({
+                businessPurpose,
+                scope: sanitizeText(existing.scope || 'cross_division_business'),
+                messages,
+                updatedAt: Timestamp.now()
+            }, { merge: true });
+        }
+
+        const updatedSnap = await conversationRef.get();
+
+        return res.status(conversationSnap.exists ? 200 : 201).json({
+            success: true,
+            conversation: mapPlazaConversationDoc(updatedSnap)
+        });
+    } catch (error) {
+        console.error('plazaControllers.createConversationFromBusinessMember error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to open cross-division business conversation.'
+        });
+    }
+};
+
 exports.createConversationFromMember = async (req, res) => {
     try {
         const viewer = getViewerFromRequest(req);

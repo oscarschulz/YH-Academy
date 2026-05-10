@@ -7252,7 +7252,23 @@ app.get(['/api/universe/profile', '/api/academy/profile'], requireApiUser, async
     }
 });
 
-app.use('/api/plaza', requireApiUser, requirePlazaApiAccess);
+function isCrossDivisionPlazaMessageParticipantRoute(req) {
+    const method = sanitizeText(req.method).toUpperCase();
+    const urlPath = sanitizeText(req.path || req.url || '').split('?')[0];
+
+    if (method === 'GET' && urlPath === '/messages') return true;
+    if (method === 'POST' && /^\/messages\/[^/]+\/replies$/.test(urlPath)) return true;
+
+    return false;
+}
+
+app.use('/api/plaza', requireApiUser, (req, res, next) => {
+    if (isCrossDivisionPlazaMessageParticipantRoute(req)) {
+        return next();
+    }
+
+    return requirePlazaApiAccess(req, res, next);
+});
 app.use('/api', apiRoutes);
 app.post('/api/realtime/live-rooms/:roomId/join', requireApiUser, async (req, res) => {
     try {

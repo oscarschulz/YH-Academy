@@ -287,6 +287,9 @@ const plazaRequestAutosaveState = {
 let plazaServerMessagesLoaded = false;
 let plazaServerMessages = [];
 let plazaMessagesLoading = false;
+let plazaBusinessMembersLoaded = false;
+let plazaBusinessMembers = [];
+let plazaBusinessMembersLoading = false;
 
 let plazaServerMeetupsLoaded = false;
 let plazaServerMeetups = [];
@@ -2373,6 +2376,115 @@ async function createPlazaMeetup(payload = {}) {
 
   return meetup;
 }
+function normalizeBusinessMemberItem(item = {}, index = 0) {
+  return {
+    id: String(item && item.id || 'business-member-' + (index + 1)),
+    name: String(item && item.name || 'YH Member'),
+    username: String(item && item.username || '').replace(/^@+/, ''),
+    division: String(item && item.division || 'academy'),
+    divisionLabel: String(item && (item.divisionLabel || item.division) || 'Academy'),
+    role: String(item && item.role || 'YH Universe Member'),
+    location: String(item && item.location || ''),
+    avatar: String(item && item.avatar || ''),
+    headline: String(item && (item.headline || item.role) || '')
+  };
+}
+
+function getPlazaBusinessPurpose() {
+  return String(plazaBusinessPurposeSelect && plazaBusinessPurposeSelect.value || 'Business collaboration').trim() || 'Business collaboration';
+}
+
+function getPlazaBusinessInitialMessage() {
+  const message = String(plazaBusinessInitialMessage && plazaBusinessInitialMessage.value || '').trim();
+  const purpose = getPlazaBusinessPurpose();
+  return message || 'I am opening this Plaza business conversation for: ' + purpose;
+}
+
+function renderPlazaBusinessMemberResults() {
+  if (!plazaBusinessMemberResults) return;
+
+  if (plazaBusinessMembersLoading) {
+    plazaBusinessMemberResults.innerHTML = '<div class="yh-plaza-empty-subtle">Searching cross-division members...</div>';
+    return;
+  }
+
+  plazaBusinessMemberResults.innerHTML = plazaBusinessMembers.length
+    ? plazaBusinessMembers.map((member) => {
+        const initial = escapeHtml((member.name || 'Y').charAt(0).toUpperCase());
+        const avatarStyle = member.avatar
+          ? ' style="background-image:url(\'' + escapeHtml(member.avatar) + '\')"'
+          : '';
+
+        const meta = [member.divisionLabel, member.location].filter(Boolean).join(' • ');
+
+        return '<article class="yh-plaza-business-member-card">' +
+          '<div class="yh-plaza-business-member-main">' +
+            '<div class="yh-plaza-business-member-avatar"' + avatarStyle + '>' + (member.avatar ? '' : initial) + '</div>' +
+            '<div>' +
+              '<strong>' + escapeHtml(member.name) + '</strong>' +
+              '<span>' + escapeHtml(member.role) + '</span>' +
+              '<small>' + escapeHtml(meta) + '</small>' +
+              (member.headline ? '<p>' + escapeHtml(member.headline) + '</p>' : '') +
+            '</div>' +
+          '</div>' +
+          '<button type="button" class="yh-plaza-btn yh-plaza-btn-primary" data-plaza-business-message="' + escapeHtml(member.id) + '">Open Business Chat</button>' +
+        '</article>';
+      }).join('')
+    : '<div class="yh-plaza-empty-subtle">No matching members found yet. Try a broader search.</div>';
+}
+
+async function loadPlazaBusinessMembers(options = {}) {
+  const query = String(options.q ?? (plazaBusinessMemberSearchInput && plazaBusinessMemberSearchInput.value) ?? '').trim();
+  const division = String(options.division ?? (plazaBusinessMemberDivisionFilter && plazaBusinessMemberDivisionFilter.value) ?? 'all').trim() || 'all';
+
+  plazaBusinessMembersLoading = true;
+  renderPlazaBusinessMemberResults();
+
+  try {
+    const params = new URLSearchParams({ q: query, division, limit: '80' });
+    const result = await plazaApiFetch('/api/plaza/business-members?' + params.toString());
+    const members = Array.isArray(result.members) ? result.members : [];
+
+    plazaBusinessMembers = members.map(normalizeBusinessMemberItem);
+    plazaBusinessMembersLoaded = true;
+    renderPlazaBusinessMemberResults();
+    return plazaBusinessMembers;
+  } catch (error) {
+    console.error('loadPlazaBusinessMembers error:', error);
+    plazaBusinessMembers = [];
+    if (plazaBusinessMemberResults) {
+      plazaBusinessMemberResults.innerHTML = '<div class="yh-plaza-empty-subtle">Could not load cross-division members. Please try again.</div>';
+    }
+    return [];
+  } finally {
+    plazaBusinessMembersLoading = false;
+    renderPlazaBusinessMemberResults();
+  }
+}
+
+async function createPlazaConversationFromBusinessMember(targetUserId = '', initialMessage = '') {
+  const cleanId = String(targetUserId || '').trim();
+
+  if (!cleanId) throw new Error('Target business member is missing.');
+
+  const result = await plazaApiFetch('/api/plaza/messages/from-business-member/' + encodeURIComponent(cleanId), {
+    method: 'POST',
+    body: JSON.stringify({
+      businessPurpose: getPlazaBusinessPurpose(),
+      message: initialMessage || getPlazaBusinessInitialMessage()
+    })
+  });
+
+  const conversation = result.conversation ? normalizeServerConversationItem(result.conversation) : null;
+
+  if (conversation) {
+    plazaServerMessages = [conversation, ...plazaServerMessages.filter((item) => item.id !== conversation.id)];
+    plazaServerMessagesLoaded = true;
+  }
+
+  return conversation;
+}
+
 async function createPlazaConversationFromMember(targetUserId = "", initialMessage = "") {
   const cleanId = String(targetUserId || "").trim();
 
@@ -4539,6 +4651,12 @@ const plazaNotificationRoleFilters = document.getElementById("plazaNotificationR
 const plazaNotificationsList = document.getElementById("plazaNotificationsList");
 const plazaMessagesMeta = document.getElementById("plazaMessagesMeta");
 const plazaMessagesList = document.getElementById("plazaMessagesList");
+const plazaBusinessMemberSearchForm = document.getElementById("plazaBusinessMemberSearchForm");
+const plazaBusinessMemberSearchInput = document.getElementById("plazaBusinessMemberSearchInput");
+const plazaBusinessMemberDivisionFilter = document.getElementById("plazaBusinessMemberDivisionFilter");
+const plazaBusinessPurposeSelect = document.getElementById("plazaBusinessPurposeSelect");
+const plazaBusinessInitialMessage = document.getElementById("plazaBusinessInitialMessage");
+const plazaBusinessMemberResults = document.getElementById("plazaBusinessMemberResults");
 
 const plazaAtlasSummary = document.getElementById("plazaAtlasSummary");
 const plazaAtlasGrid = document.getElementById("plazaAtlasGrid");
@@ -6810,9 +6928,12 @@ function renderMessagesScreen() {
 
   if (plazaMessagesMeta) {
     plazaMessagesMeta.innerHTML = [
-      `${items.length} live conversations`
+      `${items.length} live conversations`,
+      "Cross-division business bridge"
     ].map((item) => `<span class="yh-plaza-view-chip">${escapeHtml(item)}</span>`).join("");
   }
+
+  renderPlazaBusinessMemberResults();
 
   if (!plazaMessagesList) return;
   plazaMessagesList.innerHTML = items.length
@@ -8637,6 +8758,23 @@ if (plazaMarkPaidBtn instanceof HTMLButtonElement) {
   document.addEventListener("submit", async (event) => {
     const form = event.target;
     if (!(form instanceof HTMLFormElement)) return;
+
+    if (form.id === "plazaBusinessMemberSearchForm") {
+      event.preventDefault();
+      const submitButton = event.submitter instanceof HTMLButtonElement ? event.submitter : null;
+
+      await runLockedButtonAction(
+        "form:plazaBusinessMemberSearchForm",
+        submitButton,
+        "Searching...",
+        async () => {
+          await loadPlazaBusinessMembers();
+          showToast("Cross-division member search updated.");
+        }
+      );
+
+      return;
+    }
 
     if (form.id === "plaza-payment-ledger-form") {
       event.preventDefault();
