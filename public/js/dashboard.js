@@ -7393,8 +7393,43 @@ const updateNotificationBadgeUi = (notifications = []) => {
     notifBadge.innerText = String(unreadCount);
 };
 
-const openNotificationTarget = (target = '') => {
+const openNotificationTarget = (target = '', targetId = '') => {
     const normalized = String(target || '').trim().toLowerCase();
+
+    if (
+        normalized === 'business-chats' ||
+        normalized === 'business_chats' ||
+        normalized === 'business-chat' ||
+        normalized === 'business_chat' ||
+        normalized === 'plaza-business-chat' ||
+        normalized === 'plaza_business_chat'
+    ) {
+        if (typeof openYHBusinessChatModal === 'function') {
+            openYHBusinessChatModal();
+
+            if (typeof refreshYHBusinessChats === 'function') {
+                refreshYHBusinessChats(true, { silent: true }).then(() => {
+                    const cleanTargetId = String(targetId || '').trim();
+
+                    if (
+                        cleanTargetId &&
+                        typeof openYHBusinessConversation === 'function'
+                    ) {
+                        openYHBusinessConversation(cleanTargetId);
+                    }
+                }).catch(() => {});
+            }
+
+            return;
+        }
+
+        try {
+            sessionStorage.setItem('yh_open_business_chats_on_dashboard_v1', '1');
+        } catch (_) {}
+
+        window.location.href = '/dashboard?businessChats=1';
+        return;
+    }
 
     if (normalized === 'wallet' || normalized === 'economy' || normalized === 'payout') {
         if (typeof openYHWalletModal === 'function') {
@@ -7599,7 +7634,7 @@ const renderRealtimeNotifications = (notifications = []) => {
             }
 
             notifDropdown?.classList.remove('show');
-            openNotificationTarget(target);
+            openNotificationTarget(target, notification.targetId || notification.target_id || '');
         });
 
         notifListContainer.appendChild(li);
@@ -7607,6 +7642,85 @@ const renderRealtimeNotifications = (notifications = []) => {
 
     updateNotificationBadgeUi(list);
 };
+
+function isYHBusinessChatNotification(notification = {}) {
+    const source = String(notification?.source || '').trim().toLowerCase();
+    const target = String(notification?.target || '').trim().toLowerCase();
+    const type = String(
+        notification?.notificationType ||
+        notification?.notification_type ||
+        notification?.type ||
+        ''
+    ).trim().toLowerCase();
+
+    return (
+        source === 'business-chat' ||
+        source === 'plaza-business-chat' ||
+        target === 'business-chats' ||
+        target === 'business_chat' ||
+        type === 'business-chat' ||
+        type === 'plaza-business-chat'
+    );
+}
+
+function getYHBusinessConversationLatestMessage(conversation = {}) {
+    const messages = Array.isArray(conversation.messages) ? conversation.messages : [];
+    return messages[messages.length - 1] || null;
+}
+
+function buildYHBusinessChatDashboardNotifications() {
+    try {
+        if (
+            typeof yhBusinessChatState === 'undefined' ||
+            !yhBusinessChatState ||
+            !Array.isArray(yhBusinessChatState.conversations)
+        ) {
+            return [];
+        }
+
+        const lastSeenTs =
+            typeof getYHBusinessLastSeenTs === 'function'
+                ? getYHBusinessLastSeenTs()
+                : 0;
+
+        return yhBusinessChatState.conversations
+            .map((conversation) => {
+                const latestMessage = getYHBusinessConversationLatestMessage(conversation);
+                const updatedTs =
+                    typeof getYHBusinessConversationUpdatedTs === 'function'
+                        ? getYHBusinessConversationUpdatedTs(conversation)
+                        : new Date(conversation.updatedAt || conversation.createdAt || '').getTime();
+
+                const createdAt = Number.isFinite(updatedTs) && updatedTs > 0
+                    ? new Date(updatedTs).toISOString()
+                    : String(conversation.updatedAt || conversation.createdAt || new Date().toISOString());
+
+                const title = 'Business Chat Update';
+                const businessTitle = String(conversation.title || 'Plaza business conversation').trim();
+                const latestText = String(latestMessage?.text || conversation.businessPurpose || 'Open your Business Chats to review this Plaza conversation.').trim();
+
+                return normalizeRealtimeNotification({
+                    id: 'business-chat-' + String(conversation.id || businessTitle).replace(/[^a-zA-Z0-9_-]+/g, '-'),
+                    notificationId: 'business-chat-' + String(conversation.id || businessTitle).replace(/[^a-zA-Z0-9_-]+/g, '-'),
+                    source: 'business-chat',
+                    notificationType: 'business-chat',
+                    title,
+                    text: businessTitle + (latestText ? ': ' + latestText.slice(0, 120) : ''),
+                    avatarStr: '💬',
+                    color: 'linear-gradient(135deg, rgba(34,197,94,0.95), rgba(56,189,248,0.88))',
+                    target: 'business-chats',
+                    targetId: String(conversation.id || ''),
+                    createdAt,
+                    isRead: !(Number.isFinite(updatedTs) && updatedTs > lastSeenTs),
+                    read: !(Number.isFinite(updatedTs) && updatedTs > lastSeenTs)
+                });
+            })
+            .filter((item) => item.id);
+    } catch (error) {
+        console.warn('buildYHBusinessChatDashboardNotifications error:', error);
+        return [];
+    }
+}
 
 function isMemberSystemNotification(notification = {}) {
     const source = String(notification?.source || '').trim().toLowerCase();
@@ -7656,6 +7770,13 @@ async function loadRealtimeNotifications(forceFresh = false) {
     }
 
     try {
+        if (typeof refreshYHBusinessChats === 'function') {
+            await refreshYHBusinessChats(true, { silent: true }).catch((error) => {
+                console.warn('Business chat notification preload failed:', error);
+                return [];
+            });
+        }
+
         const [realtimeSettled, memberSettled] = await Promise.allSettled([
             academyAuthedFetch('/api/realtime/notifications', {
                 method: 'GET'
@@ -7675,8 +7796,13 @@ async function loadRealtimeNotifications(forceFresh = false) {
                     .map(normalizeRealtimeNotification)
                 : [];
 
+        const businessChatNotifications =
+            typeof buildYHBusinessChatDashboardNotifications === 'function'
+                ? buildYHBusinessChatDashboardNotifications()
+                : [];
+
         const notifications = mergeInProductNotifications(
-            realtimeNotifications,
+            [...realtimeNotifications, ...businessChatNotifications],
             memberNotifications
         );
 
@@ -7705,6 +7831,42 @@ async function markRealtimeNotificationRead(notificationId, rerender = true) {
         .find((item) => String(item?.id || item?.notificationId || '').trim() === normalizedId);
 
     try {
+        if (isYHBusinessChatNotification(matched)) {
+            if (typeof setYHBusinessLastSeenNow === 'function') {
+                setYHBusinessLastSeenNow();
+            }
+
+            const readAt = new Date().toISOString();
+
+            state.realtimeNotifications = current.map((item) => {
+                const normalizedItem = normalizeRealtimeNotification(item);
+                const itemId = String(normalizedItem?.id || normalizedItem?.notificationId || '').trim();
+
+                if (itemId !== normalizedId) return normalizedItem;
+
+                return {
+                    ...normalizedItem,
+                    isRead: true,
+                    is_read: true,
+                    read: true,
+                    readAt,
+                    read_at: readAt
+                };
+            });
+
+            if (typeof updateYHBusinessChatBadge === 'function') {
+                updateYHBusinessChatBadge();
+            }
+
+            if (rerender) {
+                renderRealtimeNotifications(state.realtimeNotifications);
+            } else {
+                updateNotificationBadgeUi(state.realtimeNotifications);
+            }
+
+            return;
+        }
+
         if (isMemberSystemNotification(matched)) {
             await academyAuthedFetch(`/api/member/system-notifications/${encodeURIComponent(normalizedId)}/read`, {
                 method: 'POST'
@@ -7749,7 +7911,14 @@ async function markAllRealtimeNotificationsRead() {
 
     try {
         const hasMemberSystemNotifications = current.some((item) => isMemberSystemNotification(item));
-        const hasRealtimeNotifications = current.some((item) => !isMemberSystemNotification(item));
+        const hasBusinessChatNotifications = current.some((item) => isYHBusinessChatNotification(item));
+        const hasRealtimeNotifications = current.some((item) => {
+            return !isMemberSystemNotification(item) && !isYHBusinessChatNotification(item);
+        });
+
+        if (hasBusinessChatNotifications && typeof setYHBusinessLastSeenNow === 'function') {
+            setYHBusinessLastSeenNow();
+        }
 
         const requests = [];
 
