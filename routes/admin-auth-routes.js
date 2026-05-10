@@ -1063,6 +1063,73 @@ function buildAdminMissionPlaybookTemplates() {
     }
   ];
 }
+
+function mapAdminBusinessChatReportDoc(docSnap) {
+  const data = docSnap.data() || {};
+
+  const messagesSnapshot = Array.isArray(data.messagesSnapshot)
+    ? data.messagesSnapshot.map((message) => ({
+        sender: cleanText(message?.sender || 'Member'),
+        type: cleanText(message?.type || 'message'),
+        text: cleanText(message?.text || ''),
+        createdAt: toIso(message?.createdAt) || cleanText(message?.createdAt || '')
+      }))
+    : [];
+
+  return {
+    id: docSnap.id,
+    conversationId: cleanText(data.conversationId),
+    conversationTitle: cleanText(data.conversationTitle || 'Plaza business conversation'),
+    reporterId: cleanText(data.reporterId),
+    reporterEmail: cleanText(data.reporterEmail).toLowerCase(),
+    reporterName: cleanText(data.reporterName || 'YH Member'),
+    reason: cleanText(data.reason || 'Reported business chat'),
+    details: cleanText(data.details || ''),
+    status: cleanText(data.status || data.reviewStatus || 'pending_review'),
+    reviewStatus: cleanText(data.reviewStatus || data.status || 'pending_review'),
+    adminNote: cleanText(data.adminNote || ''),
+    reviewedBy: cleanText(data.reviewedBy || ''),
+    reviewedAt: toIso(data.reviewedAt) || cleanText(data.reviewedAt || ''),
+    sourceDivision: cleanText(data.sourceDivision || ''),
+    targetDivision: cleanText(data.targetDivision || ''),
+    businessPurpose: cleanText(data.businessPurpose || ''),
+    participantIds: Array.isArray(data.participantIds)
+      ? data.participantIds.map((item) => cleanText(item)).filter(Boolean)
+      : [],
+    messagesSnapshot,
+    createdAt: toIso(data.createdAt) || cleanText(data.createdAt || ''),
+    updatedAt: toIso(data.updatedAt) || cleanText(data.updatedAt || data.createdAt || '')
+  };
+}
+
+async function buildAdminBusinessChatReportsSnapshot(limit = 160) {
+  try {
+    const snap = await firestore
+      .collection('plazaBusinessChatReports')
+      .limit(Math.max(1, Math.min(300, Number(limit) || 160)))
+      .get();
+
+    return snap.docs
+      .map((docSnap) => mapAdminBusinessChatReportDoc(docSnap))
+      .sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')));
+  } catch (error) {
+    console.error('buildAdminBusinessChatReportsSnapshot error:', error);
+    return [];
+  }
+}
+
+function buildAdminBusinessChatSystemMessage(text = '', adminName = 'admin') {
+  return {
+    id: 'message-' + Date.now() + '-admin-review-' + Math.random().toString(36).slice(2, 8),
+    sender: 'Admin Review',
+    type: 'system',
+    text: cleanText(text || 'Admin reviewed this business chat.'),
+    createdAt: new Date().toISOString(),
+    adminBy: cleanText(adminName || 'admin')
+  };
+}
+
+
 async function buildAdminBootstrapPayload() {
   const [usersSnap, broadcastsSnap, paymentLedgerResult, payoutLedgerResult] = await Promise.all([
     firestore.collection('users').limit(300).get(),
@@ -1621,6 +1688,7 @@ const applications = users.flatMap((user) => {
 
   const economySummary = buildAdminEconomySummary(paymentLedger, payoutLedger);
   const plazaRoutingDesk = await buildAdminPlazaRoutingDeskSnapshot(120);
+  const businessChatReports = await buildAdminBusinessChatReportsSnapshot(160);
 
   return {
     ui: {
@@ -1649,6 +1717,7 @@ const applications = users.flatMap((user) => {
     federation: [],
     plazas,
     plazaRoutingDesk,
+    businessChatReports,
     support: [],
     broadcasts,
     analytics: {
@@ -2436,6 +2505,188 @@ apiRouter.post('/api/admin/economy/payments/:paymentId/settle', requireAdminSess
     });
   }
 });
+
+apiRouter.get('/api/admin/plaza/business-chat-reports', requireAdminSession, async (req, res) => {
+  try {
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 160, 1), 300);
+    const statusFilter = cleanText(req.query.status || '').toLowerCase();
+
+    let reports = await buildAdminBusinessChatReportsSnapshot(limit);
+
+    if (statusFilter && statusFilter !== 'all') {
+      reports = reports.filter((item) => cleanText(item.status).toLowerCase() === statusFilter);
+    }
+
+    return res.json({
+      success: true,
+      reports
+    });
+  } catch (error) {
+    console.error('admin business chat reports list error:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to load Business Chat reports.'
+    });
+  }
+});
+
+apiRouter.post('/api/admin/plaza/business-chat-reports/:reportId/status', requireAdminSession, async (req, res) => {
+  try {
+    const reportId = cleanText(req.params.reportId);
+    const nextStatus = cleanText(req.body?.status || '').toLowerCase();
+    const adminNote = cleanText(req.body?.adminNote || req.body?.note || '');
+
+    const allowedStatuses = new Set([
+      'pending_review',
+      'dismissed',
+      'resolved',
+      'closed',
+      'blocked',
+      'reopened'
+    ]);
+
+    if (!reportId || !nextStatus) {
+      return res.status(400).json({
+        success: false,
+        message: 'Report id and status are required.'
+      });
+    }
+
+    if (!allowedStatuses.has(nextStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid Business Chat report status.'
+      });
+    }
+
+    const reportRef = firestore.collection('plazaBusinessChatReports').doc(reportId);
+    const reportSnap = await reportRef.get();
+
+    if (!reportSnap.exists) {
+      return res.status(404).json({
+        success: false,
+        message: 'Business Chat report not found.'
+      });
+    }
+
+    const report = reportSnap.data() || {};
+    const conversationId = cleanText(report.conversationId);
+    const now = Timestamp.now();
+    const nowIso = new Date().toISOString();
+    const adminName = cleanText(req.adminSession?.username || 'admin');
+
+    const reportPatch = {
+      status: nextStatus,
+      reviewStatus: nextStatus,
+      adminNote,
+      reviewedBy: adminName,
+      reviewedAt: now,
+      updatedAt: now
+    };
+
+    await reportRef.set(reportPatch, { merge: true });
+
+    let updatedConversation = null;
+
+    if (conversationId) {
+      const conversationRef = firestore.collection('plazaConversations').doc(conversationId);
+      const conversationSnap = await conversationRef.get();
+
+      if (conversationSnap.exists) {
+        const conversation = conversationSnap.data() || {};
+        const currentModeration =
+          conversation.moderation && typeof conversation.moderation === 'object'
+            ? conversation.moderation
+            : {};
+
+        const messages = Array.isArray(conversation.messages)
+          ? conversation.messages
+          : [];
+
+        const conversationPatch = {
+          updatedAt: now,
+          moderation: {
+            ...currentModeration,
+            reviewStatus: nextStatus,
+            lastAdminAction: nextStatus,
+            lastAdminNote: adminNote,
+            lastAdminReviewedBy: adminName,
+            lastAdminReviewedAt: nowIso
+          }
+        };
+
+        if (nextStatus === 'dismissed' || nextStatus === 'resolved') {
+          conversationPatch.moderation.reported = false;
+          conversationPatch.moderation.closed = currentModeration.closed === true;
+          conversationPatch.moderation.blocked = currentModeration.blocked === true;
+          conversationPatch.moderation.resolvedAt = nowIso;
+        }
+
+        if (nextStatus === 'closed') {
+          conversationPatch.status = 'closed';
+          conversationPatch.moderation.closed = true;
+          conversationPatch.moderation.closedBy = adminName;
+          conversationPatch.moderation.closedAt = nowIso;
+          conversationPatch.moderation.closeReason = adminNote || 'Closed by admin review.';
+          conversationPatch.messages = [
+            ...messages,
+            buildAdminBusinessChatSystemMessage('This business chat was closed by admin review.', adminName)
+          ];
+        }
+
+        if (nextStatus === 'blocked') {
+          conversationPatch.status = 'blocked';
+          conversationPatch.moderation.blocked = true;
+          conversationPatch.moderation.blockedBy = adminName;
+          conversationPatch.moderation.blockedAt = nowIso;
+          conversationPatch.moderation.blockReason = adminNote || 'Blocked by admin review.';
+          conversationPatch.messages = [
+            ...messages,
+            buildAdminBusinessChatSystemMessage('This business chat was blocked by admin review. Replies are disabled.', adminName)
+          ];
+        }
+
+        if (nextStatus === 'reopened') {
+          conversationPatch.status = 'active';
+          conversationPatch.moderation.closed = false;
+          conversationPatch.moderation.blocked = false;
+          conversationPatch.moderation.reopenedBy = adminName;
+          conversationPatch.moderation.reopenedAt = nowIso;
+          conversationPatch.messages = [
+            ...messages,
+            buildAdminBusinessChatSystemMessage('This business chat was reopened by admin review.', adminName)
+          ];
+        }
+
+        await conversationRef.set(conversationPatch, { merge: true });
+
+        const updatedConversationSnap = await conversationRef.get();
+        updatedConversation = {
+          id: updatedConversationSnap.id,
+          ...(updatedConversationSnap.data() || {})
+        };
+      }
+    }
+
+    const freshReportSnap = await reportRef.get();
+
+    return res.json({
+      success: true,
+      report: mapAdminBusinessChatReportDoc(freshReportSnap),
+      conversation: updatedConversation
+    });
+  } catch (error) {
+    console.error('admin business chat report status error:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update Business Chat report.'
+    });
+  }
+});
+
+
 apiRouter.get('/api/admin/bootstrap', requireAdminSession, async (req, res) => {
   try {
     const state = await buildAdminBootstrapPayload();
