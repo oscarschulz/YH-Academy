@@ -7260,6 +7260,7 @@ function isCrossDivisionPlazaMessageParticipantRoute(req) {
     if (method === 'GET' && urlPath === '/business-members') return true;
     if (method === 'POST' && /^\/messages\/from-business-member\/[^/]+$/.test(urlPath)) return true;
     if (method === 'POST' && /^\/messages\/[^/]+\/replies$/.test(urlPath)) return true;
+    if (method === 'POST' && /^\/messages\/[^/]+\/(report|close|block)$/.test(urlPath)) return true;
 
     return false;
 }

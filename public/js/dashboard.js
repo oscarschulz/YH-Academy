@@ -2327,6 +2327,11 @@ function normalizeYHBusinessConversation(item = {}, index = 0) {
         sourceDivision: String(item.sourceDivision || ''),
         targetDivision: String(item.targetDivision || ''),
         businessPurpose: String(item.businessPurpose || ''),
+        moderation: item.moderation && typeof item.moderation === 'object' ? item.moderation : {},
+        reports: Array.isArray(item.reports) ? item.reports : [],
+        closedBy: item.closedBy && typeof item.closedBy === 'object' ? item.closedBy : {},
+        hiddenBy: item.hiddenBy && typeof item.hiddenBy === 'object' ? item.hiddenBy : {},
+        blockedBy: item.blockedBy && typeof item.blockedBy === 'object' ? item.blockedBy : {},
         participants: Array.isArray(item.participants) ? item.participants.map(String).filter(Boolean) : [],
         messages: Array.isArray(item.messages) ? item.messages : [],
         status: String(item.status || 'active'),
@@ -2469,6 +2474,116 @@ function renderYHBusinessChatList() {
     }).join('');
 }
 
+
+function isYHBusinessChatLocked(conversation = {}) {
+    if (!conversation) return true;
+
+    const status = String(conversation.status || '').trim().toLowerCase();
+    const moderation = conversation.moderation && typeof conversation.moderation === 'object' ? conversation.moderation : {};
+    const blockedBy = conversation.blockedBy && typeof conversation.blockedBy === 'object' ? conversation.blockedBy : {};
+
+    return (
+        status === 'closed' ||
+        status === 'archived' ||
+        status === 'blocked' ||
+        moderation.closed === true ||
+        moderation.blocked === true ||
+        Object.values(blockedBy).some(Boolean)
+    );
+}
+
+function renderYHBusinessChatSafetyControls() {
+    const conversation = getYHBusinessActiveConversation();
+    const reportBtn = document.getElementById('yh-business-chat-report');
+    const closeBtn = document.getElementById('yh-business-chat-close-thread');
+    const blockBtn = document.getElementById('yh-business-chat-block');
+    const locked = isYHBusinessChatLocked(conversation);
+
+    [reportBtn, closeBtn, blockBtn].forEach((button) => {
+        if (!button) return;
+        button.disabled = !conversation;
+    });
+
+    if (closeBtn) {
+        closeBtn.textContent = locked ? 'Closed' : 'Close';
+        closeBtn.disabled = !conversation || locked;
+    }
+
+    if (blockBtn) {
+        blockBtn.textContent = locked ? 'Blocked' : 'Block';
+        blockBtn.disabled = !conversation || locked;
+    }
+}
+
+async function runYHBusinessChatSafetyAction(action = '') {
+    const conversation = getYHBusinessActiveConversation();
+    const cleanAction = String(action || '').trim().toLowerCase();
+
+    if (!conversation) {
+        showToast('Select a business conversation first.', 'error');
+        return;
+    }
+
+    let body = {};
+
+    if (cleanAction === 'report') {
+        const reason = window.prompt('Why are you reporting this business chat?', 'Spam, abuse, unsafe request, or misuse');
+        if (!reason) return;
+
+        const details = window.prompt('Add optional details for admin review.', '') || '';
+
+        body = { reason, details };
+    }
+
+    if (cleanAction === 'close') {
+        if (!window.confirm('Close this business chat? Replies will be disabled.')) return;
+        body = { note: 'Closed from Dashboard Business Chats.' };
+    }
+
+    if (cleanAction === 'block') {
+        if (!window.confirm('Block this business chat participant? Replies will be disabled for this conversation.')) return;
+        body = { note: 'Blocked from Dashboard Business Chats.' };
+    }
+
+    const endpoint =
+        cleanAction === 'report'
+            ? 'report'
+            : cleanAction === 'close'
+                ? 'close'
+                : cleanAction === 'block'
+                    ? 'block'
+                    : '';
+
+    if (!endpoint) return;
+
+    try {
+        const result = await yhBusinessChatApiFetch('/api/plaza/messages/' + encodeURIComponent(conversation.id) + '/' + endpoint, {
+            method: 'POST',
+            body: JSON.stringify(body)
+        });
+
+        const updated = result.conversation ? normalizeYHBusinessConversation(result.conversation) : null;
+
+        if (updated) {
+            yhBusinessChatState.conversations = [
+                updated,
+                ...yhBusinessChatState.conversations.filter((item) => item.id !== updated.id)
+            ];
+            yhBusinessChatState.activeId = updated.id;
+        }
+
+        renderYHBusinessChats();
+
+        if (cleanAction === 'report') showToast('Business chat reported for admin review.', 'success');
+        if (cleanAction === 'close') showToast('Business chat closed.', 'success');
+        if (cleanAction === 'block') showToast('Business chat blocked.', 'success');
+    } catch (error) {
+        console.error('runYHBusinessChatSafetyAction error:', error);
+        showToast(error?.message || 'Business chat safety action failed.', 'error');
+    }
+}
+
+
 function renderYHBusinessChatThread() {
     const titleEl = document.getElementById('yh-business-chat-thread-title');
     const metaEl = document.getElementById('yh-business-chat-thread-meta');
@@ -2487,10 +2602,17 @@ function renderYHBusinessChatThread() {
         return;
     }
 
+    const conversationLocked = isYHBusinessChatLocked(conversation);
+
     if (titleEl) titleEl.textContent = conversation.title;
     if (metaEl) metaEl.textContent = getYHBusinessConversationMeta(conversation) || 'Plaza business thread';
-    if (inputEl) inputEl.disabled = false;
-    if (sendBtn) sendBtn.disabled = false;
+    if (inputEl) {
+        inputEl.disabled = conversationLocked;
+        inputEl.placeholder = conversationLocked
+            ? 'This business chat is closed or blocked.'
+            : 'Write your business reply...';
+    }
+    if (sendBtn) sendBtn.disabled = conversationLocked;
 
     if (!bodyEl) return;
 
@@ -2519,6 +2641,7 @@ function renderYHBusinessChatThread() {
 function renderYHBusinessChats() {
     renderYHBusinessChatList();
     renderYHBusinessChatThread();
+    renderYHBusinessChatSafetyControls();
     renderYHBusinessPlazaMemberResults();
     updateYHBusinessChatBadge();
 }
@@ -2616,6 +2739,11 @@ async function submitYHBusinessReply(event) {
 
     if (!conversation) {
         showToast('Select a business conversation first.', 'error');
+        return;
+    }
+
+    if (isYHBusinessChatLocked(conversation)) {
+        showToast('This business chat is closed or blocked. Replies are disabled.', 'error');
         return;
     }
 

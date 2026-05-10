@@ -10,6 +10,7 @@ const plazaRegionsCol = firestore.collection('plazaRegions');
 const plazaBridgeCol = firestore.collection('plazaBridgePaths');
 const plazaRequestsCol = firestore.collection('plazaRequests');
 const plazaConversationsCol = firestore.collection('plazaConversations');
+const plazaBusinessChatReportsCol = firestore.collection('plazaBusinessChatReports');
 const plazaMeetupsCol = firestore.collection('plazaMeetups');
 const plazaPatronApplicationsCol = firestore.collection('plazaPatronApplications');
 const plazaPatronAnnouncementsCol = firestore.collection('plazaPatronAnnouncements');
@@ -1465,6 +1466,15 @@ function mapPlazaConversationDoc(docSnap) {
         targetLabel: sanitizeText(data.targetLabel || 'Plaza'),
         contextTitle: sanitizeText(data.contextTitle || data.title || 'Plaza conversation'),
         contextRoute: sanitizeText(data.contextRoute || 'Plaza conversation'),
+        scope: sanitizeText(data.scope || ''),
+        sourceDivision: sanitizeText(data.sourceDivision || ''),
+        targetDivision: sanitizeText(data.targetDivision || ''),
+        businessPurpose: sanitizeText(data.businessPurpose || ''),
+        moderation: data.moderation && typeof data.moderation === 'object' ? data.moderation : {},
+        reports: Array.isArray(data.reports) ? data.reports : [],
+        closedBy: data.closedBy && typeof data.closedBy === 'object' ? data.closedBy : {},
+        hiddenBy: data.hiddenBy && typeof data.hiddenBy === 'object' ? data.hiddenBy : {},
+        blockedBy: data.blockedBy && typeof data.blockedBy === 'object' ? data.blockedBy : {},
         participants: normalizeConversationParticipants(data.participants),
         participantIds: normalizeConversationParticipants(data.participantIds),
         status: sanitizeText(data.status || 'active'),
@@ -4044,8 +4054,11 @@ exports.getMessages = async (req, res) => {
         snap.forEach((docSnap) => {
             const data = docSnap.data() || {};
             const recordStatus = sanitizeText(data.recordStatus || 'active').toLowerCase();
+            const hiddenBy = data.hiddenBy && typeof data.hiddenBy === 'object' ? data.hiddenBy : {};
+            const blockedBy = data.blockedBy && typeof data.blockedBy === 'object' ? data.blockedBy : {};
 
             if (recordStatus !== 'active') return;
+            if (hiddenBy[viewer.id] === true) return;
 
             conversations.push(mapPlazaConversationDoc(docSnap));
         });
@@ -4474,6 +4487,298 @@ exports.createConversationFromMember = async (req, res) => {
     }
 };
 
+
+function getConversationParticipantIds(data = {}) {
+    return Array.isArray(data.participantIds)
+        ? data.participantIds.map((item) => sanitizeText(item)).filter(Boolean)
+        : [];
+}
+
+function assertConversationParticipant(data = {}, viewer = {}) {
+    const participantIds = getConversationParticipantIds(data);
+
+    if (!participantIds.includes(sanitizeText(viewer.id))) {
+        const error = new Error('You are not part of this Plaza conversation.');
+        error.statusCode = 403;
+        throw error;
+    }
+
+    return participantIds;
+}
+
+function isConversationClosedOrBlocked(data = {}) {
+    const status = sanitizeText(data.status || '').toLowerCase();
+    const moderation = data.moderation && typeof data.moderation === 'object' ? data.moderation : {};
+    const blockedBy = data.blockedBy && typeof data.blockedBy === 'object' ? data.blockedBy : {};
+
+    return (
+        status === 'closed' ||
+        status === 'archived' ||
+        status === 'blocked' ||
+        moderation.closed === true ||
+        moderation.blocked === true ||
+        Object.values(blockedBy).some(Boolean)
+    );
+}
+
+function appendConversationSystemMessage(messages = [], text = '') {
+    const cleanTextValue = sanitizeText(text);
+    if (!cleanTextValue) return normalizeConversationMessages(messages);
+
+    return [
+        ...normalizeConversationMessages(messages),
+        {
+            id: 'message-' + Date.now() + '-system-' + Math.random().toString(36).slice(2, 8),
+            sender: 'Plaza Safety',
+            type: 'system',
+            text: cleanTextValue,
+            createdAt: new Date().toISOString()
+        }
+    ];
+}
+
+function getConversationErrorStatus(error = {}) {
+    const status = Number(error.statusCode || error.status || 500);
+    return status >= 400 && status <= 599 ? status : 500;
+}
+
+
+
+exports.reportConversation = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+        const conversationId = sanitizeText(req.params.id);
+        const reason = clampText(req.body?.reason || req.body?.reportReason || 'User reported this business chat.', 180, 'User reported this business chat.');
+        const details = clampText(req.body?.details || req.body?.message || '', 1200);
+
+        if (!viewer.id) {
+            return res.status(401).json({ success: false, message: 'Missing authenticated user.' });
+        }
+
+        if (!conversationId) {
+            return res.status(400).json({ success: false, message: 'Conversation ID is required.' });
+        }
+
+        const ref = plazaConversationsCol.doc(conversationId);
+        const snap = await ref.get();
+
+        if (!snap.exists) {
+            return res.status(404).json({ success: false, message: 'Conversation not found.' });
+        }
+
+        const data = snap.data() || {};
+        assertConversationParticipant(data, viewer);
+
+        const now = Timestamp.now();
+        const nowIso = new Date().toISOString();
+        const reports = Array.isArray(data.reports) ? data.reports : [];
+        const moderation = data.moderation && typeof data.moderation === 'object' ? data.moderation : {};
+        const reportRef = plazaBusinessChatReportsCol.doc();
+
+        const reportSummary = {
+            id: reportRef.id,
+            reporterId: viewer.id,
+            reporterEmail: sanitizeText(viewer.email).toLowerCase(),
+            reporterName: sanitizeText(viewer.name || viewer.username || 'YH Member'),
+            reason,
+            details,
+            status: 'pending_review',
+            createdAt: nowIso
+        };
+
+        await reportRef.set({
+            ...reportSummary,
+            conversationId,
+            conversationTitle: sanitizeText(data.title || 'Plaza business conversation'),
+            participantIds: getConversationParticipantIds(data),
+            sourceDivision: sanitizeText(data.sourceDivision || ''),
+            targetDivision: sanitizeText(data.targetDivision || ''),
+            businessPurpose: sanitizeText(data.businessPurpose || ''),
+            messagesSnapshot: normalizeConversationMessages(data.messages).slice(-20),
+            createdAt: now,
+            updatedAt: now
+        });
+
+        const messages = appendConversationSystemMessage(
+            data.messages,
+            'This business conversation was reported for admin review. Reason: ' + reason
+        );
+
+        await ref.set({
+            reports: [...reports, reportSummary].slice(-20),
+            moderation: {
+                ...moderation,
+                reported: true,
+                reportCount: Number(moderation.reportCount || 0) + 1,
+                lastReportId: reportRef.id,
+                lastReportReason: reason,
+                lastReportedBy: viewer.id,
+                lastReportedAt: nowIso,
+                reviewStatus: 'pending_review'
+            },
+            messages,
+            updatedAt: now
+        }, { merge: true });
+
+        const updatedSnap = await ref.get();
+
+        return res.json({
+            success: true,
+            reportId: reportRef.id,
+            conversation: mapPlazaConversationDoc(updatedSnap)
+        });
+    } catch (error) {
+        console.error('plazaControllers.reportConversation error:', error);
+        return res.status(getConversationErrorStatus(error)).json({
+            success: false,
+            message: sanitizeText(error.message, 'Failed to report Plaza conversation.')
+        });
+    }
+};
+
+exports.closeConversation = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+        const conversationId = sanitizeText(req.params.id);
+        const note = clampText(req.body?.note || req.body?.reason || 'Conversation closed by participant.', 260, 'Conversation closed by participant.');
+
+        if (!viewer.id) {
+            return res.status(401).json({ success: false, message: 'Missing authenticated user.' });
+        }
+
+        if (!conversationId) {
+            return res.status(400).json({ success: false, message: 'Conversation ID is required.' });
+        }
+
+        const ref = plazaConversationsCol.doc(conversationId);
+        const snap = await ref.get();
+
+        if (!snap.exists) {
+            return res.status(404).json({ success: false, message: 'Conversation not found.' });
+        }
+
+        const data = snap.data() || {};
+        assertConversationParticipant(data, viewer);
+
+        const now = Timestamp.now();
+        const nowIso = new Date().toISOString();
+        const moderation = data.moderation && typeof data.moderation === 'object' ? data.moderation : {};
+        const closedBy = data.closedBy && typeof data.closedBy === 'object' ? data.closedBy : {};
+
+        const messages = appendConversationSystemMessage(
+            data.messages,
+            'This business conversation was closed by ' + sanitizeText(viewer.name || viewer.username || 'a participant') + '.'
+        );
+
+        await ref.set({
+            status: 'closed',
+            closedBy: {
+                ...closedBy,
+                [viewer.id]: {
+                    name: sanitizeText(viewer.name || viewer.username || 'YH Member'),
+                    email: sanitizeText(viewer.email).toLowerCase(),
+                    note,
+                    closedAt: nowIso
+                }
+            },
+            moderation: {
+                ...moderation,
+                closed: true,
+                closedBy: viewer.id,
+                closedAt: nowIso,
+                closeReason: note
+            },
+            messages,
+            updatedAt: now
+        }, { merge: true });
+
+        const updatedSnap = await ref.get();
+
+        return res.json({
+            success: true,
+            conversation: mapPlazaConversationDoc(updatedSnap)
+        });
+    } catch (error) {
+        console.error('plazaControllers.closeConversation error:', error);
+        return res.status(getConversationErrorStatus(error)).json({
+            success: false,
+            message: sanitizeText(error.message, 'Failed to close Plaza conversation.')
+        });
+    }
+};
+
+exports.blockConversationParticipant = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+        const conversationId = sanitizeText(req.params.id);
+        const note = clampText(req.body?.note || req.body?.reason || 'Participant blocked this business chat.', 260, 'Participant blocked this business chat.');
+
+        if (!viewer.id) {
+            return res.status(401).json({ success: false, message: 'Missing authenticated user.' });
+        }
+
+        if (!conversationId) {
+            return res.status(400).json({ success: false, message: 'Conversation ID is required.' });
+        }
+
+        const ref = plazaConversationsCol.doc(conversationId);
+        const snap = await ref.get();
+
+        if (!snap.exists) {
+            return res.status(404).json({ success: false, message: 'Conversation not found.' });
+        }
+
+        const data = snap.data() || {};
+        assertConversationParticipant(data, viewer);
+
+        const now = Timestamp.now();
+        const nowIso = new Date().toISOString();
+        const moderation = data.moderation && typeof data.moderation === 'object' ? data.moderation : {};
+        const blockedBy = data.blockedBy && typeof data.blockedBy === 'object' ? data.blockedBy : {};
+
+        const messages = appendConversationSystemMessage(
+            data.messages,
+            'This business conversation was blocked by a participant. Replies are now disabled.'
+        );
+
+        await ref.set({
+            status: 'blocked',
+            blockedBy: {
+                ...blockedBy,
+                [viewer.id]: {
+                    name: sanitizeText(viewer.name || viewer.username || 'YH Member'),
+                    email: sanitizeText(viewer.email).toLowerCase(),
+                    note,
+                    blockedAt: nowIso
+                }
+            },
+            moderation: {
+                ...moderation,
+                blocked: true,
+                blockedBy: viewer.id,
+                blockedAt: nowIso,
+                blockReason: note
+            },
+            messages,
+            updatedAt: now
+        }, { merge: true });
+
+        const updatedSnap = await ref.get();
+
+        return res.json({
+            success: true,
+            conversation: mapPlazaConversationDoc(updatedSnap)
+        });
+    } catch (error) {
+        console.error('plazaControllers.blockConversationParticipant error:', error);
+        return res.status(getConversationErrorStatus(error)).json({
+            success: false,
+            message: sanitizeText(error.message, 'Failed to block Plaza conversation.')
+        });
+    }
+};
+
+
 exports.createConversationReply = async (req, res) => {
     try {
         const viewer = getViewerFromRequest(req);
@@ -4521,6 +4826,13 @@ exports.createConversationReply = async (req, res) => {
             return res.status(403).json({
                 success: false,
                 message: 'You are not part of this Plaza conversation.'
+            });
+        }
+
+        if (isConversationClosedOrBlocked(data)) {
+            return res.status(403).json({
+                success: false,
+                message: 'This Plaza conversation is closed or blocked. Replies are disabled.'
             });
         }
 

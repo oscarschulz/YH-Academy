@@ -3023,6 +3023,15 @@ function normalizeConversationItem(item, index) {
     targetLabel: String(item?.targetLabel || "Plaza"),
     contextTitle: String(item?.contextTitle || ""),
     contextRoute: String(item?.contextRoute || ""),
+    scope: String(item?.scope || ""),
+    sourceDivision: String(item?.sourceDivision || ""),
+    targetDivision: String(item?.targetDivision || ""),
+    businessPurpose: String(item?.businessPurpose || ""),
+    moderation: item?.moderation && typeof item.moderation === "object" ? item.moderation : {},
+    reports: Array.isArray(item?.reports) ? item.reports : [],
+    closedBy: item?.closedBy && typeof item.closedBy === "object" ? item.closedBy : {},
+    hiddenBy: item?.hiddenBy && typeof item.hiddenBy === "object" ? item.hiddenBy : {},
+    blockedBy: item?.blockedBy && typeof item.blockedBy === "object" ? item.blockedBy : {},
     participants: safeArray(item?.participants).map((entry) => String(entry)),
     status: String(item?.status || "active"),
     messages: safeArray(item?.messages).map(normalizeConversationMessage),
@@ -7084,11 +7093,145 @@ function renderMessagesScreen() {
     : `<div class="yh-plaza-empty">No conversation is open yet. Move a request to Conversation Opened to create one.</div>`;
 }
 
+
+function isPlazaConversationLocked(item = {}) {
+  const status = String(item && item.status || "").trim().toLowerCase();
+  const moderation = item && item.moderation && typeof item.moderation === "object" ? item.moderation : {};
+  const blockedBy = item && item.blockedBy && typeof item.blockedBy === "object" ? item.blockedBy : {};
+
+  return (
+    status === "closed" ||
+    status === "archived" ||
+    status === "blocked" ||
+    moderation.closed === true ||
+    moderation.blocked === true ||
+    Object.values(blockedBy).some(Boolean)
+  );
+}
+
+function getActivePlazaConversationItem() {
+  const id = String(plazaRuntime.activeConversationId || "").trim();
+  if (!id) return null;
+
+  return plazaServerMessagesLoaded
+    ? plazaServerMessages.find((conversation) => conversation.id === id) || null
+    : plazaOpsAdapter.getConversationById(id);
+}
+
+function syncPlazaConversationSafetyUi(item = {}) {
+  const actions = document.getElementById("plazaConversationSafetyActions");
+  const form = document.getElementById("plazaConversationForm");
+  const messageField = document.getElementById("plazaConversationMessageField");
+  const submitBtn = form ? form.querySelector("button[type='submit']") : null;
+  const locked = isPlazaConversationLocked(item);
+
+  if (actions) {
+    actions.querySelectorAll("button").forEach((button) => {
+      button.disabled = !item || !item.id;
+    });
+
+    const closeBtn = actions.querySelector("[data-plaza-conversation-close]");
+    const blockBtn = actions.querySelector("[data-plaza-conversation-block]");
+
+    if (closeBtn) {
+      closeBtn.textContent = locked ? "Closed" : "Close";
+      closeBtn.disabled = locked;
+    }
+
+    if (blockBtn) {
+      blockBtn.textContent = locked ? "Blocked" : "Block";
+      blockBtn.disabled = locked;
+    }
+  }
+
+  if (messageField) {
+    messageField.disabled = locked;
+    messageField.placeholder = locked
+      ? "This Plaza conversation is closed or blocked."
+      : "Write a contextual reply inside Plaza.";
+  }
+
+  if (submitBtn) submitBtn.disabled = locked;
+}
+
+async function runPlazaConversationSafetyAction(action = "", button = null) {
+  const conversation = getActivePlazaConversationItem();
+  const cleanAction = String(action || "").trim().toLowerCase();
+
+  if (!conversation || !conversation.id) {
+    showToast("Open a Plaza conversation first.");
+    return;
+  }
+
+  let body = {};
+
+  if (cleanAction === "report") {
+    const reason = window.prompt("Why are you reporting this business chat?", "Spam, abuse, unsafe request, or misuse");
+    if (!reason) return;
+
+    const details = window.prompt("Add optional details for admin review.", "") || "";
+    body = { reason, details };
+  }
+
+  if (cleanAction === "close") {
+    if (!window.confirm("Close this Plaza business chat? Replies will be disabled.")) return;
+    body = { note: "Closed from Plaza conversation screen." };
+  }
+
+  if (cleanAction === "block") {
+    if (!window.confirm("Block this Plaza business chat participant? Replies will be disabled.")) return;
+    body = { note: "Blocked from Plaza conversation screen." };
+  }
+
+  const endpoint =
+    cleanAction === "report"
+      ? "report"
+      : cleanAction === "close"
+        ? "close"
+        : cleanAction === "block"
+          ? "block"
+          : "";
+
+  if (!endpoint) return;
+
+  await runLockedButtonAction(
+    "conversation-safety:" + conversation.id + ":" + endpoint,
+    button,
+    endpoint === "report" ? "Reporting..." : endpoint === "close" ? "Closing..." : "Blocking...",
+    async () => {
+      const result = await plazaApiFetch("/api/plaza/messages/" + encodeURIComponent(conversation.id) + "/" + endpoint, {
+        method: "POST",
+        body: JSON.stringify(body)
+      });
+
+      const updated = result.conversation ? normalizeServerConversationItem(result.conversation) : null;
+
+      if (updated) {
+        plazaServerMessages = [
+          updated,
+          ...plazaServerMessages.filter((item) => item.id !== updated.id)
+        ];
+        plazaServerMessagesLoaded = true;
+
+        renderMessagesScreen();
+        renderConversationScreen(updated);
+      }
+
+      if (endpoint === "report") showToast("Business chat reported for admin review.");
+      if (endpoint === "close") showToast("Business chat closed.");
+      if (endpoint === "block") showToast("Business chat blocked.");
+    }
+  );
+}
+
+
 function renderConversationScreen(item) {
   if (!item || !plazaConversationTitle || !plazaConversationMeta || !plazaConversationThread) return;
 
   plazaRuntime.activeConversationId = item.id;
   markPlazaConversationSeen(item);
+
+  syncPlazaConversationSafetyUi(item);
 
   plazaConversationTitle.textContent = item.title;
   plazaConversationMeta.innerHTML = [
@@ -8549,6 +8692,24 @@ function bindEvents() {
       return;
     }
 
+    const plazaConversationReportBtn = target.closest("[data-plaza-conversation-report]");
+    if (plazaConversationReportBtn instanceof HTMLButtonElement) {
+      void runPlazaConversationSafetyAction("report", plazaConversationReportBtn);
+      return;
+    }
+
+    const plazaConversationCloseBtn = target.closest("[data-plaza-conversation-close]");
+    if (plazaConversationCloseBtn instanceof HTMLButtonElement) {
+      void runPlazaConversationSafetyAction("close", plazaConversationCloseBtn);
+      return;
+    }
+
+    const plazaConversationBlockBtn = target.closest("[data-plaza-conversation-block]");
+    if (plazaConversationBlockBtn instanceof HTMLButtonElement) {
+      void runPlazaConversationSafetyAction("block", plazaConversationBlockBtn);
+      return;
+    }
+
     const inboxRoleBtn = target.closest("[data-inbox-role]");
     if (inboxRoleBtn instanceof HTMLElement) {
       plazaRuntime.activeInboxRole = inboxRoleBtn.dataset.inboxRole || "all";
@@ -9262,6 +9423,11 @@ if (form.id === "plazaConversationForm") {
     const message = String(data.get("message") || "").trim();
 
     if (!conversationId || !message) {
+      return;
+    }
+
+    if (isPlazaConversationLocked(getActivePlazaConversationItem())) {
+      showToast("This Plaza conversation is closed or blocked. Replies are disabled.");
       return;
     }
 

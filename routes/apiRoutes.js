@@ -163,6 +163,9 @@ router.post('/plaza/messages/from-business-member/:targetUserId', auth, plazaCon
 router.post('/plaza/messages/from-member/:targetUserId', auth, plazaControllers.createConversationFromMember);
 router.post('/plaza/messages/from-region/:regionId', auth, plazaControllers.createConversationFromRegion);
 router.post('/plaza/messages/:id/replies', auth, plazaControllers.createConversationReply);
+router.post('/plaza/messages/:id/report', auth, plazaControllers.reportConversation);
+router.post('/plaza/messages/:id/close', auth, plazaControllers.closeConversation);
+router.post('/plaza/messages/:id/block', auth, plazaControllers.blockConversationParticipant);
 
 router.get('/plaza/meetups', auth, plazaControllers.getMeetups);
 router.post('/plaza/meetups', auth, plazaControllers.createMeetup);
