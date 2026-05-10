@@ -1,8 +1,11 @@
 const { firestore } = require('../../config/firebaseAdmin');
-const { Timestamp } = require('firebase-admin/firestore');
+const { Timestamp, FieldValue } = require('firebase-admin/firestore');
 
 const paymentLedgerCol = firestore.collection('yhPaymentLedger');
 const payoutLedgerCol = firestore.collection('yhPayoutLedger');
+const usersCol = firestore.collection('users');
+const universeReferralLedgerCol = firestore.collection('universeReferralLedger');
+const universeReferralCommissionLedgerCol = firestore.collection('universeReferralCommissionLedger');
 
 function nowTs() {
     return Timestamp.now();
@@ -20,6 +23,17 @@ function cleanLower(value, fallback = '') {
 function toNumber(value, fallback = 0) {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+const UNIVERSE_REFERRAL_COMMISSION_RATE_PERCENT = Math.max(
+    0,
+    toNumber(process.env.UNIVERSE_REFERRAL_COMMISSION_RATE_PERCENT || 2.81, 2.81)
+);
+const UNIVERSE_REFERRAL_COMMISSION_RATE = UNIVERSE_REFERRAL_COMMISSION_RATE_PERCENT / 100;
+
+function roundMoney(value = 0) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? Math.round(parsed * 100) / 100 : 0;
 }
 
 function toIso(value) {
@@ -210,6 +224,252 @@ function mapPayoutRecordDoc(docSnap) {
     };
 }
 
+function normalizeUniverseReferralCode(value = '') {
+    return cleanText(value)
+        .toUpperCase()
+        .replace(/[^A-Z0-9_-]+/g, '')
+        .slice(0, 48);
+}
+
+function isInactiveUniverseReferralAccount(userData = {}) {
+    const accountStatus = cleanLower(
+        userData.accountStatus ||
+        userData.userStatus ||
+        userData.status ||
+        ''
+    );
+
+    const referralStatus = cleanLower(
+        userData.universeReferral?.status ||
+        userData.referralStatus ||
+        'active'
+    );
+
+    const blockedStatuses = new Set([
+        'deleted',
+        'deactivated',
+        'disabled',
+        'suspended',
+        'banned',
+        'blocked',
+        'inactive'
+    ]);
+
+    return blockedStatuses.has(accountStatus) || blockedStatuses.has(referralStatus);
+}
+
+function buildUniverseReferralCommissionId(paymentId = '') {
+    const cleanPaymentId = normalizeLedgerIdPart(paymentId || `${Date.now()}`);
+    return `universe_ref_comm_${cleanPaymentId}`.slice(0, 240);
+}
+
+async function resolveUniverseReferralAttributionForPayer(payment = {}) {
+    const payerUid = cleanText(payment.payerUid);
+    const payerEmail = cleanText(payment.payerEmail).toLowerCase();
+
+    if (!payerUid) return null;
+
+    const payerSnap = await usersCol.doc(payerUid).get().catch(() => null);
+    const payerData = payerSnap?.exists ? (payerSnap.data() || {}) : {};
+    const referredBy = payerData.referredBy && typeof payerData.referredBy === 'object'
+        ? payerData.referredBy
+        : {};
+
+    let referrerUid = cleanText(referredBy.referrerUid || referredBy.uid || referredBy.id);
+    let referralCode = normalizeUniverseReferralCode(referredBy.code || referredBy.referralCode);
+    let referralLedgerId = '';
+
+    if (!referrerUid) {
+        const fallbackSnap = await universeReferralLedgerCol
+            .where('referredUid', '==', payerUid)
+            .limit(1)
+            .get()
+            .catch(() => null);
+
+        const fallbackDoc = fallbackSnap && !fallbackSnap.empty ? fallbackSnap.docs[0] : null;
+        const fallbackData = fallbackDoc?.data?.() || {};
+
+        referrerUid = cleanText(fallbackData.referrerUid);
+        referralCode = normalizeUniverseReferralCode(fallbackData.referralCode || referralCode);
+        referralLedgerId = cleanText(fallbackDoc?.id || '');
+    }
+
+    if (!referrerUid || referrerUid === payerUid) return null;
+
+    const referrerSnap = await usersCol.doc(referrerUid).get().catch(() => null);
+    if (!referrerSnap?.exists) return null;
+
+    const referrerData = referrerSnap.data() || {};
+    const referrerEmail = cleanText(referrerData.email).toLowerCase();
+
+    if (referrerEmail && payerEmail && referrerEmail === payerEmail) return null;
+    if (isInactiveUniverseReferralAccount(referrerData)) return null;
+
+    if (!referralLedgerId) {
+        referralLedgerId = `universe_ref_${referrerUid}_${payerUid}`;
+    }
+
+    return {
+        referrerUid,
+        referrerEmail,
+        referrerName: cleanText(
+            referrerData.fullName ||
+            referrerData.displayName ||
+            referrerData.name ||
+            referrerData.username ||
+            referredBy.referrerName ||
+            'YH Member'
+        ),
+        referrerUsername: cleanText(referrerData.username || referredBy.referrerUsername),
+        referredUid: payerUid,
+        referredEmail: payerEmail,
+        referredName: cleanText(payment.payerName || payerData.fullName || payerData.displayName || payerData.name || payerData.username),
+        referredUsername: cleanText(payerData.username),
+        referralCode,
+        referralLedgerId
+    };
+}
+
+async function maybeCreateUniverseReferralCommissionForPayment(payment = {}) {
+    try {
+        const paymentId = cleanText(payment.id);
+        const paymentStatus = normalizePaymentStatus(payment.status);
+        const paymentAmount = Math.max(0, toNumber(payment.amount, 0));
+        const sourceDivision = cleanLower(payment.sourceDivision || 'unknown');
+        const sourceFeature = cleanLower(payment.sourceFeature || 'general');
+
+        if (!paymentId || paymentStatus !== 'paid' || paymentAmount <= 0) return null;
+        if (sourceDivision === 'wallet' || sourceFeature.includes('withdrawal')) return null;
+        if (sourceDivision === 'universe' && sourceFeature === 'referral_commission') return null;
+
+        const commissionId = buildUniverseReferralCommissionId(paymentId);
+        const commissionRef = universeReferralCommissionLedgerCol.doc(commissionId);
+        const existingCommission = await commissionRef.get();
+
+        if (existingCommission.exists) {
+            return {
+                id: existingCommission.id,
+                ...(existingCommission.data() || {})
+            };
+        }
+
+        const attribution = await resolveUniverseReferralAttributionForPayer(payment);
+        if (!attribution?.referrerUid) return null;
+
+        const commissionAmount = roundMoney(paymentAmount * UNIVERSE_REFERRAL_COMMISSION_RATE);
+        if (commissionAmount <= 0) return null;
+
+        const now = nowTs();
+        const currency = normalizeCurrency(payment.currency || 'USD');
+        const title = `Universe referral commission - ${roundMoney(UNIVERSE_REFERRAL_COMMISSION_RATE_PERCENT)}%`;
+
+        const commissionPayload = {
+            id: commissionId,
+            type: 'universe_referral_commission',
+
+            referrerUid: attribution.referrerUid,
+            referrerEmail: attribution.referrerEmail,
+            referrerName: attribution.referrerName,
+            referrerUsername: attribution.referrerUsername,
+
+            referredUid: attribution.referredUid,
+            referredEmail: attribution.referredEmail,
+            referredName: attribution.referredName,
+            referredUsername: attribution.referredUsername,
+
+            referralCode: attribution.referralCode,
+            referralLedgerId: attribution.referralLedgerId,
+
+            sourceDivision,
+            sourceFeature,
+            sourceRecordId: cleanText(payment.sourceRecordId),
+            sourcePaymentId: paymentId,
+            provider: normalizePaymentProvider(payment.provider),
+            providerPaymentId: cleanText(payment.providerPaymentId),
+
+            paymentAmount: roundMoney(paymentAmount),
+            grossAmount: roundMoney(paymentAmount),
+            commissionRatePercent: roundMoney(UNIVERSE_REFERRAL_COMMISSION_RATE_PERCENT),
+            commissionRate: UNIVERSE_REFERRAL_COMMISSION_RATE,
+            commissionAmount,
+            amount: commissionAmount,
+            currency,
+
+            status: 'available',
+            payoutStatus: 'unrequested',
+            paymentStatus: 'paid',
+            createdAt: now,
+            updatedAt: now,
+            earnedAt: now
+        };
+
+        await commissionRef.create(commissionPayload);
+
+        const payoutRef = usersCol
+            .doc(attribution.referrerUid)
+            .collection('academyLeadPayouts')
+            .doc(commissionId);
+
+        await payoutRef.set({
+            ...commissionPayload,
+            title,
+            sourceDivision: 'universe',
+            sourceFeature: 'referral_commission',
+            basisType: 'universe_referral_commission',
+            receiverUid: attribution.referrerUid,
+            receiverEmail: attribution.referrerEmail,
+            receiverName: attribution.referrerName,
+            payerUid: attribution.referredUid,
+            payerEmail: attribution.referredEmail,
+            payerName: attribution.referredName,
+            payoutAmount: commissionAmount,
+            operatorPayoutAmount: commissionAmount,
+            metadata: {
+                referralCommission: true,
+                sourcePaymentId: paymentId,
+                sourcePaymentDivision: sourceDivision,
+                sourcePaymentFeature: sourceFeature,
+                sourcePaymentAmount: roundMoney(paymentAmount),
+                commissionRatePercent: roundMoney(UNIVERSE_REFERRAL_COMMISSION_RATE_PERCENT)
+            }
+        }, { merge: true });
+
+        if (attribution.referralLedgerId) {
+            await universeReferralLedgerCol.doc(attribution.referralLedgerId).set({
+                referrerUid: attribution.referrerUid,
+                referrerEmail: attribution.referrerEmail,
+                referrerName: attribution.referrerName,
+                referrerUsername: attribution.referrerUsername,
+                referredUid: attribution.referredUid,
+                referredEmail: attribution.referredEmail,
+                referredName: attribution.referredName,
+                referredUsername: attribution.referredUsername,
+                referralCode: attribution.referralCode,
+                source: 'universe',
+                sourceDivision: 'universe',
+                status: 'commission_earned',
+                rewardStatus: 'commission_created',
+                qualifiedDivision: sourceDivision,
+                latestCommissionId: commissionId,
+                latestCommissionPaymentId: paymentId,
+                latestCommissionAmount: commissionAmount,
+                commissionRatePercent: roundMoney(UNIVERSE_REFERRAL_COMMISSION_RATE_PERCENT),
+                totalCommissionAmount: FieldValue.increment(commissionAmount),
+                commissionCount: FieldValue.increment(1),
+                currency,
+                qualifiedAt: now,
+                latestCommissionAt: now,
+                updatedAt: now
+            }, { merge: true });
+        }
+
+        return commissionPayload;
+    } catch (error) {
+        console.error('maybeCreateUniverseReferralCommissionForPayment error:', error);
+        return null;
+    }
+}
+
 async function upsertPaymentRecord(input = {}) {
     const sourceDivision = cleanLower(input.sourceDivision || 'unknown');
     const sourceFeature = cleanLower(input.sourceFeature || 'general');
@@ -260,7 +520,13 @@ async function upsertPaymentRecord(input = {}) {
     await ref.set(payload, { merge: true });
 
     const nextSnap = await ref.get();
-    return mapPaymentRecordDoc(nextSnap);
+    const payment = mapPaymentRecordDoc(nextSnap);
+
+    if (payment.status === 'paid') {
+        await maybeCreateUniverseReferralCommissionForPayment(payment);
+    }
+
+    return payment;
 }
 async function getPaymentRecordById(paymentId = '') {
     const cleanId = cleanText(paymentId);
@@ -336,7 +602,13 @@ async function updatePaymentRecordStatus(paymentId = '', input = {}) {
     await ref.set(payload, { merge: true });
 
     const nextSnap = await ref.get();
-    return mapPaymentRecordDoc(nextSnap);
+    const payment = mapPaymentRecordDoc(nextSnap);
+
+    if (payment.status === 'paid') {
+        await maybeCreateUniverseReferralCommissionForPayment(payment);
+    }
+
+    return payment;
 }
 async function listPaymentsForUser(uid = '', limit = 80) {
     const cleanUid = cleanText(uid);
@@ -532,6 +804,7 @@ module.exports = {
     listPayoutsForUser,
     listAdminPayoutRecords,
     updatePayoutRecordStatus,
+    maybeCreateUniverseReferralCommissionForPayment,
     mapPaymentRecordDoc,
     mapPayoutRecordDoc
 };

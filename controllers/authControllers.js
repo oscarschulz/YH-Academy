@@ -7,8 +7,8 @@ const geocodingService = require('../backend/services/geocodingService');
 
 const USERS_COLLECTION = 'users';
 const UNIVERSE_REFERRAL_LEDGER_COLLECTION = 'universeReferralLedger';
-const UNIVERSE_REFERRAL_REWARD_AMOUNT = Number(process.env.UNIVERSE_REFERRAL_REWARD_AMOUNT || 5.60);
-const UNIVERSE_REFERRAL_REWARD_CURRENCY = String(process.env.UNIVERSE_REFERRAL_REWARD_CURRENCY || 'USD').trim().toUpperCase() || 'USD';
+const UNIVERSE_REFERRAL_COMMISSION_RATE_PERCENT = Number(process.env.UNIVERSE_REFERRAL_COMMISSION_RATE_PERCENT || 2.81);
+const UNIVERSE_REFERRAL_COMMISSION_CURRENCY = String(process.env.UNIVERSE_REFERRAL_COMMISSION_CURRENCY || 'USD').trim().toUpperCase() || 'USD';
 const OTP_FROM_EMAIL = process.env.OTP_FROM_EMAIL || 'YH Universe <noreply@younghustlers.net>';
 const OTP_REPLY_TO = process.env.OTP_REPLY_TO || 'support@younghustlers.net';
 const OTP_SUPPORT_EMAIL = process.env.OTP_SUPPORT_EMAIL || 'support@younghustlers.net';
@@ -87,6 +87,7 @@ const addMinutesToIsoFromValue = (value, minutes = 0) => {
 
 const usersCollection = () => firestore.collection(USERS_COLLECTION);
 const universeReferralLedgerCollection = () => firestore.collection(UNIVERSE_REFERRAL_LEDGER_COLLECTION);
+const universeReferralCommissionLedgerCollection = () => firestore.collection('universeReferralCommissionLedger');
 
 function normalizeUniverseReferralCode(value = '') {
     return String(value || '')
@@ -218,14 +219,18 @@ async function createPendingUniverseReferralLedger({
         sourceDivision: 'universe',
 
         status: 'pending',
-        rewardStatus: 'not_qualified',
+        rewardStatus: 'awaiting_payment',
         qualifiedDivision: '',
-        rewardAmount: UNIVERSE_REFERRAL_REWARD_AMOUNT,
-        currency: UNIVERSE_REFERRAL_REWARD_CURRENCY,
+        commissionRatePercent: UNIVERSE_REFERRAL_COMMISSION_RATE_PERCENT,
+        totalCommissionAmount: 0,
+        commissionCount: 0,
+        currency: UNIVERSE_REFERRAL_COMMISSION_CURRENCY,
 
         capturedAt: nowIso(),
         qualifiedAt: '',
-        rewardCreatedAt: '',
+        latestCommissionAt: '',
+        latestCommissionId: '',
+        latestCommissionPaymentId: '',
         payoutRecordId: '',
         updatedAt: nowIso()
     };
@@ -1306,42 +1311,109 @@ exports.getMyUniverseReferrals = async (req, res) => {
         const universeReferral = await ensureUniverseReferralForUser(userId, userData);
         const referralCode = normalizeUniverseReferralCode(universeReferral?.code);
 
-        const ledgerSnapshot = await universeReferralLedgerCollection()
-            .where('referrerUid', '==', userId)
-            .limit(200)
-            .get();
+        const [ledgerSnapshot, commissionSnapshot] = await Promise.all([
+            universeReferralLedgerCollection()
+                .where('referrerUid', '==', userId)
+                .limit(200)
+                .get(),
+            universeReferralCommissionLedgerCollection()
+                .where('referrerUid', '==', userId)
+                .limit(400)
+                .get()
+                .catch(() => ({ docs: [] }))
+        ]);
 
-        const referrals = ledgerSnapshot.docs
+        const commissionRecords = commissionSnapshot.docs
             .map((doc) => {
                 const data = doc.data() || {};
 
                 return {
                     id: doc.id,
                     referredUid: String(data.referredUid || '').trim(),
+                    sourcePaymentId: String(data.sourcePaymentId || '').trim(),
+                    sourceDivision: String(data.sourceDivision || '').trim().toLowerCase(),
+                    sourceFeature: String(data.sourceFeature || '').trim().toLowerCase(),
+                    paymentAmount: Number(data.paymentAmount || data.grossAmount || 0) || 0,
+                    commissionAmount: Number(data.commissionAmount || data.amount || 0) || 0,
+                    commissionRatePercent: Number(data.commissionRatePercent || UNIVERSE_REFERRAL_COMMISSION_RATE_PERCENT) || UNIVERSE_REFERRAL_COMMISSION_RATE_PERCENT,
+                    currency: String(data.currency || UNIVERSE_REFERRAL_COMMISSION_CURRENCY).trim().toUpperCase(),
+                    status: String(data.status || 'available').trim().toLowerCase(),
+                    earnedAt: String(data.earnedAt || data.createdAt || '').trim()
+                };
+            })
+            .sort((a, b) => String(b.earnedAt || '').localeCompare(String(a.earnedAt || '')));
+
+        const commissionByReferredUid = commissionRecords.reduce((map, item) => {
+            if (!item.referredUid) return map;
+
+            if (!map[item.referredUid]) {
+                map[item.referredUid] = {
+                    count: 0,
+                    amount: 0,
+                    latestAt: '',
+                    latestPaymentId: '',
+                    latestSourceDivision: '',
+                    latestSourceFeature: ''
+                };
+            }
+
+            map[item.referredUid].count += 1;
+            map[item.referredUid].amount += Number(item.commissionAmount || 0) || 0;
+
+            if (String(item.earnedAt || '') > String(map[item.referredUid].latestAt || '')) {
+                map[item.referredUid].latestAt = item.earnedAt || '';
+                map[item.referredUid].latestPaymentId = item.sourcePaymentId || '';
+                map[item.referredUid].latestSourceDivision = item.sourceDivision || '';
+                map[item.referredUid].latestSourceFeature = item.sourceFeature || '';
+            }
+
+            return map;
+        }, {});
+
+        const referrals = ledgerSnapshot.docs
+            .map((doc) => {
+                const data = doc.data() || {};
+                const referredUid = String(data.referredUid || '').trim();
+                const commissionSummary = commissionByReferredUid[referredUid] || {};
+                const commissionCount = Number(commissionSummary.count || data.commissionCount || 0) || 0;
+                const commissionAmount = Number(commissionSummary.amount || data.totalCommissionAmount || 0) || 0;
+                const latestCommissionAt = String(commissionSummary.latestAt || data.latestCommissionAt || '').trim();
+
+                return {
+                    id: doc.id,
+                    referredUid,
                     referredEmail: String(data.referredEmail || '').trim().toLowerCase(),
                     referredName: String(data.referredName || '').trim(),
                     referredUsername: String(data.referredUsername || '').trim(),
                     referralCode: normalizeUniverseReferralCode(data.referralCode),
-                    status: String(data.status || 'pending').trim().toLowerCase(),
-                    rewardStatus: String(data.rewardStatus || 'not_qualified').trim().toLowerCase(),
-                    qualifiedDivision: String(data.qualifiedDivision || '').trim().toLowerCase(),
-                    rewardAmount: Number(data.rewardAmount || UNIVERSE_REFERRAL_REWARD_AMOUNT) || UNIVERSE_REFERRAL_REWARD_AMOUNT,
-                    currency: String(data.currency || UNIVERSE_REFERRAL_REWARD_CURRENCY).trim().toUpperCase(),
+                    status: commissionCount > 0
+                        ? 'commission_earned'
+                        : String(data.status || 'pending').trim().toLowerCase(),
+                    rewardStatus: commissionCount > 0
+                        ? 'commission_created'
+                        : String(data.rewardStatus || 'awaiting_payment').trim().toLowerCase(),
+                    qualifiedDivision: String(commissionSummary.latestSourceDivision || data.qualifiedDivision || '').trim().toLowerCase(),
+                    sourceFeature: String(commissionSummary.latestSourceFeature || '').trim().toLowerCase(),
+                    commissionRatePercent: Number(data.commissionRatePercent || UNIVERSE_REFERRAL_COMMISSION_RATE_PERCENT) || UNIVERSE_REFERRAL_COMMISSION_RATE_PERCENT,
+                    commissionCount,
+                    commissionAmount,
+                    rewardAmount: commissionAmount,
+                    currency: String(data.currency || UNIVERSE_REFERRAL_COMMISSION_CURRENCY).trim().toUpperCase(),
                     capturedAt: String(data.capturedAt || '').trim(),
-                    qualifiedAt: String(data.qualifiedAt || '').trim(),
-                    rewardCreatedAt: String(data.rewardCreatedAt || '').trim(),
+                    qualifiedAt: String(data.qualifiedAt || latestCommissionAt || '').trim(),
+                    latestCommissionAt,
+                    rewardCreatedAt: latestCommissionAt,
+                    latestCommissionPaymentId: String(commissionSummary.latestPaymentId || data.latestCommissionPaymentId || '').trim(),
                     payoutRecordId: String(data.payoutRecordId || '').trim()
                 };
             })
-            .sort((a, b) => String(b.capturedAt || '').localeCompare(String(a.capturedAt || '')));
+            .sort((a, b) => String((b.latestCommissionAt || b.capturedAt) || '').localeCompare(String((a.latestCommissionAt || a.capturedAt) || '')));
 
         const total = referrals.length;
-        const pending = referrals.filter((item) => item.status === 'pending').length;
-        const qualified = referrals.filter((item) => ['qualified', 'reward_created'].includes(item.status)).length;
-        const rewardCreated = referrals.filter((item) => item.rewardStatus === 'created' || item.status === 'reward_created').length;
-        const totalEarned = referrals
-            .filter((item) => item.rewardStatus === 'created' || item.status === 'reward_created')
-            .reduce((sum, item) => sum + (Number(item.rewardAmount) || 0), 0);
+        const payingReferrals = referrals.filter((item) => Number(item.commissionCount || 0) > 0).length;
+        const commissionedPayments = commissionRecords.length;
+        const pending = Math.max(0, total - payingReferrals);
+        const totalEarned = commissionRecords.reduce((sum, item) => sum + (Number(item.commissionAmount) || 0), 0);
 
         const baseUrl = buildUniverseReferralBaseUrl(req);
         const referralLink = baseUrl && referralCode
@@ -1354,18 +1426,22 @@ exports.getMyUniverseReferrals = async (req, res) => {
                 code: referralCode,
                 link: referralLink,
                 status: String(universeReferral?.status || 'active').trim() || 'active',
-                rewardAmount: UNIVERSE_REFERRAL_REWARD_AMOUNT,
-                currency: UNIVERSE_REFERRAL_REWARD_CURRENCY
+                commissionRatePercent: UNIVERSE_REFERRAL_COMMISSION_RATE_PERCENT,
+                currency: UNIVERSE_REFERRAL_COMMISSION_CURRENCY
             },
             stats: {
                 total,
                 pending,
-                qualified,
-                rewardCreated,
+                qualified: payingReferrals,
+                payingReferrals,
+                commissionedPayments,
+                rewardCreated: commissionedPayments,
                 totalEarned,
-                currency: UNIVERSE_REFERRAL_REWARD_CURRENCY
+                currency: UNIVERSE_REFERRAL_COMMISSION_CURRENCY,
+                commissionRatePercent: UNIVERSE_REFERRAL_COMMISSION_RATE_PERCENT
             },
-            referrals: referrals.slice(0, 25)
+            referrals: referrals.slice(0, 25),
+            commissions: commissionRecords.slice(0, 25)
         });
     } catch (error) {
         console.error('getMyUniverseReferrals error:', error);

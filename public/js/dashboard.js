@@ -2160,20 +2160,22 @@ function normalizeYHUniverseReferralStatusLabel(value = '', rewardStatus = '') {
     const status = String(value || '').trim().toLowerCase();
     const reward = String(rewardStatus || '').trim().toLowerCase();
 
-    if (reward === 'created' || status === 'reward_created') return 'Reward Created';
-    if (status === 'qualified' || reward === 'qualified') return 'Qualified';
+    if (reward === 'commission_created' || status === 'commission_earned') return 'Commission Earned';
+    if (reward === 'created' || status === 'reward_created') return 'Commission Earned';
+    if (status === 'qualified' || reward === 'qualified') return 'Paying Referral';
     if (status === 'rejected' || reward === 'rejected') return 'Rejected';
-    if (status === 'pending') return 'Pending';
+    if (reward === 'awaiting_payment' || status === 'pending') return 'Awaiting First Purchase';
 
     return status
         ? status.replace(/[_-]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
-        : 'Pending';
+        : 'Awaiting First Purchase';
 }
 
 function getYHUniverseReferralStatusTone(value = '', rewardStatus = '') {
     const status = String(value || '').trim().toLowerCase();
     const reward = String(rewardStatus || '').trim().toLowerCase();
 
+    if (reward === 'commission_created' || status === 'commission_earned') return 'earned';
     if (reward === 'created' || status === 'reward_created') return 'earned';
     if (status === 'qualified' || reward === 'qualified') return 'qualified';
     if (status === 'rejected' || reward === 'rejected') return 'rejected';
@@ -2217,7 +2219,7 @@ function renderYHUniverseReferralList(referrals = []) {
     if (!items.length) {
         listEl.innerHTML = `
             <div class="yh-universe-referral-empty">
-                No referrals yet. Copy your link and invite your first acquaintance into YH Universe.
+                No referrals yet. Copy your link and invite your first member into YH Universe.
             </div>
         `;
         return;
@@ -2228,10 +2230,15 @@ function renderYHUniverseReferralList(referrals = []) {
         const statusLabel = normalizeYHUniverseReferralStatusLabel(item.status, item.rewardStatus);
         const tone = getYHUniverseReferralStatusTone(item.status, item.rewardStatus);
         const division = String(item.qualifiedDivision || '').trim();
-        const rewardAmount = Number(item.rewardAmount || 0);
+        const rewardAmount = Number(item.commissionAmount || item.rewardAmount || 0);
+        const commissionCount = Number(item.commissionCount || 0);
         const currency = String(item.currency || 'USD').trim().toUpperCase() || 'USD';
-        const earned = item.rewardStatus === 'created' || item.status === 'reward_created';
-        const date = item.rewardCreatedAt || item.qualifiedAt || item.capturedAt;
+        const earned = commissionCount > 0 ||
+            item.rewardStatus === 'commission_created' ||
+            item.status === 'commission_earned' ||
+            item.rewardStatus === 'created' ||
+            item.status === 'reward_created';
+        const date = item.latestCommissionAt || item.rewardCreatedAt || item.qualifiedAt || item.capturedAt;
 
         return `
             <article class="yh-universe-referral-item" data-referral-tone="${academyFeedEscapeHtml(tone)}">
@@ -2247,7 +2254,8 @@ function renderYHUniverseReferralList(referrals = []) {
 
                     <div class="yh-universe-referral-item-meta">
                         <span>${academyFeedEscapeHtml(formatYHUniverseReferralDate(date))}</span>
-                        ${division ? `<span>Division: ${academyFeedEscapeHtml(division)}</span>` : `<span>Awaiting approval</span>`}
+                        ${division ? `<span>Latest purchase: ${academyFeedEscapeHtml(division)}</span>` : `<span>Awaiting first purchase</span>`}
+                        ${commissionCount > 0 ? `<span>${academyFeedEscapeHtml(String(commissionCount))} payment${commissionCount === 1 ? '' : 's'}</span>` : ''}
                         ${earned ? `<span>${academyFeedEscapeHtml(formatYHUniverseReferralMoney(rewardAmount, currency))}</span>` : ''}
                     </div>
                 </div>
@@ -2280,7 +2288,7 @@ function renderYHUniverseReferralSnapshot(snapshot = {}) {
     }
 
     if (qualifiedEl) {
-        qualifiedEl.textContent = String(Number(stats.qualified || 0));
+        qualifiedEl.textContent = String(Number(stats.payingReferrals || stats.qualified || 0));
     }
 
     if (earnedEl) {
