@@ -2106,6 +2106,9 @@ function bootYHWalletDeepLink() {
 
 
 const YH_BUSINESS_CHAT_CACHE_KEY = 'yh_business_chat_snapshot_v1';
+const YH_BUSINESS_CHAT_SEEN_KEY = 'yh_business_chat_seen_at_v1';
+const YH_BUSINESS_CHAT_REFRESH_MS = 30000;
+let yhBusinessChatAutoRefreshTimer = null;
 
 let yhBusinessChatState = {
     conversations: [],
@@ -2195,6 +2198,82 @@ function normalizeYHBusinessConversation(item = {}, index = 0) {
     };
 }
 
+
+function getYHBusinessLastSeenTs() {
+    try {
+        return Number(localStorage.getItem(YH_BUSINESS_CHAT_SEEN_KEY) || 0) || 0;
+    } catch (_) {
+        return 0;
+    }
+}
+
+function setYHBusinessLastSeenNow() {
+    try {
+        localStorage.setItem(YH_BUSINESS_CHAT_SEEN_KEY, String(Date.now()));
+    } catch (_) {}
+}
+
+function getYHBusinessConversationUpdatedTs(conversation = {}) {
+    const timestamps = [
+        conversation.updatedAt,
+        conversation.createdAt,
+        ...(Array.isArray(conversation.messages)
+            ? conversation.messages.map((message) => message?.createdAt)
+            : [])
+    ];
+
+    return timestamps.reduce((best, value) => {
+        const ts = new Date(value || '').getTime();
+        return Number.isFinite(ts) && ts > best ? ts : best;
+    }, 0);
+}
+
+function getYHBusinessUnreadCount() {
+    const lastSeenTs = getYHBusinessLastSeenTs();
+
+    return yhBusinessChatState.conversations.filter((conversation) => {
+        return getYHBusinessConversationUpdatedTs(conversation) > lastSeenTs;
+    }).length;
+}
+
+function updateYHBusinessChatBadge() {
+    const badge = document.getElementById('yh-business-chat-nav-badge');
+    const button = document.getElementById('btn-open-yh-business-chats');
+    const count = getYHBusinessUnreadCount();
+
+    if (!badge) return;
+
+    badge.textContent = String(Math.min(count, 99));
+    badge.classList.toggle('hidden-step', count <= 0);
+
+    if (button) {
+        button.classList.toggle('has-business-chat-unread', count > 0);
+        button.setAttribute('aria-label', count > 0
+            ? 'Business Chats, ' + count + ' unread'
+            : 'Business Chats'
+        );
+    }
+}
+
+function startYHBusinessChatAutoRefresh() {
+    if (yhBusinessChatAutoRefreshTimer) return;
+
+    yhBusinessChatAutoRefreshTimer = window.setInterval(() => {
+        if (document.hidden) return;
+
+        refreshYHBusinessChats(true, { silent: true }).catch((error) => {
+            console.warn('Business chat auto-refresh failed:', error);
+        });
+    }, YH_BUSINESS_CHAT_REFRESH_MS);
+}
+
+function stopYHBusinessChatAutoRefresh() {
+    if (!yhBusinessChatAutoRefreshTimer) return;
+
+    window.clearInterval(yhBusinessChatAutoRefreshTimer);
+    yhBusinessChatAutoRefreshTimer = null;
+}
+
 function getYHBusinessConversationMeta(conversation = {}) {
     return [
         conversation.contextRoute,
@@ -2231,17 +2310,20 @@ function renderYHBusinessChatList() {
         return;
     }
 
+    const lastSeenTs = getYHBusinessLastSeenTs();
+
     listEl.innerHTML = yhBusinessChatState.conversations.map((conversation) => {
         const latestMessage = conversation.messages[conversation.messages.length - 1] || {};
         const isActive = conversation.id === yhBusinessChatState.activeId;
+        const isUnread = getYHBusinessConversationUpdatedTs(conversation) > lastSeenTs;
 
         return `
             <button
                 type="button"
-                class="yh-business-chat-list-item ${isActive ? 'is-active' : ''}"
+                class="yh-business-chat-list-item ${isActive ? 'is-active' : ''} ${isUnread ? 'is-unread' : ''}"
                 data-yh-business-conversation="${escapeYHBusinessHtml(conversation.id)}"
             >
-                <strong>${escapeYHBusinessHtml(conversation.title)}</strong>
+                <strong>${escapeYHBusinessHtml(conversation.title)}${isUnread ? '<b class="yh-business-chat-unread-dot">New</b>' : ''}</strong>
                 <span>${escapeYHBusinessHtml(getYHBusinessConversationMeta(conversation) || 'Plaza business thread')}</span>
                 <small>${escapeYHBusinessHtml(latestMessage.text || 'No messages yet.')}</small>
                 <em>${escapeYHBusinessHtml(formatYHBusinessDate(conversation.updatedAt || latestMessage.createdAt || conversation.createdAt))}</em>
@@ -2300,9 +2382,10 @@ function renderYHBusinessChatThread() {
 function renderYHBusinessChats() {
     renderYHBusinessChatList();
     renderYHBusinessChatThread();
+    updateYHBusinessChatBadge();
 }
 
-async function refreshYHBusinessChats(forceFresh = false) {
+async function refreshYHBusinessChats(forceFresh = false, options = {}) {
     if (!forceFresh) {
         const cached = readYHJsonCache(YH_BUSINESS_CHAT_CACHE_KEY, null);
         if (cached && Array.isArray(cached.conversations)) {
@@ -2337,7 +2420,9 @@ async function refreshYHBusinessChats(forceFresh = false) {
         return yhBusinessChatState.conversations;
     } catch (error) {
         console.error('refreshYHBusinessChats error:', error);
-        showToast(error?.message || 'Failed to load business chats.', 'error');
+        if (!options.silent) {
+            showToast(error?.message || 'Failed to load business chats.', 'error');
+        }
         renderYHBusinessChats();
         return [];
     } finally {
@@ -2353,6 +2438,9 @@ function openYHBusinessChatModal() {
     modal.classList.remove('hidden-step');
     modal.setAttribute('aria-hidden', 'false');
     document.body?.classList.add('yh-business-chat-open');
+
+    setYHBusinessLastSeenNow();
+    renderYHBusinessChats();
 
     refreshYHBusinessChats(false).catch((error) => {
         console.error('openYHBusinessChatModal refresh error:', error);
@@ -2458,6 +2546,15 @@ function bootYHBusinessChatPanel() {
     });
 
     document.getElementById('yh-business-chat-reply-form')?.addEventListener('submit', submitYHBusinessReply);
+
+    startYHBusinessChatAutoRefresh();
+
+    window.addEventListener('beforeunload', stopYHBusinessChatAutoRefresh);
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+            refreshYHBusinessChats(true, { silent: true }).catch(() => {});
+        }
+    });
 
     try {
         const url = new URL(window.location.href);
