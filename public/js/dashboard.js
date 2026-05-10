@@ -2114,7 +2114,9 @@ let yhBusinessChatState = {
     conversations: [],
     activeId: '',
     loading: false,
-    hydratedOnce: false
+    hydratedOnce: false,
+    plazaMembers: [],
+    plazaMembersLoading: false
 };
 
 function escapeYHBusinessHtml(value = '') {
@@ -2177,6 +2179,141 @@ async function yhBusinessChatApiFetch(url, options = {}) {
     }
 
     return data;
+}
+
+function normalizeYHBusinessPlazaMember(item = {}, index = 0) {
+    return {
+        id: String(item.id || 'plaza-member-' + (index + 1)),
+        name: String(item.name || 'Plaza Member'),
+        username: String(item.username || '').replace(/^@+/, ''),
+        division: String(item.division || 'plaza'),
+        divisionLabel: String(item.divisionLabel || 'Plaza'),
+        role: String(item.role || 'YH Plaza Member'),
+        location: String(item.location || ''),
+        avatar: String(item.avatar || ''),
+        headline: String(item.headline || '')
+    };
+}
+
+function getYHBusinessStartPurpose() {
+    const select = document.getElementById('yh-business-chat-purpose');
+    return String(select?.value || 'Business collaboration').trim() || 'Business collaboration';
+}
+
+function getYHBusinessOpeningMessage() {
+    const input = document.getElementById('yh-business-chat-opening-message');
+    const message = String(input?.value || '').trim();
+    const purpose = getYHBusinessStartPurpose();
+
+    return message || 'I would like to open a Plaza business conversation for: ' + purpose;
+}
+
+function renderYHBusinessPlazaMemberResults() {
+    const resultsEl = document.getElementById('yh-business-chat-member-results');
+
+    if (!resultsEl) return;
+
+    if (yhBusinessChatState.plazaMembersLoading) {
+        resultsEl.innerHTML = '<div class="yh-business-chat-empty">Searching approved Plaza members...</div>';
+        return;
+    }
+
+    if (!yhBusinessChatState.plazaMembers.length) {
+        resultsEl.innerHTML = '<div class="yh-business-chat-empty">No approved Plaza members found yet. Try a broader search.</div>';
+        return;
+    }
+
+    resultsEl.innerHTML = yhBusinessChatState.plazaMembers.map((member) => {
+        const initial = escapeYHBusinessHtml((member.name || 'P').charAt(0).toUpperCase());
+        const avatarStyle = member.avatar
+            ? ' style="background-image:url(\'' + escapeYHBusinessHtml(member.avatar) + '\')"'
+            : '';
+
+        const meta = [member.role, member.location].filter(Boolean).join(' • ');
+
+        return `
+            <article class="yh-business-chat-member-card">
+                <div class="yh-business-chat-member-main">
+                    <div class="yh-business-chat-member-avatar"${avatarStyle}>${member.avatar ? '' : initial}</div>
+                    <div>
+                        <strong>${escapeYHBusinessHtml(member.name)}</strong>
+                        <span>${escapeYHBusinessHtml(meta || 'Approved Plaza member')}</span>
+                        ${member.headline ? '<p>' + escapeYHBusinessHtml(member.headline) + '</p>' : ''}
+                    </div>
+                </div>
+                <button type="button" class="btn-primary yh-business-chat-start-btn" data-yh-start-plaza-business-chat="${escapeYHBusinessHtml(member.id)}">
+                    Open Chat
+                </button>
+            </article>
+        `;
+    }).join('');
+}
+
+async function searchYHBusinessPlazaMembers() {
+    const input = document.getElementById('yh-business-chat-member-search');
+    const query = String(input?.value || '').trim();
+
+    yhBusinessChatState.plazaMembersLoading = true;
+    renderYHBusinessPlazaMemberResults();
+
+    try {
+        const params = new URLSearchParams({
+            division: 'plaza',
+            q: query,
+            limit: '80'
+        });
+
+        const data = await yhBusinessChatApiFetch('/api/plaza/business-members?' + params.toString());
+        const members = Array.isArray(data.members) ? data.members : [];
+
+        yhBusinessChatState.plazaMembers = members.map(normalizeYHBusinessPlazaMember);
+        renderYHBusinessPlazaMemberResults();
+
+        return yhBusinessChatState.plazaMembers;
+    } catch (error) {
+        console.error('searchYHBusinessPlazaMembers error:', error);
+        yhBusinessChatState.plazaMembers = [];
+        renderYHBusinessPlazaMemberResults();
+        showToast(error?.message || 'Failed to search Plaza members.', 'error');
+        return [];
+    } finally {
+        yhBusinessChatState.plazaMembersLoading = false;
+        renderYHBusinessPlazaMemberResults();
+    }
+}
+
+async function startYHBusinessChatWithPlazaMember(targetUserId = '') {
+    const cleanTargetUserId = String(targetUserId || '').trim();
+
+    if (!cleanTargetUserId) {
+        throw new Error('Missing Plaza member.');
+    }
+
+    const data = await yhBusinessChatApiFetch('/api/plaza/messages/from-business-member/' + encodeURIComponent(cleanTargetUserId), {
+        method: 'POST',
+        body: JSON.stringify({
+            businessPurpose: getYHBusinessStartPurpose(),
+            message: getYHBusinessOpeningMessage()
+        })
+    });
+
+    const conversation = data.conversation ? normalizeYHBusinessConversation(data.conversation) : null;
+
+    if (conversation) {
+        yhBusinessChatState.conversations = [
+            conversation,
+            ...yhBusinessChatState.conversations.filter((item) => item.id !== conversation.id)
+        ];
+
+        yhBusinessChatState.activeId = conversation.id;
+        writeYHJsonCache(YH_BUSINESS_CHAT_CACHE_KEY, {
+            conversations: yhBusinessChatState.conversations,
+            cachedAt: new Date().toISOString()
+        });
+        renderYHBusinessChats();
+    }
+
+    return conversation;
 }
 
 function normalizeYHBusinessConversation(item = {}, index = 0) {
@@ -2382,6 +2519,7 @@ function renderYHBusinessChatThread() {
 function renderYHBusinessChats() {
     renderYHBusinessChatList();
     renderYHBusinessChatThread();
+    renderYHBusinessPlazaMemberResults();
     updateYHBusinessChatBadge();
 }
 
@@ -2445,6 +2583,10 @@ function openYHBusinessChatModal() {
     refreshYHBusinessChats(false).catch((error) => {
         console.error('openYHBusinessChatModal refresh error:', error);
     });
+
+    if (!yhBusinessChatState.plazaMembers.length) {
+        searchYHBusinessPlazaMembers().catch(() => {});
+    }
 }
 
 function closeYHBusinessChatModal() {
@@ -2546,6 +2688,59 @@ function bootYHBusinessChatPanel() {
     });
 
     document.getElementById('yh-business-chat-reply-form')?.addEventListener('submit', submitYHBusinessReply);
+    document.getElementById('yh-business-chat-start-form')?.addEventListener('submit', (event) => {
+        event.preventDefault();
+
+        const button = document.getElementById('yh-business-chat-member-search-btn');
+
+        if (button) {
+            button.disabled = true;
+            button.textContent = 'Searching...';
+        }
+
+        searchYHBusinessPlazaMembers().finally(() => {
+            if (button) {
+                button.disabled = false;
+                button.textContent = 'Search Plaza Members';
+            }
+        });
+    });
+
+    document.getElementById('yh-business-chat-member-results')?.addEventListener('click', (event) => {
+        const target = event.target instanceof Element
+            ? event.target.closest('[data-yh-start-plaza-business-chat]')
+            : null;
+
+        if (!target) return;
+
+        const targetUserId = target.getAttribute('data-yh-start-plaza-business-chat') || '';
+        const button = target instanceof HTMLButtonElement ? target : null;
+
+        if (button) {
+            button.disabled = true;
+            button.textContent = 'Opening...';
+        }
+
+        startYHBusinessChatWithPlazaMember(targetUserId)
+            .then((conversation) => {
+                if (conversation) {
+                    showToast('Plaza business chat opened.', 'success');
+
+                    const messageInput = document.getElementById('yh-business-chat-opening-message');
+                    if (messageInput) messageInput.value = '';
+                }
+            })
+            .catch((error) => {
+                console.error('startYHBusinessChatWithPlazaMember error:', error);
+                showToast(error?.message || 'Failed to open Plaza business chat.', 'error');
+            })
+            .finally(() => {
+                if (button) {
+                    button.disabled = false;
+                    button.textContent = 'Open Chat';
+                }
+            });
+    });
 
     startYHBusinessChatAutoRefresh();
 

@@ -7257,6 +7257,8 @@ function isCrossDivisionPlazaMessageParticipantRoute(req) {
     const urlPath = sanitizeText(req.path || req.url || '').split('?')[0];
 
     if (method === 'GET' && urlPath === '/messages') return true;
+    if (method === 'GET' && urlPath === '/business-members') return true;
+    if (method === 'POST' && /^\/messages\/from-business-member\/[^/]+$/.test(urlPath)) return true;
     if (method === 'POST' && /^\/messages\/[^/]+\/replies$/.test(urlPath)) return true;
 
     return false;

@@ -503,6 +503,56 @@ function mapCrossDivisionBusinessMemberDoc(docSnap) {
         headline: sanitizeText(data.headline || data.bio || role).slice(0, 180)
     };
 }
+
+function userHasApprovedPlazaAccess(user = {}) {
+    const status = sanitizeText(
+        user.plazaAccessStatus ||
+        user.plazaMembershipStatus ||
+        user.plazaApplicationStatus ||
+        user.plazaApplication?.status ||
+        user.plaza?.status ||
+        ''
+    ).toLowerCase();
+
+    return (
+        user.hasPlazaAccess === true ||
+        user.plazaApproved === true ||
+        status === 'approved' ||
+        status === 'active'
+    );
+}
+
+async function getPlazaAccessSnapshotForUser(uid = '') {
+    const cleanUid = sanitizeText(uid);
+
+    if (!cleanUid) {
+        return { exists: false, hasPlazaAccess: false, data: {} };
+    }
+
+    try {
+        const snap = await usersCol.doc(cleanUid).get();
+
+        if (!snap.exists) {
+            return { exists: false, hasPlazaAccess: false, data: {} };
+        }
+
+        const data = snap.data() || {};
+
+        return {
+            exists: true,
+            hasPlazaAccess: userHasApprovedPlazaAccess(data),
+            data
+        };
+    } catch (_) {
+        return { exists: false, hasPlazaAccess: false, data: {} };
+    }
+}
+
+function buildViewerDivisionLabel(viewerUser = {}, hasPlazaAccess = false) {
+    if (hasPlazaAccess) return 'plaza';
+
+    return inferUserPrimaryDivision(viewerUser || {});
+}
 function normalizePatronPrivilegeList(value = []) {
     if (!Array.isArray(value)) return [];
 
@@ -3923,7 +3973,10 @@ exports.getBusinessMembers = async (req, res) => {
             return res.status(401).json({ success: false, message: 'Missing authenticated user.' });
         }
 
-        const requestedDivision = normalizeCrossDivisionLabel(req.query.division || 'all') || 'all';
+        const viewerAccess = await getPlazaAccessSnapshotForUser(viewer.id);
+        const viewerHasPlazaAccess = viewerAccess.hasPlazaAccess;
+        const requestedDivisionRaw = normalizeCrossDivisionLabel(req.query.division || 'all') || 'all';
+        const requestedDivision = viewerHasPlazaAccess ? requestedDivisionRaw : 'plaza';
         const search = sanitizeText(req.query.q || req.query.search || '').toLowerCase();
         const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 80, 1), 120);
         const snap = await usersCol.limit(450).get();
@@ -3939,6 +3992,8 @@ exports.getBusinessMembers = async (req, res) => {
 
             const member = mapCrossDivisionBusinessMemberDoc(docSnap);
 
+            if (!viewerHasPlazaAccess && member.division !== 'plaza') return;
+            if (!viewerHasPlazaAccess && !userHasApprovedPlazaAccess(data)) return;
             if (requestedDivision !== 'all' && member.division !== requestedDivision) return;
             if (search && !buildCrossDivisionSearchText(data, docSnap.id).includes(search)) return;
 
@@ -4183,6 +4238,10 @@ exports.createConversationFromBusinessMember = async (req, res) => {
             });
         }
 
+        const viewerAccess = await getPlazaAccessSnapshotForUser(viewer.id);
+        const viewerHasPlazaAccess = viewerAccess.hasPlazaAccess;
+        const viewerDivision = buildViewerDivisionLabel(viewerAccess.data, viewerHasPlazaAccess);
+
         const targetSnap = await usersCol.doc(targetUserId).get();
 
         if (!targetSnap.exists) {
@@ -4208,7 +4267,16 @@ exports.createConversationFromBusinessMember = async (req, res) => {
             'YH Universe Member'
         );
 
+        const targetHasPlazaAccess = userHasApprovedPlazaAccess(targetUser);
         const targetDivision = inferUserPrimaryDivision(targetUser);
+
+        if (!viewerHasPlazaAccess && !targetHasPlazaAccess) {
+            return res.status(403).json({
+                success: false,
+                message: 'Only Plaza members can start business chats with non-Plaza members. You can start business chats with approved Plaza members only.'
+            });
+        }
+
         const targetLocation = sanitizeText(
             targetUser.city ||
             targetUser.currentCity ||
@@ -4218,7 +4286,8 @@ exports.createConversationFromBusinessMember = async (req, res) => {
         );
 
         const participantKey = [viewer.id, targetUserId].sort().join('_');
-        const conversationId = 'business_' + participantKey;
+        const businessDirection = viewerHasPlazaAccess ? 'from_plaza' : 'to_plaza';
+        const conversationId = 'business_' + participantKey + '_' + businessDirection;
         const conversationRef = plazaConversationsCol.doc(conversationId);
         const conversationSnap = await conversationRef.get();
         const nowIso = new Date().toISOString();
@@ -4234,15 +4303,15 @@ exports.createConversationFromBusinessMember = async (req, res) => {
                 contextTitle: targetRole + ' • ' + targetLocation,
                 contextRoute: 'Cross-Division Business Conversation',
                 scope: 'cross_division_business',
-                sourceDivision: 'plaza',
+                sourceDivision: viewerDivision,
                 targetDivision,
                 businessPurpose,
                 participantDivisions: {
-                    [viewer.id]: 'plaza',
+                    [viewer.id]: viewerDivision,
                     [targetUserId]: targetDivision
                 },
                 participantRoles: {
-                    [viewer.id]: 'Plaza member',
+                    [viewer.id]: viewerHasPlazaAccess ? 'Plaza member' : viewerDivision.charAt(0).toUpperCase() + viewerDivision.slice(1) + ' member',
                     [targetUserId]: targetRole
                 },
                 participants: [viewerName, targetName].filter(Boolean),
@@ -4256,7 +4325,9 @@ exports.createConversationFromBusinessMember = async (req, res) => {
                         sender: 'Plaza System',
                         type: 'system',
                         text:
-                            'Cross-division business conversation opened from Plaza. Purpose: ' +
+                            'Cross-division business conversation opened from ' +
+                            viewerDivision +
+                            '. Purpose: ' +
                             businessPurpose +
                             '. Target: ' +
                             targetName +
