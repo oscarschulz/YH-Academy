@@ -77,6 +77,9 @@
     <button class="btn-secondary yh-wallet-open-btn" id="btn-open-yh-wallet" type="button">
         💳 Wallet
     </button>
+    <button class="btn-secondary yh-business-chat-open-btn" id="btn-open-yh-business-chats" type="button">
+        💬 Business Chats
+    </button>
     <button class="btn-logout" onclick="logoutUser()">⎋ Log out</button>
 </div>
 </nav>
@@ -1612,6 +1615,82 @@
         </div>
     </div>
 </div>
+<div
+    id="yh-business-chat-modal"
+    class="modal-overlay hidden-step yh-business-chat-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="yh-business-chat-title"
+    aria-hidden="true"
+>
+    <div class="modal-content yh-business-chat-dialog">
+        <button
+            type="button"
+            class="yh-business-chat-close"
+            id="yh-business-chat-close"
+            aria-label="Close business chats"
+        >
+            ✕
+        </button>
+
+        <div class="yh-business-chat-head">
+            <div>
+                <div class="yh-dashboard-federation-kicker">Cross-Division Messaging</div>
+                <h2 id="yh-business-chat-title">Business Chats</h2>
+                <p>
+                    Reply to structured Plaza business conversations you are part of. This does not unlock full Plaza access.
+                </p>
+            </div>
+
+            <div class="yh-business-chat-head-actions">
+                <button type="button" class="btn-secondary yh-business-chat-refresh" id="yh-business-chat-refresh">
+                    Refresh
+                </button>
+            </div>
+        </div>
+
+        <div class="yh-business-chat-layout">
+            <aside class="yh-business-chat-list-panel">
+                <div class="yh-business-chat-panel-head">
+                    <strong>Conversations</strong>
+                    <span id="yh-business-chat-count">Loading...</span>
+                </div>
+
+                <div class="yh-business-chat-list" id="yh-business-chat-list">
+                    <div class="yh-business-chat-empty">Loading business conversations...</div>
+                </div>
+            </aside>
+
+            <section class="yh-business-chat-thread-panel">
+                <div class="yh-business-chat-thread-head">
+                    <div>
+                        <strong id="yh-business-chat-thread-title">Select a conversation</strong>
+                        <span id="yh-business-chat-thread-meta">Your Plaza business threads will appear here.</span>
+                    </div>
+                </div>
+
+                <div class="yh-business-chat-thread-body" id="yh-business-chat-thread-body">
+                    <div class="yh-business-chat-empty">
+                        Select a business conversation from the left to read and reply.
+                    </div>
+                </div>
+
+                <form class="yh-business-chat-reply-form" id="yh-business-chat-reply-form">
+                    <textarea
+                        id="yh-business-chat-reply-input"
+                        placeholder="Write your business reply..."
+                        maxlength="1600"
+                        disabled
+                    ></textarea>
+                    <button type="submit" class="btn-primary yh-business-chat-send" id="yh-business-chat-send" disabled>
+                        Send Reply
+                    </button>
+                </form>
+            </section>
+        </div>
+    </div>
+</div>
+
 <div
     id="yh-wallet-modal"
     class="modal-overlay hidden-step yh-wallet-modal"
