@@ -25,6 +25,10 @@ const PLAZA_UI_STATE_KEY = "yhPlazaUiStateCleanV1";
 const PLAZA_INBOX_KEY = "yhPlazaInboxCleanV1";
 const PLAZA_NOTIFICATIONS_KEY = "yhPlazaNotificationsCleanV1";
 const PLAZA_CONVERSATIONS_KEY = "yhPlazaConversationsCleanV1";
+const PLAZA_CONVERSATION_SEEN_KEY = "yhPlazaConversationSeenAtV1";
+const PLAZA_CONVERSATION_SEEN_BOOTSTRAPPED_KEY = "yhPlazaConversationSeenBootstrappedV1";
+const PLAZA_CONVERSATION_REFRESH_MS = 30000;
+let plazaConversationAutoRefreshTimer = null;
 const YH_CANONICAL_PLAZAS = [
   {
     id: "yh-africa-plaza-1",
@@ -2212,6 +2216,10 @@ function normalizeServerConversationItem(item, index = 0) {
     targetLabel: item?.targetLabel || "Plaza",
     contextTitle: item?.contextTitle || "",
     contextRoute: item?.contextRoute || "Plaza conversation",
+    scope: String(item?.scope || ""),
+    sourceDivision: String(item?.sourceDivision || ""),
+    targetDivision: String(item?.targetDivision || ""),
+    businessPurpose: String(item?.businessPurpose || ""),
     participants: Array.isArray(item?.participants) ? item.participants : [],
     status: item?.status || "active",
     messages: Array.isArray(item?.messages) ? item.messages : [],
@@ -2235,6 +2243,7 @@ async function loadPlazaMessagesFromServer(options = {}) {
 
     plazaServerMessages = items.map(normalizeServerConversationItem);
     plazaServerMessagesLoaded = true;
+    bootstrapPlazaConversationSeenBaseline(plazaServerMessages);
 
     renderMessagesScreen();
     return plazaServerMessages;
@@ -6429,6 +6438,118 @@ function renderInboxCard(item) {
   `;
 }
 
+
+function readPlazaConversationSeenMap() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(PLAZA_CONVERSATION_SEEN_KEY) || "{}");
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+function writePlazaConversationSeenMap(map = {}) {
+  try {
+    localStorage.setItem(PLAZA_CONVERSATION_SEEN_KEY, JSON.stringify(map || {}));
+  } catch (_) {}
+}
+
+function getPlazaConversationTimestamp(value = "") {
+  const ts = new Date(value || "").getTime();
+  return Number.isFinite(ts) ? ts : 0;
+}
+
+function getPlazaConversationLatestTs(item = {}) {
+  const messageTimes = safeArray(item.messages)
+    .map((message) => getPlazaConversationTimestamp(message && message.createdAt))
+    .filter(Boolean);
+
+  return Math.max(
+    getPlazaConversationTimestamp(item.updatedAt),
+    getPlazaConversationTimestamp(item.createdAt),
+    ...messageTimes,
+    0
+  );
+}
+
+function bootstrapPlazaConversationSeenBaseline(items = []) {
+  try {
+    if (localStorage.getItem(PLAZA_CONVERSATION_SEEN_BOOTSTRAPPED_KEY) === "1") return;
+
+    const map = readPlazaConversationSeenMap();
+
+    safeArray(items).forEach((item) => {
+      const id = String(item && item.id || "").trim();
+      if (!id) return;
+
+      map[id] = Math.max(Number(map[id] || 0), getPlazaConversationLatestTs(item), Date.now());
+    });
+
+    writePlazaConversationSeenMap(map);
+    localStorage.setItem(PLAZA_CONVERSATION_SEEN_BOOTSTRAPPED_KEY, "1");
+  } catch (_) {}
+}
+
+function isPlazaConversationUnread(item = {}) {
+  const id = String(item && item.id || "").trim();
+  if (!id) return false;
+
+  const map = readPlazaConversationSeenMap();
+  const seenTs = Number(map[id] || 0) || 0;
+  const latestTs = getPlazaConversationLatestTs(item);
+
+  return latestTs > seenTs;
+}
+
+function markPlazaConversationSeen(item = {}) {
+  const id = String(item && item.id || "").trim();
+  if (!id) return;
+
+  const map = readPlazaConversationSeenMap();
+
+  map[id] = Math.max(
+    Number(map[id] || 0) || 0,
+    getPlazaConversationLatestTs(item),
+    Date.now()
+  );
+
+  writePlazaConversationSeenMap(map);
+}
+
+function getPlazaUnreadConversationCount(items = []) {
+  return safeArray(items).filter(isPlazaConversationUnread).length;
+}
+
+function getPlazaConversationLatestLabel(item = {}) {
+  const latestTs = getPlazaConversationLatestTs(item);
+  return latestTs ? formatDate(new Date(latestTs).toISOString()) : formatDate(item.updatedAt || item.createdAt);
+}
+
+function startPlazaConversationAutoRefresh() {
+  if (plazaConversationAutoRefreshTimer) return;
+
+  plazaConversationAutoRefreshTimer = window.setInterval(() => {
+    if (document.hidden) return;
+
+    loadPlazaMessagesFromServer({ silent: true }).catch((error) => {
+      console.warn("Plaza conversation auto-refresh failed:", error);
+    });
+  }, PLAZA_CONVERSATION_REFRESH_MS);
+
+  window.addEventListener("beforeunload", () => {
+    if (plazaConversationAutoRefreshTimer) {
+      window.clearInterval(plazaConversationAutoRefreshTimer);
+      plazaConversationAutoRefreshTimer = null;
+    }
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) {
+      loadPlazaMessagesFromServer({ silent: true }).catch(() => {});
+    }
+  });
+}
+
 function renderNotificationCard(item) {
   return `
     <article class="yh-plaza-notification-card">
@@ -6456,27 +6577,41 @@ function renderNotificationCard(item) {
 
 function renderMessageCard(item) {
   const lastMessage = safeArray(item.messages).slice(-1)[0];
+  const isUnread = isPlazaConversationUnread(item);
+  const isBusinessChat =
+    String(item.scope || "").toLowerCase() === "cross_division_business" ||
+    String(item.contextRoute || "").toLowerCase().includes("cross-division");
+
+  const statusLabel = isUnread ? "New Reply" : item.status;
+  const contextMeta = [
+    item.targetLabel,
+    item.contextRoute || "Plaza conversation",
+    isBusinessChat ? "Business Bridge" : "",
+    item.businessPurpose || ""
+  ].filter(Boolean);
 
   return `
-    <article class="yh-plaza-message-card">
+    <article class="yh-plaza-message-card ${isUnread ? "is-unread" : ""} ${isBusinessChat ? "is-business-chat" : ""}">
       <div class="yh-plaza-message-card-head">
         <div>
           <span class="yh-plaza-queue-chip">${escapeHtml(getQueueRoleLabel(item.queueRole))}</span>
-          <h3>${escapeHtml(item.title)}</h3>
+          <h3>
+            <span>${escapeHtml(item.title)}</span>
+            ${isUnread ? '<b class="yh-plaza-conversation-unread-badge">New</b>' : ""}
+          </h3>
         </div>
-        <span class="yh-plaza-kind-chip">${escapeHtml(item.status)}</span>
+        <span class="yh-plaza-kind-chip ${isUnread ? "is-unread" : ""}">${escapeHtml(statusLabel)}</span>
       </div>
 
       <p>${escapeHtml(lastMessage?.text || "Conversation opened but no reply has been sent yet.")}</p>
 
       <div class="yh-plaza-message-meta">
-        <span>${escapeHtml(item.targetLabel)}</span>
-        <span>${escapeHtml(item.contextRoute || "Plaza conversation")}</span>
-        <span>${escapeHtml(formatDate(item.updatedAt))}</span>
+        ${contextMeta.map((meta) => `<span>${escapeHtml(meta)}</span>`).join("")}
+        <span>${escapeHtml(getPlazaConversationLatestLabel(item))}</span>
       </div>
 
       <div class="yh-plaza-inline-actions">
-        <button type="button" class="yh-plaza-ghost-btn" data-conversation-open="${escapeHtml(item.id)}">Open Conversation</button>
+        <button type="button" class="yh-plaza-ghost-btn" data-conversation-open="${escapeHtml(item.id)}">${escapeHtml(isUnread ? "Open New Reply" : "Open Conversation")}</button>
       </div>
     </article>
   `;
@@ -6926,16 +7061,24 @@ function renderMessagesScreen() {
     ? plazaServerMessages
     : plazaOpsAdapter.getConversations();
 
+  bootstrapPlazaConversationSeenBaseline(items);
+
+  const unreadCount = getPlazaUnreadConversationCount(items);
+
   if (plazaMessagesMeta) {
     plazaMessagesMeta.innerHTML = [
       `${items.length} live conversations`,
-      "Cross-division business bridge"
-    ].map((item) => `<span class="yh-plaza-view-chip">${escapeHtml(item)}</span>`).join("");
+      unreadCount ? `${unreadCount} unread` : "All caught up",
+      typeof renderPlazaBusinessMemberResults === "function" ? "Cross-division business bridge" : ""
+    ].filter(Boolean).map((item) => `<span class="yh-plaza-view-chip ${String(item).includes("unread") ? "is-unread" : ""}">${escapeHtml(item)}</span>`).join("");
   }
 
-  renderPlazaBusinessMemberResults();
+  if (typeof renderPlazaBusinessMemberResults === "function") {
+    renderPlazaBusinessMemberResults();
+  }
 
   if (!plazaMessagesList) return;
+
   plazaMessagesList.innerHTML = items.length
     ? items.map(renderMessageCard).join("")
     : `<div class="yh-plaza-empty">No conversation is open yet. Move a request to Conversation Opened to create one.</div>`;
@@ -6945,6 +7088,7 @@ function renderConversationScreen(item) {
   if (!item || !plazaConversationTitle || !plazaConversationMeta || !plazaConversationThread) return;
 
   plazaRuntime.activeConversationId = item.id;
+  markPlazaConversationSeen(item);
 
   plazaConversationTitle.textContent = item.title;
   plazaConversationMeta.innerHTML = [
@@ -10779,6 +10923,8 @@ await loadPlazaRequestsFromServer({
 await loadPlazaMessagesFromServer({
   silent: restoredScreen !== "messages"
 });
+
+startPlazaConversationAutoRefresh();
 
 await loadPlazaMeetupsFromServer({
   silent: restoredScreen !== "meetups"
