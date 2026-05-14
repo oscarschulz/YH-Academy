@@ -28444,3 +28444,422 @@ if (document.body) {
     window.setInterval(() => applyManualMessagesTab(readStoredTab()), 240);
 })();
 /* END PATCH: Academy AI coach bottom-visible dock + manual Messages tab guard v2 */
+
+/* PATCH: Academy AI Coach standing rectangular modal v1 */
+(function installAcademyAiCoachStandingRectModalV1() {
+    if (window.__academyAiCoachStandingRectModalV1Installed) return;
+    window.__academyAiCoachStandingRectModalV1Installed = true;
+
+    const MODAL_ID = 'academy-ai-coach-rect-modal';
+    const HISTORY_ID = 'academy-ai-coach-rect-history';
+    const FORM_ID = 'academy-ai-coach-rect-form';
+    const INPUT_ID = 'academy-ai-coach-rect-input';
+    const SEND_ID = 'academy-ai-coach-rect-send';
+    const CLOSE_ID = 'academy-ai-coach-rect-close';
+    const CONVERSATION_ID = 'coach_main';
+
+    function escapeHtml(value) {
+        if (typeof academyFeedEscapeHtml === 'function') {
+            return academyFeedEscapeHtml(value);
+        }
+
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function getToken() {
+        try {
+            if (typeof getStoredAuthToken === 'function') {
+                const token = String(getStoredAuthToken() || '').trim();
+                if (token) return token;
+            }
+        } catch (_) {}
+
+        try {
+            return String(
+                sessionStorage.getItem('yh_token') ||
+                localStorage.getItem('yh_token') ||
+                sessionStorage.getItem('token') ||
+                localStorage.getItem('token') ||
+                ''
+            ).trim();
+        } catch (_) {
+            return '';
+        }
+    }
+
+    async function coachFetch(url, options = {}) {
+        if (typeof academyAuthedFetch === 'function') {
+            return academyAuthedFetch(url, options);
+        }
+
+        const token = getToken();
+        const response = await fetch(url, {
+            method: options.method || 'GET',
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { Authorization: 'Bearer ' + token } : {}),
+                ...(options.headers || {})
+            },
+            body: options.body
+        });
+
+        const text = await response.text();
+        let data = {};
+
+        try {
+            data = text ? JSON.parse(text) : {};
+        } catch (_) {
+            data = {};
+        }
+
+        if (!response.ok || data.success === false) {
+            throw new Error(data.message || text || 'AI Coach request failed.');
+        }
+
+        return data;
+    }
+
+    function timeLabel(value) {
+        if (!value) return 'Just now';
+
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return 'Just now';
+
+        return date.toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
+    function getUserName() {
+        try {
+            return String(
+                getStoredUserValue?.('yh_user_name', '') ||
+                localStorage.getItem('yh_user_name') ||
+                'You'
+            ).trim() || 'You';
+        } catch (_) {
+            return 'You';
+        }
+    }
+
+    function createModal() {
+        let modal = document.getElementById(MODAL_ID);
+        if (modal) return modal;
+
+        modal = document.createElement('div');
+        modal.id = MODAL_ID;
+        modal.className = 'academy-ai-coach-rect-modal hidden-step';
+        modal.setAttribute('aria-hidden', 'true');
+
+        modal.innerHTML = `
+            <div class="academy-ai-coach-rect-card" role="dialog" aria-modal="true" aria-labelledby="academy-ai-coach-rect-title">
+                <div class="academy-ai-coach-rect-head">
+                    <div class="academy-ai-coach-rect-identity">
+                        <div class="academy-ai-coach-rect-avatar">🤖</div>
+                        <div>
+                            <div class="academy-ai-coach-rect-kicker">Academy Assistant</div>
+                            <h3 id="academy-ai-coach-rect-title">AI Coach</h3>
+                            <p>Ask about your roadmap, missions, discipline, check-ins, or today’s next move.</p>
+                        </div>
+                    </div>
+
+                    <button type="button" class="academy-ai-coach-rect-close" id="${CLOSE_ID}" aria-label="Close AI Coach">✕</button>
+                </div>
+
+                <div class="academy-ai-coach-rect-prompts" aria-label="Suggested prompts">
+                    <button type="button" data-ai-coach-prompt="What should I focus on today?">Today’s focus</button>
+                    <button type="button" data-ai-coach-prompt="Simplify my next mission.">Simplify mission</button>
+                    <button type="button" data-ai-coach-prompt="Help me recover after missed tasks.">Recover</button>
+                </div>
+
+                <div class="academy-ai-coach-rect-history hide-scrollbar" id="${HISTORY_ID}">
+                    <div class="academy-ai-coach-rect-empty">
+                        <strong>Ask your AI Coach anything about execution.</strong>
+                        <span>Your conversation will appear here.</span>
+                    </div>
+                </div>
+
+                <form class="academy-ai-coach-rect-form" id="${FORM_ID}">
+                    <textarea id="${INPUT_ID}" rows="1" placeholder="Message AI Coach..." autocomplete="off"></textarea>
+                    <button type="submit" id="${SEND_ID}" aria-label="Send AI Coach message">➤</button>
+                </form>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        bindModalEvents(modal);
+
+        return modal;
+    }
+
+    function renderMessages(messages = []) {
+        const history = document.getElementById(HISTORY_ID);
+        if (!history) return;
+
+        if (!Array.isArray(messages) || !messages.length) {
+            history.innerHTML = `
+                <div class="academy-ai-coach-rect-empty">
+                    <strong>Ask your AI Coach anything about execution.</strong>
+                    <span>Your conversation will appear here.</span>
+                </div>
+            `;
+            return;
+        }
+
+        const userName = getUserName();
+
+        history.innerHTML = messages.map((message) => {
+            const role = String(message.role || '').trim().toLowerCase();
+            const isUser = role === 'user';
+            const author = isUser ? userName : 'AI Coach';
+            const avatar = isUser ? escapeHtml(author.charAt(0).toUpperCase() || 'Y') : '🤖';
+
+            return `
+                <div class="academy-ai-coach-rect-bubble ${isUser ? 'is-user' : 'is-bot'}">
+                    <div class="academy-ai-coach-rect-bubble-avatar">${avatar}</div>
+                    <div class="academy-ai-coach-rect-bubble-main">
+                        <div class="academy-ai-coach-rect-bubble-meta">
+                            <strong>${escapeHtml(author)}</strong>
+                            <span>${escapeHtml(timeLabel(message.createdAt || message.time || ''))}</span>
+                        </div>
+                        <div class="academy-ai-coach-rect-bubble-text">${escapeHtml(message.text || message.message || '').replace(/\n/g, '<br>')}</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        history.scrollTop = history.scrollHeight;
+    }
+
+    function renderLoading() {
+        const history = document.getElementById(HISTORY_ID);
+        if (!history) return;
+
+        history.innerHTML = `
+            <div class="academy-ai-coach-rect-loading">
+                Loading AI Coach...
+            </div>
+        `;
+    }
+
+    function renderError(error) {
+        const history = document.getElementById(HISTORY_ID);
+        if (!history) return;
+
+        history.innerHTML = `
+            <div class="academy-ai-coach-rect-error">
+                ${escapeHtml(error?.message || 'Failed to load AI Coach.')}
+            </div>
+        `;
+    }
+
+    async function loadCoachMessages() {
+        renderLoading();
+
+        try {
+            const result = await coachFetch('/api/academy/assistant/messages?conversationId=' + encodeURIComponent(CONVERSATION_ID), {
+                method: 'GET'
+            });
+
+            renderMessages(Array.isArray(result.messages) ? result.messages : []);
+        } catch (error) {
+            renderError(error);
+        }
+    }
+
+    async function sendCoachMessage(text) {
+        const cleanText = String(text || '').trim();
+        if (!cleanText) return;
+
+        const input = document.getElementById(INPUT_ID);
+        const send = document.getElementById(SEND_ID);
+
+        try {
+            if (input) {
+                input.disabled = true;
+                input.value = '';
+            }
+
+            if (send) {
+                send.disabled = true;
+                send.setAttribute('aria-busy', 'true');
+            }
+
+            const history = document.getElementById(HISTORY_ID);
+            if (history) {
+                const existingHtml = history.innerHTML;
+                const userName = getUserName();
+
+                if (existingHtml.includes('academy-ai-coach-rect-empty') || existingHtml.includes('academy-ai-coach-rect-error')) {
+                    history.innerHTML = '';
+                }
+
+                history.insertAdjacentHTML('beforeend', `
+                    <div class="academy-ai-coach-rect-bubble is-user">
+                        <div class="academy-ai-coach-rect-bubble-avatar">${escapeHtml(userName.charAt(0).toUpperCase() || 'Y')}</div>
+                        <div class="academy-ai-coach-rect-bubble-main">
+                            <div class="academy-ai-coach-rect-bubble-meta">
+                                <strong>${escapeHtml(userName)}</strong>
+                                <span>Just now</span>
+                            </div>
+                            <div class="academy-ai-coach-rect-bubble-text">${escapeHtml(cleanText)}</div>
+                        </div>
+                    </div>
+                    <div class="academy-ai-coach-rect-loading is-inline">AI Coach is thinking...</div>
+                `);
+
+                history.scrollTop = history.scrollHeight;
+            }
+
+            const result = await coachFetch('/api/academy/assistant/chat', {
+                method: 'POST',
+                body: JSON.stringify({
+                    conversationId: CONVERSATION_ID,
+                    message: cleanText,
+                    contextHint: 'academy_modal'
+                })
+            });
+
+            await loadCoachMessages();
+
+            const freshHistory = document.getElementById(HISTORY_ID);
+            if (freshHistory && result?.reply && freshHistory.textContent.indexOf(result.reply.slice(0, 24)) === -1) {
+                freshHistory.insertAdjacentHTML('beforeend', `
+                    <div class="academy-ai-coach-rect-bubble is-bot">
+                        <div class="academy-ai-coach-rect-bubble-avatar">🤖</div>
+                        <div class="academy-ai-coach-rect-bubble-main">
+                            <div class="academy-ai-coach-rect-bubble-meta">
+                                <strong>AI Coach</strong>
+                                <span>Just now</span>
+                            </div>
+                            <div class="academy-ai-coach-rect-bubble-text">${escapeHtml(result.reply).replace(/\n/g, '<br>')}</div>
+                        </div>
+                    </div>
+                `);
+                freshHistory.scrollTop = freshHistory.scrollHeight;
+            }
+        } catch (error) {
+            const history = document.getElementById(HISTORY_ID);
+            if (history) {
+                history.querySelectorAll('.academy-ai-coach-rect-loading.is-inline').forEach((node) => node.remove());
+                history.insertAdjacentHTML('beforeend', `
+                    <div class="academy-ai-coach-rect-error">${escapeHtml(error?.message || 'Failed to get AI Coach reply.')}</div>
+                `);
+                history.scrollTop = history.scrollHeight;
+            }
+
+            try {
+                if (typeof showToast === 'function') {
+                    showToast(error?.message || 'Failed to get AI Coach reply.', 'error');
+                }
+            } catch (_) {}
+        } finally {
+            if (send) {
+                send.disabled = false;
+                send.removeAttribute('aria-busy');
+            }
+
+            if (input) {
+                input.disabled = false;
+                input.focus();
+            }
+        }
+    }
+
+    function openModal() {
+        const modal = createModal();
+
+        modal.classList.remove('hidden-step');
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body?.classList.add('academy-ai-coach-rect-open');
+
+        loadCoachMessages();
+
+        window.setTimeout(() => {
+            document.getElementById(INPUT_ID)?.focus();
+        }, 80);
+    }
+
+    function closeModal() {
+        const modal = document.getElementById(MODAL_ID);
+        if (!modal) return;
+
+        modal.classList.remove('is-open');
+        modal.classList.add('hidden-step');
+        modal.setAttribute('aria-hidden', 'true');
+        document.body?.classList.remove('academy-ai-coach-rect-open');
+    }
+
+    function bindModalEvents(modal) {
+        if (!modal || modal.dataset.bound === '1') return;
+        modal.dataset.bound = '1';
+
+        modal.addEventListener('click', (event) => {
+            if (event.target === modal) {
+                closeModal();
+            }
+        });
+
+        modal.querySelector('#' + CLOSE_ID)?.addEventListener('click', (event) => {
+            event.preventDefault();
+            closeModal();
+        });
+
+        modal.querySelector('#' + FORM_ID)?.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const input = document.getElementById(INPUT_ID);
+            await sendCoachMessage(input?.value || '');
+        });
+
+        modal.querySelector('#' + INPUT_ID)?.addEventListener('keydown', async (event) => {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                await sendCoachMessage(event.currentTarget.value || '');
+            }
+        });
+
+        modal.querySelectorAll('[data-ai-coach-prompt]').forEach((button) => {
+            button.addEventListener('click', async () => {
+                await sendCoachMessage(button.getAttribute('data-ai-coach-prompt') || '');
+            });
+        });
+    }
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            closeModal();
+        }
+    });
+
+    document.addEventListener('click', (event) => {
+        const target = event.target instanceof Element ? event.target : event.target?.parentElement;
+        if (!target) return;
+
+        const bot = target.closest('.academy-right-bot-cta, button[aria-label="Open Academy AI Coach"]');
+        if (!bot) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+
+        openModal();
+    }, true);
+
+    window.openAcademyAiCoachRectModal = openModal;
+    window.closeAcademyAiCoachRectModal = closeModal;
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', createModal);
+    } else {
+        createModal();
+    }
+})();
+/* END PATCH: Academy AI Coach standing rectangular modal v1 */
