@@ -23550,3 +23550,110 @@ body.academy-right-bot-docked .yh-right-sidebar [class*="bot"]:not(.academy-righ
     }
 }
 
+
+/* Academy Messages UI polish: menu placement, inbox layering, bot dock flow */
+.chat-bubble {
+    position: relative !important;
+    overflow: visible !important;
+}
+
+.chat-bubble .message-action-trigger,
+.chat-bubble.mine .message-action-trigger {
+    top: 6px !important;
+    right: 8px !important;
+    left: auto !important;
+    z-index: 80 !important;
+}
+
+.chat-bubble .message-action-menu,
+.chat-bubble.mine .message-action-menu {
+    top: 36px !important;
+    right: 8px !important;
+    left: auto !important;
+    width: 198px !important;
+    max-width: min(198px, calc(100vw - 36px)) !important;
+    transform-origin: top right !important;
+    z-index: 120 !important;
+}
+
+.chat-bubble.mine .message-action-menu {
+    right: 8px !important;
+    left: auto !important;
+}
+
+.chat-bubble .message-action-menu.is-open {
+    display: flex !important;
+}
+
+#dynamic-chat-history,
+.academy-messages-thread-shell,
+.academy-messages-thread-scroll,
+.academy-chat-thread {
+    overflow-x: visible !important;
+}
+
+.academy-messages-inbox,
+.academy-messages-inbox-list,
+#academy-messages-inbox-list {
+    overflow: visible !important;
+}
+
+.academy-messages-inbox-card {
+    position: relative !important;
+    z-index: 1;
+    isolation: isolate;
+}
+
+.academy-messages-inbox-card.is-menu-open {
+    z-index: 9999 !important;
+    isolation: auto;
+}
+
+.academy-messages-inbox-card.is-menu-open .academy-messages-inbox-item {
+    position: relative;
+    z-index: 2;
+}
+
+.academy-messages-inbox-card .academy-messages-inbox-menu {
+    z-index: 10020 !important;
+    min-width: 196px;
+    overflow: visible !important;
+}
+
+.academy-messages-inbox-card.is-menu-open .academy-messages-inbox-menu,
+.academy-messages-inbox-menu.is-open {
+    z-index: 10020 !important;
+}
+
+.yh-right-sidebar,
+.academy-right-sidebar,
+[data-academy-right-sidebar] {
+    position: relative !important;
+    min-height: calc(100vh - 86px);
+}
+
+.academy-right-bot-cta {
+    margin: 22px auto 0 !important;
+}
+
+.academy-right-bot-cta.academy-right-bot-floating {
+    position: relative !important;
+    inset: auto !important;
+    display: inline-flex !important;
+    animation: academyRightBotFloat 2.7s ease-in-out infinite !important;
+}
+
+.academy-right-bot-cta.is-docked {
+    position: absolute !important;
+    left: 20px !important;
+    right: 20px !important;
+    bottom: 24px !important;
+    width: auto !important;
+    margin: 0 !important;
+    border-radius: 16px !important;
+    padding: 9px 12px !important;
+    justify-content: flex-start !important;
+    animation: none !important;
+    transform: none !important;
+}
+

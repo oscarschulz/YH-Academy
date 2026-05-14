@@ -25657,3 +25657,111 @@ if (document.body) {
     }
 })();
 
+
+(function installAcademyMessagesUiPolishLayer() {
+    if (window.__academyMessagesUiPolishLayerInstalled) return;
+    window.__academyMessagesUiPolishLayerInstalled = true;
+
+    function closeInboxMenuOpenStates(exceptCard = null) {
+        document.querySelectorAll('.academy-messages-inbox-card.is-menu-open').forEach((card) => {
+            if (exceptCard && card === exceptCard) return;
+            card.classList.remove('is-menu-open');
+        });
+    }
+
+    function syncInboxMenuOpenStates() {
+        document.querySelectorAll('.academy-messages-inbox-card').forEach((card) => {
+            const menu = card.querySelector('.academy-messages-inbox-menu');
+            const trigger = card.querySelector('.academy-messages-inbox-menu-trigger');
+
+            const isOpen =
+                menu?.classList.contains('is-open') ||
+                trigger?.getAttribute('aria-expanded') === 'true';
+
+            card.classList.toggle('is-menu-open', Boolean(isOpen));
+        });
+    }
+
+    function ensureRightSidebarBotDockFlow() {
+        const sidebar =
+            document.querySelector('.yh-right-sidebar') ||
+            document.querySelector('.academy-right-sidebar') ||
+            document.querySelector('[data-academy-right-sidebar]');
+
+        if (!sidebar) return;
+
+        let bot = sidebar.querySelector('.academy-right-bot-cta');
+
+        if (!bot) {
+            bot = document.createElement('button');
+            bot.type = 'button';
+            bot.className = 'academy-right-bot-cta academy-right-bot-floating';
+            bot.setAttribute('aria-label', 'Open Academy AI Coach');
+            bot.innerHTML = "<span class=\"academy-right-bot-cta-pill\">I'm here</span><span class=\"academy-right-bot-cta-avatar\">🤖</span>";
+
+            bot.addEventListener('click', async () => {
+                if (typeof openAcademyCoachView === 'function') {
+                    await openAcademyCoachView(true);
+                    return;
+                }
+
+                document.getElementById('nav-missions')?.click();
+            });
+
+            sidebar.appendChild(bot);
+        }
+
+        if (!bot.dataset.academyDockFlowInstalled) {
+            bot.dataset.academyDockFlowInstalled = '1';
+            bot.classList.add('academy-right-bot-floating');
+            bot.classList.remove('is-docked');
+            document.body?.classList.remove('academy-right-bot-docked');
+
+            window.setTimeout(() => {
+                bot.classList.remove('academy-right-bot-floating');
+                bot.classList.add('is-docked');
+                document.body?.classList.add('academy-right-bot-docked');
+                bot.innerHTML = "<span class=\"academy-right-bot-cta-avatar\">🤖</span><strong>Ask AI Coach</strong>";
+            }, 30000);
+        }
+    }
+
+    document.addEventListener('click', (event) => {
+        const target = event.target instanceof Element
+            ? event.target
+            : event.target?.parentElement;
+
+        if (!target) return;
+
+        const inboxMenuTrigger = target.closest('.academy-messages-inbox-menu-trigger');
+        if (inboxMenuTrigger) {
+            const card = inboxMenuTrigger.closest('.academy-messages-inbox-card');
+            closeInboxMenuOpenStates(card);
+
+            window.requestAnimationFrame(() => {
+                if (card) card.classList.add('is-menu-open');
+                syncInboxMenuOpenStates();
+            });
+
+            return;
+        }
+
+        if (!target.closest('.academy-messages-inbox-menu')) {
+            window.requestAnimationFrame(closeInboxMenuOpenStates);
+        }
+    }, true);
+
+    function bootMessagesUiPolish() {
+        ensureRightSidebarBotDockFlow();
+        syncInboxMenuOpenStates();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bootMessagesUiPolish);
+    } else {
+        bootMessagesUiPolish();
+    }
+
+    window.setInterval(bootMessagesUiPolish, 1800);
+})();
+
