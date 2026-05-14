@@ -21539,430 +21539,23 @@ window.addEventListener('storage', (event) => {
 // ✅ Close DOMContentLoaded wrapper
 });
 
-/* PATCH: Academy strict search email autofill hard stop v1 */
-(function installAcademyStrictSearchEmailAutofillHardStopV1() {
-    if (window.__academyStrictSearchEmailAutofillHardStopV1Installed) return;
-    window.__academyStrictSearchEmailAutofillHardStopV1Installed = true;
-
-    const SEARCH_IDS = [
-        'academy-global-search-input',
-        'academy-member-browser-search-input',
-        'yh-dashboard-profile-search-input',
-        'plaza-global-search-input',
-        'plaza-member-search-input'
-    ];
-
-    function safeText(value) {
-        return String(value || '').trim();
-    }
-
-    function isEmailLike(value) {
-        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(safeText(value));
-    }
-
-    function decodeJwtPayload(token) {
-        const cleanToken = safeText(token);
-        const parts = cleanToken.split('.');
-        if (parts.length < 2) return {};
-
-        try {
-            const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-            const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=');
-            const json = decodeURIComponent(
-                Array.from(atob(padded))
-                    .map((char) => '%' + char.charCodeAt(0).toString(16).padStart(2, '0'))
-                    .join('')
-            );
-
-            const parsed = JSON.parse(json);
-            return parsed && typeof parsed === 'object' ? parsed : {};
-        } catch (_) {
-            return {};
-        }
-    }
-
-    function collectKnownEmails() {
-        const emails = new Set();
-        const keys = [
-            'yh_user_email',
-            'yh_email',
-            'user_email',
-            'email',
-            'yh_current_user',
-            'yh_user',
-            'currentUser',
-            'user'
-        ];
-
-        const addEmail = (value) => {
-            const clean = safeText(value).toLowerCase();
-            if (isEmailLike(clean)) emails.add(clean);
-        };
-
-        keys.forEach((key) => {
-            [localStorage, sessionStorage].forEach((store) => {
-                try {
-                    const raw = store.getItem(key);
-                    if (!raw) return;
-
-                    addEmail(raw);
-
-                    try {
-                        const parsed = JSON.parse(raw);
-                        if (parsed && typeof parsed === 'object') {
-                            addEmail(parsed.email);
-                            addEmail(parsed.emailLower);
-                            addEmail(parsed.user?.email);
-                            addEmail(parsed.profile?.email);
-                        }
-                    } catch (_) {}
-                } catch (_) {}
-            });
-        });
-
-        ['yh_token', 'token', 'authToken'].forEach((key) => {
-            [localStorage, sessionStorage].forEach((store) => {
-                try {
-                    const payload = decodeJwtPayload(store.getItem(key));
-                    addEmail(payload.email);
-                    addEmail(payload.emailLower);
-                    addEmail(payload.user?.email);
-                } catch (_) {}
-            });
-        });
-
-        try {
-            if (typeof getStoredUserValue === 'function') {
-                addEmail(getStoredUserValue('yh_user_email', ''));
-                addEmail(getStoredUserValue('email', ''));
-            }
-        } catch (_) {}
-
-        return emails;
-    }
-
-    function isBlockedSearchValue(value) {
-        const clean = safeText(value);
-        if (!clean) return false;
-
-        const lower = clean.toLowerCase();
-
-        if (isEmailLike(clean)) return true;
-
-        const emails = collectKnownEmails();
-        return emails.has(lower);
-    }
-
-    function closeSearchUi() {
-        try {
-            if (typeof closeAcademySearchResultsPanel === 'function') {
-                closeAcademySearchResultsPanel();
-                return;
-            }
-        } catch (_) {}
-
-        const panel = document.getElementById('academy-search-results-panel');
-        const inner = document.getElementById('academy-search-results-inner');
-
-        if (inner) inner.innerHTML = '';
-        if (panel) panel.classList.add('hidden-step');
-
-        document.body?.classList.remove('academy-search-results-open');
-    }
-
-    function isSearchLikeInput(input) {
-        if (!(input instanceof HTMLInputElement) && !(input instanceof HTMLTextAreaElement)) return false;
-
-        const id = safeText(input.id).toLowerCase();
-        const name = safeText(input.getAttribute('name')).toLowerCase();
-        const cls = safeText(input.className).toLowerCase();
-        const placeholder = safeText(input.getAttribute('placeholder')).toLowerCase();
-        const type = safeText(input.getAttribute('type')).toLowerCase();
-
-        if (SEARCH_IDS.includes(input.id)) return true;
-        if (type === 'search') return true;
-        if (id.includes('search')) return true;
-        if (name.includes('search')) return true;
-        if (cls.includes('search')) return true;
-        if (placeholder.includes('search')) return true;
-
-        return false;
-    }
-
-    function hardenSearchInput(input) {
-        if (!isSearchLikeInput(input)) return;
-
-        input.setAttribute('autocomplete', 'off');
-        input.setAttribute('autocorrect', 'off');
-        input.setAttribute('autocapitalize', 'none');
-        input.setAttribute('spellcheck', 'false');
-        input.setAttribute('data-lpignore', 'true');
-        input.setAttribute('data-1p-ignore', 'true');
-        input.setAttribute('data-bwignore', 'true');
-        input.setAttribute('data-form-type', 'other');
-        input.setAttribute('aria-autocomplete', 'none');
-
-        if (input instanceof HTMLInputElement) {
-            input.setAttribute('type', 'search');
-            input.setAttribute('inputmode', 'search');
-
-            if (!safeText(input.getAttribute('name')) || /email|user|login|account/i.test(input.getAttribute('name') || '')) {
-                input.setAttribute('name', 'academy_search_no_credentials_' + (input.id || 'field'));
-            }
-        }
-
-        input.removeAttribute('value');
-
-        if (input.hasAttribute('readonly')) {
-            window.setTimeout(() => {
-                input.removeAttribute('readonly');
-            }, 240);
-        }
-    }
-
-    function cleanSearchInput(input, force) {
-        if (!isSearchLikeInput(input)) return false;
-
-        hardenSearchInput(input);
-
-        const value = safeText(input.value);
-        const shouldClear = force === true || isBlockedSearchValue(value);
-
-        if (!shouldClear) return false;
-
-        input.value = '';
-        input.defaultValue = '';
-        input.removeAttribute('value');
-        input.dataset.academySearchUserEdited = '';
-        input.dataset.academySearchAutofillKilled = '1';
-
-        closeSearchUi();
-        return true;
-    }
-
-    function cleanAllSearchInputs(force) {
-        let cleaned = false;
-
-        document.querySelectorAll('input, textarea').forEach((input) => {
-            if (cleanSearchInput(input, force)) cleaned = true;
-        });
-
-        if (cleaned) {
-            closeSearchUi();
-        }
-
-        return cleaned;
-    }
-
-    function purgeSearchStorageEmailValues() {
-        [localStorage, sessionStorage].forEach((store) => {
-            try {
-                Object.keys(store).forEach((key) => {
-                    const keyLower = safeText(key).toLowerCase();
-                    if (!keyLower.includes('search') && !keyLower.includes('query')) return;
-
-                    const value = safeText(store.getItem(key));
-                    if (isBlockedSearchValue(value)) {
-                        store.removeItem(key);
-                    }
-                });
-            } catch (_) {}
-        });
-    }
-
-    function interceptSearchEvent(event) {
-        const target = event.target instanceof Element ? event.target : null;
-        if (!target) return;
-
-        const input = target.closest('input, textarea');
-        if (!input || !isSearchLikeInput(input)) return;
-
-        if (input.hasAttribute('readonly')) {
-            input.removeAttribute('readonly');
-        }
-
-        window.setTimeout(() => {
-            cleanSearchInput(input, false);
-        }, 0);
-
-        if (isBlockedSearchValue(input.value)) {
-            event.preventDefault();
-            event.stopPropagation();
-            event.stopImmediatePropagation();
-
-            cleanSearchInput(input, true);
-        }
-    }
-
-    function blockQuery(query) {
-        if (!isBlockedSearchValue(query)) return false;
-
-        cleanAllSearchInputs(false);
-        closeSearchUi();
-        return true;
-    }
-
-    function wrapGlobalFunction(name, fallbackValue) {
-        let original = null;
-
-        try {
-            original = window[name];
-        } catch (_) {}
-
-        if (typeof original !== 'function') {
-            try {
-                original = eval(name);
-            } catch (_) {
-                original = null;
-            }
-        }
-
-        if (typeof original !== 'function' || original.__academySearchEmailHardStopWrapped === true) return;
-
-        const wrapped = function academySearchEmailHardStopWrapped(query) {
-            if (blockQuery(query)) {
-                return typeof fallbackValue === 'function' ? fallbackValue() : fallbackValue;
-            }
-
-            return original.apply(this, arguments);
-        };
-
-        wrapped.__academySearchEmailHardStopWrapped = true;
-        wrapped.__academySearchEmailHardStopOriginal = original;
-
-        try {
-            window[name] = wrapped;
-        } catch (_) {}
-
-        try {
-            eval(name + ' = window["' + name + '"]');
-        } catch (_) {}
-    }
-
-    function wrapOpenFeedView() {
-        let original = null;
-
-        try {
-            original = window.openAcademyFeedView;
-        } catch (_) {}
-
-        if (typeof original !== 'function') {
-            try {
-                original = eval('openAcademyFeedView');
-            } catch (_) {
-                original = null;
-            }
-        }
-
-        if (typeof original !== 'function' || original.__academySearchEmailOpenFeedWrapped === true) return;
-
-        const wrapped = function openAcademyFeedViewSearchEmailHardStopWrapped() {
-            purgeSearchStorageEmailValues();
-            cleanAllSearchInputs(false);
-            closeSearchUi();
-
-            const result = original.apply(this, arguments);
-
-            [0, 80, 180, 420, 900, 1600].forEach((delay) => {
-                window.setTimeout(() => {
-                    cleanAllSearchInputs(false);
-                    closeSearchUi();
-                }, delay);
-            });
-
-            return result;
-        };
-
-        wrapped.__academySearchEmailOpenFeedWrapped = true;
-        wrapped.__academySearchEmailOpenFeedOriginal = original;
-
-        try {
-            window.openAcademyFeedView = wrapped;
-        } catch (_) {}
-
-        try {
-            eval('openAcademyFeedView = window.openAcademyFeedView');
-        } catch (_) {}
-    }
-
-    function bootHardStop() {
-        purgeSearchStorageEmailValues();
-        cleanAllSearchInputs(false);
-
-        wrapGlobalFunction('academySyncSearchInputs');
-        wrapGlobalFunction('scheduleAcademySearch');
-        wrapGlobalFunction('applyAcademySearch', function () { return Promise.resolve([]); });
-        wrapGlobalFunction('requestAcademyMemberSearch', function () { return Promise.resolve([]); });
-        wrapGlobalFunction('loadAcademyMemberBrowser');
-        wrapGlobalFunction('renderAcademySearchResultsPanel');
-        wrapGlobalFunction('renderAcademySearchResultsLoadingPanel');
-
-        wrapOpenFeedView();
-
-        [0, 80, 180, 420, 900, 1600, 2600, 4200].forEach((delay) => {
-            window.setTimeout(() => {
-                purgeSearchStorageEmailValues();
-                cleanAllSearchInputs(false);
-                if (cleanAllSearchInputs(false)) closeSearchUi();
-            }, delay);
-        });
-    }
-
-    document.addEventListener('beforeinput', interceptSearchEvent, true);
-    document.addEventListener('input', interceptSearchEvent, true);
-    document.addEventListener('change', interceptSearchEvent, true);
-    document.addEventListener('focusin', interceptSearchEvent, true);
-    document.addEventListener('animationstart', () => {
-        window.setTimeout(() => cleanAllSearchInputs(false), 0);
-    }, true);
-
-    document.addEventListener('click', (event) => {
-        const target = event.target instanceof Element ? event.target : null;
-        if (!target) return;
-
-        if (
-            target.closest('#nav-chat, [data-academy-target="nav-chat"], .academy-mobile-nav-item[data-academy-target="nav-chat"], [href*="plaza"], [href*="academy"], #back-to-universe, [data-universe-enter], [data-division="plaza"], [data-division="academy"]')
-        ) {
-            [0, 120, 360, 900, 1600].forEach((delay) => {
-                window.setTimeout(() => {
-                    purgeSearchStorageEmailValues();
-                    cleanAllSearchInputs(false);
-                    closeSearchUi();
-                }, delay);
-            });
-        }
-    }, true);
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', bootHardStop);
-    } else {
-        bootHardStop();
-    }
-
-    window.addEventListener('load', bootHardStop);
-    window.addEventListener('pageshow', bootHardStop);
-    window.addEventListener('visibilitychange', () => {
-        if (!document.hidden) bootHardStop();
-    });
-
-    window.setInterval(() => {
-        purgeSearchStorageEmailValues();
-        cleanAllSearchInputs(false);
-    }, 700);
-})();
-/* END PATCH: Academy strict search email autofill hard stop v1 */
-
-/* PATCH: Academy search fields stay empty until user types v1 */
-(function installAcademySearchFieldsStayEmptyUntilUserTypesV1() {
-    if (window.__academySearchFieldsStayEmptyUntilUserTypesV1Installed) return;
-    window.__academySearchFieldsStayEmptyUntilUserTypesV1Installed = true;
+/* PATCH: Academy strict search email autofill hard stop v2
+   Superseded by the safer Academy search v2 guard below.
+   The old v1 interval/attribute observer was removed to prevent browser freeze.
+*/
+/* END PATCH: Academy strict search email autofill hard stop v2 */
+
+/* PATCH: Academy search fields stay empty until user types v2 */
+(function installAcademySearchFieldsStayEmptyUntilUserTypesV2() {
+    if (window.__academySearchFieldsStayEmptyUntilUserTypesV2Installed) return;
+    window.__academySearchFieldsStayEmptyUntilUserTypesV2Installed = true;
 
     const SEARCH_IDS = [
         'academy-global-search-input',
         'academy-member-browser-search-input'
     ];
 
-    const USER_ACTIVE_MS = 120000;
+    let cleanScheduled = false;
 
     function safeText(value) {
         return String(value || '').trim();
@@ -21978,7 +21571,7 @@ window.addEventListener('storage', (event) => {
             .filter((input) => input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement);
     }
 
-    function closeAcademySearchUiHard() {
+    function closeSearchUi() {
         try {
             if (typeof closeAcademySearchResultsPanel === 'function') {
                 closeAcademySearchResultsPanel();
@@ -21994,12 +21587,13 @@ window.addEventListener('storage', (event) => {
 
         if (panel) {
             panel.classList.add('hidden-step');
+            panel.setAttribute('aria-hidden', 'true');
         }
 
         document.body?.classList.remove('academy-search-results-open');
     }
 
-    function clearSearchDebounceHard() {
+    function clearSearchDebounce() {
         try {
             if (typeof academySearchDebounceTimer !== 'undefined' && academySearchDebounceTimer) {
                 clearTimeout(academySearchDebounceTimer);
@@ -22014,354 +21608,190 @@ window.addEventListener('storage', (event) => {
         } catch (_) {}
     }
 
-    function markSystemClearing(input) {
-        input.dataset.academySystemClearing = '1';
-        window.setTimeout(() => {
-            input.dataset.academySystemClearing = '';
-        }, 0);
-    }
-
-    function isUserActivelySearching(input) {
-        const lastUserAt = Number(input.dataset.academySearchUserActiveAt || 0);
-        if (!lastUserAt) return false;
-
-        return Date.now() - lastUserAt < USER_ACTIVE_MS;
-    }
-
-    function hardenInput(input) {
+    function hardenSearchInput(input) {
         if (!input) return;
 
-        input.setAttribute('autocomplete', 'off');
-        input.setAttribute('autocorrect', 'off');
-        input.setAttribute('autocapitalize', 'none');
-        input.setAttribute('spellcheck', 'false');
-        input.setAttribute('data-lpignore', 'true');
-        input.setAttribute('data-1p-ignore', 'true');
-        input.setAttribute('data-bwignore', 'true');
-        input.setAttribute('data-form-type', 'other');
-        input.setAttribute('aria-autocomplete', 'none');
-
-        if (input instanceof HTMLInputElement) {
-            input.setAttribute('type', 'search');
+        if (input.dataset.academySearchV2Hardened !== '1') {
+            input.setAttribute('autocomplete', 'off');
+            input.setAttribute('autocorrect', 'off');
+            input.setAttribute('autocapitalize', 'none');
+            input.setAttribute('spellcheck', 'false');
             input.setAttribute('inputmode', 'search');
-            input.setAttribute('name', 'academy_search_no_autofill_' + input.id);
+            input.setAttribute('data-lpignore', 'true');
+            input.setAttribute('data-1p-ignore', 'true');
+            input.setAttribute('data-bwignore', 'true');
+            input.setAttribute('data-form-type', 'other');
+            input.setAttribute('aria-autocomplete', 'none');
+
+            if (input instanceof HTMLInputElement) {
+                input.setAttribute('type', 'search');
+                input.setAttribute('name', 'academy_search_' + input.id.replace(/[^a-z0-9_-]/gi, '_'));
+            }
+
+            input.dataset.academySearchV2Hardened = '1';
         }
 
+        input.removeAttribute('readonly');
         input.removeAttribute('value');
-
-        if (!isUserActivelySearching(input)) {
-            input.setAttribute('readonly', 'readonly');
-            input.dataset.academyReadonlyLock = '1';
-        }
     }
 
-    function forceEmptySearchInput(input, reason = 'system') {
-        if (!input) return;
+    function clearSearchInput(input, reason = 'system') {
+        if (!input) return false;
 
-        hardenInput(input);
+        hardenSearchInput(input);
 
-        const hadValue = Boolean(safeText(input.value));
+        const hadValue = Boolean(safeText(input.value) || safeText(input.defaultValue) || safeText(input.getAttribute('value')));
 
-        markSystemClearing(input);
         input.value = '';
         input.defaultValue = '';
         input.removeAttribute('value');
-        input.dataset.academySearchUserActiveAt = '';
-        input.dataset.academyLastForceEmptyReason = reason;
+        input.dataset.academySearchUserTyped = '';
+        input.dataset.academyLastSearchClearReason = reason;
 
-        if (hadValue) {
-            input.dispatchEvent(new Event('input', { bubbles: true }));
-        }
+        return hadValue;
     }
 
-    function forceEmptyAllSearchInputs(reason = 'system') {
-        getSearchInputs().forEach((input) => forceEmptySearchInput(input, reason));
-        clearSearchDebounceHard();
-        closeAcademySearchUiHard();
-    }
+    function cleanSearchInputs(reason = 'system') {
+        let changed = false;
 
-    function unlockForRealUserInput(input, event = null) {
-        if (!input) return;
+        getSearchInputs().forEach((input) => {
+            hardenSearchInput(input);
 
-        input.dataset.academySearchUserActiveAt = String(Date.now());
-        input.dataset.academySystemClearing = '';
-        input.removeAttribute('readonly');
-        input.dataset.academyReadonlyLock = '';
+            const value = safeText(input.value || input.defaultValue || input.getAttribute('value'));
 
-        if (isEmailLike(input.value)) {
-            forceEmptySearchInput(input, 'email-block-on-user-unlock');
-            input.removeAttribute('readonly');
-        }
+            if (!value) return;
 
-        if (event && event.type === 'pointerdown') {
-            window.setTimeout(() => input.focus(), 0);
-        }
-    }
-
-    function relockIfEmpty(input) {
-        if (!input) return;
-
-        window.setTimeout(() => {
-            if (safeText(input.value)) return;
-            input.dataset.academySearchUserActiveAt = '';
-            input.setAttribute('readonly', 'readonly');
-            input.dataset.academyReadonlyLock = '1';
-        }, 80);
-    }
-
-    function cleanAutofillIfNeeded(input) {
-        if (!input) return;
-
-        const value = safeText(input.value);
-
-        if (!value) {
-            hardenInput(input);
-            return;
-        }
-
-        if (!isUserActivelySearching(input) || isEmailLike(value)) {
-            forceEmptySearchInput(input, isEmailLike(value) ? 'email-autofill-blocked' : 'non-user-prefill-blocked');
-        }
-    }
-
-    function bindInput(input) {
-        if (!input || input.dataset.academyEmptyUntilTypingBound === '1') return;
-
-        input.dataset.academyEmptyUntilTypingBound = '1';
-
-        hardenInput(input);
-
-        input.addEventListener('pointerdown', (event) => {
-            unlockForRealUserInput(input, event);
-        }, true);
-
-        input.addEventListener('mousedown', (event) => {
-            unlockForRealUserInput(input, event);
-        }, true);
-
-        input.addEventListener('touchstart', (event) => {
-            unlockForRealUserInput(input, event);
-        }, true);
-
-        input.addEventListener('keydown', () => {
-            unlockForRealUserInput(input);
-        }, true);
-
-        input.addEventListener('paste', () => {
-            unlockForRealUserInput(input);
-        }, true);
-
-        input.addEventListener('focus', () => {
-            if (!isUserActivelySearching(input) && safeText(input.value)) {
-                forceEmptySearchInput(input, 'focus-prefill-blocked');
-            }
-        }, true);
-
-        input.addEventListener('blur', () => {
-            relockIfEmpty(input);
-        });
-
-        input.addEventListener('input', (event) => {
-            if (input.dataset.academySystemClearing === '1') return;
-
-            const value = safeText(input.value);
-
-            if (isEmailLike(value)) {
-                event.preventDefault();
-                event.stopPropagation();
-                event.stopImmediatePropagation();
-                forceEmptySearchInput(input, 'email-input-blocked');
+            if (input.dataset.academySearchUserTyped === '1' && !isEmailLike(value)) {
                 return;
             }
 
-            if (!isUserActivelySearching(input)) {
-                event.preventDefault();
-                event.stopPropagation();
-                event.stopImmediatePropagation();
-                forceEmptySearchInput(input, 'autofill-input-blocked');
+            if (clearSearchInput(input, reason)) {
+                changed = true;
+            }
+        });
+
+        if (changed) {
+            clearSearchDebounce();
+            closeSearchUi();
+        }
+
+        return changed;
+    }
+
+    function scheduleClean(reason = 'scheduled') {
+        if (cleanScheduled) return;
+
+        cleanScheduled = true;
+
+        window.requestAnimationFrame(() => {
+            cleanScheduled = false;
+            bindSearchInputs();
+            cleanSearchInputs(reason);
+        });
+    }
+
+    function markUserTyped(input) {
+        if (!input) return;
+
+        hardenSearchInput(input);
+        input.dataset.academySearchUserTyped = '1';
+    }
+
+    function bindSearchInput(input) {
+        if (!input || input.dataset.academySearchV2Bound === '1') return;
+
+        input.dataset.academySearchV2Bound = '1';
+        hardenSearchInput(input);
+
+        input.addEventListener('keydown', () => markUserTyped(input), true);
+        input.addEventListener('beforeinput', () => markUserTyped(input), true);
+        input.addEventListener('paste', () => markUserTyped(input), true);
+
+        input.addEventListener('input', (event) => {
+            const value = safeText(input.value);
+
+            if (!value) {
+                input.dataset.academySearchUserTyped = '';
+                closeSearchUi();
+                return;
+            }
+
+            if (isEmailLike(value) || input.dataset.academySearchUserTyped !== '1') {
+                event.preventDefault?.();
+                event.stopPropagation?.();
+                event.stopImmediatePropagation?.();
+
+                clearSearchInput(input, isEmailLike(value) ? 'email-autofill-blocked' : 'non-user-prefill-blocked');
+                clearSearchDebounce();
+                closeSearchUi();
             }
         }, true);
 
         input.addEventListener('change', (event) => {
-            if (isEmailLike(input.value) || !isUserActivelySearching(input)) {
-                event.preventDefault();
-                event.stopPropagation();
-                event.stopImmediatePropagation();
-                forceEmptySearchInput(input, 'change-prefill-blocked');
+            const value = safeText(input.value);
+
+            if (isEmailLike(value) || input.dataset.academySearchUserTyped !== '1') {
+                event.preventDefault?.();
+                event.stopPropagation?.();
+                event.stopImmediatePropagation?.();
+
+                clearSearchInput(input, 'change-prefill-blocked');
+                clearSearchDebounce();
+                closeSearchUi();
             }
         }, true);
-    }
 
-    function prepareSearchInputs() {
-        getSearchInputs().forEach((input) => {
-            bindInput(input);
-            cleanAutofillIfNeeded(input);
+        input.addEventListener('blur', () => {
+            if (!safeText(input.value)) {
+                input.dataset.academySearchUserTyped = '';
+            }
         });
     }
 
-    function runEntryClearCycle(reason = 'entry') {
-        forceEmptyAllSearchInputs(reason);
-
-        [0, 40, 100, 180, 320, 520, 800, 1200, 1800, 2600, 3800, 5200, 7500, 10000].forEach((delay) => {
-            window.setTimeout(() => {
-                prepareSearchInputs();
-                getSearchInputs().forEach((input) => cleanAutofillIfNeeded(input));
-            }, delay);
-        });
-    }
-
-    function wrapAcademyFunction(name, beforeFn, afterFn) {
-        let original = null;
-
-        try {
-            original = window[name];
-        } catch (_) {}
-
-        if (typeof original !== 'function') {
-            try {
-                original = eval(name);
-            } catch (_) {
-                original = null;
-            }
-        }
-
-        if (typeof original !== 'function' || original.__academySearchEmptyUntilTypesWrapped === true) return;
-
-        const wrapped = function academySearchEmptyUntilTypesWrapped() {
-            if (typeof beforeFn === 'function') {
-                beforeFn.apply(this, arguments);
-            }
-
-            const result = original.apply(this, arguments);
-
-            if (typeof afterFn === 'function') {
-                afterFn.apply(this, arguments);
-            }
-
-            return result;
-        };
-
-        wrapped.__academySearchEmptyUntilTypesWrapped = true;
-        wrapped.__academySearchEmptyUntilTypesOriginal = original;
-
-        try {
-            window[name] = wrapped;
-        } catch (_) {}
-
-        try {
-            eval(name + ' = window["' + name + '"]');
-        } catch (_) {}
-    }
-
-    function wrapSearchPipeline() {
-        wrapAcademyFunction(
-            'openAcademyFeedView',
-            function () {
-                runEntryClearCycle('before-open-community-feed');
-            },
-            function () {
-                runEntryClearCycle('after-open-community-feed');
-            }
-        );
-
-        wrapAcademyFunction(
-            'enterAcademyWorld',
-            function () {
-                runEntryClearCycle('before-enter-academy');
-            },
-            function () {
-                runEntryClearCycle('after-enter-academy');
-            }
-        );
-
-        wrapAcademyFunction(
-            'scheduleAcademySearch',
-            function (query) {
-                if (isEmailLike(query)) {
-                    runEntryClearCycle('schedule-email-blocked');
-                    throw new Error('__ACADEMY_EMAIL_SEARCH_BLOCKED__');
-                }
-            }
-        );
-
-        wrapAcademyFunction(
-            'applyAcademySearch',
-            function (query) {
-                if (isEmailLike(query)) {
-                    runEntryClearCycle('apply-email-blocked');
-                    throw new Error('__ACADEMY_EMAIL_SEARCH_BLOCKED__');
-                }
-            }
-        );
-
-        wrapAcademyFunction(
-            'renderAcademySearchResultsPanel',
-            function (_members, query) {
-                if (isEmailLike(query)) {
-                    runEntryClearCycle('render-email-blocked');
-                    throw new Error('__ACADEMY_EMAIL_SEARCH_BLOCKED__');
-                }
-            }
-        );
+    function bindSearchInputs() {
+        getSearchInputs().forEach(bindSearchInput);
     }
 
     function boot() {
-        prepareSearchInputs();
-        wrapSearchPipeline();
-        runEntryClearCycle('boot');
+        bindSearchInputs();
+        cleanSearchInputs('boot');
 
-        const feedView = document.getElementById('academy-feed-view');
-        if (feedView && feedView.dataset.searchEmptyObserver !== '1') {
-            feedView.dataset.searchEmptyObserver = '1';
-
-            const observer = new MutationObserver(() => {
-                prepareSearchInputs();
-                getSearchInputs().forEach((input) => cleanAutofillIfNeeded(input));
-            });
-
-            observer.observe(feedView, {
-                childList: true,
-                subtree: true,
-                attributes: true,
-                attributeFilter: ['class', 'value', 'autocomplete', 'readonly']
-            });
-        }
+        [80, 250, 700, 1500].forEach((delay) => {
+            window.setTimeout(() => scheduleClean('delayed-' + delay), delay);
+        });
     }
 
     document.addEventListener('focusin', (event) => {
         const input = event.target;
+
         if (SEARCH_IDS.includes(input?.id)) {
-            prepareSearchInputs();
-            cleanAutofillIfNeeded(input);
+            bindSearchInput(input);
+            scheduleClean('focusin');
         }
     }, true);
 
-    document.addEventListener('click', (event) => {
-        const target = event.target instanceof Element ? event.target : null;
-        if (!target) return;
-
-        if (
-            target.closest('#nav-chat, [data-academy-target="nav-chat"], #btn-academy-back-universe, [href*="academy"], [href*="plaza"], [data-division="academy"], [data-division="plaza"]')
-        ) {
-            runEntryClearCycle('navigation-click');
-        }
-    }, true);
-
-    window.addEventListener('pageshow', () => runEntryClearCycle('pageshow'));
-    window.addEventListener('load', () => runEntryClearCycle('load'));
-    window.addEventListener('visibilitychange', () => {
-        if (!document.hidden) runEntryClearCycle('visible');
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) scheduleClean('visible');
     });
+
+    window.addEventListener('pageshow', () => scheduleClean('pageshow'));
+    window.addEventListener('load', () => scheduleClean('load'));
+
+    if (document.body && window.MutationObserver) {
+        const observer = new MutationObserver(() => {
+            scheduleClean('dom-child-change');
+        });
+
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+    }
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', boot);
     } else {
         boot();
     }
-
-    window.setInterval(() => {
-        prepareSearchInputs();
-        getSearchInputs().forEach((input) => cleanAutofillIfNeeded(input));
-    }, 250);
 })();
-/* END PATCH: Academy search fields stay empty until user types v1 */
+/* END PATCH: Academy search fields stay empty until user types v2 */
