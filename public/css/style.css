@@ -23953,3 +23953,65 @@ body.academy-right-bot-docked .yh-right-sidebar [class*="bot"]:not(.academy-righ
     margin: 0 !important;
 }
 
+
+/* Academy final single right-sidebar AI bot override */
+.academy-single-right-bot-sidebar {
+    position: relative !important;
+    overflow: hidden !important;
+    min-height: calc(100vh - 86px);
+}
+
+.academy-bot-singleton-ready .academy-right-bot-cta:not([data-yh-single-right-bot="1"]),
+.academy-bot-singleton-ready button[aria-label="Open Academy AI Coach"]:not([data-yh-single-right-bot="1"]) {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+
+.academy-right-bot-cta.academy-single-right-bot {
+    z-index: 60 !important;
+}
+
+.academy-right-bot-cta.academy-single-right-bot.academy-single-right-bot-playing {
+    position: absolute !important;
+    right: auto !important;
+    bottom: auto !important;
+    margin: 0 !important;
+    display: inline-flex !important;
+    transition:
+        top 1.2s cubic-bezier(0.22, 1, 0.36, 1),
+        left 1.2s cubic-bezier(0.22, 1, 0.36, 1),
+        transform 0.22s ease,
+        opacity 0.22s ease !important;
+    animation: academySingleBotPulse 2.3s ease-in-out infinite !important;
+}
+
+.academy-right-bot-cta.academy-single-right-bot.academy-single-right-bot-playing:hover {
+    transform: translateY(-3px) scale(1.02);
+}
+
+.academy-right-bot-cta.academy-single-right-bot.is-docked {
+    position: absolute !important;
+    left: 20px !important;
+    right: 20px !important;
+    bottom: 24px !important;
+    top: auto !important;
+    width: auto !important;
+    margin: 0 !important;
+    border-radius: 16px !important;
+    padding: 9px 12px !important;
+    justify-content: flex-start !important;
+    animation: none !important;
+    transform: none !important;
+}
+
+@keyframes academySingleBotPulse {
+    0%, 100% {
+        filter: drop-shadow(0 0 0 rgba(56, 189, 248, 0));
+    }
+
+    50% {
+        filter: drop-shadow(0 0 14px rgba(56, 189, 248, 0.22));
+    }
+}
+

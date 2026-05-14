@@ -27254,3 +27254,232 @@ if (document.body) {
     window.setInterval(bootAcademyVoiceLoungeFinalFixes, 900);
 })();
 
+
+(function installAcademySingleRightBotFinalOverride() {
+    if (window.__academySingleRightBotFinalOverrideInstalled) return;
+    window.__academySingleRightBotFinalOverrideInstalled = true;
+
+    const SINGLE_BOT_ATTR = 'data-yh-single-right-bot';
+    const PLAY_DURATION_MS = 30000;
+
+    let botStartedAt = Date.now();
+    let lastMoveAt = 0;
+
+    function cleanText(value) {
+        return String(value || '').replace(/\s+/g, ' ').trim();
+    }
+
+    function getRightSidebar() {
+        const direct = document.querySelector(
+            '.yh-right-sidebar, .academy-right-sidebar, [data-academy-right-sidebar], .academy-right-rail, .academy-signals-sidebar'
+        );
+
+        if (direct) return direct;
+
+        const activeLabel = Array.from(document.querySelectorAll('body *')).find((node) => {
+            if (!(node instanceof HTMLElement)) return false;
+            return /^active now$/i.test(cleanText(node.textContent));
+        });
+
+        return activeLabel
+            ? activeLabel.closest('aside, .right-sidebar, .sidebar, .academy-panel, .dashboard-side-panel') || activeLabel.parentElement
+            : null;
+    }
+
+    function createBot(sidebar) {
+        const bot = document.createElement('button');
+        bot.type = 'button';
+        bot.className = 'academy-right-bot-cta academy-single-right-bot academy-single-right-bot-playing';
+        bot.setAttribute('aria-label', 'Open Academy AI Coach');
+        bot.setAttribute(SINGLE_BOT_ATTR, '1');
+        bot.innerHTML = "<span class=\"academy-right-bot-cta-pill\">I'm here</span><span class=\"academy-right-bot-cta-avatar\">🤖</span>";
+
+        bot.addEventListener('click', async () => {
+            if (typeof openAcademyCoachView === 'function') {
+                await openAcademyCoachView(true);
+                return;
+            }
+
+            document.getElementById('nav-missions')?.click();
+        });
+
+        sidebar.appendChild(bot);
+        return bot;
+    }
+
+    function getAllBotCandidates(sidebar) {
+        const globalBots = Array.from(document.querySelectorAll(
+            '.academy-right-bot-cta, button[aria-label="Open Academy AI Coach"]'
+        ));
+
+        return globalBots.filter((bot) => {
+            return bot instanceof HTMLElement && (!sidebar || sidebar.contains(bot));
+        });
+    }
+
+    function getActiveNowMemberBottom(sidebar) {
+        if (!sidebar) return 260;
+
+        const sidebarRect = sidebar.getBoundingClientRect();
+
+        const nodes = Array.from(sidebar.querySelectorAll('*')).filter((node) => {
+            if (!(node instanceof HTMLElement)) return false;
+            if (node.closest('.academy-right-bot-cta')) return false;
+
+            const text = cleanText(node.textContent);
+            const rect = node.getBoundingClientRect();
+
+            return Boolean(text && rect.width > 0 && rect.height > 0);
+        });
+
+        const activeLabel = nodes.find((node) => /^active now$/i.test(cleanText(node.textContent)));
+
+        if (!activeLabel) {
+            return Math.max(260, Math.round(sidebar.clientHeight * 0.32));
+        }
+
+        const activeRect = activeLabel.getBoundingClientRect();
+
+        const memberCandidates = nodes.filter((node) => {
+            const text = cleanText(node.textContent);
+            const rect = node.getBoundingClientRect();
+
+            if (rect.top < activeRect.bottom - 4) return false;
+            if (rect.top > activeRect.bottom + 190) return false;
+            if (/academy signals|momentum board|active now|ask ai coach|i'm here|ask me|need help|want a|talk to/i.test(text)) return false;
+
+            return text.length >= 2 && text.length <= 90;
+        });
+
+        if (memberCandidates.length) {
+            const bottom = Math.max(...memberCandidates.map((node) => node.getBoundingClientRect().bottom));
+            return Math.round(bottom - sidebarRect.top + 18);
+        }
+
+        return Math.round(activeRect.bottom - sidebarRect.top + 90);
+    }
+
+    function chooseBotToKeep(sidebar, bots) {
+        const marked = bots.find((bot) => bot.getAttribute(SINGLE_BOT_ATTR) === '1');
+        if (marked) return marked;
+
+        if (!bots.length) return null;
+
+        return bots
+            .slice()
+            .sort((a, b) => {
+                const aTop = a.getBoundingClientRect().top || 0;
+                const bTop = b.getBoundingClientRect().top || 0;
+                return bTop - aTop;
+            })[0];
+    }
+
+    function normalizeSingleBot() {
+        const sidebar = getRightSidebar();
+        if (!sidebar) return null;
+
+        sidebar.classList.add('academy-single-right-bot-sidebar');
+
+        const bots = getAllBotCandidates(sidebar);
+        let keep = chooseBotToKeep(sidebar, bots);
+
+        if (!keep) {
+            keep = createBot(sidebar);
+        }
+
+        bots.forEach((bot) => {
+            if (bot === keep) return;
+            bot.remove();
+        });
+
+        keep.setAttribute(SINGLE_BOT_ATTR, '1');
+        keep.classList.add('academy-right-bot-cta', 'academy-single-right-bot');
+        keep.classList.remove(
+            'academy-right-bot-floating',
+            'academy-right-bot-wandering',
+            'academy-right-bot-active-zone',
+            'academy-right-bot-strict-active-zone'
+        );
+
+        keep.dataset.academyDockFlowInstalled = '1';
+        keep.dataset.academyWanderV2Installed = '1';
+        keep.dataset.academyStrictActiveAnchorInstalled = '1';
+
+        sidebar.classList.add('academy-bot-singleton-ready');
+
+        return keep;
+    }
+
+    function placeBotInAllowedPlayArea(forceMove = false) {
+        const sidebar = getRightSidebar();
+        if (!sidebar) return;
+
+        const bot = normalizeSingleBot();
+        if (!bot) return;
+
+        const age = Date.now() - botStartedAt;
+
+        if (age >= PLAY_DURATION_MS) {
+            bot.classList.remove('academy-single-right-bot-playing');
+            bot.classList.add('is-docked');
+            bot.removeAttribute('style');
+            bot.innerHTML = "<span class=\"academy-right-bot-cta-avatar\">🤖</span><strong>Ask AI Coach</strong>";
+            document.body?.classList.add('academy-right-bot-docked');
+            return;
+        }
+
+        bot.classList.add('academy-single-right-bot-playing');
+        bot.classList.remove('is-docked');
+        document.body?.classList.remove('academy-right-bot-docked');
+
+        const now = Date.now();
+        const shouldMove = forceMove || now - lastMoveAt > 2300;
+
+        const botWidth = Math.max(138, bot.offsetWidth || 154);
+        const botHeight = Math.max(52, bot.offsetHeight || 56);
+
+        const minTop = getActiveNowMemberBottom(sidebar);
+        const maxTop = Math.max(minTop, sidebar.clientHeight - botHeight - 118);
+
+        const minLeft = 18;
+        const maxLeft = Math.max(minLeft, sidebar.clientWidth - botWidth - 20);
+
+        let currentTop = Number.parseFloat(bot.style.top || '');
+        let currentLeft = Number.parseFloat(bot.style.left || '');
+
+        if (!Number.isFinite(currentTop) || currentTop < minTop || currentTop > maxTop || shouldMove) {
+            currentTop = minTop + Math.round(Math.random() * Math.max(1, maxTop - minTop));
+            lastMoveAt = now;
+        }
+
+        if (!Number.isFinite(currentLeft) || currentLeft < minLeft || currentLeft > maxLeft || shouldMove) {
+            currentLeft = minLeft + Math.round(Math.random() * Math.max(1, maxLeft - minLeft));
+        }
+
+        bot.style.top = currentTop + 'px';
+        bot.style.left = currentLeft + 'px';
+        bot.style.right = 'auto';
+        bot.style.bottom = 'auto';
+        bot.style.position = 'absolute';
+    }
+
+    function bootSingleRightBot() {
+        normalizeSingleBot();
+        placeBotInAllowedPlayArea(true);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bootSingleRightBot);
+    } else {
+        bootSingleRightBot();
+    }
+
+    window.addEventListener('resize', () => placeBotInAllowedPlayArea(true));
+    window.addEventListener('pageshow', () => placeBotInAllowedPlayArea(true));
+
+    window.setInterval(() => {
+        normalizeSingleBot();
+        placeBotInAllowedPlayArea(false);
+    }, 350);
+})();
+
