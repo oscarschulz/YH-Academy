@@ -26434,7 +26434,7 @@ if (document.body) {
             bot.type = 'button';
             bot.className = 'academy-right-bot-cta academy-right-bot-active-zone';
             bot.setAttribute('aria-label', 'Open Academy AI Coach');
-            bot.innerHTML = "<span class=\"academy-right-bot-cta-pill\">I'm here</span><span class=\"academy-right-bot-cta-avatar\">🤖</span>";
+            bot.innerHTML = `<span class="academy-right-bot-cta-pill">I'm here</span><span class="academy-right-bot-cta-avatar">🤖</span>`;
 
             bot.addEventListener('click', async () => {
                 if (typeof openAcademyCoachView === 'function') {
@@ -26544,7 +26544,7 @@ if (document.body) {
 
         bot.classList.remove('is-docked');
         bot.classList.add('academy-right-bot-active-zone');
-        bot.innerHTML = "<span class=\"academy-right-bot-cta-pill\">I'm here</span><span class=\"academy-right-bot-cta-avatar\">🤖</span>";
+        bot.innerHTML = `<span class="academy-right-bot-cta-pill">I'm here</span><span class="academy-right-bot-cta-avatar">🤖</span>`;
         document.body?.classList.remove('academy-right-bot-docked');
 
         positionAcademyBotBelowActiveMember();
@@ -26559,7 +26559,7 @@ if (document.body) {
             bot.classList.remove('academy-right-bot-active-zone');
             bot.classList.add('is-docked');
             bot.removeAttribute('style');
-            bot.innerHTML = '<span class="academy-right-bot-cta-avatar">🤖</span><strong>Ask AI Coach</strong>';
+            bot.innerHTML = `<span class="academy-right-bot-cta-avatar">🤖</span><strong>Ask AI Coach</strong>`;
             document.body?.classList.add('academy-right-bot-docked');
         }, 30000);
     }
@@ -27292,7 +27292,7 @@ if (document.body) {
         bot.className = 'academy-right-bot-cta academy-single-right-bot academy-single-right-bot-playing';
         bot.setAttribute('aria-label', 'Open Academy AI Coach');
         bot.setAttribute(SINGLE_BOT_ATTR, '1');
-        bot.innerHTML = "<span class=\"academy-right-bot-cta-pill\">I'm here</span><span class=\"academy-right-bot-cta-avatar\">🤖</span>";
+        bot.innerHTML = `<span class="academy-right-bot-cta-pill">I'm here</span><span class="academy-right-bot-cta-avatar">🤖</span>`;
 
         bot.addEventListener('click', async () => {
             if (typeof openAcademyCoachView === 'function') {
@@ -27423,7 +27423,7 @@ if (document.body) {
             bot.classList.remove('academy-single-right-bot-playing');
             bot.classList.add('is-docked');
             bot.removeAttribute('style');
-            bot.innerHTML = "<span class=\"academy-right-bot-cta-avatar\">🤖</span><strong>Ask AI Coach</strong>";
+            bot.innerHTML = `<span class="academy-right-bot-cta-avatar">🤖</span><strong>Ask AI Coach</strong>`;
             document.body?.classList.add('academy-right-bot-docked');
             return;
         }
@@ -27481,5 +27481,252 @@ if (document.body) {
         normalizeSingleBot();
         placeBotInAllowedPlayArea(false);
     }, 350);
+})();
+
+
+(function installAcademyRightBotSafeBoundsFinal() {
+    if (window.__academyRightBotSafeBoundsFinalInstalled) return;
+    window.__academyRightBotSafeBoundsFinalInstalled = true;
+
+    const SINGLE_BOT_ATTR = 'data-yh-single-right-bot';
+    const PLAY_DURATION_MS = 30000;
+    const EDGE_PAD = 16;
+
+    function cleanText(value) {
+        return String(value || '').replace(/\s+/g, ' ').trim();
+    }
+
+    function getRightSidebar() {
+        return document.querySelector(
+            '.yh-right-sidebar, .academy-right-sidebar, [data-academy-right-sidebar], .academy-right-rail, .academy-signals-sidebar'
+        );
+    }
+
+    function createSingleBot(sidebar) {
+        const bot = document.createElement('button');
+        bot.type = 'button';
+        bot.className = 'academy-right-bot-cta academy-single-right-bot academy-single-right-bot-playing academy-right-bot-safe-bounds';
+        bot.setAttribute('aria-label', 'Open Academy AI Coach');
+        bot.setAttribute(SINGLE_BOT_ATTR, '1');
+        bot.innerHTML = `<span class="academy-right-bot-cta-pill">I'm here</span><span class="academy-right-bot-cta-avatar">🤖</span>`;
+
+        bot.addEventListener('click', async () => {
+            if (typeof openAcademyCoachView === 'function') {
+                await openAcademyCoachView(true);
+                return;
+            }
+
+            document.getElementById('nav-missions')?.click();
+        });
+
+        sidebar.appendChild(bot);
+        return bot;
+    }
+
+    function getAllBotCandidates() {
+        return Array.from(document.querySelectorAll(
+            '.academy-right-bot-cta, button[aria-label="Open Academy AI Coach"]'
+        )).filter((bot) => bot instanceof HTMLElement);
+    }
+
+    function ensureOneBot(sidebar) {
+        if (!sidebar) return null;
+
+        const candidates = getAllBotCandidates();
+        let keep =
+            candidates.find((bot) => bot.getAttribute(SINGLE_BOT_ATTR) === '1' && sidebar.contains(bot)) ||
+            candidates.find((bot) => sidebar.contains(bot)) ||
+            null;
+
+        if (!keep) {
+            keep = createSingleBot(sidebar);
+        }
+
+        if (!sidebar.contains(keep)) {
+            sidebar.appendChild(keep);
+        }
+
+        candidates.forEach((bot) => {
+            if (bot === keep) return;
+            bot.remove();
+        });
+
+        keep.setAttribute(SINGLE_BOT_ATTR, '1');
+        keep.classList.add('academy-right-bot-cta', 'academy-single-right-bot', 'academy-right-bot-safe-bounds');
+
+        return keep;
+    }
+
+    function getActiveNowMemberBottom(sidebar) {
+        if (!sidebar) return 260;
+
+        const sidebarRect = sidebar.getBoundingClientRect();
+
+        const nodes = Array.from(sidebar.querySelectorAll('*')).filter((node) => {
+            if (!(node instanceof HTMLElement)) return false;
+            if (node.closest('.academy-right-bot-cta')) return false;
+
+            const text = cleanText(node.textContent);
+            const rect = node.getBoundingClientRect();
+
+            return Boolean(text && rect.width > 0 && rect.height > 0);
+        });
+
+        const activeNowLabel = nodes.find((node) => /^active now$/i.test(cleanText(node.textContent)));
+
+        if (!activeNowLabel) {
+            return Math.max(260, Math.round(sidebar.clientHeight * 0.34));
+        }
+
+        const activeNowRect = activeNowLabel.getBoundingClientRect();
+
+        const memberCandidates = nodes.filter((node) => {
+            const text = cleanText(node.textContent);
+            const rect = node.getBoundingClientRect();
+
+            if (rect.top < activeNowRect.bottom - 4) return false;
+            if (rect.top > activeNowRect.bottom + 180) return false;
+            if (/academy signals|momentum board|active now|ask ai coach|i'm here|ask me|need help|want a|talk to|stuck today/i.test(text)) return false;
+
+            return text.length >= 2 && text.length <= 90;
+        });
+
+        if (memberCandidates.length) {
+            const bottom = Math.max(...memberCandidates.map((node) => node.getBoundingClientRect().bottom));
+            return Math.round(bottom - sidebarRect.top + 18);
+        }
+
+        return Math.round(activeNowRect.bottom - sidebarRect.top + 88);
+    }
+
+    function getBotStartTime(bot) {
+        const existing = Number(bot.dataset.safeBoundsStartedAt || 0);
+
+        if (Number.isFinite(existing) && existing > 0) return existing;
+
+        const next = Date.now();
+        bot.dataset.safeBoundsStartedAt = String(next);
+        return next;
+    }
+
+    function dockBot(bot) {
+        bot.classList.remove('academy-single-right-bot-playing');
+        bot.classList.remove('academy-right-bot-safe-playing');
+        bot.classList.add('is-docked');
+
+        bot.style.removeProperty('top');
+        bot.style.removeProperty('left');
+        bot.style.removeProperty('right');
+        bot.style.removeProperty('bottom');
+        bot.style.removeProperty('width');
+        bot.style.removeProperty('max-width');
+        bot.style.removeProperty('position');
+
+        bot.innerHTML = `<span class="academy-right-bot-cta-avatar">🤖</span><strong>Ask AI Coach</strong>`;
+        document.body?.classList.add('academy-right-bot-docked');
+    }
+
+    function clampBotInsideSidebar(forceMove = false) {
+        const sidebar = getRightSidebar();
+        if (!sidebar) return;
+
+        const bot = ensureOneBot(sidebar);
+        if (!bot) return;
+
+        sidebar.classList.add('academy-right-bot-safe-sidebar');
+
+        const startedAt = getBotStartTime(bot);
+        const age = Date.now() - startedAt;
+
+        if (age >= PLAY_DURATION_MS) {
+            dockBot(bot);
+            return;
+        }
+
+        bot.classList.add('academy-single-right-bot-playing', 'academy-right-bot-safe-playing');
+        bot.classList.remove('is-docked');
+        document.body?.classList.remove('academy-right-bot-docked');
+
+        bot.innerHTML = `<span class="academy-right-bot-cta-pill">I'm here</span><span class="academy-right-bot-cta-avatar">🤖</span>`;
+
+        const sidebarWidth = Math.max(180, sidebar.clientWidth || sidebar.getBoundingClientRect().width || 240);
+        const sidebarHeight = Math.max(420, sidebar.clientHeight || sidebar.getBoundingClientRect().height || window.innerHeight || 720);
+
+        const maxPlayableWidth = Math.max(120, sidebarWidth - EDGE_PAD * 2);
+
+        bot.style.position = 'absolute';
+        bot.style.boxSizing = 'border-box';
+        bot.style.maxWidth = maxPlayableWidth + 'px';
+        bot.style.width = 'fit-content';
+        bot.style.right = 'auto';
+        bot.style.bottom = 'auto';
+
+        const botRect = bot.getBoundingClientRect();
+        let botWidth = Math.ceil(botRect.width || bot.offsetWidth || 154);
+        let botHeight = Math.ceil(botRect.height || bot.offsetHeight || 56);
+
+        if (botWidth > maxPlayableWidth) {
+            bot.style.width = maxPlayableWidth + 'px';
+            botWidth = maxPlayableWidth;
+        }
+
+        const minTop = Math.max(0, getActiveNowMemberBottom(sidebar));
+        const maxTop = Math.max(minTop, sidebarHeight - botHeight - 98);
+
+        const minLeft = EDGE_PAD;
+        const maxLeft = Math.max(minLeft, sidebarWidth - botWidth - EDGE_PAD);
+
+        const currentTop = Number.parseFloat(bot.style.top || '');
+        const currentLeft = Number.parseFloat(bot.style.left || '');
+
+        const outOfVerticalBounds =
+            !Number.isFinite(currentTop) ||
+            currentTop < minTop ||
+            currentTop > maxTop;
+
+        const outOfHorizontalBounds =
+            !Number.isFinite(currentLeft) ||
+            currentLeft < minLeft ||
+            currentLeft > maxLeft ||
+            currentLeft + botWidth > sidebarWidth - EDGE_PAD;
+
+        let nextTop = currentTop;
+        let nextLeft = currentLeft;
+
+        if (forceMove || outOfVerticalBounds) {
+            nextTop = minTop + Math.round(Math.random() * Math.max(1, maxTop - minTop));
+        }
+
+        if (forceMove || outOfHorizontalBounds) {
+            nextLeft = minLeft + Math.round(Math.random() * Math.max(1, maxLeft - minLeft));
+        }
+
+        nextTop = Math.max(minTop, Math.min(nextTop, maxTop));
+        nextLeft = Math.max(minLeft, Math.min(nextLeft, maxLeft));
+
+        bot.style.top = nextTop + 'px';
+        bot.style.left = nextLeft + 'px';
+    }
+
+    function bootSafeBoundsBot() {
+        clampBotInsideSidebar(true);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bootSafeBoundsBot);
+    } else {
+        bootSafeBoundsBot();
+    }
+
+    window.addEventListener('resize', () => clampBotInsideSidebar(true));
+    window.addEventListener('pageshow', () => clampBotInsideSidebar(true));
+
+    window.setInterval(() => {
+        clampBotInsideSidebar(false);
+    }, 220);
+
+    window.setInterval(() => {
+        clampBotInsideSidebar(true);
+    }, 2600);
 })();
 
