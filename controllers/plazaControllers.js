@@ -2,6 +2,7 @@ const { firestore } = require('../config/firebaseAdmin');
 const { Timestamp } = require('firebase-admin/firestore');
 const universeCollectionMirrorRepo = require('../backend/repositories/universeCollectionMirrorRepo');
 const paymentLedgerRepo = require('../backend/repositories/paymentLedgerRepo');
+const { sendSystemMail } = require('./authControllers');
 
 const plazaFeedCol = firestore.collection('plazaFeedPosts');
 const plazaOpportunitiesCol = firestore.collection('plazaOpportunities');
@@ -18,6 +19,218 @@ const plazaPatronRecommendationsCol = firestore.collection('plazaPatronFederatio
 const plazaPatronIntroOutcomesCol = firestore.collection('plazaPatronIntroOutcomes');
 const plazaPatronPayoutsCol = firestore.collection('plazaPatronPayouts');
 const usersCol = firestore.collection('users');
+
+const BUSINESS_CHAT_EMAIL_NOTIFICATIONS_ENABLED =
+    String(process.env.BUSINESS_CHAT_EMAIL_NOTIFICATIONS_ENABLED || 'true').trim().toLowerCase() !== 'false';
+
+function escapeBusinessChatEmailHtml(value = '') {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function buildBusinessChatEmailBaseUrl(req = {}) {
+    const envBase = String(
+        process.env.PUBLIC_BASE_URL ||
+        process.env.APP_BASE_URL ||
+        process.env.BASE_URL ||
+        ''
+    ).trim().replace(/\/+$/, '');
+
+    if (envBase) return envBase;
+
+    const protocol = req.protocol || 'https';
+    const host = typeof req.get === 'function' ? req.get('host') : '';
+
+    return host ? protocol + '://' + host : 'https://younghustlersuniverse.com';
+}
+
+function getBusinessChatEmailName(user = {}, fallback = 'YH Member') {
+    return sanitizeText(
+        user.fullName ||
+        user.displayName ||
+        user.name ||
+        user.username ||
+        fallback
+    );
+}
+
+function getBusinessChatEmailAddress(user = {}) {
+    return sanitizeText(user.email || user.emailLower || '').toLowerCase();
+}
+
+function isBusinessChatConversationForEmail(conversation = {}, conversationId = '') {
+    const scope = sanitizeText(conversation.scope || '').toLowerCase();
+    const route = sanitizeText(conversation.contextRoute || '').toLowerCase();
+    const id = sanitizeText(conversationId).toLowerCase();
+
+    return (
+        scope === 'cross_division_business' ||
+        route.includes('cross-division') ||
+        route.includes('business') ||
+        id.startsWith('business_')
+    );
+}
+
+function renderBusinessChatNotificationEmail({
+    recipientName = 'Member',
+    actorName = 'A YH member',
+    conversationTitle = 'Plaza Business Chat',
+    businessPurpose = 'Business collaboration',
+    preview = '',
+    actionUrl = '',
+    eventLabel = 'Business Chat Update'
+} = {}) {
+    const safeRecipient = escapeBusinessChatEmailHtml(recipientName);
+    const safeActor = escapeBusinessChatEmailHtml(actorName);
+    const safeTitle = escapeBusinessChatEmailHtml(conversationTitle);
+    const safePurpose = escapeBusinessChatEmailHtml(businessPurpose);
+    const safePreview = escapeBusinessChatEmailHtml(preview || 'Open your dashboard to review this Business Chat.');
+    const safeUrl = escapeBusinessChatEmailHtml(actionUrl || 'https://younghustlersuniverse.com/dashboard?businessChats=1');
+    const safeEvent = escapeBusinessChatEmailHtml(eventLabel);
+
+    return [
+        '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" />',
+        '<meta name="viewport" content="width=device-width, initial-scale=1.0" />',
+        '<title>' + safeEvent + '</title></head>',
+        '<body style="margin:0;padding:0;background:#030712;font-family:Arial,Helvetica,sans-serif;color:#e5eef8;">',
+        '<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#030712;border-collapse:collapse;"><tr><td align="center" style="padding:28px 14px;">',
+        '<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:660px;width:100%;border-collapse:collapse;">',
+        '<tr><td style="background:#06111f;border:1px solid #16324c;border-radius:20px 20px 0 0;padding:16px 20px;">',
+        '<div style="font-size:14px;color:#ffffff;font-weight:800;">Young Hustlers Universe</div>',
+        '<div style="font-size:11px;color:#8fa4bf;text-transform:uppercase;letter-spacing:1.6px;">Cross-Division Business Chat</div>',
+        '</td></tr>',
+        '<tr><td style="height:4px;background:#22c55e;font-size:0;line-height:4px;">&nbsp;</td></tr>',
+        '<tr><td style="background:#070d18;border:1px solid #16324c;border-top:0;border-radius:0 0 20px 20px;padding:34px 26px 26px;">',
+        '<h1 style="margin:0 0 14px;font-size:28px;line-height:1.25;color:#ffffff;font-weight:800;text-align:center;">You have a Business Chat update</h1>',
+        '<p style="margin:0 0 18px;font-size:15px;line-height:1.8;color:#9fb0c8;text-align:center;">Hello ' + safeRecipient + ', ' + safeActor + ' updated a cross-division Business Chat with you.</p>',
+        '<div style="background:#091423;border:1px solid #152b45;border-radius:18px;padding:18px;margin:22px 0;">',
+        '<div style="font-size:11px;color:#7dd3fc;letter-spacing:1.8px;text-transform:uppercase;font-weight:700;margin-bottom:8px;">' + safeEvent + '</div>',
+        '<div style="font-size:18px;line-height:1.45;color:#ffffff;font-weight:800;margin-bottom:8px;">' + safeTitle + '</div>',
+        '<div style="font-size:13px;line-height:1.7;color:#9fb0c8;margin-bottom:12px;">Purpose: ' + safePurpose + '</div>',
+        '<div style="font-size:14px;line-height:1.8;color:#dbeafe;border-left:3px solid #22c55e;padding-left:12px;">' + safePreview + '</div>',
+        '</div>',
+        '<div style="text-align:center;margin:26px 0 18px;">',
+        '<a href="' + safeUrl + '" style="display:inline-block;padding:13px 20px;border-radius:999px;background:#22c55e;color:#03130a;text-decoration:none;font-size:14px;font-weight:800;">Open Business Chats</a>',
+        '</div>',
+        '<p style="margin:0;font-size:12px;line-height:1.8;color:#72859e;text-align:center;">This notification was sent because you are a participant in this YH Business Chat.</p>',
+        '</td></tr></table></td></tr></table></body></html>'
+    ].join('');
+}
+
+async function getBusinessChatEmailRecipients(participantIds = [], actorId = '') {
+    const cleanActorId = sanitizeText(actorId);
+    const uniqueParticipantIds = Array.from(new Set(
+        (Array.isArray(participantIds) ? participantIds : [])
+            .map((item) => sanitizeText(item))
+            .filter(Boolean)
+            .filter((item) => item !== cleanActorId)
+    ));
+
+    const recipients = [];
+
+    for (const participantId of uniqueParticipantIds) {
+        try {
+            const snap = await usersCol.doc(participantId).get();
+            if (!snap.exists) continue;
+
+            const user = snap.data() || {};
+            const email = getBusinessChatEmailAddress(user);
+            if (!email || !email.includes('@')) continue;
+
+            recipients.push({
+                id: participantId,
+                email,
+                name: getBusinessChatEmailName(user, 'YH Member')
+            });
+        } catch (error) {
+            console.warn('Business Chat email recipient lookup skipped:', error && error.message ? error.message : error);
+        }
+    }
+
+    return recipients;
+}
+
+async function sendBusinessChatEmailNotifications({
+    conversationSnap = null,
+    actor = {},
+    eventType = 'reply',
+    messageText = '',
+    req = {}
+} = {}) {
+    if (!BUSINESS_CHAT_EMAIL_NOTIFICATIONS_ENABLED) return;
+    if (!conversationSnap || !conversationSnap.exists) return;
+
+    const conversationId = sanitizeText(conversationSnap.id);
+    const conversation = conversationSnap.data() || {};
+
+    if (!isBusinessChatConversationForEmail(conversation, conversationId)) return;
+
+    const participantIds = Array.isArray(conversation.participantIds)
+        ? conversation.participantIds.map((item) => sanitizeText(item)).filter(Boolean)
+        : [];
+
+    if (!participantIds.length) return;
+
+    const recipients = await getBusinessChatEmailRecipients(participantIds, actor.id);
+    if (!recipients.length) return;
+
+    const actorName = sanitizeText(actor.name || actor.username || 'A YH member');
+    const conversationTitle = sanitizeText(conversation.title || conversation.targetLabel || 'Plaza Business Chat');
+    const businessPurpose = sanitizeText(conversation.businessPurpose || conversation.contextRoute || 'Business collaboration');
+    const preview = sanitizeText(messageText || 'Open your dashboard to review this Business Chat.').slice(0, 320);
+    const baseUrl = buildBusinessChatEmailBaseUrl(req);
+    const actionUrl = baseUrl.replace(/\/+$/, '') + '/dashboard?businessChats=1';
+
+    const eventLabel = eventType === 'opened'
+        ? 'New Business Chat'
+        : eventType === 'reply'
+            ? 'New Reply'
+            : 'Business Chat Update';
+
+    const subject = eventType === 'opened'
+        ? 'New YH Business Chat opened with you'
+        : 'New reply in your YH Business Chat';
+
+    const results = await Promise.allSettled(
+        recipients.map((recipient) => {
+            return sendSystemMail({
+                to: recipient.email,
+                subject,
+                html: renderBusinessChatNotificationEmail({
+                    recipientName: recipient.name,
+                    actorName,
+                    conversationTitle,
+                    businessPurpose,
+                    preview,
+                    actionUrl,
+                    eventLabel
+                })
+            });
+        })
+    );
+
+    const sentCount = results.filter((result) => result.status === 'fulfilled').length;
+
+    try {
+        await conversationSnap.ref.set({
+            emailNotifications: {
+                lastEventType: eventType,
+                lastActorId: sanitizeText(actor.id || ''),
+                lastSentAt: new Date().toISOString(),
+                lastRecipientCount: sentCount
+            },
+            updatedAt: Timestamp.now()
+        }, { merge: true });
+    } catch (error) {
+        console.warn('Business Chat email notification metadata skipped:', error && error.message ? error.message : error);
+    }
+}
+
+
 const YH_CANONICAL_PLAZA_VERSION = '2026-04-29-official-plazas-v1';
 
 const PLAZA_PATRON_BENEFITS = [
@@ -4425,6 +4638,18 @@ exports.createConversationFromBusinessMember = async (req, res) => {
 
         const updatedSnap = await conversationRef.get();
 
+        if (!conversationSnap.exists || initialMessage) {
+            sendBusinessChatEmailNotifications({
+                conversationSnap: updatedSnap,
+                actor: viewer,
+                eventType: conversationSnap.exists ? 'reply' : 'opened',
+                messageText: initialMessage || 'A new Business Chat was opened with you.',
+                req
+            }).catch((emailError) => {
+                console.warn('Business Chat open email skipped:', emailError && emailError.message ? emailError.message : emailError);
+            });
+        }
+
         if (global.yhEmitPlazaBusinessConversationUpdated) {
             global.yhEmitPlazaBusinessConversationUpdated(updatedSnap.id).catch((emitError) => {
                 console.warn('Business Chat realtime emit skipped:', emitError?.message || emitError);
@@ -4919,6 +5144,16 @@ exports.createConversationReply = async (req, res) => {
         }, { merge: true });
 
         const updatedSnap = await ref.get();
+
+        sendBusinessChatEmailNotifications({
+            conversationSnap: updatedSnap,
+            actor: viewer,
+            eventType: 'reply',
+            messageText: text,
+            req
+        }).catch((emailError) => {
+            console.warn('Business Chat reply email skipped:', emailError && emailError.message ? emailError.message : emailError);
+        });
 
         if (global.yhEmitPlazaBusinessConversationUpdated) {
             global.yhEmitPlazaBusinessConversationUpdated(updatedSnap.id).catch((emitError) => {
