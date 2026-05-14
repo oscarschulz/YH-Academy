@@ -24570,3 +24570,30 @@ body[data-yh-page="academy"] .academy-messages-inbox-menu .academy-pinned-conver
     }
 }
 /* END PATCH: Academy top action modal rendering + search autofill guard v1 */
+
+
+
+
+
+
+
+
+
+/* PATCH: Academy hidden overlay click-through safety v5 */
+.yh-academy-startup-loader.hidden-step,
+.yh-academy-startup-loader.is-exiting,
+.yh-tab-loader.hidden-step,
+.academy-top-action-modal-overlay.hidden-step,
+#academy-search-results-panel.hidden-step,
+#academy-search-results-panel[aria-hidden="true"] {
+    pointer-events: none !important;
+}
+
+body[data-yh-view="academy"]:not(.academy-search-results-open) #academy-search-results-panel {
+    pointer-events: none !important;
+}
+
+body[data-yh-view="academy"].academy-search-results-open #academy-search-results-panel:not(.hidden-step):not([aria-hidden="true"]) {
+    pointer-events: auto !important;
+}
+/* END PATCH: Academy hidden overlay click-through safety v5 */
