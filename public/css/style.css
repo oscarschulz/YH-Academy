@@ -24597,3 +24597,30 @@ body[data-yh-view="academy"].academy-search-results-open #academy-search-results
     pointer-events: auto !important;
 }
 /* END PATCH: Academy hidden overlay click-through safety v5 */
+
+
+/* PATCH: Academy startup anti-flicker + overlay click release v6.1 */
+body[data-yh-page="academy"].academy-startup-booting .dashboard-layout,
+body[data-yh-page="academy"].academy-standalone-shell-pending .dashboard-layout,
+body[data-yh-page="academy"]:not(.academy-shell-ready) .dashboard-layout {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+
+body[data-yh-page="academy"].academy-shell-ready .dashboard-layout {
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+}
+
+body[data-yh-page="academy"] .yh-academy-startup-loader.hidden-step,
+body[data-yh-page="academy"] .yh-academy-startup-loader.is-exiting,
+body[data-yh-page="academy"] .yh-academy-startup-loader[aria-hidden="true"],
+body[data-yh-page="academy"] .yh-tab-loader.hidden-step,
+body[data-yh-page="academy"] .yh-tab-loader[aria-hidden="true"],
+body[data-yh-page="academy"] #academy-search-results-panel.hidden-step,
+body[data-yh-page="academy"] #academy-search-results-panel[aria-hidden="true"] {
+    pointer-events: none !important;
+}
+/* END PATCH: Academy startup anti-flicker + overlay click release v6.1 */

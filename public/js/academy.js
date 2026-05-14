@@ -17,6 +17,75 @@
     window.location.replace('/?redirect=academy');
     throw new Error('Academy auth token missing.');
 })();
+/* PATCH: Academy interval budget guard v6.1 */
+(function installAcademyIntervalBudgetGuardV61() {
+    if (window.__academyIntervalBudgetGuardV61Installed) return;
+    window.__academyIntervalBudgetGuardV61Installed = true;
+
+    const nativeSetInterval = window.setInterval.bind(window);
+
+    function isAcademyPage() {
+        const page = document.body && document.body.getAttribute('data-yh-page');
+        const path = String(window.location.pathname || '').replace(/\/+$/, '');
+        return page === 'academy' || path === '/academy';
+    }
+
+    function getAcademyIntervalMinimumDelay(source) {
+        const text = String(source || '');
+
+        const heavyBotOrDomSweep = [
+            'lockBotToVisibleBottom',
+            'clampBotInsideSidebar',
+            'normalizeSingleBot',
+            'placeBotInAllowedPlayArea',
+            'positionAcademyBotBelowActiveMember',
+            'academyMoveBotRandomly',
+            'getRightSidebar',
+            'getActiveNowMemberBottom',
+            'normalizePinnedBadges'
+        ].some((needle) => text.indexOf(needle) >= 0);
+
+        if (heavyBotOrDomSweep) return 30000;
+
+        const repeatedUiSync = [
+            'applyManualMessagesTab',
+            'bootAcademyVoiceLoungeFinalFixes',
+            'bootGroupsInboxFix',
+            'bootMessagesUiPolish',
+            'applyAcademyRealInboxAvatars',
+            'academyEnhanceMessagesInbox',
+            'syncInboxMenuOpenStates',
+            'runAcademyPasswordManagerGuard'
+        ].some((needle) => text.indexOf(needle) >= 0);
+
+        return repeatedUiSync ? 12000 : 0;
+    }
+
+    window.setInterval = function academyBudgetedSetInterval(callback, delay) {
+        const args = Array.prototype.slice.call(arguments, 2);
+
+        if (!isAcademyPage() || typeof callback !== 'function') {
+            return nativeSetInterval.apply(window, arguments);
+        }
+
+        const source = String(callback || '');
+        let safeDelay = Number(delay || 0);
+
+        const minimumDelay = getAcademyIntervalMinimumDelay(source);
+        if (minimumDelay && safeDelay < minimumDelay) {
+            safeDelay = minimumDelay;
+        }
+
+        const wrapped = function academyBudgetedIntervalCallback() {
+            if (document.hidden) return;
+            return callback.apply(this, args);
+        };
+
+        return nativeSetInterval(wrapped, safeDelay || delay);
+    };
+})();
+/* END PATCH: Academy interval budget guard v6.1 */
+
 const {
     getStoredAuthToken,
     getStoredUserValue,
@@ -690,11 +759,28 @@ function showAcademyStartupBootOverlay(section = '') {
 }
 
 function hideAcademyStartupBootOverlay() {
-    if (academyStartupBootDismissed) return;
+    const loader = getAcademyStartupBootLoader();
+
+    document.body?.classList.add('academy-shell-ready');
+    document.body?.classList.remove('academy-standalone-shell-pending');
+    document.body?.classList.remove('academy-startup-booting');
+
+    try {
+        if (typeof window.YHSharedRuntime?.forceHideAcademyTabLoader === 'function') {
+            window.YHSharedRuntime.forceHideAcademyTabLoader();
+        }
+    } catch (_) {}
+
+    if (academyStartupBootDismissed) {
+        if (loader) {
+            loader.classList.add('hidden-step');
+            loader.setAttribute('aria-hidden', 'true');
+            loader.style.pointerEvents = 'none';
+        }
+        return;
+    }
 
     academyStartupBootDismissed = true;
-
-    const loader = getAcademyStartupBootLoader();
 
     if (academyStartupBootFailSafeTimer) {
         clearTimeout(academyStartupBootFailSafeTimer);
@@ -706,15 +792,15 @@ function hideAcademyStartupBootOverlay() {
         sessionStorage.removeItem(YH_ACADEMY_STARTUP_SECTION_KEY);
     } catch (_) {}
 
-    document.body?.classList.remove('academy-startup-booting');
-
     if (!loader) return;
 
     loader.classList.add('is-exiting');
+    loader.style.pointerEvents = 'none';
 
     window.setTimeout(() => {
         loader.classList.add('hidden-step');
         loader.setAttribute('aria-hidden', 'true');
+        loader.style.pointerEvents = 'none';
     }, 220);
 }
 
@@ -770,7 +856,7 @@ function scheduleAcademyStartupBootFailSafe(delayMs = 7000) {
 
     academyStartupBootFailSafeTimer = window.setTimeout(() => {
         hideAcademyStartupBootOverlay();
-    }, delayMs);
+    }, Math.min(Number(delayMs) || 7000, 5500));
 }
 
 function getAcademySectionFromUrl() {
@@ -9035,55 +9121,146 @@ function openAcademyFeedView(forceReload = false) {
             hideAcademyTabLoader();
         });
 }
+/* PATCH: Academy tab interaction safety v7 */
+function academyReleaseTabLoaderHardV7(reason = 'tab') {
+    try {
+        if (typeof window.YHSharedRuntime?.forceHideAcademyTabLoader === 'function') {
+            window.YHSharedRuntime.forceHideAcademyTabLoader();
+        }
+    } catch (_) {}
+
+    try {
+        if (typeof hideAcademyTabLoader === 'function') {
+            hideAcademyTabLoader({ force: true });
+        }
+    } catch (_) {
+        try {
+            if (typeof hideAcademyTabLoader === 'function') hideAcademyTabLoader();
+        } catch (_) {}
+    }
+
+    const overlay = document.getElementById('yh-tab-loader');
+    if (overlay) {
+        overlay.classList.remove('is-active');
+        overlay.classList.add('hidden-step');
+        overlay.setAttribute('aria-hidden', 'true');
+        overlay.style.pointerEvents = 'none';
+    }
+
+    document.body?.classList.add('academy-shell-ready');
+    document.body?.classList.remove('academy-startup-booting');
+    document.body?.classList.remove('academy-standalone-shell-pending');
+    document.body?.removeAttribute('data-academy-tab-loading');
+
+    window.__academyTabSwitchLockedV7 = false;
+    window.__academyTabSwitchReasonV7 = '';
+}
+
+function academyLockTabSwitchV7(reason = 'tab') {
+    const now = Date.now();
+    const lastAt = Number(window.__academyLastTabSwitchAtV7 || 0);
+
+    if (window.__academyTabSwitchLockedV7 === true && now - lastAt < 700) {
+        return false;
+    }
+
+    window.__academyTabSwitchLockedV7 = true;
+    window.__academyTabSwitchReasonV7 = reason;
+    window.__academyLastTabSwitchAtV7 = now;
+    document.body?.setAttribute('data-academy-tab-loading', reason);
+
+    window.clearTimeout(window.__academyTabSwitchFailSafeV7);
+    window.__academyTabSwitchFailSafeV7 = window.setTimeout(() => {
+        academyReleaseTabLoaderHardV7('failsafe-' + reason);
+    }, 2500);
+
+    return true;
+}
+
+function academyUnlockTabSwitchSoonV7(reason = 'tab') {
+    window.clearTimeout(window.__academyTabSwitchFailSafeV7);
+    window.setTimeout(() => academyReleaseTabLoaderHardV7(reason), 80);
+    window.setTimeout(() => academyReleaseTabLoaderHardV7(reason + '-late'), 420);
+}
+
+function academyAfterPaintV7(callback) {
+    window.requestAnimationFrame(() => {
+        window.setTimeout(callback, 0);
+    });
+}
+
+function academyScheduleIdleV7(callback, timeout = 900) {
+    if (typeof window.requestIdleCallback === 'function') {
+        window.requestIdleCallback(callback, { timeout });
+        return;
+    }
+
+    window.setTimeout(callback, 120);
+}
+/* END PATCH: Academy tab interaction safety v7 */
+
 function openAcademyMessagesView() {
+    if (!academyLockTabSwitchV7('messages')) return;
+
     academyRememberLastNonProfileLocation('messages');
 
     showAcademyTabLoader('Loading Messages...');
-    academyPushFeedFallbackHistory('messages');
-    closeRoadmapIntake();
-    academyResetCoachMode();
-    hideAcademyViewsForFeed();
-    setAcademySidebarActive('nav-messages');
-    saveAcademyViewState('messages');
-    applyAcademyMessengerMode(true);
 
-    const academyChat = document.getElementById('academy-chat');
-    const chatHeaderIcon = document.getElementById('chat-header-icon');
-    const chatHeaderTitle = document.getElementById('chat-header-title');
-    const chatHeaderTopic = document.getElementById('chat-header-topic');
-    const chatWelcomeBox = document.getElementById('chat-welcome-box');
-    const chatPinnedMessage = document.getElementById('chat-pinned-message');
-    const chatInputArea = document.getElementById('chat-input-area');
-    const chatInputBox = document.getElementById('chat-input');
+    academyAfterPaintV7(() => {
+        try {
+            academyPushFeedFallbackHistory('messages');
+            closeRoadmapIntake();
+            academyResetCoachMode();
+            hideAcademyViewsForFeed();
+            setAcademySidebarActive('nav-messages');
+            saveAcademyViewState('messages');
+            applyAcademyMessengerMode(true);
 
-    if (academyChat) {
-        academyChat.classList.remove('hidden-step');
-        academyChat.classList.remove('fade-in');
-        void academyChat.offsetWidth;
-        academyChat.classList.add('fade-in');
-    }
+            const academyChat = document.getElementById('academy-chat');
+            const chatWelcomeBox = document.getElementById('chat-welcome-box');
+            const chatPinnedMessage = document.getElementById('chat-pinned-message');
 
-    academyRestoreMessagesInboxHeader();
-    if (chatWelcomeBox) chatWelcomeBox.style.display = 'none';
-    if (chatPinnedMessage) chatPinnedMessage.style.display = 'none';
+            if (academyChat) {
+                academyChat.classList.remove('hidden-step');
+                academyChat.classList.add('fade-in');
+            }
 
-    academyResetMessagesThreadState();
+            academyRestoreMessagesInboxHeader();
 
-    academySetMessagesChatMode('messages');
-    renderAcademyMessagesInboxList();
+            if (chatWelcomeBox) chatWelcomeBox.style.display = 'none';
+            if (chatPinnedMessage) chatPinnedMessage.style.display = 'none';
 
-    academyHydrateMessageRooms(!academyMessagesInboxState.hydratedOnce).catch((error) => {
-        showToast(error?.message || 'Failed to load conversations.', 'error');
+            academyResetMessagesThreadState();
+            academySetMessagesChatMode('messages');
+
+            const rooms = academyReadMessageRooms();
+
+            academyScheduleIdleV7(() => {
+                try {
+                    renderAcademyMessagesInboxList();
+
+                    if (rooms.length) {
+                        academyRenderMessagesThreadEmpty('Select a conversation from the inbox to open that private thread.');
+                    } else {
+                        academyRenderMessagesThreadEmpty('No conversations yet. Start a DM or create a group to see it here.');
+                    }
+                } catch (error) {
+                    console.error('render messages shell error:', error);
+                }
+            }, 300);
+
+            academyScheduleIdleV7(() => {
+                academyHydrateMessageRooms(!academyMessagesInboxState.hydratedOnce).catch((error) => {
+                    showToast(error?.message || 'Failed to load conversations.', 'error');
+                });
+            }, 1200);
+        } catch (error) {
+            console.error('openAcademyMessagesView error:', error);
+            showToast(error?.message || 'Failed to open Messages.', 'error');
+        } finally {
+            academyUnlockTabSwitchSoonV7('messages');
+        }
     });
-
-    const rooms = academyReadMessageRooms();
-    if (rooms.length) {
-        academyRenderMessagesThreadEmpty('Select a conversation from the inbox to open that private thread.');
-    } else {
-        academyRenderMessagesThreadEmpty('No conversations yet. Start a DM or create a group to see it here.');
-    }
-
-    hideAcademyTabLoader();
 }
 function openAcademyRoadmapView(forceFresh = false) {
     academyRememberLastNonProfileLocation('roadmap');
@@ -13920,13 +14097,29 @@ function hydrateAcademyLeadMissionsWorkspace(result = {}) {
 
 async function loadAcademyLeadMissionsWorkspace(initialSubtab = 'database') {
     const [result, withdrawalResult, opportunityResult] = await Promise.all([
-        academyAuthedFetch('/api/academy/lead-missions/workspace', { method: 'GET' }),
-        academyAuthedFetch('/api/payouts/my-ledger', { method: 'GET' }).catch(() => ({ success: false, payouts: [] })),
-        academyAuthedFetch('/api/academy/opportunity-missions', { method: 'GET' }).catch(() => ({
-            success: false,
-            opportunityMissions: [],
-            summary: { total: 0, plaza: 0, federation: 0 }
-        }))
+        academyResolveAfterTimeout(
+            academyAuthedFetch('/api/academy/lead-missions/workspace', { method: 'GET' }),
+            ACADEMY_ASYNC_STEP_TIMEOUT_MS,
+            { success: false, message: 'Leads workspace request timed out.' }
+        ),
+        academyResolveAfterTimeout(
+            academyAuthedFetch('/api/payouts/my-ledger', { method: 'GET' }).catch(() => ({ success: false, payouts: [] })),
+            ACADEMY_ASYNC_STEP_TIMEOUT_MS,
+            { success: false, payouts: [] }
+        ),
+        academyResolveAfterTimeout(
+            academyAuthedFetch('/api/academy/opportunity-missions', { method: 'GET' }).catch(() => ({
+                success: false,
+                opportunityMissions: [],
+                summary: { total: 0, plaza: 0, federation: 0 }
+            })),
+            ACADEMY_ASYNC_STEP_TIMEOUT_MS,
+            {
+                success: false,
+                opportunityMissions: [],
+                summary: { total: 0, plaza: 0, federation: 0 }
+            }
+        )
     ]);
 
     if (!result?.success) {
@@ -14230,14 +14423,29 @@ function revealAcademyMissionsViewShell() {
 }
 
 function openAcademyMissionsView() {
+    if (!academyLockTabSwitchV7('missions')) return;
+
     academyRememberLastNonProfileLocation('lead-missions', { missionPanel: 'hub' });
 
     showAcademyTabLoader('Loading Missions...');
-    academyPushFeedFallbackHistory('missions');
-    saveAcademyViewState('missions');
-    revealAcademyMissionsViewShell();
-    setAcademyMissionsPanel('hub');
-    hideAcademyTabLoader();
+
+    academyAfterPaintV7(() => {
+        try {
+            academyPushFeedFallbackHistory('missions');
+            saveAcademyViewState('missions');
+            revealAcademyMissionsViewShell();
+            setAcademyMissionsPanel('hub');
+        } catch (error) {
+            console.error('openAcademyMissionsView error:', error);
+            showToast(error?.message || 'Failed to open Missions.', 'error');
+
+            try {
+                revealAcademyMissionsViewShell();
+            } catch (_) {}
+        } finally {
+            academyUnlockTabSwitchSoonV7('missions');
+        }
+    });
 }
 
 async function openAcademyLeadMissionsView(options = {}) {
@@ -14248,9 +14456,19 @@ async function openAcademyLeadMissionsView(options = {}) {
     if (!skipRecruitmentGate) {
         showAcademyTabLoader('Checking Leads access.');
 
-        const hasRecruitmentProfile = await ensureAcademyLeadRecruitmentProfileLoaded();
-
-        hideAcademyTabLoader();
+        let hasRecruitmentProfile = false;
+        try {
+            hasRecruitmentProfile = await academyResolveAfterTimeout(
+                ensureAcademyLeadRecruitmentProfileLoaded(),
+                ACADEMY_ASYNC_STEP_TIMEOUT_MS,
+                false
+            );
+        } catch (error) {
+            console.error('ensureAcademyLeadRecruitmentProfileLoaded error:', error);
+            hasRecruitmentProfile = false;
+        } finally {
+            hideAcademyTabLoader();
+        }
 
         if (!hasRecruitmentProfile) {
             revealAcademyMissionsViewShell();
@@ -14970,12 +15188,30 @@ const academyMessagesInboxState = {
     activeRoomId: '',
     loading: false,
     hydratedOnce: false,
+    lastHydratedAt: 0,
+    hydratePromise: null,
     openMenuRoomId: '',
     openThreadMenu: false,
     homeThreadHtml: '',
     actionLoadingRoomId: '',
     actionLoadingType: ''
 };
+
+const ACADEMY_MESSAGES_HYDRATE_CACHE_MS = 12000;
+const ACADEMY_ASYNC_STEP_TIMEOUT_MS = 9000;
+
+function academyResolveAfterTimeout(promise, timeoutMs = ACADEMY_ASYNC_STEP_TIMEOUT_MS, fallbackValue = null) {
+    let timer = null;
+
+    return Promise.race([
+        Promise.resolve(promise),
+        new Promise((resolve) => {
+            timer = window.setTimeout(() => resolve(fallbackValue), Number(timeoutMs) || ACADEMY_ASYNC_STEP_TIMEOUT_MS);
+        })
+    ]).finally(() => {
+        if (timer) window.clearTimeout(timer);
+    });
+}
 function academyGetInboxActionLoadingLabel(action = '') {
     const cleanAction = String(action || '').trim().toLowerCase();
 
@@ -15564,50 +15800,67 @@ function academyRenderMessagesSidebarBadge() {
 }
 
 async function academyHydrateMessageRooms(forceFresh = false) {
-    if (academyMessagesInboxState.loading) return academyReadMessageRooms();
+    const now = Date.now();
+    const cachedRooms = academyReadMessageRooms();
+    const cacheAge = now - Number(academyMessagesInboxState.lastHydratedAt || 0);
+
+    if (
+        !forceFresh &&
+        academyMessagesInboxState.hydratedOnce &&
+        cacheAge >= 0 &&
+        cacheAge < ACADEMY_MESSAGES_HYDRATE_CACHE_MS
+    ) {
+        academyRenderMessagesSidebarBadge();
+        renderAcademyMessagesInboxList();
+        return cachedRooms;
+    }
+
+    if (academyMessagesInboxState.loading && academyMessagesInboxState.hydratePromise) {
+        return academyMessagesInboxState.hydratePromise;
+    }
 
     academyMessagesInboxState.loading = true;
 
+    academyMessagesInboxState.hydratePromise = (async () => {
+        try {
+            if (forceFresh) {
+                const { list } = academyGetMessagesInboxElements();
+                if (list && !cachedRooms.length) {
+                    list.innerHTML = '<div class="academy-messages-inbox-empty">Loading conversations.</div>';
+                }
+            }
+
+            const result = await academyResolveAfterTimeout(
+                academyAuthedFetch('/api/realtime/rooms', { method: 'GET' }),
+                ACADEMY_ASYNC_STEP_TIMEOUT_MS,
+                { success: false, rooms: cachedRooms, timedOut: true }
+            );
+
+            const roomsRaw = Array.isArray(result?.rooms) ? result.rooms : cachedRooms;
+            const normalizedRooms = roomsRaw
+                .map((room) => academyNormalizeRealtimeRoomEntry(room))
+                .filter((room) => !!normalizeRoomKey(room?.roomId || room?.id));
+
+            syncCustomRoomsUI(normalizedRooms);
+            academyMessagesInboxState.hydratedOnce = true;
+            academyMessagesInboxState.lastHydratedAt = Date.now();
+            academyRenderMessagesSidebarBadge();
+
+            renderAcademyMessagesInboxList();
+            return normalizedRooms;
+        } catch (error) {
+            console.error('academyHydrateMessageRooms error:', error);
+            renderAcademyMessagesInboxList();
+            academyRenderMessagesSidebarBadge();
+            return cachedRooms;
+        }
+    })();
+
     try {
-        if (forceFresh) {
-            const { list } = academyGetMessagesInboxElements();
-            if (list) {
-                list.innerHTML = `<div class="academy-messages-inbox-empty">Loading conversations.</div>`;
-            }
-        }
-
-        const result = await academyAuthedFetch('/api/realtime/rooms', {
-            method: 'GET'
-        });
-
-        const roomsRaw = Array.isArray(result?.rooms) ? result.rooms : [];
-        const normalizedRooms = roomsRaw
-            .map((room) => academyNormalizeRealtimeRoomEntry(room))
-            .filter((room) => !!normalizeRoomKey(room?.roomId || room?.id));
-
-        syncCustomRoomsUI(normalizedRooms);
-        academyMessagesInboxState.hydratedOnce = true;
-        academyRenderMessagesSidebarBadge();
-
-        const activeRoomId = normalizeRoomKey(academyMessagesInboxState.activeRoomId);
-        if (activeRoomId) {
-            const stillExists = normalizedRooms.some((room) => {
-                return normalizeRoomKey(room?.roomId || room?.id) === activeRoomId;
-            });
-
-            if (!stillExists) {
-                academyMessagesInboxState.activeRoomId = '';
-            }
-        }
-
-        renderAcademyMessagesInboxList();
-        return normalizedRooms;
-    } catch (error) {
-        renderAcademyMessagesInboxList();
-        academyRenderMessagesSidebarBadge();
-        throw error;
+        return await academyMessagesInboxState.hydratePromise;
     } finally {
         academyMessagesInboxState.loading = false;
+        academyMessagesInboxState.hydratePromise = null;
     }
 }
 
@@ -25865,11 +26118,14 @@ if (document.body) {
         });
 
         window.setInterval(() => {
+            const mode = String(document.getElementById('academy-chat')?.getAttribute('data-chat-mode') || '').trim().toLowerCase();
+            if (mode !== 'messages' && mode !== 'thread') return;
+
             academyWrapMessagesInboxRenderer();
             academyInstallMessageSocketListeners();
             academyInstallRightSidebarBotCta();
             academyEnhanceMessagesInbox();
-        }, 1600);
+        }, 12000);
     }
 
     if (document.readyState === 'loading') {
@@ -25984,7 +26240,11 @@ if (document.body) {
         bootMessagesUiPolish();
     }
 
-    window.setInterval(bootMessagesUiPolish, 1800);
+    window.setInterval(() => {
+        const mode = String(document.getElementById('academy-chat')?.getAttribute('data-chat-mode') || '').trim().toLowerCase();
+        if (mode !== 'messages' && mode !== 'thread') return;
+        bootMessagesUiPolish();
+    }, 12000);
 })();
 
 
@@ -26322,7 +26582,8 @@ if (document.body) {
         academyBootInlineEditAndBotFix();
     }
 
-    window.setInterval(academyBootInlineEditAndBotFix, 3500);
+    window.setTimeout(academyBootInlineEditAndBotFix, 800);
+    window.addEventListener('pageshow', academyBootInlineEditAndBotFix);
 })();
 
 
@@ -26497,7 +26758,11 @@ if (document.body) {
     }
 
     window.addEventListener('pageshow', scheduleAcademyPasswordManagerGuard);
-    window.setInterval(runAcademyPasswordManagerGuard, 2500);
+    window.setInterval(() => {
+        const mode = String(document.getElementById('academy-chat')?.getAttribute('data-chat-mode') || '').trim().toLowerCase();
+        if (mode !== 'messages' && mode !== 'thread' && mode !== 'voice') return;
+        runAcademyPasswordManagerGuard();
+    }, 15000);
 })();
 
 
@@ -26934,10 +27199,12 @@ if (document.body) {
     }
 
     window.setInterval(() => {
+        const mode = String(document.getElementById('academy-chat')?.getAttribute('data-chat-mode') || '').trim().toLowerCase();
+        if (mode !== 'messages' && mode !== 'thread') return;
         applyAcademyRealInboxAvatars();
-    }, 1800);
+    }, 12000);
 
-    window.setInterval(() => {
+    window.setTimeout(() => {
         const bot = findAcademyBotCta();
         if (bot && !bot.classList.contains('is-docked')) {
             positionAcademyBotBelowActiveMember();
@@ -27349,7 +27616,12 @@ if (document.body) {
 
     window.addEventListener('pageshow', bootAcademyVoiceLoungeFinalFixes);
 
-    window.setInterval(bootAcademyVoiceLoungeFinalFixes, 900);
+    window.setInterval(() => {
+        const mode = String(document.getElementById('academy-chat')?.getAttribute('data-chat-mode') || '').trim().toLowerCase();
+        const activeView = String(document.body?.getAttribute('data-academy-current-view') || '').trim().toLowerCase();
+        if (mode !== 'voice' && activeView !== 'voice') return;
+        bootAcademyVoiceLoungeFinalFixes();
+    }, 15000);
 })();
 
 
@@ -27575,9 +27847,9 @@ if (document.body) {
     window.addEventListener('resize', () => placeBotInAllowedPlayArea(true));
     window.addEventListener('pageshow', () => placeBotInAllowedPlayArea(true));
 
-    window.setInterval(() => {
+    window.setTimeout(() => {
         normalizeSingleBot();
-        placeBotInAllowedPlayArea(false);
+        placeBotInAllowedPlayArea(true);
     }, 350);
 })();
 
@@ -27819,13 +28091,9 @@ if (document.body) {
     window.addEventListener('resize', () => clampBotInsideSidebar(true));
     window.addEventListener('pageshow', () => clampBotInsideSidebar(true));
 
-    window.setInterval(() => {
-        clampBotInsideSidebar(false);
-    }, 220);
-
-    window.setInterval(() => {
+    window.setTimeout(() => {
         clampBotInsideSidebar(true);
-    }, 2600);
+    }, 420);
 })();
 
 
@@ -28220,7 +28488,11 @@ if (document.body) {
     }
 
     window.addEventListener('pageshow', bootGroupsInboxFix);
-    window.setInterval(bootGroupsInboxFix, 1200);
+    window.setInterval(() => {
+        const mode = String(document.getElementById('academy-chat')?.getAttribute('data-chat-mode') || '').trim().toLowerCase();
+        if (mode !== 'messages' && mode !== 'thread') return;
+        bootGroupsInboxFix();
+    }, 12000);
 })();
 
 /* PATCH: Academy AI coach bottom-visible dock + manual Messages tab guard v2 */
@@ -28538,8 +28810,7 @@ if (document.body) {
     window.addEventListener('resize', lockBotToVisibleBottom);
     window.addEventListener('pageshow', bootPatch);
 
-    window.setInterval(lockBotToVisibleBottom, 160);
-    window.setInterval(() => applyManualMessagesTab(readStoredTab()), 240);
+    window.setTimeout(lockBotToVisibleBottom, 600);
 })();
 /* END PATCH: Academy AI coach bottom-visible dock + manual Messages tab guard v2 */
 
@@ -29135,7 +29406,11 @@ if (document.body) {
     }
 
     window.addEventListener('pageshow', boot);
-    window.setInterval(normalizePinnedBadges, 2500);
+    window.setInterval(() => {
+        const mode = String(document.getElementById('academy-chat')?.getAttribute('data-chat-mode') || '').trim().toLowerCase();
+        if (mode !== 'messages' && mode !== 'thread') return;
+        normalizePinnedBadges();
+    }, 12000);
 })();
 /* END PATCH: Academy pinned conversation pill single-card placement v1 */
 

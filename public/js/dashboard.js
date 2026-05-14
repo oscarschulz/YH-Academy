@@ -1,8 +1,155 @@
+/* PATCH: Academy tab interaction safety v7 */
+function academyReleaseTabLoaderHardV7(reason = 'tab') {
+    try {
+        if (typeof window.YHSharedRuntime?.forceHideAcademyTabLoader === 'function') {
+            window.YHSharedRuntime.forceHideAcademyTabLoader();
+        }
+    } catch (_) {}
+
+    try {
+        if (typeof hideAcademyTabLoader === 'function') {
+            hideAcademyTabLoader({ force: true });
+        }
+    } catch (_) {
+        try {
+            if (typeof hideAcademyTabLoader === 'function') hideAcademyTabLoader();
+        } catch (_) {}
+    }
+
+    const overlay = document.getElementById('yh-tab-loader');
+    if (overlay) {
+        overlay.classList.remove('is-active');
+        overlay.classList.add('hidden-step');
+        overlay.setAttribute('aria-hidden', 'true');
+        overlay.style.pointerEvents = 'none';
+    }
+
+    document.body?.classList.add('academy-shell-ready');
+    document.body?.classList.remove('academy-startup-booting');
+    document.body?.classList.remove('academy-standalone-shell-pending');
+    document.body?.removeAttribute('data-academy-tab-loading');
+
+    window.__academyTabSwitchLockedV7 = false;
+    window.__academyTabSwitchReasonV7 = '';
+}
+
+function academyLockTabSwitchV7(reason = 'tab') {
+    const now = Date.now();
+    const lastAt = Number(window.__academyLastTabSwitchAtV7 || 0);
+
+    if (window.__academyTabSwitchLockedV7 === true && now - lastAt < 700) {
+        return false;
+    }
+
+    window.__academyTabSwitchLockedV7 = true;
+    window.__academyTabSwitchReasonV7 = reason;
+    window.__academyLastTabSwitchAtV7 = now;
+    document.body?.setAttribute('data-academy-tab-loading', reason);
+
+    window.clearTimeout(window.__academyTabSwitchFailSafeV7);
+    window.__academyTabSwitchFailSafeV7 = window.setTimeout(() => {
+        academyReleaseTabLoaderHardV7('failsafe-' + reason);
+    }, 2500);
+
+    return true;
+}
+
+function academyUnlockTabSwitchSoonV7(reason = 'tab') {
+    window.clearTimeout(window.__academyTabSwitchFailSafeV7);
+    window.setTimeout(() => academyReleaseTabLoaderHardV7(reason), 80);
+    window.setTimeout(() => academyReleaseTabLoaderHardV7(reason + '-late'), 420);
+}
+
+function academyAfterPaintV7(callback) {
+    window.requestAnimationFrame(() => {
+        window.setTimeout(callback, 0);
+    });
+}
+
+function academyScheduleIdleV7(callback, timeout = 900) {
+    if (typeof window.requestIdleCallback === 'function') {
+        window.requestIdleCallback(callback, { timeout });
+        return;
+    }
+
+    window.setTimeout(callback, 120);
+}
+/* END PATCH: Academy tab interaction safety v7 */
+
 // public/js/dashboard.js
 
 // ==========================================
 // 1. GLOBAL AUTH, SOCKET & UTILITIES
 // ==========================================
+/* PATCH: Academy interval budget guard v6.1 */
+(function installAcademyIntervalBudgetGuardV61() {
+    if (window.__academyIntervalBudgetGuardV61Installed) return;
+    window.__academyIntervalBudgetGuardV61Installed = true;
+
+    const nativeSetInterval = window.setInterval.bind(window);
+
+    function isAcademyPage() {
+        const page = document.body && document.body.getAttribute('data-yh-page');
+        const path = String(window.location.pathname || '').replace(/\/+$/, '');
+        return page === 'academy' || path === '/academy';
+    }
+
+    function getAcademyIntervalMinimumDelay(source) {
+        const text = String(source || '');
+
+        const heavyBotOrDomSweep = [
+            'lockBotToVisibleBottom',
+            'clampBotInsideSidebar',
+            'normalizeSingleBot',
+            'placeBotInAllowedPlayArea',
+            'positionAcademyBotBelowActiveMember',
+            'academyMoveBotRandomly',
+            'getRightSidebar',
+            'getActiveNowMemberBottom',
+            'normalizePinnedBadges'
+        ].some((needle) => text.indexOf(needle) >= 0);
+
+        if (heavyBotOrDomSweep) return 30000;
+
+        const repeatedUiSync = [
+            'applyManualMessagesTab',
+            'bootAcademyVoiceLoungeFinalFixes',
+            'bootGroupsInboxFix',
+            'bootMessagesUiPolish',
+            'applyAcademyRealInboxAvatars',
+            'academyEnhanceMessagesInbox',
+            'syncInboxMenuOpenStates',
+            'runAcademyPasswordManagerGuard'
+        ].some((needle) => text.indexOf(needle) >= 0);
+
+        return repeatedUiSync ? 12000 : 0;
+    }
+
+    window.setInterval = function academyBudgetedSetInterval(callback, delay) {
+        const args = Array.prototype.slice.call(arguments, 2);
+
+        if (!isAcademyPage() || typeof callback !== 'function') {
+            return nativeSetInterval.apply(window, arguments);
+        }
+
+        const source = String(callback || '');
+        let safeDelay = Number(delay || 0);
+
+        const minimumDelay = getAcademyIntervalMinimumDelay(source);
+        if (minimumDelay && safeDelay < minimumDelay) {
+            safeDelay = minimumDelay;
+        }
+
+        const wrapped = function academyBudgetedIntervalCallback() {
+            if (document.hidden) return;
+            return callback.apply(this, args);
+        };
+
+        return nativeSetInterval(wrapped, safeDelay || delay);
+    };
+})();
+/* END PATCH: Academy interval budget guard v6.1 */
+
 const {
     getStoredAuthToken,
     getStoredUserValue,
