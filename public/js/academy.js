@@ -29040,3 +29040,316 @@ if (document.body) {
     window.setInterval(normalizePinnedBadges, 500);
 })();
 /* END PATCH: Academy pinned conversation pill single-card placement v1 */
+
+/* PATCH: Academy top action modals + search autofill guard v1 */
+(function installAcademyTopActionModalsAndSearchAutofillGuardV1() {
+    if (window.__academyTopActionModalsAndSearchAutofillGuardV1Installed) return;
+    window.__academyTopActionModalsAndSearchAutofillGuardV1Installed = true;
+
+    const NOTIF_OVERLAY_ID = 'academy-notification-modal-overlay';
+    const RESOURCES_OVERLAY_ID = 'academy-resources-modal-overlay';
+    const SEARCH_INPUT_IDS = ['academy-global-search-input', 'academy-member-browser-search-input'];
+
+    function safeText(value) {
+        return String(value || '').trim();
+    }
+
+    function isEmailLike(value = '') {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(safeText(value));
+    }
+
+    function getStoredAccountEmails() {
+        const keys = ['yh_user_email', 'user_email', 'email', 'yh_email'];
+        const emails = new Set();
+
+        keys.forEach((key) => {
+            try {
+                const localValue = safeText(localStorage.getItem(key)).toLowerCase();
+                const sessionValue = safeText(sessionStorage.getItem(key)).toLowerCase();
+
+                if (isEmailLike(localValue)) emails.add(localValue);
+                if (isEmailLike(sessionValue)) emails.add(sessionValue);
+            } catch (_) {}
+        });
+
+        try {
+            const stored = typeof getStoredUserValue === 'function'
+                ? safeText(getStoredUserValue('yh_user_email', '')).toLowerCase()
+                : '';
+
+            if (isEmailLike(stored)) emails.add(stored);
+        } catch (_) {}
+
+        return emails;
+    }
+
+    function preventSearchBrowserAutofill(input) {
+        if (!(input instanceof HTMLInputElement)) return;
+
+        input.setAttribute('type', 'search');
+        input.setAttribute('name', input.id === 'academy-global-search-input' ? 'academy_community_search_no_autofill' : 'academy_member_search_no_autofill');
+        input.setAttribute('autocomplete', 'new-password');
+        input.setAttribute('autocorrect', 'off');
+        input.setAttribute('autocapitalize', 'none');
+        input.setAttribute('spellcheck', 'false');
+        input.setAttribute('inputmode', 'search');
+        input.setAttribute('data-lpignore', 'true');
+        input.setAttribute('data-1p-ignore', 'true');
+        input.setAttribute('data-form-type', 'other');
+        input.removeAttribute('value');
+    }
+
+    function clearSearchInputIfAutofilled(input, force = false) {
+        if (!(input instanceof HTMLInputElement)) return;
+
+        preventSearchBrowserAutofill(input);
+
+        const value = safeText(input.value);
+        if (!value) return;
+
+        const accountEmails = getStoredAccountEmails();
+        const lowerValue = value.toLowerCase();
+        const userEdited = input.dataset.academySearchUserEdited === '1';
+
+        const shouldClear =
+            force ||
+            (!userEdited && (isEmailLike(value) || accountEmails.has(lowerValue)));
+
+        if (!shouldClear) return;
+
+        input.value = '';
+        input.defaultValue = '';
+        input.removeAttribute('value');
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    function guardAcademySearchInputs(force = false) {
+        SEARCH_INPUT_IDS.forEach((id) => {
+            const input = document.getElementById(id);
+            if (!(input instanceof HTMLInputElement)) return;
+
+            preventSearchBrowserAutofill(input);
+            clearSearchInputIfAutofilled(input, force);
+
+            if (input.dataset.academySearchAutofillGuardBound === '1') return;
+            input.dataset.academySearchAutofillGuardBound = '1';
+
+            input.addEventListener('keydown', () => {
+                input.dataset.academySearchUserEdited = '1';
+            });
+
+            input.addEventListener('paste', () => {
+                input.dataset.academySearchUserEdited = '1';
+            });
+
+            input.addEventListener('focus', () => {
+                window.setTimeout(() => clearSearchInputIfAutofilled(input, false), 0);
+                window.setTimeout(() => clearSearchInputIfAutofilled(input, false), 180);
+            });
+        });
+    }
+
+    function ensureOverlay(id, label) {
+        let overlay = document.getElementById(id);
+        if (overlay) return overlay;
+
+        overlay = document.createElement('div');
+        overlay.id = id;
+        overlay.className = 'academy-top-action-modal-overlay hidden-step';
+        overlay.setAttribute('aria-hidden', 'true');
+        overlay.setAttribute('role', 'presentation');
+        overlay.setAttribute('data-modal-label', label || 'Academy modal');
+
+        document.body.appendChild(overlay);
+
+        overlay.addEventListener('click', (event) => {
+            if (event.target === overlay) {
+                closeTopActionModals();
+            }
+        });
+
+        return overlay;
+    }
+
+    function addPanelCloseButton(panel, label = 'Close modal') {
+        if (!(panel instanceof HTMLElement)) return;
+        if (panel.querySelector(':scope > .academy-top-action-modal-close')) return;
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'academy-top-action-modal-close';
+        button.setAttribute('aria-label', label);
+        button.textContent = '✕';
+
+        button.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            closeTopActionModals();
+        });
+
+        panel.appendChild(button);
+    }
+
+    function closeTopActionModals() {
+        const notifOverlay = document.getElementById(NOTIF_OVERLAY_ID);
+        const resourcesOverlay = document.getElementById(RESOURCES_OVERLAY_ID);
+        const notifPanel = document.getElementById('notif-dropdown');
+        const resourcesPanel = document.getElementById('yh-resources-menu-panel');
+        const resourcesBtn = document.getElementById('yh-resources-menu-btn');
+        const notifBell = document.getElementById('notif-bell');
+
+        notifOverlay?.classList.add('hidden-step');
+        notifOverlay?.setAttribute('aria-hidden', 'true');
+
+        resourcesOverlay?.classList.add('hidden-step');
+        resourcesOverlay?.setAttribute('aria-hidden', 'true');
+
+        notifPanel?.classList.remove('show', 'academy-top-action-modal-card', 'academy-notification-modal-card');
+        notifPanel?.setAttribute('aria-hidden', 'true');
+
+        resourcesPanel?.classList.remove('show', 'academy-top-action-modal-card', 'academy-resources-modal-card');
+        resourcesPanel?.setAttribute('aria-hidden', 'true');
+
+        notifBell?.classList.remove('yh-notif-open');
+        resourcesBtn?.setAttribute('aria-expanded', 'false');
+
+        document.body?.classList.remove(
+            'yh-notif-menu-open',
+            'yh-resources-menu-open',
+            'academy-top-action-modal-open'
+        );
+    }
+
+    async function loadNotificationsForModal() {
+        try {
+            if (typeof loadRealtimeNotifications === 'function') {
+                await loadRealtimeNotifications(true);
+                return;
+            }
+        } catch (_) {}
+
+        const list = document.getElementById('notif-list-container');
+        if (!list) return;
+
+        try {
+            const result = typeof academyAuthedFetch === 'function'
+                ? await academyAuthedFetch('/api/realtime/notifications', { method: 'GET' })
+                : null;
+
+            const notifications = Array.isArray(result?.notifications) ? result.notifications : [];
+
+            if (typeof renderRealtimeNotifications === 'function') {
+                renderRealtimeNotifications(notifications);
+                return;
+            }
+
+            if (!notifications.length) {
+                list.innerHTML = '<li class="notif-empty-state" id="notif-empty-state">No notifications yet.</li>';
+            }
+        } catch (_) {
+            list.innerHTML = '<li class="notif-empty-state" id="notif-empty-state">Failed to load notifications.</li>';
+        }
+    }
+
+    async function openNotificationsModal() {
+        const notifPanel = document.getElementById('notif-dropdown');
+        const notifBell = document.getElementById('notif-bell');
+        if (!notifPanel) return;
+
+        closeTopActionModals();
+
+        const overlay = ensureOverlay(NOTIF_OVERLAY_ID, 'Notifications');
+        overlay.appendChild(notifPanel);
+        addPanelCloseButton(notifPanel, 'Close notifications');
+
+        notifPanel.classList.add('show', 'academy-top-action-modal-card', 'academy-notification-modal-card');
+        notifPanel.setAttribute('aria-hidden', 'false');
+        notifPanel.setAttribute('role', 'dialog');
+        notifPanel.setAttribute('aria-modal', 'true');
+        notifPanel.setAttribute('aria-label', 'Notifications');
+
+        overlay.classList.remove('hidden-step');
+        overlay.setAttribute('aria-hidden', 'false');
+
+        notifBell?.classList.add('yh-notif-open');
+        document.body?.classList.add('yh-notif-menu-open', 'academy-top-action-modal-open');
+
+        await loadNotificationsForModal();
+    }
+
+    function openResourcesModal() {
+        const resourcesPanel = document.getElementById('yh-resources-menu-panel');
+        const resourcesBtn = document.getElementById('yh-resources-menu-btn');
+        if (!resourcesPanel) return;
+
+        closeTopActionModals();
+
+        const overlay = ensureOverlay(RESOURCES_OVERLAY_ID, 'Partnerships and Resources');
+        overlay.appendChild(resourcesPanel);
+        addPanelCloseButton(resourcesPanel, 'Close Partnerships and Resources');
+
+        resourcesPanel.classList.add('show', 'academy-top-action-modal-card', 'academy-resources-modal-card');
+        resourcesPanel.setAttribute('aria-hidden', 'false');
+        resourcesPanel.setAttribute('role', 'dialog');
+        resourcesPanel.setAttribute('aria-modal', 'true');
+        resourcesPanel.setAttribute('aria-label', 'Partnerships and Resources');
+
+        overlay.classList.remove('hidden-step');
+        overlay.setAttribute('aria-hidden', 'false');
+
+        resourcesBtn?.setAttribute('aria-expanded', 'true');
+        document.body?.classList.add('yh-resources-menu-open', 'academy-top-action-modal-open');
+    }
+
+    document.addEventListener('click', (event) => {
+        const target = event.target instanceof Element ? event.target : event.target?.parentElement;
+        if (!target) return;
+
+        const notifTarget = target.closest('#notif-bell, #notif-bell *');
+        const resourcesTarget = target.closest('#yh-resources-menu-btn, #yh-resources-menu-btn *');
+
+        if (notifTarget && !target.closest('#notif-dropdown')) {
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+            openNotificationsModal();
+            return;
+        }
+
+        if (resourcesTarget) {
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+            openResourcesModal();
+        }
+    }, true);
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            closeTopActionModals();
+        }
+    });
+
+    function boot() {
+        guardAcademySearchInputs(false);
+
+        window.setTimeout(() => guardAcademySearchInputs(false), 120);
+        window.setTimeout(() => guardAcademySearchInputs(false), 420);
+        window.setTimeout(() => guardAcademySearchInputs(false), 900);
+        window.setTimeout(() => guardAcademySearchInputs(false), 1600);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', boot);
+    } else {
+        boot();
+    }
+
+    window.addEventListener('pageshow', boot);
+    window.addEventListener('load', boot);
+
+    window.openAcademyNotificationsModal = openNotificationsModal;
+    window.openAcademyResourcesModal = openResourcesModal;
+    window.closeAcademyTopActionModals = closeTopActionModals;
+})();
+/* END PATCH: Academy top action modals + search autofill guard v1 */

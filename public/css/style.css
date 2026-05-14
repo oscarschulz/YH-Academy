@@ -24482,3 +24482,91 @@ body[data-yh-page="academy"] .academy-messages-inbox-menu .academy-pinned-conver
     display: none !important;
 }
 /* END PATCH: Academy pinned conversation pill single-card placement v1 */
+
+/* PATCH: Academy top action modal rendering + search autofill guard v1 */
+.academy-top-action-modal-overlay {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 2147483600 !important;
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: flex-end !important;
+    padding: 84px 28px 28px !important;
+    background: rgba(2, 6, 23, 0.42) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+}
+
+.academy-top-action-modal-overlay.hidden-step {
+    display: none !important;
+}
+
+.academy-top-action-modal-overlay .academy-top-action-modal-card {
+    position: relative !important;
+    top: auto !important;
+    right: auto !important;
+    left: auto !important;
+    bottom: auto !important;
+    width: min(430px, calc(100vw - 32px)) !important;
+    max-width: calc(100vw - 32px) !important;
+    max-height: min(640px, calc(100vh - 112px)) !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    transform: none !important;
+    z-index: 2147483601 !important;
+    pointer-events: auto !important;
+    margin: 0 !important;
+}
+
+.academy-top-action-modal-overlay .notif-dropdown.academy-top-action-modal-card {
+    display: flex !important;
+    overflow: hidden !important;
+}
+
+.academy-top-action-modal-overlay .yh-resources-menu-panel.academy-top-action-modal-card {
+    display: grid !important;
+    overflow-y: auto !important;
+    padding-top: 44px !important;
+}
+
+.academy-top-action-modal-close {
+    position: absolute !important;
+    top: 10px !important;
+    right: 10px !important;
+    width: 30px !important;
+    height: 30px !important;
+    border-radius: 999px !important;
+    border: 1px solid rgba(148, 163, 184, 0.28) !important;
+    background: rgba(15, 23, 42, 0.92) !important;
+    color: #e2e8f0 !important;
+    cursor: pointer !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    z-index: 3 !important;
+}
+
+.academy-top-action-modal-close:hover {
+    border-color: rgba(56, 189, 248, 0.55) !important;
+    background: rgba(14, 165, 233, 0.18) !important;
+    color: #fff !important;
+}
+
+.academy-top-action-modal-open .academy-header-search-input:-webkit-autofill,
+.academy-header-search-input:-webkit-autofill {
+    -webkit-text-fill-color: #f8fbff !important;
+    transition: background-color 99999s ease-in-out 0s !important;
+}
+
+@media (max-width: 700px) {
+    .academy-top-action-modal-overlay {
+        justify-content: center !important;
+        padding: 74px 14px 16px !important;
+    }
+
+    .academy-top-action-modal-overlay .academy-top-action-modal-card {
+        width: 100% !important;
+        max-height: calc(100vh - 96px) !important;
+    }
+}
+/* END PATCH: Academy top action modal rendering + search autofill guard v1 */

@@ -7,7 +7,7 @@
     <link rel="icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css?v=20260514-pinned-pill-single-card-1">
+<link rel="stylesheet" href="/css/style.css?v=20260514-top-action-modals-search-fix-1">
 <link rel="stylesheet" href="/css/academy-thread-bottom-fix.css?v=20260417-2">
 </head>
 <body data-yh-view="academy" data-yh-page="academy">
@@ -502,13 +502,13 @@
                         <div class="academy-header-search-wrap academy-feed-search-wrap">
                             <span class="search-icon-mini academy-header-search-icon">🔍</span>
                             <input
-                                type="text"
+                                type="search"
                                 id="academy-global-search-input"
                                 placeholder="Search users, posts, captions, or tags."
                                 class="academy-header-search-input"
-                                autocomplete="off"
+                                autocomplete="new-password"
                                 spellcheck="false"
-                            >
+                             name="academy_community_search_no_autofill" autocapitalize="none" data-lpignore="true" data-form-type="other" inputmode="search">
 
                             <div id="academy-search-results-panel" class="academy-search-results-panel academy-search-inline-results hidden-step" aria-live="polite">
                                 <div class="academy-search-results-shell">
@@ -2647,7 +2647,7 @@
 
 <script src="/js/yh-shared-core.js?v=20260418-toast-center-1"></script>
 <script src="/js/yh-shared-runtime.js?v=20260411-4"></script>
-<script src="/js/academy.js?v=20260514-pinned-pill-single-card-1"></script>
+<script src="/js/academy.js?v=20260514-top-action-modals-search-fix-1"></script>
 <div
     class="academy-profile-editor-overlay hidden-step"
     id="academy-profile-editor-overlay"
