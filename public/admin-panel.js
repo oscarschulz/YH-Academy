@@ -91,6 +91,7 @@ const defaultState = () => ({
     requests: []
   },
   businessChatReports: [],
+  businessChatAnalytics: null,
   support: [],
   broadcasts: [],
   analytics: {
@@ -862,7 +863,10 @@ function normalizeAdminBootstrapState(incomingState = {}) {
     plazaRoutingDesk: normalizeAdminPlazaRoutingDesk(merged.plazaRoutingDesk || {}),
     businessChatReports: Array.isArray(merged.businessChatReports)
       ? merged.businessChatReports.map((record) => normalizeAdminBusinessChatReportRecord(record))
-      : []
+      : [],
+    businessChatAnalytics: merged.businessChatAnalytics
+      ? normalizeAdminBusinessChatAnalyticsRecord(merged.businessChatAnalytics)
+      : null
   };
 }
 
@@ -3332,6 +3336,122 @@ function getBusinessChatReportMetrics() {
     blocked: reports.filter((item) => String(item.status || '').toLowerCase() === 'blocked').length
   };
 }
+
+
+function normalizeAdminBusinessChatAnalyticsRecord(record = {}) {
+  const safeRecord = record && typeof record === 'object' ? record : {};
+
+  return {
+    totalConversations: Number(safeRecord.totalConversations || 0),
+    activeConversations: Number(safeRecord.activeConversations || 0),
+    closedConversations: Number(safeRecord.closedConversations || 0),
+    blockedConversations: Number(safeRecord.blockedConversations || 0),
+    reportedConversations: Number(safeRecord.reportedConversations || 0),
+    totalReports: Number(safeRecord.totalReports || 0),
+    pendingReports: Number(safeRecord.pendingReports || 0),
+    resolvedReports: Number(safeRecord.resolvedReports || 0),
+    uniqueBlockedUsers: Number(safeRecord.uniqueBlockedUsers || 0),
+    activeDealConversations: Number(safeRecord.activeDealConversations || 0),
+    totalMessages: Number(safeRecord.totalMessages || 0),
+    averageMessagesPerConversation: Number(safeRecord.averageMessagesPerConversation || 0),
+    statusCounts: safeRecord.statusCounts && typeof safeRecord.statusCounts === 'object' ? safeRecord.statusCounts : {},
+    reportStatusCounts: safeRecord.reportStatusCounts && typeof safeRecord.reportStatusCounts === 'object' ? safeRecord.reportStatusCounts : {},
+    divisionPairs: safeRecord.divisionPairs && typeof safeRecord.divisionPairs === 'object' ? safeRecord.divisionPairs : {},
+    latestConversations: Array.isArray(safeRecord.latestConversations) ? safeRecord.latestConversations : [],
+    generatedAt: String(safeRecord.generatedAt || '').trim()
+  };
+}
+
+function getBusinessChatAnalyticsFallback() {
+  const reports = Array.isArray(state.businessChatReports) ? state.businessChatReports : [];
+
+  return normalizeAdminBusinessChatAnalyticsRecord({
+    totalReports: reports.length,
+    pendingReports: reports.filter((item) => String(item.status || '').toLowerCase() === 'pending_review').length,
+    resolvedReports: reports.filter((item) => String(item.status || '').toLowerCase() !== 'pending_review').length,
+    blockedConversations: reports.filter((item) => String(item.status || '').toLowerCase() === 'blocked').length,
+    closedConversations: reports.filter((item) => String(item.status || '').toLowerCase() === 'closed').length,
+    reportedConversations: reports.length,
+    generatedAt: new Date().toISOString()
+  });
+}
+
+function getBusinessChatAnalytics() {
+  return state.businessChatAnalytics
+    ? normalizeAdminBusinessChatAnalyticsRecord(state.businessChatAnalytics)
+    : getBusinessChatAnalyticsFallback();
+}
+
+function renderBusinessChatAnalyticsBreakdown(targetId = '', data = {}) {
+  const el = document.getElementById(targetId);
+  if (!el) return;
+
+  const entries = Object.entries(data || {})
+    .sort((a, b) => Number(b[1] || 0) - Number(a[1] || 0))
+    .slice(0, 8);
+
+  el.innerHTML = entries.length
+    ? entries.map(([label, value]) => `
+      <div class="admin-business-chat-breakdown-row">
+        <span>${escapeHtml(label || 'unknown')}</span>
+        <strong>${escapeHtml(String(value || 0))}</strong>
+      </div>
+    `).join('')
+    : '<div class="muted">No data yet.</div>';
+}
+
+function renderBusinessChatAnalytics() {
+  const statsEl = document.getElementById('business-chat-analytics-stats');
+  const analytics = getBusinessChatAnalytics();
+
+  if (statsEl) {
+    statsEl.innerHTML = [
+      { label: 'Total Business Chats', value: analytics.totalConversations, meta: 'Cross-division threads' },
+      { label: 'Active Conversations', value: analytics.activeConversations, meta: 'Currently open' },
+      { label: 'Active Deal Conversations', value: analytics.activeDealConversations, meta: 'Deal/business-purpose chats' },
+      { label: 'Reported Conversations', value: analytics.reportedConversations, meta: 'Chats with reports' },
+      { label: 'Pending Reports', value: analytics.pendingReports, meta: 'Needs admin review' },
+      { label: 'Blocked Conversations', value: analytics.blockedConversations, meta: 'Replies disabled' },
+      { label: 'Unique Blocked Users', value: analytics.uniqueBlockedUsers, meta: 'Participants touched by blocks' },
+      { label: 'Avg Messages / Chat', value: analytics.averageMessagesPerConversation, meta: 'Conversation depth' }
+    ].map((item) => `
+      <article class="stat-card">
+        <span>${escapeHtml(item.label)}</span>
+        <strong>${escapeHtml(String(item.value))}</strong>
+        <small>${escapeHtml(item.meta)}</small>
+      </article>
+    `).join('');
+  }
+
+  renderBusinessChatAnalyticsBreakdown('business-chat-status-breakdown', analytics.statusCounts);
+  renderBusinessChatAnalyticsBreakdown('business-chat-report-breakdown', analytics.reportStatusCounts);
+  renderBusinessChatAnalyticsBreakdown('business-chat-division-flow', analytics.divisionPairs);
+
+  const latestEl = document.getElementById('business-chat-latest-conversations');
+
+  if (latestEl) {
+    latestEl.innerHTML = analytics.latestConversations.length
+      ? analytics.latestConversations.map((item) => `
+        <article class="admin-business-chat-latest-item">
+          <strong>${escapeHtml(item.businessPurpose || item.contextTitle || 'Business conversation')}</strong>
+          <span>${escapeHtml([item.sourceDivision, item.targetDivision].filter(Boolean).join(' → ') || 'Cross-division')}</span>
+          <small>${escapeHtml(item.status || 'active')} • ${escapeHtml(String(item.messageCount || 0))} messages</small>
+        </article>
+      `).join('')
+      : '<div class="muted">No recent Business Chat conversations yet.</div>';
+  }
+}
+
+async function refreshBusinessChatAnalytics() {
+  const data = await adminFetchJson('/api/admin/plaza/business-chat-analytics');
+
+  state.businessChatAnalytics = normalizeAdminBusinessChatAnalyticsRecord(data.analytics || {});
+  saveState();
+  renderBusinessChatAnalytics();
+
+  return state.businessChatAnalytics;
+}
+
 
 function renderBusinessChatReports() {
   const tableEl = document.getElementById('business-chat-reports-table');
@@ -6829,6 +6949,19 @@ case 'federation-request-status-rejected': {
       } catch (error) {
         if (error?.message !== 'No active admin session.') {
           showToast(error.message || 'Failed to update Plaza listing.');
+        }
+      }
+      break;
+    }
+
+
+    case 'refresh-business-chat-analytics': {
+      try {
+        await refreshBusinessChatAnalytics();
+        showToast('Business Chat analytics refreshed.');
+      } catch (error) {
+        if (error?.message !== 'No active admin session.') {
+          showToast(error.message || 'Failed to refresh Business Chat analytics.');
         }
       }
       break;
