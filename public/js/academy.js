@@ -8905,6 +8905,29 @@ function showAcademyRoadmapLoadingShell() {
     currentRoomMeta = null;
 }
 
+
+function clearAcademyCommunitySearchFields(options = {}) {
+    const includeMemberBrowser = options.includeMemberBrowser !== false;
+
+    const ids = includeMemberBrowser
+        ? ['academy-global-search-input', 'academy-member-browser-search-input']
+        : ['academy-global-search-input'];
+
+    ids.forEach((id) => {
+        const input = document.getElementById(id);
+        if (input) input.value = '';
+    });
+
+    if (typeof closeAcademySearchResultsPanel === 'function') {
+        closeAcademySearchResultsPanel();
+    }
+
+    if (typeof academySearchDebounceTimer !== 'undefined' && academySearchDebounceTimer) {
+        clearTimeout(academySearchDebounceTimer);
+        academySearchDebounceTimer = null;
+    }
+}
+
 function openAcademyFeedView(forceReload = false) {
     academyRememberLastNonProfileLocation('community');
 
