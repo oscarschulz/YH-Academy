@@ -1130,6 +1130,161 @@ function buildAdminBusinessChatSystemMessage(text = '', adminName = 'admin') {
 }
 
 
+
+async function buildAdminBusinessChatAnalyticsSnapshot() {
+  try {
+    const [conversationSnap, reportSnap] = await Promise.all([
+      firestore.collection('plazaConversations').limit(600).get(),
+      firestore.collection('plazaBusinessChatReports').limit(600).get()
+    ]);
+
+    const conversations = conversationSnap.docs.map((docSnap) => {
+      const data = docSnap.data() || {};
+      const moderation = data.moderation && typeof data.moderation === 'object' ? data.moderation : {};
+      const blockedBy = data.blockedBy && typeof data.blockedBy === 'object' ? data.blockedBy : {};
+      const closedBy = data.closedBy && typeof data.closedBy === 'object' ? data.closedBy : {};
+      const messages = Array.isArray(data.messages) ? data.messages : [];
+      const participantIds = Array.isArray(data.participantIds)
+        ? data.participantIds.map((item) => cleanText(item)).filter(Boolean)
+        : [];
+
+      const scope = cleanText(data.scope || '').toLowerCase();
+      const contextRoute = cleanText(data.contextRoute || '').toLowerCase();
+      const id = cleanText(docSnap.id).toLowerCase();
+
+      const isBusinessChat =
+        scope === 'cross_division_business' ||
+        contextRoute.includes('business') ||
+        contextRoute.includes('cross-division') ||
+        id.startsWith('business_');
+
+      return {
+        id: docSnap.id,
+        isBusinessChat,
+        status: cleanText(data.status || 'active').toLowerCase(),
+        sourceDivision: cleanText(data.sourceDivision || ''),
+        targetDivision: cleanText(data.targetDivision || ''),
+        businessPurpose: cleanText(data.businessPurpose || ''),
+        participantIds,
+        participantCount: participantIds.length,
+        messageCount: messages.length,
+        reportCount: Number(moderation.reportCount || 0),
+        reported: moderation.reported === true,
+        blocked:
+          moderation.blocked === true ||
+          Object.values(blockedBy).some(Boolean) ||
+          cleanText(data.status || '').toLowerCase() === 'blocked',
+        closed:
+          moderation.closed === true ||
+          Object.values(closedBy).some(Boolean) ||
+          cleanText(data.status || '').toLowerCase() === 'closed',
+        createdAt: toIso(data.createdAt) || cleanText(data.createdAt || ''),
+        updatedAt: toIso(data.updatedAt) || cleanText(data.updatedAt || data.createdAt || '')
+      };
+    }).filter((item) => item.isBusinessChat);
+
+    const reports = reportSnap.docs.map((docSnap) => {
+      const data = docSnap.data() || {};
+
+      return {
+        id: docSnap.id,
+        conversationId: cleanText(data.conversationId),
+        status: cleanText(data.status || data.reviewStatus || 'pending_review').toLowerCase(),
+        reason: cleanText(data.reason || ''),
+        sourceDivision: cleanText(data.sourceDivision || ''),
+        targetDivision: cleanText(data.targetDivision || ''),
+        createdAt: toIso(data.createdAt) || cleanText(data.createdAt || ''),
+        updatedAt: toIso(data.updatedAt) || cleanText(data.updatedAt || data.createdAt || '')
+      };
+    });
+
+    const activeStatuses = new Set(['active', 'open', 'in_progress', 'pending_review']);
+    const dealKeywords = ['deal', 'partnership', 'investment', 'service', 'hiring', 'project', 'collaboration', 'intro'];
+
+    const activeDealConversations = conversations.filter((item) => {
+      const purpose = cleanText(item.businessPurpose).toLowerCase();
+      return activeStatuses.has(item.status || 'active') && dealKeywords.some((keyword) => purpose.includes(keyword));
+    }).length;
+
+    const uniqueBlockedUsers = new Set();
+
+    conversations.forEach((item) => {
+      if (!item.blocked) return;
+      item.participantIds.forEach((participantId) => {
+        if (participantId) uniqueBlockedUsers.add(participantId);
+      });
+    });
+
+    const statusCounts = conversations.reduce((acc, item) => {
+      const status = item.status || 'active';
+      acc[status] = Number(acc[status] || 0) + 1;
+      return acc;
+    }, {});
+
+    const divisionPairs = conversations.reduce((acc, item) => {
+      const pair = [item.sourceDivision || 'unknown', item.targetDivision || 'unknown'].join(' → ');
+      acc[pair] = Number(acc[pair] || 0) + 1;
+      return acc;
+    }, {});
+
+    const reportStatusCounts = reports.reduce((acc, item) => {
+      const status = item.status || 'pending_review';
+      acc[status] = Number(acc[status] || 0) + 1;
+      return acc;
+    }, {});
+
+    const totalMessages = conversations.reduce((sum, item) => sum + Number(item.messageCount || 0), 0);
+
+    const latestConversations = conversations
+      .slice()
+      .sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')))
+      .slice(0, 8);
+
+    return {
+      totalConversations: conversations.length,
+      activeConversations: conversations.filter((item) => activeStatuses.has(item.status || 'active')).length,
+      closedConversations: conversations.filter((item) => item.closed || item.status === 'closed').length,
+      blockedConversations: conversations.filter((item) => item.blocked || item.status === 'blocked').length,
+      reportedConversations: conversations.filter((item) => item.reported || Number(item.reportCount || 0) > 0).length,
+      totalReports: reports.length,
+      pendingReports: reports.filter((item) => item.status === 'pending_review').length,
+      resolvedReports: reports.filter((item) => ['resolved', 'dismissed', 'closed', 'blocked', 'reopened'].includes(item.status)).length,
+      uniqueBlockedUsers: uniqueBlockedUsers.size,
+      activeDealConversations,
+      totalMessages,
+      averageMessagesPerConversation: conversations.length ? Number((totalMessages / conversations.length).toFixed(2)) : 0,
+      statusCounts,
+      reportStatusCounts,
+      divisionPairs,
+      latestConversations,
+      generatedAt: new Date().toISOString()
+    };
+  } catch (error) {
+    console.error('buildAdminBusinessChatAnalyticsSnapshot error:', error);
+
+    return {
+      totalConversations: 0,
+      activeConversations: 0,
+      closedConversations: 0,
+      blockedConversations: 0,
+      reportedConversations: 0,
+      totalReports: 0,
+      pendingReports: 0,
+      resolvedReports: 0,
+      uniqueBlockedUsers: 0,
+      activeDealConversations: 0,
+      totalMessages: 0,
+      averageMessagesPerConversation: 0,
+      statusCounts: {},
+      reportStatusCounts: {},
+      divisionPairs: {},
+      latestConversations: [],
+      generatedAt: new Date().toISOString()
+    };
+  }
+}
+
+
 async function buildAdminBootstrapPayload() {
   const [usersSnap, broadcastsSnap, paymentLedgerResult, payoutLedgerResult] = await Promise.all([
     firestore.collection('users').limit(300).get(),
@@ -1689,6 +1844,7 @@ const applications = users.flatMap((user) => {
   const economySummary = buildAdminEconomySummary(paymentLedger, payoutLedger);
   const plazaRoutingDesk = await buildAdminPlazaRoutingDeskSnapshot(120);
   const businessChatReports = await buildAdminBusinessChatReportsSnapshot(160);
+  const businessChatAnalytics = await buildAdminBusinessChatAnalyticsSnapshot();
 
   return {
     ui: {
@@ -1718,6 +1874,7 @@ const applications = users.flatMap((user) => {
     plazas,
     plazaRoutingDesk,
     businessChatReports,
+    businessChatAnalytics,
     support: [],
     broadcasts,
     analytics: {
@@ -2502,6 +2659,25 @@ apiRouter.post('/api/admin/economy/payments/:paymentId/settle', requireAdminSess
     return res.status(error.statusCode || 500).json({
       success: false,
       message: error.message || 'Failed to settle Plaza payment.'
+    });
+  }
+});
+
+
+apiRouter.get('/api/admin/plaza/business-chat-analytics', requireAdminSession, async (req, res) => {
+  try {
+    const analytics = await buildAdminBusinessChatAnalyticsSnapshot();
+
+    return res.json({
+      success: true,
+      analytics
+    });
+  } catch (error) {
+    console.error('admin business chat analytics error:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to load Business Chat analytics.'
     });
   }
 });
