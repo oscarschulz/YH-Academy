@@ -122,6 +122,17 @@
         <div class="admin-nav-group">
           <div class="admin-nav-group-title">Comms & System</div>
 
+          
+          <button class="nav-item" data-view="business-chat-reports" data-label="Business Chat Reports">
+            <span class="admin-nav-main">
+              <span class="admin-nav-icon">💬</span>
+              <span class="admin-nav-copy">
+                <span class="admin-nav-title">Business Chat Reports</span>
+                <span class="admin-nav-sub">Cross-division safety review</span>
+              </span>
+            </span>
+          </button>
+
           <button class="nav-item" data-view="communications" data-label="Communications">
             <span class="admin-nav-main">
               <span class="admin-nav-icon">✉</span>
@@ -812,6 +823,49 @@
                 </tr>
               </thead>
               <tbody id="plaza-routing-requests-table"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+
+      <section class="view view-business-chat-reports" id="view-business-chat-reports">
+        <div class="stats-grid compact" id="business-chat-report-stats"></div>
+
+        <div class="panel-card">
+          <div class="panel-head wrap-head">
+            <div>
+              <p class="eyebrow">Cross-Division Safety</p>
+              <h3>Business Chat Reports</h3>
+            </div>
+            <div class="toolbar">
+              <select id="business-chat-report-status-filter">
+                <option value="all">All Report Statuses</option>
+                <option value="pending_review">Pending Review</option>
+                <option value="dismissed">Dismissed</option>
+                <option value="resolved">Resolved</option>
+                <option value="closed">Closed</option>
+                <option value="blocked">Blocked</option>
+                <option value="reopened">Reopened</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Conversation</th>
+                  <th>Reporter</th>
+                  <th>Reason</th>
+                  <th>Divisions</th>
+                  <th>Status</th>
+                  <th>Messages</th>
+                  <th>Updated</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="business-chat-reports-table"></tbody>
             </table>
           </div>
         </div>

@@ -90,6 +90,7 @@ const defaultState = () => ({
     },
     requests: []
   },
+  businessChatReports: [],
   support: [],
   broadcasts: [],
   analytics: {
@@ -858,7 +859,38 @@ function normalizeAdminBootstrapState(incomingState = {}) {
       ? merged.payoutLedger.map((record) => normalizeAdminPayoutLedgerRecord(record))
       : [],
     economy: normalizeAdminEconomySummary(merged.economy || {}),
-    plazaRoutingDesk: normalizeAdminPlazaRoutingDesk(merged.plazaRoutingDesk || {})
+    plazaRoutingDesk: normalizeAdminPlazaRoutingDesk(merged.plazaRoutingDesk || {}),
+    businessChatReports: Array.isArray(merged.businessChatReports)
+      ? merged.businessChatReports.map((record) => normalizeAdminBusinessChatReportRecord(record))
+      : []
+  };
+}
+
+
+function normalizeAdminBusinessChatReportRecord(record = {}) {
+  return {
+    id: String(record.id || '').trim(),
+    conversationId: String(record.conversationId || '').trim(),
+    conversationTitle: String(record.conversationTitle || 'Plaza business conversation').trim(),
+    reporterId: String(record.reporterId || '').trim(),
+    reporterEmail: String(record.reporterEmail || '').trim(),
+    reporterName: String(record.reporterName || 'YH Member').trim(),
+    reason: String(record.reason || 'Reported business chat').trim(),
+    details: String(record.details || '').trim(),
+    status: String(record.status || record.reviewStatus || 'pending_review').trim(),
+    reviewStatus: String(record.reviewStatus || record.status || 'pending_review').trim(),
+    adminNote: String(record.adminNote || '').trim(),
+    reviewedBy: String(record.reviewedBy || '').trim(),
+    reviewedAt: String(record.reviewedAt || '').trim(),
+    sourceDivision: String(record.sourceDivision || '').trim(),
+    targetDivision: String(record.targetDivision || '').trim(),
+    businessPurpose: String(record.businessPurpose || '').trim(),
+    participantIds: Array.isArray(record.participantIds)
+      ? record.participantIds.map((item) => String(item || '').trim()).filter(Boolean)
+      : [],
+    messagesSnapshot: Array.isArray(record.messagesSnapshot) ? record.messagesSnapshot : [],
+    createdAt: String(record.createdAt || '').trim(),
+    updatedAt: String(record.updatedAt || record.createdAt || '').trim()
   };
 }
 
@@ -3284,6 +3316,108 @@ function renderPlazas() {
   renderPlazaRoutingStats();
   renderPlazaRoutingDesk();
 }
+
+
+function getBusinessChatReports() {
+  return Array.isArray(state.businessChatReports) ? state.businessChatReports : [];
+}
+
+function getBusinessChatReportMetrics() {
+  const reports = getBusinessChatReports();
+
+  return {
+    total: reports.length,
+    pending: reports.filter((item) => String(item.status || '').toLowerCase() === 'pending_review').length,
+    closed: reports.filter((item) => String(item.status || '').toLowerCase() === 'closed').length,
+    blocked: reports.filter((item) => String(item.status || '').toLowerCase() === 'blocked').length
+  };
+}
+
+function renderBusinessChatReports() {
+  const tableEl = document.getElementById('business-chat-reports-table');
+  const statsEl = document.getElementById('business-chat-report-stats');
+
+  if (!tableEl && !statsEl) return;
+
+  const statusFilter = document.getElementById('business-chat-report-status-filter')?.value || 'all';
+  const query = state.ui.globalSearch;
+  const metrics = getBusinessChatReportMetrics();
+
+  if (statsEl) {
+    statsEl.innerHTML = [
+      { label: 'Total Reports', value: metrics.total, meta: 'All time' },
+      { label: 'Pending Review', value: metrics.pending, meta: 'Needs action' },
+      { label: 'Closed Chats', value: metrics.closed, meta: 'Admin/user closed' },
+      { label: 'Blocked Chats', value: metrics.blocked, meta: 'Reply disabled' }
+    ].map((item) => `
+      <article class="stat-card">
+        <span>${escapeHtml(item.label)}</span>
+        <strong>${escapeHtml(String(item.value))}</strong>
+        <small>${escapeHtml(item.meta)}</small>
+      </article>
+    `).join('');
+  }
+
+  if (!tableEl) return;
+
+  const rows = getBusinessChatReports()
+    .filter((item) => {
+      const status = String(item.status || '').toLowerCase();
+      return (statusFilter === 'all' || status === statusFilter) && matchesSearch(item, query);
+    })
+    .sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')));
+
+  tableEl.innerHTML = rows.map((item) => {
+    const messages = Array.isArray(item.messagesSnapshot) ? item.messagesSnapshot : [];
+    const latestMessage = messages[messages.length - 1] || {};
+    const divisions = [item.sourceDivision, item.targetDivision].filter(Boolean).join(' → ') || 'Cross-division';
+    const details = item.details ? '<div class="muted">' + escapeHtml(item.details) + '</div>' : '';
+
+    return `
+      <tr>
+        ${makeCell('Conversation', `<strong>${escapeHtml(item.conversationTitle)}</strong><div class="muted mono">${escapeHtml(item.conversationId || item.id)}</div>`)}
+        ${makeCell('Reporter', `<strong>${escapeHtml(item.reporterName)}</strong><div class="muted">${escapeHtml(item.reporterEmail || item.reporterId || '—')}</div>`)}
+        ${makeCell('Reason', `<strong>${escapeHtml(item.reason)}</strong>${details}`)}
+        ${makeCell('Divisions', `${formatBadge(divisions)}<div class="muted">${escapeHtml(item.businessPurpose || 'Business chat')}</div>`)}
+        ${makeCell('Status', formatBadge(item.status || 'pending_review'))}
+        ${makeCell('Messages', `<div class="admin-business-chat-message-preview">${escapeHtml(latestMessage.text || 'No message snapshot.')}</div>`)}
+        ${makeCell('Updated', escapeHtml(item.updatedAt || item.createdAt || '—'))}
+        ${makeCell('Actions', `
+          <div class="table-actions">
+            <button data-action="business-chat-report-dismiss" data-id="${escapeHtml(item.id)}">Dismiss</button>
+            <button data-action="business-chat-report-resolve" data-id="${escapeHtml(item.id)}">Resolve</button>
+            <button data-action="business-chat-report-close" data-id="${escapeHtml(item.id)}">Close Chat</button>
+            <button data-action="business-chat-report-block" data-id="${escapeHtml(item.id)}">Block Chat</button>
+            <button data-action="business-chat-report-reopen" data-id="${escapeHtml(item.id)}">Reopen</button>
+          </div>
+        `)}
+      </tr>
+    `;
+  }).join('') || makeEmptyRow(8, 'No Business Chat reports match the current filters.');
+}
+
+async function updateBusinessChatReportStatus(reportId = '', status = '', adminNote = '') {
+  const cleanReportId = String(reportId || '').trim();
+  const cleanStatus = String(status || '').trim();
+
+  if (!cleanReportId || !cleanStatus) {
+    throw new Error('Missing report id or status.');
+  }
+
+  await adminFetchJson(`/api/admin/plaza/business-chat-reports/${encodeURIComponent(cleanReportId)}/status`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      status: cleanStatus,
+      adminNote
+    })
+  });
+
+  await loadAdminBootstrap();
+}
+
 
 function renderBroadcasts() {
   document.getElementById('broadcast-history').innerHTML = state.broadcasts
@@ -6699,6 +6833,70 @@ case 'federation-request-status-rejected': {
       }
       break;
     }
+
+    case 'business-chat-report-dismiss': {
+      try {
+        await updateBusinessChatReportStatus(id, 'dismissed', 'Dismissed by admin.');
+        showToast('Business Chat report dismissed.');
+      } catch (error) {
+        if (error?.message !== 'No active admin session.') {
+          showToast(error.message || 'Failed to dismiss Business Chat report.');
+        }
+      }
+      break;
+    }
+
+    case 'business-chat-report-resolve': {
+      try {
+        await updateBusinessChatReportStatus(id, 'resolved', 'Resolved by admin.');
+        showToast('Business Chat report resolved.');
+      } catch (error) {
+        if (error?.message !== 'No active admin session.') {
+          showToast(error.message || 'Failed to resolve Business Chat report.');
+        }
+      }
+      break;
+    }
+
+    case 'business-chat-report-close': {
+      try {
+        const note = window.prompt('Admin note for closing this Business Chat:', 'Closed after admin review.') || 'Closed after admin review.';
+        await updateBusinessChatReportStatus(id, 'closed', note);
+        showToast('Business Chat closed.');
+      } catch (error) {
+        if (error?.message !== 'No active admin session.') {
+          showToast(error.message || 'Failed to close Business Chat.');
+        }
+      }
+      break;
+    }
+
+    case 'business-chat-report-block': {
+      try {
+        const note = window.prompt('Admin note for blocking this Business Chat:', 'Blocked after admin review.') || 'Blocked after admin review.';
+        await updateBusinessChatReportStatus(id, 'blocked', note);
+        showToast('Business Chat blocked.');
+      } catch (error) {
+        if (error?.message !== 'No active admin session.') {
+          showToast(error.message || 'Failed to block Business Chat.');
+        }
+      }
+      break;
+    }
+
+    case 'business-chat-report-reopen': {
+      try {
+        const note = window.prompt('Admin note for reopening this Business Chat:', 'Reopened after admin review.') || 'Reopened after admin review.';
+        await updateBusinessChatReportStatus(id, 'reopened', note);
+        showToast('Business Chat reopened.');
+      } catch (error) {
+        if (error?.message !== 'No active admin session.') {
+          showToast(error.message || 'Failed to reopen Business Chat.');
+        }
+      }
+      break;
+    }
+
     case 'support-progress': {
       const record = findById('support', id);
       if (!record) return;
@@ -6743,6 +6941,7 @@ function renderApp() {
   renderFederation();
   renderEconomy();
   renderPlazas();
+  renderBusinessChatReports();
   renderBroadcasts();
   renderSupport();
   renderAnalytics();

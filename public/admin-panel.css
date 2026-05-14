@@ -2305,3 +2305,23 @@ body.drawer-open {
     grid-template-columns: 1fr;
   }
 }
+
+/* Business Chat Reports */
+.view-business-chat-reports .table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.view-business-chat-reports .table-actions button {
+  min-width: max-content;
+}
+
+.admin-business-chat-message-preview {
+  max-width: 320px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  white-space: normal;
+}
+
