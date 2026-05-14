@@ -52,6 +52,7 @@ publicLandingNamespace.on('connection', (socket) => {
 const chatMessagesCol = firestore.collection('chatMessages');
 const chatRoomsCol = firestore.collection('chatRooms');
 const leadMissionOperatorsCol = firestore.collection('leadMissionOperators');
+const plazaConversationsCol = firestore.collection('plazaConversations');
 
 const sanitizeText = (value, fallback = '') => {
     if (value === null || value === undefined) return fallback;
@@ -1753,6 +1754,152 @@ function normalizeLeadMissionOperatorProfilePayload(body = {}, user = {}) {
     };
 }
 
+
+// ==========================================
+// 💬 PLAZA BUSINESS CHAT REALTIME UPDATES
+// ==========================================
+function mapBusinessChatTimestamp(value) {
+    if (!value) return '';
+    if (typeof value.toDate === 'function') return value.toDate().toISOString();
+    if (value instanceof Date) return value.toISOString();
+    return sanitizeText(value);
+}
+
+function normalizeBusinessChatMessages(messages = []) {
+    return (Array.isArray(messages) ? messages : [])
+        .map((message, index) => ({
+            id: sanitizeText(message && message.id ? message.id : 'message-' + (index + 1)),
+            sender: sanitizeText(message && message.sender ? message.sender : 'Member'),
+            type: sanitizeText(message && message.type ? message.type : 'message'),
+            text: sanitizeText(message && message.text ? message.text : ''),
+            createdAt: mapBusinessChatTimestamp(message && message.createdAt ? message.createdAt : '') || new Date().toISOString()
+        }))
+        .filter((message) => message.text || message.type === 'system');
+}
+
+function mapBusinessChatConversationDoc(docSnap) {
+    const data = docSnap && typeof docSnap.data === 'function' ? (docSnap.data() || {}) : {};
+    const participantIds = Array.isArray(data.participantIds)
+        ? data.participantIds.map((item) => sanitizeText(item)).filter(Boolean)
+        : [];
+
+    return {
+        id: docSnap.id,
+        title: sanitizeText(data.title || data.targetLabel || 'Plaza business conversation'),
+        queueRole: sanitizeText(data.queueRole || 'personal'),
+        linkedRequestId: sanitizeText(data.linkedRequestId || ''),
+        linkedInboxId: sanitizeText(data.linkedInboxId || ''),
+        targetLabel: sanitizeText(data.targetLabel || ''),
+        targetId: sanitizeText(data.targetId || ''),
+        contextTitle: sanitizeText(data.contextTitle || ''),
+        contextRoute: sanitizeText(data.contextRoute || 'Plaza business conversation'),
+        scope: sanitizeText(data.scope || ''),
+        sourceDivision: sanitizeText(data.sourceDivision || ''),
+        targetDivision: sanitizeText(data.targetDivision || ''),
+        businessPurpose: sanitizeText(data.businessPurpose || ''),
+        participants: Array.isArray(data.participants)
+            ? data.participants.map((item) => sanitizeText(item)).filter(Boolean)
+            : [],
+        participantIds,
+        participantDivisions: data.participantDivisions && typeof data.participantDivisions === 'object' ? data.participantDivisions : {},
+        participantRoles: data.participantRoles && typeof data.participantRoles === 'object' ? data.participantRoles : {},
+        status: sanitizeText(data.status || 'active'),
+        moderation: data.moderation && typeof data.moderation === 'object' ? data.moderation : {},
+        reports: Array.isArray(data.reports) ? data.reports : [],
+        closedBy: data.closedBy && typeof data.closedBy === 'object' ? data.closedBy : {},
+        hiddenBy: data.hiddenBy && typeof data.hiddenBy === 'object' ? data.hiddenBy : {},
+        blockedBy: data.blockedBy && typeof data.blockedBy === 'object' ? data.blockedBy : {},
+        messages: normalizeBusinessChatMessages(data.messages),
+        createdAt: mapBusinessChatTimestamp(data.createdAt),
+        updatedAt: mapBusinessChatTimestamp(data.updatedAt) || mapBusinessChatTimestamp(data.createdAt)
+    };
+}
+
+function getBusinessChatRoom(conversationId = '') {
+    return 'plaza-business-chat:' + sanitizeText(conversationId);
+}
+
+function getBusinessChatUserRoom(userId = '') {
+    return 'business-user:' + sanitizeText(userId);
+}
+
+function getBusinessChatParticipantIds(data = {}) {
+    return Array.isArray(data.participantIds)
+        ? data.participantIds.map((item) => sanitizeText(item)).filter(Boolean)
+        : [];
+}
+
+async function getBusinessChatForSocket(userId = '', conversationId = '') {
+    const cleanUserId = sanitizeText(userId);
+    const cleanConversationId = sanitizeText(conversationId);
+
+    if (!cleanUserId || !cleanConversationId) {
+        const error = new Error('Missing Business Chat conversation.');
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const snap = await plazaConversationsCol.doc(cleanConversationId).get();
+
+    if (!snap.exists) {
+        const error = new Error('Business Chat conversation not found.');
+        error.statusCode = 404;
+        throw error;
+    }
+
+    const data = snap.data() || {};
+    const participantIds = getBusinessChatParticipantIds(data);
+
+    if (!participantIds.includes(cleanUserId)) {
+        const error = new Error('You are not part of this Business Chat.');
+        error.statusCode = 403;
+        throw error;
+    }
+
+    return {
+        snap,
+        data,
+        participantIds,
+        conversation: mapBusinessChatConversationDoc(snap)
+    };
+}
+
+function emitBusinessChatConversation(conversation = {}) {
+    const conversationId = sanitizeText(conversation.id);
+    if (!conversationId) return;
+
+    io.to(getBusinessChatRoom(conversationId)).emit('businessChatUpdated', {
+        success: true,
+        conversation
+    });
+
+    const participantIds = Array.isArray(conversation.participantIds)
+        ? conversation.participantIds.map((item) => sanitizeText(item)).filter(Boolean)
+        : [];
+
+    participantIds.forEach((participantId) => {
+        io.to(getBusinessChatUserRoom(participantId)).emit('businessChatUpdated', {
+            success: true,
+            conversation
+        });
+    });
+}
+
+async function emitBusinessChatConversationById(conversationId = '') {
+    const cleanConversationId = sanitizeText(conversationId);
+    if (!cleanConversationId) return null;
+
+    const snap = await plazaConversationsCol.doc(cleanConversationId).get();
+    if (!snap.exists) return null;
+
+    const conversation = mapBusinessChatConversationDoc(snap);
+    emitBusinessChatConversation(conversation);
+    return conversation;
+}
+
+global.yhEmitPlazaBusinessConversationUpdated = emitBusinessChatConversationById;
+
+
 // ==========================================
 // ⚡ REAL-TIME SOCKET.IO LOGIC
 // ==========================================
@@ -1767,6 +1914,68 @@ io.on('connection', (socket) => {
 
     socket.user = socketUser;
     console.log('⚡ A hustler connected:', socket.id, socket.user.id);
+
+    socket.join(getBusinessChatUserRoom(socket.user.id));
+
+    socket.on('joinBusinessChat', async (payload = {}, ack) => {
+        try {
+            const conversationId = sanitizeText(
+                typeof payload === 'string' ? payload : payload.conversationId
+            );
+
+            const { conversation } = await getBusinessChatForSocket(socket.user.id, conversationId);
+            socket.join(getBusinessChatRoom(conversation.id));
+
+            if (typeof ack === 'function') {
+                ack({ success: true, conversation });
+            }
+
+            socket.emit('businessChatSnapshot', {
+                success: true,
+                conversation
+            });
+        } catch (error) {
+            const message = sanitizeText(error.message || 'Failed to join Business Chat.');
+            console.error('joinBusinessChat error:', error);
+
+            if (typeof ack === 'function') {
+                ack({ success: false, message });
+            }
+
+            socket.emit('businessChatError', { message });
+        }
+    });
+
+    socket.on('leaveBusinessChat', (payload = {}) => {
+        const conversationId = sanitizeText(
+            typeof payload === 'string' ? payload : payload.conversationId
+        );
+
+        if (conversationId) {
+            socket.leave(getBusinessChatRoom(conversationId));
+        }
+    });
+
+    socket.on('businessChatClientSync', async (payload = {}, ack) => {
+        try {
+            const conversationId = sanitizeText(payload.conversationId || payload.id || '');
+            const { conversation } = await getBusinessChatForSocket(socket.user.id, conversationId);
+
+            socket.join(getBusinessChatRoom(conversation.id));
+            emitBusinessChatConversation(conversation);
+
+            if (typeof ack === 'function') {
+                ack({ success: true, conversation });
+            }
+        } catch (error) {
+            const message = sanitizeText(error.message || 'Failed to sync Business Chat.');
+            console.error('businessChatClientSync error:', error);
+
+            if (typeof ack === 'function') {
+                ack({ success: false, message });
+            }
+        }
+    });
 
     socket.on('joinRoom', async (room) => {
         try {

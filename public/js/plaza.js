@@ -29,6 +29,31 @@ const PLAZA_CONVERSATION_SEEN_KEY = "yhPlazaConversationSeenAtV1";
 const PLAZA_CONVERSATION_SEEN_BOOTSTRAPPED_KEY = "yhPlazaConversationSeenBootstrappedV1";
 const PLAZA_CONVERSATION_REFRESH_MS = 30000;
 let plazaConversationAutoRefreshTimer = null;
+
+function getPlazaRealtimeStoredToken() {
+  try {
+    return (
+      sessionStorage.getItem("yh_token") ||
+      localStorage.getItem("yh_token") ||
+      sessionStorage.getItem("token") ||
+      localStorage.getItem("token") ||
+      ""
+    ).trim();
+  } catch (_) {
+    return "";
+  }
+}
+
+const plazaBusinessSocket =
+  typeof io === "function"
+    ? io({
+        withCredentials: true,
+        transports: ["websocket", "polling"],
+        auth: getPlazaRealtimeStoredToken() ? { token: getPlazaRealtimeStoredToken() } : {}
+      })
+    : null;
+
+
 const YH_CANONICAL_PLAZAS = [
   {
     id: "yh-africa-plaza-1",
@@ -2246,6 +2271,7 @@ async function loadPlazaMessagesFromServer(options = {}) {
     bootstrapPlazaConversationSeenBaseline(plazaServerMessages);
 
     renderMessagesScreen();
+    joinAllPlazaRealtimeConversations();
     return plazaServerMessages;
   } catch (error) {
     console.error("loadPlazaMessagesFromServer error:", error);
@@ -6534,7 +6560,87 @@ function getPlazaConversationLatestLabel(item = {}) {
   return latestTs ? formatDate(new Date(latestTs).toISOString()) : formatDate(item.updatedAt || item.createdAt);
 }
 
+
+function upsertPlazaRealtimeConversation(conversation = {}) {
+  const normalized = normalizeServerConversationItem(conversation);
+  if (!normalized || !normalized.id) return null;
+
+  plazaServerMessages = [
+    normalized,
+    ...plazaServerMessages.filter((item) => item.id !== normalized.id)
+  ];
+
+  plazaServerMessagesLoaded = true;
+  renderMessagesScreen();
+
+  if (plazaRuntime.activeConversationId === normalized.id) {
+    renderConversationScreen(normalized);
+  }
+
+  return normalized;
+}
+
+function joinPlazaRealtimeConversation(conversationId = "") {
+  const cleanId = String(conversationId || "").trim();
+
+  if (!cleanId || !plazaBusinessSocket || typeof plazaBusinessSocket.emit !== "function") return;
+
+  plazaBusinessSocket.emit("joinBusinessChat", { conversationId: cleanId }, (response = {}) => {
+    if (response && response.success && response.conversation) {
+      upsertPlazaRealtimeConversation(response.conversation);
+    }
+  });
+}
+
+function joinAllPlazaRealtimeConversations() {
+  safeArray(plazaServerMessages).forEach((conversation) => {
+    joinPlazaRealtimeConversation(conversation.id);
+  });
+}
+
+function installPlazaBusinessRealtime() {
+  if (
+    !plazaBusinessSocket ||
+    typeof plazaBusinessSocket.on !== "function" ||
+    plazaBusinessSocket.__yhBusinessChatRealtimeInstalled === true
+  ) {
+    return;
+  }
+
+  plazaBusinessSocket.__yhBusinessChatRealtimeInstalled = true;
+
+  plazaBusinessSocket.on("connect", () => {
+    joinAllPlazaRealtimeConversations();
+
+    loadPlazaMessagesFromServer({ silent: true }).then(() => {
+      joinAllPlazaRealtimeConversations();
+    }).catch(() => {});
+  });
+
+  plazaBusinessSocket.on("businessChatSnapshot", (payload = {}) => {
+    if (payload.conversation) {
+      upsertPlazaRealtimeConversation(payload.conversation);
+    }
+  });
+
+  plazaBusinessSocket.on("businessChatUpdated", (payload = {}) => {
+    if (payload.conversation) {
+      upsertPlazaRealtimeConversation(payload.conversation);
+    }
+  });
+
+  plazaBusinessSocket.on("businessChatError", (payload = {}) => {
+    if (payload && payload.message) {
+      console.warn("Business Chat socket error:", payload.message);
+    }
+  });
+}
+
+
 function startPlazaConversationAutoRefresh() {
+  installPlazaBusinessRealtime();
+  joinAllPlazaRealtimeConversations();
+
   if (plazaConversationAutoRefreshTimer) return;
 
   plazaConversationAutoRefreshTimer = window.setInterval(() => {
@@ -6543,7 +6649,7 @@ function startPlazaConversationAutoRefresh() {
     loadPlazaMessagesFromServer({ silent: true }).catch((error) => {
       console.warn("Plaza conversation auto-refresh failed:", error);
     });
-  }, PLAZA_CONVERSATION_REFRESH_MS);
+  }, Math.max(PLAZA_CONVERSATION_REFRESH_MS, 300000));
 
   window.addEventListener("beforeunload", () => {
     if (plazaConversationAutoRefreshTimer) {
@@ -7229,6 +7335,7 @@ function renderConversationScreen(item) {
   if (!item || !plazaConversationTitle || !plazaConversationMeta || !plazaConversationThread) return;
 
   plazaRuntime.activeConversationId = item.id;
+  joinPlazaRealtimeConversation(item.id);
   markPlazaConversationSeen(item);
 
   syncPlazaConversationSafetyUi(item);

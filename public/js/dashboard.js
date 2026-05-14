@@ -2398,6 +2398,9 @@ function updateYHBusinessChatBadge() {
 }
 
 function startYHBusinessChatAutoRefresh() {
+    installYHBusinessChatRealtime();
+    joinAllYHBusinessConversationRooms();
+
     if (yhBusinessChatAutoRefreshTimer) return;
 
     yhBusinessChatAutoRefreshTimer = window.setInterval(() => {
@@ -2406,7 +2409,7 @@ function startYHBusinessChatAutoRefresh() {
         refreshYHBusinessChats(true, { silent: true }).catch((error) => {
             console.warn('Business chat auto-refresh failed:', error);
         });
-    }, YH_BUSINESS_CHAT_REFRESH_MS);
+    }, Math.max(YH_BUSINESS_CHAT_REFRESH_MS, 300000));
 }
 
 function stopYHBusinessChatAutoRefresh() {
@@ -2638,6 +2641,84 @@ function renderYHBusinessChatThread() {
     bodyEl.scrollTop = bodyEl.scrollHeight;
 }
 
+
+function upsertYHBusinessConversation(conversation = {}) {
+    const normalized = normalizeYHBusinessConversation(conversation);
+    if (!normalized.id) return null;
+
+    yhBusinessChatState.conversations = [
+        normalized,
+        ...yhBusinessChatState.conversations.filter((item) => item.id !== normalized.id)
+    ];
+
+    writeYHJsonCache(YH_BUSINESS_CHAT_CACHE_KEY, {
+        conversations: yhBusinessChatState.conversations,
+        cachedAt: new Date().toISOString()
+    });
+
+    renderYHBusinessChats();
+    return normalized;
+}
+
+function joinYHBusinessConversationRoom(conversationId = '') {
+    const cleanId = String(conversationId || '').trim();
+
+    if (!cleanId || typeof socket === 'undefined' || !socket || typeof socket.emit !== 'function') return;
+
+    socket.emit('joinBusinessChat', { conversationId: cleanId }, (response = {}) => {
+        if (response && response.success && response.conversation) {
+            upsertYHBusinessConversation(response.conversation);
+        }
+    });
+}
+
+function joinAllYHBusinessConversationRooms() {
+    yhBusinessChatState.conversations.forEach((conversation) => {
+        joinYHBusinessConversationRoom(conversation.id);
+    });
+}
+
+function installYHBusinessChatRealtime() {
+    if (
+        typeof socket === 'undefined' ||
+        !socket ||
+        typeof socket.on !== 'function' ||
+        socket.__yhBusinessChatRealtimeInstalled === true
+    ) {
+        return;
+    }
+
+    socket.__yhBusinessChatRealtimeInstalled = true;
+
+    socket.on('connect', () => {
+        joinAllYHBusinessConversationRooms();
+
+        refreshYHBusinessChats(true, { silent: true }).then(() => {
+            joinAllYHBusinessConversationRooms();
+        }).catch(() => {});
+    });
+
+    socket.on('businessChatSnapshot', (payload = {}) => {
+        if (payload.conversation) {
+            upsertYHBusinessConversation(payload.conversation);
+        }
+    });
+
+    socket.on('businessChatUpdated', (payload = {}) => {
+        if (payload.conversation) {
+            upsertYHBusinessConversation(payload.conversation);
+            updateYHBusinessChatBadge();
+        }
+    });
+
+    socket.on('businessChatError', (payload = {}) => {
+        if (payload && payload.message) {
+            console.warn('Business Chat socket error:', payload.message);
+        }
+    });
+}
+
+
 function renderYHBusinessChats() {
     renderYHBusinessChatList();
     renderYHBusinessChatThread();
@@ -2678,6 +2759,7 @@ async function refreshYHBusinessChats(forceFresh = false, options = {}) {
         });
 
         renderYHBusinessChats();
+        joinAllYHBusinessConversationRooms();
         return yhBusinessChatState.conversations;
     } catch (error) {
         console.error('refreshYHBusinessChats error:', error);
@@ -2726,6 +2808,7 @@ function openYHBusinessConversation(conversationId = '') {
     if (!cleanId) return;
 
     yhBusinessChatState.activeId = cleanId;
+    joinYHBusinessConversationRoom(cleanId);
     renderYHBusinessChats();
 }
 

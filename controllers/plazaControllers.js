@@ -2873,6 +2873,12 @@ exports.updatePatronRoutedRequestStatus = async (req, res) => {
 
         const updatedSnap = await ref.get();
 
+        if (global.yhEmitPlazaBusinessConversationUpdated) {
+            global.yhEmitPlazaBusinessConversationUpdated(updatedSnap.id).catch((emitError) => {
+                console.warn('Business Chat realtime emit skipped:', emitError?.message || emitError);
+            });
+        }
+
         return res.json({
             success: true,
             request: mapPlazaRequestDoc(updatedSnap)
@@ -3185,6 +3191,12 @@ exports.updatePatronMeetupStatus = async (req, res) => {
         }, { merge: true });
 
         const updatedSnap = await ref.get();
+
+        if (global.yhEmitPlazaBusinessConversationUpdated) {
+            global.yhEmitPlazaBusinessConversationUpdated(updatedSnap.id).catch((emitError) => {
+                console.warn('Business Chat realtime emit skipped:', emitError?.message || emitError);
+            });
+        }
 
         return res.json({
             success: true,
@@ -3650,6 +3662,12 @@ exports.updateRequest = async (req, res) => {
 
         const updatedSnap = await ref.get();
 
+        if (global.yhEmitPlazaBusinessConversationUpdated) {
+            global.yhEmitPlazaBusinessConversationUpdated(updatedSnap.id).catch((emitError) => {
+                console.warn('Business Chat realtime emit skipped:', emitError?.message || emitError);
+            });
+        }
+
         return res.json({
             success: true,
             request: mapPlazaRequestDoc(updatedSnap)
@@ -3725,6 +3743,12 @@ exports.advanceRequestStatus = async (req, res) => {
         }, { merge: true });
 
         const updatedSnap = await ref.get();
+
+        if (global.yhEmitPlazaBusinessConversationUpdated) {
+            global.yhEmitPlazaBusinessConversationUpdated(updatedSnap.id).catch((emitError) => {
+                console.warn('Business Chat realtime emit skipped:', emitError?.message || emitError);
+            });
+        }
 
         return res.json({
             success: true,
@@ -4138,6 +4162,12 @@ exports.createConversationFromRequest = async (req, res) => {
 
         const updatedSnap = await conversationRef.get();
 
+        if (global.yhEmitPlazaBusinessConversationUpdated) {
+            global.yhEmitPlazaBusinessConversationUpdated(updatedSnap.id).catch((emitError) => {
+                console.warn('Business Chat realtime emit skipped:', emitError?.message || emitError);
+            });
+        }
+
         return res.status(conversationSnap.exists ? 200 : 201).json({
             success: true,
             conversation: mapPlazaConversationDoc(updatedSnap)
@@ -4207,6 +4237,12 @@ exports.createConversationFromRegion = async (req, res) => {
         }
 
         const updatedSnap = await conversationRef.get();
+
+        if (global.yhEmitPlazaBusinessConversationUpdated) {
+            global.yhEmitPlazaBusinessConversationUpdated(updatedSnap.id).catch((emitError) => {
+                console.warn('Business Chat realtime emit skipped:', emitError?.message || emitError);
+            });
+        }
 
         return res.status(conversationSnap.exists ? 200 : 201).json({
             success: true,
@@ -4389,6 +4425,12 @@ exports.createConversationFromBusinessMember = async (req, res) => {
 
         const updatedSnap = await conversationRef.get();
 
+        if (global.yhEmitPlazaBusinessConversationUpdated) {
+            global.yhEmitPlazaBusinessConversationUpdated(updatedSnap.id).catch((emitError) => {
+                console.warn('Business Chat realtime emit skipped:', emitError?.message || emitError);
+            });
+        }
+
         return res.status(conversationSnap.exists ? 200 : 201).json({
             success: true,
             conversation: mapPlazaConversationDoc(updatedSnap)
@@ -4472,6 +4514,12 @@ exports.createConversationFromMember = async (req, res) => {
         }
 
         const updatedSnap = await conversationRef.get();
+
+        if (global.yhEmitPlazaBusinessConversationUpdated) {
+            global.yhEmitPlazaBusinessConversationUpdated(updatedSnap.id).catch((emitError) => {
+                console.warn('Business Chat realtime emit skipped:', emitError?.message || emitError);
+            });
+        }
 
         return res.status(conversationSnap.exists ? 200 : 201).json({
             success: true,
@@ -4622,6 +4670,12 @@ exports.reportConversation = async (req, res) => {
 
         const updatedSnap = await ref.get();
 
+        if (global.yhEmitPlazaBusinessConversationUpdated) {
+            global.yhEmitPlazaBusinessConversationUpdated(updatedSnap.id).catch((emitError) => {
+                console.warn('Business Chat realtime emit skipped:', emitError?.message || emitError);
+            });
+        }
+
         return res.json({
             success: true,
             reportId: reportRef.id,
@@ -4694,6 +4748,12 @@ exports.closeConversation = async (req, res) => {
 
         const updatedSnap = await ref.get();
 
+        if (global.yhEmitPlazaBusinessConversationUpdated) {
+            global.yhEmitPlazaBusinessConversationUpdated(updatedSnap.id).catch((emitError) => {
+                console.warn('Business Chat realtime emit skipped:', emitError?.message || emitError);
+            });
+        }
+
         return res.json({
             success: true,
             conversation: mapPlazaConversationDoc(updatedSnap)
@@ -4764,6 +4824,12 @@ exports.blockConversationParticipant = async (req, res) => {
         }, { merge: true });
 
         const updatedSnap = await ref.get();
+
+        if (global.yhEmitPlazaBusinessConversationUpdated) {
+            global.yhEmitPlazaBusinessConversationUpdated(updatedSnap.id).catch((emitError) => {
+                console.warn('Business Chat realtime emit skipped:', emitError?.message || emitError);
+            });
+        }
 
         return res.json({
             success: true,
@@ -4853,6 +4919,12 @@ exports.createConversationReply = async (req, res) => {
         }, { merge: true });
 
         const updatedSnap = await ref.get();
+
+        if (global.yhEmitPlazaBusinessConversationUpdated) {
+            global.yhEmitPlazaBusinessConversationUpdated(updatedSnap.id).catch((emitError) => {
+                console.warn('Business Chat realtime emit skipped:', emitError?.message || emitError);
+            });
+        }
 
         return res.json({
             success: true,
