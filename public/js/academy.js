@@ -26278,3 +26278,448 @@ if (document.body) {
     window.setInterval(runAcademyPasswordManagerGuard, 2500);
 })();
 
+
+(function installAcademyBotAnchorAndMessageAvatarFix() {
+    if (window.__academyBotAnchorAndMessageAvatarFixInstalled) return;
+    window.__academyBotAnchorAndMessageAvatarFixInstalled = true;
+
+    function cleanAcademyFixText(value) {
+        return String(value || '').trim();
+    }
+
+    function normalizeAcademyFixKey(value) {
+        return cleanAcademyFixText(value).toLowerCase().replace(/^@+/, '');
+    }
+
+    function getAcademyRightSidebarForBotFix() {
+        return (
+            document.querySelector('.yh-right-sidebar') ||
+            document.querySelector('.academy-right-sidebar') ||
+            document.querySelector('[data-academy-right-sidebar]')
+        );
+    }
+
+    function findAcademyBotCta() {
+        const sidebar = getAcademyRightSidebarForBotFix();
+        if (!sidebar) return null;
+
+        let bot = sidebar.querySelector('.academy-right-bot-cta');
+
+        if (!bot) {
+            bot = document.createElement('button');
+            bot.type = 'button';
+            bot.className = 'academy-right-bot-cta academy-right-bot-active-zone';
+            bot.setAttribute('aria-label', 'Open Academy AI Coach');
+            bot.innerHTML = "<span class=\"academy-right-bot-cta-pill\">I'm here</span><span class=\"academy-right-bot-cta-avatar\">🤖</span>";
+
+            bot.addEventListener('click', async () => {
+                if (typeof openAcademyCoachView === 'function') {
+                    await openAcademyCoachView(true);
+                    return;
+                }
+
+                document.getElementById('nav-missions')?.click();
+            });
+
+            sidebar.appendChild(bot);
+        }
+
+        return bot;
+    }
+
+    function getActiveNowAnchorBottom(sidebar) {
+        if (!sidebar) return 260;
+
+        const sidebarRect = sidebar.getBoundingClientRect();
+        const all = Array.from(sidebar.querySelectorAll('*')).filter((node) => {
+            if (!(node instanceof HTMLElement)) return false;
+            if (node.closest('.academy-right-bot-cta')) return false;
+
+            const text = cleanAcademyFixText(node.textContent);
+            if (!text) return false;
+
+            const rect = node.getBoundingClientRect();
+            if (!rect.width || !rect.height) return false;
+
+            return true;
+        });
+
+        const activeLabel = all.find((node) => {
+            return /^active now$/i.test(cleanAcademyFixText(node.textContent));
+        });
+
+        if (!activeLabel) {
+            return Math.min(360, Math.max(260, sidebar.clientHeight * 0.34));
+        }
+
+        const activeRect = activeLabel.getBoundingClientRect();
+
+        const memberCandidates = all.filter((node) => {
+            const text = cleanAcademyFixText(node.textContent);
+            const rect = node.getBoundingClientRect();
+
+            if (rect.top < activeRect.bottom) return false;
+            if (rect.top > activeRect.bottom + 180) return false;
+            if (/academy signals|momentum board|active now|ask ai coach|i'm here|talk to me|want a/i.test(text)) return false;
+            if (node.querySelector && node.querySelector('.academy-right-bot-cta')) return false;
+
+            return text.length >= 2 && text.length <= 80;
+        });
+
+        if (memberCandidates.length) {
+            const bottom = Math.max(...memberCandidates.map((node) => node.getBoundingClientRect().bottom));
+            return Math.round(bottom - sidebarRect.top + 18);
+        }
+
+        return Math.round(activeRect.bottom - sidebarRect.top + 82);
+    }
+
+    function positionAcademyBotBelowActiveMember() {
+        const sidebar = getAcademyRightSidebarForBotFix();
+        const bot = findAcademyBotCta();
+
+        if (!sidebar || !bot) return;
+
+        if (bot.classList.contains('is-docked')) return;
+
+        sidebar.classList.add('academy-right-sidebar-bot-below-active');
+
+        bot.classList.add('academy-right-bot-active-zone');
+        bot.classList.remove('is-docked');
+        document.body?.classList.remove('academy-right-bot-docked');
+
+        const sidebarWidth = Math.max(220, sidebar.clientWidth || 260);
+        const sidebarHeight = Math.max(520, sidebar.clientHeight || window.innerHeight || 720);
+        const botWidth = Math.max(132, bot.offsetWidth || 154);
+        const botHeight = Math.max(50, bot.offsetHeight || 54);
+
+        const anchorTop = getActiveNowAnchorBottom(sidebar);
+        const maxTop = Math.max(anchorTop, Math.min(anchorTop + 120, sidebarHeight - botHeight - 122));
+        const topRange = Math.max(1, maxTop - anchorTop);
+
+        const minLeft = 18;
+        const maxLeft = Math.max(minLeft, sidebarWidth - botWidth - 22);
+
+        const top = anchorTop + Math.round(Math.random() * topRange);
+        const left = minLeft + Math.round(Math.random() * Math.max(1, maxLeft - minLeft));
+
+        bot.style.top = top + 'px';
+        bot.style.left = left + 'px';
+        bot.style.right = 'auto';
+        bot.style.bottom = 'auto';
+    }
+
+    function bootStrictAcademyBotMovement() {
+        const bot = findAcademyBotCta();
+
+        if (!bot) return;
+
+        if (bot.dataset.academyStrictActiveAnchorInstalled === '1') return;
+
+        bot.dataset.academyStrictActiveAnchorInstalled = '1';
+
+        bot.classList.remove('is-docked');
+        bot.classList.add('academy-right-bot-active-zone');
+        bot.innerHTML = "<span class=\"academy-right-bot-cta-pill\">I'm here</span><span class=\"academy-right-bot-cta-avatar\">🤖</span>";
+        document.body?.classList.remove('academy-right-bot-docked');
+
+        positionAcademyBotBelowActiveMember();
+
+        const moveTimer = window.setInterval(() => {
+            positionAcademyBotBelowActiveMember();
+        }, 2400);
+
+        window.setTimeout(() => {
+            window.clearInterval(moveTimer);
+
+            bot.classList.remove('academy-right-bot-active-zone');
+            bot.classList.add('is-docked');
+            bot.removeAttribute('style');
+            bot.innerHTML = '<span class="academy-right-bot-cta-avatar">🤖</span><strong>Ask AI Coach</strong>';
+            document.body?.classList.add('academy-right-bot-docked');
+        }, 30000);
+    }
+
+    function readAcademyKnownUsersForAvatarFix() {
+        const buckets = [];
+
+        try {
+            if (typeof sharedReadKnownUsersCache === 'function') {
+                buckets.push(sharedReadKnownUsersCache());
+            }
+        } catch (_) {}
+
+        try {
+            if (typeof readKnownUsersCache === 'function') {
+                buckets.push(readKnownUsersCache());
+            }
+        } catch (_) {}
+
+        [
+            'yh_known_users_v1',
+            'yh_academy_known_users_v1',
+            'yh_message_known_users_v1',
+            'yh_academy_members_cache_v1',
+            'yh_academy_member_browser_cache_v1'
+        ].forEach((key) => {
+            try {
+                const parsed = JSON.parse(localStorage.getItem(key) || 'null');
+                if (parsed) buckets.push(parsed);
+            } catch (_) {}
+        });
+
+        const users = [];
+
+        buckets.forEach((bucket) => {
+            if (Array.isArray(bucket)) {
+                users.push(...bucket);
+                return;
+            }
+
+            if (bucket && typeof bucket === 'object') {
+                if (Array.isArray(bucket.users)) users.push(...bucket.users);
+                if (Array.isArray(bucket.members)) users.push(...bucket.members);
+                Object.values(bucket).forEach((value) => {
+                    if (value && typeof value === 'object' && !Array.isArray(value)) {
+                        users.push(value);
+                    }
+                });
+            }
+        });
+
+        return users.filter(Boolean);
+    }
+
+    function pickAcademyAvatarUrlFromObject(source) {
+        if (!source || typeof source !== 'object') return '';
+
+        const direct = [
+            source.avatar,
+            source.avatarUrl,
+            source.profilePhoto,
+            source.profile_photo,
+            source.photoURL,
+            source.photoUrl,
+            source.picture,
+            source.image,
+            source.imageUrl,
+            source.profileImage,
+            source.profile_image,
+            source.memberAvatar,
+            source.memberAvatarUrl,
+            source.recipientAvatar,
+            source.recipientAvatarUrl,
+            source.otherMemberAvatar,
+            source.otherMemberAvatarUrl,
+            source.otherUserAvatar,
+            source.otherUserAvatarUrl,
+            source.peerAvatar,
+            source.peerAvatarUrl
+        ];
+
+        for (const item of direct) {
+            const value = cleanAcademyFixText(item);
+            if (value && !/^data:image\/svg/i.test(value)) return value;
+        }
+
+        const nested = [
+            source.user,
+            source.member,
+            source.recipient,
+            source.otherMember,
+            source.otherUser,
+            source.peer,
+            source.profile
+        ];
+
+        for (const item of nested) {
+            const value = pickAcademyAvatarUrlFromObject(item);
+            if (value) return value;
+        }
+
+        const arrays = [source.members, source.participants, source.memberProfiles, source.users];
+
+        for (const arr of arrays) {
+            if (!Array.isArray(arr)) continue;
+
+            for (const item of arr) {
+                const value = pickAcademyAvatarUrlFromObject(item);
+                if (value) return value;
+            }
+        }
+
+        return '';
+    }
+
+    function getAcademyRoomForAvatarFix(roomId) {
+        const cleanRoomId = cleanAcademyFixText(roomId);
+
+        if (!cleanRoomId) return null;
+
+        try {
+            if (typeof academyResolveMessageRoomById === 'function') {
+                const room = academyResolveMessageRoomById(cleanRoomId);
+                if (room) return room;
+            }
+        } catch (_) {}
+
+        try {
+            const rooms = typeof academyReadMessageRooms === 'function'
+                ? academyReadMessageRooms()
+                : [];
+
+            return rooms.find((room) => {
+                return cleanAcademyFixText(room?.id || room?.roomId) === cleanRoomId;
+            }) || null;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function getAcademyCardRoomId(card) {
+        if (!card) return '';
+
+        const attrs = ['data-academy-room-id', 'data-inbox-room-id', 'data-thread-room-id', 'data-room-id', 'data-id'];
+
+        for (const attr of attrs) {
+            const value = cleanAcademyFixText(card.getAttribute(attr));
+            if (value) return value;
+        }
+
+        const nested = card.querySelector('[data-academy-room-id], [data-inbox-room-id], [data-thread-room-id], [data-room-id], [data-id]');
+
+        if (nested) {
+            for (const attr of attrs) {
+                const value = cleanAcademyFixText(nested.getAttribute(attr));
+                if (value) return value;
+            }
+        }
+
+        return '';
+    }
+
+    function getAcademyCardNameForAvatarFix(card, room) {
+        return cleanAcademyFixText(
+            card?.querySelector('.academy-messages-inbox-name')?.textContent ||
+            room?.recipientName ||
+            room?.displayName ||
+            room?.name ||
+            room?.title ||
+            ''
+        );
+    }
+
+    function findAcademyAvatarFromKnownUsers(room, displayName) {
+        const knownUsers = readAcademyKnownUsersForAvatarFix();
+        const ids = new Set([
+            room?.recipientId,
+            room?.targetUserId,
+            room?.targetId,
+            room?.otherUserId,
+            room?.peerId,
+            ...(Array.isArray(room?.memberIds) ? room.memberIds : []),
+            ...(Array.isArray(room?.participantIds) ? room.participantIds : [])
+        ].map(normalizeAcademyFixKey).filter(Boolean));
+
+        const names = new Set([
+            displayName,
+            room?.recipientName,
+            room?.displayName,
+            room?.name,
+            room?.title,
+            ...(Array.isArray(room?.participantNames) ? room.participantNames : []),
+            ...(Array.isArray(room?.memberNames) ? room.memberNames : [])
+        ].map(normalizeAcademyFixKey).filter(Boolean));
+
+        for (const user of knownUsers) {
+            const userIds = [
+                user.id,
+                user.uid,
+                user.userId,
+                user.firebaseUid,
+                user.firebase_uid
+            ].map(normalizeAcademyFixKey).filter(Boolean);
+
+            const userNames = [
+                user.fullName,
+                user.full_name,
+                user.displayName,
+                user.display_name,
+                user.name,
+                user.username
+            ].map(normalizeAcademyFixKey).filter(Boolean);
+
+            const matchesId = userIds.some((id) => ids.has(id));
+            const matchesName = userNames.some((name) => names.has(name));
+
+            if (!matchesId && !matchesName) continue;
+
+            const avatar = pickAcademyAvatarUrlFromObject(user);
+            if (avatar) return avatar;
+        }
+
+        return '';
+    }
+
+    function resolveAcademyRoomAvatarForInbox(card) {
+        const roomId = getAcademyCardRoomId(card);
+        const room = getAcademyRoomForAvatarFix(roomId) || {};
+        const displayName = getAcademyCardNameForAvatarFix(card, room);
+
+        let avatar = '';
+
+        try {
+            if (typeof academyResolveMemberAvatarUrl === 'function') {
+                avatar = cleanAcademyFixText(academyResolveMemberAvatarUrl(room));
+            }
+        } catch (_) {
+            avatar = '';
+        }
+
+        if (!avatar) avatar = pickAcademyAvatarUrlFromObject(room);
+        if (!avatar) avatar = findAcademyAvatarFromKnownUsers(room, displayName);
+
+        return avatar;
+    }
+
+    function applyAcademyRealInboxAvatars() {
+        document.querySelectorAll('.academy-messages-inbox-card').forEach((card) => {
+            const avatarEl = card.querySelector('.academy-messages-inbox-avatar');
+            if (!avatarEl) return;
+
+            const avatar = resolveAcademyRoomAvatarForInbox(card);
+
+            if (!avatar) return;
+
+            avatarEl.style.backgroundImage = 'url("' + avatar.replace(/"/g, '%22') + '")';
+            avatarEl.style.backgroundSize = 'cover';
+            avatarEl.style.backgroundPosition = 'center';
+            avatarEl.textContent = '';
+            avatarEl.classList.add('has-profile-photo');
+            avatarEl.setAttribute('data-avatar-resolved', 'true');
+        });
+    }
+
+    function bootAcademyBotAndAvatarFix() {
+        bootStrictAcademyBotMovement();
+        applyAcademyRealInboxAvatars();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bootAcademyBotAndAvatarFix);
+    } else {
+        bootAcademyBotAndAvatarFix();
+    }
+
+    window.setInterval(() => {
+        applyAcademyRealInboxAvatars();
+    }, 1800);
+
+    window.setInterval(() => {
+        const bot = findAcademyBotCta();
+        if (bot && !bot.classList.contains('is-docked')) {
+            positionAcademyBotBelowActiveMember();
+        }
+    }, 900);
+})();
+

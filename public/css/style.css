@@ -23790,3 +23790,58 @@ body.academy-right-bot-docked .yh-right-sidebar [class*="bot"]:not(.academy-righ
     }
 }
 
+
+/* Academy bot strict Active Now lane + real message avatars */
+.yh-right-sidebar.academy-right-sidebar-bot-below-active,
+.academy-right-sidebar.academy-right-sidebar-bot-below-active,
+[data-academy-right-sidebar].academy-right-sidebar-bot-below-active {
+    position: relative !important;
+    overflow: hidden !important;
+    min-height: calc(100vh - 86px);
+}
+
+.academy-right-bot-cta.academy-right-bot-active-zone {
+    position: absolute !important;
+    right: auto !important;
+    bottom: auto !important;
+    margin: 0 !important;
+    z-index: 35 !important;
+    transition:
+        top 1.25s cubic-bezier(0.22, 1, 0.36, 1),
+        left 1.25s cubic-bezier(0.22, 1, 0.36, 1),
+        transform 0.24s ease,
+        opacity 0.24s ease !important;
+    animation: academyRightBotPlayPulse 2.4s ease-in-out infinite !important;
+}
+
+.academy-right-bot-cta.academy-right-bot-active-zone:hover {
+    transform: translateY(-3px) scale(1.02);
+}
+
+.academy-right-bot-cta.is-docked {
+    position: absolute !important;
+    left: 20px !important;
+    right: 20px !important;
+    bottom: 24px !important;
+    width: auto !important;
+    margin: 0 !important;
+    border-radius: 16px !important;
+    padding: 9px 12px !important;
+    justify-content: flex-start !important;
+    animation: none !important;
+    transform: none !important;
+}
+
+.academy-messages-inbox-avatar.has-profile-photo {
+    color: transparent !important;
+    text-indent: -9999px;
+    background-color: rgba(15, 23, 42, 0.72) !important;
+    background-size: cover !important;
+    background-position: center !important;
+    background-repeat: no-repeat !important;
+}
+
+.academy-messages-inbox-avatar.has-profile-photo::before {
+    content: "";
+}
+
