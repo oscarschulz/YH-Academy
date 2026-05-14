@@ -27260,7 +27260,7 @@ if (document.body) {
     window.__academySingleRightBotFinalOverrideInstalled = true;
 
     const SINGLE_BOT_ATTR = 'data-yh-single-right-bot';
-    const PLAY_DURATION_MS = 30000;
+    const PLAY_DURATION_MS = 0;
 
     let botStartedAt = Date.now();
     let lastMoveAt = 0;
@@ -27489,7 +27489,7 @@ if (document.body) {
     window.__academyRightBotSafeBoundsFinalInstalled = true;
 
     const SINGLE_BOT_ATTR = 'data-yh-single-right-bot';
-    const PLAY_DURATION_MS = 30000;
+    const PLAY_DURATION_MS = 0;
     const EDGE_PAD = 16;
 
     function cleanText(value) {
@@ -28088,13 +28088,28 @@ if (document.body) {
         }
     }, true);
 
+    function hasStoredMessagesTabChoice() {
+        try {
+            const stored = safeText(localStorage.getItem(GROUP_TAB_KEY)).toLowerCase();
+            return stored === 'group' || stored === 'dm';
+        } catch (_) {
+            return false;
+        }
+    }
+
     function bootGroupsInboxFix() {
         wrapInboxRenderer();
 
         const activeMeta = getActiveGroupMeta();
         if (activeMeta) {
-            setActiveMessagesTab('group');
-            ensureActiveGroupRoomInInboxState();
+            const addedActiveGroup = ensureActiveGroupRoomInInboxState();
+            const activeTab = getActiveMessagesTab();
+
+            if (!hasStoredMessagesTabChoice() || addedActiveGroup) {
+                setActiveMessagesTab('group');
+            } else {
+                setActiveMessagesTab(activeTab);
+            }
         }
 
         annotateAndFilterInboxCards();
@@ -28110,3 +28125,322 @@ if (document.body) {
     window.setInterval(bootGroupsInboxFix, 1200);
 })();
 
+/* PATCH: Academy AI coach bottom-visible dock + manual Messages tab guard v2 */
+(function installAcademyBottomVisibleCoachAndManualMessageTabsV2() {
+    if (window.__academyBottomVisibleCoachAndManualMessageTabsV2Installed) return;
+    window.__academyBottomVisibleCoachAndManualMessageTabsV2Installed = true;
+
+    const SINGLE_BOT_ATTR = 'data-yh-single-right-bot';
+    const BOTTOM_BOT_ATTR = 'data-yh-academy-bottom-visible-bot';
+    const ACTIVE_TAB_KEY = 'yh_academy_messages_active_tab_v1';
+    const MANUAL_TAB_KEY = 'yh_academy_messages_manual_tab_v2';
+
+    function cleanText(value) {
+        return String(value || '').replace(/\s+/g, ' ').trim();
+    }
+
+    function safeRoomKey(value) {
+        try {
+            return typeof normalizeRoomKey === 'function'
+                ? normalizeRoomKey(value)
+                : cleanText(value);
+        } catch (_) {
+            return cleanText(value);
+        }
+    }
+
+    function normalizeTab(value) {
+        return cleanText(value).toLowerCase() === 'group' ? 'group' : 'dm';
+    }
+
+    function readStoredTab() {
+        try {
+            const manual = cleanText(localStorage.getItem(MANUAL_TAB_KEY)).toLowerCase();
+            if (manual === 'group' || manual === 'dm') return manual;
+        } catch (_) {}
+
+        try {
+            const active = cleanText(localStorage.getItem(ACTIVE_TAB_KEY)).toLowerCase();
+            if (active === 'group' || active === 'dm') return active;
+        } catch (_) {}
+
+        return 'dm';
+    }
+
+    function writeStoredTab(tab) {
+        const normalized = normalizeTab(tab);
+        try {
+            localStorage.setItem(MANUAL_TAB_KEY, normalized);
+            localStorage.setItem(ACTIVE_TAB_KEY, normalized);
+        } catch (_) {}
+        return normalized;
+    }
+
+    function getRightSidebar() {
+        return document.querySelector(
+            '.yh-right-sidebar, .academy-right-sidebar, [data-academy-right-sidebar], .academy-right-rail, .academy-signals-sidebar'
+        );
+    }
+
+    function openCoachFromBottomBot() {
+        if (typeof openAcademyCoachView === 'function') {
+            Promise.resolve(openAcademyCoachView(true)).catch(() => {});
+            return;
+        }
+
+        document.getElementById('nav-missions')?.click();
+    }
+
+    function getBotCandidates() {
+        return Array.from(document.querySelectorAll(
+            '.academy-right-bot-cta, button[aria-label="Open Academy AI Coach"]'
+        )).filter((bot) => bot instanceof HTMLElement);
+    }
+
+    function setImportantStyle(el, prop, value) {
+        if (!el || !el.style) return;
+        el.style.setProperty(prop, value, 'important');
+    }
+
+    function lockBotToVisibleBottom() {
+        const sidebar = getRightSidebar();
+        if (!sidebar) return;
+
+        sidebar.classList.add('academy-ai-coach-bottom-visible-sidebar');
+
+        const candidates = getBotCandidates();
+        let bot =
+            candidates.find((item) => item.getAttribute(BOTTOM_BOT_ATTR) === '1' && sidebar.contains(item)) ||
+            candidates.find((item) => item.getAttribute(SINGLE_BOT_ATTR) === '1' && sidebar.contains(item)) ||
+            candidates.find((item) => sidebar.contains(item)) ||
+            null;
+
+        if (!bot) {
+            bot = document.createElement('button');
+            bot.type = 'button';
+            bot.setAttribute('aria-label', 'Open Academy AI Coach');
+            sidebar.appendChild(bot);
+        }
+
+        if (!sidebar.contains(bot)) {
+            sidebar.appendChild(bot);
+        }
+
+        getBotCandidates().forEach((candidate) => {
+            if (candidate === bot) return;
+            candidate.setAttribute('aria-hidden', 'true');
+            candidate.setAttribute('tabindex', '-1');
+            setImportantStyle(candidate, 'display', 'none');
+            setImportantStyle(candidate, 'visibility', 'hidden');
+            setImportantStyle(candidate, 'pointer-events', 'none');
+        });
+
+        bot.setAttribute(SINGLE_BOT_ATTR, '1');
+        bot.setAttribute(BOTTOM_BOT_ATTR, '1');
+        bot.setAttribute('aria-label', 'Open Academy AI Coach');
+        bot.removeAttribute('aria-hidden');
+        bot.removeAttribute('tabindex');
+
+        bot.classList.add(
+            'academy-right-bot-cta',
+            'academy-single-right-bot',
+            'academy-right-bot-safe-bounds',
+            'academy-ai-coach-bottom-visible',
+            'is-docked'
+        );
+
+        bot.classList.remove(
+            'academy-right-bot-floating',
+            'academy-right-bot-wandering',
+            'academy-right-bot-active-zone',
+            'academy-right-bot-strict-active-zone',
+            'academy-single-right-bot-playing',
+            'academy-right-bot-safe-playing'
+        );
+
+        bot.dataset.academyDockFlowInstalled = '1';
+        bot.dataset.academyWanderV2Installed = '1';
+        bot.dataset.academyStrictActiveAnchorInstalled = '1';
+        bot.dataset.safeBoundsStartedAt = String(Date.now() - 999999);
+
+        if (bot.innerHTML.indexOf('Ask AI Coach') === -1) {
+            bot.innerHTML = '<span class="academy-right-bot-cta-avatar">🤖</span><strong>Ask AI Coach</strong>';
+        }
+
+        if (bot.dataset.academyBottomVisibleClickBound !== '1') {
+            bot.dataset.academyBottomVisibleClickBound = '1';
+            bot.addEventListener('click', openCoachFromBottomBot);
+        }
+
+        setImportantStyle(bot, 'position', 'absolute');
+        setImportantStyle(bot, 'left', '16px');
+        setImportantStyle(bot, 'right', '16px');
+        setImportantStyle(bot, 'bottom', '18px');
+        setImportantStyle(bot, 'top', 'auto');
+        setImportantStyle(bot, 'width', 'auto');
+        setImportantStyle(bot, 'max-width', 'calc(100% - 32px)');
+        setImportantStyle(bot, 'min-height', '54px');
+        setImportantStyle(bot, 'margin', '0');
+        setImportantStyle(bot, 'display', 'inline-flex');
+        setImportantStyle(bot, 'align-items', 'center');
+        setImportantStyle(bot, 'justify-content', 'flex-start');
+        setImportantStyle(bot, 'gap', '10px');
+        setImportantStyle(bot, 'z-index', '120');
+        setImportantStyle(bot, 'transform', 'none');
+        setImportantStyle(bot, 'animation', 'none');
+
+        document.body?.classList.add('academy-right-bot-docked', 'academy-ai-coach-bottom-visible-ready');
+    }
+
+    function getRooms() {
+        try {
+            if (typeof academyReadMessageRooms === 'function') return academyReadMessageRooms();
+        } catch (_) {}
+
+        try {
+            const state = typeof getDashboardState === 'function' ? getDashboardState() : {};
+            return Array.isArray(state.customRooms) ? state.customRooms : [];
+        } catch (_) {
+            return [];
+        }
+    }
+
+    function getRoomType(room) {
+        const raw = cleanText(
+            room?.room_type ||
+            room?.roomType ||
+            room?.type ||
+            room?.dataset?.academyRoomType ||
+            room?.dataset?.roomType ||
+            ''
+        ).toLowerCase();
+
+        if (raw === 'group') return 'group';
+        if (raw === 'dm') return 'dm';
+
+        const memberIds = Array.isArray(room?.memberIds)
+            ? room.memberIds
+            : Array.isArray(room?.member_ids)
+                ? room.member_ids
+                : [];
+
+        if (memberIds.length > 2) return 'group';
+        return 'dm';
+    }
+
+    function getCardRoomId(card) {
+        if (!card) return '';
+
+        const values = [
+            card.getAttribute('data-room-card-id'),
+            card.getAttribute('data-academy-room-id'),
+            card.getAttribute('data-inbox-room-id'),
+            card.getAttribute('data-room-id'),
+            card.getAttribute('data-id')
+        ];
+
+        for (const value of values) {
+            const key = safeRoomKey(value);
+            if (key) return key;
+        }
+
+        const nested = card.querySelector('[data-inbox-room-id], [data-room-id], [data-id]');
+        return safeRoomKey(
+            nested?.getAttribute('data-inbox-room-id') ||
+            nested?.getAttribute('data-room-id') ||
+            nested?.getAttribute('data-id') ||
+            ''
+        );
+    }
+
+    function getCardType(card) {
+        if (!card) return '';
+
+        const direct = cleanText(
+            card.getAttribute('data-academy-room-type') ||
+            card.getAttribute('data-room-type') ||
+            card.querySelector('[data-academy-room-type], [data-room-type]')?.getAttribute('data-academy-room-type') ||
+            card.querySelector('[data-academy-room-type], [data-room-type]')?.getAttribute('data-room-type') ||
+            ''
+        ).toLowerCase();
+
+        if (direct === 'group' || direct === 'dm') return direct;
+
+        const roomId = getCardRoomId(card);
+        const room = getRooms().find((item) => {
+            return safeRoomKey(item?.roomId || item?.id || item?.room_key) === roomId;
+        });
+
+        if (room) return getRoomType(room);
+
+        const text = cleanText(card.textContent).toLowerCase();
+        if (/\bgroup\b|members|member/.test(text)) return 'group';
+        return 'dm';
+    }
+
+    function applyManualMessagesTab(tab = readStoredTab()) {
+        const selected = writeStoredTab(tab);
+
+        document.querySelectorAll('[data-academy-message-tab]').forEach((button) => {
+            const value = normalizeTab(button.getAttribute('data-academy-message-tab'));
+            const active = value === selected;
+            button.classList.toggle('is-active', active);
+            button.setAttribute('aria-selected', active ? 'true' : 'false');
+            button.setAttribute('tabindex', active ? '0' : '-1');
+        });
+
+        const list = document.getElementById('academy-messages-inbox-list');
+        if (!list) return;
+
+        const cards = Array.from(list.querySelectorAll('.academy-messages-inbox-card'));
+        cards.forEach((card) => {
+            const type = getCardType(card);
+            card.setAttribute('data-academy-room-type', type);
+            card.setAttribute('data-room-type', type);
+
+            const shouldHide = type !== selected;
+            card.classList.toggle('academy-messages-card-filtered-out', shouldHide);
+            card.style.display = shouldHide ? 'none' : '';
+        });
+    }
+
+    function reinforceManualMessagesTab(tab = readStoredTab()) {
+        const selected = normalizeTab(tab);
+        [0, 40, 120, 260, 620, 1280].forEach((delay) => {
+            window.setTimeout(() => applyManualMessagesTab(selected), delay);
+        });
+    }
+
+    document.addEventListener('click', (event) => {
+        const target = event.target instanceof Element ? event.target : event.target?.parentElement;
+        if (!target) return;
+
+        const tabButton = target.closest('[data-academy-message-tab]');
+        if (tabButton) {
+            reinforceManualMessagesTab(tabButton.getAttribute('data-academy-message-tab'));
+            return;
+        }
+
+        if (target.closest('#btn-create-group')) {
+            reinforceManualMessagesTab('group');
+        }
+    }, true);
+
+    function bootPatch() {
+        lockBotToVisibleBottom();
+        applyManualMessagesTab(readStoredTab());
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bootPatch);
+    } else {
+        bootPatch();
+    }
+
+    window.addEventListener('resize', lockBotToVisibleBottom);
+    window.addEventListener('pageshow', bootPatch);
+
+    window.setInterval(lockBotToVisibleBottom, 160);
+    window.setInterval(() => applyManualMessagesTab(readStoredTab()), 240);
+})();
+/* END PATCH: Academy AI coach bottom-visible dock + manual Messages tab guard v2 */

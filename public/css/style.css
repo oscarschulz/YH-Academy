@@ -24020,7 +24020,9 @@ body.academy-right-bot-docked .yh-right-sidebar [class*="bot"]:not(.academy-righ
 .academy-right-bot-safe-sidebar {
     position: relative !important;
     overflow: hidden !important;
-    min-height: calc(100vh - 86px);
+    min-height: 0 !important;
+    height: 100% !important;
+    max-height: 100% !important;
     contain: layout paint;
 }
 
@@ -24048,8 +24050,6 @@ body.academy-right-bot-docked .yh-right-sidebar [class*="bot"]:not(.academy-righ
     margin: 0 !important;
     display: inline-flex !important;
     transition:
-        top 1.08s cubic-bezier(0.22, 1, 0.36, 1),
-        left 1.08s cubic-bezier(0.22, 1, 0.36, 1),
         transform 0.2s ease,
         opacity 0.2s ease !important;
 }
@@ -24068,17 +24068,71 @@ body.academy-right-bot-docked .yh-right-sidebar [class*="bot"]:not(.academy-righ
 
 .academy-right-bot-cta.academy-right-bot-safe-bounds.is-docked {
     position: absolute !important;
-    left: 20px !important;
-    right: 20px !important;
-    bottom: 24px !important;
+    left: 16px !important;
+    right: 16px !important;
+    bottom: 18px !important;
     top: auto !important;
     width: auto !important;
-    max-width: none !important;
+    max-width: calc(100% - 32px) !important;
     margin: 0 !important;
     border-radius: 16px !important;
     padding: 9px 12px !important;
     justify-content: flex-start !important;
+    display: inline-flex !important;
+    min-height: 54px !important;
     animation: none !important;
     transform: none !important;
 }
 
+/* PATCH: Academy AI coach bottom-visible dock v2 */
+@media (min-width: 901px) {
+    body[data-yh-view="academy"] .academy-ai-coach-bottom-visible-sidebar,
+    body[data-yh-page="academy"] .academy-ai-coach-bottom-visible-sidebar {
+        position: relative !important;
+        overflow: hidden !important;
+        min-height: 0 !important;
+        height: 100% !important;
+        max-height: 100% !important;
+        padding-bottom: 88px !important;
+    }
+
+    body[data-yh-view="academy"] .academy-ai-coach-bottom-visible,
+    body[data-yh-page="academy"] .academy-ai-coach-bottom-visible {
+        position: absolute !important;
+        left: 16px !important;
+        right: 16px !important;
+        bottom: 18px !important;
+        top: auto !important;
+        width: auto !important;
+        max-width: calc(100% - 32px) !important;
+        min-height: 54px !important;
+        margin: 0 !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        gap: 10px !important;
+        border-radius: 16px !important;
+        padding: 9px 12px !important;
+        z-index: 120 !important;
+        box-sizing: border-box !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        animation: none !important;
+        transform: none !important;
+        transition: opacity 0.18s ease, border-color 0.18s ease, background 0.18s ease !important;
+    }
+
+    body[data-yh-view="academy"] .academy-ai-coach-bottom-visible .academy-right-bot-cta-avatar,
+    body[data-yh-page="academy"] .academy-ai-coach-bottom-visible .academy-right-bot-cta-avatar {
+        flex: 0 0 auto !important;
+    }
+
+    body[data-yh-view="academy"] .academy-ai-coach-bottom-visible strong,
+    body[data-yh-page="academy"] .academy-ai-coach-bottom-visible strong {
+        min-width: 0 !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+    }
+}
+/* END PATCH: Academy AI coach bottom-visible dock v2 */
