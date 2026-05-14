@@ -1069,6 +1069,16 @@ async function canUserAccessLiveRoom(userId, roomId) {
         ? data.participant_ids.map((value) => String(value)).filter(Boolean)
         : [];
 
+    const hostUserId = sanitizeText(
+        data.host_user_id ||
+        data.hostUserId ||
+        data.created_by_user_id ||
+        data.creator_user_id ||
+        ''
+    );
+
+    if (hostUserId && hostUserId === cleanUserId) return true;
+
     return participantIds.includes(String(cleanUserId));
 }
 
@@ -2384,21 +2394,75 @@ io.on('connection', (socket) => {
         return Boolean(roomMembers && roomMembers.has(targetSocketId));
     }
 
-    socket.on('academyVoice:join', async (payload = {}) => {
+
+    socket.on('academyVoice:join', async (payload = {}, ack) => {
+        const sendAck = (response = {}) => {
+            if (typeof ack === 'function') {
+                try {
+                    ack(response);
+                } catch (_) {}
+            }
+        };
+
         try {
             const roomId = sanitizeText(payload.roomId || payload.room_id);
-            if (!roomId) return;
 
-            const allowed = await canUserAccessLiveRoom(socket.user.id, roomId);
+            if (!roomId) {
+                const response = {
+                    success: false,
+                    roomId: '',
+                    message: 'Missing live voice room id.'
+                };
+
+                sendAck(response);
+                socket.emit('academyVoice:error', response);
+                return;
+            }
+
+            let allowed = false;
+            let lastAccessMessage = '';
+
+            for (let attempt = 1; attempt <= 4; attempt += 1) {
+                allowed = await canUserAccessLiveRoom(socket.user.id, roomId);
+
+                if (allowed) break;
+
+                try {
+                    if (
+                        typeof realtimeFirestoreRepo !== 'undefined' &&
+                        realtimeFirestoreRepo &&
+                        typeof realtimeFirestoreRepo.joinLiveRoom === 'function'
+                    ) {
+                        await realtimeFirestoreRepo.joinLiveRoom({
+                            userId: socket.user.id,
+                            roomId
+                        });
+                    }
+                } catch (joinError) {
+                    lastAccessMessage = sanitizeText(joinError && joinError.message ? joinError.message : '');
+                }
+
+                allowed = await canUserAccessLiveRoom(socket.user.id, roomId);
+
+                if (allowed) break;
+
+                await new Promise((resolve) => setTimeout(resolve, attempt * 180));
+            }
+
             if (!allowed) {
-                socket.emit('academyVoice:error', {
+                const response = {
+                    success: false,
                     roomId,
-                    message: 'You must join this live room before voice can connect.'
-                });
+                    message: lastAccessMessage || 'You must join this live room before voice can connect.'
+                };
+
+                sendAck(response);
+                socket.emit('academyVoice:error', response);
                 return;
             }
 
             const previousRoomId = sanitizeText(socket.data?.academyVoiceRoomId || '');
+
             if (previousRoomId && previousRoomId !== roomId) {
                 leaveAcademyVoiceSignalingRoom('switched-room');
             }
@@ -2410,6 +2474,7 @@ io.on('connection', (socket) => {
                 .filter((socketId) => socketId !== socket.id)
                 .map((socketId) => {
                     const peerSocket = io.sockets.sockets.get(socketId);
+
                     return {
                         socketId,
                         userId: sanitizeText(peerSocket?.user?.id),
@@ -2426,6 +2491,17 @@ io.on('connection', (socket) => {
             socket.join(signalingRoom);
             socket.data.academyVoiceRoomId = roomId;
 
+            const response = {
+                success: true,
+                roomId,
+                socketId: socket.id,
+                peers
+            };
+
+            sendAck(response);
+
+            socket.emit('academyVoice:joined', response);
+
             socket.emit('academyVoice:peers', {
                 roomId,
                 peers
@@ -2439,9 +2515,17 @@ io.on('connection', (socket) => {
             });
         } catch (error) {
             console.error('academyVoice:join error:', error);
-            socket.emit('academyVoice:error', {
-                message: 'Failed to join voice signaling.'
-            });
+
+            const response = {
+                success: false,
+                roomId: sanitizeText(payload && (payload.roomId || payload.room_id) ? (payload.roomId || payload.room_id) : ''),
+                message: error && error.message
+                    ? sanitizeText(error.message)
+                    : 'Failed to join voice signaling.'
+            };
+
+            sendAck(response);
+            socket.emit('academyVoice:error', response);
         }
     });
 
