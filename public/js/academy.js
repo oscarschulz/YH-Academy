@@ -26103,3 +26103,178 @@ if (document.body) {
     window.setInterval(academyBootInlineEditAndBotFix, 3500);
 })();
 
+
+(function installAcademyNoPasswordManagerForMessages() {
+    if (window.__academyNoPasswordManagerForMessagesInstalled) return;
+    window.__academyNoPasswordManagerForMessagesInstalled = true;
+
+    const ignoreAttrs = {
+        autocomplete: 'off',
+        autocorrect: 'off',
+        autocapitalize: 'off',
+        spellcheck: 'false',
+        'data-lpignore': 'true',
+        'data-1p-ignore': 'true',
+        'data-bwignore': 'true',
+        'data-form-type': 'other',
+        'aria-autocomplete': 'none'
+    };
+
+    function applyNoCredentialAttrs(el) {
+        if (!el || typeof el.setAttribute !== 'function') return;
+
+        Object.entries(ignoreAttrs).forEach(([key, value]) => {
+            el.setAttribute(key, value);
+        });
+
+        if ('autocomplete' in el) {
+            try { el.autocomplete = 'off'; } catch (_) {}
+        }
+
+        if ('spellcheck' in el) {
+            try { el.spellcheck = false; } catch (_) {}
+        }
+    }
+
+    function isAcademyMessageElement(el) {
+        if (!el || typeof el.closest !== 'function') return false;
+
+        return Boolean(
+            el.closest('#academy-chat') ||
+            el.closest('#chat-input-area') ||
+            el.closest('#chat-messages') ||
+            el.closest('.academy-messages-thread-shell') ||
+            el.closest('.academy-messages-inbox') ||
+            el.closest('[data-yh-page="academy"]')
+        );
+    }
+
+    function guardAcademyMessageInputs() {
+        const selectors = [
+            '#chat-input',
+            '#message-input',
+            '#academy-message-input',
+            '#dynamic-chat-input',
+            '#academy-feed-share-caption',
+            '#academy-member-browser-search-input',
+            '#academy-chat input',
+            '#academy-chat textarea',
+            '#chat-input-area input',
+            '#chat-input-area textarea',
+            '#chat-messages input',
+            '#chat-messages textarea',
+            '.chat-text-input',
+            '.message-input',
+            '.academy-message-input'
+        ];
+
+        selectors.forEach((selector) => {
+            try {
+                document.querySelectorAll(selector).forEach((el) => {
+                    if (el.matches('input, textarea')) {
+                        applyNoCredentialAttrs(el);
+                    }
+                });
+            } catch (_) {}
+        });
+
+        document.querySelectorAll('form').forEach((form) => {
+            if (!isAcademyMessageElement(form)) return;
+
+            applyNoCredentialAttrs(form);
+            form.setAttribute('novalidate', 'novalidate');
+        });
+    }
+
+    function guardAcademyInAppPasswordFields() {
+        [
+            'academy-profile-current-password',
+            'academy-profile-new-password',
+            'academy-profile-confirm-password',
+            'academy-profile-delete-password'
+        ].forEach((id) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+
+            applyNoCredentialAttrs(el);
+            el.setAttribute('autocomplete', 'off');
+            el.setAttribute('data-form-type', 'other');
+        });
+    }
+
+    function runAcademyPasswordManagerGuard() {
+        guardAcademyMessageInputs();
+        guardAcademyInAppPasswordFields();
+    }
+
+    function scheduleAcademyPasswordManagerGuard() {
+        runAcademyPasswordManagerGuard();
+        window.setTimeout(runAcademyPasswordManagerGuard, 80);
+        window.setTimeout(runAcademyPasswordManagerGuard, 350);
+        window.setTimeout(runAcademyPasswordManagerGuard, 900);
+    }
+
+    document.addEventListener('input', (event) => {
+        const target = event.target instanceof Element
+            ? event.target
+            : event.target && event.target.parentElement;
+
+        if (!target) return;
+
+        if (
+            target.matches('#chat-input, #message-input, #academy-message-input, textarea, input') &&
+            isAcademyMessageElement(target)
+        ) {
+            applyNoCredentialAttrs(target);
+        }
+    }, true);
+
+    document.addEventListener('click', (event) => {
+        const target = event.target instanceof Element
+            ? event.target
+            : event.target && event.target.parentElement;
+
+        if (!target) return;
+
+        if (
+            target.closest('#nav-messages') ||
+            target.closest('#btn-send-message') ||
+            target.closest('#send-message-btn') ||
+            target.closest('[data-send-message]') ||
+            target.closest('#chat-input-area button') ||
+            target.closest('.chat-input-area button')
+        ) {
+            scheduleAcademyPasswordManagerGuard();
+        }
+    }, true);
+
+    document.addEventListener('submit', (event) => {
+        const form = event.target;
+
+        if (form instanceof HTMLFormElement && isAcademyMessageElement(form)) {
+            applyNoCredentialAttrs(form);
+            scheduleAcademyPasswordManagerGuard();
+        }
+    }, true);
+
+    const observer = new MutationObserver(() => {
+        runAcademyPasswordManagerGuard();
+    });
+
+    if (document.body) {
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', scheduleAcademyPasswordManagerGuard);
+    } else {
+        scheduleAcademyPasswordManagerGuard();
+    }
+
+    window.addEventListener('pageshow', scheduleAcademyPasswordManagerGuard);
+    window.setInterval(runAcademyPasswordManagerGuard, 2500);
+})();
+
