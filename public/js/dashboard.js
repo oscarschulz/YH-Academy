@@ -6416,6 +6416,9 @@ function academyRenderCoachConversation(messages = []) {
         const container = document.getElementById('dynamic-chat-history');
         if (!container) return;
 
+        container.dataset.coachHydrated = '1';
+        container.classList.add('academy-coach-history-stable');
+
         const meta = academyCoachUiMeta || getAcademyCoachUiMeta('general');
         const quickPromptsHtml = academyBuildCoachQuickPromptsHtml(meta);
 
@@ -6454,7 +6457,13 @@ function academyRenderCoachConversation(messages = []) {
         if (!container) return [];
 
         if (forceRefresh) {
-            container.innerHTML = `<div style="text-align:center;color:var(--text-muted);padding:2rem;">Loading AI Coach.</div>`;
+            const hasStableCoachContent =
+                container.dataset.coachHydrated === '1' &&
+                String(container.innerHTML || '').trim();
+
+            if (!hasStableCoachContent) {
+                container.innerHTML = `<div class="academy-coach-inline-loading">Loading AI Coach.</div>`;
+            }
         }
 
         const result = await academyAuthedFetch(`/api/academy/assistant/messages?conversationId=${encodeURIComponent(academyCoachConversationId)}`, {
@@ -6479,10 +6488,16 @@ async function openAcademyCoachView(forceRefresh = true) {
         const meta = academyCoachUiMeta || getAcademyCoachUiMeta('general');
 
         if (academyChat) {
+            academyChat.setAttribute('data-chat-mode', 'coach');
             academyChat.classList.remove('hidden-step');
             academyChat.classList.remove('fade-in');
-            void academyChat.offsetWidth;
-            academyChat.classList.add('fade-in');
+            academyChat.classList.add('academy-coach-stable');
+        }
+
+        document.body?.classList.add('academy-coach-active', 'academy-coach-opening');
+
+        if (typeof hideAcademyTabLoader === 'function') {
+            hideAcademyTabLoader();
         }
 
         setAcademySidebarActive('nav-missions');
@@ -6500,7 +6515,12 @@ async function openAcademyCoachView(forceRefresh = true) {
         currentRoomId = null;
         currentRoomMeta = null;
 
-        await academyLoadCoachConversation(forceRefresh);
+        try {
+            await academyLoadCoachConversation(forceRefresh);
+        } finally {
+            document.body?.classList.remove('academy-coach-opening');
+        }
+
         document.getElementById('chat-input')?.focus();
     }
 

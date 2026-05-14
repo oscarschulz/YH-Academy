@@ -23263,3 +23263,48 @@ body[data-yh-view="academy"] #academy-feed-view .academy-feed-shell {
     }
 }
 
+/* Academy AI Coach flicker / blackout guard */
+body.academy-coach-active #academy-chat[data-chat-mode="coach"] {
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
+}
+
+#academy-chat[data-chat-mode="coach"].academy-coach-stable {
+    min-height: 0;
+    contain: layout paint;
+}
+
+#academy-chat[data-chat-mode="coach"] .academy-messages-thread-shell {
+    min-height: min(560px, calc(100vh - 220px));
+    overflow: hidden;
+    contain: layout paint;
+}
+
+#academy-chat[data-chat-mode="coach"] #dynamic-chat-history {
+    min-height: 320px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    contain: layout paint;
+    backface-visibility: hidden;
+    transform: translateZ(0);
+}
+
+#academy-chat[data-chat-mode="coach"] #dynamic-chat-history.academy-coach-history-stable {
+    transition: none !important;
+}
+
+.academy-coach-inline-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 220px;
+    padding: 2rem;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+body.academy-coach-opening .yh-tab-loader {
+    display: none !important;
+}
+
