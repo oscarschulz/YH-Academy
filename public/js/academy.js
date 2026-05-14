@@ -26723,3 +26723,410 @@ if (document.body) {
     }, 900);
 })();
 
+
+(function installAcademyVoiceLoungePasswordMicAndBotFinalFix() {
+    if (window.__academyVoiceLoungePasswordMicAndBotFinalFixInstalled) return;
+    window.__academyVoiceLoungePasswordMicAndBotFinalFixInstalled = true;
+
+    const PASSWORD_IGNORE_ATTRS = {
+        autocomplete: 'off',
+        autocorrect: 'off',
+        autocapitalize: 'off',
+        spellcheck: 'false',
+        'data-lpignore': 'true',
+        'data-1p-ignore': 'true',
+        'data-bwignore': 'true',
+        'data-form-type': 'other',
+        'aria-autocomplete': 'none'
+    };
+
+    function applyAcademyNoCredentialAttrs(el) {
+        if (!el || typeof el.setAttribute !== 'function') return;
+
+        Object.entries(PASSWORD_IGNORE_ATTRS).forEach(([key, value]) => {
+            el.setAttribute(key, value);
+        });
+
+        if (el.tagName === 'INPUT') {
+            const type = String(el.getAttribute('type') || '').toLowerCase();
+
+            if (type === 'text' || type === 'search' || type === '') {
+                el.setAttribute('inputmode', 'text');
+            }
+        }
+
+        if ('autocomplete' in el) {
+            try { el.autocomplete = 'off'; } catch (_) {}
+        }
+
+        if ('spellcheck' in el) {
+            try { el.spellcheck = false; } catch (_) {}
+        }
+    }
+
+    function suppressAcademyCredentialDetectionForLiveVoice() {
+        const voiceSelectors = [
+            '#lounge-title-input',
+            '#academy-lounge-title-input',
+            '#live-lounge-title-input',
+            '#voice-lounge-title-input',
+            '#academy-live-room-title',
+            '#live-room-title',
+            'input[name="loungeTitle"]',
+            'input[name="roomTitle"]',
+            'input[name="title"]',
+            '.academy-lounge-create-modal input',
+            '.academy-lounge-create-modal textarea',
+            '.academy-live-lounge input',
+            '.academy-live-lounge textarea',
+            '.academy-voice-lounge input',
+            '.academy-voice-lounge textarea',
+            '#academy-live-lounge input',
+            '#academy-live-lounge textarea',
+            '#academy-voice-lounge input',
+            '#academy-voice-lounge textarea'
+        ];
+
+        voiceSelectors.forEach((selector) => {
+            try {
+                document.querySelectorAll(selector).forEach((el) => {
+                    applyAcademyNoCredentialAttrs(el);
+
+                    if (el.matches('input, textarea')) {
+                        el.setAttribute('name', el.id || 'academy_voice_lounge_field');
+                    }
+                });
+            } catch (_) {}
+        });
+
+        document.querySelectorAll('form').forEach((form) => {
+            const formText = String(form.textContent || '').toLowerCase();
+            const isVoiceForm =
+                form.querySelector('#lounge-title-input, #academy-lounge-title-input, #live-lounge-title-input, #voice-lounge-title-input') ||
+                form.closest('.academy-lounge-create-modal, .academy-live-lounge, .academy-voice-lounge, #academy-live-lounge, #academy-voice-lounge') ||
+                formText.includes('live voice') ||
+                formText.includes('voice lounge') ||
+                formText.includes('lounge');
+
+            if (!isVoiceForm) return;
+
+            applyAcademyNoCredentialAttrs(form);
+            form.setAttribute('novalidate', 'novalidate');
+        });
+
+        document.querySelectorAll('input[type="password"]').forEach((input, index) => {
+            applyAcademyNoCredentialAttrs(input);
+            input.setAttribute('autocomplete', 'new-password');
+            input.setAttribute('name', 'academy_non_login_password_' + index);
+            input.setAttribute('data-form-type', 'other');
+        });
+    }
+
+    function findAcademyVoiceStage() {
+        return (
+            document.querySelector('#academy-live-stage') ||
+            document.querySelector('#academy-voice-stage') ||
+            document.querySelector('#voice-stage') ||
+            document.querySelector('.academy-live-stage') ||
+            document.querySelector('.academy-voice-stage') ||
+            document.querySelector('.voice-stage') ||
+            document.querySelector('.academy-live-lounge-stage') ||
+            document.querySelector('.academy-lounge-stage') ||
+            document.querySelector('[data-academy-voice-stage]') ||
+            document.querySelector('[data-live-stage]')
+        );
+    }
+
+    function ensureAcademyMicMeterUi() {
+        const stage = findAcademyVoiceStage();
+        if (!stage) return null;
+
+        let meter = stage.querySelector('.academy-voice-mic-meter');
+
+        if (meter) return meter;
+
+        meter = document.createElement('div');
+        meter.className = 'academy-voice-mic-meter';
+        meter.innerHTML = [
+            '<div class="academy-voice-mic-meter-copy">',
+                '<span class="academy-voice-mic-meter-kicker">Mic Check</span>',
+                '<strong class="academy-voice-mic-meter-status">Listening for your voice</strong>',
+                '<small class="academy-voice-mic-meter-note">Speak now. The wave moves when your mic is active.</small>',
+            '</div>',
+            '<div class="academy-voice-mic-wave" aria-hidden="true">',
+                '<span></span><span></span><span></span><span></span><span></span><span></span><span></span>',
+            '</div>'
+        ].join('');
+
+        stage.appendChild(meter);
+
+        return meter;
+    }
+
+    function getAcademyVoiceLocalStream() {
+        try {
+            if (
+                typeof academyVoiceRtcState === 'object' &&
+                academyVoiceRtcState &&
+                academyVoiceRtcState.localStream
+            ) {
+                return academyVoiceRtcState.localStream;
+            }
+        } catch (_) {}
+
+        try {
+            if (
+                typeof window.academyVoiceRtcState === 'object' &&
+                window.academyVoiceRtcState &&
+                window.academyVoiceRtcState.localStream
+            ) {
+                return window.academyVoiceRtcState.localStream;
+            }
+        } catch (_) {}
+
+        return null;
+    }
+
+    function updateAcademyMicMeterVisual(level) {
+        const meter = ensureAcademyMicMeterUi();
+        if (!meter) return;
+
+        const normalized = Math.max(0, Math.min(1, Number(level) || 0));
+        const active = normalized > 0.035;
+
+        meter.classList.toggle('is-speaking', active);
+        meter.style.setProperty('--academy-mic-level', String(normalized));
+
+        const status = meter.querySelector('.academy-voice-mic-meter-status');
+        const note = meter.querySelector('.academy-voice-mic-meter-note');
+
+        if (status) {
+            status.textContent = active ? 'Your voice is being detected' : 'Mic connected, waiting for sound';
+        }
+
+        if (note) {
+            note.textContent = active
+                ? 'Your mic is active. Other members should be able to hear you if signaling is connected.'
+                : 'Try speaking. If the wave does not move, check your microphone permission.';
+        }
+
+        meter.querySelectorAll('.academy-voice-mic-wave span').forEach((bar, index) => {
+            const offset = ((index % 4) + 1) / 4;
+            const height = 9 + Math.round(normalized * 48 * offset);
+            bar.style.height = height + 'px';
+            bar.style.opacity = String(0.38 + normalized * 0.62);
+        });
+    }
+
+    let academyMicMeterAudioContext = null;
+    let academyMicMeterAnalyser = null;
+    let academyMicMeterSource = null;
+    let academyMicMeterRaf = 0;
+    let academyMicMeterBoundStream = null;
+
+    function startAcademyMicMeterForStream(stream) {
+        if (!stream || academyMicMeterBoundStream === stream) return;
+
+        try {
+            if (academyMicMeterRaf) {
+                cancelAnimationFrame(academyMicMeterRaf);
+                academyMicMeterRaf = 0;
+            }
+
+            academyMicMeterBoundStream = stream;
+            academyMicMeterAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+            academyMicMeterAnalyser = academyMicMeterAudioContext.createAnalyser();
+            academyMicMeterAnalyser.fftSize = 256;
+            academyMicMeterAnalyser.smoothingTimeConstant = 0.72;
+            academyMicMeterSource = academyMicMeterAudioContext.createMediaStreamSource(stream);
+            academyMicMeterSource.connect(academyMicMeterAnalyser);
+
+            const data = new Uint8Array(academyMicMeterAnalyser.frequencyBinCount);
+
+            function tick() {
+                if (!academyMicMeterAnalyser) return;
+
+                academyMicMeterAnalyser.getByteTimeDomainData(data);
+
+                let sum = 0;
+
+                for (let i = 0; i < data.length; i += 1) {
+                    const value = (data[i] - 128) / 128;
+                    sum += value * value;
+                }
+
+                const rms = Math.sqrt(sum / data.length);
+                updateAcademyMicMeterVisual(rms);
+
+                academyMicMeterRaf = requestAnimationFrame(tick);
+            }
+
+            tick();
+        } catch (error) {
+            console.warn('Academy mic meter failed:', error && error.message ? error.message : error);
+            updateAcademyMicMeterVisual(0);
+        }
+    }
+
+    function bootAcademyMicMeter() {
+        const meter = ensureAcademyMicMeterUi();
+        if (!meter) return;
+
+        const stream = getAcademyVoiceLocalStream();
+
+        if (!stream) {
+            updateAcademyMicMeterVisual(0);
+            return;
+        }
+
+        startAcademyMicMeterForStream(stream);
+    }
+
+    function findAcademyRightSidebarStrict() {
+        return (
+            document.querySelector('.yh-right-sidebar') ||
+            document.querySelector('.academy-right-sidebar') ||
+            document.querySelector('[data-academy-right-sidebar]')
+        );
+    }
+
+    function findAcademyRightBotStrict(sidebar) {
+        if (!sidebar) return null;
+        return sidebar.querySelector('.academy-right-bot-cta');
+    }
+
+    function activeNowMemberBottomStrict(sidebar) {
+        if (!sidebar) return 320;
+
+        const sidebarRect = sidebar.getBoundingClientRect();
+
+        const allNodes = Array.from(sidebar.querySelectorAll('*')).filter((node) => {
+            if (!(node instanceof HTMLElement)) return false;
+            if (node.closest('.academy-right-bot-cta')) return false;
+
+            const text = String(node.textContent || '').trim();
+            const rect = node.getBoundingClientRect();
+
+            return text && rect.width > 0 && rect.height > 0;
+        });
+
+        const activeLabel = allNodes.find((node) => /^active now$/i.test(String(node.textContent || '').trim()));
+
+        if (!activeLabel) {
+            return Math.max(300, sidebar.clientHeight * 0.36);
+        }
+
+        const activeRect = activeLabel.getBoundingClientRect();
+
+        const memberCandidates = allNodes.filter((node) => {
+            const text = String(node.textContent || '').trim();
+            const rect = node.getBoundingClientRect();
+
+            if (rect.top < activeRect.bottom - 4) return false;
+            if (rect.top > activeRect.bottom + 170) return false;
+            if (/academy signals|momentum board|active now|ask ai coach|i'm here|want a|need help|talk to|ask me/i.test(text)) return false;
+
+            return text.length >= 2 && text.length <= 70;
+        });
+
+        if (!memberCandidates.length) {
+            return Math.round(activeRect.bottom - sidebarRect.top + 88);
+        }
+
+        const bottom = Math.max(...memberCandidates.map((node) => node.getBoundingClientRect().bottom));
+
+        return Math.round(bottom - sidebarRect.top + 14);
+    }
+
+    function clampAcademyBotBelowActiveNow() {
+        const sidebar = findAcademyRightSidebarStrict();
+        if (!sidebar) return;
+
+        const bot = findAcademyRightBotStrict(sidebar);
+        if (!bot) return;
+
+        if (bot.classList.contains('is-docked')) return;
+
+        sidebar.classList.add('academy-right-sidebar-strict-active-bot');
+
+        bot.classList.add('academy-right-bot-strict-active-zone');
+        bot.classList.remove('is-docked');
+
+        const minTop = activeNowMemberBottomStrict(sidebar);
+        const botWidth = Math.max(132, bot.offsetWidth || 154);
+        const botHeight = Math.max(50, bot.offsetHeight || 54);
+
+        const maxTop = Math.max(
+            minTop,
+            Math.min(minTop + 112, sidebar.clientHeight - botHeight - 118)
+        );
+
+        const maxLeft = Math.max(16, sidebar.clientWidth - botWidth - 20);
+
+        const currentTop = Number.parseFloat(bot.style.top || '0');
+        const currentLeft = Number.parseFloat(bot.style.left || '0');
+
+        const nextTop = Math.max(
+            minTop,
+            Math.min(Number.isFinite(currentTop) && currentTop > 0 ? currentTop : minTop, maxTop)
+        );
+
+        const nextLeft = Math.max(
+            16,
+            Math.min(Number.isFinite(currentLeft) && currentLeft > 0 ? currentLeft : 22, maxLeft)
+        );
+
+        bot.style.top = nextTop + 'px';
+        bot.style.left = nextLeft + 'px';
+        bot.style.right = 'auto';
+        bot.style.bottom = 'auto';
+    }
+
+    function bootAcademyVoiceLoungeFinalFixes() {
+        suppressAcademyCredentialDetectionForLiveVoice();
+        bootAcademyMicMeter();
+        clampAcademyBotBelowActiveNow();
+    }
+
+    document.addEventListener('input', (event) => {
+        const target = event.target instanceof Element ? event.target : null;
+        if (!target) return;
+
+        if (
+            target.closest('.academy-lounge-create-modal, .academy-live-lounge, .academy-voice-lounge, #academy-live-lounge, #academy-voice-lounge') ||
+            target.matches('#lounge-title-input, #academy-lounge-title-input, #live-lounge-title-input, #voice-lounge-title-input')
+        ) {
+            applyAcademyNoCredentialAttrs(target);
+        }
+    }, true);
+
+    document.addEventListener('click', (event) => {
+        const target = event.target instanceof Element ? event.target : null;
+        if (!target) return;
+
+        if (
+            target.closest('#nav-voice') ||
+            target.closest('[data-open-voice-lounge]') ||
+            target.closest('[data-create-lounge]') ||
+            target.closest('[data-end-lounge]') ||
+            target.closest('.academy-lounge-create-modal button') ||
+            target.closest('.academy-live-lounge button') ||
+            target.closest('.academy-voice-lounge button')
+        ) {
+            window.setTimeout(suppressAcademyCredentialDetectionForLiveVoice, 20);
+            window.setTimeout(suppressAcademyCredentialDetectionForLiveVoice, 220);
+            window.setTimeout(suppressAcademyCredentialDetectionForLiveVoice, 800);
+        }
+    }, true);
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bootAcademyVoiceLoungeFinalFixes);
+    } else {
+        bootAcademyVoiceLoungeFinalFixes();
+    }
+
+    window.addEventListener('pageshow', bootAcademyVoiceLoungeFinalFixes);
+
+    window.setInterval(bootAcademyVoiceLoungeFinalFixes, 900);
+})();
+

@@ -23845,3 +23845,111 @@ body.academy-right-bot-docked .yh-right-sidebar [class*="bot"]:not(.academy-righ
     content: "";
 }
 
+
+/* Academy Voice Lounge password-popup guard, mic meter, and strict bot lane */
+.academy-voice-mic-meter {
+    position: absolute;
+    left: 22px;
+    right: 22px;
+    bottom: 22px;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 12px 14px;
+    border-radius: 18px;
+    border: 1px solid rgba(56, 189, 248, 0.28);
+    background: rgba(3, 7, 18, 0.72);
+    box-shadow: 0 16px 44px rgba(0, 0, 0, 0.34);
+    backdrop-filter: blur(12px);
+    pointer-events: none;
+}
+
+.academy-voice-mic-meter-copy {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+.academy-voice-mic-meter-kicker {
+    color: #38bdf8;
+    font-size: 0.62rem;
+    font-weight: 900;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+}
+
+.academy-voice-mic-meter-status {
+    color: #f8fafc;
+    font-size: 0.88rem;
+    line-height: 1.25;
+}
+
+.academy-voice-mic-meter-note {
+    color: #94a3b8;
+    font-size: 0.72rem;
+    line-height: 1.35;
+}
+
+.academy-voice-mic-wave {
+    height: 56px;
+    min-width: 112px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0 10px;
+    border-radius: 14px;
+    background: rgba(14, 165, 233, 0.08);
+    border: 1px solid rgba(56, 189, 248, 0.16);
+}
+
+.academy-voice-mic-wave span {
+    width: 7px;
+    min-height: 9px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, #67e8f9, #0ea5e9);
+    box-shadow: 0 0 14px rgba(56, 189, 248, 0.18);
+    opacity: 0.42;
+    transition: height 0.08s linear, opacity 0.08s linear;
+}
+
+.academy-voice-mic-meter.is-speaking {
+    border-color: rgba(34, 197, 94, 0.42);
+    box-shadow: 0 18px 48px rgba(34, 197, 94, 0.12);
+}
+
+.academy-voice-mic-meter.is-speaking .academy-voice-mic-meter-kicker {
+    color: #86efac;
+}
+
+.academy-voice-mic-meter.is-speaking .academy-voice-mic-wave span {
+    background: linear-gradient(180deg, #bbf7d0, #22c55e);
+    box-shadow: 0 0 16px rgba(34, 197, 94, 0.24);
+}
+
+.yh-right-sidebar.academy-right-sidebar-strict-active-bot,
+.academy-right-sidebar.academy-right-sidebar-strict-active-bot,
+[data-academy-right-sidebar].academy-right-sidebar-strict-active-bot {
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+.academy-right-bot-cta.academy-right-bot-strict-active-zone {
+    position: absolute !important;
+    right: auto !important;
+    bottom: auto !important;
+    margin: 0 !important;
+    z-index: 40 !important;
+}
+
+.academy-right-bot-cta.is-docked {
+    position: absolute !important;
+    left: 20px !important;
+    right: 20px !important;
+    bottom: 24px !important;
+    width: auto !important;
+    margin: 0 !important;
+}
+
