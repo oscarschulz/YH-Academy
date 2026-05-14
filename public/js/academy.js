@@ -28863,3 +28863,180 @@ if (document.body) {
     }
 })();
 /* END PATCH: Academy AI Coach standing rectangular modal v1 */
+
+/* PATCH: Academy pinned conversation pill single-card placement v1 */
+(function installAcademyPinnedConversationPillSingleCardPlacementV1() {
+    if (window.__academyPinnedConversationPillSingleCardPlacementV1Installed) return;
+    window.__academyPinnedConversationPillSingleCardPlacementV1Installed = true;
+
+    const BADGE_SELECTOR = '.academy-pinned-conversation-badge';
+
+    function cleanText(value) {
+        return String(value || '').trim();
+    }
+
+    function safeNormalizeRoomKey(value) {
+        try {
+            return typeof normalizeRoomKey === 'function'
+                ? normalizeRoomKey(value)
+                : cleanText(value);
+        } catch (_) {
+            return cleanText(value);
+        }
+    }
+
+    function getRoomIdFromCard(card) {
+        if (!card) return '';
+
+        try {
+            if (typeof academyGetRoomIdFromNode === 'function') {
+                const fromHelper = safeNormalizeRoomKey(academyGetRoomIdFromNode(card));
+                if (fromHelper) return fromHelper;
+            }
+        } catch (_) {}
+
+        const values = [
+            card.getAttribute('data-academy-room-id'),
+            card.getAttribute('data-room-card-id'),
+            card.getAttribute('data-inbox-room-id'),
+            card.getAttribute('data-room-id'),
+            card.getAttribute('data-id')
+        ];
+
+        for (const value of values) {
+            const clean = safeNormalizeRoomKey(value);
+            if (clean) return clean;
+        }
+
+        const nested = card.querySelector('[data-inbox-room-id], [data-room-id], [data-id]');
+        return safeNormalizeRoomKey(
+            nested?.getAttribute('data-inbox-room-id') ||
+            nested?.getAttribute('data-room-id') ||
+            nested?.getAttribute('data-id') ||
+            ''
+        );
+    }
+
+    function isCardPinned(card) {
+        const roomId = getRoomIdFromCard(card);
+
+        try {
+            if (roomId && typeof academyIsConversationPinned === 'function') {
+                return academyIsConversationPinned(roomId) === true;
+            }
+        } catch (_) {}
+
+        return card?.classList?.contains('is-pinned-conversation') === true;
+    }
+
+    function normalizePinnedBadges() {
+        const list = document.getElementById('academy-messages-inbox-list');
+        if (!list) return;
+
+        list.querySelectorAll('.academy-messages-inbox-card').forEach((card) => {
+            const item =
+                card.querySelector('.academy-messages-inbox-item') ||
+                card.firstElementChild;
+
+            if (!item) return;
+
+            const pinned = isCardPinned(card);
+            const badges = Array.from(card.querySelectorAll(BADGE_SELECTOR));
+
+            let keeper =
+                badges.find((badge) => badge.parentElement === item) ||
+                badges[0] ||
+                null;
+
+            badges.forEach((badge) => {
+                if (badge !== keeper) badge.remove();
+            });
+
+            if (!pinned) {
+                if (keeper) keeper.remove();
+                card.classList.remove('has-fixed-pinned-badge');
+                return;
+            }
+
+            if (!keeper) {
+                keeper = document.createElement('span');
+            }
+
+            if (keeper.parentElement !== item) {
+                item.appendChild(keeper);
+            }
+
+            keeper.className = 'academy-pinned-conversation-badge academy-pinned-badge-fixed-in-card';
+            keeper.textContent = '📌 Pinned';
+            keeper.setAttribute('aria-hidden', 'true');
+
+            card.classList.add('has-fixed-pinned-badge');
+            card.classList.add('is-pinned-conversation');
+        });
+
+        list.querySelectorAll(BADGE_SELECTOR).forEach((badge) => {
+            const card = badge.closest('.academy-messages-inbox-card');
+            const item = badge.closest('.academy-messages-inbox-item');
+
+            if (!card || !item || !card.contains(item)) {
+                badge.remove();
+            }
+        });
+    }
+
+    function scheduleNormalize() {
+        window.requestAnimationFrame(normalizePinnedBadges);
+        window.setTimeout(normalizePinnedBadges, 60);
+        window.setTimeout(normalizePinnedBadges, 180);
+    }
+
+    const originalRender = window.renderAcademyMessagesInboxList;
+    if (typeof originalRender === 'function' && originalRender.__pinnedPillSingleCardWrapped !== true) {
+        const wrappedRender = function wrappedRenderAcademyMessagesInboxList(...args) {
+            const result = originalRender.apply(this, args);
+            scheduleNormalize();
+            return result;
+        };
+
+        wrappedRender.__pinnedPillSingleCardWrapped = true;
+        window.renderAcademyMessagesInboxList = wrappedRender;
+    }
+
+    document.addEventListener('click', (event) => {
+        const target = event.target instanceof Element ? event.target : event.target?.parentElement;
+        if (!target) return;
+
+        if (
+            target.closest('[data-inbox-room-action="pin"], [data-thread-room-action="pin"], .academy-messages-inbox-menu, .academy-messages-inbox-tab')
+        ) {
+            scheduleNormalize();
+        }
+    }, true);
+
+    const boot = () => {
+        scheduleNormalize();
+
+        const list = document.getElementById('academy-messages-inbox-list');
+        if (!list || list.dataset.pinnedPillSingleCardObserved === '1') return;
+
+        list.dataset.pinnedPillSingleCardObserved = '1';
+
+        const observer = new MutationObserver(scheduleNormalize);
+        observer.observe(list, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['class', 'data-academy-room-id', 'data-room-id', 'data-inbox-room-id']
+        });
+    };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', boot);
+    } else {
+        boot();
+    }
+
+    window.addEventListener('pageshow', boot);
+    window.setInterval(normalizePinnedBadges, 500);
+})();
+/* END PATCH: Academy pinned conversation pill single-card placement v1 */
