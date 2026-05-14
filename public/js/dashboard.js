@@ -2544,8 +2544,8 @@ async function runYHBusinessChatSafetyAction(action = '') {
     }
 
     if (cleanAction === 'block') {
-        if (!window.confirm('Block this business chat participant? Replies will be disabled for this conversation.')) return;
-        body = { note: 'Blocked from Dashboard Business Chats.' };
+        if (!window.confirm('Block this member across future Business Chats? Replies and future Business Chat starts between you will be disabled.')) return;
+        body = { note: 'Blocked from Dashboard Business Chats.', scope: 'user' };
     }
 
     const endpoint =
@@ -2579,7 +2579,7 @@ async function runYHBusinessChatSafetyAction(action = '') {
 
         if (cleanAction === 'report') showToast('Business chat reported for admin review.', 'success');
         if (cleanAction === 'close') showToast('Business chat closed.', 'success');
-        if (cleanAction === 'block') showToast('Business chat blocked.', 'success');
+        if (cleanAction === 'block') showToast('Member blocked across future Business Chats.', 'success');
     } catch (error) {
         console.error('runYHBusinessChatSafetyAction error:', error);
         showToast(error?.message || 'Business chat safety action failed.', 'error');

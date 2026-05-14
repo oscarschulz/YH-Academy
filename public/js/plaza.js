@@ -7285,8 +7285,8 @@ async function runPlazaConversationSafetyAction(action = "", button = null) {
   }
 
   if (cleanAction === "block") {
-    if (!window.confirm("Block this Plaza business chat participant? Replies will be disabled.")) return;
-    body = { note: "Blocked from Plaza conversation screen." };
+    if (!window.confirm("Block this member across future Business Chats? Replies and future Business Chat starts between you will be disabled.")) return;
+    body = { note: "Blocked from Plaza conversation screen.", scope: "user" };
   }
 
   const endpoint =
@@ -7325,7 +7325,7 @@ async function runPlazaConversationSafetyAction(action = "", button = null) {
 
       if (endpoint === "report") showToast("Business chat reported for admin review.");
       if (endpoint === "close") showToast("Business chat closed.");
-      if (endpoint === "block") showToast("Business chat blocked.");
+      if (endpoint === "block") showToast("Member blocked across future Business Chats.");
     }
   );
 }

@@ -12,6 +12,7 @@ const plazaBridgeCol = firestore.collection('plazaBridgePaths');
 const plazaRequestsCol = firestore.collection('plazaRequests');
 const plazaConversationsCol = firestore.collection('plazaConversations');
 const plazaBusinessChatReportsCol = firestore.collection('plazaBusinessChatReports');
+const plazaBusinessUserBlocksCol = firestore.collection('plazaBusinessUserBlocks');
 const plazaMeetupsCol = firestore.collection('plazaMeetups');
 const plazaPatronApplicationsCol = firestore.collection('plazaPatronApplications');
 const plazaPatronAnnouncementsCol = firestore.collection('plazaPatronAnnouncements');
@@ -4226,11 +4227,13 @@ exports.getBusinessMembers = async (req, res) => {
         const requestedDivision = viewerHasPlazaAccess ? requestedDivisionRaw : 'plaza';
         const search = sanitizeText(req.query.q || req.query.search || '').toLowerCase();
         const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 80, 1), 120);
+        const blockedBusinessUserIds = await getBusinessUserBlockSetForViewer(viewer.id);
         const snap = await usersCol.limit(450).get();
         const members = [];
 
         snap.forEach((docSnap) => {
             if (docSnap.id === viewer.id) return;
+            if (blockedBusinessUserIds.has(docSnap.id)) return;
 
             const data = docSnap.data() || {};
             const recordStatus = sanitizeText(data.recordStatus || data.status || 'active').toLowerCase();
@@ -4511,6 +4514,7 @@ exports.createConversationFromBusinessMember = async (req, res) => {
         }
 
         const targetUser = targetSnap.data() || {};
+        await assertNoActiveBusinessUserBlockBetween(viewer.id, targetUserId);
         const targetName = sanitizeText(
             targetUser.fullName ||
             targetUser.name ||
@@ -4779,6 +4783,154 @@ function assertConversationParticipant(data = {}, viewer = {}) {
     return participantIds;
 }
 
+
+function sanitizeBusinessBlockIdPart(value = '') {
+    return sanitizeText(value).replace(/[^a-zA-Z0-9_-]+/g, '_');
+}
+
+function buildBusinessUserBlockId(userA = '', userB = '') {
+    const ids = [sanitizeText(userA), sanitizeText(userB)].filter(Boolean).sort();
+
+    if (ids.length !== 2) return '';
+
+    return 'business_block_' + sanitizeBusinessBlockIdPart(ids[0]) + '__' + sanitizeBusinessBlockIdPart(ids[1]);
+}
+
+function isActiveBusinessUserBlock(data = {}) {
+    const status = sanitizeText(data.status || 'active').toLowerCase();
+
+    return status !== 'revoked' && status !== 'deleted' && status !== 'inactive';
+}
+
+async function getBusinessUserBlockSnapBetween(userA = '', userB = '') {
+    const blockId = buildBusinessUserBlockId(userA, userB);
+
+    if (!blockId) return null;
+
+    const snap = await plazaBusinessUserBlocksCol.doc(blockId).get();
+
+    if (!snap.exists) return null;
+
+    const data = snap.data() || {};
+
+    if (!isActiveBusinessUserBlock(data)) return null;
+
+    return snap;
+}
+
+async function assertNoActiveBusinessUserBlockBetween(userA = '', userB = '') {
+    const snap = await getBusinessUserBlockSnapBetween(userA, userB);
+
+    if (!snap) return;
+
+    const data = snap.data() || {};
+    const blockerId = sanitizeText(data.blockerId || '');
+    const blockedUserId = sanitizeText(data.blockedUserId || '');
+
+    const error = new Error(
+        blockerId === sanitizeText(userA) || blockerId === sanitizeText(userB)
+            ? 'A Business Chat block exists between these members. New chats and replies are disabled.'
+            : 'Business Chat is blocked between these members.'
+    );
+
+    error.statusCode = 403;
+    error.blockId = snap.id;
+    error.blockerId = blockerId;
+    error.blockedUserId = blockedUserId;
+
+    throw error;
+}
+
+async function assertNoActiveBusinessUserBlockForConversation(data = {}, viewerId = '') {
+    const cleanViewerId = sanitizeText(viewerId);
+    const participantIds = getConversationParticipantIds(data)
+        .filter((participantId) => participantId && participantId !== cleanViewerId);
+
+    for (const participantId of participantIds) {
+        await assertNoActiveBusinessUserBlockBetween(cleanViewerId, participantId);
+    }
+}
+
+async function getBusinessUserBlockSetForViewer(viewerId = '') {
+    const cleanViewerId = sanitizeText(viewerId);
+    const blockedSet = new Set();
+
+    if (!cleanViewerId) return blockedSet;
+
+    try {
+        const snap = await plazaBusinessUserBlocksCol
+            .where('participantIds', 'array-contains', cleanViewerId)
+            .limit(300)
+            .get();
+
+        snap.forEach((docSnap) => {
+            const data = docSnap.data() || {};
+
+            if (!isActiveBusinessUserBlock(data)) return;
+
+            const participantIds = Array.isArray(data.participantIds)
+                ? data.participantIds.map((item) => sanitizeText(item)).filter(Boolean)
+                : [];
+
+            participantIds
+                .filter((participantId) => participantId && participantId !== cleanViewerId)
+                .forEach((participantId) => blockedSet.add(participantId));
+        });
+    } catch (error) {
+        console.warn('Business user block lookup skipped:', error && error.message ? error.message : error);
+    }
+
+    return blockedSet;
+}
+
+async function createBusinessUserBlockFromConversation(data = {}, viewer = {}, note = '') {
+    const cleanViewerId = sanitizeText(viewer.id);
+    const participantIds = getConversationParticipantIds(data);
+    const targetUserId = participantIds.find((participantId) => participantId && participantId !== cleanViewerId) || '';
+
+    if (!cleanViewerId || !targetUserId) {
+        return null;
+    }
+
+    const blockId = buildBusinessUserBlockId(cleanViewerId, targetUserId);
+    const targetSnap = await usersCol.doc(targetUserId).get().catch(() => null);
+    const targetData = targetSnap && targetSnap.exists ? (targetSnap.data() || {}) : {};
+    const nowIso = new Date().toISOString();
+
+    const payload = {
+        blockerId: cleanViewerId,
+        blockerEmail: sanitizeText(viewer.email).toLowerCase(),
+        blockerName: sanitizeText(viewer.name || viewer.username || 'YH Member'),
+        blockedUserId: targetUserId,
+        blockedUserEmail: sanitizeText(targetData.email || '').toLowerCase(),
+        blockedUserName: sanitizeText(
+            targetData.fullName ||
+            targetData.displayName ||
+            targetData.name ||
+            targetData.username ||
+            'YH Member'
+        ),
+        participantIds: [cleanViewerId, targetUserId].sort(),
+        status: 'active',
+        source: 'business_chat',
+        latestConversationId: sanitizeText(data.id || ''),
+        latestConversationTitle: sanitizeText(data.title || 'Plaza business conversation'),
+        note: clampText(note || 'Blocked from Business Chat.', 260, 'Blocked from Business Chat.'),
+        createdAt: Timestamp.now(),
+        createdAtIso: nowIso,
+        updatedAt: Timestamp.now(),
+        updatedAtIso: nowIso
+    };
+
+    await plazaBusinessUserBlocksCol.doc(blockId).set(payload, { merge: true });
+
+    return {
+        id: blockId,
+        ...payload
+    };
+}
+
+
 function isConversationClosedOrBlocked(data = {}) {
     const status = sanitizeText(data.status || '').toLowerCase();
     const moderation = data.moderation && typeof data.moderation === 'object' ? data.moderation : {};
@@ -4815,6 +4967,127 @@ function getConversationErrorStatus(error = {}) {
     return status >= 400 && status <= 599 ? status : 500;
 }
 
+
+
+
+exports.getBusinessBlocks = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+
+        if (!viewer.id) {
+            return res.status(401).json({ success: false, message: 'Missing authenticated user.' });
+        }
+
+        const snap = await plazaBusinessUserBlocksCol
+            .where('participantIds', 'array-contains', viewer.id)
+            .limit(300)
+            .get();
+
+        const blocks = [];
+
+        for (const docSnap of snap.docs) {
+            const data = docSnap.data() || {};
+
+            if (!isActiveBusinessUserBlock(data)) continue;
+
+            const participantIds = Array.isArray(data.participantIds)
+                ? data.participantIds.map((item) => sanitizeText(item)).filter(Boolean)
+                : [];
+
+            const otherUserId = participantIds.find((participantId) => participantId && participantId !== viewer.id) || '';
+            const otherSnap = otherUserId ? await usersCol.doc(otherUserId).get().catch(() => null) : null;
+            const otherData = otherSnap && otherSnap.exists ? (otherSnap.data() || {}) : {};
+
+            blocks.push({
+                id: docSnap.id,
+                blockerId: sanitizeText(data.blockerId || ''),
+                blockedUserId: sanitizeText(data.blockedUserId || otherUserId),
+                participantIds,
+                otherUserId,
+                otherUserName: sanitizeText(
+                    otherData.fullName ||
+                    otherData.displayName ||
+                    otherData.name ||
+                    otherData.username ||
+                    data.blockedUserName ||
+                    'YH Member'
+                ),
+                otherUserEmail: sanitizeText(otherData.email || data.blockedUserEmail || '').toLowerCase(),
+                status: sanitizeText(data.status || 'active'),
+                note: sanitizeText(data.note || ''),
+                latestConversationId: sanitizeText(data.latestConversationId || ''),
+                latestConversationTitle: sanitizeText(data.latestConversationTitle || ''),
+                createdAt: sanitizeText(data.createdAtIso || data.createdAt || ''),
+                updatedAt: sanitizeText(data.updatedAtIso || data.updatedAt || '')
+            });
+        }
+
+        return res.json({
+            success: true,
+            blocks
+        });
+    } catch (error) {
+        console.error('plazaControllers.getBusinessBlocks error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load Business Chat blocks.'
+        });
+    }
+};
+
+exports.unblockBusinessMember = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
+        const blockedUserId = sanitizeText(req.params.blockedUserId);
+
+        if (!viewer.id) {
+            return res.status(401).json({ success: false, message: 'Missing authenticated user.' });
+        }
+
+        if (!blockedUserId) {
+            return res.status(400).json({ success: false, message: 'Blocked user id is required.' });
+        }
+
+        const blockId = buildBusinessUserBlockId(viewer.id, blockedUserId);
+        const ref = plazaBusinessUserBlocksCol.doc(blockId);
+        const snap = await ref.get();
+
+        if (!snap.exists) {
+            return res.status(404).json({
+                success: false,
+                message: 'Business Chat block was not found.'
+            });
+        }
+
+        const data = snap.data() || {};
+
+        if (sanitizeText(data.blockerId) !== viewer.id) {
+            return res.status(403).json({
+                success: false,
+                message: 'Only the member who created this block can remove it.'
+            });
+        }
+
+        await ref.set({
+            status: 'revoked',
+            revokedBy: viewer.id,
+            revokedAt: new Date().toISOString(),
+            updatedAt: Timestamp.now(),
+            updatedAtIso: new Date().toISOString()
+        }, { merge: true });
+
+        return res.json({
+            success: true,
+            message: 'Business Chat block removed.'
+        });
+    } catch (error) {
+        console.error('plazaControllers.unblockBusinessMember error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to unblock Business Chat member.'
+        });
+    }
+};
 
 
 exports.reportConversation = async (req, res) => {
@@ -5016,6 +5289,8 @@ exports.blockConversationParticipant = async (req, res) => {
         const data = snap.data() || {};
         assertConversationParticipant(data, viewer);
 
+        const businessUserBlock = await createBusinessUserBlockFromConversation(data, viewer, note);
+
         const now = Timestamp.now();
         const nowIso = new Date().toISOString();
         const moderation = data.moderation && typeof data.moderation === 'object' ? data.moderation : {};
@@ -5042,7 +5317,8 @@ exports.blockConversationParticipant = async (req, res) => {
                 blocked: true,
                 blockedBy: viewer.id,
                 blockedAt: nowIso,
-                blockReason: note
+                blockReason: note,
+                businessUserBlockId: businessUserBlock && businessUserBlock.id ? businessUserBlock.id : ''
             },
             messages,
             updatedAt: now
@@ -5119,6 +5395,8 @@ exports.createConversationReply = async (req, res) => {
                 message: 'You are not part of this Plaza conversation.'
             });
         }
+
+        await assertNoActiveBusinessUserBlockForConversation(data, viewer.id);
 
         if (isConversationClosedOrBlocked(data)) {
             return res.status(403).json({

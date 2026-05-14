@@ -157,6 +157,8 @@ router.patch('/plaza/requests/:id/status', auth, plazaControllers.advanceRequest
 router.delete('/plaza/requests/:id', auth, plazaControllers.deleteRequest);
 
 router.get('/plaza/business-members', auth, plazaControllers.getBusinessMembers);
+router.get('/plaza/business-blocks', auth, plazaControllers.getBusinessBlocks);
+router.delete('/plaza/business-blocks/:blockedUserId', auth, plazaControllers.unblockBusinessMember);
 router.get('/plaza/messages', auth, plazaControllers.getMessages);
 router.post('/plaza/messages/from-request/:requestId', auth, plazaControllers.createConversationFromRequest);
 router.post('/plaza/messages/from-business-member/:targetUserId', auth, plazaControllers.createConversationFromBusinessMember);
