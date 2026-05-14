@@ -1996,7 +1996,19 @@ io.on('connection', (socket) => {
                 .get();
 
             const history = historySnap.docs
-                .map(mapChatMessageDoc)
+                .map((docSnap) => {
+                    const data = docSnap.data() || {};
+                    const viewerHiddenMessageIds = Array.isArray(data.hidden_for_user_ids)
+                        ? data.hidden_for_user_ids.map((value) => sanitizeText(value)).filter(Boolean)
+                        : [];
+
+                    if (viewerHiddenMessageIds.includes(String(socket.user.id))) {
+                        return null;
+                    }
+
+                    return mapChatMessageDoc(docSnap);
+                })
+                .filter(Boolean)
                 .sort((a, b) => {
                     const aTime = new Date(a.time || 0).getTime();
                     const bTime = new Date(b.time || 0).getTime();
@@ -2171,6 +2183,141 @@ io.on('connection', (socket) => {
             });
         } catch (error) {
             console.error('upvoteMessage error:', error);
+        }
+    });
+
+
+    socket.on('editMessage', async (payload = {}, ack) => {
+        try {
+            const messageId = sanitizeText(payload?.id || payload?.messageId || '');
+            const nextText = sanitizeText(payload?.text || '');
+
+            if (!messageId || !nextText) {
+                if (typeof ack === 'function') {
+                    ack({ success: false, message: 'Message text is required.' });
+                }
+                return;
+            }
+
+            const ref = chatMessagesCol.doc(messageId);
+            const snap = await ref.get();
+
+            if (!snap.exists) {
+                if (typeof ack === 'function') {
+                    ack({ success: false, message: 'Message not found.' });
+                }
+                return;
+            }
+
+            const current = snap.data() || {};
+            const ownerId = sanitizeText(current.created_by_user_id);
+            const roomId = sanitizeText(current.room);
+
+            const allowed = await canUserAccessRoom(socket.user.id, roomId);
+            if (!allowed) {
+                if (typeof ack === 'function') {
+                    ack({ success: false, message: 'You can no longer access this conversation.' });
+                }
+                return;
+            }
+
+            if (!ownerId || ownerId !== socket.user.id) {
+                socket.emit('messageEditError', {
+                    id: messageId,
+                    message: 'Only the original sender can edit this message.'
+                });
+
+                if (typeof ack === 'function') {
+                    ack({ success: false, message: 'Only the original sender can edit this message.' });
+                }
+                return;
+            }
+
+            const editedAt = new Date().toISOString();
+
+            await ref.set({
+                text: nextText,
+                edited_at: Timestamp.now(),
+                editedAt,
+                updated_at: Timestamp.now()
+            }, { merge: true });
+
+            io.to(roomId).emit('messageEdited', {
+                id: messageId,
+                text: nextText,
+                editedAt
+            });
+
+            if (typeof ack === 'function') {
+                ack({ success: true, id: messageId, text: nextText, editedAt });
+            }
+        } catch (error) {
+            console.error('editMessage error:', error);
+
+            if (typeof ack === 'function') {
+                ack({ success: false, message: 'Message edit failed.' });
+            }
+        }
+    });
+
+    socket.on('hideMessageForMe', async (payload = {}, ack) => {
+        try {
+            const messageId = sanitizeText(
+                typeof payload === 'string'
+                    ? payload
+                    : payload?.id || payload?.messageId || ''
+            );
+
+            if (!messageId) {
+                if (typeof ack === 'function') {
+                    ack({ success: false, message: 'Message id is required.' });
+                }
+                return;
+            }
+
+            const ref = chatMessagesCol.doc(messageId);
+            const snap = await ref.get();
+
+            if (!snap.exists) {
+                if (typeof ack === 'function') {
+                    ack({ success: false, message: 'Message not found.' });
+                }
+                return;
+            }
+
+            const current = snap.data() || {};
+            const roomId = sanitizeText(current.room);
+
+            const allowed = await canUserAccessRoom(socket.user.id, roomId);
+            if (!allowed) {
+                if (typeof ack === 'function') {
+                    ack({ success: false, message: 'You can no longer access this conversation.' });
+                }
+                return;
+            }
+
+            await ref.set({
+                hidden_for_user_ids: FieldValue.arrayUnion(String(socket.user.id)),
+                updated_at: Timestamp.now()
+            }, { merge: true });
+
+            socket.emit('messageHiddenForMe', {
+                id: messageId
+            });
+
+            if (typeof ack === 'function') {
+                ack({ success: true, id: messageId });
+            }
+        } catch (error) {
+            console.error('hideMessageForMe error:', error);
+
+            socket.emit('messageHideError', {
+                message: 'Could not remove this message for you.'
+            });
+
+            if (typeof ack === 'function') {
+                ack({ success: false, message: 'Could not remove this message for you.' });
+            }
         }
     });
 

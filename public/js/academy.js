@@ -2797,7 +2797,7 @@ socket.on('chatHistory', (history) => {
 
         const msgHTML = `
             <div class="${bubbleClass} fade-in" data-dbid="${academyFeedEscapeHtml(msg.id || '')}" ${bubbleStyle}>
-                ${isMe ? `<button class="delete-msg-btn" title="Delete Message">🗑️</button>` : ''}
+                ${isMe ? `<button type="button" class="message-action-trigger" data-message-menu-trigger title="Message options" aria-label="Message options" aria-haspopup="menu" aria-expanded="false">⋯</button><div class="message-action-menu" role="menu" aria-label="Message options"><button type="button" role="menuitem" data-message-action="edit">Edit</button><button type="button" role="menuitem" data-message-action="unsend-me">Unsend for me</button><button type="button" role="menuitem" data-message-action="unsend-everyone">Unsend for everyone</button></div>` : ''}
                 <div class="bubble-header">
                     <div class="bubble-avatar interactive-avatar${messageProfileClass}" data-user="${safeAuthor}" data-role="Hustler"${messageProfileAttrs} style="${avatarStyle} cursor:pointer;">${avatarContent}</div>
                     <span class="bubble-author interactive-avatar${messageProfileClass}" data-user="${safeAuthor}" data-role="Hustler"${messageProfileAttrs} style="cursor:pointer;"><span ${authorColor}>${safeAuthor}</span> ${roleBadge}</span>
@@ -24978,3 +24978,682 @@ if (document.body) {
 }
 // ✅ Close DOMContentLoaded wrapper
 });
+
+
+(function installAcademyMessagesUpgradeLayer() {
+    if (window.__academyMessagesUpgradeLayerInstalled) return;
+    window.__academyMessagesUpgradeLayerInstalled = true;
+
+    const PIN_KEY = 'yh_academy_pinned_conversation_ids_v1';
+    const TAB_KEY = 'yh_academy_messages_active_tab_v1';
+
+    function normalizeAcademyUpgradeId(value) {
+        return String(value || '').trim();
+    }
+
+    function academyUpgradeEscapeHtml(value = '') {
+        if (typeof academyFeedEscapeHtml === 'function') {
+            return academyFeedEscapeHtml(value);
+        }
+
+        return String(value || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function academyUpgradeToast(message = '', type = 'success') {
+        if (typeof showToast === 'function') {
+            showToast(message, type);
+            return;
+        }
+
+        console.log('[Academy Messages]', message);
+    }
+
+    function academyUpgradeReadJson(key, fallback) {
+        try {
+            const raw = localStorage.getItem(key);
+            if (!raw) return fallback;
+            return JSON.parse(raw);
+        } catch (_) {
+            return fallback;
+        }
+    }
+
+    function academyUpgradeWriteJson(key, value) {
+        try {
+            localStorage.setItem(key, JSON.stringify(value));
+        } catch (_) {}
+    }
+
+    function academyReadPinnedConversationIds() {
+        const raw = academyUpgradeReadJson(PIN_KEY, []);
+        return Array.isArray(raw)
+            ? Array.from(new Set(raw.map(normalizeAcademyUpgradeId).filter(Boolean)))
+            : [];
+    }
+
+    function academyWritePinnedConversationIds(ids = []) {
+        academyUpgradeWriteJson(
+            PIN_KEY,
+            Array.from(new Set(ids.map(normalizeAcademyUpgradeId).filter(Boolean)))
+        );
+    }
+
+    function academyIsConversationPinned(roomId = '') {
+        const normalizedRoomId = normalizeAcademyUpgradeId(roomId);
+        return normalizedRoomId && academyReadPinnedConversationIds().includes(normalizedRoomId);
+    }
+
+    function academyToggleConversationPin(roomId = '') {
+        const normalizedRoomId = normalizeAcademyUpgradeId(roomId);
+        if (!normalizedRoomId) return false;
+
+        const current = academyReadPinnedConversationIds();
+        const isPinned = current.includes(normalizedRoomId);
+        const next = isPinned
+            ? current.filter((id) => id !== normalizedRoomId)
+            : [normalizedRoomId, ...current];
+
+        academyWritePinnedConversationIds(next);
+        academyUpgradeToast(isPinned ? 'Conversation unpinned.' : 'Conversation pinned.', 'success');
+
+        if (typeof renderAcademyMessagesInboxList === 'function') {
+            renderAcademyMessagesInboxList();
+        } else {
+            academyEnhanceMessagesInbox();
+        }
+
+        return !isPinned;
+    }
+
+    function academyGetActiveMessagesTab() {
+        try {
+            const value = String(localStorage.getItem(TAB_KEY) || 'dm').trim().toLowerCase();
+            return value === 'group' ? 'group' : 'dm';
+        } catch (_) {
+            return 'dm';
+        }
+    }
+
+    function academySetActiveMessagesTab(value = 'dm') {
+        const tab = String(value || '').trim().toLowerCase() === 'group' ? 'group' : 'dm';
+        try {
+            localStorage.setItem(TAB_KEY, tab);
+        } catch (_) {}
+        return tab;
+    }
+
+    function academyResolveUpgradeRoom(roomId = '') {
+        const normalizedRoomId = normalizeAcademyUpgradeId(roomId);
+
+        if (!normalizedRoomId) return null;
+
+        try {
+            if (typeof academyResolveMessageRoomById === 'function') {
+                return academyResolveMessageRoomById(normalizedRoomId);
+            }
+        } catch (_) {}
+
+        try {
+            const rooms = typeof academyReadMessageRooms === 'function'
+                ? academyReadMessageRooms()
+                : [];
+            return rooms.find((room) => {
+                return normalizeAcademyUpgradeId(room?.id || room?.roomId) === normalizedRoomId;
+            }) || null;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function academyGetRoomIdFromNode(node = null) {
+        if (!node) return '';
+
+        const direct = [
+            'data-inbox-room-id',
+            'data-thread-room-id',
+            'data-room-id',
+            'data-id'
+        ];
+
+        for (const attr of direct) {
+            const value = normalizeAcademyUpgradeId(node.getAttribute?.(attr));
+            if (value) return value;
+        }
+
+        const nested = node.querySelector?.(
+            '[data-inbox-room-id], [data-thread-room-id], [data-room-id], [data-id]'
+        );
+
+        if (!nested) return '';
+
+        for (const attr of direct) {
+            const value = normalizeAcademyUpgradeId(nested.getAttribute?.(attr));
+            if (value) return value;
+        }
+
+        return '';
+    }
+
+    function academyGetRoomTypeFromCard(card = null, roomId = '') {
+        const room = academyResolveUpgradeRoom(roomId);
+        const raw = String(
+            room?.type ||
+            room?.roomType ||
+            room?.room_type ||
+            card?.getAttribute?.('data-room-type') ||
+            card?.getAttribute?.('data-type') ||
+            card?.querySelector?.('[data-room-type]')?.getAttribute?.('data-room-type') ||
+            card?.querySelector?.('[data-type]')?.getAttribute?.('data-type') ||
+            ''
+        ).trim().toLowerCase();
+
+        return raw === 'group' ? 'group' : 'dm';
+    }
+
+    function academyEnsureMessagesTabs() {
+        const list = document.getElementById('academy-messages-inbox-list');
+        if (!list) return null;
+
+        let tabs = document.getElementById('academy-messages-inbox-tabs');
+        if (tabs) return tabs;
+
+        tabs = document.createElement('div');
+        tabs.id = 'academy-messages-inbox-tabs';
+        tabs.className = 'academy-messages-inbox-tabs';
+        tabs.setAttribute('role', 'tablist');
+        tabs.setAttribute('aria-label', 'Conversation type');
+
+        tabs.innerHTML = [
+            '<button type="button" class="academy-messages-inbox-tab" role="tab" data-academy-message-tab="dm">DMs</button>',
+            '<button type="button" class="academy-messages-inbox-tab" role="tab" data-academy-message-tab="group">Groups</button>'
+        ].join('');
+
+        const head = document.querySelector('.academy-messages-inbox-head');
+        if (head) {
+            head.insertAdjacentElement('afterend', tabs);
+        } else {
+            list.insertAdjacentElement('beforebegin', tabs);
+        }
+
+        return tabs;
+    }
+
+    function academySyncMessagesTabs() {
+        const activeTab = academyGetActiveMessagesTab();
+        const tabs = academyEnsureMessagesTabs();
+
+        if (!tabs) return;
+
+        tabs.querySelectorAll('[data-academy-message-tab]').forEach((button) => {
+            const value = String(button.getAttribute('data-academy-message-tab') || '').trim().toLowerCase();
+            const isActive = value === activeTab;
+
+            button.classList.toggle('is-active', isActive);
+            button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            button.setAttribute('tabindex', isActive ? '0' : '-1');
+        });
+    }
+
+    function academyEnhanceConversationMenu(menu = null, roomId = '') {
+        if (!menu) return;
+
+        const normalizedRoomId = normalizeAcademyUpgradeId(roomId);
+        if (!normalizedRoomId) return;
+
+        menu.setAttribute('data-upgraded-pin-menu', 'true');
+
+        let pinButton = menu.querySelector('[data-inbox-room-action="pin"], [data-thread-room-action="pin"]');
+
+        if (!pinButton) {
+            pinButton = document.createElement('button');
+            pinButton.type = 'button';
+            pinButton.setAttribute('role', 'menuitem');
+
+            if (menu.classList.contains('academy-messages-thread-menu')) {
+                pinButton.setAttribute('data-thread-room-action', 'pin');
+                pinButton.setAttribute('data-thread-room-id', normalizedRoomId);
+            } else {
+                pinButton.setAttribute('data-inbox-room-action', 'pin');
+                pinButton.setAttribute('data-inbox-room-id', normalizedRoomId);
+            }
+
+            menu.insertBefore(pinButton, menu.firstElementChild || null);
+        }
+
+        pinButton.textContent = academyIsConversationPinned(normalizedRoomId)
+            ? 'Unpin conversation'
+            : 'Pin conversation';
+
+        pinButton.setAttribute('data-room-id', normalizedRoomId);
+        pinButton.setAttribute('data-inbox-room-id', normalizedRoomId);
+        pinButton.setAttribute('data-thread-room-id', normalizedRoomId);
+
+        menu.querySelectorAll('button').forEach((button) => {
+            if (!button.getAttribute('data-room-id')) {
+                button.setAttribute('data-room-id', normalizedRoomId);
+            }
+
+            if (
+                button.hasAttribute('data-inbox-room-action') &&
+                !button.getAttribute('data-inbox-room-id')
+            ) {
+                button.setAttribute('data-inbox-room-id', normalizedRoomId);
+            }
+
+            if (
+                button.hasAttribute('data-thread-room-action') &&
+                !button.getAttribute('data-thread-room-id')
+            ) {
+                button.setAttribute('data-thread-room-id', normalizedRoomId);
+            }
+        });
+    }
+
+    function academyEnhanceConversationCard(card = null, index = 0) {
+        if (!card) return;
+
+        if (!card.dataset.originalOrder) {
+            card.dataset.originalOrder = String(index);
+        }
+
+        const roomId = academyGetRoomIdFromNode(card);
+        if (!roomId) return;
+
+        const roomType = academyGetRoomTypeFromCard(card, roomId);
+        const pinned = academyIsConversationPinned(roomId);
+
+        card.setAttribute('data-academy-room-id', roomId);
+        card.setAttribute('data-academy-room-type', roomType);
+        card.classList.toggle('is-pinned-conversation', pinned);
+
+        const trigger = card.querySelector('.academy-messages-inbox-menu-trigger');
+        if (trigger) {
+            trigger.setAttribute('data-room-id', roomId);
+            trigger.setAttribute('data-inbox-room-id', roomId);
+        }
+
+        const menu = card.querySelector('.academy-messages-inbox-menu');
+        academyEnhanceConversationMenu(menu, roomId);
+
+        const item = card.querySelector('.academy-messages-inbox-item') || card.firstElementChild;
+        if (item) {
+            let badge = item.querySelector('.academy-pinned-conversation-badge');
+
+            if (pinned && !badge) {
+                badge = document.createElement('span');
+                badge.className = 'academy-pinned-conversation-badge';
+                badge.textContent = '📌 Pinned';
+                item.appendChild(badge);
+            }
+
+            if (!pinned && badge) {
+                badge.remove();
+            }
+        }
+    }
+
+    function academyApplyMessagesTabFilterAndPinSort() {
+        const list = document.getElementById('academy-messages-inbox-list');
+        if (!list) return;
+
+        const activeTab = academyGetActiveMessagesTab();
+        const cards = Array.from(list.querySelectorAll('.academy-messages-inbox-card'));
+
+        cards.forEach((card, index) => academyEnhanceConversationCard(card, index));
+
+        cards.forEach((card) => {
+            const type = String(card.getAttribute('data-academy-room-type') || 'dm').trim().toLowerCase();
+            card.classList.toggle('academy-messages-card-filtered-out', type !== activeTab);
+        });
+
+        cards
+            .sort((left, right) => {
+                const leftPinned = left.classList.contains('is-pinned-conversation') ? 1 : 0;
+                const rightPinned = right.classList.contains('is-pinned-conversation') ? 1 : 0;
+
+                if (leftPinned !== rightPinned) return rightPinned - leftPinned;
+
+                return Number(left.dataset.originalOrder || 0) - Number(right.dataset.originalOrder || 0);
+            })
+            .forEach((card) => list.appendChild(card));
+    }
+
+    function academyEnhanceMessagesThreadMenu() {
+        const trigger = document.getElementById('academy-messages-thread-menu-trigger');
+        const menu = document.getElementById('academy-messages-thread-menu');
+
+        const roomId =
+            normalizeAcademyUpgradeId(trigger?.getAttribute('data-thread-room-id')) ||
+            normalizeAcademyUpgradeId(menu?.getAttribute('data-thread-room-id')) ||
+            normalizeAcademyUpgradeId(
+                typeof getActiveRoomId === 'function'
+                    ? getActiveRoomId()
+                    : ''
+            );
+
+        if (!roomId) return;
+
+        if (trigger) {
+            trigger.setAttribute('data-room-id', roomId);
+            trigger.setAttribute('data-thread-room-id', roomId);
+        }
+
+        academyEnhanceConversationMenu(menu, roomId);
+    }
+
+    function academyEnhanceMessagesInbox() {
+        const academyChat = document.getElementById('academy-chat');
+        const mode = String(academyChat?.getAttribute('data-chat-mode') || '').trim().toLowerCase();
+
+        if (mode !== 'messages' && mode !== 'thread') return;
+
+        academyEnsureMessagesTabs();
+        academySyncMessagesTabs();
+        academyApplyMessagesTabFilterAndPinSort();
+        academyEnhanceMessagesThreadMenu();
+    }
+
+    window.academyEnhanceMessagesInbox = academyEnhanceMessagesInbox;
+
+    function academyWrapMessagesInboxRenderer() {
+        if (window.__academyMessagesInboxRendererWrapped) return;
+        if (typeof renderAcademyMessagesInboxList !== 'function') return;
+
+        window.__academyMessagesInboxRendererWrapped = true;
+
+        const originalRenderAcademyMessagesInboxList = renderAcademyMessagesInboxList;
+
+        renderAcademyMessagesInboxList = function upgradedRenderAcademyMessagesInboxList() {
+            const result = originalRenderAcademyMessagesInboxList.apply(this, arguments);
+
+            window.requestAnimationFrame(() => {
+                academyEnhanceMessagesInbox();
+            });
+
+            return result;
+        };
+    }
+
+    function academyCloseMessageActionMenus(exceptMenu = null) {
+        document.querySelectorAll('.message-action-menu.is-open').forEach((menu) => {
+            if (exceptMenu && menu === exceptMenu) return;
+            menu.classList.remove('is-open');
+        });
+
+        document.querySelectorAll('[data-message-menu-trigger][aria-expanded="true"]').forEach((button) => {
+            const menu = button.parentElement?.querySelector?.('.message-action-menu');
+            if (exceptMenu && menu === exceptMenu) return;
+            button.setAttribute('aria-expanded', 'false');
+        });
+    }
+
+    function academyGetBubbleFromEventTarget(target = null) {
+        return target?.closest?.('.chat-bubble[data-dbid]');
+    }
+
+    function academyGetMessageIdFromBubble(bubble = null) {
+        return normalizeAcademyUpgradeId(bubble?.getAttribute?.('data-dbid'));
+    }
+
+    function academySetBubbleBodyText(bubble = null, text = '') {
+        const body = bubble?.querySelector?.('.bubble-body');
+        if (!body) return;
+
+        body.innerHTML = academyUpgradeEscapeHtml(text).replace(/\n/g, '<br>');
+
+        let edited = bubble.querySelector('.academy-message-edited-label');
+        if (!edited) {
+            edited = document.createElement('span');
+            edited.className = 'academy-message-edited-label';
+            edited.textContent = 'edited';
+
+            const time = bubble.querySelector('.bubble-time');
+            if (time) {
+                time.insertAdjacentElement('afterend', edited);
+            } else {
+                bubble.appendChild(edited);
+            }
+        }
+    }
+
+    function academyEmitSocketEvent(eventName, payload, onAck) {
+        if (typeof socket === 'undefined' || !socket || typeof socket.emit !== 'function') {
+            academyUpgradeToast('Realtime socket is not ready yet. Refresh and try again.', 'error');
+            return;
+        }
+
+        socket.emit(eventName, payload, onAck);
+    }
+
+    async function academyHandleMessageAction(action = '', bubble = null) {
+        const messageId = academyGetMessageIdFromBubble(bubble);
+        if (!messageId) return;
+
+        const cleanAction = String(action || '').trim().toLowerCase();
+        const body = bubble.querySelector('.bubble-body');
+        const currentText = String(body?.innerText || '').trim();
+
+        if (cleanAction === 'edit') {
+            const nextTextRaw = window.prompt('Edit message', currentText);
+            if (nextTextRaw === null) return;
+
+            const nextText = String(nextTextRaw || '').trim();
+
+            if (!nextText) {
+                academyUpgradeToast('Message cannot be empty.', 'error');
+                return;
+            }
+
+            academyEmitSocketEvent('editMessage', {
+                id: messageId,
+                text: nextText
+            }, (ack = {}) => {
+                if (ack && ack.success === false) {
+                    academyUpgradeToast(ack.message || 'Message edit failed.', 'error');
+                    return;
+                }
+
+                academySetBubbleBodyText(bubble, nextText);
+                academyUpgradeToast('Message edited.', 'success');
+            });
+
+            return;
+        }
+
+        if (cleanAction === 'unsend-me') {
+            academyEmitSocketEvent('hideMessageForMe', {
+                id: messageId
+            }, (ack = {}) => {
+                if (ack && ack.success === false) {
+                    academyUpgradeToast(ack.message || 'Could not unsend this message for you.', 'error');
+                    return;
+                }
+
+                bubble.remove();
+                academyUpgradeToast('Message removed for you.', 'success');
+            });
+
+            return;
+        }
+
+        if (cleanAction === 'unsend-everyone') {
+            const confirmed = window.confirm('Unsend this message for everyone? This cannot be undone.');
+            if (!confirmed) return;
+
+            academyEmitSocketEvent('deleteMessage', messageId);
+        }
+    }
+
+    function academyInstallMessageActionEvents() {
+        if (window.__academyMessageActionEventsBound) return;
+        window.__academyMessageActionEventsBound = true;
+
+        document.addEventListener('click', async (event) => {
+            const target = event.target instanceof Element
+                ? event.target
+                : event.target?.parentElement;
+
+            if (!target) return;
+
+            const tabButton = target.closest('[data-academy-message-tab]');
+            if (tabButton) {
+                event.preventDefault();
+                const tab = tabButton.getAttribute('data-academy-message-tab');
+                academySetActiveMessagesTab(tab);
+                academyEnhanceMessagesInbox();
+                return;
+            }
+
+            const pinButton = target.closest('[data-inbox-room-action="pin"], [data-thread-room-action="pin"]');
+            if (pinButton) {
+                event.preventDefault();
+                event.stopPropagation();
+
+                const roomId =
+                    normalizeAcademyUpgradeId(pinButton.getAttribute('data-room-id')) ||
+                    normalizeAcademyUpgradeId(pinButton.getAttribute('data-inbox-room-id')) ||
+                    normalizeAcademyUpgradeId(pinButton.getAttribute('data-thread-room-id')) ||
+                    academyGetRoomIdFromNode(pinButton.closest('.academy-messages-inbox-card')) ||
+                    normalizeAcademyUpgradeId(document.getElementById('academy-messages-thread-menu-trigger')?.getAttribute('data-thread-room-id'));
+
+                academyToggleConversationPin(roomId);
+                return;
+            }
+
+            const messageMenuTrigger = target.closest('[data-message-menu-trigger]');
+            if (messageMenuTrigger) {
+                event.preventDefault();
+                event.stopPropagation();
+
+                const bubble = academyGetBubbleFromEventTarget(messageMenuTrigger);
+                const menu = bubble?.querySelector?.('.message-action-menu');
+                if (!menu) return;
+
+                const willOpen = !menu.classList.contains('is-open');
+                academyCloseMessageActionMenus(menu);
+
+                menu.classList.toggle('is-open', willOpen);
+                messageMenuTrigger.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+                return;
+            }
+
+            const messageActionButton = target.closest('[data-message-action]');
+            if (messageActionButton) {
+                event.preventDefault();
+                event.stopPropagation();
+
+                const bubble = academyGetBubbleFromEventTarget(messageActionButton);
+                const action = messageActionButton.getAttribute('data-message-action');
+
+                academyCloseMessageActionMenus();
+                await academyHandleMessageAction(action, bubble);
+                return;
+            }
+
+            academyCloseMessageActionMenus();
+        });
+    }
+
+    function academyInstallMessageSocketListeners() {
+        if (window.__academyMessageSocketListenersInstalled) return;
+        if (typeof socket === 'undefined' || !socket || typeof socket.on !== 'function') return;
+
+        window.__academyMessageSocketListenersInstalled = true;
+
+        socket.on('messageEdited', (payload = {}) => {
+            const messageId = normalizeAcademyUpgradeId(payload.id || payload.messageId);
+            const text = String(payload.text || '').trim();
+            if (!messageId || !text) return;
+
+            const bubble = document.querySelector('.chat-bubble[data-dbid="' + CSS.escape(messageId) + '"]');
+            if (bubble) {
+                academySetBubbleBodyText(bubble, text);
+            }
+        });
+
+        socket.on('messageHiddenForMe', (payload = {}) => {
+            const messageId = normalizeAcademyUpgradeId(
+                typeof payload === 'string'
+                    ? payload
+                    : payload.id || payload.messageId
+            );
+
+            if (!messageId) return;
+
+            const bubble = document.querySelector('.chat-bubble[data-dbid="' + CSS.escape(messageId) + '"]');
+            if (bubble) {
+                bubble.remove();
+            }
+        });
+
+        socket.on('messageEditError', (payload = {}) => {
+            academyUpgradeToast(payload.message || 'Message edit failed.', 'error');
+        });
+
+        socket.on('messageHideError', (payload = {}) => {
+            academyUpgradeToast(payload.message || 'Could not remove this message for you.', 'error');
+        });
+
+        socket.on('messageDeleteError', (payload = {}) => {
+            academyUpgradeToast(payload.message || 'Could not unsend this message.', 'error');
+        });
+    }
+
+    function academyInstallRightSidebarBotCta() {
+        const sidebar = document.querySelector('.yh-right-sidebar');
+        if (!sidebar || sidebar.querySelector('.academy-right-bot-cta')) return;
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'academy-right-bot-cta';
+        button.setAttribute('aria-label', 'Open Academy AI Coach');
+        button.innerHTML = `<span class="academy-right-bot-cta-pill">I\'m here</span><span class="academy-right-bot-cta-avatar">🤖</span>`;
+
+        button.addEventListener('click', async () => {
+            if (typeof openAcademyCoachView === 'function') {
+                await openAcademyCoachView(true);
+                return;
+            }
+
+            document.getElementById('nav-missions')?.click();
+        });
+
+        sidebar.appendChild(button);
+
+        window.setTimeout(() => {
+            document.body?.classList.add('academy-right-bot-docked');
+            button.classList.add('is-docked');
+            button.innerHTML = `<span class="academy-right-bot-cta-avatar">🤖</span><strong>Ask AI Coach</strong>`;
+        }, 30000);
+    }
+
+    function academyUpgradeBoot() {
+        academyWrapMessagesInboxRenderer();
+        academyInstallMessageActionEvents();
+        academyInstallMessageSocketListeners();
+        academyInstallRightSidebarBotCta();
+
+        window.requestAnimationFrame(() => {
+            academyEnhanceMessagesInbox();
+        });
+
+        window.setInterval(() => {
+            academyWrapMessagesInboxRenderer();
+            academyInstallMessageSocketListeners();
+            academyInstallRightSidebarBotCta();
+            academyEnhanceMessagesInbox();
+        }, 1600);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', academyUpgradeBoot);
+    } else {
+        academyUpgradeBoot();
+    }
+})();
+
