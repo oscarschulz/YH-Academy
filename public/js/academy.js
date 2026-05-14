@@ -25697,7 +25697,7 @@ if (document.body) {
             bot.type = 'button';
             bot.className = 'academy-right-bot-cta academy-right-bot-floating';
             bot.setAttribute('aria-label', 'Open Academy AI Coach');
-            bot.innerHTML = "<span class=\"academy-right-bot-cta-pill\">I'm here</span><span class=\"academy-right-bot-cta-avatar\">🤖</span>";
+            bot.innerHTML = `<span class="academy-right-bot-cta-pill">I'm here</span><span class="academy-right-bot-cta-avatar">🤖</span>`;
 
             bot.addEventListener('click', async () => {
                 if (typeof openAcademyCoachView === 'function') {
@@ -25721,7 +25721,7 @@ if (document.body) {
                 bot.classList.remove('academy-right-bot-floating');
                 bot.classList.add('is-docked');
                 document.body?.classList.add('academy-right-bot-docked');
-                bot.innerHTML = "<span class=\"academy-right-bot-cta-avatar\">🤖</span><strong>Ask AI Coach</strong>";
+                bot.innerHTML = `<span class="academy-right-bot-cta-avatar">🤖</span><strong>Ask AI Coach</strong>`;
             }, 30000);
         }
     }
@@ -25763,5 +25763,343 @@ if (document.body) {
     }
 
     window.setInterval(bootMessagesUiPolish, 1800);
+})();
+
+
+(function installAcademyMessagesInlineEditAndBotWanderFix() {
+    if (window.__academyMessagesInlineEditAndBotWanderFixInstalled) return;
+    window.__academyMessagesInlineEditAndBotWanderFixInstalled = true;
+
+    function academyInlineEditEscapeHtml(value) {
+        return String(value || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function academyInlineEditToast(message, type) {
+        if (typeof showToast === 'function') {
+            showToast(message, type || 'success');
+            return;
+        }
+
+        console.log('[Academy Messages]', message);
+    }
+
+    function academyGetMessageBubbleFromTarget(target) {
+        return target && typeof target.closest === 'function'
+            ? target.closest('.chat-bubble[data-dbid]')
+            : null;
+    }
+
+    function academyGetMessageIdFromBubble(bubble) {
+        return String(bubble && bubble.getAttribute ? bubble.getAttribute('data-dbid') || '' : '').trim();
+    }
+
+    function academySetEditedBubbleText(bubble, text) {
+        if (!bubble) return;
+
+        const body = bubble.querySelector('.bubble-body');
+        if (!body) return;
+
+        body.innerHTML = academyInlineEditEscapeHtml(text).replace(/\n/g, '<br>');
+
+        let edited = bubble.querySelector('.academy-message-edited-label');
+
+        if (!edited) {
+            edited = document.createElement('span');
+            edited.className = 'academy-message-edited-label';
+            edited.textContent = 'edited';
+
+            const time = bubble.querySelector('.bubble-time');
+            if (time) {
+                time.insertAdjacentElement('afterend', edited);
+            } else {
+                bubble.appendChild(edited);
+            }
+        }
+    }
+
+    function academyEnsureInlineEditModal() {
+        let overlay = document.getElementById('academy-inline-message-edit-overlay');
+
+        if (overlay) return overlay;
+
+        overlay = document.createElement('div');
+        overlay.id = 'academy-inline-message-edit-overlay';
+        overlay.className = 'academy-inline-message-edit-overlay hidden-step';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-labelledby', 'academy-inline-message-edit-title');
+
+        overlay.innerHTML = [
+            '<div class="academy-inline-message-edit-card">',
+                '<div class="academy-inline-message-edit-head">',
+                    '<div>',
+                        '<div class="academy-inline-message-edit-kicker">Message</div>',
+                        '<h3 id="academy-inline-message-edit-title">Edit message</h3>',
+                    '</div>',
+                    '<button type="button" class="academy-inline-message-edit-close" data-academy-inline-edit-cancel aria-label="Close">✕</button>',
+                '</div>',
+                '<textarea id="academy-inline-message-edit-textarea" class="academy-inline-message-edit-textarea" rows="4" maxlength="1600"></textarea>',
+                '<div class="academy-inline-message-edit-actions">',
+                    '<button type="button" class="btn-secondary" data-academy-inline-edit-cancel>Cancel</button>',
+                    '<button type="button" class="btn-primary" data-academy-inline-edit-save>Save changes</button>',
+                '</div>',
+            '</div>'
+        ].join('');
+
+        document.body.appendChild(overlay);
+
+        return overlay;
+    }
+
+    function academyOpenInlineEditModal(initialText) {
+        return new Promise((resolve) => {
+            const overlay = academyEnsureInlineEditModal();
+            const textarea = overlay.querySelector('#academy-inline-message-edit-textarea');
+            const saveBtn = overlay.querySelector('[data-academy-inline-edit-save]');
+            const cancelButtons = overlay.querySelectorAll('[data-academy-inline-edit-cancel]');
+
+            let settled = false;
+
+            function cleanup(value) {
+                if (settled) return;
+                settled = true;
+
+                overlay.classList.add('hidden-step');
+                overlay.classList.remove('is-open');
+
+                saveBtn.removeEventListener('click', onSave);
+                cancelButtons.forEach((button) => button.removeEventListener('click', onCancel));
+                overlay.removeEventListener('click', onOverlayClick);
+                document.removeEventListener('keydown', onKeydown);
+
+                resolve(value);
+            }
+
+            function onSave() {
+                const nextText = String(textarea ? textarea.value || '' : '').trim();
+
+                if (!nextText) {
+                    academyInlineEditToast('Message cannot be empty.', 'error');
+                    return;
+                }
+
+                cleanup(nextText);
+            }
+
+            function onCancel() {
+                cleanup(null);
+            }
+
+            function onOverlayClick(event) {
+                if (event.target === overlay) {
+                    cleanup(null);
+                }
+            }
+
+            function onKeydown(event) {
+                if (event.key === 'Escape') {
+                    cleanup(null);
+                    return;
+                }
+
+                if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+                    onSave();
+                }
+            }
+
+            if (textarea) {
+                textarea.value = String(initialText || '').trim();
+            }
+
+            overlay.classList.remove('hidden-step');
+            overlay.classList.add('is-open');
+
+            saveBtn.addEventListener('click', onSave);
+            cancelButtons.forEach((button) => button.addEventListener('click', onCancel));
+            overlay.addEventListener('click', onOverlayClick);
+            document.addEventListener('keydown', onKeydown);
+
+            window.setTimeout(() => {
+                textarea && textarea.focus();
+                textarea && textarea.select();
+            }, 40);
+        });
+    }
+
+    function academyEmitMessageEdit(messageId, text, bubble) {
+        if (typeof socket === 'undefined' || !socket || typeof socket.emit !== 'function') {
+            academyInlineEditToast('Realtime socket is not ready yet. Refresh and try again.', 'error');
+            return;
+        }
+
+        socket.emit('editMessage', {
+            id: messageId,
+            text: text
+        }, function onEditAck(ack) {
+            if (ack && ack.success === false) {
+                academyInlineEditToast(ack.message || 'Message edit failed.', 'error');
+                return;
+            }
+
+            academySetEditedBubbleText(bubble, text);
+            academyInlineEditToast('Message edited.', 'success');
+        });
+    }
+
+    document.addEventListener('click', async function interceptBrowserPromptEdit(event) {
+        const target = event.target instanceof Element
+            ? event.target
+            : event.target && event.target.parentElement;
+
+        if (!target) return;
+
+        const editButton = target.closest('[data-message-action="edit"]');
+        if (!editButton) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+
+        const bubble = academyGetMessageBubbleFromTarget(editButton);
+        const messageId = academyGetMessageIdFromBubble(bubble);
+
+        if (!bubble || !messageId) {
+            academyInlineEditToast('Message could not be found.', 'error');
+            return;
+        }
+
+        const currentText = String(bubble.querySelector('.bubble-body')?.innerText || '').trim();
+        const nextText = await academyOpenInlineEditModal(currentText);
+
+        if (nextText === null) return;
+
+        academyEmitMessageEdit(messageId, nextText, bubble);
+    }, true);
+
+    function academyFindRightSidebar() {
+        return (
+            document.querySelector('.yh-right-sidebar') ||
+            document.querySelector('.academy-right-sidebar') ||
+            document.querySelector('[data-academy-right-sidebar]')
+        );
+    }
+
+    function academyFindOrCreateRightBot(sidebar) {
+        if (!sidebar) return null;
+
+        let bot = sidebar.querySelector('.academy-right-bot-cta');
+
+        if (!bot) {
+            bot = document.createElement('button');
+            bot.type = 'button';
+            bot.className = 'academy-right-bot-cta';
+            bot.setAttribute('aria-label', 'Open Academy AI Coach');
+            bot.innerHTML = `<span class="academy-right-bot-cta-pill">I'm here</span><span class="academy-right-bot-cta-avatar">🤖</span>`;
+
+            bot.addEventListener('click', async () => {
+                if (typeof openAcademyCoachView === 'function') {
+                    await openAcademyCoachView(true);
+                    return;
+                }
+
+                document.getElementById('nav-missions')?.click();
+            });
+
+            sidebar.appendChild(bot);
+        }
+
+        return bot;
+    }
+
+    function academyGetBotWanderBounds(sidebar, bot) {
+        const sidebarRect = sidebar.getBoundingClientRect();
+        const botRect = bot.getBoundingClientRect();
+
+        const activeNow = Array.from(sidebar.querySelectorAll('*')).find((node) => {
+            return /active now/i.test(String(node.textContent || ''));
+        });
+
+        let minTop = 210;
+
+        if (activeNow) {
+            const activeRect = activeNow.getBoundingClientRect();
+            minTop = Math.max(190, activeRect.bottom - sidebarRect.top + 76);
+        }
+
+        const maxTop = Math.max(minTop + 24, sidebar.clientHeight - Math.max(botRect.height || 54, 54) - 96);
+        const maxLeft = Math.max(16, sidebar.clientWidth - Math.max(botRect.width || 130, 130) - 18);
+
+        return {
+            minTop,
+            maxTop,
+            minLeft: 18,
+            maxLeft
+        };
+    }
+
+    function academyMoveBotRandomly(sidebar, bot) {
+        if (!sidebar || !bot || bot.classList.contains('is-docked')) return;
+
+        const bounds = academyGetBotWanderBounds(sidebar, bot);
+        const topRange = Math.max(1, bounds.maxTop - bounds.minTop);
+        const leftRange = Math.max(1, bounds.maxLeft - bounds.minLeft);
+
+        const top = bounds.minTop + Math.round(Math.random() * topRange);
+        const left = bounds.minLeft + Math.round(Math.random() * leftRange);
+
+        bot.style.top = top + 'px';
+        bot.style.left = left + 'px';
+    }
+
+    function academyInstallWanderingRightBot() {
+        const sidebar = academyFindRightSidebar();
+        if (!sidebar) return;
+
+        const bot = academyFindOrCreateRightBot(sidebar);
+        if (!bot) return;
+
+        if (bot.dataset.academyWanderV2Installed === '1') return;
+        bot.dataset.academyWanderV2Installed = '1';
+
+        sidebar.classList.add('academy-right-sidebar-has-wandering-bot');
+        bot.classList.remove('is-docked');
+        bot.classList.add('academy-right-bot-wandering');
+        bot.innerHTML = `<span class="academy-right-bot-cta-pill">I'm here</span><span class="academy-right-bot-cta-avatar">🤖</span>`;
+        document.body?.classList.remove('academy-right-bot-docked');
+
+        window.setTimeout(() => academyMoveBotRandomly(sidebar, bot), 120);
+
+        const wanderTimer = window.setInterval(() => {
+            academyMoveBotRandomly(sidebar, bot);
+        }, 2600);
+
+        window.setTimeout(() => {
+            window.clearInterval(wanderTimer);
+
+            bot.classList.remove('academy-right-bot-wandering');
+            bot.classList.add('is-docked');
+            bot.removeAttribute('style');
+            bot.innerHTML = `<span class="academy-right-bot-cta-avatar">🤖</span><strong>Ask AI Coach</strong>`;
+            document.body?.classList.add('academy-right-bot-docked');
+        }, 30000);
+    }
+
+    function academyBootInlineEditAndBotFix() {
+        academyEnsureInlineEditModal();
+        academyInstallWanderingRightBot();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', academyBootInlineEditAndBotFix);
+    } else {
+        academyBootInlineEditAndBotFix();
+    }
+
+    window.setInterval(academyBootInlineEditAndBotFix, 3500);
 })();
 
