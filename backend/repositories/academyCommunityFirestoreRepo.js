@@ -1486,8 +1486,8 @@ async function getMemberProfile({ viewerId, targetUserId }) {
         )
     ]);
 
-    const explicitTags = Array.isArray(academyProfile.search_tags || academyProfile.searchTags)
-        ? (academyProfile.search_tags || academyProfile.searchTags)
+    const explicitTags = Array.isArray(academyProfile.search_tags || academyProfile.searchTags || academyProfile.tags || academyProfile.signals?.tags)
+        ? (academyProfile.search_tags || academyProfile.searchTags || academyProfile.tags || academyProfile.signals?.tags)
             .map((value) => sanitizeText(value).toLowerCase().replace(/^#/, ''))
             .filter(Boolean)
         : Array.isArray(targetUser.searchTags)

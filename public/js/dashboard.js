@@ -10503,15 +10503,18 @@ function dashboardPersistSelfProfileCache(profile = {}) {
 
     const authUser = getDashboardAuthUserSnapshot();
 
-    const profileSearchTags = Array.isArray(mergedProfile.search_tags)
-        ? mergedProfile.search_tags
-        : Array.isArray(mergedProfile.searchTags)
-            ? mergedProfile.searchTags
-            : Array.isArray(currentCache.search_tags)
-                ? currentCache.search_tags
-                : Array.isArray(currentCache.searchTags)
-                    ? currentCache.searchTags
-                    : [];
+    const profileSearchTags = pickDashboardProfileTags(
+        mergedProfile.search_tags,
+        mergedProfile.searchTags,
+        mergedProfile.tags,
+        mergedProfile.signals?.tags,
+        mergedProfile.signals?.search_tags,
+        mergedProfile.signals?.searchTags,
+        currentCache.search_tags,
+        currentCache.searchTags,
+        currentCache.tags,
+        currentCache.signals?.tags
+    );
 
     const profileLookingFor = Array.isArray(mergedProfile.looking_for)
         ? mergedProfile.looking_for
@@ -10592,6 +10595,7 @@ function dashboardPersistSelfProfileCache(profile = {}) {
 
         search_tags: profileSearchTags,
         searchTags: profileSearchTags,
+        tags: profileSearchTags,
 
         role_track: profileRoleTrack,
         roleTrack: profileRoleTrack,
@@ -10911,13 +10915,18 @@ function mergeYHUniverseProfilePayload(universeProfile = {}, academyProfile = {}
         : {};
 
     const divisions = normalizeYHUniverseDivisionMap(universeProfile.divisions || academyProfile.divisions || {});
-    const searchTags = Array.isArray(signals.tags)
-        ? signals.tags
-        : Array.isArray(academyProfile.search_tags)
-            ? academyProfile.search_tags
-            : Array.isArray(academyProfile.searchTags)
-                ? academyProfile.searchTags
-                : [];
+    const searchTags = pickDashboardProfileTags(
+        universeProfile.search_tags,
+        universeProfile.searchTags,
+        universeProfile.tags,
+        signals.tags,
+        signals.search_tags,
+        signals.searchTags,
+        academyProfile.search_tags,
+        academyProfile.searchTags,
+        academyProfile.tags,
+        academyProfile.signals?.tags
+    );
 
     return {
         ...academyProfile,
@@ -11999,6 +12008,43 @@ function closeDashboardBadgeAvailModal() {
     modal.classList.add('hidden-step');
     modal.setAttribute('aria-hidden', 'true');
 }
+
+function normalizeDashboardProfileTagArray(value = []) {
+    const source = Array.isArray(value)
+        ? value
+        : String(value || '').split(',');
+
+    const seen = new Set();
+    const out = [];
+
+    source.forEach((item) => {
+        const clean = String(item || '')
+            .trim()
+            .replace(/^#+/, '')
+            .replace(/\s+/g, '-')
+            .replace(/[^a-zA-Z0-9_-]+/g, '')
+            .toLowerCase()
+            .slice(0, 32);
+
+        if (!clean || seen.has(clean)) return;
+
+        seen.add(clean);
+        out.push(clean);
+    });
+
+    return out.slice(0, 8);
+}
+
+function pickDashboardProfileTags(...sources) {
+    for (const source of sources) {
+        const normalized = normalizeDashboardProfileTagArray(source);
+
+        if (normalized.length) return normalized;
+    }
+
+    return [];
+}
+
 function normalizeAcademyProfilePayload(profile = {}, options = {}) {
     const displayName =
         String(
@@ -12016,15 +12062,14 @@ function normalizeAcademyProfilePayload(profile = {}, options = {}) {
         ? profile.recentPosts
         : [];
 
-    const searchTags = Array.isArray(profile?.search_tags)
-        ? profile.search_tags
-            .map((tag) => String(tag || '').trim().replace(/^#/, ''))
-            .filter(Boolean)
-        : Array.isArray(profile?.signals?.tags)
-            ? profile.signals.tags
-                .map((tag) => String(tag || '').trim().replace(/^#/, ''))
-                .filter(Boolean)
-            : [];
+    const searchTags = pickDashboardProfileTags(
+        profile?.search_tags,
+        profile?.searchTags,
+        profile?.tags,
+        profile?.signals?.tags,
+        profile?.signals?.search_tags,
+        profile?.signals?.searchTags
+    );
 
     const divisions = normalizeYHUniverseDivisionMap(profile?.divisions || {});
     const signals = profile?.signals && typeof profile.signals === 'object'
@@ -12758,13 +12803,18 @@ function getDashboardUniverseProfileDraft() {
         ''
     ).trim();
 
-    const tags = Array.isArray(profile.search_tags)
-        ? profile.search_tags
-        : Array.isArray(profile.searchTags)
-            ? profile.searchTags
-            : Array.isArray(readCache.search_tags)
-                ? readCache.search_tags
-                : [];
+    const tags = pickDashboardProfileTags(
+        profile.search_tags,
+        profile.searchTags,
+        profile.tags,
+        profile.signals?.tags,
+        profile.signals?.search_tags,
+        profile.signals?.searchTags,
+        readCache.search_tags,
+        readCache.searchTags,
+        readCache.tags,
+        readCache.signals?.tags
+    );
 
     const lookingFor = Array.isArray(profile.looking_for)
         ? profile.looking_for

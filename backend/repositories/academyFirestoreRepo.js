@@ -250,7 +250,30 @@ function mapStoredProfileData(data = {}) {
             data.about ||
             data.description
         ),
-        search_tags: normalizeProfileTagList(data.search_tags || data.searchTags),
+        search_tags: normalizeProfileTagList(
+            data.search_tags ||
+            data.searchTags ||
+            data.tags ||
+            data.signals?.tags ||
+            data.signals?.search_tags ||
+            data.signals?.searchTags
+        ),
+        searchTags: normalizeProfileTagList(
+            data.search_tags ||
+            data.searchTags ||
+            data.tags ||
+            data.signals?.tags ||
+            data.signals?.search_tags ||
+            data.signals?.searchTags
+        ),
+        tags: normalizeProfileTagList(
+            data.search_tags ||
+            data.searchTags ||
+            data.tags ||
+            data.signals?.tags ||
+            data.signals?.search_tags ||
+            data.signals?.searchTags
+        ),
 
         role_track: sanitizeString(data.role_track || data.roleTrack),
         looking_for: normalizeProfileSignalList(data.looking_for || data.lookingFor),
@@ -303,8 +326,42 @@ const nextProfile = {
         ),
     search_tags: normalizeProfileTagList(
         normalized.search_tags ||
+        normalized.searchTags ||
+        normalized.tags ||
+        normalized.signals?.tags ||
         existing.search_tags ||
-        existing.searchTags
+        existing.searchTags ||
+        existing.tags ||
+        existing.signals?.tags ||
+        userExisting.searchTags ||
+        userExisting.search_tags ||
+        userExisting.tags
+    ),
+    searchTags: normalizeProfileTagList(
+        normalized.search_tags ||
+        normalized.searchTags ||
+        normalized.tags ||
+        normalized.signals?.tags ||
+        existing.search_tags ||
+        existing.searchTags ||
+        existing.tags ||
+        existing.signals?.tags ||
+        userExisting.searchTags ||
+        userExisting.search_tags ||
+        userExisting.tags
+    ),
+    tags: normalizeProfileTagList(
+        normalized.search_tags ||
+        normalized.searchTags ||
+        normalized.tags ||
+        normalized.signals?.tags ||
+        existing.search_tags ||
+        existing.searchTags ||
+        existing.tags ||
+        existing.signals?.tags ||
+        userExisting.searchTags ||
+        userExisting.search_tags ||
+        userExisting.tags
     ),
     role_track:
         normalized.role_track ||
