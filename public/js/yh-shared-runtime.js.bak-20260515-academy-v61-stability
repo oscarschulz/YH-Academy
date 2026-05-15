@@ -11,121 +11,47 @@
     let yhTabLoaderDepth = 0;
     let yhTabLoaderVisibleAt = 0;
     let yhTabLoaderHideTimer = null;
-    let yhTabLoaderForceHideTimer = null;
 
-        let yhTabLoaderNestedHideTimer = null;
-    let yhTabLoaderCycle = 0;
     function showAcademyTabLoader(label = 'Loading.') {
         const overlay = document.getElementById('yh-tab-loader');
-        if (!overlay) return 0;
+        if (!overlay) return;
 
         const text = document.getElementById('yh-tab-loader-text');
         if (text) text.textContent = String(label || 'Loading.');
+
+        yhTabLoaderDepth += 1;
 
         if (yhTabLoaderHideTimer) {
             clearTimeout(yhTabLoaderHideTimer);
             yhTabLoaderHideTimer = null;
         }
 
-        if (yhTabLoaderNestedHideTimer) {
-            clearTimeout(yhTabLoaderNestedHideTimer);
-            yhTabLoaderNestedHideTimer = null;
-        }
-
-        if (yhTabLoaderForceHideTimer) {
-            clearTimeout(yhTabLoaderForceHideTimer);
-            yhTabLoaderForceHideTimer = null;
-        }
-
-        yhTabLoaderCycle += 1;
-        const activeCycle = yhTabLoaderCycle;
-
-        yhTabLoaderDepth = 1;
-
-        overlay.dataset.loaderCycle = String(activeCycle);
-        overlay.classList.remove('hidden-step');
-        overlay.classList.add('is-active');
-        overlay.setAttribute('aria-hidden', 'false');
-        overlay.style.pointerEvents = 'auto';
-
-        yhTabLoaderVisibleAt = Date.now();
-
-        const academyForceHideMs =
-            document.body?.getAttribute('data-yh-page') === 'academy' ||
-            document.body?.getAttribute('data-yh-view') === 'academy'
-                ? 1800
-                : 7500;
-
-        yhTabLoaderForceHideTimer = setTimeout(() => {
-            const currentCycle = Number(overlay.dataset.loaderCycle || 0);
-
-            if (
-                currentCycle === activeCycle ||
-                document.body?.getAttribute('data-yh-page') === 'academy' ||
-                document.body?.getAttribute('data-yh-view') === 'academy'
-            ) {
-                forceHideAcademyTabLoader({ token: activeCycle });
-            }
-        }, academyForceHideMs);
-
-        return activeCycle;
-    }
-
-    function hideAcademyTabLoader(options = {}) {
-        const overlay = document.getElementById('yh-tab-loader');
-        if (!overlay) return;
-
-        const force = options && options.force === true;
-        const token = Number(options?.token || 0);
-        const hasToken = Number.isFinite(token) && token > 0;
-        const overlayCycle = Number(overlay.dataset.loaderCycle || 0);
-
-        if (hasToken && overlayCycle && overlayCycle !== token && force !== true) {
+        if (overlay.classList.contains('is-active')) {
             return;
         }
 
-        yhTabLoaderDepth = force ? 0 : Math.max(0, yhTabLoaderDepth - 1);
-        if (!force && yhTabLoaderDepth !== 0) return;
-
-        if (yhTabLoaderForceHideTimer) {
-            clearTimeout(yhTabLoaderForceHideTimer);
-            yhTabLoaderForceHideTimer = null;
-        }
-
-        const hideCycle = overlayCycle || yhTabLoaderCycle;
-        const elapsed = Date.now() - (yhTabLoaderVisibleAt || 0);
-        const delay = force ? 0 : Math.max(0, YH_TAB_LOADER_MIN_MS - elapsed);
-
-        if (yhTabLoaderHideTimer) clearTimeout(yhTabLoaderHideTimer);
-        if (yhTabLoaderNestedHideTimer) clearTimeout(yhTabLoaderNestedHideTimer);
-
-        yhTabLoaderHideTimer = setTimeout(() => {
-            const currentCycle = Number(overlay.dataset.loaderCycle || 0);
-
-            if (!force && currentCycle && hideCycle && currentCycle !== hideCycle) {
-                return;
-            }
-
-            overlay.classList.remove('is-active');
-            overlay.setAttribute('aria-hidden', 'true');
-            overlay.style.pointerEvents = 'none';
-
-            yhTabLoaderNestedHideTimer = setTimeout(() => {
-                const latestCycle = Number(overlay.dataset.loaderCycle || 0);
-
-                if (!force && latestCycle && hideCycle && latestCycle !== hideCycle) {
-                    return;
-                }
-
-                overlay.classList.add('hidden-step');
-                overlay.style.pointerEvents = 'none';
-            }, force ? 0 : 180);
-        }, delay);
+        overlay.classList.remove('hidden-step');
+        void overlay.offsetWidth;
+        overlay.classList.add('is-active');
+        yhTabLoaderVisibleAt = Date.now();
     }
 
-    function forceHideAcademyTabLoader(options = {}) {
-        yhTabLoaderDepth = 0;
-        hideAcademyTabLoader({ ...(options || {}), force: true });
+    function hideAcademyTabLoader() {
+        const overlay = document.getElementById('yh-tab-loader');
+        if (!overlay) return;
+
+        yhTabLoaderDepth = Math.max(0, yhTabLoaderDepth - 1);
+        if (yhTabLoaderDepth !== 0) return;
+
+        const elapsed = Date.now() - (yhTabLoaderVisibleAt || 0);
+        const delay = Math.max(0, YH_TAB_LOADER_MIN_MS - elapsed);
+
+        if (yhTabLoaderHideTimer) clearTimeout(yhTabLoaderHideTimer);
+
+        yhTabLoaderHideTimer = setTimeout(() => {
+            overlay.classList.remove('is-active');
+            setTimeout(() => overlay.classList.add('hidden-step'), 180);
+        }, delay);
     }
 
     function readDashboardViewState() {
@@ -577,7 +503,6 @@
         YH_DASHBOARD_VIEW_STATE_KEY,
         showAcademyTabLoader,
         hideAcademyTabLoader,
-        forceHideAcademyTabLoader,
         readDashboardViewState,
         writeDashboardViewState,
         saveUniverseViewState,

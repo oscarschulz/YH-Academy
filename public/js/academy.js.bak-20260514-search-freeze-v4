@@ -17,175 +17,6 @@
     window.location.replace('/?redirect=academy');
     throw new Error('Academy auth token missing.');
 })();
-/* PATCH: Academy interval budget guard v6.1 */
-(function installAcademyIntervalBudgetGuardV61() {
-    if (window.__academyIntervalBudgetGuardV61Installed) return;
-    window.__academyIntervalBudgetGuardV61Installed = true;
-
-    const nativeSetInterval = window.setInterval.bind(window);
-
-    function isAcademyPage() {
-        const page = document.body && document.body.getAttribute('data-yh-page');
-        const path = String(window.location.pathname || '').replace(/\/+$/, '');
-        return page === 'academy' || path === '/academy';
-    }
-
-    function getAcademyIntervalMinimumDelay(source) {
-        const text = String(source || '');
-
-        const heavyBotOrDomSweep = [
-            'lockBotToVisibleBottom',
-            'clampBotInsideSidebar',
-            'normalizeSingleBot',
-            'placeBotInAllowedPlayArea',
-            'positionAcademyBotBelowActiveMember',
-            'academyMoveBotRandomly',
-            'getRightSidebar',
-            'getActiveNowMemberBottom',
-            'normalizePinnedBadges'
-        ].some((needle) => text.indexOf(needle) >= 0);
-
-        if (heavyBotOrDomSweep) return 30000;
-
-        const repeatedUiSync = [
-            'applyManualMessagesTab',
-            'bootAcademyVoiceLoungeFinalFixes',
-            'bootGroupsInboxFix',
-            'bootMessagesUiPolish',
-            'applyAcademyRealInboxAvatars',
-            'academyEnhanceMessagesInbox',
-            'syncInboxMenuOpenStates',
-            'runAcademyPasswordManagerGuard'
-        ].some((needle) => text.indexOf(needle) >= 0);
-
-        return repeatedUiSync ? 12000 : 0;
-    }
-
-    window.setInterval = function academyBudgetedSetInterval(callback, delay) {
-        const args = Array.prototype.slice.call(arguments, 2);
-
-        if (!isAcademyPage() || typeof callback !== 'function') {
-            return nativeSetInterval.apply(window, arguments);
-        }
-
-        const source = String(callback || '');
-        let safeDelay = Number(delay || 0);
-
-        const minimumDelay = getAcademyIntervalMinimumDelay(source);
-        if (minimumDelay && safeDelay < minimumDelay) {
-            safeDelay = minimumDelay;
-        }
-
-        const wrapped = function academyBudgetedIntervalCallback() {
-            if (document.hidden) return;
-            return callback.apply(this, args);
-        };
-
-        return nativeSetInterval(wrapped, safeDelay || delay);
-    };
-})();
-/* END PATCH: Academy interval budget guard v6.1 */
-
-/* PATCH: Academy tab loader watchdog v11 */
-function academyForceReleaseAllLoadingOverlaysV11(reason = 'tab-watchdog') {
-    try {
-        if (typeof window.YHSharedRuntime?.forceHideAcademyTabLoader === 'function') {
-            window.YHSharedRuntime.forceHideAcademyTabLoader({ reason });
-        }
-    } catch (_) {}
-
-    try {
-        if (typeof hideAcademyTabLoader === 'function') {
-            hideAcademyTabLoader({ force: true, reason });
-        }
-    } catch (_) {}
-
-    const tabLoader = document.getElementById('yh-tab-loader');
-    if (tabLoader) {
-        tabLoader.classList.remove('is-active');
-        tabLoader.classList.add('hidden-step');
-        tabLoader.setAttribute('aria-hidden', 'true');
-        tabLoader.style.pointerEvents = 'none';
-    }
-
-    const startupLoader = document.getElementById('yh-academy-startup-loader');
-    if (startupLoader) {
-        startupLoader.classList.add('hidden-step');
-        startupLoader.classList.add('is-exiting');
-        startupLoader.setAttribute('aria-hidden', 'true');
-        startupLoader.style.pointerEvents = 'none';
-    }
-
-    document.body?.classList.add('academy-shell-ready');
-    document.body?.classList.remove('academy-startup-booting');
-    document.body?.classList.remove('academy-standalone-shell-pending');
-    document.body?.removeAttribute('data-academy-tab-loading');
-
-    window.__academyTabSwitchLockedV7 = false;
-    window.__academyTabSwitchReasonV7 = '';
-}
-
-function academyScheduleTabOverlayWatchdogV11(reason = 'tab') {
-    if (document.body?.getAttribute('data-yh-page') !== 'academy') return;
-
-    window.clearTimeout(window.__academyTabOverlayWatchdogFastV11);
-    window.clearTimeout(window.__academyTabOverlayWatchdogMidV11);
-    window.clearTimeout(window.__academyTabOverlayWatchdogLateV11);
-
-    window.__academyTabOverlayWatchdogFastV11 = window.setTimeout(() => {
-        academyForceReleaseAllLoadingOverlaysV11(reason + '-fast');
-    }, 1600);
-
-    window.__academyTabOverlayWatchdogMidV11 = window.setTimeout(() => {
-        academyForceReleaseAllLoadingOverlaysV11(reason + '-mid');
-    }, 3200);
-
-    window.__academyTabOverlayWatchdogLateV11 = window.setTimeout(() => {
-        academyForceReleaseAllLoadingOverlaysV11(reason + '-late');
-    }, 5200);
-}
-
-function academyBindTabOverlayWatchdogV11() {
-    if (window.__academyTabOverlayWatchdogBoundV11) return;
-    window.__academyTabOverlayWatchdogBoundV11 = true;
-
-    const selector = [
-        '#nav-missions',
-        '#nav-lead-missions',
-        '#nav-chat',
-        '#nav-messages',
-        '#nav-voice',
-        '#nav-profile',
-        '[data-academy-target]'
-    ].join(',');
-
-    document.addEventListener('click', (event) => {
-        const target = event.target?.closest?.(selector);
-        if (!target) return;
-
-        const reason =
-            target.id ||
-            target.getAttribute('data-academy-target') ||
-            'academy-tab';
-
-        academyScheduleTabOverlayWatchdogV11(reason);
-    }, true);
-
-    window.addEventListener('pageshow', () => {
-        window.setTimeout(() => {
-            academyForceReleaseAllLoadingOverlaysV11('pageshow');
-        }, 1200);
-    });
-
-    window.addEventListener('popstate', () => {
-        academyScheduleTabOverlayWatchdogV11('popstate');
-    });
-}
-
-academyBindTabOverlayWatchdogV11();
-/* END PATCH: Academy tab loader watchdog v11 */
-
-
 const {
     getStoredAuthToken,
     getStoredUserValue,
@@ -859,28 +690,11 @@ function showAcademyStartupBootOverlay(section = '') {
 }
 
 function hideAcademyStartupBootOverlay() {
-    const loader = getAcademyStartupBootLoader();
-
-    document.body?.classList.add('academy-shell-ready');
-    document.body?.classList.remove('academy-standalone-shell-pending');
-    document.body?.classList.remove('academy-startup-booting');
-
-    try {
-        if (typeof window.YHSharedRuntime?.forceHideAcademyTabLoader === 'function') {
-            window.YHSharedRuntime.forceHideAcademyTabLoader();
-        }
-    } catch (_) {}
-
-    if (academyStartupBootDismissed) {
-        if (loader) {
-            loader.classList.add('hidden-step');
-            loader.setAttribute('aria-hidden', 'true');
-            loader.style.pointerEvents = 'none';
-        }
-        return;
-    }
+    if (academyStartupBootDismissed) return;
 
     academyStartupBootDismissed = true;
+
+    const loader = getAcademyStartupBootLoader();
 
     if (academyStartupBootFailSafeTimer) {
         clearTimeout(academyStartupBootFailSafeTimer);
@@ -892,15 +706,15 @@ function hideAcademyStartupBootOverlay() {
         sessionStorage.removeItem(YH_ACADEMY_STARTUP_SECTION_KEY);
     } catch (_) {}
 
+    document.body?.classList.remove('academy-startup-booting');
+
     if (!loader) return;
 
     loader.classList.add('is-exiting');
-    loader.style.pointerEvents = 'none';
 
     window.setTimeout(() => {
         loader.classList.add('hidden-step');
         loader.setAttribute('aria-hidden', 'true');
-        loader.style.pointerEvents = 'none';
     }, 220);
 }
 
@@ -956,7 +770,7 @@ function scheduleAcademyStartupBootFailSafe(delayMs = 7000) {
 
     academyStartupBootFailSafeTimer = window.setTimeout(() => {
         hideAcademyStartupBootOverlay();
-    }, Math.min(Number(delayMs) || 7000, 5500));
+    }, delayMs);
 }
 
 function getAcademySectionFromUrl() {
@@ -4657,7 +4471,7 @@ async function ensureVaultLoaded(force = false) {
         if (!btnCreateGroup || !groupNameInput) return false;
 
         const hasGroupName = String(groupNameInput.value || '').trim().length > 0;
-        const hasMembers = Array.isArray(pendingGroupMembers) && pendingGroupMembers.length >= 2;
+        const hasMembers = Array.isArray(pendingGroupMembers) && pendingGroupMembers.length > 0;
         const isReady = hasGroupName && hasMembers;
 
         btnCreateGroup.disabled = !isReady;
@@ -4665,7 +4479,7 @@ async function ensureVaultLoaded(force = false) {
         btnCreateGroup.style.opacity = isReady ? '1' : '0.6';
         btnCreateGroup.style.cursor = isReady ? 'pointer' : 'not-allowed';
         btnCreateGroup.innerText = !hasMembers
-            ? 'Select at least 2 members to create group'
+            ? 'Select members to create group'
             : !hasGroupName
                 ? 'Enter group name to create'
                 : `Create Group (${pendingGroupMembers.length + 1} members)`;
@@ -5029,7 +4843,7 @@ async function ensureVaultLoaded(force = false) {
                 ? pendingGroupMembers.filter((member) => normalizeAcademyFeedId(member?.id))
                 : [];
 
-            if (!chatName || selectedMembers.length < 2) return;
+            if (!chatName || !selectedMembers.length) return;
 
             await runDashboardButtonAction(btnCreateGroup, 'Creating Group.', async () => {
                 const memberUserIds = selectedMembers
@@ -9221,303 +9035,55 @@ function openAcademyFeedView(forceReload = false) {
             hideAcademyTabLoader();
         });
 }
-/* PATCH: Academy tab interaction safety v7 */
-function academyReleaseTabLoaderHardV7(reason = 'tab') {
-    try {
-        if (typeof window.YHSharedRuntime?.forceHideAcademyTabLoader === 'function') {
-            window.YHSharedRuntime.forceHideAcademyTabLoader();
-        }
-    } catch (_) {}
-
-    try {
-        if (typeof hideAcademyTabLoader === 'function') {
-            hideAcademyTabLoader({ force: true });
-        }
-    } catch (_) {
-        try {
-            if (typeof hideAcademyTabLoader === 'function') hideAcademyTabLoader();
-        } catch (_) {}
-    }
-
-    const overlay = document.getElementById('yh-tab-loader');
-    if (overlay) {
-        overlay.classList.remove('is-active');
-        overlay.classList.add('hidden-step');
-        overlay.setAttribute('aria-hidden', 'true');
-        overlay.style.pointerEvents = 'none';
-    }
-
-    document.body?.classList.add('academy-shell-ready');
-    document.body?.classList.remove('academy-startup-booting');
-    document.body?.classList.remove('academy-standalone-shell-pending');
-    document.body?.removeAttribute('data-academy-tab-loading');
-
-    window.__academyTabSwitchLockedV7 = false;
-    window.__academyTabSwitchReasonV7 = '';
-}
-
-function academyLockTabSwitchV7(reason = 'tab') {
-    const now = Date.now();
-    const lastAt = Number(window.__academyLastTabSwitchAtV7 || 0);
-
-    if (window.__academyTabSwitchLockedV7 === true && now - lastAt < 700) {
-        return false;
-    }
-
-    window.__academyTabSwitchLockedV7 = true;
-    window.__academyTabSwitchReasonV7 = reason;
-    window.__academyLastTabSwitchAtV7 = now;
-    document.body?.setAttribute('data-academy-tab-loading', reason);
-
-    window.clearTimeout(window.__academyTabSwitchFailSafeV7);
-    window.__academyTabSwitchFailSafeV7 = window.setTimeout(() => {
-        academyReleaseTabLoaderHardV7('failsafe-' + reason);
-    }, 2500);
-
-    return true;
-}
-
-function academyUnlockTabSwitchSoonV7(reason = 'tab') {
-    window.clearTimeout(window.__academyTabSwitchFailSafeV7);
-    window.setTimeout(() => academyReleaseTabLoaderHardV7(reason), 80);
-    window.setTimeout(() => academyReleaseTabLoaderHardV7(reason + '-late'), 420);
-}
-
-function academyAfterPaintV7(callback) {
-    window.requestAnimationFrame(() => {
-        window.setTimeout(callback, 0);
-    });
-}
-
-function academyScheduleIdleV7(callback, timeout = 900) {
-    if (typeof window.requestIdleCallback === 'function') {
-        window.requestIdleCallback(callback, { timeout });
-        return;
-    }
-
-    window.setTimeout(callback, 120);
-}
-/* END PATCH: Academy tab interaction safety v7 */
-/* PATCH: Academy Messages/Missions shell stabilizer v12 */
-function academyForceReleaseTabLoaderV12(reason = 'shell-ready') {
-    try {
-        if (typeof window.YHSharedRuntime?.forceHideAcademyTabLoader === 'function') {
-            window.YHSharedRuntime.forceHideAcademyTabLoader({ reason });
-        }
-    } catch (_) {}
-
-    try {
-        if (typeof hideAcademyTabLoader === 'function') {
-            hideAcademyTabLoader({ force: true, reason });
-        }
-    } catch (_) {
-        try {
-            if (typeof hideAcademyTabLoader === 'function') hideAcademyTabLoader();
-        } catch (_) {}
-    }
-
-    try {
-        if (typeof academyReleaseTabLoaderHardV7 === 'function') {
-            academyReleaseTabLoaderHardV7(reason);
-        }
-    } catch (_) {}
-
-    const overlay = document.getElementById('yh-tab-loader');
-    if (overlay) {
-        overlay.classList.remove('is-active');
-        overlay.classList.add('hidden-step');
-        overlay.setAttribute('aria-hidden', 'true');
-        overlay.style.pointerEvents = 'none';
-    }
-
-    document.body?.classList.add('academy-shell-ready');
-    document.body?.classList.remove('academy-startup-booting');
-    document.body?.classList.remove('academy-standalone-shell-pending');
-    document.body?.removeAttribute('data-academy-tab-loading');
-}
-
-function academyEnsureMessagesTabsShellV12() {
-    const sidebar = document.getElementById('academy-messages-inbox-sidebar');
-    const list = document.getElementById('academy-messages-inbox-list');
-    if (!list) return null;
-
-    let tabs = document.getElementById('academy-messages-inbox-tabs');
-
-    if (!tabs) {
-        tabs = document.createElement('div');
-        tabs.id = 'academy-messages-inbox-tabs';
-        tabs.className = 'academy-messages-inbox-tabs';
-        tabs.setAttribute('role', 'tablist');
-        tabs.setAttribute('aria-label', 'Conversation type');
-        tabs.innerHTML = [
-            '<button type="button" class="academy-messages-inbox-tab" role="tab" data-academy-message-tab="dm">DMs</button>',
-            '<button type="button" class="academy-messages-inbox-tab" role="tab" data-academy-message-tab="group">Groups</button>'
-        ].join('');
-
-        const head = sidebar?.querySelector?.('.academy-messages-inbox-head') || document.querySelector('.academy-messages-inbox-head');
-
-        if (head) {
-            head.insertAdjacentElement('afterend', tabs);
-        } else {
-            list.insertAdjacentElement('beforebegin', tabs);
-        }
-    }
-
-    tabs.classList.remove('hidden-step');
-    tabs.style.removeProperty('display');
-    tabs.setAttribute('aria-hidden', 'false');
-
-    return tabs;
-}
-
-function academyGetMessagesTabShellV12() {
-    try {
-        const stored = String(localStorage.getItem('yh_academy_messages_active_tab_v1') || 'dm').trim().toLowerCase();
-        return stored === 'group' ? 'group' : 'dm';
-    } catch (_) {
-        return 'dm';
-    }
-}
-
-function academySyncMessagesTabsShellV12(tab = '') {
-    const selected = String(tab || academyGetMessagesTabShellV12()).trim().toLowerCase() === 'group' ? 'group' : 'dm';
-    const tabs = academyEnsureMessagesTabsShellV12();
-
-    try {
-        localStorage.setItem('yh_academy_messages_active_tab_v1', selected);
-    } catch (_) {}
-
-    if (tabs) {
-        tabs.querySelectorAll('[data-academy-message-tab]').forEach((button) => {
-            const value = String(button.getAttribute('data-academy-message-tab') || '').trim().toLowerCase();
-            const active = value === selected;
-
-            button.classList.toggle('is-active', active);
-            button.setAttribute('aria-selected', active ? 'true' : 'false');
-            button.setAttribute('tabindex', active ? '0' : '-1');
-        });
-    }
-
-    return selected;
-}
-
-function academyRenderMessagesShellNowV12() {
-    academyEnsureMessagesTabsShellV12();
-    academySyncMessagesTabsShellV12();
-
-    try {
-        if (typeof renderAcademyMessagesInboxList === 'function') {
-            renderAcademyMessagesInboxList();
-        }
-    } catch (error) {
-        console.error('academyRenderMessagesShellNowV12 render inbox error:', error);
-    }
-
-    try {
-        if (typeof window.academyEnhanceMessagesInbox === 'function') {
-            window.academyEnhanceMessagesInbox();
-        }
-    } catch (_) {}
-
-    try {
-        const rooms = typeof academyReadMessageRooms === 'function'
-            ? academyReadMessageRooms()
-            : [];
-
-        if (typeof academyRenderMessagesThreadEmpty === 'function') {
-            academyRenderMessagesThreadEmpty(
-                rooms.length
-                    ? 'Select a conversation from the inbox to open that private thread.'
-                    : 'No conversations yet. Start a DM or create a group to see it here.'
-            );
-        }
-    } catch (_) {}
-
-    window.setTimeout(() => {
-        try {
-            academyHydrateMessageRooms(!academyMessagesInboxState.hydratedOnce).catch((error) => {
-                showToast(error?.message || 'Failed to load conversations.', 'error');
-            }).finally(() => {
-                academyForceReleaseTabLoaderV12('messages-hydrated');
-                academyEnsureMessagesTabsShellV12();
-                academySyncMessagesTabsShellV12();
-            });
-        } catch (error) {
-            console.error('academyRenderMessagesShellNowV12 hydrate error:', error);
-            academyForceReleaseTabLoaderV12('messages-hydrate-start-error');
-        }
-    }, 120);
-
-    academyForceReleaseTabLoaderV12('messages-shell-ready');
-}
-/* END PATCH: Academy Messages/Missions shell stabilizer v12 */
-
-
 function openAcademyMessagesView() {
-    if (!academyLockTabSwitchV7('messages')) return;
-
     academyRememberLastNonProfileLocation('messages');
 
     showAcademyTabLoader('Loading Messages...');
+    academyPushFeedFallbackHistory('messages');
+    closeRoadmapIntake();
+    academyResetCoachMode();
+    hideAcademyViewsForFeed();
+    setAcademySidebarActive('nav-messages');
+    saveAcademyViewState('messages');
+    applyAcademyMessengerMode(true);
 
-    academyAfterPaintV7(() => {
-        try {
-            academyPushFeedFallbackHistory('messages');
-            closeRoadmapIntake();
-            academyResetCoachMode();
-            hideAcademyViewsForFeed();
-            setAcademySidebarActive('nav-messages');
-            saveAcademyViewState('messages');
-            applyAcademyMessengerMode(true);
+    const academyChat = document.getElementById('academy-chat');
+    const chatHeaderIcon = document.getElementById('chat-header-icon');
+    const chatHeaderTitle = document.getElementById('chat-header-title');
+    const chatHeaderTopic = document.getElementById('chat-header-topic');
+    const chatWelcomeBox = document.getElementById('chat-welcome-box');
+    const chatPinnedMessage = document.getElementById('chat-pinned-message');
+    const chatInputArea = document.getElementById('chat-input-area');
+    const chatInputBox = document.getElementById('chat-input');
 
-            const academyChat = document.getElementById('academy-chat');
-            const chatWelcomeBox = document.getElementById('chat-welcome-box');
-            const chatPinnedMessage = document.getElementById('chat-pinned-message');
+    if (academyChat) {
+        academyChat.classList.remove('hidden-step');
+        academyChat.classList.remove('fade-in');
+        void academyChat.offsetWidth;
+        academyChat.classList.add('fade-in');
+    }
 
-            if (academyChat) {
-                academyChat.classList.remove('hidden-step');
-                academyChat.classList.add('fade-in');
-            }
+    academyRestoreMessagesInboxHeader();
+    if (chatWelcomeBox) chatWelcomeBox.style.display = 'none';
+    if (chatPinnedMessage) chatPinnedMessage.style.display = 'none';
 
-            academyRestoreMessagesInboxHeader();
+    academyResetMessagesThreadState();
 
-            if (chatWelcomeBox) chatWelcomeBox.style.display = 'none';
-            if (chatPinnedMessage) chatPinnedMessage.style.display = 'none';
+    academySetMessagesChatMode('messages');
+    renderAcademyMessagesInboxList();
 
-            academyResetMessagesThreadState();
-            academySetMessagesChatMode('messages');
-
-            academyRenderMessagesShellNowV12();
-
-            const rooms = academyReadMessageRooms();
-
-            academyScheduleIdleV7(() => {
-                try {
-                    renderAcademyMessagesInboxList();
-
-                    if (rooms.length) {
-                        academyRenderMessagesThreadEmpty('Select a conversation from the inbox to open that private thread.');
-                    } else {
-                        academyRenderMessagesThreadEmpty('No conversations yet. Start a DM or create a group to see it here.');
-                    }
-                } catch (error) {
-                    console.error('render messages shell error:', error);
-                }
-            }, 300);
-
-            academyScheduleIdleV7(() => {
-                academyHydrateMessageRooms(!academyMessagesInboxState.hydratedOnce).catch((error) => {
-                    showToast(error?.message || 'Failed to load conversations.', 'error');
-                });
-            }, 1200);
-        } catch (error) {
-            console.error('openAcademyMessagesView error:', error);
-            showToast(error?.message || 'Failed to open Messages.', 'error');
-        } finally {
-            academyForceReleaseTabLoaderV12('messages-opened');
-            academyUnlockTabSwitchSoonV7('messages');
-        }
+    academyHydrateMessageRooms(!academyMessagesInboxState.hydratedOnce).catch((error) => {
+        showToast(error?.message || 'Failed to load conversations.', 'error');
     });
+
+    const rooms = academyReadMessageRooms();
+    if (rooms.length) {
+        academyRenderMessagesThreadEmpty('Select a conversation from the inbox to open that private thread.');
+    } else {
+        academyRenderMessagesThreadEmpty('No conversations yet. Start a DM or create a group to see it here.');
+    }
+
+    hideAcademyTabLoader();
 }
 function openAcademyRoadmapView(forceFresh = false) {
     academyRememberLastNonProfileLocation('roadmap');
@@ -14354,29 +13920,13 @@ function hydrateAcademyLeadMissionsWorkspace(result = {}) {
 
 async function loadAcademyLeadMissionsWorkspace(initialSubtab = 'database') {
     const [result, withdrawalResult, opportunityResult] = await Promise.all([
-        academyResolveAfterTimeout(
-            academyAuthedFetch('/api/academy/lead-missions/workspace', { method: 'GET' }),
-            ACADEMY_ASYNC_STEP_TIMEOUT_MS,
-            { success: false, message: 'Leads workspace request timed out.' }
-        ),
-        academyResolveAfterTimeout(
-            academyAuthedFetch('/api/payouts/my-ledger', { method: 'GET' }).catch(() => ({ success: false, payouts: [] })),
-            ACADEMY_ASYNC_STEP_TIMEOUT_MS,
-            { success: false, payouts: [] }
-        ),
-        academyResolveAfterTimeout(
-            academyAuthedFetch('/api/academy/opportunity-missions', { method: 'GET' }).catch(() => ({
-                success: false,
-                opportunityMissions: [],
-                summary: { total: 0, plaza: 0, federation: 0 }
-            })),
-            ACADEMY_ASYNC_STEP_TIMEOUT_MS,
-            {
-                success: false,
-                opportunityMissions: [],
-                summary: { total: 0, plaza: 0, federation: 0 }
-            }
-        )
+        academyAuthedFetch('/api/academy/lead-missions/workspace', { method: 'GET' }),
+        academyAuthedFetch('/api/payouts/my-ledger', { method: 'GET' }).catch(() => ({ success: false, payouts: [] })),
+        academyAuthedFetch('/api/academy/opportunity-missions', { method: 'GET' }).catch(() => ({
+            success: false,
+            opportunityMissions: [],
+            summary: { total: 0, plaza: 0, federation: 0 }
+        }))
     ]);
 
     if (!result?.success) {
@@ -14680,30 +14230,14 @@ function revealAcademyMissionsViewShell() {
 }
 
 function openAcademyMissionsView() {
-    if (!academyLockTabSwitchV7('missions')) return;
-
     academyRememberLastNonProfileLocation('lead-missions', { missionPanel: 'hub' });
 
     showAcademyTabLoader('Loading Missions...');
-
-    academyAfterPaintV7(() => {
-        try {
-            academyPushFeedFallbackHistory('missions');
-            saveAcademyViewState('missions');
-            revealAcademyMissionsViewShell();
-            setAcademyMissionsPanel('hub');
-        } catch (error) {
-            console.error('openAcademyMissionsView error:', error);
-            showToast(error?.message || 'Failed to open Missions.', 'error');
-
-            try {
-                revealAcademyMissionsViewShell();
-            } catch (_) {}
-        } finally {
-            academyForceReleaseTabLoaderV12('missions-opened');
-            academyUnlockTabSwitchSoonV7('missions');
-        }
-    });
+    academyPushFeedFallbackHistory('missions');
+    saveAcademyViewState('missions');
+    revealAcademyMissionsViewShell();
+    setAcademyMissionsPanel('hub');
+    hideAcademyTabLoader();
 }
 
 async function openAcademyLeadMissionsView(options = {}) {
@@ -14714,19 +14248,9 @@ async function openAcademyLeadMissionsView(options = {}) {
     if (!skipRecruitmentGate) {
         showAcademyTabLoader('Checking Leads access.');
 
-        let hasRecruitmentProfile = false;
-        try {
-            hasRecruitmentProfile = await academyResolveAfterTimeout(
-                ensureAcademyLeadRecruitmentProfileLoaded(),
-                ACADEMY_ASYNC_STEP_TIMEOUT_MS,
-                false
-            );
-        } catch (error) {
-            console.error('ensureAcademyLeadRecruitmentProfileLoaded error:', error);
-            hasRecruitmentProfile = false;
-        } finally {
-            hideAcademyTabLoader();
-        }
+        const hasRecruitmentProfile = await ensureAcademyLeadRecruitmentProfileLoaded();
+
+        hideAcademyTabLoader();
 
         if (!hasRecruitmentProfile) {
             revealAcademyMissionsViewShell();
@@ -14748,7 +14272,6 @@ async function openAcademyLeadMissionsView(options = {}) {
     revealAcademyMissionsViewShell();
     setAcademyMissionsPanel('leads');
 
-    academyForceReleaseTabLoaderV12('leads-shell-ready');
     Promise.resolve(loadAcademyLeadMissionsWorkspace(options?.initialSubtab || 'database'))
         .catch((error) => {
             console.error('loadAcademyLeadMissionsWorkspace error:', error); 
@@ -15179,14 +14702,12 @@ function academyBuildDirectMessageRoomEntry(room = {}, profile = {}) {
 
 function academyCreateDirectMessageRoomElement(roomEntry = {}) {
     const element = document.createElement('div');
-    const forcedRoomType = academyResolveMessageRoomKindV13(roomEntry);
     const visualIcon = roomEntry.avatarUrl
         ? `url("${roomEntry.avatarUrl}")`
         : (roomEntry.icon || '💬');
 
     element.className = 'room-entry';
-    element.setAttribute('data-type', forcedRoomType);
-    element.setAttribute('data-room-type', forcedRoomType);
+    element.setAttribute('data-type', 'dm');
     element.setAttribute('data-id', roomEntry.id || roomEntry.roomId || '');
     element.setAttribute('data-room-id', roomEntry.roomId || roomEntry.id || '');
     element.setAttribute('data-name', roomEntry.name || 'Direct Message');
@@ -15449,30 +14970,12 @@ const academyMessagesInboxState = {
     activeRoomId: '',
     loading: false,
     hydratedOnce: false,
-    lastHydratedAt: 0,
-    hydratePromise: null,
     openMenuRoomId: '',
     openThreadMenu: false,
     homeThreadHtml: '',
     actionLoadingRoomId: '',
     actionLoadingType: ''
 };
-
-const ACADEMY_MESSAGES_HYDRATE_CACHE_MS = 12000;
-const ACADEMY_ASYNC_STEP_TIMEOUT_MS = 9000;
-
-function academyResolveAfterTimeout(promise, timeoutMs = ACADEMY_ASYNC_STEP_TIMEOUT_MS, fallbackValue = null) {
-    let timer = null;
-
-    return Promise.race([
-        Promise.resolve(promise),
-        new Promise((resolve) => {
-            timer = window.setTimeout(() => resolve(fallbackValue), Number(timeoutMs) || ACADEMY_ASYNC_STEP_TIMEOUT_MS);
-        })
-    ]).finally(() => {
-        if (timer) window.clearTimeout(timer);
-    });
-}
 function academyGetInboxActionLoadingLabel(action = '') {
     const cleanAction = String(action || '').trim().toLowerCase();
 
@@ -16061,67 +15564,50 @@ function academyRenderMessagesSidebarBadge() {
 }
 
 async function academyHydrateMessageRooms(forceFresh = false) {
-    const now = Date.now();
-    const cachedRooms = academyReadMessageRooms();
-    const cacheAge = now - Number(academyMessagesInboxState.lastHydratedAt || 0);
-
-    if (
-        !forceFresh &&
-        academyMessagesInboxState.hydratedOnce &&
-        cacheAge >= 0 &&
-        cacheAge < ACADEMY_MESSAGES_HYDRATE_CACHE_MS
-    ) {
-        academyRenderMessagesSidebarBadge();
-        renderAcademyMessagesInboxList();
-        return cachedRooms;
-    }
-
-    if (academyMessagesInboxState.loading && academyMessagesInboxState.hydratePromise) {
-        return academyMessagesInboxState.hydratePromise;
-    }
+    if (academyMessagesInboxState.loading) return academyReadMessageRooms();
 
     academyMessagesInboxState.loading = true;
 
-    academyMessagesInboxState.hydratePromise = (async () => {
-        try {
-            if (forceFresh) {
-                const { list } = academyGetMessagesInboxElements();
-                if (list && !cachedRooms.length) {
-                    list.innerHTML = '<div class="academy-messages-inbox-empty">Loading conversations.</div>';
-                }
-            }
-
-            const result = await academyResolveAfterTimeout(
-                academyAuthedFetch('/api/realtime/rooms', { method: 'GET' }),
-                ACADEMY_ASYNC_STEP_TIMEOUT_MS,
-                { success: false, rooms: cachedRooms, timedOut: true }
-            );
-
-            const roomsRaw = Array.isArray(result?.rooms) ? result.rooms : cachedRooms;
-            const normalizedRooms = roomsRaw
-                .map((room) => academyNormalizeRealtimeRoomEntry(room))
-                .filter((room) => !!normalizeRoomKey(room?.roomId || room?.id));
-
-            syncCustomRoomsUI(normalizedRooms);
-            academyMessagesInboxState.hydratedOnce = true;
-            academyMessagesInboxState.lastHydratedAt = Date.now();
-            academyRenderMessagesSidebarBadge();
-
-            renderAcademyMessagesInboxList();
-            return normalizedRooms;
-        } catch (error) {
-            console.error('academyHydrateMessageRooms error:', error);
-            renderAcademyMessagesInboxList();
-            academyRenderMessagesSidebarBadge();
-            return cachedRooms;
-        }
-    })();
-
     try {
-        return await academyMessagesInboxState.hydratePromise;
+        if (forceFresh) {
+            const { list } = academyGetMessagesInboxElements();
+            if (list) {
+                list.innerHTML = `<div class="academy-messages-inbox-empty">Loading conversations.</div>`;
+            }
+        }
+
+        const result = await academyAuthedFetch('/api/realtime/rooms', {
+            method: 'GET'
+        });
+
+        const roomsRaw = Array.isArray(result?.rooms) ? result.rooms : [];
+        const normalizedRooms = roomsRaw
+            .map((room) => academyNormalizeRealtimeRoomEntry(room))
+            .filter((room) => !!normalizeRoomKey(room?.roomId || room?.id));
+
+        syncCustomRoomsUI(normalizedRooms);
+        academyMessagesInboxState.hydratedOnce = true;
+        academyRenderMessagesSidebarBadge();
+
+        const activeRoomId = normalizeRoomKey(academyMessagesInboxState.activeRoomId);
+        if (activeRoomId) {
+            const stillExists = normalizedRooms.some((room) => {
+                return normalizeRoomKey(room?.roomId || room?.id) === activeRoomId;
+            });
+
+            if (!stillExists) {
+                academyMessagesInboxState.activeRoomId = '';
+            }
+        }
+
+        renderAcademyMessagesInboxList();
+        return normalizedRooms;
+    } catch (error) {
+        renderAcademyMessagesInboxList();
+        academyRenderMessagesSidebarBadge();
+        throw error;
     } finally {
         academyMessagesInboxState.loading = false;
-        academyMessagesInboxState.hydratePromise = null;
     }
 }
 
@@ -16482,162 +15968,10 @@ function academyRenderMessagesThreadEmpty(message = 'Select a conversation to op
     `;
 }
 
-/* PATCH: Academy message room type resolver v13 */
-function academyParseRoomArrayV13(value, fallback = []) {
-    if (Array.isArray(value)) return value;
-    if (value === null || value === undefined || value === '') return Array.isArray(fallback) ? fallback : [];
-
-    if (typeof value === 'string') {
-        try {
-            const parsed = JSON.parse(value);
-            return Array.isArray(parsed) ? parsed : (Array.isArray(fallback) ? fallback : []);
-        } catch (_) {
-            return value.split(',').map((item) => item.trim()).filter(Boolean);
-        }
-    }
-
-    return Array.isArray(fallback) ? fallback : [];
-}
-
-function academyNormalizeParticipantKeyV13(value = '') {
-    try {
-        if (typeof normalizeAcademyFeedId === 'function') {
-            const normalized = normalizeAcademyFeedId(value);
-            if (normalized) return normalized;
-        }
-    } catch (_) {}
-
-    try {
-        if (typeof normalizeRoomKey === 'function') {
-            const normalized = normalizeRoomKey(value);
-            if (normalized) return normalized;
-        }
-    } catch (_) {}
-
-    return String(value || '')
-        .trim()
-        .toLowerCase()
-        .replace(/^@+/, '')
-        .replace(/\s+/g, '_')
-        .replace(/[^a-z0-9_-]/g, '');
-}
-
-function academyCollectMessageRoomParticipantsV13(room = {}) {
-    const keys = [];
-    let numericCount = 0;
-
-    const pushValue = (value) => {
-        if (value === null || value === undefined) return;
-
-        if (typeof value === 'object') {
-            pushValue(
-                value.id ||
-                value.uid ||
-                value.userId ||
-                value.user_id ||
-                value.memberId ||
-                value.member_id ||
-                value.name ||
-                value.displayName ||
-                value.fullName ||
-                value.username ||
-                ''
-            );
-            return;
-        }
-
-        const normalized = academyNormalizeParticipantKeyV13(value);
-        if (normalized && !keys.includes(normalized)) keys.push(normalized);
-    };
-
-    const pushArray = (value) => {
-        academyParseRoomArrayV13(value).forEach(pushValue);
-    };
-
-    if (room && typeof HTMLElement !== 'undefined' && room instanceof HTMLElement) {
-        pushArray(room.getAttribute('data-room-member-ids') || room.dataset?.roomMemberIds || '[]');
-        pushArray(room.getAttribute('data-room-participants') || room.dataset?.roomParticipants || '[]');
-        pushArray(room.getAttribute('data-room-member-names') || room.dataset?.roomMemberNames || '[]');
-        pushValue(room.getAttribute('data-room-recipient-id') || room.dataset?.roomRecipientId || '');
-        pushValue(room.getAttribute('data-room-recipient') || room.dataset?.roomRecipient || '');
-    } else if (room && typeof room === 'object') {
-        pushArray(room.memberIds || room.member_ids || room.memberUserIds || room.member_user_ids || []);
-        pushArray(room.participantIds || room.participant_ids || []);
-        pushArray(room.participantNames || room.participant_names || []);
-        pushArray(room.memberNames || room.member_names || []);
-        pushArray(room.participants || []);
-        pushArray(room.members || []);
-        pushArray(room.users || []);
-        pushValue(room.recipientId || room.recipient_id || '');
-        pushValue(room.recipientName || room.recipient_name || '');
-
-        numericCount = Math.max(
-            Number(room.memberCount || 0),
-            Number(room.membersCount || 0),
-            Number(room.participantCount || 0),
-            Number(room.participantsCount || 0),
-            Number(room.totalMembers || 0),
-            Number(room.totalParticipants || 0),
-            0
-        );
-    }
-
-    return {
-        keys,
-        count: Math.max(keys.length, Number.isFinite(numericCount) ? numericCount : 0)
-    };
-}
-
-function academyGetMessageRoomParticipantCountV13(room = {}) {
-    return academyCollectMessageRoomParticipantsV13(room).count;
-}
-
-function academyResolveMessageRoomKindV13(room = {}) {
-    const participantCount = academyGetMessageRoomParticipantCountV13(room);
-
-    if (participantCount > 2) return 'group';
-    if (participantCount === 2) return 'dm';
-
-    const raw = String(
-        room?.room_type ||
-        room?.roomType ||
-        room?.type ||
-        room?.dataset?.academyRoomType ||
-        room?.dataset?.roomType ||
-        (typeof room?.getAttribute === 'function' ? room.getAttribute('data-room-type') || room.getAttribute('data-type') : '') ||
-        ''
-    ).trim().toLowerCase();
-
-    return raw === 'group' ? 'group' : 'dm';
-}
-
-function academyNormalizeMessageRoomEntryTypeV13(room = {}) {
-    if (!room || typeof room !== 'object') return room;
-
-    const type = academyResolveMessageRoomKindV13(room);
-    const participants = academyCollectMessageRoomParticipantsV13(room);
-
-    return {
-        ...room,
-        type,
-        roomType: type,
-        room_type: type,
-        participantCount: participants.count,
-        participantsCount: participants.count
-    };
-}
-
-function academyNormalizeMessageRoomsForTabsV13(rooms = []) {
-    return (Array.isArray(rooms) ? rooms : [])
-        .map((room) => academyNormalizeMessageRoomEntryTypeV13(room))
-        .filter(Boolean);
-}
-/* END PATCH: Academy message room type resolver v13 */
-
 function academyBuildGenericInboxRoomElement(roomEntry = {}) {
     const element = document.createElement('div');
     const roomId = String(roomEntry.roomId || roomEntry.id || '').trim();
-    const roomType = academyResolveMessageRoomKindV13(roomEntry);
+    const roomType = String(roomEntry.type || 'group').trim().toLowerCase() === 'dm' ? 'dm' : 'group';
 
     element.className = 'room-entry';
     element.setAttribute('data-type', roomType);
@@ -16686,15 +16020,12 @@ function academyOpenInboxRoomById(roomId = '') {
     saveAcademyViewState('messages');
     setAcademySidebarActive('nav-messages');
 
-    const resolvedRoomEntry = academyNormalizeMessageRoomEntryTypeV13(roomEntry);
-    const resolvedRoomType = resolvedRoomEntry.type === 'group' ? 'group' : 'dm';
-
     const transientRoomElement =
-        resolvedRoomType === 'dm' && typeof academyCreateDirectMessageRoomElement === 'function'
-            ? academyCreateDirectMessageRoomElement(resolvedRoomEntry)
-            : academyBuildGenericInboxRoomElement(resolvedRoomEntry);
+        roomEntry.type === 'dm' && typeof academyCreateDirectMessageRoomElement === 'function'
+            ? academyCreateDirectMessageRoomElement(roomEntry)
+            : academyBuildGenericInboxRoomElement(roomEntry);
 
-    openRoom(resolvedRoomType, transientRoomElement);
+    openRoom(roomEntry.type === 'dm' ? 'dm' : 'group', transientRoomElement);
     academySetMessagesChatMode('thread');
     markCustomRoomAsRead(roomEntry.roomId || roomEntry.id);
     renderAcademyMessagesInboxList();
@@ -16728,7 +16059,7 @@ function renderAcademyMessagesInboxList() {
         academyMessagesInboxState.activeRoomId = runtimeActiveRoomId;
     }
 
-    const rooms = academyNormalizeMessageRoomsForTabsV13(academyReadMessageRooms());
+    const rooms = academyReadMessageRooms();
     academyRenderMessagesSidebarBadge();
 
     if (!rooms.length) {
@@ -16746,7 +16077,7 @@ function renderAcademyMessagesInboxList() {
         const unreadCount = Number.parseInt(room?.unreadCount, 10);
         const unread = Number.isFinite(unreadCount) && unreadCount > 0 ? unreadCount : 0;
         const isActive = activeRoomId && activeRoomId === normalizedRoomId;
-        const roomType = academyResolveMessageRoomKindV13(room);
+        const roomType = String(room?.type || '').trim().toLowerCase() === 'group' ? 'group' : 'dm';
         const roomTypeLabel = roomType === 'group' ? 'Group' : 'DM';
         const timeLabel = academyFormatInboxTime(room?.lastMessageAt || '');
         const isMuted = room?.muted === true;
@@ -16833,13 +16164,6 @@ function renderAcademyMessagesInboxList() {
                         class="academy-messages-inbox-menu ${academyMessagesInboxState.openMenuRoomId === normalizedRoomId ? 'is-open' : ''}"
                         data-room-menu-id="${academyFeedEscapeHtml(roomId)}"
                     >
-                        <button
-                            type="button"
-                            role="menuitem"
-                            data-inbox-room-action="pin"
-                            data-inbox-room-id="${academyFeedEscapeHtml(roomId)}"
-                            data-room-id="${academyFeedEscapeHtml(roomId)}"
-                        >Pin conversation</button>
                         <button type="button" data-room-action="hide" data-room-id="${academyFeedEscapeHtml(roomId)}">Delete conversation</button>
                         <button type="button" data-room-action="${academyFeedEscapeHtml(restrictAction)}" data-room-id="${academyFeedEscapeHtml(roomId)}">${academyFeedEscapeHtml(restrictLabel)}</button>
                         <button type="button" data-room-action="${academyFeedEscapeHtml(blockAction)}" data-room-id="${academyFeedEscapeHtml(roomId)}">${academyFeedEscapeHtml(blockLabel)}</button>
@@ -16869,13 +16193,6 @@ function bindAcademyMessagesInbox() {
 
             return;
         }
-        const pinActionBtn = event.target?.closest?.('[data-inbox-room-action="pin"]');
-        if (pinActionBtn) {
-            // Let the dedicated pin handler on document handle this click.
-            // This prevents the inbox card fallback from opening the room instead of pinning it.
-            return;
-        }
-
         const actionBtn = event.target?.closest?.('[data-room-action]');
         if (actionBtn) {
             event.preventDefault();
@@ -18066,94 +17383,44 @@ let academySearchRequestToken = 0;
 
 async function requestAcademyMemberSearch(query = '') {
     const normalizedQuery = String(query || '').trim();
-    const isEmailSearchQuery = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedQuery);
-
-    if (!normalizedQuery || isEmailSearchQuery) return [];
-
     const cacheKey = normalizedQuery.toLowerCase();
     const now = Date.now();
     const CACHE_TTL_MS = 15 * 1000;
 
-    try {
-        if (typeof academyMemberSearchCache !== 'undefined' && academyMemberSearchCache instanceof Map) {
-            const cached = academyMemberSearchCache.get(cacheKey);
-            if (cached && (now - cached.at) < CACHE_TTL_MS && Array.isArray(cached.members)) {
-                return cached.members;
-            }
-        }
-    } catch (_) {}
+    if (!normalizedQuery) return [];
 
-    try {
-        if (
-            typeof academyMemberSearchInFlight !== 'undefined' &&
-            academyMemberSearchInFlight &&
-            academyMemberSearchInFlight.key === cacheKey
-        ) {
-            return academyMemberSearchInFlight.promise;
-        }
-    } catch (_) {}
+    const cached = academyMemberSearchCache.get(cacheKey);
+    if (cached && (now - cached.at) < CACHE_TTL_MS && Array.isArray(cached.members)) {
+        return cached.members;
+    }
 
-    const endpoint = '/api/academy/community/members?limit=24&query=' + encodeURIComponent(normalizedQuery);
+    if (academyMemberSearchInFlight && academyMemberSearchInFlight.key === cacheKey) {
+        return academyMemberSearchInFlight.promise;
+    }
 
-    const promise = academyAuthedFetch(endpoint, { method: 'GET' })
+    const promise = academyAuthedFetch(
+        `/api/academy/community/members?limit=24&query=${encodeURIComponent(normalizedQuery)}`,
+        { method: 'GET' }
+    )
         .then((result) => (Array.isArray(result?.members) ? result.members : []))
         .catch(() => [])
         .finally(() => {
-            try {
-                if (
-                    typeof academyMemberSearchInFlight !== 'undefined' &&
-                    academyMemberSearchInFlight &&
-                    academyMemberSearchInFlight.key === cacheKey
-                ) {
-                    academyMemberSearchInFlight = null;
-                }
-            } catch (_) {}
+            if (academyMemberSearchInFlight && academyMemberSearchInFlight.key === cacheKey) {
+                academyMemberSearchInFlight = null;
+            }
         });
 
-    try {
-        if (typeof academyMemberSearchInFlight !== 'undefined') {
-            academyMemberSearchInFlight = { key: cacheKey, promise };
-        }
-    } catch (_) {}
+    academyMemberSearchInFlight = { key: cacheKey, promise };
 
     const members = await promise;
-
-    try {
-        if (typeof academyMemberSearchCache !== 'undefined' && academyMemberSearchCache instanceof Map) {
-            academyMemberSearchCache.set(cacheKey, { at: Date.now(), members });
-        }
-    } catch (_) {}
-
+    academyMemberSearchCache.set(cacheKey, { at: Date.now(), members });
     return members;
 }
 
 function academySyncSearchInputs(value = '', sourceInputId = '') {
     const normalizedValue = String(value || '');
-    const normalizedTrimmedValue = normalizedValue.trim();
-    const isEmailSearchValue = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedTrimmedValue);
-
-    if (!normalizedTrimmedValue || isEmailSearchValue) {
-        ['academy-global-search-input', 'academy-member-browser-search-input'].forEach((id) => {
-            const input = document.getElementById(id);
-            if (input) {
-                input.value = '';
-                input.defaultValue = '';
-                input.removeAttribute('value');
-                input.dataset.academySearchUserTyped = '';
-            }
-        });
-
-        if (typeof closeAcademySearchResultsPanel === 'function') {
-            closeAcademySearchResultsPanel();
-        }
-
-        document.body?.classList.remove('academy-search-results-open');
-        return;
-    }
-
     ['academy-global-search-input', 'academy-member-browser-search-input'].forEach((id) => {
         if (id === sourceInputId) return;
-
         const input = document.getElementById(id);
         if (input && input.value !== normalizedValue) {
             input.value = normalizedValue;
@@ -18169,8 +17436,6 @@ function renderAcademySearchResultsLoadingPanel(query = '') {
     const safeQuery = academyFeedEscapeHtml(String(query || '').trim());
 
     panel.classList.remove('hidden-step');
-    panel.setAttribute('aria-hidden', 'false');
-    panel.style.removeProperty('pointer-events');
     document.body?.classList.add('academy-search-results-open');
 
     inner.innerHTML = `
@@ -18199,35 +17464,9 @@ function scheduleAcademySearch(query = '', options = {}) {
     const normalizedQuery = String(query || '').trim();
     const sourceInputId = String(options.sourceInputId || '').trim();
     const immediate = options.immediate === true;
-    const isEmailSearchQuery = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedQuery);
-
-    window.clearTimeout(academySearchDebounceTimer);
-
-    if (!normalizedQuery || isEmailSearchQuery) {
-        ['academy-global-search-input', 'academy-member-browser-search-input'].forEach((id) => {
-            const input = document.getElementById(id);
-            if (input) {
-                input.value = '';
-                input.defaultValue = '';
-                input.removeAttribute('value');
-                input.dataset.academySearchUserTyped = '';
-            }
-        });
-
-        if (typeof closeAcademySearchResultsPanel === 'function') {
-            closeAcademySearchResultsPanel();
-        }
-
-        document.body?.classList.remove('academy-search-results-open');
-
-        try {
-            academySearchRequestToken += 1;
-        } catch (_) {}
-
-        return;
-    }
 
     academySyncSearchInputs(normalizedQuery, sourceInputId);
+    window.clearTimeout(academySearchDebounceTimer);
 
     if (normalizedQuery.length < 2) {
         applyAcademySearch('', {
@@ -18250,15 +17489,11 @@ function scheduleAcademySearch(query = '', options = {}) {
 }
 
 function closeAcademySearchResultsPanel() {
-    const panel = document.getElementById("academy-search-results-panel");
-    const inner = document.getElementById("academy-search-results-inner");
-    if (inner) inner.innerHTML = "";
-    if (panel) {
-        panel.classList.add("hidden-step");
-        panel.setAttribute("aria-hidden", "true");
-        panel.style.pointerEvents = "none";
-    }
-    document.body?.classList.remove("academy-search-results-open");
+    const panel = document.getElementById('academy-search-results-panel');
+    const inner = document.getElementById('academy-search-results-inner');
+    if (inner) inner.innerHTML = '';
+    panel?.classList.add('hidden-step');
+    document.body?.classList.remove('academy-search-results-open');
 }
 
 function academyBlurCommunitySearchInput() {
@@ -18310,8 +17545,6 @@ function renderAcademySearchResultsPanel(members = [], query = '', posts = [], c
     }
 
     panel.classList.remove('hidden-step');
-    panel.setAttribute('aria-hidden', 'false');
-    panel.style.removeProperty('pointer-events');
     document.body?.classList.add('academy-search-results-open');
 
     if (totalResults === 0) {
@@ -26046,7 +25279,18 @@ if (document.body) {
 
     function academyGetRoomTypeFromCard(card = null, roomId = '') {
         const room = academyResolveUpgradeRoom(roomId);
-        return academyResolveMessageRoomKindV13(room || card || {});
+        const raw = String(
+            room?.type ||
+            room?.roomType ||
+            room?.room_type ||
+            card?.getAttribute?.('data-room-type') ||
+            card?.getAttribute?.('data-type') ||
+            card?.querySelector?.('[data-room-type]')?.getAttribute?.('data-room-type') ||
+            card?.querySelector?.('[data-type]')?.getAttribute?.('data-type') ||
+            ''
+        ).trim().toLowerCase();
+
+        return raw === 'group' ? 'group' : 'dm';
     }
 
     function academyEnsureMessagesTabs() {
@@ -26537,14 +25781,11 @@ if (document.body) {
         });
 
         window.setInterval(() => {
-            const mode = String(document.getElementById('academy-chat')?.getAttribute('data-chat-mode') || '').trim().toLowerCase();
-            if (mode !== 'messages' && mode !== 'thread') return;
-
             academyWrapMessagesInboxRenderer();
             academyInstallMessageSocketListeners();
             academyInstallRightSidebarBotCta();
             academyEnhanceMessagesInbox();
-        }, 12000);
+        }, 1600);
     }
 
     if (document.readyState === 'loading') {
@@ -26659,11 +25900,7 @@ if (document.body) {
         bootMessagesUiPolish();
     }
 
-    window.setInterval(() => {
-        const mode = String(document.getElementById('academy-chat')?.getAttribute('data-chat-mode') || '').trim().toLowerCase();
-        if (mode !== 'messages' && mode !== 'thread') return;
-        bootMessagesUiPolish();
-    }, 12000);
+    window.setInterval(bootMessagesUiPolish, 1800);
 })();
 
 
@@ -27001,8 +26238,7 @@ if (document.body) {
         academyBootInlineEditAndBotFix();
     }
 
-    window.setTimeout(academyBootInlineEditAndBotFix, 800);
-    window.addEventListener('pageshow', academyBootInlineEditAndBotFix);
+    window.setInterval(academyBootInlineEditAndBotFix, 3500);
 })();
 
 
@@ -27159,41 +26395,12 @@ if (document.body) {
         }
     }, true);
 
-    let academyPasswordGuardQueuedV13 = false;
-    const observer = new MutationObserver((mutations) => {
-        if (document.hidden || academyPasswordGuardQueuedV13) return;
-
-        const relevant = mutations.some((mutation) => {
-            const target = mutation.target instanceof Element ? mutation.target : null;
-            const added = Array.from(mutation.addedNodes || []).filter((node) => node instanceof Element);
-
-            return Boolean(
-                target?.closest?.('#academy-chat, #chat-input-area, #chat-messages, #academy-profile-view') ||
-                added.some((node) => {
-                    return Boolean(
-                        node.matches?.('input, textarea, form, #academy-chat, #chat-input-area, #chat-messages, #academy-profile-view') ||
-                        node.querySelector?.('input, textarea, form')
-                    );
-                })
-            );
-        });
-
-        if (!relevant) return;
-
-        academyPasswordGuardQueuedV13 = true;
-        window.setTimeout(() => {
-            academyPasswordGuardQueuedV13 = false;
-            runAcademyPasswordManagerGuard();
-        }, 450);
+    const observer = new MutationObserver(() => {
+        runAcademyPasswordManagerGuard();
     });
 
-    const passwordGuardRoot =
-        document.getElementById('academy-chat') ||
-        document.getElementById('academy-profile-view') ||
-        document.body;
-
-    if (passwordGuardRoot) {
-        observer.observe(passwordGuardRoot, {
+    if (document.body) {
+        observer.observe(document.body, {
             childList: true,
             subtree: true
         });
@@ -27206,11 +26413,7 @@ if (document.body) {
     }
 
     window.addEventListener('pageshow', scheduleAcademyPasswordManagerGuard);
-    window.setInterval(() => {
-        const mode = String(document.getElementById('academy-chat')?.getAttribute('data-chat-mode') || '').trim().toLowerCase();
-        if (mode !== 'messages' && mode !== 'thread' && mode !== 'voice') return;
-        runAcademyPasswordManagerGuard();
-    }, 15000);
+    window.setInterval(runAcademyPasswordManagerGuard, 2500);
 })();
 
 
@@ -27647,12 +26850,10 @@ if (document.body) {
     }
 
     window.setInterval(() => {
-        const mode = String(document.getElementById('academy-chat')?.getAttribute('data-chat-mode') || '').trim().toLowerCase();
-        if (mode !== 'messages' && mode !== 'thread') return;
         applyAcademyRealInboxAvatars();
-    }, 12000);
+    }, 1800);
 
-    window.setTimeout(() => {
+    window.setInterval(() => {
         const bot = findAcademyBotCta();
         if (bot && !bot.classList.contains('is-docked')) {
             positionAcademyBotBelowActiveMember();
@@ -28064,12 +27265,7 @@ if (document.body) {
 
     window.addEventListener('pageshow', bootAcademyVoiceLoungeFinalFixes);
 
-    window.setInterval(() => {
-        const mode = String(document.getElementById('academy-chat')?.getAttribute('data-chat-mode') || '').trim().toLowerCase();
-        const activeView = String(document.body?.getAttribute('data-academy-current-view') || '').trim().toLowerCase();
-        if (mode !== 'voice' && activeView !== 'voice') return;
-        bootAcademyVoiceLoungeFinalFixes();
-    }, 15000);
+    window.setInterval(bootAcademyVoiceLoungeFinalFixes, 900);
 })();
 
 
@@ -28295,9 +27491,9 @@ if (document.body) {
     window.addEventListener('resize', () => placeBotInAllowedPlayArea(true));
     window.addEventListener('pageshow', () => placeBotInAllowedPlayArea(true));
 
-    window.setTimeout(() => {
+    window.setInterval(() => {
         normalizeSingleBot();
-        placeBotInAllowedPlayArea(true);
+        placeBotInAllowedPlayArea(false);
     }, 350);
 })();
 
@@ -28539,9 +27735,13 @@ if (document.body) {
     window.addEventListener('resize', () => clampBotInsideSidebar(true));
     window.addEventListener('pageshow', () => clampBotInsideSidebar(true));
 
-    window.setTimeout(() => {
+    window.setInterval(() => {
+        clampBotInsideSidebar(false);
+    }, 220);
+
+    window.setInterval(() => {
         clampBotInsideSidebar(true);
-    }, 420);
+    }, 2600);
 })();
 
 
@@ -28566,7 +27766,27 @@ if (document.body) {
     }
 
     function getRoomType(room = {}) {
-        return academyResolveMessageRoomKindV13(room);
+        const raw = safeText(
+            room.room_type ||
+            room.roomType ||
+            room.type ||
+            room.dataset?.academyRoomType ||
+            room.dataset?.roomType ||
+            ''
+        ).toLowerCase();
+
+        if (raw === 'group') return 'group';
+        if (raw === 'dm') return 'dm';
+
+        const memberIds = Array.isArray(room.memberIds)
+            ? room.memberIds
+            : Array.isArray(room.member_ids)
+                ? room.member_ids
+                : [];
+
+        if (memberIds.length > 2) return 'group';
+
+        return 'dm';
     }
 
     function getRooms() {
@@ -28916,11 +28136,7 @@ if (document.body) {
     }
 
     window.addEventListener('pageshow', bootGroupsInboxFix);
-    window.setInterval(() => {
-        const mode = String(document.getElementById('academy-chat')?.getAttribute('data-chat-mode') || '').trim().toLowerCase();
-        if (mode !== 'messages' && mode !== 'thread') return;
-        bootGroupsInboxFix();
-    }, 12000);
+    window.setInterval(bootGroupsInboxFix, 1200);
 })();
 
 /* PATCH: Academy AI coach bottom-visible dock + manual Messages tab guard v2 */
@@ -29238,7 +28454,8 @@ if (document.body) {
     window.addEventListener('resize', lockBotToVisibleBottom);
     window.addEventListener('pageshow', bootPatch);
 
-    window.setTimeout(lockBotToVisibleBottom, 600);
+    window.setInterval(lockBotToVisibleBottom, 160);
+    window.setInterval(() => applyManualMessagesTab(readStoredTab()), 240);
 })();
 /* END PATCH: Academy AI coach bottom-visible dock + manual Messages tab guard v2 */
 
@@ -29781,16 +28998,10 @@ if (document.body) {
         });
     }
 
-    let normalizePinnedBadgesQueuedV13 = false;
     function scheduleNormalize() {
-        if (document.hidden || normalizePinnedBadgesQueuedV13) return;
-
-        normalizePinnedBadgesQueuedV13 = true;
-        window.setTimeout(() => {
-            normalizePinnedBadgesQueuedV13 = false;
-            if (document.hidden) return;
-            normalizePinnedBadges();
-        }, 90);
+        window.requestAnimationFrame(normalizePinnedBadges);
+        window.setTimeout(normalizePinnedBadges, 60);
+        window.setTimeout(normalizePinnedBadges, 180);
     }
 
     const originalRender = window.renderAcademyMessagesInboxList;
@@ -29824,23 +29035,12 @@ if (document.body) {
 
         list.dataset.pinnedPillSingleCardObserved = '1';
 
-        const observer = new MutationObserver((mutations) => {
-            if (document.hidden) return;
-
-            const relevant = mutations.some((mutation) => {
-                return Array.from(mutation.addedNodes || []).some((node) => {
-                    return node instanceof Element && (
-                        node.matches?.('.academy-messages-inbox-card, .academy-messages-inbox-item') ||
-                        node.querySelector?.('.academy-messages-inbox-card, .academy-messages-inbox-item')
-                    );
-                });
-            });
-
-            if (relevant) scheduleNormalize();
-        });
+        const observer = new MutationObserver(scheduleNormalize);
         observer.observe(list, {
             childList: true,
-            subtree: false
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['class', 'data-academy-room-id', 'data-room-id', 'data-inbox-room-id']
         });
     };
 
@@ -29851,21 +29051,117 @@ if (document.body) {
     }
 
     window.addEventListener('pageshow', boot);
-    window.setInterval(() => {
-        const mode = String(document.getElementById('academy-chat')?.getAttribute('data-chat-mode') || '').trim().toLowerCase();
-        if (mode !== 'messages' && mode !== 'thread') return;
-        normalizePinnedBadges();
-    }, 12000);
+    window.setInterval(normalizePinnedBadges, 500);
 })();
 /* END PATCH: Academy pinned conversation pill single-card placement v1 */
 
-/* PATCH: Academy top action modals v2 */
-(function installAcademyTopActionModalsV2() {
-    if (window.__academyTopActionModalsV2Installed) return;
-    window.__academyTopActionModalsV2Installed = true;
+/* PATCH: Academy top action modals + search autofill guard v1 */
+(function installAcademyTopActionModalsAndSearchAutofillGuardV1() {
+    if (window.__academyTopActionModalsAndSearchAutofillGuardV1Installed) return;
+    window.__academyTopActionModalsAndSearchAutofillGuardV1Installed = true;
 
     const NOTIF_OVERLAY_ID = 'academy-notification-modal-overlay';
     const RESOURCES_OVERLAY_ID = 'academy-resources-modal-overlay';
+    const SEARCH_INPUT_IDS = ['academy-global-search-input', 'academy-member-browser-search-input'];
+
+    function safeText(value) {
+        return String(value || '').trim();
+    }
+
+    function isEmailLike(value = '') {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(safeText(value));
+    }
+
+    function getStoredAccountEmails() {
+        const keys = ['yh_user_email', 'user_email', 'email', 'yh_email'];
+        const emails = new Set();
+
+        keys.forEach((key) => {
+            try {
+                const localValue = safeText(localStorage.getItem(key)).toLowerCase();
+                const sessionValue = safeText(sessionStorage.getItem(key)).toLowerCase();
+
+                if (isEmailLike(localValue)) emails.add(localValue);
+                if (isEmailLike(sessionValue)) emails.add(sessionValue);
+            } catch (_) {}
+        });
+
+        try {
+            const stored = typeof getStoredUserValue === 'function'
+                ? safeText(getStoredUserValue('yh_user_email', '')).toLowerCase()
+                : '';
+
+            if (isEmailLike(stored)) emails.add(stored);
+        } catch (_) {}
+
+        return emails;
+    }
+
+    function preventSearchBrowserAutofill(input) {
+        if (!(input instanceof HTMLInputElement)) return;
+
+        input.setAttribute('type', 'search');
+        input.setAttribute('name', input.id === 'academy-global-search-input' ? 'academy_community_search_no_autofill' : 'academy_member_search_no_autofill');
+        input.setAttribute('autocomplete', 'new-password');
+        input.setAttribute('autocorrect', 'off');
+        input.setAttribute('autocapitalize', 'none');
+        input.setAttribute('spellcheck', 'false');
+        input.setAttribute('inputmode', 'search');
+        input.setAttribute('data-lpignore', 'true');
+        input.setAttribute('data-1p-ignore', 'true');
+        input.setAttribute('data-form-type', 'other');
+        input.removeAttribute('value');
+    }
+
+    function clearSearchInputIfAutofilled(input, force = false) {
+        if (!(input instanceof HTMLInputElement)) return;
+
+        preventSearchBrowserAutofill(input);
+
+        const value = safeText(input.value);
+        if (!value) return;
+
+        const accountEmails = getStoredAccountEmails();
+        const lowerValue = value.toLowerCase();
+        const userEdited = input.dataset.academySearchUserEdited === '1';
+
+        const shouldClear =
+            force ||
+            (!userEdited && (isEmailLike(value) || accountEmails.has(lowerValue)));
+
+        if (!shouldClear) return;
+
+        input.value = '';
+        input.defaultValue = '';
+        input.removeAttribute('value');
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    function guardAcademySearchInputs(force = false) {
+        SEARCH_INPUT_IDS.forEach((id) => {
+            const input = document.getElementById(id);
+            if (!(input instanceof HTMLInputElement)) return;
+
+            preventSearchBrowserAutofill(input);
+            clearSearchInputIfAutofilled(input, force);
+
+            if (input.dataset.academySearchAutofillGuardBound === '1') return;
+            input.dataset.academySearchAutofillGuardBound = '1';
+
+            input.addEventListener('keydown', () => {
+                input.dataset.academySearchUserEdited = '1';
+            });
+
+            input.addEventListener('paste', () => {
+                input.dataset.academySearchUserEdited = '1';
+            });
+
+            input.addEventListener('focus', () => {
+                window.setTimeout(() => clearSearchInputIfAutofilled(input, false), 0);
+                window.setTimeout(() => clearSearchInputIfAutofilled(input, false), 180);
+            });
+        });
+    }
 
     function ensureOverlay(id, label) {
         let overlay = document.getElementById(id);
@@ -30048,504 +29344,60 @@ if (document.body) {
         }
     });
 
-    window.openAcademyNotificationsModal = openNotificationsModal;
-    window.openAcademyResourcesModal = openResourcesModal;
-    window.closeAcademyTopActionModals = closeTopActionModals;
-})();
-/* END PATCH: Academy top action modals v2 */
-
-
-
-
-
-
-
-
-
-/* PATCH: Academy search autofill blocker + interaction safety v5 */
-(function installAcademySearchAutofillBlockerAndInteractionSafetyV5() {
-    if (window.__academySearchAutofillBlockerAndInteractionSafetyV5Installed) return;
-    window.__academySearchAutofillBlockerAndInteractionSafetyV5Installed = true;
-
-    const SEARCH_IDS = ["academy-global-search-input", "academy-member-browser-search-input"];
-    let cleanScheduled = false;
-    let sweepCount = 0;
-    let sweepTimer = null;
-
-    function safeText(value) {
-        return String(value || "").trim();
-    }
-
-    function isEmailLike(value) {
-        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(safeText(value));
-    }
-
-    function getInputs() {
-        return SEARCH_IDS
-            .map(function (id) { return document.getElementById(id); })
-            .filter(function (input) { return input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement; });
-    }
-
-    function hardenInput(input) {
-        if (!input) return;
-
-        input.setAttribute("autocomplete", "off");
-        input.setAttribute("autocorrect", "off");
-        input.setAttribute("autocapitalize", "none");
-        input.setAttribute("spellcheck", "false");
-        input.setAttribute("inputmode", "search");
-        input.setAttribute("data-lpignore", "true");
-        input.setAttribute("data-1p-ignore", "true");
-        input.setAttribute("data-bwignore", "true");
-        input.setAttribute("data-form-type", "other");
-        input.setAttribute("aria-autocomplete", "none");
-        input.removeAttribute("readonly");
-        input.removeAttribute("value");
-
-        if (input instanceof HTMLInputElement) {
-            input.type = "search";
-            input.name = input.id === "academy-member-browser-search-input"
-                ? "yh_academy_member_query_field"
-                : "yh_academy_query_field";
-        }
-    }
-
-    function closeSearchUi() {
-        try {
-            if (typeof closeAcademySearchResultsPanel === "function") {
-                closeAcademySearchResultsPanel();
-            }
-        } catch (_) {}
-
-        const panel = document.getElementById("academy-search-results-panel");
-        const inner = document.getElementById("academy-search-results-inner");
-
-        if (inner) inner.innerHTML = "";
-        if (panel) {
-            panel.classList.add("hidden-step");
-            panel.setAttribute("aria-hidden", "true");
-            panel.style.pointerEvents = "none";
-        }
-
-        document.body?.classList.remove("academy-search-results-open");
-    }
-
-    function clearTimers() {
-        try {
-            if (typeof academySearchDebounceTimer !== "undefined" && academySearchDebounceTimer) {
-                clearTimeout(academySearchDebounceTimer);
-                academySearchDebounceTimer = null;
-            }
-        } catch (_) {}
-
-        try {
-            if (typeof academyMemberSearchDebounce !== "undefined" && academyMemberSearchDebounce) {
-                clearTimeout(academyMemberSearchDebounce);
-                academyMemberSearchDebounce = null;
-            }
-        } catch (_) {}
-
-        try {
-            if (typeof academySearchRequestToken !== "undefined") {
-                academySearchRequestToken += 1;
-            }
-        } catch (_) {}
-    }
-
-    function clearInput(input, reason) {
-        if (!input) return false;
-        hardenInput(input);
-
-        const hadValue = Boolean(safeText(input.value) || safeText(input.defaultValue) || safeText(input.getAttribute("value")));
-        input.dataset.academySearchSystemClear = "1";
-        input.value = "";
-        input.defaultValue = "";
-        input.removeAttribute("value");
-        input.dataset.academySearchUserTyped = "";
-        input.dataset.academyLastSearchClearReason = reason || "system";
-
-        window.setTimeout(function () {
-            input.dataset.academySearchSystemClear = "";
-        }, 0);
-
-        return hadValue;
-    }
-
-    function clearAll(reason) {
-        let changed = false;
-        getInputs().forEach(function (input) {
-            if (clearInput(input, reason)) changed = true;
-        });
-        clearTimers();
-        closeSearchUi();
-        return changed;
-    }
-
-    function activeSearchValue() {
-        return getInputs().map(function (input) { return safeText(input.value); }).find(Boolean) || "";
-    }
-
-    function releaseHiddenBlockers() {
-        const panel = document.getElementById("academy-search-results-panel");
-        const startup = document.getElementById("yh-academy-startup-loader");
-        const tabLoader = document.getElementById("yh-tab-loader");
-
-        if (!activeSearchValue() || isEmailLike(activeSearchValue())) {
-            closeSearchUi();
-        } else if (panel && !panel.classList.contains("hidden-step")) {
-            panel.style.removeProperty("pointer-events");
-            panel.setAttribute("aria-hidden", "false");
-        }
-
-        [startup, tabLoader].forEach(function (node) {
-            if (!node) return;
-            if (node.classList.contains("hidden-step") || node.classList.contains("is-exiting") || node.getAttribute("aria-hidden") === "true" || node.hidden === true) {
-                node.style.pointerEvents = "none";
-            }
-        });
-
-        const blockingModalOpen = Boolean(document.querySelector(".academy-top-action-modal-overlay:not(.hidden-step), .yh-confirm-overlay:not(.hidden-step), .modal-overlay:not(.hidden-step), .academy-lead-modal:not(.hidden-step)"));
-        if (!blockingModalOpen && (!startup || startup.classList.contains("hidden-step") || startup.getAttribute("aria-hidden") === "true")) {
-            document.body?.classList.remove("academy-top-action-modal-open");
-        }
-    }
-
-    function clean(reason) {
-        let changed = false;
-
-        getInputs().forEach(function (input) {
-            hardenInput(input);
-            const value = safeText(input.value || input.defaultValue || input.getAttribute("value"));
-            if (!value) return;
-
-            if (isEmailLike(value) || input.dataset.academySearchUserTyped !== "1") {
-                if (clearInput(input, reason || "clean")) changed = true;
-            }
-        });
-
-        if (changed) {
-            clearTimers();
-            closeSearchUi();
-        }
-
-        releaseHiddenBlockers();
-        return changed;
-    }
-
-    function scheduleClean(reason) {
-        if (cleanScheduled) return;
-        cleanScheduled = true;
-
-        window.requestAnimationFrame(function () {
-            cleanScheduled = false;
-            bindInputs();
-            clean(reason || "scheduled");
-        });
-    }
-
-    function markTyped(input) {
-        hardenInput(input);
-        input.dataset.academySearchUserTyped = "1";
-    }
-
-    function bindInput(input) {
-        if (!input || input.dataset.academySearchV5Bound === "1") return;
-        input.dataset.academySearchV5Bound = "1";
-        hardenInput(input);
-
-        input.addEventListener("keydown", function () { markTyped(input); }, true);
-        input.addEventListener("beforeinput", function () { markTyped(input); }, true);
-        input.addEventListener("paste", function () { markTyped(input); }, true);
-
-        input.addEventListener("input", function (event) {
-            const value = safeText(input.value);
-
-            if (!value) {
-                input.dataset.academySearchUserTyped = "";
-                closeSearchUi();
-                return;
-            }
-
-            if (isEmailLike(value) || input.dataset.academySearchUserTyped !== "1") {
-                event.preventDefault?.();
-                event.stopPropagation?.();
-                event.stopImmediatePropagation?.();
-                clearAll(isEmailLike(value) ? "email-autofill-blocked" : "non-user-prefill-blocked");
-            }
-        }, true);
-
-        input.addEventListener("change", function (event) {
-            const value = safeText(input.value);
-            if (isEmailLike(value) || input.dataset.academySearchUserTyped !== "1") {
-                event.preventDefault?.();
-                event.stopPropagation?.();
-                event.stopImmediatePropagation?.();
-                clearAll("change-prefill-blocked");
-            }
-        }, true);
-    }
-
-    function bindInputs() {
-        getInputs().forEach(bindInput);
-    }
-
-    function wrapFunction(name, wrapperFactory) {
-        let original = null;
-        try { original = window[name]; } catch (_) {}
-        if (typeof original !== "function") {
-            try { original = eval(name); } catch (_) { original = null; }
-        }
-        if (typeof original !== "function" || original.__academySearchV5Wrapped === true) return;
-
-        const wrapped = wrapperFactory(original);
-        wrapped.__academySearchV5Wrapped = true;
-        wrapped.__academySearchV5Original = original;
-
-        try { window[name] = wrapped; } catch (_) {}
-        try { eval(name + ' = window["' + name + '"]'); } catch (_) {}
-    }
-
-    function installFunctionGuards() {
-        wrapFunction("academySyncSearchInputs", function (original) {
-            return function guardedAcademySyncSearchInputs(value, sourceInputId) {
-                const query = safeText(value);
-                if (!query || isEmailLike(query)) {
-                    if (isEmailLike(query)) clearAll("sync-email-blocked");
-                    else closeSearchUi();
-                    return;
-                }
-                return original.apply(this, arguments);
-            };
-        });
-
-        wrapFunction("scheduleAcademySearch", function (original) {
-            return function guardedScheduleAcademySearch(query, options) {
-                const cleanQuery = safeText(query);
-                if (!cleanQuery || isEmailLike(cleanQuery)) {
-                    if (isEmailLike(cleanQuery)) clearAll("schedule-email-blocked");
-                    else closeSearchUi();
-                    clearTimers();
-                    return;
-                }
-                return original.apply(this, arguments);
-            };
-        });
-
-        wrapFunction("applyAcademySearch", function (original) {
-            return function guardedApplyAcademySearch(query, options) {
-                const cleanQuery = safeText(query);
-                if (!cleanQuery || isEmailLike(cleanQuery)) {
-                    if (isEmailLike(cleanQuery)) clearAll("apply-email-blocked");
-                    else closeSearchUi();
-                    return Promise.resolve([]);
-                }
-                return original.apply(this, arguments);
-            };
-        });
-
-        wrapFunction("requestAcademyMemberSearch", function (original) {
-            return function guardedRequestAcademyMemberSearch(query) {
-                const cleanQuery = safeText(query);
-                if (!cleanQuery || isEmailLike(cleanQuery)) {
-                    if (isEmailLike(cleanQuery)) clearAll("request-email-blocked");
-                    return Promise.resolve([]);
-                }
-                return original.apply(this, arguments);
-            };
-        });
-
-        wrapFunction("renderAcademySearchResultsLoadingPanel", function (original) {
-            return function guardedRenderLoading(query) {
-                const cleanQuery = safeText(query);
-                if (!cleanQuery || isEmailLike(cleanQuery)) {
-                    if (isEmailLike(cleanQuery)) clearAll("render-loading-email-blocked");
-                    else closeSearchUi();
-                    return;
-                }
-                return original.apply(this, arguments);
-            };
-        });
-
-        wrapFunction("renderAcademySearchResultsPanel", function (original) {
-            return function guardedRenderResults(members, query) {
-                const cleanQuery = safeText(query);
-                if (!cleanQuery || isEmailLike(cleanQuery)) {
-                    if (isEmailLike(cleanQuery)) clearAll("render-results-email-blocked");
-                    else closeSearchUi();
-                    return;
-                }
-                return original.apply(this, arguments);
-            };
-        });
-
-        wrapFunction("openAcademyFeedView", function (original) {
-            return function guardedOpenAcademyFeedView() {
-                clearAll("before-open-feed");
-                const result = original.apply(this, arguments);
-                window.setTimeout(function () { clearAll("after-open-feed-80"); }, 80);
-                window.setTimeout(function () { clearAll("after-open-feed-420"); }, 420);
-                return result;
-            };
-        });
-    }
-
     function boot() {
-        bindInputs();
-        installFunctionGuards();
-        clean("boot");
-        releaseHiddenBlockers();
+        guardAcademySearchInputs(false);
 
-        if (!sweepTimer) {
-            sweepTimer = window.setInterval(function () {
-                sweepCount += 1;
-                scheduleClean("boot-sweep-" + sweepCount);
-                if (sweepCount >= 20) {
-                    window.clearInterval(sweepTimer);
-                    sweepTimer = null;
-                }
-            }, 250);
-        }
+        window.setTimeout(() => guardAcademySearchInputs(false), 120);
+        window.setTimeout(() => guardAcademySearchInputs(false), 420);
+        window.setTimeout(() => guardAcademySearchInputs(false), 900);
+        window.setTimeout(() => guardAcademySearchInputs(false), 1600);
     }
 
-    document.addEventListener("focusin", function (event) {
-        const input = event.target;
-        if (SEARCH_IDS.includes(input?.id)) {
-            bindInput(input);
-            scheduleClean("focusin");
-        }
-    }, true);
-
-    document.addEventListener("click", function () {
-        window.setTimeout(releaseHiddenBlockers, 0);
-    }, true);
-
-    document.addEventListener("visibilitychange", function () {
-        if (!document.hidden) scheduleClean("visible");
-    });
-
-    window.addEventListener("pageshow", boot);
-    window.addEventListener("load", boot);
-
-    if (document.body && window.MutationObserver) {
-        let searchObserverQueuedV13 = false;
-        const observer = new MutationObserver(function (mutations) {
-            if (document.hidden || searchObserverQueuedV13) return;
-
-            const touchesSearch = mutations.some(function (mutation) {
-                const target = mutation.target instanceof Element ? mutation.target : null;
-                const added = Array.from(mutation.addedNodes || []).filter(function (node) {
-                    return node instanceof Element;
-                });
-
-                return Boolean(
-                    SEARCH_IDS.includes(target?.id) ||
-                    added.some(function (node) {
-                        return SEARCH_IDS.includes(node.id) || SEARCH_IDS.some(function (id) {
-                            return Boolean(node.querySelector?.('#' + id));
-                        });
-                    })
-                );
-            });
-
-            if (!touchesSearch) return;
-
-            searchObserverQueuedV13 = true;
-            window.setTimeout(function () {
-                searchObserverQueuedV13 = false;
-                scheduleClean("search-dom-child-change");
-            }, 350);
-        });
-
-        const searchRoot = document.getElementById("academy-feed-view") || document.body;
-        observer.observe(searchRoot, { childList: true, subtree: true });
-    }
-
-    if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", boot);
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', boot);
     } else {
         boot();
     }
 
-    window.academyClearSearchAutofillBug = function () {
-        return clearAll("manual");
-    };
+    window.addEventListener('pageshow', boot);
+    window.addEventListener('load', boot);
+
+    window.openAcademyNotificationsModal = openNotificationsModal;
+    window.openAcademyResourcesModal = openResourcesModal;
+    window.closeAcademyTopActionModals = closeTopActionModals;
 })();
-/* END PATCH: Academy search autofill blocker + interaction safety v5 */
+/* END PATCH: Academy top action modals + search autofill guard v1 */
 
-/* PATCH: Academy community search email autofill hard lock v6 */
-(function installAcademyCommunitySearchEmailAutofillHardLockV6() {
-    if (window.__academyCommunitySearchEmailAutofillHardLockV6Installed) return;
-    window.__academyCommunitySearchEmailAutofillHardLockV6Installed = true;
+/* PATCH: Academy strict search email autofill hard stop v2
+   Superseded by the safer Academy search v2 guard below.
+   The old v1 interval/attribute observer was removed to prevent browser freeze.
+*/
+/* END PATCH: Academy strict search email autofill hard stop v2 */
 
-    const SEARCH_IDS = ['academy-global-search-input', 'academy-member-browser-search-input'];
-    const SEARCH_NAME_SALT = String(Date.now()) + '-' + Math.random().toString(16).slice(2);
-    let sweepTimer = null;
-    let sweepCount = 0;
+/* PATCH: Academy search fields stay empty until user types v2 */
+(function installAcademySearchFieldsStayEmptyUntilUserTypesV2() {
+    if (window.__academySearchFieldsStayEmptyUntilUserTypesV2Installed) return;
+    window.__academySearchFieldsStayEmptyUntilUserTypesV2Installed = true;
 
-    function cleanText(value = '') {
+    const SEARCH_IDS = [
+        'academy-global-search-input',
+        'academy-member-browser-search-input'
+    ];
+
+    let cleanScheduled = false;
+
+    function safeText(value) {
         return String(value || '').trim();
     }
 
     function isEmailLike(value = '') {
-        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanText(value));
-    }
-
-    function readStoredEmailCandidates() {
-        const keys = ['yh_user_email', 'email', 'user_email'];
-        const values = [];
-
-        keys.forEach((key) => {
-            try { values.push(cleanText(localStorage.getItem(key)).toLowerCase()); } catch (_) {}
-            try { values.push(cleanText(sessionStorage.getItem(key)).toLowerCase()); } catch (_) {}
-        });
-
-        try {
-            const token = typeof getStoredAuthToken === 'function' ? getStoredAuthToken() : '';
-            const payload = String(token || '').split('.')[1] || '';
-            if (payload) {
-                const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
-                const json = JSON.parse(atob(normalized.padEnd(normalized.length + ((4 - normalized.length % 4) % 4), '=')));
-                values.push(cleanText(json?.email || json?.user?.email).toLowerCase());
-            }
-        } catch (_) {}
-
-        return Array.from(new Set(values.filter(Boolean)));
-    }
-
-    function shouldClearSearchValue(value = '') {
-        const clean = cleanText(value);
-        if (!clean) return false;
-        if (isEmailLike(clean)) return true;
-
-        const lower = clean.toLowerCase();
-        return readStoredEmailCandidates().includes(lower);
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(safeText(value));
     }
 
     function getSearchInputs() {
         return SEARCH_IDS
             .map((id) => document.getElementById(id))
             .filter((input) => input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement);
-    }
-
-    function hardenSearchInput(input) {
-        if (!input) return;
-
-        input.setAttribute('autocomplete', 'new-password');
-        input.setAttribute('autocorrect', 'off');
-        input.setAttribute('autocapitalize', 'none');
-        input.setAttribute('spellcheck', 'false');
-        input.setAttribute('inputmode', 'search');
-        input.setAttribute('data-lpignore', 'true');
-        input.setAttribute('data-1p-ignore', 'true');
-        input.setAttribute('data-bwignore', 'true');
-        input.setAttribute('data-form-type', 'other');
-        input.setAttribute('aria-autocomplete', 'none');
-        input.removeAttribute('value');
-
-        if (input instanceof HTMLInputElement) {
-            input.type = 'search';
-            input.name = input.id + '_no_email_autofill_' + SEARCH_NAME_SALT;
-        }
     }
 
     function closeSearchUi() {
@@ -30557,139 +29409,218 @@ if (document.body) {
 
         const panel = document.getElementById('academy-search-results-panel');
         const inner = document.getElementById('academy-search-results-inner');
-        if (inner) inner.innerHTML = '';
+
+        if (inner) {
+            inner.innerHTML = '<div class="academy-search-result-empty">Start typing to search users, posts, captions, and tags.</div>';
+        }
+
         if (panel) {
             panel.classList.add('hidden-step');
             panel.setAttribute('aria-hidden', 'true');
-            panel.style.pointerEvents = 'none';
         }
+
         document.body?.classList.remove('academy-search-results-open');
     }
 
-    function clearSearchInput(input, reason = 'email-autofill') {
-        if (!input) return false;
-        const hadValue = Boolean(cleanText(input.value) || cleanText(input.defaultValue) || cleanText(input.getAttribute('value')));
+    function clearSearchDebounce() {
+        try {
+            if (typeof academySearchDebounceTimer !== 'undefined' && academySearchDebounceTimer) {
+                clearTimeout(academySearchDebounceTimer);
+                academySearchDebounceTimer = null;
+            }
+        } catch (_) {}
 
-        input.dataset.academySearchSystemClear = '1';
+        try {
+            if (typeof academySearchRequestToken !== 'undefined') {
+                academySearchRequestToken += 1;
+            }
+        } catch (_) {}
+    }
+
+    function hardenSearchInput(input) {
+        if (!input) return;
+
+        if (input.dataset.academySearchV2Hardened !== '1') {
+            input.setAttribute('autocomplete', 'off');
+            input.setAttribute('autocorrect', 'off');
+            input.setAttribute('autocapitalize', 'none');
+            input.setAttribute('spellcheck', 'false');
+            input.setAttribute('inputmode', 'search');
+            input.setAttribute('data-lpignore', 'true');
+            input.setAttribute('data-1p-ignore', 'true');
+            input.setAttribute('data-bwignore', 'true');
+            input.setAttribute('data-form-type', 'other');
+            input.setAttribute('aria-autocomplete', 'none');
+
+            if (input instanceof HTMLInputElement) {
+                input.setAttribute('type', 'search');
+                input.setAttribute('name', 'academy_search_' + input.id.replace(/[^a-z0-9_-]/gi, '_'));
+            }
+
+            input.dataset.academySearchV2Hardened = '1';
+        }
+
+        input.removeAttribute('readonly');
+        input.removeAttribute('value');
+    }
+
+    function clearSearchInput(input, reason = 'system') {
+        if (!input) return false;
+
+        hardenSearchInput(input);
+
+        const hadValue = Boolean(safeText(input.value) || safeText(input.defaultValue) || safeText(input.getAttribute('value')));
+
         input.value = '';
         input.defaultValue = '';
         input.removeAttribute('value');
         input.dataset.academySearchUserTyped = '';
-        input.dataset.academySearchEmailAutofillBlocked = reason;
-
-        window.setTimeout(() => {
-            input.dataset.academySearchSystemClear = '';
-        }, 0);
+        input.dataset.academyLastSearchClearReason = reason;
 
         return hadValue;
     }
 
-    function sweepSearchInputs(reason = 'sweep') {
-        let cleared = false;
+    function cleanSearchInputs(reason = 'system') {
+        let changed = false;
 
         getSearchInputs().forEach((input) => {
             hardenSearchInput(input);
 
-            const value = cleanText(input.value || input.defaultValue || input.getAttribute('value'));
-            if (shouldClearSearchValue(value)) {
-                if (clearSearchInput(input, reason)) cleared = true;
+            const value = safeText(input.value || input.defaultValue || input.getAttribute('value'));
+
+            if (!value) return;
+
+            if (input.dataset.academySearchUserTyped === '1' && !isEmailLike(value)) {
+                return;
+            }
+
+            if (clearSearchInput(input, reason)) {
+                changed = true;
             }
         });
 
-        if (cleared) {
-            try {
-                if (typeof academySearchDebounceTimer !== 'undefined' && academySearchDebounceTimer) {
-                    clearTimeout(academySearchDebounceTimer);
-                    academySearchDebounceTimer = null;
-                }
-                if (typeof academySearchRequestToken !== 'undefined') {
-                    academySearchRequestToken += 1;
-                }
-            } catch (_) {}
-
+        if (changed) {
+            clearSearchDebounce();
             closeSearchUi();
         }
 
-        return cleared;
+        return changed;
     }
 
-    function bindSearchInput(input) {
-        if (!input || input.dataset.academySearchEmailAutofillV6Bound === '1') return;
-        input.dataset.academySearchEmailAutofillV6Bound = '1';
-        hardenSearchInput(input);
+    function scheduleClean(reason = 'scheduled') {
+        if (cleanScheduled) return;
 
-        ['input', 'change', 'blur', 'focus'].forEach((eventName) => {
-            input.addEventListener(eventName, () => {
-                if (shouldClearSearchValue(input.value)) {
-                    sweepSearchInputs(eventName + '-email-blocked');
-                }
-            }, true);
+        cleanScheduled = true;
+
+        window.requestAnimationFrame(() => {
+            cleanScheduled = false;
+            bindSearchInputs();
+            cleanSearchInputs(reason);
         });
     }
 
-    function bootSearchEmailAutofillLock(reason = 'boot') {
+    function markUserTyped(input) {
+        if (!input) return;
+
+        hardenSearchInput(input);
+        input.dataset.academySearchUserTyped = '1';
+    }
+
+    function bindSearchInput(input) {
+        if (!input || input.dataset.academySearchV2Bound === '1') return;
+
+        input.dataset.academySearchV2Bound = '1';
+        hardenSearchInput(input);
+
+        input.addEventListener('keydown', () => markUserTyped(input), true);
+        input.addEventListener('beforeinput', () => markUserTyped(input), true);
+        input.addEventListener('paste', () => markUserTyped(input), true);
+
+        input.addEventListener('input', (event) => {
+            const value = safeText(input.value);
+
+            if (!value) {
+                input.dataset.academySearchUserTyped = '';
+                closeSearchUi();
+                return;
+            }
+
+            if (isEmailLike(value) || input.dataset.academySearchUserTyped !== '1') {
+                event.preventDefault?.();
+                event.stopPropagation?.();
+                event.stopImmediatePropagation?.();
+
+                clearSearchInput(input, isEmailLike(value) ? 'email-autofill-blocked' : 'non-user-prefill-blocked');
+                clearSearchDebounce();
+                closeSearchUi();
+            }
+        }, true);
+
+        input.addEventListener('change', (event) => {
+            const value = safeText(input.value);
+
+            if (isEmailLike(value) || input.dataset.academySearchUserTyped !== '1') {
+                event.preventDefault?.();
+                event.stopPropagation?.();
+                event.stopImmediatePropagation?.();
+
+                clearSearchInput(input, 'change-prefill-blocked');
+                clearSearchDebounce();
+                closeSearchUi();
+            }
+        }, true);
+
+        input.addEventListener('blur', () => {
+            if (!safeText(input.value)) {
+                input.dataset.academySearchUserTyped = '';
+            }
+        });
+    }
+
+    function bindSearchInputs() {
         getSearchInputs().forEach(bindSearchInput);
-        sweepSearchInputs(reason);
+    }
 
-        window.setTimeout(() => sweepSearchInputs(reason + '-80'), 80);
-        window.setTimeout(() => sweepSearchInputs(reason + '-350'), 350);
-        window.setTimeout(() => sweepSearchInputs(reason + '-900'), 900);
-        window.setTimeout(() => sweepSearchInputs(reason + '-2200'), 2200);
+    function boot() {
+        bindSearchInputs();
+        cleanSearchInputs('boot');
 
-        if (!sweepTimer) {
-            sweepCount = 0;
-            sweepTimer = window.setInterval(() => {
-                sweepCount += 1;
-                sweepSearchInputs('email-autofill-long-sweep-' + sweepCount);
-
-                if (sweepCount >= 90) {
-                    window.clearInterval(sweepTimer);
-                    sweepTimer = null;
-                }
-            }, 1000);
-        }
+        [80, 250, 700, 1500].forEach((delay) => {
+            window.setTimeout(() => scheduleClean('delayed-' + delay), delay);
+        });
     }
 
     document.addEventListener('focusin', (event) => {
-        if (SEARCH_IDS.includes(event.target?.id)) {
-            bindSearchInput(event.target);
-            sweepSearchInputs('focusin');
-        }
-    }, true);
+        const input = event.target;
 
-    document.addEventListener('input', (event) => {
-        if (SEARCH_IDS.includes(event.target?.id) && shouldClearSearchValue(event.target.value)) {
-            event.preventDefault?.();
-            event.stopPropagation?.();
-            event.stopImmediatePropagation?.();
-            sweepSearchInputs('input-email-blocked');
+        if (SEARCH_IDS.includes(input?.id)) {
+            bindSearchInput(input);
+            scheduleClean('focusin');
         }
     }, true);
 
     document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) bootSearchEmailAutofillLock('visible');
+        if (!document.hidden) scheduleClean('visible');
     });
 
-    window.addEventListener('pageshow', () => bootSearchEmailAutofillLock('pageshow'));
-    window.addEventListener('load', () => bootSearchEmailAutofillLock('load'));
+    window.addEventListener('pageshow', () => scheduleClean('pageshow'));
+    window.addEventListener('load', () => scheduleClean('load'));
 
-    if (window.MutationObserver && document.body) {
-        const observer = new MutationObserver(() => sweepSearchInputs('dom-mutation'));
+    if (document.body && window.MutationObserver) {
+        const observer = new MutationObserver(() => {
+            scheduleClean('dom-child-change');
+        });
+
         observer.observe(document.body, {
             childList: true,
-            subtree: true,
-            attributes: true,
-            attributeFilter: ['value', 'name', 'autocomplete']
+            subtree: true
         });
     }
 
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => bootSearchEmailAutofillLock('dom-ready'));
+        document.addEventListener('DOMContentLoaded', boot);
     } else {
-        bootSearchEmailAutofillLock('immediate');
+        boot();
     }
-
-    window.academySweepCommunitySearchEmailAutofill = sweepSearchInputs;
 })();
-/* END PATCH: Academy community search email autofill hard lock v6 */
-
+/* END PATCH: Academy search fields stay empty until user types v2 */

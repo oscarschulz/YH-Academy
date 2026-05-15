@@ -1,0 +1,1128 @@
+==================================================
+ Academy Stability Fix v8
+ Target: lag/freezing + stuck loading state
+ No build. No auto-close command.
+ Log file: academy-stability-v8-output.log
+==================================================
+
+Checking node.exe...
+v22.19.0
+
+
+Running patch with node.exe...
+
+--- 1) Strengthening Academy interval budget guard ---
+APPLY: academy heavy DOM/bot interval throttle
+APPLY: academy repeated UI sync interval throttle
+APPLY: dashboard heavy DOM/bot interval throttle
+APPLY: dashboard repeated UI sync interval throttle
+
+--- 2) Reducing aggressive Academy message/bot intervals ---
+APPLY: messages upgrade interval gated to messages/thread only
+APPLY: messages polish interval gated
+APPLY: inline edit + bot recurring interval removed
+APPLY: password manager guard interval gated
+APPLY: real inbox avatars gated + active bot positioning interval removed
+APPLY: voice lounge recurring fixes gated
+APPLY: single right bot 350ms interval removed
+APPLY: right bot 220ms safe bounds interval removed
+APPLY: groups inbox fix interval gated
+APPLY: bottom bot + manual messages tab recurring intervals removed
+APPLY: pinned badges interval gated
+
+--- 3) Shortening Academy loader force-hide timeout ---
+APPLY: shared runtime Academy loader force-hide shortened
+
+--- 4) Updating Academy cache-bust versions ---
+APPLY: academy.html academy.js cache-bust v8
+APPLY: academy.html runtime cache-bust v8
+PATCHED: public/js/academy.js
+PATCHED: public/js/dashboard.js
+PATCHED: public/js/yh-shared-runtime.js
+PATCHED: public/academy.html
+
+Academy Stability Fix v8 patch write completed.
+
+Patch exit code: 0
+
+==================================================
+ Syntax checks only. No build will run.
+==================================================
+academy.js syntax exit code: 0
+yh-shared-runtime.js syntax exit code: 0
+dashboard.js syntax exit code: 0
+
+Cleaning temporary patch file...
+
+==================================================
+ Diff summary
+==================================================
+warning: in the working copy of 'public/academy.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'public/js/academy.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'public/js/dashboard.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'public/js/yh-shared-runtime.js', LF will be replaced by CRLF the next time Git touches it
+diff --git a/public/academy.html b/public/academy.html
+index a164dd4..711a734 100644
+--- a/public/academy.html
++++ b/public/academy.html
+@@ -7,10 +7,10 @@
+     <link rel="icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
+     <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
+     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+-<link rel="stylesheet" href="/css/style.css?v=20260514-search-freeze-v5">
++<link rel="stylesheet" href="/css/style.css?v=20260515-academy-freeze-flicker-v61">
+ <link rel="stylesheet" href="/css/academy-thread-bottom-fix.css?v=20260417-2">
+ </head>
+-<body data-yh-view="academy" data-yh-page="academy">
++<body data-yh-view="academy" data-yh-page="academy" class="academy-startup-booting academy-standalone-shell-pending">
+ 
+ <div id="yh-academy-startup-loader" class="yh-academy-startup-loader" aria-hidden="false">
+ <div class="yh-academy-startup-card">
+@@ -143,6 +143,23 @@
+   })();
+ </script>
+ 
++<script id="yh-academy-inline-shell-failsafe-v61">
++  window.setTimeout(function yh_academy_inline_shell_reveal_failsafe_v61() {
++    try {
++      var loader = document.getElementById('yh-academy-startup-loader');
++      document.body.classList.add('academy-shell-ready');
++      document.body.classList.remove('academy-startup-booting');
++      document.body.classList.remove('academy-standalone-shell-pending');
++
++      if (loader) {
++        loader.classList.add('hidden-step');
++        loader.setAttribute('aria-hidden', 'true');
++        loader.style.pointerEvents = 'none';
++      }
++    } catch (_) {}
++  }, 9000);
++</script>
++
+ <div id="toast-notification">
+     <span id="toast-icon"></span><span id="toast-message">Notification</span>
+ </div>
+@@ -2660,9 +2677,9 @@
+   };
+ </script>
+ 
+-<script src="/js/yh-shared-core.js?v=20260418-toast-center-1"></script>
+-<script src="/js/yh-shared-runtime.js?v=20260411-4"></script>
+-<script src="/js/academy.js?v=20260514-search-freeze-v5"></script>
++<script src="/js/yh-shared-core.js?v=20260515-academy-freeze-flicker-v61"></script>
++<script src="/js/yh-shared-runtime.js?v=20260515-academy-stability-v8"></script>
++<script src="/js/academy.js?v=20260515-academy-stability-v8"></script>
+ <div
+     class="academy-profile-editor-overlay hidden-step"
+     id="academy-profile-editor-overlay"
+diff --git a/public/js/academy.js b/public/js/academy.js
+index 47baeb6..1418592 100644
+--- a/public/js/academy.js
++++ b/public/js/academy.js
+@@ -17,6 +17,75 @@
+     window.location.replace('/?redirect=academy');
+     throw new Error('Academy auth token missing.');
+ })();
++/* PATCH: Academy interval budget guard v6.1 */
++(function installAcademyIntervalBudgetGuardV61() {
++    if (window.__academyIntervalBudgetGuardV61Installed) return;
++    window.__academyIntervalBudgetGuardV61Installed = true;
++
++    const nativeSetInterval = window.setInterval.bind(window);
++
++    function isAcademyPage() {
++        const page = document.body && document.body.getAttribute('data-yh-page');
++        const path = String(window.location.pathname || '').replace(/\/+$/, '');
++        return page === 'academy' || path === '/academy';
++    }
++
++    function getAcademyIntervalMinimumDelay(source) {
++        const text = String(source || '');
++
++        const heavyBotOrDomSweep = [
++            'lockBotToVisibleBottom',
++            'clampBotInsideSidebar',
++            'normalizeSingleBot',
++            'placeBotInAllowedPlayArea',
++            'positionAcademyBotBelowActiveMember',
++            'academyMoveBotRandomly',
++            'getRightSidebar',
++            'getActiveNowMemberBottom',
++            'normalizePinnedBadges'
++        ].some((needle) => text.indexOf(needle) >= 0);
++
++        if (heavyBotOrDomSweep) return 30000;
++
++        const repeatedUiSync = [
++            'applyManualMessagesTab',
++            'bootAcademyVoiceLoungeFinalFixes',
++            'bootGroupsInboxFix',
++            'bootMessagesUiPolish',
++            'applyAcademyRealInboxAvatars',
++            'academyEnhanceMessagesInbox',
++            'syncInboxMenuOpenStates',
++            'runAcademyPasswordManagerGuard'
++        ].some((needle) => text.indexOf(needle) >= 0);
++
++        return repeatedUiSync ? 12000 : 0;
++    }
++
++    window.setInterval = function academyBudgetedSetInterval(callback, delay) {
++        const args = Array.prototype.slice.call(arguments, 2);
++
++        if (!isAcademyPage() || typeof callback !== 'function') {
++            return nativeSetInterval.apply(window, arguments);
++        }
++
++        const source = String(callback || '');
++        let safeDelay = Number(delay || 0);
++
++        const minimumDelay = getAcademyIntervalMinimumDelay(source);
++        if (minimumDelay && safeDelay < minimumDelay) {
++            safeDelay = minimumDelay;
++        }
++
++        const wrapped = function academyBudgetedIntervalCallback() {
++            if (document.hidden) return;
++            return callback.apply(this, args);
++        };
++
++        return nativeSetInterval(wrapped, safeDelay || delay);
++    };
++})();
++/* END PATCH: Academy interval budget guard v6.1 */
++
+ const {
+     getStoredAuthToken,
+     getStoredUserValue,
+@@ -690,11 +759,28 @@ function showAcademyStartupBootOverlay(section = '') {
+ }
+ 
+ function hideAcademyStartupBootOverlay() {
+-    if (academyStartupBootDismissed) return;
++    const loader = getAcademyStartupBootLoader();
+ 
+-    academyStartupBootDismissed = true;
++    document.body?.classList.add('academy-shell-ready');
++    document.body?.classList.remove('academy-standalone-shell-pending');
++    document.body?.classList.remove('academy-startup-booting');
+ 
+-    const loader = getAcademyStartupBootLoader();
++    try {
++        if (typeof window.YHSharedRuntime?.forceHideAcademyTabLoader === 'function') {
++            window.YHSharedRuntime.forceHideAcademyTabLoader();
++        }
++    } catch (_) {}
++
++    if (academyStartupBootDismissed) {
++        if (loader) {
++            loader.classList.add('hidden-step');
++            loader.setAttribute('aria-hidden', 'true');
++            loader.style.pointerEvents = 'none';
++        }
++        return;
++    }
++
++    academyStartupBootDismissed = true;
+ 
+     if (academyStartupBootFailSafeTimer) {
+         clearTimeout(academyStartupBootFailSafeTimer);
+@@ -706,15 +792,15 @@ function hideAcademyStartupBootOverlay() {
+         sessionStorage.removeItem(YH_ACADEMY_STARTUP_SECTION_KEY);
+     } catch (_) {}
+ 
+-    document.body?.classList.remove('academy-startup-booting');
+-
+     if (!loader) return;
+ 
+     loader.classList.add('is-exiting');
++    loader.style.pointerEvents = 'none';
+ 
+     window.setTimeout(() => {
+         loader.classList.add('hidden-step');
+         loader.setAttribute('aria-hidden', 'true');
++        loader.style.pointerEvents = 'none';
+     }, 220);
+ }
+ 
+@@ -770,7 +856,7 @@ function scheduleAcademyStartupBootFailSafe(delayMs = 7000) {
+ 
+     academyStartupBootFailSafeTimer = window.setTimeout(() => {
+         hideAcademyStartupBootOverlay();
+-    }, delayMs);
++    }, Math.min(Number(delayMs) || 7000, 5500));
+ }
+ 
+ function getAcademySectionFromUrl() {
+@@ -9035,55 +9121,146 @@ function openAcademyFeedView(forceReload = false) {
+             hideAcademyTabLoader();
+         });
+ }
+-function openAcademyMessagesView() {
+-    academyRememberLastNonProfileLocation('messages');
++/* PATCH: Academy tab interaction safety v7 */
++function academyReleaseTabLoaderHardV7(reason = 'tab') {
++    try {
++        if (typeof window.YHSharedRuntime?.forceHideAcademyTabLoader === 'function') {
++            window.YHSharedRuntime.forceHideAcademyTabLoader();
++        }
++    } catch (_) {}
+ 
+-    showAcademyTabLoader('Loading Messages...');
+-    academyPushFeedFallbackHistory('messages');
+-    closeRoadmapIntake();
+-    academyResetCoachMode();
+-    hideAcademyViewsForFeed();
+-    setAcademySidebarActive('nav-messages');
+-    saveAcademyViewState('messages');
+-    applyAcademyMessengerMode(true);
++    try {
++        if (typeof hideAcademyTabLoader === 'function') {
++            hideAcademyTabLoader({ force: true });
++        }
++    } catch (_) {
++        try {
++            if (typeof hideAcademyTabLoader === 'function') hideAcademyTabLoader();
++        } catch (_) {}
++    }
+ 
+-    const academyChat = document.getElementById('academy-chat');
+-    const chatHeaderIcon = document.getElementById('chat-header-icon');
+-    const chatHeaderTitle = document.getElementById('chat-header-title');
+-    const chatHeaderTopic = document.getElementById('chat-header-topic');
+-    const chatWelcomeBox = document.getElementById('chat-welcome-box');
+-    const chatPinnedMessage = document.getElementById('chat-pinned-message');
+-    const chatInputArea = document.getElementById('chat-input-area');
+-    const chatInputBox = document.getElementById('chat-input');
++    const overlay = document.getElementById('yh-tab-loader');
++    if (overlay) {
++        overlay.classList.remove('is-active');
++        overlay.classList.add('hidden-step');
++        overlay.setAttribute('aria-hidden', 'true');
++        overlay.style.pointerEvents = 'none';
++    }
+ 
+-    if (academyChat) {
+-        academyChat.classList.remove('hidden-step');
+-        academyChat.classList.remove('fade-in');
+-        void academyChat.offsetWidth;
+-        academyChat.classList.add('fade-in');
++    document.body?.classList.add('academy-shell-ready');
++    document.body?.classList.remove('academy-startup-booting');
++    document.body?.classList.remove('academy-standalone-shell-pending');
++    document.body?.removeAttribute('data-academy-tab-loading');
++
++    window.__academyTabSwitchLockedV7 = false;
++    window.__academyTabSwitchReasonV7 = '';
++}
++
++function academyLockTabSwitchV7(reason = 'tab') {
++    const now = Date.now();
++    const lastAt = Number(window.__academyLastTabSwitchAtV7 || 0);
++
++    if (window.__academyTabSwitchLockedV7 === true && now - lastAt < 700) {
++        return false;
+     }
+ 
+-    academyRestoreMessagesInboxHeader();
+-    if (chatWelcomeBox) chatWelcomeBox.style.display = 'none';
+-    if (chatPinnedMessage) chatPinnedMessage.style.display = 'none';
++    window.__academyTabSwitchLockedV7 = true;
++    window.__academyTabSwitchReasonV7 = reason;
++    window.__academyLastTabSwitchAtV7 = now;
++    document.body?.setAttribute('data-academy-tab-loading', reason);
+ 
+-    academyResetMessagesThreadState();
++    window.clearTimeout(window.__academyTabSwitchFailSafeV7);
++    window.__academyTabSwitchFailSafeV7 = window.setTimeout(() => {
++        academyReleaseTabLoaderHardV7('failsafe-' + reason);
++    }, 2500);
+ 
+-    academySetMessagesChatMode('messages');
+-    renderAcademyMessagesInboxList();
++    return true;
++}
+ 
+-    academyHydrateMessageRooms(!academyMessagesInboxState.hydratedOnce).catch((error) => {
+-        showToast(error?.message || 'Failed to load conversations.', 'error');
++function academyUnlockTabSwitchSoonV7(reason = 'tab') {
++    window.clearTimeout(window.__academyTabSwitchFailSafeV7);
++    window.setTimeout(() => academyReleaseTabLoaderHardV7(reason), 80);
++    window.setTimeout(() => academyReleaseTabLoaderHardV7(reason + '-late'), 420);
++}
++
++function academyAfterPaintV7(callback) {
++    window.requestAnimationFrame(() => {
++        window.setTimeout(callback, 0);
+     });
++}
+ 
+-    const rooms = academyReadMessageRooms();
+-    if (rooms.length) {
+-        academyRenderMessagesThreadEmpty('Select a conversation from the inbox to open that private thread.');
+-    } else {
+-        academyRenderMessagesThreadEmpty('No conversations yet. Start a DM or create a group to see it here.');
++function academyScheduleIdleV7(callback, timeout = 900) {
++    if (typeof window.requestIdleCallback === 'function') {
++        window.requestIdleCallback(callback, { timeout });
++        return;
+     }
+ 
+-    hideAcademyTabLoader();
++    window.setTimeout(callback, 120);
++}
++/* END PATCH: Academy tab interaction safety v7 */
++
++function openAcademyMessagesView() {
++    if (!academyLockTabSwitchV7('messages')) return;
++
++    academyRememberLastNonProfileLocation('messages');
++
++    showAcademyTabLoader('Loading Messages...');
++
++    academyAfterPaintV7(() => {
++        try {
++            academyPushFeedFallbackHistory('messages');
++            closeRoadmapIntake();
++            academyResetCoachMode();
++            hideAcademyViewsForFeed();
++            setAcademySidebarActive('nav-messages');
++            saveAcademyViewState('messages');
++            applyAcademyMessengerMode(true);
++
++            const academyChat = document.getElementById('academy-chat');
++            const chatWelcomeBox = document.getElementById('chat-welcome-box');
++            const chatPinnedMessage = document.getElementById('chat-pinned-message');
++
++            if (academyChat) {
++                academyChat.classList.remove('hidden-step');
++                academyChat.classList.add('fade-in');
++            }
++
++            academyRestoreMessagesInboxHeader();
++
++            if (chatWelcomeBox) chatWelcomeBox.style.display = 'none';
++            if (chatPinnedMessage) chatPinnedMessage.style.display = 'none';
++
++            academyResetMessagesThreadState();
++            academySetMessagesChatMode('messages');
++
++            const rooms = academyReadMessageRooms();
++
++            academyScheduleIdleV7(() => {
++                try {
++                    renderAcademyMessagesInboxList();
++
++                    if (rooms.length) {
++                        academyRenderMessagesThreadEmpty('Select a conversation from the inbox to open that private thread.');
++                    } else {
++                        academyRenderMessagesThreadEmpty('No conversations yet. Start a DM or create a group to see it here.');
++                    }
++                } catch (error) {
++                    console.error('render messages shell error:', error);
++                }
++            }, 300);
++
++            academyScheduleIdleV7(() => {
++                academyHydrateMessageRooms(!academyMessagesInboxState.hydratedOnce).catch((error) => {
++                    showToast(error?.message || 'Failed to load conversations.', 'error');
++                });
++            }, 1200);
++        } catch (error) {
++            console.error('openAcademyMessagesView error:', error);
++            showToast(error?.message || 'Failed to open Messages.', 'error');
++        } finally {
++            academyUnlockTabSwitchSoonV7('messages');
++        }
++    });
+ }
+ function openAcademyRoadmapView(forceFresh = false) {
+     academyRememberLastNonProfileLocation('roadmap');
+@@ -13920,13 +14097,29 @@ function hydrateAcademyLeadMissionsWorkspace(result = {}) {
+ 
+ async function loadAcademyLeadMissionsWorkspace(initialSubtab = 'database') {
+     const [result, withdrawalResult, opportunityResult] = await Promise.all([
+-        academyAuthedFetch('/api/academy/lead-missions/workspace', { method: 'GET' }),
+-        academyAuthedFetch('/api/payouts/my-ledger', { method: 'GET' }).catch(() => ({ success: false, payouts: [] })),
+-        academyAuthedFetch('/api/academy/opportunity-missions', { method: 'GET' }).catch(() => ({
+-            success: false,
+-            opportunityMissions: [],
+-            summary: { total: 0, plaza: 0, federation: 0 }
+-        }))
++        academyResolveAfterTimeout(
++            academyAuthedFetch('/api/academy/lead-missions/workspace', { method: 'GET' }),
++            ACADEMY_ASYNC_STEP_TIMEOUT_MS,
++            { success: false, message: 'Leads workspace request timed out.' }
++        ),
++        academyResolveAfterTimeout(
++            academyAuthedFetch('/api/payouts/my-ledger', { method: 'GET' }).catch(() => ({ success: false, payouts: [] })),
++            ACADEMY_ASYNC_STEP_TIMEOUT_MS,
++            { success: false, payouts: [] }
++        ),
++        academyResolveAfterTimeout(
++            academyAuthedFetch('/api/academy/opportunity-missions', { method: 'GET' }).catch(() => ({
++                success: false,
++                opportunityMissions: [],
++                summary: { total: 0, plaza: 0, federation: 0 }
++            })),
++            ACADEMY_ASYNC_STEP_TIMEOUT_MS,
++            {
++                success: false,
++                opportunityMissions: [],
++                summary: { total: 0, plaza: 0, federation: 0 }
++            }
++        )
+     ]);
+ 
+     if (!result?.success) {
+@@ -14230,14 +14423,29 @@ function revealAcademyMissionsViewShell() {
+ }
+ 
+ function openAcademyMissionsView() {
++    if (!academyLockTabSwitchV7('missions')) return;
++
+     academyRememberLastNonProfileLocation('lead-missions', { missionPanel: 'hub' });
+ 
+     showAcademyTabLoader('Loading Missions...');
+-    academyPushFeedFallbackHistory('missions');
+-    saveAcademyViewState('missions');
+-    revealAcademyMissionsViewShell();
+-    setAcademyMissionsPanel('hub');
+-    hideAcademyTabLoader();
++
++    academyAfterPaintV7(() => {
++        try {
++            academyPushFeedFallbackHistory('missions');
++            saveAcademyViewState('missions');
++            revealAcademyMissionsViewShell();
++            setAcademyMissionsPanel('hub');
++        } catch (error) {
++            console.error('openAcademyMissionsView error:', error);
++            showToast(error?.message || 'Failed to open Missions.', 'error');
++
++            try {
++                revealAcademyMissionsViewShell();
++            } catch (_) {}
++        } finally {
++            academyUnlockTabSwitchSoonV7('missions');
++        }
++    });
+ }
+ 
+ async function openAcademyLeadMissionsView(options = {}) {
+@@ -14248,9 +14456,19 @@ async function openAcademyLeadMissionsView(options = {}) {
+     if (!skipRecruitmentGate) {
+         showAcademyTabLoader('Checking Leads access.');
+ 
+-        const hasRecruitmentProfile = await ensureAcademyLeadRecruitmentProfileLoaded();
+-
+-        hideAcademyTabLoader();
++        let hasRecruitmentProfile = false;
++        try {
++            hasRecruitmentProfile = await academyResolveAfterTimeout(
++                ensureAcademyLeadRecruitmentProfileLoaded(),
++                ACADEMY_ASYNC_STEP_TIMEOUT_MS,
++                false
++            );
++        } catch (error) {
++            console.error('ensureAcademyLeadRecruitmentProfileLoaded error:', error);
++            hasRecruitmentProfile = false;
++        } finally {
++            hideAcademyTabLoader();
++        }
+ 
+         if (!hasRecruitmentProfile) {
+             revealAcademyMissionsViewShell();
+@@ -14970,12 +15188,30 @@ const academyMessagesInboxState = {
+     activeRoomId: '',
+     loading: false,
+     hydratedOnce: false,
++    lastHydratedAt: 0,
++    hydratePromise: null,
+     openMenuRoomId: '',
+     openThreadMenu: false,
+     homeThreadHtml: '',
+     actionLoadingRoomId: '',
+     actionLoadingType: ''
+ };
++
++const ACADEMY_MESSAGES_HYDRATE_CACHE_MS = 12000;
++const ACADEMY_ASYNC_STEP_TIMEOUT_MS = 9000;
++
++function academyResolveAfterTimeout(promise, timeoutMs = ACADEMY_ASYNC_STEP_TIMEOUT_MS, fallbackValue = null) {
++    let timer = null;
++
++    return Promise.race([
++        Promise.resolve(promise),
++        new Promise((resolve) => {
++            timer = window.setTimeout(() => resolve(fallbackValue), Number(timeoutMs) || ACADEMY_ASYNC_STEP_TIMEOUT_MS);
++        })
++    ]).finally(() => {
++        if (timer) window.clearTimeout(timer);
++    });
++}
+ function academyGetInboxActionLoadingLabel(action = '') {
+     const cleanAction = String(action || '').trim().toLowerCase();
+ 
+@@ -15564,50 +15800,67 @@ function academyRenderMessagesSidebarBadge() {
+ }
+ 
+ async function academyHydrateMessageRooms(forceFresh = false) {
+-    if (academyMessagesInboxState.loading) return academyReadMessageRooms();
++    const now = Date.now();
++    const cachedRooms = academyReadMessageRooms();
++    const cacheAge = now - Number(academyMessagesInboxState.lastHydratedAt || 0);
++
++    if (
++        !forceFresh &&
++        academyMessagesInboxState.hydratedOnce &&
++        cacheAge >= 0 &&
++        cacheAge < ACADEMY_MESSAGES_HYDRATE_CACHE_MS
++    ) {
++        academyRenderMessagesSidebarBadge();
++        renderAcademyMessagesInboxList();
++        return cachedRooms;
++    }
++
++    if (academyMessagesInboxState.loading && academyMessagesInboxState.hydratePromise) {
++        return academyMessagesInboxState.hydratePromise;
++    }
+ 
+     academyMessagesInboxState.loading = true;
+ 
+-    try {
+-        if (forceFresh) {
+-            const { list } = academyGetMessagesInboxElements();
+-            if (list) {
+-                list.innerHTML = `<div class="academy-messages-inbox-empty">Loading conversations.</div>`;
++    academyMessagesInboxState.hydratePromise = (async () => {
++        try {
++            if (forceFresh) {
++                const { list } = academyGetMessagesInboxElements();
++                if (list && !cachedRooms.length) {
++                    list.innerHTML = '<div class="academy-messages-inbox-empty">Loading conversations.</div>';
++                }
+             }
+-        }
+ 
+-        const result = await academyAuthedFetch('/api/realtime/rooms', {
+-            method: 'GET'
+-        });
++            const result = await academyResolveAfterTimeout(
++                academyAuthedFetch('/api/realtime/rooms', { method: 'GET' }),
++                ACADEMY_ASYNC_STEP_TIMEOUT_MS,
++                { success: false, rooms: cachedRooms, timedOut: true }
++            );
+ 
+-        const roomsRaw = Array.isArray(result?.rooms) ? result.rooms : [];
+-        const normalizedRooms = roomsRaw
+-            .map((room) => academyNormalizeRealtimeRoomEntry(room))
+-            .filter((room) => !!normalizeRoomKey(room?.roomId || room?.id));
++            const roomsRaw = Array.isArray(result?.rooms) ? result.rooms : cachedRooms;
++            const normalizedRooms = roomsRaw
++                .map((room) => academyNormalizeRealtimeRoomEntry(room))
++                .filter((room) => !!normalizeRoomKey(room?.roomId || room?.id));
+ 
+-        syncCustomRoomsUI(normalizedRooms);
+-        academyMessagesInboxState.hydratedOnce = true;
+-        academyRenderMessagesSidebarBadge();
++            syncCustomRoomsUI(normalizedRooms);
++            academyMessagesInboxState.hydratedOnce = true;
++            academyMessagesInboxState.lastHydratedAt = Date.now();
++            academyRenderMessagesSidebarBadge();
+ 
+-        const activeRoomId = normalizeRoomKey(academyMessagesInboxState.activeRoomId);
+-        if (activeRoomId) {
+-            const stillExists = normalizedRooms.some((room) => {
+-                return normalizeRoomKey(room?.roomId || room?.id) === activeRoomId;
+-            });
+-
+-            if (!stillExists) {
+-                academyMessagesInboxState.activeRoomId = '';
+-            }
++            renderAcademyMessagesInboxList();
++            return normalizedRooms;
++        } catch (error) {
++            console.error('academyHydrateMessageRooms error:', error);
++            renderAcademyMessagesInboxList();
++            academyRenderMessagesSidebarBadge();
++            return cachedRooms;
+         }
++    })();
+ 
+-        renderAcademyMessagesInboxList();
+-        return normalizedRooms;
+-    } catch (error) {
+-        renderAcademyMessagesInboxList();
+-        academyRenderMessagesSidebarBadge();
+-        throw error;
++    try {
++        return await academyMessagesInboxState.hydratePromise;
+     } finally {
+         academyMessagesInboxState.loading = false;
++        academyMessagesInboxState.hydratePromise = null;
+     }
+ }
+ 
+@@ -25865,11 +26118,14 @@ if (document.body) {
+         });
+ 
+         window.setInterval(() => {
++            const mode = String(document.getElementById('academy-chat')?.getAttribute('data-chat-mode') || '').trim().toLowerCase();
++            if (mode !== 'messages' && mode !== 'thread') return;
++
+             academyWrapMessagesInboxRenderer();
+             academyInstallMessageSocketListeners();
+             academyInstallRightSidebarBotCta();
+             academyEnhanceMessagesInbox();
+-        }, 1600);
++        }, 12000);
+     }
+ 
+     if (document.readyState === 'loading') {
+@@ -25984,7 +26240,11 @@ if (document.body) {
+         bootMessagesUiPolish();
+     }
+ 
+-    window.setInterval(bootMessagesUiPolish, 1800);
++    window.setInterval(() => {
++        const mode = String(document.getElementById('academy-chat')?.getAttribute('data-chat-mode') || '').trim().toLowerCase();
++        if (mode !== 'messages' && mode !== 'thread') return;
++        bootMessagesUiPolish();
++    }, 12000);
+ })();
+ 
+ 
+@@ -26322,7 +26582,8 @@ if (document.body) {
+         academyBootInlineEditAndBotFix();
+     }
+ 
+-    window.setInterval(academyBootInlineEditAndBotFix, 3500);
++    window.setTimeout(academyBootInlineEditAndBotFix, 800);
++    window.addEventListener('pageshow', academyBootInlineEditAndBotFix);
+ })();
+ 
+ 
+@@ -26497,7 +26758,11 @@ if (document.body) {
+     }
+ 
+     window.addEventListener('pageshow', scheduleAcademyPasswordManagerGuard);
+-    window.setInterval(runAcademyPasswordManagerGuard, 2500);
++    window.setInterval(() => {
++        const mode = String(document.getElementById('academy-chat')?.getAttribute('data-chat-mode') || '').trim().toLowerCase();
++        if (mode !== 'messages' && mode !== 'thread' && mode !== 'voice') return;
++        runAcademyPasswordManagerGuard();
++    }, 15000);
+ })();
+ 
+ 
+@@ -26934,10 +27199,12 @@ if (document.body) {
+     }
+ 
+     window.setInterval(() => {
++        const mode = String(document.getElementById('academy-chat')?.getAttribute('data-chat-mode') || '').trim().toLowerCase();
++        if (mode !== 'messages' && mode !== 'thread') return;
+         applyAcademyRealInboxAvatars();
+-    }, 1800);
++    }, 12000);
+ 
+-    window.setInterval(() => {
++    window.setTimeout(() => {
+         const bot = findAcademyBotCta();
+         if (bot && !bot.classList.contains('is-docked')) {
+             positionAcademyBotBelowActiveMember();
+@@ -27349,7 +27616,12 @@ if (document.body) {
+ 
+     window.addEventListener('pageshow', bootAcademyVoiceLoungeFinalFixes);
+ 
+-    window.setInterval(bootAcademyVoiceLoungeFinalFixes, 900);
++    window.setInterval(() => {
++        const mode = String(document.getElementById('academy-chat')?.getAttribute('data-chat-mode') || '').trim().toLowerCase();
++        const activeView = String(document.body?.getAttribute('data-academy-current-view') || '').trim().toLowerCase();
++        if (mode !== 'voice' && activeView !== 'voice') return;
++        bootAcademyVoiceLoungeFinalFixes();
++    }, 15000);
+ })();
+ 
+ 
+@@ -27575,9 +27847,9 @@ if (document.body) {
+     window.addEventListener('resize', () => placeBotInAllowedPlayArea(true));
+     window.addEventListener('pageshow', () => placeBotInAllowedPlayArea(true));
+ 
+-    window.setInterval(() => {
++    window.setTimeout(() => {
+         normalizeSingleBot();
+-        placeBotInAllowedPlayArea(false);
++        placeBotInAllowedPlayArea(true);
+     }, 350);
+ })();
+ 
+@@ -27819,13 +28091,9 @@ if (document.body) {
+     window.addEventListener('resize', () => clampBotInsideSidebar(true));
+     window.addEventListener('pageshow', () => clampBotInsideSidebar(true));
+ 
+-    window.setInterval(() => {
+-        clampBotInsideSidebar(false);
+-    }, 220);
+-
+-    window.setInterval(() => {
++    window.setTimeout(() => {
+         clampBotInsideSidebar(true);
+-    }, 2600);
++    }, 420);
+ })();
+ 
+ 
+@@ -28220,7 +28488,11 @@ if (document.body) {
+     }
+ 
+     window.addEventListener('pageshow', bootGroupsInboxFix);
+-    window.setInterval(bootGroupsInboxFix, 1200);
++    window.setInterval(() => {
++        const mode = String(document.getElementById('academy-chat')?.getAttribute('data-chat-mode') || '').trim().toLowerCase();
++        if (mode !== 'messages' && mode !== 'thread') return;
++        bootGroupsInboxFix();
++    }, 12000);
+ })();
+ 
+ /* PATCH: Academy AI coach bottom-visible dock + manual Messages tab guard v2 */
+@@ -28538,8 +28810,7 @@ if (document.body) {
+     window.addEventListener('resize', lockBotToVisibleBottom);
+     window.addEventListener('pageshow', bootPatch);
+ 
+-    window.setInterval(lockBotToVisibleBottom, 160);
+-    window.setInterval(() => applyManualMessagesTab(readStoredTab()), 240);
++    window.setTimeout(lockBotToVisibleBottom, 600);
+ })();
+ /* END PATCH: Academy AI coach bottom-visible dock + manual Messages tab guard v2 */
+ 
+@@ -29135,7 +29406,11 @@ if (document.body) {
+     }
+ 
+     window.addEventListener('pageshow', boot);
+-    window.setInterval(normalizePinnedBadges, 2500);
++    window.setInterval(() => {
++        const mode = String(document.getElementById('academy-chat')?.getAttribute('data-chat-mode') || '').trim().toLowerCase();
++        if (mode !== 'messages' && mode !== 'thread') return;
++        normalizePinnedBadges();
++    }, 12000);
+ })();
+ /* END PATCH: Academy pinned conversation pill single-card placement v1 */
+ 
+diff --git a/public/js/dashboard.js b/public/js/dashboard.js
+index 4d161bb..39d923b 100644
+--- a/public/js/dashboard.js
++++ b/public/js/dashboard.js
+@@ -1,8 +1,155 @@
++/* PATCH: Academy tab interaction safety v7 */
++function academyReleaseTabLoaderHardV7(reason = 'tab') {
++    try {
++        if (typeof window.YHSharedRuntime?.forceHideAcademyTabLoader === 'function') {
++            window.YHSharedRuntime.forceHideAcademyTabLoader();
++        }
++    } catch (_) {}
++
++    try {
++        if (typeof hideAcademyTabLoader === 'function') {
++            hideAcademyTabLoader({ force: true });
++        }
++    } catch (_) {
++        try {
++            if (typeof hideAcademyTabLoader === 'function') hideAcademyTabLoader();
++        } catch (_) {}
++    }
++
++    const overlay = document.getElementById('yh-tab-loader');
++    if (overlay) {
++        overlay.classList.remove('is-active');
++        overlay.classList.add('hidden-step');
++        overlay.setAttribute('aria-hidden', 'true');
++        overlay.style.pointerEvents = 'none';
++    }
++
++    document.body?.classList.add('academy-shell-ready');
++    document.body?.classList.remove('academy-startup-booting');
++    document.body?.classList.remove('academy-standalone-shell-pending');
++    document.body?.removeAttribute('data-academy-tab-loading');
++
++    window.__academyTabSwitchLockedV7 = false;
++    window.__academyTabSwitchReasonV7 = '';
++}
++
++function academyLockTabSwitchV7(reason = 'tab') {
++    const now = Date.now();
++    const lastAt = Number(window.__academyLastTabSwitchAtV7 || 0);
++
++    if (window.__academyTabSwitchLockedV7 === true && now - lastAt < 700) {
++        return false;
++    }
++
++    window.__academyTabSwitchLockedV7 = true;
++    window.__academyTabSwitchReasonV7 = reason;
++    window.__academyLastTabSwitchAtV7 = now;
++    document.body?.setAttribute('data-academy-tab-loading', reason);
++
++    window.clearTimeout(window.__academyTabSwitchFailSafeV7);
++    window.__academyTabSwitchFailSafeV7 = window.setTimeout(() => {
++        academyReleaseTabLoaderHardV7('failsafe-' + reason);
++    }, 2500);
++
++    return true;
++}
++
++function academyUnlockTabSwitchSoonV7(reason = 'tab') {
++    window.clearTimeout(window.__academyTabSwitchFailSafeV7);
++    window.setTimeout(() => academyReleaseTabLoaderHardV7(reason), 80);
++    window.setTimeout(() => academyReleaseTabLoaderHardV7(reason + '-late'), 420);
++}
++
++function academyAfterPaintV7(callback) {
++    window.requestAnimationFrame(() => {
++        window.setTimeout(callback, 0);
++    });
++}
++
++function academyScheduleIdleV7(callback, timeout = 900) {
++    if (typeof window.requestIdleCallback === 'function') {
++        window.requestIdleCallback(callback, { timeout });
++        return;
++    }
++
++    window.setTimeout(callback, 120);
++}
++/* END PATCH: Academy tab interaction safety v7 */
++
+ // public/js/dashboard.js
+ 
+ // ==========================================
+ // 1. GLOBAL AUTH, SOCKET & UTILITIES
+ // ==========================================
++/* PATCH: Academy interval budget guard v6.1 */
++(function installAcademyIntervalBudgetGuardV61() {
++    if (window.__academyIntervalBudgetGuardV61Installed) return;
++    window.__academyIntervalBudgetGuardV61Installed = true;
++
++    const nativeSetInterval = window.setInterval.bind(window);
++
++    function isAcademyPage() {
++        const page = document.body && document.body.getAttribute('data-yh-page');
++        const path = String(window.location.pathname || '').replace(/\/+$/, '');
++        return page === 'academy' || path === '/academy';
++    }
++
++    function getAcademyIntervalMinimumDelay(source) {
++        const text = String(source || '');
++
++        const heavyBotOrDomSweep = [
++            'lockBotToVisibleBottom',
++            'clampBotInsideSidebar',
++            'normalizeSingleBot',
++            'placeBotInAllowedPlayArea',
++            'positionAcademyBotBelowActiveMember',
++            'academyMoveBotRandomly',
++            'getRightSidebar',
++            'getActiveNowMemberBottom',
++            'normalizePinnedBadges'
++        ].some((needle) => text.indexOf(needle) >= 0);
++
++        if (heavyBotOrDomSweep) return 30000;
++
++        const repeatedUiSync = [
++            'applyManualMessagesTab',
++            'bootAcademyVoiceLoungeFinalFixes',
++            'bootGroupsInboxFix',
++            'bootMessagesUiPolish',
++            'applyAcademyRealInboxAvatars',
++            'academyEnhanceMessagesInbox',
++            'syncInboxMenuOpenStates',
++            'runAcademyPasswordManagerGuard'
++        ].some((needle) => text.indexOf(needle) >= 0);
++
++        return repeatedUiSync ? 12000 : 0;
++    }
++
++    window.setInterval = function academyBudgetedSetInterval(callback, delay) {
++        const args = Array.prototype.slice.call(arguments, 2);
++
++        if (!isAcademyPage() || typeof callback !== 'function') {
++            return nativeSetInterval.apply(window, arguments);
++        }
++
++        const source = String(callback || '');
++        let safeDelay = Number(delay || 0);
++
++        const minimumDelay = getAcademyIntervalMinimumDelay(source);
++        if (minimumDelay && safeDelay < minimumDelay) {
++            safeDelay = minimumDelay;
++        }
++
++        const wrapped = function academyBudgetedIntervalCallback() {
++            if (document.hidden) return;
++            return callback.apply(this, args);
++        };
++
++        return nativeSetInterval(wrapped, safeDelay || delay);
++    };
++})();
++/* END PATCH: Academy interval budget guard v6.1 */
++
+ const {
+     getStoredAuthToken,
+     getStoredUserValue,
+diff --git a/public/js/yh-shared-runtime.js b/public/js/yh-shared-runtime.js
+index 8868461..0a892a2 100644
+--- a/public/js/yh-shared-runtime.js
++++ b/public/js/yh-shared-runtime.js
+@@ -11,6 +11,7 @@
+     let yhTabLoaderDepth = 0;
+     let yhTabLoaderVisibleAt = 0;
+     let yhTabLoaderHideTimer = null;
++    let yhTabLoaderForceHideTimer = null;
+ 
+     function showAcademyTabLoader(label = 'Loading.') {
+         const overlay = document.getElementById('yh-tab-loader');
+@@ -19,41 +20,72 @@
+         const text = document.getElementById('yh-tab-loader-text');
+         if (text) text.textContent = String(label || 'Loading.');
+ 
+-        yhTabLoaderDepth += 1;
+-
+         if (yhTabLoaderHideTimer) {
+             clearTimeout(yhTabLoaderHideTimer);
+             yhTabLoaderHideTimer = null;
+         }
+ 
+-        if (overlay.classList.contains('is-active')) {
+-            return;
++        if (yhTabLoaderForceHideTimer) {
++            clearTimeout(yhTabLoaderForceHideTimer);
++            yhTabLoaderForceHideTimer = null;
+         }
+ 
++        yhTabLoaderDepth = 1;
++
+         overlay.classList.remove('hidden-step');
+-        void overlay.offsetWidth;
+         overlay.classList.add('is-active');
++        overlay.setAttribute('aria-hidden', 'false');
++        overlay.style.pointerEvents = 'auto';
++
+         yhTabLoaderVisibleAt = Date.now();
++
++        const academyForceHideMs =
++            document.body?.getAttribute('data-yh-page') === 'academy' ||
++            document.body?.getAttribute('data-yh-view') === 'academy'
++                ? 2200
++                : 7500;
++
++        yhTabLoaderForceHideTimer = setTimeout(() => {
++            forceHideAcademyTabLoader();
++        }, academyForceHideMs);
+     }
+ 
+-    function hideAcademyTabLoader() {
++    function hideAcademyTabLoader(options = {}) {
+         const overlay = document.getElementById('yh-tab-loader');
+         if (!overlay) return;
+ 
+-        yhTabLoaderDepth = Math.max(0, yhTabLoaderDepth - 1);
+-        if (yhTabLoaderDepth !== 0) return;
++        const force = options && options.force === true;
++
++        yhTabLoaderDepth = force ? 0 : Math.max(0, yhTabLoaderDepth - 1);
++        if (!force && yhTabLoaderDepth !== 0) return;
++
++        if (yhTabLoaderForceHideTimer) {
++            clearTimeout(yhTabLoaderForceHideTimer);
++            yhTabLoaderForceHideTimer = null;
++        }
+ 
+         const elapsed = Date.now() - (yhTabLoaderVisibleAt || 0);
+-        const delay = Math.max(0, YH_TAB_LOADER_MIN_MS - elapsed);
++        const delay = force ? 0 : Math.max(0, YH_TAB_LOADER_MIN_MS - elapsed);
+ 
+         if (yhTabLoaderHideTimer) clearTimeout(yhTabLoaderHideTimer);
+ 
+         yhTabLoaderHideTimer = setTimeout(() => {
+             overlay.classList.remove('is-active');
+-            setTimeout(() => overlay.classList.add('hidden-step'), 180);
++            overlay.setAttribute('aria-hidden', 'true');
++            overlay.style.pointerEvents = 'none';
++
++            setTimeout(() => {
++                overlay.classList.add('hidden-step');
++                overlay.style.pointerEvents = 'none';
++            }, force ? 0 : 180);
+         }, delay);
+     }
+ 
++    function forceHideAcademyTabLoader() {
++        yhTabLoaderDepth = 0;
++        hideAcademyTabLoader({ force: true });
++    }
++
+     function readDashboardViewState() {
+         try {
+             const raw = localStorage.getItem(YH_DASHBOARD_VIEW_STATE_KEY);
+@@ -503,6 +535,7 @@
+         YH_DASHBOARD_VIEW_STATE_KEY,
+         showAcademyTabLoader,
+         hideAcademyTabLoader,
++        forceHideAcademyTabLoader,
+         readDashboardViewState,
+         writeDashboardViewState,
+         saveUniverseViewState,
+
+==================================================
+ Git status
+==================================================
+ M public/academy.html
+ M public/css/style.css
+ M public/js/academy.js
+ M public/js/dashboard.js
+ M public/js/yh-shared-runtime.js
+?? .academy-lag-fix-patch.js
+?? __academy_v61_stability_patch.js
+?? __academy_v6_stability_patch.js
+?? __academy_v7_tab_interaction_fix.js
+?? __fix_async_async_v52.js
+?? __repair_schedule_search_v54.js
+?? __repair_search_block_v53.js
+?? __yh_academy_search_freeze_fix_v4.js
+?? __yh_academy_search_freeze_fix_v5.js
+?? __yh_academy_search_freeze_fix_v5.log
+?? __yh_fix_academy_freeze_echo.js
+?? __yh_fix_duplicate_async_v51.js
+?? __yh_fix_duplicate_async_v51.log
+?? academy-patch-output.log
+?? academy-stability-v8-output.log
+?? public/academy.html.bak-20260514-freeze-echo-fix
+?? public/academy.html.bak-20260514-search-freeze-v4
+?? public/academy.html.bak-20260514-search-freeze-v5
+?? public/academy.html.bak-20260515-academy-v61-stability
+?? public/academy.html.bak-20260515-academy-v7-tab-interaction
+?? public/css/style.css.bak-20260514-search-freeze-v4
+?? public/css/style.css.bak-20260514-search-freeze-v5
+?? public/css/style.css.bak-20260515-academy-v61-stability
+?? public/js/academy.js.bak-20260514-async-async-v52
+?? public/js/academy.js.bak-20260514-freeze-echo-fix
+?? public/js/academy.js.bak-20260514-schedule-search-v54
+?? public/js/academy.js.bak-20260514-search-block-v53
+?? public/js/academy.js.bak-20260514-search-freeze-v4
+?? public/js/academy.js.bak-20260514-search-freeze-v5
+?? public/js/academy.js.bak-20260515-academy-v61-stability
+?? public/js/academy.js.bak-20260515-academy-v7-tab-interaction
+?? public/js/dashboard.js.bak-20260514-async-async-v52
+?? public/js/dashboard.js.bak-20260514-freeze-echo-fix
+?? public/js/dashboard.js.bak-20260514-schedule-search-v54
+?? public/js/dashboard.js.bak-20260514-search-block-v53
+?? public/js/dashboard.js.bak-20260514-search-freeze-v4
+?? public/js/dashboard.js.bak-20260514-search-freeze-v5
+?? public/js/dashboard.js.bak-20260515-academy-v61-stability
+?? public/js/dashboard.js.bak-20260515-academy-v7-tab-interaction
+?? public/js/yh-shared-runtime.js.bak-20260515-academy-v61-stability
+
+==================================================
+ Done. Full output saved to: academy-stability-v8-output.log
+ To open log, run: notepad academy-stability-v8-output.log
+==================================================
