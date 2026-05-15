@@ -143,21 +143,45 @@
   })();
 </script>
 
-<script id="yh-academy-inline-shell-failsafe-v61">
-  window.setTimeout(function yh_academy_inline_shell_reveal_failsafe_v61() {
-    try {
-      var loader = document.getElementById('yh-academy-startup-loader');
-      document.body.classList.add('academy-shell-ready');
-      document.body.classList.remove('academy-startup-booting');
-      document.body.classList.remove('academy-standalone-shell-pending');
+<script id="yh-academy-inline-shell-failsafe-v14">
+  (function () {
+    function revealAcademyShell(reason) {
+      try {
+        var body = document.body;
+        var loader = document.getElementById('yh-academy-startup-loader');
 
-      if (loader) {
-        loader.classList.add('hidden-step');
-        loader.setAttribute('aria-hidden', 'true');
-        loader.style.pointerEvents = 'none';
-      }
-    } catch (_) {}
-  }, 9000);
+        if (body) {
+          body.classList.add('academy-shell-ready');
+          body.classList.remove('academy-startup-booting');
+          body.classList.remove('academy-standalone-shell-pending');
+          body.removeAttribute('data-academy-tab-loading');
+        }
+
+        if (loader) {
+          loader.classList.add('hidden-step');
+          loader.classList.add('is-exiting');
+          loader.setAttribute('aria-hidden', 'true');
+          loader.style.pointerEvents = 'none';
+          loader.style.opacity = '0';
+          loader.style.visibility = 'hidden';
+          loader.style.display = 'none';
+          loader.dataset.releaseReason = reason || 'academy-shell-failsafe';
+        }
+      } catch (_) {}
+    }
+
+    window.setTimeout(function () {
+      revealAcademyShell('initial-failsafe-v14');
+    }, 4500);
+
+    window.addEventListener('pageshow', function () {
+      window.setTimeout(function () {
+        revealAcademyShell('pageshow-failsafe-v14');
+      }, 4800);
+    });
+
+    window.yhForceRevealAcademyShell = revealAcademyShell;
+  })();
 </script>
 
 <div id="toast-notification">
@@ -2684,13 +2708,8 @@
 </script>
 
 <script src="/js/yh-shared-core.js?v=20260515-academy-freeze-flicker-v61"></script>
-<<<<<<< HEAD
-<script src="/js/yh-shared-runtime.js?v=20260515-academy-stability-v8"></script>
-<script src="/js/academy.js?v=20260515-academy-search-pin-v9"></script>
-=======
-<script src="/js/yh-shared-runtime.js?v=20260515-academy-loader-watchdog-v11"></script>
-<script src="/js/academy.js?v=20260515-groups-freeze-v13"></script>
->>>>>>> 0a23248728ea2c4f84c66f182428256d8b594295
+<script src="/js/yh-shared-runtime.js?v=20260515-loader-conflict-fix-v14"></script>
+<script src="/js/academy.js?v=20260515-loader-conflict-fix-v14"></script>
 <div
     class="academy-profile-editor-overlay hidden-step"
     id="academy-profile-editor-overlay"
