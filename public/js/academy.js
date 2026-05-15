@@ -30472,10 +30472,10 @@ if (document.body) {
 })();
 /* END PATCH: Academy search autofill blocker + interaction safety v5 */
 
-/* PATCH: Academy community search email autofill hard lock v6 */
-(function installAcademyCommunitySearchEmailAutofillHardLockV6() {
-    if (window.__academyCommunitySearchEmailAutofillHardLockV6Installed) return;
-    window.__academyCommunitySearchEmailAutofillHardLockV6Installed = true;
+/* PATCH: Academy community search email autofill safe lock v7 */
+(function installAcademyCommunitySearchEmailAutofillSafeLockV7() {
+    if (window.__academyCommunitySearchEmailAutofillSafeLockV7Installed) return;
+    window.__academyCommunitySearchEmailAutofillSafeLockV7Installed = true;
 
     const SEARCH_IDS = ['academy-global-search-input', 'academy-member-browser-search-input'];
     const SEARCH_NAME_SALT = String(Date.now()) + '-' + Math.random().toString(16).slice(2);
@@ -30488,6 +30488,14 @@ if (document.body) {
 
     function isEmailLike(value = '') {
         return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanText(value));
+    }
+
+    function setAttrIfChanged(node, name, value) {
+        if (!node) return;
+        const cleanValue = String(value);
+        if (node.getAttribute(name) !== cleanValue) {
+            node.setAttribute(name, cleanValue);
+        }
     }
 
     function readStoredEmailCandidates() {
@@ -30530,21 +30538,24 @@ if (document.body) {
     function hardenSearchInput(input) {
         if (!input) return;
 
-        input.setAttribute('autocomplete', 'new-password');
-        input.setAttribute('autocorrect', 'off');
-        input.setAttribute('autocapitalize', 'none');
-        input.setAttribute('spellcheck', 'false');
-        input.setAttribute('inputmode', 'search');
-        input.setAttribute('data-lpignore', 'true');
-        input.setAttribute('data-1p-ignore', 'true');
-        input.setAttribute('data-bwignore', 'true');
-        input.setAttribute('data-form-type', 'other');
-        input.setAttribute('aria-autocomplete', 'none');
-        input.removeAttribute('value');
+        setAttrIfChanged(input, 'autocomplete', 'new-password');
+        setAttrIfChanged(input, 'autocorrect', 'off');
+        setAttrIfChanged(input, 'autocapitalize', 'none');
+        setAttrIfChanged(input, 'spellcheck', 'false');
+        setAttrIfChanged(input, 'inputmode', 'search');
+        setAttrIfChanged(input, 'data-lpignore', 'true');
+        setAttrIfChanged(input, 'data-1p-ignore', 'true');
+        setAttrIfChanged(input, 'data-bwignore', 'true');
+        setAttrIfChanged(input, 'data-form-type', 'other');
+        setAttrIfChanged(input, 'aria-autocomplete', 'none');
+
+        if (input.hasAttribute('value')) input.removeAttribute('value');
 
         if (input instanceof HTMLInputElement) {
-            input.type = 'search';
-            input.name = input.id + '_no_email_autofill_' + SEARCH_NAME_SALT;
+            if (input.type !== 'search') input.type = 'search';
+
+            const safeName = input.id + '_no_email_autofill_' + SEARCH_NAME_SALT;
+            if (input.name !== safeName) input.name = safeName;
         }
     }
 
@@ -30557,23 +30568,33 @@ if (document.body) {
 
         const panel = document.getElementById('academy-search-results-panel');
         const inner = document.getElementById('academy-search-results-inner');
+
         if (inner) inner.innerHTML = '';
+
         if (panel) {
             panel.classList.add('hidden-step');
             panel.setAttribute('aria-hidden', 'true');
             panel.style.pointerEvents = 'none';
         }
+
         document.body?.classList.remove('academy-search-results-open');
     }
 
     function clearSearchInput(input, reason = 'email-autofill') {
         if (!input) return false;
-        const hadValue = Boolean(cleanText(input.value) || cleanText(input.defaultValue) || cleanText(input.getAttribute('value')));
+
+        const hadValue = Boolean(
+            cleanText(input.value) ||
+            cleanText(input.defaultValue) ||
+            cleanText(input.getAttribute('value'))
+        );
 
         input.dataset.academySearchSystemClear = '1';
         input.value = '';
         input.defaultValue = '';
-        input.removeAttribute('value');
+
+        if (input.hasAttribute('value')) input.removeAttribute('value');
+
         input.dataset.academySearchUserTyped = '';
         input.dataset.academySearchEmailAutofillBlocked = reason;
 
@@ -30602,6 +30623,7 @@ if (document.body) {
                     clearTimeout(academySearchDebounceTimer);
                     academySearchDebounceTimer = null;
                 }
+
                 if (typeof academySearchRequestToken !== 'undefined') {
                     academySearchRequestToken += 1;
                 }
@@ -30614,8 +30636,9 @@ if (document.body) {
     }
 
     function bindSearchInput(input) {
-        if (!input || input.dataset.academySearchEmailAutofillV6Bound === '1') return;
-        input.dataset.academySearchEmailAutofillV6Bound = '1';
+        if (!input || input.dataset.academySearchEmailAutofillV7Bound === '1') return;
+
+        input.dataset.academySearchEmailAutofillV7Bound = '1';
         hardenSearchInput(input);
 
         ['input', 'change', 'blur', 'focus'].forEach((eventName) => {
@@ -30631,22 +30654,22 @@ if (document.body) {
         getSearchInputs().forEach(bindSearchInput);
         sweepSearchInputs(reason);
 
-        window.setTimeout(() => sweepSearchInputs(reason + '-80'), 80);
-        window.setTimeout(() => sweepSearchInputs(reason + '-350'), 350);
-        window.setTimeout(() => sweepSearchInputs(reason + '-900'), 900);
-        window.setTimeout(() => sweepSearchInputs(reason + '-2200'), 2200);
+        window.setTimeout(() => sweepSearchInputs(reason + '-120'), 120);
+        window.setTimeout(() => sweepSearchInputs(reason + '-700'), 700);
+        window.setTimeout(() => sweepSearchInputs(reason + '-1800'), 1800);
 
         if (!sweepTimer) {
             sweepCount = 0;
+
             sweepTimer = window.setInterval(() => {
                 sweepCount += 1;
-                sweepSearchInputs('email-autofill-long-sweep-' + sweepCount);
+                sweepSearchInputs('email-autofill-safe-sweep-' + sweepCount);
 
-                if (sweepCount >= 90) {
+                if (sweepCount >= 8) {
                     window.clearInterval(sweepTimer);
                     sweepTimer = null;
                 }
-            }, 1000);
+            }, 750);
         }
     }
 
@@ -30666,22 +30689,8 @@ if (document.body) {
         }
     }, true);
 
-    document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) bootSearchEmailAutofillLock('visible');
-    });
-
     window.addEventListener('pageshow', () => bootSearchEmailAutofillLock('pageshow'));
     window.addEventListener('load', () => bootSearchEmailAutofillLock('load'));
-
-    if (window.MutationObserver && document.body) {
-        const observer = new MutationObserver(() => sweepSearchInputs('dom-mutation'));
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true,
-            attributes: true,
-            attributeFilter: ['value', 'name', 'autocomplete']
-        });
-    }
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => bootSearchEmailAutofillLock('dom-ready'));
@@ -30691,5 +30700,5 @@ if (document.body) {
 
     window.academySweepCommunitySearchEmailAutofill = sweepSearchInputs;
 })();
-/* END PATCH: Academy community search email autofill hard lock v6 */
+/* END PATCH: Academy community search email autofill safe lock v7 */
 
