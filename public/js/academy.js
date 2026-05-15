@@ -30099,7 +30099,7 @@ if (document.body) {
         input.setAttribute("data-bwignore", "true");
         input.setAttribute("data-form-type", "other");
         input.setAttribute("aria-autocomplete", "none");
-        input.removeAttribute("readonly");
+        /* readonly is managed by Academy search autofill readonly guard v17. */
         input.removeAttribute("value");
 
         if (input instanceof HTMLInputElement) {
@@ -30923,5 +30923,143 @@ if (document.body) {
     window.academyCleanupSearchAutofillDelayedV16 = cleanupAcademySearchAutofill;
 })();
 /* END PATCH: Academy search autofill delayed cleanup v16 */
+
+
+/* PATCH: Academy search autofill readonly guard v17 */
+(function installAcademySearchAutofillReadonlyGuardV17() {
+    if (window.__academySearchAutofillReadonlyGuardV17Installed) return;
+    window.__academySearchAutofillReadonlyGuardV17Installed = true;
+
+    const SEARCH_IDS = [
+        'academy-global-search-input',
+        'academy-member-browser-search-input'
+    ];
+
+    function cleanText(value = '') {
+        return String(value || '').trim();
+    }
+
+    function isEmailLike(value = '') {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanText(value));
+    }
+
+    function getSearchInputs() {
+        return SEARCH_IDS
+            .map((id) => document.getElementById(id))
+            .filter((input) => input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement);
+    }
+
+    function hardenReadonlyInput(input) {
+        if (!input) return;
+
+        input.setAttribute('autocomplete', 'new-password');
+        input.setAttribute('autocorrect', 'off');
+        input.setAttribute('autocapitalize', 'none');
+        input.setAttribute('spellcheck', 'false');
+        input.setAttribute('inputmode', 'search');
+        input.setAttribute('data-lpignore', 'true');
+        input.setAttribute('data-1p-ignore', 'true');
+        input.setAttribute('data-bwignore', 'true');
+        input.setAttribute('data-form-type', 'other');
+        input.setAttribute('aria-autocomplete', 'none');
+
+        if (input instanceof HTMLInputElement) {
+            input.type = 'search';
+
+            if (!input.dataset.academySearchSafeNameV17) {
+                input.dataset.academySearchSafeNameV17 =
+                    `${input.id || 'academy-search'}_safe_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+            }
+
+            input.name = input.dataset.academySearchSafeNameV17;
+        }
+
+        if (!input.dataset.academySearchUserUnlockedV17) {
+            input.setAttribute('readonly', 'readonly');
+            input.dataset.academyReadonlyAutofillGuardV17 = '1';
+        }
+
+        input.removeAttribute('value');
+
+        if (isEmailLike(input.value) || isEmailLike(input.defaultValue)) {
+            input.value = '';
+            input.defaultValue = '';
+            input.removeAttribute('value');
+        }
+    }
+
+    function unlockForUser(input, reason = 'user-intent') {
+        if (!input) return;
+
+        input.dataset.academySearchUserUnlockedV17 = '1';
+        input.dataset.academySearchUnlockReasonV17 = reason;
+        input.removeAttribute('readonly');
+
+        if (isEmailLike(input.value) || isEmailLike(input.defaultValue)) {
+            input.value = '';
+            input.defaultValue = '';
+            input.removeAttribute('value');
+
+            try {
+                if (typeof window.academyCleanupSearchAutofillDelayedV16 === 'function') {
+                    window.academyCleanupSearchAutofillDelayedV16('readonly-guard-unlock');
+                }
+            } catch (_) {}
+        }
+    }
+
+    function bootReadonlyGuard(reason = 'boot') {
+        getSearchInputs().forEach((input) => hardenReadonlyInput(input));
+
+        try {
+            if (typeof window.academyCleanupSearchAutofillDelayedV16 === 'function') {
+                window.academyCleanupSearchAutofillDelayedV16('readonly-guard-' + reason);
+            }
+        } catch (_) {}
+
+        [50, 150, 350, 800, 1500, 3000, 6000, 10000].forEach((delay) => {
+            window.setTimeout(() => {
+                getSearchInputs().forEach((input) => hardenReadonlyInput(input));
+
+                try {
+                    if (typeof window.academyCleanupSearchAutofillDelayedV16 === 'function') {
+                        window.academyCleanupSearchAutofillDelayedV16('readonly-guard-' + reason + '-' + delay);
+                    }
+                } catch (_) {}
+            }, delay);
+        });
+    }
+
+    document.addEventListener('pointerdown', (event) => {
+        const input = event.target?.closest?.('#academy-global-search-input, #academy-member-browser-search-input');
+        if (input) unlockForUser(input, 'pointerdown');
+    }, true);
+
+    document.addEventListener('keydown', (event) => {
+        const input = event.target?.closest?.('#academy-global-search-input, #academy-member-browser-search-input');
+        if (input) unlockForUser(input, 'keydown');
+    }, true);
+
+    document.addEventListener('focusin', (event) => {
+        const input = event.target?.closest?.('#academy-global-search-input, #academy-member-browser-search-input');
+        if (input) {
+            window.setTimeout(() => unlockForUser(input, 'focusin'), 0);
+        }
+    }, true);
+
+    window.addEventListener('pageshow', () => bootReadonlyGuard('pageshow'));
+    window.addEventListener('load', () => bootReadonlyGuard('load'));
+    window.addEventListener('resize', () => bootReadonlyGuard('resize'));
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => bootReadonlyGuard('dom-ready'));
+    } else {
+        bootReadonlyGuard('immediate');
+    }
+
+    window.academySearchAutofillReadonlyGuardV17 = bootReadonlyGuard;
+})();
+/* END PATCH: Academy search autofill readonly guard v17 */
+
 
 
