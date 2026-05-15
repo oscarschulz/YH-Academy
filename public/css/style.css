@@ -24483,93 +24483,94 @@ body[data-yh-page="academy"] .academy-messages-inbox-menu .academy-pinned-conver
 }
 /* END PATCH: Academy pinned conversation pill single-card placement v1 */
 
-/* PATCH: Academy top action modal rendering + search autofill guard v1 */
-.academy-top-action-modal-overlay {
-    position: fixed !important;
-    inset: 0 !important;
-    z-index: 2147483600 !important;
-    display: flex !important;
-    align-items: flex-start !important;
-    justify-content: flex-end !important;
-    padding: 84px 28px 28px !important;
-    background: rgba(2, 6, 23, 0.42) !important;
-    backdrop-filter: blur(10px) !important;
-    -webkit-backdrop-filter: blur(10px) !important;
+/* PATCH: Academy top action dropdown card rendering v3 */
+body[data-yh-page="academy"] .academy-top-action-modal-overlay,
+body[data-yh-view="academy"] .academy-top-action-modal-overlay {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
 }
 
-.academy-top-action-modal-overlay.hidden-step {
+body[data-yh-page="academy"] .academy-top-action-modal-close,
+body[data-yh-view="academy"] .academy-top-action-modal-close {
     display: none !important;
 }
 
-.academy-top-action-modal-overlay .academy-top-action-modal-card {
-    position: relative !important;
-    top: auto !important;
-    right: auto !important;
+body[data-yh-page="academy"] .academy-top-action-dropdown-card-v3,
+body[data-yh-view="academy"] .academy-top-action-dropdown-card-v3 {
+    position: fixed !important;
+    right: 14px;
     left: auto !important;
-    bottom: auto !important;
-    width: min(430px, calc(100vw - 32px)) !important;
-    max-width: calc(100vw - 32px) !important;
-    max-height: min(640px, calc(100vh - 112px)) !important;
+    max-width: calc(100vw - 28px) !important;
+    border: 1px solid rgba(56, 189, 248, 0.22) !important;
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.018)),
+        rgba(6, 14, 28, 0.992) !important;
+    box-shadow:
+        0 34px 90px rgba(0, 0, 0, 0.72),
+        0 0 0 1px rgba(56, 189, 248, 0.16),
+        inset 0 1px 0 rgba(255,255,255,0.05) !important;
+    backdrop-filter: blur(22px) !important;
+    -webkit-backdrop-filter: blur(22px) !important;
+    transform: translateY(0) !important;
     opacity: 1 !important;
     visibility: visible !important;
-    transform: none !important;
-    z-index: 2147483601 !important;
     pointer-events: auto !important;
-    margin: 0 !important;
 }
 
-.academy-top-action-modal-overlay .notif-dropdown.academy-top-action-modal-card {
+body[data-yh-page="academy"] .notif-dropdown.academy-notification-dropdown-card-v3,
+body[data-yh-view="academy"] .notif-dropdown.academy-notification-dropdown-card-v3 {
     display: flex !important;
+    width: min(340px, calc(100vw - 28px)) !important;
+    max-height: min(460px, calc(100vh - 120px)) !important;
+    padding: 0 !important;
+    border-radius: 18px !important;
     overflow: hidden !important;
+    z-index: 2147483003 !important;
 }
 
-.academy-top-action-modal-overlay .yh-resources-menu-panel.academy-top-action-modal-card {
+body[data-yh-page="academy"] .yh-resources-menu-panel.academy-resources-dropdown-card-v3,
+body[data-yh-view="academy"] .yh-resources-menu-panel.academy-resources-dropdown-card-v3 {
     display: grid !important;
+    width: min(340px, calc(100vw - 28px)) !important;
+    max-height: min(520px, calc(100vh - 120px)) !important;
+    padding: 15px !important;
+    border-radius: 22px !important;
     overflow-y: auto !important;
-    padding-top: 44px !important;
+    gap: 10px !important;
+    z-index: 2147483002 !important;
 }
 
-.academy-top-action-modal-close {
-    position: absolute !important;
-    top: 10px !important;
-    right: 10px !important;
-    width: 30px !important;
-    height: 30px !important;
-    border-radius: 999px !important;
-    border: 1px solid rgba(148, 163, 184, 0.28) !important;
-    background: rgba(15, 23, 42, 0.92) !important;
-    color: #e2e8f0 !important;
-    cursor: pointer !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    z-index: 3 !important;
+body[data-yh-page="academy"] .academy-top-action-dropdown-open-v3 .desktop-user-strip,
+body[data-yh-view="academy"] .academy-top-action-dropdown-open-v3 .desktop-user-strip,
+body[data-yh-page="academy"].academy-top-action-dropdown-open-v3 .desktop-user-strip,
+body[data-yh-view="academy"].academy-top-action-dropdown-open-v3 .desktop-user-strip {
+    overflow: visible !important;
+    isolation: isolate !important;
 }
 
-.academy-top-action-modal-close:hover {
-    border-color: rgba(56, 189, 248, 0.55) !important;
-    background: rgba(14, 165, 233, 0.18) !important;
-    color: #fff !important;
-}
-
-.academy-top-action-modal-open .academy-header-search-input:-webkit-autofill,
-.academy-header-search-input:-webkit-autofill {
-    -webkit-text-fill-color: #f8fbff !important;
-    transition: background-color 99999s ease-in-out 0s !important;
+body[data-yh-page="academy"] .academy-strip-notif-right,
+body[data-yh-view="academy"] .academy-strip-notif-right,
+body[data-yh-page="academy"] .yh-resources-menu,
+body[data-yh-view="academy"] .yh-resources-menu {
+    position: relative !important;
+    overflow: visible !important;
 }
 
 @media (max-width: 700px) {
-    .academy-top-action-modal-overlay {
-        justify-content: center !important;
-        padding: 74px 14px 16px !important;
-    }
-
-    .academy-top-action-modal-overlay .academy-top-action-modal-card {
-        width: 100% !important;
-        max-height: calc(100vh - 96px) !important;
+    body[data-yh-page="academy"] .notif-dropdown.academy-notification-dropdown-card-v3,
+    body[data-yh-view="academy"] .notif-dropdown.academy-notification-dropdown-card-v3,
+    body[data-yh-page="academy"] .yh-resources-menu-panel.academy-resources-dropdown-card-v3,
+    body[data-yh-view="academy"] .yh-resources-menu-panel.academy-resources-dropdown-card-v3 {
+        width: calc(100vw - 28px) !important;
+        right: 14px !important;
     }
 }
-/* END PATCH: Academy top action modal rendering + search autofill guard v1 */
+/* END PATCH: Academy top action dropdown card rendering v3 */
 
 
 

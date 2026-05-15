@@ -30170,200 +30170,273 @@ if (document.body) {
 /* END PATCH: Academy pinned conversation visible marker v2 */
 
 
-/* PATCH: Academy top action modals v2 */
-(function installAcademyTopActionModalsV2() {
-    if (window.__academyTopActionModalsV2Installed) return;
-    window.__academyTopActionModalsV2Installed = true;
+/* PATCH: Academy top action dropdown cards v3 */
+(function installAcademyTopActionDropdownCardsV3() {
+    if (window.__academyTopActionDropdownCardsV3Installed) return;
+    window.__academyTopActionDropdownCardsV3Installed = true;
 
     const NOTIF_OVERLAY_ID = 'academy-notification-modal-overlay';
     const RESOURCES_OVERLAY_ID = 'academy-resources-modal-overlay';
 
-    function ensureOverlay(id, label) {
-        let overlay = document.getElementById(id);
-        if (overlay) return overlay;
+    function getEl(id) {
+        return document.getElementById(id);
+    }
 
-        overlay = document.createElement('div');
-        overlay.id = id;
-        overlay.className = 'academy-top-action-modal-overlay hidden-step';
-        overlay.setAttribute('aria-hidden', 'true');
-        overlay.setAttribute('role', 'presentation');
-        overlay.setAttribute('data-modal-label', label || 'Academy modal');
-
-        document.body.appendChild(overlay);
-
-        overlay.addEventListener('click', (event) => {
-            if (event.target === overlay) {
-                closeTopActionModals();
+    function cleanupLegacyTopActionModals() {
+        [NOTIF_OVERLAY_ID, RESOURCES_OVERLAY_ID].forEach((id) => {
+            const overlay = getEl(id);
+            if (overlay) {
+                overlay.classList.add('hidden-step');
+                overlay.setAttribute('aria-hidden', 'true');
+                overlay.style.pointerEvents = 'none';
+                overlay.style.display = 'none';
             }
         });
 
-        return overlay;
-    }
-
-    function addPanelCloseButton(panel, label = 'Close modal') {
-        if (!(panel instanceof HTMLElement)) return;
-        if (panel.querySelector(':scope > .academy-top-action-modal-close')) return;
-
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'academy-top-action-modal-close';
-        button.setAttribute('aria-label', label);
-        button.textContent = '✕';
-
-        button.addEventListener('click', (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            closeTopActionModals();
+        document.querySelectorAll('.academy-top-action-modal-close').forEach((button) => {
+            button.remove();
         });
 
-        panel.appendChild(button);
+        const notifPanel = getEl('notif-dropdown');
+        const resourcesPanel = getEl('yh-resources-menu-panel');
+
+        [notifPanel, resourcesPanel].forEach((panel) => {
+            if (!panel) return;
+
+            panel.classList.remove(
+                'academy-top-action-modal-card',
+                'academy-notification-modal-card',
+                'academy-resources-modal-card'
+            );
+
+            panel.removeAttribute('aria-modal');
+            panel.setAttribute('aria-hidden', panel.classList.contains('show') ? 'false' : 'true');
+        });
+
+        document.body?.classList.remove('academy-top-action-modal-open');
     }
 
-    function closeTopActionModals() {
-        const notifOverlay = document.getElementById(NOTIF_OVERLAY_ID);
-        const resourcesOverlay = document.getElementById(RESOURCES_OVERLAY_ID);
-        const notifPanel = document.getElementById('notif-dropdown');
-        const resourcesPanel = document.getElementById('yh-resources-menu-panel');
-        const resourcesBtn = document.getElementById('yh-resources-menu-btn');
-        const notifBell = document.getElementById('notif-bell');
+    function clampPanelPosition(anchor, panel, options = {}) {
+        if (!anchor || !panel) return;
 
-        notifOverlay?.classList.add('hidden-step');
-        notifOverlay?.setAttribute('aria-hidden', 'true');
-
-        resourcesOverlay?.classList.add('hidden-step');
-        resourcesOverlay?.setAttribute('aria-hidden', 'true');
-
-        notifPanel?.classList.remove('show', 'academy-top-action-modal-card', 'academy-notification-modal-card');
-        notifPanel?.setAttribute('aria-hidden', 'true');
-
-        resourcesPanel?.classList.remove('show', 'academy-top-action-modal-card', 'academy-resources-modal-card');
-        resourcesPanel?.setAttribute('aria-hidden', 'true');
-
-        notifBell?.classList.remove('yh-notif-open');
-        resourcesBtn?.setAttribute('aria-expanded', 'false');
-
-        document.body?.classList.remove(
-            'yh-notif-menu-open',
-            'yh-resources-menu-open',
-            'academy-top-action-modal-open'
+        const rect = anchor.getBoundingClientRect();
+        const panelWidth = Math.min(
+            Number(options.width || 340),
+            Math.max(Number(options.minWidth || 280), window.innerWidth - 28)
         );
+
+        const preferredRight = Math.max(14, window.innerWidth - rect.right);
+        const maxRight = Math.max(14, window.innerWidth - panelWidth - 14);
+        const right = Math.min(Math.max(14, preferredRight), maxRight);
+        const top = Math.max(78, Math.min(rect.bottom + 12, window.innerHeight - 120));
+
+        panel.style.position = 'fixed';
+        panel.style.top = `${top}px`;
+        panel.style.right = `${right}px`;
+        panel.style.left = 'auto';
+        panel.style.width = `min(${panelWidth}px, calc(100vw - 28px))`;
+        panel.style.maxHeight = `calc(100vh - ${top + 20}px)`;
+        panel.style.zIndex = String(options.zIndex || 2147483003);
+        panel.style.pointerEvents = 'auto';
     }
 
-    async function loadNotificationsForModal() {
+    function getNotifElements() {
+        return {
+            bell: getEl('notif-bell'),
+            panel: getEl('notif-dropdown')
+        };
+    }
+
+    function getResourceElements() {
+        return {
+            menu: getEl('yh-resources-menu'),
+            button: getEl('yh-resources-menu-btn'),
+            panel: getEl('yh-resources-menu-panel')
+        };
+    }
+
+    function closeNotificationCard() {
+        const { bell, panel } = getNotifElements();
+
+        if (panel) {
+            panel.classList.remove('show', 'academy-top-action-dropdown-card-v3', 'academy-notification-dropdown-card-v3');
+            panel.setAttribute('aria-hidden', 'true');
+        }
+
+        bell?.classList.remove('yh-notif-open');
+        document.body?.classList.remove('yh-notif-menu-open');
+    }
+
+    function closeResourcesCard() {
+        const { menu, button, panel } = getResourceElements();
+
+        if (panel) {
+            panel.classList.remove('show', 'academy-top-action-dropdown-card-v3', 'academy-resources-dropdown-card-v3');
+            panel.setAttribute('aria-hidden', 'true');
+        }
+
+        menu?.classList.remove('yh-resources-menu-open');
+        button?.setAttribute('aria-expanded', 'false');
+        document.body?.classList.remove('yh-resources-menu-open');
+    }
+
+    function closeTopActionCards() {
+        closeNotificationCard();
+        closeResourcesCard();
+        cleanupLegacyTopActionModals();
+        document.body?.classList.remove('academy-top-action-dropdown-open-v3');
+    }
+
+    async function openNotificationCard() {
+        const { bell, panel } = getNotifElements();
+        if (!bell || !panel) return;
+
+        cleanupLegacyTopActionModals();
+        closeResourcesCard();
+
+        if (panel.parentElement !== document.body) {
+            document.body.appendChild(panel);
+        }
+
+        clampPanelPosition(bell, panel, {
+            width: 340,
+            minWidth: 292,
+            zIndex: 2147483003
+        });
+
+        panel.classList.add('show', 'academy-top-action-dropdown-card-v3', 'academy-notification-dropdown-card-v3');
+        panel.setAttribute('aria-hidden', 'false');
+        panel.setAttribute('role', 'dialog');
+        panel.setAttribute('aria-label', 'Notifications');
+
+        bell.classList.add('yh-notif-open');
+        document.body?.classList.add('yh-notif-menu-open', 'academy-top-action-dropdown-open-v3');
+
         try {
             if (typeof loadRealtimeNotifications === 'function') {
                 await loadRealtimeNotifications(true);
-                return;
             }
         } catch (_) {}
+    }
 
-        const list = document.getElementById('notif-list-container');
-        if (!list) return;
+    function openResourcesCard() {
+        const { menu, button, panel } = getResourceElements();
+        if (!button || !panel) return;
 
-        try {
-            const result = typeof academyAuthedFetch === 'function'
-                ? await academyAuthedFetch('/api/realtime/notifications', { method: 'GET' })
-                : null;
+        cleanupLegacyTopActionModals();
+        closeNotificationCard();
 
-            const notifications = Array.isArray(result?.notifications) ? result.notifications : [];
-
-            if (typeof renderRealtimeNotifications === 'function') {
-                renderRealtimeNotifications(notifications);
-                return;
-            }
-
-            if (!notifications.length) {
-                list.innerHTML = '<li class="notif-empty-state" id="notif-empty-state">No notifications yet.</li>';
-            }
-        } catch (_) {
-            list.innerHTML = '<li class="notif-empty-state" id="notif-empty-state">Failed to load notifications.</li>';
+        if (panel.parentElement !== document.body) {
+            document.body.appendChild(panel);
         }
+
+        clampPanelPosition(button, panel, {
+            width: 340,
+            minWidth: 300,
+            zIndex: 2147483002
+        });
+
+        panel.classList.add('show', 'academy-top-action-dropdown-card-v3', 'academy-resources-dropdown-card-v3');
+        panel.setAttribute('aria-hidden', 'false');
+        panel.setAttribute('role', 'dialog');
+        panel.setAttribute('aria-label', 'Partnerships and Resources');
+
+        menu?.classList.add('yh-resources-menu-open');
+        button.setAttribute('aria-expanded', 'true');
+        document.body?.classList.add('yh-resources-menu-open', 'academy-top-action-dropdown-open-v3');
     }
 
-    async function openNotificationsModal() {
-        const notifPanel = document.getElementById('notif-dropdown');
-        const notifBell = document.getElementById('notif-bell');
-        if (!notifPanel) return;
+    function syncOpenCardPositions() {
+        const { bell, panel: notifPanel } = getNotifElements();
+        const { button, panel: resourcesPanel } = getResourceElements();
 
-        closeTopActionModals();
+        if (notifPanel?.classList.contains('show')) {
+            clampPanelPosition(bell, notifPanel, {
+                width: 340,
+                minWidth: 292,
+                zIndex: 2147483003
+            });
+        }
 
-        const overlay = ensureOverlay(NOTIF_OVERLAY_ID, 'Notifications');
-        overlay.appendChild(notifPanel);
-        addPanelCloseButton(notifPanel, 'Close notifications');
-
-        notifPanel.classList.add('show', 'academy-top-action-modal-card', 'academy-notification-modal-card');
-        notifPanel.setAttribute('aria-hidden', 'false');
-        notifPanel.setAttribute('role', 'dialog');
-        notifPanel.setAttribute('aria-modal', 'true');
-        notifPanel.setAttribute('aria-label', 'Notifications');
-
-        overlay.classList.remove('hidden-step');
-        overlay.setAttribute('aria-hidden', 'false');
-
-        notifBell?.classList.add('yh-notif-open');
-        document.body?.classList.add('yh-notif-menu-open', 'academy-top-action-modal-open');
-
-        await loadNotificationsForModal();
-    }
-
-    function openResourcesModal() {
-        const resourcesPanel = document.getElementById('yh-resources-menu-panel');
-        const resourcesBtn = document.getElementById('yh-resources-menu-btn');
-        if (!resourcesPanel) return;
-
-        closeTopActionModals();
-
-        const overlay = ensureOverlay(RESOURCES_OVERLAY_ID, 'Partnerships and Resources');
-        overlay.appendChild(resourcesPanel);
-        addPanelCloseButton(resourcesPanel, 'Close Partnerships and Resources');
-
-        resourcesPanel.classList.add('show', 'academy-top-action-modal-card', 'academy-resources-modal-card');
-        resourcesPanel.setAttribute('aria-hidden', 'false');
-        resourcesPanel.setAttribute('role', 'dialog');
-        resourcesPanel.setAttribute('aria-modal', 'true');
-        resourcesPanel.setAttribute('aria-label', 'Partnerships and Resources');
-
-        overlay.classList.remove('hidden-step');
-        overlay.setAttribute('aria-hidden', 'false');
-
-        resourcesBtn?.setAttribute('aria-expanded', 'true');
-        document.body?.classList.add('yh-resources-menu-open', 'academy-top-action-modal-open');
+        if (resourcesPanel?.classList.contains('show')) {
+            clampPanelPosition(button, resourcesPanel, {
+                width: 340,
+                minWidth: 300,
+                zIndex: 2147483002
+            });
+        }
     }
 
     document.addEventListener('click', (event) => {
         const target = event.target instanceof Element ? event.target : event.target?.parentElement;
         if (!target) return;
 
-        const notifTarget = target.closest('#notif-bell, #notif-bell *');
-        const resourcesTarget = target.closest('#yh-resources-menu-btn, #yh-resources-menu-btn *');
+        const { bell, panel: notifPanel } = getNotifElements();
+        const { button: resourcesBtn, panel: resourcesPanel } = getResourceElements();
 
-        if (notifTarget && !target.closest('#notif-dropdown')) {
-            event.preventDefault();
-            event.stopPropagation();
-            event.stopImmediatePropagation();
-            openNotificationsModal();
+        const clickedNotifBell = bell && (target === bell || bell.contains(target));
+        const clickedResourcesButton = resourcesBtn && (target === resourcesBtn || resourcesBtn.contains(target));
+        const clickedInsideNotif = notifPanel && notifPanel.contains(target);
+        const clickedInsideResources = resourcesPanel && resourcesPanel.contains(target);
+
+        if (clickedInsideNotif || clickedInsideResources) {
             return;
         }
 
-        if (resourcesTarget) {
+        if (clickedNotifBell) {
             event.preventDefault();
             event.stopPropagation();
             event.stopImmediatePropagation();
-            openResourcesModal();
+
+            if (notifPanel?.classList.contains('show')) {
+                closeNotificationCard();
+            } else {
+                openNotificationCard();
+            }
+
+            return;
         }
+
+        if (clickedResourcesButton) {
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+
+            if (resourcesPanel?.classList.contains('show')) {
+                closeResourcesCard();
+            } else {
+                openResourcesCard();
+            }
+
+            return;
+        }
+
+        closeTopActionCards();
     }, true);
 
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
-            closeTopActionModals();
+            closeTopActionCards();
         }
     });
 
-    window.openAcademyNotificationsModal = openNotificationsModal;
-    window.openAcademyResourcesModal = openResourcesModal;
-    window.closeAcademyTopActionModals = closeTopActionModals;
+    window.addEventListener('resize', syncOpenCardPositions);
+    window.addEventListener('scroll', syncOpenCardPositions, true);
+    window.addEventListener('pageshow', () => {
+        cleanupLegacyTopActionModals();
+        syncOpenCardPositions();
+    });
+
+    cleanupLegacyTopActionModals();
+
+    window.openAcademyNotificationsModal = openNotificationCard;
+    window.openAcademyResourcesModal = openResourcesCard;
+    window.closeAcademyTopActionModals = closeTopActionCards;
+    window.openAcademyNotificationDropdownCardV3 = openNotificationCard;
+    window.openAcademyResourcesDropdownCardV3 = openResourcesCard;
+    window.closeAcademyTopActionDropdownCardsV3 = closeTopActionCards;
 })();
-/* END PATCH: Academy top action modals v2 */
+/* END PATCH: Academy top action dropdown cards v3 */
 
 
 
