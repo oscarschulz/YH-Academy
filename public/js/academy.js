@@ -19033,6 +19033,71 @@ async function academyStartVoiceRtcForRoom(room = {}) {
         throw new Error('Missing live voice room id.');
     }
 
+    if (typeof academyVoiceRtcState !== 'object' || !academyVoiceRtcState) {
+        throw new Error('Voice session state is not ready. Refresh and try again.');
+    }
+
+    if (academyVoiceRtcState.roomId && academyVoiceRtcState.roomId !== roomId) {
+        try {
+            academyStopVoiceRtcSession({ notifyServer: true });
+        } catch (_) {}
+    }
+
+    academyVoiceRtcState.roomId = roomId;
+    academyVoiceRtcState.hasJoinedSignaling = false;
+
+    if (typeof academyGetVoiceLocalStream !== 'function') {
+        throw new Error('Voice microphone handler is not available. Refresh and try again.');
+    }
+
+    if (typeof academyWaitForVoiceSocketReady !== 'function') {
+        throw new Error('Voice socket handler is not available. Refresh and try again.');
+    }
+
+    if (typeof academyEmitVoiceJoinWithAck !== 'function') {
+        throw new Error('Voice signaling handler is not available. Refresh and try again.');
+    }
+
+    await academyGetVoiceLocalStream();
+    await academyWaitForVoiceSocketReady();
+
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= 4; attempt += 1) {
+        try {
+            const ack = await academyEmitVoiceJoinWithAck(roomId, attempt);
+
+            academyVoiceRtcState.hasJoinedSignaling = true;
+
+            showToast('Voice connected. You can now talk in this room.', 'success');
+
+            return ack;
+        } catch (error) {
+            lastError = error;
+
+            console.warn('academyVoice signaling join attempt failed:', {
+                attempt,
+                roomId,
+                message: error && error.message ? error.message : error
+            });
+
+            if (attempt < 4) {
+                showToast('Connecting voice signaling. Retrying...', 'success');
+                await new Promise((resolve) => window.setTimeout(resolve, 450 + attempt * 250));
+            }
+        }
+    }
+
+    academyVoiceRtcState.hasJoinedSignaling = false;
+
+    throw lastError || new Error('Failed to join voice signaling.');
+}) {
+    const roomId = normalizeAcademyLiveRoomId(room?.id || room?.roomId || room?.room_id);
+
+    if (!roomId) {
+        throw new Error('Missing live voice room id.');
+    }
+
     if (academyVoiceRtcState.roomId && academyVoiceRtcState.roomId !== roomId) {
         academyStopVoiceRtcSession({ notifyServer: true });
     }
@@ -19553,7 +19618,7 @@ async function createAcademyVideoRoom(title = '', topic = '') {
 
     showToast('Live video room started.', 'success');
     await loadAcademyVideoRooms(true);
-    openAcademyStageFromRoom(room);
+    await openAcademyStageFromRoom(room);
 }
 
 /**
