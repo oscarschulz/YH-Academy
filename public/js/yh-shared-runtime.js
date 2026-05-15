@@ -13,9 +13,11 @@
     let yhTabLoaderHideTimer = null;
     let yhTabLoaderForceHideTimer = null;
 
+        let yhTabLoaderNestedHideTimer = null;
+    let yhTabLoaderCycle = 0;
     function showAcademyTabLoader(label = 'Loading.') {
         const overlay = document.getElementById('yh-tab-loader');
-        if (!overlay) return;
+        if (!overlay) return 0;
 
         const text = document.getElementById('yh-tab-loader-text');
         if (text) text.textContent = String(label || 'Loading.');
@@ -25,13 +27,22 @@
             yhTabLoaderHideTimer = null;
         }
 
+        if (yhTabLoaderNestedHideTimer) {
+            clearTimeout(yhTabLoaderNestedHideTimer);
+            yhTabLoaderNestedHideTimer = null;
+        }
+
         if (yhTabLoaderForceHideTimer) {
             clearTimeout(yhTabLoaderForceHideTimer);
             yhTabLoaderForceHideTimer = null;
         }
 
+        yhTabLoaderCycle += 1;
+        const activeCycle = yhTabLoaderCycle;
+
         yhTabLoaderDepth = 1;
 
+        overlay.dataset.loaderCycle = String(activeCycle);
         overlay.classList.remove('hidden-step');
         overlay.classList.add('is-active');
         overlay.setAttribute('aria-hidden', 'false');
@@ -42,12 +53,22 @@
         const academyForceHideMs =
             document.body?.getAttribute('data-yh-page') === 'academy' ||
             document.body?.getAttribute('data-yh-view') === 'academy'
-                ? 2200
+                ? 1800
                 : 7500;
 
         yhTabLoaderForceHideTimer = setTimeout(() => {
-            forceHideAcademyTabLoader();
+            const currentCycle = Number(overlay.dataset.loaderCycle || 0);
+
+            if (
+                currentCycle === activeCycle ||
+                document.body?.getAttribute('data-yh-page') === 'academy' ||
+                document.body?.getAttribute('data-yh-view') === 'academy'
+            ) {
+                forceHideAcademyTabLoader({ token: activeCycle });
+            }
         }, academyForceHideMs);
+
+        return activeCycle;
     }
 
     function hideAcademyTabLoader(options = {}) {
@@ -55,6 +76,13 @@
         if (!overlay) return;
 
         const force = options && options.force === true;
+        const token = Number(options?.token || 0);
+        const hasToken = Number.isFinite(token) && token > 0;
+        const overlayCycle = Number(overlay.dataset.loaderCycle || 0);
+
+        if (hasToken && overlayCycle && overlayCycle !== token && force !== true) {
+            return;
+        }
 
         yhTabLoaderDepth = force ? 0 : Math.max(0, yhTabLoaderDepth - 1);
         if (!force && yhTabLoaderDepth !== 0) return;
@@ -64,26 +92,40 @@
             yhTabLoaderForceHideTimer = null;
         }
 
+        const hideCycle = overlayCycle || yhTabLoaderCycle;
         const elapsed = Date.now() - (yhTabLoaderVisibleAt || 0);
         const delay = force ? 0 : Math.max(0, YH_TAB_LOADER_MIN_MS - elapsed);
 
         if (yhTabLoaderHideTimer) clearTimeout(yhTabLoaderHideTimer);
+        if (yhTabLoaderNestedHideTimer) clearTimeout(yhTabLoaderNestedHideTimer);
 
         yhTabLoaderHideTimer = setTimeout(() => {
+            const currentCycle = Number(overlay.dataset.loaderCycle || 0);
+
+            if (!force && currentCycle && hideCycle && currentCycle !== hideCycle) {
+                return;
+            }
+
             overlay.classList.remove('is-active');
             overlay.setAttribute('aria-hidden', 'true');
             overlay.style.pointerEvents = 'none';
 
-            setTimeout(() => {
+            yhTabLoaderNestedHideTimer = setTimeout(() => {
+                const latestCycle = Number(overlay.dataset.loaderCycle || 0);
+
+                if (!force && latestCycle && hideCycle && latestCycle !== hideCycle) {
+                    return;
+                }
+
                 overlay.classList.add('hidden-step');
                 overlay.style.pointerEvents = 'none';
             }, force ? 0 : 180);
         }, delay);
     }
 
-    function forceHideAcademyTabLoader() {
+    function forceHideAcademyTabLoader(options = {}) {
         yhTabLoaderDepth = 0;
-        hideAcademyTabLoader({ force: true });
+        hideAcademyTabLoader({ ...(options || {}), force: true });
     }
 
     function readDashboardViewState() {

@@ -86,6 +86,106 @@
 })();
 /* END PATCH: Academy interval budget guard v6.1 */
 
+/* PATCH: Academy tab loader watchdog v11 */
+function academyForceReleaseAllLoadingOverlaysV11(reason = 'tab-watchdog') {
+    try {
+        if (typeof window.YHSharedRuntime?.forceHideAcademyTabLoader === 'function') {
+            window.YHSharedRuntime.forceHideAcademyTabLoader({ reason });
+        }
+    } catch (_) {}
+
+    try {
+        if (typeof hideAcademyTabLoader === 'function') {
+            hideAcademyTabLoader({ force: true, reason });
+        }
+    } catch (_) {}
+
+    const tabLoader = document.getElementById('yh-tab-loader');
+    if (tabLoader) {
+        tabLoader.classList.remove('is-active');
+        tabLoader.classList.add('hidden-step');
+        tabLoader.setAttribute('aria-hidden', 'true');
+        tabLoader.style.pointerEvents = 'none';
+    }
+
+    const startupLoader = document.getElementById('yh-academy-startup-loader');
+    if (startupLoader) {
+        startupLoader.classList.add('hidden-step');
+        startupLoader.classList.add('is-exiting');
+        startupLoader.setAttribute('aria-hidden', 'true');
+        startupLoader.style.pointerEvents = 'none';
+    }
+
+    document.body?.classList.add('academy-shell-ready');
+    document.body?.classList.remove('academy-startup-booting');
+    document.body?.classList.remove('academy-standalone-shell-pending');
+    document.body?.removeAttribute('data-academy-tab-loading');
+
+    window.__academyTabSwitchLockedV7 = false;
+    window.__academyTabSwitchReasonV7 = '';
+}
+
+function academyScheduleTabOverlayWatchdogV11(reason = 'tab') {
+    if (document.body?.getAttribute('data-yh-page') !== 'academy') return;
+
+    window.clearTimeout(window.__academyTabOverlayWatchdogFastV11);
+    window.clearTimeout(window.__academyTabOverlayWatchdogMidV11);
+    window.clearTimeout(window.__academyTabOverlayWatchdogLateV11);
+
+    window.__academyTabOverlayWatchdogFastV11 = window.setTimeout(() => {
+        academyForceReleaseAllLoadingOverlaysV11(reason + '-fast');
+    }, 1600);
+
+    window.__academyTabOverlayWatchdogMidV11 = window.setTimeout(() => {
+        academyForceReleaseAllLoadingOverlaysV11(reason + '-mid');
+    }, 3200);
+
+    window.__academyTabOverlayWatchdogLateV11 = window.setTimeout(() => {
+        academyForceReleaseAllLoadingOverlaysV11(reason + '-late');
+    }, 5200);
+}
+
+function academyBindTabOverlayWatchdogV11() {
+    if (window.__academyTabOverlayWatchdogBoundV11) return;
+    window.__academyTabOverlayWatchdogBoundV11 = true;
+
+    const selector = [
+        '#nav-missions',
+        '#nav-lead-missions',
+        '#nav-chat',
+        '#nav-messages',
+        '#nav-voice',
+        '#nav-profile',
+        '[data-academy-target]'
+    ].join(',');
+
+    document.addEventListener('click', (event) => {
+        const target = event.target?.closest?.(selector);
+        if (!target) return;
+
+        const reason =
+            target.id ||
+            target.getAttribute('data-academy-target') ||
+            'academy-tab';
+
+        academyScheduleTabOverlayWatchdogV11(reason);
+    }, true);
+
+    window.addEventListener('pageshow', () => {
+        window.setTimeout(() => {
+            academyForceReleaseAllLoadingOverlaysV11('pageshow');
+        }, 1200);
+    });
+
+    window.addEventListener('popstate', () => {
+        academyScheduleTabOverlayWatchdogV11('popstate');
+    });
+}
+
+academyBindTabOverlayWatchdogV11();
+/* END PATCH: Academy tab loader watchdog v11 */
+
+
 const {
     getStoredAuthToken,
     getStoredUserValue,
@@ -4557,7 +4657,7 @@ async function ensureVaultLoaded(force = false) {
         if (!btnCreateGroup || !groupNameInput) return false;
 
         const hasGroupName = String(groupNameInput.value || '').trim().length > 0;
-        const hasMembers = Array.isArray(pendingGroupMembers) && pendingGroupMembers.length > 0;
+        const hasMembers = Array.isArray(pendingGroupMembers) && pendingGroupMembers.length >= 2;
         const isReady = hasGroupName && hasMembers;
 
         btnCreateGroup.disabled = !isReady;
@@ -4565,7 +4665,7 @@ async function ensureVaultLoaded(force = false) {
         btnCreateGroup.style.opacity = isReady ? '1' : '0.6';
         btnCreateGroup.style.cursor = isReady ? 'pointer' : 'not-allowed';
         btnCreateGroup.innerText = !hasMembers
-            ? 'Select members to create group'
+            ? 'Select at least 2 members to create group'
             : !hasGroupName
                 ? 'Enter group name to create'
                 : `Create Group (${pendingGroupMembers.length + 1} members)`;
@@ -4929,7 +5029,7 @@ async function ensureVaultLoaded(force = false) {
                 ? pendingGroupMembers.filter((member) => normalizeAcademyFeedId(member?.id))
                 : [];
 
-            if (!chatName || !selectedMembers.length) return;
+            if (!chatName || selectedMembers.length < 2) return;
 
             await runDashboardButtonAction(btnCreateGroup, 'Creating Group.', async () => {
                 const memberUserIds = selectedMembers
@@ -9198,6 +9298,160 @@ function academyScheduleIdleV7(callback, timeout = 900) {
     window.setTimeout(callback, 120);
 }
 /* END PATCH: Academy tab interaction safety v7 */
+/* PATCH: Academy Messages/Missions shell stabilizer v12 */
+function academyForceReleaseTabLoaderV12(reason = 'shell-ready') {
+    try {
+        if (typeof window.YHSharedRuntime?.forceHideAcademyTabLoader === 'function') {
+            window.YHSharedRuntime.forceHideAcademyTabLoader({ reason });
+        }
+    } catch (_) {}
+
+    try {
+        if (typeof hideAcademyTabLoader === 'function') {
+            hideAcademyTabLoader({ force: true, reason });
+        }
+    } catch (_) {
+        try {
+            if (typeof hideAcademyTabLoader === 'function') hideAcademyTabLoader();
+        } catch (_) {}
+    }
+
+    try {
+        if (typeof academyReleaseTabLoaderHardV7 === 'function') {
+            academyReleaseTabLoaderHardV7(reason);
+        }
+    } catch (_) {}
+
+    const overlay = document.getElementById('yh-tab-loader');
+    if (overlay) {
+        overlay.classList.remove('is-active');
+        overlay.classList.add('hidden-step');
+        overlay.setAttribute('aria-hidden', 'true');
+        overlay.style.pointerEvents = 'none';
+    }
+
+    document.body?.classList.add('academy-shell-ready');
+    document.body?.classList.remove('academy-startup-booting');
+    document.body?.classList.remove('academy-standalone-shell-pending');
+    document.body?.removeAttribute('data-academy-tab-loading');
+}
+
+function academyEnsureMessagesTabsShellV12() {
+    const sidebar = document.getElementById('academy-messages-inbox-sidebar');
+    const list = document.getElementById('academy-messages-inbox-list');
+    if (!list) return null;
+
+    let tabs = document.getElementById('academy-messages-inbox-tabs');
+
+    if (!tabs) {
+        tabs = document.createElement('div');
+        tabs.id = 'academy-messages-inbox-tabs';
+        tabs.className = 'academy-messages-inbox-tabs';
+        tabs.setAttribute('role', 'tablist');
+        tabs.setAttribute('aria-label', 'Conversation type');
+        tabs.innerHTML = [
+            '<button type="button" class="academy-messages-inbox-tab" role="tab" data-academy-message-tab="dm">DMs</button>',
+            '<button type="button" class="academy-messages-inbox-tab" role="tab" data-academy-message-tab="group">Groups</button>'
+        ].join('');
+
+        const head = sidebar?.querySelector?.('.academy-messages-inbox-head') || document.querySelector('.academy-messages-inbox-head');
+
+        if (head) {
+            head.insertAdjacentElement('afterend', tabs);
+        } else {
+            list.insertAdjacentElement('beforebegin', tabs);
+        }
+    }
+
+    tabs.classList.remove('hidden-step');
+    tabs.style.removeProperty('display');
+    tabs.setAttribute('aria-hidden', 'false');
+
+    return tabs;
+}
+
+function academyGetMessagesTabShellV12() {
+    try {
+        const stored = String(localStorage.getItem('yh_academy_messages_active_tab_v1') || 'dm').trim().toLowerCase();
+        return stored === 'group' ? 'group' : 'dm';
+    } catch (_) {
+        return 'dm';
+    }
+}
+
+function academySyncMessagesTabsShellV12(tab = '') {
+    const selected = String(tab || academyGetMessagesTabShellV12()).trim().toLowerCase() === 'group' ? 'group' : 'dm';
+    const tabs = academyEnsureMessagesTabsShellV12();
+
+    try {
+        localStorage.setItem('yh_academy_messages_active_tab_v1', selected);
+    } catch (_) {}
+
+    if (tabs) {
+        tabs.querySelectorAll('[data-academy-message-tab]').forEach((button) => {
+            const value = String(button.getAttribute('data-academy-message-tab') || '').trim().toLowerCase();
+            const active = value === selected;
+
+            button.classList.toggle('is-active', active);
+            button.setAttribute('aria-selected', active ? 'true' : 'false');
+            button.setAttribute('tabindex', active ? '0' : '-1');
+        });
+    }
+
+    return selected;
+}
+
+function academyRenderMessagesShellNowV12() {
+    academyEnsureMessagesTabsShellV12();
+    academySyncMessagesTabsShellV12();
+
+    try {
+        if (typeof renderAcademyMessagesInboxList === 'function') {
+            renderAcademyMessagesInboxList();
+        }
+    } catch (error) {
+        console.error('academyRenderMessagesShellNowV12 render inbox error:', error);
+    }
+
+    try {
+        if (typeof window.academyEnhanceMessagesInbox === 'function') {
+            window.academyEnhanceMessagesInbox();
+        }
+    } catch (_) {}
+
+    try {
+        const rooms = typeof academyReadMessageRooms === 'function'
+            ? academyReadMessageRooms()
+            : [];
+
+        if (typeof academyRenderMessagesThreadEmpty === 'function') {
+            academyRenderMessagesThreadEmpty(
+                rooms.length
+                    ? 'Select a conversation from the inbox to open that private thread.'
+                    : 'No conversations yet. Start a DM or create a group to see it here.'
+            );
+        }
+    } catch (_) {}
+
+    window.setTimeout(() => {
+        try {
+            academyHydrateMessageRooms(!academyMessagesInboxState.hydratedOnce).catch((error) => {
+                showToast(error?.message || 'Failed to load conversations.', 'error');
+            }).finally(() => {
+                academyForceReleaseTabLoaderV12('messages-hydrated');
+                academyEnsureMessagesTabsShellV12();
+                academySyncMessagesTabsShellV12();
+            });
+        } catch (error) {
+            console.error('academyRenderMessagesShellNowV12 hydrate error:', error);
+            academyForceReleaseTabLoaderV12('messages-hydrate-start-error');
+        }
+    }, 120);
+
+    academyForceReleaseTabLoaderV12('messages-shell-ready');
+}
+/* END PATCH: Academy Messages/Missions shell stabilizer v12 */
+
 
 function openAcademyMessagesView() {
     if (!academyLockTabSwitchV7('messages')) return;
@@ -9233,6 +9487,8 @@ function openAcademyMessagesView() {
             academyResetMessagesThreadState();
             academySetMessagesChatMode('messages');
 
+            academyRenderMessagesShellNowV12();
+
             const rooms = academyReadMessageRooms();
 
             academyScheduleIdleV7(() => {
@@ -9258,6 +9514,7 @@ function openAcademyMessagesView() {
             console.error('openAcademyMessagesView error:', error);
             showToast(error?.message || 'Failed to open Messages.', 'error');
         } finally {
+            academyForceReleaseTabLoaderV12('messages-opened');
             academyUnlockTabSwitchSoonV7('messages');
         }
     });
@@ -14443,6 +14700,7 @@ function openAcademyMissionsView() {
                 revealAcademyMissionsViewShell();
             } catch (_) {}
         } finally {
+            academyForceReleaseTabLoaderV12('missions-opened');
             academyUnlockTabSwitchSoonV7('missions');
         }
     });
@@ -14490,6 +14748,7 @@ async function openAcademyLeadMissionsView(options = {}) {
     revealAcademyMissionsViewShell();
     setAcademyMissionsPanel('leads');
 
+    academyForceReleaseTabLoaderV12('leads-shell-ready');
     Promise.resolve(loadAcademyLeadMissionsWorkspace(options?.initialSubtab || 'database'))
         .catch((error) => {
             console.error('loadAcademyLeadMissionsWorkspace error:', error); 
@@ -14920,12 +15179,14 @@ function academyBuildDirectMessageRoomEntry(room = {}, profile = {}) {
 
 function academyCreateDirectMessageRoomElement(roomEntry = {}) {
     const element = document.createElement('div');
+    const forcedRoomType = academyResolveMessageRoomKindV13(roomEntry);
     const visualIcon = roomEntry.avatarUrl
         ? `url("${roomEntry.avatarUrl}")`
         : (roomEntry.icon || '💬');
 
     element.className = 'room-entry';
-    element.setAttribute('data-type', 'dm');
+    element.setAttribute('data-type', forcedRoomType);
+    element.setAttribute('data-room-type', forcedRoomType);
     element.setAttribute('data-id', roomEntry.id || roomEntry.roomId || '');
     element.setAttribute('data-room-id', roomEntry.roomId || roomEntry.id || '');
     element.setAttribute('data-name', roomEntry.name || 'Direct Message');
@@ -16221,10 +16482,162 @@ function academyRenderMessagesThreadEmpty(message = 'Select a conversation to op
     `;
 }
 
+/* PATCH: Academy message room type resolver v13 */
+function academyParseRoomArrayV13(value, fallback = []) {
+    if (Array.isArray(value)) return value;
+    if (value === null || value === undefined || value === '') return Array.isArray(fallback) ? fallback : [];
+
+    if (typeof value === 'string') {
+        try {
+            const parsed = JSON.parse(value);
+            return Array.isArray(parsed) ? parsed : (Array.isArray(fallback) ? fallback : []);
+        } catch (_) {
+            return value.split(',').map((item) => item.trim()).filter(Boolean);
+        }
+    }
+
+    return Array.isArray(fallback) ? fallback : [];
+}
+
+function academyNormalizeParticipantKeyV13(value = '') {
+    try {
+        if (typeof normalizeAcademyFeedId === 'function') {
+            const normalized = normalizeAcademyFeedId(value);
+            if (normalized) return normalized;
+        }
+    } catch (_) {}
+
+    try {
+        if (typeof normalizeRoomKey === 'function') {
+            const normalized = normalizeRoomKey(value);
+            if (normalized) return normalized;
+        }
+    } catch (_) {}
+
+    return String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/^@+/, '')
+        .replace(/\s+/g, '_')
+        .replace(/[^a-z0-9_-]/g, '');
+}
+
+function academyCollectMessageRoomParticipantsV13(room = {}) {
+    const keys = [];
+    let numericCount = 0;
+
+    const pushValue = (value) => {
+        if (value === null || value === undefined) return;
+
+        if (typeof value === 'object') {
+            pushValue(
+                value.id ||
+                value.uid ||
+                value.userId ||
+                value.user_id ||
+                value.memberId ||
+                value.member_id ||
+                value.name ||
+                value.displayName ||
+                value.fullName ||
+                value.username ||
+                ''
+            );
+            return;
+        }
+
+        const normalized = academyNormalizeParticipantKeyV13(value);
+        if (normalized && !keys.includes(normalized)) keys.push(normalized);
+    };
+
+    const pushArray = (value) => {
+        academyParseRoomArrayV13(value).forEach(pushValue);
+    };
+
+    if (room && typeof HTMLElement !== 'undefined' && room instanceof HTMLElement) {
+        pushArray(room.getAttribute('data-room-member-ids') || room.dataset?.roomMemberIds || '[]');
+        pushArray(room.getAttribute('data-room-participants') || room.dataset?.roomParticipants || '[]');
+        pushArray(room.getAttribute('data-room-member-names') || room.dataset?.roomMemberNames || '[]');
+        pushValue(room.getAttribute('data-room-recipient-id') || room.dataset?.roomRecipientId || '');
+        pushValue(room.getAttribute('data-room-recipient') || room.dataset?.roomRecipient || '');
+    } else if (room && typeof room === 'object') {
+        pushArray(room.memberIds || room.member_ids || room.memberUserIds || room.member_user_ids || []);
+        pushArray(room.participantIds || room.participant_ids || []);
+        pushArray(room.participantNames || room.participant_names || []);
+        pushArray(room.memberNames || room.member_names || []);
+        pushArray(room.participants || []);
+        pushArray(room.members || []);
+        pushArray(room.users || []);
+        pushValue(room.recipientId || room.recipient_id || '');
+        pushValue(room.recipientName || room.recipient_name || '');
+
+        numericCount = Math.max(
+            Number(room.memberCount || 0),
+            Number(room.membersCount || 0),
+            Number(room.participantCount || 0),
+            Number(room.participantsCount || 0),
+            Number(room.totalMembers || 0),
+            Number(room.totalParticipants || 0),
+            0
+        );
+    }
+
+    return {
+        keys,
+        count: Math.max(keys.length, Number.isFinite(numericCount) ? numericCount : 0)
+    };
+}
+
+function academyGetMessageRoomParticipantCountV13(room = {}) {
+    return academyCollectMessageRoomParticipantsV13(room).count;
+}
+
+function academyResolveMessageRoomKindV13(room = {}) {
+    const participantCount = academyGetMessageRoomParticipantCountV13(room);
+
+    if (participantCount > 2) return 'group';
+    if (participantCount === 2) return 'dm';
+
+    const raw = String(
+        room?.room_type ||
+        room?.roomType ||
+        room?.type ||
+        room?.dataset?.academyRoomType ||
+        room?.dataset?.roomType ||
+        (typeof room?.getAttribute === 'function' ? room.getAttribute('data-room-type') || room.getAttribute('data-type') : '') ||
+        ''
+    ).trim().toLowerCase();
+
+    return raw === 'group' ? 'group' : 'dm';
+}
+
+function academyNormalizeMessageRoomEntryTypeV13(room = {}) {
+    if (!room || typeof room !== 'object') return room;
+
+    const type = academyResolveMessageRoomKindV13(room);
+    const participants = academyCollectMessageRoomParticipantsV13(room);
+
+    return {
+        ...room,
+        type,
+        roomType: type,
+        room_type: type,
+        participantCount: participants.count,
+        participantsCount: participants.count
+    };
+}
+
+function academyNormalizeMessageRoomsForTabsV13(rooms = []) {
+    return (Array.isArray(rooms) ? rooms : [])
+        .map((room) => academyNormalizeMessageRoomEntryTypeV13(room))
+        .filter(Boolean);
+}
+/* END PATCH: Academy message room type resolver v13 */
+
 function academyBuildGenericInboxRoomElement(roomEntry = {}) {
     const element = document.createElement('div');
     const roomId = String(roomEntry.roomId || roomEntry.id || '').trim();
-    const roomType = String(roomEntry.type || 'group').trim().toLowerCase() === 'dm' ? 'dm' : 'group';
+    const roomType = academyResolveMessageRoomKindV13(roomEntry);
 
     element.className = 'room-entry';
     element.setAttribute('data-type', roomType);
@@ -16273,12 +16686,15 @@ function academyOpenInboxRoomById(roomId = '') {
     saveAcademyViewState('messages');
     setAcademySidebarActive('nav-messages');
 
-    const transientRoomElement =
-        roomEntry.type === 'dm' && typeof academyCreateDirectMessageRoomElement === 'function'
-            ? academyCreateDirectMessageRoomElement(roomEntry)
-            : academyBuildGenericInboxRoomElement(roomEntry);
+    const resolvedRoomEntry = academyNormalizeMessageRoomEntryTypeV13(roomEntry);
+    const resolvedRoomType = resolvedRoomEntry.type === 'group' ? 'group' : 'dm';
 
-    openRoom(roomEntry.type === 'dm' ? 'dm' : 'group', transientRoomElement);
+    const transientRoomElement =
+        resolvedRoomType === 'dm' && typeof academyCreateDirectMessageRoomElement === 'function'
+            ? academyCreateDirectMessageRoomElement(resolvedRoomEntry)
+            : academyBuildGenericInboxRoomElement(resolvedRoomEntry);
+
+    openRoom(resolvedRoomType, transientRoomElement);
     academySetMessagesChatMode('thread');
     markCustomRoomAsRead(roomEntry.roomId || roomEntry.id);
     renderAcademyMessagesInboxList();
@@ -16312,7 +16728,7 @@ function renderAcademyMessagesInboxList() {
         academyMessagesInboxState.activeRoomId = runtimeActiveRoomId;
     }
 
-    const rooms = academyReadMessageRooms();
+    const rooms = academyNormalizeMessageRoomsForTabsV13(academyReadMessageRooms());
     academyRenderMessagesSidebarBadge();
 
     if (!rooms.length) {
@@ -16330,7 +16746,7 @@ function renderAcademyMessagesInboxList() {
         const unreadCount = Number.parseInt(room?.unreadCount, 10);
         const unread = Number.isFinite(unreadCount) && unreadCount > 0 ? unreadCount : 0;
         const isActive = activeRoomId && activeRoomId === normalizedRoomId;
-        const roomType = String(room?.type || '').trim().toLowerCase() === 'group' ? 'group' : 'dm';
+        const roomType = academyResolveMessageRoomKindV13(room);
         const roomTypeLabel = roomType === 'group' ? 'Group' : 'DM';
         const timeLabel = academyFormatInboxTime(room?.lastMessageAt || '');
         const isMuted = room?.muted === true;
@@ -25616,18 +26032,7 @@ if (document.body) {
 
     function academyGetRoomTypeFromCard(card = null, roomId = '') {
         const room = academyResolveUpgradeRoom(roomId);
-        const raw = String(
-            room?.type ||
-            room?.roomType ||
-            room?.room_type ||
-            card?.getAttribute?.('data-room-type') ||
-            card?.getAttribute?.('data-type') ||
-            card?.querySelector?.('[data-room-type]')?.getAttribute?.('data-room-type') ||
-            card?.querySelector?.('[data-type]')?.getAttribute?.('data-type') ||
-            ''
-        ).trim().toLowerCase();
-
-        return raw === 'group' ? 'group' : 'dm';
+        return academyResolveMessageRoomKindV13(room || card || {});
     }
 
     function academyEnsureMessagesTabs() {
@@ -26740,12 +27145,41 @@ if (document.body) {
         }
     }, true);
 
-    const observer = new MutationObserver(() => {
-        runAcademyPasswordManagerGuard();
+    let academyPasswordGuardQueuedV13 = false;
+    const observer = new MutationObserver((mutations) => {
+        if (document.hidden || academyPasswordGuardQueuedV13) return;
+
+        const relevant = mutations.some((mutation) => {
+            const target = mutation.target instanceof Element ? mutation.target : null;
+            const added = Array.from(mutation.addedNodes || []).filter((node) => node instanceof Element);
+
+            return Boolean(
+                target?.closest?.('#academy-chat, #chat-input-area, #chat-messages, #academy-profile-view') ||
+                added.some((node) => {
+                    return Boolean(
+                        node.matches?.('input, textarea, form, #academy-chat, #chat-input-area, #chat-messages, #academy-profile-view') ||
+                        node.querySelector?.('input, textarea, form')
+                    );
+                })
+            );
+        });
+
+        if (!relevant) return;
+
+        academyPasswordGuardQueuedV13 = true;
+        window.setTimeout(() => {
+            academyPasswordGuardQueuedV13 = false;
+            runAcademyPasswordManagerGuard();
+        }, 450);
     });
 
-    if (document.body) {
-        observer.observe(document.body, {
+    const passwordGuardRoot =
+        document.getElementById('academy-chat') ||
+        document.getElementById('academy-profile-view') ||
+        document.body;
+
+    if (passwordGuardRoot) {
+        observer.observe(passwordGuardRoot, {
             childList: true,
             subtree: true
         });
@@ -28118,27 +28552,7 @@ if (document.body) {
     }
 
     function getRoomType(room = {}) {
-        const raw = safeText(
-            room.room_type ||
-            room.roomType ||
-            room.type ||
-            room.dataset?.academyRoomType ||
-            room.dataset?.roomType ||
-            ''
-        ).toLowerCase();
-
-        if (raw === 'group') return 'group';
-        if (raw === 'dm') return 'dm';
-
-        const memberIds = Array.isArray(room.memberIds)
-            ? room.memberIds
-            : Array.isArray(room.member_ids)
-                ? room.member_ids
-                : [];
-
-        if (memberIds.length > 2) return 'group';
-
-        return 'dm';
+        return academyResolveMessageRoomKindV13(room);
     }
 
     function getRooms() {
@@ -29353,10 +29767,16 @@ if (document.body) {
         });
     }
 
+    let normalizePinnedBadgesQueuedV13 = false;
     function scheduleNormalize() {
-        window.requestAnimationFrame(normalizePinnedBadges);
-        window.setTimeout(normalizePinnedBadges, 60);
-        window.setTimeout(normalizePinnedBadges, 180);
+        if (document.hidden || normalizePinnedBadgesQueuedV13) return;
+
+        normalizePinnedBadgesQueuedV13 = true;
+        window.setTimeout(() => {
+            normalizePinnedBadgesQueuedV13 = false;
+            if (document.hidden) return;
+            normalizePinnedBadges();
+        }, 90);
     }
 
     const originalRender = window.renderAcademyMessagesInboxList;
@@ -29390,12 +29810,23 @@ if (document.body) {
 
         list.dataset.pinnedPillSingleCardObserved = '1';
 
-        const observer = new MutationObserver(scheduleNormalize);
+        const observer = new MutationObserver((mutations) => {
+            if (document.hidden) return;
+
+            const relevant = mutations.some((mutation) => {
+                return Array.from(mutation.addedNodes || []).some((node) => {
+                    return node instanceof Element && (
+                        node.matches?.('.academy-messages-inbox-card, .academy-messages-inbox-item') ||
+                        node.querySelector?.('.academy-messages-inbox-card, .academy-messages-inbox-item')
+                    );
+                });
+            });
+
+            if (relevant) scheduleNormalize();
+        });
         observer.observe(list, {
             childList: true,
-            subtree: true,
-            attributes: true,
-            attributeFilter: ['class', 'data-academy-room-id', 'data-room-id', 'data-inbox-room-id']
+            subtree: false
         });
     };
 
@@ -29982,10 +30413,37 @@ if (document.body) {
     window.addEventListener("load", boot);
 
     if (document.body && window.MutationObserver) {
-        const observer = new MutationObserver(function () {
-            scheduleClean("dom-child-change");
+        let searchObserverQueuedV13 = false;
+        const observer = new MutationObserver(function (mutations) {
+            if (document.hidden || searchObserverQueuedV13) return;
+
+            const touchesSearch = mutations.some(function (mutation) {
+                const target = mutation.target instanceof Element ? mutation.target : null;
+                const added = Array.from(mutation.addedNodes || []).filter(function (node) {
+                    return node instanceof Element;
+                });
+
+                return Boolean(
+                    SEARCH_IDS.includes(target?.id) ||
+                    added.some(function (node) {
+                        return SEARCH_IDS.includes(node.id) || SEARCH_IDS.some(function (id) {
+                            return Boolean(node.querySelector?.('#' + id));
+                        });
+                    })
+                );
+            });
+
+            if (!touchesSearch) return;
+
+            searchObserverQueuedV13 = true;
+            window.setTimeout(function () {
+                searchObserverQueuedV13 = false;
+                scheduleClean("search-dom-child-change");
+            }, 350);
         });
-        observer.observe(document.body, { childList: true, subtree: true });
+
+        const searchRoot = document.getElementById("academy-feed-view") || document.body;
+        observer.observe(searchRoot, { childList: true, subtree: true });
     }
 
     if (document.readyState === "loading") {
