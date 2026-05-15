@@ -24709,3 +24709,22 @@ body[data-yh-page="academy"] .academy-messages-thread-header.is-pinned-thread-v2
 }
 /* END PATCH: Academy pinned conversation visible marker v2 */
 
+
+/* PATCH: Hide Academy notification/resources strip v20 */
+body[data-yh-page="academy"] .desktop-user-strip,
+body[data-yh-view="academy"] .desktop-user-strip,
+body[data-yh-page="academy"] #notif-bell,
+body[data-yh-view="academy"] #notif-bell,
+body[data-yh-page="academy"] #yh-resources-menu,
+body[data-yh-view="academy"] #yh-resources-menu,
+body[data-yh-page="academy"] #academy-notification-modal-overlay,
+body[data-yh-view="academy"] #academy-notification-modal-overlay,
+body[data-yh-page="academy"] #academy-resources-modal-overlay,
+body[data-yh-view="academy"] #academy-resources-modal-overlay {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+/* END PATCH: Hide Academy notification/resources strip v20 */
+
