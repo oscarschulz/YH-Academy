@@ -19068,7 +19068,6 @@ async function academyStartVoiceRtcForRoom(room = {}) {
             const ack = await academyEmitVoiceJoinWithAck(roomId, attempt);
 
             academyVoiceRtcState.hasJoinedSignaling = true;
-
             showToast('Voice connected. You can now talk in this room.', 'success');
 
             return ack;
@@ -19091,53 +19090,6 @@ async function academyStartVoiceRtcForRoom(room = {}) {
     academyVoiceRtcState.hasJoinedSignaling = false;
 
     throw lastError || new Error('Failed to join voice signaling.');
-} {
-    const roomId = normalizeAcademyLiveRoomId(room?.id || room?.roomId || room?.room_id);
-
-    if (!roomId) {
-        throw new Error('Missing live voice room id.');
-    }
-
-    if (academyVoiceRtcState.roomId && academyVoiceRtcState.roomId !== roomId) {
-        academyStopVoiceRtcSession({ notifyServer: true });
-    }
-
-    academyVoiceRtcState.roomId = roomId;
-    academyVoiceRtcState.hasJoinedSignaling = false;
-
-    await academyGetVoiceLocalStream();
-    await academyWaitForVoiceSocketReady();
-
-    let lastError = null;
-
-    for (let attempt = 1; attempt <= 4; attempt += 1) {
-        try {
-            const ack = await academyEmitVoiceJoinWithAck(roomId, attempt);
-
-            academyVoiceRtcState.hasJoinedSignaling = true;
-
-            showToast('Voice connected. You can now talk in this room.', 'success');
-
-            return ack;
-        } catch (error) {
-            lastError = error;
-
-            console.warn('academyVoice signaling join attempt failed:', {
-                attempt,
-                roomId,
-                message: error && error.message ? error.message : error
-            });
-
-            if (attempt < 4) {
-                showToast('Connecting voice signaling. Retrying...', 'success');
-                await new Promise((resolve) => window.setTimeout(resolve, attempt * 450));
-            }
-        }
-    }
-
-    academyVoiceRtcState.hasJoinedSignaling = false;
-
-    throw new Error(lastError?.message || 'Failed to join voice signaling.');
 }
 
 if (!window.__yhAcademyVoiceRtcSocketBound) {
@@ -19691,7 +19643,7 @@ async function createAcademyVoiceRoom(title = '', topic = '') {
 
     showToast('Live voice lounge started.', 'success');
     await loadAcademyVoiceRooms(true);
-    openAcademyStageFromRoom(room);
+    await openAcademyStageFromRoom(room);
 }
 
 function openAcademyLoungeCreateModal(roomType = 'voice') {
