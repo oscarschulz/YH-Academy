@@ -30702,3 +30702,226 @@ if (document.body) {
 })();
 /* END PATCH: Academy community search email autofill safe lock v7 */
 
+
+/* PATCH: Academy search autofill delayed cleanup v16 */
+(function installAcademySearchAutofillDelayedCleanupV16() {
+    if (window.__academySearchAutofillDelayedCleanupV16Installed) return;
+    window.__academySearchAutofillDelayedCleanupV16Installed = true;
+
+    const SEARCH_IDS = [
+        'academy-global-search-input',
+        'academy-member-browser-search-input'
+    ];
+
+    let cleanupTimer = null;
+    let cleanupTicks = 0;
+
+    function cleanText(value = '') {
+        return String(value || '').trim();
+    }
+
+    function isEmailLike(value = '') {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanText(value));
+    }
+
+    function getStoredEmailCandidates() {
+        const keys = ['yh_user_email', 'email', 'user_email'];
+        const out = [];
+
+        keys.forEach((key) => {
+            try { out.push(cleanText(localStorage.getItem(key)).toLowerCase()); } catch (_) {}
+            try { out.push(cleanText(sessionStorage.getItem(key)).toLowerCase()); } catch (_) {}
+        });
+
+        try {
+            const token = typeof getStoredAuthToken === 'function' ? getStoredAuthToken() : '';
+            const payload = String(token || '').split('.')[1] || '';
+
+            if (payload) {
+                const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+                const json = JSON.parse(atob(normalized.padEnd(normalized.length + ((4 - normalized.length % 4) % 4), '=')));
+                out.push(cleanText(json?.email || json?.user?.email).toLowerCase());
+            }
+        } catch (_) {}
+
+        return Array.from(new Set(out.filter(Boolean)));
+    }
+
+    function isAutofilledSearchEmail(input) {
+        if (!input) return false;
+
+        const value = cleanText(input.value || input.defaultValue || input.getAttribute('value'));
+        if (!value) return false;
+
+        if (isEmailLike(value)) return true;
+
+        const lowerValue = value.toLowerCase();
+        return getStoredEmailCandidates().includes(lowerValue);
+    }
+
+    function hardenSearchInput(input) {
+        if (!input) return;
+
+        const randomName = `${input.id || 'academy-search'}_field_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+
+        input.setAttribute('autocomplete', 'new-password');
+        input.setAttribute('autocorrect', 'off');
+        input.setAttribute('autocapitalize', 'none');
+        input.setAttribute('spellcheck', 'false');
+        input.setAttribute('inputmode', 'search');
+        input.setAttribute('data-lpignore', 'true');
+        input.setAttribute('data-1p-ignore', 'true');
+        input.setAttribute('data-bwignore', 'true');
+        input.setAttribute('data-form-type', 'other');
+        input.setAttribute('aria-autocomplete', 'none');
+
+        if (input instanceof HTMLInputElement) {
+            input.type = 'search';
+
+            if (
+                !input.name ||
+                input.name.toLowerCase().includes('email') ||
+                input.name.toLowerCase().includes('user') ||
+                input.name.toLowerCase().includes('query')
+            ) {
+                input.name = randomName;
+            }
+        }
+
+        input.removeAttribute('value');
+    }
+
+    function clearSearchInput(input, reason = 'delayed-autofill-cleanup') {
+        if (!input) return false;
+
+        const before = cleanText(input.value || input.defaultValue || input.getAttribute('value'));
+
+        input.dataset.academySearchSystemClear = '1';
+        input.value = '';
+        input.defaultValue = '';
+        input.removeAttribute('value');
+        input.dataset.academySearchUserTyped = '';
+        input.dataset.academySearchEmailAutofillBlocked = reason;
+
+        try {
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        } catch (_) {}
+
+        window.setTimeout(() => {
+            input.dataset.academySearchSystemClear = '';
+        }, 0);
+
+        return Boolean(before);
+    }
+
+    function closeSearchResults() {
+        try {
+            if (typeof closeAcademySearchResultsPanel === 'function') {
+                closeAcademySearchResultsPanel();
+            }
+        } catch (_) {}
+
+        const panel = document.getElementById('academy-search-results-panel');
+        const inner = document.getElementById('academy-search-results-inner');
+
+        if (inner) inner.innerHTML = '';
+
+        if (panel) {
+            panel.classList.add('hidden-step');
+            panel.setAttribute('aria-hidden', 'true');
+            panel.style.pointerEvents = 'none';
+        }
+
+        document.body?.classList.remove('academy-search-results-open');
+    }
+
+    function cleanupAcademySearchAutofill(reason = 'manual') {
+        let cleared = false;
+
+        SEARCH_IDS.forEach((id) => {
+            const input = document.getElementById(id);
+
+            if (!input) return;
+
+            hardenSearchInput(input);
+
+            if (isAutofilledSearchEmail(input)) {
+                if (clearSearchInput(input, reason)) {
+                    cleared = true;
+                }
+            }
+        });
+
+        if (cleared) {
+            try {
+                if (typeof academySearchDebounceTimer !== 'undefined' && academySearchDebounceTimer) {
+                    clearTimeout(academySearchDebounceTimer);
+                    academySearchDebounceTimer = null;
+                }
+
+                if (typeof academySearchRequestToken !== 'undefined') {
+                    academySearchRequestToken += 1;
+                }
+            } catch (_) {}
+
+            closeSearchResults();
+        }
+
+        return cleared;
+    }
+
+    function startCleanupWindow(reason = 'boot') {
+        cleanupAcademySearchAutofill(reason);
+
+        [80, 250, 600, 1200, 2200, 4000, 7000, 10000, 14000].forEach((delay) => {
+            window.setTimeout(() => cleanupAcademySearchAutofill(`${reason}-${delay}`), delay);
+        });
+
+        if (cleanupTimer) {
+            window.clearInterval(cleanupTimer);
+            cleanupTimer = null;
+        }
+
+        cleanupTicks = 0;
+
+        cleanupTimer = window.setInterval(() => {
+            cleanupTicks += 1;
+            cleanupAcademySearchAutofill(`${reason}-interval-${cleanupTicks}`);
+
+            if (cleanupTicks >= 30) {
+                window.clearInterval(cleanupTimer);
+                cleanupTimer = null;
+            }
+        }, 500);
+    }
+
+    document.addEventListener('focusin', (event) => {
+        if (SEARCH_IDS.includes(event.target?.id)) {
+            cleanupAcademySearchAutofill('focusin');
+        }
+    }, true);
+
+    document.addEventListener('input', (event) => {
+        if (SEARCH_IDS.includes(event.target?.id) && isAutofilledSearchEmail(event.target)) {
+            event.preventDefault?.();
+            event.stopPropagation?.();
+            event.stopImmediatePropagation?.();
+            cleanupAcademySearchAutofill('input-email');
+        }
+    }, true);
+
+    window.addEventListener('pageshow', () => startCleanupWindow('pageshow'));
+    window.addEventListener('load', () => startCleanupWindow('load'));
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => startCleanupWindow('dom-ready'));
+    } else {
+        startCleanupWindow('immediate');
+    }
+
+    window.academyCleanupSearchAutofillDelayedV16 = cleanupAcademySearchAutofill;
+})();
+/* END PATCH: Academy search autofill delayed cleanup v16 */
+
+
