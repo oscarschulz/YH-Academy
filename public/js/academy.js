@@ -16417,6 +16417,13 @@ function renderAcademyMessagesInboxList() {
                         class="academy-messages-inbox-menu ${academyMessagesInboxState.openMenuRoomId === normalizedRoomId ? 'is-open' : ''}"
                         data-room-menu-id="${academyFeedEscapeHtml(roomId)}"
                     >
+                        <button
+                            type="button"
+                            role="menuitem"
+                            data-inbox-room-action="pin"
+                            data-inbox-room-id="${academyFeedEscapeHtml(roomId)}"
+                            data-room-id="${academyFeedEscapeHtml(roomId)}"
+                        >Pin conversation</button>
                         <button type="button" data-room-action="hide" data-room-id="${academyFeedEscapeHtml(roomId)}">Delete conversation</button>
                         <button type="button" data-room-action="${academyFeedEscapeHtml(restrictAction)}" data-room-id="${academyFeedEscapeHtml(roomId)}">${academyFeedEscapeHtml(restrictLabel)}</button>
                         <button type="button" data-room-action="${academyFeedEscapeHtml(blockAction)}" data-room-id="${academyFeedEscapeHtml(roomId)}">${academyFeedEscapeHtml(blockLabel)}</button>
@@ -16446,6 +16453,13 @@ function bindAcademyMessagesInbox() {
 
             return;
         }
+        const pinActionBtn = event.target?.closest?.('[data-inbox-room-action="pin"]');
+        if (pinActionBtn) {
+            // Let the dedicated pin handler on document handle this click.
+            // This prevents the inbox card fallback from opening the room instead of pinning it.
+            return;
+        }
+
         const actionBtn = event.target?.closest?.('[data-room-action]');
         if (actionBtn) {
             event.preventDefault();
@@ -29999,3 +30013,225 @@ if (document.body) {
     };
 })();
 /* END PATCH: Academy search autofill blocker + interaction safety v5 */
+
+/* PATCH: Academy community search email autofill hard lock v6 */
+(function installAcademyCommunitySearchEmailAutofillHardLockV6() {
+    if (window.__academyCommunitySearchEmailAutofillHardLockV6Installed) return;
+    window.__academyCommunitySearchEmailAutofillHardLockV6Installed = true;
+
+    const SEARCH_IDS = ['academy-global-search-input', 'academy-member-browser-search-input'];
+    const SEARCH_NAME_SALT = String(Date.now()) + '-' + Math.random().toString(16).slice(2);
+    let sweepTimer = null;
+    let sweepCount = 0;
+
+    function cleanText(value = '') {
+        return String(value || '').trim();
+    }
+
+    function isEmailLike(value = '') {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanText(value));
+    }
+
+    function readStoredEmailCandidates() {
+        const keys = ['yh_user_email', 'email', 'user_email'];
+        const values = [];
+
+        keys.forEach((key) => {
+            try { values.push(cleanText(localStorage.getItem(key)).toLowerCase()); } catch (_) {}
+            try { values.push(cleanText(sessionStorage.getItem(key)).toLowerCase()); } catch (_) {}
+        });
+
+        try {
+            const token = typeof getStoredAuthToken === 'function' ? getStoredAuthToken() : '';
+            const payload = String(token || '').split('.')[1] || '';
+            if (payload) {
+                const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+                const json = JSON.parse(atob(normalized.padEnd(normalized.length + ((4 - normalized.length % 4) % 4), '=')));
+                values.push(cleanText(json?.email || json?.user?.email).toLowerCase());
+            }
+        } catch (_) {}
+
+        return Array.from(new Set(values.filter(Boolean)));
+    }
+
+    function shouldClearSearchValue(value = '') {
+        const clean = cleanText(value);
+        if (!clean) return false;
+        if (isEmailLike(clean)) return true;
+
+        const lower = clean.toLowerCase();
+        return readStoredEmailCandidates().includes(lower);
+    }
+
+    function getSearchInputs() {
+        return SEARCH_IDS
+            .map((id) => document.getElementById(id))
+            .filter((input) => input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement);
+    }
+
+    function hardenSearchInput(input) {
+        if (!input) return;
+
+        input.setAttribute('autocomplete', 'new-password');
+        input.setAttribute('autocorrect', 'off');
+        input.setAttribute('autocapitalize', 'none');
+        input.setAttribute('spellcheck', 'false');
+        input.setAttribute('inputmode', 'search');
+        input.setAttribute('data-lpignore', 'true');
+        input.setAttribute('data-1p-ignore', 'true');
+        input.setAttribute('data-bwignore', 'true');
+        input.setAttribute('data-form-type', 'other');
+        input.setAttribute('aria-autocomplete', 'none');
+        input.removeAttribute('value');
+
+        if (input instanceof HTMLInputElement) {
+            input.type = 'search';
+            input.name = input.id + '_no_email_autofill_' + SEARCH_NAME_SALT;
+        }
+    }
+
+    function closeSearchUi() {
+        try {
+            if (typeof closeAcademySearchResultsPanel === 'function') {
+                closeAcademySearchResultsPanel();
+            }
+        } catch (_) {}
+
+        const panel = document.getElementById('academy-search-results-panel');
+        const inner = document.getElementById('academy-search-results-inner');
+        if (inner) inner.innerHTML = '';
+        if (panel) {
+            panel.classList.add('hidden-step');
+            panel.setAttribute('aria-hidden', 'true');
+            panel.style.pointerEvents = 'none';
+        }
+        document.body?.classList.remove('academy-search-results-open');
+    }
+
+    function clearSearchInput(input, reason = 'email-autofill') {
+        if (!input) return false;
+        const hadValue = Boolean(cleanText(input.value) || cleanText(input.defaultValue) || cleanText(input.getAttribute('value')));
+
+        input.dataset.academySearchSystemClear = '1';
+        input.value = '';
+        input.defaultValue = '';
+        input.removeAttribute('value');
+        input.dataset.academySearchUserTyped = '';
+        input.dataset.academySearchEmailAutofillBlocked = reason;
+
+        window.setTimeout(() => {
+            input.dataset.academySearchSystemClear = '';
+        }, 0);
+
+        return hadValue;
+    }
+
+    function sweepSearchInputs(reason = 'sweep') {
+        let cleared = false;
+
+        getSearchInputs().forEach((input) => {
+            hardenSearchInput(input);
+
+            const value = cleanText(input.value || input.defaultValue || input.getAttribute('value'));
+            if (shouldClearSearchValue(value)) {
+                if (clearSearchInput(input, reason)) cleared = true;
+            }
+        });
+
+        if (cleared) {
+            try {
+                if (typeof academySearchDebounceTimer !== 'undefined' && academySearchDebounceTimer) {
+                    clearTimeout(academySearchDebounceTimer);
+                    academySearchDebounceTimer = null;
+                }
+                if (typeof academySearchRequestToken !== 'undefined') {
+                    academySearchRequestToken += 1;
+                }
+            } catch (_) {}
+
+            closeSearchUi();
+        }
+
+        return cleared;
+    }
+
+    function bindSearchInput(input) {
+        if (!input || input.dataset.academySearchEmailAutofillV6Bound === '1') return;
+        input.dataset.academySearchEmailAutofillV6Bound = '1';
+        hardenSearchInput(input);
+
+        ['input', 'change', 'blur', 'focus'].forEach((eventName) => {
+            input.addEventListener(eventName, () => {
+                if (shouldClearSearchValue(input.value)) {
+                    sweepSearchInputs(eventName + '-email-blocked');
+                }
+            }, true);
+        });
+    }
+
+    function bootSearchEmailAutofillLock(reason = 'boot') {
+        getSearchInputs().forEach(bindSearchInput);
+        sweepSearchInputs(reason);
+
+        window.setTimeout(() => sweepSearchInputs(reason + '-80'), 80);
+        window.setTimeout(() => sweepSearchInputs(reason + '-350'), 350);
+        window.setTimeout(() => sweepSearchInputs(reason + '-900'), 900);
+        window.setTimeout(() => sweepSearchInputs(reason + '-2200'), 2200);
+
+        if (!sweepTimer) {
+            sweepCount = 0;
+            sweepTimer = window.setInterval(() => {
+                sweepCount += 1;
+                sweepSearchInputs('email-autofill-long-sweep-' + sweepCount);
+
+                if (sweepCount >= 90) {
+                    window.clearInterval(sweepTimer);
+                    sweepTimer = null;
+                }
+            }, 1000);
+        }
+    }
+
+    document.addEventListener('focusin', (event) => {
+        if (SEARCH_IDS.includes(event.target?.id)) {
+            bindSearchInput(event.target);
+            sweepSearchInputs('focusin');
+        }
+    }, true);
+
+    document.addEventListener('input', (event) => {
+        if (SEARCH_IDS.includes(event.target?.id) && shouldClearSearchValue(event.target.value)) {
+            event.preventDefault?.();
+            event.stopPropagation?.();
+            event.stopImmediatePropagation?.();
+            sweepSearchInputs('input-email-blocked');
+        }
+    }, true);
+
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) bootSearchEmailAutofillLock('visible');
+    });
+
+    window.addEventListener('pageshow', () => bootSearchEmailAutofillLock('pageshow'));
+    window.addEventListener('load', () => bootSearchEmailAutofillLock('load'));
+
+    if (window.MutationObserver && document.body) {
+        const observer = new MutationObserver(() => sweepSearchInputs('dom-mutation'));
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['value', 'name', 'autocomplete']
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => bootSearchEmailAutofillLock('dom-ready'));
+    } else {
+        bootSearchEmailAutofillLock('immediate');
+    }
+
+    window.academySweepCommunitySearchEmailAutofill = sweepSearchInputs;
+})();
+/* END PATCH: Academy community search email autofill hard lock v6 */
+
