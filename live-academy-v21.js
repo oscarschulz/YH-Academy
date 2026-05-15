@@ -19091,7 +19091,7 @@ async function academyStartVoiceRtcForRoom(room = {}) {
     academyVoiceRtcState.hasJoinedSignaling = false;
 
     throw lastError || new Error('Failed to join voice signaling.');
-} {
+}) {
     const roomId = normalizeAcademyLiveRoomId(room?.id || room?.roomId || room?.room_id);
 
     if (!roomId) {

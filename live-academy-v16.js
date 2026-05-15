@@ -19033,71 +19033,6 @@ async function academyStartVoiceRtcForRoom(room = {}) {
         throw new Error('Missing live voice room id.');
     }
 
-    if (typeof academyVoiceRtcState !== 'object' || !academyVoiceRtcState) {
-        throw new Error('Voice session state is not ready. Refresh and try again.');
-    }
-
-    if (academyVoiceRtcState.roomId && academyVoiceRtcState.roomId !== roomId) {
-        try {
-            academyStopVoiceRtcSession({ notifyServer: true });
-        } catch (_) {}
-    }
-
-    academyVoiceRtcState.roomId = roomId;
-    academyVoiceRtcState.hasJoinedSignaling = false;
-
-    if (typeof academyGetVoiceLocalStream !== 'function') {
-        throw new Error('Voice microphone handler is not available. Refresh and try again.');
-    }
-
-    if (typeof academyWaitForVoiceSocketReady !== 'function') {
-        throw new Error('Voice socket handler is not available. Refresh and try again.');
-    }
-
-    if (typeof academyEmitVoiceJoinWithAck !== 'function') {
-        throw new Error('Voice signaling handler is not available. Refresh and try again.');
-    }
-
-    await academyGetVoiceLocalStream();
-    await academyWaitForVoiceSocketReady();
-
-    let lastError = null;
-
-    for (let attempt = 1; attempt <= 4; attempt += 1) {
-        try {
-            const ack = await academyEmitVoiceJoinWithAck(roomId, attempt);
-
-            academyVoiceRtcState.hasJoinedSignaling = true;
-
-            showToast('Voice connected. You can now talk in this room.', 'success');
-
-            return ack;
-        } catch (error) {
-            lastError = error;
-
-            console.warn('academyVoice signaling join attempt failed:', {
-                attempt,
-                roomId,
-                message: error && error.message ? error.message : error
-            });
-
-            if (attempt < 4) {
-                showToast('Connecting voice signaling. Retrying...', 'success');
-                await new Promise((resolve) => window.setTimeout(resolve, 450 + attempt * 250));
-            }
-        }
-    }
-
-    academyVoiceRtcState.hasJoinedSignaling = false;
-
-    throw lastError || new Error('Failed to join voice signaling.');
-} {
-    const roomId = normalizeAcademyLiveRoomId(room?.id || room?.roomId || room?.room_id);
-
-    if (!roomId) {
-        throw new Error('Missing live voice room id.');
-    }
-
     if (academyVoiceRtcState.roomId && academyVoiceRtcState.roomId !== roomId) {
         academyStopVoiceRtcSession({ notifyServer: true });
     }
@@ -19618,7 +19553,7 @@ async function createAcademyVideoRoom(title = '', topic = '') {
 
     showToast('Live video room started.', 'success');
     await loadAcademyVideoRooms(true);
-    await openAcademyStageFromRoom(room);
+    openAcademyStageFromRoom(room);
 }
 
 /**
@@ -29924,364 +29859,200 @@ if (document.body) {
 })();
 /* END PATCH: Academy pinned conversation pill single-card placement v1 */
 
+/* PATCH: Academy top action modals v2 */
+(function installAcademyTopActionModalsV2() {
+    if (window.__academyTopActionModalsV2Installed) return;
+    window.__academyTopActionModalsV2Installed = true;
 
-/* PATCH: Academy pinned conversation visible marker v2 */
-(function installAcademyPinnedConversationVisibleMarkerV2() {
-    if (window.__academyPinnedConversationVisibleMarkerV2Installed) return;
-    window.__academyPinnedConversationVisibleMarkerV2Installed = true;
+    const NOTIF_OVERLAY_ID = 'academy-notification-modal-overlay';
+    const RESOURCES_OVERLAY_ID = 'academy-resources-modal-overlay';
 
-    const PIN_KEY = 'yh_academy_pinned_conversation_ids_v1';
-    const CARD_SELECTOR = '.academy-messages-inbox-card';
+    function ensureOverlay(id, label) {
+        let overlay = document.getElementById(id);
+        if (overlay) return overlay;
 
-    function cleanText(value = '') {
-        return String(value || '').trim();
+        overlay = document.createElement('div');
+        overlay.id = id;
+        overlay.className = 'academy-top-action-modal-overlay hidden-step';
+        overlay.setAttribute('aria-hidden', 'true');
+        overlay.setAttribute('role', 'presentation');
+        overlay.setAttribute('data-modal-label', label || 'Academy modal');
+
+        document.body.appendChild(overlay);
+
+        overlay.addEventListener('click', (event) => {
+            if (event.target === overlay) {
+                closeTopActionModals();
+            }
+        });
+
+        return overlay;
     }
 
-    function safeCssEscape(value = '') {
-        if (window.CSS && typeof window.CSS.escape === 'function') {
-            return window.CSS.escape(String(value || ''));
-        }
+    function addPanelCloseButton(panel, label = 'Close modal') {
+        if (!(panel instanceof HTMLElement)) return;
+        if (panel.querySelector(':scope > .academy-top-action-modal-close')) return;
 
-        return String(value || '').replace(/["\\]/g, '\\$&');
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'academy-top-action-modal-close';
+        button.setAttribute('aria-label', label);
+        button.textContent = '✕';
+
+        button.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            closeTopActionModals();
+        });
+
+        panel.appendChild(button);
     }
 
-    function readPinnedConversationIds() {
-        try {
-            const parsed = JSON.parse(localStorage.getItem(PIN_KEY) || '[]');
-            return Array.isArray(parsed)
-                ? Array.from(new Set(parsed.map(cleanText).filter(Boolean)))
-                : [];
-        } catch (_) {
-            return [];
-        }
-    }
+    function closeTopActionModals() {
+        const notifOverlay = document.getElementById(NOTIF_OVERLAY_ID);
+        const resourcesOverlay = document.getElementById(RESOURCES_OVERLAY_ID);
+        const notifPanel = document.getElementById('notif-dropdown');
+        const resourcesPanel = document.getElementById('yh-resources-menu-panel');
+        const resourcesBtn = document.getElementById('yh-resources-menu-btn');
+        const notifBell = document.getElementById('notif-bell');
 
-    function isConversationPinned(roomId = '') {
-        const cleanRoomId = cleanText(roomId);
-        return Boolean(cleanRoomId && readPinnedConversationIds().includes(cleanRoomId));
-    }
+        notifOverlay?.classList.add('hidden-step');
+        notifOverlay?.setAttribute('aria-hidden', 'true');
 
-    function getRoomIdFromCard(card = null) {
-        if (!card) return '';
+        resourcesOverlay?.classList.add('hidden-step');
+        resourcesOverlay?.setAttribute('aria-hidden', 'true');
 
-        const directValues = [
-            card.getAttribute('data-academy-room-id'),
-            card.getAttribute('data-room-card-id'),
-            card.getAttribute('data-inbox-room-id'),
-            card.getAttribute('data-room-id'),
-            card.getAttribute('data-id')
-        ];
+        notifPanel?.classList.remove('show', 'academy-top-action-modal-card', 'academy-notification-modal-card');
+        notifPanel?.setAttribute('aria-hidden', 'true');
 
-        for (const value of directValues) {
-            const clean = cleanText(value);
-            if (clean) return clean;
-        }
+        resourcesPanel?.classList.remove('show', 'academy-top-action-modal-card', 'academy-resources-modal-card');
+        resourcesPanel?.setAttribute('aria-hidden', 'true');
 
-        const nested = card.querySelector?.('[data-inbox-room-id], [data-room-id], [data-id]');
-        return cleanText(
-            nested?.getAttribute('data-inbox-room-id') ||
-            nested?.getAttribute('data-room-id') ||
-            nested?.getAttribute('data-id') ||
-            ''
+        notifBell?.classList.remove('yh-notif-open');
+        resourcesBtn?.setAttribute('aria-expanded', 'false');
+
+        document.body?.classList.remove(
+            'yh-notif-menu-open',
+            'yh-resources-menu-open',
+            'academy-top-action-modal-open'
         );
     }
 
-    function getActiveThreadRoomId() {
-        const candidates = [
-            (() => {
-                try {
-                    return typeof academyMessagesInboxState === 'object' && academyMessagesInboxState
-                        ? academyMessagesInboxState.activeRoomId
-                        : '';
-                } catch (_) {
-                    return '';
-                }
-            })(),
-            document.getElementById('academy-messages-thread-menu-trigger')?.getAttribute('data-thread-room-id'),
-            document.getElementById('academy-messages-thread-menu')?.getAttribute('data-thread-room-id'),
-            (() => {
-                try {
-                    return typeof getActiveRoomId === 'function' ? getActiveRoomId() : '';
-                } catch (_) {
-                    return '';
-                }
-            })()
-        ];
+    async function loadNotificationsForModal() {
+        try {
+            if (typeof loadRealtimeNotifications === 'function') {
+                await loadRealtimeNotifications(true);
+                return;
+            }
+        } catch (_) {}
 
-        for (const candidate of candidates) {
-            const clean = cleanText(candidate);
-            if (clean) return clean;
+        const list = document.getElementById('notif-list-container');
+        if (!list) return;
+
+        try {
+            const result = typeof academyAuthedFetch === 'function'
+                ? await academyAuthedFetch('/api/realtime/notifications', { method: 'GET' })
+                : null;
+
+            const notifications = Array.isArray(result?.notifications) ? result.notifications : [];
+
+            if (typeof renderRealtimeNotifications === 'function') {
+                renderRealtimeNotifications(notifications);
+                return;
+            }
+
+            if (!notifications.length) {
+                list.innerHTML = '<li class="notif-empty-state" id="notif-empty-state">No notifications yet.</li>';
+            }
+        } catch (_) {
+            list.innerHTML = '<li class="notif-empty-state" id="notif-empty-state">Failed to load notifications.</li>';
         }
-
-        return '';
     }
 
-    function ensureCardPinnedMarker(card = null, index = 0) {
-        if (!card) return;
+    async function openNotificationsModal() {
+        const notifPanel = document.getElementById('notif-dropdown');
+        const notifBell = document.getElementById('notif-bell');
+        if (!notifPanel) return;
 
-        if (!card.dataset.pinnedUiOriginalOrderV2) {
-            card.dataset.pinnedUiOriginalOrderV2 = String(index);
-        }
+        closeTopActionModals();
 
-        const roomId = getRoomIdFromCard(card);
-        if (!roomId) return;
+        const overlay = ensureOverlay(NOTIF_OVERLAY_ID, 'Notifications');
+        overlay.appendChild(notifPanel);
+        addPanelCloseButton(notifPanel, 'Close notifications');
 
-        const pinned = isConversationPinned(roomId);
+        notifPanel.classList.add('show', 'academy-top-action-modal-card', 'academy-notification-modal-card');
+        notifPanel.setAttribute('aria-hidden', 'false');
+        notifPanel.setAttribute('role', 'dialog');
+        notifPanel.setAttribute('aria-modal', 'true');
+        notifPanel.setAttribute('aria-label', 'Notifications');
 
-        card.setAttribute('data-academy-room-id', roomId);
-        card.setAttribute('data-academy-pinned', pinned ? 'true' : 'false');
-        card.classList.toggle('is-pinned-conversation', pinned);
-        card.classList.toggle('has-fixed-pinned-badge', pinned);
-        card.classList.toggle('has-visible-pinned-marker-v2', pinned);
+        overlay.classList.remove('hidden-step');
+        overlay.setAttribute('aria-hidden', 'false');
 
-        const item =
-            card.querySelector('.academy-messages-inbox-item') ||
-            card.firstElementChild;
+        notifBell?.classList.add('yh-notif-open');
+        document.body?.classList.add('yh-notif-menu-open', 'academy-top-action-modal-open');
 
-        const name =
-            card.querySelector('.academy-messages-inbox-name') ||
-            card.querySelector('.academy-messages-inbox-topline');
-
-        const meta =
-            card.querySelector('.academy-messages-inbox-meta') ||
-            card.querySelector('.academy-messages-inbox-copy') ||
-            item;
-
-        let icon = card.querySelector('.academy-messages-inbox-pin-icon-v2');
-        let badge = card.querySelector('.academy-pinned-conversation-inline-badge-v2');
-
-        if (pinned) {
-            if (!icon && name) {
-                icon = document.createElement('span');
-                icon.className = 'academy-messages-inbox-pin-icon-v2';
-                icon.textContent = '📌';
-                icon.setAttribute('aria-label', 'Pinned conversation');
-                icon.setAttribute('title', 'Pinned conversation');
-                name.insertAdjacentElement('afterend', icon);
-            }
-
-            if (!badge && meta) {
-                badge = document.createElement('span');
-                badge.className = 'academy-pinned-conversation-inline-badge-v2';
-                badge.textContent = 'Pinned';
-                badge.setAttribute('aria-label', 'Pinned conversation');
-                badge.setAttribute('title', 'Pinned conversation');
-                meta.appendChild(badge);
-            }
-
-            const oldAbsoluteBadge = card.querySelector('.academy-pinned-conversation-badge');
-            if (oldAbsoluteBadge) {
-                oldAbsoluteBadge.remove();
-            }
-        } else {
-            if (icon) icon.remove();
-            if (badge) badge.remove();
-
-            const oldAbsoluteBadge = card.querySelector('.academy-pinned-conversation-badge');
-            if (oldAbsoluteBadge) oldAbsoluteBadge.remove();
-        }
-
-        card.querySelectorAll('[data-inbox-room-action="pin"], [data-thread-room-action="pin"]').forEach((button) => {
-            button.textContent = pinned ? 'Unpin conversation' : 'Pin conversation';
-            button.setAttribute('data-room-id', roomId);
-            button.setAttribute('data-inbox-room-id', roomId);
-            button.setAttribute('data-thread-room-id', roomId);
-        });
+        await loadNotificationsForModal();
     }
 
-    function syncThreadPinnedMarker() {
-        const roomId = getActiveThreadRoomId();
-        const pinned = isConversationPinned(roomId);
+    function openResourcesModal() {
+        const resourcesPanel = document.getElementById('yh-resources-menu-panel');
+        const resourcesBtn = document.getElementById('yh-resources-menu-btn');
+        if (!resourcesPanel) return;
 
-        const titleRow = document.querySelector('.academy-messages-thread-title-row');
-        const title = document.getElementById('academy-messages-thread-title');
-        const header = document.getElementById('academy-messages-thread-header');
+        closeTopActionModals();
 
-        if (header) {
-            header.classList.toggle('is-pinned-thread-v2', pinned);
-            header.setAttribute('data-academy-thread-pinned', pinned ? 'true' : 'false');
-        }
+        const overlay = ensureOverlay(RESOURCES_OVERLAY_ID, 'Partnerships and Resources');
+        overlay.appendChild(resourcesPanel);
+        addPanelCloseButton(resourcesPanel, 'Close Partnerships and Resources');
 
-        let badge = document.getElementById('academy-messages-thread-pinned-badge-v2');
+        resourcesPanel.classList.add('show', 'academy-top-action-modal-card', 'academy-resources-modal-card');
+        resourcesPanel.setAttribute('aria-hidden', 'false');
+        resourcesPanel.setAttribute('role', 'dialog');
+        resourcesPanel.setAttribute('aria-modal', 'true');
+        resourcesPanel.setAttribute('aria-label', 'Partnerships and Resources');
 
-        if (pinned && titleRow) {
-            if (!badge) {
-                badge = document.createElement('span');
-                badge.id = 'academy-messages-thread-pinned-badge-v2';
-                badge.className = 'academy-messages-thread-pinned-badge-v2';
-                badge.textContent = '📌 Pinned';
-                badge.setAttribute('aria-label', 'Pinned conversation');
-                badge.setAttribute('title', 'Pinned conversation');
+        overlay.classList.remove('hidden-step');
+        overlay.setAttribute('aria-hidden', 'false');
 
-                if (title && title.nextElementSibling) {
-                    title.insertAdjacentElement('afterend', badge);
-                } else {
-                    titleRow.appendChild(badge);
-                }
-            }
-        }
-
-        if (!pinned && badge) {
-            badge.remove();
-        }
-
-        document.querySelectorAll('#academy-messages-thread-menu [data-thread-room-action="pin"]').forEach((button) => {
-            if (roomId) {
-                button.setAttribute('data-room-id', roomId);
-                button.setAttribute('data-thread-room-id', roomId);
-            }
-
-            button.textContent = pinned ? 'Unpin conversation' : 'Pin conversation';
-        });
-    }
-
-    function syncPinnedConversationUiV2(context = {}) {
-        const list = document.getElementById('academy-messages-inbox-list');
-        if (list) {
-            const cards = Array.from(list.querySelectorAll(CARD_SELECTOR));
-
-            cards.forEach((card, index) => ensureCardPinnedMarker(card, index));
-
-            cards
-                .sort((left, right) => {
-                    const leftPinned = left.getAttribute('data-academy-pinned') === 'true' ? 1 : 0;
-                    const rightPinned = right.getAttribute('data-academy-pinned') === 'true' ? 1 : 0;
-
-                    if (leftPinned !== rightPinned) return rightPinned - leftPinned;
-
-                    return Number(left.dataset.pinnedUiOriginalOrderV2 || 0) -
-                        Number(right.dataset.pinnedUiOriginalOrderV2 || 0);
-                })
-                .forEach((card) => list.appendChild(card));
-        }
-
-        syncThreadPinnedMarker();
-
-        return true;
-    }
-
-    let syncQueued = false;
-    function schedulePinnedConversationUiSyncV2(reason = 'schedule') {
-        if (syncQueued) return;
-
-        syncQueued = true;
-
-        window.requestAnimationFrame(() => {
-            syncQueued = false;
-            syncPinnedConversationUiV2({ reason });
-        });
-
-        window.setTimeout(() => syncPinnedConversationUiV2({ reason: reason + '-80' }), 80);
-        window.setTimeout(() => syncPinnedConversationUiV2({ reason: reason + '-260' }), 260);
-        window.setTimeout(() => syncPinnedConversationUiV2({ reason: reason + '-700' }), 700);
+        resourcesBtn?.setAttribute('aria-expanded', 'true');
+        document.body?.classList.add('yh-resources-menu-open', 'academy-top-action-modal-open');
     }
 
     document.addEventListener('click', (event) => {
         const target = event.target instanceof Element ? event.target : event.target?.parentElement;
         if (!target) return;
 
-        if (
-            target.closest('[data-inbox-room-action="pin"], [data-thread-room-action="pin"], .academy-messages-inbox-menu, .academy-messages-thread-menu, .academy-messages-inbox-tab, .academy-messages-inbox-card')
-        ) {
-            schedulePinnedConversationUiSyncV2('click');
-        }
-    }, false);
+        const notifTarget = target.closest('#notif-bell, #notif-bell *');
+        const resourcesTarget = target.closest('#yh-resources-menu-btn, #yh-resources-menu-btn *');
 
-    window.addEventListener('storage', (event) => {
-        if (event.key === PIN_KEY) {
-            schedulePinnedConversationUiSyncV2('storage');
+        if (notifTarget && !target.closest('#notif-dropdown')) {
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+            openNotificationsModal();
+            return;
+        }
+
+        if (resourcesTarget) {
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+            openResourcesModal();
+        }
+    }, true);
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            closeTopActionModals();
         }
     });
 
-    window.addEventListener('pageshow', () => schedulePinnedConversationUiSyncV2('pageshow'));
-    window.addEventListener('load', () => schedulePinnedConversationUiSyncV2('load'));
-
-    const wrapRenderer = () => {
-        if (typeof window.renderAcademyMessagesInboxList !== 'function') return;
-        if (window.renderAcademyMessagesInboxList.__pinnedVisibleMarkerV2Wrapped === true) return;
-
-        const originalRender = window.renderAcademyMessagesInboxList;
-
-        const wrappedRender = function renderAcademyMessagesInboxListPinnedVisibleMarkerV2(...args) {
-            const result = originalRender.apply(this, args);
-            schedulePinnedConversationUiSyncV2('render');
-            return result;
-        };
-
-        wrappedRender.__pinnedVisibleMarkerV2Wrapped = true;
-        window.renderAcademyMessagesInboxList = wrappedRender;
-    };
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => {
-            wrapRenderer();
-            schedulePinnedConversationUiSyncV2('dom-ready');
-        });
-    } else {
-        wrapRenderer();
-        schedulePinnedConversationUiSyncV2('immediate');
-    }
-
-    window.setInterval(() => {
-        const mode = String(document.getElementById('academy-chat')?.getAttribute('data-chat-mode') || '').trim().toLowerCase();
-        if (mode !== 'messages' && mode !== 'thread') return;
-
-        syncPinnedConversationUiV2({ reason: 'maintenance' });
-    }, 5000);
-
-    window.academySyncPinnedConversationUiV2 = syncPinnedConversationUiV2;
-    window.academySchedulePinnedConversationUiSyncV2 = schedulePinnedConversationUiSyncV2;
+    window.openAcademyNotificationsModal = openNotificationsModal;
+    window.openAcademyResourcesModal = openResourcesModal;
+    window.closeAcademyTopActionModals = closeTopActionModals;
 })();
-/* END PATCH: Academy pinned conversation visible marker v2 */
-
-
-/* PATCH: Academy top action buttons removed v20 */
-(function disableAcademyTopActionButtonsV20() {
-    if (window.__academyTopActionButtonsRemovedV20Installed) return;
-    window.__academyTopActionButtonsRemovedV20Installed = true;
-
-    function cleanupAcademyTopActions() {
-        if (document.body?.getAttribute('data-yh-page') !== 'academy') return;
-
-        document.getElementById('academy-notification-modal-overlay')?.remove();
-        document.getElementById('academy-resources-modal-overlay')?.remove();
-
-        const notifBell = document.getElementById('notif-bell');
-        const resourcesMenu = document.getElementById('yh-resources-menu');
-        const strip = document.querySelector('body[data-yh-page="academy"] .desktop-user-strip');
-
-        if (notifBell) notifBell.remove();
-        if (resourcesMenu) resourcesMenu.remove();
-
-        if (strip) {
-            strip.remove();
-        }
-
-        document.body.classList.remove(
-            'yh-notif-menu-open',
-            'yh-resources-menu-open',
-            'academy-top-action-modal-open',
-            'academy-top-action-dropdown-open-v3'
-        );
-    }
-
-    cleanupAcademyTopActions();
-
-    window.addEventListener('pageshow', cleanupAcademyTopActions);
-    window.addEventListener('load', cleanupAcademyTopActions);
-
-    window.openAcademyNotificationsModal = function noopAcademyNotificationsRemoved() {};
-    window.openAcademyResourcesModal = function noopAcademyResourcesRemoved() {};
-    window.closeAcademyTopActionModals = cleanupAcademyTopActions;
-    window.closeAcademyTopActionDropdownCardsV3 = cleanupAcademyTopActions;
-})();
-/* END PATCH: Academy top action buttons removed v20 */
-
-
-
-
-
-
+/* END PATCH: Academy top action modals v2 */
 
 
 
@@ -30328,7 +30099,7 @@ if (document.body) {
         input.setAttribute("data-bwignore", "true");
         input.setAttribute("data-form-type", "other");
         input.setAttribute("aria-autocomplete", "none");
-        /* readonly is managed by Academy search autofill readonly guard v17. */
+        input.removeAttribute("readonly");
         input.removeAttribute("value");
 
         if (input instanceof HTMLInputElement) {
@@ -31152,143 +30923,5 @@ if (document.body) {
     window.academyCleanupSearchAutofillDelayedV16 = cleanupAcademySearchAutofill;
 })();
 /* END PATCH: Academy search autofill delayed cleanup v16 */
-
-
-/* PATCH: Academy search autofill readonly guard v17 */
-(function installAcademySearchAutofillReadonlyGuardV17() {
-    if (window.__academySearchAutofillReadonlyGuardV17Installed) return;
-    window.__academySearchAutofillReadonlyGuardV17Installed = true;
-
-    const SEARCH_IDS = [
-        'academy-global-search-input',
-        'academy-member-browser-search-input'
-    ];
-
-    function cleanText(value = '') {
-        return String(value || '').trim();
-    }
-
-    function isEmailLike(value = '') {
-        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanText(value));
-    }
-
-    function getSearchInputs() {
-        return SEARCH_IDS
-            .map((id) => document.getElementById(id))
-            .filter((input) => input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement);
-    }
-
-    function hardenReadonlyInput(input) {
-        if (!input) return;
-
-        input.setAttribute('autocomplete', 'new-password');
-        input.setAttribute('autocorrect', 'off');
-        input.setAttribute('autocapitalize', 'none');
-        input.setAttribute('spellcheck', 'false');
-        input.setAttribute('inputmode', 'search');
-        input.setAttribute('data-lpignore', 'true');
-        input.setAttribute('data-1p-ignore', 'true');
-        input.setAttribute('data-bwignore', 'true');
-        input.setAttribute('data-form-type', 'other');
-        input.setAttribute('aria-autocomplete', 'none');
-
-        if (input instanceof HTMLInputElement) {
-            input.type = 'search';
-
-            if (!input.dataset.academySearchSafeNameV17) {
-                input.dataset.academySearchSafeNameV17 =
-                    `${input.id || 'academy-search'}_safe_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-            }
-
-            input.name = input.dataset.academySearchSafeNameV17;
-        }
-
-        if (!input.dataset.academySearchUserUnlockedV17) {
-            input.setAttribute('readonly', 'readonly');
-            input.dataset.academyReadonlyAutofillGuardV17 = '1';
-        }
-
-        input.removeAttribute('value');
-
-        if (isEmailLike(input.value) || isEmailLike(input.defaultValue)) {
-            input.value = '';
-            input.defaultValue = '';
-            input.removeAttribute('value');
-        }
-    }
-
-    function unlockForUser(input, reason = 'user-intent') {
-        if (!input) return;
-
-        input.dataset.academySearchUserUnlockedV17 = '1';
-        input.dataset.academySearchUnlockReasonV17 = reason;
-        input.removeAttribute('readonly');
-
-        if (isEmailLike(input.value) || isEmailLike(input.defaultValue)) {
-            input.value = '';
-            input.defaultValue = '';
-            input.removeAttribute('value');
-
-            try {
-                if (typeof window.academyCleanupSearchAutofillDelayedV16 === 'function') {
-                    window.academyCleanupSearchAutofillDelayedV16('readonly-guard-unlock');
-                }
-            } catch (_) {}
-        }
-    }
-
-    function bootReadonlyGuard(reason = 'boot') {
-        getSearchInputs().forEach((input) => hardenReadonlyInput(input));
-
-        try {
-            if (typeof window.academyCleanupSearchAutofillDelayedV16 === 'function') {
-                window.academyCleanupSearchAutofillDelayedV16('readonly-guard-' + reason);
-            }
-        } catch (_) {}
-
-        [50, 150, 350, 800, 1500, 3000, 6000, 10000].forEach((delay) => {
-            window.setTimeout(() => {
-                getSearchInputs().forEach((input) => hardenReadonlyInput(input));
-
-                try {
-                    if (typeof window.academyCleanupSearchAutofillDelayedV16 === 'function') {
-                        window.academyCleanupSearchAutofillDelayedV16('readonly-guard-' + reason + '-' + delay);
-                    }
-                } catch (_) {}
-            }, delay);
-        });
-    }
-
-    document.addEventListener('pointerdown', (event) => {
-        const input = event.target?.closest?.('#academy-global-search-input, #academy-member-browser-search-input');
-        if (input) unlockForUser(input, 'pointerdown');
-    }, true);
-
-    document.addEventListener('keydown', (event) => {
-        const input = event.target?.closest?.('#academy-global-search-input, #academy-member-browser-search-input');
-        if (input) unlockForUser(input, 'keydown');
-    }, true);
-
-    document.addEventListener('focusin', (event) => {
-        const input = event.target?.closest?.('#academy-global-search-input, #academy-member-browser-search-input');
-        if (input) {
-            window.setTimeout(() => unlockForUser(input, 'focusin'), 0);
-        }
-    }, true);
-
-    window.addEventListener('pageshow', () => bootReadonlyGuard('pageshow'));
-    window.addEventListener('load', () => bootReadonlyGuard('load'));
-    window.addEventListener('resize', () => bootReadonlyGuard('resize'));
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => bootReadonlyGuard('dom-ready'));
-    } else {
-        bootReadonlyGuard('immediate');
-    }
-
-    window.academySearchAutofillReadonlyGuardV17 = bootReadonlyGuard;
-})();
-/* END PATCH: Academy search autofill readonly guard v17 */
-
 
 
