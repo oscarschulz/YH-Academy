@@ -18257,10 +18257,15 @@ function scheduleAcademySearch(query = '', options = {}) {
     academySyncSearchInputs(normalizedQuery, sourceInputId);
 
     if (normalizedQuery.length < 2) {
-        applyAcademySearch('', {
-            sourceInputId,
-            skipDebounceReset: true
-        });
+        closeAcademySearchResultsPanel();
+
+        const feedView = document.getElementById('academy-feed-view');
+        const isFeedVisible = feedView && !feedView.classList.contains('hidden-step');
+
+        if (isFeedVisible && typeof renderAcademyFeed === 'function') {
+            renderAcademyFeed(readAcademyFeedCachePosts());
+        }
+
         return;
     }
 
