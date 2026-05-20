@@ -3020,84 +3020,25 @@ async function submitYHBusinessReply(event) {
     }
 }
 
+function openYHBusinessChatsPage(conversationId = '') {
+    const cleanConversationId = String(conversationId || '').trim();
+    const url = cleanConversationId
+        ? '/business-chats.html?conversationId=' + encodeURIComponent(cleanConversationId)
+        : '/business-chats.html';
+
+    const opened = window.open(url, '_blank', 'noopener');
+
+    if (!opened) {
+        window.location.href = url;
+    }
+}
+
 function bootYHBusinessChatPanel() {
-    document.getElementById('btn-open-yh-business-chats')?.addEventListener('click', openYHBusinessChatModal);
-    document.getElementById('yh-business-chat-close')?.addEventListener('click', closeYHBusinessChatModal);
-    document.getElementById('yh-business-chat-refresh')?.addEventListener('click', () => {
-        refreshYHBusinessChats(true)
-            .then(() => showToast('Business chats refreshed.', 'success'))
-            .catch((error) => showToast(error?.message || 'Failed to refresh business chats.', 'error'));
-    });
+    const businessChatButton = document.getElementById('btn-open-yh-business-chats');
 
-    document.getElementById('yh-business-chat-modal')?.addEventListener('click', (event) => {
-        if (event.target?.id === 'yh-business-chat-modal') {
-            closeYHBusinessChatModal();
-        }
-    });
-
-    document.getElementById('yh-business-chat-list')?.addEventListener('click', (event) => {
-        const target = event.target instanceof Element
-            ? event.target.closest('[data-yh-business-conversation]')
-            : null;
-
-        if (!target) return;
-
-        openYHBusinessConversation(target.getAttribute('data-yh-business-conversation') || '');
-    });
-
-    document.getElementById('yh-business-chat-reply-form')?.addEventListener('submit', submitYHBusinessReply);
-    document.getElementById('yh-business-chat-start-form')?.addEventListener('submit', (event) => {
+    businessChatButton?.addEventListener('click', (event) => {
         event.preventDefault();
-
-        const button = document.getElementById('yh-business-chat-member-search-btn');
-
-        if (button) {
-            button.disabled = true;
-            button.textContent = 'Searching...';
-        }
-
-        searchYHBusinessPlazaMembers().finally(() => {
-            if (button) {
-                button.disabled = false;
-                button.textContent = 'Search Plaza Members';
-            }
-        });
-    });
-
-    document.getElementById('yh-business-chat-member-results')?.addEventListener('click', (event) => {
-        const target = event.target instanceof Element
-            ? event.target.closest('[data-yh-start-plaza-business-chat]')
-            : null;
-
-        if (!target) return;
-
-        const targetUserId = target.getAttribute('data-yh-start-plaza-business-chat') || '';
-        const button = target instanceof HTMLButtonElement ? target : null;
-
-        if (button) {
-            button.disabled = true;
-            button.textContent = 'Opening...';
-        }
-
-        startYHBusinessChatWithPlazaMember(targetUserId)
-            .then((conversation) => {
-                if (conversation) {
-                    showToast('Plaza business chat opened.', 'success');
-
-                    const messageInput = document.getElementById('yh-business-chat-opening-message');
-                    if (messageInput) messageInput.value = '';
-                }
-            })
-            .catch((error) => {
-                console.error('startYHBusinessChatWithPlazaMember error:', error);
-                showToast(error?.message || 'Failed to open Plaza business chat.', 'error');
-            })
-            .finally(() => {
-                if (button) {
-                    button.disabled = false;
-                    button.textContent = 'Open Chat';
-                }
-            });
+        openYHBusinessChatsPage();
     });
 
     startYHBusinessChatAutoRefresh();
@@ -3111,6 +3052,7 @@ function bootYHBusinessChatPanel() {
 
     try {
         const url = new URL(window.location.href);
+        const targetId = String(url.searchParams.get('businessChatId') || '').trim();
         const shouldOpen =
             url.searchParams.get('businessChats') === '1' ||
             sessionStorage.getItem('yh_open_business_chats_on_dashboard_v1') === '1';
@@ -3118,12 +3060,13 @@ function bootYHBusinessChatPanel() {
         sessionStorage.removeItem('yh_open_business_chats_on_dashboard_v1');
 
         if (shouldOpen) {
-            window.setTimeout(openYHBusinessChatModal, 240);
+            window.setTimeout(() => openYHBusinessChatsPage(targetId), 240);
         }
     } catch (_) {}
 }
 
-window.openYHBusinessChatModal = openYHBusinessChatModal;
+window.openYHBusinessChatModal = openYHBusinessChatsPage;
+window.openYHBusinessChatsPage = openYHBusinessChatsPage;
 window.refreshYHBusinessChats = refreshYHBusinessChats;
 
 function dashboardNormalizeSettingsBadgeDivision(division = '') {
@@ -8484,32 +8427,20 @@ const openNotificationTarget = (target = '', targetId = '') => {
         normalized === 'plaza-business-chat' ||
         normalized === 'plaza_business_chat'
     ) {
-        if (typeof openYHBusinessChatModal === 'function') {
-            openYHBusinessChatModal();
+        const cleanTargetId = String(targetId || '').trim();
+        const url = cleanTargetId
+            ? '/business-chats.html?conversationId=' + encodeURIComponent(cleanTargetId)
+            : '/business-chats.html';
 
-            if (typeof refreshYHBusinessChats === 'function') {
-                refreshYHBusinessChats(true, { silent: true }).then(() => {
-                    const cleanTargetId = String(targetId || '').trim();
+        const opened = window.open(url, '_blank', 'noopener');
 
-                    if (
-                        cleanTargetId &&
-                        typeof openYHBusinessConversation === 'function'
-                    ) {
-                        openYHBusinessConversation(cleanTargetId);
-                    }
-                }).catch(() => {});
-            }
-
-            return;
+        if (!opened) {
+            window.location.href = url;
         }
 
-        try {
-            sessionStorage.setItem('yh_open_business_chats_on_dashboard_v1', '1');
-        } catch (_) {}
-
-        window.location.href = '/dashboard?businessChats=1';
         return;
     }
+
 
     if (normalized === 'wallet' || normalized === 'economy' || normalized === 'payout') {
         if (typeof openYHWalletModal === 'function') {

@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Business Chats | YH Universe</title>
+  <link rel="icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1" />
+  <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/business-chats.css?v=20260520-business-chats-page-v1" />
+</head>
+<body data-yh-view="business-chats" data-yh-page="business-chats">
+  <div class="bc-shell">
+    <nav class="bc-topnav">
+      <a class="bc-brand" href="/dashboard" aria-label="Back to Dashboard">
+        <img src="/images/logo.avif" alt="YH Logo" />
+        <div>
+          <span>YH Universe</span>
+          <strong>Business Chats</strong>
+        </div>
+      </a>
+
+      <div class="bc-actions">
+        <button type="button" class="bc-ghost-btn" id="bcRefresh">Refresh</button>
+        <a class="bc-ghost-btn" href="/dashboard">Back to Dashboard</a>
+      </div>
+    </nav>
+
+    <header class="bc-hero">
+      <section class="bc-hero-card">
+        <div class="bc-kicker">Cross-Division Messaging</div>
+        <h1>Business Chats</h1>
+        <p>
+          Manage structured Plaza business conversations from a full page instead of a dashboard pop-up.
+          Threads, replies, search, reports, closing, blocking, and unblocking are connected to the live server.
+        </p>
+      </section>
+
+      <section class="bc-stat-grid" aria-label="Business chat stats">
+        <article class="bc-stat-card">
+          <span>Total Threads</span>
+          <strong id="bcStatThreads">0</strong>
+        </article>
+        <article class="bc-stat-card">
+          <span>Active</span>
+          <strong id="bcStatActive">0</strong>
+        </article>
+        <article class="bc-stat-card">
+          <span>Unread</span>
+          <strong id="bcStatUnread">0</strong>
+        </article>
+        <article class="bc-stat-card">
+          <span>Blocked / Locked</span>
+          <strong id="bcStatBlocked">0</strong>
+        </article>
+      </section>
+    </header>
+
+    <main class="bc-main-grid">
+      <aside class="bc-left-stack">
+        <section class="bc-start-panel">
+          <div class="bc-panel-head">
+            <div>
+              <strong>Start a Plaza business chat</strong>
+              <span>Search approved Plaza members and open a focused business conversation.</span>
+            </div>
+          </div>
+
+          <form id="bcSearchForm">
+            <div class="bc-form-grid">
+              <div class="bc-form-row">
+                <label for="bcMemberSearch">Search member</label>
+                <input id="bcMemberSearch" type="search" placeholder="Name, role, city, skill, or business area" maxlength="120" />
+              </div>
+
+              <div class="bc-form-row">
+                <label for="bcDivisionFilter">Division</label>
+                <select id="bcDivisionFilter">
+                  <option value="plaza">Plaza Members</option>
+                  <option value="all">All Approved Members</option>
+                  <option value="academy">Academy</option>
+                  <option value="federation">Federation</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="bc-form-row">
+              <label for="bcBusinessPurpose">Business purpose</label>
+              <select id="bcBusinessPurpose">
+                <option value="Business collaboration">Business collaboration</option>
+                <option value="Partnership">Partnership</option>
+                <option value="Service request">Service request</option>
+                <option value="Investment or deal flow">Investment or deal flow</option>
+                <option value="Introduction request">Introduction request</option>
+                <option value="Hiring or project work">Hiring or project work</option>
+              </select>
+            </div>
+
+            <div class="bc-form-row">
+              <label for="bcOpeningMessage">Opening message</label>
+              <textarea id="bcOpeningMessage" placeholder="Explain why you want to start this business conversation." maxlength="1200"></textarea>
+            </div>
+
+            <button type="submit" class="bc-primary-btn" id="bcSearchMembers">Search Members</button>
+          </form>
+
+          <div class="bc-member-results" id="bcMemberResults">
+            <div class="bc-empty">Search for an approved Plaza member to start a business chat.</div>
+          </div>
+        </section>
+
+        <section class="bc-blocked-panel">
+          <div class="bc-panel-head">
+            <div>
+              <strong>Blocked members</strong>
+              <span>Unblock members when you want to allow future business chats again.</span>
+            </div>
+          </div>
+
+          <div class="bc-blocked-list" id="bcBlockedList">
+            <div class="bc-empty">Loading blocked members...</div>
+          </div>
+        </section>
+      </aside>
+
+      <section class="bc-conversation-shell">
+        <aside class="bc-panel">
+          <div class="bc-panel-head">
+            <div>
+              <strong>Conversations</strong>
+              <span id="bcConversationCount">Loading...</span>
+            </div>
+          </div>
+
+          <div class="bc-conversation-list" id="bcConversationList">
+            <div class="bc-empty">Loading business conversations...</div>
+          </div>
+        </aside>
+
+        <section class="bc-thread-panel">
+          <div class="bc-thread-head">
+            <div>
+              <strong id="bcThreadTitle">Select a conversation</strong>
+              <span id="bcThreadMeta">Your Plaza business threads will appear here.</span>
+            </div>
+
+            <div class="bc-safety-actions">
+              <button type="button" class="bc-ghost-small" id="bcReportThread" disabled>Report</button>
+              <button type="button" class="bc-ghost-small" id="bcCloseThread" disabled>Close</button>
+              <button type="button" class="bc-danger-btn" id="bcBlockThread" disabled>Block</button>
+            </div>
+          </div>
+
+          <div class="bc-thread-body" id="bcThreadBody">
+            <div class="bc-empty">Select a thread to read the conversation and reply.</div>
+          </div>
+
+          <form class="bc-reply-form" id="bcReplyForm">
+            <textarea id="bcReplyInput" placeholder="Write your business reply..." maxlength="1600" disabled></textarea>
+            <button type="submit" class="bc-primary-btn" id="bcSendReply" disabled>Send Reply</button>
+          </form>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <div class="bc-toast" id="businessChatToast" role="status" aria-live="polite"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/business-chats.js?v=20260520-business-chats-page-v1"></script>
+</body>
+</html>

@@ -3294,6 +3294,11 @@ if (
     p === '/plaza' ||
     p === '/plaza/' ||
     p === '/plaza.html' ||
+    p === '/business-chats' ||
+    p === '/business-chats/' ||
+    p === '/business-chats.html' ||
+    p === '/js/business-chats.js' ||
+    p === '/css/business-chats.css' ||
     p === '/collections' ||
     p === '/collections/' ||
     p.startsWith('/collections/') ||
@@ -3591,13 +3596,16 @@ app.use(express.static(path.join(__dirname, 'public'), {
             normalized.endsWith('/public/js/dashboard.js') ||
             normalized.endsWith('/public/js/academy.js') ||
             normalized.endsWith('/public/js/plaza.js') ||
+            normalized.endsWith('/public/js/business-chats.js') ||
             normalized.endsWith('/public/css/plaza.css') ||
+            normalized.endsWith('/public/css/business-chats.css') ||
             normalized.endsWith('/public/js/dashboard-mobile-fix.js') ||
             normalized.endsWith('/public/js/yh-shared-core.js') ||
             normalized.endsWith('/public/js/yh-shared-runtime.js') ||
             normalized.endsWith('/public/dashboard.html') ||
             normalized.endsWith('/public/academy.html') ||
-            normalized.endsWith('/public/plaza.html')
+            normalized.endsWith('/public/plaza.html') ||
+            normalized.endsWith('/public/business-chats.html')
         ) {
             res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
             res.setHeader('Pragma', 'no-cache');
