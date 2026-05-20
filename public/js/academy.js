@@ -31182,10 +31182,12 @@ if (document.body) {
             input.name = input.dataset.academySearchSafeNameV17;
         }
 
-        if (!input.dataset.academySearchUserUnlockedV17) {
-            input.setAttribute('readonly', 'readonly');
-            input.dataset.academyReadonlyAutofillGuardV17 = '1';
-        }
+        input.dataset.academySearchUserUnlockedV17 = '1';
+        input.dataset.academyReadonlyAutofillGuardV17 = '0';
+        input.removeAttribute('readonly');
+        input.removeAttribute('disabled');
+        input.readOnly = false;
+        input.disabled = false;
 
         input.removeAttribute('value');
 
@@ -31201,7 +31203,11 @@ if (document.body) {
 
         input.dataset.academySearchUserUnlockedV17 = '1';
         input.dataset.academySearchUnlockReasonV17 = reason;
+        input.dataset.academyReadonlyAutofillGuardV17 = '0';
         input.removeAttribute('readonly');
+        input.removeAttribute('disabled');
+        input.readOnly = false;
+        input.disabled = false;
 
         if (isEmailLike(input.value) || isEmailLike(input.defaultValue)) {
             input.value = '';
