@@ -3323,13 +3323,235 @@ function closeDashboardSettingsModal() {
     document.getElementById('yh-dashboard-settings-overlay')?.classList.add('hidden-step');
 }
 
+const YH_DASHBOARD_SETTINGS_SUBSCRIPTIONS_ENDPOINT = '/api/payments/subscriptions';
+
+let dashboardSettingsSnapshot = null;
+let dashboardSettingsLoading = false;
+
+function dashboardSettingsEscape(value = '') {
+    if (typeof academyFeedEscapeHtml === 'function') {
+        return academyFeedEscapeHtml(value);
+    }
+
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function dashboardSettingsFormatMoney(amount = 0, currency = 'USD') {
+    const numericAmount = Number(amount || 0);
+    const cleanCurrency = String(currency || 'USD').trim().toUpperCase() || 'USD';
+
+    if (!Number.isFinite(numericAmount)) return `${cleanCurrency} 0.00`;
+
+    return `${cleanCurrency} ${numericAmount.toFixed(2)}`;
+}
+
+function dashboardSettingsFormatDate(value = '') {
+    const clean = String(value || '').trim();
+    if (!clean) return '';
+
+    const parsed = new Date(clean);
+    if (Number.isNaN(parsed.getTime())) return clean;
+
+    return parsed.toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+    });
+}
+
+function dashboardSettingsReadPlanDivision(item = {}) {
+    return String(item.division || item.plan?.division || item.badge?.division || '').trim().toLowerCase();
+}
+
+function dashboardSettingsReadPlanCode(item = {}) {
+    const division = dashboardSettingsReadPlanDivision(item);
+    return String(item.code || item.plan?.code || item.badge?.code || '').trim() || (division === 'federation' ? 'YHF' : 'YHA');
+}
+
+function dashboardSettingsGetStatusLabel(item = {}) {
+    const status = String(item.status || item.badge?.status || '').trim().toLowerCase();
+
+    if (item.active === true || status === 'active' || status === 'verified') return 'Active';
+    if (status === 'pending_payment') return 'Pending Payment';
+    if (status === 'checkout_started') return 'Checkout Started';
+    if (status === 'cancelled' || status === 'canceled') return 'Cancelled';
+    if (status === 'expired') return 'Expired';
+    if (status === 'failed') return 'Failed';
+
+    return status
+        ? status.replace(/[_-]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
+        : 'Not Active';
+}
+
+function dashboardSettingsGetStatusTone(item = {}) {
+    const status = String(item.status || item.badge?.status || '').trim().toLowerCase();
+
+    if (item.active === true || status === 'active' || status === 'verified') return 'active';
+    if (status === 'pending_payment' || status === 'checkout_started' || status === 'draft') return 'pending';
+    if (status === 'cancelled' || status === 'canceled' || status === 'expired' || status === 'failed') return 'inactive';
+
+    return 'inactive';
+}
+
+function renderDashboardSettingsLoading(message = 'Loading subscriptions and payment plans...') {
+    const list = document.getElementById('yh-dashboard-settings-subscriptions-list');
+    if (!list) return;
+
+    list.innerHTML = `
+        <div class="yh-dashboard-settings-loading">
+            ${dashboardSettingsEscape(message)}
+        </div>
+    `;
+}
+
+function renderDashboardSettingsError(message = 'Failed to load subscriptions.') {
+    const list = document.getElementById('yh-dashboard-settings-subscriptions-list');
+    if (!list) return;
+
+    list.innerHTML = `
+        <div class="yh-dashboard-settings-loading is-error">
+            ${dashboardSettingsEscape(message)}
+        </div>
+    `;
+}
+
+function renderDashboardSettingsSubscriptions(snapshot = {}) {
+    const list = document.getElementById('yh-dashboard-settings-subscriptions-list');
+    if (!list) return;
+
+    const paymentPlans = Array.isArray(snapshot.paymentPlans)
+        ? snapshot.paymentPlans
+        : [];
+
+    if (!paymentPlans.length) {
+        list.innerHTML = `
+            <div class="yh-dashboard-settings-loading">
+                No subscriptions or payment plans were found for this account.
+            </div>
+        `;
+        return;
+    }
+
+    list.innerHTML = paymentPlans.map((item) => {
+        const plan = item.plan && typeof item.plan === 'object' ? item.plan : {};
+        const badge = item.badge && typeof item.badge === 'object' ? item.badge : {};
+        const payment = item.payment && typeof item.payment === 'object' ? item.payment : {};
+        const division = dashboardSettingsReadPlanDivision(item);
+        const code = dashboardSettingsReadPlanCode(item);
+        const title = String(item.name || plan.publicName || plan.name || '').trim() || `${code} Badge`;
+        const amount = Number(item.amountMonthly || plan.amountMonthly || badge.amountMonthly || 0);
+        const currency = String(item.currency || plan.currency || badge.currency || 'USD').trim().toUpperCase() || 'USD';
+        const interval = String(item.interval || plan.interval || badge.interval || 'month').trim() || 'month';
+        const active = item.active === true;
+        const canUnsubscribe = active === true && division;
+        const tone = dashboardSettingsGetStatusTone(item);
+        const statusLabel = dashboardSettingsGetStatusLabel(item);
+        const provider = String(item.provider || badge.provider || payment.provider || '').trim();
+        const paymentStatus = String(item.paymentStatus || badge.paymentStatus || payment.status || '').trim();
+        const activatedAt = dashboardSettingsFormatDate(item.activatedAt || badge.activatedAt || badge.approvedAt || '');
+        const expiresAt = dashboardSettingsFormatDate(item.expiresAt || badge.expiresAt || '');
+        const paymentLedgerId = String(item.paymentLedgerId || badge.paymentLedgerId || payment.id || '').trim();
+
+        const meta = [
+            `${dashboardSettingsFormatMoney(amount, currency)}/${interval}`,
+            provider ? `Provider: ${provider}` : '',
+            paymentStatus ? `Payment: ${paymentStatus.replace(/[_-]+/g, ' ')}` : '',
+            activatedAt ? `Activated: ${activatedAt}` : '',
+            expiresAt ? `Expires: ${expiresAt}` : '',
+            paymentLedgerId ? `Ledger: ${paymentLedgerId}` : ''
+        ].filter(Boolean).join(' • ');
+
+        return `
+            <article class="yh-dashboard-settings-subscription-card ${active ? 'is-active' : 'is-inactive'}">
+                <div class="yh-dashboard-settings-subscription-main">
+                    <div class="yh-dashboard-settings-subscription-title-row">
+                        <span class="yh-dashboard-settings-plan-code">${dashboardSettingsEscape(code)}</span>
+                        <div>
+                            <strong>${dashboardSettingsEscape(title)}</strong>
+                            <p>${dashboardSettingsEscape(meta)}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="yh-dashboard-settings-subscription-actions">
+                    <span class="yh-dashboard-settings-status-pill is-${dashboardSettingsEscape(tone)}">
+                        ${dashboardSettingsEscape(statusLabel)}
+                    </span>
+
+                    <button
+                        type="button"
+                        class="btn-secondary yh-dashboard-settings-unsubscribe-btn"
+                        data-yh-dashboard-unsubscribe-plan="${dashboardSettingsEscape(division)}"
+                        ${canUnsubscribe ? '' : 'disabled aria-disabled="true"'}
+                    >
+                        ${canUnsubscribe ? `Unsubscribe ${dashboardSettingsEscape(code)}` : 'No active subscription'}
+                    </button>
+                </div>
+            </article>
+        `;
+    }).join('');
+}
+
+async function loadDashboardSettingsSubscriptions(options = {}) {
+    if (dashboardSettingsLoading) return dashboardSettingsSnapshot;
+
+    dashboardSettingsLoading = true;
+
+    if (options.silent !== true) {
+        renderDashboardSettingsLoading();
+    }
+
+    try {
+        const result = await academyAuthedFetch(YH_DASHBOARD_SETTINGS_SUBSCRIPTIONS_ENDPOINT, {
+            method: 'GET'
+        });
+
+        dashboardSettingsSnapshot = result && typeof result === 'object' ? result : {};
+        renderDashboardSettingsSubscriptions(dashboardSettingsSnapshot);
+
+        return dashboardSettingsSnapshot;
+    } catch (error) {
+        console.error('load dashboard settings subscriptions error:', error);
+        renderDashboardSettingsError(error?.message || 'Failed to load subscriptions and payment plans.');
+        throw error;
+    } finally {
+        dashboardSettingsLoading = false;
+    }
+}
+
+async function openDashboardSettingsModal() {
+    const modal = document.getElementById('yh-dashboard-settings-modal');
+
+    if (!modal) {
+        showToast('Settings modal is missing from the Dashboard.', 'error');
+        return;
+    }
+
+    modal.classList.remove('hidden-step');
+    modal.setAttribute('aria-hidden', 'false');
+    await loadDashboardSettingsSubscriptions();
+}
+
+function closeDashboardSettingsModal() {
+    const modal = document.getElementById('yh-dashboard-settings-modal');
+    if (!modal) return;
+
+    modal.classList.add('hidden-step');
+    modal.setAttribute('aria-hidden', 'true');
+}
+
 async function dashboardUnsubscribeBadge(division = 'academy', button = null) {
     const cleanDivision = dashboardNormalizeSettingsBadgeDivision(division);
     const code = cleanDivision === 'federation' ? 'YHF' : 'YHA';
 
     const confirmed = await openYHConfirmModal({
-        title: `Unsubscribe ${code} badge?`,
-        message: `This will remove your active ${code} badge from your YH Universe profile.`,
+        title: `Unsubscribe ${code}?`,
+        message: `This will remove your active ${code} badge subscription from your YH Universe profile and mark it as cancelled on the server.`,
         okText: `Unsubscribe ${code}`,
         cancelText: 'Cancel',
         tone: 'danger'
@@ -3337,45 +3559,75 @@ async function dashboardUnsubscribeBadge(division = 'academy', button = null) {
 
     if (!confirmed) return;
 
-    await runDashboardButtonAction(button, `Unsubscribing ${code}.`, async () => {
-        const result = await academyAuthedFetch(`/api/payments/badges/${encodeURIComponent(cleanDivision)}/unsubscribe`, {
+    await runDashboardButtonAction(button, `Unsubscribing ${code}...`, async () => {
+        const result = await academyAuthedFetch(`/api/payments/subscriptions/${encodeURIComponent(cleanDivision)}/unsubscribe`, {
             method: 'POST'
         });
 
-        const currentProfile = dashboardGetSettingsProfileSnapshot();
-        const nextProfile = {
-            ...currentProfile,
-            verificationBadges: {
-                ...(currentProfile.verificationBadges || {}),
-                [cleanDivision]: result?.badge && typeof result.badge === 'object'
-                    ? result.badge
-                    : {
-                        ...(dashboardGetSettingsBadgeSnapshot(currentProfile, cleanDivision) || {}),
-                        active: false,
-                        status: 'cancelled',
-                        division: cleanDivision,
-                        code
-                    }
-            }
-        };
+        dashboardSettingsSnapshot = result?.snapshot && typeof result.snapshot === 'object'
+            ? result.snapshot
+            : dashboardSettingsSnapshot;
 
-        dashboardPersistSelfProfileCache(nextProfile);
-
-        if (academyProfileViewState?.profile && academyProfileViewState.mode === 'self') {
-            academyProfileViewState.profile = nextProfile;
-            renderAcademyProfileView(nextProfile, { mode: 'self' });
+        if (dashboardSettingsSnapshot) {
+            renderDashboardSettingsSubscriptions(dashboardSettingsSnapshot);
+        } else {
+            await loadDashboardSettingsSubscriptions();
         }
 
-        renderDashboardSettingsBadgeRows(nextProfile);
-        showToast(result?.message || `${code} badge unsubscribed.`, 'success');
+        if (typeof hydrateDashboardSelfUniverseProfile === 'function') {
+            await hydrateDashboardSelfUniverseProfile().catch(() => null);
+        }
 
-        await hydrateDashboardSelfUniverseProfile().catch(() => null);
-        renderDashboardSettingsBadgeRows();
+        showToast(result?.message || `${code} unsubscribed.`, 'success');
     });
 }
 
+function bootDashboardSettingsModal() {
+    const settingsModal = document.getElementById('yh-dashboard-settings-modal');
+    const settingsList = document.getElementById('yh-dashboard-settings-subscriptions-list');
+
+    document.getElementById('yh-dashboard-settings-close')?.addEventListener('click', closeDashboardSettingsModal);
+    document.getElementById('yh-dashboard-settings-close-footer')?.addEventListener('click', closeDashboardSettingsModal);
+
+    document.getElementById('yh-dashboard-settings-refresh')?.addEventListener('click', (event) => {
+        const button = event.currentTarget;
+
+        runDashboardButtonAction(button, 'Refreshing...', async () => {
+            await loadDashboardSettingsSubscriptions();
+        }).catch((error) => {
+            showToast(error?.message || 'Failed to refresh settings.', 'error');
+        });
+    });
+
+    settingsModal?.addEventListener('click', (event) => {
+        if (event.target?.id === 'yh-dashboard-settings-modal') {
+            closeDashboardSettingsModal();
+        }
+    });
+
+    settingsList?.addEventListener('click', (event) => {
+        const button = event.target?.closest?.('[data-yh-dashboard-unsubscribe-plan]');
+        if (!button) return;
+
+        event.preventDefault();
+
+        dashboardUnsubscribeBadge(
+            button.getAttribute('data-yh-dashboard-unsubscribe-plan') || '',
+            button
+        ).catch((error) => {
+            console.error('dashboard unsubscribe payment plan error:', error);
+            showToast(error?.message || 'Failed to unsubscribe payment plan.', 'error');
+        });
+    });
+}
+
+window.openDashboardSettingsModal = openDashboardSettingsModal;
+window.closeDashboardSettingsModal = closeDashboardSettingsModal;
+
 
 function bootYHWalletPanel() {
+    bootDashboardSettingsModal();
+
     document.getElementById('btn-open-dashboard-settings')?.addEventListener('click', () => {
         openDashboardSettingsModal().catch((error) => {
             console.error('open dashboard settings error:', error);

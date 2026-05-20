@@ -178,6 +178,8 @@ router.patch('/plaza/meetups/:id/patron-status', auth, plazaControllers.updatePa
 // ==========================================
 router.get('/payments/options', auth, paymentControllers.getPaymentOptions);
 router.get('/payments/my-ledger', auth, paymentControllers.listMyPayments);
+router.get('/payments/subscriptions', auth, paymentControllers.listMySubscriptions);
+router.post('/payments/subscriptions/:division/unsubscribe', auth, paymentControllers.unsubscribePaymentPlan);
 router.post('/payments/badges/:division/ledger', auth, paymentControllers.createVerifiedBadgePaymentLedger);
 router.post('/payments/badges/:division/checkout-session', auth, paymentControllers.createVerifiedBadgeStripeCheckoutSession);
 router.post('/payments/badges/:division/oxapay-invoice', auth, paymentControllers.createVerifiedBadgeOxaPayInvoice);

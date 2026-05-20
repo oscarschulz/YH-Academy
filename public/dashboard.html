@@ -7,7 +7,7 @@
     <link rel="icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css?v=20260510-universe-referral-commission-1">
+<link rel="stylesheet" href="/css/style.css?v=20260520-dashboard-settings-subscriptions-v1">
 <link rel="stylesheet" href="/css/dashboard-mobile.css">
 </head>
 <body data-yh-view="hub" data-yh-page="dashboard">
@@ -1964,6 +1964,48 @@
         </div>
     </div>
 </div>
+
+<div
+    id="yh-dashboard-settings-modal"
+    class="yh-dashboard-profile-modal yh-dashboard-settings-modal hidden-step"
+    role="dialog"
+    aria-modal="true"
+    aria-hidden="true"
+    aria-labelledby="yh-dashboard-settings-title"
+>
+    <div class="yh-dashboard-profile-modal-card yh-dashboard-settings-card">
+        <div class="yh-dashboard-profile-modal-head">
+            <div>
+                <div class="yh-dashboard-profile-modal-kicker">Account Settings</div>
+                <h3 id="yh-dashboard-settings-title">Settings</h3>
+                <p>Manage your active YH subscriptions, payment plans, and badge access.</p>
+            </div>
+
+            <button type="button" class="yh-dashboard-profile-modal-close" id="yh-dashboard-settings-close" aria-label="Close settings">
+                ✕
+            </button>
+        </div>
+
+        <div class="yh-dashboard-profile-modal-body yh-dashboard-settings-body hide-scrollbar">
+            <section class="yh-dashboard-settings-section">
+                <div class="yh-dashboard-settings-section-head">
+                    <span>Subscriptions & Payment Plans</span>
+                    <small>Active subscriptions show an unsubscribe button. Inactive plans are shown for visibility only.</small>
+                </div>
+
+                <div id="yh-dashboard-settings-subscriptions-list" class="yh-dashboard-settings-subscriptions-list">
+                    <div class="yh-dashboard-settings-loading">Open settings to load your subscriptions.</div>
+                </div>
+            </section>
+        </div>
+
+        <div class="yh-dashboard-profile-modal-actions">
+            <button type="button" class="btn-secondary" id="yh-dashboard-settings-refresh">Refresh</button>
+            <button type="button" class="btn-secondary" id="yh-dashboard-settings-close-footer">Close</button>
+        </div>
+    </div>
+</div>
+
 <div
     id="yh-universe-image-lightbox"
     class="modal-overlay hidden-step yh-universe-image-lightbox"
@@ -2038,7 +2080,7 @@
 
 <script src="/js/yh-shared-core.js?v=20260418-toast-center-2"></script>
 <script src="/js/yh-shared-runtime.js?v=20260411-3"></script>
-<script src="/js/dashboard.js?v=20260505-universe-referral-list-1"></script>
+<script src="/js/dashboard.js?v=20260520-dashboard-settings-subscriptions-v1"></script>
 <script src="/js/dashboard-mobile-fix.js?v=20260410-4"></script>
 </body>
 </html>

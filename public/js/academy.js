@@ -26231,9 +26231,42 @@ if (document.body) {
         return normalizedRoomId && academyReadPinnedConversationIds().includes(normalizedRoomId);
     }
 
+function academyCloseConversationMenusAfterPin(roomId = '') {
+        const normalizedRoomId = normalizeAcademyUpgradeId(roomId);
+
+        try {
+            if (typeof academyMessagesInboxState === 'object' && academyMessagesInboxState) {
+                academyMessagesInboxState.openMenuRoomId = '';
+                academyMessagesInboxState.openThreadMenu = false;
+            }
+        } catch (_) {}
+
+        document.querySelectorAll('.academy-messages-inbox-menu.is-open, .academy-messages-thread-menu.is-open').forEach((menu) => {
+            menu.classList.remove('is-open');
+        });
+
+        document.querySelectorAll('.academy-messages-inbox-card.is-menu-open').forEach((card) => {
+            if (!normalizedRoomId || normalizeAcademyUpgradeId(card.getAttribute('data-academy-room-id') || card.getAttribute('data-room-card-id')) === normalizedRoomId) {
+                card.classList.remove('is-menu-open');
+            }
+        });
+
+        document.querySelectorAll('[data-room-menu-trigger][aria-expanded="true"], .academy-messages-inbox-menu-trigger[aria-expanded="true"], #academy-messages-thread-menu-trigger[aria-expanded="true"]').forEach((button) => {
+            button.setAttribute('aria-expanded', 'false');
+        });
+
+        if (typeof academyCloseMessagesThreadMenu === 'function') {
+            try {
+                academyCloseMessagesThreadMenu();
+            } catch (_) {}
+        }
+    }
+
     function academyToggleConversationPin(roomId = '') {
         const normalizedRoomId = normalizeAcademyUpgradeId(roomId);
         if (!normalizedRoomId) return false;
+
+        academyCloseConversationMenusAfterPin(normalizedRoomId);
 
         const current = academyReadPinnedConversationIds();
         const isPinned = current.includes(normalizedRoomId);
@@ -26249,6 +26282,14 @@ if (document.body) {
         } else {
             academyEnhanceMessagesInbox();
         }
+
+        window.requestAnimationFrame(() => {
+            academyCloseConversationMenusAfterPin(normalizedRoomId);
+        });
+
+        window.setTimeout(() => {
+            academyCloseConversationMenusAfterPin(normalizedRoomId);
+        }, 80);
 
         return !isPinned;
     }
@@ -26721,6 +26762,10 @@ if (document.body) {
                     normalizeAcademyUpgradeId(pinButton.getAttribute('data-thread-room-id')) ||
                     academyGetRoomIdFromNode(pinButton.closest('.academy-messages-inbox-card')) ||
                     normalizeAcademyUpgradeId(document.getElementById('academy-messages-thread-menu-trigger')?.getAttribute('data-thread-room-id'));
+
+                if (typeof academyCloseConversationMenusAfterPin === 'function') {
+                    academyCloseConversationMenusAfterPin(roomId);
+                }
 
                 academyToggleConversationPin(roomId);
                 return;

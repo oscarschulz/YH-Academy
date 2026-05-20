@@ -806,6 +806,334 @@ async function unsubscribeVerifiedBadge(req, res) {
     }
 }
 
+function isVerifiedBadgeActiveState(badge = {}) {
+    const status = cleanLower(badge.status || '');
+
+    return (
+        badge.active === true ||
+        status === 'active' ||
+        status === 'verified'
+    );
+}
+
+function findVerifiedBadgePaymentForPlan(payments = [], plan = {}, badge = {}, viewer = {}) {
+    const cleanDivision = cleanLower(plan.division);
+    const cleanLedgerId = cleanText(badge.paymentLedgerId);
+
+    const verifiedBadgePayments = Array.isArray(payments)
+        ? payments.filter((payment) => {
+            const metadata = payment?.metadata && typeof payment.metadata === 'object'
+                ? payment.metadata
+                : {};
+
+            const sourceFeature = cleanLower(payment.sourceFeature || metadata.sourceFeature || '');
+            const sourceDivision = cleanLower(payment.sourceDivision || metadata.badgeDivision || '');
+            const metadataDivision = cleanLower(metadata.badgeDivision || '');
+            const sourceRecordId = cleanText(payment.sourceRecordId || '');
+
+            return (
+                sourceFeature === 'verified_badge' &&
+                (
+                    sourceDivision === cleanDivision ||
+                    metadataDivision === cleanDivision ||
+                    sourceRecordId === `${viewer.id}_${cleanDivision}`
+                )
+            );
+        })
+        : [];
+
+    if (cleanLedgerId) {
+        const exact = verifiedBadgePayments.find((payment) => cleanText(payment.id) === cleanLedgerId);
+        if (exact) return exact;
+    }
+
+    return verifiedBadgePayments[0] || null;
+}
+
+function buildPaymentPlanSubscriptionItem({ plan = {}, badge = {}, payment = null, viewer = {} } = {}) {
+    const active = isVerifiedBadgeActiveState(badge);
+    const status = active ? 'active' : cleanLower(badge.status || payment?.status || 'not_active');
+    const amountMonthly = toNumber(badge.amountMonthly || payment?.amount || plan.amountMonthly, plan.amountMonthly);
+    const currency = cleanText(badge.currency || payment?.currency || plan.currency || 'USD').toUpperCase() || 'USD';
+
+    return {
+        division: plan.division,
+        code: plan.code,
+        name: plan.publicName,
+        active,
+        status,
+        amountMonthly,
+        currency,
+        interval: cleanText(badge.interval || plan.interval || 'month'),
+        asset: cleanText(badge.asset || plan.asset),
+        provider: cleanText(badge.provider || payment?.provider || ''),
+        providerPaymentId: cleanText(badge.providerPaymentId || payment?.providerPaymentId || ''),
+        providerSubscriptionId: cleanText(
+            badge.providerSubscriptionId ||
+            badge.stripeSubscriptionId ||
+            payment?.providerSubscriptionId ||
+            payment?.metadata?.providerSubscriptionId ||
+            ''
+        ),
+        paymentLedgerId: cleanText(badge.paymentLedgerId || payment?.id || ''),
+        paymentStatus: cleanLower(badge.paymentStatus || payment?.status || ''),
+        activatedAt: cleanText(badge.activatedAt || badge.approvedAt || ''),
+        expiresAt: cleanText(badge.expiresAt || ''),
+        cancelledAt: cleanText(badge.cancelledAt || badge.unsubscribedAt || ''),
+        plan: {
+            division: plan.division,
+            code: plan.code,
+            publicName: plan.publicName,
+            amountMonthly: plan.amountMonthly,
+            currency: plan.currency,
+            interval: plan.interval,
+            asset: plan.asset
+        },
+        badge,
+        payment,
+        owner: {
+            id: viewer.id,
+            email: viewer.email,
+            name: viewer.name
+        }
+    };
+}
+
+async function buildMySubscriptionsSnapshot(viewer = {}) {
+    if (!viewer.id) {
+        const error = new Error('Unauthorized.');
+        error.statusCode = 401;
+        throw error;
+    }
+
+    const userRef = firestore.collection('users').doc(viewer.id);
+    const userSnap = await userRef.get();
+
+    if (!userSnap.exists) {
+        const error = new Error('User account not found.');
+        error.statusCode = 404;
+        throw error;
+    }
+
+    const userData = userSnap.data() || {};
+    const badges = userData.verificationBadges && typeof userData.verificationBadges === 'object'
+        ? userData.verificationBadges
+        : {};
+
+    const payments = await paymentLedgerRepo.listPaymentsForUser(viewer.id, 120).catch((error) => {
+        console.error('build subscriptions payment ledger load error:', error);
+        return [];
+    });
+
+    const paymentPlans = Object.values(VERIFIED_BADGE_PLANS).map((plan) => {
+        const badge = badges[plan.division] && typeof badges[plan.division] === 'object'
+            ? badges[plan.division]
+            : {};
+
+        const payment = findVerifiedBadgePaymentForPlan(payments, plan, badge, viewer);
+
+        return buildPaymentPlanSubscriptionItem({
+            plan,
+            badge,
+            payment,
+            viewer
+        });
+    });
+
+    const activeSubscriptions = paymentPlans.filter((item) => item.active === true);
+
+    return {
+        success: true,
+        userId: viewer.id,
+        activeSubscriptions,
+        paymentPlans,
+        subscriptions: activeSubscriptions,
+        payments: payments.filter((payment) => {
+            const metadata = payment?.metadata && typeof payment.metadata === 'object'
+                ? payment.metadata
+                : {};
+
+            return cleanLower(payment.sourceFeature || metadata.sourceFeature || '') === 'verified_badge';
+        })
+    };
+}
+
+async function listMySubscriptions(req, res) {
+    try {
+        const viewer = getViewer(req);
+        const snapshot = await buildMySubscriptionsSnapshot(viewer);
+
+        return res.json(snapshot);
+    } catch (error) {
+        console.error('list my subscriptions error:', error);
+
+        return res.status(error.statusCode || 500).json({
+            success: false,
+            message: error?.message || 'Failed to load subscriptions.'
+        });
+    }
+}
+
+async function unsubscribePaymentPlan(req, res) {
+    try {
+        const viewer = getViewer(req);
+        const plan = getVerifiedBadgePlan(req.params.division || req.body?.division);
+
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        if (!plan) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid subscription division. Use academy or federation.'
+            });
+        }
+
+        const userRef = firestore.collection('users').doc(viewer.id);
+        const userSnap = await userRef.get();
+
+        if (!userSnap.exists) {
+            return res.status(404).json({
+                success: false,
+                message: 'User account not found.'
+            });
+        }
+
+        const userData = userSnap.data() || {};
+        const badges = userData.verificationBadges && typeof userData.verificationBadges === 'object'
+            ? userData.verificationBadges
+            : {};
+
+        const currentBadge = badges[plan.division] && typeof badges[plan.division] === 'object'
+            ? badges[plan.division]
+            : {};
+
+        const wasActive = isVerifiedBadgeActiveState(currentBadge);
+        const nowIso = new Date().toISOString();
+        const paymentLedgerId = cleanText(currentBadge.paymentLedgerId);
+        const providerSubscriptionId = cleanText(
+            currentBadge.providerSubscriptionId ||
+            currentBadge.stripeSubscriptionId ||
+            ''
+        );
+
+        let providerCancellation = null;
+
+        if (providerSubscriptionId && cleanLower(currentBadge.provider || 'stripe') === 'stripe') {
+            const stripe = getBadgeStripeClient();
+
+            try {
+                providerCancellation = await stripe.subscriptions.cancel(providerSubscriptionId);
+            } catch (stripeError) {
+                console.error('stripe subscription cancellation error:', stripeError);
+
+                return res.status(502).json({
+                    success: false,
+                    message: stripeError?.message || 'Stripe subscription cancellation failed.'
+                });
+            }
+        }
+
+        const nextBadge = {
+            ...currentBadge,
+            active: false,
+            status: 'cancelled',
+            subscriptionStatus: 'cancelled',
+            paymentStatus: cleanLower(currentBadge.paymentStatus || '') === 'paid'
+                ? 'paid_cancelled'
+                : 'cancelled',
+            division: plan.division,
+            code: plan.code,
+            amountMonthly: toNumber(currentBadge.amountMonthly || plan.amountMonthly, plan.amountMonthly),
+            currency: cleanText(currentBadge.currency || plan.currency || 'USD').toUpperCase() || 'USD',
+            interval: cleanText(currentBadge.interval || plan.interval || 'month'),
+            asset: cleanText(currentBadge.asset || plan.asset),
+            cancelledAt: nowIso,
+            unsubscribedAt: nowIso,
+            deactivatedAt: nowIso,
+            updatedAt: nowIso,
+            unsubscribedBy: viewer.id,
+            providerCancellationId: cleanText(providerCancellation?.id || '')
+        };
+
+        await userRef.set({
+            verificationBadges: {
+                [plan.division]: nextBadge
+            },
+            updatedAt: nowIso
+        }, { merge: true });
+
+        if (paymentLedgerId) {
+            await paymentLedgerRepo.upsertPaymentRecord({
+                id: paymentLedgerId,
+                sourceDivision: plan.division,
+                sourceFeature: plan.sourceFeature,
+                sourceRecordId: `${viewer.id}_${plan.division}`,
+
+                payerUid: viewer.id,
+                payerEmail: viewer.email,
+                payerName: viewer.name,
+
+                provider: cleanLower(currentBadge.provider || 'manual'),
+                providerOptions: ['stripe', 'oxapay', 'manual'],
+                providerPaymentId: cleanText(currentBadge.providerPaymentId),
+                providerStatus: 'user_unsubscribed',
+
+                status: 'cancelled',
+                paymentMethod: cleanText(currentBadge.paymentMethod || 'manual'),
+
+                amount: toNumber(currentBadge.amountMonthly || plan.amountMonthly, plan.amountMonthly),
+                currency: cleanText(currentBadge.currency || plan.currency || 'USD').toUpperCase() || 'USD',
+
+                platformCommissionAmount: toNumber(currentBadge.amountMonthly || plan.amountMonthly, plan.amountMonthly),
+                operatorPayoutAmount: 0,
+
+                metadata: {
+                    badgeDivision: plan.division,
+                    badgeCode: plan.code,
+                    badgeAsset: plan.asset,
+                    badgePublicName: plan.publicName,
+                    billingInterval: plan.interval,
+                    userId: viewer.id,
+                    userEmail: viewer.email,
+                    userName: viewer.name,
+                    unsubscribedAt: nowIso,
+                    unsubscribedBy: viewer.id,
+                    previousBadgeStatus: cleanText(currentBadge.status),
+                    providerSubscriptionId,
+                    providerCancellationId: cleanText(providerCancellation?.id || '')
+                }
+            }).catch((ledgerError) => {
+                console.error('unsubscribe payment ledger update error:', ledgerError);
+            });
+        }
+
+        const snapshot = await buildMySubscriptionsSnapshot(viewer);
+
+        return res.json({
+            success: true,
+            message: wasActive
+                ? `${plan.code} subscription unsubscribed.`
+                : `${plan.code} subscription was already inactive.`,
+            division: plan.division,
+            badge: nextBadge,
+            providerCancellation,
+            snapshot
+        });
+    } catch (error) {
+        console.error('unsubscribe payment plan error:', error);
+
+        return res.status(error.statusCode || 500).json({
+            success: false,
+            message: error?.message || 'Failed to unsubscribe payment plan.'
+        });
+    }
+}
+
 async function createFederationPaidIntroLedger(req, res) {
     try {
         const viewer = getViewer(req);
@@ -1541,6 +1869,8 @@ async function listMyPayouts(req, res) {
 module.exports = {
     getPaymentOptions,
     getPayoutOptions,
+    listMySubscriptions,
+    unsubscribePaymentPlan,
     createVerifiedBadgePaymentLedger,
     createVerifiedBadgeStripeCheckoutSession,
     createVerifiedBadgeOxaPayInvoice,
