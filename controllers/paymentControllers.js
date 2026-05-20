@@ -721,6 +721,91 @@ async function createVerifiedBadgePaymentLedger(req, res) {
     }
 }
 
+async function unsubscribeVerifiedBadge(req, res) {
+    try {
+        const viewer = getViewer(req);
+        const plan = getVerifiedBadgePlan(req.params.division || req.body?.division);
+
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        if (!plan) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid badge division. Use academy or federation.'
+            });
+        }
+
+        const userRef = firestore.collection('users').doc(viewer.id);
+        const userSnap = await userRef.get();
+
+        if (!userSnap.exists) {
+            return res.status(404).json({
+                success: false,
+                message: 'User account not found.'
+            });
+        }
+
+        const userData = userSnap.data() || {};
+        const badges = userData.verificationBadges && typeof userData.verificationBadges === 'object'
+            ? userData.verificationBadges
+            : {};
+
+        const currentBadge = badges[plan.division] && typeof badges[plan.division] === 'object'
+            ? badges[plan.division]
+            : {};
+
+        const nowIso = new Date().toISOString();
+        const currentStatus = cleanLower(currentBadge.status || '');
+        const wasActive = currentBadge.active === true || currentStatus === 'active' || currentStatus === 'verified';
+
+        const nextBadge = {
+            ...currentBadge,
+            active: false,
+            status: 'cancelled',
+            subscriptionStatus: 'cancelled',
+            division: plan.division,
+            code: plan.code,
+            amountMonthly: toNumber(currentBadge.amountMonthly || plan.amountMonthly, plan.amountMonthly),
+            currency: cleanText(currentBadge.currency || plan.currency || 'USD').toUpperCase() || 'USD',
+            interval: cleanText(currentBadge.interval || plan.interval || 'month'),
+            asset: cleanText(currentBadge.asset || plan.asset),
+            cancelledAt: nowIso,
+            unsubscribedAt: nowIso,
+            deactivatedAt: nowIso,
+            updatedAt: nowIso,
+            unsubscribedBy: viewer.id
+        };
+
+        await userRef.set({
+            verificationBadges: {
+                [plan.division]: nextBadge
+            },
+            updatedAt: nowIso
+        }, { merge: true });
+
+        return res.json({
+            success: true,
+            message: wasActive
+                ? `${plan.code} badge unsubscribed.`
+                : `${plan.code} badge is already inactive.`,
+            division: plan.division,
+            badge: nextBadge
+        });
+    } catch (error) {
+        console.error('unsubscribe verified badge error:', error);
+
+        return res.status(error.statusCode || 500).json({
+            success: false,
+            message: error?.message || 'Failed to unsubscribe verified badge.'
+        });
+    }
+}
+
 async function createFederationPaidIntroLedger(req, res) {
     try {
         const viewer = getViewer(req);
@@ -1459,6 +1544,7 @@ module.exports = {
     createVerifiedBadgePaymentLedger,
     createVerifiedBadgeStripeCheckoutSession,
     createVerifiedBadgeOxaPayInvoice,
+    unsubscribeVerifiedBadge,
     createFederationPaidIntroLedger,
     createPlazaOpportunityPaymentLedger,
     listMyPayments,

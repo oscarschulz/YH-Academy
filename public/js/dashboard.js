@@ -3126,8 +3126,263 @@ function bootYHBusinessChatPanel() {
 window.openYHBusinessChatModal = openYHBusinessChatModal;
 window.refreshYHBusinessChats = refreshYHBusinessChats;
 
+function dashboardNormalizeSettingsBadgeDivision(division = '') {
+    const clean = String(division || '').trim().toLowerCase();
+
+    if (clean === 'federation' || clean === 'yhf') return 'federation';
+    return 'academy';
+}
+
+function dashboardGetSettingsProfileSnapshot() {
+    const activeProfile = academyProfileViewState?.profile && typeof academyProfileViewState.profile === 'object'
+        ? academyProfileViewState.profile
+        : {};
+
+    if (typeof buildAcademySelfProfilePayload === 'function') {
+        return buildAcademySelfProfilePayload(activeProfile);
+    }
+
+    return activeProfile;
+}
+
+function dashboardGetSettingsBadgeSnapshot(profile = {}, division = 'academy') {
+    const cleanDivision = dashboardNormalizeSettingsBadgeDivision(division);
+
+    if (typeof dashboardGetVerificationBadgeSnapshot === 'function') {
+        return dashboardGetVerificationBadgeSnapshot(profile, cleanDivision);
+    }
+
+    const badges = profile?.verificationBadges && typeof profile.verificationBadges === 'object'
+        ? profile.verificationBadges
+        : {};
+
+    return badges[cleanDivision] && typeof badges[cleanDivision] === 'object'
+        ? badges[cleanDivision]
+        : {};
+}
+
+function dashboardIsSettingsBadgeActive(profile = {}, division = 'academy') {
+    const badge = dashboardGetSettingsBadgeSnapshot(profile, division);
+    const status = String(badge.status || '').trim().toLowerCase();
+
+    return badge.active === true || status === 'active' || status === 'verified';
+}
+
+function dashboardFormatSettingsBadgeDate(value = '') {
+    const clean = String(value || '').trim();
+    if (!clean) return '';
+
+    const parsed = new Date(clean);
+    if (Number.isNaN(parsed.getTime())) return clean;
+
+    return parsed.toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+    });
+}
+
+function dashboardRenderSettingsBadgeRow(profile = {}, division = 'academy') {
+    const cleanDivision = dashboardNormalizeSettingsBadgeDivision(division);
+    const badge = dashboardGetSettingsBadgeSnapshot(profile, cleanDivision);
+    const active = dashboardIsSettingsBadgeActive(profile, cleanDivision);
+    const code = cleanDivision === 'federation' ? 'YHF' : 'YHA';
+    const title = cleanDivision === 'federation' ? 'Federation Badge' : 'Academy Badge';
+    const price = cleanDivision === 'federation' ? '$28.12/month' : '$2.81/month';
+    const status = active ? 'Active' : 'Not active';
+    const activatedAt = dashboardFormatSettingsBadgeDate(badge.activatedAt || badge.approvedAt || '');
+    const expiresAt = dashboardFormatSettingsBadgeDate(badge.expiresAt || '');
+    const metaParts = [price];
+
+    if (activatedAt) metaParts.push(`Activated ${activatedAt}`);
+    if (expiresAt) metaParts.push(`Expires ${expiresAt}`);
+
+    return `
+        <article class="yh-dashboard-settings-badge-row ${active ? 'is-active' : 'is-inactive'}">
+            <div class="yh-dashboard-settings-badge-main">
+                <div class="yh-dashboard-settings-badge-title-row">
+                    <span class="yh-dashboard-settings-badge-code">${academyFeedEscapeHtml(code)}</span>
+                    <strong>${academyFeedEscapeHtml(title)}</strong>
+                </div>
+                <p>${academyFeedEscapeHtml(metaParts.join(' • '))}</p>
+            </div>
+
+            <div class="yh-dashboard-settings-badge-side">
+                <span class="yh-dashboard-settings-badge-status ${active ? 'is-active' : 'is-inactive'}">${academyFeedEscapeHtml(status)}</span>
+                <button
+                    type="button"
+                    class="btn-secondary yh-dashboard-settings-unsubscribe-btn"
+                    data-yh-dashboard-unsubscribe-badge="${academyFeedEscapeHtml(cleanDivision)}"
+                    ${active ? '' : 'disabled aria-disabled="true"'}
+                >
+                    ${active ? `Unsubscribe ${academyFeedEscapeHtml(code)}` : 'No active badge'}
+                </button>
+            </div>
+        </article>
+    `;
+}
+
+function renderDashboardSettingsBadgeRows(profile = null) {
+    const list = document.getElementById('yh-dashboard-settings-badge-list');
+    if (!list) return;
+
+    const profileSnapshot = profile && typeof profile === 'object'
+        ? profile
+        : dashboardGetSettingsProfileSnapshot();
+
+    list.innerHTML = [
+        dashboardRenderSettingsBadgeRow(profileSnapshot, 'academy'),
+        dashboardRenderSettingsBadgeRow(profileSnapshot, 'federation')
+    ].join('');
+}
+
+function ensureDashboardSettingsModal() {
+    let overlay = document.getElementById('yh-dashboard-settings-overlay');
+    if (overlay) return overlay;
+
+    overlay = document.createElement('div');
+    overlay.id = 'yh-dashboard-settings-overlay';
+    overlay.className = 'yh-dashboard-profile-modal yh-dashboard-settings-modal hidden-step';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-labelledby', 'yh-dashboard-settings-title');
+
+    overlay.innerHTML = `
+        <div class="yh-dashboard-profile-modal-card yh-dashboard-settings-card">
+            <div class="yh-dashboard-profile-modal-head">
+                <div>
+                    <div class="yh-dashboard-profile-modal-kicker">Account Settings</div>
+                    <h3 id="yh-dashboard-settings-title">Dashboard Settings</h3>
+                    <p>Manage your YH Universe badge subscriptions from one place.</p>
+                </div>
+
+                <button type="button" class="yh-dashboard-profile-modal-close" data-dashboard-settings-close aria-label="Close settings">✕</button>
+            </div>
+
+            <div class="yh-dashboard-profile-modal-body yh-dashboard-settings-body hide-scrollbar">
+                <section class="yh-dashboard-settings-section">
+                    <div class="yh-dashboard-settings-section-head">
+                        <span>Badge Subscriptions</span>
+                        <small>Unsubscribe buttons are shown only when the badge is currently active.</small>
+                    </div>
+
+                    <div class="yh-dashboard-settings-badge-list" id="yh-dashboard-settings-badge-list">
+                        <div class="yh-dashboard-settings-loading">Loading badge settings...</div>
+                    </div>
+                </section>
+            </div>
+
+            <div class="yh-dashboard-profile-modal-actions">
+                <button type="button" class="btn-secondary" data-dashboard-settings-close>Close</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener('click', (event) => {
+        if (event.target?.id === 'yh-dashboard-settings-overlay') {
+            closeDashboardSettingsModal();
+            return;
+        }
+
+        const closeBtn = event.target?.closest?.('[data-dashboard-settings-close]');
+        if (closeBtn) {
+            closeDashboardSettingsModal();
+            return;
+        }
+
+        const unsubscribeBtn = event.target?.closest?.('[data-yh-dashboard-unsubscribe-badge]');
+        if (!unsubscribeBtn) return;
+
+        const division = unsubscribeBtn.getAttribute('data-yh-dashboard-unsubscribe-badge') || '';
+        dashboardUnsubscribeBadge(division, unsubscribeBtn).catch((error) => {
+            console.error('dashboard unsubscribe badge error:', error);
+            showToast(error?.message || 'Failed to unsubscribe badge.', 'error');
+        });
+    });
+
+    return overlay;
+}
+
+async function openDashboardSettingsModal() {
+    const overlay = ensureDashboardSettingsModal();
+
+    renderDashboardSettingsBadgeRows();
+    overlay.classList.remove('hidden-step');
+
+    try {
+        await hydrateDashboardSelfUniverseProfile();
+        renderDashboardSettingsBadgeRows();
+    } catch (error) {
+        console.warn('settings profile refresh skipped:', error?.message || error);
+    }
+}
+
+function closeDashboardSettingsModal() {
+    document.getElementById('yh-dashboard-settings-overlay')?.classList.add('hidden-step');
+}
+
+async function dashboardUnsubscribeBadge(division = 'academy', button = null) {
+    const cleanDivision = dashboardNormalizeSettingsBadgeDivision(division);
+    const code = cleanDivision === 'federation' ? 'YHF' : 'YHA';
+
+    const confirmed = await openYHConfirmModal({
+        title: `Unsubscribe ${code} badge?`,
+        message: `This will remove your active ${code} badge from your YH Universe profile.`,
+        okText: `Unsubscribe ${code}`,
+        cancelText: 'Cancel',
+        tone: 'danger'
+    });
+
+    if (!confirmed) return;
+
+    await runDashboardButtonAction(button, `Unsubscribing ${code}.`, async () => {
+        const result = await academyAuthedFetch(`/api/payments/badges/${encodeURIComponent(cleanDivision)}/unsubscribe`, {
+            method: 'POST'
+        });
+
+        const currentProfile = dashboardGetSettingsProfileSnapshot();
+        const nextProfile = {
+            ...currentProfile,
+            verificationBadges: {
+                ...(currentProfile.verificationBadges || {}),
+                [cleanDivision]: result?.badge && typeof result.badge === 'object'
+                    ? result.badge
+                    : {
+                        ...(dashboardGetSettingsBadgeSnapshot(currentProfile, cleanDivision) || {}),
+                        active: false,
+                        status: 'cancelled',
+                        division: cleanDivision,
+                        code
+                    }
+            }
+        };
+
+        dashboardPersistSelfProfileCache(nextProfile);
+
+        if (academyProfileViewState?.profile && academyProfileViewState.mode === 'self') {
+            academyProfileViewState.profile = nextProfile;
+            renderAcademyProfileView(nextProfile, { mode: 'self' });
+        }
+
+        renderDashboardSettingsBadgeRows(nextProfile);
+        showToast(result?.message || `${code} badge unsubscribed.`, 'success');
+
+        await hydrateDashboardSelfUniverseProfile().catch(() => null);
+        renderDashboardSettingsBadgeRows();
+    });
+}
+
 
 function bootYHWalletPanel() {
+    document.getElementById('btn-open-dashboard-settings')?.addEventListener('click', () => {
+        openDashboardSettingsModal().catch((error) => {
+            console.error('open dashboard settings error:', error);
+            showToast(error?.message || 'Failed to open settings.', 'error');
+        });
+    });
+
     document.getElementById('btn-open-dashboard-profile-editor')?.addEventListener('click', () => {
         const openProfileEditor =
             typeof window.openDashboardUniverseProfileEditor === 'function'

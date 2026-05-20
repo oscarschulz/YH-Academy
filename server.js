@@ -51,6 +51,7 @@ publicLandingNamespace.on('connection', (socket) => {
 
 const chatMessagesCol = firestore.collection('chatMessages');
 const chatRoomsCol = firestore.collection('chatRooms');
+const liveRoomsCol = firestore.collection('liveRooms');
 const leadMissionOperatorsCol = firestore.collection('leadMissionOperators');
 const plazaConversationsCol = firestore.collection('plazaConversations');
 

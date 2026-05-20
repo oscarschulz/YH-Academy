@@ -7,7 +7,7 @@
     <link rel="icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css?v=20260520-latest-message-menu-up-position-fix-v2">
+<link rel="stylesheet" href="/css/style.css?v=20260520-messages-tab-loading-empty-v1">
 <link rel="stylesheet" href="/css/academy-thread-bottom-fix.css?v=20260417-2">
 </head>
 <body data-yh-view="academy" data-yh-page="academy" class="academy-startup-booting academy-standalone-shell-pending">
@@ -2579,7 +2579,7 @@
 
 <script src="/js/yh-shared-core.js?v=20260515-academy-freeze-flicker-v61"></script>
 <script src="/js/yh-shared-runtime.js?v=20260515-loader-conflict-fix-v14"></script>
-<script src="/js/academy.js?v=20260520-latest-message-menu-up-v1"></script>
+<script src="/js/academy.js?v=20260520-live-voice-server-toast-fix-v2"></script>
 <div
     class="academy-profile-editor-overlay hidden-step"
     id="academy-profile-editor-overlay"
@@ -2838,10 +2838,20 @@
                 <div class="form-group">
                     <label for="academy-profile-current-password">Current password</label>
                     <input
-                        type="password"
+                        type="text"
                         id="academy-profile-current-password"
                         class="input-field"
-                        autocomplete="current-password"
+                        name="academy_masked_current_challenge"
+                        autocomplete="off"
+                        autocorrect="off"
+                        autocapitalize="off"
+                        spellcheck="false"
+                        inputmode="text"
+                        data-form-type="other"
+                        data-lpignore="true"
+                        data-1p-ignore="true"
+                        data-bwignore="true"
+                        style="-webkit-text-security: disc; text-security: disc;"
                         placeholder="Enter current password"
                     >
                 </div>
@@ -2849,10 +2859,20 @@
                 <div class="form-group">
                     <label for="academy-profile-new-password">New password</label>
                     <input
-                        type="password"
+                        type="text"
                         id="academy-profile-new-password"
                         class="input-field"
-                        autocomplete="new-password"
+                        name="academy_masked_new_challenge"
+                        autocomplete="off"
+                        autocorrect="off"
+                        autocapitalize="off"
+                        spellcheck="false"
+                        inputmode="text"
+                        data-form-type="other"
+                        data-lpignore="true"
+                        data-1p-ignore="true"
+                        data-bwignore="true"
+                        style="-webkit-text-security: disc; text-security: disc;"
                         placeholder="Enter new password"
                     >
                     <div class="academy-profile-editor-field-note">
@@ -2863,10 +2883,20 @@
                 <div class="form-group">
                     <label for="academy-profile-confirm-password">Confirm new password</label>
                     <input
-                        type="password"
+                        type="text"
                         id="academy-profile-confirm-password"
                         class="input-field"
-                        autocomplete="new-password"
+                        name="academy_masked_confirm_challenge"
+                        autocomplete="off"
+                        autocorrect="off"
+                        autocapitalize="off"
+                        spellcheck="false"
+                        inputmode="text"
+                        data-form-type="other"
+                        data-lpignore="true"
+                        data-1p-ignore="true"
+                        data-bwignore="true"
+                        style="-webkit-text-security: disc; text-security: disc;"
                         placeholder="Confirm new password"
                     >
                 </div>
@@ -2889,10 +2919,20 @@
                 <div class="form-group">
                     <label for="academy-profile-delete-password">Confirm with account password</label>
                     <input
-                        type="password"
+                        type="text"
                         id="academy-profile-delete-password"
                         class="input-field"
-                        autocomplete="current-password"
+                        name="academy_masked_delete_challenge"
+                        autocomplete="off"
+                        autocorrect="off"
+                        autocapitalize="off"
+                        spellcheck="false"
+                        inputmode="text"
+                        data-form-type="other"
+                        data-lpignore="true"
+                        data-1p-ignore="true"
+                        data-bwignore="true"
+                        style="-webkit-text-security: disc; text-security: disc;"
                         placeholder="Enter your password"
                     >
                     <div class="academy-profile-editor-field-note">

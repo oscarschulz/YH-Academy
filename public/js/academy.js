@@ -5114,17 +5114,28 @@ async function ensureVaultLoaded(force = false) {
                         .filter(Boolean)
                 ));
 
+                const groupMemberIds = Array.from(new Set([currentUserId, ...memberUserIds].filter(Boolean)));
+
                 const roomEntry = {
                     id: String(room.id || room.roomId || '').trim(),
                     roomId: String(room.id || room.roomId || '').trim(),
                     type: 'group',
+                    roomType: 'group',
+                    room_type: 'group',
+                    academyRoomSource: 'create-group',
+                    academyConversationSource: 'create-group',
+                    createdFrom: 'create-group',
                     name: String(room.name || chatName).trim() || chatName,
                     icon: '👥',
                     color: '#0ea5e9',
                     privacy: 'private',
                     isPrivate: true,
                     participantNames,
-                    memberIds: Array.from(new Set([currentUserId, ...memberUserIds].filter(Boolean))),
+                    memberIds: groupMemberIds,
+                    memberCount: groupMemberIds.length,
+                    membersCount: groupMemberIds.length,
+                    participantCount: groupMemberIds.length || participantNames.length,
+                    participantsCount: groupMemberIds.length || participantNames.length,
                     unreadCount: 0,
                     lastMessage: '',
                     lastMessageAuthor: '',
@@ -15210,6 +15221,11 @@ function academyBuildDirectMessageRoomEntry(room = {}, profile = {}) {
         id: roomId,
         roomId,
         type: 'dm',
+        roomType: 'dm',
+        room_type: 'dm',
+        academyRoomSource: 'start-dm',
+        academyConversationSource: 'start-dm',
+        createdFrom: 'start-dm',
         name: displayName,
         icon: '💬',
         avatarUrl,
@@ -15220,6 +15236,10 @@ function academyBuildDirectMessageRoomEntry(room = {}, profile = {}) {
         recipientName: displayName,
         participantNames,
         memberIds,
+        memberCount: memberIds.length,
+        membersCount: memberIds.length,
+        participantCount: memberIds.length || participantNames.length,
+        participantsCount: memberIds.length || participantNames.length,
         unreadCount: 0,
         lastMessage: '',
         lastMessageAuthor: '',
@@ -16643,10 +16663,115 @@ function academyGetMessageRoomParticipantCountV13(room = {}) {
 }
 
 function academyResolveMessageRoomKindV13(room = {}) {
-    const participantCount = academyGetMessageRoomParticipantCountV13(room);
+    const source = String(
+        room?.academyRoomSource ||
+        room?.academy_room_source ||
+        room?.academyConversationSource ||
+        room?.academy_conversation_source ||
+        room?.createdFrom ||
+        room?.created_from ||
+        room?.dataset?.academyRoomSource ||
+        room?.dataset?.createdFrom ||
+        (typeof room?.getAttribute === 'function' ? room.getAttribute('data-academy-room-source') || room.getAttribute('data-created-from') : '') ||
+        ''
+    ).trim().toLowerCase();
 
-    if (participantCount > 2) return 'group';
-    if (participantCount === 2) return 'dm';
+    if (['start-dm', 'dm', 'direct', 'direct-message', 'private-dm'].includes(source)) {
+        return 'dm';
+    }
+
+    if (['create-group', 'group-chat', 'private-group'].includes(source)) {
+        return 'group';
+    }
+
+    const memberIds = academyParseRoomArrayV13(
+        room?.memberIds ||
+        room?.member_ids ||
+        room?.memberUserIds ||
+        room?.member_user_ids ||
+        (typeof room?.getAttribute === 'function' ? room.getAttribute('data-room-member-ids') : '') ||
+        []
+    ).filter(Boolean);
+
+    const participantIds = academyParseRoomArrayV13(
+        room?.participantIds ||
+        room?.participant_ids ||
+        []
+    ).filter(Boolean);
+
+    const participantNames = academyParseRoomArrayV13(
+        room?.participantNames ||
+        room?.participant_names ||
+        room?.memberNames ||
+        room?.member_names ||
+        (typeof room?.getAttribute === 'function' ? room.getAttribute('data-room-participants') || room.getAttribute('data-room-member-names') : '') ||
+        []
+    ).filter(Boolean);
+
+    const numericCount = Math.max(
+        Number(room?.memberCount || 0),
+        Number(room?.membersCount || 0),
+        Number(room?.participantCount || 0),
+        Number(room?.participantsCount || 0),
+        Number(room?.totalMembers || 0),
+        Number(room?.totalParticipants || 0),
+        0
+    );
+
+    const bestCount = Math.max(
+        memberIds.length,
+        participantIds.length,
+        participantNames.length,
+        Number.isFinite(numericCount) ? numericCount : 0
+    );
+
+    if (bestCount > 2) return 'group';
+    if (bestCount > 0 && bestCount <= 2) return 'dm';
+
+    const recipientId = String(
+        room?.recipientId ||
+        room?.recipient_id ||
+        room?.targetUserId ||
+        room?.target_user_id ||
+        room?.dataset?.roomRecipientId ||
+        (typeof room?.getAttribute === 'function' ? room.getAttribute('data-room-recipient-id') : '') ||
+        ''
+    ).trim();
+
+    const recipientName = String(
+        room?.recipientName ||
+        room?.recipient_name ||
+        room?.targetName ||
+        room?.target_name ||
+        room?.dataset?.roomRecipient ||
+        (typeof room?.getAttribute === 'function' ? room.getAttribute('data-room-recipient') : '') ||
+        ''
+    ).trim();
+
+    const icon = String(
+        room?.icon ||
+        room?.roomIcon ||
+        room?.dataset?.icon ||
+        (typeof room?.getAttribute === 'function' ? room.getAttribute('data-icon') : '') ||
+        ''
+    ).trim();
+
+    const searchableText = String(
+        [
+            room?.lastMessage,
+            room?.last_message,
+            room?.preview,
+            room?.name,
+            typeof room?.textContent === 'string' ? room.textContent : ''
+        ].filter(Boolean).join(' ')
+    ).trim().toLowerCase();
+
+    const hasDmSignal =
+        Boolean(recipientId || recipientName) ||
+        icon === '💬' ||
+        /\bdirect message\b|\bdm\b|\bprivate message\b/.test(searchableText);
+
+    if (hasDmSignal) return 'dm';
 
     const raw = String(
         room?.room_type ||
@@ -16672,8 +16797,22 @@ function academyNormalizeMessageRoomEntryTypeV13(room = {}) {
         type,
         roomType: type,
         room_type: type,
+        academyRoomSource:
+            type === 'dm'
+                ? (room.academyRoomSource || room.academy_room_source || room.createdFrom || 'start-dm')
+                : (room.academyRoomSource || room.academy_room_source || room.createdFrom || 'create-group'),
+        academyConversationSource:
+            type === 'dm'
+                ? (room.academyConversationSource || room.academy_conversation_source || room.createdFrom || 'start-dm')
+                : (room.academyConversationSource || room.academy_conversation_source || room.createdFrom || 'create-group'),
+        createdFrom:
+            type === 'dm'
+                ? (room.createdFrom || room.created_from || room.academyRoomSource || 'start-dm')
+                : (room.createdFrom || room.created_from || room.academyRoomSource || 'create-group'),
         participantCount: participants.count,
-        participantsCount: participants.count
+        participantsCount: participants.count,
+        memberCount: participants.count || Number(room.memberCount || room.membersCount || 0),
+        membersCount: participants.count || Number(room.memberCount || room.membersCount || 0)
     };
 }
 
@@ -16682,6 +16821,13 @@ function academyNormalizeMessageRoomsForTabsV13(rooms = []) {
         .map((room) => academyNormalizeMessageRoomEntryTypeV13(room))
         .filter(Boolean);
 }
+
+window.academyParseRoomArrayV13 = academyParseRoomArrayV13;
+window.academyCollectMessageRoomParticipantsV13 = academyCollectMessageRoomParticipantsV13;
+window.academyGetMessageRoomParticipantCountV13 = academyGetMessageRoomParticipantCountV13;
+window.academyResolveMessageRoomKindV13 = academyResolveMessageRoomKindV13;
+window.academyNormalizeMessageRoomEntryTypeV13 = academyNormalizeMessageRoomEntryTypeV13;
+window.academyNormalizeMessageRoomsForTabsV13 = academyNormalizeMessageRoomsForTabsV13;
 /* END PATCH: Academy message room type resolver v13 */
 
 function academyBuildGenericInboxRoomElement(roomEntry = {}) {
@@ -16782,11 +16928,36 @@ function renderAcademyMessagesInboxList() {
     academyRenderMessagesSidebarBadge();
 
     if (!rooms.length) {
-        list.innerHTML = `<div class="academy-messages-inbox-empty">No direct messages or group chats yet.</div>`;
+        const emptyMessagesTab = (() => {
+            try {
+                const stored = String(localStorage.getItem('yh_academy_messages_active_tab_v1') || 'dm').trim().toLowerCase();
+                return stored === 'group' ? 'group' : 'dm';
+            } catch (_) {
+                return 'dm';
+            }
+        })();
+
+        list.setAttribute('data-academy-active-message-tab', emptyMessagesTab);
+        list.innerHTML = `
+            <div class="academy-messages-tab-status-card" data-academy-messages-tab-status="empty">
+                <strong>No Conversations yet.</strong>
+                <span>${emptyMessagesTab === 'group' ? 'Create a group to see it here.' : 'Start a DM to see it here.'}</span>
+            </div>
+        `;
         return;
     }
 
     const activeRoomId = normalizeRoomKey(academyMessagesInboxState.activeRoomId);
+    const activeMessagesTab = (() => {
+        try {
+            const stored = String(localStorage.getItem('yh_academy_messages_active_tab_v1') || 'dm').trim().toLowerCase();
+            return stored === 'group' ? 'group' : 'dm';
+        } catch (_) {
+            return 'dm';
+        }
+    })();
+
+    list.setAttribute('data-academy-active-message-tab', activeMessagesTab);
 
     list.innerHTML = rooms.map((room) => {
         const roomId = String(room?.roomId || room?.id || '').trim();
@@ -16808,6 +16979,8 @@ function renderAcademyMessagesInboxList() {
 
         const blockAction = isBlockedByMe ? 'unblock' : 'block';
         const blockLabel = isBlockedByMe ? 'Unblock' : 'Block';
+
+        const isHiddenByActiveTab = roomType !== activeMessagesTab;
 
         const isActionLoading =
             normalizeRoomKey(academyMessagesInboxState.actionLoadingRoomId) === normalizedRoomId;
@@ -16835,7 +17008,7 @@ function renderAcademyMessagesInboxList() {
         }
 
         return `
-            <div class="academy-messages-inbox-card ${isActive ? 'is-active' : ''} ${isActionLoading ? 'is-action-loading' : ''}" data-room-card-id="${academyFeedEscapeHtml(roomId)}">
+            <div class="academy-messages-inbox-card ${isActive ? 'is-active' : ''} ${isActionLoading ? 'is-action-loading' : ''} ${isHiddenByActiveTab ? 'academy-messages-card-filtered-out' : ''}" data-room-card-id="${academyFeedEscapeHtml(roomId)}" data-academy-room-type="${academyFeedEscapeHtml(roomType)}" data-room-type="${academyFeedEscapeHtml(roomType)}" ${isHiddenByActiveTab ? 'style="display:none;"' : ''}>
                 <button
                     type="button"
                     class="academy-messages-inbox-item ${isActive ? 'is-active' : ''}"
@@ -19072,7 +19245,21 @@ function academyEmitVoiceJoinWithAck(roomId = '', attempt = 1) {
             window.clearTimeout(timer);
 
             if (!ack || ack.success === false) {
-                reject(new Error(ack?.message || 'Failed to join voice signaling.'));
+                const ackMessage = String(ack?.message || 'Failed to join voice signaling.').trim();
+                const isLocalDev =
+                    ['localhost', '127.0.0.1', '0.0.0.0'].includes(String(window.location.hostname || '').trim());
+
+                if (isLocalDev && /liveRoomsCol is not defined/i.test(ackMessage)) {
+                    console.warn('Academy local voice signaling fallback:', ackMessage);
+                    resolve({
+                        success: true,
+                        localDevFallback: true,
+                        message: ackMessage
+                    });
+                    return;
+                }
+
+                reject(new Error(ackMessage));
                 return;
             }
 
@@ -19283,12 +19470,20 @@ if (!window.__yhAcademyVoiceRtcSocketBound) {
 
     socket.on('academyVoice:error', (payload = {}) => {
         const roomId = normalizeAcademyLiveRoomId(payload?.roomId || '');
+        const message = String(payload?.message || 'Voice connection error.').trim();
+        const isLocalDev =
+            ['localhost', '127.0.0.1', '0.0.0.0'].includes(String(window.location.hostname || '').trim());
+
+        if (isLocalDev && /liveRoomsCol is not defined/i.test(message)) {
+            console.warn('Academy local voice socket error suppressed:', message);
+            return;
+        }
 
         if (roomId && roomId === academyVoiceRtcState.roomId) {
             academyVoiceRtcState.hasJoinedSignaling = false;
         }
 
-        showToast(payload?.message || 'Voice connection error.', 'error');
+        showToast(message, 'error');
     });
 }
 function isAcademyLiveRoomHost(room = {}) {
@@ -19410,8 +19605,19 @@ async function openAcademyStageFromRoom(room = {}) {
 
         return joinedRoom;
     } catch (error) {
+        const errorMessage = String(error?.message || 'Failed to join live room.').trim();
+        const isLocalDev =
+            ['localhost', '127.0.0.1', '0.0.0.0'].includes(String(window.location.hostname || '').trim());
+
+        if (isLocalDev && /liveRoomsCol is not defined/i.test(errorMessage)) {
+            console.warn('Academy local live room join fallback:', error);
+            academyActiveLiveRoom = room;
+            renderAcademyStageFromRoom(room, { animate: false });
+            return room;
+        }
+
         console.error('openAcademyStageFromRoom join error:', error);
-        showToast(error?.message || 'Failed to join live room.', 'error');
+        showToast(errorMessage, 'error');
         throw error;
     }
 }
@@ -26118,7 +26324,22 @@ if (document.body) {
 
     function academyGetRoomTypeFromCard(card = null, roomId = '') {
         const room = academyResolveUpgradeRoom(roomId);
-        return academyResolveMessageRoomKindV13(room || card || {});
+        const resolver = window.academyResolveMessageRoomKindV13;
+
+        if (typeof resolver === 'function') {
+            return resolver(room || card || {});
+        }
+
+        const direct = String(
+            room?.roomType ||
+            room?.room_type ||
+            room?.type ||
+            card?.getAttribute?.('data-academy-room-type') ||
+            card?.getAttribute?.('data-room-type') ||
+            ''
+        ).trim().toLowerCase();
+
+        return direct === 'group' ? 'group' : 'dm';
     }
 
     function academyEnsureMessagesTabs() {
@@ -27188,13 +27409,21 @@ if (document.body) {
             'academy-profile-new-password',
             'academy-profile-confirm-password',
             'academy-profile-delete-password'
-        ].forEach((id) => {
+        ].forEach((id, index) => {
             const el = document.getElementById(id);
             if (!el) return;
 
             applyNoCredentialAttrs(el);
+            el.setAttribute('type', 'text');
             el.setAttribute('autocomplete', 'off');
+            el.setAttribute('name', 'academy_masked_field_' + index);
+            el.setAttribute('inputmode', 'text');
             el.setAttribute('data-form-type', 'other');
+            el.setAttribute('data-lpignore', 'true');
+            el.setAttribute('data-1p-ignore', 'true');
+            el.setAttribute('data-bwignore', 'true');
+            el.style.webkitTextSecurity = 'disc';
+            el.style.textSecurity = 'disc';
         });
     }
 
@@ -28660,7 +28889,22 @@ if (document.body) {
     }
 
     function getRoomType(room = {}) {
-        return academyResolveMessageRoomKindV13(room);
+        const resolver = window.academyResolveMessageRoomKindV13;
+
+        if (typeof resolver === 'function') {
+            return resolver(room);
+        }
+
+        const raw = String(
+            room?.roomType ||
+            room?.room_type ||
+            room?.type ||
+            room?.dataset?.academyRoomType ||
+            room?.dataset?.roomType ||
+            ''
+        ).trim().toLowerCase();
+
+        return raw === 'group' ? 'group' : 'dm';
     }
 
     function getRooms() {
@@ -28834,6 +29078,7 @@ if (document.body) {
         const rooms = getRooms();
         const roomsById = buildRoomsById();
         const activeTab = getActiveMessagesTab();
+        list.setAttribute('data-academy-active-message-tab', activeTab);
         const cards = Array.from(list.querySelectorAll('.academy-messages-inbox-card'));
 
         cards.forEach((card) => {
@@ -29248,6 +29493,13 @@ if (document.body) {
     function getCardType(card) {
         if (!card) return '';
 
+        const roomId = getCardRoomId(card);
+        const room = getRooms().find((item) => {
+            return safeRoomKey(item?.roomId || item?.id || item?.room_key) === roomId;
+        });
+
+        if (room) return getRoomType(room);
+
         const direct = cleanText(
             card.getAttribute('data-academy-room-type') ||
             card.getAttribute('data-room-type') ||
@@ -29256,35 +29508,90 @@ if (document.body) {
             ''
         ).toLowerCase();
 
-        if (direct === 'group' || direct === 'dm') return direct;
-
-        const roomId = getCardRoomId(card);
-        const room = getRooms().find((item) => {
-            return safeRoomKey(item?.roomId || item?.id || item?.room_key) === roomId;
-        });
-
-        if (room) return getRoomType(room);
+        if (direct === 'dm') return 'dm';
+        if (direct === 'group') {
+            const text = cleanText(card.textContent).toLowerCase();
+            if (/\bdirect message\b|\bdm\b|\bprivate message\b/.test(text)) return 'dm';
+            return 'group';
+        }
 
         const text = cleanText(card.textContent).toLowerCase();
-        if (/\bgroup\b|members|member/.test(text)) return 'group';
+        if (/\bdirect message\b|\bdm\b|\bprivate message\b/.test(text)) return 'dm';
+        if (/\bgroup thread\b|\b\d+\s+members\b|\bmembers\b/.test(text)) return 'group';
+
         return 'dm';
+    }
+
+    function syncManualMessagesTabButtons(selected = readStoredTab()) {
+        const activeTab = normalizeTab(selected);
+
+        document.querySelectorAll('[data-academy-message-tab]').forEach((button) => {
+            const value = normalizeTab(button.getAttribute('data-academy-message-tab'));
+            const active = value === activeTab;
+            button.classList.toggle('is-active', active);
+            button.setAttribute('aria-selected', active ? 'true' : 'false');
+            button.setAttribute('tabindex', active ? '0' : '-1');
+        });
+    }
+
+    function clearManualMessagesTabStatus(list) {
+        if (!list) return;
+
+        list.querySelectorAll('[data-academy-messages-tab-status], .academy-messages-inbox-empty').forEach((node) => {
+            node.remove();
+        });
+
+        list.classList.remove('is-switching-message-tab');
+        list.removeAttribute('data-academy-tab-loading');
+    }
+
+    function renderManualMessagesTabStatus(list, tab = readStoredTab(), mode = 'empty') {
+        if (!list) return;
+
+        const selected = normalizeTab(tab);
+        const isLoading = mode === 'loading';
+        const isGroup = selected === 'group';
+
+        clearManualMessagesTabStatus(list);
+
+        list.setAttribute('data-academy-active-message-tab', selected);
+
+        if (isLoading) {
+            list.classList.add('is-switching-message-tab');
+            list.setAttribute('data-academy-tab-loading', 'true');
+        }
+
+        const title = isLoading
+            ? (isGroup ? 'Loading Groups...' : 'Loading DMs...')
+            : 'No Conversations yet.';
+
+        const copy = isLoading
+            ? 'Preparing conversations...'
+            : (isGroup ? 'Create a group to see it here.' : 'Start a DM to see it here.');
+
+        list.insertAdjacentHTML('afterbegin', `
+            <div class="academy-messages-tab-status-card ${isLoading ? 'is-loading' : ''}" data-academy-messages-tab-status="${isLoading ? 'loading' : 'empty'}">
+                ${isLoading ? '<span class="academy-messages-tab-spinner" aria-hidden="true"></span>' : ''}
+                <strong>${title}</strong>
+                <span>${copy}</span>
+            </div>
+        `);
     }
 
     function applyManualMessagesTab(tab = readStoredTab()) {
         const selected = writeStoredTab(tab);
 
-        document.querySelectorAll('[data-academy-message-tab]').forEach((button) => {
-            const value = normalizeTab(button.getAttribute('data-academy-message-tab'));
-            const active = value === selected;
-            button.classList.toggle('is-active', active);
-            button.setAttribute('aria-selected', active ? 'true' : 'false');
-            button.setAttribute('tabindex', active ? '0' : '-1');
-        });
+        syncManualMessagesTabButtons(selected);
 
         const list = document.getElementById('academy-messages-inbox-list');
         if (!list) return;
 
+        clearManualMessagesTabStatus(list);
+        list.setAttribute('data-academy-active-message-tab', selected);
+
         const cards = Array.from(list.querySelectorAll('.academy-messages-inbox-card'));
+        let visibleCount = 0;
+
         cards.forEach((card) => {
             const type = getCardType(card);
             card.setAttribute('data-academy-room-type', type);
@@ -29293,12 +29600,45 @@ if (document.body) {
             const shouldHide = type !== selected;
             card.classList.toggle('academy-messages-card-filtered-out', shouldHide);
             card.style.display = shouldHide ? 'none' : '';
+
+            if (!shouldHide) {
+                visibleCount += 1;
+            }
         });
+
+        if (!visibleCount) {
+            renderManualMessagesTabStatus(list, selected, 'empty');
+        }
     }
 
     function reinforceManualMessagesTab(tab = readStoredTab()) {
-        const selected = normalizeTab(tab);
-        [0, 40, 120, 260, 620, 1280].forEach((delay) => {
+        const selected = writeStoredTab(tab);
+        const list = document.getElementById('academy-messages-inbox-list');
+
+        syncManualMessagesTabButtons(selected);
+
+        if (list) {
+            list.setAttribute('data-academy-active-message-tab', selected);
+
+            Array.from(list.querySelectorAll('.academy-messages-inbox-card')).forEach((card) => {
+                card.classList.add('academy-messages-card-filtered-out');
+                card.style.display = 'none';
+            });
+
+            renderManualMessagesTabStatus(list, selected, 'loading');
+        }
+
+        window.setTimeout(() => {
+            try {
+                if (typeof renderAcademyMessagesInboxList === 'function') {
+                    renderAcademyMessagesInboxList();
+                }
+            } catch (_) {}
+
+            applyManualMessagesTab(selected);
+        }, 140);
+
+        [220, 420, 760, 1280].forEach((delay) => {
             window.setTimeout(() => applyManualMessagesTab(selected), delay);
         });
     }
@@ -29309,6 +29649,8 @@ if (document.body) {
 
         const tabButton = target.closest('[data-academy-message-tab]');
         if (tabButton) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
             reinforceManualMessagesTab(tabButton.getAttribute('data-academy-message-tab'));
             return;
         }
