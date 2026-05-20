@@ -4,6 +4,9 @@
   const API_BASE = '/api';
   const CACHE_KEY = 'yh_business_chats_page_cache_v1';
   const LAST_SEEN_KEY = 'yh_business_chats_page_seen_at_v1';
+  const PURPOSE_CACHE_KEY = 'yh_business_chats_selected_purpose_v1';
+  const LOOKING_FOR_JOBS_PURPOSE = 'Looking for jobs';
+  const LOOKING_FOR_JOBS_SEARCH_HINT = 'jobs hiring work opportunity employment recruiter project role';
 
   const state = {
     conversations: [],
@@ -48,13 +51,175 @@
     const toast = $('businessChatToast');
     if (!toast) return;
 
+    const cleanType = String(type || 'success').trim().toLowerCase();
+
     toast.textContent = String(message || '');
-    toast.className = 'bc-toast show ' + (type === 'error' ? 'is-error' : 'is-success');
+    toast.className =
+      'bc-toast show ' +
+      (cleanType === 'error'
+        ? 'is-error'
+        : cleanType === 'warning'
+          ? 'is-warning'
+          : 'is-success');
 
     window.clearTimeout(showToast.timer);
     showToast.timer = window.setTimeout(() => {
       toast.classList.remove('show');
     }, 3200);
+  }
+
+  function closeInlineDialogHard() {
+    const dialog = $('bcInlineDialog');
+    if (!dialog) return;
+
+    dialog.classList.add('hidden-step');
+    dialog.setAttribute('aria-hidden', 'true');
+    dialog.removeAttribute('data-bc-dialog-open');
+  }
+
+  function openInlineDialog(options = {}) {
+    return new Promise((resolve) => {
+      const dialog = $('bcInlineDialog');
+      const kicker = $('bcInlineDialogKicker');
+      const title = $('bcInlineDialogTitle');
+      const message = $('bcInlineDialogMessage');
+      const closeBtn = $('bcInlineDialogClose');
+      const cancelBtn = $('bcInlineDialogCancel');
+      const confirmBtn = $('bcInlineDialogConfirm');
+      const reasonWrap = $('bcInlineReasonWrap');
+      const detailsWrap = $('bcInlineDetailsWrap');
+      const reasonInput = $('bcInlineReasonInput');
+      const detailsInput = $('bcInlineDetailsInput');
+
+      if (!dialog || !confirmBtn || !cancelBtn) {
+        resolve({ confirmed: false, reason: '', details: '' });
+        return;
+      }
+
+      const needsReason = options.reason === true;
+      const needsDetails = options.details === true;
+      const tone = String(options.tone || 'primary').trim().toLowerCase();
+
+      if (kicker) kicker.textContent = String(options.kicker || 'Business Chat Action');
+      if (title) title.textContent = String(options.title || 'Confirm action');
+      if (message) message.textContent = String(options.message || 'Are you sure?');
+
+      if (reasonWrap) reasonWrap.classList.toggle('hidden-step', !needsReason);
+      if (detailsWrap) detailsWrap.classList.toggle('hidden-step', !needsDetails);
+
+      if (reasonInput) {
+        reasonInput.value = String(options.defaultReason || '');
+        reasonInput.placeholder = String(options.reasonPlaceholder || 'Spam, abuse, unsafe request, or misuse');
+      }
+
+      if (detailsInput) {
+        detailsInput.value = String(options.defaultDetails || '');
+        detailsInput.placeholder = String(options.detailsPlaceholder || 'Add optional details for admin review.');
+      }
+
+      confirmBtn.textContent = String(options.confirmText || 'Confirm');
+      confirmBtn.className = tone === 'danger' ? 'bc-danger-btn' : 'bc-primary-small';
+      confirmBtn.disabled = false;
+      cancelBtn.disabled = false;
+      closeBtn && (closeBtn.disabled = false);
+
+      dialog.classList.remove('hidden-step');
+      dialog.setAttribute('aria-hidden', 'false');
+      dialog.setAttribute('data-bc-dialog-open', 'true');
+
+      window.setTimeout(() => {
+        if (needsReason && reasonInput) {
+          reasonInput.focus();
+          return;
+        }
+
+        confirmBtn.focus();
+      }, 40);
+
+      let resolved = false;
+
+      const cleanup = () => {
+        dialog.classList.add('hidden-step');
+        dialog.setAttribute('aria-hidden', 'true');
+        dialog.removeAttribute('data-bc-dialog-open');
+
+        confirmBtn.removeEventListener('click', onConfirm);
+        cancelBtn.removeEventListener('click', onCancel);
+        closeBtn?.removeEventListener('click', onCancel);
+        dialog.removeEventListener('click', onBackdrop);
+        document.removeEventListener('keydown', onKeydown);
+      };
+
+      const done = (payload) => {
+        if (resolved) return;
+        resolved = true;
+        cleanup();
+        resolve(payload);
+      };
+
+      const onConfirm = (event = null) => {
+        event?.preventDefault?.();
+        event?.stopPropagation?.();
+
+        const reason = String(reasonInput?.value || '').trim();
+        const details = String(detailsInput?.value || '').trim();
+
+        if (needsReason && !reason) {
+          showToast('Add a reason first.', 'warning');
+          reasonInput?.focus();
+          return;
+        }
+
+        done({
+          confirmed: true,
+          reason,
+          details
+        });
+      };
+
+      const onCancel = (event = null) => {
+        event?.preventDefault?.();
+        event?.stopPropagation?.();
+
+        done({
+          confirmed: false,
+          reason: '',
+          details: ''
+        });
+      };
+
+      const onBackdrop = (event) => {
+        if (event.target === dialog) onCancel();
+      };
+
+      const onKeydown = (event) => {
+        if (event.key === 'Escape') onCancel();
+      };
+
+      confirmBtn.addEventListener('click', onConfirm);
+      cancelBtn.addEventListener('click', onCancel);
+      closeBtn?.addEventListener('click', onCancel);
+      dialog.addEventListener('click', onBackdrop);
+      document.addEventListener('keydown', onKeydown);
+    });
+  }
+
+  function installNativeDialogGuard() {
+    try {
+      window.alert = (message = '') => {
+        showToast(String(message || 'Notice'), 'warning');
+      };
+
+      window.confirm = (message = '') => {
+        showToast(String(message || 'Confirmation is handled inside the page.'), 'warning');
+        return false;
+      };
+
+      window.prompt = (message = '') => {
+        showToast(String(message || 'Input is handled inside the page.'), 'warning');
+        return '';
+      };
+    } catch (_) {}
   }
 
   function setBusy(button, busy, label = '') {
@@ -147,6 +312,75 @@
     } catch (_) {}
   }
 
+  function normalizeBusinessPurpose(value = '') {
+    return String(value || '').trim();
+  }
+
+  function isLookingForJobsPurpose(value = '') {
+    const clean = normalizeBusinessPurpose(value).toLowerCase();
+    return clean === LOOKING_FOR_JOBS_PURPOSE.toLowerCase() || clean === 'looking_for_jobs';
+  }
+
+  function ensureBusinessPurposeOptions() {
+    const select = $('bcBusinessPurpose');
+    if (!select) return;
+
+    const hasLookingForJobs = Array.from(select.options || []).some((option) => {
+      return isLookingForJobsPurpose(option.value || option.textContent);
+    });
+
+    if (!hasLookingForJobs) {
+      const option = document.createElement('option');
+      option.value = LOOKING_FOR_JOBS_PURPOSE;
+      option.textContent = LOOKING_FOR_JOBS_PURPOSE;
+      select.appendChild(option);
+    }
+  }
+
+  function rememberBusinessPurpose(value = '') {
+    try {
+      localStorage.setItem(PURPOSE_CACHE_KEY, normalizeBusinessPurpose(value));
+    } catch (_) {}
+  }
+
+  function restoreBusinessPurposeSelection() {
+    const select = $('bcBusinessPurpose');
+    if (!select) return;
+
+    ensureBusinessPurposeOptions();
+
+    try {
+      const savedPurpose = normalizeBusinessPurpose(localStorage.getItem(PURPOSE_CACHE_KEY) || '');
+      if (savedPurpose && Array.from(select.options || []).some((option) => option.value === savedPurpose)) {
+        select.value = savedPurpose;
+      }
+    } catch (_) {}
+  }
+
+  function buildBusinessMemberSearchQuery(rawQuery = '', purpose = '') {
+    const cleanQuery = String(rawQuery || '').trim();
+
+    if (!isLookingForJobsPurpose(purpose)) {
+      return cleanQuery;
+    }
+
+    return cleanQuery || LOOKING_FOR_JOBS_SEARCH_HINT;
+  }
+
+  function syncBusinessPurposeHelperText() {
+    const textarea = $('bcOpeningMessage');
+    const purpose = getStartPurpose();
+
+    if (!textarea) return;
+
+    if (isLookingForJobsPurpose(purpose)) {
+      textarea.placeholder = 'Explain the type of job, project work, role, skill area, city, or opportunity you are looking for.';
+      return;
+    }
+
+    textarea.placeholder = 'Explain why you want to start this business conversation.';
+  }
+
   function formatDate(value = '') {
     const clean = String(value || '').trim();
     if (!clean) return '';
@@ -186,6 +420,10 @@
       sourceDivision: String(item.sourceDivision || ''),
       targetDivision: String(item.targetDivision || ''),
       businessPurpose: String(item.businessPurpose || ''),
+      businessIntent: String(item.businessIntent || item.intentCategory || ''),
+      jobSearchIntent:
+        item.jobSearchIntent === true ||
+        isLookingForJobsPurpose(item.businessPurpose || item.businessIntent || item.intentCategory || ''),
       status: String(item.status || 'active'),
       moderation: item.moderation && typeof item.moderation === 'object' ? item.moderation : {},
       blockedBy: item.blockedBy && typeof item.blockedBy === 'object' ? item.blockedBy : {},
@@ -213,8 +451,12 @@
   }
 
   function getConversationMeta(conversation = {}) {
+    const purpose = isLookingForJobsPurpose(conversation.businessPurpose || conversation.businessIntent)
+      ? 'Looking for jobs'
+      : conversation.businessPurpose;
+
     return [
-      conversation.businessPurpose,
+      purpose,
       conversation.sourceDivision && conversation.targetDivision
         ? conversation.sourceDivision + ' → ' + conversation.targetDivision
         : '',
@@ -489,18 +731,32 @@
     event?.preventDefault?.();
 
     const button = $('bcSearchMembers');
-    const query = String($('bcMemberSearch')?.value || '').trim();
+    const purpose = getStartPurpose();
+    const rawQuery = String($('bcMemberSearch')?.value || '').trim();
+    const query = buildBusinessMemberSearchQuery(rawQuery, purpose);
     const division = String($('bcDivisionFilter')?.value || 'plaza').trim() || 'plaza';
 
-    setBusy(button, true, 'Searching...');
+    setBusy(button, true, isLookingForJobsPurpose(purpose) ? 'Finding job contacts...' : 'Searching...');
     state.membersLoading = true;
     renderMembers();
 
     try {
-      const params = new URLSearchParams({ q: query, division, limit: '80' });
+      const params = new URLSearchParams({
+        q: query,
+        division,
+        businessPurpose: purpose,
+        intentCategory: isLookingForJobsPurpose(purpose) ? 'looking_for_jobs' : 'business_chat',
+        jobSearchIntent: isLookingForJobsPurpose(purpose) ? '1' : '0',
+        limit: '80'
+      });
+
       const data = await apiFetch('/plaza/business-members?' + params.toString());
       state.members = Array.isArray(data.members) ? data.members.map(normalizeMember) : [];
       renderMembers();
+
+      if (isLookingForJobsPurpose(purpose) && !rawQuery) {
+        showToast('Showing members connected to jobs, hiring, work, projects, or opportunities.', 'success');
+      }
     } catch (error) {
       console.error('search members error:', error);
       state.members = [];
@@ -514,12 +770,24 @@
   }
 
   function getStartPurpose() {
-    return String($('bcBusinessPurpose')?.value || 'Business collaboration').trim() || 'Business collaboration';
+    ensureBusinessPurposeOptions();
+
+    const purpose = String($('bcBusinessPurpose')?.value || 'Business collaboration').trim() || 'Business collaboration';
+    rememberBusinessPurpose(purpose);
+    return purpose;
   }
 
   function getOpeningMessage() {
     const message = String($('bcOpeningMessage')?.value || '').trim();
-    return message || 'I would like to open a Plaza business conversation for: ' + getStartPurpose();
+    const purpose = getStartPurpose();
+
+    if (message) return message;
+
+    if (isLookingForJobsPurpose(purpose)) {
+      return 'I am looking for job opportunities, project work, hiring leads, or a role that matches my skills. I would like to open this business conversation to discuss possible work opportunities.';
+    }
+
+    return 'I would like to open a Plaza business conversation for: ' + purpose;
   }
 
   async function startChat(targetUserId = '', button = null) {
@@ -532,10 +800,16 @@
     setBusy(button, true, 'Opening...');
 
     try {
+      const purpose = getStartPurpose();
+      const jobSearchIntent = isLookingForJobsPurpose(purpose);
+
       const data = await apiFetch('/plaza/messages/from-business-member/' + encodeURIComponent(cleanTargetUserId), {
         method: 'POST',
         body: JSON.stringify({
-          businessPurpose: getStartPurpose(),
+          businessPurpose: purpose,
+          businessIntent: jobSearchIntent ? 'looking_for_jobs' : 'business_chat',
+          intentCategory: jobSearchIntent ? 'looking_for_jobs' : 'business_chat',
+          jobSearchIntent,
           message: getOpeningMessage()
         })
       });
@@ -608,17 +882,56 @@
     }
 
     let body = {};
+
     if (cleanAction === 'report') {
-      const reason = window.prompt('Why are you reporting this business chat?', 'Spam, abuse, unsafe request, or misuse');
-      if (!reason) return;
-      const details = window.prompt('Add optional details for admin review.', '') || '';
-      body = { reason, details };
+      const result = await openInlineDialog({
+        kicker: 'Safety Report',
+        title: 'Report this business chat?',
+        message: 'Send this conversation to admin review with a clear reason and optional details.',
+        confirmText: 'Submit Report',
+        tone: 'danger',
+        reason: true,
+        details: true,
+        defaultReason: 'Spam, abuse, unsafe request, or misuse',
+        reasonPlaceholder: 'Reason for report',
+        detailsPlaceholder: 'Add details that can help admin review this case.'
+      });
+
+      if (!result.confirmed) return;
+
+      body = {
+        reason: result.reason,
+        details: result.details
+      };
     } else if (cleanAction === 'close') {
-      if (!window.confirm('Close this business chat? Replies will be disabled.')) return;
-      body = { note: 'Closed from Business Chats page.' };
+      const result = await openInlineDialog({
+        kicker: 'Close Thread',
+        title: 'Close this business chat?',
+        message: 'Replies will be disabled after closing this thread. You can still keep the conversation record.',
+        confirmText: 'Close Chat',
+        tone: 'danger'
+      });
+
+      if (!result.confirmed) return;
+
+      body = {
+        note: 'Closed from Business Chats page.'
+      };
     } else if (cleanAction === 'block') {
-      if (!window.confirm('Block this member across future Business Chats?')) return;
-      body = { note: 'Blocked from Business Chats page.', scope: 'user' };
+      const result = await openInlineDialog({
+        kicker: 'Block Member',
+        title: 'Block this member?',
+        message: 'This will block the member from future Business Chats with you and lock this thread.',
+        confirmText: 'Block Member',
+        tone: 'danger'
+      });
+
+      if (!result.confirmed) return;
+
+      body = {
+        note: 'Blocked from Business Chats page.',
+        scope: 'user'
+      };
     } else {
       return;
     }
@@ -670,7 +983,15 @@
       return;
     }
 
-    if (!window.confirm('Unblock this member for future Business Chats?')) return;
+    const result = await openInlineDialog({
+      kicker: 'Unblock Member',
+      title: 'Unblock this member?',
+      message: 'This will allow future Business Chats with this member again.',
+      confirmText: 'Unblock Member',
+      tone: 'primary'
+    });
+
+    if (!result.confirmed) return;
 
     setBusy(button, true, 'Unblocking...');
 
@@ -752,6 +1073,17 @@
     });
 
     $('bcSearchForm')?.addEventListener('submit', searchMembers);
+
+    $('bcBusinessPurpose')?.addEventListener('change', () => {
+      const purpose = getStartPurpose();
+      rememberBusinessPurpose(purpose);
+      syncBusinessPurposeHelperText();
+
+      if (isLookingForJobsPurpose(purpose)) {
+        searchMembers().catch(() => {});
+      }
+    });
+
     $('bcReplyForm')?.addEventListener('submit', submitReply);
 
     $('bcConversationList')?.addEventListener('click', (event) => {
@@ -802,6 +1134,11 @@
       return;
     }
 
+    closeInlineDialogHard();
+    installNativeDialogGuard();
+    ensureBusinessPurposeOptions();
+    restoreBusinessPurposeSelection();
+    syncBusinessPurposeHelperText();
     bindEvents();
 
     const cached = readCache();

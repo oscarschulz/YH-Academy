@@ -7,7 +7,7 @@
   <link rel="icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1" />
   <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1" />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/business-chats.css?v=20260520-business-chats-page-v1" />
+<link rel="stylesheet" href="/css/business-chats.css?v=20260520-business-chats-inline-dialog-v3" />
 </head>
 <body data-yh-view="business-chats" data-yh-page="business-chats">
   <div class="bc-shell">
@@ -93,6 +93,7 @@
                 <option value="Investment or deal flow">Investment or deal flow</option>
                 <option value="Introduction request">Introduction request</option>
                 <option value="Hiring or project work">Hiring or project work</option>
+                <option value="Looking for jobs">Looking for jobs</option>
               </select>
             </div>
 
@@ -166,7 +167,38 @@
 
   <div class="bc-toast" id="businessChatToast" role="status" aria-live="polite"></div>
 
+  <div class="bc-inline-dialog hidden-step" id="bcInlineDialog" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="bcInlineDialogTitle">
+    <div class="bc-inline-dialog-card">
+      <div class="bc-inline-dialog-head">
+        <div>
+          <div class="bc-inline-dialog-kicker" id="bcInlineDialogKicker">Business Chat Action</div>
+          <h3 id="bcInlineDialogTitle">Confirm action</h3>
+          <p id="bcInlineDialogMessage">Are you sure?</p>
+        </div>
+
+        <button type="button" class="bc-inline-dialog-x" id="bcInlineDialogClose" aria-label="Close dialog">✕</button>
+      </div>
+
+      <div class="bc-inline-dialog-body" id="bcInlineDialogBody">
+        <div class="bc-inline-dialog-field hidden-step" id="bcInlineReasonWrap">
+          <label for="bcInlineReasonInput">Reason</label>
+          <input id="bcInlineReasonInput" type="text" maxlength="140" placeholder="Spam, abuse, unsafe request, or misuse" />
+        </div>
+
+        <div class="bc-inline-dialog-field hidden-step" id="bcInlineDetailsWrap">
+          <label for="bcInlineDetailsInput">Details</label>
+          <textarea id="bcInlineDetailsInput" maxlength="900" placeholder="Add optional details for admin review."></textarea>
+        </div>
+      </div>
+
+      <div class="bc-inline-dialog-actions">
+        <button type="button" class="bc-ghost-small" id="bcInlineDialogCancel">Cancel</button>
+        <button type="button" class="bc-primary-small" id="bcInlineDialogConfirm">Confirm</button>
+      </div>
+    </div>
+  </div>
+
   <script src="/socket.io/socket.io.js"></script>
-  <script src="/js/business-chats.js?v=20260520-business-chats-page-v1"></script>
+<script src="/js/business-chats.js?v=20260520-business-chats-inline-dialog-v3"></script>
 </body>
 </html>

@@ -1808,6 +1808,11 @@ function mapBusinessChatConversationDoc(docSnap) {
         sourceDivision: sanitizeText(data.sourceDivision || ''),
         targetDivision: sanitizeText(data.targetDivision || ''),
         businessPurpose: sanitizeText(data.businessPurpose || ''),
+        businessIntent: sanitizeText(data.businessIntent || data.intentCategory || ''),
+        jobSearchIntent:
+            data.jobSearchIntent === true ||
+            sanitizeText(data.businessIntent || data.intentCategory || '').toLowerCase() === 'looking_for_jobs' ||
+            sanitizeText(data.businessPurpose || '').toLowerCase() === 'looking for jobs',
         participants: Array.isArray(data.participants)
             ? data.participants.map((item) => sanitizeText(item)).filter(Boolean)
             : [],
