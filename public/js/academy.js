@@ -31271,3 +31271,76 @@ if (document.body) {
 
 
 
+
+
+/* PATCH: Academy search autofill fix v4 */
+(function installAcademySearchAutofillFixV4() {
+    if (window.__academySearchAutofillFixV4Installed) return;
+    window.__academySearchAutofillFixV4Installed = true;
+
+    const ids = ['academy-global-search-input', 'academy-member-browser-search-input'];
+
+    function harden() {
+        ids.forEach((id) => {
+            const field = document.getElementById(id);
+            if (!field) return;
+
+            field.setAttribute('autocomplete', 'new-password');
+            field.setAttribute('autocorrect', 'off');
+            field.setAttribute('autocapitalize', 'none');
+            field.setAttribute('spellcheck', 'false');
+            field.setAttribute('inputmode', 'search');
+            field.setAttribute('data-lpignore', 'true');
+            field.setAttribute('data-1p-ignore', 'true');
+            field.setAttribute('data-bwignore', 'true');
+            field.setAttribute('data-form-type', 'other');
+            field.setAttribute('aria-autocomplete', 'none');
+
+            if (!field.dataset.safeSearchNameV4) {
+                field.dataset.safeSearchNameV4 = 'yh_lookup_' + Date.now() + '_' + Math.random().toString(16).slice(2);
+            }
+
+            field.name = field.dataset.safeSearchNameV4;
+
+            if (field instanceof HTMLTextAreaElement) {
+                field.rows = 1;
+                field.wrap = 'off';
+            }
+
+            if (field instanceof HTMLInputElement) {
+                field.type = 'text';
+            }
+        });
+    }
+
+    document.addEventListener('focusin', harden, true);
+
+    document.addEventListener('keydown', (event) => {
+        const field = event.target?.closest?.('#academy-global-search-input, #academy-member-browser-search-input');
+        if (!field) return;
+
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            field.value = String(field.value || '').replace(/[\r\n]+/g, ' ');
+        }
+    }, true);
+
+    document.addEventListener('input', (event) => {
+        const field = event.target?.closest?.('#academy-global-search-input, #academy-member-browser-search-input');
+        if (!field) return;
+
+        const clean = String(field.value || '').replace(/[\r\n]+/g, ' ');
+        if (field.value !== clean) field.value = clean;
+    }, true);
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', harden);
+    } else {
+        harden();
+    }
+
+    window.addEventListener('pageshow', harden);
+    window.addEventListener('load', harden);
+    [100, 400, 1000, 2500].forEach((delay) => window.setTimeout(harden, delay));
+})();
+/* END PATCH: Academy search autofill fix v4 */
