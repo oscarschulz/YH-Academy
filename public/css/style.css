@@ -3731,6 +3731,7 @@ body[data-yh-view="academy"] .chat-messages {
 
 .academy-messages-inbox-item {
     width: 100%;
+    position: relative;
     border: 1px solid rgba(255, 255, 255, 0.08);
     background: rgba(255, 255, 255, 0.025);
     color: #f8fafc;
@@ -3741,7 +3742,7 @@ body[data-yh-view="academy"] .chat-messages {
     gap: 12px;
     align-items: center;
     cursor: pointer;
-    text-align: center;
+    text-align: left;
     transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
 }
 
@@ -3798,9 +3799,12 @@ body[data-yh-view="academy"] .chat-messages {
 }
 
 .academy-messages-inbox-time {
+    margin-left: auto;
     flex-shrink: 0;
     font-size: 0.72rem;
     color: rgba(148, 163, 184, 0.88);
+    text-align: right;
+    white-space: nowrap;
 }
 
 .academy-messages-inbox-preview {
@@ -3813,6 +3817,7 @@ body[data-yh-view="academy"] .chat-messages {
 }
 
 .academy-messages-inbox-meta {
+    width: 100%;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -23359,8 +23364,7 @@ body.academy-coach-opening .yh-tab-loader {
 }
 
 .academy-messages-inbox-card.is-pinned-conversation .academy-messages-inbox-item {
-    border-color: rgba(250, 204, 21, 0.36);
-    background: linear-gradient(135deg, rgba(250, 204, 21, 0.10), rgba(14, 165, 233, 0.08));
+    /* Pinned conversation styling is handled by the pin icon only. */
 }
 
 .academy-pinned-conversation-badge {
@@ -23447,6 +23451,13 @@ body.academy-coach-opening .yh-tab-loader {
 }
 
 .chat-bubble.mine .message-action-menu {
+    right: auto;
+    left: 10px;
+}
+
+.chat-bubble.mine.academy-latest-own-message-menu-up .message-action-menu {
+    top: auto;
+    bottom: 38px;
     right: auto;
     left: 10px;
 }
@@ -23568,6 +23579,7 @@ body.academy-right-bot-docked .yh-right-sidebar [class*="bot"]:not(.academy-righ
 .chat-bubble .message-action-menu,
 .chat-bubble.mine .message-action-menu {
     top: 36px !important;
+    bottom: auto !important;
     right: 8px !important;
     left: auto !important;
     width: 198px !important;
@@ -23579,6 +23591,15 @@ body.academy-right-bot-docked .yh-right-sidebar [class*="bot"]:not(.academy-righ
 .chat-bubble.mine .message-action-menu {
     right: 8px !important;
     left: auto !important;
+}
+
+.chat-bubble.mine.academy-latest-own-message-menu-up .message-action-menu {
+    top: auto !important;
+    bottom: calc(100% + 8px) !important;
+    right: 8px !important;
+    left: auto !important;
+    transform-origin: bottom right !important;
+    z-index: 9999 !important;
 }
 
 .chat-bubble .message-action-menu.is-open {
@@ -24446,39 +24467,10 @@ body[data-yh-page="academy"] .academy-messages-inbox-card .academy-messages-inbo
     overflow: hidden !important;
 }
 
-body[data-yh-view="academy"] .academy-messages-inbox-card.is-pinned-conversation .academy-messages-inbox-item,
-body[data-yh-page="academy"] .academy-messages-inbox-card.is-pinned-conversation .academy-messages-inbox-item,
-body[data-yh-view="academy"] .academy-messages-inbox-card.has-fixed-pinned-badge .academy-messages-inbox-item,
-body[data-yh-page="academy"] .academy-messages-inbox-card.has-fixed-pinned-badge .academy-messages-inbox-item {
-    padding-right: 76px !important;
-}
-
-body[data-yh-view="academy"] .academy-messages-inbox-item > .academy-pinned-conversation-badge,
-body[data-yh-page="academy"] .academy-messages-inbox-item > .academy-pinned-conversation-badge {
-    position: absolute !important;
-    top: 8px !important;
-    right: 10px !important;
-    left: auto !important;
-    bottom: auto !important;
-    transform: none !important;
-    z-index: 8 !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    max-width: 68px !important;
-    min-height: 20px !important;
-    padding: 0 7px !important;
-    border-radius: 999px !important;
-    white-space: nowrap !important;
-    pointer-events: none !important;
-}
-
-body[data-yh-view="academy"] .academy-messages-inbox-card > .academy-pinned-conversation-badge,
-body[data-yh-page="academy"] .academy-messages-inbox-card > .academy-pinned-conversation-badge,
-body[data-yh-view="academy"] #academy-messages-inbox-list > .academy-pinned-conversation-badge,
-body[data-yh-page="academy"] #academy-messages-inbox-list > .academy-pinned-conversation-badge,
-body[data-yh-view="academy"] .academy-messages-inbox-menu .academy-pinned-conversation-badge,
-body[data-yh-page="academy"] .academy-messages-inbox-menu .academy-pinned-conversation-badge {
+body[data-yh-view="academy"] .academy-pinned-conversation-badge,
+body[data-yh-page="academy"] .academy-pinned-conversation-badge,
+body[data-yh-view="academy"] .academy-pinned-conversation-inline-badge-v2,
+body[data-yh-page="academy"] .academy-pinned-conversation-inline-badge-v2 {
     display: none !important;
 }
 /* END PATCH: Academy pinned conversation pill single-card placement v1 */
@@ -24648,12 +24640,7 @@ body[data-yh-page="academy"].academy-shell-ready .dashboard-layout {
 /* PATCH: Academy pinned conversation visible marker v2 */
 body[data-yh-view="academy"] .academy-messages-inbox-card.has-visible-pinned-marker-v2 .academy-messages-inbox-item,
 body[data-yh-page="academy"] .academy-messages-inbox-card.has-visible-pinned-marker-v2 .academy-messages-inbox-item {
-    border-color: rgba(250, 204, 21, 0.48) !important;
-    background:
-        linear-gradient(135deg, rgba(250, 204, 21, 0.12), rgba(14, 165, 233, 0.08)) !important;
-    box-shadow:
-        inset 3px 0 0 rgba(250, 204, 21, 0.72),
-        0 12px 28px rgba(250, 204, 21, 0.06) !important;
+    box-shadow: none !important;
 }
 
 body[data-yh-view="academy"] .academy-messages-inbox-pin-icon-v2,
@@ -24670,7 +24657,10 @@ body[data-yh-page="academy"] .academy-messages-inbox-pin-icon-v2 {
 }
 
 body[data-yh-view="academy"] .academy-pinned-conversation-inline-badge-v2,
-body[data-yh-page="academy"] .academy-pinned-conversation-inline-badge-v2,
+body[data-yh-page="academy"] .academy-pinned-conversation-inline-badge-v2 {
+    display: none !important;
+}
+
 body[data-yh-view="academy"] .academy-messages-thread-pinned-badge-v2,
 body[data-yh-page="academy"] .academy-messages-thread-pinned-badge-v2 {
     display: inline-flex !important;
@@ -24689,15 +24679,6 @@ body[data-yh-page="academy"] .academy-messages-thread-pinned-badge-v2 {
     white-space: nowrap !important;
     line-height: 1 !important;
     flex: 0 0 auto !important;
-}
-
-body[data-yh-view="academy"] .academy-pinned-conversation-inline-badge-v2,
-body[data-yh-page="academy"] .academy-pinned-conversation-inline-badge-v2 {
-    margin-left: 6px !important;
-}
-
-body[data-yh-view="academy"] .academy-messages-thread-pinned-badge-v2,
-body[data-yh-page="academy"] .academy-messages-thread-pinned-badge-v2 {
     gap: 4px !important;
 }
 

@@ -2849,7 +2849,13 @@ socket.on('chatHistory', (history) => {
 
     socket.on('messageDeleted', (msgId) => {
         const bubble = document.querySelector(`.chat-bubble[data-dbid="${msgId}"]`);
-        if(bubble) bubble.remove();
+        if (bubble) {
+            bubble.remove();
+
+            if (typeof academySyncLatestOwnMessageMenuDirection === 'function') {
+                academySyncLatestOwnMessageMenuDirection();
+            }
+        }
     });
 
     socket.on('sendMessageError', (payload = {}) => {
@@ -3010,7 +3016,24 @@ socket.on('chatHistory', (history) => {
         `;
 
         container.insertAdjacentHTML('beforeend', msgHTML);
+        academySyncLatestOwnMessageMenuDirection();
     }
+
+function academySyncLatestOwnMessageMenuDirection() {
+    const container = document.getElementById('dynamic-chat-history') || document;
+    const ownBubbles = Array.from(container.querySelectorAll('.chat-bubble.mine[data-dbid]'))
+        .filter((bubble) => bubble && bubble.isConnected);
+
+    ownBubbles.forEach((bubble) => {
+        bubble.classList.remove('academy-latest-own-message-menu-up');
+    });
+
+    const latestOwnBubble = ownBubbles[ownBubbles.length - 1];
+
+    if (latestOwnBubble) {
+        latestOwnBubble.classList.add('academy-latest-own-message-menu-up');
+    }
+}
 
 const ACADEMY_COACH_BIG_FIGURES_CONTEXT = Object.freeze({
     featureName: 'Public Big Figures Strategy Mode',
@@ -16824,7 +16847,6 @@ function renderAcademyMessagesInboxList() {
                     <span class="academy-messages-inbox-copy">
                         <span class="academy-messages-inbox-topline">
                             <span class="academy-messages-inbox-name">${academyFeedEscapeHtml(roomName)}</span>
-                            <span class="academy-messages-inbox-time">${academyFeedEscapeHtml(timeLabel)}</span>
                         </span>
 
                         <span class="academy-messages-inbox-preview">${academyFeedEscapeHtml(preview)}</span>
@@ -16835,6 +16857,7 @@ function renderAcademyMessagesInboxList() {
                             ${isRestrictedByMe ? `<span class="academy-messages-inbox-muted">Restricted</span>` : ''}
                             ${isBlockedByMe ? `<span class="academy-messages-inbox-muted">Blocked</span>` : ''}
                             ${unread > 0 ? `<span class="academy-messages-inbox-badge">${academyFeedEscapeHtml(String(unread))}</span>` : ''}
+                            <span class="academy-messages-inbox-time">${academyFeedEscapeHtml(timeLabel)}</span>
                         </span>
                     </span>
                 </button>
@@ -26418,6 +26441,11 @@ if (document.body) {
                 }
 
                 bubble.remove();
+
+                if (typeof academySyncLatestOwnMessageMenuDirection === 'function') {
+                    academySyncLatestOwnMessageMenuDirection();
+                }
+
                 academyUpgradeToast('Message removed for you.', 'success');
             });
 
@@ -26425,7 +26453,16 @@ if (document.body) {
         }
 
         if (cleanAction === 'unsend-everyone') {
-            const confirmed = window.confirm('Unsend this message for everyone? This cannot be undone.');
+            const confirmed = typeof openYHConfirmModal === 'function'
+                ? await openYHConfirmModal({
+                    title: 'Unsend message',
+                    message: 'Unsend this message for everyone? This cannot be undone.',
+                    okText: 'Unsend',
+                    cancelText: 'Cancel',
+                    tone: 'danger'
+                })
+                : false;
+
             if (!confirmed) return;
 
             academyEmitSocketEvent('deleteMessage', messageId);
@@ -26472,6 +26509,10 @@ if (document.body) {
             if (messageMenuTrigger) {
                 event.preventDefault();
                 event.stopPropagation();
+
+                if (typeof academySyncLatestOwnMessageMenuDirection === 'function') {
+                    academySyncLatestOwnMessageMenuDirection();
+                }
 
                 const bubble = academyGetBubbleFromEventTarget(messageMenuTrigger);
                 const menu = bubble?.querySelector?.('.message-action-menu');
@@ -26531,6 +26572,10 @@ if (document.body) {
             const bubble = document.querySelector('.chat-bubble[data-dbid="' + CSS.escape(messageId) + '"]');
             if (bubble) {
                 bubble.remove();
+
+                if (typeof academySyncLatestOwnMessageMenuDirection === 'function') {
+                    academySyncLatestOwnMessageMenuDirection();
+                }
             }
         });
 
@@ -29780,54 +29825,11 @@ if (document.body) {
         if (!list) return;
 
         list.querySelectorAll('.academy-messages-inbox-card').forEach((card) => {
-            const item =
-                card.querySelector('.academy-messages-inbox-item') ||
-                card.firstElementChild;
-
-            if (!item) return;
-
-            const pinned = isCardPinned(card);
-            const badges = Array.from(card.querySelectorAll(BADGE_SELECTOR));
-
-            let keeper =
-                badges.find((badge) => badge.parentElement === item) ||
-                badges[0] ||
-                null;
-
-            badges.forEach((badge) => {
-                if (badge !== keeper) badge.remove();
-            });
-
-            if (!pinned) {
-                if (keeper) keeper.remove();
-                card.classList.remove('has-fixed-pinned-badge');
-                return;
-            }
-
-            if (!keeper) {
-                keeper = document.createElement('span');
-            }
-
-            if (keeper.parentElement !== item) {
-                item.appendChild(keeper);
-            }
-
-            keeper.className = 'academy-pinned-conversation-badge academy-pinned-badge-fixed-in-card';
-            keeper.textContent = '📌 Pinned';
-            keeper.setAttribute('aria-hidden', 'true');
-
-            card.classList.add('has-fixed-pinned-badge');
-            card.classList.add('is-pinned-conversation');
+            card.querySelectorAll(BADGE_SELECTOR).forEach((badge) => badge.remove());
+            card.classList.remove('has-fixed-pinned-badge');
         });
 
-        list.querySelectorAll(BADGE_SELECTOR).forEach((badge) => {
-            const card = badge.closest('.academy-messages-inbox-card');
-            const item = badge.closest('.academy-messages-inbox-item');
-
-            if (!card || !item || !card.contains(item)) {
-                badge.remove();
-            }
-        });
+        list.querySelectorAll(BADGE_SELECTOR).forEach((badge) => badge.remove());
     }
 
     let normalizePinnedBadgesQueuedV13 = false;
@@ -30015,24 +30017,18 @@ if (document.body) {
         card.setAttribute('data-academy-room-id', roomId);
         card.setAttribute('data-academy-pinned', pinned ? 'true' : 'false');
         card.classList.toggle('is-pinned-conversation', pinned);
-        card.classList.toggle('has-fixed-pinned-badge', pinned);
+        card.classList.remove('has-fixed-pinned-badge');
         card.classList.toggle('has-visible-pinned-marker-v2', pinned);
-
-        const item =
-            card.querySelector('.academy-messages-inbox-item') ||
-            card.firstElementChild;
 
         const name =
             card.querySelector('.academy-messages-inbox-name') ||
             card.querySelector('.academy-messages-inbox-topline');
 
-        const meta =
-            card.querySelector('.academy-messages-inbox-meta') ||
-            card.querySelector('.academy-messages-inbox-copy') ||
-            item;
-
         let icon = card.querySelector('.academy-messages-inbox-pin-icon-v2');
-        let badge = card.querySelector('.academy-pinned-conversation-inline-badge-v2');
+
+        card.querySelectorAll('.academy-pinned-conversation-badge, .academy-pinned-conversation-inline-badge-v2').forEach((badge) => {
+            badge.remove();
+        });
 
         if (pinned) {
             if (!icon && name) {
@@ -30043,26 +30039,8 @@ if (document.body) {
                 icon.setAttribute('title', 'Pinned conversation');
                 name.insertAdjacentElement('afterend', icon);
             }
-
-            if (!badge && meta) {
-                badge = document.createElement('span');
-                badge.className = 'academy-pinned-conversation-inline-badge-v2';
-                badge.textContent = 'Pinned';
-                badge.setAttribute('aria-label', 'Pinned conversation');
-                badge.setAttribute('title', 'Pinned conversation');
-                meta.appendChild(badge);
-            }
-
-            const oldAbsoluteBadge = card.querySelector('.academy-pinned-conversation-badge');
-            if (oldAbsoluteBadge) {
-                oldAbsoluteBadge.remove();
-            }
-        } else {
-            if (icon) icon.remove();
-            if (badge) badge.remove();
-
-            const oldAbsoluteBadge = card.querySelector('.academy-pinned-conversation-badge');
-            if (oldAbsoluteBadge) oldAbsoluteBadge.remove();
+        } else if (icon) {
+            icon.remove();
         }
 
         card.querySelectorAll('[data-inbox-room-action="pin"], [data-thread-room-action="pin"]').forEach((button) => {
