@@ -3012,6 +3012,31 @@ socket.on('chatHistory', (history) => {
         container.insertAdjacentHTML('beforeend', msgHTML);
     }
 
+const ACADEMY_COACH_BIG_FIGURES_CONTEXT = Object.freeze({
+    featureName: 'Public Big Figures Strategy Mode',
+    sourceRule: 'Use publicly available interviews, talks, podcasts, books, articles, biographies, lectures, and educational material. Do not claim private access. Do not impersonate any living person. Explain as inspired strategic analysis, not as the person speaking.',
+    scope: [
+        'Strategic perspectives',
+        'Business frameworks',
+        'Leadership principles',
+        'Communication styles',
+        'Decision-making approaches',
+        'Historical operator patterns',
+        'Execution models',
+        'Founder and empire-building lessons'
+    ],
+    exampleFigures: [
+        'Elon Musk',
+        'Julius Caesar',
+        'Alexander the Great',
+        'Jeff Bezos',
+        'Mark Zuckerberg',
+        'Donald Trump',
+        'Alex Hormozi'
+    ],
+    answerRule: 'When a member asks about a figure, extract useful principles, frameworks, tradeoffs, and application steps for the member. Keep it practical, source-aware, and YH Academy execution-focused.'
+});
+
 let academyCoachModeActive = false;
     let academyCoachConversationId = 'coach_main';
 
@@ -3098,16 +3123,16 @@ let academyCoachModeActive = false;
                 key: 'general',
                 title: 'Academy AI Coach',
                 icon: '🤖',
-                topic: 'Ask about today’s focus, blocked missions, roadmap execution, or low-energy adaptation.',
-                placeholder: 'Ask your AI Coach about your roadmap, missions, or check-ins.',
+                topic: 'Explore roadmap execution, business strategy, leadership, communication, decision-making, and frameworks inspired by public material from influential entrepreneurs, operators, historical figures, creators, and business minds.',
+                placeholder: 'Ask your AI Coach about your roadmap, missions, leadership, strategy, or lessons from big figures.',
                 emptyTitle: 'Academy AI Coach',
-                emptyCopy: 'Ask about your roadmap, today’s focus, blocked missions, missed tasks, low-energy execution, or how to simplify your next move.',
-                chips: ['Roadmap grounded', 'Mission aware', 'Check-in aware'],
+                emptyCopy: 'Ask about your roadmap, today’s focus, blocked missions, missed tasks, low-energy execution, or strategic perspectives inspired by public interviews, podcasts, books, lessons, and educational material from major entrepreneurs, operators, historical figures, creators, and business minds.',
+                chips: ['Roadmap grounded', 'Mission aware', 'Big-figure strategy aware'],
                 quickPrompts: [
-                    'What should I focus on today?',
-                    'Simplify my next mission.',
-                    'Help me recover after missed tasks.',
-                    'What is the clearest next move?'
+                    'What would an Elon Musk-style first-principles breakdown look like?',
+                    'Give me a Jeff Bezos-inspired customer obsession framework.',
+                    'Compare Caesar and Alexander on leadership under pressure.',
+                    'What would Alex Hormozi focus on to grow this offer?'
                 ],
                 bubbleBackground: 'rgba(139, 92, 246, 0.15)',
                 borderColor: '#8b5cf6',
@@ -3484,7 +3509,9 @@ async function openAcademyCoachView(forceRefresh = true) {
                 body: JSON.stringify({
                     conversationId: academyCoachConversationId,
                     message: text,
-                    contextHint: 'academy_chat'
+                    contextHint: 'academy_chat',
+                    coachKnowledgeMode: 'public_big_figures_strategy',
+                    coachKnowledgeContext: ACADEMY_COACH_BIG_FIGURES_CONTEXT
                 })
             });
 
