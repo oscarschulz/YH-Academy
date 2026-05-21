@@ -412,6 +412,8 @@
 }
 
 .nurture-tabs {
+    grid-column: 1;
+    grid-row: 2 / span 40;
     position: sticky;
     top: 14px;
     z-index: 20;
@@ -467,6 +469,7 @@
 .nurture-tab-panel {
     grid-column: 2;
     min-width: 0;
+    align-self: start;
     display: none !important;
 }
 
