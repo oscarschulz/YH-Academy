@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Nurture Console</title>
-<link rel="stylesheet" href="/internal/ai-nurture.css?v=20260521-premium-tabs-v1">
+<link rel="stylesheet" href="/internal/ai-nurture.css?v=20260521-formal-response-v1">
     <style>
         body { margin: 0; font-family: Poppins, Arial, sans-serif; background: #020617; color: #e2e8f0; padding: 24px; }
         .shell { max-width: 1400px; margin: 0 auto; display: grid; gap: 16px; }
@@ -126,9 +126,26 @@
                 </div>
             </div>
 
-            <div class="card">
-                <h2>System Response</h2>
-                <pre id="output">{}</pre>
+            <div class="card system-response-card">
+                <div class="system-response-head">
+                    <div>
+                        <h2>Activity Status</h2>
+                        <div class="muted">Clean action feedback. Open the full response only when you need technical details.</div>
+                    </div>
+                    <span id="response-status-pill" class="chip info">Idle</span>
+                </div>
+
+                <div id="response-summary" class="response-summary is-idle">
+                    <div class="response-summary-title">No action yet</div>
+                    <div class="response-summary-message">Run an AI Nurture action to see the latest result here.</div>
+                    <div id="response-summary-meta" class="response-summary-meta"></div>
+                </div>
+
+                <div class="actions">
+                    <button id="btn-toggle-raw-response" type="button" class="secondary">Show full response</button>
+                </div>
+
+                <pre id="output" class="raw-response-panel" hidden>{}</pre>
             </div>
         </div>
 
@@ -382,6 +399,9 @@
         const pathParts = window.location.pathname.split('/').filter(Boolean);
         const gate = pathParts[pathParts.length - 1];
         const output = document.getElementById('output');
+        const responseSummary = document.getElementById('response-summary');
+        const responseStatusPill = document.getElementById('response-status-pill');
+        const responseSummaryMeta = document.getElementById('response-summary-meta');
         const sourcesList = document.getElementById('sources-list');
         const jobsList = document.getElementById('jobs-list');
         const packsList = document.getElementById('packs-list');
@@ -405,6 +425,80 @@
 
         let activeDetailSourceId = '';
 
+        function getResponseSummary(payload = {}, responseOk = true) {
+            const success = responseOk && payload?.success !== false;
+            const tone = success ? 'success' : 'error';
+
+            let title = success ? 'Action completed' : 'Action failed';
+            let message = payload?.message || (success
+                ? 'The AI Nurture action completed successfully.'
+                : 'The AI Nurture action could not be completed.');
+
+            const meta = [];
+
+            if (payload?.createdCount !== undefined) meta.push(`Sources: ${payload.createdCount}`);
+            if (payload?.jobCount !== undefined) meta.push(`Jobs: ${payload.jobCount}`);
+            if (payload?.failedCount !== undefined) meta.push(`Failed: ${payload.failedCount}`);
+            if (payload?.requestedCount !== undefined) meta.push(`Requested: ${payload.requestedCount}`);
+            if (payload?.runCount !== undefined) meta.push(`Jobs processed: ${payload.runCount}`);
+            if (payload?.approvedCount !== undefined) meta.push(`Approved: ${payload.approvedCount}`);
+            if (payload?.skippedCount !== undefined) meta.push(`Skipped: ${payload.skippedCount}`);
+
+            if (payload?.source?.id) {
+                title = success ? 'Source saved' : title;
+                message = success ? 'The source was created or updated successfully.' : message;
+                meta.push(`Source ID: ${payload.source.id}`);
+            }
+
+            if (payload?.jobId) {
+                title = success ? 'Job processed' : title;
+                meta.push(`Job ID: ${payload.jobId}`);
+            }
+
+            if (payload?.libraryEntry?.id) {
+                title = success ? 'Knowledge saved' : title;
+                meta.push(`Library ID: ${payload.libraryEntry.id}`);
+            }
+
+            if (Array.isArray(payload?.contextPacks)) {
+                meta.push(`Context packs: ${payload.contextPacks.length}`);
+            }
+
+            return { success, tone, title, message, meta };
+        }
+
+        function renderSystemResponse(payload = {}, responseOk = true) {
+            const summary = getResponseSummary(payload, responseOk);
+
+            if (output) {
+                output.textContent = JSON.stringify(payload, null, 2);
+                output.hidden = true;
+            }
+
+            if (responseSummary) {
+                responseSummary.classList.remove('is-idle', 'is-success', 'is-error');
+                responseSummary.classList.add(summary.tone === 'success' ? 'is-success' : 'is-error');
+
+                responseSummary.innerHTML = `
+                    <div class="response-summary-title">${escapeHtml(summary.title)}</div>
+                    <div class="response-summary-message">${escapeHtml(summary.message)}</div>
+                    <div id="response-summary-meta" class="response-summary-meta">
+                        ${summary.meta.map((item) => `<span>${escapeHtml(item)}</span>`).join('')}
+                    </div>
+                `;
+            }
+
+            if (responseStatusPill) {
+                responseStatusPill.className = `chip ${summary.tone === 'success' ? 'ok' : 'danger'}`;
+                responseStatusPill.textContent = summary.success ? 'Success' : 'Failed';
+            }
+
+            const toggleButton = document.getElementById('btn-toggle-raw-response');
+            if (toggleButton) {
+                toggleButton.textContent = 'Show full response';
+            }
+        }
+
         async function request(path, options = {}) {
             const response = await fetch(`/api/internal/ai-nurture/${gate}${path}`, {
                 ...options,
@@ -415,7 +509,7 @@
             });
 
             const result = await response.json().catch(() => ({}));
-            output.textContent = JSON.stringify(result, null, 2);
+            renderSystemResponse(result, response.ok);
 
             if (!response.ok || !result.success) {
                 throw new Error(result.message || 'Request failed.');
@@ -1179,6 +1273,6 @@
             loadLibrary()
         ]);
     </script>
-<script src="/internal/ai-nurture.js?v=20260521-premium-tabs-v1"></script>
+<script src="/internal/ai-nurture.js?v=20260521-formal-response-v1"></script>
 </body>
 </html>

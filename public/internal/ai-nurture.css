@@ -551,3 +551,105 @@
         flex: 0 0 auto;
     }
 }
+.system-response-card {
+    position: relative;
+    overflow: hidden;
+}
+
+.system-response-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(circle at 0% 0%, rgba(14, 165, 233, 0.12), transparent 34%),
+        radial-gradient(circle at 100% 0%, rgba(34, 197, 94, 0.08), transparent 30%);
+    pointer-events: none;
+}
+
+.system-response-card > * {
+    position: relative;
+    z-index: 1;
+}
+
+.system-response-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+.system-response-head h2 {
+    margin-bottom: 6px;
+}
+
+.response-summary {
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    border-radius: 16px;
+    padding: 14px;
+    background: rgba(2, 6, 23, 0.44);
+}
+
+.response-summary.is-idle {
+    border-color: rgba(148, 163, 184, 0.16);
+}
+
+.response-summary.is-success {
+    border-color: rgba(34, 197, 94, 0.26);
+    background:
+        linear-gradient(135deg, rgba(34, 197, 94, 0.08), rgba(2, 6, 23, 0.48));
+}
+
+.response-summary.is-error {
+    border-color: rgba(239, 68, 68, 0.28);
+    background:
+        linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(2, 6, 23, 0.48));
+}
+
+.response-summary-title {
+    color: #f8fafc;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    margin-bottom: 5px;
+}
+
+.response-summary-message {
+    color: #a8b5c7;
+    font-size: 0.92rem;
+    line-height: 1.45;
+}
+
+.response-summary-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-top: 11px;
+}
+
+.response-summary-meta span {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 5px 9px;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    background: rgba(15, 23, 42, 0.74);
+    color: #cbd5e1;
+    font-size: 0.78rem;
+    font-weight: 800;
+}
+
+.raw-response-panel {
+    margin-top: 12px;
+    max-height: 360px;
+    border-color: rgba(56, 189, 248, 0.16) !important;
+}
+
+.raw-response-panel[hidden] {
+    display: none !important;
+}
+
+@media (max-width: 760px) {
+    .system-response-head {
+        flex-direction: column;
+    }
+}

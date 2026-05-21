@@ -138,6 +138,9 @@
         v2ApproveReady: 'btn-approve-ready-sources',
         v2RefreshBoard: 'btn-refresh-nurture-board',
         v2Status: 'v2-processing-status',
+        responseSummary: 'response-summary',
+        responseStatusPill: 'response-status-pill',
+        rawToggle: 'btn-toggle-raw-response',
         output: 'output'
     };
 
@@ -227,10 +230,92 @@
         statusEl.textContent = message || 'No batch processing action yet.';
     }
 
-    function setOutput(payload = {}) {
+    function getResponseSummary(payload = {}, responseOk = true) {
+        const success = responseOk && payload?.success !== false;
+        const tone = success ? 'success' : 'error';
+
+        let title = success ? 'Action completed' : 'Action failed';
+        let message = payload?.message || (success
+            ? 'The AI Nurture action completed successfully.'
+            : 'The AI Nurture action could not be completed.');
+
+        const meta = [];
+
+        if (payload?.createdCount !== undefined) meta.push(`Sources: ${payload.createdCount}`);
+        if (payload?.jobCount !== undefined) meta.push(`Jobs: ${payload.jobCount}`);
+        if (payload?.failedCount !== undefined) meta.push(`Failed: ${payload.failedCount}`);
+        if (payload?.requestedCount !== undefined) meta.push(`Requested: ${payload.requestedCount}`);
+        if (payload?.runCount !== undefined) meta.push(`Jobs processed: ${payload.runCount}`);
+        if (payload?.approvedCount !== undefined) meta.push(`Approved: ${payload.approvedCount}`);
+        if (payload?.skippedCount !== undefined) meta.push(`Skipped: ${payload.skippedCount}`);
+
+        if (payload?.source?.id) {
+            title = success ? 'Source saved' : title;
+            message = success ? 'The source was created or updated successfully.' : message;
+            meta.push(`Source ID: ${payload.source.id}`);
+        }
+
+        if (payload?.jobId) {
+            title = success ? 'Job processed' : title;
+            meta.push(`Job ID: ${payload.jobId}`);
+        }
+
+        if (payload?.libraryEntry?.id) {
+            title = success ? 'Knowledge saved' : title;
+            meta.push(`Library ID: ${payload.libraryEntry.id}`);
+        }
+
+        if (Array.isArray(payload?.contextPacks)) {
+            meta.push(`Context packs: ${payload.contextPacks.length}`);
+        }
+
+        return { success, tone, title, message, meta };
+    }
+
+    function setOutput(payload = {}, responseOk = true) {
         const output = byId(ids.output);
-        if (!output) return;
-        output.textContent = JSON.stringify(payload, null, 2);
+        const summaryEl = byId(ids.responseSummary);
+        const statusPill = byId(ids.responseStatusPill);
+        const rawToggle = byId(ids.rawToggle);
+        const summary = getResponseSummary(payload, responseOk);
+
+        if (output) {
+            output.textContent = JSON.stringify(payload, null, 2);
+            output.hidden = true;
+        }
+
+        if (summaryEl) {
+            summaryEl.classList.remove('is-idle', 'is-success', 'is-error');
+            summaryEl.classList.add(summary.tone === 'success' ? 'is-success' : 'is-error');
+
+            summaryEl.innerHTML = `
+                <div class="response-summary-title">${escapeHtml(summary.title)}</div>
+                <div class="response-summary-message">${escapeHtml(summary.message)}</div>
+                <div id="response-summary-meta" class="response-summary-meta">
+                    ${summary.meta.map((item) => `<span>${escapeHtml(item)}</span>`).join('')}
+                </div>
+            `;
+        }
+
+        if (statusPill) {
+            statusPill.className = `chip ${summary.tone === 'success' ? 'ok' : 'danger'}`;
+            statusPill.textContent = summary.success ? 'Success' : 'Failed';
+        }
+
+        if (rawToggle) {
+            rawToggle.textContent = 'Show full response';
+        }
+    }
+
+    function toggleRawResponse() {
+        const output = byId(ids.output);
+        const rawToggle = byId(ids.rawToggle);
+
+        if (!output || !rawToggle) return;
+
+        const nextHidden = !output.hidden;
+        output.hidden = nextHidden;
+        rawToggle.textContent = nextHidden ? 'Show full response' : 'Hide full response';
     }
 
     async function request(path, options = {}) {
@@ -243,7 +328,7 @@
         });
 
         const result = await response.json().catch(() => ({}));
-        setOutput(result);
+        setOutput(result, response.ok);
 
         if (!response.ok || !result.success) {
             throw new Error(result.message || 'Request failed.');
@@ -823,6 +908,7 @@
         const v2RunJobsButton = byId(ids.v2RunJobs);
         const v2ApproveReadyButton = byId(ids.v2ApproveReady);
         const v2RefreshBoardButton = byId(ids.v2RefreshBoard);
+        const rawResponseToggle = byId(ids.rawToggle);
 
         if (!mentorSelect || !saveButton) return;
 
@@ -853,6 +939,7 @@
         v2RunJobsButton?.addEventListener('click', runQueuedJobsBatch);
         v2ApproveReadyButton?.addEventListener('click', approveReadySourcesBatch);
         v2RefreshBoardButton?.addEventListener('click', refreshNurtureBoard);
+        rawResponseToggle?.addEventListener('click', toggleRawResponse);
 
         clearButton?.addEventListener('click', clearMentorForm);
         batchClearButton?.addEventListener('click', clearBatchForm);
