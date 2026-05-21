@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Nurture Console</title>
-<link rel="stylesheet" href="/internal/ai-nurture.css?v=20260521-batch-history-v3b-02">
+<link rel="stylesheet" href="/internal/ai-nurture.css?v=20260521-batch-details-v3c">
     <style>
         body { margin: 0; font-family: Poppins, Arial, sans-serif; background: #020617; color: #e2e8f0; padding: 24px; }
         .shell { max-width: 1400px; margin: 0 auto; display: grid; gap: 16px; }
@@ -287,6 +287,31 @@
 
             <div id="batch-history-list" class="batch-history-list muted">Loading batch history…</div>
         </div>
+
+        <div id="batch-details-backdrop" class="batch-details-backdrop" hidden></div>
+        <aside id="batch-details-drawer" class="batch-details-drawer" aria-label="Batch details" hidden>
+            <div class="batch-details-head">
+                <div>
+                    <span class="section-label">Batch detail</span>
+                    <h2 id="batch-details-title">Batch Details</h2>
+                    <div id="batch-details-meta" class="chip-wrap"></div>
+                </div>
+                <button id="btn-close-batch-details" type="button" class="secondary">Close</button>
+            </div>
+
+            <div id="batch-details-stats" class="batch-details-stats"></div>
+
+            <div class="batch-details-section">
+                <h3>Source-Level Progress</h3>
+                <div id="batch-details-sources" class="batch-source-list muted">Select a batch to view source progress.</div>
+            </div>
+
+            <div class="batch-details-section">
+                <h3>Import Failures</h3>
+                <div id="batch-details-failures" class="batch-failure-list muted">No batch selected.</div>
+            </div>
+        </aside>
+
 
         <div class="card mentor-pack-card nurture-tab-panel" data-nurture-panel="mentors">
             <div class="mentor-pack-head">
@@ -1326,6 +1351,6 @@
             loadLibrary()
         ]);
     </script>
-<script src="/internal/ai-nurture.js?v=20260521-batch-history-v3b-02"></script>
+<script src="/internal/ai-nurture.js?v=20260521-batch-details-v3c"></script>
 </body>
 </html>

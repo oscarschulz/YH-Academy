@@ -149,6 +149,14 @@
         v2Status: 'v2-processing-status',
         batchHistoryList: 'batch-history-list',
         batchHistoryRefresh: 'btn-refresh-batch-history',
+        batchDetailsBackdrop: 'batch-details-backdrop',
+        batchDetailsDrawer: 'batch-details-drawer',
+        batchDetailsTitle: 'batch-details-title',
+        batchDetailsMeta: 'batch-details-meta',
+        batchDetailsStats: 'batch-details-stats',
+        batchDetailsSources: 'batch-details-sources',
+        batchDetailsFailures: 'batch-details-failures',
+        batchDetailsClose: 'btn-close-batch-details',
         responseSummary: 'response-summary',
         responseStatusPill: 'response-status-pill',
         rawToggle: 'btn-toggle-raw-response',
@@ -932,6 +940,133 @@
         }
     }
 
+    function batchToneClass(status = '') {
+        const cleanStatus = String(status || '').trim().toLowerCase();
+
+        if (['approved', 'completed', 'fetched', 'reviewed', 'created'].includes(cleanStatus)) {
+            return 'ok';
+        }
+
+        if (['queued', 'running', 'processing', 'partial'].includes(cleanStatus)) {
+            return 'warn';
+        }
+
+        if (['failed', 'rejected', 'blocked'].includes(cleanStatus)) {
+            return 'danger';
+        }
+
+        return 'info';
+    }
+
+    function closeBatchDetailsDrawer() {
+        const drawer = byId(ids.batchDetailsDrawer);
+        const backdrop = byId(ids.batchDetailsBackdrop);
+
+        if (drawer) drawer.hidden = true;
+        if (backdrop) backdrop.hidden = true;
+
+        document.body.classList.remove('batch-details-open');
+    }
+
+    function renderBatchDetailsDrawer(batch = {}) {
+        const drawer = byId(ids.batchDetailsDrawer);
+        const backdrop = byId(ids.batchDetailsBackdrop);
+        const titleEl = byId(ids.batchDetailsTitle);
+        const metaEl = byId(ids.batchDetailsMeta);
+        const statsEl = byId(ids.batchDetailsStats);
+        const sourcesEl = byId(ids.batchDetailsSources);
+        const failuresEl = byId(ids.batchDetailsFailures);
+
+        if (!drawer || !backdrop || !batch?.id) return;
+
+        const progress = batch.progress || {};
+        const title = batch.title || batch.titlePrefix || 'AI Nurture Batch';
+        const mentorName = batch.mentorName || batch.mentorKey || 'General';
+        const sourceDetails = Array.isArray(batch.sourceDetails) ? batch.sourceDetails : [];
+        const failedDetails = Array.isArray(batch.failedDetails)
+            ? batch.failedDetails
+            : Array.isArray(batch.failed)
+                ? batch.failed
+                : [];
+        const percent = Math.max(0, Math.min(100, Number(progress.completionPercent || 0)));
+
+        if (titleEl) {
+            titleEl.textContent = title;
+        }
+
+        if (metaEl) {
+            metaEl.innerHTML = `
+                <span class="chip info">${escapeHtml(mentorName)}</span>
+                <span class="chip ${batchToneClass(batch.status)}">${escapeHtml(batch.status || 'created')}</span>
+                <span class="chip">${percent}% processed</span>
+                <span class="chip">Updated: ${escapeHtml(batch.updatedAt || batch.createdAt || 'n/a')}</span>
+            `;
+        }
+
+        if (statsEl) {
+            statsEl.innerHTML = `
+                <div class="batch-details-stat"><span>Requested</span><strong>${escapeHtml(progress.requestedCount ?? batch.requestedCount ?? 0)}</strong></div>
+                <div class="batch-details-stat"><span>Created Sources</span><strong>${escapeHtml(progress.createdSourceCount ?? progress.sourceCount ?? batch.createdCount ?? 0)}</strong></div>
+                <div class="batch-details-stat"><span>Total Jobs</span><strong>${escapeHtml(progress.jobCount ?? batch.jobCount ?? 0)}</strong></div>
+                <div class="batch-details-stat"><span>Queued Jobs</span><strong>${escapeHtml(progress.queuedJobCount ?? 0)}</strong></div>
+                <div class="batch-details-stat"><span>Processed</span><strong>${escapeHtml(progress.processedCount ?? 0)}</strong></div>
+                <div class="batch-details-stat"><span>Approved</span><strong>${escapeHtml(progress.approvedCount ?? 0)}</strong></div>
+                <div class="batch-details-stat"><span>Failed</span><strong>${escapeHtml(progress.failedCount ?? 0)}</strong></div>
+                <div class="batch-details-stat"><span>Rejected</span><strong>${escapeHtml(progress.rejectedCount ?? 0)}</strong></div>
+            `;
+        }
+
+        if (sourcesEl) {
+            sourcesEl.innerHTML = sourceDetails.length
+                ? sourceDetails.map((source, index) => {
+                    const sourceTitle = source.title || source.hostname || source.canonicalUrl || source.originalUrl || `Source ${index + 1}`;
+                    const sourceUrl = source.canonicalUrl || source.originalUrl || '';
+                    const sourceStatus = source.status || 'unknown';
+                    const jobStatus = source.jobStatus || 'no job';
+                    const issue = source.lastError || source.rejectionReason || source.jobLastError || '';
+
+                    return `
+                        <div class="batch-source-row">
+                            <div class="batch-source-row-main">
+                                <div class="batch-source-index">#${index + 1}</div>
+                                <div class="batch-source-copy">
+                                    <div class="batch-source-title">${escapeHtml(sourceTitle)}</div>
+                                    <div class="batch-source-url">${escapeHtml(sourceUrl || source.id || 'No source URL')}</div>
+                                    ${issue ? `<div class="batch-source-error">${escapeHtml(issue)}</div>` : ''}
+                                    <div class="batch-source-meta">
+                                        <span>Updated: ${escapeHtml(source.updatedAt || 'n/a')}</span>
+                                        <span>Analyzed: ${escapeHtml(source.analyzedAt || 'n/a')}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="batch-source-badges">
+                                <span class="chip ${batchToneClass(sourceStatus)}">${escapeHtml(sourceStatus)}</span>
+                                <span class="chip ${batchToneClass(jobStatus)}">Job: ${escapeHtml(jobStatus)}</span>
+                                ${source.approved ? '<span class="chip ok">In library</span>' : ''}
+                            </div>
+                        </div>
+                    `;
+                }).join('')
+                : '<div class="empty-box">No source-level records are available for this batch yet.</div>';
+        }
+
+        if (failuresEl) {
+            failuresEl.innerHTML = failedDetails.length
+                ? failedDetails.map((failure, index) => `
+                    <div class="batch-failure-row">
+                        <strong>#${index + 1} ${escapeHtml(failure.url || 'Import failure')}</strong>
+                        <span>${escapeHtml(failure.message || failure.lastError || 'No error message saved.')}</span>
+                    </div>
+                `).join('')
+                : '<div class="empty-box">No import failures recorded for this batch.</div>';
+        }
+
+        drawer.hidden = false;
+        backdrop.hidden = false;
+        document.body.classList.add('batch-details-open');
+    }
+
     function handleBatchHistoryClick(event) {
         const button = event.target?.closest?.('[data-batch-history-action]');
         if (!button) return;
@@ -942,6 +1077,8 @@
 
         if (action === 'view') {
             const progress = batch?.progress || {};
+            renderBatchDetailsDrawer(batch);
+
             setOutput({
                 success: true,
                 message: 'Batch details loaded.',
@@ -954,11 +1091,6 @@
                 approvedCount: progress.approvedCount ?? 0,
                 failedCount: progress.failedCount ?? 0
             });
-
-            const output = byId(ids.output);
-            const rawToggle = byId(ids.rawToggle);
-            if (output) output.hidden = false;
-            if (rawToggle) rawToggle.textContent = 'Hide full response';
         }
     }
 
@@ -1245,6 +1377,8 @@
         const v2RefreshBoardButton = byId(ids.v2RefreshBoard);
         const batchHistoryRefreshButton = byId(ids.batchHistoryRefresh);
         const batchHistoryList = byId(ids.batchHistoryList);
+        const batchDetailsCloseButton = byId(ids.batchDetailsClose);
+        const batchDetailsBackdrop = byId(ids.batchDetailsBackdrop);
         const rawResponseToggle = byId(ids.rawToggle);
 
         if (!mentorSelect || !saveButton) return;
@@ -1281,7 +1415,15 @@
         v2RefreshBoardButton?.addEventListener('click', refreshNurtureBoard);
         batchHistoryRefreshButton?.addEventListener('click', loadBatchHistory);
         batchHistoryList?.addEventListener('click', handleBatchHistoryClick);
+        batchDetailsCloseButton?.addEventListener('click', closeBatchDetailsDrawer);
+        batchDetailsBackdrop?.addEventListener('click', closeBatchDetailsDrawer);
         rawResponseToggle?.addEventListener('click', toggleRawResponse);
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                closeBatchDetailsDrawer();
+            }
+        });
 
         clearButton?.addEventListener('click', clearMentorForm);
         batchClearButton?.addEventListener('click', clearBatchForm);

@@ -923,6 +923,13 @@ exports.listBatchProgress = async (req, res) => {
             const sources = sourcesRaw.filter(Boolean);
             const sourceStatusCounts = countByStatus(sources);
             const jobStatusCounts = countByStatus(jobs);
+            const jobsBySourceId = new Map();
+
+            for (const job of jobs) {
+                const sourceId = sanitize(job?.sourceId);
+                if (!sourceId || jobsBySourceId.has(sourceId)) continue;
+                jobsBySourceId.set(sourceId, job);
+            }
 
             const requestedCount = Number(batch.requestedCount || sourceIds.length || sources.length || 0);
             const createdSourceCount = Number(batch.createdCount || sourceIds.length || sources.length || 0);
@@ -953,8 +960,60 @@ exports.listBatchProgress = async (req, res) => {
                 Math.round((handledCount / completionBase) * 100)
             );
 
+            const sourceDetails = sources.map((source) => {
+                const job = jobsBySourceId.get(source.id) || {};
+                const sourceStatus = sanitize(source?.status || 'unknown').toLowerCase();
+
+                return {
+                    id: source.id,
+                    title: sanitize(source.title || source.hostname || source.canonicalUrl || source.originalUrl),
+                    originalUrl: sanitize(source.originalUrl),
+                    canonicalUrl: sanitize(source.canonicalUrl),
+                    hostname: sanitize(source.hostname),
+                    status: sourceStatus || 'unknown',
+                    queuePriority: source.queuePriority || batch.queuePriority || 3,
+                    jobId: sanitize(job.id),
+                    jobStatus: sanitize(job.status || 'no job').toLowerCase(),
+                    jobReason: sanitize(job.reason),
+                    jobLastError: sanitize(job.lastError),
+                    approved: sourceStatus === 'approved' || librarySourceIds.has(source.id),
+                    lastError: sanitize(source.lastError),
+                    rejectionReason: sanitize(source.rejectionReason),
+                    createdAt: source.createdAt || '',
+                    updatedAt: source.updatedAt || '',
+                    fetchedAt: source.fetchedAt || '',
+                    analyzedAt: source.analyzedAt || '',
+                    approvedAt: source.approvedAt || '',
+                    failedAt: source.failedAt || ''
+                };
+            });
+
+            const jobDetails = jobs.map((job) => ({
+                id: job.id,
+                sourceId: sanitize(job.sourceId),
+                status: sanitize(job.status || 'unknown').toLowerCase(),
+                reason: sanitize(job.reason),
+                priority: job.priority || batch.queuePriority || 3,
+                lastError: sanitize(job.lastError),
+                createdAt: job.createdAt || '',
+                updatedAt: job.updatedAt || '',
+                startedAt: job.startedAt || '',
+                completedAt: job.completedAt || '',
+                failedAt: job.failedAt || ''
+            }));
+
+            const failedDetails = Array.isArray(batch.failed)
+                ? batch.failed.map((failure) => ({
+                    url: sanitize(failure?.url),
+                    message: sanitize(failure?.message || failure?.lastError || 'Failed to import source.')
+                }))
+                : [];
+
             enriched.push({
                 ...batch,
+                sourceDetails,
+                jobDetails,
+                failedDetails,
                 progress: {
                     requestedCount,
                     createdSourceCount,
