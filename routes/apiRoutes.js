@@ -202,6 +202,7 @@ router.patch('/internal/ai-nurture/:gate/settings', aiNurtureGate, aiNurtureCont
 router.post('/internal/ai-nurture/:gate/sources', aiNurtureGate, aiNurtureControllers.createSource);
 router.post('/internal/ai-nurture/:gate/sources/batch', aiNurtureGate, aiNurtureControllers.createBatchSources);
 router.get('/internal/ai-nurture/:gate/sources', aiNurtureGate, aiNurtureControllers.listSources);
+router.post('/internal/ai-nurture/:gate/sources/approve-ready', aiNurtureGate, aiNurtureControllers.approveReadySources);
 router.get('/internal/ai-nurture/:gate/sources/:id', aiNurtureGate, aiNurtureControllers.getSourceById);
 router.post('/internal/ai-nurture/:gate/sources/:id/process', aiNurtureGate, aiNurtureControllers.processSource);
 router.post('/internal/ai-nurture/:gate/sources/:id/reprocess', aiNurtureGate, aiNurtureControllers.queueReprocess);
@@ -220,7 +221,7 @@ router.post('/internal/ai-nurture/:gate/context-packs/rebuild', aiNurtureGate, a
 
 router.get('/internal/ai-nurture/:gate/jobs', aiNurtureGate, aiNurtureControllers.listJobs);
 router.post('/internal/ai-nurture/:gate/jobs/run-next', aiNurtureGate, aiNurtureControllers.runNextJob);
-
+router.post('/internal/ai-nurture/:gate/jobs/run-batch', aiNurtureGate, aiNurtureControllers.runQueuedJobs);
 router.get('/internal/ai-nurture/:gate/user-overlays/:uid', aiNurtureGate, aiNurtureControllers.getUserOverlay);
 router.patch('/internal/ai-nurture/:gate/user-overlays/:uid', aiNurtureGate, aiNurtureControllers.updateUserOverlay);
 

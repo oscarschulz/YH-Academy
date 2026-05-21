@@ -131,6 +131,12 @@
         batchCreate: 'btn-create-batch-sources',
         batchClear: 'btn-clear-batch-sources',
         batchStatus: 'batch-feed-status',
+        v2RunLimit: 'v2-run-job-limit',
+        v2ApproveLimit: 'v2-approve-source-limit',
+        v2RunJobs: 'btn-run-queued-jobs',
+        v2ApproveReady: 'btn-approve-ready-sources',
+        v2RefreshBoard: 'btn-refresh-nurture-board',
+        v2Status: 'v2-processing-status',
         output: 'output'
     };
 
@@ -201,6 +207,23 @@
         }
 
         statusEl.textContent = message || 'No batch submitted yet.';
+    }
+
+    function setV2Status(message = '', tone = '') {
+        const statusEl = byId(ids.v2Status);
+        if (!statusEl) return;
+
+        statusEl.classList.remove('is-success', 'is-error');
+
+        if (tone === 'success') {
+            statusEl.classList.add('is-success');
+        }
+
+        if (tone === 'error') {
+            statusEl.classList.add('is-error');
+        }
+
+        statusEl.textContent = message || 'No batch processing action yet.';
     }
 
     function setOutput(payload = {}) {
@@ -523,6 +546,101 @@
         }
     }
 
+    async function refreshNurtureBoard() {
+        try {
+            setV2Status('Refreshing AI Nurture board...', '');
+
+            await Promise.all([
+                typeof loadSources === 'function' ? loadSources() : Promise.resolve(),
+                typeof loadJobs === 'function' ? loadJobs() : Promise.resolve(),
+                typeof loadPacks === 'function' ? loadPacks() : Promise.resolve(),
+                typeof loadLibrary === 'function' ? loadLibrary() : Promise.resolve(),
+                loadMentorPacks()
+            ]);
+
+            setV2Status('Board refreshed.', 'success');
+        } catch (error) {
+            setV2Status(error.message || 'Failed to refresh board.', 'error');
+        }
+    }
+
+    async function runQueuedJobsBatch() {
+        const button = byId(ids.v2RunJobs);
+        const maxRuns = Number.parseInt(valueOf(ids.v2RunLimit), 10) || 10;
+
+        try {
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'Running jobs...';
+            }
+
+            setV2Status(`Running up to ${maxRuns} queued job(s)...`, '');
+
+            const result = await request('/jobs/run-batch', {
+                method: 'POST',
+                body: JSON.stringify({ maxRuns })
+            });
+
+            const runCount = Number(result.runCount || 0);
+            const stoppedReason = result.stoppedReason || (runCount ? 'completed' : 'no queued jobs');
+
+            setV2Status(
+                `Batch job run complete. Jobs processed: ${runCount}. Status: ${stoppedReason}.`,
+                'success'
+            );
+
+            await refreshNurtureBoard();
+        } catch (error) {
+            setV2Status(error.message || 'Failed to run queued jobs.', 'error');
+            setOutput({
+                success: false,
+                message: error.message || 'Failed to run queued jobs.'
+            });
+        } finally {
+            if (button) {
+                button.disabled = false;
+                button.textContent = 'Run Queued Jobs';
+            }
+        }
+    }
+
+    async function approveReadySourcesBatch() {
+        const button = byId(ids.v2ApproveReady);
+        const limit = Number.parseInt(valueOf(ids.v2ApproveLimit), 10) || 25;
+
+        try {
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'Approving...';
+            }
+
+            setV2Status(`Approving up to ${limit} reviewed source(s)...`, '');
+
+            const result = await request('/sources/approve-ready', {
+                method: 'POST',
+                body: JSON.stringify({ limit })
+            });
+
+            setV2Status(
+                `Approve-ready complete. Approved: ${result.approvedCount || 0}. Skipped: ${result.skippedCount || 0}. Failed: ${result.failedCount || 0}.`,
+                result.failedCount ? 'error' : 'success'
+            );
+
+            await refreshNurtureBoard();
+        } catch (error) {
+            setV2Status(error.message || 'Failed to approve ready sources.', 'error');
+            setOutput({
+                success: false,
+                message: error.message || 'Failed to approve ready sources.'
+            });
+        } finally {
+            if (button) {
+                button.disabled = false;
+                button.textContent = 'Approve Ready Sources';
+            }
+        }
+    }
+
     function buildMentorPayload() {
         const mentorKey = valueOf(ids.mentor);
         const preset = mentorPresets[mentorKey] || {};
@@ -649,6 +767,9 @@
         const batchMentorSelect = byId(ids.batchMentor);
         const batchCreateButton = byId(ids.batchCreate);
         const batchClearButton = byId(ids.batchClear);
+        const v2RunJobsButton = byId(ids.v2RunJobs);
+        const v2ApproveReadyButton = byId(ids.v2ApproveReady);
+        const v2RefreshBoardButton = byId(ids.v2RefreshBoard);
 
         if (!mentorSelect || !saveButton) return;
 
@@ -676,6 +797,9 @@
 
         saveButton.addEventListener('click', saveMentorPack);
         batchCreateButton?.addEventListener('click', createBatchSources);
+        v2RunJobsButton?.addEventListener('click', runQueuedJobsBatch);
+        v2ApproveReadyButton?.addEventListener('click', approveReadySourcesBatch);
+        v2RefreshBoardButton?.addEventListener('click', refreshNurtureBoard);
 
         clearButton?.addEventListener('click', clearMentorForm);
         batchClearButton?.addEventListener('click', clearBatchForm);

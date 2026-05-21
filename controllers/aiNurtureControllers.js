@@ -322,6 +322,85 @@ exports.approveSource = async (req, res) => {
     }
 };
 
+exports.approveReadySources = async (req, res) => {
+    try {
+        const limit = Math.max(1, Math.min(50, Number.parseInt(req.body?.limit, 10) || 25));
+        const sources = await aiNurtureRepo.listSources(limit);
+
+        const approved = [];
+        const skipped = [];
+        const failed = [];
+
+        for (const source of sources) {
+            const sourceId = sanitize(source?.id);
+            const status = sanitize(source?.status).toLowerCase();
+
+            if (!sourceId) continue;
+
+            if (status === 'approved' || status === 'rejected' || status === 'failed' || status === 'queued') {
+                skipped.push({
+                    sourceId,
+                    status,
+                    reason: 'Source status is not ready for approval.'
+                });
+                continue;
+            }
+
+            try {
+                const review = await aiNurtureRepo.getReviewBySourceId(sourceId);
+
+                if (!review) {
+                    skipped.push({
+                        sourceId,
+                        status,
+                        reason: 'No review found yet.'
+                    });
+                    continue;
+                }
+
+                const decision = sanitize(review.overallDecision).toLowerCase();
+                const domainVerdict = sanitize(review.domainVerdict).toLowerCase();
+                const staleVerdict = sanitize(review.staleVerdict).toLowerCase();
+
+                if (decision === 'reject' || domainVerdict === 'blocked' || staleVerdict === 'expired') {
+                    skipped.push({
+                        sourceId,
+                        status,
+                        reason: 'Review is not safe for auto-approval.'
+                    });
+                    continue;
+                }
+
+                const result = await aiNurtureRepo.approveSource(sourceId);
+                approved.push({
+                    sourceId,
+                    libraryId: result?.libraryEntry?.id || '',
+                    cardCount: Array.isArray(result?.cards) ? result.cards.length : 0
+                });
+            } catch (error) {
+                failed.push({
+                    sourceId,
+                    status,
+                    message: sanitize(error?.message || 'Approval failed.')
+                });
+            }
+        }
+
+        return res.json({
+            success: true,
+            inspectedCount: sources.length,
+            approvedCount: approved.length,
+            skippedCount: skipped.length,
+            failedCount: failed.length,
+            approved,
+            skipped,
+            failed
+        });
+    } catch (error) {
+        return sendError(res, error, 'Failed to approve ready sources.');
+    }
+};
+
 exports.rejectSource = async (req, res) => {
     try {
         const source = await aiNurtureRepo.rejectSource(req.params?.id, req.body?.reason);
@@ -587,6 +666,39 @@ exports.runNextJob = async (req, res) => {
         });
     } catch (error) {
         return sendError(res, error, 'Failed to run next nurture job.');
+    }
+};
+
+exports.runQueuedJobs = async (req, res) => {
+    try {
+        const maxRuns = Math.max(1, Math.min(25, Number.parseInt(req.body?.maxRuns, 10) || 10));
+        const outcomes = [];
+        let stoppedReason = 'max_runs_reached';
+
+        for (let index = 0; index < maxRuns; index += 1) {
+            const outcome = await aiNurtureJobRunner.runNextQueuedJob();
+
+            if (!outcome?.job) {
+                stoppedReason = 'no_queued_job_ready';
+                break;
+            }
+
+            outcomes.push({
+                jobId: outcome.job.id,
+                sourceId: outcome.job.sourceId || '',
+                result: outcome.result || {}
+            });
+        }
+
+        return res.json({
+            success: true,
+            requestedRuns: maxRuns,
+            runCount: outcomes.length,
+            stoppedReason,
+            outcomes
+        });
+    } catch (error) {
+        return sendError(res, error, 'Failed to run queued nurture jobs.');
     }
 };
 

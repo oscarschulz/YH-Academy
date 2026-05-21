@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Nurture Console</title>
-<link rel="stylesheet" href="/internal/ai-nurture.css?v=20260521-batch-feed-v1">
+<link rel="stylesheet" href="/internal/ai-nurture.css?v=20260521-v2-processing-controls">
     <style>
         body { margin: 0; font-family: Poppins, Arial, sans-serif; background: #020617; color: #e2e8f0; padding: 24px; }
         .shell { max-width: 1400px; margin: 0 auto; display: grid; gap: 16px; }
@@ -170,6 +170,39 @@
             <div id="batch-feed-status" class="muted">No batch submitted yet.</div>
         </div>
 
+        <div class="card ai-nurture-v2-card">
+            <div class="ai-nurture-v2-head">
+                <div>
+                    <h2>Batch Processing Control Panel</h2>
+                    <div class="muted">Run queued source jobs, approve reviewed sources, and refresh the AI Nurture board without clicking each source one by one.</div>
+                </div>
+                <span class="chip info">V2 controls</span>
+            </div>
+
+            <div class="split-2">
+                <select id="v2-run-job-limit">
+                    <option value="5">Run next 5 jobs</option>
+                    <option value="10" selected>Run next 10 jobs</option>
+                    <option value="15">Run next 15 jobs</option>
+                    <option value="25">Run next 25 jobs</option>
+                </select>
+
+                <select id="v2-approve-source-limit">
+                    <option value="10">Approve up to 10 ready sources</option>
+                    <option value="25" selected>Approve up to 25 ready sources</option>
+                    <option value="50">Approve up to 50 ready sources</option>
+                </select>
+            </div>
+
+            <div class="actions">
+                <button id="btn-run-queued-jobs" type="button">Run Queued Jobs</button>
+                <button id="btn-approve-ready-sources" type="button" class="secondary">Approve Ready Sources</button>
+                <button id="btn-refresh-nurture-board" type="button" class="secondary">Refresh Board</button>
+            </div>
+
+            <div id="v2-processing-status" class="muted">No batch processing action yet.</div>
+        </div>
+
         <div class="card mentor-pack-card">
             <div class="mentor-pack-head">
                 <div>
@@ -250,6 +283,20 @@
             <div class="card">
                 <h2>Context Packs</h2>
                 <div id="packs-list" class="muted">Loading…</div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="card">
+                <h2>Source Detail</h2>
+                <div class="muted">Open a source to inspect its snapshot, review, chunks, duplicate matches, and manual notes.</div>
+                <div id="detail-panel" class="muted mt-12">No source selected yet.</div>
+            </div>
+
+            <div class="card">
+                <h2>Approved Knowledge Library</h2>
+                <div class="muted">Approved knowledge entries that can be used when rebuilding context packs.</div>
+                <div id="library-list" class="muted mt-12">Loading…</div>
             </div>
         </div>
 
@@ -735,11 +782,11 @@
                         ${source.staleVerdict ? badge(source.staleVerdict) : ''}
                     </div>
                     <div class="actions">
-                        <button data-action="open" data-id="${escapeHtml(source.id)}">Open</button>
-                        <button data-action="process" data-id="${escapeHtml(source.id)}" class="secondary">Process Now</button>
-                        <button data-action="queue" data-id="${escapeHtml(source.id)}" class="secondary">Queue</button>
-                        <button data-action="approve" data-id="${escapeHtml(source.id)}">Approve</button>
-                        <button data-action="reject" data-id="${escapeHtml(source.id)}" class="secondary">Reject</button>
+                        <button type="button" data-action="open" data-id="${escapeHtml(source.id)}">Open</button>
+                        <button type="button" data-action="process" data-id="${escapeHtml(source.id)}" class="secondary">Process Now</button>
+                        <button type="button" data-action="queue" data-id="${escapeHtml(source.id)}" class="secondary">Queue</button>
+                        <button type="button" data-action="approve" data-id="${escapeHtml(source.id)}">Approve</button>
+                        <button type="button" data-action="reject" data-id="${escapeHtml(source.id)}" class="secondary">Reject</button>
                     </div>
                 </div>
             `;
@@ -1040,39 +1087,41 @@
                 output.textContent = JSON.stringify({ success: false, message: error.message }, null, 2);
             }
         });
-        detailPanel.addEventListener('click', async (event) => {
-            const button = event.target.closest('button[data-action="save-review-note"]');
-            if (!button) return;
+        if (detailPanel) {
+            detailPanel.addEventListener('click', async (event) => {
+                const button = event.target.closest('button[data-action="save-review-note"]');
+                if (!button) return;
 
-            const sourceId = button.getAttribute('data-source-id') || activeDetailSourceId;
-            const note = document.getElementById('detail-note-input')?.value.trim() || '';
-            const labels = splitInputList(document.getElementById('detail-note-labels')?.value || '');
-            const author = document.getElementById('detail-note-author')?.value.trim() || 'internal-operator';
+                const sourceId = button.getAttribute('data-source-id') || activeDetailSourceId;
+                const note = document.getElementById('detail-note-input')?.value.trim() || '';
+                const labels = splitInputList(document.getElementById('detail-note-labels')?.value || '');
+                const author = document.getElementById('detail-note-author')?.value.trim() || 'internal-operator';
 
-            if (!sourceId || !note) {
-                output.textContent = JSON.stringify({
-                    success: false,
-                    message: 'Source ID and note are required.'
-                }, null, 2);
-                return;
-            }
+                if (!sourceId || !note) {
+                    output.textContent = JSON.stringify({
+                        success: false,
+                        message: 'Source ID and note are required.'
+                    }, null, 2);
+                    return;
+                }
 
-            try {
-                await request(`/sources/${encodeURIComponent(sourceId)}/notes`, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        note,
-                        labels,
-                        author,
-                        noteType: 'review'
-                    })
-                });
+                try {
+                    await request(`/sources/${encodeURIComponent(sourceId)}/notes`, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            note,
+                            labels,
+                            author,
+                            noteType: 'review'
+                        })
+                    });
 
-                await openSource(sourceId);
-            } catch (error) {
-                output.textContent = JSON.stringify({ success: false, message: error.message }, null, 2);
-            }
-        });
+                    await openSource(sourceId);
+                } catch (error) {
+                    output.textContent = JSON.stringify({ success: false, message: error.message }, null, 2);
+                }
+            });
+        }
 
         sourcesList.addEventListener('click', async (event) => {
             const button = event.target.closest('button[data-id]');
@@ -1115,6 +1164,6 @@
             loadLibrary()
         ]);
     </script>
-<script src="/internal/ai-nurture.js?v=20260521-batch-feed-v1"></script>
+<script src="/internal/ai-nurture.js?v=20260521-v2-processing-controls"></script>
 </body>
 </html>
