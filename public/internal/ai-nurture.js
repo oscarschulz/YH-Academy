@@ -152,6 +152,8 @@
         batchHistorySearch: 'batch-history-search',
         batchHistoryFilter: 'batch-history-filter',
         batchHistoryClear: 'btn-clear-batch-history-filters',
+        batchHistoryAutoRefresh: 'batch-history-auto-refresh',
+        batchHistoryLiveStatus: 'batch-history-live-status',
         batchHistoryResultCount: 'batch-history-result-count',
         batchDetailsBackdrop: 'batch-details-backdrop',
         batchDetailsDrawer: 'batch-details-drawer',
@@ -181,6 +183,10 @@
     let activeSourceDetailId = '';
     let batchHistorySearchTerm = '';
     let batchHistoryFilterValue = 'all';
+    let batchHistoryAutoRefreshEnabled = false;
+    let batchHistoryRefreshTimer = null;
+    let batchHistoryIsLoading = false;
+    let batchHistoryLastRefreshAt = '';
 
     function byId(id) {
         return document.getElementById(id);
@@ -962,6 +968,119 @@
             : 'No batches loaded yet.';
     }
 
+    function formatBatchRefreshTime(value = new Date()) {
+        try {
+            return value.toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+        } catch (_) {
+            return new Date().toISOString();
+        }
+    }
+
+    function isProcessingTabActive() {
+        const processingTab = document.querySelector('[data-nurture-tab="processing"]');
+        const processingPanel = document.querySelector('[data-nurture-panel="processing"]');
+
+        return processingTab?.classList.contains('is-active') === true
+            || processingPanel?.classList.contains('is-active') === true;
+    }
+
+    function hasLiveBatchActivity(batches = batchHistoryCache) {
+        return (Array.isArray(batches) ? batches : []).some((batch) => {
+            const progress = batch.progress || {};
+            const status = String(batch.status || '').trim().toLowerCase();
+            const completionPercent = Number(progress.completionPercent || 0);
+            const queuedJobs = Number(progress.queuedJobCount || 0);
+            const queuedSources = Number(progress.queuedSourceCount || 0);
+
+            return ['queued', 'processing', 'partial', 'running'].includes(status)
+                || queuedJobs > 0
+                || queuedSources > 0
+                || (completionPercent > 0 && completionPercent < 100);
+        });
+    }
+
+    function updateBatchHistoryLiveStatus(message = '', tone = '') {
+        const statusEl = byId(ids.batchHistoryLiveStatus);
+        if (!statusEl) return;
+
+        statusEl.classList.remove('is-success', 'is-error', 'is-live');
+
+        if (tone === 'success') statusEl.classList.add('is-success');
+        if (tone === 'error') statusEl.classList.add('is-error');
+        if (tone === 'live') statusEl.classList.add('is-live');
+
+        statusEl.textContent = message || 'Auto-refresh is off.';
+    }
+
+    function refreshBatchHistoryLiveStatus() {
+        const suffix = batchHistoryLastRefreshAt
+            ? ` Last refresh: ${batchHistoryLastRefreshAt}.`
+            : '';
+
+        if (!batchHistoryAutoRefreshEnabled) {
+            updateBatchHistoryLiveStatus(`Auto-refresh is off.${suffix}`);
+            return;
+        }
+
+        if (!isProcessingTabActive()) {
+            updateBatchHistoryLiveStatus(`Auto-refresh is paused outside the Processing tab.${suffix}`);
+            return;
+        }
+
+        const hasActivity = hasLiveBatchActivity();
+
+        updateBatchHistoryLiveStatus(
+            hasActivity
+                ? `Live refresh is on. Checking active batches every 15 seconds.${suffix}`
+                : `Live refresh is on. No active queued or processing batches right now.${suffix}`,
+            hasActivity ? 'live' : 'success'
+        );
+    }
+
+    function stopBatchHistoryAutoRefresh(message = '') {
+        if (batchHistoryRefreshTimer) {
+            clearInterval(batchHistoryRefreshTimer);
+            batchHistoryRefreshTimer = null;
+        }
+
+        if (message) {
+            updateBatchHistoryLiveStatus(message);
+        } else {
+            refreshBatchHistoryLiveStatus();
+        }
+    }
+
+    function startBatchHistoryAutoRefresh() {
+        if (batchHistoryRefreshTimer) return;
+
+        batchHistoryRefreshTimer = window.setInterval(async () => {
+            if (!batchHistoryAutoRefreshEnabled || !isProcessingTabActive()) {
+                stopBatchHistoryAutoRefresh();
+                return;
+            }
+
+            await loadBatchHistory({ silent: true, source: 'auto-refresh' });
+        }, 15000);
+
+        refreshBatchHistoryLiveStatus();
+    }
+
+    function syncBatchHistoryAutoRefresh() {
+        const toggleEl = byId(ids.batchHistoryAutoRefresh);
+        batchHistoryAutoRefreshEnabled = toggleEl?.checked === true;
+
+        if (batchHistoryAutoRefreshEnabled && isProcessingTabActive()) {
+            startBatchHistoryAutoRefresh();
+            return;
+        }
+
+        stopBatchHistoryAutoRefresh();
+    }
+
     function clearBatchHistoryFilters() {
         const searchInput = byId(ids.batchHistorySearch);
         const filterSelect = byId(ids.batchHistoryFilter);
@@ -1058,11 +1177,18 @@
         }).join('');
     }
 
-    async function loadBatchHistory() {
+    async function loadBatchHistory(options = {}) {
         const listEl = byId(ids.batchHistoryList);
+        const silent = options?.silent === true;
+
+        if (batchHistoryIsLoading && silent) {
+            return batchHistoryCache;
+        }
+
+        batchHistoryIsLoading = true;
 
         try {
-            if (listEl) {
+            if (listEl && !silent) {
                 listEl.classList.add('muted');
                 listEl.textContent = 'Loading batch history…';
             }
@@ -1080,15 +1206,30 @@
             }
 
             const batches = result.batches || [];
+            batchHistoryLastRefreshAt = formatBatchRefreshTime();
             renderBatchHistory(batches);
+            refreshBatchHistoryLiveStatus();
+
+            if (activeBatchDetailsId) {
+                const drawer = byId(ids.batchDetailsDrawer);
+                const refreshedBatch = batches.find((item) => item.id === activeBatchDetailsId);
+
+                if (drawer && !drawer.hidden && refreshedBatch) {
+                    renderBatchDetailsDrawer(refreshedBatch);
+                }
+            }
+
             return batches;
         } catch (error) {
-            if (listEl) {
+            if (listEl && !silent) {
                 listEl.classList.add('muted');
                 listEl.innerHTML = `<div class="empty-box">Failed to load batch history: ${escapeHtml(error.message || 'Unknown error')}</div>`;
             }
 
-            return [];
+            updateBatchHistoryLiveStatus(`Auto-refresh could not update batch history: ${error.message || 'Unknown error'}`, 'error');
+            return batchHistoryCache;
+        } finally {
+            batchHistoryIsLoading = false;
         }
     }
 
@@ -1673,6 +1814,8 @@
             } catch (_) {}
         }
 
+        syncBatchHistoryAutoRefresh();
+
         if (activeKey === 'mentors') {
             loadMentorPacks();
         }
@@ -1834,6 +1977,7 @@
         const batchHistorySearchInput = byId(ids.batchHistorySearch);
         const batchHistoryFilterSelect = byId(ids.batchHistoryFilter);
         const batchHistoryClearButton = byId(ids.batchHistoryClear);
+        const batchHistoryAutoRefreshToggle = byId(ids.batchHistoryAutoRefresh);
         const batchHistoryList = byId(ids.batchHistoryList);
         const batchDetailsCloseButton = byId(ids.batchDetailsClose);
         const batchDetailsBackdrop = byId(ids.batchDetailsBackdrop);
@@ -1884,6 +2028,7 @@
             renderBatchHistory(batchHistoryCache);
         });
         batchHistoryClearButton?.addEventListener('click', clearBatchHistoryFilters);
+        batchHistoryAutoRefreshToggle?.addEventListener('change', syncBatchHistoryAutoRefresh);
         batchHistoryList?.addEventListener('click', handleBatchHistoryClick);
         batchDetailsCloseButton?.addEventListener('click', closeBatchDetailsDrawer);
         batchDetailsBackdrop?.addEventListener('click', closeBatchDetailsDrawer);
@@ -1892,6 +2037,9 @@
         sourceDetailCloseButton?.addEventListener('click', closeSourceDetailDrawer);
         sourceDetailBackdrop?.addEventListener('click', closeSourceDetailDrawer);
         rawResponseToggle?.addEventListener('click', toggleRawResponse);
+
+        document.addEventListener('visibilitychange', syncBatchHistoryAutoRefresh);
+        window.addEventListener('beforeunload', () => stopBatchHistoryAutoRefresh());
 
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') {

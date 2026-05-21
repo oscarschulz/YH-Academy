@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Nurture Console</title>
-<link rel="stylesheet" href="/internal/ai-nurture.css?v=20260521-source-preview-v3f">
+<link rel="stylesheet" href="/internal/ai-nurture.css?v=20260521-live-progress-v3g">
     <style>
         body { margin: 0; font-family: Poppins, Arial, sans-serif; background: #020617; color: #e2e8f0; padding: 24px; }
         .shell { max-width: 1400px; margin: 0 auto; display: grid; gap: 16px; }
@@ -297,6 +297,13 @@
                     <option value="approved">Approved</option>
                 </select>
                 <button id="btn-clear-batch-history-filters" type="button" class="secondary">Clear Filters</button>
+            </div>
+            <div class="batch-history-live-row">
+                <label class="batch-history-live-toggle">
+                    <input id="batch-history-auto-refresh" type="checkbox">
+                    <span>Auto-refresh live progress every 15 seconds</span>
+                </label>
+                <div id="batch-history-live-status" class="batch-history-live-status muted">Auto-refresh is off.</div>
             </div>
             <div id="batch-history-result-count" class="batch-history-result-count muted">Showing latest batches.</div>
 
@@ -1388,6 +1395,6 @@
             loadLibrary()
         ]);
     </script>
-<script src="/internal/ai-nurture.js?v=20260521-source-preview-v3f"></script>
+<script src="/internal/ai-nurture.js?v=20260521-live-progress-v3g"></script>
 </body>
 </html>
