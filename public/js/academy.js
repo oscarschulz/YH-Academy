@@ -3046,16 +3046,32 @@ const ACADEMY_COACH_BIG_FIGURES_CONTEXT = Object.freeze({
         'Decision-making approaches',
         'Historical operator patterns',
         'Execution models',
-        'Founder and empire-building lessons'
+        'Founder and empire-building lessons',
+        'Philosophical reasoning',
+        'Power strategy',
+        'Stoic discipline',
+        'Military and political strategy'
     ],
     exampleFigures: [
+        'Alex Hormozi',
         'Elon Musk',
+        'Mark Zuckerberg',
+        'Steve Jobs',
+        'Naval Ravikant',
+        'Sam Altman',
+        'Warren Buffett',
+        'Jeff Bezos',
         'Julius Caesar',
         'Alexander the Great',
-        'Jeff Bezos',
-        'Mark Zuckerberg',
-        'Donald Trump',
-        'Alex Hormozi'
+        'Marcus Aurelius',
+        'Seneca',
+        'Epictetus',
+        'Socrates',
+        'Plato',
+        'Aristotle',
+        'Confucius',
+        'Sun Tzu',
+        'Niccolò Machiavelli'
     ],
     answerRule: 'When a member asks about a figure, extract useful principles, frameworks, tradeoffs, and application steps for the member. Keep it practical, source-aware, and YH Academy execution-focused.'
 });
@@ -29739,13 +29755,25 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
     const CONVERSATION_ID = 'coach_main';
     const LEARN_FROM_OPTIONS = [
         { key: '', label: 'Learn from', shortLabel: 'Default Academy Coach' },
+        { key: 'alex_hormozi', label: 'Alex Hormozi', shortLabel: 'Alex Hormozi' },
         { key: 'elon_musk', label: 'Elon Musk', shortLabel: 'Elon Musk' },
         { key: 'mark_zuckerberg', label: 'Mark Zuckerberg', shortLabel: 'Mark Zuckerberg' },
-        { key: 'alex_hormozi', label: 'Alex Hormozi', shortLabel: 'Alex Hormozi' },
         { key: 'steve_jobs', label: 'Steve Jobs', shortLabel: 'Steve Jobs' },
         { key: 'naval_ravikant', label: 'Naval Ravikant', shortLabel: 'Naval Ravikant' },
         { key: 'sam_altman', label: 'Sam Altman', shortLabel: 'Sam Altman' },
-        { key: 'warren_buffett', label: 'Warren Buffett', shortLabel: 'Warren Buffett' }
+        { key: 'warren_buffett', label: 'Warren Buffett', shortLabel: 'Warren Buffett' },
+        { key: 'jeff_bezos', label: 'Jeff Bezos', shortLabel: 'Jeff Bezos' },
+        { key: 'julius_caesar', label: 'Julius Caesar', shortLabel: 'Julius Caesar' },
+        { key: 'alexander_the_great', label: 'Alexander The Great', shortLabel: 'Alexander The Great' },
+        { key: 'marcus_aurelius', label: 'Marcus Aurelius', shortLabel: 'Marcus Aurelius' },
+        { key: 'seneca', label: 'Seneca', shortLabel: 'Seneca' },
+        { key: 'epictetus', label: 'Epictetus', shortLabel: 'Epictetus' },
+        { key: 'socrates', label: 'Socrates', shortLabel: 'Socrates' },
+        { key: 'plato', label: 'Plato', shortLabel: 'Plato' },
+        { key: 'aristotle', label: 'Aristotle', shortLabel: 'Aristotle' },
+        { key: 'confucius', label: 'Confucius', shortLabel: 'Confucius' },
+        { key: 'sun_tzu', label: 'Sun Tzu', shortLabel: 'Sun Tzu' },
+        { key: 'niccolo_machiavelli', label: 'Niccolò Machiavelli', shortLabel: 'Niccolò Machiavelli' }
     ];
 
     function escapeHtml(value) {
