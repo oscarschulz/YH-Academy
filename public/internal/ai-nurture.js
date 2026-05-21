@@ -97,8 +97,177 @@
                 'patience',
                 'judgment'
             ]
+        },
+        jeff_bezos: {
+            name: 'Jeff Bezos',
+            tags: [
+                'jeff_bezos',
+                'jeff bezos',
+                'bezos',
+                'amazon',
+                'customer obsession',
+                'long term thinking',
+                'operational excellence',
+                'flywheel',
+                'day one'
+            ]
+        },
+        julius_caesar: {
+            name: 'Julius Caesar',
+            tags: [
+                'julius_caesar',
+                'julius caesar',
+                'caesar',
+                'rome',
+                'strategy',
+                'leadership',
+                'political power',
+                'military command',
+                'empire building'
+            ]
+        },
+        alexander_the_great: {
+            name: 'Alexander The Great',
+            tags: [
+                'alexander_the_great',
+                'alexander the great',
+                'alexander',
+                'macedon',
+                'conquest',
+                'vision',
+                'military strategy',
+                'empire building',
+                'ambition'
+            ]
+        },
+        marcus_aurelius: {
+            name: 'Marcus Aurelius',
+            tags: [
+                'marcus_aurelius',
+                'marcus aurelius',
+                'stoicism',
+                'stoic philosophy',
+                'discipline',
+                'self mastery',
+                'duty',
+                'emotional control',
+                'leadership'
+            ]
+        },
+        seneca: {
+            name: 'Seneca',
+            tags: [
+                'seneca',
+                'stoicism',
+                'stoic philosophy',
+                'wealth',
+                'self control',
+                'time management',
+                'wisdom',
+                'virtue',
+                'resilience'
+            ]
+        },
+        epictetus: {
+            name: 'Epictetus',
+            tags: [
+                'epictetus',
+                'stoicism',
+                'stoic philosophy',
+                'control what you can control',
+                'discipline',
+                'inner freedom',
+                'resilience',
+                'virtue',
+                'mindset'
+            ]
+        },
+        socrates: {
+            name: 'Socrates',
+            tags: [
+                'socrates',
+                'socratic method',
+                'critical thinking',
+                'wisdom',
+                'questions',
+                'ethics',
+                'self knowledge',
+                'truth seeking',
+                'philosophy'
+            ]
+        },
+        plato: {
+            name: 'Plato',
+            tags: [
+                'plato',
+                'platonic philosophy',
+                'forms',
+                'justice',
+                'ideal state',
+                'education',
+                'wisdom',
+                'leadership',
+                'philosophy'
+            ]
+        },
+        aristotle: {
+            name: 'Aristotle',
+            tags: [
+                'aristotle',
+                'aristotelian philosophy',
+                'logic',
+                'virtue ethics',
+                'practical wisdom',
+                'rhetoric',
+                'politics',
+                'habits',
+                'excellence'
+            ]
+        },
+        confucius: {
+            name: 'Confucius',
+            tags: [
+                'confucius',
+                'confucianism',
+                'discipline',
+                'ethics',
+                'social order',
+                'respect',
+                'character',
+                'ritual',
+                'leadership'
+            ]
+        },
+        sun_tzu: {
+            name: 'Sun Tzu',
+            tags: [
+                'sun_tzu',
+                'sun tzu',
+                'art of war',
+                'strategy',
+                'competition',
+                'positioning',
+                'warfare',
+                'patience',
+                'tactics'
+            ]
+        },
+        niccolo_machiavelli: {
+            name: 'Niccolò Machiavelli',
+            tags: [
+                'niccolo_machiavelli',
+                'niccolo machiavelli',
+                'machiavelli',
+                'the prince',
+                'power',
+                'political strategy',
+                'statecraft',
+                'realpolitik',
+                'leadership'
+            ]
         }
     };
+
 
     let mentorPackCache = [];
     const NURTURE_ACTIVE_TAB_KEY = 'yh_ai_nurture_active_tab_v1';
