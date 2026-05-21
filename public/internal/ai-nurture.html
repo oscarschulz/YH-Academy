@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Nurture Console</title>
-    <link rel="stylesheet" href="/internal/ai-nurture.css?v=20260521-mentor-pack-v1">
+<link rel="stylesheet" href="/internal/ai-nurture.css?v=20260521-batch-feed-v1">
     <style>
         body { margin: 0; font-family: Poppins, Arial, sans-serif; background: #020617; color: #e2e8f0; padding: 24px; }
         .shell { max-width: 1400px; margin: 0 auto; display: grid; gap: 16px; }
@@ -115,6 +115,59 @@
                 <h2>System Response</h2>
                 <pre id="output">{}</pre>
             </div>
+        </div>
+
+        <div class="card batch-feed-card">
+            <div class="batch-feed-head">
+                <div>
+                    <h2>Batch Link Feeder</h2>
+                    <div class="muted">Paste many YouTube/article links at once. The system will create AI Nurture sources and queue processing jobs with the selected mentor tags.</div>
+                </div>
+                <span class="chip info">Bulk source intake</span>
+            </div>
+
+            <div class="split-2">
+                <select id="batch-feed-mentor">
+                    <option value="alex_hormozi">Alex Hormozi</option>
+                    <option value="elon_musk">Elon Musk</option>
+                    <option value="mark_zuckerberg">Mark Zuckerberg</option>
+                    <option value="steve_jobs">Steve Jobs</option>
+                    <option value="naval_ravikant">Naval Ravikant</option>
+                    <option value="sam_altman">Sam Altman</option>
+                    <option value="warren_buffett">Warren Buffett</option>
+                </select>
+
+                <input id="batch-feed-title-prefix" type="text" placeholder="Optional title prefix, e.g. Elon Musk Batch">
+            </div>
+
+            <textarea id="batch-feed-urls" rows="8" placeholder="Paste links here, one per line. Supports YouTube videos, articles, public pages, and other source URLs."></textarea>
+
+            <div class="split-2">
+                <textarea id="batch-feed-tags" rows="4" placeholder="Manual tags, comma or line separated"></textarea>
+                <textarea id="batch-feed-topic-hints" rows="4" placeholder="Topic hints, comma or line separated"></textarea>
+            </div>
+
+            <div class="split-2">
+                <select id="batch-feed-priority">
+                    <option value="5">Priority 5 · Highest</option>
+                    <option value="4">Priority 4 · High</option>
+                    <option value="3" selected>Priority 3 · Normal</option>
+                    <option value="2">Priority 2 · Low</option>
+                    <option value="1">Priority 1 · Lowest</option>
+                </select>
+
+                <label class="toggle-row batch-feed-toggle">
+                    <input id="batch-feed-queue-jobs" type="checkbox" checked>
+                    <span>Queue processing jobs after creating sources</span>
+                </label>
+            </div>
+
+            <div class="actions">
+                <button id="btn-create-batch-sources" type="button">Create Batch Sources</button>
+                <button id="btn-clear-batch-sources" type="button" class="secondary">Clear Batch</button>
+            </div>
+
+            <div id="batch-feed-status" class="muted">No batch submitted yet.</div>
         </div>
 
         <div class="card mentor-pack-card">
@@ -1062,6 +1115,6 @@
             loadLibrary()
         ]);
     </script>
-    <script src="/internal/ai-nurture.js?v=20260521-mentor-pack-v1"></script>
+<script src="/internal/ai-nurture.js?v=20260521-batch-feed-v1"></script>
 </body>
 </html>

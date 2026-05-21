@@ -95,6 +95,121 @@ exports.createSource = async (req, res) => {
     }
 };
 
+function normalizeBatchSourceUrls(values = []) {
+    const rawValues = Array.isArray(values)
+        ? values
+        : String(values || '').match(/https?:\/\/[^\s,]+/gi) || String(values || '').split(/\n|,/);
+
+    const urls = [];
+
+    for (const value of rawValues) {
+        const clean = sanitize(value)
+            .replace(/[)\].,;]+$/g, '')
+            .trim();
+
+        if (!/^https?:\/\//i.test(clean)) continue;
+
+        try {
+            const parsed = new URL(clean);
+            parsed.hash = '';
+            const normalized = parsed.toString();
+
+            if (!urls.includes(normalized)) {
+                urls.push(normalized);
+            }
+        } catch (_) {}
+
+        if (urls.length >= 100) break;
+    }
+
+    return urls;
+}
+
+exports.createBatchSources = async (req, res) => {
+    try {
+        const urls = normalizeBatchSourceUrls(req.body?.urls || req.body?.links || req.body?.bulkUrls);
+        const queuePriority = Math.max(1, Math.min(5, Number.parseInt(req.body?.queuePriority, 10) || 3));
+        const queueJobs = req.body?.queueJobs !== false;
+        const titlePrefix = sanitize(req.body?.titlePrefix || req.body?.sourceTitlePrefix || '');
+        const mentorKey = sanitize(req.body?.mentorKey || '').toLowerCase();
+        const mentorName = sanitize(req.body?.mentorName || '');
+
+        const manualTags = [
+            ...toStringList(req.body?.manualTags || req.body?.tags),
+            mentorKey,
+            mentorKey.replace(/_/g, ' '),
+            mentorName
+        ].filter(Boolean);
+
+        const topicHints = [
+            ...toStringList(req.body?.topicHints),
+            mentorName,
+            mentorKey.replace(/_/g, ' ')
+        ].filter(Boolean);
+
+        if (!urls.length) {
+            return res.status(400).json({
+                success: false,
+                message: 'At least one valid URL is required.'
+            });
+        }
+
+        const sources = [];
+        const jobs = [];
+        const failed = [];
+
+        for (let index = 0; index < urls.length; index += 1) {
+            const url = urls[index];
+
+            try {
+                const source = await aiNurtureRepo.createSource({
+                    originalUrl: url,
+                    title: titlePrefix ? `${titlePrefix} ${index + 1}` : '',
+                    queuePriority,
+                    manualTags,
+                    topicHints,
+                    submittedBy: 'internal-operator',
+                    submittedFrom: 'internal-console-batch'
+                });
+
+                sources.push(source);
+
+                if (queueJobs) {
+                    const job = await aiNurtureRepo.createJob({
+                        type: 'process-source',
+                        sourceId: source.id,
+                        priority: queuePriority,
+                        reason: 'batch-submit',
+                        runAfterAt: new Date().toISOString()
+                    });
+
+                    jobs.push(job);
+                }
+            } catch (error) {
+                failed.push({
+                    url,
+                    message: sanitize(error?.message || 'Failed to create source.')
+                });
+            }
+        }
+
+        return res.status(failed.length && !sources.length ? 400 : failed.length ? 207 : 201).json({
+            success: sources.length > 0,
+            requestedCount: urls.length,
+            createdCount: sources.length,
+            jobCount: jobs.length,
+            failedCount: failed.length,
+            mentorKey,
+            mentorName,
+            sources,
+            jobs,
+            failed
+        });
+    } catch (error) {
+        return sendError(res, error, 'Failed to create batch sources.');
+    }
+};
+
 exports.listSources = async (req, res) => {
     try {
         const sources = await aiNurtureRepo.listSources(Number.parseInt(req.query.limit, 10) || 50);

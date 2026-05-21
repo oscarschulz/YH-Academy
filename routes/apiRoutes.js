@@ -200,6 +200,7 @@ router.get('/internal/ai-nurture/:gate/settings', aiNurtureGate, aiNurtureContro
 router.patch('/internal/ai-nurture/:gate/settings', aiNurtureGate, aiNurtureControllers.updateSettings);
 
 router.post('/internal/ai-nurture/:gate/sources', aiNurtureGate, aiNurtureControllers.createSource);
+router.post('/internal/ai-nurture/:gate/sources/batch', aiNurtureGate, aiNurtureControllers.createBatchSources);
 router.get('/internal/ai-nurture/:gate/sources', aiNurtureGate, aiNurtureControllers.listSources);
 router.get('/internal/ai-nurture/:gate/sources/:id', aiNurtureGate, aiNurtureControllers.getSourceById);
 router.post('/internal/ai-nurture/:gate/sources/:id/process', aiNurtureGate, aiNurtureControllers.processSource);

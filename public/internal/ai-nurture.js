@@ -121,6 +121,16 @@
         status: 'mentor-pack-status',
         mentorList: 'mentor-pack-list',
         refreshMentors: 'btn-refresh-mentor-packs',
+        batchMentor: 'batch-feed-mentor',
+        batchTitlePrefix: 'batch-feed-title-prefix',
+        batchUrls: 'batch-feed-urls',
+        batchTags: 'batch-feed-tags',
+        batchTopicHints: 'batch-feed-topic-hints',
+        batchPriority: 'batch-feed-priority',
+        batchQueueJobs: 'batch-feed-queue-jobs',
+        batchCreate: 'btn-create-batch-sources',
+        batchClear: 'btn-clear-batch-sources',
+        batchStatus: 'batch-feed-status',
         output: 'output'
     };
 
@@ -174,6 +184,23 @@
         }
 
         statusEl.textContent = message || 'No mentor pack saved yet.';
+    }
+
+    function setBatchStatus(message = '', tone = '') {
+        const statusEl = byId(ids.batchStatus);
+        if (!statusEl) return;
+
+        statusEl.classList.remove('is-success', 'is-error');
+
+        if (tone === 'success') {
+            statusEl.classList.add('is-success');
+        }
+
+        if (tone === 'error') {
+            statusEl.classList.add('is-error');
+        }
+
+        statusEl.textContent = message || 'No batch submitted yet.';
     }
 
     function setOutput(payload = {}) {
@@ -352,6 +379,150 @@
         }
     }
 
+    function syncBatchPreset() {
+        const mentorKey = valueOf(ids.batchMentor);
+        const preset = mentorPresets[mentorKey];
+
+        if (!preset) return;
+
+        const tagsInput = byId(ids.batchTags);
+        if (tagsInput && !String(tagsInput.value || '').trim()) {
+            tagsInput.value = joinInputList(preset.tags);
+        }
+
+        const hintsInput = byId(ids.batchTopicHints);
+        if (hintsInput && !String(hintsInput.value || '').trim()) {
+            hintsInput.value = joinInputList([
+                preset.name,
+                mentorKey.replace(/_/g, ' '),
+                'academy ai coach',
+                'learn from'
+            ]);
+        }
+
+        const titlePrefixInput = byId(ids.batchTitlePrefix);
+        if (titlePrefixInput && !String(titlePrefixInput.value || '').trim()) {
+            titlePrefixInput.value = `${preset.name} Batch`;
+        }
+    }
+
+    function extractBatchUrls(value = '') {
+        const raw = String(value || '').trim();
+
+        if (!raw) return [];
+
+        const matches = raw.match(/https?:\/\/[^\s,]+/gi) || raw.split(/\n|,/);
+
+        const urls = [];
+        for (const item of matches) {
+            const clean = String(item || '')
+                .trim()
+                .replace(/[)\].,;]+$/g, '');
+
+            if (!/^https?:\/\//i.test(clean)) continue;
+
+            try {
+                const parsed = new URL(clean);
+                parsed.hash = '';
+                const normalized = parsed.toString();
+
+                if (!urls.includes(normalized)) {
+                    urls.push(normalized);
+                }
+            } catch (_) {}
+
+            if (urls.length >= 100) break;
+        }
+
+        return urls;
+    }
+
+    function buildBatchPayload() {
+        const mentorKey = valueOf(ids.batchMentor);
+        const preset = mentorPresets[mentorKey] || {};
+
+        return {
+            mentorKey,
+            mentorName: preset.name || mentorKey,
+            urls: extractBatchUrls(valueOf(ids.batchUrls)),
+            titlePrefix: valueOf(ids.batchTitlePrefix),
+            manualTags: splitInputList(valueOf(ids.batchTags)),
+            topicHints: splitInputList(valueOf(ids.batchTopicHints)),
+            queuePriority: Number.parseInt(valueOf(ids.batchPriority), 10) || 3,
+            queueJobs: checked(ids.batchQueueJobs)
+        };
+    }
+
+    function clearBatchForm() {
+        [
+            ids.batchTitlePrefix,
+            ids.batchUrls,
+            ids.batchTags,
+            ids.batchTopicHints
+        ].forEach((id) => {
+            const el = byId(id);
+            if (el) el.value = '';
+        });
+
+        const priorityEl = byId(ids.batchPriority);
+        if (priorityEl) priorityEl.value = '3';
+
+        const queueJobsEl = byId(ids.batchQueueJobs);
+        if (queueJobsEl) queueJobsEl.checked = true;
+
+        syncBatchPreset();
+        setBatchStatus('Batch form cleared. Paste the next set of links.', '');
+    }
+
+    async function createBatchSources() {
+        const button = byId(ids.batchCreate);
+        const payload = buildBatchPayload();
+
+        if (!payload.urls.length) {
+            setBatchStatus('Paste at least one valid URL before creating batch sources.', 'error');
+            return;
+        }
+
+        try {
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'Creating batch...';
+            }
+
+            setBatchStatus(`Creating ${payload.urls.length} source(s)...`, '');
+
+            const result = await request('/sources/batch', {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+
+            const createdCount = Array.isArray(result.sources) ? result.sources.length : 0;
+            const jobCount = Array.isArray(result.jobs) ? result.jobs.length : 0;
+            const failedCount = Array.isArray(result.failed) ? result.failed.length : 0;
+
+            setBatchStatus(
+                `Batch created. Sources: ${createdCount}. Jobs queued: ${jobCount}. Failed: ${failedCount}.`,
+                failedCount ? 'error' : 'success'
+            );
+
+            try {
+                if (typeof loadSources === 'function') await loadSources();
+                if (typeof loadJobs === 'function') await loadJobs();
+            } catch (_) {}
+        } catch (error) {
+            setBatchStatus(error.message || 'Failed to create batch sources.', 'error');
+            setOutput({
+                success: false,
+                message: error.message || 'Failed to create batch sources.'
+            });
+        } finally {
+            if (button) {
+                button.disabled = false;
+                button.textContent = 'Create Batch Sources';
+            }
+        }
+    }
+
     function buildMentorPayload() {
         const mentorKey = valueOf(ids.mentor);
         const preset = mentorPresets[mentorKey] || {};
@@ -475,6 +646,9 @@
         const clearButton = byId(ids.clear);
         const refreshButton = byId(ids.refreshMentors);
         const mentorList = byId(ids.mentorList);
+        const batchMentorSelect = byId(ids.batchMentor);
+        const batchCreateButton = byId(ids.batchCreate);
+        const batchClearButton = byId(ids.batchClear);
 
         if (!mentorSelect || !saveButton) return;
 
@@ -488,13 +662,28 @@
             syncMentorPreset();
         });
 
+        batchMentorSelect?.addEventListener('change', () => {
+            const tagsInput = byId(ids.batchTags);
+            const hintsInput = byId(ids.batchTopicHints);
+            const titlePrefixInput = byId(ids.batchTitlePrefix);
+
+            if (tagsInput) tagsInput.value = '';
+            if (hintsInput) hintsInput.value = '';
+            if (titlePrefixInput) titlePrefixInput.value = '';
+
+            syncBatchPreset();
+        });
+
         saveButton.addEventListener('click', saveMentorPack);
+        batchCreateButton?.addEventListener('click', createBatchSources);
 
         clearButton?.addEventListener('click', clearMentorForm);
+        batchClearButton?.addEventListener('click', clearBatchForm);
         refreshButton?.addEventListener('click', loadMentorPacks);
         mentorList?.addEventListener('click', handleMentorPackListClick);
 
         syncMentorPreset();
+        syncBatchPreset();
         loadMentorPacks();
     }
 
