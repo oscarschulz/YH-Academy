@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Nurture Console</title>
-<link rel="stylesheet" href="/internal/ai-nurture.css?v=20260521-batch-filters-v3e">
+<link rel="stylesheet" href="/internal/ai-nurture.css?v=20260521-source-preview-v3f">
     <style>
         body { margin: 0; font-family: Poppins, Arial, sans-serif; background: #020617; color: #e2e8f0; padding: 24px; }
         .shell { max-width: 1400px; margin: 0 auto; display: grid; gap: 16px; }
@@ -332,6 +332,21 @@
                 <h3>Import Failures</h3>
                 <div id="batch-details-failures" class="batch-failure-list muted">No batch selected.</div>
             </div>
+        </aside>
+
+        <div id="source-detail-backdrop" class="source-detail-backdrop" hidden></div>
+        <aside id="source-detail-drawer" class="source-detail-drawer" aria-label="Source review preview" hidden>
+            <div class="source-detail-head">
+                <div>
+                    <span class="section-label">Source review preview</span>
+                    <h2 id="source-detail-title">Source Detail</h2>
+                    <div id="source-detail-meta" class="chip-wrap"></div>
+                </div>
+                <button id="btn-close-source-detail" type="button" class="secondary">Close</button>
+            </div>
+
+            <div id="source-detail-status" class="source-detail-status muted">Select a source from Batch Details to preview its review.</div>
+            <div id="source-detail-body" class="source-detail-body muted">No source selected yet.</div>
         </aside>
 
 
@@ -1373,6 +1388,6 @@
             loadLibrary()
         ]);
     </script>
-<script src="/internal/ai-nurture.js?v=20260521-batch-filters-v3e"></script>
+<script src="/internal/ai-nurture.js?v=20260521-source-preview-v3f"></script>
 </body>
 </html>

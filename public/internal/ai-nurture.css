@@ -1194,3 +1194,222 @@ body.batch-details-open {
         grid-template-columns: 1fr;
     }
 }
+
+.source-detail-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    background: rgba(2, 6, 23, 0.52);
+    backdrop-filter: blur(6px);
+}
+
+.source-detail-drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    z-index: 100;
+    width: min(640px, 92vw);
+    height: 100vh;
+    overflow-y: auto;
+    padding: 20px;
+    border-left: 1px solid rgba(14, 165, 233, 0.22);
+    background:
+        radial-gradient(circle at top left, rgba(14, 165, 233, 0.1), transparent 34%),
+        linear-gradient(180deg, rgba(15, 23, 42, 0.99), rgba(2, 6, 23, 0.99));
+    box-shadow: -24px 0 70px rgba(0, 0, 0, 0.4);
+    box-sizing: border-box;
+}
+
+.source-detail-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+.source-detail-head h2 {
+    margin: 4px 0 0;
+    color: #f8fafc;
+    letter-spacing: -0.03em;
+    line-height: 1.16;
+}
+
+.source-detail-head button {
+    width: auto;
+    min-width: 84px;
+    margin-top: 0;
+}
+
+.source-detail-status {
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(2, 6, 23, 0.5);
+    border: 1px dashed rgba(148, 163, 184, 0.18);
+    margin-bottom: 14px;
+}
+
+.source-detail-status.is-error {
+    color: #fca5a5;
+    border-color: rgba(239, 68, 68, 0.28);
+    background: rgba(239, 68, 68, 0.08);
+}
+
+.source-detail-section {
+    margin-top: 16px;
+    border-top: 1px solid rgba(148, 163, 184, 0.14);
+    padding-top: 14px;
+}
+
+.source-detail-section h3 {
+    margin: 0 0 10px;
+    color: #e2e8f0;
+}
+
+.source-detail-link {
+    color: #93c5fd;
+    font-size: 0.86rem;
+    line-height: 1.45;
+    word-break: break-word;
+}
+
+.source-detail-grid,
+.source-detail-score-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.source-detail-card,
+.source-detail-score {
+    padding: 11px;
+    border-radius: 14px;
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    background: rgba(2, 6, 23, 0.5);
+}
+
+.source-detail-card span,
+.source-detail-score span {
+    display: block;
+    color: #94a3b8;
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.source-detail-card strong,
+.source-detail-score strong {
+    display: block;
+    margin-top: 4px;
+    color: #f8fafc;
+    font-size: 0.98rem;
+    word-break: break-word;
+}
+
+.source-detail-summary,
+.source-detail-chunk,
+.source-detail-mini-row,
+.source-detail-error {
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    border-radius: 14px;
+    background: rgba(15, 23, 42, 0.58);
+    padding: 12px;
+    line-height: 1.5;
+}
+
+.source-detail-error {
+    margin-top: 10px;
+    color: #fca5a5;
+    border-color: rgba(239, 68, 68, 0.24);
+    background: rgba(239, 68, 68, 0.08);
+}
+
+.source-detail-list {
+    margin: 0 0 14px;
+    padding-left: 18px;
+    color: #cbd5e1;
+    line-height: 1.5;
+}
+
+.source-detail-list li + li {
+    margin-top: 6px;
+}
+
+.source-detail-mini-row {
+    display: grid;
+    gap: 5px;
+    margin-top: 8px;
+}
+
+.source-detail-mini-row strong {
+    color: #f8fafc;
+}
+
+.source-detail-mini-row span {
+    color: #cbd5e1;
+    font-size: 0.86rem;
+}
+
+.source-detail-chunk {
+    display: grid;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.source-detail-chunk-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: center;
+}
+
+.source-detail-chunk-head strong {
+    color: #f8fafc;
+}
+
+.source-detail-chunk-text {
+    color: #cbd5e1;
+    font-size: 0.86rem;
+    line-height: 1.5;
+}
+
+.batch-source-badges button {
+    width: auto;
+    min-width: 116px;
+    margin-top: 0;
+    padding: 8px 10px;
+    font-size: 0.78rem;
+}
+
+body.source-details-open {
+    overflow: hidden;
+}
+
+@media (max-width: 900px) {
+    .source-detail-grid,
+    .source-detail-score-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 560px) {
+    .source-detail-drawer {
+        width: 100vw;
+        padding: 16px;
+    }
+
+    .source-detail-head {
+        flex-direction: column;
+    }
+
+    .source-detail-head button {
+        width: 100%;
+    }
+
+    .source-detail-grid,
+    .source-detail-score-grid {
+        grid-template-columns: 1fr;
+    }
+}

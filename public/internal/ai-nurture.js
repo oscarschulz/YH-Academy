@@ -162,6 +162,13 @@
         batchDetailsFailures: 'batch-details-failures',
         batchDetailsStatus: 'batch-details-action-status',
         batchDetailsClose: 'btn-close-batch-details',
+        sourceDetailBackdrop: 'source-detail-backdrop',
+        sourceDetailDrawer: 'source-detail-drawer',
+        sourceDetailTitle: 'source-detail-title',
+        sourceDetailMeta: 'source-detail-meta',
+        sourceDetailBody: 'source-detail-body',
+        sourceDetailStatus: 'source-detail-status',
+        sourceDetailClose: 'btn-close-source-detail',
         responseSummary: 'response-summary',
         responseStatusPill: 'response-status-pill',
         rawToggle: 'btn-toggle-raw-response',
@@ -171,6 +178,7 @@
     let discoveredSourceLinks = [];
     let batchHistoryCache = [];
     let activeBatchDetailsId = '';
+    let activeSourceDetailId = '';
     let batchHistorySearchTerm = '';
     let batchHistoryFilterValue = 'all';
 
@@ -1197,6 +1205,7 @@
                                 <span class="chip ${batchToneClass(sourceStatus)}">${escapeHtml(sourceStatus)}</span>
                                 <span class="chip ${batchToneClass(jobStatus)}">Job: ${escapeHtml(jobStatus)}</span>
                                 ${source.approved ? '<span class="chip ok">In library</span>' : ''}
+                                ${source.id ? `<button type="button" class="secondary" data-batch-source-action="preview" data-source-id="${escapeHtml(source.id)}">Review Preview</button>` : ''}
                             </div>
                         </div>
                     `;
@@ -1218,6 +1227,217 @@
         drawer.hidden = false;
         backdrop.hidden = false;
         document.body.classList.add('batch-details-open');
+    }
+
+    function closeSourceDetailDrawer() {
+        const drawer = byId(ids.sourceDetailDrawer);
+        const backdrop = byId(ids.sourceDetailBackdrop);
+
+        if (drawer) drawer.hidden = true;
+        if (backdrop) backdrop.hidden = true;
+
+        activeSourceDetailId = '';
+        document.body.classList.remove('source-details-open');
+    }
+
+    function renderSourceListItems(items = []) {
+        const cleanItems = Array.isArray(items)
+            ? items.map((item) => String(item || '').trim()).filter(Boolean)
+            : [];
+
+        if (!cleanItems.length) return '<li>None</li>';
+
+        return cleanItems.map((item) => `<li>${escapeHtml(item)}</li>`).join('');
+    }
+
+    function renderSourceScore(label = '', value = '') {
+        const cleanValue = value === null || value === undefined || value === ''
+            ? 'n/a'
+            : value;
+
+        return `
+            <div class="source-detail-score">
+                <span>${escapeHtml(label)}</span>
+                <strong>${escapeHtml(cleanValue)}</strong>
+            </div>
+        `;
+    }
+
+    function renderSourcePreviewChunks(chunks = []) {
+        const rows = Array.isArray(chunks) ? chunks.slice(0, 10) : [];
+
+        if (!rows.length) {
+            return '<div class="empty-box">No chunks are available for this source yet.</div>';
+        }
+
+        return rows.map((chunk) => `
+            <div class="source-detail-chunk">
+                <div class="source-detail-chunk-head">
+                    <strong>Chunk ${escapeHtml(chunk.index || 'n/a')}</strong>
+                    <span class="chip ${batchToneClass(chunk.decision || 'reference_only')}">${escapeHtml(chunk.decision || 'reference_only')}</span>
+                </div>
+                <div class="muted">${escapeHtml(chunk.reason || 'No decision reason saved.')}</div>
+                <div class="source-detail-chunk-text">${escapeHtml((chunk.text || '').slice(0, 520))}${(chunk.text || '').length > 520 ? '…' : ''}</div>
+            </div>
+        `).join('');
+    }
+
+    function renderDuplicatePreviewMatches(review = {}) {
+        const matches = Array.isArray(review.duplicateMatches)
+            ? review.duplicateMatches
+            : review.duplicateTopMatch
+                ? [review.duplicateTopMatch]
+                : [];
+
+        if (!matches.length) {
+            return '<div class="empty-box">No duplicate matches saved.</div>';
+        }
+
+        return matches.slice(0, 5).map((match) => `
+            <div class="source-detail-mini-row">
+                <strong>${escapeHtml(match.title || match.sourceTitle || match.id || 'Duplicate candidate')}</strong>
+                <span>${escapeHtml(match.summary || match.reason || match.url || 'No duplicate note saved.')}</span>
+            </div>
+        `).join('');
+    }
+
+    function renderSourceReviewPreview(detail = {}) {
+        const drawer = byId(ids.sourceDetailDrawer);
+        const backdrop = byId(ids.sourceDetailBackdrop);
+        const titleEl = byId(ids.sourceDetailTitle);
+        const metaEl = byId(ids.sourceDetailMeta);
+        const bodyEl = byId(ids.sourceDetailBody);
+        const statusEl = byId(ids.sourceDetailStatus);
+
+        if (!drawer || !backdrop || !bodyEl) return;
+
+        const source = detail.source || {};
+        const review = detail.review || {};
+        const snapshot = detail.snapshot || {};
+        const chunks = Array.isArray(detail.chunks) ? detail.chunks : [];
+        const sourceTitle = source.title || snapshot.title || source.hostname || source.canonicalUrl || source.originalUrl || 'Untitled source';
+        const sourceUrl = source.canonicalUrl || source.originalUrl || snapshot.finalUrl || '';
+        const decision = review.overallDecision || 'not reviewed';
+        const sourceStatus = source.status || 'unknown';
+        const issue = source.lastError || source.rejectionReason || '';
+
+        activeSourceDetailId = source.id || '';
+
+        if (titleEl) titleEl.textContent = sourceTitle;
+
+        if (metaEl) {
+            metaEl.innerHTML = `
+                <span class="chip ${batchToneClass(sourceStatus)}">${escapeHtml(sourceStatus)}</span>
+                <span class="chip ${batchToneClass(decision)}">Decision: ${escapeHtml(decision)}</span>
+                <span class="chip info">${escapeHtml(source.hostname || snapshot.siteName || 'source')}</span>
+                <span class="chip">Updated: ${escapeHtml(source.updatedAt || 'n/a')}</span>
+            `;
+        }
+
+        if (statusEl) {
+            statusEl.classList.remove('is-success', 'is-error');
+            statusEl.textContent = issue
+                ? `Issue: ${issue}`
+                : 'Review preview loaded from the source detail endpoint.';
+            if (issue) statusEl.classList.add('is-error');
+        }
+
+        bodyEl.innerHTML = `
+            <div class="source-detail-section">
+                <h3>Source</h3>
+                <div class="source-detail-link">${escapeHtml(sourceUrl || source.id || 'No URL saved.')}</div>
+                <div class="source-detail-grid">
+                    <div class="source-detail-card"><span>Status</span><strong>${escapeHtml(sourceStatus)}</strong></div>
+                    <div class="source-detail-card"><span>Queue Priority</span><strong>${escapeHtml(source.queuePriority || 3)}</strong></div>
+                    <div class="source-detail-card"><span>Fetched</span><strong>${escapeHtml(source.fetchedAt || 'n/a')}</strong></div>
+                    <div class="source-detail-card"><span>Analyzed</span><strong>${escapeHtml(source.analyzedAt || 'n/a')}</strong></div>
+                </div>
+                ${issue ? `<div class="source-detail-error">${escapeHtml(issue)}</div>` : ''}
+            </div>
+
+            <div class="source-detail-section">
+                <h3>Review Summary</h3>
+                <div class="source-detail-summary">${escapeHtml(review.summaryLong || review.summaryShort || 'No review summary is available yet.')}</div>
+                <div class="source-detail-score-grid">
+                    ${renderSourceScore('Relevance', review?.scores?.relevance)}
+                    ${renderSourceScore('Trust', review?.scores?.trust ?? review.domainTrustScore)}
+                    ${renderSourceScore('Duplication', review?.scores?.duplication ?? review.duplicateScore)}
+                    ${renderSourceScore('Actionability', review?.scores?.actionability)}
+                    ${renderSourceScore('Freshness', review.freshnessScore)}
+                    ${renderSourceScore('Clean chars', snapshot.cleanTextChars || 0)}
+                </div>
+            </div>
+
+            <div class="source-detail-section">
+                <h3>Absorb</h3>
+                <ul class="source-detail-list">${renderSourceListItems(review.absorbWhat)}</ul>
+
+                <h3>Do Not Absorb</h3>
+                <ul class="source-detail-list">${renderSourceListItems(review.doNotAbsorbWhat)}</ul>
+
+                <h3>Risk Notes</h3>
+                <ul class="source-detail-list">${renderSourceListItems(review.riskNotes)}</ul>
+            </div>
+
+            <div class="source-detail-section">
+                <h3>Duplicate Matches</h3>
+                ${renderDuplicatePreviewMatches(review)}
+            </div>
+
+            <div class="source-detail-section">
+                <h3>Chunks</h3>
+                ${renderSourcePreviewChunks(chunks)}
+            </div>
+        `;
+
+        drawer.hidden = false;
+        backdrop.hidden = false;
+        document.body.classList.add('source-details-open');
+    }
+
+    async function openSourceReviewPreview(sourceId = '') {
+        const cleanSourceId = String(sourceId || '').trim();
+        const statusEl = byId(ids.sourceDetailStatus);
+
+        if (!cleanSourceId) {
+            if (statusEl) {
+                statusEl.classList.add('is-error');
+                statusEl.textContent = 'Source ID is missing.';
+            }
+            return;
+        }
+
+        try {
+            if (statusEl) {
+                statusEl.classList.remove('is-success', 'is-error');
+                statusEl.textContent = 'Loading source review preview...';
+            }
+
+            const result = await request(`/sources/${encodeURIComponent(cleanSourceId)}`, {
+                method: 'GET'
+            });
+
+            renderSourceReviewPreview(result);
+        } catch (error) {
+            if (statusEl) {
+                statusEl.classList.remove('is-success');
+                statusEl.classList.add('is-error');
+                statusEl.textContent = error.message || 'Failed to load source review preview.';
+            }
+
+            setOutput({
+                success: false,
+                message: error.message || 'Failed to load source review preview.'
+            });
+        }
+    }
+
+    async function handleBatchSourcePreviewClick(event) {
+        const button = event.target?.closest?.('[data-batch-source-action="preview"]');
+        if (!button) return;
+
+        const sourceId = button.getAttribute('data-source-id');
+        await openSourceReviewPreview(sourceId);
     }
 
     async function runBatchDetailsAction(event) {
@@ -1618,6 +1838,8 @@
         const batchDetailsCloseButton = byId(ids.batchDetailsClose);
         const batchDetailsBackdrop = byId(ids.batchDetailsBackdrop);
         const batchDetailsDrawer = byId(ids.batchDetailsDrawer);
+        const sourceDetailCloseButton = byId(ids.sourceDetailClose);
+        const sourceDetailBackdrop = byId(ids.sourceDetailBackdrop);
         const rawResponseToggle = byId(ids.rawToggle);
 
         if (!mentorSelect || !saveButton) return;
@@ -1666,10 +1888,20 @@
         batchDetailsCloseButton?.addEventListener('click', closeBatchDetailsDrawer);
         batchDetailsBackdrop?.addEventListener('click', closeBatchDetailsDrawer);
         batchDetailsDrawer?.addEventListener('click', runBatchDetailsAction);
+        batchDetailsDrawer?.addEventListener('click', handleBatchSourcePreviewClick);
+        sourceDetailCloseButton?.addEventListener('click', closeSourceDetailDrawer);
+        sourceDetailBackdrop?.addEventListener('click', closeSourceDetailDrawer);
         rawResponseToggle?.addEventListener('click', toggleRawResponse);
 
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape') {
+                const sourceDrawer = byId(ids.sourceDetailDrawer);
+
+                if (sourceDrawer && !sourceDrawer.hidden) {
+                    closeSourceDetailDrawer();
+                    return;
+                }
+
                 closeBatchDetailsDrawer();
             }
         });
