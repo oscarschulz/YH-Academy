@@ -29922,15 +29922,15 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
                 </div>
 
                 <div class="academy-ai-coach-rect-prompts" aria-label="Suggested prompts">
-                    <button type="button" data-ai-coach-prompt="What should I focus on today?">Today’s focus</button>
-                    <button type="button" data-ai-coach-prompt="Simplify my next mission.">Simplify mission</button>
-                    <button type="button" data-ai-coach-prompt="Help me recover after missed tasks.">Recover</button>
                     <div class="academy-ai-coach-rect-learn-wrap">
                         <label for="${LEARN_FROM_ID}">Learn from</label>
                         <select id="${LEARN_FROM_ID}" aria-label="Learn from approved big figure knowledge">
                             ${buildLearnFromOptionsHtml()}
                         </select>
                     </div>
+                    <button type="button" data-ai-coach-prompt="What should I focus on today?">Today’s focus</button>
+                    <button type="button" data-ai-coach-prompt="Simplify my next mission.">Simplify mission</button>
+                    <button type="button" data-ai-coach-prompt="Help me recover after missed tasks.">Recover</button>
                 </div>
 
                 <div class="academy-ai-coach-rect-history hide-scrollbar" id="${HISTORY_ID}">
