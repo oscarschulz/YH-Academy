@@ -680,6 +680,160 @@ async function approveSource(sourceId) {
     };
 }
 
+function normalizeMentorKnowledgeKey(value = '') {
+    return sanitize(value)
+        .toLowerCase()
+        .replace(/[\u2019']/g, '')
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .slice(0, 80);
+}
+
+function toCleanStringList(values = [], limit = 24, maxChars = 360) {
+    const source = Array.isArray(values) ? values : [values];
+    const out = [];
+
+    for (const value of source) {
+        const clean = sanitize(value).replace(/\s+/g, ' ').trim().slice(0, maxChars);
+        if (!clean) continue;
+        if (!out.includes(clean)) out.push(clean);
+        if (out.length >= limit) break;
+    }
+
+    return out;
+}
+
+function dedupeAiNurtureTags(values = [], limit = 32) {
+    const out = [];
+
+    for (const value of Array.isArray(values) ? values : []) {
+        const clean = sanitize(value)
+            .toLowerCase()
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, 80);
+
+        if (!clean) continue;
+        if (!out.includes(clean)) out.push(clean);
+        if (out.length >= limit) break;
+    }
+
+    return out;
+}
+
+function buildMentorKnowledgeRules(payload = {}) {
+    const rules = [];
+
+    toCleanStringList(payload.coreIdeas, 12, 260).forEach((item) => {
+        rules.push(`Core idea: ${item}`);
+    });
+
+    toCleanStringList(payload.businessFrameworks, 12, 300).forEach((item) => {
+        rules.push(`Business framework: ${item}`);
+    });
+
+    toCleanStringList(payload.practicalLessons, 12, 320).forEach((item) => {
+        rules.push(`Practical lesson: ${item}`);
+    });
+
+    toCleanStringList(payload.academyUse, 12, 360).forEach((item) => {
+        rules.push(`Academy AI Coach use: ${item}`);
+    });
+
+    const leadershipStyle = sanitize(payload.leadershipStyle).replace(/\s+/g, ' ').trim();
+    const communicationStyle = sanitize(payload.communicationStyle).replace(/\s+/g, ' ').trim();
+    const decisionMakingStyle = sanitize(payload.decisionMakingStyle).replace(/\s+/g, ' ').trim();
+
+    if (leadershipStyle) {
+        rules.push(`Leadership style lens: ${leadershipStyle.slice(0, 360)}`);
+    }
+
+    if (communicationStyle) {
+        rules.push(`Communication style lens: ${communicationStyle.slice(0, 360)}`);
+    }
+
+    if (decisionMakingStyle) {
+        rules.push(`Decision-making style lens: ${decisionMakingStyle.slice(0, 360)}`);
+    }
+
+    return toCleanStringList(rules, 36, 420);
+}
+
+async function createMentorKnowledgePack(payload = {}) {
+    const mentorKey = normalizeMentorKnowledgeKey(payload.mentorKey || payload.mentorName);
+    const mentorName = sanitize(payload.mentorName || mentorKey.replace(/_/g, ' ')).replace(/\s+/g, ' ').trim();
+
+    if (!mentorKey || !mentorName) {
+        throw new Error('Mentor key and mentor name are required.');
+    }
+
+    const rules = buildMentorKnowledgeRules(payload);
+    if (!rules.length) {
+        throw new Error('At least one mentor knowledge rule is required.');
+    }
+
+    const sourceTitle = sanitize(payload.sourceTitle || `${mentorName} Mentor Knowledge Pack`);
+    const sourceUrl = sanitize(payload.sourceUrl);
+    const sourceId = `mentor_${mentorKey}_${Date.now()}`;
+
+    const category = sanitize(payload.category || mentorName.toLowerCase());
+    const doNotUseWhen = toCleanStringList(payload.doNot || payload.doNotUseWhen, 18, 300);
+
+    const retrievalTags = dedupeAiNurtureTags([
+        mentorKey,
+        mentorKey.replace(/_/g, ' '),
+        mentorName,
+        'mentor',
+        'learn from',
+        'academy ai coach',
+        ...(Array.isArray(payload.tags) ? payload.tags : []),
+        category
+    ]);
+
+    const summaryParts = [
+        ...toCleanStringList(payload.coreIdeas, 4, 220),
+        ...toCleanStringList(payload.businessFrameworks, 3, 220),
+        ...toCleanStringList(payload.practicalLessons, 3, 220)
+    ];
+
+    const libraryEntry = await createLibraryEntry({
+        sourceId,
+        title: sourceTitle,
+        category,
+        subCategory: mentorKey,
+        knowledgeType: 'mentor_pack',
+        summary: summaryParts.join(' ').slice(0, 900) || `${mentorName} mentor knowledge pack for Academy AI Coach.`,
+        usableRules: rules,
+        doNotUseWhen,
+        sourceUrl,
+        sourceTitle,
+        confidence: 0.9,
+        retrievalTags,
+        status: payload.approveNow === false ? 'draft' : 'active',
+        staleVerdict: 'fresh',
+        freshnessScore: 0.86,
+        ageDays: 0,
+        excludedFromPlanner: payload.approveNow === false
+    });
+
+    const cards = await createMemoryCards(sourceId, rules, {
+        knowledgeId: libraryEntry.id,
+        title: sourceTitle,
+        category,
+        priority: 8
+    });
+
+    const contextPacks = payload.approveNow === false
+        ? []
+        : await rebuildContextPacks();
+
+    return {
+        libraryEntry,
+        cards,
+        contextPacks
+    };
+}
+
 async function rejectSource(sourceId, reason = '') {
     return updateSource(sourceId, {
         status: 'rejected',
@@ -892,6 +1046,7 @@ module.exports = {
     getUserOverlay,
     upsertUserOverlay,
     approveSource,
+    createMentorKnowledgePack,
     rejectSource,
     listLibrary,
     buildActiveKnowledgeContext,

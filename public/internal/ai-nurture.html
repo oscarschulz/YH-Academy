@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Nurture Console</title>
+    <link rel="stylesheet" href="/internal/ai-nurture.css?v=20260521-mentor-pack-v1">
     <style>
         body { margin: 0; font-family: Poppins, Arial, sans-serif; background: #020617; color: #e2e8f0; padding: 24px; }
         .shell { max-width: 1400px; margin: 0 auto; display: grid; gap: 16px; }
@@ -114,6 +115,60 @@
                 <h2>System Response</h2>
                 <pre id="output">{}</pre>
             </div>
+        </div>
+
+        <div class="card mentor-pack-card">
+            <div class="mentor-pack-head">
+                <div>
+                    <h2>Mentor Knowledge Pack Manager</h2>
+                    <div class="muted">Paste structured NotebookLM output here and save it as approved Learn-from knowledge for the Academy AI Coach.</div>
+                </div>
+                <span class="chip info">Learn-from source</span>
+            </div>
+
+            <div class="split-2">
+                <select id="mentor-pack-mentor">
+                    <option value="alex_hormozi">Alex Hormozi</option>
+                    <option value="elon_musk">Elon Musk</option>
+                    <option value="mark_zuckerberg">Mark Zuckerberg</option>
+                    <option value="steve_jobs">Steve Jobs</option>
+                    <option value="naval_ravikant">Naval Ravikant</option>
+                    <option value="sam_altman">Sam Altman</option>
+                    <option value="warren_buffett">Warren Buffett</option>
+                </select>
+
+                <input id="mentor-pack-source-title" type="text" placeholder="Source title / NotebookLM pack title">
+            </div>
+
+            <input id="mentor-pack-source-url" type="url" placeholder="Source URL, YouTube playlist, article, or NotebookLM reference">
+
+            <div class="mentor-pack-grid">
+                <textarea id="mentor-pack-core-ideas" rows="5" placeholder="Core Ideas, one per line"></textarea>
+                <textarea id="mentor-pack-frameworks" rows="5" placeholder="Business Frameworks, one per line"></textarea>
+                <textarea id="mentor-pack-practical-lessons" rows="5" placeholder="Practical Lessons, one per line"></textarea>
+                <textarea id="mentor-pack-academy-use" rows="5" placeholder="How Academy AI Coach Should Use This, one per line"></textarea>
+            </div>
+
+            <div class="mentor-pack-grid">
+                <textarea id="mentor-pack-leadership-style" rows="4" placeholder="Leadership Style"></textarea>
+                <textarea id="mentor-pack-communication-style" rows="4" placeholder="Communication Style"></textarea>
+                <textarea id="mentor-pack-decision-style" rows="4" placeholder="Decision-Making Style"></textarea>
+                <textarea id="mentor-pack-do-not" rows="4" placeholder="Do Not, one per line"></textarea>
+            </div>
+
+            <textarea id="mentor-pack-tags" rows="3" placeholder="Tags, comma or line separated"></textarea>
+
+            <label class="toggle-row">
+                <input id="mentor-pack-approve-now" type="checkbox" checked>
+                <span>Approve immediately and rebuild context packs</span>
+            </label>
+
+            <div class="actions">
+                <button id="btn-save-mentor-pack" type="button">Save Mentor Pack</button>
+                <button id="btn-clear-mentor-pack" type="button" class="secondary">Clear Form</button>
+            </div>
+
+            <div id="mentor-pack-status" class="muted">No mentor pack saved yet.</div>
         </div>
 
         <div class="triple">
@@ -995,5 +1050,6 @@
             loadLibrary()
         ]);
     </script>
+    <script src="/internal/ai-nurture.js?v=20260521-mentor-pack-v1"></script>
 </body>
 </html>

@@ -340,6 +340,46 @@ exports.updateUserOverlay = async (req, res) => {
         return sendError(res, error, 'Failed to update user overlay.', badRequest ? 400 : 500);
     }
 };
+function toStringList(values = []) {
+    if (Array.isArray(values)) {
+        return values.map((item) => sanitize(item)).filter(Boolean);
+    }
+
+    return String(values || '')
+        .split(/\n|,/)
+        .map((item) => sanitize(item))
+        .filter(Boolean);
+}
+
+exports.createMentorKnowledgePack = async (req, res) => {
+    try {
+        const result = await aiNurtureRepo.createMentorKnowledgePack({
+            mentorKey: req.body?.mentorKey,
+            mentorName: req.body?.mentorName,
+            sourceTitle: req.body?.sourceTitle,
+            sourceUrl: req.body?.sourceUrl,
+            coreIdeas: toStringList(req.body?.coreIdeas),
+            businessFrameworks: toStringList(req.body?.businessFrameworks),
+            practicalLessons: toStringList(req.body?.practicalLessons),
+            academyUse: toStringList(req.body?.academyUse),
+            leadershipStyle: req.body?.leadershipStyle,
+            communicationStyle: req.body?.communicationStyle,
+            decisionMakingStyle: req.body?.decisionMakingStyle,
+            doNot: toStringList(req.body?.doNot),
+            tags: toStringList(req.body?.tags),
+            approveNow: req.body?.approveNow !== false
+        });
+
+        return res.status(201).json({
+            success: true,
+            ...result
+        });
+    } catch (error) {
+        const badRequest = /required/i.test(error?.message || '');
+        return sendError(res, error, 'Failed to create mentor knowledge pack.', badRequest ? 400 : 500);
+    }
+};
+
 exports.listLibrary = async (req, res) => {
     try {
         const items = await aiNurtureRepo.listLibrary(Number.parseInt(req.query.limit, 10) || 100);
