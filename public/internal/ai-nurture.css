@@ -787,6 +787,42 @@
     margin-top: 0;
 }
 
+.batch-history-toolbar {
+    display: grid;
+    grid-template-columns: minmax(260px, 1fr) minmax(180px, 220px) auto;
+    gap: 10px;
+    margin-top: 12px;
+    align-items: center;
+}
+
+.batch-history-toolbar input,
+.batch-history-toolbar select,
+.batch-history-toolbar button {
+    margin-top: 0;
+}
+
+.batch-history-toolbar select {
+    width: 100%;
+    box-sizing: border-box;
+    border-radius: 10px;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    padding: 12px;
+    background: #0f172a;
+    color: #e2e8f0;
+    outline: none;
+}
+
+.batch-history-toolbar input:focus,
+.batch-history-toolbar select:focus {
+    border-color: rgba(250, 204, 21, 0.62);
+    box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.11);
+}
+
+.batch-history-result-count {
+    margin-top: 10px;
+    font-size: 0.86rem;
+}
+
 .batch-history-list {
     display: grid;
     gap: 12px;
@@ -881,6 +917,14 @@
 }
 
 @media (max-width: 1100px) {
+    .batch-history-toolbar {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .batch-history-toolbar button {
+        grid-column: 1 / -1;
+    }
+
     .batch-history-stats {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
@@ -894,6 +938,10 @@
 
     .batch-history-head button {
         width: 100%;
+    }
+
+    .batch-history-toolbar {
+        grid-template-columns: 1fr;
     }
 
     .batch-history-stats {

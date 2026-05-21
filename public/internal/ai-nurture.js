@@ -149,6 +149,10 @@
         v2Status: 'v2-processing-status',
         batchHistoryList: 'batch-history-list',
         batchHistoryRefresh: 'btn-refresh-batch-history',
+        batchHistorySearch: 'batch-history-search',
+        batchHistoryFilter: 'batch-history-filter',
+        batchHistoryClear: 'btn-clear-batch-history-filters',
+        batchHistoryResultCount: 'batch-history-result-count',
         batchDetailsBackdrop: 'batch-details-backdrop',
         batchDetailsDrawer: 'batch-details-drawer',
         batchDetailsTitle: 'batch-details-title',
@@ -167,6 +171,8 @@
     let discoveredSourceLinks = [];
     let batchHistoryCache = [];
     let activeBatchDetailsId = '';
+    let batchHistorySearchTerm = '';
+    let batchHistoryFilterValue = 'all';
 
     function byId(id) {
         return document.getElementById(id);
@@ -839,6 +845,128 @@
         }
     }
 
+    function buildBatchHistorySearchText(batch = {}) {
+        const progress = batch.progress || {};
+        const sourceDetails = Array.isArray(batch.sourceDetails) ? batch.sourceDetails : [];
+        const failedDetails = Array.isArray(batch.failedDetails) ? batch.failedDetails : [];
+
+        return [
+            batch.id,
+            batch.title,
+            batch.titlePrefix,
+            batch.mentorName,
+            batch.mentorKey,
+            batch.status,
+            batch.createdAt,
+            batch.updatedAt,
+            progress.requestedCount,
+            progress.createdSourceCount,
+            progress.jobCount,
+            progress.processedCount,
+            progress.approvedCount,
+            progress.failedCount,
+            ...sourceDetails.flatMap((source) => [
+                source.title,
+                source.originalUrl,
+                source.canonicalUrl,
+                source.hostname,
+                source.status,
+                source.jobStatus,
+                source.lastError,
+                source.rejectionReason
+            ]),
+            ...failedDetails.flatMap((failure) => [
+                failure.url,
+                failure.message
+            ])
+        ]
+            .filter((item) => item !== null && item !== undefined)
+            .join(' ')
+            .toLowerCase();
+    }
+
+    function batchMatchesHistoryFilter(batch = {}) {
+        const progress = batch.progress || {};
+        const status = String(batch.status || '').trim().toLowerCase();
+        const filter = batchHistoryFilterValue || 'all';
+        const requestedCount = Number(progress.requestedCount ?? batch.requestedCount ?? 0);
+        const createdSourceCount = Number(progress.createdSourceCount ?? progress.sourceCount ?? batch.createdCount ?? 0);
+        const processedCount = Number(progress.processedCount || 0);
+        const approvedCount = Number(progress.approvedCount || 0);
+        const failedCount = Number(progress.failedCount || 0);
+        const queuedJobCount = Number(progress.queuedJobCount || 0);
+        const queuedSourceCount = Number(progress.queuedSourceCount || 0);
+        const completionPercent = Number(progress.completionPercent || 0);
+
+        if (filter === 'all') return true;
+
+        if (filter === 'queued') {
+            return status === 'queued' || queuedJobCount > 0 || queuedSourceCount > 0;
+        }
+
+        if (filter === 'processing') {
+            return ['processing', 'running'].includes(status)
+                || (processedCount > 0 && completionPercent > 0 && completionPercent < 100);
+        }
+
+        if (filter === 'partial') {
+            return status === 'partial' || (failedCount > 0 && (processedCount > 0 || approvedCount > 0));
+        }
+
+        if (filter === 'failed') {
+            return status === 'failed' || failedCount > 0;
+        }
+
+        if (filter === 'completed') {
+            const completionBase = requestedCount || createdSourceCount || 0;
+            return completionPercent >= 100 || (completionBase > 0 && processedCount >= completionBase);
+        }
+
+        if (filter === 'approved') {
+            const approvalBase = createdSourceCount || requestedCount || 0;
+            return status === 'approved' || (approvalBase > 0 && approvedCount >= approvalBase);
+        }
+
+        return true;
+    }
+
+    function getFilteredBatchHistory() {
+        const searchTerm = String(batchHistorySearchTerm || '').trim().toLowerCase();
+
+        return batchHistoryCache.filter((batch) => {
+            if (!batchMatchesHistoryFilter(batch)) return false;
+            if (!searchTerm) return true;
+
+            return buildBatchHistorySearchText(batch).includes(searchTerm);
+        });
+    }
+
+    function updateBatchHistoryResultCount(visibleCount = 0, totalCount = 0) {
+        const countEl = byId(ids.batchHistoryResultCount);
+        if (!countEl) return;
+
+        const filterLabel = batchHistoryFilterValue === 'all'
+            ? 'all statuses'
+            : batchHistoryFilterValue;
+
+        countEl.textContent = totalCount
+            ? `Showing ${visibleCount} of ${totalCount} batch(es) · Filter: ${filterLabel}${batchHistorySearchTerm ? ` · Search: "${batchHistorySearchTerm}"` : ''}`
+            : 'No batches loaded yet.';
+    }
+
+    function clearBatchHistoryFilters() {
+        const searchInput = byId(ids.batchHistorySearch);
+        const filterSelect = byId(ids.batchHistoryFilter);
+
+        batchHistorySearchTerm = '';
+        batchHistoryFilterValue = 'all';
+
+        if (searchInput) searchInput.value = '';
+        if (filterSelect) filterSelect.value = 'all';
+
+        renderBatchHistory(batchHistoryCache);
+    }
+
     function renderBatchHistory(batches = []) {
         const listEl = byId(ids.batchHistoryList);
         if (!listEl) return;
@@ -846,13 +974,23 @@
         batchHistoryCache = Array.isArray(batches) ? batches : [];
 
         if (!batchHistoryCache.length) {
+            updateBatchHistoryResultCount(0, 0);
             listEl.classList.add('muted');
             listEl.innerHTML = '<div class="empty-box">No source batches found yet. Create a batch from the Intake tab first.</div>';
             return;
         }
 
+        const visibleBatches = getFilteredBatchHistory();
+        updateBatchHistoryResultCount(visibleBatches.length, batchHistoryCache.length);
+
+        if (!visibleBatches.length) {
+            listEl.classList.add('muted');
+            listEl.innerHTML = '<div class="empty-box">No batches match the current search or filter.</div>';
+            return;
+        }
+
         listEl.classList.remove('muted');
-        listEl.innerHTML = batchHistoryCache.map((batch) => {
+        listEl.innerHTML = visibleBatches.map((batch) => {
             const progress = batch.progress || {};
             const title = batch.title || batch.titlePrefix || 'AI Nurture Batch';
             const mentorName = batch.mentorName || batch.mentorKey || 'General';
@@ -1473,6 +1611,9 @@
         const v2ApproveReadyButton = byId(ids.v2ApproveReady);
         const v2RefreshBoardButton = byId(ids.v2RefreshBoard);
         const batchHistoryRefreshButton = byId(ids.batchHistoryRefresh);
+        const batchHistorySearchInput = byId(ids.batchHistorySearch);
+        const batchHistoryFilterSelect = byId(ids.batchHistoryFilter);
+        const batchHistoryClearButton = byId(ids.batchHistoryClear);
         const batchHistoryList = byId(ids.batchHistoryList);
         const batchDetailsCloseButton = byId(ids.batchDetailsClose);
         const batchDetailsBackdrop = byId(ids.batchDetailsBackdrop);
@@ -1512,6 +1653,15 @@
         v2ApproveReadyButton?.addEventListener('click', approveReadySourcesBatch);
         v2RefreshBoardButton?.addEventListener('click', refreshNurtureBoard);
         batchHistoryRefreshButton?.addEventListener('click', loadBatchHistory);
+        batchHistorySearchInput?.addEventListener('input', () => {
+            batchHistorySearchTerm = valueOf(ids.batchHistorySearch).toLowerCase();
+            renderBatchHistory(batchHistoryCache);
+        });
+        batchHistoryFilterSelect?.addEventListener('change', () => {
+            batchHistoryFilterValue = valueOf(ids.batchHistoryFilter) || 'all';
+            renderBatchHistory(batchHistoryCache);
+        });
+        batchHistoryClearButton?.addEventListener('click', clearBatchHistoryFilters);
         batchHistoryList?.addEventListener('click', handleBatchHistoryClick);
         batchDetailsCloseButton?.addEventListener('click', closeBatchDetailsDrawer);
         batchDetailsBackdrop?.addEventListener('click', closeBatchDetailsDrawer);

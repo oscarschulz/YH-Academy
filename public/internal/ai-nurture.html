@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Nurture Console</title>
-<link rel="stylesheet" href="/internal/ai-nurture.css?v=20260521-batch-actions-v3d">
+<link rel="stylesheet" href="/internal/ai-nurture.css?v=20260521-batch-filters-v3e">
     <style>
         body { margin: 0; font-family: Poppins, Arial, sans-serif; background: #020617; color: #e2e8f0; padding: 24px; }
         .shell { max-width: 1400px; margin: 0 auto; display: grid; gap: 16px; }
@@ -284,6 +284,21 @@
                 </div>
                 <button id="btn-refresh-batch-history" type="button" class="secondary">Refresh History</button>
             </div>
+
+            <div class="batch-history-toolbar">
+                <input id="batch-history-search" type="search" placeholder="Search batch title, mentor, URL, status, or error">
+                <select id="batch-history-filter">
+                    <option value="all">All statuses</option>
+                    <option value="queued">Queued</option>
+                    <option value="processing">Processing</option>
+                    <option value="partial">Partial</option>
+                    <option value="failed">Failed</option>
+                    <option value="completed">Completed</option>
+                    <option value="approved">Approved</option>
+                </select>
+                <button id="btn-clear-batch-history-filters" type="button" class="secondary">Clear Filters</button>
+            </div>
+            <div id="batch-history-result-count" class="batch-history-result-count muted">Showing latest batches.</div>
 
             <div id="batch-history-list" class="batch-history-list muted">Loading batch history…</div>
         </div>
@@ -1358,6 +1373,6 @@
             loadLibrary()
         ]);
     </script>
-<script src="/internal/ai-nurture.js?v=20260521-batch-actions-v3d"></script>
+<script src="/internal/ai-nurture.js?v=20260521-batch-filters-v3e"></script>
 </body>
 </html>
