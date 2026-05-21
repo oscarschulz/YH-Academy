@@ -849,6 +849,12 @@
             const percent = Math.max(0, Math.min(100, Number(progress.completionPercent || 0)));
             const sourceStatuses = progress.sourceStatusCounts || {};
             const jobStatuses = progress.jobStatusCounts || {};
+            const requestedCount = progress.requestedCount ?? batch.requestedCount ?? 0;
+            const createdSourceCount = progress.createdSourceCount ?? progress.sourceCount ?? batch.createdCount ?? 0;
+            const queuedJobCount = progress.queuedJobCount ?? jobStatuses.queued ?? 0;
+            const processedCount = progress.processedCount ?? 0;
+            const approvedCount = progress.approvedCount ?? sourceStatuses.approved ?? 0;
+            const failedCount = progress.failedCount ?? 0;
             const createdAt = batch.createdAt || '';
             const updatedAt = batch.updatedAt || '';
 
@@ -862,7 +868,7 @@
                             </div>
                             <div class="chip-wrap">
                                 <span class="chip info">${escapeHtml(batch.mentorKey || 'general')}</span>
-                                <span class="chip ${percent >= 80 ? 'ok' : percent >= 30 ? 'warn' : 'info'}">${percent}% handled</span>
+                                <span class="chip ${percent >= 80 ? 'ok' : percent >= 30 ? 'warn' : 'info'}">${percent}% processed</span>
                                 <span class="chip">Priority ${escapeHtml(batch.queuePriority || 3)}</span>
                             </div>
                         </div>
@@ -877,18 +883,19 @@
                     </div>
 
                     <div class="batch-history-stats">
-                        <div class="batch-history-stat"><span>Requested</span><strong>${escapeHtml(progress.requestedCount ?? batch.requestedCount ?? 0)}</strong></div>
-                        <div class="batch-history-stat"><span>Sources</span><strong>${escapeHtml(progress.sourceCount ?? batch.createdCount ?? 0)}</strong></div>
-                        <div class="batch-history-stat"><span>Jobs</span><strong>${escapeHtml(progress.jobCount ?? batch.jobCount ?? 0)}</strong></div>
-                        <div class="batch-history-stat"><span>Queued</span><strong>${escapeHtml(progress.queuedCount ?? sourceStatuses.queued ?? 0)}</strong></div>
-                        <div class="batch-history-stat"><span>Processed</span><strong>${escapeHtml(progress.processedCount ?? 0)}</strong></div>
-                        <div class="batch-history-stat"><span>Approved</span><strong>${escapeHtml(progress.approvedCount ?? sourceStatuses.approved ?? 0)}</strong></div>
+                        <div class="batch-history-stat"><span>Requested</span><strong>${escapeHtml(requestedCount)}</strong></div>
+                        <div class="batch-history-stat"><span>Created Sources</span><strong>${escapeHtml(createdSourceCount)}</strong></div>
+                        <div class="batch-history-stat"><span>Queued Jobs</span><strong>${escapeHtml(queuedJobCount)}</strong></div>
+                        <div class="batch-history-stat"><span>Processed</span><strong>${escapeHtml(processedCount)}</strong></div>
+                        <div class="batch-history-stat"><span>Approved</span><strong>${escapeHtml(approvedCount)}</strong></div>
+                        <div class="batch-history-stat"><span>Failed</span><strong>${escapeHtml(failedCount)}</strong></div>
                     </div>
 
                     <div class="chip-wrap">
-                        <span class="chip warn">Job queued: ${escapeHtml(jobStatuses.queued || 0)}</span>
-                        <span class="chip ok">Job completed: ${escapeHtml(jobStatuses.completed || 0)}</span>
-                        <span class="chip danger">Failed: ${escapeHtml((progress.failedCount || 0) + (jobStatuses.failed || 0))}</span>
+                        <span class="chip info">Total jobs: ${escapeHtml(progress.jobCount ?? batch.jobCount ?? 0)}</span>
+                        <span class="chip ok">Completed jobs: ${escapeHtml(progress.completedJobCount ?? jobStatuses.completed ?? 0)}</span>
+                        <span class="chip warn">Queued sources: ${escapeHtml(progress.queuedSourceCount ?? sourceStatuses.queued ?? 0)}</span>
+                        <span class="chip danger">Rejected: ${escapeHtml(progress.rejectedCount ?? sourceStatuses.rejected ?? 0)}</span>
                     </div>
                 </div>
             `;
@@ -934,11 +941,24 @@
         const batch = batchHistoryCache.find((item) => item.id === batchId);
 
         if (action === 'view') {
+            const progress = batch?.progress || {};
             setOutput({
                 success: true,
                 message: 'Batch details loaded.',
-                batch
+                batch,
+                requestedCount: progress.requestedCount ?? batch?.requestedCount ?? 0,
+                createdCount: progress.createdSourceCount ?? progress.sourceCount ?? batch?.createdCount ?? 0,
+                jobCount: progress.jobCount ?? batch?.jobCount ?? 0,
+                queuedJobCount: progress.queuedJobCount ?? 0,
+                runCount: progress.processedCount ?? 0,
+                approvedCount: progress.approvedCount ?? 0,
+                failedCount: progress.failedCount ?? 0
             });
+
+            const output = byId(ids.output);
+            const rawToggle = byId(ids.rawToggle);
+            if (output) output.hidden = false;
+            if (rawToggle) rawToggle.textContent = 'Hide full response';
         }
     }
 

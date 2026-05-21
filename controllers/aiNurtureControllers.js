@@ -924,6 +924,14 @@ exports.listBatchProgress = async (req, res) => {
             const sourceStatusCounts = countByStatus(sources);
             const jobStatusCounts = countByStatus(jobs);
 
+            const requestedCount = Number(batch.requestedCount || sourceIds.length || sources.length || 0);
+            const createdSourceCount = Number(batch.createdCount || sourceIds.length || sources.length || 0);
+            const jobCount = jobs.length;
+            const queuedJobCount = jobs.filter((job) => sanitize(job?.status).toLowerCase() === 'queued').length;
+            const completedJobCount = jobs.filter((job) => sanitize(job?.status).toLowerCase() === 'completed').length;
+            const failedJobCount = jobs.filter((job) => sanitize(job?.status).toLowerCase() === 'failed').length;
+            const importFailedCount = Number(batch.failedCount || (Array.isArray(batch.failed) ? batch.failed.length : 0) || 0);
+
             const approvedCount = sources.filter((source) => {
                 const status = sanitize(source?.status).toLowerCase();
                 return status === 'approved' || librarySourceIds.has(source.id);
@@ -934,28 +942,34 @@ exports.listBatchProgress = async (req, res) => {
                 return ['fetched', 'reviewed', 'approved', 'rejected', 'failed'].includes(status);
             }).length;
 
-            const failedCount = sources.filter((source) => sanitize(source?.status).toLowerCase() === 'failed').length;
+            const failedSourceCount = sources.filter((source) => sanitize(source?.status).toLowerCase() === 'failed').length;
             const rejectedCount = sources.filter((source) => sanitize(source?.status).toLowerCase() === 'rejected').length;
-            const queuedCount = sources.filter((source) => sanitize(source?.status).toLowerCase() === 'queued').length;
-
-            const requestedCount = Number(batch.requestedCount || sourceIds.length || sources.length || 0);
-            const completionBase = Math.max(1, requestedCount);
+            const queuedSourceCount = sources.filter((source) => sanitize(source?.status).toLowerCase() === 'queued').length;
+            const failedCount = importFailedCount + failedSourceCount + failedJobCount;
+            const handledCount = Math.min(requestedCount || createdSourceCount || 0, processedCount + importFailedCount + failedJobCount);
+            const completionBase = Math.max(1, requestedCount || createdSourceCount || sources.length || jobCount || 1);
             const completionPercent = Math.min(
                 100,
-                Math.round(((approvedCount + failedCount + rejectedCount) / completionBase) * 100)
+                Math.round((handledCount / completionBase) * 100)
             );
 
             enriched.push({
                 ...batch,
                 progress: {
                     requestedCount,
+                    createdSourceCount,
                     sourceCount: sources.length,
-                    jobCount: jobs.length,
+                    jobCount,
+                    queuedJobCount,
+                    completedJobCount,
+                    failedJobCount,
+                    importFailedCount,
                     approvedCount,
                     processedCount,
+                    failedSourceCount,
                     failedCount,
                     rejectedCount,
-                    queuedCount,
+                    queuedSourceCount,
                     completionPercent,
                     sourceStatusCounts,
                     jobStatusCounts
