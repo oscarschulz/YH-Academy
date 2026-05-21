@@ -24512,6 +24512,65 @@ body.academy-right-bot-docked .yh-right-sidebar [class*="bot"]:not(.academy-righ
     cursor: pointer;
 }
 
+.academy-ai-coach-rect-learn-wrap {
+    flex: 0 0 auto;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+.academy-ai-coach-rect-learn-wrap label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.academy-ai-coach-rect-learn-wrap select {
+    appearance: none;
+    -webkit-appearance: none;
+    border-radius: 999px;
+    border: 1px solid rgba(168, 85, 247, 0.36);
+    background:
+        linear-gradient(135deg, rgba(14, 165, 233, 0.12), rgba(139, 92, 246, 0.14)),
+        rgba(2, 6, 23, 0.62);
+    color: #f8fafc;
+    padding: 8px 30px 8px 11px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    cursor: pointer;
+    outline: none;
+    min-height: 34px;
+    max-width: 190px;
+}
+
+.academy-ai-coach-rect-learn-wrap::after {
+    content: '⌄';
+    position: absolute;
+    right: 11px;
+    top: 50%;
+    transform: translateY(-53%);
+    pointer-events: none;
+    color: rgba(191, 219, 254, 0.9);
+    font-size: 0.88rem;
+    font-weight: 900;
+}
+
+.academy-ai-coach-rect-learn-wrap select:focus {
+    border-color: rgba(125, 211, 252, 0.68);
+    box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.10);
+}
+
+.academy-ai-coach-rect-learn-wrap select option {
+    background: #07111f;
+    color: #f8fafc;
+}
+
 .academy-ai-coach-rect-history {
     flex: 1 1 auto;
     min-height: 0;

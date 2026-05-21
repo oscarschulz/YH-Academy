@@ -4,6 +4,7 @@ const bcrypt = require('bcrypt');
 const academyFirestoreRepo = require('./backend/repositories/academyFirestoreRepo');
 const academyCommunityRepo = require('./backend/repositories/academyCommunityFirestoreRepo');
 const academyPlannerKnowledgeContext = require('./backend/services/academyPlannerKnowledgeContext');
+const aiNurtureRepo = require('./backend/repositories/aiNurtureFirestoreRepo');
 const publicLandingEventsRepo = require('./backend/repositories/publicLandingEventsRepo');
 const universeCollectionMirrorRepo = require('./backend/repositories/universeCollectionMirrorRepo');
 const { firestore } = require('./config/firebaseAdmin');
@@ -6094,6 +6095,186 @@ function trimCoachText(value, max = 220) {
     return sanitize(value || '').replace(/\s+/g, ' ').trim().slice(0, max);
 }
 
+const ACADEMY_COACH_LEARN_FROM_MAP = Object.freeze({
+    elon_musk: {
+        key: 'elon_musk',
+        name: 'Elon Musk',
+        categoryHints: ['elon musk', 'business', 'technology', 'innovation', 'execution'],
+        tagHints: ['elon_musk', 'elon musk', 'musk', 'first principles', 'spacex', 'tesla', 'product speed'],
+        guidance: 'Translate approved Elon Musk knowledge into first-principles thinking, bottleneck removal, speed, engineering-style problem solving, and decisive execution.'
+    },
+    mark_zuckerberg: {
+        key: 'mark_zuckerberg',
+        name: 'Mark Zuckerberg',
+        categoryHints: ['mark zuckerberg', 'product', 'community', 'platform', 'technology'],
+        tagHints: ['mark_zuckerberg', 'mark zuckerberg', 'zuckerberg', 'facebook', 'meta', 'product iteration', 'social network'],
+        guidance: 'Translate approved Mark Zuckerberg knowledge into product iteration, distribution, community loops, retention, platform thinking, and long-term compounding.'
+    },
+    alex_hormozi: {
+        key: 'alex_hormozi',
+        name: 'Alex Hormozi',
+        categoryHints: ['alex hormozi', 'business', 'sales', 'marketing', 'offer'],
+        tagHints: ['alex_hormozi', 'alex hormozi', 'hormozi', 'offer', 'lead generation', 'value equation', 'sales'],
+        guidance: 'Translate approved Alex Hormozi knowledge into offer clarity, lead generation, proof, value, sales action, and volume-based execution.'
+    },
+    steve_jobs: {
+        key: 'steve_jobs',
+        name: 'Steve Jobs',
+        categoryHints: ['steve jobs', 'product', 'design', 'brand', 'focus'],
+        tagHints: ['steve_jobs', 'steve jobs', 'jobs', 'apple', 'simplicity', 'design', 'product taste'],
+        guidance: 'Translate approved Steve Jobs knowledge into focus, product taste, simplicity, storytelling, brand clarity, and high standards.'
+    },
+    naval_ravikant: {
+        key: 'naval_ravikant',
+        name: 'Naval Ravikant',
+        categoryHints: ['naval ravikant', 'wealth', 'leverage', 'judgment', 'mindset'],
+        tagHints: ['naval_ravikant', 'naval ravikant', 'naval', 'specific knowledge', 'leverage', 'judgment', 'wealth'],
+        guidance: 'Translate approved Naval Ravikant knowledge into leverage, specific knowledge, clear judgment, calm execution, and long-term wealth thinking.'
+    },
+    sam_altman: {
+        key: 'sam_altman',
+        name: 'Sam Altman',
+        categoryHints: ['sam altman', 'startup', 'ai', 'scale', 'strategy'],
+        tagHints: ['sam_altman', 'sam altman', 'openai', 'startup', 'scale', 'ai strategy', 'ambition'],
+        guidance: 'Translate approved Sam Altman knowledge into startup ambition, speed, high-agency execution, AI leverage, and scale-oriented strategy.'
+    },
+    warren_buffett: {
+        key: 'warren_buffett',
+        name: 'Warren Buffett',
+        categoryHints: ['warren buffett', 'investing', 'business', 'judgment', 'wealth'],
+        tagHints: ['warren_buffett', 'warren buffett', 'buffett', 'investing', 'moat', 'capital allocation', 'patience'],
+        guidance: 'Translate approved Warren Buffett knowledge into patience, judgment, business quality, risk control, and long-term compounding.'
+    }
+});
+
+function normalizeAcademyCoachLearnFrom(value = '') {
+    const clean = sanitize(value)
+        .toLowerCase()
+        .replace(/[\u2019']/g, '')
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '');
+
+    const aliases = {
+        elon: 'elon_musk',
+        musk: 'elon_musk',
+        mark: 'mark_zuckerberg',
+        zuckerberg: 'mark_zuckerberg',
+        alex: 'alex_hormozi',
+        hormozi: 'alex_hormozi',
+        steve: 'steve_jobs',
+        jobs: 'steve_jobs',
+        naval: 'naval_ravikant',
+        ravikant: 'naval_ravikant',
+        sam: 'sam_altman',
+        altman: 'sam_altman',
+        warren: 'warren_buffett',
+        buffett: 'warren_buffett'
+    };
+
+    return ACADEMY_COACH_LEARN_FROM_MAP[clean]
+        ? clean
+        : (ACADEMY_COACH_LEARN_FROM_MAP[aliases[clean]] ? aliases[clean] : '');
+}
+
+function getAcademyCoachLearnFromMeta(value = '') {
+    const key = normalizeAcademyCoachLearnFrom(value);
+    return key ? ACADEMY_COACH_LEARN_FROM_MAP[key] : null;
+}
+
+function compactAcademyCoachKnowledgeList(values = [], maxItems = 6, maxChars = 240) {
+    return (Array.isArray(values) ? values : [])
+        .map((item) => trimCoachText(item, maxChars))
+        .filter(Boolean)
+        .slice(0, maxItems);
+}
+
+async function buildAcademyCoachLearnFromContext(value = '', uid = '') {
+    const meta = getAcademyCoachLearnFromMeta(value);
+
+    if (!meta) {
+        return {
+            requested: false,
+            key: '',
+            name: '',
+            active: false,
+            usedApprovedKnowledge: false,
+            rules: [],
+            examples: [],
+            redFlags: [],
+            priorityThemes: [],
+            guidance: ''
+        };
+    }
+
+    try {
+        const context = await aiNurtureRepo.buildActiveKnowledgeContext({
+            userId: sanitize(uid),
+            categoryHints: meta.categoryHints,
+            tagHints: meta.tagHints
+        });
+
+        const rules = compactAcademyCoachKnowledgeList(context?.rules, 8, 260);
+        const examples = compactAcademyCoachKnowledgeList(context?.examples, 4, 320);
+        const redFlags = compactAcademyCoachKnowledgeList(context?.redFlags, 5, 240);
+        const priorityThemes = compactAcademyCoachKnowledgeList(context?.priorityThemes, 6, 80);
+        const usedApprovedKnowledge = rules.length > 0 || examples.length > 0 || redFlags.length > 0;
+
+        return {
+            requested: true,
+            key: meta.key,
+            name: meta.name,
+            active: usedApprovedKnowledge,
+            usedApprovedKnowledge,
+            source: usedApprovedKnowledge ? 'ai_nurture_approved_context' : 'no_approved_context_found',
+            guidance: meta.guidance,
+            rules,
+            examples,
+            redFlags,
+            priorityThemes,
+            telemetry: context?.telemetry || {}
+        };
+    } catch (error) {
+        console.error('buildAcademyCoachLearnFromContext error:', error);
+
+        return {
+            requested: true,
+            key: meta.key,
+            name: meta.name,
+            active: false,
+            usedApprovedKnowledge: false,
+            source: 'ai_nurture_context_error',
+            guidance: meta.guidance,
+            rules: [],
+            examples: [],
+            redFlags: [],
+            priorityThemes: [],
+            error: trimCoachText(error?.message || 'Failed to load AI Nurture context.', 180)
+        };
+    }
+}
+
+function buildAcademyCoachLearnFromSystemInstruction(context = {}) {
+    if (!context?.requested) return '';
+
+    if (!context.usedApprovedKnowledge) {
+        return [
+            `The user selected Learn from: ${context.name}.`,
+            'No approved AI Nurture knowledge pack was found for this figure yet.',
+            'Do not invent private details, fake quotes, or unsupported lessons from that person.',
+            'Tell the user briefly that this figure pack still needs approved source knowledge, then continue with the default Academy roadmap coach.'
+        ].join(' ');
+    }
+
+    return [
+        `The user selected Learn from: ${context.name}.`,
+        context.guidance,
+        'Use the selected figure only as a learning lens, not as an identity.',
+        'Do not impersonate the person, do not write as the person, and do not invent direct quotes.',
+        'Use only the approved AI Nurture rules, examples, red flags, and themes included in the user payload.',
+        'Translate the approved knowledge into a practical Academy mission, reset action, weekly move, or next step.'
+    ].join(' ');
+}
+
 function buildAcademyCoachCompactPayload(payload = {}) {
     const history = (Array.isArray(payload.previousMessages) ? payload.previousMessages : [])
         .slice(-6)
@@ -6178,6 +6359,21 @@ function buildAcademyCoachCompactPayload(payload = {}) {
             : {},
         plannerRun: payload?.plannerRun && typeof payload.plannerRun === 'object'
             ? payload.plannerRun
+            : {},
+        learnFromContext: payload?.learnFromContext && typeof payload.learnFromContext === 'object'
+            ? {
+                requested: payload.learnFromContext.requested === true,
+                key: sanitize(payload.learnFromContext.key || ''),
+                name: trimCoachText(payload.learnFromContext.name || '', 120),
+                active: payload.learnFromContext.active === true,
+                usedApprovedKnowledge: payload.learnFromContext.usedApprovedKnowledge === true,
+                source: sanitize(payload.learnFromContext.source || ''),
+                guidance: trimCoachText(payload.learnFromContext.guidance || '', 320),
+                priorityThemes: compactAcademyCoachKnowledgeList(payload.learnFromContext.priorityThemes, 6, 80),
+                rules: compactAcademyCoachKnowledgeList(payload.learnFromContext.rules, 8, 260),
+                examples: compactAcademyCoachKnowledgeList(payload.learnFromContext.examples, 4, 320),
+                redFlags: compactAcademyCoachKnowledgeList(payload.learnFromContext.redFlags, 5, 240)
+            }
             : {},
         conversationHistory: history
     };
@@ -6341,6 +6537,7 @@ function detectAcademyCoachReplyFormat(payload = {}, reply = '') {
 function buildAcademyCoachMessages(payload = {}) {
     const compactPayload = buildAcademyCoachCompactPayload(payload);
     const coachMode = getAcademyCoachModeMeta(payload);
+    const learnFromInstruction = buildAcademyCoachLearnFromSystemInstruction(payload.learnFromContext || {});
 
     return [
         {
@@ -6355,6 +6552,7 @@ function buildAcademyCoachMessages(payload = {}) {
                 'Stay grounded in the active roadmap, recent missions, recent check-ins, behavior signals, planner stats, and adaptive planning context.',
                 coachMode.systemGuidance,
                 coachMode.replyStructureInstruction,
+                learnFromInstruction,
                 'Be practical, direct, tactical, and execution-focused.',
                 'Prioritize what the user should do today or this week.',
                 'If the user is stuck, simplify the next action without becoming vague.',
@@ -6420,6 +6618,18 @@ function buildLocalAcademyCoachFallback(payload = {}, error = null) {
     const stressRedirect = payload?.stressRedirect && typeof payload.stressRedirect === 'object'
         ? payload.stressRedirect
         : buildRoadmapStressRedirect(payload?.message || '');
+
+    const learnFromContext = payload?.learnFromContext && typeof payload.learnFromContext === 'object'
+        ? payload.learnFromContext
+        : {};
+
+    if (learnFromContext.requested && learnFromContext.name) {
+        if (learnFromContext.usedApprovedKnowledge) {
+            replyLines.push(`Learn-from lens: ${learnFromContext.name}. I’ll apply the approved knowledge pack without impersonating them.`);
+        } else {
+            replyLines.push(`Learn-from lens: ${learnFromContext.name} is selected, but no approved AI Nurture knowledge pack is available for that figure yet.`);
+        }
+    }
 
     if (stressRedirect.detected) {
         replyLines.push(`Reset action: ${stressRedirect.resetAction}`);
@@ -6991,6 +7201,7 @@ exports.chatWithAcademyCoach = async (req, res) => {
         const conversationId = sanitize(req.body?.conversationId || 'coach_main') || 'coach_main';
         const message = sanitize(req.body?.message || '');
         const contextHint = sanitize(req.body?.contextHint || '');
+        const learnFromKey = normalizeAcademyCoachLearnFrom(req.body?.learnFrom || req.body?.learnFromKey || '');
 
         if (!message) {
             return res.status(400).json({
@@ -7054,6 +7265,8 @@ exports.chatWithAcademyCoach = async (req, res) => {
 
         const recentCheckins = await academyFirestoreRepo.listRecentCheckins(uid, homePayload.roadmap.id, 4);
 
+        const learnFromContext = await buildAcademyCoachLearnFromContext(learnFromKey, uid);
+
         await academyFirestoreRepo.createCoachMessage(uid, {
             conversationId,
             role: 'user',
@@ -7066,6 +7279,7 @@ exports.chatWithAcademyCoach = async (req, res) => {
             contextHint,
             emotionalState: detectRoadmapEmotionalState(message),
             stressRedirect: buildRoadmapStressRedirect(message),
+            learnFromContext,
             previousMessages: history,
             profile: profileDoc && typeof profileDoc === 'object'
                 ? {
@@ -7124,7 +7338,13 @@ exports.chatWithAcademyCoach = async (req, res) => {
             usedCheckins: Array.isArray(recentCheckins) && recentCheckins.length > 0,
             usedFallback: aiResult.fallback === true,
             coachModeKey: coachMode.key || 'general',
-            replyFormat
+            replyFormat,
+            learnFromKey: learnFromContext.key || '',
+            learnFromName: learnFromContext.name || '',
+            usedLearnFrom: learnFromContext.requested === true,
+            usedAiNurtureLearnFrom: learnFromContext.usedApprovedKnowledge === true,
+            learnFromRuleCount: Array.isArray(learnFromContext.rules) ? learnFromContext.rules.length : 0,
+            learnFromExampleCount: Array.isArray(learnFromContext.examples) ? learnFromContext.examples.length : 0
         };
 
         await academyFirestoreRepo.createCoachMessage(uid, {
@@ -7136,6 +7356,7 @@ exports.chatWithAcademyCoach = async (req, res) => {
             model: aiResult.model,
             replyFormat,
             coachModeKey: coachMode.key || 'general',
+            learnFromKey: learnFromContext.key || '',
             responseStyleVersion: 'coach-format-v1',
             grounding
         });
@@ -7149,6 +7370,12 @@ exports.chatWithAcademyCoach = async (req, res) => {
             replyFormat,
             coachModeKey: coachMode.key || 'general',
             responseStyleVersion: 'coach-format-v1',
+            learnFrom: {
+                requested: learnFromContext.requested === true,
+                key: learnFromContext.key || '',
+                name: learnFromContext.name || '',
+                usedApprovedKnowledge: learnFromContext.usedApprovedKnowledge === true
+            },
             grounding,
             fallback: aiResult.fallback === true
         });

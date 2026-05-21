@@ -29734,7 +29734,19 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
     const INPUT_ID = 'academy-ai-coach-rect-input';
     const SEND_ID = 'academy-ai-coach-rect-send';
     const CLOSE_ID = 'academy-ai-coach-rect-close';
+    const LEARN_FROM_ID = 'academy-ai-coach-rect-learn-from';
+    const LEARN_FROM_STORAGE_KEY = 'yh_academy_ai_coach_learn_from_v1';
     const CONVERSATION_ID = 'coach_main';
+    const LEARN_FROM_OPTIONS = [
+        { key: '', label: 'Learn from', shortLabel: 'Default Academy Coach' },
+        { key: 'elon_musk', label: 'Elon Musk', shortLabel: 'Elon Musk' },
+        { key: 'mark_zuckerberg', label: 'Mark Zuckerberg', shortLabel: 'Mark Zuckerberg' },
+        { key: 'alex_hormozi', label: 'Alex Hormozi', shortLabel: 'Alex Hormozi' },
+        { key: 'steve_jobs', label: 'Steve Jobs', shortLabel: 'Steve Jobs' },
+        { key: 'naval_ravikant', label: 'Naval Ravikant', shortLabel: 'Naval Ravikant' },
+        { key: 'sam_altman', label: 'Sam Altman', shortLabel: 'Sam Altman' },
+        { key: 'warren_buffett', label: 'Warren Buffett', shortLabel: 'Warren Buffett' }
+    ];
 
     function escapeHtml(value) {
         if (typeof academyFeedEscapeHtml === 'function') {
@@ -29827,6 +29839,64 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
         }
     }
 
+    function normalizeLearnFromKey(value = '') {
+        const clean = String(value || '')
+            .trim()
+            .toLowerCase()
+            .replace(/[\u2019']/g, '')
+            .replace(/[^a-z0-9]+/g, '_')
+            .replace(/^_+|_+$/g, '');
+
+        return LEARN_FROM_OPTIONS.some((item) => item.key === clean) ? clean : '';
+    }
+
+    function getStoredLearnFromKey() {
+        try {
+            return normalizeLearnFromKey(localStorage.getItem(LEARN_FROM_STORAGE_KEY) || '');
+        } catch (_) {
+            return '';
+        }
+    }
+
+    function setStoredLearnFromKey(value = '') {
+        const key = normalizeLearnFromKey(value);
+
+        try {
+            if (key) {
+                localStorage.setItem(LEARN_FROM_STORAGE_KEY, key);
+            } else {
+                localStorage.removeItem(LEARN_FROM_STORAGE_KEY);
+            }
+        } catch (_) {}
+
+        return key;
+    }
+
+    function getLearnFromMeta(value = '') {
+        const key = normalizeLearnFromKey(value || getStoredLearnFromKey());
+        return LEARN_FROM_OPTIONS.find((item) => item.key === key) || LEARN_FROM_OPTIONS[0];
+    }
+
+    function buildLearnFromOptionsHtml() {
+        const selectedKey = getStoredLearnFromKey();
+
+        return LEARN_FROM_OPTIONS.map((item) => {
+            const selected = item.key === selectedKey ? ' selected' : '';
+            return `<option value="${escapeHtml(item.key)}"${selected}>${escapeHtml(item.label)}</option>`;
+        }).join('');
+    }
+
+    function syncLearnFromSelect() {
+        const select = document.getElementById(LEARN_FROM_ID);
+        if (!select) return;
+
+        const meta = getLearnFromMeta();
+        select.value = meta.key || '';
+        select.title = meta.key
+            ? `Academy AI Coach will use the approved ${meta.shortLabel} knowledge lens.`
+            : 'Academy AI Coach will use the default roadmap coach mode.';
+    }
+
     function createModal() {
         let modal = document.getElementById(MODAL_ID);
         if (modal) return modal;
@@ -29855,6 +29925,12 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
                     <button type="button" data-ai-coach-prompt="What should I focus on today?">Today’s focus</button>
                     <button type="button" data-ai-coach-prompt="Simplify my next mission.">Simplify mission</button>
                     <button type="button" data-ai-coach-prompt="Help me recover after missed tasks.">Recover</button>
+                    <div class="academy-ai-coach-rect-learn-wrap">
+                        <label for="${LEARN_FROM_ID}">Learn from</label>
+                        <select id="${LEARN_FROM_ID}" aria-label="Learn from approved big figure knowledge">
+                            ${buildLearnFromOptionsHtml()}
+                        </select>
+                    </div>
                 </div>
 
                 <div class="academy-ai-coach-rect-history hide-scrollbar" id="${HISTORY_ID}">
@@ -29873,6 +29949,7 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
 
         document.body.appendChild(modal);
         bindModalEvents(modal);
+        syncLearnFromSelect();
 
         return modal;
     }
@@ -29996,12 +30073,14 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
                 history.scrollTop = history.scrollHeight;
             }
 
+            const learnFromMeta = getLearnFromMeta();
             const result = await coachFetch('/api/academy/assistant/chat', {
                 method: 'POST',
                 body: JSON.stringify({
                     conversationId: CONVERSATION_ID,
                     message: cleanText,
-                    contextHint: 'academy_modal'
+                    contextHint: learnFromMeta.key ? `academy_modal_learn_from_${learnFromMeta.key}` : 'academy_modal',
+                    learnFrom: learnFromMeta.key
                 })
             });
 
@@ -30095,6 +30174,23 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
             event.preventDefault();
             const input = document.getElementById(INPUT_ID);
             await sendCoachMessage(input?.value || '');
+        });
+
+        modal.querySelector('#' + LEARN_FROM_ID)?.addEventListener('change', (event) => {
+            const selectedKey = setStoredLearnFromKey(event.currentTarget?.value || '');
+            syncLearnFromSelect();
+
+            try {
+                if (typeof showToast === 'function') {
+                    const meta = getLearnFromMeta(selectedKey);
+                    showToast(
+                        selectedKey
+                            ? `AI Coach will learn from ${meta.shortLabel}.`
+                            : 'AI Coach returned to default Academy mode.',
+                        'success'
+                    );
+                }
+            } catch (_) {}
         });
 
         modal.querySelector('#' + INPUT_ID)?.addEventListener('keydown', async (event) => {
