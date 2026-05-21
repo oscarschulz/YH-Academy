@@ -100,6 +100,8 @@
         }
     };
 
+    let mentorPackCache = [];
+
     const ids = {
         mentor: 'mentor-pack-mentor',
         sourceTitle: 'mentor-pack-source-title',
@@ -117,6 +119,8 @@
         save: 'btn-save-mentor-pack',
         clear: 'btn-clear-mentor-pack',
         status: 'mentor-pack-status',
+        mentorList: 'mentor-pack-list',
+        refreshMentors: 'btn-refresh-mentor-packs',
         output: 'output'
     };
 
@@ -130,6 +134,15 @@
 
     function checked(id) {
         return byId(id)?.checked === true;
+    }
+
+    function escapeHtml(value = '') {
+        return String(value || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
     }
 
     function splitInputList(value = '') {
@@ -186,6 +199,140 @@
         }
 
         return result;
+    }
+
+    function isMentorPack(item = {}) {
+        return String(item.knowledgeType || '').trim().toLowerCase() === 'mentor_pack';
+    }
+
+    function renderMentorPacks(items = []) {
+        const listEl = byId(ids.mentorList);
+        if (!listEl) return;
+
+        mentorPackCache = Array.isArray(items) ? items.filter(isMentorPack) : [];
+
+        if (!mentorPackCache.length) {
+            listEl.classList.add('muted');
+            listEl.innerHTML = '<div class="empty-box">No mentor packs found yet.</div>';
+            return;
+        }
+
+        listEl.classList.remove('muted');
+        listEl.innerHTML = mentorPackCache.map((item) => {
+            const tags = Array.isArray(item.retrievalTags) ? item.retrievalTags.slice(0, 8) : [];
+            const rules = Array.isArray(item.usableRules) ? item.usableRules : [];
+            const title = item.title || 'Untitled mentor pack';
+            const summary = item.summary || rules.slice(0, 2).join(' ');
+
+            return `
+                <div class="mentor-pack-item" data-mentor-pack-id="${escapeHtml(item.id)}">
+                    <div class="mentor-pack-item-head">
+                        <div>
+                            <div class="mentor-pack-item-title">${escapeHtml(title)}</div>
+                            <div class="mentor-pack-item-meta">
+                                <span class="chip info">${escapeHtml(item.category || 'mentor')}</span>
+                                <span class="chip">${escapeHtml(item.subCategory || 'learn-from')}</span>
+                                <span class="chip ok">${rules.length} rules</span>
+                                <span class="chip">${escapeHtml(item.status || 'active')}</span>
+                            </div>
+                        </div>
+
+                        <div class="mentor-pack-item-actions">
+                            <button type="button" class="secondary" data-mentor-action="view" data-mentor-pack-id="${escapeHtml(item.id)}">View</button>
+                            <button type="button" class="danger" data-mentor-action="delete" data-mentor-pack-id="${escapeHtml(item.id)}">Delete</button>
+                        </div>
+                    </div>
+
+                    <div class="mentor-pack-item-summary">${escapeHtml(summary).slice(0, 420)}</div>
+
+                    ${tags.length ? `
+                        <div class="chip-wrap">
+                            ${tags.map((tag) => `<span class="chip">${escapeHtml(tag)}</span>`).join('')}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }).join('');
+    }
+
+    async function loadMentorPacks() {
+        const listEl = byId(ids.mentorList);
+
+        try {
+            if (listEl) {
+                listEl.classList.add('muted');
+                listEl.textContent = 'Loading mentor packs…';
+            }
+
+            const result = await request('/library?limit=200', {
+                method: 'GET'
+            });
+
+            renderMentorPacks(result.items || []);
+        } catch (error) {
+            if (listEl) {
+                listEl.classList.add('muted');
+                listEl.innerHTML = `<div class="empty-box">Failed to load mentor packs: ${escapeHtml(error.message || 'Unknown error')}</div>`;
+            }
+        }
+    }
+
+    async function deleteMentorPack(libraryId = '') {
+        const cleanId = String(libraryId || '').trim();
+        const item = mentorPackCache.find((entry) => entry.id === cleanId);
+
+        if (!cleanId || !item) {
+            setStatus('Mentor pack not found in current list.', 'error');
+            return;
+        }
+
+        const title = item.title || 'this mentor pack';
+        const confirmed = window.confirm(`Delete "${title}" from AI Nurture? This removes its memory cards and rebuilds context packs.`);
+
+        if (!confirmed) return;
+
+        try {
+            setStatus(`Deleting ${title}…`, '');
+
+            const result = await request(`/mentor-packs/${encodeURIComponent(cleanId)}`, {
+                method: 'DELETE'
+            });
+
+            setStatus(
+                `Deleted ${title}. Removed ${result.deletedCardCount || 0} cards. Context packs rebuilt: ${(result.contextPacks || []).length}.`,
+                'success'
+            );
+
+            await loadMentorPacks();
+
+            try {
+                if (typeof loadLibrary === 'function') await loadLibrary();
+                if (typeof loadPacks === 'function') await loadPacks();
+            } catch (_) {}
+        } catch (error) {
+            setStatus(error.message || 'Failed to delete mentor pack.', 'error');
+        }
+    }
+
+    function handleMentorPackListClick(event) {
+        const button = event.target?.closest?.('[data-mentor-action]');
+        if (!button) return;
+
+        const action = button.getAttribute('data-mentor-action');
+        const libraryId = button.getAttribute('data-mentor-pack-id');
+        const item = mentorPackCache.find((entry) => entry.id === libraryId);
+
+        if (action === 'view') {
+            setOutput({
+                success: true,
+                mentorPack: item || null
+            });
+            return;
+        }
+
+        if (action === 'delete') {
+            deleteMentorPack(libraryId);
+        }
     }
 
     function syncMentorPreset() {
@@ -306,6 +453,7 @@
             try {
                 if (typeof loadLibrary === 'function') await loadLibrary();
                 if (typeof loadPacks === 'function') await loadPacks();
+                await loadMentorPacks();
             } catch (_) {}
         } catch (error) {
             setStatus(error.message || 'Failed to save mentor knowledge pack.', 'error');
@@ -325,6 +473,8 @@
         const mentorSelect = byId(ids.mentor);
         const saveButton = byId(ids.save);
         const clearButton = byId(ids.clear);
+        const refreshButton = byId(ids.refreshMentors);
+        const mentorList = byId(ids.mentorList);
 
         if (!mentorSelect || !saveButton) return;
 
@@ -341,8 +491,11 @@
         saveButton.addEventListener('click', saveMentorPack);
 
         clearButton?.addEventListener('click', clearMentorForm);
+        refreshButton?.addEventListener('click', loadMentorPacks);
+        mentorList?.addEventListener('click', handleMentorPackListClick);
 
         syncMentorPreset();
+        loadMentorPacks();
     }
 
     if (document.readyState === 'loading') {

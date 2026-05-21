@@ -210,6 +210,7 @@ router.post('/internal/ai-nurture/:gate/sources/:id/reject', aiNurtureGate, aiNu
 router.post('/internal/ai-nurture/:gate/sources/:id/notes', aiNurtureGate, aiNurtureControllers.addReviewNote);
 
 router.post('/internal/ai-nurture/:gate/mentor-packs', aiNurtureGate, aiNurtureControllers.createMentorKnowledgePack);
+router.delete('/internal/ai-nurture/:gate/mentor-packs/:id', aiNurtureGate, aiNurtureControllers.deleteMentorKnowledgePack);
 
 router.get('/internal/ai-nurture/:gate/library', aiNurtureGate, aiNurtureControllers.listLibrary);
 router.post('/internal/ai-nurture/:gate/context-preview', aiNurtureGate, aiNurtureControllers.previewContext);

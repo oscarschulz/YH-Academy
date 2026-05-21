@@ -834,6 +834,67 @@ async function createMentorKnowledgePack(payload = {}) {
     };
 }
 
+async function deleteMentorKnowledgePack(libraryId = '') {
+    const cleanLibraryId = sanitize(libraryId);
+
+    if (!cleanLibraryId) {
+        throw new Error('Mentor pack ID is required.');
+    }
+
+    const libraryRef = libraryCol().doc(cleanLibraryId);
+    const librarySnap = await libraryRef.get();
+
+    if (!librarySnap.exists) {
+        throw new Error('Mentor pack not found.');
+    }
+
+    const libraryEntry = mapDoc(librarySnap);
+
+    if (sanitize(libraryEntry.knowledgeType).toLowerCase() !== 'mentor_pack') {
+        throw new Error('Only mentor knowledge packs can be deleted from this endpoint.');
+    }
+
+    const sourceId = sanitize(libraryEntry.sourceId);
+    const refsToDelete = new Map();
+
+    const byKnowledgeSnap = await memoryCardsCol()
+        .where('knowledgeId', '==', cleanLibraryId)
+        .limit(300)
+        .get();
+
+    byKnowledgeSnap.docs.forEach((doc) => {
+        refsToDelete.set(doc.ref.path, doc.ref);
+    });
+
+    if (sourceId) {
+        const bySourceSnap = await memoryCardsCol()
+            .where('sourceId', '==', sourceId)
+            .limit(300)
+            .get();
+
+        bySourceSnap.docs.forEach((doc) => {
+            refsToDelete.set(doc.ref.path, doc.ref);
+        });
+    }
+
+    const batch = firestore.batch();
+    refsToDelete.forEach((ref) => {
+        batch.delete(ref);
+    });
+    batch.delete(libraryRef);
+
+    await batch.commit();
+
+    const contextPacks = await rebuildContextPacks();
+
+    return {
+        deletedLibraryId: cleanLibraryId,
+        deletedSourceId: sourceId,
+        deletedCardCount: refsToDelete.size,
+        contextPacks
+    };
+}
+
 async function rejectSource(sourceId, reason = '') {
     return updateSource(sourceId, {
         status: 'rejected',
@@ -1047,6 +1108,7 @@ module.exports = {
     upsertUserOverlay,
     approveSource,
     createMentorKnowledgePack,
+    deleteMentorKnowledgePack,
     rejectSource,
     listLibrary,
     buildActiveKnowledgeContext,

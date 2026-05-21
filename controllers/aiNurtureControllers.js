@@ -380,6 +380,27 @@ exports.createMentorKnowledgePack = async (req, res) => {
     }
 };
 
+exports.deleteMentorKnowledgePack = async (req, res) => {
+    try {
+        const result = await aiNurtureRepo.deleteMentorKnowledgePack(req.params?.id);
+
+        return res.json({
+            success: true,
+            ...result
+        });
+    } catch (error) {
+        const notFound = /not found/i.test(error?.message || '');
+        const badRequest = /required|only mentor/i.test(error?.message || '');
+
+        return sendError(
+            res,
+            error,
+            'Failed to delete mentor knowledge pack.',
+            notFound ? 404 : badRequest ? 400 : 500
+        );
+    }
+};
+
 exports.listLibrary = async (req, res) => {
     try {
         const items = await aiNurtureRepo.listLibrary(Number.parseInt(req.query.limit, 10) || 100);
