@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Nurture Console</title>
-<link rel="stylesheet" href="/internal/ai-nurture.css?v=20260521-formal-response-v1">
+<link rel="stylesheet" href="/internal/ai-nurture.css?v=20260521-source-discovery-v3">
     <style>
         body { margin: 0; font-family: Poppins, Arial, sans-serif; background: #020617; color: #e2e8f0; padding: 24px; }
         .shell { max-width: 1400px; margin: 0 auto; display: grid; gap: 16px; }
@@ -147,6 +147,47 @@
 
                 <pre id="output" class="raw-response-panel" hidden>{}</pre>
             </div>
+        </div>
+
+        <div class="card source-discovery-card nurture-tab-panel is-active" data-nurture-panel="intake">
+            <div class="source-discovery-head">
+                <div>
+                    <h2>Source Discovery</h2>
+                    <div class="muted">Paste a YouTube playlist, channel page, article page, or raw text. The system will extract links and let you import selected URLs into Batch Link Feeder.</div>
+                </div>
+                <span class="chip info">V3 discovery</span>
+            </div>
+
+            <div class="split-2">
+                <select id="discovery-mentor">
+                    <option value="alex_hormozi">Alex Hormozi</option>
+                    <option value="elon_musk">Elon Musk</option>
+                    <option value="mark_zuckerberg">Mark Zuckerberg</option>
+                    <option value="steve_jobs">Steve Jobs</option>
+                    <option value="naval_ravikant">Naval Ravikant</option>
+                    <option value="sam_altman">Sam Altman</option>
+                    <option value="warren_buffett">Warren Buffett</option>
+                </select>
+
+                <select id="discovery-limit">
+                    <option value="25">Find up to 25 links</option>
+                    <option value="50" selected>Find up to 50 links</option>
+                    <option value="100">Find up to 100 links</option>
+                </select>
+            </div>
+
+            <input id="discovery-target-url" type="url" placeholder="Paste YouTube playlist/channel/page URL or article page">
+
+            <textarea id="discovery-raw-text" rows="5" placeholder="Optional: paste raw copied page text, YouTube links, notes, or HTML here. The extractor will scan it for URLs."></textarea>
+
+            <div class="actions">
+                <button id="btn-discover-source-links" type="button">Discover Links</button>
+                <button id="btn-import-discovered-links" type="button" class="secondary">Import Selected to Batch Feed</button>
+                <button id="btn-clear-discovery" type="button" class="secondary">Clear Discovery</button>
+            </div>
+
+            <div id="discovery-status" class="muted">No discovery scan yet.</div>
+            <div id="discovery-results" class="discovery-results muted">Discovered links will appear here.</div>
         </div>
 
         <div class="card batch-feed-card nurture-tab-panel is-active" data-nurture-panel="intake">
@@ -1273,6 +1314,6 @@
             loadLibrary()
         ]);
     </script>
-<script src="/internal/ai-nurture.js?v=20260521-formal-response-v1"></script>
+<script src="/internal/ai-nurture.js?v=20260521-source-discovery-v3"></script>
 </body>
 </html>

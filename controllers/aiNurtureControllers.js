@@ -210,6 +210,221 @@ exports.createBatchSources = async (req, res) => {
     }
 };
 
+function hostnameFromUrl(value = '') {
+    try {
+        return new URL(value).hostname || '';
+    } catch (_) {
+        return '';
+    }
+}
+
+function sourceKindFromUrl(value = '') {
+    const url = String(value || '').toLowerCase();
+
+    if (url.includes('youtube.com/watch') || url.includes('youtu.be/')) return 'youtube-video';
+    if (url.includes('youtube.com/shorts/')) return 'youtube-short';
+    if (url.includes('youtube.com/playlist')) return 'youtube-playlist';
+    if (url.includes('youtube.com/@') || url.includes('youtube.com/channel/')) return 'youtube-channel';
+
+    return 'web-page';
+}
+
+function normalizeDiscoveredUrl(value = '', baseUrl = '') {
+    const raw = sanitize(value)
+        .replace(/&amp;/g, '&')
+        .replace(/[)\].,;]+$/g, '')
+        .trim();
+
+    if (!raw) return '';
+
+    try {
+        const parsed = baseUrl
+            ? new URL(raw, baseUrl)
+            : new URL(raw);
+
+        if (!['http:', 'https:'].includes(parsed.protocol)) return '';
+
+        parsed.hash = '';
+
+        const youtubeVideoId = parsed.hostname.includes('youtube.com')
+            ? parsed.searchParams.get('v')
+            : '';
+
+        if (youtubeVideoId && /^[a-zA-Z0-9_-]{11}$/.test(youtubeVideoId)) {
+            return `https://www.youtube.com/watch?v=${youtubeVideoId}`;
+        }
+
+        if (parsed.hostname.includes('youtu.be')) {
+            const id = parsed.pathname.split('/').filter(Boolean)[0] || '';
+            if (/^[a-zA-Z0-9_-]{11}$/.test(id)) {
+                return `https://www.youtube.com/watch?v=${id}`;
+            }
+        }
+
+        const shortsMatch = parsed.pathname.match(/\/shorts\/([a-zA-Z0-9_-]{11})/);
+        if (shortsMatch?.[1]) {
+            return `https://www.youtube.com/shorts/${shortsMatch[1]}`;
+        }
+
+        return parsed.toString();
+    } catch (_) {
+        return '';
+    }
+}
+
+function shouldKeepDiscoveredUrl(value = '') {
+    const url = String(value || '').toLowerCase();
+
+    if (!url.startsWith('http')) return false;
+
+    const blockedExtensions = [
+        '.png',
+        '.jpg',
+        '.jpeg',
+        '.gif',
+        '.webp',
+        '.svg',
+        '.ico',
+        '.css',
+        '.js',
+        '.woff',
+        '.woff2',
+        '.ttf',
+        '.mp4',
+        '.mp3'
+    ];
+
+    if (blockedExtensions.some((extension) => url.split('?')[0].endsWith(extension))) {
+        return false;
+    }
+
+    if (url.includes('accounts.google.com')) return false;
+    if (url.includes('google.com/sorry')) return false;
+    if (url.includes('youtube.com/redirect')) return false;
+    if (url.includes('youtube.com/results?search_query=')) return false;
+
+    return true;
+}
+
+function extractLinksFromText(value = '', baseUrl = '', maxLinks = 50) {
+    const text = String(value || '');
+    const discovered = [];
+    const seen = new Set();
+
+    function pushUrl(candidate = '') {
+        const normalized = normalizeDiscoveredUrl(candidate, baseUrl);
+
+        if (!normalized || !shouldKeepDiscoveredUrl(normalized)) return;
+        if (seen.has(normalized)) return;
+
+        seen.add(normalized);
+        discovered.push({
+            url: normalized,
+            hostname: hostnameFromUrl(normalized),
+            sourceKind: sourceKindFromUrl(normalized)
+        });
+    }
+
+    const youtubeWatchIds = [...text.matchAll(/watch\?v=([a-zA-Z0-9_-]{11})/g)]
+        .map((match) => match[1]);
+
+    youtubeWatchIds.forEach((id) => pushUrl(`https://www.youtube.com/watch?v=${id}`));
+
+    const youtubeShortIds = [...text.matchAll(/\/shorts\/([a-zA-Z0-9_-]{11})/g)]
+        .map((match) => match[1]);
+
+    youtubeShortIds.forEach((id) => pushUrl(`https://www.youtube.com/shorts/${id}`));
+
+    const hrefMatches = [...text.matchAll(/href=["']([^"']+)["']/gi)]
+        .map((match) => match[1]);
+
+    hrefMatches.forEach(pushUrl);
+
+    const rawUrlMatches = text.match(/https?:\/\/[^\s"'<>]+/gi) || [];
+    rawUrlMatches.forEach(pushUrl);
+
+    return discovered.slice(0, Math.max(1, Math.min(100, Number.parseInt(maxLinks, 10) || 50)));
+}
+
+async function fetchDiscoveryPage(targetUrl = '') {
+    const cleanUrl = normalizeDiscoveredUrl(targetUrl);
+
+    if (!cleanUrl) {
+        throw new Error('A valid discovery URL is required.');
+    }
+
+    if (typeof fetch !== 'function') {
+        throw new Error('Server fetch is not available in this Node runtime.');
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
+
+    try {
+        const response = await fetch(cleanUrl, {
+            method: 'GET',
+            redirect: 'follow',
+            signal: controller.signal,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 AI-Nurture-Link-Discovery/1.0',
+                'Accept': 'text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.5'
+            }
+        });
+
+        const body = await response.text();
+
+        return {
+            finalUrl: response.url || cleanUrl,
+            ok: response.ok,
+            status: response.status,
+            body
+        };
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
+exports.discoverSourceLinks = async (req, res) => {
+    try {
+        const targetUrl = sanitize(req.body?.targetUrl || req.body?.url);
+        const rawText = sanitize(req.body?.rawText || req.body?.text);
+        const maxLinks = Math.max(1, Math.min(100, Number.parseInt(req.body?.maxLinks, 10) || 50));
+
+        if (!targetUrl && !rawText) {
+            return res.status(400).json({
+                success: false,
+                message: 'Paste a discovery URL or raw text before scanning.'
+            });
+        }
+
+        let fetched = null;
+        let combinedText = rawText;
+        let baseUrl = targetUrl;
+
+        if (targetUrl) {
+            fetched = await fetchDiscoveryPage(targetUrl);
+            combinedText = `${combinedText}\n${fetched.body || ''}`;
+            baseUrl = fetched.finalUrl || targetUrl;
+        }
+
+        const links = extractLinksFromText(combinedText, baseUrl, maxLinks);
+
+        return res.json({
+            success: true,
+            message: links.length
+                ? `Discovered ${links.length} source link(s).`
+                : 'No usable links were discovered from that source.',
+            targetUrl,
+            finalUrl: fetched?.finalUrl || '',
+            fetchStatus: fetched ? fetched.status : null,
+            discoveredCount: links.length,
+            links
+        });
+    } catch (error) {
+        return sendError(res, error, 'Failed to discover source links.', 500);
+    }
+};
+
 exports.listSources = async (req, res) => {
     try {
         const sources = await aiNurtureRepo.listSources(Number.parseInt(req.query.limit, 10) || 50);

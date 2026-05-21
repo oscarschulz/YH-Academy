@@ -122,6 +122,15 @@
         status: 'mentor-pack-status',
         mentorList: 'mentor-pack-list',
         refreshMentors: 'btn-refresh-mentor-packs',
+        discoveryMentor: 'discovery-mentor',
+        discoveryLimit: 'discovery-limit',
+        discoveryTargetUrl: 'discovery-target-url',
+        discoveryRawText: 'discovery-raw-text',
+        discoveryRun: 'btn-discover-source-links',
+        discoveryImport: 'btn-import-discovered-links',
+        discoveryClear: 'btn-clear-discovery',
+        discoveryStatus: 'discovery-status',
+        discoveryResults: 'discovery-results',
         batchMentor: 'batch-feed-mentor',
         batchTitlePrefix: 'batch-feed-title-prefix',
         batchUrls: 'batch-feed-urls',
@@ -143,6 +152,8 @@
         rawToggle: 'btn-toggle-raw-response',
         output: 'output'
     };
+
+    let discoveredSourceLinks = [];
 
     function byId(id) {
         return document.getElementById(id);
@@ -211,6 +222,23 @@
         }
 
         statusEl.textContent = message || 'No batch submitted yet.';
+    }
+
+    function setDiscoveryStatus(message = '', tone = '') {
+        const statusEl = byId(ids.discoveryStatus);
+        if (!statusEl) return;
+
+        statusEl.classList.remove('is-success', 'is-error');
+
+        if (tone === 'success') {
+            statusEl.classList.add('is-success');
+        }
+
+        if (tone === 'error') {
+            statusEl.classList.add('is-error');
+        }
+
+        statusEl.textContent = message || 'No discovery scan yet.';
     }
 
     function setV2Status(message = '', tone = '') {
@@ -513,6 +541,162 @@
         if (titlePrefixInput && !String(titlePrefixInput.value || '').trim()) {
             titlePrefixInput.value = `${preset.name} Batch`;
         }
+    }
+
+    function syncDiscoveryPresetToBatch() {
+        const discoveryMentor = valueOf(ids.discoveryMentor);
+        const batchMentor = byId(ids.batchMentor);
+
+        if (batchMentor && discoveryMentor) {
+            batchMentor.value = discoveryMentor;
+        }
+
+        const tagsInput = byId(ids.batchTags);
+        const hintsInput = byId(ids.batchTopicHints);
+        const titlePrefixInput = byId(ids.batchTitlePrefix);
+        const preset = mentorPresets[discoveryMentor];
+
+        if (tagsInput) tagsInput.value = '';
+        if (hintsInput) hintsInput.value = '';
+        if (titlePrefixInput) titlePrefixInput.value = '';
+
+        if (preset) {
+            syncBatchPreset();
+        }
+    }
+
+    function renderDiscoveryResults(links = []) {
+        const listEl = byId(ids.discoveryResults);
+        if (!listEl) return;
+
+        discoveredSourceLinks = Array.isArray(links) ? links : [];
+
+        if (!discoveredSourceLinks.length) {
+            listEl.classList.add('muted');
+            listEl.innerHTML = '<div class="empty-box">No links discovered yet.</div>';
+            return;
+        }
+
+        listEl.classList.remove('muted');
+        listEl.innerHTML = discoveredSourceLinks.map((item, index) => {
+            const url = item.url || '';
+            const hostname = item.hostname || '';
+            const sourceKind = item.sourceKind || 'url';
+
+            return `
+                <label class="discovery-link-item">
+                    <input type="checkbox" data-discovery-index="${index}" checked>
+                    <div>
+                        <div class="discovery-link-title">${escapeHtml(item.title || hostname || `Discovered Link ${index + 1}`)}</div>
+                        <div class="discovery-link-url">${escapeHtml(url)}</div>
+                        <div class="discovery-link-meta">
+                            <span class="chip info">${escapeHtml(sourceKind)}</span>
+                            ${hostname ? `<span class="chip">${escapeHtml(hostname)}</span>` : ''}
+                        </div>
+                    </div>
+                </label>
+            `;
+        }).join('');
+    }
+
+    async function discoverSourceLinks() {
+        const button = byId(ids.discoveryRun);
+        const targetUrl = valueOf(ids.discoveryTargetUrl);
+        const rawText = valueOf(ids.discoveryRawText);
+        const maxLinks = Number.parseInt(valueOf(ids.discoveryLimit), 10) || 50;
+
+        if (!targetUrl && !rawText) {
+            setDiscoveryStatus('Paste a page URL or raw text before running discovery.', 'error');
+            return;
+        }
+
+        try {
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'Discovering...';
+            }
+
+            setDiscoveryStatus('Scanning source for links...', '');
+
+            const result = await request('/sources/discover', {
+                method: 'POST',
+                body: JSON.stringify({
+                    targetUrl,
+                    rawText,
+                    maxLinks
+                })
+            });
+
+            renderDiscoveryResults(result.links || []);
+
+            setDiscoveryStatus(
+                `Discovery complete. Found ${result.discoveredCount || 0} link(s). Select the useful ones and import them into Batch Feed.`,
+                result.discoveredCount ? 'success' : 'error'
+            );
+        } catch (error) {
+            renderDiscoveryResults([]);
+            setDiscoveryStatus(error.message || 'Failed to discover links.', 'error');
+            setOutput({
+                success: false,
+                message: error.message || 'Failed to discover links.'
+            });
+        } finally {
+            if (button) {
+                button.disabled = false;
+                button.textContent = 'Discover Links';
+            }
+        }
+    }
+
+    function importDiscoveredLinksToBatch() {
+        const resultEl = byId(ids.discoveryResults);
+        const batchUrlsEl = byId(ids.batchUrls);
+
+        if (!resultEl || !batchUrlsEl) {
+            setDiscoveryStatus('Batch Feed form is not available.', 'error');
+            return;
+        }
+
+        const selectedUrls = [...resultEl.querySelectorAll('input[data-discovery-index]:checked')]
+            .map((input) => discoveredSourceLinks[Number.parseInt(input.getAttribute('data-discovery-index'), 10)]?.url)
+            .filter(Boolean);
+
+        if (!selectedUrls.length) {
+            setDiscoveryStatus('Select at least one discovered link before importing.', 'error');
+            return;
+        }
+
+        syncDiscoveryPresetToBatch();
+
+        const existingUrls = extractBatchUrls(batchUrlsEl.value);
+        const mergedUrls = [...existingUrls];
+
+        selectedUrls.forEach((url) => {
+            if (!mergedUrls.includes(url)) mergedUrls.push(url);
+        });
+
+        batchUrlsEl.value = mergedUrls.join('\n');
+
+        setDiscoveryStatus(`Imported ${selectedUrls.length} selected link(s) into Batch Feed. Review them, then click Create Batch Sources.`, 'success');
+        setBatchStatus(`Ready to create batch sources from ${mergedUrls.length} URL(s).`, 'success');
+    }
+
+    function clearDiscovery() {
+        const targetUrlEl = byId(ids.discoveryTargetUrl);
+        const rawTextEl = byId(ids.discoveryRawText);
+        const resultsEl = byId(ids.discoveryResults);
+
+        if (targetUrlEl) targetUrlEl.value = '';
+        if (rawTextEl) rawTextEl.value = '';
+
+        discoveredSourceLinks = [];
+
+        if (resultsEl) {
+            resultsEl.classList.add('muted');
+            resultsEl.textContent = 'Discovered links will appear here.';
+        }
+
+        setDiscoveryStatus('Discovery form cleared.', '');
     }
 
     function extractBatchUrls(value = '') {
@@ -905,6 +1089,9 @@
         const batchMentorSelect = byId(ids.batchMentor);
         const batchCreateButton = byId(ids.batchCreate);
         const batchClearButton = byId(ids.batchClear);
+        const discoveryRunButton = byId(ids.discoveryRun);
+        const discoveryImportButton = byId(ids.discoveryImport);
+        const discoveryClearButton = byId(ids.discoveryClear);
         const v2RunJobsButton = byId(ids.v2RunJobs);
         const v2ApproveReadyButton = byId(ids.v2ApproveReady);
         const v2RefreshBoardButton = byId(ids.v2RefreshBoard);
@@ -936,6 +1123,9 @@
 
         saveButton.addEventListener('click', saveMentorPack);
         batchCreateButton?.addEventListener('click', createBatchSources);
+        discoveryRunButton?.addEventListener('click', discoverSourceLinks);
+        discoveryImportButton?.addEventListener('click', importDiscoveredLinksToBatch);
+        discoveryClearButton?.addEventListener('click', clearDiscovery);
         v2RunJobsButton?.addEventListener('click', runQueuedJobsBatch);
         v2ApproveReadyButton?.addEventListener('click', approveReadySourcesBatch);
         v2RefreshBoardButton?.addEventListener('click', refreshNurtureBoard);
