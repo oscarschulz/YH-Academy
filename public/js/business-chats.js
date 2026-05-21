@@ -1086,6 +1086,28 @@
 
     $('bcReplyForm')?.addEventListener('submit', submitReply);
 
+    $('bcReplyInput')?.addEventListener('keydown', (event) => {
+      if (event.isComposing || event.key !== 'Enter' || event.shiftKey) return;
+
+      event.preventDefault();
+
+      const input = event.currentTarget;
+      const sendButton = $('bcSendReply');
+      const text = String(input?.value || '').trim();
+
+      if (!input || input.disabled || sendButton?.disabled) return;
+
+      if (!text) {
+        showToast('Write a reply first.', 'warning');
+        return;
+      }
+
+      submitReply(event).catch((error) => {
+        console.error('enter key send reply error:', error);
+        showToast(error.message || 'Failed to send reply.', 'error');
+      });
+    });
+
     $('bcConversationList')?.addEventListener('click', (event) => {
       const card = event.target?.closest?.('[data-conversation-id]');
       if (!card) return;
