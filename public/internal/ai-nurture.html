@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Nurture Console</title>
-<link rel="stylesheet" href="/internal/ai-nurture.css?v=20260521-v2-processing-controls">
+<link rel="stylesheet" href="/internal/ai-nurture.css?v=20260521-premium-tabs-v1">
     <style>
         body { margin: 0; font-family: Poppins, Arial, sans-serif; background: #020617; color: #e2e8f0; padding: 24px; }
         .shell { max-width: 1400px; margin: 0 auto; display: grid; gap: 16px; }
@@ -93,14 +93,29 @@
         @media (max-width: 1100px) { .row, .triple { grid-template-columns: 1fr; } }
     </style>
 </head>
-<body>
-    <div class="shell">
-        <div class="card">
-            <h1>AI Nurture Console</h1>
-            <div class="muted">Hidden internal console for Academy planner knowledge curation, worker jobs, review control, and context pack monitoring.</div>
+<body class="nurture-page">
+    <div class="shell nurture-shell">
+        <div class="card nurture-hero">
+            <div>
+                <span class="nurture-eyebrow">Internal AI Knowledge Engine</span>
+                <h1>AI Nurture Console</h1>
+                <div class="muted">Curate source data, batch-feed mentor knowledge, process jobs, approve learning packs, and monitor Academy AI context.</div>
+            </div>
+
+            <div class="nurture-hero-meta">
+                <span class="chip info">Hidden console</span>
+                <span class="chip ok">Academy AI</span>
+            </div>
         </div>
 
-        <div class="row">
+        <div class="nurture-tabs" role="tablist" aria-label="AI Nurture sections">
+            <button type="button" class="nurture-tab is-active" data-nurture-tab="intake" aria-selected="true">Intake</button>
+            <button type="button" class="nurture-tab" data-nurture-tab="processing" aria-selected="false">Processing</button>
+            <button type="button" class="nurture-tab" data-nurture-tab="mentors" aria-selected="false">Mentor Packs</button>
+            <button type="button" class="nurture-tab" data-nurture-tab="context" aria-selected="false">Context & Users</button>
+        </div>
+
+        <div class="row nurture-tab-panel is-active" data-nurture-panel="intake">
             <div class="card">
                 <h2>Create Source</h2>
                 <input id="source-url" type="url" placeholder="https://example.com/article">
@@ -117,7 +132,7 @@
             </div>
         </div>
 
-        <div class="card batch-feed-card">
+        <div class="card batch-feed-card nurture-tab-panel is-active" data-nurture-panel="intake">
             <div class="batch-feed-head">
                 <div>
                     <h2>Batch Link Feeder</h2>
@@ -170,7 +185,7 @@
             <div id="batch-feed-status" class="muted">No batch submitted yet.</div>
         </div>
 
-        <div class="card ai-nurture-v2-card">
+        <div class="card ai-nurture-v2-card nurture-tab-panel" data-nurture-panel="processing">
             <div class="ai-nurture-v2-head">
                 <div>
                     <h2>Batch Processing Control Panel</h2>
@@ -203,7 +218,7 @@
             <div id="v2-processing-status" class="muted">No batch processing action yet.</div>
         </div>
 
-        <div class="card mentor-pack-card">
+        <div class="card mentor-pack-card nurture-tab-panel" data-nurture-panel="mentors">
             <div class="mentor-pack-head">
                 <div>
                     <h2>Mentor Knowledge Pack Manager</h2>
@@ -269,7 +284,7 @@
             </div>
         </div>
 
-        <div class="triple">
+        <div class="triple nurture-tab-panel" data-nurture-panel="processing">
             <div class="card">
                 <h2>Sources</h2>
                 <div id="sources-list" class="muted">Loading…</div>
@@ -286,7 +301,7 @@
             </div>
         </div>
 
-        <div class="row">
+        <div class="row nurture-tab-panel" data-nurture-panel="processing">
             <div class="card">
                 <h2>Source Detail</h2>
                 <div class="muted">Open a source to inspect its snapshot, review, chunks, duplicate matches, and manual notes.</div>
@@ -300,7 +315,7 @@
             </div>
         </div>
 
-        <div class="row">
+        <div class="row nurture-tab-panel" data-nurture-panel="context">
             <div class="card">
                 <h2>Context Preview</h2>
                 <div class="muted">Preview selected pack keys, injected rules, red flags, and telemetry before roadmap generation.</div>
@@ -342,7 +357,7 @@
             </div>
         </div>
 
-        <div class="row">
+        <div class="row nurture-tab-panel" data-nurture-panel="context">
             <div class="card">
                 <h2>Roadmap Telemetry</h2>
                 <div class="muted">Inspect a user’s real active roadmap telemetry, planner run decision trace, output summary, and mission stats.</div>
@@ -1164,6 +1179,6 @@
             loadLibrary()
         ]);
     </script>
-<script src="/internal/ai-nurture.js?v=20260521-v2-processing-controls"></script>
+<script src="/internal/ai-nurture.js?v=20260521-premium-tabs-v1"></script>
 </body>
 </html>

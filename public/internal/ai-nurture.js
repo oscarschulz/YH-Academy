@@ -101,6 +101,7 @@
     };
 
     let mentorPackCache = [];
+    const NURTURE_ACTIVE_TAB_KEY = 'yh_ai_nurture_active_tab_v1';
 
     const ids = {
         mentor: 'mentor-pack-mentor',
@@ -641,6 +642,58 @@
         }
     }
 
+    function setActiveNurtureTab(tabKey = 'intake') {
+        const validTabs = ['intake', 'processing', 'mentors', 'context'];
+        const activeKey = validTabs.includes(tabKey) ? tabKey : 'intake';
+
+        document.querySelectorAll('[data-nurture-tab]').forEach((button) => {
+            const isActive = button.getAttribute('data-nurture-tab') === activeKey;
+            button.classList.toggle('is-active', isActive);
+            button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        });
+
+        document.querySelectorAll('[data-nurture-panel]').forEach((panel) => {
+            panel.classList.toggle('is-active', panel.getAttribute('data-nurture-panel') === activeKey);
+        });
+
+        try {
+            localStorage.setItem(NURTURE_ACTIVE_TAB_KEY, activeKey);
+        } catch (_) {}
+
+        if (activeKey === 'processing') {
+            try {
+                if (typeof loadSources === 'function') loadSources();
+                if (typeof loadJobs === 'function') loadJobs();
+                if (typeof loadPacks === 'function') loadPacks();
+                if (typeof loadLibrary === 'function') loadLibrary();
+            } catch (_) {}
+        }
+
+        if (activeKey === 'mentors') {
+            loadMentorPacks();
+        }
+    }
+
+    function bindNurtureTabs() {
+        const buttons = [...document.querySelectorAll('[data-nurture-tab]')];
+        if (!buttons.length) return;
+
+        buttons.forEach((button) => {
+            button.addEventListener('click', () => {
+                setActiveNurtureTab(button.getAttribute('data-nurture-tab') || 'intake');
+            });
+        });
+
+        let savedTab = 'intake';
+
+        try {
+            savedTab = localStorage.getItem(NURTURE_ACTIVE_TAB_KEY) || 'intake';
+        } catch (_) {}
+
+        const hashTab = String(window.location.hash || '').replace('#', '').trim();
+        setActiveNurtureTab(hashTab || savedTab || 'intake');
+    }
+
     function buildMentorPayload() {
         const mentorKey = valueOf(ids.mentor);
         const preset = mentorPresets[mentorKey] || {};
@@ -806,6 +859,7 @@
         refreshButton?.addEventListener('click', loadMentorPacks);
         mentorList?.addEventListener('click', handleMentorPackListClick);
 
+        bindNurtureTabs();
         syncMentorPreset();
         syncBatchPreset();
         loadMentorPacks();
