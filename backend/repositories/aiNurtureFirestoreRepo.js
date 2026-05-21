@@ -1030,6 +1030,16 @@ async function listBatchRuns(limit = 30) {
     return snap.docs.map(mapDoc);
 }
 
+async function getBatchRunById(batchId) {
+    const cleanBatchId = sanitize(batchId);
+    if (!cleanBatchId) return null;
+
+    const snap = await batchesCol().doc(cleanBatchId).get();
+    if (!snap.exists) return null;
+
+    return mapDoc(snap);
+}
+
 async function listJobsByBatch(batchId, limit = 200) {
     const cleanBatchId = sanitize(batchId);
     if (!cleanBatchId) return [];
@@ -1195,6 +1205,7 @@ module.exports = {
     createBatchRun,
     updateBatchRun,
     listBatchRuns,
+    getBatchRunById,
     listJobsByBatch,
     createJob,
     listJobs,

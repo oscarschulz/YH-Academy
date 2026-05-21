@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Nurture Console</title>
-<link rel="stylesheet" href="/internal/ai-nurture.css?v=20260521-batch-details-v3c">
+<link rel="stylesheet" href="/internal/ai-nurture.css?v=20260521-batch-actions-v3d">
     <style>
         body { margin: 0; font-family: Poppins, Arial, sans-serif; background: #020617; color: #e2e8f0; padding: 24px; }
         .shell { max-width: 1400px; margin: 0 auto; display: grid; gap: 16px; }
@@ -300,6 +300,13 @@
             </div>
 
             <div id="batch-details-stats" class="batch-details-stats"></div>
+
+            <div class="batch-details-actions">
+                <button type="button" data-batch-details-action="run">Run Remaining Jobs</button>
+                <button type="button" class="secondary" data-batch-details-action="retry">Retry Failed Sources</button>
+                <button type="button" class="secondary" data-batch-details-action="approve">Approve Ready Sources</button>
+            </div>
+            <div id="batch-details-action-status" class="batch-details-action-status muted">Choose a batch action to continue processing this batch.</div>
 
             <div class="batch-details-section">
                 <h3>Source-Level Progress</h3>
@@ -1351,6 +1358,6 @@
             loadLibrary()
         ]);
     </script>
-<script src="/internal/ai-nurture.js?v=20260521-batch-details-v3c"></script>
+<script src="/internal/ai-nurture.js?v=20260521-batch-actions-v3d"></script>
 </body>
 </html>

@@ -897,6 +897,369 @@ function countByStatus(items = []) {
     }, {});
 }
 
+function normalizeBatchSourceIds(batch = {}) {
+    return Array.isArray(batch.sourceIds)
+        ? batch.sourceIds.map((id) => sanitize(id)).filter(Boolean).slice(0, 120)
+        : [];
+}
+
+function sortRunnableJobs(a = {}, b = {}) {
+    const priorityDiff = Number(b.priority || 0) - Number(a.priority || 0);
+    if (priorityDiff !== 0) return priorityDiff;
+    return String(a.createdAt || '').localeCompare(String(b.createdAt || ''));
+}
+
+function isRunnableBatchJob(job = {}) {
+    const status = sanitize(job.status).toLowerCase();
+    const runAfter = job.runAfterAt ? new Date(job.runAfterAt).getTime() : 0;
+
+    return status === 'queued' && (!runAfter || runAfter <= Date.now());
+}
+
+async function loadBatchActionContext(batchId = '') {
+    const cleanBatchId = sanitize(batchId);
+
+    if (!cleanBatchId) {
+        throw new Error('Batch ID is required.');
+    }
+
+    const batch = await aiNurtureRepo.getBatchRunById(cleanBatchId);
+
+    if (!batch) {
+        const error = new Error('Batch not found.');
+        error.statusCode = 404;
+        throw error;
+    }
+
+    const sourceIds = normalizeBatchSourceIds(batch);
+    const [sourcesRaw, jobs] = await Promise.all([
+        Promise.all(sourceIds.map((sourceId) => aiNurtureRepo.getSourceById(sourceId).catch(() => null))),
+        aiNurtureRepo.listJobsByBatch(cleanBatchId, 300)
+    ]);
+
+    return {
+        batch,
+        sourceIds,
+        sources: sourcesRaw.filter(Boolean),
+        jobs: Array.isArray(jobs) ? jobs : []
+    };
+}
+
+function buildBatchJobPayload(batch = {}, sourceId = '', reason = 'batch-action') {
+    return {
+        type: 'process-source',
+        sourceId,
+        priority: Number(batch.queuePriority || 3),
+        reason,
+        batchId: batch.id,
+        batchTitle: batch.title,
+        batchMentorKey: batch.mentorKey,
+        batchMentorName: batch.mentorName,
+        runAfterAt: new Date().toISOString()
+    };
+}
+
+async function approveBatchSourceIfReady(source = {}) {
+    const sourceId = sanitize(source?.id);
+    const status = sanitize(source?.status).toLowerCase();
+
+    if (!sourceId) {
+        return {
+            approved: false,
+            sourceId,
+            status,
+            reason: 'Source ID is missing.'
+        };
+    }
+
+    if (status === 'approved' || status === 'rejected' || status === 'failed' || status === 'queued') {
+        return {
+            approved: false,
+            sourceId,
+            status,
+            reason: 'Source status is not ready for approval.'
+        };
+    }
+
+    const review = await aiNurtureRepo.getReviewBySourceId(sourceId);
+
+    if (!review) {
+        return {
+            approved: false,
+            sourceId,
+            status,
+            reason: 'No review found yet.'
+        };
+    }
+
+    const decision = sanitize(review.overallDecision).toLowerCase();
+    const domainVerdict = sanitize(review.domainVerdict).toLowerCase();
+    const staleVerdict = sanitize(review.staleVerdict).toLowerCase();
+
+    if (decision === 'reject' || domainVerdict === 'blocked' || staleVerdict === 'expired') {
+        return {
+            approved: false,
+            sourceId,
+            status,
+            reason: 'Review is not safe for approval.'
+        };
+    }
+
+    const result = await aiNurtureRepo.approveSource(sourceId);
+
+    return {
+        approved: true,
+        sourceId,
+        libraryId: result?.libraryEntry?.id || '',
+        cardCount: Array.isArray(result?.cards) ? result.cards.length : 0
+    };
+}
+
+exports.runRemainingBatchJobs = async (req, res) => {
+    const batchId = sanitize(req.params?.batchId);
+
+    try {
+        const maxRuns = Math.max(1, Math.min(25, Number.parseInt(req.body?.maxRuns, 10) || 10));
+        const { batch, sources, jobs } = await loadBatchActionContext(batchId);
+        const candidates = [];
+        const usedSourceIds = new Set();
+
+        const runnableJobs = jobs
+            .filter(isRunnableBatchJob)
+            .filter((job) => sanitize(job.sourceId))
+            .sort(sortRunnableJobs);
+
+        for (const job of runnableJobs) {
+            const sourceId = sanitize(job.sourceId);
+            if (!sourceId || usedSourceIds.has(sourceId)) continue;
+
+            usedSourceIds.add(sourceId);
+            candidates.push({ sourceId, job });
+
+            if (candidates.length >= maxRuns) break;
+        }
+
+        for (const source of sources) {
+            if (candidates.length >= maxRuns) break;
+
+            const sourceId = sanitize(source?.id);
+            const status = sanitize(source?.status).toLowerCase();
+
+            if (!sourceId || usedSourceIds.has(sourceId)) continue;
+            if (status !== 'queued') continue;
+
+            usedSourceIds.add(sourceId);
+            candidates.push({ sourceId, job: null });
+        }
+
+        const processed = [];
+        const failed = [];
+
+        for (const candidate of candidates.slice(0, maxRuns)) {
+            let job = candidate.job;
+
+            if (!job?.id) {
+                job = await aiNurtureRepo.createJob(buildBatchJobPayload(batch, candidate.sourceId, 'batch-run-remaining'));
+            }
+
+            try {
+                const result = await aiNurtureJobRunner.processSourceById(candidate.sourceId);
+                const completedJob = await aiNurtureRepo.completeJob(job.id, {
+                    resultSourceId: result?.source?.id || candidate.sourceId
+                });
+
+                processed.push({
+                    sourceId: candidate.sourceId,
+                    jobId: completedJob?.id || job.id,
+                    status: result?.source?.status || 'processed'
+                });
+            } catch (error) {
+                await aiNurtureRepo.updateSource(candidate.sourceId, {
+                    status: 'failed',
+                    failedAt: new Date().toISOString(),
+                    lastError: sanitize(error?.message || 'Processing failed.')
+                }).catch(() => null);
+
+                await aiNurtureRepo.failJob(job.id, error).catch(() => null);
+
+                failed.push({
+                    sourceId: candidate.sourceId,
+                    jobId: job.id,
+                    message: sanitize(error?.message || 'Processing failed.')
+                });
+            }
+        }
+
+        await aiNurtureRepo.updateBatchRun(batch.id, {
+            status: failed.length
+                ? 'partial'
+                : processed.length
+                    ? 'processing'
+                    : batch.status || 'queued'
+        }).catch(() => null);
+
+        return res.json({
+            success: true,
+            message: `Batch run action completed. Processed ${processed.length} source(s).`,
+            batchId: batch.id,
+            requestedRuns: maxRuns,
+            runCount: processed.length,
+            failedCount: failed.length,
+            skippedCount: Math.max(0, sources.length - candidates.length),
+            processed,
+            failed
+        });
+    } catch (error) {
+        return sendError(res, error, 'Failed to run remaining batch jobs.', error?.statusCode || 500);
+    }
+};
+
+exports.retryFailedBatchSources = async (req, res) => {
+    const batchId = sanitize(req.params?.batchId);
+
+    try {
+        const { batch, sources, jobs } = await loadBatchActionContext(batchId);
+        const queuedSourceIds = new Set(
+            jobs
+                .filter((job) => sanitize(job.status).toLowerCase() === 'queued')
+                .map((job) => sanitize(job.sourceId))
+                .filter(Boolean)
+        );
+
+        const failedJobSourceIds = new Set(
+            jobs
+                .filter((job) => sanitize(job.status).toLowerCase() === 'failed')
+                .map((job) => sanitize(job.sourceId))
+                .filter(Boolean)
+        );
+
+        const retryTargets = sources.filter((source) => {
+            const sourceId = sanitize(source?.id);
+            const status = sanitize(source?.status).toLowerCase();
+
+            if (!sourceId || queuedSourceIds.has(sourceId)) return false;
+
+            return status === 'failed' || failedJobSourceIds.has(sourceId);
+        });
+
+        const queued = [];
+        const skipped = [];
+        const failed = [];
+
+        for (const source of retryTargets) {
+            const sourceId = sanitize(source?.id);
+
+            try {
+                await aiNurtureRepo.updateSource(sourceId, {
+                    status: 'queued',
+                    failedAt: null,
+                    lastError: '',
+                    rejectionReason: ''
+                });
+
+                const job = await aiNurtureRepo.createJob(buildBatchJobPayload(batch, sourceId, 'batch-retry-failed'));
+
+                queued.push({
+                    sourceId,
+                    jobId: job.id
+                });
+            } catch (error) {
+                failed.push({
+                    sourceId,
+                    message: sanitize(error?.message || 'Failed to queue retry.')
+                });
+            }
+        }
+
+        sources.forEach((source) => {
+            const sourceId = sanitize(source?.id);
+            const status = sanitize(source?.status).toLowerCase();
+
+            if (!sourceId) return;
+            if (status === 'failed' || failedJobSourceIds.has(sourceId)) return;
+
+            skipped.push({
+                sourceId,
+                status,
+                reason: queuedSourceIds.has(sourceId)
+                    ? 'A queued retry job already exists.'
+                    : 'Source is not failed.'
+            });
+        });
+
+        await aiNurtureRepo.updateBatchRun(batch.id, {
+            status: queued.length ? 'queued' : batch.status || 'partial'
+        }).catch(() => null);
+
+        return res.json({
+            success: true,
+            message: `Retry action completed. Queued ${queued.length} failed source(s).`,
+            batchId: batch.id,
+            queuedCount: queued.length,
+            skippedCount: skipped.length,
+            failedCount: failed.length,
+            queued,
+            skipped,
+            failed
+        });
+    } catch (error) {
+        return sendError(res, error, 'Failed to retry failed batch sources.', error?.statusCode || 500);
+    }
+};
+
+exports.approveReadyBatchSources = async (req, res) => {
+    const batchId = sanitize(req.params?.batchId);
+
+    try {
+        const limit = Math.max(1, Math.min(50, Number.parseInt(req.body?.limit, 10) || 25));
+        const { batch, sources } = await loadBatchActionContext(batchId);
+        const approved = [];
+        const skipped = [];
+        const failed = [];
+
+        for (const source of sources.slice(0, limit)) {
+            try {
+                const outcome = await approveBatchSourceIfReady(source);
+
+                if (outcome.approved) {
+                    approved.push(outcome);
+                } else {
+                    skipped.push(outcome);
+                }
+            } catch (error) {
+                failed.push({
+                    sourceId: sanitize(source?.id),
+                    status: sanitize(source?.status).toLowerCase(),
+                    message: sanitize(error?.message || 'Approval failed.')
+                });
+            }
+        }
+
+        await aiNurtureRepo.updateBatchRun(batch.id, {
+            status: failed.length
+                ? 'partial'
+                : approved.length
+                    ? 'approved'
+                    : batch.status || 'reviewed'
+        }).catch(() => null);
+
+        return res.json({
+            success: true,
+            message: `Batch approval action completed. Approved ${approved.length} source(s).`,
+            batchId: batch.id,
+            inspectedCount: Math.min(sources.length, limit),
+            approvedCount: approved.length,
+            skippedCount: skipped.length,
+            failedCount: failed.length,
+            approved,
+            skipped,
+            failed
+        });
+    } catch (error) {
+        return sendError(res, error, 'Failed to approve ready batch sources.', error?.statusCode || 500);
+    }
+};
+
 exports.listBatchProgress = async (req, res) => {
     try {
         const limit = Math.max(1, Math.min(40, Number.parseInt(req.query.limit, 10) || 20));

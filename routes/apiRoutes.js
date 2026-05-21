@@ -200,6 +200,9 @@ router.get('/internal/ai-nurture/:gate/settings', aiNurtureGate, aiNurtureContro
 router.patch('/internal/ai-nurture/:gate/settings', aiNurtureGate, aiNurtureControllers.updateSettings);
 
 router.get('/internal/ai-nurture/:gate/batches', aiNurtureGate, aiNurtureControllers.listBatchProgress);
+router.post('/internal/ai-nurture/:gate/batches/:batchId/run-remaining', aiNurtureGate, aiNurtureControllers.runRemainingBatchJobs);
+router.post('/internal/ai-nurture/:gate/batches/:batchId/retry-failed', aiNurtureGate, aiNurtureControllers.retryFailedBatchSources);
+router.post('/internal/ai-nurture/:gate/batches/:batchId/approve-ready', aiNurtureGate, aiNurtureControllers.approveReadyBatchSources);
 
 router.post('/internal/ai-nurture/:gate/sources', aiNurtureGate, aiNurtureControllers.createSource);
 router.post('/internal/ai-nurture/:gate/sources/batch', aiNurtureGate, aiNurtureControllers.createBatchSources);

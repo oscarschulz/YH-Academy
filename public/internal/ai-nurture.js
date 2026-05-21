@@ -156,6 +156,7 @@
         batchDetailsStats: 'batch-details-stats',
         batchDetailsSources: 'batch-details-sources',
         batchDetailsFailures: 'batch-details-failures',
+        batchDetailsStatus: 'batch-details-action-status',
         batchDetailsClose: 'btn-close-batch-details',
         responseSummary: 'response-summary',
         responseStatusPill: 'response-status-pill',
@@ -165,6 +166,7 @@
 
     let discoveredSourceLinks = [];
     let batchHistoryCache = [];
+    let activeBatchDetailsId = '';
 
     function byId(id) {
         return document.getElementById(id);
@@ -931,12 +933,16 @@
                 throw new Error(result.message || 'Failed to load batch history.');
             }
 
-            renderBatchHistory(result.batches || []);
+            const batches = result.batches || [];
+            renderBatchHistory(batches);
+            return batches;
         } catch (error) {
             if (listEl) {
                 listEl.classList.add('muted');
                 listEl.innerHTML = `<div class="empty-box">Failed to load batch history: ${escapeHtml(error.message || 'Unknown error')}</div>`;
             }
+
+            return [];
         }
     }
 
@@ -965,6 +971,7 @@
         if (drawer) drawer.hidden = true;
         if (backdrop) backdrop.hidden = true;
 
+        activeBatchDetailsId = '';
         document.body.classList.remove('batch-details-open');
     }
 
@@ -976,6 +983,7 @@
         const statsEl = byId(ids.batchDetailsStats);
         const sourcesEl = byId(ids.batchDetailsSources);
         const failuresEl = byId(ids.batchDetailsFailures);
+        const statusEl = byId(ids.batchDetailsStatus);
 
         if (!drawer || !backdrop || !batch?.id) return;
 
@@ -989,6 +997,13 @@
                 ? batch.failed
                 : [];
         const percent = Math.max(0, Math.min(100, Number(progress.completionPercent || 0)));
+
+        activeBatchDetailsId = batch.id;
+
+        if (statusEl) {
+            statusEl.classList.remove('is-success', 'is-error');
+            statusEl.textContent = 'Choose a batch action to continue processing this batch.';
+        }
 
         if (titleEl) {
             titleEl.textContent = title;
@@ -1065,6 +1080,88 @@
         drawer.hidden = false;
         backdrop.hidden = false;
         document.body.classList.add('batch-details-open');
+    }
+
+    async function runBatchDetailsAction(event) {
+        const button = event.target?.closest?.('[data-batch-details-action]');
+        if (!button) return;
+
+        const action = button.getAttribute('data-batch-details-action');
+        const batchId = activeBatchDetailsId;
+        const statusEl = byId(ids.batchDetailsStatus);
+
+        if (!batchId) {
+            if (statusEl) {
+                statusEl.classList.add('is-error');
+                statusEl.textContent = 'Open a batch first before running an action.';
+            }
+            return;
+        }
+
+        const labels = {
+            run: 'Run Remaining Jobs',
+            retry: 'Retry Failed Sources',
+            approve: 'Approve Ready Sources'
+        };
+
+        const paths = {
+            run: `/batches/${encodeURIComponent(batchId)}/run-remaining`,
+            retry: `/batches/${encodeURIComponent(batchId)}/retry-failed`,
+            approve: `/batches/${encodeURIComponent(batchId)}/approve-ready`
+        };
+
+        const bodies = {
+            run: { maxRuns: 10 },
+            retry: {},
+            approve: { limit: 25 }
+        };
+
+        if (!paths[action]) return;
+
+        try {
+            button.disabled = true;
+            button.textContent = 'Working...';
+
+            if (statusEl) {
+                statusEl.classList.remove('is-success', 'is-error');
+                statusEl.textContent = `${labels[action]} is running...`;
+            }
+
+            const result = await request(paths[action], {
+                method: 'POST',
+                body: JSON.stringify(bodies[action] || {})
+            });
+
+            const batches = await loadBatchHistory();
+            const refreshedBatch = batches.find((item) => item.id === batchId);
+
+            if (refreshedBatch) {
+                renderBatchDetailsDrawer(refreshedBatch);
+            }
+
+            if (statusEl) {
+                statusEl.classList.toggle('is-error', Number(result.failedCount || 0) > 0);
+                statusEl.classList.toggle('is-success', Number(result.failedCount || 0) === 0);
+                statusEl.textContent = result.message || `${labels[action]} completed.`;
+            }
+
+            setV2Status(result.message || `${labels[action]} completed.`, Number(result.failedCount || 0) > 0 ? 'error' : 'success');
+        } catch (error) {
+            if (statusEl) {
+                statusEl.classList.remove('is-success');
+                statusEl.classList.add('is-error');
+                statusEl.textContent = error.message || 'Batch action failed.';
+            }
+
+            setV2Status(error.message || 'Batch action failed.', 'error');
+            setOutput({
+                success: false,
+                message: error.message || 'Batch action failed.'
+            });
+        } finally {
+            button.disabled = false;
+            button.textContent = labels[action] || 'Run Action';
+        }
     }
 
     function handleBatchHistoryClick(event) {
@@ -1379,6 +1476,7 @@
         const batchHistoryList = byId(ids.batchHistoryList);
         const batchDetailsCloseButton = byId(ids.batchDetailsClose);
         const batchDetailsBackdrop = byId(ids.batchDetailsBackdrop);
+        const batchDetailsDrawer = byId(ids.batchDetailsDrawer);
         const rawResponseToggle = byId(ids.rawToggle);
 
         if (!mentorSelect || !saveButton) return;
@@ -1417,6 +1515,7 @@
         batchHistoryList?.addEventListener('click', handleBatchHistoryClick);
         batchDetailsCloseButton?.addEventListener('click', closeBatchDetailsDrawer);
         batchDetailsBackdrop?.addEventListener('click', closeBatchDetailsDrawer);
+        batchDetailsDrawer?.addEventListener('click', runBatchDetailsAction);
         rawResponseToggle?.addEventListener('click', toggleRawResponse);
 
         document.addEventListener('keydown', (event) => {
