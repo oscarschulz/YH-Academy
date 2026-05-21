@@ -72,6 +72,7 @@ const libraryCol = () => firestore.collection('aiNurtureLibrary');
 const memoryCardsCol = () => firestore.collection('aiNurtureMemoryCards');
 const contextPacksCol = () => firestore.collection('aiNurtureContextPacks');
 const jobsCol = () => firestore.collection('aiNurtureJobs');
+const batchesCol = () => firestore.collection('aiNurtureBatches');
 const userOverlaysCol = () => firestore.collection('aiNurtureUserOverlays');
 const snapshotsCol = (sourceId) => sourcesCol().doc(sanitize(sourceId)).collection('snapshots');
 const chunksCol = (sourceId) => sourcesCol().doc(sanitize(sourceId)).collection('chunks');
@@ -178,6 +179,10 @@ async function createSource(payload = {}) {
         topicHints: Array.isArray(payload.topicHints) ? payload.topicHints.map((item) => sanitize(item)).filter(Boolean) : [],
         submittedBy: sanitize(payload.submittedBy || 'internal-operator'),
         submittedFrom: sanitize(payload.submittedFrom || 'internal-console'),
+        batchId: sanitize(payload.batchId),
+        batchTitle: sanitize(payload.batchTitle),
+        batchMentorKey: sanitize(payload.batchMentorKey),
+        batchMentorName: sanitize(payload.batchMentorName),
         createdAt: nowTs(),
         updatedAt: nowTs(),
         fetchedAt: null,
@@ -970,6 +975,73 @@ async function getLibraryForDuplicateCheck(limit = 150) {
     return listLibrary(limit);
 }
 
+async function createBatchRun(payload = {}) {
+    const ref = batchesCol().doc();
+    const requestedUrls = Array.isArray(payload.requestedUrls)
+        ? payload.requestedUrls.map((item) => sanitize(item)).filter(Boolean).slice(0, 120)
+        : [];
+
+    const doc = {
+        title: sanitize(payload.title || 'AI Nurture Batch'),
+        mentorKey: sanitize(payload.mentorKey),
+        mentorName: sanitize(payload.mentorName),
+        titlePrefix: sanitize(payload.titlePrefix),
+        requestedCount: toNumber(payload.requestedCount, requestedUrls.length),
+        createdCount: 0,
+        jobCount: 0,
+        failedCount: 0,
+        approvedCount: 0,
+        processedCount: 0,
+        sourceIds: [],
+        jobIds: [],
+        failed: [],
+        requestedUrls,
+        queueJobs: payload.queueJobs !== false,
+        queuePriority: toNumber(payload.queuePriority, 3),
+        status: 'created',
+        createdAt: nowTs(),
+        updatedAt: nowTs()
+    };
+
+    await ref.set(doc);
+    return mapDoc(await ref.get());
+}
+
+async function updateBatchRun(batchId, payload = {}) {
+    const ref = batchesCol().doc(sanitize(batchId));
+
+    await ref.set(
+        stripUndefined({
+            ...payload,
+            updatedAt: nowTs()
+        }),
+        { merge: true }
+    );
+
+    return mapDoc(await ref.get());
+}
+
+async function listBatchRuns(limit = 30) {
+    const snap = await batchesCol()
+        .orderBy('updatedAt', 'desc')
+        .limit(Math.max(1, Math.min(60, toNumber(limit, 30))))
+        .get();
+
+    return snap.docs.map(mapDoc);
+}
+
+async function listJobsByBatch(batchId, limit = 200) {
+    const cleanBatchId = sanitize(batchId);
+    if (!cleanBatchId) return [];
+
+    const snap = await jobsCol()
+        .where('batchId', '==', cleanBatchId)
+        .limit(Math.max(1, Math.min(300, toNumber(limit, 200))))
+        .get();
+
+    return snap.docs.map(mapDoc);
+}
+
 async function createJob(payload = {}) {
     const ref = jobsCol().doc();
     const doc = {
@@ -978,6 +1050,10 @@ async function createJob(payload = {}) {
         status: sanitize(payload.status || 'queued'),
         priority: toNumber(payload.priority, 3),
         reason: sanitize(payload.reason),
+        batchId: sanitize(payload.batchId),
+        batchTitle: sanitize(payload.batchTitle),
+        batchMentorKey: sanitize(payload.batchMentorKey),
+        batchMentorName: sanitize(payload.batchMentorName),
         runAfterAt: toTimestamp(payload.runAfterAt),
         attempts: toNumber(payload.attempts, 0),
         lastError: sanitize(payload.lastError),
@@ -1116,6 +1192,10 @@ module.exports = {
     listMemoryCards,
     listContextPacks,
     getLibraryForDuplicateCheck,
+    createBatchRun,
+    updateBatchRun,
+    listBatchRuns,
+    listJobsByBatch,
     createJob,
     listJobs,
     claimNextQueuedJob,

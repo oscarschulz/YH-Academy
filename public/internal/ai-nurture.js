@@ -147,6 +147,8 @@
         v2ApproveReady: 'btn-approve-ready-sources',
         v2RefreshBoard: 'btn-refresh-nurture-board',
         v2Status: 'v2-processing-status',
+        batchHistoryList: 'batch-history-list',
+        batchHistoryRefresh: 'btn-refresh-batch-history',
         responseSummary: 'response-summary',
         responseStatusPill: 'response-status-pill',
         rawToggle: 'btn-toggle-raw-response',
@@ -154,6 +156,7 @@
     };
 
     let discoveredSourceLinks = [];
+    let batchHistoryCache = [];
 
     function byId(id) {
         return document.getElementById(id);
@@ -295,6 +298,15 @@
 
         if (Array.isArray(payload?.contextPacks)) {
             meta.push(`Context packs: ${payload.contextPacks.length}`);
+        }
+
+        if (payload?.batch?.id) {
+            title = success ? 'Batch created' : title;
+            meta.push(`Batch ID: ${payload.batch.id}`);
+        }
+
+        if (payload?.batchCount !== undefined) {
+            meta.push(`Batches: ${payload.batchCount}`);
         }
 
         return { success, tone, title, message, meta };
@@ -801,6 +813,7 @@
             try {
                 if (typeof loadSources === 'function') await loadSources();
                 if (typeof loadJobs === 'function') await loadJobs();
+                await loadBatchHistory();
             } catch (_) {}
         } catch (error) {
             setBatchStatus(error.message || 'Failed to create batch sources.', 'error');
@@ -816,6 +829,119 @@
         }
     }
 
+    function renderBatchHistory(batches = []) {
+        const listEl = byId(ids.batchHistoryList);
+        if (!listEl) return;
+
+        batchHistoryCache = Array.isArray(batches) ? batches : [];
+
+        if (!batchHistoryCache.length) {
+            listEl.classList.add('muted');
+            listEl.innerHTML = '<div class="empty-box">No source batches found yet. Create a batch from the Intake tab first.</div>';
+            return;
+        }
+
+        listEl.classList.remove('muted');
+        listEl.innerHTML = batchHistoryCache.map((batch) => {
+            const progress = batch.progress || {};
+            const title = batch.title || batch.titlePrefix || 'AI Nurture Batch';
+            const mentorName = batch.mentorName || batch.mentorKey || 'General';
+            const percent = Math.max(0, Math.min(100, Number(progress.completionPercent || 0)));
+            const sourceStatuses = progress.sourceStatusCounts || {};
+            const jobStatuses = progress.jobStatusCounts || {};
+            const createdAt = batch.createdAt || '';
+            const updatedAt = batch.updatedAt || '';
+
+            return `
+                <div class="batch-history-item" data-batch-id="${escapeHtml(batch.id)}">
+                    <div class="batch-history-item-head">
+                        <div>
+                            <div class="batch-history-title">${escapeHtml(title)}</div>
+                            <div class="batch-history-subtitle">
+                                ${escapeHtml(mentorName)} · Status: ${escapeHtml(batch.status || 'created')} · Updated: ${escapeHtml(updatedAt || createdAt || 'n/a')}
+                            </div>
+                            <div class="chip-wrap">
+                                <span class="chip info">${escapeHtml(batch.mentorKey || 'general')}</span>
+                                <span class="chip ${percent >= 80 ? 'ok' : percent >= 30 ? 'warn' : 'info'}">${percent}% handled</span>
+                                <span class="chip">Priority ${escapeHtml(batch.queuePriority || 3)}</span>
+                            </div>
+                        </div>
+
+                        <div class="batch-history-actions">
+                            <button type="button" class="secondary" data-batch-history-action="view" data-batch-id="${escapeHtml(batch.id)}">View Details</button>
+                        </div>
+                    </div>
+
+                    <div class="batch-history-progress" aria-label="Batch progress">
+                        <div class="batch-history-progress-bar" style="width: ${percent}%"></div>
+                    </div>
+
+                    <div class="batch-history-stats">
+                        <div class="batch-history-stat"><span>Requested</span><strong>${escapeHtml(progress.requestedCount ?? batch.requestedCount ?? 0)}</strong></div>
+                        <div class="batch-history-stat"><span>Sources</span><strong>${escapeHtml(progress.sourceCount ?? batch.createdCount ?? 0)}</strong></div>
+                        <div class="batch-history-stat"><span>Jobs</span><strong>${escapeHtml(progress.jobCount ?? batch.jobCount ?? 0)}</strong></div>
+                        <div class="batch-history-stat"><span>Queued</span><strong>${escapeHtml(progress.queuedCount ?? sourceStatuses.queued ?? 0)}</strong></div>
+                        <div class="batch-history-stat"><span>Processed</span><strong>${escapeHtml(progress.processedCount ?? 0)}</strong></div>
+                        <div class="batch-history-stat"><span>Approved</span><strong>${escapeHtml(progress.approvedCount ?? sourceStatuses.approved ?? 0)}</strong></div>
+                    </div>
+
+                    <div class="chip-wrap">
+                        <span class="chip warn">Job queued: ${escapeHtml(jobStatuses.queued || 0)}</span>
+                        <span class="chip ok">Job completed: ${escapeHtml(jobStatuses.completed || 0)}</span>
+                        <span class="chip danger">Failed: ${escapeHtml((progress.failedCount || 0) + (jobStatuses.failed || 0))}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    async function loadBatchHistory() {
+        const listEl = byId(ids.batchHistoryList);
+
+        try {
+            if (listEl) {
+                listEl.classList.add('muted');
+                listEl.textContent = 'Loading batch history…';
+            }
+
+            const response = await fetch(`/api/internal/ai-nurture/${gate}/batches?limit=20`, {
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const result = await response.json().catch(() => ({}));
+
+            if (!response.ok || !result.success) {
+                throw new Error(result.message || 'Failed to load batch history.');
+            }
+
+            renderBatchHistory(result.batches || []);
+        } catch (error) {
+            if (listEl) {
+                listEl.classList.add('muted');
+                listEl.innerHTML = `<div class="empty-box">Failed to load batch history: ${escapeHtml(error.message || 'Unknown error')}</div>`;
+            }
+        }
+    }
+
+    function handleBatchHistoryClick(event) {
+        const button = event.target?.closest?.('[data-batch-history-action]');
+        if (!button) return;
+
+        const action = button.getAttribute('data-batch-history-action');
+        const batchId = button.getAttribute('data-batch-id');
+        const batch = batchHistoryCache.find((item) => item.id === batchId);
+
+        if (action === 'view') {
+            setOutput({
+                success: true,
+                message: 'Batch details loaded.',
+                batch
+            });
+        }
+    }
+
     async function refreshNurtureBoard() {
         try {
             setV2Status('Refreshing AI Nurture board...', '');
@@ -825,7 +951,8 @@
                 typeof loadJobs === 'function' ? loadJobs() : Promise.resolve(),
                 typeof loadPacks === 'function' ? loadPacks() : Promise.resolve(),
                 typeof loadLibrary === 'function' ? loadLibrary() : Promise.resolve(),
-                loadMentorPacks()
+                loadMentorPacks(),
+                loadBatchHistory()
             ]);
 
             setV2Status('Board refreshed.', 'success');
@@ -935,6 +1062,7 @@
                 if (typeof loadJobs === 'function') loadJobs();
                 if (typeof loadPacks === 'function') loadPacks();
                 if (typeof loadLibrary === 'function') loadLibrary();
+                loadBatchHistory();
             } catch (_) {}
         }
 
@@ -1095,6 +1223,8 @@
         const v2RunJobsButton = byId(ids.v2RunJobs);
         const v2ApproveReadyButton = byId(ids.v2ApproveReady);
         const v2RefreshBoardButton = byId(ids.v2RefreshBoard);
+        const batchHistoryRefreshButton = byId(ids.batchHistoryRefresh);
+        const batchHistoryList = byId(ids.batchHistoryList);
         const rawResponseToggle = byId(ids.rawToggle);
 
         if (!mentorSelect || !saveButton) return;
@@ -1129,6 +1259,8 @@
         v2RunJobsButton?.addEventListener('click', runQueuedJobsBatch);
         v2ApproveReadyButton?.addEventListener('click', approveReadySourcesBatch);
         v2RefreshBoardButton?.addEventListener('click', refreshNurtureBoard);
+        batchHistoryRefreshButton?.addEventListener('click', loadBatchHistory);
+        batchHistoryList?.addEventListener('click', handleBatchHistoryClick);
         rawResponseToggle?.addEventListener('click', toggleRawResponse);
 
         clearButton?.addEventListener('click', clearMentorForm);

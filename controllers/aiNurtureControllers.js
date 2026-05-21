@@ -154,6 +154,17 @@ exports.createBatchSources = async (req, res) => {
             });
         }
 
+        const batch = await aiNurtureRepo.createBatchRun({
+            title: titlePrefix || `${mentorName || mentorKey || 'AI Nurture'} Batch`,
+            mentorKey,
+            mentorName,
+            titlePrefix,
+            requestedUrls: urls,
+            requestedCount: urls.length,
+            queueJobs,
+            queuePriority
+        });
+
         const sources = [];
         const jobs = [];
         const failed = [];
@@ -169,7 +180,11 @@ exports.createBatchSources = async (req, res) => {
                     manualTags,
                     topicHints,
                     submittedBy: 'internal-operator',
-                    submittedFrom: 'internal-console-batch'
+                    submittedFrom: 'internal-console-batch',
+                    batchId: batch.id,
+                    batchTitle: batch.title,
+                    batchMentorKey: mentorKey,
+                    batchMentorName: mentorName
                 });
 
                 sources.push(source);
@@ -180,6 +195,10 @@ exports.createBatchSources = async (req, res) => {
                         sourceId: source.id,
                         priority: queuePriority,
                         reason: 'batch-submit',
+                        batchId: batch.id,
+                        batchTitle: batch.title,
+                        batchMentorKey: mentorKey,
+                        batchMentorName: mentorName,
                         runAfterAt: new Date().toISOString()
                     });
 
@@ -193,8 +212,28 @@ exports.createBatchSources = async (req, res) => {
             }
         }
 
+        const updatedBatch = await aiNurtureRepo.updateBatchRun(batch.id, {
+            createdCount: sources.length,
+            jobCount: jobs.length,
+            failedCount: failed.length,
+            sourceIds: sources.map((source) => source.id).filter(Boolean),
+            jobIds: jobs.map((job) => job.id).filter(Boolean),
+            failed,
+            status: failed.length && !sources.length
+                ? 'failed'
+                : failed.length
+                    ? 'partial'
+                    : queueJobs
+                        ? 'queued'
+                        : 'created'
+        });
+
         return res.status(failed.length && !sources.length ? 400 : failed.length ? 207 : 201).json({
             success: sources.length > 0,
+            message: sources.length
+                ? `Batch created with ${sources.length} source(s).`
+                : 'Batch could not create any source.',
+            batch: updatedBatch,
             requestedCount: urls.length,
             createdCount: sources.length,
             jobCount: jobs.length,
@@ -850,6 +889,91 @@ exports.previewContext = async (req, res) => {
         return sendError(res, error, 'Failed to preview context.');
     }
 };
+function countByStatus(items = []) {
+    return (Array.isArray(items) ? items : []).reduce((acc, item) => {
+        const status = sanitize(item?.status || 'unknown').toLowerCase() || 'unknown';
+        acc[status] = (acc[status] || 0) + 1;
+        return acc;
+    }, {});
+}
+
+exports.listBatchProgress = async (req, res) => {
+    try {
+        const limit = Math.max(1, Math.min(40, Number.parseInt(req.query.limit, 10) || 20));
+        const batches = await aiNurtureRepo.listBatchRuns(limit);
+        const library = await aiNurtureRepo.listLibrary(300);
+        const librarySourceIds = new Set(
+            (Array.isArray(library) ? library : [])
+                .map((item) => sanitize(item?.sourceId))
+                .filter(Boolean)
+        );
+
+        const enriched = [];
+
+        for (const batch of batches) {
+            const sourceIds = Array.isArray(batch.sourceIds)
+                ? batch.sourceIds.map((id) => sanitize(id)).filter(Boolean).slice(0, 120)
+                : [];
+
+            const [sourcesRaw, jobs] = await Promise.all([
+                Promise.all(sourceIds.map((sourceId) => aiNurtureRepo.getSourceById(sourceId).catch(() => null))),
+                aiNurtureRepo.listJobsByBatch(batch.id, 250)
+            ]);
+
+            const sources = sourcesRaw.filter(Boolean);
+            const sourceStatusCounts = countByStatus(sources);
+            const jobStatusCounts = countByStatus(jobs);
+
+            const approvedCount = sources.filter((source) => {
+                const status = sanitize(source?.status).toLowerCase();
+                return status === 'approved' || librarySourceIds.has(source.id);
+            }).length;
+
+            const processedCount = sources.filter((source) => {
+                const status = sanitize(source?.status).toLowerCase();
+                return ['fetched', 'reviewed', 'approved', 'rejected', 'failed'].includes(status);
+            }).length;
+
+            const failedCount = sources.filter((source) => sanitize(source?.status).toLowerCase() === 'failed').length;
+            const rejectedCount = sources.filter((source) => sanitize(source?.status).toLowerCase() === 'rejected').length;
+            const queuedCount = sources.filter((source) => sanitize(source?.status).toLowerCase() === 'queued').length;
+
+            const requestedCount = Number(batch.requestedCount || sourceIds.length || sources.length || 0);
+            const completionBase = Math.max(1, requestedCount);
+            const completionPercent = Math.min(
+                100,
+                Math.round(((approvedCount + failedCount + rejectedCount) / completionBase) * 100)
+            );
+
+            enriched.push({
+                ...batch,
+                progress: {
+                    requestedCount,
+                    sourceCount: sources.length,
+                    jobCount: jobs.length,
+                    approvedCount,
+                    processedCount,
+                    failedCount,
+                    rejectedCount,
+                    queuedCount,
+                    completionPercent,
+                    sourceStatusCounts,
+                    jobStatusCounts
+                }
+            });
+        }
+
+        return res.json({
+            success: true,
+            message: `Loaded ${enriched.length} batch history item(s).`,
+            batchCount: enriched.length,
+            batches: enriched
+        });
+    } catch (error) {
+        return sendError(res, error, 'Failed to list batch progress.');
+    }
+};
+
 exports.listJobs = async (req, res) => {
     try {
         const jobs = await aiNurtureRepo.listJobs(Number.parseInt(req.query.limit, 10) || 50);

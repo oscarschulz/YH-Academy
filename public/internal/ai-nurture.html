@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Nurture Console</title>
-<link rel="stylesheet" href="/internal/ai-nurture.css?v=20260521-source-discovery-v3">
+<link rel="stylesheet" href="/internal/ai-nurture.css?v=20260521-batch-history-v3b">
     <style>
         body { margin: 0; font-family: Poppins, Arial, sans-serif; background: #020617; color: #e2e8f0; padding: 24px; }
         .shell { max-width: 1400px; margin: 0 auto; display: grid; gap: 16px; }
@@ -274,6 +274,18 @@
             </div>
 
             <div id="v2-processing-status" class="muted">No batch processing action yet.</div>
+        </div>
+
+        <div class="card batch-history-card nurture-tab-panel" data-nurture-panel="processing">
+            <div class="batch-history-head">
+                <div>
+                    <h2>Batch History</h2>
+                    <div class="muted">Track imported source batches, queued jobs, processing progress, approvals, and failures.</div>
+                </div>
+                <button id="btn-refresh-batch-history" type="button" class="secondary">Refresh History</button>
+            </div>
+
+            <div id="batch-history-list" class="batch-history-list muted">Loading batch history…</div>
         </div>
 
         <div class="card mentor-pack-card nurture-tab-panel" data-nurture-panel="mentors">
@@ -1314,6 +1326,6 @@
             loadLibrary()
         ]);
     </script>
-<script src="/internal/ai-nurture.js?v=20260521-source-discovery-v3"></script>
+<script src="/internal/ai-nurture.js?v=20260521-batch-history-v3b"></script>
 </body>
 </html>
