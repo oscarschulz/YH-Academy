@@ -14592,6 +14592,12 @@ const DASHBOARD_BASIC_ASSISTANT_ISSUE_CATEGORIES = [
         prompt: 'Ask about Academy, Plazas, Federation, or how the YH Universe divisions work.'
     },
     {
+        value: 'earning_paths',
+        label: 'Earning / Money Paths',
+        hint: 'Questions about how users can potentially earn through Academy, Plazas, Federation, referrals, lead missions, opportunities, or deal rooms.',
+        prompt: 'Ask where money can come from, which division has earning paths, or what payout/commission flow you need help with.'
+    },
+    {
         value: 'billing',
         label: 'Billing & Payments',
         hint: 'Payment problems, invoices, checkout, OxaPay, Stripe, failed payment, or billing questions.',
@@ -14809,6 +14815,7 @@ function ensureDashboardBasicAssistantPanel() {
 
                 <div class="yh-dashboard-basic-assistant-category-chips" aria-label="Common issue categories">
                     <button type="button" data-dashboard-ticket-category="platform_guide">Platform Guide</button>
+                    <button type="button" data-dashboard-ticket-category="earning_paths">Earning</button>
                     <button type="button" data-dashboard-ticket-category="billing">Billing</button>
                     <button type="button" data-dashboard-ticket-category="academy">Academy</button>
                     <button type="button" data-dashboard-ticket-category="federation">Federation</button>

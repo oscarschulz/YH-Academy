@@ -4,6 +4,7 @@ const bcrypt = require('bcrypt');
 const academyFirestoreRepo = require('./backend/repositories/academyFirestoreRepo');
 const academyCommunityRepo = require('./backend/repositories/academyCommunityFirestoreRepo');
 const academyPlannerKnowledgeContext = require('./backend/services/academyPlannerKnowledgeContext');
+const yhUniverseKnowledgeContext = require('./backend/services/yhUniverseKnowledgeContext');
 const aiNurtureRepo = require('./backend/repositories/aiNurtureFirestoreRepo');
 const publicLandingEventsRepo = require('./backend/repositories/publicLandingEventsRepo');
 const universeCollectionMirrorRepo = require('./backend/repositories/universeCollectionMirrorRepo');
@@ -6934,7 +6935,8 @@ function buildDashboardBasicAssistantMessages(payload = {}) {
                 'Do not claim you approved access, changed billing, fixed bugs, revealed protected contacts, or completed backend/admin work unless the system actually performed that action.',
                 'Keep answers concise. Use 1 to 4 short paragraphs or a short numbered list only when useful.',
                 'Division Knowledge Guide:',
-                JSON.stringify(DASHBOARD_ASSISTANT_DIVISION_KNOWLEDGE)
+                JSON.stringify(DASHBOARD_ASSISTANT_DIVISION_KNOWLEDGE),
+                yhUniverseKnowledgeContext.buildYHUniverseKnowledgePrompt()
             ].join('\n')
         },
         ...history,
@@ -6971,46 +6973,14 @@ function buildDashboardBasicAssistantMessages(payload = {}) {
 }
 
 function buildLocalDashboardAssistantFallback(payload = {}, error = null) {
-    const issueCategory = sanitize(payload.issueCategory || payload.category || '').toLowerCase();
-    const message = `${issueCategory} ${sanitize(payload.message || '')}`.toLowerCase();
-
-    const lines = [];
-
-    if (/academy|roadmap|mission|missions|coach|learn from|community|voice|lead mission|yha/.test(message)) {
-        lines.push('Academy is the execution, learning, self-improvement, community, and personal operating system layer.');
-        lines.push('It includes Roadmap/Roadmap DNA, missions, community feed, profile, messages, live voice/video where enabled, AI Coach/Learn From, Lead Missions where available, and YHA badge status.');
-        lines.push('For access issues, check whether the Academy application is not submitted, pending, approved, rejected, or stale after refresh.');
-    } else if (/plaza|plazas|patron|opportunit|directory|region|bridge|meetup|marketplace/.test(message)) {
-        lines.push('Plazas are the application-gated networking, regional movement, opportunity, meetup, marketplace, and Business Chat layer.');
-        lines.push('They include Plaza feed, opportunities, directory, regions, bridge paths, requests, messages/Business Chats, marketplace readiness, meetups, and Patron-related flows where enabled.');
-        lines.push('Plaza access remains locked until admin approval, so unresolved access issues should include the current application/status screen.');
-    } else if (/federation|connect|deal room|deal-room|referral|protected directory|yhf|strategic readiness/.test(message)) {
-        lines.push('Federation is the selective high-value network layer for protected directory access, referrals, connect flows, requests, and deal rooms.');
-        lines.push('It includes Command, Connect, Deal Rooms, Directory/preview, Requests, Referrals, My Access, strategic readiness, and YHF badge status.');
-        lines.push('Federation access is selective and may depend on progression signals, so the assistant cannot promise approval or reveal protected contacts.');
-    } else if (/profile|edit profile|picture|avatar|bio|username|save/.test(message)) {
-        lines.push('For profile issues, first save the profile, close the modal, then reopen it to confirm the saved fields are still there.');
-        lines.push('If the fields disappear after refresh, it usually means the frontend save worked but the backend hydration response is not returning the same saved fields.');
-    } else if (/application|pending|approved|enter|locked|access/.test(message)) {
-        lines.push('For access issues, check whether your application status is not submitted, pending, approved, rejected, locked, or stale after refresh.');
-        lines.push('If it is pending, the button should stay disabled until admin approval. If it is approved, the button should change to Enter.');
-    } else if (/billing|payment|subscription|badge|stripe|oxapay|wallet/.test(message)) {
-        lines.push('For billing or payment issues, include the plan or badge, provider, amount, date, current status, and any checkout error shown.');
-        lines.push('The assistant can explain the payment flow, but payment corrections or confirmations should be escalated to support/admin.');
-    } else if (/ticket|support|bug|error|issue/.test(message)) {
-        lines.push('Create a ticket with the exact issue, what page you were on, what you clicked, and any console error or screenshot.');
-        lines.push('That gives the team enough information to reproduce and fix it faster.');
-    } else {
-        lines.push('I can help with Dashboard questions, profile setup, access status, tickets, navigation, and the main functions of Academy, Plazas, and Federation.');
-        lines.push('Tell me which division you mean, what you clicked, what you expected to happen, and what actually happened.');
-    }
-
-    if (error?.message) {
-        lines.push('The live AI request did not complete, so this fallback answer was generated locally.');
-    }
-
-    return lines.join('\n').trim();
+    return yhUniverseKnowledgeContext.buildYHUniverseSupportFallback({
+        message: payload.message || '',
+        issueCategory: payload.issueCategory || payload.category || '',
+        issueCategoryLabel: payload.issueCategoryLabel || '',
+        errorMessage: error?.message || ''
+    });
 }
+
 
 
 async function requestGeminiDashboardBasicAssistant(payload = {}) {
