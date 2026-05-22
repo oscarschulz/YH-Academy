@@ -14688,13 +14688,16 @@ function syncDashboardBasicAssistantCategoryUi() {
     const category = getDashboardBasicAssistantIssueCategory();
     const hint = document.getElementById('yh-dashboard-basic-assistant-category-hint');
     const input = document.getElementById('yh-dashboard-basic-assistant-input');
+    const promptText = category.prompt || 'Describe the issue...';
 
     if (hint) {
         hint.textContent = category.hint || '';
     }
 
     if (input) {
-        input.placeholder = category.prompt || 'Describe the issue...';
+        input.placeholder = promptText;
+        input.title = promptText;
+        input.setAttribute('aria-label', promptText);
     }
 }
 
@@ -14817,13 +14820,13 @@ function ensureDashboardBasicAssistantPanel() {
             <div class="yh-dashboard-basic-assistant-messages hide-scrollbar" id="yh-dashboard-basic-assistant-messages"></div>
 
             <form class="yh-dashboard-basic-assistant-form" id="yh-dashboard-basic-assistant-form">
-                <input
-                    type="text"
+                <textarea
                     id="yh-dashboard-basic-assistant-input"
                     class="input-field"
                     placeholder="Describe the issue..."
                     autocomplete="off"
-                >
+                    rows="2"
+                ></textarea>
                 <button type="submit" class="btn-primary" id="yh-dashboard-basic-assistant-send">Send</button>
             </form>
         </div>
@@ -14856,6 +14859,13 @@ function ensureDashboardBasicAssistantPanel() {
         sendDashboardBasicAssistantMessage().catch((error) => {
             showToast(error?.message || 'Failed to send assistant message.', 'error');
         });
+    });
+
+    document.getElementById('yh-dashboard-basic-assistant-input')?.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' || event.shiftKey) return;
+
+        event.preventDefault();
+        document.getElementById('yh-dashboard-basic-assistant-form')?.requestSubmit?.();
     });
 
     syncDashboardBasicAssistantCategoryUi();
