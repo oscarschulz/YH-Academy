@@ -6812,6 +6812,99 @@ async function requestGeminiAcademyCoach(payload = {}) {
     };
 }
 
+const DASHBOARD_ASSISTANT_DIVISION_KNOWLEDGE = Object.freeze({
+    academy: {
+        purpose: 'Execution, learning, self-improvement, community, and personal operating system layer.',
+        access: [
+            'Users apply through the Dashboard Academy application.',
+            'Academy access stays gated until admin approval.',
+            'When approved, the Dashboard should change the Academy action from application/pending state to an enter/open state.'
+        ],
+        mainFeatures: [
+            'Roadmap and Roadmap DNA intake',
+            'Missions and daily execution work',
+            'Community feed and niche-based discussions',
+            'Academy profile and profile editing',
+            'Messages and conversations',
+            'Live voice lounge and video lounge where enabled',
+            'AI Coach, including Learn From mentor/personality mode',
+            'Lead Missions, lead contacts, payout/deal tracking where available',
+            'YHA verification badge and related payment/status visibility'
+        ],
+        honestLimits: [
+            'The Dashboard Assistant can explain Academy features and support issues, but it is not the Roadmap Coach.',
+            'It should not generate a roadmap, approve an application, or claim it changed mission data unless an actual backend action exists.'
+        ]
+    },
+    plazas: {
+        purpose: 'Application-gated networking, regional movement, opportunity, meetup, and marketplace layer.',
+        access: [
+            'Users apply through the Dashboard Plazas application.',
+            'Plaza access remains locked until admin approval.',
+            'After approval, users can enter the Plazas page/module.'
+        ],
+        mainFeatures: [
+            'Plaza feed',
+            'Opportunities',
+            'Directory and regional member discovery',
+            'Regions and canonical Plaza structure',
+            'Bridge paths and connection routing',
+            'Requests',
+            'Plaza messages and Business Chats',
+            'Marketplace/service-product readiness',
+            'Meetups',
+            'Patron applications',
+            'Patron announcements, recommendations, intro outcomes, and payout eligibility where enabled'
+        ],
+        honestLimits: [
+            'The assistant can explain Plaza flows and collect issue details, but cannot approve Plaza access.',
+            'If a user asks about a specific region, request, opportunity, or meetup status not visible in the conversation, ask them to provide the page/status or tell them to refresh/open a ticket.'
+        ]
+    },
+    federation: {
+        purpose: 'Selective high-value network, protected directory, referrals, connection, and deal-room layer.',
+        access: [
+            'Users request/apply for Federation access through the Dashboard Federation application.',
+            'Federation access is selective and not guaranteed.',
+            'The system may require progression signals such as Academy/Plaza readiness before Federation access becomes available.',
+            'Full member/operator details remain protected until approval.'
+        ],
+        mainFeatures: [
+            'Command layer',
+            'Connect',
+            'Deal Rooms',
+            'Protected Directory and directory preview',
+            'Requests',
+            'Referrals and referral code tracking',
+            'My Access / access status',
+            'Strategic readiness and connect readiness indicators',
+            'YHF verification badge and related payment/status visibility'
+        ],
+        honestLimits: [
+            'The assistant can explain Federation features and application/access logic, but cannot approve members, reveal protected contacts, or promise acceptance.',
+            'If the user asks why they are locked, tell them to check application status, refresh status, and make sure progression requirements are met.'
+        ]
+    },
+    sharedDashboard: {
+        features: [
+            'Edit Profile',
+            'Create a Ticket / Dashboard Assistant',
+            'Settings',
+            'Wallet',
+            'Business Chats',
+            'Applications for Academy, Plazas, and Federation',
+            'Status refresh for access gates',
+            'Notifications',
+            'Featured resources and partnerships'
+        ],
+        supportPolicy: [
+            'For bugs, ask for page, action clicked, expected result, actual result, screenshot, browser/device, and console error if available.',
+            'For billing/payment questions, ask for payment provider, plan/badge, amount, date, and current status.',
+            'For access questions, ask whether status is not submitted, pending, approved, rejected, locked, or stale after refresh.'
+        ]
+    }
+});
+
 function buildDashboardBasicAssistantMessages(payload = {}) {
     const history = (Array.isArray(payload.previousMessages) ? payload.previousMessages : [])
         .slice(-8)
@@ -6829,16 +6922,20 @@ function buildDashboardBasicAssistantMessages(payload = {}) {
         {
             role: 'system',
             content: [
-                'You are the YH Universe Dashboard Assistant.',
-                'You help logged-in users with basic questions about their dashboard, profile, account setup, Academy, Plazas, Federation, applications, profile editing, tickets, navigation, and general platform usage.',
-                'You are not the Academy roadmap coach. Do not require roadmap approval, missions, or check-ins.',
-                'Answer simply, clearly, and practically.',
+                'You are the YH Universe Dashboard Assistant and support-ticket intake assistant.',
+                'You help logged-in users with basic questions about their dashboard, profile, account setup, Academy, Plazas, Federation, applications, profile editing, tickets, navigation, billing/payment routing, and general platform usage.',
+                'You know the current support-level function map of the three YH divisions: Academy, Plazas, and Federation.',
+                'Use the Division Knowledge Guide below as your source of truth for explaining platform features. If a user asks something not covered by the guide or not visible in the request, say you cannot confirm it from the current ticket context and ask for the exact page/status/screenshot.',
+                'You are not the Academy roadmap coach. You may explain what the Roadmap, missions, AI Coach, and Learn From features are, but do not generate a full roadmap from this Dashboard ticket assistant.',
+                'Answer simply, clearly, honestly, and practically.',
                 'If the user asks about a technical issue, give short troubleshooting steps and ask for the exact error only when necessary.',
-                'Use the issue category as routing context: Billing, Academy, Federation, Plazas, Profile, Login, Subscriptions, Verification Badge, Messages, Applications, Technical Bug, Uploads, Referrals, or Other.',
+                'Use the issue category as routing context: Platform Guide, Billing, Academy, Federation, Plazas, Profile, Login, Subscriptions, Verification Badge, Messages, Applications, Technical Bug, Uploads, Referrals, or Other.',
                 'If the issue sounds like it needs admin or developer action, tell the user it should be escalated as a support ticket.',
-                'Do not claim you completed backend/admin work unless the user clearly asked and the system actually performed it.',
-                'Keep answers concise. Use 1 to 4 short paragraphs or a short numbered list only when useful.'
-            ].join(' ')
+                'Do not claim you approved access, changed billing, fixed bugs, revealed protected contacts, or completed backend/admin work unless the system actually performed that action.',
+                'Keep answers concise. Use 1 to 4 short paragraphs or a short numbered list only when useful.',
+                'Division Knowledge Guide:',
+                JSON.stringify(DASHBOARD_ASSISTANT_DIVISION_KNOWLEDGE)
+            ].join('\n')
         },
         ...history,
         {
@@ -6848,6 +6945,7 @@ function buildDashboardBasicAssistantMessages(payload = {}) {
                 contextHint: sanitize(payload.contextHint || 'dashboard_ticket'),
                 issueCategory: sanitize(payload.issueCategory || payload.category || ''),
                 issueCategoryLabel: sanitize(payload.issueCategoryLabel || ''),
+                divisionKnowledgeVersion: 'dashboard-division-guide-v1',
                 user: {
                     displayName: trimCoachText(
                         profile.display_name ||
@@ -6878,18 +6976,33 @@ function buildLocalDashboardAssistantFallback(payload = {}, error = null) {
 
     const lines = [];
 
-    if (/profile|edit profile|picture|avatar|bio|username|save/.test(message)) {
+    if (/academy|roadmap|mission|missions|coach|learn from|community|voice|lead mission|yha/.test(message)) {
+        lines.push('Academy is the execution, learning, self-improvement, community, and personal operating system layer.');
+        lines.push('It includes Roadmap/Roadmap DNA, missions, community feed, profile, messages, live voice/video where enabled, AI Coach/Learn From, Lead Missions where available, and YHA badge status.');
+        lines.push('For access issues, check whether the Academy application is not submitted, pending, approved, rejected, or stale after refresh.');
+    } else if (/plaza|plazas|patron|opportunit|directory|region|bridge|meetup|marketplace/.test(message)) {
+        lines.push('Plazas are the application-gated networking, regional movement, opportunity, meetup, marketplace, and Business Chat layer.');
+        lines.push('They include Plaza feed, opportunities, directory, regions, bridge paths, requests, messages/Business Chats, marketplace readiness, meetups, and Patron-related flows where enabled.');
+        lines.push('Plaza access remains locked until admin approval, so unresolved access issues should include the current application/status screen.');
+    } else if (/federation|connect|deal room|deal-room|referral|protected directory|yhf|strategic readiness/.test(message)) {
+        lines.push('Federation is the selective high-value network layer for protected directory access, referrals, connect flows, requests, and deal rooms.');
+        lines.push('It includes Command, Connect, Deal Rooms, Directory/preview, Requests, Referrals, My Access, strategic readiness, and YHF badge status.');
+        lines.push('Federation access is selective and may depend on progression signals, so the assistant cannot promise approval or reveal protected contacts.');
+    } else if (/profile|edit profile|picture|avatar|bio|username|save/.test(message)) {
         lines.push('For profile issues, first save the profile, close the modal, then reopen it to confirm the saved fields are still there.');
         lines.push('If the fields disappear after refresh, it usually means the frontend save worked but the backend hydration response is not returning the same saved fields.');
-    } else if (/application|academy|plaza|federation|pending|approved|enter/.test(message)) {
-        lines.push('For access issues, check whether your application status is pending, approved, rejected, or not submitted yet.');
+    } else if (/application|pending|approved|enter|locked|access/.test(message)) {
+        lines.push('For access issues, check whether your application status is not submitted, pending, approved, rejected, locked, or stale after refresh.');
         lines.push('If it is pending, the button should stay disabled until admin approval. If it is approved, the button should change to Enter.');
+    } else if (/billing|payment|subscription|badge|stripe|oxapay|wallet/.test(message)) {
+        lines.push('For billing or payment issues, include the plan or badge, provider, amount, date, current status, and any checkout error shown.');
+        lines.push('The assistant can explain the payment flow, but payment corrections or confirmations should be escalated to support/admin.');
     } else if (/ticket|support|bug|error|issue/.test(message)) {
         lines.push('Create a ticket with the exact issue, what page you were on, what you clicked, and any console error or screenshot.');
         lines.push('That gives the team enough information to reproduce and fix it faster.');
     } else {
-        lines.push('I can help with basic Dashboard questions, profile setup, access status, tickets, and navigation.');
-        lines.push('Tell me what you clicked, what you expected to happen, and what actually happened.');
+        lines.push('I can help with Dashboard questions, profile setup, access status, tickets, navigation, and the main functions of Academy, Plazas, and Federation.');
+        lines.push('Tell me which division you mean, what you clicked, what you expected to happen, and what actually happened.');
     }
 
     if (error?.message) {
@@ -6898,6 +7011,7 @@ function buildLocalDashboardAssistantFallback(payload = {}, error = null) {
 
     return lines.join('\n').trim();
 }
+
 
 async function requestGeminiDashboardBasicAssistant(payload = {}) {
     const apiKey = process.env.GEMINI_API_KEY;

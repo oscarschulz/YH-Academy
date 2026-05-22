@@ -14576,7 +14576,7 @@ if (document.readyState === 'loading') {
 }
 
 const YH_DASHBOARD_BASIC_ASSISTANT_CONVERSATION_ID = 'dashboard_ticket_main';
-const YH_DASHBOARD_BASIC_ASSISTANT_WELCOME_MESSAGE = 'What is your issue? Choose the closest category, then describe what happened, what page you were on, and what you expected.';
+const YH_DASHBOARD_BASIC_ASSISTANT_WELCOME_MESSAGE = 'What is your issue? Choose the closest category. You can report a bug, ask about access, or ask how Academy, Plazas, and Federation work.';
 
 const DASHBOARD_BASIC_ASSISTANT_ISSUE_CATEGORIES = [
     {
@@ -14584,6 +14584,12 @@ const DASHBOARD_BASIC_ASSISTANT_ISSUE_CATEGORIES = [
         label: 'General Support',
         hint: 'Use this if the issue does not fit a specific category.',
         prompt: 'Describe your issue, what you clicked, and what happened.'
+    },
+    {
+        value: 'platform_guide',
+        label: 'Platform Guide / Divisions',
+        hint: 'Questions about what Academy, Plazas, or Federation does and how the three divisions work together.',
+        prompt: 'Ask about Academy, Plazas, Federation, or how the YH Universe divisions work.'
     },
     {
         value: 'billing',
@@ -14799,6 +14805,7 @@ function ensureDashboardBasicAssistantPanel() {
                 <div id="yh-dashboard-basic-assistant-category-hint" class="yh-dashboard-basic-assistant-category-hint"></div>
 
                 <div class="yh-dashboard-basic-assistant-category-chips" aria-label="Common issue categories">
+                    <button type="button" data-dashboard-ticket-category="platform_guide">Platform Guide</button>
                     <button type="button" data-dashboard-ticket-category="billing">Billing</button>
                     <button type="button" data-dashboard-ticket-category="academy">Academy</button>
                     <button type="button" data-dashboard-ticket-category="federation">Federation</button>
