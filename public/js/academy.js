@@ -29784,6 +29784,7 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
     };
 
     let pendingLearnFromSelection = '';
+    let selectedLearnFromPaymentType = '';
 
     function escapeHtml(value) {
         if (typeof academyFeedEscapeHtml === 'function') {
@@ -29866,6 +29867,47 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
         status.textContent = message || '';
     }
 
+    function normalizeLearnFromPaymentType(value = '') {
+        const clean = String(value || '').trim().toLowerCase();
+
+        if (clean === 'monthly' || clean === 'stripe') return 'monthly';
+        if (clean === 'one_time' || clean === 'one-time' || clean === 'onetime' || clean === 'oxapay') return 'one_time';
+
+        return '';
+    }
+
+    function getLearnFromPaymentMethodLabel(value = '') {
+        const clean = normalizeLearnFromPaymentType(value);
+
+        if (clean === 'monthly') return 'Stripe monthly billing selected. Continue to secure Stripe checkout.';
+        if (clean === 'one_time') return 'OxaPay one-time crypto payment selected. Continue to secure OxaPay invoice.';
+
+        return 'Choose a payment method first.';
+    }
+
+    function syncLearnFromPaymentSelection() {
+        const payModal = document.getElementById(LEARN_FROM_PAY_MODAL_ID);
+        if (!payModal) return;
+
+        const selectedType = normalizeLearnFromPaymentType(selectedLearnFromPaymentType);
+        const submitButton = payModal.querySelector('[data-learn-from-pay-submit]');
+
+        payModal.querySelectorAll('[data-learn-from-pay-select]').forEach((button) => {
+            const buttonType = normalizeLearnFromPaymentType(button.getAttribute('data-learn-from-pay-select') || '');
+            const isSelected = Boolean(selectedType && buttonType === selectedType);
+
+            button.classList.toggle('is-selected', isSelected);
+            button.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+        });
+
+        if (submitButton) {
+            submitButton.classList.toggle('hidden-step', !selectedType);
+            submitButton.dataset.learnFromPaySubmit = selectedType;
+        }
+
+        setLearnFromPayStatus(getLearnFromPaymentMethodLabel(selectedType), selectedType ? 'success' : '');
+    }
+
     async function refreshAcademyLearnFromAccess(options = {}) {
         try {
             const result = await coachFetch('/api/payments/academy/learn-from-access', {
@@ -29900,6 +29942,8 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
 
     function openLearnFromPayModal(selectedKey = '') {
         pendingLearnFromSelection = normalizeLearnFromKey(selectedKey);
+        selectedLearnFromPaymentType = '';
+
         const payModal = document.getElementById(LEARN_FROM_PAY_MODAL_ID);
         const selectedMeta = getLearnFromMeta(pendingLearnFromSelection);
 
@@ -29910,22 +29954,25 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
             nameEl.textContent = selectedMeta?.key ? selectedMeta.shortLabel : 'this mentor mode';
         }
 
-        setLearnFromPayStatus('');
         payModal.classList.remove('hidden-step');
         payModal.setAttribute('aria-hidden', 'false');
+        syncLearnFromPaymentSelection();
     }
 
     function closeLearnFromPayModal() {
         const payModal = document.getElementById(LEARN_FROM_PAY_MODAL_ID);
         if (!payModal) return;
 
+        selectedLearnFromPaymentType = '';
+
         payModal.classList.add('hidden-step');
         payModal.setAttribute('aria-hidden', 'true');
         setLearnFromPayStatus('');
+        syncLearnFromPaymentSelection();
     }
 
     async function startAcademyLearnFromCheckout(accessType = '') {
-        const normalizedAccessType = String(accessType || '').trim().toLowerCase();
+        const normalizedAccessType = normalizeLearnFromPaymentType(accessType || selectedLearnFromPaymentType);
         const endpoint =
             normalizedAccessType === 'monthly'
                 ? '/api/payments/academy/learn-from-access/stripe-checkout-session'
@@ -29933,9 +29980,12 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
                     ? '/api/payments/academy/learn-from-access/oxapay-invoice'
                     : '';
 
-        if (!endpoint) return;
+        if (!endpoint) {
+            setLearnFromPayStatus('Select Stripe monthly billing or OxaPay one-time payment first.', 'error');
+            return;
+        }
 
-        const buttons = document.querySelectorAll('[data-learn-from-pay]');
+        const buttons = document.querySelectorAll('[data-learn-from-pay-select], [data-learn-from-pay-submit]');
         buttons.forEach((button) => {
             button.disabled = true;
             button.setAttribute('aria-busy', 'true');
@@ -29983,6 +30033,8 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
                 button.disabled = false;
                 button.removeAttribute('aria-busy');
             });
+
+            syncLearnFromPaymentSelection();
         }
     }
 
@@ -30184,21 +30236,21 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
                         </p>
 
                         <div class="academy-ai-coach-learn-pay-options">
-                            <button type="button" data-learn-from-pay="monthly">
+                            <button type="button" data-learn-from-pay-select="monthly" aria-pressed="false">
                                 <strong>$2.81/month</strong>
                                 <span>Monthly billing via Stripe</span>
                             </button>
-                            <button type="button" data-learn-from-pay="one_time">
+                            <button type="button" data-learn-from-pay-select="one_time" aria-pressed="false">
                                 <strong>$28.12 one-time</strong>
                                 <span>One-time crypto payment via OxaPay</span>
                             </button>
                         </div>
 
-                        <button type="button" class="academy-ai-coach-learn-pay-main" data-learn-from-pay="monthly">
+                        <button type="button" class="academy-ai-coach-learn-pay-main hidden-step" data-learn-from-pay-submit>
                             Purchase the subscription for less than a coffee.
                         </button>
 
-                        <div class="academy-ai-coach-learn-pay-status" id="${LEARN_FROM_PAY_STATUS_ID}"></div>
+                        <div class="academy-ai-coach-learn-pay-status" id="${LEARN_FROM_PAY_STATUS_ID}">Choose a payment method first.</div>
                     </div>
                 </div>
             </div>
@@ -30469,9 +30521,19 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
             } catch (_) {}
         });
 
-        modal.querySelectorAll('[data-learn-from-pay]').forEach((button) => {
+        modal.querySelectorAll('[data-learn-from-pay-select]').forEach((button) => {
+            button.addEventListener('click', () => {
+                selectedLearnFromPaymentType = normalizeLearnFromPaymentType(
+                    button.getAttribute('data-learn-from-pay-select') || ''
+                );
+
+                syncLearnFromPaymentSelection();
+            });
+        });
+
+        modal.querySelectorAll('[data-learn-from-pay-submit]').forEach((button) => {
             button.addEventListener('click', async () => {
-                await startAcademyLearnFromCheckout(button.getAttribute('data-learn-from-pay') || '');
+                await startAcademyLearnFromCheckout(button.getAttribute('data-learn-from-pay-submit') || selectedLearnFromPaymentType);
             });
         });
 
