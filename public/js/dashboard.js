@@ -14576,6 +14576,133 @@ if (document.readyState === 'loading') {
 }
 
 const YH_DASHBOARD_BASIC_ASSISTANT_CONVERSATION_ID = 'dashboard_ticket_main';
+const YH_DASHBOARD_BASIC_ASSISTANT_WELCOME_MESSAGE = 'What is your issue? Choose the closest category, then describe what happened, what page you were on, and what you expected.';
+
+const DASHBOARD_BASIC_ASSISTANT_ISSUE_CATEGORIES = [
+    {
+        value: 'general',
+        label: 'General Support',
+        hint: 'Use this if the issue does not fit a specific category.',
+        prompt: 'Describe your issue, what you clicked, and what happened.'
+    },
+    {
+        value: 'billing',
+        label: 'Billing & Payments',
+        hint: 'Payment problems, invoices, checkout, OxaPay, Stripe, failed payment, or billing questions.',
+        prompt: 'Tell us the payment method, plan, amount, and what went wrong.'
+    },
+    {
+        value: 'academy',
+        label: 'Academy',
+        hint: 'Roadmap, missions, Academy access, AI Coach, lessons, community feed, or Academy application issues.',
+        prompt: 'Tell us which Academy feature is affected and what you were trying to do.'
+    },
+    {
+        value: 'federation',
+        label: 'Federation',
+        hint: 'Federation application, access, directory, deal rooms, networking, or YHF badge issues.',
+        prompt: 'Tell us what Federation page or action is causing the issue.'
+    },
+    {
+        value: 'plazas',
+        label: 'Plazas',
+        hint: 'Plaza access, Patron application, regional Plaza, marketplace, meetups, or Plaza profile issues.',
+        prompt: 'Tell us which Plaza feature is affected and what result you expected.'
+    },
+    {
+        value: 'profile',
+        label: 'Profile / Edit Profile',
+        hint: 'Avatar, cover photo, username, bio, skills, marketplace readiness, or profile save issues.',
+        prompt: 'Tell us what profile field you changed and whether it saved after refresh.'
+    },
+    {
+        value: 'login_account',
+        label: 'Login / Account Access',
+        hint: 'Login, OTP, password reset, session expiry, account access, or auth issues.',
+        prompt: 'Tell us what login/account step failed and what message you saw.'
+    },
+    {
+        value: 'subscriptions',
+        label: 'Subscriptions / Unsubscribe',
+        hint: 'Active subscription visibility, unsubscribe button, renewal, cancellation, or plan status.',
+        prompt: 'Tell us which subscription or badge plan you are trying to manage.'
+    },
+    {
+        value: 'verification_badge',
+        label: 'Verification Badge',
+        hint: 'YHA/YHF badge payment, badge activation, badge visibility, or verified status issues.',
+        prompt: 'Tell us which badge is affected and what status you currently see.'
+    },
+    {
+        value: 'messages',
+        label: 'Messages / Business Chats',
+        hint: 'Private messages, group chats, Business Chats, replies, unread states, or chat UI problems.',
+        prompt: 'Tell us which conversation type is affected and what action failed.'
+    },
+    {
+        value: 'applications',
+        label: 'Applications / Pending Approval',
+        hint: 'Academy, Plaza, Federation applications, pending status, rejected status, or enter button problems.',
+        prompt: 'Tell us which application is affected and what status/button you currently see.'
+    },
+    {
+        value: 'technical_bug',
+        label: 'Technical Bug / UI Issue',
+        hint: 'Broken button, stuck loader, visual glitch, console error, mobile layout, or unexpected behavior.',
+        prompt: 'Describe the bug, device/browser, page, and exact steps to reproduce it.'
+    },
+    {
+        value: 'uploads_media',
+        label: 'Uploads / Media',
+        hint: 'Image upload, avatar upload, cover upload, post media, video, or file upload issues.',
+        prompt: 'Tell us what file type you uploaded and what happened after uploading.'
+    },
+    {
+        value: 'referrals_commissions',
+        label: 'Referrals / Commissions',
+        hint: 'Referral code, invited users, payout, commission activity, or reward tracking issues.',
+        prompt: 'Tell us which referral or commission item looks wrong.'
+    },
+    {
+        value: 'other',
+        label: 'Other',
+        hint: 'Use this when none of the listed categories match.',
+        prompt: 'Describe the issue clearly with any useful context.'
+    }
+];
+
+function getDashboardBasicAssistantIssueCategory() {
+    const select = document.getElementById('yh-dashboard-basic-assistant-category');
+    const value = String(select?.value || 'general').trim();
+    return DASHBOARD_BASIC_ASSISTANT_ISSUE_CATEGORIES.find((item) => item.value === value)
+        || DASHBOARD_BASIC_ASSISTANT_ISSUE_CATEGORIES[0];
+}
+
+function syncDashboardBasicAssistantCategoryUi() {
+    const category = getDashboardBasicAssistantIssueCategory();
+    const hint = document.getElementById('yh-dashboard-basic-assistant-category-hint');
+    const input = document.getElementById('yh-dashboard-basic-assistant-input');
+
+    if (hint) {
+        hint.textContent = category.hint || '';
+    }
+
+    if (input) {
+        input.placeholder = category.prompt || 'Describe the issue...';
+    }
+}
+
+function formatDashboardBasicAssistantTicketMessage(message = '', category = null) {
+    const cleanMessage = String(message || '').trim();
+    const safeCategory = category || getDashboardBasicAssistantIssueCategory();
+
+    if (!cleanMessage) return '';
+
+    return [
+        `Issue Category: ${safeCategory.label}`,
+        `Issue Details: ${cleanMessage}`
+    ].join('\n');
+}
 
 function renderDashboardBasicAssistantMessages(messages = []) {
     const list = document.getElementById('yh-dashboard-basic-assistant-messages');
@@ -14622,6 +14749,19 @@ async function loadDashboardBasicAssistantMessages() {
     );
 
     const messages = Array.isArray(result?.messages) ? result.messages : [];
+
+    if (!messages.length) {
+        renderDashboardBasicAssistantMessages([
+            {
+                role: 'assistant',
+                text: YH_DASHBOARD_BASIC_ASSISTANT_WELCOME_MESSAGE,
+                createdAt: new Date().toISOString()
+            }
+        ]);
+
+        return [];
+    }
+
     renderDashboardBasicAssistantMessages(messages);
     return messages;
 }
@@ -14643,10 +14783,28 @@ function ensureDashboardBasicAssistantPanel() {
                 <div>
                     <div class="yh-dashboard-basic-assistant-kicker">Support Ticket</div>
                     <h3 id="yh-dashboard-basic-assistant-title">YH Dashboard Assistant</h3>
-                    <p>Ask basic questions or explain the issue you want to report.</p>
+                    <p>Choose a category, then explain the issue so support can understand it faster.</p>
                 </div>
 
                 <button type="button" class="yh-dashboard-basic-assistant-close" id="yh-dashboard-basic-assistant-close" aria-label="Close assistant">✕</button>
+            </div>
+
+            <div class="yh-dashboard-basic-assistant-intake">
+                <label for="yh-dashboard-basic-assistant-category">What is your issue?</label>
+                <select id="yh-dashboard-basic-assistant-category" class="input-field">
+                    ${DASHBOARD_BASIC_ASSISTANT_ISSUE_CATEGORIES.map((category) => `
+                        <option value="${academyFeedEscapeHtml(category.value)}">${academyFeedEscapeHtml(category.label)}</option>
+                    `).join('')}
+                </select>
+                <div id="yh-dashboard-basic-assistant-category-hint" class="yh-dashboard-basic-assistant-category-hint"></div>
+
+                <div class="yh-dashboard-basic-assistant-category-chips" aria-label="Common issue categories">
+                    <button type="button" data-dashboard-ticket-category="billing">Billing</button>
+                    <button type="button" data-dashboard-ticket-category="academy">Academy</button>
+                    <button type="button" data-dashboard-ticket-category="federation">Federation</button>
+                    <button type="button" data-dashboard-ticket-category="plazas">Plazas</button>
+                    <button type="button" data-dashboard-ticket-category="technical_bug">Bug</button>
+                </div>
             </div>
 
             <div class="yh-dashboard-basic-assistant-messages hide-scrollbar" id="yh-dashboard-basic-assistant-messages"></div>
@@ -14656,7 +14814,7 @@ function ensureDashboardBasicAssistantPanel() {
                     type="text"
                     id="yh-dashboard-basic-assistant-input"
                     class="input-field"
-                    placeholder="Ask about your dashboard or describe the issue..."
+                    placeholder="Describe the issue..."
                     autocomplete="off"
                 >
                 <button type="submit" class="btn-primary" id="yh-dashboard-basic-assistant-send">Send</button>
@@ -14670,12 +14828,30 @@ function ensureDashboardBasicAssistantPanel() {
         closeDashboardBasicAssistantPanel();
     });
 
+    document.getElementById('yh-dashboard-basic-assistant-category')?.addEventListener('change', syncDashboardBasicAssistantCategoryUi);
+
+    panel.querySelectorAll('[data-dashboard-ticket-category]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const categoryValue = button.getAttribute('data-dashboard-ticket-category') || 'general';
+            const select = document.getElementById('yh-dashboard-basic-assistant-category');
+
+            if (select) {
+                select.value = categoryValue;
+            }
+
+            syncDashboardBasicAssistantCategoryUi();
+            document.getElementById('yh-dashboard-basic-assistant-input')?.focus();
+        });
+    });
+
     document.getElementById('yh-dashboard-basic-assistant-form')?.addEventListener('submit', (event) => {
         event.preventDefault();
         sendDashboardBasicAssistantMessage().catch((error) => {
             showToast(error?.message || 'Failed to send assistant message.', 'error');
         });
     });
+
+    syncDashboardBasicAssistantCategoryUi();
 
     return panel;
 }
@@ -14708,8 +14884,10 @@ async function sendDashboardBasicAssistantMessage() {
     const sendBtn = document.getElementById('yh-dashboard-basic-assistant-send');
     const rawText = String(input?.value || '');
     const text = rawText.trim();
+    const issueCategory = getDashboardBasicAssistantIssueCategory();
+    const ticketMessage = formatDashboardBasicAssistantTicketMessage(text, issueCategory);
 
-    if (!text) return;
+    if (!ticketMessage) return;
 
     if (input) input.value = '';
     if (sendBtn) sendBtn.disabled = true;
@@ -14721,7 +14899,7 @@ async function sendDashboardBasicAssistantMessage() {
         ...existingMessages,
         {
             role: 'user',
-            text,
+            text: ticketMessage,
             createdAt: new Date().toISOString()
         },
         {
@@ -14736,8 +14914,10 @@ async function sendDashboardBasicAssistantMessage() {
             method: 'POST',
             body: JSON.stringify({
                 conversationId: YH_DASHBOARD_BASIC_ASSISTANT_CONVERSATION_ID,
-                message: text,
-                contextHint: 'dashboard_ticket'
+                message: ticketMessage,
+                issueCategory: issueCategory.value,
+                issueCategoryLabel: issueCategory.label,
+                contextHint: `dashboard_ticket:${issueCategory.value}`
             })
         });
 
@@ -14747,7 +14927,7 @@ async function sendDashboardBasicAssistantMessage() {
             renderDashboardBasicAssistantMessages([
                 {
                     role: 'user',
-                    text,
+                    text: ticketMessage,
                     createdAt: new Date().toISOString()
                 },
                 {
@@ -14762,7 +14942,7 @@ async function sendDashboardBasicAssistantMessage() {
             ...existingMessages,
             {
                 role: 'user',
-                text,
+                text: ticketMessage,
                 createdAt: new Date().toISOString()
             },
             {

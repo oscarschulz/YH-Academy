@@ -6834,6 +6834,7 @@ function buildDashboardBasicAssistantMessages(payload = {}) {
                 'You are not the Academy roadmap coach. Do not require roadmap approval, missions, or check-ins.',
                 'Answer simply, clearly, and practically.',
                 'If the user asks about a technical issue, give short troubleshooting steps and ask for the exact error only when necessary.',
+                'Use the issue category as routing context: Billing, Academy, Federation, Plazas, Profile, Login, Subscriptions, Verification Badge, Messages, Applications, Technical Bug, Uploads, Referrals, or Other.',
                 'If the issue sounds like it needs admin or developer action, tell the user it should be escalated as a support ticket.',
                 'Do not claim you completed backend/admin work unless the user clearly asked and the system actually performed it.',
                 'Keep answers concise. Use 1 to 4 short paragraphs or a short numbered list only when useful.'
@@ -6845,6 +6846,8 @@ function buildDashboardBasicAssistantMessages(payload = {}) {
             content: JSON.stringify({
                 message: trimCoachText(payload.message || '', 1200),
                 contextHint: sanitize(payload.contextHint || 'dashboard_ticket'),
+                issueCategory: sanitize(payload.issueCategory || payload.category || ''),
+                issueCategoryLabel: sanitize(payload.issueCategoryLabel || ''),
                 user: {
                     displayName: trimCoachText(
                         profile.display_name ||
@@ -6870,7 +6873,8 @@ function buildDashboardBasicAssistantMessages(payload = {}) {
 }
 
 function buildLocalDashboardAssistantFallback(payload = {}, error = null) {
-    const message = sanitize(payload.message || '').toLowerCase();
+    const issueCategory = sanitize(payload.issueCategory || payload.category || '').toLowerCase();
+    const message = `${issueCategory} ${sanitize(payload.message || '')}`.toLowerCase();
 
     const lines = [];
 
@@ -7013,6 +7017,8 @@ exports.chatWithDashboardAssistant = async (req, res) => {
         const conversationId = sanitize(req.body?.conversationId || 'dashboard_ticket_main') || 'dashboard_ticket_main';
         const message = sanitize(req.body?.message || '');
         const contextHint = sanitize(req.body?.contextHint || 'dashboard_ticket');
+        const issueCategory = sanitize(req.body?.issueCategory || req.body?.category || '');
+        const issueCategoryLabel = sanitize(req.body?.issueCategoryLabel || '');
 
         if (!message) {
             return res.status(400).json({
@@ -7031,12 +7037,16 @@ exports.chatWithDashboardAssistant = async (req, res) => {
             role: 'user',
             text: message,
             contextHint,
+            issueCategory,
+            issueCategoryLabel,
             responseStyleVersion: 'dashboard-assistant-v1'
         });
 
         const assistantPayload = {
             message,
             contextHint,
+            issueCategory,
+            issueCategoryLabel,
             previousMessages: history,
             profile: profileDoc && typeof profileDoc === 'object' ? profileDoc : {}
         };
@@ -7060,6 +7070,8 @@ exports.chatWithDashboardAssistant = async (req, res) => {
             role: 'assistant',
             text: aiResult.reply,
             contextHint,
+            issueCategory,
+            issueCategoryLabel,
             provider: aiResult.provider,
             model: aiResult.model,
             replyFormat: 'dashboard_basic',
@@ -7076,6 +7088,8 @@ exports.chatWithDashboardAssistant = async (req, res) => {
             success: true,
             reply: aiResult.reply,
             conversationId,
+            issueCategory,
+            issueCategoryLabel,
             provider: aiResult.provider,
             model: aiResult.model,
             replyFormat: 'dashboard_basic',

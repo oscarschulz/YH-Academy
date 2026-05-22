@@ -19739,7 +19739,7 @@ body[data-yh-page="dashboard"] .yh-dashboard-profile-search-btn {
     top: 86px;
     right: 24px;
     z-index: 2200;
-    width: min(420px, calc(100vw - 32px));
+    width: min(460px, calc(100vw - 32px));
     max-height: calc(100vh - 112px);
 }
 
@@ -19796,12 +19796,62 @@ body[data-yh-page="dashboard"] .yh-dashboard-profile-search-btn {
     cursor: pointer;
 }
 
+.yh-dashboard-basic-assistant-intake {
+    display: grid;
+    gap: 8px;
+    padding: 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(2, 6, 23, 0.22);
+}
+
+.yh-dashboard-basic-assistant-intake label {
+    color: #f8fbff;
+    font-size: 0.82rem;
+    font-weight: 850;
+}
+
+.yh-dashboard-basic-assistant-intake select {
+    min-height: 42px;
+    margin-top: 0;
+}
+
+.yh-dashboard-basic-assistant-category-hint {
+    color: var(--text-muted);
+    font-size: 0.76rem;
+    line-height: 1.45;
+}
+
+.yh-dashboard-basic-assistant-category-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+}
+
+.yh-dashboard-basic-assistant-category-chips button {
+    width: auto;
+    min-height: 30px;
+    padding: 6px 9px;
+    border-radius: 999px;
+    border: 1px solid rgba(56, 189, 248, 0.24);
+    background: rgba(14, 165, 233, 0.08);
+    color: #bae6fd;
+    font-size: 0.72rem;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.yh-dashboard-basic-assistant-category-chips button:hover {
+    border-color: rgba(56, 189, 248, 0.48);
+    background: rgba(14, 165, 233, 0.16);
+    color: #ffffff;
+}
+
 .yh-dashboard-basic-assistant-messages {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    min-height: 260px;
-    max-height: min(48vh, 420px);
+    min-height: 220px;
+    max-height: min(40vh, 360px);
     padding: 14px;
     overflow-y: auto;
 }
@@ -19865,7 +19915,6 @@ body[data-yh-page="dashboard"] .yh-dashboard-profile-search-btn {
     min-height: 44px;
     padding-inline: 12px;
 }
-
 @media (max-width: 700px) {
     .yh-dashboard-profile-modal {
         align-items: stretch;
@@ -19911,7 +19960,12 @@ body[data-yh-page="dashboard"] .yh-dashboard-profile-search-btn {
     }
 
     .yh-dashboard-basic-assistant-messages {
-        max-height: 50vh;
+        min-height: 180px;
+        max-height: 36vh;
+    }
+
+    .yh-dashboard-basic-assistant-category-chips button {
+        flex: 1 1 calc(50% - 7px);
     }
 
     .yh-dashboard-basic-assistant-form {
