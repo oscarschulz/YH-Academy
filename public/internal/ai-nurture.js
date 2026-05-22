@@ -1611,6 +1611,56 @@
         `).join('');
     }
 
+    function renderSourceEvidenceItems(review = {}, chunks = []) {
+        const reviewEvidence = Array.isArray(review.evidenceItems) ? review.evidenceItems : [];
+        const chunkEvidence = (Array.isArray(chunks) ? chunks : [])
+            .flatMap((chunk) => Array.isArray(chunk.evidenceItems) ? chunk.evidenceItems : []);
+
+        const rows = [...reviewEvidence, ...chunkEvidence]
+            .filter((item, index, source) => {
+                const key = [
+                    item.sourceUrl || item.canonicalUrl || item.timestampUrl || '',
+                    item.timestampLabel || '',
+                    item.chunkIndex || '',
+                    item.claim || item.evidenceExcerpt || ''
+                ].join('|');
+
+                return key.trim() && source.findIndex((candidate) => [
+                    candidate.sourceUrl || candidate.canonicalUrl || candidate.timestampUrl || '',
+                    candidate.timestampLabel || '',
+                    candidate.chunkIndex || '',
+                    candidate.claim || candidate.evidenceExcerpt || ''
+                ].join('|') === key) === index;
+            })
+            .slice(0, 8);
+
+        if (!rows.length) {
+            return '<div class="empty-box">No evidence items captured yet. New processed sources will store source proof when usable chunks exist.</div>';
+        }
+
+        return rows.map((item) => {
+            const sourceUrl = item.timestampUrl || item.sourceUrl || item.canonicalUrl || '';
+            const sourceTitle = item.sourceTitle || item.knowledgeTitle || 'Source evidence';
+            const timestamp = item.timestampLabel ? ` · ${item.timestampLabel}` : '';
+            const speaker = item.speakerName ? `${item.speakerName} · ` : '';
+
+            return `
+                <div class="source-detail-evidence-card">
+                    <div class="source-detail-evidence-head">
+                        <strong>${escapeHtml(speaker + sourceTitle)}${escapeHtml(timestamp)}</strong>
+                        ${sourceUrl ? `<a href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer">Open source</a>` : ''}
+                    </div>
+                    <div class="source-detail-evidence-claim">${escapeHtml(item.claim || item.evidenceNote || 'Source proof saved for this knowledge item.')}</div>
+                    <div class="source-detail-evidence-excerpt">${escapeHtml(item.evidenceExcerpt || 'No excerpt saved.')}</div>
+                    <div class="source-detail-evidence-meta">
+                        <span>Chunk ${escapeHtml(item.chunkIndex || 'n/a')}</span>
+                        <span>${escapeHtml(item.evidenceNote || 'Evidence captured from source.')}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
     function renderSourceReviewPreview(detail = {}) {
         const drawer = byId(ids.sourceDetailDrawer);
         const backdrop = byId(ids.sourceDetailBackdrop);
@@ -1676,6 +1726,11 @@
                     ${renderSourceScore('Freshness', review.freshnessScore)}
                     ${renderSourceScore('Clean chars', snapshot.cleanTextChars || 0)}
                 </div>
+            </div>
+
+            <div class="source-detail-section">
+                <h3>Evidence / Source Proof</h3>
+                ${renderSourceEvidenceItems(review, chunks)}
             </div>
 
             <div class="source-detail-section">

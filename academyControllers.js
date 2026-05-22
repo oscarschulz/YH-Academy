@@ -6189,6 +6189,22 @@ function compactAcademyCoachKnowledgeList(values = [], maxItems = 6, maxChars = 
         .slice(0, maxItems);
 }
 
+function compactAcademyCoachEvidenceList(values = [], maxItems = 5) {
+    return (Array.isArray(values) ? values : [])
+        .filter((item) => item && typeof item === 'object')
+        .map((item) => ({
+            speakerName: trimCoachText(item.speakerName || '', 80),
+            sourceTitle: trimCoachText(item.sourceTitle || item.knowledgeTitle || 'Source', 160),
+            sourceUrl: sanitize(item.timestampUrl || item.sourceUrl || item.canonicalUrl || ''),
+            timestampLabel: sanitize(item.timestampLabel || ''),
+            claim: trimCoachText(item.claim || '', 220),
+            evidenceNote: trimCoachText(item.evidenceNote || '', 220),
+            evidenceExcerpt: trimCoachText(item.evidenceExcerpt || '', 300)
+        }))
+        .filter((item) => item.sourceUrl || item.claim || item.evidenceExcerpt)
+        .slice(0, maxItems);
+}
+
 async function buildAcademyCoachLearnFromContext(value = '', uid = '') {
     const meta = getAcademyCoachLearnFromMeta(value);
 
@@ -6218,6 +6234,7 @@ async function buildAcademyCoachLearnFromContext(value = '', uid = '') {
         const examples = compactAcademyCoachKnowledgeList(context?.examples, 4, 320);
         const redFlags = compactAcademyCoachKnowledgeList(context?.redFlags, 5, 240);
         const priorityThemes = compactAcademyCoachKnowledgeList(context?.priorityThemes, 6, 80);
+        const evidenceItems = compactAcademyCoachEvidenceList(context?.evidenceItems, 5);
         const usedApprovedKnowledge = rules.length > 0 || examples.length > 0 || redFlags.length > 0;
 
         return {
@@ -6232,7 +6249,11 @@ async function buildAcademyCoachLearnFromContext(value = '', uid = '') {
             examples,
             redFlags,
             priorityThemes,
-            telemetry: context?.telemetry || {}
+            evidenceItems,
+            telemetry: {
+                ...(context?.telemetry || {}),
+                evidenceItemCount: evidenceItems.length
+            }
         };
     } catch (error) {
         console.error('buildAcademyCoachLearnFromContext error:', error);
@@ -6271,7 +6292,9 @@ function buildAcademyCoachLearnFromSystemInstruction(context = {}) {
         context.guidance,
         'Use the selected figure only as a learning lens, not as an identity.',
         'Do not impersonate the person, do not write as the person, and do not invent direct quotes.',
-        'Use only the approved AI Nurture rules, examples, red flags, and themes included in the user payload.',
+        'Use only the approved AI Nurture rules, examples, red flags, themes, and evidence items included in the user payload.',
+        'When evidence items are available, include a short “Evidence” section with source title, source link, and timestamp only if a timestamp was saved.',
+        'Never invent quotes, timestamps, video titles, or private claims. If no evidence item is available, say the answer is based on approved Academy knowledge, not direct source proof.',
         'Translate the approved knowledge into a practical Academy mission, reset action, weekly move, or next step.'
     ].join(' ');
 }
@@ -6373,7 +6396,8 @@ function buildAcademyCoachCompactPayload(payload = {}) {
                 priorityThemes: compactAcademyCoachKnowledgeList(payload.learnFromContext.priorityThemes, 6, 80),
                 rules: compactAcademyCoachKnowledgeList(payload.learnFromContext.rules, 8, 260),
                 examples: compactAcademyCoachKnowledgeList(payload.learnFromContext.examples, 4, 320),
-                redFlags: compactAcademyCoachKnowledgeList(payload.learnFromContext.redFlags, 5, 240)
+                redFlags: compactAcademyCoachKnowledgeList(payload.learnFromContext.redFlags, 5, 240),
+                evidenceItems: compactAcademyCoachEvidenceList(payload.learnFromContext.evidenceItems, 5)
             }
             : {},
         conversationHistory: history
@@ -6627,6 +6651,16 @@ function buildLocalAcademyCoachFallback(payload = {}, error = null) {
     if (learnFromContext.requested && learnFromContext.name) {
         if (learnFromContext.usedApprovedKnowledge) {
             replyLines.push(`Learn-from lens: ${learnFromContext.name}. I’ll apply the approved knowledge pack without impersonating them.`);
+
+            const firstEvidence = Array.isArray(learnFromContext.evidenceItems)
+                ? learnFromContext.evidenceItems[0]
+                : null;
+
+            if (firstEvidence?.sourceUrl) {
+                replyLines.push(
+                    `Evidence: ${firstEvidence.sourceTitle || 'Approved source'}${firstEvidence.timestampLabel ? ` around ${firstEvidence.timestampLabel}` : ''} — ${firstEvidence.sourceUrl}`
+                );
+            }
         } else {
             replyLines.push(`Learn-from lens: ${learnFromContext.name} is selected, but no approved AI Nurture knowledge pack is available for that figure yet.`);
         }
@@ -7442,7 +7476,8 @@ exports.chatWithAcademyCoach = async (req, res) => {
             usedLearnFrom: learnFromContext.requested === true,
             usedAiNurtureLearnFrom: learnFromContext.usedApprovedKnowledge === true,
             learnFromRuleCount: Array.isArray(learnFromContext.rules) ? learnFromContext.rules.length : 0,
-            learnFromExampleCount: Array.isArray(learnFromContext.examples) ? learnFromContext.examples.length : 0
+            learnFromExampleCount: Array.isArray(learnFromContext.examples) ? learnFromContext.examples.length : 0,
+            learnFromEvidenceCount: Array.isArray(learnFromContext.evidenceItems) ? learnFromContext.evidenceItems.length : 0
         };
 
         await academyFirestoreRepo.createCoachMessage(uid, {

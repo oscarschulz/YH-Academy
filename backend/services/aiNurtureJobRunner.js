@@ -2,6 +2,7 @@ const aiNurtureRepo = require('../repositories/aiNurtureFirestoreRepo');
 const urlContentExtractor = require('./urlContentExtractor');
 const aiNurtureAnalyzer = require('./aiNurtureAnalyzer');
 const aiNurturePolicy = require('./aiNurturePolicy');
+const aiNurtureEvidenceBuilder = require('./aiNurtureEvidenceBuilder');
 
 function sanitize(value, fallback = '') {
     if (value === null || value === undefined) return fallback;
@@ -95,12 +96,42 @@ async function processSourceById(sourceId) {
         existingLibrary: libraryForDuplicateCheck
     });
 
-    const chunks = await aiNurtureRepo.replaceChunks(sourceId, analysis.chunks || []);
-    const review = await aiNurtureRepo.createOrReplaceReview(sourceId, analysis.review || {});
+    const evidenceSource = {
+        ...source,
+        id: sourceId,
+        canonicalUrl: extraction.finalUrl || source.canonicalUrl,
+        hostname: extraction.finalUrl ? new URL(extraction.finalUrl).hostname : source.hostname,
+        title: extraction.title || source.title,
+        description: extraction.description || '',
+        publishedAt: extraction.publishedAt || '',
+        modifiedAt: extraction.modifiedAt || ''
+    };
+
+    const evidenceItems = aiNurtureEvidenceBuilder.buildEvidenceItems({
+        source: evidenceSource,
+        snapshot,
+        chunks: analysis.chunks || [],
+        review: analysis.review || {}
+    });
+
+    const chunks = await aiNurtureRepo.replaceChunks(
+        sourceId,
+        (analysis.chunks || []).map((chunk) => ({
+            ...chunk,
+            evidenceItems: evidenceItems.filter((item) => Number(item.chunkIndex || 0) === Number(chunk.index || 0))
+        }))
+    );
+
+    const review = await aiNurtureRepo.createOrReplaceReview(sourceId, {
+        ...(analysis.review || {}),
+        evidenceItems
+    });
 
     const updatedSource = await aiNurtureRepo.updateSource(sourceId, {
         status: 'reviewed',
         analyzedAt: new Date().toISOString(),
+        evidenceCount: evidenceItems.length,
+        evidenceCapturedAt: evidenceItems.length ? new Date().toISOString() : '',
         title: extraction.title || source.title || source.hostname || source.canonicalUrl,
         canonicalUrl: extraction.finalUrl || source.canonicalUrl,
         hostname: extraction.finalUrl ? new URL(extraction.finalUrl).hostname : source.hostname,

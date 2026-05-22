@@ -302,6 +302,7 @@ async function replaceChunks(sourceId, chunks = []) {
             reason: sanitize(chunk.reason),
             keyTakeaways: Array.isArray(chunk.keyTakeaways) ? chunk.keyTakeaways.map((item) => sanitize(item)).filter(Boolean) : [],
             redFlags: Array.isArray(chunk.redFlags) ? chunk.redFlags.map((item) => sanitize(item)).filter(Boolean) : [],
+            evidenceItems: sanitizeEvidenceItems(chunk.evidenceItems, 4),
             createdAt: nowTs()
         };
 
@@ -358,6 +359,8 @@ async function createOrReplaceReview(sourceId, payload = {}) {
             },
             approvedChunkIndexes: Array.isArray(payload.approvedChunkIndexes) ? payload.approvedChunkIndexes : [],
             rejectedChunkIndexes: Array.isArray(payload.rejectedChunkIndexes) ? payload.rejectedChunkIndexes : [],
+            evidenceItems: sanitizeEvidenceItems(payload.evidenceItems, 8),
+            evidenceCount: sanitizeEvidenceItems(payload.evidenceItems, 8).length,
             createdAt: nowTs(),
             updatedAt: nowTs()
         },
@@ -474,6 +477,110 @@ async function upsertUserOverlay(userId, payload = {}) {
     await ref.set(nextDoc, { merge: true });
     return mapDoc(await ref.get());
 }
+
+function sanitizeEvidenceItems(values = [], limit = 8) {
+    const source = Array.isArray(values) ? values : [];
+    const out = [];
+
+    for (const item of source) {
+        if (!item || typeof item !== 'object') continue;
+
+        const sourceUrl = sanitize(item.sourceUrl || item.canonicalUrl || item.timestampUrl);
+        const evidenceExcerpt = sanitize(item.evidenceExcerpt);
+        const claim = sanitize(item.claim);
+
+        if (!sourceUrl && !evidenceExcerpt && !claim) continue;
+
+        out.push({
+            id: sanitize(item.id || `evidence_${out.length + 1}`),
+            type: sanitize(item.type || 'source_excerpt'),
+            speakerName: sanitize(item.speakerName),
+            sourceId: sanitize(item.sourceId),
+            sourceTitle: sanitize(item.sourceTitle),
+            sourceUrl,
+            canonicalUrl: sanitize(item.canonicalUrl || sourceUrl),
+            hostname: sanitize(item.hostname),
+            chunkIndex: toNumber(item.chunkIndex, 0),
+            timestampLabel: sanitize(item.timestampLabel),
+            timestampSeconds: toNumber(item.timestampSeconds, 0),
+            timestampUrl: sanitize(item.timestampUrl || sourceUrl),
+            claim: claim.slice(0, 280),
+            evidenceExcerpt: evidenceExcerpt.slice(0, 520),
+            evidenceNote: sanitize(item.evidenceNote).slice(0, 280),
+            confidence: Number(toNumber(item.confidence, 0).toFixed(2)),
+            capturedAt: sanitize(item.capturedAt)
+        });
+
+        if (out.length >= limit) break;
+    }
+
+    return out;
+}
+
+function collectAiNurtureEvidenceForContext(libraryItems = [], filters = {}) {
+    const categoryHints = Array.isArray(filters.categoryHints)
+        ? filters.categoryHints.map((item) => sanitize(item).toLowerCase()).filter(Boolean)
+        : [];
+
+    const tagHints = Array.isArray(filters.tagHints)
+        ? filters.tagHints.map((item) => sanitize(item).toLowerCase()).filter(Boolean)
+        : [];
+
+    const scored = (Array.isArray(libraryItems) ? libraryItems : [])
+        .map((item) => {
+            const category = sanitize(item.category).toLowerCase();
+            const tags = (Array.isArray(item.retrievalTags) ? item.retrievalTags : [])
+                .map((tag) => sanitize(tag).toLowerCase())
+                .join(' ');
+            const summary = sanitize(item.summary).toLowerCase();
+
+            let score = Number(item.confidence || 0) * 10;
+
+            for (const hint of categoryHints) {
+                if (category === hint) score += 5;
+                if (summary.includes(hint) || tags.includes(hint)) score += 2;
+            }
+
+            for (const hint of tagHints) {
+                if (summary.includes(hint) || tags.includes(hint)) score += 3;
+            }
+
+            return {
+                ...item,
+                _evidenceScore: score
+            };
+        })
+        .sort((a, b) => b._evidenceScore - a._evidenceScore);
+
+    const evidence = [];
+    const seen = new Set();
+
+    for (const item of scored) {
+        for (const evidenceItem of sanitizeEvidenceItems(item.evidenceItems, 4)) {
+            const key = [
+                evidenceItem.sourceUrl,
+                evidenceItem.timestampLabel,
+                evidenceItem.chunkIndex,
+                evidenceItem.claim
+            ].join('|');
+
+            if (seen.has(key)) continue;
+            seen.add(key);
+
+            evidence.push({
+                ...evidenceItem,
+                knowledgeId: sanitize(item.id),
+                knowledgeTitle: sanitize(item.title),
+                category: sanitize(item.category)
+            });
+
+            if (evidence.length >= 8) return evidence;
+        }
+    }
+
+    return evidence;
+}
+
 async function createLibraryEntry(payload = {}) {
     const ref = libraryCol().doc();
 
@@ -488,6 +595,8 @@ async function createLibraryEntry(payload = {}) {
         doNotUseWhen: Array.isArray(payload.doNotUseWhen) ? payload.doNotUseWhen.map((item) => sanitize(item)).filter(Boolean) : [],
         sourceUrl: sanitize(payload.sourceUrl),
         sourceTitle: sanitize(payload.sourceTitle),
+        evidenceItems: sanitizeEvidenceItems(payload.evidenceItems, 8),
+        evidenceCount: sanitizeEvidenceItems(payload.evidenceItems, 8).length,
         confidence: Number(toNumber(payload.confidence, 0).toFixed(2)),
         retrievalTags: Array.isArray(payload.retrievalTags) ? payload.retrievalTags.map((item) => sanitize(item)).filter(Boolean) : [],
         status: sanitize(payload.status || 'active'),
@@ -518,6 +627,7 @@ async function createMemoryCards(sourceId, rules = [], meta = {}) {
             title: sanitize(meta.title || cleanRule.slice(0, 80)),
             cardType: 'rule',
             content: cleanRule,
+            evidenceItems: sanitizeEvidenceItems(meta.evidenceItems, 4),
             priority: toNumber(meta.priority, 5),
             category: sanitize(meta.category || 'general'),
             isActive: true,
@@ -644,6 +754,7 @@ async function approveSource(sourceId) {
         ],
         sourceUrl: source.canonicalUrl,
         sourceTitle: source.title || source.canonicalUrl,
+        evidenceItems: review.evidenceItems || [],
         confidence: review?.scores?.relevance || 0,
         retrievalTags: [
             ...(source.manualTags || []),
@@ -663,7 +774,8 @@ async function approveSource(sourceId) {
         knowledgeId: libraryEntry.id,
         title: libraryEntry.title,
         category: libraryEntry.category,
-        priority: 7
+        priority: 7,
+        evidenceItems: review.evidenceItems || []
     });
 
     await updateSource(sourceId, {
@@ -941,7 +1053,7 @@ async function buildActiveKnowledgeContext(filters = {}) {
     const memoryCards = (await listMemoryCards(140)).filter((card) => !excludedSourceIds.has(sanitize(card.sourceId)));
     const overlayKnowledge = filters.userId ? await getUserOverlay(filters.userId) : null;
 
-    return aiNurturePolicy.selectContextFromAssets({
+    const selectedContext = aiNurturePolicy.selectContextFromAssets({
         packs,
         libraryItems,
         memoryCards,
@@ -950,6 +1062,14 @@ async function buildActiveKnowledgeContext(filters = {}) {
         limits: settings?.plannerPackLimits || {},
         overlayKnowledge
     });
+
+    return {
+        ...selectedContext,
+        evidenceItems: collectAiNurtureEvidenceForContext(libraryItems, {
+            categoryHints,
+            tagHints
+        })
+    };
 }
 async function listMemoryCards(limit = 160) {
     const snap = await memoryCardsCol()
