@@ -144,6 +144,54 @@ function extractYHVerifiedBadgePaymentIdFromOrderId(orderId = '') {
     return maybePaymentId.startsWith('verified_badge_') ? maybePaymentId : '';
 }
 
+function extractYHLearnFromPaymentIdFromOrderId(orderId = '') {
+    const clean = sanitizeText(orderId).toLowerCase();
+
+    if (!clean.startsWith('yh_lfa_')) return '';
+
+    return clean;
+}
+
+const YH_ACADEMY_LEARN_FROM_ACCESS_PLAN = Object.freeze({
+    sourceDivision: 'academy',
+    sourceFeature: 'academy_learn_from_access',
+    publicName: 'Academy Learn From Access',
+    monthlyAmount: 2.81,
+    oneTimeAmount: 28.12,
+    currency: 'USD'
+});
+
+function buildActiveYHLearnFromAccessPayload(payment = {}, context = {}) {
+    const now = new Date();
+    const accessType = sanitizeText(payment.metadata?.accessType || context.accessType || 'one_time').toLowerCase();
+    const expiresAt = accessType === 'monthly' ? new Date(now) : null;
+
+    if (expiresAt) {
+        expiresAt.setMonth(expiresAt.getMonth() + 1);
+    }
+
+    return {
+        active: true,
+        status: 'active',
+        product: 'academy_learn_from_access',
+        name: YH_ACADEMY_LEARN_FROM_ACCESS_PLAN.publicName,
+        accessType,
+        amountMonthly: YH_ACADEMY_LEARN_FROM_ACCESS_PLAN.monthlyAmount,
+        amountOneTime: YH_ACADEMY_LEARN_FROM_ACCESS_PLAN.oneTimeAmount,
+        currency: sanitizeText(payment.currency || YH_ACADEMY_LEARN_FROM_ACCESS_PLAN.currency || 'USD').toUpperCase() || 'USD',
+        paymentLedgerId: sanitizeText(payment.id),
+        paymentStatus: 'paid',
+        provider: sanitizeText(context.provider || payment.provider || ''),
+        providerPaymentId: sanitizeText(context.providerPaymentId || payment.providerPaymentId || ''),
+        providerSubscriptionId: sanitizeText(context.providerSubscriptionId || payment.metadata?.stripeSubscriptionId || ''),
+        activatedAt: now.toISOString(),
+        approvedAt: now.toISOString(),
+        expiresAt: expiresAt ? expiresAt.toISOString() : '',
+        verifiedBy: sanitizeText(context.verifiedBy || 'payment-webhook'),
+        updatedAt: now.toISOString()
+    };
+}
+
 function buildActiveYHVerifiedBadgePayload(plan = {}, payment = {}, context = {}) {
     const now = new Date();
     const expiresAt = new Date(now);
@@ -273,6 +321,61 @@ async function resolveYHVerifiedBadgePaymentFromWebhook(paymentId = '', trackId 
     return null;
 }
 
+async function resolveYHLearnFromPaymentFromWebhook(paymentId = '', trackId = '') {
+    const cleanPaymentId = sanitizeText(paymentId);
+
+    if (cleanPaymentId) {
+        try {
+            const payment = await paymentLedgerRepo.getPaymentRecordById(cleanPaymentId);
+            if (sanitizeText(payment.sourceFeature).toLowerCase() === 'academy_learn_from_access') {
+                return payment;
+            }
+        } catch (_) {}
+    }
+
+    const cleanTrackId = sanitizeText(trackId);
+
+    if (cleanTrackId) {
+        const querySnap = await firestore
+            .collection('yhPaymentLedger')
+            .where('providerPaymentId', '==', cleanTrackId)
+            .limit(1)
+            .get();
+
+        if (!querySnap.empty) {
+            const doc = querySnap.docs[0];
+            const data = doc.data() || {};
+            const sourceFeature = sanitizeText(data.sourceFeature).toLowerCase();
+
+            if (sourceFeature === 'academy_learn_from_access') {
+                return {
+                    id: doc.id,
+                    sourceDivision: sanitizeText(data.sourceDivision),
+                    sourceFeature,
+                    sourceRecordId: sanitizeText(data.sourceRecordId),
+                    payerUid: sanitizeText(data.payerUid),
+                    payerEmail: sanitizeText(data.payerEmail).toLowerCase(),
+                    payerName: sanitizeText(data.payerName),
+                    provider: sanitizeText(data.provider),
+                    providerOptions: Array.isArray(data.providerOptions) ? data.providerOptions : ['stripe', 'oxapay'],
+                    providerPaymentId: sanitizeText(data.providerPaymentId),
+                    providerCheckoutUrl: sanitizeText(data.providerCheckoutUrl),
+                    providerStatus: sanitizeText(data.providerStatus),
+                    amount: Number(data.amount || 0),
+                    currency: sanitizeText(data.currency || 'USD').toUpperCase() || 'USD',
+                    status: sanitizeText(data.status || 'draft'),
+                    paymentMethod: sanitizeText(data.paymentMethod || 'unselected'),
+                    platformCommissionAmount: Number(data.platformCommissionAmount || 0),
+                    operatorPayoutAmount: Number(data.operatorPayoutAmount || 0),
+                    metadata: data.metadata && typeof data.metadata === 'object' ? data.metadata : {}
+                };
+            }
+        }
+    }
+
+    return null;
+}
+
 async function syncYHVerifiedBadgePaymentStatus(payment = {}, status = 'pending', context = {}) {
     const cleanStatus = sanitizeText(status || 'pending').toLowerCase();
     const sourceDivision = normalizeYHVerifiedBadgeDivision(
@@ -376,6 +479,104 @@ async function syncYHVerifiedBadgePaymentStatus(payment = {}, status = 'pending'
     return {
         payment: updatedPayment,
         badge: userBadgePayload,
+        payerUid
+    };
+}
+
+async function syncYHLearnFromAccessPaymentStatus(payment = {}, status = 'pending', context = {}) {
+    const cleanStatus = sanitizeText(status || 'pending').toLowerCase();
+    const payerUid = sanitizeText(payment.payerUid || payment.metadata?.userId || context.userId);
+
+    if (!payerUid) return null;
+
+    const accessType = sanitizeText(payment.metadata?.accessType || context.accessType || 'one_time').toLowerCase();
+
+    const updatedPayment = await paymentLedgerRepo.upsertPaymentRecord({
+        id: sanitizeText(payment.id || context.paymentLedgerId),
+        sourceDivision: YH_ACADEMY_LEARN_FROM_ACCESS_PLAN.sourceDivision,
+        sourceFeature: YH_ACADEMY_LEARN_FROM_ACCESS_PLAN.sourceFeature,
+        sourceRecordId: sanitizeText(payment.sourceRecordId || `${payerUid}_${accessType || 'access'}`),
+
+        payerUid,
+        payerEmail: sanitizeText(payment.payerEmail || payment.metadata?.userEmail || context.userEmail).toLowerCase(),
+        payerName: sanitizeText(payment.payerName || payment.metadata?.userName || 'YH Member'),
+
+        provider: sanitizeText(context.provider || payment.provider || 'unselected'),
+        providerOptions: ['stripe', 'oxapay'],
+        providerPaymentId: sanitizeText(context.providerPaymentId || payment.providerPaymentId),
+        providerCheckoutUrl: sanitizeText(payment.providerCheckoutUrl),
+        providerStatus: sanitizeText(context.providerStatus || payment.providerStatus || cleanStatus),
+
+        status: cleanStatus,
+        paymentMethod: sanitizeText(context.paymentMethod || payment.paymentMethod || 'unselected'),
+
+        amount: roundYHMoney(payment.amount || 0),
+        currency: sanitizeText(payment.currency || YH_ACADEMY_LEARN_FROM_ACCESS_PLAN.currency || 'USD').toUpperCase() || 'USD',
+
+        platformCommissionAmount: roundYHMoney(payment.platformCommissionAmount || payment.amount || 0),
+        operatorPayoutAmount: 0,
+
+        metadata: {
+            ...(payment.metadata && typeof payment.metadata === 'object' ? payment.metadata : {}),
+            kind: 'academy_learn_from_access',
+            product: 'academy_learn_from_access',
+            publicName: YH_ACADEMY_LEARN_FROM_ACCESS_PLAN.publicName,
+            accessType,
+            userId: payerUid,
+            paymentWebhookStatus: cleanStatus,
+            ...(context.metadata && typeof context.metadata === 'object' ? context.metadata : {})
+        }
+    });
+
+    const accessStatus =
+        cleanStatus === 'paid'
+            ? 'active'
+            : cleanStatus === 'expired' || cleanStatus === 'failed' || cleanStatus === 'cancelled'
+                ? cleanStatus
+                : 'pending_payment';
+
+    const accessPayload =
+        cleanStatus === 'paid'
+            ? buildActiveYHLearnFromAccessPayload(updatedPayment, context)
+            : {
+                active: false,
+                status: accessStatus,
+                product: 'academy_learn_from_access',
+                name: YH_ACADEMY_LEARN_FROM_ACCESS_PLAN.publicName,
+                accessType,
+                amountMonthly: YH_ACADEMY_LEARN_FROM_ACCESS_PLAN.monthlyAmount,
+                amountOneTime: YH_ACADEMY_LEARN_FROM_ACCESS_PLAN.oneTimeAmount,
+                currency: sanitizeText(updatedPayment.currency || YH_ACADEMY_LEARN_FROM_ACCESS_PLAN.currency || 'USD').toUpperCase() || 'USD',
+                paymentLedgerId: updatedPayment.id,
+                paymentStatus: cleanStatus,
+                provider: sanitizeText(context.provider || updatedPayment.provider || ''),
+                providerPaymentId: sanitizeText(context.providerPaymentId || updatedPayment.providerPaymentId || ''),
+                updatedAt: new Date().toISOString()
+            };
+
+    await firestore.collection('users').doc(payerUid).set({
+        academyLearnFromAccess: accessPayload,
+        updatedAt: new Date().toISOString()
+    }, { merge: true });
+
+    if (cleanStatus === 'paid') {
+        await appendYHVerifiedBadgePaymentNotification(payerUid, {
+            id: `academy_learn_from_active_${updatedPayment.id}`,
+            title: 'Academy Learn From unlocked',
+            text: 'Your Academy Learn From payment was confirmed. Mentor/personality modes are now unlocked.',
+            target: 'academy',
+            targetId: updatedPayment.id,
+            color: 'var(--blue)',
+            avatarStr: 'AI',
+            sourceDivision: 'academy',
+            amount: roundYHMoney(updatedPayment.amount || 0),
+            currency: sanitizeText(updatedPayment.currency || 'USD').toUpperCase() || 'USD'
+        }).catch(() => null);
+    }
+
+    return {
+        payment: updatedPayment,
+        access: accessPayload,
         payerUid
     };
 }
@@ -2876,6 +3077,44 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
                 }
             }
 
+            if (metadata.kind === 'academy_learn_from_access') {
+                const paymentLedgerId = sanitizeText(metadata.paymentLedgerId || session.client_reference_id);
+
+                if (paymentLedgerId && session.payment_status === 'paid') {
+                    const payment = await resolveYHLearnFromPaymentFromWebhook(paymentLedgerId, '');
+
+                    if (payment) {
+                        await syncYHLearnFromAccessPaymentStatus(payment, 'paid', {
+                            provider: 'stripe',
+                            providerPaymentId: sanitizeText(session.subscription || session.payment_intent || session.id),
+                            providerSubscriptionId: sanitizeText(session.subscription || ''),
+                            providerStatus: sanitizeText(session.payment_status || 'paid'),
+                            paymentMethod: 'card_bank_wallet',
+                            paymentLedgerId,
+                            accessType: sanitizeText(metadata.accessType || 'monthly'),
+                            userId: sanitizeText(metadata.userId),
+                            userEmail: sanitizeText(metadata.userEmail),
+                            verifiedBy: 'stripe-webhook',
+                            metadata: {
+                                stripeCheckoutSessionId: sanitizeText(session.id),
+                                stripeSubscriptionId: sanitizeText(session.subscription),
+                                stripePaymentIntentId: sanitizeText(session.payment_intent),
+                                stripeCustomerId: sanitizeText(session.customer),
+                                stripePaymentMode: sanitizeText(session.mode || 'subscription')
+                            }
+                        });
+
+                        await firestore.collection('adminBroadcasts').add({
+                            audience: sanitizeText(payment.payerName || payment.payerEmail || 'YH Member'),
+                            subject: 'Academy Learn From subscription confirmed',
+                            message: `Stripe subscription confirmed for Academy Learn From access payment ${paymentLedgerId}.`,
+                            sentAt: new Date().toISOString(),
+                            createdBy: 'stripe-webhook'
+                        }).catch(() => null);
+                    }
+                }
+            }
+
             if (metadata.kind === 'federation_paid_intro' || metadata.kind === 'federation_lead_purchase') {
                 const requestId = sanitizeText(metadata.requestId || session.client_reference_id);
                 const paymentLedgerId = sanitizeText(metadata.paymentLedgerId);
@@ -3056,6 +3295,54 @@ app.post('/api/oxapay/webhook', express.raw({ type: 'application/json' }), async
         const requestIdFromOrder = extractFederationRequestIdFromOrderId(orderId);
 
         if (oxapayType !== 'invoice') {
+            return res.status(200).send('ok');
+        }
+
+        const learnFromPaymentIdFromOrder = extractYHLearnFromPaymentIdFromOrderId(orderId);
+        const learnFromPayment = await resolveYHLearnFromPaymentFromWebhook(learnFromPaymentIdFromOrder, trackId);
+
+        if (learnFromPayment) {
+            const learnFromStatus =
+                oxapayStatus === 'paid'
+                    ? 'paid'
+                    : oxapayStatus === 'paying'
+                        ? 'pending'
+                        : ['expired', 'failed', 'cancelled', 'canceled'].includes(oxapayStatus)
+                            ? (oxapayStatus === 'canceled' ? 'cancelled' : oxapayStatus)
+                            : '';
+
+            if (learnFromStatus) {
+                await syncYHLearnFromAccessPaymentStatus(learnFromPayment, learnFromStatus, {
+                    provider: 'oxapay',
+                    providerPaymentId: trackId,
+                    providerStatus: sanitizeText(payload.status),
+                    paymentMethod: 'crypto',
+                    paymentLedgerId: learnFromPayment.id,
+                    accessType: learnFromPayment.metadata?.accessType || 'one_time',
+                    userId: learnFromPayment.payerUid || learnFromPayment.metadata?.userId,
+                    verifiedBy: 'oxapay-webhook',
+                    metadata: {
+                        oxapayTrackId: trackId,
+                        oxapayOrderId: orderId,
+                        oxapayStatus: sanitizeText(payload.status),
+                        oxapayCurrency: sanitizeText(payload.currency),
+                        oxapayValue: Number(payload.value || 0),
+                        oxapaySentValue: Number(payload.sent_value || 0),
+                        oxapayPayload: payload
+                    }
+                });
+
+                if (learnFromStatus === 'paid') {
+                    await firestore.collection('adminBroadcasts').add({
+                        audience: sanitizeText(learnFromPayment.payerName || learnFromPayment.payerEmail || 'YH Member'),
+                        subject: 'Academy Learn From crypto payment confirmed',
+                        message: `OxaPay payment confirmed for Academy Learn From access payment ${learnFromPayment.id}.`,
+                        sentAt: new Date().toISOString(),
+                        createdBy: 'oxapay-webhook'
+                    }).catch(() => null);
+                }
+            }
+
             return res.status(200).send('ok');
         }
 

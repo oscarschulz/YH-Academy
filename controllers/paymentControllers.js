@@ -182,6 +182,478 @@ function buildPendingVerifiedBadgePayload(plan = {}, payment = {}) {
         updatedAt: new Date().toISOString()
     };
 }
+
+const ACADEMY_LEARN_FROM_ACCESS_PLAN = Object.freeze({
+    sourceDivision: 'academy',
+    sourceFeature: 'academy_learn_from_access',
+    publicName: 'Academy Learn From Access',
+    monthlyAmount: 2.81,
+    oneTimeAmount: 28.12,
+    currency: 'USD',
+    monthlyInterval: 'month'
+});
+
+function normalizeLearnFromAccessType(value = '') {
+    const clean = cleanLower(value);
+
+    if (clean === 'monthly' || clean === 'stripe') return 'monthly';
+    if (clean === 'one_time' || clean === 'onetime' || clean === 'one-time' || clean === 'oxapay') return 'one_time';
+
+    return '';
+}
+
+function getAcademyLearnFromPaymentRecordId(viewerId = '', accessType = '') {
+    const cleanViewerId = cleanText(viewerId).replace(/[^a-zA-Z0-9_-]+/g, '_');
+    const cleanAccessType = normalizeLearnFromAccessType(accessType) || 'access';
+
+    return `academy_learn_from_${cleanAccessType}_${cleanViewerId}`.slice(0, 180);
+}
+
+function normalizeAcademyLearnFromAccess(rawAccess = {}) {
+    const access = rawAccess && typeof rawAccess === 'object' ? rawAccess : {};
+    const status = cleanLower(access.status || '');
+    const active = access.active === true || status === 'active';
+
+    return {
+        active,
+        status: active ? 'active' : (status || 'none'),
+        accessType: cleanText(access.accessType || ''),
+        product: 'academy_learn_from_access',
+        name: ACADEMY_LEARN_FROM_ACCESS_PLAN.publicName,
+        amountMonthly: ACADEMY_LEARN_FROM_ACCESS_PLAN.monthlyAmount,
+        amountOneTime: ACADEMY_LEARN_FROM_ACCESS_PLAN.oneTimeAmount,
+        currency: ACADEMY_LEARN_FROM_ACCESS_PLAN.currency,
+        paymentLedgerId: cleanText(access.paymentLedgerId || ''),
+        provider: cleanText(access.provider || ''),
+        providerPaymentId: cleanText(access.providerPaymentId || ''),
+        providerSubscriptionId: cleanText(access.providerSubscriptionId || access.stripeSubscriptionId || ''),
+        activatedAt: cleanText(access.activatedAt || ''),
+        expiresAt: cleanText(access.expiresAt || ''),
+        updatedAt: cleanText(access.updatedAt || '')
+    };
+}
+
+function buildPendingAcademyLearnFromAccessPayload(payment = {}, accessType = '') {
+    const provider = cleanLower(payment.provider || 'unselected');
+    const paymentStatus = cleanLower(payment.status || 'draft');
+    const providerStatus = cleanLower(payment.providerStatus || '');
+    const normalizedAccessType = normalizeLearnFromAccessType(accessType || payment.metadata?.accessType || '');
+
+    return {
+        active: false,
+        status: paymentStatus === 'checkout_started'
+            ? 'checkout_started'
+            : paymentStatus === 'cancelled' || paymentStatus === 'canceled'
+                ? 'cancelled'
+                : paymentStatus === 'expired' || paymentStatus === 'failed'
+                    ? paymentStatus
+                    : 'pending_payment',
+        product: 'academy_learn_from_access',
+        name: ACADEMY_LEARN_FROM_ACCESS_PLAN.publicName,
+        accessType: normalizedAccessType,
+        amountMonthly: ACADEMY_LEARN_FROM_ACCESS_PLAN.monthlyAmount,
+        amountOneTime: ACADEMY_LEARN_FROM_ACCESS_PLAN.oneTimeAmount,
+        currency: ACADEMY_LEARN_FROM_ACCESS_PLAN.currency,
+        paymentLedgerId: cleanText(payment.id),
+        paymentStatus: paymentStatus || 'draft',
+        provider,
+        providerStatus,
+        paymentMethod: cleanText(payment.paymentMethod || 'unselected'),
+        updatedAt: new Date().toISOString()
+    };
+}
+
+function buildAcademyLearnFromOrderId(paymentId = '') {
+    const cleanPaymentId = cleanText(paymentId)
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]+/g, '_')
+        .replace(/^_+|_+$/g, '');
+
+    const seed =
+        cleanPaymentId ||
+        `learn_from_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+
+    const digest = crypto
+        .createHash('sha256')
+        .update(seed)
+        .digest('hex')
+        .slice(0, 18);
+
+    return `yh_lfa_${digest}`.slice(0, 50);
+}
+
+async function createOrRefreshAcademyLearnFromPayment(viewer = {}, accessType = '', options = {}) {
+    if (!viewer.id) {
+        const error = new Error('Unauthorized.');
+        error.statusCode = 401;
+        throw error;
+    }
+
+    const normalizedAccessType = normalizeLearnFromAccessType(accessType);
+
+    if (!normalizedAccessType) {
+        const error = new Error('Invalid Learn From access type.');
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const userRef = firestore.collection('users').doc(viewer.id);
+    const userSnap = await userRef.get();
+
+    if (!userSnap.exists) {
+        const error = new Error('User account not found.');
+        error.statusCode = 404;
+        throw error;
+    }
+
+    const userData = userSnap.data() || {};
+    const currentAccess = normalizeAcademyLearnFromAccess(userData.academyLearnFromAccess);
+
+    if (currentAccess.active) {
+        const error = new Error('Academy Learn From access is already active.');
+        error.statusCode = 409;
+        error.payload = {
+            access: currentAccess
+        };
+        throw error;
+    }
+
+    const provider = cleanLower(options.provider || 'unselected');
+    const amount = normalizedAccessType === 'monthly'
+        ? ACADEMY_LEARN_FROM_ACCESS_PLAN.monthlyAmount
+        : ACADEMY_LEARN_FROM_ACCESS_PLAN.oneTimeAmount;
+
+    const recordId = getAcademyLearnFromPaymentRecordId(viewer.id, normalizedAccessType);
+
+    const payment = await paymentLedgerRepo.upsertPaymentRecord({
+        id: recordId,
+        sourceDivision: ACADEMY_LEARN_FROM_ACCESS_PLAN.sourceDivision,
+        sourceFeature: ACADEMY_LEARN_FROM_ACCESS_PLAN.sourceFeature,
+        sourceRecordId: `${viewer.id}_${normalizedAccessType}`,
+
+        payerUid: viewer.id,
+        payerEmail: viewer.email,
+        payerName: viewer.name,
+
+        provider,
+        providerOptions: ['stripe', 'oxapay'],
+        providerPaymentId: cleanText(options.providerPaymentId),
+        providerCheckoutUrl: cleanText(options.providerCheckoutUrl),
+        providerStatus: cleanText(options.providerStatus),
+
+        status: cleanLower(options.status || 'draft') || 'draft',
+        paymentMethod: cleanText(options.paymentMethod || getBadgePaymentMethodForProvider(provider)),
+
+        amount,
+        currency: ACADEMY_LEARN_FROM_ACCESS_PLAN.currency,
+
+        platformCommissionAmount: amount,
+        operatorPayoutAmount: 0,
+
+        metadata: {
+            kind: 'academy_learn_from_access',
+            product: 'academy_learn_from_access',
+            publicName: ACADEMY_LEARN_FROM_ACCESS_PLAN.publicName,
+            accessType: normalizedAccessType,
+            billingInterval: normalizedAccessType === 'monthly'
+                ? ACADEMY_LEARN_FROM_ACCESS_PLAN.monthlyInterval
+                : 'one_time',
+            userId: viewer.id,
+            userEmail: viewer.email,
+            userName: viewer.name,
+            ...(options.metadata && typeof options.metadata === 'object' ? options.metadata : {})
+        }
+    });
+
+    await userRef.set({
+        academyLearnFromAccess: buildPendingAcademyLearnFromAccessPayload(payment, normalizedAccessType),
+        updatedAt: new Date().toISOString()
+    }, { merge: true });
+
+    return {
+        userRef,
+        userData,
+        access: buildPendingAcademyLearnFromAccessPayload(payment, normalizedAccessType),
+        payment,
+        accessType: normalizedAccessType
+    };
+}
+
+async function getAcademyLearnFromAccess(req, res) {
+    try {
+        const viewer = getViewer(req);
+
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const userSnap = await firestore.collection('users').doc(viewer.id).get();
+        const userData = userSnap.exists ? (userSnap.data() || {}) : {};
+        const access = normalizeAcademyLearnFromAccess(userData.academyLearnFromAccess);
+
+        return res.json({
+            success: true,
+            access,
+            pricing: {
+                monthly: ACADEMY_LEARN_FROM_ACCESS_PLAN.monthlyAmount,
+                oneTime: ACADEMY_LEARN_FROM_ACCESS_PLAN.oneTimeAmount,
+                currency: ACADEMY_LEARN_FROM_ACCESS_PLAN.currency
+            }
+        });
+    } catch (error) {
+        console.error('get academy learn from access error:', error);
+
+        return res.status(error.statusCode || 500).json({
+            success: false,
+            message: error?.message || 'Failed to load Academy Learn From access.'
+        });
+    }
+}
+
+async function createAcademyLearnFromStripeCheckoutSession(req, res) {
+    try {
+        const viewer = getViewer(req);
+        const stripe = getBadgeStripeClient();
+
+        const initial = await createOrRefreshAcademyLearnFromPayment(viewer, 'monthly', {
+            provider: 'stripe',
+            paymentMethod: 'card_bank_wallet',
+            status: 'checkout_started',
+            providerStatus: 'checkout_starting'
+        });
+
+        const successUrl = buildBadgeReturnUrl(req, {
+            learnFromPayment: 'success',
+            provider: 'stripe',
+            payment: initial.payment.id,
+            session_id: '{CHECKOUT_SESSION_ID}'
+        });
+
+        const cancelUrl = buildBadgeReturnUrl(req, {
+            learnFromPayment: 'cancelled',
+            provider: 'stripe',
+            payment: initial.payment.id
+        });
+
+        const session = await stripe.checkout.sessions.create({
+            mode: 'subscription',
+            client_reference_id: initial.payment.id,
+            customer_email: viewer.email || undefined,
+            success_url: successUrl,
+            cancel_url: cancelUrl,
+            line_items: [
+                {
+                    quantity: 1,
+                    price_data: {
+                        currency: ACADEMY_LEARN_FROM_ACCESS_PLAN.currency.toLowerCase(),
+                        unit_amount: Math.round(ACADEMY_LEARN_FROM_ACCESS_PLAN.monthlyAmount * 100),
+                        recurring: {
+                            interval: 'month'
+                        },
+                        product_data: {
+                            name: ACADEMY_LEARN_FROM_ACCESS_PLAN.publicName,
+                            description: 'Monthly access to Academy Learn From mentor/personality modes.'
+                        }
+                    }
+                }
+            ],
+            metadata: {
+                kind: 'academy_learn_from_access',
+                paymentLedgerId: initial.payment.id,
+                accessType: 'monthly',
+                userId: viewer.id,
+                userEmail: viewer.email
+            },
+            subscription_data: {
+                metadata: {
+                    kind: 'academy_learn_from_access',
+                    paymentLedgerId: initial.payment.id,
+                    accessType: 'monthly',
+                    userId: viewer.id,
+                    userEmail: viewer.email
+                }
+            }
+        });
+
+        const payment = await paymentLedgerRepo.upsertPaymentRecord({
+            id: initial.payment.id,
+            sourceDivision: ACADEMY_LEARN_FROM_ACCESS_PLAN.sourceDivision,
+            sourceFeature: ACADEMY_LEARN_FROM_ACCESS_PLAN.sourceFeature,
+            sourceRecordId: `${viewer.id}_monthly`,
+
+            payerUid: viewer.id,
+            payerEmail: viewer.email,
+            payerName: viewer.name,
+
+            provider: 'stripe',
+            providerOptions: ['stripe', 'oxapay'],
+            providerPaymentId: cleanText(session.id),
+            providerCheckoutUrl: cleanText(session.url),
+            providerStatus: 'checkout_session_created',
+
+            status: 'checkout_started',
+            paymentMethod: 'card_bank_wallet',
+
+            amount: ACADEMY_LEARN_FROM_ACCESS_PLAN.monthlyAmount,
+            currency: ACADEMY_LEARN_FROM_ACCESS_PLAN.currency,
+
+            platformCommissionAmount: ACADEMY_LEARN_FROM_ACCESS_PLAN.monthlyAmount,
+            operatorPayoutAmount: 0,
+
+            metadata: {
+                kind: 'academy_learn_from_access',
+                product: 'academy_learn_from_access',
+                publicName: ACADEMY_LEARN_FROM_ACCESS_PLAN.publicName,
+                accessType: 'monthly',
+                billingInterval: 'month',
+                userId: viewer.id,
+                userEmail: viewer.email,
+                userName: viewer.name,
+                stripeCheckoutSessionId: cleanText(session.id)
+            }
+        });
+
+        await initial.userRef.set({
+            academyLearnFromAccess: buildPendingAcademyLearnFromAccessPayload(payment, 'monthly'),
+            updatedAt: new Date().toISOString()
+        }, { merge: true });
+
+        return res.json({
+            success: true,
+            provider: 'stripe',
+            providerLabel: 'Stripe',
+            product: 'academy_learn_from_access',
+            access: buildPendingAcademyLearnFromAccessPayload(payment, 'monthly'),
+            payment,
+            paymentLedgerId: payment.id,
+            checkoutSessionId: session.id,
+            url: session.url
+        });
+    } catch (error) {
+        console.error('academy learn from stripe checkout error:', error);
+
+        return res.status(error.statusCode || 500).json({
+            success: false,
+            message: error?.message || 'Failed to start Stripe Checkout for Academy Learn From access.',
+            ...(error.payload && typeof error.payload === 'object' ? error.payload : {})
+        });
+    }
+}
+
+async function createAcademyLearnFromOxaPayInvoice(req, res) {
+    try {
+        const viewer = getViewer(req);
+
+        const initial = await createOrRefreshAcademyLearnFromPayment(viewer, 'one_time', {
+            provider: 'oxapay',
+            paymentMethod: 'crypto',
+            status: 'checkout_started',
+            providerStatus: 'invoice_starting'
+        });
+
+        const baseUrl = resolveBadgePublicBaseUrl(req);
+        const orderId = buildAcademyLearnFromOrderId(initial.payment.id);
+
+        const invoicePayload = {
+            amount: Number(ACADEMY_LEARN_FROM_ACCESS_PLAN.oneTimeAmount.toFixed(2)),
+            currency: ACADEMY_LEARN_FROM_ACCESS_PLAN.currency,
+            lifetime: Math.max(15, Math.min(2880, Number(process.env.OXAPAY_INVOICE_LIFETIME_MINUTES || 60))),
+            fee_paid_by_payer: Number(process.env.OXAPAY_FEE_PAID_BY_PAYER || 1),
+            mixed_payment: true,
+            callback_url: `${baseUrl}/api/oxapay/webhook`,
+            return_url: buildBadgeReturnUrl(req, {
+                learnFromPayment: 'success',
+                provider: 'oxapay',
+                payment: initial.payment.id
+            }),
+            email: viewer.email || undefined,
+            order_id: orderId,
+            thanks_message: 'Payment received. Return to YH Academy to unlock Learn From mode.',
+            description: `${ACADEMY_LEARN_FROM_ACCESS_PLAN.publicName}: one-time access`,
+            sandbox: isOxaPaySandboxEnabled()
+        };
+
+        const invoiceResult = await callOxaPayInvoiceApi(invoicePayload);
+        const invoice = invoiceResult.data || {};
+        const trackId = cleanText(invoice.track_id);
+        const paymentUrl = cleanText(invoice.payment_url);
+
+        if (!trackId || !paymentUrl) {
+            return res.status(502).json({
+                success: false,
+                message: 'OxaPay did not return a valid invoice URL.'
+            });
+        }
+
+        const payment = await paymentLedgerRepo.upsertPaymentRecord({
+            id: initial.payment.id,
+            sourceDivision: ACADEMY_LEARN_FROM_ACCESS_PLAN.sourceDivision,
+            sourceFeature: ACADEMY_LEARN_FROM_ACCESS_PLAN.sourceFeature,
+            sourceRecordId: `${viewer.id}_one_time`,
+
+            payerUid: viewer.id,
+            payerEmail: viewer.email,
+            payerName: viewer.name,
+
+            provider: 'oxapay',
+            providerOptions: ['stripe', 'oxapay'],
+            providerPaymentId: trackId,
+            providerCheckoutUrl: paymentUrl,
+            providerStatus: 'invoice_created',
+
+            status: 'checkout_started',
+            paymentMethod: 'crypto',
+
+            amount: ACADEMY_LEARN_FROM_ACCESS_PLAN.oneTimeAmount,
+            currency: ACADEMY_LEARN_FROM_ACCESS_PLAN.currency,
+
+            platformCommissionAmount: ACADEMY_LEARN_FROM_ACCESS_PLAN.oneTimeAmount,
+            operatorPayoutAmount: 0,
+
+            metadata: {
+                kind: 'academy_learn_from_access',
+                product: 'academy_learn_from_access',
+                publicName: ACADEMY_LEARN_FROM_ACCESS_PLAN.publicName,
+                accessType: 'one_time',
+                billingInterval: 'one_time',
+                userId: viewer.id,
+                userEmail: viewer.email,
+                userName: viewer.name,
+                oxapayTrackId: trackId,
+                oxapayOrderId: orderId,
+                oxapayInvoicePayload: invoicePayload
+            }
+        });
+
+        await initial.userRef.set({
+            academyLearnFromAccess: buildPendingAcademyLearnFromAccessPayload(payment, 'one_time'),
+            updatedAt: new Date().toISOString()
+        }, { merge: true });
+
+        return res.json({
+            success: true,
+            provider: 'oxapay',
+            providerLabel: 'OxaPay',
+            product: 'academy_learn_from_access',
+            access: buildPendingAcademyLearnFromAccessPayload(payment, 'one_time'),
+            payment,
+            paymentLedgerId: payment.id,
+            oxapayTrackId: trackId,
+            url: paymentUrl
+        });
+    } catch (error) {
+        console.error('academy learn from oxapay invoice error:', error);
+
+        return res.status(error.statusCode || 500).json({
+            success: false,
+            message: error?.message || 'Failed to start OxaPay invoice for Academy Learn From access.',
+            ...(error.payload && typeof error.payload === 'object' ? error.payload : {})
+        });
+    }
+}
 function getBadgeStripeClient() {
     const key = cleanText(process.env.STRIPE_SECRET_KEY);
 
@@ -1871,6 +2343,9 @@ module.exports = {
     getPayoutOptions,
     listMySubscriptions,
     unsubscribePaymentPlan,
+    getAcademyLearnFromAccess,
+    createAcademyLearnFromStripeCheckoutSession,
+    createAcademyLearnFromOxaPayInvoice,
     createVerifiedBadgePaymentLedger,
     createVerifiedBadgeStripeCheckoutSession,
     createVerifiedBadgeOxaPayInvoice,

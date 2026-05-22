@@ -29751,6 +29751,8 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
     const SEND_ID = 'academy-ai-coach-rect-send';
     const CLOSE_ID = 'academy-ai-coach-rect-close';
     const LEARN_FROM_ID = 'academy-ai-coach-rect-learn-from';
+    const LEARN_FROM_PAY_MODAL_ID = 'academy-ai-coach-learn-pay-modal';
+    const LEARN_FROM_PAY_STATUS_ID = 'academy-ai-coach-learn-pay-status';
     const LEARN_FROM_STORAGE_KEY = 'yh_academy_ai_coach_learn_from_v1';
     const CONVERSATION_ID = 'coach_main';
     const LEARN_FROM_OPTIONS = [
@@ -29775,6 +29777,13 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
         { key: 'sun_tzu', label: 'Sun Tzu', shortLabel: 'Sun Tzu' },
         { key: 'niccolo_machiavelli', label: 'Niccolò Machiavelli', shortLabel: 'Niccolò Machiavelli' }
     ];
+
+    let academyLearnFromAccess = {
+        active: false,
+        status: 'unknown'
+    };
+
+    let pendingLearnFromSelection = '';
 
     function escapeHtml(value) {
         if (typeof academyFeedEscapeHtml === 'function') {
@@ -29841,6 +29850,189 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
         }
 
         return data;
+    }
+
+    function hasAcademyLearnFromAccess() {
+        return academyLearnFromAccess?.active === true;
+    }
+
+    function setLearnFromPayStatus(message = '', tone = '') {
+        const status = document.getElementById(LEARN_FROM_PAY_STATUS_ID);
+        if (!status) return;
+
+        status.classList.remove('is-error', 'is-success');
+        if (tone === 'error') status.classList.add('is-error');
+        if (tone === 'success') status.classList.add('is-success');
+        status.textContent = message || '';
+    }
+
+    async function refreshAcademyLearnFromAccess(options = {}) {
+        try {
+            const result = await coachFetch('/api/payments/academy/learn-from-access', {
+                method: 'GET'
+            });
+
+            academyLearnFromAccess = result.access || {
+                active: false,
+                status: 'none'
+            };
+
+            syncLearnFromSelect();
+
+            if (options.toastOnSuccess && hasAcademyLearnFromAccess()) {
+                try {
+                    if (typeof showToast === 'function') {
+                        showToast('Academy Learn From subscription activated successfully.', 'success');
+                    }
+                } catch (_) {}
+            }
+
+            return academyLearnFromAccess;
+        } catch (error) {
+            academyLearnFromAccess = {
+                active: false,
+                status: 'unavailable'
+            };
+
+            return academyLearnFromAccess;
+        }
+    }
+
+    function openLearnFromPayModal(selectedKey = '') {
+        pendingLearnFromSelection = normalizeLearnFromKey(selectedKey);
+        const payModal = document.getElementById(LEARN_FROM_PAY_MODAL_ID);
+        const selectedMeta = getLearnFromMeta(pendingLearnFromSelection);
+
+        if (!payModal) return;
+
+        const nameEl = payModal.querySelector('[data-learn-from-selected-name]');
+        if (nameEl) {
+            nameEl.textContent = selectedMeta?.key ? selectedMeta.shortLabel : 'this mentor mode';
+        }
+
+        setLearnFromPayStatus('');
+        payModal.classList.remove('hidden-step');
+        payModal.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeLearnFromPayModal() {
+        const payModal = document.getElementById(LEARN_FROM_PAY_MODAL_ID);
+        if (!payModal) return;
+
+        payModal.classList.add('hidden-step');
+        payModal.setAttribute('aria-hidden', 'true');
+        setLearnFromPayStatus('');
+    }
+
+    async function startAcademyLearnFromCheckout(accessType = '') {
+        const normalizedAccessType = String(accessType || '').trim().toLowerCase();
+        const endpoint =
+            normalizedAccessType === 'monthly'
+                ? '/api/payments/academy/learn-from-access/stripe-checkout-session'
+                : normalizedAccessType === 'one_time'
+                    ? '/api/payments/academy/learn-from-access/oxapay-invoice'
+                    : '';
+
+        if (!endpoint) return;
+
+        const buttons = document.querySelectorAll('[data-learn-from-pay]');
+        buttons.forEach((button) => {
+            button.disabled = true;
+            button.setAttribute('aria-busy', 'true');
+        });
+
+        setLearnFromPayStatus('Preparing secure checkout...');
+
+        try {
+            const result = await coachFetch(endpoint, {
+                method: 'POST',
+                body: JSON.stringify({
+                    returnTo: '/academy'
+                })
+            });
+
+            if (result?.access?.active === true) {
+                academyLearnFromAccess = result.access;
+                closeLearnFromPayModal();
+                syncLearnFromSelect();
+
+                if (typeof showToast === 'function') {
+                    showToast('Academy Learn From access is already active.', 'success');
+                }
+
+                return;
+            }
+
+            const checkoutUrl = String(result?.url || '').trim();
+
+            if (!checkoutUrl) {
+                throw new Error('Checkout URL was not returned.');
+            }
+
+            window.location.href = checkoutUrl;
+        } catch (error) {
+            setLearnFromPayStatus(error?.message || 'Failed to start checkout.', 'error');
+
+            try {
+                if (typeof showToast === 'function') {
+                    showToast(error?.message || 'Failed to start checkout.', 'error');
+                }
+            } catch (_) {}
+        } finally {
+            buttons.forEach((button) => {
+                button.disabled = false;
+                button.removeAttribute('aria-busy');
+            });
+        }
+    }
+
+    async function handleAcademyLearnFromPaymentReturn() {
+        let url = null;
+
+        try {
+            url = new URL(window.location.href);
+        } catch (_) {
+            return;
+        }
+
+        const status = url.searchParams.get('learnFromPayment') || '';
+        if (!status) return;
+
+        const cleanUrl = `${url.origin}${url.pathname}${url.hash || ''}`;
+
+        try {
+            window.history.replaceState({}, document.title, cleanUrl);
+        } catch (_) {}
+
+        if (status === 'cancelled') {
+            try {
+                if (typeof showToast === 'function') {
+                    showToast('Academy Learn From checkout was cancelled.', 'error');
+                }
+            } catch (_) {}
+            return;
+        }
+
+        for (let attempt = 0; attempt < 6; attempt += 1) {
+            const access = await refreshAcademyLearnFromAccess({
+                toastOnSuccess: attempt === 0
+            });
+
+            if (access?.active === true) {
+                if (attempt > 0 && typeof showToast === 'function') {
+                    showToast('Academy Learn From subscription activated successfully.', 'success');
+                }
+                return;
+            }
+
+            await new Promise((resolve) => window.setTimeout(resolve, 1200));
+        }
+
+        try {
+            if (typeof showToast === 'function') {
+                showToast('Payment returned successfully. Access is still syncing, please refresh shortly.', 'success');
+            }
+        } catch (_) {}
     }
 
     function timeLabel(value) {
@@ -29919,6 +30111,15 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
         if (!select) return;
 
         const meta = getLearnFromMeta();
+
+        if (meta.key && !hasAcademyLearnFromAccess()) {
+            select.value = '';
+            select.classList.add('is-locked');
+            select.title = 'Specific Learn From modes are only accessible to Academy subscribers.';
+            return;
+        }
+
+        select.classList.toggle('is-locked', !hasAcademyLearnFromAccess());
         select.value = meta.key || '';
         select.title = meta.key
             ? `Academy AI Coach will use the approved ${meta.shortLabel} knowledge lens.`
@@ -29972,6 +30173,34 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
                     <textarea id="${INPUT_ID}" rows="1" placeholder="Message AI Coach..." autocomplete="off"></textarea>
                     <button type="submit" id="${SEND_ID}" aria-label="Send AI Coach message">➤</button>
                 </form>
+
+                <div class="academy-ai-coach-learn-pay-modal hidden-step" id="${LEARN_FROM_PAY_MODAL_ID}" aria-hidden="true">
+                    <div class="academy-ai-coach-learn-pay-card">
+                        <button type="button" class="academy-ai-coach-learn-pay-close" data-learn-from-pay-close aria-label="Close payment modal">✕</button>
+                        <div class="academy-ai-coach-learn-pay-kicker">Academy Premium</div>
+                        <h3>Only Accessible to Academy Subscribers</h3>
+                        <p>
+                            Unlock <strong data-learn-from-selected-name>mentor mode</strong> and access the full Learn From list inside the Academy AI Coach.
+                        </p>
+
+                        <div class="academy-ai-coach-learn-pay-options">
+                            <button type="button" data-learn-from-pay="monthly">
+                                <strong>$2.81/month</strong>
+                                <span>Monthly billing via Stripe</span>
+                            </button>
+                            <button type="button" data-learn-from-pay="one_time">
+                                <strong>$28.12 one-time</strong>
+                                <span>One-time crypto payment via OxaPay</span>
+                            </button>
+                        </div>
+
+                        <button type="button" class="academy-ai-coach-learn-pay-main" data-learn-from-pay="monthly">
+                            Purchase the subscription for less than a coffee.
+                        </button>
+
+                        <div class="academy-ai-coach-learn-pay-status" id="${LEARN_FROM_PAY_STATUS_ID}"></div>
+                    </div>
+                </div>
             </div>
         `;
 
@@ -30102,6 +30331,14 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
             }
 
             const learnFromMeta = getLearnFromMeta();
+
+            if (learnFromMeta.key && !hasAcademyLearnFromAccess()) {
+                setStoredLearnFromKey('');
+                syncLearnFromSelect();
+                openLearnFromPayModal(learnFromMeta.key);
+                throw new Error('Only Accessible to Academy Subscribers.');
+            }
+
             const result = await coachFetch('/api/academy/assistant/chat', {
                 method: 'POST',
                 body: JSON.stringify({
@@ -30166,6 +30403,7 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
         modal.setAttribute('aria-hidden', 'false');
         document.body?.classList.add('academy-ai-coach-rect-open');
 
+        refreshAcademyLearnFromAccess().catch(() => null);
         loadCoachMessages();
 
         window.setTimeout(() => {
@@ -30205,7 +30443,17 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
         });
 
         modal.querySelector('#' + LEARN_FROM_ID)?.addEventListener('change', (event) => {
-            const selectedKey = setStoredLearnFromKey(event.currentTarget?.value || '');
+            const requestedKey = normalizeLearnFromKey(event.currentTarget?.value || '');
+
+            if (requestedKey && !hasAcademyLearnFromAccess()) {
+                event.currentTarget.value = '';
+                setStoredLearnFromKey('');
+                syncLearnFromSelect();
+                openLearnFromPayModal(requestedKey);
+                return;
+            }
+
+            const selectedKey = setStoredLearnFromKey(requestedKey);
             syncLearnFromSelect();
 
             try {
@@ -30219,6 +30467,16 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
                     );
                 }
             } catch (_) {}
+        });
+
+        modal.querySelectorAll('[data-learn-from-pay]').forEach((button) => {
+            button.addEventListener('click', async () => {
+                await startAcademyLearnFromCheckout(button.getAttribute('data-learn-from-pay') || '');
+            });
+        });
+
+        modal.querySelectorAll('[data-learn-from-pay-close]').forEach((button) => {
+            button.addEventListener('click', closeLearnFromPayModal);
         });
 
         modal.querySelector('#' + INPUT_ID)?.addEventListener('keydown', async (event) => {
@@ -30259,9 +30517,15 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
     window.closeAcademyAiCoachRectModal = closeModal;
 
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', createModal);
+        document.addEventListener('DOMContentLoaded', () => {
+            createModal();
+            refreshAcademyLearnFromAccess().catch(() => null);
+            handleAcademyLearnFromPaymentReturn().catch(() => null);
+        });
     } else {
         createModal();
+        refreshAcademyLearnFromAccess().catch(() => null);
+        handleAcademyLearnFromPaymentReturn().catch(() => null);
     }
 })();
 /* END PATCH: Academy AI Coach standing rectangular modal v1 */
