@@ -265,10 +265,141 @@ async function mirrorFederationRequest(firebaseDocumentId, data = {}, context = 
   return upsertRow('yhu_federation_requests', buildFederationRequestRow(cleanId, data, context));
 }
 
+
+function mapSupabaseFederationRequestRow(row = {}) {
+  const raw = row.raw_data && typeof row.raw_data === 'object' ? row.raw_data : {};
+  const requestedContact = raw.requestedContact && typeof raw.requestedContact === 'object' ? raw.requestedContact : {};
+
+  return {
+    ...raw,
+    id: row.firebase_document_id || raw.id || raw.requestId || '',
+    requesterUid: row.requester_uid || raw.requesterUid || raw.ownerUid || '',
+    requesterName: row.requester_name || raw.requesterName || raw.fullName || raw.name || '',
+    requesterEmail: row.requester_email || raw.requesterEmail || raw.email || '',
+    requestedContact: {
+      ...requestedContact,
+      contactName: row.requested_contact_name || requestedContact.contactName || requestedContact.name || '',
+      companyName: row.requested_company_name || requestedContact.companyName || requestedContact.companyLabel || '',
+      companyWebsite: row.requested_company_website || requestedContact.companyWebsite || '',
+      contactRole: row.requested_contact_role || requestedContact.contactRole || '',
+      contactType: row.requested_contact_type || requestedContact.contactType || '',
+      requestedTier: row.requested_tier || requestedContact.requestedTier || raw.requestedTier || '',
+      country: row.country || requestedContact.country || raw.country || '',
+      city: row.city || requestedContact.city || raw.city || ''
+    },
+    sourceDivision: row.source_division || raw.sourceDivision || 'federation',
+    sourceFeature: row.source_feature || raw.sourceFeature || 'connect',
+    sourceMethod: row.source_method || raw.sourceMethod || '',
+    requestMode: row.request_mode || raw.requestMode || '',
+    requestReason: row.request_reason || raw.requestReason || raw.reason || raw.summary || '',
+    intendedUse: row.intended_use || raw.intendedUse || raw['Intended Use'] || '',
+    status: row.status || raw.status || 'new',
+    adminStatus: row.admin_status || raw.adminStatus || '',
+    priority: row.priority || raw.priority || 'Medium',
+    urgency: row.urgency || raw.urgency || '',
+    budgetRange: row.budget_range || raw.budgetRange || '',
+    commissionStatus: row.commission_status || raw.commissionStatus || '',
+    payoutStatus: row.payout_status || raw.payoutStatus || '',
+    createdAt: row.created_at_source || raw.createdAt || row.synced_at || null,
+    updatedAt: row.updated_at_source || raw.updatedAt || row.updated_at || row.synced_at || null,
+    syncedAt: row.synced_at || null,
+    storageSource: 'supabase'
+  };
+}
+
+async function listFederationRequestsByRequester(requesterUid, limit = 100) {
+  const cleanRequesterUid = cleanText(requesterUid);
+
+  if (!cleanRequesterUid) {
+    return {
+      ok: false,
+      skipped: true,
+      reason: 'missing_requester_uid',
+      requests: []
+    };
+  }
+
+  const client = getSupabaseClient();
+
+  if (!client) {
+    return {
+      ok: false,
+      skipped: true,
+      reason: 'missing_supabase_env',
+      requests: []
+    };
+  }
+
+  const safeLimit = Math.max(1, Math.min(Number(limit) || 100, 200));
+
+  const { data, error } = await client
+    .from('yhu_federation_requests')
+    .select('*')
+    .eq('requester_uid', cleanRequesterUid)
+    .order('synced_at', { ascending: false })
+    .limit(safeLimit);
+
+  if (error) {
+    console.error('[YHU Supabase Mirror] Federation request list failed:', error.message);
+    throw error;
+  }
+
+  return {
+    ok: true,
+    source: 'supabase',
+    requests: (data || []).map(mapSupabaseFederationRequestRow)
+  };
+}
+
+async function getFederationRequestByDocumentId(requestId) {
+  const cleanRequestId = cleanText(requestId);
+
+  if (!cleanRequestId) {
+    return {
+      ok: false,
+      skipped: true,
+      reason: 'missing_request_id',
+      request: null
+    };
+  }
+
+  const client = getSupabaseClient();
+
+  if (!client) {
+    return {
+      ok: false,
+      skipped: true,
+      reason: 'missing_supabase_env',
+      request: null
+    };
+  }
+
+  const { data, error } = await client
+    .from('yhu_federation_requests')
+    .select('*')
+    .eq('firebase_document_id', cleanRequestId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[YHU Supabase Mirror] Federation request read failed:', error.message);
+    throw error;
+  }
+
+  return {
+    ok: true,
+    source: 'supabase',
+    request: data ? mapSupabaseFederationRequestRow(data) : null
+  };
+}
+
+
 module.exports = {
   isFirebaseQuotaError,
   mirrorUser,
   mirrorFederationRequest,
   buildUserRow,
-  buildFederationRequestRow
+  buildFederationRequestRow,
+  mapSupabaseFederationRequestRow,
+  listFederationRequestsByRequester,
+  getFederationRequestByDocumentId
 };

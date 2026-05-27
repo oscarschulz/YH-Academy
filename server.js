@@ -5292,8 +5292,32 @@ app.post('/api/federation/deal-rooms', requireApiUser, async (req, res) => {
     }
 });
 
+
 app.get('/api/federation/requests', requireApiUser, async (req, res) => {
     try {
+        const requesterUid = sanitizeText(req.user?.id);
+
+        if (!requesterUid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        try {
+            const supabaseResult = await yhuSupabaseMirrorRepo.listFederationRequestsByRequester(requesterUid, 100);
+
+            if (supabaseResult.ok) {
+                return res.json({
+                    success: true,
+                    source: 'supabase',
+                    requests: supabaseResult.requests || []
+                });
+            }
+        } catch (supabaseError) {
+            console.error('Supabase federation requests list error:', supabaseError?.message || supabaseError);
+        }
+
         const fedState = await getFederationUserState(req);
 
         if (!fedState.approved) {
@@ -5316,16 +5340,28 @@ app.get('/api/federation/requests', requireApiUser, async (req, res) => {
 
         return res.json({
             success: true,
+            source: 'firebase-fallback',
             requests
         });
     } catch (error) {
         console.error('federation requests error:', error);
+
+        if (yhuSupabaseMirrorRepo.isFirebaseQuotaError(error)) {
+            return res.json({
+                success: true,
+                source: 'firebase-quota-exhausted',
+                requests: [],
+                warning: 'Firebase quota is exhausted. New Supabase-saved requests will appear after they are created.'
+            });
+        }
+
         return res.status(500).json({
             success: false,
             message: 'Failed to load Federation requests.'
         });
     }
 });
+
 app.get('/api/federation/connect/opportunities', requireApiUser, async (req, res) => {
     try {
         let snap = null;
@@ -6018,6 +6054,7 @@ app.post('/api/federation/connect/requests/:requestId/checkout-session', require
 });
 
 
+
 app.get('/api/federation/connect/my-requests', requireApiUser, async (req, res) => {
     try {
         const requesterUid = sanitizeText(req.user?.id);
@@ -6029,104 +6066,51 @@ app.get('/api/federation/connect/my-requests', requireApiUser, async (req, res) 
             });
         }
 
-        let snap = null;
-
         try {
-            snap = await firestore
-                .collection('federationConnectionRequests')
-                .where('requesterUid', '==', requesterUid)
-                .limit(80)
-                .get();
-        } catch (queryError) {
-            console.error('federation connect my requests query error:', queryError);
+            const supabaseResult = await yhuSupabaseMirrorRepo.listFederationRequestsByRequester(requesterUid, 100);
 
-            return res.json({
-                success: true,
-                requests: [],
-                warning: 'Federation Connect requests are temporarily unavailable.'
-            });
+            if (supabaseResult.ok) {
+                return res.json({
+                    success: true,
+                    source: 'supabase',
+                    requests: supabaseResult.requests || []
+                });
+            }
+        } catch (supabaseError) {
+            console.error('Supabase federation connect my-requests error:', supabaseError?.message || supabaseError);
         }
 
+        const snap = await firestore
+            .collection('federationConnectionRequests')
+            .where('requesterUid', '==', requesterUid)
+            .limit(100)
+            .get();
+
         const requests = [];
-
-        snap.forEach((docSnap) => {
-            try {
-                const data = docSnap.data() || {};
-
-                requests.push({
-                    id: docSnap.id,
-                    leadId: sanitizeText(data.leadId),
-                    ownerUid: sanitizeText(data.ownerUid),
-                    leadPath: sanitizeText(data.leadPath),
-                    requestMode: sanitizeText(data.requestMode || 'selected_lead'),
-                    requestedContact: data.requestedContact && typeof data.requestedContact === 'object'
-                        ? data.requestedContact
-                        : null,
-
-                    opportunityId: sanitizeText(data.opportunityId),
-                    opportunityTitle: sanitizeText(data.opportunityTitle),
-                    opportunitySnapshot: data.opportunitySnapshot && typeof data.opportunitySnapshot === 'object'
-                        ? data.opportunitySnapshot
-                        : null,
-
-                    matchedLeadSnapshot: data.matchedLeadSnapshot && typeof data.matchedLeadSnapshot === 'object'
-                        ? data.matchedLeadSnapshot
-                        : null,
-                    matchedAt: mapFederationConnectTimestamp(data.matchedAt),
-                    matchedBy: sanitizeText(data.matchedBy),
-
-                    status: sanitizeText(data.status || 'pending_admin_match'),
-                    adminStatus: sanitizeText(data.adminStatus || 'pending_review'),
-
-                    pricingAmount: Number(data.pricingAmount || data.dealPackage?.pricingAmount || 0),
-                    currency: sanitizeText(data.currency || data.dealPackage?.currency || 'USD') || 'USD',
-                    platformCommissionRate: Number(data.platformCommissionRate || data.dealPackage?.platformCommissionRate || 0),
-                    platformCommissionAmount: Number(data.platformCommissionAmount || data.dealPackage?.platformCommissionAmount || 0),
-                    operatorPayoutAmount: Number(data.operatorPayoutAmount || data.dealPackage?.operatorPayoutAmount || 0),
-                    paymentStatus: sanitizeText(data.paymentStatus || data.dealPackage?.paymentStatus || 'not_started'),
-                    payoutStatus: sanitizeText(data.payoutStatus || data.dealPackage?.payoutStatus || 'not_started'),
-                    commissionStatus: sanitizeText(data.commissionStatus || data.dealPackage?.commissionStatus || 'not_started'),
-                    dealNotes: sanitizeText(data.dealNotes || data.dealPackage?.dealNotes),
-
-                    paymentLedgerId: sanitizeText(data.paymentLedgerId),
-                    paymentLedgerStatus: sanitizeText(data.paymentLedgerStatus || 'draft'),
-                    selectedPaymentProvider: sanitizeText(data.selectedPaymentProvider),
-                    paymentProviderLabel: sanitizeText(data.paymentProviderLabel),
-                    paymentProviderOptions: Array.isArray(data.paymentProviderOptions)
-                        ? data.paymentProviderOptions
-                        : ['stripe', 'oxapay'],
-                    sourcePaymentMode: sanitizeText(data.sourcePaymentMode || 'lead_purchase'),
-
-                    leadAccessGrantId: sanitizeText(data.leadAccessGrantId),
-                    leadAccessStatus: sanitizeText(data.leadAccessStatus),
-                    leadUnlockedAt: mapFederationConnectTimestamp(data.leadUnlockedAt),
-
-                    budgetRange: sanitizeText(data.budgetRange || 'not_sure'),
-                    urgency: sanitizeText(data.urgency || 'normal'),
-                    preferredIntroType: sanitizeText(data.preferredIntroType || 'admin_brokered'),
-                    requestReason: sanitizeText(data.requestReason),
-                    intendedUse: sanitizeText(data.intendedUse),
-                    createdAt: mapFederationConnectTimestamp(data.createdAt),
-                    updatedAt: mapFederationConnectTimestamp(data.updatedAt)
-                });
-            } catch (mapError) {
-                console.error('federation connect request map error:', mapError);
-            }
-        });
+        snap.forEach((docSnap) => requests.push(mapFederationRequestDoc(docSnap)));
 
         requests.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
 
         return res.json({
             success: true,
+            source: 'firebase-fallback',
             requests
         });
     } catch (error) {
-        console.error('federation connect my requests error:', error);
+        console.error('federation connect my-requests error:', error);
 
-        return res.json({
-            success: true,
-            requests: [],
-            warning: 'Federation Connect requests could not be loaded.'
+        if (yhuSupabaseMirrorRepo.isFirebaseQuotaError(error)) {
+            return res.json({
+                success: true,
+                source: 'firebase-quota-exhausted',
+                requests: [],
+                warning: 'Firebase quota is exhausted. New Supabase-saved requests will appear after they are created.'
+            });
+        }
+
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load your Federation Connect requests.'
         });
     }
 });
