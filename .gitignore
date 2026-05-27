@@ -19,3 +19,11 @@ collections-service-account.base64.txt
 .env.local
 .env.production
 .env.development
+
+# Local Supabase secrets
+.env.supabase.local
+
+# Local environment secrets
+.env
+.env.local
+.env.supabase.local
