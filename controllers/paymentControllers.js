@@ -110,21 +110,27 @@ const VERIFIED_BADGE_PLANS = {
         division: 'academy',
         code: 'YHA',
         amountMonthly: 2.81,
+        amountOneTime: 2.81,
+        amountLifetime: 28.12,
         currency: 'USD',
         interval: 'month',
         asset: '/images/yha%20badge.png',
         sourceFeature: 'verified_badge',
-        publicName: 'Academy Verified Badge'
+        publicName: 'Academy Verified Badge',
+        lifetimePublicName: 'Academy Lifetime Verified Badge'
     },
     federation: {
         division: 'federation',
         code: 'YHF',
         amountMonthly: 28.12,
+        amountOneTime: 28.12,
+        amountLifetime: 281.20,
         currency: 'USD',
         interval: 'month',
         asset: '/images/yhf%20badge.png',
         sourceFeature: 'verified_badge',
-        publicName: 'Federation Verified Badge'
+        publicName: 'Federation Verified Badge',
+        lifetimePublicName: 'Federation Lifetime Verified Badge'
     }
 };
 
@@ -149,10 +155,100 @@ function getVerifiedBadgePaymentRecordId(viewerId = '', division = '') {
     return `verified_badge_${cleanDivision}_${cleanViewerId}`.slice(0, 180);
 }
 
+function normalizeVerifiedBadgeBillingPlan(value = '', fallback = 'monthly') {
+    const clean = cleanLower(value || fallback);
+
+    if (clean === 'monthly' || clean === 'month' || clean === 'subscription' || clean === 'recurring') {
+        return 'monthly';
+    }
+
+    if (clean === 'lifetime' || clean === 'life_time' || clean === 'forever') {
+        return 'lifetime';
+    }
+
+    if (clean === 'one_time' || clean === 'one-time' || clean === 'onetime' || clean === 'single') {
+        return 'one_time';
+    }
+
+    return fallback === 'lifetime' || fallback === 'one_time' ? fallback : 'monthly';
+}
+
+function getVerifiedBadgeBillingAmount(plan = {}, billingPlan = 'monthly') {
+    const cleanBillingPlan = normalizeVerifiedBadgeBillingPlan(billingPlan);
+
+    if (cleanBillingPlan === 'lifetime') {
+        return toNumber(plan.amountLifetime, plan.amountMonthly);
+    }
+
+    if (cleanBillingPlan === 'one_time') {
+        return toNumber(plan.amountOneTime, plan.amountMonthly);
+    }
+
+    return toNumber(plan.amountMonthly, 0);
+}
+
+function getVerifiedBadgeBillingInterval(billingPlan = 'monthly') {
+    const cleanBillingPlan = normalizeVerifiedBadgeBillingPlan(billingPlan);
+
+    if (cleanBillingPlan === 'lifetime') return 'lifetime';
+    if (cleanBillingPlan === 'one_time') return '30_days';
+
+    return 'month';
+}
+
+function getVerifiedBadgeAccessExpiresAt(billingPlan = 'monthly') {
+    const cleanBillingPlan = normalizeVerifiedBadgeBillingPlan(billingPlan);
+    if (cleanBillingPlan === 'lifetime') return '';
+
+    const expiresAt = new Date();
+    expiresAt.setMonth(expiresAt.getMonth() + 1);
+    return expiresAt.toISOString();
+}
+
+function getVerifiedBadgeBillingLabel(billingPlan = 'monthly') {
+    const cleanBillingPlan = normalizeVerifiedBadgeBillingPlan(billingPlan);
+
+    if (cleanBillingPlan === 'lifetime') return 'Lifetime Access';
+    if (cleanBillingPlan === 'one_time') return '30-Day One-Time Access';
+
+    return 'Monthly Subscription';
+}
+
+function buildVerifiedBadgeBillingMetadata(plan = {}, billingPlan = 'monthly') {
+    const cleanBillingPlan = normalizeVerifiedBadgeBillingPlan(billingPlan);
+    const amount = getVerifiedBadgeBillingAmount(plan, cleanBillingPlan);
+
+    return {
+        billingPlan: cleanBillingPlan,
+        billingInterval: getVerifiedBadgeBillingInterval(cleanBillingPlan),
+        accessDuration: cleanBillingPlan === 'lifetime' ? 'lifetime' : cleanBillingPlan === 'one_time' ? '30_days' : 'monthly_recurring',
+        lifetimeAccess: cleanBillingPlan === 'lifetime',
+        isRecurring: cleanBillingPlan === 'monthly',
+        amount,
+        publicBillingLabel: getVerifiedBadgeBillingLabel(cleanBillingPlan)
+    };
+}
+
+function isVerifiedBadgeExpired(badge = {}) {
+    const billingPlan = normalizeVerifiedBadgeBillingPlan(badge.billingPlan || badge.accessType || badge.interval || '', '');
+    if (billingPlan === 'lifetime' || badge.lifetimeAccess === true) return false;
+
+    const expiresAt = cleanText(badge.expiresAt || '');
+    if (!expiresAt) return false;
+
+    const expiresMs = Date.parse(expiresAt);
+    if (!Number.isFinite(expiresMs)) return false;
+
+    return expiresMs <= Date.now();
+}
+
 function buildPendingVerifiedBadgePayload(plan = {}, payment = {}) {
     const provider = cleanLower(payment.provider || 'unselected');
     const paymentStatus = cleanLower(payment.status || 'draft');
     const providerStatus = cleanLower(payment.providerStatus || '');
+    const metadata = payment.metadata && typeof payment.metadata === 'object' ? payment.metadata : {};
+    const billingPlan = normalizeVerifiedBadgeBillingPlan(metadata.billingPlan || metadata.accessType || 'monthly');
+    const amount = getVerifiedBadgeBillingAmount(plan, billingPlan);
 
     const isAutomatedCheckoutProvider = ['stripe', 'oxapay'].includes(provider);
 
@@ -171,8 +267,12 @@ function buildPendingVerifiedBadgePayload(plan = {}, payment = {}) {
         code: cleanText(plan.code),
         division: cleanText(plan.division),
         amountMonthly: toNumber(plan.amountMonthly, 0),
+        amount,
         currency: cleanText(plan.currency || 'USD').toUpperCase() || 'USD',
-        interval: cleanText(plan.interval || 'month'),
+        interval: getVerifiedBadgeBillingInterval(billingPlan),
+        billingPlan,
+        billingLabel: getVerifiedBadgeBillingLabel(billingPlan),
+        lifetimeAccess: billingPlan === 'lifetime',
         asset: cleanText(plan.asset),
         paymentLedgerId: cleanText(payment.id),
         paymentStatus: paymentStatus || 'draft',
@@ -230,6 +330,177 @@ function normalizeAcademyLearnFromAccess(rawAccess = {}) {
         activatedAt: cleanText(access.activatedAt || ''),
         expiresAt: cleanText(access.expiresAt || ''),
         updatedAt: cleanText(access.updatedAt || '')
+    };
+}
+
+function getAcademyVerifiedBadgeForLearnFrom(userData = {}) {
+    const sources = [
+        userData?.verificationBadges,
+        userData?.verifiedBadges,
+        userData?.yhVerificationBadges,
+        userData?.badges,
+        userData?.badgeSubscriptions
+    ].filter((source) => source && typeof source === 'object');
+
+    for (const source of sources) {
+        const badge = source.academy && typeof source.academy === 'object'
+            ? source.academy
+            : source.yha && typeof source.yha === 'object'
+                ? source.yha
+                : null;
+
+        if (badge) return badge;
+    }
+
+    return {};
+}
+
+function isAcademyVerifiedBadgeObjectActiveForLearnFrom(badge = {}) {
+    const status = cleanLower(badge.status || '');
+    const paymentStatus = cleanLower(badge.paymentStatus || '');
+    const subscriptionStatus = cleanLower(badge.subscriptionStatus || '');
+
+    const cancelled =
+        status === 'cancelled' ||
+        status === 'canceled' ||
+        paymentStatus === 'cancelled' ||
+        paymentStatus === 'canceled' ||
+        subscriptionStatus === 'cancelled' ||
+        subscriptionStatus === 'canceled';
+
+    if (cancelled) return false;
+
+    return (
+        badge.active === true ||
+        status === 'active' ||
+        status === 'verified' ||
+        paymentStatus === 'paid' ||
+        subscriptionStatus === 'active'
+    );
+}
+
+function isAcademyVerifiedBadgeActiveForLearnFrom(userData = {}) {
+    return isAcademyVerifiedBadgeObjectActiveForLearnFrom(
+        getAcademyVerifiedBadgeForLearnFrom(userData)
+    );
+}
+
+function getAcademyVerifiedBadgePaymentForLearnFrom(payments = []) {
+    const activeStatuses = new Set([
+        'paid',
+        'active',
+        'verified',
+        'succeeded',
+        'success',
+        'completed',
+        'manual_paid',
+        'admin_paid'
+    ]);
+
+    return (Array.isArray(payments) ? payments : []).find((payment) => {
+        const metadata = payment?.metadata && typeof payment.metadata === 'object'
+            ? payment.metadata
+            : {};
+
+        const sourceFeature = cleanLower(
+            payment.sourceFeature ||
+            metadata.sourceFeature ||
+            metadata.product ||
+            metadata.kind ||
+            ''
+        );
+
+        const sourceDivision = cleanLower(
+            payment.sourceDivision ||
+            metadata.sourceDivision ||
+            metadata.badgeDivision ||
+            metadata.division ||
+            ''
+        );
+
+        const badgeCode = cleanLower(
+            metadata.badgeCode ||
+            payment.badgeCode ||
+            ''
+        );
+
+        const status = cleanLower(payment.status || payment.paymentStatus || '');
+        const providerStatus = cleanLower(payment.providerStatus || '');
+        const provider = cleanLower(payment.provider || metadata.provider || '');
+
+        const isAcademyYhaBadge =
+            sourceFeature === 'verified_badge' &&
+            (
+                sourceDivision === 'academy' ||
+                badgeCode === 'yha'
+            );
+
+        const isPaidOrActive =
+            activeStatuses.has(status) ||
+            activeStatuses.has(providerStatus) ||
+            (
+                provider === 'manual' &&
+                (
+                    status === 'paid' ||
+                    providerStatus === 'paid' ||
+                    providerStatus === 'manual_paid' ||
+                    providerStatus === 'admin_paid'
+                )
+            );
+
+        return isAcademyYhaBadge && isPaidOrActive;
+    }) || null;
+}
+
+function buildAcademyLearnFromAccessFromYhaBadge(userData = {}) {
+    const badge = getAcademyVerifiedBadgeForLearnFrom(userData);
+
+    return {
+        active: true,
+        status: 'active',
+        accessType: 'yha_badge',
+        product: 'academy_learn_from_access',
+        name: ACADEMY_LEARN_FROM_ACCESS_PLAN.publicName,
+        amountMonthly: ACADEMY_LEARN_FROM_ACCESS_PLAN.monthlyAmount,
+        amountOneTime: ACADEMY_LEARN_FROM_ACCESS_PLAN.oneTimeAmount,
+        currency: ACADEMY_LEARN_FROM_ACCESS_PLAN.currency,
+        paymentLedgerId: cleanText(badge.paymentLedgerId || ''),
+        provider: cleanText(badge.provider || ''),
+        providerPaymentId: cleanText(badge.providerPaymentId || ''),
+        providerSubscriptionId: cleanText(badge.providerSubscriptionId || badge.stripeSubscriptionId || ''),
+        activatedAt: cleanText(badge.activatedAt || badge.approvedAt || ''),
+        expiresAt: cleanText(badge.expiresAt || ''),
+        updatedAt: cleanText(badge.updatedAt || ''),
+        unlockedBy: 'yha_verified_badge',
+        badgeCode: cleanText(badge.code || 'YHA'),
+        badgeDivision: 'academy'
+    };
+}
+
+function buildAcademyLearnFromAccessFromYhaPayment(payment = {}) {
+    const metadata = payment?.metadata && typeof payment.metadata === 'object'
+        ? payment.metadata
+        : {};
+
+    return {
+        active: true,
+        status: 'active',
+        accessType: 'yha_badge',
+        product: 'academy_learn_from_access',
+        name: ACADEMY_LEARN_FROM_ACCESS_PLAN.publicName,
+        amountMonthly: ACADEMY_LEARN_FROM_ACCESS_PLAN.monthlyAmount,
+        amountOneTime: ACADEMY_LEARN_FROM_ACCESS_PLAN.oneTimeAmount,
+        currency: cleanText(payment.currency || ACADEMY_LEARN_FROM_ACCESS_PLAN.currency).toUpperCase() || ACADEMY_LEARN_FROM_ACCESS_PLAN.currency,
+        paymentLedgerId: cleanText(payment.id || ''),
+        provider: cleanText(payment.provider || metadata.provider || 'manual'),
+        providerPaymentId: cleanText(payment.providerPaymentId || metadata.providerPaymentId || ''),
+        providerSubscriptionId: cleanText(payment.providerSubscriptionId || metadata.providerSubscriptionId || metadata.stripeSubscriptionId || ''),
+        activatedAt: cleanText(payment.paidAt || payment.updatedAt || payment.createdAt || ''),
+        expiresAt: cleanText(payment.expiresAt || metadata.expiresAt || ''),
+        updatedAt: cleanText(payment.updatedAt || ''),
+        unlockedBy: 'yha_verified_badge_payment',
+        badgeCode: 'YHA',
+        badgeDivision: 'academy'
     };
 }
 
@@ -392,7 +663,27 @@ async function getAcademyLearnFromAccess(req, res) {
 
         const userSnap = await firestore.collection('users').doc(viewer.id).get();
         const userData = userSnap.exists ? (userSnap.data() || {}) : {};
-        const access = normalizeAcademyLearnFromAccess(userData.academyLearnFromAccess);
+
+        const directAccess = normalizeAcademyLearnFromAccess(userData.academyLearnFromAccess);
+
+        let access = directAccess.active === true
+            ? directAccess
+            : isAcademyVerifiedBadgeActiveForLearnFrom(userData)
+                ? buildAcademyLearnFromAccessFromYhaBadge(userData)
+                : directAccess;
+
+        if (access.active !== true) {
+            const payments = await paymentLedgerRepo.listPaymentsForUser(viewer.id, 120).catch((ledgerError) => {
+                console.error('learn from yha badge ledger fallback error:', ledgerError);
+                return [];
+            });
+
+            const activeYhaBadgePayment = getAcademyVerifiedBadgePaymentForLearnFrom(payments);
+
+            if (activeYhaBadgePayment) {
+                access = buildAcademyLearnFromAccessFromYhaPayment(activeYhaBadgePayment);
+            }
+        }
 
         return res.json({
             success: true,
@@ -832,13 +1123,7 @@ async function createOrRefreshVerifiedBadgePayment(viewer = {}, plan = {}, optio
             ? currentBadges[plan.division]
             : {};
 
-    const currentBadgeStatus = cleanLower(currentBadge.status || '');
-
-    if (
-        currentBadge.active === true ||
-        currentBadgeStatus === 'active' ||
-        currentBadgeStatus === 'verified'
-    ) {
+    if (isVerifiedBadgeActiveState(currentBadge)) {
         const error = new Error(`${plan.code} badge is already active.`);
         error.statusCode = 409;
         error.payload = {
@@ -849,6 +1134,13 @@ async function createOrRefreshVerifiedBadgePayment(viewer = {}, plan = {}, optio
     }
 
     const provider = cleanLower(options.provider || 'unselected');
+    const requestedBillingPlan = normalizeVerifiedBadgeBillingPlan(options.billingPlan || options.accessType || 'monthly');
+    const billingPlan = provider === 'oxapay' && requestedBillingPlan === 'monthly'
+        ? 'one_time'
+        : requestedBillingPlan;
+
+    const billingMeta = buildVerifiedBadgeBillingMetadata(plan, billingPlan);
+    const amount = getVerifiedBadgeBillingAmount(plan, billingPlan);
     const paymentMethod = cleanText(options.paymentMethod || getBadgePaymentMethodForProvider(provider));
     const status = cleanLower(options.status || 'draft') || 'draft';
     const recordId = getVerifiedBadgePaymentRecordId(viewer.id, plan.division);
@@ -872,21 +1164,21 @@ async function createOrRefreshVerifiedBadgePayment(viewer = {}, plan = {}, optio
         status,
         paymentMethod,
 
-        amount: plan.amountMonthly,
+        amount,
         currency: plan.currency,
 
-        platformCommissionAmount: plan.amountMonthly,
+        platformCommissionAmount: amount,
         operatorPayoutAmount: 0,
 
         metadata: {
             badgeDivision: plan.division,
             badgeCode: plan.code,
             badgeAsset: plan.asset,
-            badgePublicName: plan.publicName,
-            billingInterval: plan.interval,
+            badgePublicName: billingPlan === 'lifetime' ? (plan.lifetimePublicName || plan.publicName) : plan.publicName,
             userId: viewer.id,
             userEmail: viewer.email,
             userName: viewer.name,
+            ...billingMeta,
             ...(options.metadata && typeof options.metadata === 'object' ? options.metadata : {})
         }
     });
@@ -902,7 +1194,9 @@ async function createOrRefreshVerifiedBadgePayment(viewer = {}, plan = {}, optio
         userRef,
         userData,
         payment,
-        badge: buildPendingVerifiedBadgePayload(plan, payment)
+        badge: buildPendingVerifiedBadgePayload(plan, payment),
+        billingPlan,
+        amount
     };
 }
 
@@ -919,10 +1213,15 @@ async function createVerifiedBadgeStripeCheckoutSession(req, res) {
         }
 
         const stripe = getBadgeStripeClient();
+        const billingPlan = normalizeVerifiedBadgeBillingPlan(req.body?.billingPlan || 'monthly');
+        const billingMeta = buildVerifiedBadgeBillingMetadata(plan, billingPlan);
+        const amount = getVerifiedBadgeBillingAmount(plan, billingPlan);
+        const isMonthly = billingPlan === 'monthly';
 
         const initial = await createOrRefreshVerifiedBadgePayment(viewer, plan, {
             provider: 'stripe',
             paymentMethod: 'card_bank_wallet',
+            billingPlan,
             status: 'checkout_started',
             providerStatus: 'checkout_starting'
         });
@@ -930,17 +1229,38 @@ async function createVerifiedBadgeStripeCheckoutSession(req, res) {
         const successUrl = buildBadgeReturnUrl(req, {
             badge_checkout: 'stripe-success',
             division: plan.division,
+            billingPlan,
             payment: initial.payment.id
         });
 
         const cancelUrl = buildBadgeReturnUrl(req, {
             badge_checkout: 'stripe-cancelled',
             division: plan.division,
+            billingPlan,
             payment: initial.payment.id
         });
 
-        const session = await stripe.checkout.sessions.create({
-            mode: 'payment',
+        const priceData = {
+            currency: plan.currency.toLowerCase(),
+            unit_amount: Math.round(Number(amount || 0) * 100),
+            product_data: {
+                name: billingPlan === 'lifetime' ? (plan.lifetimePublicName || `${plan.publicName} Lifetime`) : plan.publicName,
+                description: billingPlan === 'monthly'
+                    ? `${plan.code} monthly recurring verification badge for YH Universe`
+                    : billingPlan === 'lifetime'
+                        ? `${plan.code} lifetime verification badge for YH Universe`
+                        : `${plan.code} 30-day verification badge for YH Universe`
+            }
+        };
+
+        if (isMonthly) {
+            priceData.recurring = {
+                interval: 'month'
+            };
+        }
+
+        const sessionPayload = {
+            mode: isMonthly ? 'subscription' : 'payment',
             client_reference_id: initial.payment.id,
             customer_email: viewer.email || undefined,
             success_url: successUrl,
@@ -948,14 +1268,7 @@ async function createVerifiedBadgeStripeCheckoutSession(req, res) {
             line_items: [
                 {
                     quantity: 1,
-                    price_data: {
-                        currency: plan.currency.toLowerCase(),
-                        unit_amount: Math.round(Number(plan.amountMonthly || 0) * 100),
-                        product_data: {
-                            name: plan.publicName,
-                            description: `${plan.code} verification badge for YH Universe`
-                        }
-                    }
+                    price_data: priceData
                 }
             ],
             metadata: {
@@ -963,10 +1276,29 @@ async function createVerifiedBadgeStripeCheckoutSession(req, res) {
                 paymentLedgerId: initial.payment.id,
                 badgeDivision: plan.division,
                 badgeCode: plan.code,
+                billingPlan,
+                ...billingMeta,
                 userId: viewer.id,
                 userEmail: viewer.email
             }
-        });
+        };
+
+        if (isMonthly) {
+            sessionPayload.subscription_data = {
+                metadata: {
+                    kind: 'verified_badge',
+                    paymentLedgerId: initial.payment.id,
+                    badgeDivision: plan.division,
+                    badgeCode: plan.code,
+                    billingPlan,
+                    ...billingMeta,
+                    userId: viewer.id,
+                    userEmail: viewer.email
+                }
+            };
+        }
+
+        const session = await stripe.checkout.sessions.create(sessionPayload);
 
         const payment = await paymentLedgerRepo.upsertPaymentRecord({
             id: initial.payment.id,
@@ -985,24 +1317,24 @@ async function createVerifiedBadgeStripeCheckoutSession(req, res) {
             providerStatus: 'checkout_session_created',
 
             status: 'checkout_started',
-            paymentMethod: 'card_bank_wallet',
+            paymentMethod: isMonthly ? 'stripe_monthly_subscription' : 'stripe_one_time',
 
-            amount: plan.amountMonthly,
+            amount,
             currency: plan.currency,
 
-            platformCommissionAmount: plan.amountMonthly,
+            platformCommissionAmount: amount,
             operatorPayoutAmount: 0,
 
             metadata: {
                 badgeDivision: plan.division,
                 badgeCode: plan.code,
                 badgeAsset: plan.asset,
-                badgePublicName: plan.publicName,
-                billingInterval: plan.interval,
+                badgePublicName: billingPlan === 'lifetime' ? (plan.lifetimePublicName || plan.publicName) : plan.publicName,
                 userId: viewer.id,
                 userEmail: viewer.email,
                 userName: viewer.name,
-                stripeCheckoutSessionId: cleanText(session.id)
+                stripeCheckoutSessionId: cleanText(session.id),
+                ...billingMeta
             }
         });
 
@@ -1018,6 +1350,8 @@ async function createVerifiedBadgeStripeCheckoutSession(req, res) {
             provider: 'stripe',
             providerLabel: 'Stripe',
             division: plan.division,
+            billingPlan,
+            billingLabel: getVerifiedBadgeBillingLabel(billingPlan),
             badge: buildPendingVerifiedBadgePayload(plan, payment),
             payment,
             paymentLedgerId: payment.id,
@@ -1046,9 +1380,15 @@ async function createVerifiedBadgeOxaPayInvoice(req, res) {
             });
         }
 
+        const requestedBillingPlan = normalizeVerifiedBadgeBillingPlan(req.body?.billingPlan || 'one_time', 'one_time');
+        const billingPlan = requestedBillingPlan === 'monthly' ? 'one_time' : requestedBillingPlan;
+        const billingMeta = buildVerifiedBadgeBillingMetadata(plan, billingPlan);
+        const amount = getVerifiedBadgeBillingAmount(plan, billingPlan);
+
         const initial = await createOrRefreshVerifiedBadgePayment(viewer, plan, {
             provider: 'oxapay',
             paymentMethod: 'crypto',
+            billingPlan,
             status: 'checkout_started',
             providerStatus: 'invoice_starting'
         });
@@ -1057,7 +1397,7 @@ async function createVerifiedBadgeOxaPayInvoice(req, res) {
         const orderId = buildVerifiedBadgeOrderId(initial.payment.id, plan.division);
 
         const invoicePayload = {
-            amount: Number(Number(plan.amountMonthly || 0).toFixed(2)),
+            amount: Number(Number(amount || 0).toFixed(2)),
             currency: plan.currency,
             lifetime: Math.max(15, Math.min(2880, Number(process.env.OXAPAY_INVOICE_LIFETIME_MINUTES || 60))),
             fee_paid_by_payer: Number(process.env.OXAPAY_FEE_PAID_BY_PAYER || 1),
@@ -1066,12 +1406,13 @@ async function createVerifiedBadgeOxaPayInvoice(req, res) {
             return_url: buildBadgeReturnUrl(req, {
                 badge_checkout: 'oxapay-success',
                 division: plan.division,
+                billingPlan,
                 payment: initial.payment.id
             }),
             email: viewer.email || undefined,
             order_id: orderId,
             thanks_message: 'Payment received. Return to YH Universe to see your badge status.',
-            description: `${plan.publicName}: ${plan.code}`,
+            description: `${plan.publicName}: ${plan.code} — ${getVerifiedBadgeBillingLabel(billingPlan)}`,
             sandbox: isOxaPaySandboxEnabled()
         };
 
@@ -1107,24 +1448,24 @@ async function createVerifiedBadgeOxaPayInvoice(req, res) {
             status: 'checkout_started',
             paymentMethod: 'crypto',
 
-            amount: plan.amountMonthly,
+            amount,
             currency: plan.currency,
 
-            platformCommissionAmount: plan.amountMonthly,
+            platformCommissionAmount: amount,
             operatorPayoutAmount: 0,
 
             metadata: {
                 badgeDivision: plan.division,
                 badgeCode: plan.code,
                 badgeAsset: plan.asset,
-                badgePublicName: plan.publicName,
-                billingInterval: plan.interval,
+                badgePublicName: billingPlan === 'lifetime' ? (plan.lifetimePublicName || plan.publicName) : plan.publicName,
                 userId: viewer.id,
                 userEmail: viewer.email,
                 userName: viewer.name,
                 oxapayTrackId: trackId,
                 oxapayOrderId: orderId,
-                oxapayInvoicePayload: invoicePayload
+                oxapayInvoicePayload: invoicePayload,
+                ...billingMeta
             }
         });
 
@@ -1140,6 +1481,8 @@ async function createVerifiedBadgeOxaPayInvoice(req, res) {
             provider: 'oxapay',
             providerLabel: 'OxaPay',
             division: plan.division,
+            billingPlan,
+            billingLabel: getVerifiedBadgeBillingLabel(billingPlan),
             badge: buildPendingVerifiedBadgePayload(plan, payment),
             payment,
             paymentLedgerId: payment.id,
@@ -1168,17 +1511,21 @@ async function createVerifiedBadgePaymentLedger(req, res) {
             });
         }
 
+        const billingPlan = normalizeVerifiedBadgeBillingPlan(req.body?.billingPlan || 'monthly');
         const result = await createOrRefreshVerifiedBadgePayment(viewer, plan, {
             provider: cleanLower(req.body?.provider || 'manual'),
             paymentMethod: cleanLower(req.body?.paymentMethod || 'manual'),
+            billingPlan,
             status: 'draft',
             providerStatus: 'manual_payment_requested'
         });
 
         return res.status(201).json({
             success: true,
-            message: `${plan.code} badge payment ledger created.`,
+            message: `${plan.code} badge ${getVerifiedBadgeBillingLabel(billingPlan)} payment request created.`,
             division: plan.division,
+            billingPlan,
+            billingLabel: getVerifiedBadgeBillingLabel(billingPlan),
             badge: result.badge,
             payment: result.payment
         });
@@ -1281,6 +1628,8 @@ async function unsubscribeVerifiedBadge(req, res) {
 function isVerifiedBadgeActiveState(badge = {}) {
     const status = cleanLower(badge.status || '');
 
+    if (isVerifiedBadgeExpired(badge)) return false;
+
     return (
         badge.active === true ||
         status === 'active' ||
@@ -1329,6 +1678,9 @@ function buildPaymentPlanSubscriptionItem({ plan = {}, badge = {}, payment = nul
     const currency = cleanText(badge.currency || payment?.currency || plan.currency || 'USD').toUpperCase() || 'USD';
 
     return {
+        key: 'verified_badge',
+        product: 'verified_badge',
+        sourceFeature: plan.sourceFeature || 'verified_badge',
         division: plan.division,
         code: plan.code,
         name: plan.publicName,
@@ -1352,16 +1704,102 @@ function buildPaymentPlanSubscriptionItem({ plan = {}, badge = {}, payment = nul
         activatedAt: cleanText(badge.activatedAt || badge.approvedAt || ''),
         expiresAt: cleanText(badge.expiresAt || ''),
         cancelledAt: cleanText(badge.cancelledAt || badge.unsubscribedAt || ''),
+        unsubscribeEndpoint: `/api/payments/subscriptions/${encodeURIComponent(plan.division)}/unsubscribe`,
         plan: {
+            product: 'verified_badge',
+            sourceFeature: plan.sourceFeature || 'verified_badge',
             division: plan.division,
             code: plan.code,
             publicName: plan.publicName,
             amountMonthly: plan.amountMonthly,
             currency: plan.currency,
             interval: plan.interval,
-            asset: plan.asset
+            asset: plan.asset,
+            unsubscribeEndpoint: `/api/payments/subscriptions/${encodeURIComponent(plan.division)}/unsubscribe`
         },
         badge,
+        payment,
+        owner: {
+            id: viewer.id,
+            email: viewer.email,
+            name: viewer.name
+        }
+    };
+}
+
+function findAcademyLearnFromPayment(payments = [], access = {}, viewer = {}) {
+    const cleanLedgerId = cleanText(access.paymentLedgerId);
+
+    const learnFromPayments = Array.isArray(payments)
+        ? payments.filter((payment) => {
+            const metadata = payment?.metadata && typeof payment.metadata === 'object'
+                ? payment.metadata
+                : {};
+
+            return cleanLower(payment.sourceFeature || metadata.sourceFeature || metadata.product || metadata.kind || '') === 'academy_learn_from_access';
+        })
+        : [];
+
+    if (cleanLedgerId) {
+        const exact = learnFromPayments.find((payment) => cleanText(payment.id) === cleanLedgerId);
+        if (exact) return exact;
+    }
+
+    const monthlyRecordId = getAcademyLearnFromPaymentRecordId(viewer.id, 'monthly');
+    const oneTimeRecordId = getAcademyLearnFromPaymentRecordId(viewer.id, 'one_time');
+
+    return learnFromPayments.find((payment) => {
+        const id = cleanText(payment.id);
+        return id === monthlyRecordId || id === oneTimeRecordId;
+    }) || learnFromPayments[0] || null;
+}
+
+function buildAcademyLearnFromSubscriptionItem({ access = {}, payment = null, viewer = {} } = {}) {
+    const normalizedAccess = normalizeAcademyLearnFromAccess(access);
+    const accessType = normalizeLearnFromAccessType(normalizedAccess.accessType || payment?.metadata?.accessType || '');
+    const monthly = accessType === 'monthly';
+    const amount = monthly
+        ? ACADEMY_LEARN_FROM_ACCESS_PLAN.monthlyAmount
+        : ACADEMY_LEARN_FROM_ACCESS_PLAN.oneTimeAmount;
+
+    return {
+        key: 'academy_learn_from_access',
+        product: 'academy_learn_from_access',
+        sourceFeature: 'academy_learn_from_access',
+        division: 'academy',
+        code: monthly ? 'Learn From Monthly' : 'Learn From',
+        name: ACADEMY_LEARN_FROM_ACCESS_PLAN.publicName,
+        active: normalizedAccess.active === true,
+        status: normalizedAccess.status || 'not_active',
+        amountMonthly: amount,
+        currency: ACADEMY_LEARN_FROM_ACCESS_PLAN.currency,
+        interval: monthly ? 'month' : 'one_time',
+        provider: cleanText(normalizedAccess.provider || payment?.provider || ''),
+        providerPaymentId: cleanText(normalizedAccess.providerPaymentId || payment?.providerPaymentId || ''),
+        providerSubscriptionId: cleanText(
+            normalizedAccess.providerSubscriptionId ||
+            payment?.metadata?.providerSubscriptionId ||
+            payment?.metadata?.stripeSubscriptionId ||
+            ''
+        ),
+        paymentLedgerId: cleanText(normalizedAccess.paymentLedgerId || payment?.id || ''),
+        paymentStatus: cleanLower(normalizedAccess.paymentStatus || payment?.status || ''),
+        activatedAt: cleanText(normalizedAccess.activatedAt || ''),
+        expiresAt: cleanText(normalizedAccess.expiresAt || ''),
+        cancelledAt: cleanText(access.cancelledAt || access.unsubscribedAt || ''),
+        unsubscribeEndpoint: '/api/payments/academy/learn-from-access/unsubscribe',
+        plan: {
+            product: 'academy_learn_from_access',
+            sourceFeature: 'academy_learn_from_access',
+            division: 'academy',
+            code: monthly ? 'Learn From Monthly' : 'Learn From',
+            publicName: ACADEMY_LEARN_FROM_ACCESS_PLAN.publicName,
+            amountMonthly: amount,
+            currency: ACADEMY_LEARN_FROM_ACCESS_PLAN.currency,
+            interval: monthly ? 'month' : 'one_time',
+            unsubscribeEndpoint: '/api/payments/academy/learn-from-access/unsubscribe'
+        },
+        access: normalizedAccess,
         payment,
         owner: {
             id: viewer.id,
@@ -1397,7 +1835,7 @@ async function buildMySubscriptionsSnapshot(viewer = {}) {
         return [];
     });
 
-    const paymentPlans = Object.values(VERIFIED_BADGE_PLANS).map((plan) => {
+    const badgePlans = Object.values(VERIFIED_BADGE_PLANS).map((plan) => {
         const badge = badges[plan.division] && typeof badges[plan.division] === 'object'
             ? badges[plan.division]
             : {};
@@ -1411,6 +1849,21 @@ async function buildMySubscriptionsSnapshot(viewer = {}) {
             viewer
         });
     });
+
+    const learnFromAccess = userData.academyLearnFromAccess && typeof userData.academyLearnFromAccess === 'object'
+        ? userData.academyLearnFromAccess
+        : {};
+
+    const learnFromItem = buildAcademyLearnFromSubscriptionItem({
+        access: learnFromAccess,
+        payment: findAcademyLearnFromPayment(payments, learnFromAccess, viewer),
+        viewer
+    });
+
+    const paymentPlans = [
+        ...badgePlans,
+        ...(learnFromItem.active || learnFromItem.paymentLedgerId ? [learnFromItem] : [])
+    ];
 
     const activeSubscriptions = paymentPlans.filter((item) => item.active === true);
 
@@ -1486,16 +1939,27 @@ async function unsubscribePaymentPlan(req, res) {
 
         const wasActive = isVerifiedBadgeActiveState(currentBadge);
         const nowIso = new Date().toISOString();
-        const paymentLedgerId = cleanText(currentBadge.paymentLedgerId);
+        const payments = await paymentLedgerRepo.listPaymentsForUser(viewer.id, 120).catch((error) => {
+            console.error('unsubscribe payment plan ledger lookup error:', error);
+            return [];
+        });
+
+        const matchedPayment = findVerifiedBadgePaymentForPlan(payments, plan, currentBadge, viewer);
+
+        const paymentLedgerId = cleanText(currentBadge.paymentLedgerId || matchedPayment?.id || '');
+        const provider = cleanLower(currentBadge.provider || matchedPayment?.provider || 'manual');
         const providerSubscriptionId = cleanText(
             currentBadge.providerSubscriptionId ||
             currentBadge.stripeSubscriptionId ||
+            matchedPayment?.providerSubscriptionId ||
+            matchedPayment?.metadata?.providerSubscriptionId ||
+            matchedPayment?.metadata?.stripeSubscriptionId ||
             ''
         );
 
         let providerCancellation = null;
 
-        if (providerSubscriptionId && cleanLower(currentBadge.provider || 'stripe') === 'stripe') {
+        if (providerSubscriptionId && provider === 'stripe') {
             const stripe = getBadgeStripeClient();
 
             try {
@@ -1550,7 +2014,7 @@ async function unsubscribePaymentPlan(req, res) {
                 payerEmail: viewer.email,
                 payerName: viewer.name,
 
-                provider: cleanLower(currentBadge.provider || 'manual'),
+                provider,
                 providerOptions: ['stripe', 'oxapay', 'manual'],
                 providerPaymentId: cleanText(currentBadge.providerPaymentId),
                 providerStatus: 'user_unsubscribed',
@@ -1602,6 +2066,171 @@ async function unsubscribePaymentPlan(req, res) {
         return res.status(error.statusCode || 500).json({
             success: false,
             message: error?.message || 'Failed to unsubscribe payment plan.'
+        });
+    }
+}
+
+async function unsubscribeAcademyLearnFromAccess(req, res) {
+    try {
+        const viewer = getViewer(req);
+
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Unauthorized.'
+            });
+        }
+
+        const userRef = firestore.collection('users').doc(viewer.id);
+        const userSnap = await userRef.get();
+
+        if (!userSnap.exists) {
+            return res.status(404).json({
+                success: false,
+                message: 'User account not found.'
+            });
+        }
+
+        const userData = userSnap.data() || {};
+        const currentAccess = userData.academyLearnFromAccess && typeof userData.academyLearnFromAccess === 'object'
+            ? userData.academyLearnFromAccess
+            : {};
+
+        const normalizedAccess = normalizeAcademyLearnFromAccess(currentAccess);
+        const wasActive = normalizedAccess.active === true;
+        const nowIso = new Date().toISOString();
+
+        const payments = await paymentLedgerRepo.listPaymentsForUser(viewer.id, 120).catch((error) => {
+            console.error('unsubscribe learn from ledger lookup error:', error);
+            return [];
+        });
+
+        const matchedPayment = findAcademyLearnFromPayment(payments, currentAccess, viewer);
+        const paymentLedgerId = cleanText(normalizedAccess.paymentLedgerId || matchedPayment?.id || '');
+        const accessType = normalizeLearnFromAccessType(normalizedAccess.accessType || matchedPayment?.metadata?.accessType || 'monthly') || 'monthly';
+        const provider = cleanLower(normalizedAccess.provider || matchedPayment?.provider || 'manual');
+        const providerSubscriptionId = cleanText(
+            normalizedAccess.providerSubscriptionId ||
+            matchedPayment?.providerSubscriptionId ||
+            matchedPayment?.metadata?.providerSubscriptionId ||
+            matchedPayment?.metadata?.stripeSubscriptionId ||
+            ''
+        );
+
+        let providerCancellation = null;
+
+        if (providerSubscriptionId && provider === 'stripe') {
+            const stripe = getBadgeStripeClient();
+
+            try {
+                providerCancellation = await stripe.subscriptions.cancel(providerSubscriptionId);
+            } catch (stripeError) {
+                console.error('stripe learn from subscription cancellation error:', stripeError);
+
+                return res.status(502).json({
+                    success: false,
+                    message: stripeError?.message || 'Stripe subscription cancellation failed.'
+                });
+            }
+        }
+
+        const nextAccess = {
+            ...currentAccess,
+            active: false,
+            status: 'cancelled',
+            subscriptionStatus: 'cancelled',
+            paymentStatus: cleanLower(currentAccess.paymentStatus || '') === 'paid'
+                ? 'paid_cancelled'
+                : 'cancelled',
+            product: 'academy_learn_from_access',
+            name: ACADEMY_LEARN_FROM_ACCESS_PLAN.publicName,
+            accessType,
+            amountMonthly: ACADEMY_LEARN_FROM_ACCESS_PLAN.monthlyAmount,
+            amountOneTime: ACADEMY_LEARN_FROM_ACCESS_PLAN.oneTimeAmount,
+            currency: ACADEMY_LEARN_FROM_ACCESS_PLAN.currency,
+            paymentLedgerId,
+            provider,
+            providerPaymentId: cleanText(normalizedAccess.providerPaymentId || matchedPayment?.providerPaymentId || ''),
+            providerSubscriptionId,
+            cancelledAt: nowIso,
+            unsubscribedAt: nowIso,
+            deactivatedAt: nowIso,
+            updatedAt: nowIso,
+            unsubscribedBy: viewer.id,
+            providerCancellationId: cleanText(providerCancellation?.id || '')
+        };
+
+        await userRef.set({
+            academyLearnFromAccess: nextAccess,
+            updatedAt: nowIso
+        }, { merge: true });
+
+        if (paymentLedgerId) {
+            const amount = accessType === 'monthly'
+                ? ACADEMY_LEARN_FROM_ACCESS_PLAN.monthlyAmount
+                : ACADEMY_LEARN_FROM_ACCESS_PLAN.oneTimeAmount;
+
+            await paymentLedgerRepo.upsertPaymentRecord({
+                id: paymentLedgerId,
+                sourceDivision: ACADEMY_LEARN_FROM_ACCESS_PLAN.sourceDivision,
+                sourceFeature: ACADEMY_LEARN_FROM_ACCESS_PLAN.sourceFeature,
+                sourceRecordId: `${viewer.id}_${accessType}`,
+
+                payerUid: viewer.id,
+                payerEmail: viewer.email,
+                payerName: viewer.name,
+
+                provider,
+                providerOptions: ['stripe', 'oxapay'],
+                providerPaymentId: cleanText(nextAccess.providerPaymentId),
+                providerStatus: 'user_unsubscribed',
+
+                status: 'cancelled',
+                paymentMethod: cleanText(currentAccess.paymentMethod || matchedPayment?.paymentMethod || 'unselected'),
+
+                amount,
+                currency: ACADEMY_LEARN_FROM_ACCESS_PLAN.currency,
+
+                platformCommissionAmount: amount,
+                operatorPayoutAmount: 0,
+
+                metadata: {
+                    ...(matchedPayment?.metadata && typeof matchedPayment.metadata === 'object' ? matchedPayment.metadata : {}),
+                    kind: 'academy_learn_from_access',
+                    product: 'academy_learn_from_access',
+                    publicName: ACADEMY_LEARN_FROM_ACCESS_PLAN.publicName,
+                    accessType,
+                    userId: viewer.id,
+                    userEmail: viewer.email,
+                    userName: viewer.name,
+                    unsubscribedAt: nowIso,
+                    unsubscribedBy: viewer.id,
+                    previousAccessStatus: cleanText(currentAccess.status),
+                    providerSubscriptionId,
+                    providerCancellationId: cleanText(providerCancellation?.id || '')
+                }
+            }).catch((ledgerError) => {
+                console.error('unsubscribe learn from ledger update error:', ledgerError);
+            });
+        }
+
+        const snapshot = await buildMySubscriptionsSnapshot(viewer);
+
+        return res.json({
+            success: true,
+            message: wasActive
+                ? 'Academy Learn From access unsubscribed.'
+                : 'Academy Learn From access was already inactive.',
+            access: nextAccess,
+            providerCancellation,
+            snapshot
+        });
+    } catch (error) {
+        console.error('unsubscribe academy learn from access error:', error);
+
+        return res.status(error.statusCode || 500).json({
+            success: false,
+            message: error?.message || 'Failed to unsubscribe Academy Learn From access.'
         });
     }
 }
@@ -2344,6 +2973,7 @@ module.exports = {
     listMySubscriptions,
     unsubscribePaymentPlan,
     getAcademyLearnFromAccess,
+    unsubscribeAcademyLearnFromAccess,
     createAcademyLearnFromStripeCheckoutSession,
     createAcademyLearnFromOxaPayInvoice,
     createVerifiedBadgePaymentLedger,

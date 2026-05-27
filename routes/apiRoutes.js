@@ -181,6 +181,7 @@ router.get('/payments/my-ledger', auth, paymentControllers.listMyPayments);
 router.get('/payments/subscriptions', auth, paymentControllers.listMySubscriptions);
 router.post('/payments/subscriptions/:division/unsubscribe', auth, paymentControllers.unsubscribePaymentPlan);
 router.get('/payments/academy/learn-from-access', auth, paymentControllers.getAcademyLearnFromAccess);
+router.post('/payments/academy/learn-from-access/unsubscribe', auth, paymentControllers.unsubscribeAcademyLearnFromAccess);
 router.post('/payments/academy/learn-from-access/stripe-checkout-session', auth, paymentControllers.createAcademyLearnFromStripeCheckoutSession);
 router.post('/payments/academy/learn-from-access/oxapay-invoice', auth, paymentControllers.createAcademyLearnFromOxaPayInvoice);
 router.post('/payments/badges/:division/ledger', auth, paymentControllers.createVerifiedBadgePaymentLedger);

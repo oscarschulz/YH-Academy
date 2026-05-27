@@ -7,9 +7,9 @@
   <link rel="icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1" />
   <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1" />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/css/business-chats.css?v=20260520-business-chats-inline-dialog-v3" />
+<link rel="stylesheet" href="/css/business-chats.css?v=20260527-business-chats-topnav-tabs-v2" />
 </head>
-<body data-yh-view="business-chats" data-yh-page="business-chats">
+<body data-yh-view="business-chats" data-yh-page="business-chats" data-bc-active-view="overview">
   <div class="bc-shell">
     <nav class="bc-topnav">
       <a class="bc-brand" href="/dashboard" aria-label="Back to Dashboard">
@@ -19,6 +19,13 @@
           <strong>Business Chats</strong>
         </div>
       </a>
+
+      <div class="bc-view-tabs" aria-label="Business Chats sections">
+        <button type="button" class="bc-view-tab is-active" data-bc-view-tab="overview">Overview</button>
+        <button type="button" class="bc-view-tab" data-bc-view-tab="start">Start Chat</button>
+        <button type="button" class="bc-view-tab" data-bc-view-tab="conversations">Conversations</button>
+        <button type="button" class="bc-view-tab" data-bc-view-tab="blocked">Blocked Members</button>
+      </div>
 
       <div class="bc-actions">
         <button type="button" class="bc-ghost-btn" id="bcRefresh">Refresh</button>
@@ -61,8 +68,8 @@
         <section class="bc-start-panel">
           <div class="bc-panel-head">
             <div>
-              <strong>Start a Plaza business chat</strong>
-              <span>Search approved Plaza members and open a focused business conversation.</span>
+              <strong>Start a business chat</strong>
+              <span>Search approved Academy, Plaza, and Federation members, then open a focused business conversation.</span>
             </div>
           </div>
 
@@ -76,10 +83,10 @@
               <div class="bc-form-row">
                 <label for="bcDivisionFilter">Division</label>
                 <select id="bcDivisionFilter">
-                  <option value="plaza">Plaza Members</option>
-                  <option value="all">All Approved Members</option>
-                  <option value="academy">Academy</option>
-                  <option value="federation">Federation</option>
+                  <option value="all" selected>All approved members</option>
+                  <option value="academy">Academy members</option>
+                  <option value="plaza">Plaza members</option>
+                  <option value="federation">Federation members</option>
                 </select>
               </div>
             </div>
@@ -106,7 +113,7 @@
           </form>
 
           <div class="bc-member-results" id="bcMemberResults">
-            <div class="bc-empty">Search for an approved Plaza member to start a business chat.</div>
+            <div class="bc-empty">Search approved members from all divisions to start a business chat.</div>
           </div>
         </section>
 
@@ -199,6 +206,6 @@
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
-<script src="/js/business-chats.js?v=20260520-business-chats-enter-send-v4"></script>
+<script src="/js/business-chats.js?v=20260527-business-chats-tabs-members-v1"></script>
 </body>
 </html>

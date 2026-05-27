@@ -19564,6 +19564,11 @@ function renderAcademyStageFromRoom(room = {}, options = {}) {
     if (stageTopic) stageTopic.innerText = roomTopic;
     if (stageIcon) stageIcon.innerText = roomType === 'video' ? '📹' : '🎙️';
 
+    const stageExpiryNote = document.getElementById('academy-live-stage-expiry-note');
+    if (stageExpiryNote) {
+        stageExpiryNote.textContent = getAcademyLiveRoomAutoEndText(room);
+    }
+
     const normalizedLiveRoomId = normalizeAcademyLiveRoomId(room?.id || room?.roomId || room?.room_id);
 
     currentRoom = roomTitle;
@@ -19638,6 +19643,60 @@ async function openAcademyStageFromRoom(room = {}) {
     }
 }
 
+const ACADEMY_LIVE_ROOM_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+function getAcademyLiveRoomStartMs(room = {}) {
+    const candidates = [
+        room.started_at,
+        room.startedAt,
+        room.created_at,
+        room.createdAt,
+        room.created
+    ];
+
+    for (const value of candidates) {
+        if (!value) continue;
+
+        if (typeof value === 'object' && typeof value.toDate === 'function') {
+            const ms = value.toDate().getTime();
+            if (Number.isFinite(ms)) return ms;
+        }
+
+        if (typeof value === 'object' && Number.isFinite(Number(value._seconds))) {
+            return Number(value._seconds) * 1000;
+        }
+
+        const parsed = new Date(value).getTime();
+        if (Number.isFinite(parsed)) return parsed;
+    }
+
+    return 0;
+}
+
+function getAcademyLiveRoomAutoEndText(room = {}) {
+    const startedMs = getAcademyLiveRoomStartMs(room);
+
+    if (!startedMs) {
+        return "This live will automatically end in the next 24 hours if you don't end it manually.";
+    }
+
+    const endMs = startedMs + ACADEMY_LIVE_ROOM_MAX_AGE_MS;
+    const remainingMs = Math.max(0, endMs - Date.now());
+
+    if (!remainingMs) {
+        return 'This live has reached the 24-hour limit and will be ended automatically.';
+    }
+
+    const hours = Math.floor(remainingMs / (60 * 60 * 1000));
+    const minutes = Math.ceil((remainingMs % (60 * 60 * 1000)) / (60 * 1000));
+
+    if (hours >= 1) {
+        return `This live will automatically end in about ${hours}h ${minutes}m if you don't end it manually.`;
+    }
+
+    return `This live will automatically end in about ${minutes}m if you don't end it manually.`;
+}
+
 function renderAcademyVoiceRooms(rooms = []) {
     const grid = document.getElementById('lounge-grid');
     if (!grid) return;
@@ -19653,6 +19712,7 @@ function renderAcademyVoiceRooms(rooms = []) {
         const topic = String(room.topic || 'Live Academy networking').trim();
         const hostName = String(room.host_user_name || 'Host').trim();
         const participantCount = Number(room.participant_count || 0);
+        const autoEndText = getAcademyLiveRoomAutoEndText(room);
 
         return `
             <article
@@ -19673,6 +19733,10 @@ function renderAcademyVoiceRooms(rooms = []) {
 
                 <div style="margin-top:12px;color:var(--text-muted);font-size:0.82rem;">
                     Hosted by ${academyFeedEscapeHtml(hostName)}
+                </div>
+
+                <div class="academy-live-expiry-card-note">
+                    ${academyFeedEscapeHtml(autoEndText)}
                 </div>
 
                 <div style="margin-top:14px;display:flex;justify-content:flex-end;">
@@ -29853,9 +29917,156 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
         return data;
     }
 
-    function hasAcademyLearnFromAccess() {
-        return academyLearnFromAccess?.active === true;
+    function academyReadJsonFromStorageForLearnFrom(key = '') {
+        const cleanKey = String(key || '').trim();
+        if (!cleanKey) return null;
+
+        const stores = [sessionStorage, localStorage];
+
+        for (const store of stores) {
+            try {
+                const raw = store.getItem(cleanKey);
+                if (!raw) continue;
+
+                const parsed = JSON.parse(raw);
+                if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                    return parsed;
+                }
+            } catch (_) {}
+        }
+
+        return null;
     }
+
+    function academyGetProfileCandidatesForLearnFrom() {
+        const candidates = [];
+
+        try {
+            if (
+                typeof academyProfileViewState === 'object' &&
+                academyProfileViewState?.profile &&
+                typeof academyProfileViewState.profile === 'object'
+            ) {
+                candidates.push(academyProfileViewState.profile);
+            }
+        } catch (_) {}
+
+        try {
+            if (typeof readAcademyProfileCache === 'function') {
+                const cachedProfile = readAcademyProfileCache();
+                if (cachedProfile && typeof cachedProfile === 'object') {
+                    candidates.push(cachedProfile);
+                }
+            }
+        } catch (_) {}
+
+        [
+            'yh_academy_profile_cache_v1',
+            'yh_academy_profile_v1',
+            'yh_academy_application_profile',
+            'yh_current_user',
+            'yh_user',
+            'currentUser',
+            'user'
+        ].forEach((key) => {
+            const parsed = academyReadJsonFromStorageForLearnFrom(key);
+            if (parsed && typeof parsed === 'object') {
+                candidates.push(parsed);
+                if (parsed.profile && typeof parsed.profile === 'object') candidates.push(parsed.profile);
+                if (parsed.user && typeof parsed.user === 'object') candidates.push(parsed.user);
+            }
+        });
+
+        return candidates;
+    }
+
+    function academyProfileHasActiveYhaBadgeForLearnFrom(profile = {}) {
+        const badgeSources = [
+            profile?.verificationBadges,
+            profile?.verifiedBadges,
+            profile?.yhVerificationBadges,
+            profile?.badges,
+            profile?.badgeSubscriptions
+        ].filter((source) => source && typeof source === 'object');
+
+        for (const source of badgeSources) {
+            const badge = source.academy && typeof source.academy === 'object'
+                ? source.academy
+                : source.yha && typeof source.yha === 'object'
+                    ? source.yha
+                    : null;
+
+            if (!badge) continue;
+
+            const status = String(badge.status || '').trim().toLowerCase();
+            const paymentStatus = String(badge.paymentStatus || '').trim().toLowerCase();
+            const subscriptionStatus = String(badge.subscriptionStatus || '').trim().toLowerCase();
+
+            const cancelled =
+                status === 'cancelled' ||
+                status === 'canceled' ||
+                paymentStatus === 'cancelled' ||
+                paymentStatus === 'canceled' ||
+                subscriptionStatus === 'cancelled' ||
+                subscriptionStatus === 'canceled';
+
+            if (cancelled) continue;
+
+            if (
+                badge.active === true ||
+                status === 'active' ||
+                status === 'verified' ||
+                paymentStatus === 'paid' ||
+                subscriptionStatus === 'active'
+            ) {
+                return {
+                    badge,
+                    profile
+                };
+            }
+        }
+
+        return null;
+    }
+
+    function getActiveYhaBadgeForLearnFromFromProfile() {
+        for (const profile of academyGetProfileCandidatesForLearnFrom()) {
+            const match = academyProfileHasActiveYhaBadgeForLearnFrom(profile);
+            if (match) return match;
+        }
+
+        return null;
+    }
+
+    function syncAcademyLearnFromAccessFromYhaBadge() {
+        if (academyLearnFromAccess?.active === true) return true;
+
+        const match = getActiveYhaBadgeForLearnFromFromProfile();
+        if (!match) return false;
+
+        const badge = match.badge || {};
+
+        academyLearnFromAccess = {
+            active: true,
+            status: 'active',
+            accessType: 'yha_badge_client',
+            product: 'academy_learn_from_access',
+            unlockedBy: 'yha_verified_badge',
+            badgeCode: String(badge.code || 'YHA').trim() || 'YHA',
+            badgeDivision: 'academy',
+            paymentLedgerId: String(badge.paymentLedgerId || '').trim(),
+            provider: String(badge.provider || '').trim(),
+            activatedAt: String(badge.activatedAt || badge.approvedAt || '').trim(),
+            expiresAt: String(badge.expiresAt || '').trim()
+        };
+
+        return true;
+    }
+
+    function hasAcademyLearnFromAccess() {
+        return academyLearnFromAccess?.active === true || syncAcademyLearnFromAccessFromYhaBadge();
+    }
+
 
     function setLearnFromPayStatus(message = '', tone = '') {
         const status = document.getElementById(LEARN_FROM_PAY_STATUS_ID);
@@ -29882,7 +30093,7 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
         if (clean === 'monthly') return 'Stripe monthly billing selected. Continue to secure Stripe checkout.';
         if (clean === 'one_time') return 'OxaPay one-time crypto payment selected. Continue to secure OxaPay invoice.';
 
-        return 'Choose a payment method first.';
+        return 'Avail the YHA badge to unlock Learn From mode.';
     }
 
     function syncLearnFromPaymentSelection() {
@@ -29919,12 +30130,13 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
                 status: 'none'
             };
 
+            syncAcademyLearnFromAccessFromYhaBadge();
             syncLearnFromSelect();
 
             if (options.toastOnSuccess && hasAcademyLearnFromAccess()) {
                 try {
                     if (typeof showToast === 'function') {
-                        showToast('Academy Learn From subscription activated successfully.', 'success');
+                        showToast('Academy Learn From is unlocked by your YHA badge.', 'success');
                     }
                 } catch (_) {}
             }
@@ -29935,6 +30147,9 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
                 active: false,
                 status: 'unavailable'
             };
+
+            syncAcademyLearnFromAccessFromYhaBadge();
+            syncLearnFromSelect();
 
             return academyLearnFromAccess;
         }
@@ -30167,7 +30382,7 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
         if (meta.key && !hasAcademyLearnFromAccess()) {
             select.value = '';
             select.classList.add('is-locked');
-            select.title = 'Specific Learn From modes are only accessible to Academy subscribers.';
+            select.title = 'Specific Learn From modes unlock with an active YHA badge.';
             return;
         }
 
@@ -30229,28 +30444,20 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
                 <div class="academy-ai-coach-learn-pay-modal hidden-step" id="${LEARN_FROM_PAY_MODAL_ID}" aria-hidden="true">
                     <div class="academy-ai-coach-learn-pay-card">
                         <button type="button" class="academy-ai-coach-learn-pay-close" data-learn-from-pay-close aria-label="Close payment modal">✕</button>
-                        <div class="academy-ai-coach-learn-pay-kicker">Academy Premium</div>
-                        <h3>Only Accessible to Academy Subscribers</h3>
+                        <div class="academy-ai-coach-learn-pay-kicker">Academy / YHA Benefit</div>
+                        <h3>Unlock with the YHA Badge</h3>
                         <p>
-                            Unlock <strong data-learn-from-selected-name>mentor mode</strong> and access the full Learn From list inside the Academy AI Coach.
+                            Subscribe to the Academy Verification Badge to unlock <strong data-learn-from-selected-name>mentor mode</strong> and access the full Learn From list inside the Academy AI Coach.
                         </p>
 
                         <div class="academy-ai-coach-learn-pay-options">
-                            <button type="button" data-learn-from-pay-select="monthly" aria-pressed="false">
-                                <strong>$2.81/month</strong>
-                                <span>Monthly billing via Stripe</span>
-                            </button>
-                            <button type="button" data-learn-from-pay-select="one_time" aria-pressed="false">
-                                <strong>$28.12 one-time</strong>
-                                <span>One-time crypto payment via OxaPay</span>
+                            <button type="button" data-learn-from-open-yha-profile aria-pressed="false">
+                                <strong>Avail YHA Badge</strong>
+                                <span>Access to Learn From Big Figures and the Greatest Philosophers will be unlocked inside the Academy.</span>
                             </button>
                         </div>
 
-                        <button type="button" class="academy-ai-coach-learn-pay-main hidden-step" data-learn-from-pay-submit>
-                            Purchase the subscription for less than a coffee.
-                        </button>
-
-                        <div class="academy-ai-coach-learn-pay-status" id="${LEARN_FROM_PAY_STATUS_ID}">Choose a payment method first.</div>
+                        <div class="academy-ai-coach-learn-pay-status" id="${LEARN_FROM_PAY_STATUS_ID}">YHA badge subscription is required for Learn From mode.</div>
                     </div>
                 </div>
             </div>
@@ -30539,6 +30746,13 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
 
         modal.querySelectorAll('[data-learn-from-pay-close]').forEach((button) => {
             button.addEventListener('click', closeLearnFromPayModal);
+        });
+
+        modal.querySelectorAll('[data-learn-from-open-yha-profile]').forEach((button) => {
+            button.addEventListener('click', () => {
+                closeLearnFromPayModal();
+                window.location.href = '/academy?section=profile';
+            });
         });
 
         modal.querySelector('#' + INPUT_ID)?.addEventListener('keydown', async (event) => {

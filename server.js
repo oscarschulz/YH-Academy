@@ -65,6 +65,8 @@ const YH_VERIFICATION_BADGE_PLANS = {
         division: 'academy',
         code: 'YHA',
         amountMonthly: 2.81,
+        amountOneTime: 2.81,
+        amountLifetime: 28.12,
         currency: 'USD',
         interval: 'month',
         asset: '/images/yha%20badge.png'
@@ -73,6 +75,8 @@ const YH_VERIFICATION_BADGE_PLANS = {
         division: 'federation',
         code: 'YHF',
         amountMonthly: 28.12,
+        amountOneTime: 28.12,
+        amountLifetime: 281.20,
         currency: 'USD',
         interval: 'month',
         asset: '/images/yhf%20badge.png'
@@ -84,20 +88,27 @@ function normalizeYHVerificationBadgeState(rawBadge = {}, division = 'academy') 
     const plan = YH_VERIFICATION_BADGE_PLANS[cleanDivision];
     const badge = rawBadge && typeof rawBadge === 'object' ? rawBadge : {};
     const rawStatus = sanitizeText(badge.status || '').toLowerCase();
+    const expired = isYHBadgeExpired(badge);
 
-    const active =
+    const active = !expired && (
         badge.active === true ||
         rawStatus === 'active' ||
-        rawStatus === 'verified';
+        rawStatus === 'verified'
+    );
+
+    const billingPlan = normalizeYHBadgeBillingPlan(badge.billingPlan || badge.interval || 'monthly');
 
     return {
         active,
-        status: active ? 'active' : (rawStatus || 'none'),
+        status: expired ? 'expired' : active ? 'active' : (rawStatus || 'none'),
         division: cleanDivision,
         code: plan.code,
         amountMonthly: plan.amountMonthly,
+        amount: roundYHMoney(badge.amount || getYHBadgeBillingAmount(plan, billingPlan)),
         currency: plan.currency,
-        interval: plan.interval,
+        interval: getYHBadgeBillingInterval(billingPlan),
+        billingPlan,
+        lifetimeAccess: billingPlan === 'lifetime' || badge.lifetimeAccess === true,
         asset: plan.asset,
         activatedAt: sanitizeText(badge.activatedAt || badge.approvedAt || ''),
         expiresAt: sanitizeText(badge.expiresAt || '')
@@ -133,6 +144,64 @@ function getYHVerifiedBadgePlan(division = '') {
 function roundYHMoney(value = 0) {
     const amount = Number(value);
     return Number.isFinite(amount) ? Math.round(amount * 100) / 100 : 0;
+}
+
+function normalizeYHBadgeBillingPlan(value = '', fallback = 'monthly') {
+    const clean = sanitizeText(value || fallback).toLowerCase();
+
+    if (clean === 'monthly' || clean === 'month' || clean === 'subscription' || clean === 'recurring') {
+        return 'monthly';
+    }
+
+    if (clean === 'lifetime' || clean === 'life_time' || clean === 'forever') {
+        return 'lifetime';
+    }
+
+    if (clean === 'one_time' || clean === 'one-time' || clean === 'onetime' || clean === 'single') {
+        return 'one_time';
+    }
+
+    return fallback === 'lifetime' || fallback === 'one_time' ? fallback : 'monthly';
+}
+
+function getYHBadgeBillingAmount(plan = {}, billingPlan = 'monthly') {
+    const cleanBillingPlan = normalizeYHBadgeBillingPlan(billingPlan);
+
+    if (cleanBillingPlan === 'lifetime') return roundYHMoney(plan.amountLifetime || plan.amountMonthly || 0);
+    if (cleanBillingPlan === 'one_time') return roundYHMoney(plan.amountOneTime || plan.amountMonthly || 0);
+
+    return roundYHMoney(plan.amountMonthly || 0);
+}
+
+function getYHBadgeBillingInterval(billingPlan = 'monthly') {
+    const cleanBillingPlan = normalizeYHBadgeBillingPlan(billingPlan);
+
+    if (cleanBillingPlan === 'lifetime') return 'lifetime';
+    if (cleanBillingPlan === 'one_time') return '30_days';
+
+    return 'month';
+}
+
+function getYHBadgeExpiresAt(billingPlan = 'monthly') {
+    const cleanBillingPlan = normalizeYHBadgeBillingPlan(billingPlan);
+    if (cleanBillingPlan === 'lifetime') return '';
+
+    const expiresAt = new Date();
+    expiresAt.setMonth(expiresAt.getMonth() + 1);
+    return expiresAt.toISOString();
+}
+
+function isYHBadgeExpired(badge = {}) {
+    const billingPlan = normalizeYHBadgeBillingPlan(badge.billingPlan || badge.interval || '', '');
+    if (billingPlan === 'lifetime' || badge.lifetimeAccess === true) return false;
+
+    const expiresAt = sanitizeText(badge.expiresAt || '');
+    if (!expiresAt) return false;
+
+    const expiresMs = Date.parse(expiresAt);
+    if (!Number.isFinite(expiresMs)) return false;
+
+    return expiresMs <= Date.now();
 }
 
 function extractYHVerifiedBadgePaymentIdFromOrderId(orderId = '') {
@@ -195,27 +264,45 @@ function buildActiveYHLearnFromAccessPayload(payment = {}, context = {}) {
 
 function buildActiveYHVerifiedBadgePayload(plan = {}, payment = {}, context = {}) {
     const now = new Date();
-    const expiresAt = new Date(now);
-    expiresAt.setMonth(expiresAt.getMonth() + 1);
+    const metadata = payment.metadata && typeof payment.metadata === 'object' ? payment.metadata : {};
+    const billingPlan = normalizeYHBadgeBillingPlan(
+        context.billingPlan ||
+        metadata.billingPlan ||
+        metadata.accessType ||
+        metadata.billingInterval ||
+        'monthly'
+    );
+
+    const amount = getYHBadgeBillingAmount(plan, billingPlan);
+    const expiresAt = getYHBadgeExpiresAt(billingPlan);
 
     return {
         active: true,
         status: 'active',
         code: sanitizeText(plan.code),
         division: sanitizeText(plan.division),
-        amountMonthly: roundYHMoney(payment.amount || plan.amountMonthly || 0),
+        amountMonthly: roundYHMoney(plan.amountMonthly || 0),
+        amount,
         currency: sanitizeText(payment.currency || plan.currency || 'USD').toUpperCase() || 'USD',
-        interval: sanitizeText(plan.interval || 'month'),
+        interval: getYHBadgeBillingInterval(billingPlan),
+        billingPlan,
+        lifetimeAccess: billingPlan === 'lifetime',
         asset: sanitizeText(plan.asset),
         paymentLedgerId: sanitizeText(payment.id),
         paymentStatus: 'paid',
         provider: sanitizeText(context.provider || payment.provider || ''),
         providerPaymentId: sanitizeText(context.providerPaymentId || payment.providerPaymentId || ''),
+        providerSubscriptionId: sanitizeText(context.providerSubscriptionId || payment.metadata?.providerSubscriptionId || payment.metadata?.stripeSubscriptionId || ''),
         activatedAt: now.toISOString(),
         approvedAt: now.toISOString(),
-        expiresAt: expiresAt.toISOString(),
+        expiresAt,
         verifiedBy: sanitizeText(context.verifiedBy || 'payment-webhook'),
-        updatedAt: now.toISOString()
+        updatedAt: now.toISOString(),
+        ...(plan.division === 'academy' ? {
+            unlocksLearnFrom: true,
+            learnFromAccess: true,
+            learnFromAccessCopy: 'Access to Learn From Big Figures and the Greatest Philosophers is unlocked inside the Academy AI Coach.'
+        } : {})
     };
 }
 
@@ -8022,6 +8109,129 @@ app.get(['/api/universe/profile', '/api/academy/profile'], requireApiUser, async
     }
 });
 
+const YH_LIVE_ROOM_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const YH_LIVE_ROOM_AUTO_END_SWEEP_MS = 5 * 60 * 1000;
+let yhLiveRoomAutoEndSweepInFlight = false;
+
+function readYHLiveRoomTimestampMs(value = null) {
+    if (!value) return 0;
+
+    if (value instanceof Date) {
+        const ms = value.getTime();
+        return Number.isFinite(ms) ? ms : 0;
+    }
+
+    if (typeof value?.toDate === 'function') {
+        const ms = value.toDate().getTime();
+        return Number.isFinite(ms) ? ms : 0;
+    }
+
+    if (Number.isFinite(Number(value?._seconds))) {
+        return Number(value._seconds) * 1000;
+    }
+
+    const parsed = Date.parse(String(value || '').trim());
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getYHLiveRoomStartMs(data = {}) {
+    return (
+        readYHLiveRoomTimestampMs(data.started_at) ||
+        readYHLiveRoomTimestampMs(data.startedAt) ||
+        readYHLiveRoomTimestampMs(data.created_at) ||
+        readYHLiveRoomTimestampMs(data.createdAt) ||
+        readYHLiveRoomTimestampMs(data.created)
+    );
+}
+
+function isYHLiveRoomExpiredByAge(data = {}, nowMs = Date.now()) {
+    const status = sanitizeText(data.status || 'live').toLowerCase();
+
+    if (status !== 'live') return false;
+
+    const startedMs = getYHLiveRoomStartMs(data);
+    if (!startedMs) return false;
+
+    return nowMs - startedMs >= YH_LIVE_ROOM_MAX_AGE_MS;
+}
+
+async function autoEndExpiredYHLiveRooms(reason = 'scheduled') {
+    if (yhLiveRoomAutoEndSweepInFlight) {
+        return { ended: 0, skipped: true };
+    }
+
+    yhLiveRoomAutoEndSweepInFlight = true;
+
+    try {
+        const nowMs = Date.now();
+        const endedAt = new Date(nowMs);
+        const endedAtIso = endedAt.toISOString();
+
+        const snap = await liveRoomsCol
+            .where('status', '==', 'live')
+            .limit(250)
+            .get();
+
+        const expiredDocs = snap.docs.filter((docSnap) => {
+            return isYHLiveRoomExpiredByAge(docSnap.data() || {}, nowMs);
+        });
+
+        for (const docSnap of expiredDocs) {
+            const roomId = docSnap.id;
+            const room = docSnap.data() || {};
+
+            await docSnap.ref.set({
+                status: 'ended',
+                ended_at: Timestamp.fromDate(endedAt),
+                endedAt: endedAtIso,
+                updated_at: Timestamp.fromDate(endedAt),
+                updatedAt: endedAtIso,
+                auto_ended: true,
+                autoEnded: true,
+                auto_end_reason: '24_hour_limit',
+                autoEndReason: '24_hour_limit',
+                auto_ended_at: Timestamp.fromDate(endedAt),
+                autoEndedAt: endedAtIso,
+                ended_by: 'system',
+                endedBy: 'system',
+                participant_ids: [],
+                participant_count: 0
+            }, { merge: true });
+
+            const signalingRoom = getAcademyVoiceSignalingRoom(roomId);
+
+            io.to(signalingRoom).emit('academyVoice:roomEnded', {
+                roomId: sanitizeText(roomId),
+                reason: 'auto_ended_24h',
+                message: "This live automatically ended after 24 hours because it wasn't ended manually."
+            });
+
+            if (typeof io.in(signalingRoom).socketsLeave === 'function') {
+                io.in(signalingRoom).socketsLeave(signalingRoom);
+            }
+
+            console.log('[live-room-auto-end] ended expired room:', {
+                roomId,
+                title: sanitizeText(room.title || ''),
+                reason
+            });
+        }
+
+        return {
+            ended: expiredDocs.length,
+            reason
+        };
+    } catch (error) {
+        console.error('autoEndExpiredYHLiveRooms error:', error);
+        return {
+            ended: 0,
+            error: error?.message || String(error || '')
+        };
+    } finally {
+        yhLiveRoomAutoEndSweepInFlight = false;
+    }
+}
+
 function isCrossDivisionPlazaMessageParticipantRoute(req) {
     const method = sanitizeText(req.method).toUpperCase();
     const urlPath = sanitizeText(req.path || req.url || '').split('?')[0];
@@ -8044,6 +8254,26 @@ app.use('/api/plaza', requireApiUser, (req, res, next) => {
 
     return requirePlazaApiAccess(req, res, next);
 });
+
+app.use('/api/realtime/live-rooms', requireApiUser, async (req, res, next) => {
+    await autoEndExpiredYHLiveRooms('api-live-room-request');
+    next();
+});
+
+autoEndExpiredYHLiveRooms('startup').catch((error) => {
+    console.error('live room startup auto-end sweep error:', error);
+});
+
+const yhLiveRoomAutoEndTimer = setInterval(() => {
+    autoEndExpiredYHLiveRooms('interval').catch((error) => {
+        console.error('live room interval auto-end sweep error:', error);
+    });
+}, YH_LIVE_ROOM_AUTO_END_SWEEP_MS);
+
+if (typeof yhLiveRoomAutoEndTimer.unref === 'function') {
+    yhLiveRoomAutoEndTimer.unref();
+}
+
 app.use('/api', apiRoutes);
 app.post('/api/realtime/live-rooms/:roomId/join', requireApiUser, async (req, res) => {
     try {

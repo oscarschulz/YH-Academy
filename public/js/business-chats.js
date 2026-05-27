@@ -17,7 +17,14 @@
     membersLoading: false,
     blocksLoading: false,
     socket: null,
-    autoRefreshTimer: null
+    autoRefreshTimer: null,
+    activeView: 'overview',
+    lastMemberSearch: {
+      query: '',
+      division: 'all',
+      ran: false
+    },
+    memberSearchTimer: null
   };
 
   const $ = (id) => document.getElementById(id);
@@ -241,6 +248,119 @@
     }
   }
 
+  function normalizeBusinessView(value = 'overview') {
+    const clean = String(value || '').trim().toLowerCase();
+    return ['overview', 'start', 'conversations', 'blocked'].includes(clean) ? clean : 'overview';
+  }
+
+  function setBusinessChatView(value = 'overview') {
+    const view = normalizeBusinessView(value);
+    state.activeView = view;
+
+    document.body?.setAttribute('data-bc-active-view', view);
+
+    document.querySelectorAll('[data-bc-view-tab]').forEach((button) => {
+      const active = button.getAttribute('data-bc-view-tab') === view;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+
+    try {
+      sessionStorage.setItem('yh_business_chats_active_view_v1', view);
+    } catch (_) {}
+  }
+
+  function initBusinessChatViewTabs() {
+    const params = new URLSearchParams(window.location.search);
+    const targetId = String(params.get('conversationId') || '').trim();
+
+    let savedView = '';
+    try {
+      savedView = sessionStorage.getItem('yh_business_chats_active_view_v1') || '';
+    } catch (_) {
+      savedView = '';
+    }
+
+    setBusinessChatView(targetId ? 'conversations' : (savedView || 'overview'));
+  }
+
+  function normalizeBusinessDivision(value = 'all') {
+    const clean = String(value || '').trim().toLowerCase();
+    return ['all', 'academy', 'plaza', 'federation'].includes(clean) ? clean : 'all';
+  }
+
+  function normalizeSearchText(value = '') {
+    return String(value || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9@._\s-]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function memberMatchesBusinessDivision(member = {}, division = 'all') {
+    const cleanDivision = normalizeBusinessDivision(division);
+    if (cleanDivision === 'all') return true;
+
+    const fields = [
+      member.division,
+      member.divisionLabel,
+      member.membershipType,
+      member.sourceDivision,
+      member.role,
+      member.headline
+    ].map(normalizeSearchText).join(' ');
+
+    return fields.includes(cleanDivision);
+  }
+
+  function getBusinessMemberSearchNeedle(member = {}) {
+    const values = [
+      member.id,
+      member.name,
+      member.username,
+      member.role,
+      member.location,
+      member.division,
+      member.divisionLabel,
+      member.headline,
+      member.bio,
+      member.about,
+      member.city,
+      member.country,
+      member.skill,
+      member.skills,
+      member.tags,
+      member.canOffer,
+      member.lookingFor
+    ];
+
+    return normalizeSearchText(values.flat().join(' '));
+  }
+
+  function memberMatchesBusinessSearch(member = {}, rawQuery = '', division = 'all') {
+    if (!memberMatchesBusinessDivision(member, division)) return false;
+
+    const query = normalizeSearchText(rawQuery);
+    if (!query) return true;
+
+    const haystack = getBusinessMemberSearchNeedle(member);
+    return query.split(' ').filter(Boolean).every((term) => haystack.includes(term));
+  }
+
+  function filterBusinessMembersForSearch(members = [], rawQuery = '', division = 'all') {
+    const seen = new Set();
+
+    return members
+      .filter((member) => memberMatchesBusinessSearch(member, rawQuery, division))
+      .filter((member) => {
+        const id = String(member.id || '').trim();
+        if (!id) return false;
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      });
+  }
+
   async function apiFetch(path, options = {}) {
     const token = getStoredToken();
 
@@ -438,15 +558,24 @@
   }
 
   function normalizeMember(item = {}, index = 0) {
+    const division = normalizeBusinessDivision(item.division || item.sourceDivision || item.membershipType || 'plaza');
+    const divisionLabel = String(
+      item.divisionLabel ||
+      (division === 'academy' ? 'Academy' : division === 'federation' ? 'Federation' : division === 'plaza' ? 'Plaza' : 'YH Universe')
+    );
+
     return {
-      id: String(item.id || 'plaza-member-' + (index + 1)),
-      name: String(item.name || 'Plaza Member'),
+      ...item,
+      id: String(item.id || item.userId || item.uid || item.ownerUid || 'business-member-' + (index + 1)),
+      name: String(item.name || item.fullName || item.displayName || item.username || 'YH Member'),
       username: String(item.username || '').replace(/^@+/, ''),
-      role: String(item.role || 'YH Plaza Member'),
-      location: String(item.location || ''),
-      divisionLabel: String(item.divisionLabel || item.division || 'Plaza'),
-      headline: String(item.headline || ''),
-      avatar: String(item.avatar || '')
+      division,
+      divisionLabel,
+      membershipType: String(item.membershipType || division),
+      role: String(item.role || item.roleLabel || item.title || 'YH Universe Member'),
+      location: String(item.location || [item.city, item.country].filter(Boolean).join(', ')),
+      headline: String(item.headline || item.bio || item.about || item.role || ''),
+      avatar: String(item.avatar || item.avatarUrl || item.avatar_url || item.profilePhoto || item.photoURL || '')
     };
   }
 
@@ -617,18 +746,20 @@
     if (!results) return;
 
     if (state.membersLoading) {
-      results.innerHTML = '<div class="bc-empty">Searching approved Plaza members...</div>';
+      results.innerHTML = '<div class="bc-empty">Searching approved YH Universe members...</div>';
       return;
     }
 
     if (!state.members.length) {
-      results.innerHTML = '<div class="bc-empty">Search for an approved Plaza member to start a business chat.</div>';
+      results.innerHTML = state.lastMemberSearch.ran
+        ? '<div class="bc-empty">No matching approved members found. Try All approved members or a broader keyword.</div>'
+        : '<div class="bc-empty">Search approved Academy, Plaza, and Federation members to start a business chat.</div>';
       return;
     }
 
     results.innerHTML = state.members.map((member) => {
-      const meta = [member.role, member.location].filter(Boolean).join(' • ');
-      const initial = escapeHtml((member.name || 'P').charAt(0).toUpperCase());
+      const meta = [member.divisionLabel, member.role, member.location].filter(Boolean).join(' • ');
+      const initial = escapeHtml((member.name || 'Y').charAt(0).toUpperCase());
       const avatarStyle = member.avatar ? ` style="background-image:url('${escapeHtml(member.avatar)}')"` : '';
 
       return `
@@ -637,11 +768,11 @@
             <div class="bc-avatar"${avatarStyle}>${member.avatar ? '' : initial}</div>
             <div>
               <strong>${escapeHtml(member.name)}</strong>
-              <span>${escapeHtml(meta || 'Approved Plaza member')}</span>
+              <span>${escapeHtml(meta || 'Approved YH Universe member')}</span>
               ${member.headline ? `<p>${escapeHtml(member.headline)}</p>` : ''}
             </div>
           </div>
-          <button type="button" class="bc-primary-small" data-start-chat="${escapeHtml(member.id)}">Open Chat</button>
+          <button type="button" class="bc-primary-small" data-start-chat="${escapeHtml(member.id)}">Open Business Chat</button>
         </article>
       `;
     }).join('');
@@ -729,12 +860,19 @@
 
   async function searchMembers(event) {
     event?.preventDefault?.();
+    setBusinessChatView('start');
 
     const button = $('bcSearchMembers');
     const purpose = getStartPurpose();
     const rawQuery = String($('bcMemberSearch')?.value || '').trim();
     const query = buildBusinessMemberSearchQuery(rawQuery, purpose);
-    const division = String($('bcDivisionFilter')?.value || 'plaza').trim() || 'plaza';
+    const division = normalizeBusinessDivision($('bcDivisionFilter')?.value || 'all');
+
+    state.lastMemberSearch = {
+      query: rawQuery,
+      division,
+      ran: true
+    };
 
     setBusy(button, true, isLookingForJobsPurpose(purpose) ? 'Finding job contacts...' : 'Searching...');
     state.membersLoading = true;
@@ -747,11 +885,25 @@
         businessPurpose: purpose,
         intentCategory: isLookingForJobsPurpose(purpose) ? 'looking_for_jobs' : 'business_chat',
         jobSearchIntent: isLookingForJobsPurpose(purpose) ? '1' : '0',
-        limit: '80'
+        limit: '120'
       });
 
-      const data = await apiFetch('/plaza/business-members?' + params.toString());
-      state.members = Array.isArray(data.members) ? data.members.map(normalizeMember) : [];
+      let data = await apiFetch('/plaza/business-members?' + params.toString());
+      let members = Array.isArray(data.members) ? data.members : [];
+
+      if (!members.length && rawQuery) {
+        const fallbackParams = new URLSearchParams(params);
+        fallbackParams.set('q', '');
+        data = await apiFetch('/plaza/business-members?' + fallbackParams.toString());
+        members = Array.isArray(data.members) ? data.members : [];
+      }
+
+      state.members = filterBusinessMembersForSearch(
+        members.map(normalizeMember),
+        rawQuery,
+        division
+      );
+
       renderMembers();
 
       if (isLookingForJobsPurpose(purpose) && !rawQuery) {
@@ -761,7 +913,7 @@
       console.error('search members error:', error);
       state.members = [];
       renderMembers();
-      showToast(error.message || 'Failed to search Plaza members.', 'error');
+      showToast(error.message || 'Failed to search approved members.', 'error');
     } finally {
       state.membersLoading = false;
       setBusy(button, false);
@@ -793,7 +945,7 @@
   async function startChat(targetUserId = '', button = null) {
     const cleanTargetUserId = String(targetUserId || '').trim();
     if (!cleanTargetUserId) {
-      showToast('Missing Plaza member.', 'error');
+      showToast('Missing member.', 'error');
       return;
     }
 
@@ -818,6 +970,7 @@
         upsertConversation(data.conversation);
         state.activeId = normalizeConversation(data.conversation).id;
         if ($('bcOpeningMessage')) $('bcOpeningMessage').value = '';
+        setBusinessChatView('conversations');
         showToast('Business chat opened.', 'success');
         setLastSeenNow();
       }
@@ -947,7 +1100,10 @@
 
       if (cleanAction === 'report') showToast('Business chat reported for admin review.', 'success');
       if (cleanAction === 'close') showToast('Business chat closed.', 'success');
-      if (cleanAction === 'block') showToast('Member blocked.', 'success');
+      if (cleanAction === 'block') {
+        setBusinessChatView('blocked');
+        showToast('Member blocked. You can unblock them from the Blocked Members tab.', 'success');
+      }
     } catch (error) {
       console.error('safety action error:', error);
       showToast(error.message || 'Business chat safety action failed.', 'error');
@@ -1062,6 +1218,12 @@
   }
 
   function bindEvents() {
+    document.querySelectorAll('[data-bc-view-tab]').forEach((button) => {
+      button.addEventListener('click', () => {
+        setBusinessChatView(button.getAttribute('data-bc-view-tab') || 'overview');
+      });
+    });
+
     $('bcRefresh')?.addEventListener('click', async (event) => {
       const button = event.currentTarget;
       setBusy(button, true, 'Refreshing...');
@@ -1073,6 +1235,17 @@
     });
 
     $('bcSearchForm')?.addEventListener('submit', searchMembers);
+
+    $('bcMemberSearch')?.addEventListener('input', () => {
+      window.clearTimeout(state.memberSearchTimer);
+      state.memberSearchTimer = window.setTimeout(() => {
+        searchMembers().catch(() => {});
+      }, 360);
+    });
+
+    $('bcDivisionFilter')?.addEventListener('change', () => {
+      searchMembers().catch(() => {});
+    });
 
     $('bcBusinessPurpose')?.addEventListener('change', () => {
       const purpose = getStartPurpose();
@@ -1162,6 +1335,7 @@
     restoreBusinessPurposeSelection();
     syncBusinessPurposeHelperText();
     bindEvents();
+    initBusinessChatViewTabs();
 
     const cached = readCache();
     if (Array.isArray(cached.conversations)) {
@@ -1179,8 +1353,8 @@
 
     startAutoRefresh();
 
-    if (!state.members.length) {
-      searchMembers().catch(() => {});
+    if (!state.activeView) {
+      setBusinessChatView('overview');
     }
   }
 

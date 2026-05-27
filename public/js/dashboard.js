@@ -3026,11 +3026,7 @@ function openYHBusinessChatsPage(conversationId = '') {
         ? '/business-chats.html?conversationId=' + encodeURIComponent(cleanConversationId)
         : '/business-chats.html';
 
-    const opened = window.open(url, '_blank', 'noopener');
-
-    if (!opened) {
-        window.location.href = url;
-    }
+    window.location.href = url;
 }
 
 function bootYHBusinessChatPanel() {
@@ -3307,8 +3303,83 @@ function dashboardSettingsFormatDate(value = '') {
     });
 }
 
+function dashboardSettingsFormatDateTime(value = '') {
+    const clean = String(value || '').trim();
+    if (!clean) return '';
+
+    const parsed = new Date(clean);
+    if (Number.isNaN(parsed.getTime())) return clean;
+
+    return parsed.toLocaleString(undefined, {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function dashboardSettingsReadSubscriptionExpiry(item = {}) {
+    const plan = item.plan && typeof item.plan === 'object' ? item.plan : {};
+    const badge = item.badge && typeof item.badge === 'object' ? item.badge : {};
+    const payment = item.payment && typeof item.payment === 'object' ? item.payment : {};
+    const metadata = payment.metadata && typeof payment.metadata === 'object' ? payment.metadata : {};
+
+    return String(
+        item.expiresAt ||
+        item.currentPeriodEnd ||
+        item.current_period_end ||
+        item.subscriptionEndsAt ||
+        item.subscription_ends_at ||
+        item.renewsAt ||
+        item.renews_at ||
+        badge.expiresAt ||
+        badge.currentPeriodEnd ||
+        badge.current_period_end ||
+        plan.expiresAt ||
+        payment.expiresAt ||
+        payment.currentPeriodEnd ||
+        payment.current_period_end ||
+        metadata.currentPeriodEnd ||
+        metadata.current_period_end ||
+        metadata.expiresAt ||
+        ''
+    ).trim();
+}
+
 function dashboardSettingsReadPlanDivision(item = {}) {
     return String(item.division || item.plan?.division || item.badge?.division || '').trim().toLowerCase();
+}
+
+function dashboardSettingsReadPlanKey(item = {}) {
+    return String(
+        item.key ||
+        item.product ||
+        item.plan?.product ||
+        item.plan?.sourceFeature ||
+        item.sourceFeature ||
+        item.badge?.product ||
+        ''
+    ).trim().toLowerCase();
+}
+
+function dashboardSettingsReadUnsubscribeEndpoint(item = {}) {
+    const directEndpoint = String(item.unsubscribeEndpoint || item.plan?.unsubscribeEndpoint || '').trim();
+
+    if (directEndpoint) return directEndpoint;
+
+    const division = dashboardSettingsReadPlanDivision(item);
+    const key = dashboardSettingsReadPlanKey(item);
+
+    if (key === 'academy_learn_from_access') {
+        return '/api/payments/academy/learn-from-access/unsubscribe';
+    }
+
+    if (division) {
+        return `/api/payments/subscriptions/${encodeURIComponent(division)}/unsubscribe`;
+    }
+
+    return '';
 }
 
 function dashboardSettingsReadPlanCode(item = {}) {
@@ -3367,9 +3438,13 @@ function renderDashboardSettingsSubscriptions(snapshot = {}) {
     const list = document.getElementById('yh-dashboard-settings-subscriptions-list');
     if (!list) return;
 
-    const paymentPlans = Array.isArray(snapshot.paymentPlans)
+    const rawPaymentPlans = Array.isArray(snapshot.paymentPlans)
         ? snapshot.paymentPlans
         : [];
+
+    const paymentPlans = rawPaymentPlans.filter((item) => {
+        return dashboardSettingsReadPlanKey(item) !== 'academy_learn_from_access';
+    });
 
     if (!paymentPlans.length) {
         list.innerHTML = `
@@ -3385,28 +3460,30 @@ function renderDashboardSettingsSubscriptions(snapshot = {}) {
         const badge = item.badge && typeof item.badge === 'object' ? item.badge : {};
         const payment = item.payment && typeof item.payment === 'object' ? item.payment : {};
         const division = dashboardSettingsReadPlanDivision(item);
+        const planKey = dashboardSettingsReadPlanKey(item);
+        const unsubscribeEndpoint = dashboardSettingsReadUnsubscribeEndpoint(item);
         const code = dashboardSettingsReadPlanCode(item);
         const title = String(item.name || plan.publicName || plan.name || '').trim() || `${code} Badge`;
         const amount = Number(item.amountMonthly || plan.amountMonthly || badge.amountMonthly || 0);
         const currency = String(item.currency || plan.currency || badge.currency || 'USD').trim().toUpperCase() || 'USD';
         const interval = String(item.interval || plan.interval || badge.interval || 'month').trim() || 'month';
         const active = item.active === true;
-        const canUnsubscribe = active === true && division;
+        const canUnsubscribe = active === true && unsubscribeEndpoint;
         const tone = dashboardSettingsGetStatusTone(item);
         const statusLabel = dashboardSettingsGetStatusLabel(item);
         const provider = String(item.provider || badge.provider || payment.provider || '').trim();
         const paymentStatus = String(item.paymentStatus || badge.paymentStatus || payment.status || '').trim();
         const activatedAt = dashboardSettingsFormatDate(item.activatedAt || badge.activatedAt || badge.approvedAt || '');
-        const expiresAt = dashboardSettingsFormatDate(item.expiresAt || badge.expiresAt || '');
-        const paymentLedgerId = String(item.paymentLedgerId || badge.paymentLedgerId || payment.id || '').trim();
+        const rawExpiresAt = dashboardSettingsReadSubscriptionExpiry(item);
+        const expiresAt = dashboardSettingsFormatDate(rawExpiresAt);
+        const unsubscribeActiveUntilLabel = dashboardSettingsFormatDateTime(rawExpiresAt);
 
         const meta = [
             `${dashboardSettingsFormatMoney(amount, currency)}/${interval}`,
             provider ? `Provider: ${provider}` : '',
             paymentStatus ? `Payment: ${paymentStatus.replace(/[_-]+/g, ' ')}` : '',
             activatedAt ? `Activated: ${activatedAt}` : '',
-            expiresAt ? `Expires: ${expiresAt}` : '',
-            paymentLedgerId ? `Ledger: ${paymentLedgerId}` : ''
+            expiresAt ? `Expires: ${expiresAt}` : ''
         ].filter(Boolean).join(' • ');
 
         return `
@@ -3430,6 +3507,11 @@ function renderDashboardSettingsSubscriptions(snapshot = {}) {
                         type="button"
                         class="btn-secondary yh-dashboard-settings-unsubscribe-btn"
                         data-yh-dashboard-unsubscribe-plan="${dashboardSettingsEscape(division)}"
+                        data-yh-dashboard-unsubscribe-key="${dashboardSettingsEscape(planKey)}"
+                        data-yh-dashboard-unsubscribe-endpoint="${dashboardSettingsEscape(unsubscribeEndpoint)}"
+                        data-yh-dashboard-unsubscribe-code="${dashboardSettingsEscape(code)}"
+                        data-yh-dashboard-unsubscribe-active-until="${dashboardSettingsEscape(rawExpiresAt)}"
+                        data-yh-dashboard-unsubscribe-active-until-label="${dashboardSettingsEscape(unsubscribeActiveUntilLabel)}"
                         ${canUnsubscribe ? '' : 'disabled aria-disabled="true"'}
                     >
                         ${canUnsubscribe ? `Unsubscribe ${dashboardSettingsEscape(code)}` : 'No active subscription'}
@@ -3488,13 +3570,89 @@ function closeDashboardSettingsModal() {
     modal.setAttribute('aria-hidden', 'true');
 }
 
-async function dashboardUnsubscribeBadge(division = 'academy', button = null) {
-    const cleanDivision = dashboardNormalizeSettingsBadgeDivision(division);
-    const code = cleanDivision === 'federation' ? 'YHF' : 'YHA';
+function setDashboardSettingsButtonBusy(button = null, busy = false, label = '') {
+    if (!button) return;
+
+    if (busy) {
+        button.dataset.yhSettingsIdleText = button.textContent || '';
+        button.disabled = true;
+        button.setAttribute('aria-disabled', 'true');
+        button.setAttribute('aria-busy', 'true');
+        button.style.cursor = 'wait';
+        button.style.opacity = '0.92';
+
+        if (label) {
+            button.textContent = label;
+        }
+
+        return;
+    }
+
+    button.disabled = false;
+    button.setAttribute('aria-disabled', 'false');
+    button.setAttribute('aria-busy', 'false');
+    button.style.cursor = '';
+    button.style.opacity = '';
+
+    if (button.dataset.yhSettingsIdleText) {
+        button.textContent = button.dataset.yhSettingsIdleText;
+        delete button.dataset.yhSettingsIdleText;
+    }
+}
+
+async function runDashboardSettingsButtonAction(button = null, loadingLabel = 'Loading...', action = null) {
+    if (typeof action !== 'function') return false;
+
+    if (button?.dataset?.yhSettingsBusy === 'true') return false;
+
+    if (button) {
+        button.dataset.yhSettingsBusy = 'true';
+        setDashboardSettingsButtonBusy(button, true, loadingLabel);
+    }
+
+    try {
+        await action();
+        return true;
+    } catch (error) {
+        console.error('dashboard settings button action error:', error);
+        showToast(error?.message || 'Action failed. Please try again.', 'error');
+        return false;
+    } finally {
+        if (button?.isConnected) {
+            button.dataset.yhSettingsBusy = 'false';
+            setDashboardSettingsButtonBusy(button, false);
+        }
+    }
+}
+
+async function dashboardUnsubscribeSubscription(options = {}, button = null) {
+    const cleanDivision = String(options.division || '').trim().toLowerCase();
+    const cleanKey = String(options.key || '').trim().toLowerCase();
+    const endpoint = String(options.endpoint || '').trim();
+    const code = String(
+        options.code ||
+        (
+            cleanKey === 'academy_learn_from_access'
+                ? 'Learn From'
+                : cleanDivision === 'federation'
+                    ? 'YHF'
+                    : 'YHA'
+        )
+    ).trim();
+
+    if (!endpoint) {
+        showToast('Missing unsubscribe endpoint for this subscription.', 'error');
+        return;
+    }
+
+    const activeUntilRaw = String(options.activeUntil || '').trim();
+    const activeUntilLabel = String(options.activeUntilLabel || '').trim() || dashboardSettingsFormatDateTime(activeUntilRaw);
 
     const confirmed = await openYHConfirmModal({
         title: `Unsubscribe ${code}?`,
-        message: `This will remove your active ${code} badge subscription from your YH Universe profile and mark it as cancelled on the server.`,
+        message: activeUntilLabel
+            ? `This will cancel this subscription on the server, deactivate the account access connected to it, and refresh your Settings status. However, your subscription is active until ${activeUntilLabel}.`
+            : `This will cancel this subscription on the server, deactivate the account access connected to it, and refresh your Settings status.`,
         okText: `Unsubscribe ${code}`,
         cancelText: 'Cancel',
         tone: 'danger'
@@ -3502,8 +3660,8 @@ async function dashboardUnsubscribeBadge(division = 'academy', button = null) {
 
     if (!confirmed) return;
 
-    await runDashboardButtonAction(button, `Unsubscribing ${code}...`, async () => {
-        const result = await academyAuthedFetch(`/api/payments/subscriptions/${encodeURIComponent(cleanDivision)}/unsubscribe`, {
+    await runDashboardSettingsButtonAction(button, `Unsubscribing ${code}...`, async () => {
+        const result = await academyAuthedFetch(endpoint, {
             method: 'POST'
         });
 
@@ -3525,6 +3683,23 @@ async function dashboardUnsubscribeBadge(division = 'academy', button = null) {
     });
 }
 
+async function dashboardUnsubscribeBadge(division = 'academy', button = null) {
+    const cleanDivision = dashboardNormalizeSettingsBadgeDivision(division);
+    const code = cleanDivision === 'federation' ? 'YHF' : 'YHA';
+
+    const activeUntil = button?.getAttribute?.('data-yh-dashboard-unsubscribe-active-until') || '';
+    const activeUntilLabel = button?.getAttribute?.('data-yh-dashboard-unsubscribe-active-until-label') || '';
+
+    return dashboardUnsubscribeSubscription({
+        division: cleanDivision,
+        key: 'verified_badge',
+        endpoint: `/api/payments/subscriptions/${encodeURIComponent(cleanDivision)}/unsubscribe`,
+        code,
+        activeUntil,
+        activeUntilLabel
+    }, button);
+}
+
 function bootDashboardSettingsModal() {
     const settingsModal = document.getElementById('yh-dashboard-settings-modal');
     const settingsList = document.getElementById('yh-dashboard-settings-subscriptions-list');
@@ -3535,7 +3710,7 @@ function bootDashboardSettingsModal() {
     document.getElementById('yh-dashboard-settings-refresh')?.addEventListener('click', (event) => {
         const button = event.currentTarget;
 
-        runDashboardButtonAction(button, 'Refreshing...', async () => {
+        runDashboardSettingsButtonAction(button, 'Refreshing...', async () => {
             await loadDashboardSettingsSubscriptions();
         }).catch((error) => {
             showToast(error?.message || 'Failed to refresh settings.', 'error');
@@ -3554,10 +3729,14 @@ function bootDashboardSettingsModal() {
 
         event.preventDefault();
 
-        dashboardUnsubscribeBadge(
-            button.getAttribute('data-yh-dashboard-unsubscribe-plan') || '',
-            button
-        ).catch((error) => {
+        dashboardUnsubscribeSubscription({
+            division: button.getAttribute('data-yh-dashboard-unsubscribe-plan') || '',
+            key: button.getAttribute('data-yh-dashboard-unsubscribe-key') || '',
+            endpoint: button.getAttribute('data-yh-dashboard-unsubscribe-endpoint') || '',
+            code: button.getAttribute('data-yh-dashboard-unsubscribe-code') || '',
+            activeUntil: button.getAttribute('data-yh-dashboard-unsubscribe-active-until') || '',
+            activeUntilLabel: button.getAttribute('data-yh-dashboard-unsubscribe-active-until-label') || ''
+        }, button).catch((error) => {
             console.error('dashboard unsubscribe payment plan error:', error);
             showToast(error?.message || 'Failed to unsubscribe payment plan.', 'error');
         });
@@ -8427,17 +8606,7 @@ const openNotificationTarget = (target = '', targetId = '') => {
         normalized === 'plaza-business-chat' ||
         normalized === 'plaza_business_chat'
     ) {
-        const cleanTargetId = String(targetId || '').trim();
-        const url = cleanTargetId
-            ? '/business-chats.html?conversationId=' + encodeURIComponent(cleanTargetId)
-            : '/business-chats.html';
-
-        const opened = window.open(url, '_blank', 'noopener');
-
-        if (!opened) {
-            window.location.href = url;
-        }
-
+        openYHBusinessChatsPage(targetId);
         return;
     }
 
@@ -11853,7 +12022,10 @@ function academyGetVerificationBadge(profile = {}, division = 'academy') {
         : {};
 
     const status = String(badge.status || '').trim().toLowerCase();
-    const active = badge.active === true || status === 'active' || status === 'verified';
+    const expiresAt = String(badge.expiresAt || '').trim();
+    const expiresMs = expiresAt ? Date.parse(expiresAt) : NaN;
+    const expired = Number.isFinite(expiresMs) && expiresMs <= Date.now() && badge.lifetimeAccess !== true;
+    const active = !expired && (badge.active === true || status === 'active' || status === 'verified');
 
     if (!active) return null;
 
@@ -11906,38 +12078,205 @@ function dashboardIsVerificationBadgePaymentPending(profile = {}, division = 'ac
     const status = String(badge.status || '').trim().toLowerCase();
     const paymentStatus = String(badge.paymentStatus || '').trim().toLowerCase();
     const provider = String(badge.provider || '').trim().toLowerCase();
+    const providerStatus = String(badge.providerStatus || '').trim().toLowerCase();
+    const paymentMethod = String(badge.paymentMethod || '').trim().toLowerCase();
 
-    const automatedProviders = new Set(['stripe', 'oxapay']);
-    const cancelledOrInactiveStatuses = new Set([
-        'checkout_started',
+    const pendingStatuses = new Set([
+        'pending',
+        'pending_payment',
+        'manual_pending',
+        'pending_admin_confirmation',
+        'pending_admin_approval',
+        'admin_pending',
+        'under_review',
+        'review',
+        'draft',
+        'checkout_started'
+    ]);
+
+    const paidStatuses = new Set([
+        'paid',
+        'active',
+        'verified',
+        'approved',
+        'confirmed',
+        'payment_confirmed'
+    ]);
+
+    const cancelledStatuses = new Set([
         'cancelled',
         'canceled',
         'expired',
         'failed',
         'void',
-        'abandoned'
+        'abandoned',
+        'refunded'
     ]);
 
-    if (badge.active === true || status === 'active' || status === 'verified') {
-        return false;
-    }
-
     if (
-        automatedProviders.has(provider) &&
-        (
-            cancelledOrInactiveStatuses.has(status) ||
-            cancelledOrInactiveStatuses.has(paymentStatus)
-        )
+        cancelledStatuses.has(status) ||
+        cancelledStatuses.has(paymentStatus) ||
+        cancelledStatuses.has(providerStatus)
     ) {
         return false;
     }
 
-    if (paymentStatus === 'checkout_started') {
-        return false;
+    const isManualFallback =
+        provider === 'manual' ||
+        providerStatus === 'fallback' ||
+        paymentMethod === 'manual' ||
+        paymentMethod === 'admin_fallback';
+
+    const hasPendingSignal =
+        pendingStatuses.has(status) ||
+        pendingStatuses.has(paymentStatus) ||
+        pendingStatuses.has(providerStatus);
+
+    const hasPaidSignal =
+        paidStatuses.has(paymentStatus) ||
+        paidStatuses.has(providerStatus);
+
+    if (isManualFallback && hasPendingSignal && !hasPaidSignal) {
+        return true;
     }
 
-    return ['pending', 'pending_payment', 'draft', 'manual_pending'].includes(status) ||
-        ['pending', 'pending_payment', 'draft', 'manual_pending'].includes(paymentStatus);
+    if (hasPendingSignal && badge.active !== true && status !== 'active' && status !== 'verified') {
+        return true;
+    }
+
+    return false;
+}
+
+function dashboardGetCurrentBadgeAvailProfileSnapshot() {
+    const candidates = [];
+
+    try {
+        if (
+            academyProfileViewState?.profile &&
+            typeof academyProfileViewState.profile === 'object'
+        ) {
+            candidates.push(academyProfileViewState.profile);
+        }
+    } catch (_) {}
+
+    try {
+        if (typeof dashboardGetSettingsProfileSnapshot === 'function') {
+            const settingsProfile = dashboardGetSettingsProfileSnapshot();
+            if (settingsProfile && typeof settingsProfile === 'object') {
+                candidates.push(settingsProfile);
+            }
+        }
+    } catch (_) {}
+
+    try {
+        if (typeof dashboardGetTopProfileCache === 'function') {
+            const cachedProfile = dashboardGetTopProfileCache();
+            if (cachedProfile && typeof cachedProfile === 'object') {
+                candidates.push(cachedProfile);
+            }
+        }
+    } catch (_) {}
+
+    return candidates.find((profile) => {
+        return profile?.verificationBadges && typeof profile.verificationBadges === 'object';
+    }) || candidates[0] || {};
+}
+
+function dashboardIsVerifiedBadgeSnapshotActive(badge = {}) {
+    const status = String(badge.status || '').trim().toLowerCase();
+    const paymentStatus = String(badge.paymentStatus || '').trim().toLowerCase();
+    const subscriptionStatus = String(badge.subscriptionStatus || '').trim().toLowerCase();
+    const provider = String(badge.provider || '').trim().toLowerCase();
+    const providerStatus = String(badge.providerStatus || '').trim().toLowerCase();
+    const paymentMethod = String(badge.paymentMethod || '').trim().toLowerCase();
+
+    const cancelled =
+        status === 'cancelled' ||
+        status === 'canceled' ||
+        paymentStatus === 'cancelled' ||
+        paymentStatus === 'canceled' ||
+        subscriptionStatus === 'cancelled' ||
+        subscriptionStatus === 'canceled';
+
+    if (cancelled) return false;
+
+    const expiresAt = String(badge.expiresAt || '').trim();
+    const expiresMs = expiresAt ? Date.parse(expiresAt) : NaN;
+    const expired = Number.isFinite(expiresMs) && expiresMs <= Date.now() && badge.lifetimeAccess !== true;
+
+    if (expired) return false;
+
+    const isManualFallback =
+        provider === 'manual' ||
+        providerStatus === 'fallback' ||
+        paymentMethod === 'manual' ||
+        paymentMethod === 'admin_fallback';
+
+    const stillWaitingForAdmin =
+        isManualFallback &&
+        (
+            status === 'pending' ||
+            status === 'pending_payment' ||
+            status === 'manual_pending' ||
+            status === 'pending_admin_confirmation' ||
+            status === 'pending_admin_approval' ||
+            paymentStatus === 'pending' ||
+            paymentStatus === 'pending_payment' ||
+            paymentStatus === 'manual_pending' ||
+            paymentStatus === 'draft' ||
+            providerStatus === 'fallback'
+        ) &&
+        paymentStatus !== 'paid';
+
+    if (stillWaitingForAdmin) return false;
+
+    return (
+        badge.active === true ||
+        status === 'active' ||
+        status === 'verified' ||
+        subscriptionStatus === 'active' ||
+        paymentStatus === 'paid'
+    );
+}
+
+function dashboardIsCurrentVerifiedBadgeActiveForAvail(division = 'academy') {
+    const cleanDivision = division === 'federation' ? 'federation' : 'academy';
+    const profile = dashboardGetCurrentBadgeAvailProfileSnapshot();
+    const badge = dashboardGetVerificationBadgeSnapshot(profile, cleanDivision);
+
+    return dashboardIsVerifiedBadgeSnapshotActive(badge);
+}
+
+function dashboardGetBadgeAlreadyActiveMessage(division = 'academy') {
+    return division === 'federation'
+        ? 'YHF badge is already active.'
+        : 'YHA badge is already active.';
+}
+
+function dashboardIsBadgeAlreadyActiveError(error = {}, division = 'academy') {
+    const status = Number(
+        error?.status ||
+        error?.statusCode ||
+        error?.data?.status ||
+        error?.payload?.status ||
+        0
+    );
+
+    const message = String(
+        error?.message ||
+        error?.data?.message ||
+        error?.payload?.message ||
+        ''
+    ).toLowerCase();
+
+    const code = division === 'federation' ? 'yhf' : 'yha';
+
+    return (
+        status === 409 ||
+        message.includes('badge is already active') ||
+        message.includes(`${code} badge is already active`) ||
+        message.includes('already active')
+    );
 }
 
 function dashboardCanShowBadgeAvailButton(profile = {}, division = 'academy') {
@@ -11951,10 +12290,25 @@ function dashboardCanShowBadgeAvailButton(profile = {}, division = 'academy') {
 function dashboardRenderVerifiedBadgeAvailButton(profile = {}, division = 'academy') {
     const cleanDivision = division === 'federation' ? 'federation' : 'academy';
 
-    const activeBadge = academyGetVerificationBadge(profile, cleanDivision);
+    const badgeSnapshot = dashboardGetVerificationBadgeSnapshot(profile, cleanDivision);
     const isPending = dashboardIsVerificationBadgePaymentPending(profile, cleanDivision);
+    const isActive = dashboardIsVerifiedBadgeSnapshotActive(badgeSnapshot);
 
-    if (activeBadge) {
+    if (isPending) {
+        return `
+            <button
+                type="button"
+                class="btn-secondary academy-profile-action-btn yh-badge-avail-btn yh-badge-avail-btn--${academyFeedEscapeHtml(cleanDivision)}"
+                disabled
+                aria-disabled="true"
+                data-badge-pending="true"
+            >
+                ${cleanDivision === 'federation' ? 'YHF Payment Pending' : 'YHA Payment Pending'}
+            </button>
+        `;
+    }
+
+    if (isActive) {
         return `
             <button
                 type="button"
@@ -11972,15 +12326,8 @@ function dashboardRenderVerifiedBadgeAvailButton(profile = {}, division = 'acade
             type="button"
             class="btn-secondary academy-profile-action-btn yh-badge-avail-btn yh-badge-avail-btn--${academyFeedEscapeHtml(cleanDivision)}"
             data-yh-dashboard-avail-badge="${academyFeedEscapeHtml(cleanDivision)}"
-            ${isPending ? 'data-badge-pending="true"' : ''}
         >
-            ${isPending
-                ? cleanDivision === 'federation'
-                    ? 'YHF Payment Pending'
-                    : 'YHA Payment Pending'
-                : cleanDivision === 'federation'
-                    ? 'Avail YHF Badge'
-                    : 'Avail YHA Badge'}
+            ${cleanDivision === 'federation' ? 'Avail YHF Badge' : 'Avail YHA Badge'}
         </button>
     `;
 }
@@ -11989,6 +12336,10 @@ async function dashboardCreateVerifiedBadgeLedger(division = 'academy', button =
     const cleanDivision = division === 'federation' ? 'federation' : 'academy';
     const provider = String(options.provider || 'stripe').trim().toLowerCase() || 'stripe';
     const paymentMethod = String(options.paymentMethod || '').trim().toLowerCase() || getBadgePaymentMethodForDashboardProvider(provider);
+    const requestedBillingPlan = dashboardNormalizeBadgeBillingPlan(options.billingPlan || dashboardBadgeAvailModalState.billingPlan || 'monthly');
+    const billingPlan = provider === 'oxapay' && requestedBillingPlan === 'monthly'
+        ? 'one_time'
+        : requestedBillingPlan;
 
     const isStripe = provider === 'stripe';
     const isOxaPay = provider === 'oxapay';
@@ -12018,6 +12369,7 @@ async function dashboardCreateVerifiedBadgeLedger(division = 'academy', button =
             body: JSON.stringify({
                 provider,
                 paymentMethod,
+                billingPlan,
                 returnTo
             })
         });
@@ -12033,6 +12385,8 @@ async function dashboardCreateVerifiedBadgeLedger(division = 'academy', button =
                     asset: cleanDivision === 'federation'
                         ? '/images/yhf%20badge.png'
                         : '/images/yha%20badge.png',
+                    billingPlan,
+                    billingLabel: dashboardGetBadgeBillingLabel(billingPlan),
                     paymentLedgerId: String(result?.payment?.id || result?.paymentLedgerId || ''),
                     paymentStatus: String(result?.payment?.status || 'checkout_started')
                 };
@@ -12064,26 +12418,31 @@ async function dashboardCreateVerifiedBadgeLedger(division = 'academy', button =
             renderAcademyProfileView(nextProfile, { mode: academyProfileViewState.mode || 'self' });
         }
 
-            if ((isStripe || isOxaPay) && result?.url) {
-                showToast(
-                    isStripe
-                        ? `Opening Stripe Checkout for ${cleanDivision === 'federation' ? 'YHF' : 'YHA'} badge...`
-                        : `Opening OxaPay invoice for ${cleanDivision === 'federation' ? 'YHF' : 'YHA'} badge...`,
-                    'success'
-                );
+        if ((isStripe || isOxaPay) && result?.url) {
+            showToast(
+                isStripe
+                    ? `Stripe checkout opened for ${cleanDivision === 'federation' ? 'YHF' : 'YHA'} ${dashboardGetBadgeBillingLabel(billingPlan)}.`
+                    : `OxaPay invoice opened for ${cleanDivision === 'federation' ? 'YHF' : 'YHA'} ${dashboardGetBadgeBillingLabel(billingPlan)}.`,
+                'success'
+            );
 
-                window.top.location.href = result.url;
+            const opened = window.open(result.url, '_blank', 'noopener,noreferrer');
 
-                return {
-                    ...result,
-                    redirecting: true
-                };
+            if (!opened) {
+                showToast('Popup was blocked. Opening payment page in this tab instead.', 'error');
+                window.location.href = result.url;
             }
+
+            return {
+                ...result,
+                redirecting: true
+            };
+        }
 
         showToast(
             cleanDivision === 'federation'
-                ? 'YHF badge payment request created. Admin will activate it after payment confirmation.'
-                : 'YHA badge payment request created. Admin will activate it after payment confirmation.',
+                ? `YHF ${dashboardGetBadgeBillingLabel(billingPlan)} payment request created. Admin will activate it after payment confirmation.`
+                : `YHA ${dashboardGetBadgeBillingLabel(billingPlan)} payment request created. Admin will activate it after payment confirmation.`,
             'success'
         );
 
@@ -12094,6 +12453,26 @@ async function dashboardCreateVerifiedBadgeLedger(division = 'academy', button =
 
         return result;
     } catch (error) {
+        if (dashboardIsBadgeAlreadyActiveError(error, cleanDivision)) {
+            console.warn('dashboard verified badge already active:', error);
+
+            closeDashboardBadgeAvailModal();
+
+            await hydrateDashboardSelfUniverseProfile().catch((hydrateError) => {
+                console.warn('hydrate after already-active badge failed:', hydrateError);
+                return null;
+            });
+
+            showToast(dashboardGetBadgeAlreadyActiveMessage(cleanDivision), 'success');
+
+            return {
+                success: true,
+                alreadyActive: true,
+                division: cleanDivision,
+                badge: error?.badge || error?.payload?.badge || error?.data?.badge || null
+            };
+        }
+
         console.error('dashboard verified badge ledger error:', error);
         showToast(error?.message || 'Failed to start badge payment.', 'error');
         throw error;
@@ -12174,18 +12553,22 @@ function dashboardSelectBadgePaymentOption(modal = null, preferredProvider = 'st
     const root = modal || document.getElementById('yh-badge-avail-modal');
     if (!root) return false;
 
-    const options = Array.from(root.querySelectorAll('.yh-badge-payment-option'));
+    const options = Array.from(root.querySelectorAll('.yh-badge-payment-option[data-yh-badge-payment-provider]'));
     const selectableOptions = options.filter((option) => (
         !option.disabled &&
         !option.classList.contains('is-disabled') &&
         option.getAttribute('aria-disabled') !== 'true'
     ));
 
+    const billingPlan = dashboardNormalizeBadgeBillingPlan(dashboardBadgeAvailModalState.billingPlan || 'monthly');
     const cleanPreferred = String(preferredProvider || '').trim().toLowerCase() || 'stripe';
-    const providerOrder = [cleanPreferred, 'stripe', 'oxapay', 'manual']
-        .filter((provider, index, values) => provider && values.indexOf(provider) === index);
+
+    const providerOrder = billingPlan === 'monthly'
+        ? [cleanPreferred, 'stripe', 'manual']
+        : [cleanPreferred, 'stripe', 'oxapay', 'manual'];
 
     const selectedOption = providerOrder
+        .filter((provider, index, values) => provider && values.indexOf(provider) === index)
         .map((provider) => selectableOptions.find((option) => (
             option.getAttribute('data-yh-badge-payment-provider') === provider
         )))
@@ -12212,12 +12595,14 @@ function dashboardApplyBadgePaymentProviderStatuses(modal = null, options = {}) 
     if (!root) return;
 
     const isLoading = options.loading === true;
+    const billingPlan = dashboardNormalizeBadgeBillingPlan(dashboardBadgeAvailModalState.billingPlan || 'monthly');
 
-    root.querySelectorAll('.yh-badge-payment-option').forEach((option) => {
+    root.querySelectorAll('.yh-badge-payment-option[data-yh-badge-payment-provider]').forEach((option) => {
         const provider = String(option.getAttribute('data-yh-badge-payment-provider') || '').trim().toLowerCase();
         const config = dashboardGetBadgeProviderConfig(provider);
         const status = normalizeDashboardBadgeProviderStatus(config?.status || '');
-        const selectable = provider === 'manual' || (!isLoading && dashboardIsBadgeProviderSelectable(provider));
+        const blockedByBillingPlan = provider === 'oxapay' && billingPlan === 'monthly';
+        const selectable = !blockedByBillingPlan && (provider === 'manual' || (!isLoading && dashboardIsBadgeProviderSelectable(provider)));
         const statusEl = option.querySelector('.yh-badge-payment-status');
 
         option.disabled = !selectable;
@@ -12226,10 +12611,14 @@ function dashboardApplyBadgePaymentProviderStatuses(modal = null, options = {}) 
         option.setAttribute('aria-disabled', selectable ? 'false' : 'true');
         option.title = selectable
             ? ''
-            : `${config?.label || 'This payment method'} is not configured yet.`;
+            : blockedByBillingPlan
+                ? 'OxaPay is one-time only. Choose One-Time Access or Lifetime Access to use crypto.'
+                : `${config?.label || 'This payment method'} is not configured yet.`;
 
         if (statusEl) {
-            if (isLoading && provider !== 'manual') {
+            if (blockedByBillingPlan) {
+                statusEl.textContent = 'One-Time Only';
+            } else if (isLoading && provider !== 'manual') {
                 statusEl.textContent = 'Checking...';
             } else if (!selectable) {
                 statusEl.textContent = 'Setup Required';
@@ -12245,7 +12634,8 @@ function dashboardApplyBadgePaymentProviderStatuses(modal = null, options = {}) 
 
     if (
         !dashboardBadgeAvailModalState.paymentProviderSelectionTouched ||
-        !dashboardIsBadgeProviderSelectable(currentProvider)
+        !dashboardIsBadgeProviderSelectable(currentProvider) ||
+        (billingPlan === 'monthly' && currentProvider === 'oxapay')
     ) {
         dashboardSelectBadgePaymentOption(root, isLoading ? 'manual' : 'stripe');
     }
@@ -12309,8 +12699,10 @@ let dashboardBadgeAvailModalState = {
     step: 'overview',
     provider: 'manual',
     paymentMethod: 'manual',
+    billingPlan: 'monthly',
     payment: null,
-    paymentProviderSelectionTouched: false
+    paymentProviderSelectionTouched: false,
+    billingPlanSelectionTouched: false
 };
 
 function dashboardGetVerifiedBadgePlanMeta(division = 'academy') {
@@ -12322,6 +12714,9 @@ function dashboardGetVerifiedBadgePlanMeta(division = 'academy') {
             code: 'YHF',
             name: 'Federation Verification Badge',
             amount: '$28.12/month',
+            amountMonthly: 28.12,
+            amountOneTime: 28.12,
+            amountLifetime: 281.20,
             asset: '/images/yhf%20badge.png',
             accentClass: 'is-federation',
             summary: 'For approved Federation members who want the YHF verification symbol on their public YH Universe profile.'
@@ -12333,10 +12728,81 @@ function dashboardGetVerifiedBadgePlanMeta(division = 'academy') {
         code: 'YHA',
         name: 'Academy Verification Badge',
         amount: '$2.81/month',
+        amountMonthly: 2.81,
+        amountOneTime: 2.81,
+        amountLifetime: 28.12,
         asset: '/images/yha%20badge.png',
         accentClass: 'is-academy',
-        summary: 'For approved Academy members who want the YHA verification symbol on their public YH Universe profile.'
+        summary: 'For approved Academy members who want the YHA verification symbol on their public YH Universe profile, plus Learn From access inside the Academy AI Coach.'
     };
+}
+
+function dashboardNormalizeBadgeBillingPlan(value = 'monthly') {
+    const clean = String(value || '').trim().toLowerCase();
+
+    if (clean === 'lifetime' || clean === 'life_time' || clean === 'forever') return 'lifetime';
+    if (clean === 'one_time' || clean === 'one-time' || clean === 'onetime') return 'one_time';
+
+    return 'monthly';
+}
+
+function dashboardGetBadgeBillingAmount(plan = {}, billingPlan = 'monthly') {
+    const cleanBillingPlan = dashboardNormalizeBadgeBillingPlan(billingPlan);
+
+    if (cleanBillingPlan === 'lifetime') return Number(plan.amountLifetime || plan.amountMonthly || 0);
+    if (cleanBillingPlan === 'one_time') return Number(plan.amountOneTime || plan.amountMonthly || 0);
+
+    return Number(plan.amountMonthly || 0);
+}
+
+function dashboardGetBadgeBillingLabel(billingPlan = 'monthly') {
+    const cleanBillingPlan = dashboardNormalizeBadgeBillingPlan(billingPlan);
+
+    if (cleanBillingPlan === 'lifetime') return 'Lifetime Access';
+    if (cleanBillingPlan === 'one_time') return '30-Day One-Time Access';
+
+    return 'Monthly Subscription';
+}
+
+function dashboardFormatBadgeBillingAmount(plan = {}, billingPlan = 'monthly') {
+    const cleanBillingPlan = dashboardNormalizeBadgeBillingPlan(billingPlan);
+    const amount = dashboardGetBadgeBillingAmount(plan, cleanBillingPlan).toFixed(2);
+
+    if (cleanBillingPlan === 'lifetime') return `$${amount} lifetime`;
+    if (cleanBillingPlan === 'one_time') return `$${amount} one-time / 30 days`;
+
+    return `$${amount}/month`;
+}
+
+function dashboardSyncBadgeBillingUi(modal = null) {
+    const root = modal || document.getElementById('yh-badge-avail-modal');
+    if (!root) return;
+
+    const plan = dashboardGetVerifiedBadgePlanMeta(dashboardBadgeAvailModalState.division || 'academy');
+    const billingPlan = dashboardNormalizeBadgeBillingPlan(dashboardBadgeAvailModalState.billingPlan || 'monthly');
+
+    root.querySelectorAll('[data-yh-badge-billing-plan]').forEach((button) => {
+        const active = button.getAttribute('data-yh-badge-billing-plan') === billingPlan;
+        button.classList.toggle('is-selected', active);
+        button.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+
+    const amount = root.querySelector('#yh-badge-avail-amount');
+    if (amount) {
+        amount.textContent = dashboardFormatBadgeBillingAmount(plan, billingPlan);
+    }
+
+    const billingCopy = root.querySelector('#yh-badge-billing-copy');
+    if (billingCopy) {
+        billingCopy.textContent =
+            billingPlan === 'lifetime'
+                ? `${plan.code} Lifetime unlocks permanent badge access${plan.division === 'academy' ? ' and permanent Learn From access inside the Academy AI Coach.' : '.'}`
+                : billingPlan === 'one_time'
+                    ? `${plan.code} One-Time unlocks badge access for 30 days${plan.division === 'academy' ? ' and Learn From access for the same active period.' : '.'}`
+                    : `${plan.code} Monthly renews automatically through Stripe when Stripe is selected.`;
+    }
+
+    dashboardApplyBadgePaymentProviderStatuses(root);
 }
 
 function ensureDashboardBadgeAvailModal() {
@@ -12368,7 +12834,7 @@ function ensureDashboardBadgeAvailModal() {
             </div>
 
             <div class="yh-badge-avail-price-card">
-                <span>Subscription amount</span>
+                <span>Selected plan</span>
                 <strong id="yh-badge-avail-amount">$2.81/month</strong>
             </div>
 
@@ -12383,17 +12849,17 @@ function ensureDashboardBadgeAvailModal() {
 
                     <div class="yh-badge-avail-step">
                         <span>2</span>
-                        <p>Choose Stripe, OxaPay, or manual admin payment. Unconfigured automated providers are disabled until their keys are added.</p>
+                        <p>Choose a billing option, then choose Stripe, OxaPay, or manual admin payment. OxaPay is always one-time only.</p>
                     </div>
 
                     <div class="yh-badge-avail-step">
                         <span>3</span>
-                        <p>Once admin marks the payment as paid, your badge activates automatically.</p>
+                        <p>Once payment is confirmed, your badge and the benefits attached to that badge activate automatically.</p>
                     </div>
                 </div>
 
-                <div class="yh-badge-avail-note">
-                    This badge is optional. It does not unlock Academy or Federation access. It only adds the verified symbol to your profile.
+                <div class="yh-badge-avail-note" id="yh-badge-avail-note">
+                    Academy/YHA badge subscribers unlock the verified symbol on their profile plus Learn From access inside the Academy AI Coach.
                 </div>
 
                 <div class="yh-badge-avail-actions">
@@ -12408,23 +12874,54 @@ function ensureDashboardBadgeAvailModal() {
 
             <div class="yh-badge-avail-panel hidden-step" data-badge-modal-panel="payment">
                 <div class="yh-badge-payment-head">
+                    <h4>Choose billing option</h4>
+                    <p id="yh-badge-billing-copy">Choose monthly, one-time, or lifetime access.</p>
+                </div>
+
+                <div class="yh-badge-payment-options yh-badge-billing-options">
+                    <button type="button" class="yh-badge-payment-option is-selected" data-yh-badge-billing-plan="monthly" aria-pressed="true">
+                        <span class="yh-badge-payment-option-main">
+                            <strong>Monthly Subscription</strong>
+                            <small>Recurring monthly billing. Stripe only.</small>
+                        </span>
+                        <span class="yh-badge-payment-status">Stripe</span>
+                    </button>
+
+                    <button type="button" class="yh-badge-payment-option" data-yh-badge-billing-plan="one_time" aria-pressed="false">
+                        <span class="yh-badge-payment-option-main">
+                            <strong>One-Time Access</strong>
+                            <small>One payment for 30 days access.</small>
+                        </span>
+                        <span class="yh-badge-payment-status">30 Days</span>
+                    </button>
+
+                    <button type="button" class="yh-badge-payment-option" data-yh-badge-billing-plan="lifetime" aria-pressed="false">
+                        <span class="yh-badge-payment-option-main">
+                            <strong>Lifetime Access</strong>
+                            <small>One payment for permanent access.</small>
+                        </span>
+                        <span class="yh-badge-payment-status">Lifetime</span>
+                    </button>
+                </div>
+
+                <div class="yh-badge-payment-head">
                     <h4>Choose payment method</h4>
-                    <p>Select how you want to request payment confirmation for this badge.</p>
+                    <p>Select how you want to pay for the selected billing option.</p>
                 </div>
 
                 <div class="yh-badge-payment-options">
                     <button type="button" class="yh-badge-payment-option" data-yh-badge-payment-provider="stripe" data-yh-badge-payment-method="card_bank">
                         <span class="yh-badge-payment-option-main">
-                            <strong>Card / Bank Payment</strong>
-                            <small>Pay securely through Stripe Checkout.</small>
+                            <strong>Stripe / Fiat Payment</strong>
+                            <small>Supports monthly subscription, one-time access, and lifetime access.</small>
                         </span>
                         <span class="yh-badge-payment-status">Checking...</span>
                     </button>
 
                     <button type="button" class="yh-badge-payment-option" data-yh-badge-payment-provider="oxapay" data-yh-badge-payment-method="crypto">
                         <span class="yh-badge-payment-option-main">
-                            <strong>Crypto Payment</strong>
-                            <small>Pay through an OxaPay crypto invoice.</small>
+                            <strong>OxaPay / Crypto Payment</strong>
+                            <small>One-time crypto invoice only. No monthly recurring crypto billing.</small>
                         </span>
                         <span class="yh-badge-payment-status">Checking...</span>
                     </button>
@@ -12439,7 +12936,7 @@ function ensureDashboardBadgeAvailModal() {
                 </div>
 
                 <div class="yh-badge-avail-note">
-                    Stripe and OxaPay can activate the badge after successful payment confirmation. Manual payment remains available as an admin fallback.
+                    Stripe can process monthly, one-time, or lifetime fiat payments. OxaPay can process one-time or lifetime crypto invoices only. Manual payment stays pending until admin approval.
                 </div>
 
                 <div class="yh-badge-avail-actions">
@@ -12497,6 +12994,25 @@ function ensureDashboardBadgeAvailModal() {
             return;
         }
 
+        const billingOption = event.target.closest('[data-yh-badge-billing-plan]');
+        if (billingOption) {
+            event.preventDefault();
+
+            dashboardBadgeAvailModalState.billingPlan = dashboardNormalizeBadgeBillingPlan(
+                billingOption.getAttribute('data-yh-badge-billing-plan') || 'monthly'
+            );
+            dashboardBadgeAvailModalState.billingPlanSelectionTouched = true;
+
+            if (dashboardBadgeAvailModalState.billingPlan === 'monthly' && dashboardBadgeAvailModalState.provider === 'oxapay') {
+                dashboardBadgeAvailModalState.provider = 'stripe';
+                dashboardBadgeAvailModalState.paymentMethod = 'card_bank';
+                dashboardBadgeAvailModalState.paymentProviderSelectionTouched = false;
+            }
+
+            dashboardSyncBadgeBillingUi(modal);
+            return;
+        }
+
         const paymentOption = event.target.closest('[data-yh-badge-payment-provider]');
         if (paymentOption) {
             event.preventDefault();
@@ -12527,6 +13043,15 @@ function ensureDashboardBadgeAvailModal() {
         const sourceButton = dashboardBadgeAvailModalState.button || null;
         const provider = dashboardBadgeAvailModalState.provider || 'manual';
         const paymentMethod = dashboardBadgeAvailModalState.paymentMethod || 'manual';
+        const billingPlan = dashboardNormalizeBadgeBillingPlan(dashboardBadgeAvailModalState.billingPlan || 'monthly');
+
+        if (dashboardIsCurrentVerifiedBadgeActiveForAvail(division)) {
+            closeDashboardBadgeAvailModal();
+            showToast(dashboardGetBadgeAlreadyActiveMessage(division), 'success');
+
+            hydrateDashboardSelfUniverseProfile().catch(() => null);
+            return;
+        }
 
         if (!dashboardIsBadgeProviderSelectable(provider)) {
             showToast('This payment method is not configured yet. Choose another option or add the missing keys first.', 'error');
@@ -12534,34 +13059,97 @@ function ensureDashboardBadgeAvailModal() {
             return;
         }
 
+        const plan = dashboardGetVerifiedBadgePlanMeta(division);
+        const planCode = plan.code || (division === 'federation' ? 'YHF' : 'YHA');
+        const originalConfirmText = confirmButton.textContent || 'Continue to Selected Payment';
+
+        const loadingText =
+            provider === 'stripe'
+                ? '⏳ Creating Stripe checkout...'
+                : provider === 'oxapay'
+                    ? '⏳ Creating OxaPay invoice...'
+                    : '⏳ Sending payment request...';
+
         confirmButton.disabled = true;
         confirmButton.setAttribute('aria-busy', 'true');
-        confirmButton.textContent = 'Creating Request...';
+        confirmButton.setAttribute('aria-disabled', 'true');
+        confirmButton.dataset.originalText = originalConfirmText;
+        confirmButton.textContent = loadingText;
 
         try {
             const result = await dashboardCreateVerifiedBadgeLedger(division, sourceButton, {
                 provider,
-                paymentMethod
+                paymentMethod,
+                billingPlan
             });
+
+            if (result?.alreadyActive) {
+                return;
+            }
 
             dashboardBadgeAvailModalState.payment = result?.payment || null;
 
             if (result?.redirecting || result?.url) {
+                showToast(`${planCode} payment response received. Redirecting to payment page...`, 'success');
                 return;
             }
 
-            const plan = dashboardGetVerifiedBadgePlanMeta(division);
             const successCopy = modal.querySelector('#yh-badge-success-copy');
 
             if (successCopy) {
-                successCopy.textContent = `${plan.code} badge payment request is pending admin confirmation.`;
+                successCopy.textContent = `${planCode} badge payment request was sent successfully and is now pending admin confirmation.`;
             }
 
+            if (provider === 'manual') {
+                const currentProfile = dashboardGetCurrentBadgeAvailProfileSnapshot();
+                const nextBadges = currentProfile.verificationBadges && typeof currentProfile.verificationBadges === 'object'
+                    ? { ...currentProfile.verificationBadges }
+                    : {};
+
+                nextBadges[division] = {
+                    ...(nextBadges[division] && typeof nextBadges[division] === 'object' ? nextBadges[division] : {}),
+                    active: false,
+                    status: 'pending_payment',
+                    paymentStatus: 'manual_pending',
+                    provider: 'manual',
+                    providerStatus: 'fallback',
+                    paymentMethod: 'manual',
+                    billingPlan,
+                    billingLabel: dashboardGetBadgeBillingLabel(billingPlan),
+                    updatedAt: new Date().toISOString()
+                };
+
+                dashboardPersistTopProfileCache({
+                    ...currentProfile,
+                    verificationBadges: nextBadges
+                });
+
+                if (
+                    academyProfileViewState?.profile &&
+                    typeof academyProfileViewState.profile === 'object'
+                ) {
+                    academyProfileViewState.profile = {
+                        ...academyProfileViewState.profile,
+                        verificationBadges: nextBadges
+                    };
+                }
+
+                if (typeof renderAcademyProfile === 'function') {
+                    renderAcademyProfile({
+                        ...currentProfile,
+                        verificationBadges: nextBadges
+                    });
+                }
+            }
+
+            showToast(`${planCode} payment request sent successfully. Pending admin approval.`, 'success');
             dashboardSetBadgeAvailModalStep('success');
         } finally {
             confirmButton.disabled = false;
             confirmButton.removeAttribute('aria-busy');
-            confirmButton.textContent = 'Continue to Selected Payment';
+            confirmButton.setAttribute('aria-disabled', 'false');
+            confirmButton.textContent = confirmButton.dataset.originalText || 'Continue to Selected Payment';
+            delete confirmButton.dataset.originalText;
         }
     });
 
@@ -12581,8 +13169,17 @@ function dashboardSetBadgeAvailModalStep(step = 'overview') {
     });
 }
 function openDashboardBadgeAvailModal(division = 'academy', button = null) {
-    const modal = ensureDashboardBadgeAvailModal();
     const plan = dashboardGetVerifiedBadgePlanMeta(division);
+
+    if (dashboardIsCurrentVerifiedBadgeActiveForAvail(plan.division)) {
+        closeDashboardBadgeAvailModal();
+        showToast(dashboardGetBadgeAlreadyActiveMessage(plan.division), 'success');
+
+        hydrateDashboardSelfUniverseProfile().catch(() => null);
+        return;
+    }
+
+    const modal = ensureDashboardBadgeAvailModal();
 
     dashboardBadgeAvailModalState = {
         division: plan.division,
@@ -12590,8 +13187,10 @@ function openDashboardBadgeAvailModal(division = 'academy', button = null) {
         step: 'overview',
         provider: 'stripe',
         paymentMethod: 'card_bank',
+        billingPlan: 'monthly',
         payment: null,
-        paymentProviderSelectionTouched: false
+        paymentProviderSelectionTouched: false,
+        billingPlanSelectionTouched: false
     };
 
     const iconWrap = modal.querySelector('#yh-badge-avail-icon-wrap');
@@ -12599,6 +13198,7 @@ function openDashboardBadgeAvailModal(division = 'academy', button = null) {
     const title = modal.querySelector('#yh-badge-avail-title');
     const summary = modal.querySelector('#yh-badge-avail-summary');
     const amount = modal.querySelector('#yh-badge-avail-amount');
+    const note = modal.querySelector('#yh-badge-avail-note');
 
     if (iconWrap) {
         iconWrap.classList.remove('is-academy', 'is-federation');
@@ -12612,8 +13212,15 @@ function openDashboardBadgeAvailModal(division = 'academy', button = null) {
 
     if (title) title.textContent = plan.name;
     if (summary) summary.textContent = plan.summary;
-    if (amount) amount.textContent = plan.amount;
+    if (amount) amount.textContent = dashboardFormatBadgeBillingAmount(plan, dashboardBadgeAvailModalState.billingPlan);
 
+    if (note) {
+        note.textContent = plan.division === 'academy'
+            ? 'Access to Learn From Big Figures and the Greatest Philosophers will be unlocked inside the Academy AI Coach. Your YHA badge will also appear on your public YH Universe profile.'
+            : 'This subscription adds the YHF verification symbol to your public YH Universe profile.';
+    }
+
+    dashboardSyncBadgeBillingUi(modal);
     dashboardApplyBadgePaymentProviderStatuses(modal, { loading: true });
     hydrateDashboardBadgePaymentProviderConfig()
         .then(() => {
