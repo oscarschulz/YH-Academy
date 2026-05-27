@@ -12293,17 +12293,25 @@ function dashboardRenderVerifiedBadgeAvailButton(profile = {}, division = 'acade
     const badgeSnapshot = dashboardGetVerificationBadgeSnapshot(profile, cleanDivision);
     const isPending = dashboardIsVerificationBadgePaymentPending(profile, cleanDivision);
     const isActive = dashboardIsVerifiedBadgeSnapshotActive(badgeSnapshot);
+    const pendingBillingPlan = dashboardNormalizeBadgeBillingPlan(
+        badgeSnapshot.billingPlan ||
+        badgeSnapshot.accessType ||
+        badgeSnapshot.interval ||
+        'monthly'
+    );
 
     if (isPending) {
         return `
             <button
                 type="button"
                 class="btn-secondary academy-profile-action-btn yh-badge-avail-btn yh-badge-avail-btn--${academyFeedEscapeHtml(cleanDivision)}"
-                disabled
-                aria-disabled="true"
+                data-yh-dashboard-avail-badge="${academyFeedEscapeHtml(cleanDivision)}"
+                data-yh-dashboard-resume-checkout="true"
+                data-yh-dashboard-pending-billing-plan="${academyFeedEscapeHtml(pendingBillingPlan)}"
                 data-badge-pending="true"
+                title="Click to reopen payment options and generate a new checkout tab."
             >
-                ${cleanDivision === 'federation' ? 'YHF Payment Pending' : 'YHA Payment Pending'}
+                ${cleanDivision === 'federation' ? 'YHF Payment Pending · Resume' : 'YHA Payment Pending · Resume'}
             </button>
         `;
     }
@@ -12330,6 +12338,110 @@ function dashboardRenderVerifiedBadgeAvailButton(profile = {}, division = 'acade
             ${cleanDivision === 'federation' ? 'Avail YHF Badge' : 'Avail YHA Badge'}
         </button>
     `;
+}
+
+function dashboardOpenPendingBadgeCheckoutTab(provider = 'stripe', billingPlan = 'monthly', planCode = 'YH') {
+    const cleanProvider = String(provider || '').trim().toLowerCase();
+    const providerLabel = cleanProvider === 'oxapay' ? 'OxaPay invoice' : 'Stripe checkout';
+    const billingLabel = typeof dashboardGetBadgeBillingLabel === 'function'
+        ? dashboardGetBadgeBillingLabel(billingPlan)
+        : 'payment';
+
+    let popup = null;
+
+    try {
+        popup = window.open('', '_blank');
+    } catch (_) {
+        popup = null;
+    }
+
+    if (!popup) {
+        return null;
+    }
+
+    try {
+        popup.opener = null;
+    } catch (_) {}
+
+    try {
+        popup.document.open();
+        popup.document.write(`
+            <!doctype html>
+            <html>
+                <head>
+                    <title>Opening ${providerLabel}</title>
+                    <meta name="viewport" content="width=device-width, initial-scale=1">
+                    <style>
+                        body {
+                            margin: 0;
+                            min-height: 100vh;
+                            display: grid;
+                            place-items: center;
+                            background: #020817;
+                            color: #ffffff;
+                            font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                        }
+                        .card {
+                            width: min(420px, calc(100vw - 32px));
+                            border: 1px solid rgba(56, 189, 248, 0.35);
+                            border-radius: 22px;
+                            background: rgba(15, 23, 42, 0.88);
+                            padding: 24px;
+                            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+                        }
+                        .kicker {
+                            color: #38bdf8;
+                            font-size: 12px;
+                            letter-spacing: 0.12em;
+                            text-transform: uppercase;
+                            font-weight: 800;
+                        }
+                        h1 {
+                            margin: 10px 0 8px;
+                            font-size: 22px;
+                            line-height: 1.2;
+                        }
+                        p {
+                            margin: 0;
+                            color: #a7b4c8;
+                            line-height: 1.6;
+                            font-size: 14px;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <main class="card">
+                        <div class="kicker">${planCode} ${billingLabel}</div>
+                        <h1>Preparing your ${providerLabel}...</h1>
+                        <p>Please keep this tab open. The secure payment page will load here automatically.</p>
+                    </main>
+                </body>
+            </html>
+        `);
+        popup.document.close();
+    } catch (_) {}
+
+    return popup;
+}
+
+function dashboardSendBadgeCheckoutToNewTab(url = '', provider = 'stripe', checkoutWindow = null) {
+    const cleanUrl = String(url || '').trim();
+
+    if (!cleanUrl) return false;
+
+    if (checkoutWindow && checkoutWindow.closed !== true) {
+        try {
+            checkoutWindow.location.href = cleanUrl;
+            return true;
+        } catch (_) {}
+    }
+
+    try {
+        const opened = window.open(cleanUrl, '_blank', 'noopener,noreferrer');
+        return !!opened;
+    } catch (_) {
+        return false;
+    }
 }
 
 async function dashboardCreateVerifiedBadgeLedger(division = 'academy', button = null, options = {}) {
@@ -12419,23 +12531,33 @@ async function dashboardCreateVerifiedBadgeLedger(division = 'academy', button =
         }
 
         if ((isStripe || isOxaPay) && result?.url) {
+            const opened = dashboardSendBadgeCheckoutToNewTab(
+                result.url,
+                provider,
+                options.checkoutWindow || null
+            );
+
+            if (!opened) {
+                showToast('The payment link was created, but your browser blocked the checkout tab. Please allow popups and click Continue again. This page will stay here.', 'error');
+
+                return {
+                    ...result,
+                    redirecting: false,
+                    checkoutBlocked: true
+                };
+            }
+
             showToast(
                 isStripe
-                    ? `Stripe checkout opened for ${cleanDivision === 'federation' ? 'YHF' : 'YHA'} ${dashboardGetBadgeBillingLabel(billingPlan)}.`
-                    : `OxaPay invoice opened for ${cleanDivision === 'federation' ? 'YHF' : 'YHA'} ${dashboardGetBadgeBillingLabel(billingPlan)}.`,
+                    ? `Stripe checkout opened in a new tab for ${cleanDivision === 'federation' ? 'YHF' : 'YHA'} ${dashboardGetBadgeBillingLabel(billingPlan)}.`
+                    : `OxaPay invoice opened in a new tab for ${cleanDivision === 'federation' ? 'YHF' : 'YHA'} ${dashboardGetBadgeBillingLabel(billingPlan)}.`,
                 'success'
             );
 
-            const opened = window.open(result.url, '_blank', 'noopener,noreferrer');
-
-            if (!opened) {
-                showToast('Popup was blocked. Opening payment page in this tab instead.', 'error');
-                window.location.href = result.url;
-            }
-
             return {
                 ...result,
-                redirecting: true
+                redirecting: true,
+                openedInNewTab: true
             };
         }
 
@@ -13061,6 +13183,16 @@ function ensureDashboardBadgeAvailModal() {
 
         const plan = dashboardGetVerifiedBadgePlanMeta(division);
         const planCode = plan.code || (division === 'federation' ? 'YHF' : 'YHA');
+        const opensCheckoutTab = provider === 'stripe' || provider === 'oxapay';
+        const checkoutWindow = opensCheckoutTab
+            ? dashboardOpenPendingBadgeCheckoutTab(provider, billingPlan, planCode)
+            : null;
+
+        if (opensCheckoutTab && !checkoutWindow) {
+            showToast('Your browser blocked the checkout tab. Please allow popups for this site, then click Continue again.', 'error');
+            return;
+        }
+
         const originalConfirmText = confirmButton.textContent || 'Continue to Selected Payment';
 
         const loadingText =
@@ -13080,7 +13212,8 @@ function ensureDashboardBadgeAvailModal() {
             const result = await dashboardCreateVerifiedBadgeLedger(division, sourceButton, {
                 provider,
                 paymentMethod,
-                billingPlan
+                billingPlan,
+                checkoutWindow
             });
 
             if (result?.alreadyActive) {
@@ -13089,8 +13222,12 @@ function ensureDashboardBadgeAvailModal() {
 
             dashboardBadgeAvailModalState.payment = result?.payment || null;
 
-            if (result?.redirecting || result?.url) {
-                showToast(`${planCode} payment response received. Redirecting to payment page...`, 'success');
+            if (result?.redirecting || result?.openedInNewTab) {
+                showToast(`${planCode} checkout opened in a new tab. This tab will stay on the payment method selection page.`, 'success');
+                return;
+            }
+
+            if (result?.checkoutBlocked) {
                 return;
             }
 
@@ -13180,17 +13317,24 @@ function openDashboardBadgeAvailModal(division = 'academy', button = null) {
     }
 
     const modal = ensureDashboardBadgeAvailModal();
+    const resumePendingCheckout =
+        button?.getAttribute?.('data-yh-dashboard-resume-checkout') === 'true' ||
+        button?.getAttribute?.('data-badge-pending') === 'true';
+
+    const pendingBillingPlan = dashboardNormalizeBadgeBillingPlan(
+        button?.getAttribute?.('data-yh-dashboard-pending-billing-plan') || 'monthly'
+    );
 
     dashboardBadgeAvailModalState = {
         division: plan.division,
         button,
-        step: 'overview',
+        step: resumePendingCheckout ? 'payment' : 'overview',
         provider: 'stripe',
         paymentMethod: 'card_bank',
-        billingPlan: 'monthly',
+        billingPlan: resumePendingCheckout ? pendingBillingPlan : 'monthly',
         payment: null,
         paymentProviderSelectionTouched: false,
-        billingPlanSelectionTouched: false
+        billingPlanSelectionTouched: resumePendingCheckout
     };
 
     const iconWrap = modal.querySelector('#yh-badge-avail-icon-wrap');
@@ -13230,10 +13374,14 @@ function openDashboardBadgeAvailModal(division = 'academy', button = null) {
             dashboardApplyBadgePaymentProviderStatuses(modal);
         });
 
-    dashboardSetBadgeAvailModalStep('overview');
+    dashboardSetBadgeAvailModalStep(resumePendingCheckout ? 'payment' : 'overview');
     modal.classList.remove('hidden-step');
     modal.classList.add('is-open');
     modal.setAttribute('aria-hidden', 'false');
+
+    if (resumePendingCheckout) {
+        showToast('Payment options reopened. You can generate a new checkout tab.', 'success');
+    }
 }
 
 function closeDashboardBadgeAvailModal() {
