@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const WebSocket = require('ws');
 
 const YHU_FIREBASE_PROJECT = 'yh-academy';
 
@@ -33,11 +34,15 @@ function getSupabaseClient() {
   }
 
   const { createClient } = require('@supabase/supabase-js');
+const WebSocket = require('ws');
 
   cachedClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
     auth: {
       persistSession: false,
       autoRefreshToken: false
+    },
+    realtime: {
+      transport: WebSocket
     }
   });
 
