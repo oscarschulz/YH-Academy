@@ -6299,6 +6299,17 @@ function buildAcademyCoachLearnFromSystemInstruction(context = {}) {
     ].join(' ');
 }
 
+function buildAcademyCoachDefaultCasualInstruction(context = {}) {
+    if (context?.requested) return '';
+
+    return [
+        'When no Learn From figure is selected, speak like a normal helpful Academy coach.',
+        'If the user simply greets you, respond casually and briefly, for example: “Hey, how can I help you today?”',
+        'Do not force every simple greeting into a roadmap lecture.',
+        'After the casual reply, guide the user toward Roadmap, missions, focus, check-ins, or today’s next move only when useful.'
+    ].join(' ');
+}
+
 function buildAcademyCoachCompactPayload(payload = {}) {
     const history = (Array.isArray(payload.previousMessages) ? payload.previousMessages : [])
         .slice(-6)
@@ -6563,6 +6574,7 @@ function buildAcademyCoachMessages(payload = {}) {
     const compactPayload = buildAcademyCoachCompactPayload(payload);
     const coachMode = getAcademyCoachModeMeta(payload);
     const learnFromInstruction = buildAcademyCoachLearnFromSystemInstruction(payload.learnFromContext || {});
+    const defaultCasualInstruction = buildAcademyCoachDefaultCasualInstruction(payload.learnFromContext || {});
 
     return [
         {
@@ -6578,6 +6590,7 @@ function buildAcademyCoachMessages(payload = {}) {
                 coachMode.systemGuidance,
                 coachMode.replyStructureInstruction,
                 learnFromInstruction,
+                defaultCasualInstruction,
                 'Be practical, direct, tactical, and execution-focused.',
                 'Prioritize what the user should do today or this week.',
                 'If the user is stuck, simplify the next action without becoming vague.',
@@ -7285,6 +7298,78 @@ function buildAcademyOnlyRedirectReply() {
         'Bring it back to your Academy Roadmap and I’ll help you choose the next simple action.'
     ].join('\n\n');
 }
+
+function normalizeAcademyCoachCasualText(message = '') {
+    return sanitize(message)
+        .toLowerCase()
+        .replace(/[!?.,]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function buildAcademyCoachCasualDefaultReply(message = '') {
+    const text = normalizeAcademyCoachCasualText(message);
+
+    if (!text) return '';
+
+    const greetingTexts = new Set([
+        'hi',
+        'hii',
+        'hello',
+        'hey',
+        'yo',
+        'sup',
+        'wassup',
+        'what is up',
+        'whats up',
+        'good morning',
+        'good afternoon',
+        'good evening'
+    ]);
+
+    if (greetingTexts.has(text)) {
+        return 'Hey, how can I help you today?';
+    }
+
+    const checkInTexts = new Set([
+        'how are you',
+        'how are you doing',
+        'how far',
+        'how is it going',
+        'hows it going',
+        'you good'
+    ]);
+
+    if (checkInTexts.has(text)) {
+        return 'I’m good. Ready to help you move forward. What do you want to work on today?';
+    }
+
+    const thanksTexts = new Set([
+        'thanks',
+        'thank you',
+        'thank you so much',
+        'appreciate it',
+        'appreciate you',
+        'ty'
+    ]);
+
+    if (thanksTexts.has(text)) {
+        return 'You’re welcome. What do you want to work on next?';
+    }
+
+    const identityTexts = new Set([
+        'who are you',
+        'what are you',
+        'what can you do',
+        'what do you do'
+    ]);
+
+    if (identityTexts.has(text)) {
+        return 'I’m your Academy AI Coach. I can help you with your Roadmap, missions, focus, check-ins, discipline, and today’s next move.';
+    }
+
+    return '';
+}
 exports.getAcademyCoachMessages = async (req, res) => {
     try {
         const uid = getAcademyAuthUid(req);
@@ -7379,6 +7464,54 @@ exports.chatWithAcademyCoach = async (req, res) => {
                 responseStyleVersion: 'academy-only-guard-v1',
                 fallback: true
             });
+        }
+
+        if (!learnFromKey) {
+            const casualDefaultReply = buildAcademyCoachCasualDefaultReply(message);
+
+            if (casualDefaultReply) {
+                await academyFirestoreRepo.createCoachMessage(uid, {
+                    conversationId,
+                    role: 'user',
+                    text: message,
+                    contextHint,
+                    responseStyleVersion: 'academy-default-casual-v1'
+                });
+
+                await academyFirestoreRepo.createCoachMessage(uid, {
+                    conversationId,
+                    role: 'assistant',
+                    text: casualDefaultReply,
+                    contextHint,
+                    provider: 'academy-casual-default',
+                    model: 'rule-based-casual-default-v1',
+                    replyFormat: 'casual_default',
+                    coachModeKey: 'general',
+                    responseStyleVersion: 'academy-default-casual-v1',
+                    grounding: {
+                        assistantScope: 'academy_default_casual',
+                        usedLearnFrom: false,
+                        casualIntent: true
+                    }
+                });
+
+                return res.json({
+                    success: true,
+                    reply: casualDefaultReply,
+                    conversationId,
+                    provider: 'academy-casual-default',
+                    model: 'rule-based-casual-default-v1',
+                    replyFormat: 'casual_default',
+                    coachModeKey: 'general',
+                    responseStyleVersion: 'academy-default-casual-v1',
+                    grounding: {
+                        assistantScope: 'academy_default_casual',
+                        usedLearnFrom: false,
+                        casualIntent: true
+                    },
+                    fallback: true
+                });
+            }
         }
 
         const [profileDoc, homePayload, plannerRun, history] = await Promise.all([
