@@ -34,7 +34,6 @@ function getSupabaseClient() {
   }
 
   const { createClient } = require('@supabase/supabase-js');
-const WebSocket = require('ws');
 
   cachedClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
     auth: {
@@ -481,18 +480,23 @@ async function findUserByIdentifier(identifier = '') {
       .select('*')
       .eq(column, value)
       .order('synced_at', { ascending: false })
-      .limit(1);
+      .limit(10);
 
     if (error) {
       console.error('[YHU Supabase Mirror] Auth lookup failed:', error.message);
       throw error;
     }
 
-    if (data && data[0]) {
+    const rows = Array.isArray(data) ? data : [];
+
+    if (rows.length > 0) {
+      const mappedUsers = rows.map((row) => mapSupabaseUserRowToAuthUser(row));
+      const preferredUser = mappedUsers.find((user) => cleanText(user.password)) || mappedUsers[0];
+
       return {
         ok: true,
         source: 'supabase',
-        user: mapSupabaseUserRowToAuthUser(data[0])
+        user: preferredUser
       };
     }
   }
