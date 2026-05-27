@@ -25372,3 +25372,192 @@ body[data-yh-page="academy"] .academy-ai-coach-rect-form {
     }
 }
 /* END PATCH: Academy AI Coach full browser height v2 */
+
+/* PATCH: Academy Roadmap inner tab structure */
+.academy-ui-icon-header {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+    display: block;
+    filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.34));
+}
+
+.academy-roadmap-tabs-shell {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.academy-roadmap-tabs-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 10px;
+    border: 1px solid rgba(56, 189, 248, 0.18);
+    border-radius: 18px;
+    background: rgba(3, 13, 27, 0.62);
+}
+
+.academy-roadmap-tabs-head::-webkit-scrollbar {
+    height: 0;
+}
+
+.academy-roadmap-inner-tab {
+    flex: 0 0 auto;
+    border: 1px solid rgba(56, 189, 248, 0.24);
+    background: rgba(15, 23, 42, 0.74);
+    color: var(--text-muted);
+    border-radius: 999px;
+    padding: 9px 13px;
+    font-size: 0.78rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.academy-roadmap-inner-tab:hover,
+.academy-roadmap-inner-tab.is-active {
+    color: #fff;
+    border-color: rgba(56, 189, 248, 0.78);
+    background: rgba(14, 165, 233, 0.22);
+    box-shadow: 0 0 18px rgba(14, 165, 233, 0.16);
+}
+
+.academy-roadmap-tabs-body {
+    width: 100%;
+}
+
+.academy-roadmap-inner-panel {
+    width: 100%;
+}
+
+.academy-roadmap-tab-panel-card {
+    border: 1px solid rgba(56, 189, 248, 0.18);
+    background:
+        radial-gradient(circle at top right, rgba(56, 189, 248, 0.09), transparent 34%),
+        rgba(15, 23, 42, 0.68);
+    border-radius: 20px;
+    padding: 18px;
+    margin-bottom: 14px;
+}
+
+.academy-roadmap-tab-kicker {
+    color: var(--neon-blue);
+    font-size: 0.68rem;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+
+.academy-roadmap-tab-panel-card h3 {
+    margin: 0 0 8px;
+    color: #fff;
+    font-size: 1.08rem;
+    line-height: 1.25;
+}
+
+.academy-roadmap-tab-panel-card p {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    line-height: 1.55;
+}
+
+.academy-roadmap-tab-slot {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.academy-roadmap-coach-actions {
+    margin-top: 14px;
+    justify-content: flex-start;
+}
+
+@media (max-width: 780px) {
+    .academy-roadmap-tabs-head {
+        padding: 8px;
+        gap: 6px;
+    }
+
+    .academy-roadmap-inner-tab {
+        padding: 8px 11px;
+        font-size: 0.72rem;
+    }
+
+    .academy-roadmap-tab-panel-card {
+        padding: 15px;
+        border-radius: 17px;
+    }
+
+    .academy-ui-icon-header {
+        width: 24px;
+        height: 24px;
+    }
+}
+/* END PATCH: Academy Roadmap inner tab structure */
+/* PATCH: Permanent Academy right-sidebar AI Coach button */
+@media (min-width: 901px) {
+    body[data-yh-view="academy"] .yh-right-sidebar,
+    body[data-yh-page="academy"] .yh-right-sidebar {
+        position: relative !important;
+        padding-bottom: 96px !important;
+        overflow: hidden !important;
+    }
+
+    body[data-yh-view="academy"] #academy-right-sidebar-ai-coach,
+    body[data-yh-page="academy"] #academy-right-sidebar-ai-coach {
+        position: absolute !important;
+        left: 16px !important;
+        right: 16px !important;
+        bottom: 18px !important;
+        top: auto !important;
+        z-index: 90 !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: flex-start !important;
+        gap: 12px !important;
+        width: auto !important;
+        max-width: calc(100% - 32px) !important;
+        min-height: 54px !important;
+        margin: 0 !important;
+        padding: 9px 12px !important;
+        border-radius: 16px !important;
+        border: 1px solid rgba(56, 189, 248, 0.34) !important;
+        background: rgba(14, 165, 233, 0.16) !important;
+        color: #f8fbff !important;
+        box-shadow: 0 18px 40px rgba(14, 165, 233, 0.16) !important;
+        cursor: pointer !important;
+        animation: none !important;
+        transform: none !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
+    }
+
+    body[data-yh-view="academy"] #academy-right-sidebar-ai-coach .academy-right-bot-cta-avatar,
+    body[data-yh-page="academy"] #academy-right-sidebar-ai-coach .academy-right-bot-cta-avatar {
+        width: 44px !important;
+        height: 44px !important;
+        border-radius: 16px !important;
+        flex: 0 0 44px !important;
+    }
+
+    body[data-yh-view="academy"] #academy-right-sidebar-ai-coach strong,
+    body[data-yh-page="academy"] #academy-right-sidebar-ai-coach strong {
+        color: #ffffff !important;
+        font-size: 0.86rem !important;
+        font-weight: 900 !important;
+        line-height: 1.15 !important;
+    }
+}
+
+@media (max-width: 900px) {
+    #academy-right-sidebar-ai-coach {
+        display: none !important;
+    }
+}
+/* END PATCH: Permanent Academy right-sidebar AI Coach button */

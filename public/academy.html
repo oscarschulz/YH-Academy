@@ -7,7 +7,7 @@
     <link rel="icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css?v=20260527-live-room-auto-end-v1">
+<link rel="stylesheet" href="/css/style.css?v=20260527-permanent-ai-coach-sidebar-v1">
 <link rel="stylesheet" href="/css/academy-thread-bottom-fix.css?v=20260417-2">
 </head>
 <body data-yh-view="academy" data-yh-page="academy" class="academy-startup-booting academy-standalone-shell-pending">
@@ -65,7 +65,8 @@
 
       if (normalized === 'messages') {
         return {
-          icon: '💬',
+          icon: '',
+          iconHtml: '<img src="/assets/academy/icons/academy-icon-messages.png" alt="" class="academy-ui-icon academy-ui-icon-header">',
           title: 'Preparing Messages',
           copy: 'Loading Messages...'
         };
@@ -73,7 +74,8 @@
 
       if (normalized === 'voice') {
         return {
-          icon: '🎙️',
+          icon: '',
+          iconHtml: '<img src="/assets/academy/icons/academy-icon-live-voice-lounge.png" alt="" class="academy-ui-icon academy-ui-icon-header">',
           title: 'Preparing Live Voice Lounge',
           copy: 'Loading Live Voice Lounge...'
         };
@@ -97,7 +99,8 @@
 
       if (normalized === 'lead-missions') {
         return {
-          icon: '🎯',
+          icon: '',
+          iconHtml: '<img src="/assets/academy/icons/academy-icon-missions.png" alt="" class="academy-ui-icon academy-ui-icon-header">',
           title: 'Preparing Missions',
           copy: 'Loading Missions...'
         };
@@ -134,7 +137,13 @@
       var section = normalizeAcademyStartupSection(urlSection || storedSection || 'home');
       var meta = getAcademyStartupMeta(section);
 
-      if (icon) icon.textContent = meta.icon;
+      if (icon) {
+        if (meta.iconHtml) {
+          icon.innerHTML = meta.iconHtml;
+        } else {
+          icon.textContent = meta.icon;
+        }
+      }
       if (title) title.textContent = meta.title;
       if (text) text.textContent = meta.copy;
     } catch (_) {
@@ -697,7 +706,9 @@
             <main class="yh-main-chat hide-scrollbar hidden-step fade-in" id="academy-lead-missions-view">
                 <header class="chat-header">
                     <div class="header-left">
-                        <span class="hash-big" id="academy-missions-header-icon">🎯</span>
+                    <span class="hash-big academy-hash-image-wrap" id="academy-missions-header-icon">
+                        <img src="/assets/academy/icons/academy-icon-missions.png" alt="" class="academy-ui-icon academy-ui-icon-header">
+                    </span>
                         <h3 id="academy-missions-header-title">missions</h3>
                         <div class="header-divider"></div>
                         <p class="header-topic" id="academy-missions-header-topic">Choose a mission module to enter your workspace.</p>
@@ -1446,7 +1457,7 @@
             </main>
 
             <main class="yh-main-chat hide-scrollbar hidden-step fade-in lounge-main" id="voice-lobby-view">
-                <header class="chat-header"><div class="header-left"><span class="hash-big">🎙️</span><h3>voice-lounge</h3><div class="header-divider"></div><p class="header-topic">Live Audio Networking</p></div><div class="header-right"><button class="btn-primary btn-start-lounge-action" id="btn-start-lounge">+ Start a Lounge</button></div></header>
+                <header class="chat-header"><div class="header-left"><span class="hash-big academy-hash-image-wrap"><img src="/assets/academy/icons/academy-icon-live-voice-lounge.png" alt="" class="academy-ui-icon academy-ui-icon-header"></span><h3>voice-lounge</h3><div class="header-divider"></div><p class="header-topic">Live Audio Networking</p></div><div class="header-right"><button class="btn-primary btn-start-lounge-action" id="btn-start-lounge">+ Start a Lounge</button></div></header>
                 <div class="lounge-container hide-scrollbar">
                     <div class="academy-live-lounge-head">
                         <div>
@@ -1737,6 +1748,18 @@
                         <div class="member-name" id="right-sidebar-name">Hustler</div>
                     </li>
                 </ul>
+
+                <button
+                    type="button"
+                    class="academy-right-bot-cta academy-single-right-bot academy-right-bot-safe-bounds is-docked academy-ai-coach-bottom-visible"
+                    id="academy-right-sidebar-ai-coach"
+                    aria-label="Open Academy AI Coach"
+                    data-yh-single-right-bot="1"
+                    onclick="if (window.openAcademyCoachView) { window.openAcademyCoachView(true); } else { document.getElementById('nav-missions')?.click(); }"
+                >
+                    <span class="academy-right-bot-cta-avatar">🤖</span>
+                    <strong>Ask AI Coach</strong>
+                </button>
             </aside>
         </div>
 
@@ -2591,7 +2614,7 @@
 
 <script src="/js/yh-shared-core.js?v=20260515-academy-freeze-flicker-v61"></script>
 <script src="/js/yh-shared-runtime.js?v=20260515-loader-conflict-fix-v14"></script>
-<script src="/js/academy.js?v=20260527-yha-learn-from-unlock-v2"></script>
+<script src="/js/academy.js?v=20260527-permanent-ai-coach-sidebar-v1"></script>
 <div
     class="academy-profile-editor-overlay hidden-step"
     id="academy-profile-editor-overlay"

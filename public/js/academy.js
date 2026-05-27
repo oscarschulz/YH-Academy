@@ -8818,9 +8818,8 @@ const missionsHtml = missions.length
             </div>
         `;
 
-    if (chatHeaderIcon) chatHeaderIcon.innerHTML = `🧠`;
-    if (chatHeaderTitle) chatHeaderTitle.innerText = "Academy Home";
-    if (chatHeaderTopic) chatHeaderTopic.innerText = roadmapPrimaryPillarMeta.homeTopic;
+    academySetRoadmapHeader();
+    if (chatHeaderTopic) chatHeaderTopic.innerText = roadmapPrimaryPillarMeta.homeTopic || 'Your 28-day foundation, missions, and progress path.';
     if (chatPinnedMessage) chatPinnedMessage.style.display = "none";
     if (typeof chatInputArea !== 'undefined' && chatInputArea) {
     chatInputArea.style.display = "none";
@@ -8831,15 +8830,15 @@ const missionsHtml = missions.length
         chatWelcomeBox.innerHTML = `
             <section class="academy-home-hero">
                 <div class="academy-home-hero-copy">
-                    <div class="academy-home-eyebrow">Academy Roadmap</div>
+                    <div class="academy-home-eyebrow">Roadmap</div>
                     <h2 class="academy-home-title">Welcome back, ${safeHtml(myName)}</h2>
                     <div class="academy-home-copy academy-roadmap-intro-copy">
-                        <strong>Change your life within the next 28 days, then build it throughout the next 12 months.</strong>
+                        <strong>Your Roadmap command center is built to reduce friction and help you execute one clear move at a time.</strong>
                         <span>
-                            Starting next Sunday, treat the first 28 days as your foundation phase. Use that period to install the philosophy, mentality, and daily standard that prepare you for bigger execution.
+                            Start with the Overview, move into Today’s Work, review the Sprint Plan, track Progress, and use the AI Coach whenever you need clarity.
                         </span>
                         <span>
-                            Roadmap is designed for members who still need to improve their life structure, discipline, direction, health, money, mindset, and communication.
+                            The goal is simple: less clutter, clearer direction, and faster daily execution.
                         </span>
                     </div>
                 </div>
@@ -8977,6 +8976,7 @@ if (dynamicChatContainer) {
 
     academyInjectRoadmapTransformationSystem(homeData);
     academyInstallRoadmapTransformationActions();
+    academyBuildRoadmapTabbedShellFromCurrentDom();
 
     document.getElementById('academy-home-enter-chat')?.addEventListener('click', () => {
         document.getElementById('nav-chat')?.click();
@@ -9157,7 +9157,227 @@ function hideAcademyViewsForFeed() {
         window.setTimeout(syncAcademyTopNavFullName, 120);
     }
 }
+const ACADEMY_TAB_ICON_PATHS = {
+    roadmap: '/assets/academy/icons/academy-icon-roadmap.png',
+    missions: '/assets/academy/icons/academy-icon-missions.png',
+    messages: '/assets/academy/icons/academy-icon-messages.png',
+    voice: '/assets/academy/icons/academy-icon-live-voice-lounge.png'
+};
 
+function academyBuildHeaderIconHtml(iconKey = 'roadmap', extraClass = '') {
+    const src = ACADEMY_TAB_ICON_PATHS[iconKey] || ACADEMY_TAB_ICON_PATHS.roadmap;
+    const cleanClass = String(extraClass || '').trim();
+
+    return `<img src="${src}" alt="" class="academy-ui-icon academy-ui-icon-header ${cleanClass}">`;
+}
+
+function academySetRoadmapHeader() {
+    const chatHeaderIcon = document.getElementById('chat-header-icon');
+    const chatHeaderTitle = document.getElementById('chat-header-title');
+    const chatHeaderTopic = document.getElementById('chat-header-topic');
+
+    if (chatHeaderIcon) {
+        chatHeaderIcon.style.removeProperty('display');
+        chatHeaderIcon.innerHTML = academyBuildHeaderIconHtml('roadmap');
+    }
+
+    if (chatHeaderTitle) {
+        chatHeaderTitle.innerText = 'Roadmap';
+    }
+
+    if (chatHeaderTopic) {
+        chatHeaderTopic.style.removeProperty('display');
+        chatHeaderTopic.innerText = 'Your 28-day foundation, missions, and progress path.';
+    }
+}
+
+function academyGetRoadmapInnerTabLabel(tab = 'overview') {
+    const clean = String(tab || '').trim().toLowerCase();
+
+    if (clean === 'today') return 'Today’s Work';
+    if (clean === 'sprint') return 'Sprint Plan';
+    if (clean === 'progress') return 'Progress';
+    if (clean === 'coach') return 'AI Coach';
+
+    return 'Overview';
+}
+
+function academySetRoadmapInnerTab(tab = 'overview') {
+    const cleanTab = ['overview', 'today', 'sprint', 'progress', 'coach'].includes(String(tab || '').trim().toLowerCase())
+        ? String(tab || '').trim().toLowerCase()
+        : 'overview';
+
+    const shell = document.querySelector('[data-academy-roadmap-tabs-shell]');
+    if (!shell) return;
+
+    shell.querySelectorAll('[data-academy-roadmap-inner-tab]').forEach((button) => {
+        const isActive = button.getAttribute('data-academy-roadmap-inner-tab') === cleanTab;
+        button.classList.toggle('is-active', isActive);
+        button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
+
+    shell.querySelectorAll('[data-academy-roadmap-inner-panel]').forEach((panel) => {
+        const isActive = panel.getAttribute('data-academy-roadmap-inner-panel') === cleanTab;
+        panel.classList.toggle('is-active', isActive);
+        panel.classList.toggle('hidden-step', !isActive);
+        panel.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+    });
+
+    try {
+        sessionStorage.setItem('yh_academy_roadmap_inner_tab_v1', cleanTab);
+    } catch (_) {}
+}
+
+function academyGetSavedRoadmapInnerTab() {
+    try {
+        const saved = sessionStorage.getItem('yh_academy_roadmap_inner_tab_v1') || '';
+        if (['overview', 'today', 'sprint', 'progress', 'coach'].includes(saved)) return saved;
+    } catch (_) {}
+
+    return 'overview';
+}
+
+function academyBuildRoadmapTabbedShellFromCurrentDom() {
+    const chatWelcomeBox = document.getElementById('chat-welcome-box');
+    const dynamicChatContainer = document.getElementById('dynamic-chat-history');
+
+    if (!chatWelcomeBox || !dynamicChatContainer) return;
+    if (document.querySelector('[data-academy-roadmap-tabs-shell]')) return;
+
+    const currentHeroHtml = String(chatWelcomeBox.innerHTML || '').trim();
+    const currentRoadmapHtml = String(dynamicChatContainer.innerHTML || '').trim();
+
+    if (!currentHeroHtml && !currentRoadmapHtml) return;
+
+    chatWelcomeBox.style.display = 'block';
+    chatWelcomeBox.innerHTML = `
+        <section class="academy-roadmap-tabs-shell" data-academy-roadmap-tabs-shell>
+            <div class="academy-roadmap-tabs-head">
+                <button type="button" class="academy-roadmap-inner-tab is-active" data-academy-roadmap-inner-tab="overview" aria-selected="true">Overview</button>
+                <button type="button" class="academy-roadmap-inner-tab" data-academy-roadmap-inner-tab="today" aria-selected="false">Today’s Work</button>
+                <button type="button" class="academy-roadmap-inner-tab" data-academy-roadmap-inner-tab="sprint" aria-selected="false">Sprint Plan</button>
+                <button type="button" class="academy-roadmap-inner-tab" data-academy-roadmap-inner-tab="progress" aria-selected="false">Progress</button>
+                <button type="button" class="academy-roadmap-inner-tab" data-academy-roadmap-inner-tab="coach" aria-selected="false">AI Coach</button>
+            </div>
+
+            <div class="academy-roadmap-tabs-body">
+                <section class="academy-roadmap-inner-panel is-active" data-academy-roadmap-inner-panel="overview" aria-hidden="false">
+                    ${currentHeroHtml || `
+                        <section class="academy-home-hero">
+                            <div class="academy-home-hero-copy">
+                                <div class="academy-home-eyebrow">Roadmap</div>
+                                <h2 class="academy-home-title">Welcome back, ${academyFeedEscapeHtml(myName || 'Hustler')}</h2>
+                                <p class="academy-home-copy">Start with the next simple move. Use the Roadmap to see your path, then execute from Today’s Work.</p>
+                            </div>
+                        </section>
+                    `}
+                </section>
+
+                <section class="academy-roadmap-inner-panel hidden-step" data-academy-roadmap-inner-panel="today" aria-hidden="true">
+                    <div class="academy-roadmap-tab-panel-card">
+                        <div class="academy-roadmap-tab-kicker">Today’s Work</div>
+                        <h3>Focus on the next executable move.</h3>
+                        <p>Use this section for the mission, task instructions, proof focus, and stuck/skip/complete actions.</p>
+                    </div>
+                    <div class="academy-roadmap-tab-slot" data-roadmap-slot="today"></div>
+                </section>
+
+                <section class="academy-roadmap-inner-panel hidden-step" data-academy-roadmap-inner-panel="sprint" aria-hidden="true">
+                    <div class="academy-roadmap-tab-panel-card">
+                        <div class="academy-roadmap-tab-kicker">Sprint Plan</div>
+                        <h3>See the bigger path without crowding your daily view.</h3>
+                        <p>This keeps the 28-day foundation, Full-Grind unlock, weekly target, and planner intelligence away from the first screen.</p>
+                    </div>
+                    <div class="academy-roadmap-tab-slot" data-roadmap-slot="sprint"></div>
+                </section>
+
+                <section class="academy-roadmap-inner-panel hidden-step" data-academy-roadmap-inner-panel="progress" aria-hidden="true">
+                    <div class="academy-roadmap-tab-panel-card">
+                        <div class="academy-roadmap-tab-kicker">Progress</div>
+                        <h3>Track readiness, streak, completed work, and weekly outcome.</h3>
+                        <p>Your progress should feel clear, not overwhelming.</p>
+                    </div>
+                    <div class="academy-roadmap-tab-slot" data-roadmap-slot="progress"></div>
+                </section>
+
+                <section class="academy-roadmap-inner-panel hidden-step" data-academy-roadmap-inner-panel="coach" aria-hidden="true">
+                    <div class="academy-roadmap-tab-panel-card">
+                        <div class="academy-roadmap-tab-kicker">AI Coach</div>
+                        <h3>Need help simplifying the next move?</h3>
+                        <p>Open the Academy AI Coach for today’s focus, mission simplification, discipline, or Learn From guidance.</p>
+                        <div class="academy-home-actions academy-roadmap-coach-actions">
+                            <button id="academy-roadmap-inner-open-coach" type="button" class="btn-primary academy-home-action-btn">Ask AI Coach</button>
+                            <button id="academy-roadmap-inner-open-checkin" type="button" class="btn-secondary academy-home-action-btn">Daily Check-In</button>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </section>
+    `;
+
+    dynamicChatContainer.innerHTML = currentRoadmapHtml;
+
+    const movePanelsToSlots = () => {
+        const panels = Array.from(dynamicChatContainer.querySelectorAll('.academy-home-panel'));
+        if (!panels.length) return;
+
+        const todaySlot = chatWelcomeBox.querySelector('[data-roadmap-slot="today"]');
+        const sprintSlot = chatWelcomeBox.querySelector('[data-roadmap-slot="sprint"]');
+        const progressSlot = chatWelcomeBox.querySelector('[data-roadmap-slot="progress"]');
+
+        panels.forEach((panel) => {
+            const label = String(panel.querySelector('.academy-home-panel-label')?.textContent || '').trim().toLowerCase();
+
+            if (
+                label.includes('mission') ||
+                label.includes('today') ||
+                panel.querySelector('[data-academy-action]')
+            ) {
+                todaySlot?.appendChild(panel);
+                return;
+            }
+
+            if (
+                label.includes('sprint') ||
+                label.includes('weekly') ||
+                label.includes('focus') ||
+                label.includes('planner') ||
+                label.includes('behavior') ||
+                label.includes('intelligence')
+            ) {
+                sprintSlot?.appendChild(panel);
+                return;
+            }
+
+            progressSlot?.appendChild(panel);
+        });
+
+        if (!dynamicChatContainer.querySelector('.academy-home-panel')) {
+            dynamicChatContainer.innerHTML = '';
+        }
+    };
+
+    movePanelsToSlots();
+
+    chatWelcomeBox.querySelectorAll('[data-academy-roadmap-inner-tab]').forEach((button) => {
+        button.addEventListener('click', () => {
+            academySetRoadmapInnerTab(button.getAttribute('data-academy-roadmap-inner-tab') || 'overview');
+        });
+    });
+
+    chatWelcomeBox.querySelector('#academy-roadmap-inner-open-coach')?.addEventListener('click', async (event) => {
+        const button = event.currentTarget;
+        await runDashboardButtonAction(button, 'Opening AI Coach.', async () => {
+            await openAcademyCoachView(true);
+        });
+    });
+
+    chatWelcomeBox.querySelector('#academy-roadmap-inner-open-checkin')?.addEventListener('click', () => {
+        academyOpenCheckin();
+    });
+
+    academySetRoadmapInnerTab(academyGetSavedRoadmapInnerTab());
+}
 function showAcademyRoadmapLoadingShell() {
     closeRoadmapIntake();
     academyResetCoachMode();
@@ -9178,8 +9398,8 @@ function showAcademyRoadmapLoadingShell() {
         academyChat.classList.remove('fade-in');
     }
 
-    if (chatHeaderIcon) chatHeaderIcon.innerHTML = '🧠';
-    if (chatHeaderTitle) chatHeaderTitle.innerText = 'Academy Home';
+    academySetRoadmapHeader();
+
     if (chatHeaderTopic) chatHeaderTopic.innerText = 'Loading your roadmap, missions, and access state.';
     if (chatWelcomeBox) chatWelcomeBox.style.display = 'none';
     if (chatPinnedMessage) chatPinnedMessage.style.display = 'none';
@@ -9253,16 +9473,16 @@ function openAcademyFeedView(forceReload = false) {
 
     if (chatHeaderIcon) {
         chatHeaderIcon.style.removeProperty('display');
-        chatHeaderIcon.innerHTML = '🧠';
+        chatHeaderIcon.innerHTML = '<img src="/assets/academy/icons/academy-icon-community-feed-news.png" alt="" class="academy-ui-icon academy-ui-icon-header">';
     }
 
     if (chatHeaderTitle) {
-        chatHeaderTitle.innerText = 'Academy Home';
+        chatHeaderTitle.innerText = 'Community Feed';
     }
 
     if (chatHeaderTopic) {
         chatHeaderTopic.style.removeProperty('display');
-        chatHeaderTopic.innerText = 'Roadmap, missions, and AI feedback loop';
+        chatHeaderTopic.innerText = 'Updates, posts, members, and Academy discussion.';
     }
 
     if (chatWelcomeBox) {
