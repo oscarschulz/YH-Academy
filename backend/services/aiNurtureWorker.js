@@ -5,7 +5,7 @@ let workerTimer = null;
 let workerRunning = false;
 
 function isEnabled() {
-    return String(process.env.AI_NURTURE_WORKER_ENABLED || 'true').trim().toLowerCase() !== 'false';
+    return String(process.env.AI_NURTURE_WORKER_ENABLED || 'false').trim().toLowerCase() === 'true';
 }
 
 function intervalMs() {

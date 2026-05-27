@@ -1180,7 +1180,7 @@ function buildLandingPayloadFromEvents(events = []) {
     };
 }
 
-async function buildPublicLandingSnapshot(limit = 24) {
+async function buildPublicLandingSnapshotFromFirebase(limit = 24) {
     const safeLimit = Math.max(6, Math.min(toNumber(limit, 24), 50));
 
     const snap = await publicLandingEventsCol
@@ -1349,6 +1349,53 @@ async function buildPublicLandingSnapshot(limit = 24) {
         stats,
         updatedAt: new Date().toISOString()
     };
+}
+
+
+function isFirebaseQuotaError(error) {
+    const text = [
+        error && error.code,
+        error && error.message,
+        error && error.details
+    ].map((value) => String(value || '').toLowerCase()).join(' ');
+
+    return text.includes('resource_exhausted') ||
+        text.includes('quota exceeded') ||
+        text.includes('code 8') ||
+        text.includes('8 resource');
+}
+
+function buildPublicLandingFallbackSnapshot(reason = 'firebase_quota_exhausted') {
+    return {
+        feed: getDefaultFeed(),
+        liveEvents: [],
+        academyEvents: [],
+        points: [],
+        arcs: [],
+        focusPoint: null,
+        stats: {
+            members: 0,
+            reach: 0,
+            impressions: 0
+        },
+        source: 'fallback',
+        reason,
+        warning: 'Public landing live feed is temporarily using a safe fallback because Firebase quota is exhausted.',
+        updatedAt: new Date().toISOString()
+    };
+}
+
+async function buildPublicLandingSnapshot(limit = 24) {
+    try {
+        return await buildPublicLandingSnapshotFromFirebase(limit);
+    } catch (error) {
+        if (isFirebaseQuotaError(error)) {
+            console.warn('[PUBLIC LANDING] Firebase quota exhausted. Returning fallback snapshot.');
+            return buildPublicLandingFallbackSnapshot('firebase_quota_exhausted');
+        }
+
+        throw error;
+    }
 }
 
 module.exports = {

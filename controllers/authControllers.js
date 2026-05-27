@@ -3,6 +3,7 @@ const nodemailer = require('nodemailer');
 const jwt = require('jsonwebtoken');
 const { firestore } = require('../config/firebaseAdmin');
 const publicLandingEventsRepo = require('../backend/repositories/publicLandingEventsRepo');
+const yhuSupabaseMirrorRepo = require('../backend/repositories/yhuSupabaseMirrorRepo');
 const geocodingService = require('../backend/services/geocodingService');
 
 const USERS_COLLECTION = 'users';
@@ -1206,15 +1207,49 @@ exports.resendOTP = async (req, res) => {
     }
 };
 
+
 exports.loginUser = async (req, res) => {
     try {
         const identifier = String(req.body?.identifier || '').trim();
         const password = String(req.body?.password || '');
 
-        const user = await findUserByIdentifier(identifier);
+        let user = null;
+        let usedSupabaseFallback = false;
+
+        try {
+            user = await findUserByIdentifier(identifier);
+        } catch (lookupError) {
+            if (!yhuSupabaseMirrorRepo.isFirebaseQuotaError(lookupError)) {
+                throw lookupError;
+            }
+
+            console.warn('Firebase login lookup quota exhausted. Trying YHU Supabase fallback.');
+
+            const supabaseResult = await yhuSupabaseMirrorRepo.findUserByIdentifier(identifier);
+
+            if (supabaseResult?.ok && supabaseResult.user) {
+                user = supabaseResult.user;
+                usedSupabaseFallback = true;
+            } else {
+                return res.status(503).json({
+                    success: false,
+                    retryable: true,
+                    code: 'firebase_quota_exhausted',
+                    message: 'Login database is temporarily busy because Firebase quota is exhausted. Please try again after quota resets.'
+                });
+            }
+        }
 
         if (!user) {
-            const deletedUser = await findDeletedUserByIdentifier(identifier);
+            let deletedUser = null;
+
+            try {
+                deletedUser = await findDeletedUserByIdentifier(identifier);
+            } catch (deletedLookupError) {
+                if (!yhuSupabaseMirrorRepo.isFirebaseQuotaError(deletedLookupError)) {
+                    throw deletedLookupError;
+                }
+            }
 
             if (deletedUser) {
                 return res.status(410).json(deletedAccountResponsePayload());
@@ -1230,6 +1265,15 @@ exports.loginUser = async (req, res) => {
             return res.status(410).json(deletedAccountResponsePayload());
         }
 
+        if (usedSupabaseFallback && !user.password) {
+            return res.status(503).json({
+                success: false,
+                retryable: true,
+                code: 'supabase_auth_record_incomplete',
+                message: 'Your account exists in the Supabase mirror, but the password hash is not available there yet. Please try again after the Firebase quota resets or after the full user import is completed.'
+            });
+        }
+
         const isMatch = await bcrypt.compare(password, user.password || '');
         if (!isMatch) {
             return res.status(400).json({
@@ -1239,6 +1283,16 @@ exports.loginUser = async (req, res) => {
         }
 
         if (user.isVerified !== true) {
+            if (usedSupabaseFallback) {
+                return res.status(503).json({
+                    success: false,
+                    retryable: true,
+                    verificationRequired: true,
+                    code: 'firebase_quota_exhausted',
+                    message: 'Your account needs verification, but Firebase quota is exhausted so a new OTP cannot be issued right now.'
+                });
+            }
+
             const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
 
             await usersCollection().doc(user.id).update({
@@ -1267,18 +1321,30 @@ exports.loginUser = async (req, res) => {
 
         return res.json({
             success: true,
+            source: usedSupabaseFallback ? 'supabase-fallback' : 'firebase',
             message: 'Login successful!',
             token,
             user: publicUser(user)
         });
     } catch (error) {
         console.error('Login Error:', error);
+
+        if (yhuSupabaseMirrorRepo.isFirebaseQuotaError(error)) {
+            return res.status(503).json({
+                success: false,
+                retryable: true,
+                code: 'firebase_quota_exhausted',
+                message: 'Login database is temporarily busy because Firebase quota is exhausted. Please try again after quota resets.'
+            });
+        }
+
         return res.status(500).json({
             success: false,
             message: 'Server error during login.'
         });
     }
 };
+
 exports.logoutUser = async (req, res) => {
     clearAuthCookie(res);
 

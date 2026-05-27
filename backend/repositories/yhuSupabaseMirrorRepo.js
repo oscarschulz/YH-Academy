@@ -393,6 +393,113 @@ async function getFederationRequestByDocumentId(requestId) {
 }
 
 
+
+function mapSupabaseUserRowToAuthUser(row = {}) {
+  const raw = row.raw_data && typeof row.raw_data === 'object' ? row.raw_data : {};
+
+  const id = cleanText(row.firebase_document_id || raw.id || raw.uid || raw.firebaseUid);
+  const email = cleanText(row.email || raw.email || raw.emailLower).toLowerCase();
+  const username = cleanText(row.username || raw.username || raw.handle).replace(/^@+/, '').toLowerCase();
+  const fullName = firstNonEmpty(row.full_name, row.display_name, raw.fullName, raw.displayName, raw.name, email, id) || '';
+  const password = firstNonEmpty(raw.password, raw.passwordHash, raw.password_hash, raw._passwordHash, raw._pwHash, row.password_hash) || '';
+
+  const verified =
+    raw.isVerified === true ||
+    raw.emailVerified === true ||
+    raw.verified === true ||
+    cleanText(raw.accountStatus || row.account_status).toLowerCase() === 'active';
+
+  return {
+    ...raw,
+    id,
+    uid: id,
+    firebaseUid: id,
+    email,
+    username,
+    fullName,
+    displayName: firstNonEmpty(row.display_name, raw.displayName, raw.name, fullName) || fullName,
+    name: firstNonEmpty(raw.name, raw.displayName, fullName) || fullName,
+    contact: firstNonEmpty(row.phone, raw.contact, raw.phone, raw.phoneNumber) || '',
+    city: firstNonEmpty(row.city, raw.city) || '',
+    country: firstNonEmpty(row.country, raw.country, raw.locationCountry) || '',
+    countryCode: firstNonEmpty(raw.countryCode, raw.country_code) || '',
+    avatar: firstNonEmpty(raw.avatar, raw.profilePhoto, raw.photoURL) || '',
+    profilePhoto: firstNonEmpty(raw.profilePhoto, raw.avatar, raw.photoURL) || '',
+    photoURL: firstNonEmpty(raw.photoURL, raw.profilePhoto, raw.avatar) || '',
+    password,
+    isVerified: verified,
+    accountStatus: firstNonEmpty(row.account_status, raw.accountStatus, 'active') || 'active',
+    authSource: 'supabase-yhu-users'
+  };
+}
+
+async function findUserByIdentifier(identifier = '') {
+  const cleanIdentifier = cleanText(identifier).toLowerCase();
+
+  if (!cleanIdentifier) {
+    return {
+      ok: false,
+      skipped: true,
+      reason: 'missing_identifier',
+      user: null
+    };
+  }
+
+  const client = getSupabaseClient();
+
+  if (!client) {
+    return {
+      ok: false,
+      skipped: true,
+      reason: 'missing_supabase_env',
+      user: null
+    };
+  }
+
+  const username = cleanIdentifier.replace(/^@+/, '');
+
+  const queries = cleanIdentifier.includes('@')
+    ? [
+        ['email', cleanIdentifier],
+        ['username', username]
+      ]
+    : [
+        ['username', username],
+        ['email', cleanIdentifier]
+      ];
+
+  for (const [column, value] of queries) {
+    if (!value) continue;
+
+    const { data, error } = await client
+      .from('yhu_users')
+      .select('*')
+      .eq(column, value)
+      .order('synced_at', { ascending: false })
+      .limit(1);
+
+    if (error) {
+      console.error('[YHU Supabase Mirror] Auth lookup failed:', error.message);
+      throw error;
+    }
+
+    if (data && data[0]) {
+      return {
+        ok: true,
+        source: 'supabase',
+        user: mapSupabaseUserRowToAuthUser(data[0])
+      };
+    }
+  }
+
+  return {
+    ok: true,
+    source: 'supabase',
+    user: null
+  };
+}
+
+
 module.exports = {
   isFirebaseQuotaError,
   mirrorUser,
@@ -401,5 +508,7 @@ module.exports = {
   buildFederationRequestRow,
   mapSupabaseFederationRequestRow,
   listFederationRequestsByRequester,
-  getFederationRequestByDocumentId
+  getFederationRequestByDocumentId,
+  mapSupabaseUserRowToAuthUser,
+  findUserByIdentifier
 };
