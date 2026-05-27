@@ -13,6 +13,7 @@ const publicLandingEventsRepo = require('./backend/repositories/publicLandingEve
 const realtimeFirestoreRepo = require('./backend/repositories/realtimeFirestoreRepo');
 const paymentLedgerRepo = require('./backend/repositories/paymentLedgerRepo');
 const academyFirestoreRepo = require('./backend/repositories/academyFirestoreRepo');
+const yhuSupabaseMirrorRepo = require('./backend/repositories/yhuSupabaseMirrorRepo');
 const app = express();
 app.set('trust proxy', 1);
 
@@ -1247,6 +1248,19 @@ function requireApiUser(req, res, next) {
     }
 
     req.user = user;
+
+    yhuSupabaseMirrorRepo.mirrorUser(user.id, {
+        ...user,
+        accountStatus: 'active',
+        sourceFeature: 'api-auth-guard',
+        lastSeenAt: new Date().toISOString()
+    }, {
+        source: 'requireApiUser',
+        path: req.originalUrl || req.url || ''
+    }).catch((mirrorError) => {
+        console.error('YHU Supabase user mirror error:', mirrorError?.message || mirrorError);
+    });
+
     next();
 }
 function getAcademyVoiceSignalingRoom(roomId = '') {
@@ -6267,10 +6281,41 @@ app.post('/api/federation/connect/requests', requireApiUser, async (req, res) =>
             updatedAt: now
         };
 
-        const ref = await firestore.collection('federationConnectionRequests').add(requestPayload);
+        const ref = firestore.collection('federationConnectionRequests').doc();
+        let supabaseWriteOk = false;
+        let firebaseWriteOk = false;
+
+        try {
+            await yhuSupabaseMirrorRepo.mirrorFederationRequest(ref.id, requestPayload, {
+                source: 'api/federation/connect/requests',
+                requesterUid
+            });
+            supabaseWriteOk = true;
+        } catch (mirrorError) {
+            console.error('YHU Supabase federation request mirror error:', mirrorError?.message || mirrorError);
+        }
+
+        try {
+            await ref.set(requestPayload);
+            firebaseWriteOk = true;
+        } catch (firebaseWriteError) {
+            console.error('Firebase federation request backup write error:', firebaseWriteError?.message || firebaseWriteError);
+
+            if (!yhuSupabaseMirrorRepo.isFirebaseQuotaError(firebaseWriteError)) {
+                throw firebaseWriteError;
+            }
+        }
+
+        if (!supabaseWriteOk && !firebaseWriteOk) {
+            throw new Error('Federation request could not be saved to Supabase or Firebase.');
+        }
 
         return res.status(201).json({
             success: true,
+            storage: {
+                supabase: supabaseWriteOk,
+                firebase: firebaseWriteOk
+            },
             request: {
                 id: ref.id,
                 ...requestPayload,
