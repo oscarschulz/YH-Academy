@@ -6444,7 +6444,7 @@ function getAcademyCoachModeMeta(payload = {}) {
                 'Keep the advice tied to the existing roadmap, missions, weekly checkpoint, and current execution constraints.'
             ].join(' '),
             replyStructureInstruction: 'When it materially improves clarity, format the answer in 4 to 5 short labeled lines using this style: Actors: ... Incentives: ... Narrative: ... Next move: ... You may also include Main direction: ... before those labels when useful.',
-            fallbackPrefix: 'I’m using the local Political Analyst Coach fallback right now, so here is the clearest next move based on your saved roadmap.',
+            fallbackPrefix: 'Let’s keep it clear. Here’s the next useful move.',
             lowEnergyLine: 'Your energy looks low, so keep the next action light: do one short issue map, source comparison, or actor breakdown in about 15 to 20 minutes.',
             standardLine: 'Approach the next step like an analyst: choose one concrete issue, break it into actors, incentives, timeline, and competing narratives, then finish that small output today.',
             weeklyLinePrefix: 'Make sure the work sharpens this political outcome'
@@ -6463,7 +6463,7 @@ function getAcademyCoachModeMeta(payload = {}) {
                 'Keep the advice tied to the existing roadmap, missions, weekly checkpoint, and current execution constraints.'
             ].join(' '),
             replyStructureInstruction: 'When it materially improves clarity, format the answer in 4 to 5 short labeled lines using this style: Claim: ... Assumption: ... Objection: ... Reflection: ... Next move: ... You may also include Main direction: ... before those labels when useful.',
-            fallbackPrefix: 'I’m using the local Reasoning and Reflection Mentor fallback right now, so here is the clearest next move based on your saved roadmap.',
+            fallbackPrefix: 'Let’s keep this simple and clear. Here’s the next useful move.',
             lowEnergyLine: 'Your energy looks low, so keep the next action light: do one short concept definition, argument sketch, or reflection in about 15 to 20 minutes.',
             standardLine: 'Approach the next step like a reasoning exercise: define the core question, isolate one claim, test its assumptions, and finish one clear written output today.',
             weeklyLinePrefix: 'Make sure the work sharpens this perspective outcome'
@@ -6473,12 +6473,12 @@ function getAcademyCoachModeMeta(payload = {}) {
     return {
         key: 'general',
         title: 'Academy AI Coach',
-        systemGuidance: 'Stay practical, direct, tactical, and roadmap-grounded.',
-        replyStructureInstruction: 'Only use a labeled mini-structure when it genuinely improves clarity. Otherwise reply normally.',
-        fallbackPrefix: 'I’m using the local Academy Coach fallback right now, so here is the clearest next move based on your saved roadmap.',
-        lowEnergyLine: 'Your energy looks low, so keep the next action light and finish something that takes about 15 to 20 minutes.',
-        standardLine: 'Pick one concrete task you can fully finish today instead of trying to push the whole roadmap at once.',
-        weeklyLinePrefix: 'Make sure the work moves this weekly outcome forward'
+        systemGuidance: 'Speak like a natural, casual Academy coach. Be warm, short, and human first. Only become tactical when the user asks for help, focus, missions, roadmap, discipline, or next steps.',
+        replyStructureInstruction: 'For casual messages, reply in one short sentence. Do not use labels, bullet points, or roadmap structure unless the user clearly asks for planning or execution help.',
+        fallbackPrefix: 'I’m here. Let’s keep it simple.',
+        lowEnergyLine: 'If your energy is low, let’s keep it light and do one small thing first.',
+        standardLine: 'Choose one small task you can actually finish today.',
+        weeklyLinePrefix: 'Keep it connected to this week’s outcome'
     };
 }
 function detectRoadmapEmotionalState(message = '') {
@@ -7302,6 +7302,139 @@ function buildAcademyOnlyRedirectReply() {
 function normalizeAcademyCoachCasualText(message = '') {
     return sanitize(message)
         .toLowerCase()
+        .replace(/[!?.,;:()]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function buildAcademyCoachCasualDefaultReply(message = '') {
+    const text = normalizeAcademyCoachCasualText(message);
+
+    if (!text) return '';
+
+    const greetingTexts = new Set([
+        'hi',
+        'hii',
+        'hello',
+        'hey',
+        'yo',
+        'sup',
+        'wassup',
+        'what is up',
+        'whats up',
+        'good morning',
+        'good afternoon',
+        'good evening'
+    ]);
+
+    if (greetingTexts.has(text)) {
+        return 'Hey, how can I help you today?';
+    }
+
+    const hbuIntent =
+        /\b(hbu|wbu)\b/.test(text) ||
+        text.includes('how about you') ||
+        text.includes('what about you');
+
+    const positiveCheckIn =
+        text === 'good' ||
+        text === 'im good' ||
+        text === 'i am good' ||
+        text === 'i m good' ||
+        text === 'all good' ||
+        text === 'doing good' ||
+        text === 'doing well' ||
+        text === 'fine' ||
+        text === 'im fine' ||
+        text === 'i am fine' ||
+        text === 'okay' ||
+        text === 'ok';
+
+    if (hbuIntent && positiveCheckIn) {
+        return 'I’m good too. What do you want to work on today?';
+    }
+
+    if (hbuIntent) {
+        return 'I’m good too. I’m here with you. What are we working on today?';
+    }
+
+    const checkInTexts = new Set([
+        'how are you',
+        'how are you doing',
+        'how far',
+        'how is it going',
+        'hows it going',
+        'you good',
+        'are you good'
+    ]);
+
+    if (checkInTexts.has(text)) {
+        return 'I’m good. Ready when you are. What do you want to work on today?';
+    }
+
+    if (positiveCheckIn) {
+        return 'Good. What do you want to do next?';
+    }
+
+    const laughTexts = new Set([
+        'lol',
+        'haha',
+        'hahaha',
+        'lmao',
+        '😂'
+    ]);
+
+    if (laughTexts.has(text)) {
+        return 'Haha, I’m here. What are we doing today?';
+    }
+
+    const thanksTexts = new Set([
+        'thanks',
+        'thank you',
+        'thank you so much',
+        'appreciate it',
+        'appreciate you',
+        'ty'
+    ]);
+
+    if (thanksTexts.has(text)) {
+        return 'You’re welcome. What do you want to work on next?';
+    }
+
+    const shortAcknowledgements = new Set([
+        'yes',
+        'yeah',
+        'yep',
+        'no',
+        'nah',
+        'alright',
+        'cool',
+        'nice',
+        'bet',
+        'sure'
+    ]);
+
+    if (shortAcknowledgements.has(text)) {
+        return 'Got you. What should we focus on now?';
+    }
+
+    const identityTexts = new Set([
+        'who are you',
+        'what are you',
+        'what can you do',
+        'what do you do'
+    ]);
+
+    if (identityTexts.has(text)) {
+        return 'I’m your Academy AI Coach. I can help with your roadmap, missions, focus, discipline, check-ins, and today’s next move.';
+    }
+
+    return '';
+}
+
+function normalizeAcademyCoachCasualText(message = '') {
+    return sanitize(message)
+        .toLowerCase()
         .replace(/[!?.,]+/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
@@ -7425,6 +7558,54 @@ exports.chatWithAcademyCoach = async (req, res) => {
                 success: false,
                 message: 'Message is required.'
             });
+        }
+
+        if (!learnFromKey) {
+            const casualDefaultReply = buildAcademyCoachCasualDefaultReply(message);
+
+            if (casualDefaultReply) {
+                await academyFirestoreRepo.createCoachMessage(uid, {
+                    conversationId,
+                    role: 'user',
+                    text: message,
+                    contextHint,
+                    responseStyleVersion: 'academy-default-casual-v2'
+                });
+
+                await academyFirestoreRepo.createCoachMessage(uid, {
+                    conversationId,
+                    role: 'assistant',
+                    text: casualDefaultReply,
+                    contextHint,
+                    provider: 'academy-casual-default',
+                    model: 'rule-based-casual-default-v2',
+                    replyFormat: 'casual_default',
+                    coachModeKey: 'general',
+                    responseStyleVersion: 'academy-default-casual-v2',
+                    grounding: {
+                        assistantScope: 'academy_default_casual',
+                        usedLearnFrom: false,
+                        casualIntent: true
+                    }
+                });
+
+                return res.json({
+                    success: true,
+                    reply: casualDefaultReply,
+                    conversationId,
+                    provider: 'academy-casual-default',
+                    model: 'rule-based-casual-default-v2',
+                    replyFormat: 'casual_default',
+                    coachModeKey: 'general',
+                    responseStyleVersion: 'academy-default-casual-v2',
+                    grounding: {
+                        assistantScope: 'academy_default_casual',
+                        usedLearnFrom: false,
+                        casualIntent: true
+                    },
+                    fallback: true
+                });
+            }
         }
 
         if (isClearlyOutsideAcademyCoachScope(message)) {
