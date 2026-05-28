@@ -681,12 +681,23 @@
     const conversation = normalizeConversation(rawConversation);
     if (!conversation.id) return;
 
-    state.conversations = [
+    const previousActiveId = state.activeId;
+
+    state.conversations = dedupeBusinessConversationsForUi([
       conversation,
       ...state.conversations.filter((item) => item.id !== conversation.id)
-    ].sort((a, b) => getUpdatedTs(b) - getUpdatedTs(a));
+    ]);
 
-    if (!state.activeId) state.activeId = conversation.id;
+    if (previousActiveId && state.conversations.some((item) => item.id === previousActiveId)) {
+      state.activeId = previousActiveId;
+    } else if (state.conversations.some((item) => item.id === conversation.id)) {
+      state.activeId = conversation.id;
+    } else if (state.conversations.length) {
+      state.activeId = state.conversations[0].id;
+    } else {
+      state.activeId = '';
+    }
+
     writeCache();
     renderAll();
   }
@@ -910,11 +921,149 @@
     renderBlocks();
   }
 
+  function normalizeBusinessThreadNameForUi(value = '') {
+    const raw = String(value || '').trim();
+
+    if (!raw) return '';
+
+    const normalized = typeof raw.normalize === 'function'
+      ? raw.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      : raw;
+
+    return normalized
+      .toLowerCase()
+      .replace(/^plaza\s+business\s+chat\s*:/i, ' ')
+      .replace(/\s*\|\s*yh\b/g, ' ')
+      .replace(/\byoung\s+hustlers\s+universe\b/g, ' ')
+      .replace(/[^a-z0-9]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function getBusinessThreadNamePairForUi(conversation = {}) {
+    const labels = [];
+    const title = String(conversation.title || conversation.targetLabel || '').trim();
+
+    if (title.includes('↔')) {
+      title
+        .replace(/^Plaza\s+Business\s+Chat\s*:/i, '')
+        .split('↔')
+        .map(normalizeBusinessThreadNameForUi)
+        .filter(Boolean)
+        .forEach((item) => labels.push(item));
+    }
+
+    if (labels.length < 2 && Array.isArray(conversation.participants)) {
+      conversation.participants
+        .map(normalizeBusinessThreadNameForUi)
+        .filter(Boolean)
+        .forEach((item) => labels.push(item));
+    }
+
+    return Array.from(new Set(labels)).slice(0, 2);
+  }
+
+  function getBusinessThreadDedupeKeyForUi(conversation = {}) {
+    const labelPair = getBusinessThreadNamePairForUi(conversation).sort();
+
+    if (labelPair.length === 2) {
+      return 'business_pair_label_' + labelPair.join('__');
+    }
+
+    const participantIds = getConversationParticipantIdsForUi(conversation).sort();
+
+    if (participantIds.length >= 2) {
+      return 'business_pair_ids_' + participantIds.slice(0, 2).join('__');
+    }
+
+    if (conversation.businessThreadKey) {
+      return 'business_thread_key_' + String(conversation.businessThreadKey || '').trim();
+    }
+
+    return String(conversation.id || '').trim();
+  }
+
+  function mergeConversationMessagesForUi(conversations = []) {
+    const seen = new Set();
+    const messages = [];
+
+    conversations.forEach((conversation) => {
+      (Array.isArray(conversation.messages) ? conversation.messages : []).forEach((message) => {
+        const key = [
+          message.id || '',
+          message.sender || '',
+          message.text || '',
+          message.createdAt || ''
+        ].join('|');
+
+        if (seen.has(key)) return;
+
+        seen.add(key);
+        messages.push(message);
+      });
+    });
+
+    return messages.sort((left, right) => {
+      const leftTime = new Date(left.createdAt || 0).getTime();
+      const rightTime = new Date(right.createdAt || 0).getTime();
+
+      if (Number.isFinite(leftTime) && Number.isFinite(rightTime)) {
+        return leftTime - rightTime;
+      }
+
+      return 0;
+    });
+  }
+
+  function mergeBusinessThreadForUi(existing = {}, next = {}) {
+    const existingTime = getUpdatedTs(existing);
+    const nextTime = getUpdatedTs(next);
+    const preferred = nextTime >= existingTime ? next : existing;
+    const activeBlockConversation = [existing, next].find((conversation) => {
+      const businessBlock = conversation.businessBlock && typeof conversation.businessBlock === 'object'
+        ? conversation.businessBlock
+        : {};
+
+      return businessBlock.active === true;
+    });
+
+    const merged = {
+      ...preferred,
+      messages: mergeConversationMessagesForUi([existing, next])
+    };
+
+    if (activeBlockConversation) {
+      merged.businessBlock = activeBlockConversation.businessBlock;
+      merged.status = 'blocked';
+    }
+
+    return merged;
+  }
+
+  function dedupeBusinessConversationsForUi(conversations = []) {
+    const grouped = new Map();
+
+    conversations
+      .map(normalizeConversation)
+      .filter((conversation) => conversation.id)
+      .forEach((conversation) => {
+        const key = getBusinessThreadDedupeKeyForUi(conversation);
+        const existing = grouped.get(key);
+
+        grouped.set(
+          key,
+          existing ? mergeBusinessThreadForUi(existing, conversation) : conversation
+        );
+      });
+
+    return Array.from(grouped.values()).sort((left, right) => getUpdatedTs(right) - getUpdatedTs(left));
+  }
+
   async function refreshConversations(options = {}) {
     if (!options.force) {
       const cached = readCache();
       if (Array.isArray(cached.conversations) && cached.conversations.length) {
-        state.conversations = cached.conversations.map(normalizeConversation);
+        state.conversations = dedupeBusinessConversationsForUi(cached.conversations);
         renderAll();
       }
     }
@@ -926,14 +1075,18 @@
     try {
       const data = await apiFetch('/plaza/messages?limit=160');
       state.conversations = Array.isArray(data.conversations)
-        ? data.conversations.map(normalizeConversation)
+        ? dedupeBusinessConversationsForUi(data.conversations)
         : [];
 
       const targetId = new URLSearchParams(window.location.search).get('conversationId') || '';
+      const activeStillVisible = state.activeId && state.conversations.some((item) => item.id === state.activeId);
+
       if (targetId && state.conversations.some((item) => item.id === targetId)) {
         state.activeId = targetId;
-      } else if (!state.activeId && state.conversations.length) {
+      } else if (!activeStillVisible && state.conversations.length) {
         state.activeId = state.conversations[0].id;
+      } else if (!state.conversations.length) {
+        state.activeId = '';
       }
 
       writeCache();

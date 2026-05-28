@@ -4881,6 +4881,48 @@ function mapBusinessBlockForViewer(blockSnap = null, viewerId = '') {
     };
 }
 
+function normalizeBusinessPairLabel(value = '') {
+    const raw = sanitizeText(value);
+
+    if (!raw) return '';
+
+    const normalized = typeof raw.normalize === 'function'
+        ? raw.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        : raw;
+
+    return normalized
+        .toLowerCase()
+        .replace(/^plaza\s+business\s+chat\s*:/i, ' ')
+        .replace(/\s*\|\s*yh\b/g, ' ')
+        .replace(/\byoung\s+hustlers\s+universe\b/g, ' ')
+        .replace(/[^a-z0-9]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function getBusinessPairLabelsFromConversation(data = {}) {
+    const labels = [];
+    const title = sanitizeText(data.title || data.targetLabel || '');
+
+    if (title.includes('↔')) {
+        title
+            .replace(/^Plaza\s+Business\s+Chat\s*:/i, '')
+            .split('↔')
+            .map((item) => normalizeBusinessPairLabel(item))
+            .filter(Boolean)
+            .forEach((item) => labels.push(item));
+    }
+
+    if (labels.length < 2 && Array.isArray(data.participants)) {
+        data.participants
+            .map((item) => normalizeBusinessPairLabel(item))
+            .filter(Boolean)
+            .forEach((item) => labels.push(item));
+    }
+
+    return Array.from(new Set(labels)).slice(0, 2);
+}
+
 function getBusinessConversationPairKey(data = {}, fallbackId = '') {
     const participantIds = getConversationParticipantIds(data).sort();
     const scope = sanitizeText(data.scope || '').toLowerCase();
@@ -4893,11 +4935,21 @@ function getBusinessConversationPairKey(data = {}, fallbackId = '') {
         route.includes('business') ||
         id.startsWith('business_');
 
-    if (!isBusinessConversation || participantIds.length !== 2) {
+    if (!isBusinessConversation) {
         return sanitizeText(fallbackId);
     }
 
-    return 'business_pair_' + participantIds.join('__');
+    const labelPair = getBusinessPairLabelsFromConversation(data).sort();
+
+    if (labelPair.length === 2) {
+        return 'business_pair_label_' + labelPair.join('__');
+    }
+
+    if (participantIds.length >= 2) {
+        return 'business_pair_ids_' + participantIds.slice(0, 2).join('__');
+    }
+
+    return sanitizeText(fallbackId);
 }
 
 exports.getMessages = async (req, res) => {
