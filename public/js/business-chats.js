@@ -606,6 +606,37 @@
     }, 0);
   }
 
+  function getConversationParticipantIdsForUi(conversation = {}) {
+    return Array.isArray(conversation.participantIds)
+      ? conversation.participantIds.map((item) => String(item || '').trim()).filter(Boolean)
+      : [];
+  }
+
+  function getBlockedMemberIdSetForUi() {
+    const ids = new Set();
+
+    state.blocks.forEach((block) => {
+      const blockedId = String(
+        block.blockedUserId ||
+        block.otherUserId ||
+        block.targetUserId ||
+        block.userId ||
+        ''
+      ).trim();
+
+      if (blockedId) ids.add(blockedId);
+    });
+
+    return ids;
+  }
+
+  function conversationHasBlockedMemberFromList(conversation = {}) {
+    const participantIds = getConversationParticipantIdsForUi(conversation);
+    const blockedIds = getBlockedMemberIdSetForUi();
+
+    return participantIds.some((participantId) => blockedIds.has(participantId));
+  }
+
   function isBlocked(conversation = {}) {
     const status = String(conversation.status || '').trim().toLowerCase();
     const moderation = conversation.moderation && typeof conversation.moderation === 'object' ? conversation.moderation : {};
@@ -614,7 +645,8 @@
     return (
       status === 'blocked' ||
       moderation.blocked === true ||
-      Object.values(blockedBy).some(Boolean)
+      Object.values(blockedBy).some(Boolean) ||
+      conversationHasBlockedMemberFromList(conversation)
     );
   }
 
@@ -653,13 +685,13 @@
 
   function renderStats() {
     const active = state.conversations.filter((item) => !isLocked(item)).length;
-    const locked = state.conversations.length - active;
+    const blocked = state.blocks.length || state.conversations.filter((item) => isBlocked(item)).length;
     const unread = state.conversations.filter((item) => getUpdatedTs(item) > getLastSeenTs()).length;
 
     if ($('bcStatThreads')) $('bcStatThreads').textContent = String(state.conversations.length);
     if ($('bcStatActive')) $('bcStatActive').textContent = String(active);
     if ($('bcStatUnread')) $('bcStatUnread').textContent = String(unread);
-    if ($('bcStatBlocked')) $('bcStatBlocked').textContent = String(state.blocks.length || locked);
+    if ($('bcStatBlocked')) $('bcStatBlocked').textContent = String(blocked);
     if ($('bcConversationCount')) $('bcConversationCount').textContent = state.loading ? 'Loading...' : state.conversations.length + ' threads';
   }
 
@@ -719,7 +751,7 @@
 
     const closed = isClosed(conversation);
     const blocked = isBlocked(conversation);
-    const locked = closed || blocked;
+    const replyLocked = closed || blocked;
 
     if (title) title.textContent = conversation.title;
     if (meta) meta.textContent = getConversationMeta(conversation) || 'Plaza business thread';
@@ -739,7 +771,7 @@
     }
 
     if (input) {
-      input.disabled = locked;
+      input.disabled = replyLocked;
       input.placeholder = blocked
         ? 'This business chat is blocked.'
         : closed
@@ -747,16 +779,23 @@
           : 'Write your business reply...';
     }
 
-    if (send) send.disabled = locked;
+    if (send) send.disabled = replyLocked;
     if (report) report.disabled = false;
+
     if (close) {
-      close.disabled = locked;
+      close.disabled = closed || blocked;
       close.textContent = closed ? 'Closed' : 'Close';
+      close.title = blocked && !closed ? 'This member is already blocked.' : '';
     }
+
     if (block) {
-      block.disabled = locked;
+      block.disabled = blocked;
       block.textContent = blocked ? 'Blocked' : 'Block';
-      block.title = closed && !blocked ? 'This thread is closed, not blocked.' : '';
+      block.title = blocked
+        ? 'This member is blocked. Unblock them from the Blocked Members tab.'
+        : closed
+          ? 'This thread is closed, but you can still block this member.'
+          : '';
     }
   }
 
@@ -1075,6 +1114,9 @@
       return;
     }
 
+    const alreadyBlocked = isBlocked(conversation);
+    const alreadyClosed = isClosed(conversation);
+
     let body = {};
 
     if (cleanAction === 'report') {
@@ -1098,10 +1140,20 @@
         details: result.details
       };
     } else if (cleanAction === 'close') {
+      if (alreadyClosed) {
+        showToast('This business chat is already closed.', 'warning');
+        return;
+      }
+
+      if (alreadyBlocked) {
+        showToast('This member is already blocked. Unblock them first if you want to reopen normal actions.', 'warning');
+        return;
+      }
+
       const result = await openInlineDialog({
         kicker: 'Close Thread',
         title: 'Close this business chat?',
-        message: 'Replies will be disabled after closing this thread. You can still keep the conversation record.',
+        message: 'Replies will be disabled after closing this thread. This will not add the member to your Blocked Members list.',
         confirmText: 'Close Chat',
         tone: 'danger'
       });
@@ -1112,10 +1164,15 @@
         note: 'Closed from Business Chats page.'
       };
     } else if (cleanAction === 'block') {
+      if (alreadyBlocked) {
+        showToast('This member is already blocked.', 'warning');
+        return;
+      }
+
       const result = await openInlineDialog({
         kicker: 'Block Member',
         title: 'Block this member?',
-        message: 'This will block the member from future Business Chats with you and lock this thread.',
+        message: 'This will add the member to your Blocked Members list and disable future Business Chat replies with them.',
         confirmText: 'Block Member',
         tone: 'danger'
       });
@@ -1137,7 +1194,15 @@
       });
 
       if (data.conversation) upsertConversation(data.conversation);
+
+      try {
+        localStorage.removeItem(CACHE_KEY);
+      } catch (_) {}
+
       await loadBlocks({ silent: true });
+      await refreshConversations({ force: true, silent: true });
+
+      renderAll();
 
       if (cleanAction === 'report') showToast('Business chat reported for admin review.', 'success');
       if (cleanAction === 'close') showToast('Business chat closed.', 'success');
