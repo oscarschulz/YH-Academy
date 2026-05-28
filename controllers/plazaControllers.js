@@ -4840,6 +4840,66 @@ async function assertNoActiveBusinessUserBlockBetween(userA = '', userB = '') {
     throw error;
 }
 
+async function assertNoActiveBusinessUserBlockForConversation(data = {}, viewerId = '') {
+    const cleanViewerId = sanitizeText(viewerId);
+    const participantIds = getConversationParticipantIds(data)
+        .filter((participantId) => participantId && participantId !== cleanViewerId);
+
+    for (const participantId of participantIds) {
+        await assertNoActiveBusinessUserBlockBetween(cleanViewerId, participantId);
+    }
+}
+
+function mapBusinessBlockForViewer(blockSnap = null, viewerId = '') {
+    if (!blockSnap || !blockSnap.exists) {
+        return {
+            active: false,
+            blockerId: '',
+            blockedUserId: '',
+            blockedByMe: false,
+            blockedMe: false,
+            message: ''
+        };
+    }
+
+    const data = blockSnap.data() || {};
+    const cleanViewerId = sanitizeText(viewerId);
+    const blockerId = sanitizeText(data.blockerId || '');
+    const blockedUserId = sanitizeText(data.blockedUserId || '');
+
+    return {
+        active: true,
+        id: sanitizeText(blockSnap.id),
+        blockerId,
+        blockedUserId,
+        blockedByMe: Boolean(cleanViewerId && blockerId === cleanViewerId),
+        blockedMe: Boolean(cleanViewerId && blockedUserId === cleanViewerId),
+        blockerName: sanitizeText(data.blockerName || ''),
+        blockedUserName: sanitizeText(data.blockedUserName || ''),
+        note: sanitizeText(data.note || ''),
+        message: "Message can't be delivered because a Business Chat block exists between these members."
+    };
+}
+
+function getBusinessConversationPairKey(data = {}, fallbackId = '') {
+    const participantIds = getConversationParticipantIds(data).sort();
+    const scope = sanitizeText(data.scope || '').toLowerCase();
+    const route = sanitizeText(data.contextRoute || '').toLowerCase();
+    const id = sanitizeText(fallbackId).toLowerCase();
+
+    const isBusinessConversation =
+        scope === 'cross_division_business' ||
+        route.includes('cross-division') ||
+        route.includes('business') ||
+        id.startsWith('business_');
+
+    if (!isBusinessConversation || participantIds.length !== 2) {
+        return sanitizeText(fallbackId);
+    }
+
+    return 'business_pair_' + participantIds.join('__');
+}
+
 exports.getMessages = async (req, res) => {
     try {
         const viewer = getViewerFromRequest(req);
