@@ -31303,10 +31303,12 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
             if (!icon && name) {
                 icon = document.createElement('span');
                 icon.className = 'academy-messages-inbox-pin-icon-v2';
-                icon.textContent = '📌';
+                icon.innerHTML = '<img src="/assets/academy/icons/academy-icon-pin.png" alt="" class="academy-messages-pin-icon-img" aria-hidden="true">';
                 icon.setAttribute('aria-label', 'Pinned conversation');
                 icon.setAttribute('title', 'Pinned conversation');
                 name.insertAdjacentElement('afterend', icon);
+            } else if (icon) {
+                icon.innerHTML = '<img src="/assets/academy/icons/academy-icon-pin.png" alt="" class="academy-messages-pin-icon-img" aria-hidden="true">';
             }
         } else if (icon) {
             icon.remove();
@@ -31340,7 +31342,7 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
                 badge = document.createElement('span');
                 badge.id = 'academy-messages-thread-pinned-badge-v2';
                 badge.className = 'academy-messages-thread-pinned-badge-v2';
-                badge.textContent = '📌 Pinned';
+                badge.innerHTML = '<img src="/assets/academy/icons/academy-icon-pin.png" alt="" class="academy-messages-pin-icon-img" aria-hidden="true"><span>Pinned</span>';
                 badge.setAttribute('aria-label', 'Pinned conversation');
                 badge.setAttribute('title', 'Pinned conversation');
 

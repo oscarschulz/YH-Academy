@@ -23738,9 +23738,39 @@ body.academy-coach-opening .yh-tab-loader {
 
 .academy-messages-inbox-menu button[data-inbox-room-action="pin"],
 .academy-messages-thread-menu button[data-thread-room-action="pin"] {
-    color: #fde68a;
+    color: #ff4d4f;
+}
+.academy-messages-inbox-pin-icon-v2 {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    margin-left: 6px;
+    vertical-align: middle;
+    line-height: 1;
+    flex: 0 0 auto;
 }
 
+.academy-messages-pin-icon-img {
+    display: block;
+    width: 16px;
+    height: 16px;
+    object-fit: contain;
+    pointer-events: none;
+    filter: drop-shadow(0 0 7px rgba(56, 189, 248, 0.45));
+}
+
+.academy-messages-thread-pinned-badge-v2 {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.academy-messages-thread-pinned-badge-v2 .academy-messages-pin-icon-img {
+    width: 15px;
+    height: 15px;
+}
 .chat-bubble {
     overflow: visible;
 }
