@@ -3289,6 +3289,22 @@ function dashboardSettingsFormatMoney(amount = 0, currency = 'USD') {
     return `${cleanCurrency} ${numericAmount.toFixed(2)}`;
 }
 
+function dashboardSettingsFormatPlanText(value = '') {
+    const clean = String(value || '').trim();
+
+    if (!clean) return '';
+
+    const normalized = clean.toLowerCase();
+
+    if (normalized === '30_days') return '30 days';
+    if (normalized === 'one_time') return 'one-time';
+    if (normalized === 'checkout_started') return 'checkout started';
+    if (normalized === 'pending_payment') return 'pending payment';
+    if (normalized === 'card_bank_wallet') return 'card, bank, or wallet';
+
+    return clean.replace(/[_-]+/g, ' ');
+}
+
 function dashboardSettingsFormatDate(value = '') {
     const clean = String(value || '').trim();
     if (!clean) return '';
@@ -3431,16 +3447,60 @@ function dashboardSettingsBuildExplanation(item = {}) {
         ? item.explanation
         : {};
 
+    const division = dashboardSettingsReadPlanDivision(item);
+    const key = dashboardSettingsReadPlanKey(item);
     const code = dashboardSettingsReadPlanCode(item);
-    const title = String(explanation.title || item.name || item.plan?.publicName || code || 'Subscription').trim();
-    const copy = String(explanation.copy || item.includedCopy || 'Review this subscription before continuing to checkout.').trim();
+
+    const isAcademyBadge = key === 'verified_badge' && division === 'academy';
+    const isFederationBadge = key === 'verified_badge' && division === 'federation';
+
+    const title = String(
+        explanation.title ||
+        (
+            isAcademyBadge
+                ? 'Subscribe to YHA?'
+                : isFederationBadge
+                    ? 'Subscribe to YHF?'
+                    : item.name || item.plan?.publicName || code || 'Subscription'
+        )
+    ).trim();
+
+    const copy = String(
+        explanation.copy ||
+        (
+            isAcademyBadge
+                ? 'YHA unlocks the Academy Verified Badge for your YH profile and includes Academy Learn From Access inside the Academy experience.'
+                : isFederationBadge
+                    ? 'YHF unlocks the Federation Verified Badge for your YH profile and marks your Federation verification plan for payment processing.'
+                    : item.includedCopy || 'Review this subscription before continuing to checkout.'
+        )
+    ).trim();
 
     const benefits = Array.isArray(explanation.benefits)
         ? explanation.benefits.filter(Boolean)
-        : [];
+        : isAcademyBadge
+            ? [
+                'Academy Verified Badge visibility',
+                'Academy Learn From Access included',
+                'Subscription managed from Dashboard Settings'
+            ]
+            : isFederationBadge
+                ? [
+                    'Federation Verified Badge visibility',
+                    'Federation subscription/payment status tracking',
+                    'Subscription managed from Dashboard Settings'
+                ]
+                : [];
 
-    const billingNote = String(explanation.billingNote || '').trim();
-    const cancellationNote = String(explanation.cancellationNote || 'You can manage or unsubscribe from Dashboard Settings later.').trim();
+    const billingNote = String(
+        explanation.billingNote ||
+        'You will be sent to the secure checkout flow after confirmation.'
+    ).trim();
+
+    const cancellationNote = String(
+        explanation.cancellationNote ||
+        'You can manage or unsubscribe from Dashboard Settings later.'
+    ).trim();
 
     return {
         title,
@@ -3517,7 +3577,9 @@ function renderDashboardSettingsSubscriptions(snapshot = {}) {
         ? snapshot.paymentPlans
         : [];
 
-    const paymentPlans = rawPaymentPlans;
+    const paymentPlans = rawPaymentPlans.filter((item) => {
+        return dashboardSettingsReadPlanKey(item) !== 'academy_learn_from_access';
+    });
 
     if (!paymentPlans.length) {
         list.innerHTML = `
@@ -3557,15 +3619,17 @@ function renderDashboardSettingsSubscriptions(snapshot = {}) {
         const expiresAt = dashboardSettingsFormatDate(rawExpiresAt);
         const unsubscribeActiveUntilLabel = dashboardSettingsFormatDateTime(rawExpiresAt);
         const explanation = dashboardSettingsBuildExplanation(item);
+        const yhaIncludesLearnFrom = planKey === 'verified_badge' && division === 'academy';
 
         const meta = [
             isIncludedPlan
                 ? 'Included in your active YHA Badge subscription'
                 : amount > 0
-                    ? `${dashboardSettingsFormatMoney(amount, currency)}/${interval}`
-                    : String(item.includedCopy || plan.includedCopy || interval || '').trim(),
-            provider ? `Provider: ${provider}` : '',
-            paymentStatus ? `Payment: ${paymentStatus.replace(/[_-]+/g, ' ')}` : '',
+                    ? `${dashboardSettingsFormatMoney(amount, currency)}/${dashboardSettingsFormatPlanText(interval)}`
+                    : dashboardSettingsFormatPlanText(String(item.includedCopy || plan.includedCopy || interval || '').trim()),
+            provider ? `Provider: ${dashboardSettingsFormatPlanText(provider)}` : '',
+            paymentStatus ? `Payment: ${dashboardSettingsFormatPlanText(paymentStatus)}` : '',
+            yhaIncludesLearnFrom ? 'Includes Academy Learn From Access' : '',
             activatedAt ? `Activated: ${activatedAt}` : '',
             expiresAt ? `Expires: ${expiresAt}` : ''
         ].filter(Boolean).join(' • ');
@@ -3801,6 +3865,109 @@ async function dashboardUnsubscribeBadge(division = 'academy', button = null) {
         activeUntil,
         activeUntilLabel
     }, button);
+}
+
+async function dashboardStartSubscriptionCheckout(options = {}, button = null) {
+    const cleanDivision = String(options.division || '').trim().toLowerCase();
+    const cleanKey = String(options.key || '').trim().toLowerCase();
+    const endpoint = String(options.endpoint || '').trim();
+    const code = String(
+        options.code ||
+        (
+            cleanKey === 'academy_learn_from_access'
+                ? 'Learn From'
+                : cleanDivision === 'federation'
+                    ? 'YHF'
+                    : 'YHA'
+        )
+    ).trim();
+
+    const payload = options.payload && typeof options.payload === 'object'
+        ? options.payload
+        : {};
+
+    const explanation = options.explanation && typeof options.explanation === 'object'
+        ? options.explanation
+        : {};
+
+    if (!endpoint) {
+        showToast('Missing checkout endpoint for this subscription.', 'error');
+        return;
+    }
+
+    const confirmed = await openYHConfirmModal({
+        title: explanation.title || `Subscribe ${code}?`,
+        message: explanation.message || `Review this ${code} subscription before continuing to checkout.`,
+        okText: `Continue to ${code} checkout`,
+        cancelText: 'Cancel',
+        tone: 'primary'
+    });
+
+    if (!confirmed) return;
+
+    await runDashboardSettingsButtonAction(button, `Opening ${code} checkout...`, async () => {
+        const billingPlan = String(payload.billingPlan || 'monthly').trim() || 'monthly';
+        const checkoutWindow =
+            typeof dashboardOpenPendingBadgeCheckoutTab === 'function'
+                ? dashboardOpenPendingBadgeCheckoutTab('stripe', billingPlan, code)
+                : null;
+
+        const returnTo = `${window.location.pathname || '/dashboard'}${window.location.search || ''}`;
+
+        const result = await academyAuthedFetch(endpoint, {
+            method: 'POST',
+            body: JSON.stringify({
+                ...payload,
+                returnTo
+            })
+        });
+
+        const checkoutUrl = String(
+            result?.url ||
+            result?.checkoutUrl ||
+            result?.providerCheckoutUrl ||
+            result?.payment?.url ||
+            result?.payment?.checkoutUrl ||
+            result?.payment?.providerCheckoutUrl ||
+            ''
+        ).trim();
+
+        if (checkoutUrl) {
+            const opened =
+                typeof dashboardSendBadgeCheckoutToNewTab === 'function'
+                    ? dashboardSendBadgeCheckoutToNewTab(checkoutUrl, 'stripe', checkoutWindow)
+                    : Boolean(window.open(checkoutUrl, '_blank', 'noopener,noreferrer'));
+
+            if (!opened) {
+                showToast('Checkout was created, but your browser blocked the checkout tab. Please allow popups and click Subscribe again.', 'error');
+                return;
+            }
+
+            showToast(`${code} checkout opened in a new tab.`, 'success');
+        } else {
+            if (checkoutWindow && checkoutWindow.closed !== true) {
+                try {
+                    checkoutWindow.close();
+                } catch (_) {}
+            }
+
+            showToast(result?.message || `${code} payment request created.`, 'success');
+        }
+
+        dashboardSettingsSnapshot = result?.snapshot && typeof result.snapshot === 'object'
+            ? result.snapshot
+            : dashboardSettingsSnapshot;
+
+        if (dashboardSettingsSnapshot) {
+            renderDashboardSettingsSubscriptions(dashboardSettingsSnapshot);
+        } else {
+            await loadDashboardSettingsSubscriptions({ silent: true });
+        }
+
+        if (typeof hydrateDashboardSelfUniverseProfile === 'function') {
+            await hydrateDashboardSelfUniverseProfile().catch(() => null);
+        }
+    });
 }
 
 function bootDashboardSettingsModal() {
