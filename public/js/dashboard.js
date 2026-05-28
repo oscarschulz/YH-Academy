@@ -3026,7 +3026,7 @@ function openYHBusinessChatsPage(conversationId = '') {
         ? '/business-chats.html?conversationId=' + encodeURIComponent(cleanConversationId)
         : '/business-chats.html';
 
-    window.open(url, '_blank', 'noopener,noreferrer');
+    window.location.href = url;
 }
 
 function bootYHBusinessChatPanel() {
