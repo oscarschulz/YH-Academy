@@ -1705,6 +1705,33 @@ function buildPaymentPlanSubscriptionItem({ plan = {}, badge = {}, payment = nul
         expiresAt: cleanText(badge.expiresAt || ''),
         cancelledAt: cleanText(badge.cancelledAt || badge.unsubscribedAt || ''),
         unsubscribeEndpoint: `/api/payments/subscriptions/${encodeURIComponent(plan.division)}/unsubscribe`,
+        checkoutEndpoint: `/api/payments/badges/${encodeURIComponent(plan.division)}/checkout-session`,
+        checkoutMethod: 'POST',
+        checkoutPayload: {
+            billingPlan: 'monthly'
+        },
+        subscribeCta: active ? '' : `Subscribe ${plan.code}`,
+        explanation: {
+            title: plan.division === 'academy'
+                ? 'Academy YHA Badge Subscription'
+                : 'Federation YHF Badge Subscription',
+            copy: plan.division === 'academy'
+                ? 'The YHA Badge verifies your Academy profile and includes Learn From access inside the Academy AI Coach.'
+                : 'The YHF Badge verifies your Federation profile and supports your high-trust strategic identity inside YH Universe.',
+            benefits: plan.division === 'academy'
+                ? [
+                    'Active YHA verification badge',
+                    'Learn From access inside Academy AI Coach',
+                    'Stronger Academy profile trust signal'
+                ]
+                : [
+                    'Active YHF verification badge',
+                    'Stronger Federation trust signal',
+                    'Premium strategic identity inside Federation'
+                ],
+            billingNote: `${plan.code} is billed monthly unless another billing option is selected later.`,
+            cancellationNote: 'You can unsubscribe from Dashboard Settings. Access connected to the subscription will be deactivated after cancellation.'
+        },
         ...(plan.division === 'academy' ? {
             unlocksLearnFrom: active,
             learnFromAccessIncluded: active,
@@ -1723,7 +1750,12 @@ function buildPaymentPlanSubscriptionItem({ plan = {}, badge = {}, payment = nul
             currency: plan.currency,
             interval: plan.interval,
             asset: plan.asset,
-            unsubscribeEndpoint: `/api/payments/subscriptions/${encodeURIComponent(plan.division)}/unsubscribe`
+            unsubscribeEndpoint: `/api/payments/subscriptions/${encodeURIComponent(plan.division)}/unsubscribe`,
+            checkoutEndpoint: `/api/payments/badges/${encodeURIComponent(plan.division)}/checkout-session`,
+            checkoutPayload: {
+                billingPlan: 'monthly'
+            },
+            subscribeCta: active ? '' : `Subscribe ${plan.code}`
         },
         badge,
         payment,
@@ -1796,6 +1828,21 @@ function buildAcademyLearnFromSubscriptionItem({ access = {}, payment = null, vi
         expiresAt: cleanText(normalizedAccess.expiresAt || ''),
         cancelledAt: cleanText(access.cancelledAt || access.unsubscribedAt || ''),
         unsubscribeEndpoint: '/api/payments/academy/learn-from-access/unsubscribe',
+        checkoutEndpoint: '/api/payments/academy/learn-from-access/stripe-checkout-session',
+        checkoutMethod: 'POST',
+        checkoutPayload: {},
+        subscribeCta: 'Subscribe Learn From',
+        explanation: {
+            title: 'Academy Learn From Access',
+            copy: 'Learn From unlocks mentor and personality modes inside the Academy AI Coach. If you have an active YHA Badge, this access is already included.',
+            benefits: [
+                'Learn From mentor modes inside Academy AI Coach',
+                'Access to special guidance/personality modes',
+                'Better learning and execution support inside Academy'
+            ],
+            billingNote: 'Learn From can be managed as its own access, but the preferred Academy subscription is YHA because YHA includes Learn From.',
+            cancellationNote: 'You can unsubscribe from Dashboard Settings. Learn From access will be deactivated after cancellation unless you still have active YHA.'
+        },
         plan: {
             product: 'academy_learn_from_access',
             sourceFeature: 'academy_learn_from_access',
@@ -1805,7 +1852,10 @@ function buildAcademyLearnFromSubscriptionItem({ access = {}, payment = null, vi
             amountMonthly: amount,
             currency: ACADEMY_LEARN_FROM_ACCESS_PLAN.currency,
             interval: monthly ? 'month' : 'one_time',
-            unsubscribeEndpoint: '/api/payments/academy/learn-from-access/unsubscribe'
+            unsubscribeEndpoint: '/api/payments/academy/learn-from-access/unsubscribe',
+            checkoutEndpoint: '/api/payments/academy/learn-from-access/stripe-checkout-session',
+            checkoutPayload: {},
+            subscribeCta: 'Subscribe Learn From'
         },
         access: normalizedAccess,
         payment,
@@ -1885,24 +1935,85 @@ async function buildMySubscriptionsSnapshot(viewer = {}) {
             activatedAt: academyBadgeItem.activatedAt || learnFromItem.activatedAt || '',
             expiresAt: academyBadgeItem.expiresAt || learnFromItem.expiresAt || '',
             unsubscribeEndpoint: '',
+            checkoutEndpoint: '',
+            subscribeCta: '',
             includedWith: 'YHA Badge',
             includedBySubscription: 'verified_badge',
             includedByDivision: 'academy',
             includedCopy: 'This access is included because your YHA Badge subscription is active.',
+            explanation: {
+                title: 'Academy Learn From Access',
+                copy: 'Learn From is already included because your YHA Badge subscription is active.',
+                benefits: [
+                    'Learn From access inside Academy AI Coach',
+                    'Managed through your active YHA Badge subscription'
+                ],
+                billingNote: 'No separate Learn From checkout is needed while YHA is active.',
+                cancellationNote: 'If you unsubscribe from YHA, Learn From will be locked unless you also have separate active Learn From access.'
+            },
             plan: {
                 ...(learnFromItem.plan || {}),
                 code: 'Included with YHA',
                 publicName: ACADEMY_LEARN_FROM_ACCESS_PLAN.publicName,
                 amountMonthly: 0,
                 interval: 'included',
-                unsubscribeEndpoint: ''
+                unsubscribeEndpoint: '',
+                checkoutEndpoint: '',
+                subscribeCta: ''
             }
         }
-        : learnFromItem;
+        : learnFromItem.active || learnFromItem.paymentLedgerId
+            ? learnFromItem
+            : {
+                ...learnFromItem,
+                active: false,
+                status: 'unlocked_by_yha',
+                code: 'Learn From',
+                name: ACADEMY_LEARN_FROM_ACCESS_PLAN.publicName,
+                amountMonthly: 0,
+                interval: 'included with YHA',
+                provider: 'YHA Badge',
+                paymentStatus: '',
+                unsubscribeEndpoint: '',
+                checkoutEndpoint: '/api/payments/badges/academy/checkout-session',
+                checkoutMethod: 'POST',
+                checkoutPayload: {
+                    billingPlan: 'monthly'
+                },
+                subscribeCta: 'Subscribe YHA to Unlock',
+                includedWith: 'YHA Badge',
+                includedBySubscription: 'verified_badge',
+                includedByDivision: 'academy',
+                includedCopy: 'Learn From is unlocked through an active YHA Badge subscription.',
+                explanation: {
+                    title: 'Unlock Learn From with YHA',
+                    copy: 'Learn From is included inside the Academy YHA Badge subscription. Subscribe to YHA to unlock Learn From inside the Academy AI Coach.',
+                    benefits: [
+                        'YHA verified Academy badge',
+                        'Learn From access inside Academy AI Coach',
+                        'Stronger Academy trust signal'
+                    ],
+                    billingNote: 'YHA is billed monthly.',
+                    cancellationNote: 'If you unsubscribe from YHA, Learn From access will be locked again unless you have separate active Learn From access.'
+                },
+                plan: {
+                    ...(learnFromItem.plan || {}),
+                    code: 'Learn From',
+                    publicName: ACADEMY_LEARN_FROM_ACCESS_PLAN.publicName,
+                    amountMonthly: 0,
+                    interval: 'included with YHA',
+                    unsubscribeEndpoint: '',
+                    checkoutEndpoint: '/api/payments/badges/academy/checkout-session',
+                    checkoutPayload: {
+                        billingPlan: 'monthly'
+                    },
+                    subscribeCta: 'Subscribe YHA to Unlock'
+                }
+            };
 
     const paymentPlans = [
         ...badgePlans,
-        ...(yhaIncludesLearnFrom || learnFromDisplayItem.active || learnFromDisplayItem.paymentLedgerId ? [learnFromDisplayItem] : [])
+        learnFromDisplayItem
     ];
     const activeSubscriptions = paymentPlans.filter((item) => item.active === true);
 

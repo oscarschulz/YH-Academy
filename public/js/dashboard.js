@@ -3382,6 +3382,77 @@ function dashboardSettingsReadUnsubscribeEndpoint(item = {}) {
     return '';
 }
 
+function dashboardSettingsReadCheckoutEndpoint(item = {}) {
+    const directEndpoint = String(item.checkoutEndpoint || item.plan?.checkoutEndpoint || '').trim();
+
+    if (directEndpoint) return directEndpoint;
+
+    const division = dashboardSettingsReadPlanDivision(item);
+    const key = dashboardSettingsReadPlanKey(item);
+
+    if (key === 'academy_learn_from_access' && item.active !== true) {
+        return '/api/payments/badges/academy/checkout-session';
+    }
+
+    if (key === 'academy_learn_from_access') {
+        return '/api/payments/academy/learn-from-access/stripe-checkout-session';
+    }
+
+    if (key === 'verified_badge' && division) {
+        return `/api/payments/badges/${encodeURIComponent(division)}/checkout-session`;
+    }
+
+    return '';
+}
+
+function dashboardSettingsReadCheckoutPayload(item = {}) {
+    const payload =
+        item.checkoutPayload && typeof item.checkoutPayload === 'object'
+            ? item.checkoutPayload
+            : item.plan?.checkoutPayload && typeof item.plan.checkoutPayload === 'object'
+                ? item.plan.checkoutPayload
+                : null;
+
+    if (payload) return payload;
+
+    const key = dashboardSettingsReadPlanKey(item);
+
+    if (key === 'verified_badge' || key === 'academy_learn_from_access') {
+        return {
+            billingPlan: 'monthly'
+        };
+    }
+
+    return {};
+}
+
+function dashboardSettingsBuildExplanation(item = {}) {
+    const explanation = item.explanation && typeof item.explanation === 'object'
+        ? item.explanation
+        : {};
+
+    const code = dashboardSettingsReadPlanCode(item);
+    const title = String(explanation.title || item.name || item.plan?.publicName || code || 'Subscription').trim();
+    const copy = String(explanation.copy || item.includedCopy || 'Review this subscription before continuing to checkout.').trim();
+
+    const benefits = Array.isArray(explanation.benefits)
+        ? explanation.benefits.filter(Boolean)
+        : [];
+
+    const billingNote = String(explanation.billingNote || '').trim();
+    const cancellationNote = String(explanation.cancellationNote || 'You can manage or unsubscribe from Dashboard Settings later.').trim();
+
+    return {
+        title,
+        message: [
+            copy,
+            benefits.length ? `Benefits: ${benefits.join(', ')}.` : '',
+            billingNote,
+            cancellationNote
+        ].filter(Boolean).join('\n\n')
+    };
+}
+
 function dashboardSettingsReadPlanCode(item = {}) {
     const division = dashboardSettingsReadPlanDivision(item);
     return String(item.code || item.plan?.code || item.badge?.code || '').trim() || (division === 'federation' ? 'YHF' : 'YHA');
@@ -3391,6 +3462,7 @@ function dashboardSettingsGetStatusLabel(item = {}) {
     const status = String(item.status || item.badge?.status || '').trim().toLowerCase();
 
     if (status === 'included_with_yha') return 'Included with YHA';
+    if (status === 'unlocked_by_yha') return 'Unlock with YHA';
     if (item.active === true || status === 'active' || status === 'verified') return 'Active';
     if (status === 'pending_payment') return 'Pending Payment';
     if (status === 'checkout_started') return 'Checkout Started';
@@ -3407,6 +3479,7 @@ function dashboardSettingsGetStatusTone(item = {}) {
     const status = String(item.status || item.badge?.status || '').trim().toLowerCase();
 
     if (status === 'included_with_yha') return 'active';
+    if (status === 'unlocked_by_yha') return 'pending';
     if (item.active === true || status === 'active' || status === 'verified') return 'active';
     if (status === 'pending_payment' || status === 'checkout_started' || status === 'draft') return 'pending';
     if (status === 'cancelled' || status === 'canceled' || status === 'expired' || status === 'failed') return 'inactive';
@@ -3462,6 +3535,9 @@ function renderDashboardSettingsSubscriptions(snapshot = {}) {
         const division = dashboardSettingsReadPlanDivision(item);
         const planKey = dashboardSettingsReadPlanKey(item);
         const unsubscribeEndpoint = dashboardSettingsReadUnsubscribeEndpoint(item);
+        const checkoutEndpoint = dashboardSettingsReadCheckoutEndpoint(item);
+        const checkoutPayload = dashboardSettingsReadCheckoutPayload(item);
+        const checkoutPayloadJson = dashboardSettingsEscape(JSON.stringify(checkoutPayload));
         const code = dashboardSettingsReadPlanCode(item);
         const title = String(item.name || plan.publicName || plan.name || '').trim() || `${code} Badge`;
         const amount = Number(item.amountMonthly || plan.amountMonthly || badge.amountMonthly || 0);
@@ -3471,6 +3547,7 @@ function renderDashboardSettingsSubscriptions(snapshot = {}) {
         const includedWith = String(item.includedWith || item.includedBySubscription || '').trim();
         const isIncludedPlan = Boolean(includedWith) || (planKey === 'academy_learn_from_access' && active === true && !unsubscribeEndpoint);
         const canUnsubscribe = active === true && !isIncludedPlan && unsubscribeEndpoint;
+        const canSubscribe = active !== true && Boolean(checkoutEndpoint);
         const tone = dashboardSettingsGetStatusTone(item);
         const statusLabel = dashboardSettingsGetStatusLabel(item);
         const provider = String(item.provider || badge.provider || payment.provider || '').trim();
@@ -3479,11 +3556,14 @@ function renderDashboardSettingsSubscriptions(snapshot = {}) {
         const rawExpiresAt = dashboardSettingsReadSubscriptionExpiry(item);
         const expiresAt = dashboardSettingsFormatDate(rawExpiresAt);
         const unsubscribeActiveUntilLabel = dashboardSettingsFormatDateTime(rawExpiresAt);
+        const explanation = dashboardSettingsBuildExplanation(item);
 
         const meta = [
             isIncludedPlan
                 ? 'Included in your active YHA Badge subscription'
-                : `${dashboardSettingsFormatMoney(amount, currency)}/${interval}`,
+                : amount > 0
+                    ? `${dashboardSettingsFormatMoney(amount, currency)}/${interval}`
+                    : String(item.includedCopy || plan.includedCopy || interval || '').trim(),
             provider ? `Provider: ${provider}` : '',
             paymentStatus ? `Payment: ${paymentStatus.replace(/[_-]+/g, ' ')}` : '',
             activatedAt ? `Activated: ${activatedAt}` : '',
@@ -3507,19 +3587,43 @@ function renderDashboardSettingsSubscriptions(snapshot = {}) {
                         ${dashboardSettingsEscape(statusLabel)}
                     </span>
 
-                    <button
-                        type="button"
-                        class="btn-secondary yh-dashboard-settings-unsubscribe-btn"
-                        data-yh-dashboard-unsubscribe-plan="${dashboardSettingsEscape(division)}"
-                        data-yh-dashboard-unsubscribe-key="${dashboardSettingsEscape(planKey)}"
-                        data-yh-dashboard-unsubscribe-endpoint="${dashboardSettingsEscape(unsubscribeEndpoint)}"
-                        data-yh-dashboard-unsubscribe-code="${dashboardSettingsEscape(code)}"
-                        data-yh-dashboard-unsubscribe-active-until="${dashboardSettingsEscape(rawExpiresAt)}"
-                        data-yh-dashboard-unsubscribe-active-until-label="${dashboardSettingsEscape(unsubscribeActiveUntilLabel)}"
-                        ${canUnsubscribe ? '' : 'disabled aria-disabled="true"'}
-                    >
-                        ${canUnsubscribe ? `Unsubscribe ${dashboardSettingsEscape(code)}` : isIncludedPlan ? 'Managed by YHA' : 'No active subscription'}
-                    </button>
+                    ${canUnsubscribe ? `
+                        <button
+                            type="button"
+                            class="btn-secondary yh-dashboard-settings-unsubscribe-btn"
+                            data-yh-dashboard-unsubscribe-plan="${dashboardSettingsEscape(division)}"
+                            data-yh-dashboard-unsubscribe-key="${dashboardSettingsEscape(planKey)}"
+                            data-yh-dashboard-unsubscribe-endpoint="${dashboardSettingsEscape(unsubscribeEndpoint)}"
+                            data-yh-dashboard-unsubscribe-code="${dashboardSettingsEscape(code)}"
+                            data-yh-dashboard-unsubscribe-active-until="${dashboardSettingsEscape(rawExpiresAt)}"
+                            data-yh-dashboard-unsubscribe-active-until-label="${dashboardSettingsEscape(unsubscribeActiveUntilLabel)}"
+                        >
+                            Unsubscribe ${dashboardSettingsEscape(code)}
+                        </button>
+                    ` : canSubscribe ? `
+                        <button
+                            type="button"
+                            class="btn-secondary yh-dashboard-settings-subscribe-btn"
+                            data-yh-dashboard-subscribe-plan="${dashboardSettingsEscape(division)}"
+                            data-yh-dashboard-subscribe-key="${dashboardSettingsEscape(planKey)}"
+                            data-yh-dashboard-subscribe-endpoint="${dashboardSettingsEscape(checkoutEndpoint)}"
+                            data-yh-dashboard-subscribe-code="${dashboardSettingsEscape(code)}"
+                            data-yh-dashboard-subscribe-payload="${checkoutPayloadJson}"
+                            data-yh-dashboard-subscribe-title="${dashboardSettingsEscape(explanation.title)}"
+                            data-yh-dashboard-subscribe-message="${dashboardSettingsEscape(explanation.message)}"
+                        >
+                            ${dashboardSettingsEscape(item.subscribeCta || plan.subscribeCta || `Subscribe ${code}`)}
+                        </button>
+                    ` : `
+                        <button
+                            type="button"
+                            class="btn-secondary yh-dashboard-settings-unsubscribe-btn"
+                            disabled
+                            aria-disabled="true"
+                        >
+                            ${isIncludedPlan ? 'Managed by YHA' : 'No active subscription'}
+                        </button>
+                    `}
                 </div>
             </article>
         `;
@@ -3723,21 +3827,51 @@ function bootDashboardSettingsModal() {
     });
 
     settingsList?.addEventListener('click', (event) => {
-        const button = event.target?.closest?.('[data-yh-dashboard-unsubscribe-plan]');
-        if (!button) return;
+        const unsubscribeButton = event.target?.closest?.('[data-yh-dashboard-unsubscribe-plan]');
+        if (unsubscribeButton) {
+            event.preventDefault();
+
+            dashboardUnsubscribeSubscription({
+                division: unsubscribeButton.getAttribute('data-yh-dashboard-unsubscribe-plan') || '',
+                key: unsubscribeButton.getAttribute('data-yh-dashboard-unsubscribe-key') || '',
+                endpoint: unsubscribeButton.getAttribute('data-yh-dashboard-unsubscribe-endpoint') || '',
+                code: unsubscribeButton.getAttribute('data-yh-dashboard-unsubscribe-code') || '',
+                activeUntil: unsubscribeButton.getAttribute('data-yh-dashboard-unsubscribe-active-until') || '',
+                activeUntilLabel: unsubscribeButton.getAttribute('data-yh-dashboard-unsubscribe-active-until-label') || ''
+            }, unsubscribeButton).catch((error) => {
+                console.error('dashboard unsubscribe payment plan error:', error);
+                showToast(error?.message || 'Failed to unsubscribe payment plan.', 'error');
+            });
+
+            return;
+        }
+
+        const subscribeButton = event.target?.closest?.('[data-yh-dashboard-subscribe-plan]');
+        if (!subscribeButton) return;
 
         event.preventDefault();
 
-        dashboardUnsubscribeSubscription({
-            division: button.getAttribute('data-yh-dashboard-unsubscribe-plan') || '',
-            key: button.getAttribute('data-yh-dashboard-unsubscribe-key') || '',
-            endpoint: button.getAttribute('data-yh-dashboard-unsubscribe-endpoint') || '',
-            code: button.getAttribute('data-yh-dashboard-unsubscribe-code') || '',
-            activeUntil: button.getAttribute('data-yh-dashboard-unsubscribe-active-until') || '',
-            activeUntilLabel: button.getAttribute('data-yh-dashboard-unsubscribe-active-until-label') || ''
-        }, button).catch((error) => {
-            console.error('dashboard unsubscribe payment plan error:', error);
-            showToast(error?.message || 'Failed to unsubscribe payment plan.', 'error');
+        let payload = {};
+
+        try {
+            payload = JSON.parse(subscribeButton.getAttribute('data-yh-dashboard-subscribe-payload') || '{}');
+        } catch (_) {
+            payload = {};
+        }
+
+        dashboardStartSubscriptionCheckout({
+            division: subscribeButton.getAttribute('data-yh-dashboard-subscribe-plan') || '',
+            key: subscribeButton.getAttribute('data-yh-dashboard-subscribe-key') || '',
+            endpoint: subscribeButton.getAttribute('data-yh-dashboard-subscribe-endpoint') || '',
+            code: subscribeButton.getAttribute('data-yh-dashboard-subscribe-code') || '',
+            payload,
+            explanation: {
+                title: subscribeButton.getAttribute('data-yh-dashboard-subscribe-title') || '',
+                message: subscribeButton.getAttribute('data-yh-dashboard-subscribe-message') || ''
+            }
+        }, subscribeButton).catch((error) => {
+            console.error('dashboard subscribe payment plan error:', error);
+            showToast(error?.message || 'Failed to start checkout.', 'error');
         });
     });
 }
