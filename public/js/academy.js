@@ -14920,11 +14920,11 @@ function setAcademyMissionsPanel(target = 'hub') {
     const leadsWorkspace = document.getElementById('academy-lead-missions-workspace');
 
     if (headerIcon) {
-        headerIcon.textContent = isLeads
-            ? '📇'
-            : isPlaybook
-                ? '🎯'
-                : '🎯';
+        if (isLeads) {
+            headerIcon.textContent = '📇';
+        } else {
+            headerIcon.innerHTML = academyBuildHeaderIconHtml('missions');
+        }
     }
 
     if (headerTitle) {
@@ -15948,9 +15948,7 @@ function academyRestoreMessagesInboxHeader() {
 
     if (chatHeaderIcon) {
         chatHeaderIcon.style.removeProperty('display');
-        chatHeaderIcon.innerHTML = isMobile
-            ? `<img src="/images/logo.avif" alt="YH" class="academy-chat-header-logo">`
-            : '💬';
+        chatHeaderIcon.innerHTML = academyBuildHeaderIconHtml('messages');
     }
 
     if (chatHeaderTitle) {
