@@ -1705,6 +1705,14 @@ function buildPaymentPlanSubscriptionItem({ plan = {}, badge = {}, payment = nul
         expiresAt: cleanText(badge.expiresAt || ''),
         cancelledAt: cleanText(badge.cancelledAt || badge.unsubscribedAt || ''),
         unsubscribeEndpoint: `/api/payments/subscriptions/${encodeURIComponent(plan.division)}/unsubscribe`,
+        ...(plan.division === 'academy' ? {
+            unlocksLearnFrom: active,
+            learnFromAccessIncluded: active,
+            includedBenefits: active
+                ? ['Academy Learn From Access inside the Academy AI Coach']
+                : [],
+            learnFromAccessCopy: 'Active YHA Badge subscription unlocks Learn From inside the Academy AI Coach.'
+        } : {}),
         plan: {
             product: 'verified_badge',
             sourceFeature: plan.sourceFeature || 'verified_badge',
@@ -1860,11 +1868,42 @@ async function buildMySubscriptionsSnapshot(viewer = {}) {
         viewer
     });
 
+    const academyBadgeItem = badgePlans.find((item) => item.division === 'academy');
+    const yhaIncludesLearnFrom = academyBadgeItem?.active === true;
+
+    const learnFromDisplayItem = yhaIncludesLearnFrom
+        ? {
+            ...learnFromItem,
+            active: true,
+            status: 'included_with_yha',
+            code: 'Included with YHA',
+            name: ACADEMY_LEARN_FROM_ACCESS_PLAN.publicName,
+            amountMonthly: 0,
+            interval: 'included',
+            provider: 'YHA Badge',
+            paymentStatus: 'included',
+            activatedAt: academyBadgeItem.activatedAt || learnFromItem.activatedAt || '',
+            expiresAt: academyBadgeItem.expiresAt || learnFromItem.expiresAt || '',
+            unsubscribeEndpoint: '',
+            includedWith: 'YHA Badge',
+            includedBySubscription: 'verified_badge',
+            includedByDivision: 'academy',
+            includedCopy: 'This access is included because your YHA Badge subscription is active.',
+            plan: {
+                ...(learnFromItem.plan || {}),
+                code: 'Included with YHA',
+                publicName: ACADEMY_LEARN_FROM_ACCESS_PLAN.publicName,
+                amountMonthly: 0,
+                interval: 'included',
+                unsubscribeEndpoint: ''
+            }
+        }
+        : learnFromItem;
+
     const paymentPlans = [
         ...badgePlans,
-        ...(learnFromItem.active || learnFromItem.paymentLedgerId ? [learnFromItem] : [])
+        ...(yhaIncludesLearnFrom || learnFromDisplayItem.active || learnFromDisplayItem.paymentLedgerId ? [learnFromDisplayItem] : [])
     ];
-
     const activeSubscriptions = paymentPlans.filter((item) => item.active === true);
 
     return {

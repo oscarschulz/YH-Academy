@@ -3390,6 +3390,7 @@ function dashboardSettingsReadPlanCode(item = {}) {
 function dashboardSettingsGetStatusLabel(item = {}) {
     const status = String(item.status || item.badge?.status || '').trim().toLowerCase();
 
+    if (status === 'included_with_yha') return 'Included with YHA';
     if (item.active === true || status === 'active' || status === 'verified') return 'Active';
     if (status === 'pending_payment') return 'Pending Payment';
     if (status === 'checkout_started') return 'Checkout Started';
@@ -3405,6 +3406,7 @@ function dashboardSettingsGetStatusLabel(item = {}) {
 function dashboardSettingsGetStatusTone(item = {}) {
     const status = String(item.status || item.badge?.status || '').trim().toLowerCase();
 
+    if (status === 'included_with_yha') return 'active';
     if (item.active === true || status === 'active' || status === 'verified') return 'active';
     if (status === 'pending_payment' || status === 'checkout_started' || status === 'draft') return 'pending';
     if (status === 'cancelled' || status === 'canceled' || status === 'expired' || status === 'failed') return 'inactive';
@@ -3442,9 +3444,7 @@ function renderDashboardSettingsSubscriptions(snapshot = {}) {
         ? snapshot.paymentPlans
         : [];
 
-    const paymentPlans = rawPaymentPlans.filter((item) => {
-        return dashboardSettingsReadPlanKey(item) !== 'academy_learn_from_access';
-    });
+    const paymentPlans = rawPaymentPlans;
 
     if (!paymentPlans.length) {
         list.innerHTML = `
@@ -3468,7 +3468,9 @@ function renderDashboardSettingsSubscriptions(snapshot = {}) {
         const currency = String(item.currency || plan.currency || badge.currency || 'USD').trim().toUpperCase() || 'USD';
         const interval = String(item.interval || plan.interval || badge.interval || 'month').trim() || 'month';
         const active = item.active === true;
-        const canUnsubscribe = active === true && unsubscribeEndpoint;
+        const includedWith = String(item.includedWith || item.includedBySubscription || '').trim();
+        const isIncludedPlan = Boolean(includedWith) || (planKey === 'academy_learn_from_access' && active === true && !unsubscribeEndpoint);
+        const canUnsubscribe = active === true && !isIncludedPlan && unsubscribeEndpoint;
         const tone = dashboardSettingsGetStatusTone(item);
         const statusLabel = dashboardSettingsGetStatusLabel(item);
         const provider = String(item.provider || badge.provider || payment.provider || '').trim();
@@ -3479,7 +3481,9 @@ function renderDashboardSettingsSubscriptions(snapshot = {}) {
         const unsubscribeActiveUntilLabel = dashboardSettingsFormatDateTime(rawExpiresAt);
 
         const meta = [
-            `${dashboardSettingsFormatMoney(amount, currency)}/${interval}`,
+            isIncludedPlan
+                ? 'Included in your active YHA Badge subscription'
+                : `${dashboardSettingsFormatMoney(amount, currency)}/${interval}`,
             provider ? `Provider: ${provider}` : '',
             paymentStatus ? `Payment: ${paymentStatus.replace(/[_-]+/g, ' ')}` : '',
             activatedAt ? `Activated: ${activatedAt}` : '',
@@ -3514,7 +3518,7 @@ function renderDashboardSettingsSubscriptions(snapshot = {}) {
                         data-yh-dashboard-unsubscribe-active-until-label="${dashboardSettingsEscape(unsubscribeActiveUntilLabel)}"
                         ${canUnsubscribe ? '' : 'disabled aria-disabled="true"'}
                     >
-                        ${canUnsubscribe ? `Unsubscribe ${dashboardSettingsEscape(code)}` : 'No active subscription'}
+                        ${canUnsubscribe ? `Unsubscribe ${dashboardSettingsEscape(code)}` : isIncludedPlan ? 'Managed by YHA' : 'No active subscription'}
                     </button>
                 </div>
             </article>
@@ -3645,14 +3649,9 @@ async function dashboardUnsubscribeSubscription(options = {}, button = null) {
         return;
     }
 
-    const activeUntilRaw = String(options.activeUntil || '').trim();
-    const activeUntilLabel = String(options.activeUntilLabel || '').trim() || dashboardSettingsFormatDateTime(activeUntilRaw);
-
     const confirmed = await openYHConfirmModal({
         title: `Unsubscribe ${code}?`,
-        message: activeUntilLabel
-            ? `This will cancel this subscription on the server, deactivate the account access connected to it, and refresh your Settings status. However, your subscription is active until ${activeUntilLabel}.`
-            : `This will cancel this subscription on the server, deactivate the account access connected to it, and refresh your Settings status.`,
+        message: `This will cancel this subscription on the server, deactivate the account access connected to it, and refresh your Settings status.`,
         okText: `Unsubscribe ${code}`,
         cancelText: 'Cancel',
         tone: 'danger'

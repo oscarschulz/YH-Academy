@@ -3151,7 +3151,8 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
                     if (payment) {
                         await syncYHVerifiedBadgePaymentStatus(payment, 'paid', {
                             provider: 'stripe',
-                            providerPaymentId: sanitizeText(session.payment_intent || session.id),
+                            providerPaymentId: sanitizeText(session.subscription || session.payment_intent || session.id),
+                            providerSubscriptionId: sanitizeText(session.subscription || ''),
                             providerStatus: sanitizeText(session.payment_status || 'paid'),
                             paymentMethod: 'card_bank_wallet',
                             paymentLedgerId,
@@ -3161,6 +3162,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
                             verifiedBy: 'stripe-webhook',
                             metadata: {
                                 stripeCheckoutSessionId: sanitizeText(session.id),
+                                stripeSubscriptionId: sanitizeText(session.subscription),
                                 stripePaymentIntentId: sanitizeText(session.payment_intent),
                                 stripeCustomerId: sanitizeText(session.customer),
                                 stripePaymentMode: sanitizeText(session.mode || 'payment')
