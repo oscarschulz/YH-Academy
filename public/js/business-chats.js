@@ -548,6 +548,10 @@
       moderation: item.moderation && typeof item.moderation === 'object' ? item.moderation : {},
       blockedBy: item.blockedBy && typeof item.blockedBy === 'object' ? item.blockedBy : {},
       closedBy: item.closedBy && typeof item.closedBy === 'object' ? item.closedBy : {},
+      businessThreadKey: String(item.businessThreadKey || ''),
+      businessBlock: item.businessBlock && typeof item.businessBlock === 'object'
+        ? item.businessBlock
+        : { active: false, blockedByMe: false, blockedMe: false, message: '' },
       participantIds: Array.isArray(item.participantIds) ? item.participantIds.map(String).filter(Boolean) : [],
       participants: Array.isArray(item.participants) ? item.participants.map(String).filter(Boolean) : [],
       reports: Array.isArray(item.reports) ? item.reports : [],
@@ -641,11 +645,15 @@
     const status = String(conversation.status || '').trim().toLowerCase();
     const moderation = conversation.moderation && typeof conversation.moderation === 'object' ? conversation.moderation : {};
     const blockedBy = conversation.blockedBy && typeof conversation.blockedBy === 'object' ? conversation.blockedBy : {};
+    const businessBlock = conversation.businessBlock && typeof conversation.businessBlock === 'object'
+      ? conversation.businessBlock
+      : {};
 
     return (
       status === 'blocked' ||
       moderation.blocked === true ||
       Object.values(blockedBy).some(Boolean) ||
+      businessBlock.active === true ||
       conversationHasBlockedMemberFromList(conversation)
     );
   }
@@ -771,9 +779,15 @@
     }
 
     if (input) {
+      const businessBlock = conversation.businessBlock && typeof conversation.businessBlock === 'object'
+        ? conversation.businessBlock
+        : {};
+
       input.disabled = replyLocked;
       input.placeholder = blocked
-        ? 'This business chat is blocked.'
+        ? (businessBlock.blockedMe
+            ? "Message can't be delivered. This member blocked Business Chat delivery."
+            : "Message can't be delivered. This Business Chat is blocked.")
         : closed
           ? 'This business chat is closed.'
           : 'Write your business reply...';
@@ -1075,8 +1089,21 @@
       return;
     }
 
-    if (isLocked(conversation)) {
-      showToast('This business chat is closed or blocked.', 'error');
+    if (isBlocked(conversation)) {
+      const businessBlock = conversation.businessBlock && typeof conversation.businessBlock === 'object'
+        ? conversation.businessBlock
+        : {};
+
+      showToast(
+        businessBlock.message ||
+        "Message can't be delivered. This Business Chat is blocked.",
+        'error'
+      );
+      return;
+    }
+
+    if (isClosed(conversation)) {
+      showToast("Message can't be delivered. This business chat is closed.", 'error');
       return;
     }
 
@@ -1099,7 +1126,12 @@
       setLastSeenNow();
     } catch (error) {
       console.error('send reply error:', error);
-      showToast(error.message || 'Failed to send reply.', 'error');
+      showToast(
+        error.message && /block|blocked|deliver|disabled/i.test(error.message)
+          ? "Message can't be delivered. This Business Chat is blocked."
+          : (error.message || 'Failed to send reply.'),
+        'error'
+      );
     } finally {
       setBusy(button, false);
     }

@@ -4552,8 +4552,7 @@ exports.createConversationFromBusinessMember = async (req, res) => {
         );
 
         const participantKey = [viewer.id, targetUserId].sort().join('_');
-        const businessDirection = viewerHasPlazaAccess ? 'from_plaza' : 'to_plaza';
-        const conversationId = 'business_' + participantKey + '_' + businessDirection;
+        const conversationId = 'business_' + participantKey;
         const conversationRef = plazaConversationsCol.doc(conversationId);
         const conversationSnap = await conversationRef.get();
         const nowIso = new Date().toISOString();
@@ -4841,15 +4840,85 @@ async function assertNoActiveBusinessUserBlockBetween(userA = '', userB = '') {
     throw error;
 }
 
-async function assertNoActiveBusinessUserBlockForConversation(data = {}, viewerId = '') {
-    const cleanViewerId = sanitizeText(viewerId);
-    const participantIds = getConversationParticipantIds(data)
-        .filter((participantId) => participantId && participantId !== cleanViewerId);
+exports.getMessages = async (req, res) => {
+    try {
+        const viewer = getViewerFromRequest(req);
 
-    for (const participantId of participantIds) {
-        await assertNoActiveBusinessUserBlockBetween(cleanViewerId, participantId);
+        if (!viewer.id) {
+            return res.status(401).json({
+                success: false,
+                message: 'Missing authenticated user.'
+            });
+        }
+
+        const limit = Math.min(
+            Math.max(parseInt(req.query.limit, 10) || 100, 1),
+            200
+        );
+
+        const snap = await plazaConversationsCol
+            .where('participantIds', 'array-contains', viewer.id)
+            .get();
+
+        const groupedConversations = new Map();
+
+        for (const docSnap of snap.docs) {
+            const data = docSnap.data() || {};
+            const recordStatus = sanitizeText(data.recordStatus || 'active').toLowerCase();
+            const hiddenBy = data.hiddenBy && typeof data.hiddenBy === 'object' ? data.hiddenBy : {};
+
+            if (recordStatus !== 'active') continue;
+            if (hiddenBy[viewer.id] === true) continue;
+
+            const participantIds = getConversationParticipantIds(data);
+            const otherParticipantId = participantIds.find((participantId) => participantId && participantId !== viewer.id) || '';
+            const blockSnap = otherParticipantId
+                ? await getBusinessUserBlockSnapBetween(viewer.id, otherParticipantId)
+                : null;
+
+            const conversation = {
+                ...mapPlazaConversationDoc(docSnap),
+                businessThreadKey: getBusinessConversationPairKey(data, docSnap.id),
+                businessBlock: mapBusinessBlockForViewer(blockSnap, viewer.id)
+            };
+
+            const groupKey = conversation.businessThreadKey || conversation.id;
+            const existing = groupedConversations.get(groupKey);
+
+            if (!existing) {
+                groupedConversations.set(groupKey, conversation);
+                continue;
+            }
+
+            const existingTime = new Date(existing.updatedAt || existing.createdAt || 0).getTime();
+            const nextTime = new Date(conversation.updatedAt || conversation.createdAt || 0).getTime();
+
+            if (nextTime >= existingTime) {
+                groupedConversations.set(groupKey, conversation);
+            }
+        }
+
+        const conversations = Array.from(groupedConversations.values());
+
+        conversations.sort((left, right) => {
+            const leftTime = new Date(left.updatedAt || left.createdAt || 0).getTime();
+            const rightTime = new Date(right.updatedAt || right.createdAt || 0).getTime();
+            return rightTime - leftTime;
+        });
+
+        return res.json({
+            success: true,
+            conversations: conversations.slice(0, limit)
+        });
+    } catch (error) {
+        console.error('plazaControllers.getMessages error:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load Plaza messages.'
+        });
     }
-}
+};
 
 async function getBusinessUserBlockSetForViewer(viewerId = '') {
     const cleanViewerId = sanitizeText(viewerId);
@@ -5546,9 +5615,9 @@ exports.createConversationReply = async (req, res) => {
     } catch (error) {
         console.error('plazaControllers.createConversationReply error:', error);
 
-        return res.status(500).json({
+        return res.status(getConversationErrorStatus(error)).json({
             success: false,
-            message: 'Failed to send Plaza reply.'
+            message: sanitizeText(error.message, 'Failed to send Plaza reply.')
         });
     }
 };
