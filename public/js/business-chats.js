@@ -606,19 +606,31 @@
     }, 0);
   }
 
-  function isLocked(conversation = {}) {
+  function isBlocked(conversation = {}) {
     const status = String(conversation.status || '').trim().toLowerCase();
     const moderation = conversation.moderation && typeof conversation.moderation === 'object' ? conversation.moderation : {};
     const blockedBy = conversation.blockedBy && typeof conversation.blockedBy === 'object' ? conversation.blockedBy : {};
 
     return (
-      status === 'closed' ||
-      status === 'archived' ||
       status === 'blocked' ||
-      moderation.closed === true ||
       moderation.blocked === true ||
       Object.values(blockedBy).some(Boolean)
     );
+  }
+
+  function isClosed(conversation = {}) {
+    const status = String(conversation.status || '').trim().toLowerCase();
+    const moderation = conversation.moderation && typeof conversation.moderation === 'object' ? conversation.moderation : {};
+
+    return (
+      status === 'closed' ||
+      status === 'archived' ||
+      moderation.closed === true
+    );
+  }
+
+  function isLocked(conversation = {}) {
+    return isClosed(conversation) || isBlocked(conversation);
   }
 
   function getActiveConversation() {
@@ -705,7 +717,9 @@
       return;
     }
 
-    const locked = isLocked(conversation);
+    const closed = isClosed(conversation);
+    const blocked = isBlocked(conversation);
+    const locked = closed || blocked;
 
     if (title) title.textContent = conversation.title;
     if (meta) meta.textContent = getConversationMeta(conversation) || 'Plaza business thread';
@@ -726,18 +740,23 @@
 
     if (input) {
       input.disabled = locked;
-      input.placeholder = locked ? 'This business chat is closed or blocked.' : 'Write your business reply...';
+      input.placeholder = blocked
+        ? 'This business chat is blocked.'
+        : closed
+          ? 'This business chat is closed.'
+          : 'Write your business reply...';
     }
 
     if (send) send.disabled = locked;
     if (report) report.disabled = false;
     if (close) {
       close.disabled = locked;
-      close.textContent = locked ? 'Closed' : 'Close';
+      close.textContent = closed ? 'Closed' : 'Close';
     }
     if (block) {
       block.disabled = locked;
-      block.textContent = locked ? 'Blocked' : 'Block';
+      block.textContent = blocked ? 'Blocked' : 'Block';
+      block.title = closed && !blocked ? 'This thread is closed, not blocked.' : '';
     }
   }
 
