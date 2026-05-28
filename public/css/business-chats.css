@@ -451,6 +451,11 @@ button[aria-busy="true"] {
   overflow: auto;
 }
 
+.bc-conversation-list {
+  align-content: start;
+  grid-auto-rows: max-content;
+}
+
 .bc-member-card,
 .bc-block-card,
 .bc-thread-card {
@@ -530,9 +535,11 @@ button[aria-busy="true"] {
   width: 100%;
   text-align: left;
   color: var(--bc-text);
-  padding: 13px;
+  padding: 10px 12px;
   display: grid;
-  gap: 6px;
+  gap: 4px;
+  align-content: start;
+  min-height: 0;
 }
 
 .bc-thread-card:hover,
@@ -548,18 +555,29 @@ button[aria-busy="true"] {
 
 .bc-thread-card-top {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 8px;
 }
 
+.bc-thread-card-top strong {
+  min-width: 0;
+  font-size: 0.9rem;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .bc-thread-card-top span {
-  padding: 3px 8px;
+  flex: 0 0 auto;
+  padding: 2px 7px;
   border-radius: 999px;
   border: 1px solid rgba(34, 197, 94, 0.42);
   color: #bbf7d0;
   background: rgba(34, 197, 94, 0.18);
-  font-size: 0.66rem;
+  font-size: 0.62rem;
   font-weight: 900;
   text-transform: uppercase;
 }
@@ -568,9 +586,29 @@ button[aria-busy="true"] {
 .bc-thread-card small,
 .bc-thread-card em {
   color: var(--bc-muted);
-  font-size: 0.76rem;
-  line-height: 1.45;
+  font-size: 0.72rem;
+  line-height: 1.35;
   font-style: normal;
+}
+
+.bc-thread-card p,
+.bc-thread-card small {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.bc-thread-card p {
+  -webkit-line-clamp: 2;
+}
+
+.bc-thread-card small {
+  -webkit-line-clamp: 2;
+}
+
+.bc-thread-card em {
+  margin-top: 2px;
+  font-size: 0.68rem;
 }
 
 .bc-thread-panel {
