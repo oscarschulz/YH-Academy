@@ -1,5 +1,5 @@
 const { firestore } = require('../config/firebaseAdmin');
-const { Timestamp } = require('firebase-admin/firestore');
+const { Timestamp, FieldValue } = require('firebase-admin/firestore');
 const universeCollectionMirrorRepo = require('../backend/repositories/universeCollectionMirrorRepo');
 const paymentLedgerRepo = require('../backend/repositories/paymentLedgerRepo');
 const { sendSystemMail } = require('./authControllers');
@@ -5092,17 +5092,93 @@ exports.unblockBusinessMember = async (req, res) => {
             });
         }
 
+        const now = Timestamp.now();
+        const nowIso = new Date().toISOString();
+
         await ref.set({
             status: 'revoked',
             revokedBy: viewer.id,
-            revokedAt: new Date().toISOString(),
-            updatedAt: Timestamp.now(),
-            updatedAtIso: new Date().toISOString()
+            revokedAt: nowIso,
+            updatedAt: now,
+            updatedAtIso: nowIso
         }, { merge: true });
+
+        const relatedConversationsSnap = await plazaConversationsCol
+            .where('participantIds', 'array-contains', viewer.id)
+            .limit(300)
+            .get();
+
+        const updatedConversations = [];
+
+        for (const docSnap of relatedConversationsSnap.docs) {
+            const conversationData = docSnap.data() || {};
+            const participantIds = getConversationParticipantIds(conversationData);
+
+            if (!participantIds.includes(blockedUserId)) continue;
+
+            const recordStatus = sanitizeText(conversationData.recordStatus || 'active').toLowerCase();
+            if (recordStatus !== 'active') continue;
+
+            const blockedBy = conversationData.blockedBy && typeof conversationData.blockedBy === 'object'
+                ? conversationData.blockedBy
+                : {};
+
+            const nextBlockedBy = { ...blockedBy };
+            delete nextBlockedBy[viewer.id];
+
+            const hasRemainingBlock = Object.values(nextBlockedBy).some(Boolean);
+            const moderation = conversationData.moderation && typeof conversationData.moderation === 'object'
+                ? conversationData.moderation
+                : {};
+
+            const currentStatus = sanitizeText(conversationData.status || 'active').toLowerCase();
+            const nextStatus = hasRemainingBlock
+                ? (currentStatus || 'blocked')
+                : moderation.closed === true
+                    ? 'closed'
+                    : currentStatus === 'blocked'
+                        ? 'active'
+                        : sanitizeText(conversationData.status || 'active');
+
+            const messages = appendConversationSystemMessage(
+                conversationData.messages,
+                'This business conversation was unblocked by a participant. Replies are now enabled again.'
+            );
+
+            const updatePayload = {
+                status: nextStatus,
+                messages,
+                updatedAt: now,
+                [`blockedBy.${viewer.id}`]: FieldValue.delete(),
+                'moderation.unblockedBy': viewer.id,
+                'moderation.unblockedAt': nowIso,
+                'moderation.lastBusinessUserBlockStatus': 'revoked'
+            };
+
+            if (!hasRemainingBlock) {
+                updatePayload['moderation.blocked'] = false;
+                updatePayload['moderation.blockedBy'] = FieldValue.delete();
+                updatePayload['moderation.blockedAt'] = FieldValue.delete();
+                updatePayload['moderation.blockReason'] = FieldValue.delete();
+                updatePayload['moderation.businessUserBlockId'] = FieldValue.delete();
+            }
+
+            await docSnap.ref.update(updatePayload);
+
+            const updatedSnap = await docSnap.ref.get();
+            updatedConversations.push(mapPlazaConversationDoc(updatedSnap));
+
+            if (global.yhEmitPlazaBusinessConversationUpdated) {
+                global.yhEmitPlazaBusinessConversationUpdated(updatedSnap.id).catch((emitError) => {
+                    console.warn('Business Chat realtime emit skipped:', emitError?.message || emitError);
+                });
+            }
+        }
 
         return res.json({
             success: true,
-            message: 'Business Chat block removed.'
+            message: 'Business Chat block removed.',
+            conversations: updatedConversations
         });
     } catch (error) {
         console.error('plazaControllers.unblockBusinessMember error:', error);

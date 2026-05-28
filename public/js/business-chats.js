@@ -1174,17 +1174,36 @@
     setBusy(button, true, 'Unblocking...');
 
     try {
-      await apiFetch('/plaza/business-blocks/' + encodeURIComponent(cleanId), {
+      const data = await apiFetch('/plaza/business-blocks/' + encodeURIComponent(cleanId), {
         method: 'DELETE'
       });
 
       state.blocks = state.blocks.filter((item) => {
-        const id = String(item.blockedUserId || item.id || item.userId || '').trim();
+        const id = String(
+          item.blockedUserId ||
+          item.otherUserId ||
+          item.targetUserId ||
+          item.userId ||
+          item.id ||
+          ''
+        ).trim();
+
         return id !== cleanId;
       });
 
-      renderBlocks();
-      showToast('Member unblocked.', 'success');
+      if (Array.isArray(data.conversations)) {
+        data.conversations.forEach((conversation) => upsertConversation(conversation));
+      }
+
+      try {
+        localStorage.removeItem(CACHE_KEY);
+      } catch (_) {}
+
+      await loadBlocks({ silent: true });
+      await refreshConversations({ force: true, silent: true });
+
+      renderAll();
+      showToast('Member unblocked. Related Business Chats were refreshed.', 'success');
     } catch (error) {
       console.error('unblock member error:', error);
       showToast(error.message || 'Failed to unblock member.', 'error');
