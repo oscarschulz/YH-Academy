@@ -783,7 +783,7 @@
     if (!list) return;
 
     if (state.blocksLoading) {
-      list.innerHTML = '<div class="bc-empty">Loading blocked members...</div>';
+      list.innerHTML = '<div class="bc-empty">Loading blocked members.</div>';
       return;
     }
 
@@ -793,16 +793,38 @@
     }
 
     list.innerHTML = state.blocks.map((block) => {
-      const blockedId = String(block.blockedUserId || block.id || block.userId || '').trim();
-      const name = String(block.blockedUserName || block.name || 'Blocked member').trim();
+      const blockedId = String(
+        block.blockedUserId ||
+        block.otherUserId ||
+        block.targetUserId ||
+        block.userId ||
+        block.id ||
+        ''
+      ).trim();
+
+      const name = String(
+        block.blockedUserName ||
+        block.otherUserName ||
+        block.displayName ||
+        block.fullName ||
+        block.name ||
+        block.username ||
+        'Blocked member'
+      ).trim();
+
+      const subline = [
+        block.blockedUserEmail || block.otherUserEmail || block.email || '',
+        block.latestConversationTitle ? 'From: ' + block.latestConversationTitle : '',
+        blockedId
+      ].filter(Boolean).join(' • ');
 
       return `
         <article class="bc-block-card">
           <div>
             <strong>${escapeHtml(name)}</strong>
-            <span>${escapeHtml(blockedId)}</span>
+            <span>${escapeHtml(subline || blockedId || 'Blocked Business Chat member')}</span>
           </div>
-          <button type="button" class="bc-ghost-small" data-unblock-id="${escapeHtml(blockedId)}">Unblock</button>
+          <button type="button" class="bc-ghost-small" data-unblock-id="${escapeHtml(blockedId)}" ${blockedId ? '' : 'disabled'}>Unblock</button>
         </article>
       `;
     }).join('');

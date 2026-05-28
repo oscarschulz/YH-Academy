@@ -7,7 +7,59 @@
   <link rel="icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1" />
   <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1" />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
-<link rel="stylesheet" href="/css/business-chats.css?v=20260527-business-chats-topnav-tabs-v2" />
+<link rel="stylesheet" href="/css/business-chats.css?v=20260529-business-chats-blocked-names-full-list-v1" />
+<style>
+/* ==========================================
+   BUSINESS CHATS CONVERSATIONS FULL-HEIGHT PATCH
+   Keeps the Conversations list scrollable to
+   the full visible page height on desktop.
+   ========================================== */
+@media (min-width: 901px) {
+  body[data-yh-view="business-chats"][data-bc-active-view="conversations"] .bc-shell {
+    min-height: 100svh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  body[data-yh-view="business-chats"][data-bc-active-view="conversations"] .bc-main-grid {
+    flex: 1 1 auto;
+    min-height: 0;
+    align-items: stretch;
+  }
+
+  body[data-yh-view="business-chats"][data-bc-active-view="conversations"] .bc-conversation-shell {
+    height: calc(100svh - 128px);
+    min-height: 560px;
+    max-height: none;
+    align-items: stretch;
+  }
+
+  body[data-yh-view="business-chats"][data-bc-active-view="conversations"] .bc-conversation-shell > .bc-panel,
+  body[data-yh-view="business-chats"][data-bc-active-view="conversations"] .bc-thread-panel {
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  body[data-yh-view="business-chats"][data-bc-active-view="conversations"] .bc-panel-head,
+  body[data-yh-view="business-chats"][data-bc-active-view="conversations"] .bc-thread-head,
+  body[data-yh-view="business-chats"][data-bc-active-view="conversations"] .bc-reply-form {
+    flex: 0 0 auto;
+  }
+
+  body[data-yh-view="business-chats"][data-bc-active-view="conversations"] .bc-conversation-list,
+  body[data-yh-view="business-chats"][data-bc-active-view="conversations"] .bc-thread-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none !important;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+  }
+}
+</style>
 </head>
 <body data-yh-view="business-chats" data-yh-page="business-chats" data-bc-active-view="overview">
   <div class="bc-shell">
@@ -206,6 +258,6 @@
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
-<script src="/js/business-chats.js?v=20260527-business-chats-tabs-members-v1"></script>
+<script src="/js/business-chats.js?v=20260529-business-chats-blocked-names-full-list-v1"></script>
 </body>
 </html>

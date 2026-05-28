@@ -4994,25 +4994,49 @@ exports.getBusinessBlocks = async (req, res) => {
                 ? data.participantIds.map((item) => sanitizeText(item)).filter(Boolean)
                 : [];
 
-            const otherUserId = participantIds.find((participantId) => participantId && participantId !== viewer.id) || '';
+            if (sanitizeText(data.blockerId || '') !== viewer.id) continue;
+
+            const storedBlockedUserId = sanitizeText(data.blockedUserId || '');
+            const otherUserId = storedBlockedUserId || participantIds.find((participantId) => participantId && participantId !== viewer.id) || '';
             const otherSnap = otherUserId ? await usersCol.doc(otherUserId).get().catch(() => null) : null;
             const otherData = otherSnap && otherSnap.exists ? (otherSnap.data() || {}) : {};
+
+            const fallbackBlockedName = sanitizeText(
+                data.blockedUserName ||
+                data.otherUserName ||
+                data.targetLabel ||
+                data.latestConversationTitle ||
+                'YH Member'
+            );
+
+            const otherUserName = sanitizeText(
+                otherData.fullName ||
+                otherData.displayName ||
+                otherData.name ||
+                otherData.username ||
+                fallbackBlockedName ||
+                otherUserId ||
+                'YH Member'
+            );
+
+            const otherUserEmail = sanitizeText(
+                otherData.email ||
+                otherData.emailLower ||
+                data.blockedUserEmail ||
+                data.otherUserEmail ||
+                ''
+            ).toLowerCase();
 
             blocks.push({
                 id: docSnap.id,
                 blockerId: sanitizeText(data.blockerId || ''),
-                blockedUserId: sanitizeText(data.blockedUserId || otherUserId),
+                blockedUserId: sanitizeText(storedBlockedUserId || otherUserId),
+                blockedUserName: otherUserName,
+                blockedUserEmail: otherUserEmail,
                 participantIds,
-                otherUserId,
-                otherUserName: sanitizeText(
-                    otherData.fullName ||
-                    otherData.displayName ||
-                    otherData.name ||
-                    otherData.username ||
-                    data.blockedUserName ||
-                    'YH Member'
-                ),
-                otherUserEmail: sanitizeText(otherData.email || data.blockedUserEmail || '').toLowerCase(),
+                otherUserId: sanitizeText(otherUserId),
+                otherUserName,
+                otherUserEmail,
                 status: sanitizeText(data.status || 'active'),
                 note: sanitizeText(data.note || ''),
                 latestConversationId: sanitizeText(data.latestConversationId || ''),
