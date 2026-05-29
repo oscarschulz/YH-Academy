@@ -30285,6 +30285,702 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
         return academyLearnFromAccess?.active === true || syncAcademyLearnFromAccessFromYhaBadge();
     }
 
+    let academyYhaBadgePaymentProviderConfigCache = null;
+
+    let academyYhaBadgePaymentModalState = {
+        billingPlan: 'monthly',
+        provider: 'stripe',
+        paymentMethod: 'card_bank_wallet'
+    };
+
+    function normalizeAcademyYhaBadgeBillingPlan(value = 'monthly') {
+        const clean = String(value || '').trim().toLowerCase();
+
+        if (clean === 'lifetime' || clean === 'life_time' || clean === 'forever') return 'lifetime';
+        if (clean === 'one_time' || clean === 'one-time' || clean === 'onetime' || clean === 'single') return 'one_time';
+
+        return 'monthly';
+    }
+
+    function getAcademyYhaBadgePlanMeta() {
+        return {
+            division: 'academy',
+            code: 'YHA',
+            name: 'Academy Verification Badge',
+            amountMonthly: 2.81,
+            amountOneTime: 2.81,
+            amountLifetime: 28.12,
+            asset: '/images/yha%20badge.png',
+            accentClass: 'is-academy',
+            summary: 'Subscribe to YHA to unlock the Academy Verification Badge and Learn From access inside the Academy AI Coach.'
+        };
+    }
+
+    function getAcademyYhaBadgeBillingAmount(billingPlan = 'monthly') {
+        const plan = getAcademyYhaBadgePlanMeta();
+        const cleanBillingPlan = normalizeAcademyYhaBadgeBillingPlan(billingPlan);
+
+        if (cleanBillingPlan === 'lifetime') return Number(plan.amountLifetime || 0);
+        if (cleanBillingPlan === 'one_time') return Number(plan.amountOneTime || 0);
+
+        return Number(plan.amountMonthly || 0);
+    }
+
+    function formatAcademyYhaBadgeBillingAmount(billingPlan = 'monthly') {
+        const cleanBillingPlan = normalizeAcademyYhaBadgeBillingPlan(billingPlan);
+        const amount = getAcademyYhaBadgeBillingAmount(cleanBillingPlan).toFixed(2);
+
+        if (cleanBillingPlan === 'lifetime') return `$${amount} lifetime`;
+        if (cleanBillingPlan === 'one_time') return `$${amount} one-time / 30 days`;
+
+        return `$${amount}/month`;
+    }
+
+    function normalizeAcademyYhaProviderStatus(value = '') {
+        const clean = String(value || '').trim().toLowerCase();
+
+        if (clean === 'active' || clean === 'enabled' || clean === 'ready') return 'active';
+        if (clean === 'fallback' || clean === 'manual') return 'fallback';
+        if (clean === 'setup_required' || clean === 'missing_keys' || clean === 'disabled') return 'setup_required';
+
+        return clean || 'setup_required';
+    }
+
+    function getAcademyYhaBadgePaymentMethod(provider = 'stripe') {
+        const cleanProvider = String(provider || '').trim().toLowerCase();
+
+        if (cleanProvider === 'oxapay') return 'crypto';
+        if (cleanProvider === 'manual') return 'manual';
+
+        return 'card_bank_wallet';
+    }
+
+    function getAcademyYhaProviderConfig(provider = '') {
+        const cleanProvider = String(provider || '').trim().toLowerCase();
+        const cache = academyYhaBadgePaymentProviderConfigCache || {};
+
+        if (cache[cleanProvider]) return cache[cleanProvider];
+
+        if (cleanProvider === 'manual') {
+            return {
+                id: 'manual',
+                label: 'Manual Admin Payment',
+                status: 'fallback',
+                configured: true
+            };
+        }
+
+        if (cleanProvider === 'stripe') {
+            return {
+                id: 'stripe',
+                label: 'Stripe / Fiat Payment',
+                status: 'setup_required',
+                configured: false
+            };
+        }
+
+        if (cleanProvider === 'oxapay') {
+            return {
+                id: 'oxapay',
+                label: 'OxaPay / Crypto Payment',
+                status: 'setup_required',
+                configured: false
+            };
+        }
+
+        return {
+            id: cleanProvider,
+            label: 'Payment Method',
+            status: 'setup_required',
+            configured: false
+        };
+    }
+
+    function academyCanSelectYhaProvider(provider = 'stripe') {
+        const cleanProvider = String(provider || '').trim().toLowerCase();
+        const billingPlan = normalizeAcademyYhaBadgeBillingPlan(academyYhaBadgePaymentModalState.billingPlan || 'monthly');
+
+        if (!['stripe', 'oxapay', 'manual'].includes(cleanProvider)) return false;
+        if (billingPlan === 'monthly' && cleanProvider === 'oxapay') return false;
+
+        return true;
+    }
+
+    function academyIsYhaProviderConfigured(provider = 'stripe') {
+        const cleanProvider = String(provider || '').trim().toLowerCase();
+
+        if (cleanProvider === 'manual') return true;
+
+        const config = getAcademyYhaProviderConfig(cleanProvider);
+        const status = normalizeAcademyYhaProviderStatus(config?.status || '');
+
+        return config?.configured === true && status === 'active';
+    }
+
+    function academyIsYhaProviderAllowed(provider = 'stripe') {
+        const cleanProvider = String(provider || '').trim().toLowerCase();
+
+        if (!academyCanSelectYhaProvider(cleanProvider)) return false;
+
+        return academyIsYhaProviderConfigured(cleanProvider);
+    }
+
+    function academyPickValidYhaProvider(preferredProvider = 'stripe') {
+        const billingPlan = normalizeAcademyYhaBadgeBillingPlan(academyYhaBadgePaymentModalState.billingPlan || 'monthly');
+        const cleanPreferred = String(preferredProvider || '').trim().toLowerCase() || 'stripe';
+        const providerOrder = billingPlan === 'monthly'
+            ? [cleanPreferred, 'stripe', 'manual']
+            : [cleanPreferred, 'stripe', 'oxapay', 'manual'];
+
+        const provider = providerOrder
+            .filter((value, index, list) => value && list.indexOf(value) === index)
+            .find((value) => academyCanSelectYhaProvider(value)) || 'manual';
+
+        academyYhaBadgePaymentModalState.provider = provider;
+        academyYhaBadgePaymentModalState.paymentMethod = getAcademyYhaBadgePaymentMethod(provider);
+
+        return provider;
+    }
+
+    async function hydrateAcademyYhaBadgePaymentProviderConfig() {
+        if (academyYhaBadgePaymentProviderConfigCache) {
+            return academyYhaBadgePaymentProviderConfigCache;
+        }
+
+        try {
+            const result = await coachFetch('/api/payments/options', {
+                method: 'GET'
+            });
+
+            const providers = Array.isArray(result?.paymentProviders) ? result.paymentProviders : [];
+            const nextConfig = {};
+
+            providers.forEach((provider) => {
+                const id = String(provider.id || provider.provider || '').trim().toLowerCase();
+                if (!id) return;
+
+                const status = normalizeAcademyYhaProviderStatus(provider.status || '');
+
+                nextConfig[id] = {
+                    ...provider,
+                    id,
+                    status,
+                    configured:
+                        provider.configured === true ||
+                        status === 'active' ||
+                        status === 'fallback'
+                };
+            });
+
+            academyYhaBadgePaymentProviderConfigCache = {
+                stripe: nextConfig.stripe || getAcademyYhaProviderConfig('stripe'),
+                oxapay: nextConfig.oxapay || getAcademyYhaProviderConfig('oxapay'),
+                manual: nextConfig.manual || getAcademyYhaProviderConfig('manual')
+            };
+
+            return academyYhaBadgePaymentProviderConfigCache;
+        } catch (error) {
+            console.warn('Academy YHA payment provider config fallback used:', error?.message || error);
+
+            academyYhaBadgePaymentProviderConfigCache = {
+                stripe: getAcademyYhaProviderConfig('stripe'),
+                oxapay: getAcademyYhaProviderConfig('oxapay'),
+                manual: getAcademyYhaProviderConfig('manual')
+            };
+
+            return academyYhaBadgePaymentProviderConfigCache;
+        }
+    }
+
+    function ensureAcademyYhaBadgePaymentModal() {
+        let modal = document.getElementById('academy-yha-badge-payment-method-modal');
+
+        if (modal) return modal;
+
+        modal = document.createElement('div');
+        modal.id = 'academy-yha-badge-payment-method-modal';
+        modal.className = 'yh-dashboard-settings-badge-payment-modal hidden-step academy-yha-badge-payment-method-modal';
+        modal.setAttribute('aria-hidden', 'true');
+        modal.setAttribute('role', 'dialog');
+        modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-labelledby', 'academy-yha-badge-payment-title');
+
+        modal.innerHTML = `
+            <div class="yh-dashboard-settings-badge-payment-card" role="document">
+                <div class="yh-dashboard-settings-badge-payment-head">
+                    <div class="yh-dashboard-settings-badge-payment-brand">
+                        <div class="yh-dashboard-settings-badge-payment-icon is-academy">
+                            <img src="/images/yha%20badge.png" alt="YHA badge">
+                        </div>
+
+                        <div>
+                            <div class="yh-dashboard-settings-badge-payment-kicker">Academy / YHA Payment Method</div>
+                            <h3 id="academy-yha-badge-payment-title">YHA Payment Method</h3>
+                            <p id="academy-yha-badge-payment-summary">
+                                Subscribe to YHA to unlock the Academy Verification Badge and Learn From access inside the Academy AI Coach.
+                            </p>
+                        </div>
+                    </div>
+
+                    <button type="button" class="yh-dashboard-settings-badge-payment-x" data-academy-yha-payment-close aria-label="Close payment modal">✕</button>
+                </div>
+
+                <div class="yh-dashboard-settings-badge-payment-body">
+                    <section class="yh-dashboard-settings-badge-payment-total">
+                        <span>Selected plan</span>
+                        <strong id="academy-yha-badge-payment-amount">$2.81/month</strong>
+                    </section>
+
+                    <section class="yh-dashboard-settings-badge-payment-section">
+                        <h4>Choose billing option</h4>
+                        <p id="academy-yha-badge-payment-billing-copy">
+                            YHA Monthly renews through Stripe when Stripe is selected.
+                        </p>
+
+                        <div class="yh-dashboard-settings-badge-payment-options">
+                            <button type="button" class="yh-dashboard-settings-badge-payment-option" data-academy-yha-billing-plan="monthly">
+                                <span>
+                                    <strong>Monthly Subscription</strong>
+                                    <small>Recurring monthly billing. Stripe only.</small>
+                                </span>
+                                <em>Stripe</em>
+                            </button>
+
+                            <button type="button" class="yh-dashboard-settings-badge-payment-option" data-academy-yha-billing-plan="one_time">
+                                <span>
+                                    <strong>One-Time Access</strong>
+                                    <small>One payment for 30 days access.</small>
+                                </span>
+                                <em>30 Days</em>
+                            </button>
+
+                            <button type="button" class="yh-dashboard-settings-badge-payment-option" data-academy-yha-billing-plan="lifetime">
+                                <span>
+                                    <strong>Lifetime Access</strong>
+                                    <small>One payment for permanent access.</small>
+                                </span>
+                                <em>Lifetime</em>
+                            </button>
+                        </div>
+                    </section>
+
+                    <section class="yh-dashboard-settings-badge-payment-section">
+                        <h4>Choose payment method</h4>
+                        <p>Select how you want to pay for the selected YHA billing option.</p>
+
+                        <div class="yh-dashboard-settings-badge-payment-options">
+                            <button type="button" class="yh-dashboard-settings-badge-payment-option" data-academy-yha-provider="stripe">
+                                <span>
+                                    <strong>Stripe / Fiat Payment</strong>
+                                    <small>Supports monthly subscription, one-time access, and lifetime access.</small>
+                                </span>
+                                <em data-academy-yha-provider-status="stripe">Checking...</em>
+                            </button>
+
+                            <button type="button" class="yh-dashboard-settings-badge-payment-option" data-academy-yha-provider="oxapay">
+                                <span>
+                                    <strong>OxaPay / Crypto Payment</strong>
+                                    <small>Crypto checkout for one-time or lifetime badge access.</small>
+                                </span>
+                                <em data-academy-yha-provider-status="oxapay">Checking...</em>
+                            </button>
+
+                            <button type="button" class="yh-dashboard-settings-badge-payment-option" data-academy-yha-provider="manual">
+                                <span>
+                                    <strong>Manual Admin Payment</strong>
+                                    <small>Create a payment ledger request for admin confirmation.</small>
+                                </span>
+                                <em data-academy-yha-provider-status="manual">Fallback</em>
+                            </button>
+                        </div>
+                    </section>
+                </div>
+
+                <div class="yh-dashboard-settings-badge-payment-actions">
+                    <button type="button" class="btn-secondary" data-academy-yha-payment-close>Cancel</button>
+                    <button type="button" class="btn-primary" id="academy-yha-badge-payment-confirm">Continue to Selected Payment</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        modal.addEventListener('click', (event) => {
+            if (
+                event.target === modal ||
+                event.target?.closest?.('[data-academy-yha-payment-close]')
+            ) {
+                event.preventDefault();
+                closeAcademyYhaBadgePaymentModal();
+                return;
+            }
+
+            const billingButton = event.target?.closest?.('[data-academy-yha-billing-plan]');
+            if (billingButton) {
+                event.preventDefault();
+
+                academyYhaBadgePaymentModalState.billingPlan = normalizeAcademyYhaBadgeBillingPlan(
+                    billingButton.getAttribute('data-academy-yha-billing-plan') || 'monthly'
+                );
+
+                academyPickValidYhaProvider(academyYhaBadgePaymentModalState.provider || 'stripe');
+                syncAcademyYhaBadgePaymentModalUi();
+                return;
+            }
+
+            const providerButton = event.target?.closest?.('[data-academy-yha-provider]');
+            if (providerButton) {
+                event.preventDefault();
+
+                const provider = String(providerButton.getAttribute('data-academy-yha-provider') || 'manual').trim().toLowerCase();
+
+                if (!academyCanSelectYhaProvider(provider)) {
+                    const billingPlan = normalizeAcademyYhaBadgeBillingPlan(academyYhaBadgePaymentModalState.billingPlan || 'monthly');
+
+                    if (typeof showToast === 'function') {
+                        showToast(
+                            billingPlan === 'monthly' && provider === 'oxapay'
+                                ? 'OxaPay is only available for one-time or lifetime YHA payments.'
+                                : 'This payment provider is not available for the selected plan.',
+                            'warning'
+                        );
+                    }
+
+                    return;
+                }
+
+                academyYhaBadgePaymentModalState.provider = provider;
+                academyYhaBadgePaymentModalState.paymentMethod = getAcademyYhaBadgePaymentMethod(provider);
+                syncAcademyYhaBadgePaymentModalUi();
+            }
+        });
+
+        modal.querySelector('#academy-yha-badge-payment-confirm')?.addEventListener('click', (event) => {
+            event.preventDefault();
+
+            submitAcademyYhaBadgePayment(event.currentTarget).catch((error) => {
+                console.error('Academy YHA badge payment error:', error);
+                setLearnFromPayStatus(error?.message || 'Failed to start YHA payment.', 'error');
+
+                if (typeof showToast === 'function') {
+                    showToast(error?.message || 'Failed to start YHA payment.', 'error');
+                }
+            });
+        });
+
+        return modal;
+    }
+
+    function closeAcademyYhaBadgePaymentModal() {
+        const modal = document.getElementById('academy-yha-badge-payment-method-modal');
+        if (!modal) return;
+
+        modal.classList.add('hidden-step');
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+    }
+
+    function syncAcademyYhaBadgePaymentModalUi() {
+        const modal = ensureAcademyYhaBadgePaymentModal();
+        const billingPlan = normalizeAcademyYhaBadgeBillingPlan(academyYhaBadgePaymentModalState.billingPlan || 'monthly');
+
+        if (!academyCanSelectYhaProvider(academyYhaBadgePaymentModalState.provider || 'stripe')) {
+            academyPickValidYhaProvider(academyYhaBadgePaymentModalState.provider || 'stripe');
+        }
+
+        const amount = modal.querySelector('#academy-yha-badge-payment-amount');
+        const billingCopy = modal.querySelector('#academy-yha-badge-payment-billing-copy');
+
+        if (amount) amount.textContent = formatAcademyYhaBadgeBillingAmount(billingPlan);
+
+        if (billingCopy) {
+            billingCopy.textContent =
+                billingPlan === 'lifetime'
+                    ? 'YHA Lifetime gives permanent badge access and permanent Learn From access.'
+                    : billingPlan === 'one_time'
+                        ? 'YHA One-Time gives 30 days of badge access and Learn From access for the same period.'
+                        : 'YHA Monthly renews through Stripe when Stripe is selected.';
+        }
+
+        modal.querySelectorAll('[data-academy-yha-billing-plan]').forEach((button) => {
+            const active = button.getAttribute('data-academy-yha-billing-plan') === billingPlan;
+            button.classList.toggle('is-selected', active);
+            button.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+
+        modal.querySelectorAll('[data-academy-yha-provider]').forEach((button) => {
+            const provider = String(button.getAttribute('data-academy-yha-provider') || '').trim().toLowerCase();
+            const config = getAcademyYhaProviderConfig(provider);
+            const providerStatus = normalizeAcademyYhaProviderStatus(config?.status || '');
+            const blockedByBilling = billingPlan === 'monthly' && provider === 'oxapay';
+            const selectable = academyCanSelectYhaProvider(provider);
+            const configured = academyIsYhaProviderConfigured(provider);
+            const active = academyYhaBadgePaymentModalState.provider === provider;
+            const statusEl = button.querySelector(`[data-academy-yha-provider-status="${provider}"]`);
+
+            button.classList.toggle('is-selected', active);
+            button.classList.toggle('is-disabled', !selectable);
+            button.classList.toggle('is-setup-required', selectable && !configured && provider !== 'manual');
+            button.disabled = !selectable;
+            button.setAttribute('aria-disabled', selectable ? 'false' : 'true');
+            button.setAttribute('aria-pressed', active ? 'true' : 'false');
+
+            button.title = !selectable && blockedByBilling
+                ? 'OxaPay is available only for one-time or lifetime YHA payments.'
+                : selectable && !configured && provider !== 'manual'
+                    ? `${config?.label || 'This provider'} is selectable, but it still needs provider setup before checkout can start.`
+                    : '';
+
+            if (statusEl) {
+                if (blockedByBilling) {
+                    statusEl.textContent = 'One-Time / Lifetime';
+                } else if (providerStatus === 'setup_required' && provider !== 'manual') {
+                    statusEl.textContent = 'Setup Required';
+                } else if (providerStatus === 'fallback' || provider === 'manual') {
+                    statusEl.textContent = 'Fallback';
+                } else {
+                    statusEl.textContent = 'Active';
+                }
+            }
+        });
+    }
+
+    function openAcademyYhaBadgePaymentModalFromLearnFrom() {
+        closeLearnFromPayModal();
+
+        academyYhaBadgePaymentModalState = {
+            billingPlan: 'monthly',
+            provider: 'stripe',
+            paymentMethod: 'card_bank_wallet'
+        };
+
+        const modal = ensureAcademyYhaBadgePaymentModal();
+
+        academyPickValidYhaProvider('stripe');
+        syncAcademyYhaBadgePaymentModalUi();
+
+        modal.classList.remove('hidden-step');
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+
+        hydrateAcademyYhaBadgePaymentProviderConfig()
+            .then(() => {
+                academyPickValidYhaProvider(academyYhaBadgePaymentModalState.provider || 'stripe');
+                syncAcademyYhaBadgePaymentModalUi();
+            })
+            .catch(() => {
+                syncAcademyYhaBadgePaymentModalUi();
+            });
+
+        return true;
+    }
+
+    function openAcademyPendingYhaCheckoutTab(provider = 'stripe', billingPlan = 'monthly') {
+        const cleanProvider = String(provider || '').trim().toLowerCase();
+
+        if (cleanProvider !== 'stripe' && cleanProvider !== 'oxapay') {
+            return null;
+        }
+
+        try {
+            const checkoutWindow = window.open('', '_blank', 'noopener,noreferrer');
+
+            if (checkoutWindow && checkoutWindow.document) {
+                checkoutWindow.document.write(`
+                    <!doctype html>
+                    <html>
+                        <head>
+                            <title>YHA Checkout</title>
+                            <style>
+                                body {
+                                    margin: 0;
+                                    min-height: 100vh;
+                                    display: grid;
+                                    place-items: center;
+                                    background: #020617;
+                                    color: #f8fbff;
+                                    font-family: Arial, sans-serif;
+                                }
+                                div {
+                                    max-width: 420px;
+                                    padding: 28px;
+                                    text-align: center;
+                                    border: 1px solid rgba(56, 189, 248, 0.35);
+                                    border-radius: 22px;
+                                    background: rgba(15, 23, 42, 0.86);
+                                }
+                                p {
+                                    color: #94a3b8;
+                                    line-height: 1.5;
+                                }
+                            </style>
+                        </head>
+                        <body>
+                            <div>
+                                <h2>Preparing YHA checkout...</h2>
+                                <p>This tab will redirect automatically when the payment link is ready.</p>
+                            </div>
+                        </body>
+                    </html>
+                `);
+                checkoutWindow.document.close();
+            }
+
+            return checkoutWindow;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function sendAcademyYhaCheckoutToNewTab(url = '', checkoutWindow = null) {
+        const cleanUrl = String(url || '').trim();
+        if (!cleanUrl) return false;
+
+        if (checkoutWindow && checkoutWindow.closed !== true) {
+            try {
+                checkoutWindow.location.href = cleanUrl;
+                return true;
+            } catch (_) {}
+        }
+
+        try {
+            return !!window.open(cleanUrl, '_blank', 'noopener,noreferrer');
+        } catch (_) {
+            return false;
+        }
+    }
+
+    async function submitAcademyYhaBadgePayment(confirmButton = null) {
+        const provider = String(academyYhaBadgePaymentModalState.provider || 'stripe').trim().toLowerCase();
+        const billingPlan = normalizeAcademyYhaBadgeBillingPlan(academyYhaBadgePaymentModalState.billingPlan || 'monthly');
+
+        if (!academyCanSelectYhaProvider(provider)) {
+            setLearnFromPayStatus('Choose an available YHA payment method first.', 'error');
+            return;
+        }
+
+        if (!academyIsYhaProviderAllowed(provider)) {
+            const config = getAcademyYhaProviderConfig(provider);
+            const providerLabel = String(config?.label || provider || 'This payment provider').trim();
+            const message = `${providerLabel} is not configured yet. Add the provider keys or use Manual Admin Payment for now.`;
+
+            setLearnFromPayStatus(message, 'error');
+
+            if (typeof showToast === 'function') {
+                showToast(message, 'warning');
+            }
+
+            return;
+        }
+
+        const opensCheckoutTab = provider === 'stripe' || provider === 'oxapay';
+        const endpoint = provider === 'stripe'
+            ? '/api/payments/badges/academy/checkout-session'
+            : provider === 'oxapay'
+                ? '/api/payments/badges/academy/oxapay-invoice'
+                : '/api/payments/badges/academy/ledger';
+
+        const checkoutWindow = opensCheckoutTab
+            ? openAcademyPendingYhaCheckoutTab(provider, billingPlan)
+            : null;
+
+        if (opensCheckoutTab && !checkoutWindow) {
+            const message = 'Your browser blocked the checkout tab. Please allow popups for this site, then click Continue again.';
+            setLearnFromPayStatus(message, 'error');
+
+            if (typeof showToast === 'function') {
+                showToast(message, 'error');
+            }
+
+            return;
+        }
+
+        if (confirmButton) {
+            confirmButton.disabled = true;
+            confirmButton.setAttribute('aria-busy', 'true');
+            confirmButton.dataset.originalText = confirmButton.textContent || '';
+            confirmButton.textContent = provider === 'stripe'
+                ? 'Opening Stripe...'
+                : provider === 'oxapay'
+                    ? 'Opening OxaPay...'
+                    : 'Creating Request...';
+        }
+
+        setLearnFromPayStatus('Preparing YHA payment...', 'success');
+
+        try {
+            const result = await coachFetch(endpoint, {
+                method: 'POST',
+                body: JSON.stringify({
+                    provider,
+                    paymentMethod: getAcademyYhaBadgePaymentMethod(provider),
+                    billingPlan,
+                    returnTo: '/academy?section=community'
+                })
+            });
+
+            const checkoutUrl = String(
+                result?.url ||
+                result?.checkoutUrl ||
+                result?.providerCheckoutUrl ||
+                result?.payment?.url ||
+                result?.payment?.checkoutUrl ||
+                result?.payment?.providerCheckoutUrl ||
+                ''
+            ).trim();
+
+            if (opensCheckoutTab && checkoutUrl) {
+                const opened = sendAcademyYhaCheckoutToNewTab(checkoutUrl, checkoutWindow);
+
+                if (!opened) {
+                    throw new Error('The payment link was created, but your browser blocked the checkout tab. Please allow popups and click Continue again.');
+                }
+
+                closeAcademyYhaBadgePaymentModal();
+                setLearnFromPayStatus('YHA checkout opened in a new tab.', 'success');
+
+                if (typeof showToast === 'function') {
+                    showToast('YHA checkout opened in a new tab.', 'success');
+                }
+
+                return;
+            }
+
+            if (checkoutWindow && checkoutWindow.closed !== true) {
+                try {
+                    checkoutWindow.close();
+                } catch (_) {}
+            }
+
+            closeAcademyYhaBadgePaymentModal();
+
+            await refreshAcademyLearnFromAccess().catch(() => null);
+
+            if (typeof showToast === 'function') {
+                showToast('YHA payment request created. Learn From will unlock after payment/admin confirmation.', 'success');
+            }
+        } catch (error) {
+            if (checkoutWindow && checkoutWindow.closed !== true) {
+                try {
+                    checkoutWindow.close();
+                } catch (_) {}
+            }
+
+            setLearnFromPayStatus(error?.message || 'Failed to start YHA payment.', 'error');
+            throw error;
+        } finally {
+            if (confirmButton) {
+                confirmButton.disabled = false;
+                confirmButton.removeAttribute('aria-busy');
+
+                if (confirmButton.dataset.originalText) {
+                    confirmButton.textContent = confirmButton.dataset.originalText;
+                    delete confirmButton.dataset.originalText;
+                }
+            }
+        }
+    }
+
 
     function setLearnFromPayStatus(message = '', tone = '') {
         const status = document.getElementById(LEARN_FROM_PAY_STATUS_ID);
@@ -30481,7 +31177,10 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
         }
 
         const status = url.searchParams.get('learnFromPayment') || '';
-        if (!status) return;
+        const badgeStatus = url.searchParams.get('badge_checkout') || '';
+        const badgeDivision = String(url.searchParams.get('division') || '').trim().toLowerCase();
+
+        if (!status && !badgeStatus) return;
 
         const cleanUrl = `${url.origin}${url.pathname}${url.hash || ''}`;
 
@@ -30489,10 +31188,19 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
             window.history.replaceState({}, document.title, cleanUrl);
         } catch (_) {}
 
-        if (status === 'cancelled') {
+        if (
+            status === 'cancelled' ||
+            badgeStatus === 'stripe-cancelled' ||
+            badgeStatus === 'oxapay-cancelled'
+        ) {
             try {
                 if (typeof showToast === 'function') {
-                    showToast('Academy Learn From checkout was cancelled.', 'error');
+                    showToast(
+                        badgeDivision === 'academy'
+                            ? 'YHA checkout was cancelled.'
+                            : 'Academy Learn From checkout was cancelled.',
+                        'error'
+                    );
                 }
             } catch (_) {}
             return;
@@ -30967,9 +31675,9 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
         });
 
         modal.querySelectorAll('[data-learn-from-open-yha-profile]').forEach((button) => {
-            button.addEventListener('click', () => {
-                closeLearnFromPayModal();
-                window.location.href = '/academy?section=profile';
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
+                openAcademyYhaBadgePaymentModalFromLearnFrom();
             });
         });
 
