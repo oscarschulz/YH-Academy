@@ -3072,16 +3072,57 @@ function dashboardNormalizeSettingsBadgeDivision(division = '') {
     return 'academy';
 }
 
+function dashboardReadAcademyProfileViewStateForSettings() {
+    try {
+        if (
+            typeof academyProfileViewState !== 'undefined' &&
+            academyProfileViewState &&
+            typeof academyProfileViewState === 'object'
+        ) {
+            return academyProfileViewState;
+        }
+    } catch (_) {}
+
+    return null;
+}
+
 function dashboardGetSettingsProfileSnapshot() {
-    const activeProfile = academyProfileViewState?.profile && typeof academyProfileViewState.profile === 'object'
-        ? academyProfileViewState.profile
-        : {};
+    let activeProfile = {};
+    const viewState = dashboardReadAcademyProfileViewStateForSettings();
+
+    if (viewState?.profile && typeof viewState.profile === 'object') {
+        activeProfile = viewState.profile;
+    }
+
+    if (!activeProfile || !Object.keys(activeProfile).length) {
+        try {
+            if (typeof dashboardGetSelfProfileCache === 'function') {
+                const cachedProfile = dashboardGetSelfProfileCache();
+
+                if (cachedProfile && typeof cachedProfile === 'object' && !Array.isArray(cachedProfile)) {
+                    activeProfile = cachedProfile;
+                }
+            }
+        } catch (_) {}
+    }
+
+    if (!activeProfile || !Object.keys(activeProfile).length) {
+        try {
+            if (typeof dashboardGetTopProfileCache === 'function') {
+                const topProfile = dashboardGetTopProfileCache();
+
+                if (topProfile && typeof topProfile === 'object' && !Array.isArray(topProfile)) {
+                    activeProfile = topProfile;
+                }
+            }
+        } catch (_) {}
+    }
 
     if (typeof buildAcademySelfProfilePayload === 'function') {
         return buildAcademySelfProfilePayload(activeProfile);
     }
 
-    return activeProfile;
+    return activeProfile || {};
 }
 
 function dashboardGetSettingsBadgeSnapshot(profile = {}, division = 'academy') {
@@ -3939,10 +3980,11 @@ function dashboardSyncProfileBadgeStateFromSettingsSnapshot(snapshot = {}) {
 
     if (!Object.keys(nextBadges).length) return;
 
+    const viewState = dashboardReadAcademyProfileViewStateForSettings();
     const settingsProfile = dashboardGetSettingsProfileSnapshot();
     const currentProfile =
-        academyProfileViewState?.profile && typeof academyProfileViewState.profile === 'object'
-            ? academyProfileViewState.profile
+        viewState?.profile && typeof viewState.profile === 'object'
+            ? viewState.profile
             : {};
 
     const nextProfile = {
@@ -3964,21 +4006,25 @@ function dashboardSyncProfileBadgeStateFromSettingsSnapshot(snapshot = {}) {
     } catch (_) {}
 
     if (
-        academyProfileViewState?.profile &&
-        typeof academyProfileViewState.profile === 'object' &&
-        (academyProfileViewState.mode === 'self' || !academyProfileViewState.mode)
+        viewState?.profile &&
+        typeof viewState.profile === 'object' &&
+        (viewState.mode === 'self' || !viewState.mode)
     ) {
-        academyProfileViewState.profile = nextProfile;
+        viewState.profile = nextProfile;
 
         try {
-            renderAcademyProfileView(nextProfile, { mode: 'self' });
+            if (typeof renderAcademyProfileView === 'function') {
+                renderAcademyProfileView(nextProfile, { mode: 'self' });
+            }
         } catch (error) {
             console.warn('profile badge sync render skipped:', error?.message || error);
         }
     }
 
     try {
-        renderDashboardSettingsBadgeRows(nextProfile);
+        if (typeof renderDashboardSettingsBadgeRows === 'function') {
+            renderDashboardSettingsBadgeRows(nextProfile);
+        }
     } catch (_) {}
 }
 
@@ -3998,7 +4044,12 @@ async function loadDashboardSettingsSubscriptions(options = {}) {
 
         dashboardSettingsSnapshot = result && typeof result === 'object' ? result : {};
         renderDashboardSettingsSubscriptions(dashboardSettingsSnapshot);
-        dashboardSyncProfileBadgeStateFromSettingsSnapshot(dashboardSettingsSnapshot);
+
+        try {
+            dashboardSyncProfileBadgeStateFromSettingsSnapshot(dashboardSettingsSnapshot);
+        } catch (syncError) {
+            console.warn('dashboard settings profile badge sync skipped:', syncError?.message || syncError);
+        }
 
         return dashboardSettingsSnapshot;
     } catch (error) {
