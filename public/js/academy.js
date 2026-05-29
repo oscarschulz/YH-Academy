@@ -3221,8 +3221,18 @@ function academyCoachEscapeHtml(value) {
         return academyFeedEscapeHtml(value);
     }
 
+    function academyCleanCoachDisplayText(value = '') {
+        return String(value || '')
+            .replace(/\*\*([^*]+)\*\*/g, '$1')
+            .replace(/\*\*/g, '')
+            .replace(/__([^_]+)__/g, '$1')
+            .replace(/__/g, '')
+            .replace(/`([^`]+)`/g, '$1')
+            .trim();
+    }
+
     function academyCoachFormatStructuredTextHtml(text = '', meta = academyCoachUiMeta || getAcademyCoachUiMeta('general')) {
-        const raw = String(text || '').replace(/\r\n/g, '\n').trim();
+        const raw = academyCleanCoachDisplayText(text).replace(/\r\n/g, '\n').trim();
         if (!raw) return '';
 
         const structuredLabels = [
