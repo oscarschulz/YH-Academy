@@ -3512,7 +3512,7 @@ function dashboardSettingsBuildExplanation(item = {}) {
             isAcademyBadge
                 ? 'YHA unlocks the Academy Verified Badge for your YH profile and includes Academy Learn From Access inside the Academy experience.'
                 : isFederationBadge
-                    ? 'YHF unlocks the Federation Verified Badge for your YH profile and marks your Federation verification plan for payment processing.'
+                    ? 'YHF unlocks the Federation Verified Badge for your YH profile and includes access to the private Telegram group with other Federation members.'
                     : item.includedCopy || 'Review this subscription before continuing to checkout.'
         )
     ).trim();
@@ -3528,6 +3528,7 @@ function dashboardSettingsBuildExplanation(item = {}) {
             : isFederationBadge
                 ? [
                     'Federation Verified Badge visibility',
+                    'Private Telegram group access with other Federation members',
                     'Federation subscription/payment status tracking',
                     'Subscription managed from Dashboard Settings'
                 ]
@@ -3778,6 +3779,7 @@ function renderDashboardSettingsSubscriptions(snapshot = {}) {
         const unsubscribeActiveUntilLabel = dashboardSettingsFormatDateTime(rawExpiresAt);
         const explanation = dashboardSettingsBuildExplanation(item);
         const yhaIncludesLearnFrom = planKey === 'verified_badge' && division === 'academy';
+        const yhfIncludesTelegramGroup = planKey === 'verified_badge' && division === 'federation';
         const isVerifiedBadgePlan = dashboardSettingsIsVerifiedBadgePlan(item);
         const badgePaymentPending = isVerifiedBadgePlan && dashboardSettingsIsBadgePaymentPending(item);
         const badgeBillingPlan = isVerifiedBadgePlan ? dashboardSettingsReadBadgeBillingPlan(item) : 'monthly';
@@ -3791,6 +3793,7 @@ function renderDashboardSettingsSubscriptions(snapshot = {}) {
             provider ? `Provider: ${dashboardSettingsFormatPlanText(provider)}` : '',
             paymentStatus ? `Payment: ${dashboardSettingsFormatPlanText(paymentStatus)}` : '',
             yhaIncludesLearnFrom ? 'Includes Academy Learn From Access' : '',
+            yhfIncludesTelegramGroup ? 'Includes Federation Telegram Group Access' : '',
             activatedAt ? `Activated: ${activatedAt}` : '',
             expiresAt ? `Expires: ${expiresAt}` : ''
         ].filter(Boolean).join(' • ');
@@ -4108,7 +4111,7 @@ async function dashboardRefreshSettingsAfterBadgeAvailIfOpen() {
                 amountLifetime: 281.20,
                 asset: '/images/yhf%20badge.png',
                 accentClass: 'is-federation',
-                summary: 'For approved Federation members who want the YHF verification symbol on their public YH Universe profile.'
+                summary: 'For approved Federation members who want the YHF verification symbol on their public YH Universe profile, plus access to the private Telegram group with other Federation members.'
             };
         }
 
@@ -4737,10 +4740,12 @@ function syncDashboardSettingsBadgePaymentModalUi() {
     if (billingCopy) {
         billingCopy.textContent =
             billingPlan === 'lifetime'
-                ? `${plan.code} Lifetime gives permanent badge access${plan.division === 'academy' ? ' and permanent Academy Learn From access.' : '.'}`
+                ? `${plan.code} Lifetime gives permanent badge access${plan.division === 'academy' ? ' and permanent Academy Learn From access.' : plan.division === 'federation' ? ' and permanent Federation Telegram group access.' : '.'}`
                 : billingPlan === 'one_time'
-                    ? `${plan.code} One-Time gives 30 days of badge access${plan.division === 'academy' ? ' and Learn From access for the same period.' : '.'}`
-                    : `${plan.code} Monthly renews through Stripe when Stripe is selected.`;
+                    ? `${plan.code} One-Time gives 30 days of badge access${plan.division === 'academy' ? ' and Learn From access for the same period.' : plan.division === 'federation' ? ' and Federation Telegram group access for the same period.' : '.'}`
+                    : plan.division === 'federation'
+                        ? `${plan.code} Monthly renews through Stripe when Stripe is selected and includes Federation Telegram group access while active.`
+                        : `${plan.code} Monthly renews through Stripe when Stripe is selected.`;
     }
 
     modal.querySelectorAll('[data-yh-settings-badge-billing-plan]').forEach((button) => {
@@ -14430,10 +14435,12 @@ function dashboardSyncBadgeBillingUi(modal = null) {
     if (billingCopy) {
         billingCopy.textContent =
             billingPlan === 'lifetime'
-                ? `${plan.code} Lifetime unlocks permanent badge access${plan.division === 'academy' ? ' and permanent Learn From access inside the Academy AI Coach.' : '.'}`
+                ? `${plan.code} Lifetime unlocks permanent badge access${plan.division === 'academy' ? ' and permanent Learn From access inside the Academy AI Coach.' : plan.division === 'federation' ? ' and permanent Federation Telegram group access.' : '.'}`
                 : billingPlan === 'one_time'
-                    ? `${plan.code} One-Time unlocks badge access for 30 days${plan.division === 'academy' ? ' and Learn From access for the same active period.' : '.'}`
-                    : `${plan.code} Monthly renews automatically through Stripe when Stripe is selected.`;
+                    ? `${plan.code} One-Time unlocks badge access for 30 days${plan.division === 'academy' ? ' and Learn From access for the same active period.' : plan.division === 'federation' ? ' and Federation Telegram group access for the same active period.' : '.'}`
+                    : plan.division === 'federation'
+                        ? `${plan.code} Monthly renews automatically through Stripe when Stripe is selected and includes Federation Telegram group access while active.`
+                        : `${plan.code} Monthly renews automatically through Stripe when Stripe is selected.`;
     }
 
     dashboardApplyBadgePaymentProviderStatuses(root);
@@ -14880,7 +14887,7 @@ function openDashboardBadgeAvailModal(division = 'academy', button = null) {
     if (note) {
         note.textContent = plan.division === 'academy'
             ? 'Access to Learn From Big Figures and the Greatest Philosophers will be unlocked inside the Academy AI Coach. Your YHA badge will also appear on your public YH Universe profile.'
-            : 'This subscription adds the YHF verification symbol to your public YH Universe profile.';
+            : 'This subscription adds the YHF verification symbol to your public YH Universe profile and unlocks access to the private Telegram group with other Federation members.';
     }
 
     dashboardSyncBadgeBillingUi(modal);
