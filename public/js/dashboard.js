@@ -13877,10 +13877,6 @@ function dashboardOpenPendingBadgeCheckoutTab(provider = 'stripe', billingPlan =
     }
 
     try {
-        popup.opener = null;
-    } catch (_) {}
-
-    try {
         popup.document.open();
         popup.document.write(`
             <!doctype html>
@@ -13902,9 +13898,10 @@ function dashboardOpenPendingBadgeCheckoutTab(provider = 'stripe', billingPlan =
                             width: min(420px, calc(100vw - 32px));
                             border: 1px solid rgba(56, 189, 248, 0.35);
                             border-radius: 22px;
-                            background: rgba(15, 23, 42, 0.88);
+                            background: rgba(15, 23, 42, 0.9);
                             padding: 24px;
                             box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+                            text-align: center;
                         }
                         .kicker {
                             color: #38bdf8;
@@ -13936,7 +13933,17 @@ function dashboardOpenPendingBadgeCheckoutTab(provider = 'stripe', billingPlan =
             </html>
         `);
         popup.document.close();
-    } catch (_) {}
+
+        if (typeof popup.focus === 'function') {
+            popup.focus();
+        }
+    } catch (_) {
+        try {
+            popup.close();
+        } catch (_) {}
+
+        return null;
+    }
 
     return popup;
 }
@@ -13944,18 +13951,40 @@ function dashboardOpenPendingBadgeCheckoutTab(provider = 'stripe', billingPlan =
 function dashboardSendBadgeCheckoutToNewTab(url = '', provider = 'stripe', checkoutWindow = null) {
     const cleanUrl = String(url || '').trim();
 
-    if (!cleanUrl) return false;
+    if (!cleanUrl) {
+        if (checkoutWindow && checkoutWindow.closed !== true) {
+            try {
+                checkoutWindow.close();
+            } catch (_) {}
+        }
+
+        return false;
+    }
 
     if (checkoutWindow && checkoutWindow.closed !== true) {
         try {
-            checkoutWindow.location.href = cleanUrl;
+            checkoutWindow.location.replace(cleanUrl);
             return true;
-        } catch (_) {}
+        } catch (_) {
+            try {
+                checkoutWindow.location.href = cleanUrl;
+                return true;
+            } catch (_) {}
+        }
     }
 
     try {
-        const opened = window.open(cleanUrl, '_blank', 'noopener,noreferrer');
-        return !!opened;
+        const opened = window.open(cleanUrl, '_blank');
+
+        if (opened) {
+            try {
+                opened.opener = null;
+            } catch (_) {}
+
+            return true;
+        }
+
+        return false;
     } catch (_) {
         return false;
     }
@@ -14047,9 +14076,84 @@ async function dashboardCreateVerifiedBadgeLedger(division = 'academy', button =
             renderAcademyProfileView(nextProfile, { mode: academyProfileViewState.mode || 'self' });
         }
 
-        if ((isStripe || isOxaPay) && result?.url) {
+        if (isStripe || isOxaPay) {
+            const checkoutUrl = String(
+                result?.url ||
+                result?.checkoutUrl ||
+                result?.providerCheckoutUrl ||
+                result?.payment?.url ||
+                result?.payment?.checkoutUrl ||
+                result?.payment?.providerCheckoutUrl ||
+                ''
+            ).trim();
+
+            if (!checkoutUrl) {
+                const missingUrlMessage =
+                    result?.message ||
+                    `${isStripe ? 'Stripe' : 'OxaPay'} did not return a valid checkout URL. Please try again or choose Manual Admin Payment.`;
+
+                const checkoutWindow = options.checkoutWindow || null;
+
+                if (checkoutWindow && checkoutWindow.closed !== true) {
+                    try {
+                        checkoutWindow.document.open();
+                        checkoutWindow.document.write(`
+                            <!doctype html>
+                            <html>
+                                <head>
+                                    <title>Checkout not ready</title>
+                                    <meta name="viewport" content="width=device-width, initial-scale=1">
+                                    <style>
+                                        body {
+                                            margin: 0;
+                                            min-height: 100vh;
+                                            display: grid;
+                                            place-items: center;
+                                            background: #020817;
+                                            color: #ffffff;
+                                            font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                                        }
+                                        .card {
+                                            width: min(420px, calc(100vw - 32px));
+                                            border: 1px solid rgba(248, 113, 113, 0.45);
+                                            border-radius: 22px;
+                                            background: rgba(15, 23, 42, 0.92);
+                                            padding: 24px;
+                                            text-align: center;
+                                        }
+                                        h1 {
+                                            margin: 0 0 8px;
+                                            font-size: 22px;
+                                        }
+                                        p {
+                                            margin: 0;
+                                            color: #fecaca;
+                                            line-height: 1.6;
+                                            font-size: 14px;
+                                        }
+                                    </style>
+                                </head>
+                                <body>
+                                    <main class="card">
+                                        <h1>Checkout could not open.</h1>
+                                        <p>${String(missingUrlMessage).replace(/[<>&"]/g, '')}</p>
+                                    </main>
+                                </body>
+                            </html>
+                        `);
+                        checkoutWindow.document.close();
+                    } catch (_) {
+                        try {
+                            checkoutWindow.close();
+                        } catch (_) {}
+                    }
+                }
+
+                throw new Error(missingUrlMessage);
+            }
+
             const opened = dashboardSendBadgeCheckoutToNewTab(
-                result.url,
+                checkoutUrl,
                 provider,
                 options.checkoutWindow || null
             );
@@ -14095,6 +14199,12 @@ async function dashboardCreateVerifiedBadgeLedger(division = 'academy', button =
         if (dashboardIsBadgeAlreadyActiveError(error, cleanDivision)) {
             console.warn('dashboard verified badge already active:', error);
 
+            if (options.checkoutWindow && options.checkoutWindow.closed !== true) {
+                try {
+                    options.checkoutWindow.close();
+                } catch (_) {}
+            }
+
             closeDashboardBadgeAvailModal();
 
             await hydrateDashboardSelfUniverseProfile().catch((hydrateError) => {
@@ -14110,6 +14220,75 @@ async function dashboardCreateVerifiedBadgeLedger(division = 'academy', button =
                 division: cleanDivision,
                 badge: error?.badge || error?.payload?.badge || error?.data?.badge || null
             };
+        }
+
+        const checkoutWindow = options.checkoutWindow || null;
+
+        if (checkoutWindow && checkoutWindow.closed !== true) {
+            const safeErrorMessage = String(error?.message || 'Failed to start badge payment.')
+                .replace(/[<>&"]/g, '');
+
+            try {
+                checkoutWindow.document.open();
+                checkoutWindow.document.write(`
+                    <!doctype html>
+                    <html>
+                        <head>
+                            <title>Payment failed</title>
+                            <meta name="viewport" content="width=device-width, initial-scale=1">
+                            <style>
+                                body {
+                                    margin: 0;
+                                    min-height: 100vh;
+                                    display: grid;
+                                    place-items: center;
+                                    background: #020817;
+                                    color: #ffffff;
+                                    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                                }
+                                .card {
+                                    width: min(420px, calc(100vw - 32px));
+                                    border: 1px solid rgba(248, 113, 113, 0.45);
+                                    border-radius: 22px;
+                                    background: rgba(15, 23, 42, 0.92);
+                                    padding: 24px;
+                                    text-align: center;
+                                }
+                                .kicker {
+                                    color: #f87171;
+                                    font-size: 12px;
+                                    letter-spacing: 0.12em;
+                                    text-transform: uppercase;
+                                    font-weight: 800;
+                                }
+                                h1 {
+                                    margin: 10px 0 8px;
+                                    font-size: 22px;
+                                    line-height: 1.2;
+                                }
+                                p {
+                                    margin: 0;
+                                    color: #fecaca;
+                                    line-height: 1.6;
+                                    font-size: 14px;
+                                }
+                            </style>
+                        </head>
+                        <body>
+                            <main class="card">
+                                <div class="kicker">Payment Error</div>
+                                <h1>Checkout could not be created.</h1>
+                                <p>${safeErrorMessage}</p>
+                            </main>
+                        </body>
+                    </html>
+                `);
+                checkoutWindow.document.close();
+            } catch (_) {
+                try {
+                    checkoutWindow.close();
+                } catch (_) {}
+            }
         }
 
         console.error('dashboard verified badge ledger error:', error);
