@@ -3791,6 +3791,8 @@ function renderDashboardSettingsSubscriptions(snapshot = {}) {
                             type="button"
                             class="btn-secondary yh-dashboard-settings-subscribe-btn yh-badge-avail-btn yh-badge-avail-btn--${dashboardSettingsEscape(division)}"
                             data-yh-dashboard-avail-badge="${dashboardSettingsEscape(division)}"
+                            data-yh-dashboard-force-badge-modal="settings"
+                            data-yh-dashboard-badge-entry="settings"
                             data-yh-dashboard-resume-checkout="${badgePaymentPending ? 'true' : 'false'}"
                             data-yh-dashboard-pending-billing-plan="${dashboardSettingsEscape(badgeBillingPlan)}"
                             ${badgePaymentPending ? 'data-badge-pending="true"' : ''}
@@ -3869,6 +3871,57 @@ async function dashboardRefreshSettingsAfterBadgeAvailIfOpen() {
     } catch (error) {
         console.warn('dashboard settings refresh after badge avail skipped:', error?.message || error);
     }
+}
+
+function dashboardOpenSettingsBadgeAvailModalFromButton(button = null) {
+    const badgeAvailButton = button?.closest?.('[data-yh-dashboard-avail-badge]') || button;
+
+    if (!badgeAvailButton) return false;
+
+    const division = badgeAvailButton.getAttribute('data-yh-dashboard-avail-badge') || 'academy';
+
+    if (typeof openDashboardBadgeAvailModal !== 'function') {
+        showToast('Badge payment modal is still loading. Please try again.', 'error');
+        return false;
+    }
+
+    closeDashboardSettingsModal();
+
+    window.setTimeout(() => {
+        openDashboardBadgeAvailModal(division, badgeAvailButton);
+    }, 0);
+
+    return true;
+}
+
+function installDashboardSettingsBadgeAvailClickBridge() {
+    if (window.__dashboardSettingsBadgeAvailClickBridgeInstalled) return;
+
+    window.__dashboardSettingsBadgeAvailClickBridgeInstalled = true;
+
+    document.addEventListener('click', (event) => {
+        const badgeAvailButton = event.target?.closest?.('[data-yh-dashboard-avail-badge]');
+        if (!badgeAvailButton) return;
+
+        const settingsModal = document.getElementById('yh-dashboard-settings-modal');
+        if (
+            !settingsModal ||
+            settingsModal.classList.contains('hidden-step') ||
+            settingsModal.getAttribute('aria-hidden') === 'true' ||
+            !settingsModal.contains(badgeAvailButton)
+        ) {
+            return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (typeof event.stopImmediatePropagation === 'function') {
+            event.stopImmediatePropagation();
+        }
+
+        dashboardOpenSettingsBadgeAvailModalFromButton(badgeAvailButton);
+    }, true);
 }
 
 async function openDashboardSettingsModal() {
@@ -4124,6 +4177,8 @@ function bootDashboardSettingsModal() {
     const settingsModal = document.getElementById('yh-dashboard-settings-modal');
     const settingsList = document.getElementById('yh-dashboard-settings-subscriptions-list');
 
+    installDashboardSettingsBadgeAvailClickBridge();
+
     document.getElementById('yh-dashboard-settings-close')?.addEventListener('click', closeDashboardSettingsModal);
     document.getElementById('yh-dashboard-settings-close-footer')?.addEventListener('click', closeDashboardSettingsModal);
 
@@ -4168,13 +4223,7 @@ function bootDashboardSettingsModal() {
             event.preventDefault();
             event.stopPropagation();
 
-            const division = badgeAvailButton.getAttribute('data-yh-dashboard-avail-badge') || 'academy';
-
-            if (typeof openDashboardBadgeAvailModal === 'function') {
-                openDashboardBadgeAvailModal(division, badgeAvailButton);
-            } else {
-                showToast('Badge availment flow is still loading. Please try again.', 'error');
-            }
+            dashboardOpenSettingsBadgeAvailModalFromButton(badgeAvailButton);
 
             return;
         }
@@ -13777,8 +13826,11 @@ function dashboardSetBadgeAvailModalStep(step = 'overview') {
 }
 function openDashboardBadgeAvailModal(division = 'academy', button = null) {
     const plan = dashboardGetVerifiedBadgePlanMeta(division);
+    const forceOpenFromSettings =
+        button?.getAttribute?.('data-yh-dashboard-force-badge-modal') === 'settings' ||
+        button?.getAttribute?.('data-yh-dashboard-badge-entry') === 'settings';
 
-    if (dashboardIsCurrentVerifiedBadgeActiveForAvail(plan.division)) {
+    if (!forceOpenFromSettings && dashboardIsCurrentVerifiedBadgeActiveForAvail(plan.division)) {
         closeDashboardBadgeAvailModal();
         showToast(dashboardGetBadgeAlreadyActiveMessage(plan.division), 'success');
 
