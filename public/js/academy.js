@@ -31315,6 +31315,23 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
         `;
     }
 
+    const YH_AI_CHATBOT_ROBOT_AVATAR_SRC = '/assets/yh-ai-robot-avatar.png?v=20260529-ai-robot-avatar-v1';
+
+    function getAcademyAiCoachRobotAvatarHtml(extraClass = '') {
+        const className = String(extraClass || 'yh-ai-chatbot-robot-img').trim();
+
+        return `
+            <img
+                src="${escapeHtml(YH_AI_CHATBOT_ROBOT_AVATAR_SRC)}"
+                alt="AI Coach"
+                class="${escapeHtml(className)}"
+                loading="lazy"
+                decoding="async"
+            >
+        `;
+    }
+
+
     function normalizeLearnFromKey(value = '') {
         const clean = String(value || '')
             .trim()
@@ -31395,7 +31412,7 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
             <div class="academy-ai-coach-rect-card" role="dialog" aria-modal="true" aria-labelledby="academy-ai-coach-rect-title">
                 <div class="academy-ai-coach-rect-head">
                     <div class="academy-ai-coach-rect-identity">
-                        <div class="academy-ai-coach-rect-avatar">🤖</div>
+                        <div class="academy-ai-coach-rect-avatar has-ai-robot-image">${getAcademyAiCoachRobotAvatarHtml('academy-ai-coach-rect-avatar-img')}</div>
                         <div>
                             <div class="academy-ai-coach-rect-kicker">Academy Assistant</div>
                             <h3 id="academy-ai-coach-rect-title">AI Coach</h3>
@@ -31479,11 +31496,14 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
             const role = String(message.role || '').trim().toLowerCase();
             const isUser = role === 'user';
             const author = isUser ? userName : 'AI Coach';
-            const avatar = isUser ? getAcademyAiCoachUserAvatarHtml(author) : '🤖';
+            const userAvatarUrl = isUser ? getAcademyAiCoachUserAvatarUrl() : '';
+            const avatar = isUser
+                ? getAcademyAiCoachUserAvatarHtml(author)
+                : getAcademyAiCoachRobotAvatarHtml('academy-ai-coach-rect-bubble-avatar-img');
 
             return `
                 <div class="academy-ai-coach-rect-bubble ${isUser ? 'is-user' : 'is-bot'}">
-                    <div class="academy-ai-coach-rect-bubble-avatar ${isUser && getAcademyAiCoachUserAvatarUrl() ? 'has-image' : ''}">${avatar}</div>
+                    <div class="academy-ai-coach-rect-bubble-avatar ${isUser && userAvatarUrl ? 'has-image' : !isUser ? 'has-image has-ai-robot-image' : ''}">${avatar}</div>
                     <div class="academy-ai-coach-rect-bubble-main">
                         <div class="academy-ai-coach-rect-bubble-meta">
                             <strong>${escapeHtml(author)}</strong>
@@ -31605,7 +31625,7 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
             if (freshHistory && result?.reply && freshHistory.textContent.indexOf(result.reply.slice(0, 24)) === -1) {
                 freshHistory.insertAdjacentHTML('beforeend', `
                     <div class="academy-ai-coach-rect-bubble is-bot">
-                        <div class="academy-ai-coach-rect-bubble-avatar">🤖</div>
+                        <div class="academy-ai-coach-rect-bubble-avatar has-image has-ai-robot-image">${getAcademyAiCoachRobotAvatarHtml('academy-ai-coach-rect-bubble-avatar-img')}</div>
                         <div class="academy-ai-coach-rect-bubble-main">
                             <div class="academy-ai-coach-rect-bubble-meta">
                                 <strong>AI Coach</strong>

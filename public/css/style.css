@@ -19909,12 +19909,33 @@ body[data-yh-page="dashboard"] .yh-dashboard-profile-search-btn {
 }
 
 .yh-dashboard-basic-assistant-message {
-    display: grid;
-    gap: 5px;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
 }
 
 .yh-dashboard-basic-assistant-message.is-user {
-    justify-items: end;
+    justify-content: flex-end;
+}
+
+.yh-dashboard-basic-assistant-message-main {
+    display: grid;
+    gap: 5px;
+    min-width: 0;
+    max-width: 88%;
+}
+
+.yh-dashboard-basic-assistant-message-avatar {
+    width: 32px;
+    height: 32px;
+    flex: 0 0 32px;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    border-radius: 12px;
+    border: 1px solid rgba(56, 189, 248, 0.28);
+    background: rgba(15, 23, 42, 0.92);
+    box-shadow: 0 0 18px rgba(56, 189, 248, 0.14);
 }
 
 .yh-dashboard-basic-assistant-message-label {
@@ -19926,7 +19947,7 @@ body[data-yh-page="dashboard"] .yh-dashboard-profile-search-btn {
 }
 
 .yh-dashboard-basic-assistant-message-bubble {
-    max-width: 88%;
+    max-width: 100%;
     padding: 10px 12px;
     border-radius: 15px;
     border: 1px solid rgba(148, 163, 184, 0.14);
@@ -25893,3 +25914,62 @@ body[data-yh-page="academy"] .academy-ai-coach-rect-form {
     }
 }
 /* END PATCH: Dashboard Settings dedicated badge payment modal */
+/* ==========================================
+   GLOBAL AI CHATBOT ROBOT AVATAR
+   ========================================== */
+
+.yh-ai-chatbot-robot-img,
+.academy-ai-coach-rect-avatar-img,
+.academy-ai-coach-rect-bubble-avatar-img,
+.yh-dashboard-basic-assistant-avatar-img,
+.yh-dashboard-basic-assistant-message-avatar-img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    border-radius: inherit;
+}
+
+.academy-ai-coach-rect-avatar.has-ai-robot-image,
+.academy-ai-coach-rect-bubble-avatar.has-ai-robot-image,
+.yh-dashboard-basic-assistant-avatar.has-ai-robot-image,
+.yh-dashboard-basic-assistant-message-avatar.has-ai-robot-image {
+    overflow: hidden;
+    padding: 0;
+    background: rgba(15, 23, 42, 0.92);
+    border: 1px solid rgba(56, 189, 248, 0.28);
+    box-shadow: 0 0 18px rgba(56, 189, 248, 0.14);
+}
+
+.academy-ai-coach-rect-avatar.has-ai-robot-image {
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+    border-radius: 14px;
+}
+
+.yh-dashboard-basic-assistant-title-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    min-width: 0;
+}
+
+.yh-dashboard-basic-assistant-avatar {
+    width: 42px;
+    height: 42px;
+    flex: 0 0 42px;
+    display: grid;
+    place-items: center;
+    border-radius: 14px;
+}
+
+@media (max-width: 520px) {
+    .academy-ai-coach-rect-avatar.has-ai-robot-image,
+    .yh-dashboard-basic-assistant-avatar {
+        width: 38px;
+        height: 38px;
+        flex-basis: 38px;
+    }
+}
+/* END PATCH: Global AI chatbot robot avatar */

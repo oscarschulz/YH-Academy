@@ -17000,6 +17000,22 @@ function formatDashboardBasicAssistantTicketMessage(message = '', category = nul
     ].join('\n');
 }
 
+const YH_DASHBOARD_AI_CHATBOT_ROBOT_AVATAR_SRC = '/assets/yh-ai-robot-avatar.png?v=20260529-ai-robot-avatar-v1';
+
+function getDashboardAiChatbotRobotAvatarHtml(extraClass = '') {
+    const className = String(extraClass || 'yh-ai-chatbot-robot-img').trim();
+
+    return `
+        <img
+            src="${academyFeedEscapeHtml(YH_DASHBOARD_AI_CHATBOT_ROBOT_AVATAR_SRC)}"
+            alt="YH Assistant"
+            class="${academyFeedEscapeHtml(className)}"
+            loading="lazy"
+            decoding="async"
+        >
+    `;
+}
+
 function renderDashboardBasicAssistantMessages(messages = []) {
     const list = document.getElementById('yh-dashboard-basic-assistant-messages');
     if (!list) return;
@@ -17021,10 +17037,17 @@ function renderDashboardBasicAssistantMessages(messages = []) {
             const label = role === 'user' ? 'You' : 'YH Assistant';
             const text = academyFeedEscapeHtml(message?.text || message?.content || '');
 
+            const assistantAvatar = role === 'assistant'
+                ? `<div class="yh-dashboard-basic-assistant-message-avatar has-ai-robot-image">${getDashboardAiChatbotRobotAvatarHtml('yh-dashboard-basic-assistant-message-avatar-img')}</div>`
+                : '';
+
             return `
                 <div class="yh-dashboard-basic-assistant-message is-${role}">
-                    <div class="yh-dashboard-basic-assistant-message-label">${label}</div>
-                    <div class="yh-dashboard-basic-assistant-message-bubble">${text.replace(/\n/g, '<br>')}</div>
+                    ${assistantAvatar}
+                    <div class="yh-dashboard-basic-assistant-message-main">
+                        <div class="yh-dashboard-basic-assistant-message-label">${label}</div>
+                        <div class="yh-dashboard-basic-assistant-message-bubble">${text.replace(/\n/g, '<br>')}</div>
+                    </div>
                 </div>
             `;
         })
@@ -17076,10 +17099,16 @@ function ensureDashboardBasicAssistantPanel() {
     panel.innerHTML = `
         <div class="yh-dashboard-basic-assistant-card">
             <div class="yh-dashboard-basic-assistant-head">
-                <div>
-                    <div class="yh-dashboard-basic-assistant-kicker">Support Ticket</div>
-                    <h3 id="yh-dashboard-basic-assistant-title">YH Dashboard Assistant</h3>
-                    <p>Choose a category, then explain the issue so support can understand it faster.</p>
+                <div class="yh-dashboard-basic-assistant-title-row">
+                    <div class="yh-dashboard-basic-assistant-avatar has-ai-robot-image">
+                        ${getDashboardAiChatbotRobotAvatarHtml('yh-dashboard-basic-assistant-avatar-img')}
+                    </div>
+
+                    <div>
+                        <div class="yh-dashboard-basic-assistant-kicker">Support Ticket</div>
+                        <h3 id="yh-dashboard-basic-assistant-title">YH Dashboard Assistant</h3>
+                        <p>Choose a category, then explain the issue so support can understand it faster.</p>
+                    </div>
                 </div>
 
                 <button type="button" class="yh-dashboard-basic-assistant-close" id="yh-dashboard-basic-assistant-close" aria-label="Close assistant">✕</button>
