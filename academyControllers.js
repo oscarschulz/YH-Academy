@@ -6815,14 +6815,43 @@ async function requestGeminiAcademyCoach(payload = {}) {
         requestBody.reasoning_effort = reasoningEffort;
     }
 
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${apiKey}`
-        },
-        body: JSON.stringify(requestBody)
-    });
+    const timeoutMs = Math.max(
+        3500,
+        Math.min(15000, Number(process.env.GEMINI_COACH_TIMEOUT_MS || 9000))
+    );
+
+    const controller = typeof AbortController !== 'undefined'
+        ? new AbortController()
+        : null;
+
+    let timeoutId = null;
+    let response;
+
+    try {
+        if (controller) {
+            timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+        }
+
+        response = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${apiKey}`
+            },
+            body: JSON.stringify(requestBody),
+            ...(controller ? { signal: controller.signal } : {})
+        });
+    } catch (error) {
+        if (error?.name === 'AbortError') {
+            throw new Error(`Gemini AI Coach timed out after ${timeoutMs}ms.`);
+        }
+
+        throw error;
+    } finally {
+        if (timeoutId) {
+            clearTimeout(timeoutId);
+        }
+    }
 
     const rawBody = await response.text();
     const data = safeJsonParse(rawBody, {});

@@ -23847,9 +23847,9 @@ body.academy-coach-opening .yh-tab-loader {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 16px;
-    height: 16px;
-    margin-left: 6px;
+    width: 24px;
+    height: 24px;
+    margin-left: 8px;
     vertical-align: middle;
     line-height: 1;
     flex: 0 0 auto;
@@ -23857,22 +23857,26 @@ body.academy-coach-opening .yh-tab-loader {
 
 .academy-messages-pin-icon-img {
     display: block;
-    width: 16px;
-    height: 16px;
+    width: 22px;
+    height: 22px;
     object-fit: contain;
+    object-position: center;
     pointer-events: none;
-    filter: drop-shadow(0 0 7px rgba(56, 189, 248, 0.45));
+    filter:
+        drop-shadow(0 0 8px rgba(56, 189, 248, 0.58))
+        drop-shadow(0 0 5px rgba(14, 165, 233, 0.32));
 }
 
 .academy-messages-thread-pinned-badge-v2 {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: 7px;
+    min-height: 24px;
 }
 
 .academy-messages-thread-pinned-badge-v2 .academy-messages-pin-icon-img {
-    width: 15px;
-    height: 15px;
+    width: 22px;
+    height: 22px;
 }
 .chat-bubble {
     overflow: visible;
