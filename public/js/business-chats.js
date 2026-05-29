@@ -250,7 +250,10 @@
 
   function normalizeBusinessView(value = 'overview') {
     const clean = String(value || '').trim().toLowerCase();
-    return ['overview', 'start', 'conversations', 'blocked'].includes(clean) ? clean : 'overview';
+
+    if (clean === 'start') return 'overview';
+
+    return ['overview', 'conversations', 'blocked'].includes(clean) ? clean : 'overview';
   }
 
   function setBusinessChatView(value = 'overview') {
@@ -1107,7 +1110,7 @@
 
   async function searchMembers(event) {
     event?.preventDefault?.();
-    setBusinessChatView('start');
+    setBusinessChatView('overview');
 
     const button = $('bcSearchMembers');
     const purpose = getStartPurpose();
