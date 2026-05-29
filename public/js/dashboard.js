@@ -25291,3 +25291,242 @@ window.addEventListener('storage', (event) => {
     };
 })();
 /* END PATCH: Academy search autofill blocker + interaction safety v5 */
+/* PATCH: Dashboard payment checkout about:blank tab fix v2 */
+(function installDashboardPaymentCheckoutAboutBlankFixV2() {
+    function dashboardCheckoutSafeText(value = '') {
+        return String(value || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function dashboardCheckoutProviderLabel(provider = 'stripe') {
+        const cleanProvider = String(provider || '').trim().toLowerCase();
+
+        if (cleanProvider === 'oxapay') return 'OxaPay invoice';
+        if (cleanProvider === 'stripe') return 'Stripe checkout';
+
+        return 'payment checkout';
+    }
+
+    function dashboardCheckoutBillingLabel(billingPlan = 'monthly') {
+        try {
+            if (typeof dashboardGetBadgeBillingLabel === 'function') {
+                return dashboardGetBadgeBillingLabel(billingPlan);
+            }
+        } catch (_) {}
+
+        const cleanBillingPlan = String(billingPlan || '').trim().toLowerCase();
+
+        if (cleanBillingPlan === 'lifetime') return 'Lifetime Access';
+        if (cleanBillingPlan === 'one_time' || cleanBillingPlan === 'one-time') return '30-Day One-Time Access';
+
+        return 'Monthly Subscription';
+    }
+
+    function dashboardWriteCheckoutTabState(checkoutWindow, options = {}) {
+        if (!checkoutWindow || checkoutWindow.closed === true) return false;
+
+        const tone = String(options.tone || 'loading').trim().toLowerCase();
+        const providerLabel = dashboardCheckoutSafeText(options.providerLabel || 'checkout');
+        const planCode = dashboardCheckoutSafeText(options.planCode || 'YH');
+        const billingLabel = dashboardCheckoutSafeText(options.billingLabel || 'payment');
+        const title = dashboardCheckoutSafeText(options.title || `Preparing your ${providerLabel}.`);
+        const copy = dashboardCheckoutSafeText(options.copy || 'Please keep this tab open. The secure payment page will load here automatically.');
+
+        const borderColor = tone === 'error'
+            ? 'rgba(248, 113, 113, 0.48)'
+            : 'rgba(56, 189, 248, 0.38)';
+
+        const kickerColor = tone === 'error'
+            ? '#f87171'
+            : '#38bdf8';
+
+        const copyColor = tone === 'error'
+            ? '#fecaca'
+            : '#a7b4c8';
+
+        try {
+            checkoutWindow.document.open();
+            checkoutWindow.document.write(`
+                <!doctype html>
+                <html>
+                    <head>
+                        <title>${planCode} Checkout</title>
+                        <meta name="viewport" content="width=device-width, initial-scale=1">
+                        <style>
+                            body {
+                                margin: 0;
+                                min-height: 100vh;
+                                display: grid;
+                                place-items: center;
+                                background:
+                                    radial-gradient(circle at top left, rgba(56, 189, 248, 0.12), transparent 34%),
+                                    #020817;
+                                color: #ffffff;
+                                font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+                            }
+
+                            .card {
+                                width: min(430px, calc(100vw - 32px));
+                                border: 1px solid ${borderColor};
+                                border-radius: 24px;
+                                background: rgba(15, 23, 42, 0.92);
+                                padding: 26px 24px;
+                                box-shadow: 0 24px 80px rgba(0, 0, 0, 0.48);
+                                text-align: center;
+                            }
+
+                            .kicker {
+                                color: ${kickerColor};
+                                font-size: 12px;
+                                letter-spacing: 0.12em;
+                                text-transform: uppercase;
+                                font-weight: 800;
+                            }
+
+                            h1 {
+                                margin: 10px 0 8px;
+                                font-size: 22px;
+                                line-height: 1.22;
+                            }
+
+                            p {
+                                margin: 0;
+                                color: ${copyColor};
+                                line-height: 1.6;
+                                font-size: 14px;
+                            }
+
+                            .spinner {
+                                width: 34px;
+                                height: 34px;
+                                margin: 18px auto 0;
+                                border-radius: 999px;
+                                border: 3px solid rgba(255,255,255,0.12);
+                                border-top-color: #38bdf8;
+                                animation: spin 0.8s linear infinite;
+                            }
+
+                            @keyframes spin {
+                                to { transform: rotate(360deg); }
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <main class="card">
+                            <div class="kicker">${planCode} · ${billingLabel}</div>
+                            <h1>${title}</h1>
+                            <p>${copy}</p>
+                            ${tone === 'error' ? '' : '<div class="spinner" aria-hidden="true"></div>'}
+                        </main>
+                    </body>
+                </html>
+            `);
+            checkoutWindow.document.close();
+            return true;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    window.dashboardOpenPendingBadgeCheckoutTab = function dashboardOpenPendingBadgeCheckoutTab(provider = 'stripe', billingPlan = 'monthly', planCode = 'YH') {
+        const cleanProvider = String(provider || '').trim().toLowerCase();
+
+        if (cleanProvider !== 'stripe' && cleanProvider !== 'oxapay') {
+            return null;
+        }
+
+        let checkoutWindow = null;
+
+        try {
+            checkoutWindow = window.open('about:blank', '_blank');
+        } catch (_) {
+            checkoutWindow = null;
+        }
+
+        if (!checkoutWindow) {
+            return null;
+        }
+
+        const providerLabel = dashboardCheckoutProviderLabel(cleanProvider);
+        const billingLabel = dashboardCheckoutBillingLabel(billingPlan);
+
+        const wroteState = dashboardWriteCheckoutTabState(checkoutWindow, {
+            providerLabel,
+            billingLabel,
+            planCode,
+            title: `Preparing your ${providerLabel}.`,
+            copy: 'Please keep this tab open. The secure payment page will load here automatically.',
+            tone: 'loading'
+        });
+
+        if (!wroteState) {
+            try {
+                checkoutWindow.close();
+            } catch (_) {}
+
+            return null;
+        }
+
+        try {
+            if (typeof checkoutWindow.focus === 'function') {
+                checkoutWindow.focus();
+            }
+        } catch (_) {}
+
+        return checkoutWindow;
+    };
+
+    window.dashboardSendBadgeCheckoutToNewTab = function dashboardSendBadgeCheckoutToNewTab(url = '', provider = 'stripe', checkoutWindow = null) {
+        const cleanUrl = String(url || '').trim();
+
+        if (!cleanUrl) {
+            if (checkoutWindow && checkoutWindow.closed !== true) {
+                dashboardWriteCheckoutTabState(checkoutWindow, {
+                    providerLabel: dashboardCheckoutProviderLabel(provider),
+                    planCode: 'YH',
+                    billingLabel: 'payment',
+                    title: 'Checkout could not open.',
+                    copy: 'The server did not return a valid checkout URL. Please try again or choose Manual Admin Payment.',
+                    tone: 'error'
+                });
+            }
+
+            return false;
+        }
+
+        if (checkoutWindow && checkoutWindow.closed !== true) {
+            try {
+                checkoutWindow.location.replace(cleanUrl);
+                return true;
+            } catch (_) {
+                try {
+                    checkoutWindow.location.href = cleanUrl;
+                    return true;
+                } catch (_) {}
+            }
+        }
+
+        try {
+            const opened = window.open(cleanUrl, '_blank');
+
+            if (opened) {
+                try {
+                    opened.opener = null;
+                } catch (_) {}
+
+                return true;
+            }
+
+            return false;
+        } catch (_) {
+            return false;
+        }
+    };
+
+    window.__dashboardPaymentCheckoutAboutBlankFixV2Installed = true;
+})();
+/* END PATCH: Dashboard payment checkout about:blank tab fix v2 */
