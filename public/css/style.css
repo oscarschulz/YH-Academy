@@ -25591,3 +25591,290 @@ body[data-yh-page="academy"] .academy-ai-coach-rect-form {
     }
 }
 /* END PATCH: Permanent Academy right-sidebar AI Coach button */
+/* ==========================================
+   DASHBOARD SETTINGS DEDICATED BADGE PAYMENT MODAL
+   ========================================== */
+
+.yh-dashboard-settings-badge-payment-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 16050;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 22px;
+    background:
+        radial-gradient(circle at center, rgba(56, 189, 248, 0.08), transparent 36%),
+        rgba(2, 6, 23, 0.72);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+}
+
+.yh-dashboard-settings-badge-payment-card {
+    width: min(94vw, 560px);
+    max-height: min(86vh, 760px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: 24px;
+    border: 1px solid rgba(56, 189, 248, 0.32);
+    background:
+        linear-gradient(180deg, rgba(10, 22, 39, 0.98), rgba(5, 10, 24, 0.98));
+    box-shadow:
+        0 28px 90px rgba(0, 0, 0, 0.52),
+        0 0 36px rgba(14, 165, 233, 0.14);
+}
+
+.yh-dashboard-settings-badge-payment-head {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 22px 22px 16px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.yh-dashboard-settings-badge-payment-brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+}
+
+.yh-dashboard-settings-badge-payment-icon {
+    width: 68px;
+    height: 68px;
+    flex: 0 0 68px;
+    display: grid;
+    place-items: center;
+    border-radius: 24px;
+    background: rgba(15, 23, 42, 0.82);
+    border: 1px solid rgba(211, 178, 112, 0.34);
+}
+
+.yh-dashboard-settings-badge-payment-icon.is-academy {
+    border-color: rgba(56, 189, 248, 0.48);
+    box-shadow: 0 0 22px rgba(56, 189, 248, 0.12);
+}
+
+.yh-dashboard-settings-badge-payment-icon.is-federation {
+    border-color: rgba(211, 178, 112, 0.58);
+    box-shadow: 0 0 22px rgba(211, 178, 112, 0.14);
+}
+
+.yh-dashboard-settings-badge-payment-icon img {
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+}
+
+.yh-dashboard-settings-badge-payment-kicker {
+    color: var(--neon-blue);
+    font-size: 0.72rem;
+    font-weight: 900;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.yh-dashboard-settings-badge-payment-head h3 {
+    margin: 3px 0 6px;
+    color: #ffffff;
+    font-size: clamp(1.18rem, 2.3vw, 1.55rem);
+    line-height: 1.15;
+}
+
+.yh-dashboard-settings-badge-payment-head p {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.86rem;
+    line-height: 1.5;
+}
+
+.yh-dashboard-settings-badge-payment-x {
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+    border-radius: 14px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: rgba(15, 23, 42, 0.78);
+    color: #cbd5e1;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.yh-dashboard-settings-badge-payment-x:hover {
+    color: #ffffff;
+    border-color: rgba(56, 189, 248, 0.44);
+    background: rgba(56, 189, 248, 0.12);
+}
+
+.yh-dashboard-settings-badge-payment-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 18px 22px 20px;
+}
+
+.yh-dashboard-settings-badge-payment-total {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 18px;
+    padding: 14px 16px;
+    border-radius: 18px;
+    border: 1px solid rgba(56, 189, 248, 0.28);
+    background: rgba(14, 165, 233, 0.10);
+}
+
+.yh-dashboard-settings-badge-payment-total span {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 800;
+}
+
+.yh-dashboard-settings-badge-payment-total strong {
+    color: #ffffff;
+    font-size: 1.05rem;
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+.yh-dashboard-settings-badge-payment-section {
+    display: grid;
+    gap: 10px;
+    margin-top: 18px;
+}
+
+.yh-dashboard-settings-badge-payment-section h4 {
+    margin: 0;
+    color: #ffffff;
+    font-size: 1rem;
+    font-weight: 900;
+}
+
+.yh-dashboard-settings-badge-payment-section p {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.84rem;
+    line-height: 1.5;
+}
+
+.yh-dashboard-settings-badge-payment-options {
+    display: grid;
+    gap: 10px;
+}
+
+.yh-dashboard-settings-badge-payment-option {
+    width: 100%;
+    min-height: 70px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 13px 14px;
+    border-radius: 17px;
+    border: 1px solid rgba(148, 163, 184, 0.20);
+    background: rgba(15, 23, 42, 0.68);
+    color: #f8fbff;
+    text-align: left;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.yh-dashboard-settings-badge-payment-option:hover,
+.yh-dashboard-settings-badge-payment-option.is-selected {
+    border-color: rgba(56, 189, 248, 0.62);
+    background: rgba(14, 165, 233, 0.14);
+    transform: translateY(-1px);
+}
+
+.yh-dashboard-settings-badge-payment-option.is-disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.yh-dashboard-settings-badge-payment-option span {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+}
+
+.yh-dashboard-settings-badge-payment-option strong {
+    color: #ffffff;
+    font-size: 0.88rem;
+    font-weight: 900;
+}
+
+.yh-dashboard-settings-badge-payment-option small {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    line-height: 1.35;
+}
+
+.yh-dashboard-settings-badge-payment-option em {
+    flex: 0 0 auto;
+    padding: 5px 9px;
+    border-radius: 999px;
+    border: 1px solid rgba(56, 189, 248, 0.34);
+    background: rgba(14, 165, 233, 0.12);
+    color: #bae6fd;
+    font-size: 0.68rem;
+    font-style: normal;
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+.yh-dashboard-settings-badge-payment-actions {
+    flex: 0 0 auto;
+    display: grid;
+    grid-template-columns: 0.8fr 1.2fr;
+    gap: 10px;
+    padding: 16px 22px 22px;
+    border-top: 1px solid rgba(148, 163, 184, 0.14);
+    background: rgba(2, 6, 23, 0.24);
+}
+
+@media (max-width: 560px) {
+    .yh-dashboard-settings-badge-payment-modal {
+        padding: 14px;
+    }
+
+    .yh-dashboard-settings-badge-payment-head {
+        padding: 18px 16px 14px;
+    }
+
+    .yh-dashboard-settings-badge-payment-brand {
+        align-items: flex-start;
+    }
+
+    .yh-dashboard-settings-badge-payment-icon {
+        width: 54px;
+        height: 54px;
+        flex-basis: 54px;
+        border-radius: 18px;
+    }
+
+    .yh-dashboard-settings-badge-payment-icon img {
+        width: 38px;
+        height: 38px;
+    }
+
+    .yh-dashboard-settings-badge-payment-body {
+        padding: 16px;
+    }
+
+    .yh-dashboard-settings-badge-payment-total,
+    .yh-dashboard-settings-badge-payment-option {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .yh-dashboard-settings-badge-payment-actions {
+        grid-template-columns: 1fr;
+        padding: 14px 16px 18px;
+    }
+}
+/* END PATCH: Dashboard Settings dedicated badge payment modal */
