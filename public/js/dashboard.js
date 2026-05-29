@@ -3832,6 +3832,156 @@ function renderDashboardSettingsSubscriptions(snapshot = {}) {
     }).join('');
 }
 
+function dashboardSettingsIsCancelledStatus(value = '') {
+    const clean = String(value || '').trim().toLowerCase();
+
+    return [
+        'cancelled',
+        'canceled',
+        'failed',
+        'void',
+        'abandoned',
+        'refunded'
+    ].includes(clean);
+}
+
+function dashboardSettingsIsExpiredPlan(item = {}) {
+    const expiresAt = String(
+        item.expiresAt ||
+        item.activeUntil ||
+        item.badge?.expiresAt ||
+        item.payment?.expiresAt ||
+        ''
+    ).trim();
+
+    if (!expiresAt) return false;
+
+    const billingPlan = dashboardSettingsReadBadgeBillingPlan(item);
+    if (billingPlan === 'lifetime') return false;
+
+    const expiresMs = Date.parse(expiresAt);
+    return Number.isFinite(expiresMs) && expiresMs <= Date.now();
+}
+
+function dashboardSettingsBuildProfileBadgeFromPlan(item = {}) {
+    const plan = item.plan && typeof item.plan === 'object' ? item.plan : {};
+    const badge = item.badge && typeof item.badge === 'object' ? item.badge : {};
+    const payment = item.payment && typeof item.payment === 'object' ? item.payment : {};
+
+    const division = dashboardSettingsReadPlanDivision(item);
+    const code = dashboardSettingsReadPlanCode(item);
+    const billingPlan = dashboardSettingsReadBadgeBillingPlan(item);
+
+    const statusRaw = String(item.status || badge.status || '').trim().toLowerCase();
+    const paymentStatus = String(item.paymentStatus || badge.paymentStatus || payment.status || '').trim().toLowerCase();
+    const providerStatus = String(item.providerStatus || badge.providerStatus || payment.providerStatus || '').trim().toLowerCase();
+    const subscriptionStatus = String(item.subscriptionStatus || badge.subscriptionStatus || statusRaw || '').trim().toLowerCase();
+
+    const cancelled =
+        dashboardSettingsIsCancelledStatus(statusRaw) ||
+        dashboardSettingsIsCancelledStatus(paymentStatus) ||
+        dashboardSettingsIsCancelledStatus(providerStatus) ||
+        dashboardSettingsIsCancelledStatus(subscriptionStatus);
+
+    const expired = !cancelled && dashboardSettingsIsExpiredPlan(item);
+
+    const active = item.active === true && !cancelled && !expired;
+
+    const status = cancelled
+        ? 'cancelled'
+        : expired
+            ? 'expired'
+            : active
+                ? 'active'
+                : (statusRaw || paymentStatus || providerStatus || 'none');
+
+    const amount = Number(item.amount || item.amountMonthly || plan.amountMonthly || badge.amount || badge.amountMonthly || 0);
+    const currency = String(item.currency || plan.currency || badge.currency || 'USD').trim().toUpperCase() || 'USD';
+    const interval = String(item.interval || plan.interval || badge.interval || '').trim();
+
+    return {
+        ...badge,
+        active,
+        status,
+        subscriptionStatus: status,
+        division,
+        code,
+        amount,
+        amountMonthly: Number(item.amountMonthly || plan.amountMonthly || badge.amountMonthly || amount || 0),
+        currency,
+        interval,
+        billingPlan,
+        lifetimeAccess: billingPlan === 'lifetime' || badge.lifetimeAccess === true,
+        provider: String(item.provider || badge.provider || payment.provider || '').trim(),
+        providerStatus,
+        paymentMethod: String(item.paymentMethod || badge.paymentMethod || payment.paymentMethod || '').trim(),
+        paymentStatus,
+        paymentLedgerId: String(item.paymentLedgerId || badge.paymentLedgerId || payment.id || '').trim(),
+        activatedAt: String(item.activatedAt || badge.activatedAt || badge.approvedAt || '').trim(),
+        approvedAt: String(item.approvedAt || badge.approvedAt || item.activatedAt || badge.activatedAt || '').trim(),
+        expiresAt: String(item.expiresAt || item.activeUntil || badge.expiresAt || payment.expiresAt || '').trim(),
+        updatedAt: new Date().toISOString()
+    };
+}
+
+function dashboardSyncProfileBadgeStateFromSettingsSnapshot(snapshot = {}) {
+    const paymentPlans = Array.isArray(snapshot.paymentPlans) ? snapshot.paymentPlans : [];
+    const nextBadges = {};
+
+    paymentPlans.forEach((item) => {
+        if (dashboardSettingsReadPlanKey(item) !== 'verified_badge') return;
+
+        const division = dashboardSettingsReadPlanDivision(item);
+        if (!['academy', 'federation'].includes(division)) return;
+
+        nextBadges[division] = dashboardSettingsBuildProfileBadgeFromPlan(item);
+    });
+
+    if (!Object.keys(nextBadges).length) return;
+
+    const settingsProfile = dashboardGetSettingsProfileSnapshot();
+    const currentProfile =
+        academyProfileViewState?.profile && typeof academyProfileViewState.profile === 'object'
+            ? academyProfileViewState.profile
+            : {};
+
+    const nextProfile = {
+        ...currentProfile,
+        ...settingsProfile,
+        verificationBadges: {
+            ...(currentProfile.verificationBadges || {}),
+            ...(settingsProfile.verificationBadges || {}),
+            ...nextBadges
+        }
+    };
+
+    try {
+        if (typeof dashboardPersistSelfProfileCache === 'function') {
+            dashboardPersistSelfProfileCache(nextProfile);
+        } else if (typeof dashboardWriteTopProfileCache === 'function') {
+            dashboardWriteTopProfileCache(nextProfile);
+        }
+    } catch (_) {}
+
+    if (
+        academyProfileViewState?.profile &&
+        typeof academyProfileViewState.profile === 'object' &&
+        (academyProfileViewState.mode === 'self' || !academyProfileViewState.mode)
+    ) {
+        academyProfileViewState.profile = nextProfile;
+
+        try {
+            renderAcademyProfileView(nextProfile, { mode: 'self' });
+        } catch (error) {
+            console.warn('profile badge sync render skipped:', error?.message || error);
+        }
+    }
+
+    try {
+        renderDashboardSettingsBadgeRows(nextProfile);
+    } catch (_) {}
+}
+
 async function loadDashboardSettingsSubscriptions(options = {}) {
     if (dashboardSettingsLoading) return dashboardSettingsSnapshot;
 
@@ -3848,6 +3998,7 @@ async function loadDashboardSettingsSubscriptions(options = {}) {
 
         dashboardSettingsSnapshot = result && typeof result === 'object' ? result : {};
         renderDashboardSettingsSubscriptions(dashboardSettingsSnapshot);
+        dashboardSyncProfileBadgeStateFromSettingsSnapshot(dashboardSettingsSnapshot);
 
         return dashboardSettingsSnapshot;
     } catch (error) {
@@ -4271,15 +4422,40 @@ function dashboardSettingsGetBadgePaymentMethod(provider = 'stripe') {
     return 'card_bank';
 }
 
-function dashboardSettingsIsBadgeProviderAllowed(provider = 'stripe') {
+function dashboardSettingsCanSelectBadgeProvider(provider = 'stripe') {
     const cleanProvider = String(provider || '').trim().toLowerCase();
     const billingPlan = dashboardNormalizeBadgeBillingPlan(dashboardSettingsBadgePaymentModalState.billingPlan || 'monthly');
+
+    if (!['stripe', 'oxapay', 'manual'].includes(cleanProvider)) {
+        return false;
+    }
 
     if (billingPlan === 'monthly' && cleanProvider === 'oxapay') {
         return false;
     }
 
-    return dashboardIsBadgeProviderSelectable(cleanProvider);
+    return true;
+}
+
+function dashboardSettingsIsBadgeProviderConfigured(provider = 'stripe') {
+    const cleanProvider = String(provider || '').trim().toLowerCase();
+
+    if (cleanProvider === 'manual') return true;
+
+    const config = dashboardGetBadgeProviderConfig(cleanProvider);
+    const status = normalizeDashboardBadgeProviderStatus(config?.status || '');
+
+    return config?.configured === true && status === 'active';
+}
+
+function dashboardSettingsIsBadgeProviderAllowed(provider = 'stripe') {
+    const cleanProvider = String(provider || '').trim().toLowerCase();
+
+    if (!dashboardSettingsCanSelectBadgeProvider(cleanProvider)) {
+        return false;
+    }
+
+    return dashboardSettingsIsBadgeProviderConfigured(cleanProvider);
 }
 
 function dashboardSettingsPickValidBadgeProvider(preferredProvider = 'stripe') {
@@ -4291,7 +4467,7 @@ function dashboardSettingsPickValidBadgeProvider(preferredProvider = 'stripe') {
 
     const provider = providerOrder
         .filter((value, index, list) => value && list.indexOf(value) === index)
-        .find((value) => dashboardSettingsIsBadgeProviderAllowed(value)) || 'manual';
+        .find((value) => dashboardSettingsCanSelectBadgeProvider(value)) || 'manual';
 
     dashboardSettingsBadgePaymentModalState.provider = provider;
     dashboardSettingsBadgePaymentModalState.paymentMethod = dashboardSettingsGetBadgePaymentMethod(provider);
@@ -4527,22 +4703,30 @@ function syncDashboardSettingsBadgePaymentModalUi() {
         const config = dashboardGetBadgeProviderConfig(provider);
         const providerStatus = normalizeDashboardBadgeProviderStatus(config?.status || '');
         const blockedByBilling = billingPlan === 'monthly' && provider === 'oxapay';
-        const selectable = !blockedByBilling && dashboardIsBadgeProviderSelectable(provider);
+        const selectable = dashboardSettingsCanSelectBadgeProvider(provider);
+        const configured = dashboardSettingsIsBadgeProviderConfigured(provider);
         const active = dashboardSettingsBadgePaymentModalState.provider === provider;
         const statusEl = button.querySelector(`[data-yh-settings-badge-provider-status="${provider}"]`);
 
         button.classList.toggle('is-selected', active);
         button.classList.toggle('is-disabled', !selectable);
+        button.classList.toggle('is-setup-required', selectable && !configured && provider !== 'manual');
         button.disabled = !selectable;
         button.setAttribute('aria-disabled', selectable ? 'false' : 'true');
         button.setAttribute('aria-pressed', active ? 'true' : 'false');
 
+        button.title = !selectable && blockedByBilling
+            ? 'OxaPay is available only for one-time or lifetime badge payments.'
+            : selectable && !configured && provider !== 'manual'
+                ? `${config?.label || 'This provider'} is selectable, but it still needs provider setup before checkout can start.`
+                : '';
+
         if (statusEl) {
             if (blockedByBilling) {
                 statusEl.textContent = 'One-Time / Lifetime';
-            } else if (providerStatus === 'setup_required') {
+            } else if (providerStatus === 'setup_required' && provider !== 'manual') {
                 statusEl.textContent = 'Setup Required';
-            } else if (providerStatus === 'fallback') {
+            } else if (providerStatus === 'fallback' || provider === 'manual') {
                 statusEl.textContent = 'Fallback';
             } else {
                 statusEl.textContent = 'Active';
@@ -4610,8 +4794,16 @@ async function dashboardSubmitSettingsBadgePayment(confirmButton = null) {
     const provider = String(dashboardSettingsBadgePaymentModalState.provider || 'stripe').trim().toLowerCase();
     const billingPlan = dashboardNormalizeBadgeBillingPlan(dashboardSettingsBadgePaymentModalState.billingPlan || 'monthly');
 
-    if (!dashboardSettingsIsBadgeProviderAllowed(provider)) {
+    if (!dashboardSettingsCanSelectBadgeProvider(provider)) {
         showToast('Choose an available payment method first.', 'warning');
+        return;
+    }
+
+    if (!dashboardSettingsIsBadgeProviderAllowed(provider)) {
+        const config = dashboardGetBadgeProviderConfig(provider);
+        const providerLabel = String(config?.label || provider || 'This payment provider').trim();
+
+        showToast(`${providerLabel} is not configured yet. Add the provider keys or use Manual Admin Payment for now.`, 'warning');
         return;
     }
 
