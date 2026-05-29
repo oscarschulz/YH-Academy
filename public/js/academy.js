@@ -14701,6 +14701,7 @@ const ACADEMY_MISSION_PLAYBOOKS = [
     {
         key: 'three-handshakes-away',
         icon: '🤝',
+        iconImage: '/assets/academy/icons/handshake-mission.png',
         title: '3-Handshakes-Away Mission',
         kicker: 'Social Outreach Mission',
         difficulty: 'Beginner Friendly',
@@ -14761,6 +14762,7 @@ const ACADEMY_MISSION_PLAYBOOKS = [
     {
         key: 'cold-calling',
         icon: '📞',
+        iconImage: '/assets/academy/icons/call-mission.png',
         title: 'Cold-Calling Mission',
         kicker: 'Company Outreach Mission',
         difficulty: 'Direct Execution',
@@ -14854,7 +14856,9 @@ function renderAcademyMissionPlaybookDetail(mission = {}) {
     panel.innerHTML = `
         <article class="academy-mission-playbook-detail-card">
             <div class="academy-mission-playbook-detail-hero">
-                <div class="academy-mission-playbook-detail-icon">${academyFeedEscapeHtml(mission.icon || '🎯')}</div>
+                <div class="academy-mission-playbook-detail-icon">${mission.iconImage
+                    ? '<img src="' + academyFeedEscapeHtml(mission.iconImage) + '" alt="" class="academy-mission-playbook-detail-icon-img" loading="lazy" decoding="async">'
+                    : academyFeedEscapeHtml(mission.icon || '🎯')}</div>
                 <div>
                     <div class="academy-profile-card-kicker">${academyFeedEscapeHtml(mission.kicker || 'Mission')}</div>
                     <h2>${academyFeedEscapeHtml(mission.title || 'Mission')}</h2>
