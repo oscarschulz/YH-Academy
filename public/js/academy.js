@@ -31252,6 +31252,69 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
         }
     }
 
+    function getAcademyAiCoachUserAvatarUrl() {
+        const candidates = [];
+
+        try {
+            const cachedProfile = typeof readAcademyProfileCache === 'function'
+                ? readAcademyProfileCache()
+                : null;
+
+            if (cachedProfile && typeof cachedProfile === 'object') {
+                candidates.push(
+                    cachedProfile.avatar,
+                    cachedProfile.avatarUrl,
+                    cachedProfile.avatar_url,
+                    cachedProfile.profilePhoto,
+                    cachedProfile.photoURL
+                );
+            }
+        } catch (_) {}
+
+        try {
+            candidates.push(
+                getStoredUserValue?.('yh_user_avatar', ''),
+                localStorage.getItem('yh_user_avatar'),
+                localStorage.getItem('yh_user_photo'),
+                localStorage.getItem('yh_user_profile_photo'),
+                localStorage.getItem('yh_user_avatar_url')
+            );
+        } catch (_) {}
+
+        for (const value of candidates) {
+            try {
+                const normalized = typeof academyNormalizeProfileAssetUrl === 'function'
+                    ? academyNormalizeProfileAssetUrl(value)
+                    : String(value || '').trim();
+
+                if (normalized) return normalized;
+            } catch (_) {
+                const fallback = String(value || '').trim();
+                if (fallback) return fallback;
+            }
+        }
+
+        return '';
+    }
+
+    function getAcademyAiCoachUserAvatarHtml(author = '') {
+        const fallbackLetter = escapeHtml(String(author || 'Y').trim().charAt(0).toUpperCase() || 'Y');
+        const avatarUrl = getAcademyAiCoachUserAvatarUrl();
+
+        if (!avatarUrl) {
+            return fallbackLetter;
+        }
+
+        return `
+            <img
+                src="${escapeHtml(avatarUrl)}"
+                alt=""
+                loading="lazy"
+                decoding="async"
+            >
+        `;
+    }
+
     function normalizeLearnFromKey(value = '') {
         const clean = String(value || '')
             .trim()
@@ -31416,11 +31479,11 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
             const role = String(message.role || '').trim().toLowerCase();
             const isUser = role === 'user';
             const author = isUser ? userName : 'AI Coach';
-            const avatar = isUser ? escapeHtml(author.charAt(0).toUpperCase() || 'Y') : '🤖';
+            const avatar = isUser ? getAcademyAiCoachUserAvatarHtml(author) : '🤖';
 
             return `
                 <div class="academy-ai-coach-rect-bubble ${isUser ? 'is-user' : 'is-bot'}">
-                    <div class="academy-ai-coach-rect-bubble-avatar">${avatar}</div>
+                    <div class="academy-ai-coach-rect-bubble-avatar ${isUser && getAcademyAiCoachUserAvatarUrl() ? 'has-image' : ''}">${avatar}</div>
                     <div class="academy-ai-coach-rect-bubble-main">
                         <div class="academy-ai-coach-rect-bubble-meta">
                             <strong>${escapeHtml(author)}</strong>
@@ -31498,9 +31561,11 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
                     history.innerHTML = '';
                 }
 
+                const userAvatarUrl = getAcademyAiCoachUserAvatarUrl();
+
                 history.insertAdjacentHTML('beforeend', `
                     <div class="academy-ai-coach-rect-bubble is-user">
-                        <div class="academy-ai-coach-rect-bubble-avatar">${escapeHtml(userName.charAt(0).toUpperCase() || 'Y')}</div>
+                        <div class="academy-ai-coach-rect-bubble-avatar ${userAvatarUrl ? 'has-image' : ''}">${getAcademyAiCoachUserAvatarHtml(userName)}</div>
                         <div class="academy-ai-coach-rect-bubble-main">
                             <div class="academy-ai-coach-rect-bubble-meta">
                                 <strong>${escapeHtml(userName)}</strong>

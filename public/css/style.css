@@ -24947,6 +24947,21 @@ body.academy-right-bot-docked .yh-right-sidebar [class*="bot"]:not(.academy-righ
     color: #fff;
     font-weight: 850;
     font-size: 0.85rem;
+    overflow: hidden;
+}
+
+.academy-ai-coach-rect-bubble-avatar.has-image {
+    padding: 0;
+    background: rgba(15, 23, 42, 0.92);
+    border: 1px solid rgba(56, 189, 248, 0.28);
+}
+
+.academy-ai-coach-rect-bubble-avatar img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    border-radius: inherit;
 }
 
 .academy-ai-coach-rect-bubble-main {
