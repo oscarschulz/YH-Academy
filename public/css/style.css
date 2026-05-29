@@ -25973,3 +25973,56 @@ body[data-yh-page="academy"] .academy-ai-coach-rect-form {
     }
 }
 /* END PATCH: Global AI chatbot robot avatar */
+/* PATCH: Academy lower-right AI Coach robot avatar v2 */
+.academy-right-bot-cta-avatar.has-ai-robot-image {
+    width: 46px;
+    height: 46px;
+    flex: 0 0 46px;
+    padding: 3px;
+    overflow: hidden;
+    border-radius: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15, 23, 42, 0.92) !important;
+    border: 1px solid rgba(56, 189, 248, 0.34);
+    color: transparent !important;
+    font-size: 0 !important;
+    box-shadow:
+        0 0 18px rgba(56, 189, 248, 0.18),
+        inset 0 0 12px rgba(56, 189, 248, 0.08);
+}
+
+.academy-right-bot-cta-avatar.has-ai-robot-image .academy-right-bot-cta-avatar-img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: contain;
+    border-radius: inherit;
+    filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.32));
+}
+
+#academy-right-sidebar-ai-coach .academy-right-bot-cta-avatar.has-ai-robot-image,
+.academy-ai-coach-bottom-visible .academy-right-bot-cta-avatar.has-ai-robot-image,
+.academy-single-right-bot .academy-right-bot-cta-avatar.has-ai-robot-image {
+    width: 44px !important;
+    height: 44px !important;
+    flex: 0 0 44px !important;
+    border-radius: 16px !important;
+}
+
+.academy-right-bot-cta:not(.is-docked) .academy-right-bot-cta-avatar.has-ai-robot-image {
+    width: 46px !important;
+    height: 46px !important;
+    flex-basis: 46px !important;
+}
+
+@media (max-width: 900px) {
+    .academy-right-bot-cta-avatar.has-ai-robot-image {
+        width: 40px !important;
+        height: 40px !important;
+        flex-basis: 40px !important;
+        border-radius: 14px !important;
+    }
+}
+/* END PATCH: Academy lower-right AI Coach robot avatar v2 */

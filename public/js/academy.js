@@ -33397,3 +33397,110 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
     [100, 400, 1000, 2500].forEach((delay) => window.setTimeout(harden, delay));
 })();
 /* END PATCH: Academy search autofill fix v4 */
+/* PATCH: Academy lower-right AI Coach robot avatar normalizer v2 */
+(function installAcademyLowerRightAiCoachRobotAvatarV2() {
+    if (window.__academyLowerRightAiCoachRobotAvatarV2Installed) return;
+    window.__academyLowerRightAiCoachRobotAvatarV2Installed = true;
+
+    const ROBOT_AVATAR_SRC = '/assets/yh-ai-robot-avatar.png?v=20260529-lower-right-ai-coach-avatar-v2';
+
+    function academyBuildLowerRightAiRobotAvatarHtml() {
+        return `
+            <img
+                src="${ROBOT_AVATAR_SRC}"
+                alt="AI Coach"
+                class="academy-right-bot-cta-avatar-img"
+                loading="lazy"
+                decoding="async"
+            >
+        `;
+    }
+
+    function academyNormalizeLowerRightAiCoachButton(bot) {
+        if (!(bot instanceof HTMLElement)) return;
+
+        let avatar = bot.querySelector('.academy-right-bot-cta-avatar');
+
+        if (!avatar) {
+            const label = bot.querySelector('strong');
+            avatar = document.createElement('span');
+            avatar.className = 'academy-right-bot-cta-avatar has-ai-robot-image';
+
+            if (label) {
+                bot.insertBefore(avatar, label);
+            } else {
+                bot.prepend(avatar);
+            }
+        }
+
+        avatar.classList.add('has-ai-robot-image');
+
+        const existingImage = avatar.querySelector('img.academy-right-bot-cta-avatar-img');
+        if (existingImage) {
+            existingImage.src = ROBOT_AVATAR_SRC;
+            existingImage.alt = 'AI Coach';
+            return;
+        }
+
+        avatar.innerHTML = academyBuildLowerRightAiRobotAvatarHtml();
+    }
+
+    function academyNormalizeAllLowerRightAiCoachButtons() {
+        document.querySelectorAll(
+            '.academy-right-bot-cta, #academy-right-sidebar-ai-coach, button[aria-label="Open Academy AI Coach"]'
+        ).forEach(academyNormalizeLowerRightAiCoachButton);
+    }
+
+    function academyScheduleLowerRightAiCoachAvatarSync() {
+        window.cancelAnimationFrame(window.__academyLowerRightAiCoachRobotAvatarRafV2);
+        window.__academyLowerRightAiCoachRobotAvatarRafV2 = window.requestAnimationFrame(() => {
+            academyNormalizeAllLowerRightAiCoachButtons();
+        });
+    }
+
+    academyScheduleLowerRightAiCoachAvatarSync();
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', academyScheduleLowerRightAiCoachAvatarSync);
+    } else {
+        academyScheduleLowerRightAiCoachAvatarSync();
+    }
+
+    window.addEventListener('pageshow', academyScheduleLowerRightAiCoachAvatarSync);
+    window.addEventListener('load', academyScheduleLowerRightAiCoachAvatarSync);
+
+    const observer = new MutationObserver((mutations) => {
+        const shouldSync = mutations.some((mutation) => {
+            if (mutation.type === 'childList') return true;
+
+            const target = mutation.target;
+            return target instanceof HTMLElement && (
+                target.classList.contains('academy-right-bot-cta') ||
+                target.classList.contains('academy-right-bot-cta-avatar') ||
+                target.closest?.('.academy-right-bot-cta')
+            );
+        });
+
+        if (shouldSync) {
+            academyScheduleLowerRightAiCoachAvatarSync();
+        }
+    });
+
+    window.setTimeout(() => {
+        if (document.body) {
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true,
+                attributes: true,
+                attributeFilter: ['class']
+            });
+        }
+
+        academyScheduleLowerRightAiCoachAvatarSync();
+    }, 0);
+
+    window.setTimeout(academyScheduleLowerRightAiCoachAvatarSync, 400);
+    window.setTimeout(academyScheduleLowerRightAiCoachAvatarSync, 1200);
+    window.setTimeout(academyScheduleLowerRightAiCoachAvatarSync, 3200);
+})();
+/* END PATCH: Academy lower-right AI Coach robot avatar normalizer v2 */
