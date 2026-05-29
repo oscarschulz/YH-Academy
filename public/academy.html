@@ -7,7 +7,7 @@
     <link rel="icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css?v=20260529-coach-markdown-pin-size-v1">
+<link rel="stylesheet" href="/css/style.css?v=20260529-message-action-icons-v1">
 <link rel="stylesheet" href="/css/academy-thread-bottom-fix.css?v=20260417-2">
 </head>
 <body data-yh-view="academy" data-yh-page="academy" class="academy-startup-booting academy-standalone-shell-pending">
@@ -562,9 +562,18 @@
 <div class="academy-chat-header-spacer" aria-hidden="true"></div>
                                     </div>
             <div class="header-right academy-chat-header-actions">
-                <button type="button" class="btn-secondary academy-chat-header-btn" id="btn-open-dm-modal" title="Start Direct Message">💬 Start DM</button>
-                <button type="button" class="btn-secondary academy-chat-header-btn" id="btn-open-group-modal" title="Create Group Chat">👥 Create Group</button>
-                <button class="btn-focus-mode" title="Focus Mode">👁️ Focus Mode</button>
+                <button type="button" class="btn-secondary academy-chat-header-btn academy-chat-header-btn-with-icon" id="btn-open-dm-modal" title="Start Direct Message">
+                    <img src="/assets/academy/icons/dms-icon.png" alt="" class="academy-action-icon academy-action-icon-dm" loading="lazy" decoding="async">
+                    <span>Start DM</span>
+                </button>
+                <button type="button" class="btn-secondary academy-chat-header-btn academy-chat-header-btn-with-icon" id="btn-open-group-modal" title="Create Group Chat">
+                    <img src="/assets/academy/icons/groups-icon.png" alt="" class="academy-action-icon academy-action-icon-group" loading="lazy" decoding="async">
+                    <span>Create Group</span>
+                </button>
+                <button type="button" class="btn-focus-mode academy-chat-header-btn-with-icon" title="Focus Mode" aria-pressed="false">
+                    <img src="/assets/academy/icons/focus-mode-icon.png" alt="" class="academy-action-icon academy-action-icon-focus" loading="lazy" decoding="async">
+                    <span>Focus Mode</span>
+                </button>
             </div>
                                 </header>
 

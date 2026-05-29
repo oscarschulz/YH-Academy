@@ -5257,6 +5257,9 @@ async function ensureVaultLoaded(force = false) {
 
     const academySidebar = document.getElementById('academy-sidebar');
 
+    const academyFocusModeIconHtml = '<img src="/assets/academy/icons/focus-mode-icon.png" alt="" class="academy-action-icon academy-action-icon-focus" loading="lazy" decoding="async">';
+    const academyFocusModeExitIconHtml = '<span class="academy-action-icon academy-action-icon-exit" aria-hidden="true">🔴</span>';
+
     document.querySelectorAll('.btn-focus-mode').forEach(btn => {
         btn.addEventListener('click', () => {
             const dashboardCoreWrapper = document.getElementById('academy-wrapper');
@@ -5265,13 +5268,15 @@ async function ensureVaultLoaded(force = false) {
             dashboardCoreWrapper.classList.toggle('in-focus-mode');
 
             if (dashboardCoreWrapper.classList.contains('in-focus-mode')) {
-                btn.innerHTML = yhTText('🔴 Exit Focus Mode');
+                btn.innerHTML = `${academyFocusModeExitIconHtml}<span>${yhTText('Exit Focus Mode')}</span>`;
+                btn.setAttribute('aria-pressed', 'true');
                 btn.style.background = 'rgba(239, 68, 68, 0.2)';
                 btn.style.color = '#ef4444';
                 btn.style.borderColor = '#ef4444';
                 showToast("Focus Mode Activated: Distractions Hidden", "success");
             } else {
-                btn.innerHTML = yhTText('👁️ Focus Mode');
+                btn.innerHTML = `${academyFocusModeIconHtml}<span>${yhTText('Focus Mode')}</span>`;
+                btn.setAttribute('aria-pressed', 'false');
                 btn.style.background = 'rgba(255,255,255,0.05)';
                 btn.style.color = '#fff';
                 btn.style.borderColor = 'rgba(255,255,255,0.1)';

@@ -1113,15 +1113,66 @@ body.yh-notif-menu-open::after {
         white-space: nowrap !important;
     }
 }
-.academy-chat-header-btn {
-    padding: 7px 12px;
+.academy-chat-header-btn,
+.btn-focus-mode {
+    min-height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 11px 6px 8px;
     border-radius: 10px;
     font-size: 0.8rem;
+    font-weight: 800;
+    line-height: 1;
     white-space: nowrap;
 }
 
-.btn-focus-mode { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; cursor: pointer; transition: 0.2s; }
-.btn-focus-mode:hover { background: rgba(255,255,255,0.1); }
+.academy-chat-header-btn-with-icon span {
+    display: inline-flex;
+    align-items: center;
+    line-height: 1;
+}
+
+.academy-action-icon {
+    width: 23px;
+    height: 23px;
+    display: inline-block;
+    object-fit: contain;
+    object-position: center;
+    flex: 0 0 23px;
+    pointer-events: none;
+    user-select: none;
+    filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.42));
+}
+
+.academy-action-icon-dm,
+.academy-action-icon-group,
+.academy-action-icon-focus {
+    transform: scale(1.08);
+}
+
+.academy-action-icon-exit {
+    width: 15px;
+    height: 15px;
+    flex-basis: 15px;
+    display: inline-grid;
+    place-items: center;
+    font-size: 0.78rem;
+    filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.45));
+}
+
+.btn-focus-mode {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #fff;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.btn-focus-mode:hover {
+    background: rgba(255,255,255,0.1);
+}
 
 .pinned-message { display: flex; align-items: center; gap: 10px; background: rgba(14, 165, 233, 0.1); padding: 10px 2rem; border-bottom: 1px solid rgba(14, 165, 233, 0.2); }
 .pinned-icon { font-size: 1.2rem; }
