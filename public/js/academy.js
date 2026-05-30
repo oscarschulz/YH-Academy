@@ -2854,6 +2854,8 @@ socket.on('chatHistory', (history) => {
 
             if (typeof academySyncLatestOwnMessageMenuDirection === 'function') {
                 academySyncLatestOwnMessageMenuDirection();
+                window.requestAnimationFrame(() => academySyncLatestOwnMessageMenuDirection());
+                window.setTimeout(() => academySyncLatestOwnMessageMenuDirection(), 120);
             }
         }
     });
@@ -3019,20 +3021,144 @@ socket.on('chatHistory', (history) => {
         academySyncLatestOwnMessageMenuDirection();
     }
 
-function academySyncLatestOwnMessageMenuDirection() {
+function academyGetMessageThreadScrollShell(container = null) {
+    const safeContainer = container || document.getElementById('dynamic-chat-history');
+
+    return (
+        safeContainer?.closest?.('.academy-messages-thread-scroll') ||
+        safeContainer?.closest?.('.academy-chat-thread') ||
+        safeContainer?.closest?.('.academy-messages-thread-shell') ||
+        document.getElementById('academy-messages-thread-scroll') ||
+        document.getElementById('academy-messages-thread-shell') ||
+        document.getElementById('dynamic-chat-history') ||
+        document.scrollingElement ||
+        document.documentElement
+    );
+}
+
+function academyGetLatestOwnMessageBubbleByVisualPosition(ownBubbles = []) {
+    return ownBubbles
+        .map((bubble, index) => {
+            const rect = bubble.getBoundingClientRect();
+
+            return {
+                bubble,
+                index,
+                top: Number(rect.top || 0),
+                bottom: Number(rect.bottom || 0),
+                left: Number(rect.left || 0)
+            };
+        })
+        .sort((a, b) => {
+            if (Math.abs(a.bottom - b.bottom) > 2) return b.bottom - a.bottom;
+            if (Math.abs(a.top - b.top) > 2) return b.top - a.top;
+            return b.index - a.index;
+        })[0]?.bubble || null;
+}
+
+function academySyncLatestOwnMessageMenuDirection(options = {}) {
+    const repeat = options.repeat !== false;
     const container = document.getElementById('dynamic-chat-history') || document;
     const ownBubbles = Array.from(container.querySelectorAll('.chat-bubble.mine[data-dbid]'))
-        .filter((bubble) => bubble && bubble.isConnected);
+        .filter((bubble) => {
+            if (!bubble || !bubble.isConnected) return false;
+            if (bubble.classList.contains('hidden-step')) return false;
+
+            const rect = bubble.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0;
+        });
 
     ownBubbles.forEach((bubble) => {
         bubble.classList.remove('academy-latest-own-message-menu-up');
+        bubble.classList.remove('academy-own-message-menu-open-up');
+        bubble.removeAttribute('data-academy-latest-own-message');
     });
 
-    const latestOwnBubble = ownBubbles[ownBubbles.length - 1];
+    const latestOwnBubble = academyGetLatestOwnMessageBubbleByVisualPosition(ownBubbles);
+    const scrollShell = academyGetMessageThreadScrollShell(container);
+    const shellRect = scrollShell?.getBoundingClientRect?.();
+    const shellBottom = Number(shellRect?.bottom || window.innerHeight || 0);
+
+    ownBubbles.forEach((bubble) => {
+        const rect = bubble.getBoundingClientRect();
+        const availableBelow = shellBottom - Number(rect.bottom || 0);
+
+        if (availableBelow < 210) {
+            bubble.classList.add('academy-own-message-menu-open-up');
+        }
+    });
 
     if (latestOwnBubble) {
         latestOwnBubble.classList.add('academy-latest-own-message-menu-up');
+        latestOwnBubble.classList.add('academy-own-message-menu-open-up');
+        latestOwnBubble.setAttribute('data-academy-latest-own-message', 'true');
     }
+
+    if (repeat) {
+        window.clearTimeout(window.__academyLatestOwnMessageMenuDirectionTimer);
+
+        window.requestAnimationFrame(() => {
+            academySyncLatestOwnMessageMenuDirection({ repeat: false });
+        });
+
+        window.__academyLatestOwnMessageMenuDirectionTimer = window.setTimeout(() => {
+            academySyncLatestOwnMessageMenuDirection({ repeat: false });
+        }, 120);
+    }
+}
+
+function academyInstallLatestOwnMessageMenuDirectionObserver() {
+    if (window.__academyLatestOwnMessageMenuDirectionObserverInstalled) return;
+
+    const container = document.getElementById('dynamic-chat-history');
+    if (!container || typeof MutationObserver !== 'function') {
+        window.setTimeout(academyInstallLatestOwnMessageMenuDirectionObserver, 600);
+        return;
+    }
+
+    window.__academyLatestOwnMessageMenuDirectionObserverInstalled = true;
+
+    let latestOwnMessageMenuDirectionObserverScheduled = false;
+
+    const scheduleLatestOwnMessageMenuDirectionSync = (repeat = true) => {
+        if (latestOwnMessageMenuDirectionObserverScheduled) return;
+
+        latestOwnMessageMenuDirectionObserverScheduled = true;
+
+        window.requestAnimationFrame(() => {
+            latestOwnMessageMenuDirectionObserverScheduled = false;
+            academySyncLatestOwnMessageMenuDirection({ repeat });
+        });
+    };
+
+    const observer = new MutationObserver((mutations = []) => {
+        const hasMessageTreeChange = mutations.some((mutation) => mutation.type === 'childList');
+
+        if (!hasMessageTreeChange) return;
+
+        scheduleLatestOwnMessageMenuDirectionSync(true);
+    });
+
+    observer.observe(container, {
+        childList: true,
+        subtree: true
+    });
+
+    window.addEventListener('resize', () => {
+        scheduleLatestOwnMessageMenuDirectionSync(true);
+    });
+
+    container.addEventListener('scroll', () => {
+        academySyncLatestOwnMessageMenuDirection({ repeat: false });
+    }, { passive: true });
+
+    academySyncLatestOwnMessageMenuDirection();
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', academyInstallLatestOwnMessageMenuDirectionObserver);
+} else {
+    academyInstallLatestOwnMessageMenuDirectionObserver();
 }
 
 const ACADEMY_COACH_BIG_FIGURES_CONTEXT = Object.freeze({
@@ -27023,6 +27149,8 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
 
                 if (typeof academySyncLatestOwnMessageMenuDirection === 'function') {
                     academySyncLatestOwnMessageMenuDirection();
+                    window.requestAnimationFrame(() => academySyncLatestOwnMessageMenuDirection());
+                    window.setTimeout(() => academySyncLatestOwnMessageMenuDirection(), 120);
                 }
 
                 academyUpgradeToast('Message removed for you.', 'success');
@@ -27158,6 +27286,8 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
 
                 if (typeof academySyncLatestOwnMessageMenuDirection === 'function') {
                     academySyncLatestOwnMessageMenuDirection();
+                    window.requestAnimationFrame(() => academySyncLatestOwnMessageMenuDirection());
+                    window.setTimeout(() => academySyncLatestOwnMessageMenuDirection(), 120);
                 }
             }
         });

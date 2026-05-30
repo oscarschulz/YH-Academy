@@ -16528,6 +16528,46 @@ body[data-yh-view="academy"] #academy-profile-view .academy-profile-mobile-menu-
     min-width: 180px;
 }
 
+#academy-lead-missions-view {
+    position: relative;
+}
+
+#academy-lead-missions-view:has(#academy-mission-playbook-panel:not(.hidden-step)) .chat-header {
+    padding-right: 430px;
+}
+
+#academy-lead-missions-view:has(#academy-mission-playbook-panel:not(.hidden-step)) .academy-mission-playbook-detail-head {
+    position: absolute;
+    top: 10px;
+    right: 24px;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+}
+
+#academy-lead-missions-view:has(#academy-mission-playbook-panel:not(.hidden-step)) .academy-mission-playbook-back,
+#academy-lead-missions-view:has(#academy-mission-playbook-panel:not(.hidden-step)) .academy-mission-playbook-start {
+    min-height: 42px;
+    min-width: 178px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 0.78rem;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+#academy-lead-missions-view:has(#academy-mission-playbook-panel:not(.hidden-step)) .academy-mission-playbook-detail-shell {
+    gap: 0;
+}
+
+#academy-lead-missions-view:has(#academy-mission-playbook-panel:not(.hidden-step)) #academy-mission-playbook-detail {
+    margin-top: 0;
+}
+
 .academy-mission-playbook-detail-card {
     padding: 16px;
     border-radius: 20px;
@@ -16648,13 +16688,22 @@ body[data-yh-view="academy"] #academy-profile-view .academy-profile-mobile-menu-
         grid-template-columns: 1fr;
     }
 
-    .academy-mission-playbook-detail-head {
+    .academy-mission-playbook-detail-head,
+    #academy-lead-missions-view:has(#academy-mission-playbook-panel:not(.hidden-step)) .academy-mission-playbook-detail-head {
+        position: static;
         align-items: stretch;
         flex-direction: column;
+        margin: 0 0 10px;
+    }
+
+    #academy-lead-missions-view:has(#academy-mission-playbook-panel:not(.hidden-step)) .chat-header {
+        padding-right: 1rem;
     }
 
     .academy-mission-playbook-back,
-    .academy-mission-playbook-start {
+    .academy-mission-playbook-start,
+    #academy-lead-missions-view:has(#academy-mission-playbook-panel:not(.hidden-step)) .academy-mission-playbook-back,
+    #academy-lead-missions-view:has(#academy-mission-playbook-panel:not(.hidden-step)) .academy-mission-playbook-start {
         width: 100%;
         min-width: 0;
     }
@@ -19579,6 +19628,29 @@ body[data-yh-page="dashboard"] .yh-dashboard-profile-search-btn {
         margin-top: 8px;
     }
 
+    body[data-yh-view="hub"] .desktop-user-strip-inner {
+        grid-template-columns: minmax(0, 1fr) auto !important;
+    }
+
+    body[data-yh-view="hub"] .desktop-user-strip-left {
+        grid-column: 1 !important;
+        justify-self: stretch !important;
+    }
+
+    body[data-yh-view="hub"] .desktop-user-strip-right {
+        grid-column: 2 !important;
+    }
+
+    body[data-yh-view="hub"] .yh-dashboard-top-search {
+        width: 100% !important;
+        max-width: none !important;
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    body[data-yh-view="hub"] .yh-dashboard-top-search-btn {
+        display: none !important;
+    }
+
     body[data-yh-page="dashboard"] .yh-dashboard-profile-search-btn {
         width: 100%;
     }
@@ -19665,6 +19737,148 @@ body[data-yh-page="dashboard"] .yh-dashboard-profile-search-btn {
     gap: 16px;
     padding: 20px 22px;
     overflow-y: auto;
+}
+
+.yh-dashboard-profile-preview-body {
+    display: none;
+    padding: 20px 22px;
+    overflow-y: auto;
+}
+
+.yh-dashboard-profile-modal.is-profile-preview-mode .yh-dashboard-profile-preview-body {
+    display: block;
+}
+
+.yh-dashboard-profile-modal.is-profile-preview-mode .yh-dashboard-profile-edit-fields,
+.yh-dashboard-profile-modal.is-profile-preview-mode .yh-dashboard-profile-edit-actions {
+    display: none !important;
+}
+
+.yh-dashboard-profile-modal.is-profile-edit-mode .yh-dashboard-profile-preview-body,
+.yh-dashboard-profile-modal.is-profile-edit-mode .yh-dashboard-profile-preview-actions {
+    display: none !important;
+}
+
+.yh-dashboard-profile-preview-card {
+    overflow: hidden;
+    border-radius: 22px;
+    border: 1px solid rgba(56, 189, 248, 0.16);
+    background:
+        linear-gradient(180deg, rgba(15, 23, 42, 0.88), rgba(5, 12, 28, 0.94)),
+        rgba(7, 16, 31, 0.90);
+    box-shadow:
+        0 20px 52px rgba(0, 0, 0, 0.24),
+        inset 0 1px 0 rgba(255,255,255,0.045);
+}
+
+.yh-dashboard-profile-preview-cover {
+    min-height: 150px;
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    padding: 18px;
+    background:
+        radial-gradient(circle at 20% 10%, rgba(56, 189, 248, 0.18), transparent 36%),
+        linear-gradient(135deg, rgba(14, 165, 233, 0.14), rgba(15, 23, 42, 0.92));
+    background-size: cover;
+    background-position: center;
+}
+
+.yh-dashboard-profile-preview-avatar {
+    width: 82px;
+    height: 82px;
+    display: grid;
+    place-items: center;
+    border-radius: 24px;
+    border: 1px solid rgba(56, 189, 248, 0.32);
+    background:
+        radial-gradient(circle at top left, rgba(56, 189, 248, 0.30), transparent 46%),
+        rgba(15, 23, 42, 0.94);
+    color: #f8fbff;
+    font-size: 2rem;
+    font-weight: 900;
+    box-shadow: 0 16px 38px rgba(0, 0, 0, 0.32);
+}
+
+.yh-dashboard-profile-preview-avatar.has-image {
+    background-size: cover;
+    background-position: center;
+}
+
+.yh-dashboard-profile-preview-main {
+    display: grid;
+    gap: 14px;
+    padding: 18px;
+}
+
+.yh-dashboard-profile-preview-main h4 {
+    margin: 0;
+    color: #fff;
+    font-size: 1.22rem;
+    font-weight: 900;
+}
+
+.yh-dashboard-profile-preview-main p {
+    margin: 4px 0 0;
+    color: rgba(148, 163, 184, 0.92);
+    font-size: 0.86rem;
+}
+
+.yh-dashboard-profile-preview-bio {
+    color: rgba(226, 232, 240, 0.86);
+    line-height: 1.55;
+    font-size: 0.9rem;
+}
+
+.yh-dashboard-profile-preview-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.yh-dashboard-profile-preview-item,
+.yh-dashboard-profile-preview-pills {
+    padding: 12px;
+    border-radius: 15px;
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    background: rgba(15, 23, 42, 0.58);
+}
+
+.yh-dashboard-profile-preview-item span,
+.yh-dashboard-profile-preview-pills > div:first-child {
+    display: block;
+    margin-bottom: 6px;
+    color: #7dd3fc;
+    font-size: 0.68rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.yh-dashboard-profile-preview-item strong {
+    color: #f8fbff;
+    font-size: 0.88rem;
+}
+
+.yh-dashboard-profile-preview-pills > div:last-child {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+}
+
+.yh-dashboard-profile-preview-pills span,
+.yh-dashboard-profile-preview-pills em {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 0 9px;
+    border-radius: 999px;
+    border: 1px solid rgba(56, 189, 248, 0.20);
+    background: rgba(56, 189, 248, 0.08);
+    color: #bae6fd;
+    font-size: 0.74rem;
+    font-style: normal;
+    font-weight: 800;
 }
 
 .yh-dashboard-profile-grid-2 {
@@ -20142,7 +20356,8 @@ body[data-yh-page="dashboard"] .yh-dashboard-profile-search-btn {
         border-radius: 20px;
     }
 
-    .yh-dashboard-profile-grid-2 {
+    .yh-dashboard-profile-grid-2,
+    .yh-dashboard-profile-preview-grid {
         grid-template-columns: 1fr;
     }
 
@@ -24136,7 +24351,9 @@ body.academy-right-bot-docked .yh-right-sidebar [class*="bot"]:not(.academy-righ
     left: auto !important;
 }
 
-.chat-bubble.mine.academy-latest-own-message-menu-up .message-action-menu {
+.chat-bubble.mine.academy-latest-own-message-menu-up .message-action-menu,
+.chat-bubble.mine.academy-own-message-menu-open-up .message-action-menu,
+.chat-bubble.mine[data-academy-latest-own-message="true"] .message-action-menu {
     top: auto !important;
     bottom: calc(100% + 8px) !important;
     right: 8px !important;
@@ -25423,23 +25640,50 @@ body[data-yh-page="academy"].academy-shell-ready .dashboard-layout {
 /* END PATCH: Academy loader conflict release v14 */
 
 
-/* PATCH: Academy pinned conversation visible marker v2 */
+/* PATCH: Academy pinned conversation visible marker v3 */
+body[data-yh-view="academy"] .academy-messages-inbox-card.has-visible-pinned-marker-v2,
+body[data-yh-page="academy"] .academy-messages-inbox-card.has-visible-pinned-marker-v2,
+body[data-yh-view="academy"] .academy-messages-inbox-card.has-visible-pinned-marker-v2 .academy-messages-inbox-item,
+body[data-yh-page="academy"] .academy-messages-inbox-card.has-visible-pinned-marker-v2 .academy-messages-inbox-item {
+    position: relative !important;
+}
+
 body[data-yh-view="academy"] .academy-messages-inbox-card.has-visible-pinned-marker-v2 .academy-messages-inbox-item,
 body[data-yh-page="academy"] .academy-messages-inbox-card.has-visible-pinned-marker-v2 .academy-messages-inbox-item {
     box-shadow: none !important;
+    padding-right: 58px !important;
 }
 
 body[data-yh-view="academy"] .academy-messages-inbox-pin-icon-v2,
 body[data-yh-page="academy"] .academy-messages-inbox-pin-icon-v2 {
+    position: absolute !important;
+    top: 7px !important;
+    right: 7px !important;
+    z-index: 10 !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
-    margin-left: 6px !important;
-    font-size: 0.74rem !important;
+    width: 28px !important;
+    height: 28px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    vertical-align: top !important;
     line-height: 1 !important;
-    color: #fde68a !important;
-    filter: drop-shadow(0 0 8px rgba(250, 204, 21, 0.20)) !important;
-    flex: 0 0 auto !important;
+    color: #7dd3fc !important;
+    filter:
+        drop-shadow(0 0 10px rgba(56, 189, 248, 0.62))
+        drop-shadow(0 0 6px rgba(14, 165, 233, 0.42)) !important;
+    flex: 0 0 28px !important;
+    pointer-events: none !important;
+}
+
+body[data-yh-view="academy"] .academy-messages-inbox-pin-icon-v2 .academy-messages-pin-icon-img,
+body[data-yh-page="academy"] .academy-messages-inbox-pin-icon-v2 .academy-messages-pin-icon-img {
+    width: 26px !important;
+    height: 26px !important;
+    display: block !important;
+    object-fit: contain !important;
+    object-position: center !important;
 }
 
 body[data-yh-view="academy"] .academy-pinned-conversation-inline-badge-v2,
@@ -25474,7 +25718,7 @@ body[data-yh-page="academy"] .academy-messages-thread-header.is-pinned-thread-v2
     background:
         linear-gradient(180deg, rgba(250, 204, 21, 0.06), rgba(255, 255, 255, 0.02)) !important;
 }
-/* END PATCH: Academy pinned conversation visible marker v2 */
+/* END PATCH: Academy pinned conversation visible marker v3 */
 
 
 /* PATCH: Hide Academy notification/resources strip v20 */
@@ -26253,7 +26497,7 @@ body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="road
 }
 /* END PATCH: Academy lower-right AI Coach robot avatar v2 */
 /* =========================================================
-   DASHBOARD COMMAND CENTER LAYOUT v19
+   DASHBOARD COMMAND CENTER LAYOUT v34
    Unified Dashboard Shell
    Scope: Dashboard / Hub desktop only
    No mock data. No generated dashboard counters.
@@ -26400,29 +26644,40 @@ body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="road
 
     body[data-yh-view="hub"] .yh-sidebar-command-center-label {
         width: 100% !important;
-        min-height: auto !important;
+        min-height: 40px !important;
         display: inline-flex !important;
         align-items: center !important;
         justify-content: flex-start !important;
-        gap: 9px !important;
-        padding: 2px 7px 4px !important;
-        border-radius: 0 !important;
-        border: 0 !important;
-        background: transparent !important;
+        gap: 10px !important;
+        padding: 9px 10px !important;
+        border-radius: 13px !important;
+        border: 1px solid rgba(56, 189, 248, 0.14) !important;
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.010)),
+            rgba(7, 16, 31, 0.44) !important;
         color: rgba(226, 232, 240, 0.92) !important;
-        font-size: 0.76rem !important;
+        font-size: 0.74rem !important;
         font-weight: 900 !important;
         line-height: 1.2 !important;
-        letter-spacing: 0.04em !important;
+        letter-spacing: 0.035em !important;
         text-transform: uppercase !important;
-        cursor: default !important;
+        cursor: pointer !important;
         user-select: none !important;
-        pointer-events: none !important;
+        pointer-events: auto !important;
         box-shadow: none !important;
     }
 
+    body[data-yh-view="hub"] .yh-sidebar-command-center-label:hover,
+    body[data-yh-view="hub"] .yh-sidebar-command-center-label.is-active {
+        border-color: rgba(56, 189, 248, 0.48) !important;
+        background:
+            linear-gradient(180deg, rgba(56, 189, 248, 0.13), rgba(56, 189, 248, 0.045)),
+            rgba(7, 16, 31, 0.72) !important;
+        color: #f8fbff !important;
+    }
+
     body[data-yh-view="hub"] .yh-sidebar-command-center-label .yh-sidebar-command-icon {
-        opacity: 0.78 !important;
+        opacity: 0.86 !important;
     }
 
     body[data-yh-view="hub"] .yh-sidebar-division-group {
@@ -26435,11 +26690,11 @@ body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="road
     body[data-yh-view="hub"] .yh-top-nav .yh-sidebar-command-link {
         width: 100% !important;
         min-width: 0 !important;
-        min-height: 42px !important;
+        min-height: 44px !important;
         display: inline-flex !important;
         align-items: center !important;
         justify-content: flex-start !important;
-        gap: 10px !important;
+        gap: 12px !important;
         padding: 10px 12px !important;
         border-radius: 14px !important;
         border: 1px solid rgba(56, 189, 248, 0.15) !important;
@@ -26478,15 +26733,33 @@ body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="road
     }
 
     body[data-yh-view="hub"] .yh-sidebar-command-icon {
-        width: 20px !important;
-        min-width: 20px !important;
-        height: 20px !important;
+        width: 24px !important;
+        min-width: 24px !important;
+        height: 24px !important;
         display: inline-grid !important;
         place-items: center !important;
         line-height: 1 !important;
         font-size: 0.92rem !important;
+        flex: 0 0 24px !important;
     }
 
+    body[data-yh-view="hub"] .yh-sidebar-command-icon-img {
+        width: 22px !important;
+        height: 22px !important;
+        display: block !important;
+        object-fit: contain !important;
+        filter:
+            drop-shadow(0 0 8px rgba(56, 189, 248, 0.22))
+            drop-shadow(0 0 14px rgba(56, 189, 248, 0.12)) !important;
+    }
+    body[data-yh-view="hub"] .yh-business-chat-open-btn {
+    position: relative !important;
+    }
+
+    body[data-yh-view="hub"] .yh-business-chat-open-btn .yh-business-chat-nav-badge {
+        margin-left: auto !important;
+        flex: 0 0 auto !important;
+    }
     body[data-yh-view="hub"] .yh-sidebar-subnav {
         display: none !important;
         grid-template-columns: 1fr !important;
@@ -26501,10 +26774,11 @@ body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="road
     }
 
     body[data-yh-view="hub"] .yh-sidebar-subnav-link {
-        min-height: 27px !important;
+        min-height: 29px !important;
         display: flex !important;
         align-items: center !important;
         justify-content: flex-start !important;
+        gap: 8px !important;
         padding: 5px 8px !important;
         border: 0 !important;
         border-radius: 10px !important;
@@ -26519,6 +26793,25 @@ body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="road
             color 0.18s ease,
             background 0.18s ease,
             transform 0.18s ease !important;
+    }
+
+    body[data-yh-view="hub"] .yh-sidebar-subnav-icon {
+        width: 16px !important;
+        min-width: 16px !important;
+        height: 16px !important;
+        display: inline-grid !important;
+        place-items: center !important;
+        flex: 0 0 16px !important;
+    }
+
+    body[data-yh-view="hub"] .yh-sidebar-subnav-icon-img {
+        width: 15px !important;
+        height: 15px !important;
+        display: block !important;
+        object-fit: contain !important;
+        filter:
+            drop-shadow(0 0 7px rgba(56, 189, 248, 0.18))
+            drop-shadow(0 0 12px rgba(56, 189, 248, 0.10)) !important;
     }
 
     body[data-yh-view="hub"] .yh-sidebar-subnav-link:hover,
@@ -26579,7 +26872,7 @@ body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="road
         width: 100% !important;
         min-height: 48px !important;
         display: grid !important;
-        grid-template-columns: minmax(0, 1fr) auto !important;
+        grid-template-columns: minmax(220px, 1fr) minmax(420px, 580px) minmax(220px, 1fr) !important;
         align-items: center !important;
         gap: 16px !important;
         overflow: visible !important;
@@ -26591,6 +26884,34 @@ body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="road
         align-items: center !important;
         justify-content: flex-start !important;
         gap: 12px !important;
+    }
+
+    body[data-yh-view="hub"] .desktop-user-strip-left {
+        width: 100% !important;
+        min-width: 0 !important;
+        grid-column: 2 !important;
+        justify-self: center !important;
+    }
+
+    body[data-yh-view="hub"] .yh-dashboard-top-search {
+        width: min(580px, 100%) !important;
+        max-width: 580px !important;
+        margin: 0 auto !important;
+        grid-template-columns: minmax(0, 1fr) auto !important;
+    }
+
+    body[data-yh-view="hub"] .yh-dashboard-top-search-input {
+        min-height: 42px !important;
+        background:
+            linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.014)),
+            rgba(7, 16, 31, 0.78) !important;
+        border-color: rgba(56, 189, 248, 0.18) !important;
+    }
+
+    body[data-yh-view="hub"] .yh-dashboard-top-search-btn {
+        min-height: 42px !important;
+        min-width: 92px !important;
+        padding: 0.7rem 1rem !important;
     }
 
     body[data-yh-view="hub"] .desktop-user-strip .profile-mini {
@@ -26621,11 +26942,11 @@ body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="road
     }
 
     body[data-yh-view="hub"] .desktop-user-strip-right {
-        display: inline-flex !important;
+        grid-column: 3 !important;
+        display: flex !important;
         align-items: center !important;
         justify-content: flex-end !important;
-        gap: 12px !important;
-        overflow: visible !important;
+        gap: 10px !important;
     }
 
     body[data-yh-view="hub"] .yh-resources-menu-btn {
@@ -26794,6 +27115,19 @@ body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="road
             inset 0 1px 0 rgba(255,255,255,0.045) !important;
     }
 
+    body[data-yh-view="hub"] .yh-universe-workspace-launch-card.is-approved-inline-workspace {
+        gap: 0 !important;
+        padding: 0 !important;
+        border: 0 !important;
+        border-radius: 20px !important;
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-workspace-launch-card.is-approved-inline-workspace .yh-universe-workspace-launch-main {
+        display: none !important;
+    }
+
     body[data-yh-view="hub"] .yh-universe-workspace-launch-card.hidden-step {
         display: none !important;
     }
@@ -26808,36 +27142,54 @@ body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="road
 
     body[data-yh-view="hub"] .yh-universe-workspace-heading {
         min-width: 0 !important;
+        min-height: 86px !important;
         display: grid !important;
-        align-content: start !important;
-        gap: 7px !important;
+        align-content: center !important;
+        justify-items: center !important;
+        gap: 0 !important;
+        text-align: center !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-workspace-launch-kicker {
-        width: fit-content !important;
-        display: inline-flex !important;
-        align-items: center !important;
-        padding: 5px 10px !important;
-        border-radius: 999px !important;
-        border: 1px solid rgba(56, 189, 248, 0.22) !important;
-        background: rgba(56, 189, 248, 0.09) !important;
-        color: #7dd3fc !important;
-        font-size: 0.66rem !important;
-        font-weight: 900 !important;
-        letter-spacing: 0.12em !important;
-        text-transform: uppercase !important;
-        line-height: 1 !important;
+        display: none !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-workspace-launch-main h3 {
         margin: 0 !important;
         color: #f8fbff !important;
-        font-size: 1.06rem !important;
-        font-weight: 900 !important;
-        line-height: 1.18 !important;
-        letter-spacing: -0.02em !important;
+        font-size: clamp(1.22rem, 1.45vw, 1.58rem) !important;
+        font-weight: 950 !important;
+        line-height: 1.08 !important;
+        letter-spacing: -0.035em !important;
+        text-align: center !important;
+        text-shadow: 0 0 18px rgba(56, 189, 248, 0.12) !important;
+    }
+    body[data-yh-view="hub"] .yh-inline-workspace-title-inline {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 10px !important;
+    vertical-align: middle !important;
     }
 
+    body[data-yh-view="hub"] .yh-inline-workspace-title-icon {
+        width: 24px !important;
+        height: 24px !important;
+        display: block !important;
+        object-fit: contain !important;
+        filter:
+            drop-shadow(0 0 10px rgba(56, 189, 248, 0.22))
+            drop-shadow(0 0 16px rgba(56, 189, 248, 0.10)) !important;
+    }
+    body[data-yh-view="hub"] .yh-inline-workspace-status-card strong .yh-inline-workspace-title-inline {
+    justify-content: flex-start !important;
+    gap: 8px !important;
+    }
+
+    body[data-yh-view="hub"] .yh-inline-workspace-status-card strong .yh-inline-workspace-title-icon {
+        width: 18px !important;
+        height: 18px !important;
+    }
     body[data-yh-view="hub"] .yh-universe-workspace-inline-body {
         max-width: 940px !important;
         margin: 0 !important;
@@ -26955,8 +27307,8 @@ body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="road
     body[data-yh-view="hub"] .yh-universe-workspace-frame-shell {
         grid-column: 1 / -1 !important;
         width: 100% !important;
-        height: min(80vh, 900px) !important;
-        min-height: 690px !important;
+        height: min(84vh, 940px) !important;
+        min-height: 720px !important;
         margin-top: 0 !important;
         border-radius: 18px !important;
         overflow: hidden !important;
@@ -26965,6 +27317,90 @@ body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="road
         box-shadow:
             0 22px 58px rgba(0, 0, 0, 0.32),
             inset 0 1px 0 rgba(255,255,255,0.04) !important;
+    }
+    body[data-yh-view="hub"] .yh-universe-workspace-inline-host {
+        width: 100% !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        display: block !important;
+        overflow: auto !important;
+        background: #050816 !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-workspace-inline-host.hidden-step {
+        display: none !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-workspace-inline-frame.hidden-step {
+        display: none !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-workspace-inline-host .yh-wallet-modal.yh-wallet-inline-view {
+        position: relative !important;
+        inset: auto !important;
+        z-index: auto !important;
+        display: block !important;
+        width: 100% !important;
+        min-height: 100% !important;
+        padding: 0 !important;
+        overflow: visible !important;
+        background: transparent !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-workspace-inline-host .yh-wallet-dialog {
+        width: 100% !important;
+        max-width: none !important;
+        max-height: none !important;
+        min-height: 100% !important;
+        border-radius: 18px !important;
+        border: 0 !important;
+        box-shadow: none !important;
+        padding: clamp(18px, 2vw, 26px) !important;
+        background:
+            radial-gradient(circle at top left, rgba(56, 189, 248, 0.14), transparent 28%),
+            radial-gradient(circle at bottom right, rgba(139, 92, 246, 0.12), transparent 26%),
+            linear-gradient(180deg, rgba(255, 255, 255, 0.028), rgba(255, 255, 255, 0.010)),
+            rgba(6, 16, 31, 0.94) !important;
+    }
+
+    body[data-yh-view="hub"] .yh-universe-workspace-inline-host .yh-wallet-close {
+        display: none !important;
+    }
+    body[data-yh-view="hub"] .yh-universe-workspace-launch-card.is-approved-inline-workspace .yh-universe-workspace-frame-shell {
+        height: min(88vh, 980px) !important;
+        min-height: 760px !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-unified-workspace="wallet"] .yh-universe-command-hero,
+    body[data-yh-view="hub"][data-yh-unified-workspace="business-chats"] .yh-universe-command-hero {
+        display: none !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-unified-workspace="wallet"] .yh-universe-workspace-launch-card,
+    body[data-yh-view="hub"][data-yh-unified-workspace="business-chats"] .yh-universe-workspace-launch-card {
+        margin-top: -2px !important;
+        padding: 0 !important;
+        border: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-unified-workspace="wallet"] .yh-universe-workspace-launch-main,
+    body[data-yh-view="hub"][data-yh-unified-workspace="business-chats"] .yh-universe-workspace-launch-main,
+    body[data-yh-view="hub"][data-yh-unified-workspace="wallet"] .yh-universe-workspace-launch-actions,
+    body[data-yh-view="hub"][data-yh-unified-workspace="business-chats"] .yh-universe-workspace-launch-actions {
+        display: none !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-unified-workspace="wallet"] .yh-universe-workspace-frame-shell,
+    body[data-yh-view="hub"][data-yh-unified-workspace="business-chats"] .yh-universe-workspace-frame-shell {
+        display: block !important;
+        height: calc(100vh - 150px) !important;
+        min-height: 680px !important;
+        border-radius: 20px !important;
+        overflow: hidden !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-workspace-frame-shell.hidden-step {
@@ -26983,6 +27419,163 @@ body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="road
 
     body[data-yh-view="hub"] .yh-universe-workspace-frame-shell.is-switching .yh-universe-workspace-inline-frame {
         opacity: 0 !important;
+    }
+
+    body[data-yh-view="hub"] .yh-command-overview-grid {
+        width: 100% !important;
+        display: none !important;
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        gap: 16px !important;
+        margin: 0 !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-unified-workspace="overview"] .yh-command-overview-grid {
+        display: grid !important;
+    }
+
+    body[data-yh-view="hub"] .yh-command-overview-card {
+        min-width: 0 !important;
+        display: grid !important;
+        gap: 12px !important;
+        align-content: start !important;
+        padding: 18px !important;
+        border-radius: 20px !important;
+        border: 1px solid rgba(56, 189, 248, 0.16) !important;
+        background:
+            radial-gradient(circle at 86% 18%, rgba(56, 189, 248, 0.10), transparent 34%),
+            linear-gradient(180deg, rgba(255,255,255,0.046), rgba(255,255,255,0.012)),
+            rgba(7, 17, 33, 0.82) !important;
+        box-shadow:
+            0 18px 42px rgba(0, 0, 0, 0.24),
+            inset 0 1px 0 rgba(255,255,255,0.045) !important;
+    }
+
+    body[data-yh-view="hub"] .yh-command-overview-wide {
+        grid-column: span 2 !important;
+    }
+
+    body[data-yh-view="hub"] .yh-command-overview-kicker {
+        color: #38bdf8 !important;
+        font-size: 0.68rem !important;
+        font-weight: 950 !important;
+        letter-spacing: 0.13em !important;
+        text-transform: uppercase !important;
+        line-height: 1 !important;
+    }
+
+    body[data-yh-view="hub"] .yh-command-overview-card h3 {
+        margin: 0 !important;
+        color: #f8fbff !important;
+        font-size: 1.08rem !important;
+        font-weight: 950 !important;
+        line-height: 1.18 !important;
+        letter-spacing: -0.025em !important;
+    }
+
+    body[data-yh-view="hub"] .yh-command-overview-card p {
+        margin: 0 !important;
+        color: rgba(203, 213, 225, 0.82) !important;
+        font-size: 0.82rem !important;
+        line-height: 1.52 !important;
+    }
+
+    body[data-yh-view="hub"] .yh-command-profile-head {
+        display: flex !important;
+        align-items: center !important;
+        gap: 12px !important;
+        min-width: 0 !important;
+    }
+
+    body[data-yh-view="hub"] .yh-command-profile-avatar {
+        width: 54px !important;
+        height: 54px !important;
+        min-width: 54px !important;
+        display: grid !important;
+        place-items: center !important;
+        border-radius: 18px !important;
+        border: 1px solid rgba(56, 189, 248, 0.34) !important;
+        background:
+            radial-gradient(circle at top left, rgba(56, 189, 248, 0.30), transparent 44%),
+            rgba(15, 23, 42, 0.92) !important;
+        color: #fff !important;
+        font-weight: 950 !important;
+        font-size: 1.22rem !important;
+        background-size: cover !important;
+        background-position: center !important;
+        box-shadow: 0 0 24px rgba(56, 189, 248, 0.14) !important;
+    }
+
+    body[data-yh-view="hub"] .yh-command-profile-avatar.has-image {
+        color: transparent !important;
+    }
+
+    body[data-yh-view="hub"] .yh-command-profile-head h3 {
+        font-size: 1.08rem !important;
+    }
+
+    body[data-yh-view="hub"] .yh-command-profile-head p {
+        margin-top: 3px !important;
+        color: rgba(148, 163, 184, 0.92) !important;
+        font-size: 0.78rem !important;
+    }
+
+    body[data-yh-view="hub"] .yh-command-profile-bio {
+        min-height: 54px !important;
+    }
+
+    body[data-yh-view="hub"] .yh-command-overview-mini-grid,
+    body[data-yh-view="hub"] .yh-command-status-list {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 9px !important;
+    }
+
+    body[data-yh-view="hub"] .yh-command-status-list {
+        grid-template-columns: 1fr !important;
+    }
+
+    body[data-yh-view="hub"] .yh-command-overview-mini-grid > div,
+    body[data-yh-view="hub"] .yh-command-status-list > div {
+        min-width: 0 !important;
+        display: grid !important;
+        gap: 4px !important;
+        padding: 10px 11px !important;
+        border-radius: 14px !important;
+        border: 1px solid rgba(148, 163, 184, 0.12) !important;
+        background: rgba(15, 23, 42, 0.58) !important;
+    }
+
+    body[data-yh-view="hub"] .yh-command-overview-mini-grid span,
+    body[data-yh-view="hub"] .yh-command-status-list span {
+        color: rgba(148, 163, 184, 0.92) !important;
+        font-size: 0.68rem !important;
+        font-weight: 850 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.07em !important;
+    }
+
+    body[data-yh-view="hub"] .yh-command-overview-mini-grid strong,
+    body[data-yh-view="hub"] .yh-command-status-list strong {
+        color: #f8fbff !important;
+        font-size: 0.84rem !important;
+        font-weight: 950 !important;
+        line-height: 1.2 !important;
+    }
+
+    body[data-yh-view="hub"] .yh-command-overview-referral-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    }
+
+    body[data-yh-view="hub"] .yh-command-overview-action {
+        width: max-content !important;
+        min-height: 38px !important;
+        padding: 8px 13px !important;
+        border-radius: 13px !important;
+        border-color: rgba(56, 189, 248, 0.28) !important;
+        color: #7dd3fc !important;
+        background: rgba(56, 189, 248, 0.07) !important;
+        font-size: 0.76rem !important;
+        font-weight: 900 !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-stage-nav {
@@ -27009,11 +27602,17 @@ body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="road
     body[data-yh-view="hub"] .yh-universe-stage-body {
         width: 100% !important;
         min-width: 0 !important;
-        display: grid !important;
+        display: none !important;
         grid-template-columns: 300px minmax(360px, 1fr) 320px !important;
         justify-content: stretch !important;
         align-items: stretch !important;
         gap: 16px !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-unified-workspace="academy"] .yh-universe-stage-body,
+    body[data-yh-view="hub"][data-yh-unified-workspace="plazas"] .yh-universe-stage-body,
+    body[data-yh-view="hub"][data-yh-unified-workspace="federation"] .yh-universe-stage-body {
+        display: grid !important;
     }
 
     body[data-yh-view="hub"] .yh-universe-progress-card,

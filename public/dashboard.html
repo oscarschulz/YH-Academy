@@ -7,8 +7,8 @@
     <link rel="icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css?v=20260530-command-center-layout-v19">
-<link rel="stylesheet" href="/css/dashboard-mobile.css?v=20260530-command-center-layout-v19">
+<link rel="stylesheet" href="/css/style.css?v=20260530-command-center-layout-v34">
+<link rel="stylesheet" href="/css/dashboard-mobile.css?v=20260530-command-center-layout-v34">
 </head>
 <body data-yh-view="hub" data-yh-page="dashboard">
 
@@ -73,41 +73,79 @@
     <div class="yh-sidebar-nav-group">
         <div class="yh-sidebar-nav-label">Navigation</div>
 
-        <div class="yh-sidebar-command-center-label" aria-label="Universe Command Center">
+        <button
+            type="button"
+            class="btn-secondary yh-sidebar-command-link yh-sidebar-primary-link yh-sidebar-command-center-label"
+            data-yh-dashboard-shell="overview"
+            aria-label="Universe Command Center"
+        >
             <span class="yh-sidebar-command-icon">▦</span>
             <span>Universe Command Center</span>
-        </div>
+        </button>
 
         <div class="yh-sidebar-division-group" data-yh-sidebar-division="academy">
-            <button
-                class="btn-secondary yh-sidebar-command-link yh-sidebar-primary-link"
-                type="button"
-                data-yh-dashboard-shell="academy"
-                onclick="document.querySelectorAll('.yh-sidebar-command-link').forEach(function(el){el.classList.remove('is-active');}); this.classList.add('is-active'); document.querySelector('.yh-universe-dot[data-division=&quot;academy&quot;]')?.click(); document.getElementById('universe-hub-view')?.scrollTo({ top: 0, behavior: 'smooth' });"
-            >
-                <span class="yh-sidebar-command-icon">🎓</span>
-                <span>Academy</span>
+        <button
+            class="btn-secondary yh-sidebar-command-link yh-sidebar-primary-link"
+            type="button"
+            data-yh-dashboard-shell="academy"
+            onclick="document.querySelectorAll('.yh-sidebar-command-link').forEach(function(el){el.classList.remove('is-active');}); this.classList.add('is-active'); document.querySelector('.yh-universe-dot[data-division=&quot;academy&quot;]')?.click(); document.getElementById('universe-hub-view')?.scrollTo({ top: 0, behavior: 'smooth' });"
+        >
+            <span class="yh-sidebar-command-icon">
+                <img src="/assets/dashboard/academy.png" alt="" class="yh-sidebar-command-icon-img">
+            </span>
+            <span>Academy</span>
+        </button>
+
+        <div class="yh-sidebar-subnav">
+            <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="academy-roadmap">
+                <span class="yh-sidebar-subnav-icon">
+                    <img src="/assets/academy/icons/academy-icon-roadmap.png" alt="" class="yh-sidebar-subnav-icon-img">
+                </span>
+                <span>Roadmap</span>
             </button>
 
-            <div class="yh-sidebar-subnav">
-                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="academy-roadmap">Roadmap</button>
-                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="academy-missions">Missions</button>
-                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="academy-community">Community Feed</button>
-                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="academy-messages">Messages</button>
-                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="academy-voice">Live Voice Lounge</button>
-            </div>
+            <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="academy-missions">
+                <span class="yh-sidebar-subnav-icon">
+                    <img src="/assets/academy/icons/academy-icon-missions.png" alt="" class="yh-sidebar-subnav-icon-img">
+                </span>
+                <span>Missions</span>
+            </button>
+
+            <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="academy-community">
+                <span class="yh-sidebar-subnav-icon">
+                    <img src="/assets/academy/icons/academy-icon-community-feed-news.png" alt="" class="yh-sidebar-subnav-icon-img">
+                </span>
+                <span>Community Feed</span>
+            </button>
+
+            <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="academy-messages">
+                <span class="yh-sidebar-subnav-icon">
+                    <img src="/assets/academy/icons/academy-icon-messages.png" alt="" class="yh-sidebar-subnav-icon-img">
+                </span>
+                <span>Messages</span>
+            </button>
+
+            <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="academy-voice">
+                <span class="yh-sidebar-subnav-icon">
+                    <img src="/assets/academy/icons/academy-icon-live-voice-lounge.png" alt="" class="yh-sidebar-subnav-icon-img">
+                </span>
+                <span>Live Voice Lounge</span>
+            </button>
+        </div>
         </div>
 
         <div class="yh-sidebar-division-group" data-yh-sidebar-division="plazas">
-            <button
-                class="btn-secondary yh-sidebar-command-link yh-sidebar-primary-link"
-                type="button"
-                data-yh-dashboard-shell="plazas"
-                onclick="document.querySelectorAll('.yh-sidebar-command-link').forEach(function(el){el.classList.remove('is-active');}); this.classList.add('is-active'); document.querySelector('.yh-universe-dot[data-division=&quot;plazas&quot;]')?.click(); document.getElementById('universe-hub-view')?.scrollTo({ top: 0, behavior: 'smooth' });"
-            >
-                <span class="yh-sidebar-command-icon">🏪</span>
-                <span>Plazas</span>
-            </button>
+        <button
+            class="btn-secondary yh-sidebar-command-link yh-sidebar-primary-link"
+            type="button"
+            data-yh-dashboard-shell="plazas"
+            onclick="document.querySelectorAll('.yh-sidebar-command-link').forEach(function(el){el.classList.remove('is-active');}); this.classList.add('is-active'); document.querySelector('.yh-universe-dot[data-division=&quot;plazas&quot;]')?.click(); document.getElementById('universe-hub-view')?.scrollTo({ top: 0, behavior: 'smooth' });"
+        >
+            <span class="yh-sidebar-command-icon">
+                <img src="/assets/dashboard/plaza.png" alt="" class="yh-sidebar-command-icon-img">
+            </span>
+            <span>Plazas</span>
+        </button>
 
             <div class="yh-sidebar-subnav">
                 <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-feed">Feed</button>
@@ -132,7 +170,9 @@
                 data-yh-dashboard-shell="federation"
                 onclick="document.querySelectorAll('.yh-sidebar-command-link').forEach(function(el){el.classList.remove('is-active');}); this.classList.add('is-active'); document.querySelector('.yh-universe-dot[data-division=&quot;federation&quot;]')?.click(); document.getElementById('universe-hub-view')?.scrollTo({ top: 0, behavior: 'smooth' });"
             >
-                <span class="yh-sidebar-command-icon">🌐</span>
+                <span class="yh-sidebar-command-icon">
+                    <img src="/assets/dashboard/federation.png" alt="" class="yh-sidebar-command-icon-img">
+                </span>
                 <span>Federation</span>
             </button>
 
@@ -148,80 +188,102 @@
         </div>
     </div>
 
-    <div class="yh-sidebar-nav-group">
-        <div class="yh-sidebar-nav-label">Resources</div>
+        <div class="yh-sidebar-nav-group">
+            <div class="yh-sidebar-nav-label">Resources</div>
 
-        <button class="btn-secondary yh-wallet-open-btn yh-sidebar-command-link yh-sidebar-primary-link" id="btn-open-yh-wallet" type="button">
-            <span class="yh-sidebar-command-icon">💳</span>
-            <span>Wallet</span>
-        </button>
+            <button
+                class="btn-secondary yh-wallet-open-btn yh-sidebar-command-link yh-sidebar-primary-link"
+                id="btn-open-yh-wallet"
+                type="button"
+                data-yh-dashboard-shell="wallet"
+            >
+                <span class="yh-sidebar-command-icon">
+                    <img src="/assets/dashboard/wallet.png" alt="" class="yh-sidebar-command-icon-img">
+                </span>
+                <span>Wallet</span>
+            </button>
 
-        <a
-            class="btn-secondary yh-business-chat-open-btn yh-sidebar-command-link yh-sidebar-primary-link"
-            id="btn-open-yh-business-chats"
-            href="/business-chats.html"
-        >
-            <span class="yh-sidebar-command-icon">💬</span>
-            <span>Business Chats</span>
-            <span class="yh-business-chat-nav-badge hidden-step" id="yh-business-chat-nav-badge">0</span>
-        </a>
+            <button
+                class="btn-secondary yh-business-chat-open-btn yh-sidebar-command-link yh-sidebar-primary-link"
+                id="btn-open-yh-business-chats"
+                type="button"
+                data-yh-dashboard-shell="business-chats"
+            >
+                <span class="yh-sidebar-command-icon">
+                    <img src="/assets/dashboard/business-chats.png" alt="" class="yh-sidebar-command-icon-img">
+                </span>
+                <span>Business Chats</span>
+                <span class="yh-business-chat-nav-badge hidden-step" id="yh-business-chat-nav-badge">0</span>
+            </button>
+        </div>
 
-        <button
-            type="button"
-            class="btn-secondary yh-sidebar-command-link yh-sidebar-primary-link yh-sidebar-resources-trigger"
-            onclick="document.getElementById('yh-resources-menu-btn')?.click();"
-        >
-            <span class="yh-sidebar-command-icon">☰</span>
-            <span>Partnerships</span>
-        </button>
-    </div>
+            <div class="yh-sidebar-nav-group yh-sidebar-system-group">
+                <div class="yh-sidebar-nav-label">System</div>
 
-    <div class="yh-sidebar-nav-group yh-sidebar-system-group">
-        <div class="yh-sidebar-nav-label">System</div>
+                <button class="btn-secondary yh-dashboard-settings-btn yh-sidebar-command-link yh-sidebar-primary-link" id="btn-open-dashboard-settings" type="button" aria-haspopup="dialog">
+                    <span class="yh-sidebar-command-icon">
+                        <img src="/assets/dashboard/settings.png" alt="" class="yh-sidebar-command-icon-img">
+                    </span>
+                    <span>Settings</span>
+                </button>
 
-        <button class="btn-secondary yh-dashboard-settings-btn yh-sidebar-command-link yh-sidebar-primary-link" id="btn-open-dashboard-settings" type="button" aria-haspopup="dialog">
-            <span class="yh-sidebar-command-icon">⚙</span>
-            <span>Settings</span>
-        </button>
+                <button class="btn-secondary yh-dashboard-top-edit-btn yh-sidebar-command-link yh-sidebar-primary-link" id="btn-open-dashboard-profile-editor" type="button">
+                    <span class="yh-sidebar-command-icon">
+                        <img src="/assets/dashboard/edit-profile.png" alt="" class="yh-sidebar-command-icon-img">
+                    </span>
+                    <span>Edit Profile</span>
+                </button>
 
-        <button class="btn-secondary yh-dashboard-top-edit-btn yh-sidebar-command-link yh-sidebar-primary-link" id="btn-open-dashboard-profile-editor" type="button">
-            <span class="yh-sidebar-command-icon">✎</span>
-            <span>Edit Profile</span>
-        </button>
-
-        <button class="btn-logout yh-sidebar-command-link yh-sidebar-primary-link" onclick="logoutUser()">
-            <span class="yh-sidebar-command-icon">⎋</span>
-            <span>Log out</span>
-        </button>
-    </div>
+                <button class="btn-logout yh-sidebar-command-link yh-sidebar-primary-link" onclick="logoutUser()">
+                    <span class="yh-sidebar-command-icon">
+                        <img src="/assets/dashboard/logout.png" alt="" class="yh-sidebar-command-icon-img">
+                    </span>
+                    <span>Log out</span>
+                </button>
+            </div>
 </div>
 </nav>
 
 <div class="desktop-user-strip">
     <div class="desktop-user-strip-inner">
             <div class="desktop-user-strip-left">
-                <div class="desktop-user-profile-cluster">
-                    <div class="profile-mini interactive-avatar" data-user="Me" data-role="Hustler">
-                        <div class="profile-avatar-mini" id="top-nav-initial">Y</div>
-                        <span id="top-nav-name">Hustler</span>
-                    </div>
+                <form
+                    class="yh-dashboard-profile-search yh-dashboard-top-search"
+                    id="yh-dashboard-top-search-form"
+                    autocomplete="off"
+                    role="search"
+                >
+                    <input
+                        type="search"
+                        id="yh-dashboard-top-search-input"
+                        class="input-field yh-dashboard-profile-search-input yh-dashboard-top-search-input"
+                        placeholder="Search YH members by name, username, or tags..."
+                        aria-label="Search YH Universe members"
+                    >
 
-                    <div class="notif-wrapper mobile-notif-under-name" id="notif-bell">
-                    <span class="notif-icon">
-                        <img src="/assets/academy/icons/notif-bell.png" alt="" class="notif-icon-img" loading="lazy" decoding="async">
-                    </span>
-                        <span class="notif-badge" id="notif-badge-count" style="display:none;">0</span>
-                        <div class="notif-dropdown hide-scrollbar" id="notif-dropdown">
-                            <div class="notif-header">Notifications <span id="mark-all-read">Mark all as read</span></div>
-                            <ul class="notif-list" id="notif-list-container">
-                                <li class="notif-empty-state" id="notif-empty-state">No notifications yet.</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
+                    <button
+                        type="submit"
+                        class="btn-secondary yh-dashboard-profile-search-btn yh-dashboard-top-search-btn"
+                        id="yh-dashboard-top-search-btn"
+                    >
+                        Search
+                    </button>
+                </form>
             </div>
 
         <div class="desktop-user-strip-right">
+            <div class="notif-wrapper mobile-notif-under-name" id="notif-bell">
+                <span class="notif-icon">
+                    <img src="/assets/academy/icons/notif-bell.png" alt="" class="notif-icon-img" loading="lazy" decoding="async">
+                </span>
+                <span class="notif-badge" id="notif-badge-count" style="display:none;">0</span>
+                <div class="notif-dropdown hide-scrollbar" id="notif-dropdown">
+                    <div class="notif-header">Notifications <span id="mark-all-read">Mark all as read</span></div>
+                    <ul class="notif-list" id="notif-list-container">
+                        <li class="notif-empty-state" id="notif-empty-state">No notifications yet.</li>
+                    </ul>
+                </div>
+            </div>
             <div class="yh-resources-menu" id="yh-resources-menu">
             <button
                 type="button"
@@ -409,6 +471,12 @@
                     </div>
 
                     <div class="yh-universe-workspace-frame-shell hidden-step" id="yh-universe-workspace-frame-shell" aria-hidden="true">
+                        <div
+                            id="yh-universe-workspace-inline-host"
+                            class="yh-universe-workspace-inline-host hidden-step"
+                            aria-hidden="true"
+                        ></div>
+
                         <iframe
                             id="yh-universe-workspace-inline-frame"
                             class="yh-universe-workspace-inline-frame"
@@ -417,6 +485,122 @@
                             referrerpolicy="same-origin"
                         ></iframe>
                     </div>
+                </section>
+
+                <section class="yh-command-overview-grid" id="yh-command-overview-grid" aria-label="Universe Command Center personal overview">
+                    <article class="yh-command-overview-card yh-command-overview-profile-card">
+                        <div class="yh-command-overview-kicker">Logged-in Profile</div>
+
+                        <div class="yh-command-profile-head">
+                            <div class="yh-command-profile-avatar" id="yh-command-profile-avatar">Y</div>
+                            <div>
+                                <h3 id="yh-command-profile-name">Loading profile...</h3>
+                                <p id="yh-command-profile-username">Checking identity...</p>
+                            </div>
+                        </div>
+
+                        <p class="yh-command-profile-bio" id="yh-command-profile-bio">
+                            Your YH Universe identity will appear here.
+                        </p>
+
+                        <div class="yh-command-overview-mini-grid">
+                            <div>
+                                <span>Trust Tier</span>
+                                <strong id="yh-command-trust-tier">Loading...</strong>
+                            </div>
+                            <div>
+                                <span>Next Action</span>
+                                <strong id="yh-command-next-action">Checking...</strong>
+                            </div>
+                        </div>
+
+                        <button type="button" class="btn-secondary yh-command-overview-action" data-yh-command-overview-open="profile">
+                            Preview / Edit Profile
+                        </button>
+                    </article>
+
+                    <article class="yh-command-overview-card">
+                        <div class="yh-command-overview-kicker">Division Access</div>
+                        <h3>Access state across YH Universe</h3>
+
+                        <div class="yh-command-status-list">
+                            <div>
+                                <span>Academy</span>
+                                <strong id="yh-command-academy-status">Loading...</strong>
+                            </div>
+                            <div>
+                                <span>Plazas</span>
+                                <strong id="yh-command-plazas-status">Loading...</strong>
+                            </div>
+                            <div>
+                                <span>Federation</span>
+                                <strong id="yh-command-federation-status">Loading...</strong>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="yh-command-overview-card">
+                        <div class="yh-command-overview-kicker">Wallet Snapshot</div>
+                        <h3 id="yh-command-wallet-balance">$0.00</h3>
+                        <p>Available balance from approved YH earnings and payout-ready activity.</p>
+
+                        <div class="yh-command-overview-mini-grid">
+                            <div>
+                                <span>Approved</span>
+                                <strong id="yh-command-wallet-approved">$0.00</strong>
+                            </div>
+                            <div>
+                                <span>Reserved</span>
+                                <strong id="yh-command-wallet-reserved">$0.00</strong>
+                            </div>
+                        </div>
+
+                        <button type="button" class="btn-secondary yh-command-overview-action" data-yh-command-overview-open="wallet">
+                            Open Wallet
+                        </button>
+                    </article>
+
+                    <article class="yh-command-overview-card">
+                        <div class="yh-command-overview-kicker">Business Chats</div>
+                        <h3 id="yh-command-business-chat-count">0 conversations</h3>
+                        <p id="yh-command-business-chat-copy">No active business conversations loaded yet.</p>
+
+                        <button type="button" class="btn-secondary yh-command-overview-action" data-yh-command-overview-open="business-chats">
+                            Open Business Chats
+                        </button>
+                    </article>
+
+                    <article class="yh-command-overview-card yh-command-overview-wide">
+                        <div class="yh-command-overview-kicker">Referral / Network Snapshot</div>
+                        <h3>Universe referral movement</h3>
+
+                        <div class="yh-command-overview-mini-grid yh-command-overview-referral-grid">
+                            <div>
+                                <span>Referral Code</span>
+                                <strong id="yh-command-referral-code">Loading...</strong>
+                            </div>
+                            <div>
+                                <span>Total Invited</span>
+                                <strong id="yh-command-referral-total">0</strong>
+                            </div>
+                            <div>
+                                <span>Paying Referrals</span>
+                                <strong id="yh-command-referral-qualified">0</strong>
+                            </div>
+                            <div>
+                                <span>Total Earned</span>
+                                <strong id="yh-command-referral-earned">$0.00</strong>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="yh-command-overview-card yh-command-overview-wide">
+                        <div class="yh-command-overview-kicker">Recommended Next Move</div>
+                        <h3 id="yh-command-recommended-title">Checking your next move...</h3>
+                        <p id="yh-command-recommended-copy">
+                            Your next action will update from your current profile, access, and progress state.
+                        </p>
+                    </article>
                 </section>
 
 <div class="yh-universe-stage-nav">
@@ -2113,7 +2297,7 @@
 
 <script src="/js/yh-shared-core.js?v=20260418-toast-center-2"></script>
 <script src="/js/yh-shared-runtime.js?v=20260411-3"></script>
-<script src="/js/dashboard.js?v=20260530-unified-sidebar-workspace-v12"></script>
+<script src="/js/dashboard.js?v=20260530-unified-sidebar-workspace-v25"></script>
 <script src="/js/dashboard-mobile-fix.js?v=20260410-4"></script>
 </body>
 </html>
