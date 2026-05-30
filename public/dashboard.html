@@ -7,8 +7,8 @@
     <link rel="icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css?v=20260529-yhf-telegram-access-v1">
-<link rel="stylesheet" href="/css/dashboard-mobile.css">
+<link rel="stylesheet" href="/css/style.css?v=20260530-command-center-layout-v19">
+<link rel="stylesheet" href="/css/dashboard-mobile.css?v=20260530-command-center-layout-v19">
 </head>
 <body data-yh-view="hub" data-yh-page="dashboard">
 
@@ -69,27 +69,131 @@
         <span>UNIVERSE</span>
     </div>
 
-<div class="nav-actions">
-    <button class="btn-secondary yh-dashboard-settings-btn" id="btn-open-dashboard-settings" type="button" aria-haspopup="dialog">
-        ⚙ Settings
-    </button>
+<div class="nav-actions yh-command-sidebar-nav">
+    <div class="yh-sidebar-nav-group">
+        <div class="yh-sidebar-nav-label">Navigation</div>
 
-    <button class="btn-secondary yh-dashboard-top-edit-btn" id="btn-open-dashboard-profile-editor" type="button">
-        ✎ Edit Profile
-    </button>
+        <div class="yh-sidebar-command-center-label" aria-label="Universe Command Center">
+            <span class="yh-sidebar-command-icon">▦</span>
+            <span>Universe Command Center</span>
+        </div>
 
-    <button class="btn-secondary yh-wallet-open-btn" id="btn-open-yh-wallet" type="button">
-        💳 Wallet
-    </button>
-    <a
-        class="btn-secondary yh-business-chat-open-btn"
-        id="btn-open-yh-business-chats"
-        href="/business-chats.html"
-    >
-        <span>💬 Business Chats</span>
-        <span class="yh-business-chat-nav-badge hidden-step" id="yh-business-chat-nav-badge">0</span>
-    </a>
-    <button class="btn-logout" onclick="logoutUser()">⎋ Log out</button>
+        <div class="yh-sidebar-division-group" data-yh-sidebar-division="academy">
+            <button
+                class="btn-secondary yh-sidebar-command-link yh-sidebar-primary-link"
+                type="button"
+                data-yh-dashboard-shell="academy"
+                onclick="document.querySelectorAll('.yh-sidebar-command-link').forEach(function(el){el.classList.remove('is-active');}); this.classList.add('is-active'); document.querySelector('.yh-universe-dot[data-division=&quot;academy&quot;]')?.click(); document.getElementById('universe-hub-view')?.scrollTo({ top: 0, behavior: 'smooth' });"
+            >
+                <span class="yh-sidebar-command-icon">🎓</span>
+                <span>Academy</span>
+            </button>
+
+            <div class="yh-sidebar-subnav">
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="academy-roadmap">Roadmap</button>
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="academy-missions">Missions</button>
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="academy-community">Community Feed</button>
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="academy-messages">Messages</button>
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="academy-voice">Live Voice Lounge</button>
+            </div>
+        </div>
+
+        <div class="yh-sidebar-division-group" data-yh-sidebar-division="plazas">
+            <button
+                class="btn-secondary yh-sidebar-command-link yh-sidebar-primary-link"
+                type="button"
+                data-yh-dashboard-shell="plazas"
+                onclick="document.querySelectorAll('.yh-sidebar-command-link').forEach(function(el){el.classList.remove('is-active');}); this.classList.add('is-active'); document.querySelector('.yh-universe-dot[data-division=&quot;plazas&quot;]')?.click(); document.getElementById('universe-hub-view')?.scrollTo({ top: 0, behavior: 'smooth' });"
+            >
+                <span class="yh-sidebar-command-icon">🏪</span>
+                <span>Plazas</span>
+            </button>
+
+            <div class="yh-sidebar-subnav">
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-feed">Feed</button>
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-inbox">Inbox</button>
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-conversations">Conversations</button>
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-meetups">Meetups</button>
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-opportunities">Opportunities</button>
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-directory">Directory</button>
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-regions">Regions</button>
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-atlas">Plaza Atlas</button>
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-patron">Become Patron</button>
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-patron-desk">Patron Desk</button>
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-bridge">Bridge</button>
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-requests">Requests</button>
+            </div>
+        </div>
+
+        <div class="yh-sidebar-division-group" data-yh-sidebar-division="federation">
+            <button
+                class="btn-secondary yh-sidebar-command-link yh-sidebar-primary-link"
+                type="button"
+                data-yh-dashboard-shell="federation"
+                onclick="document.querySelectorAll('.yh-sidebar-command-link').forEach(function(el){el.classList.remove('is-active');}); this.classList.add('is-active'); document.querySelector('.yh-universe-dot[data-division=&quot;federation&quot;]')?.click(); document.getElementById('universe-hub-view')?.scrollTo({ top: 0, behavior: 'smooth' });"
+            >
+                <span class="yh-sidebar-command-icon">🌐</span>
+                <span>Federation</span>
+            </button>
+
+            <div class="yh-sidebar-subnav">
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="federation-command">Command</button>
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="federation-connect">Connect</button>
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="federation-deal-rooms">Deal Rooms</button>
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="federation-directory">Directory</button>
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="federation-requests">My Requests</button>
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="federation-referrals">Referrals</button>
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="federation-access">My Access</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="yh-sidebar-nav-group">
+        <div class="yh-sidebar-nav-label">Resources</div>
+
+        <button class="btn-secondary yh-wallet-open-btn yh-sidebar-command-link yh-sidebar-primary-link" id="btn-open-yh-wallet" type="button">
+            <span class="yh-sidebar-command-icon">💳</span>
+            <span>Wallet</span>
+        </button>
+
+        <a
+            class="btn-secondary yh-business-chat-open-btn yh-sidebar-command-link yh-sidebar-primary-link"
+            id="btn-open-yh-business-chats"
+            href="/business-chats.html"
+        >
+            <span class="yh-sidebar-command-icon">💬</span>
+            <span>Business Chats</span>
+            <span class="yh-business-chat-nav-badge hidden-step" id="yh-business-chat-nav-badge">0</span>
+        </a>
+
+        <button
+            type="button"
+            class="btn-secondary yh-sidebar-command-link yh-sidebar-primary-link yh-sidebar-resources-trigger"
+            onclick="document.getElementById('yh-resources-menu-btn')?.click();"
+        >
+            <span class="yh-sidebar-command-icon">☰</span>
+            <span>Partnerships</span>
+        </button>
+    </div>
+
+    <div class="yh-sidebar-nav-group yh-sidebar-system-group">
+        <div class="yh-sidebar-nav-label">System</div>
+
+        <button class="btn-secondary yh-dashboard-settings-btn yh-sidebar-command-link yh-sidebar-primary-link" id="btn-open-dashboard-settings" type="button" aria-haspopup="dialog">
+            <span class="yh-sidebar-command-icon">⚙</span>
+            <span>Settings</span>
+        </button>
+
+        <button class="btn-secondary yh-dashboard-top-edit-btn yh-sidebar-command-link yh-sidebar-primary-link" id="btn-open-dashboard-profile-editor" type="button">
+            <span class="yh-sidebar-command-icon">✎</span>
+            <span>Edit Profile</span>
+        </button>
+
+        <button class="btn-logout yh-sidebar-command-link yh-sidebar-primary-link" onclick="logoutUser()">
+            <span class="yh-sidebar-command-icon">⎋</span>
+            <span>Log out</span>
+        </button>
+    </div>
 </div>
 </nav>
 
@@ -272,6 +376,48 @@
                     </div>
                 </section>
 
+                <section
+                    class="yh-universe-workspace-launch-card hidden-step"
+                    id="yh-universe-workspace-launch-card"
+                    aria-label="Selected workspace"
+                    aria-live="polite"
+                >
+                    <div class="yh-universe-workspace-launch-main">
+                        <div class="yh-universe-workspace-heading">
+                            <span class="yh-universe-workspace-launch-kicker" id="yh-universe-workspace-launch-kicker">
+                                Workspace
+                            </span>
+                            <h3 id="yh-universe-workspace-launch-title">Selected workspace</h3>
+                        </div>
+
+                        <div class="yh-universe-workspace-inline-body" id="yh-universe-workspace-launch-copy">
+                            Select a division tab from the sidebar to continue inside the dashboard.
+                        </div>
+                    </div>
+
+                    <div class="yh-universe-workspace-launch-actions">
+                        <span class="yh-universe-workspace-launch-route" id="yh-universe-workspace-launch-route">
+                            Inline dashboard workspace
+                        </span>
+                        <button
+                            type="button"
+                            class="yh-universe-workspace-launch-btn"
+                            id="yh-universe-workspace-launch-btn"
+                        >
+                            Continue →
+                        </button>
+                    </div>
+
+                    <div class="yh-universe-workspace-frame-shell hidden-step" id="yh-universe-workspace-frame-shell" aria-hidden="true">
+                        <iframe
+                            id="yh-universe-workspace-inline-frame"
+                            class="yh-universe-workspace-inline-frame"
+                            title="YH Universe inline workspace"
+                            loading="lazy"
+                            referrerpolicy="same-origin"
+                        ></iframe>
+                    </div>
+                </section>
 
 <div class="yh-universe-stage-nav">
     <button
@@ -327,6 +473,65 @@
 
             </div>
         </aside>
+
+        <section class="yh-universe-referral-card" id="yh-universe-referral-card" aria-label="Universe referral program">
+            <div class="yh-universe-referral-main">
+                <div class="yh-universe-referral-kicker">Universe Referral Program</div>
+                <h3 class="yh-universe-referral-title">Invite members. Earn from their purchases.</h3>
+                <p class="yh-universe-referral-copy">
+                    Share your Universe link. When someone you invited makes a purchase or payment, you earn 2.81% commission from that payment inside the wallet system.
+                </p>
+
+                <div class="yh-universe-referral-link-row">
+                    <input
+                        type="text"
+                        id="yh-universe-referral-link"
+                        class="yh-universe-referral-link"
+                        value="Loading referral link..."
+                        readonly
+                    >
+                    <button type="button" class="btn-secondary yh-universe-referral-copy-btn" id="yh-universe-referral-copy-btn">
+                        Copy Link
+                    </button>
+                </div>
+            </div>
+
+            <div class="yh-universe-referral-stats">
+                <article>
+                    <span>Referral Code</span>
+                    <strong id="yh-universe-referral-code">Loading...</strong>
+                </article>
+                <article>
+                    <span>Total Invited</span>
+                    <strong id="yh-universe-referral-total">0</strong>
+                </article>
+                <article>
+                    <span>Paying Referrals</span>
+                    <strong id="yh-universe-referral-qualified">0</strong>
+                </article>
+                <article>
+                    <span>Total Earned</span>
+                    <strong id="yh-universe-referral-earned">$0.00</strong>
+                </article>
+            </div>
+
+            <div class="yh-universe-referral-recent">
+                <div class="yh-universe-referral-recent-head">
+                    <div>
+                        <div class="yh-universe-referral-kicker">Recent Referrals</div>
+                        <h4 class="yh-universe-referral-recent-title">Referral commission activity</h4>
+                    </div>
+
+                    <button type="button" class="btn-secondary yh-universe-referral-refresh-btn" id="yh-universe-referral-refresh-btn">
+                        Refresh
+                    </button>
+                </div>
+
+                <div class="yh-universe-referral-list" id="yh-universe-referral-list">
+                    <div class="yh-universe-referral-empty">Loading recent referrals...</div>
+                </div>
+            </div>
+        </section>
 
         <div class="yh-universe-carousel-column">
             <div class="yh-universe-carousel" id="yh-universe-carousel">
@@ -496,64 +701,6 @@
     </button>
 </div>
 
-                <section class="yh-universe-referral-card" id="yh-universe-referral-card" aria-label="Universe referral program">
-                    <div class="yh-universe-referral-main">
-                        <div class="yh-universe-referral-kicker">Universe Referral Program</div>
-                        <h3 class="yh-universe-referral-title">Invite members. Earn from their purchases.</h3>
-                        <p class="yh-universe-referral-copy">
-                            Share your Universe link. When someone you invited makes a purchase or payment, you earn 2.81% commission from that payment inside the wallet system.
-                        </p>
-
-                        <div class="yh-universe-referral-link-row">
-                            <input
-                                type="text"
-                                id="yh-universe-referral-link"
-                                class="yh-universe-referral-link"
-                                value="Loading referral link..."
-                                readonly
-                            >
-                            <button type="button" class="btn-secondary yh-universe-referral-copy-btn" id="yh-universe-referral-copy-btn">
-                                Copy Link
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="yh-universe-referral-stats">
-                        <article>
-                            <span>Referral Code</span>
-                            <strong id="yh-universe-referral-code">Loading...</strong>
-                        </article>
-                        <article>
-                            <span>Total Invited</span>
-                            <strong id="yh-universe-referral-total">0</strong>
-                        </article>
-                        <article>
-                            <span>Paying Referrals</span>
-                            <strong id="yh-universe-referral-qualified">0</strong>
-                        </article>
-                        <article>
-                            <span>Total Earned</span>
-                            <strong id="yh-universe-referral-earned">$0.00</strong>
-                        </article>
-                    </div>
-
-                    <div class="yh-universe-referral-recent">
-                        <div class="yh-universe-referral-recent-head">
-                            <div>
-                                <div class="yh-universe-referral-kicker">Recent Referrals</div>
-                                <h4 class="yh-universe-referral-recent-title">Referral commission activity</h4>
-                            </div>
-
-                            <button type="button" class="btn-secondary yh-universe-referral-refresh-btn" id="yh-universe-referral-refresh-btn">
-                                Refresh
-                            </button>
-                        </div>
-
-                        <div class="yh-universe-referral-list" id="yh-universe-referral-list">
-                            <div class="yh-universe-referral-empty">Loading recent referrals...</div>
-                        </div>
-                    </div>
-                </section>
 
                 <section
                     class="yh-universe-academy-strip is-active"
@@ -1966,7 +2113,7 @@
 
 <script src="/js/yh-shared-core.js?v=20260418-toast-center-2"></script>
 <script src="/js/yh-shared-runtime.js?v=20260411-3"></script>
-<script src="/js/dashboard.js?v=20260529-yhf-telegram-access-v1"></script>
+<script src="/js/dashboard.js?v=20260530-unified-sidebar-workspace-v12"></script>
 <script src="/js/dashboard-mobile-fix.js?v=20260410-4"></script>
 </body>
 </html>

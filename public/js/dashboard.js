@@ -513,7 +513,7 @@ function isStandaloneDashboardPage() {
 
 function normalizeDashboardAcademySection(value = 'home') {
     const clean = String(value || '').trim().toLowerCase();
-    return ['home', 'community', 'voice', 'video', 'profile'].includes(clean) ? clean : 'home';
+    return ['home', 'missions', 'lead-missions', 'community', 'messages', 'voice', 'video', 'profile'].includes(clean) ? clean : 'home';
 }
 
 function buildAcademyUrl(section = 'home') {
@@ -7499,6 +7499,1867 @@ function setUniverseSlide(targetDivision = 'academy', options = {}) {
     syncUniverseBridgeCardVisibility(division);
     return division;
 }
+
+const dashboardUnifiedWorkspaceCopy = {
+    overview: {
+        key: 'overview',
+        division: 'academy',
+        kicker: 'The Navigator',
+        title: 'YOUNG HUSTLERS UNIVERSE',
+        intro: 'Your premium command center for division access, progress visibility, and next-step movement across Academy, the Plazas, and Federation.',
+        eyebrow: 'Command Center',
+        headline: 'Track your path, access status, and next move in one cleaner hub.',
+        body: 'Move through the YH Universe with a clearer dashboard structure. Review your current position, monitor division readiness, and use the stage below as your main control layer.',
+        focus: 'Division Access',
+        mode: 'Readiness + Signals',
+        stage: 'Activity + Visual Feed'
+    },
+    academy: {
+        key: 'academy',
+        division: 'academy',
+        kicker: 'Academy Workspace',
+        title: 'ACADEMY',
+        intro: 'Roadmaps, execution missions, community, messages, and live voice sessions inside the Academy layer.',
+        eyebrow: 'Academy Control',
+        headline: 'Select an Academy section from the sidebar.',
+        body: 'Use the Academy sidebar tabs to move between Roadmap, Missions, Community Feed, Messages, and Live Voice Lounge. The full workspace connection comes in the next patch.',
+        focus: 'Academy Access',
+        mode: 'Execution Layer',
+        stage: 'Academy Preview'
+    },
+    'academy-roadmap': {
+        key: 'academy-roadmap',
+        division: 'academy',
+        kicker: 'Academy / Roadmap',
+        title: 'ACADEMY ROADMAP',
+        intro: 'Your execution roadmap and self-improvement path inside the Academy.',
+        eyebrow: 'Roadmap',
+        headline: 'Roadmap workspace selected.',
+        body: 'This keeps you inside the unified Dashboard shell while preparing the Academy Roadmap workspace connection.',
+        focus: 'Roadmap',
+        mode: 'Academy',
+        stage: 'Workspace Shell'
+    },
+    'academy-missions': {
+        key: 'academy-missions',
+        division: 'academy',
+        kicker: 'Academy / Missions',
+        title: 'ACADEMY MISSIONS',
+        intro: 'Mission execution and progress movement inside the Academy.',
+        eyebrow: 'Missions',
+        headline: 'Missions workspace selected.',
+        body: 'This section will connect to the existing Academy mission layer in the next content patch.',
+        focus: 'Missions',
+        mode: 'Academy',
+        stage: 'Workspace Shell'
+    },
+    'academy-community': {
+        key: 'academy-community',
+        division: 'academy',
+        kicker: 'Academy / Community Feed',
+        title: 'ACADEMY COMMUNITY',
+        intro: 'Community posts, updates, and movement inside the Academy feed.',
+        eyebrow: 'Community Feed',
+        headline: 'Community Feed workspace selected.',
+        body: 'This section is reserved for the existing Academy community feed connection.',
+        focus: 'Community Feed',
+        mode: 'Academy',
+        stage: 'Workspace Shell'
+    },
+    'academy-messages': {
+        key: 'academy-messages',
+        division: 'academy',
+        kicker: 'Academy / Messages',
+        title: 'ACADEMY MESSAGES',
+        intro: 'Private conversations and member messaging inside the Academy.',
+        eyebrow: 'Messages',
+        headline: 'Messages workspace selected.',
+        body: 'This section is reserved for the existing Academy messaging workspace connection.',
+        focus: 'Messages',
+        mode: 'Academy',
+        stage: 'Workspace Shell'
+    },
+    'academy-voice': {
+        key: 'academy-voice',
+        division: 'academy',
+        kicker: 'Academy / Live Voice Lounge',
+        title: 'LIVE VOICE LOUNGE',
+        intro: 'Live voice room access and session movement inside the Academy.',
+        eyebrow: 'Live Voice Lounge',
+        headline: 'Live Voice Lounge workspace selected.',
+        body: 'This section is reserved for the existing Academy live voice lounge connection.',
+        focus: 'Live Voice',
+        mode: 'Academy',
+        stage: 'Workspace Shell'
+    },
+    plazas: {
+        key: 'plazas',
+        division: 'plazas',
+        kicker: 'Plazas Workspace',
+        title: 'THE PLAZAS',
+        intro: 'Feed, inbox, conversations, meetups, opportunities, directory, regions, atlas, patron tools, bridge, and requests.',
+        eyebrow: 'Plazas Control',
+        headline: 'Select a Plazas section from the sidebar.',
+        body: 'Use the Plazas sidebar tabs to move across the movement hub. Full Plazas workspace embedding comes after the shell behavior is stable.',
+        focus: 'Plazas Access',
+        mode: 'Movement Hub',
+        stage: 'Plazas Preview'
+    },
+    'plazas-feed': {
+        key: 'plazas-feed',
+        division: 'plazas',
+        kicker: 'Plazas / Feed',
+        title: 'PLAZAS FEED',
+        intro: 'Network movement, wins, introductions, opportunities, and regional updates.',
+        eyebrow: 'Feed',
+        headline: 'Plazas Feed workspace selected.',
+        body: 'This section is reserved for the existing Plazas Feed connection.',
+        focus: 'Feed',
+        mode: 'Plazas',
+        stage: 'Workspace Shell'
+    },
+    'plazas-inbox': {
+        key: 'plazas-inbox',
+        division: 'plazas',
+        kicker: 'Plazas / Inbox',
+        title: 'PLAZAS INBOX',
+        intro: 'Incoming Plazas updates and requests.',
+        eyebrow: 'Inbox',
+        headline: 'Plazas Inbox workspace selected.',
+        body: 'This section is reserved for the existing Plazas Inbox connection.',
+        focus: 'Inbox',
+        mode: 'Plazas',
+        stage: 'Workspace Shell'
+    },
+    'plazas-conversations': {
+        key: 'plazas-conversations',
+        division: 'plazas',
+        kicker: 'Plazas / Conversations',
+        title: 'PLAZAS CONVERSATIONS',
+        intro: 'Conversation workspace for Plazas member communication.',
+        eyebrow: 'Conversations',
+        headline: 'Plazas Conversations workspace selected.',
+        body: 'This section is reserved for the existing Plazas Conversations connection.',
+        focus: 'Conversations',
+        mode: 'Plazas',
+        stage: 'Workspace Shell'
+    },
+    'plazas-meetups': {
+        key: 'plazas-meetups',
+        division: 'plazas',
+        kicker: 'Plazas / Meetups',
+        title: 'PLAZAS MEETUPS',
+        intro: 'Meetup planning and regional gathering layer.',
+        eyebrow: 'Meetups',
+        headline: 'Plazas Meetups workspace selected.',
+        body: 'This section is reserved for the existing Plazas Meetups connection.',
+        focus: 'Meetups',
+        mode: 'Plazas',
+        stage: 'Workspace Shell'
+    },
+    'plazas-opportunities': {
+        key: 'plazas-opportunities',
+        division: 'plazas',
+        kicker: 'Plazas / Opportunities',
+        title: 'PLAZAS OPPORTUNITIES',
+        intro: 'Opportunity discovery and movement inside the Plazas.',
+        eyebrow: 'Opportunities',
+        headline: 'Plazas Opportunities workspace selected.',
+        body: 'This section is reserved for the existing Plazas Opportunities connection.',
+        focus: 'Opportunities',
+        mode: 'Plazas',
+        stage: 'Workspace Shell'
+    },
+    'plazas-directory': {
+        key: 'plazas-directory',
+        division: 'plazas',
+        kicker: 'Plazas / Directory',
+        title: 'PLAZAS DIRECTORY',
+        intro: 'Member and connector visibility inside the Plazas.',
+        eyebrow: 'Directory',
+        headline: 'Plazas Directory workspace selected.',
+        body: 'This section is reserved for the existing Plazas Directory connection.',
+        focus: 'Directory',
+        mode: 'Plazas',
+        stage: 'Workspace Shell'
+    },
+    'plazas-regions': {
+        key: 'plazas-regions',
+        division: 'plazas',
+        kicker: 'Plazas / Regions',
+        title: 'PLAZAS REGIONS',
+        intro: 'Regional hubs and Plaza area mapping.',
+        eyebrow: 'Regions',
+        headline: 'Plazas Regions workspace selected.',
+        body: 'This section is reserved for the existing Plazas Regions connection.',
+        focus: 'Regions',
+        mode: 'Plazas',
+        stage: 'Workspace Shell'
+    },
+    'plazas-atlas': {
+        key: 'plazas-atlas',
+        division: 'plazas',
+        kicker: 'Plazas / Plaza Atlas',
+        title: 'PLAZA ATLAS',
+        intro: 'Atlas view for Plaza networks and regions.',
+        eyebrow: 'Plaza Atlas',
+        headline: 'Plaza Atlas workspace selected.',
+        body: 'This section is reserved for the existing Plaza Atlas connection.',
+        focus: 'Atlas',
+        mode: 'Plazas',
+        stage: 'Workspace Shell'
+    },
+    'plazas-patron': {
+        key: 'plazas-patron',
+        division: 'plazas',
+        kicker: 'Plazas / Become Patron',
+        title: 'BECOME PATRON',
+        intro: 'Patron application and leadership path inside the Plazas.',
+        eyebrow: 'Become Patron',
+        headline: 'Become Patron workspace selected.',
+        body: 'This section is reserved for the existing Become Patron connection.',
+        focus: 'Patron Path',
+        mode: 'Plazas',
+        stage: 'Workspace Shell'
+    },
+    'plazas-patron-desk': {
+        key: 'plazas-patron-desk',
+        division: 'plazas',
+        kicker: 'Plazas / Patron Desk',
+        title: 'PATRON DESK',
+        intro: 'Patron management and leadership workspace.',
+        eyebrow: 'Patron Desk',
+        headline: 'Patron Desk workspace selected.',
+        body: 'This section is reserved for the existing Patron Desk connection.',
+        focus: 'Patron Desk',
+        mode: 'Plazas',
+        stage: 'Workspace Shell'
+    },
+    'plazas-bridge': {
+        key: 'plazas-bridge',
+        division: 'plazas',
+        kicker: 'Plazas / Bridge',
+        title: 'PLAZAS BRIDGE',
+        intro: 'Bridge paths between Plazas, Academy, and Federation readiness.',
+        eyebrow: 'Bridge',
+        headline: 'Plazas Bridge workspace selected.',
+        body: 'This section is reserved for the existing Plazas Bridge connection.',
+        focus: 'Bridge',
+        mode: 'Plazas',
+        stage: 'Workspace Shell'
+    },
+    'plazas-requests': {
+        key: 'plazas-requests',
+        division: 'plazas',
+        kicker: 'Plazas / Requests',
+        title: 'PLAZAS REQUESTS',
+        intro: 'Request tracking inside the Plazas movement hub.',
+        eyebrow: 'Requests',
+        headline: 'Plazas Requests workspace selected.',
+        body: 'This section is reserved for the existing Plazas Requests connection.',
+        focus: 'Requests',
+        mode: 'Plazas',
+        stage: 'Workspace Shell'
+    },
+    federation: {
+        key: 'federation',
+        division: 'federation',
+        kicker: 'Federation Workspace',
+        title: 'THE FEDERATION',
+        intro: 'Command, Connect, Deal Rooms, Directory, My Requests, Referrals, and My Access.',
+        eyebrow: 'Federation Control',
+        headline: 'Select a Federation section from the sidebar.',
+        body: 'Use the Federation sidebar tabs to move across the strategic network layer. Full Federation workspace connection comes after this shell is stable.',
+        focus: 'Federation Access',
+        mode: 'Strategic Network',
+        stage: 'Federation Preview'
+    },
+    'federation-command': {
+        key: 'federation-command',
+        division: 'federation',
+        kicker: 'Federation / Command',
+        title: 'FEDERATION COMMAND',
+        intro: 'Main operating layer for Federation access and status.',
+        eyebrow: 'Command',
+        headline: 'Federation Command workspace selected.',
+        body: 'This section is reserved for the existing Federation Command connection.',
+        focus: 'Command',
+        mode: 'Federation',
+        stage: 'Workspace Shell'
+    },
+    'federation-connect': {
+        key: 'federation-connect',
+        division: 'federation',
+        kicker: 'Federation / Connect',
+        title: 'FEDERATION CONNECT',
+        intro: 'Request verified introductions and strategic connections.',
+        eyebrow: 'Connect',
+        headline: 'Federation Connect workspace selected.',
+        body: 'This section is reserved for the existing Federation Connect connection.',
+        focus: 'Connect',
+        mode: 'Federation',
+        stage: 'Workspace Shell'
+    },
+    'federation-deal-rooms': {
+        key: 'federation-deal-rooms',
+        division: 'federation',
+        kicker: 'Federation / Deal Rooms',
+        title: 'FEDERATION DEAL ROOMS',
+        intro: 'Admin-supervised partnerships and collaborations.',
+        eyebrow: 'Deal Rooms',
+        headline: 'Federation Deal Rooms workspace selected.',
+        body: 'This section is reserved for the existing Federation Deal Rooms connection.',
+        focus: 'Deal Rooms',
+        mode: 'Federation',
+        stage: 'Workspace Shell'
+    },
+    'federation-directory': {
+        key: 'federation-directory',
+        division: 'federation',
+        kicker: 'Federation / Directory',
+        title: 'FEDERATION DIRECTORY',
+        intro: 'Approved member visibility and trusted operator discovery.',
+        eyebrow: 'Directory',
+        headline: 'Federation Directory workspace selected.',
+        body: 'This section is reserved for the existing Federation Directory connection.',
+        focus: 'Directory',
+        mode: 'Federation',
+        stage: 'Workspace Shell'
+    },
+    'federation-requests': {
+        key: 'federation-requests',
+        division: 'federation',
+        kicker: 'Federation / My Requests',
+        title: 'FEDERATION REQUESTS',
+        intro: 'Track your connection and access requests.',
+        eyebrow: 'My Requests',
+        headline: 'Federation Requests workspace selected.',
+        body: 'This section is reserved for the existing Federation My Requests connection.',
+        focus: 'Requests',
+        mode: 'Federation',
+        stage: 'Workspace Shell'
+    },
+    'federation-referrals': {
+        key: 'federation-referrals',
+        division: 'federation',
+        kicker: 'Federation / Referrals',
+        title: 'FEDERATION REFERRALS',
+        intro: 'Invite high-value people into the Federation pipeline.',
+        eyebrow: 'Referrals',
+        headline: 'Federation Referrals workspace selected.',
+        body: 'This section is reserved for the existing Federation Referrals connection.',
+        focus: 'Referrals',
+        mode: 'Federation',
+        stage: 'Workspace Shell'
+    },
+    'federation-access': {
+        key: 'federation-access',
+        division: 'federation',
+        kicker: 'Federation / My Access',
+        title: 'FEDERATION ACCESS',
+        intro: 'View your Federation access state and member status.',
+        eyebrow: 'My Access',
+        headline: 'Federation Access workspace selected.',
+        body: 'This section is reserved for the existing Federation My Access connection.',
+        focus: 'Access State',
+        mode: 'Federation',
+        stage: 'Workspace Shell'
+    }
+};
+
+function getDashboardUnifiedWorkspaceCopy(key = 'overview') {
+    const cleanKey = String(key || 'overview').trim().toLowerCase();
+    return dashboardUnifiedWorkspaceCopy[cleanKey] || dashboardUnifiedWorkspaceCopy.overview;
+}
+
+const dashboardUnifiedWorkspaceLaunchMap = {
+    academy: {
+        division: 'academy',
+        title: 'Open Academy',
+        kicker: 'Academy Workspace',
+        copy: 'Continue into the real Academy workspace with roadmap, missions, community, messages, and live voice access.',
+        routeLabel: '/academy',
+        url: '/academy',
+        academySection: 'home',
+        buttonText: 'Open Academy →',
+        loadingLabel: 'Opening Academy...'
+    },
+    'academy-roadmap': {
+        division: 'academy',
+        title: 'Open Academy Roadmap',
+        kicker: 'Academy / Roadmap',
+        copy: 'Open the real Academy Roadmap section and continue from the existing roadmap flow.',
+        routeLabel: '/academy?section=home',
+        url: '/academy?section=home',
+        academySection: 'home',
+        buttonText: 'Open Roadmap →',
+        loadingLabel: 'Opening Roadmap...'
+    },
+    'academy-missions': {
+        division: 'academy',
+        title: 'Open Academy Missions',
+        kicker: 'Academy / Missions',
+        copy: 'Open the real Academy Missions layer and continue from the existing mission system.',
+        routeLabel: '/academy?section=lead-missions',
+        url: '/academy?section=lead-missions',
+        academySection: 'lead-missions',
+        buttonText: 'Open Missions →',
+        loadingLabel: 'Opening Missions...'
+    },
+    'academy-community': {
+        division: 'academy',
+        title: 'Open Academy Community Feed',
+        kicker: 'Academy / Community Feed',
+        copy: 'Open the real Academy Community Feed with existing posts, updates, and community movement.',
+        routeLabel: '/academy?section=community',
+        url: '/academy?section=community',
+        academySection: 'community',
+        buttonText: 'Open Community →',
+        loadingLabel: 'Opening Community Feed...'
+    },
+    'academy-messages': {
+        division: 'academy',
+        title: 'Open Academy Messages',
+        kicker: 'Academy / Messages',
+        copy: 'Open the real Academy Messages section and continue through the existing messaging system.',
+        routeLabel: '/academy?section=messages',
+        url: '/academy?section=messages',
+        academySection: 'messages',
+        buttonText: 'Open Messages →',
+        loadingLabel: 'Opening Messages...'
+    },
+    'academy-voice': {
+        division: 'academy',
+        title: 'Open Live Voice Lounge',
+        kicker: 'Academy / Live Voice Lounge',
+        copy: 'Open the real Academy Live Voice Lounge using the existing Academy voice flow.',
+        routeLabel: '/academy?section=voice',
+        url: '/academy?section=voice',
+        academySection: 'voice',
+        buttonText: 'Open Voice Lounge →',
+        loadingLabel: 'Opening Voice Lounge...'
+    },
+    plazas: {
+        division: 'plazas',
+        title: 'Open Plazas',
+        kicker: 'Plazas Workspace',
+        copy: 'Continue into the real Plazas Movement Hub using the existing Plazas page state.',
+        routeLabel: '/plaza.html?tab=feed',
+        url: '/plaza.html?tab=feed',
+        plazaScreen: 'feed',
+        buttonText: 'Open Plazas →',
+        loadingLabel: 'Opening Plazas...'
+    },
+    'plazas-feed': {
+        division: 'plazas',
+        title: 'Open Plazas Feed',
+        kicker: 'Plazas / Feed',
+        copy: 'Open the real Plazas Feed screen for network movement, wins, introductions, opportunities, and regional updates.',
+        routeLabel: '/plaza.html?tab=feed',
+        url: '/plaza.html?tab=feed',
+        plazaScreen: 'feed',
+        buttonText: 'Open Feed →',
+        loadingLabel: 'Opening Plazas Feed...'
+    },
+    'plazas-inbox': {
+        division: 'plazas',
+        title: 'Open Plazas Inbox',
+        kicker: 'Plazas / Inbox',
+        copy: 'Open the real Plazas Inbox screen with the existing incoming request system.',
+        routeLabel: '/plaza.html?tab=inbox',
+        url: '/plaza.html?tab=inbox',
+        plazaScreen: 'inbox',
+        buttonText: 'Open Inbox →',
+        loadingLabel: 'Opening Plazas Inbox...'
+    },
+    'plazas-conversations': {
+        division: 'plazas',
+        title: 'Open Plazas Conversations',
+        kicker: 'Plazas / Conversations',
+        copy: 'Open the real Plazas Conversations screen and continue from the existing conversation system.',
+        routeLabel: '/plaza.html?tab=messages',
+        url: '/plaza.html?tab=messages',
+        plazaScreen: 'messages',
+        buttonText: 'Open Conversations →',
+        loadingLabel: 'Opening Conversations...'
+    },
+    'plazas-meetups': {
+        division: 'plazas',
+        title: 'Open Plazas Meetups',
+        kicker: 'Plazas / Meetups',
+        copy: 'Open the real Plazas Meetups screen and continue from the existing meetup system.',
+        routeLabel: '/plaza.html?tab=meetups',
+        url: '/plaza.html?tab=meetups',
+        plazaScreen: 'meetups',
+        buttonText: 'Open Meetups →',
+        loadingLabel: 'Opening Meetups...'
+    },
+    'plazas-opportunities': {
+        division: 'plazas',
+        title: 'Open Plazas Opportunities',
+        kicker: 'Plazas / Opportunities',
+        copy: 'Open the real Plazas Opportunities screen and continue from the existing opportunity system.',
+        routeLabel: '/plaza.html?tab=opportunities',
+        url: '/plaza.html?tab=opportunities',
+        plazaScreen: 'opportunities',
+        buttonText: 'Open Opportunities →',
+        loadingLabel: 'Opening Opportunities...'
+    },
+    'plazas-directory': {
+        division: 'plazas',
+        title: 'Open Plazas Directory',
+        kicker: 'Plazas / Directory',
+        copy: 'Open the real Plazas Directory with existing member and connector visibility.',
+        routeLabel: '/plaza.html?tab=directory',
+        url: '/plaza.html?tab=directory',
+        plazaScreen: 'directory',
+        buttonText: 'Open Directory →',
+        loadingLabel: 'Opening Directory...'
+    },
+    'plazas-regions': {
+        division: 'plazas',
+        title: 'Open Plazas Regions',
+        kicker: 'Plazas / Regions',
+        copy: 'Open the real Plazas Regions screen and continue from the existing regional hub system.',
+        routeLabel: '/plaza.html?tab=regions',
+        url: '/plaza.html?tab=regions',
+        plazaScreen: 'regions',
+        buttonText: 'Open Regions →',
+        loadingLabel: 'Opening Regions...'
+    },
+    'plazas-atlas': {
+        division: 'plazas',
+        title: 'Open Plaza Atlas',
+        kicker: 'Plazas / Plaza Atlas',
+        copy: 'Open the real Plaza Atlas screen and continue from the existing atlas layer.',
+        routeLabel: '/plaza.html?tab=atlas',
+        url: '/plaza.html?tab=atlas',
+        plazaScreen: 'atlas',
+        buttonText: 'Open Plaza Atlas →',
+        loadingLabel: 'Opening Plaza Atlas...'
+    },
+    'plazas-patron': {
+        division: 'plazas',
+        title: 'Open Become Patron',
+        kicker: 'Plazas / Become Patron',
+        copy: 'Open the real Become Patron screen and continue through the existing patron application flow.',
+        routeLabel: '/plaza.html?tab=patron',
+        url: '/plaza.html?tab=patron',
+        plazaScreen: 'patron',
+        buttonText: 'Open Patron Path →',
+        loadingLabel: 'Opening Patron Path...'
+    },
+    'plazas-patron-desk': {
+        division: 'plazas',
+        title: 'Open Patron Desk',
+        kicker: 'Plazas / Patron Desk',
+        copy: 'Open the real Patron Desk screen and continue from the existing patron management layer.',
+        routeLabel: '/plaza.html?tab=patron-desk',
+        url: '/plaza.html?tab=patron-desk',
+        plazaScreen: 'patron-desk',
+        buttonText: 'Open Patron Desk →',
+        loadingLabel: 'Opening Patron Desk...'
+    },
+    'plazas-bridge': {
+        division: 'plazas',
+        title: 'Open Plazas Bridge',
+        kicker: 'Plazas / Bridge',
+        copy: 'Open the real Plazas Bridge screen and continue from the existing bridge path system.',
+        routeLabel: '/plaza.html?tab=bridge',
+        url: '/plaza.html?tab=bridge',
+        plazaScreen: 'bridge',
+        buttonText: 'Open Bridge →',
+        loadingLabel: 'Opening Bridge...'
+    },
+    'plazas-requests': {
+        division: 'plazas',
+        title: 'Open Plazas Requests',
+        kicker: 'Plazas / Requests',
+        copy: 'Open the real Plazas Requests screen and continue from the existing request tracking system.',
+        routeLabel: '/plaza.html?tab=requests',
+        url: '/plaza.html?tab=requests',
+        plazaScreen: 'requests',
+        buttonText: 'Open Requests →',
+        loadingLabel: 'Opening Requests...'
+    },
+    federation: {
+        division: 'federation',
+        title: 'Open Federation',
+        kicker: 'Federation Workspace',
+        copy: 'Continue into the real Federation workspace with Command, Connect, Deal Rooms, Directory, Requests, Referrals, and Access.',
+        routeLabel: '/federation.html#command',
+        url: '/federation.html#command',
+        buttonText: 'Open Federation →',
+        loadingLabel: 'Opening Federation...'
+    },
+    'federation-command': {
+        division: 'federation',
+        title: 'Open Federation Command',
+        kicker: 'Federation / Command',
+        copy: 'Open the real Federation Command section and continue from the existing Federation operating layer.',
+        routeLabel: '/federation.html#command',
+        url: '/federation.html#command',
+        buttonText: 'Open Command →',
+        loadingLabel: 'Opening Federation Command...'
+    },
+    'federation-connect': {
+        division: 'federation',
+        title: 'Open Federation Connect',
+        kicker: 'Federation / Connect',
+        copy: 'Open the real Federation Connect section for verified introductions and strategic requests.',
+        routeLabel: '/federation.html#connect',
+        url: '/federation.html#connect',
+        buttonText: 'Open Connect →',
+        loadingLabel: 'Opening Connect...'
+    },
+    'federation-deal-rooms': {
+        division: 'federation',
+        title: 'Open Federation Deal Rooms',
+        kicker: 'Federation / Deal Rooms',
+        copy: 'Open the real Federation Deal Rooms section for admin-supervised partnerships and collaborations.',
+        routeLabel: '/federation.html#deal-rooms',
+        url: '/federation.html#deal-rooms',
+        buttonText: 'Open Deal Rooms →',
+        loadingLabel: 'Opening Deal Rooms...'
+    },
+    'federation-directory': {
+        division: 'federation',
+        title: 'Open Federation Directory',
+        kicker: 'Federation / Directory',
+        copy: 'Open the real Federation Directory for approved member visibility and trusted discovery.',
+        routeLabel: '/federation.html#directory',
+        url: '/federation.html#directory',
+        buttonText: 'Open Directory →',
+        loadingLabel: 'Opening Federation Directory...'
+    },
+    'federation-requests': {
+        division: 'federation',
+        title: 'Open Federation Requests',
+        kicker: 'Federation / My Requests',
+        copy: 'Open the real Federation My Requests section and track connection requests.',
+        routeLabel: '/federation.html#requests',
+        url: '/federation.html#requests',
+        buttonText: 'Open My Requests →',
+        loadingLabel: 'Opening Federation Requests...'
+    },
+    'federation-referrals': {
+        division: 'federation',
+        title: 'Open Federation Referrals',
+        kicker: 'Federation / Referrals',
+        copy: 'Open the real Federation Referrals section and continue from the existing referral system.',
+        routeLabel: '/federation.html#referrals',
+        url: '/federation.html#referrals',
+        buttonText: 'Open Referrals →',
+        loadingLabel: 'Opening Referrals...'
+    },
+    'federation-access': {
+        division: 'federation',
+        title: 'Open Federation Access',
+        kicker: 'Federation / My Access',
+        copy: 'Open the real Federation My Access section and view member status and profile state.',
+        routeLabel: '/federation.html#status',
+        url: '/federation.html#status',
+        buttonText: 'Open My Access →',
+        loadingLabel: 'Opening My Access...'
+    }
+};
+
+function getDashboardUnifiedWorkspaceLaunchMeta(key = 'overview') {
+    const cleanKey = String(key || 'overview').trim().toLowerCase();
+    return dashboardUnifiedWorkspaceLaunchMap[cleanKey] || null;
+}
+
+function writeDashboardPlazaLaunchState(screen = 'feed') {
+    const cleanScreen = String(screen || 'feed').trim() || 'feed';
+
+    try {
+        const raw = localStorage.getItem('yhPlazaUiStateCleanV1');
+        const parsed = raw ? JSON.parse(raw) : {};
+
+        localStorage.setItem('yhPlazaUiStateCleanV1', JSON.stringify({
+            ...(parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}),
+            currentScreen: cleanScreen,
+            updatedAt: Date.now()
+        }));
+    } catch (_) {}
+}
+
+function writeDashboardAcademyLaunchState(section = 'home') {
+    const cleanSection = normalizeDashboardAcademySection(section);
+
+    try {
+        sessionStorage.setItem('yh_academy_startup_section_v1', cleanSection);
+        saveAcademyViewState(cleanSection);
+    } catch (_) {}
+}
+
+function escapeDashboardInlineHtml(value = '') {
+    if (typeof academyFeedEscapeHtml === 'function') {
+        return academyFeedEscapeHtml(value);
+    }
+
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function normalizeDashboardInlineStatus(value = '') {
+    return String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[_-]+/g, ' ');
+}
+
+function isDashboardInlinePendingStatus(value = '') {
+    const status = normalizeDashboardInlineStatus(value);
+
+    return [
+        'under review',
+        'pending',
+        'pending review',
+        'review',
+        'new',
+        'screening',
+        'shortlisted',
+        'waitlisted'
+    ].includes(status);
+}
+
+function getDashboardInlineDivisionSnapshot(division = '') {
+    const cleanDivision = String(division || '').trim().toLowerCase();
+
+    if (cleanDivision === 'academy') {
+        return typeof readAcademyMembershipCache === 'function'
+            ? readAcademyMembershipCache()
+            : null;
+    }
+
+    if (cleanDivision === 'plazas') {
+        return typeof getPlazaAccessSnapshot === 'function'
+            ? getPlazaAccessSnapshot()
+            : null;
+    }
+
+    if (cleanDivision === 'federation') {
+        return typeof getFederationAccessSnapshot === 'function'
+            ? getFederationAccessSnapshot()
+            : null;
+    }
+
+    return null;
+}
+
+function getDashboardInlineDivisionState(division = '', snapshot = null) {
+    const cleanDivision = String(division || '').trim().toLowerCase();
+    const data = snapshot && typeof snapshot === 'object'
+        ? snapshot
+        : getDashboardInlineDivisionSnapshot(cleanDivision);
+
+    if (cleanDivision === 'academy') {
+        const status = normalizeDashboardInlineStatus(data?.applicationStatus || '');
+        const approved = data?.canEnterAcademy === true || status === 'approved';
+
+        return {
+            division: cleanDivision,
+            approved,
+            hasApplication: data?.hasApplication === true || Boolean(status),
+            pending: isDashboardInlinePendingStatus(status),
+            rejected: status === 'rejected',
+            status: status || 'not applied',
+            label: approved ? 'Approved' : status ? status.replace(/\b\w/g, (char) => char.toUpperCase()) : 'Not Applied',
+            snapshot: data
+        };
+    }
+
+    if (cleanDivision === 'plazas') {
+        const status = normalizeDashboardInlineStatus(data?.applicationStatus || '');
+        const approved = data?.canEnterPlaza === true || status === 'approved';
+
+        return {
+            division: cleanDivision,
+            approved,
+            hasApplication: data?.hasApplication === true || Boolean(status),
+            pending: isDashboardInlinePendingStatus(status),
+            rejected: status === 'rejected',
+            status: status || 'not applied',
+            label: approved ? 'Approved' : status ? status.replace(/\b\w/g, (char) => char.toUpperCase()) : 'Not Applied',
+            snapshot: data
+        };
+    }
+
+    if (cleanDivision === 'federation') {
+        const status = normalizeDashboardInlineStatus(data?.applicationStatus || '');
+        const approved = data?.canEnterFederation === true || status === 'approved';
+
+        return {
+            division: cleanDivision,
+            approved,
+            hasApplication: data?.hasApplication === true || Boolean(status),
+            pending: isDashboardInlinePendingStatus(status),
+            rejected: status === 'rejected',
+            status: status || 'not applied',
+            label: approved ? 'Approved' : status ? status.replace(/\b\w/g, (char) => char.toUpperCase()) : 'Not Applied',
+            snapshot: data
+        };
+    }
+
+    return {
+        division: cleanDivision,
+        approved: false,
+        hasApplication: false,
+        pending: false,
+        rejected: false,
+        status: 'not applied',
+        label: 'Not Applied',
+        snapshot: data
+    };
+}
+
+async function refreshDashboardInlineDivisionState(division = '') {
+    const cleanDivision = String(division || '').trim().toLowerCase();
+
+    try {
+        if (cleanDivision === 'academy' && typeof refreshAcademyMembershipStatus === 'function') {
+            return await refreshAcademyMembershipStatus(true);
+        }
+
+        if (cleanDivision === 'plazas' && typeof refreshPlazaAccessStatusFromBackend === 'function') {
+            return await refreshPlazaAccessStatusFromBackend(true);
+        }
+
+        if (cleanDivision === 'federation' && typeof refreshFederationAccessStatusFromBackend === 'function') {
+            return await refreshFederationAccessStatusFromBackend(true);
+        }
+    } catch (error) {
+        console.error('Dashboard inline division refresh error:', error);
+    }
+
+    return getDashboardInlineDivisionSnapshot(cleanDivision);
+}
+
+function buildDashboardInlineAccessHtml(meta = {}, state = {}) {
+    const divisionLabel = String(meta.division || '').trim().toLowerCase();
+    const title = String(meta.title || 'Workspace').replace(/^Open\s+/i, '');
+    const statusLabel = state.label || 'Checking';
+    const safeTitle = escapeDashboardInlineHtml(title);
+    const safeStatus = escapeDashboardInlineHtml(statusLabel);
+
+    if (state.approved) {
+        return `
+            <div class="yh-inline-workspace-status-grid">
+                <article class="yh-inline-workspace-status-card">
+                    <span>Access State</span>
+                    <strong>Approved</strong>
+                    <p>Your access is approved. The real ${escapeDashboardInlineHtml(divisionLabel)} workspace is loaded below inside the Dashboard.</p>
+                </article>
+                <article class="yh-inline-workspace-status-card">
+                    <span>Selected Section</span>
+                    <strong>${safeTitle}</strong>
+                    <p>Use the embedded workspace below without leaving the Universe Command Center.</p>
+                </article>
+            </div>
+        `;
+    }
+
+    if (state.pending) {
+        return `
+            <div class="yh-inline-workspace-status-grid">
+                <article class="yh-inline-workspace-status-card is-pending">
+                    <span>Access State</span>
+                    <strong>${safeStatus}</strong>
+                    <p>Your application is already in review. Admin approval is required before the full ${escapeDashboardInlineHtml(divisionLabel)} workspace opens.</p>
+                </article>
+                <article class="yh-inline-workspace-status-card">
+                    <span>Selected Section</span>
+                    <strong>${safeTitle}</strong>
+                    <p>This section will unlock here after approval. No separate page redirect is needed.</p>
+                </article>
+            </div>
+        `;
+    }
+
+    if (state.rejected) {
+        return `
+            <div class="yh-inline-workspace-status-grid">
+                <article class="yh-inline-workspace-status-card is-locked">
+                    <span>Access State</span>
+                    <strong>Reviewed</strong>
+                    <p>Your application has already been reviewed. Contact admin for the next step before accessing ${safeTitle}.</p>
+                </article>
+                <article class="yh-inline-workspace-status-card">
+                    <span>Selected Section</span>
+                    <strong>${safeTitle}</strong>
+                    <p>The full workspace remains locked until your access is cleared.</p>
+                </article>
+            </div>
+        `;
+    }
+
+    return `
+        <div class="yh-inline-workspace-status-grid">
+            <article class="yh-inline-workspace-status-card is-locked">
+                <span>Access State</span>
+                <strong>Application Required</strong>
+                <p>You need approved ${escapeDashboardInlineHtml(divisionLabel)} access before ${safeTitle} can open inside Dashboard.</p>
+            </article>
+            <article class="yh-inline-workspace-status-card">
+                <span>Next Step</span>
+                <strong>Fill Application</strong>
+                <p>Click the action button to open the correct application flow. Admin approval still controls full access.</p>
+            </article>
+        </div>
+    `;
+}
+
+function getDashboardInlineActionText(state = {}) {
+    if (state.approved) return '';
+    if (state.pending) return 'Check Application Status →';
+    if (state.rejected) return 'View Next Step →';
+    return 'Apply for Access →';
+}
+
+function buildDashboardInlineWorkspaceUrl(meta = {}) {
+    const rawUrl = String(meta?.url || '').trim();
+
+    if (!rawUrl) return 'about:blank';
+
+    try {
+        const url = new URL(rawUrl, window.location.origin);
+        url.searchParams.set('embed', 'dashboard');
+        url.searchParams.set('shell', 'dashboard');
+
+        if (meta?.division === 'academy' && meta?.academySection) {
+            url.searchParams.set('dashboardSection', String(meta.academySection || 'home'));
+        }
+
+        return `${url.pathname}${url.search}${url.hash}`;
+    } catch (_) {
+        return rawUrl;
+    }
+}
+
+function getDashboardInlineAcademySectionFromFrame(frame) {
+    return String(frame?.dataset?.yhDashboardAcademySection || '').trim().toLowerCase();
+}
+
+function getDashboardInlineWorkspaceKeyFromFrame(frame) {
+    return String(frame?.dataset?.yhDashboardWorkspaceKey || '').trim().toLowerCase();
+}
+
+function getDashboardInlineAcademyTargetFromFrame(frame) {
+    const section = getDashboardInlineAcademySectionFromFrame(frame);
+    const workspaceKey = getDashboardInlineWorkspaceKeyFromFrame(frame);
+
+    if (workspaceKey === 'academy-roadmap') return 'roadmap';
+    if (workspaceKey === 'academy-missions') return 'missions';
+    if (workspaceKey === 'academy-community') return 'community';
+    if (workspaceKey === 'academy-messages') return 'messages';
+    if (workspaceKey === 'academy-voice') return 'voice';
+
+    if (section === 'home' || section === 'roadmap') return 'roadmap';
+    if (section === 'missions' || section === 'lead-missions') return 'missions';
+    if (section === 'community') return 'community';
+    if (section === 'messages') return 'messages';
+    if (section === 'voice') return 'voice';
+
+    return workspaceKey.startsWith('academy-') ? workspaceKey.replace(/^academy-/, '') : '';
+}
+
+function clearDashboardInlineAcademyApplyTimers(frame) {
+    if (!frame) return;
+
+    window.clearTimeout(frame.__yhDashboardInlineAcademySectionRetry1);
+    window.clearTimeout(frame.__yhDashboardInlineAcademySectionRetry2);
+    window.clearTimeout(frame.__yhDashboardInlineAcademySectionRetry3);
+}
+
+function releaseDashboardEmbeddedAcademyLoaders(win = null, reason = 'dashboard-inline') {
+    try {
+        if (typeof win?.academyReleaseTabLoaderHardV7 === 'function') {
+            win.academyReleaseTabLoaderHardV7(reason);
+        }
+    } catch (_) {}
+
+    try {
+        if (typeof win?.academyForceReleaseAllLoadingOverlaysV11 === 'function') {
+            win.academyForceReleaseAllLoadingOverlaysV11(reason);
+        }
+    } catch (_) {}
+
+    try {
+        if (typeof win?.hideAcademyTabLoader === 'function') {
+            win.hideAcademyTabLoader({ force: true, reason });
+        }
+    } catch (_) {}
+}
+
+function applyDashboardInlineAcademySection(frame, options = {}) {
+    if (!frame) return false;
+
+    const target = getDashboardInlineAcademyTargetFromFrame(frame);
+    if (!target) return false;
+
+    let doc = null;
+    let win = null;
+
+    try {
+        win = frame.contentWindow || null;
+        doc = frame.contentDocument || win?.document || null;
+    } catch (_) {
+        return false;
+    }
+
+    if (!win || !doc || !doc.body) return false;
+
+    const currentTarget = getDashboardInlineAcademyTargetFromFrame(frame);
+    if (currentTarget !== target) return false;
+
+    const previousTarget = String(doc.body.getAttribute('data-yh-dashboard-inline-active-target') || '').trim();
+    const forceApply = options.force === true;
+
+    if (!forceApply && previousTarget === target) {
+        releaseDashboardEmbeddedAcademyLoaders(win, `dashboard-inline-${target}-stable`);
+        return true;
+    }
+
+    doc.body.setAttribute('data-yh-dashboard-embedded-academy-section', target);
+    doc.body.setAttribute('data-yh-dashboard-inline-active-target', target);
+
+    const navRoadmap = doc.getElementById('nav-missions');
+    const navLeadMissions = doc.getElementById('nav-lead-missions');
+    const navChat = doc.getElementById('nav-chat');
+    const navMessages = doc.getElementById('nav-messages');
+    const navVoice = doc.getElementById('nav-voice');
+
+    const releaseAcademySwitchLock = (reason = 'dashboard-inline') => {
+        try {
+            win.__academyTabSwitchLockedV7 = false;
+            win.__academyTabSwitchReasonV7 = '';
+            win.clearTimeout?.(win.__academyTabSwitchFailSafeV7);
+            doc.body.removeAttribute('data-academy-tab-loading');
+        } catch (_) {}
+
+        releaseDashboardEmbeddedAcademyLoaders(win, reason);
+    };
+
+    const run = () => {
+        if (getDashboardInlineAcademyTargetFromFrame(frame) !== target) return false;
+
+        try {
+            releaseAcademySwitchLock(`dashboard-inline-${target}-before-open`);
+
+            if (target === 'community') {
+                if (typeof win.openAcademyFeedView === 'function') {
+                    win.openAcademyFeedView(false);
+                    releaseAcademySwitchLock('dashboard-inline-community');
+                    return true;
+                }
+
+                navChat?.click?.();
+                releaseAcademySwitchLock('dashboard-inline-community-fallback');
+                return true;
+            }
+
+            if (target === 'messages') {
+                if (typeof win.openAcademyMessagesView === 'function') {
+                    win.openAcademyMessagesView();
+                    releaseAcademySwitchLock('dashboard-inline-messages');
+                    return true;
+                }
+
+                if (typeof win.openRoom === 'function') {
+                    win.openRoom('main-chat', navMessages || navChat || null);
+                    releaseAcademySwitchLock('dashboard-inline-messages-room');
+                    return true;
+                }
+
+                (navMessages || navChat)?.click?.();
+                releaseAcademySwitchLock('dashboard-inline-messages-fallback');
+                return true;
+            }
+
+            if (target === 'voice') {
+                if (typeof win.openRoom === 'function') {
+                    win.openRoom('voice-lobby', navVoice || null);
+                    releaseAcademySwitchLock('dashboard-inline-voice');
+                    return true;
+                }
+
+                navVoice?.click?.();
+                releaseAcademySwitchLock('dashboard-inline-voice-fallback');
+                return true;
+            }
+
+            if (target === 'missions') {
+                if (
+                    typeof win.revealAcademyMissionsViewShell === 'function' &&
+                    typeof win.setAcademyMissionsPanel === 'function'
+                ) {
+                    try {
+                        if (typeof win.academyRememberLastNonProfileLocation === 'function') {
+                            win.academyRememberLastNonProfileLocation('lead-missions', { missionPanel: 'hub' });
+                        }
+
+                        if (typeof win.saveAcademyViewState === 'function') {
+                            win.saveAcademyViewState('missions');
+                        }
+
+                        if (typeof win.academyPushFeedFallbackHistory === 'function') {
+                            win.academyPushFeedFallbackHistory('missions');
+                        }
+                    } catch (_) {}
+
+                    win.revealAcademyMissionsViewShell();
+                    win.setAcademyMissionsPanel('hub');
+                    releaseAcademySwitchLock('dashboard-inline-missions-direct');
+                    return true;
+                }
+
+                if (typeof win.openAcademyMissionsView === 'function') {
+                    win.__academyTabSwitchLockedV7 = false;
+                    win.openAcademyMissionsView();
+                    releaseAcademySwitchLock('dashboard-inline-missions-open');
+                    return true;
+                }
+
+                navLeadMissions?.click?.();
+                releaseAcademySwitchLock('dashboard-inline-missions-fallback');
+                return true;
+            }
+
+            if (target === 'roadmap') {
+                if (typeof win.openAcademyRoadmapView === 'function') {
+                    win.openAcademyRoadmapView(false);
+                    releaseAcademySwitchLock('dashboard-inline-roadmap');
+                    return true;
+                }
+
+                navRoadmap?.click?.();
+                releaseAcademySwitchLock('dashboard-inline-roadmap-fallback');
+                return true;
+            }
+        } catch (error) {
+            console.warn('Dashboard inline Academy section apply failed:', error);
+        }
+
+        return false;
+    };
+
+    clearDashboardInlineAcademyApplyTimers(frame);
+
+    const didApply = run();
+
+    if (!didApply && options.retry !== false) {
+        frame.__yhDashboardInlineAcademySectionRetry1 = window.setTimeout(run, 240);
+        frame.__yhDashboardInlineAcademySectionRetry2 = window.setTimeout(run, 680);
+    }
+
+    return didApply;
+}
+
+function findDashboardInlineChromeNode(doc, keywords = []) {
+    if (!doc || !Array.isArray(keywords) || !keywords.length) return null;
+
+    const candidates = Array.from(doc.querySelectorAll('aside, nav, section, div'))
+        .filter((node) => {
+            const text = String(node?.textContent || '').replace(/\s+/g, ' ').trim();
+            if (!text) return false;
+            return keywords.every((keyword) => text.toLowerCase().includes(String(keyword || '').toLowerCase()));
+        })
+        .sort((a, b) => String(a.textContent || '').length - String(b.textContent || '').length);
+
+    return candidates[0] || null;
+}
+
+function forceDashboardInlineFrameContentOnly(frame) {
+    if (!frame) return false;
+
+    let doc = null;
+
+    try {
+        doc = frame.contentDocument || frame.contentWindow?.document || null;
+    } catch (_) {
+        doc = null;
+    }
+
+    if (!doc || !doc.documentElement || !doc.body) return false;
+
+    doc.documentElement.classList.add('yh-dashboard-inline-embed-root');
+    doc.body.classList.add('yh-dashboard-inline-embed-body');
+
+    doc.body.classList.add('academy-shell-ready');
+    doc.body.classList.remove('academy-startup-booting');
+    doc.body.classList.remove('academy-standalone-shell-pending');
+    doc.body.removeAttribute('data-academy-tab-loading');
+
+    try {
+        if (typeof frame.contentWindow?.yhForceRevealAcademyShell === 'function') {
+            frame.contentWindow.yhForceRevealAcademyShell('dashboard-inline-embed');
+        }
+    } catch (_) {}
+
+    ['yh-academy-startup-loader', 'yh-tab-loader'].forEach((id) => {
+        const loader = doc.getElementById(id);
+        if (!loader) return;
+
+        loader.classList.add('hidden-step');
+        loader.classList.add('is-exiting');
+        loader.setAttribute('aria-hidden', 'true');
+        loader.style.setProperty('display', 'none', 'important');
+        loader.style.setProperty('opacity', '0', 'important');
+        loader.style.setProperty('visibility', 'hidden', 'important');
+        loader.style.setProperty('pointer-events', 'none', 'important');
+    });
+
+    let style = doc.getElementById('yh-dashboard-inline-embed-style');
+
+    if (!style) {
+        style = doc.createElement('style');
+        style.id = 'yh-dashboard-inline-embed-style';
+        doc.head.appendChild(style);
+    }
+
+    style.textContent = `
+        html.yh-dashboard-inline-embed-root,
+        body.yh-dashboard-inline-embed-body {
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 100% !important;
+            margin: 0 !important;
+            overflow: hidden !important;
+            background: #050816 !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .yh-top-nav,
+        body.yh-dashboard-inline-embed-body .desktop-user-strip,
+        body.yh-dashboard-inline-embed-body .nav-brand,
+        body.yh-dashboard-inline-embed-body .fed-sidebar,
+        body.yh-dashboard-inline-embed-body .fed-rightbar,
+        body.yh-dashboard-inline-embed-body .fed-topbar,
+        body.yh-dashboard-inline-embed-body .yh-plaza-app-header,
+        body.yh-dashboard-inline-embed-body .yh-plaza-sidebar,
+        body.yh-dashboard-inline-embed-body .yh-plaza-side-nav,
+        body.yh-dashboard-inline-embed-body .yh-plaza-access-brand,
+        body.yh-dashboard-inline-embed-body .yh-plaza-top-universe-btn,
+        body.yh-dashboard-inline-embed-body .fed-dashboard-universe-back-btn,
+        body.yh-dashboard-inline-embed-body #academy-sidebar,
+        body.yh-dashboard-inline-embed-body .yh-sidebar,
+        body.yh-dashboard-inline-embed-body .academy-sidebar,
+        body.yh-dashboard-inline-embed-body .academy-side-nav,
+        body.yh-dashboard-inline-embed-body .academy-left,
+        body.yh-dashboard-inline-embed-body .academy-rail,
+        body.yh-dashboard-inline-embed-body .academy-rightbar,
+        body.yh-dashboard-inline-embed-body .academy-right-rail,
+        body.yh-dashboard-inline-embed-body .yh-right-sidebar,
+        body.yh-dashboard-inline-embed-body .academy-mobile-bottom-nav,
+        body.yh-dashboard-inline-embed-body .academy-universe-return-actions,
+        body.yh-dashboard-inline-embed-body .academy-top-universe-btn,
+        body.yh-dashboard-inline-embed-body .academy-back-universe-btn,
+        body.yh-dashboard-inline-embed-body .yh-academy-sidebar,
+        body.yh-dashboard-inline-embed-body .yh-academy-side-nav,
+        body.yh-dashboard-inline-embed-body .yh-academy-left,
+        body.yh-dashboard-inline-embed-body .yh-academy-rail,
+        body.yh-dashboard-inline-embed-body .yh-academy-rightbar,
+        body.yh-dashboard-inline-embed-body .yh-academy-right-rail,
+        body.yh-dashboard-inline-embed-body #yh-academy-startup-loader,
+        body.yh-dashboard-inline-embed-body #yh-tab-loader,
+        body.yh-dashboard-inline-embed-body [data-yh-dashboard-embed-hidden="true"],
+        body.yh-dashboard-inline-embed-body [href="/dashboard"],
+        body.yh-dashboard-inline-embed-body [target="_top"][href="/dashboard"],
+        body.yh-dashboard-inline-embed-body [aria-label="Go back to Universe dashboard"] {
+            display: none !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .dashboard-layout > *,
+        body.yh-dashboard-inline-embed-body .academy-layout > *,
+        body.yh-dashboard-inline-embed-body .academy-shell > *,
+        body.yh-dashboard-inline-embed-body .yh-academy-shell > *,
+        body.yh-dashboard-inline-embed-body .academy-app-shell > *,
+        body.yh-dashboard-inline-embed-body .academy-app-grid > *,
+        body.yh-dashboard-inline-embed-body .academy-main-grid > *,
+        body.yh-dashboard-inline-embed-body .academy-content-grid > * {
+            grid-column: 1 / -1 !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .fed-shell {
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 100% !important;
+            display: grid !important;
+            grid-template-columns: minmax(0, 1fr) !important;
+            gap: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+            background: #050816 !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .fed-main {
+            grid-column: 1 / -1 !important;
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 0 !important;
+            border-radius: 0 !important;
+            border: 0 !important;
+            overflow: auto !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .yh-plaza-shell,
+        body.yh-dashboard-inline-embed-body .yh-plaza-app-grid {
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 100% !important;
+            display: grid !important;
+            grid-template-columns: minmax(0, 1fr) !important;
+            gap: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+            background: #050816 !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .yh-plaza-main,
+        body.yh-dashboard-inline-embed-body .yh-plaza-content,
+        body.yh-dashboard-inline-embed-body .yh-plaza-main-stage {
+            grid-column: 1 / -1 !important;
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 0 !important;
+            overflow: auto !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .dashboard-layout,
+        body.yh-dashboard-inline-embed-body #academy-wrapper,
+        body.yh-dashboard-inline-embed-body .dashboard-core,
+        body.yh-dashboard-inline-embed-body .academy-layout,
+        body.yh-dashboard-inline-embed-body .academy-shell,
+        body.yh-dashboard-inline-embed-body .yh-academy-shell,
+        body.yh-dashboard-inline-embed-body .academy-app-shell,
+        body.yh-dashboard-inline-embed-body .academy-app-grid,
+        body.yh-dashboard-inline-embed-body .academy-main-grid,
+        body.yh-dashboard-inline-embed-body .academy-content-grid {
+            width: 100% !important;
+            max-width: none !important;
+            height: 100% !important;
+            min-height: 100% !important;
+            display: grid !important;
+            grid-template-columns: minmax(0, 1fr) !important;
+            grid-template-rows: minmax(0, 1fr) !important;
+            gap: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            overflow: hidden !important;
+            background: #050816 !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+            pointer-events: auto !important;
+        }
+
+        body.yh-dashboard-inline-embed-body #academy-wrapper {
+            align-items: stretch !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .yh-main-chat,
+        body.yh-dashboard-inline-embed-body #academy-chat,
+        body.yh-dashboard-inline-embed-body #academy-feed-view,
+        body.yh-dashboard-inline-embed-body #academy-lead-missions-view,
+        body.yh-dashboard-inline-embed-body #academy-profile-view,
+        body.yh-dashboard-inline-embed-body #voice-lobby-view,
+        body.yh-dashboard-inline-embed-body #video-lobby-view,
+        body.yh-dashboard-inline-embed-body #center-stage-view,
+        body.yh-dashboard-inline-embed-body #academy-voice-view,
+        body.yh-dashboard-inline-embed-body #academy-video-view {
+            grid-column: 1 / -1 !important;
+            width: 100% !important;
+            max-width: none !important;
+            height: 100% !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            overflow: auto !important;
+            border-left: 0 !important;
+            border-right: 0 !important;
+        }
+    `;
+
+    const chromeNodes = [
+        findDashboardInlineChromeNode(doc, ['execution hub', 'roadmap', 'live voice lounge']),
+        findDashboardInlineChromeNode(doc, ['momentum board', 'active now']),
+        findDashboardInlineChromeNode(doc, ['young hustlers', 'federation', 'quality over volume']),
+        findDashboardInlineChromeNode(doc, ['plaza application', 'back to dashboard'])
+    ].filter(Boolean);
+
+    chromeNodes.forEach((node) => {
+        node.setAttribute('data-yh-dashboard-embed-hidden', 'true');
+        node.style.setProperty('display', 'none', 'important');
+    });
+
+    chromeNodes.forEach((node) => {
+        let parent = node.parentElement;
+        let safety = 0;
+
+        while (parent && parent !== doc.body && safety < 14) {
+            const computed = doc.defaultView?.getComputedStyle(parent);
+
+            parent.style.setProperty('width', '100%', 'important');
+            parent.style.setProperty('max-width', 'none', 'important');
+            parent.style.setProperty('margin-left', '0', 'important');
+            parent.style.setProperty('padding-left', '0', 'important');
+
+            if (computed && computed.display === 'grid') {
+                parent.style.setProperty('grid-template-columns', 'minmax(0, 1fr)', 'important');
+                parent.style.setProperty('gap', '0', 'important');
+            }
+
+            if (computed && computed.display === 'flex') {
+                parent.style.setProperty('gap', '0', 'important');
+            }
+
+            parent = parent.parentElement;
+            safety += 1;
+        }
+    });
+
+    return true;
+}
+
+function bindDashboardInlineFrameEmbedMode(frame) {
+    if (!frame || frame.dataset.dashboardEmbedModeBound === 'true') return;
+
+    frame.dataset.dashboardEmbedModeBound = 'true';
+
+    frame.addEventListener('load', () => {
+        const frameShell = frame.closest('.yh-universe-workspace-frame-shell');
+
+        forceDashboardInlineFrameContentOnly(frame);
+        applyDashboardInlineAcademySection(frame, { force: true });
+
+        window.setTimeout(() => {
+            forceDashboardInlineFrameContentOnly(frame);
+            applyDashboardInlineAcademySection(frame, { retry: false });
+            frameShell?.classList.remove('is-switching');
+        }, 180);
+    });
+}
+
+function setDashboardUnifiedWorkspaceLauncher(key = 'overview') {
+    const card = document.getElementById('yh-universe-workspace-launch-card');
+    const kicker = document.getElementById('yh-universe-workspace-launch-kicker');
+    const title = document.getElementById('yh-universe-workspace-launch-title');
+    const copy = document.getElementById('yh-universe-workspace-launch-copy');
+    const route = document.getElementById('yh-universe-workspace-launch-route');
+    const button = document.getElementById('yh-universe-workspace-launch-btn');
+    const frameShell = document.getElementById('yh-universe-workspace-frame-shell');
+    const frame = document.getElementById('yh-universe-workspace-inline-frame');
+
+    if (!card || !button) return;
+
+    const cleanKey = String(key || 'overview').trim().toLowerCase();
+    const isParentWorkspace = ['overview', 'academy', 'plazas', 'federation'].includes(cleanKey);
+    const meta = getDashboardUnifiedWorkspaceLaunchMeta(cleanKey);
+
+    if (!meta || isParentWorkspace) {
+        card.classList.add('hidden-step');
+        card.setAttribute('aria-hidden', 'true');
+        button.removeAttribute('data-yh-launch-workspace-key');
+
+        if (frameShell) {
+            frameShell.classList.add('hidden-step');
+            frameShell.setAttribute('aria-hidden', 'true');
+        }
+
+        if (frame) {
+            frame.removeAttribute('src');
+        }
+
+        return;
+    }
+
+    const state = getDashboardInlineDivisionState(meta.division);
+    const cleanTitle = String(meta.title || 'Workspace').replace(/^Open\s+/i, '');
+
+    if (kicker) kicker.textContent = meta.kicker || 'Workspace';
+    if (title) title.textContent = cleanTitle;
+    if (copy) copy.innerHTML = buildDashboardInlineAccessHtml(meta, state);
+    if (route) {
+        route.textContent = state.approved
+            ? 'Approved inline workspace • no page redirect'
+            : `${state.label || 'Access required'} • admin approval required`;
+    }
+
+    button.setAttribute('data-yh-launch-workspace-key', cleanKey);
+
+    if (state.approved) {
+        button.classList.add('hidden-step');
+        button.setAttribute('aria-hidden', 'true');
+
+        if (frameShell && frame) {
+            frame.dataset.yhDashboardWorkspaceKey = cleanKey;
+            frame.dataset.yhDashboardAcademySection = meta.division === 'academy'
+                ? String(meta.academySection || 'home')
+                : '';
+
+            if (meta.division === 'academy') {
+                writeDashboardAcademyLaunchState(meta.academySection || 'home');
+            }
+
+            if (meta.division === 'plazas') {
+                writeDashboardPlazaLaunchState(meta.plazaScreen || 'feed');
+            }
+
+            const inlineUrl = buildDashboardInlineWorkspaceUrl(meta);
+
+            bindDashboardInlineFrameEmbedMode(frame);
+
+            frameShell.classList.remove('hidden-step');
+            frameShell.setAttribute('aria-hidden', 'false');
+
+            if (frame.getAttribute('src') !== inlineUrl) {
+                clearDashboardInlineAcademyApplyTimers(frame);
+                frameShell.classList.add('is-switching');
+                frame.setAttribute('src', inlineUrl || 'about:blank');
+            } else {
+                forceDashboardInlineFrameContentOnly(frame);
+                applyDashboardInlineAcademySection(frame, { force: true });
+                frameShell.classList.remove('is-switching');
+            }
+        }
+    } else {
+        const actionText = getDashboardInlineActionText(state);
+
+        button.classList.remove('hidden-step');
+        button.setAttribute('aria-hidden', 'false');
+        button.textContent = actionText || 'Continue →';
+
+        if (frameShell) {
+            frameShell.classList.add('hidden-step');
+            frameShell.setAttribute('aria-hidden', 'true');
+        }
+
+        if (frame) {
+            frame.removeAttribute('src');
+        }
+    }
+
+    card.classList.remove('hidden-step');
+    card.setAttribute('aria-hidden', 'false');
+}
+
+async function refreshDashboardUnifiedInlineWorkspaceState(key = 'overview') {
+    const cleanKey = String(key || 'overview').trim().toLowerCase();
+    const meta = getDashboardUnifiedWorkspaceLaunchMeta(cleanKey);
+
+    if (!meta || ['overview', 'academy', 'plazas', 'federation'].includes(cleanKey)) return;
+
+    const beforeState = getDashboardInlineDivisionState(meta.division);
+
+    await refreshDashboardInlineDivisionState(meta.division);
+
+    const activeKey = String(document.body?.getAttribute('data-yh-unified-workspace') || '').trim().toLowerCase();
+    if (activeKey !== cleanKey) return;
+
+    const afterState = getDashboardInlineDivisionState(meta.division);
+    const frame = document.getElementById('yh-universe-workspace-inline-frame');
+    const alreadyShowingSameWorkspace =
+        afterState.approved === true &&
+        frame?.dataset?.yhDashboardWorkspaceKey === cleanKey &&
+        Boolean(frame.getAttribute('src'));
+
+    if (
+        alreadyShowingSameWorkspace &&
+        beforeState.approved === afterState.approved &&
+        beforeState.label === afterState.label
+    ) {
+        const copy = document.getElementById('yh-universe-workspace-launch-copy');
+        if (copy) copy.innerHTML = buildDashboardInlineAccessHtml(meta, afterState);
+        return;
+    }
+
+    setDashboardUnifiedWorkspaceLauncher(cleanKey);
+}
+
+async function openDashboardUnifiedWorkspaceLaunch(key = '') {
+    const meta = getDashboardUnifiedWorkspaceLaunchMeta(key);
+    if (!meta) return;
+
+    const division = String(meta.division || '').trim().toLowerCase();
+
+    if (division === 'academy') {
+        writeDashboardAcademyLaunchState(meta.academySection || 'home');
+
+        try {
+            const snapshot = typeof refreshAcademyMembershipStatus === 'function'
+                ? await refreshAcademyMembershipStatus(true)
+                : (typeof readAcademyMembershipCache === 'function' ? readAcademyMembershipCache() : null);
+
+            const status = String(snapshot?.applicationStatus || '').trim().toLowerCase().replace(/[_-]+/g, ' ');
+
+            if (typeof syncAcademyEntryButton === 'function') {
+                syncAcademyEntryButton(snapshot);
+            }
+
+            if (snapshot?.canEnterAcademy === true || status === 'approved') {
+                showToast('Academy access approved. Continue using the Academy sections inside the Universe Dashboard.', 'success');
+                return;
+            }
+
+            if (['under review', 'new', 'pending', 'pending review', 'screening', 'shortlisted', 'waitlisted'].includes(status)) {
+                showToast('Your Academy application is already under review. Admin approval is required before full access.', 'error');
+                return;
+            }
+
+            if (status === 'rejected') {
+                showToast('Your Academy application has already been reviewed. Contact admin for the next step.', 'error');
+                return;
+            }
+
+            if (typeof openAcademyLauncher === 'function') {
+                openAcademyLauncher();
+                return;
+            }
+
+            if (typeof handleAcademyLaunchClick === 'function') {
+                await handleAcademyLaunchClick(null);
+            }
+        } catch (error) {
+            console.error('Dashboard Academy inline workspace error:', error);
+            showToast(error?.message || 'Failed to open Academy access prompt.', 'error');
+        }
+
+        return;
+    }
+
+    if (division === 'plazas') {
+        writeDashboardPlazaLaunchState(meta.plazaScreen || 'feed');
+
+        try {
+            const snapshot = typeof refreshPlazaAccessStatusFromBackend === 'function'
+                ? await refreshPlazaAccessStatusFromBackend(true)
+                : (typeof getPlazaAccessSnapshot === 'function' ? getPlazaAccessSnapshot() : null);
+
+            const status = typeof normalizePlazaStatus === 'function'
+                ? normalizePlazaStatus(snapshot?.applicationStatus || '')
+                : String(snapshot?.applicationStatus || '').trim().toLowerCase();
+
+            const progressionGate = typeof getDashboardDivisionProgressionGate === 'function'
+                ? getDashboardDivisionProgressionGate('plaza', snapshot)
+                : { locked: false, copy: '' };
+
+            if (typeof syncPlazaEntryButton === 'function') {
+                syncPlazaEntryButton(snapshot);
+            }
+
+            if (snapshot?.canEnterPlaza === true || status === 'approved') {
+                showToast('Plazas access approved. Continue using Plazas sections inside the Universe Dashboard.', 'success');
+                return;
+            }
+
+            if (progressionGate.locked) {
+                showToast(progressionGate.copy || 'Complete the required previous division step first.', 'error');
+                return;
+            }
+
+            if (!snapshot?.hasApplication || status === 'rejected') {
+                if (typeof openPlazaApplicationModal === 'function') {
+                    openPlazaApplicationModal();
+                    return;
+                }
+            }
+
+            showToast('Your Plazas application is pending approval. Admin approval is required before full access.', 'error');
+        } catch (error) {
+            console.error('Dashboard Plazas inline workspace error:', error);
+            showToast(error?.message || 'Failed to open Plazas access prompt.', 'error');
+        }
+
+        return;
+    }
+
+    if (division === 'federation') {
+        try {
+            const snapshot = typeof syncFederationEntryButton === 'function'
+                ? syncFederationEntryButton()
+                : (typeof getFederationAccessSnapshot === 'function' ? getFederationAccessSnapshot() : null);
+
+            const status = typeof normalizeFederationStatus === 'function'
+                ? normalizeFederationStatus(snapshot?.applicationStatus || '')
+                : String(snapshot?.applicationStatus || '').trim().toLowerCase();
+
+            const progressionGate = typeof getDashboardDivisionProgressionGate === 'function'
+                ? getDashboardDivisionProgressionGate('federation', snapshot)
+                : { locked: false, copy: '' };
+
+            if (snapshot?.canEnterFederation === true || status === 'approved') {
+                showToast('Federation access approved. Continue using Federation sections inside the Universe Dashboard.', 'success');
+                return;
+            }
+
+            if (progressionGate.locked) {
+                showToast(progressionGate.copy || 'Complete the required previous division step first.', 'error');
+                return;
+            }
+
+            if (!snapshot?.hasApplication || status === 'rejected') {
+                if (typeof openFederationApplicationModal === 'function') {
+                    openFederationApplicationModal();
+                    return;
+                }
+            }
+
+            showToast('Your Federation application is pending approval. Admin approval is required before full access.', 'error');
+        } catch (error) {
+            console.error('Dashboard Federation inline workspace error:', error);
+            showToast(error?.message || 'Failed to open Federation access prompt.', 'error');
+        }
+    }
+}
+
+function bootDashboardUnifiedWorkspaceLauncher() {
+    const button = document.getElementById('yh-universe-workspace-launch-btn');
+    if (!button || button.dataset.launcherBound === 'true') return;
+
+    button.dataset.launcherBound = 'true';
+
+    button.addEventListener('click', () => {
+        const key = button.getAttribute('data-yh-launch-workspace-key') || '';
+        openDashboardUnifiedWorkspaceLaunch(key);
+    });
+}
+
+function setDashboardUnifiedShellText(key = 'overview') {
+    const copy = getDashboardUnifiedWorkspaceCopy(key);
+    const launchMeta =
+        typeof getDashboardUnifiedWorkspaceLaunchMeta === 'function'
+            ? getDashboardUnifiedWorkspaceLaunchMeta(copy.key)
+            : null;
+
+    const parentWorkspaceKeys = ['overview', 'academy', 'plazas', 'federation'];
+    const shouldUseLaunchCopy = launchMeta && !parentWorkspaceKeys.includes(copy.key);
+
+    const kicker = document.querySelector('.yh-universe-kicker');
+    const title = document.querySelector('.yh-universe-title');
+    const intro = document.querySelector('.yh-universe-intro-copy');
+    const eyebrow = document.querySelector('.yh-universe-command-eyebrow');
+    const headline = document.querySelector('.yh-universe-command-title');
+    const body = document.querySelector('.yh-universe-command-copy');
+    const pillStrongEls = Array.from(document.querySelectorAll('.yh-universe-command-pill strong'));
+
+    if (kicker) kicker.textContent = copy.kicker;
+    if (title) title.textContent = copy.title;
+    if (intro) intro.textContent = copy.intro;
+    if (eyebrow) eyebrow.textContent = copy.eyebrow;
+    if (headline) headline.textContent = shouldUseLaunchCopy ? `${launchMeta.title} selected.` : copy.headline;
+    if (body) body.textContent = shouldUseLaunchCopy ? launchMeta.copy : copy.body;
+
+    if (pillStrongEls[0]) pillStrongEls[0].textContent = copy.focus;
+    if (pillStrongEls[1]) pillStrongEls[1].textContent = copy.mode;
+    if (pillStrongEls[2]) pillStrongEls[2].textContent = copy.stage;
+
+    document.body?.setAttribute('data-yh-unified-workspace', copy.key);
+    document.body?.setAttribute('data-yh-unified-division', copy.division);
+
+    bootDashboardUnifiedWorkspaceLauncher();
+    setDashboardUnifiedWorkspaceLauncher(copy.key);
+}
+
+function setDashboardSidebarActiveState(key = 'overview') {
+    const copy = getDashboardUnifiedWorkspaceCopy(key);
+    const cleanKey = copy.key;
+    const activeDivision = normalizeUniverseDivision(copy.division || 'academy');
+
+    document.querySelectorAll('.yh-sidebar-command-link').forEach((link) => {
+        link.classList.remove('is-active');
+    });
+
+    document.querySelectorAll('.yh-sidebar-subnav-link').forEach((link) => {
+        link.classList.remove('is-active');
+    });
+
+    document.querySelectorAll('.yh-sidebar-division-group[data-yh-sidebar-division]').forEach((group) => {
+        const groupDivision = normalizeUniverseDivision(group.getAttribute('data-yh-sidebar-division') || '');
+        const isExpanded = groupDivision === activeDivision;
+
+        group.classList.toggle('is-expanded', isExpanded);
+        group.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+    });
+
+    document.body?.setAttribute('data-yh-active-sidebar-division', activeDivision);
+
+    if (cleanKey === 'overview') {
+        return;
+    }
+
+    document
+        .querySelector(`[data-yh-dashboard-shell="${activeDivision}"]`)
+        ?.classList.add('is-active');
+
+    if (cleanKey !== activeDivision) {
+        document
+            .querySelector(`[data-yh-sidebar-child="${cleanKey}"]`)
+            ?.classList.add('is-active');
+    }
+}
+
+function activateDashboardUnifiedWorkspace(key = 'overview', options = {}) {
+    const copy = getDashboardUnifiedWorkspaceCopy(key);
+    const shouldScroll = options.scroll !== false;
+    const shouldAnimate = options.animate !== false;
+
+    setDashboardSidebarActiveState(copy.key);
+    setDashboardUnifiedShellText(copy.key);
+
+    if (copy.key !== 'overview') {
+        setUniverseSlide(copy.division, { animate: shouldAnimate });
+    }
+
+    refreshDashboardUnifiedInlineWorkspaceState(copy.key).catch((error) => {
+        console.error('Dashboard inline workspace refresh failed:', error);
+    });
+
+    if (shouldScroll) {
+        document.getElementById('universe-hub-view')?.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+        });
+    }
+
+    return copy;
+}
+
+function bootDashboardUnifiedSidebarWorkspace() {
+    const sidebar = document.querySelector('.yh-command-sidebar-nav');
+    if (!sidebar || sidebar.dataset.unifiedWorkspaceBound === 'true') return;
+
+    sidebar.dataset.unifiedWorkspaceBound = 'true';
+
+    sidebar.addEventListener('click', (event) => {
+        const childTab = event.target.closest('.yh-sidebar-subnav-link[data-yh-sidebar-child]');
+        if (childTab) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            activateDashboardUnifiedWorkspace(
+                childTab.getAttribute('data-yh-sidebar-child') || 'overview',
+                { animate: false }
+            );
+
+            return;
+        }
+
+        const shellButton = event.target.closest('.yh-sidebar-command-link[data-yh-dashboard-shell]');
+        if (!shellButton) return;
+
+        const shellKey = shellButton.getAttribute('data-yh-dashboard-shell') || 'overview';
+        activateDashboardUnifiedWorkspace(shellKey, { animate: false });
+    });
+
+    activateDashboardUnifiedWorkspace('academy', {
+        scroll: false,
+        animate: false
+    });
+}
+
+bootDashboardUnifiedSidebarWorkspace();
 
 function openDivisionPreview(targetDivision = 'plazas', options = {}) {
     const division = normalizeUniverseDivision(targetDivision);

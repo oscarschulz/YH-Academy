@@ -4565,8 +4565,26 @@ function savePlazaUiState() {
   });
 }
 
+function readPlazaLaunchScreenFromUrl() {
+  try {
+    const params = new URLSearchParams(window.location.search || "");
+    const raw =
+      params.get("tab") ||
+      params.get("screen") ||
+      params.get("section") ||
+      "";
+
+    const clean = String(raw || "").trim().toLowerCase();
+
+    return PRIMARY_SCREENS.has(clean) ? clean : "";
+  } catch (_) {
+    return "";
+  }
+}
+
 function restorePlazaUiState() {
   const saved = loadStoredUiState(PLAZA_UI_STATE_KEY);
+  const urlTargetScreen = readPlazaLaunchScreenFromUrl();
 
   plazaRuntime.feedFilter = String(saved.feedFilter || "all");
   plazaRuntime.activeInboxRole = String(saved.activeInboxRole || "all");
@@ -4582,6 +4600,10 @@ function restorePlazaUiState() {
 
   if (plazaTrustFilter) {
     plazaTrustFilter.value = String(saved.directoryTrust || "all");
+  }
+
+  if (urlTargetScreen) {
+    return urlTargetScreen;
   }
 
   const targetScreen = String(saved.currentScreen || "feed");
