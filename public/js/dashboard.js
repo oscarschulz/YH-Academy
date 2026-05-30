@@ -2413,6 +2413,94 @@ async function refreshYHWalletSnapshot(forceFresh = false) {
     return snapshot;
 }
 
+function setYHWalletInlineTab(tabKey = 'overview') {
+    const dialog = document.querySelector('#yh-wallet-modal .yh-wallet-dialog');
+    if (!dialog) return;
+
+    const cleanTab = String(tabKey || 'overview').trim() || 'overview';
+    const allowedTabs = [
+        'overview',
+        'payment-methods',
+        'payout-methods',
+        'request-withdrawal',
+        'payment-history',
+        'payout-history'
+    ];
+
+    const nextTab = allowedTabs.includes(cleanTab) ? cleanTab : 'overview';
+
+    persistDashboardWalletTab(nextTab);
+
+    dialog.setAttribute('data-yh-wallet-active-tab', nextTab);
+
+    dialog.querySelectorAll('[data-yh-wallet-tab]').forEach((button) => {
+        const isActive = button.getAttribute('data-yh-wallet-tab') === nextTab;
+        button.classList.toggle('is-active', isActive);
+        button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        button.setAttribute('tabindex', isActive ? '0' : '-1');
+    });
+}
+
+function installYHWalletInlineTabs(defaultTab = 'overview') {
+    const modal = document.getElementById('yh-wallet-modal');
+    const dialog = modal?.querySelector('.yh-wallet-dialog');
+    if (!modal || !dialog) return false;
+
+    const guide = dialog.querySelector('.yh-wallet-guide');
+    const stats = dialog.querySelector('.yh-wallet-stats');
+    const divisionPanel = dialog.querySelector('.yh-wallet-division-panel');
+    const walletGrid = dialog.querySelector('.yh-wallet-grid');
+    const withdrawPanel = dialog.querySelector('.yh-wallet-withdraw-panel');
+    const ledgerGrid = dialog.querySelector('.yh-wallet-ledger-grid');
+
+    if (guide) guide.setAttribute('data-yh-wallet-tab-section', 'overview');
+    if (stats) stats.setAttribute('data-yh-wallet-tab-section', 'overview');
+    if (divisionPanel) divisionPanel.setAttribute('data-yh-wallet-tab-section', 'overview');
+
+    const walletPanels = Array.from(walletGrid?.querySelectorAll(':scope > .yh-wallet-panel') || []);
+    if (walletPanels[0]) walletPanels[0].setAttribute('data-yh-wallet-tab-section', 'payment-methods');
+    if (walletPanels[1]) walletPanels[1].setAttribute('data-yh-wallet-tab-section', 'payout-methods');
+
+    if (withdrawPanel) withdrawPanel.setAttribute('data-yh-wallet-tab-section', 'request-withdrawal');
+
+    const ledgerPanels = Array.from(ledgerGrid?.querySelectorAll(':scope > .yh-wallet-panel') || []);
+    if (ledgerPanels[0]) ledgerPanels[0].setAttribute('data-yh-wallet-tab-section', 'payment-history');
+    if (ledgerPanels[1]) ledgerPanels[1].setAttribute('data-yh-wallet-tab-section', 'payout-history');
+
+    if (!dialog.querySelector('.yh-wallet-inline-tabs')) {
+        const tabs = document.createElement('div');
+        tabs.className = 'yh-wallet-inline-tabs';
+        tabs.setAttribute('role', 'tablist');
+        tabs.setAttribute('aria-label', 'Wallet sections');
+        tabs.innerHTML = `
+            <button type="button" class="yh-wallet-inline-tab" data-yh-wallet-tab="overview" role="tab">Overview</button>
+            <button type="button" class="yh-wallet-inline-tab" data-yh-wallet-tab="payment-methods" role="tab">Payment Methods</button>
+            <button type="button" class="yh-wallet-inline-tab" data-yh-wallet-tab="payout-methods" role="tab">Payout Methods</button>
+            <button type="button" class="yh-wallet-inline-tab" data-yh-wallet-tab="request-withdrawal" role="tab">Request Withdrawal</button>
+            <button type="button" class="yh-wallet-inline-tab" data-yh-wallet-tab="payment-history" role="tab">Payment History</button>
+            <button type="button" class="yh-wallet-inline-tab" data-yh-wallet-tab="payout-history" role="tab">Payout History</button>
+        `;
+
+        const head = dialog.querySelector('.yh-wallet-head');
+        if (head) {
+            head.insertAdjacentElement('afterend', tabs);
+        } else {
+            dialog.prepend(tabs);
+        }
+
+        tabs.addEventListener('click', (event) => {
+            const button = event.target.closest('[data-yh-wallet-tab]');
+            if (!button) return;
+
+            event.preventDefault();
+            setYHWalletInlineTab(button.getAttribute('data-yh-wallet-tab') || 'overview');
+        });
+    }
+
+    setYHWalletInlineTab(defaultTab);
+    return true;
+}
+
 function mountYHWalletInlineView() {
     const card = document.getElementById('yh-universe-workspace-launch-card');
     const frameShell = document.getElementById('yh-universe-workspace-frame-shell');
@@ -2451,6 +2539,8 @@ function mountYHWalletInlineView() {
     modal.classList.add('yh-wallet-inline-view');
     modal.classList.remove('hidden-step');
     modal.setAttribute('aria-hidden', 'false');
+
+    installYHWalletInlineTabs(getDashboardPersistedWalletTab());
 
     document.body?.classList.remove('yh-wallet-open');
 
@@ -8233,6 +8323,192 @@ function getDashboardUnifiedWorkspaceCopy(key = 'overview') {
     return dashboardUnifiedWorkspaceCopy[cleanKey] || dashboardUnifiedWorkspaceCopy.overview;
 }
 
+const YH_DASHBOARD_PERSISTENT_UI_STATE_KEY = 'yh_dashboard_persistent_ui_state_v1';
+
+function readDashboardPersistentUiState() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(YH_DASHBOARD_PERSISTENT_UI_STATE_KEY) || '{}');
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch (_) {
+        return {};
+    }
+}
+
+function writeDashboardPersistentUiState(patch = {}) {
+    const previous = readDashboardPersistentUiState();
+
+    const next = {
+        ...previous,
+        ...(patch && typeof patch === 'object' ? patch : {}),
+        updatedAt: new Date().toISOString()
+    };
+
+    try {
+        localStorage.setItem(YH_DASHBOARD_PERSISTENT_UI_STATE_KEY, JSON.stringify(next));
+    } catch (_) {}
+
+    return next;
+}
+
+function getDashboardPersistentWorkspaceKey(value = '') {
+    const cleanKey = String(value || '').trim().toLowerCase();
+    return dashboardUnifiedWorkspaceCopy[cleanKey] ? cleanKey : '';
+}
+
+function persistDashboardUnifiedWorkspaceState(key = 'overview', options = {}) {
+    if (options?.persist === false) return;
+
+    const copy = getDashboardUnifiedWorkspaceCopy(key);
+    const previous = readDashboardPersistentUiState();
+
+    writeDashboardPersistentUiState({
+        type: 'workspace',
+        workspaceKey: copy.key,
+        division: copy.division,
+        profileMode: '',
+        profileMemberId: '',
+        walletTab: copy.key === 'wallet' ? (previous.walletTab || 'overview') : previous.walletTab || ''
+    });
+}
+
+function persistDashboardProfileUiState(mode = 'self', memberId = '') {
+    const cleanMode = String(mode || 'self').trim().toLowerCase() === 'visited'
+        ? 'visited'
+        : 'self';
+
+    const normalizedMemberId = cleanMode === 'visited'
+        ? normalizeAcademyFeedId(memberId)
+        : '';
+
+    if (cleanMode === 'visited' && !normalizedMemberId) return;
+
+    const previous = readDashboardPersistentUiState();
+    const currentWorkspace =
+        getDashboardPersistentWorkspaceKey(previous.workspaceKey) ||
+        getDashboardPersistentWorkspaceKey(document.body?.getAttribute('data-yh-unified-workspace') || '') ||
+        'overview';
+
+    const copy = getDashboardUnifiedWorkspaceCopy(currentWorkspace);
+
+    writeDashboardPersistentUiState({
+        type: 'profile',
+        workspaceKey: copy.key,
+        division: copy.division,
+        profileMode: cleanMode,
+        profileMemberId: normalizedMemberId,
+        walletTab: previous.walletTab || ''
+    });
+}
+
+function clearDashboardPersistentProfileState() {
+    const previous = readDashboardPersistentUiState();
+    const currentWorkspace =
+        getDashboardPersistentWorkspaceKey(previous.workspaceKey) ||
+        getDashboardPersistentWorkspaceKey(document.body?.getAttribute('data-yh-unified-workspace') || '') ||
+        'overview';
+
+    const copy = getDashboardUnifiedWorkspaceCopy(currentWorkspace);
+
+    writeDashboardPersistentUiState({
+        type: 'workspace',
+        workspaceKey: copy.key,
+        division: copy.division,
+        profileMode: '',
+        profileMemberId: '',
+        walletTab: previous.walletTab || ''
+    });
+}
+
+function getDashboardPersistedWalletTab() {
+    const state = readDashboardPersistentUiState();
+    const cleanTab = String(state.walletTab || 'overview').trim().toLowerCase();
+
+    return [
+        'overview',
+        'payment-methods',
+        'payout-methods',
+        'request-withdrawal',
+        'payment-history',
+        'payout-history'
+    ].includes(cleanTab)
+        ? cleanTab
+        : 'overview';
+}
+
+function persistDashboardWalletTab(tabKey = 'overview') {
+    const cleanTab = String(tabKey || 'overview').trim().toLowerCase();
+    const allowedTabs = [
+        'overview',
+        'payment-methods',
+        'payout-methods',
+        'request-withdrawal',
+        'payment-history',
+        'payout-history'
+    ];
+
+    const nextTab = allowedTabs.includes(cleanTab) ? cleanTab : 'overview';
+    const activeWorkspace = getDashboardPersistentWorkspaceKey(
+        document.body?.getAttribute('data-yh-unified-workspace') || ''
+    );
+
+    const patch = {
+        walletTab: nextTab
+    };
+
+    if (activeWorkspace === 'wallet') {
+        patch.type = 'workspace';
+        patch.workspaceKey = 'wallet';
+        patch.division = 'resources';
+        patch.profileMode = '';
+        patch.profileMemberId = '';
+    }
+
+    writeDashboardPersistentUiState(patch);
+}
+
+function restoreDashboardPersistentUiState() {
+    const state = readDashboardPersistentUiState();
+    const savedWorkspace =
+        getDashboardPersistentWorkspaceKey(state.workspaceKey) ||
+        getDashboardPersistentWorkspaceKey(state.workspace) ||
+        '';
+
+    const profileMode = String(state.profileMode || '').trim().toLowerCase();
+    const profileMemberId = normalizeAcademyFeedId(state.profileMemberId || '');
+
+    if (profileMode === 'self' || (profileMode === 'visited' && profileMemberId)) {
+        const baseWorkspace = savedWorkspace || 'overview';
+
+        activateDashboardUnifiedWorkspace(baseWorkspace, {
+            scroll: false,
+            animate: false,
+            persist: false
+        });
+
+        window.setTimeout(() => {
+            if (profileMode === 'visited') {
+                openAcademyMemberProfileView(profileMemberId);
+            } else {
+                openAcademyProfileView();
+            }
+        }, 120);
+
+        return true;
+    }
+
+    if (savedWorkspace) {
+        activateDashboardUnifiedWorkspace(savedWorkspace, {
+            scroll: false,
+            animate: false,
+            persist: false
+        });
+
+        return true;
+    }
+
+    return false;
+}
+
 const dashboardUnifiedWorkspaceLaunchMap = {
     wallet: {
         division: 'resources',
@@ -10150,6 +10426,11 @@ function activateDashboardUnifiedWorkspace(key = 'overview', options = {}) {
     const copy = getDashboardUnifiedWorkspaceCopy(key);
     const shouldScroll = options.scroll !== false;
     const shouldAnimate = options.animate !== false;
+    const shouldPersist = options.persist !== false;
+
+    if (shouldPersist) {
+        persistDashboardUnifiedWorkspaceState(copy.key, options);
+    }
 
     setDashboardSidebarActiveState(copy.key);
     setDashboardUnifiedShellText(copy.key);
@@ -10219,7 +10500,8 @@ function bootDashboardUnifiedSidebarWorkspace() {
 
     activateDashboardUnifiedWorkspace('overview', {
         scroll: false,
-        animate: false
+        animate: false,
+        persist: false
     });
 }
 
@@ -18196,8 +18478,8 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
 
     if (profileHeaderTitle) {
         profileHeaderTitle.innerText = isSelf
-            ? 'My YH Universe Profile'
-            : `${normalized.displayName}'s YH Universe Profile`;
+            ? 'My Young Hustlers Universe Profile'
+            : `${normalized.displayName}'s Young Hustlers Universe Profile`;
     }
 
     if (profileHeaderTopic) {
@@ -18479,26 +18761,26 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
 
     if (primaryAction) {
         primaryAction.classList.remove('hidden-step', 'is-following');
-        primaryAction.classList.toggle('btn-primary', isSelf);
-        primaryAction.classList.toggle('btn-secondary', !isSelf);
+        primaryAction.classList.remove('btn-secondary');
+        primaryAction.classList.add('btn-primary');
         primaryAction.disabled = false;
         delete primaryAction.dataset.memberProfileId;
         delete primaryAction.dataset.friendRequestId;
         delete primaryAction.dataset.profileAction;
-        primaryAction.dataset.actionRank = isSelf ? 'own-primary-hidden' : 'visited-secondary-follow';
+        primaryAction.dataset.actionRank = isSelf ? 'own-primary-hidden' : 'visited-primary-follow';
 
         if (isSelf) {
             primaryAction.innerText = '';
             primaryAction.classList.add('hidden-step');
             primaryAction.setAttribute('aria-label', 'Edit Profile moved to dashboard top bar');
         } else {
-            primaryAction.innerText = normalized.followedByMe ? 'Following' : 'Follow';
+            primaryAction.innerText = normalized.followedByMe ? 'Unfollow' : 'Follow';
             primaryAction.dataset.profileAction = 'toggle-follow';
             primaryAction.dataset.memberProfileId = normalized.id;
             primaryAction.classList.toggle('is-following', normalized.followedByMe);
             primaryAction.setAttribute(
                 'aria-label',
-                normalized.followedByMe ? `Following ${normalized.displayName}` : `Follow ${normalized.displayName}`
+                normalized.followedByMe ? `Unfollow ${normalized.displayName}` : `Follow ${normalized.displayName}`
             );
         }
     }
@@ -18562,6 +18844,28 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
             tertiaryAction.dataset.profileAction = 'open-direct-message';
             tertiaryAction.dataset.memberProfileId = normalized.id;
             tertiaryAction.setAttribute('aria-label', `Message ${normalized.displayName}`);
+        }
+    }
+
+    if (!isSelf) {
+        if (secondaryAction) {
+            secondaryAction.classList.add('hidden-step');
+            secondaryAction.setAttribute('aria-hidden', 'true');
+            secondaryAction.disabled = true;
+        }
+
+        if (tertiaryAction) {
+            tertiaryAction.classList.add('hidden-step');
+            tertiaryAction.setAttribute('aria-hidden', 'true');
+            tertiaryAction.disabled = true;
+        }
+    } else {
+        if (secondaryAction) {
+            secondaryAction.removeAttribute('aria-hidden');
+        }
+
+        if (tertiaryAction) {
+            tertiaryAction.removeAttribute('aria-hidden');
         }
     }
 
@@ -19550,14 +19854,14 @@ function setDashboardProfileEditorMode(mode = 'preview') {
 
     if (title) {
         title.textContent = cleanMode === 'edit'
-            ? 'Edit YH Universe Profile'
-            : 'Preview YH Universe Profile';
+            ? 'Edit Young Hustlers Universe Profile'
+            : 'Preview Young Hustlers Universe Profile';
     }
 
     if (copy) {
         copy.textContent = cleanMode === 'edit'
             ? 'Update the details that power your identity across Academy, Plaza, and Federation.'
-            : 'Review how your YH Universe profile appears before making changes.';
+            : 'Review how your Young Hustlers Universe profile appears before making changes.';
     }
 }
 
@@ -19577,8 +19881,8 @@ function ensureDashboardUniverseProfileEditor() {
             <div class="yh-dashboard-profile-modal-head">
                 <div>
                     <div class="yh-dashboard-profile-modal-kicker">Unified Profile</div>
-                    <h3 id="yh-dashboard-profile-editor-title">Preview YH Universe Profile</h3>
-                    <p id="yh-dashboard-profile-editor-copy">Review how your YH Universe profile appears before making changes.</p>
+                    <h3 id="yh-dashboard-profile-editor-title">Preview Young Hustlers Universe Profile</h3>
+                    <p id="yh-dashboard-profile-editor-copy">Review how your Young Hustlers Universe profile appears before making changes.</p>
                 </div>
 
                 <button type="button" class="yh-dashboard-profile-modal-close" data-dashboard-profile-close aria-label="Close">✕</button>
@@ -20622,6 +20926,8 @@ function closeDashboardUniverseProfileView() {
     profileView.setAttribute('aria-hidden', 'true');
 
     document.body?.classList.remove('yh-universe-profile-open');
+
+    clearDashboardPersistentProfileState();
 }
 
 function revealAcademyProfileView() {
@@ -20984,6 +21290,7 @@ async function hydrateDashboardSelfUniverseProfile() {
 
 function openAcademyProfileView() {
     saveAcademyViewState('profile');
+    persistDashboardProfileUiState('self');
     hideAcademyViewsForFeed();
     setAcademySidebarActive('nav-profile');
     revealAcademyProfileView();
@@ -21038,6 +21345,8 @@ async function openAcademyMemberProfileView(memberId = '') {
         redirectToStandaloneAcademyMemberProfile(normalizedMemberId);
         return;
     }
+
+    persistDashboardProfileUiState('visited', normalizedMemberId);
 
     const cachedProfile = dashboardGetVisitedProfileCache(normalizedMemberId);
     let renderedCachedProfile = false;
@@ -23044,6 +23353,10 @@ function persistDashboardShellView(view = 'hub', division = 'academy') {
 }
 
 function restoreDashboardViewState() {
+    if (restoreDashboardPersistentUiState()) {
+        return;
+    }
+
     const state = readDashboardViewState();
     const savedView = normalizeDashboardPersistedView(state?.view || 'hub');
     const savedDivision = normalizeUniverseDivision(state?.division || 'academy');
@@ -23615,6 +23928,7 @@ document.getElementById('academy-search-results-panel')?.addEventListener('click
 });
 
 let yhDashboardProfileSearchDebounce = null;
+let yhDashboardProfileSearchActiveInputId = 'yh-dashboard-top-search-input';
 
 function setDashboardProfileSearchLoading(isLoading = false) {
     const buttons = [
@@ -23628,8 +23942,173 @@ function setDashboardProfileSearchLoading(isLoading = false) {
     });
 }
 
-async function openDashboardUniverseProfileSearch(query = '') {
+function closeDashboardUniverseSearchDropdown(targetInputId = '') {
+    const targetId = String(targetInputId || '').trim();
+
+    document.querySelectorAll('.yh-dashboard-search-dropdown').forEach((panel) => {
+        if (targetId && panel.getAttribute('data-yh-search-input-id') !== targetId) return;
+
+        panel.classList.add('hidden-step');
+        panel.classList.remove('is-open');
+        panel.setAttribute('aria-hidden', 'true');
+        panel.innerHTML = '';
+    });
+
+    if (!targetId) {
+        document.body?.classList.remove('yh-dashboard-search-dropdown-open');
+    }
+}
+
+function getDashboardUniverseSearchDropdown(inputId = '') {
+    const cleanInputId = String(inputId || 'yh-dashboard-top-search-input').trim();
+    const input = document.getElementById(cleanInputId);
+    const form = input?.closest?.('.yh-dashboard-profile-search');
+
+    if (!input || !form) return null;
+
+    let panel = form.querySelector(`.yh-dashboard-search-dropdown[data-yh-search-input-id="${cleanInputId}"]`);
+
+    if (!panel) {
+        panel = document.createElement('div');
+        panel.className = 'yh-dashboard-search-dropdown hidden-step';
+        panel.setAttribute('data-yh-search-input-id', cleanInputId);
+        panel.setAttribute('aria-hidden', 'true');
+        panel.setAttribute('role', 'listbox');
+        panel.setAttribute('aria-label', 'YH member search results');
+        form.appendChild(panel);
+    }
+
+    return panel;
+}
+
+function renderDashboardUniverseSearchDropdownState(inputId = '', message = '', query = '') {
+    const panel = getDashboardUniverseSearchDropdown(inputId);
+    if (!panel) return;
+
+    const safeMessage = academyFeedEscapeHtml(String(message || '').trim() || 'Search YH members.');
+    const safeQuery = academyFeedEscapeHtml(String(query || '').trim());
+
+    closeDashboardUniverseSearchDropdown();
+    panel.classList.remove('hidden-step');
+    panel.classList.add('is-open');
+    panel.setAttribute('aria-hidden', 'false');
+    document.body?.classList.add('yh-dashboard-search-dropdown-open');
+
+    panel.innerHTML = `
+        <div class="yh-dashboard-search-dropdown-shell">
+            <div class="yh-dashboard-search-dropdown-head">
+                <span>YH Search</span>
+                ${safeQuery ? `<strong>${safeQuery}</strong>` : ''}
+            </div>
+            <div class="yh-dashboard-search-dropdown-empty">${safeMessage}</div>
+        </div>
+    `;
+}
+
+function renderDashboardUniverseSearchDropdown(inputId = '', members = [], query = '') {
+    const panel = getDashboardUniverseSearchDropdown(inputId);
+    if (!panel) return;
+
     const cleanQuery = String(query || '').trim();
+    const safeQuery = academyFeedEscapeHtml(cleanQuery);
+
+    closeDashboardUniverseSearchDropdown();
+    panel.classList.remove('hidden-step');
+    panel.classList.add('is-open');
+    panel.setAttribute('aria-hidden', 'false');
+    document.body?.classList.add('yh-dashboard-search-dropdown-open');
+
+    if (!Array.isArray(members) || members.length === 0) {
+        panel.innerHTML = `
+            <div class="yh-dashboard-search-dropdown-shell">
+                <div class="yh-dashboard-search-dropdown-head">
+                    <span>YH Search</span>
+                    <strong>${safeQuery}</strong>
+                </div>
+                <div class="yh-dashboard-search-dropdown-empty">
+                    No members matched “${safeQuery}”. Try a name, username, role, or tag.
+                </div>
+            </div>
+        `;
+        return;
+    }
+
+    panel.innerHTML = `
+        <div class="yh-dashboard-search-dropdown-shell">
+            <div class="yh-dashboard-search-dropdown-head">
+                <span>YH Search</span>
+                <strong>${members.length} ${members.length === 1 ? 'result' : 'results'} for “${safeQuery}”</strong>
+            </div>
+
+            <div class="yh-dashboard-search-dropdown-list">
+                ${members.slice(0, 8).map((member) => {
+                    const displayName = String(
+                        member.display_name ||
+                        member.fullName ||
+                        member.full_name ||
+                        member.name ||
+                        member.username ||
+                        'YH Member'
+                    ).trim();
+
+                    const username = String(member.username || '').replace(/^@+/, '').trim();
+                    const roleLabel = String(member.role_label || member.role || member.division || 'YH Member').trim();
+                    const avatar = String(member.avatar || member.avatar_url || member.avatarUrl || '').trim();
+                    const followerCount = Number(member.followers_count || 0);
+                    const isFollowing = member.followed_by_me === true || member.followed_by_me === 1;
+
+                    const tags = Array.isArray(member.search_tags)
+                        ? member.search_tags.slice(0, 3).map((tag) => `#${String(tag).replace(/^#/, '')}`).join(' • ')
+                        : '';
+
+                    return `
+                        <article class="yh-dashboard-search-result-card" data-yh-search-profile-id="${academyFeedEscapeHtml(member.id)}">
+                            <button
+                                type="button"
+                                class="yh-dashboard-search-result-main"
+                                data-yh-search-profile-id="${academyFeedEscapeHtml(member.id)}"
+                            >
+                                <span
+                                    class="yh-dashboard-search-result-avatar"
+                                    style="${avatar ? `background-image:url('${academyFeedEscapeHtml(avatar)}');` : ''}"
+                                >${avatar ? '' : academyFeedEscapeHtml((displayName || 'Y').charAt(0).toUpperCase())}</span>
+
+                                <span class="yh-dashboard-search-result-copy">
+                                    <strong>${academyFeedEscapeHtml(displayName)}</strong>
+                                    <span>
+                                        ${username ? `@${academyFeedEscapeHtml(username)} • ` : ''}
+                                        ${academyFeedEscapeHtml(roleLabel)}
+                                        ${followerCount ? ` • ${academyFeedEscapeHtml(String(followerCount))} followers` : ''}
+                                    </span>
+                                    ${tags ? `<small>${academyFeedEscapeHtml(tags)}</small>` : ''}
+                                </span>
+                            </button>
+
+                            <div class="yh-dashboard-search-result-actions">
+                                <button
+                                    type="button"
+                                    class="yh-dashboard-search-small-btn"
+                                    data-yh-search-profile-id="${academyFeedEscapeHtml(member.id)}"
+                                >View</button>
+
+                                <button
+                                    type="button"
+                                    class="yh-dashboard-search-small-btn ${isFollowing ? 'is-following' : ''}"
+                                    data-yh-search-follow-id="${academyFeedEscapeHtml(member.id)}"
+                                >${isFollowing ? 'Following' : 'Follow'}</button>
+                            </div>
+                        </article>
+                    `;
+                }).join('')}
+            </div>
+        </div>
+    `;
+}
+
+async function openDashboardUniverseProfileSearch(query = '', options = {}) {
+    const cleanQuery = String(query || '').trim();
+    const sourceInputId = String(options?.sourceInputId || yhDashboardProfileSearchActiveInputId || 'yh-dashboard-top-search-input').trim();
+
     const searchInputs = [
         document.getElementById('academy-member-browser-search-input'),
         document.getElementById('yh-dashboard-profile-search-input'),
@@ -23642,12 +24121,25 @@ async function openDashboardUniverseProfileSearch(query = '') {
         }
     });
 
+    if (!cleanQuery) {
+        closeDashboardUniverseSearchDropdown();
+        return;
+    }
+
+    if (cleanQuery.length < 2) {
+        renderDashboardUniverseSearchDropdownState(sourceInputId, 'Type at least 2 characters to search YH members.', cleanQuery);
+        return;
+    }
+
     setDashboardProfileSearchLoading(true);
+    renderDashboardUniverseSearchDropdownState(sourceInputId, 'Searching members...', cleanQuery);
 
     try {
-        await loadAcademyMemberBrowser(cleanQuery);
+        const members = await requestAcademyMemberSearch(cleanQuery);
+        renderDashboardUniverseSearchDropdown(sourceInputId, members, cleanQuery);
     } catch (error) {
         console.error('openDashboardUniverseProfileSearch error:', error);
+        renderDashboardUniverseSearchDropdownState(sourceInputId, error?.message || 'Failed to search YH members.', cleanQuery);
         showToast(error?.message || 'Failed to search YH members.', 'error');
     } finally {
         setDashboardProfileSearchLoading(false);
@@ -23657,18 +24149,27 @@ async function openDashboardUniverseProfileSearch(query = '') {
 function scheduleDashboardUniverseProfileSearch(query = '', options = {}) {
     const cleanQuery = String(query || '').trim();
     const immediate = options?.immediate === true;
+    const sourceInputId = String(options?.sourceInputId || yhDashboardProfileSearchActiveInputId || 'yh-dashboard-top-search-input').trim();
+
+    yhDashboardProfileSearchActiveInputId = sourceInputId;
 
     if (yhDashboardProfileSearchDebounce) {
         clearTimeout(yhDashboardProfileSearchDebounce);
         yhDashboardProfileSearchDebounce = null;
     }
 
+    if (!cleanQuery) {
+        closeDashboardUniverseSearchDropdown(sourceInputId);
+        return;
+    }
+
     if (!immediate && cleanQuery.length > 0 && cleanQuery.length < 2) {
+        renderDashboardUniverseSearchDropdownState(sourceInputId, 'Type at least 2 characters to search YH members.', cleanQuery);
         return;
     }
 
     yhDashboardProfileSearchDebounce = window.setTimeout(() => {
-        openDashboardUniverseProfileSearch(cleanQuery);
+        openDashboardUniverseProfileSearch(cleanQuery, { sourceInputId });
     }, immediate ? 0 : 320);
 }
 
@@ -23680,26 +24181,114 @@ function bindDashboardUniverseSearchForm(formId = '', inputId = '') {
         event.preventDefault();
 
         const query = String(input?.value || '').trim();
-        scheduleDashboardUniverseProfileSearch(query, { immediate: true });
+        scheduleDashboardUniverseProfileSearch(query, {
+            immediate: true,
+            sourceInputId: inputId
+        });
+    });
+
+    input?.addEventListener('focus', (event) => {
+        const query = String(event.currentTarget?.value || '').trim();
+        if (query.length >= 2) {
+            scheduleDashboardUniverseProfileSearch(query, {
+                immediate: true,
+                sourceInputId: inputId
+            });
+        }
     });
 
     input?.addEventListener('input', (event) => {
         const query = String(event.currentTarget?.value || '').trim();
-        scheduleDashboardUniverseProfileSearch(query);
+        scheduleDashboardUniverseProfileSearch(query, {
+            sourceInputId: inputId
+        });
     });
 
     input?.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') {
+            closeDashboardUniverseSearchDropdown(inputId);
+            return;
+        }
+
         if (event.key !== 'Enter') return;
 
         event.preventDefault();
 
         const query = String(event.currentTarget?.value || '').trim();
-        scheduleDashboardUniverseProfileSearch(query, { immediate: true });
+        scheduleDashboardUniverseProfileSearch(query, {
+            immediate: true,
+            sourceInputId: inputId
+        });
     });
+}
+
+function bootDashboardUniverseSearchDropdownBridge() {
+    if (window.__dashboardUniverseSearchDropdownBridgeInstalled) return;
+    window.__dashboardUniverseSearchDropdownBridgeInstalled = true;
+
+    document.addEventListener('click', (event) => {
+        const profileButton = event.target.closest('[data-yh-search-profile-id]');
+        if (profileButton) {
+            event.preventDefault();
+
+            const targetUserId = normalizeAcademyFeedId(profileButton.getAttribute('data-yh-search-profile-id'));
+            if (targetUserId) {
+                closeDashboardUniverseSearchDropdown();
+                openAcademyMemberProfileView(targetUserId);
+            }
+
+            return;
+        }
+
+        const followButton = event.target.closest('[data-yh-search-follow-id]');
+        if (followButton) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            const targetUserId = normalizeAcademyFeedId(followButton.getAttribute('data-yh-search-follow-id'));
+            if (!targetUserId) return;
+
+            followButton.disabled = true;
+            academyFeedToggleFollow(targetUserId).then(() => {
+                const activeInput = document.getElementById(yhDashboardProfileSearchActiveInputId);
+                const activeSearch = String(activeInput?.value || '').trim();
+
+                if (activeSearch.length >= 2) {
+                    return requestAcademyMemberSearch(activeSearch).then((members) => {
+                        renderDashboardUniverseSearchDropdown(yhDashboardProfileSearchActiveInputId, members, activeSearch);
+                    });
+                }
+
+                return null;
+            }).catch((error) => {
+                showToast(error?.message || 'Failed to update follow status.', 'error');
+            }).finally(() => {
+                followButton.disabled = false;
+            });
+
+            return;
+        }
+
+        const clickedInsideSearch = event.target.closest('.yh-dashboard-profile-search');
+        const clickedInsideDropdown = event.target.closest('.yh-dashboard-search-dropdown');
+
+        if (!clickedInsideSearch && !clickedInsideDropdown) {
+            closeDashboardUniverseSearchDropdown();
+        }
+    });
+
+    window.addEventListener('resize', () => {
+        closeDashboardUniverseSearchDropdown();
+    });
+
+    window.addEventListener('scroll', () => {
+        closeDashboardUniverseSearchDropdown();
+    }, true);
 }
 
 bindDashboardUniverseSearchForm('yh-dashboard-profile-search-form', 'yh-dashboard-profile-search-input');
 bindDashboardUniverseSearchForm('yh-dashboard-top-search-form', 'yh-dashboard-top-search-input');
+bootDashboardUniverseSearchDropdownBridge();
 
 document.getElementById('academy-member-browser-close')?.addEventListener('click', () => {
     document.getElementById('academy-member-browser-modal')?.classList.add('hidden-step');
