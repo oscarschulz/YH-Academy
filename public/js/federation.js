@@ -420,7 +420,36 @@ function renderFederationVerifiedBadgeAvailButton(member = {}) {
     </button>
   `;
 }
+const YHF_TELEGRAM_GROUP_HANDLE = "@younghustlersteam";
+const YHF_TELEGRAM_GROUP_URL = "https://t.me/younghustlersteam";
 
+function federationHasActiveYhfBadge(member = {}, state = {}) {
+  return !!(
+    federationGetVerificationBadge(member, "federation") ||
+    federationGetVerificationBadge(state?.currentUser || {}, "federation") ||
+    federationGetVerificationBadge(state?.application || {}, "federation")
+  );
+}
+
+function renderFederationTelegramGroupAccess(member = {}, state = {}) {
+  if (!federationHasActiveYhfBadge(member, state)) return "";
+
+  return `
+    <div class="fed-yhf-telegram-access-card">
+      <div class="fed-yhf-telegram-access-icon">✦</div>
+      <div class="fed-yhf-telegram-access-copy">
+        <div class="fed-yhf-telegram-access-kicker">YHF Badge Benefit</div>
+        <strong>Private Federation Telegram group unlocked</strong>
+        <p>
+          Your active YHF badge gives you access to the private Telegram group with other Federation members.
+        </p>
+        <a href="${YHF_TELEGRAM_GROUP_URL}" target="_blank" rel="noopener noreferrer">
+          Open ${YHF_TELEGRAM_GROUP_HANDLE}
+        </a>
+      </div>
+    </div>
+  `;
+}
 function chooseFederationVerifiedBadgeProvider() {
   const selected = window.prompt(
     'Choose payment method:\n\nType "stripe" for Card / Bank.\nType "oxapay" for Crypto.\nType "manual" for admin-confirmed fallback.',
@@ -875,7 +904,13 @@ function normalizeFederationMember(raw = {}) {
     photoURL: normalizeFederationAvatarUrl(raw.photoURL || raw.avatar || raw.profilePhoto || ""),
     approvedAt: String(raw.approvedAt || raw.createdAt || raw.updatedAt || "").trim(),
     source: String(raw.source || "server").trim(),
-    referralCode: String(raw.referralCode || "").trim()
+    referralCode: String(raw.referralCode || "").trim(),
+    verificationBadges: raw.verificationBadges && typeof raw.verificationBadges === "object"
+      ? raw.verificationBadges
+      : {},
+    subscriptionBadges: raw.subscriptionBadges && typeof raw.subscriptionBadges === "object"
+      ? raw.subscriptionBadges
+      : {}
   };
 }
 
@@ -5177,6 +5212,7 @@ function renderCurrentUserPanel() {
       <div class="fed-state-inline-note">
         Referral pipeline: ${escapeHtml(String(snapshot.total))} total, ${escapeHtml(String(snapshot.pending))} in review, ${escapeHtml(String(snapshot.approved))} approved.
       </div>
+      ${renderFederationTelegramGroupAccess(member, state)}
       ${strategicNote}
     </article>
   `;

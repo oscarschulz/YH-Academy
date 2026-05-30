@@ -25913,7 +25913,59 @@ body[data-yh-page="academy"] .academy-ai-coach-rect-form {
     font-weight: 900;
     white-space: nowrap;
 }
+.yh-dashboard-settings-badge-payment-feature,
+.yh-badge-avail-feature-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 13px 14px;
+    margin-top: 14px;
+    margin-bottom: 4px;
+    border-radius: 17px;
+    border: 1px solid rgba(211, 178, 112, 0.30);
+    background:
+        radial-gradient(circle at top left, rgba(211, 178, 112, 0.13), transparent 44%),
+        rgba(15, 23, 42, 0.72);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
 
+.yh-dashboard-settings-badge-payment-feature-icon,
+.yh-badge-avail-feature-icon {
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    display: grid;
+    place-items: center;
+    border-radius: 13px;
+    border: 1px solid rgba(211, 178, 112, 0.34);
+    background: rgba(211, 178, 112, 0.10);
+    color: #f8d992;
+    font-weight: 900;
+    box-shadow: 0 0 16px rgba(211, 178, 112, 0.12);
+}
+
+.yh-dashboard-settings-badge-payment-feature strong,
+.yh-badge-avail-feature-card strong {
+    display: block;
+    color: #ffffff;
+    font-size: 0.88rem;
+    font-weight: 900;
+    margin-bottom: 3px;
+}
+
+.yh-dashboard-settings-badge-payment-feature p,
+.yh-badge-avail-feature-card p {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    line-height: 1.5;
+}
+
+.yh-dashboard-settings-badge-payment-feature span,
+.yh-badge-avail-feature-card span {
+    color: #f8d992;
+    font-weight: 900;
+}
 .yh-dashboard-settings-badge-payment-section {
     display: grid;
     gap: 10px;

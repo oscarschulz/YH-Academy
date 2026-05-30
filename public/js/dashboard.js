@@ -3512,7 +3512,7 @@ function dashboardSettingsBuildExplanation(item = {}) {
             isAcademyBadge
                 ? 'YHA unlocks the Academy Verified Badge for your YH profile and includes Academy Learn From Access inside the Academy experience.'
                 : isFederationBadge
-                    ? 'YHF unlocks the Federation Verified Badge for your YH profile and includes access to the private Telegram group with other Federation members.'
+                ? 'YHF unlocks the Federation Verified Badge for your YH profile and includes access to the private Telegram group @younghustlersteam with other Federation members.'
                     : item.includedCopy || 'Review this subscription before continuing to checkout.'
         )
     ).trim();
@@ -3528,7 +3528,7 @@ function dashboardSettingsBuildExplanation(item = {}) {
             : isFederationBadge
                 ? [
                     'Federation Verified Badge visibility',
-                    'Private Telegram group access with other Federation members',
+                    'Private Telegram group access with other Federation members (@younghustlersteam)',
                     'Federation subscription/payment status tracking',
                     'Subscription managed from Dashboard Settings'
                 ]
@@ -4111,7 +4111,7 @@ async function dashboardRefreshSettingsAfterBadgeAvailIfOpen() {
                 amountLifetime: 281.20,
                 asset: '/images/yhf%20badge.png',
                 accentClass: 'is-federation',
-                summary: 'For approved Federation members who want the YHF verification symbol on their public YH Universe profile, plus access to the private Telegram group with other Federation members.'
+summary: 'For approved Federation members who want the YHF verification symbol on their public YH Universe profile, plus access to the private Telegram group @younghustlersteam with other Federation members.'
             };
         }
 
@@ -4566,6 +4566,14 @@ function ensureDashboardSettingsBadgePaymentModal() {
                     <strong id="yh-dashboard-settings-badge-payment-amount">$0.00/month</strong>
                 </section>
 
+                <section class="yh-dashboard-settings-badge-payment-feature hidden-step" id="yh-dashboard-settings-badge-yhf-telegram-feature">
+                    <div class="yh-dashboard-settings-badge-payment-feature-icon">✦</div>
+                    <div>
+                        <strong>YHF member Telegram access included</strong>
+                        <p>After your YHF badge is active, you unlock access to the private Federation Telegram group with other Federation members: <span>@younghustlersteam</span>.</p>
+                    </div>
+                </section>
+
                 <section class="yh-dashboard-settings-badge-payment-section">
                     <h4>Choose billing option</h4>
                     <p id="yh-dashboard-settings-badge-payment-billing-copy">Select how long this badge access should stay active.</p>
@@ -4722,6 +4730,11 @@ function syncDashboardSettingsBadgePaymentModalUi() {
     const summary = modal.querySelector('#yh-dashboard-settings-badge-payment-summary');
     const amount = modal.querySelector('#yh-dashboard-settings-badge-payment-amount');
     const billingCopy = modal.querySelector('#yh-dashboard-settings-badge-payment-billing-copy');
+    const telegramFeature = modal.querySelector('#yh-dashboard-settings-badge-yhf-telegram-feature');
+
+    if (telegramFeature) {
+        telegramFeature.classList.toggle('hidden-step', plan.division !== 'federation');
+    }
 
     if (iconWrap) {
         iconWrap.classList.remove('is-academy', 'is-federation');
@@ -4740,11 +4753,11 @@ function syncDashboardSettingsBadgePaymentModalUi() {
     if (billingCopy) {
         billingCopy.textContent =
             billingPlan === 'lifetime'
-                ? `${plan.code} Lifetime gives permanent badge access${plan.division === 'academy' ? ' and permanent Academy Learn From access.' : plan.division === 'federation' ? ' and permanent Federation Telegram group access.' : '.'}`
+                ? `${plan.code} Lifetime gives permanent badge access${plan.division === 'academy' ? ' and permanent Academy Learn From access.' : plan.division === 'federation' ? ' and permanent Federation Telegram group access through @younghustlersteam.' : '.'}`
                 : billingPlan === 'one_time'
-                    ? `${plan.code} One-Time gives 30 days of badge access${plan.division === 'academy' ? ' and Learn From access for the same period.' : plan.division === 'federation' ? ' and Federation Telegram group access for the same period.' : '.'}`
+                    ? `${plan.code} One-Time gives 30 days of badge access${plan.division === 'academy' ? ' and Learn From access for the same period.' : plan.division === 'federation' ? ' and Federation Telegram group access through @younghustlersteam for the same period.' : '.'}`
                     : plan.division === 'federation'
-                        ? `${plan.code} Monthly renews through Stripe when Stripe is selected and includes Federation Telegram group access while active.`
+                        ? `${plan.code} Monthly renews through Stripe when Stripe is selected and includes Federation Telegram group access through @younghustlersteam while active.`
                         : `${plan.code} Monthly renews through Stripe when Stripe is selected.`;
     }
 
@@ -14614,11 +14627,11 @@ function dashboardSyncBadgeBillingUi(modal = null) {
     if (billingCopy) {
         billingCopy.textContent =
             billingPlan === 'lifetime'
-                ? `${plan.code} Lifetime unlocks permanent badge access${plan.division === 'academy' ? ' and permanent Learn From access inside the Academy AI Coach.' : plan.division === 'federation' ? ' and permanent Federation Telegram group access.' : '.'}`
+                ? `${plan.code} Lifetime unlocks permanent badge access${plan.division === 'academy' ? ' and permanent Learn From access inside the Academy AI Coach.' : plan.division === 'federation' ? ' and permanent Federation Telegram group access through @younghustlersteam.' : '.'}`
                 : billingPlan === 'one_time'
-                    ? `${plan.code} One-Time unlocks badge access for 30 days${plan.division === 'academy' ? ' and Learn From access for the same active period.' : plan.division === 'federation' ? ' and Federation Telegram group access for the same active period.' : '.'}`
+                    ? `${plan.code} One-Time unlocks badge access for 30 days${plan.division === 'academy' ? ' and Learn From access for the same active period.' : plan.division === 'federation' ? ' and Federation Telegram group access through @younghustlersteam for the same active period.' : '.'}`
                     : plan.division === 'federation'
-                        ? `${plan.code} Monthly renews automatically through Stripe when Stripe is selected and includes Federation Telegram group access while active.`
+                        ? `${plan.code} Monthly renews automatically through Stripe when Stripe is selected and includes Federation Telegram group access through @younghustlersteam while active.`
                         : `${plan.code} Monthly renews automatically through Stripe when Stripe is selected.`;
     }
 
@@ -14656,6 +14669,14 @@ function ensureDashboardBadgeAvailModal() {
             <div class="yh-badge-avail-price-card">
                 <span>Selected plan</span>
                 <strong id="yh-badge-avail-amount">$2.81/month</strong>
+            </div>
+
+            <div class="yh-badge-avail-feature-card hidden-step" id="yh-badge-avail-yhf-telegram-card">
+                <div class="yh-badge-avail-feature-icon">✦</div>
+                <div>
+                    <strong>Federation Telegram group access</strong>
+                    <p>YHF badge members unlock the private Telegram group with other Federation members: <span>@younghustlersteam</span>.</p>
+                </div>
             </div>
 
             <div class="yh-badge-avail-panel" data-badge-modal-panel="overview">
@@ -15048,6 +15069,11 @@ function openDashboardBadgeAvailModal(division = 'academy', button = null) {
     const summary = modal.querySelector('#yh-badge-avail-summary');
     const amount = modal.querySelector('#yh-badge-avail-amount');
     const note = modal.querySelector('#yh-badge-avail-note');
+    const telegramFeature = modal.querySelector('#yh-badge-avail-yhf-telegram-card');
+
+    if (telegramFeature) {
+        telegramFeature.classList.toggle('hidden-step', plan.division !== 'federation');
+    }
 
     if (iconWrap) {
         iconWrap.classList.remove('is-academy', 'is-federation');
@@ -15066,7 +15092,7 @@ function openDashboardBadgeAvailModal(division = 'academy', button = null) {
     if (note) {
         note.textContent = plan.division === 'academy'
             ? 'Access to Learn From Big Figures and the Greatest Philosophers will be unlocked inside the Academy AI Coach. Your YHA badge will also appear on your public YH Universe profile.'
-            : 'This subscription adds the YHF verification symbol to your public YH Universe profile and unlocks access to the private Telegram group with other Federation members.';
+            : 'This subscription adds the YHF verification symbol to your public YH Universe profile and unlocks access to the private Telegram group @younghustlersteam with other Federation members.';
     }
 
     dashboardSyncBadgeBillingUi(modal);
