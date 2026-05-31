@@ -4090,8 +4090,21 @@ const apiLimiter = rateLimit({
 
         if (method === 'GET') {
             if (path === '/academy/membership-status') return true;
+            if (path === '/academy/home') return true;
             if (path === '/academy/community/members') return true;
+            if (path === '/academy/community/niches') return true;
             if (path === '/academy/feed' || path.startsWith('/academy/feed/')) return true;
+
+            // Wallet, payment, payout, subscription, and Academy Learn From reads are normal dashboard state reads.
+            // They can fire during dashboard boot, Wallet open, Settings open, Academy boot, and iframe sync.
+            if (path === '/payments/options') return true;
+            if (path === '/payments/my-ledger') return true;
+            if (path === '/payments/subscriptions') return true;
+            if (path === '/payments/academy/learn-from-access') return true;
+            if (path === '/payouts/options') return true;
+            if (path === '/payouts/balance') return true;
+            if (path === '/payouts/my-ledger') return true;
+
             if (path === '/plaza/feed' || path.startsWith('/plaza/feed/')) return true;
             if (path === '/plaza/opportunities' || path.startsWith('/plaza/opportunities/')) return true;
             if (path === '/plaza/directory' || path.startsWith('/plaza/directory/')) return true;

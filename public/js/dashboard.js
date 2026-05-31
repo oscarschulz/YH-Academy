@@ -2494,6 +2494,9 @@ function renderDashboardCommandOverview() {
 }
 
 const YH_WALLET_CACHE_KEY = 'yh_wallet_snapshot_v1';
+const YH_WALLET_REFRESH_COOLDOWN_MS = 12000;
+let yhWalletSnapshotRequestInFlight = null;
+let yhWalletLastFreshAt = 0;
 
 function formatYHWalletMoney(amount = 0, currency = 'USD') {
     const cleanCurrency = String(currency || 'USD').trim().toUpperCase() || 'USD';
@@ -2850,17 +2853,39 @@ function renderYHWalletSnapshot(snapshot = {}) {
 
 async function refreshYHWalletSnapshot(forceFresh = false) {
     const currency = String(document.getElementById('yh-wallet-withdraw-currency')?.value || 'USD').trim() || 'USD';
+    const cached = readYHJsonCache(YH_WALLET_CACHE_KEY, null);
 
-    if (!forceFresh) {
-        const cached = readYHJsonCache(YH_WALLET_CACHE_KEY, null);
-        if (cached && typeof cached === 'object') {
-            renderYHWalletSnapshot(cached);
-        }
+    if (!forceFresh && cached && typeof cached === 'object') {
+        renderYHWalletSnapshot(cached);
     }
 
-    const snapshot = await fetchYHWalletSnapshot(currency);
-    renderYHWalletSnapshot(snapshot);
-    return snapshot;
+    const now = Date.now();
+
+    if (!forceFresh && yhWalletSnapshotRequestInFlight) {
+        return yhWalletSnapshotRequestInFlight;
+    }
+
+    if (
+        !forceFresh &&
+        cached &&
+        typeof cached === 'object' &&
+        yhWalletLastFreshAt &&
+        now - yhWalletLastFreshAt < YH_WALLET_REFRESH_COOLDOWN_MS
+    ) {
+        return cached;
+    }
+
+    yhWalletSnapshotRequestInFlight = fetchYHWalletSnapshot(currency)
+        .then((snapshot) => {
+            yhWalletLastFreshAt = Date.now();
+            renderYHWalletSnapshot(snapshot);
+            return snapshot;
+        })
+        .finally(() => {
+            yhWalletSnapshotRequestInFlight = null;
+        });
+
+    return yhWalletSnapshotRequestInFlight;
 }
 
 const YH_WALLET_DASHBOARD_PERSISTENT_UI_STATE_KEY = 'yh_dashboard_persistent_ui_state_v1';
@@ -3090,10 +3115,6 @@ function mountYHWalletInlineView() {
         console.error('refreshYHWalletSnapshot inline error:', error);
         showToast(error?.message || 'Failed to load wallet.', 'error');
     });
-
-    window.setTimeout(() => {
-        refreshYHWalletSnapshot(false).catch(() => {});
-    }, 180);
 
     return true;
 }
@@ -10257,45 +10278,43 @@ function enforceDashboardInlineFederationScroll(frame, doc = null) {
     const shell = frameDoc.querySelector('.fed-shell');
 
     frameDoc.documentElement.style.setProperty('height', '100%', 'important');
-    frameDoc.documentElement.style.setProperty('overflow', 'hidden', 'important');
-    frameDoc.body.style.setProperty('height', '100%', 'important');
+    frameDoc.documentElement.style.setProperty('min-height', '100%', 'important');
+    frameDoc.documentElement.style.setProperty('overflow-y', 'auto', 'important');
+    frameDoc.documentElement.style.setProperty('overflow-x', 'hidden', 'important');
+
+    frameDoc.body.style.setProperty('height', 'auto', 'important');
     frameDoc.body.style.setProperty('min-height', '100%', 'important');
-    frameDoc.body.style.setProperty('overflow', 'hidden', 'important');
+    frameDoc.body.style.setProperty('overflow-y', 'auto', 'important');
+    frameDoc.body.style.setProperty('overflow-x', 'hidden', 'important');
     frameDoc.body.style.setProperty('overscroll-behavior', 'contain', 'important');
 
     if (shell instanceof HTMLElement) {
-        shell.style.setProperty('height', '100%', 'important');
-        shell.style.setProperty('max-height', '100%', 'important');
-        shell.style.setProperty('min-height', '0', 'important');
-        shell.style.setProperty('overflow', 'hidden', 'important');
+        shell.style.setProperty('height', 'auto', 'important');
+        shell.style.setProperty('max-height', 'none', 'important');
+        shell.style.setProperty('min-height', '100%', 'important');
+        shell.style.setProperty('overflow', 'visible', 'important');
         shell.style.setProperty('display', 'grid', 'important');
         shell.style.setProperty('grid-template-columns', 'minmax(0, 1fr)', 'important');
-        shell.style.setProperty('grid-template-rows', 'minmax(0, 1fr)', 'important');
+        shell.style.setProperty('grid-template-rows', 'auto', 'important');
     }
 
     if (main instanceof HTMLElement) {
-        main.style.setProperty('height', '100%', 'important');
-        main.style.setProperty('max-height', '100%', 'important');
-        main.style.setProperty('min-height', '0', 'important');
-        main.style.setProperty('overflow-y', 'auto', 'important');
-        main.style.setProperty('overflow-x', 'hidden', 'important');
+        main.style.setProperty('height', 'auto', 'important');
+        main.style.setProperty('max-height', 'none', 'important');
+        main.style.setProperty('min-height', '100%', 'important');
+        main.style.setProperty('overflow', 'visible', 'important');
         main.style.setProperty('-webkit-overflow-scrolling', 'touch', 'important');
         main.style.setProperty('overscroll-behavior', 'contain', 'important');
         main.style.setProperty('touch-action', 'pan-y', 'important');
         main.style.setProperty('scrollbar-width', 'thin', 'important');
 
-        if (main.dataset.yhDashboardFederationScrollBound !== 'true') {
-            main.dataset.yhDashboardFederationScrollBound = 'true';
+        if (main.dataset.yhDashboardFederationScrollBoundV2 !== 'true') {
+            main.dataset.yhDashboardFederationScrollBoundV2 = 'true';
 
             main.addEventListener('wheel', (event) => {
-                if (main.scrollHeight <= main.clientHeight) return;
-
-                const atTop = main.scrollTop <= 0;
-                const atBottom = Math.ceil(main.scrollTop + main.clientHeight) >= main.scrollHeight;
-
-                if ((event.deltaY < 0 && !atTop) || (event.deltaY > 0 && !atBottom)) {
-                    event.stopPropagation();
-                }
+                const scrollingElement = frameDoc.scrollingElement || frameDoc.documentElement;
+                if (!scrollingElement || scrollingElement.scrollHeight <= scrollingElement.clientHeight) return;
+                event.stopPropagation();
             }, { passive: true });
         }
     }
@@ -10354,6 +10373,19 @@ function syncDashboardInlineFederationSection(frame) {
                 syncHash: false,
                 showLoader: false
             });
+
+            window.requestAnimationFrame(() => {
+                enforceDashboardInlineFederationScroll(frame, doc);
+
+                try {
+                    const scrollingElement = doc.scrollingElement || doc.documentElement;
+                    if (scrollingElement) scrollingElement.scrollTop = 0;
+
+                    const main = doc.getElementById('fedMain');
+                    if (main) main.scrollTop = 0;
+                } catch (_) {}
+            });
+
             return true;
         }
     } catch (_) {}

@@ -4913,6 +4913,14 @@ function setActiveSection(targetId = "", options = {}) {
     });
   }
 
+  const pageScroller = document.scrollingElement || document.documentElement;
+  if (pageScroller) {
+    pageScroller.scrollTo({
+      top: 0,
+      behavior: "auto"
+    });
+  }
+
   if (nextSectionId === "expansion" && typeof window.__yhfRenderMapRoutes === "function") {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
