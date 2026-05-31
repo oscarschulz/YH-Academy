@@ -150,6 +150,17 @@ function applyAcademySocialStatsToProfileResponse(profileResponse = {}, socialPr
 }
 /* END PATCH: Apply Academy social stats consistently v1 */
 
+/* PATCH: Universe profile timeout guard v1 */
+function withUniverseProfileTimeout(promise, timeoutMs = 2500, fallback = null) {
+    return Promise.race([
+        promise,
+        new Promise((resolve) => {
+            setTimeout(() => resolve(fallback), timeoutMs);
+        })
+    ]);
+}
+/* END PATCH: Universe profile timeout guard v1 */
+
 function buildPublicLandingEventLocation(req = {}) {
     const body = req && req.body && typeof req.body === 'object' ? req.body : {};
     const sources = [
@@ -4142,16 +4153,24 @@ exports.getUniverseProfile = async (req, res) => {
         }
 
         const userData = userSnapshot.data() || {};
-        const storedAcademyProfile = await academyFirestoreRepo.getCurrentProfile(uid).catch(() => null) || {};
+        const storedAcademyProfile = await withUniverseProfileTimeout(
+            academyFirestoreRepo.getCurrentProfile(uid).catch(() => null),
+            2500,
+            null
+        ) || {};
         const academyProfile = buildAcademyProfileResponse(uid, userData, storedAcademyProfile);
 
-        /* PATCH: Use lightweight server-backed social counts for universe profile v1 */
+        /* PATCH: Use timeout-safe server-backed social counts for universe profile v2 */
         try {
             if (typeof academyCommunityRepo.getMemberSocialCounts === 'function') {
-                const socialCounts = await academyCommunityRepo.getMemberSocialCounts({
-                    userId: uid,
-                    viewerId: uid
-                });
+                const socialCounts = await withUniverseProfileTimeout(
+                    academyCommunityRepo.getMemberSocialCounts({
+                        userId: uid,
+                        viewerId: uid
+                    }),
+                    2500,
+                    null
+                );
 
                 applyAcademySocialStatsToProfileResponse(academyProfile, socialCounts);
             }
@@ -4159,21 +4178,18 @@ exports.getUniverseProfile = async (req, res) => {
             console.warn('getUniverseProfile social count fallback:', socialCountError?.message || socialCountError);
         }
 
-        try {
-            const socialProfile = await academyCommunityRepo.getMemberProfile({
-                viewerId: uid,
-                targetUserId: uid
-            });
-
-            applyAcademySocialStatsToProfileResponse(academyProfile, socialProfile);
-        } catch (socialProfileError) {
-            console.warn('getUniverseProfile full social profile skipped:', socialProfileError?.message || socialProfileError);
-        }
-        /* END PATCH: Use lightweight server-backed social counts for universe profile v1 */
+        // Keep Universe self profile fast.
+        // Social counts are timeout-safe and must not block /api/universe/profile.
+        // Do not block /api/universe/profile with full getMemberProfile hydration.
+        /* END PATCH: Use timeout-safe server-backed social counts for universe profile v2 */
 
         let academyAccessState = null;
         try {
-            academyAccessState = await academyFirestoreRepo.getAccessState(uid);
+            academyAccessState = await withUniverseProfileTimeout(
+                academyFirestoreRepo.getAccessState(uid),
+                2500,
+                null
+            );
         } catch (_) {
             academyAccessState = null;
         }
@@ -4229,7 +4245,11 @@ exports.getUniverseProfile = async (req, res) => {
             userData.hasFederationAccess === true ||
             federationStatus === 'approved';
 
-        const plazaDirectoryProfile = await getUniverseSafeDoc('plazaDirectoryProfiles', uid);
+        const plazaDirectoryProfile = await withUniverseProfileTimeout(
+            getUniverseSafeDoc('plazaDirectoryProfiles', uid),
+            2500,
+            null
+        );
 
         const divisions = {
             academy: {

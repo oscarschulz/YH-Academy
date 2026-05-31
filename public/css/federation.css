@@ -68,70 +68,82 @@ a {
   text-decoration: none;
 }
 
-/* PATCH: Federation embedded Dashboard scroll fix v2 */
+/* PATCH: Federation embedded Dashboard scroll fix v3 */
 html.yh-dashboard-inline-embed-root,
+html.yh-dashboard-federation-embed-root,
 body.yh-dashboard-inline-embed-body[data-yh-view="federation"],
-body.yh-dashboard-inline-embed-body[data-yh-page="federation"] {
+body.yh-dashboard-inline-embed-body[data-yh-page="federation"],
+body.yh-dashboard-federation-embed-body {
   width: 100% !important;
-  height: auto !important;
+  height: 100% !important;
   min-height: 100% !important;
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
+  overflow: hidden !important;
   overscroll-behavior: contain !important;
 }
 
-html.yh-dashboard-inline-embed-root::-webkit-scrollbar,
-body.yh-dashboard-inline-embed-body::-webkit-scrollbar {
-  width: 8px !important;
-  height: 8px !important;
-}
-
-html.yh-dashboard-inline-embed-root::-webkit-scrollbar-track,
-body.yh-dashboard-inline-embed-body::-webkit-scrollbar-track {
-  background: rgba(2, 6, 23, 0.18) !important;
-}
-
-html.yh-dashboard-inline-embed-root::-webkit-scrollbar-thumb,
-body.yh-dashboard-inline-embed-body::-webkit-scrollbar-thumb {
-  border-radius: 999px !important;
-  background: rgba(56, 189, 248, 0.42) !important;
-}
-
-body.yh-dashboard-inline-embed-body .fed-shell {
+body.yh-dashboard-inline-embed-body[data-yh-view="federation"] .fed-shell,
+body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .fed-shell,
+body.yh-dashboard-federation-embed-body .fed-shell {
   width: 100% !important;
-  height: auto !important;
-  max-height: none !important;
-  min-height: 100% !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
   display: grid !important;
   grid-template-columns: minmax(0, 1fr) !important;
-  grid-template-rows: auto !important;
-  overflow: visible !important;
+  grid-template-rows: minmax(0, 1fr) !important;
+  overflow: hidden !important;
 }
 
-body.yh-dashboard-inline-embed-body .fed-main {
+body.yh-dashboard-inline-embed-body[data-yh-view="federation"] .fed-main,
+body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .fed-main,
+body.yh-dashboard-federation-embed-body .fed-main {
   width: 100% !important;
-  height: auto !important;
-  max-height: none !important;
-  min-height: 100% !important;
-  overflow: visible !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
   -webkit-overflow-scrolling: touch !important;
   overscroll-behavior: contain !important;
   touch-action: pan-y !important;
   scroll-behavior: auto !important;
-  padding-bottom: clamp(28px, 4vh, 56px) !important;
+  padding-bottom: clamp(80px, 8vh, 120px) !important;
   scrollbar-width: thin !important;
   scrollbar-color: rgba(56, 189, 248, 0.42) rgba(2, 6, 23, 0.18) !important;
 }
 
-body.yh-dashboard-inline-embed-body .fed-section.is-panel-hidden {
+body.yh-dashboard-inline-embed-body[data-yh-view="federation"] .fed-main::-webkit-scrollbar,
+body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .fed-main::-webkit-scrollbar,
+body.yh-dashboard-federation-embed-body .fed-main::-webkit-scrollbar {
+  width: 8px !important;
+}
+
+body.yh-dashboard-inline-embed-body[data-yh-view="federation"] .fed-main::-webkit-scrollbar-track,
+body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .fed-main::-webkit-scrollbar-track,
+body.yh-dashboard-federation-embed-body .fed-main::-webkit-scrollbar-track {
+  background: rgba(2, 6, 23, 0.18) !important;
+}
+
+body.yh-dashboard-inline-embed-body[data-yh-view="federation"] .fed-main::-webkit-scrollbar-thumb,
+body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .fed-main::-webkit-scrollbar-thumb,
+body.yh-dashboard-federation-embed-body .fed-main::-webkit-scrollbar-thumb {
+  border-radius: 999px !important;
+  background: rgba(56, 189, 248, 0.42) !important;
+}
+
+body.yh-dashboard-inline-embed-body[data-yh-view="federation"] .fed-section.is-panel-hidden,
+body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .fed-section.is-panel-hidden,
+body.yh-dashboard-federation-embed-body .fed-section.is-panel-hidden {
   display: none !important;
 }
 
-body.yh-dashboard-inline-embed-body .fed-section.is-active-panel {
+body.yh-dashboard-inline-embed-body[data-yh-view="federation"] .fed-section.is-active-panel,
+body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .fed-section.is-active-panel,
+body.yh-dashboard-federation-embed-body .fed-section.is-active-panel {
   display: block !important;
   overflow: visible !important;
 }
-/* END PATCH: Federation embedded Dashboard scroll fix v2 */
+/* END PATCH: Federation embedded Dashboard scroll fix v3 */
 
 html.yh-federation-view-active .yh-top-nav .yh-dashboard-top-edit-btn,
 html.yh-federation-view-active .yh-top-nav .yh-wallet-open-btn,

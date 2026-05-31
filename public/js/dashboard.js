@@ -10274,48 +10274,66 @@ function enforceDashboardInlineFederationScroll(frame, doc = null) {
     removeDashboardFederationUniverseBackButtons(document);
     removeDashboardFederationUniverseBackButtons(frameDoc);
 
+    frameDoc.documentElement.classList.add('yh-dashboard-federation-embed-root');
+    frameDoc.body.classList.add('yh-dashboard-federation-embed-body');
+
     const main = frameDoc.getElementById('fedMain');
     const shell = frameDoc.querySelector('.fed-shell');
 
     frameDoc.documentElement.style.setProperty('height', '100%', 'important');
     frameDoc.documentElement.style.setProperty('min-height', '100%', 'important');
-    frameDoc.documentElement.style.setProperty('overflow-y', 'auto', 'important');
-    frameDoc.documentElement.style.setProperty('overflow-x', 'hidden', 'important');
+    frameDoc.documentElement.style.setProperty('overflow', 'hidden', 'important');
 
-    frameDoc.body.style.setProperty('height', 'auto', 'important');
+    frameDoc.body.style.setProperty('height', '100%', 'important');
     frameDoc.body.style.setProperty('min-height', '100%', 'important');
-    frameDoc.body.style.setProperty('overflow-y', 'auto', 'important');
-    frameDoc.body.style.setProperty('overflow-x', 'hidden', 'important');
+    frameDoc.body.style.setProperty('overflow', 'hidden', 'important');
     frameDoc.body.style.setProperty('overscroll-behavior', 'contain', 'important');
 
     if (shell instanceof HTMLElement) {
-        shell.style.setProperty('height', 'auto', 'important');
-        shell.style.setProperty('max-height', 'none', 'important');
-        shell.style.setProperty('min-height', '100%', 'important');
-        shell.style.setProperty('overflow', 'visible', 'important');
+        shell.style.setProperty('height', '100%', 'important');
+        shell.style.setProperty('max-height', '100%', 'important');
+        shell.style.setProperty('min-height', '0', 'important');
+        shell.style.setProperty('overflow', 'hidden', 'important');
         shell.style.setProperty('display', 'grid', 'important');
         shell.style.setProperty('grid-template-columns', 'minmax(0, 1fr)', 'important');
-        shell.style.setProperty('grid-template-rows', 'auto', 'important');
+        shell.style.setProperty('grid-template-rows', 'minmax(0, 1fr)', 'important');
     }
 
     if (main instanceof HTMLElement) {
-        main.style.setProperty('height', 'auto', 'important');
-        main.style.setProperty('max-height', 'none', 'important');
-        main.style.setProperty('min-height', '100%', 'important');
-        main.style.setProperty('overflow', 'visible', 'important');
+        main.style.setProperty('height', '100%', 'important');
+        main.style.setProperty('max-height', '100%', 'important');
+        main.style.setProperty('min-height', '0', 'important');
+        main.style.setProperty('overflow-y', 'auto', 'important');
+        main.style.setProperty('overflow-x', 'hidden', 'important');
         main.style.setProperty('-webkit-overflow-scrolling', 'touch', 'important');
         main.style.setProperty('overscroll-behavior', 'contain', 'important');
         main.style.setProperty('touch-action', 'pan-y', 'important');
         main.style.setProperty('scrollbar-width', 'thin', 'important');
 
-        if (main.dataset.yhDashboardFederationScrollBoundV2 !== 'true') {
-            main.dataset.yhDashboardFederationScrollBoundV2 = 'true';
+        if (main.dataset.yhDashboardFederationScrollBoundV3 !== 'true') {
+            main.dataset.yhDashboardFederationScrollBoundV3 = 'true';
 
-            main.addEventListener('wheel', (event) => {
-                const scrollingElement = frameDoc.scrollingElement || frameDoc.documentElement;
-                if (!scrollingElement || scrollingElement.scrollHeight <= scrollingElement.clientHeight) return;
-                event.stopPropagation();
-            }, { passive: true });
+            frameDoc.addEventListener('wheel', (event) => {
+                const target = event.target instanceof Element ? event.target : null;
+
+                if (target?.closest?.('textarea, select, input, [contenteditable="true"]')) {
+                    return;
+                }
+
+                const scroller = frameDoc.getElementById('fedMain');
+                if (!(scroller instanceof HTMLElement)) return;
+
+                const maxScroll = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+                if (maxScroll <= 2) return;
+
+                const before = scroller.scrollTop;
+                scroller.scrollTop = Math.max(0, Math.min(maxScroll, before + event.deltaY));
+
+                if (scroller.scrollTop !== before) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+            }, { capture: true, passive: false });
         }
     }
 
@@ -10673,6 +10691,13 @@ function forceDashboardInlineFrameContentOnly(frame) {
     doc.documentElement.classList.add('yh-dashboard-inline-embed-root');
     doc.body.classList.add('yh-dashboard-inline-embed-body');
 
+    const isFederationEmbed =
+        doc.body.getAttribute('data-yh-view') === 'federation' ||
+        doc.body.getAttribute('data-yh-page') === 'federation';
+
+    doc.documentElement.classList.toggle('yh-dashboard-federation-embed-root', isFederationEmbed);
+    doc.body.classList.toggle('yh-dashboard-federation-embed-body', isFederationEmbed);
+
     doc.body.classList.add('academy-shell-ready');
     doc.body.classList.remove('academy-startup-booting');
     doc.body.classList.remove('academy-standalone-shell-pending');
@@ -10777,17 +10802,22 @@ function forceDashboardInlineFrameContentOnly(frame) {
             grid-column: 1 / -1 !important;
         }
 
+        html.yh-dashboard-federation-embed-root,
+        body.yh-dashboard-federation-embed-body,
         body.yh-dashboard-inline-embed-body[data-yh-view="federation"],
         body.yh-dashboard-inline-embed-body[data-yh-page="federation"] {
             width: 100% !important;
             height: 100% !important;
             min-height: 100% !important;
+            margin: 0 !important;
             overflow: hidden !important;
             overscroll-behavior: contain !important;
             background: #050816 !important;
         }
 
-        body.yh-dashboard-inline-embed-body .fed-shell {
+        body.yh-dashboard-federation-embed-body .fed-shell,
+        body.yh-dashboard-inline-embed-body[data-yh-view="federation"] .fed-shell,
+        body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .fed-shell {
             width: 100% !important;
             height: 100% !important;
             max-height: 100% !important;
@@ -10802,7 +10832,9 @@ function forceDashboardInlineFrameContentOnly(frame) {
             background: #050816 !important;
         }
 
-        body.yh-dashboard-inline-embed-body .fed-main {
+        body.yh-dashboard-federation-embed-body .fed-main,
+        body.yh-dashboard-inline-embed-body[data-yh-view="federation"] .fed-main,
+        body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .fed-main {
             grid-column: 1 / -1 !important;
             width: 100% !important;
             height: 100% !important;
@@ -10816,29 +10848,39 @@ function forceDashboardInlineFrameContentOnly(frame) {
             overscroll-behavior: contain !important;
             touch-action: pan-y !important;
             scroll-behavior: auto !important;
-            padding-bottom: clamp(28px, 4vh, 56px) !important;
+            padding-bottom: clamp(80px, 8vh, 120px) !important;
             scrollbar-width: thin !important;
             scrollbar-color: rgba(56, 189, 248, 0.42) rgba(2, 6, 23, 0.18) !important;
         }
 
-        body.yh-dashboard-inline-embed-body .fed-main::-webkit-scrollbar {
+        body.yh-dashboard-federation-embed-body .fed-main::-webkit-scrollbar,
+        body.yh-dashboard-inline-embed-body[data-yh-view="federation"] .fed-main::-webkit-scrollbar,
+        body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .fed-main::-webkit-scrollbar {
             width: 8px !important;
         }
 
-        body.yh-dashboard-inline-embed-body .fed-main::-webkit-scrollbar-track {
+        body.yh-dashboard-federation-embed-body .fed-main::-webkit-scrollbar-track,
+        body.yh-dashboard-inline-embed-body[data-yh-view="federation"] .fed-main::-webkit-scrollbar-track,
+        body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .fed-main::-webkit-scrollbar-track {
             background: rgba(2, 6, 23, 0.18) !important;
         }
 
-        body.yh-dashboard-inline-embed-body .fed-main::-webkit-scrollbar-thumb {
+        body.yh-dashboard-federation-embed-body .fed-main::-webkit-scrollbar-thumb,
+        body.yh-dashboard-inline-embed-body[data-yh-view="federation"] .fed-main::-webkit-scrollbar-thumb,
+        body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .fed-main::-webkit-scrollbar-thumb {
             border-radius: 999px !important;
             background: rgba(56, 189, 248, 0.42) !important;
         }
 
-        body.yh-dashboard-inline-embed-body .fed-section.is-panel-hidden {
+        body.yh-dashboard-federation-embed-body .fed-section.is-panel-hidden,
+        body.yh-dashboard-inline-embed-body[data-yh-view="federation"] .fed-section.is-panel-hidden,
+        body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .fed-section.is-panel-hidden {
             display: none !important;
         }
 
-        body.yh-dashboard-inline-embed-body .fed-section.is-active-panel {
+        body.yh-dashboard-federation-embed-body .fed-section.is-active-panel,
+        body.yh-dashboard-inline-embed-body[data-yh-view="federation"] .fed-section.is-active-panel,
+        body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .fed-section.is-active-panel {
             display: block !important;
             min-height: auto !important;
             overflow: visible !important;
