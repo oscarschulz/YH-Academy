@@ -11467,20 +11467,34 @@ body.yh-profile-cropper-open {
 }
 /* END PATCH: Academy follow/unfollow red pill state v1 */
 
-/* PATCH: Academy profile follow toggle no-flicker v2 */
-#academy-profile-view[data-profile-layout="visited"] .academy-profile-action-btn[data-action-rank="visited-secondary-follow"] {
+/* PATCH: Academy profile follow toggle no-flicker v3 */
+#academy-profile-view[data-profile-layout="visited"] .academy-profile-action-btn[data-action-rank="visited-secondary-follow"],
+#academy-profile-view[data-profile-layout="visited"] .academy-profile-action-btn[data-profile-action="toggle-follow"] {
     min-width: 168px !important;
     contain: layout paint !important;
 }
 
-#academy-profile-view[data-follow-toggle-pending="true"],
-#academy-profile-view[data-follow-toggle-pending="true"] .academy-profile-shell,
-#academy-profile-view[data-follow-toggle-pending="true"] .academy-profile-hero-card,
-#academy-profile-view[data-follow-toggle-pending="true"] .academy-profile-card,
-#academy-profile-view[data-follow-toggle-pending="true"] .academy-profile-stat-strip,
-#academy-profile-view[data-follow-toggle-pending="true"] .academy-profile-main-grid {
+body.yh-profile-follow-freeze #academy-profile-view[data-follow-toggle-pending="true"],
+body.yh-profile-follow-freeze #academy-profile-view[data-follow-toggle-pending="true"].hidden-step,
+body.yh-profile-follow-freeze #academy-profile-view[data-profile-layout="visited"][data-follow-toggle-pending="true"] {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+
+body.yh-profile-follow-freeze #academy-profile-view[data-follow-toggle-pending="true"],
+body.yh-profile-follow-freeze #academy-profile-view[data-follow-toggle-pending="true"] .academy-profile-shell,
+body.yh-profile-follow-freeze #academy-profile-view[data-follow-toggle-pending="true"] .academy-profile-hero-card,
+body.yh-profile-follow-freeze #academy-profile-view[data-follow-toggle-pending="true"] .academy-profile-card,
+body.yh-profile-follow-freeze #academy-profile-view[data-follow-toggle-pending="true"] .academy-profile-stat-strip,
+body.yh-profile-follow-freeze #academy-profile-view[data-follow-toggle-pending="true"] .academy-profile-main-grid {
     animation: none !important;
     transition: none !important;
+}
+
+body.yh-profile-follow-freeze #academy-profile-view[data-follow-toggle-pending="true"].fade-in {
+    animation: none !important;
 }
 
 #academy-profile-view[data-follow-toggle-pending="true"] .academy-profile-action-btn[data-action-rank="visited-secondary-follow"],
@@ -11504,7 +11518,7 @@ body.yh-profile-cropper-open {
     vertical-align: -2px;
     animation: yh-btn-spin 0.8s linear infinite;
 }
-/* END PATCH: Academy profile follow toggle no-flicker v2 */
+/* END PATCH: Academy profile follow toggle no-flicker v3 */
 
 @media (max-width: 640px) {
     .academy-member-browser-dialog {

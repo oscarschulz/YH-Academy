@@ -9274,10 +9274,81 @@ function academyFeedTimeLabel(value) {
     return date.toLocaleDateString();
 }
 
+/* PATCH: Visited profile follow/unfollow hard no-flicker lock v1 */
+function academyReadVisitedProfileFollowLock() {
+    const lock = window.__yhVisitedProfileFollowLockV1;
+
+    if (!lock || typeof lock !== 'object') return null;
+    if (Number(lock.until || 0) <= Date.now()) {
+        window.__yhVisitedProfileFollowLockV1 = null;
+        document.body?.classList.remove('yh-profile-follow-freeze');
+
+        const profileView = document.getElementById('academy-profile-view');
+        profileView?.removeAttribute('data-follow-toggle-pending');
+
+        return null;
+    }
+
+    return lock;
+}
+
+function academySetVisitedProfileFollowLock(memberId = '', isLocked = true) {
+    const normalizedMemberId = normalizeAcademyFeedId(memberId);
+
+    if (!isLocked || !normalizedMemberId) {
+        window.__yhVisitedProfileFollowLockV1 = null;
+        document.body?.classList.remove('yh-profile-follow-freeze');
+
+        const profileView = document.getElementById('academy-profile-view');
+        profileView?.removeAttribute('data-follow-toggle-pending');
+
+        return;
+    }
+
+    window.__yhVisitedProfileFollowLockV1 = {
+        memberId: normalizedMemberId,
+        until: Date.now() + 4800
+    };
+
+    document.body?.classList.add('yh-profile-follow-freeze');
+
+    const profileView = document.getElementById('academy-profile-view');
+    if (profileView) {
+        profileView.setAttribute('data-follow-toggle-pending', 'true');
+        profileView.classList.remove('hidden-step');
+        profileView.setAttribute('aria-hidden', 'false');
+    }
+}
+
+function academyIsVisitedProfileFollowLocked(memberId = '') {
+    const lock = academyReadVisitedProfileFollowLock();
+    if (!lock) return false;
+
+    const normalizedMemberId = normalizeAcademyFeedId(memberId);
+    const profileView = document.getElementById('academy-profile-view');
+    const visibleProfile =
+        profileView &&
+        !profileView.classList.contains('hidden-step') &&
+        profileView.getAttribute('aria-hidden') !== 'true';
+
+    if (!visibleProfile) return false;
+    if (!normalizedMemberId) return true;
+
+    return normalizeAcademyFeedId(lock.memberId) === normalizedMemberId;
+}
+
+function academyShouldKeepProfileVisibleDuringFollow() {
+    return academyIsVisitedProfileFollowLocked('');
+}
+
 function hideAcademyViewsForFeed() {
-    document.body?.classList.remove('academy-mobile-profile-active');
-    document.body?.classList.remove('academy-mobile-profile-layout-locked');
-    document.body?.classList.remove('academy-mobile-profile-after-messages');
+    const keepProfileVisible = academyShouldKeepProfileVisibleDuringFollow();
+
+    if (!keepProfileVisible) {
+        document.body?.classList.remove('academy-mobile-profile-active');
+        document.body?.classList.remove('academy-mobile-profile-layout-locked');
+        document.body?.classList.remove('academy-mobile-profile-after-messages');
+    }
 
     [
         'academy-feed-view',
@@ -9290,6 +9361,7 @@ function hideAcademyViewsForFeed() {
         'video-lobby-view',
         'vault-view'
     ].forEach((id) => {
+        if (id === 'academy-profile-view' && keepProfileVisible) return;
         document.getElementById(id)?.classList.add('hidden-step');
     });
 
@@ -9298,6 +9370,7 @@ function hideAcademyViewsForFeed() {
         window.setTimeout(syncAcademyTopNavFullName, 120);
     }
 }
+/* END PATCH: Visited profile follow/unfollow hard no-flicker lock v1 */
 const ACADEMY_TAB_ICON_PATHS = {
     roadmap: '/assets/academy/icons/academy-icon-roadmap.png',
     missions: '/assets/academy/icons/academy-icon-missions.png',
@@ -13145,22 +13218,30 @@ function revealAcademyProfileView(options = {}) {
     if (!profileView) return;
 
     const fromMessages = options?.fromMessages === true && academyIsMobileProfileViewport();
+    const shouldPreserveVisibleProfile =
+        academyShouldKeepProfileVisibleDuringFollow() &&
+        !profileView.classList.contains('hidden-step') &&
+        profileView.getAttribute('aria-hidden') !== 'true';
 
     document.body?.classList.add('academy-mobile-profile-active');
     document.body?.classList.add('academy-mobile-profile-layout-locked');
     document.body?.classList.toggle('academy-mobile-profile-after-messages', fromMessages);
 
     profileView.classList.remove('hidden-step');
-    profileView.classList.remove('fade-in');
-    void profileView.offsetWidth;
-    profileView.classList.add('fade-in');
+    profileView.setAttribute('aria-hidden', 'false');
+
+    if (!shouldPreserveVisibleProfile) {
+        profileView.classList.remove('fade-in');
+        void profileView.offsetWidth;
+        profileView.classList.add('fade-in');
+    }
 
     stabilizeAcademyMobileProfileLayout();
 
     window.requestAnimationFrame(() => {
         stabilizeAcademyMobileProfileLayout();
 
-        if (window.innerWidth <= 768) {
+        if (window.innerWidth <= 768 && !shouldPreserveVisibleProfile) {
             window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
         }
     });
@@ -18008,6 +18089,10 @@ function renderAcademyOpportunityLayer(profile = null, options = {}) {
 async function openAcademyMemberProfileView(memberId = '') {
     const normalizedMemberId = normalizeAcademyFeedId(memberId);
     if (!normalizedMemberId) return;
+
+    if (academyIsVisitedProfileFollowLocked(normalizedMemberId)) {
+        return;
+    }
 
     const profileEntryLayoutContext = academyBuildProfileEntryLayoutContext();
     academyRememberVisitedProfileBackState(profileEntryLayoutContext);
@@ -23511,6 +23596,8 @@ document.getElementById('academy-profile-view')?.addEventListener('click', async
 
         const profileViewRoot = document.getElementById('academy-profile-view');
 
+        academySetVisitedProfileFollowLock(targetUserId, true);
+
         if (profileViewRoot) {
             profileViewRoot.setAttribute('data-follow-toggle-pending', 'true');
         }
@@ -23541,16 +23628,17 @@ document.getElementById('academy-profile-view')?.addEventListener('click', async
                 }
             })
             .finally(() => {
-                if (profileViewRoot) {
-                    profileViewRoot.removeAttribute('data-follow-toggle-pending');
-                }
-
                 if (actionBtn.isConnected) {
                     actionBtn.removeAttribute('data-follow-loading');
                     actionBtn.removeAttribute('aria-busy');
                     actionBtn.removeAttribute('aria-disabled');
                     actionBtn.style.pointerEvents = '';
                 }
+
+                window.clearTimeout(window.__yhVisitedProfileFollowUnlockTimerV1);
+                window.__yhVisitedProfileFollowUnlockTimerV1 = window.setTimeout(() => {
+                    academySetVisitedProfileFollowLock(targetUserId, false);
+                }, 900);
             });
 
         return;
