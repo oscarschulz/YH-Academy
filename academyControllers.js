@@ -4899,6 +4899,23 @@ exports.getUniverseProfile = async (req, res) => {
                 signals,
                 activities,
                 snapshot,
+
+                followers_count: academyProfile.followers_count ?? '—',
+                followersCount: academyProfile.followers_count ?? '—',
+
+                following_count: academyProfile.following_count ?? '—',
+                followingCount: academyProfile.following_count ?? '—',
+
+                friends_count: academyProfile.friends_count ?? academyProfile.friend_count ?? '—',
+                friend_count: academyProfile.friend_count ?? academyProfile.friends_count ?? '—',
+                friendsCount: academyProfile.friends_count ?? academyProfile.friend_count ?? '—',
+
+                post_count: academyProfile.post_count ?? 0,
+                postCount: academyProfile.post_count ?? 0,
+
+                recent_posts: Array.isArray(academyProfile.recent_posts) ? academyProfile.recent_posts : [],
+                recentPosts: Array.isArray(academyProfile.recent_posts) ? academyProfile.recent_posts : [],
+
                 verificationBadges,
                 source: 'universe-profile-v1'
             }

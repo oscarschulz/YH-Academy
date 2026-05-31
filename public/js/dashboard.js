@@ -17939,6 +17939,11 @@ function mergeYHUniverseProfilePayload(universeProfile = {}, academyProfile = {}
         : {};
 
     const divisions = normalizeYHUniverseDivisionMap(universeProfile.divisions || academyProfile.divisions || {});
+    const academyDivisionProfile =
+        divisions?.academy?.profile && typeof divisions.academy.profile === 'object'
+            ? divisions.academy.profile
+            : {};
+
     const searchTags = pickDashboardProfileTags(
         universeProfile.search_tags,
         universeProfile.searchTags,
@@ -18057,15 +18062,58 @@ function mergeYHUniverseProfilePayload(universeProfile = {}, academyProfile = {}
             academyProfile.marketplaceReady === true ||
             academyProfile.marketplace_ready === true,
 
-        recent_posts: Array.isArray(academyProfile.recent_posts)
-            ? academyProfile.recent_posts
-            : Array.isArray(academyProfile.recentPosts)
-                ? academyProfile.recentPosts
-                : [],
-        followers_count: academyProfile.followers_count ?? academyProfile.followerCount ?? '—',
-        following_count: academyProfile.following_count ?? academyProfile.followingCount ?? '—',
-        friends_count: academyProfile.friends_count ?? academyProfile.friend_count ?? academyProfile.friendCount ?? '—',
-        post_count: academyProfile.post_count ?? academyProfile.postCount ?? 0,
+        recent_posts: Array.isArray(universeProfile.recent_posts)
+            ? universeProfile.recent_posts
+            : Array.isArray(universeProfile.recentPosts)
+                ? universeProfile.recentPosts
+                : Array.isArray(academyDivisionProfile.recent_posts)
+                    ? academyDivisionProfile.recent_posts
+                    : Array.isArray(academyDivisionProfile.recentPosts)
+                        ? academyDivisionProfile.recentPosts
+                        : Array.isArray(academyProfile.recent_posts)
+                            ? academyProfile.recent_posts
+                            : Array.isArray(academyProfile.recentPosts)
+                                ? academyProfile.recentPosts
+                                : [],
+        followers_count:
+            universeProfile.followers_count ??
+            universeProfile.followersCount ??
+            academyDivisionProfile.followers_count ??
+            academyDivisionProfile.followersCount ??
+            academyDivisionProfile.followerCount ??
+            academyProfile.followers_count ??
+            academyProfile.followersCount ??
+            academyProfile.followerCount ??
+            '—',
+        following_count:
+            universeProfile.following_count ??
+            universeProfile.followingCount ??
+            academyDivisionProfile.following_count ??
+            academyDivisionProfile.followingCount ??
+            academyProfile.following_count ??
+            academyProfile.followingCount ??
+            '—',
+        friends_count:
+            universeProfile.friends_count ??
+            universeProfile.friend_count ??
+            universeProfile.friendsCount ??
+            academyDivisionProfile.friends_count ??
+            academyDivisionProfile.friend_count ??
+            academyDivisionProfile.friendsCount ??
+            academyDivisionProfile.friendCount ??
+            academyProfile.friends_count ??
+            academyProfile.friend_count ??
+            academyProfile.friendsCount ??
+            academyProfile.friendCount ??
+            '—',
+        post_count:
+            universeProfile.post_count ??
+            universeProfile.postCount ??
+            academyDivisionProfile.post_count ??
+            academyDivisionProfile.postCount ??
+            academyProfile.post_count ??
+            academyProfile.postCount ??
+            0,
         hidden_count: academyProfile.hidden_count ?? 0,
         divisions,
         membershipSummary: universeProfile.membershipSummary || academyProfile.membershipSummary || null,
@@ -20087,10 +20135,14 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
     const profileRoadmap = document.getElementById('academy-profile-roadmap');
     const profilePostCount = document.getElementById('academy-profile-post-count');
     const profileFollowerCount = document.getElementById('academy-profile-follower-count');
+    const profileFollowingCount = document.getElementById('academy-profile-following-count');
+    const profileFriendCount = document.getElementById('academy-profile-friends-count');
     const profileHiddenCount = document.getElementById('academy-profile-hidden-count');
     const profileStatus = document.getElementById('academy-profile-status');
     const profileMutualCount = document.getElementById('academy-profile-mutual-count');
     const profileFollowersMeta = document.getElementById('academy-profile-followers-meta');
+    const profileFollowingMeta = document.getElementById('academy-profile-following-meta');
+    const profileFriendsMeta = document.getElementById('academy-profile-friends-meta');
     const profilePostsMeta = document.getElementById('academy-profile-posts-meta');
     const profileStatusMeta = document.getElementById('academy-profile-status-meta');
     const profileMutualsMeta = document.getElementById('academy-profile-mutuals-meta');
@@ -20217,17 +20269,22 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
     if (profileProgress) profileProgress.innerText = isSelf ? normalized.progress : '—';
     if (profileRoadmap) profileRoadmap.innerText = isSelf ? normalized.roadmap : 'Public view';
     const parsedFollowerCount = Number(normalized.followersCount);
+    const parsedFollowingCount = Number(normalized.followingCount);
+    const parsedFriendCount = Number(normalized.friendsCount);
     const parsedPostCount = Number(normalized.postCount);
     const parsedMutualCount = Number(normalized.mutualFriendCount || 0);
 
     const followerCountValue = Number.isFinite(parsedFollowerCount) ? parsedFollowerCount : null;
+    const followingCountValue = Number.isFinite(parsedFollowingCount) ? parsedFollowingCount : null;
+    const friendCountValue = Number.isFinite(parsedFriendCount) ? parsedFriendCount : null;
     const postCountValue = Number.isFinite(parsedPostCount) ? parsedPostCount : 0;
     const mutualCountValue = Number.isFinite(parsedMutualCount) ? parsedMutualCount : 0;
 
     if (profilePostCount) profilePostCount.innerText = String(normalized.postCount);
     if (profileFollowerCount) profileFollowerCount.innerText = String(normalized.followersCount);
+    if (profileFollowingCount) profileFollowingCount.innerText = String(normalized.followingCount);
+    if (profileFriendCount) profileFriendCount.innerText = String(normalized.friendsCount);
     if (profileHiddenCount) profileHiddenCount.innerText = isSelf ? String(normalized.hiddenCount) : '—';
-
     let resolvedStatusText = normalized.status;
     let resolvedStatusTone = isSelf ? 'self' : 'active';
 
@@ -20263,6 +20320,26 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
                 : followerCountValue === 1
                     ? 'Public follower'
                     : 'Public followers';
+    }
+
+    if (profileFollowingMeta) {
+        profileFollowingMeta.innerText = isSelf
+            ? 'Universe following'
+            : followingCountValue === null
+                ? 'Public following'
+                : followingCountValue === 1
+                    ? 'Following 1 member'
+                    : `Following ${followingCountValue} members`;
+    }
+
+    if (profileFriendsMeta) {
+        profileFriendsMeta.innerText = isSelf
+            ? 'Accepted YH connections'
+            : friendCountValue === null
+                ? 'Accepted friends'
+                : friendCountValue === 1
+                    ? '1 Academy friend'
+                    : `${friendCountValue} Academy friends`;
     }
 
     if (profilePostsMeta) {
