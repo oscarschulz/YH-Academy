@@ -23493,6 +23493,11 @@ document.getElementById('academy-profile-view')?.addEventListener('click', async
     }
 
     if (action === 'toggle-follow') {
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (actionBtn.getAttribute('data-follow-loading') === 'true') return;
+
         const targetUserId =
             normalizeAcademyFeedId(actionBtn.getAttribute('data-member-profile-id')) ||
             normalizeAcademyFeedId(academyProfileViewState?.memberId);
@@ -23501,18 +23506,19 @@ document.getElementById('academy-profile-view')?.addEventListener('click', async
 
         const isCurrentlyFollowing =
             String(actionBtn.getAttribute('data-follow-state') || '').trim().toLowerCase() === 'following' ||
+            actionBtn.classList.contains('is-unfollow-action') ||
             academyProfileViewState?.profile?.followedByMe === true;
 
         const profileViewRoot = document.getElementById('academy-profile-view');
-        const previousText = actionBtn.innerText;
 
         if (profileViewRoot) {
             profileViewRoot.setAttribute('data-follow-toggle-pending', 'true');
         }
 
-        actionBtn.disabled = true;
+        actionBtn.setAttribute('data-follow-loading', 'true');
         actionBtn.setAttribute('aria-busy', 'true');
-        actionBtn.innerText = isCurrentlyFollowing ? 'Unfollowing.' : 'Following.';
+        actionBtn.setAttribute('aria-disabled', 'true');
+        actionBtn.style.pointerEvents = 'none';
 
         academyFeedToggleFollow(targetUserId, {
             previousFollowing: isCurrentlyFollowing
@@ -23526,20 +23532,11 @@ document.getElementById('academy-profile-view')?.addEventListener('click', async
                 if (actionBtn.isConnected) {
                     academySetFollowButtonFinalState(actionBtn, resolvedFollowing);
                 }
-
-                academyPatchActiveVisitedProfileFollowDom(
-                    targetUserId,
-                    resolvedFollowing,
-                    result
-                );
             })
             .catch((error) => {
                 console.error('academy profile follow toggle error:', error);
 
                 if (actionBtn.isConnected) {
-                    actionBtn.disabled = false;
-                    actionBtn.removeAttribute('aria-busy');
-                    actionBtn.innerText = previousText;
                     academySetFollowButtonFinalState(actionBtn, isCurrentlyFollowing);
                 }
             })
@@ -23549,8 +23546,10 @@ document.getElementById('academy-profile-view')?.addEventListener('click', async
                 }
 
                 if (actionBtn.isConnected) {
-                    actionBtn.disabled = false;
+                    actionBtn.removeAttribute('data-follow-loading');
                     actionBtn.removeAttribute('aria-busy');
+                    actionBtn.removeAttribute('aria-disabled');
+                    actionBtn.style.pointerEvents = '';
                 }
             });
 

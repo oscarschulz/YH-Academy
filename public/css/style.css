@@ -11467,23 +11467,44 @@ body.yh-profile-cropper-open {
 }
 /* END PATCH: Academy follow/unfollow red pill state v1 */
 
-/* PATCH: Academy profile follow toggle no-flicker v1 */
+/* PATCH: Academy profile follow toggle no-flicker v2 */
 #academy-profile-view[data-profile-layout="visited"] .academy-profile-action-btn[data-action-rank="visited-secondary-follow"] {
     min-width: 168px !important;
+    contain: layout paint !important;
 }
 
 #academy-profile-view[data-follow-toggle-pending="true"],
 #academy-profile-view[data-follow-toggle-pending="true"] .academy-profile-shell,
 #academy-profile-view[data-follow-toggle-pending="true"] .academy-profile-hero-card,
-#academy-profile-view[data-follow-toggle-pending="true"] .academy-profile-card {
+#academy-profile-view[data-follow-toggle-pending="true"] .academy-profile-card,
+#academy-profile-view[data-follow-toggle-pending="true"] .academy-profile-stat-strip,
+#academy-profile-view[data-follow-toggle-pending="true"] .academy-profile-main-grid {
     animation: none !important;
+    transition: none !important;
 }
 
-#academy-profile-view[data-follow-toggle-pending="true"] .academy-profile-action-btn[data-action-rank="visited-secondary-follow"] {
+#academy-profile-view[data-follow-toggle-pending="true"] .academy-profile-action-btn[data-action-rank="visited-secondary-follow"],
+#academy-profile-view .academy-profile-action-btn[data-follow-loading="true"] {
+    opacity: 1 !important;
     transform: none !important;
     will-change: auto !important;
+    filter: none !important;
+    pointer-events: none !important;
 }
-/* END PATCH: Academy profile follow toggle no-flicker v1 */
+
+#academy-profile-view .academy-profile-action-btn[data-follow-loading="true"]::after {
+    content: '';
+    width: 13px;
+    height: 13px;
+    margin-left: 9px;
+    border-radius: 999px;
+    border: 2px solid rgba(255, 255, 255, 0.25);
+    border-top-color: rgba(255, 255, 255, 0.95);
+    display: inline-block;
+    vertical-align: -2px;
+    animation: yh-btn-spin 0.8s linear infinite;
+}
+/* END PATCH: Academy profile follow toggle no-flicker v2 */
 
 @media (max-width: 640px) {
     .academy-member-browser-dialog {
