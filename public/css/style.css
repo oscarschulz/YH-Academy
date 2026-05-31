@@ -20407,6 +20407,19 @@ body[data-yh-page="dashboard"] #academy-profile-view .header-divider {
     flex: 0 0 auto;
 }
 
+/* PATCH: Remove search field from Dashboard profile viewer v1 */
+body[data-yh-page="dashboard"] #academy-profile-view .yh-dashboard-profile-search,
+body[data-yh-page="dashboard"] #academy-profile-view .yh-dashboard-profile-search-btn,
+body[data-yh-page="dashboard"] #academy-profile-view .yh-dashboard-profile-search-input,
+body[data-yh-page="dashboard"] #academy-profile-view .yh-dashboard-search-dropdown,
+body[data-yh-page="dashboard"] #academy-profile-view .yh-dashboard-universe-profile-header .header-divider {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+/* END PATCH: Remove search field from Dashboard profile viewer v1 */
+
 body[data-yh-page="dashboard"] .yh-dashboard-profile-search {
     width: min(42vw, 520px);
     flex: 0 1 520px;

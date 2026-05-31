@@ -26055,7 +26055,6 @@ async function openDashboardUniverseProfileSearch(query = '', options = {}) {
 
     const searchInputs = [
         document.getElementById('academy-member-browser-search-input'),
-        document.getElementById('yh-dashboard-profile-search-input'),
         document.getElementById('yh-dashboard-top-search-input')
     ].filter(Boolean);
 
@@ -26230,7 +26229,6 @@ function bootDashboardUniverseSearchDropdownBridge() {
     }, true);
 }
 
-bindDashboardUniverseSearchForm('yh-dashboard-profile-search-form', 'yh-dashboard-profile-search-input');
 bindDashboardUniverseSearchForm('yh-dashboard-top-search-form', 'yh-dashboard-top-search-input');
 bootDashboardUniverseSearchDropdownBridge();
 
