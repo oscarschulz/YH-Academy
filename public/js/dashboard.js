@@ -2528,6 +2528,110 @@ function normalizeYHWalletStatusLabel(value = '') {
     return clean ? clean.replace(/\b\w/g, (char) => char.toUpperCase()) : 'Not Set';
 }
 
+/* PATCH: Formal wallet ledger labels v1 */
+function formatYHWalletPlainLabel(value = '', fallback = 'Record') {
+    const clean = String(value || '').trim();
+
+    if (!clean) return fallback;
+
+    return clean
+        .replace(/[_-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function formatYHWalletDivisionLabel(value = '') {
+    const clean = String(value || '').trim().toLowerCase();
+
+    if (clean === 'academy') return 'Academy';
+    if (clean === 'plaza' || clean === 'plazas') return 'Plazas';
+    if (clean === 'federation') return 'Federation';
+
+    return formatYHWalletPlainLabel(clean, 'YH Universe');
+}
+
+function formatYHWalletFeatureLabel(value = '', division = '') {
+    const clean = String(value || '').trim().toLowerCase();
+    const cleanDivision = String(division || '').trim().toLowerCase();
+
+    if (clean === 'verified_badge') {
+        if (cleanDivision === 'academy') return 'Verified Badge';
+        if (cleanDivision === 'federation') return 'Verified Badge';
+        if (cleanDivision === 'plaza' || cleanDivision === 'plazas') return 'Verified Badge';
+        return 'Verified Badge';
+    }
+
+    if (clean === 'academy_learn_from_access') return 'Academy Learn From Access';
+    if (clean === 'learn_from_access') return 'Learn From Access';
+    if (clean === 'academy_badge') return 'Academy Badge';
+    if (clean === 'federation_badge') return 'Federation Badge';
+    if (clean === 'plaza_badge') return 'Plazas Badge';
+
+    return formatYHWalletPlainLabel(clean, 'Payment Record');
+}
+
+function formatYHWalletProviderLabel(value = '') {
+    const clean = String(value || '').trim().toLowerCase();
+
+    if (!clean || clean === 'unselected') return 'Provider Pending';
+    if (clean === 'stripe') return 'Stripe';
+    if (clean === 'oxapay') return 'OxaPay';
+    if (clean === 'manual') return 'Manual Review';
+    if (clean === 'local_bank') return 'Local Bank';
+    if (clean === 'card') return 'Card';
+    if (clean === 'bank') return 'Bank';
+
+    return formatYHWalletPlainLabel(clean, 'Provider');
+}
+
+function formatYHWalletPaymentMethodLabel(value = '') {
+    const clean = String(value || '').trim().toLowerCase();
+
+    if (!clean || clean === 'unselected') return 'Payment Method Pending';
+    if (clean === 'card_bank_wallet') return 'Card, Bank, or Wallet';
+    if (clean === 'card') return 'Card Payment';
+    if (clean === 'bank') return 'Bank Payment';
+    if (clean === 'wallet') return 'Wallet Payment';
+    if (clean === 'crypto') return 'Crypto Payment';
+    if (clean === 'local_bank') return 'Local Bank Transfer';
+    if (clean === 'manual') return 'Manual Review';
+
+    return formatYHWalletPlainLabel(clean, 'Payment Method');
+}
+
+function formatYHWalletLedgerTitle(record = {}, type = 'payment') {
+    const isPayment = type === 'payment';
+    const sourceDivision = String(record.sourceDivision || '').trim();
+    const sourceFeature = String(record.sourceFeature || '').trim();
+
+    const divisionLabel = formatYHWalletDivisionLabel(sourceDivision);
+    const featureLabel = formatYHWalletFeatureLabel(sourceFeature, sourceDivision);
+
+    if (sourceDivision || sourceFeature) {
+        return `${divisionLabel} ${featureLabel}`.replace(/\s+/g, ' ').trim();
+    }
+
+    return isPayment ? 'Payment Record' : 'Payout Record';
+}
+
+function formatYHWalletLedgerMeta(record = {}, type = 'payment') {
+    const isPayment = type === 'payment';
+
+    if (isPayment) {
+        const provider = formatYHWalletProviderLabel(record.provider || '');
+        const method = formatYHWalletPaymentMethodLabel(record.paymentMethod || '');
+
+        return `${provider} · ${method}`;
+    }
+
+    const method = formatYHWalletPaymentMethodLabel(record.method || 'local_bank');
+    const provider = formatYHWalletProviderLabel(record.provider || 'manual');
+
+    return `${method} · ${provider}`;
+}
+/* END PATCH: Formal wallet ledger labels v1 */
+
 async function fetchYHWalletSnapshot(currency = 'USD') {
     const [
         paymentOptions,
@@ -2700,19 +2804,12 @@ function renderYHWalletLedger(containerId = '', records = [], type = 'payment') 
 
     container.innerHTML = records.slice(0, 12).map((record) => {
         const isPayment = type === 'payment';
-        const sourceDivision = String(record.sourceDivision || '').trim();
-        const sourceFeature = String(record.sourceFeature || '').trim();
-        const title = isPayment
-            ? [sourceDivision, sourceFeature].filter(Boolean).join(' / ') || 'Payment'
-            : [sourceDivision, sourceFeature].filter(Boolean).join(' / ') || 'Payout';
-
+        const title = formatYHWalletLedgerTitle(record, type);
         const amount = formatYHWalletMoney(record.amount || 0, record.currency || 'USD');
         const statusRaw = String(record.status || (isPayment ? 'draft' : 'pending_review')).trim();
         const status = normalizeYHWalletStatusLabel(statusRaw);
         const statusTone = getYHWalletStatusTone(statusRaw);
-        const meta = isPayment
-            ? `${record.provider || 'unselected'} · ${record.paymentMethod || 'unselected'}`
-            : `${record.method || 'local_bank'} · ${record.provider || 'manual'}`;
+        const meta = formatYHWalletLedgerMeta(record, type);
 
         return `
             <article class="yh-wallet-ledger-card yh-wallet-ledger-card--guided">
