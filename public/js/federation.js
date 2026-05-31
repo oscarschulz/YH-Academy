@@ -5000,99 +5000,25 @@ function refreshActiveSection() {
 
 window.setYHFederationActiveSection = setActiveSection;
 
-/* PATCH: Federation dashboard embedded scroll bridge v1 */
+/* PATCH: Federation dashboard embedded scroll bridge v2 */
 function installFederationDashboardEmbeddedScrollBridge() {
-  if (document.body?.dataset.fedDashboardEmbeddedScrollBridgeV1 === "true") return;
+  if (document.body?.dataset.fedDashboardEmbeddedScrollBridgeV2 === "true") return;
 
   if (document.body) {
-    document.body.dataset.fedDashboardEmbeddedScrollBridgeV1 = "true";
+    document.body.dataset.fedDashboardEmbeddedScrollBridgeV2 = "true";
+    document.body.dataset.fedDashboardFederationScrollMode = "parent-page";
   }
 
-  function isEmbeddedFederationView() {
-    try {
-      if (window.parent && window.parent !== window) return true;
-    } catch (_) {
-      return true;
-    }
+  document.documentElement.classList.add("yh-dashboard-federation-scroll-parent-page");
 
-    return (
-      document.documentElement.classList.contains("yh-dashboard-inline-embed-root") ||
-      document.documentElement.classList.contains("yh-dashboard-federation-embed-root") ||
-      document.body?.classList.contains("yh-dashboard-inline-embed-body") ||
-      document.body?.classList.contains("yh-dashboard-federation-embed-body")
-    );
+  if (document.body) {
+    document.body.classList.add("yh-dashboard-federation-scroll-parent-page");
   }
 
-  function getFederationScrollTarget() {
-    return document.getElementById("fedMain");
-  }
-
-  document.addEventListener("wheel", (event) => {
-    if (!isEmbeddedFederationView()) return;
-
-    const target = event.target instanceof Element ? event.target : null;
-
-    if (target?.closest?.("textarea, select, input, [contenteditable='true']")) {
-      return;
-    }
-
-    const main = getFederationScrollTarget();
-    if (!(main instanceof HTMLElement)) return;
-
-    const maxScroll = Math.max(0, main.scrollHeight - main.clientHeight);
-    if (maxScroll <= 2) return;
-
-    const before = main.scrollTop;
-    const next = Math.max(0, Math.min(maxScroll, before + event.deltaY));
-
-    if (next === before) return;
-
-    main.scrollTop = next;
-    event.preventDefault();
-    event.stopPropagation();
-  }, { capture: true, passive: false });
-
-  document.addEventListener("keydown", (event) => {
-    if (!isEmbeddedFederationView()) return;
-
-    const target = event.target instanceof Element ? event.target : null;
-
-    if (target?.closest?.("textarea, select, input, [contenteditable='true']")) {
-      return;
-    }
-
-    const main = getFederationScrollTarget();
-    if (!(main instanceof HTMLElement)) return;
-
-    const maxScroll = Math.max(0, main.scrollHeight - main.clientHeight);
-    if (maxScroll <= 2) return;
-
-    const keys = {
-      ArrowDown: 64,
-      ArrowUp: -64,
-      PageDown: Math.max(120, main.clientHeight * 0.8),
-      PageUp: -Math.max(120, main.clientHeight * 0.8),
-      Home: -999999,
-      End: 999999
-    };
-
-    if (!Object.prototype.hasOwnProperty.call(keys, event.key)) return;
-
-    const before = main.scrollTop;
-    const next = event.key === "Home"
-      ? 0
-      : event.key === "End"
-        ? maxScroll
-        : Math.max(0, Math.min(maxScroll, before + keys[event.key]));
-
-    if (next === before) return;
-
-    main.scrollTop = next;
-    event.preventDefault();
-    event.stopPropagation();
-  }, { capture: true });
+  // The parent Dashboard owns embedded Federation scrolling.
+  // Do not bind wheel/keydown handlers here because they compete with the parent iframe scroll bridge.
 }
-/* END PATCH: Federation dashboard embedded scroll bridge v1 */
+/* END PATCH: Federation dashboard embedded scroll bridge v2 */
 
 function initSectionNavigation() {
   document.body.dataset.fedNavMode = "tabs";

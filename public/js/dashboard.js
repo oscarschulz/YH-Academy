@@ -10276,70 +10276,221 @@ function enforceDashboardInlineFederationScroll(frame, doc = null) {
 
     frameDoc.documentElement.classList.add('yh-dashboard-federation-embed-root');
     frameDoc.body.classList.add('yh-dashboard-federation-embed-body');
+    frameDoc.body.dataset.yhDashboardFederationScrollMode = 'parent-page';
 
-    const main = frameDoc.getElementById('fedMain');
     const shell = frameDoc.querySelector('.fed-shell');
+    const main = frameDoc.getElementById('fedMain');
+    const frameShell = frame.closest('#yh-universe-workspace-frame-shell');
 
-    frameDoc.documentElement.style.setProperty('height', '100%', 'important');
+    frameDoc.documentElement.style.setProperty('height', 'auto', 'important');
     frameDoc.documentElement.style.setProperty('min-height', '100%', 'important');
-    frameDoc.documentElement.style.setProperty('overflow', 'hidden', 'important');
+    frameDoc.documentElement.style.setProperty('overflow', 'visible', 'important');
 
-    frameDoc.body.style.setProperty('height', '100%', 'important');
+    frameDoc.body.style.setProperty('height', 'auto', 'important');
     frameDoc.body.style.setProperty('min-height', '100%', 'important');
-    frameDoc.body.style.setProperty('overflow', 'hidden', 'important');
+    frameDoc.body.style.setProperty('overflow', 'visible', 'important');
     frameDoc.body.style.setProperty('overscroll-behavior', 'contain', 'important');
 
     if (shell instanceof HTMLElement) {
-        shell.style.setProperty('height', '100%', 'important');
-        shell.style.setProperty('max-height', '100%', 'important');
-        shell.style.setProperty('min-height', '0', 'important');
-        shell.style.setProperty('overflow', 'hidden', 'important');
+        shell.style.setProperty('height', 'auto', 'important');
+        shell.style.setProperty('max-height', 'none', 'important');
+        shell.style.setProperty('min-height', '100%', 'important');
+        shell.style.setProperty('overflow', 'visible', 'important');
         shell.style.setProperty('display', 'grid', 'important');
         shell.style.setProperty('grid-template-columns', 'minmax(0, 1fr)', 'important');
-        shell.style.setProperty('grid-template-rows', 'minmax(0, 1fr)', 'important');
+        shell.style.setProperty('grid-template-rows', 'auto', 'important');
     }
 
     if (main instanceof HTMLElement) {
-        main.style.setProperty('height', '100%', 'important');
-        main.style.setProperty('max-height', '100%', 'important');
-        main.style.setProperty('min-height', '0', 'important');
-        main.style.setProperty('overflow-y', 'auto', 'important');
-        main.style.setProperty('overflow-x', 'hidden', 'important');
+        main.style.setProperty('height', 'auto', 'important');
+        main.style.setProperty('max-height', 'none', 'important');
+        main.style.setProperty('min-height', '100%', 'important');
+        main.style.setProperty('overflow', 'visible', 'important');
         main.style.setProperty('-webkit-overflow-scrolling', 'touch', 'important');
         main.style.setProperty('overscroll-behavior', 'contain', 'important');
         main.style.setProperty('touch-action', 'pan-y', 'important');
-        main.style.setProperty('scrollbar-width', 'thin', 'important');
+        main.style.setProperty('scroll-behavior', 'auto', 'important');
+        main.style.setProperty('padding-bottom', 'clamp(96px, 10vh, 140px)', 'important');
+    }
 
-        if (main.dataset.yhDashboardFederationScrollBoundV3 !== 'true') {
-            main.dataset.yhDashboardFederationScrollBoundV3 = 'true';
+    if (frameShell instanceof HTMLElement) {
+        frameShell.style.setProperty('height', 'auto', 'important');
+        frameShell.style.setProperty('min-height', '0', 'important');
+        frameShell.style.setProperty('max-height', 'none', 'important');
+        frameShell.style.setProperty('overflow', 'visible', 'important');
+    }
 
-            frameDoc.addEventListener('wheel', (event) => {
-                const target = event.target instanceof Element ? event.target : null;
+    function getDashboardParentScroller() {
+        const hub = document.getElementById('universe-hub-view');
 
-                if (target?.closest?.('textarea, select, input, [contenteditable="true"]')) {
-                    return;
-                }
-
-                const scroller = frameDoc.getElementById('fedMain');
-                if (!(scroller instanceof HTMLElement)) return;
-
-                const maxScroll = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
-                if (maxScroll <= 2) return;
-
-                const before = scroller.scrollTop;
-                scroller.scrollTop = Math.max(0, Math.min(maxScroll, before + event.deltaY));
-
-                if (scroller.scrollTop !== before) {
-                    event.preventDefault();
-                    event.stopPropagation();
-                }
-            }, { capture: true, passive: false });
+        if (
+            hub instanceof HTMLElement &&
+            hub.scrollHeight > hub.clientHeight + 2
+        ) {
+            return hub;
         }
+
+        return document.scrollingElement || document.documentElement;
+    }
+
+    function syncFederationFrameHeight() {
+        const currentShell = frameDoc.querySelector('.fed-shell');
+        const currentMain = frameDoc.getElementById('fedMain');
+
+        const measuredHeight = Math.max(
+            frameDoc.documentElement?.scrollHeight || 0,
+            frameDoc.body?.scrollHeight || 0,
+            currentShell instanceof HTMLElement ? currentShell.scrollHeight : 0,
+            currentMain instanceof HTMLElement ? currentMain.scrollHeight + currentMain.offsetTop : 0,
+            720
+        );
+
+        const nextHeight = Math.ceil(measuredHeight + 40);
+
+        frame.style.setProperty('height', `${nextHeight}px`, 'important');
+        frame.style.setProperty('min-height', `${nextHeight}px`, 'important');
+        frame.style.setProperty('max-height', 'none', 'important');
+        frame.style.setProperty('overflow', 'visible', 'important');
+    }
+
+    function scheduleFederationFrameHeightSync() {
+        window.clearTimeout(frame.__yhDashboardFederationHeightSyncTimerV4);
+
+        frame.__yhDashboardFederationHeightSyncTimerV4 = window.setTimeout(() => {
+            syncFederationFrameHeight();
+
+            window.requestAnimationFrame(() => {
+                syncFederationFrameHeight();
+            });
+        }, 40);
+    }
+
+    scheduleFederationFrameHeightSync();
+    window.setTimeout(scheduleFederationFrameHeightSync, 240);
+    window.setTimeout(scheduleFederationFrameHeightSync, 800);
+    window.setTimeout(scheduleFederationFrameHeightSync, 1600);
+
+    if (frame.__yhDashboardFederationObserverDocV4 !== frameDoc) {
+        try {
+            frame.__yhDashboardFederationMutationObserverV4?.disconnect?.();
+        } catch (_) {}
+
+        try {
+            frame.__yhDashboardFederationResizeObserverV4?.disconnect?.();
+        } catch (_) {}
+
+        frame.__yhDashboardFederationMutationObserverV4 = null;
+        frame.__yhDashboardFederationResizeObserverV4 = null;
+        frame.__yhDashboardFederationObserverDocV4 = frameDoc;
+    }
+
+    if (!frame.__yhDashboardFederationMutationObserverV4) {
+        try {
+            const ObserverCtor = frameDoc.defaultView?.MutationObserver || window.MutationObserver;
+
+            if (typeof ObserverCtor === 'function') {
+                const observer = new ObserverCtor(() => {
+                    scheduleFederationFrameHeightSync();
+                });
+
+                observer.observe(frameDoc.body, {
+                    childList: true,
+                    subtree: true,
+                    attributes: true,
+                    characterData: true
+                });
+
+                frame.__yhDashboardFederationMutationObserverV4 = observer;
+            }
+        } catch (_) {}
+    }
+
+    if (!frame.__yhDashboardFederationResizeObserverV4) {
+        try {
+            const ResizeObserverCtor = frameDoc.defaultView?.ResizeObserver || window.ResizeObserver;
+
+            if (typeof ResizeObserverCtor === 'function') {
+                const resizeObserver = new ResizeObserverCtor(() => {
+                    scheduleFederationFrameHeightSync();
+                });
+
+                resizeObserver.observe(frameDoc.body);
+
+                if (shell instanceof HTMLElement) resizeObserver.observe(shell);
+                if (main instanceof HTMLElement) resizeObserver.observe(main);
+
+                frame.__yhDashboardFederationResizeObserverV4 = resizeObserver;
+            }
+        } catch (_) {}
+    }
+
+    if (frameDoc.body.dataset.yhDashboardFederationParentWheelV4 !== 'true') {
+        frameDoc.body.dataset.yhDashboardFederationParentWheelV4 = 'true';
+
+        frameDoc.addEventListener('wheel', (event) => {
+            const target = event.target instanceof Element ? event.target : null;
+
+            if (target?.closest?.('textarea, select, input, [contenteditable="true"]')) {
+                return;
+            }
+
+            const parentScroller = getDashboardParentScroller();
+            if (!(parentScroller instanceof HTMLElement)) return;
+
+            const maxScroll = Math.max(0, parentScroller.scrollHeight - parentScroller.clientHeight);
+            if (maxScroll <= 2) return;
+
+            const before = parentScroller.scrollTop;
+            const next = Math.max(0, Math.min(maxScroll, before + event.deltaY));
+
+            if (next === before) return;
+
+            parentScroller.scrollTop = next;
+            event.preventDefault();
+            event.stopPropagation();
+        }, { capture: true, passive: false });
+
+        frameDoc.addEventListener('keydown', (event) => {
+            const target = event.target instanceof Element ? event.target : null;
+
+            if (target?.closest?.('textarea, select, input, [contenteditable="true"]')) {
+                return;
+            }
+
+            const parentScroller = getDashboardParentScroller();
+            if (!(parentScroller instanceof HTMLElement)) return;
+
+            const maxScroll = Math.max(0, parentScroller.scrollHeight - parentScroller.clientHeight);
+            if (maxScroll <= 2) return;
+
+            const movement = {
+                ArrowDown: 72,
+                ArrowUp: -72,
+                PageDown: Math.max(160, parentScroller.clientHeight * 0.78),
+                PageUp: -Math.max(160, parentScroller.clientHeight * 0.78),
+                Home: -999999,
+                End: 999999
+            };
+
+            if (!Object.prototype.hasOwnProperty.call(movement, event.key)) return;
+
+            const before = parentScroller.scrollTop;
+            const next = event.key === 'Home'
+                ? 0
+                : event.key === 'End'
+                    ? maxScroll
+                    : Math.max(0, Math.min(maxScroll, before + movement[event.key]));
+
+            if (next === before) return;
+
+            parentScroller.scrollTop = next;
+            event.preventDefault();
+            event.stopPropagation();
+        }, { capture: true });
     }
 
     return true;
 }
-
 function syncDashboardInlineFederationSection(frame) {
     if (!frame) return false;
 
