@@ -11467,34 +11467,75 @@ body.yh-profile-cropper-open {
 }
 /* END PATCH: Academy follow/unfollow red pill state v1 */
 
-/* PATCH: Academy profile follow toggle no-flicker v3 */
+/* PATCH: Academy profile follow toggle no-flicker v4 */
 #academy-profile-view[data-profile-layout="visited"] .academy-profile-action-btn[data-action-rank="visited-secondary-follow"],
 #academy-profile-view[data-profile-layout="visited"] .academy-profile-action-btn[data-profile-action="toggle-follow"] {
     min-width: 168px !important;
     contain: layout paint !important;
 }
 
+html.yh-profile-follow-freeze,
+body.yh-profile-follow-freeze {
+    overflow: hidden !important;
+}
+
+body.yh-profile-follow-freeze .dashboard-layout,
+body.yh-profile-follow-freeze #universe-hub-view,
+body.yh-profile-follow-freeze .desktop-user-strip {
+    pointer-events: none !important;
+    user-select: none !important;
+}
+
+body[data-yh-page="dashboard"].yh-profile-follow-freeze #academy-profile-view.yh-dashboard-universe-profile-host,
+body[data-yh-page="dashboard"].yh-profile-follow-freeze #academy-profile-view.yh-dashboard-universe-profile-host.hidden-step,
+body[data-yh-page="dashboard"].yh-profile-follow-freeze #academy-profile-view[data-profile-follow-overlay-lock="true"] {
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    transform: none !important;
+    filter: none !important;
+    z-index: 30000 !important;
+    isolation: isolate !important;
+    background:
+        radial-gradient(circle at top left, rgba(56, 189, 248, 0.12), transparent 32%),
+        radial-gradient(circle at top right, rgba(211, 178, 112, 0.08), transparent 28%),
+        linear-gradient(180deg, #020617 0%, #050816 52%, #020617 100%) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+body[data-yh-page="dashboard"].yh-profile-follow-freeze #academy-profile-view.yh-dashboard-universe-profile-host::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: #020617;
+    pointer-events: none;
+}
+
 body.yh-profile-follow-freeze #academy-profile-view[data-follow-toggle-pending="true"],
 body.yh-profile-follow-freeze #academy-profile-view[data-follow-toggle-pending="true"].hidden-step,
 body.yh-profile-follow-freeze #academy-profile-view[data-profile-layout="visited"][data-follow-toggle-pending="true"] {
-    display: block !important;
+    display: flex !important;
     visibility: visible !important;
     opacity: 1 !important;
     pointer-events: auto !important;
 }
 
 body.yh-profile-follow-freeze #academy-profile-view[data-follow-toggle-pending="true"],
+body.yh-profile-follow-freeze #academy-profile-view[data-follow-toggle-pending="true"].fade-in,
 body.yh-profile-follow-freeze #academy-profile-view[data-follow-toggle-pending="true"] .academy-profile-shell,
 body.yh-profile-follow-freeze #academy-profile-view[data-follow-toggle-pending="true"] .academy-profile-hero-card,
+body.yh-profile-follow-freeze #academy-profile-view[data-follow-toggle-pending="true"] .academy-profile-cover-card,
 body.yh-profile-follow-freeze #academy-profile-view[data-follow-toggle-pending="true"] .academy-profile-card,
 body.yh-profile-follow-freeze #academy-profile-view[data-follow-toggle-pending="true"] .academy-profile-stat-strip,
 body.yh-profile-follow-freeze #academy-profile-view[data-follow-toggle-pending="true"] .academy-profile-main-grid {
     animation: none !important;
     transition: none !important;
-}
-
-body.yh-profile-follow-freeze #academy-profile-view[data-follow-toggle-pending="true"].fade-in {
-    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
 }
 
 #academy-profile-view[data-follow-toggle-pending="true"] .academy-profile-action-btn[data-action-rank="visited-secondary-follow"],
@@ -11518,7 +11559,7 @@ body.yh-profile-follow-freeze #academy-profile-view[data-follow-toggle-pending="
     vertical-align: -2px;
     animation: yh-btn-spin 0.8s linear infinite;
 }
-/* END PATCH: Academy profile follow toggle no-flicker v3 */
+/* END PATCH: Academy profile follow toggle no-flicker v4 */
 
 @media (max-width: 640px) {
     .academy-member-browser-dialog {

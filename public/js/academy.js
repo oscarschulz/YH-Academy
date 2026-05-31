@@ -9281,6 +9281,7 @@ function academyReadVisitedProfileFollowLock() {
     if (!lock || typeof lock !== 'object') return null;
     if (Number(lock.until || 0) <= Date.now()) {
         window.__yhVisitedProfileFollowLockV1 = null;
+        document.documentElement?.classList.remove('yh-profile-follow-freeze');
         document.body?.classList.remove('yh-profile-follow-freeze');
 
         const profileView = document.getElementById('academy-profile-view');
@@ -9294,27 +9295,30 @@ function academyReadVisitedProfileFollowLock() {
 
 function academySetVisitedProfileFollowLock(memberId = '', isLocked = true) {
     const normalizedMemberId = normalizeAcademyFeedId(memberId);
+    const profileView = document.getElementById('academy-profile-view');
 
     if (!isLocked || !normalizedMemberId) {
         window.__yhVisitedProfileFollowLockV1 = null;
+        document.documentElement?.classList.remove('yh-profile-follow-freeze');
         document.body?.classList.remove('yh-profile-follow-freeze');
 
-        const profileView = document.getElementById('academy-profile-view');
         profileView?.removeAttribute('data-follow-toggle-pending');
+        profileView?.removeAttribute('data-profile-follow-overlay-lock');
 
         return;
     }
 
     window.__yhVisitedProfileFollowLockV1 = {
         memberId: normalizedMemberId,
-        until: Date.now() + 4800
+        until: Date.now() + 9000
     };
 
+    document.documentElement?.classList.add('yh-profile-follow-freeze');
     document.body?.classList.add('yh-profile-follow-freeze');
 
-    const profileView = document.getElementById('academy-profile-view');
     if (profileView) {
         profileView.setAttribute('data-follow-toggle-pending', 'true');
+        profileView.setAttribute('data-profile-follow-overlay-lock', 'true');
         profileView.classList.remove('hidden-step');
         profileView.setAttribute('aria-hidden', 'false');
     }
