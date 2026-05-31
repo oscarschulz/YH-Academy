@@ -9547,11 +9547,21 @@ function showAcademyRoadmapLoadingShell() {
 
     if (dynamicChatContainer) {
         dynamicChatContainer.innerHTML = `
-            <div class="academy-home-stack">
-                <section class="academy-home-panel">
-                    <div class="academy-home-panel-label">Roadmap</div>
-                    <div class="academy-home-panel-copy">
-                        Loading your Academy roadmap view...
+            <div class="academy-roadmap-loading-shell" role="status" aria-live="polite">
+                <section class="academy-roadmap-loading-card">
+                    <div class="academy-roadmap-loading-orb" aria-hidden="true">
+                        <span class="academy-roadmap-loading-ring"></span>
+                        <img src="/images/logo.avif" alt="" class="academy-roadmap-loading-logo" loading="eager" decoding="async">
+                    </div>
+
+                    <div class="academy-roadmap-loading-kicker">Roadmap Sync</div>
+                    <h3 class="academy-roadmap-loading-title">Preparing your Academy roadmap</h3>
+                    <p class="academy-roadmap-loading-copy">
+                        Loading missions, access state, progress, and your next execution move.
+                    </p>
+
+                    <div class="academy-roadmap-loading-progress" aria-hidden="true">
+                        <span></span>
                     </div>
                 </section>
             </div>
@@ -9839,54 +9849,64 @@ function academySyncMessagesTabsShellV12(tab = '') {
     return selected;
 }
 
-function academyRenderMessagesShellNowV12() {
+function academyRenderMessagesShellNowV12(options = {}) {
     academyEnsureMessagesTabsShellV12();
     academySyncMessagesTabsShellV12();
+    academyRenderMessagesLoadingShellV15();
 
-    try {
-        if (typeof renderAcademyMessagesInboxList === 'function') {
-            renderAcademyMessagesInboxList();
-        }
-    } catch (error) {
-        console.error('academyRenderMessagesShellNowV12 render inbox error:', error);
-    }
+    const forceFresh =
+        options && typeof options === 'object' && Object.prototype.hasOwnProperty.call(options, 'forceFresh')
+            ? options.forceFresh === true
+            : !academyMessagesInboxState.hydratedOnce;
 
-    try {
-        if (typeof window.academyEnhanceMessagesInbox === 'function') {
-            window.academyEnhanceMessagesInbox();
-        }
-    } catch (_) {}
+    const finalizeMessagesShell = (reason = 'messages-ready') => {
+        academyEnsureMessagesTabsShellV12();
+        academySyncMessagesTabsShellV12();
 
-    try {
-        const rooms = typeof academyReadMessageRooms === 'function'
-            ? academyReadMessageRooms()
-            : [];
-
-        if (typeof academyRenderMessagesThreadEmpty === 'function') {
-            academyRenderMessagesThreadEmpty(
-                rooms.length
-                    ? 'Select a conversation from the inbox to open that private thread.'
-                    : 'No conversations yet. Start a DM or create a group to see it here.'
-            );
-        }
-    } catch (_) {}
-
-    window.setTimeout(() => {
         try {
-            academyHydrateMessageRooms(!academyMessagesInboxState.hydratedOnce).catch((error) => {
-                showToast(error?.message || 'Failed to load conversations.', 'error');
-            }).finally(() => {
-                academyForceReleaseTabLoaderV12('messages-hydrated');
-                academyEnsureMessagesTabsShellV12();
-                academySyncMessagesTabsShellV12();
-            });
+            renderAcademyMessagesInboxList();
         } catch (error) {
-            console.error('academyRenderMessagesShellNowV12 hydrate error:', error);
-            academyForceReleaseTabLoaderV12('messages-hydrate-start-error');
+            console.error('academyRenderMessagesShellNowV12 final render error:', error);
         }
-    }, 120);
 
-    academyForceReleaseTabLoaderV12('messages-shell-ready');
+        try {
+            if (typeof window.academyEnhanceMessagesInbox === 'function') {
+                window.academyEnhanceMessagesInbox();
+            }
+        } catch (_) {}
+
+        try {
+            const rooms = typeof academyReadMessageRooms === 'function'
+                ? academyReadMessageRooms()
+                : [];
+
+            if (typeof academyRenderMessagesThreadEmpty === 'function') {
+                academyRenderMessagesThreadEmpty(
+                    rooms.length
+                        ? 'Select a conversation from the inbox to open that private thread.'
+                        : 'No conversations yet. Start a DM or create a group to see it here.'
+                );
+            }
+        } catch (_) {}
+
+        academyClearMessagesLoadingShellV15();
+        academyForceReleaseTabLoaderV12(reason);
+
+        return typeof academyReadMessageRooms === 'function' ? academyReadMessageRooms() : [];
+    };
+
+    return Promise.resolve()
+        .then(() => academyHydrateMessageRooms(forceFresh))
+        .catch((error) => {
+            console.error('academyRenderMessagesShellNowV12 hydrate error:', error);
+            showToast(error?.message || 'Failed to load conversations.', 'error');
+            return typeof academyReadMessageRooms === 'function' ? academyReadMessageRooms() : [];
+        })
+        .then(() => finalizeMessagesShell('messages-hydrated-ready'))
+        .finally(() => {
+            academyEnsureMessagesTabsShellV12();
+            academySyncMessagesTabsShellV12();
+        });
 }
 /* END PATCH: Academy Messages/Missions shell stabilizer v12 */
 
@@ -9925,34 +9945,17 @@ function openAcademyMessagesView() {
             academyResetMessagesThreadState();
             academySetMessagesChatMode('messages');
 
-            academyRenderMessagesShellNowV12();
-
-            const rooms = academyReadMessageRooms();
-
-            academyScheduleIdleV7(() => {
-                try {
-                    renderAcademyMessagesInboxList();
-
-                    if (rooms.length) {
-                        academyRenderMessagesThreadEmpty('Select a conversation from the inbox to open that private thread.');
-                    } else {
-                        academyRenderMessagesThreadEmpty('No conversations yet. Start a DM or create a group to see it here.');
-                    }
-                } catch (error) {
-                    console.error('render messages shell error:', error);
-                }
-            }, 300);
-
-            academyScheduleIdleV7(() => {
-                academyHydrateMessageRooms(!academyMessagesInboxState.hydratedOnce).catch((error) => {
-                    showToast(error?.message || 'Failed to load conversations.', 'error');
-                });
-            }, 1200);
+            Promise.resolve(
+                academyRenderMessagesShellNowV12({
+                    forceFresh: !academyMessagesInboxState.hydratedOnce
+                })
+            ).finally(() => {
+                academyUnlockTabSwitchSoonV7('messages');
+            });
         } catch (error) {
             console.error('openAcademyMessagesView error:', error);
             showToast(error?.message || 'Failed to open Messages.', 'error');
-        } finally {
-            academyForceReleaseTabLoaderV12('messages-opened');
+            academyForceReleaseTabLoaderV12('messages-open-error');
             academyUnlockTabSwitchSoonV7('messages');
         }
     });
@@ -16116,6 +16119,81 @@ function academyGetMessagesInboxDefaultEmptyMessage() {
         : 'No conversations yet. Start a DM or create a group to see it here.';
 }
 
+/* PATCH: Academy Messages centered loading state v15 */
+function academyBuildMessagesLoadingMarkupV15() {
+    return `
+        <div class="academy-roadmap-loading-shell academy-messages-loading-shell" role="status" aria-live="polite">
+            <section class="academy-roadmap-loading-card academy-messages-loading-card">
+                <div class="academy-roadmap-loading-orb academy-messages-loading-orb" aria-hidden="true">
+                    <span class="academy-roadmap-loading-ring academy-messages-loading-ring"></span>
+                    <img src="/assets/academy/icons/academy-icon-messages.png" alt="" class="academy-roadmap-loading-logo academy-messages-loading-logo" loading="eager" decoding="async">
+                </div>
+
+                <div class="academy-roadmap-loading-kicker academy-messages-loading-kicker">Messages Sync</div>
+                <h3 class="academy-roadmap-loading-title academy-messages-loading-title">Preparing your inbox</h3>
+                <p class="academy-roadmap-loading-copy academy-messages-loading-copy">
+                    Loading DMs, group chats, unread states, and conversation actions.
+                </p>
+
+                <div class="academy-roadmap-loading-progress academy-messages-loading-progress" aria-hidden="true">
+                    <span></span>
+                </div>
+            </section>
+        </div>
+    `;
+}
+
+function academyRenderMessagesSidebarLoadingShellV15() {
+    const { list } = academyGetMessagesInboxElements();
+    if (!list) return;
+
+    list.classList.add('is-switching-message-tab', 'is-loading-conversations');
+    list.setAttribute('data-academy-tab-loading', 'true');
+
+    list.innerHTML = `
+        <div class="academy-messages-tab-status-card is-loading is-premium-loader" data-academy-messages-tab-status="loading">
+            <span class="academy-messages-tab-premium-orb" aria-hidden="true">
+                <span></span>
+                <img src="/assets/academy/icons/academy-icon-messages.png" alt="" loading="eager" decoding="async">
+            </span>
+            <strong>Loading conversations</strong>
+            <span>Syncing DMs and groups...</span>
+        </div>
+    `;
+}
+
+function academyClearMessagesLoadingShellV15() {
+    const { list } = academyGetMessagesInboxElements();
+    if (!list) return;
+
+    list.classList.remove('is-loading-conversations');
+}
+
+function academyRenderMessagesLoadingShellV15() {
+    const { dynamicChatHistory, welcomeBox, chatInputArea } = academyGetMessagesInboxElements();
+
+    academyClearMessagesThreadHeader();
+    academySetMessagesChatMode('messages');
+    academyRestoreMessagesInboxHeader();
+
+    if (welcomeBox) {
+        welcomeBox.style.display = 'none';
+    }
+
+    if (chatInputArea) {
+        chatInputArea.classList.add('hidden-step');
+        chatInputArea.style.setProperty('display', 'none', 'important');
+        chatInputArea.setAttribute('aria-hidden', 'true');
+    }
+
+    academyRenderMessagesSidebarLoadingShellV15();
+
+    if (dynamicChatHistory) {
+        dynamicChatHistory.innerHTML = academyBuildMessagesLoadingMarkupV15();
+    }
+}
+/* END PATCH: Academy Messages centered loading state v15 */
+
 function academyRenderMessagesInboxHomeEmptyHtml(message = '') {
     const finalMessage = String(message || academyGetMessagesInboxDefaultEmptyMessage()).trim();
 
@@ -16536,7 +16614,7 @@ async function academyHydrateMessageRooms(forceFresh = false) {
             if (forceFresh) {
                 const { list } = academyGetMessagesInboxElements();
                 if (list && !cachedRooms.length) {
-                    list.innerHTML = '<div class="academy-messages-inbox-empty">Loading conversations.</div>';
+                    academyRenderMessagesSidebarLoadingShellV15();
                 }
             }
 
@@ -27305,32 +27383,17 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
         });
     }
 
-    function academyInstallRightSidebarBotCta() {
-        const sidebar = document.querySelector('.yh-right-sidebar');
-        if (!sidebar || sidebar.querySelector('.academy-right-bot-cta')) return;
-
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'academy-right-bot-cta';
-        button.setAttribute('aria-label', 'Open Academy AI Coach');
-        button.innerHTML = `<span class="academy-right-bot-cta-pill">I\'m here</span><span class="academy-right-bot-cta-avatar">🤖</span>`;
-
-        button.addEventListener('click', async () => {
-            if (typeof openAcademyCoachView === 'function') {
-                await openAcademyCoachView(true);
-                return;
-            }
-
-            document.getElementById('nav-missions')?.click();
+function academyInstallRightSidebarBotCta() {
+        document.querySelectorAll('.academy-right-bot-cta, .academy-single-right-bot, .academy-ai-coach-bottom-visible').forEach((bot) => {
+            if (!(bot instanceof HTMLElement)) return;
+            if (bot.id === 'academy-ai-coach-inline-tab-launcher') return;
+            bot.remove();
         });
 
-        sidebar.appendChild(button);
-
-        window.setTimeout(() => {
-            document.body?.classList.add('academy-right-bot-docked');
-            button.classList.add('is-docked');
-            button.innerHTML = `<span class="academy-right-bot-cta-avatar">🤖</span><strong>Ask AI Coach</strong>`;
-        }, 30000);
+        document.body?.classList.remove(
+            'academy-right-bot-docked',
+            'academy-ai-coach-bottom-visible-ready'
+        );
     }
 
     function academyUpgradeBoot() {
@@ -29805,6 +29868,129 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
         return normalized;
     }
 
+    function academyCleanTextForAiCoachGate(value = '') {
+        return String(value || '').replace(/\s+/g, ' ').trim();
+    }
+
+    function academyReadJsonForAiCoachGate(key = '') {
+        const cleanKey = String(key || '').trim();
+        if (!cleanKey) return null;
+
+        const stores = [sessionStorage, localStorage];
+
+        for (const store of stores) {
+            try {
+                const raw = store.getItem(cleanKey);
+                if (!raw) continue;
+
+                const parsed = JSON.parse(raw);
+                if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                    return parsed;
+                }
+            } catch (_) {}
+        }
+
+        return null;
+    }
+
+    function academyHasActiveYhaBadgeForAiCoachGate(profile = {}) {
+        const badgeSources = [
+            profile?.verificationBadges,
+            profile?.verifiedBadges,
+            profile?.yhVerificationBadges,
+            profile?.badges,
+            profile?.badgeSubscriptions
+        ].filter((source) => source && typeof source === 'object');
+
+        for (const source of badgeSources) {
+            const badge = source.academy && typeof source.academy === 'object'
+                ? source.academy
+                : source.yha && typeof source.yha === 'object'
+                    ? source.yha
+                    : null;
+
+            if (!badge) continue;
+
+            const status = academyCleanTextForAiCoachGate(badge.status).toLowerCase();
+            const paymentStatus = academyCleanTextForAiCoachGate(badge.paymentStatus).toLowerCase();
+            const subscriptionStatus = academyCleanTextForAiCoachGate(badge.subscriptionStatus).toLowerCase();
+
+            if (['cancelled', 'canceled'].includes(status) || ['cancelled', 'canceled'].includes(paymentStatus) || ['cancelled', 'canceled'].includes(subscriptionStatus)) {
+                continue;
+            }
+
+            if (
+                badge.active === true ||
+                status === 'active' ||
+                status === 'verified' ||
+                paymentStatus === 'paid' ||
+                subscriptionStatus === 'active'
+            ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    function academyHasAiCoachSubscriberAccess() {
+        try {
+            const cachedMembership = typeof readAcademyMembershipCache === 'function'
+                ? readAcademyMembershipCache()
+                : academyReadJsonForAiCoachGate('yh_academy_membership_status_v1');
+
+            const membershipStatus = academyCleanTextForAiCoachGate(
+                cachedMembership?.applicationStatus ||
+                cachedMembership?.status ||
+                ''
+            ).toLowerCase().replace(/[_-]+/g, ' ');
+
+            if (
+                localStorage.getItem('yh_academy_access') === 'true' ||
+                cachedMembership?.canEnterAcademy === true ||
+                cachedMembership?.hasRoadmapAccess === true ||
+                membershipStatus === 'approved' ||
+                membershipStatus === 'active'
+            ) {
+                return true;
+            }
+        } catch (_) {}
+
+        const profileKeys = [
+            'yh_academy_profile_cache_v1',
+            'yh_academy_profile_v1',
+            'yh_academy_application_profile',
+            'yh_current_user',
+            'yh_user',
+            'currentUser',
+            'user'
+        ];
+
+        for (const key of profileKeys) {
+            const parsed = academyReadJsonForAiCoachGate(key);
+            if (!parsed || typeof parsed !== 'object') continue;
+
+            if (academyHasActiveYhaBadgeForAiCoachGate(parsed)) return true;
+            if (parsed.profile && academyHasActiveYhaBadgeForAiCoachGate(parsed.profile)) return true;
+            if (parsed.user && academyHasActiveYhaBadgeForAiCoachGate(parsed.user)) return true;
+        }
+
+        return false;
+    }
+
+    function hideAcademyAiCoachBottomBotForGate() {
+        document.body?.classList.remove('academy-right-bot-docked', 'academy-ai-coach-bottom-visible-ready');
+        document.body?.classList.add('academy-ai-coach-subscriber-gated');
+
+        getBotCandidates().forEach((candidate) => {
+            candidate.setAttribute('aria-hidden', 'true');
+            candidate.setAttribute('tabindex', '-1');
+            setImportantStyle(candidate, 'display', 'none');
+            setImportantStyle(candidate, 'visibility', 'hidden');
+            setImportantStyle(candidate, 'pointer-events', 'none');
+        });
+    }
+
     function getRightSidebar() {
         return document.querySelector(
             '.yh-right-sidebar, .academy-right-sidebar, [data-academy-right-sidebar], .academy-right-rail, .academy-signals-sidebar'
@@ -29812,6 +29998,19 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
     }
 
     function openCoachFromBottomBot() {
+        if (!academyHasAiCoachSubscriberAccess()) {
+            hideAcademyAiCoachBottomBotForGate();
+            if (typeof showToast === 'function') {
+                showToast('Academy AI Coach is available to active Academy/YHA subscribers only.', 'error');
+            }
+            return;
+        }
+
+        if (typeof window.openAcademyAiCoachRectModal === 'function') {
+            window.openAcademyAiCoachRectModal();
+            return;
+        }
+
         if (typeof openAcademyCoachView === 'function') {
             Promise.resolve(openAcademyCoachView(true)).catch(() => {});
             return;
@@ -29823,7 +30022,12 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
     function getBotCandidates() {
         return Array.from(document.querySelectorAll(
             '.academy-right-bot-cta, button[aria-label="Open Academy AI Coach"]'
-        )).filter((bot) => bot instanceof HTMLElement);
+        )).filter((bot) => {
+            if (!(bot instanceof HTMLElement)) return false;
+            if (bot.id === 'academy-ai-coach-inline-tab-launcher') return false;
+            if (bot.classList.contains('academy-ai-coach-inline-tab-launcher')) return false;
+            return true;
+        });
     }
 
     function setImportantStyle(el, prop, value) {
@@ -29831,94 +30035,28 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
         el.style.setProperty(prop, value, 'important');
     }
 
-    function lockBotToVisibleBottom() {
+function lockBotToVisibleBottom() {
         const sidebar = getRightSidebar();
-        if (!sidebar) return;
 
-        sidebar.classList.add('academy-ai-coach-bottom-visible-sidebar');
-
-        const candidates = getBotCandidates();
-        let bot =
-            candidates.find((item) => item.getAttribute(BOTTOM_BOT_ATTR) === '1' && sidebar.contains(item)) ||
-            candidates.find((item) => item.getAttribute(SINGLE_BOT_ATTR) === '1' && sidebar.contains(item)) ||
-            candidates.find((item) => sidebar.contains(item)) ||
-            null;
-
-        if (!bot) {
-            bot = document.createElement('button');
-            bot.type = 'button';
-            bot.setAttribute('aria-label', 'Open Academy AI Coach');
-            sidebar.appendChild(bot);
-        }
-
-        if (!sidebar.contains(bot)) {
-            sidebar.appendChild(bot);
-        }
-
-        getBotCandidates().forEach((candidate) => {
-            if (candidate === bot) return;
-            candidate.setAttribute('aria-hidden', 'true');
-            candidate.setAttribute('tabindex', '-1');
-            setImportantStyle(candidate, 'display', 'none');
-            setImportantStyle(candidate, 'visibility', 'hidden');
-            setImportantStyle(candidate, 'pointer-events', 'none');
+        getBotCandidates().forEach((bot) => {
+            if (!(bot instanceof HTMLElement)) return;
+            if (bot.id === 'academy-ai-coach-inline-tab-launcher') return;
+            bot.remove();
         });
 
-        bot.setAttribute(SINGLE_BOT_ATTR, '1');
-        bot.setAttribute(BOTTOM_BOT_ATTR, '1');
-        bot.setAttribute('aria-label', 'Open Academy AI Coach');
-        bot.removeAttribute('aria-hidden');
-        bot.removeAttribute('tabindex');
-
-        bot.classList.add(
-            'academy-right-bot-cta',
-            'academy-single-right-bot',
-            'academy-right-bot-safe-bounds',
-            'academy-ai-coach-bottom-visible',
-            'is-docked'
-        );
-
-        bot.classList.remove(
-            'academy-right-bot-floating',
-            'academy-right-bot-wandering',
-            'academy-right-bot-active-zone',
-            'academy-right-bot-strict-active-zone',
-            'academy-single-right-bot-playing',
-            'academy-right-bot-safe-playing'
-        );
-
-        bot.dataset.academyDockFlowInstalled = '1';
-        bot.dataset.academyWanderV2Installed = '1';
-        bot.dataset.academyStrictActiveAnchorInstalled = '1';
-        bot.dataset.safeBoundsStartedAt = String(Date.now() - 999999);
-
-        if (bot.innerHTML.indexOf('Ask AI Coach') === -1) {
-            bot.innerHTML = '<span class="academy-right-bot-cta-avatar">🤖</span><strong>Ask AI Coach</strong>';
+        if (sidebar) {
+            sidebar.classList.remove('academy-ai-coach-bottom-visible-sidebar');
         }
 
-        if (bot.dataset.academyBottomVisibleClickBound !== '1') {
-            bot.dataset.academyBottomVisibleClickBound = '1';
-            bot.addEventListener('click', openCoachFromBottomBot);
-        }
+        document.body?.classList.remove(
+            'academy-right-bot-docked',
+            'academy-ai-coach-bottom-visible-ready'
+        );
 
-        setImportantStyle(bot, 'position', 'absolute');
-        setImportantStyle(bot, 'left', '16px');
-        setImportantStyle(bot, 'right', '16px');
-        setImportantStyle(bot, 'bottom', '18px');
-        setImportantStyle(bot, 'top', 'auto');
-        setImportantStyle(bot, 'width', 'auto');
-        setImportantStyle(bot, 'max-width', 'calc(100% - 32px)');
-        setImportantStyle(bot, 'min-height', '54px');
-        setImportantStyle(bot, 'margin', '0');
-        setImportantStyle(bot, 'display', 'inline-flex');
-        setImportantStyle(bot, 'align-items', 'center');
-        setImportantStyle(bot, 'justify-content', 'flex-start');
-        setImportantStyle(bot, 'gap', '10px');
-        setImportantStyle(bot, 'z-index', '120');
-        setImportantStyle(bot, 'transform', 'none');
-        setImportantStyle(bot, 'animation', 'none');
-
-        document.body?.classList.add('academy-right-bot-docked', 'academy-ai-coach-bottom-visible-ready');
+        document.body?.classList.toggle(
+            'academy-ai-coach-subscriber-gated',
+            !academyHasAiCoachSubscriberAccess()
+        );
     }
 
     function getRooms() {
@@ -30152,9 +30290,133 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
         }
     }, true);
 
+    function getAcademyAiCoachInlineTabButton() {
+        let button = document.getElementById('academy-ai-coach-inline-tab-launcher');
+
+        if (button) return button;
+
+        button = document.createElement('button');
+        button.type = 'button';
+        button.id = 'academy-ai-coach-inline-tab-launcher';
+        button.className = 'academy-ai-coach-inline-tab-launcher hidden-step';
+        button.setAttribute('aria-label', 'Open Academy AI Coach');
+        button.innerHTML = `
+            <span class="academy-ai-coach-inline-tab-avatar">
+                <img src="/assets/yh-ai-robot-avatar.png" alt="" loading="lazy" decoding="async">
+            </span>
+            <span class="academy-ai-coach-inline-tab-copy">
+                <strong>AI Coach</strong>
+                <small>Ask for help</small>
+            </span>
+        `;
+
+        button.addEventListener('click', openCoachFromBottomBot);
+        document.body.appendChild(button);
+
+        return button;
+    }
+
+    let academyAiCoachInlineStableMode = '';
+    let academyAiCoachInlineHideTimer = null;
+    let academyAiCoachInlineSyncTimer = null;
+
+    function getAcademyAiCoachInlineTabMode() {
+        const leadView = document.getElementById('academy-lead-missions-view');
+        if (leadView && !leadView.classList.contains('hidden-step')) {
+            return 'missions';
+        }
+
+        const academyChat = document.getElementById('academy-chat');
+        if (academyChat && !academyChat.classList.contains('hidden-step')) {
+            const mode = String(academyChat.getAttribute('data-chat-mode') || '').trim().toLowerCase();
+
+            if (!mode || mode === 'home' || mode === 'roadmap') {
+                return 'roadmap';
+            }
+        }
+
+        return '';
+    }
+
+    function isAcademyAiCoachInlineTabTransitioning() {
+        const tabLoader = document.getElementById('yh-tab-loader');
+        const startupLoader = document.getElementById('yh-academy-startup-loader');
+        const bodyLoading = Boolean(document.body?.getAttribute('data-academy-tab-loading'));
+
+        return Boolean(
+            bodyLoading ||
+            tabLoader?.classList.contains('is-active') ||
+            startupLoader?.classList.contains('is-active') ||
+            document.body?.classList.contains('academy-startup-booting') ||
+            document.body?.classList.contains('academy-standalone-shell-pending')
+        );
+    }
+
+    function showAcademyAiCoachInlineTabButton(button, tabMode) {
+        window.clearTimeout(academyAiCoachInlineHideTimer);
+        academyAiCoachInlineHideTimer = null;
+
+        button.classList.remove('hidden-step', 'is-hidden');
+        button.classList.add('is-visible');
+        button.classList.toggle('is-roadmap', tabMode === 'roadmap');
+        button.classList.toggle('is-missions', tabMode === 'missions');
+        button.setAttribute('aria-hidden', 'false');
+        button.removeAttribute('tabindex');
+
+        button.style.removeProperty('display');
+        button.style.removeProperty('visibility');
+        button.style.removeProperty('pointer-events');
+    }
+
+    function hideAcademyAiCoachInlineTabButton(button, delay = 420) {
+        window.clearTimeout(academyAiCoachInlineHideTimer);
+
+        button.classList.remove('is-visible');
+        button.classList.add('is-hiding');
+        button.setAttribute('aria-hidden', 'true');
+        button.setAttribute('tabindex', '-1');
+
+        academyAiCoachInlineHideTimer = window.setTimeout(() => {
+            button.classList.remove('is-hiding', 'is-roadmap', 'is-missions');
+            button.classList.add('hidden-step', 'is-hidden');
+        }, delay);
+    }
+
+    function syncAcademyAiCoachInlineTabButton() {
+        const button = getAcademyAiCoachInlineTabButton();
+        const liveTabMode = getAcademyAiCoachInlineTabMode();
+        const hasAccess = academyHasAiCoachSubscriberAccess();
+
+        if (liveTabMode) {
+            academyAiCoachInlineStableMode = liveTabMode;
+        }
+
+        const stableTabMode = liveTabMode || academyAiCoachInlineStableMode;
+        const shouldShow = Boolean(liveTabMode) && hasAccess;
+        const shouldHoldDuringTransition =
+            !liveTabMode &&
+            hasAccess &&
+            Boolean(stableTabMode) &&
+            isAcademyAiCoachInlineTabTransitioning();
+
+        if (shouldShow || shouldHoldDuringTransition) {
+            showAcademyAiCoachInlineTabButton(button, stableTabMode);
+            return;
+        }
+
+        academyAiCoachInlineStableMode = '';
+        hideAcademyAiCoachInlineTabButton(button);
+    }
+
+    function scheduleAcademyAiCoachInlineTabButtonSync(delay = 80) {
+        window.clearTimeout(academyAiCoachInlineSyncTimer);
+        academyAiCoachInlineSyncTimer = window.setTimeout(syncAcademyAiCoachInlineTabButton, delay);
+    }
+
     function bootPatch() {
         lockBotToVisibleBottom();
         applyManualMessagesTab(readStoredTab());
+        syncAcademyAiCoachInlineTabButton();
     }
 
     if (document.readyState === 'loading') {
@@ -30163,10 +30425,20 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
         bootPatch();
     }
 
-    window.addEventListener('resize', lockBotToVisibleBottom);
+    window.addEventListener('resize', () => {
+        lockBotToVisibleBottom();
+        syncAcademyAiCoachInlineTabButton();
+    });
     window.addEventListener('pageshow', bootPatch);
 
+    document.addEventListener('click', () => {
+        scheduleAcademyAiCoachInlineTabButtonSync(90);
+        scheduleAcademyAiCoachInlineTabButtonSync(360);
+    }, true);
+
     window.setTimeout(lockBotToVisibleBottom, 600);
+    window.setTimeout(syncAcademyAiCoachInlineTabButton, 700);
+    window.setTimeout(syncAcademyAiCoachInlineTabButton, 1400);
 })();
 /* END PATCH: Academy AI coach bottom-visible dock + manual Messages tab guard v2 */
 
@@ -30430,8 +30702,36 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
         return true;
     }
 
+    function academyHasActiveMembershipForAiCoach() {
+        try {
+            const cachedMembership = typeof readAcademyMembershipCache === 'function'
+                ? readAcademyMembershipCache()
+                : academyReadJsonFromStorageForLearnFrom('yh_academy_membership_status_v1');
+
+            const membershipStatus = String(
+                cachedMembership?.applicationStatus ||
+                cachedMembership?.status ||
+                ''
+            ).trim().toLowerCase().replace(/[_-]+/g, ' ');
+
+            return (
+                localStorage.getItem('yh_academy_access') === 'true' ||
+                cachedMembership?.canEnterAcademy === true ||
+                cachedMembership?.hasRoadmapAccess === true ||
+                membershipStatus === 'approved' ||
+                membershipStatus === 'active'
+            );
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function hasAcademyAiCoachSubscriberAccess() {
+        return academyHasActiveMembershipForAiCoach() || academyLearnFromAccess?.active === true || syncAcademyLearnFromAccessFromYhaBadge();
+    }
+
     function hasAcademyLearnFromAccess() {
-        return academyLearnFromAccess?.active === true || syncAcademyLearnFromAccessFromYhaBadge();
+        return hasAcademyAiCoachSubscriberAccess();
     }
 
     let academyYhaBadgePaymentProviderConfigCache = null;
@@ -31815,6 +32115,15 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
     }
 
     function openModal() {
+        if (!hasAcademyAiCoachSubscriberAccess()) {
+            try {
+                if (typeof showToast === 'function') {
+                    showToast('Academy AI Coach is available to active Academy/YHA subscribers only.', 'error');
+                }
+            } catch (_) {}
+            return;
+        }
+
         const modal = createModal();
 
         modal.classList.remove('hidden-step');
@@ -33575,7 +33884,7 @@ function academyCloseConversationMenusAfterPin(roomId = '') {
             avatar = document.createElement('span');
             avatar.className = 'academy-right-bot-cta-avatar has-ai-robot-image';
 
-            if (label) {
+            if (label && label.parentNode === bot) {
                 bot.insertBefore(avatar, label);
             } else {
                 bot.prepend(avatar);

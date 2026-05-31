@@ -7,7 +7,7 @@
     <link rel="icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css?v=20260530-command-center-layout-v38">
+<link rel="stylesheet" href="/css/style.css?v=20260531-federation-429-backoff-v1">
 <link rel="stylesheet" href="/css/dashboard-mobile.css?v=20260530-command-center-layout-v38">
 </head>
 <body data-yh-view="hub" data-yh-page="dashboard">
@@ -77,10 +77,10 @@
             type="button"
             class="btn-secondary yh-sidebar-command-link yh-sidebar-primary-link yh-sidebar-command-center-label"
             data-yh-dashboard-shell="overview"
-            aria-label="Universe Command Center"
+            aria-label="My Dashboard"
         >
             <span class="yh-sidebar-command-icon">▦</span>
-            <span>Universe Command Center</span>
+            <span>My Dashboard</span>
         </button>
 
         <div class="yh-sidebar-division-group" data-yh-sidebar-division="academy">
@@ -134,7 +134,7 @@
         </div>
         </div>
 
-        <div class="yh-sidebar-division-group" data-yh-sidebar-division="plazas">
+<div class="yh-sidebar-division-group" data-yh-sidebar-division="plazas">
         <button
             class="btn-secondary yh-sidebar-command-link yh-sidebar-primary-link"
             type="button"
@@ -148,22 +148,93 @@
         </button>
 
             <div class="yh-sidebar-subnav">
-                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-feed">Feed</button>
-                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-inbox">Inbox</button>
-                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-conversations">Conversations</button>
-                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-meetups">Meetups</button>
-                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-opportunities">Opportunities</button>
-                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-directory">Directory</button>
-                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-regions">Regions</button>
-                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-atlas">Plaza Atlas</button>
-                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-patron">Become Patron</button>
-                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-patron-desk">Patron Desk</button>
-                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-bridge">Bridge</button>
-                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-requests">Requests</button>
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-feed">
+                    <span class="yh-sidebar-subnav-icon">
+                        <img src="/assets/academy/plaza%20icons/feed.png" alt="" class="yh-sidebar-subnav-icon-img">
+                    </span>
+                    <span>Feed</span>
+                </button>
+
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-inbox">
+                    <span class="yh-sidebar-subnav-icon">
+                        <img src="/assets/academy/plaza%20icons/inbox.png" alt="" class="yh-sidebar-subnav-icon-img">
+                    </span>
+                    <span>Inbox</span>
+                </button>
+
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-conversations">
+                    <span class="yh-sidebar-subnav-icon">
+                        <img src="/assets/academy/plaza%20icons/conversations.png" alt="" class="yh-sidebar-subnav-icon-img">
+                    </span>
+                    <span>Conversations</span>
+                </button>
+
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-meetups">
+                    <span class="yh-sidebar-subnav-icon">
+                        <img src="/assets/academy/plaza%20icons/meetups.png" alt="" class="yh-sidebar-subnav-icon-img">
+                    </span>
+                    <span>Meetups</span>
+                </button>
+
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-opportunities">
+                    <span class="yh-sidebar-subnav-icon">
+                        <img src="/assets/academy/plaza%20icons/opportunities.png" alt="" class="yh-sidebar-subnav-icon-img">
+                    </span>
+                    <span>Opportunities</span>
+                </button>
+
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-directory">
+                    <span class="yh-sidebar-subnav-icon">
+                        <img src="/assets/academy/plaza%20icons/directory.png" alt="" class="yh-sidebar-subnav-icon-img">
+                    </span>
+                    <span>Directory</span>
+                </button>
+
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-regions">
+                    <span class="yh-sidebar-subnav-icon">
+                        <img src="/assets/academy/plaza%20icons/regions.png" alt="" class="yh-sidebar-subnav-icon-img">
+                    </span>
+                    <span>Regions</span>
+                </button>
+
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-atlas">
+                    <span class="yh-sidebar-subnav-icon">
+                        <img src="/assets/academy/plaza%20icons/plaza%20atlas.png" alt="" class="yh-sidebar-subnav-icon-img">
+                    </span>
+                    <span>Plaza Atlas</span>
+                </button>
+
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-patron">
+                    <span class="yh-sidebar-subnav-icon">
+                        <img src="/assets/academy/plaza%20icons/patron.png" alt="" class="yh-sidebar-subnav-icon-img">
+                    </span>
+                    <span>Become Patron</span>
+                </button>
+
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-patron-desk">
+                    <span class="yh-sidebar-subnav-icon">
+                        <img src="/assets/academy/plaza%20icons/patron%20desk.png" alt="" class="yh-sidebar-subnav-icon-img">
+                    </span>
+                    <span>Patron Desk</span>
+                </button>
+
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-bridge">
+                    <span class="yh-sidebar-subnav-icon">
+                        <img src="/assets/academy/plaza%20icons/bridge.png" alt="" class="yh-sidebar-subnav-icon-img">
+                    </span>
+                    <span>Bridge</span>
+                </button>
+
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-requests">
+                    <span class="yh-sidebar-subnav-icon">
+                        <img src="/assets/academy/plaza%20icons/requests.png" alt="" class="yh-sidebar-subnav-icon-img">
+                    </span>
+                    <span>Requests</span>
+                </button>
             </div>
         </div>
 
-        <div class="yh-sidebar-division-group" data-yh-sidebar-division="federation">
+<div class="yh-sidebar-division-group" data-yh-sidebar-division="federation">
             <button
                 class="btn-secondary yh-sidebar-command-link yh-sidebar-primary-link"
                 type="button"
@@ -177,13 +248,54 @@
             </button>
 
             <div class="yh-sidebar-subnav">
-                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="federation-command">Command</button>
-                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="federation-connect">Connect</button>
-                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="federation-deal-rooms">Deal Rooms</button>
-                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="federation-directory">Directory</button>
-                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="federation-requests">My Requests</button>
-                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="federation-referrals">Referrals</button>
-                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="federation-access">My Access</button>
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="federation-command">
+                    <span class="yh-sidebar-subnav-icon">
+                        <img src="/assets/academy/federation%20icons/command.png" alt="" class="yh-sidebar-subnav-icon-img">
+                    </span>
+                    <span>Command</span>
+                </button>
+
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="federation-connect">
+                    <span class="yh-sidebar-subnav-icon">
+                        <img src="/assets/academy/federation%20icons/connect.png" alt="" class="yh-sidebar-subnav-icon-img">
+                    </span>
+                    <span>Connect</span>
+                </button>
+
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="federation-deal-rooms">
+                    <span class="yh-sidebar-subnav-icon">
+                        <img src="/assets/academy/federation%20icons/deal%20rooms.png" alt="" class="yh-sidebar-subnav-icon-img">
+                    </span>
+                    <span>Deal Rooms</span>
+                </button>
+
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="federation-directory">
+                    <span class="yh-sidebar-subnav-icon">
+                        <img src="/assets/academy/federation%20icons/directory.png" alt="" class="yh-sidebar-subnav-icon-img">
+                    </span>
+                    <span>Directory</span>
+                </button>
+
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="federation-requests">
+                    <span class="yh-sidebar-subnav-icon">
+                        <img src="/assets/academy/federation%20icons/my%20requests.png" alt="" class="yh-sidebar-subnav-icon-img">
+                    </span>
+                    <span>My Requests</span>
+                </button>
+
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="federation-referrals">
+                    <span class="yh-sidebar-subnav-icon">
+                        <img src="/assets/academy/federation%20icons/referrals.png" alt="" class="yh-sidebar-subnav-icon-img">
+                    </span>
+                    <span>Referrals</span>
+                </button>
+
+                <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="federation-access">
+                    <span class="yh-sidebar-subnav-icon">
+                        <img src="/assets/academy/federation%20icons/my%20access.png" alt="" class="yh-sidebar-subnav-icon-img">
+                    </span>
+                    <span>My Access</span>
+                </button>
             </div>
         </div>
     </div>
@@ -413,7 +525,7 @@
                     </p>
                 </div>
 
-                <section class="yh-universe-command-hero" aria-label="Universe command center overview">
+                <section class="yh-universe-command-hero" aria-label="My Dashboard overview">
                     <div class="yh-universe-command-hero-main">
                         <div class="yh-universe-command-eyebrow">Command Center</div>
                         <h2 class="yh-universe-command-title">Track your path, access status, and next move in one cleaner hub.</h2>
@@ -472,6 +584,44 @@
 
                     <div class="yh-universe-workspace-frame-shell hidden-step" id="yh-universe-workspace-frame-shell" aria-hidden="true">
                         <div
+                            id="yh-universe-child-workspace-loader"
+                            class="yh-universe-child-workspace-loader hidden-step"
+                            role="status"
+                            aria-live="polite"
+                            aria-hidden="true"
+                        >
+                            <section class="academy-roadmap-loading-card yh-universe-child-workspace-loader-card">
+                                <div class="academy-roadmap-loading-orb yh-universe-child-workspace-loader-orb" aria-hidden="true">
+                                    <span class="academy-roadmap-loading-ring"></span>
+                                    <img
+                                        src="/images/logo.avif"
+                                        alt=""
+                                        class="academy-roadmap-loading-logo"
+                                        id="yh-universe-child-workspace-loader-icon"
+                                        loading="eager"
+                                        decoding="async"
+                                    >
+                                </div>
+
+                                <div class="academy-roadmap-loading-kicker" id="yh-universe-child-workspace-loader-kicker">
+                                    Workspace Sync
+                                </div>
+
+                                <h3 class="academy-roadmap-loading-title" id="yh-universe-child-workspace-loader-title">
+                                    Preparing workspace
+                                </h3>
+
+                                <p class="academy-roadmap-loading-copy" id="yh-universe-child-workspace-loader-copy">
+                                    Loading this section inside your Universe Dashboard.
+                                </p>
+
+                                <div class="academy-roadmap-loading-progress" aria-hidden="true">
+                                    <span></span>
+                                </div>
+                            </section>
+                        </div>
+
+                        <div
                             id="yh-universe-workspace-inline-host"
                             class="yh-universe-workspace-inline-host hidden-step"
                             aria-hidden="true"
@@ -487,12 +637,22 @@
                     </div>
                 </section>
 
-                <section class="yh-command-overview-grid" id="yh-command-overview-grid" aria-label="Universe Command Center personal overview">
+                <section class="yh-command-overview-grid" id="yh-command-overview-grid" aria-label="My Dashboard personal overview">
                     <article class="yh-command-overview-card yh-command-overview-profile-card">
                         <div class="yh-command-overview-kicker">Logged-in Profile</div>
 
                         <div class="yh-command-profile-head">
-                            <div class="yh-command-profile-avatar" id="yh-command-profile-avatar">Y</div>
+<div class="yh-command-profile-avatar" id="yh-command-profile-avatar">
+                                <img
+                                    src=""
+                                    alt=""
+                                    class="yh-command-profile-avatar-img hidden-step"
+                                    data-yh-command-profile-avatar-img
+                                    loading="lazy"
+                                    decoding="async"
+                                >
+                                <span data-yh-command-profile-avatar-initial>Y</span>
+                            </div>
                             <div>
                                 <h3 id="yh-command-profile-name">Loading profile...</h3>
                                 <p id="yh-command-profile-username">Checking identity...</p>
@@ -2297,7 +2457,7 @@
 
 <script src="/js/yh-shared-core.js?v=20260418-toast-center-2"></script>
 <script src="/js/yh-shared-runtime.js?v=20260411-3"></script>
-<script src="/js/dashboard.js?v=20260530-unified-sidebar-workspace-v29"></script>
+<script src="/js/dashboard.js?v=20260531-federation-hydrated-reveal-v1"></script>
 <script src="/js/dashboard-mobile-fix.js?v=20260410-4"></script>
 </body>
 </html>

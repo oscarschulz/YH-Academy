@@ -13,9 +13,9 @@
     href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap"
     rel="stylesheet"
   />
-<link rel="stylesheet" href="/css/plaza.css?v=20260505-meetup-layout-1" />
+<link rel="stylesheet" href="/css/plaza.css?v=20260531-fast-active-tab-reveal-v1" />
 <script src="/socket.io/socket.io.js"></script>
-<script src="/js/plaza.js?v=20260530-dashboard-tab-launch-v1" defer></script>
+<script src="/js/plaza.js?v=20260531-fast-active-tab-reveal-v1" defer></script>
 </head>
 <body data-yh-i18n-mode="attributes" class="yh-plaza-page yh-plaza-access-booting">
 
@@ -142,7 +142,19 @@
                 <div class="yh-plaza-screen-breadcrumbs" id="plazaScreenBreadcrumbs"></div>
               </div>
 
-              <h1 class="yh-plaza-workspace-title" id="plazaWorkspaceTitle">Feed</h1>
+<h1 class="yh-plaza-workspace-title yh-plaza-workspace-title-with-icon" id="plazaWorkspaceTitle">
+                <span class="yh-plaza-workspace-title-icon" id="plazaWorkspaceTitleIcon" aria-hidden="true">
+                  <img
+                    src="/assets/academy/plaza%20icons/feed.png"
+                    alt=""
+                    class="yh-plaza-workspace-title-icon-img"
+                    id="plazaWorkspaceTitleIconImg"
+                    loading="lazy"
+                    decoding="async"
+                  >
+                </span>
+                <span id="plazaWorkspaceTitleText">Feed</span>
+              </h1>
               <p class="yh-plaza-workspace-note" id="plazaWorkspaceNote">
                 Network movement, wins, introductions, opportunities, and regional updates across YH Universe.
               </p>

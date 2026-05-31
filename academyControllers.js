@@ -1697,6 +1697,76 @@ async function requireApprovedRoadmapAccess(uid, res) {
     return snapshot;
 }
 
+function normalizeAcademyCoachAccessStatus(value = '') {
+    return sanitize(value || '').toLowerCase().replace(/[_-]+/g, ' ');
+}
+
+function isAcademyCoachBadgeCancelled(badge = {}) {
+    const statuses = [
+        badge.status,
+        badge.paymentStatus,
+        badge.subscriptionStatus
+    ].map(normalizeAcademyCoachAccessStatus);
+
+    return statuses.includes('cancelled') || statuses.includes('canceled');
+}
+
+function isAcademyCoachYhaBadgeActive(userData = {}) {
+    const sources = [
+        userData?.verificationBadges,
+        userData?.verifiedBadges,
+        userData?.yhVerificationBadges,
+        userData?.badges,
+        userData?.badgeSubscriptions
+    ].filter((source) => source && typeof source === 'object');
+
+    for (const source of sources) {
+        const badge = source.academy && typeof source.academy === 'object'
+            ? source.academy
+            : source.yha && typeof source.yha === 'object'
+                ? source.yha
+                : null;
+
+        if (!badge || isAcademyCoachBadgeCancelled(badge)) continue;
+
+        const status = normalizeAcademyCoachAccessStatus(badge.status);
+        const paymentStatus = normalizeAcademyCoachAccessStatus(badge.paymentStatus);
+        const subscriptionStatus = normalizeAcademyCoachAccessStatus(badge.subscriptionStatus);
+
+        if (
+            badge.active === true ||
+            status === 'active' ||
+            status === 'verified' ||
+            paymentStatus === 'paid' ||
+            subscriptionStatus === 'active'
+        ) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function isAcademyCoachDirectLearnFromAccessActive(access = {}) {
+    if (!access || typeof access !== 'object' || access.active !== true) return false;
+
+    const status = normalizeAcademyCoachAccessStatus(access.status || 'active');
+    return status !== 'cancelled' && status !== 'canceled' && status !== 'expired';
+}
+
+function hasAcademyCoachSubscriberAccess(accessSnapshot = {}) {
+    const userData = accessSnapshot?.userData && typeof accessSnapshot.userData === 'object'
+        ? accessSnapshot.userData
+        : {};
+
+    return (
+        accessSnapshot?.academyMembershipStatus === 'approved' ||
+        accessSnapshot?.hasRoadmapAccess === true ||
+        isAcademyCoachDirectLearnFromAccessActive(userData.academyLearnFromAccess) ||
+        isAcademyCoachYhaBadgeActive(userData)
+    );
+}
+
 function getAdaptiveTrendDirection(currentValue, previousValue, mode = 'higher') {
     if (
         previousValue === null ||
@@ -7581,6 +7651,13 @@ exports.chatWithAcademyCoach = async (req, res) => {
         const message = sanitize(req.body?.message || '');
         const contextHint = sanitize(req.body?.contextHint || '');
         const learnFromKey = normalizeAcademyCoachLearnFrom(req.body?.learnFrom || req.body?.learnFromKey || '');
+
+        if (!hasAcademyCoachSubscriberAccess(access)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Academy AI Coach is available to active Academy/YHA subscribers only.'
+            });
+        }
 
         if (!message) {
             return res.status(400).json({

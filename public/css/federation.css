@@ -32,6 +32,18 @@
   display: none !important;
 }
 
+/* PATCH: Remove obsolete Federation back-to-Universe buttons v1 */
+#fedDashboardTopBackToUniverse,
+.fed-dashboard-universe-back-btn,
+.fed-universe-quick-back,
+[aria-label="Go back to Universe dashboard"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+/* END PATCH: Remove obsolete Federation back-to-Universe buttons v1 */
+
 html,
 body {
   height: 100%;
@@ -55,6 +67,67 @@ a {
   color: inherit;
   text-decoration: none;
 }
+
+/* PATCH: Federation embedded Dashboard scroll fix v1 */
+html.yh-dashboard-inline-embed-root,
+body.yh-dashboard-inline-embed-body[data-yh-view="federation"],
+body.yh-dashboard-inline-embed-body[data-yh-page="federation"] {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 100% !important;
+  overflow: hidden !important;
+  overscroll-behavior: contain !important;
+}
+
+body.yh-dashboard-inline-embed-body .fed-shell {
+  width: 100% !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-rows: minmax(0, 1fr) !important;
+  overflow: hidden !important;
+}
+
+body.yh-dashboard-inline-embed-body .fed-main {
+  width: 100% !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior: contain !important;
+  touch-action: pan-y !important;
+  scroll-behavior: auto !important;
+  padding-bottom: clamp(28px, 4vh, 56px) !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(56, 189, 248, 0.42) rgba(2, 6, 23, 0.18) !important;
+}
+
+body.yh-dashboard-inline-embed-body .fed-main::-webkit-scrollbar {
+  width: 8px !important;
+}
+
+body.yh-dashboard-inline-embed-body .fed-main::-webkit-scrollbar-track {
+  background: rgba(2, 6, 23, 0.18) !important;
+}
+
+body.yh-dashboard-inline-embed-body .fed-main::-webkit-scrollbar-thumb {
+  border-radius: 999px !important;
+  background: rgba(56, 189, 248, 0.42) !important;
+}
+
+body.yh-dashboard-inline-embed-body .fed-section.is-panel-hidden {
+  display: none !important;
+}
+
+body.yh-dashboard-inline-embed-body .fed-section.is-active-panel {
+  display: block !important;
+  overflow: visible !important;
+}
+/* END PATCH: Federation embedded Dashboard scroll fix v1 */
 
 html.yh-federation-view-active .yh-top-nav .yh-dashboard-top-edit-btn,
 html.yh-federation-view-active .yh-top-nav .yh-wallet-open-btn,
@@ -161,6 +234,118 @@ textarea {
   border-color: var(--border);
   background: rgba(255, 255, 255, 0.04);
 }
+
+/* PATCH: Federation child tab icon chrome v1 */
+.fed-nav-icon,
+.fed-action-icon,
+.fed-section-title-icon {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 12px;
+  overflow: visible;
+}
+
+.fed-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fed-nav-icon {
+  width: 22px;
+  min-width: 22px;
+  height: 22px;
+}
+
+.fed-nav-icon-img,
+.fed-action-icon-img,
+.fed-section-title-icon-img {
+  display: block;
+  object-fit: contain;
+  object-position: center;
+  filter:
+    drop-shadow(0 0 8px rgba(77, 139, 255, 0.38))
+    drop-shadow(0 0 14px rgba(14, 165, 233, 0.18));
+}
+
+.fed-nav-icon-img {
+  width: 21px;
+  height: 21px;
+}
+
+.fed-nav-link:hover .fed-nav-icon-img,
+.fed-nav-link.active .fed-nav-icon-img,
+.fed-nav-link.has-active-fed-icon .fed-nav-icon-img {
+  filter:
+    drop-shadow(0 0 10px rgba(77, 139, 255, 0.72))
+    drop-shadow(0 0 18px rgba(14, 165, 233, 0.36));
+}
+
+.fed-topbar-actions .fed-btn,
+.fed-topbar-quick-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.fed-action-icon {
+  width: 20px;
+  min-width: 20px;
+  height: 20px;
+}
+
+.fed-action-icon-img {
+  width: 20px;
+  height: 20px;
+}
+
+.fed-section-title-with-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  min-height: 42px;
+}
+
+.fed-section-title-icon {
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  border-radius: 15px;
+  background:
+    radial-gradient(circle at center, rgba(77, 139, 255, 0.18), transparent 64%),
+    rgba(2, 6, 23, 0.34);
+  border: 1px solid rgba(77, 139, 255, 0.18);
+  box-shadow:
+    0 0 18px rgba(77, 139, 255, 0.16),
+    inset 0 1px 0 rgba(255,255,255,0.06);
+  transform: translateY(-1px);
+}
+
+.fed-section-title-icon-img {
+  width: 35px;
+  height: 35px;
+}
+
+@media (max-width: 720px) {
+  .fed-section-title-with-icon {
+    gap: 10px;
+  }
+
+  .fed-section-title-icon {
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
+    border-radius: 13px;
+  }
+
+  .fed-section-title-icon-img {
+    width: 30px;
+    height: 30px;
+  }
+}
+/* END PATCH: Federation child tab icon chrome v1 */
 
 .fed-universe-back-btn {
   width: auto;

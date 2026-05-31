@@ -859,7 +859,7 @@ function syncLandingGlobeSize() {
 
     mapEl.style.position = 'absolute';
     mapEl.style.inset = '0';
-    mapEl.style.overflow = 'hidden';
+    mapEl.style.overflow = 'visible';
     mapEl.style.background = 'transparent';
     mapEl.style.border = 'none';
     mapEl.style.outline = 'none';
@@ -883,7 +883,7 @@ function syncLandingGlobeSize() {
     canvasEl.style.outline = 'none';
     canvasEl.style.boxShadow = 'none';
     canvasEl.style.pointerEvents = 'auto';
-    canvasEl.style.overflow = 'hidden';
+    canvasEl.style.overflow = 'visible';
     canvasEl.style.clipPath = 'none';
     canvasEl.style.maskImage = 'none';
     canvasEl.style.webkitMaskImage = 'none';
@@ -1190,6 +1190,9 @@ async function initLandingMapShell() {
         .globeImageUrl('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-blue-marble.jpg')
         .bumpImageUrl('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-topology.png')
         .backgroundColor('rgba(0,0,0,0)')
+        .showAtmosphere(true)
+        .atmosphereColor('#60a5fa')
+        .atmosphereAltitude(0.18)
         .showPointerCursor((objType, objData) => {
             return (objType === 'point' || objType === 'ring') && !!objData;
         })
@@ -1212,7 +1215,7 @@ async function initLandingMapShell() {
 
     if (controls) {
         controls.autoRotate = true;
-        controls.autoRotateSpeed = 0.35;
+        controls.autoRotateSpeed = 0.28;
         controls.enablePan = false;
         controls.enableRotate = true;
         controls.enableZoom = false;
@@ -1315,7 +1318,7 @@ async function initLandingMapShell() {
         capture: true
     });
 
-    world.pointOfView({ lat: 14, lng: 18, altitude: 1.72 }, 0);
+    world.pointOfView({ lat: 14, lng: 18, altitude: 1.58 }, 0);
 
     if (controls) {
         if (typeof controls.update === 'function') {

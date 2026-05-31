@@ -14,21 +14,28 @@ function installFederationParentTopNavStyle(parentDoc) {
   const style = parentDoc.createElement("style");
   style.id = "yh-federation-parent-nav-style";
   style.textContent = `
-    html.yh-federation-view-active .yh-top-nav .yh-dashboard-top-edit-btn,
-    html.yh-federation-view-active .yh-top-nav .yh-wallet-open-btn,
-    html.yh-federation-view-active .yh-top-nav .btn-logout,
-    body.yh-federation-view-active .yh-top-nav .yh-dashboard-top-edit-btn,
-    body.yh-federation-view-active .yh-top-nav .yh-wallet-open-btn,
-    body.yh-federation-view-active .yh-top-nav .btn-logout {
+    html.yh-federation-view-active .yh-top-nav .nav-actions:not(.yh-command-sidebar-nav) .yh-dashboard-top-edit-btn,
+    html.yh-federation-view-active .yh-top-nav .nav-actions:not(.yh-command-sidebar-nav) .yh-wallet-open-btn,
+    html.yh-federation-view-active .yh-top-nav .nav-actions:not(.yh-command-sidebar-nav) .btn-logout,
+    body.yh-federation-view-active .yh-top-nav .nav-actions:not(.yh-command-sidebar-nav) .yh-dashboard-top-edit-btn,
+    body.yh-federation-view-active .yh-top-nav .nav-actions:not(.yh-command-sidebar-nav) .yh-wallet-open-btn,
+    body.yh-federation-view-active .yh-top-nav .nav-actions:not(.yh-command-sidebar-nav) .btn-logout {
       display: none !important;
     }
 
-    html.yh-federation-view-active .yh-top-nav .nav-actions,
-    body.yh-federation-view-active .yh-top-nav .nav-actions {
+    html.yh-federation-view-active .yh-top-nav .nav-actions:not(.yh-command-sidebar-nav),
+    body.yh-federation-view-active .yh-top-nav .nav-actions:not(.yh-command-sidebar-nav) {
       display: flex !important;
       align-items: center !important;
       justify-content: flex-end !important;
       gap: 10px !important;
+    }
+
+    html.yh-federation-view-active .yh-top-nav .yh-command-sidebar-nav .yh-wallet-open-btn,
+    html.yh-federation-view-active .yh-top-nav .yh-command-sidebar-nav .yh-dashboard-top-edit-btn,
+    body.yh-federation-view-active .yh-top-nav .yh-command-sidebar-nav .yh-wallet-open-btn,
+    body.yh-federation-view-active .yh-top-nav .yh-command-sidebar-nav .yh-dashboard-top-edit-btn {
+      display: flex !important;
     }
 
     html.yh-federation-view-active .yh-top-nav .fed-dashboard-universe-back-btn,
@@ -67,6 +74,16 @@ function installFederationParentTopNavStyle(parentDoc) {
   parentDoc.head.appendChild(style);
 }
 
+function removeFederationParentUniverseBackButtons(parentDoc = document) {
+  if (!parentDoc) return;
+
+  try {
+    parentDoc.querySelectorAll(
+      '#fedDashboardTopBackToUniverse, .fed-dashboard-universe-back-btn, .fed-universe-quick-back'
+    ).forEach((node) => node.remove());
+  } catch (_) {}
+}
+
 function syncFederationParentTopNav() {
   const parentDoc = getFederationParentDocument();
 
@@ -75,6 +92,8 @@ function syncFederationParentTopNav() {
   if (document.body) {
     document.body.classList.add("yh-federation-view-active");
   }
+
+  removeFederationParentUniverseBackButtons(document);
 
   if (!parentDoc) return false;
 
@@ -85,22 +104,7 @@ function syncFederationParentTopNav() {
   }
 
   installFederationParentTopNavStyle(parentDoc);
-
-  const navActions = parentDoc.querySelector(".yh-top-nav .nav-actions");
-  if (!navActions) return false;
-
-  let backButton = parentDoc.getElementById("fedDashboardTopBackToUniverse");
-
-  if (!backButton) {
-    backButton = parentDoc.createElement("a");
-    backButton.id = "fedDashboardTopBackToUniverse";
-    backButton.className = "fed-dashboard-universe-back-btn";
-    backButton.href = "/dashboard";
-    backButton.target = "_top";
-    backButton.textContent = "← Go back to Universe";
-    backButton.setAttribute("aria-label", "Go back to Universe dashboard");
-    navActions.appendChild(backButton);
-  }
+  removeFederationParentUniverseBackButtons(parentDoc);
 
   return true;
 }
@@ -128,6 +132,128 @@ const STORAGE_KEYS = {
   adminMode: "yh_federation_admin_mode",
   connectRequests: "yh_federation_connect_requests_v1"
 };
+
+/* PATCH: Federation child tab icon chrome v1 */
+const FEDERATION_ICON_ASSETS = Object.freeze({
+  command: "/assets/academy/federation%20icons/command.png",
+  connect: "/assets/academy/federation%20icons/connect.png",
+  "deal-rooms": "/assets/academy/federation%20icons/deal%20rooms.png",
+  directory: "/assets/academy/federation%20icons/directory.png",
+  requests: "/assets/academy/federation%20icons/my%20requests.png",
+  referrals: "/assets/academy/federation%20icons/referrals.png",
+  status: "/assets/academy/federation%20icons/my%20access.png",
+  access: "/assets/academy/federation%20icons/my%20access.png"
+});
+
+function normalizeFederationIconKey(value = "command") {
+  const clean = String(value || "command")
+    .trim()
+    .toLowerCase()
+    .replace(/^#/, "")
+    .replace(/^federation-/, "")
+    .replace(/\s+/g, "-")
+    .replace(/_/g, "-");
+
+  if (clean === "my-access") return "status";
+  if (clean === "federation-access") return "status";
+  if (clean === "my-requests") return "requests";
+  if (clean === "dealrooms") return "deal-rooms";
+
+  return FEDERATION_ICON_ASSETS[clean] ? clean : "command";
+}
+
+function getFederationIconAsset(value = "command") {
+  return FEDERATION_ICON_ASSETS[normalizeFederationIconKey(value)] || FEDERATION_ICON_ASSETS.command;
+}
+
+function ensureFederationInlineIcon(target, iconKey = "command", classPrefix = "fed-inline-icon") {
+  if (!(target instanceof HTMLElement)) return false;
+
+  const cleanKey = normalizeFederationIconKey(iconKey);
+  const iconSrc = getFederationIconAsset(cleanKey);
+
+  target.classList.add(`${classPrefix}-host`);
+  target.setAttribute("data-fed-icon-key", cleanKey);
+
+  let icon = Array.from(target.children || []).find((child) => {
+    return child instanceof HTMLElement && child.classList.contains(classPrefix);
+  });
+
+  if (!icon) {
+    icon = document.createElement("span");
+    icon.className = classPrefix;
+    icon.setAttribute("aria-hidden", "true");
+    target.prepend(icon);
+  }
+
+  let img = icon.querySelector("img");
+
+  if (!img) {
+    img = document.createElement("img");
+    img.alt = "";
+    img.loading = "lazy";
+    img.decoding = "async";
+    img.className = `${classPrefix}-img`;
+    icon.appendChild(img);
+  }
+
+  if (img.getAttribute("src") !== iconSrc) {
+    img.setAttribute("src", iconSrc);
+  }
+
+  return true;
+}
+
+function getFederationSectionIconKey(section) {
+  if (!(section instanceof HTMLElement)) return "command";
+
+  const sectionId = String(section.id || section.dataset.section || "command").trim().toLowerCase();
+
+  if (sectionId === "status") return "status";
+  if (sectionId === "requests") return "requests";
+  if (sectionId === "deal-rooms") return "deal-rooms";
+
+  return normalizeFederationIconKey(sectionId);
+}
+
+function installFederationIconChrome() {
+  qsa(".fed-nav-link[href^='#']").forEach((link) => {
+    const key = normalizeFederationIconKey(extractSectionId(link.getAttribute("href")) || "command");
+    ensureFederationInlineIcon(link, key, "fed-nav-icon");
+  });
+
+  qsa(".fed-topbar-actions [data-jump], .fed-topbar-quick-link[href^='#']").forEach((trigger) => {
+    const key = normalizeFederationIconKey(extractSectionId(trigger.getAttribute("data-jump") || trigger.getAttribute("href")) || "command");
+    ensureFederationInlineIcon(trigger, key, "fed-action-icon");
+  });
+
+  qsa(".fed-section[data-section]").forEach((section) => {
+    const iconKey = getFederationSectionIconKey(section);
+    const heading = qs(".fed-section-head h3", section);
+
+    if (heading) {
+      ensureFederationInlineIcon(heading, iconKey, "fed-section-title-icon");
+      heading.classList.add("fed-section-title-with-icon");
+    }
+  });
+}
+
+function syncFederationIconState(activeKey = "command") {
+  const cleanActiveKey = normalizeFederationIconKey(activeKey);
+
+  document.body?.setAttribute("data-fed-active-icon-key", cleanActiveKey);
+
+  qsa(".fed-nav-link[href^='#']").forEach((link) => {
+    const key = normalizeFederationIconKey(extractSectionId(link.getAttribute("href")) || "command");
+    link.classList.toggle("has-active-fed-icon", key === cleanActiveKey);
+  });
+
+  qsa(".fed-section[data-section]").forEach((section) => {
+    const iconKey = getFederationSectionIconKey(section);
+    section.setAttribute("data-fed-section-icon-key", iconKey);
+  });
+}
+/* END PATCH: Federation child tab icon chrome v1 */
 
 const seedMembers = [
   {
@@ -833,6 +959,49 @@ function getFederationStoredAuthToken() {
   return "";
 }
 
+function isDashboardInlineFederationEmbed() {
+  try {
+    if (window.self !== window.top) return true;
+  } catch (_) {
+    return true;
+  }
+
+  try {
+    return String(document.referrer || "").includes("/dashboard");
+  } catch (_) {
+    return false;
+  }
+}
+
+function isExpectedFederationInlineFetchFailure(error = {}) {
+  const message = String(error?.message || "").toLowerCase();
+  const status = Number(error?.status || error?.responseStatus || 0);
+
+  return (
+    isDashboardInlineFederationEmbed() &&
+    (
+      status === 429 ||
+      error?.isNetworkFetchFailure === true ||
+      error?.isRateLimited === true ||
+      message.includes("too many requests") ||
+      message.includes("please wait a moment") ||
+      message.includes("failed to fetch") ||
+      message.includes("networkerror") ||
+      message.includes("network request failed")
+    )
+  );
+}
+
+function buildFederationInlineFallbackCurrentUser() {
+  return {
+    id: "",
+    email: "",
+    emailLower: "",
+    name: "Federation Member",
+    username: ""
+  };
+}
+
 async function federationConnectFetch(url, options = {}) {
   const headers = {
     Accept: "application/json",
@@ -849,29 +1018,50 @@ async function federationConnectFetch(url, options = {}) {
     headers["Content-Type"] = "application/json";
   }
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-    credentials: "include"
-  });
-
-  let data = null;
-
   try {
-    data = await response.json();
-  } catch (_) {
-    data = null;
-  }
+    const response = await fetch(url, {
+      ...options,
+      headers,
+      credentials: "include"
+    });
 
-  if (!response.ok || data?.success === false) {
-    throw new Error(data?.message || `Request failed with status ${response.status}`);
-  }
+    let data = null;
 
-  return data || {};
+    try {
+      data = await response.json();
+    } catch (_) {
+      data = null;
+    }
+
+    if (!response.ok || data?.success === false) {
+      const requestError = new Error(data?.message || `Request failed with status ${response.status}`);
+      requestError.status = response.status;
+      requestError.responseStatus = response.status;
+      requestError.isRateLimited = response.status === 429;
+      requestError.federationApiPath = url;
+      throw requestError;
+    }
+
+    return data || {};
+  } catch (error) {
+    error.isNetworkFetchFailure =
+      error instanceof TypeError ||
+      String(error?.message || "").toLowerCase().includes("failed to fetch");
+    error.isRateLimited =
+      error.isRateLimited === true ||
+      Number(error?.status || error?.responseStatus || 0) === 429 ||
+      String(error?.message || "").toLowerCase().includes("too many requests") ||
+      String(error?.message || "").toLowerCase().includes("please wait a moment");
+    error.federationApiPath = url;
+    throw error;
+  }
 }
+const FEDERATION_SERVER_STATE_REFRESH_GAP_MS = 12000;
+
 const federationServerState = {
   loading: false,
   loaded: false,
+  lastFetchAt: 0,
   currentUser: null,
   application: null,
   applications: [],
@@ -953,9 +1143,16 @@ function normalizeFederationDealRoom(raw = {}) {
 
 async function loadFederationServerState(options = {}) {
   const force = options.force === true;
+  const now = Date.now();
+  const recentlyFetched =
+    federationServerState.lastFetchAt &&
+    now - federationServerState.lastFetchAt < FEDERATION_SERVER_STATE_REFRESH_GAP_MS;
 
   if (federationServerState.loading) return federationServerState;
-  if (federationServerState.loaded && !force) return federationServerState;
+
+  if (federationServerState.loaded && (!force || (isDashboardInlineFederationEmbed() && recentlyFetched))) {
+    return federationServerState;
+  }
 
   federationServerState.loading = true;
   federationServerState.error = "";
@@ -1053,11 +1250,36 @@ async function loadFederationServerState(options = {}) {
 
     federationServerState.loaded = true;
   } catch (error) {
-    console.error("Federation server state load error:", error);
-    federationServerState.error = error?.message || "Failed to load Federation server state.";
-    federationServerState.loaded = false;
+    if (!isExpectedFederationInlineFetchFailure(error)) {
+      console.error("Federation server state load error:", error);
+    }
+
+    federationServerState.currentUser =
+      federationServerState.currentUser ||
+      buildFederationInlineFallbackCurrentUser();
+
+    federationServerState.application = federationServerState.application || null;
+    federationServerState.applications = Array.isArray(federationServerState.applications)
+      ? federationServerState.applications
+      : [];
+    federationServerState.member = federationServerState.member || null;
+    federationServerState.members = Array.isArray(federationServerState.members)
+      ? federationServerState.members
+      : [];
+    federationServerState.referrals = federationServerState.referrals || null;
+    federationServerState.command = federationServerState.command || null;
+    federationServerState.dealRooms = Array.isArray(federationServerState.dealRooms)
+      ? federationServerState.dealRooms
+      : [];
+
+    federationServerState.error = isExpectedFederationInlineFetchFailure(error)
+      ? ""
+      : (error?.message || "Failed to load Federation server state.");
+
+    federationServerState.loaded = true;
   } finally {
     federationServerState.loading = false;
+    federationServerState.lastFetchAt = Date.now();
   }
 
   return federationServerState;
@@ -2440,9 +2662,14 @@ async function loadFederationConnectData(options = {}) {
         ? opportunityResult.opportunities.map(normalizeFederationConnectOpportunity)
         : [];
     } else {
-      console.error("Federation Connect opportunities load error:", opportunitySettled.reason);
+      if (!isExpectedFederationInlineFetchFailure(opportunitySettled.reason)) {
+        console.error("Federation Connect opportunities load error:", opportunitySettled.reason);
+      }
+
       federationConnectState.opportunities = [];
-      federationConnectState.error = "Could not load Federation Connect opportunities.";
+      federationConnectState.error = isExpectedFederationInlineFetchFailure(opportunitySettled.reason)
+        ? ""
+        : "Could not load Federation Connect opportunities.";
     }
 
     if (requestSettled.status === "fulfilled") {
@@ -2452,7 +2679,10 @@ async function loadFederationConnectData(options = {}) {
         ? requestResult.requests
         : [];
     } else {
-      console.error("Federation Connect requests load error:", requestSettled.reason);
+      if (!isExpectedFederationInlineFetchFailure(requestSettled.reason)) {
+        console.error("Federation Connect requests load error:", requestSettled.reason);
+      }
+
       federationConnectState.requests = [];
     }
 
@@ -4538,8 +4768,63 @@ function hideFederationTabLoader() {
   }, 170);
 }
 
+/* PATCH: Federation Dashboard child-ready handshake v2 */
+function markFederationDashboardChildLoading(sectionId = "command") {
+  const cleanSection = extractSectionId(sectionId || "command") || "command";
+
+  document.body?.setAttribute("data-yh-dashboard-child-ready", "false");
+  document.body?.setAttribute("data-yh-dashboard-active-section", cleanSection);
+  document.body?.setAttribute("data-yh-dashboard-child-loading-at", String(Date.now()));
+}
+
+function markFederationDashboardHydrationState(isHydrated = false, reason = "") {
+  const hydrated = isHydrated === true;
+
+  document.body?.setAttribute("data-yh-dashboard-federation-hydrated", hydrated ? "true" : "false");
+  document.body?.setAttribute("data-yh-dashboard-federation-hydrated-reason", String(reason || ""));
+  document.body?.setAttribute("data-yh-dashboard-federation-hydrated-at", hydrated ? String(Date.now()) : "");
+}
+
+function markFederationDashboardChildReady(sectionId = "", reason = "ready") {
+  const cleanSection = extractSectionId(sectionId || activeSectionId || getInitialFederationSectionFromUrl() || "command") || "command";
+
+  document.body?.setAttribute("data-yh-dashboard-child-ready", "true");
+  document.body?.setAttribute("data-yh-dashboard-active-section", cleanSection);
+  document.body?.setAttribute("data-yh-dashboard-child-ready-reason", String(reason || "ready"));
+  document.body?.setAttribute("data-yh-dashboard-child-ready-at", String(Date.now()));
+
+  try {
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage(
+        {
+          type: "yh:child-workspace-ready",
+          division: "federation",
+          workspaceKey: `federation-${cleanSection === "status" ? "access" : cleanSection}`,
+          section: cleanSection,
+          hydrated: document.body?.dataset?.yhDashboardFederationHydrated === "true",
+          reason
+        },
+        window.location.origin
+      );
+    }
+  } catch (_) {}
+}
+/* END PATCH: Federation Dashboard child-ready handshake v2 */
+
 function extractSectionId(value = "") {
   return String(value || "").replace(/^#/, "").trim();
+}
+
+function getInitialFederationSectionFromUrl() {
+  try {
+    const url = new URL(window.location.href);
+    const dashboardSection = extractSectionId(url.searchParams.get("dashboardSection") || "");
+    const hashSection = extractSectionId(url.hash || "");
+
+    return dashboardSection || hashSection || "command";
+  } catch (_) {
+    return extractSectionId(window.location.hash || "") || "command";
+  }
 }
 
 function getNavigableSectionIds() {
@@ -4573,7 +4858,7 @@ function getSafeSectionId(targetId = "") {
 }
 
 function setActiveSection(targetId = "", options = {}) {
-  const { syncHash = true, showLoader = true } = options;
+  const { syncHash = true, showLoader = true, deferDashboardReady = false } = options;
   const nextSectionId = getSafeSectionId(targetId);
 
   if (!nextSectionId) return;
@@ -4589,6 +4874,7 @@ function setActiveSection(targetId = "", options = {}) {
   }
 
   activeSectionId = nextSectionId;
+  markFederationDashboardChildLoading(nextSectionId);
   document.body.dataset.fedNavMode = "tabs";
 
   qsa(".fed-section[data-section]").forEach((section) => {
@@ -4606,6 +4892,9 @@ function setActiveSection(targetId = "", options = {}) {
       extractSectionId(link.getAttribute("href")) === nextSectionId
     );
   });
+
+  installFederationIconChrome();
+  syncFederationIconState(nextSectionId);
 
   if (typeof window.__yhfCloseMobileMore === "function") {
     window.__yhfCloseMobileMore();
@@ -4645,6 +4934,12 @@ function setActiveSection(targetId = "", options = {}) {
         if (shouldShowLoader) {
           window.setTimeout(hideFederationTabLoader, 160);
         }
+
+        if (!deferDashboardReady) {
+          window.requestAnimationFrame(() => {
+            markFederationDashboardChildReady(nextSectionId, "connect-data-ready");
+          });
+        }
       });
   }
 
@@ -4662,6 +4957,12 @@ function setActiveSection(targetId = "", options = {}) {
         if (shouldShowLoader) {
           window.setTimeout(hideFederationTabLoader, 160);
         }
+
+        if (!deferDashboardReady) {
+          window.requestAnimationFrame(() => {
+            markFederationDashboardChildReady(nextSectionId, "deal-rooms-ready");
+          });
+        }
       });
   }
 
@@ -4669,17 +4970,27 @@ function setActiveSection(targetId = "", options = {}) {
     history.replaceState(null, "", `#${nextSectionId}`);
   }
 
-  if (shouldShowLoader && !loaderWaitsForAsync) {
+  if (!loaderWaitsForAsync) {
     window.requestAnimationFrame(() => {
-      window.setTimeout(hideFederationTabLoader, 260);
+      window.setTimeout(() => {
+        if (shouldShowLoader) {
+          hideFederationTabLoader();
+        }
+
+        if (!deferDashboardReady) {
+          markFederationDashboardChildReady(nextSectionId, "section-ready");
+        }
+      }, shouldShowLoader ? 260 : 80);
     });
   }
 }
 
 function refreshActiveSection() {
-  const preferred = activeSectionId || extractSectionId(window.location.hash);
+  const preferred = activeSectionId || getInitialFederationSectionFromUrl();
   setActiveSection(preferred, { syncHash: Boolean(preferred), showLoader: false });
 }
+
+window.setYHFederationActiveSection = setActiveSection;
 
 function initSectionNavigation() {
   document.body.dataset.fedNavMode = "tabs";
@@ -6118,6 +6429,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   initAdminModeToggle();
   initAdminActions();
 
+  installFederationIconChrome();
+  syncFederationIconState("command");
+
   const bindUniverseReturnLink = (selector) => {
     const link = document.querySelector(selector);
     if (!link) return;
@@ -6170,7 +6484,19 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     await createFederationVerifiedBadgeLedger(badgeButton).catch(() => null);
   });
-  setActiveSection("command", { syncHash: false });
+  const initialFederationSection = getInitialFederationSectionFromUrl();
+
+  markFederationDashboardHydrationState(false, "boot-start");
+  markFederationDashboardChildLoading(initialFederationSection);
+
+  setActiveSection(initialFederationSection, {
+    syncHash: false,
+    showLoader: false,
+    deferDashboardReady: true
+  });
+
+  window.setYHFederationActiveSection = setActiveSection;
+
   await loadFederationServerState({ force: true });
 
   if (getCurrentUserState().type === "member") {
@@ -6184,5 +6510,17 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   refreshFederationUI();
+
+  markFederationDashboardHydrationState(true, "boot-render-complete");
+
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
+      markFederationDashboardChildReady(
+        activeSectionId || initialFederationSection || "command",
+        "boot-hydrated-ready"
+      );
+    });
+  });
+
   exposeHelpers();
 });

@@ -4090,6 +4090,18 @@ const apiLimiter = rateLimit({
             if (path === '/plaza/bridge' || path.startsWith('/plaza/bridge/')) return true;
             if (path === '/plaza/requests' || path.startsWith('/plaza/requests/')) return true;
             if (path === '/plaza/messages' || path.startsWith('/plaza/messages/')) return true;
+
+            // Federation Dashboard reads are normal authenticated UI state reads.
+            // They can fire during iframe boot, tab sync, and dashboard refresh, so they should not share the generic API limiter.
+            if (path === '/federation/application-status') return true;
+            if (path === '/federation/me') return true;
+            if (path === '/federation/directory') return true;
+            if (path === '/federation/command') return true;
+            if (path === '/federation/referrals') return true;
+            if (path === '/federation/deal-rooms') return true;
+            if (path === '/federation/connect/opportunities') return true;
+            if (path === '/federation/connect/my-requests') return true;
+
             if (path === '/universe/collections' || path.startsWith('/universe/collections/')) return true;
         }
 

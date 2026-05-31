@@ -532,6 +532,290 @@ function buildPlazaUrl() {
     return '/plaza.html';
 }
 
+/* PATCH: Dashboard Plazas child tab icon assets v1 */
+const DASHBOARD_PLAZA_ICON_ASSETS = Object.freeze({
+    feed: '/assets/academy/plaza%20icons/feed.png',
+    inbox: '/assets/academy/plaza%20icons/inbox.png',
+    conversations: '/assets/academy/plaza%20icons/conversations.png',
+    meetups: '/assets/academy/plaza%20icons/meetups.png',
+    opportunities: '/assets/academy/plaza%20icons/opportunities.png',
+    directory: '/assets/academy/plaza%20icons/directory.png',
+    regions: '/assets/academy/plaza%20icons/regions.png',
+    atlas: '/assets/academy/plaza%20icons/plaza%20atlas.png',
+    'plaza-atlas': '/assets/academy/plaza%20icons/plaza%20atlas.png',
+    patron: '/assets/academy/plaza%20icons/patron.png',
+    'patron-desk': '/assets/academy/plaza%20icons/patron%20desk.png',
+    bridge: '/assets/academy/plaza%20icons/bridge.png',
+    requests: '/assets/academy/plaza%20icons/requests.png'
+});
+
+function normalizeDashboardPlazaIconKey(value = 'feed') {
+    const clean = String(value || 'feed')
+        .trim()
+        .toLowerCase()
+        .replace(/^plazas-/, '')
+        .replace(/^plaza-/, '')
+        .replace(/\s+/g, '-')
+        .replace(/_/g, '-');
+
+    if (clean === 'atlas') return 'plaza-atlas';
+    if (clean === 'become-patron') return 'patron';
+    if (clean === 'patron-tools') return 'patron-desk';
+
+    return DASHBOARD_PLAZA_ICON_ASSETS[clean] ? clean : 'feed';
+}
+
+function getDashboardPlazaIconAsset(value = 'feed') {
+    return DASHBOARD_PLAZA_ICON_ASSETS[normalizeDashboardPlazaIconKey(value)] || DASHBOARD_PLAZA_ICON_ASSETS.feed;
+}
+
+function getDashboardCurrentPlazaIconKeyFromFrame(frame) {
+    const workspaceKey = String(frame?.dataset?.yhDashboardWorkspaceKey || '').trim().toLowerCase();
+
+    if (workspaceKey.startsWith('plazas-')) {
+        return normalizeDashboardPlazaIconKey(workspaceKey);
+    }
+
+    try {
+        const raw = localStorage.getItem('yhPlazaUiStateCleanV1');
+        const parsed = raw ? JSON.parse(raw) : {};
+        return normalizeDashboardPlazaIconKey(parsed?.currentScreen || 'feed');
+    } catch (_) {
+        return 'feed';
+    }
+}
+
+const DASHBOARD_PLAZA_ICON_LABELS = Object.freeze({
+    feed: 'Feed',
+    inbox: 'Inbox',
+    conversations: 'Conversations',
+    meetups: 'Meetups',
+    opportunities: 'Opportunities',
+    directory: 'Directory',
+    regions: 'Regions',
+    'plaza-atlas': 'Plaza Atlas',
+    patron: 'Become Patron',
+    'patron-desk': 'Patron Desk',
+    bridge: 'Bridge',
+    requests: 'Requests'
+});
+
+function getDashboardPlazaIconLabel(value = 'feed') {
+    const iconKey = normalizeDashboardPlazaIconKey(value);
+    return DASHBOARD_PLAZA_ICON_LABELS[iconKey] || 'Feed';
+}
+
+function normalizeDashboardPlazaHeadingText(value = '') {
+    return String(value || '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+}
+
+function isDashboardInlinePlazaVisibleNode(node) {
+    if (!(node instanceof HTMLElement)) return false;
+
+    const ownerWindow = node.ownerDocument?.defaultView || window;
+
+    try {
+        const style = ownerWindow.getComputedStyle(node);
+        if (!style || style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity || 1) === 0) {
+            return false;
+        }
+
+        const rect = node.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+    } catch (_) {
+        return true;
+    }
+}
+
+function collectDashboardInlinePlazaTitleCandidates(doc, iconKey = 'feed') {
+    if (!doc || !doc.body) return [];
+
+    const label = getDashboardPlazaIconLabel(iconKey);
+    const normalizedLabel = normalizeDashboardPlazaHeadingText(label);
+
+    const selectors = [
+        '.yh-plaza-workspace-title',
+        '.yh-plaza-screen-title',
+        '.yh-plaza-panel-title',
+        '.yh-plaza-section-title',
+        '.yh-plaza-content-title',
+        '.yh-plaza-main-title',
+        '.yh-plaza-view-title',
+        '.yh-plaza-workspace-head h1',
+        '.yh-plaza-workspace-head h2',
+        '.yh-plaza-workspace-head h3',
+        '.yh-plaza-screen-head h1',
+        '.yh-plaza-screen-head h2',
+        '.yh-plaza-screen-head h3',
+        '.yh-plaza-main h1',
+        '.yh-plaza-main h2',
+        '.yh-plaza-main h3',
+        '.yh-plaza-content h1',
+        '.yh-plaza-content h2',
+        '.yh-plaza-content h3',
+        '.yh-plaza-tab-panel h1',
+        '.yh-plaza-tab-panel h2',
+        '.yh-plaza-tab-panel h3'
+    ].join(', ');
+
+    const directCandidates = Array.from(doc.querySelectorAll(selectors))
+        .filter((node) => node instanceof HTMLElement)
+        .filter(isDashboardInlinePlazaVisibleNode);
+
+    const matchingCandidates = directCandidates.filter((node) => {
+        const cleanText = normalizeDashboardPlazaHeadingText(node.textContent || '');
+        return cleanText === normalizedLabel || cleanText.startsWith(`${normalizedLabel} `);
+    });
+
+    if (matchingCandidates.length) {
+        return Array.from(new Set(matchingCandidates));
+    }
+
+    const safeFallbackHeadings = Array.from(doc.querySelectorAll('h1, h2, h3'))
+        .filter((node) => node instanceof HTMLElement)
+        .filter(isDashboardInlinePlazaVisibleNode)
+        .filter((node) => {
+            const cleanText = normalizeDashboardPlazaHeadingText(node.textContent || '');
+            if (!cleanText || cleanText.length > 60) return false;
+            return cleanText === normalizedLabel || cleanText.startsWith(`${normalizedLabel} `);
+        });
+
+    if (safeFallbackHeadings.length) {
+        return Array.from(new Set(safeFallbackHeadings));
+    }
+
+    return directCandidates.slice(0, 1);
+}
+
+function decorateDashboardInlinePlazaTitle(title, doc, iconKey = 'feed', iconSrc = '') {
+    if (!(title instanceof HTMLElement) || !doc || !iconSrc) return false;
+
+    title.classList.add('yh-plaza-title-with-icon');
+    title.setAttribute('data-yh-plaza-title-icon-key', iconKey);
+
+    const titleHead = title.closest('.yh-plaza-workspace-head, .yh-plaza-screen-head, .yh-plaza-panel-head, .yh-plaza-content-head');
+    if (titleHead instanceof HTMLElement) {
+        titleHead.classList.add('yh-plaza-head-with-title-icon');
+        titleHead.setAttribute('data-yh-plaza-head-icon-key', iconKey);
+    }
+
+    let icon = Array.from(title.children || []).find((child) => {
+        return child instanceof HTMLElement && child.classList.contains('yh-plaza-title-icon');
+    });
+
+    if (!icon) {
+        icon = doc.createElement('span');
+        icon.className = 'yh-plaza-title-icon';
+        icon.setAttribute('aria-hidden', 'true');
+        title.prepend(icon);
+    }
+
+    let img = icon.querySelector('img');
+
+    if (!img) {
+        img = doc.createElement('img');
+        img.alt = '';
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        img.className = 'yh-plaza-title-icon-img';
+        icon.appendChild(img);
+    }
+
+    if (img.getAttribute('src') !== iconSrc) {
+        img.setAttribute('src', iconSrc);
+    }
+
+    return true;
+}
+
+function installDashboardInlinePlazaIconObserver(frame, doc) {
+    if (!frame || !doc || !doc.body) return;
+
+    try {
+        if (frame.__yhDashboardPlazaIconObserver && frame.__yhDashboardPlazaIconObserverDoc !== doc) {
+            frame.__yhDashboardPlazaIconObserver.disconnect();
+            frame.__yhDashboardPlazaIconObserver = null;
+            frame.__yhDashboardPlazaIconObserverDoc = null;
+        }
+
+        if (frame.__yhDashboardPlazaIconObserver) return;
+
+        const ObserverCtor = doc.defaultView?.MutationObserver || window.MutationObserver;
+        if (typeof ObserverCtor !== 'function') return;
+
+        const observer = new ObserverCtor(() => {
+            window.clearTimeout(frame.__yhDashboardPlazaIconObserverTimer);
+            frame.__yhDashboardPlazaIconObserverTimer = window.setTimeout(() => {
+                applyDashboardInlinePlazaIconEnhancements(frame, {
+                    retry: false,
+                    fromObserver: true
+                });
+            }, 90);
+        });
+
+        observer.observe(doc.body, {
+            childList: true,
+            subtree: true,
+            characterData: true
+        });
+
+        frame.__yhDashboardPlazaIconObserver = observer;
+        frame.__yhDashboardPlazaIconObserverDoc = doc;
+    } catch (_) {}
+}
+
+function applyDashboardInlinePlazaIconEnhancements(frame, options = {}) {
+    if (!frame) return false;
+
+    const workspaceKey = String(frame.dataset?.yhDashboardWorkspaceKey || '').trim().toLowerCase();
+    if (!workspaceKey.startsWith('plazas-')) return false;
+
+    let doc = null;
+
+    try {
+        doc = frame.contentDocument || frame.contentWindow?.document || null;
+    } catch (_) {
+        doc = null;
+    }
+
+    if (!doc || !doc.body) return false;
+
+    const iconKey = getDashboardCurrentPlazaIconKeyFromFrame(frame);
+    const iconSrc = getDashboardPlazaIconAsset(iconKey);
+
+    doc.body.setAttribute('data-yh-dashboard-plaza-icon-key', iconKey);
+
+    const titleCandidates = collectDashboardInlinePlazaTitleCandidates(doc, iconKey);
+    let applied = false;
+
+    titleCandidates.forEach((title) => {
+        if (decorateDashboardInlinePlazaTitle(title, doc, iconKey, iconSrc)) {
+            applied = true;
+        }
+    });
+
+    installDashboardInlinePlazaIconObserver(frame, doc);
+
+    if (!applied && options.retry !== false) {
+        window.clearTimeout(frame.__yhDashboardPlazaTitleIconRetry1);
+        window.clearTimeout(frame.__yhDashboardPlazaTitleIconRetry2);
+
+        frame.__yhDashboardPlazaTitleIconRetry1 = window.setTimeout(() => {
+            applyDashboardInlinePlazaIconEnhancements(frame, { retry: false });
+        }, 260);
+
+        frame.__yhDashboardPlazaTitleIconRetry2 = window.setTimeout(() => {
+            applyDashboardInlinePlazaIconEnhancements(frame, { retry: false });
+        }, 760);
+    }
+
+    return applied;
+}
+/* END PATCH: Dashboard Plazas child tab icon assets v1 */
+
 function showUniverseDivisionEntryLoader(label = 'Loading...') {
     const loaderText = String(label || 'Loading...').trim() || 'Loading...';
 
@@ -1918,10 +2202,18 @@ function getDashboardCommandOverviewProfileSnapshot() {
         ? getDashboardAuthUserSnapshot()
         : {};
 
+    const profileCandidates = [
+        typeof dashboardGetTopProfileCache === 'function' ? dashboardGetTopProfileCache() : null,
+        typeof dashboardGetSelfProfileCache === 'function' ? dashboardGetSelfProfileCache() : null,
+        readYHJsonCache('yh_universe_profile_cache_v1', null),
+        readYHJsonCache('yh_academy_profile_cache_v1', null),
+        readYHJsonCache('yh_academy_application_profile', null),
+        readDashboardStoredUserObject('yh_current_user'),
+        readDashboardStoredUserObject('yh_user')
+    ].filter((item) => item && typeof item === 'object' && !Array.isArray(item));
+
     const cachedProfile =
-        readYHJsonCache('yh_universe_profile_cache_v1', null) ||
-        readYHJsonCache('yh_academy_profile_cache_v1', null) ||
-        readYHJsonCache('yh_academy_application_profile', null) ||
+        profileCandidates.find((item) => Object.keys(item).length > 0) ||
         {};
 
     const displayName = String(
@@ -1964,12 +2256,41 @@ function getDashboardCommandOverviewProfileSnapshot() {
 
     const avatar = normalizeDashboardCommandOverviewAssetUrl(
         cachedProfile.avatar ||
+        cachedProfile.avatar_url ||
         cachedProfile.avatarUrl ||
+        cachedProfile.profile_photo ||
+        cachedProfile.profilePhoto ||
+        cachedProfile.profile_picture ||
+        cachedProfile.profilePicture ||
         cachedProfile.profileImage ||
+        cachedProfile.photo ||
+        cachedProfile.photo_url ||
+        cachedProfile.photoURL ||
+        cachedProfile.image ||
+        cachedProfile.imageUrl ||
+        cachedProfile.picture ||
+
         authSnapshot.avatar ||
+        authSnapshot.avatar_url ||
         authSnapshot.avatarUrl ||
+        authSnapshot.profile_photo ||
+        authSnapshot.profilePhoto ||
+        authSnapshot.profile_picture ||
+        authSnapshot.profilePicture ||
+        authSnapshot.profileImage ||
+        authSnapshot.photo ||
+        authSnapshot.photo_url ||
+        authSnapshot.photoURL ||
+        authSnapshot.image ||
+        authSnapshot.imageUrl ||
+        authSnapshot.picture ||
+
         localStorage.getItem('yh_user_avatar') ||
+        localStorage.getItem('yh_user_profile_photo') ||
+        localStorage.getItem('yh_user_profile_picture') ||
         sessionStorage.getItem('yh_user_avatar') ||
+        sessionStorage.getItem('yh_user_profile_photo') ||
+        sessionStorage.getItem('yh_user_profile_picture') ||
         ''
     );
 
@@ -2037,14 +2358,46 @@ function renderDashboardCommandOverview() {
 
     const avatarEl = document.getElementById('yh-command-profile-avatar');
     if (avatarEl) {
-        avatarEl.textContent = profile.displayName.charAt(0).toUpperCase() || 'Y';
+        const initial = profile.displayName.charAt(0).toUpperCase() || 'Y';
+        let avatarImg = avatarEl.querySelector('[data-yh-command-profile-avatar-img]');
+        let avatarInitial = avatarEl.querySelector('[data-yh-command-profile-avatar-initial]');
+
+        if (!avatarImg) {
+            avatarImg = document.createElement('img');
+            avatarImg.className = 'yh-command-profile-avatar-img hidden-step';
+            avatarImg.setAttribute('data-yh-command-profile-avatar-img', '');
+            avatarImg.setAttribute('loading', 'lazy');
+            avatarImg.setAttribute('decoding', 'async');
+            avatarImg.alt = '';
+            avatarEl.prepend(avatarImg);
+        }
+
+        if (!avatarInitial) {
+            avatarInitial = document.createElement('span');
+            avatarInitial.setAttribute('data-yh-command-profile-avatar-initial', '');
+            avatarEl.appendChild(avatarInitial);
+        }
+
+        avatarInitial.textContent = initial;
 
         if (profile.avatar) {
             avatarEl.classList.add('has-image');
             avatarEl.style.backgroundImage = `url("${profile.avatar.replace(/"/g, '%22')}")`;
+
+            avatarImg.src = profile.avatar;
+            avatarImg.alt = profile.displayName ? `${profile.displayName} profile picture` : 'Profile picture';
+            avatarImg.classList.remove('hidden-step');
+            avatarImg.setAttribute('aria-hidden', 'false');
+            avatarInitial.setAttribute('aria-hidden', 'true');
         } else {
             avatarEl.classList.remove('has-image');
             avatarEl.style.removeProperty('background-image');
+
+            avatarImg.removeAttribute('src');
+            avatarImg.alt = '';
+            avatarImg.classList.add('hidden-step');
+            avatarImg.setAttribute('aria-hidden', 'true');
+            avatarInitial.setAttribute('aria-hidden', 'false');
         }
     }
 
@@ -2413,6 +2766,98 @@ async function refreshYHWalletSnapshot(forceFresh = false) {
     return snapshot;
 }
 
+const YH_WALLET_DASHBOARD_PERSISTENT_UI_STATE_KEY = 'yh_dashboard_persistent_ui_state_v1';
+const YH_WALLET_ALLOWED_INLINE_TABS = [
+    'overview',
+    'payment-methods',
+    'payout-methods',
+    'request-withdrawal',
+    'payment-history',
+    'payout-history'
+];
+
+function normalizeYHWalletInlineTabKey(tabKey = 'overview') {
+    const cleanTab = String(tabKey || 'overview').trim().toLowerCase();
+    return YH_WALLET_ALLOWED_INLINE_TABS.includes(cleanTab) ? cleanTab : 'overview';
+}
+
+function readYHWalletDashboardPersistentState() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(YH_WALLET_DASHBOARD_PERSISTENT_UI_STATE_KEY) || '{}');
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch (_) {
+        return {};
+    }
+}
+
+function writeYHWalletDashboardPersistentState(patch = {}) {
+    const previous = readYHWalletDashboardPersistentState();
+    const next = {
+        ...previous,
+        ...(patch && typeof patch === 'object' ? patch : {}),
+        updatedAt: new Date().toISOString()
+    };
+
+    try {
+        localStorage.setItem(YH_WALLET_DASHBOARD_PERSISTENT_UI_STATE_KEY, JSON.stringify(next));
+    } catch (_) {}
+
+    return next;
+}
+
+function getYHWalletPersistedInlineTab() {
+    try {
+        if (typeof window.getDashboardPersistedWalletTab === 'function') {
+            return normalizeYHWalletInlineTabKey(window.getDashboardPersistedWalletTab());
+        }
+    } catch (_) {}
+
+    return normalizeYHWalletInlineTabKey(readYHWalletDashboardPersistentState().walletTab || 'overview');
+}
+
+function persistYHWalletInlineTabState(tabKey = 'overview') {
+    const nextTab = normalizeYHWalletInlineTabKey(tabKey);
+
+    try {
+        if (typeof window.persistDashboardWalletTab === 'function') {
+            window.persistDashboardWalletTab(nextTab);
+            return nextTab;
+        }
+    } catch (_) {}
+
+    writeYHWalletDashboardPersistentState({
+        type: 'workspace',
+        workspaceKey: 'wallet',
+        division: 'resources',
+        profileMode: '',
+        profileMemberId: '',
+        walletTab: nextTab
+    });
+
+    return nextTab;
+}
+
+function openYHWalletUnifiedWorkspaceSafe(attempt = 0) {
+    const isReady = window.__yhDashboardUnifiedWorkspaceReady === true;
+    const opener = typeof window.activateDashboardUnifiedWorkspace === 'function'
+        ? window.activateDashboardUnifiedWorkspace
+        : null;
+
+    if (isReady && opener) {
+        opener('wallet', { animate: false });
+        return true;
+    }
+
+    if (attempt < 30) {
+        window.setTimeout(() => openYHWalletUnifiedWorkspaceSafe(attempt + 1), 100);
+        return false;
+    }
+
+    console.error('Dashboard unified workspace runtime is not ready for Wallet.');
+    showToast('Wallet is still loading. Please try again.', 'error');
+    return false;
+}
+
 function setYHWalletInlineTab(tabKey = 'overview') {
     const dialog = document.querySelector('#yh-wallet-modal .yh-wallet-dialog');
     if (!dialog) return;
@@ -2429,7 +2874,7 @@ function setYHWalletInlineTab(tabKey = 'overview') {
 
     const nextTab = allowedTabs.includes(cleanTab) ? cleanTab : 'overview';
 
-    persistDashboardWalletTab(nextTab);
+    persistYHWalletInlineTabState(nextTab);
 
     dialog.setAttribute('data-yh-wallet-active-tab', nextTab);
 
@@ -2540,7 +2985,7 @@ function mountYHWalletInlineView() {
     modal.classList.remove('hidden-step');
     modal.setAttribute('aria-hidden', 'false');
 
-    installYHWalletInlineTabs(getDashboardPersistedWalletTab());
+    installYHWalletInlineTabs(getYHWalletPersistedInlineTab());
 
     document.body?.classList.remove('yh-wallet-open');
 
@@ -2566,7 +3011,7 @@ function unmountYHWalletInlineView() {
 }
 
 function openYHWalletInline() {
-    activateDashboardUnifiedWorkspace('wallet', { animate: false });
+    openYHWalletUnifiedWorkspaceSafe();
 }
 
 function openYHWalletModal() {
@@ -8051,7 +8496,7 @@ const dashboardUnifiedWorkspaceCopy = {
         intro: 'Feed, inbox, conversations, meetups, opportunities, directory, regions, atlas, patron tools, bridge, and requests.',
         eyebrow: 'Plazas Control',
         headline: 'Select a Plazas section from the sidebar.',
-        body: 'Use the Plazas sidebar tabs to move across the movement hub. Full Plazas workspace embedding comes after the shell behavior is stable.',
+        body: 'Use the Plazas sidebar tabs to move across Feed, Inbox, Conversations, Meetups, Opportunities, Directory, Regions, Atlas, Patron tools, Bridge, and Requests inside the unified Dashboard shell.',
         focus: 'Plazas Access',
         mode: 'Movement Hub',
         stage: 'Plazas Preview'
@@ -8220,7 +8665,7 @@ const dashboardUnifiedWorkspaceCopy = {
         intro: 'Command, Connect, Deal Rooms, Directory, My Requests, Referrals, and My Access.',
         eyebrow: 'Federation Control',
         headline: 'Select a Federation section from the sidebar.',
-        body: 'Use the Federation sidebar tabs to move across the strategic network layer. Full Federation workspace connection comes after this shell is stable.',
+        body: 'Use the Federation sidebar tabs to move across Command, Connect, Deal Rooms, Directory, Requests, Referrals, and Access inside the unified Dashboard shell.',
         focus: 'Federation Access',
         mode: 'Strategic Network',
         stage: 'Federation Preview'
@@ -9020,7 +9465,7 @@ async function refreshDashboardInlineDivisionState(division = '') {
         }
 
         if (cleanDivision === 'federation' && typeof refreshFederationAccessStatusFromBackend === 'function') {
-            return await refreshFederationAccessStatusFromBackend(true);
+            return await refreshFederationAccessStatusFromBackend(false);
         }
     } catch (error) {
         console.error('Dashboard inline division refresh error:', error);
@@ -9156,6 +9601,21 @@ function buildDashboardInlineWorkspaceUrl(meta = {}) {
             url.searchParams.set('dashboardSection', String(meta.academySection || 'home'));
         }
 
+        if (meta?.division === 'plazas' && meta?.plazaScreen) {
+            const plazaScreen = String(meta.plazaScreen || 'feed').trim() || 'feed';
+            url.searchParams.set('tab', plazaScreen);
+            url.searchParams.set('dashboardTab', plazaScreen);
+        }
+
+        if (meta?.division === 'federation') {
+            const federationSection = getDashboardFederationSectionFromLaunchMeta(meta);
+            url.searchParams.set('dashboardSection', federationSection);
+
+            if (!url.hash || url.hash === '#') {
+                url.hash = federationSection;
+            }
+        }
+
         if (String(meta?.resourceType || '').trim().toLowerCase() === 'business-chats') {
             try {
                 const targetConversationId = String(
@@ -9182,6 +9642,666 @@ function getDashboardInlineAcademySectionFromFrame(frame) {
 function getDashboardInlineWorkspaceKeyFromFrame(frame) {
     return String(frame?.dataset?.yhDashboardWorkspaceKey || '').trim().toLowerCase();
 }
+
+/* PATCH: Dashboard universal child workspace loader v1 */
+function getDashboardFederationSectionFromWorkspaceKey(value = 'federation-command') {
+    const clean = String(value || 'federation-command').trim().toLowerCase();
+
+    if (clean === 'federation-connect') return 'connect';
+    if (clean === 'federation-deal-rooms') return 'deal-rooms';
+    if (clean === 'federation-directory') return 'directory';
+    if (clean === 'federation-requests') return 'requests';
+    if (clean === 'federation-referrals') return 'referrals';
+    if (clean === 'federation-access') return 'status';
+    if (clean === 'federation' || clean === 'federation-command') return 'command';
+
+    return 'command';
+}
+
+function getDashboardFederationSectionFromLaunchMeta(meta = {}) {
+    const url = String(meta?.url || '').trim();
+
+    try {
+        const parsed = new URL(url || '/federation.html#command', window.location.origin);
+        const hash = String(parsed.hash || '').replace(/^#/, '').trim();
+        if (hash) return getDashboardFederationSectionFromWorkspaceKey(`federation-${hash}`);
+    } catch (_) {}
+
+    return getDashboardFederationSectionFromWorkspaceKey(meta?.key || meta?.routeLabel || 'federation-command');
+}
+
+function getDashboardInlineFederationSectionFromFrame(frame) {
+    const direct = String(frame?.dataset?.yhDashboardFederationSection || '').trim().toLowerCase();
+    if (direct) return getDashboardFederationSectionFromWorkspaceKey(`federation-${direct}`);
+
+    return getDashboardFederationSectionFromWorkspaceKey(getDashboardInlineWorkspaceKeyFromFrame(frame));
+}
+
+function getDashboardUnifiedChildWorkspaceLoaderMeta(key = 'overview', meta = {}) {
+    const cleanKey = String(key || '').trim().toLowerCase();
+    const division = String(meta?.division || '').trim().toLowerCase();
+
+    const academyIcons = {
+        'academy-roadmap': '/assets/academy/icons/academy-icon-roadmap.png',
+        'academy-missions': '/assets/academy/icons/academy-icon-missions.png',
+        'academy-community': '/assets/academy/icons/academy-icon-community-feed-news.png',
+        'academy-messages': '/assets/academy/icons/academy-icon-messages.png',
+        'academy-voice': '/assets/academy/icons/academy-icon-live-voice-lounge.png'
+    };
+
+    const federationIcons = {
+        'federation-command': '/assets/academy/federation%20icons/command.png',
+        'federation-connect': '/assets/academy/federation%20icons/connect.png',
+        'federation-deal-rooms': '/assets/academy/federation%20icons/deal%20rooms.png',
+        'federation-directory': '/assets/academy/federation%20icons/directory.png',
+        'federation-requests': '/assets/academy/federation%20icons/my%20requests.png',
+        'federation-referrals': '/assets/academy/federation%20icons/referrals.png',
+        'federation-access': '/assets/academy/federation%20icons/my%20access.png'
+    };
+
+    const titleFromCopy = String(
+        meta?.title ||
+        getDashboardUnifiedWorkspaceCopy(cleanKey)?.eyebrow ||
+        'Workspace'
+    ).replace(/^Open\s+/i, '').trim();
+
+    if (division === 'plazas') {
+        return {
+            icon: typeof getDashboardPlazaIconAsset === 'function'
+                ? getDashboardPlazaIconAsset(cleanKey)
+                : '/assets/dashboard/plaza.png',
+            kicker: 'Plazas Sync',
+            title: `Preparing ${titleFromCopy}`,
+            copy: 'Loading this Plazas section, saved state, and current dashboard view.'
+        };
+    }
+
+    if (division === 'federation') {
+        return {
+            icon: federationIcons[cleanKey] || '/assets/dashboard/federation.png',
+            kicker: 'Federation Sync',
+            title: `Preparing ${titleFromCopy}`,
+            copy: 'Loading the selected Federation section and access state.'
+        };
+    }
+
+    if (division === 'academy') {
+        return {
+            icon: academyIcons[cleanKey] || '/images/logo.avif',
+            kicker: 'Academy Sync',
+            title: `Preparing ${titleFromCopy}`,
+            copy: 'Loading this Academy section inside your Universe Dashboard.'
+        };
+    }
+
+    return {
+        icon: '/images/logo.avif',
+        kicker: 'Workspace Sync',
+        title: `Preparing ${titleFromCopy}`,
+        copy: 'Loading this section inside your Universe Dashboard.'
+    };
+}
+
+function showDashboardUnifiedChildWorkspaceLoader(key = 'overview', meta = {}) {
+    const frameShell = document.getElementById('yh-universe-workspace-frame-shell');
+    const loader = document.getElementById('yh-universe-child-workspace-loader');
+    const icon = document.getElementById('yh-universe-child-workspace-loader-icon');
+    const kicker = document.getElementById('yh-universe-child-workspace-loader-kicker');
+    const title = document.getElementById('yh-universe-child-workspace-loader-title');
+    const copy = document.getElementById('yh-universe-child-workspace-loader-copy');
+
+    if (!frameShell || !loader) return false;
+
+    const loaderMeta = getDashboardUnifiedChildWorkspaceLoaderMeta(key, meta);
+
+    if (icon) icon.src = loaderMeta.icon || '/images/logo.avif';
+    if (kicker) kicker.textContent = loaderMeta.kicker || 'Workspace Sync';
+    if (title) title.textContent = loaderMeta.title || 'Preparing workspace';
+    if (copy) copy.textContent = loaderMeta.copy || 'Loading this section inside your Universe Dashboard.';
+
+    frameShell.classList.add('is-switching', 'has-child-workspace-loader');
+    frameShell.dataset.childLoaderKey = String(key || '').trim().toLowerCase();
+    frameShell.dataset.childLoaderStartedAt = String(Date.now());
+
+    loader.classList.remove('hidden-step');
+    loader.classList.add('is-active');
+    loader.setAttribute('aria-hidden', 'false');
+
+    const loaderHardTimeoutMs = String(key || '').trim().toLowerCase().startsWith('federation-')
+        ? 9500
+        : 5500;
+
+    window.clearTimeout(window.__yhDashboardChildWorkspaceLoaderFallback);
+    window.__yhDashboardChildWorkspaceLoaderFallback = window.setTimeout(() => {
+        hideDashboardUnifiedChildWorkspaceLoader('hard-timeout');
+    }, loaderHardTimeoutMs);
+
+    return true;
+}
+
+function hideDashboardUnifiedChildWorkspaceLoader(reason = 'ready') {
+    const frameShell = document.getElementById('yh-universe-workspace-frame-shell');
+    const loader = document.getElementById('yh-universe-child-workspace-loader');
+
+    window.clearTimeout(window.__yhDashboardChildWorkspaceLoaderFallback);
+    window.clearTimeout(window.__yhDashboardChildWorkspaceReadyPollTimer);
+    window.clearTimeout(window.__yhDashboardChildWorkspaceLoaderMinTimer);
+
+    const startedAt = Number(frameShell?.dataset?.childLoaderStartedAt || 0);
+    const elapsedMs = startedAt ? Date.now() - startedAt : 9999;
+    const minVisibleMs = reason === 'hard-timeout' ? 0 : 620;
+
+    if (elapsedMs < minVisibleMs) {
+        window.__yhDashboardChildWorkspaceLoaderMinTimer = window.setTimeout(() => {
+            hideDashboardUnifiedChildWorkspaceLoader(reason);
+        }, Math.max(40, minVisibleMs - elapsedMs));
+        return;
+    }
+
+    if (loader) {
+        loader.classList.remove('is-active');
+        loader.setAttribute('aria-hidden', 'true');
+
+        window.setTimeout(() => {
+            loader.classList.add('hidden-step');
+        }, 180);
+    }
+
+    if (frameShell) {
+        frameShell.classList.remove('is-switching', 'has-child-workspace-loader');
+        frameShell.dataset.childLoaderReleased = reason;
+    }
+}
+
+function getDashboardInlineFrameDocument(frame) {
+    try {
+        return frame?.contentDocument || frame?.contentWindow?.document || null;
+    } catch (_) {
+        return null;
+    }
+}
+
+/* PATCH: Dashboard embedded Academy AI Coach single avatar guard v1 */
+function normalizeDashboardEmbeddedAcademyAiCoachLauncher(frameOrDoc = null) {
+    const doc = frameOrDoc?.nodeType === 9
+        ? frameOrDoc
+        : getDashboardInlineFrameDocument(frameOrDoc);
+
+    if (!doc || !doc.body) return false;
+
+    const launchers = Array.from(doc.querySelectorAll(
+        '#academy-ai-coach-inline-tab-launcher, .academy-ai-coach-inline-tab-launcher'
+    )).filter((node) => node instanceof HTMLElement);
+
+    if (!launchers.length) return false;
+
+    let didNormalize = false;
+
+    launchers.forEach((launcher, index) => {
+        if (index > 0) {
+            launcher.remove();
+            didNormalize = true;
+            return;
+        }
+
+        launcher.id = 'academy-ai-coach-inline-tab-launcher';
+        launcher.classList.add('academy-ai-coach-inline-tab-launcher');
+
+        const directChildren = Array.from(launcher.children || [])
+            .filter((child) => child instanceof HTMLElement);
+
+        const avatarChildren = directChildren.filter((child) => {
+            const classText = String(child.className || '').toLowerCase();
+
+            return (
+                child.classList.contains('academy-ai-coach-inline-tab-avatar') ||
+                child.classList.contains('academy-right-bot-cta-avatar') ||
+                child.classList.contains('academy-ai-coach-rect-avatar') ||
+                child.classList.contains('academy-ai-coach-rect-bubble-avatar') ||
+                classText.includes('bot-cta-avatar') ||
+                classText.includes('coach') && classText.includes('avatar')
+            );
+        });
+
+        let primaryAvatar =
+            avatarChildren.find((child) => child.classList.contains('academy-ai-coach-inline-tab-avatar')) ||
+            avatarChildren[0] ||
+            null;
+
+        if (!primaryAvatar) {
+            primaryAvatar = doc.createElement('span');
+            primaryAvatar.className = 'academy-ai-coach-inline-tab-avatar';
+            launcher.prepend(primaryAvatar);
+            didNormalize = true;
+        }
+
+        primaryAvatar.className = 'academy-ai-coach-inline-tab-avatar';
+
+        if (launcher.firstElementChild !== primaryAvatar) {
+            launcher.prepend(primaryAvatar);
+            didNormalize = true;
+        }
+
+        avatarChildren.forEach((child) => {
+            if (child === primaryAvatar) return;
+            child.remove();
+            didNormalize = true;
+        });
+
+        const avatarImages = Array.from(primaryAvatar.querySelectorAll('img'));
+
+        if (!avatarImages.length) {
+            primaryAvatar.innerHTML = `
+                <img src="/assets/yh-ai-robot-avatar.png" alt="" loading="lazy" decoding="async">
+            `;
+            didNormalize = true;
+        } else {
+            const firstImage = avatarImages[0];
+
+            firstImage.setAttribute('src', '/assets/yh-ai-robot-avatar.png');
+            firstImage.setAttribute('alt', '');
+            firstImage.setAttribute('loading', 'lazy');
+            firstImage.setAttribute('decoding', 'async');
+
+            avatarImages.slice(1).forEach((img) => {
+                img.remove();
+                didNormalize = true;
+            });
+        }
+
+        const copyBlocks = Array.from(launcher.querySelectorAll('.academy-ai-coach-inline-tab-copy'))
+            .filter((node) => node instanceof HTMLElement);
+
+        copyBlocks.slice(1).forEach((copy) => {
+            copy.remove();
+            didNormalize = true;
+        });
+    });
+
+    return didNormalize;
+}
+/* END PATCH: Dashboard embedded Academy AI Coach single avatar guard v1 */
+
+function isDashboardInlineElementVisible(node) {
+    if (!(node instanceof HTMLElement)) return false;
+
+    try {
+        if (node.hidden) return false;
+
+        const ownerWindow = node.ownerDocument?.defaultView || window;
+        const style = ownerWindow.getComputedStyle(node);
+
+        if (!style || style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity || 1) === 0) {
+            return false;
+        }
+
+        const rect = node.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+    } catch (_) {
+        return true;
+    }
+}
+
+function isDashboardInlineFrameLocalLoaderActive(doc) {
+    if (!doc) return false;
+
+    const loader = doc.getElementById('yh-tab-loader') || doc.getElementById('yh-academy-startup-loader');
+    if (!loader) return false;
+
+    if (loader.hidden) return false;
+    if (loader.classList.contains('hidden-step')) return false;
+
+    return loader.classList.contains('is-active') || loader.getAttribute('aria-hidden') === 'false';
+}
+
+function getDashboardInlinePlazaScreenFromFrame(frame) {
+    const direct = String(frame?.dataset?.yhDashboardPlazaScreen || '').trim().toLowerCase();
+    if (direct) return direct;
+
+    try {
+        const url = new URL(frame?.getAttribute('src') || '', window.location.origin);
+        return String(url.searchParams.get('tab') || url.searchParams.get('dashboardTab') || 'feed').trim().toLowerCase() || 'feed';
+    } catch (_) {
+        return 'feed';
+    }
+}
+
+function isDashboardInlineAcademyReady(frame, doc) {
+    if (!doc?.body) return false;
+    if (isDashboardInlineFrameLocalLoaderActive(doc)) return false;
+
+    const target = getDashboardInlineAcademyTargetFromFrame(frame);
+    const bodyReady =
+        doc.body.classList.contains('academy-shell-ready') &&
+        !doc.body.classList.contains('academy-startup-booting') &&
+        !doc.body.hasAttribute('data-academy-tab-loading');
+
+    if (!bodyReady) return false;
+
+    const visibleMain = [
+        '#academy-chat',
+        '#academy-lead-missions-view',
+        '#academy-feed-view',
+        '#voice-lobby-view',
+        '#video-lobby-view',
+        '#academy-profile-view'
+    ]
+        .map((selector) => doc.querySelector(selector))
+        .find(isDashboardInlineElementVisible);
+
+    if (!visibleMain) return false;
+
+    const text = String(visibleMain.textContent || '').replace(/\s+/g, ' ').trim();
+
+    if (target === 'roadmap') {
+        const roadmapLoaderGone = !doc.querySelector('.academy-roadmap-loading-shell');
+        return roadmapLoaderGone || text.length > 18;
+    }
+
+    return text.length > 12;
+}
+
+function isDashboardInlinePlazaReady(frame, doc) {
+    if (!doc?.body) return false;
+    if (doc.body.classList.contains('yh-plaza-access-booting')) return false;
+    if (isDashboardInlineFrameLocalLoaderActive(doc)) return false;
+
+    const targetScreen = getDashboardInlinePlazaScreenFromFrame(frame);
+    const readyScreen = String(doc.body.dataset.yhDashboardActiveScreen || '').trim().toLowerCase();
+    const childReady = doc.body.dataset.yhDashboardChildReady === 'true';
+
+    const activeScreen = doc.querySelector(`[data-plaza-screen="${targetScreen}"]`);
+    const visibleScreen = isDashboardInlineElementVisible(activeScreen) ? activeScreen : doc.querySelector('.yh-plaza-screen.is-active, [data-plaza-screen].is-active');
+
+    if (!visibleScreen || !isDashboardInlineElementVisible(visibleScreen)) return false;
+
+    const text = String(visibleScreen.textContent || '').replace(/\s+/g, ' ').trim();
+
+    if (childReady && (!readyScreen || readyScreen === targetScreen)) return true;
+
+    return text.length > 8;
+}
+
+function isDashboardInlineFederationReady(frame, doc) {
+    if (!doc?.body) return false;
+    if (isDashboardInlineFrameLocalLoaderActive(doc)) return false;
+
+    const targetSection = getDashboardInlineFederationSectionFromFrame(frame);
+    const activeSection =
+        doc.getElementById(targetSection) ||
+        doc.querySelector(`.fed-section[data-section="${targetSection}"]`);
+
+    if (!activeSection || !isDashboardInlineElementVisible(activeSection)) return false;
+
+    const readySection = String(doc.body.dataset.yhDashboardActiveSection || '').trim().toLowerCase();
+    const childReady = doc.body.dataset.yhDashboardChildReady === 'true';
+    const federationHydrated = doc.body.dataset.yhDashboardFederationHydrated === 'true';
+
+    const activePanelReady =
+        activeSection.classList.contains('is-active-panel') &&
+        activeSection.getAttribute('aria-hidden') !== 'true' &&
+        activeSection.hidden !== true;
+
+    return (
+        federationHydrated &&
+        childReady &&
+        activePanelReady &&
+        (!readySection || readySection === targetSection)
+    );
+}
+
+function isDashboardInlineFrameReadyForReveal(frame) {
+    const doc = getDashboardInlineFrameDocument(frame);
+    if (!doc?.body) return false;
+
+    const key = getDashboardInlineWorkspaceKeyFromFrame(frame);
+
+    if (key.startsWith('academy-')) return isDashboardInlineAcademyReady(frame, doc);
+    if (key.startsWith('plazas-')) return isDashboardInlinePlazaReady(frame, doc);
+    if (key.startsWith('federation-')) return isDashboardInlineFederationReady(frame, doc);
+
+    return !isDashboardInlineFrameLocalLoaderActive(doc);
+}
+
+function waitForDashboardInlineWorkspaceReady(frame, reason = 'workspace-ready', options = {}) {
+    if (!frame) {
+        hideDashboardUnifiedChildWorkspaceLoader(reason + '-no-frame');
+        return;
+    }
+
+    const startedAt = Date.now();
+    const workspaceKey = getDashboardInlineWorkspaceKeyFromFrame(frame);
+    const requestedTimeoutMs = Number(options.timeoutMs || 5500);
+    const timeoutMs = workspaceKey.startsWith('federation-')
+        ? Math.max(requestedTimeoutMs, 9500)
+        : requestedTimeoutMs;
+    const pollMs = Number(options.pollMs || 90);
+
+    window.clearTimeout(window.__yhDashboardChildWorkspaceReadyPollTimer);
+
+    const tick = () => {
+        forceDashboardInlineFrameContentOnly(frame);
+        applyDashboardInlineAcademySection(frame, { retry: false });
+        normalizeDashboardEmbeddedAcademyAiCoachLauncher(frame);
+        applyDashboardInlinePlazaIconEnhancements(frame);
+        syncDashboardInlineFederationSection(frame);
+
+        if (isDashboardInlineFrameReadyForReveal(frame)) {
+            hideDashboardUnifiedChildWorkspaceLoader(reason);
+            return;
+        }
+
+        if (Date.now() - startedAt >= timeoutMs) {
+            hideDashboardUnifiedChildWorkspaceLoader(reason + '-timeout');
+            return;
+        }
+
+        window.__yhDashboardChildWorkspaceReadyPollTimer = window.setTimeout(tick, pollMs);
+    };
+
+    tick();
+}
+
+if (!window.__yhDashboardChildWorkspaceReadyMessageBoundV11) {
+    window.__yhDashboardChildWorkspaceReadyMessageBoundV11 = true;
+
+    window.addEventListener('message', (event) => {
+        if (event.origin !== window.location.origin) return;
+
+        const data = event.data || {};
+        if (data.type !== 'yh:child-workspace-ready') return;
+
+        const frame = document.getElementById('yh-universe-workspace-inline-frame');
+        if (!frame) return;
+
+        const key = getDashboardInlineWorkspaceKeyFromFrame(frame);
+        const childKey = String(data.workspaceKey || '').trim().toLowerCase();
+
+        if (childKey && childKey !== key) return;
+
+        waitForDashboardInlineWorkspaceReady(frame, `child-ready-${data.reason || 'message'}`, {
+            timeoutMs: 2600,
+            pollMs: 80
+        });
+    });
+}
+
+function removeDashboardFederationUniverseBackButtons(doc = document) {
+    if (!doc) return;
+
+    try {
+        doc.querySelectorAll(
+            '#fedDashboardTopBackToUniverse, .fed-dashboard-universe-back-btn, .fed-universe-quick-back, [aria-label="Go back to Universe dashboard"]'
+        ).forEach((node) => {
+            if (node instanceof HTMLElement) node.remove();
+        });
+    } catch (_) {}
+}
+
+function enforceDashboardInlineFederationScroll(frame, doc = null) {
+    if (!frame) return false;
+
+    let frameDoc = doc;
+
+    if (!frameDoc) {
+        try {
+            frameDoc = frame.contentDocument || frame.contentWindow?.document || null;
+        } catch (_) {
+            frameDoc = null;
+        }
+    }
+
+    if (!frameDoc || !frameDoc.body) return false;
+
+    removeDashboardFederationUniverseBackButtons(document);
+    removeDashboardFederationUniverseBackButtons(frameDoc);
+
+    const main = frameDoc.getElementById('fedMain');
+    const shell = frameDoc.querySelector('.fed-shell');
+
+    frameDoc.documentElement.style.setProperty('height', '100%', 'important');
+    frameDoc.documentElement.style.setProperty('overflow', 'hidden', 'important');
+    frameDoc.body.style.setProperty('height', '100%', 'important');
+    frameDoc.body.style.setProperty('min-height', '100%', 'important');
+    frameDoc.body.style.setProperty('overflow', 'hidden', 'important');
+    frameDoc.body.style.setProperty('overscroll-behavior', 'contain', 'important');
+
+    if (shell instanceof HTMLElement) {
+        shell.style.setProperty('height', '100%', 'important');
+        shell.style.setProperty('max-height', '100%', 'important');
+        shell.style.setProperty('min-height', '0', 'important');
+        shell.style.setProperty('overflow', 'hidden', 'important');
+        shell.style.setProperty('display', 'grid', 'important');
+        shell.style.setProperty('grid-template-columns', 'minmax(0, 1fr)', 'important');
+        shell.style.setProperty('grid-template-rows', 'minmax(0, 1fr)', 'important');
+    }
+
+    if (main instanceof HTMLElement) {
+        main.style.setProperty('height', '100%', 'important');
+        main.style.setProperty('max-height', '100%', 'important');
+        main.style.setProperty('min-height', '0', 'important');
+        main.style.setProperty('overflow-y', 'auto', 'important');
+        main.style.setProperty('overflow-x', 'hidden', 'important');
+        main.style.setProperty('-webkit-overflow-scrolling', 'touch', 'important');
+        main.style.setProperty('overscroll-behavior', 'contain', 'important');
+        main.style.setProperty('touch-action', 'pan-y', 'important');
+        main.style.setProperty('scrollbar-width', 'thin', 'important');
+
+        if (main.dataset.yhDashboardFederationScrollBound !== 'true') {
+            main.dataset.yhDashboardFederationScrollBound = 'true';
+
+            main.addEventListener('wheel', (event) => {
+                if (main.scrollHeight <= main.clientHeight) return;
+
+                const atTop = main.scrollTop <= 0;
+                const atBottom = Math.ceil(main.scrollTop + main.clientHeight) >= main.scrollHeight;
+
+                if ((event.deltaY < 0 && !atTop) || (event.deltaY > 0 && !atBottom)) {
+                    event.stopPropagation();
+                }
+            }, { passive: true });
+        }
+    }
+
+    return true;
+}
+
+function syncDashboardInlineFederationSection(frame) {
+    if (!frame) return false;
+
+    const workspaceKey = getDashboardInlineWorkspaceKeyFromFrame(frame);
+    if (!workspaceKey.startsWith('federation-')) return false;
+
+    const targetSection = getDashboardInlineFederationSectionFromFrame(frame);
+
+    let doc = null;
+
+    try {
+        doc = frame.contentDocument || frame.contentWindow?.document || null;
+    } catch (_) {
+        doc = null;
+    }
+
+    const currentActiveSection = String(
+        doc?.body?.dataset?.yhDashboardActiveSection || ''
+    ).trim().toLowerCase();
+
+    const activeSectionEl = doc
+        ? (
+            doc.getElementById(targetSection) ||
+            doc.querySelector(`.fed-section[data-section="${targetSection}"]`)
+        )
+        : null;
+
+    const targetAlreadyVisible =
+        activeSectionEl instanceof HTMLElement &&
+        !activeSectionEl.hidden &&
+        activeSectionEl.getAttribute('aria-hidden') !== 'true' &&
+        activeSectionEl.classList.contains('is-active-panel');
+
+    if (doc?.body && targetAlreadyVisible && (!currentActiveSection || currentActiveSection === targetSection)) {
+        if (!currentActiveSection) {
+            doc.body.dataset.yhDashboardActiveSection = targetSection;
+        }
+
+        enforceDashboardInlineFederationScroll(frame, doc);
+        return true;
+    }
+
+    try {
+        if (
+            typeof frame.contentWindow?.setYHFederationActiveSection === 'function' &&
+            !targetAlreadyVisible
+        ) {
+            frame.contentWindow.setYHFederationActiveSection(targetSection, {
+                syncHash: false,
+                showLoader: false
+            });
+            return true;
+        }
+    } catch (_) {}
+
+    if (!doc || !doc.body) return false;
+
+    enforceDashboardInlineFederationScroll(frame, doc);
+
+    doc.body.dataset.fedNavMode = 'tabs';
+
+    const sections = Array.from(doc.querySelectorAll('.fed-section[data-section]'));
+    let applied = false;
+
+    sections.forEach((section) => {
+        if (!(section instanceof HTMLElement)) return;
+
+        const isActive = section.id === targetSection || section.dataset.section === targetSection;
+
+        section.hidden = !isActive;
+        section.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+        section.classList.toggle('is-active-panel', isActive);
+        section.classList.toggle('is-panel-hidden', !isActive);
+
+        if (isActive) applied = true;
+    });
+
+    Array.from(doc.querySelectorAll('.fed-nav-link[href^="#"]')).forEach((link) => {
+        if (!(link instanceof HTMLElement)) return;
+
+        const linkTarget = String(link.getAttribute('href') || '').replace(/^#/, '').trim();
+        link.classList.toggle('active', linkTarget === targetSection);
+    });
+
+    const main = doc.getElementById('fedMain');
+    if (main && currentActiveSection !== targetSection) {
+        try {
+            main.scrollTo({ top: 0, behavior: 'auto' });
+        } catch (_) {
+            main.scrollTop = 0;
+        }
+    }
+
+    return applied;
+}
+/* END PATCH: Dashboard universal child workspace loader v1 */
 
 function getDashboardInlineAcademyTargetFromFrame(frame) {
     const section = getDashboardInlineAcademySectionFromFrame(frame);
@@ -9507,6 +10627,16 @@ function forceDashboardInlineFrameContentOnly(frame) {
             display: none !important;
         }
 
+        body.yh-dashboard-inline-embed-body #academy-ai-coach-inline-tab-launcher > .academy-ai-coach-inline-tab-avatar ~ .academy-ai-coach-inline-tab-avatar,
+        body.yh-dashboard-inline-embed-body #academy-ai-coach-inline-tab-launcher > .academy-right-bot-cta-avatar,
+        body.yh-dashboard-inline-embed-body #academy-ai-coach-inline-tab-launcher > .academy-ai-coach-rect-avatar,
+        body.yh-dashboard-inline-embed-body #academy-ai-coach-inline-tab-launcher > .academy-ai-coach-rect-bubble-avatar {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+
         body.yh-dashboard-inline-embed-body .dashboard-layout > *,
         body.yh-dashboard-inline-embed-body .academy-layout > *,
         body.yh-dashboard-inline-embed-body .academy-shell > *,
@@ -9518,15 +10648,28 @@ function forceDashboardInlineFrameContentOnly(frame) {
             grid-column: 1 / -1 !important;
         }
 
-        body.yh-dashboard-inline-embed-body .fed-shell {
+        body.yh-dashboard-inline-embed-body[data-yh-view="federation"],
+        body.yh-dashboard-inline-embed-body[data-yh-page="federation"] {
             width: 100% !important;
             height: 100% !important;
             min-height: 100% !important;
+            overflow: hidden !important;
+            overscroll-behavior: contain !important;
+            background: #050816 !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .fed-shell {
+            width: 100% !important;
+            height: 100% !important;
+            max-height: 100% !important;
+            min-height: 0 !important;
             display: grid !important;
             grid-template-columns: minmax(0, 1fr) !important;
+            grid-template-rows: minmax(0, 1fr) !important;
             gap: 0 !important;
             padding: 0 !important;
             overflow: hidden !important;
+            overscroll-behavior: contain !important;
             background: #050816 !important;
         }
 
@@ -9534,10 +10677,42 @@ function forceDashboardInlineFrameContentOnly(frame) {
             grid-column: 1 / -1 !important;
             width: 100% !important;
             height: 100% !important;
+            max-height: 100% !important;
             min-height: 0 !important;
             border-radius: 0 !important;
             border: 0 !important;
-            overflow: auto !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            -webkit-overflow-scrolling: touch !important;
+            overscroll-behavior: contain !important;
+            touch-action: pan-y !important;
+            scroll-behavior: auto !important;
+            padding-bottom: clamp(28px, 4vh, 56px) !important;
+            scrollbar-width: thin !important;
+            scrollbar-color: rgba(56, 189, 248, 0.42) rgba(2, 6, 23, 0.18) !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .fed-main::-webkit-scrollbar {
+            width: 8px !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .fed-main::-webkit-scrollbar-track {
+            background: rgba(2, 6, 23, 0.18) !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .fed-main::-webkit-scrollbar-thumb {
+            border-radius: 999px !important;
+            background: rgba(56, 189, 248, 0.42) !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .fed-section.is-panel-hidden {
+            display: none !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .fed-section.is-active-panel {
+            display: block !important;
+            min-height: auto !important;
+            overflow: visible !important;
         }
 
         body.yh-dashboard-inline-embed-body .yh-plaza-shell,
@@ -9940,6 +11115,267 @@ function forceDashboardInlineFrameContentOnly(frame) {
             object-fit: contain !important;
             object-position: center !important;
         }
+
+        /* PATCH: Dashboard embedded Plazas child tab polish v1 */
+        body.yh-dashboard-inline-embed-body .yh-plaza-rail,
+        body.yh-dashboard-inline-embed-body .yh-plaza-rail-card {
+            display: none !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .yh-plaza-app-grid {
+            grid-template-columns: minmax(0, 1fr) !important;
+            gap: 0 !important;
+            padding: 0 !important;
+            background:
+                radial-gradient(circle at top right, rgba(56, 189, 248, 0.08), transparent 34%),
+                #050816 !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .yh-plaza-main,
+        body.yh-dashboard-inline-embed-body .yh-plaza-content,
+        body.yh-dashboard-inline-embed-body .yh-plaza-main-stage {
+            width: 100% !important;
+            height: 100% !important;
+            min-height: 0 !important;
+            padding: 0 !important;
+            overflow: auto !important;
+            background: transparent !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .yh-plaza-workspace {
+            border: 0 !important;
+            border-radius: 22px !important;
+            background:
+                radial-gradient(circle at top left, rgba(56, 189, 248, 0.11), transparent 34%),
+                linear-gradient(180deg, rgba(9, 18, 34, 0.98), rgba(5, 8, 22, 0.99)) !important;
+            box-shadow:
+                inset 0 1px 0 rgba(255,255,255,0.04),
+                0 24px 70px rgba(0,0,0,0.28) !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .yh-plaza-workspace-card,
+        body.yh-dashboard-inline-embed-body .yh-plaza-screen-shell {
+            width: 100% !important;
+            min-height: 100% !important;
+            border-radius: 24px !important;
+            border: 1px solid rgba(56, 189, 248, 0.18) !important;
+            background:
+                radial-gradient(circle at top right, rgba(56, 189, 248, 0.10), transparent 36%),
+                linear-gradient(180deg, rgba(15, 23, 42, 0.74), rgba(8, 13, 28, 0.82)) !important;
+            box-shadow:
+                inset 0 1px 0 rgba(255,255,255,0.055),
+                0 24px 70px rgba(0,0,0,0.22) !important;
+            padding: clamp(22px, 2.2vw, 34px) !important;
+            overflow: visible !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .yh-plaza-workspace-head,
+        body.yh-dashboard-inline-embed-body .yh-plaza-screen-head {
+            margin-top: 0 !important;
+            padding: 0 0 18px !important;
+            display: flex !important;
+            align-items: flex-start !important;
+            justify-content: space-between !important;
+            gap: 18px !important;
+            border-bottom: 1px solid rgba(56, 189, 248, 0.14) !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .yh-plaza-workspace-head .yh-plaza-section-kicker {
+            display: none !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .yh-plaza-workspace-title,
+        body.yh-dashboard-inline-embed-body .yh-plaza-screen-title {
+            margin: 0 0 8px !important;
+            color: #f8fbff !important;
+            font-size: clamp(1.34rem, 2.2vw, 1.8rem) !important;
+            font-weight: 950 !important;
+            letter-spacing: -0.035em !important;
+            line-height: 1.08 !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .yh-plaza-title-with-icon {
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: flex-start !important;
+            gap: 12px !important;
+            min-height: 40px !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .yh-plaza-head-with-title-icon {
+            align-items: center !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .yh-plaza-title-icon {
+            width: 38px !important;
+            min-width: 38px !important;
+            height: 38px !important;
+            display: inline-grid !important;
+            place-items: center !important;
+            border-radius: 14px !important;
+            background:
+                radial-gradient(circle at center, rgba(56, 189, 248, 0.18), transparent 62%),
+                rgba(2, 6, 23, 0.30) !important;
+            border: 1px solid rgba(56, 189, 248, 0.18) !important;
+            box-shadow:
+                0 0 18px rgba(56, 189, 248, 0.14),
+                inset 0 1px 0 rgba(255,255,255,0.06) !important;
+            overflow: visible !important;
+            transform: translateY(-1px) !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .yh-plaza-title-icon-img {
+            width: 34px !important;
+            height: 34px !important;
+            display: block !important;
+            object-fit: contain !important;
+            object-position: center !important;
+            filter:
+                drop-shadow(0 0 10px rgba(56, 189, 248, 0.56))
+                drop-shadow(0 0 18px rgba(14, 165, 233, 0.25)) !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .yh-plaza-workspace-note,
+        body.yh-dashboard-inline-embed-body .yh-plaza-panel-note {
+            max-width: 940px !important;
+            margin: 0 !important;
+            color: rgba(203, 213, 225, 0.82) !important;
+            font-size: 0.94rem !important;
+            line-height: 1.62 !important;
+            text-align: left !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .yh-plaza-toolbar-stack,
+        body.yh-dashboard-inline-embed-body .yh-plaza-panel-toolbar,
+        body.yh-dashboard-inline-embed-body .yh-plaza-directory-toolbar {
+            margin: 18px 0 18px !important;
+            padding-bottom: 16px !important;
+            border-bottom: 1px solid rgba(56, 189, 248, 0.10) !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .yh-plaza-pill-group {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            gap: 10px !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .yh-plaza-pill {
+            min-height: 44px !important;
+            padding: 10px 15px !important;
+            border-radius: 999px !important;
+            border: 1px solid rgba(56, 189, 248, 0.24) !important;
+            background:
+                linear-gradient(180deg, rgba(15, 23, 42, 0.78), rgba(8, 13, 28, 0.88)) !important;
+            color: rgba(203, 213, 225, 0.90) !important;
+            font-weight: 850 !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.04) !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .yh-plaza-pill.is-active,
+        body.yh-dashboard-inline-embed-body .yh-plaza-pill[aria-pressed="true"] {
+            color: #ffffff !important;
+            border-color: rgba(56, 189, 248, 0.78) !important;
+            background:
+                radial-gradient(circle at top left, rgba(56, 189, 248, 0.22), transparent 42%),
+                linear-gradient(180deg, rgba(14, 165, 233, 0.24), rgba(8, 13, 28, 0.90)) !important;
+            box-shadow:
+                0 0 24px rgba(56, 189, 248, 0.16),
+                inset 0 1px 0 rgba(255,255,255,0.08) !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .yh-plaza-feed-composer,
+        body.yh-dashboard-inline-embed-body .yh-plaza-detail-block,
+        body.yh-dashboard-inline-embed-body .yh-plaza-request-card,
+        body.yh-dashboard-inline-embed-body .yh-plaza-inbox-card,
+        body.yh-dashboard-inline-embed-body .yh-plaza-message-card,
+        body.yh-dashboard-inline-embed-body .yh-plaza-opportunity-card,
+        body.yh-dashboard-inline-embed-body .yh-plaza-directory-card,
+        body.yh-dashboard-inline-embed-body .yh-plaza-region-card,
+        body.yh-dashboard-inline-embed-body .yh-plaza-bridge-card,
+        body.yh-dashboard-inline-embed-body .yh-plaza-empty,
+        body.yh-dashboard-inline-embed-body .yh-plaza-empty-subtle {
+            border-radius: 22px !important;
+            border: 1px solid rgba(56, 189, 248, 0.15) !important;
+            background:
+                radial-gradient(circle at top right, rgba(56, 189, 248, 0.08), transparent 38%),
+                rgba(15, 23, 42, 0.58) !important;
+            box-shadow:
+                inset 0 1px 0 rgba(255,255,255,0.045),
+                0 16px 42px rgba(0,0,0,0.18) !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .yh-plaza-feed-composer {
+            margin: 20px 0 16px !important;
+            padding: clamp(18px, 2vw, 26px) !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .yh-plaza-feed-composer-main {
+            gap: 12px !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .yh-plaza-feed-composer label,
+        body.yh-dashboard-inline-embed-body .yh-plaza-feed-composer-field label {
+            color: rgba(203, 213, 225, 0.76) !important;
+            font-size: 0.76rem !important;
+            font-weight: 850 !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .yh-plaza-feed-composer input,
+        body.yh-dashboard-inline-embed-body .yh-plaza-feed-composer select,
+        body.yh-dashboard-inline-embed-body .yh-plaza-feed-composer textarea,
+        body.yh-dashboard-inline-embed-body .yh-plaza-form input,
+        body.yh-dashboard-inline-embed-body .yh-plaza-form select,
+        body.yh-dashboard-inline-embed-body .yh-plaza-form textarea {
+            border-radius: 18px !important;
+            border: 1px solid rgba(56, 189, 248, 0.18) !important;
+            background: rgba(6, 12, 27, 0.82) !important;
+            color: #f8fbff !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.035) !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .yh-plaza-feed-composer textarea,
+        body.yh-dashboard-inline-embed-body .yh-plaza-form textarea {
+            min-height: 120px !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .yh-plaza-btn-primary {
+            border-radius: 18px !important;
+            background:
+                linear-gradient(135deg, rgba(56, 189, 248, 0.96), rgba(37, 99, 235, 0.92)) !important;
+            color: #ffffff !important;
+            box-shadow:
+                0 16px 36px rgba(37, 99, 235, 0.28),
+                inset 0 1px 0 rgba(255,255,255,0.20) !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .yh-plaza-feed-grid,
+        body.yh-dashboard-inline-embed-body .yh-plaza-directory-grid,
+        body.yh-dashboard-inline-embed-body .yh-plaza-opportunity-grid,
+        body.yh-dashboard-inline-embed-body .yh-plaza-region-grid,
+        body.yh-dashboard-inline-embed-body .yh-plaza-bridge-grid,
+        body.yh-dashboard-inline-embed-body .yh-plaza-request-list {
+            gap: 16px !important;
+        }
+
+        body.yh-dashboard-inline-embed-body .yh-plaza-tab-panels {
+            margin-top: 0 !important;
+            padding-bottom: 0 !important;
+        }
+
+        @media (max-width: 860px) {
+            body.yh-dashboard-inline-embed-body .yh-plaza-workspace-card,
+            body.yh-dashboard-inline-embed-body .yh-plaza-screen-shell {
+                padding: 18px !important;
+                border-radius: 20px !important;
+            }
+
+            body.yh-dashboard-inline-embed-body .yh-plaza-workspace-head,
+            body.yh-dashboard-inline-embed-body .yh-plaza-screen-head {
+                display: grid !important;
+                gap: 12px !important;
+            }
+        }
+        /* END PATCH: Dashboard embedded Plazas child tab polish v1 */
     `;
 
     const chromeNodes = [
@@ -9989,16 +11425,30 @@ function bindDashboardInlineFrameEmbedMode(frame) {
     frame.dataset.dashboardEmbedModeBound = 'true';
 
     frame.addEventListener('load', () => {
-        const frameShell = frame.closest('.yh-universe-workspace-frame-shell');
-
         forceDashboardInlineFrameContentOnly(frame);
         applyDashboardInlineAcademySection(frame, { force: true });
+        normalizeDashboardEmbeddedAcademyAiCoachLauncher(frame);
+        applyDashboardInlinePlazaIconEnhancements(frame);
+        syncDashboardInlineFederationSection(frame);
 
         window.setTimeout(() => {
             forceDashboardInlineFrameContentOnly(frame);
             applyDashboardInlineAcademySection(frame, { retry: false });
-            frameShell?.classList.remove('is-switching');
+            normalizeDashboardEmbeddedAcademyAiCoachLauncher(frame);
+            applyDashboardInlinePlazaIconEnhancements(frame);
+            syncDashboardInlineFederationSection(frame);
         }, 180);
+
+        window.setTimeout(() => {
+            normalizeDashboardEmbeddedAcademyAiCoachLauncher(frame);
+            applyDashboardInlinePlazaIconEnhancements(frame);
+            syncDashboardInlineFederationSection(frame);
+        }, 520);
+
+        waitForDashboardInlineWorkspaceReady(frame, 'iframe-load-child-ready', {
+            timeoutMs: 5500,
+            pollMs: 90
+        });
     });
 }
 
@@ -10016,7 +11466,7 @@ function setDashboardUnifiedWorkspaceLauncher(key = 'overview') {
     if (!card || !button) return;
 
     const cleanKey = String(key || 'overview').trim().toLowerCase();
-    const isParentWorkspace = ['overview', 'academy', 'plazas', 'federation'].includes(cleanKey);
+    const isParentWorkspace = ['overview', 'academy'].includes(cleanKey);
     const meta = getDashboardUnifiedWorkspaceLaunchMeta(cleanKey);
 
     if (!meta || isParentWorkspace) {
@@ -10084,6 +11534,12 @@ function setDashboardUnifiedWorkspaceLauncher(key = 'overview') {
             frame.dataset.yhDashboardAcademySection = meta.division === 'academy'
                 ? String(meta.academySection || 'home')
                 : '';
+            frame.dataset.yhDashboardPlazaScreen = meta.division === 'plazas'
+                ? String(meta.plazaScreen || 'feed')
+                : '';
+            frame.dataset.yhDashboardFederationSection = meta.division === 'federation'
+                ? getDashboardFederationSectionFromWorkspaceKey(cleanKey)
+                : '';
 
             if (meta.division === 'academy') {
                 writeDashboardAcademyLaunchState(meta.academySection || 'home');
@@ -10122,14 +11578,34 @@ function setDashboardUnifiedWorkspaceLauncher(key = 'overview') {
 
             bindDashboardInlineFrameEmbedMode(frame);
 
+            showDashboardUnifiedChildWorkspaceLoader(cleanKey, meta);
+
             if (frame.getAttribute('src') !== inlineUrl) {
                 clearDashboardInlineAcademyApplyTimers(frame);
                 frameShell.classList.add('is-switching');
                 frame.setAttribute('src', inlineUrl || 'about:blank');
+
+                window.setTimeout(() => {
+                    forceDashboardInlineFrameContentOnly(frame);
+                    applyDashboardInlineAcademySection(frame, { retry: false });
+                    applyDashboardInlinePlazaIconEnhancements(frame);
+                    syncDashboardInlineFederationSection(frame);
+                }, 420);
+
+                waitForDashboardInlineWorkspaceReady(frame, 'iframe-src-child-ready', {
+                    timeoutMs: 5500,
+                    pollMs: 90
+                });
             } else {
                 forceDashboardInlineFrameContentOnly(frame);
                 applyDashboardInlineAcademySection(frame, { force: true });
-                frameShell.classList.remove('is-switching');
+                applyDashboardInlinePlazaIconEnhancements(frame);
+                syncDashboardInlineFederationSection(frame);
+
+                waitForDashboardInlineWorkspaceReady(frame, 'same-src-child-ready', {
+                    timeoutMs: 4200,
+                    pollMs: 80
+                });
             }
         }
     } else {
@@ -10157,7 +11633,7 @@ async function refreshDashboardUnifiedInlineWorkspaceState(key = 'overview') {
     const cleanKey = String(key || 'overview').trim().toLowerCase();
     const meta = getDashboardUnifiedWorkspaceLaunchMeta(cleanKey);
 
-    if (!meta || ['overview', 'academy', 'plazas', 'federation'].includes(cleanKey)) return;
+    if (!meta || ['overview', 'academy'].includes(cleanKey)) return;
 
     const beforeState = getDashboardInlineDivisionState(meta.division);
 
@@ -10422,8 +11898,18 @@ function setDashboardSidebarActiveState(key = 'overview') {
     }
 }
 
+function getDashboardEffectiveUnifiedWorkspaceKey(key = 'overview') {
+    const cleanKey = String(key || 'overview').trim().toLowerCase();
+
+    if (cleanKey === 'plazas') return 'plazas-feed';
+    if (cleanKey === 'federation') return 'federation-command';
+
+    return cleanKey || 'overview';
+}
+
 function activateDashboardUnifiedWorkspace(key = 'overview', options = {}) {
-    const copy = getDashboardUnifiedWorkspaceCopy(key);
+    const effectiveKey = getDashboardEffectiveUnifiedWorkspaceKey(key);
+    const copy = getDashboardUnifiedWorkspaceCopy(effectiveKey);
     const shouldScroll = options.scroll !== false;
     const shouldAnimate = options.animate !== false;
     const shouldPersist = options.persist !== false;
@@ -10504,6 +11990,12 @@ function bootDashboardUnifiedSidebarWorkspace() {
         persist: false
     });
 }
+
+window.activateDashboardUnifiedWorkspace = activateDashboardUnifiedWorkspace;
+window.getDashboardPersistedWalletTab = getDashboardPersistedWalletTab;
+window.persistDashboardWalletTab = persistDashboardWalletTab;
+window.restoreDashboardPersistentUiState = restoreDashboardPersistentUiState;
+window.__yhDashboardUnifiedWorkspaceReady = true;
 
 bootDashboardUnifiedSidebarWorkspace();
 
@@ -15525,11 +17017,21 @@ function showAcademyRoadmapLoadingShell() {
 
     if (dynamicChatContainer) {
         dynamicChatContainer.innerHTML = `
-            <div class="academy-home-stack">
-                <section class="academy-home-panel">
-                    <div class="academy-home-panel-label">Roadmap</div>
-                    <div class="academy-home-panel-copy">
-                        Loading your Academy roadmap view...
+            <div class="academy-roadmap-loading-shell" role="status" aria-live="polite">
+                <section class="academy-roadmap-loading-card">
+                    <div class="academy-roadmap-loading-orb" aria-hidden="true">
+                        <span class="academy-roadmap-loading-ring"></span>
+                        <img src="/images/logo.avif" alt="" class="academy-roadmap-loading-logo" loading="eager" decoding="async">
+                    </div>
+
+                    <div class="academy-roadmap-loading-kicker">Roadmap Sync</div>
+                    <h3 class="academy-roadmap-loading-title">Preparing your Academy roadmap</h3>
+                    <p class="academy-roadmap-loading-copy">
+                        Loading missions, access state, progress, and your next execution move.
+                    </p>
+
+                    <div class="academy-roadmap-loading-progress" aria-hidden="true">
+                        <span></span>
                     </div>
                 </section>
             </div>
@@ -26811,7 +28313,19 @@ async function refreshFederationAccessStatusFromBackend(forceFresh = false) {
             return snapshot;
         })
         .catch((error) => {
-            console.error('refreshFederationAccessStatusFromBackend error:', error);
+            const message = String(error?.message || '').toLowerCase();
+            const status = Number(error?.status || error?.responseStatus || 0);
+            const isRateLimited =
+                status === 429 ||
+                message.includes('too many requests') ||
+                message.includes('please wait a moment');
+
+            federationAccessStatusLastFetchAt = Date.now();
+
+            if (!isRateLimited) {
+                console.error('refreshFederationAccessStatusFromBackend error:', error);
+            }
+
             return getFederationAccessSnapshot();
         })
         .finally(() => {

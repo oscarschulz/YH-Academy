@@ -753,6 +753,61 @@ a {
   letter-spacing: 0;
 }
 
+.yh-plaza-workspace-title-with-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  min-height: 42px;
+}
+
+.yh-plaza-workspace-title-icon {
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 15px;
+  background:
+    radial-gradient(circle at center, rgba(56, 189, 248, 0.18), transparent 64%),
+    rgba(2, 6, 23, 0.34);
+  border: 1px solid rgba(56, 189, 248, 0.18);
+  box-shadow:
+    0 0 18px rgba(56, 189, 248, 0.16),
+    inset 0 1px 0 rgba(255,255,255,0.06);
+  overflow: visible;
+  transform: translateY(-1px);
+}
+
+.yh-plaza-workspace-title-icon-img {
+  width: 35px;
+  height: 35px;
+  display: block;
+  object-fit: contain;
+  object-position: center;
+  filter:
+    drop-shadow(0 0 10px rgba(56, 189, 248, 0.58))
+    drop-shadow(0 0 18px rgba(14, 165, 233, 0.26));
+}
+
+@media (max-width: 720px) {
+  .yh-plaza-workspace-title-with-icon {
+    gap: 10px;
+  }
+
+  .yh-plaza-workspace-title-icon {
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
+    border-radius: 13px;
+  }
+
+  .yh-plaza-workspace-title-icon-img {
+    width: 30px;
+    height: 30px;
+  }
+}
+
 .yh-plaza-tabs {
   display: flex;
   flex-wrap: wrap;
