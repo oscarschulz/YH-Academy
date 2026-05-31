@@ -73,6 +73,83 @@ function buildYHVerificationBadges(userData = {}) {
         federation: normalizeYHVerificationBadgeState(source.federation, 'federation')
     };
 }
+
+/* PATCH: Apply Academy social stats consistently v1 */
+function applyAcademySocialStatsToProfileResponse(profileResponse = {}, socialProfile = {}) {
+    if (!profileResponse || typeof profileResponse !== 'object') return profileResponse;
+    if (!socialProfile || typeof socialProfile !== 'object') return profileResponse;
+
+    const hasValue = (value) => {
+        return value !== null && value !== undefined && String(value).trim() !== '';
+    };
+
+    const followersCount =
+        socialProfile.followers_count ??
+        socialProfile.followersCount ??
+        socialProfile.followerCount;
+
+    const followingCount =
+        socialProfile.following_count ??
+        socialProfile.followingCount;
+
+    const friendsCount =
+        socialProfile.friends_count ??
+        socialProfile.friend_count ??
+        socialProfile.friendsCount ??
+        socialProfile.friendCount;
+
+    if (hasValue(followersCount)) {
+        profileResponse.followers_count = followersCount;
+        profileResponse.followersCount = followersCount;
+        profileResponse.followerCount = followersCount;
+    }
+
+    if (hasValue(followingCount)) {
+        profileResponse.following_count = followingCount;
+        profileResponse.followingCount = followingCount;
+    }
+
+    if (hasValue(friendsCount)) {
+        profileResponse.friends_count = friendsCount;
+        profileResponse.friend_count = friendsCount;
+        profileResponse.friendsCount = friendsCount;
+        profileResponse.friendCount = friendsCount;
+    }
+
+    if (hasValue(socialProfile.mutual_friend_count)) {
+        profileResponse.mutual_friend_count = socialProfile.mutual_friend_count;
+        profileResponse.mutualFriendCount = socialProfile.mutual_friend_count;
+    }
+
+    if (Number.isFinite(Number(socialProfile.post_count ?? socialProfile.postCount))) {
+        profileResponse.post_count = Number(socialProfile.post_count ?? socialProfile.postCount);
+        profileResponse.postCount = Number(socialProfile.post_count ?? socialProfile.postCount);
+    }
+
+    if (Array.isArray(socialProfile.recent_posts)) {
+        profileResponse.recent_posts = socialProfile.recent_posts;
+        profileResponse.recentPosts = socialProfile.recent_posts;
+    }
+
+    if (Array.isArray(socialProfile.recentPosts)) {
+        profileResponse.recent_posts = socialProfile.recentPosts;
+        profileResponse.recentPosts = socialProfile.recentPosts;
+    }
+
+    if (hasValue(socialProfile.followed_by_me)) {
+        profileResponse.followed_by_me = socialProfile.followed_by_me === true;
+        profileResponse.followedByMe = socialProfile.followed_by_me === true;
+    }
+
+    if (hasValue(socialProfile.followedByMe)) {
+        profileResponse.followed_by_me = socialProfile.followedByMe === true;
+        profileResponse.followedByMe = socialProfile.followedByMe === true;
+    }
+
+    return profileResponse;
+}
+/* END PATCH: Apply Academy social stats consistently v1 */
+
 function buildPublicLandingEventLocation(req = {}) {
     const body = req && req.body && typeof req.body === 'object' ? req.body : {};
     const sources = [
@@ -4068,25 +4145,31 @@ exports.getUniverseProfile = async (req, res) => {
         const storedAcademyProfile = await academyFirestoreRepo.getCurrentProfile(uid).catch(() => null) || {};
         const academyProfile = buildAcademyProfileResponse(uid, userData, storedAcademyProfile);
 
+        /* PATCH: Use lightweight server-backed social counts for universe profile v1 */
+        try {
+            if (typeof academyCommunityRepo.getMemberSocialCounts === 'function') {
+                const socialCounts = await academyCommunityRepo.getMemberSocialCounts({
+                    userId: uid,
+                    viewerId: uid
+                });
+
+                applyAcademySocialStatsToProfileResponse(academyProfile, socialCounts);
+            }
+        } catch (socialCountError) {
+            console.warn('getUniverseProfile social count fallback:', socialCountError?.message || socialCountError);
+        }
+
         try {
             const socialProfile = await academyCommunityRepo.getMemberProfile({
                 viewerId: uid,
                 targetUserId: uid
             });
 
-            academyProfile.followers_count = socialProfile?.followers_count ?? academyProfile.followers_count ?? '—';
-            academyProfile.following_count = socialProfile?.following_count ?? academyProfile.following_count ?? '—';
-            academyProfile.friends_count = socialProfile?.friends_count ?? socialProfile?.friend_count ?? academyProfile.friends_count ?? '—';
-            academyProfile.friend_count = academyProfile.friends_count;
-
-            if (Number.isFinite(Number(socialProfile?.post_count))) {
-                academyProfile.post_count = Number(socialProfile.post_count);
-            }
-
-            if (Array.isArray(socialProfile?.recent_posts)) {
-                academyProfile.recent_posts = socialProfile.recent_posts;
-            }
-        } catch (_) {}
+            applyAcademySocialStatsToProfileResponse(academyProfile, socialProfile);
+        } catch (socialProfileError) {
+            console.warn('getUniverseProfile full social profile skipped:', socialProfileError?.message || socialProfileError);
+        }
+        /* END PATCH: Use lightweight server-backed social counts for universe profile v1 */
 
         let academyAccessState = null;
         try {
@@ -4293,6 +4376,25 @@ exports.getUniverseProfile = async (req, res) => {
                 membershipSummary,
                 divisions,
                 signals,
+
+                followers_count: academyProfile.followers_count ?? 0,
+                followersCount: academyProfile.followers_count ?? academyProfile.followersCount ?? 0,
+                followerCount: academyProfile.followers_count ?? academyProfile.followersCount ?? academyProfile.followerCount ?? 0,
+
+                following_count: academyProfile.following_count ?? 0,
+                followingCount: academyProfile.following_count ?? academyProfile.followingCount ?? 0,
+
+                friends_count: academyProfile.friends_count ?? academyProfile.friend_count ?? 0,
+                friend_count: academyProfile.friend_count ?? academyProfile.friends_count ?? 0,
+                friendsCount: academyProfile.friends_count ?? academyProfile.friend_count ?? academyProfile.friendsCount ?? 0,
+                friendCount: academyProfile.friend_count ?? academyProfile.friends_count ?? academyProfile.friendCount ?? 0,
+
+                post_count: academyProfile.post_count ?? 0,
+                postCount: academyProfile.post_count ?? academyProfile.postCount ?? 0,
+
+                recent_posts: Array.isArray(academyProfile.recent_posts) ? academyProfile.recent_posts : [],
+                recentPosts: Array.isArray(academyProfile.recent_posts) ? academyProfile.recent_posts : [],
+
                 source: 'universe-profile-v1'
             }
         });
@@ -5000,28 +5102,35 @@ exports.getCurrentProfile = async (req, res) => {
         const profileResponse = buildAcademyProfileResponse(uid, userData, storedProfile);
         profileResponse.verificationBadges = buildYHVerificationBadges(userData);
 
+            /* PATCH: Use lightweight server-backed social counts for current profile v1 */
+            try {
+                if (typeof academyCommunityRepo.getMemberSocialCounts === 'function') {
+                    const socialCounts = await academyCommunityRepo.getMemberSocialCounts({
+                        userId: uid,
+                        viewerId: uid
+                    });
+
+                    applyAcademySocialStatsToProfileResponse(profileResponse, socialCounts);
+                    profileResponse.mutual_friend_count = 0;
+                    profileResponse.mutualFriendCount = 0;
+                }
+            } catch (socialCountError) {
+                console.warn('getCurrentProfile social count fallback:', socialCountError?.message || socialCountError);
+            }
+
             try {
                 const socialProfile = await academyCommunityRepo.getMemberProfile({
                     viewerId: uid,
                     targetUserId: uid
                 });
 
-                profileResponse.followers_count = socialProfile?.followers_count ?? profileResponse.followers_count ?? '—';
-                profileResponse.following_count = socialProfile?.following_count ?? profileResponse.following_count ?? '—';
-                profileResponse.friends_count = socialProfile?.friends_count ?? socialProfile?.friend_count ?? profileResponse.friends_count ?? '—';
-                profileResponse.friend_count = profileResponse.friends_count;
+                applyAcademySocialStatsToProfileResponse(profileResponse, socialProfile);
                 profileResponse.mutual_friend_count = 0;
-
-                if (Number.isFinite(Number(socialProfile?.post_count))) {
-                    profileResponse.post_count = Number(socialProfile.post_count);
-                }
-
-                if (Array.isArray(socialProfile?.recent_posts)) {
-                    profileResponse.recent_posts = socialProfile.recent_posts;
-                }
-            } catch (socialError) {
-                console.warn('getCurrentProfile social stats fallback:', socialError?.message || socialError);
+                profileResponse.mutualFriendCount = 0;
+            } catch (socialProfileError) {
+                console.warn('getCurrentProfile full social profile skipped:', socialProfileError?.message || socialProfileError);
             }
+            /* END PATCH: Use lightweight server-backed social counts for current profile v1 */
 
             return res.json({
                 success: true,

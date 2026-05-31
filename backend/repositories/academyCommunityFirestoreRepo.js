@@ -1231,6 +1231,53 @@ async function getAcademyFriendCount(userId) {
     return asUserOneSnap.size + asUserTwoSnap.size;
 }
 
+/* PATCH: Server-backed Academy social counts v1 */
+async function getMemberSocialCounts({ userId, viewerId = '' } = {}) {
+    const normalizedUserId = normalizeUserId(userId);
+    const normalizedViewerId = normalizeUserId(viewerId);
+
+    if (!normalizedUserId) {
+        throw new Error('userId is required.');
+    }
+
+    const [followerCount, followingCount, friendCount] = await Promise.all([
+        getAcademyFollowerCount(normalizedUserId),
+        getAcademyFollowingCount(normalizedUserId),
+        getAcademyFriendCount(normalizedUserId)
+    ]);
+
+    let followedByMe = false;
+
+    if (normalizedViewerId && normalizedViewerId !== normalizedUserId) {
+        const followSnap = await academyFollowsCol
+            .doc(followKeyFor(normalizedViewerId, normalizedUserId))
+            .get();
+
+        followedByMe = followSnap.exists;
+    }
+
+    return {
+        id: normalizedUserId,
+        userId: normalizedUserId,
+
+        followers_count: followerCount,
+        followersCount: followerCount,
+        followerCount,
+
+        following_count: followingCount,
+        followingCount,
+
+        friends_count: friendCount,
+        friend_count: friendCount,
+        friendsCount: friendCount,
+        friendCount,
+
+        followed_by_me: followedByMe,
+        followedByMe
+    };
+}
+/* END PATCH: Server-backed Academy social counts v1 */
+
 async function listAcademyMembers({ viewerId, limit = 100, query = '' }) {
     const normalizedViewerId = normalizeUserId(viewerId);
     const normalizedLimit = Math.max(1, Math.min(toInt(limit, 100), 200));
@@ -1784,6 +1831,7 @@ module.exports = {
     deletePostComment,
     hidePostCommentForViewer,
     listAcademyMembers,
+    getMemberSocialCounts,
     getMemberProfile,
     toggleMemberFollow,
     sendFriendRequest,

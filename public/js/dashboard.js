@@ -17415,19 +17415,35 @@ function dashboardGetPreservedVerificationBadges(nextProfile = {}) {
     return merged;
 }
 
+/* PATCH: Preserve self profile fallback stats during profile hydration v1 */
 function dashboardMergeProfileKeepingBadges(nextProfile = {}, ...fallbackProfiles) {
     const cleanProfile = nextProfile && typeof nextProfile === 'object' ? nextProfile : {};
 
-    const trustedProfile =
-        dashboardCanReuseCachedProfile(cleanProfile)
-            ? cleanProfile
-            : {};
+    const safeFallbackProfiles = fallbackProfiles
+        .filter((profile) => profile && typeof profile === 'object' && !Array.isArray(profile))
+        .filter((profile) => {
+            const profileKey = dashboardGetProfileIdentityKey(profile);
+            return !profileKey || dashboardCanReuseCachedProfile(profile);
+        });
+
+    const mergedProfile = {
+        ...safeFallbackProfiles.reduce((acc, profile) => ({ ...acc, ...profile }), {}),
+        ...cleanProfile
+    };
+
+    const trustedBadgeSource =
+        dashboardCanReuseCachedProfile(mergedProfile)
+            ? mergedProfile
+            : dashboardCanReuseCachedProfile(cleanProfile)
+                ? cleanProfile
+                : safeFallbackProfiles.find((profile) => dashboardCanReuseCachedProfile(profile)) || {};
 
     return {
-        ...cleanProfile,
-        verificationBadges: dashboardGetPreservedVerificationBadges(trustedProfile)
+        ...mergedProfile,
+        verificationBadges: dashboardGetPreservedVerificationBadges(trustedBadgeSource)
     };
 }
+/* END PATCH: Preserve self profile fallback stats during profile hydration v1 */
 
 function dashboardResolveProfileDisplayName(profile = {}, fallback = '') {
     const cachedProfile = dashboardGetSelfProfileCache();
@@ -23045,18 +23061,67 @@ async function openAcademyProfilePostInFeed(postId = '') {
         }, 1800);
     });
 }
+/* PATCH: Dashboard self profile server-backed social count hydration v1 */
 async function hydrateDashboardSelfUniverseProfile() {
     try {
-        const result = await academyAuthedFetch('/api/universe/profile', { method: 'GET' });
+        let universeProfile = null;
+        let academyProfile = null;
 
-        if (!result?.profile) return;
+        try {
+            const universeResult = await academyAuthedFetch('/api/universe/profile', { method: 'GET' });
+            universeProfile =
+                universeResult?.profile && typeof universeResult.profile === 'object'
+                    ? universeResult.profile
+                    : null;
+        } catch (universeError) {
+            console.warn('hydrateDashboardSelfUniverseProfile universe profile skipped:', universeError?.message || universeError);
+        }
+
+        try {
+            const academyResult = await academyAuthedFetch('/api/academy/profile', { method: 'GET' });
+            academyProfile =
+                academyResult?.profile && typeof academyResult.profile === 'object'
+                    ? academyResult.profile
+                    : null;
+        } catch (academyError) {
+            console.warn('hydrateDashboardSelfUniverseProfile academy profile skipped:', academyError?.message || academyError);
+        }
+
+        if (!universeProfile && !academyProfile) return;
 
         const currentProfile =
             academyProfileViewState?.profile && academyProfileViewState.mode === 'self'
                 ? academyProfileViewState.profile
                 : buildAcademySelfProfilePayload();
 
-        const merged = mergeYHUniverseProfilePayload(result.profile, currentProfile);
+        const academyMergedProfile = academyProfile
+            ? buildAcademySelfProfilePayload({
+                ...currentProfile,
+                ...academyProfile,
+                followers_count:
+                    academyProfile.followers_count ??
+                    academyProfile.followersCount ??
+                    currentProfile.followers_count ??
+                    currentProfile.followersCount,
+                following_count:
+                    academyProfile.following_count ??
+                    academyProfile.followingCount ??
+                    currentProfile.following_count ??
+                    currentProfile.followingCount,
+                friends_count:
+                    academyProfile.friends_count ??
+                    academyProfile.friend_count ??
+                    academyProfile.friendsCount ??
+                    currentProfile.friends_count ??
+                    currentProfile.friend_count ??
+                    currentProfile.friendsCount
+            })
+            : currentProfile;
+
+        const merged = universeProfile
+            ? mergeYHUniverseProfilePayload(universeProfile, academyMergedProfile)
+            : academyMergedProfile;
+
         dashboardPersistSelfProfileCache(merged);
         syncDashboardTopProfileIdentity(merged);
 
@@ -23067,6 +23132,7 @@ async function hydrateDashboardSelfUniverseProfile() {
         console.warn('hydrateDashboardSelfUniverseProfile skipped:', error?.message || error);
     }
 }
+/* END PATCH: Dashboard self profile server-backed social count hydration v1 */
 
 function openAcademyProfileView() {
     try {
