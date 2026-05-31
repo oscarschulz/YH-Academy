@@ -25116,6 +25116,131 @@ function academyPatchDashboardVisitedProfileFollowDom(targetUserId = '', isFollo
     return academyProfileViewState.profile;
 }
 
+/* PATCH: Dashboard owned/visited follow count sync v1 */
+function academyDashboardParseCountValue(value, fallback = null) {
+    const parsed = Number(value);
+
+    if (Number.isFinite(parsed)) {
+        return Math.max(0, parsed);
+    }
+
+    return fallback;
+}
+
+function academyDashboardReadOwnedFollowingCount() {
+    const cache = typeof dashboardGetTopProfileCache === 'function'
+        ? dashboardGetTopProfileCache()
+        : {};
+
+    const selfStateProfile =
+        academyProfileViewState?.mode === 'self' &&
+        academyProfileViewState?.profile &&
+        typeof academyProfileViewState.profile === 'object'
+            ? academyProfileViewState.profile
+            : {};
+
+    const domValue = document.getElementById('academy-profile-following-count')?.textContent || '';
+
+    const candidates = [
+        selfStateProfile.followingCount,
+        selfStateProfile.following_count,
+        selfStateProfile.following,
+        cache.followingCount,
+        cache.following_count,
+        cache.following,
+        domValue
+    ];
+
+    for (const value of candidates) {
+        const parsed = academyDashboardParseCountValue(value, null);
+        if (parsed !== null) return parsed;
+    }
+
+    return 0;
+}
+
+function academyPatchDashboardOwnedFollowingCount(isFollowing = false, result = {}, options = {}) {
+    const previousFollowing = options.previousFollowing === true;
+
+    const explicitFollowingCount = (
+        result?.viewerFollowingCount ??
+        result?.viewer_following_count ??
+        result?.currentUserFollowingCount ??
+        result?.current_user_following_count ??
+        result?.selfFollowingCount ??
+        result?.self_following_count ??
+        result?.viewer?.followingCount ??
+        result?.viewer?.following_count ??
+        null
+    );
+
+    const explicitParsed = academyDashboardParseCountValue(explicitFollowingCount, null);
+    const currentCount = academyDashboardReadOwnedFollowingCount();
+    const delta = isFollowing === previousFollowing ? 0 : isFollowing ? 1 : -1;
+
+    const nextFollowingCount = explicitParsed !== null
+        ? explicitParsed
+        : Math.max(0, currentCount + delta);
+
+    const currentCache = typeof dashboardGetTopProfileCache === 'function'
+        ? dashboardGetTopProfileCache()
+        : {};
+
+    const nextCache = {
+        ...(currentCache && typeof currentCache === 'object' ? currentCache : {}),
+        following_count: nextFollowingCount,
+        followingCount: nextFollowingCount,
+        updatedAt: new Date().toISOString()
+    };
+
+    try {
+        if (typeof dashboardWriteTopProfileCache === 'function') {
+            dashboardWriteTopProfileCache(nextCache);
+        }
+    } catch (_) {}
+
+    try {
+        const existingProfileCache = JSON.parse(localStorage.getItem('yh_academy_profile_cache_v1') || '{}');
+        localStorage.setItem(
+            'yh_academy_profile_cache_v1',
+            JSON.stringify({
+                ...(existingProfileCache && typeof existingProfileCache === 'object' ? existingProfileCache : {}),
+                following_count: nextFollowingCount,
+                followingCount: nextFollowingCount,
+                updatedAt: new Date().toISOString()
+            })
+        );
+    } catch (_) {}
+
+    if (
+        academyProfileViewState?.mode === 'self' &&
+        academyProfileViewState?.profile &&
+        typeof academyProfileViewState.profile === 'object'
+    ) {
+        academyProfileViewState.profile = {
+            ...academyProfileViewState.profile,
+            following_count: nextFollowingCount,
+            followingCount: nextFollowingCount
+        };
+
+        const followingCountEl = document.getElementById('academy-profile-following-count');
+        const followingMetaEl = document.getElementById('academy-profile-following-meta');
+
+        if (followingCountEl) {
+            followingCountEl.innerText = String(nextFollowingCount);
+        }
+
+        if (followingMetaEl) {
+            followingMetaEl.innerText = nextFollowingCount === 1
+                ? 'Universe following'
+                : 'Universe following';
+        }
+    }
+
+    return nextFollowingCount;
+}
+/* END PATCH: Dashboard owned/visited follow count sync v1 */
+
 async function academyFeedToggleFollow(targetUserId, options = {}) {
     const normalizedTargetUserId = normalizeAcademyFeedId(targetUserId);
 
@@ -25140,6 +25265,19 @@ async function academyFeedToggleFollow(targetUserId, options = {}) {
             isNowFollowing,
             result
         );
+
+        const viewerFollowingCount = academyPatchDashboardOwnedFollowingCount(
+            isNowFollowing,
+            result,
+            {
+                previousFollowing: options.previousFollowing === true
+            }
+        );
+
+        if (result && typeof result === 'object') {
+            result.viewerFollowingCount = viewerFollowingCount;
+            result.viewer_following_count = viewerFollowingCount;
+        }
 
         showToast(isNowFollowing ? 'User followed.' : 'User unfollowed.', 'success');
 
