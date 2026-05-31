@@ -10424,8 +10424,57 @@ function enforceDashboardInlineFederationScroll(frame, doc = null) {
         } catch (_) {}
     }
 
-    if (frameDoc.body.dataset.yhDashboardFederationParentWheelV4 !== 'true') {
-        frameDoc.body.dataset.yhDashboardFederationParentWheelV4 = 'true';
+    if (frameDoc.body.dataset.yhDashboardFederationParentWheelV5 !== 'true') {
+        frameDoc.body.dataset.yhDashboardFederationParentWheelV5 = 'true';
+
+        const federationSmoothScrollState = {
+            targetTop: null,
+            rafId: 0
+        };
+
+        function clampFederationScrollValue(value, min, max) {
+            return Math.max(min, Math.min(max, value));
+        }
+
+        function normalizeFederationWheelDelta(event, parentScroller) {
+            let delta = Number(event.deltaY || 0);
+
+            if (event.deltaMode === 1) {
+                delta *= 16;
+            } else if (event.deltaMode === 2) {
+                delta *= Math.max(240, parentScroller.clientHeight * 0.75);
+            }
+
+            const absDelta = Math.abs(delta);
+            const sensitivity = absDelta > 180 ? 0.34 : absDelta > 80 ? 0.42 : 0.52;
+            const capped = clampFederationScrollValue(delta * sensitivity, -150, 150);
+
+            return capped;
+        }
+
+        function animateFederationParentScroll(parentScroller, nextTop) {
+            const maxScroll = Math.max(0, parentScroller.scrollHeight - parentScroller.clientHeight);
+            federationSmoothScrollState.targetTop = clampFederationScrollValue(nextTop, 0, maxScroll);
+
+            if (federationSmoothScrollState.rafId) return;
+
+            const step = () => {
+                const current = parentScroller.scrollTop;
+                const targetTop = Number(federationSmoothScrollState.targetTop || 0);
+                const distance = targetTop - current;
+
+                if (Math.abs(distance) < 0.75) {
+                    parentScroller.scrollTop = targetTop;
+                    federationSmoothScrollState.rafId = 0;
+                    return;
+                }
+
+                parentScroller.scrollTop = current + distance * 0.24;
+                federationSmoothScrollState.rafId = window.requestAnimationFrame(step);
+            };
+
+            federationSmoothScrollState.rafId = window.requestAnimationFrame(step);
+        }
 
         frameDoc.addEventListener('wheel', (event) => {
             const target = event.target instanceof Element ? event.target : null;
@@ -10440,12 +10489,19 @@ function enforceDashboardInlineFederationScroll(frame, doc = null) {
             const maxScroll = Math.max(0, parentScroller.scrollHeight - parentScroller.clientHeight);
             if (maxScroll <= 2) return;
 
-            const before = parentScroller.scrollTop;
-            const next = Math.max(0, Math.min(maxScroll, before + event.deltaY));
+            const baseTop = Number.isFinite(Number(federationSmoothScrollState.targetTop))
+                ? Number(federationSmoothScrollState.targetTop)
+                : parentScroller.scrollTop;
 
-            if (next === before) return;
+            const next = clampFederationScrollValue(
+                baseTop + normalizeFederationWheelDelta(event, parentScroller),
+                0,
+                maxScroll
+            );
 
-            parentScroller.scrollTop = next;
+            if (Math.abs(next - baseTop) < 0.5) return;
+
+            animateFederationParentScroll(parentScroller, next);
             event.preventDefault();
             event.stopPropagation();
         }, { capture: true, passive: false });
@@ -10464,26 +10520,29 @@ function enforceDashboardInlineFederationScroll(frame, doc = null) {
             if (maxScroll <= 2) return;
 
             const movement = {
-                ArrowDown: 72,
-                ArrowUp: -72,
-                PageDown: Math.max(160, parentScroller.clientHeight * 0.78),
-                PageUp: -Math.max(160, parentScroller.clientHeight * 0.78),
+                ArrowDown: 56,
+                ArrowUp: -56,
+                PageDown: Math.max(140, parentScroller.clientHeight * 0.62),
+                PageUp: -Math.max(140, parentScroller.clientHeight * 0.62),
                 Home: -999999,
                 End: 999999
             };
 
             if (!Object.prototype.hasOwnProperty.call(movement, event.key)) return;
 
-            const before = parentScroller.scrollTop;
+            const before = Number.isFinite(Number(federationSmoothScrollState.targetTop))
+                ? Number(federationSmoothScrollState.targetTop)
+                : parentScroller.scrollTop;
+
             const next = event.key === 'Home'
                 ? 0
                 : event.key === 'End'
                     ? maxScroll
-                    : Math.max(0, Math.min(maxScroll, before + movement[event.key]));
+                    : clampFederationScrollValue(before + movement[event.key], 0, maxScroll);
 
-            if (next === before) return;
+            if (Math.abs(next - before) < 0.5) return;
 
-            parentScroller.scrollTop = next;
+            animateFederationParentScroll(parentScroller, next);
             event.preventDefault();
             event.stopPropagation();
         }, { capture: true });
