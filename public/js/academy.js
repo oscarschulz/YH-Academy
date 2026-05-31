@@ -22272,20 +22272,43 @@ function academyIsMemberFollowingValue(value) {
 }
 
 function academyResolveFollowResultState(result = {}, fallback = false) {
-    if (
-        result?.following === true ||
-        result?.followed_by_me === true ||
-        result?.followedByMe === true
-    ) {
-        return true;
-    }
+    const explicitValues = [
+        result?.following,
+        result?.followed_by_me,
+        result?.followedByMe,
+        result?.isFollowing,
+        result?.is_following,
+        result?.state,
+        result?.status,
+        result?.action
+    ];
 
-    if (
-        result?.following === false ||
-        result?.followed_by_me === false ||
-        result?.followedByMe === false
-    ) {
-        return false;
+    for (const value of explicitValues) {
+        const clean = String(value ?? '').trim().toLowerCase();
+
+        if (
+            value === true ||
+            value === 1 ||
+            clean === 'true' ||
+            clean === 'following' ||
+            clean === 'followed' ||
+            clean === 'created' ||
+            clean === 'added'
+        ) {
+            return true;
+        }
+
+        if (
+            value === false ||
+            value === 0 ||
+            clean === 'false' ||
+            clean === 'not-following' ||
+            clean === 'unfollowed' ||
+            clean === 'deleted' ||
+            clean === 'removed'
+        ) {
+            return false;
+        }
     }
 
     return !!fallback;
@@ -22455,6 +22478,98 @@ function academyBuildVisitedProfileFollowPatch(targetUserId = '', isFollowing = 
     };
 }
 
+function academyPatchActiveVisitedProfileFollowDom(targetUserId = '', isFollowing = false, result = {}) {
+    const normalizedTargetUserId = normalizeAcademyFeedId(targetUserId);
+    if (!normalizedTargetUserId) return null;
+
+    const activeProfileId =
+        normalizeAcademyFeedId(academyProfileViewState?.memberId) ||
+        normalizeAcademyFeedId(academyProfileViewState?.profile?.id);
+
+    if (
+        activeProfileId !== normalizedTargetUserId ||
+        academyProfileViewState?.mode !== 'visited'
+    ) {
+        return null;
+    }
+
+    const nextProfilePayload = academyBuildVisitedProfileFollowPatch(
+        normalizedTargetUserId,
+        isFollowing,
+        result
+    );
+
+    academyProfileViewState.profile = {
+        ...(academyProfileViewState.profile || {}),
+        ...nextProfilePayload,
+        followed_by_me: isFollowing,
+        followedByMe: isFollowing
+    };
+    academyProfileViewState.memberId = normalizedTargetUserId;
+    academyProfileViewState.mode = 'visited';
+
+    const profileViewRoot = document.getElementById('academy-profile-view');
+    const primaryAction = document.getElementById('academy-profile-primary-action');
+    const followerCountEl = document.getElementById('academy-profile-follower-count');
+    const followersMetaEl = document.getElementById('academy-profile-followers-meta');
+
+    if (profileViewRoot) {
+        const currentProfile = academyProfileViewState.profile || {};
+        const nextRelationshipState =
+            currentProfile.isFriend === true
+                ? 'friends'
+                : currentProfile.incomingFriendRequestPending === true
+                    ? 'incoming-request'
+                    : currentProfile.outgoingFriendRequestPending === true
+                        ? 'outgoing-request'
+                        : isFollowing
+                            ? 'following'
+                            : 'neutral';
+
+        profileViewRoot.setAttribute('data-profile-relationship-state', nextRelationshipState);
+        profileViewRoot.setAttribute('data-profile-member-id', normalizedTargetUserId);
+        profileViewRoot.removeAttribute('data-follow-toggle-pending');
+    }
+
+    if (primaryAction) {
+        primaryAction.dataset.profileAction = 'toggle-follow';
+        primaryAction.dataset.memberProfileId = normalizedTargetUserId;
+        primaryAction.dataset.actionRank = 'visited-secondary-follow';
+        primaryAction.setAttribute(
+            'aria-label',
+            isFollowing
+                ? `Unfollow ${nextProfilePayload.display_name || nextProfilePayload.displayName || 'member'}`
+                : `Follow ${nextProfilePayload.display_name || nextProfilePayload.displayName || 'member'}`
+        );
+
+        academySetFollowButtonFinalState(primaryAction, isFollowing);
+    }
+
+    const nextFollowerCount =
+        nextProfilePayload.followersCount ??
+        nextProfilePayload.followers_count ??
+        result?.followerCount ??
+        result?.followersCount ??
+        result?.followers_count ??
+        '—';
+
+    if (followerCountEl) {
+        followerCountEl.innerText = String(nextFollowerCount);
+    }
+
+    if (followersMetaEl) {
+        const parsedFollowerCount = Number(nextFollowerCount);
+
+        followersMetaEl.innerText = Number.isFinite(parsedFollowerCount)
+            ? parsedFollowerCount === 1
+                ? 'Public follower'
+                : 'Public followers'
+            : 'Public audience';
+    }
+
+    return nextProfilePayload;
+}
+
 function academyApplyFollowToggleResult(targetUserId = '', result = {}, options = {}) {
     const normalizedTargetUserId = normalizeAcademyFeedId(targetUserId);
     if (!normalizedTargetUserId) return null;
@@ -22500,13 +22615,11 @@ function academyApplyFollowToggleResult(targetUserId = '', result = {}, options 
         activeProfileId === normalizedTargetUserId &&
         academyProfileViewState?.mode === 'visited'
     ) {
-        const nextProfilePayload = academyBuildVisitedProfileFollowPatch(
+        academyPatchActiveVisitedProfileFollowDom(
             normalizedTargetUserId,
             isFollowing,
             result
         );
-
-        renderAcademyProfileView(nextProfilePayload, { mode: 'visited' });
     }
 
     return {
@@ -23390,23 +23503,58 @@ document.getElementById('academy-profile-view')?.addEventListener('click', async
             String(actionBtn.getAttribute('data-follow-state') || '').trim().toLowerCase() === 'following' ||
             academyProfileViewState?.profile?.followedByMe === true;
 
+        const profileViewRoot = document.getElementById('academy-profile-view');
         const previousText = actionBtn.innerText;
+
+        if (profileViewRoot) {
+            profileViewRoot.setAttribute('data-follow-toggle-pending', 'true');
+        }
+
         actionBtn.disabled = true;
         actionBtn.setAttribute('aria-busy', 'true');
         actionBtn.innerText = isCurrentlyFollowing ? 'Unfollowing.' : 'Following.';
 
         academyFeedToggleFollow(targetUserId, {
             previousFollowing: isCurrentlyFollowing
-        }).catch((error) => {
-            console.error('academy profile follow toggle error:', error);
+        })
+            .then((result) => {
+                const resolvedFollowing = academyResolveFollowResultState(
+                    result,
+                    !isCurrentlyFollowing
+                );
 
-            if (actionBtn.isConnected) {
-                actionBtn.disabled = false;
-                actionBtn.removeAttribute('aria-busy');
-                actionBtn.innerText = previousText;
-                academySetFollowButtonFinalState(actionBtn, isCurrentlyFollowing);
-            }
-        });
+                if (actionBtn.isConnected) {
+                    academySetFollowButtonFinalState(actionBtn, resolvedFollowing);
+                }
+
+                academyPatchActiveVisitedProfileFollowDom(
+                    targetUserId,
+                    resolvedFollowing,
+                    result
+                );
+            })
+            .catch((error) => {
+                console.error('academy profile follow toggle error:', error);
+
+                if (actionBtn.isConnected) {
+                    actionBtn.disabled = false;
+                    actionBtn.removeAttribute('aria-busy');
+                    actionBtn.innerText = previousText;
+                    academySetFollowButtonFinalState(actionBtn, isCurrentlyFollowing);
+                }
+            })
+            .finally(() => {
+                if (profileViewRoot) {
+                    profileViewRoot.removeAttribute('data-follow-toggle-pending');
+                }
+
+                if (actionBtn.isConnected) {
+                    actionBtn.disabled = false;
+                    actionBtn.removeAttribute('aria-busy');
+                }
+            });
+
+        return;
     }
 });
 document.getElementById('academy-profile-view')?.addEventListener('keydown', (event) => {

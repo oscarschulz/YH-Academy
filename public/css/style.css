@@ -8819,11 +8819,16 @@ body.academy-feed-share-open {
 .yh-landing-metric-card {
     position: relative;
     min-height: 68px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
     background:
         linear-gradient(180deg, rgba(15, 23, 42, 0.64), rgba(3, 7, 18, 0.52));
     border: 1px solid rgba(148, 163, 184, 0.12);
     border-radius: 13px;
-    padding: 0.86rem 0.95rem 0.86rem 3.15rem;
+    padding: 0.78rem 0.95rem 0.78rem 3.15rem;
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
     box-shadow:
@@ -8861,15 +8866,22 @@ body.academy-feed-share-open {
 
 .yh-landing-metric-card strong {
     display: block;
+    width: 100%;
     color: #f8fbff;
     font-size: 1.14rem;
     line-height: 1;
     margin-bottom: 0.18rem;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
 }
 
 .yh-landing-metric-card span {
+    display: block;
+    width: 100%;
     color: rgba(203, 213, 225, 0.72);
     font-size: 0.75rem;
+    line-height: 1.25;
+    text-align: center;
 }
 
 .yh-landing-scroll-hint {
@@ -9114,14 +9126,15 @@ body.academy-feed-share-open {
     z-index: 1;
     pointer-events: none;
     border-radius: 999px;
-    opacity: 0.72;
+    opacity: 0.76;
     background:
         radial-gradient(circle at 67% 50%,
             rgba(125, 211, 252, 0.18) 0%,
             rgba(37, 99, 235, 0.12) 24%,
-            rgba(37, 99, 235, 0.055) 42%,
-            transparent 66%);
-    filter: blur(40px);
+            rgba(251, 191, 36, 0.055) 38%,
+            rgba(37, 99, 235, 0.045) 52%,
+            transparent 68%);
+    filter: blur(42px);
 }
 .yh-landing-visual-noise {
     position: absolute;
@@ -9979,16 +9992,23 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-world-map {
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-metric-card {
-        padding: 0.62rem 0.58rem;
+        padding: 0.62rem 0.52rem 0.62rem 2.52rem;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-metric-card strong {
+        width: 100%;
         font-size: 0.84rem;
+        text-align: center;
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-metric-card span {
+        width: 100%;
         font-size: 0.68rem;
         line-height: 1.25;
+        text-align: center;
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-globe-stage {
@@ -11446,6 +11466,24 @@ body.yh-profile-cropper-open {
         0 12px 26px rgba(127, 29, 29, 0.18) !important;
 }
 /* END PATCH: Academy follow/unfollow red pill state v1 */
+
+/* PATCH: Academy profile follow toggle no-flicker v1 */
+#academy-profile-view[data-profile-layout="visited"] .academy-profile-action-btn[data-action-rank="visited-secondary-follow"] {
+    min-width: 168px !important;
+}
+
+#academy-profile-view[data-follow-toggle-pending="true"],
+#academy-profile-view[data-follow-toggle-pending="true"] .academy-profile-shell,
+#academy-profile-view[data-follow-toggle-pending="true"] .academy-profile-hero-card,
+#academy-profile-view[data-follow-toggle-pending="true"] .academy-profile-card {
+    animation: none !important;
+}
+
+#academy-profile-view[data-follow-toggle-pending="true"] .academy-profile-action-btn[data-action-rank="visited-secondary-follow"] {
+    transform: none !important;
+    will-change: auto !important;
+}
+/* END PATCH: Academy profile follow toggle no-flicker v1 */
 
 @media (max-width: 640px) {
     .academy-member-browser-dialog {
@@ -29124,7 +29162,7 @@ body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="road
         display: none !important;
     }
 
-    /* PATCH: My Dashboard bottom carousel visual floor v1 */
+    /* PATCH: Dashboard single carousel ownership v1 */
     body[data-yh-view="hub"][data-yh-unified-workspace="overview"] .yh-universe-stage-nav {
         order: 40 !important;
         display: grid !important;
@@ -29134,41 +29172,39 @@ body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="road
         grid-template-columns: minmax(0, 1fr) !important;
     }
 
-    body[data-yh-view="hub"][data-yh-unified-workspace="overview"] .yh-universe-stage-body {
-        display: block !important;
-        width: 100% !important;
-    }
-
+    body[data-yh-view="hub"][data-yh-unified-workspace="overview"] .yh-universe-stage-body,
+    body[data-yh-view="hub"][data-yh-unified-workspace="overview"] .yh-universe-side-nav,
     body[data-yh-view="hub"][data-yh-unified-workspace="overview"] .yh-universe-progress-rail,
     body[data-yh-view="hub"][data-yh-unified-workspace="overview"] .yh-universe-referral-card,
-    body[data-yh-view="hub"][data-yh-unified-workspace="overview"] .yh-universe-side-stack {
+    body[data-yh-view="hub"][data-yh-unified-workspace="overview"] .yh-universe-side-stack,
+    body[data-yh-view="hub"][data-yh-unified-workspace="overview"] .yh-universe-carousel-column {
         display: none !important;
     }
 
-    body[data-yh-view="hub"][data-yh-unified-workspace="overview"] .yh-universe-carousel-column {
-        display: flex !important;
-        width: 100% !important;
-        max-width: none !important;
-        min-width: 0 !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-unified-workspace="overview"] .yh-universe-carousel,
-    body[data-yh-view="hub"][data-yh-unified-workspace="overview"] .yh-universe-track,
-    body[data-yh-view="hub"][data-yh-unified-workspace="overview"] .yh-universe-slide,
-    body[data-yh-view="hub"][data-yh-unified-workspace="overview"] .yh-universe-slide .portal-card {
-        min-height: 292px !important;
-    }
-
-    body[data-yh-view="hub"][data-yh-unified-workspace="overview"] .yh-universe-slide .portal-card {
-        padding: 18px 20px !important;
-    }
-
     body[data-yh-view="hub"][data-yh-unified-workspace="overview"] .yh-universe-academy-strip {
+        display: none !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-unified-workspace="overview"] #yh-universe-academy-strip {
         order: 50 !important;
         display: block !important;
-        margin-top: 0 !important;
+        width: 100% !important;
+        max-width: none !important;
+        margin: 0 !important;
     }
-    /* END PATCH: My Dashboard bottom carousel visual floor v1 */
+
+    body[data-yh-view="hub"][data-yh-unified-workspace="overview"] #yh-universe-federation-strip,
+    body[data-yh-view="hub"][data-yh-unified-workspace="overview"] #yh-universe-plaza-strip {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-unified-workspace="overview"] .yh-universe-academy-strip-head {
+        padding-top: 18px !important;
+    }
+    /* END PATCH: Dashboard single carousel ownership v1 */
 
     body[data-yh-view="hub"] .yh-universe-side-stack {
         min-width: 0 !important;
@@ -29328,11 +29364,16 @@ body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="road
         overflow: hidden !important;
     }
 
-    body[data-yh-view="hub"][data-yh-unified-workspace="academy"] .yh-universe-academy-strip.is-active,
-    body[data-yh-view="hub"][data-yh-unified-workspace="plazas"] .yh-universe-academy-strip.is-active,
-    body[data-yh-view="hub"][data-yh-unified-workspace="federation"] .yh-universe-academy-strip.is-active {
-        display: block !important;
+    /* PATCH: Hide Live Universe Activity outside My Dashboard v1 */
+    body[data-yh-view="hub"][data-yh-unified-workspace="academy"] .yh-universe-academy-strip,
+    body[data-yh-view="hub"][data-yh-unified-workspace="plazas"] .yh-universe-academy-strip,
+    body[data-yh-view="hub"][data-yh-unified-workspace="federation"] .yh-universe-academy-strip {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
     }
+    /* END PATCH: Hide Live Universe Activity outside My Dashboard v1 */
 
     body[data-yh-view="hub"] .yh-universe-academy-strip-head {
         padding: 16px 18px 8px !important;

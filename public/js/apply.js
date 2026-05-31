@@ -381,6 +381,87 @@ const YH_LANDING_FEED_DEFAULTS = [
     }
 ];
 
+const YH_LANDING_CITY_LIGHT_POINTS = [
+    { id: 'city_london', label: 'London Network Light', lat: 51.5072, lng: -0.1276 },
+    { id: 'city_paris', label: 'Paris Network Light', lat: 48.8566, lng: 2.3522 },
+    { id: 'city_madrid', label: 'Madrid Network Light', lat: 40.4168, lng: -3.7038 },
+    { id: 'city_berlin', label: 'Berlin Network Light', lat: 52.52, lng: 13.405 },
+    { id: 'city_rome', label: 'Rome Network Light', lat: 41.9028, lng: 12.4964 },
+    { id: 'city_amsterdam', label: 'Amsterdam Network Light', lat: 52.3676, lng: 4.9041 },
+    { id: 'city_istanbul', label: 'Istanbul Network Light', lat: 41.0082, lng: 28.9784 },
+    { id: 'city_cairo', label: 'Cairo Network Light', lat: 30.0444, lng: 31.2357 },
+    { id: 'city_lagos', label: 'Lagos Network Light', lat: 6.5244, lng: 3.3792 },
+    { id: 'city_accra', label: 'Accra Network Light', lat: 5.6037, lng: -0.187 },
+    { id: 'city_nairobi', label: 'Nairobi Network Light', lat: -1.2921, lng: 36.8219 },
+    { id: 'city_johannesburg', label: 'Johannesburg Network Light', lat: -26.2041, lng: 28.0473 },
+    { id: 'city_dubai', label: 'Dubai Network Light', lat: 25.2048, lng: 55.2708 },
+    { id: 'city_doha', label: 'Doha Network Light', lat: 25.2854, lng: 51.531 },
+    { id: 'city_riyadh', label: 'Riyadh Network Light', lat: 24.7136, lng: 46.6753 },
+    { id: 'city_delhi', label: 'Delhi Network Light', lat: 28.6139, lng: 77.209 },
+    { id: 'city_mumbai', label: 'Mumbai Network Light', lat: 19.076, lng: 72.8777 },
+    { id: 'city_bangkok', label: 'Bangkok Network Light', lat: 13.7563, lng: 100.5018 },
+    { id: 'city_singapore', label: 'Singapore Network Light', lat: 1.3521, lng: 103.8198 },
+    { id: 'city_jakarta', label: 'Jakarta Network Light', lat: -6.2088, lng: 106.8456 },
+    { id: 'city_manila', label: 'Manila Network Light', lat: 14.5995, lng: 120.9842 },
+    { id: 'city_hong_kong', label: 'Hong Kong Network Light', lat: 22.3193, lng: 114.1694 },
+    { id: 'city_shanghai', label: 'Shanghai Network Light', lat: 31.2304, lng: 121.4737 },
+    { id: 'city_beijing', label: 'Beijing Network Light', lat: 39.9042, lng: 116.4074 },
+    { id: 'city_seoul', label: 'Seoul Network Light', lat: 37.5665, lng: 126.978 },
+    { id: 'city_tokyo', label: 'Tokyo Network Light', lat: 35.6762, lng: 139.6503 },
+    { id: 'city_sydney', label: 'Sydney Network Light', lat: -33.8688, lng: 151.2093 },
+    { id: 'city_new_york', label: 'New York Network Light', lat: 40.7128, lng: -74.006 },
+    { id: 'city_toronto', label: 'Toronto Network Light', lat: 43.6532, lng: -79.3832 },
+    { id: 'city_miami', label: 'Miami Network Light', lat: 25.7617, lng: -80.1918 },
+    { id: 'city_mexico_city', label: 'Mexico City Network Light', lat: 19.4326, lng: -99.1332 },
+    { id: 'city_los_angeles', label: 'Los Angeles Network Light', lat: 34.0522, lng: -118.2437 },
+    { id: 'city_san_francisco', label: 'San Francisco Network Light', lat: 37.7749, lng: -122.4194 },
+    { id: 'city_sao_paulo', label: 'São Paulo Network Light', lat: -23.5558, lng: -46.6396 },
+    { id: 'city_buenos_aires', label: 'Buenos Aires Network Light', lat: -34.6037, lng: -58.3816 }
+].map((point, index) => ({
+    ...point,
+    kind: 'city-light',
+    coreColor: index % 5 === 0 ? 'rgba(255, 237, 213, 0.98)' : 'rgba(251, 191, 36, 0.94)',
+    coreAltitude: 0.006,
+    coreRadius: index % 5 === 0 ? 0.115 : 0.075,
+    ringAltitude: 0.0024,
+    ringColor: [
+        'rgba(255, 237, 213, 0.82)',
+        'rgba(251, 191, 36, 0.28)',
+        'rgba(251, 191, 36, 0)'
+    ],
+    ringMaxRadius: index % 5 === 0 ? 2.35 : 1.45,
+    ringPropagationSpeed: index % 5 === 0 ? 0.82 : 0.52,
+    ringRepeatPeriod: index % 5 === 0 ? 2700 : 3600
+}));
+
+const YH_LANDING_NETWORK_ARCS = [
+    { id: 'arc_london_dubai', startLat: 51.5072, startLng: -0.1276, endLat: 25.2048, endLng: 55.2708 },
+    { id: 'arc_dubai_mumbai', startLat: 25.2048, startLng: 55.2708, endLat: 19.076, endLng: 72.8777 },
+    { id: 'arc_mumbai_singapore', startLat: 19.076, startLng: 72.8777, endLat: 1.3521, endLng: 103.8198 },
+    { id: 'arc_singapore_manila', startLat: 1.3521, startLng: 103.8198, endLat: 14.5995, endLng: 120.9842 },
+    { id: 'arc_manila_tokyo', startLat: 14.5995, startLng: 120.9842, endLat: 35.6762, endLng: 139.6503 },
+    { id: 'arc_tokyo_los_angeles', startLat: 35.6762, startLng: 139.6503, endLat: 34.0522, endLng: -118.2437 },
+    { id: 'arc_los_angeles_new_york', startLat: 34.0522, startLng: -118.2437, endLat: 40.7128, endLng: -74.006 },
+    { id: 'arc_new_york_london', startLat: 40.7128, startLng: -74.006, endLat: 51.5072, endLng: -0.1276 },
+    { id: 'arc_lagos_london', startLat: 6.5244, startLng: 3.3792, endLat: 51.5072, endLng: -0.1276 },
+    { id: 'arc_lagos_dubai', startLat: 6.5244, startLng: 3.3792, endLat: 25.2048, endLng: 55.2708 },
+    { id: 'arc_cairo_istanbul', startLat: 30.0444, startLng: 31.2357, endLat: 41.0082, endLng: 28.9784 },
+    { id: 'arc_sao_paulo_miami', startLat: -23.5558, startLng: -46.6396, endLat: 25.7617, endLng: -80.1918 },
+    { id: 'arc_sydney_singapore', startLat: -33.8688, startLng: 151.2093, endLat: 1.3521, endLng: 103.8198 }
+].map((arc, index) => ({
+    ...arc,
+    color: [
+        'rgba(255, 237, 213, 0.95)',
+        index % 3 === 0 ? 'rgba(251, 191, 36, 0.72)' : 'rgba(245, 158, 11, 0.58)',
+        'rgba(251, 191, 36, 0.08)'
+    ],
+    stroke: index % 3 === 0 ? 0.62 : 0.44,
+    altitude: index % 3 === 0 ? 0.28 : 0.2,
+    dashLength: index % 3 === 0 ? 0.42 : 0.34,
+    dashGap: index % 3 === 0 ? 0.12 : 0.18,
+    dashAnimateTime: index % 3 === 0 ? 2200 : 2800
+}));
+
 const YH_LANDING_MAP_POINTS = [];
 const YH_LANDING_MAP_ARCS = [];
 
@@ -953,7 +1034,7 @@ function addLandingGlobeClouds(world) {
         return;
     }
 
-    const CLOUDS_IMG_URL = '/images/clouds.png';
+    const CLOUDS_IMG_URL = '/images/clouds.png?v=20260531-globe-lights-01';
     const CLOUDS_ALT = 0.004;
     const CLOUDS_ROTATION_SPEED = -0.006;
 
@@ -1027,25 +1108,48 @@ function buildLandingGlowEvents(points = []) {
                 return null;
             }
 
+            const isCityLight = String(point.kind || '').trim() === 'city-light';
+            const fallbackColor = isCityLight
+                ? 'rgba(251, 191, 36, 0.94)'
+                : 'rgba(191, 219, 254, 0.96)';
+
             return {
                 ...point,
                 id: point.id || `yh_glow_${index}_${lat}_${lng}`,
                 lat,
                 lng,
-                coreColor: point.coreColor || point.color || 'rgba(191, 219, 254, 0.96)',
-                coreAltitude: Number.isFinite(Number(point.coreAltitude)) ? Number(point.coreAltitude) : 0.012,
-                coreRadius: Number.isFinite(Number(point.coreRadius)) ? Number(point.coreRadius) : 0.16,
-                ringAltitude: Number.isFinite(Number(point.ringAltitude)) ? Number(point.ringAltitude) : 0.0032,
+                coreColor: point.coreColor || point.color || fallbackColor,
+                coreAltitude: Number.isFinite(Number(point.coreAltitude))
+                    ? Number(point.coreAltitude)
+                    : (isCityLight ? 0.006 : 0.012),
+                coreRadius: Number.isFinite(Number(point.coreRadius))
+                    ? Number(point.coreRadius)
+                    : (isCityLight ? 0.075 : 0.16),
+                ringAltitude: Number.isFinite(Number(point.ringAltitude))
+                    ? Number(point.ringAltitude)
+                    : (isCityLight ? 0.0024 : 0.0032),
                 ringColor: Array.isArray(point.ringColor) && point.ringColor.length
                     ? point.ringColor
-                    : [
-                        'rgba(191, 219, 254, 0.96)',
-                        'rgba(56, 189, 248, 0.42)',
-                        'rgba(56, 189, 248, 0)'
-                    ],
-                ringMaxRadius: Number.isFinite(Number(point.ringMaxRadius)) ? Number(point.ringMaxRadius) : 4.8,
-                ringPropagationSpeed: Number.isFinite(Number(point.ringPropagationSpeed)) ? Number(point.ringPropagationSpeed) : 1.65,
-                ringRepeatPeriod: Number.isFinite(Number(point.ringRepeatPeriod)) ? Number(point.ringRepeatPeriod) : 680
+                    : (isCityLight
+                        ? [
+                            'rgba(255, 237, 213, 0.82)',
+                            'rgba(251, 191, 36, 0.28)',
+                            'rgba(251, 191, 36, 0)'
+                        ]
+                        : [
+                            'rgba(191, 219, 254, 0.96)',
+                            'rgba(56, 189, 248, 0.42)',
+                            'rgba(56, 189, 248, 0)'
+                        ]),
+                ringMaxRadius: Number.isFinite(Number(point.ringMaxRadius))
+                    ? Number(point.ringMaxRadius)
+                    : (isCityLight ? 1.45 : 4.8),
+                ringPropagationSpeed: Number.isFinite(Number(point.ringPropagationSpeed))
+                    ? Number(point.ringPropagationSpeed)
+                    : (isCityLight ? 0.52 : 1.65),
+                ringRepeatPeriod: Number.isFinite(Number(point.ringRepeatPeriod))
+                    ? Number(point.ringRepeatPeriod)
+                    : (isCityLight ? 3600 : 680)
             };
         })
         .filter(Boolean);
@@ -1075,25 +1179,29 @@ function focusLandingGlowPoint(point = null) {
 function applyLandingGlobeData() {
     if (!yhLandingMapInstance) return;
 
-    const glowPoints = buildLandingGlowEvents(yhLandingGlobeData.points);
-    const globeArcs = Array.isArray(yhLandingGlobeData.arcs) ? yhLandingGlobeData.arcs : [];
+    const livePoints = buildLandingGlowEvents(yhLandingGlobeData.points);
+    const cityLights = buildLandingGlowEvents(YH_LANDING_CITY_LIGHT_POINTS);
+    const glowPoints = [...cityLights, ...livePoints];
+
+    const liveArcs = Array.isArray(yhLandingGlobeData.arcs) ? yhLandingGlobeData.arcs : [];
+    const globeArcs = [...YH_LANDING_NETWORK_ARCS, ...liveArcs];
 
     yhLandingMapInstance
         .pointsData(glowPoints)
         .pointLat('lat')
         .pointLng('lng')
-        .pointColor((point) => point.coreColor || point.color || 'rgba(191, 219, 254, 0.96)')
+        .pointColor((point) => point.coreColor || point.color || 'rgba(251, 191, 36, 0.94)')
         .pointAltitude((point) => point.coreAltitude ?? 0.012)
         .pointRadius((point) => point.coreRadius ?? 0.16)
-        .pointLabel((point) => point.label || point.message || 'Academy activity')
+        .pointLabel((point) => point.label || point.message || 'Universe network light')
         .ringsData(glowPoints)
         .ringLat('lat')
         .ringLng('lng')
         .ringAltitude((point) => point.ringAltitude ?? 0.0032)
         .ringColor((point) => point.ringColor || [
-            'rgba(191, 219, 254, 0.96)',
-            'rgba(56, 189, 248, 0.42)',
-            'rgba(56, 189, 248, 0)'
+            'rgba(255, 237, 213, 0.82)',
+            'rgba(251, 191, 36, 0.28)',
+            'rgba(251, 191, 36, 0)'
         ])
         .ringResolution(64)
         .ringMaxRadius((point) => point.ringMaxRadius ?? 4.8)
@@ -1104,11 +1212,16 @@ function applyLandingGlobeData() {
         .arcStartLng('startLng')
         .arcEndLat('endLat')
         .arcEndLng('endLng')
-        .arcColor((arc) => arc.color || ['rgba(56,189,248,0.92)', 'rgba(56,189,248,0.08)'])
-        .arcStroke(0.3)
-        .arcDashLength(0.32)
-        .arcDashGap(0.16)
-        .arcDashAnimateTime(1800);
+        .arcColor((arc) => arc.color || [
+            'rgba(255, 237, 213, 0.95)',
+            'rgba(251, 191, 36, 0.58)',
+            'rgba(251, 191, 36, 0.08)'
+        ])
+        .arcStroke((arc) => arc.stroke ?? 0.44)
+        .arcAltitude((arc) => arc.altitude ?? 0.22)
+        .arcDashLength((arc) => arc.dashLength ?? 0.34)
+        .arcDashGap((arc) => arc.dashGap ?? 0.16)
+        .arcDashAnimateTime((arc) => arc.dashAnimateTime ?? 2600);
 }
 
 window.yhSetLandingGlobeData = function yhSetLandingGlobeData(next = {}) {
@@ -1204,14 +1317,14 @@ async function initLandingMapShell() {
         .bumpImageUrl('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-topology.png')
         .backgroundColor('rgba(0,0,0,0)')
         .showAtmosphere(true)
-        .atmosphereColor('#60a5fa')
-        .atmosphereAltitude(0.18)
+        .atmosphereColor('#7dd3fc')
+        .atmosphereAltitude(0.2)
         .showPointerCursor((objType, objData) => {
             return (objType === 'point' || objType === 'ring') && !!objData;
         })
         .onPointClick((point) => {
             focusLandingGlowPoint(point);
-            showToast(`${point.label || 'Academy activity'} glow selected`);
+            showToast(`${point.label || 'Universe network light'} selected`);
         });
 
     yhLandingMapInstance = world;
