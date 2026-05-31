@@ -6,6 +6,7 @@ const feedPostsCol = firestore.collection('academyFeedPosts');
 const friendRequestsCol = firestore.collection('academyFriendRequests');
 const friendshipsCol = firestore.collection('academyFriendships');
 const academyFollowsCol = firestore.collection('academyUserFollows');
+const legacyUserFollowsCol = firestore.collection('userFollows');
 
 const ACADEMY_COMMUNITY_NICHES = [
     { key: 'ecommerce', label: 'E-commerce', description: 'Stores, products, fulfillment, branding, and online selling.' },
@@ -1197,26 +1198,119 @@ async function respondToFriendRequest({ responderId, requestId, action }) {
         status: normalizedAction
     };
 }
+function getFollowFollowerId(data = {}) {
+    return normalizeUserId(
+        data.followerId ||
+        data.follower_id ||
+        data.viewerId ||
+        data.viewer_id ||
+        data.userId ||
+        data.user_id ||
+        data.fromUserId ||
+        data.from_user_id ||
+        data.sourceUserId ||
+        data.source_user_id
+    );
+}
+
+function getFollowFollowingId(data = {}) {
+    return normalizeUserId(
+        data.followingId ||
+        data.following_id ||
+        data.targetUserId ||
+        data.target_user_id ||
+        data.targetId ||
+        data.target_id ||
+        data.toUserId ||
+        data.to_user_id
+    );
+}
+
+async function getFollowDocsByAnyField(collectionRef, fieldNames = [], userId = '') {
+    const normalizedUserId = normalizeUserId(userId);
+    if (!normalizedUserId) return [];
+
+    const batches = await Promise.all(
+        fieldNames.map(async (fieldName) => {
+            try {
+                const snap = await collectionRef
+                    .where(fieldName, '==', normalizedUserId)
+                    .get();
+
+                return snap.docs || [];
+            } catch (_) {
+                return [];
+            }
+        })
+    );
+
+    return batches.flat();
+}
+
+function countUniqueFollowDocs(docs = []) {
+    const seen = new Set();
+
+    docs.forEach((doc) => {
+        const data = doc.data() || {};
+        const followerId = getFollowFollowerId(data);
+        const followingId = getFollowFollowingId(data);
+
+        const key = followerId && followingId
+            ? `${followerId}_${followingId}`
+            : doc.id;
+
+        if (key) seen.add(key);
+    });
+
+    return seen.size;
+}
+
 async function getAcademyFollowerCount(userId) {
     const normalizedUserId = normalizeUserId(userId);
     if (!normalizedUserId) return 0;
 
-    const snap = await academyFollowsCol
-        .where('followingId', '==', normalizedUserId)
-        .get();
+    const targetFields = [
+        'followingId',
+        'following_id',
+        'targetUserId',
+        'target_user_id',
+        'targetId',
+        'target_id',
+        'toUserId',
+        'to_user_id'
+    ];
 
-    return snap.size;
+    const docs = [
+        ...(await getFollowDocsByAnyField(academyFollowsCol, targetFields, normalizedUserId)),
+        ...(await getFollowDocsByAnyField(legacyUserFollowsCol, targetFields, normalizedUserId))
+    ];
+
+    return countUniqueFollowDocs(docs);
 }
 
 async function getAcademyFollowingCount(userId) {
     const normalizedUserId = normalizeUserId(userId);
     if (!normalizedUserId) return 0;
 
-    const snap = await academyFollowsCol
-        .where('followerId', '==', normalizedUserId)
-        .get();
+    const sourceFields = [
+        'followerId',
+        'follower_id',
+        'viewerId',
+        'viewer_id',
+        'userId',
+        'user_id',
+        'fromUserId',
+        'from_user_id',
+        'sourceUserId',
+        'source_user_id'
+    ];
 
-    return snap.size;
+    const docs = [
+        ...(await getFollowDocsByAnyField(academyFollowsCol, sourceFields, normalizedUserId)),
+        ...(await getFollowDocsByAnyField(legacyUserFollowsCol, sourceFields, normalizedUserId))
+    ];
+
+    return countUniqueFollowDocs(docs);
 }
 
 async function getAcademyFriendCount(userId) {

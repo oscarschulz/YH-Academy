@@ -4973,6 +4973,24 @@ exports.getUniverseProfile = async (req, res) => {
 
         const verificationBadges = buildYHVerificationBadges(userData);
 
+        const universeFollowersCount =
+            academyProfile.followers_count ??
+            academyProfile.followersCount ??
+            academyProfile.followerCount ??
+            0;
+
+        const universeFollowingCount =
+            academyProfile.following_count ??
+            academyProfile.followingCount ??
+            0;
+
+        const universeFriendsCount =
+            academyProfile.friends_count ??
+            academyProfile.friend_count ??
+            academyProfile.friendsCount ??
+            academyProfile.friendCount ??
+            0;
+
         return res.json({
             success: true,
             profile: {
@@ -5002,15 +5020,17 @@ exports.getUniverseProfile = async (req, res) => {
                 activities,
                 snapshot,
 
-                followers_count: academyProfile.followers_count ?? '—',
-                followersCount: academyProfile.followers_count ?? '—',
+                followers_count: universeFollowersCount,
+                followersCount: universeFollowersCount,
+                followerCount: universeFollowersCount,
 
-                following_count: academyProfile.following_count ?? '—',
-                followingCount: academyProfile.following_count ?? '—',
+                following_count: universeFollowingCount,
+                followingCount: universeFollowingCount,
 
-                friends_count: academyProfile.friends_count ?? academyProfile.friend_count ?? '—',
-                friend_count: academyProfile.friend_count ?? academyProfile.friends_count ?? '—',
-                friendsCount: academyProfile.friends_count ?? academyProfile.friend_count ?? '—',
+                friends_count: universeFriendsCount,
+                friend_count: universeFriendsCount,
+                friendsCount: universeFriendsCount,
+                friendCount: universeFriendsCount,
 
                 post_count: academyProfile.post_count ?? 0,
                 postCount: academyProfile.post_count ?? 0,
