@@ -12363,6 +12363,7 @@ function renderAcademyProfileView(profilePayload = null, options = {}) {
     };
 
     const isSelf = normalized.mode === 'self';
+    const canUseVisitedProfileSocialActions = isSelf || academyCanUseVisitedProfileSocialActions();
     const relationshipState = isSelf
         ? 'self'
         : normalized.isFriend
@@ -12885,6 +12886,15 @@ const resolvedIntroVisibilityBadge = isSelf
             primaryAction.innerText = 'Open Community';
             primaryAction.dataset.profileAction = 'open-community';
             primaryAction.setAttribute('aria-label', 'Open Community');
+        } else if (!canUseVisitedProfileSocialActions) {
+            primaryAction.innerText = 'Follow';
+            primaryAction.dataset.profileAction = 'academy-social-gated';
+            primaryAction.dataset.memberProfileId = normalized.id;
+            primaryAction.dataset.followState = 'not-available';
+            primaryAction.disabled = true;
+            primaryAction.classList.add('hidden-step');
+            primaryAction.setAttribute('aria-hidden', 'true');
+            primaryAction.setAttribute('aria-label', 'Follow is available for Academy users only');
         } else {
             const isFollowingProfile = normalized.followedByMe === true;
 
@@ -12958,6 +12968,14 @@ const resolvedIntroVisibilityBadge = isSelf
             tertiaryAction.disabled = true;
             tertiaryAction.classList.add('is-following');
             tertiaryAction.setAttribute('aria-label', 'Message is disabled on your own profile');
+        } else if (!canUseVisitedProfileSocialActions) {
+            tertiaryAction.innerText = 'Message';
+            tertiaryAction.dataset.profileAction = 'academy-social-gated';
+            tertiaryAction.dataset.memberProfileId = normalized.id;
+            tertiaryAction.disabled = true;
+            tertiaryAction.classList.add('hidden-step');
+            tertiaryAction.setAttribute('aria-hidden', 'true');
+            tertiaryAction.setAttribute('aria-label', 'Message is available for Academy users only');
         } else {
             tertiaryAction.innerText = normalized.isFriend ? 'Message Friend' : 'Message';
             tertiaryAction.dataset.profileAction = 'open-direct-message';
@@ -22444,6 +22462,27 @@ function academyApplyFollowToggleResult(targetUserId = '', result = {}, options 
     const previousFollowing = options.previousFollowing === true;
     const isFollowing = academyResolveFollowResultState(result, previousFollowing);
 
+    try {
+        const explicitFollowingCount =
+            result?.followingCount ??
+            result?.following_count ??
+            null;
+
+        const parsedFollowingCount = Number(explicitFollowingCount);
+
+        if (Number.isFinite(parsedFollowingCount) && typeof readAcademyProfileCache === 'function' && typeof persistAcademyProfileCache === 'function') {
+            const cachedSelfProfile = readAcademyProfileCache();
+
+            if (cachedSelfProfile && typeof cachedSelfProfile === 'object') {
+                persistAcademyProfileCache({
+                    ...cachedSelfProfile,
+                    following_count: Math.max(0, parsedFollowingCount),
+                    followingCount: Math.max(0, parsedFollowingCount)
+                });
+            }
+        }
+    } catch (_) {}
+
     academyUpdateMemberSearchCacheFollowState(normalizedTargetUserId, isFollowing, result);
 
     document.querySelectorAll('[data-member-follow-id]').forEach((button) => {
@@ -22610,6 +22649,32 @@ function resolveAcademyRefreshSection() {
 }
 
 const YH_ACADEMY_VISIT_PROFILE_TARGET_KEY = 'yh_academy_visit_profile_target_v1';
+
+/* PATCH: Academy-only visited profile social actions v1 */
+function academyCanUseVisitedProfileSocialActions() {
+    try {
+        if (localStorage.getItem('yh_academy_access') === 'true') return true;
+        if (sessionStorage.getItem('yh_academy_access') === 'true') return true;
+    } catch (_) {}
+
+    try {
+        const membership =
+            typeof readAcademyMembershipCache === 'function'
+                ? readAcademyMembershipCache()
+                : null;
+
+        if (
+            membership?.canEnterAcademy === true ||
+            membership?.hasRoadmapAccess === true ||
+            String(membership?.applicationStatus || '').trim().toLowerCase() === 'approved'
+        ) {
+            return true;
+        }
+    } catch (_) {}
+
+    return false;
+}
+/* END PATCH: Academy-only visited profile social actions v1 */
 
 function consumeAcademyVisitedProfileTarget() {
     let memberId = '';
@@ -23228,6 +23293,11 @@ document.getElementById('academy-profile-view')?.addEventListener('click', async
 
     if (action === 'back-self') {
         openAcademyProfileView();
+        return;
+    }
+
+    if (action === 'academy-social-gated') {
+        showToast('Follow and Message are available for Academy users only.', 'error');
         return;
     }
 

@@ -8568,9 +8568,9 @@ body.academy-feed-share-open {
     padding: 0 clamp(18px, 3vw, 56px) clamp(64px, 7vw, 110px);
     overflow: clip;
     background:
-        radial-gradient(circle at 72% 22%, rgba(37, 99, 235, 0.18), transparent 30%),
-        radial-gradient(circle at 15% 12%, rgba(14, 165, 233, 0.1), transparent 28%),
-        linear-gradient(180deg, #020611 0%, #06101f 44%, #02050d 100%);
+        radial-gradient(circle at 72% 22%, rgba(37, 99, 235, 0.08), transparent 34%),
+        radial-gradient(circle at 15% 12%, rgba(14, 165, 233, 0.06), transparent 32%),
+        linear-gradient(180deg, #020611 0%, #06101f 46%, #02050d 100%);
 }
 
 .yh-landing-shell::before {
@@ -8588,33 +8588,41 @@ body.academy-feed-share-open {
 }
 
 .yh-landing-bg {
-    position: absolute;
+    position: fixed;
     inset: 0;
     z-index: 0;
     pointer-events: none;
+    overflow: hidden;
 }
 
 .yh-landing-bg-image {
+    position: absolute;
+    inset: 0;
+    display: block;
     width: 100%;
     height: 100%;
-    object-fit: contain;
-    object-position: center center;
-    opacity: 0.035;
-    transform: scale(1.06);
-    filter: blur(0.2px) drop-shadow(0 0 40px rgba(56, 189, 248, 0.1));
+    object-fit: cover;
+    object-position: center top;
+    opacity: 0.58;
+    transform: scale(1.01);
+    filter:
+        saturate(1.08)
+        contrast(1.04)
+        brightness(0.9);
 }
 
-.yh-landing-bg-logo {
-    padding: clamp(24px, 6vw, 72px);
+.yh-landing-bg-art {
+    padding: 0;
 }
 
 .yh-landing-bg-overlay {
     position: absolute;
     inset: 0;
     background:
-        radial-gradient(circle at 73% 26%, rgba(37, 99, 235, 0.18), transparent 28%),
-        radial-gradient(circle at 16% 20%, rgba(14, 165, 233, 0.12), transparent 24%),
-        linear-gradient(180deg, rgba(2, 6, 23, 0.36), rgba(2, 6, 23, 0.92));
+        radial-gradient(circle at 72% 24%, rgba(37, 99, 235, 0.06), transparent 34%),
+        radial-gradient(circle at 18% 18%, rgba(14, 165, 233, 0.04), transparent 32%),
+        linear-gradient(90deg, rgba(2, 6, 23, 0.22) 0%, rgba(2, 6, 23, 0.08) 48%, rgba(2, 6, 23, 0.18) 100%),
+        linear-gradient(180deg, rgba(2, 6, 23, 0.04), rgba(2, 6, 23, 0.52));
 }
 .yh-landing-hero {
     position: relative;
@@ -11426,6 +11434,19 @@ body.yh-profile-cropper-open {
     color: #10b981;
 }
 
+/* PATCH: Academy follow/unfollow red pill state v1 */
+.academy-member-card-follow.is-unfollow-action,
+#academy-profile-view .academy-profile-action-btn.is-unfollow-action,
+#academy-profile-view[data-profile-layout="visited"] .academy-profile-action-btn[data-action-rank="visited-secondary-follow"].is-unfollow-action {
+    background: linear-gradient(180deg, rgba(239, 68, 68, 0.24), rgba(127, 29, 29, 0.28)) !important;
+    border-color: rgba(248, 113, 113, 0.56) !important;
+    color: #fecaca !important;
+    box-shadow:
+        0 0 0 1px rgba(248, 113, 113, 0.12),
+        0 12px 26px rgba(127, 29, 29, 0.18) !important;
+}
+/* END PATCH: Academy follow/unfollow red pill state v1 */
+
 @media (max-width: 640px) {
     .academy-member-browser-dialog {
         width: calc(100vw - 20px);
@@ -12451,10 +12472,10 @@ body.yh-profile-cropper-open {
     height: 100%;
     overflow: visible;
     border: none;
-    border-radius: 999px;
+    border-radius: 0;
     background: transparent;
     box-shadow: none;
-    isolation: isolate;
+    isolation: auto;
     -webkit-mask-image: none;
     mask-image: none;
     transform: translateZ(0);
@@ -12490,7 +12511,7 @@ body.yh-profile-cropper-open {
     background: transparent !important;
     pointer-events: auto;
     cursor: grab;
-    border-radius: 999px;
+    border-radius: 0;
     filter:
         drop-shadow(0 0 24px rgba(125, 211, 252, 0.28))
         drop-shadow(0 0 92px rgba(37, 99, 235, 0.22));
@@ -18316,12 +18337,13 @@ body[data-yh-page="apply"] #yh-divisions-section .yh-landing-division-card.is-op
 /* landing-only, preserves current button colors             */
 /* ========================================================= */
 
-body[data-yh-page="apply"] .yh-space-ambient {
+.yh-space-ambient {
     position: absolute;
     inset: 0;
     z-index: 0;
     pointer-events: none;
     overflow: clip;
+    opacity: 0.34;
 }
 
 body[data-yh-page="apply"] .yh-space-stars,
@@ -18334,7 +18356,7 @@ body[data-yh-page="apply"] .yh-space-stars::after {
 }
 
 body[data-yh-page="apply"] .yh-space-stars {
-    opacity: 0.82;
+    opacity: 0.28;
     background-image:
         radial-gradient(circle at 6% 6%, rgba(255,255,255,0.98) 0 1.1px, transparent 1.9px),
         radial-gradient(circle at 14% 22%, rgba(255,255,255,0.92) 0 1px, transparent 1.8px),
@@ -29101,6 +29123,52 @@ body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="road
     body[data-yh-view="hub"] .yh-universe-carousel-column {
         display: none !important;
     }
+
+    /* PATCH: My Dashboard bottom carousel visual floor v1 */
+    body[data-yh-view="hub"][data-yh-unified-workspace="overview"] .yh-universe-stage-nav {
+        order: 40 !important;
+        display: grid !important;
+        width: 100% !important;
+        max-width: none !important;
+        margin: 2px 0 0 !important;
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-unified-workspace="overview"] .yh-universe-stage-body {
+        display: block !important;
+        width: 100% !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-unified-workspace="overview"] .yh-universe-progress-rail,
+    body[data-yh-view="hub"][data-yh-unified-workspace="overview"] .yh-universe-referral-card,
+    body[data-yh-view="hub"][data-yh-unified-workspace="overview"] .yh-universe-side-stack {
+        display: none !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-unified-workspace="overview"] .yh-universe-carousel-column {
+        display: flex !important;
+        width: 100% !important;
+        max-width: none !important;
+        min-width: 0 !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-unified-workspace="overview"] .yh-universe-carousel,
+    body[data-yh-view="hub"][data-yh-unified-workspace="overview"] .yh-universe-track,
+    body[data-yh-view="hub"][data-yh-unified-workspace="overview"] .yh-universe-slide,
+    body[data-yh-view="hub"][data-yh-unified-workspace="overview"] .yh-universe-slide .portal-card {
+        min-height: 292px !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-unified-workspace="overview"] .yh-universe-slide .portal-card {
+        padding: 18px 20px !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-unified-workspace="overview"] .yh-universe-academy-strip {
+        order: 50 !important;
+        display: block !important;
+        margin-top: 0 !important;
+    }
+    /* END PATCH: My Dashboard bottom carousel visual floor v1 */
 
     body[data-yh-view="hub"] .yh-universe-side-stack {
         min-width: 0 !important;

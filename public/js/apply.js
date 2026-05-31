@@ -543,7 +543,7 @@ function focusLandingGlobePoint(point = null) {
         {
             lat,
             lng,
-            altitude: 2.44
+            altitude: 3.05
         },
         1600
     );
@@ -838,13 +838,20 @@ function syncLandingGlobeSize() {
     const mapEl = document.getElementById('yh-world-map');
     if (!mapEl || !yhLandingMapInstance || typeof yhLandingMapInstance.width !== 'function') return;
 
-    const bounds = mapEl.getBoundingClientRect();
-    const baseWidth = Math.max(1, Math.round(bounds.width || mapEl.clientWidth || 0));
-    const baseHeight = Math.max(1, Math.round(bounds.height || mapEl.clientHeight || 0));
+    const stageEl = mapEl.closest('.yh-landing-map-stage-wrap') || mapEl.parentElement || mapEl;
+    const bounds = stageEl.getBoundingClientRect();
+
+    const baseWidth = Math.max(1, Math.round(bounds.width || stageEl.clientWidth || 0));
+    const baseHeight = Math.max(1, Math.round(bounds.height || stageEl.clientHeight || 0));
 
     if (!baseWidth || !baseHeight) return;
 
-    const fitSize = Math.max(1, Math.round(Math.min(baseWidth, baseHeight) * 0.98));
+    /*
+      Overscan fixes the visible square canvas edge around the globe.
+      The live globe remains whole; only the render area becomes larger than the visible stage.
+    */
+    const renderOverscan = 1.38;
+    const fitSize = Math.max(1, Math.round(Math.min(baseWidth, baseHeight) * renderOverscan));
 
     yhLandingMapInstance
         .width(fitSize)
@@ -858,7 +865,11 @@ function syncLandingGlobeSize() {
     if (!canvasEl) return;
 
     mapEl.style.position = 'absolute';
-    mapEl.style.inset = '0';
+    mapEl.style.inset = 'auto';
+    mapEl.style.top = '50%';
+    mapEl.style.left = '50%';
+    mapEl.style.width = `${fitSize}px`;
+    mapEl.style.height = `${fitSize}px`;
     mapEl.style.overflow = 'visible';
     mapEl.style.background = 'transparent';
     mapEl.style.border = 'none';
@@ -867,7 +878,9 @@ function syncLandingGlobeSize() {
     mapEl.style.clipPath = 'none';
     mapEl.style.maskImage = 'none';
     mapEl.style.webkitMaskImage = 'none';
-    mapEl.style.borderRadius = 'inherit';
+    mapEl.style.borderRadius = '0';
+    mapEl.style.transformOrigin = 'center center';
+    mapEl.style.transform = 'translate(-50%, -50%)';
 
     canvasEl.style.position = 'absolute';
     canvasEl.style.top = '50%';
@@ -887,9 +900,9 @@ function syncLandingGlobeSize() {
     canvasEl.style.clipPath = 'none';
     canvasEl.style.maskImage = 'none';
     canvasEl.style.webkitMaskImage = 'none';
-    canvasEl.style.borderRadius = 'inherit';
+    canvasEl.style.borderRadius = '0';
     canvasEl.style.transformOrigin = 'center center';
-    canvasEl.style.transform = 'translate(-46%, -50%)';
+    canvasEl.style.transform = 'translate(-50%, -50%)';
 }
 function bindLandingGlobeResize() {
     if (yhLandingResizeBound) return;
@@ -1054,7 +1067,7 @@ function focusLandingGlowPoint(point = null) {
     yhLandingLastFocusPointKey = focusKey;
 
     yhLandingMapInstance.pointOfView(
-        { lat, lng, altitude: 2.12 },
+        { lat, lng, altitude: 2.72 },
         1600
     );
 }
@@ -1318,7 +1331,7 @@ async function initLandingMapShell() {
         capture: true
     });
 
-    world.pointOfView({ lat: 14, lng: 18, altitude: 1.58 }, 0);
+    world.pointOfView({ lat: 14, lng: 18, altitude: 2.16 }, 0);
 
     if (controls) {
         if (typeof controls.update === 'function') {
@@ -2878,10 +2891,10 @@ if (formRegisterSimple) {
             document.body.classList.add('yh-safari-browser');
         }
 
-        const LANDING_WHEEL_SPEED = 0.9;
-        const LANDING_TRACKPAD_SPEED = 1.84;
+        const LANDING_WHEEL_SPEED = 0.84;
+        const LANDING_TRACKPAD_SPEED = 1.72;
         const LANDING_TRACKPAD_DELTA_THRESHOLD = 18;
-        const LANDING_WHEEL_MAX_STEP = 680;
+        const LANDING_WHEEL_MAX_STEP = 620;
 
         let landingWheelPendingY = 0;
         let landingWheelFrame = 0;

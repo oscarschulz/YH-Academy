@@ -13,6 +13,7 @@ const publicLandingEventsRepo = require('./backend/repositories/publicLandingEve
 const realtimeFirestoreRepo = require('./backend/repositories/realtimeFirestoreRepo');
 const paymentLedgerRepo = require('./backend/repositories/paymentLedgerRepo');
 const academyFirestoreRepo = require('./backend/repositories/academyFirestoreRepo');
+const academyCommunityRepo = require('./backend/repositories/academyCommunityFirestoreRepo');
 const yhuSupabaseMirrorRepo = require('./backend/repositories/yhuSupabaseMirrorRepo');
 const app = express();
 app.set('trust proxy', 1);
@@ -4079,6 +4080,14 @@ const apiLimiter = rateLimit({
         // Academy UI reads (feed, member search, membership status) are normal in-app polling.
         // The generic limiter is too aggressive here and causes 429 spam in the console.
         const method = String(req.method || '').trim().toUpperCase();
+
+        if (
+            method === 'POST' &&
+            /^\/academy\/community\/members\/[^/]+\/follow$/.test(path)
+        ) {
+            return true;
+        }
+
         if (method === 'GET') {
             if (path === '/academy/membership-status') return true;
             if (path === '/academy/community/members') return true;
@@ -8287,6 +8296,41 @@ const yhLiveRoomAutoEndTimer = setInterval(() => {
 if (typeof yhLiveRoomAutoEndTimer.unref === 'function') {
     yhLiveRoomAutoEndTimer.unref();
 }
+
+/* PATCH: Academy server-backed follow/unfollow route v1 */
+app.post('/api/academy/community/members/:targetUserId/follow', requireApiUser, async (req, res) => {
+    try {
+        const viewerId = sanitizeText(req.user?.id || req.user?.firebaseUid);
+        const targetUserId = sanitizeText(req.params.targetUserId);
+
+        if (!viewerId || !targetUserId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Missing follow target.'
+            });
+        }
+
+        const result = await academyCommunityRepo.toggleMemberFollow({
+            viewerId,
+            targetUserId
+        });
+
+        return res.json({
+            success: true,
+            ...result,
+            followed_by_me: result.following === true,
+            followedByMe: result.following === true
+        });
+    } catch (error) {
+        console.error('academy community follow toggle error:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: error?.message || 'Failed to update follow status.'
+        });
+    }
+});
+/* END PATCH: Academy server-backed follow/unfollow route v1 */
 
 app.use('/api', apiRoutes);
 app.post('/api/realtime/live-rooms/:roomId/join', requireApiUser, async (req, res) => {
