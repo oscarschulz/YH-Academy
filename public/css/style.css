@@ -29493,3 +29493,1962 @@ body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="road
         overflow: auto !important;
     }
 }
+/* =========================================================
+   PATCH 1: YH Landing Command Center Redesign
+   Date: 2026-06-01
+   ========================================================= */
+
+body[data-yh-page="apply"] #step-1.yh-landing-step {
+    background: #02050d !important;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-shell {
+    position: relative !important;
+    isolation: isolate;
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: clamp(14px, 2.2vw, 32px);
+    overflow: hidden;
+    background:
+        radial-gradient(circle at 54% 16%, rgba(37, 99, 235, 0.24), transparent 30%),
+        radial-gradient(circle at 12% 58%, rgba(56, 189, 248, 0.12), transparent 32%),
+        linear-gradient(180deg, #02040b 0%, #050b18 52%, #01030a 100%);
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-shell::before {
+    content: "";
+    position: absolute;
+    z-index: 0;
+    inset: clamp(14px, 2.2vw, 32px);
+    border: 1px solid rgba(56, 189, 248, 0.14);
+    border-radius: 28px;
+    background:
+        linear-gradient(rgba(56,189,248,0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(56,189,248,0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(3,7,18,0.95), rgba(5,13,28,0.72) 52%, rgba(3,7,18,0.96));
+    background-size: 76px 76px, 76px 76px, auto;
+    box-shadow:
+        0 34px 110px rgba(0,0,0,0.58),
+        inset 0 1px 0 rgba(255,255,255,0.04);
+    pointer-events: none;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-bg {
+    opacity: 0.44;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-bg-image {
+    filter: saturate(0.95) contrast(1.12) brightness(0.42);
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-command-side-rail {
+    position: absolute;
+    z-index: 12;
+    left: clamp(24px, 3vw, 54px);
+    top: 150px;
+    width: 62px;
+    min-height: 410px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    padding: 13px 9px;
+    border: 1px solid rgba(56,189,248,0.15);
+    border-radius: 20px;
+    background: linear-gradient(180deg, rgba(5,12,25,0.82), rgba(2,6,17,0.72));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.045), 0 18px 45px rgba(0,0,0,0.34);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-command-rail-item {
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    border-radius: 14px;
+    border: 1px solid rgba(148,163,184,0.10);
+    color: rgba(148,163,184,0.78);
+    text-decoration: none;
+    font-size: 1.02rem;
+    background: rgba(15,23,42,0.42);
+    transition: 0.2s ease;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-command-rail-item:hover,
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-command-rail-item.is-active {
+    color: #67e8f9;
+    border-color: rgba(56,189,248,0.35);
+    background: rgba(14,165,233,0.10);
+    box-shadow: 0 0 26px rgba(14,165,233,0.16);
+    transform: translateY(-1px);
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-command-rail-mark {
+    margin-top: auto;
+    writing-mode: vertical-rl;
+    color: rgba(148,163,184,0.48);
+    font-size: 0.68rem;
+    letter-spacing: 0.18em;
+    font-weight: 900;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-hero,
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-section,
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-auth-wrap {
+    position: relative;
+    z-index: 3;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-hero {
+    min-height: calc(100vh - clamp(28px, 4.4vw, 64px));
+    padding: 22px clamp(24px, 3vw, 42px) 28px clamp(92px, 8vw, 108px);
+    overflow: visible;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-command-topbar {
+    z-index: 40;
+    display: grid;
+    grid-template-columns: minmax(210px, 0.8fr) minmax(370px, 1.1fr) auto auto;
+    align-items: center;
+    gap: 20px;
+    min-height: 74px;
+    padding: 0 0 20px;
+    border: 0;
+    border-bottom: 1px solid rgba(56,189,248,0.14);
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-brand-logo {
+    width: 54px;
+    height: 54px;
+    filter: drop-shadow(0 0 15px rgba(56,189,248,0.55));
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-brand-name {
+    color: #f8fbff;
+    font-size: clamp(0.78rem, 0.86vw, 0.95rem);
+    line-height: 1.12;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    font-weight: 900;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-nav {
+    justify-self: center;
+    width: min(100%, 470px);
+    height: 48px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    padding: 4px;
+    border-radius: 999px;
+    border: 1px solid rgba(56,189,248,0.10);
+    background: rgba(2,6,23,0.36);
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-nav a {
+    height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(148,163,184,0.82);
+    font-size: 0.68rem;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-decoration: none;
+    border-radius: 999px;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-nav a:hover,
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-nav a.is-active {
+    color: #fff;
+    background: rgba(30,64,175,0.22);
+    box-shadow: inset 0 -1px 0 rgba(56,189,248,0.5), 0 14px 30px rgba(37,99,235,0.16);
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-command-top-status {
+    display: grid;
+    grid-template-columns: 10px auto;
+    column-gap: 10px;
+    row-gap: 2px;
+    align-items: center;
+    color: #f8fafc;
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 900;
+    white-space: nowrap;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-command-status-dot {
+    grid-row: 1 / 3;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #22c55e;
+    box-shadow: 0 0 15px rgba(34,197,94,0.85);
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-command-top-status small {
+    color: rgba(148,163,184,0.82);
+    font-size: 0.64rem;
+    letter-spacing: 0.09em;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-command-top-status strong {
+    color: #4ade80;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-command-access-btn,
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-sound-toggle {
+    width: auto;
+    min-height: 44px;
+    padding: 0 18px;
+    border-radius: 12px;
+    border: 1px solid rgba(59,130,246,0.28);
+    color: #bfdbfe;
+    background: rgba(15,23,42,0.66);
+    box-shadow: 0 0 28px rgba(37,99,235,0.12), inset 0 1px 0 rgba(255,255,255,0.045);
+    font-size: 0.7rem;
+    font-weight: 900;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-sound-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-hero-grid {
+    position: relative;
+    z-index: 6;
+    display: grid;
+    grid-template-columns: minmax(360px, 0.8fr) minmax(530px, 1.2fr);
+    align-items: center;
+    gap: clamp(20px, 3vw, 42px);
+    min-height: 560px;
+    padding: clamp(34px, 5vw, 72px) 410px 148px 0;
+    overflow: visible;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-hero-copy {
+    position: static;
+    z-index: 8;
+    max-width: 550px;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-pill {
+    display: inline-flex;
+    gap: 8px;
+    padding: 0;
+    margin-bottom: 18px;
+    border: 0;
+    background: transparent;
+    color: #60a5fa;
+    font-size: 0.72rem;
+    font-weight: 900;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-pill::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    margin-top: 5px;
+    border-radius: 50%;
+    background: #2563eb;
+    box-shadow: 0 0 14px rgba(59,130,246,0.84);
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-title {
+    margin: 0 0 18px;
+    color: #fff;
+    font-size: clamp(3.35rem, 5.05vw, 6.05rem);
+    line-height: 0.92;
+    letter-spacing: -0.055em;
+    text-transform: uppercase;
+    text-shadow: 0 8px 38px rgba(0,0,0,0.5);
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-title-gradient {
+    color: inherit;
+    background: none;
+    -webkit-text-fill-color: currentColor;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-subtitle,
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-narrative {
+    max-width: 430px;
+    color: rgba(203,213,225,0.78);
+    font-size: 0.94rem;
+    line-height: 1.7;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-narrative {
+    margin-bottom: 22px;
+    color: rgba(255,255,255,0.92);
+    font-weight: 900;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-cta-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-cta-primary,
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-cta-secondary {
+    width: auto;
+    min-width: 188px;
+    min-height: 48px;
+    border-radius: 10px;
+    padding: 0 22px;
+    font-size: 0.72rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-cta-note {
+    display: none;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-hero-visual {
+    position: relative;
+    z-index: 4;
+    display: grid;
+    place-items: center;
+    min-height: 560px;
+    pointer-events: none;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-globe-stage {
+    width: min(48vw, 760px);
+    min-width: 560px;
+    height: min(48vw, 760px);
+    min-height: 560px;
+    transform: translateX(-9%);
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-map-stage-wrap {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: transparent;
+    box-shadow: none;
+    overflow: visible;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-world-map,
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-world-map canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-visual-glow {
+    opacity: 0.94;
+    filter: blur(26px);
+    background: radial-gradient(circle, rgba(59,130,246,0.34), rgba(14,165,233,0.12) 34%, transparent 68%);
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-metrics {
+    position: absolute;
+    left: 0;
+    right: 410px;
+    bottom: 22px;
+    z-index: 12;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin: 0;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-metric-card {
+    min-height: 68px;
+    border-radius: 14px;
+    border: 1px solid rgba(56,189,248,0.13);
+    background: rgba(5,14,29,0.72);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-activity-panel {
+    position: absolute;
+    left: 0;
+    right: 410px;
+    bottom: 102px;
+    z-index: 12;
+    max-width: none;
+    margin: 0;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-activity-rail {
+    border-radius: 14px;
+    border: 1px solid rgba(56,189,248,0.13);
+    background: rgba(5,14,29,0.62);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section.yh-landing-auth-wrap {
+    position: absolute !important;
+    z-index: 30;
+    top: clamp(145px, 13.3vw, 185px);
+    right: clamp(38px, 4.8vw, 74px);
+    width: min(386px, calc(100vw - 120px));
+    margin: 0 !important;
+    padding: 0 !important;
+    scroll-margin-top: 90px;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .yh-auth-section-head,
+body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .yh-auth-panel-left,
+body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .yh-auth-bottom-logos {
+    display: none !important;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .yh-auth-card.form-card-ultrawide {
+    width: 100%;
+    max-width: 386px;
+    min-height: 486px;
+    height: 486px;
+    border-radius: 20px;
+    border: 1px solid rgba(59,130,246,0.30);
+    background: linear-gradient(180deg, rgba(11,28,55,0.82), rgba(5,12,25,0.92));
+    box-shadow: 0 26px 70px rgba(0,0,0,0.46), 0 0 40px rgba(37,99,235,0.16), inset 0 1px 0 rgba(255,255,255,0.055);
+    overflow: hidden;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .panel-right-wrapper {
+    width: 100%;
+    min-height: 486px;
+    height: 486px;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .flip-card-front,
+body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .flip-card-back {
+    padding: 26px;
+    background: linear-gradient(180deg, rgba(15,23,42,0.72), rgba(8,15,30,0.92));
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .flip-card-front::before {
+    content: "YH Universe Access";
+    display: block;
+    margin-bottom: 10px;
+    color: #60a5fa;
+    font-size: 0.68rem;
+    font-weight: 900;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .step1-logo {
+    display: none !important;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .step1-title {
+    text-align: left;
+    color: #fff;
+    margin-bottom: 8px !important;
+    font-size: 1.34rem;
+    line-height: 1.1;
+    letter-spacing: 0.10em;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .step1-title::after {
+    content: "";
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-left: 8px;
+    border-radius: 50%;
+    background: #22c55e;
+    box-shadow: 0 0 15px rgba(34,197,94,0.86);
+    vertical-align: middle;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .step1-subtitle {
+    text-align: left;
+    margin-bottom: 20px !important;
+    color: rgba(148,163,184,0.82);
+    font-size: 0.78rem;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .login-ui-container {
+    max-width: none;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .pill-input,
+body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .input-field {
+    min-height: 48px;
+    margin-bottom: 12px;
+    border-radius: 10px;
+    border-color: rgba(56,189,248,0.18);
+    background: rgba(3,10,24,0.72);
+    text-align: left;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .pill-btn-login {
+    width: 100%;
+    max-width: none;
+    min-height: 50px;
+    border: 1px solid rgba(147,197,253,0.35);
+    border-radius: 10px;
+    background: linear-gradient(135deg, #38bdf8, #1d4ed8);
+    box-shadow: 0 18px 38px rgba(37,99,235,0.34);
+    font-size: 0.75rem;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .divider {
+    margin: 14px 0 10px !important;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step #yh-divisions-section {
+    margin-top: -4px;
+    padding: 0 0 26px;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step #yh-divisions-section .yh-landing-section-head {
+    justify-content: center;
+    text-align: center;
+    margin-bottom: 14px;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-section-title {
+    margin-top: 8px;
+    color: #fff;
+    font-size: clamp(1.18rem, 1.55vw, 1.68rem);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-division-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-division-card {
+    min-height: 230px;
+    border-radius: 18px;
+    border: 1px solid rgba(56,189,248,0.16);
+    background: radial-gradient(circle at 16% 16%, rgba(56,189,248,0.14), transparent 34%), linear-gradient(180deg, rgba(10,24,43,0.82), rgba(5,10,22,0.90));
+    box-shadow: 0 20px 55px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.045);
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-division-card:nth-child(2) {
+    border-color: rgba(168,85,247,0.22);
+    background: radial-gradient(circle at 16% 16%, rgba(168,85,247,0.18), transparent 34%), linear-gradient(180deg, rgba(18,15,38,0.86), rgba(7,10,23,0.92));
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-icon {
+    width: 82px;
+    height: 82px;
+    filter: drop-shadow(0 0 20px rgba(56,189,248,0.32));
+}
+
+body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-division-card h3 {
+    color: #fff;
+    font-size: 1.18rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+@media (max-width: 1280px) {
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-command-topbar {
+        grid-template-columns: minmax(190px, 0.8fr) minmax(330px, 1fr) auto;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-sound-toggle {
+        display: none !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-hero-grid {
+        padding-right: 360px;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-globe-stage {
+        min-width: 460px;
+        min-height: 460px;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section.yh-landing-auth-wrap {
+        right: 34px;
+        width: 350px;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-metrics,
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-activity-panel {
+        right: 360px;
+    }
+}
+
+@media (max-width: 1040px) {
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-command-side-rail {
+        display: none;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-hero {
+        padding-left: clamp(20px, 3vw, 34px);
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-command-topbar {
+        grid-template-columns: 1fr auto;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-nav {
+        grid-column: 1 / -1;
+        width: 100%;
+        order: 3;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-hero-grid {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        padding-right: 0;
+        padding-bottom: 20px;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-hero-visual {
+        min-height: 390px;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-globe-stage {
+        width: min(92vw, 500px);
+        min-width: 0;
+        height: min(92vw, 500px);
+        min-height: 0;
+        margin: 0 auto;
+        transform: none;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section.yh-landing-auth-wrap {
+        position: relative !important;
+        top: auto;
+        right: auto;
+        width: 100%;
+        margin-top: 18px !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .yh-auth-card.form-card-ultrawide,
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .panel-right-wrapper {
+        max-width: 100%;
+        height: auto;
+        min-height: 0;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-metrics,
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-activity-panel {
+        position: relative;
+        left: auto;
+        right: auto;
+        bottom: auto;
+        margin-top: 14px;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-division-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 620px) {
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-shell {
+        padding: 10px;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-shell::before {
+        inset: 10px;
+        border-radius: 22px;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-hero {
+        padding: 18px 14px 22px;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-command-topbar {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-command-top-status {
+        white-space: normal;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-command-access-btn {
+        width: 100%;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-nav {
+        grid-template-columns: repeat(2, 1fr);
+        height: auto;
+        border-radius: 16px;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-title {
+        font-size: clamp(2.45rem, 12vw, 4rem);
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-cta-row,
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-metrics {
+        grid-template-columns: 1fr;
+        display: grid;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-cta-primary,
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-cta-secondary {
+        width: 100%;
+    }
+}
+
+/* END PATCH 1: YH Landing Command Center Redesign */
+/* =========================================================
+   PATCH 1.6: Background Dominance + Auth Fit + Hero Cleanup
+   Date: 2026-06-01
+   Purpose:
+   - Make /images/yhu-premium-bg.png the dominant landing background
+   - Remove left command rail/sidebar
+   - Use thinner hero text to reduce text footprint
+   - Reduce globe default footprint
+   - Make auth terminal render fully
+   - Compact live activity so it fits the bottom HUD
+   ========================================================= */
+
+@media (min-width: 1041px) {
+    html,
+    body[data-yh-page="apply"] {
+        height: 100%;
+        overflow: hidden !important;
+        background: #01040b !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step {
+        height: 100svh !important;
+        min-height: 100svh !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+        background: #01040b !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-shell {
+        position: relative !important;
+        height: 100svh !important;
+        min-height: 100svh !important;
+        padding: 22px 48px 16px 48px !important;
+        overflow: hidden !important;
+        background: rgba(1, 4, 11, 0.08) !important;
+        isolation: isolate !important;
+        font-family: "Rajdhani", "Orbitron", "Space Grotesk", "Eurostile", "Inter", system-ui, sans-serif !important;
+        text-rendering: geometricPrecision !important;
+        -webkit-font-smoothing: antialiased !important;
+        -moz-osx-font-smoothing: grayscale !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-shell::before {
+        content: "" !important;
+        position: absolute !important;
+        z-index: 0 !important;
+        inset: 14px 18px 14px 18px !important;
+        border-radius: 22px !important;
+        border: 1px solid rgba(56, 189, 248, 0.10) !important;
+        background:
+            linear-gradient(rgba(56,189,248,0.012) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(56,189,248,0.012) 1px, transparent 1px),
+            rgba(1, 4, 11, 0.10) !important;
+        background-size: 78px 78px, 78px 78px, auto !important;
+        box-shadow:
+            0 26px 90px rgba(0,0,0,0.34),
+            inset 0 1px 0 rgba(255,255,255,0.025) !important;
+        pointer-events: none !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-bg {
+        position: absolute !important;
+        inset: 0 !important;
+        z-index: 0 !important;
+        opacity: 1 !important;
+        pointer-events: none !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-bg-image {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important;
+        object-position: center center !important;
+        opacity: 1 !important;
+        filter: saturate(1.08) contrast(1.06) brightness(0.72) !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-bg-overlay {
+        position: absolute !important;
+        inset: 0 !important;
+        background:
+            linear-gradient(90deg, rgba(1,4,11,0.72) 0%, rgba(1,4,11,0.34) 44%, rgba(1,4,11,0.68) 100%),
+            linear-gradient(180deg, rgba(1,4,11,0.52) 0%, rgba(1,4,11,0.18) 44%, rgba(1,4,11,0.62) 100%) !important;
+        opacity: 1 !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-command-side-rail {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-hero,
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-section,
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-auth-wrap {
+        position: relative !important;
+        z-index: 3 !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-hero {
+        width: 100% !important;
+        max-width: none !important;
+        height: calc(100svh - 38px) !important;
+        min-height: 0 !important;
+        padding: 0 !important;
+        overflow: visible !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-command-topbar {
+        position: relative !important;
+        z-index: 60 !important;
+        width: min(100%, 1540px) !important;
+        height: 62px !important;
+        min-height: 62px !important;
+        margin: 0 auto !important;
+        display: grid !important;
+        grid-template-columns: minmax(260px, 1fr) auto auto !important;
+        align-items: center !important;
+        gap: 14px !important;
+        padding: 0 18px !important;
+        border-radius: 18px !important;
+        border: 1px solid rgba(56, 189, 248, 0.14) !important;
+        background:
+            radial-gradient(circle at 15% 50%, rgba(56,189,248,0.10), transparent 25%),
+            linear-gradient(90deg, rgba(8,18,35,0.54), rgba(4,10,23,0.44)),
+            rgba(2,6,23,0.42) !important;
+        box-shadow:
+            0 16px 40px rgba(0, 0, 0, 0.20),
+            inset 0 1px 0 rgba(255,255,255,0.04) !important;
+        backdrop-filter: blur(14px) !important;
+        -webkit-backdrop-filter: blur(14px) !important;
+        overflow: visible !important;
+        transform: translateY(-10px) !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-brand-logo {
+        width: 38px !important;
+        height: 38px !important;
+        filter: drop-shadow(0 0 12px rgba(56,189,248,0.44)) !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-brand-name {
+        color: #f8fbff !important;
+        font-size: 0.74rem !important;
+        line-height: 1.06 !important;
+        letter-spacing: 0.12em !important;
+        text-transform: uppercase !important;
+        font-weight: 800 !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-nav {
+        display: none !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-nav a {
+        height: 30px !important;
+        min-width: 0 !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        padding: 0 10px !important;
+        border-radius: 999px !important;
+        color: rgba(148,163,184,0.88) !important;
+        font-size: 0.56rem !important;
+        line-height: 1 !important;
+        font-weight: 800 !important;
+        letter-spacing: 0.095em !important;
+        text-transform: uppercase !important;
+        text-decoration: none !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-nav a.is-active,
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-nav a:hover {
+        color: #ffffff !important;
+        background: linear-gradient(135deg, rgba(37,99,235,0.42), rgba(14,165,233,0.14)) !important;
+        box-shadow:
+            inset 0 0 0 1px rgba(96,165,250,0.24),
+            inset 0 -1px 0 rgba(56,189,248,0.36) !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-command-top-status {
+        justify-self: end !important;
+        display: grid !important;
+        grid-template-columns: 9px auto !important;
+        column-gap: 9px !important;
+        row-gap: 1px !important;
+        align-items: center !important;
+        color: #f8fafc !important;
+        font-size: 0.58rem !important;
+        letter-spacing: 0.10em !important;
+        text-transform: uppercase !important;
+        font-weight: 800 !important;
+        white-space: nowrap !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-command-status-dot {
+        grid-row: 1 / 3 !important;
+        width: 8px !important;
+        height: 8px !important;
+        border-radius: 50% !important;
+        background: #22c55e !important;
+        box-shadow: 0 0 15px rgba(34,197,94,0.85) !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-command-top-status small {
+        color: rgba(148,163,184,0.82) !important;
+        font-size: 0.54rem !important;
+        letter-spacing: 0.08em !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-command-top-status strong {
+        color: #4ade80 !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-command-access-btn {
+        display: none !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-sound-toggle {
+        width: auto !important;
+        min-width: 108px !important;
+        height: 36px !important;
+        min-height: 36px !important;
+        padding: 0 13px !important;
+        border-radius: 12px !important;
+        border: 1px solid rgba(59,130,246,0.28) !important;
+        color: #bfdbfe !important;
+        background: rgba(15,23,42,0.54) !important;
+        box-shadow: 0 0 24px rgba(37,99,235,0.10), inset 0 1px 0 rgba(255,255,255,0.04) !important;
+        font-size: 0.60rem !important;
+        font-weight: 800 !important;
+        letter-spacing: 0.095em !important;
+        text-transform: uppercase !important;
+        white-space: nowrap !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-sound-toggle {
+        min-width: 108px !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-hero-grid {
+        position: relative !important;
+        z-index: 5 !important;
+        width: 100% !important;
+        max-width: none !important;
+        height: calc(100svh - 78px) !important;
+        min-height: 0 !important;
+        display: grid !important;
+        grid-template-columns: minmax(410px, 0.86fr) minmax(500px, 1.14fr) !important;
+        grid-template-rows: minmax(0, 1fr) !important;
+        gap: 0 16px !important;
+        align-items: center !important;
+        padding: 4px 404px 296px 0 !important;
+        overflow: visible !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-hero-copy {
+        position: relative !important;
+        z-index: 12 !important;
+        max-width: 560px !important;
+        transform: translateY(-18px) !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-pill {
+        display: inline-flex !important;
+        gap: 8px !important;
+        padding: 0 !important;
+        margin-bottom: 12px !important;
+        border: 0 !important;
+        background: transparent !important;
+        color: #60a5fa !important;
+        font-family: "Rajdhani", "Orbitron", "Space Grotesk", "Inter", system-ui, sans-serif !important;
+        font-size: 0.62rem !important;
+        font-weight: 800 !important;
+        letter-spacing: 0.18em !important;
+        text-transform: uppercase !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-pill::before {
+        content: "" !important;
+        width: 7px !important;
+        height: 7px !important;
+        margin-top: 5px !important;
+        border-radius: 50% !important;
+        background: #2563eb !important;
+        box-shadow: 0 0 14px rgba(59,130,246,0.84) !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-title {
+        max-width: 11.8ch !important;
+        margin: 0 0 14px !important;
+        color: #ffffff !important;
+        font-family: "Rajdhani", "Orbitron", "Space Grotesk", "Eurostile", "Inter", system-ui, sans-serif !important;
+        font-size: clamp(2.65rem, 3.72vw, 4.28rem) !important;
+        line-height: 0.94 !important;
+        letter-spacing: -0.035em !important;
+        text-transform: uppercase !important;
+        font-weight: 650 !important;
+        font-stretch: condensed !important;
+        text-shadow:
+            0 8px 32px rgba(0,0,0,0.50),
+            0 0 18px rgba(56,189,248,0.06) !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-title-gradient {
+        color: inherit !important;
+        background: none !important;
+        -webkit-text-fill-color: currentColor !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-narrative {
+        max-width: 400px !important;
+        margin: 0 0 8px !important;
+        color: rgba(255,255,255,0.90) !important;
+        font-family: "Space Grotesk", "Rajdhani", "Inter", system-ui, sans-serif !important;
+        font-size: 0.74rem !important;
+        line-height: 1.34 !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.01em !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-subtitle {
+        max-width: 410px !important;
+        margin: 0 0 14px !important;
+        color: rgba(203,213,225,0.76) !important;
+        font-family: "Space Grotesk", "Rajdhani", "Inter", system-ui, sans-serif !important;
+        font-size: 0.74rem !important;
+        line-height: 1.42 !important;
+        font-weight: 400 !important;
+        letter-spacing: 0.005em !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-cta-row {
+        display: none !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-cta-primary,
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-cta-secondary {
+        width: auto !important;
+        min-width: 154px !important;
+        height: 38px !important;
+        min-height: 38px !important;
+        padding: 0 16px !important;
+        border-radius: 10px !important;
+        font-size: 0.62rem !important;
+        font-weight: 800 !important;
+        letter-spacing: 0.075em !important;
+        text-transform: uppercase !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-cta-note {
+        display: none !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-hero-visual {
+        position: relative !important;
+        z-index: 6 !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        display: grid !important;
+        place-items: center !important;
+        pointer-events: none !important;
+        opacity: 0.82 !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-globe-stage {
+        width: min(36vw, 560px) !important;
+        min-width: 420px !important;
+        height: min(36vw, 560px) !important;
+        min-height: 420px !important;
+        transform: translate(-36%, -9%) !important;
+        opacity: 0.80 !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-visual-glow,
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-visual-noise,
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-orbit,
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-map-shine,
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-map-overlay {
+        opacity: 0.42 !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-map-stage-wrap {
+        width: 100% !important;
+        height: 100% !important;
+        border-radius: 50% !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        overflow: visible !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-world-map,
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-world-map canvas {
+        width: 100% !important;
+        height: 100% !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section.yh-landing-auth-wrap {
+        position: absolute !important;
+        z-index: 70 !important;
+        top: 116px !important;
+        right: 58px !important;
+        width: 372px !important;
+        max-width: 372px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: visible !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .yh-auth-section-head,
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .yh-auth-panel-left,
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .yh-auth-bottom-logos {
+        display: none !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .yh-auth-card.form-card-ultrawide {
+        width: 100% !important;
+        max-width: 372px !important;
+        height: 418px !important;
+        min-height: 418px !important;
+        border-radius: 18px !important;
+        border: 1px solid rgba(59,130,246,0.30) !important;
+        background:
+            radial-gradient(circle at top right, rgba(37,99,235,0.16), transparent 38%),
+            linear-gradient(180deg, rgba(13,27,52,0.82), rgba(5,11,24,0.88)) !important;
+        box-shadow:
+            0 24px 62px rgba(0,0,0,0.38),
+            0 0 32px rgba(37,99,235,0.11),
+            inset 0 1px 0 rgba(255,255,255,0.045) !important;
+        overflow: hidden !important;
+        backdrop-filter: blur(10px) !important;
+        -webkit-backdrop-filter: blur(10px) !important;
+        transition:
+            height 0.28s ease,
+            min-height 0.28s ease,
+            max-width 0.28s ease,
+            box-shadow 0.28s ease !important;
+    }
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .yh-auth-card.form-card-ultrawide:has(#auth-flipper.is-flipped) {
+        height: min(760px, calc(100svh - 108px)) !important;
+        min-height: min(760px, calc(100svh - 108px)) !important;
+        max-height: calc(100svh - 108px) !important;
+        box-shadow:
+            0 28px 76px rgba(0,0,0,0.46),
+            0 0 40px rgba(37,99,235,0.14),
+            inset 0 1px 0 rgba(255,255,255,0.055) !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .panel-right-wrapper,
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .flip-card-inner {
+        width: 100% !important;
+        height: 100% !important;
+        min-height: 0 !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .flip-card-front,
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .flip-card-back {
+        height: 100% !important;
+        padding: 16px 20px !important;
+        overflow-y: hidden !important;
+        background: transparent !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .yh-auth-card.form-card-ultrawide:has(#auth-flipper.is-flipped) .flip-card-back {
+        padding: 18px 18px 22px !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        scrollbar-width: thin !important;
+        overscroll-behavior: contain !important;
+    }
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .yh-auth-card.form-card-ultrawide:has(#auth-flipper.is-flipped) .flip-card-back form,
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .yh-auth-card.form-card-ultrawide:has(#auth-flipper.is-flipped) .flip-card-back .login-ui-container {
+        padding-bottom: 18px !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .yh-auth-card.form-card-ultrawide:has(#auth-flipper.is-flipped) .flip-card-back .profile-photo-preview,
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .yh-auth-card.form-card-ultrawide:has(#auth-flipper.is-flipped) .flip-card-back .profile-preview,
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .yh-auth-card.form-card-ultrawide:has(#auth-flipper.is-flipped) .flip-card-back .yh-profile-preview,
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .yh-auth-card.form-card-ultrawide:has(#auth-flipper.is-flipped) .flip-card-back .crop-preview {
+        margin-bottom: 12px !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .auth-center-wrapper {
+        min-height: 0 !important;
+        margin: 0 !important;
+        justify-content: flex-start !important;
+        align-items: stretch !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .text-center.mb-large {
+        width: 100% !important;
+        text-align: left !important;
+        margin-bottom: 10px !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .yh-auth-card.form-card-ultrawide:has(#auth-flipper.is-flipped) .flip-card-back .text-center.mb-large {
+        padding-right: 132px !important;
+        margin-bottom: 12px !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .flip-card-front::before {
+        content: "YH Universe Access" !important;
+        display: block !important;
+        margin-bottom: 7px !important;
+        color: #60a5fa !important;
+        font-size: 0.60rem !important;
+        font-weight: 800 !important;
+        letter-spacing: 0.14em !important;
+        text-transform: uppercase !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .step1-logo {
+        display: none !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .step1-title {
+        text-align: left !important;
+        color: #ffffff !important;
+        font-size: 1.12rem !important;
+        line-height: 1.06 !important;
+        letter-spacing: 0.10em !important;
+        text-transform: uppercase !important;
+        margin-bottom: 5px !important;
+        font-weight: 800 !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .step1-title::after {
+        content: "" !important;
+        display: inline-block !important;
+        width: 7px !important;
+        height: 7px !important;
+        margin-left: 8px !important;
+        border-radius: 50% !important;
+        background: #22c55e !important;
+        box-shadow: 0 0 14px rgba(34,197,94,0.82) !important;
+        vertical-align: middle !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .step1-subtitle {
+        text-align: left !important;
+        color: rgba(148,163,184,0.84) !important;
+        font-size: 0.68rem !important;
+        margin-bottom: 11px !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .login-ui-container {
+        max-width: none !important;
+        width: 100% !important;
+        align-items: stretch !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .pill-input,
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .input-field {
+        min-height: 38px !important;
+        margin-bottom: 7px !important;
+        padding: 8px 13px !important;
+        border-radius: 10px !important;
+        border-color: rgba(56,189,248,0.18) !important;
+        background: rgba(3,10,24,0.62) !important;
+        color: #ffffff !important;
+        text-align: left !important;
+        font-size: 0.80rem !important;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.035) !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .yh-password-shell {
+        margin-bottom: 8px !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .yh-login-password-input {
+        margin-bottom: 0 !important;
+        padding-right: 68px !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .yh-password-toggle {
+        height: 28px !important;
+        min-height: 28px !important;
+        padding: 0 10px !important;
+        border-radius: 999px !important;
+        font-size: 0.66rem !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .forgot-link {
+        margin-bottom: 8px !important;
+        font-size: 0.68rem !important;
+        text-align: center !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section #btn-flip-login {
+        position: absolute !important;
+        top: 14px !important;
+        right: 16px !important;
+        left: auto !important;
+        z-index: 20 !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: auto !important;
+        min-width: 112px !important;
+        height: 32px !important;
+        min-height: 32px !important;
+        padding: 0 12px !important;
+        border-radius: 999px !important;
+        border: 1px solid rgba(56,189,248,0.42) !important;
+        background:
+            linear-gradient(135deg, rgba(14,165,233,0.22), rgba(37,99,235,0.14)),
+            rgba(3,10,24,0.88) !important;
+        color: #dff7ff !important;
+        box-shadow:
+            0 0 18px rgba(56,189,248,0.18),
+            inset 0 1px 0 rgba(255,255,255,0.06) !important;
+        font-size: 0.64rem !important;
+        font-weight: 900 !important;
+        letter-spacing: 0.06em !important;
+        text-transform: uppercase !important;
+        line-height: 1 !important;
+        transform: none !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section #btn-flip-login:hover {
+        border-color: rgba(125,211,252,0.72) !important;
+        background:
+            linear-gradient(135deg, rgba(14,165,233,0.34), rgba(37,99,235,0.22)),
+            rgba(3,10,24,0.94) !important;
+        color: #ffffff !important;
+        box-shadow:
+            0 0 26px rgba(56,189,248,0.26),
+            inset 0 1px 0 rgba(255,255,255,0.08) !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-access-terminal-scan {
+        position: relative !important;
+        display: grid !important;
+        grid-template-columns: 32px 1fr !important;
+        gap: 8px !important;
+        align-items: center !important;
+        min-height: 46px !important;
+        margin: 0 0 8px !important;
+        padding: 7px 9px !important;
+        border-radius: 12px !important;
+        border: 1px solid rgba(59,130,246,0.14) !important;
+        background: rgba(10, 22, 42, 0.54) !important;
+        overflow: hidden !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-access-scan-icon {
+        width: 32px !important;
+        height: 32px !important;
+        display: grid !important;
+        place-items: center !important;
+        border-radius: 50% !important;
+        border: 1px solid rgba(56,189,248,0.24) !important;
+        color: #38bdf8 !important;
+        background: rgba(14,165,233,0.08) !important;
+        box-shadow: 0 0 16px rgba(14,165,233,0.14) !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-access-scan-copy {
+        display: grid !important;
+        gap: 2px !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-access-scan-copy strong {
+        color: #60a5fa !important;
+        font-size: 0.58rem !important;
+        letter-spacing: 0.11em !important;
+        text-transform: uppercase !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-access-scan-copy span {
+        color: rgba(203,213,225,0.70) !important;
+        font-size: 0.64rem !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-access-scan-bar {
+        grid-column: 1 / -1 !important;
+        height: 3px !important;
+        border-radius: 999px !important;
+        background: rgba(15,23,42,0.9) !important;
+        overflow: hidden !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-access-scan-bar span {
+        display: block !important;
+        width: 82% !important;
+        height: 100% !important;
+        border-radius: inherit !important;
+        background: linear-gradient(90deg, #38bdf8, #2563eb) !important;
+        box-shadow: 0 0 12px rgba(56,189,248,0.38) !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .pill-btn-login,
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section #btn-flip-register {
+        width: 100% !important;
+        max-width: none !important;
+        height: 39px !important;
+        min-height: 39px !important;
+        border-radius: 10px !important;
+        font-size: 0.66rem !important;
+        letter-spacing: 0.095em !important;
+        text-transform: uppercase !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .pill-btn-login {
+        border: 1px solid rgba(147,197,253,0.32) !important;
+        background: linear-gradient(135deg, #38bdf8, #1d4ed8) !important;
+        box-shadow: 0 16px 34px rgba(37,99,235,0.28) !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .divider {
+        margin: 8px 0 !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-divisions-section {
+        position: absolute !important;
+        z-index: 30 !important;
+        left: 48px !important;
+        right: 455px !important;
+        bottom: 28px !important;
+        width: auto !important;
+        max-width: none !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-divisions-section .yh-landing-section-head {
+        margin-bottom: 10px !important;
+        text-align: center !important;
+        justify-content: center !important;
+        opacity: 0.88 !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-divisions-section .yh-landing-section-kicker {
+        font-size: 0.56rem !important;
+        letter-spacing: 0.15em !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-divisions-section .yh-landing-section-title {
+        margin-top: 4px !important;
+        margin-bottom: 0 !important;
+        color: #ffffff !important;
+        font-family: "Rajdhani", "Orbitron", "Space Grotesk", "Inter", system-ui, sans-serif !important;
+        font-size: 1.04rem !important;
+        letter-spacing: 0.16em !important;
+        text-transform: uppercase !important;
+        font-weight: 800 !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-divisions-section .yh-landing-division-grid {
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 14px !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-divisions-section .yh-landing-division-card {
+        position: relative !important;
+        min-height: 150px !important;
+        padding: 16px 16px 14px 118px !important;
+        border-radius: 18px !important;
+        overflow: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
+        border: 1px solid rgba(56,189,248,0.18) !important;
+        background:
+            linear-gradient(135deg, rgba(56,189,248,0.12), transparent 26%),
+            linear-gradient(225deg, rgba(37,99,235,0.12), transparent 30%),
+            repeating-linear-gradient(90deg, rgba(56,189,248,0.024) 0 1px, transparent 1px 38px),
+            linear-gradient(180deg, rgba(10,24,43,0.68), rgba(5,10,22,0.78)) !important;
+        box-shadow:
+            0 18px 48px rgba(0,0,0,0.26),
+            0 0 30px rgba(14,165,233,0.07),
+            inset 0 1px 0 rgba(255,255,255,0.045),
+            inset 0 0 0 1px rgba(255,255,255,0.015) !important;
+        backdrop-filter: blur(11px) !important;
+        -webkit-backdrop-filter: blur(11px) !important;
+        clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px)) !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-divisions-section .yh-landing-division-card::before,
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-divisions-section .yh-landing-division-card::after {
+        content: "" !important;
+        position: absolute !important;
+        pointer-events: none !important;
+        z-index: 1 !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-divisions-section .yh-landing-division-card::before {
+        inset: 0 !important;
+        background:
+            linear-gradient(90deg, rgba(56,189,248,0.32), transparent 22%, transparent 78%, rgba(56,189,248,0.10)),
+            linear-gradient(180deg, rgba(255,255,255,0.05), transparent 34%) !important;
+        opacity: 0.42 !important;
+        mix-blend-mode: screen !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-divisions-section .yh-landing-division-card::after {
+        right: 12px !important;
+        top: 12px !important;
+        width: 34px !important;
+        height: 34px !important;
+        border-top: 1px solid rgba(56,189,248,0.42) !important;
+        border-right: 1px solid rgba(56,189,248,0.42) !important;
+        opacity: 0.72 !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-divisions-section .yh-landing-division-card:nth-child(2) {
+        border-color: rgba(168,85,247,0.28) !important;
+        background:
+            linear-gradient(135deg, rgba(168,85,247,0.16), transparent 28%),
+            linear-gradient(225deg, rgba(59,130,246,0.10), transparent 30%),
+            repeating-linear-gradient(90deg, rgba(168,85,247,0.026) 0 1px, transparent 1px 38px),
+            linear-gradient(180deg, rgba(18,15,38,0.72), rgba(7,10,23,0.82)) !important;
+        box-shadow:
+            0 18px 48px rgba(0,0,0,0.28),
+            0 0 34px rgba(168,85,247,0.09),
+            inset 0 1px 0 rgba(255,255,255,0.045),
+            inset 0 0 0 1px rgba(255,255,255,0.015) !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-divisions-section .yh-landing-division-top {
+        display: block !important;
+        margin: 0 !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-divisions-section .yh-landing-status {
+        position: relative !important;
+        z-index: 3 !important;
+        display: inline-flex !important;
+        margin-bottom: 7px !important;
+        font-size: 0.54rem !important;
+        padding: 4px 9px !important;
+        border-radius: 999px !important;
+        border: 1px solid rgba(56,189,248,0.16) !important;
+        background: rgba(14,165,233,0.10) !important;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.035) !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-divisions-section .yh-landing-icon {
+        position: absolute !important;
+        z-index: 2 !important;
+        left: 22px !important;
+        top: 29px !important;
+        width: 76px !important;
+        height: 76px !important;
+        object-fit: contain !important;
+        padding: 10px !important;
+        border-radius: 24px !important;
+        border: 1px solid rgba(56,189,248,0.18) !important;
+        background:
+            radial-gradient(circle, rgba(56,189,248,0.16), rgba(2,8,23,0.22) 62%, rgba(2,8,23,0.56)) !important;
+        filter:
+            drop-shadow(0 0 18px rgba(56,189,248,0.28))
+            drop-shadow(0 15px 28px rgba(0,0,0,0.30)) !important;
+        opacity: 0.9 !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-divisions-section .yh-landing-division-card h3 {
+        position: relative !important;
+        z-index: 3 !important;
+        color: #ffffff !important;
+        margin: 0 0 5px !important;
+        font-family: "Rajdhani", "Orbitron", "Space Grotesk", "Inter", system-ui, sans-serif !important;
+        font-size: 0.92rem !important;
+        letter-spacing: 0.14em !important;
+        text-transform: uppercase !important;
+        font-weight: 800 !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-divisions-section .yh-landing-division-card p {
+        position: relative !important;
+        z-index: 3 !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        color: rgba(226,232,240,0.86) !important;
+        font-family: "Space Grotesk", "Rajdhani", "Inter", system-ui, sans-serif !important;
+        font-size: 0.72rem !important;
+        line-height: 1.34 !important;
+        letter-spacing: 0.005em !important;
+        display: -webkit-box !important;
+        -webkit-line-clamp: 3 !important;
+        -webkit-box-orient: vertical !important;
+        overflow: hidden !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-divisions-section .yh-landing-feature-list {
+        display: none !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-divisions-section .yh-division-btn {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-bottom-hud {
+        top: 418px !important;
+        height: 148px !important;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-bottom-hud .yh-landing-activity-rail {
+        height: 148px !important;
+        min-height: 148px !important;
+        padding: 11px 12px 12px !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-bottom-hud .yh-landing-activity-event {
+        height: 88px !important;
+        min-height: 88px !important;
+        padding: 10px 11px !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-bottom-hud .yh-landing-activity-panel {
+        position: relative !important;
+        inset: auto !important;
+        width: 100% !important;
+        max-width: none !important;
+        margin: 0 !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-bottom-hud .yh-landing-metrics {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-bottom-hud .yh-landing-activity-rail {
+        position: relative !important;
+        height: 164px !important;
+        min-height: 164px !important;
+        padding: 14px 15px 15px !important;
+        border-radius: 20px !important;
+        overflow: hidden !important;
+        background:
+            linear-gradient(135deg, rgba(56,189,248,0.13) 0%, transparent 22%),
+            linear-gradient(225deg, rgba(37,99,235,0.14) 0%, transparent 28%),
+            linear-gradient(315deg, rgba(14,165,233,0.055) 0%, transparent 34%),
+            repeating-linear-gradient(90deg, rgba(56,189,248,0.038) 0 1px, transparent 1px 42px),
+            repeating-linear-gradient(0deg, rgba(56,189,248,0.026) 0 1px, transparent 1px 42px),
+            rgba(5,14,29,0.74) !important;
+        border: 1px solid rgba(56,189,248,0.25) !important;
+        box-shadow:
+            0 20px 52px rgba(0,0,0,0.30),
+            0 0 42px rgba(14,165,233,0.10),
+            inset 0 1px 0 rgba(255,255,255,0.06),
+            inset 0 0 0 1px rgba(255,255,255,0.02) !important;
+        backdrop-filter: blur(11px) !important;
+        -webkit-backdrop-filter: blur(11px) !important;
+        clip-path: polygon(0 0, calc(100% - 24px) 0, 100% 24px, 100% 100%, 24px 100%, 0 calc(100% - 24px)) !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-bottom-hud .yh-landing-activity-rail::before,
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-bottom-hud .yh-landing-activity-rail::after {
+        content: "" !important;
+        position: absolute !important;
+        width: 34px !important;
+        height: 34px !important;
+        pointer-events: none !important;
+        opacity: 0.72 !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-bottom-hud .yh-landing-activity-rail::before {
+        left: 12px !important;
+        top: 12px !important;
+        border-left: 1px solid rgba(56,189,248,0.72) !important;
+        border-top: 1px solid rgba(56,189,248,0.72) !important;
+        border-radius: 14px 0 0 0 !important;
+        box-shadow: -4px -4px 18px rgba(56,189,248,0.12) !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-bottom-hud .yh-landing-activity-rail::after {
+        right: 12px !important;
+        bottom: 12px !important;
+        border-right: 1px solid rgba(56,189,248,0.50) !important;
+        border-bottom: 1px solid rgba(56,189,248,0.50) !important;
+        border-radius: 0 0 14px 0 !important;
+        box-shadow: 4px 4px 18px rgba(56,189,248,0.08) !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-bottom-hud .yh-landing-activity-head {
+        position: relative !important;
+        z-index: 2 !important;
+        margin-bottom: 12px !important;
+        min-height: 18px !important;
+        align-items: center !important;
+        font-family: "Rajdhani", "Orbitron", "Space Grotesk", "Inter", system-ui, sans-serif !important;
+        letter-spacing: 0.16em !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-bottom-hud .yh-landing-visual-kicker,
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-bottom-hud .yh-landing-activity-status {
+        font-size: 0.56rem !important;
+        line-height: 1 !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-bottom-hud .yh-landing-activity-stream {
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 8px !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-bottom-hud .yh-landing-activity-event {
+        position: relative !important;
+        min-height: 102px !important;
+        height: 102px !important;
+        padding: 15px 15px 13px 16px !important;
+        border-radius: 16px !important;
+        border: 1px solid rgba(56,189,248,0.20) !important;
+        background:
+            linear-gradient(135deg, rgba(14,165,233,0.16), transparent 34%),
+            linear-gradient(225deg, rgba(37,99,235,0.12), transparent 40%),
+            repeating-linear-gradient(90deg, rgba(56,189,248,0.030) 0 1px, transparent 1px 30px),
+            rgba(2, 8, 23, 0.64) !important;
+        overflow: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+        gap: 6px !important;
+        box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.055),
+            inset 0 0 0 1px rgba(255,255,255,0.022),
+            0 12px 26px rgba(0,0,0,0.20),
+            0 0 18px rgba(14,165,233,0.055) !important;
+        clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px)) !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-bottom-hud .yh-landing-activity-event::before {
+        content: "" !important;
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 58px !important;
+        height: 2px !important;
+        background: linear-gradient(90deg, rgba(56,189,248,0.95), rgba(37,99,235,0.34), transparent) !important;
+        opacity: 0.92 !important;
+        box-shadow: 0 0 16px rgba(56,189,248,0.35) !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-bottom-hud .yh-landing-activity-event::after {
+        content: "" !important;
+        position: absolute !important;
+        right: 11px !important;
+        bottom: 10px !important;
+        width: 26px !important;
+        height: 26px !important;
+        border-right: 1px solid rgba(56,189,248,0.34) !important;
+        border-bottom: 1px solid rgba(56,189,248,0.34) !important;
+        opacity: 0.82 !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-bottom-hud .yh-landing-activity-event:nth-child(n+2) {
+        display: block !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-bottom-hud .yh-landing-activity-event strong {
+        position: relative !important;
+        z-index: 2 !important;
+        color: #ffffff !important;
+        font-family: "Space Grotesk", "Rajdhani", "Inter", system-ui, sans-serif !important;
+        font-size: 0.84rem !important;
+        line-height: 1.18 !important;
+        font-weight: 800 !important;
+        letter-spacing: 0.01em !important;
+        display: block !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-bottom-hud .yh-landing-activity-event span,
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-bottom-hud .yh-landing-activity-event p {
+        position: relative !important;
+        z-index: 2 !important;
+        color: rgba(203,213,225,0.80) !important;
+        font-family: "Space Grotesk", "Rajdhani", "Inter", system-ui, sans-serif !important;
+        font-size: 0.65rem !important;
+        line-height: 1.22 !important;
+        letter-spacing: 0.015em !important;
+        display: block !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-bottom-hud .yh-landing-metric-card {
+        min-height: 62px !important;
+        height: 62px !important;
+        padding: 9px 12px !important;
+        border-radius: 0 !important;
+        border: 0 !important;
+        border-left: 1px solid rgba(56,189,248,0.10) !important;
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-bottom-hud .yh-landing-metric-card strong {
+        font-size: 1rem !important;
+        line-height: 1 !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-bottom-hud .yh-landing-metric-card span {
+        font-size: 0.54rem !important;
+        line-height: 1.05 !important;
+    }
+}
+
+@media (min-width: 1041px) and (max-height: 820px) {
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-shell {
+        padding-top: 18px !important;
+        padding-bottom: 14px !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-command-topbar {
+        transform: translateY(-8px) !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-title {
+        font-size: clamp(2.34rem, 3.35vw, 3.85rem) !important;
+        line-height: 0.94 !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-narrative,
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-subtitle {
+        font-size: 0.68rem !important;
+        line-height: 1.28 !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-globe-stage {
+        width: min(34vw, 500px) !important;
+        min-width: 390px !important;
+        height: min(34vw, 500px) !important;
+        min-height: 390px !important;
+        transform: translate(-34%, -10%) !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section.yh-landing-auth-wrap {
+        top: 108px !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .yh-auth-card.form-card-ultrawide {
+        height: 398px !important;
+        min-height: 398px !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-auth-section .yh-auth-card.form-card-ultrawide:has(#auth-flipper.is-flipped) {
+        height: min(720px, calc(100svh - 112px)) !important;
+        min-height: min(720px, calc(100svh - 112px)) !important;
+        max-height: calc(100svh - 112px) !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-divisions-section {
+        left: 48px !important;
+        right: 455px !important;
+        bottom: 22px !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-divisions-section .yh-landing-division-card {
+        min-height: 136px !important;
+        padding: 12px 12px 12px 108px !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-divisions-section .yh-landing-icon {
+        width: 68px !important;
+        height: 68px !important;
+        left: 18px !important;
+        top: 28px !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-bottom-hud {
+        position: absolute !important;
+        z-index: 32 !important;
+        left: 48px !important;
+        right: 455px !important;
+        top: 468px !important;
+        height: 154px !important;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        pointer-events: auto !important;
+        border-radius: 0 !important;
+        border: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        overflow: visible !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-bottom-hud .yh-landing-metric-card {
+        height: 58px !important;
+        min-height: 58px !important;
+    }
+}
+
+@media (max-width: 1040px) {
+    body[data-yh-page="apply"] {
+        overflow-y: auto !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step,
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-shell {
+        height: auto !important;
+        min-height: 100dvh !important;
+        overflow: visible !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step .yh-command-side-rail {
+        display: none !important;
+    }
+
+    body[data-yh-page="apply"] #step-1.yh-landing-step #yh-divisions-section {
+        position: relative !important;
+        left: auto !important;
+        right: auto !important;
+        bottom: auto !important;
+    }
+}
+
+/* END PATCH 1.6: Background Dominance + Auth Fit + Hero Cleanup */

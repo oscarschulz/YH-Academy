@@ -358,25 +358,25 @@ const YH_LANDING_FEED_DEFAULTS = [
     {
         id: 'academy_live_placeholder_1',
         pointId: '',
-        label: 'Universe Live Activity',
-        feedText: 'Waiting for new Universe activity.',
-        locationText: '',
+        label: 'Universe Feed',
+        feedText: 'Live sync active.',
+        locationText: 'Global',
         createdAt: ''
     },
     {
         id: 'academy_live_placeholder_2',
         pointId: '',
-        label: 'Universe Growth',
-        feedText: 'Real Universe events will appear here as they happen.',
-        locationText: '',
+        label: 'Growth Signal',
+        feedText: 'New activity ready.',
+        locationText: 'Network',
         createdAt: ''
     },
     {
         id: 'academy_live_placeholder_3',
         pointId: '',
-        label: 'Worldmap Sync',
-        feedText: 'Each new signup and action can light up its real city and country.',
-        locationText: '',
+        label: 'Map Sync',
+        feedText: 'Signals online.',
+        locationText: 'World',
         createdAt: ''
     }
 ];

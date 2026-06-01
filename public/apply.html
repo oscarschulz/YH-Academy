@@ -7,7 +7,7 @@
     <link rel="icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
 <link rel="stylesheet" href="/css/responsive-apply.css?v=20260416-apply-responsive-1">
-<link rel="stylesheet" href="/css/style.css?v=20260531-metric-cards-center-01">
+<link rel="stylesheet" href="/css/style.css?v=20260601-navbar-gap-19">
 </head>
 <body data-yh-page="apply">
 
@@ -33,103 +33,116 @@
             <div class="yh-landing-bg-overlay"></div>
         </div>
 
+
             <section class="yh-landing-hero">
-                <div class="yh-landing-topbar">
+                <div class="yh-landing-topbar yh-command-topbar">
                     <div class="yh-landing-brand">
                         <img src="/images/logo.avif" alt="YH Logo" class="yh-landing-brand-logo">
                         <div class="yh-landing-brand-copy">
-                            <span class="yh-landing-brand-name">Young Hustlers Universe</span>
+                            <span class="yh-landing-brand-name">Young Hustlers<br>Universe</span>
                         </div>
                     </div>
 
                     <nav class="yh-landing-nav" aria-label="Young Hustlers Universe landing navigation">
+                        <a href="#step-1" class="is-active">Overview</a>
                         <a href="#yh-divisions-section">Divisions</a>
-                        <a href="#yh-auth-section">Dashboard</a>
-                        <a href="#yh-landing-activity-card">Live Activity</a>
+                        <a href="#yh-landing-activity-card">Network</a>
+                        <a href="#yh-auth-section">About YH</a>
                     </nav>
-                </div>
 
+                    <div class="yh-command-top-status" aria-label="Universe system status">
+                        <span class="yh-command-status-dot"></span>
+                        <span>Systems Online</span>
+                        <small>Global Status: <strong>Stable</strong></small>
+                    </div>
+
+                    <button type="button" id="yh-scroll-auth" class="btn-secondary yh-command-access-btn">
+                        Access Universe <span aria-hidden="true">↗</span>
+                    </button>
+                </div>
                 <div class="yh-landing-hero-grid">
                     <div class="yh-landing-hero-copy">
-    <div class="yh-landing-pill">Global structured organization</div>
+                        <div class="yh-landing-pill">Global structured organization</div>
 
-    <h1 class="yh-landing-title yh-reveal-up">
-        The Future of
-        <br>
-        Global <span class="yh-landing-title-gradient">Networking</span>
-    </h1>
+                        <h1 class="yh-landing-title yh-reveal-up">
+                            The Future of
+                            <br>
+                            Global <span class="yh-landing-title-gradient">Networking</span>
+                        </h1>
 
-    <p class="yh-landing-narrative yh-reveal-up">
-        The old world ran on information.
-        <br>
-        The next one runs on trust, access, and verified people.
-    </p>
+                        <p class="yh-landing-narrative yh-reveal-up">
+                            The old world ran on information.
+                            <br>
+                            The next one runs on trust, access, and verified people.
+                        </p>
 
-    <p class="yh-landing-subtitle yh-reveal-up">
-        Young Hustlers is a global organization built for trusted access, verified connection, and real opportunity across borders.
-    </p>
+                        <p class="yh-landing-subtitle yh-reveal-up">
+                            Young Hustlers is a global organization built for trusted access, verified connection, and real opportunity across borders.
+                        </p>
 
-<div class="yh-landing-cta-row yh-reveal-up">
-    <div class="yh-landing-cta-stack">
-        <button type="button" id="yh-open-auth-main" class="btn-primary yh-landing-cta-primary">
-            <span class="yh-cta-label-desktop">Enter Universe ➔</span>
-            <span class="yh-cta-label-mobile">Enter Universe ➔</span>
-        </button>
-        <span class="yh-landing-cta-note">Verified access. Structured growth. Global connection.</span>
-    </div>
-
-    <button type="button" id="yh-scroll-divisions" class="btn-secondary yh-landing-cta-secondary">
-        Explore Divisions
-    </button>
-</div>
-
-                <div class="yh-landing-metrics yh-reveal-up">
-                    <div class="yh-landing-metric-card">
-                        <strong id="yh-stat-members">0</strong>
-                        <span>Verified members</span>
-                    </div>
-                    <div class="yh-landing-metric-card">
-                        <strong id="yh-stat-reach">0</strong>
-                        <span>Countries reached</span>
-                    </div>
-                    <div class="yh-landing-metric-card">
-                        <strong id="yh-stat-impressions">0</strong>
-                        <span>Live activity signals</span>
-                    </div>
-                </div>
-
-                    <div class="yh-landing-activity-panel" aria-label="Live Universe activity">
-                        <div class="yh-landing-activity-rail">
-                            <div class="yh-landing-activity-head">
-                                <span class="yh-landing-visual-kicker">Live Universe Activity</span>
-                                <span class="yh-landing-activity-status">
-                                    <span class="yh-landing-activity-status-dot"></span>
-                                    Updating live
-                                </span>
+                        <div class="yh-landing-cta-row yh-reveal-up">
+                            <div class="yh-landing-cta-stack">
+                                <button type="button" id="yh-open-auth-main" class="btn-primary yh-landing-cta-primary">
+                                    <span class="yh-cta-label-desktop">Enter Universe ➔</span>
+                                    <span class="yh-cta-label-mobile">Enter Universe ➔</span>
+                                </button>
+                                <span class="yh-landing-cta-note">Verified access. Structured growth. Global connection.</span>
                             </div>
+
+                            <button type="button" id="yh-scroll-divisions" class="btn-secondary yh-landing-cta-secondary">
+                                Explore Divisions
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="yh-landing-hero-visual">
+                        <div class="yh-landing-globe-stage yh-reveal-up">
+                            <div class="yh-landing-visual-glow"></div>
+                            <div class="yh-landing-visual-noise"></div>
+                            <div class="yh-landing-orbit yh-landing-orbit-one" aria-hidden="true"></div>
+                            <div class="yh-landing-orbit yh-landing-orbit-two" aria-hidden="true"></div>
+                            <div class="yh-landing-orbit yh-landing-orbit-three" aria-hidden="true"></div>
+
+                            <div class="yh-landing-map-stage-wrap">
+                                <div id="yh-world-map" class="yh-world-map" aria-label="Live global universe map"></div>
+                                <div class="yh-landing-map-shine" aria-hidden="true"></div>
+                                <div class="yh-landing-map-overlay"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="yh-landing-bottom-hud yh-reveal-up">
+                        <div class="yh-landing-activity-panel" aria-label="Live Universe activity">
+                            <div class="yh-landing-activity-rail">
+                                <div class="yh-landing-activity-head">
+                                    <span class="yh-landing-visual-kicker">Live Universe Activity</span>
+                                    <span class="yh-landing-activity-status">
+                                        <span class="yh-landing-activity-status-dot"></span>
+                                        Updating live
+                                    </span>
+                                </div>
 
                                 <div id="yh-landing-activity-card" class="yh-landing-activity-card yh-landing-activity-card--triple">
                                     <div id="yh-landing-activity-stream" class="yh-landing-activity-stream" aria-live="polite"></div>
                                 </div>
                             </div>
                         </div>
+
+                        <div class="yh-landing-metrics">
+                            <div class="yh-landing-metric-card">
+                                <strong id="yh-stat-members">0</strong>
+                                <span>Verified members</span>
+                            </div>
+                            <div class="yh-landing-metric-card">
+                                <strong id="yh-stat-reach">0</strong>
+                                <span>Countries reached</span>
+                            </div>
+                            <div class="yh-landing-metric-card">
+                                <strong id="yh-stat-impressions">0</strong>
+                                <span>Live activity signals</span>
+                            </div>
+                        </div>
                     </div>
-
-<div class="yh-landing-hero-visual">
-    <div class="yh-landing-globe-stage yh-reveal-up">
-        <div class="yh-landing-visual-glow"></div>
-        <div class="yh-landing-visual-noise"></div>
-        <div class="yh-landing-orbit yh-landing-orbit-one" aria-hidden="true"></div>
-        <div class="yh-landing-orbit yh-landing-orbit-two" aria-hidden="true"></div>
-        <div class="yh-landing-orbit yh-landing-orbit-three" aria-hidden="true"></div>
-
-        <div class="yh-landing-map-stage-wrap">
-            <div id="yh-world-map" class="yh-world-map" aria-label="Live global universe map"></div>
-            <div class="yh-landing-map-shine" aria-hidden="true"></div>
-            <div class="yh-landing-map-overlay"></div>
-        </div>
-    </div>
-</div>
                 </div>
             </section>
 
@@ -247,8 +260,8 @@
                                 <div class="auth-center-wrapper">
                                     <div class="text-center mb-large">
                                         <img src="/images/logo.avif" alt="YH Logo" class="step1-logo" style="width: 70px; margin-bottom: 5px;">
-                                        <h1 class="main-title step1-title" style="margin-bottom: 0;">YOUNG HUSTLERS UNIVERSE</h1>
-                                        <p class="subtitle step1-subtitle" style="margin-bottom: 2rem;">Log in to access your divisions.</p>
+                                        <h1 class="main-title step1-title" style="margin-bottom: 0;">ACCESS TERMINAL</h1>
+                                        <p class="subtitle step1-subtitle" style="margin-bottom: 2rem;">Secure entry to your divisions.</p>
                                     </div>
 
                                 <div class="login-ui-container w-full">
@@ -272,6 +285,18 @@
                                     </div>
 
                                     <a href="#" class="forgot-link auth-stop-propagation">Forgot password?</a>
+
+                                    <div class="yh-access-terminal-scan" aria-hidden="true">
+                                        <div class="yh-access-scan-icon">◎</div>
+                                        <div class="yh-access-scan-copy">
+                                            <strong>Verification Sequence</strong>
+                                            <span>Scanning credentials...</span>
+                                        </div>
+                                        <div class="yh-access-scan-bar">
+                                            <span></span>
+                                        </div>
+                                    </div>
+
                                     <button type="button" id="btn-login" class="pill-btn-login auth-stop-propagation">Login</button>
                                         <div class="divider mt-large w-full"><span>OR</span></div>
                                         <button type="button" id="btn-flip-register" class="btn-secondary w-full auth-stop-propagation" style="border-radius: 30px; margin-top: 10px;">
@@ -286,7 +311,7 @@
                             </div>
 
                             <div class="flip-card-back hide-scrollbar relative-panel">
-                                <button type="button" id="btn-flip-login" class="btn-back-icon auth-stop-propagation">⬅ Back to Login</button>
+                                <button type="button" id="btn-flip-login" class="btn-back-icon auth-stop-propagation">Back to Login ↩</button>
 
                                 <div class="auth-center-wrapper w-full">
                                     <div class="text-center mb-large mt-small">
@@ -555,6 +580,6 @@
     </div>
 
 <script src="https://cdn.jsdelivr.net/npm/globe.gl"></script>
-<script src="/js/apply.js?v=20260531-globe-lights-01"></script>
+<script src="/js/apply.js?v=20260601-bg-auth-cleanup-07"></script>
 </body>
 </html>
