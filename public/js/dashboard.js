@@ -10161,12 +10161,64 @@ function isDashboardInlineFederationReady(frame, doc) {
         activeSection.getAttribute('aria-hidden') !== 'true' &&
         activeSection.hidden !== true;
 
-    return (
-        federationHydrated &&
-        childReady &&
-        activePanelReady &&
-        (!readySection || readySection === targetSection)
-    );
+    if (
+        !federationHydrated ||
+        !childReady ||
+        !activePanelReady ||
+        (readySection && readySection !== targetSection)
+    ) {
+        return false;
+    }
+
+    const activeText = String(activeSection.textContent || '').replace(/\s+/g, ' ').trim();
+
+    if (targetSection === 'command') {
+        const memberCommandPanel = doc.getElementById('memberCommandPanel');
+        const memberCommandHero = memberCommandPanel?.querySelector('.fed-command-card-hero');
+        const memberCommandText = String(memberCommandPanel?.textContent || '').replace(/\s+/g, ' ').trim();
+
+        const memberCommandReady =
+            isDashboardInlineElementVisible(memberCommandPanel) &&
+            isDashboardInlineElementVisible(memberCommandHero) &&
+            memberCommandText.includes('Operate from your Federation lane');
+
+        if (memberCommandReady) return true;
+
+        const nonMemberReady =
+            activeText.includes('Federation Access') ||
+            activeText.includes('Submit Federation Application') ||
+            activeText.includes('Application') ||
+            activeText.includes('Under Review') ||
+            activeText.includes('Approved');
+
+        return nonMemberReady && activeText.length > 40;
+    }
+
+    if (targetSection === 'connect') {
+        return (
+            activeText.includes('Federation Connect') ||
+            activeText.includes('Request Connection') ||
+            activeText.includes('Connection')
+        ) && activeText.length > 30;
+    }
+
+    if (targetSection === 'requests') {
+        return (
+            activeText.includes('My Requests') ||
+            activeText.includes('Request') ||
+            activeText.includes('Track Requests')
+        ) && activeText.length > 24;
+    }
+
+    if (targetSection === 'deal-rooms') {
+        return (
+            activeText.includes('Deal Rooms') ||
+            activeText.includes('Deal') ||
+            activeText.includes('Room')
+        ) && activeText.length > 24;
+    }
+
+    return activeText.length > 24;
 }
 
 function isDashboardInlineFrameReadyForReveal(frame) {

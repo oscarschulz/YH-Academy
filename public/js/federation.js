@@ -4787,6 +4787,41 @@ function markFederationDashboardHydrationState(isHydrated = false, reason = "") 
 
 function markFederationDashboardChildReady(sectionId = "", reason = "ready") {
   const cleanSection = extractSectionId(sectionId || activeSectionId || getInitialFederationSectionFromUrl() || "command") || "command";
+  const isHydrated = document.body?.dataset?.yhDashboardFederationHydrated === "true";
+
+  if (!isHydrated) {
+    document.body?.setAttribute("data-yh-dashboard-child-ready", "false");
+    document.body?.setAttribute("data-yh-dashboard-active-section", cleanSection);
+    document.body?.setAttribute("data-yh-dashboard-child-ready-reason", `waiting-hydration-${String(reason || "ready")}`);
+
+    window.clearTimeout(window.__yhFederationDashboardChildReadyRetry);
+    window.__yhFederationDashboardChildReadyRetry = window.setTimeout(() => {
+      markFederationDashboardChildReady(cleanSection, reason);
+    }, 120);
+
+    return;
+  }
+
+  if (cleanSection === "command") {
+    const state = typeof getCurrentUserState === "function" ? getCurrentUserState() : null;
+    const memberCommandPanel = document.getElementById("memberCommandPanel");
+    const memberCommandReady =
+      state?.type !== "member" ||
+      Boolean(memberCommandPanel?.querySelector(".fed-command-card-hero"));
+
+    if (!memberCommandReady) {
+      document.body?.setAttribute("data-yh-dashboard-child-ready", "false");
+      document.body?.setAttribute("data-yh-dashboard-active-section", cleanSection);
+      document.body?.setAttribute("data-yh-dashboard-child-ready-reason", `waiting-command-render-${String(reason || "ready")}`);
+
+      window.clearTimeout(window.__yhFederationDashboardChildReadyRetry);
+      window.__yhFederationDashboardChildReadyRetry = window.setTimeout(() => {
+        markFederationDashboardChildReady(cleanSection, reason);
+      }, 120);
+
+      return;
+    }
+  }
 
   document.body?.setAttribute("data-yh-dashboard-child-ready", "true");
   document.body?.setAttribute("data-yh-dashboard-active-section", cleanSection);
@@ -4801,7 +4836,7 @@ function markFederationDashboardChildReady(sectionId = "", reason = "ready") {
           division: "federation",
           workspaceKey: `federation-${cleanSection === "status" ? "access" : cleanSection}`,
           section: cleanSection,
-          hydrated: document.body?.dataset?.yhDashboardFederationHydrated === "true",
+          hydrated: true,
           reason
         },
         window.location.origin
