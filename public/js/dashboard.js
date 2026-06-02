@@ -9630,6 +9630,7 @@ function buildDashboardInlineAccessHtml(meta = {}, state = {}) {
     const statusLabel = state.label || 'Checking';
     const safeTitleHtml = buildDashboardAcademyWorkspaceTitleHtml(meta, title);
     const safeStatus = escapeDashboardInlineHtml(statusLabel);
+    const safeTitle = escapeDashboardInlineHtml(title);
 
     if (state.approved) {
         return `
