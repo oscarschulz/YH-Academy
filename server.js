@@ -1351,6 +1351,124 @@ function requireApiUser(req, res, next) {
 
     next();
 }
+
+function isLocalSuperdevRuntimeEnabled() {
+    const expectedEmail = sanitizeText(process.env.LOCAL_SUPERDEV_EMAIL).toLowerCase();
+    const expectedUsername = sanitizeText(process.env.LOCAL_SUPERDEV_USERNAME).toLowerCase();
+
+    if (!expectedEmail && !expectedUsername) return false;
+
+    return String(process.env.NODE_ENV || '').trim().toLowerCase() !== 'production';
+}
+
+function isLocalSuperdevIdentity(identity = {}) {
+    if (!isLocalSuperdevRuntimeEnabled()) return false;
+
+    const expectedEmail = sanitizeText(process.env.LOCAL_SUPERDEV_EMAIL).toLowerCase();
+    const expectedUsername = sanitizeText(process.env.LOCAL_SUPERDEV_USERNAME).toLowerCase();
+
+    const email = sanitizeText(identity.email || identity.emailLower).toLowerCase();
+    const username = sanitizeText(identity.username || identity.userName || identity.handle).toLowerCase();
+    const id = sanitizeText(identity.id || identity.firebaseUid || identity.uid).toLowerCase();
+
+    return (
+        Boolean(expectedEmail && email === expectedEmail) ||
+        Boolean(expectedUsername && username === expectedUsername) ||
+        id === 'local-superdev' ||
+        id === 'superdev'
+    );
+}
+
+function getLocalSuperdevDisplayName(identity = {}) {
+    return sanitizeText(
+        identity.name ||
+        identity.fullName ||
+        identity.displayName ||
+        process.env.LOCAL_SUPERDEV_NAME ||
+        'Local Superdev'
+    ) || 'Local Superdev';
+}
+
+function buildLocalSuperdevDivisionOverride(division = 'academy') {
+    const cleanDivision = sanitizeText(division || 'academy').toLowerCase();
+
+    return {
+        active: true,
+        unlocked: true,
+        source: 'local-superdev',
+        reason: 'Local Superdev account has automatic local development access.',
+        division: cleanDivision,
+        grantedAt: new Date().toISOString()
+    };
+}
+
+function buildLocalSuperdevApplicationSnapshot({
+    division = 'academy',
+    userId = '',
+    identity = {}
+} = {}) {
+    const cleanDivision = sanitizeText(division || 'academy').toLowerCase();
+    const displayName = getLocalSuperdevDisplayName(identity);
+    const email = sanitizeText(identity.email || process.env.LOCAL_SUPERDEV_EMAIL).toLowerCase();
+    const username = sanitizeText(identity.username || process.env.LOCAL_SUPERDEV_USERNAME);
+
+    return {
+        id: `local-superdev-${cleanDivision}-application`,
+        userId: sanitizeText(userId || identity.id || identity.firebaseUid || 'local-superdev'),
+        fullName: displayName,
+        name: displayName,
+        email,
+        username,
+        status: 'approved',
+        applicationStatus: 'approved',
+        membershipStatus: 'approved',
+        source: 'local-superdev',
+        reviewedBy: 'local-dev-system',
+        reviewedAt: new Date().toISOString(),
+        submittedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+    };
+}
+
+function buildLocalSuperdevMemberSnapshot({
+    division = 'academy',
+    userId = '',
+    identity = {}
+} = {}) {
+    const cleanDivision = sanitizeText(division || 'academy').toLowerCase();
+    const displayName = getLocalSuperdevDisplayName(identity);
+    const email = sanitizeText(identity.email || process.env.LOCAL_SUPERDEV_EMAIL).toLowerCase();
+    const username = sanitizeText(identity.username || process.env.LOCAL_SUPERDEV_USERNAME);
+
+    return {
+        id: sanitizeText(userId || identity.id || identity.firebaseUid || 'local-superdev'),
+        userId: sanitizeText(userId || identity.id || identity.firebaseUid || 'local-superdev'),
+        email,
+        emailLower: email,
+        username,
+        name: displayName,
+        fullName: displayName,
+        displayName,
+        role: 'Local Superdev',
+        badge: 'Local Dev',
+        category: cleanDivision === 'federation' ? 'Strategic Operator' : cleanDivision === 'plaza' ? 'Plaza Member' : 'Academy Member',
+        country: 'Local',
+        city: 'Development',
+        company: 'YH Universe',
+        description: 'Local Superdev account with automatic development access.',
+        divisions: [
+            cleanDivision === 'federation'
+                ? 'Federation'
+                : cleanDivision === 'plaza'
+                    ? 'Plaza'
+                    : 'Academy'
+        ],
+        status: 'Active',
+        approvedAt: new Date().toISOString(),
+        source: 'local-superdev',
+        referralCode: 'YHF-SUPERDEV-LOCAL'
+    };
+}
 function getAcademyVoiceSignalingRoom(roomId = '') {
     return `academy-voice:${sanitizeText(roomId)}`;
 }
@@ -4855,6 +4973,27 @@ async function getPlazaAccessSnapshotForUser(userId = '', requestUser = {}) {
         };
     }
 
+    if (isLocalSuperdevIdentity({ ...requestUser, id: normalizedUserId, firebaseUid: normalizedUserId })) {
+        const application = buildLocalSuperdevApplicationSnapshot({
+            division: 'plaza',
+            userId: normalizedUserId,
+            identity: requestUser
+        });
+
+        return {
+            hasApplication: true,
+            canEnterPlaza: true,
+            applicationStatus: 'approved',
+            application,
+            divisionOverride: buildLocalSuperdevDivisionOverride('plaza'),
+            member: buildLocalSuperdevMemberSnapshot({
+                division: 'plaza',
+                userId: normalizedUserId,
+                identity: requestUser
+            })
+        };
+    }
+
     const snap = await firestore.collection('users').doc(normalizedUserId).get();
     const user = snap.exists ? (snap.data() || {}) : {};
 
@@ -4931,6 +5070,44 @@ function buildFederationReferralCode(userId = '', name = '') {
 async function getFederationUserState(req) {
     const userId = sanitizeText(req.user?.id);
     const userRef = firestore.collection('users').doc(userId);
+
+    if (isLocalSuperdevIdentity({ ...(req.user || {}), id: userId, firebaseUid: userId })) {
+        const application = buildLocalSuperdevApplicationSnapshot({
+            division: 'federation',
+            userId,
+            identity: req.user
+        });
+
+        const member = buildLocalSuperdevMemberSnapshot({
+            division: 'federation',
+            userId,
+            identity: req.user
+        });
+
+        return {
+            userId,
+            userRef,
+            user: {
+                id: userId,
+                email: sanitizeText(req.user?.email || process.env.LOCAL_SUPERDEV_EMAIL).toLowerCase(),
+                username: sanitizeText(req.user?.username || process.env.LOCAL_SUPERDEV_USERNAME),
+                name: getLocalSuperdevDisplayName(req.user),
+                fullName: getLocalSuperdevDisplayName(req.user),
+                displayName: getLocalSuperdevDisplayName(req.user),
+                federationApplication: application,
+                federationApplicationStatus: 'approved',
+                federationMembershipStatus: 'approved',
+                hasFederationAccess: true,
+                divisionApplicationOverrides: {
+                    federation: buildLocalSuperdevDivisionOverride('federation')
+                }
+            },
+            application,
+            approved: true,
+            member
+        };
+    }
+
     const userSnap = await userRef.get();
     const user = userSnap.exists ? (userSnap.data() || {}) : {};
 
@@ -6447,6 +6624,28 @@ app.get('/api/federation/application-status', requireApiUser, async (req, res) =
             return res.status(401).json({
                 success: false,
                 message: 'Unauthorized.'
+            });
+        }
+
+        if (isLocalSuperdevIdentity({ ...(req.user || {}), id: userId, firebaseUid: userId })) {
+            const application = buildLocalSuperdevApplicationSnapshot({
+                division: 'federation',
+                userId,
+                identity: req.user
+            });
+
+            return res.json({
+                success: true,
+                hasApplication: true,
+                canEnterFederation: true,
+                applicationStatus: 'approved',
+                application,
+                divisionOverride: buildLocalSuperdevDivisionOverride('federation'),
+                member: buildLocalSuperdevMemberSnapshot({
+                    division: 'federation',
+                    userId,
+                    identity: req.user
+                })
             });
         }
 
@@ -8344,6 +8543,49 @@ app.post('/api/academy/community/members/:targetUserId/follow', requireApiUser, 
     }
 });
 /* END PATCH: Academy server-backed follow/unfollow route v1 */
+
+app.get('/api/academy/membership-status', requireApiUser, async (req, res, next) => {
+    try {
+        const userId = sanitizeText(req.user?.id);
+
+        if (!isLocalSuperdevIdentity({ ...(req.user || {}), id: userId, firebaseUid: userId })) {
+            return next();
+        }
+
+        const application = buildLocalSuperdevApplicationSnapshot({
+            division: 'academy',
+            userId,
+            identity: req.user
+        });
+
+        return res.json({
+            success: true,
+            hasApplication: true,
+            applicationStatus: 'approved',
+            hasRoadmapAccess: true,
+            canEnterAcademy: true,
+            application,
+            roadmapApplication: {
+                ...application,
+                id: 'local-superdev-roadmap-application',
+                roadmapStatus: 'approved'
+            },
+            roadmapApplicationStatus: 'approved',
+            member: buildLocalSuperdevMemberSnapshot({
+                division: 'academy',
+                userId,
+                identity: req.user
+            }),
+            divisionOverride: buildLocalSuperdevDivisionOverride('academy')
+        });
+    } catch (error) {
+        console.error('local superdev academy membership status error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load local Superdev Academy status.'
+        });
+    }
+});
 
 app.use('/api', apiRoutes);
 app.post('/api/realtime/live-rooms/:roomId/join', requireApiUser, async (req, res) => {

@@ -11487,3 +11487,241 @@ await loadPlazaMeetupsFromServer({
 }
 
 initPlaza();
+
+/* PATCH: Plaza dashboard embed fast ready handshake v19 */
+(function installPlazaDashboardEmbedFastReadyHandshakeV19() {
+    if (window.__plazaDashboardEmbedFastReadyV19Installed) return;
+    window.__plazaDashboardEmbedFastReadyV19Installed = true;
+
+    function isDashboardEmbed() {
+        try {
+            const url = new URL(window.location.href);
+            return (
+                url.searchParams.get('embed') === 'dashboard' ||
+                url.searchParams.get('shell') === 'dashboard' ||
+                window.parent !== window
+            );
+        } catch (_) {
+            return window.parent !== window;
+        }
+    }
+
+    function normalizeScreen(value = 'feed') {
+        const clean = String(value || 'feed').trim().toLowerCase();
+
+        if (clean === 'plaza-atlas') return 'atlas';
+        if (clean === 'conversations') return 'messages';
+
+        const allowed = new Set([
+            'feed',
+            'inbox',
+            'messages',
+            'meetups',
+            'opportunities',
+            'directory',
+            'regions',
+            'atlas',
+            'patron',
+            'patron-desk',
+            'bridge',
+            'requests'
+        ]);
+
+        return allowed.has(clean) ? clean : 'feed';
+    }
+
+    function getDashboardScreen() {
+        try {
+            const url = new URL(window.location.href);
+            return normalizeScreen(
+                url.searchParams.get('dashboardTab') ||
+                url.searchParams.get('tab') ||
+                url.searchParams.get('screen') ||
+                url.searchParams.get('section') ||
+                'feed'
+            );
+        } catch (_) {
+            return 'feed';
+        }
+    }
+
+    function workspaceKeyFromScreen(screen = 'feed') {
+        const clean = normalizeScreen(screen);
+        if (clean === 'messages') return 'plazas-conversations';
+        if (clean === 'atlas') return 'plazas-atlas';
+        return 'plazas-' + clean;
+    }
+
+    function unlockEmbedShell(reason = 'dashboard-embed') {
+        if (!isDashboardEmbed()) return false;
+
+        const screen = getDashboardScreen();
+
+        document.body?.classList.remove('yh-plaza-access-booting', 'yh-plaza-access-locked');
+        document.body?.classList.add('yh-plaza-dashboard-embed-ready');
+        document.body?.setAttribute('data-yh-dashboard-child-ready', 'true');
+        document.body?.setAttribute('data-yh-dashboard-active-screen', screen);
+        document.body?.setAttribute('data-yh-dashboard-child-ready-reason', reason);
+        document.body?.setAttribute('data-yh-dashboard-child-ready-at', String(Date.now()));
+
+        const gate = document.getElementById('plazaAccessGate');
+        if (gate) gate.hidden = true;
+
+        const shell = document.querySelector('.yh-plaza-shell');
+        if (shell instanceof HTMLElement) {
+            shell.style.setProperty('visibility', 'visible', 'important');
+            shell.style.removeProperty('display');
+        }
+
+        const loader = document.getElementById('yh-tab-loader');
+        if (loader) {
+            loader.hidden = true;
+            loader.classList.remove('is-active');
+            loader.setAttribute('aria-hidden', 'true');
+        }
+
+        try {
+            if (typeof showScreen === 'function') {
+                showScreen(screen);
+            } else {
+                const btn = document.querySelector('[data-nav-tab="' + screen + '"]');
+                if (btn && typeof btn.click === 'function' && !btn.classList.contains('is-active')) {
+                    btn.click();
+                }
+            }
+        } catch (_) {
+            try {
+                const btn = document.querySelector('[data-nav-tab="' + screen + '"]');
+                if (btn && typeof btn.click === 'function') btn.click();
+            } catch (_) {}
+        }
+
+        try {
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage(
+                    {
+                        type: 'yh:child-workspace-ready',
+                        division: 'plazas',
+                        workspaceKey: workspaceKeyFromScreen(screen),
+                        screen,
+                        reason
+                    },
+                    window.location.origin
+                );
+            }
+        } catch (_) {}
+
+        return true;
+    }
+
+    function boot(reason = 'boot') {
+        if (!isDashboardEmbed()) return;
+
+        unlockEmbedShell(reason);
+
+        window.requestAnimationFrame(() => unlockEmbedShell(reason + '-paint'));
+        window.setTimeout(() => unlockEmbedShell(reason + '-quick'), 220);
+        window.setTimeout(() => unlockEmbedShell(reason + '-late'), 720);
+        window.setTimeout(() => unlockEmbedShell(reason + '-safe'), 1300);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => boot('dom-ready'));
+    } else {
+        boot('already-ready');
+    }
+
+    window.addEventListener('load', () => boot('window-load'));
+    window.addEventListener('pageshow', () => boot('pageshow'));
+})();
+/* END PATCH: Plaza dashboard embed fast ready handshake v19 */
+
+/* PATCH: Plaza startup loader visibility bridge v123 */
+(function installPlazaStartupLoaderVisibilityBridgeV123() {
+  if (window.__plazaStartupLoaderVisibilityBridgeV123Installed) return;
+  window.__plazaStartupLoaderVisibilityBridgeV123Installed = true;
+
+  let bridgeOwnsStartupLoader = false;
+
+  function isPlazaPage() {
+    return document.body?.getAttribute("data-yh-page") === "plaza";
+  }
+
+  function isStartupBooting() {
+    return document.body?.classList.contains("yh-plaza-access-booting");
+  }
+
+  function getLoader() {
+    return document.getElementById("yh-tab-loader");
+  }
+
+  function revealStartupLoader(reason = "startup") {
+    if (!isPlazaPage() || !isStartupBooting()) return;
+
+    const loader = getLoader();
+    if (!loader) return;
+
+    bridgeOwnsStartupLoader = true;
+
+    loader.hidden = false;
+    loader.classList.remove("hidden-step");
+    loader.classList.add("is-active");
+    loader.setAttribute("aria-hidden", "false");
+    loader.setAttribute("data-yh-plaza-startup-loader", String(reason || "startup"));
+  }
+
+  function releaseStartupLoader(reason = "ready") {
+    if (!bridgeOwnsStartupLoader) return;
+
+    const loader = getLoader();
+    bridgeOwnsStartupLoader = false;
+
+    if (!loader) return;
+
+    loader.classList.remove("is-active");
+    loader.setAttribute("aria-hidden", "true");
+    loader.setAttribute("data-yh-plaza-startup-loader-release", String(reason || "ready"));
+
+    window.setTimeout(() => {
+      if (!loader.classList.contains("is-active")) {
+        loader.hidden = true;
+      }
+    }, 180);
+  }
+
+  function syncStartupLoader(reason = "sync") {
+    if (!isPlazaPage()) return;
+
+    if (isStartupBooting()) {
+      revealStartupLoader(reason);
+      return;
+    }
+
+    releaseStartupLoader(reason);
+  }
+
+  syncStartupLoader("install");
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => syncStartupLoader("dom-ready"));
+  } else {
+    window.requestAnimationFrame(() => syncStartupLoader("raf-ready"));
+  }
+
+  try {
+    const observer = new MutationObserver(() => syncStartupLoader("body-class-change"));
+
+    if (document.body) {
+      observer.observe(document.body, {
+        attributes: true,
+        attributeFilter: ["class"]
+      });
+    }
+
+    window.__plazaStartupLoaderVisibilityBridgeV123Observer = observer;
+  } catch (_) {}
+
+  window.setTimeout(() => syncStartupLoader("late-check"), 400);
+  window.setTimeout(() => syncStartupLoader("failsafe-check"), 5200);
+})();
+/* END PATCH: Plaza startup loader visibility bridge v123 */

@@ -5,7 +5,9 @@
   "main": "app.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "start": "node server.js",
+    "tw:build": "tailwindcss -i ./public/css/yh-tailwind.input.css -o ./public/css/yh-tailwind.css --minify",
+    "tw:watch": "tailwindcss -i ./public/css/yh-tailwind.input.css -o ./public/css/yh-tailwind.css --watch"
   },
   "keywords": [],
   "author": "",
@@ -28,5 +30,10 @@
     "socket.io": "^4.8.3",
     "stripe": "^22.1.0",
     "ws": "^8.21.0"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17"
   }
 }

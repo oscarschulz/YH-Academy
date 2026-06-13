@@ -1208,10 +1208,102 @@ exports.resendOTP = async (req, res) => {
 };
 
 
+function isLocalSuperdevLoginAllowed() {
+    const nodeEnv = String(process.env.NODE_ENV || '').trim().toLowerCase();
+
+    if (nodeEnv === 'production') {
+        return false;
+    }
+
+    const email = String(process.env.LOCAL_SUPERDEV_EMAIL || '').trim().toLowerCase();
+    const username = String(process.env.LOCAL_SUPERDEV_USERNAME || '').trim().replace(/^@+/, '').toLowerCase();
+    const password = String(process.env.LOCAL_SUPERDEV_PASSWORD || '');
+
+    return Boolean(email && username && password);
+}
+
+function buildLocalSuperdevUser() {
+    const email = String(process.env.LOCAL_SUPERDEV_EMAIL || 'superdev@yh.local').trim().toLowerCase();
+    const username = String(process.env.LOCAL_SUPERDEV_USERNAME || 'superdev').trim().replace(/^@+/, '').toLowerCase();
+    const fullName = String(process.env.LOCAL_SUPERDEV_NAME || 'Local Superdev').trim() || 'Local Superdev';
+
+    return {
+        id: 'local-superdev',
+        uid: 'local-superdev',
+        firebaseUid: 'local-superdev',
+        email,
+        username,
+        fullName,
+        displayName: fullName,
+        name: fullName,
+        firstName: fullName.split(/\s+/).filter(Boolean)[0] || 'Local',
+        surname: fullName.split(/\s+/).filter(Boolean).slice(1).join(' ') || 'Superdev',
+        city: 'Local',
+        country: 'Development',
+        countryCode: 'LOCAL',
+        avatar: '',
+        profilePhoto: '',
+        photoURL: '',
+        lat: null,
+        lng: null,
+        isVerified: true,
+        accountStatus: 'active',
+        role: 'superdev',
+        localDev: true,
+        source: 'local-superdev'
+    };
+}
+
+function resolveLocalSuperdevLogin(identifier = '', password = '') {
+    if (!isLocalSuperdevLoginAllowed()) {
+        return null;
+    }
+
+    const cleanIdentifier = String(identifier || '').trim().replace(/^@+/, '').toLowerCase();
+    const cleanPassword = String(password || '');
+
+    const localEmail = String(process.env.LOCAL_SUPERDEV_EMAIL || '').trim().toLowerCase();
+    const localUsername = String(process.env.LOCAL_SUPERDEV_USERNAME || '').trim().replace(/^@+/, '').toLowerCase();
+    const localPassword = String(process.env.LOCAL_SUPERDEV_PASSWORD || '');
+
+    const identifierMatches =
+        cleanIdentifier === localEmail ||
+        cleanIdentifier === localUsername;
+
+    if (!identifierMatches || cleanPassword !== localPassword) {
+        return null;
+    }
+
+    return buildLocalSuperdevUser();
+}
+
 exports.loginUser = async (req, res) => {
     try {
         const identifier = String(req.body?.identifier || '').trim();
         const password = String(req.body?.password || '');
+
+        const localSuperdevUser = resolveLocalSuperdevLogin(identifier, password);
+
+        if (localSuperdevUser) {
+            if (!process.env.JWT_SECRET) {
+                return res.status(500).json({
+                    success: false,
+                    message: 'Missing JWT_SECRET environment variable for local superdev login.'
+                });
+            }
+
+            const token = issueJwt(localSuperdevUser);
+            setAuthCookie(res, token);
+
+            return res.json({
+                success: true,
+                source: 'local-superdev',
+                localDev: true,
+                message: 'Local superdev login successful!',
+                token,
+                user: publicUser(localSuperdevUser)
+            });
+        }
 
         let user = null;
         let usedSupabaseFallback = false;

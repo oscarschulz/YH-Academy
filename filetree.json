@@ -1,6 +1,6 @@
 {
   "name": "YH-Academy",
-  "path": "c:\\Users\\baudss\\Documents\\github\\YH-Academy",
+  "path": "i:\\Users\\baudss\\Documents\\github\\YH-Academy",
   "type": "directory",
   "children": [
     {
@@ -56,11 +56,31 @@
               "type": "file"
             },
             {
+              "name": "paymentLedgerRepo.js",
+              "type": "file"
+            },
+            {
               "name": "publicLandingEventsRepo.js",
               "type": "file"
             },
             {
               "name": "realtimeFirestoreRepo.js",
+              "type": "file"
+            },
+            {
+              "name": "universeCollectionMirrorRepo.js",
+              "type": "file"
+            },
+            {
+              "name": "universeCollectionsReadRepo.js",
+              "type": "file"
+            },
+            {
+              "name": "universeCollectionsRepo.js",
+              "type": "file"
+            },
+            {
+              "name": "yhuSupabaseMirrorRepo.js",
               "type": "file"
             }
           ]
@@ -75,6 +95,10 @@
             },
             {
               "name": "aiNurtureAnalyzer.js",
+              "type": "file"
+            },
+            {
+              "name": "aiNurtureEvidenceBuilder.js",
               "type": "file"
             },
             {
@@ -96,6 +120,10 @@
             {
               "name": "urlContentExtractor.js",
               "type": "file"
+            },
+            {
+              "name": "yhUniverseKnowledgeContext.js",
+              "type": "file"
             }
           ]
         }
@@ -107,6 +135,10 @@
       "children": [
         {
           "name": "firebaseAdmin.js",
+          "type": "file"
+        },
+        {
+          "name": "supabaseAdmin.js",
           "type": "file"
         }
       ]
@@ -128,11 +160,27 @@
           "type": "file"
         },
         {
+          "name": "paymentControllers.js",
+          "type": "file"
+        },
+        {
+          "name": "plazaControllers.js",
+          "type": "file"
+        },
+        {
           "name": "publicLandingController.js",
           "type": "file"
         },
         {
           "name": "realtimeControllers.js",
+          "type": "file"
+        },
+        {
+          "name": "universeCollectionsControllers.js",
+          "type": "file"
+        },
+        {
+          "name": "universeCollectionsReadControllers.js",
           "type": "file"
         }
       ]
@@ -164,6 +212,34 @@
               "type": "file"
             }
           ]
+        },
+        {
+          "name": "collections",
+          "type": "folder",
+          "children": [
+            {
+              "name": "collections.css",
+              "type": "file"
+            },
+            {
+              "name": "collections.html",
+              "type": "file"
+            },
+            {
+              "name": "collections.js",
+              "type": "file"
+            }
+          ]
+        },
+        {
+          "name": "collections-login",
+          "type": "folder",
+          "children": [
+            {
+              "name": "login.html",
+              "type": "file"
+            }
+          ]
         }
       ]
     },
@@ -172,11 +248,255 @@
       "type": "folder",
       "children": [
         {
+          "name": "assets",
+          "type": "folder",
+          "children": [
+            {
+              "name": "academy",
+              "type": "folder",
+              "children": [
+                {
+                  "name": "federation icons",
+                  "type": "folder",
+                  "children": [
+                    {
+                      "name": "command.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "connect.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "deal rooms.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "directory.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "my access.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "my requests.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "referrals.png",
+                      "type": "file"
+                    }
+                  ]
+                },
+                {
+                  "name": "icons",
+                  "type": "folder",
+                  "children": [
+                    {
+                      "name": "1.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "2.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "3.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "4.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "5.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "6.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "7.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "8.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "academy-icon-circle.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "academy-icon-community-feed-news.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "academy-icon-global-community.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "academy-icon-live-voice-lounge.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "academy-icon-messages.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "academy-icon-missions.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "academy-icon-niches.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "academy-icon-pin.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "academy-icon-roadmap.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "call-mission.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "dms-icon.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "focus-mode-icon.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "groups-icon.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "handshake-mission.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "notif-bell.png",
+                      "type": "file"
+                    }
+                  ]
+                },
+                {
+                  "name": "plaza icons",
+                  "type": "folder",
+                  "children": [
+                    {
+                      "name": "bridge.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "conversations.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "directory.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "feed.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "inbox.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "meetups.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "opportunities.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "patron desk.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "patron.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "plaza atlas.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "regions.png",
+                      "type": "file"
+                    },
+                    {
+                      "name": "requests.png",
+                      "type": "file"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "dashboard",
+              "type": "folder",
+              "children": [
+                {
+                  "name": "academy.png",
+                  "type": "file"
+                },
+                {
+                  "name": "business-chats.png",
+                  "type": "file"
+                },
+                {
+                  "name": "edit-profile.png",
+                  "type": "file"
+                },
+                {
+                  "name": "federation.png",
+                  "type": "file"
+                },
+                {
+                  "name": "logout.png",
+                  "type": "file"
+                },
+                {
+                  "name": "plaza.png",
+                  "type": "file"
+                },
+                {
+                  "name": "settings.png",
+                  "type": "file"
+                },
+                {
+                  "name": "wallet.png",
+                  "type": "file"
+                }
+              ]
+            },
+            {
+              "name": "yh-ai-robot-avatar.png",
+              "type": "file"
+            }
+          ]
+        },
+        {
           "name": "css",
           "type": "folder",
           "children": [
             {
               "name": "academy-thread-bottom-fix.css",
+              "type": "file"
+            },
+            {
+              "name": "business-chats.css",
               "type": "file"
             },
             {
@@ -188,11 +508,23 @@
               "type": "file"
             },
             {
+              "name": "plaza.css",
+              "type": "file"
+            },
+            {
               "name": "responsive-apply.css",
               "type": "file"
             },
             {
               "name": "style.css",
+              "type": "file"
+            },
+            {
+              "name": "yh-tailwind.css",
+              "type": "file"
+            },
+            {
+              "name": "yh-tailwind.input.css",
               "type": "file"
             }
           ]
@@ -202,11 +534,221 @@
           "type": "folder",
           "children": [
             {
+              "name": "YHA",
+              "type": "folder",
+              "children": [
+                {
+                  "name": "photo_2026-04-23_11-11-42.webp",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-11-43.png",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-11-43.webp",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-11-44.webp",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-11-45.webp",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-11-46.webp",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-11-47.webp",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-11-48 (2).webp",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-11-48.webp",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-11-49.webp",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-11-50 (2).webp",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-11-50.webp",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-11-52 (2).webp",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-11-54.webp",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-11-55 (2).webp",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-11-55.webp",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-11-56.webp",
+                  "type": "file"
+                }
+              ]
+            },
+            {
+              "name": "YHF",
+              "type": "folder",
+              "children": [
+                {
+                  "name": "photo_2026-04-23_11-05-17.webp",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-05-19.webp",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-05-20.webp",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-05-21.webp",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-05-22.webp",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-05-23 (2).webp",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-05-23.webp",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-05-24.webp",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-05-25.webp",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-05-26.webp",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-05-28.webp",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-05-31.webp",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-05-33.webp",
+                  "type": "file"
+                }
+              ]
+            },
+            {
+              "name": "YHP",
+              "type": "folder",
+              "children": [
+                {
+                  "name": "photo_2026-04-23_11-05-19.jpg",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-05-20.jpg",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-05-21.jpg",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-05-23.jpg",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-05-28.jpg",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-05-31.jpg",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-05-33.jpg",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-11-42.jpg",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-11-43.jpg",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-11-45.jpg",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-11-48 (2).jpg",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-11-48.jpg",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-11-50.jpg",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-11-52 (2).jpg",
+                  "type": "file"
+                },
+                {
+                  "name": "photo_2026-04-23_11-11-54.jpg",
+                  "type": "file"
+                }
+              ]
+            },
+            {
+              "name": "2812.png",
+              "type": "file"
+            },
+            {
+              "name": "academy icon.png",
+              "type": "file"
+            },
+            {
               "name": "bg.avif",
               "type": "file"
             },
             {
               "name": "clouds.png",
+              "type": "file"
+            },
+            {
+              "name": "federation icon.png",
               "type": "file"
             },
             {
@@ -216,6 +758,30 @@
             {
               "name": "logo.png",
               "type": "file"
+            },
+            {
+              "name": "plaza icon.png",
+              "type": "file"
+            },
+            {
+              "name": "profile icon.png",
+              "type": "file"
+            },
+            {
+              "name": "yha badge.png",
+              "type": "file"
+            },
+            {
+              "name": "yhf badge.png",
+              "type": "file"
+            },
+            {
+              "name": "yhlobby.png",
+              "type": "file"
+            },
+            {
+              "name": "yhu-premium-bg.png",
+              "type": "file"
             }
           ]
         },
@@ -224,7 +790,15 @@
           "type": "folder",
           "children": [
             {
+              "name": "ai-nurture.css",
+              "type": "file"
+            },
+            {
               "name": "ai-nurture.html",
+              "type": "file"
+            },
+            {
+              "name": "ai-nurture.js",
               "type": "file"
             }
           ]
@@ -246,6 +820,10 @@
               "type": "file"
             },
             {
+              "name": "business-chats.js",
+              "type": "file"
+            },
+            {
               "name": "dashboard-mobile-fix.js",
               "type": "file"
             },
@@ -258,11 +836,29 @@
               "type": "file"
             },
             {
+              "name": "plaza.js",
+              "type": "file"
+            },
+            {
               "name": "yh-shared-core.js",
               "type": "file"
             },
             {
               "name": "yh-shared-runtime.js",
+              "type": "file"
+            }
+          ]
+        },
+        {
+          "name": "sounds",
+          "type": "folder",
+          "children": [
+            {
+              "name": "landing-button-click.wav",
+              "type": "file"
+            },
+            {
+              "name": "mixkit-gear-fast-lock-tap-2857.wav",
               "type": "file"
             }
           ]
@@ -318,11 +914,19 @@
           "type": "file"
         },
         {
+          "name": "business-chats.html",
+          "type": "file"
+        },
+        {
           "name": "dashboard.html",
           "type": "file"
         },
         {
           "name": "federation.html",
+          "type": "file"
+        },
+        {
+          "name": "plaza.html",
           "type": "file"
         }
       ]
@@ -346,6 +950,20 @@
       ]
     },
     {
+      "name": "scripts",
+      "type": "folder",
+      "children": [
+        {
+          "name": "import-yhu-firebase-federation-requests-to-supabase.js",
+          "type": "file"
+        },
+        {
+          "name": "import-yhu-firebase-users-to-supabase.js",
+          "type": "file"
+        }
+      ]
+    },
+    {
       "name": ".gitignore",
       "type": "file"
     },
@@ -362,6 +980,26 @@
       "type": "file"
     },
     {
+      "name": "live-academy-v15.js",
+      "type": "file"
+    },
+    {
+      "name": "live-academy-v16.js",
+      "type": "file"
+    },
+    {
+      "name": "live-academy-v17.js",
+      "type": "file"
+    },
+    {
+      "name": "live-academy-v21.js",
+      "type": "file"
+    },
+    {
+      "name": "live-academy.html",
+      "type": "file"
+    },
+    {
       "name": "nothing",
       "type": "file"
     },
@@ -374,12 +1012,20 @@
       "type": "file"
     },
     {
+      "name": "postcss.config.js",
+      "type": "file"
+    },
+    {
       "name": "server.js",
+      "type": "file"
+    },
+    {
+      "name": "tailwind.config.js",
       "type": "file"
     }
   ],
   "metadata": {
-    "generated": "2026-04-17T22:38:46.997Z",
+    "generated": "2026-06-10T20:10:25.496Z",
     "generator": "FileTree Pro Extension",
     "version": "0.2.0",
     "showIcons": false,

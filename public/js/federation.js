@@ -133,127 +133,7 @@ const STORAGE_KEYS = {
   connectRequests: "yh_federation_connect_requests_v1"
 };
 
-/* PATCH: Federation child tab icon chrome v1 */
-const FEDERATION_ICON_ASSETS = Object.freeze({
-  command: "/assets/academy/federation%20icons/command.png",
-  connect: "/assets/academy/federation%20icons/connect.png",
-  "deal-rooms": "/assets/academy/federation%20icons/deal%20rooms.png",
-  directory: "/assets/academy/federation%20icons/directory.png",
-  requests: "/assets/academy/federation%20icons/my%20requests.png",
-  referrals: "/assets/academy/federation%20icons/referrals.png",
-  status: "/assets/academy/federation%20icons/my%20access.png",
-  access: "/assets/academy/federation%20icons/my%20access.png"
-});
 
-function normalizeFederationIconKey(value = "command") {
-  const clean = String(value || "command")
-    .trim()
-    .toLowerCase()
-    .replace(/^#/, "")
-    .replace(/^federation-/, "")
-    .replace(/\s+/g, "-")
-    .replace(/_/g, "-");
-
-  if (clean === "my-access") return "status";
-  if (clean === "federation-access") return "status";
-  if (clean === "my-requests") return "requests";
-  if (clean === "dealrooms") return "deal-rooms";
-
-  return FEDERATION_ICON_ASSETS[clean] ? clean : "command";
-}
-
-function getFederationIconAsset(value = "command") {
-  return FEDERATION_ICON_ASSETS[normalizeFederationIconKey(value)] || FEDERATION_ICON_ASSETS.command;
-}
-
-function ensureFederationInlineIcon(target, iconKey = "command", classPrefix = "fed-inline-icon") {
-  if (!(target instanceof HTMLElement)) return false;
-
-  const cleanKey = normalizeFederationIconKey(iconKey);
-  const iconSrc = getFederationIconAsset(cleanKey);
-
-  target.classList.add(`${classPrefix}-host`);
-  target.setAttribute("data-fed-icon-key", cleanKey);
-
-  let icon = Array.from(target.children || []).find((child) => {
-    return child instanceof HTMLElement && child.classList.contains(classPrefix);
-  });
-
-  if (!icon) {
-    icon = document.createElement("span");
-    icon.className = classPrefix;
-    icon.setAttribute("aria-hidden", "true");
-    target.prepend(icon);
-  }
-
-  let img = icon.querySelector("img");
-
-  if (!img) {
-    img = document.createElement("img");
-    img.alt = "";
-    img.loading = "lazy";
-    img.decoding = "async";
-    img.className = `${classPrefix}-img`;
-    icon.appendChild(img);
-  }
-
-  if (img.getAttribute("src") !== iconSrc) {
-    img.setAttribute("src", iconSrc);
-  }
-
-  return true;
-}
-
-function getFederationSectionIconKey(section) {
-  if (!(section instanceof HTMLElement)) return "command";
-
-  const sectionId = String(section.id || section.dataset.section || "command").trim().toLowerCase();
-
-  if (sectionId === "status") return "status";
-  if (sectionId === "requests") return "requests";
-  if (sectionId === "deal-rooms") return "deal-rooms";
-
-  return normalizeFederationIconKey(sectionId);
-}
-
-function installFederationIconChrome() {
-  qsa(".fed-nav-link[href^='#']").forEach((link) => {
-    const key = normalizeFederationIconKey(extractSectionId(link.getAttribute("href")) || "command");
-    ensureFederationInlineIcon(link, key, "fed-nav-icon");
-  });
-
-  qsa(".fed-topbar-actions [data-jump], .fed-topbar-quick-link[href^='#']").forEach((trigger) => {
-    const key = normalizeFederationIconKey(extractSectionId(trigger.getAttribute("data-jump") || trigger.getAttribute("href")) || "command");
-    ensureFederationInlineIcon(trigger, key, "fed-action-icon");
-  });
-
-  qsa(".fed-section[data-section]").forEach((section) => {
-    const iconKey = getFederationSectionIconKey(section);
-    const heading = qs(".fed-section-head h3", section);
-
-    if (heading) {
-      ensureFederationInlineIcon(heading, iconKey, "fed-section-title-icon");
-      heading.classList.add("fed-section-title-with-icon");
-    }
-  });
-}
-
-function syncFederationIconState(activeKey = "command") {
-  const cleanActiveKey = normalizeFederationIconKey(activeKey);
-
-  document.body?.setAttribute("data-fed-active-icon-key", cleanActiveKey);
-
-  qsa(".fed-nav-link[href^='#']").forEach((link) => {
-    const key = normalizeFederationIconKey(extractSectionId(link.getAttribute("href")) || "command");
-    link.classList.toggle("has-active-fed-icon", key === cleanActiveKey);
-  });
-
-  qsa(".fed-section[data-section]").forEach((section) => {
-    const iconKey = getFederationSectionIconKey(section);
-    section.setAttribute("data-fed-section-icon-key", iconKey);
-  });
-}
-/* END PATCH: Federation child tab icon chrome v1 */
 
 const seedMembers = [
   {
@@ -4892,13 +4772,21 @@ function getSafeSectionId(targetId = "") {
   return sectionIds[0];
 }
 
-function setActiveSection(targetId = "", options = {}) {
-  const { syncHash = true, showLoader = true, deferDashboardReady = false } = options;
-  const nextSectionId = getSafeSectionId(targetId);
 
+function setActiveSection(targetId = "", options = {}) {
+  const {
+    syncHash = true,
+    showLoader = true,
+    deferDashboardReady = false,
+    preserveScroll = false
+  } = options || {};
+
+  const nextSectionId = getSafeSectionId(targetId);
   if (!nextSectionId) return;
 
   const previousSectionId = activeSectionId || extractSectionId(window.location.hash) || "";
+  const isSameSection = previousSectionId === nextSectionId;
+
   const shouldShowLoader =
     showLoader !== false &&
     Boolean(previousSectionId) &&
@@ -4928,9 +4816,6 @@ function setActiveSection(targetId = "", options = {}) {
     );
   });
 
-  installFederationIconChrome();
-  syncFederationIconState(nextSectionId);
-
   if (typeof window.__yhfCloseMobileMore === "function") {
     window.__yhfCloseMobileMore();
   }
@@ -4940,20 +4825,18 @@ function setActiveSection(targetId = "", options = {}) {
     quickMenu.open = false;
   }
 
-  const main = qs("#fedMain");
-  if (main) {
-    main.scrollTo({
-      top: 0,
-      behavior: "auto"
-    });
-  }
+  const shouldResetScroll = preserveScroll !== true && !isSameSection;
 
-  const pageScroller = document.scrollingElement || document.documentElement;
-  if (pageScroller) {
-    pageScroller.scrollTo({
-      top: 0,
-      behavior: "auto"
-    });
+  if (shouldResetScroll) {
+    const main = qs("#fedMain");
+    if (main) {
+      main.scrollTo({ top: 0, behavior: "auto" });
+    }
+
+    const pageScroller = document.scrollingElement || document.documentElement;
+    if (pageScroller) {
+      pageScroller.scrollTo({ top: 0, behavior: "auto" });
+    }
   }
 
   if (nextSectionId === "expansion" && typeof window.__yhfRenderMapRoutes === "function") {
@@ -4969,13 +4852,13 @@ function setActiveSection(targetId = "", options = {}) {
   if (nextSectionId === "connect" || nextSectionId === "requests") {
     loaderWaitsForAsync = true;
 
-    loadFederationConnectData({ force: nextSectionId === "requests" })
+    loadFederationConnectData({ force: nextSectionId === "requests" && !isSameSection })
       .catch((error) => {
         console.error("Federation Connect active-section load error:", error);
       })
       .finally(() => {
         if (shouldShowLoader) {
-          window.setTimeout(hideFederationTabLoader, 160);
+          window.setTimeout(hideFederationTabLoader, 120);
         }
 
         if (!deferDashboardReady) {
@@ -4989,7 +4872,7 @@ function setActiveSection(targetId = "", options = {}) {
   if (nextSectionId === "deal-rooms") {
     loaderWaitsForAsync = true;
 
-    loadFederationServerState({ force: true })
+    loadFederationServerState({ force: !isSameSection })
       .then(() => {
         renderFederationDealRoomsSection();
       })
@@ -4998,7 +4881,7 @@ function setActiveSection(targetId = "", options = {}) {
       })
       .finally(() => {
         if (shouldShowLoader) {
-          window.setTimeout(hideFederationTabLoader, 160);
+          window.setTimeout(hideFederationTabLoader, 120);
         }
 
         if (!deferDashboardReady) {
@@ -5009,8 +4892,8 @@ function setActiveSection(targetId = "", options = {}) {
       });
   }
 
-  if (syncHash && typeof history !== "undefined") {
-    history.replaceState(null, "", `#${nextSectionId}`);
+  if (syncHash && typeof history !== "undefined" && !isSameSection) {
+    history.replaceState(null, "", "#" + nextSectionId);
   }
 
   if (!loaderWaitsForAsync) {
@@ -5023,7 +4906,7 @@ function setActiveSection(targetId = "", options = {}) {
         if (!deferDashboardReady) {
           markFederationDashboardChildReady(nextSectionId, "section-ready");
         }
-      }, shouldShowLoader ? 260 : 80);
+      }, shouldShowLoader ? 120 : 40);
     });
   }
 }
@@ -5035,25 +4918,56 @@ function refreshActiveSection() {
 
 window.setYHFederationActiveSection = setActiveSection;
 
-/* PATCH: Federation dashboard embedded scroll bridge v2 */
+
+
+/* PATCH: Federation dashboard embedded scroll bridge stable syntax v7 */
 function installFederationDashboardEmbeddedScrollBridge() {
-  if (document.body?.dataset.fedDashboardEmbeddedScrollBridgeV2 === "true") return;
+  if (document.body?.dataset.fedDashboardEmbeddedScrollBridgeV7 === "true") return;
 
   if (document.body) {
-    document.body.dataset.fedDashboardEmbeddedScrollBridgeV2 = "true";
-    document.body.dataset.fedDashboardFederationScrollMode = "parent-page";
+    document.body.dataset.fedDashboardEmbeddedScrollBridgeV7 = "true";
+    document.body.dataset.fedDashboardFederationScrollMode = "child-main";
+    document.body.classList.add("yh-dashboard-federation-scroll-child-main");
+    document.body.classList.remove("yh-dashboard-federation-scroll-parent-page");
   }
 
-  document.documentElement.classList.add("yh-dashboard-federation-scroll-parent-page");
+  document.documentElement.classList.add("yh-dashboard-federation-scroll-child-main");
+  document.documentElement.classList.remove("yh-dashboard-federation-scroll-parent-page");
+
+  const shell = document.querySelector(".fed-shell");
+  const main = document.getElementById("fedMain");
+
+  document.documentElement.style.setProperty("height", "100%", "important");
+  document.documentElement.style.setProperty("overflow", "hidden", "important");
+  document.documentElement.style.setProperty("overscroll-behavior", "none", "important");
 
   if (document.body) {
-    document.body.classList.add("yh-dashboard-federation-scroll-parent-page");
+    document.body.style.setProperty("height", "100%", "important");
+    document.body.style.setProperty("overflow", "hidden", "important");
+    document.body.style.setProperty("overscroll-behavior", "none", "important");
   }
 
-  // The parent Dashboard owns embedded Federation scrolling.
-  // Do not bind wheel/keydown handlers here because they compete with the parent iframe scroll bridge.
+  if (shell) {
+    shell.style.setProperty("height", "100%", "important");
+    shell.style.setProperty("max-height", "100%", "important");
+    shell.style.setProperty("min-height", "0", "important");
+    shell.style.setProperty("overflow", "hidden", "important");
+  }
+
+  if (main) {
+    main.style.setProperty("height", "100%", "important");
+    main.style.setProperty("max-height", "100%", "important");
+    main.style.setProperty("min-height", "0", "important");
+    main.style.setProperty("overflow-y", "auto", "important");
+    main.style.setProperty("overflow-x", "hidden", "important");
+    main.style.setProperty("-webkit-overflow-scrolling", "touch", "important");
+    main.style.setProperty("overscroll-behavior", "contain", "important");
+    main.style.setProperty("touch-action", "pan-y", "important");
+    main.style.setProperty("scroll-behavior", "auto", "important");
+    main.style.setProperty("padding-bottom", "clamp(110px, 11vh, 150px)", "important");
+  }
 }
-/* END PATCH: Federation dashboard embedded scroll bridge v2 */
+/* END PATCH: Federation dashboard embedded scroll bridge stable syntax v7 */
 
 function initSectionNavigation() {
   document.body.dataset.fedNavMode = "tabs";
@@ -6493,8 +6407,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   initAdminModeToggle();
   initAdminActions();
 
-  installFederationIconChrome();
-  syncFederationIconState("command");
 
   const bindUniverseReturnLink = (selector) => {
     const link = document.querySelector(selector);
@@ -6588,3 +6500,63 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   exposeHelpers();
 });
+
+/* PATCH: Federation sidebar parity boot v127 */
+(function installFederationSidebarParityBootV127() {
+  if (window.__fedSidebarParityBootV127Installed) return;
+  window.__fedSidebarParityBootV127Installed = true;
+
+  function isDashboardEmbed() {
+    try {
+      const url = new URL(window.location.href);
+      return (
+        url.searchParams.get('embed') === 'dashboard' ||
+        url.searchParams.get('shell') === 'dashboard' ||
+        window.parent !== window
+      );
+    } catch (_) {
+      return window.parent !== window;
+    }
+  }
+
+  function syncFederationSidebarParity() {
+    if (!document.body) return;
+
+    document.documentElement.classList.add('yh-federation-sidebar-parity-v127');
+    document.body.classList.add('yh-federation-sidebar-parity-v127');
+
+    if (isDashboardEmbed()) {
+      document.documentElement.classList.add('yh-federation-dashboard-embed-sidebar-v127');
+      document.body.classList.add('yh-federation-dashboard-embed-sidebar-v127');
+      document.body.dataset.yhFederationEmbeddedSidebar = 'v127';
+    }
+
+    const currentSection = String(document.body.dataset.yhDashboardActiveSection || '').trim().toLowerCase();
+
+    const requestedSection = (() => {
+      try {
+        const url = new URL(window.location.href);
+        return String(url.searchParams.get('dashboardSection') || url.hash || 'command').replace(/^#/, '').trim().toLowerCase();
+      } catch (_) {
+        return String(window.location.hash || 'command').replace(/^#/, '').trim().toLowerCase();
+      }
+    })();
+
+    if (isDashboardEmbed() && !currentSection && typeof window.setYHFederationActiveSection === 'function') {
+      window.setYHFederationActiveSection(requestedSection || 'command', {
+        syncHash: false,
+        showLoader: false,
+        preserveScroll: true
+      });
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', syncFederationSidebarParity);
+  } else {
+    syncFederationSidebarParity();
+  }
+
+  [80, 220, 520, 1100].forEach((delay) => window.setTimeout(syncFederationSidebarParity, delay));
+})();
+/* END PATCH: Federation sidebar parity boot v127 */

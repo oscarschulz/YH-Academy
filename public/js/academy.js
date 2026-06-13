@@ -1,3 +1,64 @@
+
+
+/* PATCH: YHU Solo toast placement runtime v104 */
+(function installYHSoloToastPlacementV104() {
+    if (window.__yhSoloToastPlacementV104Installed) return;
+    window.__yhSoloToastPlacementV104Installed = true;
+
+    function applyToastPlacement(node) {
+        if (!node || !(node instanceof HTMLElement)) return;
+
+        node.setAttribute('data-yh-toast-placement', 'below-right');
+        node.classList.add('yh-solo-toast-below-right-v104');
+
+        node.style.setProperty('position', 'fixed', 'important');
+        node.style.setProperty('top', 'auto', 'important');
+        node.style.setProperty('left', 'auto', 'important');
+        node.style.setProperty('right', 'clamp(18px, 2vw, 30px)', 'important');
+        node.style.setProperty('bottom', 'clamp(18px, 2vw, 30px)', 'important');
+        node.style.setProperty('margin', '0', 'important');
+        node.style.setProperty('border-radius', '0', 'important');
+        node.style.setProperty('transform', node.classList.contains('show') ? 'translate3d(0, 0, 0) scale(1)' : 'translate3d(12px, 10px, 0) scale(0.96)', 'important');
+    }
+
+    function syncToastPlacement() {
+        applyToastPlacement(document.getElementById('toast-notification'));
+        document.querySelectorAll('.toast-notification, [data-yh-toast], [data-toast]').forEach(applyToastPlacement);
+
+        const academyStateBadge = document.getElementById('academy-entry-state-badge');
+        if (academyStateBadge) {
+            academyStateBadge.setAttribute('data-yh-academy-state-toast', 'below-right');
+            academyStateBadge.classList.add('yh-solo-toast-below-right-v104');
+        }
+    }
+
+    window.yhSyncSoloToastPlacementV104 = syncToastPlacement;
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', syncToastPlacement);
+    } else {
+        syncToastPlacement();
+    }
+
+    [40, 120, 300, 700, 1400, 2400].forEach((delay) => window.setTimeout(syncToastPlacement, delay));
+
+    try {
+        const observer = new MutationObserver(() => {
+            window.clearTimeout(window.__yhSoloToastPlacementV104Timer);
+            window.__yhSoloToastPlacementV104Timer = window.setTimeout(syncToastPlacement, 20);
+        });
+
+        observer.observe(document.documentElement, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['class', 'style']
+        });
+
+        window.__yhSoloToastPlacementV104Observer = observer;
+    } catch (_) {}
+})();
+/* END PATCH: YHU Solo toast placement runtime v104 */
 // public/js/dashboard.js
 
 // ==========================================
@@ -22881,6 +22942,79 @@ async function academyFeedSendFriendRequest(targetUserId) {
         showToast(error.message || 'Failed to send friend request.', 'error');
     }
 }
+/* PATCH: Academy Momentum Board frontend renderer v96 */
+function academyMomentumEscapeV96(value = "") {
+    return String(value ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/\'/g,"&#39;");
+}
+function academyMomentumNumberV96(value, fallback = 0) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : fallback;
+}
+function academyMomentumPercentV96(value) {
+    const n = academyMomentumNumberV96(value, 0);
+    if (n >= 0 && n <= 1) return Math.round(n * 100);
+    return Math.max(0, Math.min(100, Math.round(n)));
+}
+function academyGetMomentumMissionsV96(home = {}) {
+    const sources = [home?.missions, home?.roadmap?.missions, home?.roadmapMissions, home?.today?.missions, home?.todayProgress?.missions];
+    for (const source of sources) if (Array.isArray(source)) return source.filter(Boolean);
+    return [];
+}
+function academyMissionDoneV96(mission = {}) {
+    const status = String(mission.status || mission.missionStatus || mission.state || "pending").trim().toLowerCase();
+    return status === "completed" || status === "complete" || status === "done" || status === "cleared" || mission.completed === true || mission.isCompleted === true;
+}
+function academyBuildMomentumV96(homeData = null) {
+    const home = homeData && typeof homeData === "object" ? homeData : (typeof readAcademyHomeCache === "function" ? readAcademyHomeCache() : null) || {};
+    const missions = academyGetMomentumMissionsV96(home);
+    const completedFromList = missions.filter(academyMissionDoneV96).length;
+    const total = academyMomentumNumberV96(home?.today?.missionsTotal, 0) || academyMomentumNumberV96(home?.todayProgress?.missionsTotal, 0) || academyMomentumNumberV96(home?.missionsTotal, 0) || missions.length;
+    const completed = academyMomentumNumberV96(home?.today?.missionsCompleted, 0) || academyMomentumNumberV96(home?.todayProgress?.missionsCompleted, 0) || academyMomentumNumberV96(home?.missionsCompleted, 0) || completedFromList;
+    const progressRaw = home?.today?.progress ?? home?.today?.todayProgress ?? home?.todayProgress?.progress ?? home?.progress;
+    const progress = progressRaw !== undefined && progressRaw !== null ? academyMomentumPercentV96(progressRaw) : total > 0 ? academyMomentumPercentV96(completed / total) : 0;
+    const streak = academyMomentumNumberV96(home?.today?.streak, 0) || academyMomentumNumberV96(home?.streak, 0) || academyMomentumNumberV96(home?.todayProgress?.streak, 0);
+    const readiness = home?.today?.readinessScore ?? home?.readinessScore ?? home?.plazaReadiness?.score ?? home?.todayProgress?.readinessScore ?? "--";
+    const activeMission = missions.find((mission) => !academyMissionDoneV96(mission)) || missions[0] || null;
+    const nextSignal = String(activeMission?.title || activeMission?.name || activeMission?.label || home?.today?.nextMission || home?.nextMission || "Awaiting first mission").trim();
+    return { progress, total, completed, streak, readiness, nextSignal, hasMomentum: Boolean(total || completed || streak || missions.length) };
+}
+function academyRenderMomentumBoardV96(homeData = null) {
+    const board = document.getElementById("leaderboard-list");
+    if (!board) return;
+    const s = academyBuildMomentumV96(homeData);
+    const missionLabel = s.total > 0 ? String(s.completed) + "/" + String(s.total) : String(s.completed || 0);
+    board.classList.add("academy-momentum-board-v96");
+    board.setAttribute("data-yh-momentum-board", "v96");
+    board.innerHTML = '<li class="academy-momentum-card-v96 ' + (s.hasMomentum ? 'has-momentum' : 'is-empty') + '">' +
+        '<div class="academy-momentum-head-v96"><span class="academy-momentum-kicker-v96">ROADMAP SYNC</span><strong>' + academyMomentumEscapeV96(s.progress) + '%</strong></div>' +
+        '<div class="academy-momentum-track-v96" aria-hidden="true"><span style="width:' + academyMomentumEscapeV96(s.progress) + '%;"></span></div>' +
+        '<div class="academy-momentum-stat-grid-v96">' +
+        '<div class="academy-momentum-stat-v96"><span>MISSION</span><strong>' + academyMomentumEscapeV96(missionLabel) + '</strong></div>' +
+        '<div class="academy-momentum-stat-v96"><span>STREAK</span><strong>' + academyMomentumEscapeV96(s.streak) + 'D</strong></div>' +
+        '<div class="academy-momentum-stat-v96"><span>RANK</span><strong>' + academyMomentumEscapeV96(s.readiness) + '</strong></div>' +
+        '</div><div class="academy-momentum-next-v96"><span>NEXT SIGNAL</span><strong>' + academyMomentumEscapeV96(s.nextSignal) + '</strong></div></li>';
+}
+function academyScheduleMomentumBoardRenderV96(homeData = null) {
+    window.requestAnimationFrame(() => { try { academyRenderMomentumBoardV96(homeData); } catch (error) { console.error("academyRenderMomentumBoardV96 error:", error); } });
+}
+function academyInstallMomentumBoardRendererV96() {
+    if (window.__yhAcademyMomentumBoardRendererV96Installed) { academyScheduleMomentumBoardRenderV96(typeof readAcademyHomeCache === "function" ? readAcademyHomeCache() : null); return; }
+    if (typeof renderAcademyHome === "function") {
+        const originalRenderAcademyHomeV96 = renderAcademyHome;
+        renderAcademyHome = function wrappedAcademyMomentumRenderV96(homeData = null) {
+            const result = originalRenderAcademyHomeV96.apply(this, arguments);
+            academyScheduleMomentumBoardRenderV96(homeData);
+            return result;
+        };
+    }
+    window.__yhAcademyMomentumBoardRendererV96Installed = true;
+    academyScheduleMomentumBoardRenderV96(typeof readAcademyHomeCache === "function" ? readAcademyHomeCache() : null);
+}
+academyInstallMomentumBoardRendererV96();
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => academyInstallMomentumBoardRendererV96(), { once: true });
+else academyInstallMomentumBoardRendererV96();
+/* END PATCH: Academy Momentum Board frontend renderer v96 */
+
 async function loadAcademyHome(forceFresh = false) {
     let cachedHome = null;
 
@@ -34388,3 +34522,206 @@ function lockBotToVisibleBottom() {
     window.setTimeout(academyScheduleLowerRightAiCoachAvatarSync, 3200);
 })();
 /* END PATCH: Academy lower-right AI Coach robot avatar normalizer v2 */
+
+/* PATCH: Academy dashboard embed fast ready handshake v19 */
+(function installAcademyDashboardEmbedFastReadyHandshakeV19() {
+    if (window.__academyDashboardEmbedFastReadyV19Installed) return;
+    window.__academyDashboardEmbedFastReadyV19Installed = true;
+
+    function isDashboardEmbed() {
+        try {
+            const url = new URL(window.location.href);
+            return (
+                url.searchParams.get('embed') === 'dashboard' ||
+                url.searchParams.get('shell') === 'dashboard' ||
+                window.parent !== window
+            );
+        } catch (_) {
+            return window.parent !== window;
+        }
+    }
+
+    function getDashboardSection() {
+        try {
+            const url = new URL(window.location.href);
+            return String(
+                url.searchParams.get('dashboardSection') ||
+                url.searchParams.get('section') ||
+                sessionStorage.getItem('yh_academy_startup_section_v1') ||
+                'home'
+            ).trim().toLowerCase();
+        } catch (_) {
+            return 'home';
+        }
+    }
+
+    function workspaceKeyFromSection(section = 'home') {
+        const clean = String(section || 'home').trim().toLowerCase();
+
+        if (clean === 'lead-missions' || clean === 'missions') return 'academy-missions';
+        if (clean === 'community') return 'academy-community';
+        if (clean === 'messages') return 'academy-messages';
+        if (clean === 'voice') return 'academy-voice';
+
+        return 'academy-roadmap';
+    }
+
+    function hideLocalLoaders(reason = 'dashboard-embed') {
+        document.body?.classList.add('academy-shell-ready');
+        document.body?.classList.remove('academy-startup-booting');
+        document.body?.classList.remove('academy-standalone-shell-pending');
+        document.body?.removeAttribute('data-academy-tab-loading');
+
+        ['yh-academy-startup-loader', 'yh-tab-loader'].forEach((id) => {
+            const loader = document.getElementById(id);
+            if (!loader) return;
+
+            loader.classList.add('hidden-step');
+            loader.classList.add('is-exiting');
+            loader.setAttribute('aria-hidden', 'true');
+            loader.style.setProperty('display', 'none', 'important');
+            loader.style.setProperty('opacity', '0', 'important');
+            loader.style.setProperty('visibility', 'hidden', 'important');
+            loader.style.setProperty('pointer-events', 'none', 'important');
+            loader.dataset.releaseReason = reason;
+        });
+
+        try {
+            if (typeof academyReleaseTabLoaderHardV7 === 'function') {
+                academyReleaseTabLoaderHardV7(reason);
+            }
+        } catch (_) {}
+
+        try {
+            if (typeof academyForceReleaseAllLoadingOverlaysV11 === 'function') {
+                academyForceReleaseAllLoadingOverlaysV11(reason);
+            }
+        } catch (_) {}
+    }
+
+    function openEmbeddedSection(section = getDashboardSection()) {
+        const clean = String(section || 'home').trim().toLowerCase();
+
+        try {
+            if (clean === 'community') {
+                if (typeof openAcademyFeedView === 'function') {
+                    openAcademyFeedView(false);
+                    return true;
+                }
+
+                document.getElementById('nav-chat')?.click?.();
+                return true;
+            }
+
+            if (clean === 'messages') {
+                if (typeof openAcademyMessagesView === 'function') {
+                    openAcademyMessagesView();
+                    return true;
+                }
+
+                document.getElementById('nav-messages')?.click?.();
+                return true;
+            }
+
+            if (clean === 'voice') {
+                if (typeof openRoom === 'function') {
+                    openRoom('voice-lobby', document.getElementById('nav-voice'));
+                    return true;
+                }
+
+                document.getElementById('nav-voice')?.click?.();
+                return true;
+            }
+
+            if (clean === 'lead-missions' || clean === 'missions') {
+                if (
+                    typeof revealAcademyMissionsViewShell === 'function' &&
+                    typeof setAcademyMissionsPanel === 'function'
+                ) {
+                    revealAcademyMissionsViewShell();
+                    setAcademyMissionsPanel('hub');
+                    return true;
+                }
+
+                if (typeof openAcademyMissionsView === 'function') {
+                    openAcademyMissionsView();
+                    return true;
+                }
+
+                document.getElementById('nav-lead-missions')?.click?.();
+                return true;
+            }
+
+            if (typeof openAcademyRoadmapView === 'function') {
+                openAcademyRoadmapView(false);
+                return true;
+            }
+
+            document.getElementById('nav-missions')?.click?.();
+            return true;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function notifyReady(reason = 'ready') {
+        if (!isDashboardEmbed()) return;
+
+        const section = getDashboardSection();
+        const workspaceKey = workspaceKeyFromSection(section);
+
+        document.body?.setAttribute('data-yh-dashboard-child-ready', 'true');
+        document.body?.setAttribute('data-yh-dashboard-active-section', section || 'home');
+        document.body?.setAttribute('data-yh-dashboard-child-ready-reason', String(reason || 'ready'));
+        document.body?.setAttribute('data-yh-dashboard-child-ready-at', String(Date.now()));
+
+        try {
+            if (window.parent && window.parent !== window) {
+                window.parent.postMessage(
+                    {
+                        type: 'yh:child-workspace-ready',
+                        division: 'academy',
+                        workspaceKey,
+                        section,
+                        reason
+                    },
+                    window.location.origin
+                );
+            }
+        } catch (_) {}
+    }
+
+    function boot(reason = 'boot') {
+        if (!isDashboardEmbed()) return;
+
+        hideLocalLoaders(reason);
+        openEmbeddedSection(getDashboardSection());
+
+        window.requestAnimationFrame(() => {
+            hideLocalLoaders(reason + '-paint');
+            notifyReady(reason + '-paint');
+        });
+
+        window.setTimeout(() => {
+            hideLocalLoaders(reason + '-quick');
+            openEmbeddedSection(getDashboardSection());
+            notifyReady(reason + '-quick');
+        }, 260);
+
+        window.setTimeout(() => {
+            hideLocalLoaders(reason + '-late');
+            openEmbeddedSection(getDashboardSection());
+            notifyReady(reason + '-late');
+        }, 780);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => boot('dom-ready'));
+    } else {
+        boot('already-ready');
+    }
+
+    window.addEventListener('load', () => boot('window-load'));
+    window.addEventListener('pageshow', () => boot('pageshow'));
+})();
+/* END PATCH: Academy dashboard embed fast ready handshake v19 */

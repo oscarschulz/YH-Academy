@@ -1,10 +1,10 @@
 :root {
   --bg: #070b13;
-  --panel: rgba(14, 19, 31, 0.88);
-  --panel-2: rgba(16, 24, 40, 0.9);
-  --panel-3: rgba(9, 14, 25, 0.98);
-  --card: rgba(19, 27, 44, 0.9);
-  --card-soft: rgba(14, 21, 35, 0.85);
+  --panel: rgba(14, 19, 31, 0.28);
+  --panel-2: rgba(16, 24, 40, 0.28);
+  --panel-3: rgba(9, 14, 25, 0.28);
+  --card: rgba(19, 27, 44, 0.28);
+  --card-soft: rgba(14, 21, 35, 0.28);
   --border: rgba(255, 255, 255, 0.08);
   --border-strong: rgba(255, 255, 255, 0.14);
   --text: #eef4ff;
@@ -68,83 +68,6 @@ a {
   text-decoration: none;
 }
 
-/* PATCH: Federation embedded Dashboard scroll fix v3 */
-html.yh-dashboard-inline-embed-root,
-html.yh-dashboard-federation-embed-root,
-body.yh-dashboard-inline-embed-body[data-yh-view="federation"],
-body.yh-dashboard-inline-embed-body[data-yh-page="federation"],
-body.yh-dashboard-federation-embed-body {
-  width: 100% !important;
-  height: 100% !important;
-  min-height: 100% !important;
-  overflow: hidden !important;
-  overscroll-behavior: contain !important;
-}
-
-body.yh-dashboard-inline-embed-body[data-yh-view="federation"] .fed-shell,
-body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .fed-shell,
-body.yh-dashboard-federation-embed-body .fed-shell {
-  width: 100% !important;
-  height: 100% !important;
-  max-height: 100% !important;
-  min-height: 0 !important;
-  display: grid !important;
-  grid-template-columns: minmax(0, 1fr) !important;
-  grid-template-rows: minmax(0, 1fr) !important;
-  overflow: hidden !important;
-}
-
-body.yh-dashboard-inline-embed-body[data-yh-view="federation"] .fed-main,
-body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .fed-main,
-body.yh-dashboard-federation-embed-body .fed-main {
-  width: 100% !important;
-  height: 100% !important;
-  max-height: 100% !important;
-  min-height: 0 !important;
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  -webkit-overflow-scrolling: touch !important;
-  overscroll-behavior: contain !important;
-  touch-action: pan-y !important;
-  scroll-behavior: auto !important;
-  padding-bottom: clamp(80px, 8vh, 120px) !important;
-  scrollbar-width: thin !important;
-  scrollbar-color: rgba(56, 189, 248, 0.42) rgba(2, 6, 23, 0.18) !important;
-}
-
-body.yh-dashboard-inline-embed-body[data-yh-view="federation"] .fed-main::-webkit-scrollbar,
-body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .fed-main::-webkit-scrollbar,
-body.yh-dashboard-federation-embed-body .fed-main::-webkit-scrollbar {
-  width: 8px !important;
-}
-
-body.yh-dashboard-inline-embed-body[data-yh-view="federation"] .fed-main::-webkit-scrollbar-track,
-body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .fed-main::-webkit-scrollbar-track,
-body.yh-dashboard-federation-embed-body .fed-main::-webkit-scrollbar-track {
-  background: rgba(2, 6, 23, 0.18) !important;
-}
-
-body.yh-dashboard-inline-embed-body[data-yh-view="federation"] .fed-main::-webkit-scrollbar-thumb,
-body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .fed-main::-webkit-scrollbar-thumb,
-body.yh-dashboard-federation-embed-body .fed-main::-webkit-scrollbar-thumb {
-  border-radius: 999px !important;
-  background: rgba(56, 189, 248, 0.42) !important;
-}
-
-body.yh-dashboard-inline-embed-body[data-yh-view="federation"] .fed-section.is-panel-hidden,
-body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .fed-section.is-panel-hidden,
-body.yh-dashboard-federation-embed-body .fed-section.is-panel-hidden {
-  display: none !important;
-}
-
-body.yh-dashboard-inline-embed-body[data-yh-view="federation"] .fed-section.is-active-panel,
-body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .fed-section.is-active-panel,
-body.yh-dashboard-federation-embed-body .fed-section.is-active-panel {
-  display: block !important;
-  overflow: visible !important;
-}
-/* END PATCH: Federation embedded Dashboard scroll fix v3 */
-
 html.yh-federation-view-active .yh-top-nav .yh-dashboard-top-edit-btn,
 html.yh-federation-view-active .yh-top-nav .yh-wallet-open-btn,
 html.yh-federation-view-active .yh-top-nav .btn-logout,
@@ -170,16 +93,21 @@ textarea {
   grid-template-columns: var(--sidebar-w) minmax(0, 1fr) var(--rightbar-w);
   gap: 18px;
   padding: clamp(10px, 1vw, 16px);
-}
-
-.fed-sidebar,
-.fed-rightbar,
-.fed-main {
+}.fed-sidebar,
+.fed-rightbar {
   min-height: 0;
   border: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(12, 18, 30, 0.95), rgba(8, 12, 20, 0.97));
+  background: linear-gradient(180deg, rgba(12, 18, 30, 0.22), rgba(8, 12, 20, 0.22));
   box-shadow: var(--shadow);
   backdrop-filter: blur(14px);
+}
+.fed-main {
+
+  min-height: 0;
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(12, 18, 30, 0.22), rgba(8, 12, 20, 0.22));
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(8px);
 }
 
 .fed-sidebar,
@@ -251,117 +179,7 @@ textarea {
   background: rgba(255, 255, 255, 0.04);
 }
 
-/* PATCH: Federation child tab icon chrome v1 */
-.fed-nav-icon,
-.fed-action-icon,
-.fed-section-title-icon {
-  display: inline-grid;
-  place-items: center;
-  flex: 0 0 auto;
-  border-radius: 12px;
-  overflow: visible;
-}
 
-.fed-nav-link {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.fed-nav-icon {
-  width: 22px;
-  min-width: 22px;
-  height: 22px;
-}
-
-.fed-nav-icon-img,
-.fed-action-icon-img,
-.fed-section-title-icon-img {
-  display: block;
-  object-fit: contain;
-  object-position: center;
-  filter:
-    drop-shadow(0 0 8px rgba(77, 139, 255, 0.38))
-    drop-shadow(0 0 14px rgba(14, 165, 233, 0.18));
-}
-
-.fed-nav-icon-img {
-  width: 21px;
-  height: 21px;
-}
-
-.fed-nav-link:hover .fed-nav-icon-img,
-.fed-nav-link.active .fed-nav-icon-img,
-.fed-nav-link.has-active-fed-icon .fed-nav-icon-img {
-  filter:
-    drop-shadow(0 0 10px rgba(77, 139, 255, 0.72))
-    drop-shadow(0 0 18px rgba(14, 165, 233, 0.36));
-}
-
-.fed-topbar-actions .fed-btn,
-.fed-topbar-quick-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-}
-
-.fed-action-icon {
-  width: 20px;
-  min-width: 20px;
-  height: 20px;
-}
-
-.fed-action-icon-img {
-  width: 20px;
-  height: 20px;
-}
-
-.fed-section-title-with-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 12px;
-  min-height: 42px;
-}
-
-.fed-section-title-icon {
-  width: 40px;
-  min-width: 40px;
-  height: 40px;
-  border-radius: 15px;
-  background:
-    radial-gradient(circle at center, rgba(77, 139, 255, 0.18), transparent 64%),
-    rgba(2, 6, 23, 0.34);
-  border: 1px solid rgba(77, 139, 255, 0.18);
-  box-shadow:
-    0 0 18px rgba(77, 139, 255, 0.16),
-    inset 0 1px 0 rgba(255,255,255,0.06);
-  transform: translateY(-1px);
-}
-
-.fed-section-title-icon-img {
-  width: 35px;
-  height: 35px;
-}
-
-@media (max-width: 720px) {
-  .fed-section-title-with-icon {
-    gap: 10px;
-  }
-
-  .fed-section-title-icon {
-    width: 34px;
-    min-width: 34px;
-    height: 34px;
-    border-radius: 13px;
-  }
-
-  .fed-section-title-icon-img {
-    width: 30px;
-    height: 30px;
-  }
-}
-/* END PATCH: Federation child tab icon chrome v1 */
 
 .fed-universe-back-btn {
   width: auto;
@@ -403,7 +221,7 @@ textarea {
 .fed-sidebar-card,
 .fed-right-card {
   border: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(17, 24, 39, 0.96), rgba(10, 15, 25, 0.98));
+  background: linear-gradient(180deg, rgba(17, 24, 39, 0.22), rgba(10, 15, 25, 0.22));
   border-radius: var(--radius-lg);
   padding: 18px;
 }
@@ -439,7 +257,7 @@ textarea {
 .fed-topbar {
   position: relative;
   z-index: 1;
-  background: linear-gradient(180deg, rgba(8, 13, 23, 0.96), rgba(8, 13, 23, 0.72));
+  background: linear-gradient(180deg, rgba(8, 13, 23, 0.22), rgba(8, 13, 23, 0.22));
   backdrop-filter: blur(16px);
   padding: 8px 4px 16px;
   margin-bottom: 10px;
@@ -516,9 +334,8 @@ textarea {
 
 .fed-section {
   border: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(13, 20, 34, 0.9), rgba(10, 15, 25, 0.95));
-  border-radius: var(--radius-xl);
-  padding: 26px;
+  background: linear-gradient(180deg, rgba(13, 20, 34, 0.22), rgba(10, 15, 25, 0.22));
+  border-radius: var(--radius-xl);padding: 32px;
   margin-bottom: 18px;
 }
 
@@ -606,7 +423,7 @@ textarea {
 .fed-side-stat,
 .fed-map-card {
   border: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(18, 26, 43, 0.96), rgba(12, 18, 31, 0.98));
+  background: linear-gradient(180deg, rgba(18, 26, 43, 0.28), rgba(12, 18, 31, 0.28));
   border-radius: var(--radius-lg);
 }
 
@@ -649,7 +466,7 @@ textarea {
 }
 
 .fed-mini-card {
-  padding: 16px;
+  padding: 18px;
 }
 
 .fed-mini-value {
@@ -697,7 +514,7 @@ textarea {
 .fed-benefit-card,
 .fed-criteria-card,
 .fed-sector-card {
-  padding: 20px;
+  padding: 22px;
 }
 
 .fed-info-title,
@@ -738,8 +555,7 @@ textarea {
 .fed-flow-step {
   border: 1px solid var(--border);
   background: linear-gradient(180deg, rgba(15, 23, 38, 0.96), rgba(9, 14, 25, 0.99));
-  border-radius: var(--radius-lg);
-  padding: 20px;
+  border-radius: var(--radius-lg);padding: 22px;
 }
 
 .fed-flow-step span {
@@ -834,7 +650,7 @@ textarea {
   justify-content: flex-end;
   border-radius: 18px;
   background:
-    linear-gradient(180deg, rgba(20, 29, 48, 0.96), rgba(10, 15, 25, 0.99));
+    linear-gradient(180deg, rgba(20, 29, 48, 0.28), rgba(10, 15, 25, 0.28));
 }
 
 .fed-side-stat-value {
@@ -859,13 +675,14 @@ textarea {
 
 .fed-input-wrap {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  flex-direction: column;gap: 12px;
 }
 
 .fed-input-wrap label {
-  font-size: 0.86rem;
+  font-size: 0.86rem;line-height: 1.35;
   color: var(--muted);
+  padding-left: 4px;
+  padding-right: 4px;
 }
 
 .fed-input-wrap input,
@@ -875,10 +692,10 @@ textarea {
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.025);
   color: var(--text);
-  border-radius: 14px;
-  padding: 13px 14px;
-  outline: none;
+  border-radius: 14px;padding: 18px 20px;
+  outline: none;line-height: 1.45;
   transition: 0.18s ease;
+  min-height: 56px;
 }
 
 .fed-input-wrap input:focus,
@@ -901,9 +718,8 @@ textarea {
 
 .fed-member-card {
   border: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(17, 24, 39, 0.96), rgba(10, 15, 25, 0.98));
-  border-radius: var(--radius-lg);
-  padding: 18px;
+  background: linear-gradient(180deg, rgba(17, 24, 39, 0.28), rgba(10, 15, 25, 0.28));
+  border-radius: var(--radius-lg);padding: 20px;
 }
 
 .fed-member-top {
@@ -968,8 +784,7 @@ textarea {
 
 .fed-form {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));gap: 18px 16px;
 }
 
 .fed-form-group-full,
@@ -981,8 +796,12 @@ textarea {
   font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.16em;
-  color: var(--blue-2);
-  padding-top: 4px;
+  color: var(--blue-2);padding-top: 8px;
+  display: block;
+  padding-left: 10px;
+  padding-right: 10px;
+  margin-bottom: 10px;
+  line-height: 1.35;
 }
 
 .fed-checkbox {
@@ -1095,7 +914,7 @@ textarea {
 .fed-admin-card,
 .fed-admin-stat {
   border: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(18, 26, 43, 0.96), rgba(12, 18, 31, 0.98));
+  background: linear-gradient(180deg, rgba(18, 26, 43, 0.28), rgba(12, 18, 31, 0.28));
   border-radius: var(--radius-lg);
 }
 
@@ -1322,6 +1141,7 @@ textarea {
 @media (max-width: 1024px) {
   html,
   body {
+
     overflow: auto;
   }
 
@@ -1383,17 +1203,10 @@ textarea {
   .fed-hero-title {
     font-size: 2rem;
   }
-}
-/* ================================
-   YHA universe alignment + referral flow
-   Standalone for now, merge-ready later
-================================ */
-
-.fed-sidebar,
-.fed-rightbar,
-.fed-main {
+}.fed-sidebar,
+.fed-rightbar {
   background:
-    linear-gradient(180deg, rgba(10, 16, 29, 0.97), rgba(7, 12, 22, 0.99));
+    linear-gradient(180deg, rgba(10, 16, 29, 0.22), rgba(7, 12, 22, 0.22));
   border-color: rgba(140, 170, 255, 0.08);
 }
 
@@ -1449,7 +1262,7 @@ textarea {
 .fed-admin-card {
   border-color: rgba(255, 255, 255, 0.07);
   background:
-    linear-gradient(180deg, rgba(16, 23, 38, 0.96), rgba(10, 15, 25, 0.99));
+    linear-gradient(180deg, rgba(16, 23, 38, 0.22), rgba(10, 15, 25, 0.22));
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
 }
 
@@ -1491,7 +1304,7 @@ textarea {
 .fed-referral-card {
   border: 1px solid var(--border);
   background:
-    linear-gradient(180deg, rgba(18, 26, 43, 0.96), rgba(12, 18, 31, 0.98));
+    linear-gradient(180deg, rgba(18, 26, 43, 0.28), rgba(12, 18, 31, 0.28));
   border-radius: var(--radius-lg);
   padding: 20px;
 }
@@ -1763,7 +1576,7 @@ textarea {
 .fed-command-card {
   border: 1px solid rgba(255, 255, 255, 0.07);
   background:
-    linear-gradient(180deg, rgba(16, 23, 38, 0.96), rgba(10, 15, 25, 0.99));
+    linear-gradient(180deg, rgba(16, 23, 38, 0.28), rgba(10, 15, 25, 0.28));
   border-radius: 20px;
   padding: 22px;
   box-shadow:
@@ -1824,7 +1637,7 @@ textarea {
 
 .fed-member-card-callout {
   background:
-    linear-gradient(180deg, rgba(77, 139, 255, 0.08), rgba(10, 15, 25, 0.99));
+    linear-gradient(180deg, rgba(77, 139, 255, 0.08), rgba(10, 15, 25, 0.28));
   border-color: rgba(77, 139, 255, 0.16);
 }
 
@@ -1906,7 +1719,7 @@ textarea {
   border: 1px solid rgba(211, 178, 112, 0.32);
   background:
     radial-gradient(circle at top left, rgba(211, 178, 112, 0.16), transparent 46%),
-    rgba(18, 26, 43, 0.92);
+    rgba(18, 26, 43, 0.28);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.035),
     0 16px 40px rgba(211, 178, 112, 0.08);
@@ -2058,7 +1871,7 @@ body[data-fed-state="member"] #overview .fed-chip {
   border-radius: 20px;
   padding: 20px;
   background:
-    linear-gradient(180deg, rgba(18, 26, 43, 0.96), rgba(11, 16, 27, 0.99));
+    linear-gradient(180deg, rgba(18, 26, 43, 0.28), rgba(11, 16, 27, 0.28));
   box-shadow:
     0 18px 48px rgba(0, 0, 0, 0.22),
     inset 0 1px 0 rgba(255, 255, 255, 0.03);
@@ -2211,8 +2024,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 .fed-directory-toolbar select optgroup {
   color: #eef4ff;
   background: #08111f;
-}
-.fed-map {
+}.fed-map {
   position: relative;
   isolation: isolate;
   min-height: 420px;
@@ -2221,7 +2033,7 @@ body[data-fed-state="member"] #overview .fed-chip {
     radial-gradient(circle at 18% 16%, rgba(77, 139, 255, 0.11), transparent 24%),
     radial-gradient(circle at 72% 20%, rgba(211, 178, 112, 0.08), transparent 24%),
     radial-gradient(circle at 54% 44%, rgba(98, 141, 212, 0.07), transparent 26%),
-    linear-gradient(180deg, rgba(4, 8, 15, 0.99), rgba(9, 14, 24, 1));
+    linear-gradient(180deg, rgba(4, 8, 15, 0.24), rgba(9, 14, 24, 0.24));
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.03),
     inset 0 -90px 140px rgba(0, 0, 0, 0.3);
@@ -2408,14 +2220,12 @@ body[data-fed-state="member"] #overview .fed-chip {
     transform 0.18s ease,
     box-shadow 0.18s ease,
     background 0.18s ease;
-}
-
-.fed-map-node::before {
+}.fed-map-node::before {
   content: "";
   position: absolute;
   inset: 3px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.94);
+  background: rgba(255, 255, 255, 0.24);
   opacity: 0.92;
 }
 
@@ -2502,9 +2312,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 .label-toronto { left: 29.2%; top: 24.2%; }
 .label-delhi { left: 73.1%; top: 41.2%; }
 .label-manila { left: 84.8%; top: 45.1%; }
-.label-nyc { left: 33.3%; top: 30.6%; }
-
-.fed-map-overlay {
+.label-nyc { left: 33.3%; top: 30.6%; }.fed-map-overlay {
   position: absolute;
   left: 20px;
   bottom: 20px;
@@ -2512,7 +2320,7 @@ body[data-fed-state="member"] #overview .fed-chip {
   border-radius: 18px;
   min-width: 260px;
   max-width: 360px;
-  background: rgba(7, 11, 18, 0.92);
+  background: rgba(7, 11, 18, 0.24);
   border: 1px solid rgba(188, 208, 245, 0.1);
   backdrop-filter: blur(10px);
   box-shadow:
@@ -2784,7 +2592,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 .fed-app-more-sheet {
   border: 1px solid rgba(162, 190, 245, 0.12);
   background:
-    linear-gradient(180deg, rgba(12, 18, 31, 0.96), rgba(7, 11, 20, 0.985));
+    linear-gradient(180deg, rgba(12, 18, 31, 0.26), rgba(7, 11, 20, 0.26));
   box-shadow:
     0 24px 60px rgba(0, 0, 0, 0.34),
     0 0 0 1px rgba(255, 255, 255, 0.02) inset,
@@ -2877,7 +2685,7 @@ body[data-fed-state="member"] #overview .fed-chip {
   border-radius: 18px;
   border: 1px solid rgba(162, 190, 245, 0.12);
   background:
-    linear-gradient(180deg, rgba(12, 18, 31, 0.96), rgba(7, 11, 20, 0.985));
+    linear-gradient(180deg, rgba(12, 18, 31, 0.34), rgba(7, 11, 20, 0.34));
   box-shadow:
     0 24px 60px rgba(0, 0, 0, 0.34),
     0 0 0 1px rgba(255, 255, 255, 0.02) inset,
@@ -2972,6 +2780,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 @media (max-width: 1024px) and (min-width: 769px) {
   html,
   body {
+
     overflow: auto;
   }
 
@@ -3154,6 +2963,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 @media (max-width: 768px) {
   html,
   body {
+
     overflow: hidden;
     height: 100%;
   }
@@ -3884,6 +3694,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 @media (max-width: 1024px) and (min-width: 769px) {
   html,
   body {
+
     overflow: auto;
   }
 
@@ -4072,6 +3883,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 @media (max-width: 768px) {
   html,
   body {
+
     overflow: hidden;
     height: 100%;
   }
@@ -4606,11 +4418,9 @@ body[data-fed-state="member"] #overview .fed-chip {
   border: 1px solid var(--border);
   background:
     radial-gradient(circle at top left, rgba(77, 139, 255, 0.1), transparent 32%),
-    linear-gradient(180deg, rgba(17, 24, 39, 0.96), rgba(8, 13, 23, 0.98));
-  border-radius: var(--radius-lg);
-  padding: 18px;
-  display: grid;
-  gap: 14px;
+    linear-gradient(180deg, rgba(17, 24, 39, 0.28), rgba(8, 13, 23, 0.28));
+  border-radius: var(--radius-lg);padding: 22px;
+  display: grid;gap: 16px;
   min-height: 250px;
   box-shadow: 0 18px 42px rgba(0, 0, 0, 0.22);
 }
@@ -4680,15 +4490,16 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
 .fed-connect-request-panel {
-  margin-top: 16px;
+  margin-top: 18px;padding: 34px 32px 34px;
   margin-bottom: 16px;
   border: 1px solid rgba(77, 139, 255, 0.18);
   background:
     radial-gradient(circle at top left, rgba(77, 139, 255, 0.12), transparent 34%),
-    linear-gradient(180deg, rgba(12, 18, 31, 0.96), rgba(7, 11, 20, 0.985));
+    linear-gradient(180deg, rgba(12, 18, 31, 0.28), rgba(7, 11, 20, 0.28));
   border-radius: var(--radius-xl);
   padding: 18px;
   box-shadow: 0 20px 54px rgba(0, 0, 0, 0.3);
+  overflow: visible;
 }
 
 .fed-connect-request-form {
@@ -4699,10 +4510,11 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
 .fed-connect-selected {
-  margin: 8px 0 0;
+  margin: 12px 0 10px;
   color: var(--blue-2);
-  font-weight: 700;
-  line-height: 1.5;
+  font-weight: 700;line-height: 1.65;
+  padding-left: 10px;
+  padding-right: 10px;
 }
 
 .fed-connect-requests {
@@ -4878,7 +4690,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
 .fed-shell {
-  grid-template-columns: 250px minmax(0, 1fr) !important;
+  grid-template-columns: 250px minmax(0, 1fr);
 }
 
 .fed-rightbar {
@@ -4905,11 +4717,9 @@ body[data-fed-state="member"] #overview .fed-chip {
   border: 1px solid var(--border);
   background:
     radial-gradient(circle at top left, rgba(77, 139, 255, 0.1), transparent 32%),
-    linear-gradient(180deg, rgba(17, 24, 39, 0.96), rgba(8, 13, 23, 0.98));
-  border-radius: var(--radius-lg);
-  padding: 18px;
-  display: grid;
-  gap: 14px;
+    linear-gradient(180deg, rgba(17, 24, 39, 0.28), rgba(8, 13, 23, 0.28));
+  border-radius: var(--radius-lg);padding: 22px;
+  display: grid;gap: 16px;
   box-shadow: 0 18px 42px rgba(0, 0, 0, 0.22);
 }
 
@@ -4936,7 +4746,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 
 @media (max-width: 1024px) {
   .fed-shell {
-    grid-template-columns: 1fr !important;
+    grid-template-columns: 1fr;
     padding: 0;
   }
 
@@ -4977,25 +4787,30 @@ body[data-fed-state="member"] #overview .fed-chip {
 /* ========================================================= */
 
 .fed-connect-request-panel {
-  margin-top: 16px;
+  margin-top: 18px;padding: 34px 32px 34px;
+  overflow: visible;
 }
 
 .fed-connect-request-form {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));gap: 24px 22px;
 }
 
 .fed-connect-request-form .fed-form-group-full,
 .fed-connect-request-form .fed-input-wrap-full,
 .fed-connect-request-form .fed-form-actions {
   grid-column: 1 / -1;
+  padding-left: 10px;
+  padding-right: 10px;
 }
 
 .fed-connect-request-form input,
 .fed-connect-request-form select,
 .fed-connect-request-form textarea {
   width: 100%;
+  min-height: 56px;
+  padding: 18px 20px;
+  line-height: 1.45;
 }
 
 @media (max-width: 760px) {
@@ -5091,11 +4906,11 @@ body[data-fed-state="member"] #overview .fed-chip {
 
 :root {
   --bg: #050816;
-  --panel: rgba(30, 41, 59, 0.72);
-  --panel-2: rgba(30, 41, 59, 0.82);
-  --panel-3: rgba(15, 23, 42, 0.96);
-  --card: rgba(30, 41, 59, 0.68);
-  --card-soft: rgba(30, 41, 59, 0.52);
+  --panel: rgba(30, 41, 59, 0.28);
+  --panel-2: rgba(30, 41, 59, 0.28);
+  --panel-3: rgba(15, 23, 42, 0.28);
+  --card: rgba(30, 41, 59, 0.28);
+  --card-soft: rgba(30, 41, 59, 0.28);
   --border: rgba(56, 189, 248, 0.2);
   --border-strong: rgba(56, 189, 248, 0.36);
   --text: #f9fafb;
@@ -5113,40 +4928,40 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
 html,
-body {
-  background: #050816;
+body {
   color: var(--text);
   font-family: "Poppins", sans-serif;
 }
 
 body {
-  background:
-    radial-gradient(circle at top left, rgba(14, 165, 233, 0.16), transparent 30%),
-    radial-gradient(circle at top right, rgba(16, 185, 129, 0.08), transparent 24%),
-    linear-gradient(180deg, #050816 0%, #0f172a 100%);
 }
 
 .fed-shell {
   gap: 1rem;
   padding: clamp(0.75rem, 1.2vw, 1.25rem);
-}
-
-.fed-sidebar,
-.fed-main,
+}.fed-sidebar,
 .fed-rightbar {
   border: 1px solid var(--border);
-  background: rgba(30, 41, 59, 0.64);
+  background: rgba(30, 41, 59, 0.22);
   box-shadow: var(--shadow);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
 }
-
-.fed-sidebar,
+.fed-main {
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}.fed-sidebar,
 .fed-rightbar,
-.fed-main,
 .fed-sidebar-card,
-.fed-right-card,
-.fed-hero,
+.fed-right-card {
+  border-color: var(--border) !important;
+  background: rgba(30, 41, 59, 0.62) !important;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}.fed-hero,
 .fed-panel-card,
 .fed-directory-card,
 .fed-connect-card,
@@ -5158,10 +4973,10 @@ body {
 .fed-state-metric,
 .fed-map-card {
   border-color: var(--border) !important;
-  background: rgba(30, 41, 59, 0.62) !important;
+  background: rgba(30, 41, 59, 0.18) !important;
   box-shadow: 0 18px 45px rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .fed-brand-mark,
@@ -5414,7 +5229,7 @@ textarea:focus,
 .fed-universe-profile-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(2, 6, 14, 0.74);
+  background: rgba(2, 6, 14, 0.26);
   backdrop-filter: blur(12px);
 }
 
@@ -5425,7 +5240,7 @@ textarea:focus,
   overflow-y: auto;
   border-radius: var(--radius-xl);
   border: 1px solid var(--border-strong);
-  background: linear-gradient(180deg, rgba(16, 24, 40, 0.98), rgba(8, 12, 20, 0.99));
+  background: linear-gradient(180deg, rgba(16, 24, 40, 0.28), rgba(8, 12, 20, 0.28));
   box-shadow: 0 30px 90px rgba(0, 0, 0, 0.45);
   padding: 22px;
   scrollbar-width: none;
@@ -5470,7 +5285,7 @@ textarea:focus,
   background:
     radial-gradient(circle at top left, rgba(77, 139, 255, 0.3), transparent 34%),
     radial-gradient(circle at bottom right, rgba(211, 178, 112, 0.22), transparent 32%),
-    linear-gradient(135deg, rgba(18, 28, 48, 0.96), rgba(8, 13, 24, 0.98));
+    linear-gradient(135deg, rgba(18, 28, 48, 0.26), rgba(8, 13, 24, 0.26));
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -5695,7 +5510,7 @@ textarea:focus,
 .fed-universe-profile-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(2, 6, 14, 0.74);
+  background: rgba(2, 6, 14, 0.26);
   backdrop-filter: blur(12px);
 }
 
@@ -5706,7 +5521,7 @@ textarea:focus,
   overflow-y: auto;
   border-radius: var(--radius-xl);
   border: 1px solid var(--border-strong);
-  background: linear-gradient(180deg, rgba(16, 24, 40, 0.98), rgba(8, 12, 20, 0.99));
+  background: linear-gradient(180deg, rgba(16, 24, 40, 0.28), rgba(8, 12, 20, 0.28));
   box-shadow: 0 30px 90px rgba(0, 0, 0, 0.45);
   padding: 22px;
   scrollbar-width: none;
@@ -5751,7 +5566,7 @@ textarea:focus,
   background:
     radial-gradient(circle at top left, rgba(77, 139, 255, 0.3), transparent 34%),
     radial-gradient(circle at bottom right, rgba(211, 178, 112, 0.22), transparent 32%),
-    linear-gradient(135deg, rgba(18, 28, 48, 0.96), rgba(8, 13, 24, 0.98));
+    linear-gradient(135deg, rgba(18, 28, 48, 0.26), rgba(8, 13, 24, 0.26));
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -5926,3 +5741,565 @@ textarea:focus,
     width: 100%;
   }
 }
+
+/* PATCH: Federation command UI parity v124 */
+
+/*
+  Federation polish for current files:
+  - Dashboard Federation parent tab should visually land on Command.
+  - Federation page adopts the same Solo command UI language as Dashboard / Academy / Plaza.
+  - CSS-only UI polish for Federation surfaces.
+  - Existing Federation functions, tab logic, loader functions, storage, and backend calls are left intact.
+*/
+
+:root {
+  --bg: #020617;
+  --panel: rgba(6, 30, 64, 0.28);
+  --panel-2: rgba(6, 30, 64, 0.28);
+  --panel-3: rgba(6, 30, 64, 0.28);
+  --card: rgba(6, 30, 64, 0.28);
+  --card-soft: rgba(6, 30, 64, 0.28);
+  --border: rgba(223, 247, 255, 0.24);
+  --border-strong: rgba(103, 232, 249, 0.48);
+  --text: #f8fbff;
+  --muted: #94a3b8;
+  --blue: #38bdf8;
+  --blue-2: #67e8f9;
+  --gold: #67e8f9;
+  --green: #34f59f;
+  --danger: #ff6b6b;
+  --shadow: 0 24px 62px rgba(0, 0, 0, 0.34);
+  --radius-xl: 0;
+  --radius-lg: 0;
+  --radius-md: 0;
+  --radius-sm: 0;
+}
+
+html,
+body {
+
+  color: #f8fbff;
+  font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(56, 189, 248, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56, 189, 248, 0.028) 1px, transparent 1px),
+    radial-gradient(circle at 72% 16%, rgba(223, 247, 255, 0.11), transparent 34%);
+  background-size: 36px 36px, 36px 36px, auto;
+  opacity: 0.48;
+  mask-image: linear-gradient(180deg, transparent 0%, black 14%, black 90%, transparent 100%);
+}
+
+.fed-shell {
+  position: relative;
+  z-index: 1;
+  gap: clamp(12px, 1vw, 18px);
+  padding: clamp(12px, 1.1vw, 20px);
+}.fed-sidebar,
+.fed-rightbar,
+.fed-sidebar-card,
+.fed-right-card,
+.fed-sector-spotlight,
+.fed-topbar-quick-menu {
+  border: 1px solid rgba(223, 247, 255, 0.24);
+  border-radius: 0;
+  background:
+    radial-gradient(circle at 80% 0%, rgba(56, 189, 248, 0.14), transparent 34%),
+    linear-gradient(180deg, rgba(6, 30, 64, 0.34), rgba(6, 30, 64, 0.34));
+  box-shadow:
+    0 24px 62px rgba(0, 0, 0, 0.34),
+    0 0 24px rgba(56, 189, 248, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.055);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  clip-path: polygon(18px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px), 0 18px);
+}.fed-section,
+.fed-info-card,
+.fed-overview-card,
+.fed-panel-card,
+.fed-mini-card,
+.fed-command-card,
+.fed-request-card,
+.fed-member-card,
+.fed-directory-card,
+.fed-state-card,
+.fed-hero-panel,
+.fed-application-card,
+.fed-modal-card,
+.fed-session-panel {
+  border: 1px solid rgba(223, 247, 255, 0.24);
+  border-radius: 0;
+  background:
+    radial-gradient(circle at 80% 0%, rgba(56, 189, 248, 0.14), transparent 34%),
+    linear-gradient(180deg, rgba(6, 30, 64, 0.34), rgba(6, 30, 64, 0.34));
+  box-shadow:
+    0 24px 62px rgba(0, 0, 0, 0.34),
+    0 0 24px rgba(56, 189, 248, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.055);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  clip-path: polygon(18px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px), 0 18px);
+}
+
+.fed-main {
+  padding: clamp(18px, 1.4vw, 26px);
+}
+
+.fed-sidebar {
+  gap: 14px;
+  padding: 18px;
+}
+
+.fed-brand {
+  min-height: 64px;
+  padding: 10px 8px 14px;
+  border-bottom: 1px solid rgba(223, 247, 255, 0.16);
+}
+
+.fed-brand-title,
+.fed-page-title,
+.fed-hero-title,
+.fed-section-head h3,
+.fed-info-title,
+.fed-sidebar-card-title,
+.fed-right-card-title,
+.fed-panel-main-stat,
+.fed-mini-value,
+.fed-command-title,
+.fed-command-card h4,
+.fed-request-card h4,
+.fed-member-name {
+  color: #ffffff;
+  font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
+  font-weight: 900;
+  text-shadow:
+    0 0 10px rgba(248, 251, 255, 0.26),
+    0 0 24px rgba(223, 247, 255, 0.20);
+}
+
+.fed-page-title {
+  font-size: clamp(2.2rem, 3.4vw, 3.9rem);
+  line-height: 0.95;
+  letter-spacing: 0.005em;
+}
+
+.fed-hero-title {
+  font-size: clamp(2rem, 3vw, 3.35rem);
+  line-height: 0.98;
+}
+
+.fed-hero-title span {
+  color: #dff7ff;
+  text-shadow:
+    0 0 10px rgba(248, 251, 255, 0.30),
+    0 0 28px rgba(56, 189, 248, 0.34);
+}
+
+.fed-brand-subtitle,
+.fed-hero-text,
+.fed-section-head p,
+.fed-sidebar-card p,
+.fed-right-card p,
+.fed-command-copy,
+.fed-info-card p,
+.fed-overview-card p,
+.fed-panel-main-stat small,
+.fed-mini-label,
+.fed-state-metric small,
+.fed-form-feedback,
+.fed-empty,
+.fed-muted,
+.fed-request-card p,
+.fed-member-meta {
+  color: rgba(226, 238, 255, 0.78);
+  line-height: 1.5;
+}
+
+.fed-kicker,
+.fed-chip,
+.fed-sidebar-card-label,
+.fed-right-card-label,
+.fed-panel-label,
+.fed-state-label,
+.fed-command-pills span,
+.fed-status-list span,
+.fed-hero-strip span {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 6px 12px;
+  border: 1px solid rgba(223, 247, 255, 0.26);
+  border-radius: 0;
+  background:
+    linear-gradient(90deg, rgba(56, 189, 248, 0.18), rgba(37, 99, 235, 0.12), rgba(56, 189, 248, 0.10));
+  color: #67e8f9;
+  box-shadow:
+    0 0 18px rgba(56, 189, 248, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  font-family: "Orbitron", "Rajdhani", system-ui, sans-serif;
+  font-size: 0.64rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+}
+
+.fed-topbar {
+  margin-bottom: 16px;
+  padding: 18px 18px 20px;
+  border: 1px solid rgba(223, 247, 255, 0.22);
+  border-radius: 0;
+  background:
+    radial-gradient(circle at 70% 30%, rgba(56, 189, 248, 0.10), transparent 32%),
+    radial-gradient(circle at 8% 100%, rgba(56, 189, 248, 0.20), transparent 34%),
+    linear-gradient(90deg, rgba(6, 30, 64, 0.22), rgba(8, 8, 32, 0.22));
+  box-shadow:
+    0 20px 58px rgba(0, 0, 0, 0.34),
+    0 0 30px rgba(56, 189, 248, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  clip-path: polygon(22px 0, calc(100% - 22px) 0, 100% 22px, 100% calc(100% - 22px), calc(100% - 22px) 100%, 22px 100%, 0 calc(100% - 22px), 0 22px);
+}
+
+.fed-nav {
+  gap: 10px;
+}
+
+.fed-nav-link,
+.fed-btn,
+.fed-topbar-quick-summary,
+.fed-topbar-quick-link {
+  min-height: 42px;
+  border: 1px solid rgba(223, 247, 255, 0.26);
+  border-radius: 0;
+  color: #dff7ff;
+  background:
+    radial-gradient(circle at 20% 0%, rgba(223, 247, 255, 0.18), transparent 42%),
+    linear-gradient(180deg, rgba(15, 47, 122, 0.74), rgba(6, 30, 64, 0.74));
+  box-shadow:
+    0 14px 30px rgba(0, 0, 0, 0.24),
+    0 0 22px rgba(56, 189, 248, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
+  font-size: clamp(0.78rem, 0.78vw, 0.95rem);
+  font-weight: 900;
+  line-height: 1.05;
+  clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px);
+}
+
+.fed-nav-link:hover,
+.fed-nav-link.active,
+.fed-btn:hover,
+.fed-topbar-quick-summary:hover,
+.fed-topbar-quick-link:hover {
+  color: #ffffff;
+  border-color: rgba(103, 232, 249, 0.58);
+  background:
+    radial-gradient(circle at 20% 0%, rgba(103, 232, 249, 0.24), transparent 42%),
+    linear-gradient(180deg, rgba(37, 99, 235, 0.88), rgba(6, 30, 64, 0.84));
+  box-shadow:
+    0 16px 34px rgba(0, 0, 0, 0.28),
+    0 0 26px rgba(56, 189, 248, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
+}
+
+.fed-btn-primary {
+  color: #ffffff;
+  border-color: rgba(103, 232, 249, 0.58);
+  background:
+    radial-gradient(circle at 20% 0%, rgba(103, 232, 249, 0.26), transparent 42%),
+    linear-gradient(180deg, rgba(37, 99, 235, 0.94), rgba(37, 99, 235, 0.92));
+  box-shadow:
+    0 18px 42px rgba(0, 0, 0, 0.28),
+    0 0 26px rgba(56, 189, 248, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.10);
+}
+
+.fed-btn-secondary {
+  color: #dff7ff;
+}
+
+.fed-brand-mark,
+.fed-avatar,
+.fed-member-avatar {
+  border-radius: 0;
+  border: 1px solid rgba(223, 247, 255, 0.34);
+  background:
+    radial-gradient(circle at 40% 20%, rgba(223, 247, 255, 0.26), transparent 45%),
+    linear-gradient(180deg, rgba(15, 47, 122, 0.72), rgba(6, 30, 64, 0.76));
+  color: #dff7ff;
+  box-shadow:
+    0 0 18px rgba(56, 189, 248, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  clip-path: polygon(9px 0, calc(100% - 9px) 0, 100% 9px, 100% calc(100% - 9px), calc(100% - 9px) 100%, 9px 100%, 0 calc(100% - 9px), 0 9px);
+}
+
+.fed-brand-logo-mark img {
+  filter:
+    drop-shadow(0 0 10px rgba(223, 247, 255, 0.36))
+    drop-shadow(0 0 16px rgba(56, 189, 248, 0.26));
+}
+
+.fed-input-wrap label,
+.fed-form-section-title,
+.fed-form-label {
+  color: #dff7ff;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  display: block;
+  line-height: 1.35;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+.fed-input-wrap input,
+.fed-input-wrap select,
+.fed-input-wrap textarea,
+input,
+select,
+textarea {
+  min-height: 56px;
+  border: 1px solid rgba(223, 247, 255, 0.18);
+  border-radius: 0;
+  background:
+    linear-gradient(180deg, rgba(15, 13, 43, 0.78), rgba(5, 8, 24, 0.82));
+  background-color: #061e40;
+  color: #f8fbff;
+  color-scheme: dark;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 0 16px rgba(56, 189, 248, 0.06);
+  clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px);
+  padding: 18px 20px;
+  line-height: 1.45;
+}
+
+.fed-input-wrap input:focus,
+.fed-input-wrap select:focus,
+.fed-input-wrap textarea:focus,
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: rgba(103, 232, 249, 0.58);
+  background: rgba(6, 30, 64, 0.88);
+  box-shadow:
+    0 0 0 3px rgba(56, 189, 248, 0.10),
+    0 0 24px rgba(56, 189, 248, 0.20);
+  outline: none;
+}
+
+.fed-state-metric,
+.fed-panel-grid .fed-mini-card,
+.fed-stats-card,
+.fed-status-list span {
+  border-color: rgba(223, 247, 255, 0.22);
+  background:
+    radial-gradient(circle at 80% 0%, rgba(56, 189, 248, 0.10), transparent 34%),
+    rgba(6, 30, 64, 0.28);
+}
+
+.fed-topbar-actions {
+  gap: 12px;
+}
+
+.fed-hero,
+#command.fed-section,
+#connect.fed-section,
+#deal-rooms.fed-section,
+#directory.fed-section,
+#requests.fed-section,
+#referrals.fed-section,
+#status.fed-section {
+  min-height: clamp(520px, 60vh, 820px);
+}
+
+.yh-tab-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 35%, rgba(56, 189, 248, 0.10), transparent 34%),
+    radial-gradient(circle at 64% 24%, rgba(56, 189, 248, 0.14), transparent 32%),
+    linear-gradient(180deg, rgba(6, 30, 64, 0.95), rgba(6, 30, 64, 0.97));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition:
+    opacity 180ms ease,
+    visibility 180ms ease;
+}
+
+.yh-tab-loader.is-active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.yh-tab-loader-card {
+  width: min(92vw, 520px);
+  min-height: 292px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 34px 34px 32px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(103, 232, 249, 0.25);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 50% 18%, rgba(56, 189, 248, 0.14), transparent 28%),
+    radial-gradient(circle at 72% 0%, rgba(56, 189, 248, 0.16), transparent 38%),
+    linear-gradient(180deg, rgba(13, 24, 42, 0.92), rgba(2, 6, 23, 0.94));
+  box-shadow:
+    0 34px 92px rgba(0, 0, 0, 0.55),
+    0 0 42px rgba(56, 189, 248, 0.14),
+    0 0 32px rgba(56, 189, 248, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  clip-path: none;
+}
+
+.yh-tab-loader-card::before {
+  content: "FEDERATION SYNC";
+  position: relative;
+  z-index: 2;
+  order: 2;
+  display: block;
+  margin-top: 2px;
+  color: #67e8f9;
+  font-family: "Orbitron", "Rajdhani", system-ui, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  text-shadow:
+    0 0 12px rgba(103, 232, 249, 0.42),
+    0 0 22px rgba(56, 189, 248, 0.25);
+}
+
+.yh-tab-loader-card::after {
+  content: "";
+  position: relative;
+  z-index: 2;
+  order: 4;
+  width: min(72%, 300px);
+  height: 7px;
+  margin-top: 8px;
+  border: 1px solid rgba(223, 247, 255, 0.12);
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, transparent, rgba(103, 232, 249, 0.86), rgba(56, 189, 248, 0.86), transparent),
+    rgba(255, 255, 255, 0.055);
+  background-size: 180% 100%, 100% 100%;
+  box-shadow:
+    0 0 18px rgba(103, 232, 249, 0.30),
+    0 0 26px rgba(56, 189, 248, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  animation: yhFederationLoaderProgressV124 1.05s ease-in-out infinite;
+}
+
+.yh-tab-loader-logo {
+  order: 1;
+  width: 78px;
+  height: 78px;
+  padding: 14px;
+  object-fit: contain;
+  position: relative;
+  z-index: 2;
+  border-radius: 999px;
+  border: 1px solid rgba(103, 232, 249, 0.32);
+  background:
+    radial-gradient(circle at center, rgba(56, 189, 248, 0.22), transparent 62%),
+    rgba(13, 24, 42, 0.42);
+  box-shadow:
+    0 0 0 1px rgba(56, 189, 248, 0.10),
+    0 0 30px rgba(56, 189, 248, 0.28),
+    0 0 42px rgba(56, 189, 248, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  filter:
+    drop-shadow(0 0 12px rgba(103, 232, 249, 0.40))
+    drop-shadow(0 0 22px rgba(56, 189, 248, 0.24));
+}
+
+.yh-tab-loader-text {
+  order: 3;
+  position: relative;
+  z-index: 2;
+  max-width: 420px;
+  color: #ffffff;
+  font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
+  font-size: clamp(1.45rem, 2.3vw, 2.05rem);
+  font-weight: 900;
+  line-height: 1.08;
+  letter-spacing: -0.015em;
+  text-shadow:
+    0 0 10px rgba(248, 251, 255, 0.32),
+    0 0 24px rgba(103, 232, 249, 0.20),
+    0 0 30px rgba(56, 189, 248, 0.18);
+}
+
+@keyframes yhFederationLoaderProgressV124 {
+  0% {
+    background-position: 120% 0, 0 0;
+    opacity: 0.44;
+  }
+
+  50% {
+    background-position: 50% 0, 0 0;
+    opacity: 1;
+  }
+
+  100% {
+    background-position: -20% 0, 0 0;
+    opacity: 0.54;
+  }
+}
+
+body.yh-dashboard-inline-embed-body[data-yh-view="federation"] .fed-shell,
+body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .fed-shell,
+body.yh-dashboard-federation-embed-body .fed-shell,
+body.yh-dashboard-federation-scroll-child-main .fed-shell {
+  background: transparent;
+}
+
+@media (max-width: 720px) {
+  .fed-main {
+    padding: 14px;
+  }
+
+  .fed-page-title,
+  .fed-hero-title {
+    font-size: 2rem;
+  }
+
+  .yh-tab-loader-card {
+    min-height: 240px;
+    padding: 28px 20px 26px;
+  }
+
+  .yh-tab-loader-logo {
+    width: 66px;
+    height: 66px;
+  }
+
+  .yh-tab-loader-text {
+    font-size: 1.35rem;
+  }
+}
+/* END PATCH: Federation command UI parity v124 */

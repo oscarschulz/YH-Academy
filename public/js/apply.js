@@ -1283,9 +1283,9 @@ async function initLandingMapShell() {
     const reachEl = document.getElementById('yh-stat-reach');
     const impressionsEl = document.getElementById('yh-stat-impressions');
 
-    if (membersEl) membersEl.textContent = '—';
-    if (reachEl) reachEl.textContent = '—';
-    if (impressionsEl) impressionsEl.textContent = '—';
+    if (membersEl) animateLandingStat(membersEl, 17392, 1200);
+    if (reachEl) animateLandingStat(reachEl, 82, 1000);
+    if (impressionsEl) animateLandingStat(impressionsEl, 142, 1350);
 
     startLandingFeedRotation();
 
@@ -2158,10 +2158,124 @@ const bindRegisterPhotoUpload = () => {
 bootstrapPendingVerification();
 bindPasswordVisibilityToggles();
 bindRegisterPhotoUpload();
-    // --- LOGIN LOGIC ---
+
+// --- LOGIN LOGIC ---
 const btnLogin = document.getElementById('btn-login');
 const loginEmailInput = document.getElementById('login-email');
 const loginPasswordInput = document.getElementById('login-password');
+const yhAccessScanBox = document.querySelector('.yh-access-terminal-scan');
+const yhAccessScanText = yhAccessScanBox?.querySelector('.yh-access-scan-copy span');
+const yhAccessScanBar = yhAccessScanBox?.querySelector('.yh-access-scan-bar span');
+let yhAccessScanRunId = 0;
+let yhAccessScanFrame = null;
+
+function setYHAccessScanProgress(percent = 0, label = 'Scanning credentials...') {
+    const safePercent = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
+
+    if (yhAccessScanText) {
+        yhAccessScanText.textContent = safePercent > 0
+            ? label + ' ' + safePercent + '%'
+            : 'Scanning credentials... 0%';
+    }
+
+    if (yhAccessScanBar) {
+        yhAccessScanBar.style.width = safePercent + '%';
+    }
+}
+
+function resetYHAccessScanUi(label = 'Scanning credentials... 0%') {
+    yhAccessScanRunId += 1;
+
+    if (yhAccessScanFrame) {
+        cancelAnimationFrame(yhAccessScanFrame);
+        yhAccessScanFrame = null;
+    }
+
+    if (yhAccessScanBox) {
+        yhAccessScanBox.classList.remove('is-scanning', 'is-complete', 'is-error');
+    }
+
+    if (yhAccessScanText) {
+        yhAccessScanText.textContent = label;
+    }
+
+    if (yhAccessScanBar) {
+        yhAccessScanBar.style.width = '0%';
+    }
+}
+
+function markYHAccessScanError(label = 'Verification failed. Try again.') {
+    yhAccessScanRunId += 1;
+
+    if (yhAccessScanFrame) {
+        cancelAnimationFrame(yhAccessScanFrame);
+        yhAccessScanFrame = null;
+    }
+
+    if (yhAccessScanBox) {
+        yhAccessScanBox.classList.remove('is-scanning', 'is-complete');
+        yhAccessScanBox.classList.add('is-error');
+    }
+
+    if (yhAccessScanText) {
+        yhAccessScanText.textContent = label;
+    }
+
+    if (yhAccessScanBar) {
+        yhAccessScanBar.style.width = '0%';
+    }
+}
+
+function runYHAccessVerificationSequence(duration = 1000) {
+    yhAccessScanRunId += 1;
+    const activeRunId = yhAccessScanRunId;
+    const startedAt = performance.now();
+
+    if (yhAccessScanBox) {
+        yhAccessScanBox.classList.remove('is-complete', 'is-error');
+        yhAccessScanBox.classList.add('is-scanning');
+    }
+
+    setYHAccessScanProgress(1, 'Scanning credentials...');
+
+    return new Promise((resolve) => {
+        const tick = (now) => {
+            if (activeRunId !== yhAccessScanRunId) {
+                resolve(false);
+                return;
+            }
+
+            const progress = Math.min((now - startedAt) / duration, 1);
+            const percent = Math.min(100, Math.max(1, Math.round(progress * 100)));
+
+            setYHAccessScanProgress(percent, 'Scanning credentials...');
+
+            if (progress < 1) {
+                yhAccessScanFrame = requestAnimationFrame(tick);
+                return;
+            }
+
+            yhAccessScanFrame = null;
+
+            if (yhAccessScanBox) {
+                yhAccessScanBox.classList.remove('is-scanning', 'is-error');
+                yhAccessScanBox.classList.add('is-complete');
+            }
+
+            if (yhAccessScanText) {
+                yhAccessScanText.textContent = 'Access verified 100%';
+            }
+
+            if (yhAccessScanBar) {
+                yhAccessScanBar.style.width = '100%';
+            }
+
+            resolve(true);
+        };
+
+        yhAccessScanFrame = requestAnimationFrame(tick);
+    });
+}
 
 async function handleLoginSubmit() {
     if (!btnLogin) return;
@@ -2174,12 +2288,16 @@ async function handleLoginSubmit() {
     const password = loginPasswordInput?.value || '';
 
     if (!identifier || !password) {
+        resetYHAccessScanUi();
         showToast("Please enter your email/username and password.", "error");
         return;
     }
 
-    btnLogin.innerText = 'Logging in...';
+    const scanPromise = runYHAccessVerificationSequence(1000);
+
+    btnLogin.textContent = 'Login';
     btnLogin.disabled = true;
+    btnLogin.setAttribute('aria-busy', 'true');
 
     try {
         const response = await fetch('/api/login', {
@@ -2191,39 +2309,45 @@ async function handleLoginSubmit() {
 
         const result = await response.json();
 
-if (result.success) {
-    showToast(result.message, "success");
-    clearPendingVerifyEmail();
-    clearAcademyClientStateForFreshAuth();
+        if (result.success) {
+            await scanPromise;
 
-    persistClientSession({
-        ...result.user,
-        email: result.user?.email || identifier
-    }, result.token);
+            showToast(result.message, "success");
+            clearPendingVerifyEmail();
+            clearAcademyClientStateForFreshAuth();
 
-    try {
-        sessionStorage.setItem(YH_POST_LOGIN_DASHBOARD_BOOTSTRAP_KEY, '1');
-    } catch (_) {}
+            persistClientSession({
+                ...result.user,
+                email: result.user?.email || identifier
+            }, result.token);
 
-    showPostLoginTransitionLoader('Syncing your access and preparing your dashboard...');
+            try {
+                sessionStorage.setItem(YH_POST_LOGIN_DASHBOARD_BOOTSTRAP_KEY, '1');
+            } catch (_) {}
 
-    setTimeout(() => {
-        window.location.href = '/dashboard';
-    }, 450);
+            showPostLoginTransitionLoader('Access verified. Entering your dashboard...');
 
-    return;
-}
+            setTimeout(() => {
+                window.location.href = '/dashboard';
+            }, 250);
+
+            return;
+        }
 
         if (handleDeletedAccountAuthResult(result, {
             status: response.status,
             identifier
         })) {
-            btnLogin.innerText = yhT('auth.login');
+            markYHAccessScanError('Account access blocked.');
+            btnLogin.textContent = yhT('auth.login');
             btnLogin.disabled = false;
+            btnLogin.removeAttribute('aria-busy');
             return;
         }
 
         if (response.status === 403 && result.verificationRequired) {
+            await scanPromise;
+
             const verificationEmail = String(result.email || identifier).trim().toLowerCase();
 
             if (verificationEmail) {
@@ -2233,6 +2357,10 @@ if (result.success) {
             const otpInput = document.getElementById('otp-input');
             if (otpInput) otpInput.value = '';
 
+            if (yhAccessScanText) {
+                yhAccessScanText.textContent = 'Email verification required 100%';
+            }
+
             showStep(2);
             startOTPTimer();
 
@@ -2241,18 +2369,23 @@ if (result.success) {
                 result.otpSent ? "success" : "error"
             );
 
-            btnLogin.innerText = yhT('auth.login');
+            btnLogin.textContent = yhT('auth.login');
             btnLogin.disabled = false;
+            btnLogin.removeAttribute('aria-busy');
             return;
         }
 
+        markYHAccessScanError(result.message || 'Verification failed. Try again.');
         showToast(result.message, "error");
-        btnLogin.innerText = yhT('auth.login');
+        btnLogin.textContent = yhT('auth.login');
         btnLogin.disabled = false;
+        btnLogin.removeAttribute('aria-busy');
     } catch (error) {
+        markYHAccessScanError('Server error. Try again.');
         showToast("Server error during login.", "error");
-        btnLogin.innerText = yhT('auth.login');
+        btnLogin.textContent = yhT('auth.login');
         btnLogin.disabled = false;
+        btnLogin.removeAttribute('aria-busy');
     }
 }
 

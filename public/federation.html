@@ -12,10 +12,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
-    href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Rajdhani:wght@500;600;700;800&family=Poppins:wght@300;400;500;600;700;800&display=swap"
     rel="stylesheet"
   />
-<link rel="stylesheet" href="/css/federation.css?v=20260531-federation-scroll-v2" />
+<link rel="stylesheet" href="/css/federation.css?v=20260613-yhu-real-bg-blue-v145" />
+<link rel="stylesheet" href="/css/yh-tailwind.css?v=20260613-yhu-real-bg-blue-v145" />
 </head>
 <body data-yh-view="federation" data-yh-page="federation">
 
@@ -151,7 +152,7 @@
 </div>
       </header>
 
-            <section class="fed-section fed-hero" id="overview" data-section="overview">
+            <section class="fed-section fed-hero is-panel-hidden" id="overview" data-section="overview" hidden>
         <div class="fed-hero-content">
           <div class="fed-chip" id="overviewStateChip">Private Strategic Circle</div>
           <h2 class="fed-hero-title">
@@ -244,7 +245,7 @@
         </div>
       </section>
 
-            <section class="fed-section" id="identity" data-section="identity">
+            <section class="fed-section is-panel-hidden" id="identity" data-section="identity" hidden>
         <div class="fed-section-head">
           <div class="fed-kicker">Identity</div>
           <h3>A private qualification layer, not an open community tab</h3>
@@ -311,7 +312,7 @@
         </div>
       </section>
 
-            <section class="fed-section" id="sectors" data-section="sectors">
+            <section class="fed-section is-panel-hidden" id="sectors" data-section="sectors" hidden>
         <div class="fed-section-head">
           <div class="fed-kicker">Sectors</div>
           <h3>Interactive qualification map by lane</h3>
@@ -405,7 +406,7 @@
         </div>
       </section>
 
-            <section class="fed-section" id="access" data-section="access">
+            <section class="fed-section is-panel-hidden" id="access" data-section="access" hidden>
         <div class="fed-section-head">
           <div class="fed-kicker">Access</div>
           <h3>Clear funnel control from entry to member unlock</h3>
@@ -498,7 +499,7 @@
         </div>
       </section>
 
-            <section class="fed-section" id="expansion" data-section="expansion">
+            <section class="fed-section is-panel-hidden" id="expansion" data-section="expansion" hidden>
                 <div class="fed-section-head">
           <div class="fed-kicker">Expansion</div>
           <h3>Federation Expansion Grid</h3>
@@ -636,7 +637,7 @@
         </div>
       </section>
 
-      <section class="fed-section is-panel-hidden" id="status" data-section="status">
+      <section class="fed-section is-panel-hidden" id="status" data-section="status" hidden>
         <div class="fed-section-head">
           <div class="fed-kicker">Current User State</div>
           <h3>Your Federation Access</h3>
@@ -691,7 +692,7 @@
         <div class="fed-command-layout" id="memberCommandPanel"></div>
       </section>
 
-      <section class="fed-section" id="connect" data-section="connect" hidden>
+      <section class="fed-section is-panel-hidden" id="connect" data-section="connect" hidden>
         <div class="fed-section-head">
           <div class="fed-kicker">Connect Layer</div>
           <h3>Request Strategic Introductions</h3>
@@ -964,7 +965,7 @@
 
         <div class="fed-connect-requests" id="federationConnectRequestsPanel"></div>
       </section>
-      <section class="fed-section" id="deal-rooms" data-section="deal-rooms" hidden>
+      <section class="fed-section is-panel-hidden" id="deal-rooms" data-section="deal-rooms" hidden>
         <div class="fed-section-head">
           <div class="fed-kicker">Strategic Rooms</div>
           <h3>Federation Deal Rooms</h3>
@@ -1075,7 +1076,7 @@
 
         <div class="fed-requests-list" id="federationDealRoomsList"></div>
       </section>
-      <section class="fed-section" id="requests" data-section="requests" hidden>
+      <section class="fed-section is-panel-hidden" id="requests" data-section="requests" hidden>
         <div class="fed-section-head">
           <div class="fed-kicker">Request Tracker</div>
           <h3>My Connection Requests</h3>
@@ -1105,7 +1106,7 @@
         <div class="fed-requests-list" id="federationRequestsList"></div>
       </section>
 
-      <section class="fed-section is-panel-hidden" id="referrals" data-section="referrals">
+      <section class="fed-section is-panel-hidden" id="referrals" data-section="referrals" hidden>
         <div class="fed-section-head">
           <div class="fed-kicker">Referral Flow</div>
           <h3>Federation Referral Access</h3>
@@ -1119,7 +1120,7 @@
         <div class="fed-referral-layout" id="referralPanel"></div>
             </section>
 
-      <section class="fed-section is-panel-hidden" id="directory" data-section="directory">
+      <section class="fed-section is-panel-hidden" id="directory" data-section="directory" hidden>
         <div class="fed-section-head">
           <div class="fed-kicker" id="directoryKicker">Member Preview</div>
           <h3 id="directoryTitle">Federation Directory Preview</h3>
@@ -1153,7 +1154,7 @@
         <div class="fed-directory-grid" id="directoryGrid"></div>
       </section>
 
-      <section class="fed-section" id="apply" data-section="apply">
+      <section class="fed-section is-panel-hidden" id="apply" data-section="apply" hidden>
         <div class="fed-section-head">
           <div class="fed-kicker">Apply</div>
           <h3>Request Access to the Federation</h3>
@@ -1490,7 +1491,7 @@
         </div>
       </section>
 
-        <section class="fed-section fed-admin-section" id="admin" data-section="admin" hidden>
+        <section class="fed-section fed-admin-section is-panel-hidden" id="admin" data-section="admin" hidden>
         <div class="fed-section-head">
           <div class="fed-kicker">Local Fallback</div>
           <h3>Federation Local Review Queue</h3>
@@ -1636,6 +1637,6 @@
     </aside>
   </div>
 
-<script src="/js/federation.js?v=20260531-federation-scroll-v2"></script>
+<script src="/js/federation.js?v=20260612-federation-right-ui-column-v132"></script>
 </body>
 </html>
