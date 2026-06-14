@@ -5331,662 +5331,7 @@ body[data-yh-view="academy"][data-yh-page="academy"] #academy-lead-missions-view
 }
 /* END PATCH: Academy mission detail Solo Leveling UI v105 */
 
-/* PATCH: YHU shared Plaza command controller v119 */
 
-/*
-  Plaza command parity with current Dashboard + Academy.
-  This copies the active Solo Leveling command language:
-  angular cut corners, purple panels, violet CTA buttons,
-  cyan system labels, thick Rajdhani text, and command-card scanlines.
-  No priority flags.
-*/
-
-body[data-yh-page="plaza"].yh-plaza-page {
-  --sl-bg-0: #020617;
-  --sl-bg-1: #020817;
-  --sl-bg-2: #030a18;
-  --sl-panel: rgba(6, 30, 64, 0.28);
-  --sl-panel-strong: rgba(6, 30, 64, 0.28);
-  --sl-panel-soft: rgba(6, 30, 64, 0.28);
-  --sl-border: rgba(223, 247, 255, 0.26);
-  --sl-border-hot: rgba(103, 232, 249, 0.48);
-  --sl-line: rgba(56, 189, 248, 0.20);
-  --sl-purple: #38bdf8;
-  --sl-purple-hot: #67e8f9;
-  --sl-purple-deep: #0f2f7a;
-  --sl-cyan: #67e8f9;
-  --sl-text: #f8fbff;
-  --sl-soft: #dff7ff;
-  --sl-muted: #94a3b8;
-
-  --yh-bg: #020817;
-  --yh-surface: rgba(6, 30, 64, 0.26);
-  --yh-surface-strong: rgba(6, 30, 64, 0.26);
-  --yh-border: rgba(223, 247, 255, 0.26);
-  --yh-border-strong: rgba(103, 232, 249, 0.48);
-  --yh-text: #f8fbff;
-  --yh-text-soft: #dff7ff;
-  --yh-text-dim: #94a3b8;
-  --yh-accent: #38bdf8;
-  --yh-accent-2: #67e8f9;
-  --yh-accent-rgb: 56, 189, 248;
-
-  color: var(--sl-text);
-  font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
-  background: radial-gradient(circle at 14% 8%, rgba(103, 232, 249, 0.18), transparent 31%),
-    radial-gradient(circle at 84% 0%, rgba(37, 99, 235, 0.20), transparent 34%),
-    linear-gradient(180deg, rgba(2, 8, 23, 0.34), rgba(2, 6, 23, 0.74)),
-    url("/images/yhu-premium-bg.png?v=20260531-bg-09") center top / cover no-repeat,
-    linear-gradient(180deg, #020817 0%, #020617 56%, #030a18 100%);
-  background-color: #020617;
-  color-scheme: dark;
-}
-
-body[data-yh-page="plaza"].yh-plaza-page::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background: none;
-  background-size: 36px 36px, 36px 36px, auto;
-  opacity: 0;
-  mask-image: linear-gradient(180deg, transparent 0%, black 14%, black 90%, transparent 100%);
-}
-
-body[data-yh-page="plaza"].yh-plaza-page::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background: none;
-  opacity: 0;
-}
-
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-shell {
-  position: relative;
-  z-index: 1;
-  color: var(--sl-text);
-  font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
-  background: transparent;
-}
-
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-app-header {
-  min-height: 68px;
-  margin: 14px clamp(12px, 1.2vw, 20px) 0;
-  padding: 10px 1.8rem;
-  border: 1px solid rgba(56, 189, 248, 0.28);
-  border-radius: 0;
-  clip-path: polygon(18px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px), 0 18px);
-  background:
-    radial-gradient(circle at 78% 0%, rgba(56, 189, 248, 0.18), transparent 34%),
-    linear-gradient(180deg, rgba(15, 13, 43, 0.22), rgba(5, 8, 24, 0.22));
-  box-shadow:
-    0 20px 58px rgba(0, 0, 0, 0.36),
-    0 0 32px rgba(37, 99, 235, 0.16),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-}
-
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-brand-title,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-access-brand span {
-  color: #ffffff;
-  font-family: "Orbitron", "Rajdhani", system-ui, sans-serif;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  text-shadow:
-    0 0 7px rgba(248, 251, 255, 0.34),
-    0 0 24px rgba(223, 247, 255, 0.28),
-    0 18px 48px rgba(0, 0, 0, 0.74);
-}
-
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-brand-logo,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-access-logo,
-body[data-yh-page="plaza"].yh-plaza-page .yh-tab-loader-logo {
-  filter:
-    drop-shadow(0 0 10px rgba(223, 247, 255, 0.48))
-    drop-shadow(0 0 20px rgba(56, 189, 248, 0.35));
-}
-
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-app-grid {
-  gap: clamp(12px, 1vw, 18px);
-  padding: clamp(12px, 1.1vw, 20px);
-  background: transparent;
-  border-top: 0;
-}body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-sidebar,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-rail {
-  border: 1px solid rgba(223, 247, 255, 0.22);
-  border-radius: 0;
-  background:
-    radial-gradient(circle at 80% 0%, rgba(56, 189, 248, 0.12), transparent 35%),
-    linear-gradient(180deg, rgba(6, 30, 64, 0.22), rgba(6, 30, 64, 0.22));
-  box-shadow:
-    0 24px 62px rgba(0, 0, 0, 0.36),
-    inset 0 1px 0 rgba(255, 255, 255, 0.045);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  clip-path: polygon(18px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px), 0 18px);
-}
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-workspace {
-  border: 1px solid rgba(223, 247, 255, 0.22);
-  border-radius: 0;background:
-    linear-gradient(180deg, rgba(2, 6, 23, 0.04), rgba(2, 6, 23, 0.20)),
-    url("/images/yhu-premium-bg.png?v=20260531-bg-09") center center / cover no-repeat,
-    #020617;
-  box-shadow: none;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  clip-path: polygon(18px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px), 0 18px);
-}
-
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-sidebar,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-rail {
-  padding: 14px;
-  gap: 14px;
-}
-
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-workspace {
-  padding: 0;
-}body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-side-card,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-menu-card,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-rail-card,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-detail-block,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-mini-spotlight,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-rail-mini,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-application-stop,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-drawer,
-body[data-yh-page="plaza"].yh-plaza-page .yh-tab-loader-card {
-  position: relative;
-  overflow: hidden;
-  border: 1px solid rgba(223, 247, 255, 0.24);
-  border-radius: 0;
-  background:
-    radial-gradient(circle at 80% 0%, rgba(56, 189, 248, 0.14), transparent 34%),
-    linear-gradient(180deg, rgba(6, 30, 64, 0.72), rgba(6, 30, 64, 0.90));
-  box-shadow:
-    0 24px 62px rgba(0, 0, 0, 0.34),
-    0 0 24px rgba(56, 189, 248, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.055);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  clip-path: polygon(18px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px), 0 18px);
-}
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-feed-composer,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-feed-card,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-directory-card,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-opportunity-card,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-region-card,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-bridge-card,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-request-card,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-message-card,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-inbox-card,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-notification-card,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-ops-summary-card,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-business-member-card,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-patron-desk-card,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-patron-desk-section,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-atlas-card,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-mini-card,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-panel-note,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-panel-toolbar,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-directory-toolbar,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-access-card,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-modal-content,
-body[data-yh-page="plaza"].yh-plaza-page .yh-profile-preview {
-  position: relative;
-  overflow: hidden;
-  border: 1px solid rgba(223, 247, 255, 0.24);
-  border-radius: 0;
-  background:
-    radial-gradient(circle at 80% 0%, rgba(56, 189, 248, 0.14), transparent 34%),
-    linear-gradient(180deg, rgba(6, 30, 64, 0.24), rgba(6, 30, 64, 0.24));
-  box-shadow:
-    0 24px 62px rgba(0, 0, 0, 0.34),
-    0 0 24px rgba(56, 189, 248, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.055);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  clip-path: polygon(18px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px), 0 18px);
-}
-
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-side-card::before,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-rail-card::before,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-feed-composer::before,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-feed-card::before,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-panel-note::before,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-panel-toolbar::before,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-directory-toolbar::before {
-  content: "";
-  position: absolute;
-  inset: 7px;
-  pointer-events: none;
-  border: 1px solid rgba(223, 247, 255, 0.08);
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.055), transparent 16%),
-    repeating-linear-gradient(180deg, rgba(223, 247, 255, 0.022) 0 1px, transparent 1px 7px);
-  clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px);
-}
-
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-workspace-card {
-  min-height: 100%;
-  padding: 22px;
-  gap: 14px;
-}
-
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-workspace-head,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-screen-head,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-access-head {
-  position: relative;
-  min-height: 118px;
-  display: flex;
-  align-items: center;
-  padding: 22px 28px;
-  margin: 0 0 12px;
-  border: 1px solid rgba(223, 247, 255, 0.26);
-  border-radius: 0;
-  background:
-    radial-gradient(circle at 70% 30%, rgba(56, 189, 248, 0.10), transparent 32%),
-    radial-gradient(circle at 8% 100%, rgba(56, 189, 248, 0.20), transparent 34%),
-    linear-gradient(90deg, rgba(6, 30, 64, 0.22), rgba(8, 8, 32, 0.22));
-  box-shadow:
-    0 20px 58px rgba(0, 0, 0, 0.34),
-    0 0 30px rgba(56, 189, 248, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  clip-path: polygon(22px 0, calc(100% - 22px) 0, 100% 22px, 100% calc(100% - 22px), calc(100% - 22px) 100%, 22px 100%, 0 calc(100% - 22px), 0 22px);
-}
-
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-workspace-title,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-screen-title,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-access-head h1,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-side-card h1,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-side-card h2,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-side-card h3,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-feed-card h3,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-directory-card h3,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-opportunity-card h3,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-region-card h3,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-bridge-card h3,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-detail-block h3,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-request-card h3,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-rail-card h3,
-body[data-yh-page="plaza"].yh-plaza-page .yh-profile-preview h4,
-body[data-yh-page="plaza"].yh-plaza-page .yh-tab-loader-text,
-body[data-yh-page="plaza"].yh-plaza-page strong,
-body[data-yh-page="plaza"].yh-plaza-page b {
-  color: #ffffff;
-  font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
-  font-weight: 900;
-  text-shadow:
-    0 0 10px rgba(248, 251, 255, 0.26),
-    0 0 24px rgba(223, 247, 255, 0.20);
-}
-
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-workspace-title {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: clamp(2.1rem, 3vw, 3.4rem);
-  line-height: 0.95;
-  letter-spacing: 0.01em;
-}
-
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-workspace-note,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-panel-note,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-access-head p,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-application-stop p,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-side-card p,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-feed-card p,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-directory-card p,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-opportunity-card p,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-region-card p,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-bridge-card p,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-detail-block p,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-request-card p,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-mini-card span,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-card-note,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-feed-meta,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-directory-meta,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-empty,
-body[data-yh-page="plaza"].yh-plaza-page .yh-profile-preview p,
-body[data-yh-page="plaza"].yh-plaza-page .yh-profile-preview small,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-form-help,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-field small {
-  color: rgba(226, 238, 255, 0.78);
-  line-height: 1.5;
-}
-
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-feed-composer-field,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-feed-composer-field span,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-field,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-field span,
-body[data-yh-page="plaza"].yh-plaza-page label,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-form-label {
-  color: #dff7ff;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-}
-
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-section-kicker,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-chip,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-modal-kicker,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-feed-tag,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-directory-badge,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-opportunity-badge,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-region-badge,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-bridge-lane,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-view-chip,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-request-status {
-  min-height: 28px;
-  display: inline-flex;
-  align-items: center;
-  width: fit-content;
-  padding: 6px 12px;
-  border: 1px solid rgba(223, 247, 255, 0.26);
-  border-radius: 0;
-  background:
-    linear-gradient(90deg, rgba(56, 189, 248, 0.18), rgba(37, 99, 235, 0.12), rgba(56, 189, 248, 0.10));
-  color: #67e8f9;
-  box-shadow:
-    0 0 18px rgba(56, 189, 248, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  font-family: "Orbitron", "Rajdhani", system-ui, sans-serif;
-  font-size: 0.64rem;
-  font-weight: 900;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
-}
-
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-workspace-title-icon,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-title-icon {
-  width: 46px;
-  height: 46px;
-  display: inline-grid;
-  place-items: center;
-  flex: 0 0 auto;
-  border: 1px solid rgba(223, 247, 255, 0.34);
-  border-radius: 0;
-  background:
-    radial-gradient(circle at 40% 20%, rgba(223, 247, 255, 0.26), transparent 45%),
-    linear-gradient(180deg, rgba(15, 47, 122, 0.72), rgba(6, 30, 64, 0.76));
-  color: #dff7ff;
-  box-shadow:
-    0 0 18px rgba(56, 189, 248, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  clip-path: polygon(9px 0, calc(100% - 9px) 0, 100% 9px, 100% calc(100% - 9px), calc(100% - 9px) 100%, 9px 100%, 0 calc(100% - 9px), 0 9px);
-}
-
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-workspace-title-icon-img,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-title-icon-img {
-  width: 72%;
-  height: 72%;
-  object-fit: contain;
-  filter:
-    drop-shadow(0 0 10px rgba(223, 247, 255, 0.36))
-    drop-shadow(0 0 16px rgba(56, 189, 248, 0.26));
-}body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-btn,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-btn-secondary,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-ghost-btn,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-nav-btn,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-tab,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-pill,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-side-action,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-universe-nav-link,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-top-universe-btn {
-  min-height: 42px;
-  border: 1px solid rgba(223, 247, 255, 0.26);
-  border-radius: 0;
-  color: #dff7ff;
-  background:
-    radial-gradient(circle at 20% 0%, rgba(223, 247, 255, 0.18), transparent 42%),
-    linear-gradient(180deg, rgba(15, 47, 122, 0.74), rgba(6, 30, 64, 0.74));
-  box-shadow:
-    0 14px 30px rgba(0, 0, 0, 0.24),
-    0 0 22px rgba(56, 189, 248, 0.10),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
-  font-size: clamp(0.78rem, 0.78vw, 0.95rem);
-  font-weight: 900;
-  line-height: 1.05;
-  text-align: center;
-  clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px);
-  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
-}
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-summary-card {
-  min-height: 42px;
-  border: 1px solid rgba(223, 247, 255, 0.26);
-  border-radius: 0;
-  color: #dff7ff;
-  background:
-    radial-gradient(circle at 20% 0%, rgba(223, 247, 255, 0.18), transparent 42%),
-    linear-gradient(180deg, rgba(15, 47, 122, 0.24), rgba(6, 30, 64, 0.24));
-  box-shadow:
-    0 14px 30px rgba(0, 0, 0, 0.24),
-    0 0 22px rgba(56, 189, 248, 0.10),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
-  font-size: clamp(0.78rem, 0.78vw, 0.95rem);
-  font-weight: 900;
-  line-height: 1.05;
-  text-align: center;
-  clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px);
-  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
-}
-
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-nav-btn {
-  justify-content: flex-start;
-  text-align: left;
-}
-
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-nav-btn-title {
-  color: inherit;
-  font-size: 0.92rem;
-  font-weight: 900;
-  letter-spacing: 0.02em;
-}body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-btn:hover,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-btn-secondary:hover,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-ghost-btn:hover,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-nav-btn:hover,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-nav-btn.is-active,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-tab:hover,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-tab.is-active,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-pill:hover,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-pill.is-active,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-side-action:hover,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-universe-nav-link:hover,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-top-universe-btn:hover {
-  color: #ffffff;
-  border-color: rgba(103, 232, 249, 0.58);
-  background:
-    radial-gradient(circle at 20% 0%, rgba(103, 232, 249, 0.24), transparent 42%),
-    linear-gradient(180deg, rgba(37, 99, 235, 0.88), rgba(6, 30, 64, 0.84));
-  box-shadow:
-    0 16px 34px rgba(0, 0, 0, 0.28),
-    0 0 26px rgba(56, 189, 248, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  transform: translateY(-1px);
-}
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-summary-card:hover {
-  color: #ffffff;
-  border-color: rgba(103, 232, 249, 0.58);
-  background:
-    radial-gradient(circle at 20% 0%, rgba(103, 232, 249, 0.24), transparent 42%),
-    linear-gradient(180deg, rgba(37, 99, 235, 0.24), rgba(6, 30, 64, 0.24));
-  box-shadow:
-    0 16px 34px rgba(0, 0, 0, 0.28),
-    0 0 26px rgba(56, 189, 248, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  transform: translateY(-1px);
-}
-
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-btn-primary,
-body[data-yh-page="plaza"].yh-plaza-page button.yh-plaza-btn-primary,
-body[data-yh-page="plaza"].yh-plaza-page a.yh-plaza-btn-primary {
-  color: #ffffff;
-  border-color: rgba(103, 232, 249, 0.58);
-  background:
-    radial-gradient(circle at 20% 0%, rgba(103, 232, 249, 0.26), transparent 42%),
-    linear-gradient(180deg, rgba(37, 99, 235, 0.94), rgba(37, 99, 235, 0.92));
-  box-shadow:
-    0 18px 42px rgba(0, 0, 0, 0.28),
-    0 0 26px rgba(56, 189, 248, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.10);
-}
-
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-btn-danger {
-  color: #ffffff;
-  border-color: rgba(248, 113, 113, 0.55);
-  background: linear-gradient(180deg, rgba(239, 68, 68, 0.88), rgba(185, 28, 28, 0.88));
-  box-shadow: 0 10px 24px rgba(239, 68, 68, 0.18);
-}
-
-body[data-yh-page="plaza"].yh-plaza-page input,
-body[data-yh-page="plaza"].yh-plaza-page select,
-body[data-yh-page="plaza"].yh-plaza-page textarea,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-feed-composer-field input,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-feed-composer-field select,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-feed-composer-field textarea,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-field input,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-field select,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-field textarea,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-modal-body input,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-modal-body select,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-modal-body textarea,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-drawer-body input,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-drawer-body select,
-body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-drawer-body textarea {
-  min-height: 44px;
-  border: 1px solid rgba(223, 247, 255, 0.18);
-  border-radius: 0;
-  background:
-    linear-gradient(180deg, rgba(15, 13, 43, 0.78), rgba(5, 8, 24, 0.82));
-  background-color: #061e40;
-  color: #f8fbff;
-  color-scheme: dark;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 0 16px rgba(56, 189, 248, 0.06);
-  clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px);
-}
-
-body[data-yh-page="plaza"].yh-plaza-page input::placeholder,
-body[data-yh-page="plaza"].yh-plaza-page textarea::placeholder {
-  color: rgba(148, 163, 184, 0.76);
-}
-
-body[data-yh-page="plaza"].yh-plaza-page input:focus,
-body[data-yh-page="plaza"].yh-plaza-page select:focus,
-body[data-yh-page="plaza"].yh-plaza-page textarea:focus {
-  border-color: rgba(103, 232, 249, 0.58);
-  background: rgba(6, 30, 64, 0.88);
-  box-shadow:
-    0 0 0 3px rgba(56, 189, 248, 0.10),
-    0 0 24px rgba(56, 189, 248, 0.20);
-}
-
-body[data-yh-page="plaza"].yh-plaza-page select option,
-body[data-yh-page="plaza"].yh-plaza-page select optgroup {
-  color: #f8fbff;
-  background: #061e40;
-}
-
-body[data-yh-page="plaza"].yh-plaza-page a:not(.yh-plaza-btn):not(.yh-plaza-universe-nav-link) {
-  color: #67e8f9;
-}
-
-body[data-yh-page="plaza"].yh-plaza-page.yh-plaza-dashboard-embed-ready .yh-plaza-app-header,
-body[data-yh-page="plaza"].yh-plaza-page.yh-plaza-dashboard-embed-ready .yh-plaza-sidebar,
-body[data-yh-page="plaza"].yh-plaza-page.yh-plaza-dashboard-embed-ready .yh-plaza-rail,
-body[data-yh-page="plaza"].yh-plaza-page.yh-plaza-dashboard-embed-ready .yh-plaza-top-universe-btn,
-body[data-yh-page="plaza"].yh-dashboard-inline-embed-body.yh-plaza-page .yh-plaza-app-header,
-body[data-yh-page="plaza"].yh-dashboard-inline-embed-body.yh-plaza-page .yh-plaza-sidebar,
-body[data-yh-page="plaza"].yh-dashboard-inline-embed-body.yh-plaza-page .yh-plaza-rail,
-body[data-yh-page="plaza"].yh-dashboard-inline-embed-body.yh-plaza-page .yh-plaza-top-universe-btn {
-  display: none;
-}
-
-body[data-yh-page="plaza"].yh-plaza-page.yh-plaza-dashboard-embed-ready .yh-plaza-shell,
-body[data-yh-page="plaza"].yh-dashboard-inline-embed-body.yh-plaza-page .yh-plaza-shell,
-body[data-yh-page="plaza"].yh-plaza-page.yh-plaza-dashboard-embed-ready .yh-plaza-app-grid,
-body[data-yh-page="plaza"].yh-dashboard-inline-embed-body.yh-plaza-page .yh-plaza-app-grid {
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0;
-  padding: 0;
-  overflow: hidden;
-  background: transparent;
-}
-
-body[data-yh-page="plaza"].yh-plaza-page.yh-plaza-dashboard-embed-ready .yh-plaza-workspace,
-body[data-yh-page="plaza"].yh-dashboard-inline-embed-body.yh-plaza-page .yh-plaza-workspace {
-  grid-column: 1 / -1;
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  border: 1px solid rgba(223, 247, 255, 0.18);
-  background:
-    radial-gradient(circle at 80% 0%, rgba(56, 189, 248, 0.12), transparent 35%),
-    linear-gradient(180deg, rgba(6, 30, 64, 0.22), rgba(6, 30, 64, 0.22));
-  box-shadow: none;
-  clip-path: polygon(18px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px), 0 18px);
-}
-
-body[data-yh-page="plaza"].yh-plaza-page.yh-plaza-dashboard-embed-ready .yh-plaza-workspace-card,
-body[data-yh-page="plaza"].yh-dashboard-inline-embed-body.yh-plaza-page .yh-plaza-workspace-card {
-  min-height: 100%;
-  padding: 22px;
-  gap: 14px;
-  border: 1px solid rgba(223, 247, 255, 0.24);
-  box-shadow:
-    0 24px 62px rgba(0, 0, 0, 0.24),
-    inset 0 1px 0 rgba(255, 255, 255, 0.055);
-  background:
-    radial-gradient(circle at 80% 0%, rgba(56, 189, 248, 0.14), transparent 34%),
-    linear-gradient(180deg, rgba(6, 30, 64, 0.22), rgba(6, 30, 64, 0.22));
-  clip-path: polygon(18px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px), 0 18px);
-}
-
-@media (max-width: 1180px) {
-  body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-app-grid {
-    grid-template-columns: 230px minmax(0, 1fr);
-  }
-
-  body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-rail {
-    display: none;
-  }
-
-  body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-feed-composer-main {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-feed-composer-field-wide,
-  body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-feed-composer-field-signal {
-    grid-column: 1 / -1;
-  }
-}
-
-@media (max-width: 780px) {
-  body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-app-grid,
-  body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-feed-composer-main,
-  body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-detail-grid {
-    grid-template-columns: 1fr;
-  }
-
-  body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-workspace-head,
-  body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-screen-head {
-    min-height: auto;
-    padding: 18px;
-  }
-}
-/* END PATCH: YHU shared Plaza command controller v119 */
 
 /* PATCH: Plaza subtab spacing and header meta polish v120 */
 
@@ -6374,57 +5719,40 @@ body[data-yh-page="plaza"].yh-plaza-page .yh-tab-loader-text {
 }
 /* END PATCH: Plaza loader UI parity v123 */
 
-/* PATCH: Federation iframe command visual controller v125 */
-
-/*
-  Federation UI recovery using the files currently loaded by federation.html.
-  This is the visual owner loaded through yh-tailwind.css after federation.css.
-  It fixes the oversized Federation icons and keeps Federation on Command by default.
-  No backend, no auth, no payment changes.
-*/
-
+/* Federation visual owner */
 body[data-yh-page="federation"] {
-  --fed-solo-bg-0: #020617;
-  --fed-solo-bg-1: #020817;
-  --fed-solo-bg-2: #030a18;
-  --fed-solo-panel: rgba(6, 30, 64, 0.28);
-  --fed-solo-panel-strong: rgba(6, 30, 64, 0.28);
-  --fed-solo-card: rgba(6, 30, 64, 0.28);
-  --fed-solo-card-deep: rgba(6, 30, 64, 0.28);
-  --fed-solo-border: rgba(223, 247, 255, 0.24);
-  --fed-solo-border-hot: rgba(103, 232, 249, 0.48);
-  --fed-solo-purple: #38bdf8;
-  --fed-solo-cyan: #67e8f9;
-  --fed-solo-text: #f8fbff;
-  --fed-solo-soft: #dff7ff;
-  --fed-solo-muted: #94a3b8;
-  color: var(--fed-solo-text);
+  --fed-bg: #020617;
+  --fed-surface: rgba(7, 24, 51, 0.22);
+  --fed-surface-soft: rgba(7, 24, 51, 0.16);
+  --fed-border: rgba(103, 232, 249, 0.20);
+  --fed-border-strong: rgba(103, 232, 249, 0.38);
+  --fed-text: #f8fbff;
+  --fed-muted: rgba(203, 213, 225, 0.78);
+  --fed-cyan: #67e8f9;
+  --fed-blue: #38bdf8;
+  --fed-green: #39d98a;
+  --fed-danger: #ff6b6b;
+  color: var(--fed-text);
   font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
-  background:
-    radial-gradient(circle at 76% 10%, rgba(56, 189, 248, 0.18), transparent 32%),
-    radial-gradient(circle at 58% 4%, rgba(103, 232, 249, 0.07), transparent 24%),
-    radial-gradient(circle at 30% 78%, rgba(15, 47, 122, 0.18), transparent 36%),
-    linear-gradient(180deg, #020617 0%, #020817 44%, #030a18 100%);
   background-color: #020617;
+  background:
+    radial-gradient(circle at 16% 4%, rgba(103, 232, 249, 0.14), transparent 30%),
+    radial-gradient(circle at 86% 0%, rgba(37, 99, 235, 0.14), transparent 34%),
+    linear-gradient(180deg, rgba(2, 8, 23, 0.20), rgba(2, 6, 23, 0.44)),
+    url("/images/yhu-premium-bg.png?v=20260531-bg-09") center top / cover no-repeat,
+    linear-gradient(180deg, #020817 0%, #020617 58%, #030a18 100%);
 }
 
-body[data-yh-page="federation"]::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background: none;
-  background-size: 36px 36px, 36px 36px, auto;
-  opacity: 0;
-  mask-image: linear-gradient(180deg, transparent 0%, black 14%, black 90%, transparent 100%);
+html.yh-dashboard-federation-embed-root,
+html.yh-dashboard-federation-scroll-child-main,
+body.yh-dashboard-federation-embed-body,
+body.yh-dashboard-federation-scroll-child-main,
+body.yh-dashboard-inline-embed-body[data-yh-view="federation"],
+body.yh-dashboard-inline-embed-body[data-yh-page="federation"] {
+  background: transparent;
 }
 
 body[data-yh-page="federation"] .fed-shell {
-  position: relative;
-  z-index: 1;
-  gap: clamp(12px, 1vw, 18px);
-  padding: clamp(12px, 1.1vw, 20px);
   background: transparent;
 }
 
@@ -6435,782 +5763,154 @@ body[data-yh-page="federation"] .fed-section.is-panel-hidden {
 
 body[data-yh-page="federation"] .fed-section.is-active-panel {
   display: block;
-}body[data-yh-page="federation"] .fed-sidebar,
+}
+
+body[data-yh-page="federation"] .fed-sidebar,
 body[data-yh-page="federation"] .fed-rightbar,
-body[data-yh-page="federation"] .fed-sidebar-card,
-body[data-yh-page="federation"] .fed-right-card,
-body[data-yh-page="federation"] .fed-sector-spotlight,
-body[data-yh-page="federation"] .fed-topbar-quick-menu,
-body[data-yh-page="federation"] .fed-form,
-body[data-yh-page="federation"] .fed-note {
-  border: 1px solid rgba(223, 247, 255, 0.24);
+body[data-yh-page="federation"] .fed-main {
+  border: 1px solid rgba(103, 232, 249, 0.16);
   border-radius: 0;
   background:
-    radial-gradient(circle at 80% 0%, rgba(56, 189, 248, 0.14), transparent 34%),
-    linear-gradient(180deg, rgba(6, 30, 64, 0.34), rgba(6, 30, 64, 0.34));
+    linear-gradient(180deg, rgba(7, 24, 51, 0.20), rgba(3, 10, 24, 0.14));
   box-shadow:
-    0 24px 62px rgba(0, 0, 0, 0.34),
-    0 0 24px rgba(56, 189, 248, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.055);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  clip-path: polygon(18px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px), 0 18px);
+    0 22px 70px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
+  color: var(--fed-text);
+  clip-path: polygon(22px 0, calc(100% - 22px) 0, 100% 22px, 100% calc(100% - 22px), calc(100% - 22px) 100%, 22px 100%, 0 calc(100% - 22px), 0 22px);
 }
+
 body[data-yh-page="federation"] .fed-section,
+body[data-yh-page="federation"] .fed-sidebar-card,
+body[data-yh-page="federation"] .fed-right-card,
 body[data-yh-page="federation"] .fed-info-card,
 body[data-yh-page="federation"] .fed-overview-card,
 body[data-yh-page="federation"] .fed-panel-card,
 body[data-yh-page="federation"] .fed-mini-card,
+body[data-yh-page="federation"] .fed-benefit-card,
+body[data-yh-page="federation"] .fed-criteria-card,
+body[data-yh-page="federation"] .fed-sector-card,
+body[data-yh-page="federation"] .fed-side-stat,
+body[data-yh-page="federation"] .fed-map-card,
 body[data-yh-page="federation"] .fed-command-card,
 body[data-yh-page="federation"] .fed-request-card,
 body[data-yh-page="federation"] .fed-member-card,
 body[data-yh-page="federation"] .fed-directory-card,
-body[data-yh-page="federation"] .fed-state-card,
-body[data-yh-page="federation"] .fed-hero-panel,
+body[data-yh-page="federation"] .fed-connect-card,
+body[data-yh-page="federation"] .fed-referral-card,
+body[data-yh-page="federation"] .fed-status-card,
+body[data-yh-page="federation"] .fed-form-card,
 body[data-yh-page="federation"] .fed-application-card,
+body[data-yh-page="federation"] .fed-state-metric,
+body[data-yh-page="federation"] .fed-table-wrap,
+body[data-yh-page="federation"] .fed-list-card,
+body[data-yh-page="federation"] .fed-sector-spotlight,
+body[data-yh-page="federation"] .fed-hero-panel,
+body[data-yh-page="federation"] .fed-topbar-quick-menu,
 body[data-yh-page="federation"] .fed-modal-card,
-body[data-yh-page="federation"] .fed-session-panel {
-  border: 1px solid rgba(223, 247, 255, 0.24);
+body[data-yh-page="federation"] .fed-session-panel,
+body[data-yh-page="federation"] .fed-form,
+body[data-yh-page="federation"] .fed-note {
+  border: 1px solid rgba(103, 232, 249, 0.18);
   border-radius: 0;
   background:
-    radial-gradient(circle at 80% 0%, rgba(56, 189, 248, 0.14), transparent 34%),
-    linear-gradient(180deg, rgba(6, 30, 64, 0.34), rgba(6, 30, 64, 0.34));
+    radial-gradient(circle at 14% 0%, rgba(103, 232, 249, 0.08), transparent 30%),
+    radial-gradient(circle at 88% 0%, rgba(37, 99, 235, 0.07), transparent 34%),
+    linear-gradient(180deg, rgba(7, 24, 51, 0.22), rgba(3, 10, 24, 0.16));
   box-shadow:
-    0 24px 62px rgba(0, 0, 0, 0.34),
-    0 0 24px rgba(56, 189, 248, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.055);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+    0 18px 54px rgba(0, 0, 0, 0.20),
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
+  color: var(--fed-text);
   clip-path: polygon(18px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px), 0 18px);
-}
-
-body[data-yh-page="federation"] .fed-main {
-  min-height: 0;
-  border: 1px solid rgba(223, 247, 255, 0.18);background: transparent;
-  box-shadow: none;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  padding: clamp(18px, 1.4vw, 26px);
-  overflow-y: auto;
-  overflow-x: hidden;
 }
 
 body[data-yh-page="federation"] .fed-topbar,
 body[data-yh-page="federation"] .fed-section-head {
-  position: relative;
-  border: 1px solid rgba(223, 247, 255, 0.26);
+  border: 1px solid rgba(103, 232, 249, 0.18);
   border-radius: 0;
   background:
-    radial-gradient(circle at 70% 30%, rgba(56, 189, 248, 0.10), transparent 32%),
-    radial-gradient(circle at 8% 100%, rgba(56, 189, 248, 0.20), transparent 34%),
-    linear-gradient(90deg, rgba(6, 30, 64, 0.22), rgba(8, 8, 32, 0.22));
+    radial-gradient(circle at 70% 30%, rgba(56, 189, 248, 0.07), transparent 32%),
+    linear-gradient(90deg, rgba(7, 24, 51, 0.22), rgba(3, 10, 24, 0.14));
   box-shadow:
-    0 20px 58px rgba(0, 0, 0, 0.34),
-    0 0 30px rgba(56, 189, 248, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    0 16px 48px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.035);
   clip-path: polygon(22px 0, calc(100% - 22px) 0, 100% 22px, 100% calc(100% - 22px), calc(100% - 22px) 100%, 22px 100%, 0 calc(100% - 22px), 0 22px);
 }
 
-body[data-yh-page="federation"] .fed-topbar {
-  margin-bottom: 16px;
-  padding: 18px 18px 20px;
-}
-
-body[data-yh-page="federation"] .fed-section-head {
-  margin-bottom: 16px;
-  padding: 22px 28px;
-}
-
-body[data-yh-page="federation"] .fed-brand-title,
 body[data-yh-page="federation"] .fed-page-title,
 body[data-yh-page="federation"] .fed-hero-title,
 body[data-yh-page="federation"] .fed-section-head h3,
 body[data-yh-page="federation"] .fed-info-title,
-body[data-yh-page="federation"] .fed-sidebar-card-title,
-body[data-yh-page="federation"] .fed-right-card-title,
-body[data-yh-page="federation"] .fed-panel-main-stat,
-body[data-yh-page="federation"] .fed-mini-value,
-body[data-yh-page="federation"] .fed-command-title,
+body[data-yh-page="federation"] .fed-sector-title,
 body[data-yh-page="federation"] .fed-command-card h4,
-body[data-yh-page="federation"] .fed-request-card h4,
-body[data-yh-page="federation"] .fed-member-name {
+body[data-yh-page="federation"] .fed-request-card h4 {
   color: #ffffff;
-  font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
-  font-weight: 900;
-  text-shadow:
-    0 0 10px rgba(248, 251, 255, 0.26),
-    0 0 24px rgba(223, 247, 255, 0.20);
-}
-
-body[data-yh-page="federation"] .fed-page-title {
-  font-size: clamp(2.2rem, 3.4vw, 3.9rem);
-  line-height: 0.95;
-}
-
-body[data-yh-page="federation"] .fed-brand-subtitle,
-body[data-yh-page="federation"] .fed-hero-text,
-body[data-yh-page="federation"] .fed-section-head p,
-body[data-yh-page="federation"] .fed-sidebar-card p,
-body[data-yh-page="federation"] .fed-right-card p,
-body[data-yh-page="federation"] .fed-command-copy,
-body[data-yh-page="federation"] .fed-info-card p,
-body[data-yh-page="federation"] .fed-overview-card p,
-body[data-yh-page="federation"] .fed-panel-main-stat small,
-body[data-yh-page="federation"] .fed-mini-label,
-body[data-yh-page="federation"] .fed-state-metric small,
-body[data-yh-page="federation"] .fed-form-feedback,
-body[data-yh-page="federation"] .fed-empty,
-body[data-yh-page="federation"] .fed-muted,
-body[data-yh-page="federation"] .fed-request-card p,
-body[data-yh-page="federation"] .fed-member-meta {
-  color: rgba(226, 238, 255, 0.78);
-  line-height: 1.5;
+  text-shadow: 0 0 18px rgba(103, 232, 249, 0.16);
 }
 
 body[data-yh-page="federation"] .fed-kicker,
-body[data-yh-page="federation"] .fed-chip,
-body[data-yh-page="federation"] .fed-sidebar-card-label,
-body[data-yh-page="federation"] .fed-right-card-label,
-body[data-yh-page="federation"] .fed-panel-label,
-body[data-yh-page="federation"] .fed-state-label,
-body[data-yh-page="federation"] .fed-command-pills span,
-body[data-yh-page="federation"] .fed-status-list span,
-body[data-yh-page="federation"] .fed-hero-strip span {
-  min-height: 28px;
-  display: inline-flex;
-  align-items: center;
-  width: fit-content;
-  padding: 6px 12px;
-  border: 1px solid rgba(223, 247, 255, 0.26);
-  border-radius: 0;
-  background: linear-gradient(90deg, rgba(56, 189, 248, 0.18), rgba(37, 99, 235, 0.12), rgba(56, 189, 248, 0.10));
-  color: #67e8f9;
-  box-shadow: 0 0 18px rgba(56, 189, 248, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  font-family: "Orbitron", "Rajdhani", system-ui, sans-serif;
-  font-size: 0.64rem;
-  font-weight: 900;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
-}
-
-body[data-yh-page="federation"] .fed-nav-link,
-body[data-yh-page="federation"] .fed-btn,
-body[data-yh-page="federation"] .fed-topbar-quick-summary,
-body[data-yh-page="federation"] .fed-topbar-quick-link {
-  min-height: 42px;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  border: 1px solid rgba(223, 247, 255, 0.26);
-  border-radius: 0;
-  color: #dff7ff;
-  background:
-    radial-gradient(circle at 20% 0%, rgba(223, 247, 255, 0.18), transparent 42%),
-    linear-gradient(180deg, rgba(15, 47, 122, 0.74), rgba(6, 30, 64, 0.74));
-  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24), 0 0 22px rgba(56, 189, 248, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
-  font-size: clamp(0.78rem, 0.78vw, 0.95rem);
-  font-weight: 900;
-  line-height: 1.05;
-  clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px);
-}
-
-body[data-yh-page="federation"] .fed-nav-link:hover,
-body[data-yh-page="federation"] .fed-nav-link.active,
-body[data-yh-page="federation"] body[data-yh-page="federation"] .fed-btn:hover,
-body[data-yh-page="federation"] .fed-topbar-quick-summary:hover,
-body[data-yh-page="federation"] .fed-topbar-quick-link:hover,
-body[data-yh-page="federation"] .fed-btn-primary {
-  color: #ffffff;
-  border-color: rgba(103, 232, 249, 0.58);
-  background:
-    radial-gradient(circle at 20% 0%, rgba(103, 232, 249, 0.24), transparent 42%),
-    linear-gradient(180deg, rgba(37, 99, 235, 0.88), rgba(6, 30, 64, 0.84));
-  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.28), 0 0 26px rgba(56, 189, 248, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-}
-
-body[data-yh-page="federation"] .fed-brand-logo-mark img,
-body[data-yh-page="federation"] .fed-brand-mark img {
-  display: block;
-  width: 70%;
-  height: 70%;
-  object-fit: contain;
-}
-
-body[data-yh-page="federation"] .fed-input-wrap label,
-body[data-yh-page="federation"] .fed-form-section-title,
-body[data-yh-page="federation"] .fed-form-label {
-  color: #dff7ff;
-  font-weight: 800;
-  letter-spacing: 0.02em;line-height: 1.35;display: block;
-  padding-left: 4px;
-  padding-right: 4px;
-}
-
-body[data-yh-page="federation"] .fed-input-wrap input,
-body[data-yh-page="federation"] .fed-input-wrap select,
-body[data-yh-page="federation"] .fed-input-wrap textarea {
-  min-height: 56px;line-height: 1.45;padding: 18px 20px;
-  border: 1px solid rgba(223, 247, 255, 0.18);
-  border-radius: 0;
-  background: linear-gradient(180deg, rgba(15, 13, 43, 0.78), rgba(5, 8, 24, 0.82));
-  background-color: #061e40;
-  color: #f8fbff;
-  color-scheme: dark;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 0 16px rgba(56, 189, 248, 0.06);
-  clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px);
-}
-
-body[data-yh-page="federation"] .yh-tab-loader {
-  position: fixed;
-  inset: 0;
-  z-index: 12000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  background:
-    radial-gradient(circle at 50% 35%, rgba(56, 189, 248, 0.10), transparent 34%),
-    radial-gradient(circle at 64% 24%, rgba(56, 189, 248, 0.14), transparent 32%),
-    linear-gradient(180deg, rgba(6, 30, 64, 0.95), rgba(6, 30, 64, 0.97));
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  transition: opacity 180ms ease, visibility 180ms ease;
-}
-
-body[data-yh-page="federation"] .yh-tab-loader.is-active {
-  opacity: 1;
-  visibility: visible;
-  pointer-events: auto;
-}
-
-body[data-yh-page="federation"] .yh-tab-loader-card {
-  width: min(92vw, 520px);
-  min-height: 292px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  padding: 34px 34px 32px;
-  text-align: center;
-  position: relative;
-  overflow: hidden;
-  border: 1px solid rgba(103, 232, 249, 0.25);
-  border-radius: 28px;
-  background:
-    radial-gradient(circle at 50% 18%, rgba(56, 189, 248, 0.14), transparent 28%),
-    radial-gradient(circle at 72% 0%, rgba(56, 189, 248, 0.16), transparent 38%),
-    linear-gradient(180deg, rgba(13, 24, 42, 0.92), rgba(2, 6, 23, 0.94));
-  box-shadow: 0 34px 92px rgba(0, 0, 0, 0.55), 0 0 42px rgba(56, 189, 248, 0.14), 0 0 32px rgba(56, 189, 248, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  clip-path: none;
-}
-
-body[data-yh-page="federation"] .yh-tab-loader-card::before {
-  content: "FEDERATION SYNC";
-  position: relative;
-  z-index: 2;
-  order: 2;
-  display: block;
-  margin-top: 2px;
-  color: #67e8f9;
-  font-family: "Orbitron", "Rajdhani", system-ui, sans-serif;
-  font-size: 0.72rem;
-  font-weight: 900;
-  letter-spacing: 0.26em;
-  text-transform: uppercase;
-}
-
-body[data-yh-page="federation"] .yh-tab-loader-card::after {
-  content: "";
-  position: relative;
-  z-index: 2;
-  order: 4;
-  width: min(72%, 300px);
-  height: 7px;
-  margin-top: 8px;
-  border: 1px solid rgba(223, 247, 255, 0.12);
-  border-radius: 999px;
-  background: linear-gradient(90deg, transparent, rgba(103, 232, 249, 0.86), rgba(56, 189, 248, 0.86), transparent), rgba(255, 255, 255, 0.055);
-  background-size: 180% 100%, 100% 100%;
-  animation: yhFederationLoaderProgressV125 1.05s ease-in-out infinite;
-}
-
-body[data-yh-page="federation"] .yh-tab-loader-logo {
-  order: 1;
-  width: 78px;
-  height: 78px;
-  padding: 14px;
-  object-fit: contain;
-  position: relative;
-  z-index: 2;
-  border-radius: 999px;
-  border: 1px solid rgba(103, 232, 249, 0.32);
-  background: radial-gradient(circle at center, rgba(56, 189, 248, 0.22), transparent 62%), rgba(13, 24, 42, 0.42);
-}
-
-body[data-yh-page="federation"] .yh-tab-loader-text {
-  order: 3;
-  position: relative;
-  z-index: 2;
-  max-width: 420px;
-  color: #ffffff;
-  font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
-  font-size: clamp(1.45rem, 2.3vw, 2.05rem);
-  font-weight: 900;
-  line-height: 1.08;
-  letter-spacing: -0.015em;
-}
-
-@keyframes yhFederationLoaderProgressV125 {
-  0% { background-position: 120% 0, 0 0; opacity: 0.44; }
-  50% { background-position: 50% 0, 0 0; opacity: 1; }
-  100% { background-position: -20% 0, 0 0; opacity: 0.54; }
-}
-
-body.yh-dashboard-inline-embed-body[data-yh-view="federation"] .fed-shell,
-body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .fed-shell,
-body.yh-dashboard-federation-embed-body .fed-shell,
-body.yh-dashboard-federation-scroll-child-main .fed-shell {
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr);
-  gap: 0;
-  padding: 0;
-  overflow: hidden;
-  background: transparent;
-}
-
-body.yh-dashboard-inline-embed-body[data-yh-view="federation"] .fed-rightbar,
-body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .fed-rightbar,
-body.yh-dashboard-federation-embed-body .fed-rightbar,
-body.yh-dashboard-federation-scroll-child-main .fed-rightbar {
-  display: none;
-  visibility: hidden;
-  pointer-events: none;
-  width: 0;
-  min-width: 0;
-  max-width: 0;
-  overflow: hidden;
-}
-
-body.yh-dashboard-inline-embed-body[data-yh-view="federation"] .fed-main,
-body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .fed-main,
-body.yh-dashboard-federation-embed-body .fed-main,
-body.yh-dashboard-federation-scroll-child-main .fed-main {
-  grid-column: 1 / -1;
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 18px;
-  border: 1px solid rgba(223, 247, 255, 0.18);background: transparent;
-  box-shadow: none;
-}
-
-@media (max-width: 720px) {
-  body[data-yh-page="federation"] .fed-main { padding: 14px; }
-
-  body[data-yh-page="federation"] .fed-page-title,
-  body[data-yh-page="federation"] .fed-hero-title { font-size: 2rem; }
-
-  }
-/* END PATCH: Federation iframe command visual controller v125 */
-
-/* PATCH: Federation embedded Dashboard sidebar layout v127 */
-html.yh-dashboard-inline-embed-root,
-html.yh-dashboard-federation-embed-root,
-html.yh-dashboard-federation-scroll-child-main,
-body.yh-dashboard-inline-embed-body[data-yh-view="federation"],
-body.yh-dashboard-inline-embed-body[data-yh-page="federation"],
-body.yh-dashboard-federation-embed-body,
-body.yh-dashboard-federation-scroll-child-main {
-  width: 100%;
-  height: 100%;
-  min-height: 100%;
-  overflow: hidden;
-  overscroll-behavior: none;
-  overflow-anchor: none;
-}
-
-body.yh-dashboard-inline-embed-body[data-yh-view="federation"] .fed-shell,
-body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .fed-shell,
-body.yh-dashboard-federation-embed-body .fed-shell,
-body.yh-dashboard-federation-scroll-child-main .fed-shell {
-  width: 100%;
-  height: 100%;
-  max-height: 100%;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr);
-  gap: clamp(12px, 1.1vw, 18px);
-  padding: clamp(10px, 1vw, 16px);
-  overflow: hidden;
-  overscroll-behavior: none;
-  overflow-anchor: none;
-}
-
-body.yh-dashboard-inline-embed-body[data-yh-view="federation"] .fed-sidebar,
-body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .fed-sidebar,
-body.yh-dashboard-federation-embed-body .fed-sidebar,
-body.yh-dashboard-federation-scroll-child-main .fed-sidebar {
-  display: none;
-  visibility: hidden;
-  pointer-events: none;
-  width: 0;
-  min-width: 0;
-  max-width: 0;
-  overflow: hidden;
-}
-
-body.yh-dashboard-inline-embed-body[data-yh-view="federation"] .fed-main,
-body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .fed-main,
-body.yh-dashboard-federation-embed-body .fed-main,
-body.yh-dashboard-federation-scroll-child-main .fed-main {
-  grid-column: 1 / -1;
-  width: 100%;
-  height: 100%;
-  max-height: 100%;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: none;
-  touch-action: pan-y;
-  scroll-behavior: auto;
-  overflow-anchor: none;
-  padding-bottom: clamp(110px, 11vh, 150px);
-}
-
-body.yh-dashboard-inline-embed-body[data-yh-view="federation"] .fed-rightbar,
-body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .fed-rightbar,
-body.yh-dashboard-federation-embed-body .fed-rightbar,
-body.yh-dashboard-federation-scroll-child-main .fed-rightbar {
-  display: none;
-}
-
-body.yh-dashboard-inline-embed-body[data-yh-view="federation"] .fed-section.is-panel-hidden,
-body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .fed-section.is-panel-hidden,
-body.yh-dashboard-federation-embed-body .fed-section.is-panel-hidden,
-body.yh-dashboard-federation-scroll-child-main .fed-section.is-panel-hidden {
-  display: none;
-}
-
-body.yh-dashboard-inline-embed-body[data-yh-view="federation"] .fed-section.is-active-panel,
-body.yh-dashboard-inline-embed-body[data-yh-page="federation"] .fed-section.is-active-panel,
-body.yh-dashboard-federation-embed-body .fed-section.is-active-panel,
-body.yh-dashboard-federation-scroll-child-main .fed-section.is-active-panel {
-  display: block;
-  overflow: visible;
-}
-/* END PATCH: Federation embedded Dashboard sidebar layout v127 */
-
-/* PATCH: Federation Academy/Plaza sidebar parity v127 */
-body[data-yh-page="federation"] {
-  --fed-bg: #020817;
-  --fed-surface: rgba(6, 30, 64, 0.26);
-  --fed-surface-soft: rgba(6, 30, 64, 0.26);
-  --fed-border: rgba(223, 247, 255, 0.24);
-  --fed-border-strong: rgba(103, 232, 249, 0.46);
-  --fed-text: #f8fbff;
-  --fed-muted: #94a3b8;
-  --fed-cyan: #67e8f9;
-  --fed-purple: #38bdf8;
-  --fed-purple-strong: #2563eb;
-  --fed-panel-bg: radial-gradient(circle at 12% 0%, rgba(103, 232, 249, 0.11), transparent 30%),
-    radial-gradient(circle at 84% 0%, rgba(56, 189, 248, 0.20), transparent 34%),
-    linear-gradient(180deg, rgba(6, 30, 64, 0.28), rgba(6, 30, 64, 0.28));
-  background:
-    radial-gradient(circle at 12% 0%, rgba(103, 232, 249, 0.10), transparent 32%),
-    radial-gradient(circle at 78% 0%, rgba(56, 189, 248, 0.22), transparent 36%),
-    linear-gradient(180deg, #020817 0%, #030a18 100%);
-  color: var(--fed-text);
-  font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
-}
-
-html.yh-dashboard-federation-embed-root,
-html.yh-dashboard-federation-scroll-child-main,
-body.yh-dashboard-federation-embed-body,
-body.yh-dashboard-federation-scroll-child-main {
-  background: transparent;
-}
-
-body[data-yh-page="federation"] .fed-shell {
-  gap: clamp(14px, 1.15vw, 20px);
-  padding: clamp(14px, 1.2vw, 20px);
-  background:
-    radial-gradient(circle at 16% 0%, rgba(103, 232, 249, 0.08), transparent 32%),
-    radial-gradient(circle at 78% 0%, rgba(56, 189, 248, 0.18), transparent 36%),
-    linear-gradient(180deg, rgba(6, 30, 64, 0.22), rgba(6, 30, 64, 0.22));
-}body[data-yh-page="federation"] .fed-sidebar,
-body[data-yh-page="federation"] .fed-rightbar,
-body[data-yh-page="federation"] .fed-sidebar-card,
-body[data-yh-page="federation"] .fed-right-card,
-body[data-yh-page="federation"] .fed-table-wrap {
-  border-radius: 0;
-  border-color: var(--fed-border);
-  background: var(--fed-panel-bg);
-  box-shadow:
-    0 22px 70px rgba(0, 0, 0, 0.34),
-    inset 0 1px 0 rgba(255, 255, 255, 0.055),
-    0 0 34px rgba(56, 189, 248, 0.10);
-  color: var(--fed-text);
-  clip-path: polygon(18px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px), 0 18px);
-}
-body[data-yh-page="federation"] .fed-info-card,
-body[data-yh-page="federation"] .fed-overview-card,
-body[data-yh-page="federation"] .fed-mini-card,
-body[data-yh-page="federation"] .fed-panel-card,
-body[data-yh-page="federation"] .fed-form-card,
-body[data-yh-page="federation"] .fed-list-card,
-body[data-yh-page="federation"] .fed-directory-card,
-body[data-yh-page="federation"] .fed-request-card,
-body[data-yh-page="federation"] .fed-map-shell {
-  border-radius: 0;
-  border-color: var(--fed-border);
-  background: rgba(6, 30, 64, 0.22);
-  box-shadow:
-    0 22px 70px rgba(0, 0, 0, 0.34),
-    inset 0 1px 0 rgba(255, 255, 255, 0.055),
-    0 0 34px rgba(56, 189, 248, 0.10);
-  color: var(--fed-text);
-  clip-path: polygon(18px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px), 0 18px);
-}
-
-body[data-yh-page="federation"] .fed-sidebar {
-  padding: 18px 16px;
-  gap: 14px;
-}
-
-body[data-yh-page="federation"] .fed-brand {
-  min-height: 72px;
-  padding: 12px;
-  border: 1px solid rgba(223, 247, 255, 0.18);
-  background:
-    linear-gradient(90deg, rgba(56, 189, 248, 0.18), rgba(103, 232, 249, 0.06)),
-    rgba(6, 30, 64, 0.38);
-  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
-}
-
-body[data-yh-page="federation"] .fed-brand-mark {
-  border-radius: 0;
-  border: 1px solid rgba(223, 247, 255, 0.34);
-  background:
-    radial-gradient(circle at 40% 20%, rgba(223, 247, 255, 0.28), transparent 45%),
-    linear-gradient(180deg, rgba(15, 47, 122, 0.82), rgba(6, 30, 64, 0.86));
-  box-shadow:
-    0 0 18px rgba(56, 189, 248, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px), 0 8px);
-}
-
-body[data-yh-page="federation"] .fed-brand-mark {
-  width: 42px;
-  min-width: 42px;
-  height: 42px;
-}
-
-body[data-yh-page="federation"] .fed-brand-logo-mark img {
-  width: 72%;
-  height: 72%;
-  object-fit: contain;
-}
-
-body[data-yh-page="federation"] .fed-brand-title,
-body[data-yh-page="federation"] .fed-page-title,
-body[data-yh-page="federation"] .fed-hero-title,
-body[data-yh-page="federation"] .fed-info-title,
-body[data-yh-page="federation"] .fed-sidebar-card-title,
-body[data-yh-page="federation"] .fed-right-card-title {
-  color: #ffffff;
-  text-shadow:
-    0 0 10px rgba(255, 255, 255, 0.34),
-    0 0 24px rgba(56, 189, 248, 0.34);
-}
-
-body[data-yh-page="federation"] .fed-brand-title,
-body[data-yh-page="federation"] .fed-kicker,
-body[data-yh-page="federation"] .fed-chip,
 body[data-yh-page="federation"] .fed-sidebar-card-label,
 body[data-yh-page="federation"] .fed-right-card-label,
 body[data-yh-page="federation"] .fed-panel-label {
-  font-family: "Orbitron", "Rajdhani", system-ui, sans-serif;
   color: var(--fed-cyan);
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
 }
 
-body[data-yh-page="federation"] .fed-brand-subtitle,
-body[data-yh-page="federation"] .fed-sidebar-card p,
-body[data-yh-page="federation"] .fed-right-card p,
 body[data-yh-page="federation"] .fed-section-head p,
+body[data-yh-page="federation"] .fed-info-card p,
+body[data-yh-page="federation"] .fed-benefit-card p,
+body[data-yh-page="federation"] .fed-criteria-card p,
+body[data-yh-page="federation"] .fed-sector-card p,
 body[data-yh-page="federation"] .fed-hero-text,
-body[data-yh-page="federation"] .fed-info-card p {
-  color: rgba(223, 247, 255, 0.76);
-}
-
-body[data-yh-page="federation"] .fed-nav {
-  gap: 8px;
-}
-
-body[data-yh-page="federation"] .fed-nav-link {
-  min-height: 44px;
-  padding: 10px 12px;
-  border: 1px solid rgba(223, 247, 255, 0.18);
-  border-radius: 0;
-  color: rgba(223, 247, 255, 0.82);
-  background:
-    radial-gradient(circle at 12% 0%, rgba(56, 189, 248, 0.18), transparent 42%),
-    linear-gradient(180deg, rgba(6, 30, 64, 0.26), rgba(6, 30, 64, 0.26));
-  box-shadow:
-    0 12px 26px rgba(0, 0, 0, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px);
-}
-
-body[data-yh-page="federation"] .fed-nav-link:hover,
-body[data-yh-page="federation"] .fed-nav-link.active {
-  color: #ffffff;
-  border-color: var(--fed-border-strong);
-  background:
-    radial-gradient(circle at 18% 0%, rgba(103, 232, 249, 0.26), transparent 44%),
-    linear-gradient(180deg, rgba(37, 99, 235, 0.26), rgba(6, 30, 64, 0.26));
-  box-shadow:
-    0 0 26px rgba(56, 189, 248, 0.24),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-}
-
-body[data-yh-page="federation"] .fed-topbar {
-  border: 1px solid rgba(223, 247, 255, 0.18);
-  border-radius: 0;
-  padding: 18px;
-  margin-bottom: 18px;
-  background:
-    radial-gradient(circle at 0% 0%, rgba(103, 232, 249, 0.10), transparent 34%),
-    linear-gradient(180deg, rgba(6, 30, 64, 0.22), rgba(6, 30, 64, 0.22));
-  clip-path: polygon(18px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px), 0 18px);
+body[data-yh-page="federation"] .fed-mini-label,
+body[data-yh-page="federation"] .fed-panel-main-stat small {
+  color: var(--fed-muted);
 }
 
 body[data-yh-page="federation"] .fed-btn,
+body[data-yh-page="federation"] .fed-nav-link,
 body[data-yh-page="federation"] .fed-topbar-quick-summary {
-  min-height: 40px;
+  border: 1px solid rgba(103, 232, 249, 0.18);
   border-radius: 0;
-  border: 1px solid rgba(223, 247, 255, 0.28);
-  color: #dff7ff;
-  background:
-    radial-gradient(circle at 20% 0%, rgba(223, 247, 255, 0.18), transparent 42%),
-    linear-gradient(180deg, rgba(15, 47, 122, 0.82), rgba(6, 30, 64, 0.76));
-  box-shadow:
-    0 14px 30px rgba(0, 0, 0, 0.26),
-    0 0 22px rgba(56, 189, 248, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px);
+  color: rgba(226, 238, 255, 0.86);
+  background: rgba(7, 24, 51, 0.16);
+  box-shadow: none;
+  clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px);
 }
 
 body[data-yh-page="federation"] .fed-btn:hover,
-body[data-yh-page="federation"] .fed-topbar-quick-summary:hover {
-  border-color: var(--fed-border-strong);
-  background:
-    radial-gradient(circle at 20% 0%, rgba(103, 232, 249, 0.24), transparent 42%),
-    linear-gradient(180deg, rgba(37, 99, 235, 0.90), rgba(6, 30, 64, 0.86));
+body[data-yh-page="federation"] .fed-nav-link:hover,
+body[data-yh-page="federation"] .fed-nav-link.active {
+  border-color: rgba(103, 232, 249, 0.42);
+  color: #ffffff;
+  background: rgba(56, 189, 248, 0.12);
 }
 
 body[data-yh-page="federation"] .fed-btn-primary {
-  border-color: rgba(103, 232, 249, 0.54);
+  border-color: rgba(59, 130, 246, 0.52);
+  color: #ffffff;
   background:
-    radial-gradient(circle at 24% 0%, rgba(103, 232, 249, 0.24), transparent 42%),
-    linear-gradient(180deg, rgba(37, 99, 235, 0.94), rgba(15, 47, 122, 0.88));
+    linear-gradient(135deg, rgba(37, 99, 235, 0.84), rgba(14, 165, 233, 0.58));
+  box-shadow: 0 12px 34px rgba(37, 99, 235, 0.20);
 }
 
-body[data-yh-page="federation"] .fed-section {
-  border-radius: 0;
+body[data-yh-page="federation"] .fed-chip,
+body[data-yh-page="federation"] .fed-hero-strip span,
+body[data-yh-page="federation"] .fed-status-list span,
+body[data-yh-page="federation"] .fed-tag-wrap span {
+  border: 1px solid rgba(103, 232, 249, 0.18);
+  color: #dff7ff;
+  background: rgba(7, 24, 51, 0.16);
 }
 
-body[data-yh-page="federation"] .fed-section-head {
-  border: 1px solid rgba(223, 247, 255, 0.18);
-  background:
-    radial-gradient(circle at 0% 0%, rgba(103, 232, 249, 0.08), transparent 32%),
-    linear-gradient(180deg, rgba(6, 30, 64, 0.22), rgba(6, 30, 64, 0.22));
-  padding: 18px;
-  margin-bottom: 18px;
-  clip-path: polygon(18px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px), 0 18px);
+body[data-yh-page="federation"] img {
+  filter: none;
 }
+/* End Federation visual owner */
 
-body[data-yh-page="federation"].yh-dashboard-federation-embed-body .fed-shell,
-body[data-yh-page="federation"].yh-dashboard-federation-scroll-child-main .fed-shell,
-body[data-yh-page="federation"].yh-federation-dashboard-embed-sidebar-v127 .fed-shell {
-  height: 100%;
-  min-height: 0;
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr);
-  gap: clamp(12px, 1.1vw, 18px);
-  padding: clamp(10px, 1vw, 16px);
-  overflow: hidden;
-}
 
-body[data-yh-page="federation"].yh-dashboard-federation-embed-body .fed-sidebar,
-body[data-yh-page="federation"].yh-dashboard-federation-scroll-child-main .fed-sidebar,
-body[data-yh-page="federation"].yh-federation-dashboard-embed-sidebar-v127 .fed-sidebar {
-  display: none;
-  visibility: hidden;
-  pointer-events: none;
-  width: 0;
-  min-width: 0;
-  max-width: 0;
-  overflow: hidden;
-}
 
-body[data-yh-page="federation"].yh-dashboard-federation-embed-body .fed-main,
-body[data-yh-page="federation"].yh-dashboard-federation-scroll-child-main .fed-main,
-body[data-yh-page="federation"].yh-federation-dashboard-embed-sidebar-v127 .fed-main {
-  grid-column: 1 / -1;
-  height: 100%;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-}
 
-body[data-yh-page="federation"].yh-dashboard-federation-embed-body .fed-rightbar,
-body[data-yh-page="federation"].yh-dashboard-federation-scroll-child-main .fed-rightbar,
-body[data-yh-page="federation"].yh-federation-dashboard-embed-sidebar-v127 .fed-rightbar {
-  display: none;
-  visibility: hidden;
-  pointer-events: none;
-  width: 0;
-  min-width: 0;
-  max-width: 0;
-  overflow: hidden;
-}
 
-body[data-yh-page="federation"].yh-dashboard-federation-embed-body .fed-topbar-actions,
-body[data-yh-page="federation"].yh-dashboard-federation-scroll-child-main .fed-topbar-actions,
-body[data-yh-page="federation"].yh-federation-dashboard-embed-sidebar-v127 .fed-topbar-actions {
-  display: none;
-}
 
-@media (max-width: 1024px) {
-  body[data-yh-page="federation"] .fed-shell,
-  body[data-yh-page="federation"].yh-dashboard-federation-embed-body .fed-shell,
-  body[data-yh-page="federation"].yh-dashboard-federation-scroll-child-main .fed-shell,
-  body[data-yh-page="federation"].yh-federation-dashboard-embed-sidebar-v127 .fed-shell {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  body[data-yh-page="federation"] .fed-sidebar,
-  body[data-yh-page="federation"] .fed-main {
-    grid-column: 1 / -1;
-  }
-}
-/* END PATCH: Federation Academy/Plaza sidebar parity v127 */
 
 /* PATCH: YH Wallet Solo Leveling Tailwind skin v134 */
 body[data-yh-view="hub"][data-yh-unified-workspace="wallet"] .yh-tw-scope .yh-wallet-dialog {
@@ -8269,3 +6969,472 @@ body[data-yh-page="business-chats"] *::-webkit-scrollbar {
   }
 }
 /* END PATCH: Dashboard left sidebar Tailwind visual owner v142 */
+
+/* PATCH: Federation clear transparent panels visual owner v147 */
+body[data-yh-page="federation"] {
+  --fed-text: #f8fbff;
+  --fed-muted: rgba(203, 213, 225, 0.78);
+  --fed-cyan: #67e8f9;
+  --fed-blue: #38bdf8;
+  --fed-green: #39d98a;
+  --fed-danger: #ff6b6b;
+  color: var(--fed-text);
+  font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
+  background-color: #020617;
+  background:
+    radial-gradient(circle at 14% 0%, rgba(103, 232, 249, 0.12), transparent 30%),
+    radial-gradient(circle at 86% 0%, rgba(37, 99, 235, 0.13), transparent 34%),
+    linear-gradient(180deg, rgba(2, 8, 23, 0.10), rgba(2, 6, 23, 0.26)),
+    url("/images/yhu-premium-bg.png?v=20260531-bg-09") center top / cover no-repeat,
+    linear-gradient(180deg, #020817 0%, #020617 58%, #030a18 100%);
+}
+
+html.yh-dashboard-federation-embed-root,
+html.yh-dashboard-federation-scroll-child-main,
+body.yh-dashboard-federation-embed-body,
+body.yh-dashboard-federation-scroll-child-main,
+body.yh-dashboard-inline-embed-body[data-yh-view="federation"],
+body.yh-dashboard-inline-embed-body[data-yh-page="federation"] {
+  background: transparent;
+}
+
+body[data-yh-page="federation"] .fed-shell,
+body[data-yh-page="federation"] .fed-main,
+body[data-yh-page="federation"] .fed-section,
+body[data-yh-page="federation"] .fed-section.is-active-panel {
+  background: transparent;
+}
+
+body[data-yh-page="federation"] .fed-section[hidden],
+body[data-yh-page="federation"] .fed-section.is-panel-hidden {
+  display: none;
+}
+
+body[data-yh-page="federation"] .fed-section.is-active-panel {
+  display: block;
+}
+
+body[data-yh-page="federation"] .fed-sidebar,
+body[data-yh-page="federation"] .fed-rightbar {
+  border: 1px solid rgba(103, 232, 249, 0.14);
+  border-radius: 0;
+  background: rgba(2, 8, 23, 0.10);
+  box-shadow: 0 16px 46px rgba(0, 0, 0, 0.16), inset 0 1px 0 rgba(255,255,255,0.025);
+  color: var(--fed-text);
+  clip-path: polygon(22px 0, calc(100% - 22px) 0, 100% 22px, 100% calc(100% - 22px), calc(100% - 22px) 100%, 22px 100%, 0 calc(100% - 22px), 0 22px);
+}
+
+body[data-yh-page="federation"] .fed-main {
+  border: 1px solid rgba(103, 232, 249, 0.12);
+  border-radius: 0;
+  box-shadow: none;
+  color: var(--fed-text);
+  clip-path: none;
+}
+
+body[data-yh-page="federation"] .fed-section {
+  border: 1px solid rgba(103, 232, 249, 0.16);
+  border-radius: 0;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.025);
+  color: var(--fed-text);
+  clip-path: polygon(18px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px), 0 18px);
+}
+
+body[data-yh-page="federation"] .fed-sidebar-card,
+body[data-yh-page="federation"] .fed-right-card,
+body[data-yh-page="federation"] .fed-info-card,
+body[data-yh-page="federation"] .fed-overview-card,
+body[data-yh-page="federation"] .fed-panel-card,
+body[data-yh-page="federation"] .fed-mini-card,
+body[data-yh-page="federation"] .fed-benefit-card,
+body[data-yh-page="federation"] .fed-criteria-card,
+body[data-yh-page="federation"] .fed-sector-card,
+body[data-yh-page="federation"] .fed-side-stat,
+body[data-yh-page="federation"] .fed-map-card,
+body[data-yh-page="federation"] .fed-command-card,
+body[data-yh-page="federation"] .fed-request-card,
+body[data-yh-page="federation"] .fed-member-card,
+body[data-yh-page="federation"] .fed-directory-card,
+body[data-yh-page="federation"] .fed-connect-card,
+body[data-yh-page="federation"] .fed-referral-card,
+body[data-yh-page="federation"] .fed-status-card,
+body[data-yh-page="federation"] .fed-form-card,
+body[data-yh-page="federation"] .fed-application-card,
+body[data-yh-page="federation"] .fed-state-metric,
+body[data-yh-page="federation"] .fed-table-wrap,
+body[data-yh-page="federation"] .fed-list-card,
+body[data-yh-page="federation"] .fed-sector-spotlight,
+body[data-yh-page="federation"] .fed-topbar-quick-menu,
+body[data-yh-page="federation"] .fed-modal-card,
+body[data-yh-page="federation"] .fed-session-panel,
+body[data-yh-page="federation"] .fed-form,
+body[data-yh-page="federation"] .fed-note {
+  border: 1px solid rgba(103, 232, 249, 0.13);
+  border-radius: 0;
+  background: rgba(2, 8, 23, 0.055);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.022);
+  color: var(--fed-text);
+  clip-path: polygon(14px 0, calc(100% - 14px) 0, 100% 14px, 100% calc(100% - 14px), calc(100% - 14px) 100%, 14px 100%, 0 calc(100% - 14px), 0 14px);
+}
+
+body[data-yh-page="federation"] .fed-topbar,
+body[data-yh-page="federation"] .fed-section-head {
+  border: 1px solid rgba(103, 232, 249, 0.12);
+  border-radius: 0;
+  background: rgba(2, 8, 23, 0.045);
+  box-shadow: none;
+  clip-path: polygon(18px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px), 0 18px);
+}
+
+body[data-yh-page="federation"] .fed-input-wrap input,
+body[data-yh-page="federation"] .fed-input-wrap select,
+body[data-yh-page="federation"] .fed-input-wrap textarea {
+  border: 1px solid rgba(103, 232, 249, 0.14);
+  border-radius: 0;
+  background: rgba(2, 8, 23, 0.08);
+  color: var(--fed-text);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.022);
+  clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px);
+}
+
+body[data-yh-page="federation"] .fed-page-title,
+body[data-yh-page="federation"] .fed-hero-title,
+body[data-yh-page="federation"] .fed-section-head h3,
+body[data-yh-page="federation"] .fed-info-title,
+body[data-yh-page="federation"] .fed-sector-title,
+body[data-yh-page="federation"] .fed-command-card h4,
+body[data-yh-page="federation"] .fed-request-card h4,
+body[data-yh-page="federation"] .fed-brand-title,
+body[data-yh-page="federation"] .fed-sidebar-card-title,
+body[data-yh-page="federation"] .fed-right-card-title {
+  color: #ffffff;
+  text-shadow: 0 0 14px rgba(103, 232, 249, 0.12);
+}
+
+body[data-yh-page="federation"] .fed-kicker,
+body[data-yh-page="federation"] .fed-sidebar-card-label,
+body[data-yh-page="federation"] .fed-right-card-label,
+body[data-yh-page="federation"] .fed-panel-label,
+body[data-yh-page="federation"] .fed-form-section-title,
+body[data-yh-page="federation"] .fed-state-kicker {
+  color: var(--fed-cyan);
+}
+
+body[data-yh-page="federation"] .fed-section-head p,
+body[data-yh-page="federation"] .fed-info-card p,
+body[data-yh-page="federation"] .fed-benefit-card p,
+body[data-yh-page="federation"] .fed-criteria-card p,
+body[data-yh-page="federation"] .fed-sector-card p,
+body[data-yh-page="federation"] .fed-hero-text,
+body[data-yh-page="federation"] .fed-mini-label,
+body[data-yh-page="federation"] .fed-panel-main-stat small,
+body[data-yh-page="federation"] .fed-sidebar-card p,
+body[data-yh-page="federation"] .fed-right-card p,
+body[data-yh-page="federation"] .fed-brand-subtitle,
+body[data-yh-page="federation"] .fed-member-role,
+body[data-yh-page="federation"] .fed-member-desc,
+body[data-yh-page="federation"] .fed-state-text,
+body[data-yh-page="federation"] .fed-form-hint {
+  color: var(--fed-muted);
+}
+
+body[data-yh-page="federation"] .fed-btn,
+body[data-yh-page="federation"] .fed-nav-link,
+body[data-yh-page="federation"] .fed-topbar-quick-summary,
+body[data-yh-page="federation"] .fed-topbar-quick-link {
+  border: 1px solid rgba(103, 232, 249, 0.14);
+  border-radius: 0;
+  color: rgba(226, 238, 255, 0.86);
+  background: rgba(2, 8, 23, 0.07);
+  box-shadow: none;
+  clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px);
+}
+
+body[data-yh-page="federation"] .fed-btn:hover,
+body[data-yh-page="federation"] .fed-nav-link:hover,
+body[data-yh-page="federation"] .fed-nav-link.active,
+body[data-yh-page="federation"] .fed-topbar-quick-link:hover {
+  border-color: rgba(103, 232, 249, 0.36);
+  color: #ffffff;
+  background: rgba(56, 189, 248, 0.10);
+}
+
+body[data-yh-page="federation"] .fed-btn-primary {
+  border-color: rgba(59, 130, 246, 0.42);
+  color: #ffffff;
+  background: rgba(37, 99, 235, 0.24);
+  box-shadow: 0 10px 26px rgba(37, 99, 235, 0.16);
+}
+
+body[data-yh-page="federation"] .fed-chip,
+body[data-yh-page="federation"] .fed-hero-strip span,
+body[data-yh-page="federation"] .fed-status-list span,
+body[data-yh-page="federation"] .fed-tag-wrap span,
+body[data-yh-page="federation"] .fed-member-meta span,
+body[data-yh-page="federation"] .fed-member-badge,
+body[data-yh-page="federation"] .fed-state-badge {
+  border: 1px solid rgba(103, 232, 249, 0.13);
+  color: #dff7ff;
+  background: rgba(2, 8, 23, 0.07);
+}
+
+body[data-yh-page="federation"] img {
+  filter: none;
+}
+/* END PATCH: Federation clear transparent panels visual owner v147 */
+
+/* PATCH: Plaza dark canvas transparent panels visual owner v149 */
+html:has(body[data-yh-page="plaza"]),
+body[data-yh-page="plaza"].yh-plaza-page,
+body[data-yh-page="plaza"].yh-dashboard-inline-embed-body,
+body[data-yh-page="plaza"].yh-dashboard-inline-embed-body.yh-plaza-page {
+  --plaza-text: #f8fbff;
+  --plaza-soft: #dff7ff;
+  --plaza-muted: rgba(203, 213, 225, 0.80);
+  --plaza-cyan: #67e8f9;
+  --plaza-blue: #38bdf8;
+  --plaza-panel-border: rgba(103, 232, 249, 0.16);
+  background-color: #020617;
+  background:
+    radial-gradient(circle at 16% 0%, rgba(103, 232, 249, 0.16), transparent 30%),
+    radial-gradient(circle at 88% 6%, rgba(37, 99, 235, 0.16), transparent 34%),
+    linear-gradient(180deg, rgba(2, 8, 23, 0.20), rgba(2, 6, 23, 0.48)),
+    url("/images/yhu-premium-bg.png?v=20260531-bg-09") center center / cover no-repeat fixed,
+    #020617;
+  color: var(--plaza-text);
+  color-scheme: dark;
+  font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
+}
+
+body[data-yh-page="plaza"].yh-plaza-page::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(103, 232, 249, 0.030) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(103, 232, 249, 0.022) 1px, transparent 1px);
+  background-size: 38px 38px;
+  opacity: 0.22;
+}
+
+body[data-yh-page="plaza"].yh-plaza-page::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 24% 80%, rgba(56, 189, 248, 0.09), transparent 34%),
+    linear-gradient(90deg, rgba(2, 6, 23, 0.18), transparent 32%, rgba(2, 6, 23, 0.16));
+  opacity: 0.42;
+}
+
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-shell {
+  position: relative;
+  z-index: 1;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(103, 232, 249, 0.10), transparent 28%),
+    radial-gradient(circle at 84% 12%, rgba(37, 99, 235, 0.10), transparent 34%),
+    linear-gradient(180deg, rgba(2, 8, 23, 0.12), rgba(2, 6, 23, 0.26)),
+    url("/images/yhu-premium-bg.png?v=20260531-bg-09") center center / cover no-repeat fixed,
+    #020617;
+}
+
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-app-grid,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-workspace,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-tab-panels,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-panel,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-screen,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-screen.is-active,
+body[data-yh-page="plaza"].yh-plaza-page.yh-plaza-dashboard-embed-ready .yh-plaza-workspace,
+body[data-yh-page="plaza"].yh-dashboard-inline-embed-body.yh-plaza-page .yh-plaza-workspace {
+  background: transparent;
+}
+
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-app-header,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-workspace-head,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-screen-head,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-access-head {
+  border: 1px solid rgba(103, 232, 249, 0.14);
+  border-radius: 0;
+  background: rgba(2, 8, 23, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.026),
+    0 14px 40px rgba(0,0,0,0.16);
+  clip-path: polygon(20px 0, calc(100% - 20px) 0, 100% 20px, 100% calc(100% - 20px), calc(100% - 20px) 100%, 20px 100%, 0 calc(100% - 20px), 0 20px);
+}
+
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-sidebar,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-rail {
+  border: 1px solid rgba(103, 232, 249, 0.13);
+  border-radius: 0;
+  background: rgba(2, 8, 23, 0.16);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.024);
+  clip-path: polygon(18px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px), 0 18px);
+}
+
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-workspace {
+  border-left: 1px solid rgba(103, 232, 249, 0.10);
+  border-right: 1px solid rgba(103, 232, 249, 0.10);
+  color: var(--plaza-text);
+}
+
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-workspace-card {
+  border: 1px solid rgba(103, 232, 249, 0.13);
+  border-radius: 0;
+  background: rgba(2, 8, 23, 0.13);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.020),
+    0 18px 54px rgba(0,0,0,0.14);
+  clip-path: polygon(18px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px), 0 18px);
+}
+
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-side-card,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-menu-card,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-rail-card,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-feed-composer,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-feed-card,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-directory-card,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-opportunity-card,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-region-card,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-bridge-card,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-request-card,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-message-card,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-inbox-card,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-notification-card,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-detail-block,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-ops-summary-card,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-business-member-card,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-patron-desk-card,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-patron-desk-section,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-atlas-card,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-mini-card,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-mini-spotlight,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-rail-mini,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-panel-note,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-panel-toolbar,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-directory-toolbar,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-summary-card {
+  position: relative;
+  border: 1px solid rgba(103, 232, 249, 0.12);
+  border-radius: 0;
+  background: rgba(2, 8, 23, 0.12);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.020),
+    0 10px 30px rgba(0,0,0,0.10);
+  color: var(--plaza-text);
+  clip-path: polygon(14px 0, calc(100% - 14px) 0, 100% 14px, 100% calc(100% - 14px), calc(100% - 14px) 100%, 14px 100%, 0 calc(100% - 14px), 0 14px);
+}
+
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-side-card::before,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-workspace-card::before,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-rail-card::before,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-feed-composer::before,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-feed-card::before,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-panel-note::before,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-panel-toolbar::before,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-directory-toolbar::before {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  pointer-events: none;
+  border: 1px solid rgba(223, 247, 255, 0.055);
+  background: transparent;
+  clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px);
+}
+
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-workspace-title,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-screen-title,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-access-head h1,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-side-card h1,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-side-card h2,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-card-title,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-title,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-feed-title,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-directory-name,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-opportunity-title,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-region-title {
+  color: #ffffff;
+  text-shadow: 0 0 14px rgba(103, 232, 249, 0.12);
+}
+
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-section-kicker,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-modal-kicker,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-chip,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-card-kicker,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-feed-type,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-region-code {
+  border: 1px solid rgba(103, 232, 249, 0.14);
+  color: var(--plaza-cyan);
+  background: rgba(2, 8, 23, 0.16);
+}
+
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-workspace-note,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-card-copy,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-feed-copy,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-panel-note,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-empty-state,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-side-card p,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-rail-card p {
+  color: var(--plaza-muted);
+}
+
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-btn,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-nav-btn,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-pill,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-ghost-btn,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-top-universe-btn {
+  border: 1px solid rgba(103, 232, 249, 0.14);
+  border-radius: 0;
+  color: rgba(226, 238, 255, 0.88);
+  background: rgba(2, 8, 23, 0.14);
+  box-shadow: none;
+  clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px);
+}
+
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-btn:hover,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-nav-btn:hover,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-nav-btn.is-active,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-pill:hover,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-pill.is-active {
+  border-color: rgba(103, 232, 249, 0.34);
+  color: #ffffff;
+  background: rgba(56, 189, 248, 0.12);
+}
+
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-btn-primary {
+  border-color: rgba(59, 130, 246, 0.42);
+  color: #ffffff;
+  background: rgba(37, 99, 235, 0.28);
+  box-shadow: 0 10px 26px rgba(37, 99, 235, 0.14);
+}
+
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-field input,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-field select,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-field textarea,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-feed-composer-field input,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-feed-composer-field select,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-feed-composer-field textarea {
+  border: 1px solid rgba(103, 232, 249, 0.14);
+  border-radius: 0;
+  background: rgba(2, 8, 23, 0.20);
+  color: var(--plaza-text);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.018);
+  clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px);
+}
+
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-brand-title,
+body[data-yh-page="plaza"].yh-plaza-page .yh-plaza-access-brand span {
+  color: #ffffff;
+  font-family: "Orbitron", "Rajdhani", system-ui, sans-serif;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+body[data-yh-page="plaza"].yh-plaza-page img {
+  filter: none;
+}
+/* END PATCH: Plaza dark canvas transparent panels visual owner v149 */
