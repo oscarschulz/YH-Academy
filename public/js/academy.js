@@ -15136,6 +15136,7 @@ const ACADEMY_MISSION_PLAYBOOKS = [
     {
         key: 'expansion-mission',
         icon: '🎬',
+        iconImage: '/assets/academy/icons/academy-icon-expansion-mission.png',
         title: 'Expansion Mission',
         kicker: 'Clippers Program Mission',
         difficulty: 'Performance Based',
@@ -34794,3 +34795,557 @@ function lockBotToVisibleBottom() {
     window.addEventListener('pageshow', () => boot('pageshow'));
 })();
 /* END PATCH: Academy dashboard embed fast ready handshake v19 */
+
+
+/* PATCH: YH Universe profile readability v1 */
+(function installYHProfileReadabilityV1() {
+    if (window.__yhProfileReadabilityV1Installed) return;
+    window.__yhProfileReadabilityV1Installed = true;
+
+    const css = `
+body[data-yh-page="dashboard"] #academy-profile-view,
+body[data-yh-page="academy"] #academy-profile-view {
+    color: #eaf6ff !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .chat-header,
+body[data-yh-page="academy"] #academy-profile-view .chat-header {
+    width: min(1180px, calc(100vw - 360px)) !important;
+    max-width: 1180px !important;
+    margin: 0 auto 14px auto !important;
+    padding: 14px 22px !important;
+    border: 1px solid rgba(56, 189, 248, 0.26) !important;
+    background:
+        radial-gradient(circle at 8% 50%, rgba(56, 189, 248, 0.12), transparent 30%),
+        linear-gradient(180deg, rgba(7, 17, 31, 0.92), rgba(3, 8, 19, 0.82)) !important;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .chat-messages,
+body[data-yh-page="academy"] #academy-profile-view .chat-messages {
+    padding: 18px 24px 36px !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-shell,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-shell {
+    width: min(1180px, calc(100vw - 360px)) !important;
+    max-width: 1180px !important;
+    margin: 0 auto !important;
+    display: grid !important;
+    gap: 18px !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-hero-card,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-hero-card {
+    min-height: 290px !important;
+    border: 1px solid rgba(125, 211, 252, 0.28) !important;
+    background:
+        radial-gradient(circle at 18% 10%, rgba(56, 189, 248, 0.13), transparent 30%),
+        radial-gradient(circle at 86% 18%, rgba(37, 99, 235, 0.12), transparent 32%),
+        linear-gradient(180deg, rgba(10, 22, 39, 0.94), rgba(4, 10, 24, 0.9)) !important;
+    box-shadow:
+        0 28px 80px rgba(0, 0, 0, 0.38),
+        0 0 0 1px rgba(14, 165, 233, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+    overflow: hidden !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-cover-band,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-cover-band {
+    min-height: 155px !important;
+    opacity: 0.95 !important;
+    border-bottom: 1px solid rgba(125, 211, 252, 0.18) !important;
+    background-color: rgba(7, 17, 31, 0.72) !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-cover-body,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-cover-body {
+    padding: 0 28px 24px !important;
+    min-height: 128px !important;
+    gap: 22px !important;
+    align-items: flex-end !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-avatar-wrap,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-avatar-wrap {
+    transform: translateY(-18px) !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-avatar,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-avatar {
+    width: 108px !important;
+    height: 108px !important;
+    border: 2px solid rgba(125, 211, 252, 0.35) !important;
+    background:
+        radial-gradient(circle at 35% 25%, rgba(56, 189, 248, 0.22), transparent 42%),
+        linear-gradient(180deg, rgba(8, 47, 73, 0.92), rgba(4, 12, 26, 0.92)) !important;
+    box-shadow:
+        0 18px 46px rgba(0, 0, 0, 0.42),
+        0 0 24px rgba(56, 189, 248, 0.18),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+    font-size: 2.4rem !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-name,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-name {
+    color: #ffffff !important;
+    font-size: clamp(1.55rem, 2vw, 2.1rem) !important;
+    line-height: 1.05 !important;
+    font-weight: 900 !important;
+    letter-spacing: 0.01em !important;
+    text-shadow: 0 0 22px rgba(56, 189, 248, 0.2) !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-username,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-username {
+    color: #c7d8ee !important;
+    font-size: 1rem !important;
+    font-weight: 700 !important;
+    margin-top: 5px !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-role,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-role {
+    color: #67e8f9 !important;
+    font-size: 0.9rem !important;
+    font-weight: 900 !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-pill,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-pill,
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-intro-visibility-badge,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-intro-visibility-badge {
+    border: 1px solid rgba(125, 211, 252, 0.34) !important;
+    background: rgba(14, 165, 233, 0.14) !important;
+    color: #e0f7ff !important;
+    font-weight: 900 !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-action-row,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-action-row {
+    gap: 10px !important;
+    flex-wrap: wrap !important;
+    justify-content: flex-end !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-action-btn,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-action-btn,
+body[data-yh-page="dashboard"] #academy-profile-view .yh-badge-avail-btn,
+body[data-yh-page="academy"] #academy-profile-view .yh-badge-avail-btn {
+    min-height: 46px !important;
+    padding: 11px 18px !important;
+    font-size: 0.88rem !important;
+    font-weight: 900 !important;
+    letter-spacing: 0.04em !important;
+    border-radius: 10px !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-social-strip,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-social-strip {
+    display: grid !important;
+    grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-social-stat,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-social-stat {
+    min-height: 102px !important;
+    padding: 16px 17px !important;
+    border: 1px solid rgba(125, 211, 252, 0.23) !important;
+    background:
+        radial-gradient(circle at 18% 10%, rgba(56, 189, 248, 0.12), transparent 32%),
+        linear-gradient(180deg, rgba(12, 25, 45, 0.9), rgba(5, 11, 24, 0.84)) !important;
+    box-shadow:
+        0 18px 50px rgba(0, 0, 0, 0.26),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-social-label,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-social-label {
+    color: #93dfff !important;
+    font-size: 0.72rem !important;
+    font-weight: 900 !important;
+    letter-spacing: 0.12em !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-social-value,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-social-value {
+    color: #ffffff !important;
+    font-size: 1.12rem !important;
+    font-weight: 950 !important;
+    margin-top: 8px !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-social-meta,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-social-meta {
+    color: #b6c8df !important;
+    font-size: 0.84rem !important;
+    line-height: 1.35 !important;
+    margin-top: 8px !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-content-grid,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-content-grid {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1.75fr) minmax(310px, 0.95fr) !important;
+    gap: 18px !important;
+    align-items: start !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-main-column,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-main-column,
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-side-column,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column {
+    display: grid !important;
+    gap: 18px !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-card,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-card {
+    padding: 20px 22px !important;
+    border: 1px solid rgba(125, 211, 252, 0.22) !important;
+    background:
+        radial-gradient(circle at 12% 0%, rgba(56, 189, 248, 0.11), transparent 34%),
+        linear-gradient(180deg, rgba(12, 25, 45, 0.92), rgba(5, 11, 24, 0.86)) !important;
+    box-shadow:
+        0 18px 55px rgba(0, 0, 0, 0.28),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-card-kicker,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-card-kicker {
+    color: #67e8f9 !important;
+    font-size: 0.75rem !important;
+    letter-spacing: 0.14em !important;
+    font-weight: 950 !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-card-title,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-card-title {
+    color: #ffffff !important;
+    font-size: 1.12rem !important;
+    line-height: 1.25 !important;
+    font-weight: 950 !important;
+    margin-top: 6px !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-bio,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-bio,
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-empty-state,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-empty-state {
+    color: #c7d8ee !important;
+    font-size: 0.98rem !important;
+    line-height: 1.65 !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-intro-facts,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-intro-facts {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+    margin-top: 18px !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-intro-fact,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-intro-fact,
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-stat-row,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-stat-row {
+    min-height: 58px !important;
+    padding: 13px 15px !important;
+    border: 1px solid rgba(148, 163, 184, 0.2) !important;
+    background: rgba(15, 23, 42, 0.58) !important;
+    border-radius: 12px !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-intro-fact span,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-intro-fact span,
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-stat-row span,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-stat-row span {
+    color: #a9bdd6 !important;
+    font-size: 0.78rem !important;
+    font-weight: 800 !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-intro-fact strong,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-intro-fact strong,
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-stat-row strong,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-stat-row strong {
+    color: #ffffff !important;
+    font-size: 0.94rem !important;
+    line-height: 1.35 !important;
+    font-weight: 950 !important;
+    overflow-wrap: anywhere !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-post-list,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-post-list {
+    margin-top: 14px !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-post-card,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-post-card,
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-empty-state,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-empty-state {
+    border: 1px solid rgba(125, 211, 252, 0.18) !important;
+    background: rgba(3, 7, 18, 0.46) !important;
+    border-radius: 14px !important;
+    padding: 18px !important;
+}
+
+@media (max-width: 1180px) {
+    body[data-yh-page="dashboard"] #academy-profile-view .chat-header,
+    body[data-yh-page="academy"] #academy-profile-view .chat-header,
+    body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-shell,
+    body[data-yh-page="academy"] #academy-profile-view .academy-profile-shell {
+        width: min(100%, calc(100vw - 40px)) !important;
+    }
+
+    body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-social-strip,
+    body[data-yh-page="academy"] #academy-profile-view .academy-profile-social-strip {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    }
+
+    body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-content-grid,
+    body[data-yh-page="academy"] #academy-profile-view .academy-profile-content-grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+@media (max-width: 760px) {
+    body[data-yh-page="dashboard"] #academy-profile-view .chat-messages,
+    body[data-yh-page="academy"] #academy-profile-view .chat-messages {
+        padding: 12px !important;
+    }
+
+    body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-cover-body,
+    body[data-yh-page="academy"] #academy-profile-view .academy-profile-cover-body {
+        padding: 0 16px 18px !important;
+        align-items: flex-start !important;
+    }
+
+    body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-social-strip,
+    body[data-yh-page="academy"] #academy-profile-view .academy-profile-social-strip,
+    body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-intro-facts,
+    body[data-yh-page="academy"] #academy-profile-view .academy-profile-intro-facts {
+        grid-template-columns: 1fr !important;
+    }
+
+    body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-name,
+    body[data-yh-page="academy"] #academy-profile-view .academy-profile-name {
+        font-size: 1.45rem !important;
+    }
+}
+`;
+
+    function injectProfileReadabilityStyle() {
+        let style = document.getElementById('yh-profile-readability-v1');
+
+        if (!style) {
+            style = document.createElement('style');
+            style.id = 'yh-profile-readability-v1';
+            document.head.appendChild(style);
+        }
+
+        if (style.textContent !== css) {
+            style.textContent = css;
+        }
+    }
+
+    injectProfileReadabilityStyle();
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', injectProfileReadabilityStyle);
+    } else {
+        injectProfileReadabilityStyle();
+    }
+
+    window.addEventListener('pageshow', injectProfileReadabilityStyle);
+    window.addEventListener('resize', injectProfileReadabilityStyle);
+})();
+ /* END PATCH: YH Universe profile readability v1 */
+
+
+/* PATCH: YH Universe profile context card fix v2 */
+(function installYHProfileContextCardFixV2() {
+    if (window.__yhProfileContextCardFixV2Installed) return;
+    window.__yhProfileContextCardFixV2Installed = true;
+
+    const css = `
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-shell,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-shell {
+    width: min(1120px, calc(100vw - 400px)) !important;
+    max-width: 1120px !important;
+    overflow: visible !important;
+    box-sizing: border-box !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .chat-header,
+body[data-yh-page="academy"] #academy-profile-view .chat-header {
+    width: min(1120px, calc(100vw - 400px)) !important;
+    max-width: 1120px !important;
+    overflow: visible !important;
+    box-sizing: border-box !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .chat-messages,
+body[data-yh-page="academy"] #academy-profile-view .chat-messages {
+    overflow-x: visible !important;
+    overflow-y: auto !important;
+    box-sizing: border-box !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-content-grid,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-content-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(360px, 410px) !important;
+    gap: 20px !important;
+    align-items: start !important;
+    overflow: visible !important;
+    box-sizing: border-box !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-main-column,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-main-column,
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-side-column,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+    box-sizing: border-box !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-side-column,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column {
+    width: 100% !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-side-column .academy-profile-card,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column .academy-profile-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+    box-sizing: border-box !important;
+    padding: 22px 22px 24px !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-side-column .academy-profile-card-title,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column .academy-profile-card-title {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    overflow-wrap: anywhere !important;
+    line-height: 1.25 !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-context-copy,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-context-copy,
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-side-column p,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column p {
+    color: #d8e7f8 !important;
+    font-size: 0.98rem !important;
+    line-height: 1.6 !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    overflow-wrap: anywhere !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-side-column .academy-profile-stat-row,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column .academy-profile-stat-row {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 62px !important;
+    height: auto !important;
+    display: grid !important;
+    grid-template-columns: minmax(96px, 0.78fr) minmax(0, 1.22fr) !important;
+    gap: 12px !important;
+    align-items: center !important;
+    overflow: visible !important;
+    box-sizing: border-box !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-side-column .academy-profile-stat-row span,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column .academy-profile-stat-row span,
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-side-column .academy-profile-stat-row strong,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column .academy-profile-stat-row strong {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    overflow-wrap: anywhere !important;
+}
+
+body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-side-column .academy-profile-stat-row strong,
+body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column .academy-profile-stat-row strong {
+    text-align: right !important;
+    color: #ffffff !important;
+}
+
+@media (max-width: 1380px) {
+    body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-shell,
+    body[data-yh-page="academy"] #academy-profile-view .academy-profile-shell,
+    body[data-yh-page="dashboard"] #academy-profile-view .chat-header,
+    body[data-yh-page="academy"] #academy-profile-view .chat-header {
+        width: min(1060px, calc(100vw - 340px)) !important;
+        max-width: 1060px !important;
+    }
+
+    body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-content-grid,
+    body[data-yh-page="academy"] #academy-profile-view .academy-profile-content-grid {
+        grid-template-columns: minmax(0, 1fr) minmax(340px, 390px) !important;
+    }
+}
+
+@media (max-width: 1180px) {
+    body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-shell,
+    body[data-yh-page="academy"] #academy-profile-view .academy-profile-shell,
+    body[data-yh-page="dashboard"] #academy-profile-view .chat-header,
+    body[data-yh-page="academy"] #academy-profile-view .chat-header {
+        width: min(100%, calc(100vw - 40px)) !important;
+        max-width: none !important;
+    }
+
+    body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-content-grid,
+    body[data-yh-page="academy"] #academy-profile-view .academy-profile-content-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-side-column .academy-profile-stat-row,
+    body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column .academy-profile-stat-row {
+        grid-template-columns: minmax(120px, 0.45fr) minmax(0, 1fr) !important;
+    }
+
+    body[data-yh-page="dashboard"] #academy-profile-view .academy-profile-side-column .academy-profile-stat-row strong,
+    body[data-yh-page="academy"] #academy-profile-view .academy-profile-side-column .academy-profile-stat-row strong {
+        text-align: left !important;
+    }
+}
+`;
+
+    function injectStyle() {
+        let style = document.getElementById('yh-profile-context-card-fix-v2');
+
+        if (!style) {
+            style = document.createElement('style');
+            style.id = 'yh-profile-context-card-fix-v2';
+            document.head.appendChild(style);
+        }
+
+        if (style.textContent !== css) {
+            style.textContent = css;
+        }
+    }
+
+    injectStyle();
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', injectStyle);
+    } else {
+        injectStyle();
+    }
+
+    window.addEventListener('pageshow', injectStyle);
+})();
+ /* END PATCH: YH Universe profile context card fix v2 */
