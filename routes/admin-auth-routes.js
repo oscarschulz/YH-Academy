@@ -1060,6 +1060,26 @@ function buildAdminMissionPlaybookTemplates() {
         currency: 'USD'
       },
       updatedAt: '2026-04-17T00:00:00.000Z'
+    },
+    {
+      id: 'mission-template-expansion-mission',
+      key: 'expansion-mission',
+      title: 'Expansion Mission',
+      missionType: 'content_clipping',
+      sourceDivision: 'academy',
+      status: 'active',
+      difficulty: 'performance_based',
+      summary: 'Performance-based Clippers program: create Young Hustlers clips, submit links after view thresholds, and get paid when admin approves proof.',
+      tools: ['Editing app', 'Approved YH clipping account', 'TikTok/Reels/Shorts/X', 'CRM submission', 'Analytics screenshots', 'Telegram Gateway / Universe support'],
+      proofRequired: ['Accepted Clippers application', 'Approved account setup and bio', 'Video link', 'View count screenshot', 'Platform and handle', 'CRM submission row', 'Admin approval'],
+      payoutRules: {
+        mode: 'view_based',
+        thresholdControlledByAdmin: true,
+        requiresAccountApproval: true,
+        requiresAdminApproval: true,
+        currency: 'USD'
+      },
+      updatedAt: '2026-06-14T00:00:00.000Z'
     }
   ];
 }

@@ -8226,6 +8226,46 @@ function getAcademyMissionPlaybooks() {
                 monthlyBonusAmount: 28.12,
                 currency: 'USD'
             }
+        },
+        {
+            key: 'expansion-mission',
+            title: 'Expansion Mission',
+            type: 'content_clipping',
+            order: 3,
+            status: 'active',
+            difficulty: 'performance_based',
+            shortDescription: 'Performance-based Clippers program: clip Young Hustlers content, submit video links after view thresholds, and get paid when admin approves proof.',
+            tools: [
+                'Editing app',
+                'Approved Young Hustlers clipping account',
+                'TikTok / Reels / Shorts / X',
+                'CRM submission link',
+                'Analytics screenshots',
+                'Telegram Gateway or Universe support group'
+            ],
+            trackingFields: [
+                'applicantName',
+                'age',
+                'location',
+                'editingExperience',
+                'sampleLinks',
+                'deviceSetup',
+                'weeklyAvailability',
+                'approvedAccountHandle',
+                'platform',
+                'videoUrl',
+                'viewCount',
+                'analyticsProofUrl',
+                'adminApprovalStatus',
+                'payoutEligibilityNotes'
+            ],
+            rewards: {
+                mode: 'view_based',
+                thresholdControlledByAdmin: true,
+                requiresAccountApproval: true,
+                requiresAdminApproval: true,
+                currency: 'USD'
+            }
         }
     ];
 }

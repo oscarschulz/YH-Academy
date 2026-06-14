@@ -15132,6 +15132,70 @@ const ACADEMY_MISSION_PLAYBOOKS = [
             '$3 — Tier 3 lead accepted into The Federation',
             '$28.12 bonus if 28 accepted Federation leads are completed in one month'
         ]
+    },
+    {
+        key: 'expansion-mission',
+        icon: '🎬',
+        title: 'Expansion Mission',
+        kicker: 'Clippers Program Mission',
+        difficulty: 'Performance Based',
+        objective: 'Clip Young Hustlers content, grow approved distribution accounts, submit proof only after videos hit the required view threshold, and get paid based on accepted performance.',
+        bestFor: 'Editors and content operators who can create clean, brand-safe short-form clips for Young Hustlers.',
+        tools: [
+            'CapCut, Premiere Pro, Final Cut, or any clean mobile / desktop editor',
+            'TikTok, Instagram Reels, YouTube Shorts, Facebook Reels, or X',
+            'A Young Hustlers-approved clipping account',
+            'CRM or submission form for video links',
+            'Analytics screenshots for views and account proof',
+            'Telegram Gateway or Universe support group for questions and approvals'
+        ],
+        steps: [
+            'Apply for the Clippers / Expansion program and answer the required screening questions.',
+            'Submit name, age, editing experience, sample edits, location, iPhone or device, laptop or desktop, and weekly availability.',
+            'Wait for admin approval before using Young Hustlers content or submitting clips.',
+            'After approval, receive setup instructions by email and through the Young Hustlers Telegram Gateway or Universe support group.',
+            'Create or prepare the approved clipping account and set up the profile, bio, visuals, and posting style correctly.',
+            'Wait for team approval on the account look before posting at scale.',
+            'Clip Young Hustlers content into clean short-form videos that protect the brand image.',
+            'Post the clips on approved platforms and let the content run until it reaches the required view threshold.',
+            'Submit the video link, analytics proof, platform, account handle, and notes inside the CRM.',
+            'Admin reviews the proof, approves or rejects the video, then records payout eligibility based on performance.'
+        ],
+        templates: [
+            'Application note: I want to join the Clippers / Expansion program. Here are my editing samples, device setup, weekly availability, and content experience.',
+            'Account approval note: This is the handle, bio, profile image, and content style I plan to use before posting Young Hustlers clips.',
+            'Submission note: Clip link: (URL). Platform: (TikTok / Reels / Shorts / X). Views: (number). Account: (@handle). Proof screenshot attached in CRM.',
+            'Support note: I have a question about my Expansion Mission setup and need help through the Telegram Gateway / Universe support group.'
+        ],
+        tracking: [
+            'Applicant name and contact',
+            'Age and location',
+            'Editing experience and sample links',
+            'Device, iPhone, laptop, and weekly availability',
+            'Approved account handle and profile link',
+            'Platform used',
+            'Video link',
+            'View count when submitted',
+            'Analytics screenshot or proof URL',
+            'CRM submission row',
+            'Admin approval status',
+            'Payout eligibility notes'
+        ],
+        successCriteria: [
+            'The applicant was accepted into the Clippers / Expansion program before posting as part of the mission.',
+            'The clipping account profile, bio, visuals, and posting style were approved by the team.',
+            'The clip represents Young Hustlers professionally and does not damage the brand image.',
+            'The video reached the required view threshold before submission.',
+            'The CRM submission includes the live link, platform, handle, view count, and analytics proof.',
+            'Admin approved the clip and marked it eligible for performance-based payout.'
+        ],
+        payment: [
+            'Performance-based payout tied to views after the clip reaches the required threshold.',
+            'Only submit the video once it reaches the required amount of views.',
+            'Admin must approve the video link and proof inside the CRM before payout eligibility is counted.',
+            'Rejected, low-quality, off-brand, or manipulated-view clips do not qualify.',
+            'Final thresholds and payout rules are controlled by the Young Hustlers admin team.'
+        ]
     }
 ];
 
@@ -15211,6 +15275,11 @@ function startCurrentAcademyMissionPlaybook() {
         return;
     }
 
+    if (mission.key === 'expansion-mission') {
+        showToast('Expansion Mission proof is handled through the Clippers CRM / Telegram Gateway once your account setup is approved.', 'success');
+        return;
+    }
+
     showToast(`Opening tracking workspace for ${mission.title}.`, 'success');
 
     openAcademyLeadMissionsView({
@@ -15251,7 +15320,7 @@ function setAcademyMissionsPanel(target = 'hub') {
         headerTopic.textContent = isLeads
             ? 'Private operator leads, follow-ups, payouts, and deal records.'
             : isPlaybook
-                ? 'Follow the mission steps, use the templates, track proof, and submit accepted leads.'
+                ? 'Follow the mission steps, use the templates, track proof, and submit results for review.'
                 : 'Choose a mission, follow the steps, track your progress, and submit proof.';
     }
 
