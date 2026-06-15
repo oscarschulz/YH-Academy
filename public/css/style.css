@@ -31398,16 +31398,16 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] {
 /* END PATCH: YHU Dashboard Solo Purple support base v45 */
 
 body[data-yh-view="hub"][data-yh-unified-workspace="overview"] .yh-command-dashboard-head {
-position: relative !important;
-    width: 100% !important;
-    min-height: 116px !important;
-    display: grid !important;
-    grid-template-columns: minmax(0, 1fr) minmax(240px, 340px) !important;
-    align-items: end !important;
-    gap: 22px !important;
-    margin: 0 0 16px !important;
-    padding: 8px 14px 0 !important;
-    overflow: visible !important;
+position: relative;
+    width: 100%;
+    min-height: 154px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+    align-items: center;
+    gap: clamp(28px, 3vw, 42px);
+    margin: 0 0 22px;
+    padding: 26px clamp(28px, 2.4vw, 36px);
+    overflow: hidden;
 }
 
 body[data-yh-view="hub"][data-yh-unified-workspace="overview"] .yh-universe-carousel-shell {
@@ -31434,13 +31434,13 @@ width: 100% !important;
 }
 
 body[data-yh-view="hub"] .yh-command-dashboard-quote {
-position: relative !important;
-    z-index: 2 !important;
-    display: grid !important;
-    gap: 6px !important;
-    justify-items: start !important;
-    padding: 18px 18px !important;
-    border-radius: 22px !important;
+position: relative;
+    z-index: 2;
+    display: grid;
+    gap: 10px;
+    justify-items: start;
+    padding: 22px 24px;
+    border-radius: 22px;
     border: 1px solid rgba(223, 247, 255, 0.20) !important;
     background:
         radial-gradient(circle at top left, rgba(56, 189, 248, 0.18), transparent 44%),
@@ -31449,40 +31449,43 @@ position: relative !important;
     box-shadow:
         0 0 28px rgba(56, 189, 248, 0.10),
         inset 0 1px 0 rgba(255,255,255,0.06) !important;
-}
+    align-content: center;
+    align-self: center;
+    min-height: 104px;}
 
 body[data-yh-view="hub"] .yh-command-dashboard-quote > span {
 color: #dff7ff !important;
     opacity: 1 !important;
-    font-size: 2.15rem !important;
-    line-height: 0.8 !important;
-    font-weight: 950 !important;
+    font-size: 2.05rem;
+    line-height: 0.75;
+    font-weight: 700;
     text-shadow:
         0 0 14px rgba(223, 247, 255, 0.50),
         0 0 28px rgba(103, 232, 249, 0.18) !important;
-}
+    font-family: "Rajdhani", "Poppins", system-ui, sans-serif;}
 
 body[data-yh-view="hub"] .yh-command-dashboard-quote p {
-margin: 0 !important;
+margin: 0;
     color: rgba(248, 250, 252, 0.94) !important;
     opacity: 1 !important;
-    font-size: 0.88rem !important;
-    line-height: 1.45 !important;
-    font-weight: 800 !important;
+    font-size: 0.92rem;
+    line-height: 1.55;
+    font-weight: 500;
     text-shadow:
         0 0 12px rgba(223, 247, 255, 0.22),
         0 2px 12px rgba(0, 0, 0, 0.55) !important;
-}
+    font-family: "Poppins", system-ui, sans-serif;}
 
 body[data-yh-view="hub"] .yh-command-dashboard-quote strong {
 color: rgba(226, 232, 240, 0.94) !important;
     opacity: 1 !important;
-    font-size: 0.72rem !important;
-    font-weight: 900 !important;
-    letter-spacing: 0.08em !important;
+    font-size: 0.70rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
     text-transform: uppercase !important;
     text-shadow: 0 0 10px rgba(223, 247, 255, 0.18) !important;
-}
+    font-family: "Orbitron", "Rajdhani", system-ui, sans-serif;
+    line-height: 1.35;}
 
 body[data-yh-view="hub"] .yh-command-readiness-card {
 grid-column: span 4 !important;
@@ -31502,42 +31505,46 @@ grid-column: span 4 !important;
 body[data-yh-view="hub"] .yh-command-readiness-main strong {
 color: #f8fbff !important;
     opacity: 1 !important;
-    font-size: clamp(2.35rem, 3vw, 3.2rem) !important;
-    line-height: 0.9 !important;
-    font-weight: 950 !important;
-    letter-spacing: -0.06em !important;
+    font-size: clamp(2.9rem, 3.3vw, 3.55rem);
+    line-height: 0.88;
+    font-weight: 700;
+    letter-spacing: -0.052em;
     text-shadow:
         0 0 12px rgba(255, 255, 255, 0.22),
         0 0 24px rgba(223, 247, 255, 0.26) !important;
-}
+    font-family: "Rajdhani", "Poppins", system-ui, sans-serif;}
 
 body[data-yh-view="hub"] .yh-command-readiness-main span {
 color: rgba(248, 250, 252, 0.90) !important;
     opacity: 1 !important;
-    font-size: 0.86rem !important;
-    font-weight: 900 !important;
-    text-shadow: 0 0 10px rgba(223, 247, 255, 0.16) !important;
-}
+    font-size: clamp(0.98rem, 1.05vw, 1.14rem);
+    font-weight: 600;
+    text-shadow: none;
+    font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
+    line-height: 1.12;
+    letter-spacing: 0.01em;}
 
 body[data-yh-view="hub"] .yh-command-readiness-card > p {
 grid-column: 1 / -1 !important;
     margin-top: -2px !important;
     color: rgba(248, 250, 252, 0.88) !important;
     opacity: 1 !important;
-    font-size: 0.94rem !important;
-    line-height: 1.42 !important;
-    font-weight: 750 !important;
-    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.58) !important;
-}
+    font-size: clamp(1.02rem, 1.06vw, 1.12rem);
+    line-height: 1.58;
+    font-weight: 400;
+    text-shadow: none;
+    font-family: "Poppins", system-ui, sans-serif;
+    letter-spacing: 0;}
 
 body[data-yh-view="hub"] #yh-command-next-action {
 color: rgba(248, 250, 252, 0.88) !important;
     opacity: 1 !important;
-    font-size: 0.94rem !important;
-    line-height: 1.42 !important;
-    font-weight: 750 !important;
-    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.58) !important;
-}
+    font-size: clamp(1.02rem, 1.06vw, 1.12rem);
+    line-height: 1.58;
+    font-weight: 400;
+    text-shadow: none;
+    font-family: "Poppins", system-ui, sans-serif;
+    letter-spacing: 0;}
 
 body[data-yh-view="hub"] .yh-command-bottom-cta {
 grid-column: 1 / -1 !important;

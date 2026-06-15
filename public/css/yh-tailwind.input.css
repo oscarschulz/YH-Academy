@@ -900,8 +900,10 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] {
     --sl-cyan: #67e8f9;
     --sl-text: #f8fbff;
     --sl-muted: #94a3b8;
-    font-family: 'Rajdhani', 'Poppins', system-ui, sans-serif;
-}
+    --yh-font-body: 'Poppins', system-ui, sans-serif;
+    --yh-font-subheader: 'Orbitron', 'Rajdhani', system-ui, sans-serif;
+    --yh-font-header: 'Rajdhani', 'Poppins', system-ui, sans-serif;
+    font-family: var(--yh-font-body);}
 
 /* main universe canvas */
 body[data-yh-view="hub"][data-yh-page="dashboard"] .dashboard-layout {
@@ -1049,12 +1051,12 @@ body[data-yh-view="hub"][data-yh-page="dashboard"]:not([data-yh-unified-workspac
 body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="overview"] .yh-command-dashboard-head {
     position: relative;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(230px, 330px);
-    align-items: end;
-    gap: 22px;
-    min-height: 122px;
-    margin: 0 0 16px;
-    padding: 18px 24px;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+    align-items: center;
+    gap: clamp(28px, 3vw, 42px);
+    min-height: 154px;
+    margin: 0 0 22px;
+    padding: 26px clamp(28px, 2.4vw, 36px);
     overflow: hidden;
     border-radius: 18px;
     border: 1px solid rgba(223, 247, 255, 0.17);
@@ -1095,34 +1097,45 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-dashboard-head > 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-kicker,
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-universe-workspace-launch-kicker {
     color: #dff7ff;
-    font-family: 'Orbitron', 'Rajdhani', system-ui, sans-serif;
+    font-family: var(--yh-font-subheader);
     font-size: 0.66rem;
-    font-weight: 800;
-    letter-spacing: 0.19em;
+    font-weight: 700;
+    letter-spacing: 0.15em;
     text-transform: uppercase;
     text-shadow: 0 0 14px rgba(56, 189, 248, 0.36);
-}
+    line-height: 1.18;}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-dashboard-title {
-    margin: 6px 0 8px;
+    margin: 10px 0 12px;
     color: #f8fbff;
-    font-family: 'Rajdhani', 'Poppins', system-ui, sans-serif;
-    font-size: clamp(2rem, 3.1vw, 3.55rem);
-    line-height: 0.95;
+    font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
+    font-size: clamp(2.08rem, 3.16vw, 3.52rem);
+    line-height: 0.98;
     font-weight: 700;
-    letter-spacing: -0.035em;
+    letter-spacing: -0.024em;
     text-shadow:
         0 0 18px rgba(223, 247, 255, 0.28),
         0 0 34px rgba(56, 189, 248, 0.18);
 }
 
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-dashboard-title span,
+body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-command-profile-name {
+    font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
+    font-size: inherit;
+    font-weight: inherit;
+    line-height: inherit;
+    letter-spacing: inherit;
+}
+
+
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-dashboard-copy,
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-dashboard-quote p,
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-dashboard-quote strong {
     color: rgba(223, 247, 255, 0.76);
-    font-size: 0.88rem;
-    line-height: 1.45;
-}
+    font-size: 0.92rem;
+    line-height: 1.62;
+    font-family: var(--yh-font-body);
+    font-weight: 400;}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-dashboard-quote span {
     color: #dff7ff;
@@ -1240,15 +1253,18 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-card h2,
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-card h3 {
     margin: 0;
     color: #f8fbff;
-    font-family: 'Rajdhani', 'Poppins', system-ui, sans-serif;
+    font-family: var(--yh-font-header);
     font-weight: 700;
     letter-spacing: -0.025em;
     text-shadow: 0 0 18px rgba(223, 247, 255, 0.20);
-}
+    line-height: 1.05;}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-access-hero-card h2 {
-    font-size: clamp(1.65rem, 2.1vw, 2.3rem);
-}
+    font-size: clamp(2.12rem, 2.38vw, 2.72rem);
+    font-family: var(--yh-font-header);
+    font-weight: 700;
+    line-height: 0.98;
+    letter-spacing: -0.018em;}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-card p,
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-card small,
@@ -1256,8 +1272,12 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-metric-card span,
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-list span,
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-event-row span {
     color: rgba(223, 247, 255, 0.72);
-    line-height: 1.45;
-}
+    line-height: 1.58;
+    font-family: "Poppins", system-ui, sans-serif;
+    font-weight: 400;
+    font-size: clamp(1.02rem, 1.06vw, 1.12rem);
+    letter-spacing: 0;
+    text-shadow: none;}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-metric-card strong,
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-list strong,
@@ -1267,7 +1287,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-readiness-main st
     color: #f8fbff;
     font-weight: 700;
     text-shadow: 0 0 16px rgba(223, 247, 255, 0.22);
-}
+    font-family: var(--yh-font-header);}
 
 /* icons and rings */
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-access-orb,
@@ -1354,7 +1374,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-panel-head .yh-co
     padding: 8px 14px;
     border-radius: 12px;
     font-size: 0.78rem;
-    font-weight: 900;
+    font-weight: 700;
     line-height: 1;
     text-align: center;
     text-decoration: none;
@@ -1382,7 +1402,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] #universe-hub-view .yh-univer
         0 14px 30px rgba(0, 0, 0, 0.26),
         0 0 22px rgba(56, 189, 248, 0.12),
         inset 0 1px 0 rgba(255, 255, 255, 0.06);
-    font-family: 'Rajdhani', 'Poppins', system-ui, sans-serif;
+    font-family: var(--yh-font-header);
     font-weight: 700;
     letter-spacing: 0.02em;
     clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px);
@@ -1522,7 +1542,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-profile-search-
     -ms-overflow-style: none !important;
     white-space: normal !important;
     overflow-wrap: anywhere !important;
-    line-height: 1.2 !important;
+    line-height: 1.2;
 }
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-dashboard-top-search-textarea::-webkit-scrollbar,
@@ -1608,8 +1628,8 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-top-business-chat
     display: grid !important;
     place-items: center !important;
     color: #67e8f9 !important;
-    font-size: 0.9rem !important;
-    line-height: 1 !important;
+    font-size: 0.9rem;
+    line-height: 1;
     border-radius: 8px !important;
     background: rgba(103, 232, 249, 0.10) !important;
     box-shadow: 0 0 14px rgba(103, 232, 249, 0.16) !important;
@@ -1617,10 +1637,10 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-top-business-chat
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-top-business-chats-copy {
     color: #f8fbff !important;
-    font-family: 'Rajdhani', 'Poppins', system-ui, sans-serif !important;
-    font-size: 0.86rem !important;
-    font-weight: 900 !important;
-    line-height: 1 !important;
+    font-family: var(--yh-font-header);
+    font-size: 0.86rem;
+    font-weight: 700;
+    line-height: 1;
 }
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] #notif-bell,
@@ -1674,28 +1694,28 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-readiness-card .y
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-readiness-main strong {
     color: #f8fbff !important;
     opacity: 1 !important;
-    font-size: clamp(1.28rem, 1.7vw, 1.62rem) !important;
-    font-weight: 900 !important;
+    font-size: clamp(1.28rem, 1.7vw, 1.62rem);
+    font-weight: 700;
     text-shadow:
         0 0 10px rgba(255, 255, 255, 0.16),
         0 0 22px rgba(223, 247, 255, 0.20) !important;
-}
+    font-family: var(--yh-font-header);}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-readiness-main span {
     color: rgba(248, 250, 252, 0.88) !important;
     opacity: 1 !important;
-    font-size: 1rem !important;
-    font-weight: 800 !important;
-}
+    font-size: 1rem;
+    font-weight: 600;
+    font-family: var(--yh-font-subheader);}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-command-next-action {
     color: rgba(248, 250, 252, 0.88) !important;
     opacity: 1 !important;
-    font-size: clamp(0.98rem, 1.08vw, 1.12rem) !important;
-    line-height: 1.42 !important;
-    font-weight: 700 !important;
+    font-size: clamp(0.98rem, 1.08vw, 1.12rem);
+    line-height: 1.55;
+    font-weight: 400;
     text-shadow: 0 0 12px rgba(0, 0, 0, 0.46) !important;
-}
+    font-family: var(--yh-font-body);}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-card p,
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-card small,
@@ -1739,7 +1759,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-card str
     }
 
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-top-business-chats-copy {
-        font-size: 0.8rem !important;
+        font-size: 0.8rem;
     }
 }
 
@@ -1821,25 +1841,25 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-panel-head > div 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-panel-head h3 {
     margin: 0 !important;
     color: #f8fbff !important;
-    font-size: 1.16rem !important;
-    line-height: 1.1 !important;
-    font-weight: 900 !important;
-    letter-spacing: -0.01em !important;
+    font-size: 1.16rem;
+    line-height: 1.1;
+    font-weight: 700;
+    letter-spacing: -0.01em;
     text-shadow:
         0 0 10px rgba(255,255,255,0.16),
         0 0 18px rgba(223, 247, 255,0.20) !important;
-}
+    font-family: var(--yh-font-header);}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-kicker {
     color: rgba(223, 247, 255, 0.98) !important;
     opacity: 1 !important;
-    font-size: 0.72rem !important;
-    line-height: 1.05 !important;
-    font-weight: 900 !important;
-    letter-spacing: 0.16em !important;
-    text-transform: uppercase !important;
+    font-size: 0.72rem;
+    line-height: 1.05;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
     text-shadow: 0 0 12px rgba(56, 189, 248, 0.28) !important;
-}
+    font-family: var(--yh-font-subheader);}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-live-feed-dot {
     flex: 0 0 auto !important;
@@ -1852,11 +1872,11 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-live-feed-dot {
     color: #25f28c !important;
     background: rgba(34, 197, 94, 0.10) !important;
     border: 1px solid rgba(34, 197, 94, 0.24) !important;
-    font-size: 0.84rem !important;
-    font-weight: 900 !important;
-    line-height: 1 !important;
+    font-size: 0.84rem;
+    font-weight: 600;
+    line-height: 1;
     text-shadow: 0 0 14px rgba(34, 197, 94, 0.42) !important;
-}
+    font-family: var(--yh-font-subheader);}
 
 /* EMPIRE ACTIVITY */
 
@@ -1896,7 +1916,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-activity-icon {
     place-items: center !important;
     margin: 0 !important;
     color: #dff7ff !important;
-    font-size: 0.9rem !important;
+    font-size: 0.9rem;
     border: 1px solid rgba(223, 247, 255, 0.28) !important;
     background:
         radial-gradient(circle at 50% 0%, rgba(223, 247, 255, 0.22), transparent 48%),
@@ -1920,27 +1940,27 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-activity-item str
     min-width: 0 !important;
     color: #f8fbff !important;
     opacity: 1 !important;
-    font-size: 1.02rem !important;
-    font-weight: 900 !important;
-    line-height: 1.2 !important;
+    font-size: 1.02rem;
+    font-weight: 500;
+    line-height: 1.55;
     white-space: normal !important;
     overflow-wrap: anywhere !important;
     word-break: normal !important;
     text-shadow: 0 0 10px rgba(223, 247, 255, 0.14) !important;
-}
+    font-family: var(--yh-font-body);}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-activity-item small {
     display: block !important;
     min-width: 0 !important;
     color: rgba(223, 247, 255, 0.82) !important;
     opacity: 1 !important;
-    font-size: 0.86rem !important;
-    font-weight: 650 !important;
-    line-height: 1.34 !important;
+    font-size: 0.86rem;
+    font-weight: 400;
+    line-height: 1.55;
     white-space: normal !important;
     overflow-wrap: anywhere !important;
     word-break: normal !important;
-}
+    font-family: var(--yh-font-body);}
 
 /* YOUR NETWORK */
 
@@ -1975,17 +1995,17 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-network-orb {
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-network-orb strong {
     color: #f8fbff !important;
-    font-size: 1.7rem !important;
-    font-weight: 950 !important;
-    line-height: 1 !important;
-}
+    font-size: 1.7rem;
+    font-weight: 700;
+    line-height: 1;
+    font-family: var(--yh-font-header);}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-network-orb span {
     color: rgba(223, 247, 255, 0.88) !important;
-    font-size: 0.96rem !important;
-    font-weight: 850 !important;
-    line-height: 1 !important;
-}
+    font-size: 0.96rem;
+    font-weight: 600;
+    line-height: 1;
+    font-family: var(--yh-font-subheader);}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-list {
     display: grid !important;
@@ -2012,25 +2032,25 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-list > d
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-list span {
     color: rgba(223, 247, 255, 0.94) !important;
     opacity: 1 !important;
-    font-size: 0.86rem !important;
-    font-weight: 850 !important;
-    line-height: 1.2 !important;
+    font-size: 0.86rem;
+    font-weight: 600;
+    line-height: 1.2;
     white-space: normal !important;
-}
+    font-family: var(--yh-font-subheader);}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-list strong {
     color: #f8fbff !important;
     opacity: 1 !important;
-    font-size: 1.03rem !important;
-    font-weight: 900 !important;
-    line-height: 1.22 !important;
+    font-size: 1.03rem;
+    font-weight: 700;
+    line-height: 1.22;
     white-space: normal !important;
     overflow-wrap: anywhere !important;
-}
+    font-family: var(--yh-font-header);}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-command-referral-code {
-    font-size: 0.95rem !important;
-    letter-spacing: 0.01em !important;
+    font-size: 0.95rem;
+    letter-spacing: 0.01em;
 }
 
 /* COMMAND ACTIONS */
@@ -2071,27 +2091,27 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-event-row span {
     min-width: 0 !important;
     color: rgba(223, 247, 255, 0.98) !important;
     opacity: 1 !important;
-    font-size: 0.84rem !important;
-    font-weight: 950 !important;
-    line-height: 1.15 !important;
-    letter-spacing: 0.08em !important;
-    text-transform: uppercase !important;
+    font-size: 0.84rem;
+    font-weight: 600;
+    line-height: 1.15;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
     white-space: normal !important;
     overflow-wrap: anywhere !important;
-}
+    font-family: var(--yh-font-subheader);}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-event-row strong {
     display: block !important;
     min-width: 0 !important;
     color: #f8fbff !important;
     opacity: 1 !important;
-    font-size: 1.08rem !important;
-    font-weight: 950 !important;
-    line-height: 1.18 !important;
+    font-size: 1.08rem;
+    font-weight: 700;
+    line-height: 1.18;
     white-space: normal !important;
     overflow-wrap: anywhere !important;
     text-shadow: 0 0 12px rgba(223, 247, 255, 0.16) !important;
-}
+    font-family: var(--yh-font-header);}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-event-row:hover {
     border-color: rgba(103, 232, 249, 0.52) !important;
@@ -2125,12 +2145,12 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-bottom-cta p {
     margin: 0 !important;
     color: rgba(223, 247, 255, 0.86) !important;
     opacity: 1 !important;
-    font-size: 0.96rem !important;
-    font-weight: 650 !important;
-    line-height: 1.38 !important;
+    font-size: 0.96rem;
+    font-weight: 400;
+    line-height: 1.55;
     white-space: normal !important;
     overflow-wrap: anywhere !important;
-}
+    font-family: var(--yh-font-body);}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-bottom-cta .yh-command-overview-action {
     width: 220px !important;
@@ -2145,9 +2165,9 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-bottom-cta .yh-co
     align-items: center !important;
     justify-content: center !important;
     white-space: nowrap !important;
-    font-size: 0.86rem !important;
-    font-weight: 900 !important;
-}
+    font-size: 0.86rem;
+    font-weight: 700;
+    font-family: var(--yh-font-header);}
 
 @media (max-width: 1280px) {
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-activity-card,
@@ -2234,6 +2254,17 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-kicker {
         0 0 24px rgba(56, 189, 248, 0.34) !important;
 }
 
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-access-hero-card .yh-command-overview-kicker,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-division-card .yh-command-overview-kicker,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-readiness-card .yh-command-overview-kicker {
+    font-family: "Orbitron", "Rajdhani", system-ui, sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.105em;
+    line-height: 1.18;
+    font-size: clamp(0.84rem, 0.9vw, 0.96rem);
+    text-transform: uppercase;}
+
+
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-card h2,
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-card h3,
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-card strong {
@@ -2264,20 +2295,58 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-access-hero-card 
     gap: 8px !important;
 }
 
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-access-hero-card .yh-command-access-orb {
+    width: clamp(124px, 10vw, 148px);
+    height: clamp(124px, 10vw, 148px);
+    display: grid;
+    place-items: center;
+    justify-self: end;
+    align-self: center;
+    padding: 0;
+    overflow: hidden;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-access-hero-card .yh-command-access-orb img {
+    width: clamp(64px, 5.2vw, 82px);
+    max-width: 72%;
+    max-height: 72%;
+    height: auto;
+    display: block;
+    object-fit: contain;
+    object-position: center;
+    margin: 0;
+    transform: none;
+}
+
+
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-access-hero-card h2 {
     margin: 0 !important;
-    font-size: clamp(1.85rem, 2vw, 2.4rem) !important;
-    line-height: 1.02 !important;
-    font-weight: 950 !important;
+    font-size: clamp(2.12rem, 2.38vw, 2.72rem);
+    line-height: 0.98;
+    font-weight: 700;
+    font-family: var(--yh-font-header);
+    letter-spacing: -0.018em;}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-access-hero-card h2 span,
+body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-command-academy-status {
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: inherit;
+    line-height: inherit;
+    letter-spacing: inherit;
 }
+
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-access-hero-card p {
     margin: 0 !important;
     max-width: 560px !important;
     color: rgba(248, 251, 255, 0.91) !important;
-    font-weight: 750 !important;
-    line-height: 1.38 !important;
-}
+    font-weight: 400;
+    line-height: 1.58;
+    font-family: "Poppins", system-ui, sans-serif;
+    font-size: clamp(1.02rem, 1.06vw, 1.12rem);
+    text-shadow: none;
+    letter-spacing: 0;}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-access-hero-card .yh-command-overview-action {
     margin-top: auto !important;
@@ -2296,17 +2365,21 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-division-card {
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-division-card h3 {
     margin: 0 !important;
-    font-size: clamp(1.28rem, 1.35vw, 1.55rem) !important;
-    line-height: 1.05 !important;
-    font-weight: 950 !important;
-}
+    font-size: clamp(1.46rem, 1.55vw, 1.82rem);
+    line-height: 1.02;
+    font-weight: 700;
+    font-family: var(--yh-font-header);
+    letter-spacing: -0.012em;}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-division-card p {
     margin: 0 !important;
     color: rgba(248, 251, 255, 0.88) !important;
-    font-weight: 750 !important;
-    line-height: 1.36 !important;
-}
+    font-weight: 400;
+    line-height: 1.58;
+    font-family: "Poppins", system-ui, sans-serif;
+    font-size: clamp(1.02rem, 1.06vw, 1.12rem);
+    text-shadow: none;
+    letter-spacing: 0;}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-division-card .yh-command-progress-line {
     margin-top: auto !important;
@@ -2328,10 +2401,10 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-division-card .yh
     justify-content: center !important;
     padding: 10px 16px !important;
     color: #f8fbff !important;
-    font-size: 0.9rem !important;
-    font-weight: 950 !important;
-    line-height: 1 !important;
-    letter-spacing: 0.015em !important;
+    font-size: 0.9rem;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.015em;
     white-space: nowrap !important;
     border-color: rgba(103, 232, 249, 0.50) !important;
     background:
@@ -2340,7 +2413,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-division-card .yh
     box-shadow:
         0 0 26px rgba(56, 189, 248, 0.22),
         inset 0 1px 0 rgba(255, 255, 255, 0.10) !important;
-}
+    font-family: var(--yh-font-header);}
 
 /* Readiness Signal: buhayin ang color */
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-readiness-card {
@@ -2388,26 +2461,27 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-readiness-main {
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-readiness-main strong {
     color: #ffffff !important;
     opacity: 1 !important;
-    font-size: clamp(2.85rem, 3.25vw, 3.45rem) !important;
-    line-height: 0.88 !important;
-    font-weight: 950 !important;
-    letter-spacing: -0.055em !important;
+    font-size: clamp(2.9rem, 3.3vw, 3.55rem);
+    line-height: 0.88;
+    font-weight: 700;
+    letter-spacing: -0.052em;
     text-shadow:
         0 0 12px rgba(255, 255, 255, 0.36),
         0 0 30px rgba(103, 232, 249, 0.72),
         0 0 46px rgba(103, 232, 249, 0.22) !important;
-}
+    font-family: var(--yh-font-header);}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-readiness-main span {
     color: #f8fbff !important;
     opacity: 1 !important;
-    font-size: 0.98rem !important;
-    font-weight: 950 !important;
-    line-height: 1.1 !important;
+    font-size: clamp(0.98rem, 1.05vw, 1.14rem);
+    font-weight: 600;
+    line-height: 1.12;
     text-shadow:
         0 0 14px rgba(103, 232, 249, 0.42),
         0 2px 12px rgba(0, 0, 0, 0.55) !important;
-}
+    font-family: var(--yh-font-header);
+    letter-spacing: 0.01em;}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-readiness-card > p,
 body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-command-next-action {
@@ -2417,13 +2491,12 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-command-next-action {
     max-width: 100% !important;
     color: #f8fbff !important;
     opacity: 1 !important;
-    font-size: 1rem !important;
-    line-height: 1.38 !important;
-    font-weight: 850 !important;
-    text-shadow:
-        0 0 12px rgba(103, 232, 249, 0.30),
-        0 2px 14px rgba(0, 0, 0, 0.70) !important;
-}
+    font-size: clamp(1.02rem, 1.06vw, 1.12rem);
+    line-height: 1.58;
+    font-weight: 400;
+    text-shadow: none;
+    font-family: "Poppins", system-ui, sans-serif;
+    letter-spacing: 0;}
 
 /* The ring should not look like a dead black circle */
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-readiness-ring {
@@ -2502,15 +2575,15 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-metric-card > div
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-metric-card span {
     color: rgba(223, 247, 255, 0.84) !important;
-    font-size: 1rem !important;
-    font-weight: 800 !important;
-}
+    font-size: 1rem;
+    font-weight: 600;
+    font-family: var(--yh-font-subheader);}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-metric-card strong {
     color: #ffffff !important;
-    font-size: 1.04rem !important;
-    font-weight: 950 !important;
-}
+    font-size: 1.04rem;
+    font-weight: 700;
+    font-family: var(--yh-font-header);}
 
 @media (max-width: 1280px) {
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-access-hero-card,
@@ -2619,11 +2692,11 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-bottom-cta > div 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-bottom-cta .yh-command-overview-kicker {
     color: #dff7ff !important;
     opacity: 1 !important;
-    font-family: 'Orbitron', 'Rajdhani', system-ui, sans-serif !important;
-    font-size: 0.74rem !important;
-    font-weight: 900 !important;
-    letter-spacing: 0.14em !important;
-    text-transform: uppercase !important;
+    font-family: var(--yh-font-subheader);
+    font-size: 0.74rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
     text-shadow:
         0 0 10px rgba(223, 247, 255, 0.42),
         0 2px 12px rgba(0, 0, 0, 0.76) !important;
@@ -2635,15 +2708,15 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-command-recommended-copy 
     margin: 0 !important;
     color: #ffffff !important;
     opacity: 1 !important;
-    font-size: 0.98rem !important;
-    line-height: 1.32 !important;
-    font-weight: 850 !important;
+    font-size: 0.98rem;
+    line-height: 1.55;
+    font-weight: 400;
     white-space: normal !important;
     overflow-wrap: anywhere !important;
     text-shadow:
         0 2px 12px rgba(0, 0, 0, 0.82),
         0 0 10px rgba(103, 232, 249, 0.12) !important;
-}
+    font-family: var(--yh-font-body);}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-bottom-cta .yh-command-overview-action {
     width: auto !important;
@@ -2660,8 +2733,8 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-bottom-cta .yh-co
     border-radius: 14px !important;
     white-space: nowrap !important;
     color: #f8fbff !important;
-    font-size: 0.82rem !important;
-    font-weight: 900 !important;
+    font-size: 0.82rem;
+    font-weight: 700;
     border: 1px solid rgba(103, 232, 249, 0.34) !important;
     background:
         radial-gradient(circle at 24% 0%, rgba(255, 255, 255, 0.14), transparent 36%),
@@ -2671,7 +2744,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-bottom-cta .yh-co
         0 0 16px rgba(103, 232, 249, 0.12),
         inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
     opacity: 1 !important;
-}
+    font-family: var(--yh-font-header);}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-bottom-cta .yh-command-overview-action:hover {
     border-color: rgba(103, 232, 249, 0.56) !important;
@@ -2982,7 +3055,12 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-event-row span,
 body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-command-recommended-copy {
     color: rgba(248, 251, 255, 0.86) !important;
     opacity: 1 !important;
-}
+    font-family: "Poppins", system-ui, sans-serif;
+    font-size: clamp(1.02rem, 1.06vw, 1.12rem);
+    font-weight: 400;
+    line-height: 1.58;
+    letter-spacing: 0;
+    text-shadow: none;}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-activity-item,
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-event-row,
@@ -6839,7 +6917,7 @@ body[data-yh-page="business-chats"] *::-webkit-scrollbar {
     color: #ffffff;
     font-family: "Orbitron", "Rajdhani", system-ui, sans-serif;
     font-size: 0.98rem;
-    font-weight: 900;
+    font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     text-shadow: 0 0 14px rgba(103, 232, 249, 0.30);
@@ -6855,10 +6933,10 @@ body[data-yh-page="business-chats"] *::-webkit-scrollbar {
 
   body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-sidebar-nav-label {
     color: rgba(148, 163, 184, 0.82);
-    font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
+    font-family: "Orbitron", "Rajdhani", system-ui, sans-serif;
     font-size: 0.68rem;
-    font-weight: 900;
-    letter-spacing: 0.16em;
+    font-weight: 700;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
   }
 
@@ -6872,7 +6950,7 @@ body[data-yh-page="business-chats"] *::-webkit-scrollbar {
     box-shadow: none;
     font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
     font-size: 0.80rem;
-    font-weight: 900;
+    font-weight: 700;
     line-height: 1.1;
     letter-spacing: 0.02em;
     clip-path: polygon(11px 0, calc(100% - 11px) 0, 100% 11px, 100% calc(100% - 11px), calc(100% - 11px) 100%, 11px 100%, 0 calc(100% - 11px), 0 11px);
@@ -6916,7 +6994,7 @@ body[data-yh-page="business-chats"] *::-webkit-scrollbar {
     color: rgba(148, 163, 184, 0.86);
     font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
     font-size: 0.72rem;
-    font-weight: 800;
+    font-weight: 600;
     line-height: 1.1;
     clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
     transition: color 0.18s ease, background 0.18s ease, transform 0.18s ease;
@@ -6964,9 +7042,10 @@ body[data-yh-page="business-chats"] *::-webkit-scrollbar {
     color: #dcfce7;
     background: rgba(34, 197, 94, 0.12);
     font-size: 0.66rem;
-    font-weight: 900;
+    font-weight: 700;
     clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
-  }
+    font-family: "Orbitron", "Rajdhani", system-ui, sans-serif;
+    letter-spacing: 0.14em;}
 }
 /* END PATCH: Dashboard left sidebar Tailwind visual owner v142 */
 
