@@ -1159,7 +1159,7 @@ async function settleAdminPaymentAsPaid(paymentId = '') {
 
   await loadAdminBootstrap();
 }
-async function updateAdminPayoutStatus(payoutId = '', status = '') {
+async function updateAdminPayoutStatus(payoutId = '', status = '', options = {}) {
   const cleanId = String(payoutId || '').trim();
   const cleanStatus = String(status || '').trim().toLowerCase();
 
@@ -1167,17 +1167,118 @@ async function updateAdminPayoutStatus(payoutId = '', status = '') {
     throw new Error('Missing payout id or status.');
   }
 
+  const payload = {
+    status: cleanStatus,
+    adminNote: String(options.adminNote || '').trim(),
+    provider: String(options.provider || 'manual').trim().toLowerCase(),
+    method: String(options.method || '').trim().toLowerCase(),
+    providerPaymentId: String(options.providerPaymentId || '').trim(),
+    providerStatus: String(options.providerStatus || cleanStatus).trim().toLowerCase()
+  };
+
   await adminFetchJson(`/api/admin/economy/payouts/${encodeURIComponent(cleanId)}/status`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({
-      status: cleanStatus
-    })
+    body: JSON.stringify(payload)
   });
 
   await loadAdminBootstrap();
+}
+
+function getAdminPayoutStatusLabel(status = '') {
+  const clean = String(status || '').trim().toLowerCase();
+
+  if (clean === 'approved') return 'Approved';
+  if (clean === 'processing') return 'Processing';
+  if (clean === 'paid') return 'Paid';
+  if (clean === 'rejected') return 'Rejected';
+  if (clean === 'failed') return 'Failed';
+
+  return formatAdminLedgerStatus(clean || 'pending_review');
+}
+
+function collectAdminPayoutStatusUpdateOptions(payout = {}, nextStatus = '') {
+  const status = String(nextStatus || '').trim().toLowerCase();
+  const label = getAdminPayoutStatusLabel(status);
+  const receiverName = String(payout.receiverName || 'Operator').trim();
+  const amountLabel = formatAdminMoney(payout.amount || 0, payout.currency || 'USD');
+  const method = String(payout.method || 'manual').trim().toLowerCase() || 'manual';
+
+  if (!status) return null;
+
+  const confirmCopy =
+    status === 'paid'
+      ? `Mark this payout as PAID for ${receiverName} (${amountLabel})? Only do this after the manual payout has actually been sent.`
+      : status === 'rejected'
+        ? `Reject this payout request for ${receiverName} (${amountLabel})?`
+        : status === 'failed'
+          ? `Mark this payout attempt as FAILED for ${receiverName} (${amountLabel})?`
+          : `Mark this payout as ${label} for ${receiverName} (${amountLabel})?`;
+
+  if (!window.confirm(confirmCopy)) return null;
+
+  let providerPaymentId = '';
+  let adminNote = '';
+
+  if (status === 'paid') {
+    const reference = window.prompt(
+      'Enter the manual payment reference / transaction ID before marking this payout as paid:',
+      String(payout.providerPaymentId || '')
+    );
+
+    if (reference === null) return null;
+
+    providerPaymentId = String(reference || '').trim();
+
+    if (!providerPaymentId) {
+      showToast('Payment reference is required before marking payout as paid.');
+      return null;
+    }
+
+    const note = window.prompt(
+      'Optional admin note for this paid payout:',
+      String(payout.adminNote || `Manual payout completed. Reference: ${providerPaymentId}`)
+    );
+
+    if (note === null) return null;
+
+    adminNote = String(note || '').trim() || `Manual payout completed. Reference: ${providerPaymentId}`;
+  } else if (status === 'rejected' || status === 'failed') {
+    const note = window.prompt(
+      status === 'rejected'
+        ? 'Add the rejection reason for this payout request:'
+        : 'Add the failure reason for this payout attempt:',
+      String(payout.adminNote || '')
+    );
+
+    if (note === null) return null;
+
+    adminNote = String(note || '').trim();
+
+    if (!adminNote) {
+      showToast(status === 'rejected' ? 'Rejection reason is required.' : 'Failure reason is required.');
+      return null;
+    }
+  } else {
+    const note = window.prompt(
+      `Optional admin note for marking this payout as ${label}:`,
+      String(payout.adminNote || '')
+    );
+
+    if (note === null) return null;
+
+    adminNote = String(note || '').trim();
+  }
+
+  return {
+    provider: 'manual',
+    method,
+    providerPaymentId,
+    providerStatus: status,
+    adminNote
+  };
 }
 
 function getAdminFederationEconomyMetrics() {
@@ -3684,6 +3785,7 @@ function renderEconomy() {
               <button data-action="economy-payout-status-processing" data-id="${escapeHtml(payout.id)}">Processing</button>
               <button data-action="economy-payout-status-paid" data-id="${escapeHtml(payout.id)}">Paid</button>
               <button data-action="economy-payout-status-rejected" data-id="${escapeHtml(payout.id)}">Reject</button>
+              <button data-action="economy-payout-status-failed" data-id="${escapeHtml(payout.id)}">Failed</button>
             </div>
           `)}
         </tr>
@@ -6819,11 +6921,22 @@ case 'economy-payment-settle-paid': {
 case 'economy-payout-status-approved':
 case 'economy-payout-status-processing':
 case 'economy-payout-status-paid':
-case 'economy-payout-status-rejected': {
+case 'economy-payout-status-rejected':
+case 'economy-payout-status-failed': {
   try {
     const nextStatus = action.replace('economy-payout-status-', '');
-    await updateAdminPayoutStatus(id, nextStatus);
-    showToast(`Payout marked ${nextStatus.replace(/_/g, ' ')}.`);
+    const payout = findById('payoutLedger', id);
+
+    if (!payout) {
+      throw new Error('Payout ledger record not found.');
+    }
+
+    const updateOptions = collectAdminPayoutStatusUpdateOptions(payout, nextStatus);
+
+    if (!updateOptions) return;
+
+    await updateAdminPayoutStatus(id, nextStatus, updateOptions);
+    showToast(`Payout marked ${getAdminPayoutStatusLabel(nextStatus)}.`);
   } catch (error) {
     if (error?.message !== 'No active admin session.') {
       showToast(error.message || 'Failed to update payout request.');
