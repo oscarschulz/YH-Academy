@@ -6546,6 +6546,248 @@ function buildAcademyCoachDefaultCasualInstruction(context = {}) {
     ].join(' ');
 }
 
+function detectAcademyMissionTabIntent(message = '', contextHint = '') {
+    const text = `${sanitize(message)} ${sanitize(contextHint)}`.toLowerCase();
+
+    return /mission tab|missions tab|lead mission|lead missions|mission playbook|playbook|cold calling|cold-calling|cold call|cold-call|3 handshakes|three handshakes|handshakes away|expansion mission|clippers|lead database|follow up|follow-up|assigned mission|opportunity mission|submit proof|completion proof|mission proof|payout|deal record|scripts/i.test(text);
+}
+
+function compactAcademyMissionPlaybookForCoach(item = {}) {
+    return {
+        key: sanitize(item.key),
+        title: trimCoachText(item.title, 120),
+        type: trimCoachText(item.type, 80),
+        difficulty: trimCoachText(item.difficulty, 80),
+        shortDescription: trimCoachText(item.shortDescription, 260),
+        tools: Array.isArray(item.tools)
+            ? item.tools.map((tool) => trimCoachText(tool, 80)).filter(Boolean).slice(0, 10)
+            : [],
+        trackingFields: Array.isArray(item.trackingFields)
+            ? item.trackingFields.map((field) => trimCoachText(field, 80)).filter(Boolean).slice(0, 14)
+            : [],
+        rewards: item.rewards && typeof item.rewards === 'object'
+            ? item.rewards
+            : {}
+    };
+}
+
+function compactAcademyLeadMissionLeadForCoach(item = {}) {
+    return {
+        id: sanitize(item.id),
+        companyName: trimCoachText(item.companyName, 120),
+        contactName: trimCoachText(item.contactName, 100),
+        contactRole: trimCoachText(item.contactRole, 100),
+        city: trimCoachText(item.city, 80),
+        country: trimCoachText(item.country, 80),
+        tier: trimCoachText(item.tier, 40),
+        sourceMethod: trimCoachText(item.sourceMethod, 80),
+        callOutcome: trimCoachText(item.callOutcome, 120),
+        followUpDueDate: sanitize(item.followUpDueDate),
+        pipelineStage: trimCoachText(item.pipelineStage, 80),
+        taskStatus: trimCoachText(item.taskStatus, 80),
+        nextAction: trimCoachText(item.nextAction, 180),
+        notes: trimCoachText(item.notes, 220)
+    };
+}
+
+function compactAcademyLeadMissionPayoutForCoach(item = {}) {
+    return {
+        id: sanitize(item.id),
+        sourceDivision: sanitize(item.sourceDivision),
+        sourceFeature: sanitize(item.sourceFeature),
+        amount: toFloat(item.amount, 0),
+        currency: sanitize(item.currency || 'USD').toUpperCase() || 'USD',
+        status: trimCoachText(item.status, 80),
+        createdAt: sanitize(item.createdAt),
+        updatedAt: sanitize(item.updatedAt)
+    };
+}
+
+function compactAcademyLeadMissionDealForCoach(item = {}) {
+    return {
+        id: sanitize(item.id),
+        leadId: sanitize(item.leadId),
+        title: trimCoachText(item.title || item.companyName || item.dealTitle, 140),
+        status: trimCoachText(item.status, 80),
+        grossValue: toFloat(item.grossValue || item.expectedValueAmount, 0),
+        currency: sanitize(item.currency || 'USD').toUpperCase() || 'USD',
+        createdAt: sanitize(item.createdAt),
+        updatedAt: sanitize(item.updatedAt)
+    };
+}
+
+async function safeAcademyCoachMissionContextCall(fn, fallback) {
+    try {
+        return await fn();
+    } catch (error) {
+        console.warn('Academy Coach mission context skipped:', error?.message || error);
+        return fallback;
+    }
+}
+
+async function buildAcademyCoachMissionTabContext(uid = '', message = '', contextHint = '') {
+    const missionIntentDetected = detectAcademyMissionTabIntent(message, contextHint);
+    const missionPlaybooks = getAcademyMissionPlaybooks()
+        .map(compactAcademyMissionPlaybookForCoach)
+        .filter((item) => item.title);
+
+    const [
+        leadDatabase,
+        followUps,
+        payouts,
+        deals,
+        scripts
+    ] = await Promise.all([
+        safeAcademyCoachMissionContextCall(
+            () => academyFirestoreRepo.listLeadMissionLeads(uid),
+            []
+        ),
+        safeAcademyCoachMissionContextCall(
+            () => academyFirestoreRepo.listLeadMissionFollowUps(uid),
+            []
+        ),
+        safeAcademyCoachMissionContextCall(
+            () => academyFirestoreRepo.listLeadMissionPayouts(uid),
+            []
+        ),
+        safeAcademyCoachMissionContextCall(
+            () => academyFirestoreRepo.listLeadMissionDeals(uid),
+            []
+        ),
+        safeAcademyCoachMissionContextCall(
+            () => academyFirestoreRepo.getLeadMissionScripts(uid),
+            {}
+        )
+    ]);
+
+    return {
+        active: true,
+        intentDetected: missionIntentDetected,
+        source: 'academy_missions_tab_context_v1',
+        doctrine: [
+            'The Missions tab is separate from the Roadmap tab.',
+            'Roadmap explains the user’s growth direction and foundation tasks.',
+            'Missions is the execution/work tab for practical operator missions, lead collection, outreach, proof tracking, follow-ups, payouts, deals, and scripts.',
+            'If the user asks about Cold-Calling Mission, 3-Handshakes-Away Mission, Expansion Mission, lead database, assigned missions, opportunity missions, payouts, deals, or proof, answer from the Missions tab context first before mentioning Roadmap.',
+            'Never say a Mission Playbook does not exist just because it is not on the active Roadmap.'
+        ],
+        tabDefinition: {
+            title: 'Academy Missions',
+            purpose: 'A practical execution workspace where Academy members choose mission playbooks, collect leads, track outreach, submit proof, follow up, and prepare for payouts or Federation-ready opportunities.',
+            coreAreas: [
+                'Mission Playbooks',
+                'Lead Database',
+                'Assigned Missions',
+                'Opportunity Missions',
+                'Follow-ups',
+                'Payouts',
+                'Deals',
+                'Scripts'
+            ]
+        },
+        missionPlaybooks,
+        workspace: {
+            leadDatabaseCount: Array.isArray(leadDatabase) ? leadDatabase.length : 0,
+            recentLeads: (Array.isArray(leadDatabase) ? leadDatabase : [])
+                .slice(0, 5)
+                .map(compactAcademyLeadMissionLeadForCoach),
+            followUpCount: Array.isArray(followUps) ? followUps.length : 0,
+            dueFollowUps: (Array.isArray(followUps) ? followUps : [])
+                .slice(0, 4)
+                .map(compactAcademyLeadMissionLeadForCoach),
+            payoutCount: Array.isArray(payouts) ? payouts.length : 0,
+            recentPayouts: (Array.isArray(payouts) ? payouts : [])
+                .slice(0, 4)
+                .map(compactAcademyLeadMissionPayoutForCoach),
+            dealCount: Array.isArray(deals) ? deals.length : 0,
+            recentDeals: (Array.isArray(deals) ? deals : [])
+                .slice(0, 4)
+                .map(compactAcademyLeadMissionDealForCoach),
+            scripts: {
+                openingScript: trimCoachText(scripts?.openingScript, 360),
+                objectionHandling: trimCoachText(scripts?.objectionHandling, 360)
+            }
+        }
+    };
+}
+
+function getAcademyMissionTabMatchedPlaybook(payload = {}) {
+    const text = sanitize(payload?.message || '').toLowerCase();
+    const missionTabContext = payload?.missionTabContext && typeof payload.missionTabContext === 'object'
+        ? payload.missionTabContext
+        : {};
+    const playbooks = Array.isArray(missionTabContext.missionPlaybooks)
+        ? missionTabContext.missionPlaybooks
+        : [];
+
+    if (!playbooks.length) return null;
+
+    if (/cold calling|cold-calling|cold call|cold-call|calling mission/.test(text)) {
+        return playbooks.find((item) => item.key === 'cold-calling') || null;
+    }
+
+    if (/3 handshakes|three handshakes|handshakes away|social outreach/.test(text)) {
+        return playbooks.find((item) => item.key === 'three-handshakes-away') || null;
+    }
+
+    if (/expansion mission|clippers|clipper|content clipping|clips/.test(text)) {
+        return playbooks.find((item) => item.key === 'expansion-mission') || null;
+    }
+
+    return playbooks.find((item) => text.includes(sanitize(item.title).toLowerCase())) || null;
+}
+
+function buildLocalAcademyMissionTabFallback(payload = {}) {
+    const missionTabContext = payload?.missionTabContext && typeof payload.missionTabContext === 'object'
+        ? payload.missionTabContext
+        : {};
+
+    if (!missionTabContext.intentDetected) return '';
+
+    const matchedPlaybook = getAcademyMissionTabMatchedPlaybook(payload);
+    const workspace = missionTabContext.workspace && typeof missionTabContext.workspace === 'object'
+        ? missionTabContext.workspace
+        : {};
+
+    if (matchedPlaybook?.key === 'cold-calling') {
+        return [
+            'The Cold-Calling Mission is inside the Academy Missions tab, not necessarily inside your active Roadmap.',
+            'Goal: call real companies, collect direct contacts, build rapport, and warm leads for future Federation access.',
+            'Start like this: pick 3 companies from Google Maps or Google Search, find the best contact number, call politely, ask for the right contact person or department, then log the result in your Lead Database.',
+            'Track these fields: company name, industry, city, contact name, contact role, tier, call result, follow-up status, proof link, and notes.',
+            workspace?.scripts?.openingScript
+                ? `Opening script: ${workspace.scripts.openingScript}`
+                : 'Simple opening: “Hi, my name is [Name]. I’m reaching out to ask who handles partnerships, hiring, media, or business development for your company.”',
+            'Today’s minimum move: add 3 companies, make 1 real call, and write exactly what happened.'
+        ].join('\n\n');
+    }
+
+    if (matchedPlaybook) {
+        const tools = Array.isArray(matchedPlaybook.tools) && matchedPlaybook.tools.length
+            ? `Tools: ${matchedPlaybook.tools.slice(0, 6).join(', ')}.`
+            : '';
+
+        const fields = Array.isArray(matchedPlaybook.trackingFields) && matchedPlaybook.trackingFields.length
+            ? `Track: ${matchedPlaybook.trackingFields.slice(0, 8).join(', ')}.`
+            : '';
+
+        return [
+            `${matchedPlaybook.title} is one of the Academy Mission Playbooks.`,
+            matchedPlaybook.shortDescription || 'It gives you a practical execution path inside the Missions tab.',
+            tools,
+            fields,
+            'Start small: do the first visible action, save proof, then continue from the Lead Database or mission workspace.'
+        ].filter(Boolean).join('\n\n');
+    }
+
+    return [
+        'The Missions tab is the Academy execution workspace.',
+        'It is where members choose mission playbooks, track leads, submit proof, manage follow-ups, see payouts, and organize deal records.',
+        'Roadmap tells you the direction. Missions gives you the practical work to execute.',
+        'Start by choosing a mission playbook, then open the Lead Database and log your first action.'
+    ].join('\n\n');
+}
+
 function buildAcademyCoachCompactPayload(payload = {}) {
     const history = (Array.isArray(payload.previousMessages) ? payload.previousMessages : [])
         .slice(-6)
@@ -6630,6 +6872,28 @@ function buildAcademyCoachCompactPayload(payload = {}) {
             : {},
         plannerRun: payload?.plannerRun && typeof payload.plannerRun === 'object'
             ? payload.plannerRun
+            : {},
+        missionTabContext: payload?.missionTabContext && typeof payload.missionTabContext === 'object'
+            ? {
+                active: payload.missionTabContext.active === true,
+                intentDetected: payload.missionTabContext.intentDetected === true,
+                source: sanitize(payload.missionTabContext.source || ''),
+                doctrine: compactAcademyCoachKnowledgeList(payload.missionTabContext.doctrine, 8, 220),
+                tabDefinition: payload.missionTabContext.tabDefinition && typeof payload.missionTabContext.tabDefinition === 'object'
+                    ? {
+                        title: trimCoachText(payload.missionTabContext.tabDefinition.title, 120),
+                        purpose: trimCoachText(payload.missionTabContext.tabDefinition.purpose, 360),
+                        coreAreas: compactAcademyCoachKnowledgeList(payload.missionTabContext.tabDefinition.coreAreas, 10, 80)
+                    }
+                    : {},
+                missionPlaybooks: (Array.isArray(payload.missionTabContext.missionPlaybooks)
+                    ? payload.missionTabContext.missionPlaybooks
+                    : []
+                ).slice(0, 5),
+                workspace: payload.missionTabContext.workspace && typeof payload.missionTabContext.workspace === 'object'
+                    ? payload.missionTabContext.workspace
+                    : {}
+            }
             : {},
         learnFromContext: payload?.learnFromContext && typeof payload.learnFromContext === 'object'
             ? {
@@ -6818,11 +7082,13 @@ function buildAcademyCoachMessages(payload = {}) {
             content: [
                 `You are the ${coachMode.title} for Young Hustlers.`,
                 'You are strictly an Academy assistant.',
-                'Only help with Academy-related matters: Roadmap execution, missions, 28-day foundation, daily check-ins, habits, discipline, focus, behavior signals, weekly review, adaptive planning, and progress inside Young Hustlers.',
+                'Only help with Academy-related matters: Roadmap execution, Missions tab execution, mission playbooks, lead missions, lead database, opportunity missions, payouts, deals, scripts, 28-day foundation, daily check-ins, habits, discipline, focus, behavior signals, weekly review, adaptive planning, and progress inside Young Hustlers.',
                 'Do not answer unrelated questions about entertainment, coding, weather, recipes, general web search, medical diagnosis, legal advice, celebrity topics, or topics outside the Academy system.',
-                'If the user asks something outside Academy scope, briefly redirect them back to their Roadmap, missions, check-ins, or today’s work.',
-                'Your job is to help the user execute their existing roadmap, not replace it.',
-                'Stay grounded in the active roadmap, recent missions, recent check-ins, behavior signals, planner stats, and adaptive planning context.',
+                'If the user asks something outside Academy scope, briefly redirect them back to their Roadmap, Missions tab, check-ins, or today’s work.',
+                'Your job is to help the user execute their existing roadmap and Academy missions, not replace them.',
+                'Stay grounded in the active roadmap, recent foundation missions, Mission Playbooks, Missions tab context, recent check-ins, behavior signals, planner stats, and adaptive planning context.',
+                'Important distinction: Roadmap is the personal growth direction and foundation plan. Missions tab is the practical work hub for Mission Playbooks, Cold-Calling Mission, 3-Handshakes-Away Mission, Expansion Mission, Lead Database, Assigned Missions, Opportunity Missions, Follow-ups, Payouts, Deals, and Scripts.',
+                'When the user asks about cold-calling, 3 handshakes, expansion mission, lead database, mission tab, assigned missions, opportunity missions, payouts, deals, scripts, or proof submission, answer from the Missions tab context first. Do not say it is not on the active roadmap just because it is a Mission Playbook.',
                 coachMode.systemGuidance,
                 coachMode.replyStructureInstruction,
                 learnFromInstruction,
@@ -6896,6 +7162,11 @@ function buildLocalAcademyCoachFallback(payload = {}, error = null) {
     const learnFromContext = payload?.learnFromContext && typeof payload.learnFromContext === 'object'
         ? payload.learnFromContext
         : {};
+
+    const missionTabFallback = buildLocalAcademyMissionTabFallback(payload);
+    if (missionTabFallback) {
+        return missionTabFallback;
+    }
 
     if (learnFromContext.requested && learnFromContext.name) {
         if (learnFromContext.usedApprovedKnowledge) {
@@ -7967,11 +8238,12 @@ exports.chatWithAcademyCoach = async (req, res) => {
             }
         }
 
-        const [profileDoc, homePayload, plannerRun, history] = await Promise.all([
+        const [profileDoc, homePayload, plannerRun, history, missionTabContext] = await Promise.all([
             academyFirestoreRepo.getCurrentProfile(uid),
             academyFirestoreRepo.buildAcademyHomePayload(uid),
             academyFirestoreRepo.getLatestPlannerRun(uid),
-            academyFirestoreRepo.listCoachMessages(uid, conversationId, 12)
+            academyFirestoreRepo.listCoachMessages(uid, conversationId, 12),
+            buildAcademyCoachMissionTabContext(uid, message, contextHint)
         ]);
 
         if (!homePayload?.roadmap?.id) {
@@ -8016,6 +8288,7 @@ exports.chatWithAcademyCoach = async (req, res) => {
                 ? homePayload.foundationMissions
                 : (Array.isArray(homePayload?.missions) ? homePayload.missions : []),
             foundationMissions: Array.isArray(homePayload?.foundationMissions) ? homePayload.foundationMissions : [],
+            missionTabContext,
             transformationSystem: homePayload?.transformationSystem || {},
             recentCheckins,
             behaviorProfile: homePayload?.behaviorProfile || {},
@@ -8053,6 +8326,9 @@ exports.chatWithAcademyCoach = async (req, res) => {
         const grounding = {
             usedRoadmap: true,
             usedMissions: Array.isArray(homePayload?.missions) && homePayload.missions.length > 0,
+            usedMissionTabContext: missionTabContext?.active === true,
+            missionTabIntentDetected: missionTabContext?.intentDetected === true,
+            missionPlaybookCount: Array.isArray(missionTabContext?.missionPlaybooks) ? missionTabContext.missionPlaybooks.length : 0,
             usedCheckins: Array.isArray(recentCheckins) && recentCheckins.length > 0,
             usedFallback: aiResult.fallback === true,
             coachModeKey: coachMode.key || 'general',

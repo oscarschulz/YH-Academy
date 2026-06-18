@@ -3708,7 +3708,36 @@ async function openAcademyCoachView(forceRefresh = true) {
         document.getElementById('chat-input')?.focus();
     }
 
-    async function academySendCoachMessage(customText = null) {
+function academyResolveCoachContextHintForMessage(message = '') {
+        const text = String(message || '').trim().toLowerCase();
+
+        const missionIntent =
+            /mission tab|missions tab|lead mission|lead missions|mission playbook|playbook|cold calling|cold-calling|cold call|cold-call|3 handshakes|three handshakes|handshakes away|expansion mission|clippers|lead database|follow up|follow-up|assigned mission|opportunity mission|submit proof|completion proof|mission proof|payout|deal record|scripts/i.test(text);
+
+        const leadMissionsView = document.getElementById('academy-lead-missions-view');
+        const leadMissionsVisible =
+            leadMissionsView &&
+            !leadMissionsView.classList.contains('hidden-step') &&
+            leadMissionsView.offsetParent !== null;
+
+        const currentPrimaryView =
+            typeof academyGetCurrentPrimaryView === 'function'
+                ? String(academyGetCurrentPrimaryView() || '').trim().toLowerCase()
+                : '';
+
+        if (
+            missionIntent ||
+            leadMissionsVisible ||
+            currentPrimaryView === 'lead-missions' ||
+            currentPrimaryView === 'missions'
+        ) {
+            return 'academy_missions_tab';
+        }
+
+        return 'academy_chat';
+    }
+
+async function academySendCoachMessage(customText = null) {
         const input = document.getElementById('chat-input');
         const sendBtn = document.getElementById('chat-send-btn');
 
@@ -3745,7 +3774,7 @@ async function openAcademyCoachView(forceRefresh = true) {
                 body: JSON.stringify({
                     conversationId: academyCoachConversationId,
                     message: text,
-                    contextHint: 'academy_chat',
+                    contextHint: academyResolveCoachContextHintForMessage(text),
                     coachKnowledgeMode: 'public_big_figures_strategy',
                     coachKnowledgeContext: ACADEMY_COACH_BIG_FIGURES_CONTEXT
                 })
