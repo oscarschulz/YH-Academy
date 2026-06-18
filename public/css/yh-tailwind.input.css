@@ -89,8 +89,9 @@ body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="ac
 body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] .yh-tw-scope .yh-universe-command-pill-label {
   grid-area: label;
   color: #67e8f9;
+  font-family: var(--yh-font-subheader);
   font-size: 0.58rem;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
@@ -98,9 +99,10 @@ body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="ac
 body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] .yh-tw-scope .yh-universe-command-pill strong {
   grid-area: title;
   color: #ffffff;
+  font-family: var(--yh-font-header);
   font-size: clamp(0.92rem, 1vw, 1.08rem);
   line-height: 1.05;
-  font-weight: 900;
+  font-weight: 700;
 }
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-tw-scope .yh-academy-parent-vision-scope .academy-entry-button-visual,
@@ -126,7 +128,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-tw-scope .yh-academy-pare
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
   font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
   font-size: clamp(0.78rem, 0.78vw, 0.95rem);
-  font-weight: 900;
+  font-weight: 700;
   line-height: 1.05;
   text-align: center;
 }
@@ -141,37 +143,6 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-tw-scope .yh-academy-pare
   transform: translateY(-1px);
 }
 /* END PATCH: Academy command icons and CTA parity v85 */
-
-/* PATCH: Academy Roadmap visual ownership v1 */
-body[data-yh-view="academy"],
-body.yh-dashboard-inline-embed-body[data-yh-view="academy"],
-body.yh-dashboard-inline-embed-body[data-yh-page="academy"],
-body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="roadmap"],
-body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="roadmap"] {
-  background-color: #020617;
-  background:
-    linear-gradient(180deg, rgba(2, 6, 23, 0.04), rgba(2, 6, 23, 0.18)),
-    url("/images/yhu-premium-bg.png?v=20260531-bg-09") center center / cover no-repeat,
-    #020617;
-}
-
-body[data-yh-view="academy"] .dashboard-layout,
-body[data-yh-view="academy"] #academy-wrapper,
-body[data-yh-view="academy"] .yh-main-chat,
-body.yh-dashboard-inline-embed-body[data-yh-view="academy"] .dashboard-layout,
-body.yh-dashboard-inline-embed-body[data-yh-page="academy"] .dashboard-layout,
-body.yh-dashboard-inline-embed-body[data-yh-view="academy"] #academy-wrapper,
-body.yh-dashboard-inline-embed-body[data-yh-page="academy"] #academy-wrapper,
-body.yh-dashboard-inline-embed-body[data-yh-view="academy"] .yh-main-chat,
-body.yh-dashboard-inline-embed-body[data-yh-page="academy"] .yh-main-chat,
-body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="roadmap"] #academy-chat,
-body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="roadmap"] #academy-chat,
-body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="roadmap"] #academy-chat .chat-messages,
-body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="roadmap"] #academy-chat .chat-messages {
-  background: transparent;
-}
-/* END PATCH: Academy Roadmap visual ownership v1 */
-
 
 }
 
@@ -195,6 +166,14 @@ body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-brand-name {
         0 0 10px rgba(248, 251, 255, 0.60),
         0 0 24px rgba(103, 232, 249, 0.62),
         0 0 42px rgba(37, 99, 235, 0.44);
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    width: max-content;
+    max-width: none;
+    min-width: max-content;
+    line-height: 1;
+    white-space: nowrap;
 }
 
 body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-future-brand-skin {
@@ -292,6 +271,126 @@ body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-narrative,
 body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-subtitle,
 body[data-yh-page="apply"] #step-1.yh-solo-system-v34 #yh-auth-section .subtitle {
     color: rgba(226, 238, 255, 0.84);
+}
+
+
+/* Live Universe Activity owner */
+body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-activity-rail {
+    border-radius: 0;
+    border: 1px solid rgba(223, 247, 255, 0.34);
+    background:
+        linear-gradient(135deg, rgba(223, 247, 255, 0.075), transparent 18%),
+        radial-gradient(circle at 14% 0%, rgba(103, 232, 249, 0.18), transparent 34%),
+        radial-gradient(circle at 86% 120%, rgba(37, 99, 235, 0.22), transparent 38%),
+        repeating-linear-gradient(180deg, rgba(223, 247, 255, 0.035) 0 1px, transparent 1px 8px),
+        linear-gradient(180deg, rgba(7, 24, 51, 0.78), rgba(2, 8, 23, 0.88));
+    clip-path: polygon(18px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px), 0 18px);
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(223, 247, 255, 0.05), 0 0 22px rgba(56, 189, 248, 0.13), inset 0 1px 0 rgba(223, 247, 255, 0.12);
+}
+
+body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-activity-rail::before {
+    content: "";
+    position: absolute;
+    inset: 8px;
+    z-index: 0;
+    pointer-events: none;
+    border: 1px solid rgba(223, 247, 255, 0.18);
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.07), transparent 16%),
+        linear-gradient(90deg, rgba(56, 189, 248, 0.12), transparent 34%, transparent 72%, rgba(103, 232, 249, 0.06)),
+        repeating-linear-gradient(180deg, rgba(223, 247, 255, 0.026) 0 1px, transparent 1px 7px);
+    box-shadow: inset 0 0 22px rgba(56, 189, 248, 0.08);
+    clip-path: polygon(13px 0, calc(100% - 13px) 0, 100% 13px, 100% calc(100% - 13px), calc(100% - 13px) 100%, 13px 100%, 0 calc(100% - 13px), 0 13px);
+}
+
+body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-activity-rail > * {
+    position: relative;
+    z-index: 1;
+}
+
+body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-activity-head {
+    border-bottom: 1px solid rgba(223, 247, 255, 0.11);
+}
+
+body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-activity-status {
+    color: rgba(226, 238, 255, 0.74);
+    font-family: "Orbitron", "Poppins", system-ui, sans-serif;
+    text-transform: uppercase;
+    font-size: 0.54rem;
+    font-weight: 700;
+    letter-spacing: 0.11em;
+}
+
+body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-activity-status-dot {
+    background: #34f59f;
+    width: 0.38rem;
+    height: 0.38rem;
+    box-shadow: 0 0 0 4px rgba(34, 245, 159, 0.08), 0 0 14px rgba(34, 245, 159, 0.44);
+}
+
+body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-activity-label {
+    color: #67e8f9;
+    font-family: "Orbitron", "Poppins", system-ui, sans-serif;
+    text-transform: uppercase;
+    font-size: 0.54rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-shadow: 0 0 8px rgba(103, 232, 249, 0.32);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-activity-event {
+    border: 1px solid rgba(223, 247, 255, 0.20);
+    border-radius: 0;
+    background:
+        linear-gradient(135deg, rgba(223, 247, 255, 0.065), transparent 18%),
+        radial-gradient(circle at 18% 0%, rgba(56, 189, 248, 0.16), transparent 42%),
+        radial-gradient(circle at 90% 100%, rgba(37, 99, 235, 0.18), transparent 45%),
+        linear-gradient(180deg, rgba(6, 30, 64, 0.68), rgba(2, 8, 23, 0.82));
+    clip-path: polygon(13px 0, calc(100% - 13px) 0, 100% 13px, 100% calc(100% - 13px), calc(100% - 13px) 100%, 13px 100%, 0 calc(100% - 13px), 0 13px);
+    color: var(--text-main);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(223, 247, 255, 0.09);
+}
+
+body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-activity-event:hover {
+    border-color: rgba(103, 232, 249, 0.48);
+    background:
+        linear-gradient(135deg, rgba(223, 247, 255, 0.09), transparent 18%),
+        radial-gradient(circle at 18% 0%, rgba(103, 232, 249, 0.22), transparent 42%),
+        radial-gradient(circle at 90% 100%, rgba(37, 99, 235, 0.24), transparent 45%),
+        linear-gradient(180deg, rgba(8, 38, 78, 0.78), rgba(2, 8, 23, 0.86));
+    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.32), 0 0 18px rgba(56, 189, 248, 0.12), inset 0 1px 0 rgba(223, 247, 255, 0.12);
+}
+
+body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-activity-event.is-active {
+    border-color: rgba(52, 245, 159, 0.42);
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.34), 0 0 0 1px rgba(52, 245, 159, 0.12), 0 0 20px rgba(52, 245, 159, 0.12), inset 0 1px 0 rgba(223, 247, 255, 0.12);
+}
+
+body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-activity-event strong {
+    color: #ffffff;
+    font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
+    font-size: clamp(0.72rem, 0.74vw, 0.82rem);
+    font-weight: 500;
+    line-height: 1.02;
+    letter-spacing: 0.01em;
+    text-shadow: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    word-break: keep-all;
+    overflow-wrap: normal;
+}
+
+body[data-yh-page="apply"] #step-1.yh-solo-system-v34 .yh-landing-activity-meta {
+    color: rgba(226, 238, 255, 0.62);
+    font-size: 0.58rem;
+    line-height: 1.08;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* Division grid + Solo Leveling structure retained */
@@ -1127,7 +1226,6 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-command-profile-name {
     letter-spacing: inherit;
 }
 
-
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-dashboard-copy,
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-dashboard-quote p,
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-dashboard-quote strong {
@@ -1258,28 +1356,31 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-card h3 
     letter-spacing: -0.025em;
     text-shadow: 0 0 18px rgba(223, 247, 255, 0.20);
     line-height: 1.05;}
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-card h2 span,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-card h3 span {
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: inherit;
+    line-height: inherit;
+    letter-spacing: inherit;
+}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-access-hero-card h2 {
-    font-size: clamp(2.12rem, 2.38vw, 2.72rem);
+    font-size: 2.4rem;
     font-family: var(--yh-font-header);
     font-weight: 700;
-    line-height: 0.98;
-    letter-spacing: -0.018em;}
+    line-height: 1.02;
+    letter-spacing: -0.012em;}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-card p,
-body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-card small,
-body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-metric-card span,
-body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-list span,
-body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-event-row span {
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-card small {
     color: rgba(223, 247, 255, 0.72);
     line-height: 1.58;
-    font-family: "Poppins", system-ui, sans-serif;
+    font-family: var(--yh-font-body);
     font-weight: 400;
     font-size: clamp(1.02rem, 1.06vw, 1.12rem);
     letter-spacing: 0;
     text-shadow: none;}
-
-body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-metric-card strong,
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-list strong,
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-event-row strong,
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-network-orb strong,
@@ -1340,15 +1441,6 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-line spa
     border-radius: inherit;
     background: linear-gradient(90deg, #38bdf8, #67e8f9, #67e8f9);
     box-shadow: 0 0 16px rgba(56, 189, 248, 0.34);
-}
-
-body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-activity-item,
-body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-event-row,
-body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-list > div {
-    border: 1px solid rgba(223, 247, 255, 0.14);
-    background:
-        linear-gradient(180deg, rgba(6, 30, 64, 0.28), rgba(6, 30, 64, 0.28));
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025);
 }
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-panel-head {
@@ -1711,17 +1803,21 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-readiness-main sp
 body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-command-next-action {
     color: rgba(248, 250, 252, 0.88) !important;
     opacity: 1 !important;
-    font-size: clamp(0.98rem, 1.08vw, 1.12rem);
-    line-height: 1.55;
+    font-size: clamp(1.02rem, 1.06vw, 1.12rem);
+    line-height: 1.58;
     font-weight: 400;
-    text-shadow: 0 0 12px rgba(0, 0, 0, 0.46) !important;
-    font-family: var(--yh-font-body);}
+    text-shadow: none;
+    font-family: var(--yh-font-body);letter-spacing: 0;}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-card p,
-body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-card small,
-body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-card span {
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-card small {
     opacity: 1 !important;
-}
+    font-family: var(--yh-font-body);
+    font-size: clamp(1.02rem, 1.06vw, 1.12rem);
+    font-weight: 400;
+    line-height: 1.58;
+    letter-spacing: 0;
+    text-shadow: none;}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-card strong {
     color: #f8fbff !important;
@@ -1974,38 +2070,50 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-body {
 }
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-network-orb {
+min-height: 68px !important;
     width: 100% !important;
-    min-height: 68px !important;
-    height: auto !important;
+    border-radius: 16px !important;
     display: flex !important;
     align-items: center !important;
     justify-content: flex-start !important;
-    gap: 12px !important;
-    padding: 13px 16px !important;
-    margin: 0 !important;
-    border-radius: 16px !important;
-    border: 1px solid rgba(223, 247, 255, 0.20) !important;
+    gap: 10px !important;
+    padding: 14px 18px !important;
+    border: 1px solid rgba(103, 232, 249, 0.28) !important;
     background:
-        radial-gradient(circle at 8% 50%, rgba(56, 189, 248, 0.22), transparent 34%),
-        linear-gradient(180deg, rgba(6, 30, 64, 0.26), rgba(6, 30, 64, 0.26)) !important;
+        radial-gradient(circle at 8% 50%, rgba(56, 189, 248, 0.24), transparent 50%),
+        linear-gradient(180deg, rgba(6, 30, 64, 0.46), rgba(6, 30, 64, 0.34)) !important;
     box-shadow:
-        inset 0 1px 0 rgba(255,255,255,0.04),
-        0 10px 22px rgba(0,0,0,0.16) !important;
+        0 0 28px rgba(56, 189, 248, 0.14),
+        inset 0 1px 0 rgba(255,255,255,0.045) !important;
 }
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-network-orb strong {
-    color: #f8fbff !important;
-    font-size: 1.7rem;
+color: #f8fbff !important;
+    font-family: var(--yh-font-header);
+    font-size: 1.58rem;
     font-weight: 700;
     line-height: 1;
-    font-family: var(--yh-font-header);}
+    letter-spacing: 0.005em;
+    text-shadow: 0 0 14px rgba(223, 247, 255, 0.22) !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-network-orb .yh-command-network-separator {
+    color: rgba(103, 232, 249, 0.82) !important;
+    font-family: var(--yh-font-subheader);
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1;
+    white-space: nowrap !important;
+}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-network-orb span {
-    color: rgba(223, 247, 255, 0.88) !important;
-    font-size: 0.96rem;
-    font-weight: 600;
+color: rgba(223, 247, 255, 0.92) !important;
+    font-family: var(--yh-font-subheader);
+    font-size: 1.02rem;
+    font-weight: 700;
     line-height: 1;
-    font-family: var(--yh-font-subheader);}
+    letter-spacing: 0.04em;
+}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-list {
     display: grid !important;
@@ -2016,13 +2124,12 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-list {
 }
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-list > div {
-    width: 100% !important;
-    min-height: 52px !important;
+min-height: 50px !important;
     padding: 12px 14px !important;
     display: grid !important;
-    grid-template-columns: minmax(130px, 0.42fr) minmax(0, 1fr) !important;
+    grid-template-columns: minmax(130px, 0.45fr) 24px minmax(0, 1fr) !important;
     align-items: center !important;
-    gap: 14px !important;
+    gap: 10px !important;
     border: 1px solid rgba(223, 247, 255, 0.16) !important;
     background:
         linear-gradient(180deg, rgba(6, 30, 64, 0.28), rgba(6, 30, 64, 0.28)) !important;
@@ -2030,23 +2137,36 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-list > d
 }
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-list span {
-    color: rgba(223, 247, 255, 0.94) !important;
+color: rgba(223, 247, 255, 0.94) !important;
     opacity: 1 !important;
     font-size: 0.86rem;
     font-weight: 600;
     line-height: 1.2;
     white-space: normal !important;
-    font-family: var(--yh-font-subheader);}
+    font-family: var(--yh-font-subheader);
+}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-list strong {
-    color: #f8fbff !important;
+color: #f8fbff !important;
     opacity: 1 !important;
     font-size: 1.03rem;
     font-weight: 700;
     line-height: 1.22;
     white-space: normal !important;
     overflow-wrap: anywhere !important;
-    font-family: var(--yh-font-header);}
+    font-family: var(--yh-font-header);
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-list .yh-command-progress-separator {
+    color: rgba(103, 232, 249, 0.82) !important;
+    font-family: var(--yh-font-subheader);
+    font-size: 0.95rem;
+    font-weight: 700;
+    line-height: 1;
+    text-align: center;
+    justify-self: center;
+    white-space: nowrap !important;
+}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-command-referral-code {
     font-size: 0.95rem;
@@ -2065,13 +2185,13 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-event-list {
 }
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-event-row {
-    width: 100% !important;
+width: 100% !important;
     min-height: 62px !important;
     padding: 14px 16px !important;
     display: grid !important;
-    grid-template-columns: minmax(118px, 0.36fr) minmax(0, 1fr) !important;
+    grid-template-columns: minmax(118px, 0.34fr) 28px minmax(0, 1fr) !important;
     align-items: center !important;
-    gap: 14px !important;
+    gap: 12px !important;
     text-align: left !important;
     justify-content: stretch !important;
     border: 1px solid rgba(223, 247, 255, 0.20) !important;
@@ -2087,7 +2207,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-event-row {
 }
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-event-row span {
-    display: block !important;
+display: block !important;
     min-width: 0 !important;
     color: rgba(223, 247, 255, 0.98) !important;
     opacity: 1 !important;
@@ -2098,10 +2218,11 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-event-row span {
     text-transform: uppercase;
     white-space: normal !important;
     overflow-wrap: anywhere !important;
-    font-family: var(--yh-font-subheader);}
+    font-family: var(--yh-font-subheader);
+}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-event-row strong {
-    display: block !important;
+display: block !important;
     min-width: 0 !important;
     color: #f8fbff !important;
     opacity: 1 !important;
@@ -2111,7 +2232,21 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-event-row strong 
     white-space: normal !important;
     overflow-wrap: anywhere !important;
     text-shadow: 0 0 12px rgba(223, 247, 255, 0.16) !important;
-    font-family: var(--yh-font-header);}
+    font-family: var(--yh-font-header);
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-event-row .yh-command-event-separator {
+    display: grid !important;
+    place-items: center !important;
+    color: rgba(103, 232, 249, 0.82) !important;
+    font-family: var(--yh-font-subheader);
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1;
+    text-align: center;
+    justify-self: center;
+    white-space: nowrap !important;
+}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-event-row:hover {
     border-color: rgba(103, 232, 249, 0.52) !important;
@@ -2178,9 +2313,26 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-bottom-cta .yh-co
 
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-list > div,
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-event-row {
-        grid-template-columns: 1fr !important;
-        gap: 7px !important;
-    }
+width: 100% !important;
+    min-height: 62px !important;
+    padding: 14px 16px !important;
+    display: grid !important;
+    grid-template-columns: minmax(118px, 0.34fr) 28px minmax(0, 1fr) !important;
+    align-items: center !important;
+    gap: 12px !important;
+    text-align: left !important;
+    justify-content: stretch !important;
+    border: 1px solid rgba(223, 247, 255, 0.20) !important;
+    color: #f8fbff !important;
+    background:
+        radial-gradient(circle at 0% 0%, rgba(103, 232, 249, 0.12), transparent 42%),
+        linear-gradient(180deg, rgba(6, 30, 64, 0.26), rgba(6, 30, 64, 0.26)) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,0.045),
+        0 10px 22px rgba(0,0,0,0.16) !important;
+    text-decoration: none !important;
+    overflow: hidden !important;
+}
 }
 
 @media (max-width: 760px) {
@@ -2240,11 +2392,15 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-card {
 }
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-card p,
-body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-card small,
-body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-card span {
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-card small {
     color: rgba(248, 251, 255, 0.88) !important;
     opacity: 1 !important;
-}
+    font-family: var(--yh-font-body);
+    font-size: clamp(1.02rem, 1.06vw, 1.12rem);
+    font-weight: 400;
+    line-height: 1.58;
+    letter-spacing: 0;
+    text-shadow: none;}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-kicker {
     color: #dff7ff !important;
@@ -2264,10 +2420,8 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-readiness-card .y
     font-size: clamp(0.84rem, 0.9vw, 0.96rem);
     text-transform: uppercase;}
 
-
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-card h2,
-body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-card h3,
-body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-card strong {
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-card h3 {
     color: #ffffff !important;
     opacity: 1 !important;
     text-shadow:
@@ -2307,9 +2461,9 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-access-hero-card 
 }
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-access-hero-card .yh-command-access-orb img {
-    width: clamp(64px, 5.2vw, 82px);
-    max-width: 72%;
-    max-height: 72%;
+    width: clamp(82px, 6.4vw, 98px);
+    max-width: 82%;
+    max-height: 82%;
     height: auto;
     display: block;
     object-fit: contain;
@@ -2318,32 +2472,30 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-access-hero-card 
     transform: none;
 }
 
-
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-access-hero-card h2 {
     margin: 0 !important;
-    font-size: clamp(2.12rem, 2.38vw, 2.72rem);
-    line-height: 0.98;
+    font-size: 2.4rem;
+    line-height: 1.02;
     font-weight: 700;
     font-family: var(--yh-font-header);
-    letter-spacing: -0.018em;}
+    letter-spacing: -0.012em;}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-access-hero-card h2 span,
 body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-command-academy-status {
-    font-family: inherit;
-    font-size: inherit;
-    font-weight: inherit;
-    line-height: inherit;
-    letter-spacing: inherit;
+    font-family: var(--yh-font-header);
+    font-size: 2.4rem;
+    font-weight: 700;
+    line-height: 1.02;
+    letter-spacing: -0.012em;
 }
-
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-access-hero-card p {
     margin: 0 !important;
-    max-width: 560px !important;
+    max-width: 560px;
     color: rgba(248, 251, 255, 0.91) !important;
     font-weight: 400;
     line-height: 1.58;
-    font-family: "Poppins", system-ui, sans-serif;
+    font-family: var(--yh-font-body);
     font-size: clamp(1.02rem, 1.06vw, 1.12rem);
     text-shadow: none;
     letter-spacing: 0;}
@@ -2365,7 +2517,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-division-card {
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-division-card h3 {
     margin: 0 !important;
-    font-size: clamp(1.46rem, 1.55vw, 1.82rem);
+    font-size: 2.4rem;
     line-height: 1.02;
     font-weight: 700;
     font-family: var(--yh-font-header);
@@ -2376,7 +2528,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-division-card p {
     color: rgba(248, 251, 255, 0.88) !important;
     font-weight: 400;
     line-height: 1.58;
-    font-family: "Poppins", system-ui, sans-serif;
+    font-family: var(--yh-font-body);
     font-size: clamp(1.02rem, 1.06vw, 1.12rem);
     text-shadow: none;
     letter-spacing: 0;}
@@ -2488,14 +2640,14 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-command-next-action {
     grid-column: 1 !important;
     grid-row: 3 !important;
     margin: 0 !important;
-    max-width: 100% !important;
+    max-width: 100%;
     color: #f8fbff !important;
     opacity: 1 !important;
     font-size: clamp(1.02rem, 1.06vw, 1.12rem);
     line-height: 1.58;
     font-weight: 400;
     text-shadow: none;
-    font-family: "Poppins", system-ui, sans-serif;
+    font-family: var(--yh-font-body);
     letter-spacing: 0;}
 
 /* The ring should not look like a dead black circle */
@@ -2545,13 +2697,15 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-readiness-ring sp
 
 /* Approved metric cards keep icon left + text right, alive color */
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-metric-card {
-    grid-column: span 3 !important;
-    min-height: 96px !important;
+grid-column: span 3 !important;
+    min-height: 108px !important;
     display: grid !important;
-    grid-template-columns: 48px minmax(0, 1fr) !important;
+    grid-template-columns: 56px minmax(0, 1fr) !important;
     align-items: center !important;
-    gap: 14px !important;
-    padding: 17px 20px !important;
+    align-content: center !important;
+    column-gap: 18px !important;
+    row-gap: 0 !important;
+    padding: 18px 24px !important;
 }
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-metric-card .yh-command-metric-icon,
@@ -2567,23 +2721,82 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-activity-icon {
 }
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-metric-card > div:not(.yh-command-metric-icon) {
+min-width: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
     display: flex !important;
-    align-items: baseline !important;
-    gap: 6px !important;
-    flex-wrap: wrap !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 10px !important;
+    flex-wrap: nowrap !important;
+    line-height: 1 !important;
+    overflow: visible !important;
+    transform: translateY(1px);
 }
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-metric-card span {
-    color: rgba(223, 247, 255, 0.84) !important;
-    font-size: 1rem;
-    font-weight: 600;
-    font-family: var(--yh-font-subheader);}
+color: rgba(223, 247, 255, 0.9) !important;
+    font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
+    font-size: clamp(1.08rem, 1.1vw, 1.28rem);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.045em;
+    white-space: nowrap;
+    min-width: max-content;
+    max-width: none;
+    overflow: visible;
+    text-overflow: clip;
+    flex: 0 0 auto;
+}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-metric-card strong {
-    color: #ffffff !important;
-    font-size: 1.04rem;
+color: rgba(248, 251, 255, 0.98) !important;
+    font-family: "Poppins", "Rajdhani", system-ui, sans-serif;
+    font-size: clamp(1.02rem, 1.04vw, 1.22rem);
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: 0.005em;
+    text-transform: none;
+    text-shadow: none;
+    white-space: nowrap;
+    min-width: max-content;
+    max-width: none;
+    overflow: visible;
+    text-overflow: clip;
+    flex: 0 0 auto;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-metric-card .yh-command-metric-separator {
+display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: rgba(103, 232, 249, 0.82) !important;
+    font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
+    font-size: clamp(1rem, 1vw, 1.16rem);
     font-weight: 700;
-    font-family: var(--yh-font-header);}
+    line-height: 1;
+    opacity: 0.95;
+    flex: 0 0 auto;
+    min-width: max-content;
+    max-width: none;
+    overflow: visible;
+    text-overflow: clip;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-metric-card .yh-command-metric-icon {
+    width: 48px !important;
+    height: 48px !important;
+    min-width: 48px !important;
+    min-height: 48px !important;
+    display: grid !important;
+    place-items: center !important;
+    align-self: center !important;
+    justify-self: center !important;
+    font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
+    font-size: 1.14rem !important;
+    line-height: 1 !important;
+}
 
 @media (max-width: 1280px) {
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-access-hero-card,
@@ -2621,7 +2834,12 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-metric-card stron
     body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-command-next-action {
         grid-column: 1 !important;
         grid-row: auto !important;
-    }
+    font-family: var(--yh-font-body);
+    font-size: clamp(1.02rem, 1.06vw, 1.12rem);
+    font-weight: 400;
+    line-height: 1.58;
+    letter-spacing: 0;
+    text-shadow: none;}
 
     body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-metric-card {
         grid-column: span 12 !important;
@@ -2849,10 +3067,25 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-universe-academy-strip .y
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-universe-academy-strip .yh-universe-academy-strip-kicker {
     color: #dff7ff !important;
+    font-family: var(--yh-font-header);
+    font-size: 2.4rem;
+    line-height: 1;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    text-transform: none;
     text-shadow:
         0 0 12px rgba(223, 247, 255, 0.58),
         0 0 24px rgba(56, 189, 248, 0.32),
         0 2px 12px rgba(0, 0, 0, 0.75) !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-universe-academy-strip .yh-universe-academy-strip-copy {
+    color: rgba(226, 238, 255, 0.84);
+    font-family: var(--yh-font-body);
+    font-size: 0.92rem;
+    line-height: 1.5;
+    font-weight: 400;
+    letter-spacing: 0;
 }
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-universe-academy-strip .yh-universe-academy-marquee {
@@ -3049,26 +3282,16 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-universe-academy-strip .y
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-card p,
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-overview-card small,
-body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-metric-card span,
-body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-list span,
-body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-event-row span,
 body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-command-recommended-copy {
     color: rgba(248, 251, 255, 0.86) !important;
     opacity: 1 !important;
-    font-family: "Poppins", system-ui, sans-serif;
+    font-family: var(--yh-font-body);
     font-size: clamp(1.02rem, 1.06vw, 1.12rem);
     font-weight: 400;
     line-height: 1.58;
     letter-spacing: 0;
     text-shadow: none;}
 
-body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-activity-item,
-body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-event-row,
-body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-list > div {
-    border-color: rgba(223, 247, 255, 0.20) !important;
-    background:
-        linear-gradient(180deg, rgba(6, 30, 64, 0.28), rgba(2, 8, 23, 0.28)) !important;
-}
 /* END PATCH: YHU Dashboard bright purple visibility pass v60 */
 
 /* PATCH: Academy parent one-view v84 */
@@ -3152,7 +3375,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="ac
   font-family: "Orbitron", "Rajdhani", system-ui, sans-serif;
   font-size: clamp(2.25rem, 3.4vw, 4.25rem);
   line-height: 0.92;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   text-shadow:
@@ -3246,16 +3469,19 @@ body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="ac
 
 body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] .yh-universe-command-pill-label {
   color: #67e8f9;
+  font-family: var(--yh-font-subheader);
   font-size: 0.58rem;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
 body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] .yh-universe-command-pill strong {
   color: #ffffff;
+  font-family: var(--yh-font-header);
   font-size: 0.82rem;
   line-height: 1.1;
+  font-weight: 700;
 }
 
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-academy-parent-vision-scope .yh-universe-stage-body.yh-tw-scope {
@@ -3492,7 +3718,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-academy-parent-vision-sco
   background: rgba(14, 165, 233, 0.10);
   color: #dff7ff;
   font-size: 0.56rem;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
@@ -3565,7 +3791,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-academy-parent-vision-sco
     inset 0 1px 0 rgba(255, 255, 255, 0.18);
   font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
   font-size: clamp(0.78rem, 0.78vw, 0.95rem);
-  font-weight: 900;
+  font-weight: 700;
   line-height: 1.05;
   text-align: center;
 }
@@ -3630,7 +3856,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-academy-parent-vision-sco
 body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-academy-parent-vision-scope .yh-universe-referral-stats article span {
   color: #9eeeff;
   font-size: 0.56rem;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
@@ -3743,7 +3969,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-tw-scope .yh-academy-pare
   word-break: normal;
   line-height: 1.02;
   font-size: clamp(0.62rem, 0.67vw, 0.76rem);
-  font-weight: 900;
+  font-weight: 700;
 }
 
 /* Keep long Federation Readiness value centered inside the same-size pill */
@@ -3776,7 +4002,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-tw-scope .yh-academy-pare
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
   font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
   font-size: clamp(0.78rem, 0.78vw, 0.95rem);
-  font-weight: 900;
+  font-weight: 700;
   line-height: 1.05;
   text-align: center;
   text-decoration: none;
@@ -4309,7 +4535,7 @@ body[data-yh-view="academy"][data-yh-page="academy"] .academy-feed-composer-card
 /* END PATCH: Academy child Solo Leveling UI and buttons v94 */
 
 /* PATCH: Academy state toast below right v96 */
-body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-entry-state-badge[data-yh-academy-state-toast="below-right"]{position:fixed;top:auto;right:clamp(18px,2vw,30px);bottom:clamp(18px,2vw,30px);left:auto;z-index:2147483000;width:min(340px,calc(100vw - 32px));max-width:min(340px,calc(100vw - 32px));min-height:0;display:inline-flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:.35rem;margin:0;padding:.8rem .95rem;border:1px solid rgba(103,232,249,.34);border-radius:0;color:#dff7ff;background:radial-gradient(circle at 10% 0%,rgba(103,232,249,.18),transparent 44%),linear-gradient(180deg,rgba(10,18,45,.96),rgba(4,7,23,.94));box-shadow:0 22px 58px rgba(0,0,0,.52),0 0 30px rgba(56,189,248,.18),inset 0 1px 0 rgba(255,255,255,.09);font-family:"Rajdhani","Poppins",system-ui,sans-serif;font-size:clamp(.78rem,.74vw,.94rem);font-weight:900;line-height:1.18;text-align:left;pointer-events:none;clip-path:polygon(12px 0,calc(100% - 12px) 0,100% 12px,100% calc(100% - 12px),calc(100% - 12px) 100%,12px 100%,0 calc(100% - 12px),0 12px)}
+body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-entry-state-badge[data-yh-academy-state-toast="below-right"]{position:fixed;top:auto;right:clamp(18px,2vw,30px);bottom:clamp(18px,2vw,30px);left:auto;z-index:2147483000;width:min(340px,calc(100vw - 32px));max-width:min(340px,calc(100vw - 32px));min-height:0;display:inline-flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:.35rem;margin:0;padding:.8rem .95rem;border:1px solid rgba(103,232,249,.34);border-radius:0;color:#dff7ff;background:radial-gradient(circle at 10% 0%,rgba(103,232,249,.18),transparent 44%),linear-gradient(180deg,rgba(10,18,45,.96),rgba(4,7,23,.94));box-shadow:0 22px 58px rgba(0,0,0,.52),0 0 30px rgba(56,189,248,.18),inset 0 1px 0 rgba(255,255,255,.09);font-family:"Rajdhani","Poppins",system-ui,sans-serif;font-size:clamp(.78rem,.74vw,.94rem);font-weight: 700;line-height:1.18;text-align:left;pointer-events:none;clip-path:polygon(12px 0,calc(100% - 12px) 0,100% 12px,100% calc(100% - 12px),calc(100% - 12px) 100%,12px 100%,0 calc(100% - 12px),0 12px)}
 body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-entry-state-badge[data-yh-academy-state-toast="below-right"].is-hidden{display:none}
 body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-entry-state-badge[data-yh-academy-state-toast="below-right"].is-approved{border-color:rgba(52,211,153,.46);color:#6ee7b7;background:radial-gradient(circle at 10% 0%,rgba(52,211,153,.2),transparent 44%),linear-gradient(180deg,rgba(8,40,34,.96),rgba(4,12,20,.94))}
 body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-entry-state-badge[data-yh-academy-state-toast="below-right"].is-pending,body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-entry-state-badge[data-yh-academy-state-toast="below-right"].is-waitlisted{border-color:rgba(245,158,11,.46);color:#fbbf24;background:radial-gradient(circle at 10% 0%,rgba(245,158,11,.18),transparent 44%),linear-gradient(180deg,rgba(47,28,9,.96),rgba(6, 30, 64,.94))}
@@ -4330,7 +4556,7 @@ body[data-yh-view="academy"][data-yh-page="academy"] .academy-momentum-next-v96{
 body[data-yh-view="academy"][data-yh-page="academy"] .academy-momentum-next-v96 strong{min-width:0;overflow:hidden;color:rgba(248,251,255,.92);font-size:.82rem;font-weight:800;line-height:1.18;text-overflow:ellipsis;white-space:nowrap}
 /* END PATCH: Academy Momentum Board Solo UI v96 */
 
-/* PATCH: Academy feed search and momentum text fit v98 */
+/* PATCH: Academy feed search centered real input v207 */
 
 /* Momentum Board: keep stat labels readable inside the narrow signal card */
 body[data-yh-view="academy"][data-yh-page="academy"] #leaderboard-list.academy-momentum-board-v96 {
@@ -4396,68 +4622,92 @@ body[data-yh-view="academy"][data-yh-page="academy"] .academy-momentum-next-v96 
   white-space: normal;
 }
 
-/* Community Feed search: make placeholder fit cleanly */
+/* Community Feed search: centered real input */
 body[data-yh-view="academy"][data-yh-page="academy"] #academy-feed-view .academy-feed-header-right {
-  flex: 0 1 min(560px, 54vw);
-  width: min(560px, 54vw);
-  max-width: 560px;
-  min-width: 390px;
+  flex: 0 0 320px;
+  width: 320px;
+  max-width: 320px;
+  min-width: 320px;
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: 320px;
   justify-items: center;
   align-items: center;
-  align-content: center;
-  gap: 10px;
+  align-content: start;
+  gap: 8px;
 }
 
 body[data-yh-view="academy"][data-yh-page="academy"] #academy-feed-view .academy-feed-search-wrap {
-  width: 100%;
-  max-width: 560px;
-  min-width: 0;
+  position: relative;
+  display: block;
+  width: 320px;
+  max-width: 320px;
+  min-width: 320px;
+  height: 34px;
+  min-height: 34px;
+  max-height: 34px;
   box-sizing: border-box;
+  padding: 0;
+  overflow: hidden;
 }
 
 body[data-yh-view="academy"][data-yh-page="academy"] #academy-feed-view .academy-header-search-icon {
-  left: 18px;
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  z-index: 2;
+  width: 20px;
+  padding: 0;
+  text-align: center;
+  pointer-events: none;
+  transform: translateY(-50%);
 }
 
 body[data-yh-view="academy"][data-yh-page="academy"] #academy-feed-view #academy-global-search-input {
   width: 100%;
   min-width: 0;
-  height: 46px;
-  min-height: 46px;
-  max-height: 46px;
+  max-width: 100%;
+  height: 34px;
+  min-height: 34px;
+  max-height: 34px;
   display: block;
   box-sizing: border-box;
   resize: none;
   overflow: hidden;
-  padding: 0 12px 0 44px;
+  padding: 0 44px;
+  border: 0;
+  outline: 0;
+  background: transparent;
   color: rgba(248, 251, 255, 0.92);
-  font-size: clamp(0.66rem, 0.64vw, 0.78rem);
+  font-size: 0.62rem;
   font-weight: 800;
   letter-spacing: 0;
-  line-height: 46px;
-  text-align: left;
+  line-height: 34px;
+  text-align: center;
+  text-indent: 0;
   text-overflow: clip;
   white-space: nowrap;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
 body[data-yh-view="academy"][data-yh-page="academy"] #academy-feed-view #academy-global-search-input::placeholder {
   color: rgba(226, 238, 255, 0.72);
   opacity: 1;
-  font-size: clamp(0.66rem, 0.64vw, 0.78rem);
+  font-size: 0.62rem;
   font-weight: 800;
   letter-spacing: 0;
+  text-align: center;
 }
 
 body[data-yh-view="academy"][data-yh-page="academy"] #academy-feed-view #academy-feed-refresh-btn {
-  width: min(220px, 58%);
-  min-width: 150px;
-  max-width: 220px;
-  min-height: 42px;
+  width: 240px;
+  min-width: 240px;
+  max-width: 240px;
+  min-height: 34px;
   justify-self: center;
   align-self: center;
-  padding: 10px 18px;
+  padding: 7px 14px;
+  margin-bottom: 0;
   text-align: center;
   white-space: nowrap;
 }
@@ -4478,9 +4728,9 @@ body[data-yh-view="academy"][data-yh-page="academy"] #academy-feed-view #academy
     width: min(220px, 100%);
   }
 }
-/* END PATCH: Academy feed search and momentum text fit v98 */
+/* END PATCH: Academy feed search centered real input v207 */
 
-/* PATCH: Academy community feed compact tabs and niches solo UI v100 */
+/* PATCH: Academy community feed rhythm v202 */
 
 /* Community Feed: hide visible scrollbars but keep scrolling */
 body[data-yh-view="academy"][data-yh-page="academy"] #academy-feed-view,
@@ -4506,18 +4756,18 @@ body[data-yh-view="academy"][data-yh-page="academy"] #academy-feed-view #academy
 body[data-yh-view="academy"][data-yh-page="academy"] #academy-feed-view .academy-community-layer-panel {
   position: relative;
   display: grid;
-  gap: 12px;
-  padding: clamp(14px, 1.05vw, 18px);
+  gap: clamp(16px, 1.2vw, 20px);
+  padding: clamp(16px, 1.25vw, 22px);
   overflow: hidden;
-  border: 1px solid rgba(103, 232, 249, 0.22);
+  border: 1px solid rgba(103, 232, 249, 0.18);
   background:
-    radial-gradient(circle at 8% 0%, rgba(56, 189, 248, 0.14), transparent 32%),
-    radial-gradient(circle at 94% 0%, rgba(56, 189, 248, 0.16), transparent 34%),
-    repeating-linear-gradient(180deg, rgba(223, 247, 255, 0.024) 0 1px, transparent 1px 7px),
-    linear-gradient(180deg, rgba(8, 17, 40, 0.22), rgba(4, 6, 20, 0.22));
+    radial-gradient(circle at 8% 0%, rgba(56, 189, 248, 0.10), transparent 32%),
+    radial-gradient(circle at 94% 0%, rgba(56, 189, 248, 0.11), transparent 34%),
+    repeating-linear-gradient(180deg, rgba(223, 247, 255, 0.018) 0 1px, transparent 1px 7px),
+    linear-gradient(180deg, rgba(8, 17, 40, 0.16), rgba(4, 6, 20, 0.16));
   box-shadow:
-    0 18px 44px rgba(0, 0, 0, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.055);
+    0 14px 34px rgba(0, 0, 0, 0.20),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
   clip-path: polygon(18px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px), 0 18px);
 }
 
@@ -4577,13 +4827,13 @@ body[data-yh-view="academy"][data-yh-page="academy"] #academy-feed-view #academy
 body[data-yh-view="academy"][data-yh-page="academy"] #academy-feed-view .academy-community-layer-tabs {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: clamp(6px, 0.55vw, 9px);
+  gap: clamp(8px, 0.7vw, 12px);
   width: 100%;
-  margin-top: 8px;
-  padding: 5px;
+  margin-top: 12px;
+  padding: 6px;
   border: 1px solid rgba(223, 247, 255, 0.12);
   background:
-    linear-gradient(180deg, rgba(5, 8, 24, 0.28), rgba(2, 4, 14, 0.28));
+    linear-gradient(180deg, rgba(5, 8, 24, 0.22), rgba(2, 4, 14, 0.22));
   clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px);
 }
 
@@ -4890,7 +5140,7 @@ body[data-yh-view="academy"][data-yh-page="academy"] #academy-feed-view #academy
     grid-template-columns: 1fr;
   }
 }
-/* END PATCH: Academy community feed compact tabs and niches solo UI v100 */
+/* END PATCH: Academy community feed rhythm v202 */
 
 /* PATCH: Academy niche empty state breathing room v101 */
 
@@ -4968,7 +5218,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .academy-entry-state-badge[da
     inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
   font-family: "Rajdhani", "Poppins", system-ui, sans-serif !important;
   font-size: clamp(0.88rem, 0.84vw, 1rem) !important;
-  font-weight: 900 !important;
+  font-weight: 700 !important;
   line-height: 1.18 !important;
   letter-spacing: 0.01em !important;
   text-align: left !important;
@@ -5408,8 +5658,6 @@ body[data-yh-view="academy"][data-yh-page="academy"] #academy-lead-missions-view
   }
 }
 /* END PATCH: Academy mission detail Solo Leveling UI v105 */
-
-
 
 /* PATCH: Plaza subtab spacing and header meta polish v120 */
 
@@ -5984,12 +6232,6 @@ body[data-yh-page="federation"] img {
 }
 /* End Federation visual owner */
 
-
-
-
-
-
-
 /* PATCH: YH Wallet Solo Leveling Tailwind skin v134 */
 body[data-yh-view="hub"][data-yh-unified-workspace="wallet"] .yh-tw-scope .yh-wallet-dialog {
   position: relative;
@@ -6498,13 +6740,15 @@ body[data-yh-view="business-chats"] .bc-ghost-small,
 body[data-yh-page="business-chats"] .bc-ghost-small {
   border: 1px solid rgba(223, 247, 255, 0.18);
   border-radius: 0;
-  color: rgba(226, 238, 255, 0.74);
+  color: rgba(226, 238, 255, 0.84);
   background: linear-gradient(180deg, rgba(6, 30, 64, 0.76), rgba(4, 7, 22, 0.76));
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
   font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
+  font-size: 0.74rem;
   font-weight: 900;
-  letter-spacing: 0.04em;
-  clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%, 0 10px);
+  line-height: 1;
+  letter-spacing: 0.035em;
+  clip-path: polygon(6px 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%, 0 6px);
   transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
 }
 
@@ -6536,29 +6780,33 @@ body[data-yh-page="business-chats"] .bc-primary-small {
   color: #ffffff;
   background: linear-gradient(135deg, #dff7ff, #67e8f9 28%, #2563eb 74%, #0f2f7a);
   box-shadow:
-    0 18px 46px rgba(37, 99, 235, 0.28),
-    0 0 28px rgba(56, 189, 248, 0.18),
+    0 8px 18px rgba(37, 99, 235, 0.18),
+    0 0 14px rgba(56, 189, 248, 0.12),
     inset 0 1px 0 rgba(255,255,255,0.18);
   font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
+  font-size: 0.74rem;
   font-weight: 900;
+  line-height: 1;
   letter-spacing: 0.03em;
-  clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px);
+  clip-path: polygon(6px 0, calc(100% - 6px) 0, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 0 calc(100% - 6px), 0 6px);
 }
 
 body[data-yh-view="business-chats"] .bc-danger-btn,
 body[data-yh-page="business-chats"] .bc-danger-btn {
-  border: 1px solid rgba(248, 113, 113, 0.42);
+  border: 1px solid rgba(248, 113, 113, 0.48);
   border-radius: 0;
   color: #fecaca;
-  background: linear-gradient(180deg, rgba(127, 29, 29, 0.42), rgba(40, 7, 10, 0.74));
+  background: linear-gradient(180deg, rgba(127, 29, 29, 0.46), rgba(40, 7, 10, 0.76));
   font-family: "Rajdhani", "Poppins", system-ui, sans-serif;
+  font-size: 0.74rem;
   font-weight: 900;
-  clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px);
+  line-height: 1;
+  clip-path: polygon(6px 0, calc(100% - 6px) 0, 100% 6px, 100% calc(100% - 6px), calc(100% - 6px) 100%, 6px 100%, 0 calc(100% - 6px), 0 6px);
 }
 
 body[data-yh-view="business-chats"] button:disabled,
 body[data-yh-page="business-chats"] button:disabled {
-  opacity: 0.50;
+  opacity: 0.84;
   transform: none;
 }
 
@@ -7011,42 +7259,7 @@ body[data-yh-page="business-chats"] *::-webkit-scrollbar {
     transform: translateX(2px);
   }
 
-  body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-top-nav .yh-business-chat-open-btn {
-    border-color: rgba(34, 197, 94, 0.28);
-    color: #dcfce7;
   }
-
-  body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-top-nav .btn-logout,
-  body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-top-nav .nav-actions .btn-logout {
-    border-color: rgba(248, 113, 113, 0.30);
-    color: #fca5a5;
-    background:
-      linear-gradient(180deg, rgba(239, 68, 68, 0.12), rgba(127, 29, 29, 0.10)),
-      rgba(7, 16, 31, 0.22);
-  }
-
-  body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-top-nav .btn-logout:hover {
-    border-color: rgba(248, 113, 113, 0.52);
-    color: #ffffff;
-    background:
-      linear-gradient(180deg, rgba(239, 68, 68, 0.22), rgba(127, 29, 29, 0.14)),
-      rgba(7, 16, 31, 0.22);
-  }
-
-  body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-business-chat-nav-badge {
-    min-width: 20px;
-    height: 20px;
-    padding: 0 6px;
-    border: 1px solid rgba(34, 197, 94, 0.38);
-    border-radius: 0;
-    color: #dcfce7;
-    background: rgba(34, 197, 94, 0.12);
-    font-size: 0.66rem;
-    font-weight: 700;
-    clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
-    font-family: "Orbitron", "Rajdhani", system-ui, sans-serif;
-    letter-spacing: 0.14em;}
-}
 /* END PATCH: Dashboard left sidebar Tailwind visual owner v142 */
 
 /* PATCH: Federation clear transparent panels visual owner v147 */
@@ -7517,3 +7730,701 @@ body[data-yh-page="plaza"].yh-plaza-page img {
   filter: none;
 }
 /* END PATCH: Plaza dark canvas transparent panels visual owner v149 */
+
+/* PATCH: Dashboard business copy restore and inline small referral button v185 */
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-card .yh-command-progress-list {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+    width: 100% !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-card .yh-command-progress-list > div {
+    min-height: 52px !important;
+    padding: 0 14px !important;
+    display: grid !important;
+    grid-template-columns: max-content 22px minmax(0, 1fr) !important;
+    align-items: center !important;
+    gap: 10px !important;
+    border: 1px solid rgba(223, 247, 255, 0.16) !important;
+    background: linear-gradient(180deg, rgba(6, 30, 64, 0.28), rgba(6, 30, 64, 0.28)) !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.03) !important;
+    overflow: hidden !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-card .yh-command-referral-code-row {
+    grid-template-columns: max-content 22px max-content max-content !important;
+    justify-content: start !important;
+    column-gap: 9px !important;
+    row-gap: 0 !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-card .yh-command-progress-list > div > span:not(.yh-command-progress-separator),
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-card .yh-command-progress-list .yh-command-progress-separator,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-card .yh-command-progress-list > div > strong {
+    font-size: 15px !important;
+    line-height: 1 !important;
+    font-weight: 700 !important;
+    white-space: nowrap !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    word-break: normal !important;
+    overflow-wrap: normal !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-card .yh-command-progress-list > div > span:not(.yh-command-progress-separator),
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-card .yh-command-progress-list .yh-command-progress-separator {
+    font-family: "Rajdhani", "Poppins", system-ui, sans-serif !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-card .yh-command-progress-list > div > strong {
+    font-family: "Poppins", "Rajdhani", system-ui, sans-serif !important;
+    min-width: 0 !important;
+    color: #f8fbff !important;
+    justify-self: start !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-card .yh-command-progress-list > div > span:not(.yh-command-progress-separator) {
+    grid-column: 1 !important;
+    color: rgba(223, 247, 255, 0.94) !important;
+    text-transform: none !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-card .yh-command-progress-list .yh-command-progress-separator {
+    grid-column: 2 !important;
+    color: rgba(103, 232, 249, 0.86) !important;
+    text-align: center !important;
+    justify-self: center !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-card .yh-command-referral-code-row #yh-command-referral-code {
+    grid-column: 3 !important;
+    min-width: max-content !important;
+    max-width: none !important;
+    letter-spacing: 0.01em !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-card .yh-command-referral-copy-btn {
+    grid-column: 4 !important;
+    width: auto !important;
+    min-width: 62px !important;
+    max-width: 72px !important;
+    height: 24px !important;
+    min-height: 24px !important;
+    padding: 3px 7px !important;
+    margin-left: 2px !important;
+    justify-self: start !important;
+    align-self: center !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: #dff7ff !important;
+    border: 1px solid rgba(103, 232, 249, 0.34) !important;
+    background: linear-gradient(180deg, rgba(37, 99, 235, 0.26), rgba(6, 30, 64, 0.30)) !important;
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+    font-family: "Rajdhani", "Poppins", system-ui, sans-serif !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+    letter-spacing: 0.02em !important;
+    text-transform: none !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: clip !important;
+    cursor: pointer !important;
+    position: relative !important;
+    z-index: 2 !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-card .yh-command-referral-copy-btn.is-copying,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-card .yh-command-referral-copy-btn[data-copy-state="copying"] {
+    opacity: 0.82 !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-card .yh-command-referral-copy-btn.is-copied,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-card .yh-command-referral-copy-btn[data-copy-state="copied"] {
+    color: #bbf7d0 !important;
+    border-color: rgba(34, 197, 94, 0.58) !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-card .yh-command-referral-copy-btn.is-error,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-card .yh-command-referral-copy-btn[data-copy-state="error"] {
+    color: #fecaca !important;
+    border-color: rgba(248, 113, 113, 0.58) !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-activity-card .yh-command-activity-item strong,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-activity-card .yh-command-activity-item small {
+    font-size: 15px !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    word-break: normal !important;
+    overflow-wrap: normal !important;
+}
+/* END PATCH: Dashboard business copy restore and inline small referral button v185 */
+
+/* PATCH: Dashboard bottom CTA copy 15px regular v186 */
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-bottom-cta #yh-command-recommended-copy {
+    margin: 0 !important;
+    color: rgba(226, 238, 255, 0.84) !important;
+    font-family: "Poppins", system-ui, sans-serif !important;
+    font-size: 15px !important;
+    font-weight: 400 !important;
+    line-height: 1.35 !important;
+    letter-spacing: 0.01em !important;
+    text-transform: none !important;
+    text-shadow: none !important;
+}
+/* END PATCH: Dashboard bottom CTA copy 15px regular v186 */
+
+/* PATCH: Dashboard resources moved to sidebar v187 */
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-top-nav .yh-sidebar-resources-menu .yh-resources-menu-btn {
+    font-family: "Rajdhani", "Poppins", system-ui, sans-serif !important;
+    font-size: 0.80rem !important;
+    font-weight: 700 !important;
+    line-height: 1.1 !important;
+    letter-spacing: 0.02em !important;
+}
+/* END PATCH: Dashboard resources moved to sidebar v187 */
+
+/* PATCH: Dashboard referral snapshot arrows aligned v188 */
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-card .yh-command-network-orb {
+    display: grid !important;
+    grid-template-columns: 116px 22px minmax(0, max-content) !important;
+    align-items: center !important;
+    justify-content: start !important;
+    column-gap: 10px !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-card .yh-command-progress-list > div {
+    display: grid !important;
+    grid-template-columns: 116px 22px minmax(0, max-content) max-content !important;
+    align-items: center !important;
+    justify-content: start !important;
+    column-gap: 10px !important;
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-card .yh-command-network-orb > span:not(.yh-command-network-separator),
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-card .yh-command-progress-list > div > span:not(.yh-command-progress-separator) {
+    grid-column: 1 !important;
+    width: 116px !important;
+    min-width: 116px !important;
+    max-width: 116px !important;
+    justify-self: start !important;
+    text-align: left !important;
+    white-space: nowrap !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-card .yh-command-network-separator,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-card .yh-command-progress-separator {
+    grid-column: 2 !important;
+    width: 22px !important;
+    min-width: 22px !important;
+    max-width: 22px !important;
+    justify-self: center !important;
+    text-align: center !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-card .yh-command-network-orb > strong,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-card .yh-command-progress-list > div > strong {
+    grid-column: 3 !important;
+    justify-self: start !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    white-space: nowrap !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-command-progress-card .yh-command-referral-copy-btn {
+    grid-column: 4 !important;
+    justify-self: start !important;
+    margin-left: 8px !important;
+}
+/* END PATCH: Dashboard referral snapshot arrows aligned v188 */
+
+/* PATCH: Dashboard left sidebar all blue buttons v189 */
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-top-nav .yh-sidebar-command-link,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-top-nav .yh-sidebar-resources-menu .yh-resources-menu-btn,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-top-nav .btn-logout,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-top-nav .nav-actions .btn-logout {
+    border: 1px solid rgba(103, 232, 249, 0.46) !important;
+    color: #dff7ff !important;
+    background:
+        radial-gradient(circle at 16% 0%, rgba(103, 232, 249, 0.22), transparent 44%),
+        linear-gradient(180deg, rgba(37, 99, 235, 0.52), rgba(6, 30, 64, 0.68)) !important;
+    box-shadow:
+        0 0 18px rgba(56, 189, 248, 0.16),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+    border-radius: 0 !important;
+    clip-path: polygon(11px 0, calc(100% - 11px) 0, 100% 11px, 100% calc(100% - 11px), calc(100% - 11px) 100%, 11px 100%, 0 calc(100% - 11px), 0 11px) !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-top-nav .yh-sidebar-command-link:hover,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-top-nav .yh-sidebar-resources-menu .yh-resources-menu-btn:hover,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-top-nav .btn-logout:hover,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-top-nav .nav-actions .btn-logout:hover {
+    border-color: rgba(223, 247, 255, 0.62) !important;
+    color: #ffffff !important;
+    background:
+        radial-gradient(circle at 16% 0%, rgba(223, 247, 255, 0.22), transparent 46%),
+        linear-gradient(180deg, rgba(56, 189, 248, 0.44), rgba(37, 99, 235, 0.58)) !important;
+    box-shadow:
+        0 0 24px rgba(56, 189, 248, 0.28),
+        inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-top-nav .yh-sidebar-command-link.is-active,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-top-nav .yh-sidebar-command-center-label.is-active,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-top-nav .yh-sidebar-subnav-link.is-active {
+    border-color: rgba(223, 247, 255, 0.72) !important;
+    color: #ffffff !important;
+    background:
+        linear-gradient(90deg, rgba(103, 232, 249, 0.34), rgba(37, 99, 235, 0.52)),
+        rgba(6, 30, 64, 0.68) !important;
+    box-shadow:
+        inset 3px 0 0 rgba(223, 247, 255, 0.95),
+        0 0 26px rgba(56, 189, 248, 0.24) !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-sidebar-subnav-link {
+    border: 1px solid rgba(103, 232, 249, 0.34) !important;
+    color: #dff7ff !important;
+    background:
+        radial-gradient(circle at 14% 0%, rgba(103, 232, 249, 0.14), transparent 42%),
+        linear-gradient(180deg, rgba(37, 99, 235, 0.28), rgba(6, 30, 64, 0.42)) !important;
+    box-shadow:
+        0 0 12px rgba(56, 189, 248, 0.10),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-sidebar-subnav-link:hover {
+    border-color: rgba(223, 247, 255, 0.58) !important;
+    color: #ffffff !important;
+    background:
+        radial-gradient(circle at 14% 0%, rgba(223, 247, 255, 0.18), transparent 42%),
+        linear-gradient(180deg, rgba(56, 189, 248, 0.34), rgba(37, 99, 235, 0.44)) !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-sidebar-command-icon,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-sidebar-subnav-icon,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-resources-menu-icon {
+    color: #dff7ff !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-business-chat-nav-badge {
+    border: 1px solid rgba(103, 232, 249, 0.52) !important;
+    color: #dff7ff !important;
+    background: rgba(37, 99, 235, 0.36) !important;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.18) !important;
+}
+/* END PATCH: Dashboard left sidebar all blue buttons v189 */
+
+/* PATCH: Dashboard sidebar subnav open close v190 */
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-sidebar-division-group[data-yh-sidebar-division] .yh-sidebar-command-link[data-yh-dashboard-shell] {
+    position: relative !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-sidebar-division-group[data-yh-sidebar-division] .yh-sidebar-command-link[data-yh-dashboard-shell]::after {
+    content: "▸" !important;
+    margin-left: auto !important;
+    color: rgba(103, 232, 249, 0.86) !important;
+    font-family: "Rajdhani", "Poppins", system-ui, sans-serif !important;
+    font-size: 0.82rem !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+    transform: rotate(0deg) !important;
+    transition: transform 0.18s ease, color 0.18s ease !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-sidebar-division-group.is-expanded:not(.is-manually-collapsed) .yh-sidebar-command-link[data-yh-dashboard-shell]::after {
+    transform: rotate(90deg) !important;
+    color: #dff7ff !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-sidebar-division-group[data-yh-sidebar-division] .yh-sidebar-subnav,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-sidebar-division-group.is-manually-collapsed .yh-sidebar-subnav,
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-sidebar-division-group:not(.is-expanded) .yh-sidebar-subnav {
+    display: none !important;
+    max-height: 0 !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    overflow: hidden !important;
+}
+
+body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-sidebar-division-group.is-expanded:not(.is-manually-collapsed) .yh-sidebar-subnav {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    max-height: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    overflow: visible !important;
+}
+/* END PATCH: Dashboard sidebar subnav open close v190 */
+
+/* PATCH: Academy fonts and cards authority v196 */
+
+/* Typography tokens:
+   Orbitron = labels / kickers / badges
+   Rajdhani = titles / headings / card titles / CTA title text
+   Poppins = descriptions / body copy
+*/
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"],
+body[data-yh-view="academy"][data-yh-page="academy"],
+body.yh-dashboard-inline-embed-body[data-yh-page="academy"] {
+  --yh-font-label: "Orbitron", "Rajdhani", "Poppins", system-ui, sans-serif;
+  --yh-font-title: "Rajdhani", "Poppins", system-ui, sans-serif;
+  --yh-font-body: "Poppins", system-ui, sans-serif;
+  --yh-font-header: "Rajdhani", "Poppins", system-ui, sans-serif;
+  --yh-font-subheader: "Orbitron", "Rajdhani", "Poppins", system-ui, sans-serif;
+}
+
+/* Body / descriptions */
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] .yh-tw-scope,
+body[data-yh-view="academy"][data-yh-page="academy"],
+body.yh-dashboard-inline-embed-body[data-yh-page="academy"] {
+  font-family: var(--yh-font-body) !important;
+}
+
+/* Orbitron labels, kickers, badges */
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] .yh-universe-kicker,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] .yh-universe-command-eyebrow,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] .yh-universe-command-pill-label,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-sidebar-kicker,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-community-layer-kicker,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-messages-inbox-kicker,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-mission-playbook-kicker,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-lead-modal-kicker,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-profile-card-kicker,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-profile-editor-kicker,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-profile-settings-kicker,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-home-panel-label,
+body[data-yh-view="academy"][data-yh-page="academy"] .roadmap-step-kicker,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-tab-state-badge,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-messages-thread-roomtype,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-profile-social-label,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-mobile-bottom-nav-label,
+body[data-yh-view="academy"][data-yh-page="academy"] .success-badge-new,
+body[data-yh-view="academy"][data-yh-page="academy"] .role-badge {
+  font-family: var(--yh-font-label) !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+}
+
+/* Rajdhani titles / headings */
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] .yh-universe-title,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] .yh-universe-command-title,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] .yh-universe-command-pill strong,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] .portal-title,
+body[data-yh-view="academy"][data-yh-page="academy"] h1,
+body[data-yh-view="academy"][data-yh-page="academy"] h2,
+body[data-yh-view="academy"][data-yh-page="academy"] h3,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-sidebar-title,
+body[data-yh-view="academy"][data-yh-page="academy"] .yh-academy-startup-title,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-lead-missions-title,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-mission-playbook-title,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-messages-inbox-title,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-messages-thread-title,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-profile-card-title,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-profile-editor-title,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-profile-settings-title,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-profile-social-value,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-lead-modal-title,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-mission-playbook-detail-hero h2,
+body[data-yh-view="academy"][data-yh-page="academy"] .chat-header h2,
+body[data-yh-view="academy"][data-yh-page="academy"] .header-title {
+  font-family: var(--yh-font-title) !important;
+  font-weight: 800 !important;
+  line-height: 0.98 !important;
+  letter-spacing: 0.035em !important;
+}
+
+/* Poppins readable descriptions / body copy */
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] .yh-universe-intro-copy,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] .yh-universe-command-copy,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] .portal-desc,
+body[data-yh-view="academy"][data-yh-page="academy"] p,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-sidebar-copy,
+body[data-yh-view="academy"][data-yh-page="academy"] .header-topic,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-lead-missions-copy,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-mission-playbook-copy,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-mission-playbook-detail-hero p,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-messages-inbox-head-copy,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-messages-thread-copy,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-profile-settings-copy,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-profile-editor-field-note,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-lead-modal-head-copy,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-lead-modal-subtitle,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-feed-post-body,
+body[data-yh-view="academy"][data-yh-page="academy"] .bubble-body,
+body[data-yh-view="academy"][data-yh-page="academy"] .yh-academy-startup-copy {
+  font-family: var(--yh-font-body) !important;
+  font-weight: 400 !important;
+  letter-spacing: 0.005em !important;
+  line-height: 1.52 !important;
+  color: rgba(226, 238, 255, 0.76) !important;
+}
+
+/* Dashboard Academy parent cards */
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] .yh-tw-scope .yh-academy-parent-vision-scope .portal-card,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] .yh-tw-scope .yh-universe-command-panel,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] .yh-tw-scope .yh-universe-command-pill,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] .yh-tw-scope .yh-universe-feature-panel,
+body[data-yh-view="hub"][data-yh-page="dashboard"][data-yh-unified-workspace="academy"] .yh-tw-scope .yh-econ-bridge-card {
+  border-color: rgba(103, 232, 249, 0.20) !important;
+  background:
+    radial-gradient(circle at 16% 0%, rgba(103, 232, 249, 0.10), transparent 38%),
+    radial-gradient(circle at 92% 0%, rgba(37, 99, 235, 0.09), transparent 38%),
+    linear-gradient(180deg, rgba(6, 30, 64, 0.20), rgba(2, 8, 23, 0.24)) !important;
+  box-shadow:
+    0 18px 44px rgba(0, 0, 0, 0.22),
+    0 0 24px rgba(56, 189, 248, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.045) !important;
+  backdrop-filter: blur(5px) saturate(1.08) !important;
+  -webkit-backdrop-filter: blur(5px) saturate(1.08) !important;
+}
+
+/* Standalone / embedded Academy card surfaces */
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-sidebar-intro,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-sidebar-progress,
+body[data-yh-view="academy"][data-yh-page="academy"] .left-card,
+body[data-yh-view="academy"][data-yh-page="academy"] .chat-header,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-home-panel,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-home-hero,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-community-layer-panel,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-feed-composer-card,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-feed-post-card,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-messages-inbox-card,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-messages-inbox-sidebar,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-messages-thread-shell,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-voice-room-card,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-mission-playbook-card,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-mission-playbook-detail-card,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-lead-panel,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-lead-operator-hero,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-lead-recruitment-card,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-profile-card,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-profile-context-card,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-profile-editor-card,
+body.yh-dashboard-inline-embed-body[data-yh-view="academy"] .academy-sidebar-intro,
+body.yh-dashboard-inline-embed-body[data-yh-view="academy"] .academy-sidebar-progress,
+body.yh-dashboard-inline-embed-body[data-yh-view="academy"] .left-card,
+body.yh-dashboard-inline-embed-body[data-yh-view="academy"] .chat-header,
+body.yh-dashboard-inline-embed-body[data-yh-view="academy"] .academy-home-panel,
+body.yh-dashboard-inline-embed-body[data-yh-view="academy"] .academy-home-hero,
+body.yh-dashboard-inline-embed-body[data-yh-view="academy"] .academy-community-layer-panel,
+body.yh-dashboard-inline-embed-body[data-yh-view="academy"] .academy-feed-composer-card,
+body.yh-dashboard-inline-embed-body[data-yh-view="academy"] .academy-feed-post-card,
+body.yh-dashboard-inline-embed-body[data-yh-view="academy"] .academy-messages-inbox-card,
+body.yh-dashboard-inline-embed-body[data-yh-view="academy"] .academy-messages-inbox-sidebar,
+body.yh-dashboard-inline-embed-body[data-yh-view="academy"] .academy-messages-thread-shell,
+body.yh-dashboard-inline-embed-body[data-yh-view="academy"] .academy-voice-room-card,
+body.yh-dashboard-inline-embed-body[data-yh-view="academy"] .academy-mission-playbook-card,
+body.yh-dashboard-inline-embed-body[data-yh-view="academy"] .academy-mission-playbook-detail-card,
+body.yh-dashboard-inline-embed-body[data-yh-view="academy"] .academy-lead-panel,
+body.yh-dashboard-inline-embed-body[data-yh-view="academy"] .academy-lead-operator-hero,
+body.yh-dashboard-inline-embed-body[data-yh-view="academy"] .academy-lead-recruitment-card,
+body.yh-dashboard-inline-embed-body[data-yh-view="academy"] .academy-profile-card,
+body.yh-dashboard-inline-embed-body[data-yh-view="academy"] .academy-profile-context-card,
+body.yh-dashboard-inline-embed-body[data-yh-view="academy"] .academy-profile-editor-card {
+  border-color: rgba(103, 232, 249, 0.19) !important;
+  background:
+    radial-gradient(circle at 14% 0%, rgba(103, 232, 249, 0.09), transparent 38%),
+    radial-gradient(circle at 94% 0%, rgba(37, 99, 235, 0.08), transparent 38%),
+    linear-gradient(180deg, rgba(6, 30, 64, 0.18), rgba(2, 8, 23, 0.22)) !important;
+  box-shadow:
+    0 18px 44px rgba(0, 0, 0, 0.20),
+    0 0 22px rgba(56, 189, 248, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.045) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* More readable card internals */
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-mission-playbook-card,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-feed-post-card,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-messages-inbox-card,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-profile-card,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-profile-context-card {
+  gap: clamp(10px, 0.9vw, 14px) !important;
+}
+
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-mission-playbook-title,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-profile-card-title,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-messages-inbox-title {
+  color: #ffffff !important;
+  text-shadow:
+    0 0 14px rgba(103, 232, 249, 0.18),
+    0 0 28px rgba(37, 99, 235, 0.12) !important;
+}
+
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-mission-playbook-copy,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-lead-missions-copy,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-profile-settings-copy,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-messages-inbox-head-copy {
+  max-width: 78ch !important;
+}
+
+/* END PATCH: Academy fonts and cards authority v196 */
+
+/* PATCH: Academy roadmap visual owner v200 */
+/* Visual ownership: Roadmap background, Roadmap tabs, and Roadmap internal panels. */
+body[data-yh-view="academy"][data-yh-page="academy"],
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="roadmap"],
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="roadmap"] {
+  background-color: #020617 !important;
+  background:
+    linear-gradient(180deg, rgba(2, 6, 23, 0.004), rgba(2, 6, 23, 0.014)),
+    url("/images/yhu-premium-bg.png?v=20260531-bg-09") center center / cover no-repeat,
+    #020617 !important;
+}
+
+body[data-yh-view="academy"][data-yh-page="academy"] .dashboard-layout,
+body[data-yh-view="academy"][data-yh-page="academy"] #academy-wrapper,
+body[data-yh-view="academy"][data-yh-page="academy"] #academy-chat,
+body[data-yh-view="academy"][data-yh-page="academy"] #academy-chat .chat-messages,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="roadmap"] #academy-chat,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="roadmap"] #academy-chat,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="roadmap"] #academy-chat .chat-messages,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="roadmap"] #academy-chat .chat-messages {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-roadmap-tabs-head,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="roadmap"] .academy-roadmap-tabs-head,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="roadmap"] .academy-roadmap-tabs-head {
+  border-color: rgba(103, 232, 249, 0.10) !important;
+  background: rgba(2, 8, 23, 0.020) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-roadmap-inner-tab,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="roadmap"] .academy-roadmap-inner-tab,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="roadmap"] .academy-roadmap-inner-tab,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-roadmap-tab-btn,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="roadmap"] .academy-roadmap-tab-btn,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="roadmap"] .academy-roadmap-tab-btn {
+  font-family: "Orbitron", "Rajdhani", "Poppins", system-ui, sans-serif !important;
+  letter-spacing: 0.11em !important;
+  text-transform: uppercase !important;
+  border-color: rgba(103, 232, 249, 0.16) !important;
+  background: rgba(2, 8, 23, 0.035) !important;
+  color: rgba(226, 238, 255, 0.78) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-roadmap-inner-tab:hover,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-roadmap-inner-tab.is-active,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="roadmap"] .academy-roadmap-inner-tab:hover,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="roadmap"] .academy-roadmap-inner-tab.is-active,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="roadmap"] .academy-roadmap-inner-tab:hover,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="roadmap"] .academy-roadmap-inner-tab.is-active,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-roadmap-tab-btn:hover,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-roadmap-tab-btn.is-active,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="roadmap"] .academy-roadmap-tab-btn:hover,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="roadmap"] .academy-roadmap-tab-btn.is-active,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="roadmap"] .academy-roadmap-tab-btn:hover,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="roadmap"] .academy-roadmap-tab-btn.is-active {
+  color: #ffffff !important;
+  border-color: rgba(103, 232, 249, 0.40) !important;
+  background: rgba(14, 165, 233, 0.105) !important;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.08) !important;
+}
+
+body[data-yh-view="academy"][data-yh-page="academy"] .roadmap-clean-hero,
+body[data-yh-view="academy"][data-yh-page="academy"] .roadmap-clean-status,
+body[data-yh-view="academy"][data-yh-page="academy"] .roadmap-journey-strip > div,
+body[data-yh-view="academy"][data-yh-page="academy"] .roadmap-mission-board,
+body[data-yh-view="academy"][data-yh-page="academy"] .roadmap-mission-day-card,
+body[data-yh-view="academy"][data-yh-page="academy"] .roadmap-transform-hero,
+body[data-yh-view="academy"][data-yh-page="academy"] .roadmap-transform-card,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-roadmap-tab-panel-card,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="roadmap"] .roadmap-clean-hero,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="roadmap"] .roadmap-clean-hero,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="roadmap"] .roadmap-clean-status,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="roadmap"] .roadmap-clean-status,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="roadmap"] .roadmap-journey-strip > div,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="roadmap"] .roadmap-journey-strip > div,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="roadmap"] .roadmap-mission-board,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="roadmap"] .roadmap-mission-board,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="roadmap"] .roadmap-mission-day-card,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="roadmap"] .roadmap-mission-day-card,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="roadmap"] .roadmap-transform-hero,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="roadmap"] .roadmap-transform-hero,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="roadmap"] .roadmap-transform-card,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="roadmap"] .roadmap-transform-card,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="roadmap"] .academy-roadmap-tab-panel-card,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="roadmap"] .academy-roadmap-tab-panel-card {
+  border-color: rgba(103, 232, 249, 0.10) !important;
+  background: rgba(2, 8, 23, 0.026) !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+body[data-yh-view="academy"][data-yh-page="academy"] .roadmap-mission-day-card:hover,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="roadmap"] .roadmap-mission-day-card:hover,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="roadmap"] .roadmap-mission-day-card:hover {
+  border-color: rgba(103, 232, 249, 0.22) !important;
+  background: rgba(14, 165, 233, 0.050) !important;
+}
+
+body[data-yh-view="academy"][data-yh-page="academy"] .roadmap-mission-day-card.is-current,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="roadmap"] .roadmap-mission-day-card.is-current,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="roadmap"] .roadmap-mission-day-card.is-current {
+  border-color: rgba(103, 232, 249, 0.30) !important;
+  background: rgba(14, 165, 233, 0.065) !important;
+}
+
+body[data-yh-view="academy"][data-yh-page="academy"] .roadmap-mission-day-card.is-completed,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="roadmap"] .roadmap-mission-day-card.is-completed,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="roadmap"] .roadmap-mission-day-card.is-completed {
+  border-color: rgba(34, 197, 94, 0.24) !important;
+  background: rgba(34, 197, 94, 0.045) !important;
+}
+
+body[data-yh-view="academy"][data-yh-page="academy"] .roadmap-clean-hero h2,
+body[data-yh-view="academy"][data-yh-page="academy"] .roadmap-mission-board-head h3,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-roadmap-tab-panel-card h3,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="roadmap"] .roadmap-clean-hero h2,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="roadmap"] .roadmap-clean-hero h2,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="roadmap"] .roadmap-mission-board-head h3,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="roadmap"] .roadmap-mission-board-head h3,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="roadmap"] .academy-roadmap-tab-panel-card h3,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="roadmap"] .academy-roadmap-tab-panel-card h3 {
+  font-family: "Rajdhani", "Poppins", system-ui, sans-serif !important;
+  color: #ffffff !important;
+  letter-spacing: 0.025em !important;
+  text-shadow: 0 0 10px rgba(103, 232, 249, 0.10) !important;
+}
+
+body[data-yh-view="academy"][data-yh-page="academy"] .roadmap-clean-hero p,
+body[data-yh-view="academy"][data-yh-page="academy"] .academy-roadmap-tab-panel-card p,
+body[data-yh-view="academy"][data-yh-page="academy"] .roadmap-mission-day-card small,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="roadmap"] .roadmap-clean-hero p,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="roadmap"] .roadmap-clean-hero p,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="roadmap"] .academy-roadmap-tab-panel-card p,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="roadmap"] .academy-roadmap-tab-panel-card p,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-embedded-academy-section="roadmap"] .roadmap-mission-day-card small,
+body.yh-dashboard-inline-embed-body[data-yh-dashboard-inline-active-target="roadmap"] .roadmap-mission-day-card small {
+  font-family: "Poppins", system-ui, sans-serif !important;
+  color: rgba(226, 238, 255, 0.76) !important;
+  font-weight: 400 !important;
+}
+/* END PATCH: Academy roadmap visual owner v200 */
+

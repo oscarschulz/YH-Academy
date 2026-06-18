@@ -2568,18 +2568,16 @@ function renderDashboardCommandOverview() {
 
     setDashboardCommandOverviewText(
         'yh-command-business-chat-count',
-        `${businessConversations.length} conversation${businessConversations.length === 1 ? '' : 's'}`,
-        '0 conversations'
+        String(businessConversations.length),
+        '0'
     );
 
     setDashboardCommandOverviewText(
         'yh-command-business-chat-copy',
         unreadBusinessCount > 0
             ? `${unreadBusinessCount} business conversation${unreadBusinessCount === 1 ? '' : 's'} need attention.`
-            : businessConversations.length > 0
-                ? 'Your business conversations are loaded and ready to review.'
-                : 'No active business conversations loaded yet.',
-        'No active business conversations loaded yet.'
+            : 'Your business conversations are loaded and ready to review.',
+        'Your business conversations are loaded and ready to review.'
     );
 
     setDashboardCommandOverviewText('yh-command-referral-code', referral.code || 'Not ready', 'Not ready');
@@ -3181,6 +3179,119 @@ function installYHWalletInlineTabs(defaultTab = 'overview') {
     return true;
 }
 
+
+
+/* PATCH: Dashboard resources no wallet overlap v193 */
+function hideYHDashboardInlineResourceViewsV193(activeResource = '') {
+    const active = String(activeResource || '').trim().toLowerCase();
+    const host = document.getElementById('yh-universe-workspace-inline-host');
+    const frame = document.getElementById('yh-universe-workspace-inline-frame');
+    const wallet = document.getElementById('yh-wallet-modal');
+    const resources = document.getElementById('yh-resources-inline-view');
+
+    if (wallet && active !== 'wallet') {
+        wallet.classList.add('hidden-step');
+        wallet.setAttribute('aria-hidden', 'true');
+        document.body?.classList.remove('yh-wallet-open');
+    }
+
+    if (resources && active !== 'resources') {
+        resources.classList.add('hidden-step');
+        resources.setAttribute('aria-hidden', 'true');
+    }
+
+    if (frame && (active === 'wallet' || active === 'resources')) {
+        frame.classList.add('hidden-step');
+        frame.setAttribute('aria-hidden', 'true');
+        frame.removeAttribute('src');
+    }
+
+    if (host) {
+        if (active === 'wallet' || active === 'resources') {
+            host.classList.remove('hidden-step');
+            host.setAttribute('aria-hidden', 'false');
+        } else {
+            host.classList.add('hidden-step');
+            host.setAttribute('aria-hidden', 'true');
+        }
+    }
+
+    document.body?.setAttribute('data-yh-active-inline-resource', active || 'none');
+}
+
+function mountYHResourcesInlineView() {
+    const card = document.getElementById('yh-universe-workspace-launch-card');
+    const frameShell = document.getElementById('yh-universe-workspace-frame-shell');
+    const host = document.getElementById('yh-universe-workspace-inline-host');
+    const sourcePanel = document.getElementById('yh-resources-menu-panel');
+
+    if (!host) return false;
+
+    hideYHDashboardInlineResourceViewsV193('resources');
+
+    if (card) {
+        card.classList.remove('hidden-step');
+        card.classList.add('is-approved-inline-workspace');
+        card.classList.remove('is-locked-inline-workspace');
+        card.setAttribute('aria-hidden', 'false');
+    }
+
+    if (frameShell) {
+        frameShell.classList.remove('hidden-step');
+        frameShell.classList.remove('is-switching');
+        frameShell.setAttribute('aria-hidden', 'false');
+    }
+
+    let inlineView = document.getElementById('yh-resources-inline-view');
+
+    if (!inlineView) {
+        inlineView = document.createElement('section');
+        inlineView.id = 'yh-resources-inline-view';
+        inlineView.className = 'yh-resources-inline-view';
+        inlineView.setAttribute('aria-label', 'Resources');
+        host.appendChild(inlineView);
+    }
+
+    if (!host.contains(inlineView)) {
+        host.appendChild(inlineView);
+    }
+
+    if (sourcePanel) {
+        inlineView.innerHTML = sourcePanel.innerHTML;
+        sourcePanel.classList.remove('show');
+        sourcePanel.setAttribute('aria-hidden', 'true');
+    }
+
+    inlineView.classList.remove('hidden-step');
+    inlineView.setAttribute('aria-hidden', 'false');
+
+    document.body?.classList.remove('yh-resources-menu-open');
+
+    const resourcesMenu = document.getElementById('yh-resources-menu');
+    const resourcesMenuBtn = document.getElementById('yh-resources-menu-btn');
+
+    resourcesMenu?.classList.remove('yh-resources-menu-open');
+    resourcesMenuBtn?.setAttribute('aria-expanded', 'false');
+
+    return true;
+}
+
+function unmountYHResourcesInlineView() {
+    const inlineView = document.getElementById('yh-resources-inline-view');
+
+    if (inlineView) {
+        inlineView.classList.add('hidden-step');
+        inlineView.setAttribute('aria-hidden', 'true');
+    }
+}
+
+function openYHResourcesInline() {
+    if (typeof activateDashboardUnifiedWorkspace === 'function') {
+        activateDashboardUnifiedWorkspace('resources', { animate: false });
+    }
+}
+/* END PATCH: Dashboard resources no wallet overlap v193 */
+
 function mountYHWalletInlineView() {
     const card = document.getElementById('yh-universe-workspace-launch-card');
     const frameShell = document.getElementById('yh-universe-workspace-frame-shell');
@@ -3189,6 +3300,8 @@ function mountYHWalletInlineView() {
     const modal = document.getElementById('yh-wallet-modal');
 
     if (!host || !modal) return false;
+
+    hideYHDashboardInlineResourceViewsV193('wallet');
 
     if (card) {
         card.classList.remove('hidden-step');
@@ -3233,12 +3346,14 @@ function mountYHWalletInlineView() {
 }
 
 function unmountYHWalletInlineView() {
-    const host = document.getElementById('yh-universe-workspace-inline-host');
+    const wallet = document.getElementById('yh-wallet-modal');
 
-    if (host) {
-        host.classList.add('hidden-step');
-        host.setAttribute('aria-hidden', 'true');
+    if (wallet) {
+        wallet.classList.add('hidden-step');
+        wallet.setAttribute('aria-hidden', 'true');
     }
+
+    hideYHDashboardInlineResourceViewsV193('');
 }
 
 function openYHWalletInline() {
@@ -6628,6 +6743,89 @@ async function copyYHUniverseReferralLink() {
     }
 }
 
+
+
+function setYHCommandReferralCopyButtonState(state = 'idle', label = 'Copy Link') {
+    const button = document.getElementById('yh-command-referral-copy-btn');
+    if (!button) return;
+
+    window.clearTimeout(window.__yhCommandReferralCopyResetTimer);
+
+    const cleanState = String(state || 'idle').trim().toLowerCase();
+    const cleanLabel = String(label || 'Copy Link').trim() || 'Copy Link';
+
+    button.dataset.copyState = cleanState;
+    button.classList.toggle('is-copied', cleanState === 'copied');
+    button.classList.toggle('is-error', cleanState === 'error');
+    button.classList.toggle('is-copying', cleanState === 'copying');
+    button.textContent = cleanLabel;
+    button.setAttribute('aria-label', cleanState === 'idle' ? 'Copy referral link' : cleanLabel);
+
+    if (cleanState !== 'idle') {
+        window.__yhCommandReferralCopyResetTimer = window.setTimeout(() => {
+            button.dataset.copyState = 'idle';
+            button.classList.remove('is-copied', 'is-error', 'is-copying');
+            button.textContent = 'Copy Link';
+            button.setAttribute('aria-label', 'Copy referral link');
+        }, 1700);
+    }
+}
+
+async function copyYHCommandReferralLink() {
+    const linkEl = document.getElementById('yh-universe-referral-link');
+    const commandCodeEl = document.getElementById('yh-command-referral-code');
+    const universeCodeEl = document.getElementById('yh-universe-referral-code');
+
+    let copyValue = String(linkEl?.value || '').trim();
+    let copiedLabel = 'Referral link';
+
+    if (!copyValue || copyValue === 'Referral link unavailable' || copyValue === 'Loading referral link...') {
+        copyValue = String(commandCodeEl?.textContent || universeCodeEl?.textContent || '').trim();
+        copiedLabel = 'Referral code';
+    }
+
+    if (!copyValue || copyValue === 'Loading...' || copyValue === 'Not ready' || copyValue === 'Referral link unavailable') {
+        setYHCommandReferralCopyButtonState('error', 'Not Ready');
+        if (typeof showToast === 'function') showToast('Referral link is still loading.', 'error');
+        return;
+    }
+
+    setYHCommandReferralCopyButtonState('copying', 'Copying');
+
+    try {
+        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+            await navigator.clipboard.writeText(copyValue);
+        } else {
+            throw new Error('Clipboard API unavailable');
+        }
+
+        setYHCommandReferralCopyButtonState('copied', 'Copied');
+        if (typeof showToast === 'function') showToast(copiedLabel + ' copied.', 'success');
+    } catch (_) {
+        try {
+            const temp = document.createElement('textarea');
+            temp.value = copyValue;
+            temp.setAttribute('readonly', 'readonly');
+            temp.style.position = 'fixed';
+            temp.style.opacity = '0';
+            temp.style.pointerEvents = 'none';
+            document.body.appendChild(temp);
+            temp.select();
+            document.execCommand('copy');
+            temp.remove();
+
+            setYHCommandReferralCopyButtonState('copied', 'Copied');
+            if (typeof showToast === 'function') showToast(copiedLabel + ' copied.', 'success');
+        } catch (error) {
+            setYHCommandReferralCopyButtonState('error', 'Failed');
+            if (typeof showToast === 'function') showToast('Copy failed. Select the referral code manually.', 'error');
+        }
+    }
+}
+
+window.copyYHCommandReferralLink = copyYHCommandReferralLink;
+window.setYHCommandReferralCopyButtonState = setYHCommandReferralCopyButtonState;
+
 function bootYHUniverseReferralPanel() {
     document.getElementById('yh-universe-referral-copy-btn')?.addEventListener('click', copyYHUniverseReferralLink);
 
@@ -8666,6 +8864,19 @@ const dashboardUnifiedWorkspaceCopy = {
         mode: 'Conversations',
         stage: 'Inline Resource'
     },
+    resources: {
+        key: 'resources',
+        division: 'resources',
+        kicker: 'Resources',
+        title: 'RESOURCES',
+        intro: 'Open featured websites, ecosystem resources, and premium external tools inside the Dashboard shell.',
+        eyebrow: 'Resources',
+        headline: 'Your resources layer is now inline.',
+        body: 'Review featured websites and premium resources from the same Dashboard view, just like Wallet and Business Chats.',
+        focus: 'Featured Sites',
+        mode: 'Quick Access',
+        stage: 'Inline Resource'
+    },
     academy: {
         key: 'academy',
         division: 'academy',
@@ -9234,6 +9445,17 @@ const dashboardUnifiedWorkspaceLaunchMap = {
         resourceType: 'business-chats',
         buttonText: 'Open Business Chats →',
         loadingLabel: 'Opening Business Chats...'
+    },
+    resources: {
+        division: 'resources',
+        title: 'Open Resources',
+        kicker: 'Resources',
+        copy: 'Open featured websites, partnership links, and premium resources inside the Dashboard command layer.',
+        routeLabel: 'Inline resources',
+        url: '',
+        resourceType: 'resources',
+        buttonText: 'Open Resources →',
+        loadingLabel: 'Opening Resources...'
     },
     academy: {
         division: 'academy',
@@ -11384,29 +11606,61 @@ function forceDashboardInlineFrameContentOnly(frame) {
         body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-start-panel input,
         body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-start-panel input,
         body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-start-panel select,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-start-panel select,
-        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-start-panel textarea,
-        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-start-panel textarea {
-            min-height: 82px !important;
-            padding: 12px 14px !important;
-            font-size: 0.9rem !important;
+        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-start-panel select {
+            min-height: 42px !important;
+            height: 42px !important;
+            padding: 9px 14px !important;
+            font-size: 0.86rem !important;
+            line-height: 1.15 !important;
+            pointer-events: auto !important;
+            user-select: text !important;
+            -webkit-user-select: text !important;
+            cursor: text !important;
+        }
+
+        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-start-panel select,
+        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-start-panel select {
+            cursor: pointer !important;
         }
 
         body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-start-panel textarea,
         body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-start-panel textarea {
-            min-height: 86px !important;
+            min-height: 62px !important;
+            height: 62px !important;
+            max-height: 120px !important;
+            padding: 10px 14px !important;
+            font-size: 0.86rem !important;
+            line-height: 1.25 !important;
+            pointer-events: auto !important;
+            user-select: text !important;
+            -webkit-user-select: text !important;
+            cursor: text !important;
+            resize: vertical !important;
         }
 
         body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-primary-btn,
         body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-primary-btn,
+        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-primary-small,
+        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-primary-small,
         body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-ghost-btn,
         body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-ghost-btn,
+        body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-ghost-small,
+        body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-ghost-small,
         body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-danger-btn,
         body.yh-dashboard-inline-embed-body[data-yh-page="business-chats"] .bc-danger-btn {
-            min-height: 82px !important;
-            padding: 12px 16px !important;
-            font-size: 0.9rem !important;
-            line-height: 1.1 !important;
+            min-height: 28px !important;
+            height: 28px !important;
+            padding: 3px 10px !important;
+            font-size: 0.76rem !important;
+            line-height: 1 !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            justify-self: center !important;
+            align-self: center !important;
+            width: auto !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
         }
 
         body.yh-dashboard-inline-embed-body[data-yh-view="business-chats"] .bc-member-results,
@@ -11613,10 +11867,12 @@ if (!meta || isParentWorkspace) {
             frameShell.setAttribute('aria-hidden', 'true');
         }
 
-        if (inlineHost) {
-            inlineHost.classList.add('hidden-step');
-            inlineHost.setAttribute('aria-hidden', 'true');
-        }
+        if (typeof hideYHDashboardInlineResourceViewsV193 === 'function') {
+                hideYHDashboardInlineResourceViewsV193('');
+            } else if (inlineHost) {
+                inlineHost.classList.add('hidden-step');
+                inlineHost.setAttribute('aria-hidden', 'true');
+            }
 
         if (frame) {
             frame.classList.remove('hidden-step');
@@ -11630,7 +11886,7 @@ if (!meta || isParentWorkspace) {
     const state = getDashboardInlineDivisionState(meta.division);
     const cleanTitle = String(meta.title || 'Workspace').replace(/^Open\s+/i, '');
     const resourceType = String(meta.resourceType || '').trim().toLowerCase();
-    const isInlineResourceWorkspace = ['wallet', 'business-chats'].includes(resourceType);
+    const isInlineResourceWorkspace = ['wallet', 'business-chats', 'resources'].includes(resourceType);
     const effectiveApproved = meta.division === 'federation'
         ? true
         : (isInlineResourceWorkspace ? true : state.approved === true);
@@ -11648,6 +11904,16 @@ if (!meta || isParentWorkspace) {
     }
 
     button.setAttribute('data-yh-launch-workspace-key', cleanKey);
+
+    if (effectiveApproved && resourceType === 'resources') {
+        button.classList.add('hidden-step');
+        button.setAttribute('aria-hidden', 'true');
+
+        mountYHResourcesInlineView();
+        card.classList.remove('hidden-step');
+        card.setAttribute('aria-hidden', 'false');
+        return;
+    }
 
     if (effectiveApproved && resourceType === 'wallet') {
         button.classList.add('hidden-step');
@@ -11698,7 +11964,9 @@ if (!meta || isParentWorkspace) {
                 return;
             }
 
-            if (inlineHost) {
+            if (typeof hideYHDashboardInlineResourceViewsV193 === 'function') {
+                hideYHDashboardInlineResourceViewsV193('');
+            } else if (inlineHost) {
                 inlineHost.classList.add('hidden-step');
                 inlineHost.setAttribute('aria-hidden', 'true');
             }
@@ -11984,6 +12252,82 @@ function setDashboardUnifiedShellText(key = 'overview') {
     }
 }
 
+
+/* PATCH: Dashboard sidebar subnav open close v190 */
+const YH_DASHBOARD_SIDEBAR_COLLAPSED_DIVISIONS_KEY_V190 = 'yh_dashboard_sidebar_collapsed_divisions_v190';
+
+function getDashboardSidebarToggleDivisionsV190() {
+    return ['academy', 'plazas', 'federation'];
+}
+
+function normalizeDashboardSidebarToggleDivisionV190(value = '') {
+    const clean = String(value || '').trim().toLowerCase();
+    return getDashboardSidebarToggleDivisionsV190().includes(clean) ? clean : '';
+}
+
+function readDashboardSidebarCollapsedDivisionsV190() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(YH_DASHBOARD_SIDEBAR_COLLAPSED_DIVISIONS_KEY_V190) || '[]');
+        return new Set(Array.isArray(parsed) ? parsed.map(normalizeDashboardSidebarToggleDivisionV190).filter(Boolean) : []);
+    } catch (_) {
+        return new Set();
+    }
+}
+
+function writeDashboardSidebarCollapsedDivisionsV190(collapsedSet) {
+    try {
+        const values = Array.from(collapsedSet || []).map(normalizeDashboardSidebarToggleDivisionV190).filter(Boolean);
+        localStorage.setItem(YH_DASHBOARD_SIDEBAR_COLLAPSED_DIVISIONS_KEY_V190, JSON.stringify(values));
+    } catch (_) {}
+}
+
+function setDashboardSidebarDivisionManualCollapsedV190(division = '', collapsed = false) {
+    const cleanDivision = normalizeDashboardSidebarToggleDivisionV190(division);
+    if (!cleanDivision) return;
+
+    const collapsedSet = readDashboardSidebarCollapsedDivisionsV190();
+
+    if (collapsed) {
+        collapsedSet.add(cleanDivision);
+    } else {
+        collapsedSet.delete(cleanDivision);
+    }
+
+    writeDashboardSidebarCollapsedDivisionsV190(collapsedSet);
+}
+
+function isDashboardSidebarDivisionManualCollapsedV190(division = '') {
+    const cleanDivision = normalizeDashboardSidebarToggleDivisionV190(division);
+    if (!cleanDivision) return false;
+    return readDashboardSidebarCollapsedDivisionsV190().has(cleanDivision);
+}
+
+function syncDashboardSidebarDivisionGroupStateV190(activeDivision = '') {
+    const cleanActiveDivision = normalizeDashboardSidebarToggleDivisionV190(activeDivision);
+
+    document.querySelectorAll('.yh-sidebar-division-group[data-yh-sidebar-division]').forEach((group) => {
+        const groupDivision = normalizeDashboardSidebarToggleDivisionV190(group.getAttribute('data-yh-sidebar-division') || '');
+        const manuallyCollapsed = isDashboardSidebarDivisionManualCollapsedV190(groupDivision);
+        const shouldExpand = Boolean(groupDivision && cleanActiveDivision && groupDivision === cleanActiveDivision && !manuallyCollapsed);
+        const button = group.querySelector('.yh-sidebar-command-link[data-yh-dashboard-shell]');
+        const subnav = group.querySelector('.yh-sidebar-subnav');
+
+        group.classList.toggle('is-expanded', shouldExpand);
+        group.classList.toggle('is-manually-collapsed', Boolean(groupDivision && manuallyCollapsed));
+        group.setAttribute('aria-expanded', shouldExpand ? 'true' : 'false');
+        group.setAttribute('data-yh-sidebar-subnav-open', shouldExpand ? 'true' : 'false');
+
+        if (button) {
+            button.setAttribute('aria-expanded', shouldExpand ? 'true' : 'false');
+        }
+
+        if (subnav) {
+            subnav.setAttribute('aria-hidden', shouldExpand ? 'false' : 'true');
+        }
+    });
+}
+/* END PATCH: Dashboard sidebar subnav open close v190 */
+
 function setDashboardSidebarActiveState(key = 'overview') {
     const copy = getDashboardUnifiedWorkspaceCopy(key);
     const cleanKey = copy.key;
@@ -11997,13 +12341,9 @@ function setDashboardSidebarActiveState(key = 'overview') {
         link.classList.remove('is-active');
     });
 
-    document.querySelectorAll('.yh-sidebar-division-group[data-yh-sidebar-division]').forEach((group) => {
-        const groupDivision = normalizeUniverseDivision(group.getAttribute('data-yh-sidebar-division') || '');
-        const isExpanded = ['academy', 'plazas', 'federation'].includes(activeDivision) && groupDivision === activeDivision;
-
-        group.classList.toggle('is-expanded', isExpanded);
-        group.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
-    });
+    if (typeof syncDashboardSidebarDivisionGroupStateV190 === 'function') {
+        syncDashboardSidebarDivisionGroupStateV190(activeDivision);
+    }
 
     document.body?.setAttribute('data-yh-active-sidebar-division', activeDivision);
 
@@ -12094,10 +12434,12 @@ function dashboardResetWorkspaceFrameV68() {
         frameShell.setAttribute('aria-hidden', 'true');
     }
 
-    if (inlineHost) {
-        inlineHost.classList.add('hidden-step');
-        inlineHost.setAttribute('aria-hidden', 'true');
-    }
+    if (typeof hideYHDashboardInlineResourceViewsV193 === 'function') {
+                hideYHDashboardInlineResourceViewsV193('');
+            } else if (inlineHost) {
+                inlineHost.classList.add('hidden-step');
+                inlineHost.setAttribute('aria-hidden', 'true');
+            }
 
     if (frame) {
         frame.classList.remove('hidden-step');
@@ -12243,10 +12585,12 @@ function dashboardResetWorkspaceLaunchSurfaceCleanV71() {
         frameShell.setAttribute('aria-hidden', 'true');
     }
 
-    if (inlineHost) {
-        inlineHost.classList.add('hidden-step');
-        inlineHost.setAttribute('aria-hidden', 'true');
-    }
+    if (typeof hideYHDashboardInlineResourceViewsV193 === 'function') {
+                hideYHDashboardInlineResourceViewsV193('');
+            } else if (inlineHost) {
+                inlineHost.classList.add('hidden-step');
+                inlineHost.setAttribute('aria-hidden', 'true');
+            }
 
     if (frame) {
         frame.classList.remove('hidden-step');
@@ -12419,26 +12763,91 @@ function bootDashboardUnifiedSidebarWorkspace() {
 
     sidebar.dataset.unifiedWorkspaceBound = 'true';
 
+    const resolveSidebarShellKeyV195 = (button) => {
+        if (!button) return '';
+
+        const explicitKey = String(button.getAttribute('data-yh-dashboard-shell') || '').trim().toLowerCase();
+        if (explicitKey) return explicitKey;
+
+        const buttonId = String(button.id || '').trim();
+        if (buttonId === 'btn-open-yh-wallet') return 'wallet';
+        if (buttonId === 'btn-open-yh-business-chats') return 'business-chats';
+        if (buttonId === 'yh-resources-menu-btn') return 'resources';
+
+        const parentDivision = normalizeDashboardSidebarToggleDivisionV190(
+            button.closest('.yh-sidebar-division-group[data-yh-sidebar-division]')?.getAttribute('data-yh-sidebar-division') || ''
+        );
+
+        if (parentDivision) return parentDivision;
+
+        const ariaLabel = String(button.getAttribute('aria-label') || '').trim().toLowerCase();
+        const textLabel = String(button.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+
+        if (button.classList.contains('yh-sidebar-command-center-label') || ariaLabel === 'my dashboard' || textLabel === 'my dashboard') {
+            return 'overview';
+        }
+
+        return '';
+    };
+
     sidebar.addEventListener('click', (event) => {
         const childTab = event.target.closest('.yh-sidebar-subnav-link[data-yh-sidebar-child]');
+
         if (childTab) {
             event.preventDefault();
             event.stopPropagation();
 
-            activateDashboardUnifiedWorkspace(
-                childTab.getAttribute('data-yh-sidebar-child') || 'overview',
-                { animate: false }
-            );
+            const childKey = childTab.getAttribute('data-yh-sidebar-child') || 'overview';
+            const parentGroup = childTab.closest('.yh-sidebar-division-group[data-yh-sidebar-division]');
+            const parentDivision = normalizeDashboardSidebarToggleDivisionV190(parentGroup?.getAttribute('data-yh-sidebar-division') || '');
 
+            if (parentDivision) {
+                setDashboardSidebarDivisionManualCollapsedV190(parentDivision, false);
+                syncDashboardSidebarDivisionGroupStateV190(parentDivision);
+            }
+
+            activateDashboardUnifiedWorkspace(childKey, { animate: false });
             return;
         }
 
-        const shellButton = event.target.closest('.yh-sidebar-command-link[data-yh-dashboard-shell]');
-        if (!shellButton) return;
+        const shellButton = event.target.closest('.yh-sidebar-command-link');
+        if (!shellButton || !sidebar.contains(shellButton)) return;
+
+        const shellKey = resolveSidebarShellKeyV195(shellButton);
+        if (!shellKey) return;
 
         event.preventDefault();
 
-        const shellKey = shellButton.getAttribute('data-yh-dashboard-shell') || 'overview';
+        const sidebarDivision = normalizeDashboardSidebarToggleDivisionV190(shellKey);
+
+        if (sidebarDivision) {
+            const group = shellButton.closest('.yh-sidebar-division-group[data-yh-sidebar-division]');
+            const isOpen = Boolean(group?.classList.contains('is-expanded'));
+            const activeDivision = normalizeDashboardSidebarToggleDivisionV190(document.body?.getAttribute('data-yh-active-sidebar-division') || '');
+
+            if (isOpen && activeDivision === sidebarDivision) {
+                setDashboardSidebarDivisionManualCollapsedV190(sidebarDivision, true);
+                syncDashboardSidebarDivisionGroupStateV190(sidebarDivision);
+                return;
+            }
+
+            getDashboardSidebarToggleDivisionsV190()
+                .filter((division) => division !== sidebarDivision)
+                .forEach((division) => setDashboardSidebarDivisionManualCollapsedV190(division, true));
+
+            setDashboardSidebarDivisionManualCollapsedV190(sidebarDivision, false);
+            syncDashboardSidebarDivisionGroupStateV190(sidebarDivision);
+        }
+
+        if (
+            shellKey === 'resources' &&
+            typeof openYHResourcesInline !== 'function' &&
+            typeof dashboardUnifiedWorkspaceCopy === 'object' &&
+            !dashboardUnifiedWorkspaceCopy.resources
+        ) {
+            return;
+        }
+
         activateDashboardUnifiedWorkspace(shellKey, { animate: false });
     });
 
@@ -13232,9 +13641,23 @@ function openDashboardProfileDirectory() {
     });
 }
 
-document.querySelector('.profile-mini')?.addEventListener('click', () => {
-    openAcademyProfileView();
-});
+const dashboardTopProfileChip = document.getElementById('yh-command-top-profile');
+if (dashboardTopProfileChip && dashboardTopProfileChip.dataset.profileViewBound !== 'true') {
+    dashboardTopProfileChip.dataset.profileViewBound = 'true';
+
+    dashboardTopProfileChip.addEventListener('click', (event) => {
+        event?.preventDefault?.();
+        event?.stopPropagation?.();
+
+        if (typeof closeDashboardUniverseProfileEditor === 'function') {
+            closeDashboardUniverseProfileEditor({ skipAcademyReturn: true });
+        }
+
+        if (typeof openAcademyProfileView === 'function') {
+            openAcademyProfileView();
+        }
+    });
+}
 
 document.getElementById('academy-member-browser-close')?.addEventListener('click', () => {
     closeDashboardMemberBrowserModal();
@@ -15735,10 +16158,50 @@ const resourcesMenuPanel = document.getElementById('yh-resources-menu-panel');
 
 if (resourcesMenu && resourcesMenuBtn && resourcesMenuPanel) {
     const positionDashboardResourcesPanel = () => {
+        const sidebarMode = resourcesMenu.classList.contains('yh-sidebar-resources-menu') || Boolean(resourcesMenu.closest('.yh-command-sidebar-nav'));
+        const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+        const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+
+        if (sidebarMode) {
+            if (resourcesMenuPanel.parentElement !== document.body) {
+                document.body.appendChild(resourcesMenuPanel);
+            }
+
+            const buttonRect = resourcesMenuBtn.getBoundingClientRect();
+            const gap = 12;
+            const sidePadding = 14;
+            const availableRight = Math.max(280, viewportWidth - buttonRect.right - gap - sidePadding);
+            const panelWidth = Math.min(380, Math.max(320, availableRight));
+            const left = Math.min(
+                Math.max(buttonRect.right + gap, sidePadding),
+                Math.max(sidePadding, viewportWidth - panelWidth - sidePadding)
+            );
+            const top = Math.max(16, Math.min(buttonRect.top, viewportHeight - 180));
+            const maxHeight = Math.max(240, viewportHeight - top - 16);
+
+            resourcesMenuPanel.dataset.yhResourcesPanelMode = 'sidebar-fixed';
+            resourcesMenuPanel.style.position = 'fixed';
+            resourcesMenuPanel.style.top = top + 'px';
+            resourcesMenuPanel.style.left = left + 'px';
+            resourcesMenuPanel.style.right = 'auto';
+            resourcesMenuPanel.style.bottom = 'auto';
+            resourcesMenuPanel.style.width = panelWidth + 'px';
+            resourcesMenuPanel.style.maxHeight = maxHeight + 'px';
+            resourcesMenuPanel.style.zIndex = '2147483010';
+            resourcesMenuPanel.style.pointerEvents = 'auto';
+            return;
+        }
+
+        if (resourcesMenuPanel.parentElement !== resourcesMenu) {
+            resourcesMenu.appendChild(resourcesMenuPanel);
+        }
+
+        resourcesMenuPanel.dataset.yhResourcesPanelMode = 'header-absolute';
         resourcesMenuPanel.style.position = 'absolute';
         resourcesMenuPanel.style.top = 'calc(100% + 8px)';
         resourcesMenuPanel.style.left = 'auto';
         resourcesMenuPanel.style.right = '0';
+        resourcesMenuPanel.style.bottom = 'auto';
         resourcesMenuPanel.style.width = 'min(340px, calc(100vw - 28px))';
         resourcesMenuPanel.style.maxHeight = 'calc(100vh - 150px)';
         resourcesMenuPanel.style.zIndex = '32001';
@@ -15769,13 +16232,15 @@ if (resourcesMenu && resourcesMenuBtn && resourcesMenuPanel) {
         event.preventDefault();
         event.stopPropagation();
 
-        const willOpen = !resourcesMenuPanel.classList.contains('show');
-
-        if (willOpen && typeof closeDashboardNotificationsDropdown === 'function') {
+        if (typeof closeDashboardNotificationsDropdown === 'function') {
             closeDashboardNotificationsDropdown();
         }
 
-        setDashboardResourcesMenuOpenState(willOpen);
+        if (typeof openYHResourcesInline === 'function') {
+            openYHResourcesInline();
+        } else if (typeof activateDashboardUnifiedWorkspace === 'function') {
+            activateDashboardUnifiedWorkspace('resources', { animate: false });
+        }
     });
 
     resourcesMenuPanel.addEventListener('click', (event) => {

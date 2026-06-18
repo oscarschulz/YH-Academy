@@ -172,14 +172,30 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
 .bc-danger-btn,
 .bc-primary-small,
 .bc-ghost-small {
-  min-height: 42px;
-  padding: 10px 14px;
+  min-height: 28px;
+  height: 28px;
+  padding: 3px 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: center;
+  align-self: center;
+  width: auto;
+  max-width: 100%;
+  box-sizing: border-box;
+  line-height: 1;
 }
 
 .bc-ghost-small,
-.bc-primary-small {
-  min-height: 38px;
+.bc-primary-small,
+.bc-safety-actions .bc-danger-btn {
+  min-height: 24px;
+  height: 24px;
+  min-width: 54px;
   width: auto;
+  padding: 2px 8px;
+  box-sizing: border-box;
+  line-height: 1;
   white-space: nowrap;
 }
 
@@ -267,9 +283,14 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
 .bc-reply-form textarea,
 .bc-inline-dialog-field input,
 .bc-inline-dialog-field textarea {
+  position: relative;
+  z-index: 1;
   width: 100%;
   min-width: 0;
   outline: none;
+  pointer-events: auto;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .bc-start-panel select {
@@ -375,19 +396,23 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
 }
 
 .bc-thread-head {
-  padding: 16px;
+  padding: 12px 14px;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 14px;
+  gap: 8px;
+  flex-wrap: nowrap;
 }
 
 .bc-safety-actions {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 5px;
+  flex: 0 0 auto;
+  align-self: center;
+  max-width: 100%;
+  flex-wrap: nowrap;
 }
 
 .bc-thread-body {
@@ -413,15 +438,24 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
 }
 
 .bc-reply-form {
-  padding: 14px;
+  padding: 8px 12px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  align-items: center;
+  gap: 8px;
 }
 
 .bc-reply-form textarea {
-  min-height: 54px;
-  max-height: 160px;
+  min-height: 34px;
+  height: 34px;
+  max-height: 84px;
+  padding: 7px 12px;
+  line-height: 1.15;
+  resize: none;
+  pointer-events: auto;
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
 }
 
 .bc-empty {

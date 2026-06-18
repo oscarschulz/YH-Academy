@@ -8,9 +8,9 @@
     <link rel="shortcut icon" type="image/avif" href="/images/logo.avif?v=20260424-favicon-1">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Rajdhani:wght@500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
-<link rel="stylesheet" href="/css/style.css?v=20260613-yhu-real-bg-blue-v145">
-<link rel="stylesheet" href="/css/dashboard-mobile.css?v=20260613-yhu-real-bg-blue-v145">
-<link rel="stylesheet" href="/css/yh-tailwind.css?v=20260615-dashboard-top-card-font-owner-v157">
+<link rel="stylesheet" href="/css/style.css?v=20260617-community-feed-search-centered-real-v207">
+<link rel="stylesheet" href="/css/dashboard-mobile.css?v=20260616-dashboard-sidebar-navigation-restore-v195">
+<link rel="stylesheet" href="/css/yh-tailwind.css?v=20260618-business-chats-real-button-height-v149">
 </head>
 <body data-yh-view="hub" data-yh-page="dashboard">
 
@@ -78,9 +78,9 @@
         <button
             type="button"
             class="btn-secondary yh-sidebar-command-link yh-sidebar-primary-link yh-sidebar-command-center-label"
-            data-yh-dashboard-shell="overview"
             aria-label="My Dashboard"
-        >
+        
+            data-yh-dashboard-shell="overview">
             <span class="yh-sidebar-command-icon">▦</span>
             <span>My Dashboard</span>
         </button>
@@ -89,15 +89,17 @@
         <button
             class="btn-secondary yh-sidebar-command-link yh-sidebar-primary-link"
             type="button"
-            data-yh-dashboard-shell="academy"
-        >
+        
+            aria-expanded="false"
+            aria-controls="yh-sidebar-subnav-academy"
+            data-yh-dashboard-shell="academy">
             <span class="yh-sidebar-command-icon">
                 <img src="/assets/dashboard/academy.png" alt="" class="yh-sidebar-command-icon-img">
             </span>
             <span>Academy</span>
         </button>
 
-        <div class="yh-sidebar-subnav">
+        <div class="yh-sidebar-subnav" id="yh-sidebar-subnav-academy" aria-hidden="true">
             <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="academy-roadmap">
                 <span class="yh-sidebar-subnav-icon">
                     <img src="/assets/academy/icons/academy-icon-roadmap.png" alt="" class="yh-sidebar-subnav-icon-img">
@@ -139,15 +141,17 @@
         <button
             class="btn-secondary yh-sidebar-command-link yh-sidebar-primary-link"
             type="button"
-            data-yh-dashboard-shell="plazas"
-        >
+        
+            aria-expanded="false"
+            aria-controls="yh-sidebar-subnav-plazas"
+            data-yh-dashboard-shell="plazas">
             <span class="yh-sidebar-command-icon">
                 <img src="/assets/dashboard/plaza.png" alt="" class="yh-sidebar-command-icon-img">
             </span>
             <span>Plazas</span>
         </button>
 
-            <div class="yh-sidebar-subnav">
+            <div class="yh-sidebar-subnav" id="yh-sidebar-subnav-plazas" aria-hidden="true">
                 <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="plazas-feed">
                     <span class="yh-sidebar-subnav-icon">
                         <img src="/assets/academy/plaza%20icons/feed.png" alt="" class="yh-sidebar-subnav-icon-img">
@@ -238,15 +242,17 @@
             <button
                 class="btn-secondary yh-sidebar-command-link yh-sidebar-primary-link"
                 type="button"
-                data-yh-dashboard-shell="federation"
-            >
+            
+            aria-expanded="false"
+            aria-controls="yh-sidebar-subnav-federation"
+            data-yh-dashboard-shell="federation">
                 <span class="yh-sidebar-command-icon">
                     <img src="/assets/dashboard/federation.png" alt="" class="yh-sidebar-command-icon-img">
                 </span>
                 <span>Federation</span>
             </button>
 
-            <div class="yh-sidebar-subnav">
+            <div class="yh-sidebar-subnav" id="yh-sidebar-subnav-federation" aria-hidden="true">
                 <button type="button" class="yh-sidebar-subnav-link" data-yh-sidebar-child="federation-command">
                     <span class="yh-sidebar-subnav-icon">
                         <img src="/assets/academy/federation%20icons/command.png" alt="" class="yh-sidebar-subnav-icon-img">
@@ -300,14 +306,14 @@
     </div>
 
         <div class="yh-sidebar-nav-group">
-            <div class="yh-sidebar-nav-label">Resources</div>
+            <div class="yh-sidebar-nav-label">Utilities</div>
 
             <button
                 class="btn-secondary yh-wallet-open-btn yh-sidebar-command-link yh-sidebar-primary-link"
                 id="btn-open-yh-wallet"
                 type="button"
-                data-yh-dashboard-shell="wallet"
-            >
+            
+            data-yh-dashboard-shell="wallet">
                 <span class="yh-sidebar-command-icon">
                     <img src="/assets/dashboard/wallet.png" alt="" class="yh-sidebar-command-icon-img">
                 </span>
@@ -318,14 +324,132 @@
                 class="btn-secondary yh-business-chat-open-btn yh-sidebar-command-link yh-sidebar-primary-link"
                 id="btn-open-yh-business-chats"
                 type="button"
-                data-yh-dashboard-shell="business-chats"
-            >
+            
+            data-yh-dashboard-shell="business-chats">
                 <span class="yh-sidebar-command-icon">
                     <img src="/assets/dashboard/business-chats.png" alt="" class="yh-sidebar-command-icon-img">
                 </span>
                 <span>Business Chats</span>
                 <span class="yh-business-chat-nav-badge hidden-step" id="yh-business-chat-nav-badge">0</span>
             </button>
+
+            <div class="yh-resources-menu yh-sidebar-resources-menu" id="yh-resources-menu">
+                                    <button
+                                        type="button"
+                                        class="btn-secondary yh-resources-menu-btn yh-sidebar-command-link yh-sidebar-primary-link"
+                                        id="yh-resources-menu-btn"
+                                        aria-expanded="false"
+                                        aria-controls="yh-resources-menu-panel"
+                                    
+            data-yh-dashboard-shell="resources">
+                                        <span class="yh-resources-menu-icon">☰</span>
+                                        <span class="yh-resources-menu-label yh-resources-menu-label-desktop">Resources</span>
+                                        <span class="yh-resources-menu-label yh-resources-menu-label-mobile">Featured sites</span>
+                                    </button>
+                        
+                                    <div class="yh-resources-menu-panel" id="yh-resources-menu-panel" aria-hidden="true">
+                                        <div class="yh-resources-menu-panel-head">
+                                            <div class="yh-resources-menu-kicker">Quick Access</div>
+                                            <h4 class="yh-resources-menu-title">
+                                                <span class="yh-resources-menu-title-desktop">Partnerships and Resources</span>
+                                                <span class="yh-resources-menu-title-mobile">Featured sites</span>
+                                            </h4>
+                                        </div>
+                        
+                                            <div class="yh-resources-menu-list">
+                                                <a
+                                                    href="https://itruematch.com"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    class="yh-resource-mini-card"
+                                                >
+                                                    <div class="yh-resource-mini-top">
+                                                        <img
+                                                            src="https://www.google.com/s2/favicons?sz=128&domain_url=https://itruematch.com"
+                                                            alt="iTrueMatch logo"
+                                                            width="28"
+                                                            height="28"
+                                                            class="yh-resource-mini-logo"
+                                                        >
+                                                        <div>
+                                                            <div class="yh-resource-mini-eyebrow">Featured Website</div>
+                                                            <div class="yh-resource-mini-name">itruematch.com</div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="yh-resource-mini-copy">Relationship and premium-network platform.</div>
+                                                </a>
+                        
+                                                    <div
+                                                        class="yh-resource-mini-card yh-resource-mini-card-disabled"
+                                                        aria-disabled="true"
+                                                    >
+                                                        <div class="yh-resource-mini-top">
+                                                            <img
+                                                                src="https://www.google.com/s2/favicons?sz=128&domain_url=https://creatitfy.com"
+                                                                alt="Creatitfy logo"
+                                                                width="28"
+                                                                height="28"
+                                                                class="yh-resource-mini-logo"
+                                                            >
+                                                            <div class="yh-resource-mini-copy-wrap">
+                                                                <div class="yh-resource-mini-eyebrow">Featured Website</div>
+                                                                <div class="yh-resource-mini-name-row">
+                                                                    <div class="yh-resource-mini-name">Creatitfy.com</div>
+                                                                    <span class="yh-resource-mini-status">Coming Soon</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="yh-resource-mini-copy">Creative platform inside the wider ecosystem.</div>
+                                                    </div>
+                        
+                                                <a
+                                                    href="https://michaelheidelberg.gumroad.com/l/qu_ai_litymethod"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    class="yh-resource-mini-card"
+                                                >
+                                                    <div class="yh-resource-mini-top">
+                                                        <img
+                                                            src="/images/2812.png?v=20260502-2812-logo-1"
+                                                            alt="2812 Enterprises logo"
+                                                            width="28"
+                                                            height="28"
+                                                            class="yh-resource-mini-logo"
+                                                        >
+                                                        <div>
+                                                            <div class="yh-resource-mini-eyebrow">Premium Resource</div>
+                                                            <div class="yh-resource-mini-name">The Qu_AI_lity Method</div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="yh-resource-mini-copy">Recommended external premium method.</div>
+                                                </a>
+                        
+                                                <a
+                                                    href="https://2812enterprises.com/shop/face-max-protocol"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    class="yh-resource-mini-card"
+                                                >
+                                                    <div class="yh-resource-mini-top">
+                                                            <img
+                                                                src="/images/2812.png?v=20260502-2812-logo-1"
+                                                                alt="2812 Enterprises logo"
+                                                                width="28"
+                                                                height="28"
+                                                                class="yh-resource-mini-logo"
+                                                            >
+                                                        <div>
+                                                            <div class="yh-resource-mini-eyebrow">Premium Resource</div>
+                                                            <div class="yh-resource-mini-name">The FaceMax Protocol</div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="yh-resource-mini-copy">External protocol resource.</div>
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+
+            
         </div>
 
             <div class="yh-sidebar-nav-group yh-sidebar-system-group">
@@ -408,7 +532,7 @@
                 type="button"
                 class="profile-mini yh-command-top-profile"
                 id="yh-command-top-profile"
-                onclick="document.getElementById('btn-open-dashboard-profile-editor')?.click();"
+
                 aria-label="Open profile"
             >
                 <span class="profile-avatar-mini" id="top-nav-initial">Y</span>
@@ -417,18 +541,7 @@
                     <small>Profile</small>
                 </span>
             </button>
-            <button
-                type="button"
-                class="btn-secondary yh-command-top-business-chats-chip"
-                id="yh-command-top-business-chats"
-                onclick="document.getElementById('btn-open-yh-business-chats')?.click();"
-                aria-label="Open business chats"
-            >
-                <span class="yh-command-top-business-chats-icon">☷</span>
-                <span class="yh-command-top-business-chats-copy">Business Chats</span>
-            </button>
-
-            <div class="notif-wrapper mobile-notif-under-name" id="notif-bell">
+<div class="notif-wrapper mobile-notif-under-name" id="notif-bell">
                 <span class="notif-icon">
                     <img src="/assets/academy/icons/notif-bell.png" alt="" class="notif-icon-img" loading="lazy" decoding="async">
                 </span>
@@ -440,120 +553,7 @@
                     </ul>
                 </div>
             </div>
-            <div class="yh-resources-menu" id="yh-resources-menu">
-            <button
-                type="button"
-                class="btn-secondary yh-resources-menu-btn"
-                id="yh-resources-menu-btn"
-                aria-expanded="false"
-                aria-controls="yh-resources-menu-panel"
-            >
-                <span class="yh-resources-menu-icon">☰</span>
-                <span class="yh-resources-menu-label yh-resources-menu-label-desktop">Resources</span>
-                <span class="yh-resources-menu-label yh-resources-menu-label-mobile">Featured sites</span>
-            </button>
-
-            <div class="yh-resources-menu-panel" id="yh-resources-menu-panel">
-                <div class="yh-resources-menu-panel-head">
-                    <div class="yh-resources-menu-kicker">Quick Access</div>
-                    <h4 class="yh-resources-menu-title">
-                        <span class="yh-resources-menu-title-desktop">Partnerships and Resources</span>
-                        <span class="yh-resources-menu-title-mobile">Featured sites</span>
-                    </h4>
-                </div>
-
-                    <div class="yh-resources-menu-list">
-                        <a
-                            href="https://itruematch.com"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="yh-resource-mini-card"
-                        >
-                            <div class="yh-resource-mini-top">
-                                <img
-                                    src="https://www.google.com/s2/favicons?sz=128&domain_url=https://itruematch.com"
-                                    alt="iTrueMatch logo"
-                                    width="28"
-                                    height="28"
-                                    class="yh-resource-mini-logo"
-                                >
-                                <div>
-                                    <div class="yh-resource-mini-eyebrow">Featured Website</div>
-                                    <div class="yh-resource-mini-name">itruematch.com</div>
-                                </div>
-                            </div>
-                            <div class="yh-resource-mini-copy">Relationship and premium-network platform.</div>
-                        </a>
-
-                            <div
-                                class="yh-resource-mini-card yh-resource-mini-card-disabled"
-                                aria-disabled="true"
-                            >
-                                <div class="yh-resource-mini-top">
-                                    <img
-                                        src="https://www.google.com/s2/favicons?sz=128&domain_url=https://creatitfy.com"
-                                        alt="Creatitfy logo"
-                                        width="28"
-                                        height="28"
-                                        class="yh-resource-mini-logo"
-                                    >
-                                    <div class="yh-resource-mini-copy-wrap">
-                                        <div class="yh-resource-mini-eyebrow">Featured Website</div>
-                                        <div class="yh-resource-mini-name-row">
-                                            <div class="yh-resource-mini-name">Creatitfy.com</div>
-                                            <span class="yh-resource-mini-status">Coming Soon</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="yh-resource-mini-copy">Creative platform inside the wider ecosystem.</div>
-                            </div>
-
-                        <a
-                            href="https://michaelheidelberg.gumroad.com/l/qu_ai_litymethod"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="yh-resource-mini-card"
-                        >
-                            <div class="yh-resource-mini-top">
-                                <img
-                                    src="/images/2812.png?v=20260502-2812-logo-1"
-                                    alt="2812 Enterprises logo"
-                                    width="28"
-                                    height="28"
-                                    class="yh-resource-mini-logo"
-                                >
-                                <div>
-                                    <div class="yh-resource-mini-eyebrow">Premium Resource</div>
-                                    <div class="yh-resource-mini-name">The Qu_AI_lity Method</div>
-                                </div>
-                            </div>
-                            <div class="yh-resource-mini-copy">Recommended external premium method.</div>
-                        </a>
-
-                        <a
-                            href="https://2812enterprises.com/shop/face-max-protocol"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="yh-resource-mini-card"
-                        >
-                            <div class="yh-resource-mini-top">
-                                    <img
-                                        src="/images/2812.png?v=20260502-2812-logo-1"
-                                        alt="2812 Enterprises logo"
-                                        width="28"
-                                        height="28"
-                                        class="yh-resource-mini-logo"
-                                    >
-                                <div>
-                                    <div class="yh-resource-mini-eyebrow">Premium Resource</div>
-                                    <div class="yh-resource-mini-name">The FaceMax Protocol</div>
-                                </div>
-                            </div>
-                            <div class="yh-resource-mini-copy">External protocol resource.</div>
-                        </a>
-                    </div>
-                </div>
-            </div>
+            
         </div>
     </div>
 </div>
@@ -761,6 +761,7 @@
                         <div class="yh-command-metric-icon">◎</div>
                         <div>
                             <span>Plazas</span>
+                            <span class="yh-command-metric-separator" aria-hidden="true">→</span>
                             <strong id="yh-command-plazas-status">Loading...</strong>
                         </div>
                     </article>
@@ -769,6 +770,7 @@
                         <div class="yh-command-metric-icon">◈</div>
                         <div>
                             <span>Federation</span>
+                            <span class="yh-command-metric-separator" aria-hidden="true">→</span>
                             <strong id="yh-command-federation-status">Loading...</strong>
                         </div>
                     </article>
@@ -777,7 +779,8 @@
                         <div class="yh-command-metric-icon">☷</div>
                         <div>
                             <span>Business Chats</span>
-                            <strong id="yh-command-business-chat-count">0 conversations</strong>
+                            <span class="yh-command-metric-separator" aria-hidden="true">→</span>
+                            <strong id="yh-command-business-chat-count">0</strong>
                         </div>
                     </article>
 
@@ -785,6 +788,7 @@
                         <div class="yh-command-metric-icon">↗</div>
                         <div>
                             <span>Total Invited</span>
+                            <span class="yh-command-metric-separator" aria-hidden="true">→</span>
                             <strong id="yh-command-referral-total">0</strong>
                         </div>
                     </article>
@@ -810,7 +814,7 @@
                             <div class="yh-command-activity-item">
                                 <span class="yh-command-activity-icon">☷</span>
                                 <div>
-                                    <strong id="yh-command-business-chat-copy">No active business conversations loaded yet.</strong>
+                                    <strong id="yh-command-business-chat-copy">Your business conversations are loaded and ready to review.</strong>
                                     <small>Business chat status</small>
                                 </div>
                             </div>
@@ -838,21 +842,26 @@
 
                         <div class="yh-command-progress-body">
                             <div class="yh-command-network-orb" aria-hidden="true">
-                                <strong id="yh-command-network-score">0</strong>
                                 <span>Invited</span>
+                                <span class="yh-command-network-separator" aria-hidden="true">→</span>
+                                <strong id="yh-command-network-score">0</strong>
                             </div>
 
                             <div class="yh-command-progress-list">
-                                <div>
+                                <div class="yh-command-referral-code-row">
                                     <span>Referral Code</span>
+                                    <span class="yh-command-progress-separator" aria-hidden="true">→</span>
                                     <strong id="yh-command-referral-code">Loading...</strong>
+                                    <button type="button" class="btn-secondary yh-command-referral-copy-btn" id="yh-command-referral-copy-btn" aria-label="Copy referral link" aria-live="polite" onclick="copyYHCommandReferralLink()">Copy Link</button>
                                 </div>
                                 <div>
                                     <span>Paying Referrals</span>
+                                    <span class="yh-command-progress-separator" aria-hidden="true">→</span>
                                     <strong id="yh-command-referral-qualified">0</strong>
                                 </div>
                                 <div>
                                     <span>Total Earned</span>
+                                    <span class="yh-command-progress-separator" aria-hidden="true">→</span>
                                     <strong id="yh-command-referral-earned">$0.00</strong>
                                 </div>
                             </div>
@@ -874,11 +883,13 @@
                                 onclick="document.querySelector('[data-yh-sidebar-child=&quot;academy-missions&quot;]')?.click();"
                             >
                                 <span>Academy</span>
-                                <strong>Continue mission →</strong>
+                                <span class="yh-command-event-separator" aria-hidden="true">→</span>
+                                <strong>Continue mission</strong>
                             </button>
                             <button type="button" class="yh-command-event-row yh-command-overview-action" data-yh-command-overview-open="business-chats">
                                 <span>Business Chats</span>
-                                <strong>Open inbox →</strong>
+                                <span class="yh-command-event-separator" aria-hidden="true">→</span>
+                                <strong>Open inbox</strong>
                             </button>
                             <button
                                 type="button"
@@ -886,7 +897,8 @@
                                 onclick="document.querySelector('[data-yh-dashboard-shell=&quot;federation&quot;]')?.click();"
                             >
                                 <span>Federation</span>
-                                <strong>Review layer →</strong>
+                                <span class="yh-command-event-separator" aria-hidden="true">→</span>
+                                <strong>Review layer</strong>
                             </button>
                         </div>
                     </article>
@@ -2552,7 +2564,7 @@
 
 <script src="/js/yh-shared-core.js?v=20260418-toast-center-2"></script>
 <script src="/js/yh-shared-runtime.js?v=20260411-3"></script>
-<script src="/js/dashboard.js?v=20260614-business-chat-start-ui-scale-v1"></script>
+<script src="/js/dashboard.js?v=20260618-business-chats-typing-focus-v150"></script>
 
 <!-- PATCH: Entry buttons direct Feed Command route v138 -->
 <script>

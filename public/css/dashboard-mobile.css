@@ -1307,16 +1307,11 @@ body[data-yh-view="hub"] .desktop-user-strip-right {
         padding: 0 2px !important;
     }
 
-    body[data-yh-view="hub"] .yh-universe-academy-strip-kicker {
-        font-size: 0.66rem !important;
-        letter-spacing: 0.07em !important;
-    }
+    
 
     body[data-yh-view="hub"] .yh-universe-academy-strip-copy {
-        font-size: 0.74rem !important;
-        line-height: 1.32 !important;
-        text-align: left !important;
-    }
+    text-align: left !important;
+}
 
     body[data-yh-view="hub"] .yh-universe-academy-marquee {
         border-radius: 14px !important;
@@ -1578,14 +1573,11 @@ body[data-yh-view="hub"] .desktop-user-strip-right {
         padding: 0 1px !important;
     }
 
-    body[data-yh-view="hub"] .yh-universe-academy-strip-kicker {
-        font-size: 0.62rem !important;
-    }
+    
 
     body[data-yh-view="hub"] .yh-universe-academy-strip-copy {
-        font-size: 0.7rem !important;
-        line-height: 1.28 !important;
-    }
+    text-align: left !important;
+}
 
     body[data-yh-view="hub"] .yh-universe-academy-marquee {
         border-radius: 12px !important;
@@ -1854,3 +1846,76 @@ body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-resources-menu {
     }
 }
 /* END PATCH: YHU Dashboard compact command strip v46 */
+
+/* PATCH: Dashboard resources moved to sidebar v187 */
+@media (max-width: 768px) {
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-top-nav .yh-sidebar-resources-menu .yh-resources-menu-btn {
+        min-height: 42px !important;
+        height: auto !important;
+        padding: 9px 12px !important;
+        font-size: 0.78rem !important;
+        flex: 0 0 auto !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-top-nav .yh-sidebar-resources-menu .yh-resources-menu-panel {
+        top: calc(100% + 8px) !important;
+        left: 0 !important;
+        right: auto !important;
+        width: min(320px, calc(100vw - 32px)) !important;
+        max-height: calc(100vh - 120px) !important;
+    }
+}
+/* END PATCH: Dashboard resources moved to sidebar v187 */
+
+/* PATCH: Dashboard sidebar subnav open close v190 */
+@media (max-width: 768px) {
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-sidebar-division-group.is-expanded:not(.is-manually-collapsed) .yh-sidebar-subnav {
+        display: grid !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-sidebar-division-group:not(.is-expanded) .yh-sidebar-subnav,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-sidebar-division-group.is-manually-collapsed .yh-sidebar-subnav {
+        display: none !important;
+    }
+}
+/* END PATCH: Dashboard sidebar subnav open close v190 */
+
+/* PATCH: Dashboard resources no wallet overlap v193 */
+@media (max-width: 768px) {
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-resources-inline-view {
+        min-height: 0 !important;
+        padding: 16px !important;
+        clip-path: polygon(16px 0, calc(100% - 16px) 0, 100% 16px, 100% calc(100% - 16px), calc(100% - 16px) 100%, 16px 100%, 0 calc(100% - 16px), 0 16px) !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-resources-inline-view .yh-resources-menu-list {
+        grid-template-columns: 1fr !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-resources-inline-view .yh-resource-mini-card {
+        min-height: 118px !important;
+        padding: 14px !important;
+    }
+}
+/* END PATCH: Dashboard resources no wallet overlap v193 */
+
+/* PATCH: Dashboard resources transparency tune v194 */
+@media (max-width: 768px) {
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-resources-inline-view,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-resources-inline-view {
+        background:
+            radial-gradient(circle at 16% 0%, rgba(103, 232, 249, 0.070), transparent 44%),
+            linear-gradient(180deg, rgba(6, 30, 64, 0.15), rgba(2, 8, 23, 0.17)) !important;
+        backdrop-filter: blur(2px) saturate(1.03) !important;
+        -webkit-backdrop-filter: blur(2px) saturate(1.03) !important;
+    }
+
+    body[data-yh-view="hub"][data-yh-page="dashboard"] .yh-resources-inline-view .yh-resource-mini-card,
+    body[data-yh-view="hub"][data-yh-page="dashboard"] #yh-resources-inline-view .yh-resource-mini-card {
+        background:
+            radial-gradient(circle at 18% 0%, rgba(103, 232, 249, 0.070), transparent 46%),
+            linear-gradient(180deg, rgba(15, 47, 122, 0.12), rgba(2, 8, 23, 0.14)) !important;
+    }
+}
+/* END PATCH: Dashboard resources transparency tune v194 */
+
