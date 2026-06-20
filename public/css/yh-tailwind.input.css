@@ -5056,9 +5056,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"]
 body[data-yh-view="hub"][data-yh-page="dashboard"]
   .yh-academy-parent-vision-scope
   .yh-universe-progress-status-list {
-  display: grid;
-  gap: 7px;
-  margin-top: 11px;
+  display: grid;gap:7px;margin-top:10px;
 }
 
 body[data-yh-view="hub"][data-yh-page="dashboard"]
@@ -5066,13 +5064,8 @@ body[data-yh-view="hub"][data-yh-page="dashboard"]
   .yh-universe-progress-tier,
 body[data-yh-view="hub"][data-yh-page="dashboard"]
   .yh-academy-parent-vision-scope
-  .yh-universe-progress-status-row {
-  min-height: 35px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) max-content;
-  align-items: center;
-  gap: 9px;
-  padding: 8.5px 10.5px;
+  .yh-universe-progress-status-row {min-height: 42px;
+  display: grid;grid-template-columns:minmax(0, 1fr) 108px;align-items:center;gap:7px;padding:6px 8px;
   border: 1px solid rgba(223, 247, 255, 0.14);
   border-radius: 0;
   clip-path: polygon(
@@ -5083,8 +5076,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"]
     0 100%,
     0 8px
   );
-  background: rgba(4, 7, 22, 0.28);
-}
+  background: rgba(4, 7, 22, 0.28);column-gap:8px;}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"]
   .yh-academy-parent-vision-scope
@@ -5093,12 +5085,8 @@ body[data-yh-view="hub"][data-yh-page="dashboard"]
 body[data-yh-view="hub"][data-yh-page="dashboard"]
   .yh-academy-parent-vision-scope
   .yh-universe-progress-status-row
-  span {
-  min-width: 0;
-  color: rgba(226, 238, 255, 0.76);
-  font-size: 0.95rem;
-  line-height: 1.12;
-}
+  span {min-width: 0;
+  color: rgba(226, 238, 255, 0.76);font-size:0.80rem;line-height:1.02;text-align:left;}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"]
   .yh-academy-parent-vision-scope
@@ -5107,22 +5095,10 @@ body[data-yh-view="hub"][data-yh-page="dashboard"]
 body[data-yh-view="hub"][data-yh-page="dashboard"]
   .yh-academy-parent-vision-scope
   .yh-universe-progress-status-row
-  strong {
-  display: inline-flex;
-  justify-content: center;
-  align-items: center;
-  min-width: 78px;
-  max-width: 116px;
-  min-height: 25px;
-  padding: 5px 10.5px;
+  strong {display: inline-flex;justify-content:center;align-items:center;min-width:108px;max-width:108px;min-height:32px;padding:3px 5px;
   border: 1px solid rgba(223, 247, 255, 0.14);
   color: #ffffff;
-  background: rgba(15, 23, 42, 0.28);
-  font-size: 0.95rem;
-  line-height: 1.08;
-  text-align: center;
-  white-space: normal;
-}
+  background: rgba(15, 23, 42, 0.28);font-size:clamp(0.61rem, 0.64vw, 0.68rem);line-height:0.90;text-align:center;white-space:normal;width:108px;height:auto;max-height:none;overflow:visible;word-break:keep-all;overflow-wrap:normal;letter-spacing:0;box-sizing:border-box;}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"]
   .yh-academy-parent-vision-scope
@@ -5166,8 +5142,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"]
     135deg,
     rgba(245, 158, 11, 0.16),
     rgba(6, 30, 64, 0.2)
-  );
-}
+  );min-height:34px;padding:3px 5px;font-size:clamp(0.58rem, 0.60vw, 0.64rem);line-height:0.90;overflow:visible;}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"]
   .yh-academy-parent-vision-scope
@@ -5178,8 +5153,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"]
     135deg,
     rgba(56, 189, 248, 0.22),
     rgba(30, 41, 59, 0.26)
-  );
-}
+  );font-size:clamp(0.50rem, 0.52vw, 0.58rem);line-height:0.84;letter-spacing:0;width:108px;min-width:108px;max-width:108px;height:auto;min-height:42px;max-height:none;padding:3px 4px;overflow:visible;word-break:keep-all;overflow-wrap:normal;}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"]
   .yh-academy-parent-vision-scope
@@ -5584,11 +5558,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"]
   .yh-tw-scope
   .yh-academy-parent-vision-scope
   .yh-universe-progress-status-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 108px;
-  align-items: center;
-  column-gap: 10px;
-}
+  display: grid;grid-template-columns:minmax(0, 1fr) 108px;align-items:center;column-gap:8px;gap:7px;min-height:42px;padding:6px 8px;}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"]
   .yh-tw-scope
@@ -5599,10 +5569,7 @@ body[data-yh-view="hub"][data-yh-page="dashboard"]
   .yh-tw-scope
   .yh-academy-parent-vision-scope
   .yh-universe-progress-status-row
-  span {
-  min-width: 0;
-  text-align: left;
-}
+  span {min-width: 0;text-align:left;font-size:0.80rem;line-height:1.02;}
 
 body[data-yh-view="hub"][data-yh-page="dashboard"]
   .yh-tw-scope
@@ -5613,36 +5580,15 @@ body[data-yh-view="hub"][data-yh-page="dashboard"]
   .yh-tw-scope
   .yh-academy-parent-vision-scope
   .yh-universe-progress-status-row
-  strong {
-  width: 108px;
-  min-width: 108px;
-  max-width: 108px;
-  height: 32px;
-  min-height: 32px;
-  max-height: 32px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  justify-self: end;
-  padding: 4px 9.5px;
-  box-sizing: border-box;
-  text-align: center;
-  white-space: normal;
-  overflow: hidden;
-  word-break: normal;
-  line-height: 1.02;
-  font-size: clamp(0.85rem, 0.89vw, 0.95rem);
-  font-weight: 700;
-}
+  strong {width: 108px;min-width:108px;max-width:108px;height:auto;min-height:32px;max-height:none;display:inline-flex;align-items:center;justify-content:center;
+  justify-self: end;padding:3px 5px;box-sizing:border-box;text-align:center;white-space:normal;overflow:visible;word-break:keep-all;line-height:0.90;font-size:clamp(0.61rem, 0.64vw, 0.68rem);
+  font-weight: 700;overflow-wrap:normal;letter-spacing:0;}
 
 /* Keep long Federation Readiness value centered inside the same-size pill */
 body[data-yh-view="hub"][data-yh-page="dashboard"]
   .yh-tw-scope
   .yh-academy-parent-vision-scope
-  #yh-econ-federation-readiness {
-  font-size: clamp(0.85rem, 0.84vw, 0.95rem);
-  line-height: 1.02;
-}
+  #yh-econ-federation-readiness {font-size: clamp(0.50rem, 0.52vw, 0.58rem);line-height:0.84;letter-spacing:0;width:108px;min-width:108px;max-width:108px;height:auto;min-height:42px;max-height:none;padding:3px 4px;overflow:visible;word-break:keep-all;overflow-wrap:normal;}
 
 /* Make Plazas and Federation buttons visually match the Academy button */
 body[data-yh-view="hub"][data-yh-page="dashboard"]
@@ -10543,19 +10489,8 @@ body[data-yh-page="business-chats"] .bc-thread-card,
 body[data-yh-view="business-chats"] .bc-inline-dialog-card,
 body[data-yh-page="business-chats"] .bc-inline-dialog-card {
   position: relative;
-  overflow: hidden;
-  border: 1px solid rgba(223, 247, 255, 0.18);
-  border-radius: 0;
-  background:
-    radial-gradient(
-      circle at 14% 0%,
-      rgba(103, 232, 249, 0.08),
-      transparent 34%
-    ),
-    linear-gradient(180deg, rgba(6, 30, 64, 0.34), rgba(4, 7, 22, 0.34));
-  box-shadow:
-    0 18px 42px rgba(0, 0, 0, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.055);
+  overflow: hidden;border:1px solid rgba(223, 247, 255, 0.28);
+  border-radius: 0;background:radial-gradient(circle at 14% 0%, rgba(103, 232, 249, 0.16), transparent 34%), radial-gradient(circle at 92% 110%, rgba(37, 99, 235, 0.18), transparent 38%), linear-gradient(180deg, rgba(6, 30, 64, 0.58), rgba(4, 7, 22, 0.64));box-shadow:0 22px 50px rgba(0, 0, 0, 0.36), 0 0 24px rgba(56, 189, 248, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.075);
   clip-path: polygon(
     16px 0,
     calc(100% - 16px) 0,
@@ -10632,16 +10567,14 @@ body[data-yh-page="business-chats"] .bc-stat-card span {
   font-size: 0.95rem;
   font-weight: 900;
   letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
+  text-transform: uppercase;display:block;max-width:100%;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 
 body[data-yh-view="business-chats"] .bc-stat-card strong,
 body[data-yh-page="business-chats"] .bc-stat-card strong {
   color: #ffffff;
   font-family: "Orbitron", "Rajdhani", system-ui, sans-serif;
   font-size: 1.85rem;
-  text-shadow: 0 0 20px rgba(103, 232, 249, 0.24);
-}
+  text-shadow: 0 0 20px rgba(103, 232, 249, 0.24);display:block;margin-top:0;line-height:1.0;white-space:nowrap;}
 
 body[data-yh-view="business-chats"] .bc-panel-head,
 body[data-yh-page="business-chats"] .bc-panel-head,

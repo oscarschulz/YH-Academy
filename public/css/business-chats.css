@@ -225,12 +225,17 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
   gap: 12px;
 }
 
-.bc-stat-card {
-  padding: 18px;
-}
+.bc-stat-card {padding: 14px 16px;display:grid;grid-template-rows:auto auto;align-content:center;justify-items:start;gap:6px;min-height:78px;}
 
-.bc-stat-card strong {
-  margin-top: 8px;
+.bc-stat-card strong {margin-top: 0;display:block;line-height:1;white-space:nowrap;}
+
+.bc-stat-card span {
+  display: block;
+  max-width: 100%;
+  line-height: 1.05;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .bc-main-grid {
@@ -248,9 +253,7 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
 .bc-start-panel,
 .bc-blocked-panel,
 .bc-panel,
-.bc-thread-panel {
-  overflow: hidden;
-}
+.bc-thread-panel {overflow: hidden;background-color:rgba(2, 8, 23, 0.28);}
 
 .bc-panel-head {
   display: flex;
