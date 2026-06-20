@@ -226,7 +226,7 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
 }
 
 .bc-stat-card {
-  padding: 16px;
+  padding: 18px;
 }
 
 .bc-stat-card strong {
@@ -257,11 +257,11 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  padding: 16px;
+  padding: 18px;
 }
 
 .bc-start-panel form {
-  padding: 16px;
+  padding: 18px;
   display: grid;
   gap: 12px;
 }
@@ -312,7 +312,7 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
 .bc-conversation-list {
   display: grid;
   gap: 10px;
-  padding: 14px;
+  padding: 16px;
   max-height: 440px;
   overflow: auto;
 }
@@ -328,7 +328,7 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  padding: 12px;
+  padding: 14px;
 }
 
 .bc-member-main {
@@ -357,7 +357,7 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
 .bc-thread-card {
   width: 100%;
   text-align: left;
-  padding: 10px 12px;
+  padding: 12px 14px;
   display: grid;
   gap: 4px;
   align-content: start;
@@ -396,7 +396,7 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
 }
 
 .bc-thread-head {
-  padding: 12px 14px;
+  padding: 14px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -418,7 +418,7 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
 .bc-thread-body {
   min-height: 0;
   overflow: auto;
-  padding: 16px;
+  padding: 18px;
   display: grid;
   align-content: start;
   justify-items: start;
@@ -427,7 +427,7 @@ body[data-bc-active-view="conversations"] .bc-conversation-shell {
 
 .bc-message {
   width: min(84%, 720px);
-  padding: 14px 18px 12px 20px;
+  padding: 16px 20px 14px 22px;
   display: grid;
   align-content: start;
   justify-self: start;

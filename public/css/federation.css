@@ -133,12 +133,12 @@ textarea {
 }
 
 .fed-brand-title {
-  font-size: 0.95rem;
+  font-size: 1.03rem;
   font-weight: 700;
 }
 
 .fed-brand-subtitle {
-  font-size: 0.86rem;
+  font-size: 1rem;
 }
 
 .fed-nav {
@@ -167,7 +167,7 @@ textarea {
   justify-content: center;
   gap: 8px;
   padding: 10px 12px;
-  font-size: 0.9rem;
+  font-size: 1.03rem;
   font-weight: 800;
   letter-spacing: 0.02em;
   text-align: center;
@@ -187,12 +187,12 @@ textarea {
 }
 .fed-sidebar-card,
 .fed-right-card {
-  padding: 18px;
+  padding: 20px;
 }
 
 .fed-sidebar-card-label,
 .fed-right-card-label {
-  font-size: 0.75rem;
+  font-size: 0.95rem;
   text-transform: uppercase;
   letter-spacing: 0.14em;
   margin-bottom: 8px;
@@ -226,7 +226,7 @@ textarea {
 }
 
 .fed-kicker {
-  font-size: 0.75rem;
+  font-size: 0.95rem;
   text-transform: uppercase;
   letter-spacing: 0.16em;
   margin-bottom: 8px;
@@ -308,7 +308,7 @@ textarea {
   display: inline-flex;
   align-items: center;
   padding: 9px 12px;
-  font-size: 0.84rem;
+  font-size: 1rem;
   margin-bottom: 16px;
 }
 
@@ -340,8 +340,8 @@ textarea {
 .fed-hero-strip span,
 .fed-status-list span,
 .fed-tag-wrap span {
-  padding: 9px 12px;
-  font-size: 0.84rem;
+  padding: 10.5px 14px;
+  font-size: 1rem;
 }
 
 .fed-hero-panel {
@@ -361,7 +361,7 @@ textarea {
 }
 
 .fed-panel-emphasis {
-  padding: 20px;
+  padding: 22px;
   min-height: 170px;
   display: flex;
   flex-direction: column;
@@ -369,7 +369,7 @@ textarea {
 }
 
 .fed-panel-label {
-  font-size: 0.75rem;
+  font-size: 0.95rem;
   text-transform: uppercase;
   letter-spacing: 0.16em;
 }
@@ -387,7 +387,7 @@ textarea {
 }
 
 .fed-panel-main-stat small {
-  font-size: 0.92rem;
+  font-size: 1.03rem;
 }
 
 .fed-panel-grid {
@@ -397,7 +397,7 @@ textarea {
 }
 
 .fed-mini-card {
-  padding: 18px;
+  padding: 20px;
 }
 
 .fed-mini-value {
@@ -407,7 +407,7 @@ textarea {
 }
 
 .fed-mini-label {
-  font-size: 0.88rem;
+  font-size: 1rem;
 }
 
 .fed-section-head {
@@ -443,7 +443,7 @@ textarea {
 .fed-benefit-card,
 .fed-criteria-card,
 .fed-sector-card {
-  padding: 22px;
+  padding: 24px;
 }
 
 .fed-info-title,
@@ -518,7 +518,7 @@ textarea {
 }
 
 .fed-map-card {
-  padding: 14px;
+  padding: 16px;
   min-height: 100%;
   display: flex;
   flex-direction: column;
@@ -536,7 +536,7 @@ textarea {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.84rem;
+  font-size: 1rem;
 }
 
 .live-dot {
@@ -557,7 +557,7 @@ textarea {
 
 .fed-side-stat {
   min-height: 100px;
-  padding: 14px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -572,7 +572,7 @@ textarea {
 }
 
 .fed-side-stat-label {
-  font-size: 0.8rem;
+  font-size: 1rem;
   line-height: 1.3;
 }
 .fed-directory-toolbar {
@@ -589,7 +589,7 @@ textarea {
 }
 
 .fed-input-wrap label {
-  font-size: 0.86rem;
+  font-size: 1rem;
   line-height: 1.35;
   padding-left: 4px;
   padding-right: 4px;
@@ -623,7 +623,7 @@ textarea {
 }
 
 .fed-member-card {
-  padding: 20px;
+  padding: 22px;
 }
 
 .fed-member-top {
@@ -642,12 +642,12 @@ textarea {
 
 .fed-member-role {
   line-height: 1.5;
-  font-size: 0.93rem;
+  font-size: 1.03rem;
 }
 
 .fed-member-badge {
-  padding: 8px 10px;
-  font-size: 0.72rem;
+  padding: 9.5px 12px;
+  font-size: 0.95rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -661,8 +661,8 @@ textarea {
 }
 
 .fed-member-meta span {
-  padding: 8px 10px;
-  font-size: 0.8rem;
+  padding: 9.5px 12px;
+  font-size: 1rem;
 }
 
 .fed-member-desc {
@@ -688,14 +688,14 @@ textarea {
 }
 
 .fed-form-section-title {
-  font-size: 0.85rem;
+  font-size: 1rem;
   text-transform: uppercase;
   letter-spacing: 0.16em;
-  padding-top: 8px;
+  padding-top: 0;
   display: block;
-  padding-left: 10px;
-  padding-right: 10px;
-  margin-bottom: 10px;
+  padding-left: 0;
+  padding-right: 0;
+  margin-bottom: 8px;
   line-height: 1.35;
 }
 
@@ -715,14 +715,14 @@ textarea {
 }
 
 .fed-form-hint {
-  font-size: 0.92rem;
+  font-size: 1.03rem;
 }
 
 .fed-form-feedback {
   grid-column: 1 / -1;
   min-height: 24px;
-  padding: 10px 12px;
-  font-size: 0.94rem;
+  padding: 12px 14px;
+  font-size: 1.03rem;
   line-height: 1.45;
 }
 
@@ -796,7 +796,7 @@ textarea {
 }
 
 .fed-state-card {
-  padding: 22px;
+  padding: 24px;
 }
 
 .fed-state-card-member {
@@ -811,7 +811,7 @@ textarea {
 }
 
 .fed-state-kicker {
-  font-size: 0.75rem;
+  font-size: 0.95rem;
   text-transform: uppercase;
   letter-spacing: 0.16em;
 }
@@ -831,8 +831,8 @@ textarea {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 9px 12px;
-  font-size: 0.74rem;
+  padding: 10.5px 14px;
+  font-size: 0.95rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -867,8 +867,8 @@ textarea {
 .fed-state-meta span,
 .fed-state-points span,
 .fed-admin-meta span {
-  padding: 8px 10px;
-  font-size: 0.8rem;
+  padding: 9.5px 12px;
+  font-size: 1rem;
 }
 
 .fed-state-grid {
@@ -878,7 +878,7 @@ textarea {
 }
 
 .fed-state-metric {
-  padding: 15px 16px;
+  padding: 17px 18px;
 }
 
 .fed-state-metric strong {
@@ -907,7 +907,7 @@ textarea {
 }
 
 .fed-admin-stat {
-  padding: 18px;
+  padding: 20px;
 }
 
 .fed-admin-stat-value {
@@ -917,7 +917,7 @@ textarea {
 }
 
 .fed-admin-stat-label {
-  font-size: 0.92rem;
+  font-size: 1.03rem;
 }
 
 .fed-admin-list {
@@ -926,7 +926,7 @@ textarea {
 }
 
 .fed-admin-card {
-  padding: 20px;
+  padding: 22px;
 }
 
 .fed-admin-head {
@@ -945,7 +945,7 @@ textarea {
 
 .fed-admin-role {
   line-height: 1.5;
-  font-size: 0.93rem;
+  font-size: 1.03rem;
 }
 
 .fed-admin-desc {
@@ -1121,7 +1121,7 @@ textarea {
 }
 
 .fed-referral-card {
-  padding: 20px;
+  padding: 22px;
 }
 
 .fed-referral-card-full {
@@ -1157,7 +1157,7 @@ textarea {
 }
 
 .fed-referral-item {
-  padding: 16px;
+  padding: 18px;
 }
 
 .fed-referral-item-top {
@@ -1175,7 +1175,7 @@ textarea {
 }
 
 .fed-referral-item-meta {
-  font-size: 0.9rem;
+  font-size: 1.03rem;
   line-height: 1.5;
 }
 
@@ -1212,7 +1212,7 @@ textarea {
 }
 
 .fed-referral-link-label {
-  font-size: 0.75rem;
+  font-size: 0.95rem;
   text-transform: uppercase;
   letter-spacing: 0.14em;
 }
@@ -1224,7 +1224,7 @@ textarea {
 }
 
 .fed-form-inline-note {
-  font-size: 0.82rem;
+  font-size: 1rem;
   line-height: 1.5;
 }
 
@@ -1342,7 +1342,7 @@ textarea {
 }
 
   .fed-referral-link-input {
-  font-size: 13px;
+  font-size: 16.5px;
 }
 }
 .fed-referral-link-input[readonly] {
@@ -1359,7 +1359,7 @@ textarea {
 }
 
 .fed-command-card {
-  padding: 22px;
+  padding: 24px;
 }
 
 .fed-command-card-hero {
@@ -1390,7 +1390,7 @@ textarea {
 
 .fed-command-pills span {
   padding: 8px 10px;
-  font-size: 0.8rem;
+  font-size: 1rem;
 }
 
 .fed-command-actions {
@@ -1420,7 +1420,7 @@ textarea {
   align-items: center;
   gap: 8px;
   margin-top: 10px;
-  font-size: 0.84rem;
+  font-size: 1rem;
 }
 
 .fed-state-timeline-wrap {
@@ -1440,14 +1440,14 @@ textarea {
 .fed-timeline-step span {
   display: inline-block;
   margin-bottom: 8px;
-  font-size: 0.72rem;
+  font-size: 0.95rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
 .fed-timeline-step strong {
   display: block;
-  font-size: 0.92rem;
+  font-size: 1.03rem;
   line-height: 1.35;
 }
 
@@ -1467,7 +1467,7 @@ textarea {
 }
 .fed-yhf-telegram-access-card {
   margin-top: 14px;
-  padding: 16px;
+  padding: 18px;
   display: flex;
   align-items: flex-start;
   gap: 14px;
@@ -1488,7 +1488,7 @@ textarea {
 
 .fed-yhf-telegram-access-kicker {
   margin-bottom: 5px;
-  font-size: 0.72rem;
+  font-size: 0.95rem;
   font-weight: 800;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -1511,7 +1511,7 @@ textarea {
   align-items: center;
   justify-content: center;
   padding: 9px 12px;
-  font-size: 0.84rem;
+  font-size: 1rem;
   font-weight: 900;
 }
 
@@ -1519,7 +1519,7 @@ textarea {
 }
 .fed-state-inline-note {
   margin-top: 12px;
-  padding: 12px 14px;
+  padding: 14px 16px;
   line-height: 1.6;
 }
 
@@ -1591,7 +1591,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 
 .fed-overview-card,
 .fed-sector-spotlight {
-  padding: 20px;
+  padding: 22px;
 }
 
 .fed-overview-card p {
@@ -1643,7 +1643,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
 .fed-sector-select-wrap label {
-  font-size: 0.8rem;
+  font-size: 1rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -1711,6 +1711,8 @@ body[data-fed-state="member"] #overview .fed-chip {
 .fed-directory-toolbar select option,
 .fed-input-wrap select optgroup,
 .fed-directory-toolbar select optgroup {
+  background: #07152b;
+  color: #eef6ff;
 }.fed-map {
   position: relative;
   isolation: isolate;
@@ -1906,7 +1908,7 @@ body[data-fed-state="member"] #overview .fed-chip {
   pointer-events: none;
   transform: translate(-50%, -50%);
   padding: 7px 10px;
-  font-size: 0.76rem;
+  font-size: 0.95rem;
   letter-spacing: 0.04em;
   white-space: nowrap;
   transition:
@@ -1948,7 +1950,7 @@ body[data-fed-state="member"] #overview .fed-chip {
   align-items: center;
   justify-content: center;
   padding: 7px 10px;
-  font-size: 0.74rem;
+  font-size: 0.95rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -1956,7 +1958,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 
 .fed-map-overlay-meta {
   margin-top: 8px;
-  font-size: 0.88rem;
+  font-size: 1rem;
   line-height: 1.6;
 }
 
@@ -1968,8 +1970,8 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
 .fed-map-overlay-stats span {
-  padding: 8px 10px;
-  font-size: 0.8rem;
+  padding: 9.5px 12px;
+  font-size: 1rem;
 }
 
 .fed-referral-card {
@@ -2068,7 +2070,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 
 .fed-command-card-positioning .fed-state-metric {
   min-height: 118px;
-  padding: 18px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -2124,7 +2126,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 
 @media (max-width: 640px) {
   .fed-map-label {
-  font-size: 0.72rem;
+  font-size: 0.95rem;
   padding: 6px 9px;
 }
 
@@ -2135,7 +2137,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 
   .fed-side-stat {
   min-height: 88px;
-  padding: 12px;
+  padding: 14px;
 }
 
   .fed-side-stat-value {
@@ -2144,7 +2146,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
   .fed-side-stat-label {
-  font-size: 0.75rem;
+  font-size: 0.95rem;
 }
 
   .fed-map-overlay {
@@ -2257,7 +2259,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
 .fed-topbar-quick-link strong {
-  font-size: 0.9rem;
+  font-size: 1.03rem;
   line-height: 1.2;
 }
 
@@ -2270,12 +2272,12 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
 .fed-app-bottom-icon {
-  font-size: 0.92rem;
+  font-size: 1rem;
   line-height: 1;
 }
 
 .fed-app-bottom-label {
-  font-size: 0.72rem;
+  font-size: 0.95rem;
   font-weight: 700;
   letter-spacing: -0.01em;
 }
@@ -2306,7 +2308,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
 .fed-app-more-link strong {
-  font-size: 0.95rem;
+  font-size: 1.03rem;
   line-height: 1.25;
 }
 
@@ -2369,7 +2371,7 @@ body[data-fed-state="member"] #overview .fed-chip {
   flex: 0 0 auto;
   min-height: 40px;
   padding: 9px 11px;
-  font-size: 0.8rem;
+  font-size: 1rem;
   white-space: nowrap;
 }
 
@@ -2410,7 +2412,7 @@ body[data-fed-state="member"] #overview .fed-chip {
   min-width: max-content;
   min-height: 40px;
   padding: 10px 12px;
-  font-size: 0.84rem;
+  font-size: 1rem;
 }
 
   .fed-section {
@@ -2441,7 +2443,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
   .fed-hero-text {
-  font-size: 0.94rem;
+  font-size: 1.03rem;
   line-height: 1.62;
 }
 
@@ -2559,7 +2561,7 @@ body[data-fed-state="member"] #overview .fed-chip {
   .fed-topbar-quick-summary {
   min-height: 40px;
   padding: 0 12px;
-  font-size: 0.78rem;
+  font-size: 1rem;
 }
 
   .fed-topbar-quick-menu {
@@ -2573,15 +2575,15 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
   .fed-topbar-quick-link strong {
-  font-size: 0.86rem;
+  font-size: 1rem;
 }
 
   .fed-topbar-quick-link small {
-  font-size: 0.75rem;
+  font-size: 0.95rem;
 }
 
   .fed-kicker {
-  font-size: 0.64rem;
+  font-size: 0.91rem;
   margin-bottom: 4px;
   letter-spacing: 0.14em;
 }
@@ -2619,7 +2621,7 @@ body[data-fed-state="member"] #overview .fed-chip {
   .fed-state-text,
   .fed-referral-caption,
   .fed-command-copy {
-  font-size: 0.9rem;
+  font-size: 1.03rem;
   line-height: 1.58;
 }
 
@@ -2655,7 +2657,7 @@ body[data-fed-state="member"] #overview .fed-chip {
   .fed-chip {
   margin-bottom: 12px;
   padding: 8px 10px;
-  font-size: 0.74rem;
+  font-size: 0.95rem;
 }
 
   .fed-hero-title {
@@ -2666,7 +2668,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
   .fed-hero-text {
-  font-size: 0.9rem;
+  font-size: 1.03rem;
   line-height: 1.56;
   margin-bottom: 12px;
 }
@@ -2684,13 +2686,13 @@ body[data-fed-state="member"] #overview .fed-chip {
   .fed-state-points span,
   .fed-admin-meta span,
   .fed-map-overlay-stats span {
-  padding: 7px 9px;
-  font-size: 0.73rem;
+  padding: 8.5px 10.5px;
+  font-size: 0.95rem;
 }
 
   .fed-panel-emphasis {
   min-height: 132px;
-  padding: 16px;
+  padding: 18px;
 }
 
   .fed-mini-card,
@@ -2710,7 +2712,7 @@ body[data-fed-state="member"] #overview .fed-chip {
   .fed-admin-stat,
   .fed-side-stat,
   .fed-mini-card {
-  padding: 12px;
+  padding: 14px;
 }
 
   .fed-state-metric strong,
@@ -2724,7 +2726,7 @@ body[data-fed-state="member"] #overview .fed-chip {
   .fed-admin-stat-label,
   .fed-side-stat-label,
   .fed-mini-label {
-  font-size: 0.72rem;
+  font-size: 0.95rem;
   line-height: 1.35;
 }
 
@@ -2733,7 +2735,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
   .fed-input-wrap label {
-  font-size: 0.8rem;
+  font-size: 1rem;
 }
 
   .fed-input-wrap input,
@@ -2745,7 +2747,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
   .fed-form-section-title {
-  font-size: 0.72rem;
+  font-size: 0.95rem;
   padding-top: 0;
 }
 
@@ -2795,7 +2797,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
   .fed-map-overlay-meta {
-  font-size: 0.8rem;
+  font-size: 1rem;
   line-height: 1.45;
 }
 
@@ -2830,11 +2832,11 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
   .fed-app-bottom-icon {
-  font-size: 0.9rem;
+  font-size: 1rem;
 }
 
   .fed-app-bottom-label {
-  font-size: 0.66rem;
+  font-size: 0.91rem;
   letter-spacing: 0;
 }
 
@@ -2867,11 +2869,11 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
   .fed-app-more-link strong {
-  font-size: 0.9rem;
+  font-size: 1.03rem;
 }
 
   .fed-app-more-link small {
-  font-size: 0.78rem;
+  font-size: 1rem;
   line-height: 1.4;
 }
 
@@ -2915,7 +2917,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
   .fed-app-bottom-label {
-  font-size: 0.64rem;
+  font-size: 0.91rem;
 }
 
   .fed-app-more-sheet {
@@ -2980,7 +2982,7 @@ body[data-fed-state="member"] #overview .fed-chip {
   .fed-side-stat-label,
   .fed-admin-stat-label,
   .fed-mini-label {
-  font-size: 0.7rem;
+  font-size: 0.95rem;
 }
 
   .fed-map,
@@ -2993,13 +2995,13 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
   .fed-map-overlay-meta {
-  font-size: 0.8rem;
+  font-size: 1rem;
   line-height: 1.45;
 }
 
   .fed-map-overlay-stats span {
-  font-size: 0.72rem;
-  padding: 7px 9px;
+  font-size: 0.95rem;
+  padding: 8.5px 10.5px;
 }
 
   .fed-map-label {
@@ -3088,7 +3090,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 
   .fed-nav-link {
   padding: 11px 12px;
-  font-size: 0.92rem;
+  font-size: 1.03rem;
 }
 
   .fed-main {
@@ -3137,7 +3139,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 
   .fed-sidebar-card,
   .fed-right-card {
-  padding: 14px;
+  padding: 16px;
 }
 
   .fed-main {
@@ -3245,7 +3247,7 @@ body[data-fed-state="member"] #overview .fed-chip {
   min-height: 42px;
   white-space: nowrap;
   padding: 10px 14px;
-  font-size: 0.82rem;
+  font-size: 1rem;
 }
 
   .fed-main {
@@ -3296,7 +3298,7 @@ body[data-fed-state="member"] #overview .fed-chip {
   min-width: max-content;
   min-height: 42px;
   padding: 10px 13px;
-  font-size: 0.82rem;
+  font-size: 1rem;
 }
 
   .fed-section {
@@ -3422,7 +3424,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
   .fed-kicker {
-  font-size: 0.64rem;
+  font-size: 0.91rem;
   margin-bottom: 4px;
   letter-spacing: 0.14em;
 }
@@ -3448,7 +3450,7 @@ body[data-fed-state="member"] #overview .fed-chip {
   width: 100%;
   min-height: 40px;
   padding: 9px 10px;
-  font-size: 0.79rem;
+  font-size: 1rem;
 }
 
   .fed-section {
@@ -3476,7 +3478,7 @@ body[data-fed-state="member"] #overview .fed-chip {
   .fed-state-text,
   .fed-referral-caption,
   .fed-command-copy {
-  font-size: 0.9rem;
+  font-size: 1.03rem;
   line-height: 1.56;
 }
 
@@ -3511,7 +3513,7 @@ body[data-fed-state="member"] #overview .fed-chip {
   .fed-chip {
   margin-bottom: 12px;
   padding: 8px 10px;
-  font-size: 0.74rem;
+  font-size: 0.95rem;
 }
 
   .fed-hero-title {
@@ -3522,7 +3524,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
   .fed-hero-text {
-  font-size: 0.9rem;
+  font-size: 1.03rem;
   line-height: 1.55;
   margin-bottom: 12px;
 }
@@ -3540,13 +3542,13 @@ body[data-fed-state="member"] #overview .fed-chip {
   .fed-state-points span,
   .fed-admin-meta span,
   .fed-map-overlay-stats span {
-  padding: 7px 9px;
-  font-size: 0.73rem;
+  padding: 8.5px 10.5px;
+  font-size: 0.95rem;
 }
 
   .fed-panel-emphasis {
   min-height: 132px;
-  padding: 15px;
+  padding: 17px;
 }
 
   .fed-state-top,
@@ -3571,7 +3573,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
   .fed-input-wrap label {
-  font-size: 0.8rem;
+  font-size: 1rem;
 }
 
   .fed-input-wrap input,
@@ -3623,7 +3625,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
   .fed-map-overlay-meta {
-  font-size: 0.8rem;
+  font-size: 1rem;
   line-height: 1.45;
 }
 
@@ -3664,11 +3666,11 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
   .fed-app-bottom-icon {
-  font-size: 0.88rem;
+  font-size: 1rem;
 }
 
   .fed-app-bottom-label {
-  font-size: 0.64rem;
+  font-size: 0.91rem;
   letter-spacing: 0;
 }
 
@@ -3703,11 +3705,11 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
   .fed-app-more-link strong {
-  font-size: 0.9rem;
+  font-size: 1.03rem;
 }
 
   .fed-app-more-link small {
-  font-size: 0.78rem;
+  font-size: 1rem;
   line-height: 1.4;
 }
 
@@ -3750,7 +3752,7 @@ body[data-fed-state="member"] #overview .fed-chip {
   .fed-state-metric,
   .fed-admin-stat,
   .fed-side-stat {
-  padding: 11px;
+  padding: 13px;
 }
 
   .fed-app-bottom-nav {
@@ -3766,7 +3768,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
   .fed-app-bottom-label {
-  font-size: 0.62rem;
+  font-size: 0.85rem;
 }
 
   .fed-app-more-sheet {
@@ -3833,7 +3835,7 @@ body[data-fed-state="member"] #overview .fed-chip {
   .fed-side-stat-label,
   .fed-admin-stat-label,
   .fed-mini-label {
-  font-size: 0.7rem;
+  font-size: 0.95rem;
 }
 
   .fed-map,
@@ -3846,13 +3848,13 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
   .fed-map-overlay-meta {
-  font-size: 0.8rem;
+  font-size: 1rem;
   line-height: 1.45;
 }
 
   .fed-map-overlay-stats span {
-  font-size: 0.72rem;
-  padding: 7px 8px;
+  font-size: 0.95rem;
+  padding: 8.5px 9.5px;
 }
 
   .fed-app-bottom-link {
@@ -3884,7 +3886,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
 .fed-connect-card {
-  padding: 22px;
+  padding: 24px;
   display: grid;
   gap: 16px;
   min-height: 250px;
@@ -3906,7 +3908,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 .fed-connect-value {
   flex: 0 0 auto;
   padding: 6px 10px;
-  font-size: 0.72rem;
+  font-size: 0.95rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -3920,7 +3922,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 
 .fed-connect-meta span {
   padding: 6px 9px;
-  font-size: 0.75rem;
+  font-size: 0.95rem;
   line-height: 1.2;
 }
 
@@ -3946,23 +3948,23 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
 .fed-connect-request-panel {
-  margin-top: 18px;
-  padding: 34px 32px 34px;
+  margin-top: 16px;
   margin-bottom: 16px;
-  padding: 18px;
+  padding: 30px 36px 32px;
   overflow: visible;
 }
 
 .fed-connect-request-form {
-  padding: 0;
+  padding: 0 8px 4px;
 }
 
 .fed-connect-selected {
-  margin: 12px 0 10px;
-  font-weight: 700;
-  line-height: 1.65;
-  padding-left: 10px;
-  padding-right: 10px;
+  margin: 8px 0 4px;
+  font-weight: 600;
+  line-height: 1.58;
+  padding-left: 0;
+  padding-right: 0;
+  max-width: 980px;
 }
 
 .fed-connect-requests {
@@ -3979,7 +3981,7 @@ body[data-fed-state="member"] #overview .fed-chip {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px;
+  padding: 14px;
 }
 
 .fed-connect-request-item div {
@@ -3988,12 +3990,12 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
 .fed-connect-request-item strong {
-  font-size: 0.92rem;
+  font-size: 1.03rem;
 }
 
 .fed-connect-request-item small,
 .fed-connect-request-item span {
-  font-size: 0.78rem;
+  font-size: 1rem;
   line-height: 1.4;
 }
 
@@ -4153,7 +4155,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 }
 
 .fed-request-card {
-  padding: 22px;
+  padding: 24px;
   display: grid;
   gap: 16px;
 }
@@ -4219,37 +4221,78 @@ body[data-fed-state="member"] #overview .fed-chip {
 /* ========================================================= */
 
 .fed-connect-request-panel {
-  margin-top: 18px;
-  padding: 34px 32px 34px;
+  margin-top: 16px;
+  margin-bottom: 16px;
+  padding: 30px 36px 32px;
   overflow: visible;
 }
 
 .fed-connect-request-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 24px 22px;
+  gap: 24px 28px;
+  padding: 0 8px 4px;
 }
 
 .fed-connect-request-form .fed-form-group-full,
 .fed-connect-request-form .fed-input-wrap-full,
 .fed-connect-request-form .fed-form-actions {
   grid-column: 1 / -1;
-  padding-left: 10px;
-  padding-right: 10px;
+  padding-left: 0;
+  padding-right: 0;
 }
 
 .fed-connect-request-form input,
 .fed-connect-request-form select,
 .fed-connect-request-form textarea {
   width: 100%;
-  min-height: 56px;
-  padding: 18px 20px;
+  min-height: 54px;
+  padding: 16px 18px;
   line-height: 1.45;
+  color: #eef6ff;
+  background: rgba(2, 8, 23, 0.38);
+  border: 1px solid rgba(223, 247, 255, 0.14);
+  box-shadow: inset 0 1px 0 rgba(223, 247, 255, 0.045);
 }
+
+.fed-connect-request-form .fed-input-wrap {
+  gap: 9px;
+}
+
+.fed-connect-request-form label {
+  padding-left: 2px;
+  padding-right: 2px;
+}
+
+.fed-connect-request-form select {
+  appearance: auto;
+  -webkit-appearance: menulist;
+  -moz-appearance: auto;
+  color-scheme: dark;
+  cursor: pointer;
+}
+
+.fed-connect-request-form select option,
+.fed-connect-request-form select optgroup {
+  background: #07152b;
+  color: #eef6ff;
+}
+
+.fed-connect-request-form select option:checked {
+  background: #123869;
+  color: #ffffff;
+}
+
+.fed-connect-request-form input::placeholder,
+.fed-connect-request-form textarea::placeholder {
+  color: rgba(226, 238, 255, 0.46);
+}
+
 
 @media (max-width: 760px) {
   .fed-connect-request-form {
   grid-template-columns: 1fr;
+  padding: 0;
 }
 
   .fed-connect-request-form .fed-form-group-full,
@@ -4289,7 +4332,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 .federation-match-label,
 .federation-deal-grid label span {
   color: var(--muted);
-  font-size: .82rem;
+  font-size: 1rem;
   font-weight: 600;
 }
 
@@ -4302,7 +4345,7 @@ body[data-fed-state="member"] #overview .fed-chip {
 
 .federation-match-hint {
   color: var(--muted);
-  font-size: .78rem;
+  font-size: 1rem;
   line-height: 1.5;
 }
 
@@ -4519,7 +4562,7 @@ textarea:focus,
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 18px;
+  padding: 20px;
   background: rgba(0, 0, 0, 0.55);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -4542,7 +4585,7 @@ textarea:focus,
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  padding: 18px 20px;
+  padding: 20px 22px;
   border-radius: 18px;
   background: rgba(17, 24, 39, 0.78);
   border: 1px solid rgba(56, 189, 248, 0.22);
@@ -4558,7 +4601,7 @@ textarea:focus,
 }
 
 .yh-tab-loader-text {
-  font-size: 0.92rem;
+  font-size: 1.03rem;
   color: rgba(255, 255, 255, 0.82);
   letter-spacing: 0.02em;
 }
@@ -4587,30 +4630,51 @@ textarea:focus,
 .fed-universe-profile-modal {
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: 2147482900;
   display: grid;
   place-items: center;
   padding: 22px;
+  opacity: 0;
+  visibility: hidden;
   pointer-events: none;
-  transition: opacity 180ms ease;
+  background: rgba(2, 6, 23, 0.68);
+  backdrop-filter: blur(12px) saturate(1.08);
+  -webkit-backdrop-filter: blur(12px) saturate(1.08);
+  transition: opacity 180ms ease, visibility 180ms ease;
 }
 
 .fed-universe-profile-modal.is-open {
+  opacity: 1;
+  visibility: visible;
   pointer-events: auto;
 }
 
 .fed-universe-profile-backdrop {
   position: absolute;
   inset: 0;
+  background:
+    radial-gradient(circle at 50% 16%, rgba(56, 189, 248, 0.14), transparent 38%),
+    rgba(2, 6, 23, 0.42);
 }
 
 .fed-universe-profile-card {
   position: relative;
-  width: min(720px, 100%);
+  z-index: 1;
+  width: min(720px, calc(100vw - 44px));
   max-height: min(82vh, 780px);
   overflow-y: auto;
   padding: 22px;
   scrollbar-width: none;
+  border: 1px solid rgba(223, 247, 255, 0.28);
+  background:
+    radial-gradient(circle at 12% 0%, rgba(103, 232, 249, 0.16), transparent 34%),
+    radial-gradient(circle at 86% 18%, rgba(37, 99, 235, 0.18), transparent 38%),
+    linear-gradient(180deg, rgba(6, 30, 64, 0.92), rgba(2, 8, 23, 0.96));
+  box-shadow:
+    0 34px 90px rgba(0, 0, 0, 0.62),
+    0 0 36px rgba(56, 189, 248, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  clip-path: polygon(18px 0, calc(100% - 18px) 0, 100% 18px, 100% calc(100% - 18px), calc(100% - 18px) 100%, 18px 100%, 0 calc(100% - 18px), 0 18px);
 }
 
 .fed-universe-profile-card::-webkit-scrollbar {
@@ -4624,116 +4688,164 @@ textarea:focus,
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(223, 247, 255, 0.14);
 }
 
 .fed-universe-profile-headbar h3 {
   margin: 4px 0 0;
-  font-size: 1.2rem;
+  color: #fff;
+  font-size: 1.32rem;
+  line-height: 1.05;
+  font-weight: 800;
 }
 
 .fed-universe-profile-close {
   width: 38px;
   height: 38px;
+  min-width: 38px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid rgba(223, 247, 255, 0.25);
+  background: rgba(2, 8, 23, 0.74);
+  color: #fff;
+  cursor: pointer;
+  line-height: 1;
+  font-size: 1rem;
 }
 
 .fed-universe-profile-body {
   display: grid;
-  gap: 18px;
+  gap: 16px;
 }
 
-.fed-universe-profile-cover {
+.fed-universe-profile-cover,
+.fed-profile-preview-cover {
   min-height: 110px;
   overflow: hidden;
+  border: 1px solid rgba(223, 247, 255, 0.12);
+  background: radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.18), transparent 52%), rgba(2, 8, 23, 0.42);
 }
 
-.fed-universe-profile-cover img {
+.fed-universe-profile-cover img,
+.fed-profile-preview-cover img {
   width: 100%;
-  height: 100%;
   min-height: 110px;
+  height: 100%;
   object-fit: cover;
   display: block;
 }
 
-.fed-universe-profile-main {
+.fed-universe-profile-main,
+.fed-profile-preview-main {
   display: flex;
   align-items: center;
   gap: 14px;
 }
 
-.fed-universe-profile-avatar {
+.fed-universe-profile-avatar,
+.fed-profile-preview-avatar {
   width: 68px;
   height: 68px;
-  overflow: hidden;
   flex: 0 0 auto;
   display: grid;
   place-items: center;
+  overflow: hidden;
   font-weight: 800;
-  font-size: 1.4rem;
+  font-size: 1.2rem;
+  border: 1px solid rgba(103, 232, 249, 0.34);
+  background: rgba(6, 30, 64, 0.68);
 }
 
-.fed-universe-profile-avatar img {
+.fed-universe-profile-avatar img,
+.fed-profile-preview-avatar img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.fed-universe-profile-main h4 {
+.fed-universe-profile-main h4,
+.fed-profile-preview-main h4 {
   margin: 0;
-  font-size: 1.1rem;
+  color: #fff;
+  font-size: 1.14rem;
+  line-height: 1.1;
 }
 
 .fed-universe-profile-main p,
+.fed-profile-preview-main p,
 .fed-universe-profile-copy,
-.fed-universe-profile-note {
-  line-height: 1.7;
+.fed-universe-profile-note,
+.fed-profile-preview-copy,
+.fed-profile-preview-note {
+  line-height: 1.58;
   margin: 0;
+  color: rgba(226, 238, 255, 0.82);
 }
 
 .fed-universe-profile-meta,
 .fed-universe-profile-signal div,
-.fed-universe-profile-actions {
+.fed-universe-profile-actions,
+.fed-profile-preview-meta,
+.fed-profile-preview-signal div,
+.fed-profile-preview-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
 .fed-universe-profile-meta span,
-.fed-universe-profile-signal span {
+.fed-universe-profile-signal span,
+.fed-profile-preview-meta span,
+.fed-profile-preview-signal span {
   padding: 7px 10px;
   font-size: 0.76rem;
+  border: 1px solid rgba(223, 247, 255, 0.14);
+  background: rgba(2, 8, 23, 0.34);
 }
 
-.fed-universe-profile-signal {
+.fed-universe-profile-signal,
+.fed-profile-preview-signal {
   display: grid;
   gap: 8px;
 }
 
-.fed-universe-profile-signal strong {
+.fed-universe-profile-signal strong,
+.fed-profile-preview-signal strong {
+  color: #dff7ff;
   font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
-.fed-universe-profile-note {
+.fed-universe-profile-note,
+.fed-profile-preview-note {
   padding: 12px 14px;
+  border: 1px solid rgba(223, 247, 255, 0.12);
+  background: rgba(2, 8, 23, 0.28);
 }
 
 @media (max-width: 640px) {
   .fed-universe-profile-modal {
-  padding: 12px;
-}
+    padding: 12px;
+  }
 
   .fed-universe-profile-card {
-  max-height: 88vh;
-  padding: 16px;
-}
+    width: min(100%, calc(100vw - 24px));
+    max-height: 88vh;
+    padding: 16px;
+  }
 
-  .fed-universe-profile-main {
-  align-items: flex-start;
-}
+  .fed-universe-profile-main,
+  .fed-profile-preview-main {
+    align-items: flex-start;
+  }
 
   .fed-member-actions,
-  .fed-universe-profile-actions {
-  display: grid;
-}
+  .fed-universe-profile-actions,
+  .fed-profile-preview-actions {
+    display: grid;
+  }
 }
 /* ========================================================= */
 /* CLICKABLE PROFILE OWNER BUTTONS - FEDERATION              */
@@ -4748,7 +4860,7 @@ textarea:focus,
   display: inline-flex;
   align-items: center;
   gap: 12px;
-  padding: 10px;
+  padding: 12px;
   text-align: left;
   cursor: pointer;
   transition:
@@ -4790,7 +4902,7 @@ textarea:focus,
 
 .fed-card-owner-meta strong {
   min-width: 0;
-  font-size: 0.95rem;
+  font-size: 1.03rem;
   line-height: 1.25;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4799,7 +4911,7 @@ textarea:focus,
 
 .fed-card-owner-meta small {
   min-width: 0;
-  font-size: 0.78rem;
+  font-size: 1rem;
   line-height: 1.35;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4813,169 +4925,6 @@ textarea:focus,
   margin-top: 16px;
 }
 
-/* ========================================================= */
-/* LIGHTWEIGHT UNIVERSE PROFILE PREVIEW - FEDERATION         */
-/* ========================================================= */
-.fed-universe-profile-modal {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  display: grid;
-  place-items: center;
-  padding: 22px;
-  pointer-events: none;
-  transition: opacity 180ms ease;
-}
-
-.fed-universe-profile-modal.is-open {
-  pointer-events: auto;
-}
-
-.fed-universe-profile-backdrop {
-  position: absolute;
-  inset: 0;
-}
-
-.fed-universe-profile-card {
-  position: relative;
-  width: min(720px, 100%);
-  max-height: min(82vh, 780px);
-  overflow-y: auto;
-  padding: 22px;
-  scrollbar-width: none;
-}
-
-.fed-universe-profile-card::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-}
-
-.fed-universe-profile-headbar {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 18px;
-}
-
-.fed-universe-profile-headbar h3 {
-  margin: 4px 0 0;
-  font-size: 1.2rem;
-}
-
-.fed-universe-profile-close {
-  width: 38px;
-  height: 38px;
-}
-
-.fed-universe-profile-body {
-  display: grid;
-  gap: 18px;
-}
-
-.fed-profile-preview-cover {
-  min-height: 110px;
-  overflow: hidden;
-}
-
-.fed-profile-preview-cover img {
-  width: 100%;
-  min-height: 110px;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.fed-profile-preview-main {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.fed-profile-preview-avatar {
-  width: 68px;
-  height: 68px;
-  flex: 0 0 auto;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  font-weight: 800;
-  font-size: 1.2rem;
-}
-
-.fed-profile-preview-avatar img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.fed-profile-preview-main h4 {
-  margin: 0;
-  font-size: 1.1rem;
-}
-
-.fed-profile-preview-main p,
-.fed-profile-preview-copy,
-.fed-profile-preview-note {
-  line-height: 1.7;
-  margin: 0;
-}
-
-.fed-profile-preview-meta,
-.fed-profile-preview-signal div,
-.fed-profile-preview-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.fed-profile-preview-meta span,
-.fed-profile-preview-signal span {
-  padding: 7px 10px;
-  font-size: 0.76rem;
-}
-
-.fed-profile-preview-signal {
-  display: grid;
-  gap: 8px;
-}
-
-.fed-profile-preview-signal strong {
-  font-size: 0.82rem;
-}
-
-.fed-profile-preview-note {
-  padding: 12px 14px;
-}
-
-@media (max-width: 640px) {
-  .fed-universe-profile-modal {
-  padding: 12px;
-}
-
-  .fed-universe-profile-card {
-  max-height: 88vh;
-  padding: 16px;
-}
-
-  .fed-profile-preview-main {
-  align-items: flex-start;
-}
-
-  .fed-member-actions,
-  .fed-profile-preview-actions {
-  display: grid;
-}
-
-  .fed-card-owner {
-  padding: 9px;
-}
-
-  .fed-card-owner-avatar {
-  width: 42px;
-  height: 42px;
-}
-}
 /* =========================================================
    FEDERATION VERIFIED BADGE ICONS
    ========================================================= */
@@ -4985,7 +4934,7 @@ textarea:focus,
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.95rem;
+  font-size: 1.03rem;
   line-height: 1.25;
 }
 

@@ -760,39 +760,29 @@ async function openFederationProfileFromCard(targetUserId = "") {
   if (!cleanId) return;
 
   const fallbackMember = getFederationMemberById(cleanId);
+
+  if (typeof closeFederationProfileModal === "function") {
+    closeFederationProfileModal();
+  }
+
+  if (typeof closeFederationUniverseProfileModal === "function") {
+    closeFederationUniverseProfileModal();
+  }
+
+  if (typeof openFederationUniverseProfile === "function") {
+    await openFederationUniverseProfile(cleanId, fallbackMember);
+    return;
+  }
+
   const overlay = ensureFederationProfileModal();
   const title = document.getElementById("fedUniverseProfileTitle");
   const body = document.getElementById("fedUniverseProfileBody");
 
-  if (title) title.textContent = "Loading profile...";
-  if (body) body.innerHTML = `<p class="fed-profile-preview-copy">Loading unified YH profile...</p>`;
+  if (title) title.textContent = fallbackMember?.name || "YH Universe Profile";
+  if (body) body.innerHTML = renderFederationProfilePreview({}, fallbackMember);
 
   overlay.classList.add("is-open");
   overlay.setAttribute("aria-hidden", "false");
-
-  try {
-    const result = await federationConnectFetch(`/api/universe/profile/${encodeURIComponent(cleanId)}`);
-    const profile = result.profile || {};
-
-    if (title) {
-      title.textContent =
-        profile.fullName ||
-        profile.displayName ||
-        fallbackMember?.name ||
-        "YH Universe Profile";
-    }
-
-    if (body) {
-      body.innerHTML = renderFederationProfilePreview(profile, fallbackMember);
-    }
-  } catch (error) {
-    console.error("openFederationProfileFromCard error:", error);
-
-    if (title) title.textContent = "Profile unavailable";
-    if (body) {
-      body.innerHTML = `<p class="fed-profile-preview-copy">${escapeHtml(error.message || "Could not load this profile yet.")}</p>`;
-    }
-  }
 }
 const federationConnectState = {
   loading: false,

@@ -31,7 +31,7 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-password-toggle {
     height: 32px;
     padding: 0 12px;
     line-height: 1;
-    font-size: 0.76rem;
+    font-size: 0.95rem;
     z-index: 3;
 }
 
@@ -155,13 +155,13 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-narrative {
-        font-size: 0.8rem;
+        font-size: 1rem;
         line-height: 1.38;
         margin-bottom: 0.58rem;
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-subtitle {
-        font-size: 0.74rem;
+        font-size: 0.95rem;
         line-height: 1.48;
         max-width: 520px;
         margin-bottom: 0.92rem;
@@ -169,7 +169,7 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-pill {
         margin-bottom: 0.72rem;
-        font-size: 0.66rem;
+        font-size: 0.91rem;
         padding: 0.42rem 0.78rem;
     }
 
@@ -182,11 +182,11 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-cta-secondary {
         min-width: 150px;
         padding: 0.66rem 0.82rem;
-        font-size: 0.8rem;
+        font-size: 1rem;
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-cta-note {
-        font-size: 0.64rem;
+        font-size: 0.91rem;
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-metrics {
@@ -194,20 +194,20 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-metric-card {
-        padding: 0.7rem 0.72rem;
+        padding: 0.82rem 0.84rem;
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-metric-card strong {
-        font-size: 0.96rem;
+        font-size: 1.03rem;
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-metric-card span {
-        font-size: 0.69rem;
+        font-size: 0.91rem;
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-scroll-hint {
         margin-top: 0.72rem;
-        font-size: 0.72rem;
+        font-size: 0.95rem;
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-activity-panel {
@@ -225,12 +225,12 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-activity-event strong {
-        font-size: 0.76rem;
+        font-size: 0.95rem;
         line-height: 1.28;
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-activity-meta {
-        font-size: 0.66rem;
+        font-size: 0.91rem;
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-hero-visual {
@@ -263,12 +263,12 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
     }
 
     body[data-yh-page="apply"] .input-field {
-        font-size: 0.85rem;
+        font-size: 1rem;
         padding: 0.75rem;
     }
 
     body[data-yh-page="apply"] .form-group label {
-        font-size: 0.8rem;
+        font-size: 1rem;
         margin-bottom: 0.3rem;
     }
 }
@@ -288,7 +288,7 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-brand-name {
-        font-size: 0.88rem;
+        font-size: 1rem;
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-hero-grid {
@@ -307,13 +307,13 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-narrative {
-        font-size: 0.74rem;
+        font-size: 0.95rem;
         line-height: 1.3;
         margin-bottom: 0.42rem;
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-subtitle {
-        font-size: 0.69rem;
+        font-size: 0.91rem;
         line-height: 1.34;
         margin-bottom: 0.62rem;
         max-width: 455px;
@@ -327,7 +327,7 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-cta-secondary {
         min-width: 136px;
         padding: 0.58rem 0.7rem;
-        font-size: 0.74rem;
+        font-size: 0.95rem;
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-metrics {
@@ -400,7 +400,7 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
     }
 
     body[data-yh-page="apply"] .subtitle.step1-subtitle {
-        font-size: 0.8rem;
+        font-size: 1rem;
     }
 
     body[data-yh-page="apply"] .form-row,
@@ -415,7 +415,7 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
 
     body[data-yh-page="apply"] .input-field {
         padding: 0.66rem;
-        font-size: 0.82rem;
+        font-size: 1rem;
     }
 }
 /* =========================================================
@@ -496,7 +496,7 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
         -webkit-overflow-scrolling: touch;
         backface-visibility: hidden;
         -webkit-backface-visibility: hidden;
-        padding: 1.5rem 1.4rem 1.35rem;
+        padding: 1.5rem 1.4rem 1.48rem;
         background: rgba(30, 41, 59, 0.96);
         backdrop-filter: none;
         -webkit-backdrop-filter: none;
@@ -576,13 +576,13 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-narrative {
-        font-size: 0.82rem;
+        font-size: 1rem;
         line-height: 1.38;
         margin-bottom: 0.46rem;
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-subtitle {
-        font-size: 0.76rem;
+        font-size: 0.95rem;
         line-height: 1.42;
         max-width: none;
         margin-bottom: 0.64rem;
@@ -606,11 +606,11 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
         width: auto;
         min-width: 136px;
         padding: 0.58rem 0.76rem;
-        font-size: 0.74rem;
+        font-size: 0.95rem;
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-cta-note {
-        font-size: 0.62rem;
+        font-size: 0.85rem;
         max-width: 200px;
     }
 
@@ -620,11 +620,11 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-metric-card {
-        padding: 0.58rem 0.6rem;
+        padding: 0.67rem 0.69rem;
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-scroll-hint {
-        font-size: 0.68rem;
+        font-size: 0.91rem;
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-activity-panel {
@@ -712,13 +712,13 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-narrative {
-        font-size: 0.75rem;
+        font-size: 0.95rem;
         line-height: 1.34;
         margin-bottom: 0.34rem;
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-subtitle {
-        font-size: 0.7rem;
+        font-size: 0.95rem;
         line-height: 1.34;
         margin-bottom: 0.5rem;
     }
@@ -743,11 +743,11 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
         width: auto;
         min-width: 118px;
         padding: 0.5rem 0.62rem;
-        font-size: 0.68rem;
+        font-size: 0.91rem;
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-cta-note {
-        font-size: 0.56rem;
+        font-size: 0.85rem;
         max-width: 165px;
     }
 
@@ -802,11 +802,11 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-narrative {
-        font-size: 0.84rem;
+        font-size: 1rem;
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-subtitle {
-        font-size: 0.78rem;
+        font-size: 1rem;
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-globe-stage,
@@ -828,7 +828,7 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-front,
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back,
     body[data-yh-page="apply"] .approved-form-right {
-        padding: 1.42rem 1.18rem 1.32rem;
+        padding: 1.42rem 1.3rem 1.45rem;
     }
 
     body[data-yh-page="apply"] .main-title.step1-title {
@@ -837,7 +837,7 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
     }
 
     body[data-yh-page="apply"] .subtitle.step1-subtitle {
-        font-size: 0.95rem;
+        font-size: 1.03rem;
     }
 }
 
@@ -967,7 +967,7 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
 
     body[data-yh-page="apply"] .pill-input {
         padding: 10px 15px;
-        font-size: 0.85rem;
+        font-size: 1rem;
     }
 
     body[data-yh-page="apply"] .pill-btn-login {
@@ -980,7 +980,7 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
     body[data-yh-page="apply"] .btn-back-icon {
         top: 1rem;
         left: 1rem;
-        font-size: 0.75rem;
+        font-size: 0.91rem;
     }
 
     body[data-yh-page="apply"] .step1-logo {
@@ -993,7 +993,7 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
     }
 
     body[data-yh-page="apply"] .form-group label {
-        font-size: 0.66rem;
+        font-size: 0.91rem;
         margin-bottom: 0.2rem;
         white-space: nowrap;
         overflow: hidden;
@@ -1002,12 +1002,12 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
 
     body[data-yh-page="apply"] .input-field {
         padding: 0.6rem;
-        font-size: 0.75rem;
+        font-size: 0.95rem;
     }
 
     body[data-yh-page="apply"] .btn-primary {
         padding: 0.8rem;
-        font-size: 0.9rem;
+        font-size: 1.03rem;
         margin-top: 10px;
     }
 
@@ -1076,7 +1076,7 @@ body[data-yh-page="apply"] #step-1.yh-landing-step .yh-auth-card .flip-card-back
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-brand-name {
-        font-size: 0.78rem;
+        font-size: 1rem;
     }
 
     body[data-yh-page="apply"] #step-1.yh-landing-step .yh-landing-title {

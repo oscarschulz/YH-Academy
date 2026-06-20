@@ -21365,7 +21365,7 @@ function academyRenderNicheDashboard() {
             <div class="academy-niche-section-head">
                 <div class="academy-niche-section-title">Recommended Niche</div>
             </div>
-            <div class="academy-niche-card-grid">
+            <div class="academy-niche-grid">
                 ${recommended ? academyRenderNicheCard(recommended, { joined: joinedKeys.has(recommended.key), isDefault: recommended.key === defaultKey }) : ''}
             </div>
         </div>
@@ -21374,7 +21374,7 @@ function academyRenderNicheDashboard() {
             <div class="academy-niche-section-head">
                 <div class="academy-niche-section-title">Joined Niches</div>
             </div>
-            <div class="academy-niche-card-grid">
+            <div class="academy-niche-grid">
                 ${
                     joined.length
                         ? joined.map((item) => academyRenderNicheCard(item, { joined: true, isDefault: item.key === defaultKey })).join('')
@@ -21387,7 +21387,7 @@ function academyRenderNicheDashboard() {
             <div class="academy-niche-section-head">
                 <div class="academy-niche-section-title">Explore More Niches</div>
             </div>
-            <div class="academy-niche-card-grid">
+            <div class="academy-niche-grid">
                 ${
                     explore.length
                         ? explore.map((item) => academyRenderNicheCard(item, { joined: false, isDefault: false })).join('')
