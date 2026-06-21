@@ -1,9 +1,10 @@
 const { firestore } = require('../../config/firebaseAdmin');
-const { Timestamp } = require('firebase-admin/firestore');
+const { yhuSupabaseAdmin } = require('../../config/supabaseAdmin');
 const geocodingService = require('../services/geocodingService');
 
 const usersCol = firestore.collection('users');
-const publicLandingEventsCol = firestore.collection('publicLandingEvents');
+
+const SUPABASE_TABLE = 'yhu_public_landing_events';
 
 const sanitizeText = (value, fallback = '') => {
     if (value === null || value === undefined) return fallback;
@@ -15,17 +16,11 @@ const toNumber = (value, fallback = 0) => {
     return Number.isFinite(parsed) ? parsed : fallback;
 };
 
-const mapTimestamp = (value) => {
-    if (!value) return null;
-    if (typeof value.toDate === 'function') return value.toDate().toISOString();
-    if (value instanceof Date) return value.toISOString();
-    return value || null;
-};
+const nowIso = () => new Date().toISOString();
 
-const nowTs = () => Timestamp.now();
-const addSecondsTs = (seconds = 900) => {
+const addSecondsIso = (seconds = 900) => {
     const safeSeconds = Math.max(60, toNumber(seconds, 900));
-    return Timestamp.fromDate(new Date(Date.now() + safeSeconds * 1000));
+    return new Date(Date.now() + safeSeconds * 1000).toISOString();
 };
 
 const COUNTRY_GEO_INDEX = {
@@ -48,7 +43,7 @@ const COUNTRY_GEO_INDEX = {
     japan: { country: 'Japan', countryCode: 'JP', lat: 36.2048, lng: 138.2529 },
     netherlands: { country: 'Netherlands', countryCode: 'NL', lat: 52.1326, lng: 5.2913 },
     sweden: { country: 'Sweden', countryCode: 'SE', lat: 60.1282, lng: 18.6435 },
-    norway: { country: 'Norway', countryCode: 'NO', lat: 60.4720, lng: 8.4689 },
+    norway: { country: 'Norway', countryCode: 'NO', lat: 60.4720, lng: 22.9375 },
     kenya: { country: 'Kenya', countryCode: 'KE', lat: -0.0236, lng: 37.9062 },
     ghana: { country: 'Ghana', countryCode: 'GH', lat: 7.9465, lng: -1.0232 }
 };
@@ -107,8 +102,6 @@ const COUNTRY_ALIASES = {
     gh: 'ghana',
     ghana: 'ghana'
 };
-
-const nowIso = () => new Date().toISOString();
 
 function normalizeGeoText(value = '') {
     return String(value || '').trim().replace(/\s+/g, ' ');
@@ -464,46 +457,9 @@ async function getUserGeo(userId) {
         return null;
     }
 
-    const finalCity =
-        sanitizeText(resolvedGeo?.city) ||
-        fallbackCity;
-
-    const finalCountry =
-        sanitizeText(resolvedGeo?.country) ||
-        fallbackCountry;
-
-    const finalCountryCode =
-        sanitizeText(resolvedGeo?.countryCode) ||
-        fallbackCountryCode;
-
-    if (resolvedGeo && Number.isFinite(resolvedLat) && Number.isFinite(resolvedLng)) {
-        try {
-            await userRef.set(
-                {
-                    ...(finalCity ? { city: finalCity } : {}),
-                    ...(sanitizeText(resolvedGeo.cityNormalized) ? { cityNormalized: resolvedGeo.cityNormalized } : {}),
-                    ...(finalCountry ? { country: finalCountry } : {}),
-                    ...(sanitizeText(resolvedGeo.countryNormalized) ? { countryNormalized: resolvedGeo.countryNormalized } : {}),
-                    ...(finalCountryCode ? { countryCode: finalCountryCode } : {}),
-                    lat: finalLat,
-                    lng: finalLng,
-                    geoSource: resolvedGeo.geoSource,
-                    geoProvider: resolvedGeo.geoProvider,
-                    geoPrecision: resolvedGeo.geoPrecision,
-                    ...(Number.isFinite(Number(resolvedGeo.geoConfidence))
-                        ? { geoConfidence: Number(resolvedGeo.geoConfidence) }
-                        : {}),
-                    ...(sanitizeText(resolvedGeo.geoDisplayName)
-                        ? { geoDisplayName: sanitizeText(resolvedGeo.geoDisplayName) }
-                        : {}),
-                    geoUpdatedAt: resolvedGeo.geoUpdatedAt
-                },
-                { merge: true }
-            );
-        } catch (error) {
-            console.warn(`publicLandingEventsRepo.getUserGeo root geo update failed for ${normalizedUserId}:`, error?.message || error);
-        }
-    }
+    const finalCity = sanitizeText(resolvedGeo?.city) || fallbackCity;
+    const finalCountry = sanitizeText(resolvedGeo?.country) || fallbackCountry;
+    const finalCountryCode = sanitizeText(resolvedGeo?.countryCode) || fallbackCountryCode;
 
     return {
         userId: normalizedUserId,
@@ -517,6 +473,82 @@ async function getUserGeo(userId) {
     };
 }
 
+function buildEventData(payload = {}) {
+    return {
+        type: payload.type,
+        slot: payload.slot,
+        category: payload.category,
+        actorName: payload.actorName,
+        username: payload.username,
+        feedText: payload.feedText,
+        message: payload.message,
+        label: payload.label,
+        locationText: payload.locationText,
+        color: payload.color,
+        altitude: payload.altitude,
+        ...(payload.coreColor ? { coreColor: payload.coreColor } : {}),
+        ...(Number.isFinite(payload.coreAltitude) ? { coreAltitude: payload.coreAltitude } : {}),
+        ...(Number.isFinite(payload.coreRadius) ? { coreRadius: payload.coreRadius } : {}),
+        ...(Number.isFinite(payload.ringAltitude) ? { ringAltitude: payload.ringAltitude } : {}),
+        ...(Array.isArray(payload.ringColor) && payload.ringColor.length ? { ringColor: payload.ringColor } : {}),
+        ...(Number.isFinite(payload.ringMaxRadius) ? { ringMaxRadius: payload.ringMaxRadius } : {}),
+        ...(Number.isFinite(payload.ringPropagationSpeed) ? { ringPropagationSpeed: payload.ringPropagationSpeed } : {}),
+        ...(Number.isFinite(payload.ringRepeatPeriod) ? { ringRepeatPeriod: payload.ringRepeatPeriod } : {}),
+        lat: payload.lat,
+        lng: payload.lng,
+        city: payload.city,
+        country: payload.country,
+        countryCode: payload.countryCode,
+        geoSource: payload.geoSource,
+        ...(payload.geoProvider ? { geoProvider: payload.geoProvider } : {}),
+        ...(payload.geoPrecision ? { geoPrecision: payload.geoPrecision } : {}),
+        ...(Number.isFinite(payload.geoConfidence) ? { geoConfidence: payload.geoConfidence } : {}),
+        ...(payload.geoDisplayName ? { geoDisplayName: payload.geoDisplayName } : {}),
+        ...(payload.geoUpdatedAt ? { geoUpdatedAt: payload.geoUpdatedAt } : {}),
+        userId: payload.userId,
+        createdAt: payload.createdAt,
+        expiresAt: payload.expiresAt
+    };
+}
+
+function mapSupabaseRow(row = {}) {
+    const data = row.data && typeof row.data === 'object' ? row.data : {};
+
+    return {
+        id: row.firebase_document_id || row.id,
+        type: row.event_type || data.type || '',
+        slot: row.slot || data.slot || 'academy',
+        category: row.category || data.category || row.slot || 'academy',
+        actorName: row.actor_name || data.actorName || '',
+        username: row.username || data.username || '',
+        feedText: row.feed_text || data.feedText || row.message || data.message || '',
+        message: row.message || data.message || row.feed_text || data.feedText || '',
+        label: row.label || data.label || '',
+        locationText: data.locationText || buildLocationText({
+            city: row.city || data.city,
+            country: row.country || data.country
+        }),
+        color: row.color || data.color || '#38bdf8',
+        altitude: toNumber(row.altitude ?? data.altitude, 0.22),
+        coreColor: data.coreColor || '',
+        coreAltitude: toNumber(data.coreAltitude, NaN),
+        coreRadius: toNumber(data.coreRadius, NaN),
+        ringAltitude: toNumber(data.ringAltitude, NaN),
+        ringColor: Array.isArray(data.ringColor) ? data.ringColor : [],
+        ringMaxRadius: toNumber(data.ringMaxRadius, NaN),
+        ringPropagationSpeed: toNumber(data.ringPropagationSpeed, NaN),
+        ringRepeatPeriod: toNumber(data.ringRepeatPeriod, NaN),
+        lat: toNumber(row.lat ?? data.lat, NaN),
+        lng: toNumber(row.lng ?? data.lng, NaN),
+        city: row.city || data.city || '',
+        country: row.country || data.country || '',
+        countryCode: row.country_code || data.countryCode || '',
+        userId: row.actor_user_id || data.userId || '',
+        createdAt: row.created_at_source || data.createdAt || row.created_at || '',
+        expiresAt: row.expires_at || data.expiresAt || ''
+    };
+}
+
 async function createEventForUser(userId, options = {}) {
     const userGeo = await getUserGeo(userId);
     const eventGeoRequested = hasExplicitLandingEventGeo(options);
@@ -524,13 +556,7 @@ async function createEventForUser(userId, options = {}) {
 
     if (eventGeoRequested && !isValidLandingGeo(eventGeo)) {
         console.warn(
-            `publicLandingEventsRepo.createEventForUser skipped: explicit event geo could not be resolved for user ${sanitizeText(userId) || 'unknown'}`,
-            {
-                city: sanitizeText(eventGeo?.city),
-                country: sanitizeText(eventGeo?.country),
-                locationText: sanitizeText(eventGeo?.locationText || eventGeo?.geoDisplayName),
-                geoSource: sanitizeText(eventGeo?.geoSource)
-            }
+            `publicLandingEventsRepo.createEventForUser skipped: explicit event geo could not be resolved for user ${sanitizeText(userId) || 'unknown'}`
         );
         return null;
     }
@@ -549,26 +575,12 @@ async function createEventForUser(userId, options = {}) {
     }
 
     const slotRaw = sanitizeText(options.slot || 'academy').toLowerCase();
-    const slot = ['academy', 'federation', 'plaza'].includes(slotRaw)
-        ? slotRaw
-        : 'academy';
-
-    const category = sanitizeText(options.category || 'academy') || 'academy';
+    const slot = ['academy', 'federation', 'plaza'].includes(slotRaw) ? slotRaw : 'academy';
+    const category = sanitizeText(options.category || slot) || slot;
     const type = sanitizeText(options.type || 'academy_activity') || 'academy_activity';
     const color = sanitizeText(options.color || '#38bdf8') || '#38bdf8';
     const altitude = toNumber(options.altitude, 0.22);
     const ttlSeconds = toNumber(options.ttlSeconds, 900);
-
-    const coreColor = sanitizeText(options.coreColor || '');
-    const coreAltitude = toNumber(options.coreAltitude, NaN);
-    const coreRadius = toNumber(options.coreRadius, NaN);
-    const ringAltitude = toNumber(options.ringAltitude, NaN);
-    const ringColor = Array.isArray(options.ringColor)
-        ? options.ringColor.map((value) => sanitizeText(value)).filter(Boolean)
-        : [];
-    const ringMaxRadius = toNumber(options.ringMaxRadius, NaN);
-    const ringPropagationSpeed = toNumber(options.ringPropagationSpeed, NaN);
-    const ringRepeatPeriod = toNumber(options.ringRepeatPeriod, NaN);
 
     const actorName = sanitizeText(options.actorName || geo.actorName || geo.username || 'A member');
     const locationText = buildLocationText(geo);
@@ -609,10 +621,10 @@ async function createEventForUser(userId, options = {}) {
                 : locationText
         );
 
-    const createdAt = nowTs();
-    const expiresAt = addSecondsTs(ttlSeconds);
+    const createdAt = nowIso();
+    const expiresAt = addSecondsIso(ttlSeconds);
+    const documentId = `spl_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 
-    const ref = publicLandingEventsCol.doc();
     const payload = {
         type,
         slot,
@@ -625,43 +637,79 @@ async function createEventForUser(userId, options = {}) {
         locationText,
         color,
         altitude,
-        ...(coreColor ? { coreColor } : {}),
-        ...(Number.isFinite(coreAltitude) ? { coreAltitude } : {}),
-        ...(Number.isFinite(coreRadius) ? { coreRadius } : {}),
-        ...(Number.isFinite(ringAltitude) ? { ringAltitude } : {}),
-        ...(ringColor.length ? { ringColor } : {}),
-        ...(Number.isFinite(ringMaxRadius) ? { ringMaxRadius } : {}),
-        ...(Number.isFinite(ringPropagationSpeed) ? { ringPropagationSpeed } : {}),
-        ...(Number.isFinite(ringRepeatPeriod) ? { ringRepeatPeriod } : {}),
+        coreColor: sanitizeText(options.coreColor || ''),
+        coreAltitude: toNumber(options.coreAltitude, NaN),
+        coreRadius: toNumber(options.coreRadius, NaN),
+        ringAltitude: toNumber(options.ringAltitude, NaN),
+        ringColor: Array.isArray(options.ringColor)
+            ? options.ringColor.map((value) => sanitizeText(value)).filter(Boolean)
+            : [],
+        ringMaxRadius: toNumber(options.ringMaxRadius, NaN),
+        ringPropagationSpeed: toNumber(options.ringPropagationSpeed, NaN),
+        ringRepeatPeriod: toNumber(options.ringRepeatPeriod, NaN),
         lat: Number(geo.lat),
         lng: Number(geo.lng),
         city: sanitizeText(geo.city),
         country: sanitizeText(geo.country),
         countryCode: sanitizeText(geo.countryCode).toUpperCase(),
         geoSource: sanitizeText(geo.geoSource || (eventGeoRequested ? 'landing_event_payload' : 'user_profile_geo')),
-        ...(sanitizeText(geo.geoProvider) ? { geoProvider: sanitizeText(geo.geoProvider) } : {}),
-        ...(sanitizeText(geo.geoPrecision) ? { geoPrecision: sanitizeText(geo.geoPrecision) } : {}),
-        ...(Number.isFinite(Number(geo.geoConfidence)) ? { geoConfidence: Number(geo.geoConfidence) } : {}),
-        ...(sanitizeText(geo.geoDisplayName) ? { geoDisplayName: sanitizeText(geo.geoDisplayName) } : {}),
-        ...(sanitizeText(geo.geoUpdatedAt) ? { geoUpdatedAt: sanitizeText(geo.geoUpdatedAt) } : {}),
+        geoProvider: sanitizeText(geo.geoProvider || ''),
+        geoPrecision: sanitizeText(geo.geoPrecision || ''),
+        geoConfidence: toNumber(geo.geoConfidence, NaN),
+        geoDisplayName: sanitizeText(geo.geoDisplayName || ''),
+        geoUpdatedAt: sanitizeText(geo.geoUpdatedAt || ''),
         userId: geo.userId,
         createdAt,
         expiresAt
     };
 
-    await ref.set(payload);
+    const data = buildEventData(payload);
+
+    const row = {
+        firebase_app: 'supabase',
+        firebase_document_id: documentId,
+        firebase_document_path: `publicLandingEvents/${documentId}`,
+        event_type: type,
+        slot,
+        category,
+        actor_user_id: geo.userId,
+        actor_name: actorName,
+        username: geo.username,
+        message,
+        feed_text: feedText,
+        label,
+        city: payload.city,
+        country: payload.country,
+        country_code: payload.countryCode,
+        lat: payload.lat,
+        lng: payload.lng,
+        color,
+        altitude,
+        expires_at: expiresAt,
+        created_at_source: createdAt,
+        updated_at_source: createdAt,
+        data
+    };
+
+    const { error } = await yhuSupabaseAdmin
+        .from(SUPABASE_TABLE)
+        .upsert(row, { onConflict: 'firebase_document_path' });
+
+    if (error) {
+        throw new Error(`Supabase public landing insert failed: ${error.message}`);
+    }
 
     if (typeof global.yhEmitPublicLandingSnapshot === 'function') {
-        Promise.resolve(global.yhEmitPublicLandingSnapshot()).catch((error) => {
-            console.warn('public landing snapshot emit skipped:', error?.message || error);
+        Promise.resolve(global.yhEmitPublicLandingSnapshot()).catch((emitError) => {
+            console.warn('public landing snapshot emit skipped:', emitError?.message || emitError);
         });
     }
 
     return {
-        id: ref.id,
+        id: documentId,
         ...payload,
-        createdAt: mapTimestamp(createdAt),
-        expiresAt: mapTimestamp(expiresAt)
+        createdAt,
+        expiresAt
     };
 }
 
@@ -681,56 +729,30 @@ async function createAcademyActionEvent(userId, actionKey = '', details = {}) {
             type: 'academy_roadmap_application',
             slot: 'academy',
             category: 'academy',
-            messagePrefix:
-                target30Days
-                    ? `Roadmap access unlocked for ${target30Days}`
-                    : focusArea
-                        ? `Roadmap access unlocked for ${focusArea}`
-                        : 'Roadmap access unlocked',
+            messagePrefix: target30Days
+                ? `Roadmap access unlocked for ${target30Days}`
+                : focusArea
+                    ? `Roadmap access unlocked for ${focusArea}`
+                    : 'Roadmap access unlocked',
             labelPrefix: 'Academy Roadmap',
             color: '#7dd3fc',
             altitude: 0.2,
-            ttlSeconds: 1800,
-            coreColor: 'rgba(191, 219, 254, 0.98)',
-            coreAltitude: 0.013,
-            coreRadius: 0.19,
-            ringAltitude: 0.0034,
-            ringColor: [
-                'rgba(191, 219, 254, 0.98)',
-                'rgba(125, 211, 252, 0.48)',
-                'rgba(125, 211, 252, 0)'
-            ],
-            ringMaxRadius: 5.8,
-            ringPropagationSpeed: 1.82,
-            ringRepeatPeriod: 760
+            ttlSeconds: 1800
         };
     } else if (normalizedAction === 'roadmap_refresh') {
         preset = {
             type: 'academy_roadmap_refresh',
             slot: 'academy',
             category: 'academy',
-            messagePrefix:
-                weeklyTheme
-                    ? `Roadmap refreshed: ${weeklyTheme}`
-                    : weeklyTargetOutcome
-                        ? `Roadmap refreshed: ${weeklyTargetOutcome}`
-                        : 'Roadmap refreshed',
+            messagePrefix: weeklyTheme
+                ? `Roadmap refreshed: ${weeklyTheme}`
+                : weeklyTargetOutcome
+                    ? `Roadmap refreshed: ${weeklyTargetOutcome}`
+                    : 'Roadmap refreshed',
             labelPrefix: 'Roadmap Refresh',
             color: '#38bdf8',
             altitude: 0.21,
-            ttlSeconds: 1500,
-            coreColor: 'rgba(191, 219, 254, 0.98)',
-            coreAltitude: 0.0125,
-            coreRadius: 0.18,
-            ringAltitude: 0.0032,
-            ringColor: [
-                'rgba(191, 219, 254, 0.98)',
-                'rgba(56, 189, 248, 0.46)',
-                'rgba(56, 189, 248, 0)'
-            ],
-            ringMaxRadius: 5.5,
-            ringPropagationSpeed: 1.8,
-            ringRepeatPeriod: 740
+            ttlSeconds: 1500
         };
     } else if (normalizedAction === 'mission_completed') {
         preset = {
@@ -741,19 +763,7 @@ async function createAcademyActionEvent(userId, actionKey = '', details = {}) {
             labelPrefix: 'Mission Complete',
             color: '#22c55e',
             altitude: 0.2,
-            ttlSeconds: 1500,
-            coreColor: 'rgba(220, 252, 231, 0.98)',
-            coreAltitude: 0.012,
-            coreRadius: 0.17,
-            ringAltitude: 0.0031,
-            ringColor: [
-                'rgba(220, 252, 231, 0.98)',
-                'rgba(34, 197, 94, 0.46)',
-                'rgba(34, 197, 94, 0)'
-            ],
-            ringMaxRadius: 5.1,
-            ringPropagationSpeed: 1.9,
-            ringRepeatPeriod: 700
+            ttlSeconds: 1500
         };
     } else if (normalizedAction === 'mission_skipped') {
         preset = {
@@ -764,19 +774,7 @@ async function createAcademyActionEvent(userId, actionKey = '', details = {}) {
             labelPrefix: 'Mission Skipped',
             color: '#f59e0b',
             altitude: 0.18,
-            ttlSeconds: 1350,
-            coreColor: 'rgba(254, 243, 199, 0.98)',
-            coreAltitude: 0.0115,
-            coreRadius: 0.165,
-            ringAltitude: 0.003,
-            ringColor: [
-                'rgba(254, 243, 199, 0.98)',
-                'rgba(245, 158, 11, 0.46)',
-                'rgba(245, 158, 11, 0)'
-            ],
-            ringMaxRadius: 4.8,
-            ringPropagationSpeed: 1.76,
-            ringRepeatPeriod: 760
+            ttlSeconds: 1350
         };
     } else if (normalizedAction === 'mission_stuck') {
         preset = {
@@ -787,19 +785,7 @@ async function createAcademyActionEvent(userId, actionKey = '', details = {}) {
             labelPrefix: 'Mission Stuck',
             color: '#fb7185',
             altitude: 0.18,
-            ttlSeconds: 1350,
-            coreColor: 'rgba(255, 228, 230, 0.98)',
-            coreAltitude: 0.0115,
-            coreRadius: 0.165,
-            ringAltitude: 0.003,
-            ringColor: [
-                'rgba(255, 228, 230, 0.98)',
-                'rgba(251, 113, 133, 0.46)',
-                'rgba(251, 113, 133, 0)'
-            ],
-            ringMaxRadius: 4.9,
-            ringPropagationSpeed: 1.72,
-            ringRepeatPeriod: 780
+            ttlSeconds: 1350
         };
     } else if (normalizedAction === 'checkin_saved') {
         preset = {
@@ -810,19 +796,7 @@ async function createAcademyActionEvent(userId, actionKey = '', details = {}) {
             labelPrefix: 'Daily Check-In',
             color: '#a78bfa',
             altitude: 0.19,
-            ttlSeconds: 1200,
-            coreColor: 'rgba(237, 233, 254, 0.98)',
-            coreAltitude: 0.012,
-            coreRadius: 0.17,
-            ringAltitude: 0.0031,
-            ringColor: [
-                'rgba(237, 233, 254, 0.98)',
-                'rgba(167, 139, 250, 0.46)',
-                'rgba(167, 139, 250, 0)'
-            ],
-            ringMaxRadius: 5.0,
-            ringPropagationSpeed: 1.86,
-            ringRepeatPeriod: 720
+            ttlSeconds: 1200
         };
     }
 
@@ -848,524 +822,7 @@ function getDefaultFeed() {
     };
 }
 
-function getSampleLandingEvents() {
-    const now = Date.now();
-
-    const samples = [
-        {
-            id: 'sample_academy_lagos',
-            type: 'sample_academy_member',
-            slot: 'academy',
-            category: 'academy',
-            message: 'New Academy member joined from Lagos, Nigeria.',
-            label: 'Academy • Lagos, Nigeria',
-            color: '#38bdf8',
-            altitude: 0.22,
-            coreColor: 'rgba(191, 219, 254, 0.98)',
-            coreAltitude: 0.013,
-            coreRadius: 0.19,
-            ringAltitude: 0.0034,
-            ringColor: [
-                'rgba(191, 219, 254, 0.98)',
-                'rgba(56, 189, 248, 0.48)',
-                'rgba(56, 189, 248, 0)'
-            ],
-            ringMaxRadius: 5.8,
-            ringPropagationSpeed: 1.85,
-            ringRepeatPeriod: 760,
-            lat: 6.5244,
-            lng: 3.3792,
-            city: 'Lagos',
-            country: 'Nigeria',
-            countryCode: 'NG'
-        },
-        {
-            id: 'sample_federation_london',
-            type: 'sample_federation_access',
-            slot: 'federation',
-            category: 'federation',
-            message: 'Federation access activity detected from London, United Kingdom.',
-            label: 'Federation • London, United Kingdom',
-            color: '#818cf8',
-            altitude: 0.24,
-            coreColor: 'rgba(199, 210, 254, 0.98)',
-            coreAltitude: 0.014,
-            coreRadius: 0.18,
-            ringAltitude: 0.0038,
-            ringColor: [
-                'rgba(199, 210, 254, 0.98)',
-                'rgba(129, 140, 248, 0.46)',
-                'rgba(129, 140, 248, 0)'
-            ],
-            ringMaxRadius: 6.2,
-            ringPropagationSpeed: 1.74,
-            ringRepeatPeriod: 840,
-            lat: 51.5072,
-            lng: -0.1276,
-            city: 'London',
-            country: 'United Kingdom',
-            countryCode: 'GB'
-        },
-        {
-            id: 'sample_plaza_singapore',
-            type: 'sample_plaza_post',
-            slot: 'plaza',
-            category: 'plaza',
-            message: 'New Plaza networking activity from Singapore.',
-            label: 'Plaza • Singapore',
-            color: '#22d3ee',
-            altitude: 0.18,
-            coreColor: 'rgba(165, 243, 252, 0.98)',
-            coreAltitude: 0.012,
-            coreRadius: 0.17,
-            ringAltitude: 0.0032,
-            ringColor: [
-                'rgba(165, 243, 252, 0.98)',
-                'rgba(34, 211, 238, 0.44)',
-                'rgba(34, 211, 238, 0)'
-            ],
-            ringMaxRadius: 5.2,
-            ringPropagationSpeed: 1.92,
-            ringRepeatPeriod: 700,
-            lat: 1.3521,
-            lng: 103.8198,
-            city: 'Singapore',
-            country: 'Singapore',
-            countryCode: 'SG'
-        },
-        {
-            id: 'sample_academy_dubai',
-            type: 'sample_academy_progress',
-            slot: 'academy',
-            category: 'academy',
-            message: 'Academy progress activity is live from Dubai, United Arab Emirates.',
-            label: 'Academy • Dubai, UAE',
-            color: '#38bdf8',
-            altitude: 0.21,
-            coreColor: 'rgba(191, 219, 254, 0.98)',
-            coreAltitude: 0.0125,
-            coreRadius: 0.17,
-            ringAltitude: 0.0032,
-            ringColor: [
-                'rgba(191, 219, 254, 0.98)',
-                'rgba(56, 189, 248, 0.42)',
-                'rgba(56, 189, 248, 0)'
-            ],
-            ringMaxRadius: 5.3,
-            ringPropagationSpeed: 1.78,
-            ringRepeatPeriod: 760,
-            lat: 25.2048,
-            lng: 55.2708,
-            city: 'Dubai',
-            country: 'United Arab Emirates',
-            countryCode: 'AE'
-        },
-        {
-            id: 'sample_federation_newyork',
-            type: 'sample_federation_connection',
-            slot: 'federation',
-            category: 'federation',
-            message: 'New Federation connection activity from New York, United States.',
-            label: 'Federation • New York, USA',
-            color: '#818cf8',
-            altitude: 0.23,
-            coreColor: 'rgba(199, 210, 254, 0.98)',
-            coreAltitude: 0.013,
-            coreRadius: 0.18,
-            ringAltitude: 0.0035,
-            ringColor: [
-                'rgba(199, 210, 254, 0.98)',
-                'rgba(129, 140, 248, 0.44)',
-                'rgba(129, 140, 248, 0)'
-            ],
-            ringMaxRadius: 5.7,
-            ringPropagationSpeed: 1.68,
-            ringRepeatPeriod: 860,
-            lat: 40.7128,
-            lng: -74.0060,
-            city: 'New York',
-            country: 'United States',
-            countryCode: 'US'
-        },
-        {
-            id: 'sample_plaza_saopaulo',
-            type: 'sample_plaza_discussion',
-            slot: 'plaza',
-            category: 'plaza',
-            message: 'New Plaza discussion activity from São Paulo, Brazil.',
-            label: 'Plaza • São Paulo, Brazil',
-            color: '#22d3ee',
-            altitude: 0.18,
-            coreColor: 'rgba(165, 243, 252, 0.98)',
-            coreAltitude: 0.0118,
-            coreRadius: 0.165,
-            ringAltitude: 0.003,
-            ringColor: [
-                'rgba(165, 243, 252, 0.98)',
-                'rgba(34, 211, 238, 0.42)',
-                'rgba(34, 211, 238, 0)'
-            ],
-            ringMaxRadius: 4.9,
-            ringPropagationSpeed: 1.95,
-            ringRepeatPeriod: 720,
-            lat: -23.5505,
-            lng: -46.6333,
-            city: 'São Paulo',
-            country: 'Brazil',
-            countryCode: 'BR'
-        },
-        {
-            id: 'sample_academy_manila',
-            type: 'sample_academy_checkin',
-            slot: 'academy',
-            category: 'academy',
-            message: 'Academy check-in activity is live from Manila, Philippines.',
-            label: 'Academy • Manila, Philippines',
-            color: '#38bdf8',
-            altitude: 0.2,
-            coreColor: 'rgba(191, 219, 254, 0.98)',
-            coreAltitude: 0.012,
-            coreRadius: 0.17,
-            ringAltitude: 0.0031,
-            ringColor: [
-                'rgba(191, 219, 254, 0.98)',
-                'rgba(56, 189, 248, 0.44)',
-                'rgba(56, 189, 248, 0)'
-            ],
-            ringMaxRadius: 5.1,
-            ringPropagationSpeed: 1.82,
-            ringRepeatPeriod: 740,
-            lat: 14.5995,
-            lng: 120.9842,
-            city: 'Manila',
-            country: 'Philippines',
-            countryCode: 'PH'
-        },
-        {
-            id: 'sample_plaza_johannesburg',
-            type: 'sample_plaza_network',
-            slot: 'plaza',
-            category: 'plaza',
-            message: 'Fresh Plaza networking activity from Johannesburg, South Africa.',
-            label: 'Plaza • Johannesburg, South Africa',
-            color: '#22d3ee',
-            altitude: 0.19,
-            coreColor: 'rgba(165, 243, 252, 0.98)',
-            coreAltitude: 0.012,
-            coreRadius: 0.172,
-            ringAltitude: 0.0032,
-            ringColor: [
-                'rgba(165, 243, 252, 0.98)',
-                'rgba(34, 211, 238, 0.46)',
-                'rgba(34, 211, 238, 0)'
-            ],
-            ringMaxRadius: 5.4,
-            ringPropagationSpeed: 1.88,
-            ringRepeatPeriod: 710,
-            lat: -26.2041,
-            lng: 28.0473,
-            city: 'Johannesburg',
-            country: 'South Africa',
-            countryCode: 'ZA'
-        }
-    ];
-
-    return samples.map((sample, index) => ({
-        ...sample,
-        createdAt: new Date(now - ((index + 1) * 45000)).toISOString(),
-        expiresAt: null
-    }));
-}
-
-function buildEventKey(event = {}) {
-    return [
-        sanitizeText(event.slot || 'academy').toLowerCase(),
-        sanitizeText(event.userId).toLowerCase(),
-        sanitizeText(event.city).toLowerCase(),
-        sanitizeText(event.country).toLowerCase(),
-        String(toNumber(event.lat, NaN)),
-        String(toNumber(event.lng, NaN))
-    ].join('|');
-}
-
-function normalizeLandingEvent(event = {}, index = 0) {
-    const lat = toNumber(event.lat, NaN);
-    const lng = toNumber(event.lng, NaN);
-
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-        return null;
-    }
-
-    return {
-        id: sanitizeText(event.id || `landing_event_${index + 1}`),
-        type: sanitizeText(event.type || 'academy_activity'),
-        slot: sanitizeText(event.slot || 'academy').toLowerCase(),
-        category: sanitizeText(event.category || 'academy'),
-        message: sanitizeText(event.message || 'Academy activity'),
-        label: sanitizeText(event.label || event.message || 'Academy activity'),
-        color: sanitizeText(event.color || '#38bdf8'),
-        altitude: toNumber(event.altitude, 0.22),
-        coreColor: sanitizeText(event.coreColor || event.color || 'rgba(191, 219, 254, 0.96)'),
-        coreAltitude: toNumber(event.coreAltitude, 0.012),
-        coreRadius: toNumber(event.coreRadius, 0.16),
-        ringAltitude: toNumber(event.ringAltitude, 0.0032),
-        ringColor:
-            Array.isArray(event.ringColor) && event.ringColor.length
-                ? event.ringColor.map((value) => sanitizeText(value)).filter(Boolean)
-                : [
-                    'rgba(191, 219, 254, 0.96)',
-                    'rgba(56, 189, 248, 0.42)',
-                    'rgba(56, 189, 248, 0)'
-                ],
-        ringMaxRadius: toNumber(event.ringMaxRadius, 4.8),
-        ringPropagationSpeed: toNumber(event.ringPropagationSpeed, 1.65),
-        ringRepeatPeriod: toNumber(event.ringRepeatPeriod, 680),
-        lat,
-        lng,
-        city: sanitizeText(event.city),
-        country: sanitizeText(event.country),
-        countryCode: sanitizeText(event.countryCode),
-        createdAt: mapTimestamp(event.createdAt) || new Date().toISOString(),
-        expiresAt: mapTimestamp(event.expiresAt)
-    };
-}
-
-function buildLandingPayloadFromEvents(events = []) {
-    const normalizedEvents = (Array.isArray(events) ? events : [])
-        .map((event, index) => normalizeLandingEvent(event, index))
-        .filter(Boolean);
-
-    const feed = getDefaultFeed();
-
-    const latestAcademy = normalizedEvents.find((event) => event.slot === 'academy');
-    const latestAccess = normalizedEvents.find((event) => event.slot === 'federation');
-    const latestCommunity = normalizedEvents.find((event) => event.slot === 'plaza');
-
-    if (latestAcademy?.message) feed.academy = latestAcademy.message;
-    if (latestAccess?.message) feed.federation = latestAccess.message;
-    if (latestCommunity?.message) feed.plaza = latestCommunity.message;
-
-    const points = normalizedEvents.slice(0, 8).map((event) => ({
-        id: event.id,
-        lat: event.lat,
-        lng: event.lng,
-        label: event.label || event.message || 'Academy activity',
-        color: event.color,
-        altitude: event.altitude,
-        coreColor: event.coreColor,
-        coreAltitude: event.coreAltitude,
-        coreRadius: event.coreRadius,
-        ringAltitude: event.ringAltitude,
-        ringColor: event.ringColor,
-        ringMaxRadius: event.ringMaxRadius,
-        ringPropagationSpeed: event.ringPropagationSpeed,
-        ringRepeatPeriod: event.ringRepeatPeriod
-    }));
-
-    const focusPoint = points[0]
-        ? {
-            id: points[0].id,
-            lat: points[0].lat,
-            lng: points[0].lng,
-            label: points[0].label
-        }
-        : null;
-
-    return {
-        feed,
-        points,
-        arcs: [],
-        focusPoint,
-        updatedAt: new Date().toISOString()
-    };
-}
-
-async function buildPublicLandingSnapshotFromFirebase(limit = 24) {
-    const safeLimit = Math.max(6, Math.min(toNumber(limit, 24), 50));
-
-    const snap = await publicLandingEventsCol
-        .orderBy('createdAt', 'desc')
-        .limit(safeLimit)
-        .get();
-
-    const nowMs = Date.now();
-
-    const events = snap.docs
-        .map((doc) => {
-            const data = doc.data() || {};
-            return {
-                id: doc.id,
-                type: sanitizeText(data.type),
-                slot: sanitizeText(data.slot || 'academy').toLowerCase(),
-                category: sanitizeText(data.category || 'academy'),
-                actorName: sanitizeText(data.actorName),
-                username: sanitizeText(data.username),
-                userId: sanitizeText(data.userId),
-                feedText: sanitizeText(data.feedText),
-                message: sanitizeText(data.message),
-                label: sanitizeText(data.label),
-                locationText: sanitizeText(data.locationText),
-                color: sanitizeText(data.color || '#38bdf8'),
-                altitude: toNumber(data.altitude, 0.22),
-                coreColor: sanitizeText(data.coreColor || ''),
-                coreAltitude: toNumber(data.coreAltitude, NaN),
-                coreRadius: toNumber(data.coreRadius, NaN),
-                ringAltitude: toNumber(data.ringAltitude, NaN),
-                ringColor: Array.isArray(data.ringColor)
-                    ? data.ringColor.map((value) => sanitizeText(value)).filter(Boolean)
-                    : [],
-                ringMaxRadius: toNumber(data.ringMaxRadius, NaN),
-                ringPropagationSpeed: toNumber(data.ringPropagationSpeed, NaN),
-                ringRepeatPeriod: toNumber(data.ringRepeatPeriod, NaN),
-                lat: toNumber(data.lat, NaN),
-                lng: toNumber(data.lng, NaN),
-                city: sanitizeText(data.city),
-                country: sanitizeText(data.country),
-                countryCode: sanitizeText(data.countryCode),
-                createdAt: mapTimestamp(data.createdAt),
-                expiresAt: mapTimestamp(data.expiresAt)
-            };
-        })
-        .filter((event) => Number.isFinite(event.lat) && Number.isFinite(event.lng))
-        .filter((event) => {
-            if (!event.expiresAt) return true;
-            const expiresMs = new Date(event.expiresAt).getTime();
-            return Number.isFinite(expiresMs) ? expiresMs > nowMs : true;
-        });
-
-    const uniqueEvents = [];
-    const seenKeys = new Set();
-
-    for (const event of events) {
-        const eventKey = buildEventKey(event);
-        if (seenKeys.has(eventKey)) continue;
-        seenKeys.add(eventKey);
-        uniqueEvents.push(event);
-    }
-
-    const orderedEvents = uniqueEvents
-        .slice()
-        .sort((a, b) => {
-            const aTime = new Date(a.createdAt || 0).getTime();
-            const bTime = new Date(b.createdAt || 0).getTime();
-            return bTime - aTime;
-        });
-
-    const feed = getDefaultFeed();
-
-    const latestAcademy = orderedEvents.find((event) => event.slot === 'academy');
-    const latestFederation = orderedEvents.find((event) => event.slot === 'federation');
-    const latestPlaza = orderedEvents.find((event) => event.slot === 'plaza');
-
-    if (latestAcademy?.feedText) feed.academy = latestAcademy.feedText;
-    if (latestFederation?.feedText) feed.federation = latestFederation.feedText;
-    if (latestPlaza?.feedText) feed.plaza = latestPlaza.feedText;
-
-    const liveEvents = orderedEvents.slice(0, 6).map((event) => ({
-        id: event.id,
-        pointId: event.id,
-        slot: event.slot,
-        type: event.type,
-        actorName: event.actorName,
-        label: event.label || `${sanitizeText(event.slot || 'activity')} activity`,
-        feedText: event.feedText || event.message || 'Live activity',
-        locationText: event.locationText || buildLocationText(event),
-        city: event.city,
-        country: event.country,
-        countryCode: event.countryCode,
-        createdAt: event.createdAt
-    }));
-
-    const academyEvents = liveEvents
-        .filter((event) => event.slot === 'academy')
-        .slice(0, 6);
-
-    const points = orderedEvents.slice(0, 8).map((event) => ({
-        id: event.id,
-        lat: event.lat,
-        lng: event.lng,
-        label: event.label || event.locationText || event.feedText || event.message || 'Live activity',
-        color: event.color || '#38bdf8',
-        altitude: event.altitude || 0.22,
-        ...(event.coreColor ? { coreColor: event.coreColor } : {}),
-        ...(Number.isFinite(event.coreAltitude) ? { coreAltitude: event.coreAltitude } : {}),
-        ...(Number.isFinite(event.coreRadius) ? { coreRadius: event.coreRadius } : {}),
-        ...(Number.isFinite(event.ringAltitude) ? { ringAltitude: event.ringAltitude } : {}),
-        ...(Array.isArray(event.ringColor) && event.ringColor.length ? { ringColor: event.ringColor } : {}),
-        ...(Number.isFinite(event.ringMaxRadius) ? { ringMaxRadius: event.ringMaxRadius } : {}),
-        ...(Number.isFinite(event.ringPropagationSpeed) ? { ringPropagationSpeed: event.ringPropagationSpeed } : {}),
-        ...(Number.isFinite(event.ringRepeatPeriod) ? { ringRepeatPeriod: event.ringRepeatPeriod } : {})
-    }));
-
-    const focusPoint = points[0]
-        ? {
-            id: points[0].id,
-            lat: points[0].lat,
-            lng: points[0].lng,
-            label: points[0].label
-        }
-        : null;
-
-    const verifiedMembersSnap = await usersCol
-        .where('isVerified', '==', true)
-        .get();
-
-    const verifiedMembers = verifiedMembersSnap.docs.map((doc) => doc.data() || {});
-
-    const reachCountries = new Set(
-        verifiedMembers
-            .map((member) => sanitizeText(member.country || member.locationCountry || ''))
-            .filter(Boolean)
-            .map((country) => country.toLowerCase())
-    );
-
-    let impressionsCount = orderedEvents.length;
-
-    try {
-        const aggregateSnap = await publicLandingEventsCol.count().get();
-        const aggregateData = typeof aggregateSnap.data === 'function' ? aggregateSnap.data() : null;
-        const aggregateCount = Number(aggregateData?.count);
-
-        if (Number.isFinite(aggregateCount) && aggregateCount >= 0) {
-            impressionsCount = aggregateCount;
-        }
-    } catch (_) {
-        impressionsCount = orderedEvents.length;
-    }
-
-    const stats = {
-        members: verifiedMembers.length,
-        reach: reachCountries.size,
-        impressions: impressionsCount
-    };
-
-    return {
-        feed,
-        liveEvents,
-        academyEvents,
-        points,
-        arcs: [],
-        focusPoint,
-        stats,
-        updatedAt: new Date().toISOString()
-    };
-}
-
-
-function isFirebaseQuotaError(error) {
-    const text = [
-        error && error.code,
-        error && error.message,
-        error && error.details
-    ].map((value) => String(value || '').toLowerCase()).join(' ');
-
-    return text.includes('resource_exhausted') ||
-        text.includes('quota exceeded') ||
-        text.includes('code 8') ||
-        text.includes('8 resource');
-}
-
-function buildPublicLandingFallbackSnapshot(reason = 'firebase_quota_exhausted') {
+function buildPublicLandingFallbackSnapshot(reason = 'supabase_public_landing_unavailable') {
     return {
         feed: getDefaultFeed(),
         liveEvents: [],
@@ -1380,21 +837,130 @@ function buildPublicLandingFallbackSnapshot(reason = 'firebase_quota_exhausted')
         },
         source: 'fallback',
         reason,
-        warning: 'Public landing live feed is temporarily using a safe fallback because Firebase quota is exhausted.',
+        warning: 'Public landing live feed is temporarily using a safe fallback.',
         updatedAt: new Date().toISOString()
     };
 }
 
-async function buildPublicLandingSnapshot(limit = 24) {
+async function getVerifiedMemberStats() {
     try {
-        return await buildPublicLandingSnapshotFromFirebase(limit);
+        const snap = await usersCol.where('isVerified', '==', true).get();
+        const verifiedMembers = snap.docs.map((doc) => doc.data() || {});
+        const reachCountries = new Set(
+            verifiedMembers
+                .map((member) => sanitizeText(member.country || member.locationCountry || ''))
+                .filter(Boolean)
+                .map((country) => country.toLowerCase())
+        );
+
+        return {
+            members: verifiedMembers.length,
+            reach: reachCountries.size
+        };
     } catch (error) {
-        if (isFirebaseQuotaError(error)) {
-            console.warn('[PUBLIC LANDING] Firebase quota exhausted. Returning fallback snapshot.');
-            return buildPublicLandingFallbackSnapshot('firebase_quota_exhausted');
+        console.warn('publicLandingEventsRepo.getVerifiedMemberStats fallback:', error?.message || error);
+        return {
+            members: 0,
+            reach: 0
+        };
+    }
+}
+
+async function buildPublicLandingSnapshot(limit = 24) {
+    const normalizedLimit = Math.max(1, Math.min(100, Number.parseInt(limit, 10) || 24));
+
+    try {
+        const { data, error } = await yhuSupabaseAdmin
+            .from(SUPABASE_TABLE)
+            .select('*')
+            .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
+            .order('created_at_source', { ascending: false })
+            .limit(Math.max(normalizedLimit, 40));
+
+        if (error) {
+            throw new Error(error.message);
         }
 
-        throw error;
+        const orderedEvents = (Array.isArray(data) ? data : [])
+            .map(mapSupabaseRow)
+            .filter((event) => Number.isFinite(Number(event.lat)) && Number.isFinite(Number(event.lng)))
+            .slice(0, normalizedLimit);
+
+        const feed = getDefaultFeed();
+
+        const latestAcademy = orderedEvents.find((event) => event.slot === 'academy');
+        const latestFederation = orderedEvents.find((event) => event.slot === 'federation');
+        const latestPlaza = orderedEvents.find((event) => event.slot === 'plaza');
+
+        if (latestAcademy?.feedText) feed.academy = latestAcademy.feedText;
+        if (latestFederation?.feedText) feed.federation = latestFederation.feedText;
+        if (latestPlaza?.feedText) feed.plaza = latestPlaza.feedText;
+
+        const liveEvents = orderedEvents.slice(0, 6).map((event) => ({
+            id: event.id,
+            pointId: event.id,
+            slot: event.slot,
+            type: event.type,
+            actorName: event.actorName,
+            label: event.label || `${sanitizeText(event.slot || 'activity')} activity`,
+            feedText: event.feedText || event.message || 'Live activity',
+            locationText: event.locationText || buildLocationText(event),
+            city: event.city,
+            country: event.country,
+            countryCode: event.countryCode,
+            createdAt: event.createdAt
+        }));
+
+        const academyEvents = liveEvents
+            .filter((event) => event.slot === 'academy')
+            .slice(0, 6);
+
+        const points = orderedEvents.slice(0, 8).map((event) => ({
+            id: event.id,
+            lat: event.lat,
+            lng: event.lng,
+            label: event.label || event.locationText || event.feedText || event.message || 'Live activity',
+            color: event.color || '#38bdf8',
+            altitude: event.altitude || 0.22,
+            ...(event.coreColor ? { coreColor: event.coreColor } : {}),
+            ...(Number.isFinite(event.coreAltitude) ? { coreAltitude: event.coreAltitude } : {}),
+            ...(Number.isFinite(event.coreRadius) ? { coreRadius: event.coreRadius } : {}),
+            ...(Number.isFinite(event.ringAltitude) ? { ringAltitude: event.ringAltitude } : {}),
+            ...(Array.isArray(event.ringColor) && event.ringColor.length ? { ringColor: event.ringColor } : {}),
+            ...(Number.isFinite(event.ringMaxRadius) ? { ringMaxRadius: event.ringMaxRadius } : {}),
+            ...(Number.isFinite(event.ringPropagationSpeed) ? { ringPropagationSpeed: event.ringPropagationSpeed } : {}),
+            ...(Number.isFinite(event.ringRepeatPeriod) ? { ringRepeatPeriod: event.ringRepeatPeriod } : {})
+        }));
+
+        const focusPoint = points[0]
+            ? {
+                id: points[0].id,
+                lat: points[0].lat,
+                lng: points[0].lng,
+                label: points[0].label
+            }
+            : null;
+
+        const memberStats = await getVerifiedMemberStats();
+
+        return {
+            feed,
+            liveEvents,
+            academyEvents,
+            points,
+            arcs: [],
+            focusPoint,
+            stats: {
+                members: memberStats.members,
+                reach: memberStats.reach,
+                impressions: orderedEvents.length
+            },
+            source: 'supabase',
+            updatedAt: new Date().toISOString()
+        };
+    } catch (error) {
+        console.warn('[PUBLIC LANDING] Supabase snapshot failed. Returning fallback snapshot:', error?.message || error);
+        return buildPublicLandingFallbackSnapshot('supabase_public_landing_failed');
     }
 }
 
