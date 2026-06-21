@@ -23,6 +23,7 @@ function getViewerFromRequest(req) {
     };
 }
 
+
 exports.getBootstrap = async (req, res) => {
     try {
         const viewer = getViewerFromRequest(req);
@@ -34,10 +35,24 @@ exports.getBootstrap = async (req, res) => {
         const data = await realtimeRepo.getBootstrap(viewer.id);
         return res.json({ success: true, data });
     } catch (error) {
-        console.error('getBootstrap error:', error);
-        return sendError(res, error, 'Failed to load realtime bootstrap data.');
+        console.warn('getBootstrap fail-soft fallback:', error?.message || error);
+
+        return res.json({
+            success: true,
+            degraded: true,
+            warning: 'Realtime bootstrap is temporarily using safe fallback data.',
+            data: {
+                selfProfile: null,
+                rooms: [],
+                vaultItems: [],
+                liveRooms: [],
+                notifications: [],
+                leaderboard: []
+            }
+        });
     }
 };
+
 
 exports.getRooms = async (req, res) => {
     try {
@@ -45,8 +60,14 @@ exports.getRooms = async (req, res) => {
         const rooms = await realtimeRepo.getRooms(viewer.id);
         return res.json({ success: true, rooms });
     } catch (error) {
-        console.error('getRooms error:', error);
-        return sendError(res, error, 'Failed to load rooms.');
+        console.warn('getRooms fail-soft fallback:', error?.message || error);
+
+        return res.json({
+            success: true,
+            degraded: true,
+            warning: 'Realtime rooms are temporarily unavailable.',
+            rooms: []
+        });
     }
 };
 
@@ -277,13 +298,20 @@ exports.createVaultFile = async (req, res) => {
     }
 };
 
+
 exports.getLiveRooms = async (req, res) => {
     try {
         const rooms = await realtimeRepo.getLiveRooms();
         return res.json({ success: true, rooms });
     } catch (error) {
-        console.error('getLiveRooms error:', error);
-        return sendError(res, error, 'Failed to load live rooms.');
+        console.warn('getLiveRooms fail-soft fallback:', error?.message || error);
+
+        return res.json({
+            success: true,
+            degraded: true,
+            warning: 'Live rooms are temporarily unavailable.',
+            rooms: []
+        });
     }
 };
 
@@ -316,6 +344,7 @@ exports.createLiveRoom = async (req, res) => {
     }
 };
 
+
 exports.getNotifications = async (req, res) => {
     try {
         const viewer = getViewerFromRequest(req);
@@ -337,8 +366,15 @@ exports.getNotifications = async (req, res) => {
             unreadCount
         });
     } catch (error) {
-        console.error('getNotifications error:', error);
-        return sendError(res, error, 'Failed to load notifications.');
+        console.warn('getNotifications fail-soft fallback:', error?.message || error);
+
+        return res.json({
+            success: true,
+            degraded: true,
+            warning: 'Realtime notifications are temporarily unavailable.',
+            notifications: [],
+            unreadCount: 0
+        });
     }
 };
 
