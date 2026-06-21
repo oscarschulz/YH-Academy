@@ -1,3 +1,44 @@
+const fs = require('fs');
+const path = require('path');
+
+function loadLocalEnv() {
+  const envPath = path.join(__dirname, '..', '.env');
+
+  if (!fs.existsSync(envPath)) {
+    console.warn('[env] No .env file found at project root. Using existing process.env only.');
+    return;
+  }
+
+  const raw = fs.readFileSync(envPath, 'utf8');
+
+  for (const line of raw.split(/\r?\n/)) {
+    const trimmed = line.trim();
+
+    if (!trimmed || trimmed.startsWith('#')) continue;
+
+    const eqIndex = trimmed.indexOf('=');
+    if (eqIndex === -1) continue;
+
+    const key = trimmed.slice(0, eqIndex).trim();
+    let value = trimmed.slice(eqIndex + 1).trim();
+
+    if (!key || process.env[key] !== undefined) continue;
+
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+
+    process.env[key] = value;
+  }
+
+  console.log('[env] Loaded project .env for importer.');
+}
+
+loadLocalEnv();
+
 const { firestore, collectionsFirestore } = require('../config/firebaseAdmin');
 const { yhuSupabaseAdmin } = require('../config/supabaseAdmin');
 
