@@ -239,9 +239,32 @@ router.get('/internal/ai-nurture/:gate/academy/telemetry/:uid', aiNurtureGate, a
 // ==========================================
 // ⚡ REALTIME BACKEND ROUTES
 // ==========================================
-router.get('/realtime/bootstrap', auth, realtimeControllers.getBootstrap);
 
-router.get('/realtime/rooms', auth, realtimeControllers.getRooms);
+router.get('/realtime/bootstrap', auth, (req, res) => {
+    return res.json({
+        success: true,
+        degraded: true,
+        warning: 'Realtime bootstrap is temporarily using safe fallback data during migration.',
+        data: {
+            selfProfile: null,
+            rooms: [],
+            vaultItems: [],
+            liveRooms: [],
+            notifications: [],
+            leaderboard: []
+        }
+    });
+});
+
+
+router.get('/realtime/rooms', auth, (req, res) => {
+    return res.json({
+        success: true,
+        degraded: true,
+        warning: 'Realtime rooms are temporarily using safe fallback data during migration.',
+        rooms: []
+    });
+});
 router.post('/realtime/rooms', auth, realtimeControllers.createRoom);
 router.delete('/realtime/rooms/:id', auth, realtimeControllers.deleteRoom);
 router.patch('/realtime/rooms/:id/hide', auth, realtimeControllers.hideRoom);
@@ -252,10 +275,27 @@ router.get('/realtime/vault', auth, realtimeControllers.getVaultItems);
 router.post('/realtime/vault/folder', auth, realtimeControllers.createVaultFolder);
 router.post('/realtime/vault/file', auth, realtimeControllers.createVaultFile);
 
-router.get('/realtime/live-rooms', auth, realtimeControllers.getLiveRooms);
+
+router.get('/realtime/live-rooms', auth, (req, res) => {
+    return res.json({
+        success: true,
+        degraded: true,
+        warning: 'Live rooms are temporarily using safe fallback data during migration.',
+        rooms: []
+    });
+});
 router.post('/realtime/live-rooms', auth, realtimeControllers.createLiveRoom);
 
-router.get('/realtime/notifications', auth, realtimeControllers.getNotifications);
+
+router.get('/realtime/notifications', auth, (req, res) => {
+    return res.json({
+        success: true,
+        degraded: true,
+        warning: 'Realtime notifications are temporarily using safe fallback data during migration.',
+        notifications: [],
+        unreadCount: 0
+    });
+});
 router.post('/realtime/notifications/read-all', auth, realtimeControllers.readAllNotifications);
 router.post('/realtime/notifications/:id/read', auth, realtimeControllers.readNotification);
 
