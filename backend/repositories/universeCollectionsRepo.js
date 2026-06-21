@@ -1,7 +1,7 @@
-const { collectionsFirestore } = require('../../config/firebaseAdmin');
-const { Timestamp } = require('firebase-admin/firestore');
+const crypto = require('crypto');
+const { yhuSupabaseAdmin } = require('../../config/supabaseAdmin');
 
-const COLLECTION_NAME = 'yhUniverseCollections';
+const TABLE_NAME = 'yhu_universe_collection_catalog';
 
 const RESOURCE_TYPES = new Set([
     'link',
@@ -39,20 +39,6 @@ const REVIEW_STATUSES = new Set([
     'rejected',
     'archived'
 ]);
-
-function requireCollectionsFirestore() {
-    if (!collectionsFirestore) {
-        const error = new Error('Collections Firestore is not configured. Missing YH_COLLECTIONS_FIREBASE_SERVICE_ACCOUNT_BASE64.');
-        error.statusCode = 503;
-        throw error;
-    }
-
-    return collectionsFirestore;
-}
-
-function collectionRef() {
-    return requireCollectionsFirestore().collection(COLLECTION_NAME);
-}
 
 function cleanText(value, fallback = '') {
     if (value === null || value === undefined) return fallback;
@@ -123,7 +109,7 @@ function normalizeDivisionScope(value = [], fallbackDivision = 'universe') {
 
 function toIso(value) {
     if (!value) return '';
-    if (typeof value.toDate === 'function') return value.toDate().toISOString();
+    if (typeof value === 'string') return value;
     if (value instanceof Date) return value.toISOString();
     return cleanText(value);
 }
@@ -153,43 +139,47 @@ function buildCreatorSnapshot(viewer = {}) {
     };
 }
 
-function mapCollectionDoc(doc) {
-    const data = doc.data() || {};
+function buildId() {
+    return `yhc_${Date.now()}_${crypto.randomBytes(5).toString('hex')}`;
+}
+
+function mapCollectionRow(row = {}) {
+    const data = row.data && typeof row.data === 'object' ? row.data : {};
 
     return {
-        id: doc.id,
+        id: cleanText(row.source_document_id || row.id),
 
-        title: cleanText(data.title),
-        description: cleanText(data.description),
+        title: cleanText(row.title || data.title),
+        description: cleanText(row.description || data.description || row.summary || data.summary),
 
-        resourceType: normalizeResourceType(data.resourceType),
-        sourceDivision: normalizeDivision(data.sourceDivision),
+        resourceType: normalizeResourceType(row.item_type || data.resourceType),
+        sourceDivision: normalizeDivision(row.source_division || data.sourceDivision),
         divisionScope: Array.isArray(data.divisionScope) ? data.divisionScope : [],
 
-        category: cleanText(data.category),
-        tags: Array.isArray(data.tags) ? data.tags : [],
+        category: cleanText(row.category || data.category),
+        tags: Array.isArray(row.tags) ? row.tags : Array.isArray(data.tags) ? data.tags : [],
 
-        resourceUrl: cleanText(data.resourceUrl),
-        fileUrl: cleanText(data.fileUrl),
-        imageUrl: cleanText(data.imageUrl),
+        resourceUrl: cleanText(row.resource_url || data.resourceUrl),
+        fileUrl: cleanText(row.file_url || data.fileUrl),
+        imageUrl: cleanText(row.image_url || data.imageUrl),
 
-        visibility: cleanText(data.visibility || 'division_members'),
-        accessLevel: normalizeAccessLevel(data.accessLevel),
+        visibility: cleanText(row.visibility || data.visibility || 'division_members'),
+        accessLevel: normalizeAccessLevel(row.access_level || data.accessLevel),
 
-        reviewStatus: normalizeReviewStatus(data.reviewStatus),
+        reviewStatus: normalizeReviewStatus(row.review_status || data.reviewStatus),
 
-        createdByUid: cleanText(data.createdByUid),
-        createdByEmail: cleanText(data.createdByEmail),
-        createdByName: cleanText(data.createdByName),
-        createdByUsername: cleanText(data.createdByUsername),
-        createdByAvatar: cleanText(data.createdByAvatar),
+        createdByUid: cleanText(row.created_by_uid || data.createdByUid),
+        createdByEmail: cleanText(row.created_by_email || data.createdByEmail),
+        createdByName: cleanText(row.created_by_name || data.createdByName),
+        createdByUsername: cleanText(row.created_by_username || data.createdByUsername),
+        createdByAvatar: cleanText(row.created_by_avatar || data.createdByAvatar),
 
         viewCount: Number(data.viewCount || 0),
         saveCount: Number(data.saveCount || 0),
         reportCount: Number(data.reportCount || 0),
 
-        createdAt: toIso(data.createdAt),
-        updatedAt: toIso(data.updatedAt),
+        createdAt: toIso(row.created_at_source || data.createdAt || row.created_at),
+        updatedAt: toIso(row.updated_at_source || data.updatedAt || row.updated_at),
         approvedAt: toIso(data.approvedAt),
         approvedByUid: cleanText(data.approvedByUid)
     };
@@ -205,6 +195,120 @@ function canViewerSeeItem(item = {}, viewer = {}) {
     if (normalizeAccessLevel(item.accessLevel) === 'admin_only') return false;
 
     return true;
+}
+
+function buildResourceData(payload = {}) {
+    return {
+        title: payload.title,
+        description: payload.description,
+
+        resourceType: payload.resourceType,
+        sourceDivision: payload.sourceDivision,
+        divisionScope: payload.divisionScope,
+
+        category: payload.category,
+        tags: payload.tags,
+
+        resourceUrl: payload.resourceUrl,
+        fileUrl: payload.fileUrl,
+        imageUrl: payload.imageUrl,
+
+        visibility: payload.visibility,
+        accessLevel: payload.accessLevel,
+
+        reviewStatus: payload.reviewStatus,
+
+        createdByUid: payload.createdByUid,
+        createdByEmail: payload.createdByEmail,
+        createdByName: payload.createdByName,
+        createdByUsername: payload.createdByUsername,
+        createdByAvatar: payload.createdByAvatar,
+
+        viewCount: payload.viewCount || 0,
+        saveCount: payload.saveCount || 0,
+        reportCount: payload.reportCount || 0,
+
+        createdAt: payload.createdAt,
+        updatedAt: payload.updatedAt,
+        approvedAt: payload.approvedAt || '',
+        approvedByUid: payload.approvedByUid || ''
+    };
+}
+
+function buildResourceRow(itemId, payload = {}) {
+    const data = buildResourceData(payload);
+
+    return {
+        record_source: 'resource',
+        source_collection_path: 'yhUniverseCollections',
+        source_document_id: itemId,
+        source_document_path: `yhUniverseCollections/${itemId}`,
+
+        item_type: payload.resourceType,
+        title: payload.title,
+        summary: payload.description,
+        description: payload.description,
+
+        source_division: payload.sourceDivision,
+        target_division: payload.accessLevel || payload.sourceDivision,
+        source_feature: 'resources',
+        source_system: 'yh_universe_collections',
+        source_record_id: itemId,
+        source_record_path: `yhUniverseCollections/${itemId}`,
+
+        access_level: payload.accessLevel,
+        visibility: payload.visibility,
+        review_status: payload.reviewStatus,
+        listing_status: payload.reviewStatus,
+
+        category: payload.category,
+        tags: payload.tags,
+
+        created_by_uid: payload.createdByUid,
+        created_by_email: payload.createdByEmail,
+        created_by_name: payload.createdByName,
+        created_by_username: payload.createdByUsername,
+        created_by_avatar: payload.createdByAvatar,
+
+        public_meta: {
+            resourceType: payload.resourceType,
+            resourceUrl: payload.resourceUrl,
+            fileUrl: payload.fileUrl,
+            imageUrl: payload.imageUrl
+        },
+        private_meta_available: false,
+        monetized: false,
+
+        resource_url: payload.resourceUrl,
+        file_url: payload.fileUrl,
+        image_url: payload.imageUrl,
+
+        buyer_price_amount: 0,
+        seller_price_amount: 0,
+        currency: 'USD',
+
+        created_at_source: payload.createdAt,
+        updated_at_source: payload.updatedAt,
+
+        data
+    };
+}
+
+async function fetchResourceRowById(itemId = '') {
+    const cleanId = cleanText(itemId);
+
+    const { data, error } = await yhuSupabaseAdmin
+        .from(TABLE_NAME)
+        .select('*')
+        .eq('record_source', 'resource')
+        .eq('source_document_id', cleanId)
+        .maybeSingle();
+
+    if (error) {
+        throw new Error(`Supabase collection item lookup failed: ${error.message}`);
+    }
+
+    return data || null;
 }
 
 async function createCollectionItem(viewer = {}, input = {}) {
@@ -231,9 +335,11 @@ async function createCollectionItem(viewer = {}, input = {}) {
         throw error;
     }
 
+    const itemId = buildId();
     const sourceDivision = normalizeDivision(input.sourceDivision || input.division || 'universe');
     const accessLevel = normalizeAccessLevel(input.accessLevel || sourceDivision || 'all_approved_members');
-    const now = Timestamp.now();
+    const now = new Date().toISOString();
+    const creator = buildCreatorSnapshot(viewer);
 
     const payload = {
         title,
@@ -255,7 +361,7 @@ async function createCollectionItem(viewer = {}, input = {}) {
 
         reviewStatus: 'pending_review',
 
-        ...buildCreatorSnapshot(viewer),
+        ...creator,
 
         viewCount: 0,
         saveCount: 0,
@@ -263,30 +369,46 @@ async function createCollectionItem(viewer = {}, input = {}) {
 
         createdAt: now,
         updatedAt: now,
-        approvedAt: null,
+        approvedAt: '',
         approvedByUid: ''
     };
 
-    const ref = await collectionRef().add(payload);
-    const snap = await ref.get();
+    const row = buildResourceRow(itemId, payload);
 
-    return mapCollectionDoc(snap);
+    const { data, error } = await yhuSupabaseAdmin
+        .from(TABLE_NAME)
+        .insert(row)
+        .select('*')
+        .single();
+
+    if (error) {
+        throw new Error(`Supabase collection item create failed: ${error.message}`);
+    }
+
+    return mapCollectionRow(data);
 }
 
 async function listCollections(viewer = {}, filters = {}) {
     const limit = Math.max(1, Math.min(200, Number(filters.limit || 80)));
 
-    const snap = await collectionRef()
-        .limit(250)
-        .get();
+    const { data, error } = await yhuSupabaseAdmin
+        .from(TABLE_NAME)
+        .select('*')
+        .eq('record_source', 'resource')
+        .order('updated_at_source', { ascending: false, nullsFirst: false })
+        .limit(250);
+
+    if (error) {
+        throw new Error(`Supabase collection list failed: ${error.message}`);
+    }
 
     const sourceDivision = cleanLower(filters.sourceDivision || filters.division || '');
     const resourceType = cleanLower(filters.resourceType || '');
     const statusFilter = cleanLower(filters.reviewStatus || filters.status || '');
     const q = cleanLower(filters.q || filters.search || '');
 
-    return snap.docs
-        .map(mapCollectionDoc)
+    return (Array.isArray(data) ? data : [])
+        .map(mapCollectionRow)
         .filter((item) => canViewerSeeItem(item, viewer))
         .filter((item) => !sourceDivision || item.sourceDivision === sourceDivision || item.divisionScope.includes(sourceDivision))
         .filter((item) => !resourceType || item.resourceType === resourceType)
@@ -318,15 +440,15 @@ async function getCollectionItemById(viewer = {}, itemId = '') {
         throw error;
     }
 
-    const snap = await collectionRef().doc(cleanId).get();
+    const row = await fetchResourceRowById(cleanId);
 
-    if (!snap.exists) {
+    if (!row) {
         const error = new Error('Collection item not found.');
         error.statusCode = 404;
         throw error;
     }
 
-    const item = mapCollectionDoc(snap);
+    const item = mapCollectionRow(row);
 
     if (!canViewerSeeItem(item, viewer)) {
         const error = new Error('You do not have access to this collection item.');
@@ -353,16 +475,15 @@ async function updateMyCollectionItem(viewer = {}, itemId = '', input = {}) {
         throw error;
     }
 
-    const ref = collectionRef().doc(cleanId);
-    const snap = await ref.get();
+    const existingRow = await fetchResourceRowById(cleanId);
 
-    if (!snap.exists) {
+    if (!existingRow) {
         const error = new Error('Collection item not found.');
         error.statusCode = 404;
         throw error;
     }
 
-    const current = mapCollectionDoc(snap);
+    const current = mapCollectionRow(existingRow);
 
     if (current.createdByUid !== viewerId) {
         const error = new Error('You can only edit your own collection items.');
@@ -388,6 +509,9 @@ async function updateMyCollectionItem(viewer = {}, itemId = '', input = {}) {
         throw error;
     }
 
+    const createdAt = current.createdAt || new Date().toISOString();
+    const updatedAt = new Date().toISOString();
+
     const payload = {
         title: nextTitle,
         description: nextDescription,
@@ -407,15 +531,38 @@ async function updateMyCollectionItem(viewer = {}, itemId = '', input = {}) {
         accessLevel,
 
         reviewStatus: 'pending_review',
-        updatedAt: Timestamp.now(),
-        approvedAt: null,
+
+        createdByUid: current.createdByUid,
+        createdByEmail: current.createdByEmail,
+        createdByName: current.createdByName,
+        createdByUsername: current.createdByUsername,
+        createdByAvatar: current.createdByAvatar,
+
+        viewCount: current.viewCount || 0,
+        saveCount: current.saveCount || 0,
+        reportCount: current.reportCount || 0,
+
+        createdAt,
+        updatedAt,
+        approvedAt: '',
         approvedByUid: ''
     };
 
-    await ref.set(payload, { merge: true });
+    const row = buildResourceRow(cleanId, payload);
 
-    const nextSnap = await ref.get();
-    return mapCollectionDoc(nextSnap);
+    const { data, error } = await yhuSupabaseAdmin
+        .from(TABLE_NAME)
+        .update(row)
+        .eq('record_source', 'resource')
+        .eq('source_document_id', cleanId)
+        .select('*')
+        .single();
+
+    if (error) {
+        throw new Error(`Supabase collection item update failed: ${error.message}`);
+    }
+
+    return mapCollectionRow(data);
 }
 
 async function deleteMyCollectionItem(viewer = {}, itemId = '') {
@@ -434,16 +581,15 @@ async function deleteMyCollectionItem(viewer = {}, itemId = '') {
         throw error;
     }
 
-    const ref = collectionRef().doc(cleanId);
-    const snap = await ref.get();
+    const existingRow = await fetchResourceRowById(cleanId);
 
-    if (!snap.exists) {
+    if (!existingRow) {
         const error = new Error('Collection item not found.');
         error.statusCode = 404;
         throw error;
     }
 
-    const current = mapCollectionDoc(snap);
+    const current = mapCollectionRow(existingRow);
 
     if (current.createdByUid !== viewerId) {
         const error = new Error('You can only delete your own collection items.');
@@ -451,7 +597,15 @@ async function deleteMyCollectionItem(viewer = {}, itemId = '') {
         throw error;
     }
 
-    await ref.delete();
+    const { error } = await yhuSupabaseAdmin
+        .from(TABLE_NAME)
+        .delete()
+        .eq('record_source', 'resource')
+        .eq('source_document_id', cleanId);
+
+    if (error) {
+        throw new Error(`Supabase collection item delete failed: ${error.message}`);
+    }
 
     return {
         id: cleanId,
@@ -465,5 +619,5 @@ module.exports = {
     getCollectionItemById,
     updateMyCollectionItem,
     deleteMyCollectionItem,
-    mapCollectionDoc
+    mapCollectionDoc: mapCollectionRow
 };
