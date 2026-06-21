@@ -1,12 +1,5 @@
-const { firestore } = require('../../config/firebaseAdmin');
-const { Timestamp, FieldValue } = require('firebase-admin/firestore');
-
-const usersCol = firestore.collection('users');
-const feedPostsCol = firestore.collection('academyFeedPosts');
-const friendRequestsCol = firestore.collection('academyFriendRequests');
-const friendshipsCol = firestore.collection('academyFriendships');
-const academyFollowsCol = firestore.collection('academyUserFollows');
-const legacyUserFollowsCol = firestore.collection('userFollows');
+const crypto = require('crypto');
+const { yhuSupabaseAdmin } = require('../../config/supabaseAdmin');
 
 const ACADEMY_COMMUNITY_NICHES = [
     { key: 'ecommerce', label: 'E-commerce', description: 'Stores, products, fulfillment, branding, and online selling.' },
@@ -25,42 +18,40 @@ const ACADEMY_COMMUNITY_NICHES = [
     { key: 'philosophy', label: 'Philosophy', description: 'Reasoning, ethics, worldview, meaning, argument, and truth-seeking.' }
 ];
 
-const nowTs = () => Timestamp.now();
-
-const sanitizeText = (value, fallback = '') => {
+function sanitizeText(value, fallback = '') {
     if (value === null || value === undefined) return fallback;
     return String(value).trim();
-};
+}
 
-const normalizeUserId = (value) => sanitizeText(value);
-const toBool = (value) => value === true;
-const toInt = (value, fallback = 0) => {
+function normalizeUserId(value) {
+    return sanitizeText(value);
+}
+
+function toInt(value, fallback = 0) {
     const parsed = Number.parseInt(value, 10);
     return Number.isFinite(parsed) ? parsed : fallback;
-};
+}
 
-const normalizeFriendPair = (a, b) => {
-    const x = normalizeUserId(a);
-    const y = normalizeUserId(b);
-    return x < y ? [x, y] : [y, x];
-};
+function toBool(value) {
+    return value === true || String(value || '').toLowerCase() === 'true';
+}
 
-const friendshipKeyFor = (a, b) => {
-    const [x, y] = normalizeFriendPair(a, b);
-    return `${x}_${y}`;
-};
-const followKeyFor = (followerId, followingId) => {
-    return `${normalizeUserId(followerId)}_${normalizeUserId(followingId)}`;
-};
+function nowIso() {
+    return new Date().toISOString();
+}
 
-const normalizeNicheKey = (value = '') => {
+function buildId(prefix = 'acm') {
+    return `${prefix}_${Date.now()}_${crypto.randomBytes(5).toString('hex')}`;
+}
+
+function normalizeNicheKey(value = '') {
     return sanitizeText(value)
         .toLowerCase()
         .replace(/^#/, '')
         .replace(/\s+/g, '_')
         .replace(/[^a-z0-9_-]/g, '')
         .slice(0, 64);
-};
+}
 
 function getNicheMeta(nicheKey = '') {
     const cleanKey = normalizeNicheKey(nicheKey);
@@ -69,412 +60,39 @@ function getNicheMeta(nicheKey = '') {
 
 function normalizeFeedScope(value = '') {
     const clean = sanitizeText(value).toLowerCase();
-
     if (clean === 'niche' || clean === 'niches') return 'niche';
     if (clean === 'circle') return 'circle';
-
     return 'global';
 }
 
 function normalizeCircleRelation(value = '') {
     const clean = sanitizeText(value).toLowerCase();
-
     if (clean === 'following') return 'following';
     if (clean === 'followers') return 'followers';
-
     return 'friends';
 }
 
-const mapTimestamp = (value) => {
-    if (!value) return null;
-    if (typeof value.toDate === 'function') return value.toDate().toISOString();
-    if (value instanceof Date) return value.toISOString();
-    return value || null;
-};
-
-async function getUserDoc(userId) {
-    const normalizedUserId = normalizeUserId(userId);
-    if (!normalizedUserId) return null;
-
-    const snap = await usersCol.doc(normalizedUserId).get();
-    if (!snap.exists) return null;
-
-    return { id: snap.id, ...(snap.data() || {}) };
+function normalizeFriendPair(a, b) {
+    const x = normalizeUserId(a);
+    const y = normalizeUserId(b);
+    return x < y ? [x, y] : [y, x];
 }
 
-function buildAuthorSnapshot(userDoc = {}, fallbackUser = {}) {
-    const fullName =
-        sanitizeText(userDoc.fullName) ||
-        sanitizeText(userDoc.name) ||
-        sanitizeText(fallbackUser.name) ||
-        sanitizeText(fallbackUser.fullName) ||
-        sanitizeText(userDoc.username) ||
-        sanitizeText(fallbackUser.username) ||
-        'Hustler';
-
-    const username =
-        sanitizeText(userDoc.username) ||
-        sanitizeText(fallbackUser.username);
-
-    const avatar =
-        sanitizeText(userDoc.avatar) ||
-        sanitizeText(userDoc.profilePhoto) ||
-        sanitizeText(userDoc.photoURL);
-
-    const roleLabel =
-        sanitizeText(userDoc.roleLabel) ||
-        sanitizeText(userDoc.role) ||
-        'Academy Member';
-
-    return {
-        fullName,
-        displayName: fullName,
-        username,
-        avatar,
-        roleLabel
-    };
+function friendshipKeyFor(a, b) {
+    const [x, y] = normalizeFriendPair(a, b);
+    return `${x}_${y}`;
 }
 
-async function getViewerProfile(user = {}) {
-    const viewerId = normalizeUserId(user?.id || user?.firebaseUid);
-    if (!viewerId) {
-        throw new Error('Missing viewer id.');
-    }
-
-    const userDoc = await getUserDoc(viewerId);
-
-    const fallback = {
-        name: user?.name,
-        fullName: user?.fullName,
-        username: user?.username,
-        email: user?.email
-    };
-
-    const authorSnapshot = buildAuthorSnapshot(userDoc || {}, fallback);
-
-    return {
-        id: viewerId,
-        email: sanitizeText(userDoc?.email || user?.email).toLowerCase(),
-        ...authorSnapshot,
-        stats: userDoc?.stats || {
-            followersCount: 0,
-            followingCount: 0,
-            messagesCount: 0,
-            repPoints: 0
-        }
-    };
+function followKeyFor(followerId, followingId) {
+    return `${normalizeUserId(followerId)}_${normalizeUserId(followingId)}`;
 }
 
-async function getFriendshipState(viewerId, authorId) {
-    const normalizedViewerId = normalizeUserId(viewerId);
-    const normalizedAuthorId = normalizeUserId(authorId);
-
-    if (!normalizedViewerId || !normalizedAuthorId || normalizedViewerId === normalizedAuthorId) {
-        return {
-            is_friend: false,
-            outgoing_friend_request_pending: false,
-            incoming_friend_request_pending: false,
-            incoming_friend_request_id: ''
-        };
-    }
-
-    const friendshipSnap = await friendshipsCol.doc(
-        friendshipKeyFor(normalizedViewerId, normalizedAuthorId)
-    ).get();
-
-    if (friendshipSnap.exists) {
-        return {
-            is_friend: true,
-            outgoing_friend_request_pending: false,
-            incoming_friend_request_pending: false,
-            incoming_friend_request_id: ''
-        };
-    }
-
-    const [outgoingPendingSnap, incomingPendingSnap] = await Promise.all([
-        friendRequestsCol
-            .where('senderId', '==', normalizedViewerId)
-            .where('receiverId', '==', normalizedAuthorId)
-            .where('status', '==', 'pending')
-            .limit(1)
-            .get(),
-        friendRequestsCol
-            .where('senderId', '==', normalizedAuthorId)
-            .where('receiverId', '==', normalizedViewerId)
-            .where('status', '==', 'pending')
-            .limit(1)
-            .get()
-    ]);
-
-    const incomingDoc = incomingPendingSnap.empty ? null : incomingPendingSnap.docs[0];
-
-    return {
-        is_friend: false,
-        outgoing_friend_request_pending: !outgoingPendingSnap.empty,
-        incoming_friend_request_pending: !incomingPendingSnap.empty,
-        incoming_friend_request_id: incomingDoc ? sanitizeText(incomingDoc.id) : ''
-    };
-}
-async function getFriendIdsForUser(userId) {
-    const normalizedUserId = normalizeUserId(userId);
-    if (!normalizedUserId) return [];
-
-    const [asUserOneSnap, asUserTwoSnap] = await Promise.all([
-        friendshipsCol.where('userOneId', '==', normalizedUserId).get(),
-        friendshipsCol.where('userTwoId', '==', normalizedUserId).get()
-    ]);
-
-    const ids = new Set();
-
-    asUserOneSnap.docs.forEach((doc) => {
-        const data = doc.data() || {};
-        const otherId = normalizeUserId(data.userTwoId);
-        if (otherId && otherId !== normalizedUserId) ids.add(otherId);
-    });
-
-    asUserTwoSnap.docs.forEach((doc) => {
-        const data = doc.data() || {};
-        const otherId = normalizeUserId(data.userOneId);
-        if (otherId && otherId !== normalizedUserId) ids.add(otherId);
-    });
-
-    return Array.from(ids);
-}
-async function getFollowingIdsForUser(userId) {
-    const normalizedUserId = normalizeUserId(userId);
-    if (!normalizedUserId) return [];
-
-    const snap = await academyFollowsCol
-        .where('followerId', '==', normalizedUserId)
-        .get();
-
-    return snap.docs
-        .map((doc) => sanitizeText(doc.data()?.followingId))
-        .filter(Boolean);
-}
-
-async function getFollowerIdsForUser(userId) {
-    const normalizedUserId = normalizeUserId(userId);
-    if (!normalizedUserId) return [];
-
-    const snap = await academyFollowsCol
-        .where('followingId', '==', normalizedUserId)
-        .get();
-
-    return snap.docs
-        .map((doc) => sanitizeText(doc.data()?.followerId))
-        .filter(Boolean);
-}
-
-async function getMutualFriendCount(viewerId, targetUserId) {
-    const normalizedViewerId = normalizeUserId(viewerId);
-    const normalizedTargetUserId = normalizeUserId(targetUserId);
-
-    if (!normalizedViewerId || !normalizedTargetUserId || normalizedViewerId === normalizedTargetUserId) {
-        return 0;
-    }
-
-    const [viewerFriendIds, targetFriendIds] = await Promise.all([
-        getFriendIdsForUser(normalizedViewerId),
-        getFriendIdsForUser(normalizedTargetUserId)
-    ]);
-
-    const viewerSet = new Set(viewerFriendIds);
-    let count = 0;
-
-    targetFriendIds.forEach((id) => {
-        if (viewerSet.has(id)) count += 1;
-    });
-
-    return count;
-}
-
-async function getLikeState(postId, viewerId) {
-    const normalizedPostId = sanitizeText(postId);
-    const normalizedViewerId = normalizeUserId(viewerId);
-
-    if (!normalizedPostId || !normalizedViewerId) {
-        return {
-            liked_by_me: false,
-            like_count: 0
-        };
-    }
-
-    const likesCol = feedPostsCol.doc(normalizedPostId).collection('likes');
-    const [viewerLikeSnap, allLikesSnap] = await Promise.all([
-        likesCol.doc(normalizedViewerId).get(),
-        likesCol.get()
-    ]);
-
-    return {
-        liked_by_me: viewerLikeSnap.exists,
-        like_count: allLikesSnap.size
-    };
-}
-
-async function getCommentCount(postId) {
-    const normalizedPostId = sanitizeText(postId);
-    if (!normalizedPostId) return 0;
-
-    const commentsSnap = await feedPostsCol.doc(normalizedPostId).collection('comments').get();
-    return commentsSnap.docs.filter((doc) => !toBool(doc.data()?.isDeleted)).length;
-}
-
-function mapPostDoc(doc, extras = {}) {
-    const data = doc.data() || {};
-    const author = data.authorSnapshot || {};
-    const viewerId = sanitizeText(extras.viewerId);
-    const authorId = sanitizeText(data.authorId);
-    const hiddenForUserIds = Array.isArray(data.hiddenForUserIds)
-        ? data.hiddenForUserIds.map((value) => sanitizeText(value)).filter(Boolean)
+function mapArray(value = []) {
+    return Array.isArray(value)
+        ? value.map((item) => sanitizeText(item)).filter(Boolean)
         : [];
-
-    const mediaUrl = sanitizeText(data.mediaUrl || data.imageUrl);
-    const mediaKindRaw = sanitizeText(data.mediaKind).toLowerCase();
-    const mediaKind =
-        mediaKindRaw === 'video'
-            ? 'video'
-            : mediaUrl
-                ? 'image'
-                : '';
-
-    const imageUrl = mediaKind === 'image'
-        ? sanitizeText(data.imageUrl || data.mediaUrl)
-        : '';
-
-    const videoUrl = mediaKind === 'video'
-        ? mediaUrl
-        : '';
-
-    const ownedByMe = authorId === viewerId;
-
-    return {
-        id: doc.id,
-        user_id: authorId,
-        body: sanitizeText(data.body),
-        image_url: imageUrl,
-        video_url: videoUrl,
-        media_url: mediaUrl,
-        media_kind: mediaKind,
-        media_type: sanitizeText(data.mediaType),
-        media_size: toInt(data.mediaSize, 0),
-        visibility: sanitizeText(data.visibility || 'academy'),
-        feedScope: sanitizeText(data.feedScope || 'global'),
-        feed_scope: sanitizeText(data.feedScope || 'global'),
-        nicheKey: sanitizeText(data.nicheKey),
-        niche_key: sanitizeText(data.nicheKey),
-        nicheLabel: sanitizeText(data.nicheLabel),
-        niche_label: sanitizeText(data.nicheLabel),
-        audience: sanitizeText(data.audience || data.visibility || 'academy'),
-        is_pinned: toBool(data.isPinned),
-        is_deleted: toBool(data.isDeleted),
-        hidden_by_me: viewerId ? hiddenForUserIds.includes(viewerId) : false,
-        created_at: mapTimestamp(data.createdAt),
-        updated_at: mapTimestamp(data.updatedAt),
-        edited_at: mapTimestamp(data.editedAt),
-        fullName: sanitizeText(author.fullName),
-        display_name: sanitizeText(author.displayName || author.fullName),
-        username: sanitizeText(author.username),
-        avatar: sanitizeText(author.avatar),
-        role_label: sanitizeText(author.roleLabel || 'Academy Member'),
-        share: data.share || null,
-        like_count: toInt(extras.like_count, 0),
-        comment_count: toInt(extras.comment_count, 0),
-        liked_by_me: toBool(extras.liked_by_me),
-        owned_by_me: ownedByMe,
-        can_edit: ownedByMe,
-        can_delete: ownedByMe,
-        can_hide: Boolean(viewerId),
-        following_author: false,
-        is_friend: toBool(extras.is_friend),
-        outgoing_friend_request_pending: toBool(extras.outgoing_friend_request_pending)
-    };
 }
-function mapCommentDoc(doc, extras = {}) {
-    const data = doc.data() || {};
-    const snapshot = data.authorSnapshot && typeof data.authorSnapshot === 'object'
-        ? data.authorSnapshot
-        : {};
 
-    const fallback = extras.authorFallback && typeof extras.authorFallback === 'object'
-        ? extras.authorFallback
-        : {};
-
-    const viewerId = sanitizeText(extras.viewerId);
-    const postOwnerId = sanitizeText(extras.postOwnerId);
-    const authorId = sanitizeText(data.authorId);
-
-    const hiddenForUserIds = Array.isArray(data.hiddenForUserIds)
-        ? data.hiddenForUserIds.map((value) => sanitizeText(value)).filter(Boolean)
-        : [];
-
-    const fullName =
-        sanitizeText(snapshot.fullName) ||
-        sanitizeText(snapshot.name) ||
-        sanitizeText(fallback.fullName) ||
-        sanitizeText(fallback.name);
-
-    const displayName =
-        sanitizeText(snapshot.displayName) ||
-        sanitizeText(snapshot.display_name) ||
-        fullName ||
-        sanitizeText(fallback.displayName) ||
-        sanitizeText(fallback.display_name) ||
-        sanitizeText(fallback.username) ||
-        'Academy Member';
-
-    const username =
-        sanitizeText(snapshot.username) ||
-        sanitizeText(fallback.username);
-
-    const avatar =
-        sanitizeText(snapshot.avatar) ||
-        sanitizeText(snapshot.avatarUrl) ||
-        sanitizeText(snapshot.profilePhoto) ||
-        sanitizeText(snapshot.photoURL) ||
-        sanitizeText(fallback.avatar) ||
-        sanitizeText(fallback.avatarUrl) ||
-        sanitizeText(fallback.profilePhoto) ||
-        sanitizeText(fallback.photoURL);
-
-    const roleLabel =
-        sanitizeText(snapshot.roleLabel) ||
-        sanitizeText(snapshot.role_label) ||
-        sanitizeText(fallback.roleLabel) ||
-        sanitizeText(fallback.role) ||
-        'Academy Member';
-
-    const ownedByMe = authorId === viewerId;
-    const postOwnedByMe = postOwnerId === viewerId;
-
-    return {
-        id: doc.id,
-        post_id: sanitizeText(extras.postId),
-        user_id: authorId,
-        body: sanitizeText(data.body),
-        parent_comment_id: sanitizeText(data.parentCommentId),
-        root_comment_id: sanitizeText(data.rootCommentId || doc.id),
-        depth: Math.max(0, toInt(data.depth, 0)),
-        is_deleted: toBool(data.isDeleted),
-        hidden_by_me: viewerId ? hiddenForUserIds.includes(viewerId) : false,
-        created_at: mapTimestamp(data.createdAt),
-        updated_at: mapTimestamp(data.updatedAt),
-        edited_at: mapTimestamp(data.editedAt),
-        fullName,
-        display_name: displayName,
-        username,
-        avatar,
-        avatarUrl: avatar,
-        profilePhoto: avatar,
-        photoURL: avatar,
-        role_label: roleLabel,
-        owned_by_me: ownedByMe,
-        post_owned_by_me: postOwnedByMe,
-        can_edit: ownedByMe,
-        can_delete: ownedByMe || postOwnedByMe,
-        can_hide: Boolean(viewerId)
-    };
-}
 function extractHashtagsFromText(value = '') {
     const matches = String(value || '')
         .toLowerCase()
@@ -494,80 +112,589 @@ function buildSearchPostPreview(value = '', maxLength = 140) {
     return `${clean.slice(0, maxLength - 1).trimEnd()}…`;
 }
 
+function mapProfileRow(row = {}, fallback = {}) {
+    const userData = row.user_data && typeof row.user_data === 'object' ? row.user_data : {};
+    const academyData = row.academy_data && typeof row.academy_data === 'object' ? row.academy_data : {};
+
+    const fullName =
+        sanitizeText(row.full_name) ||
+        sanitizeText(row.display_name) ||
+        sanitizeText(academyData.fullName || academyData.displayName || academyData.display_name) ||
+        sanitizeText(userData.fullName || userData.displayName || userData.name) ||
+        sanitizeText(fallback.name || fallback.fullName || fallback.username) ||
+        'Hustler';
+
+    const displayName =
+        sanitizeText(row.display_name) ||
+        sanitizeText(academyData.displayName || academyData.display_name) ||
+        fullName;
+
+    return {
+        id: sanitizeText(row.user_id || fallback.id || fallback.firebaseUid),
+        email: sanitizeText(row.email || userData.email || fallback.email).toLowerCase(),
+        fullName,
+        display_name: displayName,
+        displayName,
+        username: sanitizeText(row.username || academyData.username || userData.username || fallback.username).replace(/^@+/, ''),
+        avatar: sanitizeText(row.avatar || academyData.avatar || userData.avatar || userData.profilePhoto || userData.photoURL),
+        role_label: sanitizeText(row.role_label || academyData.role_label || academyData.roleLabel || userData.roleLabel || userData.role || 'Academy Member') || 'Academy Member',
+        roleLabel: sanitizeText(row.role_label || academyData.role_label || academyData.roleLabel || userData.roleLabel || userData.role || 'Academy Member') || 'Academy Member',
+        bio: sanitizeText(row.bio || academyData.bio || userData.bio || userData.profileBio || userData.about || userData.description),
+        cover_photo: sanitizeText(row.cover_photo || academyData.cover_photo || academyData.coverPhoto || userData.coverPhoto),
+        search_tags: mapArray(row.search_tags),
+        community_niches: mapArray(row.community_niches),
+        default_niche: sanitizeText(row.default_niche),
+        created_at: row.created_at_source || row.created_at || '',
+        updated_at: row.updated_at_source || row.updated_at || ''
+    };
+}
+
+function buildAuthorSnapshot(profile = {}, fallback = {}) {
+    const fullName =
+        sanitizeText(profile.fullName || profile.full_name || profile.displayName || profile.display_name) ||
+        sanitizeText(fallback.name || fallback.fullName || fallback.username) ||
+        'Hustler';
+
+    return {
+        fullName,
+        displayName: sanitizeText(profile.displayName || profile.display_name || fullName),
+        username: sanitizeText(profile.username || fallback.username).replace(/^@+/, ''),
+        avatar: sanitizeText(profile.avatar || fallback.avatar || fallback.profilePhoto || fallback.photoURL),
+        roleLabel: sanitizeText(profile.roleLabel || profile.role_label || fallback.roleLabel || fallback.role || 'Academy Member') || 'Academy Member'
+    };
+}
+
+async function getProfileRow(userId) {
+    const cleanUserId = normalizeUserId(userId);
+    if (!cleanUserId) return null;
+
+    const { data, error } = await yhuSupabaseAdmin
+        .from('yhu_academy_member_profiles')
+        .select('*')
+        .eq('user_id', cleanUserId)
+        .maybeSingle();
+
+    if (error) {
+        throw new Error(`Academy member profile lookup failed: ${error.message}`);
+    }
+
+    return data || null;
+}
+
+async function ensureViewerProfile(user = {}) {
+    const viewerId = normalizeUserId(user?.id || user?.firebaseUid || user?.uid);
+    if (!viewerId) throw new Error('Missing viewer id.');
+
+    const existing = await getProfileRow(viewerId);
+    if (existing) return mapProfileRow(existing, user);
+
+    const now = nowIso();
+    const snapshot = buildAuthorSnapshot({}, user);
+
+    const row = {
+        user_id: viewerId,
+        email: sanitizeText(user.email).toLowerCase(),
+        full_name: snapshot.fullName,
+        display_name: snapshot.displayName,
+        username: snapshot.username,
+        avatar: snapshot.avatar,
+        role_label: snapshot.roleLabel,
+        bio: '',
+        cover_photo: '',
+        search_tags: [],
+        community_niches: [],
+        default_niche: '',
+        user_data: {
+            id: viewerId,
+            email: sanitizeText(user.email).toLowerCase(),
+            name: sanitizeText(user.name || snapshot.fullName),
+            username: snapshot.username
+        },
+        academy_data: {},
+        created_at_source: now,
+        updated_at_source: now
+    };
+
+    const { data, error } = await yhuSupabaseAdmin
+        .from('yhu_academy_member_profiles')
+        .upsert(row, { onConflict: 'user_id' })
+        .select('*')
+        .single();
+
+    if (error) {
+        throw new Error(`Academy member profile create failed: ${error.message}`);
+    }
+
+    return mapProfileRow(data, user);
+}
+
+async function getViewerProfile(user = {}) {
+    return ensureViewerProfile(user);
+}
+
+async function getProfileOrFallback(userId, fallback = {}) {
+    const row = await getProfileRow(userId);
+    if (row) return mapProfileRow(row, fallback);
+
+    const cleanUserId = normalizeUserId(userId);
+    if (!cleanUserId) return null;
+
+    return {
+        id: cleanUserId,
+        email: sanitizeText(fallback.email).toLowerCase(),
+        fullName: sanitizeText(fallback.fullName || fallback.name || fallback.username || 'Hustler'),
+        display_name: sanitizeText(fallback.display_name || fallback.displayName || fallback.fullName || fallback.name || fallback.username || 'Hustler'),
+        displayName: sanitizeText(fallback.displayName || fallback.display_name || fallback.fullName || fallback.name || fallback.username || 'Hustler'),
+        username: sanitizeText(fallback.username).replace(/^@+/, ''),
+        avatar: sanitizeText(fallback.avatar || fallback.profilePhoto || fallback.photoURL),
+        role_label: sanitizeText(fallback.role_label || fallback.roleLabel || 'Academy Member'),
+        roleLabel: sanitizeText(fallback.roleLabel || fallback.role_label || 'Academy Member'),
+        bio: sanitizeText(fallback.bio),
+        cover_photo: sanitizeText(fallback.cover_photo || fallback.coverPhoto),
+        search_tags: mapArray(fallback.search_tags || fallback.searchTags),
+        community_niches: mapArray(fallback.community_niches || fallback.communityNiches),
+        default_niche: sanitizeText(fallback.default_niche || fallback.defaultNiche)
+    };
+}
+
+async function getAcademyFollowerCount(userId) {
+    const { count, error } = await yhuSupabaseAdmin
+        .from('yhu_academy_user_follows')
+        .select('id', { count: 'exact', head: true })
+        .eq('following_id', normalizeUserId(userId));
+
+    if (error) throw new Error(`Follower count failed: ${error.message}`);
+    return count || 0;
+}
+
+async function getAcademyFollowingCount(userId) {
+    const { count, error } = await yhuSupabaseAdmin
+        .from('yhu_academy_user_follows')
+        .select('id', { count: 'exact', head: true })
+        .eq('follower_id', normalizeUserId(userId));
+
+    if (error) throw new Error(`Following count failed: ${error.message}`);
+    return count || 0;
+}
+
+async function getAcademyFriendCount(userId) {
+    const normalizedUserId = normalizeUserId(userId);
+
+    const [left, right] = await Promise.all([
+        yhuSupabaseAdmin
+            .from('yhu_academy_friendships')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_one_id', normalizedUserId),
+        yhuSupabaseAdmin
+            .from('yhu_academy_friendships')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_two_id', normalizedUserId)
+    ]);
+
+    if (left.error) throw new Error(`Friend count failed: ${left.error.message}`);
+    if (right.error) throw new Error(`Friend count failed: ${right.error.message}`);
+
+    return (left.count || 0) + (right.count || 0);
+}
+
+async function getFollowingIdsForUser(userId) {
+    const { data, error } = await yhuSupabaseAdmin
+        .from('yhu_academy_user_follows')
+        .select('following_id')
+        .eq('follower_id', normalizeUserId(userId))
+        .limit(500);
+
+    if (error) throw new Error(`Following ids lookup failed: ${error.message}`);
+
+    return (Array.isArray(data) ? data : [])
+        .map((row) => sanitizeText(row.following_id))
+        .filter(Boolean);
+}
+
+async function getFollowerIdsForUser(userId) {
+    const { data, error } = await yhuSupabaseAdmin
+        .from('yhu_academy_user_follows')
+        .select('follower_id')
+        .eq('following_id', normalizeUserId(userId))
+        .limit(500);
+
+    if (error) throw new Error(`Follower ids lookup failed: ${error.message}`);
+
+    return (Array.isArray(data) ? data : [])
+        .map((row) => sanitizeText(row.follower_id))
+        .filter(Boolean);
+}
+
+async function getFriendIdsForUser(userId) {
+    const normalizedUserId = normalizeUserId(userId);
+
+    const [left, right] = await Promise.all([
+        yhuSupabaseAdmin
+            .from('yhu_academy_friendships')
+            .select('user_two_id')
+            .eq('user_one_id', normalizedUserId)
+            .limit(500),
+        yhuSupabaseAdmin
+            .from('yhu_academy_friendships')
+            .select('user_one_id')
+            .eq('user_two_id', normalizedUserId)
+            .limit(500)
+    ]);
+
+    if (left.error) throw new Error(`Friend ids lookup failed: ${left.error.message}`);
+    if (right.error) throw new Error(`Friend ids lookup failed: ${right.error.message}`);
+
+    return [
+        ...(left.data || []).map((row) => sanitizeText(row.user_two_id)),
+        ...(right.data || []).map((row) => sanitizeText(row.user_one_id))
+    ].filter(Boolean);
+}
+
+async function getMutualFriendCount(viewerId, targetUserId) {
+    const normalizedViewerId = normalizeUserId(viewerId);
+    const normalizedTargetUserId = normalizeUserId(targetUserId);
+
+    if (!normalizedViewerId || !normalizedTargetUserId || normalizedViewerId === normalizedTargetUserId) {
+        return 0;
+    }
+
+    const [viewerFriendIds, targetFriendIds] = await Promise.all([
+        getFriendIdsForUser(normalizedViewerId),
+        getFriendIdsForUser(normalizedTargetUserId)
+    ]);
+
+    const viewerSet = new Set(viewerFriendIds);
+    return targetFriendIds.filter((id) => viewerSet.has(id)).length;
+}
+
+async function getFriendshipState(viewerId, authorId) {
+    const normalizedViewerId = normalizeUserId(viewerId);
+    const normalizedAuthorId = normalizeUserId(authorId);
+
+    if (!normalizedViewerId || !normalizedAuthorId || normalizedViewerId === normalizedAuthorId) {
+        return {
+            is_friend: false,
+            outgoing_friend_request_pending: false,
+            incoming_friend_request_pending: false,
+            incoming_friend_request_id: ''
+        };
+    }
+
+    const [x, y] = normalizeFriendPair(normalizedViewerId, normalizedAuthorId);
+
+    const friendship = await yhuSupabaseAdmin
+        .from('yhu_academy_friendships')
+        .select('friendship_id')
+        .eq('user_one_id', x)
+        .eq('user_two_id', y)
+        .maybeSingle();
+
+    if (friendship.error) {
+        throw new Error(`Friendship lookup failed: ${friendship.error.message}`);
+    }
+
+    if (friendship.data) {
+        return {
+            is_friend: true,
+            outgoing_friend_request_pending: false,
+            incoming_friend_request_pending: false,
+            incoming_friend_request_id: ''
+        };
+    }
+
+    const [outgoing, incoming] = await Promise.all([
+        yhuSupabaseAdmin
+            .from('yhu_academy_friend_requests')
+            .select('request_id')
+            .eq('sender_id', normalizedViewerId)
+            .eq('receiver_id', normalizedAuthorId)
+            .eq('status', 'pending')
+            .limit(1),
+        yhuSupabaseAdmin
+            .from('yhu_academy_friend_requests')
+            .select('request_id')
+            .eq('sender_id', normalizedAuthorId)
+            .eq('receiver_id', normalizedViewerId)
+            .eq('status', 'pending')
+            .limit(1)
+    ]);
+
+    if (outgoing.error) throw new Error(`Outgoing friend request lookup failed: ${outgoing.error.message}`);
+    if (incoming.error) throw new Error(`Incoming friend request lookup failed: ${incoming.error.message}`);
+
+    return {
+        is_friend: false,
+        outgoing_friend_request_pending: Array.isArray(outgoing.data) && outgoing.data.length > 0,
+        incoming_friend_request_pending: Array.isArray(incoming.data) && incoming.data.length > 0,
+        incoming_friend_request_id: sanitizeText(incoming.data?.[0]?.request_id)
+    };
+}
+
+async function getLikeState(postId, viewerId) {
+    const normalizedPostId = sanitizeText(postId);
+    const normalizedViewerId = normalizeUserId(viewerId);
+
+    if (!normalizedPostId || !normalizedViewerId) {
+        return {
+            liked_by_me: false,
+            like_count: 0
+        };
+    }
+
+    const [viewerLike, allLikes] = await Promise.all([
+        yhuSupabaseAdmin
+            .from('yhu_academy_feed_likes')
+            .select('id')
+            .eq('post_id', normalizedPostId)
+            .eq('user_id', normalizedViewerId)
+            .maybeSingle(),
+        yhuSupabaseAdmin
+            .from('yhu_academy_feed_likes')
+            .select('id', { count: 'exact', head: true })
+            .eq('post_id', normalizedPostId)
+    ]);
+
+    if (viewerLike.error) throw new Error(`Like state lookup failed: ${viewerLike.error.message}`);
+    if (allLikes.error) throw new Error(`Like count lookup failed: ${allLikes.error.message}`);
+
+    return {
+        liked_by_me: Boolean(viewerLike.data),
+        like_count: allLikes.count || 0
+    };
+}
+
+async function getCommentCount(postId) {
+    const normalizedPostId = sanitizeText(postId);
+    if (!normalizedPostId) return 0;
+
+    const { count, error } = await yhuSupabaseAdmin
+        .from('yhu_academy_feed_comments')
+        .select('id', { count: 'exact', head: true })
+        .eq('post_id', normalizedPostId)
+        .eq('is_deleted', false);
+
+    if (error) throw new Error(`Comment count lookup failed: ${error.message}`);
+    return count || 0;
+}
+
+function mapPostRow(row = {}, extras = {}) {
+    const author = row.author_snapshot && typeof row.author_snapshot === 'object' ? row.author_snapshot : {};
+    const viewerId = sanitizeText(extras.viewerId);
+    const authorId = sanitizeText(row.author_id);
+    const hiddenForUserIds = mapArray(row.hidden_for_user_ids);
+
+    const mediaUrl = sanitizeText(row.media_url || row.image_url || row.video_url);
+    const mediaKindRaw = sanitizeText(row.media_kind).toLowerCase();
+    const mediaKind =
+        mediaKindRaw === 'video'
+            ? 'video'
+            : mediaUrl
+                ? 'image'
+                : '';
+
+    const imageUrl = mediaKind === 'image'
+        ? sanitizeText(row.image_url || row.media_url)
+        : '';
+
+    const videoUrl = mediaKind === 'video'
+        ? sanitizeText(row.video_url || row.media_url)
+        : '';
+
+    const ownedByMe = authorId === viewerId;
+
+    return {
+        id: sanitizeText(row.post_id),
+        user_id: authorId,
+        body: sanitizeText(row.body),
+        image_url: imageUrl,
+        video_url: videoUrl,
+        media_url: mediaUrl,
+        media_kind: mediaKind,
+        media_type: sanitizeText(row.media_type),
+        media_size: toInt(row.media_size, 0),
+        visibility: sanitizeText(row.visibility || 'academy'),
+        feedScope: sanitizeText(row.feed_scope || 'global'),
+        feed_scope: sanitizeText(row.feed_scope || 'global'),
+        nicheKey: sanitizeText(row.niche_key),
+        niche_key: sanitizeText(row.niche_key),
+        nicheLabel: sanitizeText(row.niche_label),
+        niche_label: sanitizeText(row.niche_label),
+        audience: sanitizeText(row.audience || row.visibility || 'academy'),
+        is_pinned: toBool(row.is_pinned),
+        is_deleted: toBool(row.is_deleted),
+        hidden_by_me: viewerId ? hiddenForUserIds.includes(viewerId) : false,
+        created_at: row.created_at_source || '',
+        updated_at: row.updated_at_source || '',
+        edited_at: row.edited_at_source || '',
+        fullName: sanitizeText(author.fullName || author.full_name || author.displayName || author.display_name),
+        display_name: sanitizeText(author.displayName || author.display_name || author.fullName || author.full_name || 'Academy Member'),
+        username: sanitizeText(author.username),
+        avatar: sanitizeText(author.avatar),
+        role_label: sanitizeText(author.roleLabel || author.role_label || 'Academy Member'),
+        share: row.share || null,
+        like_count: toInt(extras.like_count, 0),
+        comment_count: toInt(extras.comment_count, 0),
+        liked_by_me: toBool(extras.liked_by_me),
+        owned_by_me: ownedByMe,
+        can_edit: ownedByMe,
+        can_delete: ownedByMe,
+        can_hide: Boolean(viewerId),
+        following_author: toBool(extras.following_author),
+        is_friend: toBool(extras.is_friend),
+        outgoing_friend_request_pending: toBool(extras.outgoing_friend_request_pending)
+    };
+}
+
+function mapCommentRow(row = {}, extras = {}) {
+    const snapshot = row.author_snapshot && typeof row.author_snapshot === 'object' ? row.author_snapshot : {};
+    const fallback = extras.authorFallback && typeof extras.authorFallback === 'object' ? extras.authorFallback : {};
+
+    const viewerId = sanitizeText(extras.viewerId);
+    const postOwnerId = sanitizeText(extras.postOwnerId);
+    const authorId = sanitizeText(row.author_id);
+    const hiddenForUserIds = mapArray(row.hidden_for_user_ids);
+
+    const fullName =
+        sanitizeText(snapshot.fullName || snapshot.name) ||
+        sanitizeText(fallback.fullName || fallback.name);
+
+    const displayName =
+        sanitizeText(snapshot.displayName || snapshot.display_name) ||
+        fullName ||
+        sanitizeText(fallback.displayName || fallback.display_name || fallback.username) ||
+        'Academy Member';
+
+    const username = sanitizeText(snapshot.username || fallback.username);
+
+    const avatar =
+        sanitizeText(snapshot.avatar || snapshot.avatarUrl || snapshot.profilePhoto || snapshot.photoURL) ||
+        sanitizeText(fallback.avatar || fallback.avatarUrl || fallback.profilePhoto || fallback.photoURL);
+
+    const roleLabel =
+        sanitizeText(snapshot.roleLabel || snapshot.role_label) ||
+        sanitizeText(fallback.roleLabel || fallback.role_label || fallback.role) ||
+        'Academy Member';
+
+    const ownedByMe = authorId === viewerId;
+    const postOwnedByMe = postOwnerId === viewerId;
+
+    return {
+        id: sanitizeText(row.comment_id),
+        post_id: sanitizeText(row.post_id || extras.postId),
+        user_id: authorId,
+        body: sanitizeText(row.body),
+        parent_comment_id: sanitizeText(row.parent_comment_id),
+        root_comment_id: sanitizeText(row.root_comment_id || row.comment_id),
+        depth: Math.max(0, toInt(row.depth, 0)),
+        is_deleted: toBool(row.is_deleted),
+        hidden_by_me: viewerId ? hiddenForUserIds.includes(viewerId) : false,
+        created_at: row.created_at_source || '',
+        updated_at: row.updated_at_source || '',
+        edited_at: row.edited_at_source || '',
+        fullName,
+        display_name: displayName,
+        username,
+        avatar,
+        avatarUrl: avatar,
+        profilePhoto: avatar,
+        photoURL: avatar,
+        role_label: roleLabel,
+        owned_by_me: ownedByMe,
+        post_owned_by_me: postOwnedByMe,
+        can_edit: ownedByMe,
+        can_delete: ownedByMe || postOwnedByMe,
+        can_hide: Boolean(viewerId)
+    };
+}
+
+async function fetchPostRow(postId) {
+    const { data, error } = await yhuSupabaseAdmin
+        .from('yhu_academy_feed_posts')
+        .select('*')
+        .eq('post_id', sanitizeText(postId))
+        .maybeSingle();
+
+    if (error) throw new Error(`Post lookup failed: ${error.message}`);
+    return data || null;
+}
+
+async function fetchCommentRow(postId, commentId) {
+    const { data, error } = await yhuSupabaseAdmin
+        .from('yhu_academy_feed_comments')
+        .select('*')
+        .eq('post_id', sanitizeText(postId))
+        .eq('comment_id', sanitizeText(commentId))
+        .maybeSingle();
+
+    if (error) throw new Error(`Comment lookup failed: ${error.message}`);
+    return data || null;
+}
+
 async function listFeed({ viewerId, limit = 25, scope = 'global', nicheKey = '', relation = '' }) {
     const normalizedViewerId = normalizeUserId(viewerId);
     const normalizedLimit = Math.max(1, Math.min(toInt(limit, 25), 50));
     const normalizedScope = normalizeFeedScope(scope);
     const normalizedNicheKey = normalizeNicheKey(nicheKey);
     const normalizedRelation = normalizeCircleRelation(relation);
-    const sourceLimit = Math.min(normalizedLimit * 8, 180);
 
     let allowedAuthorIds = null;
 
     if (normalizedScope === 'circle') {
-        const ids =
-            normalizedRelation === 'following'
-                ? await getFollowingIdsForUser(normalizedViewerId)
-                : normalizedRelation === 'followers'
-                    ? await getFollowerIdsForUser(normalizedViewerId)
-                    : await getFriendIdsForUser(normalizedViewerId);
+        if (normalizedRelation === 'following') {
+            allowedAuthorIds = new Set(await getFollowingIdsForUser(normalizedViewerId));
+        } else if (normalizedRelation === 'followers') {
+            allowedAuthorIds = new Set(await getFollowerIdsForUser(normalizedViewerId));
+        } else {
+            allowedAuthorIds = new Set(await getFriendIdsForUser(normalizedViewerId));
+        }
 
-        allowedAuthorIds = new Set([
-            normalizedViewerId,
-            ...ids
-        ].filter(Boolean));
+        if (!allowedAuthorIds.size) return [];
     }
 
-    const snap = await feedPostsCol
-        .where('isDeleted', '==', false)
-        .orderBy('createdAt', 'desc')
-        .limit(sourceLimit)
-        .get();
+    let query = yhuSupabaseAdmin
+        .from('yhu_academy_feed_posts')
+        .select('*')
+        .eq('is_deleted', false)
+        .order('created_at_source', { ascending: false, nullsFirst: false })
+        .limit(Math.min(normalizedLimit * 8, 200));
 
-    const visibleDocs = snap.docs.filter((doc) => {
-        const data = doc.data() || {};
-        const hiddenForUserIds = Array.isArray(data.hiddenForUserIds)
-            ? data.hiddenForUserIds.map((value) => sanitizeText(value)).filter(Boolean)
-            : [];
+    if (normalizedScope === 'niche') {
+        query = query.eq('feed_scope', 'niche');
+        if (normalizedNicheKey) query = query.eq('niche_key', normalizedNicheKey);
+    } else if (normalizedScope === 'global') {
+        query = query.eq('feed_scope', 'global');
+    }
 
-        if (normalizedViewerId && hiddenForUserIds.includes(normalizedViewerId)) {
-            return false;
-        }
+    const { data, error } = await query;
+    if (error) throw new Error(`Academy feed lookup failed: ${error.message}`);
 
-        const postScope = normalizeFeedScope(data.feedScope || 'global');
-        const postNicheKey = normalizeNicheKey(data.nicheKey);
-        const authorId = normalizeUserId(data.authorId);
-
-        if (normalizedScope === 'niche') {
-            return postScope === 'niche' && postNicheKey === normalizedNicheKey;
-        }
-
-        if (normalizedScope === 'circle') {
-            return Boolean(allowedAuthorIds && allowedAuthorIds.has(authorId));
-        }
-
-        return postScope === 'global';
-    }).slice(0, normalizedLimit);
-
-    const posts = await Promise.all(
-        visibleDocs.map(async (doc) => {
-            const data = doc.data() || {};
-            const authorId = sanitizeText(data.authorId);
-
-            const [likeState, commentCount, friendshipState] = await Promise.all([
-                getLikeState(doc.id, normalizedViewerId),
-                getCommentCount(doc.id),
-                getFriendshipState(normalizedViewerId, authorId)
-            ]);
-
-            return mapPostDoc(doc, {
-                viewerId: normalizedViewerId,
-                ...likeState,
-                comment_count: commentCount,
-                ...friendshipState
-            });
+    const rows = (Array.isArray(data) ? data : [])
+        .filter((row) => {
+            const hidden = mapArray(row.hidden_for_user_ids);
+            if (normalizedViewerId && hidden.includes(normalizedViewerId)) return false;
+            if (allowedAuthorIds && !allowedAuthorIds.has(sanitizeText(row.author_id))) return false;
+            return true;
         })
-    );
+        .slice(0, normalizedLimit);
+
+    const posts = [];
+
+    for (const row of rows) {
+        const [likeState, commentCount, friendshipState, followingIds] = await Promise.all([
+            getLikeState(row.post_id, normalizedViewerId),
+            getCommentCount(row.post_id),
+            getFriendshipState(normalizedViewerId, row.author_id),
+            normalizedViewerId ? getFollowingIdsForUser(normalizedViewerId) : Promise.resolve([])
+        ]);
+
+        posts.push(mapPostRow(row, {
+            viewerId: normalizedViewerId,
+            ...likeState,
+            comment_count: commentCount,
+            ...friendshipState,
+            following_author: followingIds.includes(sanitizeText(row.author_id))
+        }));
+    }
 
     return posts;
 }
@@ -575,12 +702,12 @@ async function listFeed({ viewerId, limit = 25, scope = 'global', nicheKey = '',
 async function createPost({
     viewer,
     body,
-    imageUrl,
-    mediaUrl,
-    mediaKind,
-    mediaType,
-    mediaSize,
-    visibility,
+    imageUrl = '',
+    mediaUrl = '',
+    mediaKind = '',
+    mediaType = '',
+    mediaSize = 0,
+    visibility = 'academy',
     feedScope = 'global',
     nicheKey = '',
     nicheLabel = '',
@@ -589,128 +716,135 @@ async function createPost({
 }) {
     const viewerProfile = await getViewerProfile(viewer);
     const cleanBody = sanitizeText(body);
-    const cleanMediaUrl = sanitizeText(mediaUrl) || sanitizeText(imageUrl);
-    const cleanMediaKindInput = sanitizeText(mediaKind).toLowerCase();
-    const cleanMediaKind =
-        cleanMediaKindInput === 'video'
-            ? 'video'
-            : cleanMediaUrl
-                ? 'image'
-                : '';
-    const cleanImageUrl =
-        cleanMediaKind === 'image'
-            ? (sanitizeText(imageUrl) || cleanMediaUrl)
+
+    if (!cleanBody) throw new Error('Post body is required.');
+
+    const normalizedFeedScope = normalizeFeedScope(feedScope);
+    const normalizedNicheKey = normalizedFeedScope === 'niche' ? normalizeNicheKey(nicheKey) : '';
+    const nicheMeta = normalizedNicheKey ? getNicheMeta(normalizedNicheKey) : null;
+
+    if (normalizedFeedScope === 'niche' && !nicheMeta) {
+        throw new Error('Niche not found.');
+    }
+
+    const postId = buildId('post');
+    const now = nowIso();
+    const cleanMediaUrl = sanitizeText(mediaUrl || imageUrl);
+    const cleanMediaKind = sanitizeText(mediaKind).toLowerCase() === 'video'
+        ? 'video'
+        : cleanMediaUrl
+            ? 'image'
             : '';
-    const cleanMediaType = sanitizeText(mediaType);
-    const cleanMediaSize = Math.max(0, toInt(mediaSize, 0));
-    const cleanVisibility = sanitizeText(visibility || 'academy') || 'academy';
-    const cleanFeedScope = normalizeFeedScope(feedScope);
-    const cleanNicheKey = normalizeNicheKey(nicheKey);
-    const nicheMeta = getNicheMeta(cleanNicheKey);
-    const cleanNicheLabel = sanitizeText(nicheLabel) || nicheMeta?.label || '';
-    const cleanAudience =
-        cleanFeedScope === 'niche'
-            ? 'niche'
-            : cleanFeedScope === 'circle'
-                ? (sanitizeText(audience) || 'friends')
-                : 'global';
 
-    if (cleanFeedScope === 'niche' && !nicheMeta) {
-        throw new Error('Valid niche is required.');
-    }
+    const authorSnapshot = buildAuthorSnapshot(viewerProfile, viewer);
 
-    if (!cleanBody && !cleanMediaUrl && !share) {
-        throw new Error('Post body, image, video, or share payload is required.');
-    }
-
-    const ref = feedPostsCol.doc();
-    const payload = {
-        authorId: viewerProfile.id,
+    const row = {
+        firebase_app: 'supabase',
+        post_id: postId,
+        source_document_path: `academyFeedPosts/${postId}`,
+        author_id: viewerProfile.id,
         body: cleanBody,
-        imageUrl: cleanImageUrl,
-        mediaUrl: cleanMediaUrl,
-        mediaKind: cleanMediaKind,
-        mediaType: cleanMediaType,
-        mediaSize: cleanMediaSize,
-        visibility: cleanVisibility,
-        feedScope: cleanFeedScope,
-        nicheKey: cleanFeedScope === 'niche' ? cleanNicheKey : '',
-        nicheLabel: cleanFeedScope === 'niche' ? cleanNicheLabel : '',
-        audience: cleanAudience,
-        isPinned: false,
-        isDeleted: false,
-        createdAt: nowTs(),
-        updatedAt: nowTs(),
-        authorSnapshot: {
-            fullName: viewerProfile.fullName,
-            displayName: viewerProfile.displayName,
-            username: viewerProfile.username,
-            avatar: viewerProfile.avatar,
-            roleLabel: viewerProfile.roleLabel
-        },
-        share: share || null
+        image_url: cleanMediaKind === 'video' ? '' : sanitizeText(imageUrl || cleanMediaUrl),
+        video_url: cleanMediaKind === 'video' ? cleanMediaUrl : '',
+        media_url: cleanMediaUrl,
+        media_kind: cleanMediaKind,
+        media_type: sanitizeText(mediaType),
+        media_size: toInt(mediaSize, 0),
+        visibility: sanitizeText(visibility || 'academy'),
+        feed_scope: normalizedFeedScope,
+        niche_key: normalizedNicheKey,
+        niche_label: sanitizeText(nicheLabel || nicheMeta?.label || ''),
+        audience: sanitizeText(audience || visibility || 'academy').toLowerCase(),
+        is_pinned: false,
+        is_deleted: false,
+        hidden_for_user_ids: [],
+        author_snapshot: authorSnapshot,
+        share: share && typeof share === 'object' ? share : null,
+        created_at_source: now,
+        updated_at_source: now,
+        edited_at_source: null,
+        deleted_at_source: null,
+        data: {
+            body: cleanBody,
+            authorId: viewerProfile.id,
+            authorSnapshot,
+            mediaUrl: cleanMediaUrl,
+            imageUrl: cleanMediaKind === 'video' ? '' : sanitizeText(imageUrl || cleanMediaUrl),
+            videoUrl: cleanMediaKind === 'video' ? cleanMediaUrl : '',
+            mediaKind: cleanMediaKind,
+            mediaType: sanitizeText(mediaType),
+            mediaSize: toInt(mediaSize, 0),
+            visibility: sanitizeText(visibility || 'academy'),
+            feedScope: normalizedFeedScope,
+            nicheKey: normalizedNicheKey,
+            nicheLabel: sanitizeText(nicheLabel || nicheMeta?.label || ''),
+            audience: sanitizeText(audience || visibility || 'academy').toLowerCase(),
+            share: share && typeof share === 'object' ? share : null,
+            createdAt: now,
+            updatedAt: now
+        }
     };
 
-    await ref.set(payload);
+    const { data, error } = await yhuSupabaseAdmin
+        .from('yhu_academy_feed_posts')
+        .insert(row)
+        .select('*')
+        .single();
 
-    return mapPostDoc(
-        {
-            id: ref.id,
-            data: () => payload
-        },
-        {
-            viewerId: viewerProfile.id,
-            like_count: 0,
-            comment_count: 0,
-            liked_by_me: false,
-            is_friend: false,
-            outgoing_friend_request_pending: false
-        }
-    );
+    if (error) throw new Error(`Post create failed: ${error.message}`);
+
+    return mapPostRow(data, {
+        viewerId: viewerProfile.id,
+        like_count: 0,
+        comment_count: 0,
+        liked_by_me: false
+    });
 }
+
 async function updatePost({ viewerId, postId, body }) {
     const normalizedViewerId = normalizeUserId(viewerId);
     const normalizedPostId = sanitizeText(postId);
     const cleanBody = sanitizeText(body);
 
-    if (!normalizedViewerId || !normalizedPostId) {
-        throw new Error('viewerId and postId are required.');
-    }
+    if (!normalizedPostId) throw new Error('postId is required.');
+    if (!cleanBody) throw new Error('Post body is required.');
 
-    if (!cleanBody) {
-        throw new Error('Post body is required.');
-    }
+    const row = await fetchPostRow(normalizedPostId);
+    if (!row || toBool(row.is_deleted)) throw new Error('Post not found.');
+    if (sanitizeText(row.author_id) !== normalizedViewerId) throw new Error('You can only edit your own post.');
 
-    const postRef = feedPostsCol.doc(normalizedPostId);
-    const postSnap = await postRef.get();
-
-    if (!postSnap.exists || toBool(postSnap.data()?.isDeleted)) {
-        throw new Error('Post not found.');
-    }
-
-    const post = postSnap.data() || {};
-    if (sanitizeText(post.authorId) !== normalizedViewerId) {
-        throw new Error('You can only edit your own post.');
-    }
-
-    await postRef.update({
+    const now = nowIso();
+    const nextData = {
+        ...(row.data || {}),
         body: cleanBody,
-        editedAt: nowTs(),
-        updatedAt: nowTs()
-    });
+        updatedAt: now,
+        editedAt: now
+    };
 
-    const updatedSnap = await postRef.get();
-    const [likeState, commentCount, friendshipState] = await Promise.all([
+    const { data, error } = await yhuSupabaseAdmin
+        .from('yhu_academy_feed_posts')
+        .update({
+            body: cleanBody,
+            updated_at_source: now,
+            edited_at_source: now,
+            data: nextData,
+            updated_at: now
+        })
+        .eq('post_id', normalizedPostId)
+        .select('*')
+        .single();
+
+    if (error) throw new Error(`Post update failed: ${error.message}`);
+
+    const [likeState, commentCount] = await Promise.all([
         getLikeState(normalizedPostId, normalizedViewerId),
-        getCommentCount(normalizedPostId),
-        getFriendshipState(normalizedViewerId, sanitizeText(post.authorId))
+        getCommentCount(normalizedPostId)
     ]);
 
-    return mapPostDoc(updatedSnap, {
+    return mapPostRow(data, {
         viewerId: normalizedViewerId,
         ...likeState,
-        comment_count: commentCount,
-        ...friendshipState
+        comment_count: commentCount
     });
 }
 
@@ -718,55 +852,66 @@ async function hidePostForViewer({ viewerId, postId }) {
     const normalizedViewerId = normalizeUserId(viewerId);
     const normalizedPostId = sanitizeText(postId);
 
-    if (!normalizedViewerId || !normalizedPostId) {
-        throw new Error('viewerId and postId are required.');
-    }
+    if (!normalizedViewerId) throw new Error('viewerId is required.');
+    if (!normalizedPostId) throw new Error('postId is required.');
 
-    const postRef = feedPostsCol.doc(normalizedPostId);
-    const postSnap = await postRef.get();
+    const row = await fetchPostRow(normalizedPostId);
+    if (!row || toBool(row.is_deleted)) throw new Error('Post not found.');
 
-    if (!postSnap.exists || toBool(postSnap.data()?.isDeleted)) {
-        throw new Error('Post not found.');
-    }
+    const hidden = Array.from(new Set([...mapArray(row.hidden_for_user_ids), normalizedViewerId]));
+    const now = nowIso();
 
-    await postRef.update({
-        hiddenForUserIds: FieldValue.arrayUnion(normalizedViewerId),
-        updatedAt: nowTs()
-    });
+    const { error } = await yhuSupabaseAdmin
+        .from('yhu_academy_feed_posts')
+        .update({
+            hidden_for_user_ids: hidden,
+            updated_at_source: now,
+            updated_at: now,
+            data: {
+                ...(row.data || {}),
+                hiddenForUserIds: hidden,
+                updatedAt: now
+            }
+        })
+        .eq('post_id', normalizedPostId);
+
+    if (error) throw new Error(`Post hide failed: ${error.message}`);
 
     return {
         id: normalizedPostId,
         hidden: true
     };
 }
+
 async function deletePost({ viewerId, postId }) {
     const normalizedViewerId = normalizeUserId(viewerId);
     const normalizedPostId = sanitizeText(postId);
 
-    if (!normalizedViewerId || !normalizedPostId) {
-        throw new Error('viewerId and postId are required.');
-    }
+    if (!normalizedPostId) throw new Error('postId is required.');
 
-    const postRef = feedPostsCol.doc(normalizedPostId);
-    const postSnap = await postRef.get();
+    const row = await fetchPostRow(normalizedPostId);
+    if (!row || toBool(row.is_deleted)) throw new Error('Post not found.');
+    if (sanitizeText(row.author_id) !== normalizedViewerId) throw new Error('You can only delete your own post.');
 
-    if (!postSnap.exists) {
-        throw new Error('Post not found.');
-    }
+    const now = nowIso();
 
-    const post = postSnap.data() || {};
-    if (toBool(post.isDeleted)) {
-        return { id: normalizedPostId, deleted: true };
-    }
+    const { error } = await yhuSupabaseAdmin
+        .from('yhu_academy_feed_posts')
+        .update({
+            is_deleted: true,
+            deleted_at_source: now,
+            updated_at_source: now,
+            updated_at: now,
+            data: {
+                ...(row.data || {}),
+                isDeleted: true,
+                deletedAt: now,
+                updatedAt: now
+            }
+        })
+        .eq('post_id', normalizedPostId);
 
-    if (sanitizeText(post.authorId) !== normalizedViewerId) {
-        throw new Error('You can only delete your own post.');
-    }
-
-    await postRef.update({
-        isDeleted: true,
-        updatedAt: nowTs()
-    });
+    if (error) throw new Error(`Post delete failed: ${error.message}`);
 
     return {
         id: normalizedPostId,
@@ -778,38 +923,59 @@ async function togglePostLike({ viewerId, postId }) {
     const normalizedViewerId = normalizeUserId(viewerId);
     const normalizedPostId = sanitizeText(postId);
 
-    if (!normalizedViewerId || !normalizedPostId) {
-        throw new Error('viewerId and postId are required.');
-    }
+    if (!normalizedViewerId) throw new Error('viewerId is required.');
+    if (!normalizedPostId) throw new Error('postId is required.');
 
-    const postRef = feedPostsCol.doc(normalizedPostId);
-    const postSnap = await postRef.get();
+    const row = await fetchPostRow(normalizedPostId);
+    if (!row || toBool(row.is_deleted)) throw new Error('Post not found.');
 
-    if (!postSnap.exists || toBool(postSnap.data()?.isDeleted)) {
-        throw new Error('Post not found.');
-    }
+    const existing = await yhuSupabaseAdmin
+        .from('yhu_academy_feed_likes')
+        .select('id')
+        .eq('post_id', normalizedPostId)
+        .eq('user_id', normalizedViewerId)
+        .maybeSingle();
 
-    const likeRef = postRef.collection('likes').doc(normalizedViewerId);
-    const likeSnap = await likeRef.get();
+    if (existing.error) throw new Error(`Like lookup failed: ${existing.error.message}`);
 
-    let liked = false;
+    let liked;
 
-    if (likeSnap.exists) {
-        await likeRef.delete();
+    if (existing.data) {
+        const { error } = await yhuSupabaseAdmin
+            .from('yhu_academy_feed_likes')
+            .delete()
+            .eq('post_id', normalizedPostId)
+            .eq('user_id', normalizedViewerId);
+
+        if (error) throw new Error(`Unlike failed: ${error.message}`);
         liked = false;
     } else {
-        await likeRef.set({
-            userId: normalizedViewerId,
-            createdAt: nowTs()
-        });
+        const now = nowIso();
+        const { error } = await yhuSupabaseAdmin
+            .from('yhu_academy_feed_likes')
+            .insert({
+                firebase_app: 'supabase',
+                post_id: normalizedPostId,
+                user_id: normalizedViewerId,
+                source_document_path: `academyFeedPosts/${normalizedPostId}/likes/${normalizedViewerId}`,
+                created_at_source: now,
+                data: {
+                    userId: normalizedViewerId,
+                    postId: normalizedPostId,
+                    createdAt: now
+                }
+            });
+
+        if (error) throw new Error(`Like failed: ${error.message}`);
         liked = true;
     }
 
-    const likesSnap = await postRef.collection('likes').get();
+    const likeState = await getLikeState(normalizedPostId, normalizedViewerId);
 
     return {
         liked,
-        like_count: likesSnap.size
+        liked_by_me: liked,
+        like_count: likeState.like_count
     };
 }
 
@@ -817,62 +983,29 @@ async function listPostComments({ viewerId, postId }) {
     const normalizedViewerId = normalizeUserId(viewerId);
     const normalizedPostId = sanitizeText(postId);
 
-    if (!normalizedPostId) {
-        throw new Error('postId is required.');
-    }
+    if (!normalizedPostId) throw new Error('postId is required.');
 
-    const postSnap = await feedPostsCol.doc(normalizedPostId).get();
-    if (!postSnap.exists || toBool(postSnap.data()?.isDeleted)) {
-        throw new Error('Post not found.');
-    }
+    const post = await fetchPostRow(normalizedPostId);
+    if (!post || toBool(post.is_deleted)) throw new Error('Post not found.');
 
-    const post = postSnap.data() || {};
-    const postOwnerId = normalizeUserId(post.authorId);
+    const { data, error } = await yhuSupabaseAdmin
+        .from('yhu_academy_feed_comments')
+        .select('*')
+        .eq('post_id', normalizedPostId)
+        .eq('is_deleted', false)
+        .order('created_at_source', { ascending: true, nullsFirst: false })
+        .limit(300);
 
-    const snap = await feedPostsCol
-        .doc(normalizedPostId)
-        .collection('comments')
-        .orderBy('createdAt', 'asc')
-        .get();
+    if (error) throw new Error(`Comments lookup failed: ${error.message}`);
 
-    const visibleDocs = snap.docs.filter((doc) => {
-        const data = doc.data() || {};
-        if (toBool(data.isDeleted)) return false;
+    const visibleRows = (Array.isArray(data) ? data : [])
+        .filter((row) => !normalizedViewerId || !mapArray(row.hidden_for_user_ids).includes(normalizedViewerId));
 
-        const hiddenForUserIds = Array.isArray(data.hiddenForUserIds)
-            ? data.hiddenForUserIds.map((value) => sanitizeText(value)).filter(Boolean)
-            : [];
-
-        return !normalizedViewerId || !hiddenForUserIds.includes(normalizedViewerId);
-    });
-
-    const authorIds = Array.from(new Set(
-        visibleDocs
-            .map((doc) => normalizeUserId(doc.data()?.authorId))
-            .filter(Boolean)
-    ));
-
-    const authorDocs = await Promise.all(
-        authorIds.map((authorId) => getUserDoc(authorId).catch(() => null))
-    );
-
-    const authorFallbackById = new Map();
-
-    authorDocs.forEach((authorDoc) => {
-        if (!authorDoc?.id) return;
-        authorFallbackById.set(normalizeUserId(authorDoc.id), authorDoc);
-    });
-
-    return visibleDocs.map((doc) => {
-        const authorId = normalizeUserId(doc.data()?.authorId);
-
-        return mapCommentDoc(doc, {
-            postId: normalizedPostId,
-            viewerId: normalizedViewerId,
-            postOwnerId,
-            authorFallback: authorFallbackById.get(authorId) || {}
-        });
-    });
+    return visibleRows.map((row) => mapCommentRow(row, {
+        viewerId: normalizedViewerId,
+        postId: normalizedPostId,
+        postOwnerId: post.author_id
+    }));
 }
 
 async function createPostComment({ viewer, postId, body, parentCommentId = '' }) {
@@ -881,83 +1014,74 @@ async function createPostComment({ viewer, postId, body, parentCommentId = '' })
     const cleanBody = sanitizeText(body);
     const normalizedParentCommentId = sanitizeText(parentCommentId);
 
-    if (!normalizedPostId) {
-        throw new Error('postId is required.');
-    }
+    if (!normalizedPostId) throw new Error('postId is required.');
+    if (!cleanBody) throw new Error('Comment body is required.');
 
-    if (!cleanBody) {
-        throw new Error('Comment body is required.');
-    }
-
-    const postRef = feedPostsCol.doc(normalizedPostId);
-    const postSnap = await postRef.get();
-
-    if (!postSnap.exists || toBool(postSnap.data()?.isDeleted)) {
-        throw new Error('Post not found.');
-    }
-
-    const post = postSnap.data() || {};
-    const postOwnerId = normalizeUserId(post.authorId);
+    const post = await fetchPostRow(normalizedPostId);
+    if (!post || toBool(post.is_deleted)) throw new Error('Post not found.');
 
     let parentData = null;
     let parentDepth = -1;
     let rootCommentId = '';
 
     if (normalizedParentCommentId) {
-        const parentSnap = await postRef
-            .collection('comments')
-            .doc(normalizedParentCommentId)
-            .get();
+        parentData = await fetchCommentRow(normalizedPostId, normalizedParentCommentId);
+        if (!parentData || toBool(parentData.is_deleted)) throw new Error('Parent comment not found.');
 
-        if (!parentSnap.exists || toBool(parentSnap.data()?.isDeleted)) {
-            throw new Error('Parent comment not found.');
-        }
-
-        parentData = parentSnap.data() || {};
         parentDepth = Math.max(0, toInt(parentData.depth, 0));
-        rootCommentId = sanitizeText(parentData.rootCommentId || normalizedParentCommentId);
+        rootCommentId = sanitizeText(parentData.root_comment_id || normalizedParentCommentId);
     }
 
-    const commentRef = postRef.collection('comments').doc();
+    const commentId = buildId('comment');
     const depth = normalizedParentCommentId ? parentDepth + 1 : 0;
+    const now = nowIso();
+    const authorSnapshot = buildAuthorSnapshot(viewerProfile, viewer);
 
-    if (!rootCommentId) {
-        rootCommentId = commentRef.id;
-    }
+    if (!rootCommentId) rootCommentId = commentId;
 
-    const payload = {
-        authorId: viewerProfile.id,
+    const row = {
+        firebase_app: 'supabase',
+        post_id: normalizedPostId,
+        comment_id: commentId,
+        source_document_path: `academyFeedPosts/${normalizedPostId}/comments/${commentId}`,
+        author_id: viewerProfile.id,
         body: cleanBody,
-        parentCommentId: normalizedParentCommentId,
-        rootCommentId,
+        parent_comment_id: normalizedParentCommentId,
+        root_comment_id: rootCommentId,
         depth,
-        hiddenForUserIds: [],
-        isDeleted: false,
-        createdAt: nowTs(),
-        updatedAt: nowTs(),
-        editedAt: null,
-        authorSnapshot: {
-            fullName: viewerProfile.fullName,
-            displayName: viewerProfile.displayName,
-            username: viewerProfile.username,
-            avatar: viewerProfile.avatar,
-            roleLabel: viewerProfile.roleLabel
+        is_deleted: false,
+        hidden_for_user_ids: [],
+        author_snapshot: authorSnapshot,
+        created_at_source: now,
+        updated_at_source: now,
+        edited_at_source: null,
+        deleted_at_source: null,
+        data: {
+            postId: normalizedPostId,
+            authorId: viewerProfile.id,
+            body: cleanBody,
+            parentCommentId: normalizedParentCommentId,
+            rootCommentId,
+            depth,
+            authorSnapshot,
+            createdAt: now,
+            updatedAt: now
         }
     };
 
-    await commentRef.set(payload);
+    const { data, error } = await yhuSupabaseAdmin
+        .from('yhu_academy_feed_comments')
+        .insert(row)
+        .select('*')
+        .single();
 
-    return mapCommentDoc(
-        {
-            id: commentRef.id,
-            data: () => payload
-        },
-        {
-            postId: normalizedPostId,
-            viewerId: viewerProfile.id,
-            postOwnerId
-        }
-    );
+    if (error) throw new Error(`Comment create failed: ${error.message}`);
+
+    return mapCommentRow(data, {
+        viewerId: viewerProfile.id,
+        postId: normalizedPostId,
+        postOwnerId: post.author_id
+    });
 }
 
 async function updatePostComment({ viewerId, postId, commentId, body }) {
@@ -966,45 +1090,44 @@ async function updatePostComment({ viewerId, postId, commentId, body }) {
     const normalizedCommentId = sanitizeText(commentId);
     const cleanBody = sanitizeText(body);
 
-    if (!normalizedViewerId || !normalizedPostId || !normalizedCommentId) {
-        throw new Error('viewerId, postId, and commentId are required.');
-    }
+    if (!cleanBody) throw new Error('Comment body is required.');
 
-    if (!cleanBody) {
-        throw new Error('Comment body is required.');
-    }
+    const [post, comment] = await Promise.all([
+        fetchPostRow(normalizedPostId),
+        fetchCommentRow(normalizedPostId, normalizedCommentId)
+    ]);
 
-    const postRef = feedPostsCol.doc(normalizedPostId);
-    const postSnap = await postRef.get();
+    if (!post || toBool(post.is_deleted)) throw new Error('Post not found.');
+    if (!comment || toBool(comment.is_deleted)) throw new Error('Comment not found.');
+    if (sanitizeText(comment.author_id) !== normalizedViewerId) throw new Error('You can only edit your own comment.');
 
-    if (!postSnap.exists || toBool(postSnap.data()?.isDeleted)) {
-        throw new Error('Post not found.');
-    }
+    const now = nowIso();
 
-    const commentRef = postRef.collection('comments').doc(normalizedCommentId);
-    const commentSnap = await commentRef.get();
+    const { data, error } = await yhuSupabaseAdmin
+        .from('yhu_academy_feed_comments')
+        .update({
+            body: cleanBody,
+            updated_at_source: now,
+            edited_at_source: now,
+            updated_at: now,
+            data: {
+                ...(comment.data || {}),
+                body: cleanBody,
+                updatedAt: now,
+                editedAt: now
+            }
+        })
+        .eq('post_id', normalizedPostId)
+        .eq('comment_id', normalizedCommentId)
+        .select('*')
+        .single();
 
-    if (!commentSnap.exists || toBool(commentSnap.data()?.isDeleted)) {
-        throw new Error('Comment not found.');
-    }
+    if (error) throw new Error(`Comment update failed: ${error.message}`);
 
-    const comment = commentSnap.data() || {};
-    if (sanitizeText(comment.authorId) !== normalizedViewerId) {
-        throw new Error('You can only edit your own comment.');
-    }
-
-    await commentRef.update({
-        body: cleanBody,
-        editedAt: nowTs(),
-        updatedAt: nowTs()
-    });
-
-    const updatedSnap = await commentRef.get();
-
-    return mapCommentDoc(updatedSnap, {
-        postId: normalizedPostId,
+    return mapCommentRow(data, {
         viewerId: normalizedViewerId,
-        postOwnerId: normalizeUserId(postSnap.data()?.authorId)
+        postId: normalizedPostId,
+        postOwnerId: post.author_id
     });
 }
 
@@ -1013,51 +1136,45 @@ async function deletePostComment({ viewerId, postId, commentId }) {
     const normalizedPostId = sanitizeText(postId);
     const normalizedCommentId = sanitizeText(commentId);
 
-    if (!normalizedViewerId || !normalizedPostId || !normalizedCommentId) {
-        throw new Error('viewerId, postId, and commentId are required.');
+    const [post, comment] = await Promise.all([
+        fetchPostRow(normalizedPostId),
+        fetchCommentRow(normalizedPostId, normalizedCommentId)
+    ]);
+
+    if (!post || toBool(post.is_deleted)) throw new Error('Post not found.');
+    if (!comment || toBool(comment.is_deleted)) throw new Error('Comment not found.');
+
+    const commentOwner = sanitizeText(comment.author_id) === normalizedViewerId;
+    const postOwner = sanitizeText(post.author_id) === normalizedViewerId;
+
+    if (!commentOwner && !postOwner) {
+        throw new Error('You can only delete your own comment.');
     }
 
-    const postRef = feedPostsCol.doc(normalizedPostId);
-    const postSnap = await postRef.get();
+    const now = nowIso();
 
-    if (!postSnap.exists || toBool(postSnap.data()?.isDeleted)) {
-        throw new Error('Post not found.');
-    }
+    const { error } = await yhuSupabaseAdmin
+        .from('yhu_academy_feed_comments')
+        .update({
+            is_deleted: true,
+            deleted_at_source: now,
+            updated_at_source: now,
+            updated_at: now,
+            data: {
+                ...(comment.data || {}),
+                isDeleted: true,
+                deletedAt: now,
+                updatedAt: now
+            }
+        })
+        .eq('post_id', normalizedPostId)
+        .eq('comment_id', normalizedCommentId);
 
-    const post = postSnap.data() || {};
-    const postOwnerId = normalizeUserId(post.authorId);
-
-    const commentRef = postRef.collection('comments').doc(normalizedCommentId);
-    const commentSnap = await commentRef.get();
-
-    if (!commentSnap.exists) {
-        throw new Error('Comment not found.');
-    }
-
-    const comment = commentSnap.data() || {};
-    if (toBool(comment.isDeleted)) {
-        return {
-            id: normalizedCommentId,
-            deleted: true
-        };
-    }
-
-    const commentOwnerId = normalizeUserId(comment.authorId);
-    const canDelete = commentOwnerId === normalizedViewerId || postOwnerId === normalizedViewerId;
-
-    if (!canDelete) {
-        throw new Error('You can only delete your own comment or comments under your own post.');
-    }
-
-    await commentRef.update({
-        isDeleted: true,
-        body: '',
-        deletedAt: nowTs(),
-        updatedAt: nowTs()
-    });
+    if (error) throw new Error(`Comment delete failed: ${error.message}`);
 
     return {
         id: normalizedCommentId,
+        post_id: normalizedPostId,
         deleted: true
     };
 }
@@ -1067,352 +1184,71 @@ async function hidePostCommentForViewer({ viewerId, postId, commentId }) {
     const normalizedPostId = sanitizeText(postId);
     const normalizedCommentId = sanitizeText(commentId);
 
-    if (!normalizedViewerId || !normalizedPostId || !normalizedCommentId) {
-        throw new Error('viewerId, postId, and commentId are required.');
-    }
+    if (!normalizedViewerId) throw new Error('viewerId is required.');
 
-    const postRef = feedPostsCol.doc(normalizedPostId);
-    const postSnap = await postRef.get();
+    const comment = await fetchCommentRow(normalizedPostId, normalizedCommentId);
+    if (!comment || toBool(comment.is_deleted)) throw new Error('Comment not found.');
 
-    if (!postSnap.exists || toBool(postSnap.data()?.isDeleted)) {
-        throw new Error('Post not found.');
-    }
+    const hidden = Array.from(new Set([...mapArray(comment.hidden_for_user_ids), normalizedViewerId]));
+    const now = nowIso();
 
-    const commentRef = postRef.collection('comments').doc(normalizedCommentId);
-    const commentSnap = await commentRef.get();
+    const { error } = await yhuSupabaseAdmin
+        .from('yhu_academy_feed_comments')
+        .update({
+            hidden_for_user_ids: hidden,
+            updated_at_source: now,
+            updated_at: now,
+            data: {
+                ...(comment.data || {}),
+                hiddenForUserIds: hidden,
+                updatedAt: now
+            }
+        })
+        .eq('post_id', normalizedPostId)
+        .eq('comment_id', normalizedCommentId);
 
-    if (!commentSnap.exists || toBool(commentSnap.data()?.isDeleted)) {
-        throw new Error('Comment not found.');
-    }
-
-    await commentRef.update({
-        hiddenForUserIds: FieldValue.arrayUnion(normalizedViewerId),
-        updatedAt: nowTs()
-    });
+    if (error) throw new Error(`Comment hide failed: ${error.message}`);
 
     return {
         id: normalizedCommentId,
+        post_id: normalizedPostId,
         hidden: true
     };
 }
-
-async function sendFriendRequest({ senderId, receiverId }) {
-    const normalizedSenderId = normalizeUserId(senderId);
-    const normalizedReceiverId = normalizeUserId(receiverId);
-
-    if (!normalizedSenderId || !normalizedReceiverId) {
-        throw new Error('senderId and receiverId are required.');
-    }
-
-    if (normalizedSenderId === normalizedReceiverId) {
-        throw new Error('You cannot send a friend request to yourself.');
-    }
-
-    const friendshipSnap = await friendshipsCol.doc(friendshipKeyFor(normalizedSenderId, normalizedReceiverId)).get();
-    if (friendshipSnap.exists) {
-        throw new Error('You are already friends.');
-    }
-
-    const existingPending = await friendRequestsCol
-        .where('senderId', '==', normalizedSenderId)
-        .where('receiverId', '==', normalizedReceiverId)
-        .where('status', '==', 'pending')
-        .limit(1)
-        .get();
-
-    if (!existingPending.empty) {
-        throw new Error('Friend request already pending.');
-    }
-
-    const ref = friendRequestsCol.doc();
-    const payload = {
-        senderId: normalizedSenderId,
-        receiverId: normalizedReceiverId,
-        status: 'pending',
-        createdAt: nowTs(),
-        respondedAt: null
-    };
-
-    await ref.set(payload);
-
-    return {
-        id: ref.id,
-        ...payload,
-        createdAt: mapTimestamp(payload.createdAt)
-    };
-}
-
-async function respondToFriendRequest({ responderId, requestId, action }) {
-    const normalizedResponderId = normalizeUserId(responderId);
-    const normalizedRequestId = sanitizeText(requestId);
-    const normalizedActionInput = sanitizeText(action).toLowerCase();
-    const normalizedAction =
-        normalizedActionInput === 'accept' ? 'accepted' :
-        normalizedActionInput === 'decline' ? 'declined' :
-        normalizedActionInput;
-
-    if (!normalizedResponderId || !normalizedRequestId) {
-        throw new Error('responderId and requestId are required.');
-    }
-
-    if (!['accepted', 'declined'].includes(normalizedAction)) {
-        throw new Error('Action must be accept/accepted or decline/declined.');
-    }
-
-    const requestRef = friendRequestsCol.doc(normalizedRequestId);
-    const requestSnap = await requestRef.get();
-
-    if (!requestSnap.exists) {
-        throw new Error('Friend request not found.');
-    }
-
-    const request = requestSnap.data() || {};
-
-    if (sanitizeText(request.receiverId) !== normalizedResponderId) {
-        throw new Error('Only the receiver can respond to this request.');
-    }
-
-    if (sanitizeText(request.status) !== 'pending') {
-        throw new Error('Friend request has already been handled.');
-    }
-
-    await requestRef.update({
-        status: normalizedAction,
-        respondedAt: nowTs()
-    });
-
-    if (normalizedAction === 'accepted') {
-        const friendshipRef = friendshipsCol.doc(
-            friendshipKeyFor(request.senderId, request.receiverId)
-        );
-
-        await friendshipRef.set({
-            userOneId: normalizeFriendPair(request.senderId, request.receiverId)[0],
-            userTwoId: normalizeFriendPair(request.senderId, request.receiverId)[1],
-            createdAt: nowTs()
-        });
-    }
-
-    return {
-        id: normalizedRequestId,
-        status: normalizedAction
-    };
-}
-function getFollowFollowerId(data = {}) {
-    return normalizeUserId(
-        data.followerId ||
-        data.follower_id ||
-        data.viewerId ||
-        data.viewer_id ||
-        data.userId ||
-        data.user_id ||
-        data.fromUserId ||
-        data.from_user_id ||
-        data.sourceUserId ||
-        data.source_user_id
-    );
-}
-
-function getFollowFollowingId(data = {}) {
-    return normalizeUserId(
-        data.followingId ||
-        data.following_id ||
-        data.targetUserId ||
-        data.target_user_id ||
-        data.targetId ||
-        data.target_id ||
-        data.toUserId ||
-        data.to_user_id
-    );
-}
-
-async function getFollowDocsByAnyField(collectionRef, fieldNames = [], userId = '') {
-    const normalizedUserId = normalizeUserId(userId);
-    if (!normalizedUserId) return [];
-
-    const batches = await Promise.all(
-        fieldNames.map(async (fieldName) => {
-            try {
-                const snap = await collectionRef
-                    .where(fieldName, '==', normalizedUserId)
-                    .get();
-
-                return snap.docs || [];
-            } catch (_) {
-                return [];
-            }
-        })
-    );
-
-    return batches.flat();
-}
-
-function countUniqueFollowDocs(docs = []) {
-    const seen = new Set();
-
-    docs.forEach((doc) => {
-        const data = doc.data() || {};
-        const followerId = getFollowFollowerId(data);
-        const followingId = getFollowFollowingId(data);
-
-        const key = followerId && followingId
-            ? `${followerId}_${followingId}`
-            : doc.id;
-
-        if (key) seen.add(key);
-    });
-
-    return seen.size;
-}
-
-async function getAcademyFollowerCount(userId) {
-    const normalizedUserId = normalizeUserId(userId);
-    if (!normalizedUserId) return 0;
-
-    const targetFields = [
-        'followingId',
-        'following_id',
-        'targetUserId',
-        'target_user_id',
-        'targetId',
-        'target_id',
-        'toUserId',
-        'to_user_id'
-    ];
-
-    const docs = [
-        ...(await getFollowDocsByAnyField(academyFollowsCol, targetFields, normalizedUserId)),
-        ...(await getFollowDocsByAnyField(legacyUserFollowsCol, targetFields, normalizedUserId))
-    ];
-
-    return countUniqueFollowDocs(docs);
-}
-
-async function getAcademyFollowingCount(userId) {
-    const normalizedUserId = normalizeUserId(userId);
-    if (!normalizedUserId) return 0;
-
-    const sourceFields = [
-        'followerId',
-        'follower_id',
-        'viewerId',
-        'viewer_id',
-        'userId',
-        'user_id',
-        'fromUserId',
-        'from_user_id',
-        'sourceUserId',
-        'source_user_id'
-    ];
-
-    const docs = [
-        ...(await getFollowDocsByAnyField(academyFollowsCol, sourceFields, normalizedUserId)),
-        ...(await getFollowDocsByAnyField(legacyUserFollowsCol, sourceFields, normalizedUserId))
-    ];
-
-    return countUniqueFollowDocs(docs);
-}
-
-async function getAcademyFriendCount(userId) {
-    const normalizedUserId = normalizeUserId(userId);
-    if (!normalizedUserId) return 0;
-
-    const [asUserOneSnap, asUserTwoSnap] = await Promise.all([
-        friendshipsCol.where('userOneId', '==', normalizedUserId).get(),
-        friendshipsCol.where('userTwoId', '==', normalizedUserId).get()
-    ]);
-
-    return asUserOneSnap.size + asUserTwoSnap.size;
-}
-
-/* PATCH: Server-backed Academy social counts v1 */
-async function getMemberSocialCounts({ userId, viewerId = '' } = {}) {
-    const normalizedUserId = normalizeUserId(userId);
-    const normalizedViewerId = normalizeUserId(viewerId);
-
-    if (!normalizedUserId) {
-        throw new Error('userId is required.');
-    }
-
-    const [followerCount, followingCount, friendCount] = await Promise.all([
-        getAcademyFollowerCount(normalizedUserId),
-        getAcademyFollowingCount(normalizedUserId),
-        getAcademyFriendCount(normalizedUserId)
-    ]);
-
-    let followedByMe = false;
-
-    if (normalizedViewerId && normalizedViewerId !== normalizedUserId) {
-        const followSnap = await academyFollowsCol
-            .doc(followKeyFor(normalizedViewerId, normalizedUserId))
-            .get();
-
-        followedByMe = followSnap.exists;
-    }
-
-    return {
-        id: normalizedUserId,
-        userId: normalizedUserId,
-
-        followers_count: followerCount,
-        followersCount: followerCount,
-        followerCount,
-
-        following_count: followingCount,
-        followingCount,
-
-        friends_count: friendCount,
-        friend_count: friendCount,
-        friendsCount: friendCount,
-        friendCount,
-
-        followed_by_me: followedByMe,
-        followedByMe
-    };
-}
-/* END PATCH: Server-backed Academy social counts v1 */
 
 async function listAcademyMembers({ viewerId, limit = 100, query = '' }) {
     const normalizedViewerId = normalizeUserId(viewerId);
     const normalizedLimit = Math.max(1, Math.min(toInt(limit, 100), 200));
     const normalizedQuery = sanitizeText(query).toLowerCase();
-    const isHashtagQuery = normalizedQuery.startsWith('#') && normalizedQuery.length > 1;
-    const hashtagNeedle = isHashtagQuery ? normalizedQuery.replace(/^#/, '') : '';
+    const isHashtagQuery = normalizedQuery.startsWith('#') || normalizedQuery.startsWith('tag:');
+    const hashtagNeedle = normalizedQuery.replace(/^tag:/, '').replace(/^#/, '').trim();
 
-    const viewerFollowingSnap = normalizedViewerId
-        ? await academyFollowsCol.where('followerId', '==', normalizedViewerId).get()
-        : null;
+    const followedIds = new Set(normalizedViewerId ? await getFollowingIdsForUser(normalizedViewerId) : []);
 
-    const followedIds = new Set(
-        (viewerFollowingSnap?.docs || []).map((doc) => sanitizeText(doc.data()?.followingId))
-    );
+    if (isHashtagQuery && hashtagNeedle) {
+        const { data, error } = await yhuSupabaseAdmin
+            .from('yhu_academy_feed_posts')
+            .select('*')
+            .eq('is_deleted', false)
+            .order('created_at_source', { ascending: false, nullsFirst: false })
+            .limit(Math.max(normalizedLimit * 6, 120));
 
-    if (isHashtagQuery) {
-        const sourceLimit = Math.max(normalizedLimit * 6, 120);
-
-        const postsSnap = await feedPostsCol
-            .where('isDeleted', '==', false)
-            .orderBy('createdAt', 'desc')
-            .limit(sourceLimit)
-            .get();
+        if (error) throw new Error(`Member hashtag search failed: ${error.message}`);
 
         const matchedByUser = new Map();
 
-        for (const doc of postsSnap.docs) {
-            const data = doc.data() || {};
-            const authorId = sanitizeText(data.authorId);
-
+        for (const row of Array.isArray(data) ? data : []) {
+            const authorId = sanitizeText(row.author_id);
             if (!authorId || authorId === normalizedViewerId) continue;
 
-            const hashtags = extractHashtagsFromText(data.body);
+            const hashtags = extractHashtagsFromText(row.body);
             if (!hashtags.includes(hashtagNeedle)) continue;
 
-            const author = data.authorSnapshot && typeof data.authorSnapshot === 'object'
-                ? data.authorSnapshot
+            const author = row.author_snapshot && typeof row.author_snapshot === 'object'
+                ? row.author_snapshot
                 : {};
 
-            const preview = buildSearchPostPreview(data.body);
-            const createdAt = mapTimestamp(data.createdAt);
+            const preview = buildSearchPostPreview(row.body);
 
             if (!matchedByUser.has(authorId)) {
                 matchedByUser.set(authorId, {
@@ -1428,24 +1264,16 @@ async function listAcademyMembers({ viewerId, limit = 100, query = '' }) {
                     matched_hashtags: hashtags.slice(0, 6),
                     matched_posts_count: 1,
                     matched_post_preview: preview,
-                    matched_post_created_at: createdAt
+                    matched_post_created_at: row.created_at_source || ''
                 });
                 continue;
             }
 
             const existing = matchedByUser.get(authorId);
             existing.matched_posts_count += 1;
-            existing.matched_hashtags = Array.from(
-                new Set([...(existing.matched_hashtags || []), ...hashtags])
-            ).slice(0, 6);
-
-            if (!existing.matched_post_preview && preview) {
-                existing.matched_post_preview = preview;
-            }
-
-            if (!existing.matched_post_created_at && createdAt) {
-                existing.matched_post_created_at = createdAt;
-            }
+            existing.matched_hashtags = Array.from(new Set([...(existing.matched_hashtags || []), ...hashtags])).slice(0, 6);
+            if (!existing.matched_post_preview && preview) existing.matched_post_preview = preview;
+            if (!existing.matched_post_created_at && row.created_at_source) existing.matched_post_created_at = row.created_at_source;
         }
 
         const members = await Promise.all(
@@ -1456,56 +1284,40 @@ async function listAcademyMembers({ viewerId, limit = 100, query = '' }) {
         );
 
         return members
-            .sort((a, b) => {
-                const countDelta = Number(b.matched_posts_count || 0) - Number(a.matched_posts_count || 0);
-                if (countDelta !== 0) return countDelta;
-
-                const left = String(a.display_name || a.fullName || '').toLowerCase();
-                const right = String(b.display_name || b.fullName || '').toLowerCase();
-                return left.localeCompare(right);
-            })
+            .sort((a, b) => Number(b.matched_posts_count || 0) - Number(a.matched_posts_count || 0))
             .slice(0, normalizedLimit);
     }
 
-    const sourceLimit = normalizedQuery ? Math.max(normalizedLimit, 200) : normalizedLimit;
-    const usersSnap = await usersCol.limit(sourceLimit).get();
+    const { data, error } = await yhuSupabaseAdmin
+        .from('yhu_academy_member_profiles')
+        .select('*')
+        .limit(normalizedQuery ? 300 : normalizedLimit);
+
+    if (error) throw new Error(`Academy members lookup failed: ${error.message}`);
 
     const members = await Promise.all(
-        usersSnap.docs.map(async (doc) => {
-            const raw = { id: doc.id, ...(doc.data() || {}) };
-            const userId = sanitizeText(raw.id);
+        (Array.isArray(data) ? data : []).map(async (row) => {
+            const profile = mapProfileRow(row);
+            const userId = sanitizeText(profile.id);
 
             if (!userId || userId === normalizedViewerId) return null;
 
-            const snapshot = buildAuthorSnapshot(raw, {});
-            const followerCount = await getAcademyFollowerCount(userId);
-
-            const explicitTags = Array.isArray(raw.searchTags)
-                ? raw.searchTags
-                    .map((value) => sanitizeText(value).toLowerCase().replace(/^#/, ''))
-                    .filter(Boolean)
-                : [];
-
-            const searchTags = Array.from(new Set(explicitTags));
-
             const member = {
                 id: userId,
-                fullName: snapshot.fullName,
-                display_name: snapshot.displayName,
-                username: snapshot.username,
-                avatar: snapshot.avatar,
-                role_label: snapshot.roleLabel || 'Academy Member',
-                followers_count: followerCount,
+                fullName: profile.fullName,
+                display_name: profile.display_name,
+                username: profile.username,
+                avatar: profile.avatar,
+                role_label: profile.role_label || 'Academy Member',
+                followers_count: await getAcademyFollowerCount(userId),
                 followed_by_me: followedIds.has(userId),
-                search_tags: searchTags,
+                search_tags: profile.search_tags || [],
                 matched_hashtags: [],
                 matched_posts_count: 0,
                 matched_post_preview: ''
             };
 
-            if (!normalizedQuery) {
-                return member;
-            }
+            if (!normalizedQuery) return member;
 
             const haystack = [
                 member.display_name,
@@ -1513,9 +1325,7 @@ async function listAcademyMembers({ viewerId, limit = 100, query = '' }) {
                 member.username,
                 member.role_label,
                 member.search_tags.join(' ')
-            ]
-                .map((value) => sanitizeText(value).toLowerCase())
-                .join(' ');
+            ].map((value) => sanitizeText(value).toLowerCase()).join(' ');
 
             return haystack.includes(normalizedQuery) ? member : null;
         })
@@ -1523,318 +1333,401 @@ async function listAcademyMembers({ viewerId, limit = 100, query = '' }) {
 
     return members
         .filter(Boolean)
-        .sort((a, b) => {
-            const left = String(a.display_name || a.fullName || '').toLowerCase();
-            const right = String(b.display_name || b.fullName || '').toLowerCase();
-            return left.localeCompare(right);
-        })
+        .sort((a, b) => String(a.display_name || a.fullName || '').toLowerCase().localeCompare(String(b.display_name || b.fullName || '').toLowerCase()))
         .slice(0, normalizedLimit);
 }
+
+async function getMemberSocialCounts({ userId, viewerId = '' }) {
+    const normalizedUserId = normalizeUserId(userId);
+    const normalizedViewerId = normalizeUserId(viewerId);
+
+    const [followersCount, followingCount, friendCount, mutualFriendCount, followingIds] = await Promise.all([
+        getAcademyFollowerCount(normalizedUserId),
+        getAcademyFollowingCount(normalizedUserId),
+        getAcademyFriendCount(normalizedUserId),
+        getMutualFriendCount(normalizedViewerId, normalizedUserId),
+        normalizedViewerId ? getFollowingIdsForUser(normalizedViewerId) : Promise.resolve([])
+    ]);
+
+    return {
+        id: normalizedUserId,
+        followers_count: followersCount,
+        following_count: followingCount,
+        friend_count: friendCount,
+        mutual_friend_count: mutualFriendCount,
+        followed_by_me: followingIds.includes(normalizedUserId)
+    };
+}
+
 async function getMemberProfile({ viewerId, targetUserId }) {
     const normalizedViewerId = normalizeUserId(viewerId);
     const normalizedTargetUserId = normalizeUserId(targetUserId);
 
-    if (!normalizedTargetUserId) {
-        throw new Error('targetUserId is required.');
-    }
+    if (!normalizedTargetUserId) throw new Error('targetUserId is required.');
 
-    const targetUser = await getUserDoc(normalizedTargetUserId);
-    if (!targetUser) {
-        throw new Error('Target member not found.');
-    }
+    const profile = await getProfileOrFallback(normalizedTargetUserId);
+    if (!profile) throw new Error('Target member not found.');
 
-    const academyProfileSnap = await usersCol
-        .doc(normalizedTargetUserId)
-        .collection('academy')
-        .doc('profile')
-        .get();
-
-    const academyProfile = academyProfileSnap.exists ? (academyProfileSnap.data() || {}) : {};
-
-    const displayName =
-        sanitizeText(
-            academyProfile.display_name ||
-            academyProfile.displayName ||
-            targetUser.displayName ||
-            targetUser.fullName ||
-            targetUser.name ||
-            targetUser.username ||
-            'Hustler'
-        ) || 'Hustler';
-
-    const username =
-        sanitizeText(
-            academyProfile.username ||
-            targetUser.username
-        ).replace(/^@+/, '');
-
-    const avatar =
-        sanitizeText(
-            academyProfile.avatar ||
-            targetUser.avatar ||
-            targetUser.profilePhoto ||
-            targetUser.photoURL
-        );
-
-    const roleLabel =
-        sanitizeText(
-            academyProfile.role_label ||
-            academyProfile.roleLabel ||
-            targetUser.roleLabel ||
-            targetUser.role ||
-            'Academy Member'
-        ) || 'Academy Member';
-
-    const bio =
-        sanitizeText(
-            academyProfile.bio ||
-            targetUser.bio ||
-            targetUser.profileBio ||
-            targetUser.about ||
-            targetUser.description
-        ) || 'Focused on execution, consistency, and long-term growth inside The Academy.';
-
-    const coverPhoto =
-        sanitizeText(
-            academyProfile.cover_photo ||
-            academyProfile.coverPhoto ||
-            targetUser.coverPhoto
-        );
-
-    const [followerCount, followingCount, friendCount] = await Promise.all([
+    const [followerCount, followingCount, friendCount, followedIds, friendshipState, mutualFriendCount, postsResult] = await Promise.all([
         getAcademyFollowerCount(normalizedTargetUserId),
         getAcademyFollowingCount(normalizedTargetUserId),
-        getAcademyFriendCount(normalizedTargetUserId)
+        getAcademyFriendCount(normalizedTargetUserId),
+        normalizedViewerId ? getFollowingIdsForUser(normalizedViewerId) : Promise.resolve([]),
+        getFriendshipState(normalizedViewerId, normalizedTargetUserId),
+        getMutualFriendCount(normalizedViewerId, normalizedTargetUserId),
+        yhuSupabaseAdmin
+            .from('yhu_academy_feed_posts')
+            .select('*')
+            .eq('author_id', normalizedTargetUserId)
+            .eq('is_deleted', false)
+            .order('created_at_source', { ascending: false, nullsFirst: false })
+            .limit(25)
     ]);
 
-    let followedByMe = false;
-    if (normalizedViewerId && normalizedViewerId !== normalizedTargetUserId) {
-        const followSnap = await academyFollowsCol
-            .doc(followKeyFor(normalizedViewerId, normalizedTargetUserId))
-            .get();
+    if (postsResult.error) throw new Error(`Member recent posts lookup failed: ${postsResult.error.message}`);
 
-        followedByMe = followSnap.exists;
-    }
-
-    const [friendshipState, mutualFriendCount] = await Promise.all([
-        getFriendshipState(
-            normalizedViewerId,
-            normalizedTargetUserId
-        ),
-        getMutualFriendCount(
-            normalizedViewerId,
-            normalizedTargetUserId
-        )
-    ]);
-
-    const explicitTags = Array.isArray(academyProfile.search_tags || academyProfile.searchTags || academyProfile.tags || academyProfile.signals?.tags)
-        ? (academyProfile.search_tags || academyProfile.searchTags || academyProfile.tags || academyProfile.signals?.tags)
-            .map((value) => sanitizeText(value).toLowerCase().replace(/^#/, ''))
-            .filter(Boolean)
-        : Array.isArray(targetUser.searchTags)
-            ? targetUser.searchTags
-                .map((value) => sanitizeText(value).toLowerCase().replace(/^#/, ''))
-                .filter(Boolean)
-            : [];
-
-    const postsSnap = await feedPostsCol
-        .where('authorId', '==', normalizedTargetUserId)
-        .limit(25)
-        .get();
-
-    const recentPostDocs = postsSnap.docs
-        .filter((doc) => !toBool(doc.data()?.isDeleted))
-        .sort((a, b) => {
-            const leftRaw = a.data()?.createdAt;
-            const rightRaw = b.data()?.createdAt;
-
-            const left = typeof leftRaw?.toDate === 'function'
-                ? leftRaw.toDate().getTime()
-                : new Date(leftRaw || 0).getTime();
-
-            const right = typeof rightRaw?.toDate === 'function'
-                ? rightRaw.toDate().getTime()
-                : new Date(rightRaw || 0).getTime();
-
-            return right - left;
-        })
-        .slice(0, 6);
-
-    const recentPosts = await Promise.all(
-        recentPostDocs.map(async (doc) => {
-            const likeState = await getLikeState(doc.id, normalizedViewerId);
-            const commentCount = await getCommentCount(doc.id);
-
-            return mapPostDoc(doc, {
-                viewerId: normalizedViewerId,
-                like_count: likeState.like_count,
-                liked_by_me: likeState.liked_by_me,
-                comment_count: commentCount,
-                is_friend: friendshipState.is_friend,
-                outgoing_friend_request_pending: friendshipState.outgoing_friend_request_pending
-            });
-        })
-    );
+    const recentPosts = (postsResult.data || []).map((row) => mapPostRow(row, {
+        viewerId: normalizedViewerId
+    }));
 
     return {
         id: normalizedTargetUserId,
-        fullName: displayName,
-        display_name: displayName,
-        username,
-        avatar,
-        cover_photo: coverPhoto,
-        role_label: roleLabel,
-        bio,
+        fullName: profile.fullName,
+        display_name: profile.display_name,
+        displayName: profile.displayName || profile.display_name,
+        username: profile.username,
+        avatar: profile.avatar,
+        role_label: profile.role_label || 'Academy Member',
+        roleLabel: profile.role_label || 'Academy Member',
+        bio: profile.bio || 'Focused on execution, consistency, and long-term growth inside The Academy.',
+        cover_photo: profile.cover_photo,
+        search_tags: profile.search_tags || [],
         followers_count: followerCount,
         following_count: followingCount,
-        friends_count: friendCount,
         friend_count: friendCount,
-        followed_by_me: followedByMe,
-        is_friend: friendshipState.is_friend,
-        outgoing_friend_request_pending: friendshipState.outgoing_friend_request_pending,
-        incoming_friend_request_pending: friendshipState.incoming_friend_request_pending,
-        incoming_friend_request_id: friendshipState.incoming_friend_request_id,
+        followed_by_me: followedIds.includes(normalizedTargetUserId),
         mutual_friend_count: mutualFriendCount,
-        search_tags: Array.from(new Set(explicitTags)),
-        post_count: recentPosts.length,
         recent_posts: recentPosts,
-        status: 'Active',
-        is_self: normalizedViewerId === normalizedTargetUserId
+        ...friendshipState
     };
 }
+
 async function toggleMemberFollow({ viewerId, targetUserId }) {
     const normalizedViewerId = normalizeUserId(viewerId);
     const normalizedTargetUserId = normalizeUserId(targetUserId);
 
-    if (!normalizedViewerId || !normalizedTargetUserId) {
-        throw new Error('viewerId and targetUserId are required.');
-    }
+    if (!normalizedViewerId) throw new Error('viewerId is required.');
+    if (!normalizedTargetUserId) throw new Error('targetUserId is required.');
+    if (normalizedViewerId === normalizedTargetUserId) throw new Error('You cannot follow yourself.');
 
-    if (normalizedViewerId === normalizedTargetUserId) {
-        throw new Error('You cannot follow yourself.');
-    }
+    const targetProfile = await getProfileOrFallback(normalizedTargetUserId);
+    if (!targetProfile) throw new Error('Target member not found.');
 
-    const targetUser = await getUserDoc(normalizedTargetUserId);
-    if (!targetUser) {
-        throw new Error('Target member not found.');
-    }
+    const existing = await yhuSupabaseAdmin
+        .from('yhu_academy_user_follows')
+        .select('id')
+        .eq('follower_id', normalizedViewerId)
+        .eq('following_id', normalizedTargetUserId)
+        .maybeSingle();
 
-    const ref = academyFollowsCol.doc(followKeyFor(normalizedViewerId, normalizedTargetUserId));
-    const snap = await ref.get();
+    if (existing.error) throw new Error(`Follow lookup failed: ${existing.error.message}`);
 
-    let following = false;
+    let following;
 
-    if (snap.exists) {
-        await ref.delete();
+    if (existing.data) {
+        const { error } = await yhuSupabaseAdmin
+            .from('yhu_academy_user_follows')
+            .delete()
+            .eq('follower_id', normalizedViewerId)
+            .eq('following_id', normalizedTargetUserId);
+
+        if (error) throw new Error(`Unfollow failed: ${error.message}`);
         following = false;
     } else {
-        await ref.set({
-            followerId: normalizedViewerId,
-            followingId: normalizedTargetUserId,
-            createdAt: nowTs()
-        });
+        const now = nowIso();
+        const followId = followKeyFor(normalizedViewerId, normalizedTargetUserId);
+
+        const { error } = await yhuSupabaseAdmin
+            .from('yhu_academy_user_follows')
+            .insert({
+                firebase_app: 'supabase',
+                source_collection_path: 'academyUserFollows',
+                follow_id: followId,
+                source_document_path: `academyUserFollows/${followId}`,
+                follower_id: normalizedViewerId,
+                following_id: normalizedTargetUserId,
+                created_at_source: now,
+                data: {
+                    followerId: normalizedViewerId,
+                    followingId: normalizedTargetUserId,
+                    createdAt: now
+                }
+            });
+
+        if (error) throw new Error(`Follow failed: ${error.message}`);
         following = true;
     }
 
-    const [followerCount, followingCount] = await Promise.all([
+    const [followersCount, followingCount] = await Promise.all([
         getAcademyFollowerCount(normalizedTargetUserId),
         getAcademyFollowingCount(normalizedViewerId)
     ]);
 
     return {
-        targetUserId: normalizedTargetUserId,
         following,
-        followerCount,
-        followers_count: followerCount,
-        followingCount,
-        following_count: followingCount
+        followed_by_me: following,
+        targetUserId: normalizedTargetUserId,
+        followers_count: followersCount,
+        viewer_following_count: followingCount
     };
 }
-function normalizeCommunityNicheRecord(record = {}) {
-    const key = normalizeNicheKey(record.key || record.nicheKey);
-    const meta = getNicheMeta(key);
 
-    if (!key || !meta) return null;
+async function sendFriendRequest({ senderId, receiverId }) {
+    const normalizedSenderId = normalizeUserId(senderId);
+    const normalizedReceiverId = normalizeUserId(receiverId);
+
+    if (!normalizedSenderId) throw new Error('senderId is required.');
+    if (!normalizedReceiverId) throw new Error('receiverId is required.');
+    if (normalizedSenderId === normalizedReceiverId) throw new Error('You cannot send a friend request to yourself.');
+
+    const receiverProfile = await getProfileOrFallback(normalizedReceiverId);
+    if (!receiverProfile) throw new Error('Target member not found.');
+
+    const state = await getFriendshipState(normalizedSenderId, normalizedReceiverId);
+    if (state.is_friend) throw new Error('You are already friends.');
+    if (state.outgoing_friend_request_pending) throw new Error('Friend request already sent.');
+    if (state.incoming_friend_request_pending) throw new Error('This member already sent you a friend request.');
+
+    const requestId = buildId('friendreq');
+    const now = nowIso();
+
+    const row = {
+        firebase_app: 'supabase',
+        request_id: requestId,
+        source_document_path: `academyFriendRequests/${requestId}`,
+        sender_id: normalizedSenderId,
+        receiver_id: normalizedReceiverId,
+        status: 'pending',
+        created_at_source: now,
+        responded_at_source: null,
+        data: {
+            senderId: normalizedSenderId,
+            receiverId: normalizedReceiverId,
+            status: 'pending',
+            createdAt: now
+        }
+    };
+
+    const { data, error } = await yhuSupabaseAdmin
+        .from('yhu_academy_friend_requests')
+        .insert(row)
+        .select('*')
+        .single();
+
+    if (error) throw new Error(`Friend request create failed: ${error.message}`);
 
     return {
-        key,
-        label: meta.label,
-        description: meta.description,
-        joinedAt: mapTimestamp(record.joinedAt) || new Date().toISOString(),
-        lastVisitedAt: mapTimestamp(record.lastVisitedAt) || '',
-        isDefault: record.isDefault === true
+        id: data.request_id,
+        senderId: data.sender_id,
+        receiverId: data.receiver_id,
+        status: data.status,
+        createdAt: data.created_at_source
+    };
+}
+
+async function respondToFriendRequest({ responderId, requestId, action }) {
+    const normalizedResponderId = normalizeUserId(responderId);
+    const normalizedRequestId = sanitizeText(requestId);
+    const normalizedAction = sanitizeText(action).toLowerCase();
+
+    if (!normalizedResponderId) throw new Error('responderId is required.');
+    if (!normalizedRequestId) throw new Error('requestId is required.');
+    if (!['accept', 'accepted', 'decline', 'declined', 'reject', 'rejected'].includes(normalizedAction)) {
+        throw new Error('Invalid friend request action.');
+    }
+
+    const { data: request, error: requestError } = await yhuSupabaseAdmin
+        .from('yhu_academy_friend_requests')
+        .select('*')
+        .eq('request_id', normalizedRequestId)
+        .maybeSingle();
+
+    if (requestError) throw new Error(`Friend request lookup failed: ${requestError.message}`);
+    if (!request || request.status !== 'pending') throw new Error('Friend request not found.');
+    if (sanitizeText(request.receiver_id) !== normalizedResponderId) throw new Error('Friend request not found.');
+
+    const accepted = ['accept', 'accepted'].includes(normalizedAction);
+    const now = nowIso();
+
+    const { error: updateError } = await yhuSupabaseAdmin
+        .from('yhu_academy_friend_requests')
+        .update({
+            status: accepted ? 'accepted' : 'declined',
+            responded_at_source: now,
+            updated_at: now,
+            data: {
+                ...(request.data || {}),
+                status: accepted ? 'accepted' : 'declined',
+                respondedAt: now
+            }
+        })
+        .eq('request_id', normalizedRequestId);
+
+    if (updateError) throw new Error(`Friend request update failed: ${updateError.message}`);
+
+    let friendship = null;
+
+    if (accepted) {
+        const [x, y] = normalizeFriendPair(request.sender_id, request.receiver_id);
+        const friendshipId = friendshipKeyFor(x, y);
+
+        const { data, error } = await yhuSupabaseAdmin
+            .from('yhu_academy_friendships')
+            .upsert({
+                firebase_app: 'supabase',
+                friendship_id: friendshipId,
+                source_document_path: `academyFriendships/${friendshipId}`,
+                user_one_id: x,
+                user_two_id: y,
+                created_at_source: now,
+                data: {
+                    userOneId: x,
+                    userTwoId: y,
+                    requestId: normalizedRequestId,
+                    createdAt: now
+                }
+            }, { onConflict: 'friendship_id' })
+            .select('*')
+            .single();
+
+        if (error) throw new Error(`Friendship create failed: ${error.message}`);
+        friendship = data;
+    }
+
+    return {
+        request: {
+            id: normalizedRequestId,
+            senderId: request.sender_id,
+            receiverId: request.receiver_id,
+            status: accepted ? 'accepted' : 'declined',
+            respondedAt: now
+        },
+        friendship: friendship
+            ? {
+                id: friendship.friendship_id,
+                userOneId: friendship.user_one_id,
+                userTwoId: friendship.user_two_id,
+                createdAt: friendship.created_at_source
+            }
+            : null
     };
 }
 
 async function getCommunityNicheState({ viewerId }) {
     const normalizedViewerId = normalizeUserId(viewerId);
-    if (!normalizedViewerId) {
-        throw new Error('viewerId is required.');
-    }
+    if (!normalizedViewerId) throw new Error('viewerId is required.');
 
-    const userSnap = await usersCol.doc(normalizedViewerId).get();
-    const userData = userSnap.exists ? (userSnap.data() || {}) : {};
-    const rawCommunityNiches =
-        userData.communityNiches && typeof userData.communityNiches === 'object'
-            ? userData.communityNiches
-            : {};
+    const profile = await getProfileOrFallback(normalizedViewerId, { id: normalizedViewerId });
 
-    const rawJoined = Array.isArray(rawCommunityNiches.joinedNiches)
-        ? rawCommunityNiches.joinedNiches
-        : [];
+    const { data, error } = await yhuSupabaseAdmin
+        .from('yhu_academy_member_niches')
+        .select('*')
+        .eq('user_id', normalizedViewerId)
+        .order('created_at_source', { ascending: true, nullsFirst: false });
 
-    const joinedNiches = rawJoined
-        .map(normalizeCommunityNicheRecord)
-        .filter(Boolean);
+    if (error) throw new Error(`Community niches lookup failed: ${error.message}`);
 
-    const defaultNicheKeyRaw = normalizeNicheKey(rawCommunityNiches.defaultNicheKey);
+    const joinedKeys = new Set([
+        ...mapArray(profile?.community_niches).map(normalizeNicheKey),
+        ...(Array.isArray(data) ? data.map((row) => normalizeNicheKey(row.niche_key)) : [])
+    ].filter(Boolean));
+
     const defaultNicheKey =
-        joinedNiches.some((item) => item.key === defaultNicheKeyRaw)
-            ? defaultNicheKeyRaw
-            : joinedNiches[0]?.key || '';
+        normalizeNicheKey(profile?.default_niche) ||
+        normalizeNicheKey((Array.isArray(data) ? data : []).find((row) => row.is_default)?.niche_key) ||
+        '';
 
-    const normalizedJoined = joinedNiches.map((item) => ({
+    const joinedNiches = ACADEMY_COMMUNITY_NICHES
+        .filter((item) => joinedKeys.has(item.key))
+        .map((item) => ({
+            ...item,
+            joined: true,
+            isDefault: item.key === defaultNicheKey,
+            is_default: item.key === defaultNicheKey
+        }));
+
+    const niches = ACADEMY_COMMUNITY_NICHES.map((item) => ({
         ...item,
-        isDefault: item.key === defaultNicheKey
+        joined: joinedKeys.has(item.key),
+        isDefault: item.key === defaultNicheKey,
+        is_default: item.key === defaultNicheKey
     }));
 
     return {
-        niches: ACADEMY_COMMUNITY_NICHES,
+        niches,
+        joinedNiches,
+        joined_niches: joinedNiches,
         defaultNicheKey,
-        joinedNiches: normalizedJoined
+        default_niche_key: defaultNicheKey
     };
 }
 
 async function persistCommunityNicheState(viewerId, joinedNiches = [], defaultNicheKey = '') {
     const normalizedViewerId = normalizeUserId(viewerId);
-    const cleanDefaultNicheKey = normalizeNicheKey(defaultNicheKey);
+    const normalizedJoinedKeys = Array.from(new Set(
+        (Array.isArray(joinedNiches) ? joinedNiches : [])
+            .map((item) => normalizeNicheKey(item.key || item.nicheKey || item))
+            .filter((key) => getNicheMeta(key))
+    ));
 
-    const normalizedJoined = joinedNiches
-        .map(normalizeCommunityNicheRecord)
-        .filter(Boolean)
-        .map((item) => ({
-            ...item,
-            isDefault: item.key === cleanDefaultNicheKey
+    const cleanDefault =
+        normalizeNicheKey(defaultNicheKey) && normalizedJoinedKeys.includes(normalizeNicheKey(defaultNicheKey))
+            ? normalizeNicheKey(defaultNicheKey)
+            : normalizedJoinedKeys[0] || '';
+
+    const now = nowIso();
+
+    const { error: deleteError } = await yhuSupabaseAdmin
+        .from('yhu_academy_member_niches')
+        .delete()
+        .eq('user_id', normalizedViewerId);
+
+    if (deleteError) throw new Error(`Niche cleanup failed: ${deleteError.message}`);
+
+    if (normalizedJoinedKeys.length) {
+        const rows = normalizedJoinedKeys.map((key) => ({
+            user_id: normalizedViewerId,
+            niche_key: key,
+            is_default: key === cleanDefault,
+            created_at_source: now,
+            updated_at_source: now,
+            data: {
+                userId: normalizedViewerId,
+                nicheKey: key,
+                isDefault: key === cleanDefault,
+                createdAt: now,
+                updatedAt: now
+            }
         }));
 
-    const nextDefault =
-        normalizedJoined.some((item) => item.key === cleanDefaultNicheKey)
-            ? cleanDefaultNicheKey
-            : normalizedJoined[0]?.key || '';
+        const { error } = await yhuSupabaseAdmin
+            .from('yhu_academy_member_niches')
+            .insert(rows);
 
-    const finalJoined = normalizedJoined.map((item) => ({
-        ...item,
-        isDefault: item.key === nextDefault
-    }));
+        if (error) throw new Error(`Niche persist failed: ${error.message}`);
+    }
 
-    await usersCol.doc(normalizedViewerId).set({
-        communityNiches: {
-            defaultNicheKey: nextDefault,
-            joinedNiches: finalJoined,
-            updatedAt: nowTs()
-        },
-        updatedAt: nowTs()
-    }, { merge: true });
+    const { error: profileError } = await yhuSupabaseAdmin
+        .from('yhu_academy_member_profiles')
+        .update({
+            community_niches: normalizedJoinedKeys,
+            default_niche: cleanDefault,
+            updated_at_source: now,
+            updated_at: now
+        })
+        .eq('user_id', normalizedViewerId);
+
+    if (profileError) throw new Error(`Niche profile update failed: ${profileError.message}`);
 
     return getCommunityNicheState({ viewerId: normalizedViewerId });
 }
@@ -1847,28 +1740,14 @@ async function joinCommunityNiche({ viewerId, nicheKey, makeDefault = false }) {
     if (!normalizedViewerId) throw new Error('viewerId is required.');
     if (!meta) throw new Error('Niche not found.');
 
+    await getProfileOrFallback(normalizedViewerId, { id: normalizedViewerId });
+
     const current = await getCommunityNicheState({ viewerId: normalizedViewerId });
-    const existing = current.joinedNiches.find((item) => item.key === cleanNicheKey);
-    const nowIso = new Date().toISOString();
+    const joinedKeys = new Set(current.joinedNiches.map((item) => item.key));
+    joinedKeys.add(cleanNicheKey);
 
-    const joinedNiches = existing
-        ? current.joinedNiches.map((item) => item.key === cleanNicheKey ? { ...item, lastVisitedAt: nowIso } : item)
-        : [
-            ...current.joinedNiches,
-            {
-                key: meta.key,
-                label: meta.label,
-                description: meta.description,
-                joinedAt: nowIso,
-                lastVisitedAt: nowIso,
-                isDefault: false
-            }
-        ];
-
-    const nextDefault =
-        makeDefault || !current.defaultNicheKey
-            ? cleanNicheKey
-            : current.defaultNicheKey;
+    const joinedNiches = Array.from(joinedKeys).map((key) => ({ key }));
+    const nextDefault = makeDefault || !current.defaultNicheKey ? cleanNicheKey : current.defaultNicheKey;
 
     return persistCommunityNicheState(normalizedViewerId, joinedNiches, nextDefault);
 }
@@ -1881,13 +1760,11 @@ async function setDefaultCommunityNiche({ viewerId, nicheKey }) {
     if (!normalizedViewerId) throw new Error('viewerId is required.');
     if (!meta) throw new Error('Niche not found.');
 
-    const joined = await joinCommunityNiche({
+    return joinCommunityNiche({
         viewerId: normalizedViewerId,
         nicheKey: cleanNicheKey,
         makeDefault: true
     });
-
-    return joined;
 }
 
 async function leaveCommunityNiche({ viewerId, nicheKey }) {
