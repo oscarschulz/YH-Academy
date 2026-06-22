@@ -159,14 +159,6 @@ async function getRows(recordType, uid, options = {}) {
         .eq('user_id', String(uid))
         .limit(limit);
 
-    if (options.roadmapId) {
-        query = query.eq('roadmap_id', String(options.roadmapId));
-    }
-
-    if (options.status) {
-        query = query.eq('status', String(options.status));
-    }
-
     query = query.order('updated_at_source', { ascending: false, nullsFirst: false });
 
     const { data, error } = await query;
@@ -175,7 +167,25 @@ async function getRows(recordType, uid, options = {}) {
         throw new Error(`Academy Supabase list failed (${recordType}): ${error.message}`);
     }
 
-    return Array.isArray(data) ? data : [];
+    let rows = Array.isArray(data) ? data : [];
+
+    if (options.roadmapId) {
+        const cleanRoadmapId = sanitizeString(options.roadmapId);
+        rows = rows.filter((row) => {
+            const data = rowData(row);
+            return sanitizeString(data.roadmapId || data.roadmap_id || row.roadmap_id) === cleanRoadmapId;
+        });
+    }
+
+    if (options.status) {
+        const cleanStatus = sanitizeString(options.status).toLowerCase();
+        rows = rows.filter((row) => {
+            const data = rowData(row);
+            return sanitizeString(data.status || row.status).toLowerCase() === cleanStatus;
+        });
+    }
+
+    return rows;
 }
 
 async function getOne(recordType, uid, docId) {
@@ -214,8 +224,6 @@ async function upsertRecord(recordType, uid, docId, payload = {}, extra = {}) {
         record_type: recordType,
 
         user_id: cleanUid,
-        roadmap_id: sanitizeString(extra.roadmapId || data.roadmapId || ''),
-        status: sanitizeString(extra.status || data.status || ''),
 
         data,
 
