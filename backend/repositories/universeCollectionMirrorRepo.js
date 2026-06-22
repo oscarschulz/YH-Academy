@@ -1,5 +1,6 @@
-const { collectionsFirestore } = require('../../config/firebaseAdmin');
-const { Timestamp } = require('firebase-admin/firestore');
+const { yhuSupabaseAdmin } = require('../../config/supabaseAdmin');
+
+const TABLE_NAME = 'yhu_universe_collection_catalog';
 
 const INDEX_COLLECTION = 'yhUniverseCollectionIndex';
 const FEDERATION_LEAD_INVENTORY_COLLECTION = 'yhFederationLeadInventory';
@@ -24,27 +25,24 @@ function toBool(value) {
 
 function toIso(value) {
     if (!value) return '';
-    if (typeof value.toDate === 'function') return value.toDate().toISOString();
+    if (typeof value === 'string') return value;
     if (value instanceof Date) return value.toISOString();
+    if (typeof value.toDate === 'function') return value.toDate().toISOString();
+
+    if (typeof value === 'object') {
+        if (Number.isFinite(value._seconds)) return new Date(value._seconds * 1000).toISOString();
+        if (Number.isFinite(value.seconds)) return new Date(value.seconds * 1000).toISOString();
+    }
+
     return cleanText(value);
 }
 
 function nowTs() {
-    return Timestamp.now();
+    return new Date().toISOString();
 }
 
 function hasCollectionsDb() {
-    return Boolean(collectionsFirestore);
-}
-
-function indexCol() {
-    if (!collectionsFirestore) return null;
-    return collectionsFirestore.collection(INDEX_COLLECTION);
-}
-
-function federationLeadInventoryCol() {
-    if (!collectionsFirestore) return null;
-    return collectionsFirestore.collection(FEDERATION_LEAD_INVENTORY_COLLECTION);
+    return Boolean(yhuSupabaseAdmin && typeof yhuSupabaseAdmin.from === 'function');
 }
 
 function normalizeDocId(value = '') {
@@ -147,42 +145,197 @@ function getAcademyLeadReviewStatus(lead = {}) {
     return 'pending_review';
 }
 
-async function safeSet(ref, payload = {}, label = 'mirror') {
-    if (!ref) {
+function normalizeReviewStatus(value = '') {
+    const clean = cleanLower(value || '');
+
+    if (clean === 'approved') return 'approved';
+    if (clean === 'listed') return 'listed';
+    if (clean === 'pending') return 'pending_review';
+    if (clean === 'pending_review') return 'pending_review';
+    if (clean === 'pending_admin_review') return 'pending_admin_review';
+    if (clean === 'rejected') return 'rejected';
+    if (clean === 'archived') return 'archived';
+    if (clean === 'revision_requested') return 'revision_requested';
+
+    return clean || 'pending_review';
+}
+
+function buildCatalogRow({
+    recordSource = 'index',
+    sourceCollectionPath = INDEX_COLLECTION,
+    documentId = '',
+    payload = {}
+} = {}) {
+    const now = nowTs();
+    const cleanId = normalizeDocId(documentId || payload.id || payload.indexId || `${recordSource}_${Date.now()}`);
+    const sourcePath = `${sourceCollectionPath}/${cleanId}`;
+    const publicMeta = payload.publicMeta && typeof payload.publicMeta === 'object'
+        ? payload.publicMeta
+        : {};
+
+    const summary = cleanText(payload.summary || payload.description || publicMeta.summary || '').slice(0, 1800);
+    const reviewStatus = normalizeReviewStatus(payload.reviewStatus);
+    const listingStatus = normalizeReviewStatus(payload.listingStatus || payload.reviewStatus);
+
+    const createdAt = toIso(payload.createdAt) || now;
+    const updatedAt = toIso(payload.updatedAt) || now;
+
+    const data = {
+        ...payload,
+        id: cleanId,
+        source: recordSource,
+        recordSource,
+        sourceCollectionPath,
+        sourceDocumentPath: sourcePath,
+        createdAt,
+        updatedAt,
+        lastMirroredAt: now
+    };
+
+    return {
+        record_source: recordSource,
+        source_collection_path: sourceCollectionPath,
+        source_document_id: cleanId,
+        source_document_path: sourcePath,
+
+        item_type: cleanLower(payload.itemType || payload.resourceType || 'input') || 'input',
+        title: cleanText(payload.title || publicMeta.title || 'YH Universe input').slice(0, 180),
+        summary,
+        description: summary,
+
+        source_division: cleanLower(payload.sourceDivision || 'universe') || 'universe',
+        target_division: cleanLower(payload.targetDivision || payload.accessLevel || payload.sourceDivision || 'universe') || 'universe',
+        source_feature: cleanLower(payload.sourceFeature || 'general') || 'general',
+        source_system: cleanText(payload.sourceSystem || ''),
+        source_record_id: cleanText(payload.sourceRecordId || ''),
+        source_record_path: cleanText(payload.sourceRecordPath || ''),
+
+        access_level: cleanLower(payload.accessLevel || payload.sourceDivision || 'all_approved_members') || 'all_approved_members',
+        visibility: cleanLower(payload.visibility || 'admin_only') || 'admin_only',
+        review_status: reviewStatus,
+        listing_status: listingStatus,
+
+        category: cleanText(payload.category || ''),
+        tags: normalizeTags(payload.tags),
+
+        created_by_uid: cleanText(payload.createdByUid || payload.operatorUid || ''),
+        created_by_email: cleanLower(payload.createdByEmail || payload.operatorEmail || ''),
+        created_by_name: cleanText(payload.createdByName || payload.operatorName || 'YH Member'),
+        created_by_username: cleanText(payload.createdByUsername || ''),
+        created_by_avatar: cleanText(payload.createdByAvatar || ''),
+
+        public_meta: publicMeta,
+        private_meta_available: payload.privateMetaAvailable === true,
+        monetized: payload.monetized === true,
+
+        resource_url: cleanText(payload.resourceUrl || publicMeta.resourceUrl || ''),
+        file_url: cleanText(payload.fileUrl || publicMeta.fileUrl || ''),
+        image_url: cleanText(payload.imageUrl || publicMeta.imageUrl || ''),
+
+        buyer_price_amount: toNumber(payload.buyerPriceAmount ?? publicMeta.buyerPriceAmount, 0),
+        seller_price_amount: toNumber(payload.sellerPriceAmount ?? publicMeta.sellerPriceAmount, 0),
+        currency: cleanText(payload.currency || publicMeta.currency || 'USD').toUpperCase() || 'USD',
+
+        created_at_source: createdAt,
+        updated_at_source: updatedAt,
+
+        data
+    };
+}
+
+async function upsertCatalogRow(row = {}) {
+    if (!hasCollectionsDb()) {
         return {
             success: false,
             skipped: true,
-            reason: 'collections_firestore_not_configured'
+            reason: 'supabase_not_configured'
         };
     }
 
+    const recordSource = cleanText(row.record_source);
+    const sourceDocumentId = cleanText(row.source_document_id);
+    const sourceDocumentPath = cleanText(row.source_document_path);
+
     try {
-        await ref.set(payload, { merge: true });
+        const { data: existing, error: lookupError } = await yhuSupabaseAdmin
+            .from(TABLE_NAME)
+            .select('id')
+            .eq('record_source', recordSource)
+            .eq('source_document_id', sourceDocumentId)
+            .maybeSingle();
+
+        if (lookupError) throw lookupError;
+
+        if (existing?.id) {
+            const { data, error } = await yhuSupabaseAdmin
+                .from(TABLE_NAME)
+                .update(row)
+                .eq('id', existing.id)
+                .select('*')
+                .single();
+
+            if (error) throw error;
+
+            return {
+                success: true,
+                skipped: false,
+                source: 'supabase',
+                action: 'updated',
+                record: data
+            };
+        }
+
+        const { data, error } = await yhuSupabaseAdmin
+            .from(TABLE_NAME)
+            .insert(row)
+            .select('*')
+            .single();
+
+        if (error) {
+            const maybeDuplicate = /duplicate key|violates unique/i.test(error.message || '');
+
+            if (maybeDuplicate && sourceDocumentPath) {
+                const { data: updated, error: updateError } = await yhuSupabaseAdmin
+                    .from(TABLE_NAME)
+                    .update(row)
+                    .eq('source_document_path', sourceDocumentPath)
+                    .select('*')
+                    .single();
+
+                if (updateError) throw updateError;
+
+                return {
+                    success: true,
+                    skipped: false,
+                    source: 'supabase',
+                    action: 'updated_by_path',
+                    record: updated
+                };
+            }
+
+            throw error;
+        }
+
         return {
             success: true,
-            skipped: false
+            skipped: false,
+            source: 'supabase',
+            action: 'inserted',
+            record: data
         };
     } catch (error) {
-        console.error(`${label} mirror error:`, error);
+        console.error('Universe collection Supabase mirror error:', error);
+
         return {
             success: false,
             skipped: false,
+            source: 'supabase',
             message: error?.message || 'Mirror write failed.'
         };
     }
 }
 
 async function writeIndexRecord(input = {}) {
-    const col = indexCol();
-
-    if (!col) {
-        return {
-            success: false,
-            skipped: true,
-            reason: 'collections_firestore_not_configured'
-        };
-    }
-
     const sourceDivision = cleanLower(input.sourceDivision || 'universe') || 'universe';
     const itemType = cleanLower(input.itemType || 'input') || 'input';
     const sourceFeature = cleanLower(input.sourceFeature || 'general') || 'general';
@@ -210,7 +363,7 @@ async function writeIndexRecord(input = {}) {
         accessLevel: cleanLower(input.accessLevel || sourceDivision),
         visibility: cleanLower(input.visibility || 'admin_only'),
         reviewStatus: cleanLower(input.reviewStatus || 'pending_review'),
-        listingStatus: cleanLower(input.listingStatus || ''),
+        listingStatus: cleanLower(input.listingStatus || input.reviewStatus || 'pending_review'),
 
         category: cleanText(input.category || ''),
         tags: normalizeTags(input.tags),
@@ -231,23 +384,30 @@ async function writeIndexRecord(input = {}) {
         privateMetaAvailable: input.privateMetaAvailable === true,
         monetized: input.monetized === true,
 
-        createdAt: input.createdAt || now,
+        buyerPriceAmount: toNumber(input.buyerPriceAmount ?? input.publicMeta?.buyerPriceAmount, 0),
+        sellerPriceAmount: toNumber(input.sellerPriceAmount ?? input.publicMeta?.sellerPriceAmount, 0),
+        currency: cleanText(input.currency || input.publicMeta?.currency || 'USD').toUpperCase() || 'USD',
+
+        resourceUrl: cleanText(input.resourceUrl || input.publicMeta?.resourceUrl || ''),
+        fileUrl: cleanText(input.fileUrl || input.publicMeta?.fileUrl || ''),
+        imageUrl: cleanText(input.imageUrl || input.publicMeta?.imageUrl || ''),
+
+        createdAt: toIso(input.createdAt) || now,
         updatedAt: now,
         lastMirroredAt: now
     };
 
-    return safeSet(col.doc(indexId), payload, 'universe collection index');
+    return upsertCatalogRow(
+        buildCatalogRow({
+            recordSource: 'index',
+            sourceCollectionPath: INDEX_COLLECTION,
+            documentId: indexId,
+            payload
+        })
+    );
 }
 
 async function mirrorAcademyLead(input = {}) {
-    if (!hasCollectionsDb()) {
-        return {
-            success: false,
-            skipped: true,
-            reason: 'collections_firestore_not_configured'
-        };
-    }
-
     const lead = input.lead || {};
     const operatorUid = cleanText(input.operatorUid || lead.operatorUid || lead.createdByUid || '');
     const leadId = cleanText(lead.id || input.leadId || '');
@@ -367,6 +527,7 @@ async function mirrorAcademyLead(input = {}) {
         saleEnabled: toBool(lead.saleEnabled) || buyerPriceAmount > 0,
 
         publicListing,
+        publicMeta: publicListing,
         lockedDetails,
 
         pricing: {
@@ -376,6 +537,10 @@ async function mirrorAcademyLead(input = {}) {
             universeCommissionAmount: toNumber(lead.universeCommissionAmount, 0),
             currency
         },
+
+        buyerPriceAmount,
+        sellerPriceAmount,
+        currency,
 
         payout: {
             operatorPayoutAmount: toNumber(lead.operatorPayoutAmount, 0),
@@ -394,15 +559,18 @@ async function mirrorAcademyLead(input = {}) {
         mirrorAction: cleanText(input.action || 'synced'),
         sourceCreatedAt: toIso(lead.createdAt),
         sourceUpdatedAt: toIso(lead.updatedAt),
-        createdAt: lead.createdAt || now,
+        createdAt: toIso(lead.createdAt) || now,
         updatedAt: now,
         lastMirroredAt: now
     };
 
-    const inventoryResult = await safeSet(
-        federationLeadInventoryCol().doc(mirrorId),
-        inventoryPayload,
-        'federation lead inventory'
+    const inventoryResult = await upsertCatalogRow(
+        buildCatalogRow({
+            recordSource: 'lead_inventory',
+            sourceCollectionPath: FEDERATION_LEAD_INVENTORY_COLLECTION,
+            documentId: mirrorId,
+            payload: inventoryPayload
+        })
     );
 
     const indexResult = await writeIndexRecord({
@@ -440,14 +608,18 @@ async function mirrorAcademyLead(input = {}) {
         publicMeta: publicListing,
         privateMetaAvailable: true,
         monetized: toBool(lead.saleEnabled) || buyerPriceAmount > 0,
-        createdAt: lead.createdAt || now
+        buyerPriceAmount,
+        sellerPriceAmount,
+        currency,
+        createdAt: toIso(lead.createdAt) || now
     });
 
     return {
         success: inventoryResult.success || indexResult.success,
         inventoryResult,
         indexResult,
-        mirrorId
+        mirrorId,
+        source: 'supabase'
     };
 }
 
@@ -494,7 +666,7 @@ async function mirrorPlazaFeedPost(input = {}) {
         },
         privateMetaAvailable: false,
         monetized: false,
-        createdAt: post.createdAt || nowTs()
+        createdAt: toIso(post.createdAt) || nowTs()
     });
 }
 
@@ -560,7 +732,8 @@ async function mirrorPlazaOpportunity(input = {}) {
         },
         privateMetaAvailable: false,
         monetized,
-        createdAt: opportunity.createdAt || nowTs()
+        currency: cleanText(opportunity.currency || 'USD').toUpperCase() || 'USD',
+        createdAt: toIso(opportunity.createdAt) || nowTs()
     });
 }
 
