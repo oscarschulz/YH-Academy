@@ -241,9 +241,7 @@ router.get('/internal/ai-nurture/:gate/academy/telemetry/:uid', aiNurtureGate, a
 // ==========================================
 
 router.get('/realtime/bootstrap', auth, realtimeControllers.getBootstrap);
-
 router.get('/realtime/rooms', auth, realtimeControllers.getRooms);
-
 router.post('/realtime/rooms', auth, realtimeControllers.createRoom);
 router.delete('/realtime/rooms/:id', auth, realtimeControllers.deleteRoom);
 router.patch('/realtime/rooms/:id/hide', auth, realtimeControllers.hideRoom);
@@ -256,12 +254,10 @@ router.post('/realtime/vault/file', auth, realtimeControllers.createVaultFile);
 
 
 router.get('/realtime/live-rooms', auth, realtimeControllers.getLiveRooms);
-
 router.post('/realtime/live-rooms', auth, realtimeControllers.createLiveRoom);
 
 
 router.get('/realtime/notifications', auth, realtimeControllers.getNotifications);
-
 router.post('/realtime/notifications/read-all', auth, realtimeControllers.readAllNotifications);
 router.post('/realtime/notifications/:id/read', auth, realtimeControllers.readNotification);
 
