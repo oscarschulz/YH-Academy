@@ -8490,6 +8490,54 @@ app.use('/api/plaza', requireApiUser, (req, res, next) => {
     return requirePlazaApiAccess(req, res, next);
 });
 
+
+/* YH HOTFIX: server-level realtime read bypass v1 */
+function sendRealtimeMigrationFallback(res, payload = {}) {
+    return res.json({
+        success: true,
+        degraded: true,
+        migrationBypass: true,
+        ...payload
+    });
+}
+
+app.get('/api/realtime/bootstrap', (req, res) => {
+    return sendRealtimeMigrationFallback(res, {
+        warning: 'Realtime bootstrap is temporarily using server-level safe fallback data during migration.',
+        data: {
+            selfProfile: null,
+            rooms: [],
+            vaultItems: [],
+            liveRooms: [],
+            notifications: [],
+            leaderboard: []
+        }
+    });
+});
+
+app.get('/api/realtime/rooms', (req, res) => {
+    return sendRealtimeMigrationFallback(res, {
+        warning: 'Realtime rooms are temporarily using server-level safe fallback data during migration.',
+        rooms: []
+    });
+});
+
+app.get('/api/realtime/live-rooms', (req, res) => {
+    return sendRealtimeMigrationFallback(res, {
+        warning: 'Live rooms are temporarily using server-level safe fallback data during migration.',
+        rooms: []
+    });
+});
+
+app.get('/api/realtime/notifications', (req, res) => {
+    return sendRealtimeMigrationFallback(res, {
+        warning: 'Realtime notifications are temporarily using server-level safe fallback data during migration.',
+        notifications: [],
+        unreadCount: 0
+    });
+});
+/* END YH HOTFIX: server-level realtime read bypass v1 */
+
 app.use('/api/realtime/live-rooms', requireApiUser, async (req, res, next) => {
     await autoEndExpiredYHLiveRooms('api-live-room-request');
     next();
