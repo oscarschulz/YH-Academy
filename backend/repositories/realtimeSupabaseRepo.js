@@ -641,6 +641,349 @@ async function setRoomBlocked({ userId, roomId, blocked = true } = {}) {
     });
 }
 
+
+async function getChatRoomForSocket(roomId, viewerId = '') {
+    const cleanRoomId = sanitizeText(roomId);
+    if (!cleanRoomId) return null;
+
+    const row = await getRecordByTypeAndId('chat_room', cleanRoomId);
+    if (!row) return null;
+
+    const data = rowData(row);
+    const mapped = mapRoomRow(row, viewerId);
+
+    return {
+        ...data,
+        ...mapped,
+        id: mapped.id || row.source_document_id,
+        member_ids: normalizeMemberIds(data),
+        blocked_by_user_ids: normalizeStringArray(data.blocked_by_user_ids || data.blockedByUserIds),
+        restricted_by_user_ids: normalizeStringArray(data.restricted_by_user_ids || data.restrictedByUserIds),
+        hidden_for_user_ids: normalizeStringArray(data.hidden_for_user_ids || data.hiddenForUserIds),
+        muted_for_user_ids: normalizeStringArray(data.muted_for_user_ids || data.mutedForUserIds),
+        unread_counts:
+            data.unread_counts && typeof data.unread_counts === 'object'
+                ? data.unread_counts
+                : data.unreadCounts && typeof data.unreadCounts === 'object'
+                    ? data.unreadCounts
+                    : {}
+    };
+}
+
+async function listChatRoomsForMember(userId, limit = 100) {
+    const cleanUserId = normalizeUserId(userId);
+    if (!cleanUserId) return [];
+
+    const rows = await listRecords('chat_room', Math.max(100, Math.min(Number(limit || 100), 1000)));
+    const rooms = await Promise.all(
+        rows.map((row) => getChatRoomForSocket(row.source_document_id, cleanUserId).catch(() => null))
+    );
+
+    return rooms
+        .filter(Boolean)
+        .filter((room) => normalizeStringArray(room.member_ids).includes(cleanUserId))
+        .slice(0, Number(limit || 100));
+}
+
+async function markRoomAsReadForUser(userId, roomId) {
+    const cleanUserId = normalizeUserId(userId);
+    const cleanRoomId = sanitizeText(roomId);
+
+    if (!cleanUserId || !cleanRoomId) return false;
+    if (cleanRoomId === 'YH-community' || cleanRoomId === 'main-chat') return true;
+
+    const row = await getRecordByTypeAndId('chat_room', cleanRoomId);
+    if (!row) return false;
+
+    const data = rowData(row);
+    const unreadCounts =
+        data.unread_counts && typeof data.unread_counts === 'object'
+            ? { ...data.unread_counts }
+            : {};
+
+    unreadCounts[cleanUserId] = 0;
+
+    await upsertRecord({
+        recordType: 'chat_room',
+        docId: cleanRoomId,
+        ownerUserId: row.owner_user_id,
+        roomId: cleanRoomId,
+        data: {
+            ...data,
+            unread_counts: unreadCounts,
+            updated_at: nowIso()
+        }
+    });
+
+    return true;
+}
+
+function mapChatMessageRow(row = {}) {
+    const data = rowData(row);
+    const authorId = sanitizeText(
+        data.created_by_user_id ||
+        data.createdByUserId ||
+        data.author_id ||
+        data.authorId ||
+        data.user_id ||
+        data.userId ||
+        row.owner_user_id
+    );
+
+    return {
+        id: sanitizeText(row.source_document_id || data.id),
+        room: sanitizeText(data.room || data.room_id || data.roomId || row.room_id),
+        author: sanitizeText(data.author),
+        authorId,
+        author_id: authorId,
+        createdByUserId: authorId,
+        created_by_user_id: authorId,
+        initial: sanitizeText(data.initial),
+        avatar: sanitizeText(data.avatar),
+        text: sanitizeText(data.text),
+        attachment: data.attachment && typeof data.attachment === 'object' ? data.attachment : null,
+        time: sanitizeText(data.time || mapTimestamp(data.created_at || data.createdAt || row.created_at_source)),
+        upvotes: toInt(data.upvotes, 0),
+        editedAt: sanitizeText(data.editedAt || data.edited_at),
+        edited_at: sanitizeText(data.edited_at || data.editedAt),
+        hidden_for_user_ids: normalizeStringArray(data.hidden_for_user_ids || data.hiddenForUserIds)
+    };
+}
+
+async function getChatMessageById(messageId) {
+    const cleanMessageId = sanitizeText(messageId);
+    if (!cleanMessageId) return null;
+
+    const row = await getRecordByTypeAndId('chat_message', cleanMessageId);
+    return row ? mapChatMessageRow(row) : null;
+}
+
+async function listChatMessages(roomId, viewerId = '', limit = 50) {
+    const cleanRoomId = sanitizeText(roomId);
+    const cleanViewerId = normalizeUserId(viewerId);
+    if (!cleanRoomId) return [];
+
+    const rows = await listRecords('chat_message', 1000);
+    const mapped = rows
+        .map(mapChatMessageRow)
+        .filter((message) => sanitizeText(message.room) === cleanRoomId)
+        .filter((message) => {
+            const hiddenFor = normalizeStringArray(message.hidden_for_user_ids);
+            return !cleanViewerId || !hiddenFor.includes(cleanViewerId);
+        })
+        .sort((a, b) => {
+            const aTime = Date.parse(a.time || '') || 0;
+            const bTime = Date.parse(b.time || '') || 0;
+            return aTime - bTime;
+        });
+
+    return mapped.slice(-Math.max(1, Math.min(Number(limit || 50), 200)));
+}
+
+async function createChatMessage({
+    roomId,
+    userId,
+    authorName = 'Hustler',
+    text = '',
+    attachment = null
+} = {}) {
+    const cleanRoomId = sanitizeText(roomId);
+    const cleanUserId = normalizeUserId(userId);
+    const cleanAuthorName = sanitizeText(authorName || 'Hustler') || 'Hustler';
+    const now = nowIso();
+
+    if (!cleanRoomId || !cleanUserId) throw new Error('Room and user are required.');
+
+    const docId = makeRecordId('msg');
+    const payload = {
+        room: cleanRoomId,
+        author: cleanAuthorName,
+        initial: cleanAuthorName.charAt(0).toUpperCase(),
+        avatar: '',
+        text: sanitizeText(text),
+        attachment: attachment && typeof attachment === 'object' ? attachment : null,
+        time: now,
+        upvotes: 0,
+        created_at: now,
+        created_by_user_id: cleanUserId,
+        hidden_for_user_ids: []
+    };
+
+    const saved = await upsertRecord({
+        recordType: 'chat_message',
+        docId,
+        ownerUserId: cleanUserId,
+        roomId: cleanRoomId,
+        data: payload
+    });
+
+    const roomRow = await getRecordByTypeAndId('chat_room', cleanRoomId).catch(() => null);
+
+    if (roomRow) {
+        const roomData = rowData(roomRow);
+        const memberIds = normalizeMemberIds(roomData);
+        const unreadCounts =
+            roomData.unread_counts && typeof roomData.unread_counts === 'object'
+                ? { ...roomData.unread_counts }
+                : {};
+
+        memberIds.forEach((memberId) => {
+            unreadCounts[memberId] =
+                String(memberId) === String(cleanUserId)
+                    ? 0
+                    : (Number(unreadCounts[memberId]) || 0) + 1;
+        });
+
+        const hiddenForUserIds = normalizeStringArray(roomData.hidden_for_user_ids || roomData.hiddenForUserIds);
+        const nextHiddenForUserIds = hiddenForUserIds.filter((value) => {
+            return !memberIds.includes(String(value));
+        });
+
+        await upsertRecord({
+            recordType: 'chat_room',
+            docId: cleanRoomId,
+            ownerUserId: roomRow.owner_user_id,
+            roomId: cleanRoomId,
+            data: {
+                ...roomData,
+                last_message_text: payload.text,
+                last_message_author: cleanAuthorName,
+                last_message_at: now,
+                unread_counts: unreadCounts,
+                hidden_for_user_ids: nextHiddenForUserIds,
+                updated_at: now
+            }
+        });
+    }
+
+    return mapChatMessageRow(saved);
+}
+
+async function upvoteChatMessage({ messageId, userId } = {}) {
+    const cleanMessageId = sanitizeText(messageId);
+    if (!cleanMessageId) throw new Error('Message id is required.');
+
+    const row = await getRecordByTypeAndId('chat_message', cleanMessageId);
+    if (!row) throw new Error('Message not found.');
+
+    const data = rowData(row);
+    const nextUpvotes = toInt(data.upvotes, 0) + 1;
+
+    const saved = await upsertRecord({
+        recordType: 'chat_message',
+        docId: cleanMessageId,
+        ownerUserId: row.owner_user_id || sanitizeText(userId),
+        roomId: row.room_id || data.room,
+        data: {
+            ...data,
+            upvotes: nextUpvotes,
+            updated_at: nowIso()
+        }
+    });
+
+    return {
+        message: mapChatMessageRow(saved),
+        roomId: sanitizeText(data.room || row.room_id),
+        upvotes: nextUpvotes
+    };
+}
+
+async function editChatMessage({ messageId, userId, text = '' } = {}) {
+    const cleanMessageId = sanitizeText(messageId);
+    const cleanUserId = normalizeUserId(userId);
+    const cleanText = sanitizeText(text);
+
+    if (!cleanMessageId || !cleanText) throw new Error('Message text is required.');
+
+    const row = await getRecordByTypeAndId('chat_message', cleanMessageId);
+    if (!row) throw new Error('Message not found.');
+
+    const data = rowData(row);
+    const ownerId = sanitizeText(data.created_by_user_id || data.createdByUserId || row.owner_user_id);
+
+    if (!ownerId || ownerId !== cleanUserId) {
+        throw new Error('Only the original sender can edit this message.');
+    }
+
+    const editedAt = nowIso();
+
+    const saved = await upsertRecord({
+        recordType: 'chat_message',
+        docId: cleanMessageId,
+        ownerUserId: row.owner_user_id || cleanUserId,
+        roomId: row.room_id || data.room,
+        data: {
+            ...data,
+            text: cleanText,
+            edited_at: editedAt,
+            editedAt,
+            updated_at: editedAt
+        }
+    });
+
+    return {
+        message: mapChatMessageRow(saved),
+        roomId: sanitizeText(data.room || row.room_id),
+        editedAt
+    };
+}
+
+async function hideChatMessageForUser({ messageId, userId } = {}) {
+    const cleanMessageId = sanitizeText(messageId);
+    const cleanUserId = normalizeUserId(userId);
+
+    if (!cleanMessageId || !cleanUserId) throw new Error('Message id is required.');
+
+    const row = await getRecordByTypeAndId('chat_message', cleanMessageId);
+    if (!row) throw new Error('Message not found.');
+
+    const data = rowData(row);
+    const hiddenFor = new Set(normalizeStringArray(data.hidden_for_user_ids || data.hiddenForUserIds));
+    hiddenFor.add(cleanUserId);
+
+    const saved = await upsertRecord({
+        recordType: 'chat_message',
+        docId: cleanMessageId,
+        ownerUserId: row.owner_user_id,
+        roomId: row.room_id || data.room,
+        data: {
+            ...data,
+            hidden_for_user_ids: Array.from(hiddenFor),
+            updated_at: nowIso()
+        }
+    });
+
+    return {
+        message: mapChatMessageRow(saved),
+        roomId: sanitizeText(data.room || row.room_id)
+    };
+}
+
+async function deleteChatMessage({ messageId, userId } = {}) {
+    const cleanMessageId = sanitizeText(messageId);
+    const cleanUserId = normalizeUserId(userId);
+
+    if (!cleanMessageId) throw new Error('Message id is required.');
+
+    const row = await getRecordByTypeAndId('chat_message', cleanMessageId);
+    if (!row) throw new Error('Message not found.');
+
+    const data = rowData(row);
+    const ownerId = sanitizeText(data.created_by_user_id || data.createdByUserId || row.owner_user_id);
+
+    if (!ownerId || ownerId !== cleanUserId) {
+        throw new Error('Only the original sender can delete this message.');
+    }
+
+    const roomId = sanitizeText(data.room || row.room_id);
+    await deleteRecord('chat_message', cleanMessageId);
+
+    return {
+        deletedMessageId: cleanMessageId,
+        roomId
+    };
+}
+
 async function getVaultItems(userId) {
     const normalizedUserId = normalizeUserId(userId);
     const rows = await listRecords('vault_item', 500);
@@ -1036,6 +1379,16 @@ async function toggleFollow({ followerId, followingId, actorName = '' } = {}) {
 module.exports = {
     getBootstrap,
     getRooms,
+    getChatRoomForSocket,
+    listChatRoomsForMember,
+    markRoomAsReadForUser,
+    listChatMessages,
+    getChatMessageById,
+    createChatMessage,
+    upvoteChatMessage,
+    editChatMessage,
+    hideChatMessageForUser,
+    deleteChatMessage,
     createRoom,
     deleteRoom,
     hideRoomForUser,

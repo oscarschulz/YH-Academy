@@ -1670,13 +1670,44 @@ async function canUserAccessLiveRoom(userId, roomId) {
 }
 
 async function canUserAccessRoom(userId, roomId) {
-    if (!userId || !roomId) return false;
-    if (roomId === 'YH-community' || roomId === 'main-chat') return true;
+    const cleanUserId = sanitizeText(userId);
+    const cleanRoomId = sanitizeText(roomId);
 
-    const snap = await chatRoomsCol.doc(roomId).get();
+    if (!cleanUserId || !cleanRoomId) return false;
+    if (cleanRoomId === 'YH-community' || cleanRoomId === 'main-chat') return true;
+
+    try {
+        if (
+            realtimeFirestoreRepo &&
+            typeof realtimeFirestoreRepo.getChatRoomForSocket === 'function'
+        ) {
+            const room = await realtimeFirestoreRepo.getChatRoomForSocket(cleanRoomId, cleanUserId);
+
+            if (!room) {
+                return canUserAccessLiveRoom(cleanUserId, cleanRoomId);
+            }
+
+            const memberIds = Array.isArray(room.member_ids)
+                ? room.member_ids.map((value) => String(value))
+                : [];
+
+            const blockedByUserIds = Array.isArray(room.blocked_by_user_ids)
+                ? room.blocked_by_user_ids.map((value) => String(value))
+                : [];
+
+            if (!memberIds.includes(String(cleanUserId))) return false;
+            if (blockedByUserIds.includes(String(cleanUserId))) return false;
+
+            return true;
+        }
+    } catch (supabaseError) {
+        console.warn('canUserAccessRoom Supabase check failed:', supabaseError?.message || supabaseError);
+    }
+
+    const snap = await chatRoomsCol.doc(cleanRoomId).get();
 
     if (!snap.exists) {
-        return canUserAccessLiveRoom(userId, roomId);
+        return canUserAccessLiveRoom(cleanUserId, cleanRoomId);
     }
 
     const data = snap.data() || {};
@@ -1687,8 +1718,8 @@ async function canUserAccessRoom(userId, roomId) {
         ? data.blocked_by_user_ids.map((value) => String(value))
         : [];
 
-    if (!memberIds.includes(String(userId))) return false;
-    if (blockedByUserIds.includes(String(userId))) return false;
+    if (!memberIds.includes(String(cleanUserId))) return false;
+    if (blockedByUserIds.includes(String(cleanUserId))) return false;
 
     return true;
 }
@@ -1758,6 +1789,18 @@ async function markRoomAsReadForUser(userId, roomId) {
 
     if (!cleanUserId || !cleanRoomId) return false;
     if (cleanRoomId === 'YH-community' || cleanRoomId === 'main-chat') return true;
+
+    try {
+        if (
+            realtimeFirestoreRepo &&
+            typeof realtimeFirestoreRepo.markRoomAsReadForUser === 'function'
+        ) {
+            const marked = await realtimeFirestoreRepo.markRoomAsReadForUser(cleanUserId, cleanRoomId);
+            if (marked) return true;
+        }
+    } catch (supabaseError) {
+        console.warn('markRoomAsReadForUser Supabase failed:', supabaseError?.message || supabaseError);
+    }
 
     const roomRef = chatRoomsCol.doc(cleanRoomId);
     const roomSnap = await roomRef.get();
@@ -2592,31 +2635,47 @@ io.on('connection', (socket) => {
 
             socket.join(roomId);
 
-            const historySnap = await chatMessagesCol
-                .where('room', '==', roomId)
-                .limit(200)
-                .get();
+            let history = [];
 
-            const history = historySnap.docs
-                .map((docSnap) => {
-                    const data = docSnap.data() || {};
-                    const viewerHiddenMessageIds = Array.isArray(data.hidden_for_user_ids)
-                        ? data.hidden_for_user_ids.map((value) => sanitizeText(value)).filter(Boolean)
-                        : [];
+            try {
+                if (
+                    realtimeFirestoreRepo &&
+                    typeof realtimeFirestoreRepo.listChatMessages === 'function'
+                ) {
+                    history = await realtimeFirestoreRepo.listChatMessages(roomId, socket.user.id, 50);
+                }
+            } catch (supabaseError) {
+                console.warn('joinRoom Supabase history failed:', supabaseError?.message || supabaseError);
+                history = [];
+            }
 
-                    if (viewerHiddenMessageIds.includes(String(socket.user.id))) {
-                        return null;
-                    }
+            if (!history.length) {
+                const historySnap = await chatMessagesCol
+                    .where('room', '==', roomId)
+                    .limit(200)
+                    .get();
 
-                    return mapChatMessageDoc(docSnap);
-                })
-                .filter(Boolean)
-                .sort((a, b) => {
-                    const aTime = new Date(a.time || 0).getTime();
-                    const bTime = new Date(b.time || 0).getTime();
-                    return aTime - bTime;
-                })
-                .slice(-50);
+                history = historySnap.docs
+                    .map((docSnap) => {
+                        const data = docSnap.data() || {};
+                        const viewerHiddenMessageIds = Array.isArray(data.hidden_for_user_ids)
+                            ? data.hidden_for_user_ids.map((value) => sanitizeText(value)).filter(Boolean)
+                            : [];
+
+                        if (viewerHiddenMessageIds.includes(String(socket.user.id))) {
+                            return null;
+                        }
+
+                        return mapChatMessageDoc(docSnap);
+                    })
+                    .filter(Boolean)
+                    .sort((a, b) => {
+                        const aTime = new Date(a.time || 0).getTime();
+                        const bTime = new Date(b.time || 0).getTime();
+                        return aTime - bTime;
+                    })
+                    .slice(-50);
+            }
 
             socket.emit('chatHistory', history);
         } catch (error) {
@@ -2649,12 +2708,31 @@ io.on('connection', (socket) => {
                 return;
             }
 
-            const roomRef = chatRoomsCol.doc(roomId);
-            const roomSnap = await roomRef.get();
-            const roomData = roomSnap.exists ? (roomSnap.data() || {}) : {};
-            const memberIds = roomSnap.exists ? getChatRoomMemberIds(roomData) : [];
+            let roomData = {};
+            let memberIds = [];
 
-            if (roomSnap.exists) {
+            try {
+                if (
+                    realtimeFirestoreRepo &&
+                    typeof realtimeFirestoreRepo.getChatRoomForSocket === 'function'
+                ) {
+                    roomData = await realtimeFirestoreRepo.getChatRoomForSocket(roomId, socket.user.id) || {};
+                    memberIds = Array.isArray(roomData.member_ids)
+                        ? roomData.member_ids.map((value) => String(value)).filter(Boolean)
+                        : [];
+                }
+            } catch (supabaseError) {
+                console.warn('sendMessage Supabase room check failed:', supabaseError?.message || supabaseError);
+            }
+
+            if (!roomData.id && roomId !== 'YH-community' && roomId !== 'main-chat') {
+                const roomRef = chatRoomsCol.doc(roomId);
+                const roomSnap = await roomRef.get();
+                roomData = roomSnap.exists ? (roomSnap.data() || {}) : {};
+                memberIds = roomSnap.exists ? getChatRoomMemberIds(roomData) : [];
+            }
+
+            if (roomData && roomData.id) {
                 const blockedByUserIds = getChatRoomStringArray(roomData, 'blocked_by_user_ids');
                 if (blockedByUserIds.includes(String(socket.user.id))) {
                     socket.emit('sendMessageError', {
@@ -2691,6 +2769,22 @@ io.on('connection', (socket) => {
                 )
                 : '';
 
+            if (
+                realtimeFirestoreRepo &&
+                typeof realtimeFirestoreRepo.createChatMessage === 'function'
+            ) {
+                const outgoing = await realtimeFirestoreRepo.createChatMessage({
+                    roomId,
+                    userId: socket.user.id,
+                    authorName,
+                    text: text || fallbackText,
+                    attachment: hasValidAttachment ? attachment : null
+                });
+
+                io.to(outgoing.room).emit('receiveMessage', outgoing);
+                return;
+            }
+
             const payload = {
                 room: roomId,
                 author: authorName,
@@ -2706,35 +2800,6 @@ io.on('connection', (socket) => {
 
             const ref = chatMessagesCol.doc();
             await ref.set(payload);
-
-            if (roomSnap.exists) {
-                const unreadCounts =
-                    roomData.unread_counts && typeof roomData.unread_counts === 'object'
-                        ? { ...roomData.unread_counts }
-                        : {};
-
-                memberIds.forEach((memberId) => {
-                    unreadCounts[memberId] =
-                        String(memberId) === String(socket.user.id)
-                            ? 0
-                            : (Number(unreadCounts[memberId]) || 0) + 1;
-                });
-
-                const hiddenForUserIds = getChatRoomStringArray(roomData, 'hidden_for_user_ids');
-
-                const nextHiddenForUserIds = hiddenForUserIds.filter((value) => {
-                    return !memberIds.includes(String(value));
-                });
-
-                await roomRef.set({
-                    last_message_text: payload.text,
-                    last_message_author: authorName,
-                    last_message_at: Timestamp.now(),
-                    unread_counts: unreadCounts,
-                    hidden_for_user_ids: nextHiddenForUserIds,
-                    updated_at: Timestamp.now()
-                }, { merge: true });
-            }
 
             const outgoing = {
                 id: ref.id,
@@ -2763,6 +2828,25 @@ io.on('connection', (socket) => {
             const messageId = sanitizeText(msgId);
             if (!messageId) return;
 
+            if (
+                realtimeFirestoreRepo &&
+                typeof realtimeFirestoreRepo.upvoteChatMessage === 'function'
+            ) {
+                const result = await realtimeFirestoreRepo.upvoteChatMessage({
+                    messageId,
+                    userId: socket.user.id
+                });
+
+                const allowed = await canUserAccessRoom(socket.user.id, result.roomId);
+                if (!allowed) return;
+
+                io.to(result.roomId).emit('messageUpvoted', {
+                    id: messageId,
+                    upvotes: result.upvotes
+                });
+                return;
+            }
+
             const ref = chatMessagesCol.doc(messageId);
             const snap = await ref.get();
             if (!snap.exists) return;
@@ -2788,7 +2872,6 @@ io.on('connection', (socket) => {
         }
     });
 
-
     socket.on('editMessage', async (payload = {}, ack) => {
         try {
             const messageId = sanitizeText(payload?.id || payload?.messageId || '');
@@ -2797,6 +2880,36 @@ io.on('connection', (socket) => {
             if (!messageId || !nextText) {
                 if (typeof ack === 'function') {
                     ack({ success: false, message: 'Message text is required.' });
+                }
+                return;
+            }
+
+            if (
+                realtimeFirestoreRepo &&
+                typeof realtimeFirestoreRepo.editChatMessage === 'function'
+            ) {
+                const result = await realtimeFirestoreRepo.editChatMessage({
+                    messageId,
+                    userId: socket.user.id,
+                    text: nextText
+                });
+
+                const allowed = await canUserAccessRoom(socket.user.id, result.roomId);
+                if (!allowed) {
+                    if (typeof ack === 'function') {
+                        ack({ success: false, message: 'You can no longer access this conversation.' });
+                    }
+                    return;
+                }
+
+                io.to(result.roomId).emit('messageEdited', {
+                    id: messageId,
+                    text: nextText,
+                    editedAt: result.editedAt
+                });
+
+                if (typeof ack === 'function') {
+                    ack({ success: true, id: messageId, text: nextText, editedAt: result.editedAt });
                 }
                 return;
             }
@@ -2857,7 +2970,7 @@ io.on('connection', (socket) => {
             console.error('editMessage error:', error);
 
             if (typeof ack === 'function') {
-                ack({ success: false, message: 'Message edit failed.' });
+                ack({ success: false, message: error?.message || 'Message edit failed.' });
             }
         }
     });
@@ -2873,6 +2986,33 @@ io.on('connection', (socket) => {
             if (!messageId) {
                 if (typeof ack === 'function') {
                     ack({ success: false, message: 'Message id is required.' });
+                }
+                return;
+            }
+
+            if (
+                realtimeFirestoreRepo &&
+                typeof realtimeFirestoreRepo.hideChatMessageForUser === 'function'
+            ) {
+                const result = await realtimeFirestoreRepo.hideChatMessageForUser({
+                    messageId,
+                    userId: socket.user.id
+                });
+
+                const allowed = await canUserAccessRoom(socket.user.id, result.roomId);
+                if (!allowed) {
+                    if (typeof ack === 'function') {
+                        ack({ success: false, message: 'You can no longer access this conversation.' });
+                    }
+                    return;
+                }
+
+                socket.emit('messageHiddenForMe', {
+                    id: messageId
+                });
+
+                if (typeof ack === 'function') {
+                    ack({ success: true, id: messageId });
                 }
                 return;
             }
@@ -2918,7 +3058,7 @@ io.on('connection', (socket) => {
             });
 
             if (typeof ack === 'function') {
-                ack({ success: false, message: 'Could not remove this message for you.' });
+                ack({ success: false, message: error?.message || 'Could not remove this message for you.' });
             }
         }
     });
@@ -2927,6 +3067,22 @@ io.on('connection', (socket) => {
         try {
             const messageId = sanitizeText(msgId);
             if (!messageId) return;
+
+            if (
+                realtimeFirestoreRepo &&
+                typeof realtimeFirestoreRepo.deleteChatMessage === 'function'
+            ) {
+                const result = await realtimeFirestoreRepo.deleteChatMessage({
+                    messageId,
+                    userId: socket.user.id
+                });
+
+                const allowed = await canUserAccessRoom(socket.user.id, result.roomId);
+                if (!allowed) return;
+
+                io.to(result.roomId).emit('messageDeleted', messageId);
+                return;
+            }
 
             const ref = chatMessagesCol.doc(messageId);
             const snap = await ref.get();
@@ -2951,8 +3107,13 @@ io.on('connection', (socket) => {
             io.to(roomId).emit('messageDeleted', messageId);
         } catch (error) {
             console.error('deleteMessage error:', error);
+
+            socket.emit('messageDeleteError', {
+                message: error?.message || 'Message delete failed.'
+            });
         }
     });
+
     function getSocketVoiceDisplayName() {
         return sanitizeText(
             socket.user?.name ||
