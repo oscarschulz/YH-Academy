@@ -375,26 +375,47 @@ function mapNotificationRow(row = {}) {
     };
 }
 
+
+async function safeBootstrapSection(label, promiseFactory, fallback) {
+    try {
+        return await promiseFactory();
+    } catch (error) {
+        console.error('realtime bootstrap section failed:', label, error?.message || error);
+        return fallback;
+    }
+}
+
+
 async function getBootstrap(userId) {
     const normalizedUserId = normalizeUserId(userId);
-    if (!normalizedUserId) throw new Error('Missing user id.');
 
-    const [selfProfile, rooms, vaultItems, liveRooms, notifications, leaderboard] = await Promise.all([
-        getUserSummary(normalizedUserId),
-        getRooms(normalizedUserId),
-        getVaultItems(normalizedUserId),
-        getLiveRooms(),
-        getNotifications(normalizedUserId),
-        getLeaderboard(20)
-    ]);
+    if (!normalizedUserId) {
+        throw new Error('Missing user id.');
+    }
 
-    return {
+    const [
         selfProfile,
         rooms,
         vaultItems,
         liveRooms,
         notifications,
         leaderboard
+    ] = await Promise.all([
+        safeBootstrapSection('selfProfile', () => getUserSummary(normalizedUserId), null),
+        safeBootstrapSection('rooms', () => getRooms(normalizedUserId), []),
+        safeBootstrapSection('vaultItems', () => getVaultItems(normalizedUserId), []),
+        safeBootstrapSection('liveRooms', () => getLiveRooms(), []),
+        safeBootstrapSection('notifications', () => getNotifications(normalizedUserId), []),
+        safeBootstrapSection('leaderboard', () => getLeaderboard(20), [])
+    ]);
+
+    return {
+        selfProfile,
+        rooms: Array.isArray(rooms) ? rooms : [],
+        vaultItems: Array.isArray(vaultItems) ? vaultItems : [],
+        liveRooms: Array.isArray(liveRooms) ? liveRooms : [],
+        notifications: Array.isArray(notifications) ? notifications : [],
+        leaderboard: Array.isArray(leaderboard) ? leaderboard : []
     };
 }
 
