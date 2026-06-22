@@ -9,6 +9,7 @@ const academyCommunityControllers = require('../controllers/academyCommunityCont
 const plazaControllers = require('../controllers/plazaControllers');
 const plazaSupabaseLiteControllers = require('../controllers/plazaSupabaseLiteControllers');
 const plazaDirectoryRegionsSupabaseLiteControllers = require('../controllers/plazaDirectoryRegionsSupabaseLiteControllers');
+const plazaBridgeRequestsSupabaseLiteControllers = require('../controllers/plazaBridgeRequestsSupabaseLiteControllers');
 const aiNurtureControllers = require('../controllers/aiNurtureControllers');
 const publicLandingController = require('../controllers/publicLandingController');
 const paymentControllers = require('../controllers/paymentControllers');
@@ -149,14 +150,14 @@ router.patch('/plaza/patron/requests/:id/status', auth, plazaControllers.updateP
 router.post('/plaza/patron/recommendations', auth, plazaControllers.createPatronFederationRecommendation);
 router.post('/plaza/patron/intro-outcomes', auth, plazaControllers.createPatronIntroOutcome);
 
-router.get('/plaza/bridge', auth, plazaControllers.getBridge);
-router.post('/plaza/bridge', auth, plazaControllers.createBridge);
+router.get('/plaza/bridge', auth, plazaBridgeRequestsSupabaseLiteControllers.getBridge);
+router.post('/plaza/bridge', auth, plazaBridgeRequestsSupabaseLiteControllers.createBridge);
 
-router.get('/plaza/requests', auth, plazaControllers.getRequests);
-router.post('/plaza/requests', auth, plazaControllers.createRequest);
-router.patch('/plaza/requests/:id', auth, plazaControllers.updateRequest);
-router.patch('/plaza/requests/:id/status', auth, plazaControllers.advanceRequestStatus);
-router.delete('/plaza/requests/:id', auth, plazaControllers.deleteRequest);
+router.get('/plaza/requests', auth, plazaBridgeRequestsSupabaseLiteControllers.getRequests);
+router.post('/plaza/requests', auth, plazaBridgeRequestsSupabaseLiteControllers.createRequest);
+router.patch('/plaza/requests/:id', auth, plazaBridgeRequestsSupabaseLiteControllers.updateRequest);
+router.patch('/plaza/requests/:id/status', auth, plazaBridgeRequestsSupabaseLiteControllers.advanceRequestStatus);
+router.delete('/plaza/requests/:id', auth, plazaBridgeRequestsSupabaseLiteControllers.deleteRequest);
 
 router.get('/plaza/business-members', auth, plazaControllers.getBusinessMembers);
 router.get('/plaza/business-blocks', auth, plazaControllers.getBusinessBlocks);
