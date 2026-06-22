@@ -8,6 +8,7 @@ const realtimeControllers = require('../controllers/realtimeControllers');
 const academyCommunityControllers = require('../controllers/academyCommunityControllers');
 const plazaControllers = require('../controllers/plazaControllers');
 const plazaSupabaseLiteControllers = require('../controllers/plazaSupabaseLiteControllers');
+const plazaDirectoryRegionsSupabaseLiteControllers = require('../controllers/plazaDirectoryRegionsSupabaseLiteControllers');
 const aiNurtureControllers = require('../controllers/aiNurtureControllers');
 const publicLandingController = require('../controllers/publicLandingController');
 const paymentControllers = require('../controllers/paymentControllers');
@@ -133,11 +134,11 @@ router.post('/plaza/feed/posts', auth, plazaSupabaseLiteControllers.createFeedPo
 router.get('/plaza/opportunities', auth, plazaSupabaseLiteControllers.getOpportunities);
 router.post('/plaza/opportunities', auth, plazaSupabaseLiteControllers.createOpportunity);
 
-router.get('/plaza/directory', auth, plazaControllers.getDirectory);
-router.post('/plaza/directory/profile', auth, plazaControllers.upsertDirectoryProfile);
+router.get('/plaza/directory', auth, plazaDirectoryRegionsSupabaseLiteControllers.getDirectory);
+router.post('/plaza/directory/profile', auth, plazaDirectoryRegionsSupabaseLiteControllers.upsertDirectoryProfile);
 
-router.get('/plaza/regions', auth, plazaControllers.getRegions);
-router.post('/plaza/regions', auth, plazaControllers.createRegion);
+router.get('/plaza/regions', auth, plazaDirectoryRegionsSupabaseLiteControllers.getRegions);
+router.post('/plaza/regions', auth, plazaDirectoryRegionsSupabaseLiteControllers.createRegion);
 
 router.get('/plaza/patron-application-status', auth, plazaControllers.getPatronApplicationStatus);
 router.post('/plaza/patron-applications', auth, plazaControllers.submitPatronApplication);
