@@ -8635,6 +8635,56 @@ app.get('/api/academy/membership-status', requireApiUser, async (req, res, next)
     }
 });
 
+
+/* YH HOTFIX: pre-api realtime read bypass v1 */
+function sendPreApiRealtimeMigrationFallback(res, payload = {}) {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    return res.json({
+        success: true,
+        degraded: true,
+        migrationBypass: true,
+        source: 'pre-api-server-bypass-v1',
+        ...payload
+    });
+}
+
+app.get('/api/realtime/bootstrap', (req, res) => {
+    return sendPreApiRealtimeMigrationFallback(res, {
+        warning: 'Realtime bootstrap is temporarily using pre-API safe fallback data during migration.',
+        data: {
+            selfProfile: null,
+            rooms: [],
+            vaultItems: [],
+            liveRooms: [],
+            notifications: [],
+            leaderboard: []
+        }
+    });
+});
+
+app.get('/api/realtime/rooms', (req, res) => {
+    return sendPreApiRealtimeMigrationFallback(res, {
+        warning: 'Realtime rooms are temporarily using pre-API safe fallback data during migration.',
+        rooms: []
+    });
+});
+
+app.get('/api/realtime/live-rooms', (req, res) => {
+    return sendPreApiRealtimeMigrationFallback(res, {
+        warning: 'Live rooms are temporarily using pre-API safe fallback data during migration.',
+        rooms: []
+    });
+});
+
+app.get('/api/realtime/notifications', (req, res) => {
+    return sendPreApiRealtimeMigrationFallback(res, {
+        warning: 'Realtime notifications are temporarily using pre-API safe fallback data during migration.',
+        notifications: [],
+        unreadCount: 0
+    });
+});
+/* END YH HOTFIX: pre-api realtime read bypass v1 */
+
 app.use('/api', apiRoutes);
 app.post('/api/realtime/live-rooms/:roomId/join', requireApiUser, async (req, res) => {
     try {
