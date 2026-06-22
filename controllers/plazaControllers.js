@@ -1,8 +1,6 @@
 const { firestore } = require('../config/firebaseAdmin');
 const { Timestamp, FieldValue } = require('firebase-admin/firestore');
 const universeCollectionMirrorRepo = require('../backend/repositories/universeCollectionMirrorRepo');
-const plazaSupabaseRepo = require('../backend/repositories/plazaSupabaseRepo');
-const plazaControllersLegacy = require('./plazaControllersLegacy');
 const paymentLedgerRepo = require('../backend/repositories/paymentLedgerRepo');
 const { sendSystemMail } = require('./authControllers');
 
@@ -1911,17 +1909,35 @@ exports.getFeed = async (req, res) => {
             80
         );
 
-        const feed = await plazaSupabaseRepo.listFeed(limit);
+        const snap = await plazaFeedCol
+            .orderBy('createdAt', 'desc')
+            .limit(limit)
+            .get();
+
+        const feed = [];
+
+        snap.forEach((docSnap) => {
+            const data = docSnap.data() || {};
+            const status = sanitizeText(data.status || 'active').toLowerCase();
+
+            if (status !== 'active') return;
+
+            feed.push(mapPlazaFeedDoc(docSnap));
+        });
+
         const hydratedFeed = await hydratePlazaOwnerProfiles(feed);
 
         return res.json({
             success: true,
-            source: 'supabase',
             feed: hydratedFeed
         });
     } catch (error) {
-        console.warn('plazaControllers.getFeed Supabase primary failed:', error?.message || error);
-        return plazaControllersLegacy.getFeed(req, res);
+        console.error('plazaControllers.getFeed error:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load Plaza feed.'
+        });
     }
 };
 
@@ -1954,9 +1970,10 @@ exports.createFeedPost = async (req, res) => {
         const titleInput = clampText(req.body?.title, 120);
         const region = clampText(req.body?.region, 80, 'Global') || 'Global';
         const tag = getFeedTypeTag(type);
-        const now = new Date().toISOString();
 
-        const mappedPost = await plazaSupabaseRepo.createFeedPost({
+        const now = Timestamp.now();
+
+        const payload = {
             type,
             member: viewer.name,
             source: 'plaza',
@@ -1978,7 +1995,13 @@ exports.createFeedPost = async (req, res) => {
             reviewStatus: 'pending_review',
             createdAt: now,
             updatedAt: now
-        });
+        };
+
+        const ref = await plazaFeedCol.add(payload);
+        const createdSnap = await ref.get();
+
+        const hydratedPost = await hydratePlazaOwnerProfiles([mapPlazaFeedDoc(createdSnap)]);
+        const mappedPost = hydratedPost[0] || mapPlazaFeedDoc(createdSnap);
 
         await universeCollectionMirrorRepo.mirrorPlazaFeedPost({
             action: 'created',
@@ -1988,15 +2011,17 @@ exports.createFeedPost = async (req, res) => {
 
         return res.status(201).json({
             success: true,
-            source: 'supabase',
             post: mappedPost
         });
     } catch (error) {
-        console.warn('plazaControllers.createFeedPost Supabase primary failed:', error?.message || error);
-        return plazaControllersLegacy.createFeedPost(req, res);
+        console.error('plazaControllers.createFeedPost error:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to create Plaza feed post.'
+        });
     }
 };
-
 exports.getOpportunities = async (req, res) => {
     try {
         const viewer = getViewerFromRequest(req);
@@ -2013,17 +2038,35 @@ exports.getOpportunities = async (req, res) => {
             100
         );
 
-        const opportunities = await plazaSupabaseRepo.listOpportunities(limit);
+        const snap = await plazaOpportunitiesCol
+            .orderBy('createdAt', 'desc')
+            .limit(limit)
+            .get();
+
+        const opportunities = [];
+
+        snap.forEach((docSnap) => {
+            const data = docSnap.data() || {};
+            const status = sanitizeText(data.status || 'active').toLowerCase();
+
+            if (status !== 'active') return;
+
+            opportunities.push(mapPlazaOpportunityDoc(docSnap));
+        });
+
         const hydratedOpportunities = await hydratePlazaOwnerProfiles(opportunities);
 
         return res.json({
             success: true,
-            source: 'supabase',
             opportunities: hydratedOpportunities
         });
     } catch (error) {
-        console.warn('plazaControllers.getOpportunities Supabase primary failed:', error?.message || error);
-        return plazaControllersLegacy.getOpportunities(req, res);
+        console.error('plazaControllers.getOpportunities error:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to load Plaza opportunities.'
+        });
     }
 };
 
@@ -2083,9 +2126,9 @@ exports.createOpportunity = async (req, res) => {
             });
         }
 
-        const now = new Date().toISOString();
+        const now = Timestamp.now();
 
-        const mappedOpportunity = await plazaSupabaseRepo.createOpportunity({
+        const payload = {
             type,
             region,
             title,
@@ -2123,7 +2166,13 @@ exports.createOpportunity = async (req, res) => {
             reviewStatus: 'pending_review',
             createdAt: now,
             updatedAt: now
-        });
+        };
+
+        const ref = await plazaOpportunitiesCol.add(payload);
+        const createdSnap = await ref.get();
+
+        const hydratedOpportunity = await hydratePlazaOwnerProfiles([mapPlazaOpportunityDoc(createdSnap)]);
+        const mappedOpportunity = hydratedOpportunity[0] || mapPlazaOpportunityDoc(createdSnap);
 
         await universeCollectionMirrorRepo.mirrorPlazaOpportunity({
             action: 'created',
@@ -2133,17 +2182,17 @@ exports.createOpportunity = async (req, res) => {
 
         return res.status(201).json({
             success: true,
-            source: 'supabase',
             opportunity: mappedOpportunity
         });
     } catch (error) {
-        console.warn('plazaControllers.createOpportunity Supabase primary failed:', error?.message || error);
-        return plazaControllersLegacy.createOpportunity(req, res);
+        console.error('plazaControllers.createOpportunity error:', error);
+
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to create Plaza opportunity.'
+        });
     }
 };
-
-exports.getDirectory = async (req, res) => {
-
 exports.getDirectory = async (req, res) => {
     try {
         const viewer = getViewerFromRequest(req);
