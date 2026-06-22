@@ -7,6 +7,7 @@ const authController = require('../controllers/authControllers');
 const realtimeControllers = require('../controllers/realtimeControllers');
 const academyCommunityControllers = require('../controllers/academyCommunityControllers');
 const plazaControllers = require('../controllers/plazaControllers');
+const plazaSupabaseLiteControllers = require('../controllers/plazaSupabaseLiteControllers');
 const aiNurtureControllers = require('../controllers/aiNurtureControllers');
 const publicLandingController = require('../controllers/publicLandingController');
 const paymentControllers = require('../controllers/paymentControllers');
@@ -126,11 +127,11 @@ router.delete('/academy/community/niches/:nicheKey', auth, academyCommunityContr
 // ==========================================
 // 🏪 YH PLAZA FEED ROUTES
 // ==========================================
-router.get('/plaza/feed', auth, plazaControllers.getFeed);
-router.post('/plaza/feed/posts', auth, plazaControllers.createFeedPost);
+router.get('/plaza/feed', auth, plazaSupabaseLiteControllers.getFeed);
+router.post('/plaza/feed/posts', auth, plazaSupabaseLiteControllers.createFeedPost);
 
-router.get('/plaza/opportunities', auth, plazaControllers.getOpportunities);
-router.post('/plaza/opportunities', auth, plazaControllers.createOpportunity);
+router.get('/plaza/opportunities', auth, plazaSupabaseLiteControllers.getOpportunities);
+router.post('/plaza/opportunities', auth, plazaSupabaseLiteControllers.createOpportunity);
 
 router.get('/plaza/directory', auth, plazaControllers.getDirectory);
 router.post('/plaza/directory/profile', auth, plazaControllers.upsertDirectoryProfile);
