@@ -2635,27 +2635,28 @@ io.on('connection', (socket) => {
 
             socket.join(roomId);
 
-            let history = [];
+            let supabaseHistory = [];
+            let legacyHistory = [];
 
             try {
                 if (
                     realtimeFirestoreRepo &&
                     typeof realtimeFirestoreRepo.listChatMessages === 'function'
                 ) {
-                    history = await realtimeFirestoreRepo.listChatMessages(roomId, socket.user.id, 50);
+                    supabaseHistory = await realtimeFirestoreRepo.listChatMessages(roomId, socket.user.id, 80);
                 }
             } catch (supabaseError) {
                 console.warn('joinRoom Supabase history failed:', supabaseError?.message || supabaseError);
-                history = [];
+                supabaseHistory = [];
             }
 
-            if (!history.length) {
+            try {
                 const historySnap = await chatMessagesCol
                     .where('room', '==', roomId)
                     .limit(200)
                     .get();
 
-                history = historySnap.docs
+                legacyHistory = historySnap.docs
                     .map((docSnap) => {
                         const data = docSnap.data() || {};
                         const viewerHiddenMessageIds = Array.isArray(data.hidden_for_user_ids)
@@ -2668,14 +2669,26 @@ io.on('connection', (socket) => {
 
                         return mapChatMessageDoc(docSnap);
                     })
-                    .filter(Boolean)
-                    .sort((a, b) => {
-                        const aTime = new Date(a.time || 0).getTime();
-                        const bTime = new Date(b.time || 0).getTime();
-                        return aTime - bTime;
-                    })
-                    .slice(-50);
+                    .filter(Boolean);
+            } catch (legacyError) {
+                console.warn('joinRoom legacy Firestore history skipped:', legacyError?.message || legacyError);
+                legacyHistory = [];
             }
+
+            const historyById = new Map();
+
+            [...legacyHistory, ...supabaseHistory].forEach((message) => {
+                if (!message || !message.id) return;
+                historyById.set(String(message.id), message);
+            });
+
+            const history = Array.from(historyById.values())
+                .sort((a, b) => {
+                    const aTime = new Date(a.time || 0).getTime();
+                    const bTime = new Date(b.time || 0).getTime();
+                    return aTime - bTime;
+                })
+                .slice(-80);
 
             socket.emit('chatHistory', history);
         } catch (error) {
