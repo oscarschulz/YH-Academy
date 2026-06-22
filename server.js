@@ -1603,29 +1603,70 @@ async function canUserAccessLiveRoom(userId, roomId) {
 
     if (!cleanUserId || !cleanRoomId) return false;
 
-    const snap = await liveRoomsCol.doc(cleanRoomId).get();
-    if (!snap.exists) return false;
+    const canAccessRoomPayload = (room = {}) => {
+        const status = sanitizeText(room.status || 'live').toLowerCase();
 
-    const data = snap.data() || {};
-    const status = sanitizeText(data.status || 'live').toLowerCase();
+        if (status !== 'live') return false;
+        if (room.ended_at || room.endedAt) return false;
 
-    if (status !== 'live') return false;
+        const startedAt = sanitizeText(room.created_at || room.createdAt || room.started_at || room.startedAt || '');
+        const startedMs = startedAt ? Date.parse(startedAt) : 0;
 
-    const participantIds = Array.isArray(data.participant_ids)
-        ? data.participant_ids.map((value) => String(value)).filter(Boolean)
-        : [];
+        if (Number.isFinite(startedMs) && startedMs > 0) {
+            const maxAgeMs = 24 * 60 * 60 * 1000;
+            if (Date.now() - startedMs >= maxAgeMs) return false;
+        }
 
-    const hostUserId = sanitizeText(
-        data.host_user_id ||
-        data.hostUserId ||
-        data.created_by_user_id ||
-        data.creator_user_id ||
-        ''
-    );
+        const participantIds = Array.isArray(room.participant_ids || room.participantIds)
+            ? (room.participant_ids || room.participantIds).map((value) => String(value)).filter(Boolean)
+            : [];
 
-    if (hostUserId && hostUserId === cleanUserId) return true;
+        const hostUserId = sanitizeText(
+            room.host_user_id ||
+            room.hostUserId ||
+            room.created_by_user_id ||
+            room.creator_user_id ||
+            room.owner_user_id ||
+            ''
+        );
 
-    return participantIds.includes(String(cleanUserId));
+        if (hostUserId && hostUserId === cleanUserId) return true;
+
+        return participantIds.includes(String(cleanUserId));
+    };
+
+    try {
+        if (
+            realtimeFirestoreRepo &&
+            typeof realtimeFirestoreRepo.getLiveRooms === 'function'
+        ) {
+            const liveRooms = await realtimeFirestoreRepo.getLiveRooms();
+
+            const matchedRoom = (Array.isArray(liveRooms) ? liveRooms : []).find((room) => {
+                return sanitizeText(room.id || room.room_id || room.roomId || room.source_document_id) === cleanRoomId;
+            });
+
+            if (matchedRoom) {
+                return canAccessRoomPayload(matchedRoom);
+            }
+        }
+    } catch (repoError) {
+        console.warn('canUserAccessLiveRoom Supabase check failed:', repoError?.message || repoError);
+    }
+
+    try {
+        const snap = await liveRoomsCol.doc(cleanRoomId).get();
+
+        if (!snap.exists) return false;
+
+        return canAccessRoomPayload({
+            id: snap.id,
+            ...(snap.data() || {})
+        });
+    } catch (firestoreError) {
+        console.warn('canUserAccessLiveRoom Firestore fallback failed:', firestoreError?.message || firestoreError);
+        return false;
+    }
 }
 
 async function canUserAccessRoom(userId, roomId) {

@@ -256,6 +256,10 @@ router.post('/realtime/vault/file', auth, realtimeControllers.createVaultFile);
 router.get('/realtime/live-rooms', auth, realtimeControllers.getLiveRooms);
 router.post('/realtime/live-rooms', auth, realtimeControllers.createLiveRoom);
 
+// Compatibility aliases for older Academy voice lounge clients/debug probes.
+router.get('/academy/voice-rooms', auth, realtimeControllers.getLiveRooms);
+router.get('/academy/live-rooms', auth, realtimeControllers.getLiveRooms);
+
 
 router.get('/realtime/notifications', auth, realtimeControllers.getNotifications);
 router.post('/realtime/notifications/read-all', auth, realtimeControllers.readAllNotifications);

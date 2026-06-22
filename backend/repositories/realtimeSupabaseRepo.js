@@ -341,6 +341,73 @@ function mapLiveRoomRow(row = {}) {
     };
 }
 
+const YH_LIVE_ROOM_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+function getLiveRoomStartMs(room = {}) {
+    const candidates = [
+        room.created_at,
+        room.createdAt,
+        room.started_at,
+        room.startedAt,
+        room.updated_at,
+        room.updatedAt
+    ];
+
+    for (const value of candidates) {
+        const mapped = mapTimestamp(value);
+        if (!mapped) continue;
+
+        const parsed = Date.parse(mapped);
+        if (Number.isFinite(parsed)) return parsed;
+    }
+
+    return 0;
+}
+
+function isLiveRoomExpired(room = {}) {
+    const startedMs = getLiveRoomStartMs(room);
+    if (!startedMs) return false;
+
+    return Date.now() - startedMs >= YH_LIVE_ROOM_MAX_AGE_MS;
+}
+
+function isLiveRoomJoinable(room = {}) {
+    const status = sanitizeText(room.status || 'live').toLowerCase();
+
+    if (status !== 'live') return false;
+    if (room.ended_at || room.endedAt) return false;
+    if (isLiveRoomExpired(room)) return false;
+
+    return true;
+}
+
+async function markExpiredLiveRoomEnded(row = {}) {
+    const room = mapLiveRoomRow(row);
+
+    if (!room.id || !isLiveRoomExpired(room)) return null;
+    if (sanitizeText(room.status || '').toLowerCase() !== 'live') return null;
+
+    const data = rowData(row);
+    const endedAt = nowIso();
+
+    return upsertRecord({
+        recordType: 'live_room',
+        docId: row.source_document_id,
+        ownerUserId: row.owner_user_id,
+        roomId: row.room_id || row.source_document_id,
+        data: {
+            ...data,
+            status: 'ended',
+            ended_at: data.ended_at || data.endedAt || endedAt,
+            autoEnded: true,
+            auto_end_reason: '24_hour_limit',
+            auto_ended_at: endedAt,
+            participant_ids: [],
+            participant_count: 0
+        }
+    });
+}
+
 function mapNotificationRow(row = {}) {
     const data = rowData(row);
     const readAt = mapTimestamp(data.read_at || data.readAt);
@@ -644,14 +711,21 @@ async function createVaultFile({ userId, parentId = '', name = '', filePath = ''
 
 async function getLiveRooms() {
     const rows = await listRecords('live_room', 300);
+    const mappedRooms = rows.map(mapLiveRoomRow);
 
-    return rows
-        .map(mapLiveRoomRow)
-        .filter((room) => sanitizeText(room.status || 'live').toLowerCase() !== 'archived')
+    const expiredRows = rows.filter((row) => {
+        const room = mapLiveRoomRow(row);
+        return sanitizeText(room.status || '').toLowerCase() === 'live' && isLiveRoomExpired(room);
+    });
+
+    if (expiredRows.length) {
+        Promise.all(expiredRows.map((row) => markExpiredLiveRoomEnded(row).catch(() => null)))
+            .catch(() => null);
+    }
+
+    return mappedRooms
+        .filter(isLiveRoomJoinable)
         .sort((a, b) => {
-            const liveA = sanitizeText(a.status).toLowerCase() === 'live' ? 1 : 0;
-            const liveB = sanitizeText(b.status).toLowerCase() === 'live' ? 1 : 0;
-            if (liveA !== liveB) return liveB - liveA;
             return String(b.updated_at || b.created_at || '').localeCompare(String(a.updated_at || a.created_at || ''));
         });
 }
@@ -690,7 +764,18 @@ async function createLiveRoom({ userId, roomType = 'voice', title = '', topic = 
 async function joinLiveRoom({ userId, roomId } = {}) {
     const normalizedUserId = normalizeUserId(userId);
     const row = await getRecordByTypeAndId('live_room', roomId);
+
     if (!row) throw new Error('Live room not found.');
+
+    const currentRoom = mapLiveRoomRow(row);
+
+    if (!isLiveRoomJoinable(currentRoom)) {
+        if (sanitizeText(currentRoom.status || '').toLowerCase() === 'live' && isLiveRoomExpired(currentRoom)) {
+            await markExpiredLiveRoomEnded(row).catch(() => null);
+        }
+
+        throw new Error('This live room has already ended.');
+    }
 
     const data = rowData(row);
     const participantSet = new Set(normalizeStringArray(data.participant_ids || data.participantIds));
@@ -703,7 +788,8 @@ async function joinLiveRoom({ userId, roomId } = {}) {
         roomId: row.room_id || row.source_document_id,
         data: {
             ...data,
-            status: sanitizeText(data.status || 'live'),
+            status: 'live',
+            ended_at: null,
             participant_ids: Array.from(participantSet),
             participant_count: participantSet.size
         }

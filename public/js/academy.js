@@ -20405,16 +20405,39 @@ function getAcademyLiveRoomAutoEndText(room = {}) {
     return `This live will automatically end in about ${minutes}m if you don't end it manually.`;
 }
 
+function academyGetLiveRoomStatus(room = {}) {
+    return String(room.status || 'live').trim().toLowerCase() || 'live';
+}
+
+function academyIsLiveRoomExpired(room = {}) {
+    const startedMs = getAcademyLiveRoomStartMs(room);
+    if (!startedMs) return false;
+
+    return Date.now() - startedMs >= ACADEMY_LIVE_ROOM_MAX_AGE_MS;
+}
+
+function academyIsLiveRoomJoinable(room = {}) {
+    if (academyGetLiveRoomStatus(room) !== 'live') return false;
+    if (room.ended_at || room.endedAt) return false;
+    if (academyIsLiveRoomExpired(room)) return false;
+
+    return true;
+}
+
 function renderAcademyVoiceRooms(rooms = []) {
     const grid = document.getElementById('lounge-grid');
     if (!grid) return;
 
-    if (!Array.isArray(rooms) || rooms.length === 0) {
+    const visibleRooms = Array.isArray(rooms)
+        ? rooms.filter((room) => academyIsLiveRoomJoinable(room))
+        : [];
+
+    if (visibleRooms.length === 0) {
         grid.innerHTML = `<div class="academy-member-browser-empty" style="padding: 20px 0;">No live lounges yet. Start the first one.</div>`;
         return;
     }
 
-    grid.innerHTML = rooms.map((room) => {
+    grid.innerHTML = visibleRooms.map((room) => {
         const roomId = String(room.id || '').trim();
         const title = String(room.title || 'Live Voice Lounge').trim();
         const topic = String(room.topic || 'Live Academy networking').trim();
@@ -20472,7 +20495,9 @@ async function loadAcademyVoiceRooms(forceFresh = false) {
 
 const result = await academyAuthedFetch('/api/realtime/live-rooms', { method: 'GET' });
     const roomsRaw = Array.isArray(result?.rooms) ? result.rooms : [];
-    const rooms = roomsRaw.filter((room) => getAcademyLiveRoomType(room) === 'voice');
+    const rooms = roomsRaw.filter((room) => {
+        return getAcademyLiveRoomType(room) === 'voice' && academyIsLiveRoomJoinable(room);
+    });
 
     academyVoiceRoomsCache = rooms;
     renderAcademyVoiceRooms(rooms);
@@ -20483,12 +20508,16 @@ function renderAcademyVideoRooms(rooms = []) {
     const grid = document.getElementById('video-grid');
     if (!grid) return;
 
-    if (!Array.isArray(rooms) || rooms.length === 0) {
+    const visibleRooms = Array.isArray(rooms)
+        ? rooms.filter((room) => academyIsLiveRoomJoinable(room))
+        : [];
+
+    if (visibleRooms.length === 0) {
         grid.innerHTML = `<div class="academy-member-browser-empty" style="padding: 20px 0;">No live video rooms yet. Start the first one.</div>`;
         return;
     }
 
-    grid.innerHTML = rooms.map((room) => {
+    grid.innerHTML = visibleRooms.map((room) => {
         const roomId = String(room.id || '').trim();
         const title = String(room.title || 'Live Video Room').trim();
         const topic = String(room.topic || 'Live Academy video networking').trim();
@@ -20541,7 +20570,9 @@ async function loadAcademyVideoRooms(forceFresh = false) {
 
     const result = await academyAuthedFetch('/api/realtime/live-rooms', { method: 'GET' });
     const roomsRaw = Array.isArray(result?.rooms) ? result.rooms : [];
-    const rooms = roomsRaw.filter((room) => getAcademyLiveRoomType(room) === 'video');
+    const rooms = roomsRaw.filter((room) => {
+        return getAcademyLiveRoomType(room) === 'video' && academyIsLiveRoomJoinable(room);
+    });
 
     academyVideoRoomsCache = rooms;
     renderAcademyVideoRooms(rooms);
