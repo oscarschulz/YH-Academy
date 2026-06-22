@@ -15,6 +15,7 @@ const paymentLedgerRepo = require('./backend/repositories/paymentLedgerRepo');
 const academyFirestoreRepo = require('./backend/repositories/academyFirestoreRepo');
 const academyCommunityRepo = require('./backend/repositories/academyCommunityFirestoreRepo');
 const yhuSupabaseMirrorRepo = require('./backend/repositories/yhuSupabaseMirrorRepo');
+const { yhuSupabaseAdmin } = require('./config/supabaseAdmin');
 const app = express();
 app.set('trust proxy', 1);
 
@@ -821,6 +822,129 @@ function mapFederationConnectOpportunityDoc(docSnap) {
         updatedAt: mapFederationConnectTimestamp(lead.updatedAt || lead.adminNetworkUpdatedAt || lead.createdAt),
         createdAt: mapFederationConnectTimestamp(lead.createdAt)
     };
+}
+
+
+function mapFederationConnectOpportunityCoreRow(row = {}) {
+    const lead = row.data && typeof row.data === 'object' ? row.data : {};
+    const ownerUid = sanitizeText(
+        lead.ownerUid ||
+        lead.memberId ||
+        row.user_id ||
+        ''
+    );
+
+    const leadId = sanitizeText(
+        row.source_document_id ||
+        lead.id ||
+        lead.leadId ||
+        ''
+    );
+
+    const category = sanitizeText(
+        lead.contactType ||
+        lead.category ||
+        lead.industry ||
+        'Strategic Network'
+    );
+
+    const contactRole = sanitizeText(
+        lead.contactRole ||
+        lead.role ||
+        category ||
+        'Strategic Contact'
+    );
+
+    const sellerPriceAmount = Math.max(0, Number(lead.sellerPriceAmount || 0));
+    const universeCommissionRate = Math.max(0, Math.min(100, Number(lead.universeCommissionRate || 20)));
+    const universeCommissionAmount = sellerPriceAmount > 0
+        ? Math.max(0, Number(lead.universeCommissionAmount || ((sellerPriceAmount * universeCommissionRate) / 100)))
+        : 0;
+    const buyerPriceAmount = sellerPriceAmount > 0
+        ? Math.max(0, Number(lead.buyerPriceAmount || (sellerPriceAmount + universeCommissionAmount)))
+        : 0;
+    const currency = sanitizeText(lead.currency || 'USD').toUpperCase() || 'USD';
+
+    return {
+        id: `${ownerUid}_${leadId}`,
+        leadId,
+        ownerUid,
+        title: buildFederationConnectOpportunityTitle(lead),
+        category,
+        contactRole,
+        city: sanitizeText(lead.city),
+        country: sanitizeText(lead.country),
+        strategicValue: sanitizeText(lead.strategicValue || 'standard'),
+        tier: sanitizeText(lead.tier || 'T2'),
+        sourceDivision: sanitizeText(lead.sourceDivision || 'academy') || 'academy',
+        pipelineStage: sanitizeText(lead.pipelineStage || lead.callOutcome || 'Review'),
+        sourceMethod: sanitizeText(lead.sourceMethod || 'Lead Missions'),
+        contactType: sanitizeText(lead.contactType || category),
+        companyLabel: lead.companyName ? 'Private organization on file' : 'Private organization',
+        hasEmail: Boolean(sanitizeText(lead.email)),
+        hasPhone: Boolean(sanitizeText(lead.phone)),
+        hasDirectContact: Boolean(sanitizeText(lead.email) || sanitizeText(lead.phone)),
+
+        sellerPriceAmount,
+        universeCommissionRate,
+        universeCommissionAmount,
+        buyerPriceAmount,
+        currency,
+        saleReviewStatus: sanitizeText(lead.saleReviewStatus || 'approved'),
+        saleStatus: sanitizeText(lead.saleStatus || lead.federationListingStatus || 'listed'),
+        listingAvailability: sanitizeText(lead.listingAvailability || 'lifetime'),
+        unlimitedPurchases: lead.unlimitedPurchases !== false,
+        purchaseCount: Math.max(0, Number(lead.purchaseCount || 0)),
+
+        summary: sanitizeText(
+            lead.notes ||
+            lead.description ||
+            'Academy-sourced lead marked as Federation-ready by admin.'
+        ).slice(0, 220),
+        updatedAt: sanitizeText(lead.updatedAt || row.updated_at_source || row.created_at_source || ''),
+        createdAt: sanitizeText(lead.createdAt || row.created_at_source || '')
+    };
+}
+
+async function countSupabaseFederationReadyLeadMissions() {
+    const { count, error } = await yhuSupabaseAdmin
+        .from('yhu_academy_core_records')
+        .select('id', { count: 'exact', head: true })
+        .eq('record_type', 'academyLeadMissions')
+        .filter('data->>federationReady', 'eq', 'true');
+
+    if (error) {
+        throw new Error(`Supabase Federation-ready lead count failed: ${error.message}`);
+    }
+
+    return count || 0;
+}
+
+async function listSupabaseFederationConnectOpportunities(limit = 80) {
+    const safeLimit = Math.max(1, Math.min(Number(limit || 80), 200));
+
+    const { data, error } = await yhuSupabaseAdmin
+        .from('yhu_academy_core_records')
+        .select('user_id, source_document_id, data, created_at_source, updated_at_source')
+        .eq('record_type', 'academyLeadMissions')
+        .filter('data->>federationReady', 'eq', 'true')
+        .order('updated_at_source', { ascending: false, nullsFirst: false })
+        .limit(safeLimit);
+
+    if (error) {
+        throw new Error(`Supabase Federation Connect opportunities failed: ${error.message}`);
+    }
+
+    return (Array.isArray(data) ? data : [])
+        .map((row) => {
+            try {
+                return mapFederationConnectOpportunityCoreRow(row);
+            } catch (mapError) {
+                console.error('Supabase federation connect opportunity map error:', mapError);
+                return null;
+            }
+        })
+        .filter((item) => item && item.leadId && item.ownerUid);
 }
 
 function buildFederationLeadAccessGrantId(requesterUid = '', requestId = '') {
@@ -5406,15 +5530,9 @@ app.get('/api/federation/command', requireApiUser, async (req, res) => {
         let connectOpportunitiesCount = 0;
 
         try {
-            const connectSnap = await firestore
-                .collectionGroup('academyLeadMissions')
-                .where('federationReady', '==', true)
-                .limit(100)
-                .get();
-
-            connectOpportunitiesCount = connectSnap.size;
+            connectOpportunitiesCount = await countSupabaseFederationReadyLeadMissions();
         } catch (error) {
-            console.error('federation command opportunities query error:', error);
+            console.error('federation command Supabase opportunities count error:', error?.message || error);
             connectOpportunitiesCount = 0;
         }
 
@@ -5664,37 +5782,7 @@ app.get('/api/federation/requests', requireApiUser, async (req, res) => {
 
 app.get('/api/federation/connect/opportunities', requireApiUser, async (req, res) => {
     try {
-        let snap = null;
-
-        try {
-            snap = await firestore
-                .collectionGroup('academyLeadMissions')
-                .where('federationReady', '==', true)
-                .limit(80)
-                .get();
-        } catch (queryError) {
-            console.error('federation connect opportunities query error:', queryError);
-
-            return res.json({
-                success: true,
-                opportunities: [],
-                warning: 'Federation Connect opportunities are temporarily unavailable.'
-            });
-        }
-
-        const opportunities = [];
-
-        snap.forEach((docSnap) => {
-            try {
-                const opportunity = mapFederationConnectOpportunityDoc(docSnap);
-
-                if (opportunity.leadId && opportunity.ownerUid) {
-                    opportunities.push(opportunity);
-                }
-            } catch (mapError) {
-                console.error('federation connect opportunity map error:', mapError);
-            }
-        });
+        const opportunities = await listSupabaseFederationConnectOpportunities(80);
 
         const strategicRank = {
             strategic: 5,
@@ -5715,15 +5803,17 @@ app.get('/api/federation/connect/opportunities', requireApiUser, async (req, res
 
         return res.json({
             success: true,
+            source: 'supabase',
             opportunities
         });
     } catch (error) {
-        console.error('federation connect opportunities error:', error);
+        console.error('federation connect Supabase opportunities error:', error?.message || error);
 
         return res.json({
             success: true,
+            source: 'supabase-error-fallback',
             opportunities: [],
-            warning: 'Federation Connect opportunities could not be loaded.'
+            warning: 'Federation Connect opportunities could not be loaded from Supabase.'
         });
     }
 });
